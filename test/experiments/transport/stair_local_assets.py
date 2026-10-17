@@ -25,6 +25,27 @@ class RoadAsset:
     xy_rounding_m: float
 
 
+def module_road(data):
+    road = {
+        "body_vertices": data["body_vertices"],
+        "body_faces": data["body_faces"],
+        "top_faces": data["surface_faces"],
+        "bottom_faces": data["surface_faces"] + len(data["surface_vertices"]),
+        "owners": data["owners"],
+        "ground": np.ones(len(data["surface_faces"]), bool),
+    }
+    if "surface_materials" in data:
+        road["surface_materials"] = data["surface_materials"]
+    return road
+
+
+def stored_road(path, payload):
+    if payload not in ("road", "local-module"):
+        raise ValueError("known immutable resident road payload required")
+    data = read_arrays(path)
+    return module_road(data) if payload == "local-module" else data
+
+
 def road_asset(identity, keys, rows, data):
     n = len(keys)
     if (
@@ -69,7 +90,10 @@ def load(output):
         if not path.is_relative_to(output.resolve()) or digest(path) != row["sha256"]:
             raise ValueError("resident road payload changed")
         asset = road_asset(
-            row["sha256"], row["source_ids"], row["rows"], read_arrays(path)
+            row["sha256"],
+            row["source_ids"],
+            row["rows"],
+            stored_road(path, row.get("payload", "road")),
         )
         assets.append(asset)
         keys.extend(asset.source_ids)
