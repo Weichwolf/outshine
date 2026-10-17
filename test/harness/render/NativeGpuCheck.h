@@ -12,6 +12,15 @@
 
 namespace outshine::Test::Gpu {
 using namespace outshine::Render::Native;
+using outshine::Render::Native::Binding;
+using outshine::Render::Native::Buffer;
+using outshine::Render::Native::BufferUse;
+using outshine::Render::Native::Commands;
+using outshine::Render::Native::Device;
+using outshine::Render::Native::ErrorKind;
+using outshine::Render::Native::Memory;
+using outshine::Render::Native::Result;
+using outshine::Render::Native::StorageBuffer;
 
 [[noreturn]] inline void Failed() {
   const int status = Report();

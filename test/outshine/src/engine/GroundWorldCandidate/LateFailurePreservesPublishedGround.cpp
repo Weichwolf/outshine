@@ -52,7 +52,7 @@ void PublishRetry(outshine::Render::SceneRenderer &renderer,
   using namespace outshine::Test;
   const auto *oldScene = scene.get();
   const auto oldRegion = world.Region;
-  const GroundRevision nextRevision{.Region = 18};
+  const GroundRevision nextRevision{.Region = 18, .Coverage = {}};
   std::string error;
   GroundWorldCandidate retry(renderer, world, footprints);
   const auto prepared = retry.Prepare(*scene, nullptr);
@@ -110,8 +110,8 @@ int main() {
           ::outshine::Generators::Osm::RegionSources{},
           ::outshine::Generators::Osm::BuildingField{});
       world.Region = oldRegion;
-      const GroundRevision oldRevision{.Region = 17};
-      const GroundRevision nextRevision{.Region = 18};
+      const GroundRevision oldRevision{.Region = 17, .Coverage = {}};
+      const GroundRevision nextRevision{.Region = 18, .Coverage = {}};
       CHECK(world.GroundPublished.Publish(oldRevision), "original ground revision publishes");
       const Core::RuntimeScene *const oldScene = scene.get();
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);

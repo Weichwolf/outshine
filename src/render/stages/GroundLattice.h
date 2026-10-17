@@ -15,6 +15,7 @@
 #include "math/Vec3.h"
 #include "SubjectTypes.h"
 #include "GroundPatchSelection.h"
+#include "scene/HeightPageBatch.h"
 
 namespace outshine::Render {
 class UploadQueue;
@@ -112,6 +113,8 @@ public:
 
   [[nodiscard]] Native::Result<void> SetGrid(std::span<const float> fractions);
   [[nodiscard]] Native::Result<PageId> PlacePage(std::span<const float> nodes);
+  [[nodiscard]] Native::Result<std::vector<PageId>>
+  PlacePages(std::span<const HeightPageView> nodes);
   void ReleasePage(PageId which);
   [[nodiscard]] Native::Result<void> SetInstances(std::span<const GroundTile> real,
                                                   std::span<const GroundTile> virtual_);
@@ -158,7 +161,6 @@ private:
                                                std::unique_ptr<Native::Buffer> &into);
   [[nodiscard]] Native::Result<void> BuildPages(uint32_t layers,
                                                 std::unique_ptr<Native::Texture> &into);
-  [[nodiscard]] Native::Result<void> ReservePages(uint32_t count);
   [[nodiscard]] Native::Result<void> HandsVisible(Native::Commands &commands);
   [[nodiscard]] Native::Result<void> BuildPatchGrid();
   [[nodiscard]] Native::Result<std::unique_ptr<Native::Buffer>>

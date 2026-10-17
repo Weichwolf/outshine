@@ -74,19 +74,17 @@ int main() {
     const std::array<float, 12> colours{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     const auto left = Triangle(-0.75f);
     const auto right = Triangle(0.75f);
-    const auto uncoloured =
-        renderer.PlacePiece({.Tangents = positive,
-                             .Verts = left,
-                             .Indices = indices,
-                             .Surface = Render::PieceSurface::Registered(*registered),
-                             .Textured = true});
-    const auto coloured =
-        renderer.PlacePiece({.Tangents = negative,
-                             .Verts = right,
-                             .Indices = indices,
-                             .Colours = colours,
-                             .Surface = Render::PieceSurface::Registered(*registered),
-                             .Textured = true});
+    Render::PieceMesh mesh{};
+    mesh.Tangents = positive;
+    mesh.Verts = left;
+    mesh.Indices = indices;
+    mesh.Surface = Render::PieceSurface::Registered(*registered);
+    mesh.Textured = true;
+    const auto uncoloured = renderer.PlacePiece(mesh);
+    mesh.Tangents = negative;
+    mesh.Verts = right;
+    mesh.Colours = colours;
+    const auto coloured = renderer.PlacePiece(mesh);
     CHECK(uncoloured && coloured, "tinted and untinted tangent consumers both upload");
     CHECK(scene->Draw(error), "both storage-binding variants draw");
     std::vector<float> before;

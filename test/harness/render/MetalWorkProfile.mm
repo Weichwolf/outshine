@@ -258,17 +258,19 @@ id<MTLRenderCommandEncoder> Render(id self, SEL sel, MTLRenderPassDescriptor *de
     const Class cls = object_getClass(encoder);
     pipelineOriginal = Patch(cls, @selector(setRenderPipelineState:), (IMP)Pipeline);
     indexedOriginal = Patch(cls,
-                            @selector(drawIndexedPrimitives:indexCount:indexType:indexBuffer:
-                                      indexBufferOffset:instanceCount:baseVertex:baseInstance:),
+                            @selector(drawIndexedPrimitives:
+                                                 indexCount:indexType:indexBuffer:indexBufferOffset
+                                                           :instanceCount:baseVertex:baseInstance:),
                             (IMP)Indexed);
     indirectOriginal = Patch(cls,
-                             @selector(drawIndexedPrimitives:indexType:indexBuffer:
-                                       indexBufferOffset:indirectBuffer:indirectBufferOffset:),
+                             @selector(drawIndexedPrimitives:
+                                                   indexType:indexBuffer:indexBufferOffset
+                                                            :indirectBuffer:indirectBufferOffset:),
                              (IMP)Indirect);
-    drawOriginal =
-        Patch(cls,
-              @selector(drawPrimitives:vertexStart:vertexCount:instanceCount:baseInstance:),
-              (IMP)Draw);
+    drawOriginal = Patch(cls,
+                         @selector(drawPrimitives:
+                                      vertexStart:vertexCount:instanceCount:baseInstance:),
+                         (IMP)Draw);
     encoderPatched = true;
   }
   if (encoder != nullptr) {
