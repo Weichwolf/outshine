@@ -11,11 +11,12 @@ import shapely
 from clad_facade_mesh import build as previous_build
 from clad_facade_sources import sources as previous_sources
 from provider_contract import attributes
+from facade_parts import append
 from roof_crown_choice import prepare
 from roof_crown_mesh import envelope
 from roof_crown_plan import plan
 from roof_crown_sources import sources
-from structural_shell_geometry import mesh_section
+from structural_shell_geometry import mesh_section, native
 from tile_roof_crowns import CrownFacades
 from verify_facade_frames import view_for
 from verify_roof_envelopes import measures
@@ -207,11 +208,13 @@ class CrownTests(unittest.TestCase):
             second, other = roof(source, parameters, 13)
         self.assertEqual(other["roof_crown_product"], "coarse")
         self.assertEqual(info["roof_crown_plan"], other["roof_crown_plan"])
-        self.assertIs(first["vertices"], asset.full.mesh["vertices"])
-        self.assertIs(second["vertices"], asset.coarse.mesh["vertices"])
+        self.assertIs(first["vertices"], asset.body["vertices"])
+        self.assertIs(second["vertices"], asset.body["vertices"])
         for env in (asset.full, asset.coarse):
             self.assertTrue(all(not a.flags.writeable for a in env.mesh.values()))
             self.assertFalse(env.vertex_roots.flags.writeable)
+        for mesh in (asset.body, asset.full_skin, asset.coarse_skin):
+            self.assertTrue(all(not a.flags.writeable for a in mesh.values()))
         with self.assertRaises(ValueError):
             roof(dict(source), parameters, 12)
 
@@ -224,6 +227,9 @@ class CrownTests(unittest.TestCase):
             self.assertFalse(owner.rejected)
             self.assertTrue(info["facade_plan"])
             self.assertTrue(info["entrance_plan"])
+            self.assertTrue(
+                owner.recesses, "Crown must not suppress near window cavities"
+            )
             for facade in info["facade_plan"]:
                 self.assertLessEqual(facade["height_m"], info["eave_m"])
             p = owner.base.assets[source["id"]].plan
@@ -243,6 +249,24 @@ class CrownTests(unittest.TestCase):
                 mesh["vertices"][:, 2].max(),
                 attributes(source["properties"])["buildingHeight"],
             )
+
+    def test_rectangular_body_and_blank_upper_skin_reconstruct_complete_physical_assets(
+        self,
+    ):
+        for row, neighbors in self.sources:
+            owner = CrownFacades([row, *neighbors], view_for(row))
+            asset = owner.base.assets[row["id"]]
+            for mode in ("full", "coarse"):
+                combined = append(asset.body, [getattr(asset, mode + "_skin")])
+                actual = native(combined)
+                expected = measures(getattr(asset, mode))
+                self.assertAlmostEqual(actual.volume(), expected.volume(), delta=1e-7)
+                self.assertAlmostEqual(
+                    actual.surface_area(), expected.surface_area(), delta=1e-7
+                )
+                self.assertLess(
+                    (actual - expected).volume() + (expected - actual).volume(), 1e-7
+                )
 
     def test_existing_nonflat_source_produces_exact_previous_facade_and_function_fields(
         self,

@@ -74,7 +74,7 @@ def build(row, neighbors, view, forced=None):
             mesh, info = owner(source, attributes(source["properties"]), 12)
     if "roof_crown_plan" not in info or owner.rejected:
         raise ValueError("Actual source lost crown/facade programme")
-    return mesh, info, owner
+    return mesh, info | {"probe_facade_diagnostics": owner.report()}, owner
 
 
 def models(output):

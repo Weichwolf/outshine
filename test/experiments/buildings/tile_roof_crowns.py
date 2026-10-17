@@ -7,9 +7,11 @@ import numpy as np
 import shapely
 from clad_facade_mesh import CladFacades
 from demand import displacement_error
+from facade_parts import append
 from recipe_hall_operators import sealed
 from roof_crown_choice import prepare
 from roof_crown_mesh import envelope
+from roof_crown_present import body, bound, skin
 
 
 @dataclass(frozen=True)
@@ -17,6 +19,9 @@ class Asset:
     plan: object
     full: object
     coarse: object
+    body: object
+    full_skin: object
+    coarse_skin: object
 
 
 def frozen_envelope(value):
@@ -30,10 +35,15 @@ def frozen_envelope(value):
 
 
 def prepared(crown):
+    full = frozen_envelope(envelope(crown))
+    coarse = frozen_envelope(envelope(crown, coarse=True))
     return Asset(
         crown,
-        frozen_envelope(envelope(crown)),
-        frozen_envelope(envelope(crown, coarse=True)),
+        full,
+        coarse,
+        sealed(body(crown)),
+        sealed(skin(full, crown.deck_m)),
+        sealed(skin(coarse, crown.deck_m)),
     )
 
 
@@ -102,11 +112,7 @@ class CrownRoofs:
         projected = error(crown, self.view)
         mode = "coarse" if projected <= 0.5 else "full"
         self.current_envelope = getattr(asset, mode)
-        mesh = dict(self.current_envelope.mesh)
-        for key in ("parts", "groups", "face_tag_mask"):
-            mesh.pop(key, None)
-        mesh["materials"] = mesh["materials"].copy()
-        mesh["materials"][mesh["materials"] == 1] = material
+        mesh = bound(asset.body, material)
         info = {
             "roof_kind": "crown",
             "roof_rise_m": crown.top_m - crown.deck_m,
@@ -128,6 +134,14 @@ class CrownFacades(CladFacades):
         self.rows = rows
         super().__init__(rows, view, **kwargs)
         self.base = CrownRoofs(rows, view, self.base)
+
+    def __call__(self, row, parameters, material):
+        mesh, info = super().__call__(row, parameters, material)
+        asset = self.base.assets.get(row["id"])
+        if asset is not None:
+            mode = info["roof_crown_product"]
+            mesh = append(mesh, [bound(getattr(asset, mode + "_skin"), material)])
+        return mesh, info
 
     def report(self):
         return super().report() | {
