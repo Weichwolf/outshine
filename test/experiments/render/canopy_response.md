@@ -48,7 +48,7 @@ Inputs were freshly reproduced from source5aeb4f802:2368 roots,284160 blade
 triangles, full284162-face finite mesh,288256 collocation nodes. Current stand
 identity f38e50baa1a962e03a097b3c819978ecdf36c841a1372bae89014a1238a30bab;
 full geometry9f0a81299452bbdb6399e3613aca0808dfc49860b883693fb35859ea22b831bc.
-This is not a claimed byte-identity check against lost historical #486 outputs.
+This is not a claimed byte-identity check against historical #486 outputs.
 Existing contact reconstruction again passes all196608 union memberships and192
 independent rays. Mapped east contacts cover85.9787% of the footprint.
 
