@@ -4,7 +4,6 @@ import unittest
 
 import numpy as np
 from needle_area_checks import sheet
-from needle_area_light import integrate
 from normal_lobes import (
     NormalMeasure,
     error_bound,
@@ -14,6 +13,7 @@ from normal_lobes import (
     quantization_bound,
 )
 from scatter_scene import ScatterScene
+from surface_area_light import integrate
 
 
 class NormalLobeChecks(unittest.TestCase):

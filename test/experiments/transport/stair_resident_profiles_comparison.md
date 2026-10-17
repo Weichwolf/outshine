@@ -1,4 +1,8 @@
-# Original resident profile provenance (#660, work in progress)
+# Original resident profile provenance (#660)
+
+Current use with all78old sources and a whole79-source result is documented in
+the [snapshot comparison](stair_resident_snapshot_comparison.md); the measurements
+below retain their original preparation/profile-recovery scope.
 
 The original32-source resident asset was prepared with an empty row ledger.
 This correctly prevents module interior-profile binding, even where its original

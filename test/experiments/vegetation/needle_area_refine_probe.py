@@ -8,9 +8,9 @@ from pathlib import Path
 
 import numpy as np
 from needle_area_heldout import difference
-from needle_area_light import integrate
 from needle_joint_contacts import prepare_source
 from needle_response_study import source_digest
+from surface_area_light import integrate
 
 
 def query(source, scene, view, lights, mask, order):
@@ -71,8 +71,8 @@ def run(source_path, parent, output):
         name: source_digest(Path(__file__).with_name(name))
         for name in (
             "needle_area_refine_probe.py",
-            "needle_area_light.py",
-            "needle_area_cells.py",
+            "surface_area_light.py",
+            "surface_area_cells.py",
         )
     }
     np.savez_compressed(

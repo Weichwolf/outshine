@@ -6,11 +6,14 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
+import terraced_terrace_frame as terrace_frame
+import terraced_terrace_plan as terrace_planning
 from building_layout import WALL_M, rectangle
 from building_plan import FLOOR_M
 from outshine_ref.buildings.modelling import PrismVolume
 from outshine_ref.buildings.modelling.prism_union import primitive_mesh
 from structural_shell_geometry import native
+from terraced_facade_prepare import prepare
 from terraced_facade_products import FacadeProducts
 from terraced_mass_plan import plan as mass_plan
 from terraced_mass_rooms import build
@@ -163,6 +166,42 @@ class TerraceTests(unittest.TestCase):
                 self.assertIsNone(o.facade.near)
                 self.assertTrue(np.isfinite(draw["normals"]).all())
                 self.assertEqual(draw["faces"].dtype, np.dtype(np.uint32))
+
+    def test_empty_setbacks_do_not_repeat_profile_resolution(self):
+        for old in self.owners:
+            mass = old.plan.prepared.mass
+            active = [
+                s
+                for i, s in enumerate(mass.storeys)
+                if i and not shapely.from_wkb(s.terrace_wkb).is_empty
+            ]
+            with patch.object(
+                terrace_planning, "resolved", wraps=terrace_planning.resolved
+            ) as resolved:
+                current = plan(mass)
+            self.assertEqual(resolved.call_count, 2 * len(active))
+            self.assertEqual(current.replaced_window_ids, old.plan.replaced_window_ids)
+
+    def test_only_portal_storeys_transform_window_axes(self):
+        for old in self.owners:
+            mass = old.plan.prepared.mass
+            prepared = prepare(mass)
+            active = [
+                i
+                for i, s in enumerate(mass.storeys)
+                if i and not shapely.from_wkb(s.terrace_wkb).is_empty
+            ]
+            with patch.object(
+                terrace_frame, "world_facade", wraps=terrace_frame.world_facade
+            ) as convert:
+                world = terrace_frame.world_prepared(prepared, active)
+            converted, cuts = convert.call_args.args
+            self.assertEqual(
+                len(cuts), sum(w.storey in active for w in prepared.facade.windows)
+            )
+            self.assertLess(len(cuts), len(prepared.facade.windows))
+            self.assertTrue(all(w.storey in active for w in converted.facade.windows))
+            self.assertEqual(len(world.facade.windows), len(cuts))
 
 
 if __name__ == "__main__":
