@@ -44,6 +44,9 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   Endprofil-Gegenfall, vollständige Linien statt drei Samples; Bestand unverändert (#614).
 - [Explizite Fußgängerkontakte](stair_surface_contact_comparison.md): 76 ganze Quellen,
   gemeinsame Knotenboxen, gebundene alte Owner und vollständige D/Q-Querungsportale (#602).
+- [Bestandsraster und gemeinsame Pflasterfläche](stair_cached_grid_comparison.md):
+  77 ganze Quellen auf unveränderten76 Körpern, volle Fahrprofile und sechs gleiche
+  Quellenkohorten; Arbeits-/Allokationskosten bleiben erheblich (#627/#633).
 - [Präzision neuer Kreuzungen](stair_junction_precision_comparison.md): echter
   Float32-Gegenfall, neun Kandidaten und getrennte Überlappungskontakte (#600/#602); noch keine Netzzulassung.
 - [Höhenabhängige Übergabe](stair_occupancy_comparison.md): tatsächliche 65er Körper
