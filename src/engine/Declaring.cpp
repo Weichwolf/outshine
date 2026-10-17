@@ -3,6 +3,7 @@
 #include <cmath>
 #include "ScenarioWrite.h"
 #include "WeatherValidation.h"
+#include "NativeWeather.h"
 #include "PlayerValidation.h"
 #include "BodyValidation.h"
 #include "WorldValidation.h"
@@ -480,6 +481,9 @@ namespace {
   if (const auto valid = ValidateWeather(scenario.Ground.Sky); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
+  if (const auto valid = ValidateScenarioWeather(scenario); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   for (const auto &asset : scenario.Assets) {
     if (asset.Kind != "generated") {
       return std::unexpected("unsupported asset kind: " + asset.Kind);
@@ -611,6 +615,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::unexpected(S_->Error);
   }
   ships();
+  if (const auto valid = S_->ValidateDeclaredWeatherProviders(scenario); !valid) { return valid; }
   if (const auto valid = ValidateOfferedGenerators(scenario, S_->World.Offering, S_->Error);
       !valid) {
     return valid;
@@ -621,6 +626,9 @@ Result Engine::declare(const Scenario::Document &scenario) {
   declared.SurfaceHeightPx = S_->Picture.Frame.HeightPx;
   PrepareRenderSettings(scenario, declared);
   if (const auto lit = PrepareLighting(scenario, declared, S_->Error); !lit) { return lit; }
+  if (const auto valid = ValidateScenarioWeather(scenario, declared.UtcS); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
 
   declared.Surfaces = PrepareSurfaces(scenario.Surfaces);
   if (!declared.Surfaces.empty() &&

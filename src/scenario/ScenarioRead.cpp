@@ -11,6 +11,7 @@
 #include "ScenarioRead.h"
 #include "AssetValidation.h"
 #include "WeatherValidation.h"
+#include "NativeWeather.h"
 #include "PlayerValidation.h"
 #include "BodyValidation.h"
 #include "WorldValidation.h"
@@ -89,16 +90,22 @@ struct Element {
   const char *Allowed = "";
 };
 
-const std::array<Element, 83> kGrammar = {{
+const std::array<Element, 86> kGrammar = {{
     {.Path = "scenario",
      .Children =
-         "world render lighting providers routes generators assets placements surfaces kinds "
+         "world weather render lighting providers routes generators assets placements surfaces "
+         "kinds "
          "instances regions volumes audio tables events views body player drive physics clock "
          "scene "
          "input state layer"},
     {.Path = "scenario/layer", .Children = "", .Required = "path"},
     {.Path = "scenario/scene", .Children = ""},
     {.Path = "scenario/world", .Children = "relief osm"},
+    {.Path = "scenario/weather",
+     .Children = "wind10m precipitation",
+     .Required = "validUtcS latitudeDeg longitudeDeg"},
+    {.Path = "scenario/weather/wind10m", .Children = "", .Required = "eastMs northMs"},
+    {.Path = "scenario/weather/precipitation", .Children = "", .Required = "beginUtcS endUtcS"},
     {.Path = "scenario/world/relief", .Children = "", .Required = "kind"},
     {.Path = "scenario/world/osm", .Children = "way area"},
     {.Path = "scenario/world/osm/way", .Children = "", .Required = "kind"},
@@ -417,6 +424,7 @@ ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &er
   ReadWorld(root.Child("world"), into);
   if (!ReadWorldNumbers(root.Child("world"), into.Ground, error)) { return false; }
   if (!ReadWeather(root.Child("world"), into.Ground.Sky, error)) { return false; }
+  if (!ReadNativeWeather(root.Child("weather"), into.Weather, error)) { return false; }
   const auto osm = ReadScenarioOsm(root.Child("world").Child("osm"), into.Ground.Osm);
   if (!osm) {
     error = osm.error();
@@ -1154,6 +1162,10 @@ bool ReadScenario(const Xml &document, Scenario::Document &output, std::string &
   if (!ReadSectionsOnto(root, into, error)) { return false; }
 
   if (!ReadSources(root, into, error)) { return false; }
+  if (const auto valid = ValidateScenarioWeather(into); !valid) {
+    error = valid.error();
+    return false;
+  }
   if (!ReadRoutes(root, into, error)) { return false; }
   if (!ReadAssets(root, into, error)) { return false; }
   ReadPlacementAndUi(root, into);

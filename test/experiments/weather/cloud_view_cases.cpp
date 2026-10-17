@@ -78,6 +78,15 @@ Medium ControlledAir() {
   return air;
 }
 
+Case DeclaredSkyCase(MediumViewProbe::ImageShape shape, const WeatherSnapshot &published) {
+  auto value = BaseCase(shape);
+  value.Snapshot = published;
+  value.Name = "sky-broken";
+  value.BoundarySky = true;
+  value.SkyOnly = true;
+  return value;
+}
+
 std::vector<Case> Cases(MediumViewProbe::ImageShape shape) {
   auto base = BaseCase(shape);
   auto clear = base;
@@ -164,9 +173,11 @@ WeatherFrame PrepareWeather(const Case &scenario) {
                                                  .AdvectionEastMs = kCloudEastAdvectionMs,
                                                  .AdvectionNorthMs = 4.0,
                                                  .Profile = scenario.Profile});
-  CHECK(state && *state, "the selected native weather snapshot produces the cloud consumer state");
-  if (!state || !*state) { Gpu::Failed(); }
-  const auto &layer = (**state).Layer;
+  CHECK(state, "the selected native weather snapshot is accepted by the cloud consumer");
+  if (!state) { Gpu::Failed(); }
+  CHECK(state->has_value() == scenario.Snapshot.Values.CloudLow.has_value(),
+        "unknown low cover produces no cloud product while known zero remains a product");
+  const auto layer = *state ? (**state).Layer : CloudLayer{};
   const auto drift = layer.WindMs * scenario.PhaseS;
   return {
       .Shell = {{static_cast<float>(layer.RadiusM),

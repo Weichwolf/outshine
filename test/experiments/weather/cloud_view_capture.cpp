@@ -161,8 +161,13 @@ void WriteCapture(const Case &scenario,
            << scenario.PhaseS << R"(,"viewport":[)" << view.X << ',' << view.Y << ',' << view.Width
            << ',' << view.Height << R"(],"snapshot_origin":)"
            << static_cast<int>(scenario.Snapshot.Source.Origin) << R"(,"snapshot_utc_s":)"
-           << scenario.Snapshot.Values.ValidUtcS << R"(,"source_sha256":")"
-           << scenario.Snapshot.Source.PayloadSha256 << "\"}\n";
+           << scenario.Snapshot.Values.ValidUtcS << R"(,"cloud_low":)";
+  if (scenario.Snapshot.Values.CloudLow) {
+    metadata << *scenario.Snapshot.Values.CloudLow;
+  } else {
+    metadata << "null";
+  }
+  metadata << R"(,"source_sha256":")" << scenario.Snapshot.Source.PayloadSha256 << "\"}\n";
   CHECK(metadata.good(), "source provenance and actual raster profile are saved");
 }
 }

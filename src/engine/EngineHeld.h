@@ -241,6 +241,8 @@ struct Surrounds {
   Ground::SurfacePreparation Stack;
   std::unique_ptr<WeatherPreparation> Weather;
   std::optional<int64_t> WeatherUtcS;
+  std::shared_ptr<const WeatherSnapshot> DeclaredWeather;
+  uint64_t DeclaredWeatherRevision = 0;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
   Generators::Registry Offering;
   Generators::Shipping Shipping;
@@ -613,8 +615,10 @@ struct Engine::State {
   [[nodiscard]] bool
   UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
+  [[nodiscard]] bool ConfigureDeclaredWeather();
   [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
   [[nodiscard]] bool PollWeather();
+  [[nodiscard]] Result ValidateDeclaredWeatherProviders(const Scenario::Document &scenario);
 
   [[nodiscard]] bool WeatherRunning() const noexcept {
     return World.Weather && World.Weather->Running();

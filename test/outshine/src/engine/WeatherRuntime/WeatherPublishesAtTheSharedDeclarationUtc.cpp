@@ -59,6 +59,16 @@ int main() {
     scenario.Lit.Declared = true;
     constexpr double kManualSunElevationDeg = 23.0;
     scenario.Lit.Key.ElevationDeg = kManualSunElevationDeg;
+    constexpr double kLegacyLowCover = 0.65;
+    scenario.Ground.Sky.CloudLow = kLegacyLowCover;
+    scenario.Ground.Sky.CloudHigh = 1.0;
+    auto metadataOnly = scenario;
+    metadataOnly.Providers.clear();
+    CHECK(engine.declare(metadataOnly) && engine.assemble() && engine.preload(0.0),
+          "legacy sky metadata alone requires no source or terrain acquisition");
+    const auto absent = engine.weather();
+    CHECK(absent && !*absent && engine.loading().ProviderStarts == 0,
+          "legacy scalar sky fields do not manufacture a native weather publication");
     CHECK(engine.declare(scenario).has_value(), "manual light and headless weather retain UTC");
     auto invalid = scenario;
     invalid.Time.Start = "not-an-ISO-UTC";

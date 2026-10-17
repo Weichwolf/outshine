@@ -19,7 +19,7 @@ using namespace outshine::Render::Native;
   std::_Exit(status);
 }
 
-inline void Require(Result<void> result) {
+inline void Require(Render::Native::Result<void> result) {
   CHECK(result, "native GPU operation succeeds");
   if (!result) {
     std::println(stderr, "{}", result.error().Message);
@@ -27,7 +27,7 @@ inline void Require(Result<void> result) {
   }
 }
 
-template <typename T> T Require(Result<T> result) {
+template <typename T> T Require(Render::Native::Result<T> result) {
   CHECK(result, "native GPU operation returns a value");
   if (!result) {
     std::println(stderr, "{}", result.error().Message);
@@ -50,7 +50,7 @@ inline std::vector<uint32_t> Spirv(const char *path) {
   return words;
 }
 
-inline std::unique_ptr<Buffer>
+inline std::unique_ptr<Render::Native::Buffer>
 Upload(Device &device, Commands &commands, std::span<const uint32_t> words) {
   auto upload = Require(device.CreateBuffer(
       {.Bytes = words.size_bytes(), .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
@@ -66,7 +66,7 @@ Upload(Device &device, Commands &commands, std::span<const uint32_t> words) {
   return result;
 }
 
-inline Binding Storage(uint32_t set, uint32_t slot, const Buffer &buffer) {
+inline Binding Storage(uint32_t set, uint32_t slot, const Render::Native::Buffer &buffer) {
   return {.Set = set,
           .Slot = slot,
           .Value = StorageBuffer{.Data = &buffer, .Range = {.Bytes = buffer.Description().Bytes}}};
