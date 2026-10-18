@@ -56,9 +56,10 @@ bool Contains(std::span<const double> points,
 
 }
 
-std::optional<float> WaterAsset::LevelAt(LongitudeLatitude at) const noexcept {
+std::optional<double> WaterAsset::LevelAt(LongitudeLatitude at) const noexcept {
+  if (Geometry_) { return Geometry_->Mesh.LevelAt(at); }
   const auto &tiles = Contents().Tiles;
-  std::optional<float> level;
+  std::optional<double> level;
   int previousZoom = -1;
   std::optional<::outshine::Data::TileId> located;
   for (size_t index = 0; index < tiles.size(); ++index) {
