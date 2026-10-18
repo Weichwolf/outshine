@@ -5,6 +5,10 @@ Issue [#774](https://github.com/Weichwolf/outshine/issues/774), following
 to `outshine_research` under [#786](https://github.com/Weichwolf/outshine/issues/786).
 It is not the completed issue or a native/runtime admission.
 
+The subsequent [early construction comparison](facade_omission.md) preserves this
+reference's geometry while omitting old trim before construction. Whole-window
+application remains separately gated in PR #799.
+
 ## Products and preserved function
 
 `facade_programme_plan.py` produces two camera-independent wall programmes:
