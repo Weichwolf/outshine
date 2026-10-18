@@ -66,6 +66,10 @@ Bounds and shell errors are known for456,1,747,4,101 sources; unsupported unknow
 remain explicit. All original6,352 source records appear once in each whole and
 combined-cell footprint metadata set. They are not all necessarily rendered.
 
+All157 generated cell triangle counts independently match the original cached
+artifacts. Six native negative controls reject missing/duplicate cells, misplaced
+forms and corrupted index/view bytes, and preserve an existing output unchanged.
+
 Observer JSON allocation, diagnostic prepasses, clustering and host contention
 are included in this tool. Its wall times and `HeapBytes` are not isolated CPU
 costs, allocation counts, process peaks, resident GPU bytes or a device budget.

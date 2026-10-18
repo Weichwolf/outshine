@@ -105,6 +105,6 @@ if __name__ == "__main__":
     parser.add_argument("--cluster-triangles", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
-    if not 0 < arguments.cluster_triangles <= 1024:
-        parser.error("explicit bounded runtime cluster size required")
+    if not 0 <= arguments.cluster_triangles < 2**32:
+        parser.error("explicit uint32 runtime cluster size required")
     export(arguments)
