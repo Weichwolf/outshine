@@ -84,6 +84,8 @@ def load(base_path, audit_path):
 def compose(base, original, rows, records, demand, programme):
     products, results = [], []
     for row in rows:
+        if row["layer"] != "building":
+            continue
         identifier = row["id"]
         if identifier not in records:
             continue
@@ -143,7 +145,7 @@ def compose(base, original, rows, records, demand, programme):
         )
     mesh = joined((original, *products))
     check_prefix(original, mesh)
-    if len(results) != 71:
+    if len(results) != len(records):
         raise ValueError("Whole facade comparison lost a proposed source")
     record = {
         k: base[k]

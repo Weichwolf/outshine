@@ -5,10 +5,15 @@ from dataclasses import replace
 
 import numpy as np
 import shapely
-from bay_city import check_prefix
+from bay_city import check_prefix, compose
 from bay_city_checks import inspect
 from bay_facade_controls import cases
 from bay_facade_plan import PROGRAMMES, plan_bays
+from industrial_relief_probe import camera
+from stepped_source_probe import overview
+from terraced_crown_geometry import RoofedProducts
+from terraced_crown_plan import plan
+from terraced_mass_census import source_identity
 
 
 class BayCityChecks(unittest.TestCase):
@@ -59,6 +64,38 @@ class BayCityChecks(unittest.TestCase):
             check_prefix(
                 original, {"vertices": original["vertices"].astype(np.float32)}
             )
+
+    def test_actual_compact_source_composes_among_landuse_rows_without_ids(self):
+        row = dict(self.row, layer="building")
+        owner = RoofedProducts(plan(row, "cascade"))
+        original = owner.draw(False)
+        view = overview(original["vertices"], [1, -1.25, 0.85])
+        base = {
+            "camera": camera(view),
+            "source": {"material_definitions": {}},
+            "sources": {},
+            "window": {},
+            "facade_materials": {},
+            "ground_span_m": 10000,
+            "frame": {},
+            "procedures": {},
+            "mesh_sha256": "unit-control",
+        }
+        landuse = {"layer": "landuse", "polygon": row["polygon"], "properties": {}}
+        reference = source_identity(row) | {"programme": "cascade"}
+        result, record = compose(
+            base,
+            original,
+            [landuse, row, landuse],
+            {row["id"]: reference},
+            {row["id"]: {"body_expanded": False}},
+            "ribbon-fields",
+        )
+        check_prefix(original, result)
+        self.assertGreater(len(result["faces"]), len(original["faces"]))
+        fields = record["procedures"]["facade_fields"]
+        self.assertEqual([r["id"] for r in fields], [row["id"]])
+        self.assertEqual(fields[0]["product"], "front")
 
 
 if __name__ == "__main__":
