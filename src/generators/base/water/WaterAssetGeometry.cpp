@@ -1,4 +1,5 @@
 #include "WaterAsset.h"
+#include "Capacity.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -15,6 +16,12 @@ const WaterAsset::SurfaceGeometry *WaterAsset::PreparedSurfaces() const noexcept
 
 bool WaterAsset::SurfacesReady() const noexcept {
   return Geometry_ != nullptr || Surfaces().empty();
+}
+
+size_t WaterAsset::PreparedSurfaceBytes() const noexcept {
+  return Geometry_ ? sizeof(SurfaceGeometry) + Geometry_->Mesh.HeapBytes() +
+                         CapacityBytes(Geometry_->Rejections)
+                   : 0;
 }
 
 std::expected<WaterAsset, std::string> WaterAsset::WithSurfaces(SurfaceGeometry geometry) const {
