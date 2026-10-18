@@ -242,6 +242,8 @@ done
 
 TestProfile() {
   case "$1" in
+    outshine/src/world/ground/VegetationTemplates|outshine/src/world/ground/GroundMaterials) printf '%s' 'profile/ground-materials' ;;
+    outshine/src/render/device/GroundPalette) printf '%s' 'profile/ground-palette' ;;
     outshine/integration/places/client) printf '%s' 'profile/client-shots' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
@@ -290,6 +292,7 @@ TestProfile() {
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
+    profile/ground-materials|profile/ground-palette) printf '%s' '-Iinclude -Isrc/base -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/io -Isrc/world/ground -Isrc/render/device' ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
@@ -436,6 +439,8 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/ground-materials) printf '%s' 'src/world/ground/GroundMaterials.cpp src/world/ground/VegetationTemplates.cpp src/world/ground/AlpineLimit.cpp src/base/format/Json.cpp src/base/io/ReadTextFile.cpp src/base/io/Log.cpp' ;;
+    profile/ground-palette) LayerGroups profile/ground-materials; printf ' %s' 'src/render/device/GroundPalette.cpp' ;;
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
