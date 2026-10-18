@@ -102,10 +102,7 @@ def agree(a, b, length, *, xy_guard, z_guard, max_tests=65536):
         middle = (low + high) / 2
         values = []
         for pieces in (a, b):
-            selected = pieces[
-                (pieces[:, 0] - xy_guard <= middle)
-                & (pieces[:, 1] + xy_guard >= middle)
-            ]
+            selected = pieces[(pieces[:, 0] <= middle) & (pieces[:, 1] >= middle)]
             if not len(selected):
                 raise ValueError("whole profile has an uncovered interval")
             fraction = (np.array([low, high])[None] - selected[:, 0, None]) / (
