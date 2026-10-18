@@ -24,7 +24,7 @@ def bind_contacts(state, recipe, sources):
         raise ValueError("surface contacts require the explicit shared_box family")
     result, pairs, total = [], set(), 0
     for chosen in declarations:
-        if chosen.get("kind") == "minor_footway_crossing":
+        if chosen.get("kind") in ("minor_footway_crossing", "footway_footway_crossing"):
             raise ValueError(
                 "joint new-source crossing is not a frozen surface contact"
             )

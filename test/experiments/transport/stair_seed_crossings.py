@@ -64,12 +64,23 @@ def crossings_for(rows, sources, recipe):
         }:
             raise ValueError("complete explicit road/footway crossing binding required")
         key, foot = declaration["source_id"], declaration["footway_source_id"]
-        if key == foot or key not in owned or foot not in owned or (key, foot) in seen:
+        if (
+            not isinstance(key, str)
+            or not isinstance(foot, str)
+            or key == foot
+            or key not in owned
+            or foot not in owned
+            or (key, foot) in seen
+            or (foot, key) in seen
+        ):
             raise ValueError("distinct unique whole new crossing sources required")
-        if declaration["kind"] != "minor_footway_crossing":
+        if declaration["kind"] not in (
+            "minor_footway_crossing",
+            "footway_footway_crossing",
+        ):
             raise ValueError("known explicit geometric ground crossing required")
         road_row, foot_row = rows[owned[key]], rows[owned[foot]]
-        if (
+        if declaration["kind"] == "minor_footway_crossing" and (
             road_row.get("profile_kind") != "unclassified"
             or road_row.get("source_recipe") != "minor_ground_carriageway"
         ):

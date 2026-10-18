@@ -83,10 +83,16 @@ def expand(keys, prepared, *, max_sources=8, max_contacts=4, max_visits=2000000)
                 result["reason"] = "seed_dependency_work_budget"
                 return result
             work["candidate_visits"] += 1
-            if prepared["kinds"][key] == prepared["kinds"][other]:
+            if key == other or (
+                prepared["kinds"][key] == prepared["kinds"][other] == "road"
+            ):
                 continue
             road, foot = (
-                (key, other) if prepared["kinds"][key] == "road" else (other, key)
+                (key, other)
+                if prepared["kinds"][key] == "road"
+                else (other, key)
+                if prepared["kinds"][other] == "road"
+                else tuple(sorted((key, other)))
             )
             if (road, foot) in pairs:
                 continue
@@ -101,6 +107,8 @@ def expand(keys, prepared, *, max_sources=8, max_contacts=4, max_visits=2000000)
                 return result
             pairs.add((road, foot))
             contact = declaration(road, foot)
+            if prepared["kinds"][road] == "foot":
+                contact["kind"] = "footway_footway_crossing"
             try:
                 crossing_point(prepared["sources"][road], prepared["sources"][foot])
                 contact_access(
