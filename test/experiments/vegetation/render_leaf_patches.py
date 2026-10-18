@@ -5,27 +5,39 @@ import hashlib
 import json
 import resource
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import bpy
 import numpy as np
-from group_cloud import Chart, greedy_cloud
+from group_cloud import greedy_cloud
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_mesh import mesh_object
 from preview_shadows import configure_preview
 from render_spatial_clouds import coverage_material
 
 
-def read_charts(inputs, source, node):
+@dataclass(frozen=True)
+class SurfaceDraw:
+    mesh: dict
+    colour: np.ndarray
+
+
+def read_poses(inputs, source, node):
     with np.load(inputs / f"host-{node}/group-4.npz", allow_pickle=False) as z:
         poses = dict(z)
-    with np.load(inputs / "prototypes-4.npz", allow_pickle=False) as z:
-        prototypes = dict(z)
     np.testing.assert_array_equal(poses["ids"], source["ids"])
     np.testing.assert_array_equal(poses["variants"], source["leaf_variants"])
     np.testing.assert_array_equal(
         poses["physical_leaf_area_m2"], source["physical_leaf_area_m2"]
     )
+    return poses
+
+
+def read_charts(inputs, source, node):
+    poses = read_poses(inputs, source, node)
+    with np.load(inputs / "prototypes-4.npz", allow_pickle=False) as z:
+        prototypes = dict(z)
     frame, origin = source["anchor_frame"], source["anchor_origin"]
     charts = []
     for leaf, variant in enumerate(poses["variants"]):
@@ -39,29 +51,39 @@ def read_charts(inputs, source, node):
             ) @ frame
             mesh = {name: prototypes[key + name] for name in ("faces", "uv")}
             mesh |= {"vertices": vertices, "normals": prototypes[key + "normals"] @ r.T}
-            chart_frame = r @ prototypes[key + "frame"]
-            charts.append(
-                Chart(
-                    mesh,
-                    prototypes[key + "colour"],
-                    prototypes[key + "normal"],
-                    np.array([leaf]),
-                    chart_frame,
-                    float(vertices[0] @ chart_frame[:, 2]),
-                    0.0,
-                )
-            )
+            charts.append(SurfaceDraw(mesh, prototypes[key + "colour"]))
     return tuple(charts)
 
 
-def scene_objects(source, spatial, patches, direction):
+def read_connected(inputs, folder, source, node):
+    poses = read_poses(inputs, source, node)
+    prototypes = {}
+    for variant in np.unique(poses["variants"]):
+        with np.load(folder / f"prototype-{variant}.npz", allow_pickle=False) as z:
+            prototypes[int(variant)] = dict(z)
+    frame, origin = source["anchor_frame"], source["anchor_origin"]
+    draws = []
+    for leaf, variant in enumerate(poses["variants"]):
+        p = prototypes[int(variant)]
+        r = poses["frames"][leaf]
+        mesh = {name: p[name] for name in ("faces", "uv")}
+        mesh |= {
+            "vertices": (p["vertices"] @ r.T + poses["origins"][leaf] - origin) @ frame,
+            "normals": p["normals"] @ r.T @ frame,
+        }
+        draws.append(SurfaceDraw(mesh, p["colour"]))
+    return tuple(draws)
+
+
+def scene_objects(source, spatial, patches, direction, *, camera_patches=None):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     d = np.asarray(direction, float)
     d /= np.linalg.norm(d)
     side = np.cross((0, 0, 1), d)
     side /= np.linalg.norm(side)
+    camera_patches = patches if camera_patches is None else camera_patches
     points = np.vstack(
-        (source["vertices"], *[c.mesh["vertices"] for c in (*spatial, *patches)])
+        (source["vertices"], *[c.mesh["vertices"] for c in (*spatial, *camera_patches)])
     )
     centre = (points.max(axis=0) + points.min(axis=0)) / 2
     distance = float(np.linalg.norm(np.ptp(points, axis=0))) * 1.15
@@ -76,7 +98,7 @@ def scene_objects(source, spatial, patches, direction):
     materials = {}
     for name, charts, offset in (
         ("old spatial", spatial, 0.0),
-        ("shared four patches", patches, distance),
+        ("shared source surfaces", patches, distance),
     ):
         for i, c in enumerate(charts):
             key = id(c.colour)
@@ -120,40 +142,58 @@ def scene_objects(source, spatial, patches, direction):
     return scene, {
         "direction": d.tolist(),
         "span_m": distance * 3.1,
-        "triangles": [len(source["faces"]), 2 * len(spatial), 2 * len(patches)],
+        "target": centre.tolist(),
+        "triangles": [
+            len(source["faces"]),
+            2 * len(spatial),
+            sum(len(c.mesh["faces"]) for c in patches),
+        ],
         "isolated_chart_materials": len(materials),
     }
 
 
-def render(inputs, output, node):
+def render(inputs, output, node, *, connected=None):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private output must be under /tmp")
     output.mkdir(parents=True, exist_ok=False)
     with np.load(inputs / f"host-{node}/source.npz", allow_pickle=False) as z:
         source = dict(z)
     began = time.perf_counter()
-    patches = read_charts(inputs, source, node)
+    old = read_charts(inputs, source, node)
+    patches = (
+        old if connected is None else read_connected(inputs, connected, source, node)
+    )
     spatial = greedy_cloud(source, size=16)
     rows = []
     for name, direction in (
         ("oblique", (np.cos(1.8), np.sin(1.8), 0.8)),
         ("grazing", (np.cos(0.4), np.sin(0.4), 0.05)),
     ):
-        scene, row = scene_objects(source, spatial, patches, direction)
+        scene, row = scene_objects(
+            source, spatial, patches, direction, camera_patches=old
+        )
         scene.render.filepath = str(output / (name + ".png"))
         before = time.perf_counter()
         bpy.ops.render.render(write_still=True)
         rows.append(row | {"view": name, "render_s": time.perf_counter() - before})
-    paths = (
+    paths = [
         inputs / f"host-{node}/source.npz",
         inputs / f"host-{node}/group-4.npz",
         inputs / "prototypes-4.npz",
-    )
+    ]
+    if connected is not None:
+        paths.extend(
+            connected / f"prototype-{v}.npz" for v in np.unique(source["leaf_variants"])
+        )
     report = {
         "host_node": node,
         "resolution": [2560, 1440],
         "blender": bpy.app.version_string,
         "samples": 16,
+        "candidate": "independent patches"
+        if connected is None
+        else "connected carrier",
+        "camera_basis": "original independent-patch comparison, unchanged for connected candidate",
         "cases": rows,
         "wall_s": time.perf_counter() - began,
         "input_sha256": {
@@ -174,5 +214,6 @@ if __name__ == "__main__":
     for k in ("inputs", "output"):
         p.add_argument("--" + k, type=Path, required=True)
     p.add_argument("--host", type=int, default=17)
+    p.add_argument("--connected", type=Path)
     a = p.parse_args()
-    render(a.inputs, a.output, a.host)
+    render(a.inputs, a.output, a.host, connected=a.connected)
