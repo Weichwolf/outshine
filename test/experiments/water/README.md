@@ -33,8 +33,8 @@ Steiner points are added. Every shared coordinate owns one height vertex. Covera
 overlap are checked separately; no quantization or discarded thin faces repair the result.
 
 The caller owns body selection, source identities/classes and datum. Geometric connection
-alone does not establish a flowing-water body. The current native `WaterAsset` loses these
-classes; that remains a required native integration change in #760.
+alone does not establish a flowing-water body. The fixed provenance JSON separately records
+current native class/source observations; height/terrain/contact integration remains in #760.
 
 `nearest` has a demonstrated discontinuity where two branches exchange nearest ownership.
 `blend-clamped` is continuous there but does not reproduce uniform longitudinal slope.
@@ -113,3 +113,9 @@ PYTHONPATH=lib/src python3 test/experiments/water/render_river_surface.py \
   --surface /tmp/outshine-river-surface/surface.npz \
   --output /tmp/outshine-river-surface/comparison.png
 ```
+
+The [weighted directional comparison](weighted_river_comparison.md) scores a
+positive weighted QP against the same complete LP direction/pin constraints.
+It includes exact solver-matrix exports, an independent saved-output reader,
+real 10/20/40 m cases, Source/Installed checks, costs and a private whole 3D diagnostic.
+The existing shared weighted fitter and native water remain unchanged.
