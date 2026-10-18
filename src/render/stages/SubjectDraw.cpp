@@ -4,8 +4,10 @@
 #include "VertexUpload.h"
 #include "NormalUpload.h"
 #include <format>
+#include <optional>
 #include "GroundLattice.h"
 #include "SubjectDraw.h"
+#include "BatchVisibility.h"
 #include "math/Vec3.h"
 
 #include "FragmentArms.h"
@@ -1221,6 +1223,8 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
     held.Rows.assign(piece.Instances.begin(), piece.Instances.end());
   }
   held.Clusters.assign(piece.Clusters.begin(), piece.Clusters.end());
+  held.LocalSphere = held.Clusters.empty() ? LocalSphereOf(piece.Verts) : std::nullopt;
+  held.WorldSphere = WorldSphereOf(held.LocalSphere, held.Rows);
   VertexRunsCarried carried;
   carried.Normal = true;
   carried.Uv = piece.Textured;
@@ -1249,6 +1253,7 @@ bool SubjectDraw::SetPieceInstances(PieceId which, std::span<const Mat4> rows, s
   }
   if (std::ranges::equal(piece.Rows, rows)) { return true; }
   piece.Rows.assign(rows.begin(), rows.end());
+  piece.WorldSphere = WorldSphereOf(piece.LocalSphere, piece.Rows);
   RowsStale_ = TablesStale_ = true;
   ++Reshaped_;
   return true;
@@ -1459,6 +1464,7 @@ bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
     const auto row = static_cast<uint32_t>(Batches.size());
     DrawBatch batch{};
     batch.Motion = VertexMotion::Rigid;
+    batch.WorldSphere = one.WorldSphere;
     batch.FirstIndex = one.I.First;
     batch.IndexCount = one.IndexCount;
     batch.MaterialSlot = MaterialSlotFor(one);
@@ -1823,6 +1829,7 @@ size_t SubjectDraw::IndirectRunEnd(size_t first) const noexcept {
 }
 
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
+  const BatchFrustum visible(ctx, Anchor);
   EncodedDrawCalls_ = 0;
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(SubjectResidency::Stream::Vertex) &&
                             Bound().Buffer(SubjectResidency::Stream::Index);
@@ -1843,7 +1850,9 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
 
     const bool glassSlot =
         surface.Kind == SurfaceKind::ThinTransmissive || surface.Kind == SurfaceKind::Refractive;
-    if (glassSlot != (Binding().Behind != nullptr)) { continue; }
+    if (visible.Outside(batch.WorldSphere) || glassSlot != (Binding().Behind != nullptr)) {
+      continue;
+    }
 
     const VertexLayout wanted = BatchLayout[at];
     const size_t wantedPipeline =
