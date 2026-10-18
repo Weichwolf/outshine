@@ -10,6 +10,7 @@ import shapely
 from building_layout import rectangle
 from building_plan import FLOOR_M
 from structural_shell_geometry import native
+from terraced_admission_probe import controls
 from terraced_crown_plan import plan as crowned_plan
 from terraced_facade_prepare import prepare
 from terraced_mass_plan import plan
@@ -32,6 +33,15 @@ class WindowShadeTests(unittest.TestCase):
             for row in sources()
             for kind in ("cascade", "paired-wings")
             for mass in (plan(row, kind), crowned_plan(row, kind).body)
+        ]
+        cls.prepared += [
+            prepare(mass)
+            for row in controls()
+            if row["shape"] == "compact"
+            for mass in (
+                plan(row, row["programme"]),
+                crowned_plan(row, row["programme"]).body,
+            )
         ]
         cls.plans = [
             (p, plan_shades(p, style)) for p in cls.prepared for style in PROGRAMMES
