@@ -202,7 +202,14 @@ class CandidateQuery:
         if not result.complete:
             raise OccupancyError(result.reason)
         if not result.volumes:
-            return shapely.Polygon(), {**result.work, "positive_conflicts": 0}
+            return shapely.Polygon(), {
+                "query_rows": 0,
+                "xy_candidates": 0,
+                "height_candidates": 0,
+                "positive_conflicts": 0,
+                "seconds": 0.0,
+                **{"metadata_" + k: v for k, v in result.work.items()},
+            }
         cut, work = OccupancyQuery(result.volumes).conflict(
             footprint, method=method, maximum=maximum, envelope=envelope
         )

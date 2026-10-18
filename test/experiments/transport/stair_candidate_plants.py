@@ -3,6 +3,7 @@
 import argparse
 import json
 import resource
+import sys
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -37,8 +38,10 @@ def generate(args, *, order=None, order_id="unchanged nearest order"):
     start = time.perf_counter()
     data, state, baseline, buildings = inputs(args.buildings, args.building_receipt)
     query, info = candidate_query(state, buildings)
+    loaded = time.perf_counter()
     prior = previous(args.prototype, args.prototype_receipt) if args.prototype else None
     proto, artifacts, work = physical_form(args.output / "prototype", prior)
+    built = time.perf_counter()
     evidence = {}
     old_proposals = sites.proposals
 
@@ -58,6 +61,7 @@ def generate(args, *, order=None, order_id="unchanged nearest order"):
 
     with patch.object(sites, "proposals", side_effect=proposals):
         accepted, ledger, budget = sites.plants(data, query, proto)
+    searched = time.perf_counter()
     budget["selection"] = (
         order_id + "; whole terrain/height/envelope/SITE checks unchanged"
     )
@@ -89,6 +93,12 @@ def generate(args, *, order=None, order_id="unchanged nearest order"):
         "order_id": order_id,
         "query_work": query.counts,
         "retained": info()._asdict(),
+        "loading_and_query_preparation_seconds": loaded - start,
+        "whole_form_preparation_seconds": built - loaded,
+        "proposal_site_search_seconds": searched - built,
+        "output_serialization_seconds": time.perf_counter() - searched,
+        "peak_process_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        * (1 if sys.platform == "darwin" else 1024),
         "artifacts": artifacts,
         "seconds": time.perf_counter() - start,
         "scope": "Complete actual current Transport then Buildings then whole SITE plants; experiment query only, bounded attempts/form unchanged. XY distance/order is not free-space admission. No shared Plan or native admission.",
@@ -105,6 +115,19 @@ if __name__ == "__main__":
     parser.add_argument("--prototype", type=Path)
     parser.add_argument("--prototype-receipt", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--order", choices=("nearest", "boundary"), default="nearest")
     resource.setrlimit(resource.RLIMIT_CPU, (180, 180))
     resource.setrlimit(resource.RLIMIT_AS, (4 * 1024**3,) * 2)
-    generate(parser.parse_args())
+    args = parser.parse_args()
+    if args.order == "boundary":
+        from functools import partial
+
+        from site_order import priority
+
+        generate(
+            args,
+            order=partial(priority, mode="boundary"),
+            order_id="site_order.boundary/1",
+        )
+    else:
+        generate(args)
