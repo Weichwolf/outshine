@@ -63,6 +63,15 @@ The experiment does not change PNG pins, native caches or engine gates. See #760
 inputs, comparisons and the integration decision; OMT source semantics are in
 `doc/references/data/osm/openmaptiles-water{,way}-schema.yaml`.
 
+The companion JSON now binds this fixed geometry to a source-semantic observation from
+native replay `6bb149e9f`: 13 river surfaces and 17 courses (13 river, three stream, one
+canal), with provider IDs, tile-local indices, shared tile provenance and crossing flags.
+IDs are base-10 uint64 strings. Geometry, heights and tile membership match the original
+product exactly after record permutation; array positions are not stable identities.
+This observation does not establish the missing historical epoch of the original v2
+product or original OSM flow directions. Classes and missing crossing declarations alone
+do not prove that all bodies should share a profile; source admission remains explicit.
+
 ## Directional surface reference
 
 ```sh
@@ -78,6 +87,13 @@ Every affine face obeys `-down_grade <= gradient·flow <= 0` and
 incompatible contacts return no mesh. These numerical example limits and spacing are
 explicit experiment choices, not source facts or native LOD/error budgets.
 
+One inferred direction per face is insufficient at bends: another source course can
+cross that face in a different direction. Every positive-length source/face overlap adds
+its own directed row `[face, dx, dy, minimum, maximum]`. Multiple rows may bind one face.
+Outside-domain source lengths and their fixture indices remain explicit; they are not
+silently treated as modelled water. The previous one-direction fit remains a negative
+control in the real-input test. Spatial enumeration uses bounded batches before the row cap.
+
 One shared vertex owns each height. Whole-face checks independently reconstruct gradients
 from triangle edge equations; the LP certificate checks dual stationarity, signs and gap.
 Optimality refers only to this declared finite LP. The shared weighted Clarabel fit remains
@@ -87,3 +103,13 @@ time and sparse row/nonzero counts are separate. Failure is explicit, with no re
 Flow directions are inferred from descending source segments, not asserted OSM directions.
 Source semantics, native float/frame conversion, cross-region contacts, other geographic
 cases and complete native water/terrain/cache integration remain unproved.
+
+Optional diagnostic (Matplotlib) uses identical axes, colours and declared vertical
+exaggeration for all three models. It preserves source holes and shows the whole body:
+
+```sh
+PYTHONPATH=lib/src python3 test/experiments/water/render_river_surface.py \
+  --input test/experiments/water/fixtures/feldkirch-ill-profile.npz \
+  --surface /tmp/outshine-river-surface/surface.npz \
+  --output /tmp/outshine-river-surface/comparison.png
+```
