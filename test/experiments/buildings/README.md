@@ -1239,3 +1239,9 @@ descriptors and separate floor states to the unchanged source model. Actual
 near/whole night controls retain all lights and full shadow capacity; alpha
 ordering, screen-slab distortion and sampling costs remain explicit
 counterexamples. Common daylight/source glass stay the defaults.
+
+The [exterior shade study](window_shades.md) adds two metric window hood
+programmes on the same stable openings, with early component selection,
+independent closed-volume/headroom/corner controls and equivalent bar/profile
+costs. Eighteen actual near/opposite/whole images show stronger facade depth;
+full architecture diversity and native visibility/shadow integration remain open.
