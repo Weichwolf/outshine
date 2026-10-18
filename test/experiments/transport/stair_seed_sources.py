@@ -6,6 +6,7 @@ from stair_frontier_sources import records_for
 from stair_growth_sources import roots_first
 from stair_local_context import radius
 from stair_module_inputs import reference_profiles
+from stair_seed_axes import axis_form
 
 
 def separated_records(view, assets, manifest, sources):
@@ -21,7 +22,9 @@ def separated_records(view, assets, manifest, sources):
         if not row["eligible"]:
             continue
         source = sources[row["source_id"]]
-        if len({tuple(n) for n in source["mvt_xy"]}) != len(source["mvt_xy"]):
+        try:
+            axis_form(source)
+        except ValueError:
             row.update(
                 eligible=False, reason="seed_repeated_original_node_recipe_missing"
             )
@@ -68,14 +71,22 @@ def select(
     strategy="prefix",
     schedule="roots_first",
     grid_m=2**-11,
+    root_form="all",
 ):
+    if root_form not in ("all", "closed"):
+        raise ValueError("known original seed root form required")
     if grid_m not in (0.0, 2**-11):
         raise ValueError("known independent seed grid required")
     if strategy not in ("whole", "prefix"):
         raise ValueError("known whole or connected-prefix seed strategy required")
     records, work = separated_records(view, assets, manifest, sources)
     eligible = sorted(
-        (r for r in records if r["eligible"]),
+        (
+            r
+            for r in records
+            if r["eligible"]
+            and (root_form == "all" or axis_form(sources[r["source_id"]]) == "closed")
+        ),
         key=lambda r: (-r["length_m"], r["source_id"]),
     )
     roots = [
@@ -132,5 +143,6 @@ def select(
         "profile_work": [],
         "schedule": schedule,
         "family": "seed",
+        **({"root_form": root_form} if root_form != "all" else {}),
         "scope": "Bounds/old-ground separation prefilter; independent whole-source/terrain/bridge/pier admission required. No world graph/cache/runtime claim.",
     }

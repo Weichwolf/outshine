@@ -12,6 +12,9 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
+- [Gemeinsame Kontaktextrema](stair_contact_comparison.md): gleiche ganze
+  85er/86er Geometrie und Fachleser bei halbierten Kontaktüberlagerungen;
+  gemessene Allokations-/Zeitersparnis, kein Runtime-/Gerätebudget (#706).
 - [Gemeinsamer Rezeptpilot](recipe_transport.md): tatsächlicher Quellverbund,
   Profilplan und physisch geprüfter Körper auf dem kleinen Kern aus #483/#494.
 - [Ganze äußere Radkorridore](stair_corridor_comparison.md): 23 Wiener Quellen,
