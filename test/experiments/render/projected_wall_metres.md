@@ -1,6 +1,6 @@
 # Projected wall metre coordinates
 
-Owner #407, parent #306, material goal #189. This fixes existing colour/roughness
+Contract #407, parent #306, material goal #6. This fixes existing colour/roughness
 integration, independently of relief Draft #405. No new geometry, material mode,
 shader binding or API.
 
@@ -14,6 +14,16 @@ Missing prefix/suffix colours use1; missing metre components use0. The LOD reque
 key changes building-lod-3→building-lod-4 so incomplete previous geometry is rebuilt
 once. Source tiles, prepared shape/basis products and old files remain intact.
 The existing cache encoding and UV1 lifecycle/ownership contract are unchanged.
+
+## Current integration scope
+
+PR #416 owns the current Metal/Iris integration receipts. The following sections
+retain their original source/device scope, including old failed checks.
+Prepared ground regions do not contain building LOD: a region hit still loads
+building bases and geometry separately. No outer region recipe change is needed.
+The larger geometry/draw cost exposed by a fresh LOD miss also occurs with the
+original producers; the isolated original/fixed comparison and bounded cell
+follow-up belong to #567. Source/basis products and the64MiB limit are retained.
 
 ## Native regression
 
