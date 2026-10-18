@@ -13,8 +13,8 @@
   | Worktree/Branch | Verantwortung | Einstieg |
   |---|---|---|
   | `outshine` / `master` | Gesamtarchitektur, Art Direction, Prioritäten, Koordination, Metal-/A18-Pro-Integration und Optimierung, integrierte Bild-/Geräteprüfung | [#5](https://github.com/Weichwolf/outshine/issues/5) |
-  | `outshine_research` | Ausschließlich Python: Forschung, Verfahren, Solver und Rezepte für alle Bereiche einschließlich Transport, Buildings, Vegetation, Materialien, Licht und Wetter | [#47](https://github.com/Weichwolf/outshine/issues/47) |
-  | `outshine_engine` | Gemeinsame native C++-Engine, Übernahme der Python-Referenzen, Vulkan und CPU-/GPU-/Speicheroptimierung auf Intel i5-1135G7 / Iris Xe | [#48](https://github.com/Weichwolf/outshine/issues/48) |
+  | `outshine_research` | Ausschließlich Python: Forschung, Verfahren, Solver und Rezepte für alle Bereiche einschließlich Transport, Buildings, Vegetation, Materialien, Licht und Wetter | [#788](https://github.com/Weichwolf/outshine/issues/788) |
+  | `outshine_engine` | Gemeinsame native C++-Engine, Übernahme der Python-Referenzen, Vulkan und CPU-/GPU-/Speicheroptimierung auf Intel i5-1135G7 / Iris Xe | [#789](https://github.com/Weichwolf/outshine/issues/789) |
 
   Worktrees liegen als Geschwister unter `Git/`; Branch und Verzeichnis der beiden Kollegen
   heißen gleich. A18 Pro und Intel/Iris Xe haben jeweils das Ziel 1280×720/60.
