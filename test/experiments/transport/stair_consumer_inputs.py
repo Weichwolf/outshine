@@ -56,6 +56,23 @@ def inputs(products):
     }
 
 
+def candidate_inputs(baseline, state):
+    data = inputs(baseline)
+    del data["reservations"], data["report"]
+    view, assets, supports, contacts, _manifest = state
+    terrain = whole(view).mesh
+    data.update(
+        terrain=terrain,
+        terrain_patches=view,
+        sampler=SurfaceSampler(terrain),
+        assets=assets,
+        supports=supports,
+        contacts=contacts,
+        frame=view.patches[0].frame,
+    )
+    return data
+
+
 def source_rows(data, layer_name):
     layer = data["layers"][layer_name]
     result, rejected = [], []
