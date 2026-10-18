@@ -51,11 +51,23 @@ def inspect_part(part, source, owner):
     half_ulp = np.spacing(np.abs(positions)).astype(float) / 2
     if np.any(error > half_ulp):
         raise ValueError("regional payload is not a nearest Float32 source position")
-    if part["preserved_legacy_draw"] and not np.array_equal(
-        positions.astype(float) + np.asarray(owner["origin_m"]),
-        source["vertices"][vertices].astype("f4").astype(float),
-    ):
-        raise ValueError("preserved legacy draw positions changed")
+    actual = positions.astype(float) + np.asarray(owner["origin_m"])
+    if part["preserved_legacy_draw"]:
+        if not np.array_equal(
+            actual, source["vertices"][vertices].astype("f4").astype(float)
+        ):
+            raise ValueError("preserved legacy draw positions changed")
+    else:
+        reference = source["vertices"][source["triangles"][ids]]
+        triangles = actual[faces]
+        old_cross = np.cross(
+            reference[:, 1] - reference[:, 0], reference[:, 2] - reference[:, 0]
+        )
+        new_cross = np.cross(
+            triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
+        )
+        if np.any(np.einsum("ij,ij->i", old_cross, new_cross) <= 0):
+            raise ValueError("new regional draw has a nonpositive original face")
     return ids, vertices, positions, float(np.linalg.norm(error, axis=1).max())
 
 
@@ -63,12 +75,29 @@ def verify(root, output):
     if output.exists():
         raise ValueError("fresh independent receipt required")
     report = json.loads((root / "comparison.json").read_text())
+    if (
+        digest(report["original_scene"]) != report["original_scene_sha256"]
+        or digest(report["frame_input"]) != report["frame_input_sha256"]
+    ):
+        raise ValueError("original scene/frame input changed")
+    original = json.loads(Path(report["original_scene"]).read_text())
+    source_owners = {b["id"]: b for b in original.get("bodies", [original])}
+    if set(source_owners) != {o["id"] for o in report["bodies"]} or len(
+        source_owners
+    ) != len(report["bodies"]):
+        raise ValueError("regional scene lost or duplicated a complete source owner")
     scene = json.loads((root / "regional-scene.json").read_text())
     draws = {b["id"]: b for b in scene["bodies"]}
     if not 1 <= len(draws) <= 64 or len(draws) != len(scene["bodies"]):
         raise ValueError("complete bounded distinct regional objects required")
     results, seen = [], set()
     for owner in report["bodies"]:
+        original_body = source_owners[owner["id"]]
+        if (
+            owner["original_mesh"] != original_body["mesh"]
+            or owner["original_mesh_sha256"] != original_body["mesh_sha256"]
+        ):
+            raise ValueError("regional owner changed its original source")
         if digest(owner["original_mesh"]) != owner["original_mesh_sha256"]:
             raise ValueError("original full source changed")
         with np.load(owner["original_mesh"], allow_pickle=False) as saved:
@@ -82,6 +111,7 @@ def verify(root, output):
                 name in seen
                 or name not in draws
                 or part["mesh_sha256"] != draws[name]["mesh_sha256"]
+                or original_body["colours"] != draws[name]["colours"]
             ):
                 raise ValueError("ambiguous or missing original draw owner")
             ids, vertices, positions, error = inspect_part(part, source, draws[name])
