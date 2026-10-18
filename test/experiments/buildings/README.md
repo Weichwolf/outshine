@@ -1245,3 +1245,9 @@ programmes on the same stable openings, with early component selection,
 independent closed-volume/headroom/corner controls and equivalent bar/profile
 costs. Eighteen actual near/opposite/whole images show stronger facade depth;
 full architecture diversity and native visibility/shadow integration remain open.
+
+The [ribbon/paired-bay study](bay_facades.md) groups existing openings across
+whole rows or column/storey pairs on the actual stepped wall domains. Closed
+source/route controls and18 actual near/opposite/whole images qualify the first
+component delivery; direct-front costs compare byte-exact equivalent output.
+Complete source-window application and wider architectural composition remain #741.
