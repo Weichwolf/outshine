@@ -30,12 +30,21 @@ def attempted_prefix(products, report, canonical):
     if not 0 <= attempts <= 128 or report["accepted_plants"] > 4:
         raise ValueError("whole plant selection exceeded its explicit control budget")
     ledger = json.loads((products / "landcover-ledger.json").read_text())
-    attempted = {
-        (row["id"], tuple(site["site_id"])): site
+    entries = [
+        ((row["id"], tuple(site["site_id"])), site)
         for row in ledger
         if "id" in row
         for site in row["sites"]
-    }
+    ]
+    attempted = dict(entries)
+    if len(entries) != len(attempted):
+        raise ValueError("duplicate actual root attempt identity")
+    if (
+        report["budget"]["max_proposals"] != 1024
+        or report["budget"]["proposals"] != len(ordered)
+        or len(ordered) > 1024
+    ):
+        raise ValueError("unchanged whole proposal budget required")
     expected = saved["ordered_pool"][:attempts]
     keys = [(r["source_part"], tuple(r["site_id"])) for r in expected]
     if set(keys) != set(attempted) or len(keys) != len(attempted):
