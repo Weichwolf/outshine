@@ -101,6 +101,13 @@ class JointCrossingChecks(unittest.TestCase):
         self.assertEqual(contact["procedural_axis_crossing_xy_m"], [10, 0])
         self.assertFalse(contact["access"]["original_node_connection_claimed"])
         self.assertEqual(contact["access"]["motor_cycle_contact_arcs"], 0)
+        self.assertEqual(
+            contact["access"]["walk_contact_directions"],
+            ["footway_to_road", "road_to_footway"],
+        )
+        self.assertEqual(
+            [p["width_m"] for p in contact["through_profiles"]], [5.5, 1.8]
+        )
         self.assertTrue(
             all(
                 c["coowned_faces"] > 0 and c["area_m2"] > 9.9 for c in contact["checks"]

@@ -3,6 +3,9 @@
 import numpy as np
 import shapely
 from shared_bridge_geometry import corridor
+from stair_module_roads import tangents
+from stair_module_through import through_sides
+from stair_module_trace import compare
 from stair_surface_access import contact_access
 
 
@@ -90,6 +93,33 @@ def crossings_for(rows, sources, recipe):
     return result
 
 
+def crossing_profiles(data, contact, rows):
+    result = []
+    for owner in contact["owners"]:
+        row = rows[owner]
+        point = np.asarray(contact["xy_m"])
+        tangent = tangents(row, point[None])[0]
+        normal = np.array([-tangent[1], tangent[0]])
+        line = point + np.array([-1, 0, 1])[:, None] * row["width_m"] / 2 * normal
+        caps = [
+            (
+                data["surface_vertices"],
+                data["surface_faces"][data["owners"][:, owner]],
+                None,
+            )
+        ]
+        sides = through_sides(caps, line)
+        result.append(
+            {
+                "source_id": row["source_id"],
+                "width_m": row["width_m"],
+                "profile_xy_m": line.tolist(),
+                "checks": [compare(sides, line, cast) for cast in (False, True)],
+            }
+        )
+    return result
+
+
 def inspect_crossings(data, contacts, rows):
     reports = []
     original = [
@@ -142,6 +172,7 @@ def inspect_crossings(data, contacts, rows):
                 "procedural_axis_crossing_xy_m": contact["xy_m"],
                 "access": contact["access"],
                 "checks": proofs,
+                "through_profiles": crossing_profiles(data, contact, rows),
             }
         )
     return reports

@@ -187,6 +187,20 @@ def audit(state, recipe, data, rows, planning, upper, *, sources=None):
         "profiles": profiles(data, rows, nodes, masks, original),
         "new_junction_heights": inspect_heights(data, plans),
         **(
+            {
+                "joint_level_clusters": [
+                    {
+                        "height_m": p["height_m"],
+                        "members": p["members"],
+                        "region_wkt": shapely.to_wkt(p["shape"], rounding_precision=-1),
+                    }
+                    for p in plans
+                ]
+            }
+            if contacts
+            else {}
+        ),
+        **(
             {"geometric_junctions": inspect_crossings(data, contacts, rows)}
             if contacts
             else {}

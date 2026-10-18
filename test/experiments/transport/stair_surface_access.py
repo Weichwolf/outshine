@@ -55,6 +55,8 @@ def contact_access(chosen, new, old, old_row):
         "origin": "constructed_surface_contact",
         "original_node_connection_claimed": False,
         "motor_cycle_contact_arcs": 0,
-        "walk_contact_directions": ["old_to_new", "new_to_old"],
+        "walk_contact_directions": ["footway_to_road", "road_to_footway"]
+        if kind == "minor_footway_crossing"
+        else ["old_to_new", "new_to_old"],
         "source_along_directions_changed": False,
     }
