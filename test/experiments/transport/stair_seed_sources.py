@@ -6,6 +6,7 @@ from stair_frontier_sources import records_for
 from stair_growth_sources import roots_first
 from stair_local_context import radius
 from stair_module_inputs import reference_profiles
+from stair_seed_axes import axis_form
 
 
 def separated_records(view, assets, manifest, sources):
@@ -21,7 +22,9 @@ def separated_records(view, assets, manifest, sources):
         if not row["eligible"]:
             continue
         source = sources[row["source_id"]]
-        if len({tuple(n) for n in source["mvt_xy"]}) != len(source["mvt_xy"]):
+        try:
+            axis_form(source)
+        except ValueError:
             row.update(
                 eligible=False, reason="seed_repeated_original_node_recipe_missing"
             )

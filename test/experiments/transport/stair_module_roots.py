@@ -41,6 +41,10 @@ def root_profile(state, recipe, sources):
     else:
         if set(port) != {"source_id", "end"} or port["end"] not in (0, -1):
             raise ValueError("explicit original outer endpoint required")
+        if np.array_equal(sources[key]["xy_m"][0], sources[key]["xy_m"][-1]):
+            raise ValueError(
+                "closed source has no outer endpoint; cyclic profile required"
+            )
         index = port["end"]
         if state.get("resident_profile_roots"):
             vertex = 0 if index == 0 else len(sources[key]["mvt_xy"]) - 1

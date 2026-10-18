@@ -13,6 +13,7 @@ from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
+from stair_seed_axes import axis_form
 from stair_seed_precision import GRID_M
 
 
@@ -34,11 +35,7 @@ def seed_contract(recipe, sources):
             "explicit independent whole-source seed without cached contacts required"
         )
     for key in recipe["source_ids"]:
-        nodes = [tuple(p) for p in sources[key]["mvt_xy"]]
-        if len(set(nodes)) != len(nodes):
-            raise ValueError(
-                "independent seed family requires unique original source nodes"
-            )
+        axis_form(sources[key])
 
 
 def prepared(rows, sources, ground):

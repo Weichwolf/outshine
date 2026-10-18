@@ -11,7 +11,9 @@ from stair_module_materials import surface_slots
 from stair_module_node_heights import apply_heights, inspect_heights
 from stair_module_profiles import new_interior_checks, owned
 from stair_module_roads import inspect_frames
+from stair_module_through import through_sides
 from stair_module_trace import compare
+from stair_seed_axes import seam_profile
 from stair_seed_geometry import plans_for
 
 
@@ -30,9 +32,23 @@ def connected(recipe, rows, nodes):
 
 
 def profiles(data, rows, nodes, masks, original):
-    internal, outer = [], []
+    internal, outer, seams = [], [], []
     for owner, row in enumerate(rows):
         own = owned(data, owner, [], None)
+        if np.array_equal(row["xy"][0], row["xy"][-1]):
+            line = seam_profile(row)
+            seams.append(
+                {
+                    "source_id": row["source_id"],
+                    "reference": "positive_area_caps_on_both_sides_of_cyclic_seam",
+                    "profile_xy_m": line.tolist(),
+                    "checks": [
+                        compare(through_sides(own, line), line, cast)
+                        for cast in (False, True)
+                    ],
+                }
+            )
+            continue
         for end in (0, -1):
             incident = [
                 n
@@ -66,6 +82,7 @@ def profiles(data, rows, nodes, masks, original):
         "new_interior_profiles": new_interior_checks(
             data, rows, nodes, masks, original, {}
         ),
+        **({"closed_seam_profiles": seams} if seams else {}),
     }
 
 
