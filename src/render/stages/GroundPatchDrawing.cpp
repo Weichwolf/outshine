@@ -39,10 +39,10 @@ Native::Result<void> GroundLattice::DrawPatches(const PassRecording &into,
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "ground patch draw is missing native resources"});
   }
-  constexpr size_t maximumBindings = PatchShape.VertexSamplers + PatchShape.VertexUniformBuffers +
-                                     PatchShape.VertexStorageBuffers + PatchShape.FragmentSamplers +
-                                     PatchShape.FragmentUniformBuffers +
-                                     PatchShape.FragmentStorageBuffers;
+  constexpr size_t maximumBindings =
+      MaximumPatchShape.VertexSamplers + MaximumPatchShape.VertexUniformBuffers +
+      MaximumPatchShape.VertexStorageBuffers + MaximumPatchShape.FragmentSamplers +
+      MaximumPatchShape.FragmentUniformBuffers + MaximumPatchShape.FragmentStorageBuffers;
   std::array<Native::Binding, maximumBindings> resources;
   if (bindings.size() + 3u > resources.size()) {
     return std::unexpected(
