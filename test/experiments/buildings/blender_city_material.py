@@ -7,7 +7,8 @@ from outshine_ref.buildings.modelling.material_schema import srgb_to_linear
 
 def base(name, colour, roughness=0.68, metallic=0.0):
     material = bpy.data.materials.new(name)
-    material.use_nodes = True
+    if material.node_tree is None:
+        material.use_nodes = True
     shader = material.node_tree.nodes["Principled BSDF"]
     shader.inputs["Base Color"].default_value = (*colour, 1.0)
     shader.inputs["Roughness"].default_value = roughness
