@@ -43,7 +43,7 @@ def bound_levels(plans, heights):
 
 
 def recipe_levels(plans, data, recipe):
-    if recipe.get("junction_height_mode") == "joint":
+    if recipe.get("junction_height_mode") in ("joint", "quantized"):
         return bound_levels(plans, data.get("joint_level_heights_m"))
     if "joint_level_heights_m" in data:
         raise ValueError("undeclared free joint level heights")

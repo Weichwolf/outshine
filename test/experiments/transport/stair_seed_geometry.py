@@ -15,6 +15,7 @@ from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
+from stair_quantized_joint_heights import fit_quantized_levels
 from stair_seed_axes import axis_form
 from stair_seed_crossings import crossings_for
 from stair_seed_level_clusters import merge_levels
@@ -34,7 +35,7 @@ def seed_contract(recipe, sources):
         or type(seed["end"]) is not int
         or seed["end"] not in (0, -1)
         or recipe.get("seed_grid_m") not in (None, GRID_M)
-        or recipe.get("junction_height_mode") not in (None, "joint")
+        or recipe.get("junction_height_mode") not in (None, "joint", "quantized")
     ):
         raise ValueError(
             "explicit independent whole-source seed without cached contacts required"
@@ -86,8 +87,11 @@ def build(rows, sources, ground, sample, *, recipe=None):
     surface = Mesh(np.c_[xy, targets], faces)
     budget = HeightBudget(max_vertices=4096, max_faces=8192)
     levels = None
-    if recipe and recipe.get("junction_height_mode") == "joint":
-        result, levels = fit_joint_levels(surface, frames, plans, budget)
+    if recipe and recipe.get("junction_height_mode") in ("joint", "quantized"):
+        if recipe["junction_height_mode"] == "quantized":
+            result, levels = fit_quantized_levels(surface, frames, plans)
+        else:
+            result, levels = fit_joint_levels(surface, frames, plans, budget)
         if result.mesh is not None:
             plans = bound_levels(plans, levels)
     else:
