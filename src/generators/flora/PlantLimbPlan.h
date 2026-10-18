@@ -35,6 +35,8 @@ public:
   Sample(double parameter) const noexcept;
 
 private:
+  friend class PlantLimbArchive;
+
   struct Segment {
     double Parameter = 0, Span = 0;
     std::array<Vec3, 4> Controls;
