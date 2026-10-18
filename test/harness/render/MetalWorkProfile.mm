@@ -9,11 +9,18 @@
 #include <cstdlib>
 #include <cmath>
 #include <print>
+#include <limits>
+#include <optional>
 
 @interface OutshineProfilePass : NSObject
 @property NSMutableSet<NSString *> *pipelines;
 @property NSString *currentPipeline;
 @property NSMutableDictionary<NSString *, NSNumber *> *work;
+@property BOOL compute;
+@property NSUInteger sampleOffset;
+@property uint64_t groups;
+@property uint64_t declaredThreads;
+@property uint64_t unavailableDispatches;
 @property uint64_t directIndices;
 @property uint64_t calls;
 @property uint64_t indirectCalls;
@@ -53,6 +60,7 @@
 @property NSMutableArray<OutshineProfilePass *> *passes;
 @property NSMutableDictionary<NSValue *, OutshineProfileBuffer *> *buffers;
 @property NSMutableArray<OutshineProfileIndirect *> *indirect;
+@property NSUInteger sampleCount;
 @property uint64_t serial;
 @property uint64_t omittedPasses;
 @end
@@ -84,6 +92,7 @@
            vertexCount:(NSUInteger)count
          instanceCount:(NSUInteger)instances
           baseInstance:(NSUInteger)firstInstance;
+- (void)dispatchThreadgroups:(MTLSize)groups threadsPerThreadgroup:(MTLSize)threads;
 @end
 
 namespace {
@@ -92,7 +101,9 @@ std::atomic<uint64_t> serial{0};
 id<MTLCounterSet> counterSet;
 IMP renderOriginal, commitOriginal, pipelineOriginal, indexedOriginal, indirectOriginal,
     drawOriginal;
+IMP computeOriginal, computePipelineOriginal, dispatchOriginal;
 bool encoderPatched = false;
+bool computeEncoderPatched = false;
 
 struct IndirectArguments {
   uint32_t count, instances, first;
@@ -189,7 +200,7 @@ IMP Patch(Class cls, SEL sel) {
   return Patch(cls, sel, method_getImplementation(replacement));
 }
 
-id<MTLRenderCommandEncoder> Render(id self, SEL sel, MTLRenderPassDescriptor *descriptor) {
+OutshineProfileCommand *Trace(id self) {
   OutshineProfileCommand *trace = objc_getAssociatedObject(self, &traceKey);
   if (trace == nullptr) {
     trace = [OutshineProfileCommand new];
@@ -203,6 +214,11 @@ id<MTLRenderCommandEncoder> Render(id self, SEL sel, MTLRenderPassDescriptor *de
         [((id<MTLCommandBuffer>)self).device newCounterSampleBufferWithDescriptor:d error:&error];
     objc_setAssociatedObject(self, &traceKey, trace, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   }
+  return trace;
+}
+
+id<MTLRenderCommandEncoder> Render(id self, SEL sel, MTLRenderPassDescriptor *descriptor) {
+  OutshineProfileCommand *const trace = Trace(self);
   const NSUInteger ordinal = trace.passes.count;
   if (ordinal >= 64) {
     ++trace.omittedPasses;
@@ -216,15 +232,17 @@ id<MTLRenderCommandEncoder> Render(id self, SEL sel, MTLRenderPassDescriptor *de
     return encoder;
   }
   OutshineProfilePass *const pass = [OutshineProfilePass new];
+  pass.sampleOffset = trace.sampleCount;
+  trace.sampleCount += 4;
   [trace.passes addObject:pass];
   if ((trace.samples != nullptr) && ordinal < 64) {
     descriptor = [descriptor copy];
     const auto s = descriptor.sampleBufferAttachments[0];
     s.sampleBuffer = trace.samples;
-    s.startOfVertexSampleIndex = ordinal * 4;
-    s.endOfVertexSampleIndex = ordinal * 4 + 1;
-    s.startOfFragmentSampleIndex = ordinal * 4 + 2;
-    s.endOfFragmentSampleIndex = ordinal * 4 + 3;
+    s.startOfVertexSampleIndex = pass.sampleOffset;
+    s.endOfVertexSampleIndex = pass.sampleOffset + 1;
+    s.startOfFragmentSampleIndex = pass.sampleOffset + 2;
+    s.endOfFragmentSampleIndex = pass.sampleOffset + 3;
   }
   const auto encoder =
       reinterpret_cast<id<MTLRenderCommandEncoder> (*)(id, SEL, MTLRenderPassDescriptor *)>(
@@ -250,6 +268,82 @@ id<MTLRenderCommandEncoder> Render(id self, SEL sel, MTLRenderPassDescriptor *de
   return encoder;
 }
 
+void ComputePipeline(id self, SEL sel, id<MTLComputePipelineState> state) {
+  OutshineProfilePass *const pass = objc_getAssociatedObject(self, &passKey);
+  if (pass != nullptr) {
+    pass.currentPipeline = state.label != nil ? state.label : @"unnamed";
+    [pass.pipelines addObject:pass.currentPipeline];
+  }
+  reinterpret_cast<void (*)(id, SEL, id<MTLComputePipelineState>)>(computePipelineOriginal)(
+      self, sel, state);
+}
+
+std::optional<uint64_t> Product(MTLSize size) {
+  uint64_t count = 1;
+  for (const auto dimension : {size.width, size.height, size.depth}) {
+    if (dimension == 0 || dimension > std::numeric_limits<uint64_t>::max() / count) {
+      return std::nullopt;
+    }
+    count *= dimension;
+  }
+  return count;
+}
+
+struct DispatchDimensions {
+  MTLSize Groups, Threads;
+};
+
+void RecordDispatch(OutshineProfilePass *pass, DispatchDimensions shape) {
+  if (pass == nullptr) { return; }
+  ++pass.calls;
+  const auto groupCount = Product(shape.Groups);
+  const auto localCount = Product(shape.Threads);
+  constexpr auto maximum = std::numeric_limits<uint64_t>::max();
+  if (!groupCount || !localCount || *localCount > maximum / *groupCount ||
+      pass.groups > maximum - *groupCount) {
+    ++pass.unavailableDispatches;
+    return;
+  }
+  const uint64_t declared = *groupCount * *localCount;
+  if (pass.declaredThreads > maximum - declared) {
+    ++pass.unavailableDispatches;
+    return;
+  }
+  pass.groups += *groupCount;
+  pass.declaredThreads += declared;
+  pass.work[pass.currentPipeline] =
+      @(pass.work[pass.currentPipeline].unsignedLongLongValue + declared);
+}
+
+id<MTLComputeCommandEncoder> Compute(id self, SEL sel) {
+  OutshineProfileCommand *const trace = Trace(self);
+  if (trace.samples == nil || trace.passes.count >= 64) {
+    ++trace.omittedPasses;
+    return reinterpret_cast<id<MTLComputeCommandEncoder> (*)(id, SEL)>(computeOriginal)(self, sel);
+  }
+  OutshineProfilePass *const pass = [OutshineProfilePass new];
+  pass.compute = YES;
+  pass.sampleOffset = trace.sampleCount;
+  trace.sampleCount += 2;
+  [trace.passes addObject:pass];
+  const auto descriptor = [MTLComputePassDescriptor new];
+  const auto samples = descriptor.sampleBufferAttachments[0];
+  samples.sampleBuffer = trace.samples;
+  samples.startOfEncoderSampleIndex = pass.sampleOffset;
+  samples.endOfEncoderSampleIndex = pass.sampleOffset + 1;
+  const auto encoder = [(id<MTLCommandBuffer>)self computeCommandEncoderWithDescriptor:descriptor];
+  if (encoder != nil && !computeEncoderPatched) {
+    const Class cls = object_getClass(encoder);
+    computePipelineOriginal = Patch(cls, @selector(setComputePipelineState:), (IMP)ComputePipeline);
+    dispatchOriginal = Patch(cls, @selector(dispatchThreadgroups:threadsPerThreadgroup:));
+    computeEncoderPatched = true;
+  }
+  if (encoder != nil) {
+    objc_setAssociatedObject(encoder, &passKey, pass, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  }
+  return encoder;
+}
+
 void DecodeIndirect(OutshineProfileCommand *trace) {
   for (OutshineProfileIndirect *call in trace.indirect) {
     if (call.buffer.readback == nil) {
@@ -270,9 +364,10 @@ void DecodeIndirect(OutshineProfileCommand *trace) {
 void PrintPass(OutshineProfileCommand *trace, NSData *data, NSUInteger at) {
   OutshineProfilePass *const pass = trace.passes[at];
   std::array<MTLCounterResultTimestamp, 4> timestamps{};
-  if (data.length >= (at + 1) * sizeof(timestamps)) {
+  if (data.length >= (pass.sampleOffset + timestamps.size()) * sizeof(MTLCounterResultTimestamp)) {
     std::memcpy(timestamps.data(),
-                static_cast<const char *>(data.bytes) + at * sizeof(timestamps),
+                static_cast<const char *>(data.bytes) +
+                    pass.sampleOffset * sizeof(MTLCounterResultTimestamp),
                 sizeof(timestamps));
   }
   bool valid = true;
@@ -313,14 +408,58 @@ void PrintPass(OutshineProfileCommand *trace, NSData *data, NSUInteger at) {
   }
 }
 
+void PrintCompute(OutshineProfileCommand *trace, NSData *data, NSUInteger at) {
+  OutshineProfilePass *const pass = trace.passes[at];
+  std::array<MTLCounterResultTimestamp, 2> times{};
+  if (data.length >= (pass.sampleOffset + times.size()) * sizeof(MTLCounterResultTimestamp)) {
+    std::memcpy(times.data(),
+                static_cast<const char *>(data.bytes) +
+                    pass.sampleOffset * sizeof(MTLCounterResultTimestamp),
+                sizeof(times));
+  }
+  const bool valid = times[0].timestamp > 0 && times[0].timestamp != MTLCounterErrorValue &&
+                     times[1].timestamp != MTLCounterErrorValue &&
+                     times[1].timestamp >= times[0].timestamp;
+  NSString *const labels = [[[pass.pipelines allObjects]
+      sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@","];
+  std::println(stderr,
+               "METAL_COMPUTE serial={} pass={} valid={:d} duration_ns={} start_ns={} end_ns={} "
+               "dispatches={} groups={} declared_threads={} unavailable_dispatches={} pipeline={}",
+               trace.serial,
+               at,
+               static_cast<int>(valid),
+               valid ? times[1].timestamp - times[0].timestamp : 0,
+               valid ? times[0].timestamp : 0,
+               valid ? times[1].timestamp : 0,
+               pass.calls,
+               pass.groups,
+               pass.declaredThreads,
+               pass.unavailableDispatches,
+               labels.UTF8String);
+  for (NSString *key in pass.work) {
+    std::println(stderr,
+                 "METAL_COMPUTE_WORK serial={} pass={} declared_threads={} pipeline={}",
+                 trace.serial,
+                 at,
+                 pass.work[key].unsignedLongLongValue,
+                 key.UTF8String);
+  }
+}
+
 void Complete(OutshineProfileCommand *trace) {
   if (trace.omittedPasses > 0) {
     std::println(
         stderr, "METAL_TRUNCATED serial={} omitted_passes={}", trace.serial, trace.omittedPasses);
   }
   DecodeIndirect(trace);
-  const auto data = [trace.samples resolveCounterRange:NSMakeRange(0, trace.passes.count * 4)];
-  for (NSUInteger at = 0; at < trace.passes.count; ++at) { PrintPass(trace, data, at); }
+  const auto data = [trace.samples resolveCounterRange:NSMakeRange(0, trace.sampleCount)];
+  for (NSUInteger at = 0; at < trace.passes.count; ++at) {
+    if (trace.passes[at].compute) {
+      PrintCompute(trace, data, at);
+    } else {
+      PrintPass(trace, data, at);
+    }
+  }
 }
 
 void CopyArguments(id<MTLCommandBuffer> commands, OutshineProfileCommand *trace) {
@@ -381,12 +520,19 @@ __attribute__((constructor)) void Install() {
     const Class cls = object_getClass(commands);
     renderOriginal = Patch(cls, @selector(renderCommandEncoderWithDescriptor:), (IMP)Render);
     commitOriginal = Patch(cls, @selector(commit), (IMP)Commit);
+    computeOriginal = Patch(cls, @selector(computeCommandEncoder), (IMP)Compute);
     std::println(stderr, "METAL_PASS installed");
   }
 }
 }
 
 @implementation OutshineProfileHooks
+
+- (void)dispatchThreadgroups:(MTLSize)groups threadsPerThreadgroup:(MTLSize)threads {
+  RecordDispatch(objc_getAssociatedObject(self, &passKey), {.Groups = groups, .Threads = threads});
+  reinterpret_cast<void (*)(id, SEL, MTLSize, MTLSize)>(dispatchOriginal)(
+      self, _cmd, groups, threads);
+}
 
 - (void)drawIndexedPrimitives:(MTLPrimitiveType)type
                    indexCount:(NSUInteger)count
