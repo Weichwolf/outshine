@@ -6,10 +6,9 @@ import resource
 from pathlib import Path
 
 from camera_height_inputs import digest
-from outshine_ref.geometry import SurfaceSampler
 from stair_consumer_buildings import buildings
 from stair_consumer_experiment import save, save_meshes
-from stair_consumer_inputs import inputs
+from stair_consumer_inputs import candidate_inputs as data_for
 from stair_consumer_verify import check_bodies, meshes
 from stair_local_replay import load_chain
 from stair_occupancy_candidate_reference import PartitionReference
@@ -17,25 +16,7 @@ from stair_occupancy_candidate_reuse import retained
 from stair_occupancy_candidate_sources import from_state
 from stair_occupancy_candidates import CandidateQuery
 from stair_occupancy_inputs import actual_sources
-from stair_patch_inputs import whole
 from stair_terrain_experiment import frozen
-
-
-def data_for(baseline, state):
-    data = inputs(baseline)
-    del data["reservations"], data["report"]
-    view, assets, supports, contacts, _manifest = state
-    terrain = whole(view).mesh
-    data.update(
-        terrain=terrain,
-        terrain_patches=view,
-        sampler=SurfaceSampler(terrain),
-        assets=assets,
-        supports=supports,
-        contacts=contacts,
-        frame=view.patches[0].frame,
-    )
-    return data
 
 
 def generate(args, state, data, sources):
