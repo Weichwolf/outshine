@@ -80,8 +80,10 @@ cases enumerate their complete original source sets and do not need this bound.
 1. **Integer and split domain.** Signed128m position cells lie in[-2^30,2^30),
    so source-minus-origin fits int32. A valid32m lookup key constrains the origin
    position cell to[-2^29,2^29); multiplication by4 and its subtraction from the
-   lookup key are exact, giving a carry in0..3. Rounded local128 remains valid:
-   local-minus32*carry is in[0,32]. The implementation checks key addition before
+   lookup key are exact, normally giving a carry in0..3. FP64 underflow at a
+   zero-equivalent origin may also select carry-1 or4; the packed local is then
+   the exact0/128 endpoint. In every case rounded local-minus32*carry remains
+   in[0,32]. The implementation checks key addition before
    forming the final keys, and falls back when more than two cells per axis are
    needed. The accepted hash query therefore has at most eight cells.
 2. **Query enclosure.** Correctly rounded basic operations may choose either
@@ -166,7 +168,7 @@ It saves actual/reference linear floats in an explicit external directory.
 The optional `motion` mode uses two independent synchronized renderer histories.
 It compares every nonzero declared source against the uniform renderer while
 retaining the original zero-intensity sources only on the spatial side. Thirty-six
-camera states per opaque/alpha/glass material include two complete orbits,
+camera states per opaque/alpha/glass material include two16-pose camera rings,
 perspective/orthographic switching, signed32/128m boundaries, rounded local128,
 colour/kind/range/position changes and18->16->18 source transitions. Camera binding
 uses `RuntimeScene::Advance`; it must not insert an uncounted `Draw` before the
@@ -175,9 +177,27 @@ one native frame per pose, so the same Halton history is exercised on both sides
 The existing per-pixel2% and0.5% RMS limits and nonzero-energy requirement remain.
 The scalar stage-duration counter is not a temporal-pass counter: temporal work
 is executed within the display path and its catalogue executor is null.
+Displayed RGBA8 readbacks are saved and their absolute byte differences logged
+separately. A close displayed image does not turn a failed temporal HDR comparison
+into a pass; current residual cases remain in the experiment exit status.
 The original public `local_light_limit.cpp` remains the separate Engine API probe.
 
 ## Reproduction and open acceptance
+
+The bounds regression additionally takes the actual compiled shader:
+
+```sh
+python3 test/experiments/render/native_light_bounds.py \
+  --binary /tmp/native-light-cells \
+  --shader build/shaders/groundLitSpatial-000.frag.spv \
+  --output /tmp/outshine-light-bounds
+/tmp/native-light-scene /tmp/outshine-light-motion motion
+```
+
+Create the motion output directory beforehand; the bounds command creates its
+explicit external directory and refuses to overwrite one. The previous shader
+artifact must fail the no-division check even when its native driver happens to
+return an exact quotient. A motion run reports both HDR and displayed errors.
 
 Use the normal declared Render compiler flags for the producer/module test, and
 the declared Engine flags and matching native archive/shader package for the
