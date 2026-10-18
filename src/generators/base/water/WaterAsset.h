@@ -98,10 +98,16 @@ public:
   [[nodiscard]] std::optional<double> LevelAt(LongitudeLatitude at) const noexcept;
   [[nodiscard]] const SurfaceGeometry *PreparedSurfaces() const noexcept;
   [[nodiscard]] bool SurfacesReady() const noexcept;
+
+  [[nodiscard]] bool SharesInputsWith(const WaterAsset &other) const noexcept {
+    return Data_ == other.Data_;
+  }
+
   [[nodiscard]] std::expected<WaterAsset, std::string> WithSurfaces(SurfaceGeometry geometry) const;
   [[nodiscard]] bool Complete() const noexcept;
   [[nodiscard]] size_t IngestedTiles() const noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
+  [[nodiscard]] size_t PreparedSurfaceBytes() const noexcept;
   [[nodiscard]] long NoGroundCount() const noexcept;
   [[nodiscard]] long OutlierCount() const noexcept;
   [[nodiscard]] long InvalidBodyCount() const noexcept;
