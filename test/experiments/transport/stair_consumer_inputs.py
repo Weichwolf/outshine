@@ -46,6 +46,7 @@ def inputs(products):
         "layers": layers,
         "project": project,
         "terrain": terrain,
+        "terrain_patches": view,
         "sampler": SurfaceSampler(terrain),
         "reservations": rows,
         "frame": view.patches[0].frame,

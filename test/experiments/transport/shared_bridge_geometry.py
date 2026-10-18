@@ -4,12 +4,17 @@ import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import conform_triangles
+from stair_axis_detours import checked_axis
 from stair_seed_precision import model as seed_model
 from transport_vertex_pool import welded_vertices
 
 
 def corridor(source):
-    xy = np.asarray(source.get("surface_axis_xy_m", source["xy"]), float)
+    xy = (
+        checked_axis(source)
+        if "source_axis_detour" in source
+        else np.asarray(source.get("surface_axis_xy_m", source["xy"]), float)
+    )
     width = source["width_m"]
     if (
         xy.ndim != 2
@@ -24,7 +29,7 @@ def corridor(source):
     shape = shapely.LineString(xy).buffer(
         width / 2, cap_style="flat", join_style="mitre", mitre_limit=2
     )
-    if "surface_axis_xy_m" in source:
+    if "surface_axis_xy_m" in source and "source_axis_detour" not in source:
         original = corridor({"xy": source["xy"], "width_m": width})
         shape = shape.union(original)
     if shape.is_empty or not shape.is_valid:

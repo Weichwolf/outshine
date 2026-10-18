@@ -39,7 +39,45 @@ def crown_points(height, spread, bole, count, seed):
     return centre + directions * radii
 
 
-def grow(points, height, bole, step, influence, kill, method="tree", budget=None):
+def initial_skeleton(height, bole, step, budget, seed):
+    if seed is None:
+        count = min(budget.nodes, max(2, int(np.ceil(height * bole / step)) + 1))
+        source = np.zeros((count, 3))
+        source[:, 2] = np.linspace(0, height * bole, count)
+        links = np.arange(-1, count - 1, dtype=np.int32)
+    else:
+        source, links = (np.asarray(a) for a in seed)
+        if links.ndim != 1 or not 2 <= len(links) <= budget.nodes:
+            raise ValueError("initial skeleton must fit node capacity before growth")
+        validate_parents(links)
+        if (
+            source.shape != (len(links), 3)
+            or source.dtype.kind not in "fiu"
+            or not np.isfinite(source).all()
+            or np.any(abs(source) > 100000)
+            or np.any(np.linalg.norm(source[1:] - source[links[1:]], axis=1) <= 1e-8)
+        ):
+            raise ValueError("finite bounded noncollapsed initial skeleton required")
+        count = len(links)
+    positions = np.zeros((budget.nodes, 3))
+    positions[:count] = source
+    parents = np.full(budget.nodes, -1, dtype=np.int32)
+    parents[:count] = links
+    return positions, parents, count
+
+
+def grow(
+    points,
+    height,
+    bole,
+    step,
+    influence,
+    kill,
+    method="tree",
+    budget=None,
+    *,
+    seed=None,
+):
     if budget is None:
         budget = GrowthBudget()
     if not all(np.isfinite(v) and v > 0 for v in (height, step, influence, kill)):
@@ -51,13 +89,9 @@ def grow(points, height, bole, step, influence, kill, method="tree", budget=None
     if method not in ("tree", "brute"):
         raise ValueError("unknown nearest-node method")
     nearest = tree_nearest if method == "tree" else brute_nearest
-    trunk_count = min(budget.nodes, max(2, int(np.ceil(height * bole / step)) + 1))
-    positions = np.zeros((budget.nodes, 3))
-    positions[:trunk_count, 2] = np.linspace(0, height * bole, trunk_count)
-    parents = np.full(budget.nodes, -1, dtype=np.int32)
-    parents[1:trunk_count] = np.arange(trunk_count - 1)
+    positions, parents, count = initial_skeleton(height, bole, step, budget, seed)
     active = np.array(points, dtype=np.float64, copy=True)
-    count, queries, consumed, rejected = trunk_count, 0, 0, 0
+    queries, consumed, rejected = 0, 0, 0
     reason = "iteration_budget"
     for iteration in range(budget.iterations):
         owner, distance = nearest(active, positions[:count], influence)

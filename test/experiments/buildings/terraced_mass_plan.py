@@ -5,11 +5,11 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
-
 from building_layout import AGENT_RADIUS_M, WALL_M, rectangle
 from facade_axes import layout
 from facade_entrances import cell_for, positions_for
 from outshine_ref.buildings.interiors.entrances import entrance
+from outshine_ref.buildings.modelling.scope import scalar
 from provider_contract import attributes, number, seed_for
 from recipes import choose
 from terraced_mass_core import Core, reserve
@@ -65,7 +65,7 @@ def floors(row, parameters):
     supplied = next(
         (
             row["properties"][k]
-            for k in ("building:levels", "levels")
+            for k in ("building:levels", "building_levels", "levels")
             if k in row["properties"]
         ),
         None,
@@ -147,7 +147,7 @@ def valid_profiles(values):
         previous = current
 
 
-def plan(row, kind):
+def plan(row, kind, *, roof_height_m=0.0):
     polygon = row["polygon"]
     if not isinstance(row.get("id"), str) or not row["id"]:
         raise ValueError("Mass requires a stable source identifier")
@@ -165,7 +165,11 @@ def plan(row, kind):
     if parameters["hide3d"] or parameters["minHeight"] != 0:
         raise ValueError("Mass source must be a visible ground-supported building")
     count, supplied, recipe = floors(row, parameters)
-    rise = parameters["bodyHeight"] / count
+    roof_height_m = scalar(roof_height_m)
+    rise = (parameters["bodyHeight"] - roof_height_m) / count
+    if roof_height_m < 0 or rise < 2.64:
+        raise ValueError("Roof reserve leaves no safe supplied/derived storeys")
+    body_top = parameters["buildingHeight"] - roof_height_m
     door, entry = entrance_for(row, parameters, recipe, rise)
     rejected = []
     for number_, (profiles, choice) in enumerate(
@@ -185,7 +189,7 @@ def plan(row, kind):
                 Storey(
                     row["id"] + f"/storey/{i}",
                     i * rise,
-                    parameters["buildingHeight"] if i == count - 1 else (i + 1) * rise,
+                    body_top if i == count - 1 else (i + 1) * rise,
                     current.wkb,
                     (values[i - 1].difference(current) if i else shapely.Polygon()).wkb,
                 )
@@ -196,7 +200,7 @@ def plan(row, kind):
                 kind,
                 polygon.wkb,
                 parameters["minHeight"],
-                parameters["buildingHeight"],
+                body_top,
                 storeys,
                 core,
                 entry,

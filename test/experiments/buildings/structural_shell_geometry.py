@@ -25,40 +25,69 @@ def native(mesh,roots=None,rows=None):
     return solid
 
 
-def mesh_section(mesh,roots,height):
-    points=mesh['vertices'];segments={};coordinates={}
-    for triangle in mesh['faces']:
-        xyz=points[triangle];distance=xyz[:,2]-height
-        if np.all(distance>=0) or np.all(distance<=0):continue
-        crossings=[]
-        for a,b in ((0,1),(1,2),(2,0)):
-            if distance[a]==0:
-                key=('vertex',int(roots[triangle[a]]));coordinates[key]=xyz[a,:2];crossings.append(key)
-            elif distance[a]*distance[b]<0:
-                first,last=sorted((int(triangle[a]),int(triangle[b])),key=lambda i:int(roots[i]))
-                key=('edge',*sorted((int(roots[first]),int(roots[last]))))
-                p,q=points[first],points[last];coordinates[key]=(p+(q-p)*(height-p[2])/(q[2]-p[2]))[:2];crossings.append(key)
-        crossings=list(dict.fromkeys(crossings))
-        if len(crossings)!=2:raise ValueError('Structural section needs two stable edge intersections')
-        a,b=crossings;normal=np.cross(xyz[1]-xyz[0],xyz[2]-xyz[0]);tangent=np.array([-normal[1],normal[0]])
-        if (coordinates[b]-coordinates[a])@tangent<0:a,b=b,a
-        if a in segments:raise ValueError('Structural section has a branching directed boundary')
-        segments[a]=b
-    polygons=[];signs=[]
+def mesh_section(mesh, roots, height):
+    points, segments, coordinates = mesh["vertices"], {}, {}
+    for triangle in mesh["faces"]:
+        xyz = points[triangle]
+        distance = xyz[:, 2] - height
+        if np.all(distance >= 0) or np.all(distance <= 0):
+            continue
+        crossings, entering = [], None
+        for a, b in ((0, 1), (1, 2), (2, 0)):
+            if distance[a] == 0:
+                key = ("vertex", int(roots[triangle[a]]))
+                coordinates[key] = xyz[a, :2]
+                crossings.append(key)
+                if distance[(a - 1) % 3] > 0:
+                    entering = key
+            elif distance[a] * distance[b] < 0:
+                first, last = sorted(
+                    (int(triangle[a]), int(triangle[b])), key=lambda i: int(roots[i])
+                )
+                key = ("edge", *sorted((int(roots[first]), int(roots[last]))))
+                p, q = points[first], points[last]
+                coordinates[key] = (p + (q - p) * (height - p[2]) / (q[2] - p[2]))[:2]
+                crossings.append(key)
+                if distance[a] > 0:
+                    entering = key
+        crossings = list(dict.fromkeys(crossings))
+        if len(crossings) != 2:
+            raise ValueError("Structural section needs two stable edge intersections")
+        a, b = crossings
+        if entering is None:
+            raise ValueError("Structural section has no oriented descending edge")
+        if b == entering:
+            a, b = b, a
+        if a in segments:
+            raise ValueError("Structural section has a branching directed boundary")
+        segments[a] = b
+    polygons, signs = [], []
     while segments:
-        first=next(iter(segments));current=first;ring=[]
+        first = next(iter(segments))
+        current, ring = first, []
         while True:
             ring.append(coordinates[current])
-            if current not in segments:raise ValueError('Structural section has an open native edge chain')
-            current=segments.pop(current)
-            if current==first:break
-        xy=np.asarray(ring);local=xy-xy[0];area=np.sum(local[:,0]*np.roll(local[:,1],-1)-local[:,1]*np.roll(local[:,0],-1))/2
-        polygon=shapely.Polygon(xy)
-        if not polygon.is_valid:raise ValueError('Structural section recovered an invalid native ring')
-        polygons.append(polygon);signs.append(area>0)
-    result=shapely.Polygon()
-    for polygon,positive in sorted(zip(polygons,signs,strict=True),key=lambda item:-item[0].area):
-        result=result.union(polygon) if positive else result.difference(polygon)
+            if current not in segments:
+                raise ValueError("Structural section has an open native edge chain")
+            current = segments.pop(current)
+            if current == first:
+                break
+        xy = np.asarray(ring)
+        local = xy - xy[0]
+        area = np.sum(
+            local[:, 0] * np.roll(local[:, 1], -1)
+            - local[:, 1] * np.roll(local[:, 0], -1)
+        ) / 2
+        polygon = shapely.Polygon(xy)
+        if not polygon.is_valid:
+            raise ValueError("Structural section recovered an invalid native ring")
+        polygons.append(polygon)
+        signs.append(area > 0)
+    result = shapely.Polygon()
+    for polygon, positive in sorted(
+        zip(polygons, signs, strict=True), key=lambda item: -item[0].area
+    ):
+        result = result.union(polygon) if positive else result.difference(polygon)
     return result
 
 

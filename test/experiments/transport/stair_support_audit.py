@@ -93,14 +93,19 @@ def round_error(mesh):
 
 
 def contact_error(first, second):
-    values, checks = [], 0
-    for low, high in ((first, second), (second, first)):
-        note = vertical_clearance(low, high, max_faces=4096, max_pairs=65536, seconds=2)
-        if not note["valid"]:
-            raise ValueError("pier whole contact unresolved: " + note["reason"])
-        values.append(abs(note["minimum_clearance_m"]))
-        checks += note["checks"]
-    return max(values), checks
+    note = vertical_clearance(
+        first,
+        second,
+        max_faces=4096,
+        max_pairs=65536,
+        seconds=2,
+        include_maximum=True,
+    )
+    if not note["valid"]:
+        raise ValueError("pier whole contact unresolved: " + note["reason"])
+    return max(
+        abs(note["minimum_clearance_m"]), abs(note["maximum_clearance_m"])
+    ), note["checks"]
 
 
 class Reference(ContactSurface):

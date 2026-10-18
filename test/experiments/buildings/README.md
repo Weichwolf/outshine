@@ -1180,5 +1180,74 @@ and actual stair/entry components before detailed room fitting, are prototyped i
 roundtrips and access controls accompany explicit cutaway renders. The new path
 now has a physical facade layer in [terraced_facades.md](terraced_facades.md):
 aligned actual windows, frames, bands/piers and complete ground-arrival controls.
-Roof/terrace programmes, direct far/selected near products and complete-city
-selection remain open; existing functional products retain their own checks.
+The logical plan now precedes expensive physical expansion; a direct, batched
+exterior and one retained lazy physical product are compared in
+[terraced_facade_products.md](terraced_facade_products.md). Roof/terrace programmes,
+selected near components, general LOD/cache admission and complete-city selection
+remain open; existing functional products retain their own checks.
+
+Protected setback decks with level actual portals and continuous core-to-exterior
+access are documented in [terraced_terraces.md](terraced_terraces.md) (#618).
+Closed guards/copings are shared by direct/near products; unserved roof ledges
+remain explicit. Highest-roof access, broader whole-source architecture selection
+and general runtime budgets remain open.
+
+Plan work before broad source trials is reduced with exact product replay in
+[terraced_source_demand.md](terraced_source_demand.md) (#618). A complete988-source
+census protects prior functional owners and identifies direct candidates; their
+physical/function and whole-city products are separate subsequent studies.
+
+The complete proposed cohort now has a separate strict
+[physical admission study](terraced_admission.md), with preserved actual source
+failures, independent shell sweeps, full component checks and continuous declared
+ground/terrace routes. Failed new assets retain their prior source route; this is
+separate from whole-city imagery and native/controller admission.
+
+The [ground-approach correction](terraced_ground.md) uses the same conservative
+actor radius at courtyard walls and stair obstacles. Original blocked routes
+remain negative controls; an additional valid stair guards against unnecessary
+changes to its orientation. The report owns the complete cohort replay and scope.
+
+The [complete terraced city comparison](terraced_city.md) applies the successful
+new candidates while preserving existing owners and rejected fallbacks. Actual
+normal/full-near1920×1080 images, source completeness, precise index-width replay
+and scoped costs are checked locally; general runtime budgets and architectural
+finish/diversity remain open.
+
+The [coupled highest-roof study](terraced_crowns.md) reserves source height before
+storeys/windows and composes vertical parapets, copings and optional technical
+blocks. Direct roof skins and independent roof/body demand avoid expanding a
+distant body's complete near asset for a visible roof. The report separates
+all71 roof-component checks from the three changed-body controls and records
+actual paired images, full/far/mixed costs and remaining functional/visual gaps.
+
+The [complete coupled city follow-up](terraced_crowned_city.md) checks all71
+changed bodies and their full draw products before whole-window composition.
+It retains a real null-topology counterexample, an exact cancellation guard and
+oriented contour recovery. The standalone contact probe reproduces its paired
+models without the whole source window. Current whole-city detail selection,
+actual1080p images and scoped cost/quality limits are recorded separately.
+
+The [optional thin-glass study](window_glass.md) exposes the existing real room
+depth through closed window panes, with an independent Mitsuba scalar-model
+check and explicit near/front/grazing/inside/whole camera controls. Default
+materials/daylight remain; roughness, screen refraction and fully transparent
+geometry controls distinguish the approximation from the original material.
+
+The [open-floor night follow-up](open_floor_night.md) adds stable ceiling-light
+descriptors and separate floor states to the unchanged source model. Actual
+near/whole night controls retain all lights and full shadow capacity; alpha
+ordering, screen-slab distortion and sampling costs remain explicit
+counterexamples. Common daylight/source glass stay the defaults.
+
+The [exterior shade study](window_shades.md) adds two metric window hood
+programmes on the same stable openings, with early component selection,
+independent closed-volume/headroom/corner controls and equivalent bar/profile
+costs. Eighteen actual near/opposite/whole images show stronger facade depth;
+full architecture diversity and native visibility/shadow integration remain open.
+
+The [ribbon/paired-bay study](bay_facades.md) groups existing openings across
+whole rows or column/storey pairs on the actual stepped wall domains. Closed
+source/route controls and18 actual near/opposite/whole images qualify the first
+component delivery; direct-front costs compare byte-exact equivalent output.
+Complete source-window application and wider architectural composition remain #741.

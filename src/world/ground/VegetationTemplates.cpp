@@ -59,6 +59,27 @@ std::expected<float, std::string> ReadRuleMagnitude(const Json::Ref &source, con
   return static_cast<float>(value);
 }
 
+std::expected<float, std::string> ReadCanopyWeight(const Json::Ref &source,
+                                                   const VegetationTemplates::Row &row) {
+  const auto ground = source["ground"];
+  const auto grass = source["grass"];
+  const auto closure = ReadRuleMagnitude(ground["swardClosure"], "ground.swardClosure");
+  if (!closure) { return std::unexpected(closure.error()); }
+  if (ground["swardClosure"].Num() > 1.0) {
+    return std::unexpected("ground.swardClosure requires a fraction within [0,1]");
+  }
+  if (*closure == 0.0f) { return 0.0f; }
+  for (const auto *name : {"perM2", "heightM", "heightJitter", "widthM", "dryFraction"}) {
+    const auto value = ReadRuleMagnitude(grass[name], name);
+    if (!value) { return std::unexpected(value.error()); }
+  }
+  if (grass["heightJitter"].Num() > 1.0 || grass["dryFraction"].Num() > 1.0) {
+    return std::unexpected("canopy jitter and dryness require fractions within [0,1]");
+  }
+  const bool supported = row.Grass[3] > 0.0f && row.Dry[3] > 0.0f && row.Param[1] > 0.0f;
+  return supported ? *closure : 0.0f;
+}
+
 std::expected<bool, std::string> ReadRuleFlag(const Json::Ref &source, const char *name) {
   if (!source.Valid()) { return false; }
   if (source.GetKind() == Json::Kind::Bool) { return source.Bool(); }
@@ -258,6 +279,8 @@ bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
   row.Edge[0] = static_cast<float>(ground["edgeReachM"].Num(kEdgeReachUnsaidM));
   row.Edge[1] = static_cast<float>(ground["edgeConstructed"].Num(0.0));
   row.Edge[3] = gm.SlopeExposesRock ? gm.SlopeMaxDeg : kNoRockSlopeDeg;
+  row.GroundBase = row.Ground;
+  row.LitterBase = row.Litter;
   Friction_.push_back(gm.FrictionFactor);
   return true;
 }
@@ -295,12 +318,17 @@ bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
     row.Param[3] = static_cast<float>(gr["dryFraction"].Num(kCoverUnsaid));
     row.Edge[2] = static_cast<float>(t["trees"]["perM2"].Num(0.0));
 
-    const float closure = static_cast<float>(g["swardClosure"].Num(0.0));
-    if (closure > 0.0f) {
+    const auto weight = ReadCanopyWeight(t, row);
+    if (!weight) {
+      Error_ = weight.error();
+      return false;
+    }
+    row.CanopyWeight = *weight;
+    if (row.CanopyWeight > 0.0f) {
       for (int c = 0; c < 3; c++) {
         const float sward = row.Grass[c] + (row.Dry[c] - row.Grass[c]) * row.Param[3];
-        row.Ground[c] += (sward - row.Ground[c]) * closure;
-        row.Litter[c] += (sward - row.Litter[c]) * closure;
+        row.Ground[c] += (sward - row.Ground[c]) * row.CanopyWeight;
+        row.Litter[c] += (sward - row.Litter[c]) * row.CanopyWeight;
       }
     }
     Table_.push_back(row);
