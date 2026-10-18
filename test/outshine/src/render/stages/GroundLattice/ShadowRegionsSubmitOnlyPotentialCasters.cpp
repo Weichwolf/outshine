@@ -7,6 +7,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <cstddef>
 #include <expected>
 #include <memory>
 #include <string>
@@ -18,6 +19,7 @@ using namespace outshine::Render;
 using namespace outshine::Render::Native;
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
+constexpr float kWorldShiftM = 1000000;
 
 struct Recorded {
   uint32_t First = 0;
@@ -44,9 +46,11 @@ struct CountingCommands final : NativeCommandsProxy {
 };
 
 GroundTile Tile(float east) {
+  constexpr float halfWidth = 0.25f;
   GroundTile tile;
   tile.Instance.Row[12] = east;
-  tile.Instance.Corners = {{-0.25f, 0.25f, 0.25f, 0.25f, -0.25f, -0.25f, 0.25f, -0.25f}};
+  tile.Instance.Corners = {
+      {-halfWidth, halfWidth, halfWidth, halfWidth, -halfWidth, -halfWidth, halfWidth, -halfWidth}};
   tile.LowM = -0.5f;
   tile.HighM = 0.5f;
   return tile;
@@ -68,30 +72,37 @@ void CheckRuns(const CountingCommands &commands) {
 }
 
 void RoundedCentre(Device &device, GroundLattice &ground) {
+  constexpr float halfWidth = 0.0001f;
+  constexpr float height = 0.02f;
   GroundTile tile;
-  tile.Instance.Row = {{0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1000000, 0, 0, 1}};
+  tile.Instance.Row = {{0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, kWorldShiftM, 0, 0, 1}};
   tile.Instance.Corners = {
-      {-0.0001f, -0.0001f, 0.0001f, -0.0001f, -0.0001f, 0.0001f, 0.0001f, 0.0001f}};
-  tile.LowM = tile.HighM = 0.02f;
+      {-halfWidth, -halfWidth, halfWidth, -halfWidth, -halfWidth, halfWidth, halfWidth, halfWidth}};
+  tile.LowM = tile.HighM = height;
   Require(
       RetryOffline([&] { return ground.SetInstances({&tile, 1}, {}); }, std::chrono::seconds(5)));
-  CountingCommands commands(Require(device.Begin()));
+  CountingCommands commands(
+      Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5))));
   StageSubmission submission;
   const PassRecording into{.Commands = &commands, .Submission = submission, .Area = {}, .Clip = {}};
   const Mat4f narrow{{1000, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -20, 0, 0, 1}};
-  Require(ground.Cast(into, narrow, {{-1000000, 0, 0, 0}}, {}));
+  Require(ground.Cast(into, narrow, {{-kWorldShiftM, 0, 0, 0}}, {}));
   CHECK(
       commands.RecordedDraws.size() == 1,
       "bounds retain a tiny caster when float centre rounding differs from shifted GPU placement");
 }
 
 void CastCases(Device &device, GroundLattice &ground) {
-  auto real = std::array{Tile(0), Tile(0), Tile(100), Tile(0), Tile(100), Tile(1.5f)};
-  const auto virtualTiles = std::array{Tile(0), Tile(100), Tile(0), Tile(0)};
-  real[1].Instance.Row[14] = 1000000;
+  constexpr float outsideEastM = 100;
+  constexpr float boundaryEastM = 1.5f;
+  auto real = std::array{
+      Tile(0), Tile(0), Tile(outsideEastM), Tile(0), Tile(outsideEastM), Tile(boundaryEastM)};
+  const auto virtualTiles = std::array{Tile(0), Tile(outsideEastM), Tile(0), Tile(0)};
+  real[1].Instance.Row[14] = kWorldShiftM;
   Require(RetryOffline([&] { return ground.SetInstances(real, virtualTiles); },
                        std::chrono::seconds(5)));
-  CountingCommands commands(Require(device.Begin()));
+  CountingCommands commands(
+      Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5))));
   StageSubmission submission;
   const PassRecording into{.Commands = &commands, .Submission = submission, .Area = {}, .Clip = {}};
   const Mat4f identity{{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
@@ -101,7 +112,7 @@ void CastCases(Device &device, GroundLattice &ground) {
         "shadow selection does not overwrite camera visibility");
   commands.RecordedDraws.clear();
   auto translated = identity;
-  translated[12] = -100;
+  translated[12] = -outsideEastM;
   Require(ground.Cast(into, translated, {}, {}));
   CHECK(commands.RecordedDraws.size() == 3 && commands.RecordedDraws[0].First == 2 &&
             commands.RecordedDraws[1].First == 4 && commands.RecordedDraws[2].First == 7,
@@ -117,17 +128,17 @@ void CastCases(Device &device, GroundLattice &ground) {
   CHECK(commands.RecordedDraws.empty(), "disabled terrain submits no shadow draws");
   ground.SetDrawEnabled(true);
   for (auto &tile : real) {
-    tile.Instance.Row[12] += 1000000;
-    tile.Instance.Row[13] += 1000000;
+    tile.Instance.Row[12] += kWorldShiftM;
+    tile.Instance.Row[13] += kWorldShiftM;
   }
   auto displacedVirtual = virtualTiles;
   for (auto &tile : displacedVirtual) {
-    tile.Instance.Row[12] += 1000000;
-    tile.Instance.Row[13] += 1000000;
+    tile.Instance.Row[12] += kWorldShiftM;
+    tile.Instance.Row[13] += kWorldShiftM;
   }
   Require(RetryOffline([&] { return ground.SetInstances(real, displacedVirtual); },
                        std::chrono::seconds(5)));
-  Require(ground.Cast(into, identity, {{-1000000, -1000000, 0, 0}}, {}));
+  Require(ground.Cast(into, identity, {{-kWorldShiftM, -kWorldShiftM, 0, 0}}, {}));
   CheckRuns(commands);
 }
 }
