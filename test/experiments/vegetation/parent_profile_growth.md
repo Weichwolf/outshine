@@ -1,5 +1,9 @@
 # Executable parent-profile growth
 
+Historical execution; the three-role takeover and freshly rebuilt complete-tree
+compatibility evidence are in [mature_reference_handoff.md](mature_reference_handoff.md).
+The private paths below identify the original host's evidence, not required inputs.
+
 [#182](https://github.com/Weichwolf/outshine/issues/182) owns the mature crown
 defect; [parent_growth.md](parent_growth.md) records the area-feasible proposal.
 `ParentProfileGraph` adds explicit prepared inclination profiles and bounded
@@ -107,8 +111,10 @@ Both complete unlit atlases were opened at their original resolution against
 the old `mature-density-c82c10616/products/picea-abies-1` product. The new crown
 has a pointed conical top where the old form remained almost columnar. Regular
 stepped branch rows remain obvious; this is a visible morphology improvement,
-not botanical/SpeedTree or LOD approval. The next lit inspection uses the actual
-Koerbersee Place composition from #208, rather than another synthetic showcase.
+not botanical/SpeedTree or LOD approval. The subsequent #208 requirement was
+replaced by flat research tiles in PR #290 and is closed. Current #182 requires
+one convincing spruce before another eight-form/350-site run; image publication
+remains paused by the user.
 
 Weber/Penn SIGGRAPH 1995 §4.3 and the existing #26 prepared-profile work motivate
 the parent-dependent binding. Their PDFs and the JRC spruce page were inspected

@@ -1,5 +1,10 @@
 # Mature conifer forms over the conserved boreal stand
 
+Historical experiment, retained with its rejected images and original measurements.
+The current takeover, explicit source/output arguments, fresh compatibility images
+and remaining acceptance limits are in [mature_reference_handoff.md](mature_reference_handoff.md).
+Do not repeat the eight-form/350-site bake before the single-tree acceptance in #182.
+
 Owners: [#131](https://github.com/Weichwolf/outshine/issues/131) morphology,
 [#172](https://github.com/Weichwolf/outshine/issues/172) actual branch radii,
 [#179](https://github.com/Weichwolf/outshine/issues/179) requested needle area,

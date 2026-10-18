@@ -1,11 +1,12 @@
 # Historical Python Place reference images
 
 The user replaced these GIS/Place presentation requirements with four flat
-vegetation research tiles. Current images and workflow: [biome_tiles.md](biome_tiles.md)
-and PR #290. This document retains the earlier source/camera experiments.
+vegetation research tiles in PR #290 ([biome_tiles.md](biome_tiles.md)). Image
+publication is now paused. This document retains the earlier source/camera
+experiments; current takeover evidence is in [mature_reference_handoff.md](mature_reference_handoff.md).
 
-[#208](https://github.com/Weichwolf/outshine/issues/208) owns the four current
-whole-place Python renderings under `doc/images/vegetation/`. The selected native
+The superseded #208 contract requested four whole-place Python renderings under
+`doc/images/vegetation/`. The selected native
 shots under `doc/images/places/` are location/camera references, never copied
 outputs or background plates. The former web server and its UI are removed.
 
