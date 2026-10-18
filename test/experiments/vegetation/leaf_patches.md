@@ -6,8 +6,9 @@ original CrownShoots placements, IDs, variants, anchors and physical leaf area.
 No leaf-pose/phase quantization, near-crown expansion, library/native interface or
 cache manager is introduced. **The representation is not admitted yet:** actual
 enlarged renders reveal seams in independently fitted patches. A connected
-carrier now has topology/paired-surface tests; its host images and alpha/shading
-comparison are still required. This report does not close #704/#23/#1.
+carrier now has topology/paired-surface tests and two inspected coverage-only
+host images; the full alpha/shading comparison is still required. This report
+does not close #704/#23/#1.
 
 ## Measured independent patches
 
@@ -120,14 +121,24 @@ are .009154–.021565. These are Float64 computations, not IEEE-certified global
 bounds, analytic full-Blade bounds, alpha coverage or complete optical transport.
 The original UV domain is retained; the carrier covers it and masks the exterior.
 It does not alter the saved source or placements. A host adapter must still bind
-this prototype to the original material/pose identities. The connected carrier
-has not yet passed the host/raster/render gate.
+this prototype to the original material/pose identities. The complete numerical
+host/raster/material gate remains open.
+
+The finished-array reader now also renders the connected candidate without
+source pose/prototype generation. It checks original IDs/variants/areas and uses
+the original stored poses. Frozen reader4e03fd1dc holds the previous camera basis,
+directions and2.198960224m span;714/38/168 triangle counts are unchanged.
+Both2560×1440 oblique/grazing images were actually opened. The earlier fine grid
+seams are absent in these views; the connected result resembles the reference
+more closely, with remaining edge softness. This is two coverage-only views of
+one host, not the completed1152-case connected comparison, botanical quality,
+lighting or complete LOD admission. Original seam counterexamples are retained.
 
 In particular, a curved alpha mesh cannot simply use the planar chart verifier's
 nearest geometric triangle: a transparent front sample may reveal another part.
 Correct fragment handling and shared-edge ownership must precede its comparison.
-Continuous UVs remove the known independent-cut mechanism; actual image evidence
-is still needed before claiming that all visible seams are fixed.
+Continuous UVs remove the known independent-cut mechanism in the inspected
+views; do not generalize this to every view or material.
 
 ## Sources, checks and reproduction
 
@@ -148,14 +159,23 @@ PYTHONPATH=lib/src:lib/tests:test/experiments/vegetation. Run
 `render_leaf_patches.py --inputs <study> --output /tmp/<fresh-render>`,
 `patch_coverage_cost.py --inputs <cold-source> --output /tmp/<cost>.json --method
 legacy` or `stream`. `connected_leaf.build_connected` is currently a prototype
-function, not a complete host product or renderer.
+function, not a complete generated host product. Its saved prototype arrays can
+be compared using `render_leaf_patches.py --inputs <study> --connected
+<connected-prototypes> --output /tmp/<fresh-connected-render>`; each
+`prototype-N.npz` contains mesh arrays plus colour/normal from build_connected.
 
 Private inputs/evidence are under
 `/tmp/outshine-vegetation-leaf-patches-proof-874fa2f6b`; the six-file cold source
 remains `/tmp/outshine-vegetation-crown-lod-proof-4551504d0/final-replay`.
 The unchanged #703 wheel is reused and matches all210 focused-source library
 Python files; no fresh wheel or full permanent-branch equality is claimed.
+77 focused-source and77 reused installed-library checks pass; the permanent
+branch passes the same77 checks with its independent Draft202 work retained.
+Ruff/format/function-length and lint-docs pass; the actual renderer is checked
+by its terminal completion, original-ID/area assertions, camera/count checks and
+opened PNGs rather than by those CPU unit tests.
 No library/native implementation or gallery changes. EEVEE5.2.2 LTS uses forced
-software rendering;10.915/11.879s,2143604736B peak for the two inspected images.
-Connected host images, shader semantics, mips/wind/shadows, complete crown/forest,
+software rendering; independent10.915/11.879s,2143604736B peak; connected
+21.744/15.655s,2132733952B peak. Shared-host preview timings are not speed rankings.
+Full connected-host coverage, shader semantics, mips/wind/shadows, complete crown/forest,
 species and native/device validation remain open; overall goal stays active.
