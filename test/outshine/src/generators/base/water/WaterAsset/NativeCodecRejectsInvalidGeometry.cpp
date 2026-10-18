@@ -14,7 +14,9 @@ int main() {
       .Levels = {-10, -11},
       .Points = {0, 0, 0, 1, 1, 1, 1, 0},
       .Tiles = {{.Zoom = 6, .X = 32, .Y = 32, .FirstSurface = 0, .SurfaceCount = 1}},
-      .ProcessedTiles = 1};
+      .ProcessedTiles = 1,
+      .Sources = {},
+      .Inputs = {}};
   const auto bytes = WaterAsset(valid).EncodeNative(4096);
   CHECK(bytes && WaterAsset::DecodeNative(*bytes),
         "complete geometry has a source-free native roundtrip");

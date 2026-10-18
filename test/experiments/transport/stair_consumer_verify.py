@@ -26,33 +26,17 @@ def meshes(path):
         return [Mesh(saved[f"{i}_vertices"], saved[f"{i}_faces"]) for i in range(count)]
 
 
-def run(args):
-    commit = frozen()
-    output = args.output
-    if not output.resolve().is_relative_to(Path("/tmp").resolve()) or output.exists():
-        raise ValueError("fresh explicit /tmp verification receipt required")
-    report = json.loads((args.products / "comparison.json").read_text())
-    for name, expected in report["artifacts"].items():
-        if digest(args.products / name) != expected:
-            raise ValueError("saved actual consumer artifact changed: " + name)
-    data = inputs(Path(report["products"]))
+def check_bodies(data, ledger, before, after, reservations, query):
     originals, rejected = source_rows(data, "building")
     by_id = {r["id"]: r for r in originals}
-    ledger = json.loads((args.products / "building-ledger.json").read_text())
     if len(ledger) != len(originals) + len(rejected):
         raise ValueError("source-part ledger incomplete")
     if ledger[: len(rejected)] != rejected or [
         r["id"] for r in ledger[len(rejected) :]
     ] != list(by_id):
         raise ValueError("original source/part identities changed")
-    before = meshes(args.products / "buildings-before.npz")
-    after = meshes(args.products / "buildings-after.npz")
-    reservations = json.loads(
-        (args.products / "building-reservations.json").read_text()
-    )
     if len(reservations) != len(after):
         raise ValueError("saved architecture reservations incomplete")
-    query = OccupancyQuery(data["reservations"])
     i, j = 0, 0
     for row in ledger[len(rejected) :]:
         original = by_id[row["id"]]
@@ -112,16 +96,39 @@ def run(args):
                 raise ValueError("saved actual architecture conflicts with transport")
     if i != len(before) or j != len(after):
         raise ValueError("body ownership incomplete or duplicated")
-    result = {
-        "reader_commit": commit,
-        "producer_commit": report["commit"],
-        "report_sha256": digest(args.products / "comparison.json"),
+    return {
         "source_ledger_entries": len(ledger),
         "valid_polygon_parts": len(originals),
         "invalid_original_features": len(rejected),
         "original_architecture_bodies": i,
         "actual_adjusted_bodies": j,
         "all_source_attributes_roots_heights_and_whole_body_conflicts_checked": True,
+    }
+
+
+def run(args):
+    commit = frozen()
+    output = args.output
+    if not output.resolve().is_relative_to(Path("/tmp").resolve()) or output.exists():
+        raise ValueError("fresh explicit /tmp verification receipt required")
+    report = json.loads((args.products / "comparison.json").read_text())
+    for name, expected in report["artifacts"].items():
+        if digest(args.products / name) != expected:
+            raise ValueError("saved actual consumer artifact changed: " + name)
+    data = inputs(Path(report["products"]))
+    checked = check_bodies(
+        data,
+        json.loads((args.products / "building-ledger.json").read_text()),
+        meshes(args.products / "buildings-before.npz"),
+        meshes(args.products / "buildings-after.npz"),
+        json.loads((args.products / "building-reservations.json").read_text()),
+        OccupancyQuery(data["reservations"]),
+    )
+    result = {
+        "reader_commit": commit,
+        "producer_commit": report["commit"],
+        "report_sha256": digest(args.products / "comparison.json"),
+        **checked,
         "scope": "Fresh saved-body full scan on original inputs/current terrain. Independent installed producer replay establishes recipe equivalence separately; no general nonempty GEOS topology/foundation/native certificate.",
     }
     output.write_text(json.dumps(result, indent=2) + "\n")

@@ -1,0 +1,15 @@
+{
+  "provider": "Mapterhorn",
+  "url": "https://tiles.mapterhorn.com/14/8937/5678.webp",
+  "tile": [
+    14,
+    8937,
+    5678
+  ],
+  "file": "wien-height-14-8937-5678.terrarium",
+  "bytes": 56194,
+  "sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+  "encoding": "Terrarium RGB height data in the original WebP payload, metres",
+  "datum": "Original provider-encoded heights; no geodetic conversion claimed",
+  "scope": "Fixed original elevation input for offline transport/building/vegetation reference cases."
+}
