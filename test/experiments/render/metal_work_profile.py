@@ -14,14 +14,17 @@ from collections import defaultdict
 from pathlib import Path
 from statistics import mean
 
+from metal_compute_profile import parse_compute_records, summarize_compute
+
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "test/harness/render/MetalWorkProfile.mm"
 
 
 def compiler_command():
     records = json.loads((ROOT / "compile_commands.json").read_text())
-    record = next(row for row in records
-                  if Path(row["file"]).name == "MetalCommands.mm")
+    record = next(
+        row for row in records if Path(row["file"]).name == "MetalCommands.mm"
+    )
     flags = record.get("arguments") or shlex.split(record["command"])
     command = []
     skip = False
@@ -95,7 +98,7 @@ def summarize(passes, work, frames):
     }
 
 
-def frame_timings(text, passes, frames):
+def frame_timings(text, passes, frames, compute=None):
     commands = {}
     for line in text.splitlines():
         if not line.startswith("METAL_COMMAND "):
@@ -105,9 +108,13 @@ def frame_timings(text, passes, frames):
         if serial in commands:
             raise ValueError("duplicate command timing serial")
         commands[serial] = fields
-    if not frames or any(serial not in commands or not commands[serial]["valid"] for serial in frames):
+    if not frames or any(
+        serial not in commands or not commands[serial]["valid"] for serial in frames
+    ):
         raise ValueError("incomplete measured frame command timings")
-    gpu_rows = [line.split("\t") for line in text.splitlines() if line.startswith("GPUROW\t")]
+    gpu_rows = [
+        line.split("\t") for line in text.splitlines() if line.startswith("GPUROW\t")
+    ]
     if len(gpu_rows) != 1:
         raise ValueError("expected one capture GPU summary")
     row = gpu_rows[0]
@@ -119,35 +126,69 @@ def frame_timings(text, passes, frames):
     samples = [commands[serial]["gpu_ns"] for serial in ordered]
     if rendered != len(frames) or timed != len(frames) or unavailable != 0:
         raise ValueError("capture and command frame counts differ")
-    if abs(sum(samples) - total * 1e6) > 0.5 * len(frames) + 1 or abs(max(samples) - maximum * 1e6) > 1:
+    if (
+        abs(sum(samples) - total * 1e6) > 0.5 * len(frames) + 1
+        or abs(max(samples) - maximum * 1e6) > 1
+    ):
         raise ValueError("capture totals do not match measured frame submissions")
     peak = max(ordered, key=lambda serial: commands[serial]["gpu_ns"])
     selected = []
     for record in sorted(passes.values(), key=lambda entry: entry["pass"]):
         if record["serial"] != peak:
             continue
-        selected.append({
-            "pass": record["pass"], "pipeline": record["pipeline"],
-            "vertex_ms": record["vertex_ns"] / 1e6,
-            "fragment_ms": record["fragment_ns"] / 1e6,
-            "interval_span_ms": (max(record["vertex_end_ns"], record["fragment_end_ns"])
-                                 - min(record["vertex_start_ns"], record["fragment_start_ns"])) / 1e6
-            if record["valid"] else None,
-        })
+        selected.append(
+            {
+                "kind": "raster",
+                "pass": record["pass"],
+                "pipeline": record["pipeline"],
+                "vertex_ms": record["vertex_ns"] / 1e6 if record["valid"] else None,
+                "fragment_ms": record["fragment_ns"] / 1e6 if record["valid"] else None,
+                "interval_span_ms": (
+                    max(record["vertex_end_ns"], record["fragment_end_ns"])
+                    - min(record["vertex_start_ns"], record["fragment_start_ns"])
+                )
+                / 1e6
+                if record["valid"]
+                else None,
+            }
+        )
+    for record in (compute or {}).values():
+        if record["serial"] == peak:
+            selected.append(
+                {
+                    "kind": "compute",
+                    "pass": record["pass"],
+                    "pipeline": record["pipeline"],
+                    "vertex_ms": None,
+                    "fragment_ms": None,
+                    "interval_span_ms": record["duration_ns"] / 1e6
+                    if record["valid"]
+                    else None,
+                }
+            )
+    selected.sort(key=lambda row: row["pass"])
     return {
         "capture_matches_command_timings": True,
-        "frames": [{"capture_frame": index + 1, "serial": serial, "gpu_ms": commands[serial]["gpu_ns"] / 1e6}
-                   for index, serial in enumerate(ordered)],
-        "peak_frame": ordered.index(peak) + 1, "peak_serial": peak, "peak_passes": selected,
+        "frames": [
+            {
+                "capture_frame": index + 1,
+                "serial": serial,
+                "gpu_ms": commands[serial]["gpu_ns"] / 1e6,
+            }
+            for index, serial in enumerate(ordered)
+        ],
+        "peak_frame": ordered.index(peak) + 1,
+        "peak_serial": peak,
+        "peak_passes": selected,
         "scope": "Stage intervals overlap; neither their durations nor their spans are additive. Command timings include diagnostic instrumentation.",
     }
 
 
-def run(command, path, environment=None):
+def run(command, path, environment=None, cwd=ROOT):
     with path.open("w") as log:
         result = subprocess.run(
             command,
-            cwd=ROOT,
+            cwd=cwd,
             env=environment,
             stdout=log,
             stderr=subprocess.STDOUT,
@@ -164,6 +205,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--client", type=Path, default=ROOT / "build/outshine-client")
+    parser.add_argument("--runtime-root", type=Path, default=ROOT)
     parser.add_argument("--place", default="Tokyo")
     parser.add_argument("--overrides", default='{"render":{"fps":30}}')
     args = parser.parse_args()
@@ -171,7 +213,9 @@ def main():
         parser.error("this probe uses native Metal on macOS")
     output = args.output.resolve()
     temporary = Path(tempfile.gettempdir()).resolve()
-    if not output.is_relative_to(temporary) or output.is_relative_to(ROOT):
+    if not any(
+        output.is_relative_to(path) for path in (temporary, Path("/tmp").resolve())
+    ) or output.is_relative_to(ROOT):
         parser.error("private output must be inside the system temporary directory")
     overrides = json.loads(args.overrides)
     output.mkdir(parents=True, exist_ok=True)
@@ -206,16 +250,18 @@ def main():
         json.dumps(overrides),
         args.place,
     ]
-    run(command, output / "client.log", environment)
+    run(command, output / "client.log", environment, args.runtime_root.resolve())
     text = (output / "client.log").read_text()
     rows = [line.split("\t") for line in text.splitlines() if line.startswith("ROW\t")]
     passes, work, frames = parse_records(text)
+    compute, compute_work = parse_compute_records(text)
     if len(rows) != 1 or rows[0][3] != "1" or len(frames) != int(rows[0][7]):
         raise SystemExit(
             "the successful Place capture and measured sky-pass submissions differ"
         )
     result = summarize(passes, work, frames)
-    result["frame_timings"] = frame_timings(text, passes, frames)
+    result["frame_timings"] = frame_timings(text, passes, frames, compute)
+    result["compute_encoders"] = summarize_compute(compute, compute_work, frames)
     result.update(
         {
             "commit": subprocess.check_output(
@@ -227,11 +273,14 @@ def main():
             ).hexdigest(),
             "compile_command": compile_command,
             "capture_command": command,
+            "runtime_root": str(args.runtime_root.resolve()),
             "metal_debug_layer": environment.get("MTL_DEBUG_LAYER"),
             "truncated": "METAL_TRUNCATED" in text,
             "row": rows[0],
             "all_pass_records": list(passes.values()),
             "all_work_records": work,
+            "all_compute_records": list(compute.values()),
+            "all_compute_work_records": compute_work,
             "scope": "Metal stage timestamps and submitted triangle references; instrumented diagnostic, not a device gate",
         }
     )
@@ -243,6 +292,7 @@ def main():
                 for key in (
                     "frame_submissions",
                     "raster_passes",
+                    "compute_encoders",
                     "shader_triangle_references_mean",
                 )
             },
