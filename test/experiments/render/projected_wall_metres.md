@@ -25,6 +25,24 @@ The larger geometry/draw cost exposed by a fresh LOD miss also occurs with the
 original producers; the isolated original/fixed comparison and bounded cell
 follow-up belong to #567. Source/basis products and the64MiB limit are retained.
 
+## Current Metal and Iris integration
+
+The final feature sources on7bdb46175 pass both current device checks. Metal/A18
+has a fresh complete488-object build/490-unit database, all22StructureBake cases
+and the region control, plus full-flag analysis of both producers and both tests.
+The current-parent Wien/Flensburg captures each complete60frames/360degrees with
+60GPU queries at1280×720. Their images were opened; frame budgets remain red.
+
+Iris/i5-1135G7 passes both feature regressions (3471checks, no skips/partials).
+The matched original/fixed ordinary Flensburg processes have equal718816triangles;
+564pixels change, all at most1/255. The original strict10s attempts fail on both;
+separate180s image diagnostics do not clear loading. GPU-p99 remains above16.67ms.
+Full current commands, source matching and failed/successful attempts are recorded
+in PR #416, especially comment6254265216. These narrow coordinate proofs close
+#407; general loading, cell batching, material art and native-port budgets remain
+open under their respective owners. Historical sections below retain their
+original source/device scope and do not supersede these current results.
+
 ## Native regression
 
 ProjectionCrossesCellsAndPreservesNearGeometry uses the actual native BuildingMesh
