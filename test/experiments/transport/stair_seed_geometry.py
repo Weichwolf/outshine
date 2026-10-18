@@ -6,6 +6,7 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.transport import HeightBudget, close_surface, fit_surface_heights
 from shared_bridge_geometry import corridor
 from stair_branch_inputs import surface_sampling, surface_welding
+from stair_closed_height_rounding import correct
 from stair_junction_layout import arrangement, landings
 from stair_landing_pads import complete_landings
 from stair_module_materials import surface_slots
@@ -13,6 +14,7 @@ from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
+from stair_seed_axes import axis_form
 from stair_seed_precision import GRID_M
 
 
@@ -34,11 +36,7 @@ def seed_contract(recipe, sources):
             "explicit independent whole-source seed without cached contacts required"
         )
     for key in recipe["source_ids"]:
-        nodes = [tuple(p) for p in sources[key]["mvt_xy"]]
-        if len(set(nodes)) != len(nodes):
-            raise ValueError(
-                "independent seed family requires unique original source nodes"
-            )
+        axis_form(sources[key])
 
 
 def prepared(rows, sources, ground):
@@ -91,6 +89,16 @@ def build(rows, sources, ground, sample):
         raise ValueError("bounded seed height fit failed: " + str(result.report))
     vertices = result.mesh.vertices.copy()
     vertices[fixed, 2] = values[fixed]
+    closed, rounding = {}, None
+    if (
+        len(rows) == 1
+        and axis_form(sources[rows[0]["source_id"]]) == "closed"
+        and not plans
+    ):
+        closed["unrounded_closed_heights"] = vertices[:, 2].copy()
+        vertices, rounding = correct(
+            vertices, faces, face_frames(rows, xy, faces, owners)
+        )
     surface = Mesh(vertices, faces)
     body = close_surface(surface, 0.3)
     data = {
@@ -107,5 +115,14 @@ def build(rows, sources, ground, sample):
         "surface_materials": surface_slots(rows, owners),
         "body_vertices": body.vertices,
         "body_faces": body.triangles,
+        **closed,
     }
-    return data, {"arrangement": note, "fit": dict(result.report)}, planning
+    return (
+        data,
+        {
+            "arrangement": note,
+            "fit": dict(result.report),
+            **({"closed_height_rounding": rounding} if rounding else {}),
+        },
+        planning,
+    )
