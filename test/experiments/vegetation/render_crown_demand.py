@@ -11,7 +11,7 @@ from unittest.mock import patch
 import bpy
 import numpy as np
 from crown_demand_probe import cameras
-from crown_draw_batches import batch_geometry
+from crown_draw_batches import batch_geometry, posed_bounds
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_mesh import mesh_object
 from PIL import Image
@@ -23,16 +23,26 @@ from spatial_group_source import load_source
 def scene_objects(poses, templates, camera):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     triangles = 0
+    drawn = 0
+    mesh_bytes = 0
     for variant in np.unique(poses["variants"]):
         with np.load(templates / f"prototype-{variant}.npz", allow_pickle=False) as z:
             product = dict(z)
         chosen = poses["variants"] == variant
-        ids = poses["ids"][chosen]
+        origins, frames = poses["origins"][chosen], poses["frames"][chosen]
+        keep = camera.visible(*posed_bounds(product, origins, frames))
+        if not keep.any():
+            continue
+        original_ids = poses["ids"][chosen]
+        take = np.flatnonzero(keep)
+        depth = (origins[take] - camera.position) @ camera.axes[2]
+        take = take[np.lexsort((original_ids[take], depth))]
+        ids = original_ids[take]
         if np.max(ids) > 2**31 - 1:
             raise ValueError("Blender diagnostic source IDs must fit signed32 bits")
-        mesh = batch_geometry(
-            product, poses["origins"][chosen], poses["frames"][chosen]
-        )
+        mesh = batch_geometry(product, origins[take], frames[take])
+        drawn += len(ids)
+        mesh_bytes += sum(v.nbytes for v in mesh.values())
         obj = mesh_object(
             f"leaf{variant}",
             mesh["vertices"],
@@ -76,7 +86,7 @@ def scene_objects(poses, templates, camera):
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     scene.view_settings.view_transform = "Standard"
-    return scene, triangles
+    return scene, triangles, drawn, mesh_bytes
 
 
 def render(inputs, proof, templates, output):
@@ -110,7 +120,9 @@ def render(inputs, proof, templates, output):
                     mask = np.repeat(z["detail"], source.crown.counts)
                 poses = {k: v[mask] for k, v in reference.items()}
             before = time.perf_counter()
-            scene, triangles = scene_objects(poses, templates, camera)
+            scene, triangles, drawn, mesh_bytes = scene_objects(
+                poses, templates, camera
+            )
             build_s = time.perf_counter() - before
             scene.render.filepath = str(output / (method + ".png"))
             before = time.perf_counter()
@@ -119,6 +131,8 @@ def render(inputs, proof, templates, output):
                 {
                     "method": method,
                     "leaf_instances": len(poses["ids"]),
+                    "drawn_leaf_instances": drawn,
+                    "expanded_mesh_array_bytes": mesh_bytes,
                     "instance_triangles": triangles,
                     "render_s": time.perf_counter() - before,
                     "scene_build_s": build_s,
@@ -151,7 +165,7 @@ def render(inputs, proof, templates, output):
             resource.RUSAGE_SELF
         ).ru_maxrss
         * 1024,
-        "scope": "Finished full-reference pose table only for independent render control; same original IDs retained as face attributes in eight CPU-expanded Blender mesh batches. Shared connected32 templates and original poses, emission/alpha coverage, no light or shadow/BRDF/native/device/forest admission. This diagnostic expansion is not a proposed runtime representation. Reader does not generate poses. Camera-only culling and rest pose.",
+        "scope": "Finished full-reference pose table only for independent render control; all90000 original poses considered in reference, conservative per-leaf posed-prototype AABB rejection before diagnostic triangles. Same original IDs retained as face attributes in eight CPU-expanded Blender mesh batches. Shared connected32 templates and original poses, emission/alpha coverage, no light or shadow/BRDF/native/device/forest admission. This diagnostic expansion is not a proposed runtime representation. Reader does not generate poses. Camera-only culling and rest pose.",
     }
     (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
 

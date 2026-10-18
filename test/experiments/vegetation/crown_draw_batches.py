@@ -3,6 +3,19 @@
 import numpy as np
 
 
+def posed_bounds(product, origins, frames):
+    low, high = product["vertices"].min(axis=0), product["vertices"].max(axis=0)
+    centre = origins + np.einsum("nij,j->ni", frames, (low + high) / 2)
+    extent = np.einsum("nij,j->ni", abs(frames), (high - low) / 2)
+    # The diagnostic mesh is handed to Blender as Float32 positions.
+    guard = (
+        8
+        * np.finfo(np.float32).eps
+        * (np.max(abs(centre), axis=1) + np.max(extent, axis=1) + 1)
+    )
+    return centre - extent - guard[:, None], centre + extent + guard[:, None]
+
+
 def batch_geometry(product, origins, frames):
     count = len(origins)
     vertices = len(product["vertices"])

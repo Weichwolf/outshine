@@ -7,13 +7,34 @@ from unittest.mock import patch
 import numpy as np
 from connected_leaf import build_connected
 from crown_demand import CrownDemand, host_bounds, projected_spans
-from crown_draw_batches import batch_geometry
+from crown_draw_batches import batch_geometry, posed_bounds
 from demand import Camera
 from spatial_group_source import SpatialGroupSource
 from spatial_source_checks import fixture
 
 
 class CrownDemandChecks(unittest.TestCase):
+    def test_posed_boxes_cover_actual_float32_vertices_and_crossing_triangles(self):
+        source = fixture()
+        product = build_connected(source.blades[0])["mesh"]
+        group = source.crown.group(int(source.crown.hosts[0]), 128)
+        low, high = posed_bounds(product, group["origins"], group["frames"])
+        for i, frame in enumerate(group["frames"]):
+            world = (product["vertices"] @ frame.T + group["origins"][i]).astype(
+                np.float32
+            )
+            self.assertTrue(np.all(world >= low[i]))
+            self.assertTrue(np.all(world <= high[i]))
+        triangle = {
+            "vertices": np.array(((-10, 10, -10), (10, 10, -10), (0, 10, 10)), float)
+        }
+        camera = Camera((0, 0, 0), (0, 1, 0))
+        self.assertTrue(
+            camera.visible(*posed_bounds(triangle, np.zeros((1, 3)), np.eye(3)[None]))[
+                0
+            ]
+        )
+
     def test_diagnostic_batches_keep_independent_original_transforms_and_indices(self):
         source = fixture()
         product = build_connected(source.blades[0])["mesh"]
