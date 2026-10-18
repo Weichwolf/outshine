@@ -11,8 +11,8 @@ import numpy as np
 from connected_material_fields import field_identity, material_contacts, validate_fields
 from foliage_selection import directions
 from leaf_sheet import average_blocks
-from outshine_ref.vegetation.leaf_normals import resolve_moments
 from outshine_ref.vegetation.leaf_lighting import unit_directions
+from outshine_ref.vegetation.leaf_normals import resolve_moments
 from prepare_connected_materials import original_material
 from relief_shading_reference import specular_from_dots
 

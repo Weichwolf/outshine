@@ -26,7 +26,7 @@ def image_probe(original, output):
             a + np.array(((0, 0, 0), (1 / 8, 0, 0), (1 / 8, 1 / 8, 0), (0, 1 / 8, 0)))
         )
         faces.extend(np.array(((0, 1, 2), (0, 2, 3))) + 4 * i)
-        # A finite Jacobian is required by the EEVEE image-sampling path.
+        # Zero-area UV triangles sampled black in this software EEVEE setup.
         uv.extend(coordinate + 1e-5 * np.array(((-1, -1), (1, -1), (1, 1), (-1, 1))))
     cases = []
     for kind in ("colour", "height"):

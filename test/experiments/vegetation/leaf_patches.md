@@ -8,8 +8,10 @@ cache manager is introduced. **The representation is not admitted yet:** actual
 enlarged renders reveal seams in independently fitted patches. The connected
 successor now has exact-pose/material lineage, a complete curved-alpha/unit-light
 comparison, independent3D ray controls and an explicit raw-normal shader reader.
-Original procedural colour/height/PBR material shading remains unevaluated;
-unit-cosine emission is not that material. This report does not close #704/#23/#1.
+The original procedural colour/height/PBR comparison is now separately completed
+in [connected_materials.md](connected_materials.md), including actual shader
+controls/images and GGX counterexamples. Neither study admits a universal LOD;
+#23/#643/#1 and the full goal remain open.
 
 ## Measured independent patches
 
@@ -227,8 +229,9 @@ light ±(.927229,−.347711,.139084) deliberately exercises both signed response
 no actual whole-crown material/performance claim follows from these enlargements.
 Original procedural fern colour/height inputs stay bound
 in catalog identity but are deliberately not evaluated by this unit-light probe.
-Their faithful mapping and a physical material/BRDF comparison remain required
-before closing #704; no ordinary leaf shader/material family is replaced here.
+Their faithful mapping and the actual original qualitative BSDF comparison are
+now documented in [connected_materials.md](connected_materials.md). No ordinary
+leaf shader/material family is replaced by this unit-light consumer.
 
 ## Sources, checks and reproduction
 
@@ -278,5 +281,7 @@ opened PNGs rather than by those CPU unit tests.
 No library/native implementation or gallery changes. EEVEE5.2.2 LTS uses forced
 software rendering; independent10.915/11.879s,2143604736B peak; connected
 21.744/15.655s,2132733952B peak. Shared-host preview timings are not speed rankings.
-Complete original-material shading, mips/wind/shadows, complete crown/forest,
-species and native/device validation remain open; overall goal stays active.
+The later original-material comparison and current controls live in
+[connected_materials.md](connected_materials.md). Complete angular/mip/wind/shadow
+behaviour, crown/forest, species and native/device validation remain open;
+overall goal stays active.

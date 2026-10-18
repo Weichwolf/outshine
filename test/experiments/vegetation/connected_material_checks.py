@@ -112,6 +112,10 @@ class ConnectedMaterialChecks(unittest.TestCase):
         changed["slope_a"][..., 2] = -1
         with self.assertRaises(ValueError):
             validate_fields(changed)
+        empty = {k: np.zeros_like(v) for k, v in arrays.items()}
+        empty["slope_b"][..., 0] = 1
+        with self.assertRaisesRegex(ValueError, "zero coverage"):
+            validate_fields(empty)
 
 
 if __name__ == "__main__":

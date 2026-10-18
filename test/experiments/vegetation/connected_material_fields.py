@@ -95,6 +95,8 @@ def validate_fields(arrays):
     ):
         raise ValueError("matching bounded finite material fields required")
     alpha = colour[..., 3]
+    if any(np.any(v[alpha == 0] != 0) for v in (colour, a, b)):
+        raise ValueError("zero coverage must carry zero premultiplied fields")
     if (
         np.any((alpha < 0) | (alpha > 1))
         or not np.array_equal(a[..., 3], alpha)
