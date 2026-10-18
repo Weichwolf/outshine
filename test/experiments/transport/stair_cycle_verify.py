@@ -23,8 +23,12 @@ from stair_terrain_experiment import frozen
 from stair_terrain_layout import selected_surfaces
 
 
-def displayed(output, report, body, roles, palette_scene):
-    for name in ("before", "after"):
+def displayed(output, report, body, roles, palette_scene, *, comparison=True):
+    if not comparison and (
+        "before_display_sha256" in report or (output / "before-display.npz").exists()
+    ):
+        raise ValueError("reconstruction cannot claim a previous comparison image")
+    for name in ("before", "after") if comparison else ("after",):
         if digest(output / (name + "-display.npz")) != report[name + "_display_sha256"]:
             raise ValueError("actual cycle display binding changed")
     original = dict(np.load(output / "after/display-body.npz"))
@@ -150,7 +154,14 @@ def verify(args):
     ):
         raise ValueError("saved terrain cap or construction roles changed")
     physical = inspect(terrain, saved, ground, upper)
-    displayed(args.output, report["display"], terrain, global_roles, args.palette_scene)
+    displayed(
+        args.output,
+        report["display"],
+        terrain,
+        global_roles,
+        args.palette_scene,
+        comparison=not getattr(args, "reconstruct", False),
+    )
     result = {
         "generation_commit": report["commit"],
         "reader_commit": commit,
