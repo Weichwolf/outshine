@@ -1,5 +1,7 @@
 #include "CompositeTransmissionStage.h"
 #include "AerialPerspectiveStage.h"
+#include "MediumView.h"
+#include "FrameContext.h"
 #include "SkyStage.h"
 #include "StageSubmission.h"
 #include "ReadbackTransfer.h"
@@ -44,7 +46,7 @@ Upload(Device &device, Format format, std::span<const std::byte> bytes, uint64_t
                                     .Use = TextureUse::Sampled | TextureUse::CopyDestination}));
   auto staging = Require(device.CreateBuffer(
       {.Bytes = bytes.size(), .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
-  auto mapped = Require(device.MapWrite(*staging, {.Bytes = bytes.size()}));
+  const auto mapped = Require(device.MapWrite(*staging, {.Bytes = bytes.size()}));
   std::memcpy(mapped.data(), bytes.data(), bytes.size());
   Require(device.Unmap(*staging));
   auto commands = Require(device.Begin());
@@ -63,7 +65,7 @@ std::unique_ptr<Texture> Output(Device &device, Format format, bool depth = fals
               TextureUse::CopySource}));
 }
 
-std::vector<std::byte> Read(Device &device, Texture &image) {
+std::vector<std::byte> Read(Device &device, const Texture &image) {
   auto read = Require(ReadbackTransfer::Start(device, image, {.Width = kWidth, .Height = kHeight}));
   auto bytes = Require(read.Wait(device, std::chrono::seconds(5)));
   CHECK(bytes, "actual fullscreen output is available within the explicit offline budget");
@@ -71,7 +73,7 @@ std::vector<std::byte> Read(Device &device, Texture &image) {
   return {bytes->begin(), bytes->end()};
 }
 
-void Compare(Device &device, Texture &image, const Pixels &expected) {
+void Compare(Device &device, const Texture &image, const Pixels &expected) {
   const auto bytes = Read(device, image);
   CHECK(bytes.size() == sizeof(expected), "the real raster output keeps its RGBA32F format");
   CHECK(bytes.size() == sizeof(expected) &&
@@ -79,12 +81,13 @@ void Compare(Device &device, Texture &image, const Pixels &expected) {
         "every actual fullscreen output component matches the independent exact reference");
 }
 
-template <class Stage> void Draw(Device &device, Stage &stage, Texture &output) {
+template <class Stage, class Frame = FrameContext>
+void Draw(Device &device, Stage &stage, Texture &output, const Frame &frame = {}) {
   auto commands = Require(device.Begin());
   const std::array attachments{ColourAttachment{.Image = {.Image = &output}, .Begin = Load::Clear}};
   Require(commands->BeginRenderPass({.Colours = attachments, .Depth = {}}));
   StageSubmission submission;
-  Require(stage.Encode({},
+  Require(stage.Encode(frame,
                        {.Commands = commands.get(),
                         .Submission = submission,
                         .Area = {.Width = kWidth, .Height = kHeight},
@@ -112,9 +115,11 @@ void Composite(Device &device, Sampler &sampler) {
     }
     expected[4 * i + 3] = opaque[4 * i + 3];
   }
-  auto back = Upload(device, Format::Rgba32Float, std::as_bytes(std::span(opaque)), kRgbaRowBytes);
-  auto glass = Upload(device, Format::Rgba32Float, std::as_bytes(std::span(front)), kRgbaRowBytes);
-  auto output = Output(device, Format::Rgba32Float);
+  const auto back =
+      Upload(device, Format::Rgba32Float, std::as_bytes(std::span(opaque)), kRgbaRowBytes);
+  const auto glass =
+      Upload(device, Format::Rgba32Float, std::as_bytes(std::span(front)), kRgbaRowBytes);
+  const auto output = Output(device, Format::Rgba32Float);
   CompositeTransmissionStage stage;
   const outshine::Render::Gpu gpu{.Device = &device, .SceneColours = {}};
   Require(stage.Configure(gpu,
@@ -138,9 +143,11 @@ void Aerial(Device &device, Sampler &sampler, Texture &sky, Texture &veil) {
     input[4 * i + 3] = kThreeQuarters;
     depths[i] = i % 2 == 0 ? 0 : 0.5f;
   }
-  auto scene = Upload(device, Format::Rgba32Float, std::as_bytes(std::span(input)), kRgbaRowBytes);
-  auto depth = Upload(device, Format::R32Float, std::as_bytes(std::span(depths)), kScalarRowBytes);
-  auto output = Output(device, Format::Rgba32Float);
+  const auto scene =
+      Upload(device, Format::Rgba32Float, std::as_bytes(std::span(input)), kRgbaRowBytes);
+  const auto depth =
+      Upload(device, Format::R32Float, std::as_bytes(std::span(depths)), kScalarRowBytes);
+  const auto output = Output(device, Format::Rgba32Float);
   AerialPerspectiveStage stage;
   Require(stage.Configure({.Device = &device, .SceneColours = {}},
                           {.Scene = scene.get(),
@@ -150,18 +157,27 @@ void Aerial(Device &device, Sampler &sampler, Texture &sky, Texture &veil) {
                            .Exact = &sampler,
                            .Lut = &sampler},
                           Format::Rgba32Float));
-  stage.Declare(kEarthAir, {.SunDir = {{1, 0, 0}}, .WorldUp = {{0, 1, 0}}, .IlluminanceLux = 2});
-  stage.SetBasis({.Right = {{1, 0, 0}},
-                  .Up = {{0, 1, 0}},
-                  .Forward = {{0, 0, 1}},
-                  .TanHalfWidth = 0.5f,
-                  .TanHalfHeight = 0.5f});
-  stage.SetDepthReconstruction({{10, 0, 1, 0}});
-  Draw(device, stage, *output);
+  constexpr float kControlFovDeg = 60;
+  constexpr float kNearM = 10;
+  constexpr float kFarM = 1000;
+  const Lens lens{.WidePx = kWidth,
+                  .HighPx = kHeight,
+                  .FovDeg = kControlFovDeg,
+                  .NearM = kNearM,
+                  .FarM = kFarM};
+  const auto view =
+      MakeMediumViewParameters(lens,
+                               {.Width = kWidth, .Height = kHeight},
+                               {},
+                               {.SunDir = {{1, 0, 0}}, .WorldUp = {{0, 1, 0}}, .IlluminanceLux = 2},
+                               kEarthAir);
+  CHECK(view.has_value(), "fullscreen aerial uses the existing shared camera frame");
+  if (!view) { Failed(); }
+  Draw(device, stage, *output, *view);
   Compare(device, *output, input);
   CHECK(!stage.Configure({}, {}, Format::Rgba32Float),
         "an invalid aerial candidate does not overwrite accepted inputs");
-  Draw(device, stage, *output);
+  Draw(device, stage, *output, *view);
   Compare(device, *output, input);
 }
 
@@ -170,9 +186,9 @@ void Sky(Device &device, Sampler &sampler, Texture &table, Texture &veil) {
       .Device = &device, .HdrFormat = Format::Rgba32Float, .SceneColours = {}};
   CHECK(gpu.SceneColours.Add(Resource::SceneHdr) && gpu.SceneColours.Add(Resource::SceneVelocity),
         "the existing sky HDR and static velocity targets are declared");
-  auto hdr = Output(device, Format::Rgba32Float);
-  auto velocity = Output(device, Format::Rg16Float);
-  auto depth = Output(device, Format::Depth32Float, true);
+  const auto hdr = Output(device, Format::Rgba32Float);
+  const auto velocity = Output(device, Format::Rg16Float);
+  const auto depth = Output(device, Format::Depth32Float, true);
   SkyStage stage;
   Require(stage.Configure(gpu, {.SkyView = &table, .Transmittance = &veil, .Lut = &sampler}));
   stage.Declare(kEarthAir, {.SunDir = {{1, 0, 0}}, .WorldUp = {{0, 1, 0}}, .IlluminanceLux = 2});
