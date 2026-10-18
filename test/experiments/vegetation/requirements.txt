@@ -12,3 +12,6 @@ shapely==2.2.0
 prosail==2.0.5
 colour-science==0.4.7
 tifffile==2026.9.20
+pyproj==3.8.0
+mapbox-vector-tile==2.2.0
+astral==3.2

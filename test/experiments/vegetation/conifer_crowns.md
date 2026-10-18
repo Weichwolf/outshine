@@ -15,13 +15,19 @@ it neither calibrates biology nor proves equivalent algorithms. Private diagnost
 code remains in Downloads and is not bundled here.
 
 ```sh
-.venv/bin/python test/experiments/vegetation/conifer_crown_products.py
-.venv/bin/python test/experiments/vegetation/conifer_crown_checks.py
-.venv/bin/python -c 'import sys; from pathlib import Path; sys.path.insert(0,"test/experiments/vegetation"); from europe_conifer_tile import make_tile; make_tile(Path("build/experiments/vegetation/conifer-crowns").resolve())'
+probe_root=$(mktemp -d "${TMPDIR:-/tmp}/outshine-conifer-crowns.XXXXXX")
+.venv/bin/python test/experiments/vegetation/conifer_crown_products.py --output "$probe_root/crowns"
+.venv/bin/python test/experiments/vegetation/europe_conifer_tile.py \
+  --source "$probe_root/crowns" --output "$probe_root/tile"
+.venv/bin/python test/experiments/vegetation/conifer_crown_checks.py \
+  --source "$probe_root/crowns" --tile "$probe_root/tile" --output "$probe_root/checks"
 .venv/bin/python test/experiments/vegetation/conifer_preview.py -- \
-  --scenario build/experiments/vegetation/conifer-crowns/tile/tile.json \
-  --output build/experiments/vegetation/conifer-crowns/tile/render.png
+  --scenario "$probe_root/tile/tile.json" --output "$probe_root/tile/render.png"
 ```
+
+These explicit paths replace the historical private build defaults. Current
+takeover evidence and open quality limits: [mature_reference_handoff.md](mature_reference_handoff.md).
+Image publication remains paused.
 
 `NeedledPlant.foliage(path, max_needles, retain=False)` creates owned readonly
 detail without retaining newly generated groups internally. Existing cached groups

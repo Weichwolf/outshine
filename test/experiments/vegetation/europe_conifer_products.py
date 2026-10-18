@@ -1,5 +1,6 @@
 """Cache complete young-plant/near-shoot products, sharing physical prototypes."""
 
+import argparse
 import hashlib
 import json
 import subprocess
@@ -9,11 +10,11 @@ from pathlib import Path
 import numpy as np
 from bark_recipe import bark_recipe
 from europe_conifer_recipes import conifers
+from experiment_output import private_output
 from needle_material import write_needle_material
 from outshine_ref.vegetation.axis_surface import axis_mesh
 
 ROOT = Path(__file__).resolve().parents[3]
-OUTPUT = ROOT / "build/experiments/vegetation/europe-conifers"
 
 
 def write_json(path, data):
@@ -54,12 +55,12 @@ def products(species, plan, directory, mode, tables, selected_path):
     selected_id = None if selected_path is None else plan.wood.axis(selected_path).id
     for path in paths:
         axis, depth = plan.wood.axis(path), len(path)
-        level = plan.wood.levels[depth]
+        base_radius, tip_radius = plan.wood.radii(path)
         mesh = axis_mesh(
             axis.length,
             axis.bend,
-            level.base_radius,
-            level.tip_radius,
+            base_radius,
+            tip_radius,
             16 if depth == 0 else 8,
             12 if depth == 0 else 8,
             bark=True,
@@ -160,8 +161,9 @@ def scene(species, plan, mode, products, provenance, path):
     }
 
 
-def main():
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+def main(output_root):
+    output_root = private_output(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
     implementation = [
         Path(__file__),
         Path(__file__).with_name("europe_conifer_recipes.py"),
@@ -188,7 +190,7 @@ def main():
     }
     cases = []
     for species in conifers():
-        directory = OUTPUT / species.key
+        directory = output_root / species.key
         directory.mkdir(parents=True, exist_ok=True)
         write_json(directory / "species.json", species.reference())
         bark = bark_recipe()
@@ -227,9 +229,11 @@ def main():
                     "preparation_and_save_s": time.perf_counter() - began,
                 }
             )
-    write_json(OUTPUT / "products.json", {"cases": cases, **provenance})
+    write_json(output_root / "products.json", {"cases": cases, **provenance})
     print(json.dumps(cases, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    main(parser.parse_args().output)

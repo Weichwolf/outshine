@@ -5,7 +5,7 @@ from curve_frame import arc_frame
 from scipy.spatial import cKDTree
 
 
-def axis_chart(state, level, points):
+def axis_chart(state, level, points, *, radii=None):
     local = (points - state.origin) @ state.frame
     if state.bend == 0:
         parameter = np.clip(local[:, 1] / state.length, 0, 1)
@@ -26,7 +26,8 @@ def axis_chart(state, level, points):
     coordinates = np.column_stack(
         (relative[:, 0], np.sum(relative * normal, axis=1), parameter * state.length)
     )
-    radius = level.base_radius + parameter * (level.tip_radius - level.base_radius)
+    base, tip = (level.base_radius, level.tip_radius) if radii is None else radii
+    radius = base + parameter * (tip - base)
     return coordinates, radius, np.linalg.norm(relative, axis=1)
 
 
@@ -57,31 +58,39 @@ def material_coordinates(plant, points, method="indexed"):
         }
     paths = tuple(plant.paths())
     root = plant.axis(())
-    coordinates, radius, _distance = axis_chart(root, plant.levels[0], points)
+    coordinates, radius, _distance = axis_chart(
+        root, plant.levels[0], points, radii=plant.radii(())
+    )
     offsets = {(): np.zeros(3)}
     tree = cKDTree(points) if method == "indexed" else None
     evaluations = len(points)
     for path in paths[1:]:
         state, parent = plant.axis(path), plant.axis(path[:-1])
         level, parent_level = plant.levels[len(path)], plant.levels[len(path) - 1]
-        inherited = axis_chart(parent, parent_level, state.origin[None])[0][0]
+        parent_radii = plant.radii(path[:-1])
+        child_radii = plant.radii(path)
+        inherited = axis_chart(
+            parent, parent_level, state.origin[None], radii=parent_radii
+        )[0][0]
         offsets[path] = offsets[path[:-1]] + inherited
         if tree is None:
             indices = np.arange(len(points))
         else:
             centre = arc_frame(state.length, state.bend, 0, np.array([0.5]))[0][0]
             centre = centre @ state.frame.T + state.origin
-            bound = state.length / 2 + 2 * level.base_radius
+            bound = state.length / 2 + 2 * child_radii[0]
             margin = 64 * np.finfo(float).eps * max(np.max(abs(centre)), bound, 1)
             indices = np.asarray(
                 tree.query_ball_point(centre, bound + margin), dtype=int
             )
         if not len(indices):
             continue
-        chart, child_radius, distance = axis_chart(state, level, points[indices])
+        chart, child_radius, distance = axis_chart(
+            state, level, points[indices], radii=child_radii
+        )
         evaluations += len(indices)
-        parent_radius = parent_level.base_radius + state.parent_parameter * (
-            parent_level.tip_radius - parent_level.base_radius
+        parent_radius = parent_radii[0] + state.parent_parameter * (
+            parent_radii[1] - parent_radii[0]
         )
         span = min(2.5 * parent_radius, state.length / 4)
         outer = 2 * child_radius
