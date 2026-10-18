@@ -38,30 +38,36 @@ def on_edge(opening, a, tangent, length):
         raise ValueError("Existing opening does not belong to its actual wall edge")
 
 
-def traces(prepared, portals):
+def traces(prepared, portals, *, include_blank=False):
     openings = {}
     for opening in (*prepared.facade.windows, *portals):
         openings.setdefault((opening.storey, *opening.edge), []).append(opening)
-    result = []
+    result, skipped = [], []
     for index, storey in enumerate(prepared.local.storeys):
         polygon = shapely.orient_polygons(shapely.from_wkb(storey.footprint_wkb))
         for ring_index, ring in enumerate((polygon.exterior, *polygon.interiors)):
             for edge_index, (a, b) in enumerate(pairwise(np.asarray(ring.coords))):
                 key = (index, ring_index, edge_index)
-                if key not in openings:
+                if key not in openings and not include_blank:
                     continue
                 length = float(np.linalg.norm(b - a))
-                tangent = (b - a) / length
-                for opening in openings.pop(key):
-                    on_edge(opening, a, tangent, length)
+                selected = openings.pop(key, ())
                 if length <= 2 * CORNER_MARGIN_M:
+                    if not selected:
+                        skipped.append(
+                            (key, "Blank wall shorter than its corner reserves")
+                        )
+                        continue
                     raise ValueError("Opening wall has no safe exterior corner margin")
+                tangent = (b - a) / length
+                for opening in selected:
+                    on_edge(opening, a, tangent, length)
                 result.append((key, storey, a, tangent, length))
     if openings:
         raise ValueError("Opening references a missing source wall edge")
     if len(result) > 768:
         raise ValueError("Wall domain budget exceeded before coplanar grouping")
-    return result
+    return result, skipped
 
 
 def protected(prepared, portals, origin, tangent):
@@ -103,11 +109,18 @@ def protected(prepared, portals, origin, tangent):
     return shapely.union_all(parts)
 
 
-def domains(prepared, *, portals=(), outward_m=0.20):
+def domains(prepared, *, portals=(), outward_m=0.20, include_blank=False):
+    if type(include_blank) is not bool:
+        raise ValueError("Blank-wall inclusion requires a boolean")
     entry_on_boundary(prepared.local, PLANE_TOL_M)
+    wall_traces, skipped = traces(prepared, portals, include_blank=include_blank)
     actual, rejected = filter_traces(
-        traces(prepared, portals), prepared.local, outward_m, CORNER_MARGIN_M
+        wall_traces,
+        prepared.local,
+        outward_m,
+        CORNER_MARGIN_M,
     )
+    rejected = (*rejected, *skipped)
     groups = []
     for trace in actual:
         _key, _storey, a, tangent, _length = trace
