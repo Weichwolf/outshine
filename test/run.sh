@@ -242,6 +242,7 @@ done
 
 TestProfile() {
   case "$1" in
+    outshine/integration/places/client) printf '%s' 'profile/client-shots' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
@@ -289,6 +290,7 @@ TestProfile() {
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
+    profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
     profile/medium-view) printf '%s' "-Iinclude -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
@@ -382,7 +384,7 @@ LayerValidation() {
     printf '%s ' "$HARDENING_FLAGS"
   fi
   case "$1" in
-    outshine/integration/places|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
+    outshine/integration/places|outshine/integration/places/client|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
   esac
   case "$(TestProfile "$1")" in
     profile/device) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;
@@ -434,6 +436,7 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
