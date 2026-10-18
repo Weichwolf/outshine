@@ -43,6 +43,10 @@ public:
 
   [[nodiscard]] std::span<const uint32_t> SourceOrder() const noexcept { return Order_; }
 
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return Nodes_.capacity() * sizeof(Node) + Order_.capacity() * sizeof(uint32_t);
+  }
+
   [[nodiscard]] std::span<const uint32_t> Members(const Node &node) const noexcept {
     return std::span(Order_).subspan(node.First, node.Count);
   }
