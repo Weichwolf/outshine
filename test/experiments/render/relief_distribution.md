@@ -44,6 +44,10 @@ model or actual visible need; finite within-group response and horizon/visibilit
 assumptions need explicit treatment. The oracle remains the current guarded
 shading-normal BRDF, without displaced-surface micro-occlusion.
 
+The subsequent [finite-corner kernel comparison](relief_finite.md) preserves
+analytic GGX kernel mass and first moments. Its one/four residual tiles also
+fail; exact kernel integration alone does not accept a full BRDF filter.
+
 ## Actual native work
 
 The existing immutable32-byte material consumer executes the unchanged
