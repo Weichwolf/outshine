@@ -83,11 +83,11 @@ void Replay(const std::filesystem::path &directory,
   using namespace outshine::Ground;
   using namespace outshine::Test;
   const LongitudeLatitude eye{.LongitudeDeg = 0.01, .LatitudeDeg = 0.01};
-  const std::array providers{
-      Data::SourceProvider{.Kind = "terrain"},
-      Data::SourceProvider{.Kind = "vector",
-                           .Dataset = "fixture.native-replay",
-                           .Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf"}};
+  std::array<Data::SourceProvider, 2> providers{};
+  providers[0].Kind = "terrain";
+  providers[1].Kind = "vector";
+  providers[1].Dataset = "fixture.native-replay";
+  providers[1].Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf";
   Transport wire;
   wire.TwoCells = initialCells;
   SilentSink sink;

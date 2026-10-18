@@ -53,6 +53,7 @@ RawTile Inputs() {
                               .HeightM = index == 0 ? 0.0 : 12.0,
                               .MinimumHeightM = index == 2 ? 3.0 : 0.0,
                               .Pitched = 0,
+                              .WallColour = {},
                               .Facade = facades[index]});
   }
   raw.Ways.push_back({.LocalFirst = static_cast<uint32_t>(raw.LatLon.size() / 2),
@@ -265,7 +266,9 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
     package.Records.push_back({.Key = key,
                                .Kind = "buildings",
                                .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                               .ByteCount = package.Bytes.size()});
+                               .Package = {},
+                               .ByteCount = package.Bytes.size(),
+                               .Parent = {}});
     return std::expected<GeneratedAssetPackage, std::string>(std::move(package));
   });
   CHECK(published && generated == 1, "one miss publishes an actual native prepared building tile");

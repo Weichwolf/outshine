@@ -10,14 +10,14 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   using Field = ::outshine::Generators::Osm::BuildingField;
-  auto source = std::make_shared<const Data::SourceProvenance>(
-      Data::SourceProvenance{.DatasetId = "external-world", .Revision = "one"});
+  auto source = std::make_shared<const Data::SourceProvenance>(Data::SourceProvenance{
+      .DatasetId = "external-world", .Revision = "one", .PayloadSha256 = {}});
   const std::weak_ptr<const Data::SourceProvenance> held = source;
   auto geometry = std::make_shared<Ground::BuildingGeometry>();
   geometry->Origin = {.Provenance = source,
                       .Bounds = {.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}};
   Field field;
-  Field::Baked product{.Coordinates = geometry};
+  Field::Baked product{.Coordinates = geometry, .Prints = {}, .SeatSpreadM = {}, .AcrossM = {}};
   field.PreparesAcceptances({.Tiles = 1});
   field.Take(0);
   auto pending = field.PrepareAcceptance(0, product, {}, true);
@@ -36,8 +36,9 @@ int main() {
   CHECK(field.InputOfTile(0)->SourceKey != firstKey && field.Revision() != firstRevision,
         "different original source coverage invalidates an otherwise equal product");
   geometry = std::make_shared<Ground::BuildingGeometry>(*geometry);
-  geometry->Origin.Provenance = std::make_shared<const Data::SourceProvenance>(
-      Data::SourceProvenance{.DatasetId = "external-world", .Revision = "two"});
+  geometry->Origin.Provenance =
+      std::make_shared<const Data::SourceProvenance>(Data::SourceProvenance{
+          .DatasetId = "external-world", .Revision = "two", .PayloadSha256 = {}});
   geometry->Origin.Bounds.EastDeg = 1;
   product.Coordinates = geometry;
   auto replacement = field.PrepareAcceptance(0, product, {}, true);
