@@ -491,6 +491,7 @@ private:
     uint32_t FirstRow = 0;
     uint32_t MaxInstances = 0;
     std::vector<DagCluster> Clusters;
+    std::optional<std::array<float, 4>> LocalSphere, WorldSphere;
     bool Live = false;
   };
 

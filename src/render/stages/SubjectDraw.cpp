@@ -6,6 +6,8 @@
 #include <format>
 #include "GroundLattice.h"
 #include "SubjectDraw.h"
+#include "BatchVisibility.h"
+#include <optional>
 #include "math/Vec3.h"
 
 #include "FragmentArms.h"
@@ -688,6 +690,8 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
     held.Rows.assign(piece.Instances.begin(), piece.Instances.end());
   }
   held.Clusters.assign(piece.Clusters.begin(), piece.Clusters.end());
+  held.LocalSphere = held.Clusters.empty() ? LocalSphereOf(piece.Verts) : std::nullopt;
+  held.WorldSphere = WorldSphereOf(held.LocalSphere, held.Rows);
   VertexRunsCarried carried;
   carried.Normal = true;
   carried.Uv = piece.Textured;
@@ -716,6 +720,7 @@ bool SubjectDraw::SetPieceInstances(PieceId which, std::span<const Mat4> rows, s
   }
   if (std::ranges::equal(piece.Rows, rows)) { return true; }
   piece.Rows.assign(rows.begin(), rows.end());
+  piece.WorldSphere = WorldSphereOf(piece.LocalSphere, piece.Rows);
   RowsStale_ = TablesStale_ = true;
   ++Reshaped_;
   return true;
@@ -927,6 +932,7 @@ bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
     const auto row = static_cast<uint32_t>(Batches.size());
     DrawBatch batch{};
     batch.Motion = VertexMotion::Rigid;
+    batch.WorldSphere = one.WorldSphere;
     batch.FirstIndex = one.I.First;
     batch.IndexCount = one.IndexCount;
     batch.MaterialSlot = MaterialSlotFor(one);
