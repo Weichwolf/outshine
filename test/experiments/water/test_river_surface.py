@@ -1,4 +1,6 @@
 from pathlib import Path
+import hashlib
+import json
 import unittest
 
 import numpy as np
@@ -8,6 +10,34 @@ from river_surface import source_body, surface_mesh
 
 
 class RiverSurface(unittest.TestCase):
+    def test_real_fixture_keeps_source_classes_and_exact_identity(self):
+        path = Path(__file__).parent / "fixtures/feldkirch-ill-profile.npz"
+        manifest = json.loads(path.with_suffix(".json").read_text())
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), manifest["input_sha256"])
+        observation = manifest["source_semantics_observation"]
+        with np.load(path) as data:
+            self.assertEqual([r["fixture_index"] for r in observation["surfaces"]],
+                             data["surface_source_indices"].tolist())
+        self.assertEqual([r["fixture_index"] for r in observation["courses"]],
+                         manifest["selection"]["selected_course_indices"])
+        self.assertEqual({r["kind"] for r in observation["surfaces"]}, {"river"})
+        for family, layer in (("surfaces", "water_polygons"), ("courses", "water_lines")):
+            for row in observation[family]:
+                source = observation["sources"][str(row["source"])]
+                self.assertGreaterEqual(row["feature"], 0)
+                self.assertLess(row["feature"], source["features"])
+                self.assertEqual(row["layer"], layer)
+                self.assertEqual(source["provider"], "openfreemap.openmaptiles")
+                self.assertTrue(source["revision"])
+                if row["provider_feature_id"] is not None:
+                    self.assertIsInstance(row["provider_feature_id"], str)
+                    identity = int(row["provider_feature_id"])
+                    self.assertGreaterEqual(identity, 0)
+                    self.assertLess(identity, 1 << 64)
+                self.assertIsInstance(row["bridge"], bool)
+                self.assertIsInstance(row["tunnel"], bool)
+                self.assertIsInstance(row["intermittent"], (bool, type(None)))
+
     def test_concave_surface_and_island_keep_their_exact_coverage(self):
         body = Polygon([(0, 0), (20, 0), (20, 10), (10, 10), (10, 20), (0, 20)],
                        [[(2, 2), (4, 2), (4, 4), (2, 4)]])
