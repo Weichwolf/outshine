@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 from camera_height_inputs import digest
+from regional_scene_parts import parts
 from stair_module_experiment import write_json
 from stair_patch_inputs import fresh
 from stair_regional_precision import position_payload
@@ -30,9 +31,8 @@ def source_bodies(row):
     return result
 
 
-def encode_body(output, body, data, index):
+def encode_part(output, body, data, name, origin):
     points, faces = data["vertices"], data["triangles"]
-    origin = np.round((points.min(axis=0) + points.max(axis=0)) / 128) * 64
     positions = position_payload(points, origin)
     actual = positions.astype(float) + origin
     reference = np.cross(
@@ -54,16 +54,20 @@ def encode_body(output, body, data, index):
             ),
         }
 
-    path = output / f"body-{index}.npz"
+    path = output / (name + ".npz")
     np.savez_compressed(path, **(data | {"vertices": positions}))
     return dict(
         body,
+        id=name,
         mesh=str(path),
         mesh_sha256=digest(path),
         origin_m=origin.tolist(),
         encoded_float32=True,
     ), {
         "id": body["id"],
+        "draw_part": name,
+        "mesh": str(path),
+        "mesh_sha256": digest(path),
         "original_mesh": body["mesh"],
         "original_mesh_sha256": body["mesh_sha256"],
         "vertices": len(points),
@@ -72,6 +76,25 @@ def encode_body(output, body, data, index):
         "origin_bytes": origin.nbytes,
         "absolute_quality": quality(points.astype("f4").astype(float)),
         "regional_quality": quality(actual),
+    }
+
+
+def encode_body(output, body, data, index):
+    points = data["vertices"]
+    origin = np.round((points.min(axis=0) + points.max(axis=0)) / 128) * 64
+    encoded, proofs = [], []
+    for part_index, chunk in enumerate(parts(data)):
+        name = f"body-{index}-part-{part_index}"
+        item, proof = encode_part(output, body, chunk, name, origin)
+        encoded.append(item)
+        proofs.append(proof)
+    return encoded, {
+        "id": body["id"],
+        "original_mesh": body["mesh"],
+        "original_mesh_sha256": body["mesh_sha256"],
+        "vertices": len(points),
+        "faces": len(data["triangles"]),
+        "draw_parts": proofs,
     }
 
 
@@ -115,9 +138,11 @@ def run(args):
     began = time.perf_counter()
     encoded, proofs = [], []
     for index, (body, data) in enumerate(bodies):
-        item, proof = encode_body(args.output, body, data, index)
-        encoded.append(item)
+        items, proof = encode_body(args.output, body, data, index)
+        encoded.extend(items)
         proofs.append(proof)
+    if len(encoded) > 64:
+        raise ValueError("complete scene exceeds bounded64-object research draw")
     legacy = dict(row, output=str(args.output / "legacy.png"))
     write_json(args.output / "legacy-scene.json", legacy)
     scenes = camera_pairs(row, encoded, args.output)
