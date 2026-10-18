@@ -37,7 +37,7 @@ Result<void> CheckImageAliases(const ComputeLayout &layout, std::span<const Bind
     for (std::size_t right = left + 1; right < images.size(); ++right) {
       const auto &second = images[right];
       const auto intersects = [](uint32_t a, uint32_t sizeA, uint32_t b, uint32_t sizeB) {
-        return uint64_t(a) < uint64_t(b) + sizeB && uint64_t(b) < uint64_t(a) + sizeA;
+        return uint64_t{a} < uint64_t{b} + sizeB && uint64_t{b} < uint64_t{a} + sizeA;
       };
       if (first.View.Image != nullptr && first.View.Image == second.View.Image &&
           (first.Writes || second.Writes) &&

@@ -98,14 +98,12 @@ DecodeRawGrid(Data::TileId of, TerrainBytes::Payload delivered, uint64_t terrain
         cropped.SetM(r, c, field->AtM(subY * cropRows + r, subX * cropCols + c));
       }
     }
-    cropped.AddSource(std::move(delivered.Source));
     grid = TerrainGrid::Holding(std::move(cropped));
     field = grid.TryFieldMutable();
-  } else {
-    field->AddSource(std::move(delivered.Source));
   }
 
-  if (!field->Meshable()) { return corrupt(); }
+  if (field == nullptr || !field->Meshable()) { return corrupt(); }
+  field->AddSource(std::move(delivered.Source));
   field->SetCertificate(
       TerrainCertificate::FromDelivery(of, std::move(delivered.Stamp), terrainScope));
   return grid;

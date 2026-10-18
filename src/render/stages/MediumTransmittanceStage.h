@@ -1,13 +1,13 @@
 #ifndef OUTSHINE_RENDER_STAGES_MEDIUMTRANSMITTANCESTAGE_H
 #define OUTSHINE_RENDER_STAGES_MEDIUMTRANSMITTANCESTAGE_H
 
-#include <string>
+#include <memory>
+#include <optional>
 
 #include "ComputeShaders.h"
 #include "StageSubmission.h"
 
 #include "Gpu.h"
-#include "GpuOwned.h"
 #include "Atmosphere.h"
 
 namespace outshine::Render {
@@ -16,18 +16,18 @@ class MediumTransmittanceStage {
 public:
   static constexpr ComputeShaderId Shader = ComputeShaderId::MediumTransmittance;
   static constexpr ComputeShape KernelShape = FindComputeShader(Shader)->Shape;
-  [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error);
+  [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu, Native::Texture *lut);
 
   void Declare(const Medium &medium);
 
-  void Encode(const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const PassRecording &into);
 
   [[nodiscard]] bool Settled() const noexcept { return Cache_.Submitted(); }
 
 private:
-  OwnedComputePipeline Pipe;
-  SDL_GPUTexture *Lut = nullptr;
-  Medium Declared_;
+  std::unique_ptr<Native::ComputePipeline> Pipe;
+  Native::Texture *Lut = nullptr;
+  std::optional<Medium> Declared_;
   StageCache Cache_;
 };
 

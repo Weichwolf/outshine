@@ -15,7 +15,7 @@ def products(current, owner, material, mode, *, glass=None):
     width = current["cell_width_m"]
     cell_origin = origin - basis[0] * width / 2
     output = []
-    if mode == "compact":
+    if mode in ("compact", "flat"):
         output.append(
             local_quads(
                 [(0, 0, width, plan.height_m, 0)],

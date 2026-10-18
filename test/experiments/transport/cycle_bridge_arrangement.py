@@ -10,7 +10,7 @@ from scipy.spatial import cKDTree
 from transport_vertex_pool import welded_vertices
 
 
-def surface(domain, origin, axis, table):
+def surface(domain, origin, axis, table, *, field=None):
     began = time.monotonic()
     if len(table) > 512 or shapely.get_num_coordinates(domain) > 1024:
         raise ValueError("bridge arrangement input budget")
@@ -26,6 +26,12 @@ def surface(domain, origin, axis, table):
         + np.array([cross.min() - 1, cross.max() + 1])[None, :, None] * normal
     )
     lines = np.r_[shapely.get_parts(domain.boundary), shapely.linestrings(endpoints)]
+    if field is not None:
+        if len(field.triangles) > 128 or len(field.vertices) > 256:
+            raise ValueError("bridge arrangement affine field budget")
+        edges = field.triangles[:, [[0, 1], [1, 2], [2, 0]]].reshape(-1, 2)
+        edges = np.unique(np.sort(edges, axis=1), axis=0)
+        lines = np.r_[lines, shapely.linestrings(field.vertices[edges, :2])]
     noded = shapely.get_parts(shapely.union_all(lines))
     if len(noded) > 8192:
         raise ValueError("bridge arrangement segment budget")

@@ -15,6 +15,7 @@ from camera_height_inputs import digest
 from outshine_ref.rendering.blender_camera import configure_camera, verify_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_mesh import mesh_object
+from regional_render_frame import bind_positions, render_camera, scene_bindings, vector
 from transport_surface_colour import attach_face_colours
 
 NORMAL_ATTRIBUTE = "transport_source_normal"
@@ -51,7 +52,7 @@ def materials(colours):
     return result
 
 
-def import_body(row):
+def import_body(row, render_origin=None):
     path = Path(row["mesh"])
     if digest(path) != row["mesh_sha256"]:
         raise ValueError("source body changed")
@@ -73,10 +74,7 @@ def import_body(row):
     obj.data.loops.foreach_get("vertex_index", imported)
     if not np.array_equal(imported.reshape(-1, 3), faces):
         raise ValueError("Blender changed source transport topology")
-    actual = np.empty((len(vertices), 3), np.float32)
-    obj.data.vertices.foreach_get("co", actual.ravel())
-    if not np.array_equal(actual, vertices.astype(np.float32)):
-        raise ValueError("Blender changed source transport positions")
+    relative, binding = bind_positions(obj, vertices, row, render_origin)
     # Blender's packed custom-normal spaces lose accuracy on the real shared
     # indexed bodies. Preserve the supplied vectors directly for the material.
     packed = np.empty_like(normals, dtype=np.float32)
@@ -88,7 +86,7 @@ def import_body(row):
     if not np.array_equal(actual_normals, normals.astype(np.float32)):
         raise ValueError("Blender changed explicit source normal attribute")
     colour_proof = {} if colours is None else attach_face_colours(obj, colours)
-    return vertices, {
+    return relative, {
         "vertices": len(vertices),
         "triangles": len(faces),
         "supplied_corner_normals": len(normals),
@@ -98,6 +96,34 @@ def import_body(row):
         "source_normal_attribute": NORMAL_ATTRIBUTE,
         "unused_packed_normal_max_error": float(abs(packed - normals).max()),
         **colour_proof,
+        **(
+            {"regional_binding": binding}
+            if render_origin is not None or "origin_m" in row
+            else {}
+        ),
+    }
+
+
+def import_scene(row):
+    origin = vector(row["render_origin_m"]) if "render_origin_m" in row else None
+    if "bodies" not in row:
+        return import_body(row, origin)
+    bodies = row["bodies"]
+    if (
+        not isinstance(bodies, list)
+        or not 1 <= len(bodies) <= 64
+        or len({body["id"] for body in bodies}) != len(bodies)
+    ):
+        raise ValueError("bounded distinct research scene bodies required")
+    vertices, proofs = [], []
+    for body in bodies:
+        actual, proof = import_body(body, origin)
+        vertices.append(actual)
+        proofs.append(dict(proof, id=body["id"], mesh_sha256=body["mesh_sha256"]))
+    return np.vstack(vertices), {
+        "objects": len(proofs),
+        "parts": proofs,
+        "scope": "Exact per-object imports; existing face-colour capacity applies to every object",
     }
 
 
@@ -112,7 +138,7 @@ def render(row):
         raise ValueError("fresh render output required")
     began = time.perf_counter()
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    vertices, imported = import_body(row)
+    vertices, imported = import_scene(row)
     scene = bpy.context.scene
     scene.render.engine = (
         "BLENDER_EEVEE" if bpy.app.version >= (5, 0, 0) else "BLENDER_EEVEE_NEXT"
@@ -120,7 +146,8 @@ def render(row):
     scene.render.threads_mode, scene.render.threads = "FIXED", 2
     scene.eevee.taa_render_samples = row.get("samples", 16)
     lighting = configure_daylight(scene)
-    scene.camera = configure_camera(row)
+    camera_row = render_camera(row)
+    scene.camera = configure_camera(camera_row)
     scene.render.resolution_x, scene.render.resolution_y = row["profile"]
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
@@ -135,7 +162,7 @@ def render(row):
         )
     )
     view = np.asarray(scene.camera.matrix_world.inverted())
-    camera = verify_camera(row, projection, view, vertices)
+    camera = verify_camera(camera_row, projection, view, vertices)
     bpy.ops.render.render(write_still=True)
     report = {
         "id": row["id"],
@@ -163,6 +190,7 @@ def render(row):
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
+        **scene_bindings(row, imported, scene.camera),
     }
     output.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n")
     print(

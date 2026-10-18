@@ -109,6 +109,9 @@ private:
 
   [[nodiscard]] Result<RenderAttachment>
   PrepareAttachment(TextureView view, Load begin, Store end, bool depth);
+  [[nodiscard]] static ImageAccess AttachmentAccess(bool depth) noexcept;
+  void EncodeRenderPass(RenderState &pass, bool final);
+  void ContinueRenderPass(RenderState &pass);
   [[nodiscard]] Result<DrawPacket> PrepareDraw(const DrawState &description);
   [[nodiscard]] Result<void> BindVertices(DrawPacket &packet,
                                           std::span<const VertexBuffer> vertices);

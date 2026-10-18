@@ -5,6 +5,7 @@ import shapely
 from outshine_ref.buildings.interiors.geometry import rectangle
 from outshine_ref.buildings.window_bays import (
     WindowBay,
+    bay_flat,
     bay_skin,
     bay_surface,
     sections,
@@ -61,7 +62,9 @@ class WindowBayDetails:
         key = plan, mode
         if key not in self.templates:
             self.templates[key] = (
-                bay_skin(plan)
+                bay_flat(plan, back_covered=True)
+                if mode == "flat"
+                else bay_skin(plan)
                 if mode == "compact"
                 else bay_surface(plan, method="parts")
             )
@@ -135,6 +138,45 @@ class WindowBayDetails:
         }
 
 
+def corners(current):
+    boxes = np.array([current["full_footprint"].bounds, current["pocket"].bounds])
+    low_xy, high_xy = boxes[:, :2].min(axis=0), boxes[:, 2:].max(axis=0)
+    low, high = current["height_interval_m"]
+    return np.array(
+        [
+            [x, y, z]
+            for x in (low_xy[0], high_xy[0])
+            for y in (low_xy[1], high_xy[1])
+            for z in (low, high)
+        ]
+    )
+
+
+def flat_error(current, view, points=None):
+    from tile_facade_recess import recess_error
+
+    if points is None:
+        points = corners(current)
+    plan, tangent = current["prototype"], np.asarray(current["tangent"])
+    inset = plan.width_m / 2 - plan.width_m * plan.front_fraction / 2
+    edges = np.array(
+        [
+            [inset, -plan.depth_m],
+            [plan.width_m * plan.front_fraction, 0],
+            [inset, plan.depth_m],
+        ]
+    )
+    normals = edges[:, [1, 0]] * [1, -1] / np.linalg.norm(edges, axis=1, keepdims=True)
+    inward = np.array([-tangent[1], tangent[0]])
+    world = normals[:, :1] * tangent + normals[:, 1:] * inward
+    depth = (plan.wall_m - plan.glass_m) / 2
+    return max(
+        recess_error(points, np.r_[sign * n, 0.0], view, depth=depth)
+        for n in world
+        for sign in (-1, 1)
+    )
+
+
 def demand(current, view):
     low, high = current["height_interval_m"]
     if low <= view.eye[2] <= high and (
@@ -142,15 +184,7 @@ def demand(current, view):
         or current["pocket"].covers(shapely.Point(view.eye[:2]))
     ):
         return "through"
-    bounds = shapely.union_all([current["full_footprint"], current["pocket"]]).bounds
-    points = np.array(
-        [
-            [x, y, z]
-            for x in (bounds[0], bounds[2])
-            for y in (bounds[1], bounds[3])
-            for z in (low, high)
-        ]
-    )
+    points = corners(current)
     q = (points - view.eye) @ view.basis.T
     distances = q @ view.planes[:, :3].T + view.planes[:, 3]
     if np.any(
@@ -165,4 +199,12 @@ def demand(current, view):
         if nearest <= 0
         else view.focal_px * current["prototype"].width_m / nearest
     )
-    return "through" if pixels >= 8 else "compact" if pixels >= 0.5 else None
+    if pixels >= 8:
+        return "through"
+    if pixels < 0.5:
+        return None
+    return (
+        "flat"
+        if flat_error(current, view, points) <= view.detail_error_px
+        else "compact"
+    )

@@ -15,8 +15,7 @@ CLIENT = ROOT / 'build/outshine-client'
 class Coordinates(unittest.TestCase):
     def test_help_describes_commands_and_stats_without_starting_platform(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
-        cases = ((('--help',), ('render', 'run', 'shots', 'measures', '<command> --help')),
-                 (('render', '--help'), ('asset.gltf|asset.glb', '--camera', '--stats', 'draw_frames')),
+        cases = ((('--help',), ('run', 'shots', 'measures', '<command> --help')),
                  (('run', '--help'), ('--view', '--motion', '--samples', '--stats',
                                      '--probe-pixel', '--quality playable|refined')),
                  (('shots', '--help'), ('--preload-seconds', '--offline', '--stats')),

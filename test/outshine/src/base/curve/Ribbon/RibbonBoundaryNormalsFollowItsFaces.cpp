@@ -1,5 +1,5 @@
 #include <cmath>
-#include "src/base/curve/Ribbon.h"
+#include "Ribbon.h"
 #include "Check.h"
 
 int main() {

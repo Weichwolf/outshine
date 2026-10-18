@@ -11,7 +11,6 @@
 #                   and the tools beside them
 #   make db         compile_commands.json, derived from the SAME tier graph the build uses
 #   make lint       clang-format, clang-tidy and this tree's own repository rules
-#   make doc        the door's documentation -> build/doc
 #   make shots      every place through the camera -> build/shots  (PLACE=Wien for one)
 #   make test       the world gate; compatibility corpora run explicitly
 #   make suite      one named suite                                (SUITE=outshine/integration/places)
@@ -23,6 +22,7 @@
 # out of the archive and broke `make` at HEAD (board:1584).
 SHELL := /bin/bash
 .DEFAULT_GOAL := all
+.DELETE_ON_ERROR:
 
 SELF_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 RUN      := cd $(SELF_DIR) && sh test/run.sh
@@ -32,7 +32,7 @@ RUN      := cd $(SELF_DIR) && sh test/run.sh
 # quietly skipped.
 LLVM_BIN := /opt/homebrew/opt/llvm/bin
 
-.PHONY: all strip shader-tools shaders db lint doc shots corpus-render corpus-prepare test suite clean spotless help
+.PHONY: all strip shader-tools shaders db lint shots corpus-prepare test suite clean spotless help
 
 GLSLANG ?= $(SELF_DIR)/build/deps/install/bin/glslangValidator
 GLSLANG_FLAGS := -V --target-env vulkan1.0 -Isrc -Isrc/content/shade
@@ -42,6 +42,8 @@ SPIRV_SHADERS := $(patsubst src/render/shaders/%,build/shaders/%.spv,$(GLSL_SHAD
 GROUND_OUTPUTS := $(foreach v,0 1,$(foreach n,0 1 2 3,$(foreach i,0 1 2 3,$(if $(and $(filter 1,$(v)),$(filter 1,$(n) $(i))),,$(if $(and $(filter-out 0,$(n)),$(filter $(n),$(i))),,$(v)$(n)$(i))))))
 GROUND_OUTPUTS += 01234
 GROUND_SHADERS := $(foreach v,0 1,build/shaders/groundLattice-$(v).vert.spv) $(foreach output,$(GROUND_OUTPUTS),build/shaders/groundLit-$(output).frag.spv)
+GROUND_SHADERS += $(foreach v,0 1,build/shaders/groundPatchLattice-$(v).vert.spv)
+GROUND_SHADERS += $(foreach output,$(GROUND_OUTPUTS),build/shaders/groundPatchLit-$(output).frag.spv)
 
 FLAT_VERTICES := $(foreach u,0 1 2,$(foreach t,0 1,$(foreach v,0 1,build/shaders/flat-$(u)$(t)-$(v).vert.spv)))
 FLAT_FRAGMENTS := $(foreach kind,00 01 10 11 20 21 30,$(foreach output,$(GROUND_OUTPUTS),build/shaders/flat-$(kind)-$(output).frag.spv))
@@ -51,14 +53,23 @@ LIT_VERTICES := $(foreach layout,$(LIT_LAYOUTS),$(foreach v,0 1,build/shaders/li
 LIT_FRAGMENTS := $(foreach kind,0 1 2 3,$(foreach layout,00 10 11,$(foreach output,$(GROUND_OUTPUTS),build/shaders/lit-$(kind)$(layout)-$(output).frag.spv)))
 SHADOW_MASK_SHADERS := $(foreach u,0 1 2,$(foreach c,0 1,build/shaders/subjectShadow-$(u)$(c).vert.spv)) $(foreach u,0 1 2,build/shaders/subjectShadow-$(u).frag.spv)
 SHADER_ARTIFACTS := $(sort $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS) $(SHADOW_MASK_SHADERS))
+SHADER_DEPFILES := $(addsuffix .d,$(SHADER_ARTIFACTS))
+SHADERS_WITHOUT_DEPS := $(filter-out $(patsubst %.d,%,$(wildcard $(SHADER_DEPFILES))),$(SHADER_ARTIFACTS))
+.PHONY: shader-dependencies-missing
+ifneq ($(SHADERS_WITHOUT_DEPS),)
+$(SHADERS_WITHOUT_DEPS): shader-dependencies-missing
+endif
+$(SHADER_ARTIFACTS): $(abspath $(firstword $(MAKEFILE_LIST))) $(GLSLANG) test/scripts/shader_dependencies.py
+-include $(wildcard $(SHADER_DEPFILES))
 
-build/shaders/subjectShadow-%.vert.spv: src/render/shaders/subjectShadowVertex.glsl $(wildcard src/render/shaders/*.glsl)
-	@mkdir -p $(@D)
-	@stem='$*'; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DSHADOW_UVS=$${stem%?} -DSHADOW_TINTED=$${stem#?} $< -o $@
 
-build/shaders/subjectShadow-%.frag.spv: src/render/shaders/subjectShadowFragment.glsl $(wildcard src/render/shaders/*.glsl)
+build/shaders/subjectShadow-%.vert.spv: src/render/shaders/subjectShadowVertex.glsl
 	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) -S frag -DSHADOW_UVS=$* $< -o $@
+	@stem='$*'; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DSHADOW_UVS=$${stem%?} -DSHADOW_TINTED=$${stem#?} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
+build/shaders/subjectShadow-%.frag.spv: src/render/shaders/subjectShadowFragment.glsl
+	@mkdir -p $(@D)
+	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DSHADOW_UVS=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 shaders: $(SHADER_ARTIFACTS) build/compute-shaders.json
 	@mkdir -p build
 	@printf '%s\n' $(SHADER_ARTIFACTS) > build/shader-artifacts.txt.tmp
@@ -71,43 +82,52 @@ build/compute-shader-contracts: test/scripts/compute-shader-contracts.cpp src/re
 build/compute-shaders.json: build/compute-shader-contracts
 	@$< > $@.tmp && mv $@.tmp $@
 
-build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl $(wildcard src/render/shaders/*.glsl)
+build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl
 	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DLIT_UVS=$${variant:0:1} -DLIT_TINTED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} $< -o $@
+	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DLIT_UVS=$${variant:0:1} -DLIT_TINTED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/lit-%.frag.spv: src/render/shaders/litFragment.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
+build/shaders/lit-%.frag.spv: src/render/shaders/litFragment.glsl build/shaders/brdfTables.glsl
 	@mkdir -p $(@D)
-	@variant=$*; base=$${variant:7:1}; metal=$${variant:8:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DLIT_KIND=$${variant:0:1} -DLIT_TEXTURED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} -DSUBJECT_NORMAL_LOCATION=$${variant:5:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:6:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
+	@variant=$*; base=$${variant:7:1}; metal=$${variant:8:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -Ibuild/shaders -DLIT_KIND=$${variant:0:1} -DLIT_TEXTURED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} -DSUBJECT_NORMAL_LOCATION=$${variant:5:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:6:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/flat-%.vert.spv: src/render/shaders/flatVertex.glsl $(wildcard src/render/shaders/*.glsl)
+build/shaders/flat-%.vert.spv: src/render/shaders/flatVertex.glsl
 	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DFLAT_UVS=$${variant:0:1} -DFLAT_TINTED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} $< -o $@
+	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DFLAT_UVS=$${variant:0:1} -DFLAT_TINTED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl $(wildcard src/render/shaders/*.glsl)
+build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl
 	@mkdir -p $(@D)
-	@variant=$*; base=$${variant:6:1}; metal=$${variant:7:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
+	@variant=$*; base=$${variant:6:1}; metal=$${variant:7:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shader-tables: test/scripts/shader-tables.cpp $(wildcard src/render/stages/*.h) $(wildcard src/base/math/*.h)
+build/shader-tables: test/scripts/shader-tables.cpp Makefile
 	@mkdir -p $(@D)
-	@$(CXX) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
+	@$(CXX) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -MMD -MP -MF $@.d -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
+
+-include build/shader-tables.d
 
 build/shaders/brdfTables.glsl: build/shader-tables
 	@mkdir -p $(@D)
-	@$< > $@.tmp && mv $@.tmp $@
+	@$< > $@.tmp && if cmp -s $@.tmp $@; then rm $@.tmp; else mv $@.tmp $@; fi
 
-build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl $(wildcard src/render/shaders/*.glsl) src/render/stages/GroundConstants.inc
+build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/stages/GroundConstants.inc
 	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@
+	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
-	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
+build/shaders/groundPatchLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/stages/GroundConstants.inc
+	@mkdir -p $(@D)
+	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DGROUND_PATCHES=1 -DSUBJECT_WRITES_VELOCITY=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-shader-tools:    ## build pinned glslang and SDL_shadercross (requires SDL3, SPIRV-Cross, CMake, Ninja)
+build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl build/shaders/brdfTables.glsl
+	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
+build/shaders/groundPatchLit-%.frag.spv: src/render/shaders/groundLit.glsl build/shaders/brdfTables.glsl
+	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DGROUND_PATCHES=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
+shader-tools:    ## build pinned glslang (requires CMake and Ninja)
 	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py
 
-build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) src/world/sky/AtmosphereCore.h src/world/sky/AtmosphereConstants.inc src/render/stages/SceneConstants.inc src/render/stages/GroundConstants.inc
+build/shaders/%.spv: src/render/shaders/%
 	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) $< -o $@
+	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
 all: strip shaders ## the library, the generator archive, and the tools beside them
 	@cd $(SELF_DIR) && sh test/run.sh --library
@@ -131,9 +151,10 @@ experiment-metal: all ## direct Metal MRT/depth/Hi-Z proof; METAL_OUTPUT must na
 	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" python3 test/experiments/render/native_metal.py --output "$(METAL_OUTPUT)"
 
 .PHONY: experiment-vulkan
-experiment-vulkan: all ## native Vulkan archive/compute/textures; VULKAN_OUTPUT must name a system-temp directory
+experiment-vulkan: all ## native Vulkan proof; set VULKAN_DEVICE_NAME and system-temp VULKAN_OUTPUT
 	@test -n "$(VULKAN_OUTPUT)" || { echo 'set VULKAN_OUTPUT to a system-temp directory' >&2; exit 2; }
-	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" VULKAN_VALIDATION="$(VULKAN_VALIDATION)" python3 test/experiments/render/native_vulkan.py --output "$(VULKAN_OUTPUT)"
+	@test -n "$(VULKAN_DEVICE_NAME)" || { echo 'set VULKAN_DEVICE_NAME to the exact Vulkan device name' >&2; exit 2; }
+	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" VULKAN_VALIDATION="$(VULKAN_VALIDATION)" python3 test/experiments/render/native_vulkan.py --device-name "$(VULKAN_DEVICE_NAME)" --output "$(VULKAN_OUTPUT)"
 
 lint: ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
@@ -142,8 +163,14 @@ lint: ## format, static analysis, and this tree's own repository rules
 lint-docs: ## AGENTS contracts only; offline, no GitHub or engine build
 	@cd $(SELF_DIR) && sh test/lint-docs.sh
 
-doc:             ## the door's documentation -> build/doc
-	@cd $(SELF_DIR) && doxygen doc/Doxyfile
+.PHONY: test-sanitizers test-races
+test-sanitizers: ## native ASan/UBSan and container checks (SUITE=...)
+	@$(if $(SUITE),,$(error name a SUITE))
+	@$(RUN) --sanitizer address --harden $(SUITE)
+
+test-races: ## separate native ThreadSanitizer and container checks (SUITE=...)
+	@$(if $(SUITE),,$(error name a SUITE))
+	@$(RUN) --sanitizer thread --harden $(SUITE)
 
 PREPARE_SECONDS ?= 1800
 prepare-place: all ## prepare generated assets and terrain without a frame-rate claim (PLACE=Koerbersee)
@@ -153,27 +180,18 @@ prepare-place: all ## prepare generated assets and terrain without a frame-rate 
 shots: all       ## every place through the camera -> build/shots   (PLACE=Wien for one)
 	@cd $(SELF_DIR) && build/outshine-client shots $(if $(PLACE),$(PLACE),--all)
 
-corpus-prepare: ## prepare a vendor case and its oracle (MANIFEST=test/khronos/.../manifest.json)
+corpus-prepare: ## prepare pinned corpus inputs (MANIFEST=test/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py all --manifest "$(MANIFEST)"
 
-corpus-reference: ## explicitly pin generated reference images (CASES=...; REFERENCE_ARGS=--migrate-existing)
-	@cd $(SELF_DIR) && python3 test/scripts/reference_from_oracle.py $(REFERENCE_ARGS) $(CASES)
-
-corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
-	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
-
-test: test-timeout-cleanup test-client-arguments test-client-data test-reference-store test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
+test: test-timeout-cleanup test-client-arguments test-client-data test-client-cache test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
 	@$(RUN)
 
-.PHONY: test-khronos test-all
-test-khronos: test-reference-cache test-client-render test-corpus-invariants all ## glTF, animation and pinned Khronos image compatibility
-	@$(RUN) khronos outshine/src/import outshine/src/content/animation outshine/include/import outshine/include/Outshine
-
-test-all: test-timeout-cleanup test-client-arguments test-client-data test-reference-cache test-client-render test-corpus-invariants test-motion-trace all ## all declared suites, including compatibility corpora
+.PHONY: test-all
+test-all: test-timeout-cleanup test-client-arguments test-client-data test-client-cache test-motion-trace all ## all declared native, UI and script suites
 	@$(RUN) --all
 
-suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/RuntimeScene/CameraBindingPrecedesDrawing)
+suite:           ## named suite or C++ case; builds its component closure (SUITE=...)
 	@$(if $(SUITE),,$(error name it: make suite SUITE=outshine/integration/places))
 	@$(RUN) $(SUITE)
 
@@ -201,6 +219,10 @@ test-client-data: all ## verify external place scenarios through the client
 test-tidy-analysis: db ## prove clean analysis and incomplete-run detection with real clang-tidy
 	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_tidy_analysis.py
 
+.PHONY: test-callgraph
+test-callgraph: ## verify real archive call edges and corrupt-input rejection
+	@cd $(SELF_DIR) && python3 test/scripts/test_callgraph.py
+
 .PHONY: format
 format: strip ## apply repository formatting to the same owned files lint checks
 	@cd $(SELF_DIR) && python3 test/scripts/format_sources.py --tool $(LLVM_BIN)/clang-format
@@ -213,7 +235,15 @@ test-format: ## verify formatting coverage, real diagnostics and failure handlin
 test-source-units: ## verify native platform and Objective-C++ source selection
 	@cd $(SELF_DIR) && python3 test/scripts/test_source_units.py
 
+.PHONY: test-audit-symbols
+test-audit-symbols: ## verify real Mach-O/ELF namespace closure and missing-source detection
+	@cd $(SELF_DIR) && CXX="$(LLVM_BIN)/clang++" NM="$(LLVM_BIN)/llvm-nm" python3 test/scripts/test_audit_symbols.py
+
 .PHONY: test-client-arguments
+.PHONY: test-client-cache
+test-client-cache: all ## verify preview, budgets, eviction and compaction without GPU initialization
+	@cd $(SELF_DIR) && python3 test/scripts/test_cache_command.py
+
 test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
 	@cd $(SELF_DIR) && python3 test/scripts/test_client_arguments.py
 
@@ -222,34 +252,8 @@ test-shader-artifacts: shaders ## verify the shader package, reflection and nega
 	@cd $(SELF_DIR) && GLSLANG=$(GLSLANG) python3 test/scripts/test_shader_artifacts.py
 	@cd $(SELF_DIR) && python3 test/scripts/shader_artifacts.py
 
-.PHONY: test-documentation
-test-documentation: ## verify public documentation coverage and Doxygen failure detection
-	@cd $(SELF_DIR) && python3 test/scripts/test_documentation_analysis.py
-
-.PHONY: test-reference-store test-reference-cache corpus-reference
-test-reference-store: ## verify immutable reference storage and missing/corrupt cache failures
-	@cd $(SELF_DIR) && python3 test/scripts/test_reference_store.py
-
-test-reference-cache: test-reference-store ## resolve all pinned vendor references; explicit compatibility prerequisite
-	@cd $(SELF_DIR) && python3 test/scripts/test_oracle_seed_shift.py
-	@cd $(SELF_DIR) && python3 test/scripts/reference_store.py
-
-.PHONY: test-client-render
-test-client-render: all ## exercise direct glTF/GLB capture, cameras, exact time and invalid input
-	@cd $(SELF_DIR) && python3 test/scripts/test_client_render.py
-
-.PHONY: test-corpus-invariants
-test-corpus-invariants: ## verify declared vendor relations and negative controls
-	@cd $(SELF_DIR) && python3 test/scripts/test_corpus_invariants.py
-
-.PHONY: render
-render: all ## capture an asset (ASSET=... OUTPUT=... RESOLUTION=1280x720 RENDER_ARGS=...)
-	@$(if $(ASSET),,$(error name an ASSET))
-	@$(if $(OUTPUT),,$(error name an OUTPUT))
-	@cd $(SELF_DIR) && build/outshine-client render "$(ASSET)" "$(or $(RESOLUTION),1280x720)" "$(OUTPUT)" $(RENDER_ARGS)
-
 .PHONY: corpus-fetch
-corpus-fetch: ## fetch pinned corpus inputs without Blender (MANIFEST=test/khronos/.../manifest.json)
+corpus-fetch: ## fetch pinned corpus inputs (MANIFEST=test/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py fetch --manifest "$(MANIFEST)"
 
@@ -267,3 +271,7 @@ test-timeout-cleanup: ## verify owned process-group cleanup and foreign-process 
 .PHONY: test-file-stamps
 test-file-stamps: ## verify portable native test file metadata and failure handling
 	@cd $(SELF_DIR) && python3 test/scripts/test_file_stamps.py
+
+.PHONY: test-shader-dependencies
+test-shader-dependencies: ## verify incremental shader closures and failed-build cleanup
+	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" python3 test/scripts/test_shader_dependencies.py

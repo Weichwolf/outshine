@@ -145,6 +145,11 @@ int main() {
   declared.Declare({}, Ground::TileAt{.X = 1, .Y = 1});
   CHECK(cache->Key(declared, shape, parameters).empty(),
         "unbound declared inputs cannot claim persistent source identity");
+  const auto identity = OsmField::DeclarationDigest({});
+  CHECK(identity, "an explicit empty declaration can be bound to its full content");
+  declared.Declare({}, Ground::TileAt{.X = 1, .Y = 1}, *identity);
+  CHECK(!cache->Key(declared, shape, parameters).empty(),
+        "the persistent region cache accepts a genuinely bound empty source");
   std::error_code error;
   std::filesystem::remove_all(root, error);
   CHECK(!error, "test storage is removed");

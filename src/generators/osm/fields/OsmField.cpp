@@ -700,10 +700,11 @@ int OsmField::Layer(const char *name) const {
 }
 
 std::expected<void, std::string_view> OsmField::Declare(std::span<const Declared> these,
-                                                        LongitudeLatitude at) {
+                                                        LongitudeLatitude at,
+                                                        std::string_view inputDigest) {
   const auto tile = Locate(at, Zoom_);
   if (!tile) { return std::unexpected(tile.error()); }
-  Declare(these, *tile);
+  Declare(these, *tile, inputDigest);
   return {};
 }
 
@@ -815,8 +816,8 @@ bool OsmField::MatchesDeclaration(std::span<const Declared> input, TileAt over) 
   return at == Features_.size();
 }
 
-void OsmField::Declare(std::span<const Declared> these, TileAt over) {
-  if (MatchesDeclaration(these, over)) {
+void OsmField::Declare(std::span<const Declared> these, TileAt over, std::string_view inputDigest) {
+  if (MatchesDeclaration(these, over) && Tiles_.front().InputDigest == inputDigest) {
     Pending_ = 0;
     RequestedRing_ = 0;
     return;
@@ -851,7 +852,7 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
                                             .Y = static_cast<uint32_t>(over.Y)},
                                    .SourceId = "declared",
                                    .Revision = {}},
-                        .InputDigest = {}});
+                        .InputDigest = std::string(inputDigest)});
   Settle(over.X, over.Y);
   Pending_ = 0;
   RequestedRing_ = 0;

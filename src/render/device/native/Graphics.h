@@ -92,6 +92,7 @@ struct GraphicsDescription {
   std::optional<DepthTarget> Depth;
   Cull Culling = Cull::Back;
   Winding Front = Winding::CounterClockwise;
+  bool ClampDepth = false;
   std::string_view Label;
 };
 

@@ -1,0 +1,17 @@
+# Source: native commit 145528b818542f61e3258711d41baf5570c5544b; RTX 3060/libc++21.
+# PART columns: owner, part, position/indices/normal/tangent/uv/uv1/colour element counts.
+# ARRAY columns: phase, owner, stream, used bytes, capacity bytes, data pointer.
+PART	owner	0	16779054	15693252	16779054	0	0	0	22372072
+PART	owner	1	36939	32613	36939	0	24626	0	0
+ARRAY	geometry-cooked	owner	parts	352	352	buffer
+ARRAY	geometry-cooked	owner	positions	67263972	134232432	buffer
+ARRAY	geometry-cooked	owner	normals	67263972	134232432	buffer
+ARRAY	geometry-cooked	owner	tangents	0	0	buffer
+ARRAY	geometry-cooked	owner	uv	44842648	44842648	buffer
+ARRAY	geometry-cooked	owner	uv1	0	0	buffer
+ARRAY	geometry-cooked	owner	colours	89685296	178976576	buffer
+ARRAY	geometry-cooked	owner	indices	62903460	67108864	buffer
+ARRAY	geometry-cooked	owner	surfaces	2040	2720	buffer
+ARRAY	geometry-cooked	owner	lamps	0	0	buffer
+ARRAY	geometry-cooked	owner	clusters	2125136	3407872	buffer
+ARRAY	geometry-cooked	owner	spheres	1961664	3145728	buffer

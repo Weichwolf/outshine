@@ -15,20 +15,46 @@ from tree_entry import load
 from wood_mesh import branch_tubes
 
 
-def canonical_wood(crown, along=2, sides=8, max_faces=262144):
-    radii = pipe_radii(crown.parents, 0.14)
-    paths = dominant_paths(crown.positions, crown.parents, radii)
+def canonical_wood(
+    crown,
+    along=2,
+    sides=8,
+    max_faces=262144,
+    *,
+    radii=None,
+    max_nodes=4096,
+    continuations=None,
+    bark=False,
+):
+    if type(bark) is not bool:
+        raise ValueError("explicit boolean bark selection required")
+    if radii is None:
+        radii = pipe_radii(crown.parents, 0.14)
+    paths = dominant_paths(
+        crown.positions,
+        crown.parents,
+        radii,
+        max_nodes=max_nodes,
+        continuations=continuations,
+    )
+    if paths is None:
+        return None
     expected = sum(2 * sides * ((len(path) - 1) * along + 1) for path in paths)
     if expected > max_faces:
         return None
     vertices, faces, normals, owners = [], [], [], []
+    fields = {name: [] for name in ("bark_coordinates", "bark_radius")} if bark else {}
     offset = 0
     for path in paths:
-        mesh = limb_mesh(crown.positions, radii, path, along, sides)
+        mesh = limb_mesh(crown.positions, radii, path, along, sides, bark=bark)
+        if mesh is None:
+            return None
         vertices.append(mesh["vertices"])
         faces.append(mesh["faces"] + offset)
         normals.append(mesh["normals"])
         owners.append(np.full(len(mesh["faces"]), path[1], np.uint32))
+        for name, values in fields.items():
+            values.append(mesh[name])
         offset += len(mesh["vertices"])
     result = {
         "vertices": np.concatenate(vertices),
@@ -36,6 +62,7 @@ def canonical_wood(crown, along=2, sides=8, max_faces=262144):
         "normals": np.concatenate(normals),
         "limb_ids": np.concatenate(owners),
     }
+    result.update({name: np.concatenate(values) for name, values in fields.items()})
     assert len(result["faces"]) == expected
     return result, paths
 

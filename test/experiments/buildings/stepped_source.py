@@ -16,27 +16,54 @@ from structural_shell_geometry import NativeColumns, assembly, inspect_poses, na
 from tile_room_details import corner_buffers, numeric_properties
 from verify_structural_shell import access
 from verify_terraces import circulation
-from verify_vertical import landing_poses
+from verify_vertical import connected_spaces, landing_poses
 
 
-def planned(row):
+def base_plan(row):
     height = float(row["properties"]["render_height"])
-    began = time.perf_counter()
     plan = build(
-        dict(id=row["id"], polygon=row["polygon"], properties=numeric_properties(row)),
+        {
+            "id": row["id"],
+            "polygon": row["polygon"],
+            "properties": numeric_properties(row),
+        },
         body_top_m=height - PARAPET_HEIGHT_M,
     )
     if plan.get("vertical_status") != "connected-storeys":
         raise ValueError("No complete stepped base room/storey plan")
+    return plan
+
+
+def planned(row, profile="legacy", *, near_products=None):
+    began = time.perf_counter()
+    plan = base_plan(row)
 
     def detail_clearance(current):
         from stepped_envelope_geometry import geometry
 
         _, _, complete, _ = exterior(current, 1)
         geometry(current, complete)
-        near(current, 1)
+        product = near(current, 1)
+        if near_products is not None:
+            near_products[:] = product
 
-    result = choose(plan, validate=detail_clearance)
+    try:
+        result = choose(plan, validate=detail_clearance, profile=profile)
+    except ValueError as error:
+        if profile == "legacy" or profile not in ("corner", "diagonal"):
+            raise
+        result = choose(plan, validate=detail_clearance)
+        result["form_recipe"].update(
+            requested_profile=profile, profile_fallback_reason=str(error)
+        )
+    if profile != "legacy":
+        result["form_recipe"]["requested_profile"] = profile
+    result = terrace_portals(result)
+    result["form_recipe"]["planning_ms"] = (time.perf_counter() - began) * 1000
+    return result
+
+
+def terrace_portals(result):
     result["storey_portals"] = [list(row) for row in result["storey_portals"]]
     result["terrace_space_ids"] = []
     for record in result["terrace_access"]:
@@ -44,24 +71,32 @@ def planned(row):
         identifier = f"{result['id']}:floor-{index}:terrace-{record['component']}"
         result["terrace_space_ids"].append(identifier)
         result["storey_portals"][index].append(
-            dict(
-                id=record["door_id"],
-                rooms=[record["room_id"], identifier],
-                outside=False,
-            )
+            {
+                "id": record["door_id"],
+                "rooms": [record["room_id"], identifier],
+                "outside": False,
+            }
         )
-    result["form_recipe"]["planning_ms"] = (time.perf_counter() - began) * 1000
     return result
 
 
-def plan_for(row):
+def plan_for(row, profile="legacy", *, _near_products=None):
     try:
         with np.errstate(divide="raise", invalid="raise", over="raise"):
-            return planned(row)
+            return planned(row, profile, near_products=_near_products)
     except (FloatingPointError, RuntimeWarning) as error:
         raise ValueError(
             "Source stepped planning rejected numeric geometry: " + str(error)
         ) from error
+
+
+def plan_and_near(row, profile="legacy"):
+    products = []
+    plan = plan_for(row, profile, _near_products=products)
+    if len(products) != 4:
+        raise ValueError("Selected source plan has no validated near product")
+    connected_spaces(plan)
+    return plan, tuple(products)
 
 
 def layers(plan, wall_material=1):
@@ -133,7 +168,7 @@ def exterior(plan, wall_material, inspect_layers=False):
     normal = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
     upward = normal[:, 2] > 0.5 * np.linalg.norm(normal, axis=1)
     material[(complete.source_indices < len(declared)) & upward] = 9
-    mesh = dict(vertices=points, faces=faces, materials=material)
+    mesh = {"vertices": points, "faces": faces, "materials": material}
     mesh = corner_buffers(mesh, wall_material)
     return mesh, envelope, complete, "prism-union"
 
@@ -143,11 +178,11 @@ def near(plan, wall_material):
     mesh, collision = assembly(plan, shell, frames=True)
     guard = roof_guard(plan, wall_material)
     offset = len(mesh["vertices"])
-    mesh = dict(
-        vertices=np.r_[mesh["vertices"], guard.mesh["vertices"]],
-        faces=np.r_[mesh["faces"], guard.mesh["faces"] + offset],
-        materials=np.r_[mesh["materials"], guard.mesh["materials"]],
-    )
+    mesh = {
+        "vertices": np.r_[mesh["vertices"], guard.mesh["vertices"]],
+        "faces": np.r_[mesh["faces"], guard.mesh["faces"] + offset],
+        "materials": np.r_[mesh["materials"], guard.mesh["materials"]],
+    }
     collision = collision + native(guard.mesh, guard.vertex_roots)
     proof = access(plan, collision)
     columns = NativeColumns(collision, plan["base_z_m"] - 1, plan["source_top_m"] + 1)
@@ -156,12 +191,12 @@ def near(plan, wall_material):
         current = level(plan, record["storey"])
         poses = landing_poses(np.asarray(record["path"]), current["floor_z_m"])
         terraces.append(
-            dict(
-                storey=record["storey"],
-                component=record["component"],
-                poses=len(poses),
-                headroom_m=inspect_poses(columns, poses),
-            )
+            {
+                "storey": record["storey"],
+                "component": record["component"],
+                "poses": len(poses),
+                "headroom_m": inspect_poses(columns, poses),
+            }
         )
     raw = attach(detailed_mesh(plan), expand(slots(plan)))
     circulation(plan, raw)

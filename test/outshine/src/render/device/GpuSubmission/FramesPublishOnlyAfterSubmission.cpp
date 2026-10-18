@@ -6,16 +6,37 @@
 #include <cstdint>
 #include <utility>
 #include <memory>
+#include <cstdio>
+#include <print>
 #include <string>
 #include <vector>
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "test/harness/render/NativeDeviceProxy.h"
+#include <expected>
+#include <chrono>
+#include <span>
 
 namespace {
 using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
+constexpr double kNearM = 0.1;
+constexpr double kFarM = 1000;
+constexpr double kShadowFarM = 100;
+constexpr double kSkyLux = 10000;
+constexpr double kSunElevationDeg = 45;
+constexpr double kTimingToleranceMs = 1e-6;
+constexpr float kUnreadSentinel = 42;
+constexpr Vec3f kChangedShadowToSun{{0.6f, 0.5f, 0.7f}};
+
+auto CompilePlan(std::vector<Resource> outputs, std::vector<Stage> content) {
+  PlanSpec spec;
+  spec.Outputs = std::move(outputs);
+  spec.Content = std::move(content);
+  return Compiled::Compile(spec);
+}
 
 struct Faults {
   enum class Point { None, Map, Acquire, Submit, FenceWait, Wait };
@@ -25,72 +46,82 @@ struct Faults {
   size_t Cancelled = 0;
   size_t FenceWaits = 0;
 
+  class Observed final : public outshine::Test::Gpu::NativeDeviceProxy {
+  public:
+    Observed(std::unique_ptr<Native::Device> actual, Faults &faults)
+        : NativeDeviceProxy(*actual), Actual_(std::move(actual)), Faults_(faults) {}
+
+    Native::Result<std::span<std::byte>> MapWrite(Native::Buffer &buffer,
+                                                  Native::ByteRange range) override {
+      if (Faults_.Next == Point::Map) {
+        Faults_.Next = Point::None;
+        return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                             .Message = "injected initialization map failure"});
+      }
+      return Backing().MapWrite(buffer, range);
+    }
+
+  private:
+    std::unique_ptr<Native::Device> Actual_;
+    Faults &Faults_;
+  };
+
   GpuSubmission Functions() {
     return {
         .Context = this,
-        .Acquire = [](void *context, SDL_GPUDevice *device) -> SDL_GPUCommandBuffer * {
+        .Create = [](void *context, Native::DeviceOptions options)
+            -> Native::Result<std::unique_ptr<Native::Device>> {
+          auto actual = Native::CreateDevice(options);
+          if (!actual) { return std::unexpected(actual.error()); }
+          return std::make_unique<Observed>(std::move(*actual), *static_cast<Faults *>(context));
+        },
+        .Acquire = [](void *context,
+                      Native::Device *device) -> Native::Result<std::unique_ptr<Native::Commands>> {
           auto &faults = *static_cast<Faults *>(context);
           if (faults.Next == Point::Acquire) {
             faults.Next = Point::None;
-            SDL_SetError("injected frame acquire failure");
-            return nullptr;
+            return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected frame acquire failure"});
           }
           ++faults.Acquired;
-          return SDL_AcquireGPUCommandBuffer(device);
+          return device->Begin();
         },
-        .Submit = [](void *context, SDL_GPUCommandBuffer *commands) -> SDL_GPUFence * {
+        .Submit =
+            [](void *context,
+               Native::Device *device,
+               std::unique_ptr<Native::Commands> commands) -> Native::Result<Native::Completion> {
           auto &faults = *static_cast<Faults *>(context);
           ++faults.Submitted;
           if (faults.Next == Point::Submit) {
             faults.Next = Point::None;
-            // Only offscreen commands are cancelled: cancellation after swapchain acquire is
-            // illegal.
-            CHECK(SDL_CancelGPUCommandBuffer(commands),
-                  "the injected failure consumes real commands");
+            CHECK(commands, "the injected failure receives owned native commands for cancellation");
             ++faults.Cancelled;
-            SDL_SetError("injected frame submit failure");
-            return nullptr;
+            return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected frame submit failure"});
           }
-          return SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
-        },
-        .MapUpload =
-            [](void *context, SDL_GPUDevice *device, SDL_GPUTransferBuffer *transfer) -> void * {
-          auto &faults = *static_cast<Faults *>(context);
-          if (faults.Next == Point::Map) {
-            faults.Next = Point::None;
-            SDL_SetError("injected initialization map failure");
-            return nullptr;
-          }
-          return SDL_MapGPUTransferBuffer(device, transfer, false);
+          return device->Submit(std::move(commands));
         },
         .WaitFence =
-            [](void *context, SDL_GPUDevice *device, SDL_GPUFence *const *fences, uint32_t count) {
-              auto &faults = *static_cast<Faults *>(context);
-              ++faults.FenceWaits;
-              if (faults.Next == Point::FenceWait) {
-                faults.Next = Point::None;
-                return SDL_SetError("injected frame fence wait failure");
-              }
-              return SDL_WaitForGPUFences(device, true, fences, count);
-            },
-        .WaitIdle =
-            [](void *context, SDL_GPUDevice *device) {
-              auto &faults = *static_cast<Faults *>(context);
-              if (faults.Next == Point::Wait) {
-                faults.Next = Point::None;
-                return SDL_SetError("injected GPU wait failure");
-              }
-              return SDL_WaitForGPUIdle(device);
-            }};
+            [](void *context,
+               Native::Device *device,
+               Native::Completion completion,
+               std::chrono::nanoseconds budget) -> Native::Result<Native::CompletionStatus> {
+          auto &faults = *static_cast<Faults *>(context);
+          if (faults.Next == Point::Wait) {
+            faults.Next = Point::None;
+            return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected GPU wait failure"});
+          }
+          ++faults.FenceWaits;
+          if (faults.Next == Point::FenceWait) {
+            faults.Next = Point::None;
+            return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected frame fence wait failure"});
+          }
+          return device->Wait(completion, budget);
+        }};
   }
 };
-
-auto CompilePlan(std::vector<Resource> outputs, std::vector<Stage> content) {
-  PlanSpec plan;
-  plan.Outputs = std::move(outputs);
-  plan.Content = std::move(content);
-  return Compiled::Compile(plan);
-}
 
 void InitializationUploads() {
   const auto compiled = CompilePlan({Resource::Surface, Resource::IrradianceBuffer}, {Stage::Sky});
@@ -105,12 +136,12 @@ void InitializationUploads() {
   {
     Faults faults;
     SceneRenderer renderer(faults.Functions());
-    CHECK(renderer.Init({32, 32}, *compiled).has_value(),
+    CHECK(renderer.Init({.WidthPx = 32, .HeightPx = 32}, *compiled).has_value(),
           "renderer initialized for the wait contract");
     if (renderer.DeviceUsable()) {
       faults.Next = Faults::Point::Wait;
       CHECK(!renderer.Settle(error) && error.find("injected GPU wait failure") != std::string::npos,
-            "GPU wait failure is returned with an owned SDL diagnosis");
+            "GPU wait failure is returned with an owned native diagnosis");
       SDL_ClearError();
       CHECK(error.find("injected GPU wait failure") != std::string::npos,
             "clearing SDL error does not invalidate the caller's diagnosis");
@@ -121,9 +152,9 @@ void InitializationUploads() {
     Faults faults;
     faults.Next = point;
     SceneRenderer renderer(faults.Functions());
-    const auto stood = renderer.Init({32, 32}, *compiled);
+    const auto stood = renderer.Init({.WidthPx = 32, .HeightPx = 32}, *compiled);
     CHECK(!stood && stood.error().find("injected") != std::string::npos,
-          "failed fallback upload returns the SDL diagnosis");
+          "failed fallback upload returns the native diagnosis");
     CHECK(!renderer.DeviceUsable(), "failed fallback upload prevents renderer readiness");
   }
 }
@@ -137,14 +168,14 @@ Snapshot Capture(SceneRenderer &renderer) {
   Snapshot image;
   CHECK(renderer.ReadSceneLinear(image.Linear) == ReadState::Ready,
         "the submitted temporal image is readable");
-  CHECK(image.Linear.size() == 32u * 32u * 4u, "the complete image is read");
+  CHECK(image.Linear.size() == size_t{32} * 32 * 4, "the complete image is read");
   float brightest = 0;
   for (size_t at = 0; at < image.Linear.size(); ++at) {
     if (at % 4u != 3u) { brightest = std::max(brightest, image.Linear[at]); }
   }
   CHECK(std::isfinite(brightest) && brightest > 0,
         "the daylight sky writes nonzero finite RGB, not only alpha");
-  std::printf("daylight maximum scene-linear RGB: %.9g\n", static_cast<double>(brightest));
+  std::println("daylight maximum scene-linear RGB: {:.9g}", static_cast<double>(brightest));
   CHECK(renderer.ReadSkyIrradiance(image.Irradiance) == ReadState::Ready,
         "submitted sky irradiance is readable");
   CHECK(std::ranges::all_of(image.Irradiance, [](float value) { return std::isfinite(value); }) &&
@@ -154,22 +185,24 @@ Snapshot Capture(SceneRenderer &renderer) {
 }
 
 void Match(const Snapshot &expected, const Snapshot &actual) {
-  size_t different = 0, nonfinite = 0;
+  size_t different = 0;
+  size_t nonfinite = 0;
   double maximum = 0;
   for (size_t at = 0; at < std::min(expected.Linear.size(), actual.Linear.size()); ++at) {
-    const double left = expected.Linear[at], right = actual.Linear[at];
+    const double left = expected.Linear[at];
+    const double right = actual.Linear[at];
     if (!std::isfinite(left) || !std::isfinite(right)) { ++nonfinite; }
     if (left == right) { continue; }
     if (different < 4) {
-      std::printf("linear[%zu]: control %.9g recovered %.9g\n", at, left, right);
+      std::println("linear[{}]: control {:.9g} recovered {:.9g}", at, left, right);
     }
     ++different;
     if (std::isfinite(left) && std::isfinite(right)) {
       maximum = std::max(maximum, std::abs(left - right));
     }
   }
-  std::printf(
-      "temporal comparison: %zu channels differ, %zu nonfinite pairs, max finite delta %.9g\n",
+  std::println(
+      "temporal comparison: {} channels differ, {} nonfinite pairs, max finite delta {:.9g}",
       different,
       nonfinite,
       maximum);
@@ -217,34 +250,37 @@ void ReinitializationInvalidatesFrames(bool temporal) {
   if (!previous) { return; }
   Faults faults;
   SceneRenderer renderer(faults.Functions());
-  CHECK(renderer.Init({32, 32}, *previous).has_value(), "initial renderer is usable");
+  CHECK(renderer.Init({.WidthPx = 32, .HeightPx = 32}, *previous).has_value(),
+        "initial renderer is usable");
   if (!renderer.DeviceUsable()) { return; }
   Viewpoint eye;
   eye.YfovRad = 1;
-  eye.ZNearM = 0.1;
-  eye.ZFarM = 1000;
+  eye.ZNearM = kNearM;
+  eye.ZFarM = kFarM;
   const auto lens = Lens::From(eye, 32, 32);
   CHECK(lens.has_value(), "reinitialization camera is valid");
   if (!lens) { return; }
   renderer.SetCamera(eye, *lens);
   renderer.SetMedium(kEarthAir);
   renderer.SetSky(
-      {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
+      {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = kSkyLux, .EyeHeightM = 2});
   CHECK(renderer.RenderFrame().has_value() && renderer.Drew(), "old plan has a submitted image");
   faults.Next = Faults::Point::Wait;
-  const auto refused = renderer.Init({48, 48}, *compiled);
+  const auto refused = renderer.Init({.WidthPx = 48, .HeightPx = 48}, *compiled);
   CHECK(!refused && refused.error().find("injected GPU wait failure") != std::string::npos,
         "reinitialization returns its failed GPU wait");
   CHECK(renderer.DeviceUsable() && renderer.Drew(),
         "failed GPU wait retains the usable renderer and submitted frame");
-  CHECK(renderer.Init({48, 48}, *compiled).has_value(), "replacement plan initializes after retry");
+  CHECK(renderer.Init({.WidthPx = 48, .HeightPx = 48}, *compiled).has_value(),
+        "replacement plan initializes after retry");
   CHECK(!renderer.Drew(), "reinitialization invalidates previous frame publication");
   std::vector<uint8_t> pixels{1, 2, 3};
   CHECK(renderer.ReadPixels(pixels) == ReadState::Failed &&
             pixels == std::vector<uint8_t>({1, 2, 3}),
         "newly allocated targets cannot be read as a previously submitted image");
   SceneRenderer fresh;
-  CHECK(fresh.Init({48, 48}, *compiled).has_value(), "fresh comparison renderer initializes");
+  CHECK(fresh.Init({.WidthPx = 48, .HeightPx = 48}, *compiled).has_value(),
+        "fresh comparison renderer initializes");
   if (!fresh.DeviceUsable() || !renderer.DeviceUsable()) { return; }
   const auto replacementLens = Lens::From(eye, 48, 48);
   CHECK(replacementLens.has_value(), "replacement lens is valid");
@@ -253,14 +289,14 @@ void ReinitializationInvalidatesFrames(bool temporal) {
     target->SetCamera(eye, *replacementLens);
     target->SetMedium(kEarthAir);
     target->SetSky(
-        {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
+        {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = kSkyLux, .EyeHeightM = 2});
     CHECK(target->RenderFrame().has_value(), "replacement and fresh renderer submit");
   }
   std::vector<uint8_t> expected;
   CHECK(renderer.ReadPixels(pixels) == ReadState::Ready &&
             fresh.ReadPixels(expected) == ReadState::Ready,
         "both newly submitted targets are readable");
-  CHECK(pixels.size() == 48u * 48u * 4u && pixels == expected,
+  CHECK(pixels.size() == size_t{48} * 48 * 4 && pixels == expected,
         "reinitialized target matches fresh renderer at new extent");
 }
 
@@ -271,12 +307,16 @@ void TransmissionFollowsReplacementPlan() {
   CHECK(opaque.has_value() && glass.has_value(), "transmission switching plans compile");
   if (!opaque || !glass) { return; }
   std::array<SubjectMaterial, 1> materials{};
-  materials[0].Row.Transmission = 1;
+  materials.front().Row.Transmission = 1;
   SceneRenderer renderer;
   std::string error;
   for (bool enabled : {true, false, true}) {
-    CHECK(renderer.Init({32, 32}, enabled ? *glass : *opaque).has_value(),
-          "replacement transmission configuration initializes");
+    const auto initialized =
+        renderer.Init({.WidthPx = 32, .HeightPx = 32}, enabled ? *glass : *opaque);
+    if (!initialized) {
+      std::println(stderr, "transmission initialization {}: {}", enabled, initialized.error());
+    }
+    CHECK(initialized.has_value(), "replacement transmission configuration initializes");
     if (!renderer.DeviceUsable()) { return; }
     CHECK(renderer.AppendSubjectMaterials(materials, error) == enabled,
           "material admission follows current transmission plan, not previous plan");
@@ -290,22 +330,23 @@ void WorldPreparationCompletesLighting() {
   CHECK(compiled.has_value(), "world preparation uses the real atmosphere and temporal plan");
   if (!compiled) { return; }
   Faults faults;
-  SceneRenderer actual(faults.Functions()), control;
+  SceneRenderer actual(faults.Functions());
+  SceneRenderer control;
   Viewpoint eye;
   eye.YfovRad = 1;
-  eye.ZNearM = 0.1;
-  eye.ZFarM = 1000;
+  eye.ZNearM = kNearM;
+  eye.ZFarM = kFarM;
   const auto lens = Lens::From(eye, 32, 32);
   CHECK(lens.has_value(), "preparation camera is valid");
   if (!lens) { return; }
   for (auto *renderer : {&actual, &control}) {
-    const auto started = renderer->Init({32, 32}, *compiled);
+    const auto started = renderer->Init({.WidthPx = 32, .HeightPx = 32}, *compiled);
     CHECK(started.has_value(), "preparation renderer initializes");
     if (!started) { return; }
     renderer->SetCamera(eye, *lens);
     renderer->SetMedium(kEarthAir);
     renderer->SetSky(
-        {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
+        {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = kSkyLux, .EyeHeightM = 2});
   }
   std::array<float, kIrradianceFloats> prepared{};
   faults.Next = Faults::Point::Submit;
@@ -337,7 +378,7 @@ void WorldPreparationCompletesLighting() {
   Match(expected, Capture(actual));
   for (auto *renderer : {&actual, &control}) {
     renderer->SetSky(
-        {.ToSun = {{1, 0, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
+        {.ToSun = {{1, 0, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = kSkyLux, .EyeHeightM = 2});
   }
   CHECK(actual.ReadSkyIrradiance(prepared) == ReadState::Failed,
         "a changed sun invalidates the prepared lighting");
@@ -368,23 +409,23 @@ void Exercise() {
   CHECK(!actual.RenderFrame(), "an uninitialized renderer reports failure");
   Viewpoint eye;
   eye.YfovRad = 1;
-  eye.ZNearM = 0.1;
-  eye.ZFarM = 1000;
+  eye.ZNearM = kNearM;
+  eye.ZFarM = kFarM;
   const auto lens = Lens::From(eye, 32, 32);
   CHECK(lens.has_value(), "the camera projection is valid");
   if (!lens) { return; }
   for (auto *renderer : {&control, &actual}) {
-    const auto started = renderer->Init({32, 32}, *compiled);
+    const auto started = renderer->Init({.WidthPx = 32, .HeightPx = 32}, *compiled);
     CHECK(started.has_value(), "the real renderer initializes");
     if (!started) {
-      std::printf("renderer: %s\n", renderer->WhyNot().c_str());
+      std::println("renderer: {}", renderer->WhyNot());
       return;
     }
     CHECK(!renderer->RenderFrame(), "missing camera cannot become a successful frame");
     renderer->SetCamera(eye, *lens);
     renderer->SetMedium(kEarthAir);
     renderer->SetSky(
-        {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
+        {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = kSkyLux, .EyeHeightM = 2});
   }
   for (int attempt = 0; attempt < 2; ++attempt) {
     Reject(actual, faults, Faults::Point::Acquire, false);
@@ -416,7 +457,7 @@ void Exercise() {
   const auto worstTiming = actual.SlowestRenderFrameTiming();
   double phaseSumMs = 0;
   for (const double phaseMs : worstTiming.PhaseMs) { phaseSumMs += phaseMs; }
-  CHECK(std::abs(phaseSumMs - worstTiming.TotalMs) < 1e-6,
+  CHECK(std::abs(phaseSumMs - worstTiming.TotalMs) < kTimingToleranceMs,
         "slowest frame phases partition that frame rather than unrelated phase maxima");
   CHECK(worstTiming.TotalMs >= lastTiming.TotalMs,
         "the slowest successful frame includes the latest submitted frame");
@@ -426,7 +467,7 @@ void Exercise() {
             faults.Next == Faults::Point::None,
         "a reused in-flight fence propagates its wait failure");
   CHECK(faults.Submitted == submits && faults.FenceWaits == waits + 1,
-        "failed fence waiting cancels the new command before submission");
+        "failed fence waiting prevents acquiring and submitting a new command");
   CHECK(actual.LastRenderFrameTiming().TotalMs == lastTiming.TotalMs &&
             actual.LastRenderFrameTiming().PhaseMs == lastTiming.PhaseMs &&
             actual.SlowestRenderFrameTiming().TotalMs == worstTiming.TotalMs &&
@@ -444,8 +485,8 @@ void Exercise() {
   Match(changed, Capture(actual));
   CHECK(changed.Irradiance != first.Irradiance,
         "the changed atmosphere is a meaningful LUT update");
-  CHECK(faults.Cancelled == 4 && faults.Acquired == faults.Submitted + 1,
-        "four rejected submissions and one rejected fence wait consume every acquired command");
+  CHECK(faults.Cancelled == 4 && faults.Acquired == faults.Submitted,
+        "four rejected submissions release owned commands; rejected fence waiting acquires none");
 
   Core::Declaration declaration;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
@@ -477,7 +518,8 @@ void ShadowSubmission() {
                                                              0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5}),
         "closed caster faces are declared");
   Faults faults;
-  SceneRenderer actual(faults.Functions()), control;
+  SceneRenderer actual(faults.Functions());
+  SceneRenderer control;
   const std::array renderers{&control, &actual};
   std::array<std::unique_ptr<Core::RuntimeScene>, 2> scenes;
   Core::Declaration declaration;
@@ -486,26 +528,26 @@ void ShadowSubmission() {
   declaration.Outputs = {"surface", "sceneLinear", "shadowAtlas"};
   declaration.DrawsSky = true;
   declaration.ShadowRadiusM = 8;
-  declaration.KeyLux = 10000;
-  declaration.KeyElevationDeg = 45;
+  declaration.KeyLux = kSkyLux;
+  declaration.KeyElevationDeg = kSunElevationDeg;
   Viewpoint eye;
   eye.EyeM = {{0, 0, 5}};
   eye.YfovRad = 1;
-  eye.ZNearM = 0.1;
-  eye.ZFarM = 100;
+  eye.ZNearM = kNearM;
+  eye.ZFarM = kShadowFarM;
   std::string error;
   for (size_t i = 0; i < renderers.size(); ++i) {
     CHECK(Core::RuntimeScene::Open(*renderers[i], declaration, nullptr, scenes[i], error),
           "the shadow scene initializes on the real device");
     if (!scenes[i]) {
-      std::printf("shadow setup: %s\n", error.c_str());
+      std::println("shadow setup: {}", error);
       return;
     }
     scenes[i]->Eye(eye);
     renderers[i]->CastsBelow(kNoBatch);
-    std::vector<float> untouched{42};
+    std::vector<float> untouched{kUnreadSentinel};
     CHECK(renderers[i]->ReadShadowAtlas(untouched) == ReadState::Failed &&
-              untouched == std::vector<float>{42},
+              untouched == std::vector<float>{kUnreadSentinel},
           "an unsubmitted atlas is unavailable and leaves the caller's data intact");
   }
   geometry.clear();
@@ -513,9 +555,9 @@ void ShadowSubmission() {
     faults.Next = Faults::Point::Submit;
     CHECK(!scenes[1]->Draw(error) && error == "injected frame submit failure",
           "a real shadow recording can fail submission");
-    std::vector<float> untouched{42};
+    std::vector<float> untouched{kUnreadSentinel};
     CHECK(actual.ReadShadowAtlas(untouched) == ReadState::Failed &&
-              untouched == std::vector<float>{42},
+              untouched == std::vector<float>{kUnreadSentinel},
           "cancelled shadow updates cannot be read as current data");
   };
   const auto capture = [](SceneRenderer &renderer) {
@@ -548,7 +590,7 @@ void ShadowSubmission() {
         "changing the caster mask invalidates and clears the old shadow");
   for (auto *renderer : renderers) {
     renderer->CastsBelow(kNoBatch);
-    renderer->SetShadowFrame({{0.6f, 0.5f, 0.7f}}, {{0, 1, 0}}, 8, false, 0);
+    renderer->SetShadowFrame(kChangedShadowToSun, {{0, 1, 0}}, 8, false, 0);
   }
   reject();
   const auto changed = drawPair();

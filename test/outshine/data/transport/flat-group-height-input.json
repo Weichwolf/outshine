@@ -1,0 +1,17 @@
+{
+  "scope": "Complete verified whole six-source height input, canonical90 reconstruction from84; no private-path dependency.",
+  "source": "wien-junction-14-8937-5678.pbf",
+  "source_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "source_producer_commit": "ffc8818d469e9145f945acc383eb2c2accad6e84",
+  "source_body_sha256": "43bd539b83c29c6e173a409f4a3da9c53a89a570aa38e6dd197bd013ffabd784",
+  "recipe_sha256": "34ebffb6b91a964e13ea62ec926e4e92fdeff0436ba6155f27f2c5703df16257",
+  "input_sha256": "9629c5ee5ce05aba1d0a0c140c5f7f4686ac574396dec8ef4cd9fe2247e5cbcc",
+  "numerical_input_sha256": "b34c8358955a70521373fbe7d584a317e3bf7af9aa65cec0cb02a022a8949da2",
+  "vertices": 520,
+  "faces": 765,
+  "flat_groups": 4,
+  "group_vertices": 237,
+  "expected_repaired_vertices_sha256": "3995e08dff88fad372e8002863a242e42422b4087704da2c1b9bc3e078217267",
+  "expected_maximum_DEM_change_m": 0.1717162865052444,
+  "scope_limit": "Explicit positions/anisotropic frames/group IDs in their original named ENU frame; not complete topology/contact/source or device acceptance."
+}

@@ -2,7 +2,7 @@
 #include <cmath>
 #include <limits>
 #include <vector>
-#include "src/base/curve/Ribbon.h"
+#include "Ribbon.h"
 #include "Check.h"
 
 int main() {

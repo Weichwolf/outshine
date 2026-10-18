@@ -190,6 +190,8 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
 enum class FrameScope { Closed, Open, DrawSucceeded };
 
 struct Seen {
+  explicit Seen(Render::GpuSubmission submission = {}) : Device(submission) {}
+
   Render::SceneRenderer Device;
   std::unique_ptr<Core::RuntimeScene> Standing;
   Extent Frame{.WidthPx = kFrameUnsaidWidePx, .HeightPx = kFrameUnsaidHighPx};
@@ -447,6 +449,8 @@ inline constexpr std::string_view kCaptureMutation =
 }
 
 struct Engine::State {
+  explicit State(Render::GpuSubmission submission = {}) : Picture(submission) {}
+
   Seen Picture;
   Kept Session;
   std::unique_ptr<SimulationState> Simulation = std::make_unique<SimulationState>();
@@ -624,7 +628,7 @@ struct Engine::State {
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
   [[nodiscard]] bool RequestOsmSources(std::span<const Data::SourceProvider> providers);
   [[nodiscard]] bool RequestOriginalCells();
-  void DeclareGroundFeatures();
+  bool DeclareGroundFeatures();
   void PollOsmSources();
   [[nodiscard]] bool SubmitOsmTransportSource();
   bool GenerateInitialInstances(double atLat, double atLon);
@@ -669,6 +673,7 @@ struct Engine::State {
                                std::chrono::steady_clock::time_point rebuildBegan);
   void PublishFrameMeasurements();
   void PublishCostMeasurements();
+  void PublishGpuFrameMeasurements(bool completedCapture = false);
   void PublishSubmittedCameraMeasurements();
   void PublishResourcePayloadMeasurements();
   void PublishAudioSnapshot();

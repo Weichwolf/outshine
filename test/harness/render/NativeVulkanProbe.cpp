@@ -262,14 +262,13 @@ void CheckCancel(Device &device) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 3 && argc != 4) {
-    std::println(stderr, "usage: native_vulkan scan.spv compact.spv [--validation]");
+  if ((argc != 4 && argc != 5) || (argc == 5 && std::string(argv[4]) != "--validation")) {
+    std::println(stderr, "usage: native_vulkan scan.spv compact.spv device-name [--validation]");
     return EXIT_FAILURE;
   }
-  const bool validation = argc == 4 && std::string(argv[3]) == "--validation";
+  const bool validation = argc == 5;
   auto device = Take(CreateDevice({.Validation = validation}));
-  Check(device->Limits().Name.find("RTX 3060") != std::string::npos,
-        "hardware proof uses the RTX 3060");
+  Check(device->Limits().Name == argv[3], "hardware proof uses the declared device");
   CheckCancel(*device);
   const auto input = MakeInputs();
   auto scan = Take(device->CreateComputePipeline(ReadShader(argv[1])));
@@ -307,11 +306,12 @@ int main(int argc, char **argv) {
   Check(!negativeWait && negativeWait.error().Kind == ErrorKind::Invalid,
         "negative wait is rejected");
   std::println(
-      R"({{"device":"{}","checks":{},"jobs":{},"indices":{},"validation":{},"gpu_timing":"unavailable","places":"unproven"}})",
+      R"({{"device":"{}","checks":{},"jobs":{},"indices":{},"validation":{},"depth_clamp":{},"gpu_timing":"unavailable","places":"unproven"}})",
       device->Limits().Name,
       gChecks,
       input.Jobs.size(),
       input.ExpectedIndices.size(),
-      validation);
+      validation,
+      device->Limits().DepthClamp);
   return EXIT_SUCCESS;
 }

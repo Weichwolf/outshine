@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "port": {
+    "source_id": "openfreemap:14/8937/5678:transportation:12998091542:0",
+    "end": -1
+  },
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:1950369630:8",
+    "openfreemap:14/8937/5678:transportation:103612620:17"
+  ],
+  "source_profiles": {
+    "openfreemap:14/8937/5678:transportation:103612620:17": "unclassified"
+  },
+  "soil_bridge_reserve_m": 0.0,
+  "contact_mode": "profile",
+  "traffic_mode": "source_clearance",
+  "junction_mode": "level_box",
+  "interior_contacts": [],
+  "endpoint_contacts": [
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:1950369630:8",
+      "vertex": 0,
+      "cached_source_id": "openfreemap:14/8937/5678:transportation:1580280942:0",
+      "cached_vertex": 0
+    }
+  ],
+  "scope": "Automatically proposed whole original ground sources at a verified cached interior profile; whole geometry admission remains mandatory.",
+  "source_fallback": {
+    "root_id": "openfreemap:14/8937/5678:transportation:12998091542:0@end-1",
+    "full_source_ids": [
+      "openfreemap:14/8937/5678:transportation:1950369630:8",
+      "openfreemap:14/8937/5678:transportation:103612620:17"
+    ],
+    "omitted_source_ids": [],
+    "scope": "Whole connected source prefix; omitted sources remain original candidates for later recipes, not individually disproven."
+  }
+}

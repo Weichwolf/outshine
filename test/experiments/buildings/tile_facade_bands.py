@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
+from demand import displacement_error
+from facade_parts import append
 from outshine_ref.buildings.profiled_bands import (
     BandPlan,
     band_surface,
@@ -85,14 +87,7 @@ def demanded(frame, spec, view, *, radius=None):
         < 0
     ):
         return False
-    nearest = float(coordinates[:, 2].min()) - view.movement_m
-    if nearest <= radius:
-        return True
-    numerator = radius * (np.linalg.norm(coordinates, axis=1).max() + view.movement_m)
-    return (
-        view.focal_px * numerator / (nearest * (nearest - radius))
-        > view.detail_error_px
-    )
+    return displacement_error(points, view, radius) > view.detail_error_px
 
 
 class BandDetails:
@@ -132,7 +127,18 @@ class BandDetails:
         return selected
 
     def __call__(
-        self, mesh, row, parameters, facades, view, material, family, *, entrance=None
+        self,
+        mesh,
+        row,
+        parameters,
+        facades,
+        view,
+        material,
+        family,
+        *,
+        entrance=None,
+        skip_facades=(),
+        additions=(),
     ):
         if family not in (
             "residential",
@@ -140,16 +146,23 @@ class BandDetails:
             "mixed-use",
             "institutional",
         ) or row.get("clipped"):
-            return mesh
+            return append(mesh, additions)
         try:
             specs = specifications(facades, parameters["minHeight"])
             requests = [
-                (s, tuple(i for i, f in enumerate(facades) if demanded(f, s, view)))
+                (
+                    s,
+                    tuple(
+                        i
+                        for i, f in enumerate(facades)
+                        if f["id"] not in skip_facades and demanded(f, s, view)
+                    ),
+                )
                 for s in specs
             ]
             requests = [(s, e) for s, e in requests if e]
             if not requests:
-                return mesh
+                return append(mesh, additions)
             chunks = []
             records = []
             remaining = 4096
@@ -214,19 +227,9 @@ class BandDetails:
                         "origin": "procedural existing repeat gaps",
                     }
                 )
-            if not chunks:
-                return mesh
-            chunks.insert(0, mesh)
-            offsets = np.cumsum([0] + [len(c["vertices"]) for c in chunks[:-1]])
-            result = {
-                key: np.concatenate([c[key] for c in chunks])
-                for key in ("vertices", "normals", "uv", "facade_extent", "materials")
-            }
-            result["faces"] = np.concatenate(
-                [c["faces"] + offset for c, offset in zip(chunks, offsets, strict=True)]
-            ).astype(np.uint32)
+            result = append(mesh, [*additions, *chunks])
             self.completed.extend(records)
             return result
         except ValueError as error:
             self.rejected.append({"id": row["id"], "reason": str(error)})
-            return mesh
+            return append(mesh, additions)

@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "port": {
+    "source_id": "openfreemap:14/8937/5678:transportation:80922970:208",
+    "vertex": 1
+  },
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:80922970:280",
+    "openfreemap:14/8937/5678:transportation:138663000:6"
+  ],
+  "source_profiles": {},
+  "soil_bridge_reserve_m": 0.0,
+  "contact_mode": "profile",
+  "traffic_mode": "source_clearance",
+  "junction_mode": "level_box",
+  "interior_contacts": [],
+  "scope": "Whole original footways from a bounded connected prefix, rooted at the actual cached interior 80922970:208@1, with the actual old endpoint 80922970:211@0 at new original vertex 80922970:280@1. Saved four-parent 51-source reference; independent alternative to the earlier 53-source prefix specimen. Physical geometry admission mandatory.",
+  "source_fallback": {
+    "root_id": "openfreemap:14/8937/5678:transportation:80922970:208@1",
+    "full_source_ids": [
+      "openfreemap:14/8937/5678:transportation:80922970:280",
+      "openfreemap:14/8937/5678:transportation:138663000:6",
+      "openfreemap:14/8937/5678:transportation:32651280:1",
+      "openfreemap:14/8937/5678:transportation:80922970:213",
+      "openfreemap:14/8937/5678:transportation:80922970:261"
+    ],
+    "omitted_source_ids": [
+      "openfreemap:14/8937/5678:transportation:32651280:1",
+      "openfreemap:14/8937/5678:transportation:80922970:213",
+      "openfreemap:14/8937/5678:transportation:80922970:261"
+    ],
+    "scope": "Whole connected source prefix; omitted sources remain original candidates for later recipes, not individually disproven."
+  },
+  "endpoint_contacts": [
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:80922970:280",
+      "vertex": 1,
+      "cached_source_id": "openfreemap:14/8937/5678:transportation:80922970:211",
+      "cached_vertex": 0
+    }
+  ]
+}

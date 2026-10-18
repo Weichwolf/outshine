@@ -1,5 +1,5 @@
 {
-  "scope": "Fixed cross-device two-LUT replay inputs. Dense physical FP64 reference unchanged; homogeneous controls have new explicitly FP16-rounded constant inputs and analytical expectations. No product-GPU LUT capture or full-scene proof.",
+  "scope": "Fixed cross-device two-LUT replay inputs. Dense solar input migrated to the physical endpoint sampler from #439/#663; independent FP64 references, rays, queries, Medium80 and Psi remain unchanged. No full-scene proof.",
   "source_issue": 206,
   "source_pr": 233,
   "copies": {
@@ -66,15 +66,30 @@
   },
   "conversions": {
     "dense/veil.bin": {
-      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/luts-768x64/veil-native-f16.bin",
-      "source_sha256": "06a2dbf4d0fca291d994881db319e002efd101a698cfad43344bbbc1f4bd3857",
-      "stored_sha256": "e7630707f392e2d6eb17e8f49b99249b8c298337814ea5484b8c46ada654c1b1",
+      "source": "src/render/shaders/mediumTransmittance.comp",
+      "source_commit": "b6bd783454470028aeb8742166dd9b7bc44f9ebf",
+      "source_sha256": "60335bfbdddd9d8c8d9326cf75b2679f3e3cd63699f724134e8cf5f73c554ef9",
+      "stored_sha256": "bacfa4378b7ca975d580592e542d5716bcf0ab24bf060c77978884aacb4b0d95",
       "storage": "RGBA16F",
       "dimensions": [
-        768,
+        512,
         64
       ],
-      "decoded_texels_equal_to_prior_fp16_rounded_float32": true
+      "mapping": "physical-endpoints/texel-centres-v1",
+      "operation": "Native GPU generation with the unchanged dense/medium.bin and current shared CPU/GLSL sampling contract. No reference/oracle regeneration.",
+      "source_issue": 663,
+      "producer_contract_pr": 439,
+      "previous_declaration": {
+        "source": "/tmp/outshine-light-air-prefix-native-633be42f5/luts-768x64/veil-native-f16.bin",
+        "source_sha256": "06a2dbf4d0fca291d994881db319e002efd101a698cfad43344bbbc1f4bd3857",
+        "stored_sha256": "e7630707f392e2d6eb17e8f49b99249b8c298337814ea5484b8c46ada654c1b1",
+        "storage": "RGBA16F",
+        "dimensions": [
+          768,
+          64
+        ],
+        "decoded_texels_equal_to_prior_fp16_rounded_float32": true
+      }
     },
     "dense/multi.bin": {
       "source": "/tmp/outshine-light-air-prefix-native-633be42f5/luts-768x64/multi.bin",
@@ -89,7 +104,7 @@
     }
   },
   "homogeneous32_previous_binary_and_reference_parity": true,
-  "total_stored_bytes": 1475835,
+  "total_stored_bytes": 1344763,
   "texture_layout": "Little-endian uint32 width,height followed by tightly packed RGBA binary16. The consumer also accepts unambiguous RGBA binary32 payloads for retained comparisons, without capability fallback.",
   "reference_metadata": "rays.json.gz decompresses losslessly; check_air_prefix_gpu.py reads it directly. Dense references are unchanged byte-for-byte. Homogeneous binary16 source constants are explicit in metadata; existing binary32 controls remain reproducible without changed values or tolerances.",
   "source_sha256": {

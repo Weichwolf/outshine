@@ -1,287 +1,157 @@
-#include "math/Vec2.h"
+#include "UploadQueue.h"
 #include "OverlayDraw.h"
-
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <expected>
 #include <limits>
-#include <string>
+#include <memory>
+#include <optional>
+#include <span>
 #include <utility>
 
-#include "ShaderFile.h"
-
 namespace outshine::Render {
-
-namespace Says {
-constexpr auto kInvalidOverlayQuads = "nonempty overlay requires a GPU device and rectangle data";
-constexpr auto kInvalidOverlayAtlas =
-    "overlay atlas requires a device, texels and positive dimensions within SDL upload limits";
-}
-
 namespace {
+constexpr uint64_t kChannels = 4;
 
-constexpr uint32_t kAttributes = 5;
+Native::Error InvalidOverlay() {
+  return {.Kind = Native::ErrorKind::Invalid,
+          .Message = "overlay update requires valid bounded rectangles, device and atlas pixels"};
+}
+
+bool ValidQuads(const OverlayQuad *quads, size_t count) {
+  return count <= kMaxOverlayQuads && (count == 0 || quads != nullptr);
+}
+
+Native::Result<uint64_t> AtlasBytes(const OverlayDraw::AtlasPixels *atlas) {
+  if (atlas == nullptr) { return 0; }
+  if (atlas->Rgba == nullptr || atlas->Width <= 0 || atlas->Height <= 0) {
+    return std::unexpected(InvalidOverlay());
+  }
+  const uint64_t bytes = uint64_t{static_cast<uint32_t>(atlas->Width)} *
+                         static_cast<uint32_t>(atlas->Height) * kChannels;
+  if (bytes > std::numeric_limits<uint32_t>::max()) { return std::unexpected(InvalidOverlay()); }
+  return bytes;
+}
+
+Native::Result<void> UploadOverlay(Native::Device &device,
+                                   Native::Commands &commands,
+                                   Native::Buffer *vertices,
+                                   Native::Texture *texture,
+                                   const OverlayQuad *quads,
+                                   uint64_t quadBytes,
+                                   const OverlayDraw::AtlasPixels *atlas,
+                                   uint64_t atlasBytes) {
+  auto staging = device.CreateBuffer({.Bytes = quadBytes + atlasBytes,
+                                      .Use = Native::BufferUse::CopySource,
+                                      .Placement = Native::Memory::Upload});
+  if (!staging) { return std::unexpected(staging.error()); }
+  auto mapped = device.MapWrite(**staging, {.Bytes = quadBytes + atlasBytes});
+  if (!mapped) { return std::unexpected(mapped.error()); }
+  if (quadBytes > 0) { std::memcpy(mapped->data(), quads, static_cast<size_t>(quadBytes)); }
+  if (atlas != nullptr) {
+    std::memcpy(mapped->data() + quadBytes, atlas->Rgba, static_cast<size_t>(atlasBytes));
+  }
+  auto accepted = device.Unmap(**staging);
+  if (!accepted) { return accepted; }
+  if (quadBytes > 0) {
+    accepted = commands.Copy(**staging, *vertices, {.Bytes = quadBytes});
+    if (!accepted) { return accepted; }
+  }
+  if (atlas != nullptr) {
+    accepted = commands.Copy(**staging,
+                             *texture,
+                             {.BufferOffset = quadBytes,
+                              .RowBytes = static_cast<uint32_t>(atlas->Width) * kChannels,
+                              .Region = {.Width = static_cast<uint32_t>(atlas->Width),
+                                         .Height = static_cast<uint32_t>(atlas->Height)}});
+    if (!accepted) { return accepted; }
+  }
+  return {};
+}
 
 }
 
-bool OverlayPipeline::Configure(const Gpu &gpu,
-                                SDL_GPUSampler *smooth,
-                                SDL_GPUTextureFormat targetFormat,
-                                std::string &error) {
-  Smooth = smooth;
-
-  Encodes = targetFormat == SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB ||
-            targetFormat == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB;
-
-  const OwnedShader vertex(gpu.Device,
-                           ShaderFrom(gpu.Device,
-                                      "build/shaders/overlay.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      ShaderShape,
-                                      error));
-  const OwnedShader fragment(gpu.Device,
-                             ShaderFrom(gpu.Device,
-                                        "build/shaders/overlay.frag.spv",
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        ShaderShape,
-                                        error));
-  if (!vertex || !fragment) { return false; }
-
-  SDL_GPUVertexBufferDescription buffer{};
-  buffer.slot = 0;
-  buffer.pitch = sizeof(OverlayQuad);
-
-  buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_INSTANCE;
-  std::array<SDL_GPUVertexAttribute, kAttributes> attributes = {{}};
-  for (uint32_t i = 0; i < kAttributes; ++i) {
-    attributes[i].location = i;
-    attributes[i].buffer_slot = 0;
-    attributes[i].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
-    attributes[i].offset = i * 4u * static_cast<uint32_t>(sizeof(float));
+Native::Result<void> OverlayDraw::EnsureAtlas(const Gpu &gpu) {
+  if (Atlas_) {
+    if (Device_ != gpu.Device) { return std::unexpected(InvalidOverlay()); }
+    return {};
   }
-
-  SDL_GPUColorTargetDescription target{};
-  target.format = targetFormat;
-  target.blend_state.enable_blend = true;
-  target.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-  target.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-  target.blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
-  target.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-  target.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-  target.blend_state.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
-
-  SDL_GPUGraphicsPipelineCreateInfo pipeline{};
-  pipeline.vertex_shader = vertex.Get();
-  pipeline.fragment_shader = fragment.Get();
-  pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  pipeline.vertex_input_state.vertex_buffer_descriptions = &buffer;
-  pipeline.vertex_input_state.num_vertex_buffers = 1;
-  pipeline.vertex_input_state.vertex_attributes = attributes.data();
-  pipeline.vertex_input_state.num_vertex_attributes = kAttributes;
-  pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
-  pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  pipeline.target_info.color_target_descriptions = &target;
-  pipeline.target_info.num_color_targets = 1;
-  SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (made == nullptr) {
-    error = std::string("the overlay's pipeline was refused: ") + SDL_GetError();
-    return false;
-  }
-  Pipe = OwnedPipeline(gpu.Device, made);
-
-  return true;
+  static constexpr std::array<uint8_t, 4> white{255, 255, 255, 255};
+  return SetAtlas(gpu, white.data(), 1, 1);
 }
 
-bool OverlayDraw::EnsureAtlas(const Gpu &gpu, std::string &error) {
-  if (Atlas_) { return true; }
-  static const std::array<uint8_t, 4> kWhite = {{255, 255, 255, 255}};
-  return SetAtlas(gpu, kWhite.data(), 1, 1, error);
+Native::Result<void>
+OverlayDraw::SetAtlas(const Gpu &gpu, const uint8_t *rgba, int width, int height) {
+  const AtlasPixels atlas{.Rgba = rgba, .Width = width, .Height = height};
+  return Update(gpu, nullptr, 0, &atlas, false);
 }
 
-bool OverlayDraw::SetAtlas(
-    const Gpu &gpu, const uint8_t *rgba, int width, int height, std::string &error) {
-  constexpr uint32_t channels = 4;
-  if (gpu.Device == nullptr || rgba == nullptr || width <= 0 || height <= 0 ||
-      static_cast<uint64_t>(width) * static_cast<uint64_t>(height) >
-          std::numeric_limits<uint32_t>::max() / channels) {
-    error = Says::kInvalidOverlayAtlas;
-    return false;
-  }
-  SDL_GPUTextureCreateInfo wanted{};
-  wanted.type = SDL_GPU_TEXTURETYPE_2D;
-  wanted.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-  wanted.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  wanted.width = static_cast<Uint32>(width);
-  wanted.height = static_cast<Uint32>(height);
-  wanted.layer_count_or_depth = 1;
-  wanted.num_levels = 1;
-  OwnedTexture made(gpu.Device, SDL_CreateGPUTexture(gpu.Device, &wanted));
-  if (!made) {
-    error = std::string("the overlay atlas was refused: ") + SDL_GetError();
-    return false;
-  }
-
-  const uint32_t bytes = static_cast<uint32_t>(width) * static_cast<uint32_t>(height) * 4u;
-  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
-  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  wantedTransfer.size = bytes;
-  const OwnedTransfer staging(gpu.Device, SDL_CreateGPUTransferBuffer(gpu.Device, &wantedTransfer));
-  if (!staging) {
-    error = SDL_GetError();
-    return false;
-  }
-  void *mapped = SDL_MapGPUTransferBuffer(gpu.Device, staging.Get(), false);
-  if (mapped == nullptr) {
-    error = SDL_GetError();
-    return false;
-  }
-  std::memcpy(mapped, rgba, bytes);
-  SDL_UnmapGPUTransferBuffer(gpu.Device, staging.Get());
-
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(gpu.Device);
-  if (commands == nullptr) {
-    error = SDL_GetError();
-    return false;
-  }
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-  if (copy == nullptr) {
-    error = SDL_GetError();
-    (void)SDL_CancelGPUCommandBuffer(commands);
-    return false;
-  }
-  SDL_GPUTextureTransferInfo source{};
-  source.transfer_buffer = staging.Get();
-  SDL_GPUTextureRegion into{};
-  into.texture = made.Get();
-  into.w = static_cast<Uint32>(width);
-  into.h = static_cast<Uint32>(height);
-  into.d = 1;
-  SDL_UploadToGPUTexture(copy, &source, &into, false);
-  SDL_EndGPUCopyPass(copy);
-  if (!SDL_SubmitGPUCommandBuffer(commands)) {
-    error = SDL_GetError();
-    return false;
-  }
-  Atlas_ = std::move(made);
-  return true;
+Native::Result<void> OverlayDraw::SetQuads(const Gpu &gpu, const OverlayQuad *quads, size_t count) {
+  return Update(gpu, quads, count, nullptr, true);
 }
 
-bool OverlayDraw::SetQuads(const Gpu &gpu,
-                           const OverlayQuad *quads,
-                           size_t count,
-                           std::string &error) {
-  if (count > kMaxOverlayQuads) {
-    error = "the overlay was given " + std::to_string(count) + " rectangles and holds " +
-            std::to_string(kMaxOverlayQuads) + ", which is " +
-            std::to_string(count - kMaxOverlayQuads) +
-            " past the bound -- a list cut without a word draws a picture nobody declared";
-    return false;
-  }
-  if (count == 0) {
+Native::Result<void> OverlayDraw::Replace(const Gpu &gpu,
+                                          const OverlayQuad *quads,
+                                          size_t count,
+                                          const AtlasPixels *atlas) {
+  return Update(gpu, quads, count, atlas, true);
+}
+
+Native::Result<void> OverlayDraw::Update(const Gpu &gpu,
+                                         const OverlayQuad *quads,
+                                         size_t count,
+                                         const AtlasPixels *atlas,
+                                         bool changeQuads) {
+  if (!ValidQuads(quads, count)) { return std::unexpected(InvalidOverlay()); }
+  if (changeQuads && count == 0 && atlas == nullptr) {
     Count = 0;
-    return true;
+    return {};
   }
-  if (gpu.Device == nullptr || quads == nullptr) {
-    error = Says::kInvalidOverlayQuads;
-    return false;
+  if (gpu.Device == nullptr || (Device_ != nullptr && Device_ != gpu.Device)) {
+    return std::unexpected(InvalidOverlay());
   }
-  static_assert(kMaxOverlayQuads <= std::numeric_limits<uint32_t>::max() / sizeof(OverlayQuad));
-  const auto bytes = static_cast<uint32_t>(count * sizeof(OverlayQuad));
-  if (!SpareVerts) {
-    SDL_GPUBufferCreateInfo wanted{};
-    wanted.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-    wanted.size = static_cast<Uint32>(kMaxOverlayQuads * sizeof(OverlayQuad));
-    SpareVerts = OwnedBuffer(gpu.Device, SDL_CreateGPUBuffer(gpu.Device, &wanted));
-    if (!SpareVerts) {
-      error = SDL_GetError();
-      return false;
-    }
+  static constexpr std::array<uint8_t, 4> white{255, 255, 255, 255};
+  const AtlasPixels fallback{.Rgba = white.data(), .Width = 1, .Height = 1};
+  if (atlas == nullptr && count > 0 && !Atlas_) { atlas = &fallback; }
+  const auto atlasBytes = AtlasBytes(atlas);
+  if (!atlasBytes) { return std::unexpected(atlasBytes.error()); }
+  const uint64_t quadBytes = changeQuads ? count * sizeof(OverlayQuad) : 0;
+  auto commands = BeginUpload(*gpu.Device, gpu.Uploads);
+  if (!commands) { return std::unexpected(commands.error()); }
+  std::unique_ptr<Native::Texture> madeAtlas;
+  if (atlas != nullptr) {
+    auto made = gpu.Device->CreateTexture({.Width = static_cast<uint32_t>(atlas->Width),
+                                           .Height = static_cast<uint32_t>(atlas->Height),
+                                           .Texels = Native::Format::Rgba8Unorm,
+                                           .Use = Native::TextureUse::Sampled |
+                                                  Native::TextureUse::CopyDestination |
+                                                  Native::TextureUse::CopySource});
+    if (!made) { return std::unexpected(made.error()); }
+    madeAtlas = std::move(*made);
   }
-
-  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
-  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  wantedTransfer.size = bytes;
-  const OwnedTransfer staging(gpu.Device, SDL_CreateGPUTransferBuffer(gpu.Device, &wantedTransfer));
-  if (!staging) {
-    error = SDL_GetError();
-    return false;
+  std::unique_ptr<Native::Buffer> madeVertices;
+  Native::Buffer *target = SpareVerts.get();
+  if (quadBytes > 0 && target == nullptr) {
+    auto made = gpu.Device->CreateBuffer({.Bytes = kMaxOverlayQuads * sizeof(OverlayQuad),
+                                          .Use = Native::BufferUse::Vertex |
+                                                 Native::BufferUse::CopyDestination |
+                                                 Native::BufferUse::CopySource});
+    if (!made) { return std::unexpected(made.error()); }
+    madeVertices = std::move(*made);
+    target = madeVertices.get();
   }
-  void *mapped = SDL_MapGPUTransferBuffer(gpu.Device, staging.Get(), false);
-  if (mapped == nullptr) {
-    error = SDL_GetError();
-    return false;
-  }
-  std::memcpy(mapped, quads, bytes);
-  SDL_UnmapGPUTransferBuffer(gpu.Device, staging.Get());
-
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(gpu.Device);
-  if (commands == nullptr) {
-    error = SDL_GetError();
-    return false;
-  }
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-  if (copy == nullptr) {
-    error = SDL_GetError();
-    (void)SDL_CancelGPUCommandBuffer(commands);
-    return false;
-  }
-  const SDL_GPUTransferBufferLocation from{.transfer_buffer = staging.Get(), .offset = 0};
-  const SDL_GPUBufferRegion region{.buffer = SpareVerts.Get(), .offset = 0, .size = bytes};
-  SDL_UploadToGPUBuffer(copy, &from, &region, true);
-  SDL_EndGPUCopyPass(copy);
-  if (!SDL_SubmitGPUCommandBuffer(commands)) {
-    error = SDL_GetError();
-    return false;
-  }
-  std::swap(Verts, SpareVerts);
-  Count = static_cast<uint32_t>(count);
-  return true;
+  auto uploaded = UploadOverlay(
+      *gpu.Device, **commands, target, madeAtlas.get(), quads, quadBytes, atlas, *atlasBytes);
+  if (!uploaded) { return uploaded; }
+  const auto submitted = SubmitUpload(*gpu.Device, gpu.Uploads, std::move(*commands));
+  if (!submitted) { return std::unexpected(submitted.error()); }
+  if (madeAtlas) { Atlas_ = std::move(madeAtlas); }
+  if (madeVertices) { SpareVerts = std::move(madeVertices); }
+  if (quadBytes > 0) { std::swap(Verts, SpareVerts); }
+  if (changeQuads) { Count = static_cast<uint32_t>(count); }
+  Device_ = gpu.Device;
+  return {};
 }
-
-bool OverlayDraw::Replace(const Gpu &gpu,
-                          const OverlayQuad *quads,
-                          size_t count,
-                          const AtlasPixels *atlas,
-                          std::string &error) {
-  OverlayDraw candidate;
-  if (atlas != nullptr &&
-      !candidate.SetAtlas(gpu, atlas->Rgba, atlas->Width, atlas->Height, error)) {
-    return false;
-  }
-  if (atlas == nullptr && count > 0 && !Atlas_ && !candidate.EnsureAtlas(gpu, error)) {
-    return false;
-  }
-  if (!SetQuads(gpu, quads, count, error)) { return false; }
-  if (candidate.Atlas_) { Atlas_ = std::move(candidate.Atlas_); }
-  return true;
-}
-
-void OverlayPipeline::Encode(const OverlayDraw &overlay,
-                             const FrameContext &ctx,
-                             const PassRecording &into) {
-  (void)ctx;
-  if (!Pipe || overlay.Held() == 0 || overlay.Vertices() == nullptr || overlay.Atlas() == nullptr ||
-      WidthPx <= 0 || HeightPx <= 0) {
-    return;
-  }
-
-  struct Frame {
-    Vec2f TargetPx;
-    float EncodesSrgb;
-    float Pad;
-  } frame{.TargetPx = {static_cast<float>(WidthPx), static_cast<float>(HeightPx)},
-          .EncodesSrgb = Encodes ? 1.0f : 0.0f,
-          .Pad = 0.0f};
-
-  SDL_PushGPUVertexUniformData(into.Commands, 0, &frame, sizeof frame);
-
-  SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const SDL_GPUBufferBinding binding{.buffer = overlay.Vertices(), .offset = 0};
-  SDL_BindGPUVertexBuffers(into.Pass, 0, &binding, 1);
-  const SDL_GPUTextureSamplerBinding sampled{.texture = overlay.Atlas(), .sampler = Smooth};
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, &sampled, 1);
-  SDL_DrawGPUPrimitives(into.Pass, 6, overlay.Held(), 0, 0);
-}
-
 }

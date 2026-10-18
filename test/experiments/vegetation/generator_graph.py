@@ -3,7 +3,7 @@
 import hashlib
 import heapq
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cached_property
 from types import MappingProxyType
 
@@ -13,6 +13,7 @@ from generator_specs import FrondShape, Generator, TubeShape
 from graph_frames import parent_frame, parent_frames
 from needle_surface import Needle
 from outshine_ref.vegetation import SpatialFrondGuide
+from outshine_ref.vegetation.shoot_plan import normal_frame
 from spatial_axis import SpatialAxis
 
 UPRIGHT = np.array(((1, 0, 0), (0, 0, -1), (0, 1, 0)), dtype=float)
@@ -326,6 +327,10 @@ class GeneratorGraph:
                 if prefix[-1][1] >= len(table):
                     raise ValueError("site does not exist on this particular parent")
                 result = self._place(prefix, parent, table[prefix[-1][1]])
+                if self.by_id[prefix[-1][0]].placement.normal_reference is not None:
+                    result = replace(
+                        result, frame=normal_frame(result.frame[:, 1], (0, 0, 1))
+                    )
             staged[prefix] = result
         for key, table in sites.items():
             self.remember_sites(key, table)
@@ -347,13 +352,17 @@ class GeneratorGraph:
         )
         entropy = [self.seed, *(value for pair in path for value in pair)]
         rng = np.random.default_rng(np.random.SeedSequence(entropy))
-        phase_rng = np.random.default_rng(np.random.SeedSequence(entropy[:-1]))
-        azimuth = (
-            (
+        phase = placement.phase
+        if phase is None:
+            phase = (
                 0.0
                 if isinstance(placement.pattern, BendPattern)
-                else phase_rng.uniform(-np.pi, np.pi)
+                else np.random.default_rng(
+                    np.random.SeedSequence(entropy[:-1])
+                ).uniform(-np.pi, np.pi)
             )
+        azimuth = (
+            phase
             + site_angle
             + rng.uniform(-placement.azimuth_variance, placement.azimuth_variance)
         )

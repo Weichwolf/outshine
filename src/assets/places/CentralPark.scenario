@@ -1,5 +1,5 @@
 <scenario>
-  <world lat="40.7968" lon="-73.9520" patienceS="3" sightM="240000" haze="0"/>
+  <world vegetation="yes" lat="40.7968" lon="-73.9520" patienceS="3" sightM="240000" haze="0"/>
   <render widthPx="1280" heightPx="720" fill="0.6" antialiasing="temporal"/>
   <lighting/>
   <clock start="2026-06-21T16:56:00Z" live="no"/>

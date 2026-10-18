@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_CLIENT_SCENARIOCAPTURE_H
 #define OUTSHINE_CLIENT_SCENARIOCAPTURE_H
 
+#include "FrameTiming.h"
 #include <cstddef>
 #include <expected>
 #include <optional>
@@ -24,6 +25,7 @@ struct ScenarioCaptureOptions {
 };
 
 struct ScenarioCaptureResult {
+  FrameTiming Timing;
   std::string Path;
   double SimTimeS = 0.0;
   double RouteStationM = 0.0;

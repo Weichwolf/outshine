@@ -1,31 +1,28 @@
 #ifndef OUTSHINE_RENDER_STAGES_PRESENTSTAGE_H
 #define OUTSHINE_RENDER_STAGES_PRESENTSTAGE_H
 
-#include <string>
-
-#include "KernelShape.h"
-
-#include "FrameContext.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
+#include <memory>
+#include <array>
+#include <cstddef>
 
 namespace outshine::Render {
 
 class PresentStage {
 public:
-  static constexpr DrawShape ShaderShape{.FragmentSamplers = 1};
+  [[nodiscard]] Native::Result<void> Configure(const Native::Texture *frame,
+                                               const Native::Sampler *exact);
 
-  [[nodiscard]] bool
-  Configure(const Gpu &gpu, SDL_GPUTexture *frame, SDL_GPUSampler *exact, std::string &error);
-
-  [[nodiscard]] bool For(const Gpu &gpu, SDL_GPUTextureFormat surfaceFormat, std::string &error);
-  void Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> For(Native::Device &device, Native::Format surfaceFormat);
+  [[nodiscard]] Native::Result<void> Encode(const PassRecording &into) const;
 
 private:
-  OwnedPipeline Pipe;
-  SDL_GPUTexture *Frame = nullptr;
-  SDL_GPUSampler *Exact = nullptr;
-  SDL_GPUTextureFormat Built = SDL_GPU_TEXTUREFORMAT_INVALID;
+  std::array<std::unique_ptr<Native::GraphicsPipeline>, static_cast<size_t>(Native::Format::Count)>
+      Pipelines;
+  Native::GraphicsPipeline *Pipe = nullptr;
+  Native::Device *Device = nullptr;
+  const Native::Texture *Frame = nullptr;
+  const Native::Sampler *Exact = nullptr;
 };
 
 }

@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "network_sha256": "e7070b9a01d05664f3708c4ae1fb425949a6d9d34e6808dda9233c6e57a13305",
+  "additional_source_ids": [
+    "openfreemap:14/8937/5678:transportation:39881120:28",
+    "openfreemap:14/8937/5678:transportation:4420992360:6",
+    "openfreemap:14/8937/5678:transportation:39881120:34"
+  ],
+  "continuation_ramp": {
+    "source_id": "openfreemap:14/8937/5678:transportation:97041640:6",
+    "overshoot_m": 6,
+    "return_fraction": 0.7,
+    "choice": "A generic folded approach in the anchor/chord frame. Six/two band widths give the outer/inner sides, with a bounded forward overshoot. Original endpoints and interior footway contact remain fixed. All actual band interactions require validation; no world-space waypoints are hand-modelled."
+  },
+  "elevation": {
+    "raw_sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+    "window_file": "stair-outer-vienna-dem.npz",
+    "window_sha256": "0f726d835cf5a05e311b745fb6883e86c3a393d9fd724fe484fd7019ef962371"
+  },
+  "scope": "Original whole three ground neighbours and the retained three-stair network. New common-ground width contacts are explicit planner choices; remaining context, terrain/cut-fill and outer branches are not admitted. No solved elevations."
+}

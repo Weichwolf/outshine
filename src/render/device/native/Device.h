@@ -30,6 +30,7 @@ struct Capabilities {
   std::array<uint32_t, 3> MaxWorkgroupCount{};
   uint32_t MaxWorkgroupInvocations = 0;
   bool GpuTimestamps = false;
+  bool DepthClamp = false;
 };
 
 struct Completion {

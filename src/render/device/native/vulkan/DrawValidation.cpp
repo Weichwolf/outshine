@@ -40,9 +40,9 @@ Result<void> CheckVertexRange(const GraphicsState &graphics,
                               std::span<const BoundVertex> vertices,
                               VertexRange range,
                               bool indexed) {
-  if (uint64_t(range.First) + range.Count > uint64_t(std::numeric_limits<uint32_t>::max()) + 1 ||
-      uint64_t(range.FirstInstance) + range.Instances >
-          uint64_t(std::numeric_limits<uint32_t>::max()) + 1) {
+  if (uint64_t{range.First} + range.Count > uint64_t{std::numeric_limits<uint32_t>::max()} + 1 ||
+      uint64_t{range.FirstInstance} + range.Instances >
+          uint64_t{std::numeric_limits<uint32_t>::max()} + 1) {
     return std::unexpected(Error{.Kind = ErrorKind::Invalid,
                                  .Message = "draw range overflows vertex or instance index"});
   }

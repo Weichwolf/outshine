@@ -1,6 +1,7 @@
 """Existing cubic/transport/sweep primitives across whole canonical dominant paths."""
 
 import numpy as np
+from limb_spine import LimbSpine
 from outshine_ref.vegetation import CubicSpine
 from outshine_ref.vegetation.spine_frames import transport_frames, unit
 from outshine_ref.vegetation.spine_surface import sweep_stations
@@ -10,8 +11,8 @@ from scipy.interpolate import PchipInterpolator
 
 def path_recipe(positions, radii, path):
     ids = np.asarray(path)
-    if not 2 <= len(ids) <= 65:
-        raise ValueError("two through65 source stations per cubic limb required")
+    if not 2 <= len(ids) <= 1025:
+        raise ValueError("two through1025 source stations per cubic limb required")
     points = positions[ids]
     chord = np.diff(points, axis=0)
     lengths = np.linalg.norm(chord, axis=1)
@@ -24,7 +25,11 @@ def path_recipe(positions, radii, path):
             unit(tangent[:-1] + tangent[1:])
             * np.minimum(lengths[:-1], lengths[1:])[:, None]
         )
-    spine = CubicSpine.from_hermite(points, derivatives * (len(ids) - 1))
+    spine = (
+        CubicSpine.from_hermite(points, derivatives * (len(ids) - 1))
+        if len(ids) <= 65
+        else LimbSpine(points, derivatives)
+    )
     radius = radii[ids].copy()
     if ids[0] != 0:
         radius[0] = radius[1]
@@ -34,10 +39,19 @@ def path_recipe(positions, radii, path):
 
 
 def limb_mesh(
-    positions, radii, path, along=2, sides=8, *, max_faces=262144, max_vertices=65536
+    positions,
+    radii,
+    path,
+    along=2,
+    sides=8,
+    *,
+    max_faces=262144,
+    max_vertices=65536,
+    bark=False,
 ):
     if (
-        type(along) is not int
+        type(bark) is not bool
+        or type(along) is not int
         or not 1 <= along <= 16
         or type(sides) is not int
         or not 3 <= sides <= 64
@@ -50,8 +64,8 @@ def limb_mesh(
         or not 0 <= max_vertices <= 65536
     ):
         raise ValueError("bounded explicit output face and vertex capacities required")
-    if not 2 <= len(path) <= 65:
-        raise ValueError("two through65 source stations per cubic limb required")
+    if not 2 <= len(path) <= 1025:
+        raise ValueError("two through1025 source stations per cubic limb required")
     stations = (len(path) - 1) * along + 1
     if 2 * sides * stations > max_faces or stations * sides + 2 > max_vertices:
         return None
@@ -77,4 +91,8 @@ def limb_mesh(
     )
     mesh = close_rings(surface, normals, centre, tangent)
     mesh["station_parameters"] = parameter
+    if bark:
+        from limb_bark import bark_fields
+
+        mesh.update(bark_fields(spine, parameter, radius, sides))
     return mesh

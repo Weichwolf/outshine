@@ -36,6 +36,10 @@ Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &
                   Render::GroundLattice::kMaximumPages)) {
     return std::unexpected("ground region parameters exceed their encoding limit");
   }
+  if ((!World.Stack.HasVectorSource() || World.Stack.HasDeclaredVectors()) &&
+      !parameters.Text(World.Stack.DeclaredDigest())) {
+    return std::unexpected("declared ground input identity exceeds its encoding limit");
+  }
   return std::move(parameters.Out).TakeBytes();
 }
 

@@ -1,28 +1,31 @@
 #ifndef OUTSHINE_RENDER_DEVICE_GPU_H
 #define OUTSHINE_RENDER_DEVICE_GPU_H
 
-#include <SDL3/SDL_gpu.h>
+#include "native/Device.h"
 
 #include "RenderCatalogue.h"
 
 namespace outshine::Render {
 
+class UploadQueue;
+
 struct Gpu {
-  SDL_GPUDevice *Device = nullptr;
-  SDL_GPUTextureFormat HdrFormat = SDL_GPU_TEXTUREFORMAT_INVALID;
-  SDL_GPUTextureFormat SurfaceFormat = SDL_GPU_TEXTUREFORMAT_INVALID;
+  Native::Device *Device = nullptr;
+  Native::Format HdrFormat = Native::Format::Count;
+  Native::Format SurfaceFormat = Native::Format::Count;
   int Width = 0, Height = 0;
 
   AttachmentSet SceneColours;
+  UploadQueue *Uploads = nullptr;
 };
 
 class StageSubmission;
 
 struct PassRecording {
-  SDL_GPUCommandBuffer *Commands = nullptr;
-  SDL_GPURenderPass *Pass = nullptr;
-  SDL_GPUComputePass *Dispatch = nullptr;
+  Native::Commands *Commands = nullptr;
   StageSubmission &Submission;
+  Native::Viewport Area;
+  Native::Scissor Clip;
 };
 
 }

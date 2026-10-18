@@ -151,7 +151,12 @@ Result<void> CompatibleImages(const Shader &vertex, const Shader &fragment) {
   return {};
 }
 
-Result<void> RasterState(GraphicsState &state, const GraphicsDescription &description) {
+Result<void> RasterState(GraphicsState &state,
+                         const GraphicsDescription &description,
+                         const Capabilities &limits) {
+  if (description.ClampDepth && !limits.DepthClamp) {
+    return Failure(ErrorKind::Unsupported, "Metal depth clamp is unavailable");
+  }
   switch (description.Culling) {
     case Cull::None: state.Culling = MTLCullModeNone; break;
     case Cull::Front: state.Culling = MTLCullModeFront; break;
@@ -163,6 +168,7 @@ Result<void> RasterState(GraphicsState &state, const GraphicsDescription &descri
     case Winding::CounterClockwise: state.Front = MTLWindingCounterClockwise; break;
     default: return Failure(ErrorKind::Invalid, "invalid Metal front winding");
   }
+  state.DepthClip = description.ClampDepth ? MTLDepthClipModeClamp : MTLDepthClipModeClip;
   state.Streams.assign(description.Streams.begin(), description.Streams.end());
   state.Attributes.assign(description.Attributes.begin(), description.Attributes.end());
   state.Colours.assign(description.Colours.begin(), description.Colours.end());
@@ -180,7 +186,7 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
   @autoreleasepool {
     auto state = std::make_shared<GraphicsState>();
     state->Device = Identity_;
-    if (auto valid = RasterState(*state, description); !valid) {
+    if (auto valid = RasterState(*state, description, Limits_); !valid) {
       return std::unexpected(valid.error());
     }
     MTLRenderPipelineDescriptor *const pipeline = [MTLRenderPipelineDescriptor new];
@@ -191,24 +197,24 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
     const auto vertices = Vertices(description);
     if (!vertices) { return std::unexpected(vertices.error()); }
     pipeline.vertexDescriptor = *vertices;
-    auto vertex = Translate(description.Vertex.Spirv, description.Vertex.Entry);
+    const auto vertex = ShaderProgram(description.Vertex.Spirv, description.Vertex.Entry);
     if (!vertex) { return std::unexpected(vertex.error()); }
-    state->Vertex = std::move(*vertex);
-    const auto function = Function(Native_, state->Vertex, MTLFunctionTypeVertex);
-    if (!function) { return std::unexpected(function.error()); }
-    pipeline.vertexFunction = *function;
+    state->Vertex = (*vertex)->Translated;
+    const auto vertexFunction = Function(**vertex, MTLFunctionTypeVertex);
+    if (!vertexFunction) { return std::unexpected(vertexFunction.error()); }
+    pipeline.vertexFunction = *vertexFunction;
     GraphicsLayout layout;
     if (auto valid = StageBindings(layout, state->Vertex, ShaderStage::Vertex); !valid) {
       return std::unexpected(valid.error());
     }
     if (description.Fragment) {
-      auto fragment = Translate(description.Fragment->Spirv, description.Fragment->Entry);
+      const auto fragment = ShaderProgram(description.Fragment->Spirv, description.Fragment->Entry);
       if (!fragment) { return std::unexpected(fragment.error()); }
-      state->Fragment = std::move(*fragment);
+      state->Fragment = (*fragment)->Translated;
       if (auto valid = CompatibleImages(state->Vertex, *state->Fragment); !valid) {
         return std::unexpected(valid.error());
       }
-      const auto fragmentFunction = Function(Native_, *state->Fragment, MTLFunctionTypeFragment);
+      const auto fragmentFunction = Function(**fragment, MTLFunctionTypeFragment);
       if (!fragmentFunction) { return std::unexpected(fragmentFunction.error()); }
       pipeline.fragmentFunction = *fragmentFunction;
       if (auto valid = StageBindings(layout, *state->Fragment, ShaderStage::Fragment); !valid) {

@@ -7,7 +7,13 @@ import tracemalloc
 import manifold3d as manifold
 import numpy as np
 from entrance_clearance import native
-from outshine_ref.buildings.window_bays import WindowBay, bay_skin, bay_surface, volumes
+from outshine_ref.buildings.window_bays import (
+    WindowBay,
+    bay_flat,
+    bay_skin,
+    bay_surface,
+    volumes,
+)
 
 
 def physical(product):
@@ -37,7 +43,7 @@ def benchmark():
             expected = sum(v.polygon.area * (v.high_m - v.low_m) for v in volumes(plan))
             if abs(oracle.volume() - expected) > 1e-9:
                 raise ValueError("Physical bay changed its analytic component volume")
-            for method in ("parts", "union", "skin"):
+            for method in ("parts", "union", "skin", "flat"):
                 recipe = (
                     (lambda plan=plan: bay_skin(plan))
                     if method == "skin"
@@ -47,11 +53,13 @@ def benchmark():
                         )
                     )
                 )
+                if method == "flat":
+                    recipe = lambda plan=plan: bay_flat(plan, back_covered=True)
                 row = {"front_fraction": fraction, "width_m": width, "method": method}
                 try:
                     product = recipe()
                     difference = None
-                    if method != "skin":
+                    if method in ("parts", "union"):
                         actual = physical(product)
                         difference = (actual - oracle).volume() + (
                             oracle - actual
@@ -85,10 +93,10 @@ def benchmark():
                         "known_position_materialized_bytes": product["vertices"].nbytes
                         * (2 if method == "parts" else 1),
                         "known_position_copy_bytes": 0
-                        if method == "skin"
+                        if method in ("skin", "flat")
                         else product["vertices"].nbytes,
                         "allocation_scope": "Parts:8 primitive position results and1 final concatenation. Skin:only final array; Python point lists/geometry intermediates not enumerated. Union:only final owned copy; backend and roundtrip allocations not enumerated.",
-                        "scope": "Skin is a different external-only render product, never an equal physical candidate. Construction cost only; no native/frame admission.",
+                        "scope": "Skin/flat are unequal external-only render products, never equal physical candidates. Flat requires opaque back cover and separate projection admission; no native/frame claim.",
                     }
                 )
     return results

@@ -8,6 +8,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <vector>
 
@@ -47,8 +48,10 @@ public:
              {.Zoom = Coarse_.Zoom, .Ring = Coarse_.TileRadius}}};
   }
 
-  void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
+  void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these,
+                std::string_view digest = {}) {
     Declared_.assign(these.begin(), these.end());
+    DeclaredDigest_.assign(digest);
     Restored_.reset();
   }
 
@@ -164,6 +167,7 @@ public:
 
 private:
   std::vector<::outshine::Generators::Osm::OsmField::Declared> Declared_;
+  std::string DeclaredDigest_;
 
   struct Tier {
     std::unique_ptr<::outshine::Generators::Osm::OsmField> Field;

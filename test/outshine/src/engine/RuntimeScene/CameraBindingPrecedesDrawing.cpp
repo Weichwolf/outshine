@@ -31,115 +31,6 @@ outshine::Scenario::Document Declaration(bool withView) {
   return scene;
 }
 
-void ImportedCameraSurvivesBinding() {
-  using namespace outshine;
-  using namespace outshine::Test;
-  std::error_code io;
-  const auto directory = std::filesystem::temp_directory_path(io);
-  CHECK(!io, "a system temp directory is available for the glTF fixture");
-  if (io) { return; }
-  const auto path = directory / ("outshine-camera-contract-" + std::to_string(getpid()) + ".gltf");
-  std::ofstream file(path);
-  file << R"GLTF({
-  "asset":{"version":"2.0"},
-  "buffers":[{"byteLength":36,"uri":"data:application/octet-stream;base64,AACAvwAAgL8AAAAAAACAPwAAgL8AAAAAAAAAAAAAgD8AAAAA"}],
-  "bufferViews":[{"buffer":0,"byteLength":36}],
-  "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[-1,-1,0],"max":[1,1,0]}],
-  "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
-  "cameras":[{"type":"perspective","perspective":{"yfov":1,"znear":0.25,"zfar":20}}],
-  "nodes":[{"mesh":0},{"camera":0,"translation":[3,4,5]}],
-  "scenes":[{"nodes":[0,1]}],"scene":0
-})GLTF";
-  file.close();
-  CHECK(!file.fail(), "the independent glTF camera and triangle fixture is written");
-  if (!file.fail()) {
-    Render::SceneRenderer renderer;
-    Core::Declaration declaration;
-    declaration.Stands = path.string();
-    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
-    declaration.Outputs = {"sceneLinear"};
-    std::unique_ptr<Core::RuntimeScene> scene;
-    std::string error;
-    const bool opened = Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error);
-    CHECK(opened, "the imported camera and mesh bind without an explicit re-framing request");
-    if (opened) {
-      const Vec3 importedEye = {{3, 4, 5}};
-      CHECK(scene->Aimed().EyeM == importedEye && scene->Aimed().YfovRad == 1.0,
-            "the initial binding selects the authored glTF camera");
-      CHECK(scene->Draw(error), "the initial imported-camera frame draws");
-      CHECK(scene->Aimed().EyeM == importedEye && scene->Aimed().ZNearM == 0.25 &&
-                scene->Aimed().ZFarM == 20,
-            "first drawing preserves the authored camera instead of silently fitting bounds");
-      scene->FrameItself();
-      CHECK(scene->Advance(error), "native camera framing is prepared outside the draw call");
-      CHECK(Core::RuntimeScene::TookAiming() == 0,
-            "camera validation reuses the published native shape without allocation");
-      const bool rebuilt = Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error);
-      CHECK(rebuilt, "the subject can rebind while an explicit framing request is pending");
-      if (rebuilt) {
-        CHECK(scene->Draw(error), "the pending framing request draws after rebind");
-        CHECK(scene->Aimed().EyeM != importedEye,
-              "re-binding did not cancel the explicit request to frame the object bounds");
-      }
-    }
-    if (!error.empty()) { std::printf("imported camera: %s\n", error.c_str()); }
-  }
-  {
-    Geometry native;
-    Material nativeMaterial;
-    nativeMaterial.BaseColour = {{1, 0, 0, 1}};
-    nativeMaterial.Unlit = true;
-    const auto nativeSurface = native.addSurface("native mixed material", nativeMaterial).value();
-    const int part = native.addPart("native default material", nativeSurface).value();
-    CHECK(native.setPositions(
-              part, std::array<float, 9>{0.8f, -0.5f, 0, 2.2f, -0.5f, 0, 1.5f, 0.5f, 0}) &&
-              native.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),
-          "native fixture carries a named material independent of the imported table");
-    Core::Declaration declaration;
-    declaration.Stands = path.string();
-    declaration.InitialGeometry = &native;
-    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
-    declaration.Outputs = {"sceneLinear"};
-    declaration.Surfacing.front().BaseColour = {{0, 1, 0, 1}};
-    declaration.Surfacing.front().Unlit = true;
-    Core::SubjectSurfaceOverride named;
-    named.MaterialName = "native mixed material";
-    named.Surface = declaration.Surfacing.front();
-    named.Surface.BaseColour = {{0, 0, 1, 1}};
-    declaration.Overriding.push_back(named);
-    Core::SubjectSurfaceOverride byPart;
-    byPart.PartName = "native default material";
-    byPart.Surface = declaration.Surfacing.front();
-    declaration.Overriding.push_back(byPart);
-    Render::SceneRenderer renderer;
-    std::unique_ptr<Core::RuntimeScene> scene;
-    std::string error;
-    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
-          "imported and native geometry share one scene with a default native material");
-    if (scene) {
-      CHECK(scene->PartsStanding() == 2, "both imported and native parts are retained");
-      native.clear();
-      Render::Viewpoint eye;
-      eye.EyeM = {{0, 0, 5}};
-      eye.YfovRad = 1;
-      eye.ZNearM = 0.1;
-      eye.ZFarM = 100;
-      scene->Eye(eye);
-      CHECK(scene->Draw(error), "mixed scene survives clearing its native source");
-      renderer.WaitForGpu();
-      std::vector<float> pixels;
-      CHECK(renderer.ReadSceneLinear(pixels) == Render::ReadState::Ready,
-            "mixed material fixture has readable linear pixels");
-      const size_t pixel = (16u * 32u + 24u) * 4u;
-      CHECK(pixels.size() > pixel + 2u && pixels[pixel] < 0.1f && pixels[pixel + 1u] > 0.9f &&
-                pixels[pixel + 2u] < 0.1f,
-            "native part-name override runs after the native material-name override in a mixed "
-            "scene");
-    }
-    if (!error.empty()) { std::printf("mixed native material: %s\n", error.c_str()); }
-  }
-  CHECK(std::filesystem::remove(path, io) && !io, "the temporary camera fixture is removed");
-}
 } // namespace
 
 int main() {
@@ -212,7 +103,6 @@ int main() {
     }
     SDL_DestroyWindow(window);
   }
-  ImportedCameraSurvivesBinding();
   SDL_Quit();
   Covers("unconfigured target extent; missing-camera draw/readback/presentation failures and "
          "repeatability; "

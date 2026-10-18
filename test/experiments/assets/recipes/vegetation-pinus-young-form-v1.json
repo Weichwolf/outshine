@@ -1,0 +1,252 @@
+{
+  "schema_version": "1",
+  "id": "vegetation.pinus-sylvestris-young-form",
+  "version": "1",
+  "requires": [
+    "vegetation.needled-plants"
+  ],
+  "inputs": {
+    "seed": "vegetation.seed/1"
+  },
+  "dependencies": {},
+  "nodes": {
+    "wood": {
+      "operator": {
+        "id": "vegetation.wood-plan",
+        "version": "1"
+      },
+      "parameters": {
+        "version": "branching-plant-3",
+        "levels": [
+          {
+            "branches": 1,
+            "length": 3.2,
+            "base_radius": 0.038,
+            "tip_radius": 0.002,
+            "tip_scale": 0.55,
+            "length_shape": "taper",
+            "attachment_jitter": 0.0,
+            "azimuth_variation": 0.18,
+            "upward_bias": 0.0,
+            "first": 0.2,
+            "last": 0.92,
+            "angle": 1.1,
+            "angle_variation": 0.18,
+            "bend": 0.035,
+            "bend_variation": 0.025,
+            "leaf_internode": null,
+            "leaf_first": 0.1,
+            "leaf_last": 0.96,
+            "leaf_angle": 1.12,
+            "leaf_sky_alignment": 0.65,
+            "arrangement": "spiral",
+            "whorl_size": 1,
+            "angle_tip": null
+          },
+          {
+            "branches": 24,
+            "length": 1.1,
+            "base_radius": 0.004,
+            "tip_radius": 0.001,
+            "tip_scale": 0.24,
+            "length_shape": "taper",
+            "attachment_jitter": 0.2,
+            "azimuth_variation": 0.34,
+            "upward_bias": 0.0,
+            "first": 0.18,
+            "last": 0.91,
+            "angle": 1.23,
+            "angle_variation": 0.19,
+            "bend": 0.12,
+            "bend_variation": 0.14,
+            "leaf_internode": null,
+            "leaf_first": 0.1,
+            "leaf_last": 0.96,
+            "leaf_angle": 1.12,
+            "leaf_sky_alignment": 0.65,
+            "arrangement": "spiral",
+            "whorl_size": 4,
+            "angle_tip": 0.69
+          },
+          {
+            "branches": 7,
+            "length": 0.25,
+            "base_radius": 0.0007,
+            "tip_radius": 0.0003,
+            "tip_scale": 0.55,
+            "length_shape": "taper",
+            "attachment_jitter": 0.23,
+            "azimuth_variation": 0.48,
+            "upward_bias": 0.04,
+            "first": 0.16,
+            "last": 0.95,
+            "angle": 1.1,
+            "angle_variation": 0.26,
+            "bend": 0.25,
+            "bend_variation": 0.18,
+            "leaf_internode": null,
+            "leaf_first": 0.1,
+            "leaf_last": 0.96,
+            "leaf_angle": 1.12,
+            "leaf_sky_alignment": 0.65,
+            "arrangement": "spiral",
+            "whorl_size": 1,
+            "angle_tip": null
+          }
+        ],
+        "blades": []
+      },
+      "inputs": {
+        "seed": {
+          "input": "seed"
+        }
+      },
+      "max_output_bytes": 16384
+    },
+    "patterns": {
+      "operator": {
+        "id": "vegetation.needle-patterns",
+        "version": "1"
+      },
+      "parameters": {
+        "patterns": [
+          {
+            "version": "needle-pattern-1",
+            "spacing": 0.013,
+            "group_size": 2,
+            "first": 0.95,
+            "last": 0.95,
+            "pitch": 0.65,
+            "spread": 0.13,
+            "short_length": 0.0025,
+            "angle_variation": 0.22,
+            "scale_variation": 0.07
+          },
+          {
+            "version": "needle-pattern-1",
+            "spacing": 0.013,
+            "group_size": 2,
+            "first": 0.84,
+            "last": 0.95,
+            "pitch": 0.65,
+            "spread": 0.13,
+            "short_length": 0.0025,
+            "angle_variation": 0.22,
+            "scale_variation": 0.07
+          },
+          {
+            "version": "needle-pattern-1",
+            "spacing": 0.013,
+            "group_size": 2,
+            "first": 0.12,
+            "last": 0.95,
+            "pitch": 0.65,
+            "spread": 0.13,
+            "short_length": 0.0025,
+            "angle_variation": 0.22,
+            "scale_variation": 0.07
+          }
+        ]
+      },
+      "inputs": {},
+      "max_output_bytes": 8192
+    },
+    "variants": {
+      "operator": {
+        "id": "vegetation.needle-variants",
+        "version": "1"
+      },
+      "parameters": {
+        "needles": [
+          {
+            "length": 0.052,
+            "radius": 0.00065,
+            "aspect": 1,
+            "bend": 0.34,
+            "twist": 0.9,
+            "taper_start": 0.75,
+            "section": "sector",
+            "sector_count": 2
+          },
+          {
+            "length": 0.06,
+            "radius": 0.00065,
+            "aspect": 1,
+            "bend": 0.34,
+            "twist": 0.9,
+            "taper_start": 0.75,
+            "section": "sector",
+            "sector_count": 2
+          },
+          {
+            "length": 0.068,
+            "radius": 0.00065,
+            "aspect": 1,
+            "bend": 0.34,
+            "twist": 0.9,
+            "taper_start": 0.75,
+            "section": "sector",
+            "sector_count": 2
+          }
+        ]
+      },
+      "inputs": {},
+      "max_output_bytes": 8192
+    },
+    "plant": {
+      "operator": {
+        "id": "vegetation.needled-plant",
+        "version": "1"
+      },
+      "parameters": {},
+      "inputs": {
+        "wood": {
+          "node": "wood",
+          "output": "plan"
+        },
+        "patterns": {
+          "node": "patterns",
+          "output": "patterns"
+        },
+        "variants": {
+          "node": "variants",
+          "output": "variants"
+        }
+      },
+      "max_output_bytes": 32768
+    },
+    "detail": {
+      "operator": {
+        "id": "vegetation.needled-detail",
+        "version": "1"
+      },
+      "parameters": {
+        "max_axes": 512,
+        "max_needles": 16384,
+        "segments": 8,
+        "sides": 8
+      },
+      "inputs": {
+        "plant": {
+          "node": "plant",
+          "output": "plant"
+        }
+      },
+      "max_output_bytes": 16777216
+    }
+  },
+  "outputs": {
+    "plan": {
+      "node": "wood",
+      "output": "plan"
+    },
+    "plant": {
+      "node": "plant",
+      "output": "plant"
+    },
+    "detail": {
+      "node": "detail",
+      "output": "detail"
+    }
+  }
+}

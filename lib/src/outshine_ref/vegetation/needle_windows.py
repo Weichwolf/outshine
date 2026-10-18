@@ -54,6 +54,29 @@ def window_summary(plant, nominal_span_m=0.08, max_groups=64):
     }
 
 
+def _axis_window_values(axis, pattern, needles, capacity, seed, first):
+    starts = np.arange(0, needles, capacity, dtype=np.int64)
+    counts = np.minimum(capacity, needles - starts)
+    nodes, node_counts = starts / pattern.group_size, counts / pattern.group_size
+    t = pattern.first + (nodes + (node_counts - 1) / 2) * pattern.spacing / axis.length
+    centre, tangent, lateral, normal = arc_frame(axis.length, axis.bend, 0, t)
+    frames = np.stack((lateral, tangent, normal), axis=-1)
+    phase = np.random.default_rng(np.random.SeedSequence((seed, axis.id))).uniform(
+        -np.pi, np.pi
+    )
+    return {
+        "origins": centre @ axis.frame.T + axis.origin,
+        "frames": np.einsum("ij,njk->nik", axis.frame, frames),
+        "phases": phase + nodes * GOLDEN_ANGLE,
+        "axis_ids": np.full(len(starts), axis.id, np.uint64),
+        "orders": np.full(len(starts), len(axis.path), np.uint8),
+        "parent_parameters": t,
+        "first_needle_ids": starts.astype(np.uint64) + np.uint64(first),
+        "needle_counts": counts.astype(np.uint32),
+        "capacities": np.full(len(starts), capacity, np.uint32),
+    }
+
+
 def window_tables(plant, max_axes, max_windows, nominal_span_m=0.08, max_groups=64):
     detail_budget(max_axes)
     detail_budget(max_windows)
@@ -82,32 +105,12 @@ def window_tables(plant, max_axes, max_windows, nominal_span_m=0.08, max_groups=
             continue
         pattern, axis = plant.patterns[depth], plant.wood.axis(path)
         capacity = summary["groups_per_window"][depth] * pattern.group_size
-        starts = np.arange(0, needles, capacity, dtype=np.int64)
-        counts = np.minimum(capacity, needles - starts)
-        nodes, node_counts = starts / pattern.group_size, counts / pattern.group_size
-        t = (
-            pattern.first
-            + (nodes + (node_counts - 1) / 2) * pattern.spacing / axis.length
-        )
-        centre, tangent, lateral, normal = arc_frame(axis.length, axis.bend, 0, t)
-        frames = np.stack((lateral, tangent, normal), axis=-1)
-        phase = np.random.default_rng(
-            np.random.SeedSequence((plant.wood.seed, axis.id))
-        ).uniform(-np.pi, np.pi)
         first = sum(plant.needle_counts[:depth]) + repeated_prefix(
             plant.slot_counts[depth], ordinal
         )
-        values = {
-            "origins": centre @ axis.frame.T + axis.origin,
-            "frames": np.einsum("ij,njk->nik", axis.frame, frames),
-            "phases": phase + nodes * GOLDEN_ANGLE,
-            "axis_ids": np.full(len(starts), axis.id, np.uint64),
-            "orders": np.full(len(starts), depth, np.uint8),
-            "parent_parameters": t,
-            "first_needle_ids": starts.astype(np.uint64) + np.uint64(first),
-            "needle_counts": counts.astype(np.uint32),
-            "capacities": np.full(len(starts), capacity, np.uint32),
-        }
+        values = _axis_window_values(
+            axis, pattern, needles, capacity, plant.wood.seed, first
+        )
         for key, value in values.items():
             columns[key].append(value)
     result = {

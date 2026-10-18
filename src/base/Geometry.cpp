@@ -23,25 +23,20 @@ struct Geometry::Held {
   struct Piece {
     std::string Named;
     int Material;
-    std::vector<float> PositionsM;
-    std::vector<float> Normals;
-    std::vector<float> Uv;
-    std::vector<float> Uv1;
-    std::vector<float> Tangents;
-    std::vector<float> Colours;
-    std::vector<uint32_t> Indices;
+    Mesh Data;
     Mat4 PlacedM;
 
     [[nodiscard]] bool Valid(size_t materials) const {
       if (Material >= 0 && std::cmp_greater_equal(Material, materials)) { return false; }
-      if (PositionsM.empty() || Indices.empty()) { return false; }
-      const size_t vertices = PositionsM.size() / 3;
-      if (!Normals.empty() && Normals.size() / 3 != vertices) { return false; }
-      if (!Uv.empty() && Uv.size() / 2 != vertices) { return false; }
-      if (!Uv1.empty() && Uv1.size() / 2 != vertices) { return false; }
-      if (!Tangents.empty() && Tangents.size() / 4 != vertices) { return false; }
-      if (!Colours.empty() && Colours.size() / 4 != vertices) { return false; }
-      return std::ranges::all_of(Indices, [vertices](uint32_t index) { return index < vertices; });
+      if (Data.PositionsM.empty() || Data.Indices.empty()) { return false; }
+      const size_t vertices = Data.PositionsM.size() / 3;
+      if (!Data.Normals.empty() && Data.Normals.size() / 3 != vertices) { return false; }
+      if (!Data.Uv.empty() && Data.Uv.size() / 2 != vertices) { return false; }
+      if (!Data.Uv1.empty() && Data.Uv1.size() / 2 != vertices) { return false; }
+      if (!Data.Tangents.empty() && Data.Tangents.size() / 4 != vertices) { return false; }
+      if (!Data.Colours.empty() && Data.Colours.size() / 4 != vertices) { return false; }
+      return std::ranges::all_of(Data.Indices,
+                                 [vertices](uint32_t index) { return index < vertices; });
     }
   };
 
@@ -130,13 +125,13 @@ void Geometry::clear() {
   for (size_t at = 0; at < Held_->Live && at < Held_->Parts.size(); ++at) {
     Geometry::Held::Piece &piece = Held_->Parts[at];
     piece.Named.clear();
-    piece.PositionsM.clear();
-    piece.Normals.clear();
-    piece.Uv.clear();
-    piece.Uv1.clear();
-    piece.Tangents.clear();
-    piece.Colours.clear();
-    piece.Indices.clear();
+    piece.Data.PositionsM.clear();
+    piece.Data.Normals.clear();
+    piece.Data.Uv.clear();
+    piece.Data.Uv1.clear();
+    piece.Data.Tangents.clear();
+    piece.Data.Colours.clear();
+    piece.Data.Indices.clear();
   }
   Held_->Live = 0;
   Held_->Surfaces.clear();
@@ -163,34 +158,17 @@ namespace {
 constexpr double kUnitWithin = 1.0e-3;
 constexpr double kNoAreaM4 = 1.0e-12;
 
-[[nodiscard]] std::expected<void, GeometryAttributeError> Into(std::vector<float> &slot,
-                                                               std::span<const float> from) {
+[[nodiscard]] std::expected<void, GeometryAttributeError>
+Finite(std::span<const float> from) noexcept {
   for (const float value : from) {
     if (!std::isfinite(value)) { return std::unexpected(GeometryAttributeError::NonFiniteValue); }
   }
-  slot.assign(from.begin(), from.end());
   return {};
 }
 
-}
-
-std::expected<void, GeometryAttributeError> Geometry::setPositions(int part,
-                                                                   std::span<const float> metres) {
-  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || metres.size() % 3 != 0) {
-    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
-                               ? GeometryAttributeError::MissingPart
-                               : GeometryAttributeError::IncompleteTuple);
-  }
-  return Into(Held_->Parts[static_cast<size_t>(part)].PositionsM, metres);
-}
-
-std::expected<void, GeometryAttributeError> Geometry::setNormals(int part,
-                                                                 std::span<const float> unit) {
-  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || unit.size() % 3 != 0) {
-    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
-                               ? GeometryAttributeError::MissingPart
-                               : GeometryAttributeError::IncompleteTuple);
-  }
+[[nodiscard]] std::expected<void, GeometryAttributeError>
+ValidateNormals(std::span<const float> unit) noexcept {
+  if (unit.size() % 3 != 0) { return std::unexpected(GeometryAttributeError::IncompleteTuple); }
   for (size_t at = 0; at + 2 < unit.size(); at += 3) {
     const double length = std::sqrt(static_cast<double>(unit[at]) * unit[at] +
                                     static_cast<double>(unit[at + 1]) * unit[at + 1] +
@@ -200,18 +178,70 @@ std::expected<void, GeometryAttributeError> Geometry::setNormals(int part,
       return std::unexpected(GeometryAttributeError::NonUnitNormal);
     }
   }
-  return Into(Held_->Parts[static_cast<size_t>(part)].Normals, unit);
+  return {};
+}
+
+[[nodiscard]] std::expected<void, GeometryAttributeError> Into(std::vector<float> &slot,
+                                                               std::span<const float> from) {
+  if (const auto valid = Finite(from); !valid) { return valid; }
+  slot.assign(from.begin(), from.end());
+  return {};
+}
+
+}
+
+std::expected<void, GeometryAttributeError> Geometry::adoptMesh(int part, Mesh &mesh) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(GeometryAttributeError::MissingPart);
+  }
+  const std::array attributes{std::pair{std::span<const float>(mesh.PositionsM), size_t{3}},
+                              std::pair{std::span<const float>(mesh.Uv), size_t{2}},
+                              std::pair{std::span<const float>(mesh.Uv1), size_t{2}},
+                              std::pair{std::span<const float>(mesh.Tangents), size_t{4}},
+                              std::pair{std::span<const float>(mesh.Colours), size_t{4}}};
+  for (const auto &[values, width] : attributes) {
+    if (values.size() % width != 0) {
+      return std::unexpected(GeometryAttributeError::IncompleteTuple);
+    }
+    if (const auto valid = Finite(values); !valid) { return valid; }
+  }
+  if (const auto valid = ValidateNormals(mesh.Normals); !valid) { return valid; }
+  if (mesh.Indices.size() % 3 != 0) {
+    return std::unexpected(GeometryAttributeError::IncompleteTuple);
+  }
+  Held_->Parts[static_cast<size_t>(part)].Data = std::move(mesh);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError> Geometry::setPositions(int part,
+                                                                   std::span<const float> metres) {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || metres.size() % 3 != 0) {
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
+  }
+  return Into(Held_->Parts[static_cast<size_t>(part)].Data.PositionsM, metres);
+}
+
+std::expected<void, GeometryAttributeError> Geometry::setNormals(int part,
+                                                                 std::span<const float> unit) {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(GeometryAttributeError::MissingPart);
+  }
+  if (const auto valid = ValidateNormals(unit); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.Normals.assign(unit.begin(), unit.end());
+  return {};
 }
 
 int Geometry::windingAgainstNormals(int part) const {
   const Held::Piece *piece = Held_->At(part);
   if (piece == nullptr) { return 0; }
-  const std::vector<float> &p = piece->PositionsM;
-  const std::vector<float> &n = piece->Normals;
+  const std::vector<float> &p = piece->Data.PositionsM;
+  const std::vector<float> &n = piece->Data.Normals;
   int against = 0;
-  for (size_t at = 0; at + 2 < piece->Indices.size(); at += 3) {
+  for (size_t at = 0; at + 2 < piece->Data.Indices.size(); at += 3) {
     const std::array<size_t, 3> corner = {
-        piece->Indices[at], piece->Indices[at + 1], piece->Indices[at + 2]};
+        piece->Data.Indices[at], piece->Data.Indices[at + 1], piece->Data.Indices[at + 2]};
     if (corner[2] * 3 + 2 >= p.size() || corner[2] * 3 + 2 >= n.size() ||
         corner[0] * 3 + 2 >= p.size() || corner[1] * 3 + 2 >= p.size() ||
         corner[0] * 3 + 2 >= n.size() || corner[1] * 3 + 2 >= n.size()) {
@@ -242,7 +272,7 @@ Geometry::setTexture(int part, std::span<const float> uv, int set) {
   if (uv.size() % 2 != 0) { return std::unexpected(GeometryAttributeError::IncompleteTuple); }
   if (set != 0 && set != 1) { return std::unexpected(GeometryAttributeError::InvalidTextureSet); }
   Geometry::Held::Piece &piece = Held_->Parts[static_cast<size_t>(part)];
-  return Into(set == 0 ? piece.Uv : piece.Uv1, uv);
+  return Into(set == 0 ? piece.Data.Uv : piece.Data.Uv1, uv);
 }
 
 std::expected<void, GeometryAttributeError> Geometry::setTangents(int part,
@@ -252,7 +282,7 @@ std::expected<void, GeometryAttributeError> Geometry::setTangents(int part,
                                ? GeometryAttributeError::MissingPart
                                : GeometryAttributeError::IncompleteTuple);
   }
-  return Into(Held_->Parts[static_cast<size_t>(part)].Tangents, xyzw);
+  return Into(Held_->Parts[static_cast<size_t>(part)].Data.Tangents, xyzw);
 }
 
 std::expected<void, GeometryAttributeError> Geometry::setColours(int part,
@@ -262,7 +292,7 @@ std::expected<void, GeometryAttributeError> Geometry::setColours(int part,
                                ? GeometryAttributeError::MissingPart
                                : GeometryAttributeError::IncompleteTuple);
   }
-  return Into(Held_->Parts[static_cast<size_t>(part)].Colours, rgba);
+  return Into(Held_->Parts[static_cast<size_t>(part)].Data.Colours, rgba);
 }
 
 std::expected<void, GeometryAttributeError>
@@ -272,7 +302,7 @@ Geometry::setTriangles(int part, std::span<const uint32_t> indices) {
                                ? GeometryAttributeError::MissingPart
                                : GeometryAttributeError::IncompleteTuple);
   }
-  Held_->Parts[static_cast<size_t>(part)].Indices.assign(indices.begin(), indices.end());
+  Held_->Parts[static_cast<size_t>(part)].Data.Indices.assign(indices.begin(), indices.end());
   return {};
 }
 
@@ -451,10 +481,12 @@ size_t Geometry::storageBytes() const noexcept {
                  Held_->Images.capacity() * sizeof(Held::Picture) +
                  Held_->Lamps.capacity() * sizeof(Held::Placed);
   for (const Held::Piece &part : Held_->Parts) {
-    bytes += part.Named.capacity() + part.PositionsM.capacity() * sizeof(float) +
-             part.Normals.capacity() * sizeof(float) + part.Uv.capacity() * sizeof(float) +
-             part.Uv1.capacity() * sizeof(float) + part.Tangents.capacity() * sizeof(float) +
-             part.Colours.capacity() * sizeof(float) + part.Indices.capacity() * sizeof(uint32_t);
+    bytes += part.Named.capacity() + part.Data.PositionsM.capacity() * sizeof(float) +
+             part.Data.Normals.capacity() * sizeof(float) +
+             part.Data.Uv.capacity() * sizeof(float) + part.Data.Uv1.capacity() * sizeof(float) +
+             part.Data.Tangents.capacity() * sizeof(float) +
+             part.Data.Colours.capacity() * sizeof(float) +
+             part.Data.Indices.capacity() * sizeof(uint32_t);
   }
   for (const Held::Named &surface : Held_->Surfaces) { bytes += surface.Named.capacity(); }
   for (const Held::Picture &image : Held_->Images) {
@@ -479,33 +511,35 @@ MaterialInstance Geometry::materialOf(int part) const {
 
 std::span<const float> Geometry::positionsOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const float>(piece->PositionsM) : std::span<const float>();
+  return piece != nullptr ? std::span<const float>(piece->Data.PositionsM)
+                          : std::span<const float>();
 }
 
 std::span<const float> Geometry::normalsOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const float>(piece->Normals) : std::span<const float>();
+  return piece != nullptr ? std::span<const float>(piece->Data.Normals) : std::span<const float>();
 }
 
 std::span<const float> Geometry::textureOf(int part, UvSet set) const {
   const Held::Piece *piece = Held_->At(part);
   if (piece == nullptr) { return {}; }
-  return {set == UvSet::Uv0 ? piece->Uv : piece->Uv1};
+  return {set == UvSet::Uv0 ? piece->Data.Uv : piece->Data.Uv1};
 }
 
 std::span<const float> Geometry::tangentsOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const float>(piece->Tangents) : std::span<const float>();
+  return piece != nullptr ? std::span<const float>(piece->Data.Tangents) : std::span<const float>();
 }
 
 std::span<const float> Geometry::coloursOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const float>(piece->Colours) : std::span<const float>();
+  return piece != nullptr ? std::span<const float>(piece->Data.Colours) : std::span<const float>();
 }
 
 std::span<const uint32_t> Geometry::trianglesOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const uint32_t>(piece->Indices) : std::span<const uint32_t>();
+  return piece != nullptr ? std::span<const uint32_t>(piece->Data.Indices)
+                          : std::span<const uint32_t>();
 }
 
 bool Geometry::wellFormed() const {

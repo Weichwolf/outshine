@@ -64,8 +64,7 @@ AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
                                        sqlite3_column_int64(statement.Value, 0),
                                        0,
                                        &raw);
-  const std::unique_ptr<sqlite3_blob, decltype(&sqlite3_blob_close)> input(raw,
-                                                                           &sqlite3_blob_close);
+  std::unique_ptr<sqlite3_blob, decltype(&sqlite3_blob_close)> input(raw, &sqlite3_blob_close);
   if (opened != SQLITE_OK) { return std::unexpected(AssetSql::Error(opened)); }
   if (std::cmp_not_equal(sqlite3_blob_bytes(input.get()), bytes)) {
     return std::optional<CachedAsset>{};
@@ -82,6 +81,9 @@ AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
   auto decoded =
       AssetSql::Decompress(std::move(stored), static_cast<int>(codec), static_cast<size_t>(native));
   if (!decoded) { return std::optional<CachedAsset>{}; }
+  input.reset();
+  sqlite3_reset(statement.Value);
+  State_->Observe(record.Package, bytes);
   return CachedAsset(std::move(**found),
                      std::make_shared<const std::vector<uint8_t>>(std::move(*decoded)));
 }

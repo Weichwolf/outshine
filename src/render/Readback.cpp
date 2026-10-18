@@ -1,186 +1,110 @@
 #include "Readback.h"
-
-#include "Log.h"
+#include <chrono>
+#include <span>
+#include <cstddef>
 #include <cstdint>
-
-#include <Extent.h>
+#include <optional>
+#include <utility>
 
 namespace outshine::Render {
+namespace {
+constexpr auto kInspectionBudget = std::chrono::seconds(5);
+}
 
 Readback::Readback(Readback &&from) noexcept
-    : Device(from.Device),
-      Fence(from.Fence),
-      Commands(from.Commands),
-      Transfer(from.Transfer),
-      Mapped(from.Mapped),
-      Row(from.Row) {
-  from.Device = nullptr;
-  from.Fence = nullptr;
-  from.Commands = nullptr;
-  from.Transfer = nullptr;
-  from.Mapped = nullptr;
-  from.Row = 0;
+    : Transfer_(std::move(from.Transfer_)),
+      Device_(std::exchange(from.Device_, nullptr)),
+      Mapped_(std::exchange(from.Mapped_, {})),
+      Error_(std::move(from.Error_)) {
+  from.Transfer_.reset();
 }
 
 Readback &Readback::operator=(Readback &&from) noexcept {
   if (this == &from) { return *this; }
   Release();
-  Device = from.Device;
-  Fence = from.Fence;
-  Commands = from.Commands;
-  Transfer = from.Transfer;
-  Mapped = from.Mapped;
-  Row = from.Row;
-  from.Device = nullptr;
-  from.Fence = nullptr;
-  from.Commands = nullptr;
-  from.Transfer = nullptr;
-  from.Mapped = nullptr;
-  from.Row = 0;
+  Transfer_ = std::move(from.Transfer_);
+  Device_ = std::exchange(from.Device_, nullptr);
+  Mapped_ = std::exchange(from.Mapped_, {});
+  Error_ = std::move(from.Error_);
+  from.Transfer_.reset();
   return *this;
 }
 
-ReadState Readback::Submit(SDL_GPUCommandBuffer *commands) {
-  Fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
-  Commands = nullptr;
-  if (Fence == nullptr) {
-    Log::Error(LogTag::Render, "readback_submit_failed", {{"msg", SDL_GetError()}});
-    Release();
+void Readback::Release() {
+  Mapped_ = {};
+  Transfer_.reset();
+  Device_ = nullptr;
+}
+
+ReadState Readback::Begin(Native::Device &device, Native::Result<ReadbackTransfer> transfer) {
+  if (!transfer) {
+    Error_ = std::move(transfer.error().Message);
     return ReadState::Failed;
   }
+  Device_ = &device;
+  Transfer_.emplace(std::move(*transfer));
   return ReadState::Pending;
 }
 
-ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
-  if (Submit(commands) == ReadState::Failed) { return ReadState::Failed; }
-  const bool waited = SDL_WaitForGPUFences(Device, true, &Fence, 1);
-  SDL_ReleaseGPUFence(Device, Fence);
-  Fence = nullptr;
-  if (!waited) {
-    Log::Error(LogTag::Render, "readback_wait_failed", {{"msg", SDL_GetError()}});
+ReadState Readback::FromTexture(Native::Device *device,
+                                Native::Texture *texture,
+                                Extent size,
+                                uint32_t texelBytes) {
+  Release();
+  Error_.clear();
+  if (device == nullptr || texture == nullptr || size.WidthPx <= 0 || size.HeightPx <= 0 ||
+      texelBytes == 0) {
+    Error_ = "readback requires a device, image and positive pixel extent";
+    return ReadState::Failed;
+  }
+  const auto begun =
+      Begin(*device,
+            ReadbackTransfer::Start(*device,
+                                    *texture,
+                                    {.Width = static_cast<uint32_t>(size.WidthPx),
+                                     .Height = static_cast<uint32_t>(size.HeightPx)}));
+  if (begun == ReadState::Failed || !Transfer_) { return ReadState::Failed; }
+  if (Transfer_->RowBytes() != uint64_t{static_cast<uint32_t>(size.WidthPx)} * texelBytes) {
+    Error_ = "readback pixel size disagrees with the native image format";
     Release();
     return ReadState::Failed;
   }
-  return Map();
+  return Land();
 }
 
-ReadState Readback::Poll() {
-  if (Mapped != nullptr) { return ReadState::Ready; }
-  if (Fence == nullptr) { return ReadState::Failed; }
-  if (!SDL_QueryGPUFence(Device, Fence)) { return ReadState::Pending; }
-  SDL_ReleaseGPUFence(Device, Fence);
-  Fence = nullptr;
-  return Map();
+ReadState Readback::FromBuffer(Native::Device *device, Native::Buffer *source, uint32_t bytes) {
+  const auto begun = Enqueue(device, source, bytes);
+  return begun == ReadState::Failed ? begun : Land();
 }
 
-ReadState Readback::Map() {
-  Mapped = static_cast<const uint8_t *>(SDL_MapGPUTransferBuffer(Device, Transfer, false));
-  if (Mapped == nullptr) {
-    Log::Error(LogTag::Render, "readback_map_failed", {{"msg", SDL_GetError()}});
+ReadState Readback::Enqueue(Native::Device *device, Native::Buffer *source, uint32_t bytes) {
+  Release();
+  Error_.clear();
+  if (device == nullptr || source == nullptr) {
+    Error_ = "readback requires a native device and buffer";
+    return ReadState::Failed;
+  }
+  return Begin(*device, ReadbackTransfer::Start(*device, *source, {.Bytes = bytes}));
+}
+
+ReadState Readback::Map(Native::Result<std::optional<std::span<const std::byte>>> result) {
+  if (!result) {
+    Error_ = std::move(result.error().Message);
     Release();
     return ReadState::Failed;
   }
+  if (!*result) { return ReadState::Pending; }
+  Mapped_ = **result;
   return ReadState::Ready;
 }
 
-SDL_GPUCopyPass *Readback::BeginCopy() {
-  Commands = SDL_AcquireGPUCommandBuffer(Device);
-  if (Commands == nullptr) {
-    Log::Error(LogTag::Render, "readback_acquire_failed", {{"msg", SDL_GetError()}});
-    Release();
-    return nullptr;
-  }
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(Commands);
-  if (copy == nullptr) {
-    Log::Error(LogTag::Render, "readback_copy_pass_failed", {{"msg", SDL_GetError()}});
-    SDL_CancelGPUCommandBuffer(Commands);
-    Commands = nullptr;
-    Release();
-  }
-  return copy;
+ReadState Readback::Land() {
+  if (!Transfer_ || Device_ == nullptr) { return ReadState::Failed; }
+  return Map(Transfer_->Wait(*Device_, kInspectionBudget));
 }
 
-ReadState Readback::FromTexture(SDL_GPUDevice *device,
-                                SDL_GPUTexture *texture,
-                                Extent size,
-                                uint32_t texelBytes) {
-  const auto width = static_cast<uint32_t>(size.WidthPx);
-  const auto height = static_cast<uint32_t>(size.HeightPx);
-  Release();
-  Device = device;
-  Row = width * texelBytes;
-  SDL_GPUTransferBufferCreateInfo wanted{};
-  wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
-  wanted.size = Row * height;
-  Transfer = SDL_CreateGPUTransferBuffer(device, &wanted);
-  if (Transfer == nullptr) {
-    Log::Error(LogTag::Render, "readback_buffer_failed", {{"msg", SDL_GetError()}});
-    Release();
-    return ReadState::Failed;
-  }
-
-  SDL_GPUCopyPass *copy = BeginCopy();
-  if (copy == nullptr) { return ReadState::Failed; }
-  SDL_GPUTextureRegion region{};
-  region.texture = texture;
-  region.w = width;
-  region.h = height;
-  region.d = 1;
-  SDL_GPUTextureTransferInfo into{};
-  into.transfer_buffer = Transfer;
-  into.pixels_per_row = width;
-  into.rows_per_layer = height;
-  SDL_DownloadFromGPUTexture(copy, &region, &into);
-  SDL_EndGPUCopyPass(copy);
-  return Land(Commands);
+ReadState Readback::Poll() {
+  if (!Transfer_ || Device_ == nullptr) { return ReadState::Failed; }
+  return Map(Transfer_->Poll(*Device_));
 }
-
-ReadState Readback::FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes) {
-  return Copies(device, source, bytes) == ReadState::Failed ? ReadState::Failed : Land(Commands);
-}
-
-ReadState Readback::Enqueue(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes) {
-  return Copies(device, source, bytes) == ReadState::Failed ? ReadState::Failed : Submit(Commands);
-}
-
-ReadState Readback::Copies(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes) {
-  Release();
-  Device = device;
-  Row = bytes;
-  SDL_GPUTransferBufferCreateInfo wanted{};
-  wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
-  wanted.size = bytes;
-  Transfer = SDL_CreateGPUTransferBuffer(device, &wanted);
-  if (Transfer == nullptr) {
-    Log::Error(LogTag::Render, "readback_buffer_failed", {{"msg", SDL_GetError()}});
-    Release();
-    return ReadState::Failed;
-  }
-
-  SDL_GPUCopyPass *copy = BeginCopy();
-  if (copy == nullptr) { return ReadState::Failed; }
-  SDL_GPUBufferRegion region{};
-  region.buffer = source;
-  region.size = bytes;
-  SDL_GPUTransferBufferLocation into{};
-  into.transfer_buffer = Transfer;
-  SDL_DownloadFromGPUBuffer(copy, &region, &into);
-  SDL_EndGPUCopyPass(copy);
-  return ReadState::Pending;
-}
-
-void Readback::Release() {
-  if (Fence != nullptr) {
-    SDL_WaitForGPUFences(Device, true, &Fence, 1);
-    SDL_ReleaseGPUFence(Device, Fence);
-    Fence = nullptr;
-  }
-  Commands = nullptr;
-  if (Mapped != nullptr) { SDL_UnmapGPUTransferBuffer(Device, Transfer); }
-  if (Transfer != nullptr) { SDL_ReleaseGPUTransferBuffer(Device, Transfer); }
-  Mapped = nullptr;
-  Transfer = nullptr;
-  Row = 0;
-}
-
 }

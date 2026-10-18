@@ -1,6 +1,11 @@
+#include <span>
+#include <cstddef>
+#include <cstdint>
+#include <algorithm>
 #include "Check.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
+#include "test/harness/render/NativeOfflineDevice.h"
+#include "test/harness/render/NativeGpuCheck.h"
 #include "Readback.h"
 #include "SubjectDraw.h"
 #include <SDL3/SDL.h>
@@ -27,19 +32,21 @@ const std::array<StoredVertex, 3> vertices{StoredVertex::Of({{-1, -1, 0}}, {{0, 
                                            StoredVertex::Of({{0, 1, 0}}, {{0, 1}}, {{0, 0, 1}})};
 
 template <class Payload>
-bool Verify(SDL_GPUDevice *device,
+bool Verify(Native::Device *device,
             const SubjectResidency &resident,
             Stream stream,
             const Payload &expected,
             uint32_t first) {
   const auto offset = first * static_cast<uint32_t>(sizeof(expected) / 3);
   Readback readback;
-  return readback.FromBuffer(device, resident.Buffer(stream).Get(), offset + sizeof(expected)) ==
+  return readback.FromBuffer(device, resident.Buffer(stream).get(), offset + sizeof(expected)) ==
              ReadState::Ready &&
-         std::memcmp(readback.Rows() + offset, expected.data(), sizeof(expected)) == 0;
+         std::ranges::equal(std::span(reinterpret_cast<const std::byte *>(readback.Rows() + offset),
+                                      sizeof(expected)),
+                            std::as_bytes(std::span(expected)));
 }
 
-void CheckMainStreams(SDL_GPUDevice *device,
+void CheckMainStreams(Native::Device *device,
                       const SubjectResidency &resident,
                       bool mapped,
                       bool second) {
@@ -65,26 +72,29 @@ void CheckMainStreams(SDL_GPUDevice *device,
   }
 }
 
-void CheckLayout(SDL_GPUDevice *device,
+void CheckLayout(Native::Device *device,
                  std::span<const StoredVertex> prefix,
                  std::span<const uint32_t> prefixIndices,
                  bool mapped,
                  bool second) {
   SubjectDraw draw;
   std::string error;
-  Gpu gpu;
+  outshine::Render::Gpu gpu;
   gpu.Device = device;
-  gpu.HdrFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-  gpu.SurfaceFormat = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+  gpu.HdrFormat = Native::Format::Rgba16Float;
+  gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
   gpu.Width = gpu.Height = 32;
   CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "scene attachment adds");
   CHECK(gpu.SceneColours.Add(Resource::SceneVelocity), "motion attachment adds");
-  CHECK(draw.Configure(gpu, error), "native pipelines configure");
+  CHECK(draw.Configure(gpu).has_value(), "native pipelines configure");
   const std::array<SubjectMaterial, 1> materials{};
   CHECK(draw.AppendMaterials(materials, error), "material registers");
   constexpr std::array<uint32_t, 1> slots{0};
   draw.SetNativePieceSurfaces(slots);
-  CHECK(draw.PlacePiece(PieceMesh{.Verts = prefix, .Indices = prefixIndices}, error) != kNoPiece,
+  PieceMesh prefixPiece{};
+  prefixPiece.Verts = prefix;
+  prefixPiece.Indices = prefixIndices;
+  CHECK(draw.PlacePiece(prefixPiece, error) != kNoPiece,
         "thousands of unmapped vertices precede the main mesh in the shared arena");
   const auto &resident = draw.Resident();
   CHECK(resident.HeldOf(Stream::Previous) == 0,
@@ -92,11 +102,15 @@ void CheckLayout(SDL_GPUDevice *device,
   CHECK(resident.HeldOf(Stream::Uv) == 0 && resident.HeldOf(Stream::Colour) == 0,
         "untextured untinted pieces reserve neither optional stream");
   DrawList draws;
-  const auto layout =
-      mapped ? (second ? VertexLayout::PositionNormalUvUv1TangentColour
-                       : VertexLayout::PositionNormalUvTangent)
-             : (second ? VertexLayout::PositionNormalUvUv1Colour : VertexLayout::PositionNormalUv);
-  CHECK(draws.Add(DrawItem{.IndexCount = 3, .Layout = layout}, error), "draw adds");
+  auto layout = second ? VertexLayout::PositionNormalUvUv1Colour : VertexLayout::PositionNormalUv;
+  if (mapped) {
+    layout = second ? VertexLayout::PositionNormalUvUv1TangentColour
+                    : VertexLayout::PositionNormalUvTangent;
+  }
+  DrawItem item{};
+  item.IndexCount = 3;
+  item.Layout = layout;
+  CHECK(draws.Add(item, error), "draw adds");
   draws.Compile();
   SubjectMesh mesh;
   mesh.Verts.From = positions.data();
@@ -116,6 +130,8 @@ void CheckLayout(SDL_GPUDevice *device,
   CHECK(ticket.has_value(), "main mesh admitted after the independent piece");
   if (!ticket) { return; }
   CHECK(draw.FinishMesh(*ticket, mesh, error), "main mesh uploads complete");
+  CHECK(draw.Owned().SubmitPendingUploads().has_value(),
+        "accepted streams submit before inspection");
   CheckMainStreams(device, resident, mapped, second);
   constexpr std::array<uint32_t, 3> packedNormals{0x80008000u, 0x80008000u, 0x80008000u};
   CHECK(Verify(device, resident, Stream::Normal, packedNormals, resident.SubjectVertices().First),
@@ -127,19 +143,20 @@ void CheckLayout(SDL_GPUDevice *device,
   const auto pieceFirst = resident.VertexRoom();
   const auto pieceTangentFirst = resident.TangentRoom();
   const auto pieceColourFirst = resident.SubjectColours().Count;
-  CHECK(draw.PlacePiece(PieceMesh{.Tangents = tangents,
-                                  .Verts = vertices,
-                                  .Indices = indices,
-                                  .Colours = colours,
-                                  .Textured = true},
-                        error) != kNoPiece,
+  PieceMesh mappedPiece{};
+  mappedPiece.Tangents = tangents;
+  mappedPiece.Verts = vertices;
+  mappedPiece.Indices = indices;
+  mappedPiece.Colours = colours;
+  mappedPiece.Textured = true;
+  CHECK(draw.PlacePiece(mappedPiece, error) != kNoPiece,
         "independent tangent-bearing piece reserves and uploads its own range");
   CHECK(draw.HandTables(error) && draw.HandPlacements(false, error),
         "independent pieces publish their explicit colour addressing");
   Readback placements;
   const auto colourSlot = draw.Drawn().back().ModelSlot;
   CHECK(placements.FromBuffer(device,
-                              resident.Buffer(Stream::Placements).Get(),
+                              resident.Buffer(Stream::Placements).get(),
                               (colourSlot + 1) * sizeof(GpuPlacement)) == ReadState::Ready,
         "placement addressing reads from the actual GPU buffer");
   if (placements.Rows() != nullptr) {
@@ -159,8 +176,11 @@ void CheckLayout(SDL_GPUDevice *device,
   }
   const auto colourBytes = resident.HeldOf(Stream::Colour);
   const auto uvBytes = resident.HeldOf(Stream::Uv);
+  PieceMesh unmapped{};
+  unmapped.Verts = vertices;
+  unmapped.Indices = indices;
   for (int extra = 0; extra < 3; ++extra) {
-    CHECK(draw.PlacePiece(PieceMesh{.Verts = vertices, .Indices = indices}, error) != kNoPiece,
+    CHECK(draw.PlacePiece(unmapped, error) != kNoPiece,
           "untextured untinted pieces extend the arena beyond its spare capacity");
   }
   CHECK(resident.HeldOf(Stream::Colour) == colourBytes && resident.HeldOf(Stream::Uv) == uvBytes,
@@ -181,21 +201,18 @@ void CheckLayout(SDL_GPUDevice *device,
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
-    const OwnedDevice device(SDL_CreateGPUDevice(
-        SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL,
-        false,
-        nullptr));
-    CHECK(device, "GPU device opens");
-    if (!device) { return Report(); }
+    auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
+    outshine::Test::Gpu::NativeOfflineDevice device(*native);
     std::vector<StoredVertex> prefix;
     std::vector<uint32_t> prefixIndices;
-    for (uint32_t at = 0; at < 8193; ++at) {
+    constexpr uint32_t prefixVertices = 8193;
+    for (uint32_t at = 0; at < prefixVertices; ++at) {
       prefix.push_back(vertices[at % vertices.size()]);
       prefixIndices.push_back(at);
     }
     for (const bool mapped : {false, true}) {
       for (const bool second : {false, true}) {
-        CheckLayout(device.Get(), prefix, prefixIndices, mapped, second);
+        CheckLayout(&device, prefix, prefixIndices, mapped, second);
       }
     }
   }

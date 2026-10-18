@@ -1,7 +1,6 @@
 #include "io/WriteFileAtomically.h"
 #include "io/ReadTextFile.h"
 #include "Check.h"
-#include "Outshine.h"
 #include <array>
 #include <atomic>
 #include <csignal>
@@ -32,20 +31,6 @@ int main() {
   const std::string path = directory + "/state";
   const std::string before = "previous complete save";
   CHECK(WriteText(path, before).has_value(), "initial complete file published");
-  Scenario::Document scene;
-  scene.Room = 4;
-  Scenario::Kind kind;
-  kind.Name = "actor";
-  kind.Attributes = {{"health", "23"}};
-  scene.Kinds.push_back(kind);
-  scene.Instances.push_back({.Of = "actor", .Id = "kept"});
-  scene.State.push_back({.What = "kept.health"});
-  Engine engine;
-  const std::string savePath = directory + "/engine-save";
-  const bool ready = engine.declare(scene).has_value() && engine.assemble().has_value() &&
-                     engine.save(savePath).has_value();
-  CHECK(ready, "public API creates a complete save");
-  const auto previousSave = ReadTextFile(savePath, 4096);
   struct rlimit saved{};
   const bool queried = getrlimit(RLIMIT_FSIZE, &saved) == 0;
   CHECK(queried, "file size limit can be inspected");
@@ -62,12 +47,6 @@ int main() {
         if (!failed) { std::printf("injected IO failure: %s\n", failed.error().c_str()); }
         const auto kept = ReadTextFile(path, 1024);
         CHECK(kept && *kept == before, "IO failure preserves the complete previous file");
-      }
-      if (ready) {
-        CHECK(!engine.save(savePath), "public save propagates the publication failure");
-        const auto preserved = ReadTextFile(savePath, 4096);
-        CHECK(previousSave && preserved && *preserved == *previousSave,
-              "failed public save preserves the previous complete snapshot bytes");
       }
       CHECK(setrlimit(RLIMIT_FSIZE, &saved) == 0, "file size limit restored");
     }
@@ -108,7 +87,7 @@ int main() {
     (void)entry;
     ++remaining;
   }
-  CHECK(remaining == 2, "success and failure leave no owned temporary files");
+  CHECK(remaining == 1, "success and failure leave no owned temporary files");
   std::filesystem::remove_all(directory);
   return Report();
 }

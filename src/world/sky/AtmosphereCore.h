@@ -85,6 +85,32 @@ MEDIUM_INLINE float unitToSubUvs(float u, float resolution) {
   return (u * (resolution - 1.0f) + 0.5f) / resolution;
 }
 
+MEDIUM_INLINE MediumLook mediumTransmittanceTexel(MEDIUM_ARG medium,
+                                                  MediumUv sub,
+                                                  MediumLutSize size) {
+  MediumUv unit;
+  unit.U = size.WidthPx > 1.0f ? subUvsToUnit(sub.U, size.WidthPx) : 0.0f;
+  unit.V = size.HeightPx > 1.0f ? subUvsToUnit(sub.V, size.HeightPx) : 0.0f;
+  return mediumTransmittanceParams(medium, unit);
+}
+
+MEDIUM_INLINE MediumUv mediumTransmittanceSample(MEDIUM_ARG medium,
+                                                 MediumLook look,
+                                                 MediumLutSize size) {
+  const float span = sqrt(
+      max(0.0f,
+          medium.TopRadiusKm * medium.TopRadiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
+  const float ground = sqrt(
+      max(0.0f, look.RadiusKm * look.RadiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
+  const float reach = mediumTopReach(medium, look.RadiusKm, look.CosZenith);
+  const float shortest = medium.TopRadiusKm - look.RadiusKm;
+  const float longest = ground + span;
+  MediumUv uv;
+  uv.U = unitToSubUvs((reach - shortest) / (longest - shortest), size.WidthPx);
+  uv.V = unitToSubUvs(ground / span, size.HeightPx);
+  return uv;
+}
+
 MEDIUM_INLINE MediumLook multiScatterParams(MEDIUM_ARG medium,
                                             MediumUv sub,
                                             MediumLutSize size,

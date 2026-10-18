@@ -16,10 +16,10 @@ from tree_entry import wood_mesh
 from wood_mesh import branch_tubes
 
 
-def crown_wood(crown, radius=0.14):
-    v, f, n = branch_tubes(
-        crown.positions, crown.parents, pipe_radii(crown.parents, radius), 8
-    )
+def crown_wood(crown, radius=0.14, *, radii=None):
+    if radii is None:
+        radii = pipe_radii(crown.parents, radius)
+    v, f, n = branch_tubes(crown.positions, crown.parents, radii, 8)
     vertices, faces, normals = [v], [f], [n]
     offset = len(v)
     local = axis_mesh(crown.length_m, crown.bend_rad, 0.0005, 0.00012, 3, 4)

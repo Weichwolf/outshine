@@ -54,15 +54,15 @@ vec4 shaded() {
   vec3 through;
   if (mediumGroundReach(pushed.air, radiusKm, cosZenith) < 0.0) {
     vec3 atEye =
-        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(radiusKm, cosZenith)), 0.0).rgb;
+        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(radiusKm, cosZenith), textureSize(veil, 0)), 0.0).rgb;
     vec3 atEnd =
-        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(endRadiusKm, endCosZenith)), 0.0).rgb;
+        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(endRadiusKm, endCosZenith), textureSize(veil, 0)), 0.0).rgb;
     through = clamp(atEye / max(atEnd, vec3(1.0e-6)), vec3(0.0), vec3(1.0));
   } else {
     vec3 atEye =
-        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(radiusKm, -cosZenith)), 0.0).rgb;
+        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(radiusKm, -cosZenith), textureSize(veil, 0)), 0.0).rgb;
     vec3 atEnd =
-        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(endRadiusKm, -endCosZenith)), 0.0).rgb;
+        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(endRadiusKm, -endCosZenith), textureSize(veil, 0)), 0.0).rgb;
     through = clamp(atEnd / max(atEye, vec3(1.0e-6)), vec3(0.0), vec3(1.0));
   }
 

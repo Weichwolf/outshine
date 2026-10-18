@@ -1,0 +1,157 @@
+"""Selected source contacts using existing Embree packets and corner interpolation."""
+
+import time
+
+import numpy as np
+from grass_projection import contacts as raster_contacts
+from needle_response import light_direction
+from plant_atlas import projection
+from scatter_scene import ScatterScene
+from surface_normal_transfer import interpolate_normals
+
+
+def prepare_source(path):
+    if path.stat().st_size > 16 * 1024 * 1024:
+        raise ValueError("selected frozen twig <=16MiB required")
+    with np.load(path) as stored:
+        source = {k: stored[k] for k in ("vertices", "faces", "normals")}
+    if source["normals"].shape != (len(source["faces"]), 3, 3):
+        raise ValueError("actual source corner normals required")
+    if (
+        not 1 <= len(source["faces"]) <= 131072
+        or not np.isfinite(source["normals"]).all()
+    ):
+        raise ValueError("bounded nonempty frozen source and finite normals required")
+    scene = ScatterScene(source["vertices"], source["faces"])
+    for array in source.values():
+        array.setflags(write=False)
+    return source, scene
+
+
+def camera_grid(source, view, size):
+    view = light_direction(view)
+    if type(size) is not int or size not in (16, 32, 64, 128, 256, 512):
+        raise ValueError("explicit bounded power-of-two camera grid required")
+    vertices = source["vertices"]
+    frame, lower, upper, _ = projection(vertices, view)
+    x, y = np.meshgrid(
+        lower[0] + (np.arange(size) + 0.5) / size * (upper[0] - lower[0]),
+        lower[1] + (np.arange(size) + 0.5) / size * (upper[1] - lower[1]),
+    )
+    heights = vertices @ view
+    margin = max(float(np.ptp(heights)) * 0.05, 0.001)
+    origins = (
+        np.column_stack(
+            (x.ravel(), y.ravel(), np.full(size * size, heights.max() + margin))
+        )
+        @ frame.T
+    )
+    return origins, -view, float(np.ptp(heights) + 2 * margin)
+
+
+def camera_contacts(source, view, size):
+    view = light_direction(view)
+    if type(size) is not int or size not in (16, 32, 64, 128, 256, 512):
+        raise ValueError("bounded explicit orthographic source grid required")
+    began = time.perf_counter()
+    frame, lower, upper, _ = projection(source["vertices"], view)
+    if np.any(upper <= lower):
+        return {
+            "size": size,
+            "pixels": np.empty(0, np.int64),
+            "faces": np.empty(0, np.int64),
+            "points": np.empty((0, 3)),
+            "normals": np.empty((0, 3)),
+        }, {
+            "primary_backend": "empty-orthographic-projection",
+            "rays": 0,
+            "grid_samples": size * size,
+            "hits": 0,
+            "wall_s": time.perf_counter() - began,
+        }
+    projected = source["vertices"] @ frame
+    shift = 0.001 - projected[:, 2].min()
+    projected[:, 2] += shift
+    raster = raster_contacts(
+        projected, source["faces"], lower, upper, np.array([0.0, 0.0, 1.0]), size
+    )
+    faces = raster["face"].ravel()
+    pixels = np.flatnonzero(faces >= 0)
+    xy = lower + (np.column_stack((pixels % size, pixels // size)) + 0.5) / size * (
+        upper - lower
+    )
+    points = np.column_stack((xy, raster["height"].ravel()[pixels] - shift)) @ frame.T
+    normals = (
+        interpolate_normals(source, points, faces[pixels])
+        if len(pixels)
+        else np.empty((0, 3))
+    )
+    return {
+        "size": size,
+        "pixels": pixels,
+        "faces": faces[pixels],
+        "points": points,
+        "normals": normals,
+    }, {
+        "primary_backend": "existing-orthographic-raster",
+        "rays": 0,
+        "grid_samples": size * size,
+        "hits": len(pixels),
+        "wall_s": time.perf_counter() - began,
+        "projected_source_copy_bytes": projected.nbytes,
+        "raster_work": raster["work"],
+    }
+
+
+def direct_response(scene, contacts, direction, bias=2e-6, packet=8192):
+    """Return cosine and unoccluded *positive* contacts; others remain unevaluated."""
+    direction = light_direction(direction)
+    if not np.isfinite(bias) or not 1e-7 <= bias <= 1e-4:
+        raise ValueError("explicit finite metric ray bias1e-7..1e-4 required")
+    if type(packet) is not int or not 1 <= packet <= 8192:
+        raise ValueError("bounded direct-light packet required")
+    cosine = np.maximum(contacts["normals"] @ direction, 0)
+    demanded = np.flatnonzero(cosine > 0)
+    visible = np.zeros(len(cosine), bool)
+    length = scene.index.scale * 2 + 4 * bias
+    before = dict(scene.work)
+    began = time.perf_counter()
+    for start in range(0, len(demanded), packet):
+        selected = demanded[start : start + packet]
+        origins = contacts["points"][selected] + bias * direction
+        ids, _, _, _ = scene.nearest(
+            origins, np.broadcast_to(direction, origins.shape), length
+        )
+        visible[selected] = ids < 0
+    work = {key: scene.work[key] - before[key] for key in before}
+    work.update(
+        wall_s=time.perf_counter() - began,
+        bias_m=bias,
+        covered_contacts=len(cosine),
+        skipped_nonpositive_contacts=len(cosine) - len(demanded),
+    )
+    return cosine, visible, work
+
+
+def filtered_fields(contacts, cosine, visible, block):
+    size = contacts["size"]
+    if type(block) is not int or block < 1 or size % block:
+        raise ValueError("positive disjoint integer source footprints required")
+    if cosine.shape != visible.shape or cosine.shape != contacts["pixels"].shape:
+        raise ValueError("same actual camera contacts required")
+    count = size // block
+    pixels = contacts["pixels"]
+    coarse = (pixels // size // block) * count + pixels % size // block
+    demanded = np.bincount(coarse[cosine > 0], minlength=count * count)
+    unshadowed = np.bincount(coarse, weights=cosine, minlength=count * count)
+    joint = np.bincount(coarse, weights=cosine * visible, minlength=count * count)
+    fraction = np.divide(
+        np.bincount(coarse, weights=visible, minlength=count * count),
+        demanded,
+        out=np.zeros(count * count),
+        where=demanded > 0,
+    )
+    independent = unshadowed * fraction
+    return np.stack((unshadowed, joint, independent)).reshape(3, count, count) / (
+        block * block
+    )

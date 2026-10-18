@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "frame": "Wien-transport-ENU-48.242427962074906-16.386505365371704-up0m",
+  "old_source_id": "openfreemap:14/8937/5678:transportation:1578623672:0",
+  "old_asset_sha256": "69fd0a2f5a747c8f71c85c73f789c5c5d38363fb6849f5c679ba36e6e40344b7",
+  "source_grid_m": 0.00048828125,
+  "original_node_xy_m": [
+    -716.6579986700066,
+    575.6640506700892
+  ],
+  "new_width_m": 5.5,
+  "pad_margin_m": 0.75,
+  "frozen_boundary_xyz_m": [
+    -715.61962890625,
+    579.1640625,
+    164.0
+  ],
+  "old_boundary_xy_m": [
+    [
+      -806.708984375,
+      722.87255859375
+    ],
+    [
+      -715.61962890625,
+      579.1640625
+    ],
+    [
+      -714.3349609375,
+      577.13720703125
+    ]
+  ],
+  "new_ungridded_boundary_point_xy_m": [
+    -715.6196214081783,
+    579.1640506700892
+  ],
+  "pbf_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "scope": "Actual old seed-road boundary vertex and new shared-node box intersection from the failed five-source terrain, remapped only; no admitted grid recipe or world proof."
+}

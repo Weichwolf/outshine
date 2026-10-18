@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdarg>
 #include <cstdio>
 #include <expected>
 #include <limits>
@@ -35,8 +36,14 @@ struct Input {
 };
 
 extern "C" int ReportLibraryError(const char *message, ...) {
+  std::array<char, 256> formatted{};
+  if (message == nullptr) { return std::fprintf(stderr, "sfcgal: partition failed\n"); }
+  va_list arguments;
+  va_start(arguments, message);
+  const int count = std::vsnprintf(formatted.data(), formatted.size(), message, arguments);
+  va_end(arguments);
   return std::fprintf(
-      stderr, "sfcgal: %.120s\n", message != nullptr ? message : "partition failed");
+      stderr, "sfcgal: %.255s\n", count >= 0 ? formatted.data() : "partition failed");
 }
 
 extern "C" int IgnoreLibraryWarning(const char *message, ...) {
@@ -313,6 +320,13 @@ bool HipRoofPlan::Facet::Contains(EastNorth point, double tolerance) const noexc
   return ContainsPoint(Ring, point, tolerance);
 }
 
+void HipRoofPlan::MergeCoincidentCorners(Facet &facet, double precisionM) {
+  const auto same = [precisionM](EastNorth a, EastNorth b) { return Same(a, b, precisionM); };
+  auto &ring = facet.Ring;
+  ring.erase(std::ranges::unique(ring, same).begin(), ring.end());
+  if (ring.size() > 1 && same(ring.front(), ring.back())) { ring.pop_back(); }
+}
+
 std::expected<HipRoofPlan, HipRoofError>
 HipRoofPlan::Prepare(std::span<const EastNorth> exterior,
                      std::span<const std::vector<EastNorth>> holes,
@@ -335,6 +349,8 @@ HipRoofPlan::Prepare(std::span<const EastNorth> exterior,
   std::map<std::pair<double, double>, double> nodes;
   size_t corners = 0;
   for (auto &facet : *facets) {
+    MergeCoincidentCorners(facet, input->ToleranceM);
+    if (facet.Ring.size() < 3) { return std::unexpected(HipRoofError::InvalidFacet); }
     if (facet.Ring.size() > limits.Corners - corners) {
       return std::unexpected(HipRoofError::CapacityExceeded);
     }

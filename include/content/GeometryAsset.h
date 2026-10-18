@@ -27,7 +27,8 @@ namespace outshine {
 /// @param bytes Borrowed encoded payload, used only during this call.
 /// @param bytesMost Maximum encoded payload size, checked before allocating product storage.
 /// @return Independent owned geometry or absence for corruption, unsupported schema or limit.
-/// Temporary attribute buffers and owned storage are proportional to the bounded input;
+/// Decoded mesh buffers transfer into product ownership without a second payload copy.
+/// Temporary work and owned storage are proportional to the bounded input;
 /// this limit is not an exact peak-residency budget. May allocate; no IO or thread affinity.
 [[nodiscard]] std::optional<Geometry> DecodeGeometryAsset(std::span<const uint8_t> bytes,
                                                           size_t bytesMost);

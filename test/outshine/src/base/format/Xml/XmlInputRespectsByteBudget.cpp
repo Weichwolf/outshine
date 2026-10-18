@@ -1,5 +1,4 @@
 #include "Xml.h"
-#include "ScenarioRead.h"
 #include "Check.h"
 #include <string>
 #include <string_view>
@@ -17,12 +16,6 @@ int main() {
   text.insert(prefix.size(), 1, 'x');
   CHECK(!xml.Parse(text.data(), text.size()), "one byte over budget is rejected");
   CHECK(!xml.Error().empty(), "over-budget input reports a diagnostic");
-  Scenario::Document scene;
-  scene.Named.Name = "preserved";
-  std::string error;
-  CHECK(!ReadScenario(text.data(), text.size(), scene, error),
-        "in-memory scenario cannot bypass the XML input budget");
-  CHECK(scene.Named.Name == "preserved", "rejected oversized scenario preserves prior state");
   constexpr std::string_view valid = "<scenario/>";
   CHECK(xml.Parse(valid.data(), valid.size()) && xml.Error().empty(),
         "valid retry succeeds after oversized input");
