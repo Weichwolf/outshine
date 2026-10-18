@@ -1,15 +1,46 @@
 """Demand before work, exact source poses and independent scalar lens controls."""
 
 import unittest
+from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
 from crown_demand import CrownDemand, host_bounds, projected_spans
 from demand import Camera
+from spatial_group_source import SpatialGroupSource
 from spatial_source_checks import fixture
 
 
 class CrownDemandChecks(unittest.TestCase):
+    def test_zero_and_negative_bends_keep_actual_source_vertices_inside(self):
+        original = fixture()
+        for bend in (-1.0, 0.0, 1.0):
+            source = SpatialGroupSource(
+                replace(original.crown, bend_rad=bend), original.blades
+            )
+            low, high = host_bounds(source)
+            for i, node in enumerate(source.crown.hosts):
+                mesh = source.geometry(int(node))
+                world = (
+                    mesh["vertices"] @ mesh["anchor_frame"].T + mesh["anchor_origin"]
+                )
+                self.assertTrue(np.all(world >= low[i]))
+                self.assertTrue(np.all(world <= high[i]))
+
+    def test_empty_camera_has_no_pose_work_even_with_zero_capacity(self):
+        source = fixture()
+        plan = CrownDemand(source)
+        with patch(
+            "crown_shoots.CrownShoots.group",
+            side_effect=AssertionError("unneeded poses"),
+        ):
+            query, poses = plan.prepare(
+                (Camera((100, 0, 1), (101, 0, 1)),), max_leaves=0
+            )
+        self.assertTrue(query["accepted"])
+        self.assertEqual(query["requested_leaf_poses"], 0)
+        self.assertEqual(poses["frames"].shape, (0, 3, 3))
+
     def test_envelopes_need_no_source_poses_or_meshes(self):
         source = fixture()
         with (
