@@ -280,7 +280,7 @@ route, driving, terrain deformation, collision or LOD claim. The same-source
 Wiener #119 experiment imports this library; proof and migration belong to #122.
 
 `geometry.vertical_clearance(lower, underside, max_pairs=65536, seconds=1.0,
-max_faces=8192)` prüft den kleinsten vorzeichenbehafteten Z-Abstand über alle
+max_faces=8192, include_maximum=False)` prüft den kleinsten vorzeichenbehafteten Z-Abstand über alle
 positiven XY-Dreiecksschnittflächen. Beide Meshes sind ausdrücklich gewählte
 affine Höhenflächen im gemeinsamen metrischen Datum; Frame/Kind/Quelle und
 benötigte physische Freiheit bindet der Aufrufer. Es wird keine höchste Fläche
@@ -298,6 +298,11 @@ und kooperative Zeit sind begrenzt; eine Abfrage alloziert höchstens
 Ganzflächenminima können an neuen Schnittvertices liegen und werden nicht durch
 Quellvertexstichproben ersetzt. Der Kernel bereitet Ebenengradienten einmal je
 Face vor; alle Brücken-/Portalversuche importieren diesen installierbaren Kern.
+`include_maximum=True` ergänzt `maximum_clearance_m`, `maximum_witness_xy` und
+`maximum_face_pair` im selben Durchlauf. Beide Extrema beschreiben dieselben
+positiven Überlappungen; vollständige gegenseitige Abdeckung bleibt ungeprüft.
+Das Maximum ist nur bei vollständig erfolgreicher Prüfung vorhanden. Die Option
+erfordert einen Boolean; der Default erzeugt keine zusätzlichen Maximumfelder.
 [#146](https://github.com/Weichwolf/outshine/issues/146) besitzt Übernahme und
 Vergleich; API-/Wheel-/Bild-/Kostenbelege stehen im zugehörigen PR.
 
