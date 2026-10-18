@@ -52,6 +52,7 @@
 #include "GroundDiagnostics.h"
 #include "GroundPalette.h"
 #include "WaterSurfaceBuilder.h"
+#include "WaterBasinStamps.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
 #include "StreetGraphBuilder.h"
@@ -121,7 +122,6 @@ constexpr float kTileBlue = 0.14f;
 constexpr float kTileRoughness = 0.72f;
 
 constexpr double kWaterBedM = 2.0;
-constexpr double kWaterBankM = kWaterBedM / kBatterRise;
 constexpr size_t kBounceProbeStride = 16;
 constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
@@ -1137,49 +1137,6 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
 }
 
 namespace {
-void AppendWaterBasinStamps(const Generators::WaterAsset &water,
-                            const TangentFrame &standing,
-                            std::vector<EarthworkStamp> &yielding) {
-  const auto *prepared = water.PreparedSurfaces();
-  if (prepared == nullptr) { return; }
-  const auto &mesh = prepared->Mesh;
-  const auto source = TangentFrame::At(mesh.Anchor());
-  const auto vertices = mesh.VerticesEnuM();
-  for (const auto &face : mesh.Faces()) {
-    std::array<Vec3, 3> placed;
-    for (size_t corner = 0; corner < 3; ++corner) {
-      const Vec3 &vertex = vertices[face.Vertices[corner]];
-      if (source.Anchor() == standing.Anchor()) {
-        placed[corner] = vertex;
-      } else {
-        const auto point = standing.ToLocalPosition(
-            source.ToEcefPosition({.EastM = vertex[0], .NorthM = vertex[1], .UpM = vertex[2]}));
-        placed[corner] = {{point.EastM, point.NorthM, point.UpM}};
-      }
-    }
-    const Vec3 normal = Cross(placed[1] - placed[0], placed[2] - placed[0]);
-    assert(normal[2] > 0);
-    EarthworkStamp made;
-    made.LowE = made.HighE = made.AtE = placed[0][0];
-    made.LowN = made.HighN = made.AtN = placed[0][1];
-    for (const auto &point : placed) {
-      made.RingEastNorthM.insert(made.RingEastNorthM.end(), {point[0], point[1]});
-      made.LowE = std::min(made.LowE, point[0]);
-      made.HighE = std::max(made.HighE, point[0]);
-      made.LowN = std::min(made.LowN, point[1]);
-      made.HighN = std::max(made.HighN, point[1]);
-    }
-    made.PlateauM = placed[0][2] - kWaterBedM;
-    made.SlopeE = -normal[0] / normal[2];
-    made.SlopeN = -normal[1] / normal[2];
-    made.ApronM = kWaterBankM;
-    made.YieldM = kWaterBedM;
-    made.Kind = EarthworkKind::Basin;
-    made.SeamEastNorthM = made.RingEastNorthM;
-    yielding.push_back(std::move(made));
-  }
-}
-
 [[nodiscard]] bool SameVectorRevision(const ::outshine::Generators::Osm::OsmField *pinned,
                                       const ::outshine::Generators::Osm::OsmField *live,
                                       uint64_t generation) noexcept {
@@ -1272,7 +1229,8 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     }
     const size_t builtPads = yielding.size();
     if (shapes != nullptr) {
-      AppendWaterBasinStamps(state.Candidate().Sources().WaterBodies, standing, yielding);
+      Generators::AppendWaterBasinStamps(
+          state.Candidate().Sources().WaterBodies, standing, kWaterBedM, yielding);
     }
     const size_t builtLakes = yielding.size() - builtPads;
     if (Session.Declared.Render.Audits) {

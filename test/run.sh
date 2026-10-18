@@ -263,6 +263,7 @@ TestProfile() {
     outshine/src/generators/base/water/WaterAsset) printf '%s' 'profile/water-asset' ;;
     outshine/src/generators/water/WaterSurfacePreparation) printf '%s' 'profile/water-geometry' ;;
     outshine/src/engine/streaming/WaterGeometryPreparation) printf '%s' 'profile/water-worker' ;;
+    outshine/integration/water/BasinFacets) printf '%s' 'profile/water-bed' ;;
     outshine/src/generators/flora/PreparedPlantBuild) printf '%s' 'profile/plant-build' ;;
     outshine/src/generators/flora/PreparedPlant) printf '%s' 'profile/plant-asset' ;;
     outshine/integration/content/PlantCrownCache) printf '%s' 'profile/plant-crown-cache' ;;
@@ -299,6 +300,7 @@ LayerIncludes() {
     profile/water-mesh | profile/water-asset) GroupIncludes src/generators/base ;;
     profile/water-geometry | profile/water-preparation) GroupIncludes src/generators/water ;;
     profile/water-worker) GroupIncludes src/engine ;;
+    profile/water-bed) GroupIncludes src/generators/water; GroupIncludes src/generators/terrain ;;
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
     profile/medium-view) printf '%s' "-Iinclude -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
     profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
@@ -405,7 +407,7 @@ LayerLink() {
     profile/cache-usage) pkg-config --libs sqlite3 ;;
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/tasks) printf '%s' '-pthread' ;;
-    profile/water-mesh | profile/water-asset) return 0 ;;
+    profile/water-mesh | profile/water-asset | profile/water-bed) return 0 ;;
     profile/water-geometry | profile/water-preparation) pkg-config --libs geos ;;
     profile/water-worker) printf '%s' "-pthread $(pkg-config --libs geos sdl3)" ;;
     profile/plant-crown-cache) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
@@ -454,6 +456,7 @@ LayerGroups() {
     profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp' ;;
     profile/water-geometry) LayerGroups profile/water-preparation; printf '%s' ' src/generators/water/WaterSurfaceBuilder.cpp src/base/Geometry.cpp' ;;
     profile/water-worker) LayerGroups profile/water-preparation; printf '%s' ' src/base/io/Tasks.cpp src/engine/streaming/WaterGeometryPreparation.cpp' ;;
+    profile/water-bed) LayerGroups profile/water-asset; printf '%s' ' src/generators/water/WaterBasinStamps.cpp src/generators/terrain/EarthworkPress.cpp src/generators/terrain/ProfiledCorridorPress.cpp' ;;
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/medium-view) printf '%s' "src/render/Lens.cpp src/render/stages/MediumView.cpp" ;;
