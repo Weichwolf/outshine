@@ -43,6 +43,7 @@ After building the production archive, run:
 
 ```sh
 python3 test/experiments/render/native_vulkan.py --validation --present \
+  --device-name 'Intel(R) Iris(R) Xe Graphics (TGL GT2)' \
   --output /tmp/outshine-depth-clamp-check
 ```
 

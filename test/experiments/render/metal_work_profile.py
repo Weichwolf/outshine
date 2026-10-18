@@ -207,7 +207,7 @@ def main():
     parser.add_argument("--client", type=Path, default=ROOT / "build/outshine-client")
     parser.add_argument("--runtime-root", type=Path, default=ROOT)
     parser.add_argument("--place", default="Tokyo")
-    parser.add_argument("--overrides", default='{"render":{"fps":30}}')
+    parser.add_argument("--overrides", default='{"render":{"fps":60}}')
     args = parser.parse_args()
     if platform.system() != "Darwin":
         parser.error("this probe uses native Metal on macOS")

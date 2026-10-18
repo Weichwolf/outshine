@@ -4,6 +4,7 @@
 #include <expected>
 #include <cstddef>
 #include <optional>
+#include <memory>
 #include "math/Box.h"
 #include "math/Vec3.h"
 #include "ClusterCook.h"
@@ -80,6 +81,7 @@ struct ClusterBuildMetrics {
 };
 
 struct ShapeStore {
+  std::shared_ptr<const Geometry> AttributeSource;
   ClusterBuildMetrics Clustering;
   std::vector<ShapePart> Parts;
   std::vector<float> PositionsM;
@@ -109,6 +111,7 @@ struct ShapeStore {
     Lamps.clear();
     Clusters.clear();
     ClusterSpheres.clear();
+    AttributeSource.reset();
   }
 };
 
@@ -146,10 +149,14 @@ private:
 };
 
 void AppendGeometry(const Geometry &from, ShapeStore &into);
+[[nodiscard]] std::expected<void, ClusterError>
+PrepareShapeStorage(std::shared_ptr<const Geometry> from, ShapeStore &into);
 [[nodiscard]] std::expected<void, ClusterError> BindShapeStorage(ShapeStore &into);
 [[nodiscard]] Shape ViewShape(const ShapeStore &store) noexcept;
 [[nodiscard]] std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into);
 [[nodiscard]] std::expected<Shape, ClusterError> PrepareShape(const Geometry &from,
+                                                              ShapeStore &into);
+[[nodiscard]] std::expected<Shape, ClusterError> PrepareShape(std::shared_ptr<const Geometry> from,
                                                               ShapeStore &into);
 
 inline constexpr uint32_t kClusterTriangles = 128;

@@ -1250,4 +1250,12 @@ The [ribbon/paired-bay study](bay_facades.md) groups existing openings across
 whole rows or column/storey pairs on the actual stepped wall domains. Closed
 source/route controls and18 actual near/opposite/whole images qualify the first
 component delivery; direct-front costs compare byte-exact equivalent output.
-Complete source-window application and wider architectural composition remain #741.
+The [complete source-window follow-up](bay_city.md) applies both programmes while
+preserving all source draws and functional owners. Wider coherent architectural
+composition and general runtime/cache/LOD admission remain open.
+
+The [coherent replacement reference](facade_programmes.md) replaces owned legacy
+trim with complete plinth/main/attic programmes and horizontal screens or vertical
+fins, including matching collision products. Controls and actual images qualify
+the reference; early omission of old construction and the complete988-source
+application remain open under #774. Handover is recorded in #786.

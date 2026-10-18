@@ -1,0 +1,463 @@
+{
+  "format": "outshine-transport-reference-cohort/1",
+  "root_fixture_file": "stair-north-bridges-vienna.json",
+  "root_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "legacy_modules": [
+    {
+      "source_count": 36,
+      "fixture_file": "stair-west-ground-module-vienna.json",
+      "fixture_sha256": "8531718657801c832ae52eb1025f96986d43d10d05401480a2c982ee25a6315a"
+    },
+    {
+      "source_count": 37,
+      "fixture_file": "stair-west-module-chain-vienna.json",
+      "fixture_sha256": "28db9ee695ae371616b80a8d53ecc5cdeaebfb7c38982b91531eb809efe729e8"
+    },
+    {
+      "source_count": 43,
+      "fixture_file": "stair-southwest-curves-vienna.json",
+      "fixture_sha256": "ecccbd74e79ef8d364c9dad6edf74be38cecb81134ef0b161eff9ecb17750a1a"
+    },
+    {
+      "source_count": 51,
+      "recipe": {
+        "version": 1,
+        "reference_fixture": "stair-north-bridges-vienna.json",
+        "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+        "port": {
+          "source_id": "openfreemap:14/8937/5678:transportation:138663000:8",
+          "vertex": 5
+        },
+        "source_ids": [
+          "openfreemap:14/8937/5678:transportation:4420992360:4",
+          "openfreemap:14/8937/5678:transportation:138663000:3",
+          "openfreemap:14/8937/5678:transportation:97041640:2",
+          "openfreemap:14/8937/5678:transportation:80922970:208",
+          "openfreemap:14/8937/5678:transportation:80922970:211",
+          "openfreemap:14/8937/5678:transportation:80922970:262",
+          "openfreemap:14/8937/5678:transportation:9988118722:0",
+          "openfreemap:14/8937/5678:transportation:39881120:20"
+        ],
+        "source_profiles": {},
+        "soil_bridge_reserve_m": 0.0,
+        "contact_mode": "profile",
+        "traffic_mode": "source_clearance",
+        "junction_mode": "level_box",
+        "interior_contacts": [],
+        "scope": "Automatically proposed whole original ground sources at a verified cached interior profile; whole geometry admission remains mandatory."
+      },
+      "recipe_sha256": "753d32517c7c6cfbff08f38a84cf3a05a68d86fd1e612314c4770692d0879ac4"
+    },
+    {
+      "source_count": 53,
+      "recipe": {
+        "version": 1,
+        "reference_fixture": "stair-north-bridges-vienna.json",
+        "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+        "port": {
+          "source_id": "openfreemap:14/8937/5678:transportation:103612620:19",
+          "vertex": 1
+        },
+        "source_ids": [
+          "openfreemap:14/8937/5678:transportation:103612620:11",
+          "openfreemap:14/8937/5678:transportation:97041640:1"
+        ],
+        "source_profiles": {
+          "openfreemap:14/8937/5678:transportation:103612620:11": "unclassified"
+        },
+        "soil_bridge_reserve_m": 0.0,
+        "contact_mode": "profile",
+        "traffic_mode": "source_clearance",
+        "junction_mode": "level_box",
+        "interior_contacts": [],
+        "scope": "Automatically proposed whole original ground sources at a verified cached interior profile; whole geometry admission remains mandatory.",
+        "source_fallback": {
+          "root_id": "openfreemap:14/8937/5678:transportation:103612620:19@1",
+          "full_source_ids": [
+            "openfreemap:14/8937/5678:transportation:103612620:11",
+            "openfreemap:14/8937/5678:transportation:97041640:1",
+            "openfreemap:14/8937/5678:transportation:80922970:163",
+            "openfreemap:14/8937/5678:transportation:14638079782:0"
+          ],
+          "omitted_source_ids": [
+            "openfreemap:14/8937/5678:transportation:80922970:163",
+            "openfreemap:14/8937/5678:transportation:14638079782:0"
+          ],
+          "scope": "Whole connected source prefix; omitted sources remain original candidates for later recipes, not individually disproven."
+        }
+      },
+      "recipe_sha256": "c6212f3c235f31181cd3a0f346e436f7f8b771140c992561a2321d3f8caad1bc"
+    }
+  ],
+  "local_modules": [
+    {
+      "source_count": 55,
+      "fixture_file": "stair-secondary-endpoint-vienna.json",
+      "fixture_sha256": "acce3eba92148178b5221f6c45a5553744984ae9f9ef5b846428a57b4b9be17d"
+    },
+    {
+      "source_count": 57,
+      "fixture_file": "stair-two-source-frontier-vienna.json",
+      "fixture_sha256": "f38f161544ec3757ec8696715d707216820b5227b076a2b3a28ce9b501a58e1d"
+    },
+    {
+      "source_count": 65,
+      "recipe": {
+        "version": 1,
+        "reference_fixture": "stair-north-bridges-vienna.json",
+        "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+        "contact_mode": "seed",
+        "junction_mode": "level_box",
+        "seed": {
+          "source_id": "openfreemap:14/8937/5678:transportation:103612620:18",
+          "end": 0
+        },
+        "source_ids": [
+          "openfreemap:14/8937/5678:transportation:103612620:18",
+          "openfreemap:14/8937/5678:transportation:1578623772:0",
+          "openfreemap:14/8937/5678:transportation:305284142:0",
+          "openfreemap:14/8937/5678:transportation:1578623672:0",
+          "openfreemap:14/8937/5678:transportation:92807082:0",
+          "openfreemap:14/8937/5678:transportation:12998091542:0",
+          "openfreemap:14/8937/5678:transportation:1580280942:0",
+          "openfreemap:14/8937/5678:transportation:103612620:2"
+        ],
+        "source_profiles": {
+          "openfreemap:14/8937/5678:transportation:103612620:18": "unclassified",
+          "openfreemap:14/8937/5678:transportation:1578623772:0": "unclassified",
+          "openfreemap:14/8937/5678:transportation:305284142:0": "unclassified",
+          "openfreemap:14/8937/5678:transportation:1578623672:0": "unclassified",
+          "openfreemap:14/8937/5678:transportation:92807082:0": "unclassified",
+          "openfreemap:14/8937/5678:transportation:12998091542:0": "unclassified",
+          "openfreemap:14/8937/5678:transportation:1580280942:0": "unclassified",
+          "openfreemap:14/8937/5678:transportation:103612620:2": "unclassified"
+        },
+        "traffic_mode": "source_clearance",
+        "soil_bridge_reserve_m": 0.0,
+        "seed_grid_m": 0.00048828125,
+        "scope": "Independent whole original ground component; no cached profile or old surface reuse. Whole physical admission remains mandatory."
+      },
+      "recipe_sha256": "ce162f325881e56a6412ab3a4beebf6728292b9754b3a86b12de9ff1ac22f047"
+    },
+    {
+      "source_count": 69,
+      "fixture_file": "stair-southwest-footway-seed-vienna.json",
+      "fixture_sha256": "1e905cda620d6d35d57383a091a8de8f3f0d02b18ac54f6890fe08f80499604b"
+    },
+    {
+      "source_count": 71,
+      "fixture_file": "stair-shared-root-module-vienna.json",
+      "fixture_sha256": "5d585dafb042b70e9c20a1a202d78e3d8ff993c8ff3c11174f9a10da67cb63d1"
+    },
+    {
+      "source_count": 72,
+      "fixture_file": "stair-narrow-root-footway-vienna.json",
+      "fixture_sha256": "55c5caf73005ecc0d327864d707399a22b0aa042840bd291885d50ce774f8ea8"
+    },
+    {
+      "source_count": 76,
+      "fixture_file": "stair-four-surface-contact-vienna.json",
+      "fixture_sha256": "0fd6abf56ef5a5f3234e910ada8acbaf6e814f838346355de276ed9ba8725d71"
+    },
+    {
+      "source_count": 77,
+      "fixture_file": "stair-cached-grid-paving-vienna.json",
+      "fixture_sha256": "1218a6c5dd154396fd10b60f300682cc7ee203084368ae7b35c88eabcc465445"
+    },
+    {
+      "source_count": 78,
+      "fixture_file": "stair-long-footway-vienna.json",
+      "fixture_sha256": "429ac272cc5b7500bb340867261734fdf3aa4c86ace788d8c3b627234eea4be9"
+    },
+    {
+      "source_count": 79,
+      "fixture_file": "stair-pier-detour-vienna.json",
+      "fixture_sha256": "2926b254bd6f9ee896016429d9d658e55202ac86d567687ffb589fdfb54d6a97",
+      "prepare_current_pier_inputs": true
+    },
+    {
+      "source_count": 82,
+      "fixture_file": "stair-seed-three-paths-vienna.json",
+      "fixture_sha256": "d8176412013aba1a97d516e6fe5c7f3b0a49e127082e100e2f78e26dd3d909fb"
+    },
+    {
+      "source_count": 84,
+      "fixture_file": "stair-seed-loop-paths-vienna.json",
+      "fixture_sha256": "a05674760d1190ee1f8d06c86905a688e414b4419069aaf6c75d352543057a99"
+    },
+    {
+      "source_count": 90,
+      "recipe": {
+        "version": 1,
+        "reference_fixture": "stair-north-bridges-vienna.json",
+        "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+        "contact_mode": "seed",
+        "junction_mode": "level_box",
+        "seed": {
+          "source_id": "openfreemap:14/8937/5678:transportation:1574593312:0",
+          "end": 0
+        },
+        "source_ids": [
+          "openfreemap:14/8937/5678:transportation:1574593312:0",
+          "openfreemap:14/8937/5678:transportation:103612620:13",
+          "openfreemap:14/8937/5678:transportation:103612620:16",
+          "openfreemap:14/8937/5678:transportation:39881120:19",
+          "openfreemap:14/8937/5678:transportation:80922970:254",
+          "openfreemap:14/8937/5678:transportation:80922970:246"
+        ],
+        "source_profiles": {
+          "openfreemap:14/8937/5678:transportation:1574593312:0": "unclassified",
+          "openfreemap:14/8937/5678:transportation:103612620:13": "unclassified",
+          "openfreemap:14/8937/5678:transportation:103612620:16": "unclassified"
+        },
+        "traffic_mode": "source_clearance",
+        "soil_bridge_reserve_m": 0.0,
+        "seed_grid_m": 0.00048828125,
+        "scope": "Independent whole original ground component; no cached profile or old surface reuse. Whole physical admission remains mandatory.",
+        "geometric_junctions": [
+          {
+            "source_id": "openfreemap:14/8937/5678:transportation:103612620:13",
+            "footway_source_id": "openfreemap:14/8937/5678:transportation:80922970:246",
+            "kind": "minor_footway_crossing",
+            "modes": [
+              "walk"
+            ],
+            "access_assumption": "procedural_walk_default"
+          },
+          {
+            "source_id": "openfreemap:14/8937/5678:transportation:103612620:16",
+            "footway_source_id": "openfreemap:14/8937/5678:transportation:80922970:246",
+            "kind": "minor_footway_crossing",
+            "modes": [
+              "walk"
+            ],
+            "access_assumption": "procedural_walk_default"
+          },
+          {
+            "source_id": "openfreemap:14/8937/5678:transportation:1574593312:0",
+            "footway_source_id": "openfreemap:14/8937/5678:transportation:80922970:254",
+            "kind": "minor_footway_crossing",
+            "modes": [
+              "walk"
+            ],
+            "access_assumption": "procedural_walk_default"
+          },
+          {
+            "source_id": "openfreemap:14/8937/5678:transportation:80922970:246",
+            "footway_source_id": "openfreemap:14/8937/5678:transportation:80922970:254",
+            "kind": "footway_footway_crossing",
+            "modes": [
+              "walk"
+            ],
+            "access_assumption": "procedural_walk_default"
+          }
+        ],
+        "junction_height_mode": "rounded_joint",
+        "terrain_layout_mode": "free_region"
+      },
+      "recipe_sha256": "34ebffb6b91a964e13ea62ec926e4e92fdeff0436ba6155f27f2c5703df16257"
+    },
+    {
+      "source_count": 95,
+      "recipe": {
+        "version": 1,
+        "reference_fixture": "stair-north-bridges-vienna.json",
+        "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+        "contact_mode": "seed",
+        "junction_mode": "level_box",
+        "seed": {
+          "source_id": "openfreemap:14/8937/5678:transportation:298824682:0",
+          "end": 0
+        },
+        "source_ids": [
+          "openfreemap:14/8937/5678:transportation:298824682:0",
+          "openfreemap:14/8937/5678:transportation:80922970:323",
+          "openfreemap:14/8937/5678:transportation:80922970:278",
+          "openfreemap:14/8937/5678:transportation:951477380:53",
+          "openfreemap:14/8937/5678:transportation:951477380:74"
+        ],
+        "source_profiles": {
+          "openfreemap:14/8937/5678:transportation:298824682:0": "unclassified"
+        },
+        "traffic_mode": "source_clearance",
+        "soil_bridge_reserve_m": 0.0,
+        "seed_grid_m": 0.00048828125,
+        "scope": "Independent whole original ground component; no cached profile or old surface reuse. Whole physical admission remains mandatory.",
+        "geometric_junctions": [
+          {
+            "source_id": "openfreemap:14/8937/5678:transportation:298824682:0",
+            "footway_source_id": "openfreemap:14/8937/5678:transportation:80922970:278",
+            "kind": "minor_footway_crossing",
+            "modes": [
+              "walk"
+            ],
+            "access_assumption": "procedural_walk_default"
+          },
+          {
+            "source_id": "openfreemap:14/8937/5678:transportation:298824682:0",
+            "footway_source_id": "openfreemap:14/8937/5678:transportation:951477380:53",
+            "kind": "minor_footway_crossing",
+            "modes": [
+              "walk"
+            ],
+            "access_assumption": "procedural_walk_default"
+          },
+          {
+            "source_id": "openfreemap:14/8937/5678:transportation:298824682:0",
+            "footway_source_id": "openfreemap:14/8937/5678:transportation:951477380:74",
+            "kind": "minor_footway_crossing",
+            "modes": [
+              "walk"
+            ],
+            "access_assumption": "procedural_walk_default"
+          }
+        ],
+        "junction_height_mode": "rounded_joint",
+        "terrain_layout_mode": "free_region"
+      },
+      "recipe_sha256": "5dbd8a1c59bc1286140e798c0a3d0d7a6062f01724b4597657cb2251c2611198"
+    },
+    {
+      "source_count": 98,
+      "recipe": {
+        "version": 1,
+        "reference_fixture": "stair-north-bridges-vienna.json",
+        "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+        "contact_mode": "seed",
+        "junction_mode": "level_box",
+        "seed": {
+          "source_id": "openfreemap:14/8937/5678:transportation:80922970:351",
+          "end": 0
+        },
+        "source_ids": [
+          "openfreemap:14/8937/5678:transportation:80922970:351",
+          "openfreemap:14/8937/5678:transportation:1013837700:1",
+          "openfreemap:14/8937/5678:transportation:80922970:347"
+        ],
+        "source_profiles": {},
+        "traffic_mode": "source_clearance",
+        "soil_bridge_reserve_m": 0.0,
+        "seed_grid_m": 0.00048828125,
+        "scope": "Independent whole original ground component; no cached profile or old surface reuse. Whole physical admission remains mandatory."
+      },
+      "recipe_sha256": "3449144fa6debd832ccd1805be6061e3e1fdee11a466806d7ffce6c0f427f8cd"
+    },
+    {
+      "source_count": 99,
+      "recipe": {
+        "version": 1,
+        "reference_fixture": "stair-north-bridges-vienna.json",
+        "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+        "contact_mode": "seed",
+        "junction_mode": "level_box",
+        "seed": {
+          "source_id": "openfreemap:14/8937/5678:transportation:80922970:44",
+          "end": 0
+        },
+        "source_ids": [
+          "openfreemap:14/8937/5678:transportation:80922970:44"
+        ],
+        "source_profiles": {},
+        "traffic_mode": "source_clearance",
+        "soil_bridge_reserve_m": 0.0,
+        "seed_grid_m": 0.00048828125,
+        "scope": "Independent whole original ground component; no cached profile or old surface reuse. Whole physical admission remains mandatory."
+      },
+      "recipe_sha256": "0b92ee6240ac6a6dd67d77d22616fb6eb7fc5be1f778f900d443190e98435825"
+    },
+    {
+      "source_count": 100,
+      "recipe": {
+        "version": 1,
+        "reference_fixture": "stair-north-bridges-vienna.json",
+        "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+        "contact_mode": "seed",
+        "junction_mode": "level_box",
+        "seed": {
+          "source_id": "openfreemap:14/8937/5678:transportation:951477380:47",
+          "end": 0
+        },
+        "source_ids": [
+          "openfreemap:14/8937/5678:transportation:951477380:47"
+        ],
+        "source_profiles": {},
+        "traffic_mode": "source_clearance",
+        "soil_bridge_reserve_m": 0.0,
+        "seed_grid_m": 0.00048828125,
+        "scope": "Independent whole original ground component; no cached profile or old surface reuse. Whole physical admission remains mandatory."
+      },
+      "recipe_sha256": "d74e29438db6a96a0d02a4f413a7dfe2421713b309937491ae16755d688a3add"
+    },
+    {
+      "source_count": 102,
+      "recipe": {
+        "version": 1,
+        "reference_fixture": "stair-north-bridges-vienna.json",
+        "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+        "contact_mode": "seed",
+        "junction_mode": "level_box",
+        "seed": {
+          "source_id": "openfreemap:14/8937/5678:transportation:80922970:133",
+          "end": 0
+        },
+        "source_ids": [
+          "openfreemap:14/8937/5678:transportation:80922970:133",
+          "openfreemap:14/8937/5678:transportation:103612620:7"
+        ],
+        "source_profiles": {
+          "openfreemap:14/8937/5678:transportation:103612620:7": "unclassified"
+        },
+        "traffic_mode": "source_clearance",
+        "soil_bridge_reserve_m": 0.0,
+        "seed_grid_m": 0.00048828125,
+        "scope": "Independent whole original ground component; no cached profile or old surface reuse. Whole physical admission remains mandatory."
+      },
+      "recipe_sha256": "e267e3ba8ba66bb3ed932ed2dc3fab0f60c8e0929a17a29e69cc2e8b0df5c33b"
+    }
+  ],
+  "continuation": {
+    "source_count": 105,
+    "recipe": {
+      "version": 1,
+      "reference_fixture": "stair-north-bridges-vienna.json",
+      "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+      "contact_mode": "seed",
+      "junction_mode": "level_box",
+      "seed": {
+        "source_id": "openfreemap:14/8937/5678:transportation:80922970:230",
+        "end": 0
+      },
+      "source_ids": [
+        "openfreemap:14/8937/5678:transportation:80922970:230",
+        "openfreemap:14/8937/5678:transportation:80922970:232",
+        "openfreemap:14/8937/5678:transportation:80922970:238"
+      ],
+      "source_profiles": {},
+      "traffic_mode": "source_clearance",
+      "soil_bridge_reserve_m": 0.0,
+      "seed_grid_m": 0.00048828125,
+      "scope": "Independent whole original ground component; no cached profile or old surface reuse. Whole physical admission remains mandatory.",
+      "geometric_junctions": [
+        {
+          "source_id": "openfreemap:14/8937/5678:transportation:80922970:230",
+          "footway_source_id": "openfreemap:14/8937/5678:transportation:80922970:238",
+          "kind": "footway_footway_crossing",
+          "modes": [
+            "walk"
+          ],
+          "access_assumption": "procedural_walk_default"
+        }
+      ],
+      "junction_height_mode": "rounded_joint",
+      "terrain_layout_mode": "free_region"
+    },
+    "recipe_sha256": "41acd385307cd42ae630278d2a43a5281e22a16527e0f90f685d51cf8e96d192"
+  },
+  "height_input": {
+    "file": "test/outshine/data/transport/wien-height-14-8937-5678.terrarium",
+    "url": "https://tiles.mapterhorn.com/14/8937/5678.webp",
+    "sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+    "bytes": 56194
+  },
+  "generator_commit": "3eaf78511b39a634b9e91a33f8d971ec631c7980"
+}
