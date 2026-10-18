@@ -1,5 +1,7 @@
 #include "CompositeTransmissionStage.h"
 #include "AerialPerspectiveStage.h"
+#include "MediumView.h"
+#include "FrameContext.h"
 #include "SkyStage.h"
 #include "StageSubmission.h"
 #include "ReadbackTransfer.h"
@@ -79,12 +81,13 @@ void Compare(Device &device, Texture &image, const Pixels &expected) {
         "every actual fullscreen output component matches the independent exact reference");
 }
 
-template <class Stage> void Draw(Device &device, Stage &stage, Texture &output) {
+template <class Stage, class Frame = FrameContext>
+void Draw(Device &device, Stage &stage, Texture &output, const Frame &frame = {}) {
   auto commands = Require(device.Begin());
   const std::array attachments{ColourAttachment{.Image = {.Image = &output}, .Begin = Load::Clear}};
   Require(commands->BeginRenderPass({.Colours = attachments, .Depth = {}}));
   StageSubmission submission;
-  Require(stage.Encode({},
+  Require(stage.Encode(frame,
                        {.Commands = commands.get(),
                         .Submission = submission,
                         .Area = {.Width = kWidth, .Height = kHeight},
@@ -150,18 +153,27 @@ void Aerial(Device &device, Sampler &sampler, Texture &sky, Texture &veil) {
                            .Exact = &sampler,
                            .Lut = &sampler},
                           Format::Rgba32Float));
-  stage.Declare(kEarthAir, {.SunDir = {{1, 0, 0}}, .WorldUp = {{0, 1, 0}}, .IlluminanceLux = 2});
-  stage.SetBasis({.Right = {{1, 0, 0}},
-                  .Up = {{0, 1, 0}},
-                  .Forward = {{0, 0, 1}},
-                  .TanHalfWidth = 0.5f,
-                  .TanHalfHeight = 0.5f});
-  stage.SetDepthReconstruction({{10, 0, 1, 0}});
-  Draw(device, stage, *output);
+  constexpr float kControlFovDeg = 60;
+  constexpr float kNearM = 10;
+  constexpr float kFarM = 1000;
+  const Lens lens{.WidePx = kWidth,
+                  .HighPx = kHeight,
+                  .FovDeg = kControlFovDeg,
+                  .NearM = kNearM,
+                  .FarM = kFarM};
+  const auto view =
+      MakeMediumViewParameters(lens,
+                               {.Width = kWidth, .Height = kHeight},
+                               {},
+                               {.SunDir = {{1, 0, 0}}, .WorldUp = {{0, 1, 0}}, .IlluminanceLux = 2},
+                               kEarthAir);
+  CHECK(view.has_value(), "fullscreen aerial uses the existing shared camera frame");
+  if (!view) { Failed(); }
+  Draw(device, stage, *output, *view);
   Compare(device, *output, input);
   CHECK(!stage.Configure({}, {}, Format::Rgba32Float),
         "an invalid aerial candidate does not overwrite accepted inputs");
-  Draw(device, stage, *output);
+  Draw(device, stage, *output, *view);
   Compare(device, *output, input);
 }
 
