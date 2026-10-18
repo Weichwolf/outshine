@@ -196,6 +196,9 @@ Result<Shader> Translate(std::span<const uint32_t> spirv, std::string_view entry
       spvc_compiler_options_set_uint(options,
                                      SPVC_COMPILER_OPTION_MSL_BUFFER_SIZE_BUFFER_INDEX,
                                      kBufferSizesSlot) != SPVC_SUCCESS ||
+      spvc_compiler_options_set_bool(options,
+                                     SPVC_COMPILER_OPTION_MSL_PAD_FRAGMENT_OUTPUT_COMPONENTS,
+                                     SPVC_TRUE) != SPVC_SUCCESS ||
       spvc_compiler_install_compiler_options(compiler, options) != SPVC_SUCCESS) {
     return failure();
   }
