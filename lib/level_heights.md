@@ -5,6 +5,7 @@
 Die Bibliothek kennt Mesh, Gradrahmen und Vertexgruppen; räumliche Gruppierung,
 Quellen, Klassen, Kontakte und vollständige physische Zulassung besitzt der Aufrufer.
 Übernahme und aktuelle Belege: [#732](https://github.com/Weichwolf/outshine/issues/732).
+[Wheel-, Geometrie-, Bild- und Kostenvergleich](../test/experiments/transport/stair_level_library_comparison.md).
 
 ```python
 from outshine_ref.transport import HeightBudget
