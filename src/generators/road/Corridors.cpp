@@ -62,6 +62,7 @@ constexpr int kRampPasses = 12;
 constexpr int kChordPasses = 4;
 constexpr double kChordWithinM = 0.20;
 constexpr double kVergeM = 1.5;
+constexpr double kRailwayBlendWidths = 3.0;
 constexpr double kFitWithinM = 0.5;
 constexpr double kFitTightestM = 5.5;
 constexpr double kLeastRoadM = 2.0;
@@ -75,6 +76,20 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
   if (a.AngleRad != b.AngleRad) { return a.AngleRad < b.AngleRad; }
   return a.Edge != b.Edge ? a.Edge < b.Edge : a.End < b.End;
 };
+
+[[nodiscard]] double CorridorApronM(const ::outshine::Generators::Osm::StreetField::Way &lane,
+                                    double yieldM,
+                                    bool earthwork) {
+  const bool groundRailway =
+      !lane.Bridge && lane.TrafficKind == ::outshine::Generators::Osm::StreetField::Traffic::Rail;
+  const double minimumApronM =
+      groundRailway ? std::clamp(2.0 * kRailwayBlendWidths * static_cast<double>(lane.HalfWidthM),
+                                 kLeastApronM,
+                                 kMostApronM)
+                    : kLeastApronM;
+  return earthwork || groundRailway ? std::clamp(kBatterRun * yieldM, minimumApronM, kMostApronM)
+                                    : 0.0;
+}
 
 [[nodiscard]] Vec3f LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
                                const Ground::VegetationTemplates &vegetation) {
@@ -483,7 +498,7 @@ void Corridors::AppendTerrainStamps(const Paving &on,
     const double rise = (into.Along[at].GradeM - into.Along[at - 1u].GradeM) / runM;
     made.SlopeE = rise * runE / runM;
     made.SlopeN = rise * runN / runM;
-    made.ApronM = earthwork ? std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM) : 0.0;
+    made.ApronM = CorridorApronM(lane, yieldM, earthwork);
     made.YieldM = yieldM;
     made.CorridorKey = into.ContactKeys[laneAt];
     const bool rests = !lane.Bridge || at == 1u || at + 1u == into.Along.size();
