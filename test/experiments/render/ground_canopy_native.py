@@ -114,7 +114,7 @@ def check_optics(outputs, variants, labels, row, rows, tail):
     }
 
 
-def execute(binary, output, names, rows):
+def execute(binary, output, names, rows, defines=()):
     outputs, commands = {}, []
     shader = output / "canopy-probe.spv"
     compile_command = [
@@ -129,6 +129,7 @@ def execute(binary, output, names, rows):
         "-o",
         str(shader),
     ]
+    compile_command[1:1] = defines
     result = subprocess.run(
         compile_command,
         cwd=ROOT,
