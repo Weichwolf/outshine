@@ -14,6 +14,7 @@
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "test/harness/render/NativeDeviceProxy.h"
+#include "test/harness/render/NativeCommandsProxy.h"
 #include <expected>
 #include <chrono>
 #include <span>
@@ -45,6 +46,26 @@ struct Faults {
   size_t Submitted = 0;
   size_t Cancelled = 0;
   size_t FenceWaits = 0;
+  size_t ShadowPasses = 0;
+
+  class ObservedCommands final : public outshine::Test::Gpu::NativeCommandsProxy {
+  public:
+    ObservedCommands(std::unique_ptr<Native::Commands> commands, Faults &faults)
+        : NativeCommandsProxy(std::move(commands)), Faults_(faults) {}
+
+    Native::Result<void>
+    BeginRenderPass(const Native::RenderPassDescription &description) override {
+      if (description.Colours.empty() && description.Depth &&
+          description.Depth->Image.Image != nullptr &&
+          description.Depth->Image.Image->Description().Width == kShadowAtlasPx) {
+        ++Faults_.ShadowPasses;
+      }
+      return NativeCommandsProxy::BeginRenderPass(description);
+    }
+
+  private:
+    Faults &Faults_;
+  };
 
   class Observed final : public outshine::Test::Gpu::NativeDeviceProxy {
   public:
@@ -84,7 +105,9 @@ struct Faults {
                                                  .Message = "injected frame acquire failure"});
           }
           ++faults.Acquired;
-          return device->Begin();
+          auto commands = device->Begin();
+          if (!commands) { return std::unexpected(commands.error()); }
+          return std::make_unique<ObservedCommands>(std::move(*commands), faults);
         },
         .Submit =
             [](void *context,
@@ -98,6 +121,9 @@ struct Faults {
             ++faults.Cancelled;
             return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
                                                  .Message = "injected frame submit failure"});
+          }
+          if (auto *observed = dynamic_cast<ObservedCommands *>(commands.get())) {
+            commands = observed->Take();
           }
           return device->Submit(std::move(commands));
         },
@@ -140,20 +166,20 @@ void InitializationUploads() {
           "renderer initialized for the wait contract");
     if (renderer.DeviceUsable()) {
       faults.Next = Faults::Point::Wait;
-      CHECK(!renderer.Settle(error) && error.find("injected GPU wait failure") != std::string::npos,
+      CHECK(!renderer.Settle(error) && error.contains("injected GPU wait failure"),
             "GPU wait failure is returned with an owned native diagnosis");
       SDL_ClearError();
-      CHECK(error.find("injected GPU wait failure") != std::string::npos,
+      CHECK(error.contains("injected GPU wait failure"),
             "clearing SDL error does not invalidate the caller's diagnosis");
       CHECK(renderer.Settle(error) && error.empty(), "successful retry clears the old diagnosis");
     }
   }
-  for (auto point : {Faults::Point::Map, Faults::Point::Acquire, Faults::Point::Submit}) {
+  for (const auto point : {Faults::Point::Map, Faults::Point::Acquire, Faults::Point::Submit}) {
     Faults faults;
     faults.Next = point;
     SceneRenderer renderer(faults.Functions());
     const auto stood = renderer.Init({.WidthPx = 32, .HeightPx = 32}, *compiled);
-    CHECK(!stood && stood.error().find("injected") != std::string::npos,
+    CHECK(!stood && stood.error().contains("injected"),
           "failed fallback upload returns the native diagnosis");
     CHECK(!renderer.DeviceUsable(), "failed fallback upload prevents renderer readiness");
   }
@@ -267,7 +293,7 @@ void ReinitializationInvalidatesFrames(bool temporal) {
   CHECK(renderer.RenderFrame().has_value() && renderer.Drew(), "old plan has a submitted image");
   faults.Next = Faults::Point::Wait;
   const auto refused = renderer.Init({.WidthPx = 48, .HeightPx = 48}, *compiled);
-  CHECK(!refused && refused.error().find("injected GPU wait failure") != std::string::npos,
+  CHECK(!refused && refused.error().contains("injected GPU wait failure"),
         "reinitialization returns its failed GPU wait");
   CHECK(renderer.DeviceUsable() && renderer.Drew(),
         "failed GPU wait retains the usable renderer and submitted frame");
@@ -582,10 +608,16 @@ void ShadowSubmission() {
   const auto first = drawPair();
   CHECK(std::ranges::any_of(first, [](float z) { return z > 0; }),
         "the caster covers real shadow texels");
+  const auto cachedPasses = faults.ShadowPasses;
   CHECK(first == drawPair(), "an unchanged shadow frame retains its submitted depth");
+  CHECK(faults.ShadowPasses == cachedPasses,
+        "a valid shadow cache never begins a load/store-only atlas render pass");
   for (auto *renderer : renderers) { renderer->CastsBelow(0); }
   reject();
+  const auto dirtyPasses = faults.ShadowPasses;
   const auto empty = drawPair();
+  CHECK(faults.ShadowPasses > dirtyPasses,
+        "an invalidated shadow cache still begins its real atlas pass after submission failure");
   CHECK(!empty.empty() && std::ranges::all_of(empty, [](float z) { return z == 0; }),
         "changing the caster mask invalidates and clears the old shadow");
   for (auto *renderer : renderers) {
