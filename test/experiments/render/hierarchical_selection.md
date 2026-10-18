@@ -116,3 +116,90 @@ the native originals remain at
 `installed/`, `wheels-isolated/`, package source, exact metadata checks and the
 optically read papers remain there for the ongoing experiment. No images are
 published and no native source, cache format or GPU contract changes here.
+
+## Real native roof plans: useful negative result
+
+`building_roof_domains.py` consumes the original #801 roof bands and cached hip
+facets, including deck height, hip origin/scale, original footprint holes and
+disconnected clipped components. It never rebuilds a skeleton or silently repairs
+an invalid footprint. `verify_building_roof_domains.py` audits all three complete
+native exports: 6,352 sources, 8,200 shapes, 8,109 shapes with 18,824 planar domains,
+56 self-intersecting original footprints and 35 forms without planar domains.
+The latter two classes remain explicit, without planar occluder admission.
+
+100,843 comparisons between covering planes and native height controls have a
+maximum difference of 1.4211e-14 m; all 18,824 reconstructed plane normals agree
+with the supplied normals within the declared floating-point transport check.
+1,303 native-inside controls lack exact GEOS domain membership; their maximum
+distance is 6.9656e-15 m. They stay counted as uncovered, without snapping or
+declaring a universal geometric tolerance from these finite samples.
+
+An important diagnostic failure is preserved: on GEOS 3.14.1, `union_all` loses
+one complete 9.594168 m² input facet for parent `bbd9aab743`, source ordinal 415,
+shape 0. Every individual clipped facet remains present and valid. The guard
+rejects this union statistic because it excludes that input facet's interior
+representative point. This is evidence against that computed union statistic,
+not evidence of a native roof gap. Neither snapping nor fabricated infill is
+used to obtain a passing result. Individual accepted triangles drive selection;
+the diagnostic union is not an occluder. The guard is not an exact union proof.
+The original footprint/facet/gap plots were opened locally.
+
+`building_roof_selection.py` now exercises the real plans in a deliberately
+limited roof-only Float64 software reference. It emits at most 32 nearby source
+roof seeds, keeps their complete emitted geometry in every plan and admits at
+most 256 front-facing triangle certificates for the entire observer box (±2 m
+in parent coordinates). Unknown acceptance, invalid/degenerate contours and
+patches outside the original source envelope supply no occluder. All remaining
+roof emission, including the full control, happens **after** selection. This
+is not native Fine geometry, a native material/parity claim or a full-world image.
+
+The full roof control, cell-isolated selection and shared hierarchy all retain
+every source in the three inputs:
+
+| Parent prefix | Source records | Roof triangles in each plan | Occluder triangles |
+| --- | ---: | ---: | ---: |
+| bbd9aab743 | 457 | 5,256 | 256 |
+| 6d41e63e73 | 1,754 | 15,869 | 256 |
+| 035e2150a3 | 4,141 | 24,690 | 110 |
+
+Eight poses per input (four quarter turns at the original and moved eye) each
+produce equal 1280×720 depth images; 16 poses are nonempty and eight are empty.
+Only nonempty controls contribute visual evidence. These are finite sampled views of the
+analytically scoped observer box, not the continuous native one-second turn
+gate. The actual roof panels were inspected. Equal images with **zero culling**
+prove no saving: the current single-triangle/full-source-envelope strategy adds
+query work and is not recommended as the native selection solution. Subtree,
+source and plane counters are in each receipt; these are single Python runs,
+not stable timing, allocation/peak or device-budget evidence.
+
+This negative result changes the next comparison: test joint coverage across
+adjacent accepted patches and partial source emission, rather than adding more
+single-patch query tuning. Native whole/cell grouping, three geographic load
+classes, shadows/interaction/neighbor transitions, complete cost/scaling proofs
+and real runtime acceptance all remain required by #12. These three exports
+share the Wien camera and do not stand in for all requested load classes.
+
+Eight focused consumer tests cover holes, disconnected bands, piecewise planes,
+hip origin/scale/deck, invalid originals, nonplanar unknowns, a lost-union negative
+control and independent height/normal corruptions. Reproduction uses the local
+`.venv` with NumPy, Shapely ≥2.1 and Pillow (measured here with GEOS 3.14.1):
+
+```sh
+.venv/bin/python -m unittest discover -s test/experiments/render \
+  -p test_building_roof_domains.py
+.venv/bin/python test/experiments/render/verify_building_roof_domains.py \
+  --input "$native_surfaces/bbd9aab7431104d6b1565886f434e239db5fb511a754a5c529c52b98665dc2ad.json" \
+  --input "$native_surfaces/6d41e63e73285d58dd7ab97ab7215e6a44510b3b7628ddef313947d6869904bd.json" \
+  --input "$native_surfaces/035e2150a3c1d52a53b4f299007ec4557489a8b51c5780f58928a84a7c8b4500.json" \
+  --output "$fresh_audit_output"
+PYTHONPATH=lib/src .venv/bin/python \
+  test/experiments/render/building_roof_selection.py \
+  --input "$native_surface_file" --output "$fresh_comparison_output"
+```
+
+Native surface originals remain under
+`/tmp/outshine-engine-building-surfaces-evidence-4be90897a/`; actual native source
+transfer was independently proven Mesh/Project-free in #801. Audit and roof-only
+comparison receipts, input hashes and inspected images remain under
+`/tmp/outshine-research-selection-930392b72/roof-domain-audit/` and
+`roof-selection-final/{bbd9,6d41,035e}/`. No source/asset cache or native product changes.
