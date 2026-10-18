@@ -81,11 +81,14 @@ def verify(root, output):
     ):
         raise ValueError("original scene/frame input changed")
     original = json.loads(Path(report["original_scene"]).read_text())
+    frames = json.loads(Path(report["frame_input"]).read_text())
     source_owners = {b["id"]: b for b in original.get("bodies", [original])}
     if set(source_owners) != {o["id"] for o in report["bodies"]} or len(
         source_owners
     ) != len(report["bodies"]):
         raise ValueError("regional scene lost or duplicated a complete source owner")
+    if set(frames) != set(source_owners):
+        raise ValueError("source-owned frames are incomplete")
     scene = json.loads((root / "regional-scene.json").read_text())
     draws = {b["id"]: b for b in scene["bodies"]}
     if not 1 <= len(draws) <= 64 or len(draws) != len(scene["bodies"]):
@@ -93,6 +96,7 @@ def verify(root, output):
     results, seen = [], set()
     for owner in report["bodies"]:
         original_body = source_owners[owner["id"]]
+        frame = frames[owner["id"]]
         if (
             owner["original_mesh"] != original_body["mesh"]
             or owner["original_mesh_sha256"] != original_body["mesh_sha256"]
@@ -112,6 +116,8 @@ def verify(root, output):
                 or name not in draws
                 or part["mesh_sha256"] != draws[name]["mesh_sha256"]
                 or original_body["colours"] != draws[name]["colours"]
+                or frame["origin_m"] != draws[name]["origin_m"]
+                or frame["preserve_legacy_draw"] is not part["preserved_legacy_draw"]
             ):
                 raise ValueError("ambiguous or missing original draw owner")
             ids, vertices, positions, error = inspect_part(part, source, draws[name])
@@ -148,6 +154,7 @@ def verify(root, output):
         "draw_objects": len(draws),
         "owners": results,
         "source_report_sha256": digest(root / "comparison.json"),
+        "verifier_sha256": digest(__file__),
         "scope": "Complete source face/vertex provenance, unchanged corner normals/materials and bounded nearest Float32 encoding. No physical or native/device admission.",
     }
     write_json(output, result)

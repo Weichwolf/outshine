@@ -11,6 +11,9 @@ No wider world product was admitted by this historical experiment. The verified
 remains unchanged. The independently completed profile-interval correction is
 [PR #719](https://github.com/Weichwolf/outshine/pull/719), merge
 `2480e182ee28e1f80cbbf31d3f7433997d9afbef`; #718 is closed.
+Current regional ownership, mixed-renderer controls, actual images and costs
+are in the [regional reference](regional_positions.md); historical results below
+are not rewritten to admit the newer representation.
 
 ## Original input and bounded selection
 
