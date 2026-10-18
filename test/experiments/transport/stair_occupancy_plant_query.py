@@ -7,8 +7,8 @@ from pathlib import Path
 import shapely
 from camera_height_inputs import digest
 from outshine_ref.contracts import HeightInterval, Reservation
+from stair_consumer_inputs import candidate_inputs as data_for
 from stair_local_replay import load_chain
-from stair_occupancy_candidate_consumers import data_for
 from stair_occupancy_candidate_reference import PartitionReference
 from stair_occupancy_candidate_reuse import retained
 from stair_occupancy_candidate_sources import from_state
