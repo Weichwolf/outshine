@@ -7,11 +7,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import Shoot
+from outshine_ref.vegetation import Shoot, TwigClusters
 from spatial_crown_replay import check_mesh
 from tree_entry import load
 from twig_cluster_experiment import read_plan
-from twig_clusters import TwigClusters
 
 
 def geometry(before, after, plan):

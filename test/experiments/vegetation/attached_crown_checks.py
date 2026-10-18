@@ -10,9 +10,8 @@ from attached_crown import AttachedCrown
 from attached_crown_build import cluster_recipe
 from attached_crown_cost import consume
 from crown_shoots import CrownShoots
-from outshine_ref.vegetation import Blade, Shoot
+from outshine_ref.vegetation import Blade, Shoot, TwigClusters
 from spatial_group_source import SpatialGroupSource
-from twig_clusters import TwigClusters
 
 
 def source(count=28):

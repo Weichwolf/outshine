@@ -1,8 +1,9 @@
 """Affine radius factoring of the existing fixed-length/taper curved-axis kernel."""
 
 import numpy as np
-from outshine_ref.vegetation.axis_surface import axis_mesh
-from outshine_ref.vegetation.curve_frame import arc_frame
+
+from .axis_surface import axis_mesh
+from .curve_frame import arc_frame
 
 
 def radius_basis(length, bend):

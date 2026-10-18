@@ -7,10 +7,11 @@ from functools import cached_property
 from types import MappingProxyType
 
 import numpy as np
-from outshine_ref.vegetation import Blade, Shoot
-from outshine_ref.vegetation.curve_frame import arc_frame
-from outshine_ref.vegetation.plan_arrays import immutable_array
-from outshine_ref.vegetation.shoot_plan import normal_frame
+
+from .blade_surface import Blade
+from .curve_frame import arc_frame
+from .plan_arrays import immutable_array
+from .shoot_plan import Shoot, normal_frame
 
 
 @dataclass(frozen=True)
