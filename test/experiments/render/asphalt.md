@@ -1,11 +1,32 @@
-# Dry asphalt: saved component work, not a product delivery
+# Dry asphalt: filtered component study
 
-Owner #781, parent #6, former goal #189. Work is saved unfinished for the
-#786 handover to outshine_engine / outshine_research. No production shader,
+Contract #781, parent #6. The component study is independently checked;
+outshine_engine owns its later product integration. No production shader,
 SurfacePattern, asset, source classification or world geometry is changed.
 The current prototype is a filter/response baseline, not final asphalt art.
 Its soft round grains still need an appearance comparison with irregular,
 angular aggregate and a defensible grain-density/size distribution.
+
+## Current component verification
+
+The final unchanged Python cohort, independent box replay and phase checks were
+completed by outshine_research on the saved head 7eb9b484d; PR #787 links the
+terminal receipts. The current merge preserves all seven Python blobs exactly.
+The following original receipts retain their own source and device scope.
+
+Apple A18 Pro / Metal also executes both 1,856-point compute modes and all eight
+actual raster pairs through matching native 7bdb46175 consumers. Maximum field
+error is 1.668707e-6 against the unchanged 3e-6 limit; every parameter and direct-MR
+bound passes. All eight PDF pages were opened. Soft near grains remain an art
+limitation; the far filter converges to the authored material mean.
+
+Metal supplies no individual dispatch timestamps here. The optional `--profile`
+invocation remains failed/unproved; its reported 0.668750 ms command batch covers
+32 dispatches plus uploads/readback and is not the earlier RTX kernel sum.
+The plain numerical invocation passes. Python 3.9 rejected `zip(strict=True)`;
+the current run uses Python 3.14, NumPy 2.5.4 and SciPy 1.18.1.
+Commands, source/archive hashes and failed attempts remain in
+`/tmp/outshine-pr787-metal/` and the PR. No device/frame/material adoption follows.
 
 ## Existing product paths and missing contract
 
@@ -108,15 +129,14 @@ bounded interval, not a false exact-GGX-filter claim or other-angle guarantee.
 
 Scripts are studies: inspect recorded passes_parameter_limits and
 passes_direct_mr_bound as well as exit status. All eight current records are
-true. Broad source/motion/anchor/other-light/Place tests remain. The last CPU
-cohort predates the final optional parameter-helper/path-validation edits;
-its source hash is retained, and it has NOT been rerun on the saved handover
-commit. Current native/raster reports pin their actual executed source hashes.
-No post-handover long campaign or forced merge was started.
+true. Broad source/motion/anchor/other-light/Place tests remain. At handover the
+last CPU cohort predated the final optional parameter-helper/path edits. That
+gap is closed by the final unchanged-source cohort above; historical native
+reports still pin their own executed source hashes.
 
 ## Reproduction and sources
 
-Python dependencies: NumPy, SciPy, Shapely, Matplotlib and lib/src on PYTHONPATH.
+Python 3.10+ dependencies: NumPy, SciPy, Shapely, Matplotlib and lib/src on PYTHONPATH.
 Use explicit system-temp outputs. asphalt_filter.py --output DIR reproduces
 CPU cases; asphalt_phase.py --output FILE gives the indistinguishability
 counterexample. asphalt_native.py --binary NativeMaterialProbe --output DIR
