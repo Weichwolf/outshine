@@ -1227,3 +1227,9 @@ It retains a real null-topology counterexample, an exact cancellation guard and
 oriented contour recovery. The standalone contact probe reproduces its paired
 models without the whole source window. Current whole-city detail selection,
 actual1080p images and scoped cost/quality limits are recorded separately.
+
+The [optional thin-glass study](window_glass.md) exposes the existing real room
+depth through closed window panes, with an independent Mitsuba scalar-model
+check and explicit near/front/grazing/inside/whole camera controls. Default
+materials/daylight remain; roughness, screen refraction and fully transparent
+geometry controls distinguish the approximation from the original material.
