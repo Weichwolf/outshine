@@ -1,5 +1,6 @@
 """Complete dense crown cache from bounded shoot/pose packets, with matched detail."""
 
+import argparse
 import hashlib
 import json
 import subprocess
@@ -10,12 +11,12 @@ import numpy as np
 from bark_recipe import bark_recipe
 from conifer_crown_recipes import crown_conifers
 from europe_conifer_products import poses, scene, wood_product, write_json
+from experiment_output import private_output
 from needle_material import write_needle_material
 from needle_pose_stream import stream_foliage
 from outshine_ref.vegetation.axis_surface import axis_mesh
 
 ROOT = Path(__file__).resolve().parents[3]
-OUTPUT = ROOT / "build/experiments/vegetation/conifer-crowns"
 
 
 def needle_meshes(species, directory, mode):
@@ -37,12 +38,13 @@ def needle_meshes(species, directory, mode):
 def wood_meshes(species, plan, directory):
     result = []
     for path in plan.wood.paths():
-        axis, level = plan.wood.axis(path), plan.wood.levels[len(path)]
+        axis = plan.wood.axis(path)
+        base_radius, tip_radius = plan.wood.radii(path)
         mesh = axis_mesh(
             axis.length,
             axis.bend,
-            level.base_radius,
-            level.tip_radius,
+            base_radius,
+            tip_radius,
             16 if not path else 8,
             12 if not path else 8,
             bark=True,
@@ -95,10 +97,9 @@ def packet_products(species, plan, directory, needles, shorts):
 
 
 def near_products(species, plan, directory, path):
-    axis, level = plan.wood.axis(path), plan.wood.levels[len(path)]
-    mesh = axis_mesh(
-        axis.length, axis.bend, level.base_radius, level.tip_radius, 16, 8, bark=True
-    )
+    axis = plan.wood.axis(path)
+    base_radius, tip_radius = plan.wood.radii(path)
+    mesh = axis_mesh(axis.length, axis.bend, base_radius, tip_radius, 16, 8, bark=True)
     result = [
         wood_product(
             directory,
@@ -146,9 +147,9 @@ def near_products(species, plan, directory, path):
     return result
 
 
-def produce(species, provenance):
+def produce(species, provenance, output):
     began = time.perf_counter()
-    directory = OUTPUT / species.key
+    directory = private_output(output) / species.key
     directory.mkdir(parents=True, exist_ok=True)
     plan = species.plant()
     write_json(directory / "whole-plan.json", plan.recipe())
@@ -179,11 +180,11 @@ def produce(species, provenance):
     }
     write_json(directory / "whole-index.json", index)
     path = tuple(level.branches // 2 for level in species.levels[1:])
-    for mode, output, selected in (
+    for mode, mode_products, selected in (
         ("whole", products, None),
         ("shoot", near_products(species, plan, directory, path), path),
     ):
-        recipe = scene(species, plan, mode, output, provenance, selected)
+        recipe = scene(species, plan, mode, mode_products, provenance, selected)
         recipe.update(
             tables="whole-index.json",
             geometry_lod="third-order physical shoots; bounded complete pose packets",
@@ -198,8 +199,9 @@ def produce(species, provenance):
     }
 
 
-def main():
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+def main(output):
+    output = private_output(output)
+    output.mkdir(parents=True, exist_ok=True)
     sources = [
         Path(__file__),
         *[
@@ -229,11 +231,13 @@ def main():
     }
     records = []
     for species in crown_conifers():
-        record = produce(species, provenance)
+        record = produce(species, provenance, output)
         records.append(record)
         print(json.dumps(record), flush=True)
-    write_json(OUTPUT / "products.json", {"cases": records, **provenance})
+    write_json(output / "products.json", {"cases": records, **provenance})
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    main(parser.parse_args().output)

@@ -4,7 +4,7 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
-from building_layout import rectangle
+from building_layout import polygons, rectangle
 from building_mesh import solid
 from opening_details import expand
 
@@ -18,8 +18,12 @@ def keepouts(mass, portals):
     return {i: shapely.union_all(parts) for i, parts in values.items()}
 
 
-def details(mass, facade, *, portals=()):
-    keepout = keepouts(mass, portals)
+def details(mass, facade, *, portals=(), legacy_trim=True):
+    if type(legacy_trim) is not bool:
+        raise ValueError("Legacy facade trim selection requires a boolean")
+    keepout = (
+        keepouts(mass, portals) if legacy_trim or mass.kind == "paired-wings" else {}
+    )
     frames = expand(
         [
             {
@@ -51,7 +55,9 @@ def details(mass, facade, *, portals=()):
         ]
     )
     storage = [], [], [], []
+    skipped_parts = 0
     for w in facade.windows:
+        first_part = len(storage[3])
         pane = rectangle(w.centre, w.tangent, w.width_m - 0.11, -0.079, 0.087)
         solid(storage, pane, w.bottom_m + 0.055, w.bottom_m + w.height_m - 0.055, 3)
         if w.width_m > 2:
@@ -63,6 +69,11 @@ def details(mass, facade, *, portals=()):
                 w.bottom_m + w.height_m - 0.055,
                 10,
             )
+        if skipped_parts:
+            storage[3][first_part:] = [
+                p + skipped_parts for p in storage[3][first_part:]
+            ]
+            skipped_parts = 0
         if mass.kind == "paired-wings":
             tangent = np.asarray(w.tangent)
             centre = np.asarray(w.centre) + tangent * (w.width_m / 2 + 0.22)
@@ -70,8 +81,11 @@ def details(mass, facade, *, portals=()):
             storey = mass.storeys[w.storey]
             if w.storey in keepout and pier.intersects(keepout[w.storey]):
                 pier = pier.difference(keepout[w.storey])
-            solid(storage, pier, storey.bottom_m + 0.06, storey.top_m - 0.06, 9)
-    if mass.kind == "cascade":
+            if legacy_trim:
+                solid(storage, pier, storey.bottom_m + 0.06, storey.top_m - 0.06, 9)
+            else:
+                skipped_parts += len(polygons(pier))
+    if legacy_trim and mass.kind == "cascade":
         for index, storey in enumerate(mass.storeys):
             p = shapely.orient_polygons(shapely.from_wkb(storey.footprint_wkb))
             for ring in (p.exterior, *p.interiors):

@@ -213,7 +213,7 @@ def joined(meshes):
     }
 
 
-def compact(prepared, *, portals=()):
+def compact(prepared, *, portals=(), legacy_trim=True):
     mass, facade = prepared.local, prepared.facade
     writer = Surfaces()
     by_edge = {}
@@ -235,7 +235,8 @@ def compact(prepared, *, portals=()):
                         b,
                         portals,
                     )
-    accents(writer, mass, facade, portals)
+    if legacy_trim:
+        accents(writer, mass, facade, portals)
     pad = shapely.from_wkb(mass.entry.landing_wkb).difference(
         shapely.from_wkb(mass.source_wkb)
     )

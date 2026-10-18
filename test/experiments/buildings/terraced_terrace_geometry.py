@@ -90,9 +90,11 @@ def portal_frames(plan):
 
 
 class TerraceProducts:
-    def __init__(self, plan):
+    def __init__(self, plan, *, legacy_trim=True):
         self.plan = plan
-        self.facade = FacadeProducts(plan.prepared, portals=plan.portals)
+        self.facade = FacadeProducts(
+            plan.prepared, portals=plan.portals, legacy_trim=legacy_trim
+        )
         self.components = components(plan)
         self.additions = tuple(
             triangle_surface(c.mesh, c.source.material) for c in self.components

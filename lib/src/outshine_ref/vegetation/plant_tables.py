@@ -30,15 +30,7 @@ def canonical_tables(plan):
         "axis_lengths": np.array([axis.length for axis in axes]),
         "axis_bends": np.array([axis.bend for axis in axes]),
         "axis_parent_parameters": np.array([axis.parent_parameter for axis in axes]),
-        "axis_radii": np.array(
-            [
-                [
-                    plan.levels[len(axis.path)].base_radius,
-                    plan.levels[len(axis.path)].tip_radius,
-                ]
-                for axis in axes
-            ]
-        ),
+        "axis_radii": np.array([plan.radii(axis.path) for axis in axes]),
         "leaf_axis_ids": np.array(owners, dtype=np.uint64),
     }
     for name, shape, dtype in (

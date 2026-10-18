@@ -6,6 +6,7 @@ from outshine_ref.transport.junction_pads import profile_junction_pad
 from shared_bridge_geometry import corridor
 from stair_branch_inputs import shared_cycle_path
 from stair_cycle_contacts import interior_profile_xy, profile
+from stair_service_profile import service_landing
 
 
 def endpoint_profiles(rows, node):
@@ -48,6 +49,7 @@ def chosen_kinds(rows, ends, node_index, stairs):
                     and props.get("class") == "minor"
                     and not props.get("subclass")
                 )
+                and not service_landing(row, props)
             )
             or props.get("brunnel") == "tunnel"
             or props.get("indoor")

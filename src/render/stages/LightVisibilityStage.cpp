@@ -58,8 +58,8 @@ void LightVisibilityStage::Declare(Overhead sky, double radiusM, bool cameraCent
 }
 
 Vec3 LightVisibilityStage::CasterCentre() const {
-  Vec3 centre;
   const Vec3 anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : Vec3{};
+  Vec3 centre = anchor;
   Vec3 least = {{kBeyondAnyCoordinate, kBeyondAnyCoordinate, kBeyondAnyCoordinate}};
   Vec3 most = {{-kBeyondAnyCoordinate, -kBeyondAnyCoordinate, -kBeyondAnyCoordinate}};
   size_t counted = 0;

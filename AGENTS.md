@@ -8,73 +8,55 @@
   Ich lese und bearbeite sie mit `gh issue list`, `gh issue view`, `gh issue create` und `gh issue edit`.
   Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
   Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
-- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Ich entwickle Outshine auf `master`
-  und integriere verifizierte Fachlieferungen einschließlich Generatoren und interner Modulverträge.
-  Sieben Fachagenten arbeiten jeweils in einem eigenen Worktree und Branch namens `outshine_<bereich>`.
-  Laufende Umbenennungen übernehmen dieses Schema; sie erzeugen keine zusätzlichen Agenten.
-  Die weltweite Sandbox steht in [#5](https://github.com/Weichwolf/outshine/issues/5), räumliche Verträge in [#18](https://github.com/Weichwolf/outshine/issues/18).
+- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Drei Agenten arbeiten zusammen:
 
-  | Worktree/Branch | Rolle und Zuständigkeit | Einstieg |
+  | Worktree/Branch | Verantwortung | Einstieg |
   |---|---|---|
-  | `outshine_transport` | Reine Python-Forschung: Verkehrsnetze, Profile, Ebenen und räumliche Reservierungen | [#47](https://github.com/Weichwolf/outshine/issues/47) |
-  | `outshine_buildings` | Reine Python-Forschung: Gebäudeformen, Architekturrezepte und Räume | [#47](https://github.com/Weichwolf/outshine/issues/47) |
-  | `outshine_vegetation` | Reine Python-Forschung: Pflanzen, Wälder und Vegetationsdarstellung | [#47](https://github.com/Weichwolf/outshine/issues/47) |
-  | `outshine_performance` | Native Entwicklung: Vulkan-Backend, Renderarbeit, Sichtbarkeit, Batching, Speicher; RTX 3060 bei 1920×1080/60 | [#188](https://github.com/Weichwolf/outshine/issues/188) |
-  | `outshine_material` | Native Entwicklung: vollständiger Materialbaukasten, prozedurale Oberflächen, Verteilung, Komposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
-  | `outshine_light` | Native Entwicklung: Tages-/Nachtlicht, Tausende lokale Lichtquellen, Schatten, Reflexion, klare Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
-  | `outshine_weather` | Native Entwicklung: Wetterdaten/-zustand, Wolken, Wind, Nebel und Niederschlag | [#191](https://github.com/Weichwolf/outshine/issues/191) |
+  | `outshine` / `master` | Gesamtarchitektur, Art Direction, Prioritäten, Koordination, Metal-/A18-Pro-Integration und Optimierung, integrierte Bild-/Geräteprüfung | [#5](https://github.com/Weichwolf/outshine/issues/5) |
+  | `outshine_research` | Ausschließlich Python: Forschung, Verfahren, Solver und Rezepte für alle Bereiche einschließlich Transport, Buildings, Vegetation, Materialien, Licht und Wetter | [#788](https://github.com/Weichwolf/outshine/issues/788) |
+  | `outshine_engine` | Gemeinsame native C++-Engine, Übernahme der Python-Referenzen, Vulkan und CPU-/GPU-/Speicheroptimierung auf Intel i5-1135G7 / Iris Xe | [#789](https://github.com/Weichwolf/outshine/issues/789) |
 
-  Die drei Forschungsagenten arbeiten ausschließlich in Python: Experimente unter `test/experiments/`,
-  gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Engine-Implementierung.
-  Ich übernehme ihre verifizierten Verfahren eigenständig maschinennah in C++ unter `src/`.
-  Die vier nativen Fachagenten verbessern diese integrierte Basis und entwickeln ihre Bereiche
-  weiter. Sie mergen fertige PRs nach bestandenen betroffenen Prüfungen selbst nach `master`.
-  Ich prüfe anschließend die gemeinsame Integration, verantworte Bildqualität/Places und halte
-  das A18-Pro-Profil 1280×720/30. Mein vorheriges Review ist keine Merge-Voraussetzung.
-  Materialparameter, Beleuchtung und Wetterzustand haben je einen Besitzer. Gemeinsame Pässe,
-  Bindings und Radiance-/Transmittanzkomposition vor Änderungen mit den Verbrauchern abstimmen.
-  Material entwickelt alle benötigten Materialfamilien und ihre kohärenten Übergänge.
-  Light besitzt auch skalierende lokale Beleuchtung, sämtliche Schatten und den Tag-/Nachtzyklus;
-  Weather liefert Wetter-/Wolken-/Nebelzustand und vereinbarte Mediumdaten. Light verantwortet
-  die gemeinsame Licht-/Schattenkomposition; Performance unterstützt GPU-Ausführung und Speicher.
-- Jeder Agent darf und soll architektonische und organisatorische Verbesserungen einbringen.
-  Outshine soll in Darstellung, Code und Projektgestaltung schön sein: kohärent, klar benannt,
-  gut gegliedert und frei von unnötiger Komplexität. Lokale Verbesserungen brauchen keine
-  Freigaberunde; gemeinsame Verträge mit den Betroffenen abstimmen. Fachbesitz und die vereinbarte
-  Python-/Native-Arbeitsteilung bleiben erhalten; ich verantworte die kohärente Gesamtintegration.
-- `test/experiments/` enthält Versuche, Gegenbeispiele, faire Vergleiche, Benchmarks und Showcase-Code.
-  Bewährte wiederverwendbare Python-Verfahren werden als installierbare Referenzbibliotheken unter `lib/` gepflegt.
-  Experimente importieren diese Bibliotheken; Fachmodule teilen Verträge und erforderliche Geometrieverfahren.
-  Transport plant zuerst und liefert angepasste Gebäudegrundrisse/Freiräume, Buildings baut danach,
-  Vegetation zuletzt mit den räumlichen Produkten und Hinweisen beider Vorgänger. Quell-IDs und Quellen erhalten.
-- Die drei Forschungsagenten committen und pushen ihre verifizierten Fortschritte selbstständig,
-  erstellen für ihre Experimente und Änderungen an `lib/` Pull Requests und mergen diese nach bestandenen
-  betroffenen Prüfungen eigenständig nach `master`. Zugehörige Tests/Referenzdokumentation mitführen.
-  Gemeinsame Verträge mit betroffenen Verbrauchern abstimmen; keine fremden Fortschritte überschreiben.
-  Der Outshine-Hauptagent übernimmt die native Integration samt Engine-, Bild- und Kostenprüfung eigenständig.
-  Ich gebe den drei Forschungsagenten aus der Integration konkrete Bedarfe und Verbesserungsaufträge:
-  reproduzierbare Eingaben, Bild-/Funktionsdefizit, betroffener Vertrag und Priorität im Fach-Issue.
-  Python-Verfahrensfehler und Fehler meiner nativen Umsetzung unterscheide ich anhand der Belege.
-  Die Forschungsagenten warten dafür nicht auf eine native Umsetzung ihrer Python-Verfahren.
-  Alle Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
-  Gemeinsame Bibliotheksbasis: [#47](https://github.com/Weichwolf/outshine/issues/47); native Integration: [#48](https://github.com/Weichwolf/outshine/issues/48).
-- [#47](https://github.com/Weichwolf/outshine/issues/47) ist der gemeinsame Kommunikationseingang;
-  der vereinbarte Ablauf steht in [#108](https://github.com/Weichwolf/outshine/issues/108).
+  Worktrees liegen als Geschwister unter `Git/`; Branch und Verzeichnis der beiden Kollegen
+  heißen gleich. A18 Pro und Intel/Iris Xe haben jeweils das Ziel 1280×720/60.
+  Gemeinsame Verfahren und Shader haben eine Implementierung; nur Backend-/Geräteausführung
+  und begründete Qualitätsprofile unterscheiden sich. Metal und Vulkan stimmen Bindings,
+  Ressourcenlebensdauer und gemeinsame GPU-Verträge vor Änderungen ab.
+- Ausschließlich `master`, `outshine_research` und `outshine_engine` sind aktive Besitzer.
+  Gesicherte Übergabestände und offene PRs stehen in [#786](https://github.com/Weichwolf/outshine/issues/786).
+  Historische Branch-/Hostnamen bleiben Herkunftsbelege. Nicht integrierte Arbeiten bleiben
+  geschützt; der Backlog weist jede offene Aufgabe einem der drei aktuellen Besitzer zu.
+- `outshine_research` priorisiert mit mir den wichtigsten fehlenden Verfahrensbaustein und
+  liefert kleine geprüfte vertikale Schritte. Experimente liegen unter `test/experiments/`,
+  gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Implementierung.
+  `outshine_engine` übernimmt verifizierte Verfahren maschinennah nach `src/` samt allen
+  Verbrauchern und nativen Produkten. Ich verantworte Metal und die Gesamtintegration.
+  Forschung und native Umsetzung können unabhängig voranschreiten; fehlende Teilverträge
+  benennen und unabhängig weiterarbeiten. Python-Zeiten ersetzen keine native Geräteabnahme.
+- Transport plant zuerst und liefert angepasste Gebäudegrundrisse/Freiräume, Buildings baut
+  danach, Vegetation zuletzt mit den räumlichen Produkten und Hinweisen beider Vorgänger.
+  Quellen/Quell-IDs erhalten. Räumliche Verträge stehen in [#18](https://github.com/Weichwolf/outshine/issues/18).
+  Materialparameter, Licht-/Schattenkomposition und Wetterzustand haben klare Modulbesitzer;
+  gemeinsame Pässe, Bindings und Radiance-/Transmittanzkomposition mit Verbrauchern abstimmen.
+- Jeder Agent darf architektonische und organisatorische Verbesserungen einbringen. Outshine
+  soll in Darstellung, Code und Projektgestaltung schön sein: kohärent, klar benannt, gut
+  gegliedert und frei von unnötiger Komplexität. Lokale Verbesserungen brauchen keine Freigaberunde.
+- Beide Kollegen committen, pushen und mergen kleine vollständige PRs nach bestandenen
+  betroffenen Prüfungen selbstständig. Vorher gegen `master` aktualisieren, Konflikte lösen
+  und gemeinsame Übergänge prüfen. Ich prüfe die Integration, Bildqualität und Metal/A18.
+  Bei einem Defizit nenne ich reproduzierbare Eingabe, Bild-/Funktionsfehler, Vertrag und
+  Priorität im Fach-Issue; Referenzfehler und native Umsetzungsfehler getrennt belegen.
+- [#47](https://github.com/Weichwolf/outshine/issues/47) bleibt der gemeinsame Kommunikationseingang;
+  der Ablauf steht in [#108](https://github.com/Weichwolf/outshine/issues/108).
   Nachrichten beginnen mit `[Absenderbranch → Zielbranches]`: Fach-Issue/PR-Link und konkrete
-  Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen. Branch-Namen stehen in der Rollentabelle;
-  der Hauptagent adressiert und antwortet als `master`.
-  Ein kurzes Fach-Issue besitzt genau einen abgrenzbaren Vertrag, Fehler oder Entscheidungsbedarf;
-  Eltern verlinken Kinder. Umsetzung, API-Änderungen, Python-/Native-Grenze und Prüfbelege stehen im PR
-  oder bei direkter Master-Lieferung beim verlinkten Commit im Fach-Issue;
-  ausführliche Berichte in verlinkten Artefakten. Jede Aussage hat einen Ort; andere Stellen verlinken sie.
-  Antworten bleiben bei der Fachfrage. Zuständige Branches antworten ausdrücklich; Schweigen ist keine Zustimmung.
-  Ich lese repositoryweit nur neue oder bearbeitete Kommentare seit meinem lokalen Abrufmarker;
-  der Marker wird erst nach erfolgreichem Abruf fortgeschrieben. Historie/PRs öffne ich gezielt bei Bedarf.
-  Wir teilen einen GitHub-Account: Kommentare nur über ihre konkrete ID ändern, niemals mit `--edit-last`.
-  Ich hole den Remote-Stand vor Arbeitsblöcken und Commits, bei längerer Arbeit spätestens alle 15 Minuten.
-  Eigene Änderungen bleiben erhalten; Gates bleiben eingefroren. Kompatible Arbeit braucht keine
-  Freigaberunde. Fehlende Teilverträge benennen und unabhängig weiterarbeiten. Verlorene Nachrichten
-  korrigiere ich anhand tatsächlicher Antworten, ohne eine gemeinsame Verwaltungsbibliothek aufzubauen.
+  Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen. Ich antworte als `master`.
+  Ein kurzes Fach-Issue besitzt einen Vertrag, Fehler oder Entscheidungsbedarf; Eltern verlinken Kinder.
+  Umsetzung, API-Änderung, Python-/Native-Grenze und Prüfbelege stehen im PR oder bei direkter
+  Master-Lieferung beim verlinkten Commit im Fach-Issue. Jede Aussage hat einen Ort; andere
+  Stellen verlinken sie. Antworten bleiben bei der Fachfrage; Schweigen ist keine Zustimmung.
+  Ich lese nur neue/bearbeitete Kommentare seit meinem lokalen erfolgreichen Abrufmarker;
+  Historie/PRs gezielt öffnen. Kommentare nur über konkrete ID ändern, niemals `--edit-last`.
+  Remote vor Arbeitsblöcken/Commits und spätestens alle 15 Minuten abrufen. Eigene Änderungen
+  bleiben erhalten; laufende Gates bleiben auf ihrem eingefrorenen Stand.
 - Der aktive Nutzerauftrag bleibt maßgeblich; `goal.md` auf `master` beschreibt den Outshine-/Integrationsauftrag.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
@@ -165,9 +147,9 @@
 - Ich priorisiere Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl. RDR2/GTA5 sind
   Qualitätsmaßstäbe, keine unbelegten Versprechen. Auflösung/Zielrate bleiben unabhängige Profile:
   480p, 1280×720, 1920×1080 und höher; 25/30/60 fps. Maße immer explizit Breite×Höhe.
-  Hohe Bildqualität bei 1280×720/30 auf A18 Pro ist mein Ziel; 1280×720/60 bleibt Vergleichsmessprofil.
-  RTX 3060 verwendet separat 1920×1080/60. Framebudgets: 1000/30 = 33,33 ms beziehungsweise
-  1000/60 = 16,67 ms einschließlich p99; Speicher und CPU/GPU pro Gerät getrennt belegen.
+  Hohe Bildqualität bei 1280×720/60 ist das Ziel auf A18 Pro/Metal und Intel i5-1135G7/Iris Xe/Vulkan.
+  Framebudget: 1000/60 = 16,67 ms einschließlich p99. Andere Profile bleiben ausdrücklich
+  deklarierte Vergleiche; Speicher und CPU/GPU pro Gerät getrennt belegen.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
 - Die Bildveröffentlichung in `doc/` und README pausiert auf Nutzerauftrag. Ich pushe dort
   vorerst keine neuen oder aktualisierten Bilder. Fachagenten veröffentlichen ebenfalls keine
@@ -218,7 +200,7 @@
   passende Primärquellen und verankere Verfahren und Quellen im zuständigen Issue.
   PDFs prüfe ich immer auch optisch, insbesondere Abbildungen, Diagramme und Gleichungen.
 - C++23, native Metal-/Vulkan-Backends, GLSL; SDL3 für Fenster, Eingabe und Audio.
-  Ich implementiere Metal, `outshine_performance` Vulkan; gemeinsame GPU-Verträge stimmen wir
+  Ich implementiere Metal, `outshine_engine` Vulkan; gemeinsame GPU-Verträge stimmen wir
   vor der Integration ab. SDL3_GPU wird ersetzt; vorhandene Bildqualität und Funktionen erhalten.
   Backendentscheidungen und Übergang stehen in [#48](https://github.com/Weichwolf/outshine/issues/48).
   RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
@@ -243,9 +225,9 @@
   Abgeschlossene Anforderungen in ihren Besitzer übernehmen, dann das Issue schließen; nichts lokal löschen.
   Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
 - Nach dem Merge löscht der PR-Besitzer den temporären Themenbranch lokal und auf GitHub,
-  sobald dessen aktueller Stand vollständig integriert ist. `master` und die sieben dauerhaften
-  `outshine_<bereich>`-Arbeitsbranches bleiben bestehen. Offene PRs, belegte Worktrees und
-  nicht integrierte Commits schützen vor automatischer Bereinigung; Remote-Löschungen sichern
+  sobald dessen aktueller Stand vollständig integriert ist. `master`, `outshine_research` und `outshine_engine` bleiben bestehen.
+  Offene PRs, belegte Worktrees und nicht integrierte Commits schützen auch ältere Fachbranches
+  vor automatischer Bereinigung; Remote-Löschungen sichern
   den geprüften Commitstand per Lease. Keine globale Merge-Löschautomatik für dauerhafte Agentenbranches.
 - Für Vegetation gilt SpeedTree als Qualitätsmaßstab;
   die Nutzerbildreferenz besitzt [#1](https://github.com/Weichwolf/outshine/issues/1).
@@ -262,7 +244,7 @@
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
   Lokale Tests bauen nur ihre benötigten Komponenten. Modul-, Speicher-, Nebenläufigkeits- und
   Render-/Places-Prüfungen bleiben gezielt aufrufbar; Vollsuite und Instrumentierung sind getrennte Aufträge.
-- Native Fachagenten liefern Format, betroffene Tests und fokussiertes clang-tidy selbst;
+- Native Lieferungen enthalten Format, betroffene Tests und fokussiertes clang-tidy selbst;
   der PR nennt Commit, Umfang, Plattform, Aufruf und terminales Ergebnis, offene Prüfungen ausdrücklich.
   Sie aktualisieren ihren Branch vor dem Merge gegen `master`, lösen Konflikte und prüfen betroffene
   Übergänge. Kleine vollständige PRs eigenständig mergen; zusätzliche Features folgen separat.
@@ -270,7 +252,7 @@
   sporadische Gesamtläufe untereinander abstimmen, keine pauschalen Wiederholungen je Agent oder PR.
   Ich prüfe integrierte Änderungen gebündelt auf neue Wechselwirkungen, Metal/A18 und betroffene
   Places. Gemessene A18-Engpässe gehen mit Szenario, Profil, Commit und
-  Kostenbeleg an `outshine_performance`; ich übernehme die Geräte-/Bildgegenprüfung.
+  Kostenbeleg an `outshine_engine`; ich übernehme die Geräte-/Bildgegenprüfung.
   Ein gemeinsamer Voll-Lint gilt dem eingefrorenen Integrationsstand;
   Änderungen danach benötigen die davon betroffenen Prüfungen. Unabhängige Drafts halten das Paket nicht auf.
 - Agenten beurteilen parallele Läufe selbst anhand laufender Prozesse und verfügbarer Ressourcen;
@@ -281,8 +263,8 @@
   Im Entwicklungsloop entscheiden Trends vergleichbarer Szenarien; einzelne verrauschte Läufe
   nicht ausermitteln. Wiederholungen/isolierte Gegenmessungen für größere Entscheidungen,
   vermutete Regressionen und Geräteabnahme bündeln. Breite Prüfungen und aufwendige Renderexperimente
-  bevorzugt auf dem gemeinsamen Fachagentenrechner (Nutzerangabe: schnelle 6-Kern-CPU, 32 GB RAM,
-  RTX 3060), Metal-/A18-Abnahme auf dem Zielgerät.
+  nach verfügbaren Ressourcen verteilen; Intel/Iris-Xe-/Vulkan-Abnahme auf dem
+  i5-1135G7, Metal-/A18-Abnahme auf dem Zielgerät. Frühere RTX-Belege sind kein Iris-Xe-Nachweis.
   Lange Gates auf eingefrorenem Commit im detached Worktree mit eigenem Build; Jobzahl nach Ressourcen.
   Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.

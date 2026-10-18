@@ -18,7 +18,13 @@ def retained(catalog, maximum):
         def selected(index):
             return make(original.key, index)
 
-        return VolumeSource(original.key, original.bounds, selected, original.always)
+        return VolumeSource(
+            original.key,
+            original.bounds,
+            selected,
+            original.always,
+            original.xy_geometry,
+        )
 
     return (
         CandidateVolumes(catalog.frame, tuple(source(s) for s in catalog.sources)),
