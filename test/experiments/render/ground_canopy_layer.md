@@ -46,6 +46,9 @@ legacy, short, extra/unrecognized and disabled tails retain the old path.
 
 The shipped 14 rows plus fallback add 1440 B: 1276 B becomes 2716 B per palette.
 Packing derives the recipe once; fragment work follows only enabled coat rows.
+The Linux/x86_64 compiler measures CPU Row size148→184 B, alignment4: the two raw
+vec4 values and the coarse fraction add36 B per row,504 logical bytes for the
+shipped14 rows. This is not vector-capacity, allocation/driver-peak or A18 evidence.
 `ground-palette-layers-2` prevents reuse of a serialized product missing the tail.
 The existing Metal auxiliary buffer-size slot25 becomes used by the runtime array
 length query. Translation is not Metal execution or A18 acceptance.
@@ -138,3 +141,35 @@ of that boundary, an unchanged one-LSB reference error limit, and an additional
 black/white contrast and 32 fixed world positions per footprint, beyond the
 supplied palette's smaller optical range. Exact terminal results, GPU timings and
 paired world images belong to PR #645.
+
+
+## Matched native work comparison
+
+Use Performance's existing versioned `vulkan_work_profile.py` and analyzer (#756);
+no second profiler or product instrumentation is introduced. Build from the real
+client link arguments and full compile database. The diagnostic and ordinary
+clients use exactly the same catalogue, geometry and one of three complete shader
+packages: legacy, original nine-sample coat, or adaptive coat. Record ordinary and
+instrumented `shots --offline --rows --stats --measures` runs with the same explicit
+1920×1080/60 override,60frames/360° and preload120s. That diagnostic patience does
+not turn load above10s into a passing gate; do not add unmeasured warmup frames.
+
+The capture names are `<place>-<legacy|nine|adaptive>-<plain|probe>.log` and `.png`;
+probe `.work.json` stores the existing analyzer output plus the actual image SHA.
+`canopy_work_compare.py --source <captures> --analyzer <existing-analyzer.py>
+--output <system-temp-comparison.json>` reuses that analyzer on the original logs,
+checks the measured window and image/log identity, and compares all workload
+fields by measured frame/sample index. `--places` selects explicit test scenes.
+The helper requires the existing analyzer path explicitly; it does not copy or
+replace its parser. `canopy_work_report.py --comparison <comparison.json>
+--output <system-temp-report.pdf>` plots actual timings and final images.
+
+Host-p99 includes `advance`/`render` and their waits; it is not CPU work alone.
+Only ordinary runs classify frame/load/turn gates. A successful analysis means
+complete data, not passing budgets. Individual intervals overlap and must not be
+added. Per-frame largest ground/object intervals stay separate; workload counters
+remain distinct from time and submitted geometry. Missing stage counters stay null.
+Query hooks/output have their own recorded cost; physical diagnostic storage and
+GPU-query overhead are not derived from trace-struct bytes. Keep red ordinary
+controls, raw logs and the original image hashes. Exact measured values and the
+optically reviewed PDF belong to PR #645.
