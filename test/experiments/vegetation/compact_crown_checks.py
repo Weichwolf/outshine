@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import numpy as np
 from compact_crown import CompactCrown
+from compact_crown_images import compare
 from compact_crown_kernel import frame32
 from crown_demand import CrownDemand
 from crown_demand_probe import cameras
@@ -17,6 +18,34 @@ from spatial_source_checks import fixture
 
 
 class CompactCrownChecks(unittest.TestCase):
+    def test_image_counterexample_keeps_rejected_metrics_without_relaxing_limits(self):
+        original = np.zeros((10, 10, 3), np.uint8)
+        approximate = original.copy()
+        approximate[0, 0, 0] = 1
+        result = compare(
+            {"original": original, "compact64": original, "compact32": approximate}
+        )
+        self.assertTrue(result["compact64"]["accepted"])
+        self.assertFalse(result["compact32"]["accepted"])
+        self.assertEqual(result["compact32"]["different_pixels"], 1)
+        self.assertLess(result["compact32"]["mean_RGB8_error"], 0.1)
+
+    def test_float64_image_still_requires_exact_pixels(self):
+        original = np.zeros((10, 10, 3), np.uint8)
+        changed = original.copy()
+        changed[0, 0, 0] = 1
+        result = compare(
+            {"original": original, "compact64": changed, "compact32": original}
+        )
+        self.assertFalse(result["compact64"]["accepted"])
+        self.assertTrue(result["compact32"]["accepted"])
+
+    def test_image_comparison_refuses_different_profiles_or_dtypes(self):
+        original = np.zeros((10, 10, 3), np.uint8)
+        for bad in (original[:-1], original.astype(float)):
+            with self.assertRaises(ValueError):
+                compare({"original": original, "compact64": bad, "compact32": original})
+
     def test_parameter_build_needs_no_original_leaf_poses_or_meshes(self):
         source = fixture()
         with (

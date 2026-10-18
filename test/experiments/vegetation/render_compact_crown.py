@@ -11,33 +11,12 @@ from unittest.mock import patch
 import bpy
 import numpy as np
 from compact_crown import CompactCrown
+from compact_crown_images import compare
 from crown_demand import CrownDemand
 from crown_demand_probe import cameras
 from PIL import Image
 from render_crown_demand import scene_objects
 from spatial_group_source import load_source
-
-
-def compare(images):
-    result = {}
-    for name in ("compact64", "compact32"):
-        error = abs(images[name].astype(np.int16) - images["original"])
-        result[name] = {
-            "mean_RGB8_error": float(error.mean()),
-            "max_RGB8_error": int(error.max()),
-            "different_pixels": int(np.any(error, axis=-1).sum()),
-            "different_fraction": float(np.any(error, axis=-1).mean()),
-        }
-    if result["compact64"]["different_pixels"]:
-        raise AssertionError("Float64 compact image must remain pixel-identical")
-    if (
-        result["compact32"]["mean_RGB8_error"] > 0.1
-        or result["compact32"]["different_fraction"] > 0.005
-    ):
-        raise AssertionError(
-            "predeclared finite Float32 coverage-image limits exceeded"
-        )
-    return result
 
 
 def render(inputs, parameters, templates, output):
@@ -110,6 +89,10 @@ def render(inputs, parameters, templates, output):
         "scope": "Actual same inside camera and shared connected32 geometry/alpha. Float64 exact original poses, Float32 explicitly approximate. Finished compact readers forbid build/RNG/source poses; original full table is only diagnostic comparator. Software EEVEE coverage, no BRDF/shadow/wind/LOD/native/device admission.",
     }
     (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
+    if not all(v["accepted"] for v in result["differences"].values()):
+        raise AssertionError(
+            "predeclared finite coverage-image limits exceeded; report saved"
+        )
 
 
 if __name__ == "__main__":
