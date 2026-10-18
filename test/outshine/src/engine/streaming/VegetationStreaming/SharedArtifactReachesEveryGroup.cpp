@@ -54,12 +54,15 @@ void CheckEncodedAtlasBudget(const outshine::Content::ImpostorAtlas &atlas,
         "format-derived budget contains a real encoded native atlas");
 }
 
-void CheckStaticViews(outshine::VegetationStreaming &crowns, std::string &error) {
+void CheckStaticViews(outshine::VegetationStreaming &crowns,
+                      outshine::Render::SceneRenderer &renderer,
+                      std::string &error) {
   using outshine::VegetationStreaming;
   constexpr auto publication = VegetationStreaming::ResourcePublication::Allowed;
   CHECK(crowns.Costs().SelectedInstances == 2, "each newly resident group selects its view");
   constexpr int kRepeatedSteps = 100;
   for (int step = 0; step < kRepeatedSteps; ++step) {
+    crowns.Into(renderer);
     CHECK(crowns.Step({{0, 0, 10}}, false, publication, error), "stationary view remains ready");
   }
   CHECK(crowns.Costs().SelectedInstances == 2,
@@ -160,7 +163,7 @@ int main() {
     CHECK(stepped, "cache loading and requested miss preparation complete");
     CHECK(crowns->Ready() && crowns->Resident() == 2,
           "one cache result reaches both waiting groups");
-    CheckStaticViews(*crowns, error);
+    CheckStaticViews(*crowns, renderer, error);
     if (cycle == 4) {
       CHECK(crowns->Costs().Generated == 1 && crowns->Costs().Assets.Writes == 2,
             "shared cold requests generate once and store capture plus ready cards once each");
@@ -182,8 +185,8 @@ int main() {
             "crown groups rebind their stable piece handles after publication");
       CHECK(renderer.PiecesStanding() == initialPieces + 2,
             "rebound crown groups retain every resident prototype");
-      CHECK(crowns->Costs().SelectedInstances == 8,
-            "world republication refreshes both group views at the unchanged eye");
+      CHECK(crowns->Costs().SelectedInstances == 6,
+            "world republication preserves both copied group views at the unchanged eye");
     }
     crowns.reset();
     CHECK(!std::filesystem::exists(directory / "unwritten"),

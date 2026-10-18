@@ -81,6 +81,7 @@ bool VegetationStreaming::Ready() const {
 }
 
 void VegetationStreaming::Into(Render::SceneRenderer &renderer) noexcept {
+  if (Renderer_ == &renderer) { return; }
   Renderer_ = &renderer;
   for (Group &group : Groups_) {
     if (group.Pieces) {
