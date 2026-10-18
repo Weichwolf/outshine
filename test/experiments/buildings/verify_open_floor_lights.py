@@ -113,6 +113,8 @@ class OpenFloorLights(unittest.TestCase):
             }
             self.assertEqual(set(actual), {r["fixture_id"] for r in enabled})
             self.assertEqual(sun.energy, 0)
+            self.assertEqual(settings["shadow_pool_mb"], 1024)
+            self.assertEqual(scene.eevee.shadow_resolution_scale, 1)
             for record in enabled:
                 lamp = actual[record["fixture_id"]]
                 np.testing.assert_allclose(

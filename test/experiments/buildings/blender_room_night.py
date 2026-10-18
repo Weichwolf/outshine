@@ -4,6 +4,8 @@ import bpy
 import numpy as np
 from open_floor_lights import light_state
 
+SHADOW_POOL_MB = 1024
+
 
 def configure(scene, report, daylight):
     plan = report.get("room_light_plan")
@@ -13,6 +15,7 @@ def configure(scene, report, daylight):
     maximum_position_error = 0.0
     scene.view_settings.view_transform = daylight["view_transform"]
     scene.view_settings.exposure = daylight["exposure"]
+    scene.eevee.shadow_pool_size = str(SHADOW_POOL_MB)
     for obj in scene.objects:
         if obj.type == "LIGHT":
             obj.data.energy = 0
@@ -43,6 +46,8 @@ def configure(scene, report, daylight):
         "world_linear_rgb": daylight["world_linear_rgb"],
         "view_transform": daylight["view_transform"],
         "exposure": daylight["exposure"],
+        "shadow_pool_mb": int(scene.eevee.shadow_pool_size),
+        "shadow_resolution_scale": scene.eevee.shadow_resolution_scale,
         "light_unit": "Blender radiant W; normalize=True, light exposure=0; not electrical W or calibrated lumens",
         "state": report["room_light_state"],
         "fixtures": state,
