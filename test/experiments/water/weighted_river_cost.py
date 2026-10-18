@@ -54,7 +54,8 @@ def run(args):
         "vertices": len(mesh.vertices),
         "faces": len(mesh.triangles),
         "output_vertices_sha256": hashlib.sha256(result.mesh.vertices).hexdigest(),
-        "known_output_copy_bytes": result.mesh.vertices.nbytes,
+        "explicit_mesh_copy_bytes": 2 * result.mesh.vertices.nbytes
+        + result.mesh.triangles.nbytes,
         "peak_process_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
         "objective_weight_bytes": weights.nbytes,
