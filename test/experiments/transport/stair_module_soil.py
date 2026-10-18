@@ -5,6 +5,7 @@ import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler, conform_triangles, weld_vertices
 from stair_blend_solve import solve
+from stair_free_terrain import retained_seeds
 from stair_module_topology import check_surface
 from stair_pier_ground import fixed
 from stair_terrain_solid import retaining_body
@@ -107,10 +108,18 @@ def prepare(state, data, ground, recipe, sample):
     old_ground = old_xyz[old["faces"][old_ground_ids]]
     fixed_tri = np.vstack([old_ground, new_tri, protected])
     fixed_union = shapely.union_all(shapely.polygons(fixed_tri[:, :, :2]))
-    free = shapely.get_parts(shapely.difference(shapes[chosen], fixed_union))
-    xy, faces, work = tessellate(
-        old["xy"], np.unique(old["faces"][chosen]), fixed_tri, free
-    )
+    mode = recipe.get("terrain_layout_mode", "legacy")
+    seeds = np.unique(old["faces"][chosen])
+    free_note = {}
+    if mode == "free_region":
+        free = shapely.get_parts(region.difference(fixed_union))
+        seeds, free_note = retained_seeds(old["xy"], seeds, fixed_tri, region)
+        free_note.update(overlay_polygon_inputs=1, free_parts=len(free))
+    elif mode == "legacy":
+        free = shapely.get_parts(shapely.difference(shapes[chosen], fixed_union))
+    else:
+        raise ValueError("known local terrain layout mode required")
+    xy, faces, work = tessellate(old["xy"], seeds, fixed_tri, free)
     polygons = shapely.polygons(xy[faces])
     if (
         not shapely.coverage_is_valid(polygons)
@@ -150,6 +159,7 @@ def prepare(state, data, ground, recipe, sample):
         "precision_mode": np.array("legacy"),
         "variable_mode": np.array("fixed_displacement"),
         "bridge_reserve_m": np.array(recipe["soil_bridge_reserve_m"]),
+        **({"terrain_layout_mode": np.array(mode)} if mode != "legacy" else {}),
     }
     note = {
         "old_selected_faces": int(chosen.sum()),
@@ -160,6 +170,7 @@ def prepare(state, data, ground, recipe, sample):
         "boundary_vertices": int(boundary.sum()),
         "finite_pins": int(np.isfinite(values).sum()),
         "work": work,
+        **({"free_terrain_retessellation": free_note} if free_note else {}),
     }
     if protection:
         note["pier_ground_protection"] = protection

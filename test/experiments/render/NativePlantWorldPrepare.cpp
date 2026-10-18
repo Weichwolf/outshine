@@ -1,7 +1,7 @@
 #include "NativePlantWorldAssets.h"
+#include "NativePlantLeafCarrier.h"
 #include "PlantBladeSurface.h"
 #include "PlantRecipeJson.h"
-#include "LeafOpticsDefaults.h"
 #include "math/Vec3.h"
 #include <algorithm>
 #include <array>
@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -22,7 +23,6 @@ using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::NativePlantWorldProbe;
 constexpr double kAnchorToleranceM = 1e-9;
-constexpr float kLeafRoughness = 0.8f;
 constexpr size_t kMostSourceNodes = 65536;
 constexpr size_t kMostLeaves = 100000;
 
@@ -90,13 +90,7 @@ std::expected<Geometry, std::string> Blades(const std::string &text, size_t segm
   const auto recipe = ReadPlantRecipe(text, kAssetBytesMost);
   if (!recipe || recipe->Blades.size() != 8) { return std::unexpected("blade recipe"); }
   Geometry result;
-  Material material;
-  const auto rgb = DefaultLeafReflection();
-  material.BaseColour = {rgb[0], rgb[1], rgb[2], 1};
-  material.Roughness = kLeafRoughness;
-  material.DoubleSided = true;
-  material.Scattering = ScatteringModel::DiffuseThinSheet;
-  material.DiffuseTransmission = DefaultLeafTransmission();
+  const auto material = LeafMaterial();
   const auto surface = result.addSurface("foliage", material);
   if (!surface) { return std::unexpected("blade material"); }
   for (size_t variant = 0; variant < 8; ++variant) {
@@ -134,6 +128,22 @@ double LeafArea(const Geometry &geometry, const PlantCrownPlan &crown) {
     }
   }
   return area;
+}
+
+std::optional<std::array<unsigned, 2>> CoverageMipRange(const Geometry &geometry) {
+  std::optional<std::array<unsigned, 2>> range;
+  for (int part = 0; part < geometry.parts(); ++part) {
+    const auto &map = geometry.surfaceAt(geometry.materialOf(part)).BaseColourMap;
+    if (!map.bound()) { continue; }
+    const auto levels =
+        geometry.imageAt(map.Image).LowerMips[static_cast<size_t>(ImageMipKind::Colour)];
+    if (!levels || levels->empty()) { continue; }
+    const unsigned alpha = levels->back();
+    if (!range) { range = std::array{alpha, alpha}; }
+    (*range)[0] = std::min((*range)[0], alpha);
+    (*range)[1] = std::max((*range)[1], alpha);
+  }
+  return range;
 }
 
 std::expected<std::vector<uint8_t>, std::string> CrownInput(const char *const *argv) {
@@ -211,7 +221,7 @@ Box Bounds(const PlantCrownPlan &crown, const Geometry &blades, double radiusMos
 }
 
 int Prepare(int argc, const char *const *argv) {
-  if (argc != 8) { return 1; }
+  if (argc < 8 || argc > 10 || (argc == 10 && std::string_view(argv[9]) != "base")) { return 1; }
   const auto original = CrownInput(argv);
   if (!original) {
     std::cerr << original.error();
@@ -235,7 +245,7 @@ int Prepare(int argc, const char *const *argv) {
       std::ranges::find(profiles, detail, &decltype(profiles)::value_type::first);
   if (profile == profiles.end()) { return 1; }
   const size_t segments = profile->second;
-  const auto blades = Blades(text, segments);
+  const auto blades = argc >= 9 ? ReadCarrierPacket(argv[8], argc == 10) : Blades(text, segments);
   if (!blades) {
     std::cerr << blades.error();
     return 6;
@@ -274,8 +284,13 @@ int Prepare(int argc, const char *const *argv) {
   std::cout << "nodes=" << loaded->Crown.Summarize().Nodes << " limbs=" << loaded->Wood.size()
             << " leaves=" << loaded->Crown.Summarize().Leaves
             << " package_bytes=" << package.Bytes.size() << " wood_bytes=" << wood->size()
-            << " blade_segments=" << segments << " leaf_area_m2=" << LeafArea(*blades, *crown)
-            << '\n';
+            << " representation=" << (argc >= 9 ? "connected" : "analytic")
+            << " alpha_base_level=" << (argc == 10) << " analytic_blade_segments=" << segments
+            << " triangle_area_m2=" << LeafArea(*blades, *crown);
+  if (const auto range = CoverageMipRange(loaded->Blades)) {
+    std::cout << " coverage_last_mip_u8=" << (*range)[0] << ':' << (*range)[1];
+  }
+  std::cout << '\n';
   return 0;
 }
 }
