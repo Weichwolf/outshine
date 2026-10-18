@@ -126,3 +126,7 @@ The existing shared weighted fitter and native water remain unchanged.
 [Native HiGHS/OSQP probes and exact area integration](native_profile_comparison.md)
 compare the same finite directed problem, including a retained vertex-lumping bias.
 Standalone optional builds use installed solver libraries; production water is unchanged.
+
+[Float32 profile storage counterexamples](profile_precision_comparison.md) check
+whole-face/source-face gradients after conversion, mixed XYZ precision and
+independent seam datums. A local origin alone does not preserve the existing bounds.
