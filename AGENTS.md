@@ -21,10 +21,10 @@
   Gemeinsame Verfahren und Shader haben eine Implementierung; nur Backend-/Geräteausführung
   und begründete Qualitätsprofile unterscheiden sich. Metal und Vulkan stimmen Bindings,
   Ressourcenlebensdauer und gemeinsame GPU-Verträge vor Änderungen ab.
-- Die sieben bisherigen Fachagenten übergeben gemäß [#786](https://github.com/Weichwolf/outshine/issues/786)
-  gesicherte Commitstände, offene PRs, Prüfbelege und Restarbeiten und pausieren danach ihre Goals.
-  Übergabe ist keine Fertigstellung. Alte Branches/Worktrees bleiben bis zur ausdrücklich
-  bestätigten Übernahme geschützt. Mein Goal auf `master` läuft weiter.
+- Ausschließlich `master`, `outshine_research` und `outshine_engine` sind aktive Besitzer.
+  Gesicherte Übergabestände und offene PRs stehen in [#786](https://github.com/Weichwolf/outshine/issues/786).
+  Historische Branch-/Hostnamen bleiben Herkunftsbelege. Nicht integrierte Arbeiten bleiben
+  geschützt; der Backlog weist jede offene Aufgabe einem der drei aktuellen Besitzer zu.
 - `outshine_research` priorisiert mit mir den wichtigsten fehlenden Verfahrensbaustein und
   liefert kleine geprüfte vertikale Schritte. Experimente liegen unter `test/experiments/`,
   gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Implementierung.
@@ -226,8 +226,8 @@
   Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
 - Nach dem Merge löscht der PR-Besitzer den temporären Themenbranch lokal und auf GitHub,
   sobald dessen aktueller Stand vollständig integriert ist. `master`, `outshine_research` und `outshine_engine` bleiben bestehen.
-  Die sieben bisherigen Fachbranches bleiben bis zur bestätigten Übergabe gemäß #786 geschützt. Offene PRs, belegte Worktrees und
-  nicht integrierte Commits schützen vor automatischer Bereinigung; Remote-Löschungen sichern
+  Offene PRs, belegte Worktrees und nicht integrierte Commits schützen auch ältere Fachbranches
+  vor automatischer Bereinigung; Remote-Löschungen sichern
   den geprüften Commitstand per Lease. Keine globale Merge-Löschautomatik für dauerhafte Agentenbranches.
 - Für Vegetation gilt SpeedTree als Qualitätsmaßstab;
   die Nutzerbildreferenz besitzt [#1](https://github.com/Weichwolf/outshine/issues/1).
