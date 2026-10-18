@@ -1,0 +1,16 @@
+{
+  "format": "vegetation-crown682-fixed-inputs-1",
+  "scope": "Exact six-file cold procedural source from #703/#704. Own pigment/height inputs, not renderings or vendor assets. Original metadata retained unchanged; no full leaf poses, near meshes or result images.",
+  "source_build_commit": "2a400dae11cff36b8a73180864910da2c3a2a0ea",
+  "source_plan_identity": "029f1af642d33a6aad5ba2adc640ce77ce7ce9f4505770e78800c18342c59d34",
+  "source_catalog_identity": "62a49f3c918384dba7633ec6e13a3f48560c828df682c0745cea7e0e8115015d",
+  "files_sha256": {
+    "comparison.json": "e803eb551b04a0379cbff9875c440e5836201746e0c19a4ee3eb7fc00357bc47",
+    "spatial/skeleton.npz": "763d08bfee166cb3076b01bdb1c6d43cf6f85c6a676805a152d39d9b5dd5fda7",
+    "spatial/tables.npz": "a3c1b9e50ec9f2cf56f3c4e0acdb17347262869d10aa5c8ddb9c7b3d14435c37",
+    "spatial/fern-material.json": "d58531c6686d4f444bd74cf3a43822cf0e4492bac3173d289a70151bb51d6fd9",
+    "spatial/fern-colour.png": "25d42bdd72e680ecd239895976f7ede0aacad495f60a79d613fddb263ad0fb9f",
+    "spatial/fern-height.png": "4923fefd1372c5c17b668c46f48450603ee084a0d0d781d47e408cc2681c4d57"
+  },
+  "original_file_bytes": 185651
+}
