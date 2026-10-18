@@ -7,6 +7,7 @@
 #include <optional>
 #include <span>
 #include <mutex>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -15,6 +16,10 @@
 #include <world/data/GeoCellId.h>
 #include <world/data/SourceDecl.h>
 #include <world/data/Transport.h>
+
+namespace outshine {
+class CacheUsageIndex;
+}
 
 namespace outshine::Data {
 
@@ -45,6 +50,7 @@ public:
   };
 
   explicit ContentStore(const Config &config);
+  ~ContentStore();
 
   [[nodiscard]] bool Trim();
 
@@ -101,6 +107,9 @@ private:
   void ForgetAbsence(std::string_view key);
 
   std::string Directory_;
+  std::unique_ptr<CacheUsageIndex> Usage_;
+  mutable std::atomic<bool> UsageWarning_{false};
+  void ObserveUsage(std::string_view key, size_t bytes, bool published = false) const;
   Use Using_;
   size_t CapBytes_;
   mutable std::mutex AbsenceMutex_;

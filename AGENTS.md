@@ -131,6 +131,10 @@
   weder Quellaufbereitung noch Rohling-Aufbau; Nahdetails dürfen und müssen daraus zur Laufzeit
   ergänzt werden. Räumliche/LOD-Auswahl und aktuelles Shading folgen danach. Quelle, Asset, Spielstand und
   Testreferenzen bleiben getrennt; keine automatische Quellaktualisierung. [#10](https://github.com/Weichwolf/outshine/issues/10) besitzt den Vertrag.
+- Quell- und Assetcaches speichern Größen-/Nutzungsmetadaten und bleiben getrennt budgetierbar
+  bereinigbar. Einmalig besuchte Weltregionen dürfen die SSD nicht unbegrenzt füllen;
+  häufig genutzte Inhalte bleiben bevorzugt erhalten. Metadatenpflege wird gebündelt und
+  darf den Weltaufbau nicht bei einzelnen Schreibfehlern blockieren. Altbestandszeiten nicht erfinden.
 - Adapter/Provider beschaffen und normalisieren Eingaben; Generatoren erzeugen native Inhalte.
   Provider sind optional. Erweiterungen besitzen ihre Quellsemantik; OSM gehört zu generators/osm.
   Engine koordiniert; world bleibt eine generische 3D-Welt, Render/Audio konsumieren native Produkte.
