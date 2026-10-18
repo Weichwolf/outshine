@@ -163,6 +163,12 @@ No images, gallery or server are published.
 Current original inputs, complete products, unchanged producer receipts, separate
 readers, import manifests, four images, raw allocation traces/statistics and
 terminal logs live under `/tmp/outshine-transport-network-bcfea4a8b/`.
+Canonical source products and original inputs are retained; duplicate installed,
+serial and profiled numerical exports are removed after their equality receipts.
+All eight allocation-stat exports match their raw trace metadata in the separate
+`allocation-export-verification.json` check. The extraction wrapper ended with
+SIGTERM after printing eight checked successful CLI exports; that wrapper exit is
+recorded, and complete export/raw-metadata validation independently ends with zero.
 The `outshine-batch-source` producer report SHA256 is
 `ef58b53b3543e25c44849e263e09cb84c5454ee4a97a2ab4f02a63f5574134f3`.
 `whole-summary.json`, `installed-102-artifact-equality.json`,
