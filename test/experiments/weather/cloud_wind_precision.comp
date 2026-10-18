@@ -28,75 +28,15 @@ layout(std140, set = 2, binding = 0) uniform SplitWeather {
 
 weather;
 
-float splitNoise(vec3 position, uvec3 origin) {
-  ivec3 cell = ivec3(floor(position));
-  vec3 fraction = position - vec3(cell);
-  vec3 blend = fraction * fraction * (3.0 - 2.0 * fraction);
-  float result = 0.0;
-  for (int x = 0; x < 2; ++x) {
-    for (int y = 0; y < 2; ++y) {
-      for (int z = 0; z < 2; ++z) {
-        vec3 weight = mix(vec3(1.0) - blend, blend, bvec3(x != 0, y != 0, z != 0));
-        ivec3 globalCell = ivec3(uvec3(cell + ivec3(x, y, z)) + origin);
-        result += weight.x * weight.y * weight.z * cloudHash(globalCell);
-      }
-    }
-  }
-  return result;
-}
-
-float splitBody(vec3 position, float height, float cover, uvec3 origin) {
-  ivec2 cell = ivec2(floor(position.xz));
-  vec2 local = position.xz - vec2(cell);
-  float radiusScale = 0.7 * sqrt(cover);
-  float body = 0.0;
-  for (int x = -1; x <= 1; ++x) {
-    for (int z = -1; z <= 1; ++z) {
-      uvec2 globalCell = uvec2(cell + ivec2(x, z)) + origin.xz;
-      uint bits = cloudHashBits(ivec3(globalCell.x, 812u, globalCell.y));
-      vec4 feature = vec4((uvec4(bits) >> uvec4(0u, 8u, 16u, 24u)) & uvec4(255u)) / 255.0;
-      vec2 center = vec2(x, z) + 0.5 + (feature.xy - 0.5) * 0.6;
-      float radius = radiusScale * (0.85 + 0.3 * feature.z);
-      float top = 0.55 + 0.4 * feature.w;
-      vec2 delta = (local - center) / radius;
-      float vertical = height / top;
-      body = max(body, 1.0 - dot(delta, delta) - vertical * vertical);
-    }
-  }
-  return body;
-}
-
-float splitDensity(vec3 position) {
-  float cover = weather.Field.x;
-  if (cover <= 0.0) { return 0.0; }
-  float height = (cloudAltitude(position, weather.Shell.x) - weather.Shell.y) / weather.Shell.z;
-  if (height <= 0.0 || height >= 1.0) { return 0.0; }
-  vec3 localPosition = (position - weather.CoordinateOrigin.xyz) / 1400.0;
-  vec3 broadPosition = localPosition + weather.BroadFraction.xyz;
-  vec3 detailPosition = localPosition * 3.1 + weather.DetailFraction.xyz + vec3(19.0, 7.0, 3.0);
-  float body = 0.0;
-  if (weather.Field.y == 1.0) {
-    body = splitBody(broadPosition, height, cover, weather.BroadBase.xyz);
-    if (cover < 0.75 && body <= 0.0) { return 0.0; }
-  }
-  float detail = splitNoise(detailPosition, weather.DetailBase.xyz);
-  if (weather.Field.y == 1.0 && cover < 0.75) {
-    return weather.Shell.w * cloudCumulusProfile(height, body - 0.18 * (1.0 - detail));
-  }
-  float broad = splitNoise(broadPosition, weather.BroadBase.xyz);
-  float structure = 0.8 * broad + 0.2 * detail;
-  float amount = clamp((structure - (1.0 - cover)) * 2.0, 0.0, 1.0);
-  float stratus = weather.Shell.w * 6.0 * height * (1.0 - height) * amount;
-  if (weather.Field.y == 1.0) {
-    float cumulus = cloudCumulusProfile(height, body - 0.18 * (1.0 - detail));
-    float closed = cloudCumulusUnit((cover - 0.75) / 0.25);
-    return max(weather.Shell.w * cumulus, closed * stratus);
-  }
-  return stratus;
-}
-
 void main() {
   uint index = gl_GlobalInvocationID.x;
   if (index >= points.Values.length()) { return; }
-  densities.Values[index] = splitDensity(points.Values[index].xyz);
+  CloudLayer layer = CloudLayer(weather.Shell,
+                                weather.Field,
+                                weather.CoordinateOrigin,
+                                weather.BroadBase,
+                                weather.BroadFraction,
+                                weather.DetailBase,
+                                weather.DetailFraction);
+  densities.Values[index] = cloudExtinction(layer, points.Values[index].xyz);
 }

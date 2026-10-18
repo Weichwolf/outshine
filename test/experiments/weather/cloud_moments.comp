@@ -1,5 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#include "cloud_fixture_layer.glsl"
 #include "cloudMoments.glsl"
 #include "cloudPrefix.glsl"
 
@@ -10,7 +11,7 @@
 layout(local_size_x = 64) in;
 
 struct Query {
-  CloudLayer Layer;
+  CloudFixtureInput Layer;
   vec4 OriginQueryM;
   vec4 DirectionExtentM;
   vec4 Control;
@@ -24,11 +25,15 @@ struct Answer {
 
 layout(std430, set = 0, binding = 0) readonly buffer Queries {
   Query Items[];
-} queries;
+}
+
+queries;
 
 layout(std430, set = 1, binding = 0) writeonly buffer Answers {
   Answer Items[];
-} answers;
+}
+
+answers;
 
 void main() {
   uint index = gl_GlobalInvocationID.x;
@@ -37,9 +42,12 @@ void main() {
   CloudMomentSum sum = cloudMomentBegin();
   uint visits = 0u;
   float evaluations = 0.0;
-  CloudPrefix prefix = cloudPrefixBegin(query.Layer, query.OriginQueryM.xyz,
-      query.DirectionExtentM.xyz, query.DirectionExtentM.w,
-      CloudLight(vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0)));
+  CloudPrefix prefix =
+      cloudPrefixBegin(cloudFixtureLayer(query.Layer.Shell, query.Layer.Field, query.Layer.Drift),
+                       query.OriginQueryM.xyz,
+                       query.DirectionExtentM.xyz,
+                       query.DirectionExtentM.w,
+                       CloudLight(vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0)));
   for (uint cell = 0u; cell < 32u; ++cell) {
     vec3 actual = vec3(0.0);
     float fullLengthM = 0.0;
@@ -53,8 +61,7 @@ void main() {
       }
     } else if (prefix.EndM > prefix.BeginM && prefix.BeginM < query.OriginQueryM.w) {
       float lengthM = min(prefix.EndM, query.OriginQueryM.w) - prefix.BeginM;
-      vec3 pointM = prefix.OriginM + prefix.Direction *
-          (0.5 * (prefix.BeginM + prefix.EndM));
+      vec3 pointM = prefix.OriginM + prefix.Direction * (0.5 * (prefix.BeginM + prefix.EndM));
       float extinction = cloudExtinction(prefix.Layer, pointM);
       evaluations += 1.0;
       actual = vec3(prefix.BeginM, lengthM, extinction * lengthM);

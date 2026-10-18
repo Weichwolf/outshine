@@ -4,7 +4,11 @@
 struct CloudLayer {
   vec4 shell;
   vec4 field;
-  vec4 drift;
+  vec4 coordinateOrigin;
+  uvec4 broadBase;
+  vec4 broadFraction;
+  uvec4 detailBase;
+  vec4 detailFraction;
 };
 
 float cloudAltitude(vec3 positionM, float radiusM) {
@@ -62,7 +66,7 @@ float cloudHash(ivec3 cell) {
   return float(cloudHashBits(cell) >> 8) / 16777215.0;
 }
 
-float cloudNoise(vec3 position) {
+float cloudNoise(vec3 position, uvec3 origin) {
   ivec3 cell = ivec3(floor(position));
   vec3 fraction = fract(position);
   vec3 blend = fraction * fraction * (3.0 - 2.0 * fraction);
@@ -71,7 +75,8 @@ float cloudNoise(vec3 position) {
     for (int y = 0; y < 2; ++y) {
       for (int z = 0; z < 2; ++z) {
         vec3 weight = mix(vec3(1.0) - blend, blend, bvec3(x != 0, y != 0, z != 0));
-        result += weight.x * weight.y * weight.z * cloudHash(cell + ivec3(x, y, z));
+        ivec3 globalCell = ivec3(uvec3(cell + ivec3(x, y, z)) + origin);
+        result += weight.x * weight.y * weight.z * cloudHash(globalCell);
       }
     }
   }
@@ -84,17 +89,23 @@ float cloudExtinction(CloudLayer layer, vec3 positionM) {
   if (layer.field.x <= 0.0) { return 0.0; }
   float height = (cloudAltitude(positionM, layer.shell.x) - layer.shell.y) / layer.shell.z;
   if (height <= 0.0 || height >= 1.0) { return 0.0; }
-  vec3 advected = (positionM - layer.drift.xyz) / 1400.0;
-  if (layer.field.y == 1.0 && layer.field.x < 0.75) {
-    return layer.shell.w * cloudCumulusDensity(advected, height, layer.field.x);
+  vec3 localPosition = (positionM - layer.coordinateOrigin.xyz) / 1400.0;
+  vec3 broadPosition = localPosition + layer.broadFraction.xyz;
+  vec3 detailPosition = localPosition * 3.1 + layer.detailFraction.xyz + vec3(19.0, 7.0, 3.0);
+  float body = 0.0;
+  if (layer.field.y == 1.0) {
+    body = cloudCumulusShape(broadPosition, height, layer.field.x, layer.broadBase.xyz);
+    if (layer.field.x < 0.75 && body <= 0.0) { return 0.0; }
   }
-  float broad = cloudNoise(advected);
-  float detail = cloudNoise(advected * 3.1 + vec3(19.0, 7.0, 3.0));
+  float detail = cloudNoise(detailPosition, layer.detailBase.xyz);
+  if (layer.field.y == 1.0 && layer.field.x < 0.75) {
+    return layer.shell.w * cloudCumulusProfile(height, body - 0.18 * (1.0 - detail));
+  }
+  float broad = cloudNoise(broadPosition, layer.broadBase.xyz);
   float structure = 0.8 * broad + 0.2 * detail;
   float amount = clamp((structure - (1.0 - layer.field.x)) * 2.0, 0.0, 1.0);
   float stratus = layer.shell.w * 6.0 * height * (1.0 - height) * amount;
   if (layer.field.y == 1.0) {
-    float body = cloudCumulusShape(advected, height, layer.field.x);
     float cumulus = cloudCumulusProfile(height, body - 0.18 * (1.0 - detail));
     float closed = cloudCumulusUnit((layer.field.x - 0.75) / 0.25);
     return max(layer.shell.w * cumulus, closed * stratus);

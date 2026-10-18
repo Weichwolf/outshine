@@ -44,7 +44,9 @@ def coefficients(rays, medium):
     ) * 0.001
 
 
-def transfer(rays, medium, weather, phase_s, view_samples=16, light_samples=6, warp=1):
+def transfer(
+    rays, medium, weather, phase_s, view_samples=16, light_samples=6, warp=1, profile=0
+):
     if medium[2] < 1e19 or medium[3] < 1e19 or np.any(medium[8:11] != 0.0):
         raise ValueError(
             "this reference requires the declared homogeneous, ozone-free control"
@@ -56,6 +58,25 @@ def transfer(rays, medium, weather, phase_s, view_samples=16, light_samples=6, w
         extinction_per_m=float(weather[0, 3]),
         cover=float(weather[1, 0]),
     )
+    if profile == 1:
+        if warp != 1:
+            raise ValueError(
+                "the independent cumulus control requires the existing uniform cell partition"
+            )
+        from cloud_shape_transfer import transfer as shape_transfer
+
+        return shape_transfer(
+            rays,
+            medium,
+            layer,
+            phase_s,
+            "cell-smooth",
+            view_samples=view_samples,
+            light_samples=light_samples,
+            query_m=rays[:, 10] * 1000.0,
+        )
+    if profile != 0:
+        raise ValueError("the declared reference profile must be supported explicitly")
     origins, directions, queries = rays[:, :3], rays[:, 3:6], rays[:, 10] * 1000.0
     begin, end = physical_air(rays, medium)
     air_extinction, air_emission = coefficients(rays, medium)
@@ -115,10 +136,17 @@ def judge(metadata, view_samples=16, light_samples=6, warp=1):
     images = np.fromfile(stem + ".images.bin", dtype="<f4").reshape(5, pixels, 4)
     rays = np.fromfile(stem + ".rays.bin", dtype="<f8").reshape(pixels, 11)
     parameters = np.fromfile(stem + ".parameters.bin", dtype="<f4")
-    medium, weather = parameters[:20], parameters[20:].reshape(6, 4)
+    medium, weather = parameters[:20], parameters[20:].reshape(-1, 4)
     mask = images[2, :, 3] > 0.0
     expected = transfer(
-        rays[mask], medium, weather, case["phase_s"], view_samples, light_samples, warp
+        rays[mask],
+        medium,
+        weather,
+        case["phase_s"],
+        view_samples,
+        light_samples,
+        warp,
+        profile=case.get("cloud_profile", int(weather[1, 1])),
     )
     actual = np.c_[images[2, mask, :3], images[3, mask, :3]].astype(float)
     errors = np.abs(actual - expected)

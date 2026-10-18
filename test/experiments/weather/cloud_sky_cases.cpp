@@ -5,6 +5,8 @@
 #include "Check.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <string>
 #include <vector>
 
 namespace outshine::Test::CloudViewProbe {
@@ -15,6 +17,35 @@ constexpr double kWindAdvanceS = 60.0;
 constexpr float kNearSkyM = 50.0f;
 constexpr float kFarSkyM = 600000.0f;
 constexpr Pixel kBrightBoundary{1.0f, 0.5f, 0.25f, kCloudViewBoundary[3]};
+}
+
+std::vector<Case> WindCases(MediumViewProbe::ImageShape shape) {
+  constexpr double kMonthS = 32.0 * 86400.0;
+  constexpr double kWindCover = 0.65;
+  constexpr Vec3 kFractionalFieldOriginM{{22222.12345, -511.123456, -16845.34567}};
+  const auto original = Cases(shape)[1];
+  std::vector<Case> result;
+  for (const auto profile : {CloudProfile::Stratus, CloudProfile::CumulusV1}) {
+    for (const double sign : {-1.0, 1.0}) {
+      auto base = original;
+      base.Profile = profile;
+      base.Snapshot.Values.CloudLow = kWindCover;
+      base.BoundarySky = base.SkyOnly = true;
+      base.PhaseS = sign * kMonthS;
+      base.Name = "wind-" + std::to_string(static_cast<uint32_t>(profile)) + "-" +
+                  std::to_string(static_cast<int>(sign));
+      for (const int rate : {0, 30, 60}) {
+        auto value = base;
+        value.Name += "-" + std::to_string(rate);
+        if (rate > 0) { value.PhaseS += 1.0 / rate; }
+        result.push_back(value);
+      }
+      base.Name += "-anchor";
+      base.FieldOriginM = kFractionalFieldOriginM;
+      result.push_back(base);
+    }
+  }
+  return result;
 }
 
 std::vector<Case> BoundaryCases(MediumViewProbe::ImageShape shape) {

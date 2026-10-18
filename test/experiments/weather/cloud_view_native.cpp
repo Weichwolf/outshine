@@ -49,7 +49,7 @@ Pipeline(Device &device, const char *vertex, const char *fragment, bool scene) {
       }
       if (resource.Set == 3 && resource.Slot == 3 && resource.Kind == BindingKind::Uniform) {
         CHECK(resource.MinimumBytes == sizeof(WeatherFrame),
-              "the private fragment3/3 weather payload is96 bytes");
+              "the private fragment3/3 weather payload is160 bytes including the112B cloud frame");
         ++weather;
       }
     }
@@ -68,14 +68,28 @@ uint32_t Extent(const char *text) {
              ? value
              : 0;
 }
+
+std::optional<std::vector<Case>> SelectCases(MediumViewProbe::ImageShape shape,
+                                             std::string_view mode) {
+  if (mode == "wind-sky") { return WindCases(shape); }
+  if (mode == "cumulus-sky" || mode == "stratus-sky") {
+    return ProfileCases(shape,
+                        mode == "cumulus-sky" ? outshine::CloudProfile::CumulusV1
+                                              : outshine::CloudProfile::Stratus);
+  }
+  if (mode == "boundary-sky") { return BoundaryCases(shape); }
+  if (mode.empty()) { return Cases(shape); }
+  return std::nullopt;
+}
+
 }
 
 int main(int argc, char **argv) {
-  if (argc != 6 && argc != 8 && argc != 9 && argc != 10) {
+  if (argc != 6 && argc != 8 && argc != 9 && argc != 10 && argc != 11) {
     std::println(
         stderr,
         "usage: cloud-view-native scene.vert scene.frag fullscreen.vert front.frag output-prefix "
-        "[width height [scenario [boundary-sky|cumulus-sky|stratus-sky]]]");
+        "[width height [scenario [boundary-sky|cumulus-sky|stratus-sky|wind-sky [timed]]]]");
     return 2;
   }
   const uint32_t width = argc >= 8 ? Extent(argv[6]) : MediumViewProbe::kWidth;
@@ -87,31 +101,32 @@ int main(int argc, char **argv) {
       .Height = height,
       .RowBytes = (width * static_cast<uint32_t>(sizeof(Pixel)) + rowAlignment - 1) / rowAlignment *
                   rowAlignment};
-  const bool cumulus = argc == 10 && std::string_view(argv[9]) == "cumulus-sky";
-  const bool stratus = argc == 10 && std::string_view(argv[9]) == "stratus-sky";
-  const bool boundarySky =
-      argc == 10 && (std::string_view(argv[9]) == "boundary-sky" || cumulus || stratus);
-  if (argc == 10 && !boundarySky) { return 2; }
-  std::vector<Case> cases;
-  if (cumulus || stratus) {
-    cases = ProfileCases(
-        shape, cumulus ? outshine::CloudProfile::CumulusV1 : outshine::CloudProfile::Stratus);
-  } else if (boundarySky) {
-    cases = BoundaryCases(shape);
-  } else {
-    cases = Cases(shape);
-  }
-  auto device = Require(CreateDevice({.Validation = true}));
+  const auto cases =
+      SelectCases(shape, argc >= 10 ? std::string_view(argv[9]) : std::string_view{});
+  if (!cases) { return 2; }
+  const bool timed = argc == 11 && std::string_view(argv[10]) == "timed";
+  if (argc == 11 && !timed) { return 2; }
+  auto device = Require(CreateDevice({.Validation = !timed, .GpuTiming = timed}));
   CHECK(device->Limits().MaxColourAttachments >= 4, "four actual cloud-front MRTs are supported");
   const auto scene = Pipeline(*device, argv[1], argv[2], true);
   const auto front = Pipeline(*device, argv[3], argv[4], false);
   const Targets targets(*device, shape);
   size_t frames = 0;
-  for (const auto &scenario : cases) {
+  for (const auto &scenario : *cases) {
     if (argc >= 9 && std::string_view(argv[8]) != "all" && scenario.Name != argv[8]) { continue; }
-    const auto capture = targets.Draw(*device, {.Scene = *scene, .Front = *front}, scenario);
-    const auto repeat = targets.Draw(*device, {.Scene = *scene, .Front = *front}, scenario);
+    const auto capture = targets.Draw(*device, {.Scene = *scene, .Front = *front}, scenario, timed);
+    const auto repeat = targets.Draw(*device, {.Scene = *scene, .Front = *front}, scenario, timed);
     CHECK(capture.Images == repeat.Images, "repeated actual raster output is bitwise identical");
+    if (timed) {
+      CHECK(capture.GpuElapsedNanoseconds && repeat.GpuElapsedNanoseconds,
+            "both actual frame submissions provide the requested GPU times");
+      if (capture.GpuElapsedNanoseconds && repeat.GpuElapsedNanoseconds) {
+        std::println(R"({{"case":"{}","submission_gpu_ns":[{},{}]}})",
+                     scenario.Name,
+                     *capture.GpuElapsedNanoseconds,
+                     *repeat.GpuElapsedNanoseconds);
+      }
+    }
     WriteCapture(scenario, capture, shape, std::string(argv[5]) + "." + scenario.Name);
     frames += 2;
   }

@@ -116,12 +116,12 @@ def check_density(actual, expected, payload):
     return error
 
 
-def field_cases(probe, positions):
+def field_cases(probe, positions, pack=frame):
     rows = []
     for profile in (0, 1):
         for cover in (0.0, 0.45, 0.65, 1.0):
             for phase in PHASES:
-                payload = frame(cover, profile, VELOCITY, phase)
+                payload = pack(cover, profile, VELOCITY, phase)
                 actual = probe.capture(f"field-{len(rows)}", payload, positions)
                 expected = reference(positions, payload, VELOCITY, phase)
                 rows.append(
@@ -137,19 +137,19 @@ def field_cases(probe, positions):
     return rows
 
 
-def temporal_cases(probe, positions, phases=PHASES[2:], prefix="step"):
+def temporal_cases(probe, positions, phases=PHASES[2:], prefix="step", pack=frame):
     rows = []
     for profile in (0, 1):
         for velocity in (VELOCITY, -VELOCITY, np.array([6.92820323027551, 0, -4])):
             for phase in phases:
-                payload = frame(0.65, profile, velocity, phase)
+                payload = pack(0.65, profile, velocity, phase)
                 name = f"{prefix}-{len(rows)}"
                 first = probe.capture(f"{name}-first", payload, positions)
                 truth = reference(positions, payload, velocity, phase)
                 check_density(first, truth, payload)
                 for rate in (30, 60):
                     next_phase = phase + 1 / rate
-                    following = frame(0.65, profile, velocity, next_phase)
+                    following = pack(0.65, profile, velocity, next_phase)
                     actual = probe.capture(f"{name}-{rate}", following, positions)
                     expected = reference(positions, following, velocity, next_phase)
                     error = check_density(actual, expected, following)
@@ -179,12 +179,12 @@ def temporal_cases(probe, positions, phases=PHASES[2:], prefix="step"):
     return rows
 
 
-def anchor_cases(probe, positions):
+def anchor_cases(probe, positions, pack=frame):
     rows = []
     for profile in (0, 1):
         for origin in ([768, -512, 1024], [-1400, 2800, -4200], [22400, 0, -22400]):
             for phase in (MONTH_S, -MONTH_S):
-                payload = frame(0.65, profile, VELOCITY, phase, origin)
+                payload = pack(0.65, profile, VELOCITY, phase, origin)
                 actual = probe.capture(f"anchor-{len(rows)}", payload, positions)
                 expected = reference(positions, payload, VELOCITY, phase)
                 rows.append(
@@ -224,7 +224,7 @@ def default_cases(probe, control_root):
     return rows
 
 
-def cost_cases(probe, control_root):
+def cost_cases(probe, control_root, pack=frame):
     positions = np.fromfile(control_root / "0-0.65.input.bin", "<f4")[12:].reshape(
         -1, 4
     )
@@ -234,7 +234,7 @@ def cost_cases(probe, control_root):
             for phase in (37.0, MONTH_S):
                 for repeat in range(3):
                     for split in (False, True) if repeat % 2 == 0 else (True, False):
-                        payload = frame(cover, profile, VELOCITY, phase, split=split)
+                        payload = pack(cover, profile, VELOCITY, phase, split=split)
                         name = f"cost-{len(rows)}"
                         path = (
                             probe.output
@@ -256,7 +256,7 @@ def cost_cases(probe, control_root):
     return rows
 
 
-def plane_cases(probe):
+def plane_cases(probe, pack=frame):
     width, height = 160, 96
     x, z = np.meshgrid(
         np.linspace(-2800, 2800, width), np.linspace(-1680, 1680, height)
@@ -271,7 +271,7 @@ def plane_cases(probe):
     for split in (False, True):
         first = None
         for dt in (0.0, 1 / 60, 0.25, 30.0):
-            payload = frame(0.65, 1, VELOCITY, MONTH_S + dt, split=split)
+            payload = pack(0.65, 1, VELOCITY, MONTH_S + dt, split=split)
             name = f"plane-{len(rows)}"
             actual = probe.capture(name, payload, positions)
             expected = reference(positions, payload, VELOCITY, MONTH_S + dt)

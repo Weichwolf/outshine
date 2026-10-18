@@ -3,11 +3,13 @@
 
 #include "MediumViewProbe.h"
 #include "CloudLayer.h"
+#include "CloudFrame.h"
 #include <world/weather/WeatherSnapshot.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -17,21 +19,17 @@ using namespace Render::Native;
 using MediumViewProbe::Pixel;
 
 struct alignas(16) WeatherFrame {
-  Vec4f Shell;
-  Vec4f Field;
-  Vec4f Drift;
+  Generators::Weather::CloudFrame Layer;
   Vec4f DensityCameraOriginM;
   Vec4f SunIrradiance;
   Vec4f SkyRadiance;
 };
 
-static_assert(sizeof(WeatherFrame) == 6 * sizeof(Vec4f) && alignof(WeatherFrame) == 16);
-static_assert(offsetof(WeatherFrame, Shell) == 0 &&
-              offsetof(WeatherFrame, Field) == sizeof(Vec4f) &&
-              offsetof(WeatherFrame, Drift) == 2 * sizeof(Vec4f) &&
-              offsetof(WeatherFrame, DensityCameraOriginM) == 3 * sizeof(Vec4f) &&
-              offsetof(WeatherFrame, SunIrradiance) == 4 * sizeof(Vec4f) &&
-              offsetof(WeatherFrame, SkyRadiance) == 5 * sizeof(Vec4f));
+static_assert(sizeof(WeatherFrame) == 10 * sizeof(Vec4f) && alignof(WeatherFrame) == 16);
+static_assert(offsetof(WeatherFrame, Layer) == 0 &&
+              offsetof(WeatherFrame, DensityCameraOriginM) == 7 * sizeof(Vec4f) &&
+              offsetof(WeatherFrame, SunIrradiance) == 8 * sizeof(Vec4f) &&
+              offsetof(WeatherFrame, SkyRadiance) == 9 * sizeof(Vec4f));
 
 inline constexpr double kCloudViewPhaseS = 37.0;
 inline constexpr Pixel kCloudViewBoundary{0.035f, 0.05f, 0.075f, 0.125f};
@@ -46,16 +44,19 @@ struct Case {
   bool BoundarySky = false;
   bool SkyOnly = false;
   Pixel Boundary = kCloudViewBoundary;
+  Vec3 FieldOriginM{};
 };
 
 struct Capture {
   std::array<std::vector<Pixel>, 5> Images;
   WeatherFrame Weather;
+  std::optional<double> GpuElapsedNanoseconds;
 };
 
 [[nodiscard]] Medium ControlledAir();
 [[nodiscard]] std::vector<Case> Cases(MediumViewProbe::ImageShape shape);
 [[nodiscard]] std::vector<Case> BoundaryCases(MediumViewProbe::ImageShape shape);
+[[nodiscard]] std::vector<Case> WindCases(MediumViewProbe::ImageShape shape);
 [[nodiscard]] std::vector<Case> ProfileCases(MediumViewProbe::ImageShape shape,
                                              CloudProfile profile);
 [[nodiscard]] WeatherFrame PrepareWeather(const Case &scenario);
@@ -69,7 +70,7 @@ class Targets {
 public:
   explicit Targets(Device &device, MediumViewProbe::ImageShape shape);
   [[nodiscard]] Capture
-  Draw(Device &device, const Pipelines &pipelines, const Case &scenario) const;
+  Draw(Device &device, const Pipelines &pipelines, const Case &scenario, bool timed = false) const;
 
 private:
   void Scene(Commands &commands, const GraphicsPipeline &pipeline, const Case &scenario) const;
