@@ -118,7 +118,8 @@ int main(int argc, char *const *argv) {
     const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     CHECK(device != nil, "the explicit Metal probe requires its actual device");
     if (device == nil) { return Report(); }
-    const auto invalid = std::filesystem::current_path() / "encoder-profile-rejected";
+    const auto invalid =
+        std::filesystem::temp_directory_path().root_path() / "encoder-profile-rejected";
     CHECK(SDL_SetEnvironmentVariable(
               SDL_GetEnvironment(), "OUTSHINE_METAL_ENCODER_PROFILE", invalid.c_str(), true),
           "the boundary test supplies an unsafe output prefix");
