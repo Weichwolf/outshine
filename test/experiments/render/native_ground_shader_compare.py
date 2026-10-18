@@ -1,18 +1,20 @@
-"""Run an unchanged world with a private minimum-before-root shader alternative."""
+"""Compare bounded private terrain shader alternatives in an unchanged world."""
 
 import argparse
 import hashlib
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 
 from ground_class_distance import candidate_source
+from ground_height_gather import lattice_source, normal_source
 from native_tree_detail_world import checked
 
 ROOT = Path(__file__).resolve().parents[3]
 
-def runtime(native, output, candidate):
+def runtime(native, output, alternative=None):
     output.mkdir()
     (output / "src").symlink_to(native / "src")
     (output / "build").mkdir()
@@ -20,27 +22,37 @@ def runtime(native, output, candidate):
         native / "build/compute-shader-contracts.json"
     )
     shaders = output / "build/shaders"
-    if not candidate:
+    if alternative is None:
         shaders.symlink_to(native / "build/shaders")
         return []
     shutil.copytree(native / "build/shaders", shaders)
     source = native / "src/render/shaders"
     (output / "groundLit.glsl").write_bytes((source / "groundLit.glsl").read_bytes())
-    (output / "groundClass.glsl").write_text(
-        candidate_source((source / "groundClass.glsl").read_text())
-    )
+    transforms = ({"groundClass.glsl": candidate_source} if alternative == "distance" else
+                  {"groundLatticeCore.glsl": lattice_source, "groundFineNormal.glsl": normal_source})
+    for name, transform in transforms.items():
+        (output / name).write_text(transform((source / name).read_text()))
+    if alternative == "gather":
+        (output / "groundLatticeVertex.glsl").write_bytes((source / "groundLatticeVertex.glsl").read_bytes())
     commands = []
     names = ("SUBJECT_WRITES_VELOCITY", "SUBJECT_NORMAL_LOCATION",
              "SUBJECT_IDENTITY_LOCATION", "SUBJECT_BASE_LOCATION", "SUBJECT_METALROUGH_LOCATION")
-    for artifact in sorted(shaders.glob("ground*Lit-*.frag.spv")):
-        layout = artifact.name.split("-", 1)[1].removesuffix(".frag.spv").ljust(5, "0")
+    artifacts = sorted(shaders.glob("ground*Lit-*.frag.spv"))
+    if alternative == "gather":
+        artifacts += sorted(shaders.glob("ground*Lattice-*.vert.spv"))
+    for artifact in artifacts:
+        vertex = artifact.name.endswith(".vert.spv")
+        suffix = ".vert.spv" if vertex else ".frag.spv"
+        layout = artifact.name.split("-", 1)[1].removesuffix(suffix).ljust(5, "0")
         command = [str(native / "build/deps/install/bin/glslangValidator"), "-V",
-                   "--target-env", "vulkan1.0", "-S", "frag", "-Isrc",
+                   "--target-env", "vulkan1.0", "-S", "vert" if vertex else "frag", "-Isrc",
                    "-Isrc/render/shaders", "-Isrc/content/shade", "-Ibuild/shaders"]
-        if artifact.name.startswith("groundPatchLit-"):
+        if artifact.name.startswith("groundPatch"):
             command += ["-DGROUND_PATCHES=1"]
-        command += [f"-D{k}={v}" for k, v in zip(names, layout, strict=True)]
-        command += [str(output / "groundLit.glsl"), "-o", str(artifact)]
+        defines = list(zip(names, layout, strict=True))[:1 if vertex else 5]
+        command += [f"-D{k}={v}" for k, v in defines]
+        command += [str(output / ("groundLatticeVertex.glsl" if vertex else "groundLit.glsl")),
+                    "-o", str(artifact)]
         checked(["nice", "-n", "10", *command], native, output / f"{artifact.name}.log")
         commands.append(command)
     if not commands:
@@ -73,6 +85,7 @@ def main():
     parser.add_argument("--native-root", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--place", default="Koerbersee")
+    parser.add_argument("--alternative", choices=("distance", "gather"), default="distance")
     args = parser.parse_args()
     native, output = args.native_root.resolve(), args.output.resolve()
     if output.is_relative_to(native) or output.is_relative_to(ROOT) or not any(
@@ -80,10 +93,12 @@ def main():
     ):
         parser.error("private output belongs in system temp")
     output.mkdir(parents=True, exist_ok=False)
-    runtime(native, output / "before", False)
-    commands = runtime(native, output / "after", True)
+    runtime(native, output / "before")
+    commands = runtime(native, output / "after", args.alternative)
     binary = native / "build/outshine-client"
-    report = {"client_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
+    report = {"native_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=native, text=True).strip(),
+              "alternative": args.alternative,
+              "client_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
               "compile_commands": commands, "captures": [], "accepted": False}
     for label in ("A1", "B1", "B2", "A2"):
         directory = output / ("before" if label.startswith("A") else "after")

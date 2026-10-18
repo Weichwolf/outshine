@@ -29,7 +29,7 @@ proof about all GPU inputs. Fewer source-level roots do not establish a speedup.
 
 ## Native comparison
 
-`native_ground_class_distance.py` builds private fragment artifacts and runs
+`native_ground_shader_compare.py --alternative distance` builds private fragment artifacts and runs
 unchanged native client `76f6d3dbf` in fresh offline processes. Körbersee,
 1280×720/30, exactly 30 measured frames and a complete 360° rotation. Camera,
 content, LOD, normal reconstruction and all other shader artifacts are retained.
@@ -57,6 +57,6 @@ commands, binary hash, complete frame rows, GPU rows and image hashes.
 ```sh
 python3 test/experiments/render/ground_class_distance_checks.py
 python3 test/experiments/render/ground_class_distance.py /tmp/capture/classes.u32
-python3 test/experiments/render/native_ground_class_distance.py \
+python3 test/experiments/render/native_ground_shader_compare.py --alternative distance \
   --native-root "$native_checkout" --output /tmp/outshine-ground-distance-run
 ```
