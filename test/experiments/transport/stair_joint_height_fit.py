@@ -41,6 +41,21 @@ def recipe_levels(plans, data, recipe):
 
 
 def fit_joint_levels(surface, frames, plans, budget):
+    from outshine_ref.contracts import Mesh
+    from outshine_ref.transport import HeightBudget, HeightFit
+
+    if not isinstance(surface, Mesh) or not isinstance(budget, HeightBudget):
+        raise TypeError("owned surface and explicit joint height budget required")
+    if len(surface.vertices) > min(budget.max_vertices, 4096) or len(
+        surface.triangles
+    ) > min(budget.max_faces, 8192):
+        return HeightFit(
+            None, {"reason": "input_budget_exhausted", "valid": False}
+        ), None
+    if budget.time_limit_s == 0:
+        return HeightFit(
+            None, {"reason": "time_budget_exhausted", "valid": False}
+        ), None
     from outshine_ref.transport.level_heights._continuous import fit_groups
     from outshine_ref.transport.level_heights._input import checked_groups
 
