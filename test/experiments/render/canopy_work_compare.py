@@ -110,6 +110,8 @@ def case(source, place, mode, kind, analyzer, fps):
         "png_sha256": sha(image),
         "log_sha256": sha(log),
     }
+    assert 0 < record["gpu_max_ms"] <= record["gpu_sum_ms"]
+    assert all(record[key] >= 0 for key in ("host_p99_ms", "preload_ms", "turn_ms"))
     assert record["png_sha256"].startswith(row[2])
     if kind == "probe":
         saved = json.loads((source / (stem + ".work.json")).read_text())
@@ -177,6 +179,7 @@ def main():
         "scope": "Matched ordinary/diagnostic shader-package window; intervals overlap and "
         "must not be added. Only ordinary runs classify frame/load/turn gates. "
         "No isolated GPU or Metal/A18 acceptance; earlier red controls remain red.",
+        "profile": {"width_px": 1920, "height_px": 1080, "fps": args.fps},
         "source": str(args.source.resolve()),
         "analyzer_sha256": sha(args.analyzer),
         "places": {},

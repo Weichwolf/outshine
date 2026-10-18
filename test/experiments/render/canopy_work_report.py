@@ -18,11 +18,13 @@ LABELS = ("Legacy", "Nine samples", "Adaptive four/nine")
 COLOURS = ("tab:blue", "tab:orange", "tab:green")
 
 
-def plot_timing(pdf, place, data):
+def plot_timing(pdf, place, data, profile):
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     fig.subplots_adjust(bottom=0.18, top=0.91, hspace=0.3, wspace=0.23)
     fig.suptitle(
-        f"{place} — matched native material workload\n1920×1080/60, 60 frames / 360°",
+        f"{place} — matched native material workload\n"
+        f"{profile['width_px']}×{profile['height_px']}/{profile['fps']}, "
+        f"{profile['fps']} frames / 360°",
         fontsize=15,
     )
     for mode, label, colour in zip(MODES, LABELS, COLOURS):
@@ -119,7 +121,7 @@ def main():
     data = json.loads(args.comparison.read_text())
     with PdfPages(output) as pdf:
         for place, result in data["places"].items():
-            plot_timing(pdf, place, result)
+            plot_timing(pdf, place, result, data["profile"])
             plot_images(pdf, Path(data["source"]), place)
     print(output)
 
