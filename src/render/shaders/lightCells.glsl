@@ -26,7 +26,7 @@ uvec2 lightCellSpan(ivec3 cell) {
 
 bool lightCellBounds(vec3 p, out ivec3 first, out ivec3 last) {
   if (lightFrame.positionCell.w == 2 || any(isnan(p)) || any(isinf(p))) { return false; }
-  float width = lightFrame.positionLocal.w;
+  const float width = 32.0;
   float maxRange = uintBitsToFloat(lightWords[5]);
   float marginM = 16.0 * 1.1920928955078125e-7 *
                   (max(max(abs(p.x), abs(p.y)), abs(p.z)) + maxRange + 128.0);
@@ -34,8 +34,8 @@ bool lightCellBounds(vec3 p, out ivec3 first, out ivec3 last) {
   ivec3 carry = lightFrame.lookupCell.xyz - lightFrame.positionCell.xyz * int(128.0 / width);
   vec3 lookupLocal = lightFrame.positionLocal.xyz - vec3(carry) * width;
   vec3 local = p + lookupLocal;
-  vec3 low = floor((local - marginM) / width);
-  vec3 high = floor((local + marginM) / width);
+  vec3 low = floor((local - marginM) * (1.0 / width));
+  vec3 high = floor((local + marginM) * (1.0 / width));
   if (any(greaterThanEqual(high, vec3(2147483648.0))) ||
       any(lessThan(low, vec3(-2147483648.0)))) { return false; }
   ivec3 a = ivec3(low), b = ivec3(high);

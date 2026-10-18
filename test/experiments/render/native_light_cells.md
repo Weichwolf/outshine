@@ -44,6 +44,88 @@ prepared when the larger source set is declared, and shared material parameters
 and existing BRDFs remain unchanged. The Sun owner uses its original uint ID bits
 in the existing Count.z word on the spatial path.
 
+## Precision conditions and exact V1 scaling
+
+V1 fixes position cells at128m and lookup cells at32m. The shader uses the
+compile-time ratio4 and binary scale1/32, rather than dividing a runtime uniform
+before an integer conversion or `floor`. The 48-byte frame and its width metadata
+remain unchanged. `FrameUniformsOf` derives its origin from the same
+`-PreViewTranslation` used to place geometry; it is not a separate camera origin.
+
+The [Vulkan operation-precision contract](https://docs.vulkan.org/spec/latest/appendices/spirvenv.html#spirvenv-op-prec)
+allows2.5ULP for single-precision division. One representable result below4 is
+3.999999761581421, which truncates to3. With a nonzero position cell, using that
+ratio corrupts the carry by the position-cell index, not by a small FP32 delta.
+`native_light_bounds.py` reproduces two lost positive-contribution tail IDs using
+actual native18-source hash bytes at opposite Earth origins and a permitted-error
+arithmetic model. Exact division and the fixed integer ratio retain them; a null
+origin is the unchanged positive control. This is not a measured Iris failure.
+The generated `lightCellBounds` must contain no `OpFDiv`; checking only the GLSL
+spelling or a driver that happens to divide32 exactly would not close the gap.
+
+The following bound is a conditional derivation for Vulkan's non-relaxed FP32
+operation contract, including adjacent-result rounding and denormal flushing.
+It is a review draft, not a completed common Metal/Vulkan acceptance. Metal
+currently compiles fragments with `MTLMathModeRelaxed`; master has explicitly
+not confirmed a fixed ULP bound for that mode or its default fast library
+functions. No backend precision policy is changed by this shader correction.
+
+Let e=2^-23, d=2^-52, n=2^-126, P=max(abs(p)), R be the producer's up-rounded
+maximum finite radius, and H=P+R+128. The hash path requires the computed
+M=16e*(P+R+128) to be less than16m. Thus H<2^24. Source-specific r is the
+actual double reciprocal used by the CPU footprint builder; r<=R. Directional,
+zero-range, non-normal reciprocal, budget-fallback and unrepresentable lookup
+cases enumerate their complete original source sets and do not need this bound.
+
+1. **Integer and split domain.** Signed128m position cells lie in[-2^30,2^30),
+   so source-minus-origin fits int32. A valid32m lookup key constrains the origin
+   position cell to[-2^29,2^29); multiplication by4 and its subtraction from the
+   lookup key are exact, giving a carry in0..3. Rounded local128 remains valid:
+   local-minus32*carry is in[0,32]. The implementation checks key addition before
+   forming the final keys, and falls back when more than two cells per axis are
+   needed. The accepted hash query therefore has at most eight cells.
+2. **Query enclosure.** Correctly rounded basic operations may choose either
+   adjacent result; use e as a conservative relative bound, with additive n for
+   a flushed result. The positive margin sum has two additions and exact binary
+   scaling, giving M>=16e*(1-e)^2*H. Even allowing reassociation of the three local
+   coordinate terms, the local/query endpoint error is bounded by4e*P+512e m.
+   Multiplication by1/32 is exact outside the negligible denormal range; flushing
+   in that range is absorbed by the additive allowance. Using e*H<2, the queried
+   cell union encloses an infinity-norm cube around the same reconstructed world
+   point Q with half-width at least e*(12P+15R+1024). This deliberately retains
+   slack instead of relying on a rounded endpoint lying in its nominal cell.
+3. **Emitter reconstruction.** Write Z=128*(sourceCell-originCell)+sourceLocal-
+   roundedOriginLocal. Integer conversion, source-local packing and either fused
+   or unfused reconstruction give per-axis error no greater than
+   (3e+6e^2)*abs(Z)+384e*(1+4e)+16n. For a contributing source, solving the same
+   inequality with abs(Z)<=P+length(decoded-p)+error bounds that error by4e*H.
+   This covers source-local rounding and different valid associations; the origin
+   packing term is common to Q and Z and must not be counted as a different origin.
+4. **Actual range predicate.** The shader uses `dot(offset,offset)*I*I`, where I
+   is the actual packed reciprocal, not a geometric square-root comparison. For
+   D=length(decoded-p)>=2^-40m, positive sum-of-squares evaluation gives
+   square>=(1-10e)*D^2, including flushed intermediate products. Since H<2^24,
+   I>2^-25, so the first scaled product is normal in this case. A positive finite
+   attenuation requires the computed reach to be below1; the two scaled products
+   then imply D<=(1+10e)*r, including the double reciprocal rounding. If D is
+   smaller than2^-40m, the source centre itself is inside the much larger query
+   enclosure. No false negative is inferred from an idealized range-only test.
+5. **CPU membership.** In the non-tiny case a point of the producer sphere can
+   be reached from Q with infinity displacement at most4e*H+10e*r. The query
+   enclosure leaves at least e*(8P+R+512) further slack. Choose the point inside
+   radius r*(1-32d): its extra displacement is below32d*R<e m, far below that
+   slack. The CPU's three nonnegative squared distances have at most a
+   (1+d)^5 overestimate; the inward point therefore survives comparison with the
+   rounded r*r. The outward `nextafter` footprint bounds include its cell.
+   Its original ID is consequently present in a queried span. Sorted IDs and
+   deduplication preserve exactly one visit; total-span overflow enumerates all.
+
+Outstanding review must check these operation assumptions against actual emitted
+SPIR-V and each target's permitted optimizations, including the contribution
+predicate's exceptional values. Random sweeps, the permitted-division negative,
+and actual runtime images are supporting controls, not a substitute for that
+review or a Metal precision contract. No radius, budget or RGB tolerance changes.
+
 ## Producer choice and checks
 
 The initial flat assignment sort needed about16.84 ms cold and3,537,648 B scratch
@@ -81,6 +163,18 @@ and orthographic cameras at a rounded world-cell boundary, mixed17/1024/8192
 point/spot/directional/range-zero inputs, overlap, MR, coat, sheen, iridescence,
 mapped anisotropy, back-lit thin transmission, alpha blending and glass.
 It saves actual/reference linear floats in an explicit external directory.
+The optional `motion` mode uses two independent synchronized renderer histories.
+It compares every nonzero declared source against the uniform renderer while
+retaining the original zero-intensity sources only on the spatial side. Thirty-six
+camera states per opaque/alpha/glass material include two complete orbits,
+perspective/orthographic switching, signed32/128m boundaries, rounded local128,
+colour/kind/range/position changes and18->16->18 source transitions. Camera binding
+uses `RuntimeScene::Advance`; it must not insert an uncounted `Draw` before the
+captured frame. Both actual plans must retain TemporalResolve and complete exactly
+one native frame per pose, so the same Halton history is exercised on both sides.
+The existing per-pixel2% and0.5% RMS limits and nonzero-energy requirement remain.
+The scalar stage-duration counter is not a temporal-pass counter: temporal work
+is executed within the display path and its catalogue executor is null.
 The original public `local_light_limit.cpp` remains the separate Engine API probe.
 
 ## Reproduction and open acceptance

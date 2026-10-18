@@ -112,7 +112,7 @@ struct Fixture {
     }
     Scene->Eye(*eye);
     std::string error;
-    return Accepted(Scene->Draw(error), error);
+    return Accepted(Scene->Advance(error), error);
   }
 
   std::expected<std::vector<float>, std::string> Capture(std::span<const SubjectLight> lights) {
@@ -155,9 +155,8 @@ std::vector<SubjectLight> Sources(double x, Population population, size_t count)
   return result;
 }
 
-bool Save(const std::filesystem::path &path, std::span<const float> pixels) {
+bool Save(const std::filesystem::path &path, std::span<const std::byte> bytes) {
   std::ofstream stream(path, std::ios::binary);
-  const auto bytes = std::as_bytes(pixels);
   stream.write(reinterpret_cast<const char *>(bytes.data()),
                static_cast<std::streamsize>(bytes.size()));
   return stream.good();
@@ -184,8 +183,8 @@ bool ComparePictures(const std::filesystem::path &output,
     errors += !std::isfinite(relative) || relative > kMaximumRelative ? 1 : 0;
   }
   const double rms = std::sqrt(squares / std::max(1e-10, signal));
-  const bool saved = Save(output / (name + ".actual.f32"), actual) &&
-                     Save(output / (name + ".reference.f32"), expected);
+  const bool saved = Save(output / (name + ".actual.f32"), std::as_bytes(actual)) &&
+                     Save(output / (name + ".reference.f32"), std::as_bytes(std::span(expected)));
   const bool passed = errors == 0 && rms <= kRmsRelative && signal > 1 && saved;
   std::println("{{\"case\":\"{}\",\"count\":{},\"max_relative\":{},\"rms_relative\":{},"
                "\"bad_rgb\":{},\"signal_square\":{},\"passed\":{}}}",
@@ -330,6 +329,36 @@ Vec3 MotionOffset(size_t frame) {
   return offset;
 }
 
+bool DisplayDiagnostic(Fixture &actual,
+                       Fixture &reference,
+                       const std::filesystem::path &output,
+                       const std::string &name) {
+  std::vector<uint8_t> got;
+  std::vector<uint8_t> expected;
+  if (actual.Renderer.ReadPixels(got) != ReadState::Ready ||
+      reference.Renderer.ReadPixels(expected) != ReadState::Ready || got.size() != kValues ||
+      expected.size() != kValues) {
+    return Accepted(false, "complete displayed motion frames are unavailable");
+  }
+  unsigned maximum = 0;
+  size_t overOne = 0;
+  for (size_t at = 0; at < kValues; ++at) {
+    if (at % 4 == 3) { continue; }
+    const auto difference = static_cast<unsigned>(std::abs(int(got[at]) - int(expected[at])));
+    maximum = std::max(maximum, difference);
+    if (difference > 1) { ++overOne; }
+  }
+  const bool saved = Save(output / (name + ".actual.rgba"), std::as_bytes(std::span(got))) &&
+                     Save(output / (name + ".reference.rgba"), std::as_bytes(std::span(expected)));
+  std::println("{{\"display_case\":\"{}\",\"maximum_byte_error\":{},"
+               "\"channels_over_one\":{},\"saved\":{}}}",
+               name,
+               maximum,
+               overOne,
+               saved);
+  return saved;
+}
+
 bool MotionFrame(Fixture &actual,
                  Fixture &reference,
                  const std::filesystem::path &output,
@@ -371,15 +400,19 @@ bool MotionCases(const std::filesystem::path &output) {
       passed = MotionFrame(actual, reference, output, "motion-" + std::to_string(family), frame) &&
                passed;
     }
-    const auto taa = static_cast<size_t>(Stage::TemporalResolve);
-    const auto actualTaa = actual.Renderer.Costs().Stages[taa].Frames;
-    const auto referenceTaa = reference.Renderer.Costs().Stages[taa].Frames;
-    const bool temporal = actualTaa == kMotionFrames && referenceTaa == kMotionFrames;
-    std::println("{{\"material\":{},\"actual_taa_frames\":{},\"reference_taa_frames\":{},"
-                 "\"temporal_verified\":{}}}",
+    const bool actualTemporal = actual.Renderer.Plan().Holds(Stage::TemporalResolve);
+    const bool referenceTemporal = reference.Renderer.Plan().Holds(Stage::TemporalResolve);
+    const auto actualFrames = actual.Renderer.Costs().Frames;
+    const auto referenceFrames = reference.Renderer.Costs().Frames;
+    const bool temporal = actualTemporal && referenceTemporal && actualFrames == kMotionFrames &&
+                          referenceFrames == kMotionFrames;
+    std::println("{{\"material\":{},\"actual_temporal\":{},\"reference_temporal\":{},"
+                 "\"actual_frames\":{},\"reference_frames\":{},\"temporal_verified\":{}}}",
                  family,
-                 actualTaa,
-                 referenceTaa,
+                 actualTemporal,
+                 referenceTemporal,
+                 actualFrames,
+                 referenceFrames,
                  temporal);
     passed = temporal && passed;
   }
