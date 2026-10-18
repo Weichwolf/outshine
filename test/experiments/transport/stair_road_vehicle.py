@@ -76,10 +76,11 @@ def curve_sweep(surface, row, note, side, reverse, vehicle):
     )
 
 
-def inspect_curves(data, rows):
-    vehicle = json.loads(
-        Path(__file__).with_name("transport_network_recipes.json").read_text()
-    )["vehicleProfiles"]["compact"]
+def inspect_curves(data, rows, *, vehicle=None):
+    if vehicle is None:
+        vehicle = json.loads(
+            Path(__file__).with_name("transport_network_recipes.json").read_text()
+        )["vehicleProfiles"]["compact"]
     proof = []
     for i, row in enumerate(rows):
         plan = row.get("horizontal_curve_plan")

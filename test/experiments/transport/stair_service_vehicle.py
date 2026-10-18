@@ -57,7 +57,7 @@ def inspect_service(data, rows, *, vehicle=None):
         vehicle = json.loads(
             Path(__file__).with_name("transport_network_recipes.json").read_text()
         )["vehicleProfiles"]["compact"]
-    curves = inspect_curves(data, rows)
+    curves = inspect_curves(data, rows, vehicle=vehicle)
     checks = []
     for i, row in enumerate(rows):
         if row.get("source_recipe") != ROLE:

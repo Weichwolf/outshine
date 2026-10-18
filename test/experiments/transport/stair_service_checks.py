@@ -168,6 +168,12 @@ class OneWayService(unittest.TestCase):
                 for c in curves
             )
         )
+        vehicle = dict(
+            proof["service_lane_bodies"]["curves"]["vehicle"],
+            minimumRearAxleRadiusM=100.0,
+        )
+        with self.assertRaisesRegex(ValueError, "rear-axle radius"):
+            inspect_service(data, [row], vehicle=vehicle)
 
 
 if __name__ == "__main__":
