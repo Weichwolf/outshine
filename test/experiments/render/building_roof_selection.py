@@ -10,18 +10,18 @@ from pathlib import Path
 
 import numpy as np
 from building_roof_domains import planar_roof_domains, triangulate_domain
+from building_roof_positions import roof_positions
 from current_visibility import camera, project, raster
 from outshine_ref.geometry.occlusion import convex_patch_umbra
 from outshine_ref.geometry.occlusion_hierarchy import BoundsHierarchy
 from PIL import Image
 
 
-def emit_roof(source):
+def emit_roof(source, *, vertex_recipe="float64"):
     """Emit only an admitted source's roofs; unknown forms stay explicit."""
     surface, parts, omissions = source["surface"], [], Counter()
     if surface is None:
         return np.empty((0, 3, 3)), Counter({"unknown_source_surface": 1})
-    basis = np.asarray([surface[key] for key in ("east", "north", "up")])
     for shape in surface["shapes"]:
         try:
             pieces = planar_roof_domains(shape)
@@ -31,15 +31,19 @@ def emit_roof(source):
             continue
         if not pieces:
             omissions["no_original_planar_domains"] += 1
-        for triangle in triangles:
-            parts.append(np.asarray(surface["origin"]) + triangle @ basis)
+        for piece, triangle in zip(pieces, triangles, strict=True):
+            parts.append(
+                roof_positions(
+                    triangle, piece["plane_enu"], surface, recipe=vertex_recipe
+                )
+            )
     return (
         np.concatenate(parts) if parts else np.empty((0, 3, 3)),
         omissions,
     )
 
 
-def seeds(sources, bounds, known, eye, observer):
+def seeds(sources, bounds, known, eye, observer, *, vertex_recipe="float64"):
     """Bounded first emission; accepted source roofs are retained in every plan."""
     centre = bounds.mean(axis=1)
     distance = np.linalg.norm(centre - eye, axis=1)
@@ -47,7 +51,7 @@ def seeds(sources, bounds, known, eye, observer):
     order = order[np.argsort(distance[order], kind="stable")][:32]
     emitted, occluders, counts = {}, [], Counter()
     for index in order:
-        triangles, omissions = emit_roof(sources[index])
+        triangles, omissions = emit_roof(sources[index], vertex_recipe=vertex_recipe)
         emitted[int(index)] = (triangles, omissions)
         for triangle in triangles:
             counts["seed_triangles_examined"] += 1
@@ -115,12 +119,14 @@ def render(triangles, view):
     return raster(projected, z, np.arange(len(points)).reshape(-1, 3), 1280, 720)
 
 
-def images(native, sources, masks, seed_geometry, output):
+def images(native, sources, masks, seed_geometry, output, *, vertex_recipe="float64"):
     """Control meshes are emitted after every selection decision has been made."""
     full, omissions = [], Counter()
     for index, source in enumerate(sources):
         triangles, reasons = (
-            seed_geometry[index] if index in seed_geometry else emit_roof(source)
+            seed_geometry[index]
+            if index in seed_geometry
+            else emit_roof(source, vertex_recipe=vertex_recipe)
         )
         full.append(triangles)
         omissions.update(reasons)
@@ -134,6 +140,16 @@ def images(native, sources, masks, seed_geometry, output):
         name: np.concatenate([part for i, part in enumerate(full) if not mask[i]])
         for name, mask in masks.items()
     }
+    return {
+        "images": render_models(native, sources, models, output),
+        "roof_triangles": {name: len(model) for name, model in models.items()},
+        "omissions": dict(omissions),
+        "sources_retained": {name: int((~mask).sum()) for name, mask in masks.items()},
+    }
+
+
+def render_models(native, sources, models, output):
+    """Compare independently emitted models with one metadata-defined camera."""
     scene = {"anchor_ecef": native["anchor_ecef"], **native["view"]}
     camera_targets = np.array(
         [
@@ -175,12 +191,7 @@ def images(native, sources, masks, seed_geometry, output):
                 if changed:
                     raise ValueError("selected roof reference changes raster depth")
             rows.append(row)
-    return {
-        "images": rows,
-        "roof_triangles": {name: len(model) for name, model in models.items()},
-        "omissions": dict(omissions),
-        "sources_retained": {name: int((~mask).sum()) for name, mask in masks.items()},
-    }
+    return rows
 
 
 def main():
@@ -222,7 +233,11 @@ def main():
             name: hashlib.sha256(
                 Path(__file__).with_name(name).read_bytes()
             ).hexdigest()
-            for name in (Path(__file__).name, "building_roof_domains.py")
+            for name in (
+                Path(__file__).name,
+                "building_roof_domains.py",
+                "building_roof_positions.py",
+            )
         },
         "observer_box": observer.tolist(),
         "source_records": len(sources),

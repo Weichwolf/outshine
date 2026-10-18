@@ -13,6 +13,7 @@ from building_roof_domains import (
     triangle_orientation,
     triangulate_domain,
 )
+from building_roof_positions import millimetres, roof_positions
 from verify_building_roof_domains import controls
 
 
@@ -43,6 +44,60 @@ def shape():
 
 
 class RoofDomains(unittest.TestCase):
+    def test_millimetre_ties_are_away_from_zero_without_half_addition(self):
+        values = np.array(
+            [
+                0.0005,
+                -0.0005,
+                np.nextafter(0.0005, 0),
+                np.nextafter(-0.0005, 0),
+                0.0015,
+                -0.0015,
+            ]
+        )
+        np.testing.assert_array_equal(
+            millimetres(values), [0.001, -0.001, 0, 0, 0.002, -0.002]
+        )
+
+    def test_native_recipe_is_batch_independent_and_does_not_mutate_input(self):
+        local = np.array(
+            [[[1.2345, -3.4565, 0], [9.1234, 2.9876, 0], [1.2345, -3.4565, 0]]]
+        )
+        before = local.copy()
+        plane = np.array([0.31, -0.17, 4.0005])
+        surface = {
+            "origin": [12345.678, -2222.3, 999.1],
+            "east": [0.6, 0.8, 0],
+            "north": [-0.8, 0.6, 0],
+            "up": [0, 0, 1],
+        }
+        batch = roof_positions(local, plane, surface, recipe="snapped-f32")
+        scalar = np.array(
+            [
+                roof_positions(point[None], plane, surface, recipe="snapped-f32")[0]
+                for point in local.reshape(-1, 3)
+            ]
+        )
+        np.testing.assert_array_equal(batch.reshape(-1, 3), scalar)
+        np.testing.assert_array_equal(local, before)
+        np.testing.assert_array_equal(
+            batch, batch.astype(np.float32).astype(np.float64)
+        )
+
+    def test_float64_recipe_preserves_existing_affine_emission(self):
+        local = np.array([[[1.0, 2.0, 3.0], [-1.0, 5.0, 2.0], [3.0, 7.0, 11.0]]])
+        surface = {
+            "origin": [99.0, -8.0, 7.0],
+            "east": [0.6, 0.8, 0],
+            "north": [-0.8, 0.6, 0],
+            "up": [0, 0, 1],
+        }
+        expected = np.array(surface["origin"]) + local @ np.array(
+            [surface[k] for k in ("east", "north", "up")]
+        )
+        actual = roof_positions(local, np.array([0.0, 0.0, 0.0]), surface)
+        self.assertEqual(actual.tobytes(), expected.tobytes())
+
     def test_real_thin_triangle_is_not_rejected_by_cross_cancellation(self):
         xy = np.array(
             [

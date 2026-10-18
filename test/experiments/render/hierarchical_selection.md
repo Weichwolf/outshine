@@ -3,6 +3,9 @@
 Owner: [#12](https://github.com/Weichwolf/outshine/issues/12), native cost/input
 counterexample [#567](https://github.com/Weichwolf/outshine/issues/567).
 The complete whole/cell/hierarchical comparison requested in #12 remains active.
+The [joined-roof/part comparison](roof_fusion.md) closes the fixture's artificial
+diagonal gap. Real contour selection removes one roof part, with no additional
+primitive saving from fusion and no avoided whole source.
 This component provides shared source-envelope queries and an independently
 checked enriched-source reader. It does not establish real-scene coverage gains,
 primitive/batch reductions, scaling or native/device budgets yet.
