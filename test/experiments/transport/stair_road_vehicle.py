@@ -10,6 +10,10 @@ from transport_vehicle_sweep import swept_hull_check
 
 
 def lane_directions(profile):
+    if (profile["forward_lanes"], profile["reverse_lanes"]) == (1, 0):
+        return [(0, False)]
+    if (profile["forward_lanes"], profile["reverse_lanes"]) == (0, 1):
+        return [(0, True)]
     if profile["forward_lanes"] == 2:
         return [(1, False), (-1, False)]
     if profile["reverse_lanes"] == 2:
@@ -90,12 +94,16 @@ def inspect_curves(data, rows):
                 shapely.polygons(xyz[data["surface_faces"][data["owners"][:, i]], :2])
             )
             for side, reverse in lane_directions(row["traffic_profile"]):
-                lane = axis.buffer(
-                    side * row["width_m"] / 2,
-                    single_sided=True,
-                    cap_style="flat",
-                    join_style="mitre",
-                    mitre_limit=2,
+                lane = (
+                    cap
+                    if side == 0
+                    else axis.buffer(
+                        side * row["width_m"] / 2,
+                        single_sided=True,
+                        cap_style="flat",
+                        join_style="mitre",
+                        mitre_limit=2,
+                    )
                 )
                 actual = cap.intersection(lane)
                 for note in plan["corners"]:
