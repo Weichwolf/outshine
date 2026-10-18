@@ -178,7 +178,7 @@ class CandidateQuery:
     def nearest_distance(self, geometry):
         from stair_occupancy_candidate_distance import nearest
 
-        return nearest(self.catalog, geometry, self.budget)
+        return nearest(self.catalog, geometry, self.budget, method=self.method)
 
     def conflict(self, footprint, *, method="index", maximum=8192, envelope=False):
         if type(maximum) is not int or not 1 <= maximum <= 8192:
