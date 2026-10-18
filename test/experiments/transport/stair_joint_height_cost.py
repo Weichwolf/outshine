@@ -14,6 +14,7 @@ from outshine_ref.transport import HeightBudget, fit_surface_heights
 from stair_closed_height_rounding import normalized_grade
 from stair_free_terrain_cost import preload
 from stair_joint_height_fit import fit_joint_levels, level_groups
+from stair_joint_height_rounding import fit_rounded_levels
 from stair_module_experiment import write_json
 from stair_module_inputs import inputs
 from stair_module_roads import face_frames
@@ -27,8 +28,8 @@ def height_inputs(args):
     context = preload(args)
     data, ground = context[4], context[5]
     recipe, rows, _context, sources, sample, _layer = inputs(args.fixture)
-    if recipe.get("junction_height_mode") != "quantized":
-        raise ValueError("verified quantized joint seed required for this comparison")
+    if recipe.get("junction_height_mode") not in ("quantized", "rounded_joint"):
+        raise ValueError("verified quantized or repaired joint seed required")
     planning = prepared(rows, sources, ground)
     plans = plans_for(rows, planning[0], crossings_for(rows, sources, recipe))
     vertices, faces = data["surface_vertices"], data["surface_faces"]
@@ -44,6 +45,8 @@ def fit(method, surface, frames, plans, groups):
     if method == "quantized":
         return fit_quantized_levels(surface, frames, plans)
     budget = HeightBudget(max_vertices=4096, max_faces=8192)
+    if method == "rounded_joint":
+        return fit_rounded_levels(surface, frames, plans, budget)
     if method == "joint":
         return fit_joint_levels(surface, frames, plans, budget)
     if method != "fixed_priors":
@@ -107,7 +110,7 @@ def run(args):
     ).hexdigest()
     args.output.mkdir()
     measurements, arrays = {}, {}
-    for method in ("fixed_priors", "joint", "quantized"):
+    for method in ("fixed_priors", "joint", "quantized", "rounded_joint"):
         records = []
         for _repeat in range(args.repeats):
             began = time.perf_counter()
