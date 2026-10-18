@@ -20,6 +20,7 @@ from river_surface import source_body, surface_mesh
 
 
 def infer_flow(mesh, segments, levels):
+    segments, levels = np.asarray(segments, dtype=float), np.asarray(levels, dtype=float)
     delta = levels[:, 1] - levels[:, 0]
     selected = np.flatnonzero(np.abs(delta) > .01)
     if not len(selected):
@@ -38,6 +39,41 @@ def face_gradients(mesh, heights):
     matrix = np.stack((points[:, 1] - points[:, 0], points[:, 2] - points[:, 0]), axis=1)
     differences = heights[mesh.triangles][:, 1:] - heights[mesh.triangles][:, :1]
     return np.linalg.solve(matrix, differences[..., None])[..., 0]
+
+
+def source_face_rows(mesh, segments, levels, down_grade=.1, row_limit=32768):
+    segments, levels = np.asarray(segments, dtype=float), np.asarray(levels, dtype=float)
+    selected = np.flatnonzero(np.abs(levels[:, 1] - levels[:, 0]) > .01)
+    faces = shapely.polygons(mesh.vertices[mesh.triangles, :2])
+    tree = STRtree(faces)
+    rows, sources = [], []
+    outside, lengths = [], []
+    domain = shapely.union_all(faces)
+    for first in range(0, len(selected), 64):
+        ids = selected[first:first + 64]
+        lines = shapely.linestrings(segments[ids])
+        lengths.extend(shapely.length(lines))
+        outside.extend(shapely.length(shapely.difference(lines, domain)))
+        line, face = tree.query(lines, predicate="intersects")
+        overlap = shapely.length(shapely.intersection(lines[line], faces[face]))
+        line, face = line[overlap > 0], face[overlap > 0]
+        if sum(len(part) for part in rows) + len(face) > row_limit:
+            raise ValueError("source flow constraint budget exhausted")
+        source = ids[line]
+        direction = (segments[source, 1] - segments[source, 0])
+        direction *= -np.sign(levels[source, 1] - levels[source, 0])[:, None]
+        direction /= np.linalg.norm(direction, axis=1)[:, None]
+        rows.append(np.c_[face, direction, np.full(len(face), -down_grade), np.zeros(len(face))])
+        sources.append(source)
+    rows = np.concatenate(rows) if rows else np.empty((0, 5))
+    sources = np.concatenate(sources) if sources else np.empty(0, dtype=int)
+    return rows, sources, {"falling_source_segments": len(selected),
+                           "direction_unknown_segments": len(segments) - len(selected),
+                           "directed_rows": len(rows),
+                           "source_length_m": float(np.sum(lengths)),
+                           "inside_domain_length_m": float(np.sum(lengths) - np.sum(outside)),
+                           "outside_domain_length_m": float(np.sum(outside)),
+                           "partly_outside_source_segments": selected[np.asarray(outside) > 1e-6].tolist()}
 
 
 def optimality_certificate(solution, objective, constraints, bounds, contacts, contact_heights):
@@ -66,7 +102,7 @@ def optimality_certificate(solution, objective, constraints, bounds, contacts, c
                                    error_violation) <= 1e-7}
 
 
-def fit_surface(mesh, flow, *, down_grade=.1, cross_grade=.005, fixed=None,
+def fit_surface(mesh, flow, *, down_grade=.1, cross_grade=.005, fixed=None, directed_rows=None,
                 seconds=2.0, iterations=20000, vertex_limit=8192, face_limit=16384):
     began = time.perf_counter()
     report = {"valid": False, "solver_optimal": False,
@@ -94,6 +130,18 @@ def fit_surface(mesh, flow, *, down_grade=.1, cross_grade=.005, fixed=None,
         raise ValueError("nonzero representable flow directions required")
     flow = flow / lengths[:, None]
     cross = np.c_[-flow[:, 1], flow[:, 0]]
+    rows = np.empty((0, 5)) if directed_rows is None else np.asarray(directed_rows, dtype=float)
+    if (rows.ndim != 2 or rows.shape[1] != 5 or not np.isfinite(rows).all() or
+            np.any(rows[:, 0] != np.floor(rows[:, 0])) or np.any(rows[:, 0] < 0) or
+            np.any(rows[:, 0] >= nf) or np.any(rows[:, 3] > rows[:, 4])):
+        raise ValueError("directed rows require existing face, XY direction and gradient interval")
+    if len(rows) > 32768:
+        return absent("directed_row_budget_exhausted")
+    row_faces = rows[:, 0].astype(int)
+    row_length = np.linalg.norm(rows[:, 1:3], axis=1)
+    if np.any(row_length == 0) or not np.isfinite(row_length).all():
+        raise ValueError("nonzero representable directed-row vectors required")
+    row_direction = rows[:, 1:3] / row_length[:, None]
     pins = dict(fixed or {})
     if any(type(i) is not int or not 0 <= i < nv or not np.isfinite(h) for i, h in pins.items()):
         raise ValueError("finite fixed heights at existing vertices required")
@@ -102,22 +150,25 @@ def fit_surface(mesh, flow, *, down_grade=.1, cross_grade=.005, fixed=None,
     except ValueError:
         return absent("degenerate_surface")
 
-    def matrix(coefficients):
+    def matrix(coefficients, faces=mesh.triangles):
         return sparse.coo_matrix((coefficients.ravel(),
-                                  (np.repeat(np.arange(nf), 3), mesh.triangles.ravel())),
-                                 shape=(nf, nv + 1)).tocsr()
+                                  (np.repeat(np.arange(len(faces)), 3), faces.ravel())),
+                                 shape=(len(faces), nv + 1)).tocsr()
 
     along = matrix(np.einsum("fi,fij->fj", flow, weights))
     across = matrix(np.einsum("fi,fij->fj", cross, weights))
+    directed = matrix(np.einsum("fi,fij->fj", row_direction, weights[row_faces]),
+                      mesh.triangles[row_faces])
     eye = sparse.hstack([sparse.eye(nv), sparse.csr_matrix((nv, 1))])
     error = sparse.coo_matrix((-np.ones(nv), (np.arange(nv), np.full(nv, nv))),
                              shape=(nv, nv + 1)).tocsr()
     datum = float(np.median(mesh.vertices[:, 2]))
     target = mesh.vertices[:, 2] - datum
     constraints = sparse.vstack([eye + error, -eye + error, along, -along,
-                                 across, -across], format="csr")
+                                 across, -across, directed, -directed], format="csr")
+    constraints.eliminate_zeros()
     bounds = np.r_[target, -target, np.zeros(nf), np.full(nf, down_grade),
-                   np.full(nf, cross_grade), np.full(nf, cross_grade)]
+                   np.full(nf, cross_grade), np.full(nf, cross_grade), rows[:, 4], -rows[:, 3]]
     indices = list(pins)
     contacts = (sparse.coo_matrix((np.ones(len(indices)), (np.arange(len(indices)), indices)),
                                   shape=(len(indices), nv + 1)).tocsr() if pins else None)
@@ -131,6 +182,8 @@ def fit_surface(mesh, flow, *, down_grade=.1, cross_grade=.005, fixed=None,
                                 "primal_feasibility_tolerance": 1e-8,
                                 "dual_feasibility_tolerance": 1e-8})
     report.update(vertices=nv, faces=nf, rows=constraints.shape[0], nonzeros=constraints.nnz,
+                  constraint_matrix_bytes=(constraints.data.nbytes + constraints.indices.nbytes +
+                                           constraints.indptr.nbytes),
                   solver_status=solution.message, iterations=solution.nit, setup_ms=setup_ms,
                   solver_ms=(time.perf_counter() - began) * 1000 - setup_ms)
     if solution.x is None:
@@ -141,14 +194,18 @@ def fit_surface(mesh, flow, *, down_grade=.1, cross_grade=.005, fixed=None,
     pin_error = max((abs(height[i] - h) for i, h in pins.items()), default=0.0)
     violation = max(float(long_grade.max()), float((-long_grade - down_grade).max()),
                     float((np.abs(side_grade) - cross_grade).max()), 0.0)
+    directed_grade = (gradients[row_faces] * row_direction).sum(axis=1)
+    directed_violation = max(float((directed_grade - rows[:, 4]).max(initial=0)),
+                             float((rows[:, 3] - directed_grade).max(initial=0)))
     report.update(maximum_uphill_grade=float(long_grade.max()),
                   maximum_downhill_grade=float((-long_grade).max()),
                   maximum_cross_grade=float(np.abs(side_grade).max()), fixed_height_error_m=pin_error,
                   maximum_prior_error_m=float(np.abs(height - mesh.vertices[:, 2]).max()),
                   maximum_grade_violation_m_per_m=violation,
+                  directed_rows=len(rows), directed_row_violation_m_per_m=directed_violation,
                   objective_error_m=float(solution.x[-1]))
     if (not np.isfinite(height).all() or not np.isfinite(gradients).all() or
-            violation > 1e-7 or pin_error > 1e-7):
+            violation > 1e-7 or pin_error > 1e-7 or directed_violation > 1e-7):
         return absent("independent_whole_face_check_failed")
     report.update(optimality_certificate(solution, objective, constraints, bounds,
                                          contacts, contact_heights))
@@ -180,20 +237,24 @@ def main():
             parser.error("the chosen prior is incomplete on this body")
         mesh = Mesh(np.c_[flat.vertices[:, :2], target], flat.triangles)
         flow, source, distances = infer_flow(mesh, data["segment_nodes"], data["segment_levels"])
+        directed_rows, directed_source, coverage = source_face_rows(
+            mesh, data["segment_nodes"], data["segment_levels"], args.down_grade)
     fit = fit_surface(mesh, flow, down_grade=args.down_grade, cross_grade=args.cross_grade,
-                      seconds=args.seconds)
+                      directed_rows=directed_rows, seconds=args.seconds)
     report = dict(fit.report, topology=topology, maximum_prior_references=int(references.max()),
                   input_sha256=hashlib.sha256(args.input.read_bytes()).hexdigest(),
                   directions="inferred hypotheses; not supplied OSM directions",
                   maximum_direction_source_distance_m=float(distances.max()),
                   downstream_grade_limit=args.down_grade, cross_grade_limit=args.cross_grade,
+                  source_path_coverage=coverage,
                   pipeline_ms=(time.perf_counter() - began) * 1000)
     output.mkdir(parents=True, exist_ok=True)
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     if fit.mesh is not None:
         np.savez_compressed(output / "surface.npz", vertices=fit.mesh.vertices,
                             triangles=fit.mesh.triangles, prior=mesh.vertices[:, 2],
-                            flow=flow, source_segment=source)
+                            flow=flow, source_segment=source, directed_rows=directed_rows,
+                            directed_source_segment=directed_source)
     print(json.dumps(report))
     raise SystemExit(0 if fit.mesh is not None else 1)
 
