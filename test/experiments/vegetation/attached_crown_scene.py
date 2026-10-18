@@ -3,8 +3,8 @@
 import numpy as np
 from outshine_ref.rendering.blender_mesh import mesh_object
 from outshine_ref.vegetation.axis_surface import axis_mesh
+from outshine_ref.vegetation.twig_radius_basis import apply_basis, radius_basis
 from shoot_form_scene import constant_material
-from twig_radius_basis import apply_basis, radius_basis
 
 
 def isolated_carrier(dense, host):
