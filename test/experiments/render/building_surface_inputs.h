@@ -1,99 +1,59 @@
 #ifndef OUTSHINE_TEST_BUILDING_SURFACE_INPUTS_H
 #define OUTSHINE_TEST_BUILDING_SURFACE_INPUTS_H
 
-#include "BuildingPreparation.h"
+#include "building_roof_inputs.h"
 #include "BuildingSurface.h"
-#include "RoofSurface.h"
-#include <nlohmann/json.hpp>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <optional>
-#include <span>
 #include <vector>
 #include <utility>
 
 namespace outshine::Test {
-using SurfaceJson = nlohmann::json;
-
-inline SurfaceJson InputVector(const Vec3 &value) {
-  return {value[0], value[1], value[2]};
-}
-
-inline SurfaceJson InputPoint(EastNorth value) {
-  return {value.EastM, value.NorthM};
-}
-
-inline SurfaceJson InputRing(std::span<const EastNorth> ring) {
-  auto result = SurfaceJson::array();
-  for (const auto point : ring) { result.push_back(InputPoint(point)); }
-  return result;
-}
-
-inline SurfaceJson InputHip(const Generators::BuildingShape &shape) {
-  if (!shape.HipRoof) { return {{"available", false}, {"reason", "no cached native hip plan"}}; }
-  if (!*shape.HipRoof) {
-    return {{"available", false}, {"native_error", static_cast<unsigned>(shape.HipRoof->error())}};
-  }
-  const auto &plan = **shape.HipRoof;
-  auto facets = SurfaceJson::array();
-  for (const auto &facet : plan.Facets()) {
-    facets.push_back({{"ring", InputRing(facet.Ring)},
-                      {"gradient", InputPoint(facet.Gradient)},
-                      {"intercept_m", facet.InterceptM},
-                      {"source_ring", facet.SourceRing},
-                      {"source_edge", facet.SourceEdge}});
-  }
-  return {{"available", true},
-          {"origin", InputPoint(plan.Origin())},
-          {"maximum_distance_m", plan.MaximumDistanceM()},
-          {"precision_m", plan.PrecisionM()},
-          {"facets", std::move(facets)}};
-}
-
-inline bool HasCachedRoof(const Generators::BuildingShape &shape) {
-  return shape.Roof != Generators::RoofKind::Hip || (shape.HipRoof && shape.HipRoof->has_value());
-}
-
-inline SurfaceJson InputShape(const Generators::BuildingShape &shape, double minimumHeightM) {
-  using namespace Generators;
-  auto holes = SurfaceJson::array();
-  for (const auto &hole : shape.Holes) { holes.push_back(InputRing(hole)); }
-  const double deckM =
-      shape.SeatM + shape.FootM + shape.EavesM + (shape.Roof == RoofKind::Flat ? shape.RiseM : 0.0);
-  SurfaceJson result{{"ring", InputRing(shape.Ring)},
-                     {"holes", std::move(holes)},
-                     {"bottom_m", BuildingBottomM(shape, minimumHeightM)},
-                     {"roof_deck_m", deckM},
-                     {"roof_kind", static_cast<unsigned>(shape.Roof)},
-                     {"rise_m", shape.RiseM},
-                     {"centre", InputPoint(shape.Centre)},
-                     {"axis_u", InputPoint(shape.AxisU)},
-                     {"half_u_m", shape.HalfUm},
-                     {"half_v_m", shape.HalfVm},
-                     {"break_fraction_v", shape.BreakFracV},
-                     {"break_rise_m", shape.BreakRiseM},
-                     {"period_m", shape.PeriodM},
-                     {"party_wall_edges", shape.PartyWallEdges}};
-  if (shape.Roof == RoofKind::Hip) { result["hip"] = InputHip(shape); }
-  result["height_controls"] = SurfaceJson::array();
-  if (HasCachedRoof(shape)) {
-    const RoofSurface roof(shape);
-    const auto sample = [&](EastNorth point) {
-      result["height_controls"].push_back(
-          {{"point", InputPoint(point)},
-           {"inside", roof.Contains(point)},
-           {"height_m", roof.HeightAt(point)},
-           {"wall_top_m", deckM + std::max(roof.HeightAt(point), 0.0)}});
-    };
-    sample(shape.Centre);
-    for (const auto point : shape.Ring) { sample(point); }
-    for (const auto &hole : shape.Holes) {
-      for (const auto point : hole) { sample(point); }
+inline SurfaceJson InputWallNormal(const Generators::BuildingShape &shape, size_t side) {
+  size_t edge = side - 2;
+  std::span<const EastNorth> ring = shape.Ring;
+  bool hole = false;
+  if (edge >= ring.size()) {
+    edge -= ring.size();
+    for (const auto &inner : shape.Holes) {
+      if (edge < inner.size()) {
+        ring = inner;
+        hole = true;
+        break;
+      }
+      edge -= inner.size();
     }
   }
-  return result;
+  if (edge >= ring.size()) { return nullptr; }
+  double area = 0.0;
+  for (size_t at = 0; at < ring.size(); ++at) {
+    const auto a = ring[at];
+    const auto b = ring[(at + 1) % ring.size()];
+    area += a.EastM * b.NorthM - a.NorthM * b.EastM;
+  }
+  const auto a = ring[edge];
+  const auto b = ring[(edge + 1) % ring.size()];
+  const double length = std::hypot(b.EastM - a.EastM, b.NorthM - a.NorthM);
+  if (length == 0.0) { return nullptr; }
+  const double sign = (area >= 0.0) != hole ? 1.0 : -1.0;
+  return {sign * (b.NorthM - a.NorthM) / length, -sign * (b.EastM - a.EastM) / length, 0.0};
+}
+
+inline SurfaceJson InputFace(const Generators::BuildingSurface &surface, size_t index) {
+  const auto face = surface.FaceAt(index);
+  const auto &shape = surface.Shapes()[face.Part];
+  const std::array faces{face};
+  SurfaceJson normal = nullptr;
+  if (face.Side == 0) { normal = SurfaceJson{0, 0, -1}; }
+  if (face.Side >= 2) { normal = InputWallNormal(shape, face.Side); }
+  return {{"index", index},
+          {"part", face.Part},
+          {"side", face.Side},
+          {"estimated_triangles", surface.EstimatedTriangles(faces)},
+          {"normal_enu", std::move(normal)}};
 }
 
 inline SurfaceJson InputRay(const Generators::BuildingSurface &surface,
@@ -164,12 +124,7 @@ inline SurfaceJson InputSurface(const Generators::BuildingSurface &surface,
     result["shapes"].push_back(InputShape(shape, minimumHeightM));
   }
   for (size_t index = 0; index < surface.FaceCount(); ++index) {
-    const auto face = surface.FaceAt(index);
-    const std::array faces{face};
-    result["faces"].push_back({{"index", index},
-                               {"part", face.Part},
-                               {"side", face.Side},
-                               {"estimated_triangles", surface.EstimatedTriangles(faces)}});
+    result["faces"].push_back(InputFace(surface, index));
   }
   result["rays"] = InputRays(surface, eye);
   return result;
