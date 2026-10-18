@@ -9,6 +9,7 @@ MetalDevice::MetalDevice(uint64_t identity,
                          id<MTLCommandQueue> queue,
                          bool gpuTiming)
     : Identity_(identity), Native_(device), Queue_(queue), GpuTiming_(gpuTiming) {
+  if (GpuTiming_) { EncoderProfiling_ = CreateEncoderProfileSession(device, identity); }
   constexpr uint32_t colourTargets = 8;
   constexpr uint32_t maxUniformBytes = 64 * 1024;
   constexpr uint32_t baselineInvocations = 256;
@@ -124,7 +125,8 @@ Result<std::unique_ptr<Commands>> MetalDevice::Begin() {
     if (commands == nil) {
       return Failure(ErrorKind::Driver, "Metal command buffer allocation failed");
     }
-    return std::make_unique<MetalCommands>(Identity_, commands, std::move(permit));
+    return std::make_unique<MetalCommands>(
+        Identity_, commands, std::move(permit), CreateEncoderProfile(EncoderProfiling_));
   }
 }
 

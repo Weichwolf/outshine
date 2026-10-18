@@ -3,6 +3,7 @@
 
 #include "Device.h"
 #include "MetalGraphics.h"
+#include "MetalEncoderProfile.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #include <condition_variable>
@@ -220,8 +221,9 @@ class MetalCommands final : public Commands {
 public:
   MetalCommands(uint64_t device,
                 id<MTLCommandBuffer> commands,
-                std::shared_ptr<CommandPermit> permit)
-      : Device(device), Native(commands), Permit(std::move(permit)) {}
+                std::shared_ptr<CommandPermit> permit,
+                std::shared_ptr<EncoderProfile> profile)
+      : Device(device), Native(commands), Permit(std::move(permit)), Profile(std::move(profile)) {}
 
   ~MetalCommands() override;
 
@@ -256,6 +258,7 @@ private:
   std::vector<Reservation> Held;
   std::vector<std::shared_ptr<TextureRecording>> HeldImages;
   std::shared_ptr<CommandPermit> Permit;
+  std::shared_ptr<EncoderProfile> Profile;
   std::unique_ptr<PresentFrame> Presentation;
   id<MTLComputeCommandEncoder> Compute = nil;
   std::optional<RenderState> Render;
@@ -335,6 +338,7 @@ private:
   static constexpr size_t kRetainedTimings = 8;
   std::array<SubmissionTiming, kRetainedTimings> Timings_{};
   bool GpuTiming_ = false;
+  std::shared_ptr<EncoderProfileSession> EncoderProfiling_;
   std::optional<Error> Failed_;
   std::shared_ptr<CommandCounts> Counts_ = std::make_shared<CommandCounts>();
   std::unique_ptr<MetalPresentation> Presentation_;

@@ -46,7 +46,14 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     held->Permit = std::move(metal->Permit);
     held->Presentation = std::move(metal->Presentation);
     const bool gpuTiming = GpuTiming_;
+    const auto profile = metal->Profile;
+    const uint64_t serial = submission->Serial;
     [metal->Native addCompletedHandler:^(id<MTLCommandBuffer> finished) {
+      if (profile && finished.status == MTLCommandBufferStatusCompleted) {
+        @autoreleasepool {
+          CollectEncoderProfile(profile, finished, serial);
+        }
+      }
       held->Buffers.clear();
       held->Permit.reset();
       held->Presentation.reset();
