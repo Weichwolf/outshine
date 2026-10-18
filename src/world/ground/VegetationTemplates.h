@@ -27,6 +27,9 @@ public:
     Vec4f Dry;
     Vec4f Param;
     Vec4f Edge;
+    Vec4f GroundBase;
+    Vec4f LitterBase;
+    float CanopyWeight = 0.0f;
     int GroundClass = -1;
 
     [[nodiscard]] Vec4f MeanGround() const noexcept;

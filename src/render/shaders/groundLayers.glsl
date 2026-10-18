@@ -18,7 +18,13 @@ GroundSurface blendGroundSurfaces(GroundSurface first, GroundSurface second, flo
                        blendBumpDerivatives(first.BumpDxDy, second.BumpDxDy, weight));
 }
 
-GroundSurface groundSubstrateSurface(int which, vec2 atM, vec2 worldDx, vec2 worldDy, uint rows) {
+vec4 groundPaletteVector(uint at) {
+  return vec4(
+      groundPalette[at], groundPalette[at + 1u], groundPalette[at + 2u], groundPalette[at + 3u]);
+}
+
+GroundSurface
+groundSubstrateLayers(int which, vec2 atM, vec2 worldDx, vec2 worldDy, uint rows, uint canopyAt) {
   uint row = groundSubstrateRow(which, rows);
   uint at = 4u * (rows + 2u) + rows + 1u + row * 8u;
   vec4 recipe = vec4(
@@ -33,12 +39,20 @@ GroundSurface groundSubstrateSurface(int which, vec2 atM, vec2 worldDx, vec2 wor
     base = substrateDetail(recipe, contrast, atM, worldDx, worldDy, footprintM);
   }
   vec4 wears = groundWears(which, rows);
+  vec4 rawGround = vec4(0.0);
+  vec4 rawLitter = vec4(0.0);
+  if (canopyAt > 0u) {
+    rawGround = groundPaletteVector(canopyAt);
+    rawLitter = groundPaletteVector(canopyAt + 4u);
+    wears = mix(rawGround, rawLitter, coverage);
+  }
   if (coverage <= 0.0) { return groundSurface(wears, base); }
   uint layerAt = layersAt + materialRow * 8u;
   vec4 difference = vec4(groundPalette[layerAt],
                          groundPalette[layerAt + 1u],
                          groundPalette[layerAt + 2u],
                          groundPalette[layerAt + 3u]);
+  if (canopyAt > 0u) { difference = rawLitter - rawGround; }
   vec4 litterRecipe = vec4(groundPalette[layerAt + 4u],
                            groundPalette[layerAt + 5u],
                            groundPalette[layerAt + 6u],
@@ -51,3 +65,5 @@ GroundSurface groundSubstrateSurface(int which, vec2 atM, vec2 worldDx, vec2 wor
   return blendGroundSurfaces(
       groundSurface(first, base), groundSurface(first + difference, litter), weight);
 }
+
+#include "groundCanopy.glsl"
