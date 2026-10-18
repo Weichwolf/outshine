@@ -54,12 +54,12 @@ def products(species, plan, directory, mode, tables, selected_path):
     selected_id = None if selected_path is None else plan.wood.axis(selected_path).id
     for path in paths:
         axis, depth = plan.wood.axis(path), len(path)
-        level = plan.wood.levels[depth]
+        base_radius, tip_radius = plan.wood.radii(path)
         mesh = axis_mesh(
             axis.length,
             axis.bend,
-            level.base_radius,
-            level.tip_radius,
+            base_radius,
+            tip_radius,
             16 if depth == 0 else 8,
             12 if depth == 0 else 8,
             bark=True,

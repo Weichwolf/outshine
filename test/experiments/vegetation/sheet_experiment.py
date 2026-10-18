@@ -275,15 +275,15 @@ def assemble_wood(plant, detail):
     offset = 0
     retained, omitted = 0, 0
     for state in detail["axes"]:
-        level = plant.levels[len(state.path)]
-        if level.base_radius < 0.001:
+        base_radius, tip_radius = plant.radii(state.path)
+        if base_radius < 0.001:
             omitted += 1
             continue
         mesh = axis_mesh(
             state.length,
             state.bend,
-            level.base_radius,
-            level.tip_radius,
+            base_radius,
+            tip_radius,
             segments=12,
             sides=8,
         )

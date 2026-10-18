@@ -85,14 +85,12 @@ def compare_case(seed, before):
                             output[key], plants["before"].leaves(target, counts[1])[key]
                         )
     for state in actual["axes"]:
-        level = template.levels[len(state.path)]
+        base_radius, tip_radius = template.radii(state.path)
         for n, sides in ((24, 8), (12, 6)):
             old = before.axis_mesh(
-                state.length, state.bend, level.base_radius, level.tip_radius, n, sides
+                state.length, state.bend, base_radius, tip_radius, n, sides
             )
-            new = axis_mesh(
-                state.length, state.bend, level.base_radius, level.tip_radius, n, sides
-            )
+            new = axis_mesh(state.length, state.bend, base_radius, tip_radius, n, sides)
             for key in old:
                 np.testing.assert_array_equal(old[key], new[key])
     return {

@@ -63,15 +63,15 @@ def compare(seed):
     for index, plan in enumerate(plans):
         path = plan["path"]
         state = plant.axis(path)
-        parent_level = plant.levels[len(path) - 1]
-        parent_radius = parent_level.base_radius + state.parent_parameter * (
-            parent_level.tip_radius - parent_level.base_radius
+        parent_base, parent_tip = plant.radii(path[:-1])
+        parent_radius = parent_base + state.parent_parameter * (
+            parent_tip - parent_base
         )
         meshes[index], work = blend_collar_normals(
             meshes[index],
             [references[indices[path[:-1]]], references[indices[path]]],
             parent_radius,
-            plant.levels[len(path)].base_radius,
+            plant.radii(path)[0],
         )
         shading.append(work)
     shading_ms = (time.perf_counter() - began) * 1000

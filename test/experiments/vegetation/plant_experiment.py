@@ -101,10 +101,10 @@ def check_plant(plant):
     for state in detail["axes"]:
         np.testing.assert_allclose(state.frame.T @ state.frame, np.eye(3), atol=1e-15)
         np.testing.assert_allclose(np.linalg.det(state.frame), 1, atol=1e-15)
-        level = plant.levels[len(state.path)]
-        mesh = axis_mesh(state.length, state.bend, level.base_radius, level.tip_radius)
+        base_radius, tip_radius = plant.radii(state.path)
+        mesh = axis_mesh(state.length, state.bend, base_radius, tip_radius)
         coarse = axis_mesh(
-            state.length, state.bend, level.base_radius, level.tip_radius, segments=12
+            state.length, state.bend, base_radius, tip_radius, segments=12
         )
         np.testing.assert_array_equal(
             mesh["vertices"][:-2].reshape(25, 8, 3)[::2],
@@ -325,7 +325,7 @@ def make_scenes(output, plant, commit, modified):
     detail = plant.expand(summary["axes"], summary["leaves"])
     products = []
     for state in detail["axes"]:
-        level = plant.levels[len(state.path)]
+        base_radius, tip_radius = plant.radii(state.path)
         products.append(
             write_product(
                 output,
@@ -333,8 +333,8 @@ def make_scenes(output, plant, commit, modified):
                 axis_mesh(
                     state.length,
                     state.bend,
-                    level.base_radius,
-                    level.tip_radius,
+                    base_radius,
+                    tip_radius,
                     segments=24,
                 ),
                 state.origin[None, :],
