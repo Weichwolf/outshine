@@ -160,7 +160,10 @@ def recipes_with_dependencies(recipes, records, sources, method):
                     if crossing_kind(sources[k]) == "road"
                 },
                 **(
-                    {"geometric_junctions": contacts, "junction_height_mode": "joint"}
+                    {
+                        "geometric_junctions": contacts,
+                        "junction_height_mode": "quantized",
+                    }
                     if contacts
                     else {}
                 ),
