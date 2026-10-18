@@ -22,6 +22,21 @@ def setup_form(**traits):
 
 
 class ShootFormChecks(unittest.TestCase):
+    def test_invalid_traits_and_unadmitted_precision_refuse_before_randomness(self):
+        source = fixture()
+        base = CompactCrown.build(source)
+        with patch("numpy.random.Generator", side_effect=AssertionError("randomness")):
+            for traits in (
+                {"seed": -1},
+                {"scale_spread": 0.8},
+                {"leaf_roll_spread": 2.0},
+                {"host_roll_spread": -0.1},
+            ):
+                with self.assertRaises(ValueError):
+                    ShootForm.build(source, base, **traits)
+            with self.assertRaises(ValueError):
+                ShootForm.build(source, base.quantized())
+
     def test_matched_detail_is_per_id_union_independent_of_form_order(self):
         source, base, original = setup_form()
         changed = ShootForm.build(

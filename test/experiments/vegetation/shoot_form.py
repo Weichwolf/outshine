@@ -76,6 +76,7 @@ class ShootForm:
     ):
         if (
             base.identity != source.identity
+            or base.data["origins"].dtype != np.dtype(np.float64)
             or type(seed) is not int
             or not 0 <= seed < 2**64
             or not np.isfinite((scale_spread, leaf_roll_spread, host_roll_spread)).all()
