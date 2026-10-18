@@ -14,11 +14,11 @@ from ground_litter_footprint import visibility
 from ground_litter_reference import DTYPE
 
 
-def cases(scale, row):
+def cases(scale, row, point_count=8):
     rng = np.random.default_rng(451)
-    points = rng.uniform(-4, 4, (8, 2))
+    points = rng.uniform(-4, 4, (point_count, 2))
     probes, groups = [], []
-    for width in (0.005, 0.02, 0.1, 0.4, 0.9, 1.3, 1.9, 2.1):
+    for width in (0.005, 0.02, 0.1, 0.249999, 0.25, 0.250001, 0.4, 0.9, 1.3, 1.9, 2.1):
         for angle in (0, 17, 45, 83):
             direction = np.array([np.cos(np.deg2rad(angle)), np.sin(np.deg2rad(angle))])
             normal = np.array([-direction[1], direction[0]])
@@ -93,6 +93,8 @@ def main():
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--quadrature", type=int, choices=(2, 3), default=3)
+    parser.add_argument("--unit-contrast", action="store_true")
+    parser.add_argument("--points-per-footprint", type=int, choices=(8, 32), default=8)
     args = parser.parse_args()
     output = args.output.resolve()
     if output.is_relative_to(ROOT) or not output.is_relative_to(
@@ -107,11 +109,16 @@ def main():
     active = np.flatnonzero(palette[tail:].reshape(-1, 24)[:rows, 19] > 0)
     controls, row = optical_controls(palette, active, rows, tail)
     unit = controls["mixture-optics"]
-    scale = float(palette[layers + row * 8 + 6])
-    fraction = float(palette[tail + row * 24 + 18])
-    contrast = float(palette[4 * (rows + 2) + rows + 1 + row * 8 + 4])
+    contrast_at = 4 * (rows + 2) + rows + 1 + row * 8 + 4
+    if args.unit_contrast:
+        unit[tail + row * 24 + 18] = 0.5
+        unit[4 * (row + 1) : 4 * (row + 1) + 3] = 0.5
+        unit[contrast_at] = 1
+    scale = float(unit[layers + row * 8 + 6])
+    fraction = float(unit[tail + row * 24 + 18])
+    contrast = float(unit[contrast_at])
     spread = 2 * min(fraction, 1 - fraction) * contrast
-    probes, groups, count = cases(scale, row)
+    probes, groups, count = cases(scale, row, args.points_per_footprint)
     probes.tofile(output / "probes.bin")
     unit.tofile(output / "mixture.palette.bin")
     outputs, commands = execute(
@@ -144,8 +151,26 @@ def main():
         "uniform_mean_max_display_lsb": 255
         * float(np.max(np.abs(srgb(fraction) - srgb(fine)))),
     }
+    by_width = {
+        width: np.concatenate(
+            [
+                baseline[group["start"] : group["start"] + group["count"]]
+                for group in groups
+                if group["width"] == width
+            ]
+        )
+        for width in (0.249999, 0.250001)
+    }
+    handover = 255 * float(
+        np.max(np.abs(srgb(by_width[0.249999]) - srgb(by_width[0.250001])))
+    )
     report = {
         "quadrature_samples": args.quadrature**2,
+        "points_per_footprint": args.points_per_footprint,
+        "dry_fraction": fraction,
+        "contrast": contrast,
+        "filter": "shared product shader; quadrature_samples is the maximum",
+        "handover_display_lsb": handover,
         "probes": len(probes),
         "groups": groups,
         "main_probes": count,
@@ -183,6 +208,7 @@ def main():
     assert min(alternatives.values()) > 1.0, summary
     assert convergence < 0.1 / 255, summary
     assert symmetry < 16 * np.finfo(np.float32).eps, summary
+    assert handover <= 0.1, summary
     assert error.max() <= 1 / 255, summary
     assert np.max(np.abs(motion_error)) <= 1 / 255, summary
     report["status"] = "passed"

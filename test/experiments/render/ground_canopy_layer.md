@@ -112,8 +112,29 @@ scopes including upload/readback are 0.219648–0.222464 ms versus
 0.204352–0.206080 ms; these overlapping scopes must not be added. Both request
 628024 logical buffer bytes and copy 314012 bytes. The cheaper four-sample
 candidate fails the same quality requirement, so the existing nine-sample filter
-is retained. These are component measurements, not world or A18 acceptance.
+is retained in the transition band. These are component measurements, not world
+or A18 acceptance.
 
 `ground_canopy_footprint_report.py --selected <nine-sample-output>
 --alternative <four-sample-output> --output <system-temp-report.pdf>` plots the
 retained measurements. The resulting PDF was also reviewed optically.
+
+
+## Adaptive small colour footprints
+
+The canopy colour field uses four Gauss samples for footprints larger than 0.01
+and no larger than 0.25 material wavelengths. The existing point limit is retained
+below that interval; the original nine-sample filter remains above it, including
+the critical transition to the far mean. The underlying substrate/litter filter
+keeps its original sampling. `groundLitterFourPointMean` shares the existing
+four-sample expression without changing its evaluation order.
+
+This avoids five noise evaluations per affected canopy field (nine to four,
+55.6% fewer); it adds no resources, transfers, parameters, or shader bindings.
+The quarter-wavelength boundary is a conservative measured approximation, not a
+global optimality claim. The native footprint comparison now includes both sides
+of that boundary, an unchanged one-LSB reference error limit, and an additional
+0.1-LSB handover limit. `--unit-contrast --points-per-footprint 32` exercises full
+black/white contrast and 32 fixed world positions per footprint, beyond the
+supplied palette's smaller optical range. Exact terminal results, GPU timings and
+paired world images belong to PR #645.
