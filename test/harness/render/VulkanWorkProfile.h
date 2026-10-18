@@ -48,7 +48,7 @@ struct Sample {
   uint32_t Kind = 0;
   size_t Calls = 0;
   Workgroups Groups{};
-  bool Fragment = false;
+  bool Fragment = true;
   bool Missing = false;
   bool Details = false;
 };
@@ -168,7 +168,7 @@ inline void Identify(Sample &sample, VkPipeline pipeline) {
   }
   if (!sample.Label.empty()) { sample.Label += '|'; }
   sample.Label += found->second.Label;
-  sample.Fragment = sample.Fragment || found->second.Fragment;
+  sample.Fragment = sample.Fragment && found->second.Fragment;
 }
 
 inline uint32_t
@@ -179,6 +179,7 @@ Begin(const Context &context, VkCommandBuffer commands, std::span<const DrawPack
   if (slot == kAbsent) { return slot; }
   auto &sample = trace.Samples[slot];
   sample.Calls = draws.size();
+  sample.Fragment = !draws.empty();
   std::array<VkPipeline, 64> seen{};
   size_t seenCount = 0;
   for (const auto &draw : draws) {
