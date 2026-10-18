@@ -1,4 +1,4 @@
-"""Experimental bounded numeric surface archive; admission belongs to the caller."""
+"""Bounded numeric snapshots of known-valid finite height surfaces."""
 
 import hashlib
 import io
@@ -8,7 +8,8 @@ import re
 import zipfile
 
 import numpy as np
-from outshine_ref.geometry.surface_patches import SurfacePatches
+
+from ._field import SurfacePatches
 
 FORMAT = "outshine-finite-surface/1"
 MAX_BYTES = 64 * 1024**2
@@ -23,7 +24,7 @@ def budget(value):
 
 
 def pack_surface(view, *, compressed=False, max_bytes=MAX_BYTES):
-    """Pack a normally validated immutable view; publish only after cold verification."""
+    """Pack a normally constructed view; the caller owns product publication and trust."""
     budget(max_bytes)
     if not isinstance(view, SurfacePatches) or type(compressed) is not bool:
         raise TypeError(
@@ -31,12 +32,12 @@ def pack_surface(view, *, compressed=False, max_bytes=MAX_BYTES):
         )
     if not 1 <= len(view.patches) <= view.max_patches <= 4096:
         raise ValueError("bounded complete surface view required")
-    arrays, rows = {}, []
+    arrays, rows, masks = {}, [], view.active_faces
     for index, part in enumerate(view.patches):
         prefix = "p" + str(index)
         arrays[prefix + "-v"] = part.mesh.vertices
         arrays[prefix + "-f"] = part.mesh.triangles
-        arrays[prefix + "-active"] = view.active_faces[part.patch_id]
+        arrays[prefix + "-active"] = masks[part.patch_id]
         for attribute, values in enumerate(part.face_data.values()):
             arrays[prefix + "-a" + str(attribute)] = values
         rows.append(
@@ -77,7 +78,7 @@ def inspect_archive(payload, expected_sha256, max_bytes):
         or re.fullmatch("[0-9a-f]{64}", expected_sha256) is None
         or hashlib.sha256(payload).hexdigest() != expected_sha256
     ):
-        raise ValueError("externally admitted prepared content digest differs")
+        raise ValueError("expected prepared product digest differs")
     with zipfile.ZipFile(io.BytesIO(payload)) as archive:
         members = archive.infolist()
         if (
@@ -98,24 +99,45 @@ def inspect_archive(payload, expected_sha256, max_bytes):
                     "only named unencrypted numeric NPY members are supported"
                 )
             with archive.open(row) as stream:
-                if np.lib.format.read_magic(stream) != (1, 0):
-                    raise ValueError("prepared codec requires bounded NPY 1.0 headers")
-                shape, _fortran, dtype = np.lib.format.read_array_header_1_0(stream)
-                if (
-                    not 1 <= len(shape) <= 2
-                    or any(type(n) is not int or n < 0 for n in shape)
-                    or dtype.kind not in "buif"
-                    or dtype.itemsize > 8
-                    or dtype.fields is not None
-                    or dtype.subdtype is not None
-                    or math.prod(shape) * dtype.itemsize
-                    != row.file_size - stream.tell()
-                ):
-                    raise ValueError(
-                        "bounded exact primitive array lengths required before allocation"
-                    )
-                if row.filename == "metadata.npy" and row.file_size > MAX_META + 128:
-                    raise ValueError("prepared metadata array budget exhausted")
+                array_header(row, stream)
+
+
+def array_header(row, stream):
+    if np.lib.format.read_magic(stream) != (1, 0):
+        raise ValueError("prepared codec requires bounded NPY 1.0 headers")
+    shape, _fortran, dtype = np.lib.format.read_array_header_1_0(stream)
+    if (
+        not 1 <= len(shape) <= 2
+        or any(type(n) is not int or n < 0 for n in shape)
+        or dtype.kind not in "buif"
+        or dtype.itemsize > 8
+        or dtype.fields is not None
+        or dtype.subdtype is not None
+        or math.prod(shape) * dtype.itemsize != row.file_size - stream.tell()
+    ):
+        raise ValueError(
+            "bounded exact primitive array lengths required before allocation"
+        )
+    name = row.filename[:-4]
+    if name == "metadata":
+        valid = dtype == np.dtype("u1") and len(shape) == 1 and shape[0] <= MAX_META
+    elif name.endswith(("-v", "-f")):
+        kind, size = ("f", 8) if name.endswith("-v") else ("u", 4)
+        valid = (
+            len(shape) == 2
+            and 1 <= shape[0] <= 65536
+            and shape[1] == 3
+            and dtype.kind == kind
+            and dtype.itemsize == size
+        )
+    else:
+        valid = len(shape) == 1 and 1 <= shape[0] <= 65536
+        if name.endswith("-active"):
+            valid = valid and dtype == np.dtype(bool)
+    if not valid:
+        raise ValueError(
+            "bounded prepared member shape and dtype required before allocation"
+        )
 
 
 def unique_object(pairs):

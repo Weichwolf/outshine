@@ -7,6 +7,7 @@ from pathlib import Path
 
 from camera_height_inputs import digest
 from outshine_ref.contracts import LocalFrame
+from outshine_ref.geometry.surface_patches.prepared import FORMAT, restore_surface
 from stair_composition_scope import composition
 from stair_coverage_boundary_scope import validation
 from stair_local_replay import load_chain
@@ -14,8 +15,6 @@ from stair_module_experiment import write_json
 from stair_module_inputs import read_arrays
 from stair_patch_experiment import compare
 from stair_patch_verify import compare_queries
-from stair_prepared_surface_archive import FORMAT
-from stair_prepared_surface_restore import restore_surface
 from stair_prepared_surface_scope import REFERENCE
 from stair_resident_snapshot_cost import state_hash
 from stair_resident_snapshot_verify import equal_patches

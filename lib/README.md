@@ -129,6 +129,9 @@ Topologie, Quellen und tatsächliche Exportabnahme bleiben beim Aufrufer.
 Höhenflächen durch lokale, ausdrücklich benannte Facettenersetzung. Stabile
 Patch-/Face-IDs, ganze XYZ-Ränder und begrenzte lokale Abfragen ohne globale
 Geometriekopie: [surface_patches.md](surface_patches.md) (#542).
+Der optionale `geometry.surface_patches.prepared`-Codec speichert und lädt bekannte
+gültige, vom bestehenden Produktdatensatz gebundene Oberflächen ohne erneute
+Geometriekonstruktion; normale unbekannte Eingaben bleiben streng (#678).
 
 `transport.junction_pads.profile_junction_pad` konstruiert eine kleine ebene
 Profilhülle aus zwei bis vier ausdrücklich gemeinsamen ganzen Endprofilen.
