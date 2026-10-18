@@ -9,7 +9,6 @@ import shapely
 from camera_height_inputs import digest
 from shared_bridge_geometry import corridor
 from stair_module_inputs import reference_profiles
-from stair_surface_access import ROAD_FOOT_CONTACTS
 
 
 def binding(new, old, contact):
@@ -18,7 +17,7 @@ def binding(new, old, contact):
         key not in new.source_ids
         or old_key not in old.source_ids
         or contact["asset_sha256"] != old.identity
-        or contact["access"]["kind"] not in ROAD_FOOT_CONTACTS
+        or contact["access"]["kind"] != "minor_footway_node"
         or contact["access"]["motor_cycle_contact_arcs"] != 0
     ):
         raise ValueError("verified logical road/old footway owner binding required")
@@ -66,7 +65,7 @@ def declarations(report, identity):
     return tuple(
         {"new_asset_sha256": identity, "contact": contact}
         for contact in records
-        if contact["access"]["kind"] in ROAD_FOOT_CONTACTS
+        if contact["access"]["kind"] == "minor_footway_node"
     )
 
 

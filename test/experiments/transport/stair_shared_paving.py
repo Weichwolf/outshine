@@ -4,7 +4,6 @@ import numpy as np
 import shapely
 from stair_module_inputs import reference_profiles
 from stair_module_roads import face_frames
-from stair_surface_access import ROAD_FOOT_CONTACTS
 from surface_height_checks import normal_gradients
 
 
@@ -70,7 +69,7 @@ def inspect_paving(state, rows, original, root_cap):
         {
             c["owner"]
             for c in state.get("surface_contacts", [])
-            if c["kind"] in ROAD_FOOT_CONTACTS
+            if c["kind"] == "minor_footway_node"
         }
     )
     report, counted = [], 0

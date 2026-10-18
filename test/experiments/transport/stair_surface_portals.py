@@ -114,12 +114,7 @@ def inspect_contacts(data, rows, contacts):
                 **(
                     {
                         k: contact[k]
-                        for k in (
-                            "walk_width_m",
-                            "original_shared_node_mvt",
-                            "procedural_axis_crossing_xy_m",
-                        )
-                        if k in contact
+                        for k in ("walk_width_m", "original_shared_node_mvt")
                     }
                     if "walk_width_m" in contact
                     else {}
