@@ -23,7 +23,7 @@ def entry_arguments(database, suffix):
     return entry, list(entry.get("arguments") or shlex.split(entry["command"]))
 
 
-def instrument(source, header):
+def instrument(source, header, world_overlap=False):
     call = "StorageProbe::Report({phase}, this, Held_.Snapshot(), DrivenGeometry_, ShapeParts_);"
     anchors = (
         ("  Held_.SetGeometry(std::move(built));", "geometry-held"),
@@ -35,7 +35,44 @@ def instrument(source, header):
         if source.count(anchor) != 1:
             raise ValueError(f"source changed: expected exactly one {phase} anchor")
         source = source.replace(anchor, anchor + "\n  " + call.format(phase=json.dumps(phase)), 1)
-    return f"#include {json.dumps(str(header))}\n" + source
+
+    if world_overlap:
+        draw = "bool RuntimeScene::Draw(std::string &error) {"
+        published = "  const auto published = Renderer_->PublishedWorld();"
+        if source.count(draw) != 1:
+            raise ValueError("source changed: expected exactly one Draw entry")
+        start = source.index(draw)
+        at = source.find(published, start)
+        render = source.find("Renderer_->RenderFrame()", start)
+        if at < 0 or render < 0 or at >= render:
+            raise ValueError("source changed: missing Draw world-scope boundary")
+        source = source[:at] + r'''
+  static bool compared = false;
+  if (!compared && Held_.Snapshot().storageBytes() >= 1048576) {
+    compared = true;
+    if (Renderer_->PublishedScopeDepth_ != 0 || Renderer_->CandidateEditorDepth_ != 0) {
+      error = "ownership probe entered an active world scope";
+      return false;
+    }
+    const auto uploads = Renderer_->OfflineUploads(std::chrono::seconds(5));
+    Renderer_->WaitForGpu();
+    const size_t before = Heap::LiveBytes();
+    std::println(stderr, "HEAP_SOURCE\tcpp_instrumented\t{}", Heap::ProcessInstrumentationEnabled());
+    StorageProbe::Report("world-before", this, Held_.Snapshot(), DrivenGeometry_, ShapeParts_);
+    std::unique_ptr<RuntimeScene> candidate;
+    if (!PreparesWorldReplacement(*Renderer_, *this, nullptr, candidate, error)) { return false; }
+    StorageProbe::Report("world-overlap", this, Held_.Snapshot(), DrivenGeometry_, ShapeParts_);
+    StorageProbe::Report("world-overlap", candidate.get(), candidate->Held_.Snapshot(),
+                         candidate->DrivenGeometry_, candidate->ShapeParts_);
+    std::println(stderr, "OVERLAP\tbefore\t{}\tduring\t{}", before, Heap::LiveBytes());
+    candidate.reset();
+    Renderer_->AbandonsWorldCandidate();
+    Renderer_->WaitForGpu();
+    std::println(stderr, "OVERLAP\tafter-abort\t{}", Heap::LiveBytes());
+  }
+''' + source[at:]
+    prefix = "#include <print>\n" if world_overlap else ""
+    return prefix + f"#include {json.dumps(str(header))}\n" + source
 
 
 def client_link(path, checkout, object_path, output):
@@ -58,6 +95,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkout", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--world-overlap", action="store_true",
+                        help="synchronously restore/abort a full All-world candidate; not a frame gate")
     parser.add_argument("--link-command", type=Path,
                         help="JSON argv of this checkout's regular client link; omit to compile only")
     args = parser.parse_args()
@@ -78,7 +117,7 @@ def main():
             raise ValueError("compile database belongs to a different checkout")
         if compile_command.count("-o") != 1 or "-c" not in compile_command:
             raise ValueError("RuntimeScene compile entry must have -c and one -o")
-        private_source = instrument(source_path.read_text(), header)
+        private_source = instrument(source_path.read_text(), header, args.world_overlap)
         object_path = output / "RuntimeScene.owners.o"
         compile_command[compile_command.index(entry["file"])] = str(output / "RuntimeScene.owners.cpp")
         compile_command[compile_command.index("-o") + 1] = str(object_path)
@@ -95,12 +134,16 @@ def main():
         paths += tuple(sorted((checkout / "src/diagnostics").glob("*.cpp")))
     report = {
         "schema": 2,
+        "world_overlap": args.world_overlap,
         "checkout": str(checkout),
         "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=checkout, text=True).strip(),
         "git_status": subprocess.check_output(["git", "status", "--porcelain"], cwd=checkout, text=True),
         "inputs_sha256": {str(path): digest(path) for path in paths},
         "private_source_sha256": digest(output / "RuntimeScene.owners.cpp"),
-        "scope": "Stage-boundary CPU ownership/capacity only; not RSS, physical VRAM, GPU time or a frame gate.",
+        "scope": ("Stage-boundary CPU ownership/capacity only; not physical VRAM, GPU time or a frame gate. "
+                  + ("Opt-in All-world overlap restores all resources before abort, outside PublishedWorldScope, "
+                     "with bounded OfflineUploads(5s) and explicit GPU drains. Process RSS needs a separate recorder."
+                     if args.world_overlap else "No world replacement is injected.")),
         "commands": [],
         "exit": None,
     }

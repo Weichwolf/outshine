@@ -40,10 +40,32 @@ is transitional; the generic application benchmark migration remains owned by #5
 Compare image hashes/pixels and open the images. A full native build or frame-budget
 pass is not implied by successful compilation of this one translation unit.
 
+## Optional complete world overlap
+
+Add `--world-overlap` when building the private object/client to prepare and abort one
+complete `All` candidate before the first draw whose original geometry holds at least 1 MiB.
+The probe runs before `PublishedWorldScope` and rejects an already active world scope.
+It uses the existing bounded `OfflineUploads(5s)` protocol and drains GPU work before the
+snapshot and after abort. Every copied piece, material/classification and terrain resource
+is restored by the normal world-replacement API; content and view remain unchanged.
+
+This is a synchronized ownership/overlap experiment. It deliberately adds work and waits
+to the first draw and cannot pass a frame-time or normal streaming gate. Use a separate
+uninstrumented client for device/frame acceptance. Compare/open the final PNG against
+that client, check complete frames and record process peaks separately. A failed candidate,
+missing rows or changed image invalidates this comparison. The product sources stay unchanged.
+
+`HEAP_SOURCE` reports `cpp_instrumented`, then its boolean validity. `OVERLAP` reports
+`before`, requested live C++ heap bytes, `during`, requested live C++ heap bytes; a second
+row reports `after-abort`, requested live C++ heap bytes. These values are unmeasured when
+`cpp_instrumented` is false; they exclude driver/physical VRAM and are not an allocation count.
+`SOURCE`/`OWNER` add phases `world-before` and `world-overlap`, the latter for both scenes.
+Deduplicate shared original products by Geometry pointer before summing reported capacities.
+
 ## TSV schema, version 2
 
 All counts are decimal; byte counts use bytes, not MiB. Pointers are process-local identity
-evidence and cannot be compared across runs. Reporting occurs only at four lifecycle
+evidence and cannot be compared across runs. Default reporting occurs only at four lifecycle
 boundaries: `geometry-held`, `geometry-packed`, `geometry-cooked`, `scene-destroy`.
 Products whose summed reported owners hold less than 1 MiB are skipped. There is no
 per-frame traversal or printing. Diagnostic overhead is unmeasured, so these runs are
@@ -74,7 +96,8 @@ The original Geometry and its renderer representation are distinct owners. Share
 attribute spans own no bytes; a reduced ShapeStore total says nothing about their
 retaining owner's lifetime. Geometry storage, nested material/image payloads, allocator
 overhead and GPU restore sources may have different accounting boundaries. Do not add
-overlapping world/region/building counters. This probe excludes global heap/RSS,
-driver allocations, physical VRAM, GPU timing and async last-reader correctness.
-World replacement and aborted candidates need separate lifetime/peak tests; #634 owns
-the product contract. No raw attribute span may outlive its immutable owner.
+overlapping world/region/building counters. Default reporting excludes global heap/RSS,
+driver allocations, physical VRAM, GPU timing and async last-reader correctness. The optional
+world-overlap mode adds the instrumented C++ heap snapshots described above; process RSS
+requires a separate recorder. Async last-reader correctness needs separate lifetime tests;
+#634 owns the product contract. No raw attribute span may outlive its immutable owner.
