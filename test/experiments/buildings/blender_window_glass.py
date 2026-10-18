@@ -1,11 +1,14 @@
 """Explicit Eevee glass comparisons; the source material remains the default."""
 
+import math
+
 from thin_glass import sheet_coefficients
 
 PROFILES = (
     "source",
     "clear-principled",
     "screen-clear",
+    "screen-slab",
     "thin-slab",
     "transparent-control",
 )
@@ -46,9 +49,17 @@ def thin_sheet(tree, shader):
     tree.links.new(side.outputs[0], tree.nodes["Material Output"].inputs["Surface"])
 
 
-def configure(obj, scene, profile):
+def configure(obj, scene, profile, pane_thickness_m=None):
     if profile not in PROFILES:
         raise ValueError("Unknown explicit glass comparison profile")
+    if profile == "screen-slab" and (
+        pane_thickness_m is None
+        or not math.isfinite(pane_thickness_m)
+        or pane_thickness_m <= 0
+    ):
+        raise ValueError(
+            "Screen-slab comparison requires declared positive pane thickness"
+        )
     slots = [
         index
         for index, surface in enumerate(obj.data.materials)
@@ -72,10 +83,22 @@ def configure(obj, scene, profile):
         tree = surface.node_tree
         shader = tree.nodes["Principled BSDF"]
         shader.inputs["Roughness"].default_value = ROUGHNESS
-        if profile == "screen-clear":
+        if profile in ("screen-clear", "screen-slab"):
             scene.eevee.use_raytracing = True
             scene.eevee.ray_tracing_method = "SCREEN"
             surface.use_raytrace_refraction = True
+            if profile == "screen-slab":
+                surface.thickness_mode = "SLAB"
+                surface.use_thickness_from_shadow = False
+                tree.nodes["Material Output"].inputs[
+                    "Thickness"
+                ].default_value = pane_thickness_m
+                result.update(
+                    thickness_mode="SLAB",
+                    pane_thickness_m=pane_thickness_m,
+                    thickness_from_shadow=False,
+                    scope="Explicit declared uniform pane thickness, not a guarantee of correct screen-space visibility/refraction",
+                )
         elif profile == "thin-slab":
             thin_sheet(tree, shader)
         elif profile == "transparent-control":

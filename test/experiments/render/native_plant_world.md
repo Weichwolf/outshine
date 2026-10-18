@@ -149,3 +149,36 @@ validated together before production adoption. Both measured GPU maxima still
 exceed33.333ms. These single-view differences establish neither temporal quality
 nor a frame-rate gain; projected host selection and shared transformations remain
 the independent memory/work priorities.
+
+### Static batch visibility
+
+The primary draw path now checks conservative bounds for unclustered rigid pieces
+before issuing their draws (#731). Local bounds scan the actual stored vertices once;
+instance changes rebuild the aggregate bound from the Float32 placement matrices.
+No per-frame instance search or heap allocation is added. Four side planes use the
+same `float(anchor64 + cameraShift64)` as the vertex uniform upload. Unsupported,
+nonfinite, FTZ-sensitive or potentially overflowing arithmetic remains visible.
+Depth-clamp semantics, resident products and the separate shadow draw path stay intact.
+
+The same complete Körbersee world,1280×720/30,30frames/360°, retains PNG `c2d0f211`:
+
+| Submitted triangle references, mean per frame | Before | After |
+|---|---:|---:|
+| Original near plant |915888 |432785.8667 |
+| Complete opaque pass |980696.5667 |497594.4333 |
+| Terrain patches |3219582.4 |3219582.4 |
+| Terrain skirts |716032 |716032 |
+
+`915888 - 432785.8667 = 483102.1333`, or52.7469% of near-plant references,
+are rejected before submission. All90k poses remain resident and unchanged.
+These are submitted references, not unique visible triangles or shader invocations.
+Instrumented vertex intervals decrease in this comparison; GPU frame maxima remain
+around40ms and do not prove the33.333ms budget. Separate uninstrumented controls
+retain the same image; their individual timings are observations under concurrent
+CPU work, not an isolated speedup claim. Terrain remains the larger measured cost.
+
+`ConservativeClipSelection` independently projects Float32 points through both flat
+and lit operation orders, including shear, multiple instances, large scene origins
+and numerical failure cases. `StaticBatchVisibilitySurvivesWorldRestore` checks
+actual depth and draw counts after movement, resource recreation and slot reuse.
+Coverage filtering (#723), host selection and shared transforms remain separate work.

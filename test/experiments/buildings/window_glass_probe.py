@@ -10,6 +10,7 @@ import shapely
 from demand import View
 from evidence import revision
 from industrial_relief_probe import camera
+from open_floor_lights import fixture_plan
 from podium_probe import write
 from stepped_source_probe import overview
 from terraced_crown_geometry import RoofedProducts
@@ -74,7 +75,8 @@ def models(output):
         "diagnostic_window": window,
         "pane_thickness_m": 0.008,
         "pane_thickness_source": "terraced_facade_details.details: rectangle outward=-0.079, inward=0.087",
-        "scope": "Original provider row and existing complete closed body/roof/window model; camera controls only. No independent new geometry/controller qualification.",
+        "room_light_plan": fixture_plan(owner.plan.body),
+        "scope": "Original provider row and existing complete closed body/roof/window model; camera controls and separate stable ceiling-light descriptors. No body geometry change or independent new geometry/controller qualification.",
     }
     output.mkdir(parents=True, exist_ok=True)
     write(output, "WindowNear", mesh, record, proof)
@@ -83,6 +85,17 @@ def models(output):
         if name != "Near":
             (output / ("Window" + name + "-geometry.json")).write_text(
                 json.dumps(near | {"city": "Window" + name, "camera": pose}, indent=2)
+                + "\n"
+            )
+        if name not in ("Near", "Whole"):
+            continue
+        for state in ("all-lit", "mixed", "off"):
+            label = "Window" + name + "Night" + state.title().replace("-", "")
+            (output / (label + "-geometry.json")).write_text(
+                json.dumps(
+                    near | {"city": label, "camera": pose, "room_light_state": state},
+                    indent=2,
+                )
                 + "\n"
             )
     receipt = {
@@ -94,6 +107,10 @@ def models(output):
             k: hashlib.sha256(v.tobytes()).hexdigest() for k, v in mesh.items()
         },
         "camera_controls": list(poses),
+        "ceiling_fixtures": len(record["room_light_plan"]),
+        "open_floor_light_rooms": len(
+            {r["room_id"] for r in record["room_light_plan"]}
+        ),
     }
     (output / "models.json").write_text(json.dumps(proof | receipt, indent=2) + "\n")
     print(json.dumps(receipt), flush=True)

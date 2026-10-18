@@ -76,6 +76,24 @@ class WindowGlass(unittest.TestCase):
         with self.assertRaises(ValueError):
             configure(obj, bpy.context.scene, "missing")
 
+    def test_screen_slab_requires_explicit_finite_positive_thickness(self):
+        obj, _ = import_mesh(self.report, self.data)
+        for value in (None, 0, -1, np.nan, np.inf):
+            with self.assertRaises(ValueError):
+                configure(obj, bpy.context.scene, "screen-slab", value)
+        self.assertFalse(bpy.context.scene.eevee.use_raytracing)
+
+    def test_screen_slab_binds_declared_material_output_thickness(self):
+        obj, _ = import_mesh(self.report, self.data)
+        proof = configure(obj, bpy.context.scene, "screen-slab", 0.008)
+        surface = obj.data.materials[0]
+        self.assertEqual(surface.thickness_mode, "SLAB")
+        self.assertFalse(surface.use_thickness_from_shadow)
+        self.assertTrue(bpy.context.scene.eevee.use_raytracing)
+        thickness = surface.node_tree.nodes["Material Output"].inputs["Thickness"]
+        self.assertAlmostEqual(thickness.default_value, 0.008)
+        self.assertEqual(proof["pane_thickness_m"], 0.008)
+
     def test_render_rejects_output_outside_tmp_before_reading_inputs(self):
         for path in (
             "/var/tmp/outshine-buildings-test",

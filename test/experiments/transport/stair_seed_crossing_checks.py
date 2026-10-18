@@ -57,6 +57,40 @@ def crossing_example():
 
 
 class JointCrossingChecks(unittest.TestCase):
+    def test_two_whole_footways_cross_with_only_explicit_walking_arcs(self):
+        sources, rows, recipe, state, empty = crossing_example()
+        sources["a"]["properties"] = {"class": "path", "subclass": "footway"}
+        rows[0]["original"]["source"]["feature"]["properties"] = sources["a"][
+            "properties"
+        ]
+        rows[0].update(width_m=1.8, gradient=0.12)
+        for key in (
+            "profile_kind",
+            "source_recipe",
+            "traffic_profile",
+            "crossfall_limit",
+        ):
+            rows[0].pop(key, None)
+        recipe["geometric_junctions"][0]["kind"] = "footway_footway_crossing"
+        data, _network, planning = build(
+            rows, sources, empty, lambda xy: 100 + xy @ [0.01, 0.02], recipe=recipe
+        )
+        proof = audit(state, recipe, data, rows, planning, empty, sources=sources)
+        contact = proof["geometric_junctions"][0]
+        self.assertEqual(
+            [p["width_m"] for p in contact["through_profiles"]], [1.8, 1.8]
+        )
+        self.assertEqual(
+            contact["access"]["walk_contact_directions"],
+            ["first_footway_to_second", "second_footway_to_first"],
+        )
+        self.assertEqual(contact["access"]["motor_cycle_contact_arcs"], 0)
+        for wrong in ([], {}, None):
+            changed = copy.deepcopy(recipe)
+            changed["geometric_junctions"][0]["source_id"] = wrong
+            with self.assertRaises(ValueError):
+                crossings_for(rows, sources, changed)
+
     def test_real_frozen_contact_countercases_require_joint_planning(self):
         path = (
             Path(__file__).parents[2]
