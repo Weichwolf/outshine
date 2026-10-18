@@ -11,7 +11,7 @@ from stair_patch_inputs import fresh
 from stair_terrain_experiment import frozen
 
 
-def encode(points, origin):
+def position_payload(points, origin):
     points, origin = np.asarray(points, float), np.asarray(origin, float)
     if (
         points.ndim != 2
@@ -28,13 +28,63 @@ def encode(points, origin):
     np.subtract(points, origin, out=encoded)
     if not np.isfinite(encoded).all():
         raise ValueError("relative Float32 positions must remain finite")
+    return encoded
+
+
+def encode(points, origin, *, anchor_ids=(), anchor_world_m=None):
+    origin = np.asarray(origin, float)
+    encoded = position_payload(points, origin)
+    anchors = np.asarray(anchor_ids)
+    if (
+        anchors.ndim != 1
+        or (anchors.size and anchors.dtype.kind not in "iu")
+        or anchors.size > len(encoded)
+        or len(np.unique(anchors)) != len(anchors)
+        or (anchors.size and (anchors.min() < 0 or anchors.max() >= len(encoded)))
+    ):
+        raise ValueError("unique bounded integer encoding anchor IDs required")
+    anchors = anchors.astype(np.intp, copy=False)
+    if anchors.size or anchor_world_m is not None:
+        positions = np.asarray(anchor_world_m, float)
+        if (
+            positions.shape != (len(anchors), encoded.shape[1])
+            or not np.isfinite(positions).all()
+        ):
+            raise ValueError(
+                "one finite actual neighboring position per anchor required"
+            )
+        encoded_anchors = np.empty(positions.shape, dtype="f4")
+        np.subtract(positions, origin, out=encoded_anchors)
+        if not np.array_equal(origin + encoded_anchors.astype(float), positions):
+            raise ValueError("neighboring encoding anchor is not exactly representable")
+        encoded[anchors] = encoded_anchors
+    if not np.isfinite(encoded).all():
+        raise ValueError("relative Float32 positions must remain finite")
     reconstructed = encoded.astype(float)
     reconstructed += origin
     return encoded, reconstructed
 
 
-def inspect(points, faces, origin):
-    encoded, actual = encode(points, origin)
+def boundary_vertices(faces):
+    faces = np.asarray(faces)
+    if (
+        faces.ndim != 2
+        or faces.shape[1] != 3
+        or not 1 <= len(faces) <= 32768
+        or faces.dtype.kind not in "iu"
+    ):
+        raise ValueError("bounded integer triangular terrain faces required")
+    edges = np.sort(faces[:, [[0, 1], [1, 2], [2, 0]]].reshape(-1, 2), axis=1)
+    unique, counts = np.unique(edges, axis=0, return_counts=True)
+    if np.any(counts > 2):
+        raise ValueError("terrain encoding boundary must be manifold")
+    return np.unique(unique[counts == 1])
+
+
+def inspect(points, faces, origin, *, anchor_ids=(), anchor_world_m=None):
+    encoded, actual = encode(
+        points, origin, anchor_ids=anchor_ids, anchor_world_m=anchor_world_m
+    )
     triangles = actual[faces]
     a, b = triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
     signed = a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0]
@@ -63,11 +113,17 @@ def run(args):
     if points.shape[1] != 2 or not 1 <= len(faces) <= 32768:
         raise ValueError("bounded two-dimensional terrain topology input required")
     origin = np.round((points.min(axis=0) + points.max(axis=0)) / 128) * 64
+    anchors = boundary_vertices(faces)
+    neighbor = points[anchors].astype("f4").astype(float)
     report = {
         "commit": commit,
         "input_sha256": digest(args.input),
         "absolute": inspect(points, faces, np.zeros(2)),
         "regional": inspect(points, faces, origin),
+        "anchored_regional": inspect(
+            points, faces, origin, anchor_ids=anchors, anchor_world_m=neighbor
+        ),
+        "anchor_vertices": len(anchors),
         "scope": "Same logical binary64 XY; explicit relative Float32 encoding and diagnostic binary64 reconstruction. No mixed-region seam, height/volume, native GPU or world admission proof.",
     }
     args.output.mkdir()
