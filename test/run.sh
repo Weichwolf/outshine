@@ -242,6 +242,8 @@ done
 
 TestProfile() {
   case "$1" in
+    outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
+    outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
@@ -256,24 +258,41 @@ TestProfile() {
     outshine/src/render/device/GpuSubmission | outshine/src/render/device/GroundStorage)
       printf '%s' 'profile/device' ;;
     outshine/src/audio/*) printf '%s' 'profile/audio' ;;
+    outshine/src/base/io/Tasks) printf '%s' 'profile/tasks' ;;
+    outshine/src/generators/flora/PreparedPlantBuild) printf '%s' 'profile/plant-build' ;;
+    outshine/src/generators/flora/PreparedPlant) printf '%s' 'profile/plant-asset' ;;
+    outshine/integration/content/PlantCrownCache) printf '%s' 'profile/plant-crown-cache' ;;
+    outshine/src/generators/flora/PlantCrownAsset) printf '%s' 'profile/plant-crown-asset' ;;
+    outshine/src/generators/flora/PlantCrownPlan) printf '%s' 'profile/plant-crown' ;;
+    outshine/src/generators/flora/PlantLimbPlan|outshine/src/generators/flora/PlantLimbSurface|outshine/src/generators/flora/PlantLimbAsset) printf '%s' 'profile/plant-limb' ;;
+    outshine/integration/content/PlantSpatialCache) printf '%s' 'profile/plant-spatial-cache' ;;
+    outshine/src/generators/flora/PlantGrowth) printf '%s' 'profile/plant-growth' ;;
+    outshine/src/generators/flora/PlantAxisDetail) printf '%s' 'profile/plant-axis-detail' ;;
+    outshine/src/generators/flora/PlantRecipeJson) printf '%s' 'profile/plant-recipe-json' ;;
+    outshine/src/generators/flora/PlantRecipe) printf '%s' 'profile/plant-recipe' ;;
+    outshine/src/generators/flora/PlantRandom) printf '%s' 'profile/plant-random' ;;
+    outshine/src/generators/flora/PlantPlan) printf '%s' 'profile/plant-plan' ;;
     outshine/src/base/*) printf '%s' 'profile/base' ;;
     outshine/src/content/*) printf '%s' 'profile/content' ;;
     outshine/src/world/*) printf '%s' 'profile/world' ;;
     outshine/src/host/*) printf '%s' 'profile/host' ;;
     outshine/src/scenario/ScenarioRead|outshine/src/scenario/ScenarioLayer) printf '%s' 'profile/scenario' ;;
+    outshine/src/scenario/ScenarioWrite) printf '%s' 'profile/scenario-write' ;;
     outshine/src/render/Shape) printf '%s' 'profile/render-geometry' ;;
     outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError) printf '%s' 'profile/ground-patch' ;;
     outshine/src/render/device/SpirvFile) printf '%s' 'profile/spirv' ;;
     outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) printf '%s' 'profile/species' ;;
     outshine/src/render/stages/MediumView) printf '%s' 'profile/medium-view' ;;
     outshine/src/*) printf '%s' 'profile/internal' ;;
-    outshine/integration/places|outshine/integration/places60|outshine/integration/world_regressions) printf '%s' 'profile/internal' ;;
+    outshine/integration/places|outshine/integration/world_regressions) printf '%s' 'profile/internal' ;;
     *) printf '%s' "$1" ;;
   esac
 }
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
+    profile/client-shots) printf '%s' '-I. -Iinclude' ;;
+    profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
     profile/medium-view) printf '%s' "-Iinclude -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
     profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
@@ -289,13 +308,23 @@ LayerIncludes() {
     tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
     harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
+    profile/tasks) printf '%s' '-Isrc/base/io' ;;
     profile/base) GroupIncludes src/base ;;
     profile/content) GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sdl3-image sqlite3 libzstd)" ;;
     profile/host) GroupIncludes src/host; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
     profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
     profile/scenario) GroupIncludes src/scenario ;;
+    profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
     profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/stages' ;;
+    profile/plant-build) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
+    profile/plant-recipe-json) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
+    profile/plant-crown-asset) LayerIncludes profile/plant-crown; GroupIncludes src/base ;;
+    profile/plant-crown-cache) LayerIncludes profile/plant-crown-asset; GroupIncludes src/content/assets; printf ' %s' "$(pkg-config --cflags sqlite3 libzstd)" ;;
+    profile/plant-spatial-cache) LayerIncludes profile/plant-crown-cache; LayerIncludes profile/plant-limb ;;
+    profile/plant-limb) GroupIncludes src/generators/flora; GroupIncludes src/base/format ;;
+    profile/plant-asset) GroupIncludes src/generators/flora; GroupIncludes src/base; GroupIncludes src/content/assets; printf ' %s' "$(pkg-config --cflags sqlite3 libzstd)" ;;
+    profile/plant-plan | profile/plant-random | profile/plant-recipe | profile/plant-axis-detail | profile/plant-growth | profile/plant-crown) GroupIncludes src/generators/flora ;;
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
     profile/species) GroupIncludes src/generators/flora ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
@@ -309,6 +338,7 @@ LayerIncludes() {
 LayerToolchain() {
   case "$1" in
     outshine/src/client/ProcessBoundary) printf '%s' "$CXXSTD"; return ;;
+    outshine/src/base/io/Tasks) printf '%s' "$CXXSTD -fno-exceptions -pthread"; return ;;
     outshine/src/base/*) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3)"; return ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)"; return ;;
     outshine/src/generators/*) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags libwebp)"; return ;;
@@ -325,7 +355,8 @@ LayerToolchain() {
 }
 NativeSafetyProfile() {
   case "$1" in
-    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) return 0 ;;
+    outshine/src/generators/flora/PlantLimbPlan|outshine/src/generators/flora/PlantLimbSurface|outshine/src/generators/flora/PlantLimbAsset|outshine/integration/content/PlantSpatialCache) return 0 ;;
+    outshine/integration/content/PlantCrownCache|outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PlantRandom|outshine/src/generators/flora/PlantAxisDetail|outshine/src/generators/flora/PlantGrowth|outshine/src/generators/flora/PlantCrownPlan|outshine/src/generators/flora/PlantCrownAsset|outshine/src/generators/flora/PlantRecipeJson|outshine/src/generators/flora/PlantRecipe|outshine/src/generators/flora/PreparedPlant|outshine/src/generators/flora/PreparedPlantBuild) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -355,7 +386,7 @@ LayerValidation() {
     printf '%s ' "$HARDENING_FLAGS"
   fi
   case "$1" in
-    outshine/integration/places|outshine/integration/places60|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
+    outshine/integration/places|outshine/integration/places/client|outshine/integration/places60|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
   esac
   case "$(TestProfile "$1")" in
     profile/device) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;
@@ -365,10 +396,16 @@ LayerValidation() {
 
 LayerLink() {
   case "$(TestProfile "$1")" in
+    profile/cache-usage) pkg-config --libs sqlite3 ;;
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
+    profile/tasks) printf '%s' '-pthread' ;;
+    profile/plant-crown-cache) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
+    profile/plant-spatial-cache) LayerLink profile/plant-crown-cache ;;
+    profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
+    profile/plant-plan | profile/plant-build | profile/plant-random | profile/plant-recipe | profile/plant-recipe-json | profile/plant-axis-detail | profile/plant-growth | profile/plant-crown | profile/plant-crown-asset | profile/plant-limb) return 0 ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
-    profile/scenario|profile/render-geometry|profile/species) LayerLink profile/base ;;
+    profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
     profile/host) LayerLink profile/world ;;
     profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
@@ -402,6 +439,8 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/client-shots) printf '%s' '' ;;
+    profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/medium-view) printf '%s' "src/render/Lens.cpp src/render/stages/MediumView.cpp" ;;
@@ -414,18 +453,33 @@ LayerGroups() {
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/base/format/CssColour.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
+    profile/tasks) printf '%s' 'src/base/io/Tasks.cpp' ;;
+    profile/plant-build) LayerGroups profile/plant-plan; printf '%s' ' src/generators/flora/BuildPreparedPlant.cpp src/generators/flora/PlantAxisDetail.cpp src/generators/flora/PreparedPlant.cpp src/base/Geometry.cpp' ;;
+    profile/plant-asset) printf '%s' 'src/generators/flora/PreparedPlant.cpp src/generators/flora/PreparedPlantAsset.cpp src/base/Geometry.cpp src/base/format/Sha256.cpp src/content/assets src/content/cache' ;;
+    profile/plant-crown-asset) LayerGroups profile/plant-crown; printf '%s' ' src/generators/flora/PlantCrownAsset.cpp' ;;
+    profile/plant-crown-cache) LayerGroups profile/plant-crown-asset; printf '%s' ' src/base/format/Sha256.cpp src/content/assets/AssetCache.cpp src/content/assets/AssetCacheLoading.cpp src/content/assets/AssetCachePublication.cpp src/content/assets/AssetCacheSelection.cpp src/content/assets/AssetGeneration.cpp src/content/assets/AssetPackageCodec.cpp src/content/cache' ;;
+    profile/plant-crown) printf '%s' 'src/generators/flora/PlantCrownPlan.cpp src/generators/flora/PlantFrame.cpp src/generators/flora/PlantShoot.cpp src/generators/flora/PlantRandom.cpp src/generators/flora/PlantSkeleton.cpp' ;;
+    profile/plant-limb) printf '%s' 'src/generators/flora/PlantLimbPlan.cpp src/generators/flora/PlantLimbSurface.cpp src/generators/flora/PlantLimbAsset.cpp src/generators/flora/PlantSurface.cpp' ;;
+    profile/plant-spatial-cache) LayerGroups profile/plant-crown-cache; printf ' '; LayerGroups profile/plant-limb ;;
+    profile/plant-growth) printf '%s' 'src/generators/flora/PlantGrowth.cpp src/generators/flora/PlantGrowthIndex.cpp src/generators/flora/PlantSkeleton.cpp' ;;
+    profile/plant-axis-detail) printf '%s' 'src/generators/flora/PlantAxisDetail.cpp' ;;
+    profile/plant-recipe-json) LayerGroups profile/plant-recipe; printf '%s' ' src/generators/flora/PlantRecipeJson.cpp src/base/format/Json.cpp' ;;
+    profile/plant-recipe) LayerGroups profile/plant-plan; printf '%s' ' src/generators/flora/PlantRandom.cpp src/generators/flora/PlantRecipe.cpp src/generators/flora/PlantRecipeLayout.cpp src/generators/flora/PlantFrame.cpp src/generators/flora/PlantShoot.cpp' ;;
+    profile/plant-random) printf '%s' 'src/generators/flora/PlantRandom.cpp' ;;
+    profile/plant-plan) printf '%s' 'src/generators/flora/PlantPlan.cpp src/generators/flora/PlantAxisSurface.cpp src/generators/flora/PlantSurface.cpp src/generators/flora/PlantBladeSurface.cpp' ;;
     profile/base) SubtreeGroups src/base ;;
     profile/content) SubtreeGroups src/base src/content ;;
     profile/world) SubtreeGroups src/base src/content src/world ;;
     profile/host) SubtreeGroups src/base src/content src/world src/host ;;
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
     profile/ground-patch) printf '%s' 'src/render/stages/GroundPatchMesh.cpp src/render/stages/GroundPatchError.cpp' ;;
+    profile/scenario-write) printf '%s' "$(LayerGroups profile/scenario) src/scenario/Triggers.cpp src/scenario/Views.cpp" ;;
     profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
     profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
     profile/species) SubtreeGroups src/base; printf '%s' ' src/generators/flora/TreeSpecies.cpp src/generators/flora/Species.cpp src/generators/flora/GrowthForm.cpp src/generators/flora/TreeLeaf.cpp' ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
-    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
-    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -582,46 +636,37 @@ GroupToolchain() {
   esac
 }
 
-# freshness is CONTENT, not clock: a checkout, a stash pop or a revert moves an mtime
-# BACKWARDS, and "-nt" then reports a stale object as current -- a green verdict about
-# source nobody compiled (board:1751). The stamp beside each object is the digest of the
-# source and every prerequisite the compiler named.
-# the stamp is (mtime, size, name) of the source and every prerequisite, gathered in ONE
-# stat call: a backwards mtime DIFFERS from the recorded one, where "-nt" called it current
-FileStamp() {
-  case "$(uname -s)" in
-    Linux) stat -c '%Y|%s|%n' -- "$@" ;;
-    *) stat -f '%m|%z|%N' -- "$@" ;;
-  esac
+PrepareCompilerCache() {
+  command -v ccache >/dev/null 2>&1 || Die "ccache is required: brew install ccache / apt install ccache"
+  export CCACHE_DIR=${CCACHE_DIR:-${TMPDIR:-/tmp}/outshine-compiler-cache}
+  export CCACHE_MAXSIZE=${CCACHE_MAXSIZE:-1G}
+  export CCACHE_COMPILERCHECK=content
 }
 
-SourceStamp() {
-  stampSource=$1
-  stampDeps=$2
-  stampFiles=$stampSource
-  if [ -f "$stampDeps" ]; then
-    stampFiles="$stampFiles $(sed -e 's/^[^:]*://' -e 's/\\//g' "$stampDeps")"
+CompileCachedObject() {
+  compileSource=$1
+  compileObject=$2
+  shift 2
+  compileNext=$compileObject.next
+  compileDeps=${compileObject%.o}.d.next
+  rm -f "$compileNext" "$compileDeps"
+  if ! ccache $CXX "$compileSource" "$@" -MD -MP -MF "$compileDeps" -MT "$compileObject" \
+      -c -o "$compileNext"; then
+    rm -f "$compileNext" "$compileDeps"
+    return 1
   fi
-  FileStamp $stampFiles 2>/dev/null || return 1
-}
-
-# THE COMPILE LINE'S IDENTITY IS IN THE OBJECT'S NAME, so freshness only has to answer the other
-# question: is anything this unit reads newer than what it produced. That is one `sed` to read the
-# dependency list the compiler already wrote, and then shell builtins -- where the stamp it
-# replaces spent a `stat` over a hundred paths and a `cat` per unit, 58 ms each over 158 units.
-UpToDate() {
-  objectPath=$1
-  sourcePath=$2
-  depsPath=${objectPath%.o}.d
-  [ -f "$objectPath" ] || return 1
-  [ -f "$depsPath" ] || return 1
-  [ -f "$sourcePath" ] || return 1
-  [ "$objectPath" -nt "$sourcePath" ] || return 1
-  for readAlso in $(sed -e 's/^[^:]*://' -e 's/\\//g' "$depsPath"); do
-    [ -f "$readAlso" ] || return 1
-    [ "$objectPath" -nt "$readAlso" ] || return 1
-  done
-  return 0
+  if [ ! -s "$compileNext" ] || [ ! -s "$compileDeps" ]; then
+    rm -f "$compileNext" "$compileDeps"
+    printf 'compiler cache returned incomplete object/dependencies for %s\n' "$compileSource" >&2
+    return 1
+  fi
+  if [ -f "$compileObject" ] && cmp -s "$compileNext" "$compileObject"; then
+    rm -f "$compileNext"
+  else
+    mv "$compileNext" "$compileObject" || return 1
+    touch "$compileObject" || return 1
+  fi
+  mv "$compileDeps" "${compileObject%.o}.d"
 }
 
 OBJDIR=$BUILD/obj
@@ -637,12 +682,20 @@ OBJDIR=$BUILD/obj
 JOBS=${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}
 
 SetGroupCompileFlags() {
+  if [ -z "${CXX_VERSION:-}" ]; then
+    CXX_VERSION=$($CXX --version) || return 1
+    CXX_ENV_CONTEXT=
+    if [ -n "${CPATH:-}${CPLUS_INCLUDE_PATH:-}${C_INCLUDE_PATH:-}${OBJC_INCLUDE_PATH:-}${SDKROOT:-}${MACOSX_DEPLOYMENT_TARGET:-}${IPHONEOS_DEPLOYMENT_TARGET:-}${SOURCE_DATE_EPOCH:-}" ]; then
+      CXX_ENV_CONTEXT=$(printf '%s\0' "${CPATH:-}" "${CPLUS_INCLUDE_PATH:-}" "${C_INCLUDE_PATH:-}" "${OBJC_INCLUDE_PATH:-}" "${SDKROOT:-}" "${MACOSX_DEPLOYMENT_TARGET:-}" "${IPHONEOS_DEPLOYMENT_TARGET:-}" "${SOURCE_DATE_EPOCH:-}" | git hash-object --stdin)
+    fi
+  fi
   arcStd="$groupStd -fobjc-arc"
-  setId=$(printf '%s|%s|%s|%s|%s|%s|%s' "$CXX" "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
-  arcSetId=$(printf '%s|%s|%s|%s|%s|%s|%s' "$CXX" "$groupIncludes" "$arcStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
+  setId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$CXX_ENV_CONTEXT" "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
+  arcSetId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$CXX_ENV_CONTEXT" "$groupIncludes" "$arcStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
 }
 
 BuildGroup() {
+  PrepareCompilerCache
   group=$1
   case "$group" in
     src/generators/flora|src/generators/flora/*)
@@ -691,15 +744,13 @@ BuildGroup() {
         "$PWD" "$PWD/$unit" "$unitObject" "$CXX" "$PWD/$unit" "$unitStd" "$OPT" "$WARN" \
         "$SAN" "$EXTRA_DEFINES" "$groupIncludes" "$unitObject" >> "$BUILD/compile_commands.part"
     fi
-    if ! UpToDate "$unitObject" "$unit"; then
-      read -r _poolToken <&9
-      {
-        $CXX "$unit" $unitStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes \
-          -c -o "$unitObject" >"$unitObject.log" 2>&1 || printf '%s\n' "$unit" >>"$groupFailed"
-        printf '.\n' >&9
-      } &
-      groupSaid="$groupSaid $unitObject.log"
-    fi
+    read -r _poolToken <&9
+    {
+      CompileCachedObject "$unit" "$unitObject" $unitStd $OPT $WARN $SAN $EXTRA_DEFINES $groupIncludes \
+        >"$unitObject.log" 2>&1 || printf '%s\n' "$unit" >>"$groupFailed"
+      printf '.\n' >&9
+    } &
+    groupSaid="$groupSaid $unitObject.log"
     OBJECTS="$OBJECTS $unitObject"
   done
   wait
@@ -714,6 +765,24 @@ BuildGroup() {
   fi
   rm -f "$groupFailed"
   return 0
+}
+
+BuildCaseGroup() {
+  caseGroupKey=$(printf '%s\0' "$$" "$OBJDIR" "$1" "$CXX" "$CXXSTD" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin) || return 1
+  caseGroupVariable=CASE_GROUP_$caseGroupKey
+  eval 'caseGroupReady=${'"$caseGroupVariable"'+yes}'
+  if [ "$caseGroupReady" = yes ]; then
+    eval 'OBJECTS="$OBJECTS${'"$caseGroupVariable"'}"'
+    return 0
+  fi
+  caseGroupPrevious=$OBJECTS
+  OBJECTS=""
+  if ! BuildGroup "$1"; then
+    OBJECTS=$caseGroupPrevious
+    return 1
+  fi
+  eval "$caseGroupVariable=\$OBJECTS"
+  OBJECTS="$caseGroupPrevious$OBJECTS"
 }
 
 RunWithTimeout() {
@@ -812,6 +881,10 @@ SAN=""
 $CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
+FreshAgainst() {
+  python3 "$ROOT/test/scripts/artifact_freshness.py" "$@"
+}
+
 ArchiveFresh() {
   archiveFreshPath=$1
   shift
@@ -821,11 +894,7 @@ ArchiveFresh() {
     $0 !~ /^__\.SYMDEF(_64)?( SORTED)?$/ && $0 != "/" && $0 != "//" && $0 != "/SYM64/"')
   archiveFreshExpected=$(printf '%s\n' "$@" | sed 's|.*/||')
   [ "$archiveFreshActual" = "$archiveFreshExpected" ] || return 1
-  for archiveFreshMember in "$@"; do
-    [ -f "$archiveFreshMember" ] || return 1
-    [ "$archiveFreshMember" -nt "$archiveFreshPath" ] && return 1
-  done
-  return 0
+  FreshAgainst "$archiveFreshPath" "$@"
 }
 
 # THE LIBRARY ENTIRE, from the same declarations the tests build with: every source under src/
@@ -881,20 +950,22 @@ BuildLibrary() {
     toolNamed=build/outshine-$(basename "$toolLayer")
     toolStd=$(GroupToolchain "$toolLayer")
     toolIncludes=$(GroupIncludes "$toolLayer")
+    groupStd=$toolStd
+    groupIncludes=$toolIncludes
+    SetGroupCompileFlags
+    toolObject=$OBJDIR/entry-$(printf '%s' "$tool" | tr / -).$setId.o
+    CompileCachedObject "$tool" "$toolObject" $toolStd $OPT $WARN $toolIncludes ||
+      Die "$tool entry point did not compile"
     if [ -n "${COMPILEDB:-}" ]; then
-      printf '{"directory":"%s","file":"%s","command":"%s %s %s %s %s %s -c"},\n' \
-        "$PWD" "$PWD/$tool" "$CXX" "$PWD/$tool" "$toolStd" "$OPT" "$WARN" \
-        "$toolIncludes" >> "$BUILD/compile_commands.part"
+      printf '{"directory":"%s","file":"%s","output":"%s","command":"%s %s %s %s %s %s -c -o %s"},\n' \
+        "$PWD" "$PWD/$tool" "$toolObject" "$CXX" "$PWD/$tool" "$toolStd" "$OPT" "$WARN" \
+        "$toolIncludes" "$toolObject" >> "$BUILD/compile_commands.part"
     fi
-    diagnosticsStale=no
-    for diagnostic in $diagnosticObjects; do
-      [ "$toolNamed" -nt "$diagnostic" ] || diagnosticsStale=yes
-    done
-    if [ "$diagnosticsStale" = no ] && [ -f "$toolNamed" ] && [ "$toolNamed" -nt build/liboutshine.a ] && [ "$toolNamed" -nt "$tool" ]; then
+    if FreshAgainst "$toolNamed" build/liboutshine.a "$toolObject" $diagnosticObjects; then
       continue
     fi
     $CXX $toolStd $OPT $WARN $toolIncludes \
-      "$tool" $diagnosticObjects build/liboutshine.a $(LayerLink profile/engine) -o "$toolNamed" ||
+      "$toolObject" $diagnosticObjects build/liboutshine.a $(LayerLink profile/engine) -o "$toolNamed" ||
       Die "$tool does not build into $toolNamed"
     printf -- '-> %s\n' "$toolNamed"
   done
@@ -1597,15 +1668,11 @@ if [ "$AUDITLINK" = 1 ]; then
           stragglers=refused
           break
         fi
-        if UpToDate "$OBJDIR/$objName" "$unit"; then
-          OBJECTS="$OBJECTS $OBJDIR/$objName"
-          continue
-        fi
         # the declaration names an object the gate has not built (cold, or a fresh include
         # set) -- build the GROUP once so the audit reads exactly what it names
         if [ "$groupBuilt" = no ]; then
           keptObjects=$OBJECTS
-          if ! BuildGroup "$group"; then
+          if ! BuildCaseGroup "$group"; then
             printf 'AUDIT %s does not compile %s under its own declaration\n' "$suiteDir" "$group"
             stragglers=refused
             break
@@ -2008,6 +2075,10 @@ CountTheTwo() {
 # case itself. Every case includes the harness directly, and a harness change that did not
 # alter the trailer format would have left a stale binary running with the gate trusting it.
 # The harness headers are stamped by name until the build gives each source its own .d.
+FileStamp() {
+  git hash-object -- "$@"
+}
+
 BinaryStamp() {
   stampBinary=$1
   shift
@@ -2155,7 +2226,7 @@ for testSource in $TESTS; do
   built=yes
   : >"$log"
   for group in $groups; do
-    BuildGroup "$group" >>"$log" 2>&1 || built=no
+    BuildCaseGroup "$group" >>"$log" 2>&1 || built=no
   done
   compileDefine="-DOUTSHINE_COMPILE=\"$CXX $CXXSTD $WARN $includes\""
   if [ "$built" = yes ]; then
@@ -2208,7 +2279,7 @@ for testSource in $TESTS; do
     sanitisedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-sanitised.log
     : >"$sanitisedLog"
     for group in $groups; do
-      BuildGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
+      BuildCaseGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
     done
     sanitisedBinary=$plainBinary.$sanitizerName
     if [ "$built" = yes ]; then
@@ -2239,7 +2310,7 @@ for testSource in $TESTS; do
     validatedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-validated.log
     : >"$validatedLog"
     for group in $groups; do
-      BuildGroup "$group" >>"$validatedLog" 2>&1 || built=no
+      BuildCaseGroup "$group" >>"$validatedLog" 2>&1 || built=no
     done
     validatedBinary=$BUILD/$(printf '%s' "$id" | tr / -).validated
     if [ "$built" = yes ]; then

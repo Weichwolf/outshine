@@ -14,6 +14,7 @@ from stair_module_topology import check_surface
 from stair_network_geometry import vertex_links
 from stair_road_vehicle import inspect_curves
 from stair_shared_boxes import verify_masks
+from stair_shared_paving import inspect_paving
 from stair_source_owners import source_selection
 from stair_surface_contacts import contact_regions
 from stair_surface_portals import inspect_contacts
@@ -254,6 +255,16 @@ def audit(state, recipe, data, rows, planning, line, upper):
         raise ValueError("known explicit module traffic mode required")
     return {
         "body": module_body(data, rows, domains),
+        **(
+            {"axis_detour_bindings": state["axis_detour_bindings"]}
+            if state.get("axis_detour_bindings")
+            else {}
+        ),
+        **(
+            {"borrowed_road_profiles": inspect_paving(state, rows, original, cap)}
+            if any(c["kind"] == "minor_footway_node" for c in constructed)
+            else {}
+        ),
         **(
             {"surface_contacts": inspect_contacts(data, rows, constructed)}
             if constructed

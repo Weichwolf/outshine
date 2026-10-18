@@ -1,4 +1,5 @@
 #include "SubjectDraw.h"
+#include "BatchVisibility.h"
 #include "SurfaceBindings.h"
 #include <algorithm>
 #include <array>
@@ -64,6 +65,7 @@ void SubjectDraw::BindSlot(DrawResources &into,
                            size_t slot,
                            VertexLayout layout,
                            const FrameUniforms &uniforms) const {
+  into.BindingCount = 2u + (CarriesColour(layout) ? 1u : 0u) + (CarriesTangent(layout) ? 1u : 0u);
   const auto &surface = Slots[slot];
   auto images =
       std::array<Native::SampledTexture, kSubjectImages>{Image(surface.Colour),
@@ -192,6 +194,7 @@ Native::Result<void> SubjectDraw::DrawBatchRange(const PassRecording &into,
 }
 
 Native::Result<void> SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
+  const BatchFrustum visible(ctx, Anchor);
   EncodedDrawCalls_ = 0;
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(SubjectResidency::Stream::Vertex) &&
                             Bound().Buffer(SubjectResidency::Stream::Index);
@@ -207,7 +210,7 @@ Native::Result<void> SubjectDraw::Encode(const FrameContext &ctx, const PassReco
     const auto &surface = Slots[batch.MaterialSlot];
     const bool glass =
         surface.Kind == SurfaceKind::ThinTransmissive || surface.Kind == SurfaceKind::Refractive;
-    if (glass != (Binding().Behind != nullptr)) { continue; }
+    if (visible.Outside(batch.WorldSphere) || glass != (Binding().Behind != nullptr)) { continue; }
     const auto wanted = BatchLayout[at];
     const std::pair key{PipelineAt(surface.Domain, wanted, surface.Kind, surface.CullsBack),
                         batch.Motion};
@@ -223,8 +226,6 @@ Native::Result<void> SubjectDraw::Encode(const FrameContext &ctx, const PassReco
       boundSlot = kNoSlot;
     }
     if (boundSlot != batch.MaterialSlot) {
-      resources.BindingCount =
-          2u + (CarriesColour(wanted) ? 1u : 0u) + (CarriesTangent(wanted) ? 1u : 0u);
       BindSlot(resources, batch.MaterialSlot, wanted, uniforms);
       boundSlot = batch.MaterialSlot;
     }

@@ -40,7 +40,7 @@ def candidates(source):
     return results
 
 
-def view(source, charts, direction, bounds, pixels=8):
+def view(source, charts, direction, bounds, pixels=8, *, fields=False):
     frame = normal_frame(np.asarray(direction, dtype=float), np.array((0, 0, 1)))
     camera = np.column_stack((frame[:, 0], frame[:, 2], frame[:, 1]))
     original = source["vertices"] @ camera
@@ -107,7 +107,7 @@ def view(source, charts, direction, bounds, pixels=8):
         ),
         "light_response_relative_errors": response,
     }
-    return result, reference
+    return (result, reference, reduced) if fields else (result, reference)
 
 
 def study(output):

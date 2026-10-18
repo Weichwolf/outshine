@@ -22,6 +22,7 @@
 # out of the archive and broke `make` at HEAD (board:1584).
 SHELL := /bin/bash
 .DEFAULT_GOAL := all
+.DELETE_ON_ERROR:
 
 SELF_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 RUN      := cd $(SELF_DIR) && sh test/run.sh
@@ -52,14 +53,23 @@ LIT_VERTICES := $(foreach layout,$(LIT_LAYOUTS),$(foreach v,0 1,build/shaders/li
 LIT_FRAGMENTS := $(foreach kind,0 1 2 3,$(foreach layout,00 10 11,$(foreach output,$(GROUND_OUTPUTS),build/shaders/lit-$(kind)$(layout)-$(output).frag.spv)))
 SHADOW_MASK_SHADERS := $(foreach u,0 1 2,$(foreach c,0 1,build/shaders/subjectShadow-$(u)$(c).vert.spv)) $(foreach u,0 1 2,build/shaders/subjectShadow-$(u).frag.spv)
 SHADER_ARTIFACTS := $(sort $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS) $(SHADOW_MASK_SHADERS))
+SHADER_DEPFILES := $(addsuffix .d,$(SHADER_ARTIFACTS))
+SHADERS_WITHOUT_DEPS := $(filter-out $(patsubst %.d,%,$(wildcard $(SHADER_DEPFILES))),$(SHADER_ARTIFACTS))
+.PHONY: shader-dependencies-missing
+ifneq ($(SHADERS_WITHOUT_DEPS),)
+$(SHADERS_WITHOUT_DEPS): shader-dependencies-missing
+endif
+$(SHADER_ARTIFACTS): $(abspath $(firstword $(MAKEFILE_LIST))) $(GLSLANG) test/scripts/shader_dependencies.py
+-include $(wildcard $(SHADER_DEPFILES))
 
-build/shaders/subjectShadow-%.vert.spv: src/render/shaders/subjectShadowVertex.glsl $(wildcard src/render/shaders/*.glsl)
-	@mkdir -p $(@D)
-	@stem='$*'; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DSHADOW_UVS=$${stem%?} -DSHADOW_TINTED=$${stem#?} $< -o $@
 
-build/shaders/subjectShadow-%.frag.spv: src/render/shaders/subjectShadowFragment.glsl $(wildcard src/render/shaders/*.glsl)
+build/shaders/subjectShadow-%.vert.spv: src/render/shaders/subjectShadowVertex.glsl
 	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) -S frag -DSHADOW_UVS=$* $< -o $@
+	@stem='$*'; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DSHADOW_UVS=$${stem%?} -DSHADOW_TINTED=$${stem#?} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
+build/shaders/subjectShadow-%.frag.spv: src/render/shaders/subjectShadowFragment.glsl
+	@mkdir -p $(@D)
+	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DSHADOW_UVS=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 shaders: $(SHADER_ARTIFACTS) build/compute-shaders.json
 	@mkdir -p build
 	@printf '%s\n' $(SHADER_ARTIFACTS) > build/shader-artifacts.txt.tmp
@@ -72,21 +82,21 @@ build/compute-shader-contracts: test/scripts/compute-shader-contracts.cpp src/re
 build/compute-shaders.json: build/compute-shader-contracts
 	@$< > $@.tmp && mv $@.tmp $@
 
-build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl $(wildcard src/render/shaders/*.glsl)
+build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl
 	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DLIT_UVS=$${variant:0:1} -DLIT_TINTED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} $< -o $@
+	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DLIT_UVS=$${variant:0:1} -DLIT_TINTED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/lit-%.frag.spv: src/render/shaders/litFragment.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
+build/shaders/lit-%.frag.spv: src/render/shaders/litFragment.glsl build/shaders/brdfTables.glsl
 	@mkdir -p $(@D)
-	@variant=$*; base=$${variant:7:1}; metal=$${variant:8:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DLIT_KIND=$${variant:0:1} -DLIT_TEXTURED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} -DSUBJECT_NORMAL_LOCATION=$${variant:5:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:6:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
+	@variant=$*; base=$${variant:7:1}; metal=$${variant:8:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -Ibuild/shaders -DLIT_KIND=$${variant:0:1} -DLIT_TEXTURED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} -DSUBJECT_NORMAL_LOCATION=$${variant:5:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:6:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/flat-%.vert.spv: src/render/shaders/flatVertex.glsl $(wildcard src/render/shaders/*.glsl)
+build/shaders/flat-%.vert.spv: src/render/shaders/flatVertex.glsl
 	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DFLAT_UVS=$${variant:0:1} -DFLAT_TINTED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} $< -o $@
+	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DFLAT_UVS=$${variant:0:1} -DFLAT_TINTED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl $(wildcard src/render/shaders/*.glsl)
+build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl
 	@mkdir -p $(@D)
-	@variant=$*; base=$${variant:6:1}; metal=$${variant:7:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
+	@variant=$*; base=$${variant:6:1}; metal=$${variant:7:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
 build/shader-tables: test/scripts/shader-tables.cpp Makefile
 	@mkdir -p $(@D)
@@ -98,26 +108,26 @@ build/shaders/brdfTables.glsl: build/shader-tables
 	@mkdir -p $(@D)
 	@$< > $@.tmp && if cmp -s $@.tmp $@; then rm $@.tmp; else mv $@.tmp $@; fi
 
-build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl $(wildcard src/render/shaders/*.glsl) src/render/stages/GroundConstants.inc
+build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/stages/GroundConstants.inc
 	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@
+	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/groundPatchLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl $(wildcard src/render/shaders/*.glsl) src/render/stages/GroundConstants.inc
+build/shaders/groundPatchLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/stages/GroundConstants.inc
 	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) -S vert -DGROUND_PATCHES=1 -DSUBJECT_WRITES_VELOCITY=$* $< -o $@
+	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DGROUND_PATCHES=1 -DSUBJECT_WRITES_VELOCITY=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
-	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
+build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl build/shaders/brdfTables.glsl
+	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/groundPatchLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
-	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -DGROUND_PATCHES=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
+build/shaders/groundPatchLit-%.frag.spv: src/render/shaders/groundLit.glsl build/shaders/brdfTables.glsl
+	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DGROUND_PATCHES=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
 shader-tools:    ## build pinned glslang (requires CMake and Ninja)
 	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py
 
-build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) src/world/sky/AtmosphereCore.h src/world/sky/AtmosphereConstants.inc src/render/stages/SceneConstants.inc src/render/stages/GroundConstants.inc
+build/shaders/%.spv: src/render/shaders/%
 	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) $< -o $@
+	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
 all: strip shaders ## the library, the generator archive, and the tools beside them
 	@cd $(SELF_DIR) && sh test/run.sh --library
@@ -173,11 +183,11 @@ corpus-prepare: ## prepare pinned corpus inputs (MANIFEST=test/.../manifest.json
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py all --manifest "$(MANIFEST)"
 
-test: test-timeout-cleanup test-client-arguments test-client-data test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
+test: test-timeout-cleanup test-client-arguments test-client-data test-client-cache test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
 	@$(RUN)
 
 .PHONY: test-all
-test-all: test-timeout-cleanup test-client-arguments test-client-data test-motion-trace all ## all declared native, UI and script suites
+test-all: test-timeout-cleanup test-client-arguments test-client-data test-client-cache test-motion-trace all ## all declared native, UI and script suites
 	@$(RUN) --all
 
 suite:           ## named suite or C++ case; builds its component closure (SUITE=...)
@@ -225,6 +235,10 @@ test-source-units: ## verify native platform and Objective-C++ source selection
 	@cd $(SELF_DIR) && python3 test/scripts/test_source_units.py
 
 .PHONY: test-client-arguments
+.PHONY: test-client-cache
+test-client-cache: all ## verify preview, budgets, eviction and compaction without GPU initialization
+	@cd $(SELF_DIR) && python3 test/scripts/test_cache_command.py
+
 test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
 	@cd $(SELF_DIR) && python3 test/scripts/test_client_arguments.py
 
@@ -252,3 +266,7 @@ test-timeout-cleanup: ## verify owned process-group cleanup and foreign-process 
 .PHONY: test-file-stamps
 test-file-stamps: ## verify portable native test file metadata and failure handling
 	@cd $(SELF_DIR) && python3 test/scripts/test_file_stamps.py
+
+.PHONY: test-shader-dependencies
+test-shader-dependencies: ## verify incremental shader closures and failed-build cleanup
+	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" python3 test/scripts/test_shader_dependencies.py

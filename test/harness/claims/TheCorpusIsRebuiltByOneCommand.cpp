@@ -33,9 +33,16 @@ int main(void) {
   // item that command crashed on two thirds of the corpus: `frame_grid()` read
   // `self.scene.animation` while the fetched families (wpt, test262) declare no scene at all.
   // A preparer that cannot plan the corpus is not a way back.
+  int rootsVerdict = 0;
+  const auto roots = Lines(Ask(
+      R"py(python3 -c "import runpy; print(*runpy.run_path('test/harness/shared/corpus/prepare.py')['CASE_TREES'], sep='\n')")py",
+      &rootsVerdict));
+  CHECK(rootsVerdict == 0 && !roots.empty(), "the preparer declares its corpus trees");
   size_t declared = 0;
-  for (const auto &entry : std::filesystem::recursive_directory_iterator("test")) {
-    if (entry.path().filename() == "manifest.json") { ++declared; }
+  for (const auto &root : roots) {
+    for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
+      if (entry.path().filename() == "manifest.json") { ++declared; }
+    }
   }
   Note("manifests standing in the tree", (double)declared, "manifests");
   CHECK(declared > 0, "the tree declares a corpus at all");
@@ -69,13 +76,15 @@ int main(void) {
         "**THE CORPUS IS PLANNED BY ONE COMMAND**: the preparer is offline by design and stays "
         "so, but the tree's only way back from a swept temp dir has to work -- and a traceback "
         "on the manifests that carry no scene is not a plan (board:1797)");
-  CHECK(planned == declared,
-        "**AND THAT ONE COMMAND SEES EVERY MANIFEST**: a case with no scene renders nothing, "
-        "which is a fact about the case and not an error, so the fetched families plan beside "
-        "the rendered ones instead of stopping the walk at the first of them (board:1797)");
+  CHECK(
+      planned == declared,
+      "**AND THAT ONE COMMAND SEES EVERY CORPUS MANIFEST**: a case with no scene renders nothing, "
+      "which is a fact about the case and not an error, so the fetched families plan beside "
+      "the rendered ones instead of stopping the walk at the first of them (board:1797)");
 
   Covers("IV.17 the corpus is planned, and therefore rebuildable, by one command over every "
-         "manifest in the tree -- including those that declare no scene, whose render grid is "
+         "manifest in its declared trees -- including those that declare no scene, whose render "
+         "grid is "
          "empty rather than absent (board:1797)");
   return Report();
 }

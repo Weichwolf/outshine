@@ -148,7 +148,9 @@ def contact_envelope(terrain, top_faces, ground, reference_error=0.0):
     }
 
 
-def inspect(body, parts, ground, upper):
+def inspect(
+    body, parts, ground, upper, *, body_max_faces=65536, surface_max_faces=32768
+):
     top_faces = parts["top_faces"]
     domain = continuous_cap(body, top_faces)
     if not domain.equals(domain.convex_hull):
@@ -180,7 +182,10 @@ def inspect(body, parts, ground, upper):
         raise ValueError(
             "Double terrain lost part of the original whole ground footprint"
         )
-    double_contact = [clearance(contact, ground), clearance(ground, contact)]
+    double_contact = [
+        clearance(contact, ground, max_faces=surface_max_faces),
+        clearance(ground, contact, max_faces=surface_max_faces),
+    ]
     if any(abs(row["minimum_clearance_m"]) > 1e-7 for row in double_contact):
         raise ValueError("whole Double underside contact changed")
     source_shape = shapely.union_all(
@@ -191,7 +196,10 @@ def inspect(body, parts, ground, upper):
             "actual Float32 terrain does not cover the whole ground product"
         )
     cap = Mesh(actual.vertices, top_faces)
-    contact_actual = [clearance(cap, source_actual), clearance(source_actual, cap)]
+    contact_actual = [
+        clearance(cap, source_actual, max_faces=surface_max_faces),
+        clearance(source_actual, cap, max_faces=surface_max_faces),
+    ]
     initial_envelope = contact_envelope(body, top_faces, ground)
     subdivision = ground_subdivision(
         contact, ground, initial_envelope["double_height_field_lipschitz"]
@@ -209,12 +217,17 @@ def inspect(body, parts, ground, upper):
     ):
         raise ValueError("Float32 contact exceeds its derived representation envelope")
     bridge = {
-        "double": clearance(Mesh(body.vertices, top_faces), upper),
-        "float32": clearance(cap, upper_actual),
+        "double": clearance(
+            Mesh(body.vertices, top_faces), upper, max_faces=surface_max_faces
+        ),
+        "float32": clearance(cap, upper_actual, max_faces=surface_max_faces),
     }
     if any(row["minimum_clearance_m"] < -numerical_guard for row in bridge.values()):
         raise ValueError("actual terrain intrudes into a bridge underside")
-    bodies = {"double": body_proof(body), "float32": body_proof(actual)}
+    bodies = {
+        "double": body_proof(body, max_faces=body_max_faces),
+        "float32": body_proof(actual, max_faces=body_max_faces),
+    }
     if any(
         p["zero_area_faces"] or p["closed_oriented_volume_m3"] <= 0
         for p in bodies.values()

@@ -14,7 +14,7 @@ from grass_light_experiment import light_states
 from grass_projection_stand import DIRECTIONS, LOWER, UPPER
 
 
-def footprint_weights(inputs, basis):
+def footprint_samples(inputs, basis):
     with np.load(inputs / "east.npz", allow_pickle=False) as product:
         face, height, normal = (product[k] for k in ("face", "height", "normal"))
     size = len(face)
@@ -26,7 +26,12 @@ def footprint_weights(inputs, basis):
     ids = np.where(face >= 0, face, basis["leaf_nodes"])
     nodes = source_nodes(ids.ravel(), points.reshape(-1, 3), basis)
     side = (normal @ view < 0).ravel() & (face.ravel() >= 0)
-    return np.bincount(2 * nodes + side, minlength=2 * len(basis["points"])) / face.size
+    return 2 * nodes + side, face.shape
+
+
+def footprint_weights(inputs, basis):
+    samples, shape = footprint_samples(inputs, basis)
+    return np.bincount(samples, minlength=2 * len(basis["points"])) / np.prod(shape)
 
 
 def coefficients(matrix, direct, weights, leaf_nodes):
@@ -90,15 +95,7 @@ def verify(matrix, basis, fields, weights, linear, quadratic):
     }
 
 
-def run(inputs, output):
-    output = output.resolve()
-    if (
-        output.exists()
-        or not output.is_relative_to(Path(tempfile.gettempdir()).resolve())
-        or output.is_relative_to(Path(__file__).resolve().parents[3])
-    ):
-        raise ValueError("fresh explicit system-temp output outside checkout required")
-    began = time.perf_counter()
+def prepare_response(inputs):
     scene, basis = prepare_stand(inputs, 64)
     links = build_links(
         scene,
@@ -108,7 +105,6 @@ def run(inputs, output):
         lambda i, p: source_nodes(i, p, basis),
     )
     matrix = prepare_csr(links)
-    weights = footprint_weights(inputs, basis)
     control = json.loads(
         (Path(__file__).parents[1] / "vegetation/grass_light_control.json").read_text()
     )
@@ -129,6 +125,20 @@ def run(inputs, output):
     direct = direct_nodes(scene, basis, probes)
     fields = np.array([direct[str(i)] * [2, 2, 1] for i in range(len(directions))])
     del direct
+    return basis, matrix, fields, directions, links
+
+
+def run(inputs, output):
+    output = output.resolve()
+    if (
+        output.exists()
+        or not output.is_relative_to(Path(tempfile.gettempdir()).resolve())
+        or output.is_relative_to(Path(__file__).resolve().parents[3])
+    ):
+        raise ValueError("fresh explicit system-temp output outside checkout required")
+    began = time.perf_counter()
+    basis, matrix, fields, directions, links = prepare_response(inputs)
+    weights = footprint_weights(inputs, basis)
     pairs = [coefficients(matrix, f, weights, basis["leaf_nodes"]) for f in fields]
     linear = np.array([p[0] for p in pairs])
     quadratic = np.array([p[1] for p in pairs])

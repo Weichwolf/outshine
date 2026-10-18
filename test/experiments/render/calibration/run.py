@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Build and run the common native calibration against one matching engine archive.
 
-Ten fixed workloads: one/two-worker four-lane FP32 FMA; uint32 sequential triads
+Twelve fixed workloads: one/two/four/six-worker four-lane FP32 FMA; uint32 sequential triads
 with 768 KiB/96 MiB active arrays; dependent shuffled cycles with 64 KiB/64 MiB;
 matching native GPU FMA/triads and a 1280x720 RGBA8 fullscreen integer raster.
 One warmup and five measured samples per workload. Complete result verification,
 input/setup/upload/readback and checksumming are outside the measured intervals.
+Version 2 adds four/six compute workers, splitting the same 262144 elements as
+one/two workers; unequal final segments preserve every element. The coordinator
+waits at the barriers, which are included in elapsed time; thread creation is not.
+OS scheduling chooses cores: affinity, QoS and hybrid-core placement are not forced.
 CPU triad calls live in a separate TU, with no LTO; all compilation targets the
 host CPU explicitly. CpuKernels.s records the actual generated FMA/load code.
 
@@ -38,6 +42,7 @@ import sys
 import time
 
 HERE = Path(__file__).resolve().parent
+SOURCE_ROOT = HERE.parents[3]
 
 
 def digest(path):
@@ -73,11 +78,10 @@ def build(root, output, host_load):
     libraries = shlex.split(subprocess.check_output(
         ['sh', 'test/run.sh', '--native-link-flags'], cwd=root, text=True))
     sources = sorted(HERE.glob('*.cpp'))
-    calibration_root = HERE.parents[3]
     manifest = dict(engine_root=str(root), engine_commit=git(root, 'rev-parse', 'HEAD'),
                     engine_dirty=git(root, 'status', '--porcelain'),
-                    archive_sha256=digest(archive), source_commit=git(calibration_root, 'rev-parse', 'HEAD'),
-                    source_dirty=git(calibration_root, 'status', '--porcelain'),
+                    archive_sha256=digest(archive), source_commit=git(SOURCE_ROOT, 'rev-parse', 'HEAD'),
+                    source_dirty=git(SOURCE_ROOT, 'status', '--porcelain'),
                     sources={p.name: digest(p) for p in sorted(HERE.iterdir()) if p.is_file()},
                     compiler=compiler, flags=flags, host_load=host_load, status='building')
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
@@ -122,7 +126,7 @@ def run(root, output, manifest, host_load):
     if sys.platform == 'darwin' and os.environ.get('OUTSHINE_CALIBRATION_VALIDATION') == '1':
         environment['MTL_DEBUG_LAYER'] = '1'
     with (output / 'supervisor.log').open('w') as log:
-        child = subprocess.Popen([sys.executable, str(root / 'test/scripts/run_with_timeout.py'),
+        child = subprocess.Popen([sys.executable, str(SOURCE_ROOT / 'test/scripts/run_with_timeout.py'),
                                   str(os.getpid()), '120', str(output / 'run.log'), str(marker),
                                   '--stderr-file', str(output / 'stderr.log'), *args],
                                  cwd=root, stdout=log, stderr=subprocess.STDOUT, env=environment)

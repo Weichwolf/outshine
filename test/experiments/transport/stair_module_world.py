@@ -70,6 +70,8 @@ def inspect_world(
     footprint,
     *,
     expected_local_roles,
+    body_max_faces=65536,
+    surface_max_faces=32768,
 ):
     if chosen.dtype.kind != "b" or chosen.shape != (len(state["plan"]["faces"]),):
         raise ValueError("whole cached terrain selection required")
@@ -93,7 +95,14 @@ def inspect_world(
         raise ValueError("saved local constructed-soil classes changed")
     global_model = field_contract(plan, upper, footprint)
     roles, grades = check_heights(plan, heights, global_model)
-    physical = inspect(body, parts, ground, upper)
+    physical = inspect(
+        body,
+        parts,
+        ground,
+        upper,
+        body_max_faces=body_max_faces,
+        surface_max_faces=surface_max_faces,
+    )
     floor = Reference(Mesh(body.vertices, parts["top_faces"]))
     contacts = [floor.check(low) for low, _high in state["pier_contacts"]]
     return roles, {

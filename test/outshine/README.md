@@ -38,6 +38,7 @@ Choose checks by the changed boundary:
 | HTTP acquisition and source integration | `make suite SUITE=outshine/src/host` |
 | Scenario parsing and layering | `make suite SUITE=outshine/src/scenario/ScenarioRead` or `outshine/src/scenario/ScenarioLayer` |
 | CPU terrain patch topology and displacement bounds | `make suite SUITE=outshine/src/render/stages/GroundPatchMesh` or `GroundPatchError` in the same directory |
+| Scenario writer round trips | `make suite SUITE=outshine/src/scenario/ScenarioWrite`; uses Base/scenario without engine or GPU |
 | CPU render-geometry preparation | `make suite SUITE=outshine/src/render/Shape` |
 | Shader file framing | `make suite SUITE=outshine/src/render/device/SpirvFile` |
 | Species files and numeric definitions | `make suite SUITE=outshine/src/generators/flora/Species` or `outshine/src/generators/flora/TreeSpecies` |
@@ -54,6 +55,9 @@ Keep `MTL_DEBUG_LAYER` unset for Place performance measurements.
 Each selected case also runs normally and with standard-library container checks;
 instrumented builds do not establish release performance budgets.
 
+The Tasks suite builds only `Tasks.cpp` and links the standard threading library.
+Its normal and race-instrumented cases need no engine, geometry libraries or GPU.
+
 `test/run.sh` selects build profiles by component. Vector decoding/storage keeps
 ASan/UBSan; GPU submission/storage keeps native GPU validation; process-allocation
 checks link diagnostic instrumentation. Shared library objects retain their own
@@ -68,7 +72,22 @@ The optional `OUTSHINE_GLO30_RASTER_PROBE` live-source check runs with
 
 Source-closure audits inspect each distinct resolved source-group list once per
 run. Test discovery and execution still visit every case and instrumentation arm.
+Within that frozen invocation, cases share the already built component objects
+for the same compiler/options/instrumentation profile. A new invocation validates
+its inputs through ccache again; generated inputs and checkout sources stay frozen.
 
 Terrain patch mesh/error suites compile two product units and link GEOS. They do not
 prepare shaders or link a GPU backend; normal, ASan/UBSan and container checks remain.
 GroundLattice integration cases separately exercise GPU selection and rendered seams.
+
+Shader builds use glslang's actual include dependencies per variant. A missing
+dependency receipt rebuilds that artifact; removed includes are rescanned without
+hiding compiler errors. `make test-shader-dependencies` checks the real recipes,
+conditional layouts, shared CPU/GPU headers and failed-output cleanup.
+
+Native object compilation uses ccache with content-based compiler checks, including
+source, header, option and include/SDK inputs. Every selected object is validated;
+unchanged object bytes retain their timestamp to avoid unnecessary archive/link work.
+This also covers diagnostics and application entry points. Restored timestamps do not
+admit stale code; timestamp-only changes reuse identical content. `make test-file-stamps`
+compiles actual product groups to exercise this boundary.

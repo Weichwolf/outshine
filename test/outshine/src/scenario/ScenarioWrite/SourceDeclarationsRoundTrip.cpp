@@ -2,37 +2,58 @@
 #include "ScenarioWrite.h"
 #include "Check.h"
 #include <limits>
+#include <cstddef>
 #include <string>
 #include <string_view>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  constexpr double kWestDeg = 8.54;
+  constexpr double kSouthDeg = 49.315;
+  constexpr double kEastDeg = 8.61;
+  constexpr double kNorthDeg = 49.34;
   Scenario::Document source;
-  source.Providers.resize(4);
-  auto &terrain = source.Providers[0];
-  terrain.Kind = "terrain";
-  terrain.Revision = "snapshot & <a>\"\t";
-  terrain.Priority = std::numeric_limits<int>::min();
-  auto &vector = source.Providers[1];
-  vector.Kind = "vector";
-  vector.Revision = "other'\n";
-  vector.Priority = std::numeric_limits<int>::max();
-  vector.Missing = Data::MissingDataPolicy::Fail;
-  vector.Dataset = "tiles & revision";
-  vector.Endpoint = "https://tiles.example/{z}/{x}/{y}?a=1&b=2";
-  vector.Schema = "schema & <revision>\"\t";
-  source.Providers[2].Kind = "stars";
-  auto &osm = source.Providers[3];
-  osm.Kind = "osm";
-  osm.Revision = "regional-r1";
-  osm.Priority = 4;
-  osm.Missing = Data::MissingDataPolicy::Fail;
-  osm.Dataset = "openstreetmap";
-  osm.Location = "osm/Hockenheim & region.osm";
-  osm.Coverage =
-      Data::SourceCoverage{.WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34};
-  osm.PayloadSha256 = std::string(64, 'a');
+  source.Providers = {{.Kind = "terrain",
+                       .Revision = "snapshot & <a>\"\t",
+                       .Priority = std::numeric_limits<int>::min(),
+                       .Dataset = {},
+                       .Location = {},
+                       .Endpoint = {},
+                       .Coverage = {},
+                       .PayloadSha256 = {},
+                       .Schema = {}},
+                      {.Kind = "vector",
+                       .Revision = "other'\n",
+                       .Priority = std::numeric_limits<int>::max(),
+                       .Missing = Data::MissingDataPolicy::Fail,
+                       .Dataset = "tiles & revision",
+                       .Location = {},
+                       .Endpoint = "https://tiles.example/{z}/{x}/{y}?a=1&b=2",
+                       .Coverage = {},
+                       .PayloadSha256 = {},
+                       .Schema = "schema & <revision>\"\t"},
+                      {.Kind = "stars",
+                       .Revision = {},
+                       .Dataset = {},
+                       .Location = {},
+                       .Endpoint = {},
+                       .Coverage = {},
+                       .PayloadSha256 = {},
+                       .Schema = {}},
+                      {.Kind = "osm",
+                       .Revision = "regional-r1",
+                       .Priority = 4,
+                       .Missing = Data::MissingDataPolicy::Fail,
+                       .Dataset = "openstreetmap",
+                       .Location = "osm/Hockenheim & region.osm",
+                       .Endpoint = {},
+                       .Coverage = Data::SourceCoverage{.WestDeg = kWestDeg,
+                                                        .SouthDeg = kSouthDeg,
+                                                        .EastDeg = kEastDeg,
+                                                        .NorthDeg = kNorthDeg},
+                       .PayloadSha256 = std::string(64, 'a'),
+                       .Schema = {}}};
   const auto text = WriteScenario(source);
   CHECK(text.has_value(), "export succeeds");
   if (!text) { return Report(); }

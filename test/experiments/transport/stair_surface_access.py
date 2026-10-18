@@ -20,10 +20,19 @@ def contact_access(chosen, new, old, old_row):
         ):
             raise ValueError("ordinary exterior ground contact sources required")
     np_, op = new["properties"], old["properties"]
-    if np_.get("class") != "path" or np_.get("subclass") != "footway":
-        raise ValueError("new pedestrian contact requires an original footway")
     kind = chosen.get("kind")
-    if kind == "footway_overlap":
+    if kind in ("minor_footway_node", "minor_footway_crossing"):
+        new_valid = np_.get("class") == "minor" and not np_.get("subclass")
+    else:
+        new_valid = np_.get("class") == "path" and np_.get("subclass") == "footway"
+    if not new_valid:
+        raise ValueError("new pedestrian contact requires an original footway")
+    if kind in (
+        "footway_overlap",
+        "minor_footway_node",
+        "minor_footway_crossing",
+        "footway_footway_crossing",
+    ):
         valid = op.get("class") == "path" and op.get("subclass") == "footway"
     elif kind == "minor_pedestrian_crossing":
         valid = (
@@ -51,6 +60,10 @@ def contact_access(chosen, new, old, old_row):
         "origin": "constructed_surface_contact",
         "original_node_connection_claimed": False,
         "motor_cycle_contact_arcs": 0,
-        "walk_contact_directions": ["old_to_new", "new_to_old"],
+        "walk_contact_directions": ["footway_to_road", "road_to_footway"]
+        if kind == "minor_footway_crossing"
+        else ["first_footway_to_second", "second_footway_to_first"]
+        if kind == "footway_footway_crossing"
+        else ["old_to_new", "new_to_old"],
         "source_along_directions_changed": False,
     }

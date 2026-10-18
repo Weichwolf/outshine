@@ -27,11 +27,31 @@ from stair_module_family import (
 from stair_module_inputs import inputs
 from stair_module_soil import sampled_pins, selection
 from stair_module_verify import saved_planning
+from stair_pier_ground import foot_windows
 from stair_terrain_experiment import frozen
 
 
-def local_contract(state, saved, data, sample):
+def whole_foot_pins(state, xy, chosen, region, old_xyz, values):
+    windows = shapely.union_all(foot_windows(state, region))
+    selected = shapely.dwithin(windows, shapely.points(xy), 1e-7)
+    original = Mesh(old_xyz, state["plan"]["faces"][chosen])
+    expected = sampled_pins(xy[selected], [original])
+    if not np.isfinite(expected).all():
+        raise ValueError("original whole-foot terrain references unresolved")
+    both = np.isfinite(values[selected])
+    if np.max(abs(values[selected][both] - expected[both]), initial=0) > 1e-7:
+        raise ValueError("whole-foot and road reference heights conflict")
+    values[selected] = expected
+
+
+def local_contract(state, saved, data, sample, recipe):
     local, field, chosen = saved["local"], saved["field"], saved["chosen"]
+    mode = recipe.get("terrain_layout_mode", "legacy")
+    if (
+        mode not in ("legacy", "free_region")
+        or str(np.asarray(local.get("terrain_layout_mode", "legacy")).item()) != mode
+    ):
+        raise ValueError("saved terrain layout differs from its declared recipe")
     old = state["plan"]
     new_bed = data["surface_vertices"] - [0, 0, 0.3]
     new_foot = shapely.union_all(shapely.polygons(new_bed[data["surface_faces"], :2]))
@@ -39,18 +59,29 @@ def local_contract(state, saved, data, sample):
     if not np.array_equal(chosen, expected) or chosen.dtype.kind != "b":
         raise ValueError("saved complete local selection changed")
     old_xyz = np.c_[old["xy"], state["heights"]]
-    old_ids = np.r_[np.flatnonzero(chosen & old["ground"]), protected]
+    policy = recipe.get("pier_ground_policy", "whole_parent")
+    if policy not in ("whole_parent", "whole_foot"):
+        raise ValueError("explicit known saved pier ground policy required")
+    old_ids = np.flatnonzero(chosen & old["ground"])
+    if policy == "whole_parent":
+        old_ids = np.r_[old_ids, protected]
     values = sampled_pins(
         local["xy"],
         [Mesh(old_xyz, old["faces"][old_ids]), Mesh(new_bed, data["surface_faces"])],
     )
     region = shapely.union_all(shapes[chosen])
+    if policy == "whole_foot":
+        whole_foot_pins(state, local["xy"], chosen, region, old_xyz, values)
     boundary = shapely.dwithin(region.boundary, shapely.points(local["xy"]), 1e-7)
     lookup = {tuple(p): h for p, h in zip(old["xy"], state["heights"], strict=True)}
     values[boundary] = [lookup[tuple(p)] for p in local["xy"][boundary]]
     if (
         not np.array_equal(boundary, local["boundary"])
-        or not np.array_equal(values, local["bed"], equal_nan=True)
+        or not (
+            np.array_equal(values, local["bed"], equal_nan=True)
+            if policy == "whole_parent"
+            else np.allclose(values, local["bed"], rtol=0, atol=1e-7, equal_nan=True)
+        )
         or not np.array_equal(local["targets"], sample(local["xy"]))
         or not np.array_equal(data["targets"], sample(data["surface_vertices"][:, :2]))
     ):
@@ -97,14 +128,22 @@ def verify(args):
         _old, line, ground, upper = old_surfaces(state, recipe, sources)
         rows, planning = saved_planning(args.output, original, ground)
         source = verify_source_contract(
-            rows, sources, recipe, state["module_contacts"], line, planning[0]
+            rows,
+            sources,
+            recipe,
+            state["module_contacts"],
+            line,
+            planning[0],
+            cached_grids=state.get("cached_box_grids"),
         )
         if saved["keys"]["context"] != [list(k) for k in selected.face_keys]:
             raise ValueError(
                 "saved context differs from complete resident neighbourhood"
             )
-        geometry = audit(state, recipe, saved["data"], rows, planning, line, upper)
-        local_contract(state, saved, saved["data"], sample)
+        geometry = audit(
+            state, recipe, saved["data"], rows, planning, line, upper, sources=sources
+        )
+        local_contract(state, saved, saved["data"], sample, recipe)
         footprint = shapely.union_all(
             shapely.polygons(
                 saved["data"]["surface_vertices"][saved["data"]["surface_faces"], :2]

@@ -44,7 +44,7 @@ for tool in clang-format clang-tidy; do
     exit 2
   }
 done
-for target in test-timeout-cleanup test-file-stamps test-source-units test-format test-tidy-analysis test-callgraph test-motion-trace db; do
+for target in test-timeout-cleanup test-file-stamps test-source-units test-shader-dependencies test-format test-tidy-analysis test-callgraph test-motion-trace db; do
   if ! make "$target"; then
     printf 'lint: prerequisite %s failed\n' "$target" >&2
     red=$((red + 1))
