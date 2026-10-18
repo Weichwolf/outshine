@@ -78,7 +78,7 @@ def road_source(asset, sources):
         asset.identity + ":road",
         bounds,
         make,
-        xy_geometry=xy_geometry(data["body_vertices"], data["top_faces"]),
+        xy_geometry=lambda face: asset.shapes[face],
     )
 
 
