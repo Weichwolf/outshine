@@ -14,6 +14,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace {
 using namespace outshine;
@@ -25,7 +26,10 @@ constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;
 std::vector<uint8_t> Read(const std::filesystem::path &path) {
   std::ifstream stream(path, std::ios::binary | std::ios::ate);
   const auto size = stream.tellg();
-  if (!stream || size <= 0 || static_cast<uint64_t>(size) > kInputBytesMost) { return {}; }
+  if (!stream || size <= 0 ||
+      std::cmp_greater(static_cast<std::streamoff>(size), kInputBytesMost)) {
+    return {};
+  }
   std::vector<uint8_t> bytes(static_cast<size_t>(size));
   stream.seekg(0);
   stream.read(reinterpret_cast<char *>(bytes.data()), size);
@@ -43,7 +47,10 @@ bool LoadForms(PreparedStructureTile &base, const Json &input, const std::filesy
     size_t next = 0;
     for (size_t index = 0; index < base.Structures.size(); ++index) {
       if (base.Structures[index].Layout.Cell.Index != cell) { continue; }
-      if (assigned[index] || next >= surfaces->size()) { return false; }
+      if (assigned[index] || next >= surfaces->size() ||
+          !CompatiblePreparedSurface(base.Surfaces[index], (*surfaces)[next])) {
+        return false;
+      }
       base.Surfaces[index] = std::move((*surfaces)[next++]);
       assigned[index] = true;
     }
@@ -53,7 +60,7 @@ bool LoadForms(PreparedStructureTile &base, const Json &input, const std::filesy
 }
 
 Json Sources(const PreparedStructureTile &base) {
-  BuildingMesh native;
+  const BuildingMesh native;
   auto scratch = native.Scratch();
   auto sources = Json::array();
   for (size_t index = 0; index < base.Structures.size(); ++index) {
@@ -92,8 +99,8 @@ Json Bake(const PreparedStructureTile &base, RawTile view) {
   Json row{{"cell", view.RequestedCell ? Json(*view.RequestedCell) : Json(nullptr)},
            {"elapsed_s", elapsed},
            {"accepted", baked.has_value()},
-           {"mesh_calls", std::move(observer.Meshes)},
-           {"projection_calls", std::move(observer.Projections)}};
+           {"mesh_calls", observer.TakeMeshes()},
+           {"projection_calls", observer.TakeProjections()}};
   if (!baked) {
     row["error"] = Describe(baked.error());
     return row;
@@ -115,7 +122,13 @@ Json Bake(const PreparedStructureTile &base, RawTile view) {
   return row;
 }
 
-int Run(const Json &input, const std::filesystem::path &root, const std::filesystem::path &target) {
+struct Paths {
+  std::filesystem::path Root;
+  std::filesystem::path Target;
+};
+
+int Run(const Json &input, const Paths &paths) {
+  const auto &root = paths.Root;
   auto base = DecodePreparedStructureIndex(Read(root / input.at("index").get<std::string>()),
                                            kResidentBytesMost);
   auto artifact = DecodeStructureArtifact(Read(root / input.at("view_file").get<std::string>()),
@@ -156,7 +169,7 @@ int Run(const Json &input, const std::filesystem::path &root, const std::filesys
     accepted = accepted && report["results"].back().at("accepted").get<bool>();
     std::cerr << "cell " << *view.RequestedCell << '\n';
   }
-  std::ofstream stream(target);
+  std::ofstream stream(paths.Target);
   stream << report.dump(2) << '\n';
   return stream && accepted ? 0 : 3;
 }
@@ -170,5 +183,5 @@ int main(int argc, char **argv) {
   std::ifstream stream(inputPath);
   const auto input = nlohmann::json::parse(stream, nullptr, false);
   if (input.is_discarded()) { return 2; }
-  return Run(input, inputPath.parent_path(), outputPath);
+  return Run(input, {.Root = inputPath.parent_path(), .Target = outputPath});
 }
