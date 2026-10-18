@@ -37,6 +37,7 @@ def compare(args):
             select_seed,
             grid_m=args.seed_grid_m,
             root_form=getattr(args, "seed_root_form", "all"),
+            crossings=getattr(args, "seed_crossings", "none"),
         )
         if args.family == "seed"
         else select
@@ -48,10 +49,24 @@ def compare(args):
             "seconds": time.perf_counter() - start,
             "profile_work": selected[method]["profile_work"],
             "plan": selected[method]["plan"],
+            **(
+                {"dependency_ledger": selected[method]["dependency_ledger"]}
+                if "dependency_ledger" in selected[method]
+                else {}
+            ),
         }
     for key in ("roots", "deferred_profiles", "recipes"):
         if selected["index"][key] != selected["scan"][key]:
             raise ValueError("indexed/scanned original-source selection differs")
+    for a, b in zip(
+        selected["index"].get("dependency_ledger", []),
+        selected["scan"].get("dependency_ledger", []),
+        strict=True,
+    ):
+        if {k: v for k, v in a.items() if k != "work"} != {
+            k: v for k, v in b.items() if k != "work"
+        }:
+            raise ValueError("indexed/scanned seed dependency evidence differs")
     if (
         selected["index"]["plan"]["source_reasons"]
         != selected["scan"]["plan"]["source_reasons"]
@@ -108,6 +123,7 @@ def arguments():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--family", choices=("attached", "seed"), default="attached")
+    parser.add_argument("--seed-crossings", choices=("none", "walk"), default="none")
     parser.add_argument("--seed-root-form", choices=("all", "closed"), default="all")
     parser.add_argument(
         "--seed-grid-m", type=float, choices=(0.0, 2**-11), default=2**-11
