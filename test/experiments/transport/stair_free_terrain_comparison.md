@@ -16,6 +16,10 @@ Same named Wien ENU frame and original 84-source baseline; both rings, the entir
 254.6968814-m approach, short road/cycleway and connecting footway are retained.
 Original nodes remain distinct from four explicitly procedural walking contacts.
 No motor/cycle turns onto footways, clipped substitute group or source exception.
+Fresh actual index/scan selection on `79aa5153f` agrees on all roots, recipes,
+reasons and dependency records, including the declared terrain mode. Recipe
+SHA256 `9666f1f504b644e62cfa6d11b85eb9881443793f9706e5c2c56471192230cf10`.
+Earlier selection cost numbers remain bound to their original historical recipe.
 
 The old algorithm preserved every free old interior vertex and cut each selected
 old triangle separately. A vertex without an immutable physical owner caused a
