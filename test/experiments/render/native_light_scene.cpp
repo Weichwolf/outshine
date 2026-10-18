@@ -17,6 +17,7 @@
 #include <fstream>
 #include <ios>
 #include <memory>
+#include <numbers>
 #include <print>
 #include <span>
 #include <string>
@@ -58,7 +59,7 @@ struct Fixture {
   std::unique_ptr<Core::RuntimeScene> Scene;
   double CentreX = 0;
 
-  bool Open(Material material, double centreX) {
+  bool Open(Material material, double centreX, bool temporal = false) {
     CentreX = centreX;
     Geometry geometry;
     if (material.Anisotropy > 0) {
@@ -85,6 +86,7 @@ struct Fixture {
     declaration.SurfaceWidthPx = kWidth;
     declaration.SurfaceHeightPx = kHeight;
     declaration.Outputs = {"surface", "sceneLinear"};
+    if (temporal) { declaration.Antialiasing = "temporal"; }
     declaration.KeyLux = 1;
     declaration.KeyElevationDeg = kSunElevationDeg;
     std::string error;
@@ -95,9 +97,9 @@ struct Fixture {
     return Camera(false);
   }
 
-  bool Camera(bool orthographic) {
-    auto eye = Viewpoint::LookAt(
-        {.EyeM = {{CentreX - kBoundaryOffsetM, 5, 4}}, .AimM = {{CentreX, 0, 0}}}, 0.0);
+  bool Camera(bool orthographic, Vec3 offset = {{-kBoundaryOffsetM, 5, 4}}) {
+    offset[0] += CentreX;
+    auto eye = Viewpoint::LookAt({.EyeM = offset, .AimM = {{CentreX, 0, 0}}}, 0.0);
     if (!eye) { return false; }
     eye->YfovRad = 1;
     eye->ZNearM = kNearM;
@@ -161,6 +163,43 @@ bool Save(const std::filesystem::path &path, std::span<const float> pixels) {
   return stream.good();
 }
 
+bool ComparePictures(const std::filesystem::path &output,
+                     const std::string &name,
+                     size_t count,
+                     std::span<const float> actual,
+                     std::span<const double> reference) {
+  double maximum = 0;
+  double squares = 0;
+  double signal = 0;
+  size_t errors = 0;
+  std::vector<float> expected(kValues);
+  for (size_t at = 0; at < kValues; ++at) {
+    expected[at] = static_cast<float>(reference[at]);
+    if (at % 4 == 3) { continue; }
+    const double difference = actual[at] - reference[at];
+    const double relative = std::abs(difference) / std::max(1e-5, std::abs(reference[at]));
+    maximum = std::max(maximum, relative);
+    squares += difference * difference;
+    signal += reference[at] * reference[at];
+    errors += !std::isfinite(relative) || relative > kMaximumRelative ? 1 : 0;
+  }
+  const double rms = std::sqrt(squares / std::max(1e-10, signal));
+  const bool saved = Save(output / (name + ".actual.f32"), actual) &&
+                     Save(output / (name + ".reference.f32"), expected);
+  const bool passed = errors == 0 && rms <= kRmsRelative && signal > 1 && saved;
+  std::println("{{\"case\":\"{}\",\"count\":{},\"max_relative\":{},\"rms_relative\":{},"
+               "\"bad_rgb\":{},\"signal_square\":{},\"passed\":{}}}",
+               name,
+               count,
+               maximum,
+               rms,
+               errors,
+               signal,
+               passed);
+  std::fflush(stdout);
+  return passed;
+}
+
 bool Compare(Fixture &fixture,
              const std::filesystem::path &output,
              const std::string &name,
@@ -176,36 +215,7 @@ bool Compare(Fixture &fixture,
       if (at % 4 != 3) { reference[at] += (*pixels)[at]; }
     }
   }
-  double maximum = 0;
-  double squares = 0;
-  double signal = 0;
-  size_t errors = 0;
-  std::vector<float> expected(kValues);
-  for (size_t at = 0; at < kValues; ++at) {
-    expected[at] = static_cast<float>(reference[at]);
-    if (at % 4 == 3) { continue; }
-    const double difference = (*actual)[at] - reference[at];
-    const double relative = std::abs(difference) / std::max(1e-5, std::abs(reference[at]));
-    maximum = std::max(maximum, relative);
-    squares += difference * difference;
-    signal += reference[at] * reference[at];
-    errors += !std::isfinite(relative) || relative > kMaximumRelative ? 1 : 0;
-  }
-  const double rms = std::sqrt(squares / std::max(1e-10, signal));
-  const bool saved = Save(output / (name + ".actual.f32"), *actual) &&
-                     Save(output / (name + ".reference.f32"), expected);
-  const bool passed = errors == 0 && rms <= kRmsRelative && signal > 1 && saved;
-  std::println("{{\"case\":\"{}\",\"count\":{},\"max_relative\":{},\"rms_relative\":{},"
-               "\"bad_rgb\":{},\"signal_square\":{},\"passed\":{}}}",
-               name,
-               lights.size(),
-               maximum,
-               rms,
-               errors,
-               signal,
-               passed);
-  std::fflush(stdout);
-  return passed;
+  return ComparePictures(output, name, lights.size(), *actual, reference);
 }
 
 Material Surface(size_t family) {
@@ -236,12 +246,8 @@ Material Surface(size_t family) {
 }
 }
 
-int main(int argc, char **argv) {
-  if (argc != 2 || !std::filesystem::is_directory(argv[1])) { return 2; }
-  if (!SDL_Init(SDL_INIT_VIDEO)) {
-    std::println(stderr, "{}", SDL_GetError());
-    return 2;
-  }
+namespace {
+bool StaticCases(const std::filesystem::path &output) {
   bool passed = true;
   for (size_t family = 0; family < 8; ++family) {
     Fixture fixture;
@@ -251,7 +257,7 @@ int main(int argc, char **argv) {
     }
     const auto prefix = "material-" + std::to_string(family);
     passed = Compare(fixture,
-                     argv[1],
+                     output,
                      prefix + "-tail17",
                      Sources(kReceiverX, Population::Tail, kTailCount)) &&
              passed;
@@ -261,21 +267,135 @@ int main(int argc, char **argv) {
     }
     auto back = Sources(kReceiverX, Population::Tail, kTailCount);
     if (family == 5) { back.back().PositionEcefM[1] = -2; }
-    passed = Compare(fixture, argv[1], prefix + "-ortho17", back) && passed;
+    passed = Compare(fixture, output, prefix + "-ortho17", back) && passed;
     if (family == 0) {
       for (const size_t count : {size_t{1024}, size_t{8192}}) {
         passed = Compare(fixture,
-                         argv[1],
+                         output,
                          "mixed-" + std::to_string(count),
                          Sources(kReceiverX, Population::Mixed, count)) &&
                  passed;
       }
       passed =
           Compare(
-              fixture, argv[1], "overlap-8192", Sources(kReceiverX, Population::Overlap, 8192)) &&
+              fixture, output, "overlap-8192", Sources(kReceiverX, Population::Overlap, 8192)) &&
           passed;
     }
   }
+  return passed;
+}
+
+constexpr size_t kOrbitFrames = 16;
+constexpr size_t kMotionFrames = 2 * kOrbitFrames + 4;
+constexpr size_t kMotionSources = kMaxSubjectLights + 2;
+constexpr size_t kColourChange = 8, kDirectionChange = 12, kPositionChange = 16;
+constexpr size_t kSmallBegin = 24, kSmallEnd = 28, kGlobalChange = 32;
+constexpr float kMotionRangeM = 40;
+constexpr double kCameraRadiusM = 5, kSourceShiftM = 32, kCameraEastM = .25;
+constexpr Vec3f kMotionTint{{.2f, .6f, 1}}, kChangedTint{{1, .3f, .2f}};
+
+std::vector<SubjectLight> MotionSources(size_t frame) {
+  auto sources = Sources(kReceiverX, Population::Tail, kMotionSources);
+  sources[kMaxSubjectLights] = sources.back();
+  sources[kMaxSubjectLights].Light.Colour = kMotionTint;
+  auto &changing = sources.back();
+  changing.Light.Kind = LightKind::Spot;
+  if (frame >= kColourChange) { changing.Light.Colour = kChangedTint; }
+  if (frame >= kDirectionChange && frame < kPositionChange) {
+    changing.Light.Kind = LightKind::Directional;
+    changing.Light.Intensity = kSunLux;
+  }
+  if (frame >= kPositionChange) {
+    changing.PositionEcefM[0] += kSourceShiftM;
+    changing.Light.RangeM = kMotionRangeM;
+  }
+  if (frame >= kSmallBegin && frame < kSmallEnd) {
+    sources[kMaxSubjectLights - 1] = sources[kMaxSubjectLights];
+    sources.resize(kMaxSubjectLights);
+  }
+  if (frame >= kGlobalChange) { sources.back().Light.RangeM = 0; }
+  return sources;
+}
+
+Vec3 MotionOffset(size_t frame) {
+  const double angle = 2 * std::numbers::pi * static_cast<double>(frame % kOrbitFrames) /
+                       static_cast<double>(kOrbitFrames);
+  Vec3 offset{{kCameraRadiusM * std::cos(angle), kCameraRadiusM, kCameraRadiusM * std::sin(angle)}};
+  if (frame == 2 * kOrbitFrames || frame == 2 * kOrbitFrames + 1) {
+    offset = {{kSourceShiftM + (frame % 2 == 0 ? -kBoundaryOffsetM : kBoundaryOffsetM), 5, 4}};
+  }
+  if (frame == 2 * kOrbitFrames + 2 || frame == 2 * kOrbitFrames + 3) {
+    offset = {{kCameraEastM, 5, frame % 2 == 0 ? -kBoundaryOffsetM : kBoundaryOffsetM}};
+  }
+  return offset;
+}
+
+bool MotionFrame(Fixture &actual,
+                 Fixture &reference,
+                 const std::filesystem::path &output,
+                 const std::string &prefix,
+                 size_t frame) {
+  const bool orthographic = frame >= kOrbitFrames && frame < 2 * kOrbitFrames;
+  const Vec3 offset = MotionOffset(frame);
+  if (!actual.Camera(orthographic, offset) || !reference.Camera(orthographic, offset)) {
+    return false;
+  }
+  auto sources = MotionSources(frame);
+  std::vector<SubjectLight> active;
+  for (const auto &source : sources) {
+    if (source.Light.Intensity > 0) { active.push_back(source); }
+  }
+  auto got = actual.Capture(sources);
+  auto expected = reference.Capture(active);
+  if (!got) { return Accepted(false, got.error()); }
+  if (!expected) { return Accepted(false, expected.error()); }
+  const std::vector<double> linear(expected->begin(), expected->end());
+  return ComparePictures(
+      output, prefix + "-" + std::to_string(frame), sources.size(), *got, linear);
+}
+
+bool MotionCases(const std::filesystem::path &output) {
+  bool passed = true;
+  for (const size_t family : {size_t{0}, size_t{6}, size_t{7}}) {
+    Fixture actual;
+    Fixture reference;
+    if (!actual.Open(Surface(family), kReceiverX, true) ||
+        !reference.Open(Surface(family), kReceiverX, true)) {
+      return false;
+    }
+    actual.Renderer.BeginTemporalRun();
+    reference.Renderer.BeginTemporalRun();
+    actual.Renderer.ResetMeasurements();
+    reference.Renderer.ResetMeasurements();
+    for (size_t frame = 0; frame < kMotionFrames; ++frame) {
+      passed = MotionFrame(actual, reference, output, "motion-" + std::to_string(family), frame) &&
+               passed;
+    }
+    const auto taa = static_cast<size_t>(Stage::TemporalResolve);
+    const auto actualTaa = actual.Renderer.Costs().Stages[taa].Frames;
+    const auto referenceTaa = reference.Renderer.Costs().Stages[taa].Frames;
+    const bool temporal = actualTaa == kMotionFrames && referenceTaa == kMotionFrames;
+    std::println("{{\"material\":{},\"actual_taa_frames\":{},\"reference_taa_frames\":{},"
+                 "\"temporal_verified\":{}}}",
+                 family,
+                 actualTaa,
+                 referenceTaa,
+                 temporal);
+    passed = temporal && passed;
+  }
+  return passed;
+}
+}
+
+int main(int argc, char **argv) {
+  if ((argc != 2 && argc != 3) || !std::filesystem::is_directory(argv[1])) { return 2; }
+  const bool motion = argc == 3 && std::string(argv[2]) == "motion";
+  if (argc == 3 && !motion) { return 2; }
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    std::println(stderr, "{}", SDL_GetError());
+    return 2;
+  }
+  const bool passed = motion ? MotionCases(argv[1]) : StaticCases(argv[1]);
   SDL_Quit();
   return passed ? 0 : 1;
 }
