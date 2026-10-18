@@ -3,12 +3,35 @@
 import unittest
 
 import numpy as np
+from cloud_experiment import view, view_bounds
 from crown_phase_probe import mesh_errors
+from group_cloud import make_chart
 from raster_batch import rasterize
 from spatial_normal_fields import encode
 
 
 class SpatialFields(unittest.TestCase):
+    def test_default_cloud_result_remains_compatible_with_extra_fields(self):
+        source = {
+            "vertices": np.array(((0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)), float),
+            "faces": np.array(((0, 1, 2), (0, 2, 3)), np.int32),
+            "normals": np.tile((0.0, 0.0, 1.0), (6, 1)),
+            "parameters": np.array(((0, 0), (1, 0), (1, 1), (0, 1)), float),
+            "variants": np.zeros(4, np.uint8),
+            "organ_faces": np.zeros(2, np.int32),
+        }
+        chart = make_chart(source, np.array((0,)), np.array((0.0, 0.0, 1.0)), 16)
+        bounds = view_bounds(
+            np.vstack((source["vertices"], chart.mesh["vertices"])), (0, 0, 1)
+        )
+        old = view(source, (chart,), (0, 0, 1), bounds)
+        new = view(source, (chart,), (0, 0, 1), bounds, fields=True)
+        self.assertEqual(len(old), 2)
+        self.assertEqual(len(new), 3)
+        self.assertEqual(old[0], new[0])
+        np.testing.assert_array_equal(old[1], new[1])
+        self.assertLess(new[0]["coverage_l1_over_union"], 0.15)
+
     def test_visible_normal_response_matches_scalar_source_samples(self):
         frame = np.array(((0, -1, 0), (1, 0, 0), (0, 0, 1)), float)
         corners = np.array(((0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)), float)

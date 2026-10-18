@@ -39,12 +39,15 @@ def compare(source, output, queries):
             chosen = (
                 charts if name == "spatial" else (select_view(charts, direction)[1],)
             )
-            metrics, reference, reduced = view(
-                source, chosen, direction, bounds, fields=True
-            )
-            rows.append({"query": query, "method": name, **metrics})
-            if query < 3:
-                images.append((query, name, reference, reduced))
+            for pixels in (4, 8, 16):
+                metrics, reference, reduced = view(
+                    source, chosen, direction, bounds, pixels=pixels, fields=True
+                )
+                rows.append(
+                    {"query": query, "method": name, "pixels": pixels, **metrics}
+                )
+                if query < 3 and pixels == 8:
+                    images.append((query, name, reference, reduced))
     np.testing.assert_array_equal(
         np.sort(np.concatenate([c.members for c in spatial])),
         np.arange(len(source["ids"])),
