@@ -10,7 +10,7 @@ from outshine_ref.contracts import Mesh
 from scipy import sparse
 from stair_terrain_experiment import frozen
 from weighted_river_compare import inputs, path_check
-from weighted_river_fit import checked, constraints, directions
+from weighted_river_fit import checked, constraints, directions, objective_weights
 
 
 def verify(products, original):
@@ -101,8 +101,8 @@ def verify(products, original):
             rhs[count:], np.array(list(pins.values())) - centre
         ):
             raise ValueError("serialized distinct hard pins changed")
-        np.testing.assert_array_equal(p, weights)
-        np.testing.assert_array_equal(q, -weights * (mesh.vertices[:, 2] - centre))
+        np.testing.assert_array_equal(p, objective_weights(weights, len(weights)))
+        np.testing.assert_array_equal(q, -p * (mesh.vertices[:, 2] - centre))
         with np.load(products / "weighted.npz") as fitted:
             np.testing.assert_array_equal(x + centre, fitted["vertices"][:, 2])
         stationarity = p * x + q + matrix.T @ dual
