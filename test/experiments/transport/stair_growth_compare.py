@@ -16,6 +16,7 @@ from stair_local_replay import load_chain
 from stair_module_experiment import write_json
 from stair_module_inputs import FIXTURE, source_context
 from stair_patch_inputs import fresh
+from stair_prepared_surface_scope import add_arguments, optional_terrain
 from stair_seed_sources import select as select_seed
 from stair_terrain_experiment import frozen
 
@@ -128,10 +129,13 @@ def arguments():
     parser.add_argument(
         "--seed-grid-m", type=float, choices=(0.0, 2**-11), default=2**-11
     )
+    add_arguments(parser)
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     resource.setrlimit(resource.RLIMIT_CPU, (120, 120))
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
-    compare(arguments())
+    args = arguments()
+    with optional_terrain(args, []):
+        compare(args)

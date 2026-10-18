@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from camera_height_inputs import digest
 from stair_local_replay import load_chain
 from stair_module_inputs import FIXTURE
-from stair_prepared_surface_scope import optional_terrain
+from stair_prepared_surface_scope import add_arguments, optional_terrain
 
 
 def identity(value):
@@ -94,9 +94,5 @@ def arguments():
     parser.add_argument("--max-attempts", type=int, default=8)
     parser.add_argument("--seconds", type=float, default=300)
     parser.add_argument("--attempt-seconds", type=float, default=60)
-    parser.add_argument("--prepared-reference", type=Path)
-    parser.add_argument("--reference-sha256")
-    parser.add_argument(
-        "--prepared-variant", choices=("stored", "compressed"), default="stored"
-    )
+    add_arguments(parser)
     return parser.parse_args()
