@@ -8,7 +8,11 @@ botanical BSDF, native shader, whole-tree fallback or forest product.
 ## Original inputs and mapping
 
 Use the same six-file cold source and saved connected32 geometry from the parent
-study. Original authored `fern-colour.png` is256×256 RGB8 linear data;
+study. Exact original inputs are now versioned at `data/crown682/`,185651B plus
+the fixed hash/provenance manifest. They contain no near geometry or full leaf
+poses and are byte-identical to the actual study inputs. A normal test verifies
+them without generating/replacing an oracle.
+Original authored `fern-colour.png` is256×256 RGB8 linear data;
 `fern-height.png` is256×256 unsigned16, height scale.000060m. The same original
 `fern_material.leaf_material` adapter uses Principled roughness.55, specular IOR
 level.2, bump strength.25 and a.12 Translucent mixture. Its content hash and all
@@ -134,6 +138,8 @@ The finite GGX study takes7.859s/57462784B on the same host, separately scoped.
 
 Use `.venv`, TMPDIR=/tmp, PYTHONDONTWRITEBYTECODE=1, one BLAS/OMP thread and
 PYTHONPATH=lib/src:lib/tests:test/experiments/vegetation:test/experiments/render.
+Use `test/experiments/vegetation/data/crown682` as `<cold-source>`; create the
+connected study with the parent report's `connected_comparison.py` command.
 First `prepare_connected_materials.py --inputs <cold-source> --study <connected-study>
 --output /tmp/<fields> --size 32` or64. Then `material_image_probe.py --original
 <cold-source> --output /tmp/<image-probe>` and `calibrate_connected_materials.py
@@ -147,13 +153,14 @@ under/tmp. All private products/controls/current images are in
 `/tmp/outshine-vegetation-material-study-056dfd094`; original inputs remain at
 the cold-source path documented in the parent study.
 
-77 source and77 fresh installed-library controls pass. The isolated wheel matches
+78 source and78 fresh installed-library controls pass. The isolated wheel matches
 all212 focused-source library Python files after the current master merge;
 its SHA256 is aeea662c0cc76187c8f393ec21436990d3cc03fee55b67494b80410d40f8f68a.
 Run the parent study's13 `_checks` modules plus `connected_material_checks`,
 `connected_specular_checks` and `leaf_gloss_checks`; add the render experiment
-directory to PYTHONPATH. The count includes the existing seven gloss controls,
-not77 new tests. Sixteen finished32/64 field products revalidate without source
+directory to PYTHONPATH. The count includes the existing seven gloss controls
+and one actual fixed-input replay, not78 new tests. Sixteen finished32/64 field
+products revalidate without source
 generation. Ruff/format/function-size/diff and lint-docs pass. These Python
 checks do not replace native engine/device gates. Permanent Draft202 library
 work is outside the focused PR and installed-library equality statement.

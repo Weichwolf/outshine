@@ -1,14 +1,45 @@
 """Exact source/material lineage and no full near expansion before connected demand."""
 
+import hashlib
+import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 from connected_catalog import ConnectedCatalog
+from spatial_group_source import load_source
 from spatial_source_checks import fixture
 
 
 class ConnectedDemand(unittest.TestCase):
+    def test_versioned_actual_cold_source_has_no_near_arrays_and_keeps_its_identity(
+        self,
+    ):
+        inputs = Path(__file__).with_name("data") / "crown682"
+        manifest = json.loads((inputs / "manifest.json").read_text())
+        for name, digest in manifest["files_sha256"].items():
+            self.assertEqual(
+                hashlib.sha256((inputs / name).read_bytes()).hexdigest(), digest
+            )
+        with np.load(inputs / "spatial/tables.npz", allow_pickle=False) as z:
+            self.assertEqual(set(z.files), {"leaf_variants"})
+        with np.load(inputs / "spatial/skeleton.npz", allow_pickle=False) as z:
+            self.assertEqual(set(z.files), {"positions", "parents"})
+        source = load_source(inputs)
+        self.assertEqual(source.identity, manifest["source_catalog_identity"])
+        self.assertEqual(source.crown.identity, manifest["source_plan_identity"])
+        self.assertFalse(source.crown._groups)
+        self.assertFalse(source.prototypes)
+        catalog = ConnectedCatalog(source)
+        with patch(
+            "crown_shoots.CrownShoots.tables", side_effect=AssertionError("whole poses")
+        ):
+            group = catalog.group(17)
+        self.assertEqual(len(group["poses"]["ids"]), 21)
+        self.assertEqual(catalog.summary()["prepared_variants"], 8)
+        self.assertEqual(catalog.summary()["retained_pose_groups"], 1)
+
     def test_refusal_and_summary_do_not_generate_poses_or_templates(self):
         s = fixture()
         c = ConnectedCatalog(s)
