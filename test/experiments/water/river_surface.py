@@ -7,7 +7,7 @@ from shapely.geometry import Polygon
 from outshine_ref.contracts import Mesh
 
 
-def source_body(data):
+def source_polygons(data):
     polygons = []
     for first, count, _ in data["surfaces"]:
         rings = [data["ring_points"][begin:begin + size]
@@ -16,7 +16,11 @@ def source_body(data):
         if not polygon.is_valid or polygon.is_empty:
             raise ValueError("valid source rings and holes required")
         polygons.append(polygon)
-    return shapely.union_all(polygons)
+    return polygons
+
+
+def source_body(data):
+    return shapely.union_all(source_polygons(data))
 
 
 def surface_mesh(body, spacing_m=20.0, vertex_limit=8192, face_limit=16384):

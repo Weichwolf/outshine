@@ -62,3 +62,45 @@ profile-conforming water triangulation, terrain contacts and spatial error bound
 The experiment does not change PNG pins, native caches or engine gates. See #760 for real
 inputs, comparisons and the integration decision; OMT source semantics are in
 `doc/references/data/osm/openmaptiles-water{,way}-schema.yaml`.
+
+## Directional surface reference
+
+```sh
+PYTHONPATH=lib/src python3 test/experiments/water/directional_river_fit.py \
+  --input test/experiments/water/fixtures/feldkirch-ill-profile.npz \
+  --output /tmp/outshine-river-surface --spacing-m 20 \
+  --down-grade 0.1 --cross-grade 0.005
+```
+
+The independent HiGHS dual-simplex reference minimizes maximum vertex-prior error.
+Every affine face obeys `-down_grade <= gradient·flow <= 0` and
+`abs(gradient·cross) <= cross_grade`. Optional fixed vertex heights are equalities;
+incompatible contacts return no mesh. These numerical example limits and spacing are
+explicit experiment choices, not source facts or native LOD/error budgets.
+
+One inferred direction per face is insufficient at bends: another source course can
+cross that face in a different direction. Every positive-length source/face overlap adds
+its own directed row `[face, dx, dy, minimum, maximum]`. Multiple rows may bind one face.
+Outside-domain source lengths and their fixture indices remain explicit; they are not
+silently treated as modelled water. The previous one-direction fit remains a negative
+control in the real-input test. Spatial enumeration uses bounded batches before the row cap.
+
+One shared vertex owns each height. Whole-face checks independently reconstruct gradients
+from triangle edge equations; the LP certificate checks dual stationarity, signs and gap.
+Optimality refers only to this declared finite LP. The shared weighted Clarabel fit remains
+the researcher's integration candidate; this reference supplies an independent comparison.
+The solver time cap excludes preparation and can overrun within a solver step; total pipeline
+time and sparse row/nonzero counts are separate. Failure is explicit, with no relaxed pins.
+Flow directions are inferred from descending source segments, not asserted OSM directions.
+Source semantics, native float/frame conversion, cross-region contacts, other geographic
+cases and complete native water/terrain/cache integration remain unproved.
+
+Optional diagnostic (Matplotlib) uses identical axes, colours and declared vertical
+exaggeration for all three models. It preserves source holes and shows the whole body:
+
+```sh
+PYTHONPATH=lib/src python3 test/experiments/water/render_river_surface.py \
+  --input test/experiments/water/fixtures/feldkirch-ill-profile.npz \
+  --surface /tmp/outshine-river-surface/surface.npz \
+  --output /tmp/outshine-river-surface/comparison.png
+```
