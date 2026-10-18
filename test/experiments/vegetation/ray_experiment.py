@@ -1,5 +1,6 @@
 """Compare complete collar normal products and oriented multi-hit ray queries."""
 
+import argparse
 import hashlib
 import json
 import subprocess
@@ -10,6 +11,7 @@ import manifold3d as manifold
 import numpy as np
 from branch_collar import collar_products
 from collar_shading import blend_collar_normals, tube_reference
+from experiment_output import private_output
 from plant_experiment import sapling
 from plant_surface import axis_products
 from spine_frames import unit
@@ -124,7 +126,9 @@ def compare(seed):
     return row
 
 
-def main():
+def main(output):
+    output = private_output(output)
+    output.mkdir(parents=True, exist_ok=True)
     checks = ray_checks()
     rows = [compare(seed) for seed in (17, 23, 41)]
     report = {
@@ -142,10 +146,10 @@ def main():
         },
         "scope": "Three alternating local repetitions; reference construction once separately. Local float32 BVH queries, double triangle-plane hit refinement and scalar fallback for possible misses, edge and grazing hits; at most sixteen crossings per half-ray with 2e-6 reference-extent advance. Observed error/coverage on calibration plants, no universal ray precision or native device claim.",
     }
-    Path("build/experiments/vegetation/collars/ray-cost.json").write_text(
-        json.dumps(report, indent=2) + "\n"
-    )
+    (output / "ray-cost.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    main(parser.parse_args().output)

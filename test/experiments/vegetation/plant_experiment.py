@@ -12,6 +12,7 @@ import numpy as np
 from axis_surface import axis_mesh
 from blade_surface import Blade
 from curve_frame import arc_frame
+from experiment_output import private_output
 from organ_experiment import write_product
 from plant_plan import AxisLevel, PlantPlan
 from shoot_plan import Shoot, normal_frame
@@ -410,9 +411,7 @@ def make_scenes(output, plant, commit, modified):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output", type=Path, default=Path("build/experiments/vegetation/plants")
-    )
+    parser.add_argument("--output", type=private_output, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     checks = [check_plant(sapling(seed)) for seed in (17, 31, 999)]

@@ -102,7 +102,7 @@ def cached_stand(source, products):
         patch.object(Needle, "mesh", side_effect=AssertionError("cache mesh")),
     ):
         began = time.perf_counter()
-        recipe, sites, models, inputs = load_plan(source, products)
+        recipe, sites, models, _inputs = load_plan(source, products)
         maps = []
         for model in models:
             fields = {}

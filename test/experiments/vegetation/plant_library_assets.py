@@ -1,5 +1,6 @@
 """Complete cached plant rows and render assets with procedural material provenance."""
 
+import argparse
 import hashlib
 import json
 import shutil
@@ -8,6 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
+from experiment_output import private_output
 from leaf_normal_experiment import export_level
 from leaf_normal_moments import mip_pyramid, normal_slopes, slope_moments
 from organ_experiment import write_product
@@ -15,11 +17,8 @@ from outshine_ref.vegetation.axis_surface import axis_mesh
 from PIL import Image
 from plant_experiment import sapling
 
-ROOT = Path("build/experiments/vegetation/plant-library/assets")
 
-
-def leaf_material(blade, index):
-    source = Path("build/experiments/vegetation/normal-leaves")
+def leaf_material(blade, index, output, source):
     recipe = json.loads((source / "developed-1-material.json").read_text())
     height = (
         np.asarray(Image.open(source / recipe["maps"]["height"]))[::-1]
@@ -32,7 +31,7 @@ def leaf_material(blade, index):
         if key in ("normal", "roughness"):
             continue
         path = source / name
-        shutil.copy2(path, ROOT / path.name)
+        shutil.copy2(path, output / path.name)
         maps[key] = path.name
     for key, value in tuple(recipe.items()):
         if (
@@ -41,16 +40,16 @@ def leaf_material(blade, index):
             and key != "normal_moments"
         ):
             path = source / value
-            shutil.copy2(path, ROOT / path.name)
+            shutil.copy2(path, output / path.name)
             recipe[key] = path.name
     moments = slope_moments(normal_slopes(blade, height), roughness)
     levels = []
     checks = []
     for level, values in enumerate(mip_pyramid(moments)):
-        files, check = export_level(ROOT, f"leaf-{index}-mip-{level}", values)
+        files, check = export_level(output, f"leaf-{index}-mip-{level}", values)
         levels.append(files)
         checks.append(check)
-    path = ROOT / f"leaf-{index}-moments.npz"
+    path = output / f"leaf-{index}-moments.npz"
     np.savez_compressed(path, moments=moments)
     recipe.update(
         blade=asdict(blade),
@@ -63,16 +62,16 @@ def leaf_material(blade, index):
         botanical_calibration=False,
     )
     recipe["normal_level_sha256"] = {
-        name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+        name: hashlib.sha256((output / name).read_bytes()).hexdigest()
         for files in levels
         for name in files.values()
     }
     name = f"leaf-{index}-material.json"
-    (ROOT / name).write_text(json.dumps(recipe, indent=2) + "\n")
+    (output / name).write_text(json.dumps(recipe, indent=2) + "\n")
     return name, checks
 
 
-def products(plant, tables, detail, materials):
+def products(plant, tables, detail, materials, output):
     near = detail == "near"
     result = []
     for state in plant.expand(100000, 100000)["axes"]:
@@ -87,7 +86,7 @@ def products(plant, tables, detail, materials):
             bark=True,
         )
         entry = write_product(
-            ROOT,
+            output,
             f"axis-{state.id}-{detail}",
             mesh,
             state.origin[None],
@@ -96,7 +95,7 @@ def products(plant, tables, detail, materials):
         )
         entry.update(bark_material="bark-material.json", axis_id=state.id)
         np.savez_compressed(
-            ROOT / entry["placements"],
+            output / entry["placements"],
             origins=state.origin[None],
             frames=state.frame[None],
             organ_ids=np.array([state.id], dtype=np.uint64),
@@ -105,7 +104,7 @@ def products(plant, tables, detail, materials):
     for variant, blade in enumerate(plant.blades):
         selected = tables["leaf_variants"] == variant
         entry = write_product(
-            ROOT,
+            output,
             f"leaf-{variant}-{detail}",
             blade.mesh(64 if near else 16, 2),
             tables["leaf_origins"][selected],
@@ -118,7 +117,7 @@ def products(plant, tables, detail, materials):
             variant=variant,
         )
         np.savez_compressed(
-            ROOT / entry["placements"],
+            output / entry["placements"],
             origins=tables["leaf_origins"][selected],
             frames=tables["leaf_frames"][selected],
             organ_ids=tables["leaf_ids"][selected],
@@ -128,24 +127,24 @@ def products(plant, tables, detail, materials):
     return result
 
 
-def main():
-    ROOT.mkdir(parents=True, exist_ok=True)
+def main(output, normal_source, bark):
+    output = private_output(output)
+    output.mkdir(parents=True, exist_ok=True)
     plant = sapling()
     tables = plant.tables(100000, 100000)
-    np.savez_compressed(ROOT / "canonical-plant.npz", **tables)
-    with np.load(ROOT / "canonical-plant.npz") as saved:
+    np.savez_compressed(output / "canonical-plant.npz", **tables)
+    with np.load(output / "canonical-plant.npz") as saved:
         for key in tables:
             np.testing.assert_array_equal(saved[key], tables[key])
-    bark = Path("build/experiments/vegetation/placements/phyllotaxy/bark-material.json")
-    shutil.copy2(bark, ROOT / "bark-material.json")
+    shutil.copy2(bark, output / "bark-material.json")
     materials = []
     material_checks = []
     for index, blade in enumerate(plant.blades):
-        name, checks = leaf_material(blade, index)
+        name, checks = leaf_material(blade, index, output, normal_source)
         materials.append(name)
         material_checks.extend(checks)
-    near = products(plant, tables, "near", materials)
-    coarse = products(plant, tables, "coarse", materials)
+    near = products(plant, tables, "near", materials, output)
+    coarse = products(plant, tables, "coarse", materials, output)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     for name, data, camera, target, fov in (
         ("plant-library-near", near, (3, -4, 2.7), (0, 0, 0.85), 35),
@@ -165,10 +164,10 @@ def main():
             "source_modified": True,
             "plan_identity": plant.identity,
         }
-        (ROOT / f"{name}.json").write_text(json.dumps(scene, indent=2) + "\n")
+        (output / f"{name}.json").write_text(json.dumps(scene, indent=2) + "\n")
     files = {
-        str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in ROOT.iterdir()
+        str(p.relative_to(output)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in output.iterdir()
         if p.is_file() and p.name != "asset.json"
     }
     manifest = {
@@ -210,14 +209,14 @@ def main():
             )
         },
     }
-    (ROOT / "asset.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (output / "asset.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(
         json.dumps(
             {
                 "identity": plant.identity,
                 "axes": manifest["axes"],
                 "leaves": manifest["leaves"],
-                "bytes": sum((ROOT / name).stat().st_size for name in files),
+                "bytes": sum((output / name).stat().st_size for name in files),
             },
             indent=2,
         )
@@ -225,4 +224,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("output", "normal-source", "bark"):
+        parser.add_argument("--" + name, type=Path, required=True)
+    args = parser.parse_args()
+    main(args.output, args.normal_source, args.bark)

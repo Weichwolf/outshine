@@ -4,13 +4,15 @@ import argparse
 import json
 from pathlib import Path
 
-from conifer_whole_products import BASE, build_one, prepare_catalog
+from conifer_whole_products import build_one, prepare_catalog
+from experiment_output import private_output
 from mature_conifer_recipes import prepare
 from mature_density import MAX_AXES, MAX_WINDOWS, WINDOW_SETTINGS
 
 
-def build(output, size=256, *, plans_only=False, phase="all"):
-    cases = prepare(output / "recipes")
+def build(output, source, size=256, *, plans_only=False, phase="all"):
+    output = private_output(output)
+    cases = prepare(output / "recipes", source)
     for case in cases:
         summary = case["summary"]
         if summary["axes"] > MAX_AXES or summary["windows"] > MAX_WINDOWS:
@@ -21,7 +23,13 @@ def build(output, size=256, *, plans_only=False, phase="all"):
         return cases
     if phase in ("all", "catalog"):
         for species in dict.fromkeys(case["species"] for case in cases):
-            prepare_catalog(species, output / "catalogs", **WINDOW_SETTINGS, samples=8)
+            prepare_catalog(
+                species,
+                output / "catalogs",
+                source=source,
+                **WINDOW_SETTINGS,
+                samples=8,
+            )
     if phase == "catalog":
         return cases
     for case in cases:
@@ -31,7 +39,7 @@ def build(output, size=256, *, plans_only=False, phase="all"):
             size,
             catalog_directory=output / "catalogs" / case["species"] / "catalog",
             recipe_path=Path(case["recipe"]),
-            bark_path=BASE / case["species"] / "bark.json",
+            bark_path=source / case["species"] / "bark.json",
             max_windows=MAX_WINDOWS,
             max_axes=MAX_AXES,
         )
@@ -46,12 +54,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("build/experiments/vegetation/mature-conifers"),
+        required=True,
     )
+    parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--size", type=int, choices=(128, 256), default=256)
     parser.add_argument("--plans-only", action="store_true")
     parser.add_argument(
         "--phase", choices=("all", "catalog", "products"), default="all"
     )
     args = parser.parse_args()
-    build(args.output, args.size, plans_only=args.plans_only, phase=args.phase)
+    build(
+        args.output,
+        args.source,
+        args.size,
+        plans_only=args.plans_only,
+        phase=args.phase,
+    )

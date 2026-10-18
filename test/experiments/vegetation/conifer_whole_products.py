@@ -11,11 +11,10 @@ import numpy as np
 from conifer_window_catalog import bake_template, catalog_sources
 from conifer_window_render import plan_wood, tree_bounds, tree_image
 from conifer_windows import plan_windows
+from experiment_output import private_output
 from outshine_ref.vegetation import Needle, NeedledPlant, NeedlePattern
 from plant_atlas import bake_product
 
-BASE = Path("build/experiments/vegetation/conifer-crowns")
-OUTPUT = Path("build/experiments/vegetation/conifer-whole")
 SPECIES = ("picea-abies", "pinus-sylvestris", "pinus-cembra", "larix-decidua")
 
 
@@ -59,12 +58,12 @@ def load_catalog(directory, *, metadata=None):
 
 
 def prepare_catalog(
-    species, output_root=OUTPUT, *, nominal_span_m=0.08, max_groups=64, samples=4
+    species, output_root, *, source, nominal_span_m=0.08, max_groups=64, samples=4
 ):
-    output = output_root / species
+    output = private_output(output_root) / species
     began = time.perf_counter()
     plant, families, inputs = catalog_sources(
-        BASE / species, nominal_span_m=nominal_span_m, max_groups=max_groups
+        source / species, nominal_span_m=nominal_span_m, max_groups=max_groups
     )
     banks = [bake_template(source, samples=samples) for source, _ in families.values()]
     save_catalog(output / "catalog", families, banks)
@@ -83,7 +82,7 @@ def prepare_catalog(
 
 def build_one(
     species,
-    output_root=OUTPUT,
+    output_root,
     size=128,
     *,
     catalog_directory=None,
@@ -92,7 +91,7 @@ def build_one(
     max_windows=20000,
     max_axes=20000,
 ):
-    output = output_root / species
+    output = private_output(output_root) / species
     directory = output / "catalog" if catalog_directory is None else catalog_directory
     provenance = json.loads((directory / "source.json").read_text())
     recipe = (
@@ -175,12 +174,13 @@ def build_one(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--size", type=int, choices=(64, 128, 256), default=128)
     parser.add_argument("--phase", choices=("catalog", "build", "all"), default="all")
     args = parser.parse_args()
     for name in SPECIES:
         if args.phase in ("catalog", "all"):
-            prepare_catalog(name, args.output)
+            prepare_catalog(name, args.output, source=args.source)
         if args.phase in ("build", "all"):
             build_one(name, args.output, args.size)

@@ -11,6 +11,7 @@ import numpy as np
 from conifer_whole_products import load_catalog
 from conifer_window_comparison import compare_sources
 from conifer_window_render import tree_bounds
+from experiment_output import private_output
 from mature_forest_plan import site_angles
 from mature_window_sources import physical_shoot
 from outshine_ref.vegetation import NeedledPlant
@@ -47,7 +48,8 @@ def screen_extents(source, sites, case, axis, vertices):
     }
 
 
-def compare(products, scenario, output):
+def compare(products, scenario, output, needle_source):
+    output = private_output(output)
     began = time.perf_counter()
     scene = json.loads(scenario.read_text())
     with np.load(scenario.parent / scene["sites"], allow_pickle=False) as stored:
@@ -77,7 +79,11 @@ def compare(products, scenario, output):
                 for level in plant.wood.levels[1:]
             )
             source, wood, axis = physical_shoot(
-                plant, path, species, output / "physical" / case["key"] / str(choice)
+                plant,
+                path,
+                species,
+                output / "physical" / case["key"] / str(choice),
+                needle_source,
             )
             selected = windows["axis_ids"] == axis.id
             near = {k: v[selected] for k, v in windows.items()}
@@ -149,5 +155,6 @@ if __name__ == "__main__":
     parser.add_argument("--products", required=True, type=Path)
     parser.add_argument("--scenario", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--needle-source", required=True, type=Path)
     args = parser.parse_args()
-    compare(args.products, args.scenario, args.output)
+    compare(args.products, args.scenario, args.output, args.needle_source)

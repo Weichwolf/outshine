@@ -38,6 +38,23 @@ def polygons(camera, receipt):
     return rows, rejected
 
 
+def source_blockers(rows):
+    blockers = []
+    for row in rows:
+        if row["layer"] in ("water", "building"):
+            blockers.append(row["geometry"].buffer(1.5))
+        elif row["layer"] == "transportation":
+            width = {
+                "motorway": 12,
+                "trunk": 10,
+                "primary": 8,
+                "secondary": 7,
+                "path": 2,
+            }.get(row["properties"].get("class"), 5)
+            blockers.append(row["geometry"].buffer(width / 2 + 1))
+    return blockers
+
+
 def sites(camera, receipts, ground, *, max_sites=250000):
     arrays, sources, rejected = [], [], []
     for receipt in receipts:
@@ -57,19 +74,7 @@ def sites(camera, receipts, ground, *, max_sites=250000):
         ]
         if not wood and not grass:
             continue
-        blockers = []
-        for row in rows:
-            if row["layer"] in ("water", "building"):
-                blockers.append(row["geometry"].buffer(1.5))
-            elif row["layer"] == "transportation":
-                width = {
-                    "motorway": 12,
-                    "trunk": 10,
-                    "primary": 8,
-                    "secondary": 7,
-                    "path": 2,
-                }.get(row["properties"].get("class"), 5)
-                blockers.append(row["geometry"].buffer(width / 2 + 1))
+        blockers = source_blockers(rows)
         tile = tuple(receipt["tile"])
         candidate = candidates(camera, tile)
         lat, lon = candidate["latitude"], candidate["longitude"]

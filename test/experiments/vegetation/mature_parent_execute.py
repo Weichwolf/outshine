@@ -96,7 +96,7 @@ def check_replay(descriptor, poses, plant, needle_counts, output):
             * original.scale
         )
 
-        def detail(pose):
+        def detail(pose, *, index=index, order=order, radii=radii):
             axis = AxisState(
                 tuple(slot for _, slot in pose.path[2:]),
                 int(index),

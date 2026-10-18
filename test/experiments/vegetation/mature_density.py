@@ -5,7 +5,6 @@ import json
 from dataclasses import replace
 
 import numpy as np
-from conifer_whole_products import BASE
 
 WINDOW_SETTINGS = {"nominal_span_m": 0.32, "max_groups": 256}
 MAX_AXES = 65536
@@ -13,7 +12,7 @@ MAX_WINDOWS = 100000
 MAX_RELATIVE_AREA_ERROR = 0.05
 
 
-def needle_areas(species, source=BASE):
+def needle_areas(species, source):
     directory = source / species
     path = directory / "shoot.json"
     scene = json.loads(path.read_text())

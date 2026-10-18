@@ -4,13 +4,12 @@ import hashlib
 import json
 
 import numpy as np
-from conifer_whole_products import BASE
 from europe_conifer_products import poses, wood_product
 from needle_group_source import source_geometry
 from outshine_ref.vegetation.axis_surface import axis_mesh
 
 
-def physical_shoot(plant, path, species, directory):
+def physical_shoot(plant, path, species, directory, needle_source):
     directory.mkdir(parents=True, exist_ok=True)
     axis = plant.wood.axis(path)
     base, tip = plant.wood.radii(path)
@@ -38,7 +37,7 @@ def physical_shoot(plant, path, species, directory):
                 group["short_ids"],
             )
         )
-    cached = BASE / species
+    cached = needle_source / species
     scene = json.loads((cached / "shoot.json").read_text())
     original = json.loads((cached / scene["plant_recipe"]).read_text())
     assert original["needles"] == plant.recipe()["needles"]

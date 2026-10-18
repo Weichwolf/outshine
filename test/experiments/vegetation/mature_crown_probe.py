@@ -7,24 +7,26 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from conifer_whole_products import BASE, load_catalog
+from conifer_whole_products import load_catalog
 from conifer_window_render import plan_wood, tree_image
 from conifer_windows import plan_windows
+from experiment_output import private_output
 from mature_conifer_recipes import prepare
 from mature_density import MAX_AXES, MAX_WINDOWS, WINDOW_SETTINGS
 from outshine_ref.vegetation import Needle, NeedledPlant, NeedlePattern
 from PIL import Image
 
 
-def probe(output, catalogs, size=512):
+def probe(output, catalogs, source, size=512):
+    output = private_output(output)
     rows = []
-    for case in prepare(output / "recipes"):
+    for case in prepare(output / "recipes", source):
         if case["variant"] != 1:
             continue
         began = time.perf_counter()
         plant = NeedledPlant.from_recipe(json.loads(Path(case["recipe"]).read_text()))
         catalog, banks = load_catalog(catalogs / case["species"] / "catalog")
-        bark = json.loads((BASE / case["species"] / "bark.json").read_text())
+        bark = json.loads((source / case["species"] / "bark.json").read_text())
         with (
             patch.object(NeedledPlant, "foliage", side_effect=AssertionError("organs")),
             patch.object(NeedlePattern, "detail", side_effect=AssertionError("poses")),
@@ -73,5 +75,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--catalogs", required=True, type=Path)
+    parser.add_argument("--source", required=True, type=Path)
     args = parser.parse_args()
-    probe(args.output, args.catalogs)
+    probe(args.output, args.catalogs, args.source)

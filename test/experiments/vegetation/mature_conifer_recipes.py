@@ -1,11 +1,12 @@
 """Independent mature wood architectures with unchanged physical needle forms."""
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
 
 import numpy as np
-from conifer_whole_products import BASE
+from experiment_output import private_output
 from mature_density import WINDOW_SETTINGS, match_area, needle_areas
 from outshine_ref.vegetation import NeedledPlant
 
@@ -13,10 +14,10 @@ ROOT = Path(__file__).resolve().parents[3]
 SPECIES = (("picea-abies", "spruce"), ("pinus-sylvestris", "pine"))
 
 
-def mature_plan(species, profile, variant):
+def mature_plan(species, profile, variant, source):
     if type(variant) is not int or not 0 <= variant < 4:
         raise ValueError("one of the four existing stand-size variants required")
-    recipe = json.loads((BASE / species / "whole-plan.json").read_text())
+    recipe = json.loads((source / species / "whole-plan.json").read_text())
     scale = 0.85 + variant * 0.1
     height, spread = profile["height_m"] * scale, profile["spread_m"] * scale
     spruce = species == "picea-abies"
@@ -70,15 +71,16 @@ def mature_plan(species, profile, variant):
     return NeedledPlant.from_recipe(recipe)
 
 
-def prepare(output):
+def prepare(output, source):
+    output = private_output(output)
     output.mkdir(parents=True, exist_ok=True)
     cases = []
     for kind, (species, profile_name) in enumerate(SPECIES):
         profile_path = ROOT / "src/assets/world/species" / f"{profile_name}.json"
         profile = json.loads(profile_path.read_text())
-        areas, inputs = needle_areas(species)
+        areas, inputs = needle_areas(species, source)
         for variant in range(4):
-            plan = mature_plan(species, profile, variant)
+            plan = mature_plan(species, profile, variant, source)
             scale = 0.85 + variant * 0.1
             footprint = np.pi * (profile["spread_m"] * scale / 2) ** 2
             plan, density = match_area(plan, areas, profile["lai"] * footprint)
@@ -110,5 +112,9 @@ def prepare(output):
 
 
 if __name__ == "__main__":
-    for case in prepare(Path("build/experiments/vegetation/mature-conifers/recipes")):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    for case in prepare(args.output, args.source):
         print(case["key"], case["summary"])

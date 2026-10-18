@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 from axis_surface import axis_mesh
+from experiment_output import private_output
 from leaf_geometry_lod import displacement, interpolate, merge_instances, parameter_grid
 from leaf_sheet import average_blocks, make_sheet, rasterize, sample_image
 from organ_experiment import write_product
@@ -409,9 +410,7 @@ def make_scenes(output, sheets, commit, modified):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output", type=Path, default=Path("build/experiments/vegetation/sheets")
-    )
+    parser.add_argument("--output", type=private_output, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     sheets, checks = check_sheets(args.output)
