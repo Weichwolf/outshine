@@ -15,7 +15,13 @@ from terraced_facade_prepare import prepare
 from terraced_mass_plan import plan
 from terraced_mass_sources import sources
 from window_shade_mesh import expand
-from window_shade_plan import PROGRAMMES, conflict, local_slot, plan_shades
+from window_shade_plan import (
+    PROGRAMMES,
+    conflict,
+    local_slot,
+    overlapping_ids,
+    plan_shades,
+)
 
 
 class WindowShadeTests(unittest.TestCase):
@@ -169,6 +175,27 @@ class WindowShadeTests(unittest.TestCase):
         obstructing = replace(floor, footprint_wkb=outward.wkb)
         occupied = replace(p.local, storeys=(*p.local.storeys, obstructing))
         self.assertIn("intersecting", conflict(slot, occupied))
+        self.assertIsNotNone(conflict(replace(slot, width_m=1000), p.local))
+
+    def test_concave_corner_shade_overlap_rejects_both_in_any_input_order(self):
+        sample = self.plans[1][1].slots[0]
+        a = replace(
+            sample, identifier="a", width_m=1.0, centre=(0, 0.6), tangent=(0, 1)
+        )
+        b = replace(
+            sample, identifier="b", width_m=1.0, centre=(0.6, 0), tangent=(-1, 0)
+        )
+        self.assertEqual(overlapping_ids((a, b)), {"a", "b"})
+        self.assertEqual(overlapping_ids((b, a)), {"a", "b"})
+        self.assertEqual(overlapping_ids(()), set())
+        self.assertEqual(overlapping_ids((a, replace(b, centre=(4, 0)))), set())
+        above = replace(
+            b,
+            bottom_m=b.bottom_m + 4,
+            cap_bottom_m=b.cap_bottom_m + 4,
+            top_m=b.top_m + 4,
+        )
+        self.assertEqual(overlapping_ids((a, above)), set())
 
 
 if __name__ == "__main__":

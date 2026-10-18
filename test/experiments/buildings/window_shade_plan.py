@@ -86,6 +86,25 @@ def conflict(slot, mass):
     return None
 
 
+def overlapping_ids(slots):
+    if not slots:
+        return set()
+    footprints = [
+        rectangle(s.centre, s.tangent, s.width_m, s.depth_m, s.back_m) for s in slots
+    ]
+    pairs = shapely.STRtree(footprints).query(footprints, predicate="intersects").T
+    rejected = set()
+    for a, b in pairs:
+        first, second = slots[a], slots[b]
+        if (
+            a < b
+            and min(first.top_m, second.top_m) > max(first.bottom_m, second.bottom_m)
+            and footprints[a].intersection(footprints[b]).area > 1e-8
+        ):
+            rejected.update((first.identifier, second.identifier))
+    return rejected
+
+
 def plan_shades(prepared, programme, *, max_candidates=768):
     if programme not in PROGRAMMES:
         raise ValueError("Unknown window shade programme")
@@ -96,7 +115,7 @@ def plan_shades(prepared, programme, *, max_candidates=768):
         raise ValueError("Shade candidate budget exceeded before planning")
     if len({w.identifier for w in windows}) != len(windows):
         raise ValueError("Shade windows require unique identities")
-    slots, rejected = [], []
+    candidates, slots, rejected = [], [], []
     core = prepared.mass.core
     across, along = np.asarray(core.across_xy), np.asarray(core.along_xy)
     for window in windows:
@@ -104,6 +123,12 @@ def plan_shades(prepared, programme, *, max_candidates=768):
         reason = conflict(slot, prepared.local)
         if reason:
             rejected.append((slot.identifier, reason))
+            continue
+        candidates.append(slot)
+    overlaps = overlapping_ids(candidates)
+    for slot in candidates:
+        if slot.identifier in overlaps:
+            rejected.append((slot.identifier, "intersecting exterior shade bounds"))
             continue
         centre = positions(np.array([[*slot.centre, 0.0]]), core)[0, :2]
         tangent = slot.tangent[0] * across + slot.tangent[1] * along
