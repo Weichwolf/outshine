@@ -4,10 +4,10 @@
 #include "VertexUpload.h"
 #include "NormalUpload.h"
 #include <format>
+#include <optional>
 #include "GroundLattice.h"
 #include "SubjectDraw.h"
 #include "BatchVisibility.h"
-#include <optional>
 #include "math/Vec3.h"
 
 #include "FragmentArms.h"

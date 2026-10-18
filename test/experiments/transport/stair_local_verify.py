@@ -46,6 +46,12 @@ def whole_foot_pins(state, xy, chosen, region, old_xyz, values):
 
 def local_contract(state, saved, data, sample, recipe):
     local, field, chosen = saved["local"], saved["field"], saved["chosen"]
+    mode = recipe.get("terrain_layout_mode", "legacy")
+    if (
+        mode not in ("legacy", "free_region")
+        or str(np.asarray(local.get("terrain_layout_mode", "legacy")).item()) != mode
+    ):
+        raise ValueError("saved terrain layout differs from its declared recipe")
     old = state["plan"]
     new_bed = data["surface_vertices"] - [0, 0, 0.3]
     new_foot = shapely.union_all(shapely.polygons(new_bed[data["surface_faces"], :2]))
