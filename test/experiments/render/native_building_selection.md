@@ -6,6 +6,8 @@ It supplies the bounds, shell-error and actual command inputs missing from the
 Python resident-page comparison (`outshine_research`, `930392b72`). No product
 algorithm, cache schema, render contract, source or error budget changes.
 
+Analytic surface transfer for coverage is in `native_building_surface_inputs.md`.
+
 ## Input and observer contract
 
 `export_native_building_selection_inputs.py` reads one SQLite transaction in

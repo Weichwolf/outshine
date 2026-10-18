@@ -1,4 +1,5 @@
 #include "building_selection_observer.h"
+#include "building_surface_inputs.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
 #include "StructureArtifact.h"
@@ -13,6 +14,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <utility>
 
@@ -59,7 +61,9 @@ bool LoadForms(PreparedStructureTile &base, const Json &input, const std::filesy
   return std::ranges::all_of(assigned, [](bool value) { return value; });
 }
 
-Json Sources(const PreparedStructureTile &base) {
+Json Sources(const PreparedStructureTile &base, const RawTile &view, bool surfaces) {
+  const std::optional<Vec3> eye =
+      view.EyeEcef ? std::optional<Vec3>(*view.EyeEcef - base.AnchorEcef) : std::nullopt;
   const BuildingMesh native;
   auto scratch = native.Scratch();
   auto sources = Json::array();
@@ -83,6 +87,9 @@ Json Sources(const PreparedStructureTile &base) {
     if (bounds) {
       row["bounds"] = {{"min", {bounds->Min[0], bounds->Min[1], bounds->Min[2]}},
                        {"max", {bounds->Max[0], bounds->Max[1], bounds->Max[2]}}};
+    }
+    if (surfaces) {
+      row["surface"] = Test::InputSurface(base.Surfaces[index], source.Layout.MinimumHeightM, eye);
     }
     sources.push_back(std::move(row));
   }
@@ -125,6 +132,7 @@ Json Bake(const PreparedStructureTile &base, RawTile view) {
 struct Paths {
   std::filesystem::path Root;
   std::filesystem::path Target;
+  bool SurfacesOnly = false;
 };
 
 int Run(const Json &input, const Paths &paths) {
@@ -147,7 +155,7 @@ int Run(const Json &input, const Paths &paths) {
   Json report{
       {"parent", input.at("parent")},
       {"anchor_ecef", {base->AnchorEcef[0], base->AnchorEcef[1], base->AnchorEcef[2]}},
-      {"sources", Sources(*base)},
+      {"sources", Sources(*base, view, paths.SurfacesOnly)},
       {"results", Json::array()},
       {"scope",
        "Actual unchanged native producer; observer costs included; no GPU or world admission."}};
@@ -161,13 +169,18 @@ int Run(const Json &input, const Paths &paths) {
       {"focal_px", selected.Projection.FocalPx},
       {"error_px", selected.Projection.AllowedErrorPx},
       {"cluster_triangles", view.ClusterTriangles}};
-  report["results"].push_back(Bake(*base, view));
-  bool accepted = report["results"].back().at("accepted");
-  for (const auto &form : input.at("forms")) {
-    view.RequestedCell = form.at("cell").get<uint32_t>();
+  bool accepted = true;
+  if (!paths.SurfacesOnly) {
     report["results"].push_back(Bake(*base, view));
-    accepted = accepted && report["results"].back().at("accepted").get<bool>();
-    std::cerr << "cell " << *view.RequestedCell << '\n';
+    accepted = report["results"].back().at("accepted");
+    for (const auto &form : input.at("forms")) {
+      view.RequestedCell = form.at("cell").get<uint32_t>();
+      report["results"].push_back(Bake(*base, view));
+      accepted = accepted && report["results"].back().at("accepted").get<bool>();
+      std::cerr << "cell " << *view.RequestedCell << '\n';
+    }
+  } else {
+    report["scope"] = "Native analytic surfaces; no Bake/Project/Mesh calls or opacity guarantee.";
   }
   std::ofstream stream(paths.Target);
   stream << report.dump(2) << '\n';
@@ -176,12 +189,13 @@ int Run(const Json &input, const Paths &paths) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 3) { return 2; }
+  if (argc != 3 && (argc != 4 || std::string_view(argv[3]) != "--surfaces")) { return 2; }
   const std::filesystem::path inputPath(argv[1]);
   const std::filesystem::path outputPath(argv[2]);
   if (std::filesystem::exists(outputPath)) { return 2; }
   std::ifstream stream(inputPath);
   const auto input = nlohmann::json::parse(stream, nullptr, false);
   if (input.is_discarded()) { return 2; }
-  return Run(input, {.Root = inputPath.parent_path(), .Target = outputPath});
+  return Run(input,
+             {.Root = inputPath.parent_path(), .Target = outputPath, .SurfacesOnly = argc == 4});
 }
