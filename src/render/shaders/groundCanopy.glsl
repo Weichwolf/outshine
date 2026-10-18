@@ -14,6 +14,14 @@ uint groundCanopyRecord(uint row, uint rows) {
   return at;
 }
 
+float groundCanopyFootprintField(vec2 atM, vec2 worldDx, vec2 worldDy, float scaleM) {
+  float footprint = max(length(worldDx), length(worldDy)) / scaleM;
+  if (footprint <= 0.01 || footprint > 0.25) {
+    return groundLitterFootprintField(atM, worldDx, worldDy, scaleM);
+  }
+  return groundLitterFourPointMean(atM / scaleM, worldDx / scaleM, worldDy / scaleM) - 0.5;
+}
+
 GroundSurface groundSubstrateSurface(int which, vec2 atM, vec2 worldDx, vec2 worldDy, uint rows) {
   uint row = groundMaterialRow(which, rows);
   uint at = groundCanopyRecord(row, rows);
@@ -33,7 +41,7 @@ GroundSurface groundSubstrateSurface(int which, vec2 atM, vec2 worldDx, vec2 wor
   float macroScale = groundPalette[litterAt + 6u];
   float spread = 2.0 * min(shape.z, 1.0 - shape.z) * contrast;
   float field = macroScale > 0.0 && spread > 0.0
-                    ? groundLitterFootprintField(atM, worldDx, worldDy, macroScale)
+                    ? groundCanopyFootprintField(atM, worldDx, worldDy, macroScale)
                     : 0.0;
   float localDryness = clamp(shape.z + spread * field, 0.0, 1.0);
   vec3 localCanopy = mix(green.rgb, dry.rgb, localDryness);
