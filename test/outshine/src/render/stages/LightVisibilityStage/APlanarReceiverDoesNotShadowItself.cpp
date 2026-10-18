@@ -5,7 +5,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstdio>
+#include <cstddef>
+#include <print>
 #include <memory>
 #include <string>
 #include <vector>
@@ -32,13 +33,23 @@ bool AddOccluder(outshine::Render::SceneRenderer &renderer, std::string &error) 
   piece.Indices = indices;
   return renderer.PlacePiece(piece, error) != Render::kNoPiece;
 }
+
+bool AddInactiveLights(outshine::Geometry &geometry, size_t count) {
+  outshine::PunctualLight light;
+  light.Kind = outshine::LightKind::Point;
+  light.Intensity = 0;
+  for (size_t index = 0; index < count; ++index) {
+    if (!geometry.addLamp("inactive original ID", light, outshine::Mat4{})) { return false; }
+  }
+  return true;
 }
 
-int main() {
+}
+
+void Receiver(size_t inactiveLights) {
   using namespace outshine;
   using namespace outshine::Render;
   using namespace outshine::Test;
-  CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for independent receiver shading");
   {
     Geometry geometry;
     Material material;
@@ -46,10 +57,10 @@ int main() {
     material.Roughness = 1;
     const auto surface = geometry.addSurface("matte-plane", material);
     CHECK(surface.has_value(), "matte receiver material exists");
-    if (!surface) { return Report(); }
+    if (!surface) { return; }
     const auto part = geometry.addPart("unoccluded-plane", *surface);
     CHECK(part.has_value(), "analytical receiver exists");
-    if (!part) { return Report(); }
+    if (!part) { return; }
     const std::array<float, 12> vertices{-64, -16, -64, 64, 0, -64, 64, 16, 64, -64, 0, 64};
     const float normalY = std::sqrt(32.0f / 33.0f);
     const float normalXZ = -0.125f * normalY;
@@ -61,7 +72,9 @@ int main() {
                        geometry.setNormals(*part, normals) &&
                        geometry.setTriangles(*part, std::array<uint32_t, 6>{0, 2, 1, 0, 3, 2});
     CHECK(valid, "one planar sheet has a constant normal and no independent occluder");
-    if (!valid) { return Report(); }
+    if (!valid) { return; }
+    CHECK(AddInactiveLights(geometry, inactiveLights),
+          "the Sun retains its original ID after inactive sources");
     Core::Declaration declaration;
     declaration.InitialGeometry = &geometry;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 128;
@@ -75,16 +88,17 @@ int main() {
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "a receiver in a full-radius world opens");
-    if (!scene) { return Report(); }
+    if (!scene) { return; }
     auto eye = Viewpoint::LookAt({.EyeM = {{100, 100, 50}}, .AimM = {{0, 0, 0}}}, 0.0);
     CHECK(eye.has_value(), "receiver camera has an orthonormal basis");
-    if (!eye) { return Report(); }
+    if (!eye) { return; }
     eye->Kind = CameraKind::Orthographic;
     eye->XMagM = eye->YMagM = 30;
     eye->ZNearM = 1;
     eye->ZFarM = 1000;
     scene->Eye(*eye);
-    renderer.SetShadowFrame({{0, 0.70710677f, 0.70710677f}}, {{0, 1, 0}}, 240000, true, 0);
+    renderer.SetShadowFrame(
+        {{0, 0.70710677f, 0.70710677f}}, {{0, 1, 0}}, 240000, true, inactiveLights);
     renderer.CastsBelow(0);
     CHECK(scene->Draw(error), "receiver draws with no caster");
     renderer.WaitForGpu();
@@ -117,8 +131,10 @@ int main() {
         }
       }
       meanRadiance /= 64 * 64 * 3;
-      std::printf(
-          "PLANAR_RECEIVER worst_relative_drop=%.9f mean_radiance=%.9f\n", worstDrop, meanRadiance);
+      std::println("PLANAR_RECEIVER inactive={} worst_relative_drop={:.9f} mean_radiance={:.9f}",
+                   inactiveLights,
+                   worstDrop,
+                   meanRadiance);
       CHECK(meanRadiance > 1 && worstDrop < 0.01,
             "a sunlit plane has no self-shadow darkening beyond one percent raster tolerance");
     }
@@ -142,6 +158,13 @@ int main() {
             "the box's analytical shadow remains dark with the same rounding allowance");
     }
   }
+}
+
+int main() {
+  using namespace outshine::Test;
+  CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for independent receiver shading");
+  Receiver(0);
+  Receiver(outshine::Render::kMaxSubjectLights);
   SDL_Quit();
   return Report();
 }
