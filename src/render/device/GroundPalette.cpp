@@ -30,21 +30,25 @@ constexpr size_t kPaletteStride = 4u;
 constexpr size_t kSurfaceStride = 8u;
 constexpr size_t kLayerStride = 8u;
 constexpr size_t kCanopyStride = 24u;
+constexpr size_t kCanopyDryOffsetBytes = 48u;
+constexpr size_t kCanopySurfaceOffsetBytes = 80u;
 constexpr float kVerticalSlopeDeg = 90.0f;
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559 &&
               sizeof(LitterLayer) == kLayerStride * sizeof(float) && alignof(LitterLayer) == 4 &&
               offsetof(LitterLayer, Difference) == 0 && offsetof(LitterLayer, Surface) == 16);
 static_assert(sizeof(CanopyLayer) == kCanopyStride * sizeof(float) && alignof(CanopyLayer) == 4 &&
               offsetof(CanopyLayer, Ground) == 0 && offsetof(CanopyLayer, Litter) == 16 &&
-              offsetof(CanopyLayer, Green) == 32 && offsetof(CanopyLayer, Dry) == 48 &&
-              offsetof(CanopyLayer, Shape) == 64 && offsetof(CanopyLayer, Surface) == 80);
+              offsetof(CanopyLayer, Green) == 32 &&
+              offsetof(CanopyLayer, Dry) == kCanopyDryOffsetBytes &&
+              offsetof(CanopyLayer, Shape) == 64 &&
+              offsetof(CanopyLayer, Surface) == kCanopySurfaceOffsetBytes);
 
 CanopyLayer Canopy(const Ground::VegetationTemplates::Row &source) noexcept {
   if (source.CanopyWeight <= 0.0f) { return {}; }
   const float pitch = 1.0f / std::sqrt(source.Grass[3]);
   const float height = source.Dry[3];
   const float width = source.Param[1];
-  const float amplitude = std::min(std::min(height, width), source.LitterSurf[1]);
+  const float amplitude = std::min({height, width, source.LitterSurf[1]});
   return {.Ground = source.GroundBase,
           .Litter = source.LitterBase,
           .Green = source.Grass,

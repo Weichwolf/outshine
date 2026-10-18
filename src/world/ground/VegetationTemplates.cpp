@@ -59,9 +59,10 @@ std::expected<float, std::string> ReadRuleMagnitude(const Json::Ref &source, con
   return static_cast<float>(value);
 }
 
-std::expected<float, std::string> ReadCanopyWeight(const Json::Ref &ground,
-                                                   const Json::Ref &grass,
+std::expected<float, std::string> ReadCanopyWeight(const Json::Ref &source,
                                                    const VegetationTemplates::Row &row) {
+  const auto ground = source["ground"];
+  const auto grass = source["grass"];
   const auto closure = ReadRuleMagnitude(ground["swardClosure"], "ground.swardClosure");
   if (!closure) { return std::unexpected(closure.error()); }
   if (ground["swardClosure"].Num() > 1.0) {
@@ -317,7 +318,7 @@ bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
     row.Param[3] = static_cast<float>(gr["dryFraction"].Num(kCoverUnsaid));
     row.Edge[2] = static_cast<float>(t["trees"]["perM2"].Num(0.0));
 
-    const auto weight = ReadCanopyWeight(g, gr, row);
+    const auto weight = ReadCanopyWeight(t, row);
     if (!weight) {
       Error_ = weight.error();
       return false;
