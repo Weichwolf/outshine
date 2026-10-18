@@ -56,6 +56,17 @@ diagnostics under shared load, not a device or frame-budget admission.
 `native_light_cells.cpp` calls the product producer with typed source parameters.
 `native_light_cells.py` independently checks exact packed bytes for local/Earth
 small, street, dense and overlap cases, empty data and directional unused range.
+Three additional cases mix ordinary finite, directional, zero-range and positive
+subnormal reciprocal ranges at local/Earth origins, then use only subnormal
+ranges. The product keeps those non-normal ranges global. The adapter expresses
+that classification as zero range only in its private legacy-grid input copy;
+it does not rewrite actual Light64 output or the shared older grid contract.
+All thirteen actual producer cases pass on frozen `bdd54c01c`; the original ten
+retain identical source/index/Light64/position bytes. Before the correction,
+all three new cases failed the independent packed-word comparison. Their exact
+commands, binary/source hashes and original negative are retained under
+`/tmp/outshine-research-light-reference-bdd54c01c/` on the research host. This is
+CPU index/identity evidence, not a universal GPU-bound or device/light-image gate.
 The module tests cover original IDs, finite supports, complete fallback,
 refusals, frame layout and rounded/overflowing camera coordinates. The separate
 native-device test exercises unchanged data, three occupied generations,
