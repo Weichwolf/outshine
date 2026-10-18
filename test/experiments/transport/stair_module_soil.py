@@ -194,7 +194,7 @@ def assemble(state, local, heights, chosen, *, max_vertices=16384):
     replacement = np.c_[xy, h][faces[: len(original)]]
     if original.tobytes() != replacement.tobytes():
         raise ValueError("local replacement changed an outside cached facet")
-    if len(xy) > max_vertices or len(faces) > 32768:
+    if len(xy) > max_vertices or len(faces) > 2 * max_vertices:
         raise ValueError("assembled terrain diagnostic cap")
     plan = {
         "xy": xy,
@@ -212,7 +212,7 @@ def assemble(state, local, heights, chosen, *, max_vertices=16384):
         parts,
         {
             "vertex_capacity": max_vertices,
-            "face_capacity": 32768,
+            "face_capacity": 2 * max_vertices,
             "outside_xyz_triangles_byte_exact": len(original),
             "explicit_global_xy_label_bytes": lookup.nbytes + xy.nbytes,
             "explicit_outside_xyz_compare_bytes": original.nbytes + replacement.nbytes,
