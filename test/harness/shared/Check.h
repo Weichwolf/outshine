@@ -89,12 +89,18 @@ inline void Covers(const char *requirement) {
 // where a test plants an artefact: inside the checkout-keyed nest run.sh exports, or -- run
 // standalone -- under a pid-keyed name in the temp root, so two runners never share a path
 [[nodiscard]] inline std::string PlantedPath(const char *name) {
-  const char *nest = std::getenv("OUTSHINE_NEST");
-  if (nest != nullptr && *nest != 0) { return std::string(nest) + "/" + name; }
-  const char *tmp = std::getenv("TMPDIR");
-  std::string root = (tmp != nullptr && *tmp != 0) ? tmp : "/tmp";
-  if (root.back() == '/') { root.pop_back(); }
-  return root + "/outshine-" + std::to_string(getpid()) + "-" + name;
+#ifdef OUTSHINE_TEST_NEST
+  return std::string(OUTSHINE_TEST_NEST) + "/" + name;
+#else
+  std::error_code error;
+  const auto root = std::filesystem::temp_directory_path(error);
+  if (error) {
+    std::println(stderr, "FAIL no system temporary directory: {}", error.message());
+    std::fflush(stderr);
+    _exit(EXIT_FAILURE);
+  }
+  return (root / ("outshine-" + std::to_string(getpid()) + "-" + name)).string();
+#endif
 }
 
 // board:1810: a case that stops on its own wall-clock budget (board:1778) reported the
@@ -120,7 +126,7 @@ inline void Skip(const char *why) {
 [[nodiscard]] inline std::vector<std::filesystem::path> Sources(const char *root) {
   std::vector<std::filesystem::path> found;
   std::error_code why;
-  auto walk = std::filesystem::recursive_directory_iterator(root, why);
+  const auto walk = std::filesystem::recursive_directory_iterator(root, why);
   if (why) {
     ++Failures;
     std::println("FAIL the tree '{}' this claim walks is not there: {}", root, why.message());
@@ -129,7 +135,7 @@ inline void Skip(const char *why) {
   // a directory whose name starts with a dot is somebody else's: the lab's .venv under test/
   // carries a numpy .cpp and a scipy .py that spell a compiler, and neither is this tree's word
   for (auto at = std::filesystem::begin(walk); at != std::filesystem::end(walk); ++at) {
-    if (at->is_directory() && at->path().filename().string().starts_with(".")) {
+    if (at->is_directory() && at->path().filename().string().starts_with('.')) {
       at.disable_recursion_pending();
       continue;
     }
