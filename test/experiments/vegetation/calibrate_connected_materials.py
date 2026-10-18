@@ -63,7 +63,7 @@ def calibrate(original, output):
                 uv=uv,
             )
             attach_normals(obj, normals)
-        light = np.array((0.4, 0.2, 0.8))
+        light = np.array((0.8, -0.35, 0.45))
         light /= np.linalg.norm(light)
         scene = environment(np.array((0.0, 0, 1)), np.zeros(3), 1.0, light=light)
         scene.render.resolution_x, scene.render.resolution_y = 384, 128
@@ -90,10 +90,23 @@ def calibrate(original, output):
                 "limit": 0.01,
             }
         )
+    source_change = float(
+        np.max(
+            abs(
+                np.asarray(records[0]["display_RGB_means"][0])
+                - records[1]["display_RGB_means"][0]
+            )
+        )
+    )
+    if source_change < 0.03:
+        raise AssertionError(
+            "rigid-normal light fixture failed to distinguish the two source frames"
+        )
     (output / "report.json").write_text(
         json.dumps(
             {
                 "cases": records,
+                "source_rotation_display_difference": source_change,
                 "scope": "Actual same-original-adapter flat-field BSDF consumers, original and rigid90-degree normals. Colour/height/slope decoding, frame rotation and zero-variance roughness checked; not botanical optical or nonzero-variance GGX-convolution calibration.",
             },
             indent=2,

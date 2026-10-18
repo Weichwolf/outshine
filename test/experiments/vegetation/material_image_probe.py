@@ -26,7 +26,8 @@ def image_probe(original, output):
             a + np.array(((0, 0, 0), (1 / 8, 0, 0), (1 / 8, 1 / 8, 0), (0, 1 / 8, 0)))
         )
         faces.extend(np.array(((0, 1, 2), (0, 2, 3))) + 4 * i)
-        uv.extend((coordinate,) * 4)
+        # A finite Jacobian is required by the EEVEE image-sampling path.
+        uv.extend(coordinate + 1e-5 * np.array(((-1, -1), (1, -1), (1, 1), (-1, 1))))
     cases = []
     for kind in ("colour", "height"):
         path = original / "spatial" / f"fern-{kind}.png"
@@ -86,7 +87,7 @@ def image_probe(original, output):
         json.dumps(
             {
                 "cases": cases,
-                "scope": "Actual original256x256 RGB8/height16 PNGs;64 constant-UV patches, Raw EEVEE image emission. Independent shader image orientation/repeat/linear-data sampler check, PNG8 readback; no BSDF validation.",
+                "scope": "Actual original256x256 RGB8/height16 PNGs;64 finite UV patches of half-width1e-5, Raw EEVEE image emission. Independent shader image orientation/repeat/linear-data sampler check, PNG8 readback; no BSDF validation. Zero-UV-Jacobian patches are an explicitly failed EEVEE control, not used as the image oracle.",
             },
             indent=2,
         )
