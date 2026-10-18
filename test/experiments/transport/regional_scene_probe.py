@@ -31,7 +31,7 @@ def source_bodies(row):
     return result
 
 
-def encode_part(output, body, data, name, origin):
+def encode_part(output, body, data, name, origin, legacy):
     points, faces = data["vertices"], data["triangles"]
     positions = position_payload(points, origin)
     actual = positions.astype(float) + origin
@@ -55,6 +55,14 @@ def encode_part(output, body, data, name, origin):
         }
 
     path = output / (name + ".npz")
+    regional_quality = quality(actual)
+    if legacy:
+        if not np.array_equal(actual, points.astype("f4").astype(float)):
+            raise ValueError(
+                "explicit legacy draw owner changed original Float32 positions"
+            )
+    elif regional_quality["nonpositive_orientation_vs_source_faces"]:
+        raise ValueError("new regional draw has a nonpositive original face")
     np.savez_compressed(path, **(data | {"vertices": positions}))
     return dict(
         body,
@@ -74,18 +82,22 @@ def encode_part(output, body, data, name, origin):
         "faces": len(faces),
         "encoded_position_bytes": positions.nbytes,
         "origin_bytes": origin.nbytes,
+        "preserved_legacy_draw": legacy,
         "absolute_quality": quality(points.astype("f4").astype(float)),
-        "regional_quality": quality(actual),
+        "regional_quality": regional_quality,
     }
 
 
-def encode_body(output, body, data, index):
+def encode_body(output, body, data, index, frame):
     points = data["vertices"]
-    origin = np.round((points.min(axis=0) + points.max(axis=0)) / 128) * 64
+    origin = np.asarray(frame["origin_m"], dtype=float)
+    legacy = frame["preserve_legacy_draw"]
+    if type(legacy) is not bool:
+        raise ValueError("explicit legacy draw ownership required")
     encoded, proofs = [], []
     for part_index, chunk in enumerate(parts(data)):
         name = f"body-{index}-part-{part_index}"
-        item, proof = encode_part(output, body, chunk, name, origin)
+        item, proof = encode_part(output, body, chunk, name, origin, legacy)
         encoded.append(item)
         proofs.append(proof)
     return encoded, {
@@ -134,11 +146,14 @@ def run(args):
     fresh(args.output)
     row = json.loads(args.scene.read_text())
     bodies = source_bodies(row)
+    frames = json.loads(args.origins.read_text())
+    if set(frames) != {body["id"] for body, _ in bodies}:
+        raise ValueError("one explicit source-owned frame per original body required")
     args.output.mkdir()
     began = time.perf_counter()
     encoded, proofs = [], []
     for index, (body, data) in enumerate(bodies):
-        items, proof = encode_body(args.output, body, data, index)
+        items, proof = encode_body(args.output, body, data, index, frames[body["id"]])
         encoded.extend(items)
         proofs.append(proof)
     if len(encoded) > 64:
@@ -150,6 +165,8 @@ def run(args):
         "commit": commit,
         "original_scene": str(args.scene.resolve()),
         "original_scene_sha256": digest(args.scene),
+        "frame_input": str(args.origins.resolve()),
+        "frame_input_sha256": digest(args.origins),
         "profile": row["profile"],
         "bodies": proofs,
         "scenes": ["legacy", *scenes],
@@ -163,5 +180,6 @@ def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scene", type=Path, required=True)
+    parser.add_argument("--origins", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     run(parser.parse_args())

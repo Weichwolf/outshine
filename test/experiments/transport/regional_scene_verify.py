@@ -51,7 +51,12 @@ def inspect_part(part, source, owner):
     half_ulp = np.spacing(np.abs(positions)).astype(float) / 2
     if np.any(error > half_ulp):
         raise ValueError("regional payload is not a nearest Float32 source position")
-    return ids, vertices, float(np.linalg.norm(error, axis=1).max())
+    if part["preserved_legacy_draw"] and not np.array_equal(
+        positions.astype(float) + np.asarray(owner["origin_m"]),
+        source["vertices"][vertices].astype("f4").astype(float),
+    ):
+        raise ValueError("preserved legacy draw positions changed")
+    return ids, vertices, positions, float(np.linalg.norm(error, axis=1).max())
 
 
 def verify(root, output):
@@ -69,6 +74,8 @@ def verify(root, output):
         with np.load(owner["original_mesh"], allow_pickle=False) as saved:
             source = dict(saved)
         all_ids, all_vertices, maximum = [], [], 0.0
+        cache = np.empty(source["vertices"].shape, dtype="f4")
+        used = np.zeros(len(cache), dtype=bool)
         for part in owner["draw_parts"]:
             name = part["draw_part"]
             if (
@@ -77,7 +84,12 @@ def verify(root, output):
                 or part["mesh_sha256"] != draws[name]["mesh_sha256"]
             ):
                 raise ValueError("ambiguous or missing original draw owner")
-            ids, vertices, error = inspect_part(part, source, draws[name])
+            ids, vertices, positions, error = inspect_part(part, source, draws[name])
+            shared = used[vertices]
+            if not np.array_equal(cache[vertices[shared]], positions[shared]):
+                raise ValueError("shared original vertex changed at a draw-part seam")
+            cache[vertices] = positions
+            used[vertices] = True
             seen.add(name)
             all_ids.append(ids)
             all_vertices.append(vertices)
