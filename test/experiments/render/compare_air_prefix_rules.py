@@ -213,7 +213,14 @@ def main():
     args = parser.parse_args()
     output, root = args.output.resolve(), args.input_root.resolve()
     temporary = Path(tempfile.gettempdir()).resolve()
-    if output == temporary or not output.is_relative_to(temporary) or output.exists():
+    checkout = Path(__file__).resolve().parents[3]
+    if (
+        output == temporary
+        or not output.is_relative_to(temporary)
+        or output.is_relative_to(checkout)
+        or output.is_relative_to(root)
+        or output.exists()
+    ):
         parser.error("fresh explicit system-temp subdirectory required")
     output.mkdir(parents=True)
     paths = [root / "src/world/sky/Atmosphere.h", *place_cases(root)[1]]
