@@ -1,0 +1,19 @@
+{
+  "scope": "Whole actual planar terrain retessellation regression; original gates unchanged. Heights/consumers qualified separately.",
+  "source": "wien-junction-14-8937-5678.pbf",
+  "source_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "frame_id": "Wien-transport-ENU-48.242427962074906-16.386505365371704-up0m",
+  "units": "metres",
+  "captured_with_commit": "0dd34f0d7b7aea6d28c741516c433865e3a630f8",
+  "baseline_source_count": 84,
+  "baseline_state_sha256": "5606d12d9d315f31a1ea27f7a92c0ffa0c7295a6908c2b40cdcf089ad27becb8",
+  "source_recipe_sha256": "18b62598c8c6ff689b6b3a8b9520e7ad2ec0b5699028926c06fb3b5a6a7b61a8",
+  "quantized_body_sha256": "dd80c806d800c70d30a8dc99f9a6c699cebf38a882fddf00ab33e1b8df9d630d",
+  "planar_input_sha256": "e073c195b49d762fbe7fdea212d77f9642045b2c8d5b3ac34fd3f2c16e71f8b6",
+  "fields": {
+    "old_xy": "Original whole84 XY positions in named ENU frame; immutable input.",
+    "selected_faces": "Complete selected original terrain facets.",
+    "fixed_triangles_xy_m": "Old ground, new whole six-source underside, and protected old pier-ground facets."
+  },
+  "counterexample": "Preserving obsolete free interior seeds and per-facet cuts creates an inverted Float32 face; free-region retessellation must preserve original coverage, hard vertices and positive D/Q orientation."
+}

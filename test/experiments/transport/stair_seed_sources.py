@@ -7,6 +7,7 @@ from stair_growth_sources import roots_first
 from stair_local_context import radius
 from stair_module_inputs import reference_profiles
 from stair_seed_axes import axis_form
+from stair_seed_dependencies import recipes_with_dependencies
 
 
 def separated_records(view, assets, manifest, sources):
@@ -72,7 +73,10 @@ def select(
     schedule="roots_first",
     grid_m=2**-11,
     root_form="all",
+    crossings="none",
 ):
+    if crossings not in ("none", "walk"):
+        raise ValueError("known geometric seed crossing policy required")
     if root_form not in ("all", "closed"):
         raise ValueError("known original seed root form required")
     if grid_m not in (0.0, 2**-11):
@@ -134,6 +138,11 @@ def select(
         recipes = roots_first(recipes)
     elif schedule != "prefix_first":
         raise ValueError("known bounded seed attempt schedule required")
+    dependency_ledger = []
+    if crossings == "walk":
+        recipes, dependency_ledger = recipes_with_dependencies(
+            recipes, records, sources, method
+        )
     return {
         "plan": plan,
         "roots": roots,
@@ -144,5 +153,10 @@ def select(
         "schedule": schedule,
         "family": "seed",
         **({"root_form": root_form} if root_form != "all" else {}),
+        **(
+            {"crossings": crossings, "dependency_ledger": dependency_ledger}
+            if crossings != "none"
+            else {}
+        ),
         "scope": "Bounds/old-ground separation prefilter; independent whole-source/terrain/bridge/pier admission required. No world graph/cache/runtime claim.",
     }
