@@ -39,6 +39,7 @@ def saved_planning(output, original, ground):
             "horizontal_curve_plan",
             "source_grid_m",
             "source_axis_detour",
+            "pending_junctions",
         ):
             if before.get(key) != after.get(key):
                 raise ValueError("explicit procedural road profile changed")

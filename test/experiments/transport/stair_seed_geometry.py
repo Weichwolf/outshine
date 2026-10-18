@@ -57,6 +57,15 @@ def prepared(rows, sources, ground):
 
 def plans_for(rows, nodes):
     plans = plan_heights(rows, nodes, [], include_interiors=True)
+    plans.extend(
+        {
+            "mvt_xy": declaration["mvt_xy"],
+            "height_m": declaration["height_m"],
+            "shape": shapely.box(*declaration["bounds_xy_m"]),
+        }
+        for row in rows
+        for declaration in row.get("pending_junctions", [])
+    )
     grid = rows[0].get("source_grid_m")
     if grid:
         for plan in plans:
