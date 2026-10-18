@@ -9,6 +9,7 @@ from pathlib import Path
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
+from regional_render_frame import bind_positions, render_camera, vector
 
 COLOURS = (
     (0.32, 0.38, 0.38, 1.0),
@@ -100,56 +101,24 @@ def imported_body(configuration, item, name, render_origin):
         raise ValueError("render input changed")
     with np.load(path) as data:
         vertices, faces, slots = data["vertices"], data["triangles"], data["materials"]
-    origin = np.asarray(item.get("origin_m", [0, 0, 0]), float)
-    if origin.shape != (3,) or not np.isfinite(origin).all():
-        raise ValueError("finite explicit mesh origin required")
-    if item.get("encoded_float32") and vertices.dtype != np.dtype("f4"):
-        raise ValueError("actual encoded Float32 mesh payload required")
     geometry = bpy.data.meshes.new(name)
     geometry.from_pydata(vertices.tolist(), [], faces.tolist())
     geometry.update()
     body = bpy.data.objects.new(name, geometry)
     bpy.context.collection.objects.link(body)
-    delta = origin - render_origin
-    body.location = delta.tolist()
-    if not np.array_equal(np.asarray(body.location), delta.astype("f4")):
-        raise ValueError(
-            "Blender mesh origin differs from Double subtraction before cast"
-        )
-    payload_sha256 = None
-    if item.get("encoded_float32") or "render_origin_m" in configuration:
-        imported = np.empty(vertices.size, dtype="f4")
-        geometry.vertices.foreach_get("co", imported)
-        if not np.array_equal(
-            imported.reshape(vertices.shape).view("u4"),
-            vertices.astype("f4").view("u4"),
-        ):
-            raise ValueError("Blender changed actual encoded vertex payload")
-        payload_sha256 = hashlib.sha256(imported.tobytes()).hexdigest()
+    relative, binding = bind_positions(body, vertices, item, render_origin)
     for i, colour in enumerate(configuration.get("colours", COLOURS)):
         material = bpy.data.materials.new(f"body-{i}")
         material.diffuse_color = colour
         geometry.materials.append(material)
     geometry.polygons.foreach_set("material_index", slots.astype(np.int32))
-    binding = {
-        "input_mesh_sha256": item["mesh_sha256"],
-        "origin_m": origin.tolist(),
-        "origin_minus_render_origin_f32_m": np.asarray(body.location).tolist(),
-        "actual_vertex_payload_sha256": payload_sha256,
-    }
-    return vertices.astype(float) + delta, len(faces), body, binding
+    return relative, len(faces), body, binding
 
 
 def render(configuration):
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    render_origin = np.asarray(configuration.get("render_origin_m", [0, 0, 0]), float)
-    if render_origin.shape != (3,) or not np.isfinite(render_origin).all():
-        raise ValueError("finite explicit render origin required")
-    camera_configuration = dict(configuration)
-    for key in ("eye", "target"):
-        camera_configuration[key] = (
-            np.asarray(configuration[key], float) - render_origin
-        ).tolist()
+    render_origin = vector(configuration.get("render_origin_m", [0, 0, 0]))
+    camera_configuration = render_camera(configuration)
     objects = configuration.get("objects", [configuration])
     if not 1 <= len(objects) <= 256:
         raise ValueError("bounded render object list required")
