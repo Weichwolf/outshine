@@ -443,7 +443,7 @@ LayerGroups() {
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/water-mesh) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/base/water/WaterSurfaceMesh.cpp src/generators/base/water/WaterSurfaceMeshQueries.cpp src/generators/base/water/WaterSurfaceMeshCodec.cpp' ;;
-    profile/water-asset) printf '%s' 'src/generators/base/water/WaterAsset.cpp src/generators/base/water/WaterAssetQueries.cpp src/generators/base/water/WaterAssetCodec.cpp src/generators/base/water/WaterAssetMetadata.cpp src/world/ground/tiles/TileGeodesy.cpp' ;;
+    profile/water-asset) LayerGroups profile/water-mesh; printf '%s' ' src/generators/base/water/WaterAsset.cpp src/generators/base/water/WaterAssetQueries.cpp src/generators/base/water/WaterAssetGeometry.cpp src/generators/base/water/WaterAssetCodec.cpp src/generators/base/water/WaterAssetMetadata.cpp src/world/ground/tiles/TileGeodesy.cpp' ;;
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/medium-view) printf '%s' "src/render/Lens.cpp src/render/stages/MediumView.cpp" ;;
