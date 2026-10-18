@@ -41,9 +41,9 @@ def quality(source, product, approximate):
         lo, hi = map(int, product.data["offsets"][i : i + 2])
         for key in exact:
             assert exact[key][lo:hi].tobytes() == original[key].tobytes(), key
-        for key in maximum:
+        for key, previous in maximum.items():
             error = abs(reduced[key][lo:hi].astype(float) - original[key])
-            maximum[key] = max(maximum[key], float(error.max(initial=0)))
+            maximum[key] = max(previous, float(error.max(initial=0)))
         delta = reduced["origins"][lo:hi].astype(float) - original["origins"]
         position_norm = max(position_norm, float(np.linalg.norm(delta, axis=1).max()))
         a = reduced["frames"][lo:hi].astype(float).reshape(-1, 3, 3)
@@ -93,7 +93,7 @@ def query_costs(source, product):
         # Same prebuilt bounds; each timed path repeats the identical camera query.
         for method in ("original", "compact64", "compact32"):
 
-            def call(method=method):
+            def call(method=method, camera=camera):
                 if method == "original":
                     _, poses = plan.prepare((camera,), max_leaves=100000)
                     return poses
