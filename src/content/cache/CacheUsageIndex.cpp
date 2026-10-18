@@ -137,7 +137,7 @@ CacheUsageIndex::Record(std::string_view key, uint64_t storedBytes, bool publish
       storedBytes > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
     return std::unexpected("cache usage index requires a SHA-256 key and representable byte count");
   }
-  const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+  const auto now = std::chrono::duration_cast<std::chrono::duration<int64_t>>(
                        std::chrono::system_clock::now().time_since_epoch())
                        .count();
   const std::scoped_lock lock(State_->Mutex);
