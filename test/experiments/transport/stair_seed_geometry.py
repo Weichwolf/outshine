@@ -8,6 +8,7 @@ from shared_bridge_geometry import corridor
 from stair_branch_inputs import surface_sampling, surface_welding
 from stair_closed_height_rounding import correct
 from stair_joint_height_fit import bound_levels, fit_joint_levels
+from stair_joint_height_rounding import fit_rounded_levels
 from stair_junction_layout import arrangement, landings
 from stair_landing_pads import complete_landings
 from stair_module_materials import surface_slots
@@ -35,7 +36,8 @@ def seed_contract(recipe, sources):
         or type(seed["end"]) is not int
         or seed["end"] not in (0, -1)
         or recipe.get("seed_grid_m") not in (None, GRID_M)
-        or recipe.get("junction_height_mode") not in (None, "joint", "quantized")
+        or recipe.get("junction_height_mode")
+        not in (None, "joint", "quantized", "rounded_joint")
     ):
         raise ValueError(
             "explicit independent whole-source seed without cached contacts required"
@@ -87,9 +89,15 @@ def build(rows, sources, ground, sample, *, recipe=None):
     surface = Mesh(np.c_[xy, targets], faces)
     budget = HeightBudget(max_vertices=4096, max_faces=8192)
     levels = None
-    if recipe and recipe.get("junction_height_mode") in ("joint", "quantized"):
+    if recipe and recipe.get("junction_height_mode") in (
+        "joint",
+        "quantized",
+        "rounded_joint",
+    ):
         if recipe["junction_height_mode"] == "quantized":
             result, levels = fit_quantized_levels(surface, frames, plans)
+        elif recipe["junction_height_mode"] == "rounded_joint":
+            result, levels = fit_rounded_levels(surface, frames, plans, budget)
         else:
             result, levels = fit_joint_levels(surface, frames, plans, budget)
         if result.mesh is not None:
