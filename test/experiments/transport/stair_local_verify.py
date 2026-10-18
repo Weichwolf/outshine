@@ -134,7 +134,9 @@ def verify(args):
             raise ValueError(
                 "saved context differs from complete resident neighbourhood"
             )
-        geometry = audit(state, recipe, saved["data"], rows, planning, line, upper)
+        geometry = audit(
+            state, recipe, saved["data"], rows, planning, line, upper, sources=sources
+        )
         local_contract(state, saved, saved["data"], sample, recipe)
         footprint = shapely.union_all(
             shapely.polygons(
