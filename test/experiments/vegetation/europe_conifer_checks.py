@@ -1,26 +1,28 @@
 """Physical recipe/cache checks and exact preservation of existing plant assets."""
 
+import argparse
 import json
 import tempfile
 from pathlib import Path
 
 import numpy as np
-from europe_conifer_products import OUTPUT, write_json
+from europe_conifer_products import write_json
 from europe_conifer_recipes import conifers
+from experiment_output import private_output
 from needle_material import write_needle_material
 from outshine_ref.vegetation import NeedledPlant
 from plant_experiment import sapling
 from scipy.spatial import cKDTree
 
 
-def old_products():
+def old_products(legacy):
     arrays = 0
     for seed in (0, 17, 381):
         plant = sapling(seed)
-        old = json.loads((OUTPUT / f"before-sapling-{seed}.json").read_text())
+        old = json.loads((legacy / f"before-sapling-{seed}.json").read_text())
         assert plant.recipe() == old["recipe"]
         assert json.loads(json.dumps(plant.summary())) == old["summary"]
-        with np.load(OUTPUT / f"before-sapling-{seed}.npz") as before:
+        with np.load(legacy / f"before-sapling-{seed}.npz") as before:
             tables = plant.tables(100000, 100000)
             assert set(tables) == set(before.files)
             for key in before.files:
@@ -31,7 +33,7 @@ def old_products():
         output = Path(tmp)
         for section, case in (("sector", 0), ("rhombus", 2)):
             write_needle_material(output, section)
-            source = OUTPUT.parent / "needle-sectors" / f"case-{case}-near"
+            source = legacy / "needle-sectors" / f"case-{case}-near"
             for kind in ("colour", "roughness"):
                 filename = f"needle-{section}-{kind}.png"
                 assert (output / filename).read_bytes() == (
@@ -45,8 +47,8 @@ def old_products():
     }
 
 
-def check_species(species):
-    directory = OUTPUT / species.key
+def check_species(species, source):
+    directory = source / species.key
     plan = NeedledPlant.from_recipe(
         json.loads((directory / "whole-plan.json").read_text())
     )
@@ -101,15 +103,14 @@ def check_species(species):
     }
 
 
-def check_tile():
-    directory = OUTPUT / "tile"
+def check_tile(source_directory, directory):
     plans = json.loads((directory / "tile-plans.json").read_text())["plants"]
     recipe = json.loads((directory / "tile.json").read_text())
     products = [p for p in recipe["products"] if "plant_id" in p]
     errors = []
     for product in products:
         plan = plans[product["plant_id"]]
-        source = OUTPUT / plan["species"]["latin"].lower().replace(" ", "-")
+        source = source_directory / plan["species"]["latin"].lower().replace(" ", "-")
         pose = Path(product["placements"]).name.removeprefix("tile-")
         with (
             np.load(directory / product["placements"]) as cached,
@@ -129,15 +130,21 @@ def check_tile():
     }
 
 
-def main():
+def main(source, tile, legacy, output):
+    output = private_output(output)
+    output.mkdir(parents=True, exist_ok=True)
     report = {
-        "legacy": old_products(),
-        "species": [check_species(s) for s in conifers()],
-        "tile": check_tile(),
+        "legacy": old_products(legacy),
+        "species": [check_species(s, source) for s in conifers()],
+        "tile": check_tile(source, tile),
     }
-    write_json(OUTPUT / "checks.json", report)
+    write_json(output / "checks.json", report)
     print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("source", "tile", "legacy", "output"):
+        parser.add_argument("--" + name, type=Path, required=True)
+    args = parser.parse_args()
+    main(args.source, args.tile, args.legacy, args.output)

@@ -1,0 +1,10 @@
+{
+  "name": "unidentified graminoid tuft variants",
+  "profile": [2560, 1440],
+  "samples": 4,
+  "ground_size_m": 6,
+  "camera": [2.4, -2.7, 1.4],
+  "target": [0.9, 0.3, 0.2],
+  "fov_y": 38,
+  "scope": "Private cached-form inspection; no named botanical species or LOD acceptance"
+}
