@@ -191,7 +191,7 @@ large remaining quality/diversity gap to CityEngine-level output.
 `test/scripts/pixels.py` records92152 changed before/normal pixels (4.4441%),
 mean RGB-channel difference1.141993/255. Normal/full differ at2319 pixels
 (0.1118%),1505 by more than1/255, mean0.002885/255 and maximum23/255, restricted
-to the upper90 image rows. No black/near-black pixels appear. These single-view
+to90 rows in the upper image (y107–196). No black/near-black pixels appear. These single-view
 colour differences are observations, not universal LOD or image-quality scores.
 
 The standalone public `terraced_crown_contact_probe.py` runs terminal0 at
@@ -204,7 +204,7 @@ also replays those same arrays; no unnecessary rerender is claimed.
 A separate close pane-omission diagnostic confirms real openings, floors and
 stairs behind the pale normal panes. Explicit screen-refraction at roughness0.12
 and0.02 reveals depth with blur; an explicit straight-through Fresnel blend shows
-depth with visible sampling grain. All four close controls were opened, with
+depth with visible sampling grain. The normal close view and four explicit variants were opened, with
 omission/approximation recorded. They change no accepted shader/daylight profile
 and do not prove native glass correctness. Source/body/facade diversity and a
 coherent glass/depth treatment remain the next visible work.
