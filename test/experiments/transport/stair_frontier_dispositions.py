@@ -1,8 +1,9 @@
 """Keep physical attempts separate from topology proposals and native admission."""
 
 
-def source_dispositions(plan, attempts, chosen):
+def source_dispositions(plan, attempts, chosen, recipes=()):
     proposed = {k for p in plan["proposals"] for k in p["source_ids"]}
+    proposed.update(k for recipe in recipes for k in recipe["source_ids"])
     accepted = set(attempts[chosen]["source_ids"]) if chosen is not None else set()
     result = {}
     for key in sorted(proposed):

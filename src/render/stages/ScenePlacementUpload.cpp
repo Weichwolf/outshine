@@ -11,24 +11,11 @@
 
 namespace outshine::Render {
 
-void SubjectDraw::BindPlacementStorage(const PassRecording &into, VertexLayout layout) {
-  std::array<SDL_GPUBuffer *, 3> rows{Bound().Buffer(SubjectResidency::Stream::Placements).Get()};
-  uint32_t count = 1;
-  if (CarriesColour(layout)) {
-    rows[count++] = Bound().Buffer(SubjectResidency::Stream::Colour).Get();
-  }
-  if (CarriesTangent(layout)) {
-    rows[count++] = Bound().Buffer(SubjectResidency::Stream::Tangent).Get();
-  }
-  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), count);
-}
-
 bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_));
   size_t all = needed;
   for (const Piece &piece : Pieces_) { all += piece.Rows.size(); }
   if (!RowsStale_ && Rows_.size() == all) { return true; }
-  RowsStale_ = false;
   if (all == 0) { return true; }
   Rows_.assign(all, {});
   size_t offset = needed;
@@ -59,10 +46,16 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   }
   std::array rows = {SubjectResidency::Crossing{
       .Which = SubjectResidency::Stream::Placements,
-      .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+      .Usage = Native::BufferUse::Storage,
       .From = Rows_.data(),
       .Bytes = static_cast<uint32_t>(Rows_.size() * sizeof(GpuPlacement))}};
-  return Bound().Cross(rows, deferred, error);
+  const auto accepted = Bound().Cross(rows, deferred);
+  if (!accepted) {
+    error = accepted.error().Message;
+    return false;
+  }
+  RowsStale_ = false;
+  return true;
 }
 
 }

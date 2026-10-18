@@ -1,14 +1,15 @@
 #include "EnvironmentSpecularStage.h"
 #include "EnvironmentSpecularLayout.h"
-#include "ShaderFile.h"
+#include "IrradianceLayout.h"
+#include "StagePipelines.h"
 #include "math/Vec2.h"
 #include "math/Vec4.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
+#include <expected>
+#include <span>
 #include <utility>
-#include <string>
 
 namespace outshine::Render {
 namespace {
@@ -26,26 +27,25 @@ static_assert(offsetof(Pushed, EyeRadiusKm) == sizeof(Medium) + sizeof(float));
 static_assert(offsetof(Pushed, GroundAlbedo) == sizeof(Medium) + 16);
 }
 
-bool EnvironmentSpecularStage::Configure(const Gpu &gpu, Sources from, std::string &error) {
+Native::Result<void> EnvironmentSpecularStage::Configure(const Gpu &gpu, Sources from) {
+  if (gpu.Device == nullptr || from.Sky == nullptr || from.Irradiance == nullptr ||
+      from.Sampler == nullptr || from.Target == nullptr ||
+      from.Irradiance->Description().Bytes < kIrradianceFloats * sizeof(float)) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "environment specular needs complete feeds"});
+  }
+  if (!Pipe_) {
+    auto made = CreateComputePipeline(*gpu.Device, Shader);
+    if (!made) { return std::unexpected(made.error()); }
+    Pipe_ = std::move(*made);
+    Cache_.Invalidate();
+  }
   if (Sources_.Sky != from.Sky || Sources_.Irradiance != from.Irradiance ||
       Sources_.Sampler != from.Sampler || Sources_.Target != from.Target) {
     Cache_.Invalidate();
   }
   Sources_ = from;
-  if (from.Sky == nullptr || from.Irradiance == nullptr || from.Sampler == nullptr ||
-      from.Target == nullptr) {
-    error = "environment specular needs sky radiance, irradiance, sampler and target";
-    return false;
-  }
-  if (Pipe_) { return true; }
-  auto made = CreateComputePipeline(gpu.Device, Shader);
-  if (!made) {
-    error = std::move(made.error());
-    return false;
-  }
-  Pipe_ = std::move(*made);
-  Cache_.Invalidate();
-  return true;
+  return {};
 }
 
 void EnvironmentSpecularStage::Declare(const Medium &medium,
@@ -61,8 +61,13 @@ void EnvironmentSpecularStage::Declare(const Medium &medium,
   Cache_.Invalidate();
 }
 
-void EnvironmentSpecularStage::Encode(const PassRecording &into) {
-  if (!Pipe_ || !Standing_ || !Cache_.NeedsRecording() || into.Dispatch == nullptr) { return; }
+Native::Result<void> EnvironmentSpecularStage::Encode(const PassRecording &into) {
+  if (!Cache_.NeedsRecording()) { return {}; }
+  if (!Pipe_ || !Standing_ || Sources_.Sky == nullptr || Sources_.Irradiance == nullptr ||
+      Sources_.Sampler == nullptr || Sources_.Target == nullptr || into.Commands == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "environment specular is not configured"});
+  }
   constexpr float metresPerKm = 1000.0f;
   Pushed pushed{.Air = Standing_->Air,
                 .CosSunZenith = Standing_->CosSunZenith,
@@ -73,16 +78,32 @@ void EnvironmentSpecularStage::Encode(const PassRecording &into) {
   for (size_t axis = 0; axis < 3; ++axis) {
     pushed.GroundAlbedo[axis] = static_cast<float>(Standing_->GroundAlbedo[axis]);
   }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &pushed, sizeof(pushed));
-  SDL_BindGPUComputePipeline(into.Dispatch, Pipe_.Get());
-  const SDL_GPUTextureSamplerBinding sampled{.texture = Sources_.Sky, .sampler = Sources_.Sampler};
-  SDL_BindGPUComputeSamplers(into.Dispatch, 0, &sampled, 1);
-  const std::array<SDL_GPUBuffer *, 1> buffers{Sources_.Irradiance};
-  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, buffers.data(), 1);
-  SDL_DispatchGPUCompute(into.Dispatch,
-                         (kEnvironmentWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                         (kEnvironmentHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY,
-                         1u);
+  const std::array bindings{
+      Native::Binding{.Set = 0,
+                      .Slot = 0,
+                      .Value = Native::SampledTexture{.Image = {.Image = Sources_.Sky},
+                                                      .Sampling = Sources_.Sampler}},
+      Native::Binding{
+          .Set = 0,
+          .Slot = 1,
+          .Value =
+              Native::StorageBuffer{.Data = Sources_.Irradiance,
+                                    .Range = {.Bytes = Sources_.Irradiance->Description().Bytes}}},
+      Native::Binding{.Set = 1,
+                      .Slot = 0,
+                      .Value = Native::StorageTexture{.Image = {.Image = Sources_.Target}}},
+      Native::Binding{.Set = 2,
+                      .Slot = 0,
+                      .Value =
+                          Native::Uniform{.Bytes = std::as_bytes(std::span{&pushed, size_t{1}})}}};
+  const auto encoded = into.Commands->Dispatch(
+      *Pipe_,
+      bindings,
+      {.X = (kEnvironmentWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+       .Y = (kEnvironmentHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY,
+       .Z = 1u});
+  if (!encoded) { return encoded; }
   into.Submission.Record(Stage::EnvironmentSpecular, Cache_);
+  return {};
 }
 }

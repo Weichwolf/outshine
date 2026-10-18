@@ -42,6 +42,8 @@ SPIRV_SHADERS := $(patsubst src/render/shaders/%,build/shaders/%.spv,$(GLSL_SHAD
 GROUND_OUTPUTS := $(foreach v,0 1,$(foreach n,0 1 2 3,$(foreach i,0 1 2 3,$(if $(and $(filter 1,$(v)),$(filter 1,$(n) $(i))),,$(if $(and $(filter-out 0,$(n)),$(filter $(n),$(i))),,$(v)$(n)$(i))))))
 GROUND_OUTPUTS += 01234
 GROUND_SHADERS := $(foreach v,0 1,build/shaders/groundLattice-$(v).vert.spv) $(foreach output,$(GROUND_OUTPUTS),build/shaders/groundLit-$(output).frag.spv)
+GROUND_SHADERS += $(foreach v,0 1,build/shaders/groundPatchLattice-$(v).vert.spv)
+GROUND_SHADERS += $(foreach output,$(GROUND_OUTPUTS),build/shaders/groundPatchLit-$(output).frag.spv)
 
 FLAT_VERTICES := $(foreach u,0 1 2,$(foreach t,0 1,$(foreach v,0 1,build/shaders/flat-$(u)$(t)-$(v).vert.spv)))
 FLAT_FRAGMENTS := $(foreach kind,00 01 10 11 20 21 30,$(foreach output,$(GROUND_OUTPUTS),build/shaders/flat-$(kind)-$(output).frag.spv))
@@ -96,22 +98,31 @@ build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl
 	@mkdir -p $(@D)
 	@variant=$*; base=$${variant:6:1}; metal=$${variant:7:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shader-tables: test/scripts/shader-tables.cpp $(wildcard src/render/stages/*.h) $(wildcard src/base/math/*.h)
+build/shader-tables: test/scripts/shader-tables.cpp Makefile
 	@mkdir -p $(@D)
-	@$(CXX) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
+	@$(CXX) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -MMD -MP -MF $@.d -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
+
+-include build/shader-tables.d
 
 build/shaders/brdfTables.glsl: build/shader-tables
 	@mkdir -p $(@D)
-	@$< > $@.tmp && mv $@.tmp $@
+	@$< > $@.tmp && if cmp -s $@.tmp $@; then rm $@.tmp; else mv $@.tmp $@; fi
 
 build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/stages/GroundConstants.inc
 	@mkdir -p $(@D)
 	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
+build/shaders/groundPatchLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/stages/GroundConstants.inc
+	@mkdir -p $(@D)
+	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DGROUND_PATCHES=1 -DSUBJECT_WRITES_VELOCITY=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
 build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl build/shaders/brdfTables.glsl
 	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-shader-tools:    ## build pinned glslang and SDL_shadercross (requires SDL3, SPIRV-Cross, CMake, Ninja)
+build/shaders/groundPatchLit-%.frag.spv: src/render/shaders/groundLit.glsl build/shaders/brdfTables.glsl
+	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DGROUND_PATCHES=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
+shader-tools:    ## build pinned glslang (requires CMake and Ninja)
 	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py
 
 build/shaders/%.spv: src/render/shaders/%
@@ -140,9 +151,10 @@ experiment-metal: all ## direct Metal MRT/depth/Hi-Z proof; METAL_OUTPUT must na
 	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" python3 test/experiments/render/native_metal.py --output "$(METAL_OUTPUT)"
 
 .PHONY: experiment-vulkan
-experiment-vulkan: all ## native Vulkan archive/compute/textures; VULKAN_OUTPUT must name a system-temp directory
+experiment-vulkan: all ## native Vulkan proof; set VULKAN_DEVICE_NAME and system-temp VULKAN_OUTPUT
 	@test -n "$(VULKAN_OUTPUT)" || { echo 'set VULKAN_OUTPUT to a system-temp directory' >&2; exit 2; }
-	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" VULKAN_VALIDATION="$(VULKAN_VALIDATION)" python3 test/experiments/render/native_vulkan.py --output "$(VULKAN_OUTPUT)"
+	@test -n "$(VULKAN_DEVICE_NAME)" || { echo 'set VULKAN_DEVICE_NAME to the exact Vulkan device name' >&2; exit 2; }
+	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" VULKAN_VALIDATION="$(VULKAN_VALIDATION)" python3 test/experiments/render/native_vulkan.py --device-name "$(VULKAN_DEVICE_NAME)" --output "$(VULKAN_OUTPUT)"
 
 lint: ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
@@ -172,11 +184,11 @@ corpus-prepare: ## prepare pinned corpus inputs (MANIFEST=test/.../manifest.json
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py all --manifest "$(MANIFEST)"
 
-test: test-timeout-cleanup test-client-arguments test-client-data test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
+test: test-timeout-cleanup test-client-arguments test-client-data test-client-cache test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
 	@$(RUN)
 
 .PHONY: test-all
-test-all: test-timeout-cleanup test-client-arguments test-client-data test-motion-trace all ## all declared native, UI and script suites
+test-all: test-timeout-cleanup test-client-arguments test-client-data test-client-cache test-motion-trace all ## all declared native, UI and script suites
 	@$(RUN) --all
 
 suite:           ## named suite or C++ case; builds its component closure (SUITE=...)
@@ -207,6 +219,10 @@ test-client-data: all ## verify external place scenarios through the client
 test-tidy-analysis: db ## prove clean analysis and incomplete-run detection with real clang-tidy
 	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_tidy_analysis.py
 
+.PHONY: test-callgraph
+test-callgraph: ## verify real archive call edges and corrupt-input rejection
+	@cd $(SELF_DIR) && python3 test/scripts/test_callgraph.py
+
 .PHONY: format
 format: strip ## apply repository formatting to the same owned files lint checks
 	@cd $(SELF_DIR) && python3 test/scripts/format_sources.py --tool $(LLVM_BIN)/clang-format
@@ -219,7 +235,15 @@ test-format: ## verify formatting coverage, real diagnostics and failure handlin
 test-source-units: ## verify native platform and Objective-C++ source selection
 	@cd $(SELF_DIR) && python3 test/scripts/test_source_units.py
 
+.PHONY: test-audit-symbols
+test-audit-symbols: ## verify real Mach-O/ELF namespace closure and missing-source detection
+	@cd $(SELF_DIR) && CXX="$(LLVM_BIN)/clang++" NM="$(LLVM_BIN)/llvm-nm" python3 test/scripts/test_audit_symbols.py
+
 .PHONY: test-client-arguments
+.PHONY: test-client-cache
+test-client-cache: all ## verify preview, budgets, eviction and compaction without GPU initialization
+	@cd $(SELF_DIR) && python3 test/scripts/test_cache_command.py
+
 test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
 	@cd $(SELF_DIR) && python3 test/scripts/test_client_arguments.py
 

@@ -82,11 +82,6 @@ Result<DrawPacket> Recording::PrepareDraw(const DrawState &description) {
         Error{.Kind = ErrorKind::Invalid,
               .Message = "draw requires an open pass and owned graphics pipeline"});
   }
-  constexpr std::size_t maxDrawPackets = 16384;
-  if (Render_->Draws.size() >= maxDrawPackets) {
-    return std::unexpected(
-        Error{.Kind = ErrorKind::Busy, .Message = "per-pass draw packet budget exhausted"});
-  }
   const auto &graphics = *pipeline->State();
   if (graphics.Colours.size() != Render_->Colours.size() ||
       graphics.Depth.has_value() != Render_->Depth.has_value()) {
@@ -105,6 +100,8 @@ Result<DrawPacket> Recording::PrepareDraw(const DrawState &description) {
   if (auto feedback = CheckFeedback(description.Bindings); !feedback) {
     return std::unexpected(feedback.error());
   }
+  constexpr std::size_t maxDrawPackets = 16384;
+  if (Render_->Draws.size() >= maxDrawPackets) { EncodeRenderPass(*Render_, false); }
   DrawPacket packet;
   packet.Graphics = pipeline->State();
   if (auto vertices = BindVertices(packet, description.Vertices); !vertices) {

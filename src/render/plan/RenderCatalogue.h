@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <SDL3/SDL_gpu.h>
+#include "native/Render.h"
 #include "IrradianceLayout.h"
 
 namespace outshine::Render {
@@ -38,6 +38,8 @@ enum class Resource {
   AoBuffer,
   SceneLinear,
   DepthPyramid,
+  GroundPyramid,
+  GroundSelection,
 
   OverlayAtlas,
   FrameTex,
@@ -81,6 +83,8 @@ enum class Resource {
     case Resource::SceneSurfaceMetalRough:
     case Resource::AoBuffer:
     case Resource::DepthPyramid:
+    case Resource::GroundPyramid:
+    case Resource::GroundSelection:
 
     case Resource::OverlayAtlas:
     case Resource::FrameTex:
@@ -115,6 +119,9 @@ enum class Stage {
   Moon,
   Stars,
   Subjects,
+  GroundPyramid,
+  GroundSelection,
+  Ground,
   SubjectsTransmissive,
   CompositeTransmission,
   AerialPerspective,
@@ -179,6 +186,8 @@ struct StageRow {
   Stage FusesInto;
 
   std::array<Resource, kMaxEdges> ReadsLastFrame = {
+      {kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge}};
+  std::array<Resource, kMaxEdges> ReadsAccumulated = {
       {kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge}};
 };
 
@@ -370,6 +379,20 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Format = TexelFormat::Table,
      .Name = "depthPyramid",
      .Stride = static_cast<uint32_t>(sizeof(float))},
+    {.Id = Resource::GroundPyramid,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "groundPyramid",
+     .Stride = static_cast<uint32_t>(sizeof(float))},
+    {.Id = Resource::GroundSelection,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "groundSelection",
+     .Stride = static_cast<uint32_t>(sizeof(uint32_t))},
     {.Id = Resource::OverlayAtlas,
      .Kind = ResourceKind::Given,
      .Fallback = FallbackKind::None,
@@ -444,7 +467,7 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .AliasOf = kNoEdge,
      .Format = TexelFormat::Table,
      .Name = "drawArguments",
-     .Stride = static_cast<uint32_t>(sizeof(SDL_GPUIndexedIndirectDrawCommand))},
+     .Stride = static_cast<uint32_t>(sizeof(Native::IndexedIndirectArguments))},
 }};
 
 [[nodiscard]] constexpr bool IsBuffer(const ResourceRow &row) {
@@ -618,6 +641,43 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                      kNoEdge},
      .FusesInto = kNoFusion},
 
+    {.Id = Stage::GroundPyramid,
+     .From = Provenance::Machinery,
+     .Kind = PassKind::Compute,
+     .Name = "groundPyramid",
+     .Reads = {Resource::LinearSampler, kNoEdge},
+     .Writes = {Resource::GroundPyramid, kNoEdge},
+     .Contributes = {kNoEdge},
+     .FusesInto = kNoFusion,
+     .ReadsAccumulated = {Resource::SceneDepth, kNoEdge}},
+    {.Id = Stage::GroundSelection,
+     .From = Provenance::Machinery,
+     .Kind = PassKind::Compute,
+     .Name = "groundSelection",
+     .Reads = {Resource::GroundPyramid, kNoEdge},
+     .Writes = {Resource::GroundSelection, kNoEdge},
+     .Contributes = {kNoEdge},
+     .FusesInto = kNoFusion},
+    {.Id = Stage::Ground,
+     .From = Provenance::Content,
+     .Kind = PassKind::Raster,
+     .Name = "ground",
+     .Reads = {Resource::GroundSelection,
+               Resource::ShadowAtlas,
+               Resource::LutSampler,
+               Resource::EnvironmentSpecular,
+               kNoEdge},
+     .Writes = {kNoEdge},
+     .Contributes = {Resource::SceneHdr,
+                     Resource::SceneVelocity,
+                     Resource::SceneDepth,
+                     Resource::SceneShadingNormal,
+                     Resource::SceneSurfaceIdentity,
+                     Resource::SceneSurfaceBase,
+                     Resource::SceneSurfaceMetalRough,
+                     kNoEdge},
+     .FusesInto = kNoFusion},
+
     {.Id = Stage::SubjectsTransmissive,
      .From = Provenance::Content,
      .Kind = PassKind::Raster,
@@ -764,6 +824,14 @@ constexpr bool EveryReadHasAProducer() {
   return true;
 }
 
+constexpr bool AccumulatedAttachmentHasEarlierProducer(Stage stage, Resource resource) {
+  if (Row(resource).Kind != ResourceKind::Attachment) { return false; }
+  for (size_t earlier = 0; earlier < static_cast<size_t>(stage); ++earlier) {
+    if (Produces(static_cast<Stage>(earlier), resource)) { return true; }
+  }
+  return false;
+}
+
 constexpr bool EveryDerivedResourceHasOneWriter() {
   for (size_t r = 0; r < kResourceCount; ++r) {
     const auto id = static_cast<Resource>(r);
@@ -792,6 +860,12 @@ constexpr bool TopologicalOrderHolds() {
     for (size_t e = 0; e < kMaxEdges && row.Reads[e] != kNoEdge; ++e) {
       for (size_t p = s; p < kStageCount; ++p) {
         if (Produces(static_cast<Stage>(p), row.Reads[e])) { return false; }
+      }
+    }
+    for (const Resource resource : row.ReadsAccumulated) {
+      if (resource == kNoEdge) { break; }
+      if (!AccumulatedAttachmentHasEarlierProducer(static_cast<Stage>(s), resource)) {
+        return false;
       }
     }
   }

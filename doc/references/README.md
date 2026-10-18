@@ -269,6 +269,15 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [Wald-Föhre](https://www.infoflora.ch/de/flora/pinus-sylvestris.html),
   [Arve](https://www.infoflora.ch/de/flora/pinus-cembra.html),
   [Europäische Lärche](https://www.infoflora.ch/de/flora/larix-decidua.html).
+- **Leaf area index of boreal forests: Theory, techniques, and measurements**,
+  Chen et al., JGR 1997, DOI [10.1029/97JD01107](https://doi.org/10.1029/97JD01107).
+  [Autorenkopie](https://professorpaul.com/publications/chen_et_al_1997.pdf),
+  [PDF](vegetation/botany/1997-leaf-area-index-of-boreal-forests.pdf).
+  PDF-Seite 2 optisch geprüft: halbe grüne Gesamtfläche je Grundfläche und
+  Trennung von tatsächlicher Fläche, wirksamer LAI und räumlicher Klumpung.
+  [NASA-Produktdefinition](https://access.earthdata.nasa.gov/collections/C2222147000-LPCLOUD)
+  bestätigt die Nadel-Flächenkonvention. Eigene Counts/Prototypflächen liefern
+  ein nominales Rezeptziel, keine gemessene Bestands-LAI oder Lichtfreigabe (#179).
 - **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
   [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
   [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).
@@ -329,6 +338,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [PDF](vegetation/i3d/2010-lean-mapping.pdf).
   Seiten 3–4 einschließlich Gleichungen 2–6 optisch geprüft: erste/zweite Neigungsmomente
   linear filtern. Unsere isotrope Übertragung auf GGX bleibt eine gesonderte Näherung ([#44](https://github.com/Weichwolf/outshine/issues/44)).
+- **Real-Time Polygonal-Light Shading with Linearly Transformed Cosines**,
+  Heitz / Dupuy / Hill / Neubelt, SIGGRAPH / TOG 2016.
+  [Autorenquelle und PDF](https://eheitzresearch.wordpress.com/415-2/).
+  Seite4/Fig5/Gl11 der Autoren-PDF optisch geprüft: analytisches Kosinus-Randintegral.
+  Der [endliche GGX-Kernvergleich](../../test/experiments/render/relief_finite.md)
+  in [#422](https://github.com/Weichwolf/outshine/issues/422) nutzt die Randintegration,
+  keinen approximativen LTC-BRDF-Fit oder fremde Tabellen; beide Restterm-Näherungen scheitern.
 - **Interactive and Robust Mesh Booleans**, Cherchi / Pellacini / Attene / Livesu,
   SIGGRAPH Asia / TOG 2022. [Autorenquelle](https://arxiv.org/abs/2205.14151) ·
   [PDF](vegetation/siggraph/2022-interactive-robust-mesh-booleans.pdf), Autorenpreprint.

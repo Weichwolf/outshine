@@ -20,6 +20,7 @@ def render(inputs, output, view):
     study = json.loads((inputs / "comparison.json").read_text())
     presentation = study.get("presentation_labels", {})
     camera = study.get("presentation_camera", {})
+    camera = camera | camera.get("views", {}).get(view, {})
     bpy.ops.wm.read_factory_settings(use_empty=True)
     eye = np.array(
         camera.get("eye", (0, -22, 11) if view == "front" else (18, -18, 11)), float
@@ -66,7 +67,13 @@ def render(inputs, output, view):
     )
     if "clip_m" in camera:
         scene.camera.data.clip_start, scene.camera.data.clip_end = camera["clip_m"]
+    resolution = tuple(camera.get("resolution", (1920, 1080)))
+    if resolution not in ((1920, 1080), (2560, 1440)):
+        raise ValueError("explicit whole-crown diagnostic resolution required")
+    scene.render.resolution_x, scene.render.resolution_y = resolution
     scene.eevee.taa_render_samples = 4
+    if not output.resolve().is_relative_to(Path("/tmp")):
+        raise ValueError("private render output must be under/tmp")
     output.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str((output / f"{view}.png").resolve())
     ready = time.perf_counter()
@@ -76,7 +83,7 @@ def render(inputs, output, view):
         "left": presentation.get("recursive", "recursive"),
         "right": presentation.get("spatial", "spatial"),
         "view": view,
-        "resolution": [1920, 1080],
+        "resolution": list(resolution),
         "eye": eye.tolist(),
         "target": target,
         "orthographic_span_m": span,

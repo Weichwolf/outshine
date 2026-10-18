@@ -13,6 +13,7 @@ from .blade_surface import Blade
 from .curve_frame import arc_frame
 from .plan_arrays import detail_budget, immutable_array, repeated_prefix
 from .plant_levels import AxisLevel
+from .plant_radii import axis_radii, radius_limits
 from .shoot_plan import normal_frame
 
 UP = immutable_array((0.0, 0.0, 1.0))
@@ -94,6 +95,8 @@ class PlantPlan:
             raise ValueError("axis recipes required")
         if self.levels[0].branches != 1:
             raise ValueError("exactly one root axis required")
+        if self.levels[0].radius_parent_ratio is not None:
+            raise ValueError("root axis cannot inherit a parent radius")
         if not isinstance(self.blades, tuple) or not 0 <= len(self.blades) <= 64:
             raise ValueError("zero to 64 immutable blade variants required")
         if not self.blades and any(
@@ -105,11 +108,18 @@ class PlantPlan:
         if self.blades and len({blade.petiole for blade in self.blades}) != 1:
             raise ValueError("shared placement requires equal petiole lengths")
         for parent, child in zip(self.levels, self.levels[1:]):
+            if (
+                parent.radius_parent_ratio is not None
+                and child.radius_parent_ratio is None
+            ):
+                raise ValueError(
+                    "descendants of radius-capped axes require an explicit ratio"
+                )
             radius = (
                 parent.base_radius
                 + (parent.tip_radius - parent.base_radius) * child.last
             )
-            if child.base_radius > radius:
+            if child.radius_parent_ratio is None and child.base_radius > radius:
                 raise ValueError(
                     "child root must fit inside the parent at its attachment"
                 )
@@ -123,17 +133,23 @@ class PlantPlan:
         ).hexdigest()
 
     def recipe(self):
+        adaptive = any(level.radius_parent_ratio is not None for level in self.levels)
         extended = not self.blades or any(
             level.whorl_size != 1 or level.angle_tip is not None
             for level in self.levels
         )
         levels = [asdict(level) for level in self.levels]
+        if not adaptive:
+            for level in levels:
+                level.pop("radius_parent_ratio")
         if not extended:
             for level in levels:
                 level.pop("whorl_size")
                 level.pop("angle_tip")
         return {
-            "version": "branching-plant-3" if extended else PLAN_VERSION,
+            "version": "branching-plant-4"
+            if adaptive
+            else ("branching-plant-3" if extended else PLAN_VERSION),
             "seed": self.seed,
             "levels": levels,
             "blades": [asdict(blade) for blade in self.blades],
@@ -144,16 +160,24 @@ class PlantPlan:
         if (
             not isinstance(recipe, dict)
             or set(recipe) != {"version", "seed", "levels", "blades"}
-            or recipe["version"] not in (PLAN_VERSION, "branching-plant-3")
+            or recipe["version"]
+            not in (PLAN_VERSION, "branching-plant-3", "branching-plant-4")
         ):
             raise ValueError("complete supported plant recipe required")
-        extended = recipe["version"] == "branching-plant-3"
+        adaptive = recipe["version"] == "branching-plant-4"
+        extended = recipe["version"] in ("branching-plant-3", "branching-plant-4")
         for level in recipe["levels"]:
+            if ("radius_parent_ratio" in level) != adaptive:
+                raise ValueError("declared plant version must match radius semantics")
             keys = {"whorl_size", "angle_tip"}
             if (extended and not keys.issubset(level)) or (
                 not extended and keys.intersection(level)
             ):
                 raise ValueError("declared plant version must match axis semantics")
+        if adaptive and not any(
+            level["radius_parent_ratio"] is not None for level in recipe["levels"]
+        ):
+            raise ValueError("plant v4 requires explicit parent-relative radii")
         if not extended and not recipe["blades"]:
             raise ValueError("bladeless wood plans require plant v3")
         return cls(
@@ -299,9 +323,20 @@ class PlantPlan:
             frame,
             phase,
             parameter,
+            path_capacity=256
+            if any(level.branches > 64 for level in self.levels)
+            else 64,
         )
         self._axes[path] = state
         return state
+
+    def radii(self, path):
+        self.ordinal(path)
+        return axis_radii(self, path)
+
+    @cached_property
+    def radius_limits(self):
+        return radius_limits(self.levels)
 
     def leaves(self, path, max_leaves):
         ordinal, depth = self.ordinal(path), len(path)

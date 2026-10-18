@@ -6,7 +6,8 @@ import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.supports import SupportVolumeBuilder
-from stair_support_audit import Reference, body_caps, domain, quantized
+from stair_contact_cost import two_directions
+from stair_support_audit import Reference, body_caps, contact_error, domain, quantized
 from stair_support_plan import admit, footprint, plan, stations
 from stair_support_traffic import TrafficIndex
 
@@ -60,6 +61,22 @@ def crossing():
 
 
 class WholeContacts(unittest.TestCase):
+    def test_one_pass_contact_keeps_both_signs_and_previous_failures(self):
+        lower = rectangle(0, 0, 4, 4, 2)
+        upper = rectangle(0, 0, 4, 4, lambda xy: 2 + 0.01 * xy[:, 0] - 0.02)
+        for a, b in ((lower, upper), (upper, lower)):
+            expected, old_checks = two_directions(a, b)
+            actual, new_checks = contact_error(a, b)
+            self.assertEqual(actual, expected)
+            self.assertAlmostEqual(actual, 0.02)
+            self.assertEqual(new_checks * 2, old_checks)
+        outside = rectangle(5, 5, 6, 6, 2)
+        for calculate in (contact_error, two_directions):
+            with self.assertRaisesRegex(ValueError, "no_positive_area_overlap"):
+                calculate(lower, outside)
+        with self.assertRaisesRegex(ValueError, "outside selected contact"):
+            Reference(lower).check(rectangle(-1, 0, 1, 1, 2))
+
     def test_sloped_contact_and_actual_rounding_have_a_derived_envelope(self):
         lower, upper, product = surfaces()
         note = body_caps(product)

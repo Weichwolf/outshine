@@ -4,32 +4,60 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
-
-from building_layout import rectangle
+from building_layout import polygons, rectangle
 from building_mesh import solid
 from opening_details import expand
 
 
-def details(mass, facade):
-    keepout = rectangle(mass.entry.centre, mass.entry.tangent, 1.30, 0.35, 0.60)
+def keepouts(mass, portals):
+    values = {0: [rectangle(mass.entry.centre, mass.entry.tangent, 1.30, 0.35, 0.60)]}
+    for p in portals:
+        values.setdefault(p.storey, []).append(
+            rectangle(p.centre, p.tangent, p.width_m + 0.20, 0.35, 0.60)
+        )
+    return {i: shapely.union_all(parts) for i, parts in values.items()}
+
+
+def details(mass, facade, *, portals=(), legacy_trim=True):
+    if type(legacy_trim) is not bool:
+        raise ValueError("Legacy facade trim selection requires a boolean")
+    keepout = (
+        keepouts(mass, portals) if legacy_trim or mass.kind == "paired-wings" else {}
+    )
     frames = expand(
         [
-            dict(
-                id=w.identifier,
-                kind="window",
-                centre=w.centre,
-                tangent=w.tangent,
-                width_m=w.width_m,
-                height_m=w.height_m,
-                bottom_z_m=w.bottom_m,
-                storey=w.storey,
-                sill=True,
-            )
+            {
+                "id": w.identifier,
+                "kind": "window",
+                "centre": w.centre,
+                "tangent": w.tangent,
+                "width_m": w.width_m,
+                "height_m": w.height_m,
+                "bottom_z_m": w.bottom_m,
+                "storey": w.storey,
+                "sill": True,
+            }
             for w in facade.windows
+        ]
+        + [
+            {
+                "id": p.identifier,
+                "kind": "terrace",
+                "centre": p.centre,
+                "tangent": p.tangent,
+                "width_m": p.width_m,
+                "height_m": p.height_m,
+                "bottom_z_m": p.bottom_m,
+                "storey": p.storey,
+                "sill": False,
+            }
+            for p in portals
         ]
     )
     storage = [], [], [], []
+    skipped_parts = 0
     for w in facade.windows:
+        first_part = len(storage[3])
         pane = rectangle(w.centre, w.tangent, w.width_m - 0.11, -0.079, 0.087)
         solid(storage, pane, w.bottom_m + 0.055, w.bottom_m + w.height_m - 0.055, 3)
         if w.width_m > 2:
@@ -41,16 +69,24 @@ def details(mass, facade):
                 w.bottom_m + w.height_m - 0.055,
                 10,
             )
+        if skipped_parts:
+            storage[3][first_part:] = [
+                p + skipped_parts for p in storage[3][first_part:]
+            ]
+            skipped_parts = 0
         if mass.kind == "paired-wings":
             tangent = np.asarray(w.tangent)
             centre = np.asarray(w.centre) + tangent * (w.width_m / 2 + 0.22)
             pier = rectangle(centre, tangent, 0.16, 0.14, 0.015)
             storey = mass.storeys[w.storey]
-            if w.storey == 0 and pier.intersects(keepout):
-                pier = pier.difference(keepout)
-            solid(storage, pier, storey.bottom_m + 0.06, storey.top_m - 0.06, 9)
-    if mass.kind == "cascade":
-        for storey in mass.storeys:
+            if w.storey in keepout and pier.intersects(keepout[w.storey]):
+                pier = pier.difference(keepout[w.storey])
+            if legacy_trim:
+                solid(storage, pier, storey.bottom_m + 0.06, storey.top_m - 0.06, 9)
+            else:
+                skipped_parts += len(polygons(pier))
+    if legacy_trim and mass.kind == "cascade":
+        for index, storey in enumerate(mass.storeys):
             p = shapely.orient_polygons(shapely.from_wkb(storey.footprint_wkb))
             for ring in (p.exterior, *p.interiors):
                 for a, b in pairwise(np.asarray(ring.coords)):
@@ -59,8 +95,8 @@ def details(mass, facade):
                     if length <= 0.20:
                         continue
                     band = rectangle((a + b) / 2, vector / length, length, 0.10, 0.015)
-                    if storey.bottom_m == mass.bottom_m and band.intersects(keepout):
-                        band = band.difference(keepout)
+                    if index in keepout and band.intersects(keepout[index]):
+                        band = band.difference(keepout[index])
                     solid(
                         storage,
                         band,

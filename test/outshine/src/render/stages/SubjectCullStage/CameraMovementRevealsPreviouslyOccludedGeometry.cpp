@@ -13,6 +13,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <memory>
 #include <string>
 #include <vector>
@@ -105,20 +108,28 @@ int main() {
           "near wall covers the old screen centre");
     Core::Declaration declaration;
     declaration.InitialGeometry = &geometry;
-    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 128;
+    constexpr size_t kExtentPx = 128;
+    constexpr double kNearPlaneM = 0.1;
+    constexpr double kFarPlaneM = 100;
+    constexpr float kMinimumOccluderDepth = 0.04f;
+    constexpr double kDepthTolerance = 1.0e-6;
+    constexpr double kRetryEyeXM = 3.5;
+    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = kExtentPx;
     declaration.Outputs = {"sceneLinear", "depthPyramid"};
     declaration.Stages = {"subjects", "depthPyramid"};
     bool rejectSubmission = false;
-    SceneRenderer history(
-        {.Context = &rejectSubmission,
-         .Submit = [](void *context, SDL_GPUCommandBuffer *commands) -> SDL_GPUFence * {
-           if (std::exchange(*static_cast<bool *>(context), false)) {
-             SDL_CancelGPUCommandBuffer(commands);
-             SDL_SetError("injected culling submission failure");
-             return nullptr;
-           }
-           return SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
-         }});
+    SceneRenderer history({.Context = &rejectSubmission,
+                           .Submit = [](void *context,
+                                        Native::Device *device,
+                                        std::unique_ptr<Native::Commands> commands)
+                               -> Native::Result<Native::Completion> {
+                             if (std::exchange(*static_cast<bool *>(context), false)) {
+                               return std::unexpected(
+                                   Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected culling submission failure"});
+                             }
+                             return device->Submit(std::move(commands));
+                           }});
     SceneRenderer control;
     std::unique_ptr<Core::RuntimeScene> historyScene;
     std::unique_ptr<Core::RuntimeScene> controlScene;
@@ -131,14 +142,15 @@ int main() {
           "independent clustered target is behind the wall");
     Viewpoint eye;
     eye.YfovRad = 1;
-    eye.ZNearM = 0.1;
-    eye.ZFarM = 100;
+    eye.ZNearM = kNearPlaneM;
+    eye.ZFarM = kFarPlaneM;
     historyScene->Eye(eye);
     CHECK(historyScene->Draw(error), "old view produces genuine depth history");
     history.WaitForGpu();
     std::vector<float> oldDepth;
-    CHECK(history.ReadDepth(oldDepth) == ReadState::Ready && oldDepth.size() == 128u * 128u &&
-              oldDepth[64u * 128u + 64u] > 0.04f,
+    CHECK(history.ReadDepth(oldDepth) == ReadState::Ready &&
+              oldDepth.size() == kExtentPx * kExtentPx &&
+              oldDepth[(kExtentPx / 2) * kExtentPx + kExtentPx / 2] > kMinimumOccluderDepth,
           "the old wall is a nonempty occluder, not a vacuous control");
     RefineStaticView(*historyScene, history, error);
     eye.EyeM[0] = 3;
@@ -156,15 +168,16 @@ int main() {
     CHECK(control.ReadDepth(revealedDepth) == ReadState::Ready &&
               std::ranges::any_of(revealedDepth,
                                   [expectedDepth](float value) {
-                                    return std::abs(value - expectedDepth) < 1.0e-6;
+                                    return std::abs(value - expectedDepth) < kDepthTolerance;
                                   }),
           "the independent new view contains the target at twelve metres");
     CHECK(actual == expected, "previous-view depth cannot erase geometry visible in the new view");
-    eye.EyeM[0] = 3.5;
+    eye.EyeM[0] = kRetryEyeXM;
     historyScene->Eye(eye);
     controlScene->Eye(eye);
     rejectSubmission = true;
-    CHECK(!historyScene->Draw(error), "failed submission does not publish a culling result");
+    CHECK(!historyScene->Draw(error) && !rejectSubmission,
+          "failed submission does not publish a culling result");
     CHECK(historyScene->Draw(error) && controlScene->Draw(error),
           "the failed moved view is retryable");
     CHECK(history.ReadSceneLinear(actual) == ReadState::Ready &&

@@ -106,6 +106,7 @@ int main() {
         .Draped = drape,
         .Classes = classes,
         .WaterUpM = [](LongitudeLatitude) { return std::optional<double>{0}; },
+        .CensusAt = {},
         .EyeLatDeg = origin.LatitudeDeg,
         .EyeLonDeg = origin.LongitudeDeg,
         .Projection = {.FocalPx = 800}};

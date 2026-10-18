@@ -26,3 +26,6 @@ ownership. Neither is a test verdict or an input substitute.
 
 See [the corpus inventory](../../../CORPORA.md) for retained families and their
 integration status. Normal tests never update pins or expected values.
+
+`CASE_TREES` declares the corpus roots. Fixed procedural source packages under
+`test/experiments/` have their own schemas and are not corpus-preparer declarations.

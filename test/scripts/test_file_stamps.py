@@ -20,6 +20,8 @@ class ObjectCache(unittest.TestCase):
         self.objects = self.root / 'obj'
         self.objects.mkdir()
         source = (ROOT / 'test/run.sh').read_text()
+        declarations = '\n'.join(re.search('^' + name + r'=.*$', source, re.M).group()
+                                 for name in ('CXX', 'CXXSTD', 'WARN'))
         functions = []
         for name in ('FileStamp', 'SourceStamp', 'UpToDate', 'PrepareCompilerCache',
                      'CompileCachedObject', 'FreshAgainst', 'ArchiveFresh',
@@ -30,18 +32,16 @@ class ObjectCache(unittest.TestCase):
             self.assertIsNotNone(match, name)
             functions.append(match.group())
         self.helper = self.root / 'build.sh'
-        self.helper.write_text('ROOT=' + shlex.quote(str(ROOT)) + '\n' + '''#!/bin/sh
+        self.helper.write_text('ROOT=' + shlex.quote(str(ROOT)) + '\n' + declarations + '\n' + '''#!/bin/sh
 set -eu
-CXX=${CXX:-c++}
 OPT=${OPT:--O0}
-WARN='-Wall -Wextra -Werror'
 SAN=
 EXTRA_DEFINES=
 OBJECTS=
 JOBS=1
 OBJDIR=$PWD/obj
 GroupIncludes() { printf '%s' '-Isrc/base'; }
-GroupToolchain() { printf '%s' '-std=c++23 -fno-exceptions'; }
+GroupToolchain() { printf '%s' "$CXXSTD -fno-exceptions"; }
 SourceUnits() { printf '%s\\n' 'src/base/Probe.cpp'; }
 Die() { printf '%s\\n' "$*" >&2; exit 1; }
 ''' + '\n'.join(functions) + '\nBuildGroup src/base\nprintf "%s\\n" "$OBJECTS"\n')
@@ -70,6 +70,31 @@ Die() { printf '%s\\n' "$*" >&2; exit 1; }
         paths = result.stdout.split()
         self.assertEqual(len(paths), 1, result.stdout)
         return Path(paths[0])
+
+    def test_frozen_invocation_shares_groups_but_separates_profiles(self):
+        source = (ROOT / 'test/run.sh').read_text()
+        wrapper = re.search(r'^BuildCaseGroup\(\) \{\n.*?^\}\n', source, re.M | re.S).group()
+        script = self.helper.read_text().split('\nBuildGroup src/base\n')[0]
+        script += '\n' + wrapper + '''
+OBJECTS=prefix
+BuildCaseGroup src/base
+first=$OBJECTS
+OBJECTS=prefix
+BuildCaseGroup src/base
+[ "$OBJECTS" = "$first" ]
+OPT=-O1
+OBJECTS=prefix
+BuildCaseGroup src/base
+[ "$OBJECTS" != "$first" ]
+printf '%s\\n' "$first" "$OBJECTS"
+'''
+        result = subprocess.run(['sh'], input=script, cwd=self.root, capture_output=True,
+                                text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        paths = [line.removeprefix('prefix ').strip() for line in result.stdout.splitlines()]
+        self.assertEqual(len(paths), 2)
+        for path in paths:
+            self.assertIn(b'VERSION_A', Path(path).read_bytes())
 
     def test_unchanged_inputs_reuse_the_actual_compiled_object(self):
         object_path = self.build()
@@ -142,13 +167,16 @@ Die() { printf '%s\\n' "$*" >&2; exit 1; }
         self.assertNotIn(b'ENV_A', second.read_bytes())
 
     def test_compiler_version_is_part_of_the_object_configuration(self):
-        compiler = shutil.which(os.environ.get('CXX', 'c++'))
+        command = shlex.split(os.environ.get('CXX') or 'c++')
+        compiler = shutil.which(command[0])
         self.assertIsNotNone(compiler)
+        command[0] = compiler
         version = self.root / 'compiler-version'
         version.write_text('fixture-version-one\n')
         wrapper = self.root / 'compiler'
-        wrapper.write_text('#!/bin/sh\nif [ "$1" = --version ]; then cat "' + str(version) +
-                           '"; else exec "' + compiler + '" "$@"; fi\n')
+        wrapper.write_text('#!/bin/sh\nif [ "$1" = --version ]; then cat ' +
+                           shlex.quote(str(version)) + '; else exec ' + shlex.join(command) +
+                           ' "$@"; fi\n')
         wrapper.chmod(0o755)
         first = self.build({'CXX': str(wrapper)})
         version.write_text('fixture-version-two\n')

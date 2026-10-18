@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
+#include "test/harness/render/NativeOfflineDevice.h"
+#include "test/harness/render/NativeGpuCheck.h"
 #include "Readback.h"
 #include "SubjectDraw.h"
 #include <SDL3/SDL.h>
@@ -29,21 +30,17 @@ int main() {
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
-    const OwnedDevice device(SDL_CreateGPUDevice(
-        SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL,
-        false,
-        nullptr));
-    CHECK(device, "GPU device opens");
-    if (!device) { return Report(); }
+    auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
+    outshine::Test::Gpu::NativeOfflineDevice device(*native);
     SubjectDraw draw;
-    Gpu gpu;
-    gpu.Device = device.Get();
-    gpu.HdrFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-    gpu.SurfaceFormat = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    outshine::Render::Gpu gpu;
+    gpu.Device = &device;
+    gpu.HdrFormat = Native::Format::Rgba16Float;
+    gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
     gpu.Width = gpu.Height = 32;
     CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "scene attachment adds");
     std::string error;
-    CHECK(draw.Configure(gpu, error), "native pipelines configure");
+    CHECK(draw.Configure(gpu).has_value(), "native pipelines configure");
     const std::array<SubjectMaterial, 1> materials{};
     CHECK(draw.AppendMaterials(materials, error), "material registers");
     constexpr std::array<float, 9> positions{-1, -1, 0, 1, -1, 0, 0, 1, 0};
@@ -70,6 +67,8 @@ int main() {
       mesh.IndexCount = phase == 3 ? 6 : 3;
       mesh.Draws = &draws;
       CHECK(draw.SetMesh(mesh, error), "replacement mesh uploads");
+      CHECK(draw.Owned().SubmitPendingUploads().has_value(),
+            "accepted streams submit before inspection");
       CHECK(emission.Calls == (phase + 1) / 2, "only unlit consumers execute the emission writer");
       const auto &resident = draw.Resident();
       using Stream = SubjectResidency::Stream;
@@ -80,8 +79,8 @@ int main() {
         Readback read;
         constexpr uint32_t vertexBytes = 3 * sizeof(float);
         const uint32_t offset = resident.SubjectVertices().First * vertexBytes;
-        CHECK(read.FromBuffer(device.Get(),
-                              resident.Buffer(Stream::Emitted).Get(),
+        CHECK(read.FromBuffer(&device,
+                              resident.Buffer(Stream::Emitted).get(),
                               offset + sizeof(emission.Values)) == ReadState::Ready,
               "unlit emission bytes reach the actual device buffer");
         CHECK(read.Rows() && std::ranges::equal(

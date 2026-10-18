@@ -17,9 +17,11 @@ def top_surface(mesh):
     return Mesh(mesh.vertices, mesh.triangles[selected])
 
 
-def clearance(lower, upper):
+def clearance(lower, upper, *, max_faces=32768):
+    if type(max_faces) is not int or not 1 <= max_faces <= 65536:
+        raise ValueError("bounded explicit terrain-surface face capacity required")
     result = vertical_clearance(
-        lower, upper, max_faces=32768, max_pairs=1000000, seconds=20
+        lower, upper, max_faces=max_faces, max_pairs=1000000, seconds=20
     )
     if not result["valid"]:
         raise ValueError("saved terrain separation unresolved: " + str(result))
@@ -30,8 +32,10 @@ def clearance(lower, upper):
     return result
 
 
-def body_proof(mesh):
-    if len(mesh.vertices) > 65536 or len(mesh.triangles) > 65536:
+def body_proof(mesh, *, max_faces=65536):
+    if type(max_faces) is not int or not 1 <= max_faces <= 262144:
+        raise ValueError("bounded explicit terrain-body face capacity required")
+    if len(mesh.vertices) > 65536 or len(mesh.triangles) > max_faces:
         raise ValueError("saved terrain body exceeds audit caps")
     p = mesh.vertices[mesh.triangles]
     normals = np.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0])

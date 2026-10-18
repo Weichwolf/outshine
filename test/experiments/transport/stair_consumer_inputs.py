@@ -46,6 +46,7 @@ def inputs(products):
         "layers": layers,
         "project": project,
         "terrain": terrain,
+        "terrain_patches": view,
         "sampler": SurfaceSampler(terrain),
         "reservations": rows,
         "frame": view.patches[0].frame,
@@ -53,6 +54,23 @@ def inputs(products):
         "supports": supports,
         "contacts": contacts,
     }
+
+
+def candidate_inputs(baseline, state):
+    data = inputs(baseline)
+    del data["reservations"], data["report"]
+    view, assets, supports, contacts, _manifest = state
+    terrain = whole(view).mesh
+    data.update(
+        terrain=terrain,
+        terrain_patches=view,
+        sampler=SurfaceSampler(terrain),
+        assets=assets,
+        supports=supports,
+        contacts=contacts,
+        frame=view.patches[0].frame,
+    )
+    return data
 
 
 def source_rows(data, layer_name):

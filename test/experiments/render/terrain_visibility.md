@@ -71,5 +71,20 @@ renders buildings before ground, so current depth reuse is preferable to drawing
 the same building mesh again solely for this culler. The implementation decision
 and runtime acceptance remain in #12.
 
+## Native patch representation
+
+The Metal integration branch now renders the unchanged interiors through one
+shared 9x9 vertex grid and 16 patch instances per tile. A 32-bit instance code
+selects the tile, patch and real/virtual fraction table. Original 33-sample
+fractions and tile rows are pulled from storage; outer skirts and shadow grids
+remain complete. Asset formats and terrain sampling are unchanged.
+
+`GroundLattice/SurfacePatchesPreserveRasterAndFractions` verifies native depth,
+material targets, array-layer growth, complete skirts, perspective and non-affine
+heights against an independently drawn complete grid on the same device.
+Current opaque depth now selects and stably compacts patches before drawing.
+Tokyo submits about 63% fewer terrain triangles in the measured rotation.
+Full GPU-budget acceptance remains open in #515, especially the first terrain frame.
+
 Further [terrain work-selection comparisons](terrain_work_selection.md) cover bounded
 lower envelopes, exact early terrain, projected bounds and meshoptimizer normal cones.

@@ -2,25 +2,35 @@
 #include "ScenarioWrite.h"
 #include "Triggers.h"
 #include "Check.h"
+#include <cstddef>
 #include <string>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  constexpr double kLargePositionM = 1e200;
+  constexpr double kSmallExtentM = 1e-200;
+  constexpr double kNegativePositionM = -2.5;
+  constexpr double kPreciseDwellS = 0.012345678901234567;
   Scenario::Document source;
   source.Events = {{.Name = "enter & <room>\"", .Carries = {"speed", "a\tb\nc\r"}},
-                   {.Name = "left"}};
-  source.Volumes = {
-      {.Id = "entry'",
-       .In = "region & room",
-       .Shape = "sphere",
-       .AtM = {1e200, -2.5, 3},
-       .ExtentM = {1e-200, 2, 3},
-       .Fires = source.Events[0].Name,
-       .When = "dwell",
-       .DwellS = 0.012345678901234567},
-      {.Id = "exit", .Shape = "box", .ExtentM = {1, 2, 3}, .Fires = "left", .When = "exit"}};
-  auto check = [&] {
+                   {.Name = "left", .Carries = {}}};
+  source.Volumes = {{.Id = "entry'",
+                     .In = "region & room",
+                     .Shape = "sphere",
+                     .AtM = {kLargePositionM, kNegativePositionM, 3},
+                     .ExtentM = {kSmallExtentM, 2, 3},
+                     .Fires = source.Events[0].Name,
+                     .When = "dwell",
+                     .DwellS = kPreciseDwellS},
+                    {.Id = "exit",
+                     .In = {},
+                     .Shape = "box",
+                     .AtM = {},
+                     .ExtentM = {1, 2, 3},
+                     .Fires = "left",
+                     .When = "exit"}};
+  const auto check = [&] {
     const auto text = WriteScenario(source);
     CHECK(text.has_value(), "scenario export succeeds");
     if (!text) { return; }
@@ -66,6 +76,6 @@ int main() {
   CHECK(!ReadScenario(invalid->data(), invalid->size(), rejected, error),
         "empty required transition stays invalid after serialization");
   const auto empty = WriteScenario({});
-  CHECK(empty && empty->find("<volumes>") == std::string::npos, "empty catalogs remain absent");
+  CHECK(empty && !empty->contains("<volumes>"), "empty catalogs remain absent");
   return Report();
 }

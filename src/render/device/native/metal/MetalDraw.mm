@@ -103,30 +103,47 @@ bool AttachmentAlias(const RenderState &pass, const ShaderArgument &argument) {
   return std::ranges::any_of(pass.Colours, overlaps) || (pass.Depth && overlaps(*pass.Depth));
 }
 
-void ApplyRasterState(id<MTLRenderCommandEncoder> encoder,
-                      const GraphicsState &graphics,
+void ApplyRasterState(RenderState &pass,
+                      const std::shared_ptr<GraphicsState> &pipeline,
                       const DrawState &state,
                       std::span<const VertexArgument> vertices) {
-  [encoder setRenderPipelineState:graphics.Native];
-  [encoder setDepthStencilState:graphics.Depth];
-  [encoder setCullMode:graphics.Culling];
-  [encoder setFrontFacingWinding:graphics.Front];
-  [encoder setDepthClipMode:graphics.DepthClip];
+  const auto encoder = pass.Encoder;
+  if (pass.Pipeline != pipeline) {
+    const auto &graphics = *pipeline;
+    [encoder setRenderPipelineState:graphics.Native];
+    [encoder setDepthStencilState:graphics.Depth];
+    [encoder setCullMode:graphics.Culling];
+    [encoder setFrontFacingWinding:graphics.Front];
+    [encoder setDepthClipMode:graphics.DepthClip];
+    pass.Pipeline = pipeline;
+  }
   const auto area = state.Area;
-  [encoder setViewport:MTLViewport{.originX = area.X,
-                                   .originY = area.Y,
-                                   .width = area.Width,
-                                   .height = area.Height,
-                                   .znear = area.MinDepth,
-                                   .zfar = area.MaxDepth}];
+  const std::array viewport{area.X, area.Y, area.Width, area.Height, area.MinDepth, area.MaxDepth};
+  if (pass.ViewportValues != viewport) {
+    [encoder setViewport:MTLViewport{.originX = area.X,
+                                     .originY = area.Y,
+                                     .width = area.Width,
+                                     .height = area.Height,
+                                     .znear = area.MinDepth,
+                                     .zfar = area.MaxDepth}];
+    pass.ViewportValues = viewport;
+  }
   const auto clip = state.Clip;
-  [encoder
-      setScissorRect:MTLScissorRect{
-                         .x = clip.X, .y = clip.Y, .width = clip.Width, .height = clip.Height}];
+  const std::array scissor{clip.X, clip.Y, clip.Width, clip.Height};
+  if (pass.ScissorValues != scissor) {
+    [encoder
+        setScissorRect:MTLScissorRect{
+                           .x = clip.X, .y = clip.Y, .width = clip.Width, .height = clip.Height}];
+    pass.ScissorValues = scissor;
+  }
   for (const auto &binding : vertices) {
-    [encoder setVertexBuffer:binding.State->Native
-                      offset:binding.Offset
-                     atIndex:kFirstVertexBuffer + binding.Slot];
+    auto &bound = pass.Vertices[binding.Slot];
+    if (bound.Buffer != binding.State->Native || bound.Offset != binding.Offset) {
+      [encoder setVertexBuffer:binding.State->Native
+                        offset:binding.Offset
+                       atIndex:kFirstVertexBuffer + binding.Slot];
+      bound = {.Buffer = binding.State->Native, .Offset = binding.Offset};
+    }
   }
 }
 
@@ -192,7 +209,7 @@ Result<void> MetalCommands::PrepareDraw(const DrawState &state,
       bound = Bind(encoder, ShaderStage::Fragment, *graphics.Fragment, *fragment);
       if (!bound) { return bound; }
     }
-    ApplyRasterState(encoder, graphics, state, *vertices);
+    ApplyRasterState(*Render, pipeline->State, state, *vertices);
     UpdateAccesses(*vertex);
     UpdateAccesses(*fragment);
     for (const auto &binding : *vertices) { UpdateAccess(binding.State->Native, Access::Read); }

@@ -15,6 +15,24 @@ Attributes are independently owned immutable byte-backed arrays. Meshes follow
 the existing immutable `Mesh` contract and remain shared by identity.
 `bounds_xy_m` supplies conservative resident geometry bounds.
 
+The strict constructor first tries a sufficient planar boundary witness (#678).
+After the same finite-coordinate, index, upward-face and single-height checks,
+oppositely directed full internal edges must cancel, leaving one simple CCW
+cycle. Robust GEOS orientation checks every triangle in blocks of at most1024.
+Winding-number additivity then excludes positive-area overlap and missing
+interior coverage. Edge-work temporaries expire before ring-orientation batches.
+Holes, disconnected/touching components and any unavailable witness still use
+the general GEOS coverage predicate. No persisted validity flag, public signature,
+geometry, attribute ownership or replacement tolerance changes.
+
+Starting points: Lipman, [SIGGRAPH2012, section5/theorem5.1](https://www.wisdom.weizmann.ac.il/~ylipman/BoundedDistortion/bounded_distortion_may_1.pdf)
+and [SIIMS2014, theorem1/figure1](https://www.wisdom.weizmann.ac.il/~ylipman/2014_SIIMS_bijective_93975.pdf).
+The relevant PDF pages5and4 were inspected visually. Positive triangle
+orientation alone is insufficient; our exact oriented-chain argument requires
+the entire simple boundary as well. The general manifold theorem is not invoked
+as a substitute for checking these input conditions. Tests retain independent
+GEOS decisions and exact rational orientation adversaries.
+
 `SurfacePatches(root, max_patches=1024)` starts one finite resident surface.
 `view.replace(patch, removals, max_removed=2048, max_new_faces=8192)` returns a
 new immutable view and work report. `removals` maps old patch IDs to distinct,
@@ -24,6 +42,16 @@ removed region (existing 1e-7 m² numerical check), and every complete unordered
 XYZ boundary edge is exactly numerically equal. Internal selected patch seams
 cancel. Heights/triangulation may change inside the removed region. No edge
 splitting, tolerance weld or approximate boundary repair occurs in this kernel.
+
+Replacement uses `coverage_union_all` for the two selected XY regions (#678).
+The root is a validated coverage; subsets remain non-overlapping and edge-matched.
+An accepted replacement preserves the complete exact XYZ boundary and XY domain,
+so the active surface retains that invariant inductively. New patches independently
+pass the strict constructor. Consequently these inputs satisfy the optimized
+union's preconditions; arbitrary unchecked polygon collections do not. The same
+1e-7m² symmetric-difference test remains. Holes, point contacts and disconnected
+components are covered by public replacement controls. The independent transport
+reader can force the previous general-union path. [Methods and costs](../test/experiments/transport/stair_composition_comparison.md).
 
 Unchanged patches and their mesh buffers remain shared; persistent snapshot
 updates copy changed active face masks. Local validation gathers temporary
@@ -76,6 +104,42 @@ runtime codec, persistent streaming, complete network growth or an LOD algorithm
 Retired patch/index history occupies memory until its owning view is released;
 storage/residency policies belong to #10, LOD to #12. Existing Plan/Reservation/
 Provider APIs are unchanged.
+
+## Optional generated-product codec (#678)
+
+`geometry.surface_patches.prepared` supplies `pack_surface(view, compressed=False,
+max_bytes=64*1024**2)` and `restore_surface(payload, expected_sha256=...,
+frame=LocalFrame(...), max_bytes=64*1024**2)`. Import this module explicitly;
+ordinary patch construction does not import this codec. The format
+is `outshine-finite-surface/1`: numeric NPZ members, bounded JSON bytes and no
+pickle, validity flag, file lookup, cache manager or hidden source fallback.
+
+The caller's existing product record must bind the exact known-valid generated
+bytes, format and frame. Normal strict construction establishes geometry before
+publication. A digest calculated from an unknown candidate, or supplied beside
+it by an unknown source, does not establish validity. Unknown/mismatched products
+must use strict construction or rebuild. An ordinary hit on a trusted generated
+product needs no manual per-asset admission and no second geometric producer.
+Independent cold GEOS reconstruction remains a research/test check, not a new
+runtime cache protocol. Native AssetRecord integration belongs to #10/#48.
+
+Restore verifies the expected digest before parsing; ZIP member names, duplicate
+members, compression, expanded sizes, NPY version, exact byte lengths, primitive
+dtypes and per-member shape/capacity limits before numeric array loading. It then
+checks finite Mesh coordinates/indices, exact frame, patch IDs, attribute schema
+and active masks. The default byte budget bounds both payload and expanded array
+bytes; callers may explicitly choose 1 byte–512 MiB. This is not a total Python,
+GEOS or process-RAM bound. Query polygons/STRtrees are rebuilt and cost work.
+
+All restored mesh, attribute and mask buffers are owned immutable byte-backed
+arrays. Geometric coverage/composition validity is inherited from the exact
+known-valid product; restore skips SurfacePatch geometry validation and old
+replacement history. Subsequent new patches and replacements use the unchanged
+strict constructors. Whole states retain patch insertion order, local face keys,
+XYZ, indices, masks, attributes, capacities and query behavior. File IO, product
+storage, source provenance, residency and invalidation remain caller-owned.
+The [transport comparison](../test/experiments/transport/stair_prepared_surface_comparison.md)
+records the independent experiment and its library-delivery follow-up.
 
 SIGGRAPH starting point: Lindstrom et al. (1996), page 4 figure 3, inspected
 visually: local height-field geometry and explicit edge deltas. The present

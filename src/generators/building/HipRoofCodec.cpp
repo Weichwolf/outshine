@@ -82,6 +82,7 @@ bool HipRoofCodec::Fields(Reader &archive, Product &value) {
               return false;
             }
             cornersLeft -= face.Ring.size();
+            HipRoofPlan::MergeCoincidentCorners(face, plan.PrecisionM_);
             return true;
           })) {
     return false;

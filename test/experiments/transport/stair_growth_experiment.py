@@ -16,6 +16,7 @@ from stair_local_verify import verify
 from stair_module_experiment import write_json
 from stair_module_inputs import FIXTURE, source_context
 from stair_patch_inputs import fresh
+from stair_prepared_surface_scope import add_arguments, optional_terrain
 from stair_seed_sources import select as select_seed
 from stair_terrain_experiment import frozen
 
@@ -39,7 +40,11 @@ def selection(args):
         strategy=args.strategy,
         schedule=args.schedule,
         **(
-            {"grid_m": args.seed_grid_m}
+            {
+                "grid_m": args.seed_grid_m,
+                "root_form": getattr(args, "seed_root_form", "all"),
+                "crossings": getattr(args, "seed_crossings", "none"),
+            }
             if getattr(args, "family", "attached") == "seed"
             else {}
         ),
@@ -111,7 +116,9 @@ def run(args):
         "max_attempts": args.max_attempts,
         "attempts": attempts,
         "chosen_module": chosen,
-        "source_dispositions": source_dispositions(selected["plan"], attempts, chosen),
+        "source_dispositions": source_dispositions(
+            selected["plan"], attempts, chosen, selected["recipes"]
+        ),
         "artifacts": artifacts,
         "valid_automatic_module": chosen is not None,
         "valid_retained_baseline": chosen is None,
@@ -145,13 +152,18 @@ def arguments():
     parser.add_argument("--max-attempts", type=int, default=3)
     parser.add_argument("--proposal-offset", type=int, default=0)
     parser.add_argument("--family", choices=("attached", "seed"), default="attached")
+    parser.add_argument("--seed-root-form", choices=("all", "closed"), default="all")
+    parser.add_argument("--seed-crossings", choices=("none", "walk"), default="none")
     parser.add_argument(
         "--seed-grid-m", type=float, choices=(0.0, 2**-11), default=2**-11
     )
+    add_arguments(parser)
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     resource.setrlimit(resource.RLIMIT_CPU, (300, 300))
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
-    run(arguments())
+    args = arguments()
+    with optional_terrain(args, []):
+        run(args)

@@ -72,6 +72,8 @@ public:
     Surfaces_.shrink_to_fit();
     SurfaceRings_.shrink_to_fit();
     Courses_.shrink_to_fit();
+    SurfaceFeatures_.shrink_to_fit();
+    CourseFeatures_.shrink_to_fit();
     Levels_.shrink_to_fit();
   }
 
@@ -84,6 +86,7 @@ public:
     staged += CapacityBytes(SurfaceInputs_);
     for (const SurfaceInput &input : SurfaceInputs_) { staged += CapacityBytes(input.Heights); }
     return CapacityBytes(Surfaces_) + CapacityBytes(SurfaceRings_) + CapacityBytes(Courses_) +
+           CapacityBytes(SurfaceFeatures_) + CapacityBytes(CourseFeatures_) +
            CapacityBytes(Levels_) + Admission_.HeapBytes() + ByTile_.HeapBytes() + staged;
   }
 
@@ -127,13 +130,14 @@ private:
   };
 
   void AddCourse(const OsmField &field,
-                 const OsmField::Feature &feature,
+                 size_t feature,
                  const OsmField::Ring &ring,
                  const VegetationTemplates &vegetation,
                  std::span<double> heights);
   void AddSurface(std::span<const RingSamples> rings, const OsmField &field);
   void ResolveSurfaceLevels(const OsmField &field);
   void RecountSurfaceOutliers();
+  void BindInputs(WaterAsset::Data &data, const OsmField &field) const;
   [[nodiscard]] static bool AdvanceCandidate(const GroundQuery &ground,
                                              const OsmField &field,
                                              OnLayers on,
@@ -154,7 +158,9 @@ private:
   std::vector<Surface> Surfaces_;
   std::vector<SurfaceRing> SurfaceRings_;
   std::vector<SurfaceInput> SurfaceInputs_;
+  std::vector<size_t> SurfaceFeatures_;
   std::vector<Course> Courses_;
+  std::vector<size_t> CourseFeatures_;
   std::vector<float> Levels_;
   TileRanges ByTile_;
   TileAdmission Admission_;

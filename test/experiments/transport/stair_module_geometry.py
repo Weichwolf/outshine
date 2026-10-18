@@ -7,6 +7,7 @@ from outshine_ref.geometry import SurfaceSampler
 from outshine_ref.transport import HeightBudget, close_surface, fit_surface_heights
 from outshine_ref.transport.weighted_heights import fit_weighted_heights
 from shared_bridge_geometry import corridor
+from stair_axis_detours import bind as bind_detours
 from stair_branch_inputs import surface_sampling, surface_welding
 from stair_cached_box_grids import bind_grids
 from stair_junction_layout import arrangement, landings
@@ -29,6 +30,7 @@ from stair_surface_contacts import bind_contacts
 
 
 def old_surfaces(state, recipe, sources):
+    state["axis_detour_bindings"] = bind_detours(state.get("piers", ()), recipe)
     road, plan = state["road"], state["plan"]
     old_xyz = np.c_[plan["xy"], state["heights"]]
     ground_xyz = old_xyz[plan["faces"][plan["ground"]]]

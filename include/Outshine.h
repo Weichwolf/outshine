@@ -232,6 +232,11 @@ public:
   /// Each successful call publishes render measurements independently of simulation ticks.
   /// @return An error if scene/camera preparation fails; submission does not imply GPU completion.
   [[nodiscard]] Result render(Extent frame);
+  /// Start a fresh CPU/GPU frame-measurement window on the Engine/video thread, without waiting.
+  /// Pending work submitted before this call is excluded even if it completes later.
+  /// Preserves the image, camera, temporal history and resources; requires an assembled scene.
+  /// @return An owned scene/capture error, or success.
+  [[nodiscard]] Result resetMeasurements();
   /// Save the last successfully rendered frame as an RGBA PNG without drawing again.
   /// Runs on the Engine/video thread; may allocate, wait for the GPU and perform IO.
   /// Parent directories are created as needed; an existing file is overwritten.
@@ -688,7 +693,9 @@ private:
   [[nodiscard]] bool presenting() const;
 
   friend class SwapChain;
+  friend class TestEngine;
   struct State;
+  explicit Engine(std::unique_ptr<State> state);
   [[nodiscard]] bool
   readScenarioInto(std::string_view source, Scenario::Document &out, std::string_view overrides);
   void ships();

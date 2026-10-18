@@ -61,15 +61,17 @@ int main() {
       }
       CHECK(candidate.SetGroundGeometry(ground.clone(), 0, error),
             "terrain mesh arrives after the structure pieces");
-      CHECK(candidate.Publish(world, footprints, scene, {.Region = 1}).has_value() &&
-                renderer.PiecesStanding() == 2,
-            "ground and early structure pieces publish together");
+      CHECK(
+          candidate.Publish(world, footprints, scene, {.Region = 1, .Coverage = {}}).has_value() &&
+              renderer.PiecesStanding() == 2,
+          "ground and early structure pieces publish together");
     }
     {
-      const Render::PieceMesh extra{.Verts = baked.Built.WallCorners,
-                                    .Indices = baked.Built.WallRun,
-                                    .Surface = Render::PieceSurface::Registered(0),
-                                    .Textured = true};
+      Render::PieceMesh extra{};
+      extra.Verts = baked.Built.WallCorners;
+      extra.Indices = baked.Built.WallRun;
+      extra.Surface = Render::PieceSurface::Registered(0);
+      extra.Textured = true;
       const auto stray = renderer.PlaceStructurePiece(extra);
       const auto independent = renderer.PlacePiece(extra);
       CHECK(stray && independent && renderer.PiecesStanding() == 4,
@@ -84,10 +86,10 @@ int main() {
             "second revision restores all registered piece sources before reconciliation");
       CHECK(candidate.SetGroundGeometry(ground.clone(), 0, error),
             "second revision rebuilds its terrain subject");
-      CHECK(candidate.Publish(world, footprints, scene, {.Region = 2}).has_value() &&
-                candidate.Publication().OrphanStructurePieces == 1 &&
-                renderer.PiecesStanding() == 3,
-            "publication removes only the unowned structure source");
+      CHECK(
+          candidate.Publish(world, footprints, scene, {.Region = 2, .Coverage = {}}).has_value() &&
+              candidate.Publication().OrphanStructurePieces == 1 && renderer.PiecesStanding() == 3,
+          "publication removes only the unowned structure source");
       if (independent) { renderer.ReleasePiece(*independent); }
     }
     world.Pieces.Forgets(7);

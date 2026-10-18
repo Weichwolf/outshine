@@ -4,7 +4,7 @@ import numpy as np
 from spine_frames import unit
 
 
-def interpolate_normals(reference, points, face_indices):
+def source_barycentrics(reference, points, face_indices):
     triangle = reference["vertices"][reference["faces"][face_indices]]
     a, b = triangle[:, 1] - triangle[:, 0], triangle[:, 2] - triangle[:, 0]
     n = np.cross(a, b)
@@ -17,6 +17,11 @@ def interpolate_normals(reference, points, face_indices):
         raise ValueError("reference ray hit has inconsistent barycentric coordinates")
     weights = np.maximum(weights, 0)
     weights /= np.sum(weights, axis=1)[:, None]
+    return weights
+
+
+def interpolate_normals(reference, points, face_indices):
+    weights = source_barycentrics(reference, points, face_indices)
     corners = reference["normals"].reshape(-1, 3, 3)[face_indices]
     return unit(np.sum(corners * weights[:, :, None], axis=1))
 

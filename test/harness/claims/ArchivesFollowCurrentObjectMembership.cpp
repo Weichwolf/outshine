@@ -11,7 +11,9 @@ int main() {
 set -eu
 root=$(mktemp -d "${TMPDIR:-/tmp}/outshine-archive-members.XXXXXX")
 trap 'rm -rf "$root"' EXIT
-sed -n '/^ArchiveFresh()/,/^}/p' test/run.sh > "$root/check.sh"
+ROOT=$PWD
+sed -n '/^FreshAgainst()/,/^}/p' test/run.sh > "$root/check.sh"
+sed -n '/^ArchiveFresh()/,/^}/p' test/run.sh >> "$root/check.sh"
 . "$root/check.sh"
 cd "$root"
 mkdir objects

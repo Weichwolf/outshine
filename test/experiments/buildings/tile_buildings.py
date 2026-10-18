@@ -82,6 +82,8 @@ def prism(row, parameters, material):
         parameters["buildingHeight"],
         material,
     )
+    if not storage[0] or not storage[1]:
+        raise ValueError("Unresolved prism triangulation")
     vertices = np.asarray(storage[0])
     faces = np.asarray(storage[1], dtype=np.uint32)
     triangles = vertices[faces]
