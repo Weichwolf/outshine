@@ -24,7 +24,7 @@ from stair_terrain_experiment import frozen
 
 def prepare(state, sources, method):
     if method == "eager":
-        view, assets, supports, contacts, manifest = state
+        _view, assets, supports, contacts, manifest = state
         rows, *_ = prepare_volumes(assets, supports, contacts, sources, manifest, ())
         return OccupancyQuery(rows), None
     catalog = from_state(state, sources)
