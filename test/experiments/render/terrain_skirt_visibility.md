@@ -78,3 +78,53 @@ python3 test/experiments/render/terrain_skirt_visibility.py \
 
 Actual commands, hashes and all four-view reports remain privately under
 /tmp/outshine-terrain-skirt-facing-ea54cc945/.
+
+
+## Native comparison: rejected
+
+A private native prototype on `5af59acb2` retains all height values, shaders,
+attributes, the 0.5 px surface allowance and complete shadow casting. It groups
+skirt instances by side mask and adds 24,576 static index bytes. No cache or
+shared Device ABI changes. A projective cofactor observer supports perspective,
+orthographic and mirrored views without assuming the eye is the clip origin.
+
+Grouping initially reordered terrain patches: the final image changed 52,332 pixels.
+An independent sorting-only control reproduced exactly the same `f7766d07` image.
+Preserving source patch selection/primitive order while remapping metadata slots
+restored `c80e3641` / `ddb9ef51` for Koerbersee/Tokyo. Backface removal was not the cause.
+A native independent projected-area case passes 6 checks; the existing physical
+skirt-gap case passes 36 checks with actual Metal validation. A first invocation
+without the required validation environment was a setup failure, retained separately.
+
+A second variant optimizes one union-mask batch plus a complete fallback per
+real/uniform-grid class, limiting actual draws to four. Exhaustive independent
+assignments of up to six active masks agree on 1,000 random histograms. This is a
+restricted batching optimum, not an optimal world renderer or floating-point proof.
+
+Ordinary fresh processes use unchanged 1280×720/60, exactly 60 rotation frames and
+60 GPU queries. Every final ordinary before/after image is byte-identical. The
+following means divide both complete run sums by 120; no first-frame removal:
+
+| Variant / run order | Koerbersee original -> candidate ms | Tokyo original -> candidate ms |
+|---|---:|---:|
+| Full mask grouping, A/B/B/A |13.398636 ->13.457937|15.508812 ->15.399583|
+| At most four draws, A/B/B/A |13.836817 ->12.984630|15.444281 ->14.461574|
+| Same bounded variant, B/A/A/B |13.252711 ->13.672802|16.703026 ->14.649250|
+
+The terrain workload reverses its apparent gain with the opposite order. Matched
+hardware stage traces also do not establish a stable whole-frame improvement.
+The extra CPU classification/grouping and native state are therefore rejected;
+production sources and the executable return to the original 489-object build.
+No whole-suite lint, all-place admission or device-budget pass is claimed here.
+
+All four raw stage traces place their largest GPU submission in measured frame 0.
+Tokyo includes a 144.101 ms first submission with 86.759 ms between encoder stages
+before tonemap. This does not mean the tonemap shader costs 86 ms. Actual pipeline/
+resource readiness, synchronization and external scheduling remain to distinguish.
+The ordinary frame samples stay complete; prewarming is not permission to hide
+startframes or move measurement windows. This larger readiness problem is #16.
+
+Sources, complete 493-unit prototype database, binaries, commands, negative controls
+and hashes remain privately in /tmp/outshine-terrain-skirt-native-5af59acb2/.
+The saved `rejected-prototype.patch` re-applies cleanly to the declared base;
+`rejected-prototype.json` binds all nine source files and executable hashes.

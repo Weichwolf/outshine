@@ -1407,6 +1407,12 @@ Vec2f HaltonJitter(int at) {
 Native::Result<void>
 SceneRenderer::EncodePass(Native::Commands *commands, size_t pass, StageSubmission &submission) {
   const auto &declared = ActiveState().Plan->Passes()[pass];
+  if (declared.Count == 1 &&
+      ActiveState().Plan->Order()[declared.First] == Stage::LightVisibility &&
+      ActiveFrame().Shadow.Cached()) {
+    return EncodeStage(Stage::LightVisibility,
+                       {.Commands = commands, .Submission = submission, .Area = {}, .Clip = {}});
+  }
   return declared.Kind == PassKind::Compute ? EncodeComputePass(commands, declared, submission)
                                             : EncodeGraphicsPass(commands, declared, submission);
 }
