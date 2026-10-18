@@ -40,7 +40,7 @@ class ShadePlan:
 
 def local_slot(window, storey, programme):
     head = window.bottom_m + window.height_m
-    cap_bottom = head + 0.10
+    cap_bottom = head + 0.18
     bottom = (
         cap_bottom
         if programme == "eyebrow"

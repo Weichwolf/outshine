@@ -34,6 +34,10 @@ def diagram(output, plans, name):
 
     fig, axes = plt.subplots(2, len(plans), figsize=(12, 7), squeeze=False)
     for column, item in enumerate(plans):
+        if not item.slots:
+            axes[0, column].text(0.05, 0.5, f"{item.programme}: no admitted slots")
+            axes[1, column].axis("off")
+            continue
         slot = item.slots[0]
         xy = np.asarray(profile(slot).exterior.coords)
         axes[0, column].fill(xy[:, 0], xy[:, 1], color="#424d57")

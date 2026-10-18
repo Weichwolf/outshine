@@ -10,6 +10,7 @@ import shapely
 from building_layout import rectangle
 from building_plan import FLOOR_M
 from structural_shell_geometry import native
+from terraced_crown_plan import plan as crowned_plan
 from terraced_facade_prepare import prepare
 from terraced_mass_plan import plan
 from terraced_mass_sources import sources
@@ -21,9 +22,10 @@ class WindowShadeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.prepared = [
-            prepare(plan(row, kind))
+            prepare(mass)
             for row in sources()
             for kind in ("cascade", "paired-wings")
+            for mass in (plan(row, kind), crowned_plan(row, kind).body)
         ]
         cls.plans = [
             (p, plan_shades(p, style)) for p in cls.prepared for style in PROGRAMMES
