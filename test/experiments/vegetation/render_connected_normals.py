@@ -144,7 +144,7 @@ def render(inputs, output, node):
     start = time.perf_counter()
     calibration = calibrate(output)
     source, surfaces = read_host(inputs, node)
-    light = np.array((0.4, -0.3, 0.8))
+    light = np.array((0.8, -0.3, 0.12))
     light /= np.linalg.norm(light)
     records = []
     for name, direction in (
