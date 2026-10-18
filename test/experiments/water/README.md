@@ -62,3 +62,28 @@ profile-conforming water triangulation, terrain contacts and spatial error bound
 The experiment does not change PNG pins, native caches or engine gates. See #760 for real
 inputs, comparisons and the integration decision; OMT source semantics are in
 `doc/references/data/osm/openmaptiles-water{,way}-schema.yaml`.
+
+## Directional surface reference
+
+```sh
+PYTHONPATH=lib/src python3 test/experiments/water/directional_river_fit.py \
+  --input test/experiments/water/fixtures/feldkirch-ill-profile.npz \
+  --output /tmp/outshine-river-surface --spacing-m 20 \
+  --down-grade 0.1 --cross-grade 0.005
+```
+
+The independent HiGHS dual-simplex reference minimizes maximum vertex-prior error.
+Every affine face obeys `-down_grade <= gradient·flow <= 0` and
+`abs(gradient·cross) <= cross_grade`. Optional fixed vertex heights are equalities;
+incompatible contacts return no mesh. These numerical example limits and spacing are
+explicit experiment choices, not source facts or native LOD/error budgets.
+
+One shared vertex owns each height. Whole-face checks independently reconstruct gradients
+from triangle edge equations; the LP certificate checks dual stationarity, signs and gap.
+Optimality refers only to this declared finite LP. The shared weighted Clarabel fit remains
+the researcher's integration candidate; this reference supplies an independent comparison.
+The solver time cap excludes preparation and can overrun within a solver step; total pipeline
+time and sparse row/nonzero counts are separate. Failure is explicit, with no relaxed pins.
+Flow directions are inferred from descending source segments, not asserted OSM directions.
+Source semantics, native float/frame conversion, cross-region contacts, other geographic
+cases and complete native water/terrain/cache integration remain unproved.
