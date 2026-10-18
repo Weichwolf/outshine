@@ -165,7 +165,4 @@ def inputs(path=FIXTURE):
     from stair_axis_detours import apply
 
     apply(rows, recipe)
-    from stair_seed_pending import bind_pending
-
-    bind_pending(rows, recipe, sources, profiles)
     return recipe, rows, context, sources, sample, layer
