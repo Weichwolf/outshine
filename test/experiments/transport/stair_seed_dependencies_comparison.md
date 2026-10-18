@@ -100,6 +100,9 @@ seconds and 100 MILP nodes. Nodes are **not** conic iterations. Solver terminati
 alone never admits a mesh; actual whole D/Q grades, exact representation and
 flat groups decide. A feasible candidate returned at the HiGHS solution limit
 is not an optimality proof. This expensive method is research, not a runtime proposal.
+Joint-height allocation/copy counts, MILP peak memory and actual device encoding
+costs remain unmeasured; the limits and isolated feasible result are not a full
+cost acceptance. Profile these only if the path remains useful after #717.
 
 The standalone quantized six-source road body passes the full physical audit
 after the independently corrected profile-interval comparison. The larger
