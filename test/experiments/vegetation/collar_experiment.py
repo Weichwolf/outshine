@@ -14,6 +14,7 @@ from branch_collar import collar_products
 from collar_checks import analytic_checks, check_local_meshes
 from collar_shading import blend_collar_normals, tube_reference
 from collar_union import local_union
+from experiment_output import private_output
 from plant_experiment import sapling
 from plant_surface import axis_products, solid_from_mesh, union_mesh
 from plant_surface_checks import plant_checks
@@ -63,15 +64,15 @@ def compare(seed):
     for index, plan in enumerate(plans):
         path = plan["path"]
         state = plant.axis(path)
-        parent_level = plant.levels[len(path) - 1]
-        parent_radius = parent_level.base_radius + state.parent_parameter * (
-            parent_level.tip_radius - parent_level.base_radius
+        parent_base, parent_tip = plant.radii(path[:-1])
+        parent_radius = parent_base + state.parent_parameter * (
+            parent_tip - parent_base
         )
         meshes[index], work = blend_collar_normals(
             meshes[index],
             [references[indices[path[:-1]]], references[indices[path]]],
             parent_radius,
-            plant.levels[len(path)].base_radius,
+            plant.radii(path)[0],
         )
         shading.append(work)
     shading_ms = (time.perf_counter() - began) * 1000
@@ -110,9 +111,7 @@ def compare(seed):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output", type=Path, default=Path("build/experiments/vegetation/collars")
-    )
+    parser.add_argument("--output", type=private_output, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     checks = analytic_checks()

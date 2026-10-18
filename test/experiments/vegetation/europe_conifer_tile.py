@@ -1,5 +1,6 @@
 """One complete 10x10-m vegetation tile from cached plants and shared contacts."""
 
+import argparse
 import hashlib
 import json
 import os
@@ -7,7 +8,8 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
-from europe_conifer_products import OUTPUT, poses, write_json
+from europe_conifer_products import poses, write_json
+from experiment_output import private_output
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
 from outshine_ref.vegetation import Blade
@@ -52,7 +54,7 @@ def terrain(directory):
     }
 
 
-def plants(directory, roots, source_directory=OUTPUT):
+def plants(directory, roots, source_directory):
     products, plans = [], []
     rotations = Rotation.from_euler(
         "z", np.array((0.27, 1.16, -0.7, 2.1))[:, None]
@@ -159,8 +161,8 @@ def grass(directory, sampler, roots):
     return products, dict(samples.report)
 
 
-def make_tile(source_directory=OUTPUT):
-    directory = source_directory / "tile"
+def make_tile(source_directory, output):
+    directory = private_output(output)
     directory.mkdir(parents=True, exist_ok=True)
     sampler, ground = terrain(directory)
     xy = np.array(((-2.2, -1.4), (1.6, -2.2), (-1.2, 2), (2.1, 1.2)))
@@ -217,7 +219,11 @@ def make_tile(source_directory=OUTPUT):
 
 
 def main():
-    make_tile()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    make_tile(args.source, args.output)
 
 
 if __name__ == "__main__":
