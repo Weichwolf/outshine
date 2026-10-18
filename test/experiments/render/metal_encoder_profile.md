@@ -64,7 +64,13 @@ frame/query. Earlier preparation remains in the raw file. A wrong fresh-process
 log with identical image/content is rejected; mismatched windows, dropped records
 or unavailable samples are not converted into timings.
 
-## Current verification and costs
+## Verification and costs on 82e7a69d7
+
+The following original 11-encoder measurements precede the valid-cache shadow-pass
+elision in #806. Current traces can contain 10 encoders. Ordinals are not stable
+stage identifiers; inspect the recorded targets and the matching render catalogue
+for each source revision. [The cached-shadow comparison](cached_shadow_passes.md)
+records the later change without reinterpreting these historical intervals.
 
 Current Apple A18 Pro: complete489-object build/491-unit database, all17Metal
 product/dependent units analysed with actual full flags, the actual probe unit
