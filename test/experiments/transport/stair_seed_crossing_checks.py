@@ -1,7 +1,9 @@
 """Joint crossing ownership, provenance and coherent levels in actual D/Q meshes."""
 
 import copy
+import json
 import unittest
+from pathlib import Path
 
 import numpy as np
 import shapely
@@ -55,6 +57,35 @@ def crossing_example():
 
 
 class JointCrossingChecks(unittest.TestCase):
+    def test_real_frozen_contact_countercases_require_joint_planning(self):
+        path = (
+            Path(__file__).parents[2]
+            / "outshine/data/transport/ring-approach-contact-countercases.json"
+        )
+        cases = json.loads(path.read_text())
+        cap = cases["old_cap_orientation"]
+        xyz = np.array(cap["triangle_enu_m"])
+        frame = np.array(cap["grade_frame"])
+        grades = []
+        for cast in (False, True):
+            triangle = xyz.astype("f4").astype(float) if cast else xyz
+            gradient = np.linalg.solve(
+                triangle[1:, :2] - triangle[0, :2], triangle[1:, 2] - triangle[0, 2]
+            )
+            grades.append(float(np.linalg.norm(frame @ gradient)))
+        self.assertAlmostEqual(grades[0], cap["expected_normalized_double"], places=10)
+        self.assertGreater(grades[0], 1)
+        self.assertLess(grades[1], 1)
+        edge = cases["incompatible_fixed_edge"]
+        xy, heights, matrix = (
+            np.array(edge[k]) for k in ("fixed_xy_m", "fixed_heights_m", "grade_frame")
+        )
+        allowed = np.linalg.norm(np.linalg.solve(matrix.T, xy[1] - xy[0]))
+        required = abs(heights[1] - heights[0])
+        self.assertAlmostEqual(allowed, edge["maximum_dz_m"], places=12)
+        self.assertAlmostEqual(required, edge["required_dz_m"], places=12)
+        self.assertGreater(required, allowed)
+
     def test_whole_joint_body_binds_both_sources_and_actual_clearance_without_fake_node(
         self,
     ):
