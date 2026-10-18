@@ -6,10 +6,10 @@ import resource
 from pathlib import Path
 
 from camera_height_inputs import digest
+from outshine_ref.geometry.surface_patches.prepared import FORMAT, pack_surface
 from stair_local_replay import load_chain
 from stair_module_experiment import write_json
 from stair_patch_inputs import fresh
-from stair_prepared_surface_archive import FORMAT, pack_surface
 from stair_terrain_experiment import frozen
 
 
