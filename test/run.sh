@@ -637,11 +637,11 @@ GroupIncludes() {
       case "$BUILD_PLATFORM" in Linux) includeSet="$includeSet $(pkg-config --cflags vulkan)" ;; esac
       ;;
     src/generators/flora|src/generators/flora/*) includeSet="$includeSet -Ibuild/generated" ;;
-    src/generators/building) includeSet="$includeSet $(pkg-config --cflags sfcgal)" ;;
-    src/content/assets) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
-    src/generators/terrain/providers) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
-    src/world/data) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;
-    src/content/shade | src/engine) includeSet="$includeSet $(pkg-config --cflags sdl3-image)" ;;
+    src/generators/building|src/generators/building/*) includeSet="$includeSet $(pkg-config --cflags sfcgal)" ;;
+    src/content/assets|src/content/assets/*) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
+    src/generators/terrain/providers|src/generators/terrain/providers/*) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
+    src/world/data|src/world/data/*) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;
+    src/content/shade|src/content/shade/*|src/engine|src/engine/*) includeSet="$includeSet $(pkg-config --cflags sdl3-image)" ;;
   esac
   printf '%s' "$includeSet"
 }
