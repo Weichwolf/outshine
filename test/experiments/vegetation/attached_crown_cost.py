@@ -12,7 +12,7 @@ from unittest.mock import patch
 import numpy as np
 from attached_crown import AttachedCrown
 from demand import Camera
-from twig_clusters import TwigClusters
+from outshine_ref.vegetation import TwigClusters
 
 FIELDS = ("ids", "variants", "origins", "frames", "nodes", "twig_ids")
 

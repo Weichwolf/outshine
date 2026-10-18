@@ -1,8 +1,8 @@
 """Compile the existing TwigClusters hierarchy without complete crown leaf poses."""
 
 import numpy as np
+from outshine_ref.vegetation import TwigClusters
 from outshine_ref.vegetation.curve_frame import arc_frame
-from twig_clusters import TwigClusters
 
 
 def cluster_recipe(source, base, leaf_limit):

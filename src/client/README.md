@@ -71,6 +71,12 @@ mit dem Flag gibt VACUUM sie an das Dateisystem zurück. Das benötigt zusätzli
 freien Arbeitsraum. Eine blockierte Kompaktion meldet ausdrücklich den bereits erfolgten
 Trim und den Fehler. Vorschauen melden ausgewählte, noch nicht entfernte Einträge.
 
+Quellen und Assetpakete speichern künftig Bytezahl, letzte erfolgreiche Nutzung und eine
+bekannte Erstellungszeit. Frühere Einträge ohne diese Angaben bleiben ausdrücklich unbekannt.
+Wiederholte Zugriffe werden im begrenzten Puffer zusammengefasst und zeitlich gedrosselt
+persistiert; das Laden bleibt bei einem Metadatenfehler möglich. Einmalige weltweite Besuche
+können so später gegenüber zuletzt verwendeten Inhalten aus dem Speicherbudget fallen.
+
 Wartung erfolgt zwischen Läufen. Metadaten werden gebündelt geschrieben; ein laufender
 Prozess kann noch ungespeicherte Beobachtungen oder neue Cacheeinträge besitzen. Datenbanken
 bleiben jeweils transaktional konsistent; mehrere Datenbanken und Quelldateien bilden keine
