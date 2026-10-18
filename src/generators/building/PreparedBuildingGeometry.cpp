@@ -59,7 +59,6 @@ void RestoreCoordinates(BakedTile &tile, const PreparedStructureTile &base) {
 void RestoreCoordinates(BakedTile &tile, PreparedBuildingAssets::Basis basis) {
   tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
   tile.Coordinates->Origin = basis->Origin;
-  tile.Coordinates->ShareCoordinates(basis, basis->PointsLatLon, basis->Holes, basis->HeapBytes());
   if (basis->Origin.Provenance) {
     for (const auto &source : basis->Sources) {
       if (!tile.RequestedCell || source.Cell == *tile.RequestedCell) {
@@ -67,6 +66,10 @@ void RestoreCoordinates(BakedTile &tile, PreparedBuildingAssets::Basis basis) {
       }
     }
   }
+  const std::span<const double> points = basis->PointsLatLon;
+  const std::span<const GeographicRing> rings = basis->Holes;
+  const size_t retainedBytes = basis->HeapBytes();
+  tile.Coordinates->ShareCoordinates(std::move(basis), points, rings, retainedBytes);
 }
 
 }
