@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import shapely
 from stair_module_inputs import reference_profiles
 from stair_occupancy_candidates import CandidateVolumes, VolumeSource
 from stair_occupancy_inputs import volume
@@ -21,6 +22,13 @@ def numeric_bounds(lower, upper, clearance):
     result = np.c_[lo, hi]
     result.setflags(write=False)
     return result
+
+
+def xy_geometry(vertices, faces):
+    def footprint(index):
+        return shapely.Polygon(vertices[faces[index], :2])
+
+    return footprint
 
 
 def road_keys(asset, face):
@@ -66,7 +74,12 @@ def road_source(asset, sources):
         )
         return ((row, road_keys(asset, face), error),)
 
-    return VolumeSource(asset.identity + ":road", bounds, make)
+    return VolumeSource(
+        asset.identity + ":road",
+        bounds,
+        make,
+        xy_geometry=xy_geometry(data["body_vertices"], data["top_faces"]),
+    )
 
 
 def support_sources(supports, contacts, manifest):
@@ -102,7 +115,12 @@ def support_sources(supports, contacts, manifest):
             low.vertices[high.triangles], high.vertices[high.triangles], 0
         )
         result.append(
-            VolumeSource(f"{manifest['support_sha256']}:support:{index}", bounds, make)
+            VolumeSource(
+                f"{manifest['support_sha256']}:support:{index}",
+                bounds,
+                make,
+                xy_geometry=xy_geometry(high.vertices, high.triangles),
+            )
         )
     return result
 
