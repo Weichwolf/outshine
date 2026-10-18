@@ -12,6 +12,7 @@ import gpu
 import numpy as np
 from blender_city_material import base
 from blender_city_mesh import import_mesh
+from blender_room_night import configure as configure_room_night
 from blender_window_glass import PROFILES
 from blender_window_glass import configure as configure_glass
 from evidence import revision
@@ -44,10 +45,14 @@ def studio(scene, data, samples, ground_span_m=None):
     }
 
 
-def render(geometry, output, samples, glass_profile="source"):
+def render(
+    geometry, output, samples, glass_profile="source", lighting_profile="daylight"
+):
     output = output.resolve()
     if output == Path("/tmp") or not output.is_relative_to(Path("/tmp")):
         raise ValueError("Research renders require an explicit subdirectory of /tmp")
+    if lighting_profile not in ("daylight", "open-floor-night"):
+        raise ValueError("Unknown explicit lighting comparison profile")
     provenance = revision()
     if provenance["experiment_tree_dirty"]:
         raise ValueError("Blender presentation requires a frozen clean implementation")
@@ -64,7 +69,9 @@ def render(geometry, output, samples, glass_profile="source"):
     obj, imported = import_mesh(report, data)
     scene = bpy.context.scene
     lighting = studio(scene, data, samples, report.get("ground_span_m"))
-    glass = configure_glass(obj, scene, glass_profile)
+    if lighting_profile == "open-floor-night":
+        lighting = configure_room_night(scene, report, lighting)
+    glass = configure_glass(obj, scene, glass_profile, report.get("pane_thickness_m"))
     output.mkdir(parents=True, exist_ok=True)
     image = output / (report["city"] + ".png")
     camera_config = report["camera"] | {
@@ -136,5 +143,16 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--samples", type=int, default=32)
     parser.add_argument("--glass-profile", choices=PROFILES, default="source")
+    parser.add_argument(
+        "--lighting-profile",
+        choices=("daylight", "open-floor-night"),
+        default="daylight",
+    )
     args = parser.parse_args()
-    render(args.geometry, args.output, args.samples, args.glass_profile)
+    render(
+        args.geometry,
+        args.output,
+        args.samples,
+        args.glass_profile,
+        args.lighting_profile,
+    )

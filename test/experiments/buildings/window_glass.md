@@ -4,7 +4,9 @@ Existing real openings, open floors and stairs disappear behind pale panes in
 the normal Python Eevee rendering. This experiment adds an **optional** thin-sheet
 comparison, retaining the actual closed pane bodies. The default remains
 `source`, including the agreed daylight. No native shader, shared material
-binding or library contract changes. General glass quality remains open in #712.
+binding or library contract changes. Subsequent ceiling/night and counterexample
+controls are in [open_floor_night.md](open_floor_night.md); general glass quality
+remains with #33.
 
 ## Model and independent numerical reference
 
@@ -91,7 +93,9 @@ The sheet is not visually finished. DITHERED grain is obvious in near/edge views
 the whole-building gain is modest, and the repeated pale facade/room programme
 remains monotonous. This experiment does not solve architectural diversity.
 There is no default promotion. Night/local-light, repeated variance/temporal,
-finite-edge displacement and general radiance/shadow checks remain open in #712.
+finite-edge displacement and general radiance/shadow checks were still open at
+this freeze. The linked follow-up adds the scoped night controls; broader quality
+remains with #33.
 
 Linux x86_64, four CPUs/16GiB-class host, Python3.13.5, NumPy2.5.4, bpy5.2.2LTS,
 Eevee/Xvfb, **llvmpipe LLVM19.1.7**, not RTX/Cycles. Times below include actual
