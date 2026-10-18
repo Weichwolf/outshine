@@ -4,19 +4,36 @@
 #include <bit>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <span>
 #include <string>
 
 namespace outshine::Render {
 bool SubjectDraw::SetLights(std::span<const SubjectLight> lights, std::string &error) {
-  if (lights.size() > kMaxSubjectLights) {
-    error = "the subject declares " + std::to_string(lights.size()) +
-            " punctual lights over a list of " + std::to_string(kMaxSubjectLights) +
-            ", and a light this unit cannot bind is a refusal rather than a light left out of the "
-            "picture";
+  if (lights.size() > kMaxSubjectLights && Binding_ != nullptr) {
+    const auto prepared = PrepareSpatialLights();
+    if (!prepared) {
+      error = prepared.error().Message;
+      return false;
+    }
+  }
+  if (!Lights_) { Lights_ = std::make_shared<SubjectLights>(); }
+  if (Binding_ != nullptr && Binding().Device != nullptr) {
+    const auto attached = Lights_->Attach(*Binding().Device, Binding().Profile.Uploads);
+    if (!attached) {
+      error = attached.error().Message;
+      return false;
+    }
+  }
+  const auto changed = Lights_->Set(lights);
+  if (!changed) {
+    error = changed.error().Message;
     return false;
   }
-  Placed.assign(lights.begin(), lights.end());
+  if (Binding_ != nullptr) {
+    Ground_.UseSpatialLights(SpatialLights() && !Binding().CapturesMaterial);
+  }
   return true;
 }
 
@@ -37,12 +54,16 @@ Vec4f LightVector(const auto &source, float tail = 0) {
 std::array<float, SubjectDraw::kLightFloats>
 SubjectDraw::PackedLights(const FrameContext &ctx) const {
   SubjectLightingUniform packed{};
+  const auto Placed = PlacedLights();
   const bool shadowSource = Shadowed_ && ShadowLightIndex_ < Placed.size() &&
                             Placed[ShadowLightIndex_].Light.Kind == LightKind::Directional;
-  packed.Count = {{static_cast<float>(Placed.size()),
-                   0,
-                   shadowSource ? static_cast<float>(ShadowLightIndex_ + 1) : 0.0f,
-                   static_cast<float>(ShadowRegionCount_)}};
+  float shadowOwner = 0;
+  if (shadowSource) {
+    const auto id = static_cast<uint32_t>(ShadowLightIndex_ + 1);
+    shadowOwner = SpatialLights() ? std::bit_cast<float>(id) : static_cast<float>(id);
+  }
+  packed.Count = {
+      {static_cast<float>(Placed.size()), 0, shadowOwner, static_cast<float>(ShadowRegionCount_)}};
   packed.ShadowRegions = ShadowRegions_;
   packed.Environment =
       LightVector(IndirectLight.RadianceLinear,
@@ -54,7 +75,7 @@ SubjectDraw::PackedLights(const FrameContext &ctx) const {
   packed.ViewPosition = ctx.ViewPosition;
   packed.SkyUp = LightVector(Reflections_.Up);
   packed.SkyToSun = LightVector(Reflections_.ToSun);
-  for (size_t at = 0; at < Placed.size(); ++at) {
+  for (size_t at = 0; !SpatialLights() && at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;
     auto &entry = packed.Items[at];
     entry.Tint = LightVector(light.Colour, static_cast<float>(light.Kind));

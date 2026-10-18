@@ -1,3 +1,9 @@
+#ifndef SPATIAL_LIGHTS
+#define SPATIAL_LIGHTS 0
+#endif
+#if SPATIAL_LIGHTS
+#include "lightCells.glsl"
+#endif
 #include "shadowFilter.glsl"
 #include "thinSheet.glsl"
 
@@ -95,9 +101,20 @@ vec3 shadeRow(M surface,
   vec3 shadowUvDepth = shadowReceiverVector(shadowCoordinate);
   vec2 receiverSlope = shadowReceiverSlope(dFdx(shadowUvDepth), dFdy(shadowUvDepth));
   vec3 sum = vec3(0.0);
-  int count = int(lights.count.x);
-  for (int at = 0; at < count; at = at + 1) {
+#if SPATIAL_LIGHTS
+  uint count = lightCellCount(p);
+#else
+  uint count = uint(lights.count.x);
+#endif
+  for (uint at = 0u; at < count; ++at) {
+#if SPATIAL_LIGHTS
+    uint lightId = lightCellId(at);
+    if (lightId == 0xffffffffu) { continue; }
+    Light light = lightCellEmitter(lightId);
+#else
+    uint lightId = at;
     Light light = lights.items[at];
+#endif
     vec3 toward = -light.beam.xyz;
     float attenuation = 1.0;
     float reachM = uintBitsToFloat(0x7f800000u);
@@ -115,7 +132,13 @@ vec3 shadeRow(M surface,
       float angular = clamp((dot(light.beam.xyz, -toward) - light.cone.x) * light.cone.y, 0.0, 1.0);
       attenuation *= angular * angular;
     }
-    if (light.tint.w <= 0.5 && int(lights.count.z) == at + 1) {
+    if (light.tint.w <= 0.5 &&
+#if SPATIAL_LIGHTS
+        floatBitsToUint(lights.count.z) == lightId + 1u
+#else
+        uint(lights.count.z) == lightId + 1u
+#endif
+       ) {
       attenuation *= worldSunShadowVisibility(shadowMap, shadowCoordinate, receiverSlope);
     }
     float nl = dot(n, toward);

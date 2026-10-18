@@ -28,6 +28,8 @@
 #include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
 #include "SubjectLightingUniform.h"
+#include "LightCellFrame.h"
+#include "SubjectLights.h"
 
 namespace outshine::Render {
 
@@ -48,7 +50,10 @@ private:
   static constexpr size_t kPipelineCount =
       kSurfaceDomains * kVertexLayouts.size() * 2 * kSurfaceKinds;
   Native::Device *Device = nullptr;
+  Gpu Profile;
   std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelineCount> Pipelines;
+  std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelineCount> SpatialPipelines;
+  bool HasSpatialPipelines = false;
   uint32_t Built = 0;
   std::vector<Resource> Colours;
   GroundPipelineBinding Ground;
@@ -256,6 +261,8 @@ public:
 
 private:
   class PipelineShaders;
+  [[nodiscard]] static Native::Result<void>
+  PrepareSpatialPipelines(SubjectPipelineBinding &binding);
   static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
   static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;
 
@@ -264,17 +271,18 @@ private:
   struct FrameUniforms {
     std::array<float, kUniFloats> View{};
     std::array<float, sizeof(SubjectLightingUniform) / sizeof(float)> Light{};
+    LightCellFrame LightFrame;
   };
 
   struct DrawResources {
-    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 1;
+    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 4;
     std::array<Native::Binding, kMostBindings> Bindings{};
     std::array<Native::VertexBuffer, kMostVertexRuns> Vertices{};
     uint32_t BindingCount = 0;
     uint32_t VertexCount = 0;
   };
 
-  [[nodiscard]] FrameUniforms FrameUniformsOf(const FrameContext &ctx);
+  [[nodiscard]] Native::Result<FrameUniforms> FrameUniformsOf(const FrameContext &ctx);
   void BindVertexStreams(DrawResources &into, VertexLayout layout, VertexMotion motion) const;
   [[nodiscard]] static long ColourAttachment(std::span<const Resource> colours, Resource which);
   [[nodiscard]] static Native::Result<void>
@@ -284,7 +292,8 @@ private:
                 SurfaceKind kind,
                 PipelineShaders &shaders,
                 std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
-                uint32_t &built);
+                uint32_t &built,
+                bool spatial = false);
   [[nodiscard]] static Native::Result<void>
   ConfigureVariant(SurfaceKind kind,
                    SurfaceDomain domain,
@@ -294,7 +303,8 @@ private:
                    Native::Device &device,
                    PipelineShaders &shaders,
                    std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
-                   uint32_t &built);
+                   uint32_t &built,
+                   bool spatial = false);
 
   [[nodiscard]] bool
   ValidateBatch(const SubjectMesh &mesh, const DrawBatch &batch, std::string &error) const;
@@ -315,6 +325,23 @@ private:
 
 public:
   [[nodiscard]] bool SetLights(std::span<const SubjectLight> lights, std::string &error);
+  [[nodiscard]] Native::Result<void> PrepareSpatialLights();
+
+  void LightsFrom(std::shared_ptr<SubjectLights> lights) { Lights_ = std::move(lights); }
+
+  void SubmitLights(Native::Completion completion) {
+    if (Lights_) { Lights_->Submitted(completion); }
+  }
+
+  void AbortLights() {
+    if (Lights_) { Lights_->Aborted(); }
+  }
+
+  [[nodiscard]] bool SpatialLights() const noexcept { return Lights_ && Lights_->Spatial(); }
+
+  [[nodiscard]] std::span<const SubjectLight> PlacedLights() const noexcept {
+    return Lights_ ? Lights_->Sources() : std::span<const SubjectLight>{};
+  }
 
   void SetEnvironment(const SubjectEnvironment &environment) { IndirectLight = environment; }
 
@@ -461,7 +488,7 @@ public:
   [[nodiscard]] size_t UniformPushes() const { return UniformPushes_; }
 
 private:
-  std::vector<SubjectLight> Placed;
+  std::shared_ptr<SubjectLights> Lights_;
   SubjectEnvironment IndirectLight;
   Reflections Reflections_;
   Vec3 Anchor;

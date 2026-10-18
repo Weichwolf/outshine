@@ -33,8 +33,8 @@ Native::Result<void> GroundLattice::DrawPatches(const PassRecording &into,
                                                 std::span<const Native::Binding> bindings) const {
   const uint32_t count = VisibleReal_ + VisibleVirtual_;
   if (count == 0) { return {}; }
-  if (Pipelines_->Patches() == nullptr || into.Commands == nullptr || !PatchGrid_ || !PatchIndex_ ||
-      !PatchFractions_ || !PatchList_ || !Visible_ || !Pages_ || !Nearest_) {
+  if (Pipelines_->Patches(SpatialLights_) == nullptr || into.Commands == nullptr || !PatchGrid_ ||
+      !PatchIndex_ || !PatchFractions_ || !PatchList_ || !Visible_ || !Pages_ || !Nearest_) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "ground patch draw is missing native resources"});
@@ -74,7 +74,7 @@ Native::Result<void> GroundLattice::DrawPatches(const PassRecording &into,
                            .Range = {.Bytes = Selection_.Ready()
                                                   ? Selection_.Codes()->Description().Bytes
                                                   : PatchList_->Description().Bytes}}};
-  const Native::DrawState state{.Pipeline = Pipelines_->Patches(),
+  const Native::DrawState state{.Pipeline = Pipelines_->Patches(SpatialLights_),
                                 .Bindings = std::span(resources).first(bindings.size() + 3u),
                                 .Vertices = vertices,
                                 .Area = into.Area,

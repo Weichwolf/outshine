@@ -66,7 +66,14 @@ Native::Result<void> GroundLattice::Encode(const PassRecording &into,
   if (!DrawEnabled_) { return {}; }
   const auto patched = DrawPatches(into, bindings);
   if (!patched) { return patched; }
-  return Draw(into, Pipelines_->Lit(), Visible_, VisibleReal_, VisibleVirtual_, bindings, 0, true);
+  return Draw(into,
+              Pipelines_->Lit(SpatialLights_),
+              Visible_,
+              VisibleReal_,
+              VisibleVirtual_,
+              bindings,
+              0,
+              true);
 }
 
 }
