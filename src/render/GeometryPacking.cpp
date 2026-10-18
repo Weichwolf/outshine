@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <span>
 #include <utility>
 #include <vector>
@@ -15,7 +16,16 @@
 namespace outshine::Render {
 namespace {
 
-void ReserveGeometry(const Geometry &from, ShapeStore &into) {
+enum class AttributePacking { Copy, ShareUnchanged };
+
+bool NeedsOwnedAttributes(const Geometry &from, int part) {
+  return from.placementOf(part) != Mat4{} ||
+         (from.normalsOf(part).empty() && !from.trianglesOf(part).empty());
+}
+
+void ReserveGeometry(const Geometry &from,
+                     ShapeStore &into,
+                     AttributePacking attributes = AttributePacking::Copy) {
   if (!into.Parts.empty()) { return; }
   size_t vertices = into.PositionsM.size() / 3;
   size_t indices = into.Indices.size();
@@ -26,12 +36,15 @@ void ReserveGeometry(const Geometry &from, ShapeStore &into) {
   bool colours = !into.Colours.empty();
   for (int part = 0; part < from.parts(); ++part) {
     const auto corners = from.trianglesOf(part);
+    indices += corners.size();
+    if (attributes == AttributePacking::ShareUnchanged && !NeedsOwnedAttributes(from, part)) {
+      continue;
+    }
     const bool flat = from.normalsOf(part).empty() && !corners.empty();
     const size_t added = flat ? corners.size() : from.positionsOf(part).size() / 3;
     assert(vertices <= std::numeric_limits<uint32_t>::max());
     assert(added <= std::numeric_limits<uint32_t>::max() - vertices);
     vertices += added;
-    indices += corners.size();
     normals = normals || flat || !from.normalsOf(part).empty();
     tangents = tangents || !from.tangentsOf(part).empty();
     uv = uv || !from.textureOf(part, Geometry::UvSet::Uv0).empty();
@@ -94,6 +107,52 @@ void AppendAttribute(std::span<const float> source,
          fits(store.Uv1.size(), 2, part.HasUv1) && fits(store.Colours.size(), 4, part.HasColour);
 }
 
+void BindPartStorage(ShapePart &part, const ShapeStore &store) {
+  part.PositionsM = Attribute(store.PositionsM, part, 3, true);
+  part.Normals = Attribute(store.Normals, part, 3, part.HasNormal);
+  part.Tangents = Attribute(store.Tangents, part, 4, part.HasTangent);
+  part.Uv = Attribute(store.Uv, part, 2, part.HasUv);
+  part.Uv1 = Attribute(store.Uv1, part, 2, part.HasUv1);
+  part.Colours = Attribute(store.Colours, part, 4, part.HasColour);
+}
+
+bool PartViewsFit(const ShapePart &part) {
+  const auto fits = [&part](std::span<const float> values, size_t components, bool present) {
+    return present
+               ? values.size() % components == 0 && values.size() / components == part.VertexCount
+               : values.empty();
+  };
+  return fits(part.PositionsM, 3, true) && fits(part.Normals, 3, part.HasNormal) &&
+         fits(part.Tangents, 4, part.HasTangent) && fits(part.Uv, 2, part.HasUv) &&
+         fits(part.Uv1, 2, part.HasUv1) && fits(part.Colours, 4, part.HasColour);
+}
+
+void MaterializeAttributes(ShapeStore &into) {
+  const size_t vertices =
+      into.Parts.empty() ? 0 : into.Parts.back().FirstVertex + into.Parts.back().VertexCount;
+  const auto materialize = [&into, vertices](auto member, size_t components) {
+    std::vector<float> values;
+    const bool present = std::ranges::any_of(
+        into.Parts, [member](const ShapePart &part) { return !(part.*member).empty(); });
+    if (!present) { return values; }
+    values.resize(vertices * components);
+    for (const ShapePart &part : into.Parts) {
+      std::ranges::copy(part.*member,
+                        values.begin() +
+                            static_cast<std::ptrdiff_t>(part.FirstVertex * components));
+    }
+    return values;
+  };
+  into.PositionsM = materialize(&ShapePart::PositionsM, 3);
+  into.Normals = materialize(&ShapePart::Normals, 3);
+  into.Tangents = materialize(&ShapePart::Tangents, 4);
+  into.Uv = materialize(&ShapePart::Uv, 2);
+  into.Uv1 = materialize(&ShapePart::Uv1, 2);
+  into.Colours = materialize(&ShapePart::Colours, 4);
+  for (ShapePart &part : into.Parts) { BindPartStorage(part, into); }
+  into.AttributeSource.reset();
+}
+
 void GenerateFlatNormals(ShapePart &part, ShapeStore &into) {
   into.Normals.resize(into.PositionsM.size());
   const auto position = [&](size_t vertex) {
@@ -154,23 +213,29 @@ void GenerateFlatNormals(ShapePart &part, ShapeStore &into) {
   return sign < 0;
 }
 
-[[nodiscard]] ShapePart AppendGeometryPart(const Geometry &from, int part, ShapeStore &into) {
+ShapePart DescribePart(const Geometry &from, int part) {
   ShapePart packed;
   packed.Name = from.nameOf(part);
   packed.Material = from.materialOf(part).index();
-  packed.FirstVertex = into.PositionsM.size() / 3;
-  const auto indices = from.trianglesOf(part);
-  const bool flatNormals = from.normalsOf(part).empty() && !indices.empty();
-  packed.VertexCount = flatNormals ? indices.size() : from.positionsOf(part).size() / 3;
-  assert(packed.FirstVertex <= std::numeric_limits<uint32_t>::max());
-  assert(packed.VertexCount <= std::numeric_limits<uint32_t>::max() - packed.FirstVertex);
-  packed.FirstIndex = into.Indices.size();
+  packed.VertexCount = from.positionsOf(part).size() / 3;
   packed.IndexCount = from.trianglesOf(part).size();
   packed.HasNormal = !from.normalsOf(part).empty();
   packed.HasTangent = !from.tangentsOf(part).empty();
   packed.HasUv = !from.textureOf(part, Geometry::UvSet::Uv0).empty();
   packed.HasUv1 = !from.textureOf(part, Geometry::UvSet::Uv1).empty();
   packed.HasColour = !from.coloursOf(part).empty();
+  return packed;
+}
+
+[[nodiscard]] ShapePart AppendGeometryPart(const Geometry &from, int part, ShapeStore &into) {
+  ShapePart packed = DescribePart(from, part);
+  packed.FirstVertex = into.PositionsM.size() / 3;
+  const auto indices = from.trianglesOf(part);
+  const bool flatNormals = from.normalsOf(part).empty() && !indices.empty();
+  if (flatNormals) { packed.VertexCount = indices.size(); }
+  assert(packed.FirstVertex <= std::numeric_limits<uint32_t>::max());
+  assert(packed.VertexCount <= std::numeric_limits<uint32_t>::max() - packed.FirstVertex);
+  packed.FirstIndex = into.Indices.size();
   const auto append =
       [&](std::span<const float> source, size_t components, std::vector<float> &destination) {
         AppendAttribute(source,
@@ -199,11 +264,7 @@ void GenerateFlatNormals(ShapePart &part, ShapeStore &into) {
   return packed;
 }
 
-}
-
-void AppendGeometry(const Geometry &from, ShapeStore &into) {
-  ReserveGeometry(from, into);
-  const auto firstSurface = static_cast<int>(into.Surfaces.size());
+void AppendMaterialsAndLamps(const Geometry &from, ShapeStore &into) {
   for (int surface = 0; surface < from.surfaces(); ++surface) {
     into.Surfaces.push_back(from.surfaceAt(MaterialInstance(surface)));
   }
@@ -221,6 +282,38 @@ void AppendGeometry(const Geometry &from, ShapeStore &into) {
     }
     into.Lamps.push_back(light);
   }
+}
+
+ShapePart ViewGeometryPart(const Geometry &from, int part, ShapeStore &into, size_t firstVertex) {
+  ShapePart view = DescribePart(from, part);
+  view.FirstVertex = firstVertex;
+  view.FirstIndex = into.Indices.size();
+  assert(firstVertex <= std::numeric_limits<uint32_t>::max());
+  assert(view.VertexCount <= std::numeric_limits<uint32_t>::max() - firstVertex);
+  view.PositionsM = from.positionsOf(part);
+  view.Normals = from.normalsOf(part);
+  view.Tangents = from.tangentsOf(part);
+  view.Uv = from.textureOf(part, Geometry::UvSet::Uv0);
+  view.Uv1 = from.textureOf(part, Geometry::UvSet::Uv1);
+  view.Colours = from.coloursOf(part);
+  for (const uint32_t index : from.trianglesOf(part)) {
+    into.Indices.push_back(static_cast<uint32_t>(firstVertex) + index);
+  }
+  return view;
+}
+
+}
+
+void AppendGeometry(const Geometry &from, ShapeStore &into) {
+  if (into.AttributeSource) {
+    const auto retained = into.AttributeSource;
+    MaterializeAttributes(into);
+    AppendGeometry(retained.get() == &from ? *retained : from, into);
+    return;
+  }
+  ReserveGeometry(from, into);
+  const auto firstSurface = static_cast<int>(into.Surfaces.size());
+  AppendMaterialsAndLamps(from, into);
   into.Parts.reserve(into.Parts.size() + static_cast<size_t>(from.parts()));
   for (int part = 0; part < from.parts(); ++part) {
     ShapePart packed = AppendGeometryPart(from, part, into);
@@ -230,16 +323,62 @@ void AppendGeometry(const Geometry &from, ShapeStore &into) {
 }
 
 std::expected<void, ClusterError> BindShapeStorage(ShapeStore &into) {
+  if (into.AttributeSource) {
+    return std::ranges::all_of(into.Parts, PartViewsFit)
+               ? std::expected<void, ClusterError>{}
+               : std::unexpected(ClusterError::InvalidLayout);
+  }
   for (ShapePart &part : into.Parts) {
     if (!AttributesFit(part, into)) { return std::unexpected(ClusterError::InvalidLayout); }
-    part.PositionsM = Attribute(into.PositionsM, part, 3, true);
-    part.Normals = Attribute(into.Normals, part, 3, part.HasNormal);
-    part.Tangents = Attribute(into.Tangents, part, 4, part.HasTangent);
-    part.Uv = Attribute(into.Uv, part, 2, part.HasUv);
-    part.Uv1 = Attribute(into.Uv1, part, 2, part.HasUv1);
-    part.Colours = Attribute(into.Colours, part, 4, part.HasColour);
+    BindPartStorage(part, into);
   }
   return {};
+}
+
+std::expected<void, ClusterError> PrepareShapeStorage(std::shared_ptr<const Geometry> from,
+                                                      ShapeStore &into) {
+  into.Clear();
+  if (!from) { return {}; }
+  bool shares = false;
+  for (int part = 0; part < from->parts(); ++part) {
+    shares = shares || !NeedsOwnedAttributes(*from, part);
+  }
+  if (!shares) {
+    AppendGeometry(*from, into);
+    return BindShapeStorage(into);
+  }
+  into.AttributeSource = std::move(from);
+  const Geometry &source = *into.AttributeSource;
+  std::vector<float>{}.swap(into.PositionsM);
+  std::vector<float>{}.swap(into.Normals);
+  std::vector<float>{}.swap(into.Tangents);
+  std::vector<float>{}.swap(into.Uv);
+  std::vector<float>{}.swap(into.Uv1);
+  std::vector<float>{}.swap(into.Colours);
+  ReserveGeometry(source, into, AttributePacking::ShareUnchanged);
+  AppendMaterialsAndLamps(source, into);
+  into.Parts.reserve(static_cast<size_t>(source.parts()));
+  size_t firstVertex = 0;
+  for (int part = 0; part < source.parts(); ++part) {
+    ShapePart prepared;
+    if (NeedsOwnedAttributes(source, part)) {
+      prepared = AppendGeometryPart(source, part, into);
+      const size_t ownedFirst = prepared.FirstVertex;
+      BindPartStorage(prepared, into);
+      assert(firstVertex <= std::numeric_limits<uint32_t>::max());
+      assert(prepared.VertexCount <= std::numeric_limits<uint32_t>::max() - firstVertex);
+      for (size_t index = prepared.FirstIndex; index < into.Indices.size(); ++index) {
+        into.Indices[index] = into.Indices[index] - static_cast<uint32_t>(ownedFirst) +
+                              static_cast<uint32_t>(firstVertex);
+      }
+      prepared.FirstVertex = firstVertex;
+    } else {
+      prepared = ViewGeometryPart(source, part, into, firstVertex);
+    }
+    firstVertex += prepared.VertexCount;
+    into.Parts.push_back(std::move(prepared));
+  }
+  return BindShapeStorage(into);
 }
 
 Shape ViewShape(const ShapeStore &store) noexcept {
@@ -268,9 +407,23 @@ std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into) {
 }
 
 std::expected<Shape, ClusterError> PrepareShape(const Geometry &from, ShapeStore &into) {
+  if (into.AttributeSource && into.AttributeSource.get() == &from) {
+    return PrepareShape(into.AttributeSource, into);
+  }
   into.Clear();
   AppendGeometry(from, into);
   return FinalizeShape(into);
+}
+
+std::expected<Shape, ClusterError> PrepareShape(std::shared_ptr<const Geometry> from,
+                                                ShapeStore &into) {
+  if (auto prepared = PrepareShapeStorage(std::move(from), into); !prepared) {
+    return std::unexpected(prepared.error());
+  }
+  if (auto cooked = CookShape(into, into.Surfaces); !cooked) {
+    return std::unexpected(cooked.error());
+  }
+  return ViewShape(into);
 }
 
 }

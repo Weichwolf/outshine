@@ -91,7 +91,9 @@ holes stay visible; broad dark fields change the facade rhythm and projecting
 frames add larger shadow/volume cues. Earlier bands/piers remain visible through
 this added vocabulary. Pale glass, repetitive long fronts, large plain roof
 areas and the absence of complete architecture families remain quality gaps.
-There is no new city picture or CityEngine-level variety claim.
+This first delivery has no new city picture or CityEngine-level variety claim.
+The subsequent [whole-window application](bay_city.md) reconstructs the original
+source study and adds actual complete-city comparisons.
 
 Blender5.2.2LTS/Eevee runs on llvmpipe LLVM19.1.7 under Xvfb,
 `LP_NUM_THREADS=2`, Linux four-CPU/16GiB-class shared host. Python3.13.5,

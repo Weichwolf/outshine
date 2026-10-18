@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "contact_mode": "seed",
+  "junction_mode": "level_box",
+  "seed": {
+    "source_id": "openfreemap:14/8937/5678:transportation:3512792022:0",
+    "end": 0
+  },
+  "source_ids": ["openfreemap:14/8937/5678:transportation:3512792022:0"],
+  "source_profiles": {
+    "openfreemap:14/8937/5678:transportation:3512792022:0": "service"
+  },
+  "traffic_mode": "source_clearance",
+  "soil_bridge_reserve_m": 0.0,
+  "seed_grid_m": 0.00048828125,
+  "scope": "Whole straight supplied one-way service source. Original foot/bicycle tags remain; carriageway geometry creates no automatic public or crossing route. Exact centered compact bodies, complete original cap profiles and current terrain must pass."
+}

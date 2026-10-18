@@ -101,6 +101,9 @@ error need their own bounds and GPU tests.
 
 `terrain_cones.py` calls the installed meshoptimizer C API; no bundled source or
 new implementation. The installed library used here is Homebrew meshoptimizer 1.3.
+That is the historical experiment environment, not a product dependency or a
+maintained Outshine Homebrew formula. Reproduction requires a separately supplied
+shared library via `--library`.
 Perspective rejection uses the documented apex, axis and cutoff formula with
 explicit padding. A separate every-triangle oracle checks each rejection.
 Skirts remain independent. Patches are limited to four/eight cells so they fit
