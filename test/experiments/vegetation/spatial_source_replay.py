@@ -49,6 +49,7 @@ def replay(inputs, controls, output):
     ):
         assert source.geometry(int(source.crown.hosts[0]), 0) is None
     assert not source.prototypes and not source.crown._groups
+    preflight_done = time.perf_counter()
     with np.load(inputs / "spatial/tables.npz", allow_pickle=False) as z:
         rows = {k: z[k] for k in ("leaf_origins", "leaf_frames", "leaf_variants")}
     oracle_loaded = time.perf_counter()
@@ -126,8 +127,9 @@ def replay(inputs, controls, output):
         "source_identity": source.crown.identity,
         "catalog_identity": source.identity,
         "source_decode_and_prepare_s": loaded - began,
+        "source_index_and_refusal_s": preflight_done - loaded,
         "cold_input_files_bytes": files,
-        "separate_oracle_decode_s": oracle_loaded - loaded,
+        "separate_oracle_decode_s": oracle_loaded - preflight_done,
         "separate_all_source_pose_check_s": oracle_done - oracle_loaded,
         "exact_original_pose_rows": checked,
         "maximum_same_source_world_coordinate_error_m": maximum,

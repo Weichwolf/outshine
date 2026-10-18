@@ -87,8 +87,8 @@ def plot(controls, fields, output):
         ax.set_xticks([])
         ax.set_yticks([])
     fig.suptitle(
-        "Same saved host: coverage and unlit normal measure are separate tests\n"
-        "Rows use different directions/footprints; scalar cosine response is not RGB/PBR or group R/T",
+        "Same saved crown: coverage and unlit normal measure are separate tests\n"
+        "Top: host17; bottom: worst first-moment error of 12 fields. Scalar cosine response is not group R/T",
         fontsize=13,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
