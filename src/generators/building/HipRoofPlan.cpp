@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdarg>
 #include <cstdio>
 #include <expected>
 #include <limits>
@@ -35,8 +36,14 @@ struct Input {
 };
 
 extern "C" int ReportLibraryError(const char *message, ...) {
+  std::array<char, 256> formatted{};
+  if (message == nullptr) { return std::fprintf(stderr, "sfcgal: partition failed\n"); }
+  va_list arguments;
+  va_start(arguments, message);
+  const int count = std::vsnprintf(formatted.data(), formatted.size(), message, arguments);
+  va_end(arguments);
   return std::fprintf(
-      stderr, "sfcgal: %.120s\n", message != nullptr ? message : "partition failed");
+      stderr, "sfcgal: %.255s\n", count >= 0 ? formatted.data() : "partition failed");
 }
 
 extern "C" int IgnoreLibraryWarning(const char *message, ...) {
