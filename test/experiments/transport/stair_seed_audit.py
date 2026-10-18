@@ -15,10 +15,11 @@ from stair_module_roads import face_frames, inspect_frames
 from stair_module_through import through_sides
 from stair_module_trace import compare
 from stair_seed_axes import seam_profile
+from stair_seed_crossings import crossings_for, inspect_crossings
 from stair_seed_geometry import plans_for
 
 
-def connected(recipe, rows, nodes):
+def connected(recipe, rows, nodes, contacts=()):
     keys = [r["source_id"] for r in rows]
     seen = {keys.index(recipe["seed"]["source_id"])}
     for _iteration in range(8):
@@ -26,6 +27,9 @@ def connected(recipe, rows, nodes):
         for node in nodes:
             if seen.intersection(node["incident"]):
                 seen.update(node["incident"])
+        for contact in contacts:
+            if seen.intersection(contact["owners"]):
+                seen.update(contact["owners"])
         if seen == before:
             break
     if seen != set(range(len(rows))):
@@ -87,7 +91,7 @@ def profiles(data, rows, nodes, masks, original):
     }
 
 
-def overlap_contract(nodes, domains, masks):
+def overlap_contract(nodes, domains, masks, contacts=()):
     for i, a in enumerate(domains):
         for j, b in enumerate(domains[:i]):
             common = a.intersection(b)
@@ -98,13 +102,16 @@ def overlap_contract(nodes, domains, masks):
                     if i in node["incident"] and j in node["incident"]
                 ]
             )
+            for contact in contacts:
+                if set(contact["owners"]) == {i, j}:
+                    allowed = allowed.union(common)
             if common.difference(allowed).area > 1e-7:
                 raise ValueError(
                     "independent seed requires a declared original junction for band overlap"
                 )
 
 
-def audit(state, recipe, data, rows, planning, upper):
+def audit(state, recipe, data, rows, planning, upper, *, sources=None):
     if any(row.get("source_grid_m") != recipe.get("seed_grid_m") for row in rows):
         raise ValueError("seed source grid differs from its declared recipe")
     xy = data["surface_vertices"][:, :2]
@@ -122,8 +129,9 @@ def audit(state, recipe, data, rows, planning, upper):
         data["surface_materials"], surface_slots(rows, data["owners"])
     ):
         raise ValueError("saved seed source material ownership changed")
-    connected(recipe, rows, nodes)
-    overlap_contract(nodes, domains, masks)
+    contacts = crossings_for(rows, sources, recipe)
+    connected(recipe, rows, nodes, contacts)
+    overlap_contract(nodes, domains, masks, contacts)
     separation = []
     road = state["road"]
     for cast in (False, True):
@@ -147,7 +155,7 @@ def audit(state, recipe, data, rows, planning, upper):
         separation.append({"float32": cast, "minimum_old_ground_distance_m": distance})
     if any(not p.equals(q) for p, q in zip(original, domains, strict=True)):
         raise ValueError("independent seed borrowed an undeclared old surface")
-    plans = plans_for(rows, nodes)
+    plans = plans_for(rows, nodes, contacts)
     fixed, values = apply_heights(
         data["surface_vertices"][:, :2],
         np.zeros(len(data["surface_vertices"]), bool),
@@ -178,6 +186,11 @@ def audit(state, recipe, data, rows, planning, upper):
         ),
         "profiles": profiles(data, rows, nodes, masks, original),
         "new_junction_heights": inspect_heights(data, plans),
+        **(
+            {"geometric_junctions": inspect_crossings(data, contacts, original)}
+            if contacts
+            else {}
+        ),
         "road_frames": [inspect_frames(data, rows, cast) for cast in (False, True)],
         "old_ground_separation": separation,
         "source_clearances": clearances,

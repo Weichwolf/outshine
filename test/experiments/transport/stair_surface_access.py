@@ -21,13 +21,13 @@ def contact_access(chosen, new, old, old_row):
             raise ValueError("ordinary exterior ground contact sources required")
     np_, op = new["properties"], old["properties"]
     kind = chosen.get("kind")
-    if kind == "minor_footway_node":
+    if kind in ("minor_footway_node", "minor_footway_crossing"):
         new_valid = np_.get("class") == "minor" and not np_.get("subclass")
     else:
         new_valid = np_.get("class") == "path" and np_.get("subclass") == "footway"
     if not new_valid:
         raise ValueError("new pedestrian contact requires an original footway")
-    if kind in ("footway_overlap", "minor_footway_node"):
+    if kind in ("footway_overlap", "minor_footway_node", "minor_footway_crossing"):
         valid = op.get("class") == "path" and op.get("subclass") == "footway"
     elif kind == "minor_pedestrian_crossing":
         valid = (
