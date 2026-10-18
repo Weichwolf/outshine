@@ -12,6 +12,8 @@ import gpu
 import numpy as np
 from blender_city_material import base
 from blender_city_mesh import import_mesh
+from blender_window_glass import PROFILES
+from blender_window_glass import configure as configure_glass
 from evidence import revision
 from outshine_ref.rendering.blender_camera import configure_camera, verify_camera
 from outshine_ref.rendering.blender_light import configure_daylight
@@ -42,7 +44,10 @@ def studio(scene, data, samples, ground_span_m=None):
     }
 
 
-def render(geometry, output, samples):
+def render(geometry, output, samples, glass_profile="source"):
+    output = output.resolve()
+    if output == Path("/tmp") or not output.is_relative_to(Path("/tmp")):
+        raise ValueError("Research renders require an explicit subdirectory of /tmp")
     provenance = revision()
     if provenance["experiment_tree_dirty"]:
         raise ValueError("Blender presentation requires a frozen clean implementation")
@@ -59,6 +64,7 @@ def render(geometry, output, samples):
     obj, imported = import_mesh(report, data)
     scene = bpy.context.scene
     lighting = studio(scene, data, samples, report.get("ground_span_m"))
+    glass = configure_glass(obj, scene, glass_profile)
     output.mkdir(parents=True, exist_ok=True)
     image = output / (report["city"] + ".png")
     camera_config = report["camera"] | {
@@ -97,6 +103,7 @@ def render(geometry, output, samples):
         "ground_mode": "flat-no-dem",
         "camera": camera,
         "lighting": lighting,
+        "glass": glass,
         "profile": camera_config["profile"],
         "samples": samples,
         "blender": bpy.app.version_string,
@@ -109,7 +116,7 @@ def render(geometry, output, samples):
         "process_peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
         "image": image.name,
         "image_sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
-        "scope": "Actual current Python mesh and supplied normals/UVs; single Principled parameter composition with procedural facade masks and Eevee sampling, no analytic CPU footprint-oracle or native/device/LOD admission",
+        "scope": "Actual Python mesh and supplied normals/UVs; Principled parameter composition with procedural facade masks, explicit reported glass comparison and Eevee sampling; no analytic CPU footprint-oracle or native/device/LOD admission",
     }
     (output / (report["city"] + "-render.json")).write_text(
         json.dumps(record, indent=2) + "\n"
@@ -128,5 +135,6 @@ if __name__ == "__main__":
     parser.add_argument("geometry", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--samples", type=int, default=32)
+    parser.add_argument("--glass-profile", choices=PROFILES, default="source")
     args = parser.parse_args()
-    render(args.geometry, args.output, args.samples)
+    render(args.geometry, args.output, args.samples, args.glass_profile)
