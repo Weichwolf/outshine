@@ -98,7 +98,7 @@ def run(args):
     ):
         raise ValueError("fresh explicit /tmp output and bounded repetitions required")
     surface, frames, plans, groups, saved = height_inputs(args)
-    # Imports are outside fit measurement, like source/body verification.
+    # Explicit solver imports are outside; the first fit may load its numeric module.
     import clarabel
     from scipy.optimize import milp
 
@@ -110,7 +110,12 @@ def run(args):
     ).hexdigest()
     args.output.mkdir()
     measurements, arrays = {}, {}
-    for method in ("fixed_priors", "joint", "quantized", "rounded_joint"):
+    methods = (
+        (getattr(args, "method", None),)
+        if getattr(args, "method", None)
+        else ("fixed_priors", "joint", "quantized", "rounded_joint")
+    )
+    for method in methods:
         records = []
         for _repeat in range(args.repeats):
             began = time.perf_counter()
@@ -169,7 +174,7 @@ def run(args):
         "artifacts": arrays,
         "peak_process_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
-        "scope": "Identical complete verified whole-source XY/faces, original DEM targets and reserved anisotropic frames. Complete height-fit call timed/traced, including flat-region membership, sparse matrices, solver and its candidate checks. Source/body preload and imports, independent observation/export excluded. Every bounded result retained, including absent or Q-invalid candidates. No optimality, copied-byte, native runtime/device or equal-success comparison claim. Process RSS includes preload; per-trace peaks are incremental.",
+        "scope": "Identical complete verified whole-source XY/faces, original DEM targets and reserved anisotropic frames. Complete height-fit call timed/traced, including flat-region membership, sparse matrices, solver and its candidate checks. Source/body preload, explicit solver imports and independent observation/export excluded. First unprofiled fit includes any demand-loaded numeric module; later fits and the allocation trace use the loaded module. Every bounded result retained, including absent or Q-invalid candidates. No optimality, copied-byte, native runtime/device or equal-success comparison claim. Process RSS includes preload; per-trace peaks are incremental.",
     }
     write_json(args.output / "comparison.json", report)
     print(
@@ -188,6 +193,9 @@ if __name__ == "__main__":
     parser.add_argument("--prior-module", type=Path, action="append", default=[])
     parser.add_argument("--repeats", type=int, choices=(1, 3, 5), default=3)
     parser.add_argument("--profile", action="store_true")
+    parser.add_argument(
+        "--method", choices=("fixed_priors", "joint", "quantized", "rounded_joint")
+    )
     resource.setrlimit(resource.RLIMIT_CPU, (180, 180))
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
     run(parser.parse_args())

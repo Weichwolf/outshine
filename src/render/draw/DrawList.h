@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -216,6 +217,7 @@ struct DrawBatch {
   uint32_t FirstJob = 0;
   uint32_t JobCount = 0;
   VertexMotion Motion = VertexMotion::Deforming;
+  std::optional<std::array<float, 4>> WorldSphere;
 };
 
 struct IndexRun {
