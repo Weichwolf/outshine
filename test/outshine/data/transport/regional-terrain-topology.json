@@ -1,0 +1,29 @@
+{
+  "vertices": 1002,
+  "faces": 1896,
+  "D_min_signed_double_area_m2": 2.384185791015625e-07,
+  "Q_bad_faces": [
+    {
+      "face_id": 792,
+      "vertices_xy_m": [
+        [
+          -580.28515625,
+          305.796875
+        ],
+        [
+          -580.286288650362,
+          305.7986279869101
+        ],
+        [
+          -606.6982421875,
+          345.9287109375
+        ]
+      ],
+      "D_signed_double_area_m2": 0.0008564883584506466,
+      "Q_signed_double_area_m2": -0.0005939900875091553
+    }
+  ],
+  "source": "wien-junction-14-8937-5678.pbf",
+  "source_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "producer_commit": "31f8a13055be918af4c17ca305512b237da5ee1b"
+}
