@@ -242,6 +242,7 @@ done
 
 TestProfile() {
   case "$1" in
+    outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
@@ -289,6 +290,7 @@ TestProfile() {
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
+    profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
     profile/medium-view) printf '%s' "-Iinclude -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
     profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
@@ -392,6 +394,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$(TestProfile "$1")" in
+    profile/cache-usage) pkg-config --libs sqlite3 ;;
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
     profile/tasks) printf '%s' '-pthread' ;;
@@ -434,6 +437,7 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/medium-view) printf '%s' "src/render/Lens.cpp src/render/stages/MediumView.cpp" ;;

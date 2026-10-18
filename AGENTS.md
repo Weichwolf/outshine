@@ -86,6 +86,9 @@
 - Ich liefere vom konkreten Bilddefizit bis zum integrierten Rendering. Interne Arbeit braucht
   einen Feature-Blocker oder gemessenen Engpass. Abstürze, Datenverlust und falsche Geometrie
   behebe ich sofort; vorhandene Straßenqualität und Terrain-Deformation bleiben erhalten.
+- Aktueller Bildfokus: Transport, Gebäude und Bodenmaterialien. Die zwölf frei wählbaren
+  Places mischen Natur-, Misch- und Infrastrukturansichten; Vegetation ist je Szenario
+  passend aktiviert. Die Python-Forschung läuft unabhängig weiter.
 - Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
@@ -128,6 +131,10 @@
   weder Quellaufbereitung noch Rohling-Aufbau; Nahdetails dürfen und müssen daraus zur Laufzeit
   ergänzt werden. Räumliche/LOD-Auswahl und aktuelles Shading folgen danach. Quelle, Asset, Spielstand und
   Testreferenzen bleiben getrennt; keine automatische Quellaktualisierung. [#10](https://github.com/Weichwolf/outshine/issues/10) besitzt den Vertrag.
+- Quell- und Assetcaches speichern Größen-/Nutzungsmetadaten und bleiben getrennt budgetierbar
+  bereinigbar. Einmalig besuchte Weltregionen dürfen die SSD nicht unbegrenzt füllen;
+  häufig genutzte Inhalte bleiben bevorzugt erhalten. Metadatenpflege wird gebündelt und
+  darf den Weltaufbau nicht bei einzelnen Schreibfehlern blockieren. Altbestandszeiten nicht erfinden.
 - Adapter/Provider beschaffen und normalisieren Eingaben; Generatoren erzeugen native Inhalte.
   Provider sind optional. Erweiterungen besitzen ihre Quellsemantik; OSM gehört zu generators/osm.
   Engine koordiniert; world bleibt eine generische 3D-Welt, Render/Audio konsumieren native Produkte.
@@ -162,13 +169,15 @@
   RTX 3060 verwendet separat 1920×1080/60. Framebudgets: 1000/30 = 33,33 ms beziehungsweise
   1000/60 = 16,67 ms einschließlich p99; Speicher und CPU/GPU pro Gerät getrennt belegen.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
-- Nur der Hauptagent veröffentlicht Bilder: genau drei frei wählbare integrierte Places unter
-  `doc/images/places/` und in der README-Galerie. Die Auswahl darf jederzeit wechseln;
-  ersetzte Galeriebilder werden entfernt. Fachagenten pushen keine Bilder nach `doc/` und legen keine
-  Ersatzgalerien an. Forschungs-/Diagnosebilder bleiben lokal im System-Tempverzeichnis;
+- Die Bildveröffentlichung in `doc/` und README pausiert auf Nutzerauftrag. Ich pushe dort
+  vorerst keine neuen oder aktualisierten Bilder. Fachagenten veröffentlichen ebenfalls keine
+  Bilder oder Ersatzgalerien. Forschungs-/Diagnosebilder bleiben lokal im System-Tempverzeichnis;
   Verfahren, Tests und Renderer werden weiterhin geliefert. Tatsächliche Bildprüfung bleibt Pflicht.
-- Alle acht Places aus [#5](https://github.com/Weichwolf/outshine/issues/5) sind visuelle Regressionen, mindestens einer gehört ins Gate.
-  Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
+- Ich pflege zwölf wechselnde Places als Beurteilungswerkzeug, keine vorgeschriebene Ortsliste.
+  Auswahl, Kameras und Inhalte folgen aktuellen Bilddefiziten und Testbedarf; mindestens ein
+  aktueller Place gehört ins Gate. Dichte Großstadt-/Parkrandansichten bleiben eigene Lastfälle.
+  Zwölf Bilder belegen keine weltweite Funktion. Rotierende geografische Gegenbeispiele,
+  unterschiedliche Klima-/Gelände-/Siedlungsformen und gemeinsame Verfahrensprüfungen ergänzen sie.
   Ein Teil der Places stammt von [foto-webcam.eu](https://www.foto-webcam.eu/).
   Live- und Archivbilder liefern Inspiration und Vergleich für Wetter, Tages- und Jahreszeiten;
   passende Aufnahme samt Datum/Zustand wählen und Outshines Formen, Materialien und Licht dagegen prüfen.
@@ -176,8 +185,7 @@
   Ich rendere über das Szenario-Programm und öffne die Hash-PNGs in `build/shots/places/`.
   Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
   je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
-  Alle Places bleiben lokal aktuell. Die README-Galerie zeigt nur die drei ausgewählten aktuellen
-  PNGs unter `doc/images/places/`, untereinander nur mit Ortsangabe und ohne Vergrößerungslink.
+  Alle Places bleiben lokal aktuell; die Veröffentlichungspause ändert diese Prüfpflicht nicht.
   Fehlende/unvollständige Bilder bleiben rot. Unbelegte Bildänderungen gelten als Verschlechterung.
 - Vollständiger Asset-Cache → frischer Offline-Prozess → vollständige Welt so schnell wie möglich.
   Vorbereitete Places sollen warm unter zehn Sekunden laden; eine Sekunde ist ein Optimierungs-

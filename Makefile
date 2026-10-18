@@ -183,11 +183,11 @@ corpus-prepare: ## prepare pinned corpus inputs (MANIFEST=test/.../manifest.json
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py all --manifest "$(MANIFEST)"
 
-test: test-timeout-cleanup test-client-arguments test-client-data test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
+test: test-timeout-cleanup test-client-arguments test-client-data test-client-cache test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
 	@$(RUN)
 
 .PHONY: test-all
-test-all: test-timeout-cleanup test-client-arguments test-client-data test-motion-trace all ## all declared native, UI and script suites
+test-all: test-timeout-cleanup test-client-arguments test-client-data test-client-cache test-motion-trace all ## all declared native, UI and script suites
 	@$(RUN) --all
 
 suite:           ## named suite or C++ case; builds its component closure (SUITE=...)
@@ -235,6 +235,10 @@ test-source-units: ## verify native platform and Objective-C++ source selection
 	@cd $(SELF_DIR) && python3 test/scripts/test_source_units.py
 
 .PHONY: test-client-arguments
+.PHONY: test-client-cache
+test-client-cache: all ## verify preview, budgets, eviction and compaction without GPU initialization
+	@cd $(SELF_DIR) && python3 test/scripts/test_cache_command.py
+
 test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
 	@cd $(SELF_DIR) && python3 test/scripts/test_client_arguments.py
 

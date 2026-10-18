@@ -177,7 +177,9 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
     code = sqlite3_step(bounds.Value);
     if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
   }
-  return transaction.Commit();
+  auto committed = transaction.Commit();
+  if (committed) { State_->Observe(key, bytes.size(), true); }
+  return committed;
 }
 
 std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {

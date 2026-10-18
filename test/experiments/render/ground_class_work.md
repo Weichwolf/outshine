@@ -45,6 +45,6 @@ expensive cells; footprint rejection, fine/coarse precedence, depth rejection,
 helper invocations and camera movement matter. The tiers must not be added as
 though every pixel queried both. No fragment bottleneck or cache benefit follows
 from these averages. Compare bounded local arithmetic and actual shading work
-before adding a new classifier cache. The current edge loop computes a square root
-per segment although only the minimum distance is consumed; reducing squared
-distances first is a small candidate requiring its own CPU/GPU/image/cost checks.
+before adding a new classifier cache. Reducing squared segment distances before
+taking a root did not produce a runtime gain; the unchanged-image comparison is
+recorded in [ground_class_distance.md](ground_class_distance.md).

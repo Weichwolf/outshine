@@ -58,7 +58,7 @@ def main():
     parser.add_argument("--place", required=True)
     args = parser.parse_args()
     native, output = args.native_root.resolve(), args.output.resolve()
-    if output.is_relative_to(ROOT) or not any(
+    if output.is_relative_to(ROOT) or output.is_relative_to(native) or not any(
         output.is_relative_to(p)
         for p in (Path(tempfile.gettempdir()).resolve(), Path("/tmp").resolve())
     ):
