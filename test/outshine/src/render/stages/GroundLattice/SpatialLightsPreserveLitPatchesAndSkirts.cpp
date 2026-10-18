@@ -1,12 +1,32 @@
 #include "test/harness/render/NativeGroundLatticeProbe.h"
 #include "LightCells.h"
 #include "LightCellFrame.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOffline.h"
+#include "Check.h"
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <span>
+#include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine::Test::GroundProbe;
 constexpr size_t kSources = 17;
 constexpr float kIntensity = 20;
 constexpr float kRange = 8;
+constexpr uint64_t kSphereBoxBudget = 1000000;
+constexpr uint32_t kEmitterSlot = 24;
+constexpr uint32_t kIndexSlot = 25;
+constexpr double kMaximumRelativeError = 0.02;
+constexpr double kRmsRelativeError = 0.005;
 
 LightCells Sources() {
   std::array<SubjectLight, kSources> lights;
@@ -14,13 +34,16 @@ LightCells Sources() {
     lights[i].Light.Kind = LightKind::Point;
     lights[i].Light.RangeM = kRange;
     lights[i].Light.Intensity = i + 1 == lights.size() ? kIntensity : 0;
-    lights[i].PositionEcefM = {{i + 1 == lights.size() ? 0 : 128.0 * (i + 1), 0, 2}};
+    lights[i].PositionEcefM = {
+        {i + 1 == lights.size() ? 0 : LightCellFrame::kPositionWidthM * static_cast<double>(i + 1),
+         0,
+         2}};
   }
   auto cells = BuildLightCells(lights,
-                               {.EmitterBytes = 1024 * 1024,
-                                .IndexBytes = 1024 * 1024,
-                                .ScratchBytes = 1024 * 1024,
-                                .SphereBoxTests = 1000000});
+                               {.EmitterBytes = size_t{1024} * 1024,
+                                .IndexBytes = size_t{1024} * 1024,
+                                .ScratchBytes = size_t{1024} * 1024,
+                                .SphereBoxTests = kSphereBoxBudget});
   CHECK(cells && !cells->FullEnumeration,
         "the actual producer keeps all seventeen finite sources in the spatial index");
   if (!cells) { Failed(); }
@@ -113,8 +136,8 @@ std::vector<Binding> Bindings(const Inputs &input, bool spatial) {
        .Slot = 1,
        .Value = Uniform{.Bytes = std::as_bytes(std::span(&input.Lighting, 1))}}};
   if (spatial) {
-    bindings.push_back(Storage(2, 24, *input.Emitters));
-    bindings.push_back(Storage(2, 25, *input.Index));
+    bindings.push_back(Storage(2, kEmitterSlot, *input.Emitters));
+    bindings.push_back(Storage(2, kIndexSlot, *input.Index));
     bindings.push_back({.Set = 3,
                         .Slot = 4,
                         .Value = Uniform{.Bytes = std::as_bytes(std::span(&input.Frame, 1))}});
@@ -164,7 +187,10 @@ std::vector<float> Capture(Device &device, const LightCells &cells, bool spatial
 }
 
 void Compare(std::span<const float> actual, std::span<const float> reference) {
-  double peak = 0, signal = 0, error = 0, maximum = 0;
+  double peak = 0;
+  double signal = 0;
+  double error = 0;
+  double maximum = 0;
   size_t nonfinite = 0;
   for (size_t pixel = 0; pixel < kPixels; ++pixel) {
     for (size_t channel = 0; channel < 3; ++channel) {
@@ -174,12 +200,13 @@ void Compare(std::span<const float> actual, std::span<const float> reference) {
       maximum = std::max(maximum, std::abs(difference));
       signal += static_cast<double>(reference[at]) * reference[at];
       error += difference * difference;
-      nonfinite += !std::isfinite(actual[at]) || !std::isfinite(reference[at]);
+      if (!std::isfinite(actual[at]) || !std::isfinite(reference[at])) { ++nonfinite; }
     }
   }
   CHECK(nonfinite == 0, "every RGB value remains finite");
   CHECK(signal > 1 && peak > 0, "the seventeenth source visibly illuminates actual terrain");
-  CHECK(maximum <= 0.02 * peak && error <= 0.005 * 0.005 * signal,
+  CHECK(maximum <= kMaximumRelativeError * peak &&
+            error <= kRmsRelativeError * kRmsRelativeError * signal,
         "all spatial terrain RGB values preserve the full active-light BRDF reference");
 }
 }
