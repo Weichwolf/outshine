@@ -92,6 +92,13 @@ def build_prototype(blade, variant, patches=2, size=16):
     for part in range(patches):
         chart = make_chart(source, np.array([part]), normals[part], size)
         mask = owners == part
+        triangle = mesh["vertices"][mesh["faces"][mask]]
+        projected_area = (
+            np.cross(triangle[:, 1] - triangle[:, 0], triangle[:, 2] - triangle[:, 0])
+            @ chart.frame[:, 2]
+        )
+        if np.any(projected_area <= 0):
+            raise ValueError("folded-over patch requires more spatial detail")
         partial = source | {
             "faces": mesh["faces"][mask],
             "normals": mesh["normals"].reshape(-1, 3, 3)[mask].reshape(-1, 3),

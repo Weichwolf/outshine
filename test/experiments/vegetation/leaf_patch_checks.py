@@ -17,6 +17,13 @@ from spatial_source_checks import fixture
 
 
 class LeafPatches(unittest.TestCase):
+    def test_folded_projection_refuses_a_card_while_source_remains_valid(self):
+        blade = Blade(length=0.2, width=0.05, twist=4.0, bend=0.0)
+        self.assertGreater(len(blade.mesh(8, 1)["faces"]), 0)
+        with self.assertRaisesRegex(ValueError, "folded-over patch"):
+            build_prototype(blade, 0, 1)
+        self.assertEqual(len(build_prototype(blade, 0, 4).charts), 4)
+
     def test_retained_map_preserves_raw_vector_length_and_coverage_mass(self):
         blade = Blade(length=0.15, width=0.06, bend=0.4, twist=0.5, fold=0.2)
         mesh = blade.mesh(8, 1)
