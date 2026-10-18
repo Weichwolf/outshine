@@ -68,13 +68,13 @@ class BoundedBatchControls(unittest.TestCase):
         )
 
     def test_invalid_limits_and_half_pinned_inputs_rejected(self):
-        good = dict(
-            max_attempts=8,
-            seconds=300,
-            attempt_seconds=60,
-            prepared_reference=None,
-            reference_sha256=None,
-        )
+        good = {
+            "max_attempts": 8,
+            "seconds": 300,
+            "attempt_seconds": 60,
+            "prepared_reference": None,
+            "reference_sha256": None,
+        }
         for key, value in (
             ("max_attempts", 0),
             ("max_attempts", 9),
