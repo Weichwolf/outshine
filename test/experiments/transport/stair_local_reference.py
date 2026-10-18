@@ -106,7 +106,7 @@ def construct(state, recipe, rows, sources, sample):
         contact_mode="profile",
         junction_mode=recipe["junction_mode"],
     )
-    module = audit(state, recipe, data, rows, planning, line, upper)
+    module = audit(state, recipe, data, rows, planning, line, upper, sources=sources)
     local, chosen, terrain = prepare(state, data, ground, recipe, sample)
     reference = source_ground(ground, data)
     footprint = shapely.union_all(
