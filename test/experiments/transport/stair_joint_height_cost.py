@@ -110,7 +110,12 @@ def run(args):
     ).hexdigest()
     args.output.mkdir()
     measurements, arrays = {}, {}
-    for method in ("fixed_priors", "joint", "quantized", "rounded_joint"):
+    methods = (
+        (getattr(args, "method", None),)
+        if getattr(args, "method", None)
+        else ("fixed_priors", "joint", "quantized", "rounded_joint")
+    )
+    for method in methods:
         records = []
         for _repeat in range(args.repeats):
             began = time.perf_counter()
@@ -188,6 +193,9 @@ if __name__ == "__main__":
     parser.add_argument("--prior-module", type=Path, action="append", default=[])
     parser.add_argument("--repeats", type=int, choices=(1, 3, 5), default=3)
     parser.add_argument("--profile", action="store_true")
+    parser.add_argument(
+        "--method", choices=("fixed_priors", "joint", "quantized", "rounded_joint")
+    )
     resource.setrlimit(resource.RLIMIT_CPU, (180, 180))
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
     run(parser.parse_args())
