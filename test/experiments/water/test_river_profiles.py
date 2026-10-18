@@ -1,8 +1,9 @@
 import unittest
+from pathlib import Path
 
 import numpy as np
 
-from river_profiles import RiverProfile
+from river_profiles import RiverProfile, flow_check
 
 
 class RiverProfiles(unittest.TestCase):
@@ -44,6 +45,18 @@ class RiverProfiles(unittest.TestCase):
         self.assertGreater(count[0], 1)
         self.assertEqual(height[1], 2)
         self.assertEqual(count[1], 1)
+
+    def test_real_input_rejects_blending_as_a_complete_flow_solver(self):
+        with np.load(Path(__file__).parent / "fixtures/feldkirch-ill-profile.npz") as data:
+            nodes, heights = data["segment_nodes"], data["segment_levels"]
+            profile = RiverProfile(nodes, heights)
+            nearest = flow_check(profile, nodes, heights, "nearest")
+            blended = flow_check(profile, nodes, heights, "blend-affine")
+        self.assertGreater(nearest["checked_segments"], 0)
+        self.assertEqual(nearest["segments_with_sampled_uphill"], 0)
+        self.assertGreater(blended["segments_with_sampled_uphill"], 0)
+        self.assertGreater(blended["maximum_sampled_rebound_m"], .01)
+        self.assertEqual(blended["unused_segments"], 0)
 
     def test_invalid_source_geometry_is_rejected(self):
         for segments, levels in [([], []), ([[[0, 0], [0, 0]]], [[0, 1]]),

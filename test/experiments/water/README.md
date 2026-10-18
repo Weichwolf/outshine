@@ -36,6 +36,14 @@ The radius is the declared collar plus twice the nearest-course distance. It is 
 terrain raster size. Within valid support this normalized partition is continuous across
 nearest-owner changes; it does not establish monotonic flow or a global gradient/error bound.
 
+The fixed real-input counterexample rejects blending as a complete flow solver: sampled
+heights can rise along a descending source segment. `nearest` avoids that particular
+counterexample but fails the independent branch-switch continuity check. Neither candidate
+is ready for native admission. `flow` in the report samples 17 positions on each source
+segment dropping more than 1 cm; passing that sampling is not a monotonicity proof.
+The next step is a shared conforming surface with directional constraints, rather than
+porting either failed approximation directly into water and terrain consumers.
+
 Cost: at most 8192 input segments; queries in batches of 64. The spatial query enumerates
 all local candidates before checking the per-point reference budget. Report that work;
 do not claim the query traversal itself is capped by that budget. Overloaded points return

@@ -72,6 +72,32 @@ class RiverProfile:
         return height, counts
 
 
+def flow_check(profile, segments, levels, method, blend_m=12.0, reference_limit=64):
+    segments = np.asarray(segments).copy()
+    levels = np.asarray(levels).copy()
+    reverse = levels[:, 0] < levels[:, 1]
+    segments[reverse] = segments[reverse, ::-1]
+    levels[reverse] = levels[reverse, ::-1]
+    segments = segments[levels[:, 0] - levels[:, 1] > .01]
+    fractions = np.linspace(0, 1, 17)
+    points = (segments[:, 0, None, :] +
+              (segments[:, 1] - segments[:, 0])[:, None, :] * fractions[None, :, None])
+    values, _ = profile.sample(points.reshape(-1, 2), method, blend_m, reference_limit)
+    values = values.reshape(len(segments), 17)
+    valid = np.isfinite(values).all(axis=1)
+    values = values[valid]
+    rebound = values - np.minimum.accumulate(values, axis=1)
+    return {
+        "source_drop_minimum_m": .01,
+        "samples_per_segment": 17,
+        "checked_segments": int(valid.sum()),
+        "unused_segments": int((~valid).sum()),
+        "segments_with_sampled_uphill": int((np.diff(values, axis=1).max(axis=1) > 1e-4).sum()),
+        "maximum_sampled_rebound_m": float(rebound.max(initial=0)),
+        "scope": "sampled counterexample check, not a global monotonicity proof",
+    }
+
+
 def compare(data, blend_m, reference_limit):
     began = time.perf_counter()
     profile = RiverProfile(data["segment_nodes"], data["segment_levels"])
@@ -94,6 +120,9 @@ def compare(data, blend_m, reference_limit):
                 [float(np.min(height[valid] - data["old"][valid])),
                  float(np.max(height[valid] - data["old"][valid]))] if valid.any() else None),
         }
+        results[method]["flow"] = flow_check(
+            profile, data["segment_nodes"], data["segment_levels"], method,
+            blend_m, reference_limit)
     return {"preparation_ms": prepared_ms, "methods": results}, values
 
 
