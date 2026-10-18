@@ -4,6 +4,7 @@ import json
 
 import numpy as np
 from compact_crown_kernel import evaluate
+from crown_demand import host_bounds
 from outshine_ref.vegetation.curve_frame import arc_frame
 
 
@@ -34,6 +35,7 @@ class CompactCrown:
             "variants": crown.variants,
             "petiole": np.asarray(crown.petiole_m),
         }
+        data["lower"], data["upper"] = host_bounds(source)
         for count in np.unique(crown.counts):
             if not count:
                 continue
@@ -48,7 +50,9 @@ class CompactCrown:
         return type(self)(
             self.identity,
             {
-                key: value.astype(np.float32) if value.dtype.kind == "f" else value
+                key: value.astype(np.float32)
+                if value.dtype.kind == "f" and key not in ("lower", "upper")
+                else value
                 for key, value in self.data.items()
             },
         )

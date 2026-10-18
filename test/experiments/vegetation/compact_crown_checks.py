@@ -9,6 +9,8 @@ from unittest.mock import patch
 import numpy as np
 from compact_crown import CompactCrown
 from compact_crown_kernel import frame32
+from crown_demand import CrownDemand
+from crown_demand_probe import cameras
 from outshine_ref.vegetation.shoot_plan import normal_frame
 from spatial_group_source import SpatialGroupSource
 from spatial_source_checks import fixture
@@ -82,6 +84,18 @@ class CompactCrownChecks(unittest.TestCase):
             np.ones(len(product.data["hosts"]), bool), max_leaves=0, anchors=True
         )
         self.assertTrue(all(len(v) == 0 for v in actual.values()))
+
+    def test_saved_bounds_keep_original_demand_and_float32_does_not_round_them(self):
+        source = fixture()
+        original = CrownDemand(source)
+        product = CompactCrown.build(source)
+        for p in (product, product.quantized()):
+            self.assertEqual(p.data["lower"].dtype, np.dtype(np.float64))
+            for camera in cameras().values():
+                np.testing.assert_array_equal(
+                    camera.visible(p.data["lower"], p.data["upper"]),
+                    original.query((camera,), max_leaves=100000)["detail"],
+                )
 
     def test_finished_reader_never_builds_or_repeats_randomness(self):
         product = CompactCrown.build(fixture())
