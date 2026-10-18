@@ -6,7 +6,7 @@ from dataclasses import replace
 import numpy as np
 from bay_facade_mesh import expand
 from facade_programme_plan import ATTIC, FIN, MAIN, PLINTH
-from terraced_crown_geometry import capless
+from terraced_crown_geometry import RoofedProducts, capless
 from terraced_facade_probe import facade_draw
 from terraced_facade_surface import joined
 
@@ -56,6 +56,29 @@ def with_closed_layers(frames, planned):
     }
 
 
+def without_trim_surface(mesh):
+    keep = mesh["materials"] != 9
+    vertices, inverse = np.unique(mesh["faces"][keep], return_inverse=True)
+    return {
+        key: inverse.reshape(-1, 3).astype(np.uint32)
+        if key == "faces"
+        else value[keep]
+        if key == "materials"
+        else value[vertices]
+        for key, value in mesh.items()
+    }
+
+
+def programme_products(plan, planned, *, omit_trim=True):
+    if type(omit_trim) is not bool:
+        raise ValueError("Early trim omission requires a boolean")
+    if plan.body.identifier != planned.source_id:
+        raise ValueError("Facade programme belongs to a different source body")
+    return ProgrammeProducts(
+        RoofedProducts(plan, legacy_trim=not (omit_trim and planned.cells)), planned
+    )
+
+
 class ProgrammeFacade:
     def __init__(self, source, planned):
         self.source, self.planned = source, planned
@@ -98,13 +121,7 @@ class ProgrammeProducts:
         if body_near:
             body = facade_draw(facade.openings(), self.source.plan.body)
         else:
-            original = facade.source.coarse.mesh
-            keep = original["materials"] != 9
-            body = dict(
-                original,
-                faces=original["faces"][keep],
-                materials=original["materials"][keep],
-            )
+            body = without_trim_surface(facade.source.coarse.mesh)
         pieces = (body, *self.body.additions)
         if not body_near:
             pieces += (self.body.portal_frames,)

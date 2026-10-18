@@ -13,7 +13,7 @@ from bay_facade_probe import palette as previous_palette
 from bay_wall_domains import domains
 from evidence import revision
 from facade_programme_plan import PROGRAMMES, plan_programme
-from facade_programme_products import ProgrammeProducts, palette
+from facade_programme_products import palette, programme_products
 from industrial_relief_probe import camera
 from podium_probe import write
 from stepped_source_probe import overview
@@ -117,7 +117,9 @@ def models(output):
             *zip(PROGRAMMES, programmes, strict=True),
         ]:
             name = prefix + "-" + label
-            product = None if planned is None else ProgrammeProducts(source, planned)
+            product = (
+                None if planned is None else programme_products(source.plan, planned)
+            )
             mesh = legacy if product is None else product.draw()
             checks = (
                 None
@@ -156,8 +158,9 @@ def models(output):
                 "legacy_trim_faces": int(
                     (source.body.facade.physical().frames["materials"] == 9).sum()
                 ),
-                "explicit_reference_old_trim_built_then_replaced": planned is not None,
-                "scope": "Actual source body, heights, windows/portals, floors, terraces and roof retained. Only owned legacy trim is replaced by plinth/main/attic and horizontal/vertical facade programmes. Reference deliberately builds then removes old trim; early construction and whole-city/runtime/cache/native admission pending.",
+                "replacement_omits_legacy_trim_before_construction": planned
+                is not None,
+                "scope": "Actual source body, heights, windows/portals, floors, terraces and roof retained. Replacement products omit owned legacy trim before construction; the separate legacy baseline still includes its own trim. Whole-city/runtime/cache/native admission requires separate evidence.",
             }
             write(output, name, mesh, record, proof)
             saved = json.loads((output / (name + "-geometry.json")).read_text())
