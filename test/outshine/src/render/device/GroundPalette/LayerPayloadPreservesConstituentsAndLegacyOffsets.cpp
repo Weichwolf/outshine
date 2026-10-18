@@ -15,6 +15,8 @@ int main() {
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped material catalog");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "shipped ground recipes");
   if (!templates.Ready()) { return Report(); }
+  constexpr double kConstituentTolerance = 1e-7;
+  constexpr double kDensityTolerance = 2e-7;
   const Vec4f fallback{{.11f, .22f, .33f, .9f}};
   const auto palette = Render::GroundMaterialPalette(templates, fallback);
   const size_t rows = templates.TemplateCount();
@@ -39,12 +41,12 @@ int main() {
       CHECK(storedMean == mean[channel], "legacy material appearance remains the exact mean");
       CHECK_NEAR(storedMean - coverage * difference,
                  source.Ground[channel],
-                 1e-7,
+                 kConstituentTolerance,
                  "uncovered constituent",
                  "linear colour and perceptual roughness survive packing");
       CHECK_NEAR(storedMean + (1 - coverage) * difference,
                  source.Litter[channel],
-                 1e-7,
+                 kConstituentTolerance,
                  "covering constituent",
                  "linear colour and perceptual roughness survive packing");
       CHECK(palette[surfacesAt + 8u * row + channel] == source.GroundSurf[channel] &&
@@ -70,7 +72,7 @@ int main() {
             "shape and coarse mix retain the agreed float offsets");
       CHECK_NEAR(coat[20] * coat[20] * source.Grass[3],
                  1.0,
-                 2e-7,
+                 kDensityTolerance,
                  "density pitch",
                  "the microrecipe uses square metres consistently");
       CHECK(coat[21] >= 0.0f && coat[21] <= source.Dry[3] && coat[21] <= source.Param[1] &&
