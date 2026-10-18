@@ -2,10 +2,12 @@
 
 Compare flat fragment levels, nearest-course projection and normalized compact blends
 of local linear course profiles. This is an experimental height field, not a production
-river solver. NumPy and Shapely/GEOS perform the array and spatial-index work.
+river solver. NumPy and Shapely/GEOS perform the array and spatial-index work. Surface
+experiments use the shared `outshine_ref` mesh contract from `lib/`; use its Python>=3.11
+dependencies (NumPy, SciPy, Shapely>=2.1, Pillow; Clarabel for the shared fitting reference).
 
 ```sh
-python3 -m unittest discover -s test/experiments/water
+PYTHONPATH=lib/src python3 -m unittest discover -s test/experiments/water
 python3 test/experiments/water/river_profiles.py \
   --input test/experiments/water/fixtures/feldkirch-ill-profile.npz \
   --output /tmp/outshine-river-results --plot
@@ -23,6 +25,12 @@ Input NPZ arrays, with no pickled objects:
 The fixed Ill example has 120 shared segments and 5667 boundary queries. Its adjacent JSON
 records source hashes, selected native inputs, attribution and the approximate planar frame.
 It supports reproducible field comparison; it does not establish source-class correctness.
+Schema 2 adds the original `ring_points`, `rings`, `surfaces` and `surface_source_indices`;
+all earlier arrays are unchanged. `surface_mesh` unions the selected outlines, preserves
+holes and uses GEOS constrained Delaunay triangulation, as the native polygon mesher does.
+Boundary refinement has a predicted vertex/face budget before triangulation; no interior
+Steiner points are added. Every shared coordinate owns one height vertex. Coverage and
+overlap are checked separately; no quantization or discarded thin faces repair the result.
 
 The caller owns body selection, source identities/classes and datum. Geometric connection
 alone does not establish a flowing-water body. The current native `WaterAsset` loses these
