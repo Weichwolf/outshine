@@ -1,5 +1,6 @@
 #include "ScenarioJson.h"
 #include "CommandLine.h"
+#include "CacheCommand.h"
 #include "CostReport.h"
 #include "ProcessBoundary.h"
 #include "ShotOptions.h"
@@ -152,7 +153,8 @@ void Usage(std::string_view verb = {}) {
                  "  prepare     preload a named place\n"
                  "  places      list place cameras\n"
                  "  roundtrip   check scenario serialization\n"
-                 "  height      query terrain elevation\n\n"
+                 "  height      query terrain elevation\n"
+                 "  cache       inspect and trim source/asset storage\n\n"
                  "Use <command> --help for options. --places defaults to src/assets/places.\n"
                  "--stats on run, shots or measures prints "
                  "STAT<TAB>name<TAB>key<TAB>value<TAB>unit rows.");
@@ -945,6 +947,7 @@ int RunClientCommand(std::span<const char *const> arguments) {
   const auto verb = command->Verb;
   const auto rest = static_cast<int>(command->Arguments.size());
   const auto *const from = command->Arguments.data();
+  if (verb == "cache") { return outshine::Client::RunCacheCommand(command->Arguments); }
   if (const auto help = RequestedHelp(*command); help) {
     Usage(*help);
     return 0;

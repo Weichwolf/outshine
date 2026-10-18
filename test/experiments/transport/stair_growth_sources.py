@@ -43,6 +43,8 @@ def outer_seeds(state, sources, records, remaining):
     }
     roots, deferred = [], []
     for key in sorted(state["cached_module_rows"]):
+        if sources[key]["mvt_xy"][0] == sources[key]["mvt_xy"][-1]:
+            continue
         for end in (0, -1):
             node = sources[key]["mvt_xy"][end]
             if tuple(node) not in endpoints:

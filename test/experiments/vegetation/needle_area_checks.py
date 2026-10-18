@@ -4,8 +4,8 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from needle_area_light import integrate, triangle_rule
 from scatter_scene import ScatterScene
+from surface_area_light import integrate, triangle_rule
 
 
 def sheet():

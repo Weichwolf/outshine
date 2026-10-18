@@ -103,7 +103,8 @@ void DrawList::Compile() {
                         .ModelSlot = draw.ModelSlot,
                         .Instances = draw.Instances,
                         .FirstJob = 0,
-                        .JobCount = 0});
+                        .JobCount = 0,
+                        .WorldSphere = {}});
   }
 
   size_t at = 0;

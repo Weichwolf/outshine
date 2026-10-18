@@ -1,7 +1,7 @@
 # Held-out needle directions and explicit partial demand
 
 Owner: `outshine_vegetation`; [#643](https://github.com/Weichwolf/outshine/issues/643).
-Extends [projected-area integration](needle_area_light.md). No native/material
+Extends [projected-area integration](surface_area_light.md). No native/material
 binding, plant recipe or stored plant changes. The default full-query numerical
 fields replay exactly against the prior frozen actual tail product.
 

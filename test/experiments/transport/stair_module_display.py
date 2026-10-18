@@ -37,16 +37,12 @@ def display(output, base, supports, state, data, terrain, parts, roles):
     for view in ("overview", "network"):
         camera = dict(scene)
         if view == "network":
+            eye, target = scene["eye"], scene["target"]
             camera.update(
-                eye=[600, -490, 616],
-                target=[0, 310, 166],
-                span_m=1450,
-                detail_view=True,
+                eye=[2 * target[0] - eye[0], 2 * target[1] - eye[1], eye[2]],
+                span_m=scene["span_m"] * 1.08,
+                detail_view=False,
             )
-            if state.get("cache_parent_reports"):
-                camera.update(
-                    eye=[500, -600, 616], target=[-100, 200, 166], span_m=1650
-                )
         for phase in ("before", "after"):
             mesh = output / (phase + "-display.npz")
             row = dict(

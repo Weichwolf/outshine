@@ -4,10 +4,10 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from needle_area_cells import clipped_batches
 from needle_area_checks import sheet
-from needle_area_light import integrate, triangle_rule
 from scatter_scene import ScatterScene
+from surface_area_cells import clipped_batches
+from surface_area_light import integrate, triangle_rule
 
 
 def positions(source, order):
@@ -44,7 +44,8 @@ class NeedleAreaDemandChecks(unittest.TestCase):
         scene = ScatterScene(source["vertices"], source["faces"])
         with (
             patch(
-                "needle_area_cells.projected_source", side_effect=AssertionError("clip")
+                "surface_area_cells.projected_source",
+                side_effect=AssertionError("clip"),
             ),
             patch.object(scene, "nearest", side_effect=AssertionError("ray")),
         ):

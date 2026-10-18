@@ -52,7 +52,16 @@ std::expected<Cell, Error> Builder::Position(const Light &light) const {
 
 void Builder::Encode(uint32_t id) {
   Local[id] = Source[id];
-  Coordinates[id] = *Position(Source[id]);
+  const Cell cell = *Position(Source[id]);
+  if (!NeedsPacking) {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      if (cell[axis] != Coordinates[id][axis]) {
+        Words[Words[4] + 3 * id + axis] = std::bit_cast<uint32_t>(cell[axis]);
+        ++PackedWordWrites;
+      }
+    }
+  }
+  Coordinates[id] = cell;
   for (size_t axis = 0; axis < 3; ++axis) {
     Local[id][4 + axis] = static_cast<float>(Source[id][4 + axis] + Translation[axis] -
                                              Coordinates[id][axis] * kPositionWidth);
@@ -103,6 +112,7 @@ bool Builder::Footprint(const Light &light, std::pmr::vector<Cell> &result) {
 }
 
 void Builder::Fallback() {
+  NeedsPacking = true;
   Overflow = true;
   Cells.clear();
   Assignments = 0;
@@ -111,6 +121,7 @@ void Builder::Fallback() {
 }
 
 void Builder::Insert(const Cell &cell, uint32_t id) {
+  NeedsPacking = true;
   auto &ids = Cells.try_emplace(cell).first->second;
   ids.insert(std::ranges::lower_bound(ids, id), id);
   ++Assignments;
@@ -118,6 +129,7 @@ void Builder::Insert(const Cell &cell, uint32_t id) {
 }
 
 void Builder::Remove(const Cell &cell, uint32_t id) {
+  NeedsPacking = true;
   const auto found = Cells.find(cell);
   auto &ids = found->second;
   ids.erase(std::ranges::lower_bound(ids, id));
@@ -141,6 +153,8 @@ Builder::Build(std::span<const Light> lights, uint32_t width, size_t budget, Vec
       return std::unexpected(Error::Domain);
     }
   }
+  NeedsPacking = true;
+  PackedWordWrites = PackRebuilds = 0;
   Source.assign(lights.begin(), lights.end());
   Local.resize(lights.size());
   Coordinates.resize(lights.size());
@@ -168,7 +182,7 @@ Builder::Build(std::span<const Light> lights, uint32_t width, size_t budget, Vec
 std::expected<void, Error> Builder::Update(uint32_t id, const Light &light) {
   if (id >= Source.size() || !Valid(light)) { return std::unexpected(Error::Input); }
   if (!Position(light)) { return std::unexpected(Error::Domain); }
-  Tests = MembershipChanges = 0;
+  Tests = MembershipChanges = PackedWordWrites = PackRebuilds = 0;
   const Light old = Source[id];
   const bool geometry = Global(old) != Global(light) ||
                         (!Global(light) && (light[7] != old[7] || light[4] != old[4] ||
@@ -192,6 +206,7 @@ std::expected<void, Error> Builder::Update(uint32_t id, const Light &light) {
       ++after;
     }
   }
+  if (Global(old) != Global(light)) { NeedsPacking = true; }
   if (Global(old)) { Globals.erase(std::ranges::lower_bound(Globals, id)); }
   if (Global(light)) { Globals.insert(std::ranges::lower_bound(Globals, id), id); }
   if (Assignments > IndexBytes / sizeof(uint32_t)) { Fallback(); }
@@ -199,6 +214,7 @@ std::expected<void, Error> Builder::Update(uint32_t id, const Light &light) {
 }
 
 std::expected<void, Error> Builder::Pack(Lookup method) {
+  if (!NeedsPacking && method == PackedLookup) { return {}; }
   const size_t capacity =
       method == Lookup::Hash ? std::bit_ceil(std::max(size_t{2}, 2 * Cells.size())) : Cells.size();
   const size_t slots = std::max(size_t{1}, capacity);
@@ -208,6 +224,9 @@ std::expected<void, Error> Builder::Pack(Lookup method) {
   const size_t total = poseAt + 3 * Coordinates.size();
   if (total > std::numeric_limits<uint32_t>::max() / 2) { return std::unexpected(Error::Size); }
   Words.assign(total, 0);
+  PackedWordWrites += total + kHeaderWords + kSlotWords * Cells.size() + Assignments +
+                      Globals.size() + 3 * Coordinates.size();
+  ++PackRebuilds;
   Words[0] = static_cast<uint32_t>(globalAt);
   Words[1] = static_cast<uint32_t>(Globals.size());
   Words[2] = kHeaderWords;
@@ -232,6 +251,8 @@ std::expected<void, Error> Builder::Pack(Lookup method) {
       Words[coordinateAt + 3 * id + axis] = std::bit_cast<uint32_t>(Coordinates[id][axis]);
     }
   }
+  PackedLookup = method;
+  NeedsPacking = false;
   return {};
 }
 }

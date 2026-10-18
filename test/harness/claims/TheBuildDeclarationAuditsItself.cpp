@@ -153,7 +153,7 @@ int main(void) {
         "STALE CONTROL: the strike did not take, so the closure detector below would be asked "
         "to find a hole that was never made");
   std::string missing;
-  const int missingVerdict = Run("sh " + lost + " --audit-link 2>&1", missing);
+  const int missingVerdict = Run("sh " + lost + " --audit-link profile/engine 2>&1", missing);
   CHECK(missingVerdict != 0 && missing.find("cannot resolve") != std::string::npos,
         "**AND THE CLOSURE DETECTOR DETECTS**: with a unit struck from the declaration the audit "
         "flips and names a symbol it can no longer resolve -- the silent absence that filed the "

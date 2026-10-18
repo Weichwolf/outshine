@@ -99,7 +99,14 @@ def prepare_volumes(assets, supports, contacts, sources, manifest, modules, prio
     else:
         rows, owners, error, preparation = reused(prior, assets, sources, manifest)
     extra, origins, records, work = supplement(
-        rows, owners, bindings(assets, modules), sources
+        rows,
+        owners,
+        bindings(
+            assets,
+            () if "borrowed_headroom_contacts" in manifest else modules,
+            prepared_contacts=manifest.get("borrowed_headroom_contacts", ()),
+        ),
+        sources,
     )
     return (
         (*rows, *extra),

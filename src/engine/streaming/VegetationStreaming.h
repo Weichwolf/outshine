@@ -22,7 +22,7 @@ public:
 
   struct Counters {
     Content::PreparedImpostorAssets::Counters Assets;
-    uint64_t Generated = 0;
+    uint64_t Generated = 0, SelectedInstances = 0;
     double GenerationMs = 0.0;
   };
 
@@ -52,6 +52,7 @@ private:
     std::string Provenance;
     std::vector<Mat4> Models;
     std::unique_ptr<Render::ImpostorInstances> Pieces;
+    std::optional<Vec3> ViewOrigin;
     Phase State = Phase::Wanted;
   };
 
@@ -68,6 +69,7 @@ private:
   Tasks::Handle Preparing_ = Tasks::kNoTask;
   size_t PreparingGroup_ = 0;
   std::string PreparedError_, Failure_;
+  uint64_t SelectedInstances_ = 0;
   std::atomic_uint64_t Generated_{0};
   std::atomic<double> GenerationMs_{0};
 };

@@ -26,6 +26,6 @@ outshine/src/render
 outshine/src/engine
 outshine/src/scenario
 outshine/src/client
-outshine/integration/places/RenderWien
-outshine/integration/places/RenderTokyo
-outshine/integration/places/RenderCentralPark
+outshine/integration/places/client/RenderWien
+outshine/integration/places/client/RenderTokyo
+outshine/integration/places/client/RenderCentralPark

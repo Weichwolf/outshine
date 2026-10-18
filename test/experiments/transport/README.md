@@ -12,6 +12,19 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
+- [Installierter gemeinsamer Höhenkern](stair_level_library_comparison.md):
+  gleiche ganze 90er Produkte und pixelgleiche 720p-Bilder, neue begrenzte
+  Bibliotheksfunktion statt numerischer Experimentkopien (#732/#50).
+- [Ganze automatische Seeds mit lokaler Float32-Höhenkorrektur](stair_free_terrain_comparison.md):
+  90 ursprüngliche Quellen, vier prozedurale Walk-Kontakte und unveränderte ganze
+  D/Q-Gates; freie Terrainapproximation, tatsächliche Fachleser und gemessene Kosten
+  gegen den teuren Integer-Fit (#713/#714/#725/#729).
+- [Ringe und ganze Zufahrt gemeinsam planen](stair_joint_crossing_comparison.md):
+  87 ganze Quellen, echte prozedurale Gehwegquerung und gemeinsame Höhen vor
+  dem Einfrieren; Gegenfälle, aktuelle Fachleser und ganze 720p-Bilder (#709/#710).
+- [Gemeinsame Kontaktextrema](stair_contact_comparison.md): gleiche ganze
+  85er/86er Geometrie und Fachleser bei halbierten Kontaktüberlagerungen;
+  gemessene Allokations-/Zeitersparnis, kein Runtime-/Gerätebudget (#706).
 - [Gemeinsamer Rezeptpilot](recipe_transport.md): tatsächlicher Quellverbund,
   Profilplan und physisch geprüfter Körper auf dem kleinen Kern aus #483/#494.
 - [Ganze äußere Radkorridore](stair_corridor_comparison.md): 23 Wiener Quellen,
@@ -50,6 +63,19 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - [Fahrfreiheit über altem Fußpodest](stair_shared_headroom_comparison.md): logische
   Höhenbänder mit beiden Herkünften, tatsächliche77er Fachverbraucher und identische
   Volumen mit92,62% weniger Anpassungen; mehr temporärer JSON-Peak (#642).
+- [Ganze Pfeilerumfahrung](stair_pier_ground_comparison.md): ursprünglicher952-m-Radweg,
+  vollständige alte Pfeilerkontakte und feinere lokale Terrainbindung auf der53er
+  Ausgangswelt; damalige54er Kohorte,79er Weiterführung im folgenden Bericht (#660/#668).
+- [Strenge Abdeckungsprüfung](stair_coverage_boundary_comparison.md): hinreichender
+  Kanten-/Randnachweis in der normalen Referenzbibliothek, GEOS-Rückfall für andere
+  Topologien; gleicher ganzer Zustand und79er Produkte bei62,69%weniger kumulativ
+  angeforderten Bytes, ohne belegten RAM-/Gerätegewinn (#678).
+- [Zusammensetzung gültiger Regionen](stair_composition_comparison.md): drei
+  Alternativen an tatsächlichen Ersetzungen; gleiche79er Produkte und Fachleser,
+  weitere44,46%weniger kumulativ angeforderte Bytes beim vollständigen Laden (#678).
+- [Vollständiger79er Bestand](stair_resident_snapshot_comparison.md): geprüfte
+  Root-Profile mit allen78alten Quellen, unveränderten Asset-IDs und höheren
+  Freiräumen zusammenführen; ganze Radquelle samt Raum-/Fach-/Bild-/Kostenprüfung.
 - [Präzision neuer Kreuzungen](stair_junction_precision_comparison.md): echter
   Float32-Gegenfall, neun Kandidaten und getrennte Überlappungskontakte (#600/#602); noch keine Netzzulassung.
 - [Höhenabhängige Übergabe](stair_occupancy_comparison.md): tatsächliche 65er Körper

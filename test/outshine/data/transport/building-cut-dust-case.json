@@ -1,0 +1,20 @@
+{
+  "format": "outshine-transport-building-cut-dust/1",
+  "source_id": "openfreemap:14/8937/5678:building:305283340:1",
+  "source_part": 28,
+  "vector_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "frame": "Wien-transport-ENU-48.242427962074906-16.386505365371704-up0m",
+  "polygon_wkb": "01030000000100000004000000396A86ABE7B575C0CB8669E8D3926E402F41BEC792B675C050DF6ECFEB916E40E269FFF5C2B675C0B879FC74AA916E40396A86ABE7B575C0CB8669E8D3926E40",
+  "area_m2": 3.200564813177209e-16,
+  "minimum_clearance_m": 9.896863168835655e-15,
+  "parameters": {
+    "buildingHeight": 4.0,
+    "minHeight": 0.0,
+    "bodyHeight": 4.0,
+    "wallColorR": 1.0,
+    "wallColorG": 1.0,
+    "wallColorB": 1.0,
+    "hide3d": false
+  },
+  "material": 1
+}

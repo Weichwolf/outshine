@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "contact_mode": "seed",
+  "junction_mode": "level_box",
+  "seed": {
+    "source_id": "openfreemap:14/8937/5678:transportation:80922970:246",
+    "end": 0
+  },
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:80922970:246"
+  ],
+  "source_profiles": {},
+  "traffic_mode": "source_clearance",
+  "soil_bridge_reserve_m": 0.0,
+  "seed_grid_m": 0.00048828125,
+  "scope": "Whole simple original cyclic ground axis. Seed end selects an original graph anchor, not an outer endpoint port; cyclic seam, inner hole, whole width, source direction and strict physical admission remain mandatory."
+}

@@ -134,7 +134,14 @@ def check_caps(rows, data, assets, supports, contacts, manifest, report, sources
     if count != physical_count or len(supports) != report["actual_supports"]:
         raise ValueError("saved actual-body volume ledger incomplete")
     extra, padding = verify_shared(
-        rows, data, assets, report["prior_modules"], sources, count, report
+        rows,
+        data,
+        assets,
+        () if "borrowed_headroom_contacts" in manifest else report["prior_modules"],
+        sources,
+        count,
+        report,
+        prepared_contacts=manifest.get("borrowed_headroom_contacts", ()),
     )
     return count + extra, max(maximum, padding)
 

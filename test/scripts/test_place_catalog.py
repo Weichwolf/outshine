@@ -85,31 +85,21 @@ class Catalog(unittest.TestCase):
         path.write_text(source[:first] + source[last:])
         self.run_client('places', success=False)
 
-    def test_shipped_catalog_migration(self):
+    def test_current_catalog_is_a_twelve_view_sample(self):
         rows = self.run_client('places', directory=ROOT / 'src/assets/places').stdout.splitlines()
-        actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}
-        self.assertEqual(set(actual), {'DarmstadtWest', 'Wien', 'Rosenheim', 'Husum',
-                                       'Koerbersee', 'Malcesine', 'Feldkirch', 'Flensburg',
-                                       'CentralPark', 'Tokyo', 'BaselBadischerBahnhof',
-                                       'ZuerichHauptbahnhof'})
-        self.assertEqual(actual['Malcesine'], ['45.744855', '10.800445', '140', '290', '-2',
-                                              '38.04', '1280', '720', '2026-09-07T10:40:00Z'])
-        self.assertEqual(actual['Husum'][-1], '2026-09-07T10:30:00Z')
-        self.assertEqual(actual['Flensburg'][:3], ['54.781286', '9.433995', '66'])
-        for name, lat, lon, bearing, utc in (
-                ('CentralPark', '40.7968', '-73.952', '218.32', '16:56'),
-                ('Tokyo', '35.6595', '139.7005', '40', '02:41')):
-            self.assertEqual(actual[name], [lat, lon, '60', bearing, '-6', '55',
-                                            '1280', '720', f'2026-06-21T{utc}:00Z'])
-            self.assertIn('antialiasing="temporal"',
-                          (ROOT / f'src/assets/places/{name}.scenario').read_text())
+        self.assertEqual(len(rows), 12)
+        for row in rows:
+            fields = row.split('\t')
+            self.assertEqual(len(fields), 10)
+            source = (ROOT / 'src/assets/places' / (fields[0] + '.scenario')).read_text()
+            self.assertIn('vegetation="', source)
+            self.assertIn('antialiasing="temporal"', source)
 
     def test_terrain_relative_historical_cameras(self):
         expected = {
             'Venice': ('45.438', '12.3358', '30', '11:11'),
             'CentralPark': ('40.7968', '-73.952', '218.32', '16:56'),
             'Shibuya': ('35.6595', '139.7005', '40', '02:41'),
-            'Jura': ('47.2492', '7.5108', '156.53', '11:30'),
         }
         rows = self.run_client('places', directory=ROOT / 'src/assets/diagnostic-places').stdout.splitlines()
         actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}

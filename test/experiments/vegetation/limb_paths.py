@@ -4,7 +4,7 @@ import numpy as np
 from form_plan import validate_parents
 
 
-def dominant_paths(positions, parents, radii, max_nodes=4096):
+def dominant_paths(positions, parents, radii, max_nodes=4096, *, continuations=None):
     positions = np.asarray(positions, np.float64)
     parents = np.asarray(parents)
     radii = np.asarray(radii, np.float64)
@@ -33,9 +33,26 @@ def dominant_paths(positions, parents, radii, max_nodes=4096):
     children = [[] for _ in parents]
     for node in range(1, len(parents)):
         children[parents[node]].append(node)
+    if continuations is not None:
+        continuations = np.asarray(continuations)
+        if (
+            continuations.shape != parents.shape
+            or continuations.dtype.kind not in "iu"
+            or np.any(continuations < -1)
+            or np.any(continuations >= len(parents))
+        ):
+            raise ValueError(
+                "one bounded optional source continuation per node required"
+            )
+        selected = np.flatnonzero(continuations >= 0)
+        if np.any(parents[continuations[selected]] != selected):
+            raise ValueError("source continuation must be an actual directed edge")
     dominant = np.full(len(parents), -1, np.int32)
     for node, options in enumerate(children):
         if not options:
+            continue
+        if continuations is not None and continuations[node] >= 0:
+            dominant[node] = continuations[node]
             continue
         candidates = np.array(options)
         largest = radii[candidates].max()

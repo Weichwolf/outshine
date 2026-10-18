@@ -16,6 +16,7 @@ from stair_local_replay import load_chain
 from stair_module_experiment import write_json
 from stair_module_inputs import FIXTURE, source_context
 from stair_patch_inputs import fresh
+from stair_prepared_surface_scope import add_arguments, optional_terrain
 from stair_seed_sources import select as select_seed
 from stair_terrain_experiment import frozen
 
@@ -33,7 +34,12 @@ def compare(args):
     args.output.mkdir()
     results, selected = {}, {}
     selector = (
-        partial(select_seed, grid_m=args.seed_grid_m)
+        partial(
+            select_seed,
+            grid_m=args.seed_grid_m,
+            root_form=getattr(args, "seed_root_form", "all"),
+            crossings=getattr(args, "seed_crossings", "none"),
+        )
         if args.family == "seed"
         else select
     )
@@ -44,10 +50,24 @@ def compare(args):
             "seconds": time.perf_counter() - start,
             "profile_work": selected[method]["profile_work"],
             "plan": selected[method]["plan"],
+            **(
+                {"dependency_ledger": selected[method]["dependency_ledger"]}
+                if "dependency_ledger" in selected[method]
+                else {}
+            ),
         }
     for key in ("roots", "deferred_profiles", "recipes"):
         if selected["index"][key] != selected["scan"][key]:
             raise ValueError("indexed/scanned original-source selection differs")
+    for a, b in zip(
+        selected["index"].get("dependency_ledger", []),
+        selected["scan"].get("dependency_ledger", []),
+        strict=True,
+    ):
+        if {k: v for k, v in a.items() if k != "work"} != {
+            k: v for k, v in b.items() if k != "work"
+        }:
+            raise ValueError("indexed/scanned seed dependency evidence differs")
     if (
         selected["index"]["plan"]["source_reasons"]
         != selected["scan"]["plan"]["source_reasons"]
@@ -104,13 +124,18 @@ def arguments():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--family", choices=("attached", "seed"), default="attached")
+    parser.add_argument("--seed-crossings", choices=("none", "walk"), default="none")
+    parser.add_argument("--seed-root-form", choices=("all", "closed"), default="all")
     parser.add_argument(
         "--seed-grid-m", type=float, choices=(0.0, 2**-11), default=2**-11
     )
+    add_arguments(parser)
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     resource.setrlimit(resource.RLIMIT_CPU, (120, 120))
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
-    compare(arguments())
+    args = arguments()
+    with optional_terrain(args, []):
+        compare(args)

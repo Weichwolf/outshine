@@ -1,0 +1,8 @@
+{
+  "format": "fern-leaf-study-1",
+  "colour": "fern-colour.png",
+  "height": "fern-height.png",
+  "height_scale_m": 6e-05,
+  "colour_space": "linear data",
+  "scope": "Own authored pigment/ridges; qualitative thin transmission, not calibrated species BSDF or native mip filtering."
+}

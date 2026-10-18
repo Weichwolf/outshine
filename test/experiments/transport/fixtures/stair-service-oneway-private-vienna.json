@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "contact_mode": "seed",
+  "junction_mode": "level_box",
+  "seed": {
+    "source_id": "openfreemap:14/8937/5678:transportation:4347772092:0",
+    "end": 0
+  },
+  "source_ids": ["openfreemap:14/8937/5678:transportation:4347772092:0"],
+  "source_profiles": {
+    "openfreemap:14/8937/5678:transportation:4347772092:0": "service"
+  },
+  "traffic_mode": "source_clearance",
+  "soil_bridge_reserve_m": 0.0,
+  "seed_grid_m": 0.00048828125,
+  "road_axis": {
+    "model": "clothoid",
+    "radius_m": 6.0,
+    "error_m": 0.025,
+    "end_guard_m": 4.0,
+    "maximum_shift_m": 6.0
+  },
+  "scope": "Whole supplied one-way service source, including its access=no tag. One actual centered lane; no public route or junction connection. Original axes/attributes retained; bounded derived G2 curve and whole source area must pass all physical checks."
+}

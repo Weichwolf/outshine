@@ -17,7 +17,7 @@
 
 namespace outshine {
 
-enum class PlanHierarchyError { InvalidBounds, CapacityExceeded };
+enum class PlanHierarchyError { InvalidBounds, CapacityExceeded, InvalidStorage };
 
 class PlanHierarchy {
 public:
@@ -34,7 +34,18 @@ public:
   [[nodiscard]] static std::expected<PlanHierarchy, PlanHierarchyError>
   Build(std::span<const Box> bounds);
 
+  [[nodiscard]] static std::expected<PlanHierarchy, PlanHierarchyError>
+  Restore(std::vector<Node> nodes,
+          std::vector<uint32_t> sourceOrder,
+          std::span<const Box> sourceBounds);
+
   [[nodiscard]] std::span<const Node> Nodes() const noexcept { return Nodes_; }
+
+  [[nodiscard]] std::span<const uint32_t> SourceOrder() const noexcept { return Order_; }
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return Nodes_.capacity() * sizeof(Node) + Order_.capacity() * sizeof(uint32_t);
+  }
 
   [[nodiscard]] std::span<const uint32_t> Members(const Node &node) const noexcept {
     return std::span(Order_).subspan(node.First, node.Count);

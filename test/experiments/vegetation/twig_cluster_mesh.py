@@ -2,7 +2,7 @@
 
 import numpy as np
 from outshine_ref.vegetation.axis_surface import axis_mesh
-from twig_radius_basis import apply_basis, radius_basis
+from outshine_ref.vegetation.twig_radius_basis import apply_basis, radius_basis
 
 
 def scalar_twigs(plan, source):

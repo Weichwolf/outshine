@@ -24,6 +24,12 @@ from stair_terrain_experiment import PALETTE, frozen
 
 
 def base(args):
+    if getattr(args, "reconstruct", False):
+        if args.base_network is not None or args.base_terrain is not None:
+            raise ValueError("reconstruction has source inputs, no comparison baseline")
+        return {"mode": "reconstruct", "fixture_sha256": digest(args.fixture)}
+    if args.base_network is None or args.base_terrain is None:
+        raise ValueError("both verified comparison baseline products required")
     report = json.loads((args.base_terrain / "comparison.json").read_text())
     replay = json.loads((args.base_terrain / "verification.json").read_text())
     legacy = "network_products" in report
@@ -87,6 +93,8 @@ def presentation(args, rows, body, data, terrain, roles):
         row["span_m"] = overview_span(row, [focus])
     diagnostic.write_text(json.dumps(row, indent=2) + "\n")
     report = scenes(args.output, args.output, [("after", terrain, roles)])
+    if getattr(args, "reconstruct", False):
+        return report
     before = args.output / "before-display.npz"
     before.symlink_to(args.base_terrain.resolve() / "after-display.npz")
     report["before_display_sha256"] = digest(before)
@@ -197,9 +205,10 @@ def generate(args):
 
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-network", type=Path, required=True)
+    parser.add_argument("--base-network", type=Path)
     parser.add_argument("--fixture", type=Path, default=FIXTURE)
-    parser.add_argument("--base-terrain", type=Path, required=True)
+    parser.add_argument("--base-terrain", type=Path)
+    parser.add_argument("--reconstruct", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--palette-scene", type=Path, default=PALETTE)
     return parser.parse_args()
