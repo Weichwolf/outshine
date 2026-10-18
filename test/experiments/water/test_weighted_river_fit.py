@@ -1,6 +1,7 @@
 """Same directed feasible set, different explicit objective and separate hard pins."""
 
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import directional_river_fit as reference
@@ -91,6 +92,33 @@ class WeightedRiverFit(unittest.TestCase):
                 )
                 self.assertIsNone(fit.mesh)
             solver.assert_not_called()
+
+    def test_real_ten_metre_surface_meets_the_unchanged_dual_certificate(self):
+        from river_profiles import RiverProfile
+        from river_surface import source_body, surface_mesh
+
+        with np.load(
+            Path(__file__).parent / "fixtures/feldkirch-ill-profile.npz"
+        ) as data:
+            flat, _topology = surface_mesh(source_body(data), 10.0)
+            target, _references = RiverProfile(
+                data["segment_nodes"], data["segment_levels"]
+            ).sample(flat.vertices[:, :2], "blend-affine")
+            mesh = Mesh(np.c_[flat.vertices[:, :2], target], flat.triangles)
+            flow, _source, _distances = reference.infer_flow(
+                mesh, data["segment_nodes"], data["segment_levels"]
+            )
+            rows, _sources, _coverage = reference.source_face_rows(
+                mesh, data["segment_nodes"], data["segment_levels"]
+            )
+        xy = mesh.vertices[mesh.triangles, :2]
+        u, v = xy[:, 1] - xy[:, 0], xy[:, 2] - xy[:, 0]
+        area = np.abs(u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]) / 2
+        weights = np.bincount(mesh.triangles.ravel(), weights=np.repeat(area / 3, 3))
+        fit = fit_weighted_surface(mesh, flow, weights=weights, directed_rows=rows)
+        self.assertIsNotNone(fit.mesh, dict(fit.report))
+        self.assertLessEqual(fit.report["dual_gap"], 1e-7)
+        self.assertLessEqual(fit.report["source_face_violation"], 1e-7)
 
     def test_bad_weight_and_direction_inputs_are_rejected(self):
         for kwargs in (

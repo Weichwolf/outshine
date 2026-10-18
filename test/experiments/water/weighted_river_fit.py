@@ -200,7 +200,7 @@ def fit_weighted_surface(
     settings.max_threads = 1
     settings.max_iter = iterations
     settings.time_limit = max(0.0, seconds - (time.perf_counter() - start))
-    settings.tol_feas = settings.tol_gap_abs = settings.tol_gap_rel = 1e-9
+    settings.tol_feas = settings.tol_gap_abs = settings.tol_gap_rel = 1e-11
     if settings.time_limit == 0:
         return absent("solver_budget_exhausted")
     prepared = time.perf_counter()
