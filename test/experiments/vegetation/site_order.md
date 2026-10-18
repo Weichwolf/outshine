@@ -82,6 +82,11 @@ Das Ergebnis ändert die vier ausgewählten Positionen; nur die ursprüngliche
 Vorschlagsmenge und deren Identitäten bleiben gleich. Nicht als allgemeine
 Platzierungsstrategie übernehmen, die Pflanzen an Reservierungsrändern häuft.
 
+Die Konfliktzähler enthalten nicht die gemeinsamen Nearest-Distanzabfragen der
+Habitat-/Vorschlagsvorbereitung. Diese Arbeit und die gesamte Proposalmenge
+bleiben bestehen; weniger Konfliktaufrufe bedeuten nicht denselben Faktor für
+den vollständigen Suchlauf.
+
 Der vollständige Vorschlagssatz hat in beiden Abläufen den kanonischen
 Positions-/Schlüsselfingerprint
 `04b9bd4cd0b52a98998f995e771175238936a6b02851112023422a55ed428cac`.
