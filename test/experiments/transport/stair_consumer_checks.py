@@ -23,6 +23,7 @@ def body():
 class ConsumerChecks(unittest.TestCase):
     def test_real_clipped_dust_has_no_constructible_prism_faces(self):
         from building_mesh import solid
+        from tile_buildings import prism
 
         path = (
             Path(__file__).parents[2]
@@ -43,6 +44,23 @@ class ConsumerChecks(unittest.TestCase):
             case["material"],
         )
         self.assertEqual(len(storage[1]), 0)
+        with self.assertRaisesRegex(ValueError, "prism triangulation"):
+            prism({"polygon": polygon}, case["parameters"], case["material"])
+
+    def test_empty_and_collinear_prisms_defer_while_finite_prism_stays_valid(self):
+        from tile_buildings import prism
+
+        parameters = {"minHeight": 0, "buildingHeight": 4}
+        for polygon in (shapely.Polygon(), shapely.Polygon([(0, 0), (1, 0), (2, 0)])):
+            with (
+                self.subTest(polygon=polygon.wkt),
+                self.assertRaisesRegex(ValueError, "prism triangulation"),
+            ):
+                prism({"polygon": polygon}, parameters, 1)
+        mesh, _info = prism({"polygon": shapely.box(0, 0, 2, 3)}, parameters, 1)
+        self.assertGreater(len(mesh["faces"]), 0)
+        self.assertTrue(np.isfinite(mesh["vertices"]).all())
+        self.assertTrue(np.isfinite(mesh["normals"]).all())
 
     def test_unbuildable_cut_part_retains_other_actual_body_and_accounts_for_both(self):
         row = {"id": "original", "polygon": shapely.box(0, 0, 6, 2)}
