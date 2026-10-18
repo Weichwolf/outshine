@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import bpy
 import numpy as np
-from blender_instances import instance_group
 from crown_demand_probe import cameras
+from crown_draw_batches import batch_geometry
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_mesh import mesh_object
 from PIL import Image
@@ -26,29 +26,27 @@ def scene_objects(poses, templates, camera):
     for variant in np.unique(poses["variants"]):
         with np.load(templates / f"prototype-{variant}.npz", allow_pickle=False) as z:
             product = dict(z)
-        obj = mesh_object(
-            f"leaf{variant}",
-            product["vertices"],
-            product["faces"],
-            product["normals"],
-            coverage_material(f"coverage{variant}", product["colour"][..., 3]),
-            True,
-            uv=product["uv"],
-        )
         chosen = poses["variants"] == variant
         ids = poses["ids"][chosen]
         if np.max(ids) > 2**31 - 1:
-            raise ValueError("Blender diagnostic point IDs must fit signed32 bits")
-        holder = instance_group(
-            obj,
-            poses["origins"][chosen],
-            poses["frames"][chosen],
-            np.ones(len(ids)),
-            name=f"instances{variant}",
+            raise ValueError("Blender diagnostic source IDs must fit signed32 bits")
+        mesh = batch_geometry(
+            product, poses["origins"][chosen], poses["frames"][chosen]
         )
-        attr = holder.data.attributes.new("id", "INT", "POINT")
-        attr.data.foreach_set("value", ids.astype(np.int32))
-        holder.data.update()
+        obj = mesh_object(
+            f"leaf{variant}",
+            mesh["vertices"],
+            mesh["faces"],
+            mesh["normals"],
+            coverage_material(f"coverage{variant}", product["colour"][..., 3]),
+            True,
+            uv=mesh["uv"],
+        )
+        attr = obj.data.attributes.new("source_leaf_id", "INT", "FACE")
+        attr.data.foreach_set(
+            "value", np.repeat(ids.astype(np.int32), len(product["faces"]))
+        )
+        obj.data.update()
         triangles += len(ids) * len(product["faces"])
     scene = bpy.context.scene
     configure_preview(scene)
@@ -111,7 +109,9 @@ def render(inputs, proof, templates, output):
                 ) as z:
                     mask = np.repeat(z["detail"], source.crown.counts)
                 poses = {k: v[mask] for k, v in reference.items()}
+            before = time.perf_counter()
             scene, triangles = scene_objects(poses, templates, camera)
+            build_s = time.perf_counter() - before
             scene.render.filepath = str(output / (method + ".png"))
             before = time.perf_counter()
             bpy.ops.render.render(write_still=True)
@@ -121,6 +121,7 @@ def render(inputs, proof, templates, output):
                     "leaf_instances": len(poses["ids"]),
                     "instance_triangles": triangles,
                     "render_s": time.perf_counter() - before,
+                    "scene_build_s": build_s,
                 }
             )
             images[method] = np.asarray(Image.open(scene.render.filepath))[..., :3]
@@ -150,7 +151,7 @@ def render(inputs, proof, templates, output):
             resource.RUSAGE_SELF
         ).ru_maxrss
         * 1024,
-        "scope": "Finished full-reference pose table only for independent render control; same original IDs provided to Blender point instances, shared connected32 templates, emission/alpha coverage, no light or shadow/BRDF/native/device/forest admission. Reader does not generate poses. Camera-only culling and rest pose.",
+        "scope": "Finished full-reference pose table only for independent render control; same original IDs retained as face attributes in eight CPU-expanded Blender mesh batches. Shared connected32 templates and original poses, emission/alpha coverage, no light or shadow/BRDF/native/device/forest admission. This diagnostic expansion is not a proposed runtime representation. Reader does not generate poses. Camera-only culling and rest pose.",
     }
     (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
 

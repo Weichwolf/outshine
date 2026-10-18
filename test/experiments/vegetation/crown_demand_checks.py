@@ -5,13 +5,35 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
+from connected_leaf import build_connected
 from crown_demand import CrownDemand, host_bounds, projected_spans
+from crown_draw_batches import batch_geometry
 from demand import Camera
 from spatial_group_source import SpatialGroupSource
 from spatial_source_checks import fixture
 
 
 class CrownDemandChecks(unittest.TestCase):
+    def test_diagnostic_batches_keep_independent_original_transforms_and_indices(self):
+        source = fixture()
+        product = build_connected(source.blades[0])["mesh"]
+        group = source.crown.group(int(source.crown.hosts[0]), 128)
+        result = batch_geometry(product, group["origins"], group["frames"])
+        v, f = len(product["vertices"]), len(product["faces"])
+        for i, frame in enumerate(group["frames"]):
+            np.testing.assert_allclose(
+                result["vertices"][i * v : (i + 1) * v],
+                product["vertices"] @ frame.T + group["origins"][i],
+                rtol=0,
+                atol=2e-15,
+            )
+            np.testing.assert_array_equal(
+                result["faces"][i * f : (i + 1) * f], product["faces"] + i * v
+            )
+            np.testing.assert_array_equal(
+                result["uv"][i * v : (i + 1) * v], product["uv"]
+            )
+
     def test_zero_and_negative_bends_keep_actual_source_vertices_inside(self):
         original = fixture()
         for bend in (-1.0, 0.0, 1.0):
