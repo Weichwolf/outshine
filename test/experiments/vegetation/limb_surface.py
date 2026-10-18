@@ -39,10 +39,19 @@ def path_recipe(positions, radii, path):
 
 
 def limb_mesh(
-    positions, radii, path, along=2, sides=8, *, max_faces=262144, max_vertices=65536
+    positions,
+    radii,
+    path,
+    along=2,
+    sides=8,
+    *,
+    max_faces=262144,
+    max_vertices=65536,
+    bark=False,
 ):
     if (
-        type(along) is not int
+        type(bark) is not bool
+        or type(along) is not int
         or not 1 <= along <= 16
         or type(sides) is not int
         or not 3 <= sides <= 64
@@ -82,4 +91,8 @@ def limb_mesh(
     )
     mesh = close_rings(surface, normals, centre, tangent)
     mesh["station_parameters"] = parameter
+    if bark:
+        from limb_bark import bark_fields
+
+        mesh.update(bark_fields(spine, parameter, radius, sides))
     return mesh
