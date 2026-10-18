@@ -57,6 +57,63 @@ def prepare(palette, output):
     return variants, labels, active, rows, tail
 
 
+def optical_controls(palette, active, rows, tail):
+    complete = [int(row) for row in active if palette[tail + 24 * row + 19] == 1]
+    assert complete, "a fully coated row is required for optical endpoint controls"
+    row = complete[0]
+    at, prefix = tail + 24 * row, 4 * (row + 1)
+    controls = {}
+    for name, fraction in (("green-optics", 0), ("dry-optics", 1)):
+        value = palette.copy()
+        value[at + 18] = fraction
+        endpoint = at + (8 if fraction == 0 else 12)
+        value[prefix : prefix + 3] = value[endpoint : endpoint + 3]
+        controls[name] = value
+    value = palette.copy()
+    value[at + 8 : at + 11] = 0
+    value[at + 12 : at + 15] = 1
+    value[prefix : prefix + 3] = value[at + 18]
+    controls["mixture-optics"] = value
+    value = value.copy()
+    value[4 * (rows + 2) + rows + 1 + row * 8 + 4] = 0
+    controls["flat-optics"] = value
+    return controls, row
+
+
+def check_optics(outputs, variants, labels, row, rows, tail):
+    at, prefix = tail + 24 * row, 4 * (row + 1)
+    selected = np.array([which == row for which, _ in labels])
+    far = np.array([which == row and footprint == 64 for which, footprint in labels])
+    for name in ("green-optics", "dry-optics"):
+        expected = np.broadcast_to(
+            variants[name][prefix : prefix + 3], (int(selected.sum()), 3)
+        )
+        np.testing.assert_array_equal(outputs[name][selected, :3], expected)
+        np.testing.assert_array_equal(
+            outputs[name][selected, 3:], outputs["full"][selected, 3:]
+        )
+    fraction = float(variants["full"][at + 18])
+    contrast = float(variants["full"][4 * (rows + 2) + rows + 1 + row * 8 + 4])
+    extent = min(fraction, 1 - fraction) * contrast
+    mixture = outputs["mixture-optics"][selected, :3]
+    assert mixture.min() >= fraction - extent - 1e-7
+    assert mixture.max() <= fraction + extent + 1e-7
+    assert np.std(mixture) > 1e-3
+    np.testing.assert_array_equal(mixture[:, 0], mixture[:, 1])
+    np.testing.assert_array_equal(mixture[:, 0], mixture[:, 2])
+    for name, chosen in (("flat-optics", selected), ("mixture-optics", far)):
+        expected = np.full((int(chosen.sum()), 3), np.float32(fraction))
+        np.testing.assert_array_equal(outputs[name][chosen, :3], expected)
+    return {
+        "row": row,
+        "endpoints_exact": True,
+        "zero_contrast_exact": True,
+        "far_mean_exact": True,
+        "unchanged_endpoint_normals_roughness": True,
+        "mixture_range": [float(mixture.min()), float(mixture.max())],
+    }
+
+
 def execute(binary, output, names, rows):
     outputs, commands = {}, []
     shader = output / "canopy-probe.spv"
@@ -106,9 +163,16 @@ def execute(binary, output, names, rows):
 
 
 def check(outputs, labels, active, palette):
-    for name, result in outputs.items():
-        if name not in ("full", "legacy"):
-            assert np.array_equal(result, outputs["legacy"]), name
+    for name in (
+        "short",
+        "extra",
+        "zero",
+        "zero-density",
+        "zero-height",
+        "zero-width",
+        "zero-weight",
+    ):
+        assert np.array_equal(outputs[name], outputs["legacy"]), name
     noncanopy = np.array([row not in active for row, _ in labels])
     far = np.array([footprint == 64.0 for _, footprint in labels])
     assert np.array_equal(outputs["full"][noncanopy], outputs["legacy"][noncanopy])
@@ -147,8 +211,13 @@ def main():
     (output / "comparison.json").unlink(missing_ok=True)
     palette = np.fromfile(args.palette, dtype="<f4")
     variants, labels, active, rows, tail = prepare(palette, output)
+    controls, optical_row = optical_controls(palette, active, rows, tail)
+    variants.update(controls)
+    for name, value in controls.items():
+        value.tofile(output / f"{name}.palette.bin")
     outputs, commands = execute(args.binary.resolve(), output, variants, rows)
     changes = check(outputs, labels, active, palette)
+    optics = check_optics(outputs, variants, labels, optical_row, rows, tail)
     report = {
         "status": "passed",
         "probes_per_variant": len(labels),
@@ -165,6 +234,7 @@ def main():
         "legacy_controls_bit_exact": True,
         "far_mean_bit_exact": True,
         "near_max_changes": changes,
+        "optical_controls": optics,
         "commands": commands,
     }
     (output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n")
