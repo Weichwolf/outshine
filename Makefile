@@ -151,9 +151,10 @@ experiment-metal: all ## direct Metal MRT/depth/Hi-Z proof; METAL_OUTPUT must na
 	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" python3 test/experiments/render/native_metal.py --output "$(METAL_OUTPUT)"
 
 .PHONY: experiment-vulkan
-experiment-vulkan: all ## native Vulkan archive/compute/textures; VULKAN_OUTPUT must name a system-temp directory
+experiment-vulkan: all ## native Vulkan proof; set VULKAN_DEVICE_NAME and system-temp VULKAN_OUTPUT
 	@test -n "$(VULKAN_OUTPUT)" || { echo 'set VULKAN_OUTPUT to a system-temp directory' >&2; exit 2; }
-	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" VULKAN_VALIDATION="$(VULKAN_VALIDATION)" python3 test/experiments/render/native_vulkan.py --output "$(VULKAN_OUTPUT)"
+	@test -n "$(VULKAN_DEVICE_NAME)" || { echo 'set VULKAN_DEVICE_NAME to the exact Vulkan device name' >&2; exit 2; }
+	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" VULKAN_VALIDATION="$(VULKAN_VALIDATION)" python3 test/experiments/render/native_vulkan.py --device-name "$(VULKAN_DEVICE_NAME)" --output "$(VULKAN_OUTPUT)"
 
 lint: ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh

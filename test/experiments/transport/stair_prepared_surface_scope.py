@@ -19,6 +19,14 @@ from outshine_ref.geometry.surface_patches.prepared import (
 REFERENCE = "outshine-prepared-terrain-reference/1"
 
 
+def add_arguments(parser):
+    parser.add_argument("--prepared-reference", type=Path)
+    parser.add_argument("--reference-sha256")
+    parser.add_argument(
+        "--prepared-variant", choices=("stored", "compressed"), default="stored"
+    )
+
+
 def optional_terrain(args, records):
     path = getattr(args, "prepared_reference", None)
     pin = getattr(args, "reference_sha256", None)

@@ -14,10 +14,13 @@ POSITION_LIMIT_PX = 0.5
 
 
 class FacadeProducts:
-    def __init__(self, prepared, *, portals=()):
+    def __init__(self, prepared, *, portals=(), legacy_trim=True):
+        if type(legacy_trim) is not bool:
+            raise ValueError("Legacy facade trim selection requires a boolean")
         self.prepared = prepared
         self.portals = tuple(portals)
-        self.coarse = compact(prepared, portals=self.portals)
+        self.legacy_trim = legacy_trim
+        self.coarse = compact(prepared, portals=self.portals, legacy_trim=legacy_trim)
         self.near = None
         mass = prepared.mass
         self.source_polygon = shapely.from_wkb(mass.source_wkb)
@@ -45,7 +48,10 @@ class FacadeProducts:
     def physical(self):
         if self.near is None:
             self.near = build_facade(
-                self.prepared.mass, prepared=self.prepared, portals=self.portals
+                self.prepared.mass,
+                prepared=self.prepared,
+                portals=self.portals,
+                legacy_trim=self.legacy_trim,
             )
         return self.near
 

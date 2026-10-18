@@ -1,0 +1,565 @@
+{
+  "purpose": "fixed real-input counterexample for shared river-profile research; not a native place or image oracle",
+  "input_sha256": "9c925970942c835b4af1ddef540afaff46b22117d2d33e1f7453b6737e7236f5",
+  "source_asset_key": "e10baddd4e10e79cb1d5b7d44fc2a9e217a9a5e61e993f1c471df0ce4b8c1d5b",
+  "source_package_sha256": "7fa27cc97424a3c5560f843683e025d413f63f5b4f5e27686e4e8f15431f838f",
+  "native_water_sha256": "f60008cd35242655b9620af93b24f13647f55e30e256d265f1ce5b7e3c5f5868",
+  "source_epoch": "not recorded in this cooked product",
+  "sources": [
+    "OpenFreeMap OSM-based vectors; © OpenStreetMap contributors, https://www.openstreetmap.org/copyright",
+    "Mapterhorn height data, through the configured Outshine provider; provider attribution at https://mapterhorn.com/data-access/"
+  ],
+  "frame": {
+    "origin_lon_lat": [
+      9.598371,
+      47.232575
+    ],
+    "xy": "local equirectangular approximation used only for this prototype; no native WGS84/frame error bound",
+    "height": "ASL metres from existing cooked water courses, not resampled DEM"
+  },
+  "selection": {
+    "scope": "prototype: one connected example body identified geometrically, no source-class admission; no native implementation",
+    "selected_surface_indices": [
+      0,
+      1,
+      17,
+      18,
+      41,
+      89,
+      132,
+      133,
+      145,
+      338,
+      368,
+      428,
+      429
+    ],
+    "selected_course_indices": [
+      0,
+      1,
+      16,
+      17,
+      26,
+      27,
+      76,
+      167,
+      176,
+      178,
+      181,
+      203,
+      215,
+      441,
+      476,
+      612,
+      614
+    ],
+    "source_points": 138,
+    "merged_nodes": 128,
+    "segments": 120,
+    "shared_node_height_disagreement_m_max": 0.0623779296875
+  },
+  "boundary": "5 m maximum edge sampling; original constant surface level per query retained",
+  "admission": "flow classes, source IDs, bridge/tunnel separation and native topology are not supplied by this fixture",
+  "schema_version": 2,
+  "surface_extension": "Original rings, holes, memberships and flat levels of the same 13 selected native surfaces; existing query/segment arrays unchanged",
+  "source_semantics_observation": {
+    "scope": "Current native replay, not a historical source epoch claim for the original v2 product; all geometry, levels and tile coverage match exactly after record permutation. No assured original OSM flow directions.",
+    "source_commit": "6bb149e9f",
+    "native_commit": "ae5d35d35d39d59cc4f8c57a5589da5f7fecd9cd",
+    "package_sha256": "7359b78fa9f9d7ba352246fbf040b6e62ab7211f929016ab6475290dbd35072a",
+    "water_sha256": "2c30509e2618dd85811bf5d52f2076703591043e7644700103bfe7de3c3b80dc",
+    "provider_feature_id_encoding": "base-10 uint64 strings; null means not supplied",
+    "sources": {
+      "2": {
+        "origin": 0,
+        "kind": 1,
+        "tile": [
+          14,
+          8627,
+          5744
+        ],
+        "cell": null,
+        "provider": "openfreemap.openmaptiles",
+        "revision": "20260927_080001_pt",
+        "digest": "04c64e767980b98ef6e4350a9600d1d74a43b04762d07fd4341e5ab2783ffa59",
+        "features": 20
+      },
+      "9": {
+        "origin": 0,
+        "kind": 1,
+        "tile": [
+          14,
+          8627,
+          5745
+        ],
+        "cell": null,
+        "provider": "openfreemap.openmaptiles",
+        "revision": "20260927_080001_pt",
+        "digest": "1af03f932e41c6b6aaf9444a0e08345fc903b3b96ab71e79836ad2fc0a649f7b",
+        "features": 139
+      },
+      "10": {
+        "origin": 0,
+        "kind": 1,
+        "tile": [
+          14,
+          8628,
+          5745
+        ],
+        "cell": null,
+        "provider": "openfreemap.openmaptiles",
+        "revision": "20260927_080001_pt",
+        "digest": "d9308db94dc22e68beae8e0cecd07b20f183c927f2eca4e22cddf547247159bf",
+        "features": 170
+      },
+      "17": {
+        "origin": 0,
+        "kind": 1,
+        "tile": [
+          14,
+          8628,
+          5746
+        ],
+        "cell": null,
+        "provider": "openfreemap.openmaptiles",
+        "revision": "20260927_080001_pt",
+        "digest": "0afd7e992cc6f56e4729e3f8231666493ffad23d3b3018a439a29f4483be552e",
+        "features": 313
+      },
+      "24": {
+        "origin": 0,
+        "kind": 1,
+        "tile": [
+          14,
+          8628,
+          5747
+        ],
+        "cell": null,
+        "provider": "openfreemap.openmaptiles",
+        "revision": "20260927_080001_pt",
+        "digest": "79bc7faa561c5bb90a264613d43aa2d619d91457ba0a42d7492593302e21b53c",
+        "features": 161
+      },
+      "25": {
+        "origin": 0,
+        "kind": 1,
+        "tile": [
+          14,
+          8629,
+          5747
+        ],
+        "cell": null,
+        "provider": "openfreemap.openmaptiles",
+        "revision": "20260927_080001_pt",
+        "digest": "26f31d8775ee3761fc929ca5ec808bde79a30c4b5d0ff9fc372fcffbf7fd43de",
+        "features": 223
+      },
+      "26": {
+        "origin": 0,
+        "kind": 1,
+        "tile": [
+          14,
+          8630,
+          5747
+        ],
+        "cell": null,
+        "provider": "openfreemap.openmaptiles",
+        "revision": "20260927_080001_pt",
+        "digest": "cb09567df65ccfb8227ae8f1b861d1ce640c64fdc03ae6e860a4faa4bc351549",
+        "features": 143
+      },
+      "27": {
+        "origin": 0,
+        "kind": 1,
+        "tile": [
+          14,
+          8631,
+          5747
+        ],
+        "cell": null,
+        "provider": "openfreemap.openmaptiles",
+        "revision": "20260927_080001_pt",
+        "digest": "4596694243ad333e18c95b394c875ab2d669b768aee9137a2a38e19e154d9594",
+        "features": 83
+      },
+      "34": {
+        "origin": 0,
+        "kind": 1,
+        "tile": [
+          14,
+          8631,
+          5748
+        ],
+        "cell": null,
+        "provider": "openfreemap.openmaptiles",
+        "revision": "20260927_080001_pt",
+        "digest": "94013318324d3f16e0997c576e97fde47c1938044f0f89918144de965969c27d",
+        "features": 72
+      }
+    },
+    "surfaces": [
+      {
+        "fixture_index": 0,
+        "source": 24,
+        "feature": 8,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "134415393"
+      },
+      {
+        "fixture_index": 1,
+        "source": 24,
+        "feature": 9,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "259558392"
+      },
+      {
+        "fixture_index": 17,
+        "source": 17,
+        "feature": 18,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "134415393"
+      },
+      {
+        "fixture_index": 18,
+        "source": 17,
+        "feature": 19,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "259558392"
+      },
+      {
+        "fixture_index": 41,
+        "source": 25,
+        "feature": 5,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "259558392"
+      },
+      {
+        "fixture_index": 89,
+        "source": 10,
+        "feature": 8,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "134415393"
+      },
+      {
+        "fixture_index": 132,
+        "source": 26,
+        "feature": 8,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "259558392"
+      },
+      {
+        "fixture_index": 133,
+        "source": 26,
+        "feature": 9,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "259558402"
+      },
+      {
+        "fixture_index": 145,
+        "source": 9,
+        "feature": 6,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "134415393"
+      },
+      {
+        "fixture_index": 338,
+        "source": 27,
+        "feature": 7,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "259558402"
+      },
+      {
+        "fixture_index": 368,
+        "source": 2,
+        "feature": 0,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "134415393"
+      },
+      {
+        "fixture_index": 428,
+        "source": 34,
+        "feature": 3,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "259558402"
+      },
+      {
+        "fixture_index": 429,
+        "source": 34,
+        "feature": 4,
+        "layer": "water_polygons",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "259618282"
+      }
+    ],
+    "courses": [
+      {
+        "fixture_index": 0,
+        "source": 24,
+        "feature": 25,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "94552102"
+      },
+      {
+        "fixture_index": 1,
+        "source": 24,
+        "feature": 26,
+        "layer": "water_lines",
+        "kind": "canal",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "1398819172"
+      },
+      {
+        "fixture_index": 16,
+        "source": 17,
+        "feature": 42,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "94552102"
+      },
+      {
+        "fixture_index": 17,
+        "source": 17,
+        "feature": 43,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "96739342"
+      },
+      {
+        "fixture_index": 26,
+        "source": 25,
+        "feature": 10,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "94551962"
+      },
+      {
+        "fixture_index": 27,
+        "source": 25,
+        "feature": 11,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "94552102"
+      },
+      {
+        "fixture_index": 76,
+        "source": 25,
+        "feature": 60,
+        "layer": "water_lines",
+        "kind": "stream",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "11675776322"
+      },
+      {
+        "fixture_index": 167,
+        "source": 10,
+        "feature": 50,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "96739342"
+      },
+      {
+        "fixture_index": 176,
+        "source": 26,
+        "feature": 21,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "94551962"
+      },
+      {
+        "fixture_index": 178,
+        "source": 26,
+        "feature": 23,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "448852282"
+      },
+      {
+        "fixture_index": 181,
+        "source": 26,
+        "feature": 26,
+        "layer": "water_lines",
+        "kind": "stream",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "2607469982"
+      },
+      {
+        "fixture_index": 203,
+        "source": 9,
+        "feature": 57,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "96739342"
+      },
+      {
+        "fixture_index": 215,
+        "source": 9,
+        "feature": 69,
+        "layer": "water_lines",
+        "kind": "stream",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "11105809892"
+      },
+      {
+        "fixture_index": 441,
+        "source": 27,
+        "feature": 20,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "448852282"
+      },
+      {
+        "fixture_index": 476,
+        "source": 2,
+        "feature": 6,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "96739342"
+      },
+      {
+        "fixture_index": 612,
+        "source": 34,
+        "feature": 11,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "328702412"
+      },
+      {
+        "fixture_index": 614,
+        "source": 34,
+        "feature": 13,
+        "layer": "water_lines",
+        "kind": "river",
+        "crossing": "",
+        "bridge": false,
+        "tunnel": false,
+        "intermittent": false,
+        "provider_feature_id": "448852282"
+      }
+    ]
+  }
+}
