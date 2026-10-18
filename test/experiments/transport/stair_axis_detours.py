@@ -174,6 +174,14 @@ def apply(rows, recipe):
         row.update(surface_axis_xy_m=axis, source_axis_detour=note)
 
 
+def witness(pier):
+    xyz = pier.vertices[pier.triangles]
+    return (
+        hashlib.sha256(xyz.tobytes()).hexdigest(),
+        shapely.union_all(shapely.polygons(xyz[:, :, :2])),
+    )
+
+
 def bind(piers, recipe):
     result = []
     for key, declared in recipe.get("source_axis_detours", {}).items():
@@ -181,9 +189,7 @@ def bind(piers, recipe):
         if type(index) is not int or not 0 <= index < len(piers):
             raise ValueError("declared actual pier is unavailable")
         pier = piers[index]
-        xyz = pier.vertices[pier.triangles]
-        sha = hashlib.sha256(xyz.tobytes()).hexdigest()
-        footprint = shapely.union_all(shapely.polygons(xyz[:, :, :2]))
+        sha, footprint = witness(pier)
         if sha != declared["pier_xyz_sha256"] or not footprint.equals(
             shapely.from_wkb(declared["pier_footprint_wkb"])
         ):
