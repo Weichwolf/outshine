@@ -63,6 +63,15 @@ The experiment does not change PNG pins, native caches or engine gates. See #760
 inputs, comparisons and the integration decision; OMT source semantics are in
 `doc/references/data/osm/openmaptiles-water{,way}-schema.yaml`.
 
+The companion JSON now binds this fixed geometry to a source-semantic observation from
+native replay `6bb149e9f`: 13 river surfaces and 17 courses (13 river, three stream, one
+canal), with provider IDs, tile-local indices, shared tile provenance and crossing flags.
+IDs are base-10 uint64 strings. Geometry, heights and tile membership match the original
+product exactly after record permutation; array positions are not stable identities.
+This observation does not establish the missing historical epoch of the original v2
+product or original OSM flow directions. Classes and missing crossing declarations alone
+do not prove that all bodies should share a profile; source admission remains explicit.
+
 ## Directional surface reference
 
 ```sh
