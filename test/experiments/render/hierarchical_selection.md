@@ -158,13 +158,24 @@ every source in the three inputs:
 
 | Parent prefix | Source records | Roof triangles in each plan | Occluder triangles |
 | --- | ---: | ---: | ---: |
-| bbd9aab743 | 457 | 5,256 | 256 |
-| 6d41e63e73 | 1,754 | 15,869 | 256 |
-| 035e2150a3 | 4,141 | 24,690 | 110 |
+| bbd9aab743 | 457 | 5,345 | 256 |
+| 6d41e63e73 | 1,754 | 16,196 | 256 |
+| 035e2150a3 | 4,141 | 24,850 | 110 |
+
+Very thin triangles require an exact orientation fallback when floating-point
+cross products cancel. A real hip-facet regression from source ordinal 152 is
+retained in the consumer test. This prevents the emitter from rejecting 31
+otherwise planar shapes because one of their triangles appears degenerate in
+ordinary floating-point arithmetic. The corrected roof comparison emits 576
+additional triangles; all three selections still retain every source. Patches
+whose distinct vertices collapse during the parent-coordinate transformation
+remain uncertifiable and never provide occlusion.
 
 Eight poses per input (four quarter turns at the original and moved eye) each
 produce equal 1280×720 depth images; 16 poses are nonempty and eight are empty.
-Only nonempty controls contribute visual evidence. These are finite sampled views of the
+The declared view orientation uses original envelope centres, independently of
+emitted vertices; each receipt records its actual eye and basis. Only nonempty
+controls contribute visual evidence. These are finite sampled views of the
 analytically scoped observer box, not the continuous native one-second turn
 gate. The actual roof panels were inspected. Equal images with **zero culling**
 prove no saving: the current single-triangle/full-source-envelope strategy adds
@@ -179,8 +190,9 @@ classes, shadows/interaction/neighbor transitions, complete cost/scaling proofs
 and real runtime acceptance all remain required by #12. These three exports
 share the Wien camera and do not stand in for all requested load classes.
 
-Eight focused consumer tests cover holes, disconnected bands, piecewise planes,
-hip origin/scale/deck, invalid originals, nonplanar unknowns, a lost-union negative
+Nine focused consumer tests cover holes, disconnected bands, piecewise planes,
+hip origin/scale/deck, invalid originals, nonplanar unknowns, exact thin-facet
+orientation, a lost-union negative
 control and independent height/normal corruptions. Reproduction uses the local
 `.venv` with NumPy, Shapely ≥2.1 and Pillow (measured here with GEOS 3.14.1):
 
@@ -201,5 +213,9 @@ Native surface originals remain under
 `/tmp/outshine-engine-building-surfaces-evidence-4be90897a/`; actual native source
 transfer was independently proven Mesh/Project-free in #801. Audit and roof-only
 comparison receipts, input hashes and inspected images remain under
-`/tmp/outshine-research-selection-930392b72/roof-domain-audit/` and
-`roof-selection-final/{bbd9,6d41,035e}/`. No source/asset cache or native product changes.
+`/tmp/outshine-research-selection-930392b72/roof-domain-audit-robust/` and
+`roof-selection-scoped/{bbd9,6d41,035e}/`. The original faulty-emitter comparison
+receipts and necessary before images remain under `roof-selection-final/`.
+Those older views were oriented from emitted vertices and are not a controlled
+before/after pixel pair for the corrected, fixed-camera experiment.
+No source/asset cache or native product changes.

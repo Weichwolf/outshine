@@ -10,6 +10,7 @@ from building_roof_domains import (
     checked_union,
     footprint,
     planar_roof_domains,
+    triangle_orientation,
     triangulate_domain,
 )
 from verify_building_roof_domains import controls
@@ -42,6 +43,44 @@ def shape():
 
 
 class RoofDomains(unittest.TestCase):
+    def test_real_thin_triangle_is_not_rejected_by_cross_cancellation(self):
+        xy = np.array(
+            [
+                [-0.8955213273406581, 20.56467645221061],
+                [0.7955486026398972, 37.327515319472354],
+                [0.7955486026398974, 37.327515319472354],
+            ]
+        )
+        self.assertLess(triangle_orientation(xy), 0)
+        self.assertGreater(triangle_orientation(xy[[0, 2, 1]]), 0)
+        self.assertEqual(
+            triangle_orientation(np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])), 0
+        )
+        # Original #801 bbd9 parent, source ordinal 152, shape 0, facet 2.
+        piece = {
+            "domain": shapely.Polygon(
+                [
+                    [0.7955486026398974, 37.327515319472354],
+                    [13.922100546198203, 21.44349619582772],
+                    [4.207082959163197, 20.049028650974716],
+                    [-0.3489143829580481, 19.906561444866714],
+                    [-0.8955213273406581, 20.56467645221061],
+                    [0.7955486026398972, 37.327515319472354],
+                ]
+            ),
+            "plane_enu": np.array(
+                [-0.17370182173996834, -0.14354716951746044, 13.501381332248858]
+            ),
+            "normal_enu": np.array(
+                [0.1694528447927231, 0.14003581535886642, 0.9755386736610859]
+            ),
+        }
+        emitted = triangulate_domain(piece)
+        self.assertEqual(len(emitted), 4)
+        self.assertTrue(
+            all(triangle_orientation(triangle[:, :2]) > 0 for triangle in emitted)
+        )
+
     def assert_triangulation(self, piece):
         triangles = triangulate_domain(piece)
         areas = []

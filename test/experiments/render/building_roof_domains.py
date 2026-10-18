@@ -1,5 +1,7 @@
 """Clip original native roof plans into analytic planar domains, without Fine meshes."""
 
+from fractions import Fraction
+
 import numpy as np
 import shapely
 
@@ -104,13 +106,25 @@ def triangulate_domain(piece):
             xy = np.asarray(triangle.exterior.coords)[:3]
             plane = piece["plane_enu"]
             xyz = np.column_stack((xy, xy @ plane[:2] + plane[2]))
-            cross = np.cross(xyz[1] - xyz[0], xyz[2] - xyz[0])
-            if np.dot(cross, normal) < 0:
+            signed_area = triangle_orientation(xy)
+            if (signed_area < 0) != (normal[2] < 0):
                 xyz = xyz[[0, 2, 1]]
-            if np.linalg.norm(cross) == 0:
+            if signed_area == 0:
                 raise ValueError("degenerate emitted roof triangle")
             triangles.append(xyz)
     return np.asarray(triangles).reshape(-1, 3, 3)
+
+
+def triangle_orientation(xy):
+    """Resolve cancellation in very thin but nondegenerate represented triangles."""
+    delta = xy[1:] - xy[0]
+    terms = delta[0, 0] * delta[1, 1], delta[0, 1] * delta[1, 0]
+    area = terms[0] - terms[1]
+    if abs(area) > 32 * np.finfo(float).eps * sum(abs(term) for term in terms):
+        return area
+    points = [[Fraction(float(value)) for value in point] for point in xy]
+    a, b, c = points
+    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
 
 
 def checked_union(pieces):

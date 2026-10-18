@@ -135,12 +135,17 @@ def images(native, sources, masks, seed_geometry, output):
         for name, mask in masks.items()
     }
     scene = {"anchor_ecef": native["anchor_ecef"], **native["view"]}
+    camera_targets = np.array(
+        [
+            (np.asarray(source["bounds"]["min"]) + source["bounds"]["max"]) * 0.5
+            for source in sources
+            if source["bounds"] is not None
+        ]
+    )
     rows = []
     for movement in (0, 1):
         for turn in range(4):
-            view = camera(
-                scene, models["whole"].reshape(-1, 3), 1280, 720, turn * np.pi / 2
-            )
+            view = camera(scene, camera_targets, 1280, 720, turn * np.pi / 2)
             eye, basis, focal, width, height = view
             view = (
                 eye + movement * np.array([1.0, -1.0, 0.5]),
@@ -153,6 +158,8 @@ def images(native, sources, masks, seed_geometry, output):
             row = {
                 "movement": movement,
                 "quarter_turn": turn,
+                "eye": view[0].tolist(),
+                "basis": basis.tolist(),
                 "covered_pixels": int((control > 0).sum()),
             }
             for name, model in models.items():
