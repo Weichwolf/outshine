@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from shared_bridge_geometry import corridor
 from stair_surface_access import contact_access
 
 
@@ -89,8 +90,12 @@ def crossings_for(rows, sources, recipe):
     return result
 
 
-def inspect_crossings(data, contacts, original):
+def inspect_crossings(data, contacts, rows):
     reports = []
+    original = [
+        corridor({k: v for k, v in row.items() if k != "source_grid_m"}) for row in rows
+    ]
+    grid = rows[0].get("source_grid_m")
     for contact in contacts:
         a, b = contact["owners"]
         selected = data["owners"][:, a] & data["owners"][:, b]
@@ -107,15 +112,27 @@ def inspect_crossings(data, contacts, original):
             )
             if (
                 not actual.is_valid
+                or actual.geom_type != "Polygon"
+                or expected.geom_type != "Polygon"
                 or actual.area <= 1e-7
-                or actual.symmetric_difference(expected).area > 1e-7
+                or len(actual.interiors) != len(expected.interiors)
             ):
+                raise ValueError("whole coowned geometric crossing coverage differs")
+            if grid:
+                if not actual.covers(expected) or any(
+                    not original[i].buffer(6 * grid, quad_segs=16).covers(actual)
+                    for i in (a, b)
+                ):
+                    raise ValueError("whole coowned crossing exceeds its source models")
+            elif actual.symmetric_difference(expected).area > 1e-7:
                 raise ValueError("whole coowned geometric crossing coverage differs")
             proofs.append(
                 {
                     "float32": cast,
                     "coowned_faces": int(selected.sum()),
                     "area_m2": float(actual.area),
+                    "whole_original_overlap_m2": float(expected.area),
+                    "individual_source_outward_bound_m": 6 * grid if grid else 0.0,
                 }
             )
         reports.append(

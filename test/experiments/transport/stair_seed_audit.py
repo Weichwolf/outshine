@@ -187,7 +187,7 @@ def audit(state, recipe, data, rows, planning, upper, *, sources=None):
         "profiles": profiles(data, rows, nodes, masks, original),
         "new_junction_heights": inspect_heights(data, plans),
         **(
-            {"geometric_junctions": inspect_crossings(data, contacts, original)}
+            {"geometric_junctions": inspect_crossings(data, contacts, rows)}
             if contacts
             else {}
         ),

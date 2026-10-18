@@ -93,9 +93,7 @@ class JointCrossingChecks(unittest.TestCase):
         coowned = data["owners"].all(axis=1)
         damaged["owners"][coowned, 1] = False
         with self.assertRaisesRegex(ValueError, "coverage differs"):
-            inspect_crossings(
-                damaged, crossings_for(rows, sources, recipe), planning[1]
-            )
+            inspect_crossings(damaged, crossings_for(rows, sources, recipe), rows)
 
     def test_parallel_touch_multiple_and_original_shared_nodes_remain_distinct(self):
         for xy in (
