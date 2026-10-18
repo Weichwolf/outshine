@@ -1,5 +1,7 @@
 #include "AerialPerspectiveStage.h"
 #include "MediumView.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOffline.h"
 #include "Check.h"
 #include "StageSubmission.h"
 #include "test/harness/render/NativeImageReadback.h"
@@ -7,6 +9,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstddef>
+#include <utility>
 #include <cstring>
 #include <memory>
 #include <span>
@@ -22,6 +26,12 @@ constexpr uint32_t kSkyWidth = 16;
 constexpr uint32_t kSkyHeight = 8;
 constexpr uint32_t kVeilWidth = 64;
 constexpr uint32_t kVeilHeight = 32;
+constexpr float kSkyRedLow = 0.25f;
+constexpr float kVirtualGroundRed = 1000.0f;
+constexpr float kMinimumScattering = 0.01f;
+constexpr double kRatioTolerance = 1e-4;
+constexpr double kParallelXThreshold = 0.9;
+constexpr float kPhysicalEyeM = 500;
 constexpr auto kColour = Format::Rgba32Float;
 constexpr double kSamplerTolerance = 2.0 / (kSkyWidth - 1u) / 256.0;
 
@@ -67,17 +77,18 @@ struct Sources {
   }
 
   void Prepare(Device &device) const {
-    std::vector<float> sky(kSkyWidth * kSkyHeight * 4u);
+    std::vector<float> sky(size_t{kSkyWidth} * kSkyHeight * 4u);
     for (uint32_t y = 0; y < kSkyHeight; ++y) {
       for (uint32_t x = 0; x < kSkyWidth; ++x) {
-        const size_t at = (y * kSkyWidth + x) * 4u;
-        sky[at] = y < kSkyHeight / 2u ? .25f + 2.0f * x / (kSkyWidth - 1u) : 1000.0f;
+        const size_t at = (size_t{y} * kSkyWidth + x) * 4u;
+        sky[at] = y < kSkyHeight / 2u ? kSkyRedLow + 2.0f * static_cast<float>(x) / (kSkyWidth - 1u)
+                                      : kVirtualGroundRed;
         sky[at + 1] = y < kSkyHeight / 2u ? .5f : 0.0f;
         sky[at + 2] = y < kSkyHeight / 2u ? 1.0f : 0.0f;
         sky[at + 3] = 1;
       }
     }
-    std::vector<float> veil(kVeilWidth * kVeilHeight * 4u, 1);
+    std::vector<float> veil(size_t{kVeilWidth} * kVeilHeight * 4u, 1);
     for (uint32_t y = 0; y < kVeilHeight; ++y) {
       for (uint32_t x = 0; x < kVeilWidth; ++x) {
         const auto look = medium_core::mediumTransmittanceTexel(
@@ -87,7 +98,7 @@ struct Sources {
             {.WidthPx = static_cast<float>(kVeilWidth),
              .HeightPx = static_cast<float>(kVeilHeight)});
         const float through = std::exp(-mediumTopReach(Air, look.RadiusKm, look.CosZenith));
-        const size_t at = (y * kVeilWidth + x) * 4u;
+        const size_t at = (size_t{y} * kVeilWidth + x) * 4u;
         for (size_t channel = 0; channel < 3; ++channel) { veil[at + channel] = through; }
       }
     }
@@ -102,29 +113,36 @@ struct Sources {
   }
 };
 
+struct Directions {
+  Vec3f Up;
+  Vec3f Look;
+  Vec3f Sun;
+};
+
 std::array<float, 4> Draw(Device &device,
                           const Sources &source,
                           AerialPerspectiveStage &stage,
-                          Vec3f up,
-                          Vec3f look,
-                          Vec3f sun) {
+                          const Directions &directions) {
   constexpr float kReceiverM = 250;
   constexpr float kFarM = 1000;
   constexpr float kControlFovDeg = 60;
   CameraBasis basis;
-  for (size_t axis = 0; axis < 3; ++axis) { basis.Forward[axis] = look[axis]; }
-  const Vec3 pole = std::abs(basis.Forward[0]) < 0.9 ? Vec3{{1, 0, 0}} : Vec3{{0, 1, 0}};
+  for (size_t axis = 0; axis < 3; ++axis) { basis.Forward[axis] = directions.Look[axis]; }
+  const Vec3 pole =
+      std::abs(basis.Forward[0]) < kParallelXThreshold ? Vec3{{1, 0, 0}} : Vec3{{0, 1, 0}};
   basis.Right = Cross(basis.Forward, pole);
   CHECK(Normalise(basis.Right), "aerial lookup camera has a valid right axis");
   basis.Up = Cross(basis.Right, basis.Forward);
   const Lens lens{
       .WidePx = 1, .HighPx = 1, .FovDeg = kControlFovDeg, .NearM = kReceiverM, .FarM = kFarM};
-  const auto view = MakeMediumViewParameters(
-      lens,
-      {.Width = 1, .Height = 1},
-      basis,
-      {.SunDir = sun, .WorldUp = up, .IlluminanceLux = 1, .EyeHeightM = 500},
-      source.Air);
+  const auto view = MakeMediumViewParameters(lens,
+                                             {.Width = 1, .Height = 1},
+                                             basis,
+                                             {.SunDir = directions.Sun,
+                                              .WorldUp = directions.Up,
+                                              .IlluminanceLux = 1,
+                                              .EyeHeightM = kPhysicalEyeM},
+                                             source.Air);
   CHECK(view.has_value(), "the aerial lookup uses a valid shared camera frame");
   if (!view) { Failed(); }
   auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
@@ -172,21 +190,23 @@ void CheckDirections(Device &device) {
         0, 0, 0, 1, diagonal, std::sqrt((1.0f - diagonal) * 0.5f)};
     for (size_t index = 0; index < suns.size(); ++index) {
       for (const Vec3f look : {up, up * -1.0f, along}) {
-        const auto pixel = Draw(device, source, stage, up, look, suns[index]);
+        const auto pixel =
+            Draw(device, source, stage, {.Up = up, .Look = look, .Sun = suns[index]});
         for (const float value : pixel) {
           CHECK(std::isfinite(value), "zenith and nadir sun/look directions keep finite radiance");
         }
-        CHECK(pixel[2] > .01f && pixel[2] < 1, "a finite segment receives positive sky scattering");
-        if (!(pixel[2] > .01f)) { continue; }
+        CHECK(pixel[2] > kMinimumScattering && pixel[2] < 1,
+              "a finite segment receives positive sky scattering");
+        if (!(pixel[2] > kMinimumScattering)) { continue; }
         const float column = Dot(look, along) > .5f ? sunColumns[index] : 0;
         CHECK_NEAR(pixel[0] / pixel[2],
-                   .25 + 2 * column,
+                   kSkyRedLow + 2 * column,
                    kSamplerTolerance,
                    "radiance ratio",
                    "relative sun azimuth uses the correct finite texel centres");
         CHECK_NEAR(pixel[1] / pixel[2],
                    .5,
-                   1e-4,
+                   kRatioTolerance,
                    "radiance ratio",
                    "horizon and downward rays exclude the bright virtual ground");
       }
