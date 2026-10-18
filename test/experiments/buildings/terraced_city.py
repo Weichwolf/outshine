@@ -20,6 +20,7 @@ from tile_buildings import construct
 from tile_dormers import DormerFacades
 from tile_podiums import PodiumDetails
 from tile_terraced import TerracedDetails, definitions
+from tile_terraced_crowns import CrownedDetails, crown_definitions
 
 DATA = Path(__file__).with_name("data")
 
@@ -37,6 +38,8 @@ def emit(
     if source["generated"] != 988 or source["omissions"]:
         raise ValueError("Paired whole-city output lost original source coverage")
     extra = definitions() if isinstance(builder, TerracedDetails) else {}
+    if isinstance(builder, CrownedDetails):
+        extra = crown_definitions()
     if set(extra) & (
         set(source["material_definitions"]) | set(previous.owner.facades.bindings)
     ):
@@ -57,7 +60,7 @@ def emit(
         "mesh_array_sha256": fingerprint(mesh),
         "triangles": len(mesh["faces"]),
         "assembly_seconds": time.perf_counter() - start,
-        "scope": "Complete unchanged988-source flat window and actual exterior-position demand. Previous same-view parts reused; old functional owners preserved. Earlier scoped physical source proof reused with unchanged modelling files, not a new full-cohort audit/cache/controller/native/light/shadow/device admission.",
+        "scope": "Complete unchanged988-source flat window and actual exterior-position demand. Previous same-view parts reused; old functional owners preserved. Declared scoped physical source proof reused with unchanged modelling files; no whole-city controller/cache/native/light/shadow/device admission.",
     }
     write(output, name, mesh, record, proof)
     print(
@@ -89,6 +92,11 @@ def models(args):
         "Paris", json.loads((DATA / "roof-crown-city-window.json").read_text())
     )
     records = admitted(rows, reference, baseline)
+    if args.crowns and (
+        reference.get("full_body_checks_requested") is not True
+        or reference.get("roof_checks_requested") is not True
+    ):
+        raise ValueError("Crowned city requires an explicit complete body/roof audit")
     if sorted((r["url"], r["sha256"]) for r in receipts["receipts"]) != sorted(
         (r["url"], r["sha256"]) for r in baseline["receipts"]
     ):
@@ -135,12 +143,14 @@ def models(args):
     if not set(baseline["existing_function_ids"]).issubset(existing):
         raise ValueError("Previous source pipeline lost a protected functional owner")
     records = {key: value for key, value in records.items() if key not in existing}
-    builder = TerracedDetails(previous, records)
+    builder = (CrownedDetails if args.crowns else TerracedDetails)(previous, records)
     outcomes = []
     for full in [False, True] if args.full_near_reference else [False]:
         builder.full_near = full
         builder.completed.clear()
-        tag = "TerracedFullNear" if full else "TerracedAfter"
+        tag = ("Crowned" if args.crowns else "Terraced") + (
+            "FullNear" if full else "After"
+        )
         record = emit(
             args.output,
             tag,
@@ -194,6 +204,7 @@ def main():
     parser.add_argument("--audit", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--full-near-reference", action="store_true")
+    parser.add_argument("--crowns", action="store_true")
     args = parser.parse_args()
     if args.output.resolve() == Path(
         "/tmp"
