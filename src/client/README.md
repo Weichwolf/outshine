@@ -25,3 +25,37 @@ Szenarioinhalte bekommen keine einzelnen CLI-Schalter.
 Places planen die Frame-Anfänge auf absoluten Terminen. Die Messung endet nach
 der GPU-Fertigstellung des letzten Frames; sie wartet danach kein leeres Restintervall.
 Framezahl und 360°-Kamerafahrt bleiben gleich. PNG-Kodierung liegt außerhalb der Messzeit.
+
+# Cachewartung
+
+```sh
+build/outshine-client cache trim --assets-mib 8192 --sources-mib 2048
+build/outshine-client cache trim --assets-mib 8192 --sources-mib 2048 --apply --compact
+```
+
+Standard ist eine Vorschau. `--apply` entfernt die ausgewählten Inhalte. Null leert den
+gewählten Cache. `--root <Verzeichnis>` wählt einen Cache-Elternordner mit `assets/` und
+`sources/`; Standard ist das Anwendungsverzeichnis von SDL. Netzwerk und GPU starten nicht.
+
+Das Assetbudget gilt gemeinsam für komprimierte Pakete in `assets.sqlite` und
+`prototypes.sqlite`. Verwaiste Pakete werden zuerst entfernt, anschließend die am längsten
+nicht verwendeten. Ein Paket wird mit sämtlichen Mitgliedern, Request-Bindungen und
+R*Tree-Einträgen gelöscht. Fertige Assets bleiben eigenständige Produkte; ein späterer Miss
+nutzt wieder den normalen Generatorpfad. Bereits geladene Leases behalten ihre Bytes.
+
+Quellen werden als erkannte Hash-Dateien samt Abwesenheitsmarkern budgetiert. Unbekannte
+Dateien, Symlinks und fremde Verzeichnisse bleiben erhalten. Auch verwaiste Nutzungsmetadaten
+werden entfernt. Bekannte letzte Nutzungen bestimmen die Reihenfolge; Altbestände sind als
+unbekannt gezählt. Deren Ersatzreihenfolge ist die Paket-Einfügereihenfolge beziehungsweise
+die Schreibzeit einzelner Quelldateien. Daraus werden keine Nutzungszeiten gespeichert.
+
+Budgets zählen Nutzdaten. Die kompakten `CACHE`-Zeilen melden zusätzlich Dateigrößen inklusive
+SQLite-/WAL-/SHM-Kosten. Ohne `--compact` werden SQLite-Seiten intern wiederverwendbar;
+mit dem Flag gibt VACUUM sie an das Dateisystem zurück. Das benötigt zusätzliche IO und
+freien Arbeitsraum. Eine blockierte Kompaktion meldet ausdrücklich den bereits erfolgten
+Trim und den Fehler. Vorschauen melden ausgewählte, noch nicht entfernte Einträge.
+
+Wartung erfolgt zwischen Läufen. Metadaten werden gebündelt geschrieben; ein laufender
+Prozess kann noch ungespeicherte Beobachtungen oder neue Cacheeinträge besitzen. Datenbanken
+bleiben jeweils transaktional konsistent; mehrere Datenbanken und Quelldateien bilden keine
+gemeinsame Transaktion. Teilfehler werden mit dem betroffenen Cache gemeldet.

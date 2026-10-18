@@ -8,12 +8,12 @@ from pathlib import Path
 
 import numpy as np
 from crown_pair_export import export_pair
+from outshine_ref.vegetation import TwigClusters
 from outshine_ref.vegetation.shoot_plan import normal_frame
 from posture_replay import read_pose
 from spatial_crown_cost import restore
 from tree_entry import load
 from twig_cluster_mesh import add_twigs
-from twig_clusters import TwigClusters
 
 
 def prepare(source, posture):

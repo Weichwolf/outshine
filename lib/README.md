@@ -66,6 +66,12 @@ Arbeitsbudgets, lokale Abwesenheit und Besitzergrenzen stehen in
 MVT-/Terrarium-Eingaben zwischen den Python-Fachagenten. Installation, Einheiten,
 Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
 
+`vegetation.TwigClusters` verteilt unveränderte kanonische Blatt-IDs auf
+physisch angeschlossene Kurztriebe mit begrenzten, nachgefragten Prototypen.
+`vegetation.twig_radius_basis` verwendet dieselben tatsächlichen Radien in einer
+exakten affinen Röhrenbasis. Vertrag, Ownership, Abnahme und Grenzen:
+[twig_clusters.md](twig_clusters.md) (#746).
+
 `vegetation.load_species_catalog()` lädt einen festen lizenzierten Pilot mit
 30 akzeptierten Arten, Herkunft und getrennten regionalen Vorkommenszuständen.
 Vorbereitete Kandidatenlisten, Format und noch offene ökologische/botanische

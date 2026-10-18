@@ -1,5 +1,9 @@
 # Attached short shoots replace crowded leaf fans — #491
 
+The implementation now lives in the installable [library core](../../../lib/twig_clusters.md)
+under #746. Experiment, replay, cost and renderer clients import that same core;
+the method and historical image/cost findings below are unchanged.
+
 The #412/#487 crown carries37464 physical leaves on1480 short0.16m carriers,
 usually25/26 leaves per carrier. The resulting dense fans remain visible in the
 whole tree. This experiment partitions those *same leaf IDs/variants* among7400

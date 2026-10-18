@@ -15,12 +15,12 @@ import numpy as np
 from attached_crown import AttachedCrown
 from attached_crown_scene import child_tubes, isolated_carrier
 from demand import Camera
+from outshine_ref.vegetation import TwigClusters
 from render_shoot_forms import environment
 from shoot_form import ShootForm
 from shoot_form_detail import matched_detail
 from shoot_form_scene import leaf_objects, wood_objects
 from spatial_group_source import load_source
-from twig_clusters import TwigClusters
 
 
 def camera_plan(dense, view):
