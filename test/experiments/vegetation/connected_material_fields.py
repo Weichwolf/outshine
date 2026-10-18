@@ -6,6 +6,7 @@ import json
 import numpy as np
 from blade_surface import Blade
 from leaf_sheet import average_blocks
+from outshine_ref.vegetation.leaf_normals import resolve_moments
 from raster_batch import rasterize
 
 
@@ -86,6 +87,50 @@ def filtered_fields(mask, slopes, pigment, height, order):
     }
 
 
+def validate_fields(arrays):
+    colour, a, b = (arrays[k] for k in ("colour", "slope_a", "slope_b"))
+    size = len(colour)
+    if size not in (16, 32, 64) or any(
+        v.shape != (size, size, 4) or not np.isfinite(v).all() for v in (colour, a, b)
+    ):
+        raise ValueError("matching bounded finite material fields required")
+    alpha = colour[..., 3]
+    if (
+        np.any((alpha < 0) | (alpha > 1))
+        or not np.array_equal(a[..., 3], alpha)
+        or not np.array_equal(b[..., 3], alpha)
+        or np.any(colour[..., :3] < 0)
+        or np.any(colour[..., :3] > alpha[..., None] + 1e-15)
+        or np.any((b[..., 2] < 0) | (b[..., 2] > alpha + 1e-15))
+    ):
+        raise ValueError("same valid premultiplied coverage/colour/height required")
+    values = np.stack(
+        (a[..., 0], a[..., 1], a[..., 2], b[..., 0], b[..., 1], alpha * 0.55**4),
+        axis=-1,
+    )
+    resolve_moments(values / np.where(alpha > 0, alpha, 1)[..., None])
+
+
+def field_identity(arrays, description):
+    keys = (
+        "format",
+        "carrier_recipe",
+        "map_size",
+        "midpoint_order",
+        "material_identity",
+        "source_uv",
+        "fields",
+        "scope",
+    )
+    digest = hashlib.sha256(
+        json.dumps({k: description[k] for k in keys}, sort_keys=True).encode()
+    )
+    for key in ("colour", "slope_a", "slope_b"):
+        digest.update(key.encode())
+        digest.update(arrays[key].tobytes())
+    return digest.hexdigest()
+
+
 def build_material(recipe, colour, height, *, size=32, order=4, material_identity):
     contacts = material_contacts(recipe, colour, height, size=size, order=order)
     arrays = filtered_fields(*contacts, order)
@@ -99,9 +144,7 @@ def build_material(recipe, colour, height, *, size=32, order=4, material_identit
         "fields": "premultiplied colour, object-Z slope E[x,y,xx,xy,yy], height and coverage",
         "scope": "Finite UV capture, geometric slope moments only. Mean-height bump, unresolved bump variance and exact GGX convolution not claimed.",
     }
-    identity = hashlib.sha256(json.dumps(description, sort_keys=True).encode())
-    for key, array in arrays.items():
+    validate_fields(arrays)
+    for array in arrays.values():
         array.setflags(write=False)
-        identity.update(key.encode())
-        identity.update(array.tobytes())
-    return arrays, description | {"identity": identity.hexdigest()}
+    return arrays, description | {"identity": field_identity(arrays, description)}

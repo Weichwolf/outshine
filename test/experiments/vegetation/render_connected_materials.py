@@ -9,6 +9,7 @@ from pathlib import Path
 
 import bpy
 import numpy as np
+from connected_material_fields import field_identity, validate_fields
 from connected_material_shader import connected_material, field_image
 from connected_reader import read_host
 from fern_material import attach_normals, leaf_material
@@ -30,8 +31,9 @@ def read_materials(folder, study, variants):
             raise ValueError("material fields belong to a different saved carrier")
         with np.load(folder / f"material-{variant}.npz", allow_pickle=False) as z:
             arrays = dict(z)
-        for key in ("slope_a", "slope_b"):
-            np.testing.assert_array_equal(arrays[key][..., 3], arrays["colour"][..., 3])
+        validate_fields(arrays)
+        if field_identity(arrays, description) != description["identity"]:
+            raise ValueError("finished material field content differs")
         products[variant] = arrays
     return products
 
@@ -170,7 +172,7 @@ def render(study, fields, original, output, node):
             resource.RUSAGE_SELF
         ).ru_maxrss
         * 1024,
-        "scope": "Left original qualitative fern colour/height/Principled roughness.55/specular.2 +.12 Translucent adapter; middle conditional mean slopes; right isotropic slope-variance roughness proxy. Same original host/poses and carrier geometry, no botanical optical/GGX-convolution/whole-crown/native/device admission.",
+        "scope": "Left original qualitative fern colour/height/Principled roughness.55/specular.2 +.12 Translucent adapter; middle conditional mean slopes; right isotropic slope-variance roughness proxy. Sun shadows disabled to isolate material response. Same original host/poses and carrier geometry, no botanical optical/GGX-convolution/whole-crown/native/device admission.",
     }
     (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
 

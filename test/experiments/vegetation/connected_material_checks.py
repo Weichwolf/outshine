@@ -6,7 +6,13 @@ from dataclasses import asdict
 import numpy as np
 from blade_surface import Blade
 from connected_leaf import build_connected
-from connected_material_fields import build_material, filtered_fields, repeated_image
+from connected_material_fields import (
+    build_material,
+    field_identity,
+    filtered_fields,
+    repeated_image,
+    validate_fields,
+)
 from outshine_ref.vegetation.leaf_normals import resolve_moments
 
 
@@ -86,6 +92,26 @@ class ConnectedMaterialChecks(unittest.TestCase):
                 np.zeros((8, 8)),
                 material_identity="original",
             )
+
+    def test_finished_field_content_and_covariance_are_checked(self):
+        recipe = build_connected(Blade(), size=32)["recipe"]
+        arrays, description = build_material(
+            recipe,
+            np.full((8, 8, 3), 0.2),
+            np.zeros((8, 8)),
+            material_identity="original",
+        )
+        validate_fields(arrays)
+        self.assertEqual(field_identity(arrays, description), description["identity"])
+        changed = {k: v.copy() for k, v in arrays.items()}
+        changed["colour"][..., 0] *= 0.5
+        validate_fields(changed)
+        self.assertNotEqual(
+            field_identity(changed, description), description["identity"]
+        )
+        changed["slope_a"][..., 2] = -1
+        with self.assertRaises(ValueError):
+            validate_fields(changed)
 
 
 if __name__ == "__main__":
