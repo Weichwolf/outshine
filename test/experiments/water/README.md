@@ -33,8 +33,8 @@ Steiner points are added. Every shared coordinate owns one height vertex. Covera
 overlap are checked separately; no quantization or discarded thin faces repair the result.
 
 The caller owns body selection, source identities/classes and datum. Geometric connection
-alone does not establish a flowing-water body. The current native `WaterAsset` loses these
-classes; that remains a required native integration change in #760.
+alone does not establish a flowing-water body. The fixed provenance JSON separately records
+current native class/source observations; height/terrain/contact integration remains in #760.
 
 `nearest` has a demonstrated discontinuity where two branches exchange nearest ownership.
 `blend-clamped` is continuous there but does not reproduce uniform longitudinal slope.
@@ -62,6 +62,15 @@ profile-conforming water triangulation, terrain contacts and spatial error bound
 The experiment does not change PNG pins, native caches or engine gates. See #760 for real
 inputs, comparisons and the integration decision; OMT source semantics are in
 `doc/references/data/osm/openmaptiles-water{,way}-schema.yaml`.
+
+The companion JSON now binds this fixed geometry to a source-semantic observation from
+native replay `6bb149e9f`: 13 river surfaces and 17 courses (13 river, three stream, one
+canal), with provider IDs, tile-local indices, shared tile provenance and crossing flags.
+IDs are base-10 uint64 strings. Geometry, heights and tile membership match the original
+product exactly after record permutation; array positions are not stable identities.
+This observation does not establish the missing historical epoch of the original v2
+product or original OSM flow directions. Classes and missing crossing declarations alone
+do not prove that all bodies should share a profile; source admission remains explicit.
 
 ## Directional surface reference
 
@@ -104,3 +113,9 @@ PYTHONPATH=lib/src python3 test/experiments/water/render_river_surface.py \
   --surface /tmp/outshine-river-surface/surface.npz \
   --output /tmp/outshine-river-surface/comparison.png
 ```
+
+The [weighted directional comparison](weighted_river_comparison.md) scores a
+positive weighted QP against the same complete LP direction/pin constraints.
+It includes exact solver-matrix exports, an independent saved-output reader,
+real 10/20/40 m cases, Source/Installed checks, costs and a private whole 3D diagnostic.
+The existing shared weighted fitter and native water remain unchanged.
