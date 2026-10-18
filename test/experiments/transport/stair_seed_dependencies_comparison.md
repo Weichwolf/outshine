@@ -1,7 +1,12 @@
 # Automatic joint seeds and the regional precision countercase
 
 Research: #713, free junction levels #714, actual regional precision #717.
-**No wider world product is admitted by this experiment.** The verified
+**Historical frozen trials through `31f8a1305`, with selection costs from `ce1794545`.**
+The later [free-terrain experiment](stair_free_terrain_comparison.md) passes the
+whole six-source case under the unchanged absolute-Q gates. Its actual consumer,
+image and terrain-quality evidence is separate; #717 remains an independent
+representation study. The refusals below describe the earlier algorithm.
+No wider world product was admitted by this historical experiment. The verified
 87-source reference from [PR #711](https://github.com/Weichwolf/outshine/pull/711)
 remains unchanged. The independently completed profile-interval correction is
 [PR #719](https://github.com/Weichwolf/outshine/pull/719), merge
