@@ -42,6 +42,7 @@ def selection(args):
             {
                 "grid_m": args.seed_grid_m,
                 "root_form": getattr(args, "seed_root_form", "all"),
+                "crossings": getattr(args, "seed_crossings", "none"),
             }
             if getattr(args, "family", "attached") == "seed"
             else {}
@@ -114,7 +115,9 @@ def run(args):
         "max_attempts": args.max_attempts,
         "attempts": attempts,
         "chosen_module": chosen,
-        "source_dispositions": source_dispositions(selected["plan"], attempts, chosen),
+        "source_dispositions": source_dispositions(
+            selected["plan"], attempts, chosen, selected["recipes"]
+        ),
         "artifacts": artifacts,
         "valid_automatic_module": chosen is not None,
         "valid_retained_baseline": chosen is None,
@@ -149,6 +152,7 @@ def arguments():
     parser.add_argument("--proposal-offset", type=int, default=0)
     parser.add_argument("--family", choices=("attached", "seed"), default="attached")
     parser.add_argument("--seed-root-form", choices=("all", "closed"), default="all")
+    parser.add_argument("--seed-crossings", choices=("none", "walk"), default="none")
     parser.add_argument(
         "--seed-grid-m", type=float, choices=(0.0, 2**-11), default=2**-11
     )
