@@ -91,11 +91,14 @@ def compare_arrays(stream, reference_output, points, radii, path, along, sides):
     return sample_errors, position_error, normal_error, vertices, faces
 
 
-def replay(binary, folder, output, seed, authored_limbs, along=2, sides=8):
+def replay(
+    binary, folder, output, seed, authored_limbs, along=2, sides=8, roundtrip=False
+):
     name, saved, points, radii, paths = load_source(folder, seed, authored_limbs)
     encoded = encode(points, radii, paths, along, sides)
     (output / f"{name}.input").write_text(encoded)
     product = output / f"{name}.native.bin"
+    command = [str(binary), str(product), *(["--roundtrip"] if roundtrip else [])]
     oversized = [path for path in paths if len(path) > 65]
     if oversized:
         for path in oversized:
@@ -106,7 +109,7 @@ def replay(binary, folder, output, seed, authored_limbs, along=2, sides=8):
             else:
                 raise AssertionError("reference unexpectedly admitted oversized limb")
         process = subprocess.run(
-            [str(binary), str(product)],
+            command,
             input=encoded,
             text=True,
             capture_output=True,
@@ -126,7 +129,7 @@ def replay(binary, folder, output, seed, authored_limbs, along=2, sides=8):
             "source_sha256": hashlib.sha256(saved.read_bytes()).hexdigest(),
         }
     process = subprocess.run(
-        [str(binary), str(product)],
+        command,
         input=encoded,
         text=True,
         capture_output=True,
@@ -164,6 +167,7 @@ def replay(binary, folder, output, seed, authored_limbs, along=2, sides=8):
         "triangles": faces,
         "native_preparation_ms": float(row[3]),
         "native_surface_ms": float(row[4]),
+        "native_roundtrip_ms": float(row[5]),
         "sample_max_errors": sample_errors.tolist(),
         "position_max_error_m": position_error,
         "normal_max_error": normal_error,
@@ -181,6 +185,7 @@ def main():
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--growth-cohort", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--roundtrip", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     receipt = {
@@ -189,13 +194,19 @@ def main():
         ).strip(),
         "binary_sha256": hashlib.sha256(args.binary.read_bytes()).hexdigest(),
         "numpy": np.__version__,
+        "stored_roundtrip": args.roundtrip,
         "scope": "original full wood paths; no joint union, bark UV, LOD error, cache or world admission",
         "cases": [],
     }
     for seed in (682, 718):
         for limbs in (False, True):
             row = replay(
-                args.binary.resolve(), args.growth_cohort, args.output, seed, limbs
+                args.binary.resolve(),
+                args.growth_cohort,
+                args.output,
+                seed,
+                limbs,
+                roundtrip=args.roundtrip,
             )
             receipt["cases"].append(row)
             (args.output / "receipt.json").write_text(
