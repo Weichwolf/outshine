@@ -2,10 +2,12 @@
 
 Compare flat fragment levels, nearest-course projection and normalized compact blends
 of local linear course profiles. This is an experimental height field, not a production
-river solver. NumPy and Shapely/GEOS perform the array and spatial-index work.
+river solver. NumPy and Shapely/GEOS perform the array and spatial-index work. Surface
+experiments use the shared `outshine_ref` mesh contract from `lib/`; use its Python>=3.11
+dependencies (NumPy, SciPy, Shapely>=2.1, Pillow; Clarabel for the shared fitting reference).
 
 ```sh
-python3 -m unittest discover -s test/experiments/water
+PYTHONPATH=lib/src python3 -m unittest discover -s test/experiments/water
 python3 test/experiments/water/river_profiles.py \
   --input test/experiments/water/fixtures/feldkirch-ill-profile.npz \
   --output /tmp/outshine-river-results --plot
@@ -23,6 +25,12 @@ Input NPZ arrays, with no pickled objects:
 The fixed Ill example has 120 shared segments and 5667 boundary queries. Its adjacent JSON
 records source hashes, selected native inputs, attribution and the approximate planar frame.
 It supports reproducible field comparison; it does not establish source-class correctness.
+Schema 2 adds the original `ring_points`, `rings`, `surfaces` and `surface_source_indices`;
+all earlier arrays are unchanged. `surface_mesh` unions the selected outlines, preserves
+holes and uses GEOS constrained Delaunay triangulation, as the native polygon mesher does.
+Boundary refinement has a predicted vertex/face budget before triangulation; no interior
+Steiner points are added. Every shared coordinate owns one height vertex. Coverage and
+overlap are checked separately; no quantization or discarded thin faces repair the result.
 
 The caller owns body selection, source identities/classes and datum. Geometric connection
 alone does not establish a flowing-water body. The current native `WaterAsset` loses these
@@ -54,3 +62,28 @@ profile-conforming water triangulation, terrain contacts and spatial error bound
 The experiment does not change PNG pins, native caches or engine gates. See #760 for real
 inputs, comparisons and the integration decision; OMT source semantics are in
 `doc/references/data/osm/openmaptiles-water{,way}-schema.yaml`.
+
+## Directional surface reference
+
+```sh
+PYTHONPATH=lib/src python3 test/experiments/water/directional_river_fit.py \
+  --input test/experiments/water/fixtures/feldkirch-ill-profile.npz \
+  --output /tmp/outshine-river-surface --spacing-m 20 \
+  --down-grade 0.1 --cross-grade 0.005
+```
+
+The independent HiGHS dual-simplex reference minimizes maximum vertex-prior error.
+Every affine face obeys `-down_grade <= gradient·flow <= 0` and
+`abs(gradient·cross) <= cross_grade`. Optional fixed vertex heights are equalities;
+incompatible contacts return no mesh. These numerical example limits and spacing are
+explicit experiment choices, not source facts or native LOD/error budgets.
+
+One shared vertex owns each height. Whole-face checks independently reconstruct gradients
+from triangle edge equations; the LP certificate checks dual stationarity, signs and gap.
+Optimality refers only to this declared finite LP. The shared weighted Clarabel fit remains
+the researcher's integration candidate; this reference supplies an independent comparison.
+The solver time cap excludes preparation and can overrun within a solver step; total pipeline
+time and sparse row/nonzero counts are separate. Failure is explicit, with no relaxed pins.
+Flow directions are inferred from descending source segments, not asserted OSM directions.
+Source semantics, native float/frame conversion, cross-region contacts, other geographic
+cases and complete native water/terrain/cache integration remain unproved.
