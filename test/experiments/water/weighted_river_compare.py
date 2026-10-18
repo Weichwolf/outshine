@@ -5,7 +5,9 @@ import hashlib
 import json
 import resource
 import time
+from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import directional_river_fit as reference
@@ -65,7 +67,7 @@ def path_check(mesh, segments, levels):
         "points": xy.size // 2,
         "outside_points": int((~valid).sum()),
         "covered_pairs": int(pairs.sum()),
-        "rising_pairs_over_1e7_m": int((rise > 1e-7).sum()),
+        "rising_pairs_over_1e_minus7_m": int((rise > 1e-7).sum()),
         "maximum_rise_m": float(rise.max(initial=0)),
     }
 
@@ -95,7 +97,14 @@ def compare(args):
 
     def quadratic_program(p, q, a, b, cones, settings):
         observed["qp"] = (p, q, a, b)
-        return old_qp(p, q, a, b, cones, settings)
+        solver = old_qp(p, q, a, b, cones, settings)
+
+        def solve():
+            result = solver.solve()
+            observed["qp_result"] = result
+            return result
+
+        return SimpleNamespace(solve=solve)
 
     with patch.object(
         weighted.clarabel, "DefaultSolver", side_effect=quadratic_program
@@ -138,7 +147,7 @@ def run(args):
             "maximum_error_m": float(np.abs(residual).max()),
             "source_path": path_check(fit.mesh, segments, levels),
         }
-        if scores[name]["source_path"]["rising_pairs_over_1e7_m"]:
+        if scores[name]["source_path"]["rising_pairs_over_1e_minus7_m"]:
             raise ValueError("whole source path has an unreported rise")
         path = args.output / (name + ".npz")
         np.savez_compressed(
@@ -167,10 +176,22 @@ def run(args):
         reference_height_m=np.median(mesh.vertices[:, 2]),
         fixed_indices=list(pins),
         fixed_heights=list(pins.values()),
+        primal=observed["qp_result"].x,
+        dual=observed["qp_result"].z,
+        slack=observed["qp_result"].s,
     )
     artifacts[problem.name] = hashlib.sha256(problem.read_bytes()).hexdigest()
+    semantics = json.loads(args.input.with_suffix(".json").read_text())[
+        "source_semantics_observation"
+    ]
+    observed_classes = {
+        k: dict(Counter(r["kind"] for r in semantics[k]))
+        for k in ("surfaces", "courses")
+    }
     report = {
         "commit": commit,
+        "observed_classes": observed_classes,
+        "shared_source_bindings": len(semantics["sources"]),
         "input_sha256": hashlib.sha256(args.input.read_bytes()).hexdigest(),
         "provenance_sha256": hashlib.sha256(
             args.input.with_suffix(".json").read_bytes()
