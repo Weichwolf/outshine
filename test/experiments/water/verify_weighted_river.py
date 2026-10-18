@@ -90,6 +90,8 @@ def verify(products, original):
         centre = float(saved["reference_height_m"])
         p, q = saved["hessian_diagonal"], saved["linear"]
         count = int(saved["inequality_count"])
+        np.testing.assert_array_equal(saved["fixed_indices"], list(pins))
+        np.testing.assert_array_equal(saved["fixed_heights"], list(pins.values()))
         expected, bounds = constraints(mesh, normalized, directed, 0.1, 0.005)
         if (matrix[:count] - expected).nnz or not np.array_equal(rhs[:count], bounds):
             raise ValueError("serialized directional matrix differs from physical mesh")
