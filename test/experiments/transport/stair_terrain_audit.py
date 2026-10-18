@@ -17,9 +17,11 @@ def top_surface(mesh):
     return Mesh(mesh.vertices, mesh.triangles[selected])
 
 
-def clearance(lower, upper):
+def clearance(lower, upper, *, max_faces=32768):
+    if type(max_faces) is not int or not 1 <= max_faces <= 65536:
+        raise ValueError("bounded explicit terrain-surface face capacity required")
     result = vertical_clearance(
-        lower, upper, max_faces=32768, max_pairs=1000000, seconds=20
+        lower, upper, max_faces=max_faces, max_pairs=1000000, seconds=20
     )
     if not result["valid"]:
         raise ValueError("saved terrain separation unresolved: " + str(result))

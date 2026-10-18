@@ -7,12 +7,13 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
+from outshine_ref.contracts import Mesh
 from stair_local_assets import road_asset, road_window
 from stair_local_checks import asset
 from stair_module_soil import assemble
 from stair_reference_roads import reference_owner_indices, reference_roads
 from stair_source_owners import source_selection
-from stair_terrain_audit import body_proof
+from stair_terrain_audit import body_proof, clearance
 
 
 class WholeReferenceRoads(unittest.TestCase):
@@ -157,6 +158,15 @@ class CompleteTerrainCapacity(unittest.TestCase):
         self.assertEqual(len(body.triangles), 67596)
         self.assertEqual(proof["zero_area_faces"], 0)
         self.assertEqual(proof["closed_oriented_volume_m3"], 83205)
+        lower = Mesh(np.c_[xy, heights], faces)
+        upper = Mesh(
+            np.array([[0, 0, 1], [200, 0, 1], [0, 200, 1]]), np.array([[0, 1, 2]])
+        )
+        with self.assertRaisesRegex(ValueError, "clearance_face_budget"):
+            clearance(lower, upper)
+        self.assertEqual(
+            clearance(lower, upper, max_faces=65536)["minimum_clearance_m"], 1
+        )
 
     def test_planar_grid_can_exceed_half_the_face_budget_without_exceeding_faces(self):
         x, y = np.meshgrid(np.arange(129), np.arange(129), indexing="ij")
