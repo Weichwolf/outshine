@@ -5,6 +5,7 @@ import hashlib
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
+from stair_crossing_paving import paving_crossing
 from stair_shared_paving import paving_node
 from stair_source_owners import source_selection
 from stair_surface_access import contact_access
@@ -37,11 +38,11 @@ def bind_contacts(state, recipe, sources):
         access = contact_access(
             chosen, sources[key], sources[old_key], state["cached_module_rows"][old_key]
         )
-        paving = (
-            paving_node(state, recipe, sources, chosen)
-            if chosen["kind"] == "minor_footway_node"
-            else {}
-        )
+        paving = {}
+        if chosen["kind"] == "minor_footway_node":
+            paving = paving_node(state, recipe, sources, chosen)
+        elif chosen["kind"] == "minor_footway_overlap":
+            paving = paving_crossing(state, recipe, sources, chosen)
         matches = [a for a in state["road_assets"] if old_key in a.source_ids]
         if len(matches) != 1:
             raise ValueError("one verified old source asset required")

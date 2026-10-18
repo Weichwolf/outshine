@@ -16,6 +16,7 @@ from stair_road_vehicle import inspect_curves
 from stair_shared_boxes import verify_masks
 from stair_shared_paving import inspect_paving
 from stair_source_owners import source_selection
+from stair_surface_access import ROAD_FOOT_CONTACTS
 from stair_surface_contacts import contact_regions
 from stair_surface_portals import inspect_contacts
 from surface_height_checks import normal_gradients
@@ -262,7 +263,7 @@ def audit(state, recipe, data, rows, planning, line, upper):
         ),
         **(
             {"borrowed_road_profiles": inspect_paving(state, rows, original, cap)}
-            if any(c["kind"] == "minor_footway_node" for c in constructed)
+            if any(c["kind"] in ROAD_FOOT_CONTACTS for c in constructed)
             else {}
         ),
         **(

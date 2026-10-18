@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "port": {
+    "source_id": "openfreemap:14/8937/5678:transportation:1574593312:0",
+    "vertex": 11
+  },
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:103612620:13"
+  ],
+  "source_profiles": {
+    "openfreemap:14/8937/5678:transportation:103612620:13": "unclassified"
+  },
+  "soil_bridge_reserve_m": 0.0,
+  "contact_mode": "profile",
+  "traffic_mode": "source_clearance",
+  "junction_mode": "shared_box",
+  "interior_contacts": [],
+  "scope": "Whole original minor road at its original ring root; one declared geometric footway crossing without an original node claim. Preserve both whole old rings; actual road frames, full interfaces and logical carriageway clearance remain mandatory.",
+  "source_fallback": {
+    "root_id": "openfreemap:14/8937/5678:transportation:1574593312:0@11",
+    "full_source_ids": [
+      "openfreemap:14/8937/5678:transportation:103612620:13",
+      "openfreemap:14/8937/5678:transportation:39881120:19",
+      "openfreemap:14/8937/5678:transportation:1044461680:2",
+      "openfreemap:14/8937/5678:transportation:80922970:255",
+      "openfreemap:14/8937/5678:transportation:138663000:4",
+      "openfreemap:14/8937/5678:transportation:80922970:220",
+      "openfreemap:14/8937/5678:transportation:80922970:222",
+      "openfreemap:14/8937/5678:transportation:80922970:257"
+    ],
+    "omitted_source_ids": [
+      "openfreemap:14/8937/5678:transportation:39881120:19",
+      "openfreemap:14/8937/5678:transportation:1044461680:2",
+      "openfreemap:14/8937/5678:transportation:80922970:255",
+      "openfreemap:14/8937/5678:transportation:138663000:4",
+      "openfreemap:14/8937/5678:transportation:80922970:220",
+      "openfreemap:14/8937/5678:transportation:80922970:222",
+      "openfreemap:14/8937/5678:transportation:80922970:257"
+    ],
+    "scope": "Whole connected source prefix; omitted sources remain original candidates for later recipes, not individually disproven."
+  },
+  "surface_contacts": [
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:103612620:13",
+      "cached_source_id": "openfreemap:14/8937/5678:transportation:80922970:246",
+      "kind": "minor_footway_overlap",
+      "modes": [
+        "walk"
+      ],
+      "access_assumption": "procedural_walk_default"
+    }
+  ]
+}
