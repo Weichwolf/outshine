@@ -109,7 +109,7 @@ def parse(text):
     )
 
 
-def compare(binary, case, output):
+def compare(binary, case, output, roundtrip=False):
     name, points, parents, count, seed, depth, whole = case
     variants = (
         np.arange(count, dtype=np.uint32) % (64 if name.startswith("fork") else 8)
@@ -122,7 +122,7 @@ def compare(binary, case, output):
     requests = queries(reference, whole)
     text = encode(reference, requests)
     result = subprocess.run(
-        [str(binary)],
+        [str(binary), *(["--roundtrip"] if roundtrip else [])],
         input=text,
         text=True,
         capture_output=True,
@@ -138,7 +138,8 @@ def compare(binary, case, output):
         len(reference.hosts),
         count,
     ]
-    assert summary[4] == len(parents) * 12 and summary[5] == len(parents) * 4
+    assert summary[4] == (0 if roundtrip else len(parents) * 12)
+    assert summary[5] == (len(hosts) if roundtrip else len(parents)) * 4
     np.testing.assert_array_equal(hosts, reference.hosts)
     np.testing.assert_array_equal(leaf_counts, reference.counts)
     np.testing.assert_array_equal(counts, np.bincount(variants, minlength=64))
@@ -207,6 +208,7 @@ def main():
     parser.add_argument("--binary", required=True, type=Path)
     parser.add_argument("--growth-cohort", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--roundtrip", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     receipt = {
@@ -218,10 +220,11 @@ def main():
         "position_atol_m": 1e-9,
         "frame_atol": 1e-12,
         "scope": "finite demanded pose comparison, not surface/radiance/LOD/world acceptance",
+        "stored_roundtrip": args.roundtrip,
         "cases": [],
     }
     for case in cases(args.growth_cohort):
-        row = compare(args.binary.resolve(), case, args.output)
+        row = compare(args.binary.resolve(), case, args.output, args.roundtrip)
         receipt["cases"].append(row)
         (args.output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
         print(json.dumps(row), flush=True)

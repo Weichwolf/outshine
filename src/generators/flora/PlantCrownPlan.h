@@ -67,7 +67,12 @@ public:
   Leaves(LeafDemand demand) const;
 
 private:
+  friend std::expected<std::vector<uint8_t>, std::string_view>
+  EncodePlantCrownPlan(const PlantCrownPlan &plan, size_t bytesMost);
+  friend std::expected<PlantCrownPlan, std::string_view>
+  DecodePlantCrownPlan(std::span<const uint8_t> bytes, size_t bytesMost);
   PlantCrownPlan() = default;
+  [[nodiscard]] static bool ValidRecipe(PlantCrownRecipe recipe);
   [[nodiscard]] std::expected<size_t, std::string_view> HostIndex(LeafDemand demand) const noexcept;
   [[nodiscard]] size_t FirstLeaf(size_t host) const noexcept;
   [[nodiscard]] size_t LeafCount(size_t host) const noexcept;
