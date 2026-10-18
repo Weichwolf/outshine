@@ -235,6 +235,10 @@ test-format: ## verify formatting coverage, real diagnostics and failure handlin
 test-source-units: ## verify native platform and Objective-C++ source selection
 	@cd $(SELF_DIR) && python3 test/scripts/test_source_units.py
 
+.PHONY: test-audit-symbols
+test-audit-symbols: ## verify real Mach-O/ELF namespace closure and missing-source detection
+	@cd $(SELF_DIR) && CXX="$(LLVM_BIN)/clang++" NM="$(LLVM_BIN)/llvm-nm" python3 test/scripts/test_audit_symbols.py
+
 .PHONY: test-client-arguments
 .PHONY: test-client-cache
 test-client-cache: all ## verify preview, budgets, eviction and compaction without GPU initialization
