@@ -18,6 +18,14 @@ int main() {
   const auto decoded = DecodePlantCrownPlan(*encoded, kCrownAssetBudget);
   CHECK(decoded, "stored plan restores its arrays without creating a new host index");
   if (!decoded) { return Report(); }
+  CHECK(decoded->Recipe().Seed == source->Recipe().Seed &&
+            decoded->Recipe().LengthM == source->Recipe().LengthM &&
+            decoded->Recipe().BendRad == source->Recipe().BendRad &&
+            decoded->Recipe().PetioleM == source->Recipe().PetioleM &&
+            decoded->Recipe().FoliageDepthM == source->Recipe().FoliageDepthM &&
+            decoded->Recipe().LeafAngleRad == source->Recipe().LeafAngleRad &&
+            decoded->Recipe().NormalAlignment == source->Recipe().NormalAlignment,
+        "consumers obtain the exact stored physical recipe before bounding or placing details");
   CHECK(decoded->Skeleton().PositionsM == source->Skeleton().PositionsM &&
             decoded->Skeleton().Parents == source->Skeleton().Parents &&
             decoded->Skeleton().Unreached == source->Skeleton().Unreached &&
