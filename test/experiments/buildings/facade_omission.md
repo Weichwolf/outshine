@@ -3,8 +3,8 @@
 Follow-up to the [checked replacement reference](facade_programmes.md), #774.
 The same ribbon-screen and vertical-slot programmes now omit old owned trim
 before coarse or physical construction. Original openings, floors, core,
-portals, terraces, roofs and source heights remain. The component results below
-are complete; whole988-source application is still being checked in PR #799.
+portals, terraces, roofs and source heights remain. The component results
+and both whole988-source applications are complete in PR #799.
 This report grants no native, device, cache or general LOD admission.
 
 ## Construction and preserved ownership
@@ -40,9 +40,9 @@ or complete Esri architecture recipe is copied or claimed.
 ## Correctness and actual images
 
 Frozen producer: `9926986a60d0bd8ac394ee1334affb6133e65643`, including the
-protected `b9f64f809` handoff. The main branch subsequently incorporates master's
-`725c124c2`; Python modelling files are unchanged by that native water advance.
-The detached producer and its running gates retain their original commit.
+protected `b9f64f809` handoff. The working branch subsequently incorporates
+master's `d3031efab`; the Python producer and dependencies are unchanged.
+The detached producer and its completed gates retain their original commit.
 
 Source `verify_facade_programmes verify_bay_facades verify_facade_omission`:
 14methods/1223.339s, terminal0. Isolated Installed library `verify_facade_omission`:
@@ -55,7 +55,36 @@ shifted-opening/portal/wall negatives remain. Default legacy cases also pass.
 
 Fresh original body/roof/draw census:71/71, terminal0,1286.514s after source
 setup,425552KiB worker RSS peak. This is the baseline for subsequent full city
-checks, not an approval of the changed whole-window facade products.
+checks. Both subsequent full city processes also end terminal0 on the frozen
+producer:988/988 original sources,71 freshly checked new bodies/layers/roofs,
+twelve protected functional owners, zero missing sources. Actual source hashes,
+camera and window remain unchanged. Each freshly rebuilt previous world matches
+the original550101-triangle draw-array hash exactly. Physical diagnostics include
+independent shell sections/volumes, closed terrace/facade parts, stair samples,
+continuous ground arrival/approach and declared terrace routes; they do not
+establish continuous arbitrary controller motion.
+
+| Full city | Ribbon screens | Vertical slots |
+|---|---:|---:|
+| Checked closed new layers |5795|8259|
+| Accepted plan cells |5795|5512|
+| Draw triangles |2842031|3009544|
+| Changed-body planning/selection s |61.537|64.530|
+| Separate physical diagnostics s |942.697|978.803|
+| Measured changed composition s |1021.333|1056.390|
+| Whole-process peak RSS KiB |3735616|3877256|
+
+Both programmes retain the original60 outer/11 front body selections and their
+independent roof demand. Each explicitly rejects413 candidate wall profiles:
+321 insufficient corner reserves,74 overlapping corner bounds and18 bounds
+intersecting a source storey. No rejected profile removes its source building.
+The old71-body crowned composition has2656495 triangles; these new programmes
+add185536/353049 triangles after replacing its old owned trim. The550101-triangle
+previous world predates those71 complete bodies and is not an equal-work cost
+baseline. Changed composition timers include the listed expensive independent
+physical diagnostics, but exclude original podium-owner setup and initial
+previous-world construction (538.421/528.668s). These are offline Python proof
+costs under shared load, not accepted world-loading, memory or frame budgets.
 
 All six newly generated hero models match every handed-off draw array exactly.
 Eighteen original captures are verified against actual image hashes, exact
@@ -67,6 +96,16 @@ replacement-reference captures. Before/after whole and opposite views show the
 coherent grouping; pale glazing, fixed window grids and plain roofs still
 dominate repetition. Blender5.2.2LTS/llvmpipe software rendering is not a GPU or
 native Places budget proof. Images remain private.
+
+Four additional actual1920×1080/16-sample whole-window captures were rendered
+and opened: exact previous world, old71-body crowned world, ribbon replacement
+and vertical replacement. Both new images retain all imported triangles and
+the same original camera/window/light. Against the crowned world, broad dark
+bands and warm frame/fins make the71 changed facades more coherent and readable,
+including the foreground tall block. The two whole images still look similar
+at this scale: pale repeated glazing/grids and plain roofs dominate most of the
+988-source window. This is a bounded replacement improvement, not worldwide
+architectural diversity or acceptance of the remaining city's materials/forms.
 
 ## Same-result work and costs
 
