@@ -2,10 +2,12 @@
 #define OUTSHINE_GENERATORS_BASE_WATER_WATERASSET_H
 
 #include "Earth.h"
+#include "TileSourceIdentity.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <optional>
 #include <span>
 #include <string>
@@ -14,9 +16,12 @@
 namespace outshine::Generators {
 class WaterAsset {
 public:
+  static constexpr uint32_t NoInput = std::numeric_limits<uint32_t>::max();
+
   struct Surface {
     uint32_t FirstRing = 0, RingCount = 0;
     float LevelM = 0.0f;
+    uint32_t Input = NoInput;
   };
 
   struct SurfaceRing {
@@ -27,6 +32,7 @@ public:
     uint32_t FirstPoint = 0, PointCount = 0;
     uint32_t FirstLevel = 0;
     float HalfWidthM = 0.0f;
+    uint32_t Input = NoInput;
   };
 
   struct Tile {
@@ -34,6 +40,20 @@ public:
     uint32_t FirstSurface = 0, SurfaceCount = 0;
   };
   enum class Coverage { Partial, Complete };
+
+  struct Source {
+    outshine::Data::TileSourceIdentity Identity;
+    std::string InputDigest;
+    uint32_t FeatureCount = 0;
+  };
+
+  struct Input {
+    uint32_t Source = 0, Feature = 0;
+    std::optional<uint64_t> FeatureId;
+    std::string Layer, Kind, Crossing;
+    bool Bridge = false, Tunnel = false;
+    std::optional<bool> Intermittent;
+  };
 
   struct Data {
     std::vector<Surface> Surfaces;
@@ -45,6 +65,8 @@ public:
     uint32_t ProcessedTiles = 0;
     long NoGround = 0, Outliers = 0, InvalidBodies = 0;
     Coverage Status = Coverage::Complete;
+    std::vector<Source> Sources;
+    std::vector<Input> Inputs;
   };
 
   WaterAsset() = default;
@@ -53,6 +75,10 @@ public:
   [[nodiscard]] const std::vector<Course> &Courses() const noexcept;
   [[nodiscard]] const std::vector<float> &Levels() const noexcept;
   [[nodiscard]] std::span<const double> Points() const noexcept;
+  [[nodiscard]] std::span<const Source> Sources() const noexcept;
+  [[nodiscard]] std::span<const Input> Inputs() const noexcept;
+  [[nodiscard]] const Input *InputOf(const Surface &surface) const noexcept;
+  [[nodiscard]] const Input *InputOf(const Course &course) const noexcept;
   [[nodiscard]] std::span<const SurfaceRing> RingsOf(const Surface &surface) const noexcept;
   [[nodiscard]] std::span<const Surface> OfTile(int tile) const noexcept;
   [[nodiscard]] int TileIndex(int zoom, int x, int y) const noexcept;

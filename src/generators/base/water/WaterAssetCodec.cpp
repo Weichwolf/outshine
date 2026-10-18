@@ -1,5 +1,5 @@
 #include "WaterAsset.h"
-#include "BinaryValueArchive.h"
+#include "WaterAssetFormat.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -14,37 +14,28 @@
 
 namespace outshine::Generators {
 namespace {
-constexpr uint64_t kVersion = 0x325245544157ULL;
-
-template <class Archive, class T, class Fields>
-bool Records(Archive &archive, std::vector<T> &records, Fields fields) {
-  uint64_t count = 0;
-  if (!archive(count) || count > archive.In.Remaining() / sizeof(T)) { return false; }
-  records.resize(count);
-  return std::ranges::all_of(records, [&](auto &record) { return fields(archive, record); });
-}
-
-template <class T, class Fields>
-bool Records(BinaryValueWriter &archive, const std::vector<T> &records, Fields fields) {
-  return archive(static_cast<uint64_t>(records.size())) &&
-         std::ranges::all_of(records, [&](const auto &record) { return fields(archive, record); });
-}
+constexpr uint64_t kVersion = 0x335245544157ULL;
 
 bool ArchiveSurfaces(auto &archive, auto &surfaces) {
-  return Records(archive, surfaces, [](auto &out, auto &surface) {
-    return out(surface.FirstRing, surface.RingCount, surface.LevelM);
+  return WaterFormat::Records<16>(archive, surfaces, [](auto &out, auto &surface) {
+    return out(surface.FirstRing, surface.RingCount, surface.LevelM, surface.Input);
   });
 }
 
 bool ArchiveRings(auto &archive, auto &rings) {
-  return Records(
+  return WaterFormat::Records<8>(
       archive, rings, [](auto &out, auto &ring) { return out(ring.FirstPoint, ring.PointCount); });
 }
 
 bool ArchiveCourses(auto &archive, auto &courses) {
-  return Records(archive, courses, [](auto &out, auto &course) {
-    return out(course.FirstPoint, course.PointCount, course.FirstLevel, course.HalfWidthM);
-  });
+  return WaterFormat::Records<4 * sizeof(uint32_t) + sizeof(float)>(
+      archive, courses, [](auto &out, auto &course) {
+        return out(course.FirstPoint,
+                   course.PointCount,
+                   course.FirstLevel,
+                   course.HalfWidthM,
+                   course.Input);
+      });
 }
 
 bool Within(size_t first, size_t count, size_t end) noexcept {
@@ -52,9 +43,10 @@ bool Within(size_t first, size_t count, size_t end) noexcept {
 }
 
 bool ArchiveTiles(auto &archive, auto &tiles) {
-  return Records(archive, tiles, [](auto &out, auto &tile) {
-    return out(tile.Zoom, tile.X, tile.Y, tile.FirstSurface, tile.SurfaceCount);
-  });
+  return WaterFormat::Records<3 * sizeof(int32_t) + 2 * sizeof(uint32_t)>(
+      archive, tiles, [](auto &out, auto &tile) {
+        return out(tile.Zoom, tile.X, tile.Y, tile.FirstSurface, tile.SurfaceCount);
+      });
 }
 
 bool ValidTile(const WaterAsset::Tile &tile, size_t surfaces) {
@@ -85,7 +77,7 @@ bool Valid(const WaterAsset::Data &data) {
   });
   const bool tiles = std::ranges::all_of(
       data.Tiles, [&](const auto &tile) { return ValidTile(tile, data.Surfaces.size()); });
-  return scalars && rings && surfaces && courses && tiles;
+  return scalars && rings && surfaces && courses && tiles && WaterFormat::ValidMetadata(data);
 }
 }
 
@@ -102,7 +94,8 @@ std::expected<std::vector<uint8_t>, std::string> WaterAsset::EncodeNative(size_t
            static_cast<int64_t>(data.InvalidBodies)) ||
       !ArchiveSurfaces(out, data.Surfaces) || !ArchiveRings(out, data.Rings) ||
       !ArchiveCourses(out, data.Courses) || !out.Array<float>(data.Levels) ||
-      !out.Array<double>(data.Points) || !ArchiveTiles(out, data.Tiles)) {
+      !out.Array<double>(data.Points) || !ArchiveTiles(out, data.Tiles) ||
+      !WaterFormat::Metadata(out, data)) {
     return std::unexpected("water asset exceeds its encoding budget");
   }
   return std::move(out.Out).TakeBytes();
@@ -121,7 +114,7 @@ std::expected<WaterAsset, std::string> WaterAsset::DecodeNative(std::span<const 
       invalidBodies > std::numeric_limits<long>::max() || !ArchiveSurfaces(in, data.Surfaces) ||
       !ArchiveRings(in, data.Rings) || !ArchiveCourses(in, data.Courses) ||
       !in.Array(data.Levels) || !in.Array(data.Points) || !ArchiveTiles(in, data.Tiles) ||
-      in.In.Remaining() != 0) {
+      !WaterFormat::Metadata(in, data) || in.In.Remaining() != 0) {
     return std::unexpected("invalid native water asset");
   }
   data.NoGround = static_cast<long>(noGround);
