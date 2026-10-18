@@ -13,9 +13,10 @@ from scipy.optimize import linprog
 from shapely.strtree import STRtree
 
 from outshine_ref.contracts import Mesh
-from outshine_ref.transport.heights import HeightFit, _gradient_weights
+from outshine_ref.transport.heights import HeightFit
 
 from river_profiles import RiverProfile
+from river_linear_model import linear_system
 from river_surface import source_body, surface_mesh
 
 
@@ -146,29 +147,10 @@ def fit_surface(mesh, flow, *, down_grade=.1, cross_grade=.005, fixed=None, dire
     if any(type(i) is not int or not 0 <= i < nv or not np.isfinite(h) for i, h in pins.items()):
         raise ValueError("finite fixed heights at existing vertices required")
     try:
-        weights = _gradient_weights(mesh.vertices[:, :2], mesh.triangles)
+        constraints, bounds, datum, target = linear_system(
+            mesh, flow, rows, down_grade, cross_grade)
     except ValueError:
         return absent("degenerate_surface")
-
-    def matrix(coefficients, faces=mesh.triangles):
-        return sparse.coo_matrix((coefficients.ravel(),
-                                  (np.repeat(np.arange(len(faces)), 3), faces.ravel())),
-                                 shape=(len(faces), nv + 1)).tocsr()
-
-    along = matrix(np.einsum("fi,fij->fj", flow, weights))
-    across = matrix(np.einsum("fi,fij->fj", cross, weights))
-    directed = matrix(np.einsum("fi,fij->fj", row_direction, weights[row_faces]),
-                      mesh.triangles[row_faces])
-    eye = sparse.hstack([sparse.eye(nv), sparse.csr_matrix((nv, 1))])
-    error = sparse.coo_matrix((-np.ones(nv), (np.arange(nv), np.full(nv, nv))),
-                             shape=(nv, nv + 1)).tocsr()
-    datum = float(np.median(mesh.vertices[:, 2]))
-    target = mesh.vertices[:, 2] - datum
-    constraints = sparse.vstack([eye + error, -eye + error, along, -along,
-                                 across, -across, directed, -directed], format="csr")
-    constraints.eliminate_zeros()
-    bounds = np.r_[target, -target, np.zeros(nf), np.full(nf, down_grade),
-                   np.full(nf, cross_grade), np.full(nf, cross_grade), rows[:, 4], -rows[:, 3]]
     indices = list(pins)
     contacts = (sparse.coo_matrix((np.ones(len(indices)), (np.arange(len(indices)), indices)),
                                   shape=(len(indices), nv + 1)).tocsr() if pins else None)
