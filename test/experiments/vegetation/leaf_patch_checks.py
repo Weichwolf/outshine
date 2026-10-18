@@ -6,7 +6,8 @@ from unittest.mock import patch
 import numpy as np
 from group_cloud import make_chart
 from leaf_patch_catalog import LeafPatchCatalog
-from leaf_patch_prototype import build_prototype, normal_field
+from leaf_patch_prototype import build_prototype, chart_moment, normal_field
+from outshine_ref.vegetation import Blade
 from outshine_ref.vegetation.normal_distribution import (
     evaluate_diffuse,
     jensen_error_bound,
@@ -16,6 +17,26 @@ from spatial_source_checks import fixture
 
 
 class LeafPatches(unittest.TestCase):
+    def test_retained_map_preserves_raw_vector_length_and_coverage_mass(self):
+        blade = Blade(length=0.15, width=0.06, bend=0.4, twist=0.5, fold=0.2)
+        mesh = blade.mesh(8, 1)
+        p = build_prototype(blade, 0, 4)
+        variance = False
+        for part, c in enumerate(p.charts):
+            mask = p.face_partition == part
+            source = mesh | {
+                "faces": mesh["faces"][mask],
+                "normals": mesh["normals"].reshape(-1, 3, 3)[mask].reshape(-1, 3),
+            }
+            exact = normal_field(source, c, 16)
+            decoded = chart_moment(c)
+            np.testing.assert_allclose(decoded, exact, rtol=0, atol=1e-15)
+            length = np.linalg.norm(decoded[:, 0, 1:], axis=1)
+            mass = decoded[:, 0, 0]
+            self.assertTrue(np.all(length <= mass + 1e-12))
+            variance |= bool(np.any(length < mass - 1e-6))
+        self.assertTrue(variance)
+
     def test_refusal_and_summary_do_not_build_poses_or_meshes(self):
         source = fixture()
         with (
@@ -46,7 +67,8 @@ class LeafPatches(unittest.TestCase):
                     mesh["vertices"][faces] @ chart.frame[:, 2] - chart.offset
                 )
                 self.assertLessEqual(float(displacement.max()), chart.displacement_m)
-                self.assertFalse(p.normal_moments[part].flags.writeable)
+                self.assertFalse(p.normal_bounds.flags.writeable)
+                self.assertFalse(chart.normal.flags.writeable)
                 self.assertTrue(np.isfinite(chart.mesh["vertices"]).all())
                 triangle = chart.mesh["vertices"][chart.mesh["faces"]]
                 self.assertTrue(
@@ -130,7 +152,7 @@ class LeafPatches(unittest.TestCase):
             "variants": np.zeros(4, np.uint8),
         }
         chart = make_chart(source, np.array((0,)), np.array((0.0, 0.0, 1.0)), 16)
-        field = normal_field(source, chart, 16)
+        field = normal_field(source, chart, 16, partitions=4)
         corners = chart.mesh["vertices"]
         q = source["vertices"] @ chart.frame
         lower, upper = (

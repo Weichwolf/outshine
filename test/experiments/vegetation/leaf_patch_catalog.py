@@ -22,12 +22,12 @@ class LeafPatchCatalog:
     @cached_property
     def identity(self):
         recipe = {
-            "format": "exact-pose-leaf-patches-1",
+            "format": "exact-pose-leaf-patches-2",
             "source": self.source.identity,
             "patches": self.patches,
             "size": self.size,
             "source_mesh": [8, 1],
-            "normal_field": "four-positive-signed-mass-first-moment-1",
+            "normal_field": "premultiplied-normal-map-raw-moment-with-jensen-bound-1",
         }
         return hashlib.sha256(json.dumps(recipe, sort_keys=True).encode()).hexdigest()
 
@@ -103,8 +103,9 @@ class LeafPatchCatalog:
             "chart_image_array_bytes": sum(
                 c.colour.nbytes + c.normal.nbytes for c in charts
             ),
-            "normal_moment_array_bytes": sum(
-                a.nbytes for p in self.prototypes.values() for a in p.normal_moments
+            "additional_normal_moment_array_bytes": 0,
+            "normal_bound_array_bytes": sum(
+                p.normal_bounds.nbytes for p in self.prototypes.values()
             ),
             "chart_mesh_array_bytes": sum(
                 a.nbytes for c in charts for a in c.mesh.values()

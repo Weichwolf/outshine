@@ -9,10 +9,16 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from cloud_experiment import view, view_bounds
+from cloud_experiment import view_bounds
 from foliage_selection import directions
 from group_cloud import greedy_cloud
 from leaf_patch_catalog import LeafPatchCatalog
+from leaf_patch_prototype import chart_moment
+from outshine_ref.vegetation.normal_distribution import (
+    evaluate_diffuse,
+    jensen_error_bound,
+)
+from patch_coverage import coverage
 from spatial_group_source import load_source
 from spatial_normal_fields import encode
 
@@ -50,8 +56,8 @@ def compare(source, catalogs, node, output):
         bounds = view_bounds(points, direction)
         for name, charts in methods.items():
             for pixels in (4, 8, 16):
-                metrics, reference, reduced = view(
-                    exact, charts, direction, bounds, pixels, fields=True
+                metrics, reference, reduced = coverage(
+                    exact, charts, direction, bounds, pixels
                 )
                 rows.append(
                     {"query": query, "method": name, "pixels": pixels, **metrics}
@@ -100,9 +106,18 @@ def normal_checks(source, catalogs, output):
                 measure, errors, mean = encode(
                     partial, chart.frame, chart.mesh["vertices"], lights
                 )
-                np.testing.assert_array_equal(
-                    measure.moments[4], prototype.normal_moments[part]
+                moment = chart_moment(chart)
+                np.testing.assert_allclose(
+                    measure.moments[4].sum(axis=1, keepdims=True),
+                    moment,
+                    rtol=0,
+                    atol=1e-15,
                 )
+                error_array = abs(
+                    evaluate_diffuse(moment[..., 1:], lights) - measure.exact
+                )
+                bound = jensen_error_bound(moment)
+                assert np.all(error_array <= bound[None] + 1e-12)
                 error = next(r for r in errors if r["partitions"] == 4)
                 rows.append(
                     {
@@ -111,6 +126,10 @@ def normal_checks(source, catalogs, output):
                         "part": part,
                         "mean": mean,
                         "four_bins": error,
+                        "retained_raw_map": {
+                            "maximum_unit_response_error": float(error_array.max()),
+                            "maximum_finite_measure_bound": float(bound.max()),
+                        },
                     }
                 )
     (output / "normal-report.json").write_text(
@@ -135,9 +154,9 @@ def normal_checks(source, catalogs, output):
                     ("colour", c.colour),
                     ("normal", c.normal),
                     ("frame", c.frame),
-                    ("moments", p.normal_moments[part]),
                 ):
                     arrays[f"v{variant}_p{part}_{name}"] = a
+            arrays[f"variant{variant}_normal_bounds"] = p.normal_bounds
         np.savez_compressed(output / f"prototypes-{count}.npz", **arrays)
 
 
