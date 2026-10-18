@@ -19,7 +19,7 @@ class FacadeAsset:
     frames: object
 
 
-def build_facade(mass, *, prepared=None, portals=()):
+def build_facade(mass, *, prepared=None, portals=(), legacy_trim=True):
     prepared = prepare(mass) if prepared is None else prepared
     if prepared.mass != mass:
         raise ValueError("Prepared facade belongs to a different source mass")
@@ -48,7 +48,7 @@ def build_facade(mass, *, prepared=None, portals=()):
     shell = subtract_prisms(
         local.identifier + "/shell", floors.shell, cuts, max_triangles=65536
     )
-    frames = details(local, facade, portals=portals)
+    frames = details(local, facade, portals=portals, legacy_trim=legacy_trim)
     frames = frames | {"vertices": positions(frames["vertices"], mass.core)}
     current = replace(floors, shell=shell)
     world = replace(

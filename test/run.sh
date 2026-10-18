@@ -2226,6 +2226,8 @@ Record() {
   printf '%-7s %-46s %6s ms  %s\n' "$verdict" "$recordId" "$recordMs" "$log"
 }
 
+testNestDefine=$(python3 -c 'import json, sys; print("-DOUTSHINE_TEST_NEST=" + json.dumps(sys.argv[1], ensure_ascii=False))' "$BUILD") || Die "the test nest could not be encoded"
+
 for testSource in $TESTS; do
   layer=$(dirname "${testSource#test/}")
   name=$(basename "$testSource" .cpp)
@@ -2249,9 +2251,9 @@ for testSource in $TESTS; do
   done
   compileDefine="-DOUTSHINE_COMPILE=\"$CXX $CXXSTD $WARN $includes\""
   if [ "$built" = yes ]; then
-    buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $includes $compileDefine $linkage"
+    buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $includes $compileDefine $testNestDefine $linkage"
     if Fresh "$plainBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared $includes "$compileDefine" $linkage -MMD -MP -MF "$plainBinary.d" -o "$plainBinary" >>"$log" 2>&1 && printf '%s' "$buildCommand" >"$plainBinary.cmd" && BinaryStamp "$plainBinary" "$testSource" $(LayerExtraSources "$layer") >"$plainBinary.stamp" || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared $includes "$compileDefine" "$testNestDefine" $linkage -MMD -MP -MF "$plainBinary.d" -o "$plainBinary" >>"$log" 2>&1 && printf '%s' "$buildCommand" >"$plainBinary.cmd" && BinaryStamp "$plainBinary" "$testSource" $(LayerExtraSources "$layer") >"$plainBinary.stamp" || built=no
     fi
   fi
 
@@ -2302,9 +2304,9 @@ for testSource in $TESTS; do
     done
     sanitisedBinary=$plainBinary.$sanitizerName
     if [ "$built" = yes ]; then
-      buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN $includes $compileDefine $linkage"
+      buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN $includes $compileDefine $testNestDefine $linkage"
     if Fresh "$sanitisedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared $includes "$compileDefine" $linkage -MMD -MP -MF "$sanitisedBinary.d" -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 && printf '%s' "$buildCommand" >"$sanitisedBinary.cmd" && BinaryStamp "$sanitisedBinary" "$testSource" $(LayerExtraSources "$layer") >"$sanitisedBinary.stamp" || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared $includes "$compileDefine" "$testNestDefine" $linkage -MMD -MP -MF "$sanitisedBinary.d" -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 && printf '%s' "$buildCommand" >"$sanitisedBinary.cmd" && BinaryStamp "$sanitisedBinary" "$testSource" $(LayerExtraSources "$layer") >"$sanitisedBinary.stamp" || built=no
     fi
     fi
     OBJDIR=$BUILD/obj
@@ -2333,9 +2335,9 @@ for testSource in $TESTS; do
     done
     validatedBinary=$BUILD/$(printf '%s' "$id" | tr / -).validated
     if [ "$built" = yes ]; then
-      buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation $includes $compileDefine $linkage"
+      buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation $includes $compileDefine $testNestDefine $linkage"
     if Fresh "$validatedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared $includes "$compileDefine" $linkage -MMD -MP -MF "$validatedBinary.d" -o "$validatedBinary" >>"$validatedLog" 2>&1 && printf '%s' "$buildCommand" >"$validatedBinary.cmd" && BinaryStamp "$validatedBinary" "$testSource" $(LayerExtraSources "$layer") >"$validatedBinary.stamp" || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared $includes "$compileDefine" "$testNestDefine" $linkage -MMD -MP -MF "$validatedBinary.d" -o "$validatedBinary" >>"$validatedLog" 2>&1 && printf '%s' "$buildCommand" >"$validatedBinary.cmd" && BinaryStamp "$validatedBinary" "$testSource" $(LayerExtraSources "$layer") >"$validatedBinary.stamp" || built=no
     fi
     fi
     OBJDIR=$BUILD/obj
