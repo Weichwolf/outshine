@@ -79,7 +79,8 @@ finite actual-source controls plus the analytic reach derivation, not a global
 floating-point certificate. Maximum independent SciPy rotation component error
 6.67e-16; maximum petiole-root error3.67e-15m, within declared1e-12 tolerance.
 Frame handedness/unit/orthogonality and unchanged petiole-axis bits are checked.
-Null original rows and replay are checked independently of the form evaluator.
+All90000 null ID/variant/origin/frame/anchor rows are bit-identical to the
+independent original `CrownShoots.group` stream. Replay is checked separately.
 
 | Descriptive base-axis statistic | Original / sizes | Roll / combined |
 |---|---:|---:|
@@ -94,6 +95,21 @@ run; complete preparation including the unchanged C1 wood takes5.264s.
 Process peak159137792B includes all comparisons, not just the parameter product.
 Separate query/memory traces and fresh replay retain their own timing scopes.
 
+Later three-repetition query costs, after the independent full null check:
+
+| Form | Whole/near median s | Whole/near traced peak B |
+|---|---:|---:|
+| Original |.1250/.0734|13862052/8470553|
+| Sizes |.0867/.0502|18158699/10223819|
+| Roll |.1168/.0625|26079179/14664305|
+| Combined |.1580/.0786|28239275/15883022|
+
+Queries return anchors as well: whole final buffers11610000B. Added shifts and
+rolled frame copies raise transient memory. Traced peaks/current are not
+cumulative allocations, complete memory traffic or device costs. This separate
+numerical process peaks175267840B. All timings are normal-priority shared-host
+measurements, not a ranking among controls with different arithmetic.
+
 ## Fair detail and actual image evidence
 
 All views use2560×1440,32 EEVEE samples and the same original procedural
@@ -104,8 +120,8 @@ stays fixed; demanded short-shoot tubes follow the actual changed lengths.
 Caps/side joins and generic smooth wood remain known defects.
 
 The first near reader assigned32×4 geometry to far background leaves as well.
-It was deliberately stopped without a PNG, terminal143. Its view includes about
-48000 potentially visible leaves, approximately25M triangles if all are fine.
+It was deliberately stopped without a PNG, terminal143. Fine-prototype AABBs
+retain46045 leaves:46045×520=23943400 leaf triangles if all are fine.
 The corrected diagnostic determines detail before expansion: each leaf ID gets
 the **same** mesh across all four forms, based on their union of visible fine
 prototype AABBs with projected bound≥96px. Only1676 IDs require fine geometry;
@@ -120,17 +136,37 @@ improve density. Original near draws46045 leaves/2368402 leaf triangles,1652
 fine,268357768B expanded diagnostic leaf arrays. That expanded representation
 is not proposed runtime instance storage.
 
-Three completed images have so far been opened: original/sizes near and original
-whole. Sizes change spacing but leave the repeated fan structure conspicuous.
-The whole crown is still too regular and elongated relative to the Modeler
-reference. A better form from roll or combined controls is not established yet;
-the remaining comparisons are tracked in #727.
+All eight actual2560×1440 PNGs were opened: four forms in the same whole view,
+and the same four in the same near view. Sizes change spacing but leave the
+repeated fan structure conspicuous. Roll varies the surface planes and their
+illumination; radial placement still reads as a fan. Combined near foliage
+looks somewhat less coplanar and more irregular, without repairing the basic
+shoot arrangement. In all whole views the crown stays too regular/elongated
+relative to the Modeler reference; smooth generic wood and joins remain poor.
+
+Verdict: admit these mathematically checked controls as authored ingredients,
+**reject them as a sufficient repeated-fan or mature-oak remedy**. No species
+default changes. Further useful image work needs the actual leafy-growth-unit
+placement/count/shape and distinct subcrown/branch architecture, rather than
+another increase in random roll alone. Better botanical lamina/venation and
+wood surfaces also remain necessary. This is the narrow experimental conclusion;
+#682/#25/#1 and the overall goal remain unfinished.
+
+The8×1/32×4 diagnostic retains the same per-ID local prototype within a view.
+Whole leaf triangles3060000 in all forms,357840000B expanded leaf arrays.
+Near triangles2368402–2373640 and arrays268357768–268933840B vary because new
+poses change which IDs intersect the camera. This is not a runtime layout.
+Across all eight actual reports, scene build15.28–42.52s, render83.01–347.67s,
+Linux process RSS peak3613822976–3940364288B. Source/procedural generator time
+and these software Blender costs are separate. Concurrent agent loads varied;
+do not infer a control's rendering speed from that range.
 
 Two sequential render loops terminate143 after those completed images, cause
-unproven. Completed PNGs and per-frame reports are retained; remaining frames
-are resumed individually. The software backend also warns about velocity-buffer
+unproven. Completed PNGs and per-frame reports are retained; five missing frames
+then complete as individual commands, each terminal0. The loop statuses are not
+silently relabeled as successful runs. The software backend also warns about velocity-buffer
 allocation, using object/camera velocities. These static images are not motion,
-memory-budget or native renderer acceptance. A64×64 empty cube exit-control
+memory-budget or native renderer acceptance. A64×64 small cube exit-control
 completes0; attaching gdb to the long render is denied by ptrace policy, not a
 successful profile. Native/device timings remain entirely unproven here.
 
@@ -161,4 +197,6 @@ Ten new controls plus the previous99 pass source and reused installed-wheel
 modes,109 each. They cover zero bits, independent rotations/arcs/area, roots,
 selection/refusal, immutable identities, finished replay, invalid traits and
 matched detail. No lib/, native binding or production default changes. The
-full image verdict and corresponding scope remain open in #727.
+full image verdict is bounded as stated above; broader form quality remains
+with #682. Source/renderer/proof commits and terminal receipts are linked in the
+PR, with no native/device gate claim.
