@@ -4,6 +4,7 @@
 #include "NativePlantWorldAssets.h"
 #include "NativeTreeDetailPreview.h"
 #include "PlantLimbSurface.h"
+#include "MaterialMaps.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -82,11 +83,25 @@ inline std::expected<Geometry, std::string> Wood(const Source &source) {
 inline std::expected<Geometry, std::string> Blade(const Geometry &source, size_t variant) {
   const int at = static_cast<int>(variant);
   Geometry result;
-  const auto slot = result.addSurface("leaf", source.surfaceAt(source.materialOf(at)));
+  auto material = source.surfaceAt(source.materialOf(at));
+  std::vector<int> images(static_cast<size_t>(source.images()), -1);
+  for (auto *map : MaterialMaps(material)) {
+    if (!map->bound()) { continue; }
+    if (map->Image >= source.images()) { return std::unexpected("leaf image reference"); }
+    auto &copied = images[static_cast<size_t>(map->Image)];
+    if (copied < 0) {
+      const auto image = result.addImage(source.imageAt(map->Image));
+      if (!image) { return std::unexpected("leaf image copy"); }
+      copied = *image;
+    }
+    map->Image = copied;
+  }
+  const auto slot = result.addSurface("leaf", material);
   if (!slot) { return std::unexpected("leaf material"); }
   const auto part = result.addPart("leaf", *slot);
   if (!part || !result.setPositions(*part, source.positionsOf(at)) ||
       !result.setNormals(*part, source.normalsOf(at)) ||
+      !result.setTangents(*part, source.tangentsOf(at)) ||
       !result.setTexture(*part, source.textureOf(at)) ||
       !result.setTriangles(*part, source.trianglesOf(at))) {
     return std::unexpected("leaf prototype");
