@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import resource
+import shutil
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -12,11 +13,35 @@ import numpy as np
 from spatial_group_source import load_source
 
 
+def cold_fixture(inputs, folder):
+    """Verifier prepares an input directory containing no near geometry or poses."""
+    (folder / "spatial").mkdir(parents=True, exist_ok=False)
+    shutil.copy2(inputs / "comparison.json", folder / "comparison.json")
+    with np.load(inputs / "spatial/skeleton.npz", allow_pickle=False) as z:
+        np.savez_compressed(
+            folder / "spatial/skeleton.npz",
+            positions=z["positions"],
+            parents=z["parents"],
+        )
+    with np.load(inputs / "spatial/tables.npz", allow_pickle=False) as z:
+        np.savez_compressed(
+            folder / "spatial/tables.npz", leaf_variants=z["leaf_variants"]
+        )
+    for name in ("fern-material.json", "fern-colour.png", "fern-height.png"):
+        shutil.copy2(inputs / "spatial" / name, folder / "spatial" / name)
+    return {
+        str(p.relative_to(folder)): p.stat().st_size
+        for p in folder.rglob("*")
+        if p.is_file()
+    }
+
+
 def replay(inputs, controls, output):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private output must be under /tmp")
+    files = cold_fixture(inputs, output.with_suffix(""))
     began = time.perf_counter()
-    source = load_source(inputs)
+    source = load_source(output.with_suffix(""))
     loaded = time.perf_counter()
     with patch(
         "outshine_ref.vegetation.Shoot.detail",
@@ -74,13 +99,14 @@ def replay(inputs, controls, output):
                 if isinstance(a, np.ndarray):
                     np.testing.assert_array_equal(a, again[k])
             start = time.perf_counter()
-            with patch.object(
-                source,
-                "geometry",
-                side_effect=AssertionError("finished-product generation"),
-            ), np.load(
-                controls / f"host-{node}/source.npz", allow_pickle=False
-            ) as z:
+            with (
+                patch.object(
+                    source,
+                    "geometry",
+                    side_effect=AssertionError("finished-product generation"),
+                ),
+                np.load(controls / f"host-{node}/source.npz", allow_pickle=False) as z,
+            ):
                 stored = dict(z)
             decode_s = time.perf_counter() - start
             for k, a in stored.items():
@@ -100,6 +126,7 @@ def replay(inputs, controls, output):
         "source_identity": source.crown.identity,
         "catalog_identity": source.identity,
         "source_decode_and_prepare_s": loaded - began,
+        "cold_input_files_bytes": files,
         "separate_oracle_decode_s": oracle_loaded - loaded,
         "separate_all_source_pose_check_s": oracle_done - oracle_loaded,
         "exact_original_pose_rows": checked,
