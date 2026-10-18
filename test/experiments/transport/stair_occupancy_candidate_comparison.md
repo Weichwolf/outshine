@@ -4,8 +4,9 @@ Python experiment for #770, parent #749. The real 105-source continuation has
 8,308 physical facets and 15 logical headroom records. The unchanged flat
 8,192-record handoff rejects it. This experiment selects numeric facet references
 before constructing affine planes or GEOS volumes. It changes no shared
-`Plan`/`Reservation` contract and is not native admission. Whole Plants consumption
-and an explicitly agreed common contract remain open.
+`Plan`/`Reservation` contract and is not native admission. The subsequent
+[whole 105-source plant handoff](stair_candidate_plants_comparison.md) supplies
+the actual Plants consumer, costs, private images and explicit consumer agreement.
 
 ## Procedure and independent comparison
 

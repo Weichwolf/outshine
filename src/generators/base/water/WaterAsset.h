@@ -3,6 +3,7 @@
 
 #include "Earth.h"
 #include "TileSourceIdentity.h"
+#include "WaterSurfaceMesh.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -55,6 +56,18 @@ public:
     std::optional<bool> Intermittent;
   };
 
+  enum class SurfaceRejectionReason { InvalidTopology, CapacityExceeded };
+
+  struct SurfaceRejection {
+    uint32_t Surface = 0;
+    SurfaceRejectionReason Reason = SurfaceRejectionReason::InvalidTopology;
+  };
+
+  struct SurfaceGeometry {
+    WaterSurfaceMesh Mesh;
+    std::vector<SurfaceRejection> Rejections;
+  };
+
   struct Data {
     std::vector<Surface> Surfaces;
     std::vector<SurfaceRing> Rings;
@@ -82,10 +95,19 @@ public:
   [[nodiscard]] std::span<const SurfaceRing> RingsOf(const Surface &surface) const noexcept;
   [[nodiscard]] std::span<const Surface> OfTile(int tile) const noexcept;
   [[nodiscard]] int TileIndex(int zoom, int x, int y) const noexcept;
-  [[nodiscard]] std::optional<float> LevelAt(LongitudeLatitude at) const noexcept;
+  [[nodiscard]] std::optional<double> LevelAt(LongitudeLatitude at) const noexcept;
+  [[nodiscard]] const SurfaceGeometry *PreparedSurfaces() const noexcept;
+  [[nodiscard]] bool SurfacesReady() const noexcept;
+
+  [[nodiscard]] bool SharesInputsWith(const WaterAsset &other) const noexcept {
+    return Data_ == other.Data_;
+  }
+
+  [[nodiscard]] std::expected<WaterAsset, std::string> WithSurfaces(SurfaceGeometry geometry) const;
   [[nodiscard]] bool Complete() const noexcept;
   [[nodiscard]] size_t IngestedTiles() const noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
+  [[nodiscard]] size_t PreparedSurfaceBytes() const noexcept;
   [[nodiscard]] long NoGroundCount() const noexcept;
   [[nodiscard]] long OutlierCount() const noexcept;
   [[nodiscard]] long InvalidBodyCount() const noexcept;
@@ -97,6 +119,7 @@ public:
 private:
   [[nodiscard]] const Data &Contents() const noexcept;
   std::shared_ptr<const Data> Data_;
+  std::shared_ptr<const SurfaceGeometry> Geometry_;
 };
 }
 #endif

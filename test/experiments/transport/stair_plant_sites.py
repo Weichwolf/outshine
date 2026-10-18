@@ -103,6 +103,13 @@ def candidate(
     }
 
 
+def nearest_distance(query, geometry):
+    if hasattr(query, "nearest_distance"):
+        return query.nearest_distance(geometry)[0]
+    nearest = int(query.tree.nearest(geometry))
+    return float(geometry.distance(query.shapes[nearest]))
+
+
 def proposals(data, proto, domain, canonical, rows, query):
     lower, side, region_id = canonical
     ledger, pool = [], []
@@ -110,8 +117,7 @@ def proposals(data, proto, domain, canonical, rows, query):
     original_order = {r["id"]: i for i, r in enumerate(rows)}
 
     def distance(row):
-        i = int(query.tree.nearest(row["polygon"]))
-        return float(row["polygon"].distance(query.shapes[i])), row["id"]
+        return nearest_distance(query, row["polygon"]), row["id"]
 
     for row in sorted(rows, key=distance):
         entry = {k: v for k, v in row.items() if k != "polygon"}
@@ -150,8 +156,7 @@ def proposals(data, proto, domain, canonical, rows, query):
                 raise OccupancyError("bounded canonical habitat sites unresolved")
             for xy, identity in zip(sites["positions_xy_m"], sites["ids"], strict=True):
                 point = shapely.Point(xy)
-                nearest = int(query.tree.nearest(point))
-                distance = float(point.distance(query.shapes[nearest]))
+                distance = nearest_distance(query, point)
                 pool.append(
                     (
                         distance,

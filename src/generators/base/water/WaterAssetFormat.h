@@ -20,8 +20,8 @@ bool Records(BinaryValueReader &archive, std::vector<T> &records, Fields fields)
   return std::ranges::all_of(records, [&](auto &record) { return fields(archive, record); });
 }
 
-template <size_t MinimumBytes, class T, class Fields>
-bool Records(BinaryValueWriter &archive, const std::vector<T> &records, Fields fields) {
+template <size_t MinimumBytes, class Range, class Fields>
+bool Records(BinaryValueWriter &archive, const Range &records, Fields fields) {
   return archive(static_cast<uint64_t>(records.size())) &&
          std::ranges::all_of(records, [&](const auto &record) { return fields(archive, record); });
 }

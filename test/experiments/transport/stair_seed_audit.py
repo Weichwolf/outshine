@@ -18,6 +18,8 @@ from stair_module_trace import compare
 from stair_seed_axes import seam_profile
 from stair_seed_crossings import crossings_for, inspect_crossings
 from stair_seed_geometry import plans_for
+from stair_service_profile import ROLE as SERVICE_ROLE
+from stair_service_vehicle import inspect_service
 
 
 def connected(recipe, rows, nodes, contacts=()):
@@ -184,6 +186,11 @@ def audit(state, recipe, data, rows, planning, upper, *, sources=None):
     return {
         "body": module_body(
             data, rows, raw, source_tolerance_m=6 * grid if grid else 0.0
+        ),
+        **(
+            {"service_lane_bodies": inspect_service(data, rows)}
+            if any(r.get("source_recipe") == SERVICE_ROLE for r in rows)
+            else {}
         ),
         "profiles": profiles(data, rows, nodes, masks, original),
         "new_junction_heights": inspect_heights(data, plans),

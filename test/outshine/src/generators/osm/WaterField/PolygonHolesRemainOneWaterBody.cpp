@@ -6,6 +6,9 @@
 #include "TangentFrame.h"
 #include "WaterField.h"
 #include "WaterSurfaceBuilder.h"
+#include "WaterSurfacePreparation.h"
+#include <expected>
+#include <string>
 
 #include "Check.h"
 
@@ -18,6 +21,16 @@
 #include <vector>
 
 namespace {
+std::expected<outshine::Generators::WaterSurfaceMetrics, std::string>
+AppendPreparedWaterGeometry(outshine::Geometry &geometry,
+                            outshine::MaterialInstance material,
+                            const outshine::Generators::WaterAsset &water,
+                            const outshine::TangentFrame &frame) {
+  auto prepared = outshine::Generators::PrepareWaterSurfaces(water, frame);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  return outshine::Generators::AppendWaterSurfaceGeometry(geometry, material, *prepared, frame);
+}
+
 using Bytes = std::vector<uint8_t>;
 
 void AppendVarint(Bytes &out, size_t value) {
@@ -172,7 +185,7 @@ int main() {
       const auto points = field.Points();
       const TangentFrame frame =
           TangentFrame::At({.LongitudeDeg = points[1], .LatitudeDeg = points[0]});
-      const auto built = Generators::AppendWaterSurfaceGeometry(geometry, *material, asset, frame);
+      const auto built = AppendPreparedWaterGeometry(geometry, *material, asset, frame);
       CHECK(built && built->Laid == 1 && built->RefusedTopology == 0 && built->Triangles == 8 &&
                 geometry.parts() == 1,
             "native triangulation cuts the outer polygon around the hole");
@@ -230,7 +243,7 @@ int main() {
         "concave lake has one native material and one accepted body");
   if (concaveMaterial && concaveWater.Surfaces().size() == 1) {
     const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
-    const auto built = Generators::AppendWaterSurfaceGeometry(
+    const auto built = AppendPreparedWaterGeometry(
         concaveGeometry, *concaveMaterial, concaveWater.Asset(concave), frame);
     CHECK(built && built->Triangles == 4 && built->RefusedTopology == 0,
           "concave polygon triangulates without a fan across its recess");
@@ -262,8 +275,7 @@ int main() {
     if (surface && points.size() >= 2) {
       const TangentFrame frame =
           TangentFrame::At({.LongitudeDeg = points[1], .LatitudeDeg = points[0]});
-      const auto built =
-          Generators::AppendWaterSurfaceGeometry(retained, *surface, pinned.WaterBodies, frame);
+      const auto built = AppendPreparedWaterGeometry(retained, *surface, pinned.WaterBodies, frame);
       CHECK(built && built->Triangles == 8 && built->RefusedTopology == 0,
             "replacement keeps the candidate lake with its original island topology");
     }

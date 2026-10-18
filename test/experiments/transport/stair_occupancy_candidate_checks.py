@@ -1,6 +1,7 @@
 """Local work limits never turn an unresolved whole-footprint query into free space."""
 
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import shapely
@@ -63,6 +64,38 @@ class BoundedVolumeCandidates(unittest.TestCase):
             )
             self.assertTrue(actual.equals(expected))
         self.assertNotIn("far", self.calls)
+
+    def test_complete_empty_selection_has_zero_narrowphase_and_separate_metadata(self):
+        catalog = CandidateVolumes(self.frame, self.sources[:2])
+        far = BuildingFootprint(
+            "far", shapely.box(1000, 1000, 1001, 1001), HeightInterval(0, 1)
+        )
+        with patch(
+            "stair_occupancy_candidates.OccupancyQuery", side_effect=AssertionError
+        ):
+            cut, cost = CandidateQuery(catalog).conflict(far)
+        self.assertTrue(cut.is_empty)
+        for key in (
+            "query_rows",
+            "xy_candidates",
+            "height_candidates",
+            "positive_conflicts",
+        ):
+            self.assertEqual(cost[key], 0)
+        self.assertEqual(cost["seconds"], 0.0)
+        self.assertEqual(cost["metadata_products"], 2)
+        self.assertEqual(cost["metadata_face_tests"], 0)
+        self.assertEqual(cost["metadata_materializer_calls"], 0)
+        self.assertEqual(self.calls, [])
+
+    def test_unresolved_far_selection_never_reports_complete_empty_space(self):
+        catalog = CandidateVolumes(self.frame, self.sources[:2])
+        far = BuildingFootprint(
+            "far", shapely.box(1000, 1000, 1001, 1001), HeightInterval(0, 1)
+        )
+        with self.assertRaises(OccupancyError):
+            CandidateQuery(catalog, budget=CandidateBudget(products=0)).conflict(far)
+        self.assertEqual(self.calls, [])
 
     def test_each_exhausted_budget_is_incomplete_before_any_plane_build(self):
         for budget in (

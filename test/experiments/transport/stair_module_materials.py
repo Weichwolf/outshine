@@ -5,7 +5,11 @@ import numpy as np
 
 def surface_slots(rows, owners):
     roads = np.array(
-        [r.get("source_recipe") == "minor_ground_carriageway" for r in rows]
+        [
+            r.get("source_recipe")
+            in ("minor_ground_carriageway", "oneway_service_carriageway")
+            for r in rows
+        ]
     )
     return np.where(np.any(owners & roads, axis=1), 8, 3)
 
