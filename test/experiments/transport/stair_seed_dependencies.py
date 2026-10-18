@@ -162,7 +162,7 @@ def recipes_with_dependencies(recipes, records, sources, method):
                 **(
                     {
                         "geometric_junctions": contacts,
-                        "junction_height_mode": "quantized",
+                        "junction_height_mode": "rounded_joint",
                         "terrain_layout_mode": "free_region",
                     }
                     if contacts
