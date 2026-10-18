@@ -1,4 +1,5 @@
 #include "AerialPerspectiveStage.h"
+#include "MediumView.h"
 #include "Check.h"
 #include "StageSubmission.h"
 #include "test/harness/render/NativeImageReadback.h"
@@ -107,19 +108,31 @@ std::array<float, 4> Draw(Device &device,
                           Vec3f up,
                           Vec3f look,
                           Vec3f sun) {
-  stage.Declare(source.Air,
-                {.SunDir = sun,
-                 .WorldUp = up,
-                 .IlluminanceLux = 1,
-                 .EyeHeightM = (0.5f - kMediumGroundLiftKm) * 1000});
-  stage.SetBasis({.Right = {}, .Up = {}, .Forward = look});
-  stage.SetDepthReconstruction({{250, 0, 1, 0}});
+  constexpr float kReceiverM = 250;
+  constexpr float kFarM = 1000;
+  constexpr float kControlFovDeg = 60;
+  CameraBasis basis;
+  for (size_t axis = 0; axis < 3; ++axis) { basis.Forward[axis] = look[axis]; }
+  const Vec3 pole = std::abs(basis.Forward[0]) < 0.9 ? Vec3{{1, 0, 0}} : Vec3{{0, 1, 0}};
+  basis.Right = Cross(basis.Forward, pole);
+  CHECK(Normalise(basis.Right), "aerial lookup camera has a valid right axis");
+  basis.Up = Cross(basis.Right, basis.Forward);
+  const Lens lens{
+      .WidePx = 1, .HighPx = 1, .FovDeg = kControlFovDeg, .NearM = kReceiverM, .FarM = kFarM};
+  const auto view = MakeMediumViewParameters(
+      lens,
+      {.Width = 1, .Height = 1},
+      basis,
+      {.SunDir = sun, .WorldUp = up, .IlluminanceLux = 1, .EyeHeightM = 500},
+      source.Air);
+  CHECK(view.has_value(), "the aerial lookup uses a valid shared camera frame");
+  if (!view) { Failed(); }
   auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
   const std::array colours{
       ColourAttachment{.Image = {.Image = source.Output.get()}, .Begin = Load::Clear}};
-  Require(commands->BeginRenderPass({.Colours = colours}));
+  Require(commands->BeginRenderPass({.Colours = colours, .Depth = {}}));
   StageSubmission submission;
-  Require(stage.Encode({},
+  Require(stage.Encode(*view,
                        {.Commands = commands.get(),
                         .Submission = submission,
                         .Area = {.Width = 1, .Height = 1},
@@ -141,7 +154,7 @@ void CheckDirections(Device &device) {
   const Sources source(device);
   source.Prepare(device);
   AerialPerspectiveStage stage;
-  Require(stage.Configure({.Device = &device},
+  Require(stage.Configure({.Device = &device, .SceneColours = {}},
                           {.Scene = source.Scene.get(),
                            .Depth = source.Depth.get(),
                            .SkyView = source.Sky.get(),

@@ -1,3 +1,4 @@
+#include "MediumView.h"
 #include "EnvironmentSpecularLayout.h"
 #include "math/Units.h"
 #include "math/Mat4.h"
@@ -907,7 +908,6 @@ void SceneRenderer::ApplyWorldDeclarations() {
                                 .IlluminanceLux = ActiveState().SkyIlluminanceLux,
                                 .EyeHeightM = ActiveState().EyeHeightM};
     ActiveFrame().Sky.Declare(ActiveState().Medium, stands);
-    ActiveFrame().Aerial.Declare(ActiveState().Medium, stands);
   }
   const SubjectDraw::Reflections reflections{.Atlas = ActiveState().MediumDeclared &&
                                                               ActiveState().SkyDeclared
@@ -1362,13 +1362,22 @@ EyeBasis SceneRenderer::Eye() const {
   return eye;
 }
 
-Native::Result<void> SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx,
-                                                            const PassRecording &into) {
-  ActiveFrame().Aerial.SetBasis(Eye());
-  const Mat4f projection = Through().Projection();
-  ActiveFrame().Aerial.SetDepthReconstruction(
-      {{projection[14], projection[15], projection[10], -projection[11]}});
-  return ActiveFrame().Aerial.Encode(ctx, Picture(true, into));
+Native::Result<void>
+SceneRenderer::EncodeAerialPerspective([[maybe_unused]] const FrameContext &ctx,
+                                       const PassRecording &into) {
+  if (!ActiveState().SkyDeclared) { return {}; }
+  const PassRecording picture = Picture(true, into);
+  const SkyStanding sky{.SunDir = ActiveState().SkyToSun,
+                        .WorldUp = ActiveState().SkyUp,
+                        .IlluminanceLux = ActiveState().SkyIlluminanceLux,
+                        .EyeHeightM = ActiveState().EyeHeightM};
+  const auto view = MakeMediumViewParameters(
+      Through(), picture.Area, ActiveState().Camera, sky, ActiveState().Medium);
+  if (!view) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "aerial medium camera frame is invalid"});
+  }
+  return ActiveFrame().Aerial.Encode(*view, picture);
 }
 
 Native::Result<void> SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {
