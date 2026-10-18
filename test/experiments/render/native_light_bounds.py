@@ -3,6 +3,7 @@
 import argparse
 import itertools
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -101,6 +102,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--shader", type=Path, required=True)
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(Path(__file__).resolve().parents[3]):
         parser.error("external output required")
@@ -122,9 +124,24 @@ def main():
         "source": "Vulkan specification, spirvenv-op-prec / precision-core-table",
         "cases": rows,
     }
+    assembly = subprocess.check_output(
+        ["spirv-dis", str(args.shader)], text=True, timeout=30
+    )
+    match = re.search(r'OpName (\S+) "lightCellBounds', assembly)
+    if not match:
+        raise AssertionError("the actual selector function cannot be identified")
+    function = assembly[assembly.index(match[1] + " = OpFunction") :]
+    function = function[: function.index("OpFunctionEnd")]
+    report["shader"] = {
+        "path": str(args.shader),
+        "bounds_divisions": function.count("OpFDiv"),
+        "scope": "Actual emitted selector instructions, not source-text matching",
+    }
+    report["passed"] = report["shader"]["bounds_divisions"] == 0
     (args.output / "receipt.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
+    return int(not report["passed"])
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

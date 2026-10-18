@@ -344,7 +344,8 @@ bool DisplayDiagnostic(Fixture &actual,
   size_t overOne = 0;
   for (size_t at = 0; at < kValues; ++at) {
     if (at % 4 == 3) { continue; }
-    const auto difference = static_cast<unsigned>(std::abs(int(got[at]) - int(expected[at])));
+    const auto difference =
+        static_cast<unsigned>(std::abs(static_cast<int>(got[at]) - static_cast<int>(expected[at])));
     maximum = std::max(maximum, difference);
     if (difference > 1) { ++overOne; }
   }
@@ -378,9 +379,10 @@ bool MotionFrame(Fixture &actual,
   auto expected = reference.Capture(active);
   if (!got) { return Accepted(false, got.error()); }
   if (!expected) { return Accepted(false, expected.error()); }
+  const auto name = prefix + "-" + std::to_string(frame);
   const std::vector<double> linear(expected->begin(), expected->end());
-  return ComparePictures(
-      output, prefix + "-" + std::to_string(frame), sources.size(), *got, linear);
+  const bool hdr = ComparePictures(output, name, sources.size(), *got, linear);
+  return DisplayDiagnostic(actual, reference, output, name) && hdr;
 }
 
 bool MotionCases(const std::filesystem::path &output) {
