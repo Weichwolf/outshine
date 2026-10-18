@@ -19,7 +19,6 @@ from stair_batch_inputs import (
     prefix,
 )
 from stair_growth_experiment import selection
-from stair_local_replay import load_chain
 from stair_local_verify import verify as verify_module
 from stair_module_experiment import write_json
 from stair_patch_inputs import fresh
@@ -84,8 +83,6 @@ def verify(args):
     ):
         raise ValueError("batch input or work limits changed")
     prior, tried, modules, proofs = list(args.prior_module), set(), [], []
-    with optional_terrain(args, []):
-        load_chain(args.resident, prior)
     terminal = None
     for index, record in enumerate(report["attempts"]):
         if record["index"] != index or terminal is not None:
@@ -93,6 +90,9 @@ def verify(args):
         path = args.output / ("outshine-step-" + str(index))
         if record["input_sha256"] != digest(path / "input.json"):
             raise ValueError("saved attempted input changed")
+        config = {"selection": config_for(args, prior), "tried": sorted(tried)}
+        if json.loads((path / "input.json").read_text()) != config:
+            raise ValueError("saved attempted prefix or continuation changed")
         if record["status"] in ("timeout", "process_error"):
             terminal = record["status"]
             continue

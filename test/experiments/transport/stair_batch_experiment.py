@@ -45,6 +45,12 @@ def checked_step(path, step, before, tried):
         raise ValueError("complete step lost its input or valid prefix binding")
     if step["status"] == "exhausted":
         return before
+    if set(step["artifacts"]) != {
+        "fixture.json",
+        "outshine-module/comparison.json",
+        "outshine-module/verification.json",
+    }:
+        raise ValueError("complete step export required")
     for name, sha in step["artifacts"].items():
         target = (path / name).resolve()
         if not target.is_relative_to(path.resolve()) or digest(target) != sha:
@@ -82,6 +88,7 @@ def checked_step(path, step, before, tried):
         or report["fixture_sha256"] != digest(path / "fixture.json")
         or receipt["products_report_sha256"]
         != digest(path / "outshine-module/comparison.json")
+        or step["products_report_sha256"] != receipt["products_report_sha256"]
         or report["candidate_source_ids"] != expected
         or step["candidate_source_ids"] != expected
     ):

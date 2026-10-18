@@ -8,8 +8,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from camera_height_inputs import digest
-from stair_local_replay import verified
+from stair_local_replay import load_chain
 from stair_module_inputs import FIXTURE
+from stair_prepared_surface_scope import optional_terrain
 
 
 def identity(value):
@@ -55,18 +56,15 @@ def config_for(args, prior):
 
 
 def prefix(args):
-    if len(args.prior_module) > 24 or len(set(args.prior_module)) != len(
-        args.prior_module
-    ):
+    if len(args.prior_module) > 24 or len(
+        {p.resolve() for p in args.prior_module}
+    ) != len(args.prior_module):
         raise ValueError("at most 24 unique prior modules leave eight bounded slots")
-    if args.prior_module:
-        path = args.prior_module[-1]
-        verified(path)
-        report = json.loads((path / "comparison.json").read_text())
-        keys = report["candidate_source_ids"]
-    else:
-        keys = json.loads((args.resident / "resident.json").read_text())["source_ids"]
-    return list(keys), digest(args.resident / "resident.json")
+    with optional_terrain(args, []):
+        _view, _assets, _supports, _contacts, manifest = load_chain(
+            args.resident, args.prior_module
+        )
+    return list(manifest["source_ids"]), digest(args.resident / "resident.json")
 
 
 def limits(args):
