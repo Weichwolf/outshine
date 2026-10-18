@@ -27,8 +27,16 @@ def baseline_binding(args, manifest):
     receipt_path = args.baseline / "verification.json"
     if receipt_path.exists():
         receipt = json.loads(receipt_path.read_text())
+        snapshot = (
+            receipt.get("valid_prepared_snapshot") is True
+            and args.baseline.resolve() == args.resident.resolve()
+            and receipt.get("prepared_manifest_sha256")
+            == manifest["root_resident_sha256"]
+            and before.get("artifacts", {}).get("resident.json")
+            == manifest["root_resident_sha256"]
+        )
         valid = (
-            receipt.get("valid_local_module") is True
+            (receipt.get("valid_local_module") is True or snapshot)
             and receipt["products_report_sha256"]
             == digest(args.baseline / "comparison.json")
             and before["origin_lat_lon"] == manifest["origin_lat_lon"]
@@ -64,7 +72,7 @@ def reference_state(args):
         read_arrays(args.baseline / "world-field.npz"),
     )
     compare(view, plan, field)
-    road, ground, keys, rows, note = reference_roads(assets)
+    road, ground, keys, rows, note = reference_roads(assets, max_assets=1024)
     if keys != manifest["source_ids"]:
         raise ValueError("diagnostic whole reference needs every original road asset")
     state = {
@@ -98,14 +106,16 @@ def construct(state, recipe, rows, sources, sample):
         contact_mode="profile",
         junction_mode=recipe["junction_mode"],
     )
-    module = audit(state, recipe, data, rows, planning, line, upper)
+    module = audit(state, recipe, data, rows, planning, line, upper, sources=sources)
     local, chosen, terrain = prepare(state, data, ground, recipe, sample)
     reference = source_ground(ground, data)
     footprint = shapely.union_all(
         shapely.polygons(reference.vertices[reference.triangles, :2])
     )
     heights, local_roles, solve = fit(local, upper, footprint)
-    plan, world_heights, body, parts, assembly = assemble(state, local, heights, chosen)
+    plan, world_heights, body, parts, assembly = assemble(
+        state, local, heights, chosen, max_vertices=32768
+    )
     roles, world = inspect_world(
         state,
         local,
@@ -119,6 +129,8 @@ def construct(state, recipe, rows, sources, sample):
         upper,
         footprint,
         expected_local_roles=local_roles,
+        body_max_faces=262144,
+        surface_max_faces=assembly["face_capacity"],
     )
     arrays = {
         "module.npz": data,

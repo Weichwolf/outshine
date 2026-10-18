@@ -256,6 +256,11 @@ def audit(state, recipe, data, rows, planning, line, upper):
     return {
         "body": module_body(data, rows, domains),
         **(
+            {"axis_detour_bindings": state["axis_detour_bindings"]}
+            if state.get("axis_detour_bindings")
+            else {}
+        ),
+        **(
             {"borrowed_road_profiles": inspect_paving(state, rows, original, cap)}
             if any(c["kind"] == "minor_footway_node" for c in constructed)
             else {}

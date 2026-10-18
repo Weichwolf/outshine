@@ -7,9 +7,11 @@ from pathlib import Path
 import numpy as np
 import shapely
 from camera_height_inputs import digest
-from outshine_ref.contracts import Mesh
+from outshine_ref.contracts import BuildingFootprint, Mesh
 from stair_consumer_buildings import body_query
 from stair_consumer_inputs import inputs, root_contact, source_rows
+from stair_consumer_parts import verify_parts
+from stair_occupancy_geometry import polygonal_conflict
 from stair_occupancy_handoff import OccupancyQuery
 from stair_terrain_experiment import frozen
 
@@ -81,6 +83,12 @@ def run(args):
             "query_heights_m"
         ]:
             raise ValueError("query band does not bound actual original recipe")
+        cut, _note = query.conflict(
+            BuildingFootprint(row["id"], original["polygon"], requested.heights),
+            method="scan",
+        )
+        remaining = polygonal_conflict(original["polygon"].difference(cut))
+        verify_parts(remaining, result, row["id"])
         for part in result["products"]:
             _, body = body_query(row["id"], after[j], 0)
             reserved = reservations[j]

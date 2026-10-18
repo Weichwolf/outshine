@@ -8,9 +8,9 @@ from pathlib import Path
 
 import numpy as np
 from needle_area_heldout_plot import plot
-from needle_area_light import integrate
 from needle_joint_contacts import prepare_source
 from needle_response_study import source_digest
+from surface_area_light import integrate
 
 
 def evaluate(source, scene, view, lights, order, bias, size):
@@ -133,8 +133,8 @@ def run(source_path, scenario_path, output):
         for name in (
             "needle_area_heldout.py",
             "needle_area_heldout_plot.py",
-            "needle_area_light.py",
-            "needle_area_cells.py",
+            "surface_area_light.py",
+            "surface_area_cells.py",
             "needle_joint_contacts.py",
         )
     }

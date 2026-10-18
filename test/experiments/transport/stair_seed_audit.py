@@ -3,19 +3,24 @@
 import numpy as np
 import shapely
 from shared_bridge_geometry import corridor
+from stair_closed_height_rounding import verify as verify_rounding
 from stair_cycle_contacts import profile
+from stair_joint_height_fit import recipe_levels
 from stair_junction_layout import landings
 from stair_module_audit import inspect_pins, module_body, traffic
 from stair_module_clearance import source_clearances
 from stair_module_materials import surface_slots
 from stair_module_node_heights import apply_heights, inspect_heights
 from stair_module_profiles import new_interior_checks, owned
-from stair_module_roads import inspect_frames
+from stair_module_roads import face_frames, inspect_frames
+from stair_module_through import through_sides
 from stair_module_trace import compare
+from stair_seed_axes import seam_profile
+from stair_seed_crossings import crossings_for, inspect_crossings
 from stair_seed_geometry import plans_for
 
 
-def connected(recipe, rows, nodes):
+def connected(recipe, rows, nodes, contacts=()):
     keys = [r["source_id"] for r in rows]
     seen = {keys.index(recipe["seed"]["source_id"])}
     for _iteration in range(8):
@@ -23,6 +28,9 @@ def connected(recipe, rows, nodes):
         for node in nodes:
             if seen.intersection(node["incident"]):
                 seen.update(node["incident"])
+        for contact in contacts:
+            if seen.intersection(contact["owners"]):
+                seen.update(contact["owners"])
         if seen == before:
             break
     if seen != set(range(len(rows))):
@@ -30,9 +38,23 @@ def connected(recipe, rows, nodes):
 
 
 def profiles(data, rows, nodes, masks, original):
-    internal, outer = [], []
+    internal, outer, seams = [], [], []
     for owner, row in enumerate(rows):
         own = owned(data, owner, [], None)
+        if np.array_equal(row["xy"][0], row["xy"][-1]):
+            line = seam_profile(row)
+            seams.append(
+                {
+                    "source_id": row["source_id"],
+                    "reference": "positive_area_caps_on_both_sides_of_cyclic_seam",
+                    "profile_xy_m": line.tolist(),
+                    "checks": [
+                        compare(through_sides(own, line), line, cast)
+                        for cast in (False, True)
+                    ],
+                }
+            )
+            continue
         for end in (0, -1):
             incident = [
                 n
@@ -66,10 +88,11 @@ def profiles(data, rows, nodes, masks, original):
         "new_interior_profiles": new_interior_checks(
             data, rows, nodes, masks, original, {}
         ),
+        **({"closed_seam_profiles": seams} if seams else {}),
     }
 
 
-def overlap_contract(nodes, domains, masks):
+def overlap_contract(nodes, domains, masks, contacts=()):
     for i, a in enumerate(domains):
         for j, b in enumerate(domains[:i]):
             common = a.intersection(b)
@@ -80,13 +103,16 @@ def overlap_contract(nodes, domains, masks):
                     if i in node["incident"] and j in node["incident"]
                 ]
             )
+            for contact in contacts:
+                if set(contact["owners"]) == {i, j}:
+                    allowed = allowed.union(common)
             if common.difference(allowed).area > 1e-7:
                 raise ValueError(
                     "independent seed requires a declared original junction for band overlap"
                 )
 
 
-def audit(state, recipe, data, rows, planning, upper):
+def audit(state, recipe, data, rows, planning, upper, *, sources=None):
     if any(row.get("source_grid_m") != recipe.get("seed_grid_m") for row in rows):
         raise ValueError("seed source grid differs from its declared recipe")
     xy = data["surface_vertices"][:, :2]
@@ -104,8 +130,9 @@ def audit(state, recipe, data, rows, planning, upper):
         data["surface_materials"], surface_slots(rows, data["owners"])
     ):
         raise ValueError("saved seed source material ownership changed")
-    connected(recipe, rows, nodes)
-    overlap_contract(nodes, domains, masks)
+    contacts = crossings_for(rows, sources, recipe)
+    connected(recipe, rows, nodes, contacts)
+    overlap_contract(nodes, domains, masks, contacts)
     separation = []
     road = state["road"]
     for cast in (False, True):
@@ -129,7 +156,7 @@ def audit(state, recipe, data, rows, planning, upper):
         separation.append({"float32": cast, "minimum_old_ground_distance_m": distance})
     if any(not p.equals(q) for p, q in zip(original, domains, strict=True)):
         raise ValueError("independent seed borrowed an undeclared old surface")
-    plans = plans_for(rows, nodes)
+    plans = recipe_levels(plans_for(rows, nodes, contacts), data, recipe)
     fixed, values = apply_heights(
         data["surface_vertices"][:, :2],
         np.zeros(len(data["surface_vertices"]), bool),
@@ -147,12 +174,38 @@ def audit(state, recipe, data, rows, planning, upper):
         if grid
         else domains
     )
+    if (
+        len(rows) == 1
+        and np.array_equal(rows[0]["xy"][0], rows[0]["xy"][-1])
+        and not plans
+        and "unrounded_closed_heights" not in data
+    ):
+        raise ValueError("standalone closed seed requires its unrounded height witness")
     return {
         "body": module_body(
             data, rows, raw, source_tolerance_m=6 * grid if grid else 0.0
         ),
         "profiles": profiles(data, rows, nodes, masks, original),
         "new_junction_heights": inspect_heights(data, plans),
+        **(
+            {
+                "joint_level_clusters": [
+                    {
+                        "height_m": p["height_m"],
+                        "members": p["members"],
+                        "region_wkt": shapely.to_wkt(p["shape"], rounding_precision=-1),
+                    }
+                    for p in plans
+                ]
+            }
+            if contacts
+            else {}
+        ),
+        **(
+            {"geometric_junctions": inspect_crossings(data, contacts, rows)}
+            if contacts
+            else {}
+        ),
         "road_frames": [inspect_frames(data, rows, cast) for cast in (False, True)],
         "old_ground_separation": separation,
         "source_clearances": clearances,
@@ -168,4 +221,13 @@ def audit(state, recipe, data, rows, planning, upper):
             }
             for row, shape in zip(rows, original, strict=True)
         ],
+        **(
+            {
+                "closed_height_rounding": verify_rounding(
+                    data, face_frames(rows, xy, data["surface_faces"], data["owners"])
+                )
+            }
+            if "unrounded_closed_heights" in data
+            else {}
+        ),
     }

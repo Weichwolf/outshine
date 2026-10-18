@@ -41,6 +41,12 @@ expliziten horizontalen Referenzdatum an. Es verwendet `HeightBudget`/`HeightFit
 Gewichte, Besitz, gültige Kandidaten und Grenzen stehen in
 [weighted_heights.md](weighted_heights.md) (#265).
 
+`transport.level_heights.fit_level_heights` passt ausdrücklich gemeinsame ebene
+Vertexgruppen unter ganzen Gradgrenzen an und prüft eine begrenzte lokale
+Float32-Höhenkorrektur. Bestehende `Mesh`-/`HeightBudget`-/`HeightFit`-Verträge,
+verzögerter Import, Repräsentationsgrenzen und Abwesenheit:
+[level_heights.md](level_heights.md) (#732).
+
 `transport.rail_hardware.build_rail_hardware` liefert vereinfachte geschlossene Schienen und
 gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrücklich
 gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
@@ -60,6 +66,12 @@ Arbeitsbudgets, lokale Abwesenheit und Besitzergrenzen stehen in
 MVT-/Terrarium-Eingaben zwischen den Python-Fachagenten. Installation, Einheiten,
 Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
 
+`vegetation.TwigClusters` verteilt unveränderte kanonische Blatt-IDs auf
+physisch angeschlossene Kurztriebe mit begrenzten, nachgefragten Prototypen.
+`vegetation.twig_radius_basis` verwendet dieselben tatsächlichen Radien in einer
+exakten affinen Röhrenbasis. Vertrag, Ownership, Abnahme und Grenzen:
+[twig_clusters.md](twig_clusters.md) (#746).
+
 `vegetation.load_species_catalog()` lädt einen festen lizenzierten Pilot mit
 30 akzeptierten Arten, Herkunft und getrennten regionalen Vorkommenszuständen.
 Vorbereitete Kandidatenlisten, Format und noch offene ökologische/botanische
@@ -74,6 +86,11 @@ Mathematischer Vertrag, realer Vergleich, Cache-Replay und Grenzen stehen in
 bestehenden analytischen `Blade`, mit stabilen Blatt-IDs und Auflösungsproben.
 Vertrag, tatsächlicher Orts-/Nahverbrauch und botanische/LOD-Grenzen stehen in
 [graminoid.md](graminoid.md) (#22/#208).
+
+`vegetation.normal_distribution` liefert nichtnegative diffuse Antworten aus
+gebinnten Normalmomenten, endliche Fehlergrenzen und eine massenerhaltende Variante.
+Vertrag, Filterung und Grenzen: [normal_distribution.md](normal_distribution.md)
+(#643); keine native Shaderbindung oder vollständige Vegetationsmaterialfreigabe.
 
 `materials.filtered_edge_weight(distance_m, reach_m, half_footprint_m)` liefert eine
 Float32-Materialmaske über einen signierten metrischen Rand. Ein analytischer Boxfilter
@@ -124,6 +141,9 @@ Topologie, Quellen und tatsächliche Exportabnahme bleiben beim Aufrufer.
 Höhenflächen durch lokale, ausdrücklich benannte Facettenersetzung. Stabile
 Patch-/Face-IDs, ganze XYZ-Ränder und begrenzte lokale Abfragen ohne globale
 Geometriekopie: [surface_patches.md](surface_patches.md) (#542).
+Der optionale `geometry.surface_patches.prepared`-Codec speichert und lädt bekannte
+gültige, vom bestehenden Produktdatensatz gebundene Oberflächen ohne erneute
+Geometriekonstruktion; normale unbekannte Eingaben bleiben streng (#678).
 
 `transport.junction_pads.profile_junction_pad` konstruiert eine kleine ebene
 Profilhülle aus zwei bis vier ausdrücklich gemeinsamen ganzen Endprofilen.
@@ -272,7 +292,7 @@ route, driving, terrain deformation, collision or LOD claim. The same-source
 Wiener #119 experiment imports this library; proof and migration belong to #122.
 
 `geometry.vertical_clearance(lower, underside, max_pairs=65536, seconds=1.0,
-max_faces=8192)` prüft den kleinsten vorzeichenbehafteten Z-Abstand über alle
+max_faces=8192, include_maximum=False)` prüft den kleinsten vorzeichenbehafteten Z-Abstand über alle
 positiven XY-Dreiecksschnittflächen. Beide Meshes sind ausdrücklich gewählte
 affine Höhenflächen im gemeinsamen metrischen Datum; Frame/Kind/Quelle und
 benötigte physische Freiheit bindet der Aufrufer. Es wird keine höchste Fläche
@@ -290,6 +310,11 @@ und kooperative Zeit sind begrenzt; eine Abfrage alloziert höchstens
 Ganzflächenminima können an neuen Schnittvertices liegen und werden nicht durch
 Quellvertexstichproben ersetzt. Der Kernel bereitet Ebenengradienten einmal je
 Face vor; alle Brücken-/Portalversuche importieren diesen installierbaren Kern.
+`include_maximum=True` ergänzt `maximum_clearance_m`, `maximum_witness_xy` und
+`maximum_face_pair` im selben Durchlauf. Beide Extrema beschreiben dieselben
+positiven Überlappungen; vollständige gegenseitige Abdeckung bleibt ungeprüft.
+Das Maximum ist nur bei vollständig erfolgreicher Prüfung vorhanden. Die Option
+erfordert einen Boolean; der Default erzeugt keine zusätzlichen Maximumfelder.
 [#146](https://github.com/Weichwolf/outshine/issues/146) besitzt Übernahme und
 Vergleich; API-/Wheel-/Bild-/Kostenbelege stehen im zugehörigen PR.
 

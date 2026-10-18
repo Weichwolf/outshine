@@ -1,0 +1,324 @@
+{
+  "source": "Original complete988-source/71-candidate provider cohort; no synthetic footprint or adjusted heights.",
+  "failure": "Coupled26m/9-storey paired-wing body at05c911a3d; exact null Boolean-export facets formerly had no normal, and geometric contour orientation was undefined there.",
+  "cases": [
+    {
+      "id": "Paris/(14, 8298, 5635)/10851960/24/0",
+      "xy": [
+        394.0280608478836,
+        327.9097523701561
+      ],
+      "height_m": 26.0,
+      "min_height_m": 0.0,
+      "body_height_m": 26.0,
+      "shape": "courtyard",
+      "properties": {
+        "colour": "beige",
+        "render_height": 26,
+        "render_min_height": 0
+      },
+      "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+      "source_tile": [
+        14,
+        8298,
+        5635
+      ],
+      "coordinate_step_m": 0.39278873338328335,
+      "context": {
+        "version": 1,
+        "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+        "evidence": [
+          {
+            "id": "housenumber:692240620:58:3",
+            "layer": "housenumber",
+            "properties": {
+              "housenumber": "40"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "unique-point-host",
+            "role": "address",
+            "position_xy": [
+              374.4370851267535,
+              338.5150481720133
+            ],
+            "scope": "address",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "landuse:99436883:56:0",
+            "layer": "landuse",
+            "properties": {
+              "class": "residential"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "area-overlap",
+            "coverage": 1.0,
+            "context_area_m2": 2752744.2448455156,
+            "scope": "site-context"
+          },
+          {
+            "id": "transportation:1072150712:41:0",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "pedestrian",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 11.765519324476685,
+            "position_xy": [
+              369.7236203259281,
+              355.012174973677
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:15025254672:830:0",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor",
+              "oneway": 1
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 4.461812794373513,
+            "position_xy": [
+              378.17251241550827,
+              350.828136135985
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:159",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 0.7845595905642387,
+            "position_xy": [
+              378.012109487641,
+              347.1543658720215
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:160",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 0.6848254031287894,
+            "position_xy": [
+              374.8298738607682,
+              344.40687917243247
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:164",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 8.755960644252449,
+            "position_xy": [
+              380.3289161271727,
+              355.012174973677
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:166",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 8.778216543565952,
+            "position_xy": [
+              366.9740991927259,
+              346.37082283883046
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:167",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 0.2217027345868004,
+            "position_xy": [
+              375.46945905406324,
+              344.96651621644094
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:258970880:360:4",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "cycleway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 6.972159599991934,
+            "position_xy": [
+              372.4731414591304,
+              351.0842876396559
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:258971032:655:0",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor",
+              "oneway": 1
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 5.692275136907341,
+            "position_xy": [
+              407.431338730081,
+              349.5131327060474
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:709945132:701:0",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor",
+              "oneway": 1
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 4.973367121257721,
+            "position_xy": [
+              370.78717404480875,
+              345.9921942216553
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation_name:258970880:121:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name_int": "Rue de Provence",
+              "name_de": "Rue de Provence",
+              "name": "Rue de Provence",
+              "subclass": "cycleway",
+              "class": "path",
+              "name:latin": "Rue de Provence",
+              "name_en": "Rue de Provence"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 6.972159599991934,
+            "position_xy": [
+              372.4731414591304,
+              351.0842876396559
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          },
+          {
+            "id": "transportation_name:327890550:140:1",
+            "layer": "transportation_name",
+            "properties": {
+              "name": "Rue de Provence",
+              "name_int": "Rue de Provence",
+              "class": "minor",
+              "name:latin": "Rue de Provence",
+              "name_de": "Rue de Provence",
+              "name_en": "Rue de Provence"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 4.483234592226686,
+            "position_xy": [
+              378.1566312060207,
+              350.85026159126187
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          },
+          {
+            "id": "transportation_name:42510880:296:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name_int": "Rue Laffitte",
+              "name_de": "Rue Laffitte",
+              "name": "Rue Laffitte",
+              "class": "minor",
+              "name:latin": "Rue Laffitte",
+              "name:zh": "\u62c9\u83f2\u7279\u8def",
+              "name_en": "Rue Laffitte"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 4.9317247807277385,
+            "position_xy": [
+              370.8257625009807,
+              345.97473823035267
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:99436883:56:0"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "layer": "building",
+      "clipped": false,
+      "placement_base_enu_m": 0.0,
+      "ground_asl_m": null,
+      "placement_origin": "flat shared building plane; no DEM",
+      "footprint_wkb": "0103000000040000000C0000008C55C7FC9147774082BD888543A47440106F7DE3D87977406EC99270CB8C7540655686108E9F774030D6EDE3EEA575401F0E90FB15887840CF4F402A5D9975401F0E90FB15887840E9AFDC89845A7540636DDBD2A1187940D11606AD3B547540636DDBD2A11879400D43E5B639807540E3F805B42BD57940F5A90EDAF07975408394AB4008BC794043ECC8B3748973405D013588F26E7840A1ABB0EA27DB7340A6EE0B653B75784084844E08225F74408C55C7FC9147774082BD888543A47440050000007A613F737A57794082BD888543A4744031746896315179400B65CA71474C7440B58D1E7D788379400B65CA71474C7440FF7AF559C18979406A24B2A8FA9D74407A613F737A57794082BD888543A474400900000016DB232E8823784073571E768802754030964D513F1D7840C9E399DFADEF74405FC8FA0AD129784006D73E6C8AD6744022D5557EF442784006D73E6C8AD674409BF4D914CF557840675DEC251CE37440E4E1B0F1175C784012D170BCF6F574406BC22C5B3D497840D4DDCB2F1A0F7540A9B5D1E719307840D4DDCB2F1A0F754016DB232E8823784073571E7688027540090000005A3A6F0514B47840AADE1CB8B53F7440E11AEB6E39A1784049586FFE23337440E11AEB6E39A17840874B148B001A744074F59828CBAD784026C566D16E0D7440ED141DBFA5C07840DDD78FF4250774406634A15580D37840874B148B001A7440AF217832C9D9784049586FFE233374401D47CA7837CD7840AADE1CB8B53F74405A3A6F0514B47840AADE1CB8B53F7440",
+      "programme": "paired-wings"
+    }
+  ]
+}
