@@ -154,7 +154,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=lib/src:test/experiments/transport \
   --output /tmp/outshine-transport-regional-replay
 ```
 
-All other private traces, complete original trials, reader receipts and compact
+Current private traces, complete original trials, reader receipts and compact
 measurements remain under `/tmp/outshine-transport-autojoint-5e04d0de4/`.
 There is no new accepted image improvement: the existing complete private 720p
 87-source reference images remain the visual baseline. No new showcase/gallery

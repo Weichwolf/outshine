@@ -14,7 +14,7 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
 - [Automatische gemeinsame Seeds und regionale Präzision](stair_seed_dependencies_comparison.md):
   ganze Sechsquellgruppe gefunden, tatsächlicher Terrain-Gegenfall und zwei
-  Höhenerfahren verglichen; noch kein breiterer zugelassener Weltstand (#713/#714/#717).
+  Höhenverfahren verglichen; noch kein breiterer zugelassener Weltstand (#713/#714/#717).
 - [Ringe und ganze Zufahrt gemeinsam planen](stair_joint_crossing_comparison.md):
   87 ganze Quellen, echte prozedurale Gehwegquerung und gemeinsame Höhen vor
   dem Einfrieren; Gegenfälle, aktuelle Fachleser und ganze 720p-Bilder (#709/#710).
