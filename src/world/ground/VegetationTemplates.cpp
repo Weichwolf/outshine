@@ -1,5 +1,4 @@
 #include <format>
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -58,6 +57,26 @@ std::expected<float, std::string> ReadRuleMagnitude(const Json::Ref &source, con
     return std::unexpected(std::string(name) + Says::RuleMagnitude);
   }
   return static_cast<float>(value);
+}
+
+std::expected<float, std::string> ReadCanopyWeight(const Json::Ref &ground,
+                                                   const Json::Ref &grass,
+                                                   const VegetationTemplates::Row &row) {
+  const auto closure = ReadRuleMagnitude(ground["swardClosure"], "ground.swardClosure");
+  if (!closure) { return std::unexpected(closure.error()); }
+  if (ground["swardClosure"].Num() > 1.0) {
+    return std::unexpected("ground.swardClosure requires a fraction within [0,1]");
+  }
+  if (*closure == 0.0f) { return 0.0f; }
+  for (const auto *name : {"perM2", "heightM", "heightJitter", "widthM", "dryFraction"}) {
+    const auto value = ReadRuleMagnitude(grass[name], name);
+    if (!value) { return std::unexpected(value.error()); }
+  }
+  if (grass["heightJitter"].Num() > 1.0 || grass["dryFraction"].Num() > 1.0) {
+    return std::unexpected("canopy jitter and dryness require fractions within [0,1]");
+  }
+  const bool supported = row.Grass[3] > 0.0f && row.Dry[3] > 0.0f && row.Param[1] > 0.0f;
+  return supported ? *closure : 0.0f;
 }
 
 std::expected<bool, std::string> ReadRuleFlag(const Json::Ref &source, const char *name) {
@@ -298,21 +317,12 @@ bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
     row.Param[3] = static_cast<float>(gr["dryFraction"].Num(kCoverUnsaid));
     row.Edge[2] = static_cast<float>(t["trees"]["perM2"].Num(0.0));
 
-    const float closure = static_cast<float>(g["swardClosure"].Num(0.0));
-    if (!std::isfinite(closure) || closure < 0.0f || closure > 1.0f) {
-      Error_ = "ground.swardClosure requires a finite fraction within [0,1]";
+    const auto weight = ReadCanopyWeight(g, gr, row);
+    if (!weight) {
+      Error_ = weight.error();
       return false;
     }
-    const std::array support{row.Grass[3], row.Dry[3], row.Param[0], row.Param[1], row.Param[3]};
-    if (closure > 0.0f &&
-        (!std::ranges::all_of(support,
-                              [](float value) { return std::isfinite(value) && value >= 0.0f; }) ||
-         row.Param[0] > 1.0f || row.Param[3] > 1.0f)) {
-      Error_ = "canopy support requires finite magnitudes and fractional jitter/dryness";
-      return false;
-    }
-    const bool supported = row.Grass[3] > 0.0f && row.Dry[3] > 0.0f && row.Param[1] > 0.0f;
-    row.CanopyWeight = supported ? closure : 0.0f;
+    row.CanopyWeight = *weight;
     if (row.CanopyWeight > 0.0f) {
       for (int c = 0; c < 3; c++) {
         const float sward = row.Grass[c] + (row.Dry[c] - row.Grass[c]) * row.Param[3];
