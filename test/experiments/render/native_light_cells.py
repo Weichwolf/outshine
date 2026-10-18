@@ -15,6 +15,9 @@ from local_light_world import build_world
 def expected_words(packed, actual_lights, translation, full):
     effective = packed.copy()
     effective[:, 1, 3] = actual_lights[:, 1, 3]
+    inverse_ranges = effective[:, 1, 3]
+    subnormal = (inverse_ranges > 0) & (inverse_ranges < np.finfo(np.float32).tiny)
+    effective[subnormal, 1, 3] = 0
     grid = build_world(effective, 32, 16 * 1024**2, translation)
     if full:
         grid.cells.clear()
@@ -113,6 +116,28 @@ def main():
         check(
             args.binary, args.output, "direction-unused-range", directional, np.zeros(3)
         )
+    )
+    mixed = packed[:4].copy()
+    mixed[:, 0, 3] = [1, 0, 1, 2]
+    tiny = np.finfo(np.float32).tiny
+    mixed[:, 1, 3] = [0.125, 100, 0, tiny / 2]
+    for suffix, translation in (
+        ("local", np.zeros(3)),
+        ("earth", np.array([6_000_000, -4_000_000, 3_200_000])),
+    ):
+        rows.append(
+            check(
+                args.binary,
+                args.output,
+                "mixed-subnormal-" + suffix,
+                mixed,
+                translation,
+            )
+        )
+    subnormal = mixed[[0, 3]].copy()
+    subnormal[:, 1, 3] = [tiny / 2, tiny * 0.75]
+    rows.append(
+        check(args.binary, args.output, "all-subnormal", subnormal, np.zeros(3))
     )
     (args.output / "receipt.json").write_text(json.dumps(rows, indent=2) + "\n")
 
