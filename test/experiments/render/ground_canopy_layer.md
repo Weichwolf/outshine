@@ -77,8 +77,8 @@ Körbersee/Tokyo/CentralPark images with unchanged coarse RGB and reported geome
 The PDFs were optically reviewed; local grass response changes, broad world quality
 remains incomplete. A private wavelength-only control restored excessive broad
 relief; the bounded green/dry field improves spatial colour instead. Its native
-CentralPark/Körbersee prototype PDFs are reviewed; final shader/world checks remain
-open in the PR. Tokyo still fails its fresh ten-second load and frame checks;
+CentralPark/Körbersee prototype and final-product PDFs are reviewed; final
+shader/world evidence and remaining red gates are recorded in the PR. Tokyo still fails its fresh ten-second load and frame checks;
 the first legacy Körbersee frame control is also red. Exact current commands,
 pixels/costs and pending full-lint/Metal admission remain exclusively in PR #645.
 
@@ -87,3 +87,33 @@ Digital Filters*, locally under `doc/references/materials/siggraph/` (projected
 footprint discussion/figures optically reviewed). No new filter is introduced.
 The agreed shared contract and consumer replies are in #451; the older RGB-only
 world comparison in `ground_canopy.md` is separate from this new shader's admission.
+
+
+## Independent footprint comparison
+
+`ground_canopy_footprint.py` takes the same palette/binary/output arguments as the
+native composition probe, plus `--quadrature 3` (default nine samples) or `2`.
+It checks 4864 actual GPU probes against independent 64×64 midpoint integration
+of the float32 projected parallelogram, including rotated, narrow and sheared
+footprints, exchanged/reversed axes, and a 256-position world-space motion path.
+The reference includes the declared one-to-two-wavelength fade; 32×32 integration
+checks its convergence. This tests the colour field, not geometric grass coverage.
+
+The predeclared limit is one neutral sRGB display LSB. Nine samples pass with
+0.15318 LSB maximum error, 0.02661 LSB RMS, 0.00333 LSB reference convergence,
+2.99e-8 linear axis-symmetry residual and 0.00182 LSB motion-difference error.
+Four samples fail at 1.55082 LSB; this expected failure remains nonzero and has no
+success receipt. Unfiltered-point and uniform-mean negative controls fail at
+7.72452 and 23.96493 LSB. No threshold or product shader was changed for this check.
+
+Two alternating 32-dispatch batches of these 4864 fully coated probes cost
+5.280 microseconds/dispatch for nine samples versus 4.800–4.864 for four. GPU batch
+scopes including upload/readback are 0.219648–0.222464 ms versus
+0.204352–0.206080 ms; these overlapping scopes must not be added. Both request
+628024 logical buffer bytes and copy 314012 bytes. The cheaper four-sample
+candidate fails the same quality requirement, so the existing nine-sample filter
+is retained. These are component measurements, not world or A18 acceptance.
+
+`ground_canopy_footprint_report.py --selected <nine-sample-output>
+--alternative <four-sample-output> --output <system-temp-report.pdf>` plots the
+retained measurements. The resulting PDF was also reviewed optically.
