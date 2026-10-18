@@ -13,8 +13,10 @@ def fixture_plan(mass, spacing_m=8.0, power_w=160.0, max_candidates=4096):
 
     if not math.isfinite(spacing_m) or spacing_m < 2:
         raise ValueError("Finite ceiling grid spacing of at least2m required")
-    if not math.isfinite(power_w) or power_w <= 0 or max_candidates < 1:
-        raise ValueError("Positive finite power and candidate budget required")
+    if not math.isfinite(power_w) or power_w <= 0:
+        raise ValueError("Positive finite power required")
+    if type(max_candidates) is not int or max_candidates < 1:
+        raise ValueError("Positive integer candidate budget required")
     local = local_plan(mass)
     rooms = [c for c in cavities(local) if c.identifier.endswith("/open-floor")]
     keepout = shapely.from_wkb(local.core.footprint_wkb).buffer(0.20)

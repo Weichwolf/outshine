@@ -77,6 +77,10 @@ class OpenFloorLights(unittest.TestCase):
             {"power_w": -1},
             {"power_w": np.inf},
             {"max_candidates": 1},
+            {"max_candidates": np.nan},
+            {"max_candidates": np.inf},
+            {"max_candidates": True},
+            {"max_candidates": 1.5},
         ):
             with self.assertRaises(ValueError):
                 fixture_plan(self.mass, **kwargs)
@@ -115,6 +119,8 @@ class OpenFloorLights(unittest.TestCase):
                     lamp.location[:], record["position"], atol=1e-4
                 )
                 self.assertEqual(lamp.data.energy, record["power_w"])
+                self.assertTrue(lamp.data.normalize)
+                self.assertEqual(lamp.data.exposure, 0)
                 np.testing.assert_allclose(
                     lamp.data.color[:], record["colour_linear"], atol=1e-7
                 )

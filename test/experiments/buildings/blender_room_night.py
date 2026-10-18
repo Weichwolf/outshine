@@ -22,6 +22,7 @@ def configure(scene, report, daylight):
             continue
         light = bpy.data.lights.new(record["fixture_id"], "AREA")
         light.shape = "RECTANGLE"
+        light.normalize, light.exposure = True, 0
         light.size, light.size_y = record["size"]
         light.energy, light.color = record["power_w"], record["colour_linear"]
         obj = bpy.data.objects.new(record["fixture_id"], light)
@@ -42,6 +43,7 @@ def configure(scene, report, daylight):
         "world_linear_rgb": daylight["world_linear_rgb"],
         "view_transform": daylight["view_transform"],
         "exposure": daylight["exposure"],
+        "light_unit": "Blender radiant W; normalize=True, light exposure=0; not electrical W or calibrated lumens",
         "state": report["room_light_state"],
         "fixtures": state,
         "enabled_lights": sum(r["enabled"] for r in state),
