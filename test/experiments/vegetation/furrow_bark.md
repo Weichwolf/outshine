@@ -82,14 +82,15 @@ Cache-/Materialvertrag; dies sind lokale vollständige Versuchsassets.
 
 ## Korrektheit und vollständige Kosten
 
-Sieben neue Prüfungen umfassen unabhängige skalare Auswertung an 120 Punkten,
+Acht neue Prüfungen umfassen eine vollständige unabhängige skalare 32×32-Auswertung
+und weitere 120 Punkte dreier Seeds,
 bitgleiche dichte/indizierte Raster verschiedener Seeds und extremer Seitenverhältnisse,
 beide periodischen Ränder, analytische metrische Normalen/Skalierung,
 unabhängige Normalenableitung im wiederholten Feld, Speicher-/Formatvorprüfung
 und PNG-Rundreise einschließlich Orientierung und gepackter Rauheit.
 Die Normalenquantisierung bleibt im geprüften Fall unter 0,4°; Höhenfehler
 bleibt innerhalb einer halben R16-Stufe zuzüglich Float-Rundung.
-41 betroffene Kontrollen bestehen einschließlich der unveränderten C1-/Alt-Rindenverfahren.
+42 betroffene Kontrollen bestehen einschließlich der unveränderten C1-/Alt-Rindenverfahren.
 
 Der vollständige Rastervergleich verwendet **1024×2048** (Breite×Höhe), nicht
 die kleinen Prüfraster. Alle acht frischen Auswertungen einschließlich separater

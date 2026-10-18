@@ -66,6 +66,21 @@ def scalar_value(recipe, plan, x, z):
 
 
 class FurrowChecks(unittest.TestCase):
+    def test_complete_small_raster_against_independent_scalar_implementation(self):
+        recipe = FurrowRecipe()
+        plan = recipe.plan()
+        field, _ = raster(recipe, (32, 32))
+        reference = np.empty_like(field)
+        for row in range(32):
+            for column in range(32):
+                reference[row, column] = scalar_value(
+                    recipe,
+                    plan,
+                    (column + 0.5) * recipe.width_m / 32,
+                    (row + 0.5) * recipe.height_m / 32,
+                )
+        np.testing.assert_allclose(field, reference, rtol=0, atol=2e-14)
+
     def test_same_complete_field_for_dense_and_spans_including_extreme_aspect(self):
         cases = (
             FurrowRecipe(),
