@@ -88,6 +88,23 @@ class SpatialSource(unittest.TestCase):
         self.assertNotEqual(s.identity, changed.identity)
         self.assertNotEqual(a.identity, b.identity)
 
+    def test_material_inputs_are_preserved_without_claiming_group_response(self):
+        s = fixture()
+        material = {"recipe": {"translucent_mix": 0.12}, "scope": "qualitative"}
+        original = SpatialGroupSource(s.crown, s.blades, material)
+        before = original.identity
+        material["recipe"]["translucent_mix"] = 0.4
+        changed = SpatialGroupSource(s.crown, s.blades, material)
+        self.assertNotEqual(before, changed.identity)
+        self.assertEqual(
+            original.summary()["material_inputs"]["recipe"]["translucent_mix"], 0.12
+        )
+        self.assertEqual(original.identity, before)
+        self.assertIn(
+            "qualitative",
+            original.geometry(int(s.crown.hosts[0]))["material_inputs_json"],
+        )
+
     def test_catalog_capacity_refuses_before_any_source_geometry(self):
         s = fixture()
         with (

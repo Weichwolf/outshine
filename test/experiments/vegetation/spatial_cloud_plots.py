@@ -17,11 +17,15 @@ def plot(controls, fields, output):
         raise ValueError("private plot must be under /tmp")
     with np.load(controls / "host-17/coverage.npz", allow_pickle=False) as z:
         coverage = dict(z)
-    with np.load(fields / "host-17-view-0.npz", allow_pickle=False) as z:
-        normals = dict(z)
-    lights = np.asarray(
-        json.loads((fields / "report.json").read_text())["query_lights"]
+    field_report = json.loads((fields / "report.json").read_text())
+    case = max(
+        field_report["cases"],
+        key=lambda row: row["mean"]["maximum_unit_response_error"],
     )
+    node, chart = case["host_node"], case["view"]
+    with np.load(fields / f"host-{node}-view-{chart}.npz", allow_pickle=False) as z:
+        normals = dict(z)
+    lights = np.asarray(field_report["query_lights"])
     mean = normals["moments4"].sum(axis=1, keepdims=True)
     measures = (
         normals["exact_probe_response"],
@@ -30,7 +34,10 @@ def plot(controls, fields, output):
         evaluate(normals["moments24"][..., 1:], lights),
     )
     worst = int(np.argmax(np.max(abs(measures[0] - measures[1]), axis=1)))
-    fig, axes = plt.subplots(2, 4, figsize=(16, 9), constrained_layout=True)
+    fig, axes = plt.subplots(2, 4, figsize=(16, 9))
+    fig.subplots_adjust(
+        left=0.025, right=0.99, bottom=0.08, top=0.87, hspace=0.35, wspace=0.06
+    )
     titles = (
         "Exact coarse host",
         "Spatial planes",
@@ -52,8 +59,8 @@ def plot(controls, fields, output):
             cmap="Greens",
             interpolation="nearest",
         )
-        ax.set_title(title)
-        ax.set_xlabel("Shared 8 x 8 footprint; independent direction 0")
+        ax.set_title(title, fontsize=11)
+        ax.set_xlabel("Host17, query0, shared 8 x 8 footprint", fontsize=9)
     for ax, value, title in zip(
         axes[1],
         measures,
@@ -74,15 +81,15 @@ def plot(controls, fields, output):
             interpolation="nearest",
         )
         error = float(abs(value[worst] - measures[0][worst]).max())
-        ax.set_title(f"{title}; max error {error:.3f}")
-        ax.set_xlabel(f"Host17, chart0, independent unit light {worst}")
+        ax.set_title(f"{title}\nmax error {error:.3f}", fontsize=11)
+        ax.set_xlabel(f"Host{node}, chart{chart}, unit light{worst}", fontsize=9)
     for ax in axes.flat:
         ax.set_xticks([])
         ax.set_yticks([])
     fig.suptitle(
         "Same saved host: coverage and unlit normal measure are separate tests\n"
         "Rows use different directions/footprints; scalar cosine response is not RGB/PBR or group R/T",
-        fontsize=14,
+        fontsize=13,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=160)

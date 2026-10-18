@@ -102,6 +102,7 @@ class CrownPhaseCatalog:
             "anchor_frame": frame,
             "host_node": node,
             "source_representative_node": self.representatives[slot],
+            "representation_identity": self.identity,
         }
 
     def summary(self):

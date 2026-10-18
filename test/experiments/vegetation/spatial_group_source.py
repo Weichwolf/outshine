@@ -12,7 +12,7 @@ from crown_shoots import CrownShoots
 
 
 class SpatialGroupSource:
-    def __init__(self, crown, blades):
+    def __init__(self, crown, blades, material_inputs=None):
         if not isinstance(crown, CrownShoots) or not 1 <= len(blades) <= 64:
             raise ValueError(
                 "prepared spatial crown and bounded blade catalog required"
@@ -20,6 +20,7 @@ class SpatialGroupSource:
         if np.any(crown.variants >= len(blades)):
             raise ValueError("complete source variant catalog required")
         self.crown, self.blades = crown, tuple(blades)
+        self.material_json = json.dumps(material_inputs or {}, sort_keys=True)
         self.prototypes = {}
         self.areas = {}
 
@@ -30,6 +31,7 @@ class SpatialGroupSource:
             "leaf_plan_identity": self.crown.identity,
             "blade_mesh": [8, 1],
             "blades": [asdict(b) for b in self.blades],
+            "material_inputs": json.loads(self.material_json),
         }
         return hashlib.sha256(json.dumps(recipe, sort_keys=True).encode()).hexdigest()
 
@@ -38,6 +40,7 @@ class SpatialGroupSource:
             "catalog_identity": self.identity,
             "prepared_blade_prototypes": len(self.prototypes),
             "retained_pose_groups": len(self.crown._groups),
+            "material_inputs": json.loads(self.material_json),
         }
 
     def geometry(self, node, max_leaves=128):
@@ -99,6 +102,7 @@ class SpatialGroupSource:
             "plan_identity": self.crown.identity,
             "host_node": node,
             "catalog_identity": self.identity,
+            "material_inputs_json": self.material_json,
         }
 
 
@@ -127,4 +131,22 @@ def load_source(inputs):
         replace(b, length=b.length * 7 / 6, width=b.width * 7 / 6)
         for b in plant_recipe("quercus", metadata["recipe"]["seed"]).blades
     )
-    return SpatialGroupSource(crown, blades)
+    folder = inputs / "spatial"
+    material = json.loads((folder / "fern-material.json").read_text())
+    paths = [
+        folder / "fern-material.json",
+        folder / material["colour"],
+        folder / material["height"],
+    ]
+    adapter = Path(__file__).with_name("fern_material.py")
+    material_inputs = {
+        "original_recipe": material,
+        "original_files_sha256": {
+            p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in paths
+        },
+        "qualitative_adapter": "fern_material.leaf_material",
+        "adapter_sha256": hashlib.sha256(adapter.read_bytes()).hexdigest(),
+        "comparison_colour": "leaf_sheet.organ_colour; coverage/normal probes do not evaluate original material",
+        "scope": "Original procedural inputs/adapter retained by content identity. No calibrated species or aggregate R/T is present in this source.",
+    }
+    return SpatialGroupSource(crown, blades, material_inputs)
