@@ -9,6 +9,7 @@ import shapely
 
 from ..contracts import immutable
 from .modelling.scope import scalar
+from .modelling.triangle_null import exact_null_candidates
 
 MAX_FIELDS = 64
 FRAME_M = 0.08
@@ -21,8 +22,10 @@ def triangle_surface(raw, material):
     points = raw["vertices"][raw["faces"]]
     normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
     lengths = np.linalg.norm(normals, axis=1)
-    null = np.all(normals == 0, axis=1)
-    if not np.isfinite(lengths).all() or np.any((lengths == 0) & ~null):
+    if not np.isfinite(lengths).all():
+        raise ValueError("Draw surface has an unresolved area-bearing normal")
+    null = exact_null_candidates(points, normals)
+    if np.any((lengths == 0) & ~null):
         raise ValueError("Draw surface has an unresolved area-bearing normal")
     if null.any():
         points, normals, lengths = points[~null], normals[~null], lengths[~null]

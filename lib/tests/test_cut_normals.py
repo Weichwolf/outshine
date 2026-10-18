@@ -1,6 +1,7 @@
 """Exact null cut facets retain oriented parent normals without changing geometry."""
 
 import unittest
+from fractions import Fraction
 
 import numpy as np
 import shapely
@@ -67,6 +68,20 @@ class CutNormals(unittest.TestCase):
         empty = triangle_surface({"vertices": self.null, "faces": self.faces}, 7)
         self.assertEqual(empty["faces"].shape, (0, 3))
         self.assertTrue(all(np.isfinite(value).all() for value in empty.values()))
+
+    def test_floating_cross_cancellation_is_not_proof_of_exact_null_geometry(self):
+        a = 2.0**-27
+        points = np.array([[0.0, 0, 0], [1 + a, 1, 0], [1 + 2 * a, 1 + a, 0]])
+        floating = np.cross(points[1] - points[0], points[2] - points[0])
+        np.testing.assert_array_equal(floating, [0, 0, 0])
+        exact = Fraction(1 + a) ** 2 - Fraction(1 + 2 * a)
+        self.assertEqual(exact, Fraction(1, 2**54))
+        for axes in ((0, 1, 2), (1, 2, 0), (2, 0, 1)):
+            placed = points[:, axes]
+            with self.assertRaisesRegex(ValueError, "cancellation"):
+                triangle_normals(placed, self.faces, self.original, [], [0], [0])
+            with self.assertRaisesRegex(ValueError, "cancellation"):
+                triangle_surface({"vertices": placed, "faces": self.faces}, 7)
 
 
 if __name__ == "__main__":
