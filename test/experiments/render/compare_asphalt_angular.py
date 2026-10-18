@@ -5,6 +5,7 @@ import hashlib
 import json
 import resource
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -136,7 +137,19 @@ def main():
     for density in (1, 4):
         row = compare_density(output, density, args.size)
         rows.append(row)
-        print(json.dumps(row), flush=True)
+        selected = row["methods"][-1]
+        print(
+            json.dumps(
+                {
+                    "density": density,
+                    "method": selected["method"],
+                    "parameters": selected["parameters"],
+                    "mip_count": len(row["mips"]),
+                    "stored_scalar_bytes": row["stored_scalar_bytes"],
+                }
+            ),
+            flush=True,
+        )
     paths = [
         Path(__file__).with_name(p)
         for p in (
@@ -167,7 +180,8 @@ def main():
             "uniform_binder": "analytic weighted polygon area mean, removed exactly; raster bias projected to known zero DC",
         },
         "cases": rows,
-        "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+        "peak_process_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        * (1 if sys.platform == "darwin" else 1024),
         "scope": "Periodic authored material sources and scalar box mips; not measured grain gradation, original nonperiodic Gaussian parity, native format/UV/cache/semantic hookup, arbitrary perspective/anisotropic sampling, exact integrated BRDF or world/device approval.",
     }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")

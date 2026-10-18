@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import resource
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -124,7 +125,10 @@ def render(inputs, output):
                 "samples": 32,
                 "bpy_version": bpy.app.version_string,
                 "backend": gpu.platform.renderer_get(),
-                "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+                "peak_process_rss_bytes": resource.getrusage(
+                    resource.RUSAGE_SELF
+                ).ru_maxrss
+                * (1 if sys.platform == "darwin" else 1024),
                 "scope": "Blender plates show cached scalar-source shape with same recipe/camera/daylight. Base levels uploaded as RGBA32F; Blender sampling, not the exported mip chain. No native GLSL BRDF, world/Place, UV/role/cache integration or device-budget admission.",
             },
             indent=2,
