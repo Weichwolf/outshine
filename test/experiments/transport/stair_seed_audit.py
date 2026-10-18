@@ -5,6 +5,7 @@ import shapely
 from shared_bridge_geometry import corridor
 from stair_closed_height_rounding import verify as verify_rounding
 from stair_cycle_contacts import profile
+from stair_joint_height_fit import recipe_levels
 from stair_junction_layout import landings
 from stair_module_audit import inspect_pins, module_body, traffic
 from stair_module_clearance import source_clearances
@@ -155,7 +156,7 @@ def audit(state, recipe, data, rows, planning, upper, *, sources=None):
         separation.append({"float32": cast, "minimum_old_ground_distance_m": distance})
     if any(not p.equals(q) for p, q in zip(original, domains, strict=True)):
         raise ValueError("independent seed borrowed an undeclared old surface")
-    plans = plans_for(rows, nodes, contacts)
+    plans = recipe_levels(plans_for(rows, nodes, contacts), data, recipe)
     fixed, values = apply_heights(
         data["surface_vertices"][:, :2],
         np.zeros(len(data["surface_vertices"]), bool),
