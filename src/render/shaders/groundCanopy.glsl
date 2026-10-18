@@ -29,7 +29,15 @@ GroundSurface groundSubstrateSurface(int which, vec2 atM, vec2 worldDx, vec2 wor
   float footprintM = max(length(worldDx), length(worldDy));
   GroundDetail detail =
       substrateDetail(groundPaletteVector(at + 20u), contrast, atM, worldDx, worldDy, footprintM);
-  GroundSurface result = GroundSurface(mean.rgb + weight * canopy * (detail.AlbedoScale - 1.0),
+  uint litterAt = floatBitsToUint(groundPalette[3]) + row * 8u;
+  float macroScale = groundPalette[litterAt + 6u];
+  float spread = 2.0 * min(shape.z, 1.0 - shape.z) * contrast;
+  float field = macroScale > 0.0 && spread > 0.0
+                    ? groundLitterFootprintField(atM, worldDx, worldDy, macroScale)
+                    : 0.0;
+  float localDryness = clamp(shape.z + spread * field, 0.0, 1.0);
+  vec3 localCanopy = mix(green.rgb, dry.rgb, localDryness);
+  GroundSurface result = GroundSurface(mean.rgb + weight * (localCanopy - canopy),
                                        mean.a + weight * detail.RoughnessOffset,
                                        weight * (1.0 + shape.y) * detail.BumpDxDy);
   if (weight >= 1.0) { return result; }

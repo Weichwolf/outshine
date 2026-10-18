@@ -10,11 +10,15 @@ material fraction, not a derived directional gap probability.
 
 The existing prefix retains the same coarse RGB/roughness and offsets. Raw ground
 and litter survive separately. The coat uses the original green/dry reflectances
-and dryness, with the existing filtered `substrateDetail` procedure. Its centred
-colour/roughness perturbations are weighted by the authored fraction; remaining
-substrate/litter detail is weighted by its complement. Filtered-out detail returns
-exactly the prefix mean. All terms enter the existing light/shadow response once.
-There is no additional pass, texture, alpha or independent camera/sun product.
+and dryness. The existing filtered `substrateDetail` procedure supplies roughness
+and relief. Colour instead mixes the declared green/dry endpoints with a bounded
+world-fixed dryness field at the authored litter coarse wavelength. If p is mean
+dryness and f the existing filtered field in [-0.5,0.5], local dryness is
+p + 2*min(p,1-p)*contrast*f. Pure endpoints and zero contrast skip this extra field.
+The coat adds its centred colour difference to the prefix; the remaining raw
+substrate/litter detail uses the complement weight. There is no separate colour
+brightness modulation on the coat. Filtered-out detail returns exactly the prefix
+mean. Light/shadows apply once; no extra pass, texture, alpha or camera/sun product.
 
 For positive density d, height h and width w, the prepared microrecipe uses pitch
 1/sqrt(d), relief min(h,w,litter relief), coarse wavelength max(h,2*pitch), and fine
@@ -54,13 +58,29 @@ existing opaque-float native GPU probe. NumPy and the pinned glslang are require
 `GLSLANG` selects its path. Backend/layer selection is inherited from the caller.
 The input is an actual `GroundMaterialPalette` export, not a Python reconstruction.
 
-On Linux/RTX3060, nine variants with 10240 probes each pass: old/short/extra/zero
+On Linux/RTX3060, thirteen variants with 10240 probes each pass: old/short/extra/zero
 tails and zero support are bit-identical to legacy; other classes are unchanged;
 far RGB/roughness equal the original prefix exactly and far bump is zero. Near
 colour, roughness and relief differ for the two declared grass classes. The report
 records actual commands, terminal results, binary/palette/shader hashes and deltas.
 This is composition/format evidence, not an independent canopy transport oracle.
-GPU timings, full current world images/costs and Metal/A18 remain unproven here.
+Pure green/dry endpoints are exact without changing normals/roughness; unit-colour
+mixtures stay inside the independent bounds and zero contrast is constant.
+Two alternating 32-dispatch GPU batches measure 5.76–5.92 microseconds per legacy
+and 7.26–7.30 per coat dispatch (10240 mixed probes). Batch uploads/readback are
+measured separately, not added. Logical buffer requests grow by 2880 B across five
+buffers, copied bytes by 1440 B; physical allocation/driver overhead is unmeasured.
+These component costs do not establish whole-frame or A18 budgets.
+
+The initial-coat native candidate66d94e611 builds coherently and produces paired
+Körbersee/Tokyo/CentralPark images with unchanged coarse RGB and reported geometry.
+The PDFs were optically reviewed; local grass response changes, broad world quality
+remains incomplete. A private wavelength-only control restored excessive broad
+relief; the bounded green/dry field improves spatial colour instead. Its native
+CentralPark/Körbersee prototype PDFs are reviewed; final shader/world checks remain
+open in the PR. Tokyo still fails its fresh ten-second load and frame checks;
+the first legacy Körbersee frame control is also red. Exact current commands,
+pixels/costs and pending full-lint/Metal admission remain exclusively in PR #645.
 
 The filter reuses Feibush, Levoy and Cook, SIGGRAPH1980, *Synthetic Texturing Using
 Digital Filters*, locally under `doc/references/materials/siggraph/` (projected
