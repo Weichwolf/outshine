@@ -55,7 +55,10 @@ def continuous(parts, path, floor):
     for mesh in parts:
         xyz = mesh["vertices"][mesh["faces"]]
         cross = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
-        normals = cross / np.linalg.norm(cross, axis=1, keepdims=True)
+        lengths = np.linalg.norm(cross, axis=1, keepdims=True)
+        if not np.isfinite(lengths).all():
+            raise ValueError("Actual terrace boundary has nonfinite face area")
+        normals = np.divide(cross, lengths, out=np.zeros_like(cross), where=lengths > 0)
         lo, hi = xyz.min(axis=1), xyz.max(axis=1)
         x0, y0, x1, y1 = torso.bounds
         near = (lo[:, 0] <= x1) & (hi[:, 0] >= x0) & (lo[:, 1] <= y1) & (hi[:, 1] >= y0)

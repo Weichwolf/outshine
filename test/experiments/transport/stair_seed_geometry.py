@@ -15,6 +15,8 @@ from stair_module_roads import face_frames
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
 from stair_seed_axes import axis_form
+from stair_seed_crossings import crossings_for
+from stair_seed_level_clusters import merge_levels
 from stair_seed_precision import GRID_M
 
 
@@ -55,8 +57,9 @@ def prepared(rows, sources, ground):
     return nodes, original, original, masks, old
 
 
-def plans_for(rows, nodes):
+def plans_for(rows, nodes, contacts=()):
     plans = plan_heights(rows, nodes, [], include_interiors=True)
+    plans.extend(contacts)
     grid = rows[0].get("source_grid_m")
     if grid:
         for plan in plans:
@@ -64,13 +67,14 @@ def plans_for(rows, nodes):
             plan["shape"] = shapely.box(
                 *(np.r_[np.floor(bounds[:2]), np.ceil(bounds[2:])] * grid)
             )
-    return plans
+    return merge_levels(plans) if contacts else plans
 
 
-def build(rows, sources, ground, sample):
+def build(rows, sources, ground, sample, *, recipe=None):
     planning = prepared(rows, sources, ground)
     nodes, _original, domains, _masks, _old = planning
-    plans = plans_for(rows, nodes)
+    contacts = crossings_for(rows, sources, recipe or {})
+    plans = plans_for(rows, nodes, contacts)
     xy, faces, owners, note = arrangement(
         rows, domains, [], constraints=[p["shape"].boundary for p in plans]
     )
