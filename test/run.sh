@@ -1657,53 +1657,10 @@ if [ "$AUDITLINK" = 1 ]; then
           fi
           ;;
       esac
-      groupIncludes=$(GroupIncludes "$group") || {
-        printf 'AUDIT %s declares %s and no include set is declared for it\n' "$suiteDir" "$group"
+      if ! BuildCaseGroup "$group"; then
+        printf 'AUDIT %s does not compile %s under its own declaration\n' "$suiteDir" "$group"
         stragglers=refused
-        break
-      }
-      groupStd=$(GroupToolchain "$group")
-      # the id carries the WHOLE compile line: includes, std, optimisation and warnings --
-    # editing -O2 or the warning set in this file silently reused objects built with the
-    # old one, and two of five flag groups is not an identity (board:1751)
-    SetGroupCompileFlags
-      case "$group" in
-        *.cpp|*.mm) groupUnits=$group ;;
-        *) groupUnits=$(SourceUnits "$group") ;;
-      esac
-      pairs=$(printf '%s\n' $groupUnits | awk -v cppId="$setId" -v arcId="$arcSetId" \
-        '{ u=$0; s=u; id=(u ~ /\.mm$/ ? arcId : cppId); sub(/\.(cpp|mm)$/, "", s); gsub(/\//, "-", s); print u " " s "." id ".o" }')
-      groupBuilt=no
-      set -- $pairs
-      while [ $# -ge 2 ]; do
-        unit=$1
-        objName=$2
-        shift 2
-        if [ ! -e "$unit" ]; then
-          printf 'AUDIT %s declares %s and no such source exists -- a ghost in the listing\n' "$suiteDir" "$unit"
-          stragglers=refused
-          break
-        fi
-        # the declaration names an object the gate has not built (cold, or a fresh include
-        # set) -- build the GROUP once so the audit reads exactly what it names
-        if [ "$groupBuilt" = no ]; then
-          keptObjects=$OBJECTS
-          if ! BuildCaseGroup "$group"; then
-            printf 'AUDIT %s does not compile %s under its own declaration\n' "$suiteDir" "$group"
-            stragglers=refused
-            break
-          fi
-          groupBuilt=yes
-          OBJECTS=$keptObjects
-        fi
-        if [ -f "$OBJDIR/$objName" ]; then
-          OBJECTS="$OBJECTS $OBJDIR/$objName"
-        else
-          printf 'AUDIT %s built %s and still has no %s\n' "$suiteDir" "$group" "$objName"
-          stragglers=refused
-          break
-        fi
-      done
+      fi
       [ "$stragglers" = refused ] && break
     done
     if [ "$stragglers" = refused ]; then
@@ -1715,8 +1672,8 @@ if [ "$AUDITLINK" = 1 ]; then
       bad=1
       continue
     fi
-    nm -u $OBJECTS 2>/dev/null | grep -o '__ZN8outshine[A-Za-z0-9_]*' | sort -u > "$BUILD/audit.undef"
-    nm -gU $OBJECTS 2>/dev/null | awk '{print $3}' | grep '^__ZN8outshine' | sort -u > "$BUILD/audit.def"
+    nm -u $OBJECTS 2>/dev/null | grep -o '_ZN8outshine[A-Za-z0-9_]*' | sort -u > "$BUILD/audit.undef"
+    nm -gU $OBJECTS 2>/dev/null | awk '{print $3}' | grep -o '_ZN8outshine[A-Za-z0-9_]*' | sort -u > "$BUILD/audit.def"
     unresolved=$(comm -23 "$BUILD/audit.undef" "$BUILD/audit.def")
     if [ -n "$unresolved" ]; then
       printf 'AUDIT %s cannot resolve: %s\n' "$suiteDir" "$(printf '%s' "$unresolved" | head -3 | tr '\n' ' ')"
