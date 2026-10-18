@@ -7,6 +7,14 @@
 #error GROUND_LITTER_GAUSS_POINTS must be 0, 2 or 3
 #endif
 
+float groundLitterFourPointMean(vec2 at, vec2 dx, vec2 dy) {
+  const float offset = 0.28867513459481287;
+  return 0.25 * (surfaceNoise2(at - offset * dx - offset * dy).z +
+                 surfaceNoise2(at + offset * dx - offset * dy).z +
+                 surfaceNoise2(at - offset * dx + offset * dy).z +
+                 surfaceNoise2(at + offset * dx + offset * dy).z);
+}
+
 float groundLitterFootprintField(vec2 atM, vec2 worldDx, vec2 worldDy, float scaleM) {
 #if GROUND_LITTER_GAUSS_POINTS == 0
   return groundLitterField(atM, abs(worldDx) + abs(worldDy), scaleM);
@@ -19,11 +27,7 @@ float groundLitterFootprintField(vec2 atM, vec2 worldDx, vec2 worldDy, float sca
   vec2 dy = worldDy / scaleM;
   float total = 0.0;
 #if GROUND_LITTER_GAUSS_POINTS == 2
-  const float offset = 0.28867513459481287;
-  total = 0.25 * (surfaceNoise2(at - offset * dx - offset * dy).z +
-                  surfaceNoise2(at + offset * dx - offset * dy).z +
-                  surfaceNoise2(at - offset * dx + offset * dy).z +
-                  surfaceNoise2(at + offset * dx + offset * dy).z);
+  total = groundLitterFourPointMean(at, dx, dy);
 #else
   const vec3 offsets = vec3(-0.3872983346207417, 0.0, 0.3872983346207417);
   const vec3 weights = vec3(5.0, 8.0, 5.0) / 18.0;

@@ -50,9 +50,9 @@ def main():
                 * 255
                 for width in widths
             ]
-            axes[0, 0].plot(widths, errors, "o-", label=f"{samples} samples")
-            axes[0, 1].plot(np.sort(arrays["error"] * 255), label=f"{samples} samples")
-            axes[1, 0].plot(arrays["motion_error"] * 255, label=f"{samples} samples")
+            axes[0, 0].plot(widths, errors, "o-", label=f"≤{samples} samples")
+            axes[0, 1].plot(np.sort(arrays["error"] * 255), label=f"≤{samples} samples")
+            axes[1, 0].plot(arrays["motion_error"] * 255, label=f"≤{samples} samples")
         axes[0, 0].axhline(1, color="red", linestyle="--", label="declared 1 LSB limit")
         axes[0, 0].set(
             xlabel="Pixel width / material wavelength",
@@ -62,7 +62,7 @@ def main():
         axes[0, 1].set(
             xlabel="Sorted reference sample",
             ylabel="Display error [LSB]",
-            title="All 1792 area/motion samples",
+            title=f"All {len(data[0]['error'])} area/motion samples",
         )
         axes[1, 0].set(
             xlabel="Movement step",
@@ -71,9 +71,10 @@ def main():
         )
         axes[1, 1].axis("off")
         text = [
-            "4864 GPU probes per candidate; 192 footprint groups.",
+            f"{reports[0]['probes']} GPU probes per candidate; {len(reports[0]['groups'])} footprint groups.",
             "Axes exchanged/reversed without changing the area.",
-            f"9-sample symmetry residual: {reports[0]['symmetry_max_linear']:.3g} linear.",
+            f"Selected symmetry residual: {reports[0]['symmetry_max_linear']:.3g} linear.",
+            f"Handover: {reports[0]['handover_display_lsb']:.4f} LSB (limit 0.1).",
             f"32→64 reference convergence: {reports[0]['convergence_display_lsb']:.4f}LSB.",
             f"Unfiltered point: {reports[0]['negative_controls']['unfiltered_point_max_display_lsb']:.2f}LSB error.",
             f"Uniform mean: {reports[0]['negative_controls']['uniform_mean_max_display_lsb']:.2f}LSB error.",
