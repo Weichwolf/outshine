@@ -17,8 +17,8 @@ int main() {
   for (uint32_t tile = 0; tile < 2; ++tile) {
     auto geometry = std::make_shared<Ground::BuildingGeometry>();
     const double longitude = static_cast<double>(tile) * 0.01;
-    geometry->Points = {
-        0, longitude, 0, longitude + 0.001, 0.001, longitude + 0.001, 0.001, longitude};
+    geometry->OwnCoordinates(
+        {0, longitude, 0, longitude + 0.001, 0.001, longitude + 0.001, 0.001, longitude}, {});
     owners[tile] = geometry;
     const Ground::BuildingFootprint footprint{.PointCount = 4, .SeatM = 12};
     const Field::Baked product{.Coordinates = geometry, .Prints = std::span(&footprint, 1)};

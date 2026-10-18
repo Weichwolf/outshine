@@ -60,7 +60,7 @@ public:
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometry(const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
-  LoadGeometry(const std::string &baseKey, const PreparedBuildingBasis &basis, const RawTile &view);
+  LoadGeometry(const std::string &baseKey, Basis basis, const RawTile &view);
   [[nodiscard]] std::expected<void, StructureBakeError>
   StoreGeometry(const std::string &baseKey,
                 const PreparedStructureTile &base,

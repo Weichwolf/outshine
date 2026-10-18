@@ -96,7 +96,7 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   CHECK(task.Result().Status && task.Result().Tile && task.Result().CacheHit &&
             task.Result().Tile->Digest == reference.Digest &&
             task.Result().Tile->Prints == reference.Prints &&
-            task.Result().Tile->Coordinates->Points == (*basis)->PointsLatLon &&
+            std::ranges::equal(task.Result().Tile->Coordinates->Points(), (*basis)->PointsLatLon) &&
             task.PreparedBase() == nullptr && cache->Costs().ReadBytes == before.ReadBytes,
         "a cached LOD and its owned contacts load with no full plan product or source inputs");
   RawTile moved = view;
@@ -171,7 +171,7 @@ void NativeCache(const std::filesystem::path &root) {
                                std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct));
   CHECK(ready && *ready && (**ready).Digest == geometry->Digest &&
             (**ready).Prints == geometry->Prints && (**ready).Coordinates &&
-            (**ready).Coordinates->Points == (**hit).PointsLatLon &&
+            std::ranges::equal((**ready).Coordinates->Points(), (**hit).PointsLatLon) &&
             (*restarted)->Costs().GeometryWrites == 0,
         "restart loads render geometry and owned contacts without meshing or source inputs");
   auto moved = view;
@@ -461,7 +461,8 @@ int main() {
     CHECK(built && built->Digest == references[index].Digest &&
               built->Prints == references[index].Prints && built->NoGround == 0,
           "prepared bases reproduce cold geometry and contacts after source/height owners vanish");
-    CHECK(built && built->Coordinates && built->Coordinates->Points == decoded->PointsLatLon,
+    CHECK(built && built->Coordinates &&
+              std::ranges::equal(built->Coordinates->Points(), decoded->PointsLatLon),
           "runtime native footprints carry their own geometry rather than source-cache views");
   }
   std::atomic_bool stopping{true};
