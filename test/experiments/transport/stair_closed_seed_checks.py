@@ -4,6 +4,7 @@ import copy
 import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import shapely
@@ -13,6 +14,7 @@ from stair_seed_audit import audit
 from stair_seed_axes import axis_form
 from stair_seed_checks import example
 from stair_seed_geometry import build, seed_contract
+from stair_seed_sources import select
 
 
 def ring_example():
@@ -26,6 +28,43 @@ def ring_example():
 
 
 class ClosedGroundSeeds(unittest.TestCase):
+    def test_closed_root_selection_is_bounded_and_index_scan_agree(self):
+        from stair_growth_sources import outer_seeds
+
+        sources, _rows, _recipe, _state, _empty = ring_example()
+        sources["b"] = {
+            "mvt_xy": [[-20, -20], [-10, -10]],
+            "xy_m": [[-20, -20], [-10, -10]],
+        }
+        for key, source in sources.items():
+            source.update(
+                source_id=key,
+                properties={"class": "path", "subclass": "footway"},
+                shape=shapely.LineString(source["xy_m"]),
+            )
+        view = SimpleNamespace(
+            patches=[SimpleNamespace(bounds_xy_m=(-50, -50, 50, 50))]
+        )
+        selected = [
+            select(
+                view, [], {"source_ids": []}, sources, {}, method=m, root_form="closed"
+            )
+            for m in ("index", "scan")
+        ]
+        self.assertEqual(selected[0]["roots"], selected[1]["roots"])
+        self.assertEqual(selected[0]["recipes"], selected[1]["recipes"])
+        self.assertEqual([r["source_id"] for r in selected[0]["roots"]], ["a"])
+        self.assertTrue(all(r["source_ids"] == ["a"] for r in selected[0]["recipes"]))
+        roots, _deferred = outer_seeds(
+            {"cached_module_rows": {"a": {}}},
+            sources,
+            [{"nodes": sources["a"]["mvt_xy"], "eligible": True}],
+            64,
+        )
+        self.assertEqual(roots, [])
+        with self.assertRaisesRegex(ValueError, "root form"):
+            select(view, [], {"source_ids": []}, sources, {}, root_form="unknown")
+
     def test_real_thin_face_retains_exact_xy_and_passes_unchanged_DQ_limits(self):
         path = (
             Path(__file__).parents[2]
