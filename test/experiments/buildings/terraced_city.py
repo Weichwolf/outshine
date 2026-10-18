@@ -26,7 +26,19 @@ DATA = Path(__file__).with_name("data")
 
 
 def emit(
-    output, name, builder, previous, rows, window, view, receipts, proof, metadata
+    output,
+    name,
+    builder,
+    previous,
+    rows,
+    window,
+    view,
+    receipts,
+    proof,
+    metadata,
+    *,
+    material_definitions=None,
+    scope=None,
 ):
     start = time.perf_counter()
     mesh, source = construct(
@@ -40,6 +52,10 @@ def emit(
     extra = definitions() if isinstance(builder, TerracedDetails) else {}
     if isinstance(builder, CrownedDetails):
         extra = crown_definitions()
+    if material_definitions:
+        if set(extra) & set(material_definitions):
+            raise ValueError("New facade roles collide with body/roof materials")
+        extra = extra | material_definitions
     if set(extra) & (
         set(source["material_definitions"]) | set(previous.owner.facades.bindings)
     ):
@@ -60,7 +76,8 @@ def emit(
         "mesh_array_sha256": fingerprint(mesh),
         "triangles": len(mesh["faces"]),
         "assembly_seconds": time.perf_counter() - start,
-        "scope": "Complete unchanged988-source flat window and actual exterior-position demand. Previous same-view parts reused; old functional owners preserved. Declared scoped physical source proof reused with unchanged modelling files; no whole-city controller/cache/native/light/shadow/device admission.",
+        "scope": scope
+        or "Complete unchanged988-source flat window and actual exterior-position demand. Previous same-view parts reused; old functional owners preserved. Declared scoped physical source proof reused with unchanged modelling files; no whole-city controller/cache/native/light/shadow/device admission.",
     }
     write(output, name, mesh, record, proof)
     print(
