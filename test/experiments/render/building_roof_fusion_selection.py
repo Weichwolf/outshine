@@ -9,9 +9,10 @@ from collections import Counter
 from pathlib import Path
 
 import numpy as np
+from building_positions import RECIPES
 from building_roof_domains import planar_roof_domains, triangulate_domain
 from building_roof_part_selection import contour_selection, parts
-from building_roof_positions import RECIPES, roof_positions
+from building_roof_positions import roof_positions
 from building_roof_selection import emit_roof, images
 from outshine_ref.geometry.occlusion import convex_patch_umbra
 from outshine_ref.geometry.occlusion_hierarchy import BoundsHierarchy

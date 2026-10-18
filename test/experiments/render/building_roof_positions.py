@@ -1,34 +1,16 @@
 """Controlled roof position recipes; native mesh/acceptance parity is separate."""
 
 import numpy as np
-
-RECIPES = ("float64", "snapped-f32")
-
-
-def millimetres(values):
-    """Model native round(value*1000)/1000, including ties away from zero."""
-    values = np.asarray(values, dtype=np.float64)
-    fractional, integral = np.modf(np.abs(values) * 1000.0)
-    return np.copysign(integral + (fractional >= 0.5), values) / 1000.0
+from building_positions import building_positions
 
 
 def roof_positions(local, plane, surface, *, recipe="float64"):
-    origin, east, north, up = (
-        np.asarray(surface[key]) for key in ("origin", "east", "north", "up")
-    )
     if recipe == "float64":
-        return origin + local @ np.asarray([east, north, up])
+        return building_positions(local, surface, recipe=recipe)
     if recipe != "snapped-f32":
         raise ValueError("explicit supported roof vertex recipe required")
     # An identical scalar operation sequence at every contour/triangle vertex
     # keeps the reference independent of BLAS array shape at millimetre ties.
     values = np.array(local, dtype=np.float64, copy=True)
     values[..., 2] = values[..., 0] * plane[0] + values[..., 1] * plane[1] + plane[2]
-    values = millimetres(values)
-    world = (
-        origin
-        + values[..., 0, None] * east
-        + values[..., 1, None] * north
-        + values[..., 2, None] * up
-    )
-    return world.astype(np.float32).astype(np.float64)
+    return building_positions(values, surface, recipe=recipe)

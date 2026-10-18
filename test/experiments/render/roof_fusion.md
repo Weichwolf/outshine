@@ -120,6 +120,8 @@ accepted Shell-wall contract in
 [#12/6256008442](https://github.com/Weichwolf/outshine/issues/12#issuecomment-6256008442),
 which still requires actual retained triangles and consumer-transform bounds.
 This study does not admit real walls or Fine openings as opaque by itself.
+The next [bounded Shell-wall comparison](shell_wall_selection.md) uses the
+confirmed narrow contract and actual native seed-triangle subset controls.
 
 ## Tests, positive fixture and reproduction
 

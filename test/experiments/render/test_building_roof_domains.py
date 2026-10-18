@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
+from building_positions import millimetres
 from building_roof_domains import (
     checked_union,
     footprint,
@@ -13,7 +14,7 @@ from building_roof_domains import (
     triangle_orientation,
     triangulate_domain,
 )
-from building_roof_positions import millimetres, roof_positions
+from building_roof_positions import roof_positions
 from verify_building_roof_domains import controls
 
 

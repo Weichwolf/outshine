@@ -237,6 +237,7 @@ def main():
                 Path(__file__).name,
                 "building_roof_domains.py",
                 "building_roof_positions.py",
+                "building_positions.py",
             )
         },
         "observer_box": observer.tolist(),
