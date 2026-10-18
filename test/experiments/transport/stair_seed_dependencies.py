@@ -159,7 +159,11 @@ def recipes_with_dependencies(recipes, records, sources, method):
                     for k in keys
                     if crossing_kind(sources[k]) == "road"
                 },
-                **({"geometric_junctions": contacts} if contacts else {}),
+                **(
+                    {"geometric_junctions": contacts, "junction_height_mode": "joint"}
+                    if contacts
+                    else {}
+                ),
             }
         )
     return accepted, ledger
