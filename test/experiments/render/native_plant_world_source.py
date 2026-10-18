@@ -17,7 +17,7 @@ from oak_skin_experiment import seed_continuations
 from spatial_group_source import load_source
 
 
-def export(inputs, output):
+def export(inputs, output, carrier_segments=None):
     manifest = json.loads((inputs / "manifest.json").read_text())
     for name, expected in manifest["files_sha256"].items():
         if hashlib.sha256((inputs / name).read_bytes()).hexdigest() != expected:
@@ -58,6 +58,11 @@ def export(inputs, output):
     blades = plant_recipe("quercus", crown.seed).recipe()
     blades["blades"] = [asdict(b) for b in source.blades]
     (output / "blades.json").write_text(json.dumps(blades) + "\n")
+    files = ["crown.input", "wood.input", "blades.json"]
+    if carrier_segments is not None:
+        from native_plant_leaf_carrier import export_carriers
+
+        files.append(export_carriers(source, output, carrier_segments))
     receipt = {
         "source_manifest": manifest,
         "source_catalog": source.identity,
@@ -66,7 +71,7 @@ def export(inputs, output):
         "leaves": len(crown.variants),
         "files_sha256": {
             name: hashlib.sha256((output / name).read_bytes()).hexdigest()
-            for name in ("crown.input", "wood.input", "blades.json")
+            for name in files
         },
     }
     (output / "source.json").write_text(json.dumps(receipt, indent=2) + "\n")
@@ -77,6 +82,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--carrier-segments", type=int, choices=(2, 4))
     args = parser.parse_args()
     output = args.output.resolve()
     if not any(
@@ -85,7 +91,10 @@ def main():
     ):
         raise ValueError("private outputs belong in system temp")
     output.mkdir(parents=True, exist_ok=False)
-    print(json.dumps(export(args.inputs.resolve(), output)), flush=True)
+    print(
+        json.dumps(export(args.inputs.resolve(), output, args.carrier_segments)),
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

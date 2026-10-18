@@ -92,3 +92,60 @@ The present baseline uses native default thin-sheet reflection/transmission, not
 the delivered procedural pigment/normal/variance fields. Production registration,
 bounded residency, cheaper instance representation, bark/joints, wind, complete
 near/far/shadow transitions and all-Place/device acceptance remain open.
+
+## Shared connected leaf carriers
+
+`--carrier-segments 2` uses #707's eight shared9-vertex/8-triangle carriers and
+64×64 source normal/coverage fields. `--carrier-segments 4` selects the other
+verified carrier grid. The source exporter checks the same original manifest.
+The native producer restores this bounded packet and stores ordinary native
+GeometryAsset data in the same package, including all required colour/normal mips.
+The world reader copies only the referenced images and remaps their owner-local
+bindings when separating prototypes; supplied tangents survive publication.
+
+The explicit material frame is `N=+Z, T=+X, handedness=+1`, independent of carrier
+geometric normals. Source premultiplied object moments are unpremultiplied and
+normalized before encoding an ordinary tangent normal image in that same frame.
+Zero-coverage texels are neutral; cancelling nonempty distributions are refused.
+Three independent controls cover mass invariance, discarded resultant length,
+empty support and invalid inputs (`native_plant_leaf_carrier_checks.py`).
+All original poses are rigid frames; the actual selected world matrix has unit
+singular values, followed only by the existing uniform height scale.
+
+For the eight actual source fields, normalization discards at most0.002584 of
+conditional resultant length; the largest area-weighted mean loss is0.00002944.
+RGBA8 decoding adds at most0.006535 direction-vector error at occupied base texels.
+These are local data measurements, not a filtered-image or full-light guarantee.
+Native default thin-sheet R/T remains unchanged; pigment, height and full material
+variance from the qualitative research BSDF are not claimed here.
+
+The new total is `195888 + 90000*8 = 915888` all-view triangle references. Matrix
+count/bytes remain unchanged. The complete cooked package occupies1,442,320 payload
+bytes. Its16 images contain `16*(64*64*4 + 5460) = 349504B` of base pixels and mips.
+The reported824.975m² carrier triangle area includes transparent support and must
+not be compared directly to physical source leaf area.
+
+### Alpha filtering counterexample
+
+With the same placements, source packets, geometry, normals and R/T:
+
+| Variant | Opened PNG prefix | Mean channel error to the fine8-interval control, /255 |
+|---|---|---:|
+| Original analytic4-interval control | `6126a105` |1.110451 |
+| Carrier with ordinary alpha mips | `c664130e` |4.087552 |
+| Carrier base-level alpha control | `c2d0f211` |1.054861 |
+
+Add `--carrier-base-level` for the last diagnostic. It changes only base-colour
+alpha mip selection; normal filtering remains active and all mips stay cooked.
+The ordinary-mip result visibly loses coverage and shadow, brightening the crown.
+Mean source mask coverage is0.4663–0.4689: the smallest area-filtered mip falls
+below the existing0.5 cutout threshold. A fixed cut cannot represent fractional
+coverage in a single texel. Lowering it globally would instead fill the support.
+The actual native package roundtrip confirms last-mip alpha119–120/255, below0.5.
+
+Base-level alpha is the isolating control, not acceptance for moving/subpixel
+foliage. Coverage-aware filtering/sampling, hierarchy and shadow selection must be
+validated together before production adoption. Both measured GPU maxima still
+exceed33.333ms. These single-view differences establish neither temporal quality
+nor a frame-rate gain; projected host selection and shared transformations remain
+the independent memory/work priorities.
