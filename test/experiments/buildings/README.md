@@ -1233,3 +1233,9 @@ depth through closed window panes, with an independent Mitsuba scalar-model
 check and explicit near/front/grazing/inside/whole camera controls. Default
 materials/daylight remain; roughness, screen refraction and fully transparent
 geometry controls distinguish the approximation from the original material.
+
+The [open-floor night follow-up](open_floor_night.md) adds stable ceiling-light
+descriptors and separate floor states to the unchanged source model. Actual
+near/whole night controls retain all lights and full shadow capacity; alpha
+ordering, screen-slab distortion and sampling costs remain explicit
+counterexamples. Common daylight/source glass stay the defaults.
