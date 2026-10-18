@@ -1,9 +1,11 @@
 """Real importer bindings: preserve geometry and explicit source materials."""
 
 import unittest
+from pathlib import Path
 
 import bpy
 import numpy as np
+from blender_city import render
 from blender_city_mesh import NORMAL_ATTRIBUTE, import_mesh
 from blender_window_glass import configure
 
@@ -73,6 +75,15 @@ class WindowGlass(unittest.TestCase):
         obj, _ = import_mesh(self.report, self.data)
         with self.assertRaises(ValueError):
             configure(obj, bpy.context.scene, "missing")
+
+    def test_render_rejects_output_outside_tmp_before_reading_inputs(self):
+        for path in (
+            "/var/tmp/outshine-buildings-test",
+            "/tmp",
+            "/tmp/../var/tmp/test",
+        ):
+            with self.assertRaises(ValueError):
+                render(None, Path(path), 16)
 
 
 if __name__ == "__main__":
