@@ -31,6 +31,17 @@ def scalar_area(mesh):
     )
 
 
+def verify_null_original(source, poses):
+    for i, node in enumerate(source.crown.hosts):
+        source.crown._groups.clear()
+        original = source.crown.group(int(node), 100000)
+        lo, hi = map(int, source.crown.offsets[i : i + 2])
+        for key in poses:
+            if poses[key][lo:hi].tobytes() != original[key].tobytes():
+                raise AssertionError(f"zero form changed original {key}")
+    return len(poses["ids"])
+
+
 def geometry_checks(source, form, actual, original):
     frames = actual["frames"]
     root_error = (
@@ -120,6 +131,7 @@ def run(inputs, study, detail, output):
     }
     mask = np.ones(len(source.crown.hosts), bool)
     original = forms["original"].evaluate(mask, max_leaves=100000, anchors=True)
+    null_rows = verify_null_original(source, original)
     coarse_area = np.array([scalar_area(b.mesh(8, 1)) for b in source.blades])
     fine_area = np.array([scalar_area(b.mesh(32, 4)) for b in source.blades])
     inventory = {}
@@ -147,6 +159,7 @@ def run(inputs, study, detail, output):
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "source_identity": source.identity,
+        "original_null_rows_bit_identical": null_rows,
         "same_complete_faceted_leaf_area_m2_all_modes": inventory,
         "cases": records,
         "process_peak_rss_bytes_linux": resource.getrusage(
