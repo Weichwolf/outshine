@@ -61,6 +61,8 @@ public:
 
   [[nodiscard]] const PlantGrowthPlan &Skeleton() const noexcept { return Growth_; }
 
+  [[nodiscard]] const PlantCrownRecipe &Recipe() const noexcept { return Recipe_; }
+
   [[nodiscard]] std::expected<size_t, std::string_view>
   MeasureLeaves(LeafDemand demand) const noexcept;
   [[nodiscard]] std::expected<std::vector<PlantCrownLeaf>, std::string_view>
