@@ -1253,3 +1253,9 @@ component delivery; direct-front costs compare byte-exact equivalent output.
 The [complete source-window follow-up](bay_city.md) applies both programmes while
 preserving all source draws and functional owners. Wider coherent architectural
 composition and general runtime/cache/LOD admission remain open.
+
+The [coherent replacement reference](facade_programmes.md) replaces owned legacy
+trim with complete plinth/main/attic programmes and horizontal screens or vertical
+fins, including matching collision products. Controls and actual images qualify
+the reference; early omission of old construction and the complete988-source
+application remain open under #774. Handover is recorded in #786.
