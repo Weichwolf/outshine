@@ -168,7 +168,7 @@ bool RenderWall(const Geometry &mesh, double centreX, const char *prefix) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc != 4 || (std::string_view(argv[3]) != "1" && std::string_view(argv[3]) != "2" &&
                     std::string_view(argv[3]) != "3")) {
     return 2;

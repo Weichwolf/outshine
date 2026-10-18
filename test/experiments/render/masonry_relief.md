@@ -1,6 +1,6 @@
 # Filtered masonry height derivatives
 
-Owner: #387, parent #306, material composition #6, goal #189. PR #399 records the initial private
+Owner: #387, parent #306, material composition #6, goal #5. PR #399 records the initial private
 comparison. The following production candidate shares its selected bevel primitive
 with the standalone probes; it changes no binding, cached asset or geometry.
 
@@ -18,6 +18,42 @@ break invariance under a constant height offset. A flat brick across a partially
 covered window edge must therefore retain exactly zero bump. Pure pane and
 zero-depth controls also remain zero. Existing surfaceGradient/bumpNormal resolves
 the final normal, including its degenerate-frame fallback.
+
+## Current Metal/A18 verification
+
+The candidate is synchronized with nativefcc93ec00, including the actual world
+metre-coordinate correction #416. Own material shaders are unchanged. The first
+real MRT probe exposed an independent Metal translation error: the two-component
+roughness output could not targetRGBA32Float. Native Metal now uses the existing
+SPIRV-Cross output-padding option; no probe target or shader assertion changed.
+The disabled-relief ordinary world remains exactly Flensburg623245c7.
+
+Current full build/database,517shader artifacts/12compute contracts, full-flag
+analysis of the Metal translator and changed scene probe, and the unchanged
+31056-check atlas consumer pass. The scene probe's argv gains pointer constness;
+its original checks remain. The CPU report also corrects macOS ru_maxrss units:
+bytes on Darwin, KiB on Linux. The original54GiB-looking value was a1024x reporting
+error, not asset memory; the corrected fresh CPU process peaks at56688640bytes.
+
+The968-case CPU cohort plus8zero-depth GPU controls reproduces all five methods
+and their accepted/rejected results; existing period/authored controls pass. The selected4x4 GPU normal maximum/RMS error is
+1.703652/0.311476degrees against the unchanged2/0.5degree limits. All32actual raster
+pairs pass;480independent pixel normals give0.166673/0.021491degrees. RGB roundoff,
+roughness equality, pure-pane and eight excluded-path assertions are unchanged.
+Actual normal-texture composition covers921600pixels: maximum0.029556degrees
+against0.2, with806928flat normals byte-equal. Lit wall, mapping and normal PDFs
+were opened. Near joints become readable; this is a small material improvement.
+
+Two alternating full Flensburg pairs at1280x720/60 retain719343triangles and
+60frames/360degrees/60GPU queries. Before623245c7 and afterbb32636b are repeatable;
+3806display pixels change,35by more than1/255, worst13/255. Full images were opened.
+Process durations are12.243/8.764s and3.480/3.481s in the reverse pair; these include
+startup/turn/export, not just preload. GPU maxima20.42-34.51ms remain above16.67ms.
+The noisy pairs do not isolate a net shader-time increase or prove a speedup.
+The PR remains Draft: whole-frame/loading acceptance and device peak are open.
+Current source/build/analysis/commands, failed unpadded control, all raw captures,
+receipts and PDFs are retained under /tmp/outshine-pr405-metal/. No current
+individual-dispatch timing or complete-world budget pass is claimed.
 
 ## Production hookup
 
