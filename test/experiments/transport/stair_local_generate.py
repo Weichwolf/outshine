@@ -64,7 +64,7 @@ def construct(
         raise ValueError(
             "new original corridor exceeds conservative local axis support"
         )
-    body = audit(state, recipe, data, rows, planning, line, upper)
+    body = audit(state, recipe, data, rows, planning, line, upper, sources=sources)
     local, chosen, terrain = prepare(state, data, ground, recipe, sample)
     ground_reference = source_ground(ground, data)
     footprint = shapely.union_all(

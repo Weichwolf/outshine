@@ -55,15 +55,26 @@ def one(row, neighbors, data, query, view):
     footprint = BuildingFootprint(row["id"], row["polygon"], requested.heights)
     cut, cost = query.conflict(footprint)
     remaining = polygonal_conflict(row["polygon"].difference(cut))
-    bodies, receipts, reservations = [], [], []
+    bodies, receipts, reservations, unbuilt = [], [], [], []
     for part, polygon in enumerate(shapely.get_parts(remaining)):
         if polygon.is_empty:
             continue
-        actual, receipt = (
-            (original, original_info)
-            if polygon.equals_exact(row["polygon"], 0)
-            else generated(row | {"polygon": polygon}, neighbors, view)
-        )
+        try:
+            actual, receipt = (
+                (original, original_info)
+                if polygon.equals_exact(row["polygon"], 0)
+                else generated(row | {"polygon": polygon}, neighbors, view)
+            )
+        except ValueError as error:
+            unbuilt.append(
+                {
+                    "output_part": part,
+                    "footprint_wkb": polygon.wkb_hex,
+                    "source_part_id": row["id"],
+                    "reason": str(error) or type(error).__name__,
+                }
+            )
+            continue
         world, occupied = body_query(row["id"], actual, dz)
         residual, checked = query.conflict(occupied)
         if not residual.is_empty:
@@ -96,6 +107,7 @@ def one(row, neighbors, data, query, view):
             "query": cost,
             "original_producer": original_info,
             "products": receipts,
+            **({"unbuilt_parts": unbuilt} if unbuilt else {}),
         },
     )
 

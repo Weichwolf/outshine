@@ -1,11 +1,10 @@
 """Continuous complete ground arrival, including new closed facade components."""
 
-from itertools import pairwise
 import math
+from itertools import pairwise
 
 import numpy as np
 import shapely
-
 from building_plan import FLOOR_M
 from entrance_clearance import clearance, collision, section
 
@@ -23,7 +22,10 @@ def arrival_parts(mass, asset):
     selected = (hi[:, 0] >= x0) & (hi[:, 1] >= y0) & (lo[:, 0] <= x1) & (lo[:, 1] <= y1)
     selected &= triangles[:, :, 2].min(axis=1) <= mass.bottom_m + FLOOR_M + 1.90
     selected &= triangles[:, :, 2].max(axis=1) >= mass.bottom_m + FLOOR_M
-    parts = [asset.floors.shell.mesh, asset.floors.landing.mesh]
+    parts = [
+        dict(p.mesh, vertex_roots=p.vertex_roots)
+        for p in (asset.floors.shell, asset.floors.landing)
+    ]
     for part in np.unique(mesh["parts"][selected]):
         rows = np.flatnonzero(mesh["parts"] == part)
         hull = shapely.MultiPoint(triangles[rows, :, :2].reshape(-1, 2)).convex_hull

@@ -43,7 +43,13 @@ def _planes(surface, max_faces, began, seconds):
 
 
 def vertical_clearance(
-    lower, underside, *, max_pairs=65536, seconds=1.0, max_faces=8192
+    lower,
+    underside,
+    *,
+    max_pairs=65536,
+    seconds=1.0,
+    max_faces=8192,
+    include_maximum=False,
 ):
     """Minimum upper-minus-lower Z on positive-area XY overlaps, in caller's datum.
 
@@ -52,6 +58,8 @@ def vertical_clearance(
     A negative result is valid signed overlap, not an automatic rejection or floor
     selection. Edge/point-only contact yields no numeric result. Time is cooperative;
     input face and actual candidate-pair caps bound allocation/work separately.
+    include_maximum adds the maximum of the same signed gap and its witness,
+    without a second surface traversal. It does not certify domain coverage.
     """
     if type(max_pairs) is not int or not 0 <= max_pairs <= 1048576:
         raise ValueError("bounded nonnegative candidate-pair count required")
@@ -59,9 +67,12 @@ def vertical_clearance(
         raise ValueError("bounded positive input face count required")
     if not math.isfinite(seconds) or seconds < 0:
         raise ValueError("finite nonnegative cooperative time required")
+    if type(include_maximum) is not bool:
+        raise ValueError("explicit boolean maximum selection required")
     began = time.monotonic()
     checks, overlaps = 0, 0
     minimum, witness, pair = math.inf, None, None
+    maximum, maximum_witness, maximum_pair = -math.inf, None, None
     try:
         low, low_gradient, low_shapes = _planes(lower, max_faces, began, seconds)
         high, high_gradient, high_shapes = _planes(underside, max_faces, began, seconds)
@@ -97,6 +108,12 @@ def vertical_clearance(
                     minimum = float(gaps[index])
                     witness = xy[index].tolist()
                     pair = [first, int(second)]
+                if include_maximum:
+                    index = int(np.argmax(gaps))
+                    if gaps[index] > maximum:
+                        maximum = float(gaps[index])
+                        maximum_witness = xy[index].tolist()
+                        maximum_pair = [first, int(second)]
         _time_check(began, seconds)
         if witness is None:
             raise _Limit("no_positive_area_overlap")
@@ -108,7 +125,7 @@ def vertical_clearance(
             "positive_area_pairs": overlaps,
             "elapsed_ms": (time.monotonic() - began) * 1000,
         }
-    return {
+    result = {
         "valid": True,
         "reason": "",
         "minimum_clearance_m": minimum,
@@ -118,3 +135,10 @@ def vertical_clearance(
         "positive_area_pairs": overlaps,
         "elapsed_ms": (time.monotonic() - began) * 1000,
     }
+    if include_maximum:
+        result.update(
+            maximum_clearance_m=maximum,
+            maximum_witness_xy=maximum_witness,
+            maximum_face_pair=maximum_pair,
+        )
+    return result

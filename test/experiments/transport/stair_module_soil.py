@@ -5,7 +5,9 @@ import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler, conform_triangles, weld_vertices
 from stair_blend_solve import solve
+from stair_free_terrain import retained_seeds
 from stair_module_topology import check_surface
+from stair_pier_ground import fixed
 from stair_terrain_solid import retaining_body
 
 
@@ -97,17 +99,27 @@ def prepare(state, data, ground, recipe, sample):
     if footprint.difference(region).area > 1e-7:
         raise ValueError("local terrain does not contain the whole new module")
     old_ground_ids = np.flatnonzero(chosen & old["ground"])
-    protected = old_xyz[old["faces"][protected_ids]]
+    protected, references, protection = fixed(
+        state, chosen, protected_ids, shapes, region, old_xyz, recipe
+    )
     protected_shape = shapely.union_all(shapely.polygons(protected[:, :, :2]))
     if protected_shape.intersection(footprint).area > 1e-7:
         raise ValueError("new module intersects immutable old pier ground")
     old_ground = old_xyz[old["faces"][old_ground_ids]]
     fixed_tri = np.vstack([old_ground, new_tri, protected])
     fixed_union = shapely.union_all(shapely.polygons(fixed_tri[:, :, :2]))
-    free = shapely.get_parts(shapely.difference(shapes[chosen], fixed_union))
-    xy, faces, work = tessellate(
-        old["xy"], np.unique(old["faces"][chosen]), fixed_tri, free
-    )
+    mode = recipe.get("terrain_layout_mode", "legacy")
+    seeds = np.unique(old["faces"][chosen])
+    free_note = {}
+    if mode == "free_region":
+        free = shapely.get_parts(region.difference(fixed_union))
+        seeds, free_note = retained_seeds(old["xy"], seeds, fixed_tri, region)
+        free_note.update(overlay_polygon_inputs=1, free_parts=len(free))
+    elif mode == "legacy":
+        free = shapely.get_parts(shapely.difference(shapes[chosen], fixed_union))
+    else:
+        raise ValueError("known local terrain layout mode required")
+    xy, faces, work = tessellate(old["xy"], seeds, fixed_tri, free)
     polygons = shapely.polygons(xy[faces])
     if (
         not shapely.coverage_is_valid(polygons)
@@ -119,11 +131,15 @@ def prepare(state, data, ground, recipe, sample):
         shapely.polygons(np.vstack([old_ground, new_tri])[:, :, :2])
     )
     kinds = shapely.covers(actual_ground, shapely.point_on_surface(polygons))
-    references = [
-        Mesh(old_xyz, old["faces"][np.r_[old_ground_ids, protected_ids]]),
-        Mesh(new_bed, data["surface_faces"]),
-    ]
+    references.append(Mesh(new_bed, data["surface_faces"]))
     values = sampled_pins(xy, references)
+    if (
+        protection
+        and not np.isfinite(
+            values[shapely.dwithin(protected_shape, shapely.points(xy), 1e-7)]
+        ).all()
+    ):
+        raise ValueError("protected terrain lost a fixed reference height")
     boundary = shapely.dwithin(region.boundary, shapely.points(xy), 1e-7)
     original_ids = {tuple(p): i for i, p in enumerate(old["xy"])}
     try:
@@ -143,6 +159,7 @@ def prepare(state, data, ground, recipe, sample):
         "precision_mode": np.array("legacy"),
         "variable_mode": np.array("fixed_displacement"),
         "bridge_reserve_m": np.array(recipe["soil_bridge_reserve_m"]),
+        **({"terrain_layout_mode": np.array(mode)} if mode != "legacy" else {}),
     }
     note = {
         "old_selected_faces": int(chosen.sum()),
@@ -153,11 +170,16 @@ def prepare(state, data, ground, recipe, sample):
         "boundary_vertices": int(boundary.sum()),
         "finite_pins": int(np.isfinite(values).sum()),
         "work": work,
+        **({"free_terrain_retessellation": free_note} if free_note else {}),
     }
+    if protection:
+        note["pier_ground_protection"] = protection
     return plan, chosen, note
 
 
-def assemble(state, local, heights, chosen):
+def assemble(state, local, heights, chosen, *, max_vertices=16384):
+    if type(max_vertices) is not int or not 1 <= max_vertices <= 32768:
+        raise ValueError("bounded explicit assembled-control vertex capacity required")
     old, old_h = state["plan"], state["heights"]
     if heights.min() < old_h.min():
         raise ValueError("new field would change the cached terrain bottom datum")
@@ -183,7 +205,7 @@ def assemble(state, local, heights, chosen):
     replacement = np.c_[xy, h][faces[: len(original)]]
     if original.tobytes() != replacement.tobytes():
         raise ValueError("local replacement changed an outside cached facet")
-    if len(xy) > 16384 or len(faces) > 32768:
+    if len(xy) > max_vertices or len(faces) > 2 * max_vertices:
         raise ValueError("assembled terrain diagnostic cap")
     plan = {
         "xy": xy,
@@ -200,6 +222,8 @@ def assemble(state, local, heights, chosen):
         body,
         parts,
         {
+            "vertex_capacity": max_vertices,
+            "face_capacity": 2 * max_vertices,
             "outside_xyz_triangles_byte_exact": len(original),
             "explicit_global_xy_label_bytes": lookup.nbytes + xy.nbytes,
             "explicit_outside_xyz_compare_bytes": original.nbytes + replacement.nbytes,

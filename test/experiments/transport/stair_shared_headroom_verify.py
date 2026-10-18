@@ -7,8 +7,10 @@ from stair_shared_headroom import bindings
 from stair_shared_headroom_volumes import physical_clearance
 
 
-def verify_shared(rows, data, assets, modules, sources, first, report):
-    declared = bindings(assets, modules)
+def verify_shared(
+    rows, data, assets, modules, sources, first, report, *, prepared_contacts=()
+):
+    declared = bindings(assets, modules, prepared_contacts=prepared_contacts)
     base = {r.owner_id: (r, d) for r, d in zip(rows[:first], data[:first], strict=True)}
     actual_records, count, maximum = [], first, Fraction(0)
     for contact in declared:

@@ -3,23 +3,31 @@
 #include "Check.h"
 #include <array>
 #include <limits>
+#include <cstddef>
 #include <string>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  constexpr double kPreciseLeft = -0.123456789012345;
+  constexpr double kPreciseTop = 0.987654321098765;
+  constexpr double kWidth = 0.25;
   for (const size_t room : {size_t{0}, size_t{65536}, std::numeric_limits<size_t>::max()}) {
     Scenario::Document source;
     source.Room = room;
     source.Surfaces.push_back({.Document = "<button onclick=\"go()\">A&B</button>\n\t",
                                .Style = "button { color: red; }\r\n",
                                .Programme = "var label = 'a&b';\n",
-                               .Where = {.LeftFrac = -0.123456789012345,
-                                         .TopFrac = 0.987654321098765,
-                                         .WidthFrac = 0.25,
+                               .Where = {.LeftFrac = kPreciseLeft,
+                                         .TopFrac = kPreciseTop,
+                                         .WidthFrac = kWidth,
                                          .HeightFrac = 0.5},
                                .Z = std::numeric_limits<int>::max()});
-    source.Surfaces.push_back({.Document = "<div/>", .Z = std::numeric_limits<int>::min()});
+    source.Surfaces.push_back({.Document = "<div/>",
+                               .Style = {},
+                               .Programme = {},
+                               .Where = {},
+                               .Z = std::numeric_limits<int>::min()});
     const auto text = WriteScenario(source);
     CHECK(text.has_value(), "capacity and UI declaration written");
     if (!text) { continue; }
@@ -47,8 +55,7 @@ int main() {
   invalid.Surfaces.emplace_back();
   CHECK(!WriteScenario(invalid), "empty required UI document rejected by writer");
   const auto empty = WriteScenario({});
-  CHECK(empty && empty->find("<scene") == std::string::npos &&
-            empty->find("<surfaces>") == std::string::npos,
+  CHECK(empty && !empty->contains("<scene") && !empty->contains("<surfaces>"),
         "default capacity and absent surfaces need no sections");
   return Report();
 }

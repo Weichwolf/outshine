@@ -84,7 +84,9 @@ def verify(args):
         or (chosen is None and len(report["attempts"]) != len(window))
         or set(report["artifacts"]) != actual
         or report["source_dispositions"]
-        != source_dispositions(selected["plan"], report["attempts"], chosen)
+        != source_dispositions(
+            selected["plan"], report["attempts"], chosen, selected["recipes"]
+        )
     ):
         raise ValueError("incomplete saved automatic selection/admission")
     for name, sha in report["artifacts"].items():

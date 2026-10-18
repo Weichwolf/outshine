@@ -42,9 +42,29 @@ def root_road(args, state):
         & (np.uint64(1) << np.arange(len(keys), dtype=np.uint64))
     ) != 0
     fields = ("body_vertices", "body_faces", "top_faces", "bottom_faces")
+    rows = root_rows(args.reference, state)
     return save_road(
-        args.output, 0, keys, [], {k: body[k] for k in fields}, owners, ground
+        args.output, 0, keys, rows, {k: body[k] for k in fields}, owners, ground
     )
+
+
+def root_rows(reference, state):
+    from stair_cycle_inputs import load
+
+    if digest(reference) != state["report"]["fixture_sha256"]:
+        raise ValueError("verified root recipe required for profile provenance")
+    _case, rows, _nodes, _stairs, _context, _sample = load(reference)
+    if [r["source_id"] for r in rows] != state["report"]["candidate_source_ids"]:
+        raise ValueError("original ordered root source profiles required")
+    provenance = {
+        "fixture_sha256": digest(reference),
+        "body_sha256": state["report"]["after"]["body_sha256"],
+    }
+    return [
+        {k: row[k] for k in ("source_id", "xy", "width_m")}
+        | {"resident_profile_provenance": provenance}
+        for row in rows
+    ]
 
 
 def prepare(args):

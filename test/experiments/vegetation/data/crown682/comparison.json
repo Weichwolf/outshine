@@ -1,0 +1,188 @@
+{
+  "format": "oak-scaffold-study-1",
+  "recipe": {
+    "seed": 682,
+    "height_m": 18.0,
+    "spread_m": 14.0,
+    "root_radius_m": 0.325,
+    "terminal_radius_m": 0.0015,
+    "step_m": 0.28,
+    "attractor_count": 4096,
+    "leaves": 90000
+  },
+  "commit": "f32b8df76fdc87acd839ebc584962558be21c4b2",
+  "products": {
+    "recursive": {
+      "identity": "029f1af642d33a6aad5ba2adc640ce77ce7ce9f4505770e78800c18342c59d34",
+      "product_identity": "a96a082555d70a2656d896bd227afe83aed1b3c77ea170a74caeb355b36d4056",
+      "summary": {
+        "identity": "029f1af642d33a6aad5ba2adc640ce77ce7ce9f4505770e78800c18342c59d34",
+        "skeleton_nodes": 5472,
+        "shoots": 4301,
+        "terminal_nodes": 1301,
+        "leaves": 90000,
+        "variant_counts": [
+          11250,
+          11250,
+          11250,
+          11250,
+          11250,
+          11250,
+          11250,
+          11250
+        ]
+      },
+      "source_seed_nodes": 206,
+      "radius_model": "authored support-power taper; no cross-section conservation",
+      "root_radius_m": 0.325,
+      "minimum_radius_m": 0.0014999999999999992,
+      "growth": {
+        "consumed": 3974,
+        "iterations": 31,
+        "queries": 65519,
+        "rejected_endpoints": 954,
+        "terminal_reason": "occupied_growth_endpoints"
+      },
+      "unreached_attractors": 122,
+      "skeleton_bounds_m": [
+        [
+          -6.735858274408742,
+          -6.732164564062506,
+          0.0
+        ],
+        [
+          6.810755307208017,
+          6.779673944349854,
+          17.698250953733204
+        ]
+      ],
+      "leaf_anchor_bounds_m": [
+        [
+          -6.980561208122676,
+          -6.85877433058419,
+          3.972481070262073
+        ],
+        [
+          7.138227098085144,
+          6.915920824907426,
+          17.981925025921484
+        ]
+      ],
+      "growth_and_summary_s": 0.3346486809896305,
+      "placement_s": 2.9605859000002965,
+      "wood_s": 0.6663799329980975,
+      "export_s": 2.01884310200694,
+      "instanced_triangles": 3396804,
+      "wood_triangles": 336804,
+      "skeleton_array_bytes": 153216,
+      "group_array_bytes": 11970000,
+      "complete_row_array_bytes": 11970000,
+      "wood_array_bytes": 51799812,
+      "known_group_to_whole_copy_bytes": 11970000
+    },
+    "spatial": {
+      "identity": "029f1af642d33a6aad5ba2adc640ce77ce7ce9f4505770e78800c18342c59d34",
+      "product_identity": "d40b2897dc857991e5488c062c83a60b16a8706109958b5b4a0064b5082206ea",
+      "summary": {
+        "identity": "029f1af642d33a6aad5ba2adc640ce77ce7ce9f4505770e78800c18342c59d34",
+        "skeleton_nodes": 5472,
+        "shoots": 4301,
+        "terminal_nodes": 1301,
+        "leaves": 90000,
+        "variant_counts": [
+          11250,
+          11250,
+          11250,
+          11250,
+          11250,
+          11250,
+          11250,
+          11250
+        ]
+      },
+      "source_seed_nodes": 206,
+      "radius_model": "authored support-power taper; no cross-section conservation",
+      "root_radius_m": 0.325,
+      "minimum_radius_m": 0.0014999999999999992,
+      "growth": {
+        "consumed": 3974,
+        "iterations": 31,
+        "queries": 65519,
+        "rejected_endpoints": 954,
+        "terminal_reason": "occupied_growth_endpoints"
+      },
+      "unreached_attractors": 122,
+      "skeleton_bounds_m": [
+        [
+          -6.735858274408742,
+          -6.732164564062506,
+          0.0
+        ],
+        [
+          6.810755307208017,
+          6.779673944349854,
+          17.698250953733204
+        ]
+      ],
+      "leaf_anchor_bounds_m": [
+        [
+          -6.980561208122676,
+          -6.85877433058419,
+          3.972481070262073
+        ],
+        [
+          7.138227098085144,
+          6.915920824907426,
+          17.981925025921484
+        ]
+      ],
+      "growth_and_summary_s": 0.3346486809896305,
+      "placement_s": 2.9605859000002965,
+      "wood_s": 0.6663799329980975,
+      "export_s": 2.01884310200694,
+      "instanced_triangles": 3396804,
+      "wood_triangles": 336804,
+      "skeleton_array_bytes": 153216,
+      "group_array_bytes": 11970000,
+      "complete_row_array_bytes": 11970000,
+      "wood_array_bytes": 51799812,
+      "known_group_to_whole_copy_bytes": 11970000
+    }
+  },
+  "analytic_leaf_area_m2": 392.7351445549988,
+  "process_peak_rss_bytes_linux": 215842816,
+  "presentation_labels": {
+    "recursive": "separate contact normals",
+    "spatial": "unified contact normals"
+  },
+  "presentation_camera": {
+    "eye": [
+      0,
+      -55,
+      24
+    ],
+    "target": [
+      0,
+      0,
+      8.5
+    ],
+    "span_m": 42,
+    "separation_m": 9,
+    "ground_size_m": 48,
+    "resolution": [
+      2560,
+      1440
+    ],
+    "views": {
+      "side": {
+        "eye": [
+          38,
+          -38,
+          24
+        ]
+      }
+    }
+  },
+  "scope": "Same whole saved plant/geometry/materials; local contact normals unified, not geometric C1/species/LOD/native admission.",
+  "source_build_commit": "2a400dae11cff36b8a73180864910da2c3a2a0ea"
+}
