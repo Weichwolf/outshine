@@ -85,6 +85,13 @@ class JointCrossingChecks(unittest.TestCase):
         self.assertAlmostEqual(allowed, edge["maximum_dz_m"], places=12)
         self.assertAlmostEqual(required, edge["required_dz_m"], places=12)
         self.assertGreater(required, allowed)
+        nominal = np.array(edge["nominal_grade_frame"])
+        np.testing.assert_allclose(
+            np.linalg.norm(nominal, axis=1), [10, 100 / 3], rtol=0, atol=1e-12
+        )
+        limit = np.linalg.norm(np.linalg.solve(nominal.T, xy[1] - xy[0]))
+        self.assertAlmostEqual(limit, edge["maximum_nominal_dz_m"], places=12)
+        self.assertGreater(required, limit)
 
     def test_whole_joint_body_binds_both_sources_and_actual_clearance_without_fake_node(
         self,
