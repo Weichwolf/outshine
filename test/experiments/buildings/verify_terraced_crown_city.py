@@ -28,12 +28,18 @@ class CrownCityTests(unittest.TestCase):
             "programme": programme,
             "passed": True,
             "full_body_checked": True,
+            "full_draw_checked": True,
             "roof_components_passed": True,
             "checks": {"scope": "test selection only, not a physical audit"},
         }
 
     def test_roof_only_or_failed_body_reference_cannot_select_a_changed_city_body(self):
-        for field in ("passed", "full_body_checked", "roof_components_passed"):
+        for field in (
+            "passed",
+            "full_body_checked",
+            "full_draw_checked",
+            "roof_components_passed",
+        ):
             for invalid in (False, None, "true"):
                 with self.assertRaisesRegex(ValueError, "roof and body"):
                     CrownedDetails(

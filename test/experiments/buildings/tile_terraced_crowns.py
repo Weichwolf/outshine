@@ -25,6 +25,7 @@ class CrownedDetails:
         if any(
             r.get("passed") is not True
             or r.get("full_body_checked") is not True
+            or r.get("full_draw_checked") is not True
             or r.get("roof_components_passed") is not True
             for r in records.values()
         ):

@@ -20,7 +20,13 @@ GLASS_M = 0.006
 def triangle_surface(raw, material):
     points = raw["vertices"][raw["faces"]]
     normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
-    normals /= np.linalg.norm(normals, axis=1, keepdims=True)
+    lengths = np.linalg.norm(normals, axis=1)
+    null = np.all(normals == 0, axis=1)
+    if not np.isfinite(lengths).all() or np.any((lengths == 0) & ~null):
+        raise ValueError("Draw surface has an unresolved area-bearing normal")
+    if null.any():
+        points, normals, lengths = points[~null], normals[~null], lengths[~null]
+    normals /= lengths[:, None]
     along = points[:, 1] - points[:, 0]
     along /= np.linalg.norm(along, axis=1, keepdims=True)
     across = np.cross(normals, along)

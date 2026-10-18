@@ -6,6 +6,7 @@ import resource
 import time
 from pathlib import Path
 
+import numpy as np
 import shapely
 from evidence import revision
 from terraced_admission_probe import records
@@ -14,6 +15,30 @@ from terraced_crown_plan import plan
 from terraced_crown_probe import roof_checks
 from terraced_mass_admission import inspect
 from terraced_mass_census import source_identity
+
+
+def draw_checks(owner):
+    mesh = owner.draw(True)
+    if not all(np.isfinite(value).all() for value in mesh.values()):
+        raise ValueError("Complete composed draw has nonfinite values")
+    if not np.allclose(np.linalg.norm(mesh["normals"], axis=1), 1, atol=1e-6, rtol=0):
+        raise ValueError("Complete composed draw has unresolved normals")
+    if not np.array_equal(
+        [mesh["vertices"][:, 2].min(), mesh["vertices"][:, 2].max()],
+        [owner.plan.body.bottom_m, owner.plan.source_top_m],
+    ):
+        raise ValueError("Complete composed draw changed source heights")
+    null_count = 0
+    floors = owner.body.facade.near.floors
+    for part in (floors.shell, floors.stairs, floors.landing):
+        xyz = part.mesh["vertices"][part.mesh["faces"]]
+        cross = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
+        null_count += int(np.all(cross == 0, axis=1).sum())
+    return {
+        "triangles": len(mesh["faces"]),
+        "closed_body_null_topology_facets": null_count,
+        "finite_unit_normals": True,
+    }
 
 
 def main():
@@ -34,7 +59,11 @@ def main():
     result, began = [], time.perf_counter()
     for row, programme in sources:
         identity = source_identity(row)
-        record = identity | {"programme": programme, "full_body_checked": False}
+        record = identity | {
+            "programme": programme,
+            "full_body_checked": False,
+            "full_draw_checked": False,
+        }
         start, phase = time.perf_counter(), "plan"
         try:
             current = plan(row, programme)
@@ -66,7 +95,10 @@ def main():
             if args.full_bodies:
                 phase = "independent-body-checks"
                 record["checks"] = inspect(owner.body)
-                record |= {"passed": True, "full_body_checked": True}
+                record["full_body_checked"] = True
+                phase = "complete-draw-checks"
+                record["draw_checks"] = draw_checks(owner)
+                record |= {"passed": True, "full_draw_checked": True}
         except (ValueError, shapely.errors.GEOSException) as error:
             record |= {
                 "planned": record.get("planned", False),
