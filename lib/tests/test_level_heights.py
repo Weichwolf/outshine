@@ -175,11 +175,15 @@ class LevelHeights(unittest.TestCase):
         source, frames, groups = strip()
         for vertices, reason in (
             (source.vertices + np.array([0.1, 0, 0]), "source_XY_not_exact_Float32"),
+            (source.vertices + np.array([1e40, 0, 0]), "source_XY_not_exact_Float32"),
             (source.vertices * [1, 1, 1e40], "height_outside_Float32"),
         ):
-            with patch(
-                "outshine_ref.transport.level_heights._continuous.solve_groups",
-                side_effect=AssertionError("unsupported solve"),
+            with (
+                np.errstate(over="raise"),
+                patch(
+                    "outshine_ref.transport.level_heights._continuous.solve_groups",
+                    side_effect=AssertionError("unsupported solve"),
+                ),
             ):
                 result = fit_level_heights(
                     Mesh(vertices, source.triangles), frames, groups

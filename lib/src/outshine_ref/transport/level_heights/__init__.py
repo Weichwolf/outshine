@@ -50,7 +50,9 @@ def fit_level_heights(
         reason = "time_budget_exhausted"
     elif np.max(abs(surface.vertices[:, 2]), initial=0) > np.finfo("f4").max:
         reason = "height_outside_Float32"
-    elif not np.array_equal(
+    elif np.max(abs(surface.vertices[:, :2]), initial=0) > np.finfo(
+        "f4"
+    ).max or not np.array_equal(
         surface.vertices[:, :2], surface.vertices[:, :2].astype("f4").astype(float)
     ):
         reason = "source_XY_not_exact_Float32"
