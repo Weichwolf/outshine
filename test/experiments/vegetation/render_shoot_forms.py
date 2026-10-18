@@ -63,7 +63,7 @@ def environment(camera):
     return scene
 
 
-def render(inputs, study, output, *, mode, view):
+def render(inputs, study, detail, output, *, mode, view):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private outputs must be under/tmp")
     output.mkdir(parents=True, exist_ok=False)
@@ -80,6 +80,8 @@ def render(inputs, study, output, *, mode, view):
         far=1000,
     )
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    with np.load(detail, allow_pickle=False) as z:
+        fine_by_id = z[view]
     before = time.perf_counter()
     with (
         patch.object(
@@ -94,11 +96,17 @@ def render(inputs, study, output, *, mode, view):
         ),
     ):
         form = ShootForm.load(study / f"{mode}.npz", expected_source=source.identity)
-        leaf_stats = leaf_objects(source, form, camera, inputs, near=view == "near")
+        leaf_stats = leaf_objects(source, form, camera, inputs, fine_by_id)
         wood_stats = wood_objects(form, camera, study, near=view == "near")
     scene = environment(camera)
     build_s = time.perf_counter() - before
     scene.render.filepath = str(output / f"{view}-{mode}.png")
+    print(
+        json.dumps(
+            {"mode": mode, "view": view, "build_s": build_s, **leaf_stats, **wood_stats}
+        ),
+        flush=True,
+    )
     before = time.perf_counter()
     bpy.ops.render.render(write_still=True)
     report = {
@@ -133,8 +141,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--study", type=Path, required=True)
+    parser.add_argument("--detail", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=TRAITS, required=True)
     parser.add_argument("--view", choices=("whole", "near"), required=True)
     args = parser.parse_args()
-    render(args.inputs, args.study, args.output, mode=args.mode, view=args.view)
+    render(
+        args.inputs,
+        args.study,
+        args.detail,
+        args.output,
+        mode=args.mode,
+        view=args.view,
+    )

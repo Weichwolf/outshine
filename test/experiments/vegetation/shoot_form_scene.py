@@ -17,42 +17,48 @@ def constant_material(name, colour, roughness):
     return result
 
 
-def leaf_objects(source, form, camera, inputs, *, near):
+def leaf_objects(source, form, camera, inputs, fine_by_id):
     requested = camera.visible(form.lower, form.upper)
     poses = form.evaluate(requested, max_leaves=100000)
     material = leaf_material(inputs / "spatial")
-    count, triangles, payload = 0, 0, 0
+    count, triangles, payload, fine_count = 0, 0, 0, 0
     for variant, blade in enumerate(source.blades):
         chosen = poses["variants"] == variant
         if not chosen.any():
             continue
-        product = blade.mesh(32, 4) if near else blade.mesh(8, 1)
-        product["uv"] = np.column_stack(
-            ((product["parameters"][:, 1] + 1) / 2, product["parameters"][:, 0])
-        )
+        detail_prototype = blade.mesh(32, 4)
         origins, frames = poses["origins"][chosen], poses["frames"][chosen]
-        take = camera.visible(*posed_bounds(product, origins, frames))
-        if not take.any():
-            continue
-        mesh = batch_geometry(product, origins[take], frames[take])
-        obj = mesh_object(
-            f"source leaf variant{variant}",
-            mesh["vertices"],
-            mesh["faces"],
-            mesh["normals"],
-            material,
-            True,
-            uv=mesh["uv"],
-        )
-        attach_normals(obj, mesh["normals"])
-        count += int(take.sum())
-        triangles += len(mesh["faces"])
-        payload += sum(v.nbytes for v in mesh.values())
+        visible = camera.visible(*posed_bounds(detail_prototype, origins, frames))
+        fine = fine_by_id[poses["ids"][chosen]]
+        for detailed in (False, True):
+            take = visible & (fine == detailed)
+            if not take.any():
+                continue
+            product = detail_prototype if detailed else blade.mesh(8, 1)
+            product["uv"] = np.column_stack(
+                ((product["parameters"][:, 1] + 1) / 2, product["parameters"][:, 0])
+            )
+            mesh = batch_geometry(product, origins[take], frames[take])
+            obj = mesh_object(
+                f"source leaf variant{variant} fine{detailed}",
+                mesh["vertices"],
+                mesh["faces"],
+                mesh["normals"],
+                material,
+                True,
+                uv=mesh["uv"],
+            )
+            attach_normals(obj, mesh["normals"])
+            count += int(take.sum())
+            fine_count += int(take.sum()) if detailed else 0
+            triangles += len(mesh["faces"])
+            payload += sum(v.nbytes for v in mesh.values())
     return {
         "requested_leaf_poses": len(poses["ids"]),
         "drawn_leaves": count,
         "leaf_triangles": triangles,
         "expanded_leaf_array_bytes": payload,
+        "fine_leaves": fine_count,
     }
 
 

@@ -7,9 +7,11 @@ from unittest.mock import patch
 
 import numpy as np
 from compact_crown import CompactCrown
+from demand import Camera
 from outshine_ref.vegetation.curve_frame import arc_frame
 from scipy.spatial.transform import Rotation
 from shoot_form import ShootForm
+from shoot_form_detail import matched_detail
 from spatial_source_checks import fixture
 
 
@@ -20,6 +22,28 @@ def setup_form(**traits):
 
 
 class ShootFormChecks(unittest.TestCase):
+    def test_matched_detail_is_per_id_union_independent_of_form_order(self):
+        source, base, original = setup_form()
+        changed = ShootForm.build(
+            source, base, scale_spread=0.55, leaf_roll_spread=0.85
+        )
+        camera = Camera((0, -3, 2), (0, 0, 2), width=2560, height=1440)
+        a = matched_detail(source, [original, changed], camera)
+        b = matched_detail(source, [changed, original], camera)
+        c = matched_detail(source, [original], camera)
+        np.testing.assert_array_equal(a, b)
+        self.assertTrue(np.all(~c | a))
+        self.assertEqual(a.shape, source.crown.variants.shape)
+        self.assertFalse(a.flags.writeable)
+
+    def test_fine_prototype_box_encloses_all_coarse_vertices(self):
+        source = fixture()
+        for blade in source.blades:
+            fine = blade.mesh(32, 4)["vertices"]
+            coarse = blade.mesh(8, 1)["vertices"]
+            self.assertTrue(np.all(coarse >= fine.min(axis=0) - 1e-15))
+            self.assertTrue(np.all(coarse <= fine.max(axis=0) + 1e-15))
+
     def test_zero_controls_reproduce_every_original_bit(self):
         _, base, form = setup_form()
         mask = np.ones(len(base.data["hosts"]), bool)
