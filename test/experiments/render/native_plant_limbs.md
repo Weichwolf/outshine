@@ -90,6 +90,7 @@ geometry-port control, not a new image-quality or world-coverage certificate.
 
 The main limbs are continuous; separate side branches still meet sharply. The
 material has no bark detail, thin branches alias, and there is no foliage, wind,
-joint union, shadow comparison or near/far transition. Prepared wood persistence,
-projected demand, demanded original crown groups and registration in the world
+joint union, shadow comparison or near/far transition.
+[Stored wood plans](native_plant_limb_assets.md) now restore the prepared coefficients.
+Projected demand, demanded original crown groups and registration in the world
 remain to integrate. No production Place or README image is replaced by this probe.
