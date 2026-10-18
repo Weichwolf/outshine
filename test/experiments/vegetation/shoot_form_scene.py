@@ -17,8 +17,8 @@ def constant_material(name, colour, roughness):
     return result
 
 
-def leaf_objects(source, form, camera, inputs, fine_by_id):
-    requested = camera.visible(form.lower, form.upper)
+def leaf_objects(source, form, camera, inputs, fine_by_id, *, selected=None):
+    requested = camera.visible(form.lower, form.upper) if selected is None else selected
     poses = form.evaluate(requested, max_leaves=100000)
     material = leaf_material(inputs / "spatial")
     count, triangles, payload, fine_count = 0, 0, 0, 0
