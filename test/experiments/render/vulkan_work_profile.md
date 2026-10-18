@@ -57,3 +57,10 @@ Primary contract: Vulkan-Docs `chapters/queries.adoc` (statistics, query scope,
 availability, timestamps) and `chapters/features.adoc` (`pipelineStatisticsQuery`).
 On the measured RTX3060 the feature is supported, the queue has 64 valid timestamp
 bits, and timestamp period is 1ns. Check the actual device on other machines.
+
+Fragment availability requires the stage in every pipeline used during that
+query, including mixed depth/alpha passes. The original8bb9c7311 probe used
+any-pipeline availability: its fragment numbers for passes mixing present/absent stages are undefined,
+not measured zero work; vertex/IA and complete fragment-stage passes remain
+valid. `VulkanWorkProfilePresence.cpp` checks the native metadata reducer
+without GPU execution; the original reducer fails both mixed-order cases.
