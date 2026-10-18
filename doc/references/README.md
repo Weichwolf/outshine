@@ -161,6 +161,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   BRDF, Roughness, Lichtgrößen, Reflexion, Farbraum und Kameraantwort gemeinsam kalibrieren.
   Vorhandenen Khronos-Vertrag erhalten; Parameter/IBL vor neuen Passketten verbessern.
   Referenzverfahren separat prüfen, ihre Kosten sind kein Runtime-Budget.
+- **Precomputed Radiance Transfer for Real-Time Rendering in Dynamic,
+  Low-Frequency Lighting Environments**, Sloan / Kautz / Snyder, SIGGRAPH 2002.
+  [Quelle](https://www.microsoft.com/en-us/research/publication/precomputed-radiance-transfer-real-time-rendering-dynamic-low-frequency-lighting-environments/) ·
+  [PDF](lighting/siggraph/2002-precomputed-radiance-transfer.pdf).
+  Geometrischen Transfer und aktuelles Licht trennen; #451 prüft zunächst die
+  reduzierte Materialantwort eines festen Gras-Footprints. Keine SH-/Winkel-/
+  Weltfreigabe aus einem einzelnen begrenzten Transferprodukt.
 - **A Survey of Temporal Antialiasing Techniques**, Yang / Liu / Salvi, CGF / Eurographics 2020.
   [Autoren](https://research.nvidia.com/labs/rtr/publication/yang2020survey/) ·
   [Verlags-PDF](https://diglib.eg.org/server/api/core/bitstreams/53732e70-b64d-46f4-bbae-865eb7673a35/content) ·
@@ -262,6 +269,15 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [Wald-Föhre](https://www.infoflora.ch/de/flora/pinus-sylvestris.html),
   [Arve](https://www.infoflora.ch/de/flora/pinus-cembra.html),
   [Europäische Lärche](https://www.infoflora.ch/de/flora/larix-decidua.html).
+- **Leaf area index of boreal forests: Theory, techniques, and measurements**,
+  Chen et al., JGR 1997, DOI [10.1029/97JD01107](https://doi.org/10.1029/97JD01107).
+  [Autorenkopie](https://professorpaul.com/publications/chen_et_al_1997.pdf),
+  [PDF](vegetation/botany/1997-leaf-area-index-of-boreal-forests.pdf).
+  PDF-Seite 2 optisch geprüft: halbe grüne Gesamtfläche je Grundfläche und
+  Trennung von tatsächlicher Fläche, wirksamer LAI und räumlicher Klumpung.
+  [NASA-Produktdefinition](https://access.earthdata.nasa.gov/collections/C2222147000-LPCLOUD)
+  bestätigt die Nadel-Flächenkonvention. Eigene Counts/Prototypflächen liefern
+  ein nominales Rezeptziel, keine gemessene Bestands-LAI oder Lichtfreigabe (#179).
 - **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
   [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
   [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).
@@ -322,6 +338,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [PDF](vegetation/i3d/2010-lean-mapping.pdf).
   Seiten 3–4 einschließlich Gleichungen 2–6 optisch geprüft: erste/zweite Neigungsmomente
   linear filtern. Unsere isotrope Übertragung auf GGX bleibt eine gesonderte Näherung ([#44](https://github.com/Weichwolf/outshine/issues/44)).
+- **Real-Time Polygonal-Light Shading with Linearly Transformed Cosines**,
+  Heitz / Dupuy / Hill / Neubelt, SIGGRAPH / TOG 2016.
+  [Autorenquelle und PDF](https://eheitzresearch.wordpress.com/415-2/).
+  Seite4/Fig5/Gl11 der Autoren-PDF optisch geprüft: analytisches Kosinus-Randintegral.
+  Der [endliche GGX-Kernvergleich](../../test/experiments/render/relief_finite.md)
+  in [#422](https://github.com/Weichwolf/outshine/issues/422) nutzt die Randintegration,
+  keinen approximativen LTC-BRDF-Fit oder fremde Tabellen; beide Restterm-Näherungen scheitern.
 - **Interactive and Robust Mesh Booleans**, Cherchi / Pellacini / Attene / Livesu,
   SIGGRAPH Asia / TOG 2022. [Autorenquelle](https://arxiv.org/abs/2205.14151) ·
   [PDF](vegetation/siggraph/2022-interactive-robust-mesh-booleans.pdf), Autorenpreprint.
@@ -428,6 +451,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Kompakte LUTs verbinden Boden-, Flug- und Orbitansicht mit Luftperspektive.
   Bestehende SkyStage vergleichen/ergänzen; gemeinsame planetare Maße und Lichtgrößen.
   Wetterparametrisierung ist eine plausible Ergänzung, keine gemessene Aerosolverteilung.
+- **Improving Noise**, Perlin, SIGGRAPH2002.
+  [Autorenquelle](https://mrl.cs.nyu.edu/~perlin/paper445.pdf) ·
+  [PDF](clouds/siggraph/2002-improving-noise.pdf).
+  Gitter und relative Interpolationskoordinaten; Seite1 samt Gleichung/Fig.1 optisch geprüft.
+  Numerische Advektionsuntersuchung bei [#447](https://github.com/Weichwolf/outshine/issues/447);
+  keine Übernahme des Gradienten-Codes oder behauptete native Präzisionsabnahme.
 - **The Real-time Volumetric Cloudscapes of Horizon Zero Dawn**, Schneider / Vos,
   SIGGRAPH-Kurs 2015.
   [Quelle](https://advances.realtimerendering.com/s2015/The%20Real-time%20Volumetric%20Cloudscapes%20of%20Horizon%20-%20Zero%20Dawn%20-%20ARTR.pdf) ·

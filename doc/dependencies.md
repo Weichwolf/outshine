@@ -7,7 +7,6 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 |---|---|---|---|
 | GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygontriangulation mit Höfen/Inseln über C-API; mindestens 3.10 |
 | SFCGAL | 2.3.0 | [#48](https://github.com/Weichwolf/outshine/issues/48) | Native Walmdachpartition mit Quellkanten/Höfen über C-API; mindestens 2.3, Rendererübernahme folgt |
-| meshoptimizer | 1.3 | [#12](https://github.com/Weichwolf/outshine/issues/12) | Geplant: native Index-/Vertexbuffer, begrenzte Simplifizierung |
 | simdjson | 4.6.11 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer JSON-Decoder |
 | pugixml | 1.16 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer XML-Decoder |
 | Eigen | 5.0.1 | [#2](https://github.com/Weichwolf/outshine/issues/2) | Geplant: lineare Berechnungen, keine Änderung der GPU-ABI |
@@ -18,32 +17,28 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 ## Installation
 
 ```sh
-brew install geos sfcgal simdjson pugixml eigen bullet sqlite zstd
+brew install ccache geos sfcgal simdjson pugixml eigen bullet sqlite zstd
 ```
-
-meshoptimizer fehlt in Homebrew-Core. Das eigene [Paketrezept](../lib/Formula/meshoptimizer.rb)
-baut den offiziellen Release mit SHA-256-Prüfung, ohne Bibliotheksquellen im Repository.
-
-```sh
-brew tap cosmo/outshine git@github.com:Weichwolf/outshine.git
-brew install cosmo/outshine/meshoptimizer
-brew test cosmo/outshine/meshoptimizer
-```
-
-Der Tap verwendet das bestehende Outshine-Remote; `brew update` übernimmt neue Paketrezepte.
-Bei einem Bibliotheksupdate Release/Hash und ABI prüfen, Paket bauen und Engine-Gates ausführen.
 
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install libgeos-dev libsfcgal-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev libzstd-dev
+sudo apt install ccache libgeos-dev libsfcgal-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev libzstd-dev
 ```
 
 SFCGAL benötigt mindestens 2.3; die Paketversion vor dem Build mit `pkg-config --modversion sfcgal` prüfen.
-GEOS, SFCGAL, SQLite, Zstandard, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten. meshoptimizer liefert
-einen CMake-Vertrag (`meshoptimizer::meshoptimizer`); keine erfundene pkg-config-Abhängigkeit.
+GEOS, SFCGAL, SQLite, Zstandard, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten.
 Optionale Pakete werden erst beim jeweiligen Feature an den Build angeschlossen.
+
+Meshoptimizer ist keine Produktabhängigkeit. Einzelne optionale Forschungsvergleiche
+nutzen eine separat installierte Bibliothek; Aufrufe und historische Versionen stehen
+bei den Experimenten. Outshine pflegt dafür kein eigenes Paketrezept.
 
 Der integrierte native Assetcache benötigt SQLite und Zstandard auch im Runtime-Link. Statische
 Nutzer von `liboutshine.a` binden zusätzlich `pkg-config --libs sqlite3 libzstd` ein.
 Der Building-Generator benötigt beim statischen Link zusätzlich `pkg-config --libs sfcgal`.
+
+Native Builds benötigen `ccache`. Der Compiler-Cache liegt standardmäßig unter
+`${TMPDIR:-/tmp}/outshine-compiler-cache`, auf 1 GiB begrenzt; bestehende
+`CCACHE_DIR`/`CCACHE_MAXSIZE`-Vorgaben gehen vor. Er enthält ausschließlich
+wiederherstellbare Compilerprodukte, keine Weltquellen oder Game-Assets.

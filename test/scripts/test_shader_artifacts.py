@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile independent SDL-layout fixtures, then break the actual package and reflection tool."""
+"""Compile native resource fixtures, then break the actual package and reflection tool."""
 import json
 import os
 from pathlib import Path
@@ -133,12 +133,24 @@ class ShaderArtifacts(unittest.TestCase):
                 self.compile('comp', source)
                 self.assertEqual(self.check(False)['valid'], 2)
 
-    def test_graphics_sets_and_write_access(self):
+    def test_native_graphics_accept_sparse_shared_sets_and_resource_order(self):
+        for stage, source in (('vert', VERTEX), ('frag', FRAGMENT)):
+            variants = [source.replace('binding = 2', 'binding = 8'),
+                        source.replace('set = 1', 'set = 3') if stage == 'vert' else
+                        source.replace('set = 3', 'set = 1'),
+                        source.replace('set = 2', 'set = 0') if stage == 'frag' else source,
+                        source.replace('binding = 0', 'binding = TEMP').replace(
+                            'binding = 1', 'binding = 0').replace('TEMP', '1')]
+            for altered in variants:
+                with self.subTest(stage=stage, altered=altered):
+                    self.compile(stage, altered)
+                    self.assertEqual(self.check(True)['valid'], 3)
+            self.compile(stage, source)
+
+    def test_native_graphics_reject_duplicate_bindings_and_uncontracted_writes(self):
         for stage, source in (('vert', VERTEX), ('frag', FRAGMENT)):
             for altered in (source.replace('readonly buffer Input', 'buffer Input'),
-                            source.replace('binding = 2', 'binding = 8'),
-                            source.replace('set = 1', 'set = 3') if stage == 'vert' else
-                            source.replace('set = 3', 'set = 1')):
+                            source.replace('binding = 2', 'binding = 1')):
                 with self.subTest(stage=stage, altered=altered):
                     self.compile(stage, altered)
                     self.assertEqual(self.check(False)['valid'], 2)

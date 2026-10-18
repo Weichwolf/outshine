@@ -102,3 +102,8 @@ counterchecks remain open under #286/#206. Master publishes integrated Places;
 no specialist image publication under doc/. The finite-aerial/Thin/cloud ordering
 contracts remain separate under #266/#193. This correction does not merge #259
 or close either broader feature.
+
+The later [solar-lookup comparison](solar_lookup.md) addresses the remaining
+interpolation/domain error with explicit physical endpoints and 512×64 storage.
+It preserves the integration rule above. The numerical captures here belong to
+the original #307 source/input freeze, not the later endpoint producer.

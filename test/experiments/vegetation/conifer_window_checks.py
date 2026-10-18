@@ -1,14 +1,15 @@
 """Budgets, identity ranges and physical frames without a full near expansion."""
 
 import argparse
+import importlib.util
 import json
 import subprocess
-import types
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from conifer_whole_products import BASE, OUTPUT, SPECIES, load_catalog
+from conifer_whole_products import SPECIES, load_catalog
 from conifer_windows import plan_windows, window_count
 from forest_views import choices
 from outshine_ref.vegetation import Needle, NeedledPlant, NeedlePattern, PlantPlan
@@ -17,14 +18,20 @@ from textured_raster import source_image
 
 
 def raster_compatibility():
-    previous = types.ModuleType("previous_textured_raster")
-    exec(
-        subprocess.check_output(
-            ["git", "show", "434290b50:test/experiments/vegetation/textured_raster.py"],
-            text=True,
-        ),
-        previous.__dict__,
-    )
+    with tempfile.TemporaryDirectory(prefix="outshine-raster-reference-") as directory:
+        path = Path(directory) / "previous_textured_raster.py"
+        path.write_bytes(
+            subprocess.check_output(
+                [
+                    "git",
+                    "show",
+                    "434290b50:test/experiments/vegetation/textured_raster.py",
+                ]
+            )
+        )
+        spec = importlib.util.spec_from_file_location("previous_textured_raster", path)
+        previous = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(previous)
     quad = np.array(((-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1)), float)
     faces = np.array(((0, 1, 2), (0, 2, 3)))
     normals = np.tile((0, 0, 1), (6, 1))
@@ -47,8 +54,8 @@ def raster_compatibility():
     )
 
 
-def check(species, whole=OUTPUT):
-    recipe = json.loads((BASE / species / "whole-plan.json").read_text())
+def check(species, whole, source):
+    recipe = json.loads((source / species / "whole-plan.json").read_text())
     catalog, banks = load_catalog(whole / species / "catalog")
     plant = NeedledPlant.from_recipe(recipe)
     expected = window_count(plant, catalog)
@@ -162,11 +169,12 @@ def check_product(species, whole):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--whole", type=Path, default=OUTPUT)
+    parser.add_argument("--whole", type=Path, required=True)
+    parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--products", action="store_true")
     args = parser.parse_args()
     raster_compatibility()
     for name in SPECIES:
-        print(check(name, args.whole), flush=True)
+        print(check(name, args.whole, args.source), flush=True)
         if args.products:
             print(check_product(name, args.whole), flush=True)

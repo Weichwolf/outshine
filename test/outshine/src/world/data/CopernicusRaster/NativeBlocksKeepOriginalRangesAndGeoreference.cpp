@@ -1,10 +1,5 @@
 #include "Check.h"
 #include "CopernicusRaster.h"
-#include "CopernicusDem.h"
-#include "ContentStore.h"
-#include "Fetching.h"
-#include "OfflineTransport.h"
-#include "SourceSet.h"
 
 #include <algorithm>
 #include <array>
@@ -15,11 +10,7 @@
 #include <memory>
 #include <span>
 #include <string>
-#include <thread>
-#include <chrono>
 #include <vector>
-#include <filesystem>
-#include <system_error>
 #include <unistd.h>
 #include <tiffio.h>
 
@@ -145,103 +136,6 @@ Part(std::span<const uint8_t> all, ByteRange range, std::string_view revision = 
           .Bytes = all.subspan(range.First, range.Length)};
 }
 
-std::expected<Delivery::Answer, FetchFailureReason>
-Acquire(SourceSet &sources, Transport &wire, const Fetch &request) {
-  auto query = sources.Ask(request);
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(25);
-  while (std::chrono::steady_clock::now() < deadline) {
-    auto response = sources.Collect(query, wire);
-    if (response.Where() != Delivery::State::Pending) {
-      auto settled = response.Take();
-      if (!settled) {
-        return std::unexpected(response.Failure() ? response.Failure()->Reason
-                                                  : FetchFailureReason::Unavailable);
-      }
-      return std::move(*settled);
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-  }
-  SourceSet::Abandon(query, wire);
-  return std::unexpected(FetchFailureReason::Unavailable);
-}
-
-void RealOriginal(const char *url) {
-  Fetching wire({});
-  auto directory = (std::filesystem::temp_directory_path() / "outshine-cog-live-XXXXXX").string();
-  CHECK(mkdtemp(directory.data()) != nullptr, "isolated original-network cache");
-  const ContentStore::Config config{.Directory = directory};
-  ContentStore store(config);
-  SourceSet sources(store);
-  const auto at = Address::AtCell({54, 9});
-  auto provider = std::make_unique<CopernicusDem>();
-  CHECK(provider->Url(at) == url, "probe uses the official native N54/E009 source address");
-  CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
-        "live native source uses the shared registry and raw cache");
-  const Fetch headerRequest(DataKind::Elevation, at, ByteRange{.First = 0, .Length = 16384});
-  auto header = Acquire(sources, wire, headerRequest);
-  CHECK(header && header->Range, "real COG metadata has a verified range receipt");
-  if (!header || !header->Range) { return; }
-  std::array<CopernicusPart, 2> parts;
-  parts[0] = {.ObjectKey = url, .Origin = *header->Range, .Bytes = header->Bytes};
-  const CopernicusObject metadataObject{.ObjectKey = url,
-                                        .TotalBytes = header->Range->TotalBytes,
-                                        .EntityTag = header->Range->EntityTag,
-                                        .Parts = std::span(parts).first(1)};
-  const auto metadata = ReadCopernicusRaster(metadataObject);
-  CHECK(metadata && metadata->Levels.size() == 4, "real N54/E009 has four native resolutions");
-  if (!metadata) { return; }
-  const auto &native = metadata->Levels.front();
-  CHECK(native.Columns == 2400 && native.Rows == 3600 && native.BlockColumns == 1024 &&
-            native.BlockRows == 1024 && native.WestDeg == 9 && native.NorthDeg == 55,
-        "real source georeference survives native decoding");
-  const Fetch blockRequest(DataKind::Elevation, at, native.Blocks[1], header->Range->EntityTag);
-  auto bytes = Acquire(sources, wire, blockRequest);
-  CHECK(bytes && bytes->Range,
-        "one spatially selected block keeps the same strong object revision");
-  if (!bytes || !bytes->Range) { return; }
-  parts[1] = {.ObjectKey = url, .Origin = *bytes->Range, .Bytes = bytes->Bytes};
-  auto source = metadataObject;
-  source.Parts = parts;
-  const auto begin = std::chrono::steady_clock::now();
-  const auto block = ReadCopernicusBlock(source, *metadata, 0, 1);
-  const double decodeMs =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count();
-  CHECK(block && block->FirstColumn == 1024 && block->FirstRow == 0,
-        "selected original block decodes without loading the complete file");
-  if (!block) { return; }
-  const auto height = block->HeightM(781, 20);
-  CHECK(height, "Flensburg diagnostic sample is present");
-  std::printf(
-      "ORIGINAL received=%zu total=%llu revision=%s sample(1044,781)=%g m EGM2008 decode=%.3f ms\n",
-      header->Bytes.size() + bytes->Bytes.size(),
-      static_cast<unsigned long long>(source.TotalBytes),
-      header->Range->EntityTag.c_str(),
-      height.value_or(std::numeric_limits<float>::quiet_NaN()),
-      decodeMs);
-  ContentStore reopened(config);
-  SourceSet warm(reopened);
-  CHECK(warm.Add(std::make_unique<CopernicusDem>()) == SourceSet::Registration::Accepted,
-        "warm source starts with a newly opened cache and registry");
-  OfflineTransport offline;
-  auto cachedHeader = Acquire(warm, offline, headerRequest);
-  auto cachedBlock = Acquire(warm, offline, blockRequest);
-  CHECK(cachedHeader && cachedBlock && cachedHeader->Range && cachedBlock->Range &&
-            cachedHeader->Bytes == header->Bytes && cachedBlock->Bytes == bytes->Bytes &&
-            cachedHeader->Range->EntityTag == header->Range->EntityTag &&
-            cachedBlock->Range->TotalBytes == source.TotalBytes && warm.Counters().FromStore == 2 &&
-            warm.Counters().ProviderStarts == 0,
-        "reopened offline cache reproduces exact original COG ranges and their receipts");
-  if (cachedHeader && cachedBlock && cachedHeader->Range && cachedBlock->Range) {
-    parts[0] = {.ObjectKey = url, .Origin = *cachedHeader->Range, .Bytes = cachedHeader->Bytes};
-    parts[1] = {.ObjectKey = url, .Origin = *cachedBlock->Range, .Bytes = cachedBlock->Bytes};
-    const auto again = ReadCopernicusBlock(source, *metadata, 0, 1);
-    CHECK(again && again->HeightM(781, 20) == height,
-          "cached original bytes produce the same native EGM2008 meter sample without network IO");
-  }
-  std::error_code error;
-  std::filesystem::remove_all(directory, error);
-  CHECK(!error, "probe cache fixture removed");
-}
 }
 
 int main() {
@@ -343,6 +237,5 @@ int main() {
               nodata->HeightM(0, 1) == -47.0f,
           "explicit NoData removes only missing samples, not surrounding terrain");
   }
-  if (const char *url = std::getenv("OUTSHINE_GLO30_RASTER_PROBE")) { RealOriginal(url); }
   return Report();
 }

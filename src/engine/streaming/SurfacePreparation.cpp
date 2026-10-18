@@ -144,6 +144,14 @@ bool SurfacePreparation::OpenSession(const World::StoragePaths &under,
     return false;
   }
   Close();
+  auto digest = Generators::Osm::OsmField::DeclarationDigest({});
+  if (!digest) {
+    say.Refuse(std::string(digest.error()));
+    return false;
+  }
+  Declared_.clear();
+  DeclaredDigest_ = std::move(*digest);
+  Cls_.Declares({}, DeclaredDigest_);
   Sources_ = std::move(session);
   auto &sources = Sources_->Sources();
   for (size_t at = 0; at < sources.Count(); ++at) {
@@ -288,7 +296,8 @@ SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget bud
     metrics.VectorBuild = Vectors_->LastBuildMetrics();
   } else {
     Vectors_->Declare(std::span<const ::outshine::Generators::Osm::OsmField::Declared>(Declared_),
-                      *vectorTile);
+                      *vectorTile,
+                      DeclaredDigest_);
   }
   if (Vectors_->Generation() != previousVectorGeneration) {
     Footprints_.ResetDerived();

@@ -8,7 +8,10 @@
 #include <string>
 
 #include "SceneTargets.h"
-#include "ShaderFile.h"
+#include "StagePipelines.h"
+#include <expected>
+#include <span>
+#include <utility>
 
 namespace outshine::Render {
 
@@ -18,75 +21,48 @@ constexpr auto UnsupportedSkyAttachment = "sky pass has an unsupported colour at
 
 constexpr float kMPerKmF = 1000.0f;
 
-bool SkyStage::Configure(const Gpu &gpu, Tables from, std::string &error) {
-  SkyView = from.SkyView;
-  Veil = from.Transmittance;
-  Lut = from.Lut;
-  if (SkyView == nullptr || Veil == nullptr || Lut == nullptr) {
-    error = "the sky draw needs the sky view table and its sampler, and the plan did not hold both";
-    return false;
+Native::Result<void> SkyStage::Configure(const Gpu &gpu, Tables from) {
+  if (gpu.Device == nullptr || from.SkyView == nullptr || from.Transmittance == nullptr ||
+      from.Lut == nullptr || gpu.SceneColours.Empty()) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "sky draw requires complete native inputs and targets"});
   }
-
-  const OwnedShader vertex(gpu.Device,
-                           ShaderFrom(gpu.Device,
-                                      "build/shaders/fullscreenNdc.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      ShaderShape,
-                                      error));
-  const OwnedShader fragment(gpu.Device,
-                             ShaderFrom(gpu.Device,
-                                        "build/shaders/sky.frag.spv",
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        ShaderShape,
-                                        error));
-  if (!vertex || !fragment) { return false; }
-
-  std::array<SDL_GPUColorTargetDescription, kMaxColourAttachments> targets = {{}};
+  std::array<Native::ColourTarget, kMaxColourAttachments> targets{};
   size_t index = 0;
-  for (const Resource resource : gpu.SceneColours) {
+  for (const auto resource : gpu.SceneColours) {
     auto &target = targets[index++];
     switch (resource) {
-      case Resource::SceneHdr: target.format = gpu.HdrFormat; break;
+      case Resource::SceneHdr: target.Texels = gpu.HdrFormat; break;
       case Resource::SceneVelocity: target = VelocityTarget(true); break;
       case Resource::SceneSurfaceBase:
       case Resource::SceneShadingNormal:
-        target.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-        target.blend_state.enable_color_write_mask = true;
-        target.blend_state.color_write_mask = 0;
+        target.Texels = Native::Format::Rgba16Float;
+        target.Write = {};
         break;
       case Resource::SceneSurfaceMetalRough:
-        target.format = SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT;
-        target.blend_state.enable_color_write_mask = true;
-        target.blend_state.color_write_mask = 0;
+        target.Texels = Native::Format::Rg16Float;
+        target.Write = {};
         break;
       case Resource::SceneSurfaceIdentity:
-        target.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
-        target.blend_state.enable_color_write_mask = true;
-        target.blend_state.color_write_mask = 0;
+        target.Texels = Native::Format::Rgba32Float;
+        target.Write = {};
         break;
-      default: error = Says::UnsupportedSkyAttachment; return false;
+      default:
+        return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                             .Message = Says::UnsupportedSkyAttachment});
     }
   }
-  SDL_GPUGraphicsPipelineCreateInfo pipeline{};
-  pipeline.vertex_shader = vertex.Get();
-  pipeline.fragment_shader = fragment.Get();
-  pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
-  pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  pipeline.target_info.color_target_descriptions = targets.data();
-  pipeline.target_info.num_color_targets = static_cast<uint32_t>(gpu.SceneColours.Size());
-  pipeline.target_info.has_depth_stencil_target = true;
-  pipeline.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-  pipeline.depth_stencil_state.enable_depth_test = false;
-  pipeline.depth_stencil_state.enable_depth_write = false;
-  SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (made == nullptr) {
-    error = std::string("the sky's pipeline was refused: ") + SDL_GetError();
-    return false;
-  }
-  Pipe = OwnedPipeline(gpu.Device, made);
-  return true;
+  auto made = CreateFullscreenNdcPipeline(*gpu.Device,
+                                          "build/shaders/sky.frag.spv",
+                                          std::span(targets).first(gpu.SceneColours.Size()),
+                                          Native::DepthTarget{.Test = false, .Write = false});
+  if (!made) { return std::unexpected(made.error()); }
+  Pipe = std::move(*made);
+  SkyView = from.SkyView;
+  Veil = from.Transmittance;
+  Lut = from.Lut;
+  return {};
 }
 
 void SkyStage::Declare(const Medium &medium, SkyStanding stands) {
@@ -122,15 +98,29 @@ void SkyStage::SetBasis(const EyeBasis &eye) {
   Pushed_.TanHalf[1] = tanHalfH;
 }
 
-void SkyStage::Encode(const FrameContext &ctx, const PassRecording &into) {
-  (void)ctx;
-  if (!Pipe || !Declared_ || into.Pass == nullptr) { return; }
-  SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const std::array<SDL_GPUTextureSamplerBinding, 2> bound = {
-      {{.texture = SkyView, .sampler = Lut}, {.texture = Veil, .sampler = Lut}}};
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, bound.data(), 2);
-  SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
-  SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
+Native::Result<void> SkyStage::Encode([[maybe_unused]] const FrameContext &ctx,
+                                      const PassRecording &into) {
+  if (!Declared_) { return {}; }
+  if (!Pipe || into.Commands == nullptr) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = "sky draw is not configured"});
+  }
+  const std::array bindings{
+      Native::Binding{.Set = 2,
+                      .Slot = 0,
+                      .Value =
+                          Native::SampledTexture{.Image = {.Image = SkyView}, .Sampling = Lut}},
+      Native::Binding{.Set = 2,
+                      .Slot = 1,
+                      .Value = Native::SampledTexture{.Image = {.Image = Veil}, .Sampling = Lut}},
+      Native::Binding{.Set = 3,
+                      .Slot = 0,
+                      .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&Pushed_, 1))}}};
+  return into.Commands->Draw({.State = {.Pipeline = Pipe.get(),
+                                        .Bindings = bindings,
+                                        .Vertices = {},
+                                        .Area = into.Area,
+                                        .Clip = into.Clip},
+                              .Range = {.Count = 3}});
 }
-
 }

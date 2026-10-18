@@ -90,7 +90,7 @@ class UrbanRoofs(unittest.TestCase):
             self.assertEqual(row, original)
             self.assertEqual(choose(row | {"id": "different place/name"}, p), choice)
 
-    def test_excluded_sources_and_explicit_roofs_keep_flat_alternative(self):
+    def test_urban_exclusions_keep_flat_except_dedicated_industrial_sections(self):
         row = control(shapely.box(0, 0, 20, 30))
         for props in (
             {"roof:shape": "flat"},
@@ -106,7 +106,8 @@ class UrbanRoofs(unittest.TestCase):
         ):
             changed = row | {"properties": row["properties"] | props}
             self.assertEqual(
-                choose(changed, attributes(changed["properties"])).kind, "flat"
+                choose(changed, attributes(changed["properties"])).kind,
+                "folded" if props == {"building": "industrial"} else "flat",
             )
         for polygon in (
             shapely.box(0, 0, 7, 60),

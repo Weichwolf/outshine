@@ -1,0 +1,98 @@
+{
+  "format": 1,
+  "outer_sha256": "a2989e49b3df55ee9d28f72e39b096ef9b81877017a6a96c33671b202398ab73",
+  "elevation": [
+    {
+      "tile": [
+        14,
+        8937,
+        5678
+      ],
+      "url": "https://tiles.mapterhorn.com/14/8937/5678.webp",
+      "raw_sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+      "raw_bytes": 56194,
+      "window_file": "stair-cycle-south-vienna-dem-8937-5678.npz",
+      "window_sha256": "15a995ad224345bfa6e4ce2e38f708566762022663e57bfd23487865e1eb0145"
+    },
+    {
+      "tile": [
+        14,
+        8938,
+        5678
+      ],
+      "url": "https://tiles.mapterhorn.com/14/8938/5678.webp",
+      "raw_sha256": "f0588282420d4654f76e742d68813e3d5fecca792a1158770a64d0d062d5fee7",
+      "raw_bytes": 63642,
+      "window_file": "stair-cycle-south-vienna-dem-8938-5678.npz",
+      "window_sha256": "8e0380057c18eab57d6b2d58e0af7e5fb33b1470b218084165b213c4de7c90aa"
+    },
+    {
+      "tile": [
+        14,
+        8937,
+        5679
+      ],
+      "url": "https://tiles.mapterhorn.com/14/8937/5679.webp",
+      "raw_sha256": "fdcdbcdc1a23efbf059e49c7b6877d360af14e7c4c18ea78c50d32ea45b7a800",
+      "raw_bytes": 60344,
+      "window_file": "stair-cycle-south-vienna-dem-8937-5679.npz",
+      "window_sha256": "42996a290cbbaf258b2c776a42d487e1eb911484efdd91949fa2c6550bf79843"
+    },
+    {
+      "tile": [
+        14,
+        8938,
+        5679
+      ],
+      "url": "https://tiles.mapterhorn.com/14/8938/5679.webp",
+      "raw_sha256": "b17173dba20466cc1475ed8c267300ae15f0b5325a428f47c3c1320d20ad237d",
+      "raw_bytes": 53812,
+      "window_file": "stair-cycle-south-vienna-dem-8938-5679.npz",
+      "window_sha256": "58f610ce154972b8957b33fc82a34c2c914e78a30dc391a671abade291fbe129"
+    }
+  ],
+  "scope": "Whole original neighbour; planar contacts are explicit choices. DEM priors select their actual tile without extrapolation. No measured deck, indoor or cross-tile vector continuity claim.",
+  "additional_source_ids": [
+    "openfreemap:14/8937/5678:transportation:32651280:3",
+    "openfreemap:14/8937/5678:transportation:39881120:23",
+    "openfreemap:14/8937/5678:transportation:39881120:51"
+  ],
+  "protected_profiles": [
+    [
+      "openfreemap:14/8937/5678:transportation:39881120:26",
+      "openfreemap:14/8937/5678:transportation:39881120:28",
+      -1
+    ],
+    [
+      "openfreemap:14/8937/5678:transportation:97041640:6",
+      "openfreemap:14/8937/5678:transportation:39881120:34",
+      0
+    ],
+    [
+      "openfreemap:14/8937/5678:transportation:39881120:34",
+      "openfreemap:14/8937/5678:transportation:32651280:3",
+      0
+    ],
+    [
+      "openfreemap:14/8937/5678:transportation:39881120:34",
+      "openfreemap:14/8937/5678:transportation:32651280:3",
+      -1
+    ],
+    [
+      "openfreemap:14/8937/5678:transportation:39881120:28",
+      "openfreemap:14/8937/5678:transportation:39881120:23",
+      -1
+    ],
+    [
+      "openfreemap:14/8937/5678:transportation:39881120:28",
+      "openfreemap:14/8937/5678:transportation:39881120:51",
+      0
+    ]
+  ],
+  "focus_source_ids": [
+    "openfreemap:14/8937/5678:transportation:39881120:51"
+  ],
+  "terrain_precision_mode": "selective",
+  "terrain_interface_mode": "boundary_band",
+  "terrain_variable_mode": "fixed_displacement"
+}

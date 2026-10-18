@@ -1,0 +1,26 @@
+{
+  "schema_version": "1",
+  "id": "buildings.industrial-envelope",
+  "version": "1",
+  "requires": ["buildings.industrial-roof"],
+  "inputs": {"source": "buildings.source/1"},
+  "dependencies": {},
+  "nodes": {
+    "choice": {
+      "operator": {"id": "buildings.roof-choice", "version": "1"},
+      "parameters": {},
+      "inputs": {"source": {"input": "source"}},
+      "max_output_bytes": 65536
+    },
+    "envelope": {
+      "operator": {"id": "buildings.close-envelope", "version": "1"},
+      "parameters": {"wall_material": 1},
+      "inputs": {"source": {"input": "source"}, "choice": {"node": "choice", "output": "choice"}},
+      "max_output_bytes": 1048576
+    }
+  },
+  "outputs": {
+    "choice": {"node": "choice", "output": "choice"},
+    "envelope": {"node": "envelope", "output": "envelope"}
+  }
+}

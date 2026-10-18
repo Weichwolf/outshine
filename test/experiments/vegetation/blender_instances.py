@@ -5,7 +5,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 
-def instance_group(prototype, origins, frames, scales, *, name):
+def validated_instances(origins, frames, scales):
     origins, frames, scales = map(np.asarray, (origins, frames, scales))
     count = len(origins)
     if scales.shape == (count,):
@@ -21,6 +21,12 @@ def instance_group(prototype, origins, frames, scales, *, name):
         or np.max(abs(np.linalg.det(frames) - 1)) > 2e-12
     ):
         raise ValueError("bounded finite rigid frames and positive scales required")
+    return origins, frames, scales
+
+
+def instance_group(prototype, origins, frames, scales, *, name, as_instance=True):
+    origins, frames, scales = validated_instances(origins, frames, scales)
+    count = len(origins)
     points = bpy.data.meshes.new(name)
     points.vertices.add(count)
     points.vertices.foreach_set("co", origins.astype(np.float32).ravel())
@@ -43,7 +49,7 @@ def instance_group(prototype, origins, frames, scales, *, name):
     source = nodes.new("GeometryNodeObjectInfo")
     source.transform_space = "ORIGINAL"
     source.inputs["Object"].default_value = prototype
-    source.inputs["As Instance"].default_value = True
+    source.inputs["As Instance"].default_value = as_instance
     instances = nodes.new("GeometryNodeInstanceOnPoints")
     links.new(inputs.outputs["Geometry"], instances.inputs["Points"])
     links.new(source.outputs["Geometry"], instances.inputs["Instance"])
@@ -55,4 +61,30 @@ def instance_group(prototype, origins, frames, scales, *, name):
     links.new(instances.outputs["Instances"], outputs.inputs["Geometry"])
     holder.modifiers.new(name, "NODES").node_group = group
     prototype.hide_render = True
+    return holder
+
+
+def join_instances(objects, *, name):
+    if not 1 <= len(objects) <= 32:
+        raise ValueError("bounded complete prototype component list required")
+    mesh = bpy.data.meshes.new(name)
+    holder = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(holder)
+    group = bpy.data.node_groups.new(name, "GeometryNodeTree")
+    group.interface.new_socket(
+        name="Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry"
+    )
+    nodes, links = group.nodes, group.links
+    joined, output = nodes.new("GeometryNodeJoinGeometry"), nodes.new("NodeGroupOutput")
+    for obj in objects:
+        source = nodes.new("GeometryNodeObjectInfo")
+        source.transform_space = "ORIGINAL"
+        source.inputs["Object"].default_value = obj
+        source.inputs["As Instance"].default_value = not any(
+            modifier.type == "NODES" for modifier in obj.modifiers
+        )
+        links.new(source.outputs["Geometry"], joined.inputs["Geometry"])
+        obj.hide_render = True
+    links.new(joined.outputs["Geometry"], output.inputs["Geometry"])
+    holder.modifiers.new(name, "NODES").node_group = group
     return holder

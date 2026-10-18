@@ -138,7 +138,7 @@ std::optional<QueueSelection> SelectQueue(const Context &context, VkPhysicalDevi
   constexpr auto required = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
   const bool window = context.Surface != VK_NULL_HANDLE;
   for (uint32_t wanted = context.WsiEnabled ? 2u : 1u; wanted > 0; --wanted) {
-    if (window && wanted < 2) { break; }
+    if (window && wanted < 2 && !SupportsSharedPresentQueue(physical)) { break; }
     for (uint32_t at = 0; at < count; ++at) {
       VkBool32 presents = VK_TRUE;
       if (window && vkGetPhysicalDeviceSurfaceSupportKHR(
@@ -195,9 +195,16 @@ Result<void> InitLogical(Context &context) {
   supported.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance{};
   maintenance.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT;
-  const bool candidate =
-      context.WsiEnabled && context.QueueCount >= 2 && HasPresentExtensions(context.Physical);
+  const bool shared = context.QueueCount == 1 && SupportsSharedPresentQueue(context.Physical);
+  const bool candidate = context.WsiEnabled && (context.QueueCount >= 2 || shared) &&
+                         HasPresentExtensions(context.Physical);
   if (candidate) { supported.pNext = &maintenance; }
+#ifdef VK_KHR_internally_synchronized_queues
+  VkPhysicalDeviceInternallySynchronizedQueuesFeaturesKHR synchronized{};
+  synchronized.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INTERNALLY_SYNCHRONIZED_QUEUES_FEATURES_KHR;
+  if (candidate && shared) { maintenance.pNext = &synchronized; }
+#endif
   VkPhysicalDeviceFeatures2 features{};
   features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
   features.pNext = &supported;
@@ -216,25 +223,34 @@ Result<void> InitLogical(Context &context) {
   enabled.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   enabled.synchronization2 = VK_TRUE;
   enabled.dynamicRendering = VK_TRUE;
+  enabled.maintenance4 = supported.maintenance4;
   if (context.PresentCapable) { enabled.pNext = &maintenance; }
   VkPhysicalDeviceFeatures core{};
   core.robustBufferAccess = features.features.robustBufferAccess;
   core.independentBlend = features.features.independentBlend;
   core.multiDrawIndirect = features.features.multiDrawIndirect;
   core.drawIndirectFirstInstance = features.features.drawIndirectFirstInstance;
+  core.depthClamp = features.features.depthClamp;
+  context.DepthClamp = core.depthClamp != VK_FALSE;
   context.IndependentBlend = core.independentBlend != VK_FALSE;
   context.MultiDrawIndirect = core.multiDrawIndirect != VK_FALSE;
   context.IndirectFirstInstance = core.drawIndirectFirstInstance != VK_FALSE;
   core.shaderStorageImageExtendedFormats = features.features.shaderStorageImageExtendedFormats;
   context.StorageImageExtendedFormats = core.shaderStorageImageExtendedFormats != VK_FALSE;
   constexpr std::array priorities{1.0f, .5f};
-  constexpr std::array extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-                                  VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME};
+  std::array<const char *, 3> extensions{
+      VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME, nullptr};
   VkDeviceQueueCreateInfo queue{};
   queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
   queue.queueFamilyIndex = context.QueueFamily;
-  queue.queueCount = context.PresentCapable ? 2u : 1u;
+  queue.queueCount = context.PresentCapable && !shared ? 2u : 1u;
   queue.pQueuePriorities = priorities.data();
+#ifdef VK_KHR_internally_synchronized_queues
+  if (context.PresentCapable && shared) {
+    queue.flags = VK_DEVICE_QUEUE_CREATE_INTERNALLY_SYNCHRONIZED_BIT_KHR;
+    extensions.back() = VK_KHR_INTERNALLY_SYNCHRONIZED_QUEUES_EXTENSION_NAME;
+  }
+#endif
   VkDeviceCreateInfo create{};
   create.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   create.pNext = &enabled;
@@ -242,14 +258,19 @@ Result<void> InitLogical(Context &context) {
   create.queueCreateInfoCount = 1;
   create.pQueueCreateInfos = &queue;
   if (context.PresentCapable) {
-    create.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+    create.enabledExtensionCount = shared ? 3u : 2u;
     create.ppEnabledExtensionNames = extensions.data();
   }
   const auto result = vkCreateDevice(context.Physical, &create, nullptr, &context.Logical);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateDevice", result)); }
-  vkGetDeviceQueue(context.Logical, context.QueueFamily, 0, &context.Queue);
+  VkDeviceQueueInfo2 lookup{};
+  lookup.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2;
+  lookup.flags = queue.flags;
+  lookup.queueFamilyIndex = context.QueueFamily;
+  vkGetDeviceQueue2(context.Logical, &lookup, &context.Queue);
   if (context.PresentCapable) {
-    vkGetDeviceQueue(context.Logical, context.QueueFamily, 1, &context.PresentQueue);
+    lookup.queueIndex = shared ? 0u : 1u;
+    vkGetDeviceQueue2(context.Logical, &lookup, &context.PresentQueue);
     context.ReleaseImages = reinterpret_cast<PFN_vkReleaseSwapchainImagesEXT>(
         vkGetDeviceProcAddr(context.Logical, "vkReleaseSwapchainImagesEXT"));
     if (context.ReleaseImages == nullptr) {
@@ -277,7 +298,8 @@ void ReadLimits(Context &context) {
                                           limits.maxComputeWorkGroupCount[1],
                                           limits.maxComputeWorkGroupCount[2]},
                     .MaxWorkgroupInvocations = limits.maxComputeWorkGroupInvocations,
-                    .GpuTimestamps = context.TimestampValidBits != 0};
+                    .GpuTimestamps = context.TimestampValidBits != 0,
+                    .DepthClamp = context.DepthClamp};
 }
 
 }

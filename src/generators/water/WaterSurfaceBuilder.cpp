@@ -1,126 +1,38 @@
 #include "WaterSurfaceBuilder.h"
-
+#include "WaterSurfaceMesh.h"
 #include "TangentFrame.h"
 #include "Earth.h"
 #include "math/RenderFrame.h"
-
-#include "PolygonTriangulation.h"
-
-#include <algorithm>
+#include "math/Vec3.h"
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
-#include <limits>
 #include <optional>
-#include <span>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace outshine::Generators {
-
 namespace {
-
-constexpr double kAbsoluteAreaToleranceM2 = 1e-5;
-constexpr double kRelativeAreaTolerance = 1e-6;
 constexpr float kWaterRoughness = 0.08f;
 constexpr float kWaterIor = 1.333f;
 
-struct WaterVertex {
-  double EastM;
-  double NorthM;
-  double UpM;
-};
-
-struct WaterPolygon {
-  std::vector<std::vector<std::array<double, 2>>> Rings;
-  std::vector<WaterVertex> Vertices;
-  double AreaM2 = 0.0;
-};
-
-double RingAreaM2(std::span<const std::array<double, 2>> ring) {
-  if (ring.size() < 3) { return 0.0; }
-  double twice = 0.0;
-  for (size_t at = 0; at < ring.size(); ++at) {
-    const auto &a = ring[at];
-    const auto &b = ring[(at + 1) % ring.size()];
-    twice += a[0] * b[1] - b[0] * a[1];
-  }
-  return 0.5 * std::fabs(twice);
+Vec3 PositionIn(const Vec3 &point, const TangentFrame &source, const TangentFrame &target) {
+  if (source.Anchor() == target.Anchor()) { return point; }
+  const Vec3 ecef = source.ToEcefPosition({.EastM = point[0], .NorthM = point[1], .UpM = point[2]});
+  const auto placed = target.ToLocalPosition(ecef);
+  return {{placed.EastM, placed.NorthM, placed.UpM}};
 }
 
-double TriangleAreaM2(const WaterVertex &a, const WaterVertex &b, const WaterVertex &c) {
-  return 0.5 * ((b.EastM - a.EastM) * (c.NorthM - a.NorthM) -
-                (b.NorthM - a.NorthM) * (c.EastM - a.EastM));
+Vec3 NormalIn(const Vec3 &normal, const TangentFrame &source, const TangentFrame &target) {
+  const double magnitude = std::hypot(normal[0], normal[1], normal[2]);
+  const Vec3 unit = magnitude > 0 ? normal * (1.0 / magnitude) : Vec3{{0, 0, 1}};
+  if (source.Anchor() == target.Anchor()) { return unit; }
+  const Vec3 ecef = source.ToEcefDirection({.EastM = unit[0], .NorthM = unit[1], .UpM = unit[2]});
+  const auto placed = target.ToLocalDirection(ecef);
+  return {{placed.EastM, placed.NorthM, placed.UpM}};
 }
-
-std::optional<WaterPolygon> ReadWaterPolygon(std::span<const WaterAsset::SurfaceRing> sourceRings,
-                                             std::span<const double> geographicPoints,
-                                             float levelM,
-                                             const TangentFrame &frame) {
-  if (sourceRings.empty()) { return std::nullopt; }
-  WaterPolygon polygon;
-  polygon.Rings.reserve(sourceRings.size());
-  for (size_t ringIndex = 0; ringIndex < sourceRings.size(); ++ringIndex) {
-    const auto &source = sourceRings[ringIndex];
-    if (source.PointCount < 3 || source.FirstPoint > geographicPoints.size() / 2u ||
-        source.PointCount > geographicPoints.size() / 2u - source.FirstPoint) {
-      return std::nullopt;
-    }
-    auto &contour = polygon.Rings.emplace_back();
-    contour.reserve(source.PointCount);
-    for (uint32_t point = 0; point < source.PointCount; ++point) {
-      const size_t at = (static_cast<size_t>(source.FirstPoint) + point) * 2u;
-      const EastNorthUp placed = frame.ToLocalPosition({.LongitudeDeg = geographicPoints[at + 1],
-                                                        .LatitudeDeg = geographicPoints[at],
-                                                        .HeightM = static_cast<double>(levelM)});
-      if (!std::isfinite(placed.EastM) || !std::isfinite(placed.NorthM) ||
-          !std::isfinite(placed.UpM)) {
-        return std::nullopt;
-      }
-      contour.push_back({placed.EastM, placed.NorthM});
-      polygon.Vertices.push_back(
-          {.EastM = placed.EastM, .NorthM = placed.NorthM, .UpM = placed.UpM});
-    }
-    const double areaM2 = RingAreaM2(contour);
-    if (areaM2 <= 0.0) { return std::nullopt; }
-    polygon.AreaM2 += ringIndex == 0 ? areaM2 : -areaM2;
-  }
-  if (polygon.AreaM2 <= 0.0) { return std::nullopt; }
-  return polygon;
-}
-
-std::optional<std::vector<uint32_t>> TriangulateWaterPolygon(const WaterPolygon &polygon) {
-  const auto triangulated = TriangulatePolygon(polygon.Rings);
-  if (!triangulated) { return std::nullopt; }
-  const auto &triangles = *triangulated;
-  std::vector<uint32_t> oriented;
-  oriented.reserve(triangles.size());
-  double coveredAreaM2 = 0.0;
-  for (size_t at = 0; at < triangles.size(); at += 3u) {
-    const uint32_t a = triangles[at];
-    uint32_t b = triangles[at + 1u];
-    uint32_t c = triangles[at + 2u];
-    if (a >= polygon.Vertices.size() || b >= polygon.Vertices.size() ||
-        c >= polygon.Vertices.size()) {
-      return std::nullopt;
-    }
-    const double areaM2 =
-        TriangleAreaM2(polygon.Vertices[a], polygon.Vertices[b], polygon.Vertices[c]);
-    if (!std::isfinite(areaM2) || areaM2 == 0.0) { return std::nullopt; }
-    if (areaM2 < 0.0) { std::swap(b, c); }
-    coveredAreaM2 += std::fabs(areaM2);
-    oriented.insert(oriented.end(), {a, b, c});
-  }
-  if (std::fabs(coveredAreaM2 - polygon.AreaM2) >
-      std::max(kAbsoluteAreaToleranceM2, polygon.AreaM2 * kRelativeAreaTolerance)) {
-    return std::nullopt;
-  }
-  return oriented;
-}
-
 }
 
 std::optional<double> WaterSurfaceUpAt(const WaterAsset &water,
@@ -150,43 +62,53 @@ AppendWaterSurfaceGeometry(Geometry &geometry,
                            const WaterAsset &water,
                            const TangentFrame &frame) {
   WaterSurfaceMetrics metrics;
+  if (!water.SurfacesReady()) { return std::unexpected("water surfaces have not been prepared"); }
+  const auto *prepared = water.PreparedSurfaces();
+  if (prepared == nullptr) { return metrics; }
+  for (const auto &rejection : prepared->Rejections) {
+    if (rejection.Reason == WaterAsset::SurfaceRejectionReason::CapacityExceeded) {
+      ++metrics.RefusedCapacity;
+    } else {
+      ++metrics.RefusedTopology;
+    }
+  }
+  metrics.Laid = water.Surfaces().size() - prepared->Rejections.size();
+  const auto &mesh = prepared->Mesh;
+  metrics.Triangles = mesh.Faces().size();
+  if (mesh.Faces().empty()) { return metrics; }
+  const auto source = TangentFrame::At(mesh.Anchor());
+  const auto vertices = mesh.VerticesEnuM();
+  std::vector<Vec3> smoothNormals(vertices.size());
+  std::vector<uint32_t> indices;
+  indices.reserve(mesh.Faces().size() * 3);
+  for (const auto &face : mesh.Faces()) {
+    const Vec3 normal = Cross(vertices[face.Vertices[1]] - vertices[face.Vertices[0]],
+                              vertices[face.Vertices[2]] - vertices[face.Vertices[0]]);
+    for (const uint32_t at : face.Vertices) {
+      smoothNormals[at] = smoothNormals[at] + normal;
+      indices.push_back(at);
+    }
+  }
   std::vector<float> positions;
   std::vector<float> normals;
   std::vector<float> texcoords;
-  std::vector<uint32_t> indices;
-  std::vector<const WaterAsset::Surface *> orderedSurfaces;
-  orderedSurfaces.reserve(water.Surfaces().size());
-  for (const auto &surface : water.Surfaces()) { orderedSurfaces.push_back(&surface); }
-  std::ranges::sort(orderedSurfaces, {}, [&water](const auto *surface) {
-    return water.RingsOf(*surface).front().FirstPoint;
-  });
-  for (const auto *surface : orderedSurfaces) {
-    const auto polygon =
-        ReadWaterPolygon(water.RingsOf(*surface), water.Points(), surface->LevelM, frame);
-    if (!polygon ||
-        polygon->Vertices.size() > std::numeric_limits<uint32_t>::max() - positions.size() / 3u) {
-      ++metrics.RefusedTopology;
-      continue;
-    }
-    const auto oriented = TriangulateWaterPolygon(*polygon);
-    if (!oriented) {
-      ++metrics.RefusedTopology;
-      continue;
-    }
-    const auto base = static_cast<uint32_t>(positions.size() / 3u);
-    for (const WaterVertex &vertex : polygon->Vertices) {
-      positions.push_back(static_cast<float>(vertex.EastM));
-      positions.push_back(static_cast<float>(vertex.UpM));
-      positions.push_back(static_cast<float>(RenderFrame::ZOfNorth(vertex.NorthM)));
-      normals.insert(normals.end(), {0.0f, 1.0f, 0.0f});
-      texcoords.push_back(static_cast<float>(vertex.EastM));
-      texcoords.push_back(static_cast<float>(vertex.NorthM));
-    }
-    for (const uint32_t index : *oriented) { indices.push_back(base + index); }
-    metrics.Triangles += oriented->size() / 3u;
-    ++metrics.Laid;
+  positions.reserve(vertices.size() * 3);
+  normals.reserve(vertices.size() * 3);
+  texcoords.reserve(vertices.size() * 2);
+  for (size_t at = 0; at < vertices.size(); ++at) {
+    const Vec3 placed = PositionIn(vertices[at], source, frame);
+    const Vec3 normal = NormalIn(smoothNormals[at], source, frame);
+    positions.insert(positions.end(),
+                     {static_cast<float>(placed[0]),
+                      static_cast<float>(placed[2]),
+                      static_cast<float>(RenderFrame::ZOfNorth(placed[1]))});
+    normals.insert(normals.end(),
+                   {static_cast<float>(normal[0]),
+                    static_cast<float>(normal[2]),
+                    static_cast<float>(RenderFrame::ZOfNorth(normal[1]))});
+    texcoords.insert(texcoords.end(),
+                     {static_cast<float>(placed[0]), static_cast<float>(placed[1])});
   }
-  if (indices.empty()) { return metrics; }
   const auto part = geometry.addPart("water", material);
   if (!part || !geometry.setPositions(*part, positions) || !geometry.setNormals(*part, normals) ||
       !geometry.setTriangles(*part, indices) || !geometry.setTexture(*part, texcoords, 0)) {
@@ -194,5 +116,4 @@ AppendWaterSurfaceGeometry(Geometry &geometry,
   }
   return metrics;
 }
-
 }

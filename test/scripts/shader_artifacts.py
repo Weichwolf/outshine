@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Audit the Make shader inventory against actual SPIR-V and SDL descriptor conventions.
+"""Audit the Make shader inventory against SPIR-V and native resource contracts.
 
-This proves package coverage and the supported SDL binding profile, not renderer
+This proves package coverage, unique native bindings and compute conventions, not renderer
 graphics selection, host struct layout, interface linkage or backend execution.
 """
 import argparse
@@ -53,25 +53,25 @@ def validate_reflection(document, stage):
                 raise ValueError('resource lacks a nonnegative set and binding')
             readonly = resource.get('readonly', False)
             rank = RESOURCE_KINDS.index(kind)
-            if kind == 'ubos':
-                required = 2 if stage == 'comp' else 1 if stage == 'vert' else 3
-            elif stage == 'comp':
-                required = 0 if kind == 'textures' or readonly else 1
-            else:
-                required = 0 if stage == 'vert' else 2
-                if kind in ('images', 'ssbos') and not readonly:
-                    raise ValueError('graphics storage resources must be readonly')
-            if descriptor_set != required:
-                raise ValueError(f'{kind} binding {binding}: set {descriptor_set}, SDL requires {required}')
+            if stage == 'comp':
+                required = 2 if kind == 'ubos' else 0 if kind == 'textures' or readonly else 1
+                if descriptor_set != required:
+                    raise ValueError(f'{kind} binding {binding}: compute contract requires set {required}')
+            elif kind in ('images', 'ssbos') and not readonly:
+                raise ValueError('graphics storage writes require a pass synchronization contract')
             sets.setdefault(descriptor_set, []).append((binding, rank))
             resources.append({'kind': kind, 'set': descriptor_set, 'binding': binding})
     for descriptor_set, bindings in sets.items():
         ordered = sorted(bindings)
-        if [binding for binding, _ in ordered] != list(range(len(ordered))):
-            raise ValueError(f'set {descriptor_set}: bindings must be unique and consecutive from zero')
-        ranks = [rank for _, rank in ordered]
-        if ranks != sorted(ranks):
-            raise ValueError(f'set {descriptor_set}: SDL requires samplers, storage textures, then buffers')
+        slots = [binding for binding, _ in ordered]
+        if len(slots) != len(set(slots)):
+            raise ValueError(f'set {descriptor_set}: bindings must be unique')
+        if stage == 'comp':
+            if slots != list(range(len(ordered))):
+                raise ValueError(f'set {descriptor_set}: compute bindings must be consecutive from zero')
+            ranks = [rank for _, rank in ordered]
+            if ranks != sorted(ranks):
+                raise ValueError(f'set {descriptor_set}: compute samplers, storage textures, then buffers required')
     return resources
 
 

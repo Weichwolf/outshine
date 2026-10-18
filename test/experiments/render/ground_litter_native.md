@@ -58,8 +58,16 @@ with `gpu_executed: true`. Starting another attempt removes that success marker;
 failed launches and incomplete results cannot retain an earlier pass. Detailed
 per-launch logs preserve the actual error.
 
-These are component parameters. There is no frame-rate, GPU-time, complete
+These are component parameters. The default correctness captures make no frame-rate, GPU-time, complete
 Metal/Vulkan renderer or Place-image claim from either input preparation or the
 component checks. The caller needs the published shared backend implementation
 to execute; the consumer/caller are integrated through #268. Production now selects nine
 points by default; explicit box/four definitions remain compile-time comparisons.
+
+The consumer's optional `--gpu-timing` mode repeats the dispatch 32 times. When
+available, `profile_batch_gpu_ms` measures the completed command buffer, including
+uploads, all dispatches and readback copy. It is not a pure shader time or a frame
+budget result. Per-dispatch timestamps remain separate in `profile_sum_ms`;
+unsupported measurements explicitly report unavailable. The consumer retains GPU
+validation, so Metal requires `MTL_DEBUG_LAYER=1`. Compare identical inputs and
+validation state; divide neither batch time nor phase sums into claimed frame costs.

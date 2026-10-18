@@ -47,15 +47,18 @@
 #include "TerrainPress.h"
 #include "TerrainDeformationTask.h"
 #include "EngineHeld.h"
+#include "StructureSourcePublication.h"
 #include "GroundWorldCandidate.h"
 #include "GroundDiagnostics.h"
 #include "GroundPalette.h"
 #include "WaterSurfaceBuilder.h"
+#include "WaterBasinStamps.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
 #include "StreetGraphBuilder.h"
 #include "StreetGraphPreparation.h"
 #include "GroundRegionPreparation.h"
+#include "WaterGeometryPreparation.h"
 #include "BinaryValueArchive.h"
 #include "RoadHeightCoverage.h"
 #include "RoadRefinementCoverage.h"
@@ -119,7 +122,6 @@ constexpr float kTileBlue = 0.14f;
 constexpr float kTileRoughness = 0.72f;
 
 constexpr double kWaterBedM = 2.0;
-constexpr double kWaterBankM = kWaterBedM / kBatterRise;
 constexpr size_t kBounceProbeStride = 16;
 constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
@@ -236,6 +238,10 @@ ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
                                               .RequestKey = std::move(request),
                                               .RequestHit = true};
   }
+  if (std::ranges::any_of(vectors.Tiles(),
+                          [](const auto &tile) { return tile.InputDigest.empty(); })) {
+    return std::unexpected("ground region contains unbound vector inputs");
+  }
   auto key = assets.Key(vectors, shape, parameters);
   if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
   if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
@@ -260,7 +266,7 @@ public:
   enum class GeometrySubmission : uint8_t { Classes, ClassRanges, Begin, Cook };
   enum class CorridorCompletion : uint8_t { Build, Retire };
   enum class RegionPhase : uint8_t { Lookup, Loading, Miss, Hit, Storing, Stored, Bypass };
-  enum class WaterPhase : uint8_t { Awaiting, Bound };
+  enum class WaterPhase : uint8_t { Awaiting, Preparing, Bound };
 
   struct ResidencyBuild {
     bool SheetsStitched = false;
@@ -327,7 +333,7 @@ public:
 
   [[nodiscard]] uint32_t RevisionDifference(const GroundRevision &revision) const noexcept {
     auto inputs = revision;
-    if (WaterPhase_ == WaterPhase::Awaiting) { inputs.WaterTiles = Revision_.WaterTiles; }
+    if (WaterPhase_ != WaterPhase::Bound) { inputs.WaterTiles = Revision_.WaterTiles; }
     return Revision_.CandidateDifferenceMask(inputs);
   }
 
@@ -443,9 +449,30 @@ public:
     Revision_.WaterTiles = water.IngestedTiles();
     Candidate_.RestoreWater(water);
     WaterPhase_ = WaterPhase::Bound;
+    WaterWorker_.reset();
   }
 
   [[nodiscard]] bool HasWaterInputs() const noexcept { return WaterPhase_ == WaterPhase::Bound; }
+
+  [[nodiscard]] std::optional<std::expected<WaterGeometryPreparation::Completed, std::string>>
+  AdvanceWater(Tasks &pool, const Generators::WaterAsset &source, const TangentFrame &frame) {
+    if (WaterWorker_ && !WaterWorker_->Matches(source)) {
+      WaterWorker_->Cancel();
+      if (!WaterWorker_->Complete()) { return std::nullopt; }
+      WaterWorker_.reset();
+    }
+    if (!WaterWorker_) {
+      WaterWorker_ = std::make_unique<WaterGeometryPreparation>(pool, source, frame);
+      WaterPhase_ = WaterPhase::Preparing;
+      return std::nullopt;
+    }
+    return WaterWorker_->Collect();
+  }
+
+  void DiscardWaterPreparation() {
+    WaterWorker_.reset();
+    WaterPhase_ = WaterPhase::Awaiting;
+  }
 
   [[nodiscard]] Patchwork *Laid() noexcept { return Patchwork_ ? &*Patchwork_ : nullptr; }
 
@@ -538,6 +565,11 @@ public:
   }
 
   [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept {
+    if (WaterWorker_) {
+      WaterWorker_->Cancel();
+      if (!WaterWorker_->Complete()) { return false; }
+      WaterWorker_.reset();
+    }
     if (StreetGraphWorker_) {
       StreetGraphWorker_->Cancel();
       if (!StreetGraphWorker_->Complete()) { return false; }
@@ -768,6 +800,7 @@ private:
   std::string RegionRequest_;
   RegionPhase RegionPhase_ = RegionPhase::Lookup;
   WaterPhase WaterPhase_ = WaterPhase::Awaiting;
+  std::unique_ptr<WaterGeometryPreparation> WaterWorker_;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<EarthworkStamp> Corridors_;
@@ -1104,77 +1137,6 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
 }
 
 namespace {
-void AppendWaterBasinStamps(const Generators::WaterAsset &water,
-                            const TangentFrame &standing,
-                            std::vector<EarthworkStamp> &yielding) {
-  const auto points = water.Points();
-  std::vector<std::pair<uint32_t, EarthworkStamp>> ordered;
-  ordered.reserve(water.Surfaces().size());
-  for (const Generators::WaterAsset::Surface &lake : water.Surfaces()) {
-    const Generators::WaterAsset::SurfaceRing &ring = water.RingsOf(lake).front();
-    if ((static_cast<size_t>(ring.FirstPoint) + ring.PointCount) * 2u > points.size()) { continue; }
-    EarthworkStamp made;
-    made.RingEastNorthM.reserve(static_cast<size_t>(ring.PointCount) * 2u);
-    made.LowE = kBeyondAnyCoordinate;
-    made.HighE = -kBeyondAnyCoordinate;
-    made.LowN = kBeyondAnyCoordinate;
-    made.HighN = -kBeyondAnyCoordinate;
-    std::vector<double> bedM;
-    bedM.reserve(ring.PointCount);
-    for (uint32_t step = 0; step < ring.PointCount; ++step) {
-      const size_t at = (static_cast<size_t>(ring.FirstPoint) + step) * 2u;
-      const EastNorthUp shore =
-          standing.ToLocalPosition({.LongitudeDeg = points[at + 1],
-                                    .LatitudeDeg = points[at],
-                                    .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
-      made.RingEastNorthM.push_back(shore.EastM);
-      made.RingEastNorthM.push_back(shore.NorthM);
-      made.LowE = std::min(made.LowE, shore.EastM);
-      made.HighE = std::max(made.HighE, shore.EastM);
-      made.LowN = std::min(made.LowN, shore.NorthM);
-      made.HighN = std::max(made.HighN, shore.NorthM);
-      bedM.push_back(shore.UpM);
-    }
-    made.AtE = 0.5 * (made.LowE + made.HighE);
-    made.AtN = 0.5 * (made.LowN + made.HighN);
-    made.SagInv = 1.0 / kWgs84A;
-    double plateau = 0.0;
-    for (size_t corner = 0; corner < bedM.size(); ++corner) {
-      const double dE = made.RingEastNorthM[corner * 2u] - made.AtE;
-      const double dN = made.RingEastNorthM[corner * 2u + 1u] - made.AtN;
-      plateau += bedM[corner] + 0.5 * (dE * dE + dN * dN) * made.SagInv;
-    }
-    made.PlateauM = plateau / static_cast<double>(bedM.size());
-    made.ApronM = kWaterBankM;
-    made.YieldM = kWaterBedM;
-    made.Kind = EarthworkKind::Basin;
-    made.SeamEastNorthM = made.RingEastNorthM;
-    bool complete = true;
-    for (const Generators::WaterAsset::SurfaceRing &hole : water.RingsOf(lake).subspan(1)) {
-      if ((static_cast<size_t>(hole.FirstPoint) + hole.PointCount) * 2u > points.size()) {
-        complete = false;
-        break;
-      }
-      std::vector<double> boundary;
-      boundary.reserve(static_cast<size_t>(hole.PointCount) * 2u);
-      for (uint32_t step = 0; step < hole.PointCount; ++step) {
-        const size_t at = (static_cast<size_t>(hole.FirstPoint) + step) * 2u;
-        const EastNorthUp shore =
-            standing.ToLocalPosition({.LongitudeDeg = points[at + 1],
-                                      .LatitudeDeg = points[at],
-                                      .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
-        boundary.push_back(shore.EastM);
-        boundary.push_back(shore.NorthM);
-      }
-      made.HoleRingsEastNorthM.push_back(std::move(boundary));
-    }
-    if (!complete) { continue; }
-    ordered.emplace_back(ring.FirstPoint, std::move(made));
-  }
-  std::ranges::sort(ordered, {}, [](const auto &one) { return one.first; });
-  for (auto &entry : ordered) { yielding.push_back(std::move(entry.second)); }
-}
-
 [[nodiscard]] bool SameVectorRevision(const ::outshine::Generators::Osm::OsmField *pinned,
                                       const ::outshine::Generators::Osm::OsmField *live,
                                       uint64_t generation) noexcept {
@@ -1267,7 +1229,8 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     }
     const size_t builtPads = yielding.size();
     if (shapes != nullptr) {
-      AppendWaterBasinStamps(state.Candidate().Sources().WaterBodies, standing, yielding);
+      Generators::AppendWaterBasinStamps(
+          state.Candidate().Sources().WaterBodies, standing, kWaterBedM, yielding);
     }
     const size_t builtLakes = yielding.size() - builtPads;
     if (Session.Declared.Render.Audits) {
@@ -1358,12 +1321,19 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - waterAt).count(),
       "ms");
   Published.RecordMetric("water: surfaces laid", static_cast<double>(built->Laid), "surfaces");
-  Published.RecordMetric(
-      "water: surfaces refused", static_cast<double>(built->RefusedTopology), "surfaces");
+  Published.RecordMetric("water: surfaces refused",
+                         static_cast<double>(built->RefusedTopology + built->RefusedCapacity),
+                         "surfaces");
   Published.RecordMetric("water: surfaces refused by topology",
                          static_cast<double>(built->RefusedTopology),
                          "surfaces");
+  Published.RecordMetric("water: surfaces refused by capacity",
+                         static_cast<double>(built->RefusedCapacity),
+                         "surfaces");
   Published.RecordMetric("water: triangles", static_cast<double>(built->Triangles), "triangles");
+  Published.RecordMetric("water: prepared surface payload",
+                         static_cast<double>(water.PreparedSurfaceBytes()),
+                         "bytes");
   if (built->Triangles > 0) {
     Published.RecordMetric("water: the geometry took it", 1.0, "yes/no");
   }
@@ -2030,10 +2000,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   }
   build.Pieces.SetSurfaces(*build.Surfaces);
   for (const StructureBuildQueue::Landing &landing : *ready) {
-    if (!build.Pieces.Hands(
-            landing.Tile, *landing.Baked, landing.AnchorEcef, Error, landing.SourceKey)) {
-      return false;
-    }
+    if (!PublishStructureSource(build.Pieces, landing, Error)) { return false; }
   }
   const double transferMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - transferAt)
@@ -2148,7 +2115,27 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
                          ? World.Stack.Ingested()
                          : World.Stack.IngestedWithin(0);
   if (!ready) { return GroundBuildProgress::Pending; }
-  if (!state.HasWaterInputs()) { state.PublishesWaterInputs(World.Stack.WaterBodies()); }
+  if (state.HasWaterInputs()) { return GroundBuildProgress::Ready; }
+  const auto &water = World.Stack.WaterBodies();
+  if (water.SurfacesReady()) {
+    state.PublishesWaterInputs(water);
+    return GroundBuildProgress::Ready;
+  }
+  const auto origin = Session.Declared.Ground.Origin;
+  const auto frame =
+      TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg});
+  auto result = state.AdvanceWater(*World.Pool, water, frame);
+  if (!result) { return GroundBuildProgress::Pending; }
+  if (!*result) {
+    Error = std::move(result->error());
+    return GroundBuildProgress::Failed;
+  }
+  if (!result->value().Water.SharesInputsWith(water)) {
+    state.DiscardWaterPreparation();
+    return GroundBuildProgress::Pending;
+  }
+  Published.RecordMetric("water: geometry preparation worker", result->value().WorkerMs, "ms");
+  state.PublishesWaterInputs(result->value().Water);
   return GroundBuildProgress::Ready;
 }
 

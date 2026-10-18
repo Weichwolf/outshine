@@ -25,7 +25,8 @@ namespace {
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
 constexpr size_t kMaximumPoints = size_t{1024} * 1024;
-constexpr size_t kFrameWords = 12;
+constexpr size_t kDefaultFrameWords = 12;
+constexpr size_t kMaximumFrameWords = 28;
 constexpr size_t kPointWords = 4;
 constexpr uint32_t kThreads = 64;
 constexpr uint32_t kRepetitions = 16;
@@ -37,15 +38,15 @@ struct Capture {
   std::optional<GpuTimingResults> Timing;
 };
 
-std::vector<uint32_t> Read(const char *path) {
+std::vector<uint32_t> Read(const char *path, size_t frameWords) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   const auto bytes = file ? static_cast<std::streamoff>(file.tellg()) : -1;
   const bool complete =
-      std::cmp_greater(bytes, kFrameWords * sizeof(uint32_t)) &&
-      std::cmp_less_equal(bytes, (kFrameWords + kPointWords * kMaximumPoints) * sizeof(uint32_t)) &&
-      (static_cast<size_t>(bytes) / sizeof(uint32_t) - kFrameWords) % kPointWords == 0 &&
+      std::cmp_greater(bytes, frameWords * sizeof(uint32_t)) &&
+      std::cmp_less_equal(bytes, (frameWords + kPointWords * kMaximumPoints) * sizeof(uint32_t)) &&
+      (static_cast<size_t>(bytes) / sizeof(uint32_t) - frameWords) % kPointWords == 0 &&
       bytes % sizeof(uint32_t) == 0;
-  CHECK(complete, "the bounded input contains one48B frame and complete16B points");
+  CHECK(complete, "the bounded input contains the selected private frame and complete16B points");
   if (!complete) { Failed(); }
   std::vector<uint32_t> result(static_cast<size_t>(bytes) / sizeof(uint32_t));
   file.seekg(0);
@@ -54,22 +55,26 @@ std::vector<uint32_t> Read(const char *path) {
   return result;
 }
 
-Capture Run(Device &device, const char *shader, std::span<const uint32_t> data, bool timed) {
+Capture Run(Device &device,
+            const char *shader,
+            std::span<const uint32_t> data,
+            size_t frameWords,
+            bool timed) {
   auto pipeline = Require(device.CreateComputePipeline(Spirv(shader)));
   constexpr std::array<uint32_t, 3> localSize{kThreads, 1, 1};
   CHECK(pipeline->Layout().LocalSize == localSize, "the actual workgroup has64 threads");
   size_t uniforms = 0;
   for (const auto &binding : pipeline->Layout().Bindings) {
     if (binding.Set == 2 && binding.Slot == 0 && binding.Kind == BindingKind::Uniform) {
-      CHECK(binding.MinimumBytes == kFrameWords * sizeof(uint32_t),
-            "the reflected profile frame remains48 bytes");
+      CHECK(binding.MinimumBytes == frameWords * sizeof(uint32_t),
+            "the reflected private frame matches the selected host payload");
       ++uniforms;
     }
   }
   CHECK(uniforms == 1, "the private frame is reflected once");
-  std::array<uint32_t, kFrameWords> frame;
-  std::copy_n(data.begin(), kFrameWords, frame.begin());
-  const auto points = data.subspan(kFrameWords);
+  std::array<uint32_t, kMaximumFrameWords> frame;
+  std::copy_n(data.begin(), frameWords, frame.begin());
+  const auto points = data.subspan(frameWords);
   const auto count = points.size() / kPointWords;
   const auto bytes = count * sizeof(float);
   auto commands = Require(device.Begin());
@@ -81,7 +86,9 @@ Capture Run(Device &device, const char *shader, std::span<const uint32_t> data, 
   const std::array bindings{
       Storage(0, 0, *input),
       Storage(1, 0, *output),
-      Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(frame))}}};
+      Binding{.Set = 2,
+              .Slot = 0,
+              .Value = Uniform{std::as_bytes(std::span(frame).first(frameWords))}}};
   for (uint32_t repeat = 0; repeat < kRepetitions; ++repeat) {
     Require(commands->Dispatch(
         *pipeline, bindings, {.X = static_cast<uint32_t>((count + kThreads - 1) / kThreads)}));
@@ -131,17 +138,19 @@ void WriteTimes(std::ofstream &file, const Capture &capture) {
 }
 
 int main(int argc, char **argv) {
-  const bool timed = argc == 5;
-  if (!timed && (argc != 6 || std::string_view(argv[5]) != "untimed")) {
-    std::println(
-        stderr,
-        "usage: cloud-density-native shader.spv input.bin output.bin timings.json [untimed]");
+  const bool timed = argc == 5 || (argc > 5 && std::string_view(argv[5]) == "timed");
+  if (argc < 5 || argc > 7 || (argc > 5 && !timed && std::string_view(argv[5]) != "untimed") ||
+      (argc == 7 && std::string_view(argv[6]) != "28")) {
+    std::println(stderr,
+                 "usage: cloud-density-native shader.spv input.bin output.bin timings.json "
+                 "[timed|untimed [28]]");
     return 2;
   }
-  const auto input = Read(argv[2]);
+  const size_t frameWords = argc == 7 ? kMaximumFrameWords : kDefaultFrameWords;
+  const auto input = Read(argv[2], frameWords);
   auto device = Require(CreateDevice({.Validation = true, .GpuTiming = timed}));
-  const auto first = Run(*device, argv[1], input, timed);
-  const auto repeat = Run(*device, argv[1], input, timed);
+  const auto first = Run(*device, argv[1], input, frameWords, timed);
+  const auto repeat = Run(*device, argv[1], input, frameWords, timed);
   CHECK(first.Values == repeat.Values,
         "independent recorded density outputs are bitwise identical");
   std::ofstream output(argv[3], std::ios::binary);

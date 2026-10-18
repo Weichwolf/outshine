@@ -74,6 +74,8 @@ def wood_fragments(wood, frame, lower, upper, size):
         ),
         axis=-1,
     )
+    if "colour" in wood:
+        attributes = np.concatenate((attributes, wood["colour"]), axis=-1)
     covered, shaded = rasterize(
         projected,
         wood["faces"],
@@ -90,7 +92,10 @@ def wood_fragments(wood, frame, lower, upper, size):
     )
     wood_samples = np.column_stack(
         (
-            np.broadcast_to((0.14, 0.105, 0.037, 1), (len(wood_pixels), 4)),
+            shaded[..., 4:7].reshape(-1, 3)[wood_pixels]
+            if "colour" in wood
+            else np.broadcast_to((0.14, 0.105, 0.037), (len(wood_pixels), 3)),
+            np.ones(len(wood_pixels)),
             wood_normals,
             np.zeros(len(wood_pixels)),
         )

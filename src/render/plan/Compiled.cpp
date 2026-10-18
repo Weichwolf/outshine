@@ -33,6 +33,8 @@ struct Pull {
   explicit Pull(const PlanSpec &spec) : Spec(spec) {
     for (size_t r = 0; r < kResourceCount; ++r) { Bound[r] = static_cast<Resource>(r); }
     for (const Stage s : spec.Content) { Declared[static_cast<size_t>(s)] = true; }
+    Declared[static_cast<size_t>(Stage::Ground)] = Declared[static_cast<size_t>(Stage::Ground)] ||
+                                                   Declared[static_cast<size_t>(Stage::Subjects)];
   }
 
   void Want(Resource r) {
@@ -47,6 +49,10 @@ struct Pull {
     HeldStage[static_cast<size_t>(s)] = true;
     const StageRow &row = Row(s);
     for (size_t e = 0; e < kMaxEdges && row.Reads[e] != kNoEdge; ++e) { Want(row.Reads[e]); }
+    for (const Resource resource : row.ReadsAccumulated) {
+      if (resource == kNoEdge) { break; }
+      Want(resource);
+    }
     for (size_t e = 0; e < kMaxEdges && row.ReadsLastFrame[e] != kNoEdge; ++e) {
       Want(row.ReadsLastFrame[e]);
     }
@@ -163,6 +169,27 @@ bool ValidateSpec(const PlanSpec &spec, std::string &error) {
   return true;
 }
 
+bool HasEarlierContributor(const Pull &pull, size_t stage, Resource resource) {
+  for (size_t before = 0; before < stage; ++before) {
+    if (pull.HeldStage[before] && Produces(static_cast<Stage>(before), resource)) { return true; }
+  }
+  return false;
+}
+
+bool AccumulatedReadsAreReady(const Pull &pull, std::string &error) {
+  for (size_t stage = 0; stage < kStageCount; ++stage) {
+    if (!pull.HeldStage[stage]) { continue; }
+    for (const Resource resource : Row(static_cast<Stage>(stage)).ReadsAccumulated) {
+      if (resource == kNoEdge) { break; }
+      if (HasEarlierContributor(pull, stage, resource)) { continue; }
+      error = std::string(Row(static_cast<Stage>(stage)).Name) +
+              ": accumulated attachment has no earlier active producer";
+      return false;
+    }
+  }
+  return true;
+}
+
 struct StagePair {
   const StageRow &Earlier;
   const StageRow &Incoming;
@@ -187,11 +214,10 @@ bool ComputeWriteConflict(StagePair stages) {
 }
 
 bool ReadsEarlierWrite(StagePair stages) {
-  for (const Resource write : stages.Earlier.Writes) {
-    if (write == kNoEdge) { break; }
-    for (const Resource read : stages.Incoming.Reads) {
+  for (const auto *reads : {&stages.Incoming.Reads, &stages.Incoming.ReadsAccumulated}) {
+    for (const Resource read : *reads) {
       if (read == kNoEdge) { break; }
-      if (read == write) { return true; }
+      if (Produces(stages.Earlier.Id, read)) { return true; }
     }
   }
   return false;
@@ -267,6 +293,7 @@ bool Compiled::ResolveDependencies(const PlanSpec &spec, std::string &error) {
     return false;
   }
 
+  if (!AccumulatedReadsAreReady(pull, error)) { return false; }
   for (size_t s = 0; s < kStageCount; ++s) {
     HeldStage_[s] = pull.HeldStage[s];
     if (pull.HeldStage[s]) { Order_.push_back(static_cast<Stage>(s)); }
@@ -450,6 +477,10 @@ bool Compiled::IsRead(Resource resource) const {
       if (Bound(read) == Bound(resource)) { return true; }
     }
     for (const Resource read : row.ReadsLastFrame) {
+      if (read == kNoEdge) { break; }
+      if (Bound(read) == Bound(resource)) { return true; }
+    }
+    for (const Resource read : row.ReadsAccumulated) {
       if (read == kNoEdge) { break; }
       if (Bound(read) == Bound(resource)) { return true; }
     }

@@ -3,6 +3,7 @@
 #include <Outshine.h>
 #include <math/Units.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <expected>
@@ -74,6 +75,11 @@ Result Engine::preloadWithQuality(double patienceS,
   const GroundQuality quality =
       required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
   for (;;) {
+    const double remaining =
+        bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+    const auto uploadBudget = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::duration<double>(std::clamp(remaining, 0.0, 5.0)));
+    const auto uploads = S_->Picture.Device.OfflineUploads(uploadBudget);
     const auto pumpAt = std::chrono::steady_clock::now();
     const auto pumped = S_->PumpPreload(quality);
     S_->PreloadPumpMs += elapsedMs(pumpAt);

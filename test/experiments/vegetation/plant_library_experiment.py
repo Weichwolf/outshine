@@ -1,5 +1,6 @@
 """Complete and requested-subtree plant migration with original-input comparisons."""
 
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -10,15 +11,14 @@ import time
 from pathlib import Path
 
 import numpy as np
+from experiment_output import private_output
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from plant_experiment import check_plant, sapling
 
-ROOT = Path("build/experiments/vegetation/plant-library")
 
-
-def before_module():
-    path = ROOT / "before/__init__.py"
+def before_module(source):
+    path = source / "__init__.py"
     spec = importlib.util.spec_from_file_location(
         "plant_before", path, submodule_search_locations=[str(path.parent)]
     )
@@ -85,14 +85,12 @@ def compare_case(seed, before):
                             output[key], plants["before"].leaves(target, counts[1])[key]
                         )
     for state in actual["axes"]:
-        level = template.levels[len(state.path)]
+        base_radius, tip_radius = template.radii(state.path)
         for n, sides in ((24, 8), (12, 6)):
             old = before.axis_mesh(
-                state.length, state.bend, level.base_radius, level.tip_radius, n, sides
+                state.length, state.bend, base_radius, tip_radius, n, sides
             )
-            new = axis_mesh(
-                state.length, state.bend, level.base_radius, level.tip_radius, n, sides
-            )
+            new = axis_mesh(state.length, state.bend, base_radius, tip_radius, n, sides)
             for key in old:
                 np.testing.assert_array_equal(old[key], new[key])
     return {
@@ -107,8 +105,10 @@ def compare_case(seed, before):
     }
 
 
-def main():
-    before = before_module()
+def main(output, source):
+    output = private_output(output)
+    output.mkdir(parents=True, exist_ok=True)
+    before = before_module(source)
     cases = [compare_case(seed, before) for seed in (17, 0, 2**64 - 1)]
     paths = [
         Path(__file__),
@@ -127,9 +127,13 @@ def main():
         "source_modified": True,
         "process_peak_mib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024,
     }
-    (ROOT / "plant-library.json").write_text(json.dumps(report, indent=2) + "\n")
+    (output / "plant-library.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--before", type=Path, required=True)
+    args = parser.parse_args()
+    main(args.output, args.before)

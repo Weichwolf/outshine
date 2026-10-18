@@ -1,0 +1,128 @@
+{
+  "provenance": {
+    "commit": "f9918fa30eb3b608efdd4551b584be6a8886cbe2",
+    "issue": 600,
+    "origin_lat_lon": [
+      48.242427962074906,
+      16.386505365371704
+    ],
+    "payload_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+    "recipe_sha256": "8391a06716998d76bcd2a00f859af2dca9b2be5d3e3bb771b5c10b3644da48af",
+    "resident_sources": 71,
+    "scope": "Actual polygonized source-owner cell with analytically bounded whole profile sections; original source hull recipe. This is a failing candidate, not accepted generated content."
+  },
+  "shared_original_node": [
+    1512,
+    2147
+  ],
+  "cell_xy_m": [
+    [
+      -650.5983594351719,
+      426.69690749289197
+    ],
+    [
+      -649.8422503776611,
+      427.18502795793336
+    ],
+    [
+      -648.7881283821232,
+      425.53800603362214
+    ],
+    [
+      -649.8566758090318,
+      425.53800603362214
+    ],
+    [
+      -650.6002887946723,
+      426.6998705006733
+    ]
+  ],
+  "sources": {
+    "openfreemap:14/8937/5678:transportation:1950369630:9": {
+      "mvt_xy": [
+        [
+          1512,
+          2147
+        ],
+        [
+          1499,
+          2127
+        ],
+        [
+          1492,
+          2152
+        ],
+        [
+          1464,
+          2171
+        ],
+        [
+          1436,
+          2166
+        ],
+        [
+          1450,
+          2187
+        ]
+      ],
+      "xy_m": [
+        [
+          -649.8441563966652,
+          427.1880060336221
+        ],
+        [
+          -655.0142751440071,
+          435.12799963019904
+        ],
+        [
+          -657.7981852387297,
+          425.2030059014147
+        ],
+        [
+          -668.93382561762,
+          417.65999907685006
+        ],
+        [
+          -680.0694659965102,
+          419.6450018432977
+        ],
+        [
+          -674.5016458070651,
+          411.307985566603
+        ]
+      ],
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      }
+    },
+    "openfreemap:14/8937/5678:transportation:80922970:247": {
+      "mvt_xy": [
+        [
+          1535,
+          2183
+        ],
+        [
+          1512,
+          2147
+        ]
+      ],
+      "xy_m": [
+        [
+          -640.6970232282912,
+          412.8959896098316
+        ],
+        [
+          -649.8441563966652,
+          427.1880060336221
+        ]
+      ],
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      }
+    }
+  }
+}

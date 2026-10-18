@@ -141,7 +141,7 @@ int main() {
        .WidthM = 4.0,
        .LatLon = {49.3274, 8.5659, 49.3275, 8.5660}},
   }};
-  stack.Declares(declared);
+  CHECK(stack.Declares(declared), "declared contents receive a persistent input identity");
   stack.UseCachedRegionNetwork(focus);
   CHECK(!stack.UsesCachedRegionNetwork() && advance(focus).has_value() &&
             stack.Ways().Ways().size() == 1,

@@ -120,9 +120,9 @@ def population(name, recipe):
     ]
 
 
-def plants(name, recipe, products):
+def draw_sources(name, rows, products):
     mats, report = materials(name), []
-    for key, origins, frames, scales in population(name, recipe):
+    for key, origins, frames, scales in rows:
         path = products / (key + ".npz")
         with np.load(path) as stored:
             mesh = {key: stored[key] for key in stored.files}
@@ -152,6 +152,10 @@ def plants(name, recipe, products):
             }
         )
     return report
+
+
+def plants(name, recipe, products):
+    return draw_sources(name, population(name, recipe), products)
 
 
 def setup(name, recipe):

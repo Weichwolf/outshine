@@ -1,16 +1,16 @@
 #ifndef OUTSHINE_RENDER_DEVICE_GROUNDSTORAGE_H
 #define OUTSHINE_RENDER_DEVICE_GROUNDSTORAGE_H
 
+#include "native/Device.h"
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <expected>
+#include <memory>
 #include <optional>
 #include <span>
-#include <string>
-#include "GpuOwned.h"
-#include "GpuSubmission.h"
 
 namespace outshine::Render {
+class UploadQueue;
 
 struct GroundStorageUploadMetrics {
   size_t BytesSubmitted = 0;
@@ -21,39 +21,40 @@ struct GroundStorageUploadMetrics {
 
 class GroundStorage {
 public:
-  [[nodiscard]] std::expected<void, std::string>
-  BeginReplace(SDL_GPUDevice *device,
-               std::span<const uint32_t> classes,
-               std::span<const float> palette,
-               GroundStorageUploadMetrics *metrics = nullptr);
+  void UploadsFrom(UploadQueue *queue) noexcept { Uploads_ = queue; }
 
-  [[nodiscard]] std::expected<bool, std::string>
-  AdvanceReplace(size_t bytesMost,
-                 const GpuSubmission &submission = {},
-                 GroundStorageUploadMetrics *metrics = nullptr);
+  [[nodiscard]] Native::Result<void> BeginReplace(Native::Device *device,
+                                                  std::span<const uint32_t> classes,
+                                                  std::span<const float> palette,
+                                                  GroundStorageUploadMetrics *metrics = nullptr);
 
-  [[nodiscard]] std::expected<void, std::string>
-  Replace(SDL_GPUDevice *device,
-          std::span<const uint32_t> classes,
-          std::span<const float> palette,
-          const GpuSubmission &submission = {},
-          GroundStorageUploadMetrics *metrics = nullptr);
+  [[nodiscard]] Native::Result<bool> AdvanceReplace(size_t bytesMost,
+                                                    GroundStorageUploadMetrics *metrics = nullptr);
 
-  [[nodiscard]] SDL_GPUBuffer *Classes() const noexcept { return Classes_.Get(); }
+  [[nodiscard]] Native::Result<void> Replace(Native::Device *device,
+                                             std::span<const uint32_t> classes,
+                                             std::span<const float> palette,
+                                             std::chrono::nanoseconds budget,
+                                             GroundStorageUploadMetrics *metrics = nullptr);
 
-  [[nodiscard]] SDL_GPUBuffer *Palette() const noexcept { return Palette_.Get(); }
+  [[nodiscard]] Native::Buffer *Classes() const noexcept { return Classes_.get(); }
+
+  [[nodiscard]] Native::Buffer *Palette() const noexcept { return Palette_.get(); }
 
   [[nodiscard]] bool Ready() const noexcept { return Classes_ && Palette_; }
 
   [[nodiscard]] bool UploadActive() const noexcept { return Pending_.has_value(); }
 
 private:
+  [[nodiscard]] Native::Result<bool> Fail(Native::Error error);
+
   struct PendingUpload {
-    SDL_GPUDevice *Device = nullptr;
-    OwnedBuffer Classes;
-    OwnedBuffer Palette;
-    OwnedTransfer Transfer;
-    OwnedFence Fence;
+    Native::Device *Device = nullptr;
+    UploadQueue *Uploads = nullptr;
+    std::unique_ptr<Native::Buffer> Classes;
+    std::unique_ptr<Native::Buffer> Palette;
+    std::unique_ptr<Native::Buffer> Transfer;
+    std::optional<Native::Completion> Fence;
     std::span<const uint32_t> ClassSource;
     std::span<const float> PaletteSource;
     uint32_t ClassBytes = 0;
@@ -63,8 +64,17 @@ private:
     uint32_t PaletteOffset = 0;
   };
 
-  OwnedBuffer Classes_;
-  OwnedBuffer Palette_;
+  [[nodiscard]] static Native::Result<bool> PollRange(PendingUpload &pending);
+
+  [[nodiscard]] static Native::Result<void> Stage(PendingUpload &pending,
+                                                  bool classes,
+                                                  uint32_t offset,
+                                                  size_t count,
+                                                  GroundStorageUploadMetrics *metrics);
+
+  UploadQueue *Uploads_ = nullptr;
+  std::unique_ptr<Native::Buffer> Classes_;
+  std::unique_ptr<Native::Buffer> Palette_;
   std::optional<PendingUpload> Pending_;
 };
 

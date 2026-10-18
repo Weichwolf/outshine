@@ -1,4 +1,5 @@
 #include "ContentStore.h"
+#include "CacheUsageIndex.h"
 
 #include <algorithm>
 #include <chrono>
@@ -62,9 +63,11 @@ namespace {
   }
   std::vector<uint8_t> bytes(static_cast<size_t>(size));
   if (std::fread(bytes.data(), 1, bytes.size(), file.get()) != bytes.size() ||
-      std::fgetc(file.get()) != EOF || std::ferror(file.get()) != 0) {
+      std::ferror(file.get()) != 0) {
     return std::nullopt;
   }
+  if (std::feof(file.get()) == 0 && std::fgetc(file.get()) != EOF) { return std::nullopt; }
+  if (std::ferror(file.get()) != 0) { return std::nullopt; }
   if (std::fclose(file.release()) != 0) { return std::nullopt; }
   return bytes;
 }
@@ -143,6 +146,24 @@ ContentStore::ContentStore(const Config &config)
   if (Using_ != Use::On) { return; }
   std::error_code ec;
   std::filesystem::create_directories(Directory_, ec);
+  if (!ec) {
+    auto usage =
+        CacheUsageIndex::Open((std::filesystem::path(Directory_) / ".usage.sqlite").string());
+    if (usage) { Usage_ = std::move(*usage); }
+  }
+  if (!Usage_) {
+    std::fputs("source cache: usage index could not be opened\n", stderr);
+    UsageWarning_.store(true, std::memory_order_relaxed);
+  }
+}
+
+ContentStore::~ContentStore() = default;
+
+void ContentStore::ObserveUsage(std::string_view key, size_t bytes, bool published) const {
+  if (Usage_ && Usage_->Record(key, bytes, published)) { return; }
+  if (!UsageWarning_.exchange(true, std::memory_order_relaxed)) {
+    std::fputs("source cache: usage metadata could not be fully recorded\n", stderr);
+  }
 }
 
 bool ContentStore::Trim() {
@@ -202,7 +223,10 @@ std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key,
 std::optional<std::vector<uint8_t>> ContentStore::ReadBytes(std::string_view key,
                                                             size_t mostBytes) const {
   const size_t limit = mostBytes == 0 ? CapBytes_ : std::min(mostBytes, CapBytes_);
-  return ValidKey(key) ? ReadEntry(Directory_ + "/" + std::string(key), limit) : std::nullopt;
+  if (!ValidKey(key)) { return std::nullopt; }
+  auto bytes = ReadEntry(Directory_ + "/" + std::string(key), limit);
+  if (bytes) { ObserveUsage(key, bytes->size()); }
+  return bytes;
 }
 
 ContentStore::Entry ContentStore::Lookup(std::string_view key, size_t mostBytes) const {
@@ -232,6 +256,7 @@ bool ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes)
     return false;
   }
   ForgetAbsence(key);
+  ObserveUsage(key, bytes, true);
   Writes_.fetch_add(1, std::memory_order_relaxed);
   return true;
 }

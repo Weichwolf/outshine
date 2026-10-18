@@ -134,8 +134,9 @@ std::array<uint8_t, 32> Sha256Digest(const void *data, size_t bytes) {
 
   std::array<uint8_t, 32> digest{};
   for (size_t i = 0; i < state.size(); ++i) {
-    for (size_t n = 0; n < 4; ++n) {
-      digest[i * 4 + n] = static_cast<uint8_t>(state[i] >> (24u - 8u * n));
+    for (size_t n = 0; n < kWordBytes; ++n) {
+      digest[i * kWordBytes + n] =
+          static_cast<uint8_t>(state[i] >> ((kWordBytes - 1u - n) * kByteShift));
     }
   }
   return digest;

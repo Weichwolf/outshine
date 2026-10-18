@@ -3,12 +3,24 @@
 #include "GroundStorage.h"
 #include "Readback.h"
 #include "Check.h"
-#include <SDL3/SDL.h>
+#include "Device.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstddef>
+#include <chrono>
 #include <cstring>
 #include <memory>
+
+namespace {
+constexpr double kHaloM = 2.5;
+constexpr uint32_t kFineCell = 0x109;
+constexpr uint32_t kCoarseCell = 0x107;
+constexpr uint32_t kSeedHeader = 0x203;
+constexpr uint32_t kSeedSequence = 17;
+constexpr uint32_t kSeedDepthBits = 0x3f000000;
+constexpr std::size_t kEmptyHeaderWords = 28;
+}
 
 int main() {
   using namespace outshine;
@@ -19,16 +31,16 @@ int main() {
   fine->OrgE = -2;
   fine->OrgN = 3;
   fine->CellM = 4;
-  fine->BoundaryHaloM = 2.5;
-  fine->Cells = {0x109, 0};
-  fine->Seeds = {0x203, 17, 1, 0x3f000000};
+  fine->BoundaryHaloM = kHaloM;
+  fine->Cells = {kFineCell, 0};
+  fine->Seeds = {kSeedHeader, kSeedSequence, 1, kSeedDepthBits};
   fine->Refs = {0};
   fine->Edges = {1, 2, 3, 4};
   auto coarse = std::make_shared<ClassStructure::Grid>();
   coarse->W = coarse->H = 1;
   coarse->OrgE = coarse->OrgN = -5;
   coarse->CellM = 10;
-  coarse->Cells = {0x107, 0};
+  coarse->Cells = {kCoarseCell, 0};
   auto native = std::make_shared<const ClassStructure>(
       TangentFrame::At({}),
       fine,
@@ -58,33 +70,27 @@ int main() {
   const auto emptyGrid = std::make_shared<const ClassStructure::Grid>();
   const ClassStructure emptyNative(TangentFrame::At({}), emptyGrid, emptyGrid, {.UnmappedRow = 13});
   const GroundClassBuffer empty(emptyNative);
-  std::array<uint32_t, 28> emptyExpected{};
+  std::array<uint32_t, kEmptyHeaderWords> emptyExpected{};
   emptyExpected[2] = 13;
   CHECK(std::ranges::equal(empty.Words(), emptyExpected),
         "empty tiers preserve the unmapped class without reading an empty edge allocation");
 
-  CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for the real GPU transfer");
-  SDL_GPUDevice *device = SDL_CreateGPUDevice(
-      SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_METALLIB,
-      false,
-      nullptr);
-  CHECK(device != nullptr, "the actual renderer backend is available");
-  if (device) {
-    {
-      const std::array<float, 4> palette{0.125f, 0.25f, 0.5f, 1};
-      GroundStorage storage;
-      CHECK(storage.Replace(device, packed.Words(), palette).has_value(),
-            "the independently owned render product uploads completely");
-      Readback read;
-      CHECK(read.FromBuffer(device, storage.Classes(), sizeof(expected)) == ReadState::Ready,
-            "GPU classification bytes are readable");
-      if (read.Rows()) {
-        CHECK(std::memcmp(read.Rows(), expected.data(), sizeof(expected)) == 0,
-              "the GPU contains the exact schema and payload after the native source died");
-      }
+  auto made = Native::CreateDevice({.Validation = true});
+  CHECK(made, "the actual native renderer backend is available");
+  if (made) {
+    const auto &device = *made;
+    const std::array<float, 4> palette{0.125f, 0.25f, 0.5f, 1};
+    GroundStorage storage;
+    CHECK(
+        storage.Replace(device.get(), packed.Words(), palette, std::chrono::seconds(5)).has_value(),
+        "the independently owned render product uploads completely");
+    Readback read;
+    CHECK(read.FromBuffer(device.get(), storage.Classes(), sizeof(expected)) == ReadState::Ready,
+          "GPU classification bytes are readable");
+    if (read.Rows() != nullptr) {
+      CHECK(std::memcmp(read.Rows(), expected.data(), sizeof(expected)) == 0,
+            "the GPU contains the exact schema and payload after the native source died");
     }
-    SDL_DestroyGPUDevice(device);
   }
-  SDL_Quit();
   return Report();
 }

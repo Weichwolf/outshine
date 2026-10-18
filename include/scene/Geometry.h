@@ -7,6 +7,7 @@
 #include <memory>
 #include <span>
 #include <string_view>
+#include <vector>
 
 #include "math/Mat4.h"
 #include "Material.h"
@@ -146,6 +147,17 @@ enum class GeometryImageError {
 /// unrepresentable storage/index requirements; they do not report allocator exhaustion.
 class Geometry {
 public:
+  /// Owned part-local mesh streams; optional attributes may be empty.
+  struct Mesh {
+    std::vector<float> PositionsM; ///< XYZ local metres.
+    std::vector<float> Normals;    ///< XYZ unit directions.
+    std::vector<float> Uv;         ///< First UV coordinate pairs.
+    std::vector<float> Uv1;        ///< Second UV coordinate pairs.
+    std::vector<float> Tangents;   ///< XYZ directions and handedness W.
+    std::vector<float> Colours;    ///< Linear RGBA vertex factors.
+    std::vector<uint32_t> Indices; ///< CCW triangle triplets of part-local indices.
+  };
+
   /// Create an empty owner; allocates its private storage.
   Geometry();
   /// Release owned CPU data and invalidate every borrowed view.
@@ -235,6 +247,16 @@ public:
   /// @return New zero-based owner-local light index, or CapacityExceeded without mutation.
   [[nodiscard]] std::expected<int, LightMutationError>
   addLamp(std::string_view named, const PunctualLight &light, const Mat4 &placed);
+
+  /// Transfer all mesh streams without allocating or copying their payloads.
+  /// Uses the same tuple/value rules as the individual setters. Cross-attribute counts
+  /// and index bounds remain checked by wellFormed(). Material and placement are preserved.
+  /// Validation is linear; only success consumes the input and invalidates borrowed streams.
+  /// @param part Active part index; exclusive access to the non-moved-from owner is required.
+  /// @param mesh Owned streams, left unmodified together with the owner on validation failure.
+  /// @return Success or a typed attribute error, without partial publication.
+  [[nodiscard]] std::expected<void, GeometryAttributeError> adoptMesh(int part,
+                                                                      Mesh &mesh) noexcept;
 
   /// Copy finite XYZ positions in local metres; the source is borrowed only during the call.
   /// Return a typed error without mutation for an invalid part, incomplete XYZ tuple or nonfinite

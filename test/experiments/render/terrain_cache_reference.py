@@ -14,9 +14,9 @@ ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / 'test/scripts/terrain-region-export.cpp'
 
 
-def compile_helper(output):
+def compile_helper(output, source=SOURCE, unit="TerrainMesh.cpp"):
     records = json.loads((ROOT / 'compile_commands.json').read_text())
-    record = next(row for row in records if Path(row['file']).name == 'TerrainMesh.cpp')
+    record = next(row for row in records if Path(row['file']).name == unit)
     flags = record.get('arguments') or shlex.split(record['command'])
     command, skip = [], False
     for flag in flags:
@@ -29,14 +29,17 @@ def compile_helper(output):
     environment = os.environ.copy()
     prefix = ROOT / 'build/deps/install/lib'
     environment['PKG_CONFIG_PATH'] = str(prefix / 'pkgconfig') + os.pathsep + environment.get('PKG_CONFIG_PATH', '')
-    packages = ['sdl3', 'sdl3-image', 'sdl3-ttf', 'sdl3-shadercross', 'liblz4',
+    packages = ['sdl3', 'sdl3-image', 'sdl3-ttf', 'liblz4',
                 'libtiff-4', 'libwebp', 'geos', 'sqlite3', 'libzstd', 'sfcgal', 'libcurl']
     libraries = shlex.split(subprocess.check_output(
         ['pkg-config', '--libs', *packages], env=environment, text=True, timeout=30))
-    binary = output / 'terrain-region-export'
-    command += [str(SOURCE), str(ROOT / 'build/libgenerators.a'),
+    libraries += shlex.split(subprocess.check_output(
+        ['bash', 'test/run.sh', '--native-link-flags'], cwd=ROOT, env=environment,
+        text=True, timeout=30))
+    binary = output / source.stem
+    command += [str(source), str(ROOT / 'build/libgenerators.a'),
                 str(ROOT / 'build/liboutshine.a'), *libraries, '-lz',
-                f'-Wl,-rpath,{prefix}', '-o', str(binary)]
+                '-o', str(binary)]
     subprocess.run(command, cwd=ROOT, check=True, timeout=120)
     return binary, command
 

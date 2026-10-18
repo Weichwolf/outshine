@@ -1,17 +1,12 @@
-"""The global content store, as src/data/ContentStore.{h,cpp} defines it."""
+"""Shared digest-addressed storage for pinned test inputs."""
 
 import hashlib
-import json
 import os
 import tempfile
 
 from .refusal import Refusal
 
 STORE_LEAF = "outshine-content"
-
-DERIVATION_VERSION = 10
-
-DERIVATION_ID = "outshine.corpus.prep"
 
 def sha256_hex(data):
     return hashlib.sha256(data).hexdigest()
@@ -23,20 +18,8 @@ def sha256_of_file(path):
             digest.update(block)
     return digest.hexdigest()
 
-def canonical_json(value):
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-
 def default_directory():
     return os.path.join(tempfile.gettempdir(), STORE_LEAF)
-
-def derived_key(kind, recipe):
-    """The name a derived artefact is filed under.
-
-    Newline-separated with the version inside, exactly as `Data::ContentKey` builds it, so the two
-    producers cannot form one key by accident and cannot form two keys for one thing.
-    """
-    subject = "\n".join([DERIVATION_ID, str(DERIVATION_VERSION), kind, canonical_json(recipe)])
-    return sha256_hex(subject.encode("utf-8"))
 
 class ContentStore:
     """A directory of files and nothing else: hash = filename, no index, no sidecar."""
@@ -64,15 +47,6 @@ class ContentStore:
             self.misses += 1
         return found
 
-    def read(self, key):
-        if not self.has(key):
-            return None
-        with open(self.path(key), "rb") as f:
-            return f.read()
-
-    def keep(self, key, data):
-        self.keep_stream(key, lambda f: f.write(data))
-
     def keep_file(self, key, source_path):
         def copy(out):
             with open(source_path, "rb") as src:
@@ -96,26 +70,6 @@ class ContentStore:
             if os.path.exists(temp):
                 os.remove(temp)
             raise
-
-    def forget(self, key):
-        """DROP AN ENTRY THAT HAS BEEN COPIED OUT AND WILL NOT BE ASKED FOR AGAIN (board:1369).
-
-        The owner's ruling: a Cycles render is not worth caching, because this machine has more CPU
-        than disk. The store held 54 GB over 18 655 entries and could not tell a live entry from a
-        dead one -- an access time this filesystem does not maintain, a modification time a cache hit
-        never touches -- so it grew by a case's whole output on every manifest edit.
-
-        THE FETCH CACHE IS NOT THIS AND MUST NOT BECOME IT. Upstream bytes cost the NETWORK, and the
-        network rate-limits; a render costs the CPU, and the CPU is what this machine has.
-        """
-        if not self.enabled:
-            return False
-        here = self.path(key)
-        try:
-            os.remove(here)
-            return True
-        except OSError:
-            return False
 
     def copy_out(self, key, destination_path):
         if not os.path.isfile(self.path(key)):

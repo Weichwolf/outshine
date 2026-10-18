@@ -12,7 +12,8 @@ MetalDevice::MetalDevice(uint64_t identity,
   constexpr uint32_t colourTargets = 8;
   constexpr uint32_t maxUniformBytes = 64 * 1024;
   constexpr uint32_t baselineInvocations = 256;
-  Limits_.Name = device.name.UTF8String;
+  const char *const name = device.name.UTF8String;
+  Limits_.Name = name != nullptr ? name : "Unnamed Metal device";
   Limits_.MaxColourAttachments = colourTargets;
   constexpr uint32_t textureExtent = 16384;
   constexpr uint32_t textureLayers = 2048;
@@ -29,6 +30,7 @@ MetalDevice::MetalDevice(uint64_t identity,
   Limits_.MaxWorkgroupCount.fill(std::numeric_limits<uint32_t>::max());
   Limits_.MaxWorkgroupInvocations = baselineInvocations;
   Limits_.GpuTimestamps = true;
+  Limits_.DepthClamp = true;
 }
 
 MetalDevice::~MetalDevice() {

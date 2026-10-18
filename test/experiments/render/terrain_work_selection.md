@@ -1,0 +1,381 @@
+# Terrain work selection: measured alternatives
+
+Owner: [#515](https://github.com/Weichwolf/outshine/issues/515), spatial representation
+in [#12](https://github.com/Weichwolf/outshine/issues/12).
+Inputs are the existing native height-page exports from `terrain_cache_reference.py`.
+No network acquisition, asset regeneration, changed world, or relaxed geometry limit.
+These are CPU comparisons, not new runtime paths or device-budget evidence.
+
+## Decision
+
+The native current-opaque-depth selector is implemented separately. Its remaining
+Körbersee bottleneck is terrain itself: the instrumented first frame submits
+6.55 million terrain triangles; vertex/fragment phases overlap at about 31.8 ms.
+A smaller scene or an isolated good frame cannot admit this port.
+
+None of the alternatives below justifies immediate native expansion. Lower-envelope
+proxies lose their useful coverage once made conservative. Choosing early exact
+terrain by distance or projected coverage produces modest savings; full native
+cost and first-frame reliability remain unknown. Normal cones are safe in the
+measured CPU cases but reject little, especially in Vienna. Compare representation
+and spatially adaptive geometric detail next; keep shading detail independent.
+The subsequent [local patch comparison](terrain_patch_lod.md) cuts the same
+one-pixel all-resident geometry by 45–51%; it supports a bounded native prototype,
+with shading and actual GPU acceptance still open.
+
+## Conservative lower envelopes
+
+`terrain_occluders.py` fits a plane through three heightfield corners. The minimum
+and maximum residual over every fine vertex enclose all affine triangle interiors.
+It validates convexity, the complete straight ordered boundary, consistent fine
+winding and coverage. Thus each accepted patch remains a continuous heightfield.
+
+A lower plane alone is **not** an occlusion proof. A viewing ray can enter the
+patch through its side below the actual surface and hit the lower plane without
+crossing any source triangle. The initial 320x180 Körbersee comparison exposed
+12 such unsafe depth samples, despite an unchanged final image in that case.
+The side-entry counterexample is retained in the verification.
+
+The admitted CPU construction requires the viewing ray to cross an upper plane
+and the lower plane inside the same convex footprint. Continuity then guarantees
+an actual surface crossing between them. The lower polygon is clipped against
+that upper-intersection condition; two convex quads produce at most eight vertices.
+Camera/plane degeneracy fails open. This is a local heightfield construction,
+not a general offset-surface or closed-earth reconstruction theorem.
+
+Körbersee, 1280x720: 16,255 pages; 6,657,792 frustum interior triangles.
+Safe proxies add 86,424 triangles and reject only 8,704: 6,735,512 combined,
+more than the baseline. Zero changed depth pixels and zero front-of-source
+proxy samples. No native implementation is justified by this comparison.
+
+## Outer curtains and a runtime geometry defect
+
+The optional `--skirt-aware` comparison includes all source outer skirts in both
+rasters. A lower proxy is admitted only above the highest skirt-bottom plane,
+with the eye above that plane and outside the convex tile footprint. The ray
+then crosses an actual top triangle or outer wall before reaching the proxy.
+Unknown orientation and degenerate cases fail open. Skirts are always retained.
+
+Körbersee at 320x180: 119,584 proxy triangles reject 311,168 of 6,657,792
+interior triangles. Net saving is (311,168 - 119,584) / 6,657,792 = 2.88%,
+with zero changed depth pixels or unsafe proxy samples. This still does not
+justify an additional native occluder pass.
+
+This experiment exposed inward-facing runtime skirts. An independent native GPU
+fixture uses two neighboring flat tiles at heights 0.6 and 0.2, viewed from
+x=2 at height 0.4 with near=0.1. The near gap wall at x=0 must produce reversed
+depth 0.1/2 = 0.05. Before correction, the GPU returned 0.1/3 = 0.0333333,
+the far wall at x=-1. Reversing only skirt winding restores the analytic depth.
+The native regression is `GroundLattice/OuterSkirtsFaceTheGap`; this correction
+is independent of the rejected proxy optimization.
+
+## Exact early terrain
+
+`terrain_front_depth.py` renders a selected subset of original pages first,
+queries their current depth, and renders only the remaining retained patches.
+Early pages are counted once. Selection uses distance or projected coverage;
+world AABBs, local oriented boxes and exact projected vertex bounds are compared.
+All reported complete raster comparisons below have zero changed depth pixels.
+
+Körbersee, 320x180, original eight-cell patches:
+
+| Early selection | Bounds / depth levels | Early pages | Baseline triangles | Early + late triangles |
+|---|---|---:|---:|---:|
+| Distance | World / 4 | 256 | 6,657,792 | 6,408,832 |
+| Coverage | World / 4 | 1,024 | 6,657,792 | 5,713,664 |
+| Coverage | Local OBB / 4 | 1,024 | 6,588,160 | 5,495,040 |
+| Coverage | Exact projected vertices / 10 | 1,024 | 6,583,424 | 5,303,936 |
+
+Tighter bounds also change the frustum baseline; compare each row with its own
+baseline. The strongest row saves 1,279,488 / 6,583,424 = 19.44%, before native
+selection, pass and memory costs. Exact projected vertices are an expensive
+comparison bound, not an approved runtime selection method.
+
+The optional reverse-depth bias comparison preserves the existing absolute
+`1e-6` default in `current_visibility.occluded`. A relative `1e-6` case is
+explicit: the world/4/1,024-page result becomes 5,571,200 triangles. This is not
+permission to reduce native numerical margins; projection, raster and history
+error need their own bounds and GPU tests.
+
+## Meshoptimizer normal cones
+
+`terrain_cones.py` calls the installed meshoptimizer C API; no bundled source or
+new implementation. The installed library used here is Homebrew meshoptimizer 1.3.
+That is the historical experiment environment, not a product dependency or a
+maintained Outshine Homebrew formula. Reproduction requires a separately supplied
+shared library via `--library`.
+Perspective rejection uses the documented apex, axis and cutoff formula with
+explicit padding. A separate every-triangle oracle checks each rejection.
+Skirts remain independent. Patches are limited to four/eight cells so they fit
+the library's documented cluster limits.
+
+| Place / yaw | Candidate triangles | Cone-rejected triangles | Unsafe rejected patches |
+|---|---:|---:|---:|
+| Körbersee / 0° | 6,657,792 | 568,832 | 0 |
+| Körbersee / 180° | 5,960,064 | 546,944 | 0 |
+| Wien / 0° | 1,751,680 | 2,816 | 0 |
+
+All three complete depth comparisons have zero changed pixels. These are 320x180
+CPU camera views, not native measurements or complete-scene savings guarantees.
+
+## Reproduce
+
+Use system-temp output paths. Reports include page-data and scenario fingerprints;
+older exploratory receipts are identified separately in the owning issue.
+
+```sh
+python3 test/experiments/render/verify_terrain_occluders.py
+python3 test/experiments/render/verify_current_visibility.py
+python3 test/experiments/render/verify_terrain_cones.py --library /path/to/libmeshoptimizer.dylib
+python3 test/experiments/render/terrain_occluders.py --pages "$PAGES" --scenario "$SCENARIO" --output "$OUTPUT"
+python3 test/experiments/render/terrain_front_depth.py --pages "$PAGES" --scenario "$SCENARIO" --output "$OUTPUT" --priority coverage --bounds obb --near-pages 64 256 1024
+python3 test/experiments/render/terrain_cones.py --pages "$PAGES" --scenario "$SCENARIO" --output "$OUTPUT" --library /path/to/libmeshoptimizer.dylib
+```
+
+The raster oracle omits near-crossing triangles, alpha and MSAA; skirts are
+included only by the explicit curtain comparison. Its CPU
+projection and double precision do not prove shader rounding or material quality.
+Reported CPU wall time includes validation and is not a GPU-time prediction.
+
+## References
+
+[GPU-Driven Rendering Pipelines, SIGGRAPH 2015](../../../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
+provides the culling/batching reference; the meshoptimizer public header documents
+its actual cone API and perspective formula (Real-Time Rendering 4, section 19.3).
+[Simplification Envelopes, SIGGRAPH 1996](../../../doc/references/geometry/siggraph/1996-simplification-envelopes.pdf)
+figures 2–4 clarify why enclosing half-spaces and closed prisms matter; the local
+ray-bracket construction above is not claimed as that paper's algorithm.
+[Geometry Clipmaps, SIGGRAPH 2004](../../../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf)
+is the reference for separating geometric sampling from normal detail.
+
+## Larger adaptive patches
+
+A further cached-input comparison uses all 16,255 Körbersee pages, 1280x720,
+view yaws 0/180 and the same 0.5-pixel positional allowance. All cases retain
+fine patch boundaries and the original outer skirts. This is a frustum-only
+CPU model; it does not establish native GPU times or pixel equivalence.
+
+| Patch cells | View 0 triangles | View 180 triangles |
+|---:|---:|---:|
+| 8 | 5,508,280 | 4,987,008 |
+| 16 | 6,846,824 | 6,304,240 |
+| 32 | 8,233,736 | 7,577,904 |
+
+Replacing every patch with a larger one is rejected: view 0 grows by
+(8,233,736 / 5,508,280 - 1) * 100 = 49.48%. Larger shared error domains
+force finer selected levels. A lower theoretical boundary floor alone does
+not predict useful work savings. The existing CLI now also accepts 32 cells;
+`verify_terrain_patch_lod.py` checks its affine errors and complete boundaries.
+
+## Shared coarse patch edges
+
+`terrain_patch_stitching.py` compares mixed edge spacings on the same sixteen
+eight-cell patches per page. Neighboring edges use the finer spacing; original
+page borders and skirts stay fine. Exact common-refinement vector bounds force
+unsafe variants to refine, retaining the 0.5 px allowance. Each refinement lowers
+a finite level potential; a page requires at most 49 selection rounds.
+
+All 16,255 cached Körbersee pages, 1280×720, frustum-only comparison. A complete
+page may retain the old patterns when stitching would cost more:
+
+| Pattern policy | Yaw 0 triangles, with skirts | Yaw 180 | Saving |
+|---|---:|---:|---:|
+| Original fine boundaries | 5,508,280 | 4,987,008 | — |
+| Internal 2:1 neighbors, page fallback | 5,363,894 | 4,890,669 | 2.62% / 1.93% |
+| Unrestricted neighbor levels, page fallback | 5,250,987 | 4,790,074 | 4.67% / 3.95% |
+
+Without the page fallback, 2:1 stitching increases the opposite view's count.
+The policies evaluate 88,331/96,585 exact variants and need 144/353 shared index
+patterns (38,280/81,480 bytes). Measured Python preparation takes 20.93/21.55 s
+beside a frozen lint. These are model construction times, not native frame costs.
+Extra native neighbor selection, grouping and error metadata are unmeasured.
+The small reference-count saving does not justify a native integration here.
+
+Five checks cover random mixed-level topology without internal open edges or
+T-junctions, independent dense vector interpolation, near-plane/peak refinement,
+and unchanged defaults. Twenty-four old/new index arrays and twelve error stencils
+remain byte-identical. Contact/temporal pixels, fine normals and native GPU costs
+are not proved by this model. The production renderer and its PNGs are unchanged.
+
+[Geometry Clipmaps](../../../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf),
+page 4, figures 3–4 and section 6.2, motivates compatible boundaries and spatial
+transitions; both the equations and diagrams were inspected. This experiment
+uses explicit patch triangulations, not the paper's clipmap/morphing scheme.
+
+## Exact early patches with adaptive LOD
+
+`terrain_early_patches.py` compares early eight-cell patches with the existing
+0.5 px positional allowance at 1280×720. Early patches use original fine geometry;
+late patches keep their selected LOD. Each unculled reference uses exactly the
+same geometry as its culled case, including the early replacements. Early geometry
+is counted once. The existing absolute reverse-depth bias of 1e-6 is unchanged.
+
+All 16,255 cached Körbersee pages are read; 3,620 pages intersect conservative
+frustum bounds at yaw 0. The adaptive baseline has 4,558,520 interior triangles
+and 926,720 unchanged skirt triangles. Ranking by projected boxes selects unsafe
+near-plane bounds first: the first 512 patches cover zero raster pixels. It saves
+nothing. Ranking only positive front-facing triangle area avoids that failure,
+but requires projecting/testing the fine triangles before selecting the early set.
+
+| Early patches | Early triangles | Late triangles | Total with skirts | Saved against identical geometry | Changed depth pixels |
+|---|---:|---:|---:|---:|---:|
+| 128 | 16,384 | 4,520,464 | 5,463,568 | 23,416 | 0 |
+| 512 | 65,536 | 4,430,784 | 5,423,040 | 75,248 | 0 |
+| 2,048 | 262,144 | 4,033,168 | 5,222,032 | 305,920 | 0 |
+
+The largest case saves (5,485,240 - 5,222,032) / 5,485,240 = 4.80% against
+the original adaptive baseline, before selection/pyramid/extra encoding costs.
+The larger 305,920 saving uses its own more expensive fine-early baseline.
+This experiment does not justify adding an early-patch path to the native renderer.
+The 320×180 comparison also has zero changed depth pixels; 512 early patches
+only save 36,920 interior triangles against the original adaptive baseline.
+
+Four independent synthetic checks exercise overlap, fine/coarse replacement,
+ranking, capped incremental budgets and counting each early patch once.
+The opened 720p depth comparison is consistent with the reported zero difference.
+Pixel-centre CPU rasterization does not prove shader rounding, clipping, MSAA,
+normal/material equality, native scheduling or a net GPU gain. Skirts are counted
+but not rasterized. No runtime code, image threshold or error allowance changes.
+
+```sh
+python3 test/experiments/render/verify_terrain_early_patches.py
+python3 test/experiments/render/terrain_early_patches.py --pages "$PAGES" --scenario "$SCENARIO" --output "$OUTPUT" --priority surface --width 1280 --height 720 --budgets 128 512 2048
+```
+
+## Adaptive patch merging
+
+`terrain_patch_tree.py` chooses between 8/16/32-cell patterns bottom-up instead
+of replacing all patches with one larger size. Each candidate keeps its own
+0.5 px error bound and complete fine boundary. Off-frustum children cost zero;
+merging must beat the sum of selected children. Outer skirts remain unchanged.
+
+| Körbersee view | Eight-cell baseline with skirts | Hierarchical choice | Reduction |
+|---|---:|---:|---:|
+| 0° | 5,508,280 | 5,438,784 | 1.26% |
+| 180° | 4,987,008 | 4,939,600 | 0.95% |
+
+All 16,255 pages are fingerprinted; 6,667 intersect either view. The selector
+matches exhaustive evaluation of all 17 admissible tree partitions on 1,000
+random positive-cost inputs. Selected leaves cover every cell exactly once;
+mixed detail, partial visibility, invalid shapes and negative costs are checked.
+The optimum is restricted to these patterns and precomputed bounds. It is not
+a global geometry optimum. Native metadata, draws and compaction cost are not
+included. This small gain does not justify adding 15 index patterns and another
+hierarchy to the native path. No new native path is adopted.
+
+```sh
+python3 test/experiments/render/verify_terrain_patch_tree.py
+python3 test/experiments/render/terrain_patch_tree.py --pages "$PAGES" --scenario "$SCENARIO" --output "$OUTPUT"
+```
+
+## Redundant coarse vertex normals: rejected
+
+At c178aee92, coarse patch fragments reconstruct the fine normal independently.
+A vertex-shader variant skips four neighbor-height reads for these coarse vertices.
+Fine grids, geometry, indices and the 0.5 px displacement allowance are unchanged.
+Four fresh offline Körbersee processes, A/B/B/A, use 1280×720/30 and exactly
+30 measured frames per rotation. A is the original shader. Metal validation is off;
+the host remains interactive. All four final PNG hashes are df0510ba.
+
+| Run | GPU mean, ms | GPU maximum, ms |
+|---|---:|---:|
+| A1 | 573.3300423 / 30 = 19.1110 | 37.7211 |
+| B1 | 606.0220834 / 30 = 20.2007 | 37.0451 |
+| B2 | 592.0219170 / 30 = 19.7341 | 36.5760 |
+| A2 | 546.6996665 / 30 = 18.2233 | 37.0081 |
+
+Mean GPU cost rises from 18.6672 to 19.9674 ms, or
+(19.9674 / 18.6672 - 1) × 100 = 6.97%. Lower source-level fetch counts do not
+establish lower device work. The variant is rejected and the original shader
+restored. The samples do not identify the hardware cause; GPU peaks remain red.
+Private logs and both shader variants stay in system temp; no product path is added.
+
+## Separate coarse vertex pipeline: rejected
+
+An extended private run of the existing MetalWorkProfile probe decodes each
+indirect argument range after GPU completion. On 43996faf5, Körbersee at 1280×720/30
+submits the following averages over the same 30 measured rotation frames:
+
+| LOD | Indices per patch | Patch instances | Triangle references |
+|---:|---:|---:|---:|
+| 0 | 384 | 15,215.47 | 1,947,579.73 |
+| 1 | 216 | 10,202.37 | 734,570.40 |
+| 2 | 120 | 6,947.40 | 277,896.00 |
+| 3 | 96 | 8,120.50 | 259,856.00 |
+
+Coarse levels account for 1,272,322.40 / 3,219,902.13 = 39.51% of patch references;
+unchanged outer skirts add 716,032 references. These are submitted references,
+not actual vertex invocations or visible triangles. All four ranges are in use.
+
+A second native variant uses a dedicated coarse vertex shader, without the dynamic
+normal branch tested above. The finest range uses the original pipeline; the
+remaining three use a compile-time variant without redundant normal-height reads.
+It keeps the same four draws, geometry, fragment normal reconstruction and 0.5 px
+allowance. One additional pipeline and a 1+3 split of the existing argument ranges
+are the complete runtime changes; backend API and shader resource layouts stay fixed.
+
+A/B/B/A, four fresh offline processes, 30 frames per rotation, normal CPU priority,
+Metal validation unset, no own concurrent build/render; shared interactive host:
+
+| Run | GPU mean, ms | GPU maximum, ms |
+|---|---:|---:|
+| A1 | 21.0366 | 40.2519 |
+| B1 | 17.6009 | 37.1284 |
+| B2 | 22.2636 | 37.1917 |
+| A2 | 18.6332 | 37.8127 |
+
+All final PNG hashes are df0510ba. Baseline mean is 19.8349 ms, variant 19.9322 ms:
+(19.9322 / 19.8349 - 1) × 100 = 0.49% higher cost, amid substantial run variation.
+No reliable net improvement justifies the extra pipeline. The variant is rejected;
+production sources are restored. Private patch, binaries, shader variants and logs
+remain in system temp. No hardware-cause or vertex-invocation reduction is inferred.
+
+## Fixed groups of sixteen patches: rejected
+
+A private native prototype on 341e2fa80 replicates the four static index templates
+sixteen times. A bounded code-header carries segment capacity and actual counts;
+the vertex shader rejects complete padding patches before reading tile/height data.
+Four indirect draws and every valid triangle stay unchanged. A CPU comparison
+checks 10,665,432 index/code references, including segment tails. The additional
+static index/grid storage is 52,224/15,552 bytes. This was an experiment, not an
+adopted shared GPU binding or storage contract.
+
+Fresh offline Körbersee, 1280×720/30, A/B/B/A; no GPU validation or other GPU job.
+CPU-only module/claim tests run concurrently at nice10. Metal-validation control
+also completes. Every final image is df0510ba.
+
+| Run | GPU mean, ms | GPU maximum, ms |
+|---|---:|---:|
+| A1 | 20.8880 | 37.4228 |
+| B1 | 17.1965 | 37.3018 |
+| B2 | 21.2594 | 37.5779 |
+| A2 | 16.4551 | 37.0064 |
+
+Baseline mean is18.6716ms, grouped mean19.2280ms:
+(19.2280 / 18.6716 - 1) ×100 =2.98% higher cost. The peak remains red.
+Fewer patch instances alone do not justify extra bindings/code-header complexity.
+The prototype remains private and is rejected; production sources stay unchanged.
+
+## Fragment-cost controls: no production optimization
+
+On the unchanged native binary, B replaces procedural ground composition with
+constant albedo/roughness; C additionally bypasses coarse fragment height-normal
+reconstruction. An invalid-negative-opacity branch retains the original code and
+resource layout because deleting it made the draw bindings incompatible. Therefore
+static register pressure/instruction size are not independently eliminated. Both
+42-member GroundLit/GroundPatchLit families are recompiled; A retains original SPIR-V.
+
+Fresh offline 1280×720/30 A/B/C/C/B/A, no validation or other GPU work:
+
+| Mode | GPU mean, ms | Mean of run maxima, ms | Final image |
+|---|---:|---:|---|
+| A, original | 19.2664 | 37.5400 | df0510ba |
+| B, constant composition | 21.1562 | 34.7253 | 4a0f61e4 |
+| C, also coarse vertex normals | 21.8295 | 33.7127 | 0fec4b60 |
+
+These intentionally changed pictures are not accepted quality variants. Reduced
+peaks do not establish a net frame gain, and the retained code limits causal
+attribution. No production shader changes follow. Device enumeration exposes only
+the `timestamp/GPUTimestamp` counter set; no vertex/fragment invocation or memory
+counter evidence exists on this A18 through this API. Vulkan pipeline statistics
+are a separate proposed work-count comparison, not an A18 timing substitute.

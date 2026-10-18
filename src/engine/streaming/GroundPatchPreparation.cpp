@@ -2,7 +2,6 @@
 #include <atomic>
 #include <cstdint>
 #include <expected>
-#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -12,6 +11,21 @@ struct GroundPatchPreparation::Work {
   Result Value;
   std::atomic<bool> Complete{false};
 };
+
+template <class Operation> void GroundPatchPreparation::Post(Operation operation) {
+  Work_ = std::make_shared<Work>();
+  if (Pool_.PostDetached(
+          [work = Work_, stop = Stop_.get_token(), operation = std::move(operation)] {
+            work->Value = stop.stop_requested()
+                              ? Result{std::unexpected("terrain sampling patch canceled")}
+                              : operation();
+            work->Complete.store(true, std::memory_order_release);
+          })) {
+    return;
+  }
+  Work_->Value = std::unexpected("terrain sampling patch compute queue is closed");
+  Work_->Complete.store(true, std::memory_order_release);
+}
 
 GroundPatchPreparation::GroundPatchPreparation(
     Tasks &pool,
@@ -31,21 +45,6 @@ GroundPatchPreparation::GroundPatchPreparation(
 
 GroundPatchPreparation::~GroundPatchPreparation() {
   Stop_.request_stop();
-}
-
-void GroundPatchPreparation::Post(std::function<Result()> operation) {
-  Work_ = std::make_shared<Work>();
-  if (Pool_.PostDetached(
-          [work = Work_, stop = Stop_.get_token(), operation = std::move(operation)] {
-            work->Value = stop.stop_requested()
-                              ? Result{std::unexpected("terrain sampling patch canceled")}
-                              : operation();
-            work->Complete.store(true, std::memory_order_release);
-          })) {
-    return;
-  }
-  Work_->Value = std::unexpected("terrain sampling patch compute queue is closed");
-  Work_->Complete.store(true, std::memory_order_release);
 }
 
 GroundPatchPreparation::Result GroundPatchPreparation::Advance(const GroundQuery &heights,

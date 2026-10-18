@@ -1,9 +1,9 @@
 """Local ENU metres, retained source identities and camera-independent products."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from math import isfinite
 from types import MappingProxyType
-from typing import Mapping
 
 import numpy as np
 import shapely
@@ -16,7 +16,9 @@ def identifier(value: str) -> None:
 
 
 def collection(values: tuple, kind: type, name: str) -> None:
-    if not isinstance(values, tuple) or not all(isinstance(value, kind) for value in values):
+    if not isinstance(values, tuple) or not all(
+        isinstance(value, kind) for value in values
+    ):
         raise ValueError(name + " must be an immutable tuple of " + kind.__name__)
 
 
@@ -24,7 +26,9 @@ def geometry(value: BaseGeometry, *, polygonal: bool = False) -> None:
     if not isinstance(value, BaseGeometry) or value.is_empty or not value.is_valid:
         raise ValueError("a nonempty valid geometry is required")
     if value.has_z or not np.isfinite(shapely.get_coordinates(value)).all():
-        raise ValueError("geometry must use finite local XY metres; heights are explicit")
+        raise ValueError(
+            "geometry must use finite local XY metres; heights are explicit"
+        )
     if polygonal and value.geom_type not in ("Polygon", "MultiPolygon"):
         raise ValueError("a polygon or multipolygon is required")
 
@@ -61,7 +65,10 @@ class HeightInterval:
     upper_m: float
 
     def __post_init__(self) -> None:
-        if not all(isfinite(v) for v in (self.lower_m, self.upper_m)) or self.lower_m >= self.upper_m:
+        if (
+            not all(isfinite(v) for v in (self.lower_m, self.upper_m))
+            or self.lower_m >= self.upper_m
+        ):
             raise ValueError("a finite positive height interval is required")
 
     def overlaps(self, other: "HeightInterval") -> bool:
@@ -95,7 +102,9 @@ class BuildingFootprint:
         geometry(self.geometry, polygonal=True)
         if not isinstance(self.heights, HeightInterval):
             raise ValueError("explicit building heights are required")
-        if not isinstance(self.part, tuple) or any(type(v) is not int or v < 0 for v in self.part):
+        if not isinstance(self.part, tuple) or any(
+            type(v) is not int or v < 0 for v in self.part
+        ):
             raise ValueError("part identity requires a tuple of nonnegative integers")
         if not isinstance(self.attributes, Mapping):
             raise ValueError("building source attributes must be a mapping")
@@ -143,9 +152,20 @@ class Reservation:
         if not isinstance(self.heights, HeightInterval):
             raise ValueError("reservation heights must be explicit")
 
+    def conflict_geometry(self, heights: HeightInterval) -> BaseGeometry:
+        """Polygonal closure of positive overlap with a band in the same frame/datum."""
+        if not isinstance(heights, HeightInterval):
+            raise TypeError("explicit query height interval required")
+        return self.geometry if self.heights.overlaps(heights) else shapely.Polygon()
+
     def overlaps(self, footprint: BuildingFootprint) -> bool:
-        return (self.heights.overlaps(footprint.heights)
-                and self.geometry.intersection(footprint.geometry).area > 0)
+        if not self.heights.overlaps(footprint.heights):
+            return False
+        conflict = self.conflict_geometry(footprint.heights)
+        return bool(
+            shapely.intersects(conflict, footprint.geometry)
+            and not shapely.touches(conflict, footprint.geometry)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,9 +192,17 @@ class Mesh:
     def __post_init__(self) -> None:
         vertices = np.array(self.vertices, dtype=np.float64, copy=True)
         triangles = np.asarray(self.triangles)
-        if vertices.ndim != 2 or vertices.shape[1] != 3 or not np.isfinite(vertices).all():
+        if (
+            vertices.ndim != 2
+            or vertices.shape[1] != 3
+            or not np.isfinite(vertices).all()
+        ):
             raise ValueError("mesh vertices require finite Nx3 local coordinates")
-        if triangles.ndim != 2 or triangles.shape[1] != 3 or triangles.dtype.kind not in "iu":
+        if (
+            triangles.ndim != 2
+            or triangles.shape[1] != 3
+            or triangles.dtype.kind not in "iu"
+        ):
             raise ValueError("mesh triangles require an Mx3 integer index array")
         if len(triangles) and (triangles.min() < 0 or triangles.max() >= len(vertices)):
             raise ValueError("mesh triangle indices lie outside their vertices")
@@ -204,5 +232,6 @@ class SourceInputs:
             raise ValueError("building source/part identities must be distinct")
         for values in (self.transport, self.vegetation):
             if len({p.source_id for p in values}) != len(values):
-                raise ValueError("source identities must be distinct within each domain")
-
+                raise ValueError(
+                    "source identities must be distinct within each domain"
+                )

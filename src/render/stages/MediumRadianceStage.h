@@ -1,14 +1,14 @@
 #ifndef OUTSHINE_RENDER_STAGES_MEDIUMRADIANCESTAGE_H
 #define OUTSHINE_RENDER_STAGES_MEDIUMRADIANCESTAGE_H
 
-#include <string>
+#include <memory>
+#include <optional>
 
 #include "math/Vec2.h"
 #include "ComputeShaders.h"
 #include "StageSubmission.h"
 
 #include "Gpu.h"
-#include "GpuOwned.h"
 #include "Atmosphere.h"
 
 namespace outshine::Render {
@@ -17,16 +17,15 @@ class MediumRadianceStage {
 public:
   static constexpr ComputeShaderId Shader = ComputeShaderId::MediumRadiance;
   static constexpr ComputeShape KernelShape = FindComputeShader(Shader)->Shape;
-  [[nodiscard]] bool Configure(const Gpu &gpu,
-                               SDL_GPUTexture *transmittance,
-                               SDL_GPUTexture *multiScatter,
-                               SDL_GPUSampler *lut,
-                               SDL_GPUTexture *into,
-                               std::string &error);
+  [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu,
+                                               Native::Texture *transmittance,
+                                               Native::Texture *multiScatter,
+                                               Native::Sampler *lut,
+                                               Native::Texture *into);
 
   void Declare(const Medium &medium, float cosSunZenith, float eyeHeightM);
 
-  void Encode(const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const PassRecording &into);
 
   [[nodiscard]] bool Settled() const noexcept { return Cache_.Submitted(); }
 
@@ -39,12 +38,12 @@ private:
     [[nodiscard]] constexpr bool operator==(const Standing &) const = default;
   };
 
-  OwnedComputePipeline Pipe;
-  SDL_GPUTexture *Transmittance = nullptr;
-  SDL_GPUTexture *MultiScatter = nullptr;
-  SDL_GPUSampler *Lut = nullptr;
-  SDL_GPUTexture *Into = nullptr;
-  Standing Standing_;
+  std::unique_ptr<Native::ComputePipeline> Pipe;
+  Native::Texture *Transmittance = nullptr;
+  Native::Texture *MultiScatter = nullptr;
+  Native::Sampler *Lut = nullptr;
+  Native::Texture *Into = nullptr;
+  std::optional<Standing> Standing_;
   StageCache Cache_;
 };
 

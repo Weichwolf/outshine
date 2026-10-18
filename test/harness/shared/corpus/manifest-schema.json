@@ -1,7 +1,7 @@
 {
-  "schema": "outshine/render-oracle-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
-  "note": "WHAT A RENDER MANIFEST MAY CONTAIN, DECLARED ONCE. The preparer (test/harness/shared/corpus/prep/manifest.py) and the runner (test/harness/shared/render/Parity.cpp) both read this file and neither restates it: a key that exists here exists for both, and a key that does not exists for neither. Two closed sets over one declaration is what this file replaces -- they disagreed on eight of twenty-six manifests and nothing failed. Cross-field POLICY is not here: which Cycles settings are refused belongs to the preparer, which thresholds may be overridden and which lights the studio can build belong to the runner. This file declares only what a key IS.",
+  "note": "Pinned inputs, criteria and provenance for the retained test corpora.",
   "types": {
     "text": "a non-empty string",
     "string": "a string, possibly empty",
@@ -10,21 +10,18 @@
     "index": "a whole number, zero or above",
     "boolean": "true or false",
     "vector3": "three numbers",
-    "opaque": "a non-empty object whose interior this schema does not declare, because its reader gives it meaning -- the fixture recipes and the Blender export settings",
     "{enum: [...]}": "one of the listed values",
     "{object: name}": "the object declared under that name",
     "{array: type}": "a non-empty list of that type",
     "{map: type}": "a non-empty object whose keys are arbitrary and whose values are that type",
     "{quantity: type}": "value of that type, with unit, origin and -- where derived -- derivation",
-    "filename": "a path relative to the case directory: no leading slash, no leading dot, no empty, '.' or '..' segment and no trailing slash. glTF references a buffer or image relative to the .gltf and a subdirectory is legal there, so a flattened name is a product the reader cannot find",
+    "filename": "A relative path inside the case directory; no absolute path, empty, dot or parent segments.",
     "sha256": "64 lowercase hex digits",
-    "sha1": "40 lowercase hex digits",
-    "release": "a release version, e.g. 5.2.0",
-    "{map: {map: type}}": "a map of maps: the oracle's digests, keyed by recipe name (or 'recipe.fNNNN' for one frame of an animation) and then by product. ONLY THE FLAT f32 DUMPS ARE PINNED and that is measured -- rendering Khronos's Box twice with --force on one host gave identical `raw`, `normalRaw` and `materialIndexRaw` and DIFFERENT `exr` and `normalExr`, because the pixels are the same and an OpenEXR container around them is not. `prep/jobs.py::_pinnable` carries the table. Record with OUTSHINE_BLESS_ORACLE=1 and commit the digests with the reason a reference moved"
+    "sha1": "40 lowercase hex digits"
   },
   "objects": {
     "reduction": {
-      "note": "THE LADDER'S SECOND RUNG, GIVEN A SPELLING (board:1422). `fix the engine, reduce the oracle, patch the asset, disqualify` -- and a case whose reference genuinely cannot answer a metric had no way to say so, which left it red forever or a threshold moved. A reduction names ONE metric of ONE case, turns it into a reported number there and nowhere else, and is announced by name in the log with its reason and counted in the case's own report. THE REASON IS REQUIRED because a reduction with no argument beside it is a disqualification wearing a softer word, and `measured` carries the numbers that argument rests on so a later round can re-take them.",
+      "note": "A justified limitation of one metric; measured values retain their units and origins.",
       "required": {
         "metric": "text",
         "because": "text"
@@ -40,91 +37,6 @@
     "manifest": {
       "discriminator": "schema",
       "variants": {
-        "outshine/render-oracle-manifest": {
-          "required": {
-            "schemaVersion": {
-              "enum": [
-                1
-              ]
-            },
-            "id": "text",
-            "title": "text",
-            "covers": {
-              "array": "text"
-            },
-            "criterion": {
-              "object": "criterion"
-            },
-            "subjectClass": {
-              "enum": [
-                "opaque-min-1px",
-                "sub-pixel-present",
-                "transmissive"
-              ]
-            },
-            "acceptanceClass": {
-              "object": "acceptance-class"
-            },
-            "subjects": {
-              "array": {
-                "object": "subject"
-              }
-            },
-            "blender": {
-              "object": "blender"
-            },
-            "scene": {
-              "object": "scene"
-            },
-            "renders": {
-              "map": {
-                "object": "recipe"
-              }
-            }
-          },
-          "optional": {
-            "notes": "string",
-            "reductions": {
-              "array": {
-                "object": "reduction"
-              }
-            },
-            "expected": {
-              "map": {
-                "quantity": "number"
-              }
-            },
-            "acceptance": {
-              "map": {
-                "object": "threshold-override"
-              }
-            },
-            "identicalCoverage": {
-              "array": "text"
-            },
-            "statedInvariants": {
-              "array": {
-                "object": "stated-invariant"
-              }
-            },
-            "depthProbes": {
-              "array": {
-                "object": "depth-probe"
-              }
-            },
-            "oracleDigests": {
-              "map": {
-                "map": "sha256"
-              }
-            },
-            "referenceImages": {
-              "array": {
-                "object": "reference-image"
-              }
-            }
-          },
-          "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (board:0083): the scene, the recipe and the acceptance in one declaration."
-        },
         "outshine/declared-case-manifest": {
           "required": {
             "schemaVersion": {
@@ -156,30 +68,9 @@
                 "object": "reduction"
               }
             }
-          },
-          "note": "A CASE THIS TREE DECIDES BY ITSELF, WITH NOTHING OUTSIDE IT TO ASK. `viewport` IS OPTIONAL because a script draws nothing and a surface it never asked for would be a field carrying a number about a picture that does not exist. It carries no `blender`, no `scene` and no `renders`, because there is nothing outside this tree to ask: both sides of a reftest pair are drawn by this library, and a layout assertion is a number the document states about itself. What it keeps is everything the VIEWER and the board read -- the id, the title, what it covers, its criterion and its subjects -- so one enumeration reaches every case in the tree and the two suites differ in their instrument rather than in their format."
+          }
         }
-      },
-      "note": "ONE DECLARATION NAMES A CASE FOR EVERY SUITE THAT RENDERS, and the `schema` key says which instrument decides it. The variants share the fields an enumeration reads and differ in what an oracle needs, so a manifest cannot carry a Blender version for a case Blender never sees, and a document case cannot silently omit one it does."
-    },
-    "threshold-override": {
-      "required": {
-        "value": "number",
-        "unit": "text",
-        "origin": {
-          "enum": [
-            "SET",
-            "derived",
-            "measured"
-          ]
-        },
-        "reason": "text"
-      },
-      "optional": {
-        "derivation": "text",
-        "note": "string"
-      },
-      "note": "A manifest's `acceptance` block carries only what it OVERRIDES over the suite's declared defaults, so every entry owes a reason. WHICH keys may be overridden is the runner's, because the defaults are the runner's."
+      }
     },
     "viewport": {
       "required": {
@@ -190,25 +81,6 @@
         "note": "string"
       },
       "note": "THE ROOM THE DOCUMENT IS LAID OUT IN, and it is part of the declaration rather than a property of whatever window is open: every offset upstream states is measured against this origin, so a viewport read from a host would make the same document state different numbers on two machines."
-    },
-    "acceptance-class": {
-      "required": {
-        "is": {
-          "enum": [
-            "exact",
-            "general-position"
-          ]
-        },
-        "because": "text"
-      }
-    },
-    "blender": {
-      "required": {
-        "version": "release"
-      },
-      "optional": {
-        "note": "string"
-      }
     },
     "criterion": {
       "discriminator": "kind",
@@ -291,38 +163,6 @@
           "optional": {
             "note": "string"
           }
-        },
-        "self-describing": {
-          "required": {
-            "says": "text",
-            "statedAt": "text",
-            "oracleRole": {
-              "enum": [
-                "reference",
-                "cannot-express-the-criterion"
-              ]
-            }
-          },
-          "optional": {
-            "note": "string",
-            "oracleLimitation": "text",
-            "oracleLimitationMeasured": {
-              "array": {
-                "object": "measurement"
-              }
-            }
-          },
-          "note": "`oracleRole` AND ITS TWO COMPANIONS SAY WHAT CYCLES CANNOT EXPRESS ABOUT THIS CRITERION AND WHAT THAT COSTS. A role of cannot-express-the-criterion without a limitation, or a limitation with no measurement beside it, is the runner's refusal."
-        },
-        "validator-report": {
-          "note": "A CASE WHOSE ORACLE IS KHRONOS'S OWN VALIDATOR REPORT. The .report.json beside the asset states numErrors for that file, so the verdict is not ours to argue: an asset the validator errors on must be REFUSED here, and one it passes must STAND. The report travels with the case as a fetched file and the runner reads numErrors out of it -- the manifest does not restate the count, because a number spelled twice is a number that drifts.",
-          "required": {
-            "says": "text",
-            "statedAt": "text"
-          },
-          "optional": {
-            "note": "string"
-          }
         }
       },
       "note": "THREE KINDS OF CRITERION AND THE KIND DECIDES THE INSTRUMENT (board:0085). `numeric` -- the asset states a value or a relation and the acceptance is that number on the linear tap. `self-describing` -- the asset renders checkmarks, arrows or markers whose correctness is readable FROM THE PICTURE. `stated-invariant` -- the asset states a relation between two parts of its own render. `limits-probe` -- the asset states it is not expected to render correctly everywhere and has no pass at all."
@@ -348,54 +188,6 @@
     "subject": {
       "discriminator": "kind",
       "variants": {
-        "gltf": {
-          "required": {
-            "id": "text",
-            "name": "text",
-            "source": {
-              "object": "subject-source"
-            },
-            "files": {
-              "array": {
-                "object": "fetched-file"
-              }
-            },
-            "entry": "text"
-          },
-          "optional": {
-            "attributes": {
-              "array": "text"
-            },
-            "notes": "string",
-            "patch": {
-              "object": "subject-patch"
-            }
-          }
-        },
-        "blend": {
-          "required": {
-            "id": "text",
-            "name": "text",
-            "source": {
-              "object": "subject-source"
-            },
-            "files": {
-              "array": {
-                "object": "fetched-file"
-              }
-            },
-            "entry": "text",
-            "conversion": {
-              "object": "conversion"
-            }
-          },
-          "optional": {
-            "attributes": {
-              "array": "text"
-            },
-            "notes": "string"
-          }
-        },
         "script": {
           "required": {
             "id": "text",
@@ -440,27 +232,6 @@
           },
           "note": "MARKUP AND THE FILES IT NAMES. `entry` is the document; the rest are what its own `<link>` and `<script>` elements reach for, resolved at the pin and fetched by digest like any other subject -- so a stylesheet that changed upstream is a refusal and not a quietly different picture."
         },
-        "generated": {
-          "required": {
-            "id": "text",
-            "name": "text",
-            "source": {
-              "object": "subject-source"
-            },
-            "files": {
-              "array": {
-                "object": "generated-file"
-              }
-            },
-            "entry": "text"
-          },
-          "optional": {
-            "attributes": {
-              "array": "text"
-            },
-            "notes": "string"
-          }
-        },
         "data": {
           "required": {
             "id": "text",
@@ -482,99 +253,9 @@
         }
       }
     },
-    "depth-probe": {
-      "required": {
-        "name": "text",
-        "atPx": {
-          "array": "index"
-        },
-        "rangeM": {
-          "quantity": "number"
-        },
-        "toleranceM": {
-          "quantity": "number"
-        },
-        "says": "text"
-      },
-      "note": "WHICH SURFACE THE PICTURE IS OF, in metres along the view ray at one named pixel. Silhouette, coverage and hue are all invariant under swapping the near shell of a closed body for its far one with the normals reversed -- three criteria simultaneously blind, each individually correct (board:0073). Depth is not invariant under it, it costs one assertion, and `Renderer::ReadDepth` already provides it. `atPx` is column then row from the TOP-left, the raster's own origin."
-    },
-    "subject-patch": {
-      "required": {
-        "why": "text",
-        "shouldHaveBeenUpstream": "text",
-        "reportedUpstream": "text",
-        "retirementCondition": "text",
-        "stillTests": "text",
-        "transforms": {
-          "array": {
-            "object": "subject-transform"
-          }
-        }
-      },
-      "note": "A CORRECTION APPLIED BETWEEN THE FETCH AND THE ORACLE, so the upstream pin stays exact and both sides render the same corrected bytes (board:0095). It is a DELTA and never a replacement: the fetch still verifies upstream's sha256, so a change upstream is still a refusal, and the patched product is what the oracle key covers. `stillTests` is the boundary that stops patching becoming an escape hatch -- the asset's own criterion must be the same sentence after the patch, and a correction that changes what the asset TESTS is a re-authoring. `retirementCondition` is a predicate the suite already evaluates rather than a wish."
-    },
-    "subject-transform": {
-      "discriminator": "kind",
-      "variants": {
-        "reverse-winding": {
-          "required": {
-            "outwardFrom": {
-              "enum": [
-                "meshCentroid"
-              ]
-            },
-            "observedBefore": {
-              "map": {
-                "quantity": "number"
-              }
-            }
-          },
-          "optional": {
-            "note": "string"
-          },
-          "note": "Swaps the second and third corner of every triangle of a primitive whose faces point inward, and moves no vertex. `observedBefore` is the state it expects to find and the preparer RECOMPUTES it: `triangles`, `trianglesCounterClockwiseFromOutside` and `trianglesOfZeroArea`. That is what makes the measurement load-bearing rather than decorative, and it is also the RETIREMENT PREDICATE: when upstream corrects the asset the declared count no longer matches what is on disk and the run goes red, so a fork cannot be carried for ever by nobody's decision. Applying the patch twice refuses for the same reason."
-        },
-        "flip-normals": {
-          "required": {
-            "outwardFrom": {
-              "enum": [
-                "meshCentroid"
-              ]
-            },
-            "observedBefore": {
-              "map": {
-                "quantity": "number"
-              }
-            }
-          },
-          "optional": {
-            "note": "string"
-          },
-          "note": "Negates every vertex normal of a primitive whose normals point inward, and touches no position and no index. `observedBefore` carries `vertexNormals` and `vertexNormalsOutward`, recomputed the same way and refused on mismatch."
-        }
-      },
-      "note": "ONE NAMED CORRECTION WITH ITS PARAMETERS, never a free-form edit: an arbitrary transform is a re-authoring and cannot be reviewed, a named one can. Winding and normals are TWO corrections and not one, because they are two independent defects that happened to occur together -- an asset with one of them is a case this list still describes. A patch expressible as a text diff of the JSON is the natural third kind; these two are not, because the defect they answer lives in the binary buffer."
-    },
     "subject-source": {
       "discriminator": "kind",
       "variants": {
-        "khronos-sample-assets": {
-          "required": {
-            "commit": "sha1",
-            "model": "text",
-            "pinnedOn": "text",
-            "pinReason": "text"
-          }
-        },
-        "khronos-asset-generator": {
-          "required": {
-            "commit": "sha1",
-            "model": "text",
-            "pinnedOn": "text",
-            "pinReason": "text"
-          },
-          "note": "THE GENERATOR IS A SECOND KHRONOS REPOSITORY AND NOT THE SAMPLE ASSETS (board:1458). It publishes generated models under Apache-2.0 with no per-model metadata, so the licence is DECLARED in the manifest and checked against what the file states rather than derived from an upstream document -- which is the arm every kind but `khronos-sample-assets` already takes. `model` is the group and the name, e.g. `Animation_Skin/Animation_Skin_07`."
-        },
         "test262": {
           "required": {
             "commit": "sha1",
@@ -607,28 +288,6 @@
             "pinReason": "text"
           }
         },
-        "blender-download": {
-          "required": {
-            "page": "text"
-          }
-        },
-        "blender-studio": {
-          "required": {
-            "page": "text"
-          }
-        },
-        "outshine-generated": {
-          "required": {}
-        },
-        "khronos-gltf-validator": {
-          "required": {
-            "commit": "sha1",
-            "path": "text",
-            "pinnedOn": "text",
-            "pinReason": "text"
-          },
-          "note": "THE VALIDATOR'S OWN TEST CORPUS, which is a third Khronos repository and neither the sample assets nor the generator. Its assets are deliberately malformed and carry no per-file metadata, so the licence is the repository's Apache-2.0 and is declared here."
-        },
         "geographiclib-testdata": {
           "required": {
             "file": "text",
@@ -647,11 +306,8 @@
         "as": "filename",
         "role": {
           "enum": [
-            "gltf",
-            "buffer",
             "image",
             "metadata",
-            "blend",
             "archive-member",
             "document",
             "stylesheet",
@@ -677,23 +333,6 @@
       },
       "note": "A file may be covered by more than one grant -- MultiUVTest carries a CC-BY licence and Khronos's non-copyrightable-logo mark -- and the licence check compares the SET declared here against the set upstream's own metadata states, so both are named or the manifest was written from memory."
     },
-    "generated-file": {
-      "required": {
-        "as": "filename",
-        "role": {
-          "enum": [
-            "gltf",
-            "buffer",
-            "image",
-            "metadata",
-            "blend",
-            "archive-member"
-          ]
-        },
-        "generator": "opaque"
-      },
-      "note": "No url, no pin and no licence: there is no upstream to pin against and no third party to credit. What stands in the pin's place is that the recipe is the whole of the input, so the preparer digests what it produced."
-    },
     "licence": {
       "required": {
         "spdx": "text",
@@ -704,461 +343,7 @@
         "covers": "text",
         "year": "text"
       },
-      "note": "Per file and never per repository: a repository-level claim covers nothing in particular. `year` IS OPTIONAL BECAUSE SOME UPSTREAMS STATE NONE -- every web-platform-tests file names a licence and not one names a year -- and the alternative was to write a year the source does not carry, which is a fact with no origin sitting in a field that exists to record one. `statedAt` stays required: whatever the grant says, the manifest names where it says it."
-    },
-    "conversion": {
-      "required": {
-        "exportSettings": "opaque",
-        "frameStart": "index",
-        "outputName": "filename"
-      },
-      "optional": {
-        "note": "string"
-      }
-    },
-    "scene": {
-      "required": {
-        "frame": {
-          "enum": [
-            "gltf"
-          ]
-        },
-        "camera": {
-          "object": "camera"
-        },
-        "light": {
-          "object": "light"
-        },
-        "world": {
-          "object": "world"
-        },
-        "material": {
-          "object": "material"
-        }
-      },
-      "optional": {
-        "animation": {
-          "object": "animation"
-        },
-        "materialVariant": "text"
-      },
-      "note": "A declared ANIMATION makes the case a sequence (board:1169): the same subject, the same camera and the same recipe at every frame of a declared grid, with the frame in the oracle key so each one is its own cached product. Its absence is a still, which is one frame and the whole corpus until now. A declared `materialVariant` is the `KHR_materials_variants` variant BOTH SIDES render (board:1188), by the name the file gives it and never by an index -- a name the file does not declare is a refusal on either side, naming both. Its absence is the extension's own default, no active variant, which is what every case in this tree renders and why it is absent from all but two of them; it is in the oracle key only when it is declared, so a case that renders no variant keeps the products it already had."
-    },
-    "camera": {
-      "discriminator": "source",
-      "variants": {
-        "gltf": {
-          "required": {
-            "index": "index"
-          },
-          "optional": {
-            "note": "string"
-          },
-          "note": "THE INDEX INTO THE FILE'S OWN `cameras`, AND IT HAS NO DEFAULT. `Cameras` puts a perspective and an orthographic camera on two nodes at one point, so \"the camera the file carries\" names nothing there; a case that adopted the first would render one of them and report the other's criterion."
-        },
-        "manifest": {
-          "discriminator": "projection",
-          "default": "perspective",
-          "variants": {
-            "perspective": {
-              "required": {
-                "positionM": "vector3",
-                "lookAtM": "vector3",
-                "rollRad": "number",
-                "clipStartM": "number",
-                "clipEndM": "number",
-                "yfovRad": "number",
-                "sensorHeightMm": "number"
-              },
-              "optional": {
-                "note": "string",
-                "derivation": "text"
-              }
-            },
-            "orthographic": {
-              "required": {
-                "positionM": "vector3",
-                "lookAtM": "vector3",
-                "rollRad": "number",
-                "clipStartM": "number",
-                "clipEndM": "number",
-                "yMagM": "number"
-              },
-              "optional": {
-                "note": "string",
-                "derivation": "text"
-              }
-            }
-          },
-          "note": "A PARALLEL PROJECTION IS A DIFFERENT MATRIX AND NOT A LONG LENS, so it is declared and never inferred from which field happens to be present. The orthographic arm carries the vertical extent it covers and no field of view at all."
-        },
-        "derived": {
-          "required": {},
-          "optional": {
-            "fill": "number",
-            "note": "string"
-          },
-          "note": "THE FRAMING RULE, COMPUTED WHERE THE BOUNDS ARE AND READ BY BOTH SIDES (board:1458). The case declares no numbers at all: the preparer unions the subject's world bounds over the declared frames inside Blender -- whose own importer is the flattener, so an armature, a shape key and a node animation are all in the answer -- applies the four constants of src/gltf/Framing.h and publishes what it derived. ONE DERIVATION IS STRONGER THAN TWO THAT AGREE: the alternative quotes seven numbers and recomputes them in C++, which puts Blender's bounds against the engine's and makes the last bits of a float decide whether a case can exist. What quoting protected against is a camera somebody could tune into a pass, and a camera that is a function of the subject's bounds and four declared constants is not tunable. `fill` is how much of the frame's shorter axis the subject's bounding sphere spans, and its absence is the rule's own kFramingFill."
-        }
-      }
-    },
-    "light": {
-      "discriminator": "kind",
-      "variants": {
-        "none": {
-          "required": {},
-          "optional": {
-            "note": "string"
-          }
-        },
-        "gltf": {
-          "required": {
-            "lightingMode": {
-              "enum": [
-                "RAW",
-                "COMPAT",
-                "SPEC"
-              ]
-            },
-            "estimator": {
-              "enum": [
-                "delta",
-                "selected"
-              ]
-            }
-          },
-          "optional": {
-            "note": "string"
-          },
-          "note": "`lightingMode` IS HOW THE IMPORTER TURNS glTF'S PHOTOMETRIC UNITS INTO BLENDER'S RADIOMETRIC ONES. RAW takes `intensity` across unchanged, correct for a directional light where glTF's lux IS Blender's Sun Strength one to one; for a point light RAW makes candela into WATTS OF TOTAL POWER and Cycles radiates energy/4pi per steradian, a factor of 4pi below the extension's definition, so COMPAT is the arm that makes candela mean candela. `estimator` says whether the oracle still has one: `delta` is a scene whose only source has no area, so two seeds must agree bit for bit; `selected` is a scene with more than one such light, where Cycles picks ONE per shading event and which one is the seed's business."
-        },
-        "sun": {
-          "required": {
-            "irradianceWPerM2": "number",
-            "directionM": "vector3",
-            "angleRad": "number",
-            "estimator": {
-              "enum": [
-                "delta",
-                "not-bit-reproducible"
-              ]
-            },
-            "colourLinear": "vector3"
-          },
-          "optional": {
-            "note": "string",
-            "hostResidueRelative": {
-              "quantity": "number"
-            }
-          },
-          "note": "`estimator` ON THIS ARM CANNOT SAY `selected` AND THAT IS THE POINT: this arm declares ONE source, the preparer refuses an `angleRad` above zero, and `no_surface_of_the_subject_is_a_light` takes the subject's own emission out of the light tree and out of every gathering ray -- so a sun-lit case has no estimator left and no way to say it has one. Three cases said `selected` here and none of them may any more. MEASURED at Blender 5.2.0, 1280x720, 1 spp, box filter 0.01, black world, zero bounces, angular diameter zero, seed 0 against seed 1: BINARY colour samples BEFORE the reduction -- WaterBottle 67 578, BoomBox 55 496, Lantern 22 120, Corset 0 -- and AFTER it, 0 on all four, alpha identical throughout. NEITHER HALF ALONE REACHES ZERO: `emission_sampling = NONE` alone leaves 222 samples over 74 pixels on Lantern and 42 over 15 on BoomBox, every one where a BSDF-sampled direction finds the lit glass; ray visibility alone leaves 67 575 on WaterBottle, which refutes the guess that an object invisible to diffuse and glossy rays leaves Cycles' light tree. `not-bit-reproducible` IS NOT A SECOND ESTIMATOR AND NOT A TOLERANCE -- it is the case saying the HOST does not reproduce this subject's own render, so the two-seed check has nothing to speak through; it owes its measurement the same way and it refuses the second recipe rather than tolerating a difference in it. `hostResidueRelative` IS WHAT `not-bit-reproducible` OWES AND THE RUNNER REFUSES THE WORD WITHOUT IT: the worst relative disagreement between two renders of this scene on this host, measured, because the picture bound (board:0089) derives a term in display codes from it and a case that claimed the word without the number would be claiming room nobody measured."
-        },
-        "point": {
-          "required": {
-            "powerW": "number",
-            "radiusM": "number",
-            "positionM": "vector3",
-            "colourLinear": "vector3"
-          },
-          "optional": {
-            "note": "string"
-          }
-        }
-      },
-      "note": "WHY TWO SEEDS MIGHT NOT AGREE, AND `delta` IS THE CLAIM THAT THEY MUST: one source with no area, nothing else in Cycles' light tree, and the two dumps identical bit for bit. THE OTHER TWO NAME WHAT STANDS IN THE WAY, each with its measurement beside it in the case's own note. `selected` -- more than one sampled source, where Cycles picks ONE per shading event and which one is the seed's business -- is spellable ONLY on the `gltf` arm, where the number of lights is the FILE's and no setting of ours changes it. AN EMISSIVE SURFACE USED TO BE COUNTED AMONG THOSE SOURCES AND IS NOT ONE ANY MORE: the preparer takes the subject out of the light tree and out of every gathering ray, so a declared sun is a delta scene by construction. `not-bit-reproducible` -- the HOST does not reproduce this subject's render at a FIXED seed, so bit-identity is not a question about the estimator here at all. It replaced `filter-sample`, which named the single sample's position inside the pixel as what moved Corset between two seeds; the measurement that retired that word is that Corset's pixels move between two runs at the SAME seed and not between two seeds."
-    },
-    "world": {
-      "discriminator": "kind",
-      "variants": {
-        "factory": {
-          "required": {},
-          "optional": {
-            "note": "string"
-          }
-        },
-        "uniform": {
-          "required": {
-            "colourLinear": "vector3",
-            "strength": "number"
-          },
-          "optional": {
-            "note": "string"
-          }
-        }
-      },
-      "note": "`factory` is Blender's own environment and its number is not a manifest's to restate; `uniform` is the arm a case takes to REMOVE the environment, because an environment is an area source and a delta light is not."
-    },
-    "material": {
-      "discriminator": "source",
-      "variants": {
-        "manifest": {
-          "discriminator": "kind",
-          "variants": {
-            "diffuse": {
-              "required": {
-                "colourLinear": "vector3"
-              },
-              "optional": {
-                "note": "string"
-              }
-            },
-            "emission": {
-              "required": {
-                "colourLinearPerNode": {
-                  "map": "vector3"
-                }
-              },
-              "optional": {
-                "note": "string"
-              },
-              "note": "ONE COLOUR PER NODE, AND NO SHORTER SPELLING. Flat emission over touching bodies fuses them into one silhouette, so a misplaced node hides inside the union. A map keyed by the file's own name is what makes \"the third cube\" a fact about the file instead of a position in a list."
-            },
-            "emission-per-material": {
-              "required": {
-                "colourLinearPerMaterial": {
-                  "map": "vector3"
-                }
-              },
-              "optional": {
-                "note": "string"
-              },
-              "note": "THE MATERIAL IS THE KEY A MULTI-MATERIAL ASSET HAS: a mesh whose primitives name different materials is one Blender object with several slots, so a per-object colour could reach only one of them."
-            },
-            "emission-by-material-index": {
-              "required": {},
-              "optional": {
-                "note": "string"
-              },
-              "note": "THE SAME KEY, COLOURED BY A RULE INSTEAD OF A TABLE (board:1362). colour[c] = 0.15 + 0.70 * frac(index * step[c]) over the glTF material index, with the format's default material one slot past the last. A table is the right declaration while a subject draws a handful of materials; IridescenceMetallicSpheres draws 344 and NodePerformanceTest 10000, where a table is a transcription of the file rather than a statement about the case. THE RULE TAKES NO PARAMETER, so a manifest cannot tune a colour to make a case pass -- which is why this variant declares no field at all."
-            }
-          }
-        },
-        "gltf": {
-          "discriminator": "kind",
-          "variants": {
-            "metal-rough": {
-              "required": {},
-              "optional": {
-                "note": "string"
-              }
-            }
-          }
-        },
-        "gltf-base-colour": {
-          "discriminator": "kind",
-          "variants": {
-            "diffuse": {
-              "required": {
-                "carriedBy": {
-                  "enum": [
-                    "texture",
-                    "factor",
-                    "vertex-colour"
-                  ]
-                }
-              },
-              "optional": {
-                "note": "string"
-              }
-            },
-            "emission": {
-              "required": {
-                "carriedBy": {
-                  "enum": [
-                    "texture",
-                    "factor",
-                    "vertex-colour"
-                  ]
-                }
-              },
-              "optional": {
-                "note": "string"
-              }
-            }
-          }
-        },
-        "gltf-emissive": {
-          "discriminator": "kind",
-          "variants": {
-            "emission": {
-              "required": {
-                "carriedBy": {
-                  "enum": [
-                    "texture",
-                    "factor"
-                  ]
-                }
-              },
-              "optional": {
-                "note": "string"
-              }
-            }
-          }
-        }
-      },
-      "note": "WHICH SURFACE THE COMPARISON IS OVER, and the (source, kind) pairs below are the whole set. \"gltf\" hands the format its own metal-rough row entire; a `diffuse` arm over it would silently discard two of the three inputs. \"gltf-base-colour\" LOWERS THE ORACLE RATHER THAN THE TOLERANCE (board:0087): the imported Principled BSDF carries a specular lobe at IOR 1.5 whatever the metallic factor, so a textured asset rendered with it has an integral left and no closed form to be judged against -- this arm keeps the file's own image, uv set and sampler and replaces the closure. \"gltf-emissive\" is the same arm over the other socket, and it has ONE closure: glTF's emission is a radiance the surface leaves, not a reflectance an environment multiplies into. `carriedBy` names WHICH OPERAND of that socket carries the picture, and it has three values because the socket has three: the image, the factor, and the primitive's own `COLOR_0` (board:1193). The runner owes each of them a check in both directions -- a `texture` case with no image and a `vertex-colour` case with no `COLOR_0` are both a flat colour scored under the name of something else."
-    },
-    "recipe": {
-      "required": {
-        "engine": {
-          "enum": [
-            "CYCLES"
-          ]
-        },
-        "device": {
-          "enum": [
-            "METAL"
-          ]
-        },
-        "resolutionX": "index",
-        "resolutionY": "index",
-        "samples": "index",
-        "adaptiveSampling": "boolean",
-        "denoise": "boolean",
-        "seed": "index",
-        "pixelFilter": {
-          "object": "pixel-filter"
-        },
-        "filmTransparent": "boolean",
-        "filmExposure": "number",
-        "scaleLength": "number",
-        "bounces": {
-          "object": "bounces"
-        },
-        "colourManagement": {
-          "object": "colour-management"
-        },
-        "exrCodec": {
-          "enum": [
-            "NONE",
-            "ZIP",
-            "PIZ"
-          ]
-        }
-      },
-      "optional": {
-        "note": "string"
-      }
-    },
-    "pixel-filter": {
-      "required": {
-        "type": {
-          "enum": [
-            "BOX",
-            "GAUSSIAN",
-            "BLACKMAN_HARRIS"
-          ]
-        },
-        "widthPx": "number"
-      },
-      "optional": {
-        "note": "string"
-      }
-    },
-    "bounces": {
-      "required": {
-        "max": "index",
-        "diffuse": "index",
-        "glossy": "index",
-        "transmission": "index",
-        "volume": "index",
-        "transparentMax": "index"
-      }
-    },
-    "colour-management": {
-      "required": {
-        "displayDevice": "text",
-        "viewTransform": "text",
-        "look": "text",
-        "exposure": "number",
-        "gamma": "number"
-      },
-      "optional": {
-        "note": "string"
-      }
-    },
-    "stated-invariant": {
-      "discriminator": "kind",
-      "variants": {
-        "hue-of-brightest": {
-          "required": {
-            "name": "text",
-            "says": "text",
-            "statedAt": "text",
-            "hue": {
-              "quantity": "vector3"
-            },
-            "brightestFraction": {
-              "quantity": "number"
-            },
-            "maxHueError": {
-              "quantity": "number"
-            }
-          },
-          "optional": {
-            "note": "string"
-          }
-        },
-        "region-compare": {
-          "required": {
-            "name": "text",
-            "says": "text",
-            "statedAt": "text",
-            "fromPx": {
-              "quantity": {
-                "array": "index"
-              }
-            },
-            "toPx": {
-              "quantity": {
-                "array": "index"
-              }
-            },
-            "scale": {
-              "quantity": "number"
-            }
-          },
-          "optional": {
-            "note": "string",
-            "channels": {
-              "array": "index"
-            },
-            "maxUlps": {
-              "quantity": "index"
-            },
-            "maxP95Relative": {
-              "quantity": "number"
-            }
-          }
-        }
-      },
-      "note": "THE RELATION THE ASSET STATES ABOUT A RENDER OF ITSELF, evaluated on the scene-referred linear tap and on nothing else. `hue-of-brightest` -- over the brightest declared fraction of the covered pixels, each channel's share of the pixel's own sum equals a declared hue. `region-compare` -- two rectangles of the frame, congruent by construction, agree per channel after a declared scale. A region-compare carries EXACTLY ONE currency and the runner refuses both or neither: `maxUlps` is a maximum and is right where both sides come out of one shader over one surface, `maxP95Relative` is a quantile and is the only honest currency where the two regions are the same surface stated two ways -- a tessellation against a bake of it disagrees by O(1) on the silhouette rim for a correct renderer."
-    },
-    "animation": {
-      "required": {
-        "animations": {
-          "array": "index"
-        },
-        "fps": {
-          "quantity": "integer"
-        },
-        "frames": {
-          "quantity": "integer"
-        }
-      },
-      "note": "THE RATE IS WHOLE BECAUSE THE ORACLE'S IMPORTER READS IT WHOLE (board:1458, board:1470). A fractional rate is a perfectly sensible declaration and Blender's glTF importer cannot take one: it converts a sampler's seconds with `scene.render.fps` and never divides by `fps_base`, so a rational pair places every key at the wrong instant. A grid that needs an instant a whole rate cannot reach asks for MORE FRAMES, which is this corpus's own currency. WHICH animations, and a place to say WHY. A file may carry several that drive the same node paths -- glTF forbids a repeated target only WITHIN one animation and leaves two animations on one property undefined -- so a case that declares more than one is asking the poser for a result the format does not define. The choice is the case's and the reason for it belongs beside the choice.",
-      "optional": {
-        "note": "string"
-      }
-    },
-    "reference-image": {
-      "required": {
-        "frame": "index",
-        "seconds": "number",
-        "sha256": "text",
-        "widthPx": "index",
-        "heightPx": "index"
-      }
+      "note": "Each file declares one or more grants with their holders and source URLs."
     }
   }
 }

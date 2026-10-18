@@ -1,0 +1,27 @@
+{
+  "scope": "Actual positive Double terrain facet from the rejected southwest module; Float32 reverses its projected orientation. Not a target-output oracle.",
+  "source_commit": "ae89c92268aceb940e259098bbd3e2c8520b5cb1",
+  "world_face": 24802,
+  "local_face": 361,
+  "xy_m": [
+    [
+      -314.6793326892998,
+      -244.19013543041333
+    ],
+    [
+      -314.673736051053,
+      -244.18493336020907
+    ],
+    [
+      -281.68330987691076,
+      -213.47555060857937
+    ]
+  ],
+  "faces": [
+    [
+      0,
+      1,
+      2
+    ]
+  ]
+}

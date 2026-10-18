@@ -17,26 +17,28 @@ from outshine_ref.rendering.blender_mesh import mesh_object
 from render_biome_tiles import setup
 
 
+def model_arrays(name, data, mats):
+    obj = mesh_object(
+        name,
+        data["vertices"],
+        data["faces"],
+        data["normals"],
+        mats[0],
+        corner_normals=True,
+    )
+    attach_normals(obj, data["normals"])
+    for mat in mats[1:]:
+        obj.data.materials.append(mat)
+    obj.data.polygons.foreach_set("material_index", data["surface"].astype(np.int32))
+    obj.data.uv_layers.new(name="organ UV").data.foreach_set(
+        "uv", data["corner_uv"].ravel()
+    )
+    return obj
+
+
 def model(path, mats):
     with np.load(path) as data:
-        obj = mesh_object(
-            path.stem,
-            data["vertices"],
-            data["faces"],
-            data["normals"],
-            mats[0],
-            corner_normals=True,
-        )
-        attach_normals(obj, data["normals"])
-        for mat in mats[1:]:
-            obj.data.materials.append(mat)
-        obj.data.polygons.foreach_set(
-            "material_index", data["surface"].astype(np.int32)
-        )
-        obj.data.uv_layers.new(name="organ UV").data.foreach_set(
-            "uv", data["corner_uv"].ravel()
-        )
-    return obj
+        return model_arrays(path.stem, data, mats)
 
 
 def render(inputs, output, case, view="default"):

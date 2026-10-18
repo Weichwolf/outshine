@@ -343,8 +343,8 @@ std::expected<void, std::string_view> ClassificationPreparation::Update(TilePool
     if (!coarseBuilt) { return std::unexpected(coarseBuilt.error()); }
   } else {
     const std::span<const ::outshine::Generators::Osm::OsmField::Declared> these(Declared_);
-    Fine_.Field->Declare(these, *fine);
-    Coarse_.Field->Declare(these, *coarse);
+    Fine_.Field->Declare(these, *fine, DeclaredDigest_);
+    Coarse_.Field->Declare(these, *coarse, DeclaredDigest_);
   }
   const double t1 = Clock();
   Ingest(Fine_);

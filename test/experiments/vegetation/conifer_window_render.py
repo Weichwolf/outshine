@@ -9,27 +9,43 @@ from raster_batch import fragments
 from textured_raster import composite, wood_fragments
 
 
-def plan_wood(plant):
-    vertices, faces, normals, offset = [], [], [], 0
+def plan_wood(plant, *, bark=None):
+    vertices, faces, normals, colours, offset = [], [], [], [], 0
     for path in plant.wood.paths():
-        axis, level = plant.wood.axis(path), plant.wood.levels[len(path)]
+        axis = plant.wood.axis(path)
+        base_radius, tip_radius = plant.wood.radii(path)
         mesh = axis_mesh(
             axis.length,
             axis.bend,
-            level.base_radius,
-            level.tip_radius,
+            base_radius,
+            tip_radius,
             4 if not path else 2,
             8,
         )
-        vertices.append(mesh["vertices"] @ axis.frame.T + axis.origin)
+        points = mesh["vertices"] @ axis.frame.T + axis.origin
+        vertices.append(points)
         faces.append(mesh["faces"] + offset)
         normals.append(mesh["normals"] @ axis.frame.T)
+        if bark is not None:
+            height = points[mesh["faces"], 2] / plant.wood.levels[0].length
+            t = np.clip((height - 0.15) / 0.55, 0, 1)
+            t = t * t * (3 - 2 * t)
+            low, high, young = (
+                np.array(bark[key][:3])
+                for key in ("colour_low", "colour_high", "young_colour")
+            )
+            colour = low + (high - low) * t[..., None]
+            youth = np.clip((0.007 - base_radius) / 0.0055, 0, 1)
+            colours.append(colour * (1 - youth) + young * youth)
         offset += len(mesh["vertices"])
-    return {
+    result = {
         "vertices": np.concatenate(vertices),
         "faces": np.concatenate(faces),
         "normals": np.concatenate(normals),
     }
+    if bark is not None:
+        result["colour"] = np.concatenate(colours)
+    return result
 
 
 def window_fragments(windows, banks, direction, frame, lower, upper, size):

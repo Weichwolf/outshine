@@ -13,27 +13,51 @@ def pattern_key(pattern):
     )
 
 
-def window_count(plant, catalog):
+def window_count(plant, catalog, *, nominal_span_m=0.08, max_groups=64):
+    summary = plant.window_summary(nominal_span_m=nominal_span_m, max_groups=max_groups)
     for order, pattern in enumerate(plant.patterns):
         if pattern is None:
             continue
         info = catalog[pattern_key(pattern)]
-        expected = (
-            plant.window_summary()["groups_per_window"][order] * pattern.group_size
-        )
+        expected = summary["groups_per_window"][order] * pattern.group_size
         if info["needles"] != expected:
             raise ValueError("catalog capacity must match the physical window plan")
-    return plant.window_summary()["windows"]
+    return summary["windows"]
 
 
-def plan_windows(plant, catalog, max_windows=20000, *, max_axes=20000):
-    window_count(plant, catalog)
-    plan = plant.windows(max_axes, max_windows)
+def plan_windows(
+    plant,
+    catalog,
+    max_windows=20000,
+    *,
+    max_axes=20000,
+    nominal_span_m=0.08,
+    max_groups=64,
+):
+    window_count(plant, catalog, nominal_span_m=nominal_span_m, max_groups=max_groups)
+    plan = plant.windows(
+        max_axes, max_windows, nominal_span_m=nominal_span_m, max_groups=max_groups
+    )
     if plan is None:
         return None
-    templates = [
-        catalog[pattern_key(plant.patterns[int(order)])] for order in plan["orders"]
-    ]
+    return bind_patterns(plant.patterns, plan, catalog)
+
+
+def bind_windows(plant, plan, catalog):
+    return bind_patterns(plant.patterns, plan, catalog)
+
+
+def bind_patterns(patterns, plan, catalog):
+    bindings = {
+        order: catalog[pattern_key(patterns[order])]
+        for order in dict.fromkeys(map(int, plan["orders"]))
+    }
+    templates = [bindings[int(order)] for order in plan["orders"]]
+    if any(
+        info["needles"] != capacity
+        for info, capacity in zip(templates, plan["capacities"], strict=True)
+    ):
+        raise ValueError("catalog capacity must match every physical window")
     phase = plan["phases"] - np.array([t["phase"] for t in templates])
     return dict(plan) | {
         "frames": np.einsum("nij,njk->nik", plan["frames"], rotate_y(-phase)),

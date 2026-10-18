@@ -4,7 +4,7 @@ outshine/include/render
 outshine/include/scenario
 outshine/include/scene
 outshine/include/world
-outshine/include/Outshine/GeneratorProductsComposeAtomically
+outshine/src/engine/WorldCandidate/GeneratorProductsComposeAtomically
 outshine/include/Outshine/GeneratorRedeclarationInvokesTheProducer
 outshine/include/Outshine/RegisteredProviderSuppliesRenderedTerrain
 outshine/include/Outshine/NativeOsmDeclarationIsValidated
@@ -26,6 +26,6 @@ outshine/src/render
 outshine/src/engine
 outshine/src/scenario
 outshine/src/client
-outshine/integration/places/RenderWien
-outshine/integration/places/RenderTokyo
-outshine/integration/places/RenderCentralPark
+outshine/integration/places/client/RenderWien
+outshine/integration/places/client/RenderTokyo
+outshine/integration/places/client/RenderCentralPark

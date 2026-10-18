@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <expected>
 #include <limits>
 #include <memory>
@@ -13,7 +14,16 @@
 namespace outshine {
 
 AssetCache::State::~State() {
+  Usage.reset();
   if (Database != nullptr) { sqlite3_close(Database); }
+}
+
+void AssetCache::State::Observe(std::string_view key, uint64_t storedBytes, bool published) {
+  if (Usage && Usage->Record(key, storedBytes, published)) { return; }
+  if (!UsageWarning) {
+    std::fputs("asset cache: usage metadata could not be fully recorded\n", stderr);
+    UsageWarning = true;
+  }
 }
 
 AssetCache::AssetCache(std::unique_ptr<State> state) : State_(std::move(state)) {}
@@ -72,6 +82,12 @@ AssetCache::Open(const std::string &path) {
                      "CREATE UNIQUE INDEX IF NOT EXISTS asset_requests ON assets(request_key) "
                      "WHERE request_key<>'';PRAGMA user_version=3;COMMIT;");
   if (!committed) { return std::unexpected(committed.error()); }
+  auto usage = CacheUsageIndex::Open(path);
+  if (usage) { state->Usage = std::move(*usage); }
+  if (!state->Usage) {
+    std::fputs("asset cache: usage index could not be opened\n", stderr);
+    state->UsageWarning = true;
+  }
   return std::unique_ptr<AssetCache>(new AssetCache(std::move(state)));
 }
 

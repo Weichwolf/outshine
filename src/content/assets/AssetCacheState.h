@@ -2,12 +2,16 @@
 #define OUTSHINE_CONTENT_ASSETS_ASSETCACHESTATE_H
 
 #include "content/AssetCache.h"
+#include "CacheUsageIndex.h"
 #include <sqlite3.h>
 
 namespace outshine {
 
 struct AssetCache::State {
   sqlite3 *Database = nullptr;
+  std::unique_ptr<CacheUsageIndex> Usage;
+  bool UsageWarning = false;
+  void Observe(std::string_view key, uint64_t storedBytes, bool published = false);
   ~State();
 };
 

@@ -5,6 +5,9 @@
 #include "Device.h"
 
 #include <memory>
+#include <optional>
+#include <span>
+#include <string_view>
 
 namespace outshine::Render {
 
@@ -16,6 +19,18 @@ CompileComputePipeline(Native::Device &device, const ComputeShaderDescriptor &sh
 
 [[nodiscard]] Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
 CreatePresentPipeline(Native::Device &device, Native::Format target);
+
+[[nodiscard]] Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+CreateFullscreenPipeline(Native::Device &device,
+                         std::string_view fragmentPath,
+                         std::span<const Native::ColourTarget> colours,
+                         std::optional<Native::DepthTarget> depth = {});
+
+[[nodiscard]] Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+CreateFullscreenNdcPipeline(Native::Device &device,
+                            std::string_view fragmentPath,
+                            std::span<const Native::ColourTarget> colours,
+                            std::optional<Native::DepthTarget> depth = {});
 
 }
 #endif

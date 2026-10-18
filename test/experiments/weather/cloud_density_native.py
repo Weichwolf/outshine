@@ -36,6 +36,54 @@ def points():
     return np.stack((x, y, z, np.zeros_like(x)), axis=-1).reshape(-1, 4).astype("<f4")
 
 
+def build_native(archive_root, output, run):
+    producer = run(["git", "rev-parse", "HEAD"], "producer", archive_root).strip()
+    if run(
+        ["git", "status", "--porcelain", "--", "src", "include"],
+        "producer-clean",
+        archive_root,
+    ):
+        raise RuntimeError("regular archive production inputs must remain clean")
+    archive = archive_root / "build/liboutshine.a"
+    if not archive.is_file():
+        raise ValueError("build the complete regular production archive first")
+    link = shlex.split(
+        run(["sh", "test/run.sh", "--native-link-flags"], "native-link", archive_root)
+    )
+    flags = dict(
+        line.split("=", 1)
+        for line in (archive_root / "test/run.sh").read_text().splitlines()
+        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
+    )
+    toolchain = [
+        flag
+        for key in ("CXXSTD", "WARN", "OPT")
+        for flag in shlex.split(flags[key].strip('"'))
+    ]
+    binary = output / "cloud-density-native"
+    run(
+        [
+            "nice",
+            "-n",
+            "10",
+            *shlex.split(os.environ.get("CXX", "c++")),
+            *toolchain,
+            "-fno-exceptions",
+            *(
+                f"-I{archive_root / path if path.startswith(('src', 'include')) else ROOT / path}"
+                for path in INCLUDES
+            ),
+            ROOT / "test/experiments/weather/cloud_density_native.cpp",
+            archive,
+            *link,
+            "-o",
+            binary,
+        ],
+        "build",
+    )
+    return producer, archive, binary
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive-root", type=Path, required=True)
@@ -66,48 +114,7 @@ def main():
             )
         return result.stdout
 
-    producer = run(["git", "rev-parse", "HEAD"], "producer", archive_root).strip()
-    if run(
-        ["git", "status", "--porcelain", "--", "src", "include"],
-        "producer-clean",
-        archive_root,
-    ):
-        raise RuntimeError("regular archive production inputs must remain clean")
-    archive = archive_root / "build/liboutshine.a"
-    if not archive.is_file():
-        parser.error("build the complete regular production archive first")
-    link = shlex.split(
-        run(["sh", "test/run.sh", "--native-link-flags"], "native-link", archive_root)
-    )
-    binary = output / "cloud-density-native"
-    run(
-        [
-            "nice",
-            "-n",
-            "10",
-            *shlex.split(os.environ.get("CXX", "c++")),
-            "-std=c++23",
-            "-O2",
-            "-ffp-contract=off",
-            "-fno-exceptions",
-            "-Wall",
-            "-Wextra",
-            "-Wpedantic",
-            "-Wshadow",
-            "-Werror",
-            "-Wno-unused-parameter",
-            *(
-                f"-I{archive_root / path if path.startswith(('src', 'include')) else ROOT / path}"
-                for path in INCLUDES
-            ),
-            ROOT / "test/experiments/weather/cloud_density_native.cpp",
-            archive,
-            *link,
-            "-o",
-            binary,
-        ],
-        "build",
-    )
+    producer, archive, binary = build_native(archive_root, output, run)
     shader = output / "cloud-density.spv"
     run(
         [

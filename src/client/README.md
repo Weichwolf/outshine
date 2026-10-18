@@ -22,34 +22,62 @@ auf das Shipped-Verzeichnis. Eingabe, Overrides und geladene Layer zusammen: max
 Unbekannte Felder, doppelte Schlüssel und ungültige Werte werden abgewiesen.
 Szenarioinhalte bekommen keine einzelnen CLI-Schalter.
 
-# Asset-Aufnahmen
+Places planen die Frame-Anfänge auf absoluten Terminen. Die Messung endet nach
+der GPU-Fertigstellung des letzten Frames; sie wartet danach kein leeres Restintervall.
+Framezahl und 360°-Kamerafahrt bleiben gleich. PNG-Kodierung liegt außerhalb der Messzeit.
 
-`make render ASSET=/path/model.glb OUTPUT=/path/shot.png RESOLUTION=1280x720`
+Das Place-Pflichtgate überschreibt das Profil ausdrücklich mit 1280×720/30.
+`make suite SUITE=outshine/integration/places60` prüft separat den Vergleich bei 1280×720/60.
+Beide erhalten Inhalt/Sichtweite und das CPU-p99-Ziel unter 10 ms. Jede Messung benötigt
+GPU-Zeitstempel für sämtliche Frames und ein GPU-Maximum innerhalb von `1000/fps` ms.
+Bei 30 bzw. 60 Frames entspricht das Maximum auch dem Nearest-Rank-p99.
 
-`outshine-client render <asset.gltf|asset.glb> <width>x<height> <output.png> [options]`
+`shots --rows` ergänzt `PROFILE` und die unveränderte `ROW` um eine `GPUROW`:
+`Name`, gerenderte Frames, GPU-Zeitstempel, GPU-Gesamtzeit ms, GPU-Maximum ms,
+Frames ohne Zeitstempel, CPU-Abfragezeit ms; Felder durch Tabs getrennt.
+Die Werte stammen ausschließlich aus dem abgeschlossenen Messintervall vor dem Screenshot.
+Fehlende Messwerte sind `nan`; Preload-/Lifetime-Zeiten ersetzen sie nicht.
+Vor jeder Place-Messung startet `renderer().resetMeasurements()` ein neues CPU-/GPU-Fenster.
+Es wartet und rendert nicht. Später eintreffende Ergebnisse älterer Einreichungen zählen
+weiterhin nicht zum neuen Fenster. Auch mehrere Aufnahmen desselben Engine-Prozesses
+melden ausschließlich ihre eigenen Frames; Quelle-/Assetzähler bleiben davon unabhängig.
 
-- Auflösung: ganzzahlige Achsen von 1 bis 4096 Pixeln. Ausgabe als PNG; Verzeichnis muss existieren.
-- `--camera auto|index`: Kamera null wird standardmäßig verwendet, falls eindeutig platziert;
-  sonst Auto-Framing der aktuellen Bounds. Auto berücksichtigt beide Viewport-Achsen.
-- `--time seconds`: absoluter, endlicher Zeitpunkt ab null; Standard null. Die Pose bleibt
-  während des Render-Settling stehen. Schlüsselenden werden gehalten, nicht geloopt.
-- `--animation index`: Clipauswahl, standardmäßig erster Clip, falls vorhanden.
-- `--variant name`: Materialvariante vor dem Sampling auswählen.
-- `--position x,y,z --look-at x,y,z`: gemeinsamer Override in lokalen Metern, Y oben.
-- `--fov degrees`: vertikaler perspektivischer Öffnungswinkel zwischen 0 und 180 Grad.
-- `--lighting auto|authored|studio`: auto erhält vorhandene Lichter; ohne importierte Lichter
-  benutzt es die deterministische Vorschau. Studio ergänzt einen Key mit π Lux bei 45°
-  Elevation/Bearing und einen linearen Fill von 0,05. Authored ergänzt kein Licht.
-- `--exposure multiplier`: positiver linearer Belichtungsfaktor, Standard eins.
+# Cachewartung
 
-Optionen folgen den drei Positionsargumenten. Jede Option höchstens einmal.
-Ungültige Argumente liefern Exitcode 2; Lade-/Render-/Ausgabefehler Exitcode 1.
-Erfolg schreibt eine RENDER-Zeile mit Eingabe, Auflösung, Zeitpunkt und Ausgabepfad.
-Der Szenariopfad `run` bleibt separat; beide Wege benutzen die öffentliche Engine-API.
+```sh
+build/outshine-client cache trim --assets-mib 8192 --sources-mib 2048
+build/outshine-client cache trim --assets-mib 8192 --sources-mib 2048 --apply --compact
+```
 
-Der Loader unterstützt noch nicht alle Animation-Pointer-Ziele und Importerweiterungen.
-Der direkte Pfad behauptet keine vollständige Khronos-Konformität. Den Corpus schrittweise
-mit identischen Kamera-, Licht-, Transfer- und Materialeinstellungen migrieren (WI 2195).
+Standard ist eine Vorschau. `--apply` entfernt die ausgewählten Inhalte. Null leert den
+gewählten Cache. `--root <Verzeichnis>` wählt einen Cache-Elternordner mit `assets/` und
+`sources/`; Standard ist das Anwendungsverzeichnis von SDL. Netzwerk und GPU starten nicht.
 
-`make test-client-render` prüft den tatsächlichen Client mit unabhängigen temporären glTF-/GLB-
-Fixtures; Blender und vorbereitete Khronos-Dateien sind dafür nicht erforderlich.
+Das Assetbudget gilt gemeinsam für komprimierte Pakete in `assets.sqlite` und
+`prototypes.sqlite`. Verwaiste Pakete werden zuerst entfernt, anschließend die am längsten
+nicht verwendeten. Ein Paket wird mit sämtlichen Mitgliedern, Request-Bindungen und
+R*Tree-Einträgen gelöscht. Fertige Assets bleiben eigenständige Produkte; ein späterer Miss
+nutzt wieder den normalen Generatorpfad. Bereits geladene Leases behalten ihre Bytes.
+
+Quellen werden als erkannte Hash-Dateien samt Abwesenheitsmarkern budgetiert. Unbekannte
+Dateien, Symlinks und fremde Verzeichnisse bleiben erhalten. Auch verwaiste Nutzungsmetadaten
+werden entfernt. Bekannte letzte Nutzungen bestimmen die Reihenfolge; Altbestände sind als
+unbekannt gezählt. Deren Ersatzreihenfolge ist die Paket-Einfügereihenfolge beziehungsweise
+die Schreibzeit einzelner Quelldateien. Daraus werden keine Nutzungszeiten gespeichert.
+
+Budgets zählen Nutzdaten. Die kompakten `CACHE`-Zeilen melden zusätzlich Dateigrößen inklusive
+SQLite-/WAL-/SHM-Kosten. Ohne `--compact` werden SQLite-Seiten intern wiederverwendbar;
+mit dem Flag gibt VACUUM sie an das Dateisystem zurück. Das benötigt zusätzliche IO und
+freien Arbeitsraum. Eine blockierte Kompaktion meldet ausdrücklich den bereits erfolgten
+Trim und den Fehler. Vorschauen melden ausgewählte, noch nicht entfernte Einträge.
+
+Quellen und Assetpakete speichern künftig Bytezahl, letzte erfolgreiche Nutzung und eine
+bekannte Erstellungszeit. Frühere Einträge ohne diese Angaben bleiben ausdrücklich unbekannt.
+Wiederholte Zugriffe werden im begrenzten Puffer zusammengefasst und zeitlich gedrosselt
+persistiert; das Laden bleibt bei einem Metadatenfehler möglich. Einmalige weltweite Besuche
+können so später gegenüber zuletzt verwendeten Inhalten aus dem Speicherbudget fallen.
+
+Wartung erfolgt zwischen Läufen. Metadaten werden gebündelt geschrieben; ein laufender
+Prozess kann noch ungespeicherte Beobachtungen oder neue Cacheeinträge besitzen. Datenbanken
+bleiben jeweils transaktional konsistent; mehrere Datenbanken und Quelldateien bilden keine
+gemeinsame Transaktion. Teilfehler werden mit dem betroffenen Cache gemeldet.

@@ -1,0 +1,55 @@
+{
+  "schema_version": "1",
+  "id": "vegetation.pinus-sylvestris-young-site",
+  "version": "1",
+  "requires": [
+    "vegetation.needled-plants",
+    "vegetation.planar-root-contact"
+  ],
+  "inputs": {
+    "seed": "vegetation.seed/1",
+    "site": "vegetation.habitat-site/1"
+  },
+  "dependencies": {
+    "form": {
+      "id": "vegetation.pinus-sylvestris-young-form",
+      "version": "1",
+      "inputs": {
+        "seed": "seed"
+      }
+    }
+  },
+  "nodes": {
+    "contact": {
+      "operator": {
+        "id": "vegetation.place-plant",
+        "version": "1"
+      },
+      "parameters": {},
+      "inputs": {
+        "plant": {
+          "dependency": "form",
+          "output": "plant"
+        },
+        "site": {
+          "input": "site"
+        }
+      },
+      "max_output_bytes": 32768
+    }
+  },
+  "outputs": {
+    "plan": {
+      "dependency": "form",
+      "output": "plan"
+    },
+    "plant": {
+      "dependency": "form",
+      "output": "plant"
+    },
+    "placement": {
+      "node": "contact",
+      "output": "placement"
+    }
+  }
+}

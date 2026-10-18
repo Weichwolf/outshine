@@ -1,4 +1,5 @@
 #include <Outshine.h>
+#include "NativeTriangle.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
@@ -26,7 +27,7 @@ Scenario::Document Declaration(bool carried, const std::string &path) {
   scene.Render.Frame = {64, 64};
   scene.Render.Outputs = {"sceneLinear", "sceneDepth", "surface"};
   Scenario::Asset asset;
-  asset.Kind = "gltf";
+  asset.Kind = "generated";
   asset.Uri = path;
   scene.Assets.push_back(asset);
   if (carried) {
@@ -146,7 +147,9 @@ Frame CheckProjection(Engine &engine, const Camera &camera) {
 }
 
 std::vector<float> Exercise(bool carried, const std::string &path) {
+  NativeTriangle generator;
   Engine engine;
+  CHECK(engine.registerGenerator(generator), "native camera fixture generator registers");
   const auto declared = Declaration(carried, path);
   auto ready = engine.setRenderTarget(Extent{64, 64});
   if (ready) { ready = engine.declare(declared); }
@@ -197,34 +200,13 @@ int main() {
   const bool initialized = SDL_Init(SDL_INIT_VIDEO);
   CHECK(initialized, "SDL video starts before camera rendering");
   if (!initialized) { return Report(); }
-  std::error_code io;
-  const auto directory = std::filesystem::temp_directory_path(io);
-  CHECK(!io, "a system temp directory holds the independent glTF fixture");
-  if (io) {
-    SDL_Quit();
-    return Report();
-  }
-  const auto path = directory / "outshine-scenario-camera.gltf";
-  std::ofstream file(path);
-  file << R"GLTF({
-    "asset":{"version":"2.0"},"extensionsUsed":["KHR_materials_unlit"],
-    "buffers":[{"byteLength":36,"uri":"data:application/octet-stream;base64,AACAvwAAgL8AAADAAACAPwAAgL8AAADAAAAAAAAAgD8AAADA"}],
-    "bufferViews":[{"buffer":0,"byteLength":36}],
-    "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[-1,-1,-2],"max":[1,1,-2]}],
-    "materials":[{"pbrMetallicRoughness":{"baseColorFactor":[1,0.25,0.05,1]},"extensions":{"KHR_materials_unlit":{}}}],
-    "meshes":[{"primitives":[{"attributes":{"POSITION":0},"material":0}]}],
-    "nodes":[{"mesh":0}],"scenes":[{"nodes":[0]}],"scene":0
-  })GLTF";
-  file.close();
-  CHECK(!file.fail(), "write the independently specified triangle at two metres");
-  const auto standing = Exercise(false, path.string());
-  const auto carried = Exercise(true, path.string());
+  const auto standing = Exercise(false, "camera-triangle");
+  const auto carried = Exercise(true, "camera-triangle");
   CHECK(!standing.empty() && standing == carried,
         "standing and carried orthographic cameras produce identical linear images");
   bool lit = false;
   for (size_t at = 0; at + 3 < standing.size(); at += 4) { lit = lit || standing[at] > 0; }
   CHECK(lit, "the comparison contains rendered geometry, not two empty images");
-  CHECK(std::filesystem::remove(path, io) && !io, "remove the temporary glTF fixture");
   SDL_Quit();
   return Report();
 }

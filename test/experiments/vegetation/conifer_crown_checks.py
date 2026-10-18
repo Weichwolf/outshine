@@ -1,15 +1,17 @@
 """Independent whole-packet IDs, replay, poses and matching near shoots."""
 
+import argparse
 import json
+from pathlib import Path
 
 import numpy as np
-from conifer_crown_products import OUTPUT
 from conifer_crown_recipes import crown_conifers
+from experiment_output import private_output
 from outshine_ref.vegetation import NeedledPlant
 
 
-def check_species(species):
-    directory = OUTPUT / species.key
+def check_species(species, source):
+    directory = source / species.key
     index = json.loads((directory / "whole-index.json").read_text())
     plan = NeedledPlant.from_recipe(
         json.loads((directory / "whole-plan.json").read_text())
@@ -25,8 +27,8 @@ def check_species(species):
             with np.load(directory / r["placements"]) as data:
                 assert len(data["ids"]) == r["instances"] <= 16384
                 maximum = max(maximum, r["instances"])
-                for k in arrays:
-                    arrays[k].append(data[k])
+                for k, values in arrays.items():
+                    values.append(data[k])
     whole = {k: np.concatenate(v) for k, v in arrays.items()}
     order = np.argsort(whole["ids"])
     whole = {k: v[order] for k, v in whole.items()}
@@ -65,15 +67,16 @@ def check_species(species):
     }
 
 
-def main():
-    records = [check_species(s) for s in crown_conifers()]
-    result = {"species": records, "tile": check_tile()}
-    (OUTPUT / "checks.json").write_text(json.dumps(result, indent=2) + "\n")
+def main(source, tile, output):
+    output = private_output(output)
+    output.mkdir(parents=True, exist_ok=True)
+    records = [check_species(s, source) for s in crown_conifers()]
+    result = {"species": records, "tile": check_tile(tile)}
+    (output / "checks.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2))
 
 
-def check_tile():
-    directory = OUTPUT / "tile"
+def check_tile(directory):
     scene = json.loads((directory / "tile.json").read_text())
     plants = json.loads((directory / scene["plant_recipe"]).read_text())["plants"]
     maximum, packets, rows = 0.0, 0, 0
@@ -103,4 +106,8 @@ def check_tile():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("source", "tile", "output"):
+        parser.add_argument("--" + name, type=Path, required=True)
+    args = parser.parse_args()
+    main(args.source, args.tile, args.output)

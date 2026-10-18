@@ -138,6 +138,8 @@ int main() {
                                          .Standing = frame,
                                          .Draped = drape,
                                          .Classes = noClasses,
+                                         .WaterUpM = {},
+                                         .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .Projection = {.FocalPx = 800.0}};
@@ -194,6 +196,8 @@ int main() {
                                                .Standing = frame,
                                                .Draped = drape,
                                                .Classes = noClasses,
+                                               .WaterUpM = {},
+                                               .CensusAt = {},
                                                .EyeLatDeg = origin.LatitudeDeg,
                                                .EyeLonDeg = origin.LongitudeDeg,
                                                .Projection = {.FocalPx = 800.0}};

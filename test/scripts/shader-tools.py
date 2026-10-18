@@ -34,7 +34,4 @@ def build(name, folder, options):
 
 
 if __name__ == "__main__":
-    run("pkg-config", "--exists", "sdl3", "spirv-cross-c")
     build("glslang", "glslang-build", ["-DENABLE_OPT=OFF", "-DGLSLANG_TESTS=OFF"])
-    build("SDL_shadercross", "shadercross-build",
-          ["-DSDLSHADERCROSS_DXC=OFF", "-DSDLSHADERCROSS_SPIRVCROSS_SHARED=OFF"])

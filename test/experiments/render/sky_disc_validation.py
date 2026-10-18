@@ -33,7 +33,9 @@ def analyze(output):
             if file.read_bytes() != (before / file.name).read_bytes():
                 raise RuntimeError("before/after must use identical physical inputs")
             parameters = np.fromfile(file, "<f4")
-            expected, edge, _ = reference(parameters, WIDTH, HEIGHT, lut)
+            expected, edge, _ = reference(
+                parameters, WIDTH, HEIGHT, lut, endpoints=False
+            )
             interior, exterior = edge > SUN_EDGE_ROUNDOFF, edge < -SUN_EDGE_ROUNDOFF
             solid = np.pi * float(parameters[26]) ** 2 / float(parameters[22])
             current = image(file.with_suffix(".rgba32"))

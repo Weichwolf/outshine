@@ -1,23 +1,22 @@
 """Context-scoped compact facade plans on existing complete source envelopes."""
 
 import hashlib
-import math
 import time
 from collections import Counter
 
 import mapbox_vector_tile
 import numpy as np
-import shapely
 from context import attach
-from outshine_ref.buildings.facades import FacadeRepeat
+from facade_axes import layout
 from recipes import choose
 from samples import SOURCES
 from tile_roof_envelopes import OrdinaryDetails
 
 
-def contexts(rows, receipt):
+def contexts(rows, receipt, *, source_root=None):
     r = receipt["receipt"]
-    path = SOURCES / (hashlib.sha256(r["url"].encode()).hexdigest() + ".pbf")
+    root = SOURCES if source_root is None else source_root
+    path = root / (hashlib.sha256(r["url"].encode()).hexdigest() + ".pbf")
     data = path.read_bytes()
     if hashlib.sha256(data).hexdigest() != r["sha256"]:
         raise ValueError("Facade context provider bytes changed")
@@ -38,58 +37,35 @@ def project(mesh, row, parameters, fractions, axis_m, floor_m):
     )
     normals = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
     walls = abs(normals[:, 2]) < 1e-8
-    top = float(parameters.get("eave_m", parameters["buildingHeight"]))
     bottom = parameters["minHeight"]
-    height = top - bottom
-    rows = max(1, math.floor(height / floor_m + 0.5))
     uv = mesh["uv"][mesh["faces"]].copy()
     extent = np.zeros((len(triangles), 3, 3))
     assigned = np.zeros(len(triangles), dtype=bool)
     facades = []
-    polygon = shapely.orient_polygons(row["polygon"])
-    for ring in (polygon.exterior, *polygon.interiors):
-        for a, b in zip(list(ring.coords)[:-1], list(ring.coords)[1:], strict=True):
-            a, b = np.asarray(a), np.asarray(b)
-            delta = b - a
-            length = float(np.linalg.norm(delta))
-            if length == 0:
-                continue
-            tangent = delta / length
-            normal = np.array([tangent[1], -tangent[0]])
-            distance = (triangles[:, :, :2] - a) @ normal
-            along = (triangles[:, :, :2] - a) @ tangent
-            selected = (
-                walls
-                & ((normals[:, :2] @ normal) > 0.999999)
-                & (abs(distance).max(axis=1) < 1e-7)
-                & (along.min(axis=1) >= -1e-7)
-                & (along.max(axis=1) <= length + 1e-7)
-            )
-            if not selected.any():
-                continue
-            if np.any(assigned & selected):
-                raise ValueError("Facade triangle has multiple source boundary owners")
-            columns = max(1, math.floor(length / axis_m + 0.5))
-            repeat = FacadeRepeat(length, height, columns, rows, *fractions)
-            uv[selected, :, 0] = along[selected] / repeat.cell_size_m[0]
-            uv[selected, :, 1] = (
-                triangles[selected, :, 2] - bottom
-            ) / repeat.cell_size_m[1]
-            extent[selected] = [columns, rows, 0]
-            assigned |= selected
-            facades.append(
-                {
-                    "id": row["id"] + f"/facade-{len(facades)}",
-                    "a": a.tolist(),
-                    "b": b.tolist(),
-                    "width_m": length,
-                    "height_m": height,
-                    "columns": columns,
-                    "rows": rows,
-                    "fractions": list(fractions),
-                    "opening_count": repeat.opening_count,
-                }
-            )
+    for frame in layout(row, parameters, fractions, axis_m, floor_m):
+        a, b = np.asarray(frame["a"]), np.asarray(frame["b"])
+        length, height = frame["width_m"], frame["height_m"]
+        columns, rows = frame["columns"], frame["rows"]
+        tangent = (b - a) / length
+        normal = np.array([tangent[1], -tangent[0]])
+        distance = (triangles[:, :, :2] - a) @ normal
+        along = (triangles[:, :, :2] - a) @ tangent
+        selected = (
+            walls
+            & ((normals[:, :2] @ normal) > 0.999999)
+            & (abs(distance).max(axis=1) < 1e-7)
+            & (along.min(axis=1) >= -1e-7)
+            & (along.max(axis=1) <= length + 1e-7)
+        )
+        if not selected.any():
+            continue
+        if np.any(assigned & selected):
+            raise ValueError("Facade triangle has multiple source boundary owners")
+        uv[selected, :, 0] = along[selected] / (length / columns)
+        uv[selected, :, 1] = (triangles[selected, :, 2] - bottom) / (height / rows)
+        extent[selected] = [columns, rows, 0]
+        assigned |= selected
+        facades.append(frame | {"id": row["id"] + f"/facade-{len(facades)}"})
     if np.any(walls & ~assigned):
         raise ValueError("Exterior wall lacks a source facade frame")
     if not assigned.any():
@@ -111,13 +87,25 @@ def project(mesh, row, parameters, fractions, axis_m, floor_m):
     return result, assigned, facades
 
 
+def recipe_for(row, parameters):
+    return choose(
+        row["properties"],
+        row.get("context", {}),
+        row["polygon"],
+        parameters["buildingHeight"],
+        parameters["minHeight"],
+    )
+
+
 class FacadeDetails:
-    def __init__(self, rows, view, *, door_states=None):
+    def __init__(self, rows, view, *, door_states=None, gate_states=None):
         from facade_balconies import BalconyDetails
         from facade_entrances import EntranceDetails
+        from facade_frame_geometry import FrameDetails
         from facade_shopfronts import ShopfrontDetails
         from facade_window_bays import WindowBayDetails
         from tile_facade_bands import BandDetails
+        from tile_industrial_halls import HallDetails
 
         self.base = OrdinaryDetails(rows, view)
         self.palette = {}
@@ -129,6 +117,8 @@ class FacadeDetails:
         self.recess_rejected = []
         self.bands = BandDetails(rows)
         self.entrances = EntranceDetails(self.bands.rows, self.bands.tree, door_states)
+        self.halls = HallDetails(self.entrances, gate_states)
+        self.frames = FrameDetails(self.entrances)
         self.entrance_geometry = []
         self.shopfronts = ShopfrontDetails(self.entrances)
         self.shopfront_geometry = []
@@ -147,35 +137,32 @@ class FacadeDetails:
         if "room_ids" in info:
             return before
         began = time.perf_counter()
-        recipe = choose(
-            row["properties"],
-            row.get("context", {}),
-            row["polygon"],
-            parameters["buildingHeight"],
-            parameters["minHeight"],
-        )
+        recipe = recipe_for(row, parameters)
         family = recipe["family"]
         rhythm = recipe["parameters"]
         if family in ("unknown", "utility", "garage"):
             return before
         try:
-            fractions = (rhythm["width"], rhythm["height"])
-            projected, selected, facades = project(
-                mesh,
-                row,
-                parameters | info,
-                fractions,
-                rhythm["axis_m"],
-                rhythm["floor_m"],
+            projected, facades, identifier = self.surface(
+                mesh, row, parameters | info, rhythm, material
             )
-            identifier = self.binding(material, fractions)
-            projected["materials"][selected] = identifier
-            entry = self.entrances.plan(row, parameters, facades, family)
+            entry = self.plan_entry(row, parameters, facades, family)
+            hall = self.halls(
+                row,
+                parameters,
+                info,
+                facades,
+                entry,
+                family,
+                self.base.current_envelope,
+                material,
+                self.view,
+            )
+            if hall is not None:
+                return hall
             shopfront = self.shopfronts.plan(row, entry)
             bays, balconies, programme = self.projections(row, entry, family)
-            from tile_facade_recess import attach as recesses
-
-            projected, details, rejected = recesses(
+            projected, details, rejected = self.attach_recesses(
                 projected,
                 row,
                 parameters | info,
@@ -209,6 +196,9 @@ class FacadeDetails:
             self.bay_geometry.extend(
                 r for r in details if r.get("kind") == "window_bay"
             )
+            frame_parts, replaced_frames = self.frames.products(
+                row, parameters, facades, self.view, material, family, entry
+            )
             projected = self.bands(
                 projected,
                 row,
@@ -218,6 +208,8 @@ class FacadeDetails:
                 material,
                 family,
                 entrance=entry,
+                skip_facades=replaced_frames,
+                additions=frame_parts,
             )
             record = {
                 "id": row["id"],
@@ -232,7 +224,9 @@ class FacadeDetails:
                 "scope": "Procedural opening/material estimate on complete exterior; full near room/door programme not admitted",
             }
             self.completed.append(record)
-            return projected, info | {
+            return projected, info | (
+                self.halls.current or {}
+            ) | self.frames.logical_info(len(replaced_frames)) | {
                 "facade_recipe": family,
                 "facade_origin": recipe["origin"],
                 "facade_programme": programme,
@@ -246,6 +240,14 @@ class FacadeDetails:
         except ValueError as error:
             self.rejected.append({"id": row["id"], "reason": str(error)})
             return before
+
+    def plan_entry(self, row, parameters, facades, family):
+        return self.entrances.plan(row, parameters, facades, family)
+
+    def attach_recesses(self, *args, **kwargs):
+        from tile_facade_recess import attach
+
+        return attach(*args, **kwargs)
 
     def projections(self, row, entry, family):
         from provider_contract import seed_for
@@ -278,6 +280,15 @@ class FacadeDetails:
             }
         return self.palette[key]
 
+    def surface(self, mesh, row, parameters, rhythm, material):
+        fractions = (rhythm["width"], rhythm["height"])
+        projected, selected, facades = project(
+            mesh, row, parameters, fractions, rhythm["axis_m"], rhythm["floor_m"]
+        )
+        identifier = self.binding(material, fractions)
+        projected["materials"][selected] = identifier
+        return projected, facades, identifier
+
     def report(self):
         return {
             "completed": self.completed,
@@ -287,6 +298,9 @@ class FacadeDetails:
             "recess_rejected": self.recess_rejected,
             "bands": self.bands.completed,
             "band_rejected": self.bands.rejected,
+            "frames": self.frames.completed,
+            "halls": self.halls.report(),
+            "frame_rejected": self.frames.rejected,
             "entrances": self.entrances.planned,
             "entrance_geometry": self.entrance_geometry,
             "entrance_rejected": self.entrances.rejected,

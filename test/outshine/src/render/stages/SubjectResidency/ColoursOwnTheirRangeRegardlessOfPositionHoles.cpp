@@ -2,6 +2,7 @@
 #include "GpuPlacement.h"
 #include "VertexUpload.h"
 #include "Check.h"
+#include <cstdint>
 
 int main() {
   using namespace outshine::Render;
@@ -28,7 +29,9 @@ int main() {
                                         .Carried = true,
                                         .Components = 4},
                                        {.First = recycled.First, .Count = 3});
-  CHECK(transfer && transfer->Usage == SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ &&
+  CHECK(transfer &&
+            static_cast<uint32_t>(transfer->Usage) ==
+                static_cast<uint32_t>(Native::BufferUse::Storage) &&
             transfer->From == &source && transfer->Bytes == 48 && transfer->Offset == 0,
         "float factors above one retain exact source data and storage-read usage");
   return Report();

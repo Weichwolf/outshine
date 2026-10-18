@@ -148,16 +148,6 @@ Result Engine::render(Extent frame) {
       "ms");
   S_->Published.RecordMetric(
       "subject draws", static_cast<double>(S_->Picture.Device.SubjectDrawCount()), "draws");
-  S_->Published.RecordMetric(
-      "the subject's own animation runs for", S_->Picture.Standing->DurationS(), "s");
-  S_->Published.RecordMetric("the frames its rate makes of that",
-                             static_cast<double>(S_->Picture.Standing->Frames()),
-                             "frames");
-  S_->Published.RecordMetric("and the instant it is posed at", S_->Picture.Standing->AtS(), "s");
-  S_->Published.RecordMetric(
-      "the pose's own local transforms, digested", S_->Picture.Standing->LocalsDigest(), "");
-  S_->Published.RecordMetric(
-      "the vertices it assembled from them, digested", S_->Picture.Standing->AssembledDigest(), "");
   S_->Published.RecordMetric("the geometry the renderer was last offered, digested",
                              S_->Picture.Standing->TransferMetrics().DigestValue(),
                              "");
@@ -260,7 +250,10 @@ Result Engine::readPixels(std::vector<uint8_t> &rgba) {
     return std::unexpected(std::string(
         "nothing stands to be read -- a scenario is declared before a frame carries pixels"));
   }
-  if (Core::ReadFrame(S_->Picture.Device, rgba, S_->Error)) { return {}; }
+  if (Core::ReadFrame(S_->Picture.Device, rgba, S_->Error)) {
+    S_->PublishGpuFrameMeasurements(true);
+    return {};
+  }
   return std::unexpected(S_->Error);
 }
 
@@ -330,8 +323,10 @@ Result Engine::endFrame() {
 
 Result Engine::flushAndWait() {
   [[maybe_unused]] const auto logs = S_->Logs();
-  if (!S_->Picture.Standing || S_->Picture.Device.Settle(S_->Error)) { return {}; }
-  return std::unexpected(S_->Error);
+  if (!S_->Picture.Standing) { return {}; }
+  if (!S_->Picture.Device.Settle(S_->Error)) { return std::unexpected(S_->Error); }
+  S_->PublishGpuFrameMeasurements(true);
+  return {};
 }
 
 Result Engine::saveScreenshot(std::string_view path) {
@@ -340,7 +335,10 @@ Result Engine::saveScreenshot(std::string_view path) {
     return std::unexpected(std::string(
         "nothing stands to be captured -- a scenario is declared before a frame is kept"));
   }
-  if (Core::SaveFrame(S_->Picture.Device, S_->Picture.Frame, path, S_->Error)) { return {}; }
+  if (Core::SaveFrame(S_->Picture.Device, S_->Picture.Frame, path, S_->Error)) {
+    S_->PublishGpuFrameMeasurements(true);
+    return {};
+  }
   return std::unexpected(S_->Error);
 }
 

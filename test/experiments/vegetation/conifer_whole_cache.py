@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from conifer_whole_products import OUTPUT, SPECIES
+from conifer_whole_products import SPECIES
 from forest_views import choices
 from outshine_ref.vegetation import Needle, NeedledPlant, NeedlePattern, PlantPlan
 from PIL import Image
@@ -82,7 +82,7 @@ def measure(products):
         "frames": len(queries),
         "query_ms_p50_p95_p99": np.percentile(queries, (50, 95, 99)).tolist(),
         "selected_views_per_species": [
-            len(set(row[i] for row in selected)) for i in range(len(plants))
+            len({row[i] for row in selected}) for i in range(len(plants))
         ],
         "generation_disabled": True,
     }
@@ -90,7 +90,7 @@ def measure(products):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--products", type=Path, default=OUTPUT)
+    parser.add_argument("--products", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = measure(args.products)

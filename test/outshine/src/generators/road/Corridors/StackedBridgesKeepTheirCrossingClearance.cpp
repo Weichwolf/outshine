@@ -232,6 +232,8 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
                                          .Standing = standing,
                                          .Draped = drape,
                                          .Classes = noClasses,
+                                         .WaterUpM = {},
+                                         .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .Projection = {.FocalPx = 800}};

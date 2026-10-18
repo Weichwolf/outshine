@@ -1,0 +1,8 @@
+{
+  "data_sha256": "574bfcaf186f62f4658df2a8095815abea0343480f4f9873300db9dc4faa8c7a",
+  "xyz_sha256": "18d8cd1daa6ac4d4301eee8cd5b717fe6e6d61c04f9f71f440be4879580e5680",
+  "frame": "Wien-transport-ENU-48.242427962074906-16.386505365371704-up0m",
+  "actual_pier_index": 123,
+  "parent_support_sha256": "69fe56d4dec611c4638c6bc4df0fdbe5df70f086d046478b8404be8602aebad6",
+  "scope": "Actual unchanged whole pier causing the original cycleway collision."
+}
