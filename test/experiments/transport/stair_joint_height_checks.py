@@ -2,6 +2,7 @@
 
 import copy
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import shapely
@@ -78,6 +79,13 @@ class JointLevelHeights(unittest.TestCase):
 
     def test_time_input_iteration_and_group_limits_do_not_publish_a_mesh(self):
         surface, plans, frames = strip()
+        with patch(
+            "stair_joint_height_fit.level_groups",
+            side_effect=AssertionError("unnecessary grouping"),
+        ):
+            for budget in (HeightBudget(time_limit_s=0), HeightBudget(max_vertices=1)):
+                result, _levels = fit_joint_levels(surface, frames, plans, budget)
+                self.assertIsNone(result.mesh)
         for budget in (
             HeightBudget(time_limit_s=0),
             HeightBudget(max_vertices=1),
