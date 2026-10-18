@@ -227,6 +227,27 @@ bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
                                                std::string &error,
                                                Render::SceneResources::PieceSources pieces,
                                                ResourceRestoreMode restore) {
+  return PreparesRetainedGeometryReplacement(
+      renderer,
+      previous,
+      std::make_shared<const Geometry>(std::move(replacement)),
+      drivenParts,
+      font,
+      candidate,
+      error,
+      pieces,
+      restore);
+}
+
+bool RuntimeScene::PreparesRetainedGeometryReplacement(Render::SceneRenderer &renderer,
+                                                       const RuntimeScene &previous,
+                                                       std::shared_ptr<const Geometry> replacement,
+                                                       size_t drivenParts,
+                                                       const Ui::Font *font,
+                                                       std::unique_ptr<RuntimeScene> &candidate,
+                                                       std::string &error,
+                                                       Render::SceneResources::PieceSources pieces,
+                                                       ResourceRestoreMode restore) {
   if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
@@ -237,10 +258,10 @@ bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
   candidate->GroundAlbedo_ = previous.GroundAlbedo_;
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
-  if (std::cmp_less(drivenParts, replacement.parts())) {
+  if (std::cmp_less(drivenParts, replacement->parts())) {
     candidate->DrivenGeometry_ = previous.DrivenGeometry_.clone();
   }
-  if (!candidate->SetGeometry(std::move(replacement), drivenParts, error) ||
+  if (!candidate->SetRetainedGeometry(std::move(replacement), drivenParts, error) ||
       (restore == ResourceRestoreMode::Immediate &&
        (!candidate->RestoresPieceResources(error) || !candidate->RestoresGroundResources(error))) ||
       !candidate->Scrolled(previous.Ui_.ScrollState(), error)) {
@@ -249,6 +270,7 @@ bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
     return false;
   }
   candidate->Camera_ = previous.Camera_;
+  candidate->Camera_.Invalidate();
   return true;
 }
 
@@ -261,15 +283,15 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                             SubjectGeometrySources geometry,
                                             ResourceRestoreMode restore) {
   if (previous.Held_.HasGeometry() && geometry == SubjectGeometrySources::All) {
-    return PreparesGeometryReplacement(renderer,
-                                       previous,
-                                       previous.Held_.Snapshot().clone(),
-                                       previous.DrivenParts_,
-                                       font,
-                                       candidate,
-                                       error,
-                                       pieces,
-                                       restore);
+    return PreparesRetainedGeometryReplacement(renderer,
+                                               previous,
+                                               previous.Held_.Retain(),
+                                               previous.DrivenParts_,
+                                               font,
+                                               candidate,
+                                               error,
+                                               pieces,
+                                               restore);
   }
   if (previous.DrivenGeometry_.parts() > 0) {
     return PreparesGeometryReplacement(renderer,
@@ -300,6 +322,7 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
     return false;
   }
   candidate->Camera_ = previous.Camera_;
+  candidate->Camera_.Invalidate();
   return true;
 }
 
@@ -346,7 +369,7 @@ bool RuntimeScene::Reshape(std::string &error) {
   if (EverShaped_ && ShapedAt_ == Held_.Revision()) { return true; }
   EverShaped_ = false;
   Shaped_ = {};
-  const auto shaped = Render::PrepareShape(Held_.Snapshot(), ShapeParts_);
+  const auto shaped = Render::PrepareShape(Held_.Retain(), ShapeParts_);
   if (!shaped) {
     error = Describe(shaped.error());
     return false;
@@ -1081,11 +1104,33 @@ bool RuntimeScene::SetGeometry(outshine::Geometry &&built, size_t drivenParts, s
   return SetGeometry(std::move(built), drivenParts, Declared_.Surfacing.front(), error);
 }
 
+bool RuntimeScene::SetRetainedGeometry(std::shared_ptr<const Geometry> built,
+                                       size_t drivenParts,
+                                       std::string &error) {
+  if (Declared_.Surfacing.empty()) {
+    error = Says::NoGeometrySurface;
+    return false;
+  }
+  return SetRetainedGeometry(std::move(built), drivenParts, Declared_.Surfacing.front(), error);
+}
+
 bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
                                size_t drivenParts,
                                const Material &wearing,
                                std::string &error) {
-  auto began = BeginGeometryBuild(std::move(built), drivenParts, Material(wearing));
+  if (auto valid = ValidGeometryBuild(built, drivenParts); !valid) {
+    error = std::move(valid.error());
+    return false;
+  }
+  return SetRetainedGeometry(
+      std::make_shared<const Geometry>(std::move(built)), drivenParts, wearing, error);
+}
+
+bool RuntimeScene::SetRetainedGeometry(std::shared_ptr<const Geometry> built,
+                                       size_t drivenParts,
+                                       const Material &wearing,
+                                       std::string &error) {
+  auto began = BeginRetainedGeometryBuild(std::move(built), drivenParts, Material(wearing));
   if (!began) {
     error = std::move(began.error());
     return false;
@@ -1102,15 +1147,33 @@ bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
 
 std::expected<void, std::string>
 RuntimeScene::BeginGeometryBuild(outshine::Geometry &&built, size_t drivenParts, Material wearing) {
+  if (auto valid = ValidGeometryBuild(built, drivenParts); !valid) {
+    return std::unexpected(std::move(valid.error()));
+  }
+  return BeginRetainedGeometryBuild(
+      std::make_shared<const Geometry>(std::move(built)), drivenParts, wearing);
+}
+
+std::expected<void, std::string> RuntimeScene::ValidGeometryBuild(const Geometry &built,
+                                                                  size_t drivenParts) const {
   if (GeometryBuildActive()) { return std::unexpected(Says::GeometryBuildAlreadyActive); }
   if (std::cmp_greater(drivenParts, built.parts())) {
     return std::unexpected(Says::InvalidDrivenPartCount);
   }
-  if (std::cmp_equal(drivenParts, built.parts())) {
-    DrivenGeometry_ = built.clone();
-  } else if (!std::cmp_equal(drivenParts, DrivenGeometry_.parts())) {
+  if (!std::cmp_equal(drivenParts, built.parts()) &&
+      !std::cmp_equal(drivenParts, DrivenGeometry_.parts())) {
     return std::unexpected(Says::InvalidDrivenGeometry);
   }
+  return {};
+}
+
+std::expected<void, std::string> RuntimeScene::BeginRetainedGeometryBuild(
+    std::shared_ptr<const Geometry> built, size_t drivenParts, Material wearing) {
+  if (!built) { return std::unexpected(Says::InvalidInitialGeometry); }
+  if (auto valid = ValidGeometryBuild(*built, drivenParts); !valid) {
+    return std::unexpected(std::move(valid.error()));
+  }
+  if (std::cmp_equal(drivenParts, built->parts())) { DrivenGeometry_ = built->clone(); }
   Camera_.Invalidate();
   GeometryBuildSurfaces_ = std::move(Declared_.Surfacing);
   Declared_.Surfacing.clear();
@@ -1123,8 +1186,7 @@ RuntimeScene::BeginGeometryBuild(outshine::Geometry &&built, size_t drivenParts,
   Shaped_ = {};
   EverShaped_ = false;
   ShapeParts_.Clear();
-  Render::AppendGeometry(Held_.Snapshot(), ShapeParts_);
-  if (auto bound = Render::BindShapeStorage(ShapeParts_); !bound) {
+  if (auto bound = Render::PrepareShapeStorage(Held_.Retain(), ShapeParts_); !bound) {
     RestoreGeometryBuildState();
     return std::unexpected(std::string(Describe(bound.error())));
   }

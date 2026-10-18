@@ -13,6 +13,9 @@ python3 test/experiments/render/metal_work_profile.py \
 ```
 
 `--overrides` accepts the same complete JSON override object as the client.
+Its default selects 60 fps; resolution remains the declared Place resolution.
+Use an explicit override for another profile; previous 30-fps observations below
+remain historical measurements, not acceptance of the current 60-fps target.
 `--client` selects its binary; `--runtime-root` selects the working directory that
 owns its shader artifacts. This allows the shared probe to diagnose a native
 integration build while leaving the main checkout's Place outputs untouched.
@@ -64,3 +67,9 @@ cull/scan/compact0.362ms; later depth pyramid0.592ms. Each has30 valid measured
 samples and no unavailable dispatch counts. They are not an additive breakdown.
 The much larger terrain raster interval remains the primary observed cost;
 this evidence does not justify rewriting the already small compute selection.
+
+The A18 1280×720/60 comparison of the unchanged terrain-skirt index orders is
+recorded in [PR776](https://github.com/Weichwolf/outshine/pull/776#issuecomment-6251118304).
+Both scenes remain byte-identical, but 16 ordinary alternating runs show mixed
+timing effects. The RTX work-count reduction does not establish a general Metal
+time improvement; the original order remains the Metal integration default.

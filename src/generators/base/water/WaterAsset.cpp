@@ -97,10 +97,11 @@ size_t WaterAsset::HeapBytes() const noexcept {
   for (const auto &input : data.Inputs) {
     metadata += StringBytes(input.Layer) + StringBytes(input.Kind) + StringBytes(input.Crossing);
   }
-  return Data_ ? sizeof(Data) + CapacityBytes(data.Surfaces) + CapacityBytes(data.Rings) +
-                     CapacityBytes(data.Courses) + CapacityBytes(data.Levels) +
-                     CapacityBytes(data.Points) + CapacityBytes(data.Tiles) + metadata
-               : 0;
+  return (Data_ ? sizeof(Data) + CapacityBytes(data.Surfaces) + CapacityBytes(data.Rings) +
+                      CapacityBytes(data.Courses) + CapacityBytes(data.Levels) +
+                      CapacityBytes(data.Points) + CapacityBytes(data.Tiles) + metadata
+                : 0) +
+         PreparedSurfaceBytes();
 }
 
 long WaterAsset::NoGroundCount() const noexcept {

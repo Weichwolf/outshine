@@ -119,11 +119,11 @@ def capless(mesh, height):
 
 
 class RoofedProducts:
-    def __init__(self, plan):
+    def __init__(self, plan, *, legacy_trim=True):
         self.plan = plan
         self.draws = {}
         self.body_draws = {}
-        self.body = TerraceProducts(terrace_plan(plan.body))
+        self.body = TerraceProducts(terrace_plan(plan.body), legacy_trim=legacy_trim)
         self.roof_components, self.roof_skin = None, None
         self.coarse_roof = (
             world_surface(direct(plan.crown), plan.body.core)

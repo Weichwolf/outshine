@@ -1,4 +1,4 @@
-"""Exercise the production Vulkan archive on the declared RTX 3060 host."""
+"""Exercise the production Vulkan archive on an explicitly declared device."""
 
 import argparse
 import hashlib
@@ -41,6 +41,7 @@ def main():
     parser.add_argument('--validation', action='store_true')
     parser.add_argument('--present', action='store_true', help='also exercise actual SDL window presentation')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--device-name', required=True, help='exact Vulkan physical device name')
     args = parser.parse_args()
     if platform.system() != 'Linux':
         parser.error('the native Vulkan backend currently requires Linux')
@@ -145,10 +146,8 @@ def main():
         environment = os.environ.copy()
         suffix = ['--validation'] if args.validation else []
         if args.validation:
-            enabled = environment.get('VK_LAYER_ENABLES', '').split(',')
-            enabled.append('VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT')
-            environment['VK_LAYER_ENABLES'] = ','.join(dict.fromkeys(filter(None, enabled)))
-        result = run([str(binaries[0]), *map(str, shaders[:2]), *suffix], log,
+            environment['VK_LAYER_VALIDATE_SYNC'] = '1'
+        result = run([str(binaries[0]), *map(str, shaders[:2]), args.device_name, *suffix], log,
                      environment=environment, timeout=20)
         if result.stderr:
             raise RuntimeError(f'native Vulkan probe reported diagnostics (see {log.name})')
@@ -206,13 +205,15 @@ def main():
                 [str(binaries[9]), str(shaders[4]), str(shaders[13])], log,
                 environment=environment, timeout=30), log)
             report['vulkan_wsi_checks'] = verdict(run(
-                [str(binaries[10]), str(shaders[4]), str(shaders[14]), str(output / 'swapchain.ppm')],
+                [str(binaries[10]), str(shaders[4]), str(shaders[14]), str(output / 'swapchain.ppm'),
+                 args.device_name],
                 log, environment=environment, timeout=30), log)
         if args.present:
             report['present_target_checks'] = verdict(run(
                 [str(binaries[11]), str(shaders[4]), str(shaders[13]), str(shaders[15])],
                 log, environment=environment, timeout=45), log)
         report.update(commit=commit, dirty=dirty, log=str(log_path),
+                      expected_device_name=args.device_name,
                       archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                       native_archive_objects=len(native))
         headers = list((ROOT / 'src/render/device/native').glob('*.h'))

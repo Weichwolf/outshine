@@ -19,6 +19,11 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   90 ursprüngliche Quellen, vier prozedurale Walk-Kontakte und unveränderte ganze
   D/Q-Gates; freie Terrainapproximation, tatsächliche Fachleser und gemessene Kosten
   gegen den teuren Integer-Fit (#713/#714/#725/#729).
+- [Gemeinsame Seeds und regionale Präzision](stair_seed_dependencies_comparison.md):
+  ursprüngliche Höhen-/Terrain-Gegenfälle und getrennte regionale Studie (#717).
+- [Regionale Besitzer und tatsächliche Renderer](regional_positions.md):
+  vollständige Nachbarränder, unveränderte alte Zeichenprodukte und zwei global
+  übersetzte1280×720-Kamerazustände der ganzen gemischten Szene (#717/PR #720).
 - [Ringe und ganze Zufahrt gemeinsam planen](stair_joint_crossing_comparison.md):
   87 ganze Quellen, echte prozedurale Gehwegquerung und gemeinsame Höhen vor
   dem Einfrieren; Gegenfälle, aktuelle Fachleser und ganze 720p-Bilder (#709/#710).

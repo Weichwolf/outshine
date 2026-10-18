@@ -58,15 +58,21 @@ std::vector<uint32_t> Indices() {
   const uint32_t east = kNodes + 3u * static_cast<uint32_t>(kSide);
   for (uint32_t k = 0; k + 1 < static_cast<uint32_t>(kSide); ++k) {
     skirt(at(static_cast<int>(k), 0), at(static_cast<int>(k + 1), 0), north + k, north + k + 1);
-    skirt(at(static_cast<int>(k + 1), kSide - 1),
-          at(static_cast<int>(k), kSide - 1),
-          south + k + 1,
-          south + k);
-    skirt(at(0, static_cast<int>(k + 1)), at(0, static_cast<int>(k)), west + k + 1, west + k);
+  }
+  for (uint32_t k = 0; k + 1 < static_cast<uint32_t>(kSide); ++k) {
     skirt(at(kSide - 1, static_cast<int>(k)),
           at(kSide - 1, static_cast<int>(k + 1)),
           east + k,
           east + k + 1);
+  }
+  for (auto k = static_cast<uint32_t>(kSide - 1); k > 0; --k) {
+    skirt(at(static_cast<int>(k), kSide - 1),
+          at(static_cast<int>(k - 1), kSide - 1),
+          south + k,
+          south + k - 1);
+  }
+  for (auto k = static_cast<uint32_t>(kSide - 1); k > 0; --k) {
+    skirt(at(0, static_cast<int>(k)), at(0, static_cast<int>(k - 1)), west + k, west + k - 1);
   }
 
   return index;

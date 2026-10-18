@@ -52,7 +52,7 @@ std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const
   const auto waterBytes = in.In.Take(static_cast<size_t>(waterSize));
   if (!waterBytes) { return std::unexpected("invalid native region water range"); }
   auto water = WaterAsset::DecodeNative(*waterBytes);
-  if (!water || in.In.Remaining() != 0) {
+  if (!water || !water->SurfacesReady() || in.In.Remaining() != 0) {
     return std::unexpected("invalid native region water inputs");
   }
   return PreparedGroundRegions::Loaded{.Region = std::move(*region),
@@ -63,6 +63,9 @@ std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const
 
 std::expected<std::vector<uint8_t>, std::string>
 Encode(const GroundRegionAsset &region, const WaterAsset &water, size_t bytesMost) {
+  if (!water.SurfacesReady()) {
+    return std::unexpected("native region water surfaces are not prepared");
+  }
   auto ground = EncodeGroundRegionAsset(region, bytesMost);
   auto inputs = water.EncodeNative(bytesMost);
   if (!ground || !inputs) { return std::unexpected("native region products cannot be encoded"); }
@@ -83,7 +86,7 @@ std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroun
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the prepared ground region cache"); }
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-75",
+      "prepared-ground-region-78",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   recipe.append(rules);

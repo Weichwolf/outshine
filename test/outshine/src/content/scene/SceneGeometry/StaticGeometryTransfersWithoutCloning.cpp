@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -38,13 +39,25 @@ int main() {
   const size_t before = HeapProbe::LiveBytes();
   scene.SetGeometry(std::move(geometry));
   const size_t after = HeapProbe::LiveBytes();
-  CHECK(after <= before, "ownership transfer allocates no second geometry or asset snapshot");
+  CHECK(after <= before + sizeof(Geometry) + 4 * sizeof(void *),
+        "ownership transfer adds only a small immutable owner, never another asset snapshot");
   CHECK(scene.HasGeometry() && scene.Revision() == revision + 1,
         "publishing native geometry increments its revision once");
   CHECK(scene.Snapshot().positionsOf(0).data() == owned,
         "the moved position storage remains the published snapshot");
+  auto retained = scene.Retain();
+  const std::weak_ptr<const Geometry> weak = retained;
+  SceneGeometry candidate;
+  candidate.SetGeometry(retained);
   scene.Clear();
   CHECK(!scene.HasGeometry() && scene.Snapshot().parts() == 0 && scene.Revision() == revision + 2,
         "clear releases the native snapshot and increments its revision");
+  CHECK(candidate.Snapshot().positionsOf(0).data() == owned && !weak.expired(),
+        "a replacement retains the same immutable product after the old scene is cleared");
+  candidate.Clear();
+  CHECK(!weak.expired() && retained->positionsOf(0).data() == owned,
+        "a pending reader retains the actual product after both scenes release it");
+  retained.reset();
+  CHECK(weak.expired(), "the original product is released after its last reader");
   return Report();
 }

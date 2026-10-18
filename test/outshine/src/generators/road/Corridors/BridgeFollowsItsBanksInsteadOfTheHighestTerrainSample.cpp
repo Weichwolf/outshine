@@ -81,6 +81,7 @@ int main() {
                                            .Draped = drape,
                                            .Classes = classes,
                                            .WaterUpM = [level](LongitudeLatitude) { return level; },
+                                           .CensusAt = {},
                                            .EyeLatDeg = origin.LatitudeDeg,
                                            .EyeLonDeg = origin.LongitudeDeg,
                                            .Projection = {.FocalPx = 800}};
