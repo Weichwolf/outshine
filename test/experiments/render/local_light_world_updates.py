@@ -29,6 +29,9 @@ def prepare(base, producer, output, step):
         frame = np.fromfile(output / f"{name}-frame.bin", "<u4")
         pose_at = int(words[4]) + 3 * (len(data) // 64)
         frame[3] = (pose_at << 1) | int(method == "sorted")
+        items = np.frombuffer(data, dtype="<f4").reshape(-1, 4, 4)
+        finite = (items[:, 0, 3] > 0.5) & (items[:, 1, 3] > 0)
+        frame.view("<f4")[13] = np.max(1 / items[finite, 1, 3].astype(float), initial=0)
         frame.tofile(output / f"{name}-frame.bin")
         if name == "tiles":
             frame.tofile(output / "brute-frame.bin")

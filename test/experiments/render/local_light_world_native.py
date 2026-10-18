@@ -31,6 +31,27 @@ def shaders(raster_root, output):
         base.index("uint lightIndexAt("),
     )
     base = base[:start] + '#include "local_light_world.glsl"\n\n' + base[end:]
+    old_lookup = "  uint i = uint(at);"
+    if base.count(old_lookup) != 1:
+        raise ValueError("re-audit original-ID full-query fallback")
+    start, end = (
+        base.index("uint lightIndexAt("),
+        base.index("vec3 diffuseEnvironment("),
+    )
+    base = (
+        base[:start]
+        + "uint lightIndexAt(uvec2 span, int at) { return worldIndexAt(uint(at)); }\n\n"
+        + base[end:]
+    )
+    text = subject.read_text()
+    marker = "    uint lightIndex = lightIndexAt(nativeSpan, at);"
+    if text.count(marker) != 1:
+        raise ValueError("re-audit duplicate original-ID rejection")
+    subject.write_text(
+        text.replace(
+            marker, marker + "\n    if (lightIndex == 0xffffffffu) { continue; }"
+        )
+    )
     start, end = base.index("  vec3 p = probe.eye.xyz"), base.index("  uint family =")
     base = (
         base[:start]
@@ -80,7 +101,9 @@ def export_world(output, scene, widths, methods, translation, index_bytes):
         ]
         block[4:8] = [POSITION_CELL_M, *camera_local]
         block[8:12] = [7.25, -3.5, 0.125, 0.2]
-        block[12:16] = [width, 0, frame.width, frame.height]
+        finite = (packed[:, 0, 3] > 0.5) & (packed[:, 1, 3] > 0)
+        maximum_range = float(np.max(1 / packed[finite, 1, 3].astype(float), initial=0))
+        block[12:16] = [width, maximum_range, frame.width, frame.height]
         block.tofile(output / f"{name}-frame.bin")
         if name == "tiles":
             block.tofile(output / "brute-frame.bin")

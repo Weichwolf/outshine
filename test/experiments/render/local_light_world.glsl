@@ -1,4 +1,15 @@
 #include "local_light_world_position.glsl"
+#include "local_light_world_query.glsl"
+
+#ifndef WORLD_SAFE_QUERY
+#define WORLD_SAFE_QUERY 1
+#endif
+#ifndef WORLD_FULL_AT_BOUNDARY
+#define WORLD_FULL_AT_BOUNDARY 0
+#endif
+bool worldFullLookup = false;
+uvec2 worldSpans[8];
+uint worldSpanCount = 0u;
 
 ivec3 worldCameraCell;
 vec3 worldCameraLocal;
@@ -49,13 +60,7 @@ uvec2 worldSlot(uint index, uvec3 key) {
   return uvec2(0);
 }
 
-uvec2 lightSpan(vec3 p) {
-  float lookupWidth = clusters.viewport.x;
-  ivec3 cell = worldCameraCell * int(clusters.depth.x / lookupWidth) +
-               ivec3(floor((p + worldCameraLocal) / lookupWidth));
-#if WORLD_WRONG_CELL
-  cell.x += 1;
-#endif
+uvec2 worldCellSpan(ivec3 cell) {
   uvec3 key = uvec3(cell) ^ uvec3(0x80000000u);
   uint last = words[3];
   if ((clusters.grid.w & 1u) == 1u) {
@@ -78,4 +83,74 @@ uvec2 lightSpan(vec3 p) {
     if (found.y != 0u) { return found; }
   }
   return uvec2(0);
+}
+
+bool worldSpanContains(uvec2 span, uint id) {
+  uint first = 0u, last = span.y;
+  while (first < last) {
+    uint mid = first + (last - first) / 2u;
+    uint value = words[span.x + mid];
+    if (value == id) { return true; }
+    if (value < id) { first = mid + 1u; } else { last = mid; }
+  }
+  return false;
+}
+
+uint worldIndexAt(uint ordinal) {
+  if (worldFullLookup) { return ordinal; }
+  if (ordinal < words[1]) { return words[words[0] + ordinal]; }
+  ordinal -= words[1];
+  for (uint span = 0u; span < worldSpanCount; ++span) {
+    if (ordinal < worldSpans[span].y) {
+      uint id = words[worldSpans[span].x + ordinal];
+      for (uint earlier = 0u; earlier < span; ++earlier) {
+        if (worldSpanContains(worldSpans[earlier], id)) { return 0xffffffffu; }
+      }
+      return id;
+    }
+    ordinal -= worldSpans[span].y;
+  }
+  return 0xffffffffu;
+}
+
+uvec2 lightSpan(vec3 p) {
+  float width = clusters.viewport.x;
+#if WORLD_SAFE_QUERY
+  ivec3 origin = worldCameraCell * int(clusters.depth.x / width) +
+                  ivec3(floor(worldCameraLocal / width));
+  ivec3 first, last;
+  worldFullLookup = !worldQueryBounds(origin, worldCameraLocal, width, p,
+                                       clusters.viewport.y, first, last);
+  if (worldFullLookup) { return uvec2(0u, uint(lights.count.x) - words[1]); }
+#if WORLD_FULL_AT_BOUNDARY
+  if (any(notEqual(first, last))) {
+    worldFullLookup = true;
+    return uvec2(0u, uint(lights.count.x) - words[1]);
+  }
+#endif
+#else
+  ivec3 first = worldCameraCell * int(clusters.depth.x / width) +
+                ivec3(floor((p + worldCameraLocal) / width));
+  ivec3 last = first;
+#endif
+#if WORLD_WRONG_CELL
+  first.x += 1;
+  last.x += 1;
+#endif
+  uint total = 0u;
+  for (int x = 0; x <= last.x - first.x; ++x) {
+    for (int y = 0; y <= last.y - first.y; ++y) {
+      for (int z = 0; z <= last.z - first.z; ++z) {
+        uvec2 span = worldCellSpan(first + ivec3(x, y, z));
+        if (span.y == 0u) { continue; }
+        worldSpans[worldSpanCount++] = span;
+        total += span.y;
+      }
+    }
+  }
+  if (total >= uint(lights.count.x) - words[1]) {
+    worldFullLookup = true;
+    total = uint(lights.count.x) - words[1];
+  }
+  return uvec2(0u, total);
 }

@@ -202,3 +202,77 @@ Check.h findings (#603), with no suppression or harness-policy change.
 Shared product ABI/lifetime agreement, productive dirty upload, active-world
 residency, transparent composition, full Places, Metal/A18 and total budgets stay
 open. The original coherent archive is not relabelled as current-engine proof.
+
+## FP32 boundary query control (#448)
+
+The original exact-world sphere footprint is insufficient to justify a single-cell
+query after camera-relative FP32 rebasing. Actual native counter: light world x
+31.9995002747m, range0.0001m, eye x−19968m. Rebasing rounds light/receiver x to20000m;
+a receiver displaced0.00005m along another axis has positive attenuation, but its
+lookup selects cell1 while the CPU sphere only touches cell0. This is an explicit
+precision limitation of the earlier probe, not a product/Place regression claim.
+
+`local_light_world_query.{glsl,comp,cpp,py}` checks actual GPU support and queries.
+24 controls (3 axes ×4 widths ×hash/sorted) genuinely fail the old query. The new
+query loses none in2074 cases:24 controls,2048 source-geometry queries from256 finite
+emitters of the8192-light input, and2 checked signed-key overflows. Eight ordinary
+queries touch multiple cells; none require full enumeration. This sample is neither
+all pixels nor a general FP32 correctness proof. The compute consumer is coherently
+built against native b4c515235, with explicit Vulkan validation and retained answers.
+
+The candidate expands the receiver query by a numerical uncertainty margin,
+16×FP32 epsilon×(max(abs(camera-relative p))+maximum finite effective range+128m).
+The128m term covers local position decomposition. This deliberately conservative
+candidate coefficient still needs a complete domain/rounding derivation before a
+product precision guarantee; the tests do not provide that guarantee. Lookup width
+is16/32/64/128m. A bounded query covers at most2 cells per axis; nonfinite positions,
+large margins and checked key overflow retain complete enumeration. The CPU exports
+the largest effective range from the same generation's finite Light64 entries into
+the private existing64B frame's viewport.y; emitter edits refresh it. This private
+frame is not the proposed product48B frame in #448/6249661164.
+
+A full-sum fallback for every boundary hit is too expensive on aligned receiver
+planes. The selected private candidate instead probes at most8 cells, retains sorted
+original-ID spans, and rejects duplicates using binary searches in earlier spans
+before calling the unchanged BRDF. Global IDs remain separate. If the candidate
+membership count reaches full enumeration, it uses the full sum once. Fixed logical
+span state is8×8B per shader invocation; physical register/spill cost is unmeasured.
+No new GPU buffer or shared product binding is added. `WORLD_SAFE_QUERY=0` retains
+the deliberately unsafe control; `WORLD_FULL_AT_BOUNDARY=1` is the measured rejected
+alternative. Both are experimental controls, not additional runtime paths.
+
+Actual frozen3af55ff02 raster/BRDF consumer, RTX3060,1920×1080,8192 emitters,
+5 counter/validation-free GPU samples per plane, shared desktop/render/compiler
+load and unfixed clocks. No coordinate prepass in this comparison. Medians in ms:
+
+|Receiver plane|Unsafe one cell hash|Full boundary hash|Neighbor hash|Neighbor sorted|
+|---|---:|---:|---:|---:|
+|25m|2.702|2.789|3.993|4.171|
+|250m|1.195|1.229|1.587|1.720|
+|500m|0.714|21.627|0.975|1.133|
+|5000m|0.423|59.064|0.552|0.663|
+
+The near-plane candidate costs more than the unsafe query. There is no overall
+speedup, complete-frame/p99 or optimality claim. The full-boundary and neighbor
+variants both meet the original per-component max(1e−7,abs(reference)×1e−5) RGB
+bounds in all8 images. An additional counter-enabled native run with explicit Vulkan
+validation matches exact support counts for both lookups/all4 planes:0 RGB failures,
+0 support mismatches/nonintegers and0 nonfinite/negative values. The complete2-page
+PDF, including actual native control images, was optically inspected. Display uses
+x/(1+x), gamma1/2.2 solely for the diagnostic PDF; no published images or look claim.
+
+An initial private raster attempt omitted the eye-local cell carry. Its comparison
+correctly failed; that prototype's output is discarded, its failed status retained.
+The corrected alternatives above use the complete carry and pass unchanged bounds.
+
+Reproduce the query with `local_light_world_query.py --binary <native-query>
+--shader <query.comp.spv> --output <external-temp>`. Compile its C++ consumer with the
+matching native archive/headers and the existing NativeGpuCheck harness. Compile the
+GLSL with the experiment include path. Existing world raster preparation plus
+`LOCAL_LIGHT_COUNTER=0/1`, `LOCAL_LIGHT_LISTED=0/1`, `WORLD_SAFE_QUERY=1`, and optional
+`WORLD_FULL_AT_BOUNDARY=1` reproduce the alternatives. All exact commands, inputs,
+hashes and terminal results are in the linked PR's query receipt. Offline MSL2.3
+translation is checked; it is not Metal execution. Focused LLVM22 still reports only
+the14 shared Check.h findings (#666); no suppression or policy change. Actual runtime
+bindings/upload/publication, general precision, transparent-world rendering, active
+residency, overlap costs and device/frame admission remain open.
