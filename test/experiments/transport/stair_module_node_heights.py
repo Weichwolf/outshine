@@ -22,7 +22,13 @@ def plan_heights(rows, nodes, cached_points, *, include_interiors=False):
         for i in node["incident"]:
             row = rows[i]
             matches = np.flatnonzero(np.all(row["xy"] == node["xy"], axis=1))
-            if len(matches) != 1:
+            closed_seam = (
+                len(matches) == 2
+                and np.array_equal(matches, [0, len(row["xy"]) - 1])
+                and shapely.LineString(row["xy"]).is_ring
+                and np.ptp(np.asarray(row["prior"])[matches]) <= 1e-10
+            )
+            if len(matches) != 1 and not closed_seam:
                 raise ValueError("one original source sample at each new node required")
             heights.append(row["prior"][matches[0]])
         if not 2 <= len(profiles) <= 4 or np.ptp(heights) > 1e-10:
