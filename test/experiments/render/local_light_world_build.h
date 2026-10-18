@@ -28,7 +28,10 @@ struct Builder {
   uint32_t Width = 32;
   size_t IndexBytes = size_t{16} * 1024 * 1024;
   uint64_t Tests = 0, MembershipChanges = 0, Assignments = 0;
+  uint64_t PackedWordWrites = 0, PackRebuilds = 0;
   bool Overflow = false;
+  bool NeedsPacking = true;
+  Lookup PackedLookup = Lookup::Hash;
 
   [[nodiscard]] std::expected<void, Error>
   Build(std::span<const Light> lights, uint32_t width, size_t budget, Vector translation);

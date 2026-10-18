@@ -71,7 +71,9 @@ WaterAsset WaterField::Asset(const OsmField &source) const {
                         .Outliers = Outliers_,
                         .InvalidBodies = InvalidBodies_,
                         .Status = Ingested(source) ? WaterAsset::Coverage::Complete
-                                                   : WaterAsset::Coverage::Partial};
+                                                   : WaterAsset::Coverage::Partial,
+                        .Sources = {},
+                        .Inputs = {}};
   const auto ranges = CoordinateRanges(data.Rings, data.Courses);
   if (!ranges.empty()) {
     const auto &last = ranges.back();
@@ -93,6 +95,7 @@ WaterAsset WaterField::Asset(const OsmField &source) const {
                           .FirstSurface = surfaces.First,
                           .SurfaceCount = surfaces.Count});
   }
+  BindInputs(data, source);
   AssetInputs_ = inputs;
   Asset_.emplace(std::move(data));
   return *Asset_;

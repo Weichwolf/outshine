@@ -69,6 +69,10 @@ int main() {
             water.Courses().size() == 1,
         "cold generation prepares both standing water and a terrain-dependent flow profile");
   const auto prepared = water.Asset(source);
+  CHECK(prepared.Sources().size() == 1 && prepared.Inputs().size() == 2 &&
+            prepared.InputOf(prepared.Surfaces().front()) &&
+            !prepared.InputOf(prepared.Surfaces().front())->Intermittent,
+        "unreported intermittency remains unknown in declared assets");
   CHECK(prepared.Points().size() == 14 && prepared.Points().size() < source.Points().size(),
         "native water owns only its seven contour vertices and excludes unrelated polygons");
   CHECK(water.Asset(source).Points().data() == prepared.Points().data(),
