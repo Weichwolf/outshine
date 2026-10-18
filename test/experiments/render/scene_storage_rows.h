@@ -11,6 +11,33 @@
 
 namespace outshine::Core::StorageProbe {
 
+template <typename Store>
+void Sources(const char *phase, const void *owner, const Geometry &held, const Store &shape) {
+  std::println(stderr,
+               "SOURCE\t{}\t{}\toriginal\t{}\t{}",
+               phase,
+               owner,
+               static_cast<const void *>(&held),
+               held.storageBytes());
+  if constexpr (requires { shape.AttributeSource; }) {
+    if (shape.AttributeSource) {
+      std::println(stderr,
+                   "SOURCE\t{}\t{}\tattributes\t{}\t{}",
+                   phase,
+                   owner,
+                   static_cast<const void *>(shape.AttributeSource.get()),
+                   shape.AttributeSource->storageBytes());
+    }
+  }
+}
+
+template <typename Store> size_t RetainedBytes(const Store &shape) {
+  if constexpr (requires { shape.AttributeSource; }) {
+    if (shape.AttributeSource) { return shape.AttributeSource->storageBytes(); }
+  }
+  return 0;
+}
+
 inline void Report(const char *phase,
                    const void *owner,
                    const Geometry &held,
@@ -21,7 +48,10 @@ inline void Report(const char *phase,
                        bytes(shape.Tangents) + bytes(shape.Uv) + bytes(shape.Uv1) +
                        bytes(shape.Colours) + bytes(shape.Indices) + bytes(shape.Surfaces) +
                        bytes(shape.Lamps) + bytes(shape.Clusters) + bytes(shape.ClusterSpheres);
-  if (held.storageBytes() + driven.storageBytes() + total < 1048576) { return; }
+  if (held.storageBytes() + driven.storageBytes() + total + RetainedBytes(shape) < 1048576) {
+    return;
+  }
+  Sources(phase, owner, held, shape);
   std::println(stderr,
                "OWNER\t{}\t{}\theld\t{}\tdriven\t{}\tshape\t{}",
                phase,

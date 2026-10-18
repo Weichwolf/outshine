@@ -345,6 +345,28 @@ public:
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 
 private:
+  [[nodiscard]] std::expected<void, std::string> ValidGeometryBuild(const Geometry &built,
+                                                                    size_t drivenParts) const;
+  [[nodiscard]] static bool
+  PreparesRetainedGeometryReplacement(Render::SceneRenderer &renderer,
+                                      const RuntimeScene &previous,
+                                      std::shared_ptr<const Geometry> replacement,
+                                      size_t drivenParts,
+                                      const Ui::Font *font,
+                                      std::unique_ptr<RuntimeScene> &candidate,
+                                      std::string &error,
+                                      Render::SceneResources::PieceSources pieces,
+                                      ResourceRestoreMode restore);
+  [[nodiscard]] bool SetRetainedGeometry(std::shared_ptr<const Geometry> built,
+                                         size_t drivenParts,
+                                         std::string &error);
+  [[nodiscard]] bool SetRetainedGeometry(std::shared_ptr<const Geometry> built,
+                                         size_t drivenParts,
+                                         const Material &wearing,
+                                         std::string &error);
+  [[nodiscard]] std::expected<void, std::string> BeginRetainedGeometryBuild(
+      std::shared_ptr<const Geometry> built, size_t drivenParts, Material wearing);
+
   friend class ::outshine::Engine;
 
   enum class GeometryBuildStage : uint8_t {

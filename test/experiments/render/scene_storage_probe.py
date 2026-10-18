@@ -27,7 +27,7 @@ def instrument(source, header):
     call = "StorageProbe::Report({phase}, this, Held_.Snapshot(), DrivenGeometry_, ShapeParts_);"
     anchors = (
         ("  Held_.SetGeometry(std::move(built));", "geometry-held"),
-        ("  Render::AppendGeometry(Held_.Snapshot(), ShapeParts_);", "geometry-packed"),
+        ("  ShapeCooking_.emplace(ShapeParts_, ShapeParts_.Surfaces);", "geometry-packed"),
         ("    ShapeCooking_.reset();\n    BuildStage_ = GeometryBuildStage::Plan;", "geometry-cooked"),
         ("RuntimeScene::~RuntimeScene() {", "scene-destroy"),
     )
@@ -94,7 +94,7 @@ def main():
         paths += (archive, args.link_command.resolve(), checkout / "src/client/Main.cpp")
         paths += tuple(sorted((checkout / "src/diagnostics").glob("*.cpp")))
     report = {
-        "schema": 1,
+        "schema": 2,
         "checkout": str(checkout),
         "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=checkout, text=True).strip(),
         "git_status": subprocess.check_output(["git", "status", "--porcelain"], cwd=checkout, text=True),

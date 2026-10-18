@@ -40,7 +40,7 @@ is transitional; the generic application benchmark migration remains owned by #5
 Compare image hashes/pixels and open the images. A full native build or frame-budget
 pass is not implied by successful compilation of this one translation unit.
 
-## TSV schema, version 1
+## TSV schema, version 2
 
 All counts are decimal; byte counts use bytes, not MiB. Pointers are process-local identity
 evidence and cannot be compared across runs. Reporting occurs only at four lifecycle
@@ -55,12 +55,20 @@ ownership/image evidence, not an uninstrumented frame gate.
 | `ARRAY` | phase, RuntimeScene pointer, stream, used bytes, capacity bytes, data pointer |
 | `PART` | RuntimeScene pointer, part index, position floats, index elements, normal floats, tangent floats, UV0 floats, UV1 floats, colour floats |
 | `PLACEMENT` | RuntimeScene pointer, part index, identity flag, 16 placement-matrix components |
+| `SOURCE` | phase, RuntimeScene pointer, role (`original`/`attributes`), Geometry pointer, Geometry.storageBytes |
 
-`PART` and `PLACEMENT` appear only at `geometry-held`. The 13 `ARRAY` streams are
+`PART` and `PLACEMENT` appear only at `geometry-held`. The 12 `ARRAY` streams are
 parts, positions, normals, tangents, uv, uv1, colours, indices, surfaces, lamps, clusters,
 spheres. Their capacities sum exactly to `OWNER.shape`. Matrix element order is the
 native `Mat4::operator[]` order; values use 17 significant digits. `PART` counts feed
 the existing `shape_capacity.py` allocation model directly.
+
+`SOURCE` records the original geometry and, when supported by the target checkout,
+the immutable source retained by the attribute views. Equal Geometry pointers denote
+the same product: count its storage once across roles/scenes, not once per lease.
+Different pointers at `geometry-held` can expose an older product still retained by
+the previous shape. The template also compiles against older stores without a lease.
+Control-block/allocator overhead is not included in Geometry.storageBytes.
 
 The original Geometry and its renderer representation are distinct owners. Shared
 attribute spans own no bytes; a reduced ShapeStore total says nothing about their
