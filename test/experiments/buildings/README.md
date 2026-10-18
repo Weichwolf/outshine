@@ -1213,3 +1213,10 @@ new candidates while preserving existing owners and rejected fallbacks. Actual
 normal/full-near1920×1080 images, source completeness, precise index-width replay
 and scoped costs are checked locally; general runtime budgets and architectural
 finish/diversity remain open.
+
+The [coupled highest-roof study](terraced_crowns.md) reserves source height before
+storeys/windows and composes vertical parapets, copings and optional technical
+blocks. Direct roof skins and independent roof/body demand avoid expanding a
+distant body's complete near asset for a visible roof. The report separates
+all71 roof-component checks from the three changed-body controls and records
+actual paired images, full/far/mixed costs and remaining functional/visual gaps.
