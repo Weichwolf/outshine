@@ -10,6 +10,7 @@ from stair_frontier_dispositions import source_dispositions
 from stair_growth_experiment import arguments, selection
 from stair_local_verify import verify as verify_module
 from stair_module_experiment import write_json
+from stair_prepared_surface_scope import optional_terrain
 from stair_terrain_experiment import frozen
 
 
@@ -110,4 +111,6 @@ def verify(args):
 if __name__ == "__main__":
     resource.setrlimit(resource.RLIMIT_CPU, (300, 300))
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
-    verify(arguments())
+    args = arguments()
+    with optional_terrain(args, []):
+        verify(args)
