@@ -119,6 +119,34 @@ def query_costs(source, product):
     return records
 
 
+def batch_costs(product):
+    records = []
+    for view in ("whole", "inside"):
+        camera = cameras()[view]
+        selected = camera.visible(product.data["lower"], product.data["upper"])
+        for batch in (16, 64, 256, 1024):
+            trials = []
+            for _ in range(3):
+                start = time.perf_counter()
+                poses = product.evaluate(selected, max_leaves=100000, batch_hosts=batch)
+                trials.append(time.perf_counter() - start)
+            tracemalloc.start()
+            poses = product.evaluate(selected, max_leaves=100000, batch_hosts=batch)
+            _, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            records.append(
+                {
+                    "view": view,
+                    "batch_hosts": batch,
+                    "median_s": float(np.median(trials)),
+                    "traced_peak_bytes": peak,
+                    "final_array_bytes": sum(v.nbytes for v in poses.values()),
+                    "output_sha256": output_digest(poses),
+                }
+            )
+    return records
+
+
 def run(inputs, output):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private outputs must be under/tmp")
@@ -148,6 +176,7 @@ def run(inputs, output):
         "per_field_parameter_bytes": {k: v.nbytes for k, v in product.data.items()},
         "quality": proof,
         "cases": query_costs(source, product),
+        "batch_costs": batch_costs(product),
         "process_peak_rss_bytes_linux": resource.getrusage(
             resource.RUSAGE_SELF
         ).ru_maxrss
