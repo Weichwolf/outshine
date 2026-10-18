@@ -35,10 +35,12 @@ public:
   std::expected<void, StructureMeshError>
   Mesh(const StructurePlan &plan, MeshScratch &scratch, Raised &into) const noexcept override {
     auto result = Native_.Mesh(plan, scratch, into);
-    Meshes_.push_back({{"source", SourceOf(plan)},
-                       {"detail", static_cast<unsigned>(plan.Coarseness)},
-                       {"openings", plan.RecessedOpenings},
-                       {"accepted", result.has_value()}});
+    Meshes_.push_back(
+        {{"source", SourceOf(plan)},
+         {"detail", static_cast<unsigned>(plan.Coarseness)},
+         {"openings", plan.RecessedOpenings},
+         {"accepted", result.has_value()},
+         {"error", result ? nlohmann::json(nullptr) : nlohmann::json(Describe(result.error()))}});
     return result;
   }
 
