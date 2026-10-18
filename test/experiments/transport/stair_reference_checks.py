@@ -124,6 +124,40 @@ class WholeReferenceRoads(unittest.TestCase):
 
 
 class CompleteTerrainCapacity(unittest.TestCase):
+    def test_explicit_point_capacity_also_bounds_valid_planar_grid_faces(self):
+        size = 130
+        x, y = np.meshgrid(np.arange(size), np.arange(size), indexing="ij")
+        xy = np.c_[x.ravel(), y.ravel()].astype(float)
+        i, j = np.meshgrid(np.arange(size - 1), np.arange(size - 1), indexing="ij")
+        first = (i * size + j).ravel()
+        faces = np.vstack(
+            [
+                np.c_[first, first + size, first + 1],
+                np.c_[first + size, first + size + 1, first + 1],
+            ]
+        )
+        local = {
+            "xy": xy,
+            "faces": faces,
+            "ground": np.zeros(len(faces), bool),
+            "targets": np.zeros(len(xy)),
+            "bed": np.zeros(len(xy)),
+            "bridge_reserve_m": 0.0,
+        }
+        heights, chosen = np.zeros(len(xy)), np.ones(len(faces), bool)
+        state = {"plan": local, "heights": heights}
+        self.assertEqual((len(xy), len(faces)), (16900, 33282))
+        with self.assertRaisesRegex(ValueError, "assembled terrain diagnostic cap"):
+            assemble(state, local, heights, chosen)
+        _plan, _heights, body, _parts, work = assemble(
+            state, local, heights, chosen, max_vertices=32768
+        )
+        self.assertEqual(work["face_capacity"], 65536)
+        proof = body_proof(body, max_faces=262144)
+        self.assertEqual(len(body.triangles), 67596)
+        self.assertEqual(proof["zero_area_faces"], 0)
+        self.assertEqual(proof["closed_oriented_volume_m3"], 83205)
+
     def test_planar_grid_can_exceed_half_the_face_budget_without_exceeding_faces(self):
         x, y = np.meshgrid(np.arange(129), np.arange(129), indexing="ij")
         xy = np.c_[x.ravel(), y.ravel()].astype(float)
@@ -154,7 +188,7 @@ class CompleteTerrainCapacity(unittest.TestCase):
         self.assertEqual(len(plan["faces"]), 32768)
         np.testing.assert_array_equal(plan["xy"], xy)
         np.testing.assert_array_equal(heights, 0)
-        self.assertEqual(work["face_capacity"], 32768)
+        self.assertEqual(work["face_capacity"], 65536)
         self.assertEqual(work["vertex_capacity"], 32768)
         self.assertEqual(len(body.vertices), 33282)
         with self.assertRaisesRegex(ValueError, "body exceeds audit caps"):
