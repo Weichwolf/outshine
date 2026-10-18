@@ -9,6 +9,7 @@ from shapely.affinity import translate
 from .cut_topology import vertex_roots
 from .mesh_fans import connected_fans
 from .prism_union import PrismVolume,frozen,primitive_mesh,triangle_bound
+from .cut_normals import triangle_normals
 
 
 @dataclass(frozen=True)
@@ -74,10 +75,7 @@ def decoded(solid,mesh,sources,names,ids,counts,origin,channels,max_triangles,om
     vertices=properties[:,:3]+origin
     output=dict(vertices=vertices,faces=faces,materials=materials)
     for number,channel in enumerate(channels):output[channel]=properties[:,3+2*number:5+2*number]
-    triangles=vertices[faces];normals=np.cross(triangles[:,1]-triangles[:,0],triangles[:,2]-triangles[:,0])
-    lengths=np.linalg.norm(normals,axis=1)
-    if np.any(lengths==0) or not np.isfinite(lengths).all():raise ValueError('Cut produced an unresolved surface normal')
-    normals/=lengths[:,None]
+    normals=triangle_normals(vertices,faces,mesh,sources,owners,references)
     corner_faces=np.arange(faces.size,dtype=np.int32).reshape(-1,3)
     old_roots=vertex_roots(data,len(vertices));roots=old_roots[faces].reshape(-1)
     output={key:value[faces].reshape(-1,value.shape[-1]) for key,value in output.items() if key not in ('faces','materials')}
@@ -91,7 +89,9 @@ def subtract_prisms(surface_id,surface,sources,max_triangles=262144):
 
     Source index zero names the original surface; later indices preserve cutter order.
     Surface UV0–9 interpolate from original triangles, cut UVs are explicit zeros and
-    cut materials follow their PrismVolume. Geometric normals are rebuilt. Arbitrary
+    cut materials follow their PrismVolume. Geometric normals are rebuilt; exact
+    null topology facets retain their oriented parent normal without moving vertices.
+    Render surfaces may omit those area-free facets; closed topology retains them. Arbitrary
     Shape resources/groups/tags/authored normals and recursive Boolean semantics remain
     outside this primitive. Cardinality limits do not prove a backend time/memory bound.
     """
