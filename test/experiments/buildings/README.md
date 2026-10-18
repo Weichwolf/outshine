@@ -1220,3 +1220,10 @@ blocks. Direct roof skins and independent roof/body demand avoid expanding a
 distant body's complete near asset for a visible roof. The report separates
 all71 roof-component checks from the three changed-body controls and records
 actual paired images, full/far/mixed costs and remaining functional/visual gaps.
+
+The [complete coupled city follow-up](terraced_crowned_city.md) checks all71
+changed bodies and their full draw products before whole-window composition.
+It retains a real null-topology counterexample, an exact cancellation guard and
+oriented contour recovery. The standalone contact probe reproduces its paired
+models without the whole source window. Current whole-city detail selection,
+actual1080p images and scoped cost/quality limits are recorded separately.
