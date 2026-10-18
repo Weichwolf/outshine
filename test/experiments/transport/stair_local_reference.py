@@ -130,6 +130,7 @@ def construct(state, recipe, rows, sources, sample):
         footprint,
         expected_local_roles=local_roles,
         body_max_faces=262144,
+        surface_max_faces=assembly["face_capacity"],
     )
     arrays = {
         "module.npz": data,
