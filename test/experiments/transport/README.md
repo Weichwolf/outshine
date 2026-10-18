@@ -12,9 +12,10 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
-- [Freies Terrain neu vernetzen](stair_free_terrain_comparison.md): ganze automatische
-  Sechsquellgruppe und 90 Quellen bestehen unveränderte absolute-Q-Gates und echte
-  Fachleser; weniger Arbeit mit gemessener Terrainänderung, noch Draft (#713/#714/#725).
+- [Ganze automatische Seeds mit lokaler Float32-Höhenkorrektur](stair_free_terrain_comparison.md):
+  90 ursprüngliche Quellen, vier prozedurale Walk-Kontakte und unveränderte ganze
+  D/Q-Gates; freie Terrainapproximation, tatsächliche Fachleser und gemessene Kosten
+  gegen den teuren Integer-Fit (#713/#714/#725/#729).
 - [Gemeinsame Seeds und regionale Präzision](stair_seed_dependencies_comparison.md):
   ursprüngliche Höhen-/Terrain-Gegenfälle und getrennte regionale Studie (#717).
 - [Ringe und ganze Zufahrt gemeinsam planen](stair_joint_crossing_comparison.md):

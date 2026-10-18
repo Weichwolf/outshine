@@ -50,12 +50,13 @@ def prepare_assets(native, output, objects, args):
 
     cold = output / "cold-source"
     cold.mkdir()
-    source = export(args.inputs.resolve(), cold)
+    source = export(args.inputs.resolve(), cold, args.carrier_segments)
     specification = {
         "format": "native-plant-world-probe-2",
         "cold_source": source["files_sha256"],
         "blade_segments": args.blade_segments,
         "blade_across": 1,
+        "carrier_base_level": args.carrier_base_level,
     }
     request = hashlib.sha256(
         json.dumps(specification, sort_keys=True).encode()
@@ -94,6 +95,10 @@ def prepare_assets(native, output, objects, args):
         request,
         str(args.blade_segments),
     ]
+    if args.carrier_segments is not None:
+        prepare.append(str(cold / "carriers.input"))
+        if args.carrier_base_level:
+            prepare.append("base")
     with (
         (cold / "crown.input").open() as input_,
         (output / "prepare.log").open("w") as log,
@@ -149,11 +154,15 @@ def main():
         "--inputs", type=Path, default=HERE.parent / "vegetation/data/crown682"
     )
     parser.add_argument("--blade-segments", type=int, choices=(2, 4, 8), default=4)
+    parser.add_argument("--carrier-segments", type=int, choices=(2, 4))
+    parser.add_argument("--carrier-base-level", action="store_true")
     parser.add_argument("--world", type=Path)
     parser.add_argument("--place", required=True)
     parser.add_argument("--bearing-deg", required=True, type=float)
     parser.add_argument("--pitch-deg", required=True, type=float)
     args = parser.parse_args()
+    if args.carrier_base_level and args.carrier_segments is None:
+        parser.error("base-level alpha control requires a connected carrier")
     output, native = args.output.resolve(), args.native_root.resolve()
     if not any(
         output.is_relative_to(p)

@@ -1,0 +1,178 @@
+"""Same-camera coverage images of full-reference versus bounded original instances."""
+
+import argparse
+import json
+import resource
+import subprocess
+import time
+from pathlib import Path
+from unittest.mock import patch
+
+import bpy
+import numpy as np
+from crown_demand_probe import cameras
+from crown_draw_batches import batch_geometry, posed_bounds
+from outshine_ref.rendering.blender_camera import configure_camera
+from outshine_ref.rendering.blender_mesh import mesh_object
+from PIL import Image
+from preview_shadows import configure_preview
+from render_spatial_clouds import coverage_material
+from spatial_group_source import load_source
+
+
+def scene_objects(poses, templates, camera):
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    triangles = 0
+    drawn = 0
+    mesh_bytes = 0
+    for variant in np.unique(poses["variants"]):
+        with np.load(templates / f"prototype-{variant}.npz", allow_pickle=False) as z:
+            product = dict(z)
+        chosen = poses["variants"] == variant
+        origins, frames = poses["origins"][chosen], poses["frames"][chosen]
+        keep = camera.visible(*posed_bounds(product, origins, frames))
+        if not keep.any():
+            continue
+        original_ids = poses["ids"][chosen]
+        take = np.flatnonzero(keep)
+        depth = (origins[take] - camera.position) @ camera.axes[2]
+        take = take[np.lexsort((original_ids[take], depth))]
+        ids = original_ids[take]
+        if np.max(ids) > 2**31 - 1:
+            raise ValueError("Blender diagnostic source IDs must fit signed32 bits")
+        mesh = batch_geometry(product, origins[take], frames[take])
+        drawn += len(ids)
+        mesh_bytes += sum(v.nbytes for v in mesh.values())
+        obj = mesh_object(
+            f"leaf{variant}",
+            mesh["vertices"],
+            mesh["faces"],
+            mesh["normals"],
+            coverage_material(f"coverage{variant}", product["colour"][..., 3]),
+            True,
+            uv=mesh["uv"],
+        )
+        attr = obj.data.attributes.new("source_leaf_id", "INT", "FACE")
+        attr.data.foreach_set(
+            "value", np.repeat(ids.astype(np.int32), len(product["faces"]))
+        )
+        obj.data.update()
+        triangles += len(ids) * len(product["faces"])
+    scene = bpy.context.scene
+    configure_preview(scene)
+    scene.eevee.taa_render_samples = 32
+    scene.camera = configure_camera(
+        {
+            "projection": "perspective",
+            "eye": camera.position,
+            "target": camera.target,
+            "vertical_fov_deg": camera.fov_y,
+            "camera_basis": np.column_stack(
+                (camera.axes[0], camera.axes[1], -camera.axes[2])
+            ).tolist(),
+            "clip_near_m": camera.near,
+            "clip_far_m": camera.far,
+        }
+    )
+    scene.world = bpy.data.worlds.new("neutral coverage background")
+    scene.world.use_nodes = True
+    scene.world.node_tree.nodes["Background"].inputs["Color"].default_value = (
+        0.03,
+        0.03,
+        0.03,
+        1,
+    )
+    scene.render.resolution_x, scene.render.resolution_y = 2560, 1440
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = "PNG"
+    scene.view_settings.view_transform = "Standard"
+    return scene, triangles, drawn, mesh_bytes
+
+
+def render(inputs, proof, templates, output):
+    if not output.resolve().is_relative_to(Path("/tmp")):
+        raise ValueError("private output must be under/tmp")
+    output.mkdir(parents=True, exist_ok=False)
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    source = load_source(inputs)
+    report = json.loads((proof / "report.json").read_text())
+    if report["source_identity"] != source.identity:
+        raise ValueError("source identity differs from the exhaustive comparator")
+    with np.load(proof / "reference-poses.npz", allow_pickle=False) as z:
+        reference = dict(z)
+    np.testing.assert_array_equal(
+        reference["ids"], np.arange(len(source.crown.variants))
+    )
+    records = []
+    images = {}
+    camera = cameras()["inside"]
+    with patch(
+        "crown_shoots.CrownShoots.group",
+        side_effect=AssertionError("pose build in reader"),
+    ):
+        for method in ("reference", "root", "arc"):
+            if method == "reference":
+                poses = reference
+            else:
+                with np.load(
+                    proof / f"inside-{method}-selection.npz", allow_pickle=False
+                ) as z:
+                    mask = np.repeat(z["detail"], source.crown.counts)
+                poses = {k: v[mask] for k, v in reference.items()}
+            before = time.perf_counter()
+            scene, triangles, drawn, mesh_bytes = scene_objects(
+                poses, templates, camera
+            )
+            build_s = time.perf_counter() - before
+            scene.render.filepath = str(output / (method + ".png"))
+            before = time.perf_counter()
+            bpy.ops.render.render(write_still=True)
+            records.append(
+                {
+                    "method": method,
+                    "leaf_instances": len(poses["ids"]),
+                    "drawn_leaf_instances": drawn,
+                    "expanded_mesh_array_bytes": mesh_bytes,
+                    "instance_triangles": triangles,
+                    "render_s": time.perf_counter() - before,
+                    "scene_build_s": build_s,
+                }
+            )
+            images[method] = np.asarray(Image.open(scene.render.filepath))[..., :3]
+    differences = {}
+    for method in ("root", "arc"):
+        error = np.abs(np.subtract(images[method], images["reference"], dtype=np.int16))
+        differences[method] = {
+            "mean_RGB8_error": float(error.mean()),
+            "max_RGB8_error": int(error.max()),
+            "different_pixels": int(np.any(error, axis=-1).sum()),
+        }
+    result = {
+        "commit": commit,
+        "camera": {
+            "eye": camera.position,
+            "target": camera.target,
+            "vertical_fov_deg": camera.fov_y,
+            "clip_m": [camera.near, camera.far],
+            "query_profile": [camera.width, camera.height],
+        },
+        "source_identity": source.identity,
+        "resolution": [2560, 1440],
+        "samples": 32,
+        "cases": records,
+        "differences": differences,
+        "process_peak_rss_bytes_linux": resource.getrusage(
+            resource.RUSAGE_SELF
+        ).ru_maxrss
+        * 1024,
+        "scope": "Finished full-reference pose table only for independent render control; all90000 original poses considered in reference, conservative per-leaf posed-prototype AABB rejection before diagnostic triangles. Same original IDs retained as face attributes in eight CPU-expanded Blender mesh batches. Shared connected32 templates and original poses, emission/alpha coverage, no light or shadow/BRDF/native/device/forest admission. This diagnostic expansion is not a proposed runtime representation. Reader does not generate poses. Camera-only culling and rest pose.",
+    }
+    (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser(description=__doc__)
+    for key in ("inputs", "proof", "templates", "output"):
+        p.add_argument("--" + key, type=Path, required=True)
+    a = p.parse_args()
+    render(a.inputs, a.proof, a.templates, a.output)
