@@ -1,5 +1,12 @@
 #include "test/harness/render/NativeGroundLatticeProbe.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOffline.h"
+#include "Check.h"
+#include <algorithm>
 #include <array>
+#include <cstddef>
+#include <memory>
+#include <utility>
 #include <bit>
 #include <chrono>
 #include <cstdint>
@@ -8,7 +15,11 @@
 
 int main() {
   using namespace outshine::Test::GroundProbe;
-  constexpr float high = 0.6f, low = 0.2f, eyeHeight = 0.4f, nearM = 0.1f, eyeEast = 2;
+  constexpr float high = 0.6f;
+  constexpr float low = 0.2f;
+  constexpr float eyeHeight = 0.4f;
+  constexpr float nearM = 0.1f;
+  constexpr float eyeEast = 2;
   auto device = Require(CreateDevice({.Validation = true}));
   GroundLattice ground;
   std::array<ColourTarget, kTargetFormats.size()> formats;
@@ -23,16 +34,16 @@ int main() {
   std::ranges::fill(nodes, low);
   const auto lowPage =
       Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5)));
-  const auto tile = [](PageId page, float west, float east, float height) {
+  const auto tile = [](PageId page, std::array<float, 2> east, float height) {
     GroundTile result;
     result.Instance.Page = static_cast<float>(page);
-    result.Instance.Corners = {west, 0.5f, east, 0.5f, west, -0.5f, east, -0.5f};
+    result.Instance.Corners = {east[0], 0.5f, east[1], 0.5f, east[0], -0.5f, east[1], -0.5f};
     result.Instance.StepE = result.Instance.StepN = 1.0f / (GroundLattice::kSide - 1);
     result.LowM = height - 0.5f;
     result.HighM = height;
     return result;
   };
-  const std::array real{tile(highPage, -1, 0, high), tile(lowPage, 0, 1, low)};
+  const std::array real{tile(highPage, {-1, 0}, high), tile(lowPage, {0, 1}, low)};
   Require(RetryOffline([&] { return ground.SetInstances(real, {}); }, std::chrono::seconds(5)));
   std::array<std::unique_ptr<Texture>, kTargetFormats.size()> targets;
   std::array<ColourAttachment, kTargetFormats.size()> attachments;

@@ -75,22 +75,30 @@ Pipeline(Native::Device &device,
 Native::Result<void>
 GroundPipelineBinding::ConfigureLit(Native::Device &device,
                                     const SurfaceOutputs &outputs,
-                                    std::span<const Native::ColourTarget> targets) {
-  auto made = Pipeline(device,
-                       {.Vertex = outputs.VertexPath("groundLattice"),
-                        .Fragment = outputs.FragmentPath("groundLit")},
-                       targets,
-                       Native::Cull::Back);
+                                    std::span<const Native::ColourTarget> targets,
+                                    bool spatial) {
+  auto made =
+      Pipeline(device,
+               {.Vertex = outputs.VertexPath("groundLattice"),
+                .Fragment = outputs.FragmentPath(spatial ? "groundLitSpatial" : "groundLit")},
+               targets,
+               Native::Cull::Back);
   if (!made) { return std::unexpected(made.error()); }
-  auto patches = Pipeline(device,
-                          {.Vertex = outputs.VertexPath("groundPatchLattice"),
-                           .Fragment = outputs.FragmentPath("groundPatchLit")},
-                          targets,
-                          Native::Cull::Back,
-                          true);
+  auto patches = Pipeline(
+      device,
+      {.Vertex = outputs.VertexPath("groundPatchLattice"),
+       .Fragment = outputs.FragmentPath(spatial ? "groundPatchLitSpatial" : "groundPatchLit")},
+      targets,
+      Native::Cull::Back,
+      true);
   if (!patches) { return std::unexpected(patches.error()); }
-  Lit_ = std::move(*made);
-  Patches_ = std::move(*patches);
+  if (spatial) {
+    SpatialLit_ = std::move(*made);
+    SpatialPatches_ = std::move(*patches);
+  } else {
+    Lit_ = std::move(*made);
+    Patches_ = std::move(*patches);
+  }
   return {};
 }
 

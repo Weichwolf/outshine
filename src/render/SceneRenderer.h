@@ -544,9 +544,21 @@ public:
   }
 
   [[nodiscard]] bool SetSubjectLights(std::span<const SubjectLight> lights, std::string &error) {
-    return ActiveState().Content.Subjects.SetLights(lights, error) &&
-           (!ActiveState().Content.DrawsGlass ||
-            ActiveState().Content.Glass.SetLights(lights, error));
+    if (lights.size() > kMaxSubjectLights) {
+      auto prepared = ActiveState().Content.Subjects.PrepareSpatialLights();
+      if (!prepared) {
+        error = prepared.error().Message;
+        return false;
+      }
+      if (ActiveState().Content.DrawsGlass) {
+        prepared = ActiveState().Content.Glass.PrepareSpatialLights();
+        if (!prepared) {
+          error = prepared.error().Message;
+          return false;
+        }
+      }
+    }
+    return ActiveState().Content.Subjects.SetLights(lights, error);
   }
 
   void SetMedium(const Medium &medium) {
@@ -969,7 +981,12 @@ private:
     OverlayDraw Overlay;
     bool DrawsGlass = false;
 
-    WorldContent() = default;
+    WorldContent() {
+      auto lights = std::make_shared<SubjectLights>();
+      Subjects.LightsFrom(lights);
+      Glass.LightsFrom(std::move(lights));
+    }
+
     WorldContent(const WorldContent &) = delete;
     WorldContent &operator=(const WorldContent &) = delete;
     WorldContent(WorldContent &&) noexcept = default;

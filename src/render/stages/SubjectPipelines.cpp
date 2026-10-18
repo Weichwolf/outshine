@@ -104,15 +104,19 @@ std::string VertexShaderVariant(VertexLayout layout) {
   return std::format("lit-{}{}{}", uvSets, tinted, CarriesTangent(layout) ? 1 : 0);
 }
 
-std::string FragmentShaderVariant(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout) {
-  if (domain == SurfaceDomain::Ground) { return "groundLit"; }
+std::string
+FragmentShaderVariant(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout, bool spatial) {
+  if (domain == SurfaceDomain::Ground) { return spatial ? "groundLitSpatial" : "groundLit"; }
   const bool transmits = kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
   const int fragmentKind = transmits ? 3 : static_cast<int>(kind);
   if (!CarriesNormal(layout)) {
     return std::format("flat-{}{}", fragmentKind, CarriesUv(layout) && !transmits ? 1 : 0);
   }
-  return std::format(
-      "lit-{}{}{}", fragmentKind, CarriesUv(layout) ? 1 : 0, CarriesTangent(layout) ? 1 : 0);
+  return std::format("{}-{}{}{}",
+                     spatial ? "litSpatial" : "lit",
+                     fragmentKind,
+                     CarriesUv(layout) ? 1 : 0,
+                     CarriesTangent(layout) ? 1 : 0);
 }
 
 }
@@ -228,6 +232,9 @@ Native::Result<void> SubjectDraw::Configure(SubjectPipelineBinding &binding,
     if (!configured) { return configured; }
   }
   binding.Device = gpu.Device;
+  binding.Profile = gpu;
+  binding.HasSpatialPipelines = false;
+  binding.SpatialPipelines = {};
   binding.Colours = std::move(colours);
   binding.WritesVelocity = options.WritesVelocity;
   binding.CapturesMaterial = options.BaseIndex >= 0;
@@ -236,6 +243,15 @@ Native::Result<void> SubjectDraw::Configure(SubjectPipelineBinding &binding,
   binding.Behind = behind;
   binding.BehindSampler = exact;
   binding.GlassDrawnElsewhere = separateTransmission;
+  if (Lights_) {
+    const auto attachedLights = Lights_->Attach(*gpu.Device, gpu.Uploads);
+    if (!attachedLights) { return attachedLights; }
+  }
+  if (SpatialLights()) {
+    const auto spatial = PrepareSpatialPipelines(binding);
+    if (!spatial) { return spatial; }
+  }
+  Ground_.UseSpatialLights(SpatialLights() && !binding.CapturesMaterial);
   return {};
 }
 
@@ -251,13 +267,15 @@ Native::Result<void> SubjectDraw::ConfigureKind(
     SurfaceKind kind,
     PipelineShaders &shaders,
     std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
-    uint32_t &built) {
+    uint32_t &built,
+    bool spatial) {
   const auto targets = Targets(gpu, options, colours, kind == SurfaceKind::Blended);
   for (const auto domain : {SurfaceDomain::Subject, SurfaceDomain::Ground}) {
     for (const auto &row : kVertexLayouts) {
       if (!DomainPresents(domain, ShadingArmOf(row.Layout), CarriesUv(row.Layout), kind)) {
         continue;
       }
+      if (spatial && !CarriesNormal(row.Layout) && domain != SurfaceDomain::Ground) { continue; }
       const auto configured = ConfigureVariant(kind,
                                                domain,
                                                row.Layout,
@@ -266,7 +284,8 @@ Native::Result<void> SubjectDraw::ConfigureKind(
                                                *gpu.Device,
                                                shaders,
                                                pipelines,
-                                               built);
+                                               built,
+                                               spatial);
       if (!configured) { return configured; }
     }
   }
@@ -282,11 +301,13 @@ Native::Result<void> SubjectDraw::ConfigureVariant(
     Native::Device &device,
     PipelineShaders &shaders,
     std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
-    uint32_t &built) {
+    uint32_t &built,
+    bool spatial) {
   const auto shape = ShapeOf(layout, options.WritesVelocity);
   auto vertex = shaders.Get(options.VertexPath(VertexShaderVariant(layout)));
   if (!vertex) { return std::unexpected(vertex.error()); }
-  auto fragment = shaders.Get(options.FragmentPath(FragmentShaderVariant(domain, kind, layout)));
+  auto fragment =
+      shaders.Get(options.FragmentPath(FragmentShaderVariant(domain, kind, layout, spatial)));
   if (!fragment) { return std::unexpected(fragment.error()); }
   for (const bool cullsBack : {false, true}) {
     auto made = device.CreateGraphicsPipeline(
@@ -303,6 +324,52 @@ Native::Result<void> SubjectDraw::ConfigureVariant(
     pipelines[PipelineAt(domain, layout, kind, cullsBack)] = std::move(*made);
     ++built;
   }
+  return {};
+}
+
+Native::Result<void> SubjectDraw::PrepareSpatialLights() {
+  if (Binding_ == nullptr) { return {}; }
+  return PrepareSpatialPipelines(Binding());
+}
+
+Native::Result<void> SubjectDraw::PrepareSpatialPipelines(SubjectPipelineBinding &binding) {
+  if (binding.CapturesMaterial || binding.HasSpatialPipelines) { return {}; }
+  if (binding.Device == nullptr) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "spatial light pipelines require a configured device"});
+  }
+  const SourceOptions options{
+      .WritesVelocity = binding.WritesVelocity,
+      .NormalIndex = ColourAttachment(binding.Colours, Resource::SceneShadingNormal),
+      .IdentityIndex = ColourAttachment(binding.Colours, Resource::SceneSurfaceIdentity),
+      .BaseIndex = ColourAttachment(binding.Colours, Resource::SceneSurfaceBase),
+      .MetalRoughIndex = ColourAttachment(binding.Colours, Resource::SceneSurfaceMetalRough)};
+  std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> pipelines;
+  PipelineShaders shaders;
+  uint32_t built = 0;
+  for (const auto kind : {SurfaceKind::Opaque,
+                          SurfaceKind::Masked,
+                          SurfaceKind::Blended,
+                          SurfaceKind::ThinTransmissive,
+                          SurfaceKind::Refractive}) {
+    if (binding.Behind == nullptr &&
+        (kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive)) {
+      continue;
+    }
+    const auto made = ConfigureKind(
+        binding.Profile, options, binding.Colours, kind, shaders, pipelines, built, true);
+    if (!made) { return made; }
+  }
+  if (binding.Behind == nullptr) {
+    const auto targets = Targets(binding.Profile, options, binding.Colours, false);
+    const auto made = binding.Ground.ConfigureLit(
+        *binding.Device, options, std::span(targets).first(binding.Colours.size()), true);
+    if (!made) { return made; }
+  }
+  binding.SpatialPipelines = std::move(pipelines);
+  binding.HasSpatialPipelines = true;
+  binding.Built += built;
   return {};
 }
 

@@ -1,4 +1,5 @@
 #include "SubjectDraw.h"
+#include <bit>
 #include "BatchVisibility.h"
 #include "SurfaceBindings.h"
 #include <algorithm>
@@ -116,9 +117,19 @@ void SubjectDraw::BindSlot(DrawResources &into,
         .Slot = 1,
         .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(uniforms.Light))}};
   }
+  if (SpatialLights() && !Binding().CapturesMaterial &&
+      (CarriesNormal(layout) || surface.Domain == SurfaceDomain::Ground)) {
+    into.Bindings[into.BindingCount++] =
+        Storage(2, SubjectLights::kEmitterBinding, Lights_->Emitters());
+    into.Bindings[into.BindingCount++] = Storage(2, SubjectLights::kIndexBinding, Lights_->Index());
+    into.Bindings[into.BindingCount++] = {
+        .Set = 3,
+        .Slot = SubjectLights::kFrameBinding,
+        .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&uniforms.LightFrame, 1))}};
+  }
 }
 
-SubjectDraw::FrameUniforms SubjectDraw::FrameUniformsOf(const FrameContext &ctx) {
+Native::Result<SubjectDraw::FrameUniforms> SubjectDraw::FrameUniformsOf(const FrameContext &ctx) {
   FrameUniforms uniforms;
   constexpr size_t anchorSlot = 48;
   constexpr size_t previousAnchorSlot = 52;
@@ -135,7 +146,21 @@ SubjectDraw::FrameUniforms SubjectDraw::FrameUniformsOf(const FrameContext &ctx)
   }
   ++UniformPushes_;
   uniforms.Light = PackedLights(ctx);
-  ShadowedFrames_ += uniforms.Light[2] > 0.5f ? 1u : 0u;
+  if (SpatialLights()) {
+    Vec3 origin;
+    for (size_t axis = 0; axis < 3; ++axis) { origin[axis] = -ctx.PreViewTranslation[axis]; }
+    auto frame = MakeLightCellFrame(
+        origin, Lights_->FullEnumeration() ? LightCellLookup::Full : LightCellLookup::Hash);
+    if (!frame) {
+      return std::unexpected(
+          Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = frame.error()});
+    }
+    uniforms.LightFrame = *frame;
+    ShadowedFrames_ += std::bit_cast<uint32_t>(uniforms.Light[2]) != 0 ? 1u : 0u;
+  } else {
+    ShadowedFrames_ += uniforms.Light[2] > 0.5f ? 1u : 0u;
+  }
+  if (SpatialLights() && !Binding().CapturesMaterial) { Lights_->Record(); }
   return uniforms;
 }
 
@@ -159,14 +184,18 @@ Native::Result<void> SubjectDraw::DrawBatchRange(const PassRecording &into,
   const auto &surface = Slots[batch.MaterialSlot];
   const auto pipeline =
       PipelineAt(surface.Domain, BatchLayout[first], surface.Kind, surface.CullsBack);
+  const auto &pipelines =
+      SpatialLights() && CarriesNormal(BatchLayout[first]) && !Binding().CapturesMaterial
+          ? Binding().SpatialPipelines
+          : Binding().Pipelines;
   const auto &index = Bound().Buffer(culled ? SubjectResidency::Stream::DrawIndex
                                             : SubjectResidency::Stream::Index);
-  if (into.Commands == nullptr || !index || !Binding().Pipelines[pipeline]) {
+  if (into.Commands == nullptr || !index || !pipelines[pipeline]) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "subject draw is missing native resources"});
   }
   const Native::DrawState state{
-      .Pipeline = Binding().Pipelines[pipeline].get(),
+      .Pipeline = pipelines[pipeline].get(),
       .Bindings = std::span(resources.Bindings).first(resources.BindingCount),
       .Vertices = std::span(resources.Vertices).first(resources.VertexCount),
       .Area = into.Area,
@@ -200,6 +229,7 @@ Native::Result<void> SubjectDraw::Encode(const FrameContext &ctx, const PassReco
                             Bound().Buffer(SubjectResidency::Stream::Index);
   if (!drawsBatches && (Binding().Behind != nullptr || Ground_.Drawn() == 0)) { return {}; }
   const auto uniforms = FrameUniformsOf(ctx);
+  if (!uniforms) { return std::unexpected(uniforms.error()); }
   const bool cut = Bound().Buffer(SubjectResidency::Stream::DrawIndex) &&
                    Bound().Buffer(SubjectResidency::Stream::DrawArguments) && !Args_.empty();
   std::pair bound{kPipelines, VertexMotion::Deforming};
@@ -221,12 +251,12 @@ Native::Result<void> SubjectDraw::Encode(const FrameContext &ctx, const PassReco
       resources.Bindings[resources.BindingCount++] = {
           .Set = 1,
           .Slot = 0,
-          .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(uniforms.View))}};
+          .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(uniforms->View))}};
       bound = key;
       boundSlot = kNoSlot;
     }
     if (boundSlot != batch.MaterialSlot) {
-      BindSlot(resources, batch.MaterialSlot, wanted, uniforms);
+      BindSlot(resources, batch.MaterialSlot, wanted, *uniforms);
       boundSlot = batch.MaterialSlot;
     }
     const bool culled = cut && batch.JobCount > 0;
@@ -240,7 +270,9 @@ Native::Result<void> SubjectDraw::Encode(const FrameContext &ctx, const PassReco
 
 Native::Result<void> SubjectDraw::EncodeGround(const FrameContext &ctx, const PassRecording &into) {
   if (Binding().Behind != nullptr || Ground_.Drawn() == 0) { return {}; }
-  return EncodeGround(into, FrameUniformsOf(ctx));
+  const auto uniforms = FrameUniformsOf(ctx);
+  if (!uniforms) { return std::unexpected(uniforms.error()); }
+  return EncodeGround(into, *uniforms);
 }
 
 Native::Result<void> SubjectDraw::EncodeGround(const PassRecording &into,
@@ -248,7 +280,7 @@ Native::Result<void> SubjectDraw::EncodeGround(const PassRecording &into,
   if (Binding().Behind != nullptr || Ground_.Drawn() == 0) { return {}; }
   for (const auto &surface : Slots) {
     if (surface.Domain != SurfaceDomain::Ground) { continue; }
-    std::array<Native::Binding, 7> bindings;
+    std::array<Native::Binding, 10> bindings;
     size_t count = 0;
     if (!Binding().CapturesMaterial) {
       auto shadow = Image(surface.Colour);
@@ -274,6 +306,14 @@ Native::Result<void> SubjectDraw::EncodeGround(const PassRecording &into,
                          .Slot = 1,
                          .Value =
                              Native::Uniform{.Bytes = std::as_bytes(std::span(uniforms.Light))}};
+    if (SpatialLights() && !Binding().CapturesMaterial) {
+      bindings[count++] = Storage(2, SubjectLights::kEmitterBinding, Lights_->Emitters());
+      bindings[count++] = Storage(2, SubjectLights::kIndexBinding, Lights_->Index());
+      bindings[count++] = {
+          .Set = 3,
+          .Slot = SubjectLights::kFrameBinding,
+          .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&uniforms.LightFrame, 1))}};
+    }
     return Ground_.Encode(into, std::span(bindings).first(count));
   }
   return {};

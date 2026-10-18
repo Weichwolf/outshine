@@ -52,7 +52,10 @@ LIT_LAYOUTS := 000 010 100 110 200 210 101 111 201 211
 LIT_VERTICES := $(foreach layout,$(LIT_LAYOUTS),$(foreach v,0 1,build/shaders/lit-$(layout)-$(v).vert.spv))
 LIT_FRAGMENTS := $(foreach kind,0 1 2 3,$(foreach layout,00 10 11,$(foreach output,$(GROUND_OUTPUTS),build/shaders/lit-$(kind)$(layout)-$(output).frag.spv)))
 SHADOW_MASK_SHADERS := $(foreach u,0 1 2,$(foreach c,0 1,build/shaders/subjectShadow-$(u)$(c).vert.spv)) $(foreach u,0 1 2,build/shaders/subjectShadow-$(u).frag.spv)
-SHADER_ARTIFACTS := $(sort $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS) $(SHADOW_MASK_SHADERS))
+SPATIAL_OUTPUTS := $(filter-out 01234,$(GROUND_OUTPUTS))
+SPATIAL_LIT_FRAGMENTS := $(foreach kind,0 1 2 3,$(foreach layout,00 10 11,$(foreach output,$(SPATIAL_OUTPUTS),build/shaders/litSpatial-$(kind)$(layout)-$(output).frag.spv)))
+SPATIAL_GROUND_FRAGMENTS := $(foreach name,groundLitSpatial groundPatchLitSpatial,$(foreach output,$(SPATIAL_OUTPUTS),build/shaders/$(name)-$(output).frag.spv))
+SHADER_ARTIFACTS := $(sort $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS) $(SHADOW_MASK_SHADERS) $(SPATIAL_LIT_FRAGMENTS) $(SPATIAL_GROUND_FRAGMENTS))
 SHADER_DEPFILES := $(addsuffix .d,$(SHADER_ARTIFACTS))
 SHADERS_WITHOUT_DEPS := $(filter-out $(patsubst %.d,%,$(wildcard $(SHADER_DEPFILES))),$(SHADER_ARTIFACTS))
 .PHONY: shader-dependencies-missing
@@ -90,6 +93,10 @@ build/shaders/lit-%.frag.spv: src/render/shaders/litFragment.glsl build/shaders/
 	@mkdir -p $(@D)
 	@variant=$*; base=$${variant:7:1}; metal=$${variant:8:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -Ibuild/shaders -DLIT_KIND=$${variant:0:1} -DLIT_TEXTURED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} -DSUBJECT_NORMAL_LOCATION=$${variant:5:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:6:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
+build/shaders/litSpatial-%.frag.spv: src/render/shaders/litFragment.glsl build/shaders/brdfTables.glsl
+	@mkdir -p $(@D)
+	@variant=$*; base=$${variant:7:1}; metal=$${variant:8:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -Ibuild/shaders -DSPATIAL_LIGHTS=1 -DLIT_KIND=$${variant:0:1} -DLIT_TEXTURED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} -DSUBJECT_NORMAL_LOCATION=$${variant:5:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:6:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
 build/shaders/flat-%.vert.spv: src/render/shaders/flatVertex.glsl
 	@mkdir -p $(@D)
 	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DFLAT_UVS=$${variant:0:1} -DFLAT_TINTED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
@@ -121,6 +128,12 @@ build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl build/shad
 
 build/shaders/groundPatchLit-%.frag.spv: src/render/shaders/groundLit.glsl build/shaders/brdfTables.glsl
 	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DGROUND_PATCHES=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
+build/shaders/groundLitSpatial-%.frag.spv: src/render/shaders/groundLit.glsl build/shaders/brdfTables.glsl
+	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DSPATIAL_LIGHTS=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
+build/shaders/groundPatchLitSpatial-%.frag.spv: src/render/shaders/groundLit.glsl build/shaders/brdfTables.glsl
+	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DSPATIAL_LIGHTS=1 -DGROUND_PATCHES=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
 shader-tools:    ## build pinned glslang (requires CMake and Ninja)
 	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py

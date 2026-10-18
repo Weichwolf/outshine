@@ -26,14 +26,19 @@ class GroundPipelineBinding {
 public:
   [[nodiscard]] Native::Result<void> ConfigureLit(Native::Device &device,
                                                   const SurfaceOutputs &outputs,
-                                                  std::span<const Native::ColourTarget> targets);
+                                                  std::span<const Native::ColourTarget> targets,
+                                                  bool spatial = false);
   [[nodiscard]] Native::Result<void> ConfigureDepth(Native::Device &device);
 
-  [[nodiscard]] Native::GraphicsPipeline *Lit() const { return Lit_.get(); }
+  [[nodiscard]] Native::GraphicsPipeline *Lit(bool spatial = false) const {
+    return spatial ? SpatialLit_.get() : Lit_.get();
+  }
 
   [[nodiscard]] Native::GraphicsPipeline *Depth() const { return Depth_.get(); }
 
-  [[nodiscard]] Native::GraphicsPipeline *Patches() const { return Patches_.get(); }
+  [[nodiscard]] Native::GraphicsPipeline *Patches(bool spatial = false) const {
+    return spatial ? SpatialPatches_.get() : Patches_.get();
+  }
 
   [[nodiscard]] Native::Result<void> ConfigureSelection(Native::Device &device) {
     return GroundPatchSelection::Configure(device, Selection_);
@@ -44,7 +49,7 @@ public:
   }
 
 private:
-  std::unique_ptr<Native::GraphicsPipeline> Lit_;
+  std::unique_ptr<Native::GraphicsPipeline> Lit_, SpatialLit_, SpatialPatches_;
   std::unique_ptr<Native::GraphicsPipeline> Depth_;
   std::unique_ptr<Native::GraphicsPipeline> Patches_;
   GroundPatchSelection::Pipelines Selection_;
@@ -52,6 +57,8 @@ private:
 
 class GroundLattice {
 public:
+  void UseSpatialLights(bool enabled) noexcept { SpatialLights_ = enabled; }
+
   void UploadsFrom(UploadQueue *queue) noexcept { Uploads_ = queue; }
 
 #define GROUND_INT(name, value) static constexpr int name = value;
@@ -80,13 +87,13 @@ public:
   static constexpr uint32_t kPatchSide = kGroundPatchCells + 1u;
   static constexpr uint32_t kPatchCount = 1u << kGroundPatchBits;
   static constexpr uint32_t kPatchIndices = kGroundPatchCells * kGroundPatchCells * 6u;
-  static constexpr DrawShape LitShape{.VertexSamplers = 1,
-                                      .VertexUniformBuffers = 1,
-                                      .FragmentSamplers = 2,
-                                      .FragmentUniformBuffers = kSubjectFragmentUniforms,
-                                      .FragmentStorageBuffers = 2};
-  static constexpr DrawShape PatchShape = [] {
-    auto shape = LitShape;
+  static constexpr DrawShape MaximumLitShape{.VertexSamplers = 1,
+                                             .VertexUniformBuffers = 1,
+                                             .FragmentSamplers = 2,
+                                             .FragmentUniformBuffers = kSubjectFragmentUniforms + 1,
+                                             .FragmentStorageBuffers = 4};
+  static constexpr DrawShape MaximumPatchShape = [] {
+    auto shape = MaximumLitShape;
     shape.VertexStorageBuffers = 2;
     shape.FragmentSamplers += 1;
     shape.FragmentStorageBuffers += 1;
@@ -157,6 +164,7 @@ public:
   [[nodiscard]] uint64_t HeldBytes() const;
 
 private:
+  bool SpatialLights_ = false;
   [[nodiscard]] Native::Result<void> BuildGrid(std::span<const float> fractions,
                                                std::unique_ptr<Native::Buffer> &into);
   [[nodiscard]] Native::Result<void> BuildPages(uint32_t layers,

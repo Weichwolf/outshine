@@ -173,6 +173,22 @@ struct SurfacePixels {
   std::span<const float> Colour, Depth;
 };
 
+inline void CheckFineNormals(SurfacePixels actual, SurfacePixels expected) {
+  size_t coverageMismatch = 0;
+  size_t normalMismatch = 0;
+  for (size_t i = 0; i < kPixels; ++i) {
+    if ((actual.Depth[i] > 0) != (expected.Depth[i] > 0)) { ++coverageMismatch; }
+    for (size_t c = 0; c < 4; ++c) {
+      if (!std::isfinite(actual.Colour[i * 4 + c]) ||
+          std::abs(actual.Colour[i * 4 + c] - expected.Colour[i * 4 + c]) > kDepthTolerance) {
+        ++normalMismatch;
+      }
+    }
+  }
+  CHECK(coverageMismatch == 0, "adaptive patches retain closed full-grid coverage");
+  CHECK(normalMismatch == 0, "coarse geometry reconstructs the original fine interpolated normals");
+}
+
 inline void CheckTarget(SurfacePixels pixels, std::span<const float> value, const char *message) {
   size_t errors = 0;
   for (size_t i = 0; i < kPixels; ++i) {
@@ -317,17 +333,8 @@ inline void Lit(Device &device,
     const auto expected = PatternControl(device, *pattern, bindings, attachments);
     if (adaptive) {
       const auto expectedNormals = Read(device, *targets[1], 4);
-      size_t coverageMismatch = 0, normalMismatch = 0;
-      for (size_t i = 0; i < kPixels; ++i) {
-        coverageMismatch += (depths[i] > 0) != (expected[i] > 0);
-        for (size_t c = 0; c < 4; ++c) {
-          normalMismatch += !std::isfinite(actualNormals[i * 4 + c]) ||
-                            std::abs(actualNormals[i * 4 + c] - expectedNormals[i * 4 + c]) > 1e-6f;
-        }
-      }
-      CHECK(coverageMismatch == 0, "adaptive patches retain closed full-grid coverage");
-      CHECK(normalMismatch == 0,
-            "coarse geometry reconstructs the original fine interpolated normals");
+      CheckFineNormals({.Colour = actualNormals, .Depth = depths},
+                       {.Colour = expectedNormals, .Depth = expected});
     } else {
       CHECK(depths == expected,
             "all patch pixels exactly match independently drawn full-grid triangles");

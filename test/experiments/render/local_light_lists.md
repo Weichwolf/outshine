@@ -1,10 +1,12 @@
 # Point-light list counterexamples and method comparison
 
 Refs #448; goal #190. This is a method experiment, not a runtime light-list
-implementation or acceptance of thousands of lights. The public counterexample
+implementation or acceptance of thousands of lights. At baseline `a326c8abe`, the public counterexample
 uses the real Engine/Geometry/renderer API: 15 points plus the declared Sun render
 4,096 nonempty pixels, while 16 points plus Sun fail at `setGeometry` because the
 subject refuses a seventeenth light. Both cases keep total point candela fixed.
+The later native renderer connection and current probe result are described in
+`native_light_cells.md`; the baseline failure is retained as its counterexample.
 `local_light_limit.cpp` returns 1 for this existing defect, 0 only when both render,
 and 2 for SDL initialization failure. It is intentionally outside normal tests.
 

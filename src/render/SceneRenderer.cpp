@@ -1637,6 +1637,8 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   }
   StageSubmission stageSubmission;
   const auto restoreTemporalState = [&] {
+    ActiveState().Content.Subjects.AbortLights();
+    ActiveState().Content.Glass.AbortLights();
     ActiveState().Jitter = previousJitter;
     ActiveState().PrevJitter = previousPrevJitter;
     ActiveState().JitterAt = previousJitterAt;
@@ -1677,6 +1679,8 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   }
   Landed_[LandedAt_] = *submitted;
   LastFrameSubmission_ = *submitted;
+  ActiveState().Content.Subjects.SubmitLights(*submitted);
+  ActiveState().Content.Glass.SubmitLights(*submitted);
   Uploads_->Submitted(*submitted);
   record(RenderFramePhase::Submit);
   CommitSubmittedFrame(stageSubmission);

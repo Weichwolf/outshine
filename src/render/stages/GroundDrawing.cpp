@@ -22,9 +22,10 @@ Native::Result<void> GroundLattice::Draw(const PassRecording &into,
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground draw is missing native resources"});
   }
-  constexpr size_t maximumBindings = LitShape.VertexSamplers + LitShape.VertexUniformBuffers +
-                                     LitShape.FragmentSamplers + LitShape.FragmentUniformBuffers +
-                                     LitShape.FragmentStorageBuffers;
+  constexpr size_t maximumBindings =
+      MaximumLitShape.VertexSamplers + MaximumLitShape.VertexUniformBuffers +
+      MaximumLitShape.FragmentSamplers + MaximumLitShape.FragmentUniformBuffers +
+      MaximumLitShape.FragmentStorageBuffers;
   std::array<Native::Binding, maximumBindings> resources;
   if (bindings.size() >= resources.size()) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -66,7 +67,14 @@ Native::Result<void> GroundLattice::Encode(const PassRecording &into,
   if (!DrawEnabled_) { return {}; }
   const auto patched = DrawPatches(into, bindings);
   if (!patched) { return patched; }
-  return Draw(into, Pipelines_->Lit(), Visible_, VisibleReal_, VisibleVirtual_, bindings, 0, true);
+  return Draw(into,
+              Pipelines_->Lit(SpatialLights_),
+              Visible_,
+              VisibleReal_,
+              VisibleVirtual_,
+              bindings,
+              0,
+              true);
 }
 
 }
