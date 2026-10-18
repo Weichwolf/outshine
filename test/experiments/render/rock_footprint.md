@@ -1,6 +1,6 @@
 # Directed rock pixel footprints
 
-Owner: #370 / #6 / #189. The existing three noise fields and catalogue material
+Owner: #370 / #6 / #5. The existing three noise fields and catalogue material
 values are retained. Baseline source: 1a1d1d885 (ground shaders also identical to
 archived a56f3e3be). SIGGRAPH2009 Sparse Gabor Noise, section5.2/Figure6/page6 was
 read optically: mapping derivatives precede spectral filtering. This experiment
@@ -30,6 +30,45 @@ or clear the observed Central-Park frame spike.
 The independent Gaussian primitive test retains its numerical thresholds and
 extends to1,345 checks over both phase axes. Disabled/unresolved cases move to
 actual field-level GPU checks, where visibility is now decided.
+
+## Current native Metal integration
+
+The existing PR #386 is synchronized with native82e7a69d7. Filter mathematics is
+unchanged; the merged caller retains native regular/adaptive ground support.
+The current complete build/database passes (488archive objects/490units).
+The compute consumer is reused only after exact archive and source hash equality
+with its previously compiled Metal closure; no old/new native headers are mixed.
+
+Current CPU86cases/eight controls and actual Metal86cases/twelve neutral groups
+pass. Maximum GPU/CPU normal difference is0.000049202degrees against the retained
+0.05degree limit. The actual imported Gaussian primitive has1345checks/0failures;
+its full actual compiler flags pass LLVM23analysis. Test-only linkage, aggregate
+initialization, named original tolerances and the two-argument reference record
+are cleaned up; no cases, numerical limits or assertions are removed.
+
+Both ground fragment families are compiled:42before/after resource layouts match
+through the existing full layout normalizer (generated type IDs are not layouts).
+All42candidate SPIR-V files are byte-identical to the actual product build; other
+artifacts are shared unchanged. All517shader artifacts and12compute contracts pass.
+
+Actual unchanged1280x720/60 Koerbersee/Tokyo/CentralPark each finish60frames,
+360degrees and60GPUqueries on both sides, with equal39336/2981446/1490238triangles.
+Before PNGs exactly reproduce the accepted current native pictures. Display pixel
+changes are228141/467/23012, respectively; worst38/2/15LSB. All three full/crop PDF
+pages were opened, including the largest change. Some slanted rock details remain
+more readable; sparse foreground trees, terrain distribution and city art dominate
+remaining deficits. No new local matched webcam photo was available for this run;
+historical dated-photo evidence below is not relabeled as current.
+
+All six whole processes take3.319-7.729s. GPU maxima remain25.18-52.61ms, above
+16.67ms; one Tokyo outlier prompts the existing reverse pair, which repeats both
+PNGs and returns27.89/28.91ms. This does not prove a speedup or isolate a shader
+regression. The original one-second turn bound is also still exceeded. PR #386
+therefore remains Draft; loading/frame/device-peak acceptance is not generalized.
+Current commands, exact source/archive/binary hashes, failed diagnostic setup,
+independent references, matched images and PDFs remain in
+/tmp/outshine-pr386-metal/ and /tmp/outshine-pr386-test-analysis/. No full-lint
+terminal success or complete BRDF/normal-variance proof is claimed.
 
 ## Reproduction
 

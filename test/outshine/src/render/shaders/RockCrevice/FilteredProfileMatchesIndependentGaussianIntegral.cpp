@@ -4,11 +4,10 @@
 #include <cmath>
 #include <numbers>
 
+namespace {
 namespace Shader {
 struct vec2 {
   float x, y;
-
-  vec2(float a, float b) : x(a), y(b) {}
 };
 
 float inversesqrt(float value) {
@@ -22,15 +21,19 @@ float exp(float value) {
 #include "src/render/shaders/rockCrevice.glsl"
 }
 
-namespace {
-std::array<double, 2> Integrated(double value, double variance) {
+struct Sample {
+  double Value = 0;
+  double Variance = 0;
+};
+
+std::array<double, 2> Integrated(const Sample &sample) {
   constexpr int intervals = 2048;
   constexpr double width = .07;
-  const double sigma = std::sqrt(variance);
+  const double sigma = std::sqrt(sample.Variance);
   std::array<double, 2> result{};
   for (int at = 0; at <= intervals; ++at) {
     const double position = -8 + 16.0 * at / intervals;
-    const double displaced = value + sigma * position;
+    const double displaced = sample.Value + sigma * position;
     const double density = std::exp(-position * position / 2) / std::sqrt(2 * std::numbers::pi);
     const double pulse = std::exp(-displaced * displaced / (2 * width * width));
     const double weight = (at == 0 || at == intervals ? .5 : 1) * 16 / intervals;
@@ -45,21 +48,23 @@ int main() {
   using namespace outshine::Test;
   constexpr std::array kPhaseSpans{0.0f, .01f, .05f, .2f, .4f, .7f, .8f, 2.0f};
   constexpr std::array kValues{-.49f, -.14f, -.02f, 0.0f, .02f, .14f, .49f};
+  constexpr double kProfileTolerance = 1e-5;
+  constexpr double kDerivativeTolerance = 1e-4;
   constexpr float kBoxVariance = 1.0f / 12.0f;
   for (const float dx : kPhaseSpans) {
     for (const float dy : kPhaseSpans) {
       const float variance = (dx * dx + dy * dy) * kBoxVariance;
       for (const float value : kValues) {
         const auto actual = Shader::rockCrevice(value, variance);
-        const auto expected = Integrated(value, variance);
+        const auto expected = Integrated({.Value = value, .Variance = variance});
         CHECK_NEAR(actual.x,
                    expected[0],
-                   1e-5,
+                   kProfileTolerance,
                    "noise height",
                    "filtered crevice matches numerical convolution");
         CHECK_NEAR(actual.y,
                    expected[1],
-                   1e-4,
+                   kDerivativeTolerance,
                    "noise derivative",
                    "filtered derivative matches independent integration");
         CHECK(std::isfinite(actual.x) && std::isfinite(actual.y) && actual.x >= -1 && actual.x <= 0,
