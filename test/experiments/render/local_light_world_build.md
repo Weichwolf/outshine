@@ -48,8 +48,13 @@ Own producer peak3,864,312 B cold /3,870,812 B over edits includes both Light64
 arrays, cells, PMR capacities, scratch and packed words. Caller input, IO and
 driver are excluded. This is not total process/device peak or frame acceptance.
 
-Full Pack still zero-fills/rebuilds all words, even for photometry-only changes.
-It remains a measured cost and a next improvement; no partial upload saving.
+Packing now retains the current words until cell membership, global membership,
+Build, or lookup method changes. Photometry and point/spot changes update Light64
+without rewriting the index. A changed 128 m position cell patches only its changed
+coordinate words while the index is valid. Changes before the first Pack, batches,
+full fallback, empty input and rejected requests retain the same full-pack bytes.
+The original IDs and binary layout are unchanged; no dirty GPU-upload contract is
+introduced. Build and membership changes still perform the complete original pack.
 The caller dumps words +64N local-light +12N coordinate bytes after timing.
 Static use needs no Build/Update call; a forced rebuild recreates map nodes.
 
@@ -77,3 +82,53 @@ Those fresh offline processes prove neither runtime publication nor Metal/A18.
 No shared Check.h is included by this producer; the separate raster harness's
 14 findings remain with #603. Exact commands/terminal logs and original inputs
 are linked from the delivery PR; no images are published by this experiment.
+
+## Retained packing comparison (#448)
+
+`local_light_world_pack_compare.py` compares two native producer executables against
+exact output hashes after every edit. Six normal-priority pairs alternate before/after
+order on the shared Linux i5-10400 host; both use Clang/libc++21, O2 and work counters
+off. PMR allocation tracking and constant-time word-store accounting remain enabled.
+The unchanged full-pack control comes from commit0ce1957c2. Dumps/hashes are outside
+the measured build/edit/pack intervals. Concurrent desktop/render/compiler load and
+unfixed clocks apply; no GPU time or overall frame improvement follows.
+
+| Operation | Full pack median ms | Retained pack median ms | Retained index word stores |
+|---|---:|---:|---:|
+|Cold|0.462787|0.465724|539450|
+|Colour|0.190122|0.000048|0|
+|Point/spot|0.189644|0.000032|0|
+|Move one|0.191447|0.221257|539450|
+|Range|0.481809|0.496923|539744|
+|Become global|0.193297|0.190232|539414|
+|Direction while global|0.188520|0.000045|0|
+|Become finite|0.186912|0.198030|539450|
+
+All 12 sequences produce identical original binary outputs at all eight states.
+The 8192-light colour edit retains the1,232,452 B index payload and avoids539,450
+logical word stores (2,157,800 B, including original zero-fill and scatter overwrites;
+source-level accounting, not measured DRAM traffic).
+This concerns CPU index packing only: Source/Local Light64 still update, no transfer
+or GPU residency saving is claimed. Membership changes retain the complete pack;
+their measured times show no general gain. Both versions retain identical PMR
+allocation counts and tracked peaks:3,864,312 B cold,3,870,812 B maximum over edits.
+The Builder object grows from368 to384 B (Linux x86_64); object/stack, caller input,
+dump files and driver are outside those PMR peaks.
+
+The existing independent NumPy reference passes40 cases across four widths and two
+lookups, including Earth translation, empty and overflow;28 sequential edits and11
+actual input refusals remain checked. `local_light_world_pack_checks.cpp` adds196
+checks in both normal and ASan/UBSan/libc++ extensive-hardening builds: reused index,
+coordinate-only global/fallback edits, multiple changes before packing, lookup
+switches, fresh Build, pre-Pack edits, invalid requests and exact fresh-rebuild bytes.
+Five affected/dependent C++ units pass the unchanged focused LLVM22 policy. No shared
+Check.h dependency or new renderer ABI is added; Draft #656 owns earlier actual GPU
+controls for these unchanged output bytes. Actual runtime upload, transparent-world
+rendering, Metal execution, A18 and the product's16-light refusal remain open.
+
+For the comparison, build both versions with `-DLOCAL_LIGHT_BUILD_COUNTER=0`, then run
+`local_light_world_pack_compare.py --before <full> --after <retained> --output <temp>`.
+Build the state checks by substituting `local_light_world_pack_checks.cpp` for the
+existing CLI main in the four-unit command above. Full argv, hashes, terminal status,
+original first-pair dumps and the optically inspected one-page PDF live in the PR's
+linked evidence; repeated identical output copies are removed after hash comparison.

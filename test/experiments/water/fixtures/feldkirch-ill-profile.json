@@ -1,0 +1,65 @@
+{
+  "purpose": "fixed real-input counterexample for shared river-profile research; not a native place or image oracle",
+  "input_sha256": "9c925970942c835b4af1ddef540afaff46b22117d2d33e1f7453b6737e7236f5",
+  "source_asset_key": "e10baddd4e10e79cb1d5b7d44fc2a9e217a9a5e61e993f1c471df0ce4b8c1d5b",
+  "source_package_sha256": "7fa27cc97424a3c5560f843683e025d413f63f5b4f5e27686e4e8f15431f838f",
+  "native_water_sha256": "f60008cd35242655b9620af93b24f13647f55e30e256d265f1ce5b7e3c5f5868",
+  "source_epoch": "not recorded in this cooked product",
+  "sources": [
+    "OpenFreeMap OSM-based vectors; \u00a9 OpenStreetMap contributors, https://www.openstreetmap.org/copyright",
+    "Mapterhorn height data, through the configured Outshine provider; provider attribution at https://mapterhorn.com/data-access/"
+  ],
+  "frame": {
+    "origin_lon_lat": [
+      9.598371,
+      47.232575
+    ],
+    "xy": "local equirectangular approximation used only for this prototype; no native WGS84/frame error bound",
+    "height": "ASL metres from existing cooked water courses, not resampled DEM"
+  },
+  "selection": {
+    "scope": "prototype: one connected example body identified geometrically, no source-class admission; no native implementation",
+    "selected_surface_indices": [
+      0,
+      1,
+      17,
+      18,
+      41,
+      89,
+      132,
+      133,
+      145,
+      338,
+      368,
+      428,
+      429
+    ],
+    "selected_course_indices": [
+      0,
+      1,
+      16,
+      17,
+      26,
+      27,
+      76,
+      167,
+      176,
+      178,
+      181,
+      203,
+      215,
+      441,
+      476,
+      612,
+      614
+    ],
+    "source_points": 138,
+    "merged_nodes": 128,
+    "segments": 120,
+    "shared_node_height_disagreement_m_max": 0.0623779296875
+  },
+  "boundary": "5 m maximum edge sampling; original constant surface level per query retained",
+  "admission": "flow classes, source IDs, bridge/tunnel separation and native topology are not supplied by this fixture",
+  "schema_version": 2,
+  "surface_extension": "Original rings, holes, memberships and flat levels of the same 13 selected native surfaces; existing query/segment arrays unchanged"
+}
