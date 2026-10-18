@@ -119,3 +119,10 @@ positive weighted QP against the same complete LP direction/pin constraints.
 It includes exact solver-matrix exports, an independent saved-output reader,
 real 10/20/40 m cases, Source/Installed checks, costs and a private whole 3D diagnostic.
 The existing shared weighted fitter and native water remain unchanged.
+
+
+## Native solver comparison
+
+[Native HiGHS/OSQP probes and exact area integration](native_profile_comparison.md)
+compare the same finite directed problem, including a retained vertex-lumping bias.
+Standalone optional builds use installed solver libraries; production water is unchanged.
