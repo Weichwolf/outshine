@@ -46,7 +46,7 @@ def peak_memory():
     }
 
 
-def cohort(inputs, spec, output, track_pack=False):
+def cohort(inputs, spec, output, track_pack=False, copy_method="view"):
     base = spec["basis"]
     anchor, sources = basis_sources((inputs / f"{base}.basis").read_bytes())
     items = []
@@ -79,7 +79,7 @@ def cohort(inputs, spec, output, track_pack=False):
         for _ in range(1 if track_pack else 3):
             packed = None
             started = time.perf_counter()
-            packed = [pack(group) for group in groups]
+            packed = [pack(group, copy_method) for group in groups]
             durations.append(time.perf_counter() - started)
     page_rows = []
     for page, (group, (streams, mapping)) in enumerate(
@@ -121,6 +121,7 @@ def cohort(inputs, spec, output, track_pack=False):
         "explicit_offset_write_bytes": rewritten,
         "median_pack_seconds": statistics.median(durations),
         "pack_instrumented": track_pack,
+        "copy_method": copy_method,
         "pack_seconds": durations,
         "original_counters": [sum(p["counters"][i] for p in items) for i in range(8)],
         "clusters": sum(p["counts"][4] + p["counts"][8] for p in items),
@@ -145,7 +146,7 @@ def cohort(inputs, spec, output, track_pack=False):
     return report
 
 
-def run(inputs, output, track_pack=False):
+def run(inputs, output, track_pack=False, copy_method="view"):
     manifest_path = inputs / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     occupancy = Counter()
@@ -153,7 +154,7 @@ def run(inputs, output, track_pack=False):
         _, sources = basis_sources(checked(inputs / base["file"], base["sha256"]))
         occupancy.update(Counter(sources["cell"].tolist()).values())
     cases = [
-        cohort(inputs, spec, output / spec["parent"], track_pack)
+        cohort(inputs, spec, output / spec["parent"], track_pack, copy_method)
         for spec in manifest["cohorts"]
     ]
     report = {
@@ -190,6 +191,7 @@ if __name__ == "__main__":
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--track-pack", action="store_true")
+    parser.add_argument("--copy-method", choices=("slice", "view"), default="view")
     args = parser.parse_args()
     target, temporary = args.output.resolve(), Path(tempfile.gettempdir()).resolve()
     checkout = Path(__file__).resolve().parents[3]
@@ -201,4 +203,4 @@ if __name__ == "__main__":
     ):
         parser.error("fresh explicit system-temp output outside the checkout required")
     target.mkdir(parents=True)
-    run(args.inputs.resolve(), target, args.track_pack)
+    run(args.inputs.resolve(), target, args.track_pack, args.copy_method)

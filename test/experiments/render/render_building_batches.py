@@ -99,7 +99,7 @@ def run(inputs, packed, parent, output):
                 "profile": [1280, 720],
                 "cases": cases,
                 "memory": peak_memory(),
-                "scope": "Same explicit CPU geometry camera, two whole-cohort depth images. Pixel-centre opaque level-0 triangles, near-crossing omitted. No MSAA, alpha, material/light/shadow, full-world, runtime LOD/visibility or native/device proof.",
+                "scope": "Same explicit CPU geometry camera, four whole-cohort before/after depth pairs. Pixel-centre opaque level-0 triangles, near-crossing omitted. No MSAA, alpha, material/light/shadow, full-world, runtime LOD/visibility or native/device proof.",
             },
             indent=2,
         )

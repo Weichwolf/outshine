@@ -117,6 +117,15 @@ class BuildingBatches(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_streams(streams, item["counts"])
 
+    def test_independent_slice_and_view_copies_keep_same_complete_bytes(self):
+        originals = [triangle(1, True, 2), triangle(2, True)]
+        view, view_map = pack(originals, "view")
+        sliced, slice_map = pack(originals, "slice")
+        self.assertEqual(view, sliced)
+        self.assertEqual(view_map, slice_map)
+        with self.assertRaises(ValueError):
+            pack(originals, "unknown")
+
 
 if __name__ == "__main__":
     unittest.main()

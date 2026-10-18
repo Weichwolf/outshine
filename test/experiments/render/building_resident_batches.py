@@ -38,7 +38,9 @@ def pages(products, capacity):
     return result
 
 
-def pack(items):
+def pack(items, copy_method="view"):
+    if copy_method not in ("view", "slice"):
+        raise ValueError("explicit measured copy method required")
     totals = [sum(item["counts"][i] for item in items) for i in range(10)]
     if max(totals, default=0) > np.iinfo(np.uint32).max:
         raise ValueError("uint32 stream offset overflow")
@@ -52,7 +54,10 @@ def pack(items):
             zip(item["streams"], STREAM_BYTES, strict=True)
         ):
             first = offsets[i] * width
-            into[i][first : first + len(source)] = source
+            if copy_method == "view":
+                memoryview(into[i])[first : first + len(source)] = source
+            else:
+                into[i][first : first + len(source)] = source
             if i in (2, 3, 7, 9):
                 vertices = 0 if i in (2, 7) else 1
                 np.frombuffer(
