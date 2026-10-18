@@ -41,6 +41,12 @@ expliziten horizontalen Referenzdatum an. Es verwendet `HeightBudget`/`HeightFit
 Gewichte, Besitz, gültige Kandidaten und Grenzen stehen in
 [weighted_heights.md](weighted_heights.md) (#265).
 
+`transport.level_heights.fit_level_heights` passt ausdrücklich gemeinsame ebene
+Vertexgruppen unter ganzen Gradgrenzen an und prüft eine begrenzte lokale
+Float32-Höhenkorrektur. Bestehende `Mesh`-/`HeightBudget`-/`HeightFit`-Verträge,
+verzögerter Import, Repräsentationsgrenzen und Abwesenheit:
+[level_heights.md](level_heights.md) (#732).
+
 `transport.rail_hardware.build_rail_hardware` liefert vereinfachte geschlossene Schienen und
 gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrücklich
 gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
