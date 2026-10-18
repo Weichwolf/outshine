@@ -63,10 +63,14 @@ void CheckLanding(bool joined, bool reversed) {
   if (!vegetation.Ready()) { return; }
   const std::array<std::string, 1> layers{"streets"};
   Generators::Osm::OsmField vectors(14, layers);
-  std::array declared{
-      Generators::Osm::OsmField::Declared{
-          .Layer = "streets", .Key = "kind", .Value = "footway", .Bridge = true, .Level = 1},
-      Generators::Osm::OsmField::Declared{.Layer = "streets", .Key = "kind", .Value = "footway"}};
+  std::array declared{Generators::Osm::OsmField::Declared{.Layer = "streets",
+                                                          .Key = "kind",
+                                                          .Value = "footway",
+                                                          .Bridge = true,
+                                                          .Level = 1,
+                                                          .LatLon = {}},
+                      Generators::Osm::OsmField::Declared{
+                          .Layer = "streets", .Key = "kind", .Value = "footway", .LatLon = {}}};
   const auto append = [&](size_t way, EastNorth point) {
     const auto at = frame.ApproximateGeographicAt(point);
     declared[way].LatLon.insert(declared[way].LatLon.end(), {at.LatitudeDeg, at.LongitudeDeg});
@@ -116,6 +120,8 @@ void CheckLanding(bool joined, bool reversed) {
                                          .Standing = frame,
                                          .Draped = drape,
                                          .Classes = noClasses,
+                                         .WaterUpM = {},
+                                         .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .Projection = {.FocalPx = 800}};
