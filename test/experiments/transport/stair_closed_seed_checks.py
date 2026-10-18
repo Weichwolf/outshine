@@ -1,10 +1,13 @@
 """Cyclic seams, retained holes and rejection of repeated/self-crossing axes."""
 
 import copy
+import json
 import unittest
+from pathlib import Path
 
 import numpy as np
 import shapely
+from stair_closed_height_rounding import MAX_REPAIR_M, correct, normalized_grade, verify
 from stair_module_roots import root_profile
 from stair_seed_audit import audit
 from stair_seed_axes import axis_form
@@ -23,6 +26,44 @@ def ring_example():
 
 
 class ClosedGroundSeeds(unittest.TestCase):
+    def test_real_thin_face_retains_exact_xy_and_passes_unchanged_DQ_limits(self):
+        path = (
+            Path(__file__).parents[2]
+            / "outshine/data/transport/closed-ground-rounding-face.json"
+        )
+        saved = json.loads(path.read_text())
+        xyz = np.array(saved["vertices"])
+        faces, frames = np.array(saved["faces"]), np.array(saved["grade_frames"])
+        self.assertLess(normalized_grade(xyz, faces, frames, False), 1)
+        self.assertGreater(normalized_grade(xyz, faces, frames, True), 1)
+        actual, _note = correct(xyz, faces, frames)
+        np.testing.assert_array_equal(actual[:, :2], xyz[:, :2])
+        self.assertLessEqual(float(abs(actual[:, 2] - xyz[:, 2]).max()), MAX_REPAIR_M)
+        for cast in (False, True):
+            self.assertLessEqual(normalized_grade(actual, faces, frames, cast), 1)
+        data = {
+            "surface_vertices": actual,
+            "surface_faces": faces,
+            "unrounded_closed_heights": xyz[:, 2],
+        }
+        verify(data, frames)
+        changed = dict(data, unrounded_closed_heights=xyz[:, 2] + 0.01)
+        with self.assertRaisesRegex(ValueError, "5 mm budget"):
+            verify(changed, frames)
+
+    def test_finite_candidate_exhaustion_is_not_a_global_impossibility_claim(self):
+        xyz = np.array([[0, 0, 1e6], [1, 0, 1e6 + 0.035], [0, 1, 1e6 + 0.035]])
+        faces, frames = np.array([[0, 1, 2]]), np.eye(2)[None] / 0.05
+        self.assertLess(normalized_grade(xyz, faces, frames, False), 1)
+        with self.assertRaisesRegex(ValueError, "no tested"):
+            correct(xyz, faces, frames)
+        # This unsampled contraction exists but is outside the finite recipe.
+        other = xyz.copy()
+        other[:, 2] = 1e6 + 0.89 * (xyz[:, 2] - 1e6)
+        self.assertLess(float(abs(other[:, 2] - xyz[:, 2]).max()), MAX_REPAIR_M)
+        for cast in (False, True):
+            self.assertLessEqual(normalized_grade(other, faces, frames, cast), 1)
+
     def test_closed_original_axis_keeps_its_ring_and_has_no_outer_port(self):
         sources, rows, recipe, state, empty = ring_example()
         original = copy.deepcopy(sources)
