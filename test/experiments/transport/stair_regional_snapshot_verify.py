@@ -48,6 +48,21 @@ def whole_case(data, points, faces, anchors, origin, peer_origin):
         raise ValueError(
             "actual region interior differs from original encoded positions"
         )
+    owners = (
+        data["origin_ids"]
+        if data["origin_ids"].size
+        else np.zeros(len(points), dtype="u1")
+    )
+    origins = data["origins"][owners]
+    interior = np.ones(len(points), bool)
+    interior[anchors] = False
+    if not np.all(origins[interior] == origin) or not np.all(
+        np.all(origins[anchors] == origin, axis=1)
+        | np.all(origins[anchors] == peer_origin, axis=1)
+    ):
+        raise ValueError(
+            "encoded origin is not bound to the original region or neighbor"
+        )
     fractions = [(Fraction(float(x)), Fraction(float(y))) for x, y in actual]
     minimum = None
     for a, b, c in faces:
@@ -113,6 +128,22 @@ def verify(args):
         actual, proofs[case["name"]] = whole_case(
             data, points, faces, anchors, origin, peers[case["peer"]]
         )
+        if case["method"] == "copy":
+            peer_origin = peers[case["peer"]]
+            expected = (points[anchors] - peer_origin).astype("f4")
+            owner_ids = (
+                data["origin_ids"]
+                if data["origin_ids"].size
+                else np.zeros(len(points), dtype="u1")
+            )
+            if not np.all(
+                data["origins"][owner_ids[anchors]] == peer_origin
+            ) or not np.array_equal(
+                data["positions"][anchors].view("u4"), expected.view("u4")
+            ):
+                raise ValueError(
+                    "neighbor origin or original Float32 bits were not copied"
+                )
         previous = equality.setdefault(case["peer"], actual)
         if not np.array_equal(actual, previous):
             raise ValueError("encoding alternatives have different actual geometry")
