@@ -19,11 +19,14 @@ public:
   Readback &operator=(Readback &&from) noexcept;
   Readback(const Readback &) = delete;
   Readback &operator=(const Readback &) = delete;
+  [[nodiscard]] ReadState FromTexture(Native::Device *device,
+                                      const Native::Texture *texture,
+                                      Extent size,
+                                      uint32_t texelBytes);
   [[nodiscard]] ReadState
-  FromTexture(Native::Device *device, Native::Texture *texture, Extent size, uint32_t texelBytes);
+  FromBuffer(Native::Device *device, const Native::Buffer *source, uint32_t bytes);
   [[nodiscard]] ReadState
-  FromBuffer(Native::Device *device, Native::Buffer *source, uint32_t bytes);
-  [[nodiscard]] ReadState Enqueue(Native::Device *device, Native::Buffer *source, uint32_t bytes);
+  Enqueue(Native::Device *device, const Native::Buffer *source, uint32_t bytes);
   [[nodiscard]] ReadState Poll();
 
   [[nodiscard]] const uint8_t *Rows() const {

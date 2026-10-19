@@ -1739,7 +1739,7 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
     ActiveState().WhyNot = Says::kNoColourOutput;
     return ReadState::Failed;
   }
-  Native::Texture *const held =
+  const Native::Texture *const held =
       source == Resource::FrameTex ? ActiveFrame().FrameTex.get() : ActiveFrame().Offscreen.get();
   if (held == nullptr) {
     ActiveState().WhyNot = Says::kNoColourTexture;
@@ -1780,7 +1780,7 @@ ReadState SceneRenderer::ReadDepth(std::vector<float> &depth) {
 }
 
 ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
-  Native::Texture *source = LinearSource();
+  const Native::Texture *source = LinearSource();
   if (!ActiveState().Ready || (source == nullptr)) { return ReadState::Failed; }
   const bool wide = ActiveState().Plan->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
   Readback read;
@@ -1826,7 +1826,7 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   into = {};
   const SubjectResidency &resident = ActiveState().Content.Subjects.Resident();
-  Native::Buffer *const args = resident.Buffer(SubjectResidency::Stream::DrawArguments).get();
+  const Native::Buffer *const args = resident.Buffer(SubjectResidency::Stream::DrawArguments).get();
   const uint32_t rows = ActiveState().Content.Subjects.ClusterBatchRows();
   if (!ActiveState().Ready || args == nullptr || rows == 0) { return ReadState::Failed; }
   Readback read;
@@ -1839,7 +1839,7 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
   const uint32_t jobs = ActiveState().Content.Subjects.ClusterJobs();
-  Native::Buffer *const kept = resident.Buffer(SubjectResidency::Stream::ClusterKept).get();
+  const Native::Buffer *const kept = resident.Buffer(SubjectResidency::Stream::ClusterKept).get();
   if (jobs > 0 && kept != nullptr) {
     Readback visibility;
     const uint32_t keptBytes = jobs * static_cast<uint32_t>(sizeof(uint32_t));
@@ -1850,7 +1850,7 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     const auto *const values = reinterpret_cast<const uint32_t *>(visibility.Rows());
     into.Visibility.assign(values, values + jobs);
   }
-  Native::Buffer *const index = resident.Buffer(SubjectResidency::Stream::DrawIndex).get();
+  const Native::Buffer *const index = resident.Buffer(SubjectResidency::Stream::DrawIndex).get();
   if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
   Readback drawn;
   const uint32_t indexBytes = into.Indices * static_cast<uint32_t>(sizeof(uint32_t));
@@ -1938,7 +1938,7 @@ ReadState SceneRenderer::ReadSkyIrradiance(std::span<float, kIrradianceFloats> o
 
 namespace {
 ReadState ReadHalfTarget(Native::Device *device,
-                         Native::Texture *source,
+                         const Native::Texture *source,
                          Extent extent,
                          uint32_t channels,
                          std::vector<float> &values) {
@@ -1986,7 +1986,7 @@ ReadState SceneRenderer::ReadSurfaceMetalRough(std::vector<float> &rg) {
 }
 
 ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
-  Native::Texture *source = ActiveFrame().VelTex.get();
+  const Native::Texture *source = ActiveFrame().VelTex.get();
   if (!ActiveState().Ready || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.get(),
@@ -2007,7 +2007,7 @@ ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
 }
 
 ReadState SceneRenderer::ReadSurfaceIdentity(std::vector<float> &slot) {
-  Native::Texture *source = ActiveFrame().SurfaceIdentityTex.get();
+  const Native::Texture *source = ActiveFrame().SurfaceIdentityTex.get();
   if (!ActiveState().Ready || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.get(),

@@ -47,7 +47,7 @@ ReadState Readback::Begin(Native::Device &device, Native::Result<ReadbackTransfe
 }
 
 ReadState Readback::FromTexture(Native::Device *device,
-                                Native::Texture *texture,
+                                const Native::Texture *texture,
                                 Extent size,
                                 uint32_t texelBytes) {
   Release();
@@ -72,12 +72,13 @@ ReadState Readback::FromTexture(Native::Device *device,
   return Land();
 }
 
-ReadState Readback::FromBuffer(Native::Device *device, Native::Buffer *source, uint32_t bytes) {
+ReadState
+Readback::FromBuffer(Native::Device *device, const Native::Buffer *source, uint32_t bytes) {
   const auto begun = Enqueue(device, source, bytes);
   return begun == ReadState::Failed ? begun : Land();
 }
 
-ReadState Readback::Enqueue(Native::Device *device, Native::Buffer *source, uint32_t bytes) {
+ReadState Readback::Enqueue(Native::Device *device, const Native::Buffer *source, uint32_t bytes) {
   Release();
   Error_.clear();
   if (device == nullptr || source == nullptr) {
