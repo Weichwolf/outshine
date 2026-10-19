@@ -78,8 +78,7 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
 };
 
 [[nodiscard]] double CorridorApronM(const ::outshine::Generators::Osm::StreetField::Way &lane,
-                                    double yieldM,
-                                    bool earthwork) {
+                                    double yieldM) {
   const bool groundRailway =
       !lane.Bridge && lane.TrafficKind == ::outshine::Generators::Osm::StreetField::Traffic::Rail;
   const double minimumApronM =
@@ -87,8 +86,7 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
                                  kLeastApronM,
                                  kMostApronM)
                     : kLeastApronM;
-  return earthwork || groundRailway ? std::clamp(kBatterRun * yieldM, minimumApronM, kMostApronM)
-                                    : 0.0;
+  return std::clamp(kBatterRun * yieldM, minimumApronM, kMostApronM);
 }
 
 [[nodiscard]] Vec3f LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
@@ -498,7 +496,7 @@ void Corridors::AppendTerrainStamps(const Paving &on,
     const double rise = (into.Along[at].GradeM - into.Along[at - 1u].GradeM) / runM;
     made.SlopeE = rise * runE / runM;
     made.SlopeN = rise * runN / runM;
-    made.ApronM = CorridorApronM(lane, yieldM, earthwork);
+    made.ApronM = CorridorApronM(lane, yieldM);
     made.YieldM = yieldM;
     made.CorridorKey = into.ContactKeys[laneAt];
     const bool rests = !lane.Bridge || at == 1u || at + 1u == into.Along.size();
