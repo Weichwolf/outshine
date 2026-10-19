@@ -1,4 +1,4 @@
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "SubjectLightingUniform.h"
 #include <array>
 #include <bit>
@@ -8,7 +8,7 @@
 #include <string>
 
 namespace outshine::Render {
-bool SubjectDraw::SetLights(std::span<const SubjectLight> lights, std::string &error) {
+bool GeometryRenderer::SetLights(std::span<const SubjectLight> lights, std::string &error) {
   if (lights.size() > kMaxSubjectLights) {
     error = "the subject declares " + std::to_string(lights.size()) +
             " punctual lights over a list of " + std::to_string(kMaxSubjectLights) +
@@ -34,8 +34,8 @@ Vec4f LightVector(const auto &source, float tail = 0) {
 }
 }
 
-std::array<float, SubjectDraw::kLightFloats>
-SubjectDraw::PackedLights(const FrameContext &ctx) const {
+std::array<float, GeometryRenderer::kLightFloats>
+GeometryRenderer::PackedLights(const FrameContext &ctx) const {
   SubjectLightingUniform packed{};
   const bool shadowSource = Shadowed_ && ShadowLightIndex_ < Placed.size() &&
                             Placed[ShadowLightIndex_].Light.Kind == LightKind::Directional;

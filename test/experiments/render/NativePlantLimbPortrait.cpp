@@ -109,15 +109,15 @@ bool RenderPortrait(SceneRenderer &renderer, const char *destination, bool near)
   light.Light.Intensity = kSunLux;
   light.Light.Direction = {{-0.5f, -kSunAxis, 0.5f}};
   std::string error;
-  if (!renderer.SetSubjectLights(std::span(&light, 1), error)) { return false; }
+  if (!renderer.SetGeometryLights(std::span(&light, 1), error)) { return false; }
   const double sky = kSkyLux / std::numbers::pi;
   const double ground = kGroundAlbedo * (kSunLux * std::sqrt(0.5) + kSkyLux) / std::numbers::pi;
-  renderer.SetSubjectEnvironment({.RadianceLinear = {{sky, sky, sky}},
-                                  .GroundLinear = {{ground, ground, ground}},
-                                  .UpUnit = {{0, 1, 0}},
-                                  .GroundAlbedo = {},
-                                  .SkyLux = 0,
-                                  .CosSunZenith = 0});
+  renderer.SetGeometryEnvironment({.RadianceLinear = {{sky, sky, sky}},
+                                   .GroundLinear = {{ground, ground, ground}},
+                                   .UpUnit = {{0, 1, 0}},
+                                   .GroundAlbedo = {},
+                                   .SkyLux = 0,
+                                   .CosSunZenith = 0});
   auto camera = Viewpoint::LookAt(
       {.EyeM = near ? kNearEye : kWholeEye, .AimM = near ? kNearAim : kWholeAim}, 0);
   if (!camera) { return false; }
@@ -150,7 +150,7 @@ int main(int argc, const char *const *argv) {
   if (!input || !Load(input, surface)) { return 2; }
   PlanSpec spec;
   spec.Outputs = {Resource::FrameTex};
-  spec.Content = {Stage::Subjects};
+  spec.Content = {Stage::Geometry};
   spec.Exposure = Declared<float>(kExposure);
   const auto compiled = Compiled::Compile(spec);
   if (!compiled) { return 3; }

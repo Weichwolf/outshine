@@ -261,7 +261,7 @@ int main() {
         "before-arrival PNG is written");
   std::array<Render::SubjectMaterial, 2> rejected;
   rejected[1].Row.Transmission = 1;
-  CHECK(!renderer.AppendSubjectMaterials(rejected, error),
+  CHECK(!renderer.AppendGeometryMaterials(rejected, error),
         "unsupported second material refuses the complete append");
   error.clear();
   const std::array<uint8_t, 4> green{32, 180, 64, 255};
@@ -270,7 +270,7 @@ int main() {
   arriving.Row.BaseColour = {{0.5f, 1.0f, 0.5f, 1.0f}};
   arriving.Colour.Rgba = green.data();
   arriving.Colour.Width = arriving.Colour.Height = 1;
-  CHECK(renderer.AppendSubjectMaterials(std::span(&arriving, 1), error),
+  CHECK(renderer.AppendGeometryMaterials(std::span(&arriving, 1), error),
         "a texture material appends to the resident table");
   CHECK(scene->Draw(error), "resident draws survive material arrival");
   renderer.WaitForGpu();

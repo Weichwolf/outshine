@@ -95,7 +95,7 @@ The copy/rebase kernel performs one full Light64 memcpy and FP64 subtraction
 followed by FP32 conversion of three position components. Source fixture
 positions were already FP32-quantized. This measures a candidate arithmetic/
 copy kernel, not actual FP64 ECEF acquisition, the complete current
-`SubjectDraw::PackedLights` loop, its photometric/trigonometric packing, GPU
+`GeometryRenderer::PackedLights` loop, its photometric/trigonometric packing, GPU
 upload, or safe runtime publication. Original world descriptions must retain
 their real precision in production.
 

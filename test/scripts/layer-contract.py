@@ -1,9 +1,9 @@
 """Check declared tier cycles and actual compiler include access, not build spelling."""
+
 import json
 import pathlib
 import re
 import shlex
-
 
 PUBLIC_TIERS = {
     'Earth.h': 'base',
@@ -116,24 +116,51 @@ def public_owner(header, include):
     return PUBLIC_TIERS[key]
 
 
-def header_dependencies(source, directories, root):
-    expression = re.compile(r'^\s*#\s*include\s*[<"]([^>"]+)[>"]', re.MULTILINE)
-    pending = [source]
-    visited = set()
-    while pending:
-        current = pending.pop()
-        if current in visited:
-            continue
-        visited.add(current)
-        if not current.is_relative_to(root) or current.suffix not in {'.h', '.hpp', '.cpp'}:
-            continue
-        for named in expression.findall(current.read_text(errors='replace')):
-            candidates = [current.parent / named, *(directory / named for directory in directories)]
-            resolved = next((candidate.resolve() for candidate in candidates if candidate.is_file()), None)
-            if resolved is None or not resolved.is_relative_to(root):
+class HeaderDependencies:
+    """Traverse one frozen snapshot while preserving each ordered include context."""
+
+    def __init__(self, root):
+        self.root = root
+        self.include_names = {}
+        self.resolved_paths = {}
+        self.include_edges = {}
+
+    def resolve(self, candidate):
+        if candidate not in self.resolved_paths:
+            self.resolved_paths[candidate] = candidate.resolve() if candidate.is_file() else None
+        return self.resolved_paths[candidate]
+
+    def direct(self, current, directories):
+        key = current, directories
+        if key not in self.include_edges:
+            if current not in self.include_names:
+                self.include_names[current] = re.findall(
+                    r'^\s*#\s*include\s*[<"]([^>"]+)[>"]',
+                    current.read_text(errors='replace'), re.MULTILINE)
+            found = []
+            for name in self.include_names[current]:
+                for directory in (current.parent, *directories):
+                    resolved = self.resolve(directory / name)
+                    if resolved is not None:
+                        if resolved.is_relative_to(self.root):
+                            found.append(resolved)
+                        break
+            self.include_edges[key] = tuple(found)
+        return self.include_edges[key]
+
+    def read(self, source, directories):
+        directories = tuple(directories)
+        pending = [source]
+        visited = set()
+        while pending:
+            current = pending.pop()
+            if current in visited:
                 continue
-            pending.append(resolved)
-    return visited
+            visited.add(current)
+            if not current.is_relative_to(self.root) or current.suffix not in {'.h', '.hpp', '.cpp'}:
+                continue
+            pending.extend(self.direct(current, directories))
+        return visited
 
 
 def native_product_boundary(headers):
@@ -191,6 +218,7 @@ def main():
     include = root / 'include'
     graph = {str(p.parent.relative_to(src)): p.read_text().split()
              for p in src.rglob('reaches')}
+    reader = HeaderDependencies(root)
     commands = []
     public_edges = set()
     generator_violations = []
@@ -204,7 +232,7 @@ def main():
             if directory.is_relative_to(src):
                 includes.append(str(directory.relative_to(src)))
         commands.append((str(source.relative_to(src)), includes))
-        dependencies = header_dependencies(source, directories, root)
+        dependencies = reader.read(source, directories)
         for target in {public_owner(header, include)
                        for header in dependencies if header.is_relative_to(include)}:
             public_edges.add((str(source.relative_to(src)), target))
@@ -239,7 +267,7 @@ def main():
     directories = sorted({directory for entry in json.loads(
         (root / 'compile_commands.json').read_text()) for directory in include_directories(entry)})
     for product in (src / 'world' / 'products').glob('*.h'):
-        dependencies = header_dependencies(product, directories, root)
+        dependencies = reader.read(product, directories)
         violations.extend(native_product_boundary(
             {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
     if transport_product_boundary({'src/world/navigation/TransportTopology.h', 'src/world/products/SourceIdentity.h'}):
@@ -249,13 +277,13 @@ def main():
         if not transport_product_boundary({forbidden}):
             raise RuntimeError('native transport negative control failed')
     for product in (src / 'world' / 'navigation').glob('*.h'):
-        dependencies = header_dependencies(product, directories, root)
+        dependencies = reader.read(product, directories)
         violations.extend(transport_product_boundary(
             {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
     for source in (src / 'world').rglob('*'):
         if source.suffix not in {'.h', '.cpp'}:
             continue
-        dependencies = header_dependencies(source, directories, root)
+        dependencies = reader.read(source, directories)
         violations.extend(world_state_boundary(
             {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
     for tree in (src, include, root / 'test'):

@@ -18,7 +18,7 @@
 #include <expected>
 #include <span>
 #include <utility>
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 
 namespace outshine::Render {
 
@@ -41,7 +41,7 @@ std::array<size_t, 2> ShadowTile(size_t region) {
 }
 }
 
-Native::Result<void> SunShadowStage::Configure(SubjectDraw &subjects, const Gpu &gpu) {
+Native::Result<void> SunShadowStage::Configure(GeometryRenderer &subjects, const Gpu &gpu) {
   if (gpu.Device == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "shadow pipelines require a device"});
@@ -311,8 +311,8 @@ Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
   const auto &resident = Subjects_->Resident();
   const auto &batches = Subjects_->Drawn();
   if (batches.empty()) { return {}; }
-  if (!resident.Buffer(SubjectResidency::Stream::Vertex) ||
-      !resident.Buffer(SubjectResidency::Stream::Index)) {
+  if (!resident.Buffer(GeometryResidency::Stream::Vertex) ||
+      !resident.Buffer(GeometryResidency::Stream::Index)) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "shadow subjects have no native vertex/index data"});

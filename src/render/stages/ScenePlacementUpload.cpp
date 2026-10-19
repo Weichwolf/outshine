@@ -1,6 +1,6 @@
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "GpuPlacement.h"
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include "math/Mat4.h"
 
 #include <algorithm>
@@ -11,7 +11,7 @@
 
 namespace outshine::Render {
 
-bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
+bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
   const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_));
   size_t all = needed;
   for (const Piece &piece : Pieces_) { all += piece.Rows.size(); }
@@ -44,8 +44,8 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
     Rows_[row].ColourOffset = Bound().SubjectColours().First - Bound().SubjectVertices().First;
     Rows_[row].TangentOffset = Bound().SubjectTangents().First - Bound().SubjectVertices().First;
   }
-  std::array rows = {SubjectResidency::Crossing{
-      .Which = SubjectResidency::Stream::Placements,
+  std::array rows = {GeometryResidency::Crossing{
+      .Which = GeometryResidency::Stream::Placements,
       .Usage = Native::BufferUse::Storage,
       .From = Rows_.data(),
       .Bytes = static_cast<uint32_t>(Rows_.size() * sizeof(GpuPlacement))}};

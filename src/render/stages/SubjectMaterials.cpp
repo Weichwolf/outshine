@@ -1,4 +1,4 @@
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -24,9 +24,9 @@ const char *KindName(SurfaceKind kind) {
 }
 }
 
-bool SubjectDraw::BindSurface(const SubjectMaterial &material,
-                              std::string &error,
-                              SubjectResidency::ImageUploadMode mode) {
+bool GeometryRenderer::BindSurface(const SubjectMaterial &material,
+                                   std::string &error,
+                                   GeometryResidency::ImageUploadMode mode) {
   SurfaceSlot slot;
   slot.Kind = material.State().Kind();
   slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
@@ -37,9 +37,9 @@ bool SubjectDraw::BindSurface(const SubjectMaterial &material,
   }
   slot.ReadsSecondUv = material.ReadsSecondUv();
   const auto bind = [&](const SubjectTexture &texture,
-                        SubjectResidency::Transfer transfer,
+                        GeometryResidency::Transfer transfer,
                         TexelKind texel,
-                        SubjectResidency::BoundImage &into) {
+                        GeometryResidency::BoundImage &into) {
     auto uploaded = Bound().Upload(texture, transfer, texel, mode);
     if (!uploaded) {
       error = std::move(uploaded.error().Message);
@@ -48,28 +48,31 @@ bool SubjectDraw::BindSurface(const SubjectMaterial &material,
     into = std::move(*uploaded);
     return true;
   };
-  if (!bind(material.Colour, SubjectResidency::Transfer::Srgb, TexelKind::Value, slot.Colour) ||
-      !bind(
-          material.Normal, SubjectResidency::Transfer::Linear, TexelKind::Direction, slot.Normal) ||
+  if (!bind(material.Colour, GeometryResidency::Transfer::Srgb, TexelKind::Value, slot.Colour) ||
+      !bind(material.Normal,
+            GeometryResidency::Transfer::Linear,
+            TexelKind::Direction,
+            slot.Normal) ||
       !bind(material.MetalRough,
-            SubjectResidency::Transfer::Linear,
+            GeometryResidency::Transfer::Linear,
             TexelKind::Value,
             slot.MetalRough) ||
-      !bind(material.Emissive, SubjectResidency::Transfer::Srgb, TexelKind::Value, slot.Emissive) ||
+      !bind(
+          material.Emissive, GeometryResidency::Transfer::Srgb, TexelKind::Value, slot.Emissive) ||
       !bind(material.SpecularStrength,
-            SubjectResidency::Transfer::Linear,
+            GeometryResidency::Transfer::Linear,
             TexelKind::Value,
             slot.SpecularStrength) ||
       !bind(material.SpecularTint,
-            SubjectResidency::Transfer::Srgb,
+            GeometryResidency::Transfer::Srgb,
             TexelKind::Value,
             slot.SpecularTint) ||
       !bind(material.DiffuseReflection,
-            SubjectResidency::Transfer::Linear,
+            GeometryResidency::Transfer::Linear,
             TexelKind::Value,
             slot.DiffuseReflection) ||
       !bind(material.DiffuseTransmission,
-            SubjectResidency::Transfer::Linear,
+            GeometryResidency::Transfer::Linear,
             TexelKind::Value,
             slot.DiffuseTransmission)) {
     return false;
@@ -81,7 +84,7 @@ bool SubjectDraw::BindSurface(const SubjectMaterial &material,
   return true;
 }
 
-uint32_t SubjectDraw::ColourImages() const {
+uint32_t GeometryRenderer::ColourImages() const {
   std::vector<const Native::Texture *> distinct;
   for (const SurfaceSlot &slot : Slots) {
     const Native::Texture *const colour = slot.Colour.Image.get();
@@ -92,7 +95,7 @@ uint32_t SubjectDraw::ColourImages() const {
   return static_cast<uint32_t>(distinct.size());
 }
 
-uint32_t SubjectDraw::Layouts() const {
+uint32_t GeometryRenderer::Layouts() const {
   std::vector<VertexLayout> distinct;
   for (const DrawBatch &batch : Batches) {
     bool seen = false;
@@ -102,7 +105,7 @@ uint32_t SubjectDraw::Layouts() const {
   return static_cast<uint32_t>(distinct.size());
 }
 
-uint32_t SubjectDraw::DistinctPlacements() const {
+uint32_t GeometryRenderer::DistinctPlacements() const {
   const size_t rows = Placed_.size() / 16u;
   if (rows == 0) { return 0; }
   uint32_t distinct = 0;
@@ -117,7 +120,7 @@ uint32_t SubjectDraw::DistinctPlacements() const {
   return distinct;
 }
 
-uint32_t SubjectDraw::Textured() const {
+uint32_t GeometryRenderer::Textured() const {
   uint32_t wearing = 0;
   for (const SurfaceSlot &slot : Slots) {
     if (slot.Colour.Image != nullptr) { ++wearing; }
@@ -125,8 +128,8 @@ uint32_t SubjectDraw::Textured() const {
   return wearing;
 }
 
-bool SubjectDraw::ValidateMaterials(std::span<const SubjectMaterial> materials,
-                                    std::string &error) const {
+bool GeometryRenderer::ValidateMaterials(std::span<const SubjectMaterial> materials,
+                                         std::string &error) const {
   if (Binding().Device == nullptr) {
     error = "the subject unit has no device, so no surface can be bound";
     return false;
@@ -147,9 +150,9 @@ bool SubjectDraw::ValidateMaterials(std::span<const SubjectMaterial> materials,
   return true;
 }
 
-bool SubjectDraw::AppendMaterials(std::span<const SubjectMaterial> materials,
-                                  std::string &error,
-                                  SubjectResidency::ImageUploadMode mode) {
+bool GeometryRenderer::AppendMaterials(std::span<const SubjectMaterial> materials,
+                                       std::string &error,
+                                       GeometryResidency::ImageUploadMode mode) {
   if (!ValidateMaterials(materials, error)) { return false; }
   const size_t was = Slots.size();
   for (const auto &material : materials) {
@@ -161,13 +164,14 @@ bool SubjectDraw::AppendMaterials(std::span<const SubjectMaterial> materials,
   return true;
 }
 
-void SubjectDraw::TruncateMaterials(size_t count) noexcept {
+void GeometryRenderer::TruncateMaterials(size_t count) noexcept {
   if (count >= Slots.size()) { return; }
   Slots.resize(count);
   TablesStale_ = true;
 }
 
-bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
+bool GeometryRenderer::SetMaterials(std::span<const SubjectMaterial> materials,
+                                    std::string &error) {
   if (!ValidateMaterials(materials, error)) { return false; }
   auto previousSlots = std::move(Slots);
   auto previousBatches = std::move(Batches);

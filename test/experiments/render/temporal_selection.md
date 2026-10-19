@@ -6,7 +6,7 @@ Owner: #16. Native integration: #531. Diagnosis: #15.
 selection-cache key repeats GPU cull, scan and index compaction on a stationary
 view. The geometry, pose, physical projection and requested error have not changed.
 
-`SubjectCullStage::SelectionProjection` separates the stable selection matrix
+`GeometryCullStage::SelectionProjection` separates the stable selection matrix
 from the current raster/depth matrix. Its side guard contains the whole jitter
 sequence. Source generations, translation, matrix, guard and pixel-error scale
 invalidate the cache. Submission rejection leaves recorded selection dirty.
