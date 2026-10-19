@@ -1,6 +1,6 @@
 # Szenarien
 
-`outshine-client run [options] <scenario> [name]`
+`outshine run [options] <scenario> [name]`
 
 `scenario` ist eine XML-/JSON-Datei oder ein vollständiges JSON-Objekt als Argument.
 JSON verwendet die bestehenden Szenariofelder: skalare Werte entsprechen Attributen,
@@ -8,9 +8,9 @@ Objekte Sektionen, Objektarrays wiederholten Kindern. Skalare Arrays ergeben Vek
 Boolesche Werte sind `true`/`false`; Feldnamen und Validierung bleiben identisch zu XML.
 
 ```sh
-build/outshine-client run --offline '{"world":{"lat":47.232575,"lon":9.598371,"sightM":240000},"render":{"widthPx":1280,"heightPx":720},"clock":{"start":"2026-09-07T10:40:00Z","live":false},"views":{"view":{"id":"station","at":{"lat":47.232575,"lon":9.598371,"heightM":614,"samplesHeight":false,"bearingDeg":1,"pitchDeg":-11.5}}}}'
+build/outshine run --offline '{"world":{"lat":47.232575,"lon":9.598371,"sightM":240000},"render":{"widthPx":1280,"heightPx":720},"clock":{"start":"2026-09-07T10:40:00Z","live":false},"views":{"view":{"id":"station","at":{"lat":47.232575,"lon":9.598371,"heightM":614,"samplesHeight":false,"bearingDeg":1,"pitchDeg":-11.5}}}}'
 
-build/outshine-client shots --offline \
+build/outshine shots --offline \
   --scenario-overrides '{"world":{"vegetation":false}}' Feldkirch
 ```
 
@@ -42,11 +42,31 @@ Es wartet und rendert nicht. Später eintreffende Ergebnisse älterer Einreichun
 weiterhin nicht zum neuen Fenster. Auch mehrere Aufnahmen desselben Engine-Prozesses
 melden ausschließlich ihre eigenen Frames; Quelle-/Assetzähler bleiben davon unabhängig.
 
+# Hardwaremessung
+
+```sh
+build/outshine benchmark
+build/outshine benchmark --output /tmp/outshine-calibration.json
+build/outshine benchmark --gpu-validation --output /tmp/outshine-calibration-validated.json
+```
+
+Der explizite Befehl misst die festen CPU-, GPU- und Speicherarbeitsmengen der Version 2.
+Er benötigt weder Szenario noch Netzwerk, Python oder Compiler zur Laufzeit. Ein Ausgabepfad
+allein wählt dieselbe synthetische Messung. Ohne Pfad schreibt er JSON nach stdout; eine Datei
+wird erst nach vollständiger Ergebnisprüfung atomar ersetzt. Fehler lassen alte Ergebnisse erhalten.
+
+Jede Arbeitsmenge hat einen Vorbereitungslauf und fünf gemessene Stichproben. CPU-FMA nutzt
+denselben Gesamtumfang mit 1/2/4/6 Rechenarbeitern; das Betriebssystem wählt die Kerne.
+Die JSON-Daten nennen Gerät, tatsächliche Compilerflags, Buildstand, Hostlast und Validierung.
+GPU-Zeitstempel, Host-Encoding, Einreichung und Warten bleiben getrennt. Fehlende GPU-Zeiten
+stehen als null im Ergebnis. Logische Bytes und Operationen sind keine physische DRAM-Bandbreite
+oder zugesicherte Hardwareleistung. Validierte Läufe getrennt von Vergleichsmessungen auswerten.
+
 # Cachewartung
 
 ```sh
-build/outshine-client cache trim --assets-mib 8192 --sources-mib 2048
-build/outshine-client cache trim --assets-mib 8192 --sources-mib 2048 --apply --compact
+build/outshine cache trim --assets-mib 8192 --sources-mib 2048
+build/outshine cache trim --assets-mib 8192 --sources-mib 2048 --apply --compact
 ```
 
 Standard ist eine Vorschau. `--apply` entfernt die ausgewählten Inhalte. Null leert den

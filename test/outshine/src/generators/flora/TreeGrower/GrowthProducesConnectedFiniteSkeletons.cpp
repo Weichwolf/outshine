@@ -97,7 +97,7 @@ void ExportBark(const TreeSkeleton &tree) {
   file.write(reinterpret_cast<const char *>(glb->data()),
              static_cast<std::streamsize>(glb->size()));
   file.close();
-  CHECK(!file.fail(), "diagnostic GLB is available to outshine-client");
+  CHECK(!file.fail(), "diagnostic GLB is available to outshine");
 }
 
 bool Finite(const Vec3f &value) {

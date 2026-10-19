@@ -12,7 +12,7 @@
 #include "Check.h"
 #include "src/client/GpuFrameTiming.h"
 
-// THE CASE DRIVES THE SAME COMMAND A PERSON DOES. `build/outshine-client shots
+// THE CASE DRIVES THE SAME COMMAND A PERSON DOES. `build/outshine shots
 // --rows <place>` is what `make shots` runs; a case that reached around it into the library would
 // be scoring a path nobody uses. So the binary is run, its machine-readable row is read, and the
 // ORACLES are applied here -- the instrument is the library's, the judgement is the test's, and
@@ -94,7 +94,7 @@ inline void ReadClientOutput(std::FILE *running, double &control, ClientRow &row
 inline int
 ScorePlace(const char *place, const char *catalog = "src/assets/places", unsigned rateHz = 30) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string command = std::string("build/outshine-client --places ") + catalog +
+  const std::string command = std::string("build/outshine --places ") + catalog +
                               " shots --rows --offline --preload-seconds 600 --scenario-overrides "
                               "'{\"render\":{\"widthPx\":1280,\"heightPx\":720,\"fps\":" +
                               std::to_string(rateHz) + "}}' " + place + " 2>&1";
@@ -184,7 +184,7 @@ ScorePlace(const char *place, const char *catalog = "src/assets/places", unsigne
         "SHOWS is the owner's to judge, and no number invented here may stand in for that");
 
   Covers("a declared place on Earth stands, advances and leaves a picture in build/shots for an "
-         "eye -- driven through build/outshine-client, the same command a person runs");
+         "eye -- driven through build/outshine, the same command a person runs");
   return Report();
 }
 

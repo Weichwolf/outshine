@@ -1,9 +1,9 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "Parameters.inc"
+#include "diagnostics/calibration/Parameters.inc"
 layout(local_size_x = CALIBRATION_LOCAL_SIZE) in;
 layout(std430, set = 0, binding = 0) readonly buffer InputValues { vec4 values[]; } source;
-layout(std430, set = 0, binding = 1) writeonly buffer OutputValues { vec4 values[]; } into;
+layout(std430, set = 1, binding = 0) writeonly buffer OutputValues { vec4 values[]; } into;
 void main() {
   uint at = gl_GlobalInvocationID.x;
   if (at >= into.values.length()) { return; }

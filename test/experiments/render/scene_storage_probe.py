@@ -87,7 +87,7 @@ def client_link(path, checkout, object_path, output):
     if "-flto" in command or any(value.startswith("-flto=") for value in command):
         raise ValueError("LTO interposition is not supported by this probe")
     command.insert(matches[0], str(object_path))
-    command[command.index("-o") + 1] = str(output / "outshine-client-owners")
+    command[command.index("-o") + 1] = str(output / "outshine-owners")
     return command
 
 
@@ -160,7 +160,7 @@ def main():
         (output / "build.json").write_text(json.dumps(report, indent=2) + "\n")
         if result.returncode:
             raise SystemExit(f"{name} failed: see {output / (name + '.log')}")
-    result_path = output / ("outshine-client-owners" if link_command else "RuntimeScene.owners.o")
+    result_path = output / ("outshine-owners" if link_command else "RuntimeScene.owners.o")
     report["result_sha256"] = digest(result_path)
     (output / "build.json").write_text(json.dumps(report, indent=2) + "\n")
     print(result_path)

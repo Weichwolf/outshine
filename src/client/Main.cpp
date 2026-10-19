@@ -1,6 +1,7 @@
 #include "ScenarioJson.h"
 #include "CommandLine.h"
 #include "CacheCommand.h"
+#include "BenchmarkCommand.h"
 #include "CostReport.h"
 #include "ProcessBoundary.h"
 #include "ShotOptions.h"
@@ -66,7 +67,7 @@ private:
   bool TracePreload_ = false;
   std::mutex Mutex_;
 
-  static void ReportFailure() noexcept { std::fputs("outshine-client: log sink failed\n", stderr); }
+  static void ReportFailure() noexcept { std::fputs("outshine: log sink failed\n", stderr); }
 
   static const char *Name(outshine::LogLevel level) {
     switch (level) {
@@ -146,7 +147,8 @@ void Row(const Shot &shot, std::string_view name) {
 
 void Usage(std::string_view verb = {}) {
   if (verb.empty()) {
-    std::println("Usage: outshine-client [--places <directory>] <command> [arguments]\n"
+    std::println("Usage: outshine [--places <directory>] <command> [arguments]\n"
+                 "  benchmark   measure CPU, GPU and memory workloads\n"
                  "  run         capture a scenario or route motion\n"
                  "  shots       capture named places\n"
                  "  measures    capture a scenario and print engine diagnostics\n"
@@ -160,9 +162,14 @@ void Usage(std::string_view verb = {}) {
                  "STAT<TAB>name<TAB>key<TAB>value<TAB>unit rows.");
     return;
   }
-  if (verb == "run" || verb == "measures") {
+  if (verb == "benchmark") {
+    std::println("Usage: outshine benchmark [--output <file.json>] [--gpu-validation]\n"
+                 "Measure the fixed native CPU, GPU and memory workloads; output JSON.\n"
+                 "An output path alone selects the synthetic hardware measurement.\n"
+                 "GPU validation changes measurement costs and must be reported separately.");
+  } else if (verb == "run" || verb == "measures") {
     std::println(
-        "Usage: outshine-client {} [options] <scenario> [name]\n"
+        "Usage: outshine {} [options] <scenario> [name]\n"
         "  scenario                        XML/JSON file path or complete inline JSON object\n"
         "  --scenario-overrides <json>     override scenario fields with one JSON object\n"
         "  --view <id>                     capture this declared camera\n"
@@ -186,7 +193,7 @@ void Usage(std::string_view verb = {}) {
         "left/centre/right road contact with eye clearance.",
         verb);
   } else if (verb == "shots") {
-    std::println("Usage: outshine-client shots [options] [--all | <place> ...]\n"
+    std::println("Usage: outshine shots [options] [--all | <place> ...]\n"
                  "  --scenario-overrides <json>     override selected place scenarios\n"
                  "  --preload-seconds <seconds>     positive preparation timeout, default 10\n"
                  "  --cache-dir <directory>         default user-data directory/sources\n"
@@ -198,16 +205,16 @@ void Usage(std::string_view verb = {}) {
                  "With no place, capture all. Preparation time is separate from frame timing.");
   } else if (verb == "prepare") {
     std::println(
-        "Usage: outshine-client prepare <place> <timeout-seconds>\n"
+        "Usage: outshine prepare <place> <timeout-seconds>\n"
         "Preload a named place with a positive timeout; report readiness, not frame rate.");
   } else if (verb == "places") {
-    std::println("Usage: outshine-client [--places <directory>] places\n"
+    std::println("Usage: outshine [--places <directory>] places\n"
                  "List each place camera, geodetic pose, resolution and time as TSV.");
   } else if (verb == "roundtrip") {
-    std::println("Usage: outshine-client [--places <directory>] roundtrip\n"
+    std::println("Usage: outshine [--places <directory>] roundtrip\n"
                  "Write, read and rewrite every place scenario.");
   } else if (verb == "height") {
-    std::println("Usage: outshine-client height <latitude-deg> <longitude-deg>\n"
+    std::println("Usage: outshine height <latitude-deg> <longitude-deg>\n"
                  "Query terrain elevation in metres; latitude [-90,90], longitude [-180,180].");
   }
   if (verb == "run" || verb == "measures" || verb == "shots") {
@@ -233,7 +240,7 @@ RequestedHelp(const outshine::Client::CommandLine &command) {
   }
   const std::string_view verb = command.Verb;
   if (verb == "run" || verb == "shots" || verb == "measures" || verb == "prepare" ||
-      verb == "places" || verb == "roundtrip" || verb == "height") {
+      verb == "places" || verb == "roundtrip" || verb == "height" || verb == "benchmark") {
     return verb;
   }
   return std::nullopt;
@@ -335,7 +342,7 @@ void PrintStats(std::string_view name,
                               .HeightPx = outshine::Shots::kHighPx},
     outshine::Roots roots = ClientRoots(outshine::Client::kDefaultCacheDirectory, false)) {
   if (!SDL_Init(SDL_INIT_VIDEO)) {
-    std::println("outshine-client: SDL did not start");
+    std::println("outshine: SDL did not start");
     return false;
   }
   gTelling.TracePreload(false);
@@ -345,12 +352,12 @@ void PrintStats(std::string_view name,
                                 return engine.setRoots(std::move(resolved));
                               });
       !rooted) {
-    std::println("outshine-client: the engine rejected its roots -- {}", rooted.error());
+    std::println("outshine: the engine rejected its roots -- {}", rooted.error());
     return false;
   }
   if (frame.WidthPx > 0 && frame.HeightPx > 0) {
     if (const auto targeted = engine.setRenderTarget(frame); !targeted) {
-      std::println("outshine-client: the device stood no canvas -- {}", targeted.error());
+      std::println("outshine: the device stood no canvas -- {}", targeted.error());
       return false;
     }
   }
@@ -404,7 +411,7 @@ int TakeShots(std::span<const Place> places,
     for (const char *name : names) {
       const Place *const named = outshine::Shots::PlaceNamed(places, name);
       if (named == nullptr) {
-        std::println(stderr, "outshine-client: no place is called '{}'", name);
+        std::println(stderr, "outshine: no place is called '{}'", name);
         return 2;
       }
       taking.push_back(named);
@@ -447,23 +454,23 @@ struct ScenarioRunOptions {
 [[nodiscard]] std::expected<void, int> ValidateScenarioRunOptions(const ScenarioRunOptions &options,
                                                                   bool hasTime) {
   if (hasTime && options.SelectedView.empty()) {
-    std::println(stderr, "outshine-client: --at-seconds requires --view");
+    std::println(stderr, "outshine: --at-seconds requires --view");
     return std::unexpected(2);
   }
   if (options.RenderMotion && (!hasTime || options.SelectedView.empty())) {
-    std::println(stderr, "outshine-client: --motion requires --view and --at-seconds");
+    std::println(stderr, "outshine: --motion requires --view and --at-seconds");
     return std::unexpected(2);
   }
   if (options.SampleImages && !options.RenderMotion) {
-    std::println(stderr, "outshine-client: --samples requires --motion");
+    std::println(stderr, "outshine: --samples requires --motion");
     return std::unexpected(2);
   }
   if (options.ProbePixel && (!hasTime || options.SelectedView.empty())) {
-    std::println(stderr, "outshine-client: --probe-pixel requires --view and --at-seconds");
+    std::println(stderr, "outshine: --probe-pixel requires --view and --at-seconds");
     return std::unexpected(2);
   }
   if (options.ProbePixel && !options.AwaitRefined) {
-    std::println(stderr, "outshine-client: --probe-pixel requires --quality refined");
+    std::println(stderr, "outshine: --probe-pixel requires --quality refined");
     return std::unexpected(2);
   }
   return {};
@@ -489,7 +496,7 @@ struct ScenarioRunOptions {
 [[nodiscard]] std::expected<bool, int> ReadCaptureQuality(const char *value) {
   if (value == nullptr ||
       (std::string_view(value) != "playable" && std::string_view(value) != "refined")) {
-    std::println(stderr, "outshine-client: --quality requires playable or refined");
+    std::println(stderr, "outshine: --quality requires playable or refined");
     return std::unexpected(2);
   }
   return std::string_view(value) == "refined";
@@ -498,12 +505,12 @@ struct ScenarioRunOptions {
 [[nodiscard]] std::expected<outshine::Client::PixelCoordinate, int>
 ReadCapturePixel(const char *value) {
   if (value == nullptr) {
-    std::println(stderr, "outshine-client: --probe-pixel requires nonnegative integer x,y");
+    std::println(stderr, "outshine: --probe-pixel requires nonnegative integer x,y");
     return std::unexpected(2);
   }
   const auto pixel = outshine::Client::ParsePixelCoordinate(value);
   if (!pixel) {
-    std::println(stderr, "outshine-client: {}", pixel.error());
+    std::println(stderr, "outshine: {}", pixel.error());
     return std::unexpected(2);
   }
   return *pixel;
@@ -513,7 +520,7 @@ ReadCapturePixel(const char *value) {
 ReadRunPath(std::string_view flag, const char *value, ScenarioRunOptions &options) {
   if (flag == "--into" || flag == "--view") {
     if (value == nullptr) {
-      std::println(stderr, "outshine-client: {} requires a value", flag);
+      std::println(stderr, "outshine: {} requires a value", flag);
       return std::unexpected(2);
     }
     if (flag == "--into") {
@@ -525,7 +532,7 @@ ReadRunPath(std::string_view flag, const char *value, ScenarioRunOptions &option
   }
   if (flag == "--linear-out") {
     if (value == nullptr || *value == '\0') {
-      std::println(stderr, "outshine-client: --linear-out requires a file path");
+      std::println(stderr, "outshine: --linear-out requires a file path");
       return std::unexpected(2);
     }
     options.LinearOutput = value;
@@ -539,14 +546,14 @@ ReadRunValue(std::string_view flag, const char *value, ScenarioRunOptions &optio
   if (flag == "--scenario-overrides") {
     const auto read = outshine::Client::ReadScenarioOverrides(value, options.ScenarioOverrides);
     if (!read) {
-      std::println(stderr, "outshine-client: {}", read.error());
+      std::println(stderr, "outshine: {}", read.error());
       return std::unexpected(2);
     }
     return true;
   }
   if (flag == "--cache-dir") {
     if (value == nullptr || !outshine::Client::ValidCacheDirectory(value)) {
-      std::println(stderr, "outshine-client: --cache-dir requires a nonempty directory");
+      std::println(stderr, "outshine: --cache-dir requires a nonempty directory");
       return std::unexpected(2);
     }
     options.CacheDirectory = value;
@@ -557,12 +564,12 @@ ReadRunValue(std::string_view flag, const char *value, ScenarioRunOptions &optio
   }
   if (flag == "--at-seconds") {
     if (value == nullptr) {
-      std::println(stderr, "outshine-client: --at-seconds needs a nonnegative time in seconds");
+      std::println(stderr, "outshine: --at-seconds needs a nonnegative time in seconds");
       return std::unexpected(2);
     }
     const auto parsed = outshine::ParseFiniteNumber(value);
     if (!parsed || *parsed < 0.0) {
-      std::println(stderr, "outshine-client: --at-seconds needs a nonnegative time in seconds");
+      std::println(stderr, "outshine: --at-seconds needs a nonnegative time in seconds");
       return std::unexpected(2);
     }
     options.AtS = *parsed;
@@ -623,7 +630,7 @@ int CaptureView(outshine::Engine &engine,
                                              .SampleImages = options.SampleImages,
                                              .AwaitRefined = options.AwaitRefined});
   if (!captured) {
-    std::println(stderr, "outshine-client: {}", captured.error());
+    std::println(stderr, "outshine: {}", captured.error());
     return 1;
   }
   if (options.Stats) {
@@ -634,14 +641,14 @@ int CaptureView(outshine::Engine &engine,
   if (options.ProbePixel) {
     if (const auto probed = outshine::Client::ReportPixel(engine, named, *options.ProbePixel);
         !probed) {
-      std::println(stderr, "outshine-client: {}", probed.error());
+      std::println(stderr, "outshine: {}", probed.error());
       return 1;
     }
   }
   if (!options.LinearOutput.empty()) {
     if (const auto saved = outshine::Client::SaveLinearImage(engine, options.LinearOutput);
         !saved) {
-      std::println(stderr, "outshine-client: {}", saved.error());
+      std::println(stderr, "outshine: {}", saved.error());
       return 1;
     }
   }
@@ -727,11 +734,11 @@ int CaptureView(outshine::Engine &engine,
 [[nodiscard]] bool PrintMeasures(outshine::Engine &engine) {
   auto capture = engine.beginCapture();
   if (!capture && engine.settled()) {
-    std::println(stderr, "outshine-client: diagnostic capture: {}", capture.error());
+    std::println(stderr, "outshine: diagnostic capture: {}", capture.error());
     return false;
   }
   if (const auto inspected = engine.inspect(); !inspected) {
-    std::println(stderr, "outshine-client: diagnostic readback: {}", inspected.error());
+    std::println(stderr, "outshine: diagnostic readback: {}", inspected.error());
     return false;
   }
   for (const outshine::DiagnosticSample &one : engine.measures()) {
@@ -749,16 +756,16 @@ int CaptureView(outshine::Engine &engine,
   outshine::Engine reader;
   if (const auto rooted = reader.setRoots(ClientRoots(options.CacheDirectory, options.Offline));
       !rooted) {
-    std::println("outshine-client: {} -- {}", sourceName, rooted.error());
+    std::println("outshine: {} -- {}", sourceName, rooted.error());
     return 1;
   }
   if (const auto read = reader.readScenario(options.Argv[0], options.ScenarioOverrides); !read) {
-    std::println("outshine-client: {} -- {}", sourceName, read.error());
+    std::println("outshine: {} -- {}", sourceName, read.error());
     return 1;
   }
   auto declaration = reader.declaration();
   if (const auto sources = outshine::Client::ConfigureWorldSources(declaration); !sources) {
-    std::println("outshine-client: {} -- {}", sourceName, sources.error());
+    std::println("outshine: {} -- {}", sourceName, sources.error());
     return 1;
   }
   if (options.ProbePixel) { outshine::Client::PreparePixelAttachments(declaration); }
@@ -768,19 +775,19 @@ int CaptureView(outshine::Engine &engine,
   }
   if (options.ProbePixel &&
       (options.ProbePixel->X >= frame.WidthPx || options.ProbePixel->Y >= frame.HeightPx)) {
-    std::println(stderr, "outshine-client: probe pixel lies outside the current render target");
+    std::println(stderr, "outshine: probe pixel lies outside the current render target");
     return 2;
   }
   if (const auto targeted = engine.setRenderTarget(frame); !targeted) {
-    std::println("outshine-client: {}", targeted.error());
+    std::println("outshine: {}", targeted.error());
     return 1;
   }
   if (const auto declared = engine.declare(declaration); !declared) {
-    std::println("outshine-client: {} -- {}", sourceName, declared.error());
+    std::println("outshine: {} -- {}", sourceName, declared.error());
     return 1;
   }
   if (const auto assembled = engine.assemble(); !assembled) {
-    std::println("outshine-client: {} did not assemble -- {}", sourceName, assembled.error());
+    std::println("outshine: {} did not assemble -- {}", sourceName, assembled.error());
     return 1;
   }
   return 0;
@@ -791,7 +798,7 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   if (!parsed) { return parsed.error(); }
   const ScenarioRunOptions &options = *parsed;
   if (options.Argc < 1) {
-    std::println("outshine-client: name a scenario to run");
+    std::println("outshine: name a scenario to run");
     return 2;
   }
   const std::string named = options.Argc > 1 ? options.Argv[1] : "scenario";
@@ -856,10 +863,9 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
 }
 
 namespace Says {
-constexpr auto kHeightArguments =
-    "outshine-client: height requires exactly a latitude and longitude\n";
+constexpr auto kHeightArguments = "outshine: height requires exactly a latitude and longitude\n";
 constexpr auto kHeightCoordinates =
-    "outshine-client: height requires finite latitude in [-90,90] and longitude in [-180,180]\n";
+    "outshine: height requires finite latitude in [-90,90] and longitude in [-180,180]\n";
 }
 
 [[nodiscard]] int QueryTerrainHeight(std::span<const char *const> arguments) {
@@ -888,22 +894,21 @@ constexpr auto kHeightCoordinates =
   constexpr double kTerrainPreloadTimeoutS = 15.0;
   stands.Ground.PatienceS = kTerrainRequestTimeoutS;
   if (const auto declared = engine.declare(stands); !declared) {
-    std::println("outshine-client: the ground declaration failed -- {}", declared.error());
+    std::println("outshine: the ground declaration failed -- {}", declared.error());
     return 1;
   }
   if (const auto assembled = engine.assemble(); !assembled) {
-    std::println("outshine-client: the ground did not assemble -- {}", assembled.error());
+    std::println("outshine: the ground did not assemble -- {}", assembled.error());
     return 1;
   }
   if (const auto preloaded = engine.preload(kTerrainPreloadTimeoutS); !preloaded) {
-    std::println("outshine-client: the ground did not arrive -- {}", preloaded.error());
+    std::println("outshine: the ground did not arrive -- {}", preloaded.error());
     return 1;
   }
   const outshine::Holds<double> heightM = engine.sampleHeight(
       outshine::LongitudeLatitudeHeight{.LongitudeDeg = lon, .LatitudeDeg = lat});
   if (!heightM) {
-    std::println(
-        "outshine-client: no elevation stands at {:.5f} {:.5f} -- {}", lat, lon, heightM.error());
+    std::println("outshine: no elevation stands at {:.5f} {:.5f} -- {}", lat, lon, heightM.error());
     return 1;
   }
   std::println("{:.5f} {:.5f}  {:.2f} m", lat, lon, *heightM);
@@ -942,7 +947,7 @@ int ListPlaces(std::span<const Place> places) {
 int RunClientCommand(std::span<const char *const> arguments) {
   const auto command = outshine::Client::ReadCommandLine(arguments);
   if (!command) {
-    std::println(stderr, "outshine-client: {}", command.error());
+    std::println(stderr, "outshine: {}", command.error());
     return 2;
   }
   const auto verb = command->Verb;
@@ -953,18 +958,19 @@ int RunClientCommand(std::span<const char *const> arguments) {
     Usage(*help);
     return 0;
   }
+  if (verb == "benchmark") { return outshine::Client::RunBenchmarkCommand(command->Arguments); }
   outshine::Client::ShotOptions shotOptions;
   if (verb == "shots") {
     const auto parsed = outshine::Client::ReadShotOptions(command->Arguments);
     if (!parsed) {
-      std::println(stderr, "outshine-client: {}", parsed.error());
+      std::println(stderr, "outshine: {}", parsed.error());
       return 2;
     }
     shotOptions = *parsed;
   }
   auto loaded = LoadCommandPlaces(*command, shotOptions.ScenarioOverrides);
   if (!loaded) {
-    std::println(stderr, "outshine-client: {}", loaded.error());
+    std::println(stderr, "outshine: {}", loaded.error());
     return 1;
   }
   const auto &places = *loaded;

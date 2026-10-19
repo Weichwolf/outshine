@@ -242,6 +242,7 @@ done
 
 TestProfile() {
   case "$1" in
+    outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
@@ -296,6 +297,7 @@ TestProfile() {
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
+    profile/client-boundary) printf '%s' '-I.' ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/water-mesh | profile/water-asset) GroupIncludes src/generators/base ;;
@@ -452,6 +454,7 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/client-boundary) return 0 ;;
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/water-mesh) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/base/water/WaterSurfaceMesh.cpp src/generators/base/water/WaterSurfaceMeshQueries.cpp src/generators/base/water/WaterSurfaceMeshCodec.cpp' ;;
@@ -632,6 +635,7 @@ GroupIncludes() {
   done
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
   case "$1" in
+    src/diagnostics/calibration|src/diagnostics/calibration/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/render/device/native|src/render/device/native/*)
       includeSet="$includeSet $(SpirvCrossFlags --cflags)"
       case "$BUILD_PLATFORM" in Linux) includeSet="$includeSet $(pkg-config --cflags vulkan)" ;; esac
@@ -648,6 +652,13 @@ GroupIncludes() {
 
 GroupToolchain() {
   case "$1" in
+    src/diagnostics/calibration | src/diagnostics/calibration/*)
+      case "$(uname -m)" in
+        arm64|aarch64) printf '%s' "$CXXSTD -fno-exceptions -mcpu=native" ;;
+        x86_64) printf '%s' "$CXXSTD -fno-exceptions -march=native" ;;
+        *) printf '%s' "$CXXSTD -fno-exceptions" ;;
+      esac
+      ;;
     src/client | src/client/*) printf '%s' "$CXXSTD" ;;
     src/generators | src/generators/*) printf '%s' "$CXXSTD -fno-exceptions" ;;
     src/render | src/render/device | src/render/stages | src/render/Readback.cpp | src/engine/UiSession.cpp | src/engine/Laying.cpp | src/engine/GroundDiagnostics.cpp | src/engine/WorldFocus.cpp | src/engine/WorldPlacement.cpp | src/engine/RuntimeWorldPreparation.cpp | src/engine/TerrainCoverage.cpp | src/engine/SceneRuntimeIntegration.cpp | src/engine/FrameMeasurements.cpp | src/engine/AudioScenePublication.cpp | src/engine/AudioOcclusion.cpp | src/engine/Framing.cpp | src/engine/Declaring.cpp | src/engine/Keeping.cpp | src/engine/Advancing.cpp | src/engine/Inspection.cpp | src/engine/TilePieces.cpp | src/engine/HeightSheets.cpp | src/engine/HeightSheetsRefinement.cpp | src/engine/streaming | src/engine/RuntimeScene.cpp) LayerToolchain render ;;
@@ -723,6 +734,12 @@ BuildGroup() {
   esac
   groupIncludes=$(GroupIncludes "$group") || Die "no include set declared for the source group $group"
   groupStd=$(GroupToolchain "$group")
+  case "$group" in
+    src/diagnostics/calibration|src/diagnostics/calibration/*)
+      python3 test/scripts/calibration_build.py "$CXX $groupStd $OPT $WARN $SAN $EXTRA_DEFINES" ||
+        Die "calibration build metadata did not prepare"
+      ;;
+  esac
   groupUnits=$(SourceUnits "$group")
   # A TOOL'S ENTRY POINT IS NOT AN ARCHIVE MEMBER. `src/camera` is part of the library and its
   # `main` is not: archived, it would sit in `liboutshine.a` waiting to be pulled into somebody
@@ -924,8 +941,8 @@ BuildLibrary() {
   OBJECTS=""
   libraryGroups=" "
   for libraryUnit in $(SourceUnits); do
-    case "$libraryUnit" in src/diagnostics/*) continue ;; esac
     libraryGroup=${libraryUnit%/*}
+    if [ "$libraryGroup" = src/diagnostics ]; then continue; fi
     case "$libraryGroups" in *" $libraryGroup "*) continue ;; esac
     libraryGroups="$libraryGroups$libraryGroup "
     BuildGroup "$libraryGroup" || Die "the library group $libraryGroup did not build"
@@ -967,6 +984,7 @@ BuildLibrary() {
   for tool in $(find src -name 'Main.cpp' | sort); do
     toolLayer=$(dirname "$tool")
     toolNamed=build/outshine-$(basename "$toolLayer")
+    if [ "$toolLayer" = src/client ]; then toolNamed=build/outshine; fi
     toolStd=$(GroupToolchain "$toolLayer")
     toolIncludes=$(GroupIncludes "$toolLayer")
     groupStd=$toolStd

@@ -175,10 +175,10 @@ test-races: ## separate native ThreadSanitizer and container checks (SUITE=...)
 PREPARE_SECONDS ?= 1800
 prepare-place: all ## prepare generated assets and terrain without a frame-rate claim (PLACE=Koerbersee)
 	@$(if $(PLACE),,$(error name a PLACE))
-	@cd $(SELF_DIR) && build/outshine-client prepare $(PLACE) $(PREPARE_SECONDS)
+	@cd $(SELF_DIR) && build/outshine prepare $(PLACE) $(PREPARE_SECONDS)
 
 shots: all       ## every place through the camera -> build/shots   (PLACE=Wien for one)
-	@cd $(SELF_DIR) && build/outshine-client shots $(if $(PLACE),$(PLACE),--all)
+	@cd $(SELF_DIR) && build/outshine shots $(if $(PLACE),$(PLACE),--all)
 
 corpus-prepare: ## prepare pinned corpus inputs (MANIFEST=test/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))

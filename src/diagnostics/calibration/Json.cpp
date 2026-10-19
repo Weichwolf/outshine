@@ -97,7 +97,7 @@ std::string Json(const Report &report) {
   std::string result = std::format(
       "{{\"workload_version\":{},\"verified\":true,\"warmup_samples\":1,\"measured_samples\":{},"
       "\"cpu\":{},\"gpu\":{},\"backend\":{},\"compiler\":{},\"architecture\":{},"
-      "\"ram_bytes\":{},\"logical_cpu_count\":{},\"fma_target_feature\":{},"
+      "\"ram_bytes\":{},\"logical_cpu_count\":{},\"fma_target_feature\":{},\"gpu_validation\":{},"
       "\"build\":{{\"commit\":{},\"flags\":{},\"host_load\":{}}},\"workloads\":[",
       CALIBRATION_VERSION,
       CALIBRATION_SAMPLES,
@@ -109,6 +109,7 @@ std::string Json(const Report &report) {
       report.RamBytes,
       report.LogicalCpuCount,
       report.FmaTargetFeature,
+      report.GpuValidation,
       Quote(report.Compilation.Commit),
       Quote(report.Compilation.Flags),
       Quote(report.Compilation.HostLoad));

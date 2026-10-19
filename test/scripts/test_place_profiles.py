@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine-client')).resolve()
+CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolve()
 PLACE = os.environ.get('OUTSHINE_PROFILE_PLACE', 'Husum')
 
 
