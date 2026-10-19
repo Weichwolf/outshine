@@ -8,6 +8,22 @@ import numpy as np
 import trimesh
 from source_far_reprojection import intersect_source, prepare_source
 from source_surface_fields import relight, surface_fields
+from triangle_image_reference import (
+    average_samples,
+    image_rays,
+    projected_bounds,
+)
+
+__all__ = [
+    "average_samples",
+    "bake_card",
+    "bilinear",
+    "card_samples",
+    "image_rays",
+    "join_sources",
+    "projected_bounds",
+    "reference_samples",
+]
 
 
 def join_sources(sources):
@@ -31,41 +47,6 @@ def join_sources(sources):
         "members": [s["metadata"] for s in sources],
         "native_bytes": sum(s["native_bytes"] for s in sources),
     }
-
-
-def projected_bounds(positions, view):
-    eye, basis, focal, width, height = view
-    p = (positions.astype(float) - eye) @ basis.T
-    if (p[:, 2] <= 0.1).any():
-        raise ValueError("bounded diagnostic requires geometry in front of near plane")
-    xy = [width / 2, height / 2] + focal * p[:, :2] / p[:, 2, None] * [1, -1]
-    return np.stack((xy.min(0) - 2, xy.max(0) + 2))
-
-
-def image_rays(view, box, width, height, supersample=2):
-    eye, basis, focal, screen_width, screen_height = view
-    x = box[0, 0] + (np.arange(width * supersample) + 0.5) / (
-        width * supersample
-    ) * np.ptp(box[:, 0])
-    y = box[0, 1] + (np.arange(height * supersample) + 0.5) / (
-        height * supersample
-    ) * np.ptp(box[:, 1])
-    xx, yy = np.meshgrid(x, y)
-    direction = (
-        np.column_stack(
-            (
-                (xx.ravel() - screen_width / 2) / focal,
-                -(yy.ravel() - screen_height / 2) / focal,
-                np.ones(xx.size),
-            )
-        )
-        @ basis
-    )
-    return np.broadcast_to(eye, direction.shape), direction
-
-
-def average_samples(values, width, height, supersample):
-    return values.reshape(height, supersample, width, supersample, -1).mean((1, 3))
 
 
 def reference_samples(source, prepared, origins, directions):

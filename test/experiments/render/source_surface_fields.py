@@ -2,6 +2,11 @@
 
 import numpy as np
 from packed_normals import unpack
+from triangle_image_reference import (
+    relight,
+)
+
+__all__ = ["relight", "surface_fields"]
 
 
 def surface_fields(source, faces):
@@ -13,11 +18,3 @@ def surface_fields(source, faces):
     colour[valid] = source["palette"][source["colour_index"][faces[valid]], :3]
     code[valid] = source["code"][faces[valid]]
     return {"normal": normal, "colour": colour, "code": code}
-
-
-def relight(fields, sun, depth):
-    sun = np.array(sun, float)
-    sun /= np.linalg.norm(sun)
-    light = 0.2 + 0.8 * np.maximum(fields["normal"] @ sun, 0)
-    rgb = np.clip(fields["colour"] * light[:, None], 0, 1)
-    return np.where(np.isfinite(depth)[:, None], rgb, 0)

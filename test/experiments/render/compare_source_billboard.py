@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 from source_billboard import (
     average_samples,
     bake_card,
@@ -26,6 +26,21 @@ from source_billboard import (
 from source_far_assets import load_source
 from source_far_reprojection import prepare_source
 from source_surface_fields import relight
+from triangle_image_reference import (
+    depth_difference,
+    difference,
+    panel,
+)
+
+__all__ = [
+    "camera",
+    "depth_difference",
+    "difference",
+    "load_group",
+    "main",
+    "panel",
+    "render_view",
+]
 
 
 def camera(centre, east, north, up, extent, focal, distance, yaw, move):
@@ -39,64 +54,6 @@ def camera(centre, east, north, up, extent, focal, distance, yaw, move):
     right /= np.linalg.norm(right)
     basis = np.stack((right, np.cross(right, forward), forward))
     return eye + move * right, basis, focal, 1280, 720
-
-
-def difference(reference, image):
-    a, b = reference[:, :, 3], image[:, :, 3]
-    union = (a > 0) | (b > 0)
-    delta = image[:, :, :3] - reference[:, :, :3]
-    opaque = (a >= 1 - 1e-6) & (b >= 1 - 1e-6)
-    return {
-        "reference_alpha_sum_px": float(a.sum()),
-        "candidate_alpha_sum_px": float(b.sum()),
-        "alpha_l1_px": float(abs(b - a).sum()),
-        "lost_half_coverage_px": int(((a >= 0.5) & (b < 0.5)).sum()),
-        "gained_half_coverage_px": int(((a < 0.5) & (b >= 0.5)).sum()),
-        "premultiplied_rgb_union_rmse": float(np.sqrt(np.mean(delta[union] ** 2)))
-        if union.any()
-        else None,
-        "premultiplied_rgb_roi_rmse": float(np.sqrt(np.mean(delta**2))),
-        "common_opaque_pixels": int(opaque.sum()),
-        "common_opaque_rgb_rmse": float(np.sqrt(np.mean(delta[opaque] ** 2)))
-        if opaque.any()
-        else None,
-    }
-
-
-def depth_difference(reference, candidate, covered):
-    common = np.isfinite(reference) & np.isfinite(candidate) & covered
-    delta = abs(candidate[common] - reference[common])
-    return {
-        "common_samples": int(common.sum()),
-        "p95_depth_difference_m": float(np.percentile(delta, 95))
-        if len(delta)
-        else None,
-        "max_depth_difference_m": float(delta.max()) if len(delta) else None,
-    }
-
-
-def panel(path, images, title):
-    result = Image.new("RGB", (len(images[0]) * 384, 2 * 250), "white")
-    draw = ImageDraw.Draw(result)
-    for row, light in enumerate(images):
-        for col, (name, pixels) in enumerate(light.items()):
-            # Identical sky composite; metrics above use premultiplied RGB.
-            rgb = pixels[:, :, :3] + (1 - pixels[:, :, 3:4]) * [0.45, 0.65, 0.85]
-            im = Image.fromarray(np.uint8(np.clip(rgb, 0, 1) * 255 + 0.5))
-            im.thumbnail((376, 210), Image.Resampling.NEAREST)
-            # Enlarge small distant objects explicitly; original pixel data saved.
-            factor = min(376 / im.width, 210 / im.height)
-            im = im.resize(
-                (int(im.width * factor), int(im.height * factor)),
-                Image.Resampling.NEAREST,
-            )
-            result.paste(im, (col * 384 + 4, row * 250 + 36))
-            draw.text(
-                (col * 384 + 4, row * 250 + 4),
-                f"{name}, light {row}: {title}",
-                fill="black",
-            )
-    result.save(path)
 
 
 def render_view(fine, shell, prepared, card, view, suns):

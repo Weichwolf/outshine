@@ -12,7 +12,6 @@ from pathlib import Path
 
 import numpy as np
 from check_building_capture_inputs import check, load
-from compare_source_billboard import depth_difference, difference, panel
 from native_capture_meshes import (
     BINDING_COLUMNS,
     REPRESENTATIONS,
@@ -20,9 +19,16 @@ from native_capture_meshes import (
     mesh,
     sample,
 )
-from source_billboard import average_samples, image_rays, projected_bounds
-from source_far_reprojection import prepare_source
-from source_surface_fields import relight
+from triangle_image_reference import (
+    average_samples,
+    depth_difference,
+    difference,
+    image_rays,
+    panel,
+    prepare_source,
+    projected_bounds,
+    relight,
+)
 
 SAMPLE_LIMIT = 16384
 CONTROL_PAIR_LIMIT = 8388608

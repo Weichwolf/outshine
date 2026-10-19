@@ -34,7 +34,10 @@ wall colour factors and material-metre attributes without remeshing:
 | Captured | Actual visible-face, patch or full-mesh emissions |
 
 Tests compare every expanded attribute byte with the independent native input
-reader. The common triangle/R-tree ray reader receives the same rays and original
+reader. `triangle_image_reference.py` owns the shared ray/image operations;
+older research entrypoints import these operations from that module. Its nine
+functions are transferred unchanged and checked against their original ASTs.
+The common triangle/R-tree ray reader receives the same rays and original
 winding for all paths; native attributes are interpolated at the actual hit.
 Two declared Lambert lights use colour factors and interpolated unit normals.
 These are geometry/field diagnostics, not native UV textures, PBR or shadows.

@@ -7,7 +7,7 @@ import numpy as np
 from check_building_capture_inputs import VERTEX, expanded_stream, load
 from compare_actual_capture_movement import errors
 from native_capture_meshes import REPRESENTATIONS, independent_depth, mesh, sample
-from source_far_reprojection import prepare_source
+from triangle_image_reference import prepare_source
 
 FIXTURE = (
     Path(__file__).resolve().parents[2]
