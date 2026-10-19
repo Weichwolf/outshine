@@ -252,6 +252,7 @@ def run(manifest_path, output):
         for name in (
             "physical_river_frame.py",
             "physical_river_fit.py",
+            "physical_river_program.py",
             "compare_physical_river.py",
         )
     }

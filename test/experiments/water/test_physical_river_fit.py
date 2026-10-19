@@ -125,7 +125,7 @@ class PhysicalRiverTests(unittest.TestCase):
         mesh = triangle()
         rows = np.array([[0, 1, 0, 0, -0.1, 0]])
         with patch(
-            "physical_river_fit.clarabel.DefaultSolver", side_effect=AssertionError
+            "physical_river_program.clarabel.DefaultSolver", side_effect=AssertionError
         ):
             result = fit_physical_surface(
                 mesh, [10, 47], rows, up_bounds_m=[400, 600], seconds=0
