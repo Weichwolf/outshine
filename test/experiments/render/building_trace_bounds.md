@@ -13,6 +13,9 @@ expensive sources. They are fully meshed in their cells. The 36.9 million-call
 opportunity therefore applies to the diagnostic Whole path; it does not prove
 a saving in the current cell path. Do not prioritize native adoption from that
 number alone. Source-complete planning before cell emission remains the goal.
+The later [first-callback audit](building_capture_prefix.md) measures a separate
+cell-specific opportunity using actual native trees and original cell rays;
+native candidate equivalence and cost still require their own comparison.
 
 ## Concrete cause and placement contract
 

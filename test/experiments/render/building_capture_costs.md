@@ -140,3 +140,8 @@ candidate comparison on these unchanged groups, plus original output and full
 world image/cost checks. Source-complete demand before cache-cell emission,
 movement, shadow/reflection/interaction needs and target-device gates remain
 open. This audit changes priority and measurement scope; it is no product fix.
+
+The [subsequent first-callback audit](building_capture_prefix.md) now supplies a
+native-backed lower bound for part work in actual cell captures, with verified
+native trees, first callbacks and returns. Its separate cell-specific local-bound
+opportunity does not reuse the Whole-only count or establish a native speedup.
