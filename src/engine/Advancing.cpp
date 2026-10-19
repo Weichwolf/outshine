@@ -100,11 +100,17 @@ ApplyCamera(Core::RuntimeScene &scene,
 
 bool Engine::State::UpdateActiveCamera() {
   if (!Session.Views || !Picture.Standing) { return true; }
+  const auto accepted = [this](bool ready) {
+    if (ready) { CameraPosePending = false; }
+    return ready;
+  };
   const Scenario::View &seen = Session.Views->Active();
   if (seen.Placement == Scenario::CameraPlacement::FollowEntity) {
-    return FollowCamera(*Session.Views);
+    return accepted(FollowCamera(*Session.Views));
   }
-  if (seen.Placement == Scenario::CameraPlacement::Route) { return UpdateRouteCamera(seen); }
+  if (seen.Placement == Scenario::CameraPlacement::Route) {
+    return accepted(UpdateRouteCamera(seen));
+  }
   Vec3 station = seen.Sees.PositionM + seen.OffsetM;
   if (seen.Placement == Scenario::CameraPlacement::Geodetic) {
     const auto position = GeodeticCameraPosition(seen);
@@ -158,7 +164,7 @@ bool Engine::State::UpdateActiveCamera() {
     Error = Says::kInvalidViewProjection;
     return false;
   }
-  return true;
+  return accepted(true);
 }
 
 Holds<Engine::State::RouteCameraSample> Engine::State::SampleRouteCamera(const Scenario::View &view,
@@ -495,7 +501,7 @@ bool Engine::State::UpdateTriggers() {
   return true;
 }
 
-bool Engine::State::Updates() {
+bool Engine::State::Updates(bool simulate) {
   if (!PollWeather()) { return false; }
   if (!RequestOriginalCells()) { return false; }
   PollOsmSources();
@@ -548,12 +554,15 @@ bool Engine::State::Updates() {
   }
 
   const auto simulationAt = std::chrono::steady_clock::now();
-  const double simulationStepS =
-      Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
-  const double gravityMs2 = Session.Declared.Ground.GravityMs2;
-  Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
-  Ticking.ElapsedS += simulationStepS;
-  const bool triggered = UpdateTriggers();
+  bool triggered = true;
+  if (simulate) {
+    const double simulationStepS =
+        Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
+    const double gravityMs2 = Session.Declared.Ground.GravityMs2;
+    Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
+    Ticking.ElapsedS += simulationStepS;
+    triggered = UpdateTriggers();
+  }
   const bool cameraUpdated = triggered && UpdateActiveCamera();
   Cost.Simulation.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - simulationAt)
@@ -606,12 +615,19 @@ void Engine::frameTimesMs(std::vector<double> &out) const {
 }
 
 Result Engine::advance() {
+  return advanceFrame(true);
+}
+
+Result Engine::advanceFrame(bool simulate) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
+  if (!S_->Simulation) {
+    return std::unexpected(std::string("camera and simulation updates require an assembled scene"));
+  }
   const auto began = std::chrono::steady_clock::now();
   S_->Published.BeginFrame();
   const auto updateAt = std::chrono::steady_clock::now();
-  const bool updated = S_->Updates();
+  const bool updated = S_->Updates(simulate);
   const double updateMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - updateAt)
           .count();
@@ -629,8 +645,11 @@ Result Engine::advance() {
   S_->Cost.SceneAdvance.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sceneAt)
           .count());
-  S_->Cost.Advance.Took(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+  if (simulate) {
+    S_->Cost.Advance.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+            .count());
+  }
   return drew ? Result{} : std::unexpected(S_->Error);
 }
 
@@ -694,10 +713,12 @@ Result Engine::advance(double elapsedS) {
   if (!std::isfinite(accumulatedS)) { return std::unexpected(Says::kElapsedTimeOverflow); }
   S_->Ticking.OwedS = accumulatedS;
   bool stood = true;
+  bool stepped = false;
   for (int step = 0; step < S_->Session.Declared.Motion.MostStepsInArrears &&
                      S_->Ticking.OwedS >= S_->Session.Declared.Motion.StepS;
        ++step) {
     S_->Ticking.OwedS -= S_->Session.Declared.Motion.StepS;
+    stepped = true;
     stood = advance().has_value();
     if (!stood) { break; }
   }
@@ -705,6 +726,7 @@ Result Engine::advance(double elapsedS) {
       S_->Session.Declared.Motion.MostStepsInArrears * S_->Session.Declared.Motion.StepS) {
     S_->Ticking.OwedS = 0.0;
   }
+  if (stood && !stepped && S_->CameraPosePending) { return advanceFrame(false); }
   return stood ? Result{} : std::unexpected(S_->Error);
 }
 

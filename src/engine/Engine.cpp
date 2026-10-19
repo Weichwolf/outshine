@@ -1,4 +1,5 @@
 #include "EngineHeld.h"
+#include "GpuFrameSample.h"
 #include "geo/Mercator.h"
 #include "math/Units.h"
 #include <algorithm>
@@ -429,6 +430,36 @@ Result Renderer::resetMeasurements() {
   Of_->S_->Picture.Device.ResetMeasurements();
   Of_->S_->PublishGpuFrameMeasurements(false);
   return {};
+}
+
+Result Renderer::resetMeasurements(size_t gpuSamples) {
+  if (const auto permission = Of_->S_->MutationPermission(); !permission) { return permission; }
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("frame measurement requires an assembled render scene");
+  }
+  Of_->S_->Picture.Device.KeepGpuSamples(gpuSamples);
+  return resetMeasurements();
+}
+
+Result Renderer::gpuSamples(std::vector<Render::GpuFrameSample> &out) const {
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("GPU samples require an assembled render scene");
+  }
+  const auto &device = Of_->S_->Picture.Device;
+  if (device.Costs().DroppedGpuSamples != 0) {
+    return std::unexpected("GPU frame sample capacity was exhausted");
+  }
+  const auto samples = device.GpuSamples();
+  out.assign(samples.begin(), samples.end());
+  return {};
+}
+
+bool Renderer::camera(Camera &out) const {
+  return Of_->camera(out);
+}
+
+std::string_view Renderer::gpuName() const {
+  return Of_->S_->Picture.Device.GpuName();
 }
 
 Result Renderer::saveScreenshot(std::string_view path) {
@@ -874,6 +905,7 @@ Result Engine::setView(std::string_view view) {
     return std::unexpected(S_->Error);
   }
   S_->RouteCamera = std::move(routeCamera);
+  S_->CameraPosePending = true;
   return {};
 }
 

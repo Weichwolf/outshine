@@ -27,6 +27,7 @@ struct SDL_Window;
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuSubmission.h"
+#include "GpuFrameSample.h"
 #include "UploadQueue.h"
 #include "GroundStorage.h"
 
@@ -648,13 +649,19 @@ public:
     RenderFrameTiming HostTotals;
     StageCost Gpu;
     uint64_t UnavailableGpuFrames = 0;
+    uint64_t DroppedGpuSamples = 0;
     double GpuQueryMs = 0.0;
     uint64_t Frames = 0;
   };
 
   [[nodiscard]] const CostProfile &Costs() const noexcept { return Costs_; }
 
+  [[nodiscard]] std::string_view GpuName() const noexcept;
+
   void ResetMeasurements() noexcept;
+  void KeepGpuSamples(size_t maximum);
+
+  [[nodiscard]] std::span<const GpuFrameSample> GpuSamples() const noexcept { return GpuSamples_; }
 
   struct SubmittedCameraFrame {
     uint64_t Serial = 0;
@@ -765,6 +772,8 @@ private:
   void CollectCompletedFrameTimes();
   CostProfile Costs_;
   Native::Completion LastFrameSubmission_{}, MeasurementBegin_{};
+  std::vector<GpuFrameSample> GpuSamples_;
+  size_t GpuSampleLimit_ = 0;
   std::array<Effort, kStageCount> PendingSpent_{};
   RenderFrameTiming LastRenderFrameTiming_;
   RenderFrameTiming SlowestRenderFrameTiming_;

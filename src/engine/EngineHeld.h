@@ -458,6 +458,7 @@ struct Engine::State {
   Spent Cost;
   Ticks Ticking;
   std::optional<RouteCameraMotion> RouteCamera;
+  bool CameraPosePending = false;
   Core::DiagnosticLedger Published;
   Host *Offered = nullptr;
   LogSink *Diagnostics = nullptr;
@@ -653,7 +654,7 @@ struct Engine::State {
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
   [[nodiscard]] bool StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const;
   [[nodiscard]] bool UpdateTriggers();
-  [[nodiscard]] bool Updates();
+  [[nodiscard]] bool Updates(bool simulate);
   [[nodiscard]] bool Draws();
   void PublishGroundPreparationMeasurements();
   void PublishAdvanceMeasurements();

@@ -243,6 +243,11 @@ done
 TestProfile() {
   case "$1" in
     outshine/src/diagnostics/calibration/Hardware) printf '%s' 'profile/calibration' ;;
+    outshine/src/client/BenchmarkMotion) printf '%s' 'profile/benchmark-motion' ;;
+    outshine/src/client/BenchmarkOptions) printf '%s' 'profile/benchmark-options' ;;
+    outshine/src/client/BenchmarkReport) printf '%s' 'profile/benchmark-report' ;;
+    outshine/src/scenario/Views) printf '%s' 'profile/scenario-views' ;;
+    outshine/src/render/Viewing) printf '%s' 'profile/render-viewing' ;;
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
@@ -299,6 +304,10 @@ TestProfile() {
 LayerIncludes() {
   case "$(TestProfile "$1")" in
     profile/calibration) GroupIncludes src/diagnostics/calibration; printf '%s' ' -I.' ;;
+    profile/benchmark-motion) GroupIncludes src/client ;;
+    profile/benchmark-options|profile/benchmark-report) GroupIncludes src/client ;;
+    profile/scenario-views) GroupIncludes src/scenario ;;
+    profile/render-viewing) GroupIncludes src/render ;;
     profile/client-boundary) printf '%s' '-I.' ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
@@ -411,6 +420,7 @@ LayerValidation() {
 LayerLink() {
   case "$(TestProfile "$1")" in
     profile/calibration) pkg-config --libs sdl3; NativeLink ;;
+    profile/benchmark-report) pkg-config --libs sdl3 ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
@@ -457,7 +467,12 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
-    profile/calibration) printf '%s' "src/diagnostics/calibration $(NativeGroups) src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp" ;;
+    profile/calibration) printf '%s' "src/diagnostics/calibration $(NativeGroups) src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp src/base/io/HostProcessor.cpp" ;;
+    profile/benchmark-motion) printf '%s' 'src/client/BenchmarkMotion.cpp src/base/math/Camera.cpp src/base/math/Rotation.cpp' ;;
+    profile/benchmark-options) printf '%s' 'src/client/BenchmarkOptions.cpp' ;;
+    profile/benchmark-report) printf '%s' 'src/client/BenchmarkReport.cpp src/base/math/Camera.cpp' ;;
+    profile/scenario-views) printf '%s' 'src/scenario/Views.cpp src/base/math/Camera.cpp' ;;
+    profile/render-viewing) printf '%s' 'src/base/math/Camera.cpp src/base/math/Rotation.cpp' ;;
     profile/client-boundary) return 0 ;;
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
@@ -639,6 +654,7 @@ GroupIncludes() {
   done
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
   case "$1" in
+    src/client|src/client/*) includeSet="$includeSet -Ibuild/generated $(pkg-config --cflags nlohmann_json)" ;;
     src/diagnostics/calibration|src/diagnostics/calibration/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/render/device/native|src/render/device/native/*)
       includeSet="$includeSet $(SpirvCrossFlags --cflags)"
@@ -656,6 +672,7 @@ GroupIncludes() {
 
 GroupToolchain() {
   case "$1" in
+    src/client/Main.cpp) printf '%s' "$CXXSTD" ;;
     src/diagnostics/calibration | src/diagnostics/calibration/*)
       case "$(uname -m)" in
         arm64|aarch64) printf '%s' "$CXXSTD -fno-exceptions -mcpu=native" ;;
@@ -663,7 +680,7 @@ GroupToolchain() {
         *) printf '%s' "$CXXSTD -fno-exceptions" ;;
       esac
       ;;
-    src/client | src/client/*) printf '%s' "$CXXSTD" ;;
+    src/client | src/client/*) printf '%s' "$CXXSTD -fno-exceptions" ;;
     src/generators | src/generators/*) printf '%s' "$CXXSTD -fno-exceptions" ;;
     src/render | src/render/device | src/render/stages | src/render/Readback.cpp | src/engine/UiSession.cpp | src/engine/Laying.cpp | src/engine/GroundDiagnostics.cpp | src/engine/WorldFocus.cpp | src/engine/WorldPlacement.cpp | src/engine/RuntimeWorldPreparation.cpp | src/engine/TerrainCoverage.cpp | src/engine/SceneRuntimeIntegration.cpp | src/engine/FrameMeasurements.cpp | src/engine/AudioScenePublication.cpp | src/engine/AudioOcclusion.cpp | src/engine/Framing.cpp | src/engine/Declaring.cpp | src/engine/Keeping.cpp | src/engine/Advancing.cpp | src/engine/Inspection.cpp | src/engine/TilePieces.cpp | src/engine/HeightSheets.cpp | src/engine/HeightSheetsRefinement.cpp | src/engine/streaming | src/engine/RuntimeScene.cpp) LayerToolchain render ;;
     *) printf '%s' "$CXXSTD -fno-exceptions" ;;
@@ -740,8 +757,12 @@ BuildGroup() {
   groupStd=$(GroupToolchain "$group")
   case "$group" in
     src/diagnostics/calibration|src/diagnostics/calibration/*)
-      python3 test/scripts/calibration_build.py "$CXX $groupStd $OPT $WARN $SAN $EXTRA_DEFINES" ||
+      python3 test/scripts/build_metadata.py "$CXX $groupStd $OPT $WARN $SAN $EXTRA_DEFINES" calibration ||
         Die "calibration build metadata did not prepare"
+      ;;
+    src/client|src/client/*)
+      python3 test/scripts/build_metadata.py "$CXX $groupStd $OPT $WARN $SAN $EXTRA_DEFINES" client ||
+        Die "client build metadata did not prepare"
       ;;
   esac
   groupUnits=$(SourceUnits "$group")
@@ -989,7 +1010,7 @@ BuildLibrary() {
     toolLayer=$(dirname "$tool")
     toolNamed=build/outshine-$(basename "$toolLayer")
     if [ "$toolLayer" = src/client ]; then toolNamed=build/outshine; fi
-    toolStd=$(GroupToolchain "$toolLayer")
+    toolStd=$(GroupToolchain "$tool")
     toolIncludes=$(GroupIncludes "$toolLayer")
     groupStd=$toolStd
     groupIncludes=$toolIncludes

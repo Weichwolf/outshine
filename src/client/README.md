@@ -63,6 +63,44 @@ GPU-Zeitstempel, Host-Encoding, Einreichung und Warten bleiben getrennt. Fehlend
 stehen als null im Ergebnis. Logische Bytes und Operationen sind keine physische DRAM-Bandbreite
 oder zugesicherte Hardwareleistung. Validierte Läufe getrennt von Vergleichsmessungen auswerten.
 
+# Szenariomessung
+
+```sh
+build/outshine benchmark --scenario /path/to/world.json --view station --frames 60 \
+  --angular-velocity 0,-360,0 --offline \
+  --output /tmp/outshine-scene.json --image /tmp/outshine-scene.png
+```
+
+Szenario-Dateien und Inline-JSON verwenden dieselbe Aufbereitung wie `run`.
+`--scenario-overrides` ergänzt generische Szenariofelder; Auflösung, Inhalte und Ziel-fps
+stehen im Szenario. Ohne deklarierte Bildgröße gilt 1280×720. `--frames` fordert exakt
+1..1.000.000 Frames; diese Speichergrenze beschränkt keine normale Szenario-Wiedergabe.
+`--linear-velocity x,y,z` bezeichnet Weltmeter pro Sekunde, `--angular-velocity x,y,z`
+einen rechtshändigen Weltachsenvektor in Grad pro Sekunde. Geografische Weltachsen sind
+Ost/Oben/Süd. Die Kamera folgt der Startpose bei `(i+1)/fps`; ihre Linse bleibt erhalten.
+
+Vor dem Fenster wird die gewählte Ansicht vollständig in Refined-Qualität vorbereitet.
+`--preload-seconds` setzt deren Deadline, standardmäßig zehn Sekunden. Es gibt keine
+Warmup- oder Zusatzframes. Nur das letzte gemessene Bild wird auf Wunsch atomar als PNG
+geschrieben. JSON und PNG brauchen unterschiedliche Pfade; Eingabe-/Lade-/Gerätefehler
+erhalten bestehende Dateien. Ohne `--output` geht das JSON allein nach stdout.
+
+Der Bericht trennt CPU-Wallzeit ohne absichtliches Pacing von nativen GPU-Zeitstempeln,
+vollständige Framezahl, Weltvollständigkeit und vollständige GPU-Stichproben. CPU-Zeit
+enthält synchrone Warteanteile. GPU-Erfassung fügt keine Abfragen oder Warteoperationen
+hinzu; ihr begrenzter Speicher wird vor dem Fenster angelegt. Fehlende GPU-Zeit bleibt
+unbewiesen: keine vollständigen GPU-Perzentile und kein grünes Budget-Gate.
+Aufbau, Preload, getaktetes Fenster, abschließendes GPU-Warten und PNG liegen getrennt vor.
+Der SHA-256 der effektiven Szenariodeklaration bindet Overrides und Providerkonfiguration;
+er ersetzt keinen Inhaltsnachweis extern geladener Assets. Quellen-/Cachekosten und
+Hardware-/Build-/Lastangaben bleiben im Bericht erhalten.
+
+Das Geräteziel nach AGENTS ist 1280×720/60, einschließlich p99≤16,67 ms. Andere Profile
+sind deklarierte Vergleiche. Ein funktional erfolgreicher Bericht kann rote Welt-/Zeitbudgets
+enthalten. `--gpu-validation` gehört zum getrennten synthetischen Messmodus.
+Für den JSON-Bericht wird die Headerbibliothek `nlohmann_json` über pkg-config benötigt
+(`nlohmann-json3-dev` unter apt, `nlohmann-json` unter Homebrew).
+
 # Cachewartung
 
 ```sh

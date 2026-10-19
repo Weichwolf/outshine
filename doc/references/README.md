@@ -467,6 +467,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 ## Physik, Animation, NPCs und Klang — WI [#2](https://github.com/Weichwolf/outshine/issues/2)
 
+- **Animating Rotation with Quaternion Curves**, Shoemake, SIGGRAPH 1985.
+  [Quelle](https://doi.org/10.1145/325165.325242) ·
+  [PDF](animation/siggraph/1985-rotation-quaternion-curves.pdf).
+  Einheitliche Rotationsdarstellung und Quaternionprodukt für Kamerabewegungen (#811).
+  Feste Winkelgeschwindigkeit wird direkt bei der Framezeit ausgewertet; keine Euler-
+  Integration oder gespeicherte Ansicht je Frame. Vorzeichen und Matrixkonvention gegen
+  Outshines Kamera und unabhängige Achsrotationen prüfen; keine Spline-Implementierung.
 - **XPBD: Position-Based Simulation of Compliant Constrained Dynamics**, Macklin et al.,
   Motion in Games 2016. [Quelle](https://mmacklin.com/xpbd.pdf) ·
   [PDF](physics/mig/2016-xpbd.pdf).

@@ -237,7 +237,11 @@ bool SceneRenderer::Stands() {
     return false;
   }
   Device_ = std::move(*made);
-  Uploads_ = std::make_unique<UploadQueue>(*Device_, UploadBudget_);
+  Uploads_ = std::make_unique<UploadQueue>(
+      *Device_,
+      UploadBudget_,
+      [](void *context) { static_cast<SceneRenderer *>(context)->CollectCompletedFrameTimes(); },
+      this);
   return true;
 }
 

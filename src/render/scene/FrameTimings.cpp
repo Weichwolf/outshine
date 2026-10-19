@@ -1,4 +1,5 @@
 #include "SceneRenderer.h"
+#include "GpuFrameSample.h"
 #include "Log.h"
 #include <algorithm>
 #include <chrono>
@@ -8,10 +9,17 @@
 #include <expected>
 #include <ratio>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace outshine::Render {
 namespace {
 constexpr double kNanosecondsPerMs = 1'000'000.0;
+}
+
+std::string_view SceneRenderer::GpuName() const noexcept {
+  return Device_ ? std::string_view(Device_->Limits().Name) : std::string_view{};
 }
 
 void SceneRenderer::CollectGpuTime(Native::Completion completion) {
@@ -20,23 +28,43 @@ void SceneRenderer::CollectGpuTime(Native::Completion completion) {
     return;
   }
   const auto began = std::chrono::steady_clock::now();
+  const auto recordCost = [this, began] {
+    Costs_.GpuQueryMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  };
   const auto result = Device_->SubmissionGpuTime(completion);
-  Costs_.GpuQueryMs +=
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   if (!result || result->Status != Native::CompletionStatus::Ready ||
       !std::isfinite(result->ElapsedNanoseconds) || result->ElapsedNanoseconds < 0) {
     ++Costs_.UnavailableGpuFrames;
+    recordCost();
     return;
   }
   const double elapsedMs = result->ElapsedNanoseconds / kNanosecondsPerMs;
   ++Costs_.Gpu.Frames;
   Costs_.Gpu.TotalMs += elapsedMs;
   Costs_.Gpu.MostMs = std::max(Costs_.Gpu.MostMs, elapsedMs);
+  if (GpuSampleLimit_ != 0) {
+    if (GpuSamples_.size() < GpuSampleLimit_) {
+      GpuSamples_.push_back(
+          {.Device = completion.Device, .Submission = completion.Serial, .ElapsedMs = elapsedMs});
+    } else {
+      ++Costs_.DroppedGpuSamples;
+    }
+  }
+  recordCost();
+}
+
+void SceneRenderer::KeepGpuSamples(size_t maximum) {
+  std::vector<GpuFrameSample> samples;
+  samples.reserve(maximum);
+  GpuSamples_ = std::move(samples);
+  GpuSampleLimit_ = maximum;
 }
 
 void SceneRenderer::ResetMeasurements() noexcept {
   MeasurementBegin_ = LastFrameSubmission_;
   Costs_ = {};
+  GpuSamples_.clear();
   LastRenderFrameTiming_ = {};
   SlowestRenderFrameTiming_ = {};
   for (auto &stage : Spent_) { stage.TookMs = 0; }
@@ -45,7 +73,10 @@ void SceneRenderer::ResetMeasurements() noexcept {
 void SceneRenderer::CollectCompletedFrameTimes() {
   for (auto &completion : Landed_) {
     if (!completion) { continue; }
+    const auto began = std::chrono::steady_clock::now();
     const auto ready = Device_->Poll(*completion);
+    Costs_.GpuQueryMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     if (ready && *ready == Native::CompletionStatus::Ready) {
       CollectGpuTime(*completion);
       completion.reset();

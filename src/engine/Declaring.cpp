@@ -636,7 +636,10 @@ Result Engine::declare(const Scenario::Document &scenario) {
   }
   if (auto reused = ReuseDeclaration(
           scenario, declared, S_->Picture, S_->Session, *views, bindings, S_->Error)) {
-    if (*reused) { S_->RouteCamera.reset(); }
+    if (*reused) {
+      S_->RouteCamera.reset();
+      S_->CameraPosePending = false;
+    }
     return std::move(*reused);
   }
 
@@ -678,6 +681,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error.clear();
     PublishConfiguration(S_->Session, *views, bindings);
     S_->RouteCamera.reset();
+    S_->CameraPosePending = false;
     return {};
   }
   Core::RuntimeScene::HandOffRenderer(S_->Picture.Standing);
@@ -693,6 +697,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
       prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
   PublishConfiguration(S_->Session, *views, bindings);
   S_->RouteCamera.reset();
+  S_->CameraPosePending = false;
   return {};
 }
 
