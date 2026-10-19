@@ -6,6 +6,7 @@ import numpy as np
 
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.heights import HeightFit
+from outshine_ref.water._contacts import point_contact_errors, prepare_contacts
 from outshine_ref.water._program import solve_program
 from outshine_ref.water.frame import normal_caps, normal_norm_bounds, tangent_directions
 
@@ -39,6 +40,7 @@ def fit_physical_surface(
     *,
     up_bounds_m,
     fixed=None,
+    contact_points=None,
     seconds=5.0,
     iterations=200,
     normal_model="whole-prism",
@@ -49,6 +51,7 @@ def fit_physical_surface(
 
     Fixed contacts are explicit ENU-Up values at existing shared vertices. A
     rejected solve returns no geometry, never an unvalidated/relaxed water field.
+    contact_points add hard physical ENU positions inside/on the same facets.
     Two explicit primary row indices per face select the derived-bound linear QP;
     otherwise the original norm-SOCP reference remains the default.
     """
@@ -98,7 +101,16 @@ def fit_physical_surface(
         for i, h in pins.items()
     ):
         raise ValueError("finite ENU-Up contacts at existing vertices required")
+    contacts, contact_report = prepare_contacts(mesh, contact_points)
+    report.update(contact_report)
+    if contacts is None:
+        return absent(report["reason"])
     caps = normal_caps(anchor, mesh.vertices[:, :2], mesh.triangles, up_bounds_m)
+    if np.any(
+        (contacts.points[:, 2] < caps["up_bounds_m"][0])
+        | (contacts.points[:, 2] > caps["up_bounds_m"][1])
+    ):
+        return absent("point_contact_height_outside_bounds")
     if normal_model not in ("whole-prism", "centre", "enu-control"):
         raise ValueError("unknown explicitly declared normal model")
     report["normal_model"] = normal_model
@@ -132,6 +144,7 @@ def fit_physical_surface(
         start,
         normal_bound=bound,
         solver_name=solver,
+        point_contacts=contacts,
     )
     report.update(solver_report)
     if height is None:
@@ -161,12 +174,15 @@ def fit_physical_surface(
         fixed_up_error_m=pin_error,
         height_box_violation_m=box_error,
     )
+    result_mesh = Mesh(vertices, mesh.triangles)
+    report.update(point_contact_errors(result_mesh, contacts))
     if (
         max(
             violation,
             pin_error,
             box_error,
             report.get("derived_normal_bound_excess", 0),
+            report["fixed_point_up_error_m"],
         )
         > 1e-9
     ):
@@ -180,4 +196,4 @@ def fit_physical_surface(
         maximum_enu_up_target_error_m=float(abs(residual).max()),
         total_ms=1000 * (time.perf_counter() - start),
     )
-    return HeightFit(Mesh(vertices, mesh.triangles), report)
+    return HeightFit(result_mesh, report)
