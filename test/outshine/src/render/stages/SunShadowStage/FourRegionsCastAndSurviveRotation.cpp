@@ -3,6 +3,7 @@
 #include "SceneRenderer.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cmath>
 #include <memory>
 #include <expected>
 #include <utility>
@@ -24,6 +25,9 @@ constexpr double kFarM = 20000;
 constexpr double kTranslationStartM = 10.125;
 constexpr double kRetryTranslationM = 0.25;
 constexpr float kDistantCasterM = 6000;
+constexpr outshine::Vec3f kObliqueToSun{{0.35f, 0.8f, 0.49f}};
+constexpr double kRebaseYM = 66;
+constexpr double kParallelTravelM = 0.1;
 
 bool Cube(outshine::Geometry &geometry, float x) {
   const auto part = geometry.addPart("caster", outshine::MaterialInstance{});
@@ -121,6 +125,42 @@ void Translation(outshine::Core::RuntimeScene &scene,
         "rejected partial submission preserves the complete reference on retry");
 }
 
+void Rebasing(outshine::Core::RuntimeScene &scene,
+              outshine::Render::SceneRenderer &renderer,
+              outshine::Render::Viewpoint eye) {
+  using namespace outshine;
+  using namespace outshine::Render;
+  using namespace outshine::Test;
+  std::string error;
+  const auto rebuild = [&] {
+    renderer.SetShadowFrame({{1, 0, 0}}, {{0, 1, 0}}, kRadiusM, true, 0);
+    renderer.SetShadowFrame(kObliqueToSun, {{0, 1, 0}}, kRadiusM, true, 0);
+    CHECK(scene.Draw(error), "oblique full shadow reference submits");
+    renderer.WaitForGpu();
+  };
+  eye.EyeM = {{kTranslationStartM, kRebaseYM, kEyeHeightM}};
+  scene.Eye(eye);
+  rebuild();
+  std::vector<float> first;
+  CHECK(renderer.ReadShadowAtlas(first) == ReadState::Ready,
+        "oblique initial reference is readable");
+  const double length = std::sqrt(static_cast<double>(kObliqueToSun[0]) * kObliqueToSun[0] +
+                                  static_cast<double>(kObliqueToSun[1]) * kObliqueToSun[1] +
+                                  static_cast<double>(kObliqueToSun[2]) * kObliqueToSun[2]);
+  for (size_t axis = 0; axis < 3; ++axis) {
+    eye.EyeM[axis] += kParallelTravelM * kObliqueToSun[axis] / length;
+  }
+  scene.Eye(eye);
+  CHECK(scene.Draw(error), "translation parallel to the light submits");
+  renderer.WaitForGpu();
+  CHECK(renderer.ShadowCastCount() == 0,
+        "parallel translation keeps all four world projections unchanged");
+  rebuild();
+  std::vector<float> fresh;
+  CHECK(renderer.ReadShadowAtlas(fresh) == ReadState::Ready && fresh == first,
+        "unchanged oblique world projections preserve every freshly rasterized depth texel");
+}
+
 }
 
 int main() {
@@ -181,6 +221,7 @@ int main() {
       CHECK(renderer.ReadShadowAtlas(second) == ReadState::Ready && first == second,
             "rotation preserves every submitted depth texel");
       Translation(*scene, renderer, eye, reject);
+      Rebasing(*scene, renderer, eye);
     }
   }
   SDL_Quit();
