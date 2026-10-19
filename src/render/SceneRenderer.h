@@ -753,6 +753,7 @@ public:
   }
 
 private:
+  [[nodiscard]] static Native::Format TextureFormatOf(TexelFormat declared);
   [[nodiscard]] static bool Accepted(Native::Result<void> result, std::string &error);
   friend class Core::RuntimeScene;
 

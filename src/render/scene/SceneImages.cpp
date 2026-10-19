@@ -9,21 +9,21 @@
 #include <utility>
 
 namespace outshine::Render {
-namespace {
-Native::Format ImageFormat(TexelFormat declared) {
-  using enum Native::Format;
+Native::Format SceneRenderer::TextureFormatOf(TexelFormat declared) {
   switch (declared) {
-    case TexelFormat::Rgba16Float: return Rgba16Float;
-    case TexelFormat::Rgba32Float: return Rgba32Float;
-    case TexelFormat::Rg16Float: return Rg16Float;
-    case TexelFormat::R8Unorm: return R8Unorm;
-    case TexelFormat::Rgba8UnormSrgb: return Rgba8Srgb;
-    case TexelFormat::Depth32Float: return Depth32Float;
     case TexelFormat::Handle:
-    case TexelFormat::Table: return Count;
+    case TexelFormat::Table: return Native::Format::Count;
+    case TexelFormat::Rgba16Float: return Native::Format::Rgba16Float;
+    case TexelFormat::Rgba32Float: return Native::Format::Rgba32Float;
+    case TexelFormat::Rg16Float: return Native::Format::Rg16Float;
+    case TexelFormat::R8Unorm: return Native::Format::R8Unorm;
+    case TexelFormat::Rgba8UnormSrgb: return Native::Format::Rgba8Srgb;
+    case TexelFormat::Depth32Float: return Native::Format::Depth32Float;
   }
-  return Count;
+  return Native::Format::Count;
 }
+
+namespace {
 
 Native::Result<void> Keep(Native::Result<std::unique_ptr<Native::Texture>> made,
                           std::unique_ptr<Native::Texture> &into) {
@@ -79,7 +79,7 @@ SceneRenderer::CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, 
   return Keep(
       Device_->CreateTexture({.Width = shape.Width,
                               .Height = shape.Height,
-                              .Texels = ImageFormat(plan.Format(resource)),
+                              .Texels = TextureFormatOf(plan.Format(resource)),
                               .Use = Native::TextureUse::Storage | Native::TextureUse::Sampled |
                                      Native::TextureUse::CopySource}),
       *shape.Into);
@@ -93,7 +93,7 @@ SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource reso
                           std::unique_ptr<Native::Texture> &into) {
     return Keep(Device_->CreateTexture({.Width = static_cast<uint32_t>(frame.Width),
                                         .Height = static_cast<uint32_t>(frame.Height),
-                                        .Texels = ImageFormat(plan.Format(of)),
+                                        .Texels = TextureFormatOf(plan.Format(of)),
                                         .Use = use | CopySource}),
                 into);
   };
