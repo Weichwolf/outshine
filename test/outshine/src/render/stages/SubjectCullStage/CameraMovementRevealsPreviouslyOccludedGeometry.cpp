@@ -38,8 +38,11 @@ bool AddTarget(outshine::Render::SceneRenderer &renderer, std::string &error) {
                                              .ParentRadius = 0.3f,
                                              .ParentErr = kDagRootErr,
                                              .Count = indices.size()}}};
-  return renderer.PlacePiece({.Verts = vertices, .Indices = indices, .Clusters = clusters},
-                             error) != kNoPiece;
+  PieceMesh piece{};
+  piece.Verts = vertices;
+  piece.Indices = indices;
+  piece.Clusters = clusters;
+  return renderer.PlacePiece(piece, error) != kNoPiece;
 }
 
 void RefineStaticView(outshine::Core::RuntimeScene &scene,
