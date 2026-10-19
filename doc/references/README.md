@@ -91,6 +91,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Beidseitige Oberflächenabstände über begrenzende Hüllen sichern. Das Prinzip ergänzt
   unsere Formfehlerverträge; Hausdorff-Nähe folgt nicht aus wenigen Samples oder einem
   meshoptimizer-Fehlerwert. Offene/nichtmannigfaltige Baukörper und Kontakte eigens behandeln.
+- **Surface Simplification Using Quadric Error Metrics**, Garland / Heckbert, SIGGRAPH 1997.
+  [Quelle](https://www.cs.cmu.edu/~garland/Papers/quadrics.pdf) ·
+  [PDF](geometry/siggraph/1997-quadric-error-metrics.pdf).
+  Seite 2 samt Kontraktionsabbildungen optisch geprüft: Vertex-Clustering ist eine schnelle,
+  gitterabhängige Basis; QEM steuert Kontraktionen über einen approximativen Formfehler.
+  Das ersetzt weder unseren kontinuierlichen Abstandsbeleg noch Material-/Coverage-Verträge.
 - **GPU-Driven Rendering Pipelines**, Haar / Aaltonen, SIGGRAPH-Kurs 2015.
   [Quelle](https://advances.realtimerendering.com/s2015/aaltonenhaar_siggraph2015_combined_final_footer_220dpi.pdf) ·
   [PDF](geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf).

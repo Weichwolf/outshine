@@ -18,6 +18,29 @@ def projection_diameter(box, observer, *, focal_px, width, height, near_m=0.1):
     Holds for every observer position in the box and every orthonormal view
     orientation with this symmetric viewport. This is not an opacity bound.
     """
+    box = np.asarray(box, float)
+    if box.shape != (2, 3):
+        raise ValueError("two metric boxes required")
+    diameter = length(sub(point(box[1]), point(box[0])))[1]
+    return projection_error(
+        box,
+        observer,
+        displacement_m=diameter,
+        focal_px=focal_px,
+        width=width,
+        height=height,
+        near_m=near_m,
+    )
+
+
+def projection_error(
+    box, observer, *, displacement_m, focal_px, width, height, near_m=0.1
+):
+    """Project an independently proved two-sided point displacement bound.
+
+    box must enclose both surfaces. The scalar is not derived from bounds,
+    vertex samples, opacity, source membership or a different representation.
+    """
     box, observer = np.asarray(box, float), np.asarray(observer, float)
     if box.shape != (2, 3) or observer.shape != (2, 3):
         raise ValueError("two metric boxes required")
@@ -34,12 +57,12 @@ def projection_diameter(box, observer, *, focal_px, width, height, near_m=0.1):
         or not 1 <= height <= 16384
         or not np.isfinite(near_m)
         or near_m <= 0
+        or not np.isfinite(displacement_m)
+        or displacement_m < 0
     ):
         raise ValueError(
             "finite ordered boxes and explicit perspective profile required"
         )
-    span = sub(point(box[1]), point(box[0]))
-    diameter = length(span)[1]
     first, second = (
         sub(point(box[0]), point(observer[1])),
         sub(point(observer[0]), point(box[1])),
@@ -58,10 +81,14 @@ def projection_diameter(box, observer, *, focal_px, width, height, near_m=0.1):
     )
     factor = length(point(ratios))[1]
     depth = np.nextafter(distance / factor, -np.inf)
-    denominator = np.nextafter(depth - diameter, -np.inf)
+    denominator = np.nextafter(depth - displacement_m, -np.inf)
     if denominator <= near_m or not np.isfinite(denominator):
         return np.inf
-    numerator = np.nextafter(np.nextafter(focal_px * factor, np.inf) * diameter, np.inf)
+    if displacement_m == 0:
+        return 0.0
+    numerator = np.nextafter(
+        np.nextafter(focal_px * factor, np.inf) * displacement_m, np.inf
+    )
     return float(np.nextafter(numerator / denominator, np.inf))
 
 
