@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <chrono>
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -15,6 +16,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 #include <utility>
 
@@ -96,8 +98,8 @@ Json Sources(const PreparedStructureTile &base, const RawTile &view, bool surfac
   return sources;
 }
 
-Json Bake(const PreparedStructureTile &base, RawTile view) {
-  Test::BuildingSelectionObserver observer(base);
+Json Bake(const PreparedStructureTile &base, RawTile view, size_t captureTriangleLimit = 0) {
+  Test::BuildingSelectionObserver observer(base, captureTriangleLimit);
   auto scratch = observer.Scratch();
   const auto start = std::chrono::steady_clock::now();
   auto baked = BakePreparedStructures(base, view, observer, *scratch);
@@ -108,6 +110,10 @@ Json Bake(const PreparedStructureTile &base, RawTile view) {
            {"accepted", baked.has_value()},
            {"mesh_calls", observer.TakeMeshes()},
            {"projection_calls", observer.TakeProjections()}};
+  if (captureTriangleLimit != 0) {
+    row["capture_complete"] = observer.CaptureComplete();
+    row["captured_projection_calls"] = observer.CapturedCalls();
+  }
   if (!baked) {
     row["error"] = Describe(baked.error());
     return row;
@@ -133,6 +139,7 @@ struct Paths {
   std::filesystem::path Root;
   std::filesystem::path Target;
   bool SurfacesOnly = false;
+  size_t CaptureTriangleLimit = 0;
 };
 
 int Run(const Json &input, const Paths &paths) {
@@ -170,7 +177,15 @@ int Run(const Json &input, const Paths &paths) {
       {"error_px", selected.Projection.AllowedErrorPx},
       {"cluster_triangles", view.ClusterTriangles}};
   bool accepted = true;
-  if (!paths.SurfacesOnly) {
+  if (paths.CaptureTriangleLimit != 0) {
+    view.RequestedCell = artifact->RequestedCell;
+    report["results"].push_back(Bake(*base, view, paths.CaptureTriangleLimit));
+    const auto &row = report["results"].back();
+    accepted = row.at("accepted").get<bool>() && row.at("capture_complete").get<bool>() &&
+               row.at("captured_projection_calls").get<size_t>() != 0;
+    report["scope"] = "Actual archived cell/view; full input surfaces and exact native capture "
+                      "emissions. Opacity/culling unqualified.";
+  } else if (!paths.SurfacesOnly) {
     report["results"].push_back(Bake(*base, view));
     accepted = report["results"].back().at("accepted");
     for (const auto &form : input.at("forms")) {
@@ -188,8 +203,19 @@ int Run(const Json &input, const Paths &paths) {
 }
 }
 
-int main(int argc, char **argv) {
-  if (argc != 3 && (argc != 4 || std::string_view(argv[3]) != "--surfaces")) { return 2; }
+int main(int argc, char *const *argv) {
+  const std::string_view mode = argc >= 4 ? argv[3] : "";
+  size_t captureLimit = 0;
+  if (argc == 5 && mode == "--captures") {
+    const std::string_view limit(argv[4]);
+    const auto parsed = std::from_chars(limit.data(), limit.data() + limit.size(), captureLimit);
+    if (parsed.ec != std::errc{} || parsed.ptr != limit.data() + limit.size() ||
+        captureLimit == 0) {
+      return 2;
+    }
+  } else if (argc != 3 && (argc != 4 || mode != "--surfaces")) {
+    return 2;
+  }
   const std::filesystem::path inputPath(argv[1]);
   const std::filesystem::path outputPath(argv[2]);
   if (std::filesystem::exists(outputPath)) { return 2; }
@@ -197,5 +223,8 @@ int main(int argc, char **argv) {
   const auto input = nlohmann::json::parse(stream, nullptr, false);
   if (input.is_discarded()) { return 2; }
   return Run(input,
-             {.Root = inputPath.parent_path(), .Target = outputPath, .SurfacesOnly = argc == 4});
+             {.Root = inputPath.parent_path(),
+              .Target = outputPath,
+              .SurfacesOnly = mode == "--surfaces",
+              .CaptureTriangleLimit = captureLimit});
 }

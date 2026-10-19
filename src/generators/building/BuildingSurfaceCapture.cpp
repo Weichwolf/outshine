@@ -247,7 +247,11 @@ EmitSurfaces(std::span<const BuildingSurface *const> sources,
              const std::vector<std::vector<BuildingSurfacePatch>> &captured,
              std::span<const uint8_t> invalid,
              BuildingScratch &scratch,
-             Raised &output) {
+             Raised &output,
+             BuildingSurfaceCaptureRecord *record) {
+  if (record != nullptr) {
+    record->Emissions.resize(sources.size(), BuildingSurfaceEmission::FullMesh);
+  }
   for (size_t source = 0; source < sources.size(); ++source) {
     if (plans[source].Coarseness == LevelOfDetail::Fine || !sources[source]->SupportsProjection()) {
       const auto emitted = BuildingMesh{}.Mesh(plans[source], scratch, output);
@@ -260,9 +264,11 @@ EmitSurfaces(std::span<const BuildingSurface *const> sources,
     }
     if (invalid[source] == 0 && !captured[source].empty() &&
         captured[source].size() * 2 < sources[source]->EstimatedTriangles(faces)) {
+      if (record != nullptr) { record->Emissions[source] = BuildingSurfaceEmission::Patches; }
       sources[source]->MeshPatches(captured[source], output);
       continue;
     }
+    if (record != nullptr) { record->Emissions[source] = BuildingSurfaceEmission::VisibleFaces; }
     const auto emitted = sources[source]->MeshVisible(faces, scratch, output);
     if (!emitted) { return std::unexpected(emitted.error()); }
   }
@@ -275,7 +281,9 @@ std::expected<ProjectedStructureMesh, StructureMeshError>
 CaptureBuildingSurfaces(std::span<const StructurePlan> plans,
                         const Vec3 &eye,
                         ProjectedErrorBudget projection,
-                        BuildingScratch &scratch) {
+                        BuildingScratch &scratch,
+                        BuildingSurfaceCaptureRecord *record) {
+  if (record != nullptr) { *record = {}; }
   if (plans.empty() || !std::isfinite(projection.FocalPx) || projection.FocalPx <= 0.0 ||
       !std::isfinite(projection.AllowedErrorPx) || projection.AllowedErrorPx <= 0.0) {
     return std::unexpected(StructureMeshError::InvalidPlan);
@@ -325,8 +333,18 @@ CaptureBuildingSurfaces(std::span<const StructurePlan> plans,
       CaptureFaces(*hierarchy, sources, plans, eye, dimension, visible, captured, invalid);
   if (!selected) { return std::unexpected(selected.error()); }
   const auto emitted =
-      EmitSurfaces(sources, plans, visible, captured, invalid, scratch, output.Mesh);
-  if (!emitted) { return std::unexpected(emitted.error()); }
+      EmitSurfaces(sources, plans, visible, captured, invalid, scratch, output.Mesh, record);
+  if (!emitted) {
+    if (record != nullptr) { *record = {}; }
+    return std::unexpected(emitted.error());
+  }
+
+  if (record != nullptr) {
+    record->FaceSizePx = dimension;
+    record->VisibleFaces = std::move(visible);
+    record->Patches = std::move(captured);
+    record->PatchFallbacks = std::move(invalid);
+  }
 
   return output;
 }
