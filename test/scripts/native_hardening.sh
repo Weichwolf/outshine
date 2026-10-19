@@ -1,7 +1,8 @@
 #!/bin/sh
 
 ConfigureNativeHardening() {
-  nativeMacros=$(${CXX:-c++} -std=c++23 -dM -E -x c++ -include cstddef /dev/null) || return 1
+  [ "$#" -eq 1 ] && [ -n "$1" ] || return 1
+  nativeMacros=$(${CXX:-c++} "$1" -dM -E -x c++ -include cstddef /dev/null) || return 1
   NATIVE_COMPILE_FLAGS='-fstack-protector-strong -Wformat=2 -Werror=format-security'
   NATIVE_LINK_FLAGS=
   NATIVE_DEBUG_FLAGS=
@@ -36,7 +37,8 @@ ConfigureNativeHardening() {
 }
 
 if [ "${1:-}" = --compile ] || [ "${1:-}" = --link ]; then
-  ConfigureNativeHardening || exit 2
+  nativeStandard=$(sed -n 's/^CXXSTD=//p' "$(dirname "$0")/../run.sh") || exit 2
+  ConfigureNativeHardening "$nativeStandard" || exit 2
   case "$1" in
     --compile) printf '%s\n' "$NATIVE_COMPILE_FLAGS" ;;
     --link) printf '%s\n' "$NATIVE_LINK_FLAGS" ;;

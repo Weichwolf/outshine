@@ -11,6 +11,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = ROOT / 'test/scripts/native_hardening.sh'
+STANDARD = next(line.partition('=')[2] for line in (ROOT / 'test/run.sh').read_text().splitlines()
+                if line.startswith('CXXSTD='))
 
 
 class NativeHardening(unittest.TestCase):
@@ -29,7 +31,7 @@ class NativeHardening(unittest.TestCase):
         path = self.root / (name + '.cpp')
         path.write_text(source)
         binary = self.root / name
-        result = subprocess.run(self.compiler + ['-std=c++23', '-O2', '-Werror'] +
+        result = subprocess.run(self.compiler + [STANDARD, '-O2', '-Werror'] +
                                 self.compile_flags + [str(path)] + self.link_flags +
                                 ['-o', str(binary)], capture_output=True, text=True, check=False)
         if success:
