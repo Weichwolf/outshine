@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 #include <array>
 #include <cstddef>
+#include <chrono>
 #include <cstdint>
 #include <expected>
 #include <limits>
@@ -19,16 +20,19 @@ struct BuiltGeometry {
   outshine::MaterialInstance SurfaceInstance;
 };
 
-BuiltGeometry Triangle(std::string name, float eastM, std::array<float, 3> colour) {
+BuiltGeometry Triangle(const std::string &name, float eastM, std::array<float, 3> colour) {
   BuiltGeometry built;
   built.Surface.BaseColour = {colour[0], colour[1], colour[2], 1.0f};
   const auto surface = built.Mesh.addSurface(name + " surface", built.Surface);
   const auto part = built.Mesh.addPart(name, surface.value_or(outshine::MaterialInstance{}));
   if (surface && part) {
     const std::array<float, 9> positions{eastM - 1, -1, 0, eastM + 1, -1, 0, eastM, 1, 0};
-    (void)built.Mesh.setPositions(*part, positions);
-    (void)built.Mesh.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2});
-    (void)built.Mesh.addLamp(name + " lamp", outshine::PunctualLight{}, outshine::Mat4{});
+    CHECK(built.Mesh.setPositions(*part, positions), "fixture positions are accepted");
+    CHECK(built.Mesh.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}),
+          "fixture triangle is accepted");
+    CHECK(
+        built.Mesh.addLamp(name + " lamp", outshine::PunctualLight{}, outshine::Mat4{}).has_value(),
+        "fixture lamp is accepted");
     built.SurfaceInstance = *surface;
   }
   return built;
@@ -41,12 +45,13 @@ int main() {
 
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
-    BuiltGeometry authored = Triangle("authored", -4, {1, 0, 0});
+    const BuiltGeometry authored = Triangle("authored", -4, {1, 0, 0});
     Core::Declaration declaration;
     declaration.InitialGeometry = &authored.Mesh;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
     Render::SceneRenderer renderer;
+    const auto uploads = renderer.OfflineUploads(std::chrono::seconds(5));
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
