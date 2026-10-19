@@ -105,6 +105,8 @@ public:
                                                std::span<const Native::ColourTarget> targets);
   [[nodiscard]] Native::Result<void> AttachPipelines(GroundPipelineBinding &pipelines,
                                                      Native::Device &device);
+  [[nodiscard]] Native::Result<void> ReuseInputsFrom(const GroundLattice &previous,
+                                                     Native::Device &device);
 
   void UsePipelines(GroundPipelineBinding &pipelines) noexcept {
     Pipelines_ = &pipelines;
@@ -165,7 +167,7 @@ public:
 
 private:
   [[nodiscard]] Native::Result<void> BuildGrid(std::span<const float> fractions,
-                                               std::unique_ptr<Native::Buffer> &into);
+                                               std::shared_ptr<const Native::Buffer> &into);
   [[nodiscard]] Native::Result<void> BuildPages(uint32_t layers,
                                                 std::unique_ptr<Native::Texture> &into);
   [[nodiscard]] Native::Result<void> HandsVisible(Native::Commands &commands);
@@ -194,12 +196,12 @@ private:
   GroundPatchSelection Selection_;
   std::unique_ptr<Native::Texture> Pages_;
   std::unique_ptr<Native::Sampler> Nearest_;
-  std::unique_ptr<Native::Buffer> Grid_;
-  std::unique_ptr<Native::Buffer> UniformGrid_;
-  std::unique_ptr<Native::Buffer> Index_;
-  std::unique_ptr<Native::Buffer> PatchGrid_;
-  std::unique_ptr<Native::Buffer> PatchIndex_;
-  std::unique_ptr<Native::Buffer> PatchFractions_;
+  std::shared_ptr<const Native::Buffer> Grid_;
+  std::shared_ptr<const Native::Buffer> UniformGrid_;
+  std::shared_ptr<const Native::Buffer> Index_;
+  std::shared_ptr<const Native::Buffer> PatchGrid_;
+  std::shared_ptr<const Native::Buffer> PatchIndex_;
+  std::shared_ptr<const Native::Buffer> PatchFractions_;
   std::unique_ptr<Native::Buffer> PatchList_;
   std::unique_ptr<Native::Buffer> Instances_;
   std::unique_ptr<Native::Buffer> Visible_;

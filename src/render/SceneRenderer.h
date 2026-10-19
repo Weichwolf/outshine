@@ -107,6 +107,8 @@ struct SkyDeclaration {
 
 class SceneRenderer {
 public:
+  enum class GroundSources : uint8_t { Default, Published };
+
   [[nodiscard]] std::expected<void, std::string> Init(Extent frame,
                                                       std::shared_ptr<const Compiled> plan);
 
@@ -116,7 +118,8 @@ public:
 
   [[nodiscard]] bool
   BeginsWorldCandidate(std::string &error,
-                       SceneResources::PieceSources pieces = SceneResources::PieceSources::Copy);
+                       SceneResources::PieceSources pieces = SceneResources::PieceSources::Copy,
+                       GroundSources ground = GroundSources::Default);
   [[nodiscard]] bool PublishesWorldCandidate(std::string &error);
   void AbandonsWorldCandidate() noexcept;
 
@@ -1082,6 +1085,7 @@ private:
 
   struct WorldCandidate : SceneStateCore {
     std::optional<FrameResources> Frame;
+    GroundSources GroundInputs = GroundSources::Default;
   };
 
   static_assert(std::is_nothrow_move_constructible_v<FrameResources>);

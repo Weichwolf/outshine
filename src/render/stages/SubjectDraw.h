@@ -330,8 +330,8 @@ public:
   void ReflectionsFrom(Reflections from) { Reflections_ = from; }
 
   struct GroundBuffers {
-    Native::Buffer *Classes = nullptr;
-    Native::Buffer *Palette = nullptr;
+    const Native::Buffer *Classes = nullptr;
+    const Native::Buffer *Palette = nullptr;
   };
 
   void GroundFrom(GroundBuffers from) {
@@ -439,8 +439,8 @@ private:
 
   SubjectResidency Own_;
   SubjectResidency *At_ = nullptr;
-  Native::Buffer *GroundClasses_ = nullptr;
-  Native::Buffer *GroundPalette_ = nullptr;
+  const Native::Buffer *GroundClasses_ = nullptr;
+  const Native::Buffer *GroundPalette_ = nullptr;
 
   [[nodiscard]] SubjectResidency &Bound() { return At_ != nullptr ? *At_ : Own_; }
 

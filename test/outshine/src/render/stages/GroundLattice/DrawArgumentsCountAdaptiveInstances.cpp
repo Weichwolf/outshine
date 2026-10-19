@@ -1,4 +1,7 @@
 #include "test/harness/render/NativeGroundLatticeProbe.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOffline.h"
+#include "Check.h"
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -49,7 +52,7 @@ int main() {
           "flat pages independently require all thirty-two patches at the coarsest LOD");
     references += uint64_t{row.IndexCount} * row.InstanceCount;
   }
-  CHECK(references == 32u * 96u,
+  CHECK(references == uint64_t{32} * 96u,
         "adaptive draw work includes every instance, with thirty-two boundary triangles per patch");
   ground.SetDrawEnabled(false);
   const auto disabled = Require(ground.ReadDrawArguments());

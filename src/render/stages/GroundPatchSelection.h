@@ -34,6 +34,9 @@ public:
   static_assert(offsetof(Bounds, High) == 16 && offsetof(Bounds, Errors) == 32);
 
   void Fractions(std::span<const float> fractions);
+
+  [[nodiscard]] std::span<const float> Fractions() const noexcept { return Fractions_; }
+
   void Page(PageId page, std::span<const float> heights);
   void Sources(std::span<const GroundInstance> tiles, uint32_t real);
   void BeginFrame();

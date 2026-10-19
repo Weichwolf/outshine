@@ -36,7 +36,7 @@ Native::Result<void> GroundLattice::Draw(const PassRecording &into,
       .Slot = 0,
       .Value = Native::SampledTexture{.Image = {.Image = Pages_.get(), .Layers = PageLayers_},
                                       .Sampling = Nearest_.get()}};
-  const auto draw = [&](Native::Buffer &grid, uint32_t start, uint32_t count) {
+  const auto draw = [&](const Native::Buffer &grid, uint32_t start, uint32_t count) {
     if (count == 0) { return Native::Result<void>{}; }
     const std::array vertices{
         Native::VertexBuffer{

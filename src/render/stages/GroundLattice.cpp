@@ -46,7 +46,7 @@ Native::Result<void> GroundLattice::SetGrid(std::span<const float> fractions) {
   }
   auto patched = PatchFractions(fractions);
   if (!patched) { return std::unexpected(patched.error()); }
-  std::unique_ptr<Native::Buffer> grid;
+  std::shared_ptr<const Native::Buffer> grid;
   const auto built = BuildGrid(fractions, grid);
   if (!built) { return built; }
   Grid_ = std::move(grid);

@@ -80,7 +80,7 @@ std::vector<uint32_t> Indices() {
 }
 
 Native::Result<void> GroundLattice::BuildGrid(std::span<const float> fractions,
-                                              std::unique_ptr<Native::Buffer> &into) {
+                                              std::shared_ptr<const Native::Buffer> &into) {
   const auto grid = Vertices(fractions);
   const auto index = Index_ ? std::vector<uint32_t>{} : Indices();
   auto madeGrid = Device_->CreateBuffer(

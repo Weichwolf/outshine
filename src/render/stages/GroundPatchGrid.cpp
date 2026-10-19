@@ -15,16 +15,16 @@ namespace outshine::Render {
 uint64_t GroundLattice::HeldBytes() const {
   uint64_t bytes =
       uint64_t{PageLayers_} * kPagesPerLayer * kPageNodes * sizeof(float) + Selection_.HeldBytes();
-  for (const auto *buffer : {Grid_.get(),
-                             UniformGrid_.get(),
-                             Index_.get(),
-                             Instances_.get(),
-                             Visible_.get(),
-                             VisibleStaging_.get(),
-                             PatchGrid_.get(),
-                             PatchIndex_.get(),
-                             PatchFractions_.get(),
-                             PatchList_.get()}) {
+  for (const auto *buffer : std::array<const Native::Buffer *, 10>{Grid_.get(),
+                                                                   UniformGrid_.get(),
+                                                                   Index_.get(),
+                                                                   Instances_.get(),
+                                                                   Visible_.get(),
+                                                                   VisibleStaging_.get(),
+                                                                   PatchGrid_.get(),
+                                                                   PatchIndex_.get(),
+                                                                   PatchFractions_.get(),
+                                                                   PatchList_.get()}) {
     if (buffer != nullptr) { bytes += buffer->Description().Bytes; }
   }
   return bytes;
