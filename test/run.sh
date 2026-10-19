@@ -647,7 +647,7 @@ GroupToolchain() {
   case "$1" in
     src/client | src/client/*) printf '%s' "$CXXSTD" ;;
     src/generators | src/generators/*) printf '%s' "$CXXSTD -fno-exceptions" ;;
-    src/render | src/render/device | src/render/stages | src/render/Readback.cpp | src/engine/UiSession.cpp | src/engine/Laying.cpp | src/engine/GroundDiagnostics.cpp | src/engine/WorldFocus.cpp | src/engine/WorldPlacement.cpp | src/engine/RuntimeWorldPreparation.cpp | src/engine/TerrainCoverage.cpp | src/engine/SceneRuntimeIntegration.cpp | src/engine/FrameMeasurements.cpp | src/engine/AudioScenePublication.cpp | src/engine/AudioOcclusion.cpp | src/engine/Framing.cpp | src/engine/Declaring.cpp | src/engine/Keeping.cpp | src/engine/Advancing.cpp | src/engine/Inspection.cpp | src/engine/TilePieces.cpp | src/engine/HeightSheets.cpp | src/engine/HeightSheetsRefinement.cpp | src/engine/streaming | src/engine/RuntimeScene.cpp) LayerToolchain render ;;
+    src/render | src/render/device | src/render/stages | src/render/Readback.cpp | src/engine/UiSession.cpp | src/engine/WorldRegionBuild.cpp | src/engine/GroundDiagnostics.cpp | src/engine/WorldFocus.cpp | src/engine/WorldPlacement.cpp | src/engine/RuntimeWorldPreparation.cpp | src/engine/TerrainCoverage.cpp | src/engine/SceneRuntimeIntegration.cpp | src/engine/FrameMeasurements.cpp | src/engine/AudioScenePublication.cpp | src/engine/AudioOcclusion.cpp | src/engine/Framing.cpp | src/engine/Declaring.cpp | src/engine/Keeping.cpp | src/engine/Advancing.cpp | src/engine/Inspection.cpp | src/engine/TilePieces.cpp | src/engine/HeightSheets.cpp | src/engine/HeightSheetsRefinement.cpp | src/engine/streaming | src/engine/RuntimeScene.cpp) LayerToolchain render ;;
     *) printf '%s' "$CXXSTD -fno-exceptions" ;;
   esac
 }

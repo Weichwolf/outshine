@@ -41,7 +41,7 @@ Native Terrain-Abfrage integriert; Cubemap, Stimmenauswahl und GPU-Pfad bleiben 
    Konkurrenz zum Bildbudget. Mixer konsumiert den letzten fertigen geglätteten Snapshot,
    wartet auf keine GPU-Fence. Zeit, Speicher, Aktualisierungsalter und hörbare Fehler messen.
 
-`Laying.cpp::BuildGroundResidency` publiziert Höhen ohne globalen CPU-Dreiecksaufbau.
+`WorldRegionBuild.cpp::BuildGroundResidency` publiziert Höhen ohne globalen CPU-Dreiecksaufbau.
 `TerrainResidency::HeightMAt` fragt den vorhandenen Seitenindex ab und interpoliert die nativen
 Zellen einschließlich ungleichmäßiger Posting-Abstände. Audio nutzt maximal 64 Wegproben;
 schmale Hindernisse auf langen Wegen können fehlen. Keine konservative Fehlerschranke,
