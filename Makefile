@@ -275,3 +275,7 @@ test-file-stamps: ## verify portable native test file metadata and failure handl
 .PHONY: test-shader-dependencies
 test-shader-dependencies: ## verify incremental shader closures and failed-build cleanup
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" python3 test/scripts/test_shader_dependencies.py
+
+.PHONY: test-layer-dependencies
+test-layer-dependencies: ## verify header dependency ordering, contexts and repeated-work avoidance
+	@cd $(SELF_DIR) && python3 test/scripts/test_layer_dependencies.py
