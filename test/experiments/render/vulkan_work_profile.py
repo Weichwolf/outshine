@@ -111,10 +111,10 @@ def build(root, output, validation, link_path):
     archive = root / "build/liboutshine.a"
     index = next(i for i, x in enumerate(args) if not x.startswith("-") and (root / x).resolve() == archive)
     args[index:index] = objects
-    binary = output / "outshine-client-work"
+    binary = output / "outshine-work"
     args[args.index("-o") + 1] = str(binary)
     receipt["archive_sha256"] = sha(archive)
-    receipt["client_sha256"] = sha(root / "build/outshine-client")
+    receipt["client_sha256"] = sha(root / "build/outshine")
     result = run(args, root, output / "link.log")
     receipt["commands"].append(result)
     receipt["exit"] = result["exit"]

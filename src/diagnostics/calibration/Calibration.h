@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_DIAGNOSTICS_CALIBRATION_H
-#define OUTSHINE_DIAGNOSTICS_CALIBRATION_H
+#ifndef OUTSHINE_DIAGNOSTICS_CALIBRATION_CALIBRATION_H
+#define OUTSHINE_DIAGNOSTICS_CALIBRATION_CALIBRATION_H
 
 #include "Device.h"
 #include <array>
@@ -57,6 +57,7 @@ struct Report {
   uint64_t RamBytes = 0;
   uint32_t LogicalCpuCount = 0;
   bool FmaTargetFeature = false;
+  bool GpuValidation = false;
   Build Compilation;
   std::vector<Workload> Workloads;
 };
@@ -66,6 +67,7 @@ static_assert(sizeof(FmaValue) == 4 * sizeof(float));
 static_assert(sizeof(float) == sizeof(uint32_t));
 
 [[nodiscard]] Native::Result<Report> Run(Native::Device &device, Shaders shaders, Build build);
+[[nodiscard]] Native::Result<Report> Run(bool gpuValidation = false);
 [[nodiscard]] std::string Json(const Report &report);
 [[nodiscard]] Native::Result<std::vector<Workload>> CpuWorkloads();
 [[nodiscard]] Native::Result<std::vector<Workload>> GpuWorkloads(Native::Device &device,

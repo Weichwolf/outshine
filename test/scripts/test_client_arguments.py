@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-CLIENT = ROOT / 'build/outshine-client'
+CLIENT = ROOT / 'build/outshine'
 
 
 class Coordinates(unittest.TestCase):
@@ -20,7 +20,8 @@ class Coordinates(unittest.TestCase):
                                      '--probe-pixel', '--quality playable|refined')),
                  (('shots', '--help'), ('--preload-seconds', '--offline', '--stats')),
                  (('measures', '--help'), ('structure source keys', '--stats')),
-                 (('height', '--help'), ('latitude-deg', 'longitude-deg')))
+                 (('height', '--help'), ('latitude-deg', 'longitude-deg')),
+                 (('benchmark', '--help'), ('--output', '--gpu-validation', 'JSON')))
         for args, expected in cases:
             with self.subTest(args=args):
                 result = subprocess.run([str(CLIENT), *args], cwd=ROOT, env=env,
@@ -32,6 +33,35 @@ class Coordinates(unittest.TestCase):
         unknown = subprocess.run([str(CLIENT), 'unknown', '--help'], cwd=ROOT, env=env,
                                  capture_output=True, text=True, timeout=10)
         self.assertEqual(unknown.returncode, 2)
+
+    def test_invalid_benchmark_arguments_leave_existing_results_untouched(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-arguments-') as directory:
+            target = Path(directory) / 'result.json'
+            target.write_text('previous result')
+            cases = [('--output',), ('--output', ''), ('--unknown',),
+                     ('--gpu-validation', '--gpu-validation'),
+                     ('--output', str(target), '--output', str(target))]
+            for args in cases:
+                with self.subTest(args=args):
+                    result = subprocess.run([str(CLIENT), 'benchmark', *args], cwd=directory,
+                                            capture_output=True, text=True, timeout=10,
+                                            check=False)
+                    self.assertEqual(result.returncode, 2, result.stderr)
+                    self.assertEqual(result.stdout, '')
+                    self.assertIn('outshine benchmark:', result.stderr)
+                    self.assertEqual(target.read_text(), 'previous result')
+
+    def test_output_alone_selects_hardware_and_shader_failure_preserves_result(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-no-shaders-') as directory:
+            target = Path(directory) / 'result.json'
+            target.write_text('previous result')
+            result = subprocess.run([str(CLIENT), 'benchmark', '--output', str(target)],
+                                    cwd=directory, capture_output=True, text=True, timeout=10,
+                                    check=False)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn('shader artifact', result.stderr)
+            self.assertEqual(result.stdout, '')
+            self.assertEqual(target.read_text(), 'previous result')
 
     def test_run_stats_include_setup_even_when_startup_fails(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')

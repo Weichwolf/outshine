@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <expected>
+#include <memory>
 #include <ratio>
 #include <utility>
 

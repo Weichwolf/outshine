@@ -1,6 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "Parameters.inc"
+#include "diagnostics/calibration/Parameters.inc"
 layout(location = 0) out vec4 colour;
 void main() {
   uvec2 at = uvec2(gl_FragCoord.xy);

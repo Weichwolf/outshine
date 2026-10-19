@@ -23,6 +23,8 @@ enum class ComputeShaderId : uint32_t {
   GroundPatchCull,
   GroundPatchScan,
   GroundPatchCompact,
+  CalibrationFma,
+  CalibrationTriad,
   Count
 };
 
@@ -85,8 +87,13 @@ inline constexpr std::array kComputeShaders = {
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::GroundPatchCompact,
         .Path = "build/shaders/groundPatchCompact.comp.spv",
-        .Shape = {
-            .ReadOnlyBuffers = 3, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 128}}};
+        .Shape = {.ReadOnlyBuffers = 3, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 128}},
+    ComputeShaderDescriptor{.Id = ComputeShaderId::CalibrationFma,
+                            .Path = "build/shaders/calibrationFma.comp.spv",
+                            .Shape = {.ReadOnlyBuffers = 1, .ReadWriteBuffers = 1, .GroupX = 256}},
+    ComputeShaderDescriptor{.Id = ComputeShaderId::CalibrationTriad,
+                            .Path = "build/shaders/calibrationTriad.comp.spv",
+                            .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 1, .GroupX = 256}}};
 
 [[nodiscard]] constexpr bool ValidComputeShaderCatalog() noexcept {
   if (kComputeShaders.size() != static_cast<std::size_t>(ComputeShaderId::Count)) { return false; }

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine-client')).resolve()
+CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolve()
 SCENARIO = '''<scenario>
 <world lat="49.3274" lon="8.5659" sightM="1000" vegetation="no">
   <relief kind="sineGrid" amplitudeM="0"/>{features}

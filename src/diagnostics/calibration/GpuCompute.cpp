@@ -47,8 +47,8 @@ Native::Result<Buffers> Prepare(Native::Device &device,
     const auto *buffer =
         slot < buffers.Inputs.size() ? buffers.Inputs[slot].get() : buffers.Output.get();
     buffers.Bindings.push_back(
-        {.Set = 0,
-         .Slot = slot,
+        {.Set = slot < buffers.Inputs.size() ? 0u : 1u,
+         .Slot = slot < buffers.Inputs.size() ? slot : 0u,
          .Value = Native::StorageBuffer{.Data = buffer,
                                         .Range = {.Bytes = buffer->Description().Bytes}}});
   }
