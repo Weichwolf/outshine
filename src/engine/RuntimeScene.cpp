@@ -184,6 +184,16 @@ bool RuntimeScene::Prepare(Render::SceneRenderer &renderer,
                            std::unique_ptr<RuntimeScene> &out,
                            std::string &error,
                            const GroundAtmosphere &atmosphere) {
+  return PrepareWithPlan(renderer, std::move(declaration), font, out, error, atmosphere, {});
+}
+
+bool RuntimeScene::PrepareWithPlan(Render::SceneRenderer &renderer,
+                                   Declaration declaration,
+                                   const Ui::Font *font,
+                                   std::unique_ptr<RuntimeScene> &out,
+                                   std::string &error,
+                                   const GroundAtmosphere &atmosphere,
+                                   std::shared_ptr<const Render::Compiled> plan) {
   if (declaration.InitialGeometry != nullptr && !declaration.InitialGeometry->wellFormed()) {
     error = Says::InvalidInitialGeometry;
     return false;
@@ -191,6 +201,7 @@ bool RuntimeScene::Prepare(Render::SceneRenderer &renderer,
   auto editing = renderer.EditsWorldCandidate();
   std::unique_ptr<RuntimeScene> scene(new RuntimeScene(renderer, std::move(declaration), font));
   scene->GroundAir_ = atmosphere;
+  scene->PreparationPlan_ = std::move(plan);
   if (!scene->Build(error)) { return false; }
   scene->CandidateEditor_.emplace(std::move(editing));
   out = std::move(scene);
@@ -251,7 +262,13 @@ bool RuntimeScene::PreparesRetainedGeometryReplacement(Render::SceneRenderer &re
   if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
-  if (!Prepare(renderer, std::move(declaration), font, candidate, error, previous.GroundAir_)) {
+  if (!PrepareWithPlan(renderer,
+                       std::move(declaration),
+                       font,
+                       candidate,
+                       error,
+                       previous.GroundAir_,
+                       previous.Plan_)) {
     renderer.AbandonsWorldCandidate();
     return false;
   }
@@ -307,7 +324,13 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
   if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
-  if (!Prepare(renderer, std::move(declaration), font, candidate, error, previous.GroundAir_)) {
+  if (!PrepareWithPlan(renderer,
+                       std::move(declaration),
+                       font,
+                       candidate,
+                       error,
+                       previous.GroundAir_,
+                       previous.Plan_)) {
     renderer.AbandonsWorldCandidate();
     return false;
   }
@@ -533,6 +556,11 @@ void RuntimeScene::StandsKeyLight() {
 }
 
 bool RuntimeScene::StandsPlan(std::string &error) {
+  if (PreparationPlan_) {
+    Plan_ = std::move(PreparationPlan_);
+    PlanDeclared_ = Plan_->Specification();
+    return InitializesFramePlan(error);
+  }
   Render::PlanSpec declaration;
   if (!DeclarePlan(Materials_.Slots(),
                    Declared_.DrawsSky,
@@ -592,14 +620,17 @@ bool RuntimeScene::StandsPlan(std::string &error) {
     Plan_ = *std::move(made);
     PlanDeclared_ = std::move(declaration);
     PlanInits_ += 1;
-    const auto stood = Renderer_->Init(
-        {.WidthPx = Declared_.SurfaceWidthPx, .HeightPx = Declared_.SurfaceHeightPx}, Plan_);
-    if (!stood) {
-      error = std::move(stood).error();
-      return false;
-    }
+    return InitializesFramePlan(error);
   }
   return true;
+}
+
+bool RuntimeScene::InitializesFramePlan(std::string &error) {
+  const auto stood = Renderer_->Init(
+      {.WidthPx = Declared_.SurfaceWidthPx, .HeightPx = Declared_.SurfaceHeightPx}, Plan_);
+  if (stood) { return true; }
+  error = stood.error();
+  return false;
 }
 
 bool RuntimeScene::Build(std::string &error) {

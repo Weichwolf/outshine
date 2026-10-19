@@ -165,7 +165,8 @@ int main() {
   scenario.Render.Declared = true;
   scenario.Render.Frame = {.WidthPx = kExtentPx, .HeightPx = kExtentPx};
   scenario.Render.Outputs = {"sceneLinear"};
-  scenario.Generators = {{.Kind = "left-product"}, {.Kind = "right-product"}};
+  scenario.Generators = {{.Kind = "left-product", .Parameters = {}},
+                         {.Kind = "right-product", .Parameters = {}}};
   scenario.Buses.emplace_back().Id = "master";
   Scenario::Body source;
   source.Name = "occluded-source";
