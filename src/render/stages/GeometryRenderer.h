@@ -31,6 +31,8 @@
 
 namespace outshine::Render {
 
+class BatchFrustum;
+
 class GeometryPipelineBinding {
 public:
   [[nodiscard]] Native::Result<void> ConfigureGroundSelection(Native::Device &device) {
@@ -529,7 +531,7 @@ private:
   [[nodiscard]] bool
   RoomForOptionalStreams(OptionalStreamEnds ends, VertexRunsCarried carried, std::string &error);
   void BindPlacementStorage(DrawResources &into, VertexLayout layout) const;
-  [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
+  [[nodiscard]] size_t IndirectRunEnd(size_t first, const BatchFrustum &visible) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildSubjectBatches(std::string &error);
   void PrepareSubjectTables();

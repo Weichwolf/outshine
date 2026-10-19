@@ -43,6 +43,8 @@ bool Populate(outshine::Render::SceneRenderer &renderer, bool clustered, std::st
   constexpr double rowSpacing = 0.9;
   constexpr double instanceRight = 0.2;
   constexpr double instanceUp = 0.3;
+  constexpr uint32_t outsidePiece = 4;
+  constexpr double outsideRightM = 100;
   for (uint32_t at = 0; at < columns * rows; ++at) {
     auto shape = vertices;
     for (auto &vertex : shape) { vertex.pos[0] *= firstWidth + static_cast<float>(at) * widthStep; }
@@ -51,6 +53,7 @@ bool Populate(outshine::Render::SceneRenderer &renderer, bool clustered, std::st
     const uint32_t row = at / columns;
     instances[0][12] = (static_cast<double>(at % columns) - (columns - 1) * 0.5) * columnSpacing;
     instances[0][13] = (static_cast<double>(row) - (rows - 1) * 0.5) * rowSpacing;
+    if (at == outsidePiece) { instances[0][12] = outsideRightM; }
     instances[1] = instances[0];
     instances[1][12] += instanceRight;
     instances[1][13] += instanceUp;
@@ -96,16 +99,16 @@ void Compare(outshine::Render::SceneRenderer &actual, outshine::Render::SceneRen
         "all instance batches and the direct fallback remain present");
   const auto &indirect = actual.Spent(Stage::Geometry);
   const auto &direct = oracle.Spent(Stage::Geometry);
-  CHECK(indirect.Draws == 6 && direct.Draws == 25,
+  CHECK(indirect.Draws == 7 && direct.Draws == 24,
         "stage counters count encoded requests rather than all prepared batches");
-  CHECK(indirect.DirectTriangles == 4 && indirect.IndirectInputTriangles == 93 &&
-            indirect.IndirectRecords == 47,
-        "indirect inputs and direct fallback geometry remain distinct");
-  CHECK(direct.DirectTriangles == 96 && direct.IndirectInputTriangles == 1 &&
+  CHECK(indirect.DirectTriangles == 4 && indirect.IndirectInputTriangles == 89 &&
+            indirect.IndirectRecords == 45,
+        "offscreen instance jobs are excluded while the conservative main batch remains");
+  CHECK(direct.DirectTriangles == 92 && direct.IndirectInputTriangles == 1 &&
             direct.IndirectRecords == 1,
-        "direct pieces and the shared indirect main triangle have distinct input counts");
-  CHECK(actual.GeometryDrawCallCount() == 6 && oracle.GeometryDrawCallCount() == 25,
-        "material, layout and direct-batch boundaries split compatible indirect runs");
+        "the independent direct oracle also excludes the offscreen instanced piece");
+  CHECK(actual.GeometryDrawCallCount() == 7 && oracle.GeometryDrawCallCount() == 24,
+        "visibility, material, layout and direct boundaries split compatible indirect runs");
 }
 }
 

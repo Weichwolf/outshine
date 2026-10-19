@@ -139,12 +139,13 @@ GeometryRenderer::FrameUniforms GeometryRenderer::FrameUniformsOf(const FrameCon
   return uniforms;
 }
 
-size_t GeometryRenderer::IndirectRunEnd(size_t first) const noexcept {
+size_t GeometryRenderer::IndirectRunEnd(size_t first, const BatchFrustum &visible) const noexcept {
   const auto &batch = Batches[first];
   size_t end = first + 1;
   while (end < Batches.size() && Batches[end].JobCount > 0 &&
          Batches[end].MaterialSlot == batch.MaterialSlot &&
-         BatchLayout[end] == BatchLayout[first] && Batches[end].Motion == batch.Motion) {
+         BatchLayout[end] == BatchLayout[first] && Batches[end].Motion == batch.Motion &&
+         !visible.Outside(Batches[end].WorldSphere)) {
     ++end;
   }
   return end;
@@ -241,7 +242,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
       boundSlot = batch.MaterialSlot;
     }
     const bool culled = cut && batch.JobCount > 0;
-    const size_t end = culled ? IndirectRunEnd(at) : at + 1;
+    const size_t end = culled ? IndirectRunEnd(at, visible) : at + 1;
     const auto recorded = DrawBatchRange(into, at, culled, end, resources);
     if (!recorded) { return recorded; }
     at = end - 1;
