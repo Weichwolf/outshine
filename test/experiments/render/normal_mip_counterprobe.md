@@ -16,7 +16,8 @@ binary-representable; UNORM8 division and the declared basis use Fractions.
 
 For each level pair, the unnormalized world vector is `q(t)=a+t*d`, `d=b-a`.
 For observed vector o, maximize `dot(q,o)/sqrt(dot(q,q)*dot(o,o))` on `[0,1]`.
-There is at most one interior stationary point:
+There is at most one isolated interior stationary point. If the derivative
+vanishes identically, the angular error is constant and the endpoints suffice:
 
 `t = (A*ad-D*aa)/(D*ad-A*dd)`, where `A=a·o`, `D=d·o`,
 `aa=a·a`, `ad=a·d`, `dd=d·d`.

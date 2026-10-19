@@ -25,7 +25,7 @@ def dot(a, b):
 
 
 def segment_candidates(a, b, target):
-    """Endpoints and the sole possible interior stationary direction on a segment."""
+    """Endpoints and any isolated interior stationary direction on a segment."""
     a, b, target = (tuple(map(F, v)) for v in (a, b, target))
     d = tuple(y - x for x, y in zip(a, b, strict=True))
     aa, ad, dd = dot(a, a), dot(a, d), dot(d, d)
