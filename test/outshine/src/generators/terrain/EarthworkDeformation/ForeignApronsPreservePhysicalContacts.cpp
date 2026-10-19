@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include <algorithm>
 #include <array>
@@ -58,7 +58,7 @@ void CheckShoulders() {
             CHECK(std::abs(heights[2] - heights[1]) / stepM < 0.001,
                   "mixed apron kinds meet the shoulder with continuous height and slope");
             std::array staged{sourceM, sourceM, sourceM};
-            EarthworkPressJob job(stamps, points, staged, kMostEarthworkM);
+            EarthworkDeformationJob job(stamps, points, staged, kMostEarthworkM);
             while (!job.Advance(1)) {}
             (void)job.Take();
             CHECK(staged == heights, "bounded work resolves the same contact and apron field");

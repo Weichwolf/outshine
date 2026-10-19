@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "TerrainPress.h"
+#include "TerrainDeformation.h"
 
 #include <algorithm>
 #include <cmath>
@@ -43,7 +43,7 @@ int main() {
   CHECK(pad.HeapBytes() >= pad.RingEastNorthM.size() * sizeof(double),
         "earthwork stamp reports its owned ring capacity");
 
-  const auto pressed = PressTerrain(
+  const auto pressed = DeformTerrain(
       std::span{&pad, 1u}, candidate, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
   CHECK(pressed.Nodes == candidate.Sheets[0].Nodes.size() && pressed.Structures == 0 &&
             pressed.Held == 0,
@@ -56,12 +56,12 @@ int main() {
         "the flat five metre result is written into the private candidate");
 
   Patchwork stagedCandidate = FlatCandidate();
-  TerrainPressJob staged(
+  TerrainDeformationJob staged(
       {pad}, stagedCandidate, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
   bool completed = false;
   for (int step = 0; step < 80 && !completed; ++step) { completed = staged.Advance(1, 3); }
   CHECK(completed && staged.HeapBytes() > 0, "bounded pressing completes with owned work data");
-  const PressedTerrain stagedResult = staged.Take();
+  const TerrainDeformationMetrics stagedResult = staged.Take();
   CHECK(stagedCandidate.Sheets[0].Nodes == candidate.Sheets[0].Nodes &&
             stagedResult.Nodes == pressed.Nodes && stagedResult.Structures == pressed.Structures &&
             stagedResult.Held == pressed.Held && stagedResult.DeepestM == pressed.DeepestM &&
@@ -77,11 +77,11 @@ int main() {
   corridor.PlateauM = 0.0;
   corridor.SlopeE = 0.05;
   corridor.Kind = EarthworkKind::Corridor;
-  const auto sloped = PressTerrain(std::span{&corridor, 1u},
-                                   slopedCandidate,
-                                   TangentFrame::At({}),
-                                   {.Side = kSide, .Halo = kHalo},
-                                   30.0);
+  const auto sloped = DeformTerrain(std::span{&corridor, 1u},
+                                    slopedCandidate,
+                                    TangentFrame::At({}),
+                                    {.Side = kSide, .Halo = kHalo},
+                                    30.0);
   CHECK(sloped.Nodes > 0 && sloped.DeepestM > 0.0 && sloped.RaisedM > 0.0,
         "a sloped corridor cuts and fills the flat candidate");
   CHECK(sloped.Corridors.Stamps == 1 &&
@@ -92,11 +92,11 @@ int main() {
         "corridor contact diagnostics measure the sloped native result");
 
   Patchwork stagedSlope = FlatCandidate();
-  TerrainPressJob slopeJob(
+  TerrainDeformationJob slopeJob(
       {corridor}, stagedSlope, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
   completed = false;
   for (int step = 0; step < 80 && !completed; ++step) { completed = slopeJob.Advance(1, 5); }
-  const PressedTerrain stagedSlopeResult = slopeJob.Take();
+  const TerrainDeformationMetrics stagedSlopeResult = slopeJob.Take();
   CHECK(completed && stagedSlope.Sheets[0].Nodes == slopedCandidate.Sheets[0].Nodes &&
             stagedSlopeResult.Corridors.Stamps == sloped.Corridors.Stamps &&
             stagedSlopeResult.Corridors.Nodes == sloped.Corridors.Nodes &&
@@ -105,11 +105,11 @@ int main() {
         "staged sloped corridors preserve the one-shot native and floor result");
 
   const auto retained = candidate.Sheets[0].Nodes;
-  const auto invalid = PressTerrain(std::span{&pad, 1u},
-                                    candidate,
-                                    TangentFrame::At({}),
-                                    {.Side = std::numeric_limits<int>::max(), .Halo = 1},
-                                    30.0);
+  const auto invalid = DeformTerrain(std::span{&pad, 1u},
+                                     candidate,
+                                     TangentFrame::At({}),
+                                     {.Side = std::numeric_limits<int>::max(), .Halo = 1},
+                                     30.0);
   CHECK(invalid.Nodes == 0 && candidate.Sheets[0].Nodes == retained,
         "an unrepresentable page layout leaves the candidate unchanged");
   return Report();

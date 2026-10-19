@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include <algorithm>
 #include <array>
@@ -10,10 +10,14 @@ namespace {
 
 outshine::EarthworkStamp Pad(double apronM = 6) {
   return {.RingEastNorthM = {-4, -4, 4, -4, 4, 4, -4, 4},
+          .HoleRingsEastNorthM = {},
           .LowE = -4,
           .HighE = 4,
           .LowN = -4,
           .HighN = 4,
+          .SeamEastNorthM = {},
+          .Profile = {},
+          .PlanarSupportM = {},
           .ApronM = apronM,
           .Fills = true,
           .Kind = outshine::EarthworkKind::Pad};
@@ -49,7 +53,7 @@ int main() {
     CHECK(maximumSlope <= kBatterRise + 0.0001 && maximumSlopeChange < 0.01,
           "observed foundation relief produces a bounded smooth apron");
     std::vector<double> sliced(points.size(), sourceM);
-    EarthworkPressJob job(stamps, points, sliced, kMostEarthworkM);
+    EarthworkDeformationJob job(stamps, points, sliced, kMostEarthworkM);
     while (!job.Advance(1)) {}
     const auto staged = job.Take();
     CHECK(sliced == heights && staged.DecidedBy == pressed.DecidedBy,

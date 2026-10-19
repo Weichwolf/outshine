@@ -1,4 +1,4 @@
-#include "TerrainPress.h"
+#include "TerrainDeformation.h"
 
 #include <algorithm>
 #include <array>
@@ -19,7 +19,7 @@
 
 namespace outshine::Generators {
 
-struct TerrainPressJob::State {
+struct TerrainDeformationJob::State {
   enum class Phase : uint8_t { Gather, Decide, Write, Reproject, Measure, Done };
 
   std::vector<EarthworkStamp> Stamps;
@@ -33,9 +33,9 @@ struct TerrainPressJob::State {
   std::vector<double> PreviousM;
   std::vector<size_t> SourceSheets;
   std::vector<size_t> PlanarContacts;
-  std::unique_ptr<EarthworkPressJob> PressJob;
-  EarthworkPressResult PressResult;
-  PressedTerrain Result;
+  std::unique_ptr<EarthworkDeformationJob> PressJob;
+  EarthworkDeformationResult PressResult;
+  TerrainDeformationMetrics Result;
   size_t NextSheet = 0;
   size_t NextPoint = 0;
   Phase Current = Phase::Gather;
@@ -197,19 +197,20 @@ struct TerrainPressJob::State {
   }
 };
 
-TerrainPressJob::TerrainPressJob(std::vector<EarthworkStamp> yields,
-                                 Patchwork &candidate,
-                                 TangentFrame frame,
-                                 TerrainPageLayout layout,
-                                 double mostEarthworkM)
+TerrainDeformationJob::TerrainDeformationJob(std::vector<EarthworkStamp> yields,
+                                             Patchwork &candidate,
+                                             TangentFrame frame,
+                                             TerrainPageLayout layout,
+                                             double mostEarthworkM)
     : State_(std::make_unique<State>(std::move(yields), candidate, frame, layout, mostEarthworkM)) {
 }
 
-TerrainPressJob::~TerrainPressJob() = default;
-TerrainPressJob::TerrainPressJob(TerrainPressJob &&) noexcept = default;
-TerrainPressJob &TerrainPressJob::operator=(TerrainPressJob &&) noexcept = default;
+TerrainDeformationJob::~TerrainDeformationJob() = default;
+TerrainDeformationJob::TerrainDeformationJob(TerrainDeformationJob &&) noexcept = default;
+TerrainDeformationJob &
+TerrainDeformationJob::operator=(TerrainDeformationJob &&) noexcept = default;
 
-bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
+bool TerrainDeformationJob::Advance(size_t sheetsMost, size_t pointsMost) {
   State &state = *State_;
   if (state.Current == State::Phase::Done) { return true; }
   const auto began = std::chrono::steady_clock::now();
@@ -222,7 +223,7 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
       state.Result.LongestGatherMs =
           std::max(state.Result.LongestGatherMs, State::Measures(state.Result.GatherMs, began));
       if (state.NextSheet < state.Candidate->Sheets.size()) { return false; }
-      state.PressJob = std::make_unique<EarthworkPressJob>(
+      state.PressJob = std::make_unique<EarthworkDeformationJob>(
           state.Stamps, state.Positions, state.HeightsM, state.MostEarthworkM);
       state.Current = State::Phase::Decide;
       return false;
@@ -288,12 +289,12 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
   return false;
 }
 
-PressedTerrain TerrainPressJob::Take() noexcept {
+TerrainDeformationMetrics TerrainDeformationJob::Take() noexcept {
   assert(State_ && State_->Current == State::Phase::Done);
   return State_->Result;
 }
 
-size_t TerrainPressJob::HeapBytes() const noexcept {
+size_t TerrainDeformationJob::HeapBytes() const noexcept {
   return State_ ? State_->HeapBytes() : 0;
 }
 

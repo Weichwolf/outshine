@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_GENERATORS_TERRAIN_EARTHWORKPRESS_H
-#define OUTSHINE_GENERATORS_TERRAIN_EARTHWORKPRESS_H
+#ifndef OUTSHINE_GENERATORS_TERRAIN_EARTHWORKDEFORMATION_H
+#define OUTSHINE_GENERATORS_TERRAIN_EARTHWORKDEFORMATION_H
 
 #include <cstddef>
 #include <cstdint>
@@ -36,7 +36,7 @@ struct EarthworkMetrics {
   double WasBelowM = 0.0;
 };
 
-struct EarthworkPressResult {
+struct EarthworkDeformationResult {
   size_t Moved = 0;
   size_t Structures = 0;
   size_t Held = 0;
@@ -51,25 +51,25 @@ struct EarthworkPressResult {
   double LongestApplyMs = 0.0;
 };
 
-[[nodiscard]] EarthworkPressResult ApplyEarthworkStamps(std::span<const EarthworkStamp> these,
-                                                        std::span<const EastNorth> at,
-                                                        std::span<double> upM,
-                                                        double mostEarthworkM);
+[[nodiscard]] EarthworkDeformationResult ApplyEarthworkStamps(std::span<const EarthworkStamp> these,
+                                                              std::span<const EastNorth> at,
+                                                              std::span<double> upM,
+                                                              double mostEarthworkM);
 
-class EarthworkPressJob {
+class EarthworkDeformationJob {
 public:
-  EarthworkPressJob(std::span<const EarthworkStamp> these,
-                    std::span<const EastNorth> at,
-                    std::span<double> upM,
-                    double mostEarthworkM);
-  ~EarthworkPressJob();
-  EarthworkPressJob(const EarthworkPressJob &) = delete;
-  EarthworkPressJob &operator=(const EarthworkPressJob &) = delete;
-  EarthworkPressJob(EarthworkPressJob &&) noexcept;
-  EarthworkPressJob &operator=(EarthworkPressJob &&) noexcept;
+  EarthworkDeformationJob(std::span<const EarthworkStamp> these,
+                          std::span<const EastNorth> at,
+                          std::span<double> upM,
+                          double mostEarthworkM);
+  ~EarthworkDeformationJob();
+  EarthworkDeformationJob(const EarthworkDeformationJob &) = delete;
+  EarthworkDeformationJob &operator=(const EarthworkDeformationJob &) = delete;
+  EarthworkDeformationJob(EarthworkDeformationJob &&) noexcept;
+  EarthworkDeformationJob &operator=(EarthworkDeformationJob &&) noexcept;
 
   [[nodiscard]] bool Advance(size_t pointsMost);
-  [[nodiscard]] EarthworkPressResult Take() noexcept;
+  [[nodiscard]] EarthworkDeformationResult Take() noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:
@@ -78,7 +78,7 @@ private:
 };
 
 [[nodiscard]] EarthworkMetrics MeasureEarthworkEffect(std::span<const EarthworkStamp> these,
-                                                      const EarthworkPressResult &pressed,
+                                                      const EarthworkDeformationResult &pressed,
                                                       EarthworkKind kind,
                                                       std::span<const EastNorth> at,
                                                       EarthworkHeightView heights);

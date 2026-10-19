@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include <algorithm>
 #include <array>
@@ -46,7 +46,7 @@ void CheckOpposingAprons() {
         CHECK(std::abs(heights[2] - heights[1]) / stepM < 0.001,
               "opposing cut and fill aprons meet the physical contact with continuous slope");
         std::array<double, 3> staged{sourceM, sourceM, sourceM};
-        EarthworkPressJob job(stamps, points, staged, kMostEarthworkM);
+        EarthworkDeformationJob job(stamps, points, staged, kMostEarthworkM);
         while (!job.Advance(1)) {}
         (void)job.Take();
         CHECK(staged == heights, "bounded and one-shot earthwork resolve the same contacts");

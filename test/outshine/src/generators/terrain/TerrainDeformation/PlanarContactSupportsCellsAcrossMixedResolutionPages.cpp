@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "TerrainMesh.h"
-#include "TerrainPress.h"
+#include "TerrainDeformation.h"
 #include "TileGeodesy.h"
 #include "TriangleBvh.h"
 
@@ -68,7 +68,7 @@ int main() {
                             contact.LowE,
                             contact.HighN};
   Patchwork pointContact = Candidate();
-  (void)PressTerrain(std::span{&contact, 1u}, pointContact, frame, kLayout, 30.0);
+  (void)DeformTerrain(std::span{&contact, 1u}, pointContact, frame, kLayout, 30.0);
   const auto before =
       Surface(pointContact, frame)
           .Under(static_cast<float>(centre.EastM), static_cast<float>(-centre.NorthM));
@@ -76,7 +76,7 @@ int main() {
         "a narrow contact between nodes leaves the terrain cell above it");
   contact.PlanarSupportM = 0.0;
   Patchwork supported = Candidate();
-  const auto pressed = PressTerrain(std::span{&contact, 1u}, supported, frame, kLayout, 30.0);
+  const auto pressed = DeformTerrain(std::span{&contact, 1u}, supported, frame, kLayout, 30.0);
   CHECK(pressed.Nodes > 0 && pressed.Held == 0 && pressed.Structures == 0,
         "bounded planar support deforms the incident cells without exceeding the height limit");
   const auto surface = Surface(supported, frame);
@@ -95,7 +95,7 @@ int main() {
   CHECK(supported.Sheets[0].Nodes[kLayout.NodeAt(0, kSide - 1)] == 10.0f,
         "distant terrain outside the contact and apron remains unchanged");
   Patchwork sliced = Candidate();
-  TerrainPressJob job({contact}, sliced, frame, kLayout, 30.0);
+  TerrainDeformationJob job({contact}, sliced, frame, kLayout, 30.0);
   bool done = false;
   for (int step = 0; step < 10000 && !done; ++step) { done = job.Advance(1, 17); }
   CHECK(done, "sliced planar support completes with bounded work");

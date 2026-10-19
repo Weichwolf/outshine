@@ -1,4 +1,4 @@
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include "Check.h"
 
@@ -19,7 +19,8 @@ int main() {
       {{.EastM = 2, .NorthM = 5}, {.EastM = 5, .NorthM = 5}, {.EastM = 11, .NorthM = 5}}};
   std::array<double, 3> heights{};
   const std::array<EarthworkStamp, 1> withIsland{basin};
-  const EarthworkPressResult accepted = ApplyEarthworkStamps(withIsland, points, heights, 30.0);
+  const EarthworkDeformationResult accepted =
+      ApplyEarthworkStamps(withIsland, points, heights, 30.0);
   const std::array<double, 3> preserved{-2, 0, 0};
   CHECK(heights == preserved && accepted.Moved == 1,
         "basin cuts open water while island and outside terrain remain untouched");
@@ -27,7 +28,8 @@ int main() {
   basin.HoleRingsEastNorthM.clear();
   heights.fill(0);
   const std::array<EarthworkStamp, 1> withoutIsland{basin};
-  const EarthworkPressResult filled = ApplyEarthworkStamps(withoutIsland, points, heights, 30.0);
+  const EarthworkDeformationResult filled =
+      ApplyEarthworkStamps(withoutIsland, points, heights, 30.0);
   const std::array<double, 3> filledExpected{-2, -2, 0};
   CHECK(heights == filledExpected && filled.Moved == 2,
         "removing the hole makes its former centre part of the basin");

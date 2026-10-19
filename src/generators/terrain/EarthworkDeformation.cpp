@@ -2,7 +2,7 @@
 #include <cstdio>
 #include "FlatMap.h"
 #include "math/Units.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 #include "ProfiledCorridorPress.h"
 #include "math/Vec3.h"
 
@@ -584,7 +584,7 @@ void ApplyAt(std::span<const EarthworkStamp> these,
              std::span<double> upM,
              std::span<const uint8_t> structures,
              double mostEarthworkM,
-             EarthworkPressResult &told,
+             EarthworkDeformationResult &told,
              size_t one,
              PressWorkspace &workspace) {
   const Pressing under = PressesAt(these,
@@ -611,16 +611,16 @@ void ApplyAt(std::span<const EarthworkStamp> these,
 
 }
 
-EarthworkPressResult ApplyEarthworkStamps(std::span<const EarthworkStamp> these,
-                                          std::span<const EastNorth> at,
-                                          std::span<double> upM,
-                                          double mostEarthworkM) {
-  EarthworkPressJob job(these, at, upM, mostEarthworkM);
+EarthworkDeformationResult ApplyEarthworkStamps(std::span<const EarthworkStamp> these,
+                                                std::span<const EastNorth> at,
+                                                std::span<double> upM,
+                                                double mostEarthworkM) {
+  EarthworkDeformationJob job(these, at, upM, mostEarthworkM);
   while (!job.Advance(std::max(at.size(), size_t{1}))) {}
   return job.Take();
 }
 
-struct EarthworkPressJob::State {
+struct EarthworkDeformationJob::State {
   enum class Phase : uint8_t { Reject, InitializeDecisions, Apply, Done };
 
   std::span<const EarthworkStamp> These;
@@ -631,7 +631,7 @@ struct EarthworkPressJob::State {
   PressWorkspace Workspace;
   CellGrid Buckets;
   std::vector<uint8_t> Structures;
-  EarthworkPressResult Result;
+  EarthworkDeformationResult Result;
   size_t Next = 0;
   Phase Current = Phase::Reject;
 
@@ -663,17 +663,18 @@ struct EarthworkPressJob::State {
   }
 };
 
-EarthworkPressJob::EarthworkPressJob(std::span<const EarthworkStamp> these,
-                                     std::span<const EastNorth> at,
-                                     std::span<double> upM,
-                                     double mostEarthworkM)
+EarthworkDeformationJob::EarthworkDeformationJob(std::span<const EarthworkStamp> these,
+                                                 std::span<const EastNorth> at,
+                                                 std::span<double> upM,
+                                                 double mostEarthworkM)
     : State_(std::make_unique<State>(these, at, upM, mostEarthworkM)) {}
 
-EarthworkPressJob::~EarthworkPressJob() = default;
-EarthworkPressJob::EarthworkPressJob(EarthworkPressJob &&) noexcept = default;
-EarthworkPressJob &EarthworkPressJob::operator=(EarthworkPressJob &&) noexcept = default;
+EarthworkDeformationJob::~EarthworkDeformationJob() = default;
+EarthworkDeformationJob::EarthworkDeformationJob(EarthworkDeformationJob &&) noexcept = default;
+EarthworkDeformationJob &
+EarthworkDeformationJob::operator=(EarthworkDeformationJob &&) noexcept = default;
 
-bool EarthworkPressJob::Advance(size_t pointsMost) {
+bool EarthworkDeformationJob::Advance(size_t pointsMost) {
   State &state = *State_;
   if (state.Current == State::Phase::Done) { return true; }
   if (pointsMost == 0) { return false; }
@@ -740,17 +741,17 @@ bool EarthworkPressJob::Advance(size_t pointsMost) {
   return true;
 }
 
-EarthworkPressResult EarthworkPressJob::Take() noexcept {
+EarthworkDeformationResult EarthworkDeformationJob::Take() noexcept {
   assert(State_ && State_->Current == State::Phase::Done);
   return std::move(State_->Result);
 }
 
-size_t EarthworkPressJob::HeapBytes() const noexcept {
+size_t EarthworkDeformationJob::HeapBytes() const noexcept {
   return State_ ? State_->HeapBytes() : 0;
 }
 
 EarthworkMetrics MeasureEarthworkEffect(std::span<const EarthworkStamp> these,
-                                        const EarthworkPressResult &pressed,
+                                        const EarthworkDeformationResult &pressed,
                                         EarthworkKind kind,
                                         std::span<const EastNorth> at,
                                         EarthworkHeightView heights) {
