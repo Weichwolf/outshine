@@ -96,3 +96,42 @@ def tangent_directions(up, directions_enu):
     if not np.isfinite(length).all() or np.any(length <= 1e-12):
         raise ValueError("nonzero horizontal projection required")
     return tangent / length[:, None]
+
+
+def normal_norm_bounds(caps, row_faces, tangent, intervals, primary_rows):
+    """Derive |(-gx,-gy,1)| bounds from two existing direction intervals per face.
+
+    No new slope limit is introduced. At the cap centre, two independent tangent
+    grade bounds imply |grad_h|<=B. Since n.z=1 and n=(n.u)(u-grad_h),
+    |n|<=sqrt(1+B²)/(u.z-B*|projection_tangent(anchor_Up)|).
+    The linear prism rows themselves enforce these centre grades before the
+    derived norm bound is used to justify their whole-prism interpretation.
+    """
+    selected = np.asarray(primary_rows)
+    count = len(caps["up"])
+    if (
+        selected.shape != (count, 2)
+        or selected.dtype.kind not in "ui"
+        or np.any(selected < 0)
+        or np.any(selected >= len(row_faces))
+        or np.any(row_faces[selected] != np.arange(count)[:, None])
+    ):
+        raise ValueError(
+            "two existing same-face primary row indices per facet required"
+        )
+    first, second = tangent[selected[:, 0]], tangent[selected[:, 1]]
+    minimum_eigenvalue = 1 - abs(np.sum(first * second, axis=1)) - 1e-12
+    if np.any(minimum_eigenvalue <= 0):
+        raise ValueError(
+            "independent primary tangents required for a finite norm bound"
+        )
+    maximum_grade = abs(intervals[selected]).max(axis=2)
+    grade_bound = np.linalg.norm(maximum_grade, axis=1) / np.sqrt(minimum_eigenvalue)
+    up = caps["up"]
+    horizontal_up = (
+        np.linalg.norm(np.array([0.0, 0.0, 1.0]) - up * up[:, 2, None], axis=1) + 1e-12
+    )
+    denominator = up[:, 2] - grade_bound * horizontal_up - 1e-12
+    if np.any(denominator <= 0):
+        raise ValueError("primary intervals do not bound normals in this ENU graph")
+    return np.sqrt(1 + grade_bound**2) / denominator * (1 + 1e-12)
