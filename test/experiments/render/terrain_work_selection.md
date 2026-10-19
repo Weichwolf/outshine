@@ -379,3 +379,37 @@ attribution. No production shader changes follow. Device enumeration exposes onl
 the `timestamp/GPUTimestamp` counter set; no vertex/fragment invocation or memory
 counter evidence exists on this A18 through this API. Vulkan pipeline statistics
 are a separate proposed work-count comparison, not an A18 timing substitute.
+
+## Complete fragment replacement on d2bd3b14b
+
+A private control removes the original material code entirely. Both regular and
+adaptive Ground fragment families become constant HDR/material outputs, retaining
+the matching output attachments and velocity expressions. Their draw callers
+provide only the pipeline's actually reflected bindings; the native validator
+remains unchanged. No invalid opacity branch retains the original shader.
+All 42 fragments compile; their combined SPIR-V size is 7,054,744 versus 97,160
+bytes. This is intermediate code size, not native instruction/register usage.
+All 49 vertex SPIR-V artifacts remain exact. Actual default-plan execution passes
+Metal validation, including the regular skirts and adaptive patch draw paths.
+
+Fresh offline A18 Pro processes, 1280x720/60, exactly 60 frames/360 degrees,
+A/B/B/A per place; mean of two complete GPU windows in each arm:
+
+| Place | Original GPU mean ms | Minimal GPU mean ms | Mean of maxima, original/minimal ms |
+|---|---:|---:|---:|
+| Koerbersee | 13.5226 | 11.4567 | 22.0650 / 17.2276 |
+| Tokyo | 14.2276 | 13.6151 | 30.4935 / 30.0486 |
+
+A separate Koerbersee A/C/D/D/C/A sequence compares composition without lighting
+(12.8430 ms) and lighting without procedural composition (12.9534 ms) with its
+own original controls (14.1920 ms). These changed HDR inputs and active varyings
+can change downstream processing and linked vertex work; differences are not
+isolated fragment times or additive block costs. Forcing core material constants
+in one further control changes pixels and yields no demonstrated timing benefit.
+No cheaper production shader or relaxed quality contract is adopted.
+
+All changed code is removed. Original sources, binary/archive, 42 fragment SPIR-V
+files and twelve accepted PNGs are restored exactly. Private inputs, applicable
+patch, shader controls, commands, raw windows and restoration hashes remain in
+`/tmp/outshine-ground-fragment-isolation-d2bd/`. Diagnostic images stay outside
+the repository; none replaces a Place reference or quality gate.
