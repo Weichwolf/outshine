@@ -70,13 +70,63 @@ device/runtime frame measurement. Work inside the R-tree/library remains separat
 
 The field sheet was opened: native normal/material-code fields and two diagnostic
 relightings of colour factors. These are not native PBR appearance results.
-Eight identical Fine/Shell source-orbit views include 32 m translation; all are
-nonempty. Depth/difference images were opened. They contain zero lost and one
-added covered pixel sample, so equal or conservative opaque coverage is not
-claimed. Layered reprojection into these same views, dynamic native material
-evaluation, disocclusion, view switching and near/far transitions remain active.
-Generalisation needs other sources and geographic controls, not merely more
-views of this one building.
+The initial eight identical Fine/Shell source-orbit views include 32 m translation;
+all are nonempty. Depth/difference images were opened. They contain zero lost and
+one added covered pixel sample, so conservative opaque coverage is not claimed.
+
+## Novel views: this first layered proposal is rejected
+
+`source_far_reprojection` queries stored fields without looking up source
+triangles. Each sample defines a plane through its stored depth with its stored
+normal, over its capture cell. A bounded grid traversal visits intersected cells
+and tests the stored layers. The proposal crops these rectangles to the original
+capture bounds, with a numeric depth/Oct16 quantisation guard; this crop is **not**
+a form-error or coverage certificate. Perpendicular/grazing unsupported planes
+remain absent. Original Fine remains the fallback for the unvalidated product.
+
+Without that crop, grazing wall samples produce huge extrapolated strips. The
+actual opened failure image and frozen pre-crop scripts remain in temporary
+evidence. That run completed four views before its bounds crossed the near plane
+and it exited 1. The final cropped run completes all 24 views with exit 0.
+
+The 24 identical 1280×720/original-focal views combine six orbit angles
+(0/44/46/90/180/270 degrees), two distances (4/8 source extents) and 0/32 m
+translation. Fine/Shell use actual front-facing triangle intersections at the
+same pixel-centre rays. Layered queries compare the closest capture axis with
+the union of compatible positive-facing axes. Light A/B changes at query time;
+only colour factors and Lambert are evaluated. These are **not native PBR or
+procedural facade/UV images**. Source-shader material-program disagreements and
+normal differences are recorded separately. The 44/46-degree images expose the
+closest-axis switch; they and a translated view were actually opened.
+
+Counts below sum pixel samples over those 24 views; they are not unique world
+points or worldwide coverage. Fine covers 292,389 samples.
+
+| Candidate | Lost samples | Added samples | Changed material-program samples |
+| --- | ---: | ---: | ---: |
+| Original native Shell | 0 | 1 | 3,794 |
+| Layered closest axis | 89,896 | 6,671 | 28,945 |
+| Layered compatible axes | 1,772 | 10,379 | 12,109 |
+
+The single-axis proposal loses roofs; combining axes restores many samples but
+adds surfaces and still loses coverage. It is rejected for this source. This
+does not reject all layered/cluster products or establish worldwide Shell ROI.
+The stored source-bound samples did not imply source-bound extended rectangles.
+
+Compatible-axis queries visit 23,335,448 ray/cell pairs and read 93,341,792
+layer-depth operands, testing 23,949,202 valid planes. Depth/normal operand bytes
+sum to 469,163,976 B, **not** measured cache/memory traffic or a complete byte
+ledger. Texture material fetches, normal-array preparation, allocation counts and
+library-internal reference costs are not included in that operand estimate.
+Whole Python-process peak RSS is about 327 MiB; it is not GPU residency. No claim
+of two cheap runtime triangles is made for this traversal. An independent native
+source roof-patch control against triangle intersections matched 249 hits from
+500 rays, with zero coverage disagreements and maximum depth error 5.7e-14 m.
+
+Next work needs more sources/geographic controls and a more appropriate grouped
+far representation, rather than sweeping this rejected per-source LDI. Continuous
+near/far transitions, native material evaluation and native device costs remain
+unproved. The bounded diagnostic policy retains Fine for every unvalidated case.
 
 ## Reproduction
 
@@ -99,4 +149,8 @@ nice -n 10 .venv/bin/python test/experiments/render/source_far_assets.py \
 nice -n 10 .venv/bin/python test/experiments/render/plot_source_far_fields.py \
   --capture "$TMP_OUTPUT/capture" --fine "$TMP_OUTPUT/fine" \
   --hull "$TMP_OUTPUT/shell" --output "$TMP_OUTPUT/images"
+nice -n 10 .venv/bin/python -W error test/experiments/render/compare_source_far_views.py \
+  --capture "$TMP_OUTPUT/capture" --fine "$TMP_OUTPUT/fine" \
+  --hull "$TMP_OUTPUT/shell" --output "$TMP_OUTPUT/novel-views"
+.venv/bin/python -W error -m unittest discover -s test/experiments/render -p 'test_source_far*.py'
 ```
