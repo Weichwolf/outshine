@@ -171,10 +171,13 @@ thin local volumes. A preliminary clipped-box projection gives no extra saving
 on the five inputs; observer-containing boxes still cover all directions.
 The [source-local outer-bound comparison](building_trace_bounds.md) now checks
 all original native hits and enumerates the full original Whole-grid work for
-these four sources. Its union bound **after RequireShapes** is the preferred
-first native probe, preserving preparation errors and the original part loop.
+these four sources. Its union bound **after RequireShapes** preserves
+preparation errors and the original part loop.
 It is a geometric avoidance opportunity, not a measured native improvement or
 an opaque proxy. It requires no change to the global sample-error policy.
+The [native cost audit](building_capture_costs.md) further distinguishes this
+Whole-only opportunity from the actual cell path; its current native priority
+cannot be inferred from the Whole count.
 
 ## Sources and reproduction
 

@@ -2,10 +2,17 @@
 
 Owner: [#12](https://github.com/Weichwolf/outshine/issues/12), original native
 inputs/cost context [#567](https://github.com/Weichwolf/outshine/issues/567).
-This is the preferred next native comparison after the
-[capture-mask comparison](cube_capture_masks.md). Python establishes a useful
+This follows the [capture-mask comparison](cube_capture_masks.md).
+Python establishes a useful
 geometric rejection opportunity and retains original native hit controls;
 native tracing/output, time, memory and device acceptance remain open.
+
+The [subsequent native cost audit](building_capture_costs.md) limits its priority:
+none of the accepted original per-cell projection groups contains these four
+expensive sources. They are fully meshed in their cells. The 36.9 million-call
+opportunity therefore applies to the diagnostic Whole path; it does not prove
+a saving in the current cell path. Do not prioritize native adoption from that
+number alone. Source-complete planning before cell emission remains the goal.
 
 ## Concrete cause and placement contract
 
@@ -142,7 +149,7 @@ exit-0 receipts and per-parent results are under
 `local-fixture/` holds the six images and exact comparison report beside it.
 Nothing is published to an image gallery or written to native caches.
 
-Next native comparison: same full original inputs, RequireShapes/errors and
+Any later native comparison needs the same full original inputs, RequireShapes/errors and
 part ordering; actual old/new capture hits, patches, emitted products and
 framebuffer; union construction/storage, expensive calls, allocations/copies,
 peak memory and CPU. Compare against unchanged global bounds and separate part

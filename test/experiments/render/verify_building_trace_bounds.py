@@ -136,6 +136,38 @@ def capture_directions(tiles, size, axis, sign):
         yield np.concatenate(chunks)
 
 
+def cell_capture_membership(decoded, trace):
+    """Distinguish the Whole diagnostic opportunity from actual cell consumers."""
+    eye = np.asarray(trace["view"]["eye_ecef"]) - decoded["anchor_ecef"]
+    targets = {
+        i
+        for i, source in enumerate(decoded["summaries"])
+        if source["projectable"]
+        and ((eye >= source["bounds"][0]) & (eye <= source["bounds"][1])).all()
+    }
+    projected, meshed = [], []
+    for index, result in enumerate(trace["results"][1:], 1):
+        for group, call in enumerate(result["projection_calls"]):
+            members = targets & {m["source"] for m in call["members"]}
+            if call["accepted"] and members:
+                projected.append(
+                    {
+                        "result_index": index,
+                        "cell": result["cell"],
+                        "group": group,
+                        "sources": sorted(members),
+                    }
+                )
+        for call in result["mesh_calls"]:
+            if call["source"] in targets:
+                meshed.append({"cell": result["cell"], **call})
+    return {
+        "eye_containing_original_sources": sorted(targets),
+        "accepted_cell_projection_groups_with_those_sources": projected,
+        "original_cell_mesh_calls_for_those_sources": meshed,
+    }
+
+
 def eye_containing_work(decoded, trace, sources):
     eye = np.asarray(trace["view"]["eye_ecef"]) - decoded["anchor_ecef"]
     size = int(np.ceil(4 * trace["view"]["focal_px"] / trace["view"]["error_px"]))
@@ -250,6 +282,7 @@ if __name__ == "__main__":
         "bound_original_sources": bound_sources,
         "native_controls": controls,
         "eye_containing_source_work": work,
+        "cell_capture_membership": cell_capture_membership(decoded, trace),
         "seconds_python_diagnostic": time.perf_counter() - start,
         "inputs_sha256": {
             str(p): hashlib.sha256(p.read_bytes()).hexdigest()
