@@ -1,0 +1,78 @@
+{
+  "fixture": "feldkirch-ill-profile.json",
+  "original_selection": {
+    "scope": "prototype: one connected example body identified geometrically, no source-class admission; no native implementation",
+    "selected_surface_indices": [
+      0,
+      1,
+      17,
+      18,
+      41,
+      89,
+      132,
+      133,
+      145,
+      338,
+      368,
+      428,
+      429
+    ],
+    "selected_course_indices": [
+      0,
+      1,
+      16,
+      17,
+      26,
+      27,
+      76,
+      167,
+      176,
+      178,
+      181,
+      203,
+      215,
+      441,
+      476,
+      612,
+      614
+    ],
+    "source_points": 138,
+    "merged_nodes": 128,
+    "segments": 120,
+    "shared_node_height_disagreement_m_max": 0.0623779296875
+  },
+  "historical_v2": {
+    "file": "feldkirch-ill-water-v2.native",
+    "bytes": 257884,
+    "sha256": "f60008cd35242655b9620af93b24f13647f55e30e256d265f1ce5b7e3c5f5868",
+    "asset_key": "e10baddd4e10e79cb1d5b7d44fc2a9e217a9a5e61e993f1c471df0ce4b8c1d5b",
+    "package_sha256": "7fa27cc97424a3c5560f843683e025d413f63f5b4f5e27686e4e8f15431f838f",
+    "reader_commit": "6d462324c",
+    "reader_files": [
+      "src/generators/base/water/WaterAssetCodec.cpp",
+      "src/generators/base/water/WaterAsset.cpp",
+      "src/generators/base/water/WaterAssetQueries.cpp"
+    ],
+    "scope": "Exact original WATER2 payload. Original Float64 latitude/longitude point pairs, rings, levels, courses and tile indices. No source-metadata table or recorded source epoch in this version."
+  },
+  "observed_v3": {
+    "file": "feldkirch-ill-water-observed-v3.native",
+    "bytes": 350449,
+    "sha256": "2c30509e2618dd85811bf5d52f2076703591043e7644700103bfe7de3c3b80dc",
+    "asset_key": "36a205d000563899c9589c7404630fee31d807dd7103e181cd8fd962a6a8ca47",
+    "package_sha256": "7359b78fa9f9d7ba352246fbf040b6e62ab7211f929016ab6475290dbd35072a",
+    "reader_commit": "6bb149e9f",
+    "reader_files": [
+      "src/generators/base/water/WaterAssetCodec.cpp",
+      "src/generators/base/water/WaterAssetMetadata.cpp",
+      "src/generators/base/water/WaterAsset.cpp",
+      "src/generators/base/water/WaterAssetQueries.cpp"
+    ],
+    "scope": "Current native replay, not a historical source epoch claim for the original v2 product; all geometry, levels and tile coverage match exactly after record permutation. No assured original OSM flow directions."
+  },
+  "extraction": "Read-only SQLite lookup; package decompressed, package SHA-256 checked, original prepared-region envelope validated, water payload sliced without transformation. Both water hashes match the existing fixture metadata. Current WATER4 decoder is not the reader for these historical versions.",
+  "coordinate_order": [
+    "latitude_deg",
+    "longitude_deg"
+  ]
+}
