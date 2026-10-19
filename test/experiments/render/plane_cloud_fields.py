@@ -3,7 +3,7 @@
 import numpy as np
 from current_visibility import raster
 from native_capture_meshes import sample
-from source_billboard import bilinear
+from triangle_image_reference import bilinear
 
 
 def bake(source, chart):

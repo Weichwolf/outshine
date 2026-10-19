@@ -6,7 +6,7 @@ import numpy as np
 from object_plane_cloud import partition
 from plane_cloud_fields import bake, query
 from test_object_plane_cloud import combine, squares
-from triangle_image_reference import prepare_source
+from triangle_image_reference import bilinear, prepare_source
 
 
 def source(parts):
@@ -23,6 +23,11 @@ def source(parts):
 
 
 class PlaneFields(unittest.TestCase):
+    def test_filter_centres_boundary_and_zero_exterior(self):
+        values = np.array([[[1.0], [2.0]], [[3.0], [4.0]]])
+        uv = np.array([[0.25, 0.25], [0.5, 0.5], [0.0, 0.0], [-1.0, 0.0]])
+        np.testing.assert_array_equal(bilinear(values, uv)[:, 0], [1.0, 2.5, 0.25, 0.0])
+
     def test_exact_coplanar_interior_and_guard_empty_space(self):
         data = source([squares(0), squares(0)])
         charts, fallback, _, _ = partition(
