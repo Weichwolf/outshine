@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include <algorithm>
 #include <array>
@@ -48,7 +48,7 @@ int main() {
     CHECK(std::ranges::all_of(below, [](double h) { return h == -2.0; }),
           "clearance never fills a core or apron even with an incorrect fills flag");
     auto staged = std::vector<double>(points.size(), 20.0);
-    EarthworkPressJob job(stamps, points, staged, 30.0);
+    EarthworkDeformationJob job(stamps, points, staged, 30.0);
     while (!job.Advance(17)) {}
     CHECK(staged == heights, "bounded slices preserve the complete clearance result");
     std::vector<double> impossible(points.size(), 31.0);

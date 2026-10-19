@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include <array>
 #include <cmath>
@@ -31,7 +31,7 @@ int main() {
                 (cuts ? std::abs(heights[1]) < std::abs(source[1]) : heights[1] == source[1]),
             "soft correction stays inside the per-node limit and clearance never fills");
       auto sliced = source;
-      EarthworkPressJob job({&contact, 1u}, points, sliced, 30);
+      EarthworkDeformationJob job({&contact, 1u}, points, sliced, 30);
       bool done = false;
       for (int step = 0; step < 100 && !done; ++step) { done = job.Advance(1); }
       CHECK(done && sliced == heights, "sliced rejection and pressing use the same decision");

@@ -486,7 +486,7 @@ LayerGroups() {
     profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp' ;;
     profile/water-geometry) LayerGroups profile/water-preparation; printf '%s' ' src/generators/water/WaterSurfaceBuilder.cpp src/base/Geometry.cpp' ;;
     profile/water-worker) LayerGroups profile/water-preparation; printf '%s' ' src/base/io/Tasks.cpp src/engine/streaming/WaterGeometryPreparation.cpp' ;;
-    profile/water-bed) LayerGroups profile/water-asset; printf '%s' ' src/generators/water/WaterBasinStamps.cpp src/generators/terrain/EarthworkPress.cpp src/generators/terrain/ProfiledCorridorPress.cpp' ;;
+    profile/water-bed) LayerGroups profile/water-asset; printf '%s' ' src/generators/water/WaterBasinStamps.cpp src/generators/terrain/EarthworkDeformation.cpp src/generators/terrain/ProfiledCorridorPress.cpp' ;;
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/medium-view) printf '%s' "src/render/Lens.cpp src/render/stages/MediumView.cpp" ;;

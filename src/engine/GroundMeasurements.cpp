@@ -1,5 +1,5 @@
 #include "EngineState.h"
-#include "TerrainPress.h"
+#include "TerrainDeformation.h"
 
 #include <chrono>
 #include <ratio>
@@ -18,8 +18,8 @@ void Engine::State::PublishCameraHeightMeasurements(LongitudeLatitude at) {
   if (published) { Published.RecordMetric("camera: published terrain height", *published, "m"); }
 }
 
-void Engine::State::PublishEarthworkMeasurements(const Generators::PressedTerrain &pressed,
-                                                 double longestSliceMs) {
+void Engine::State::PublishEarthworkMeasurements(
+    const Generators::TerrainDeformationMetrics &pressed, double longestSliceMs) {
   Published.RecordMetric("ground: pressing gather", pressed.GatherMs, "ms");
   Published.RecordMetric("ground: pressing decide", pressed.DecideMs, "ms");
   Published.RecordMetric("ground: pressing buckets", pressed.BucketMs, "ms");

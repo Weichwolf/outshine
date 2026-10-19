@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include <array>
 #include <cmath>
@@ -29,7 +29,7 @@ int main() {
           "auxiliary planar cuts respect the same per-node budget as soft aprons");
     CHECK(heights[2] == source[2], "terrain outside both apron and support stays unchanged");
     auto sliced = source;
-    EarthworkPressJob job({&contact, 1u}, points, sliced, 30);
+    EarthworkDeformationJob job({&contact, 1u}, points, sliced, 30);
     bool done = false;
     for (int step = 0; step < 100 && !done; ++step) { done = job.Advance(1); }
     CHECK(done && sliced == heights, "sliced and synchronous support use the same budget");

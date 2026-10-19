@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "TerrainPress.h"
+#include "TerrainDeformation.h"
 
 #include <array>
 #include <cstddef>
@@ -70,8 +70,8 @@ int main() {
   stamps.push_back(StampOf(15.0, -3.0, EarthworkKind::Basin));
 
   Patchwork oneShot = source;
-  const PressedTerrain expected =
-      PressTerrain(stamps, oneShot, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
+  const TerrainDeformationMetrics expected =
+      DeformTerrain(stamps, oneShot, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
   CHECK(expected.Nodes > 0 && expected.Pads.Stamps == 1 && expected.Corridors.Stamps == 1,
         "overlapping pad, corridor and basin exercise valid sheets");
   CHECK(oneShot.Sheets[1].Nodes == source.Sheets[1].Nodes &&
@@ -80,13 +80,13 @@ int main() {
 
   for (const size_t slice : {1u, 3u, 11u, 128u}) {
     Patchwork candidate = source;
-    TerrainPressJob job(
+    TerrainDeformationJob job(
         stamps, candidate, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
     bool complete = false;
     for (int step = 0; step < 1000 && !complete; ++step) { complete = job.Advance(1, slice); }
     CHECK(complete, "every interruption size completes the same candidate");
     if (!complete) { continue; }
-    const PressedTerrain actual = job.Take();
+    const TerrainDeformationMetrics actual = job.Take();
     CHECK(SameProduct(candidate, oneShot) && actual.Nodes == expected.Nodes &&
               actual.Structures == expected.Structures && actual.Held == expected.Held &&
               actual.DeepestM == expected.DeepestM && actual.RaisedM == expected.RaisedM &&
@@ -98,7 +98,7 @@ int main() {
   Patchwork published = source;
   {
     Patchwork cancelled = source;
-    TerrainPressJob job(
+    TerrainDeformationJob job(
         stamps, cancelled, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
     for (int step = 0; step < 200; ++step) { (void)job.Advance(1, 1); }
     CHECK(!SameProduct(cancelled, source) && SameProduct(published, source),
@@ -107,16 +107,16 @@ int main() {
   CHECK(SameProduct(published, source), "discarding an unfinished job leaves publication intact");
 
   Patchwork invalid = source;
-  TerrainPressJob invalidJob(stamps,
-                             invalid,
-                             TangentFrame::At({}),
-                             {.Side = std::numeric_limits<int>::max(), .Halo = kHalo},
-                             30.0);
+  TerrainDeformationJob invalidJob(stamps,
+                                   invalid,
+                                   TangentFrame::At({}),
+                                   {.Side = std::numeric_limits<int>::max(), .Halo = kHalo},
+                                   30.0);
   CHECK(invalidJob.Advance(1, 1) && invalidJob.Take().Nodes == 0 && SameProduct(invalid, source),
         "an invalid layout finishes without touching any candidate sheet");
 
   Patchwork unstamped = source;
-  TerrainPressJob emptyJob(
+  TerrainDeformationJob emptyJob(
       {}, unstamped, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
   CHECK(emptyJob.Advance(1, 1) && emptyJob.Take().Nodes == 0 && SameProduct(unstamped, source),
         "empty stamp input finishes without rewriting terrain");

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "TerrainPress.h"
+#include "TerrainDeformation.h"
 
 #include <cstddef>
 #include <utility>
@@ -32,10 +32,10 @@ int main() {
     }
   }
   Patchwork candidate;
-  TerrainPressJob job(std::move(stamps), candidate, TangentFrame::At({}), {}, 30);
+  TerrainDeformationJob job(std::move(stamps), candidate, TangentFrame::At({}), {}, 30);
   CHECK(job.HeapBytes() == expected,
         "a zero-work job owns outer slots, rings, seams and retained empty hole capacity");
-  TerrainPressJob moved(std::move(job));
+  TerrainDeformationJob moved(std::move(job));
   CHECK(moved.HeapBytes() == expected && job.HeapBytes() == 0,
         "moving the job transfers every owned stamp allocation once");
   CHECK(moved.Advance(1, 1) && moved.Take().Nodes == 0 && moved.HeapBytes() == expected,
@@ -44,7 +44,7 @@ int main() {
   std::vector<EarthworkStamp> empty;
   empty.reserve(3);
   const size_t emptyBytes = empty.capacity() * sizeof(EarthworkStamp);
-  TerrainPressJob unstarted(std::move(empty), candidate, TangentFrame::At({}), {}, 30);
+  TerrainDeformationJob unstarted(std::move(empty), candidate, TangentFrame::At({}), {}, 30);
   CHECK(unstarted.HeapBytes() == emptyBytes, "empty input still owns its reserved stamp slots");
   moved = std::move(unstarted);
   CHECK(moved.HeapBytes() == emptyBytes && unstarted.HeapBytes() == 0,

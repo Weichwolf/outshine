@@ -68,7 +68,7 @@
 #include "ScenarioJson.h"
 
 namespace outshine::Generators {
-struct PressedTerrain;
+struct TerrainDeformationMetrics;
 }
 
 namespace outshine {
@@ -661,7 +661,7 @@ struct Engine::State {
   void PublishGroundPreparationMeasurements();
   void PublishAdvanceMeasurements();
   void PublishGroundMemoryMeasurements();
-  void PublishEarthworkMeasurements(const Generators::PressedTerrain &pressed,
+  void PublishEarthworkMeasurements(const Generators::TerrainDeformationMetrics &pressed,
                                     double longestSliceMs);
   [[nodiscard]] StructureBuildQueue::HeightSource StructureHeightSource();
   void PublishStreetGraphMeasurements(const Generators::Osm::StreetGraphBuilder::Built &mapped,

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include <array>
 #include <algorithm>
@@ -28,7 +28,7 @@ int main() {
                                          {.EastM = 1.0, .NorthM = 0.0},
                                          {.EastM = 2.0, .NorthM = 0.0}}};
   std::array<double, 3> heights{};
-  const EarthworkPressResult pressed = ApplyEarthworkStamps(stamps, points, heights, 30.0);
+  const EarthworkDeformationResult pressed = ApplyEarthworkStamps(stamps, points, heights, 30.0);
   CHECK(pressed.Structures == 1 && pressed.Refused[1] == 1 && pressed.Moved == 3 &&
             pressed.Held == 0,
         "late excessive cut rejects its stamp globally before any height changes");
@@ -39,7 +39,7 @@ int main() {
 
   for (const size_t slice : {1u, 2u, 7u}) {
     heights.fill(0.0);
-    EarthworkPressJob job(stamps, points, heights, 30.0);
+    EarthworkDeformationJob job(stamps, points, heights, 30.0);
     bool complete = false;
     for (int step = 0; step < 16 && !complete; ++step) {
       complete = job.Advance(slice);
@@ -49,7 +49,7 @@ int main() {
       }
     }
     CHECK(complete && job.HeapBytes() > 0, "the bounded job completes and reports retained memory");
-    const EarthworkPressResult staged = job.Take();
+    const EarthworkDeformationResult staged = job.Take();
     CHECK(staged.Moved == pressed.Moved && staged.Structures == pressed.Structures &&
               staged.Held == pressed.Held && staged.Refused == pressed.Refused &&
               staged.DecidedBy == pressed.DecidedBy &&
@@ -65,7 +65,7 @@ int main() {
   }
 
   heights.fill(0.0);
-  const EarthworkPressResult permitted = ApplyEarthworkStamps(stamps, points, heights, 100.0);
+  const EarthworkDeformationResult permitted = ApplyEarthworkStamps(stamps, points, heights, 100.0);
   const std::array<double, 3> expectedHeights{-5.0, -20.0, -35.0};
   CHECK(permitted.Structures == 0 && permitted.Moved == 3 && heights == expectedHeights,
         "the late stamp changes all nodes when the earthwork bound permits it");

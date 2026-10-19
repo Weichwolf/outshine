@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include <array>
 
@@ -8,11 +8,15 @@ int main() {
   using namespace outshine::Test;
   for (const auto kind : {EarthworkKind::Corridor, EarthworkKind::Pad, EarthworkKind::Clearance}) {
     const std::array stamps{EarthworkStamp{.RingEastNorthM = {-10, -2, 10, -2, 10, 2, -10, 2},
+                                           .HoleRingsEastNorthM = {},
                                            .LowE = -10,
                                            .HighE = 10,
                                            .LowN = -2,
                                            .HighN = 2,
                                            .PlateauM = -6,
+                                           .SeamEastNorthM = {},
+                                           .Profile = {},
+                                           .PlanarSupportM = {},
                                            .ApronM = 0,
                                            .YieldM = 6,
                                            .Fills = true,

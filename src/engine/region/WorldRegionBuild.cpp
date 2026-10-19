@@ -45,7 +45,7 @@
 #include "Corridors.h"
 #include "BuildingStampJob.h"
 #include "TerrainMesh.h"
-#include "TerrainPress.h"
+#include "TerrainDeformation.h"
 #include "TerrainDeformationTask.h"
 #include "EngineState.h"
 #include "StructureSourcePublication.h"
