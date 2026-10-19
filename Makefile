@@ -27,6 +27,9 @@ SHELL := /bin/bash
 SELF_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 RUN      := cd $(SELF_DIR) && sh test/run.sh
 
+NATIVE_HARDEN_COMPILE = $(or $(shell CXX='$(CXX)' sh $(SELF_DIR)/test/scripts/native_hardening.sh --compile),$(error Cannot determine native compiler hardening))
+NATIVE_HARDEN_LINK = $(or $(shell CXX='$(CXX)' sh $(SELF_DIR)/test/scripts/native_hardening.sh --link),$(error Cannot determine native linker hardening))
+
 # clang-tidy and clang-format ship with LLVM and are NOT on the default path on this platform;
 # naming the directory once here is the difference between a lint that runs and a lint that is
 # quietly skipped.
@@ -75,9 +78,9 @@ shaders: $(SHADER_ARTIFACTS) build/compute-shaders.json
 	@printf '%s\n' $(SHADER_ARTIFACTS) > build/shader-artifacts.txt.tmp
 	@mv build/shader-artifacts.txt.tmp build/shader-artifacts.txt
 
-build/compute-shader-contracts: test/scripts/compute-shader-contracts.cpp src/render/stages/ComputeShaders.h src/render/stages/KernelShape.h
+build/compute-shader-contracts: Makefile test/scripts/native_hardening.sh test/scripts/compute-shader-contracts.cpp src/render/stages/ComputeShaders.h src/render/stages/KernelShape.h
 	@mkdir -p $(@D)
-	@$(CXX) -std=c++23 -O2 -Wall -Wextra -Werror -Isrc/render/stages $< -o $@
+	@$(CXX) $(NATIVE_HARDEN_COMPILE) $(NATIVE_HARDEN_LINK) -std=c++23 -O2 -Wall -Wextra -Werror -Isrc/render/stages test/scripts/compute-shader-contracts.cpp -o $@
 
 build/compute-shaders.json: build/compute-shader-contracts
 	@$< > $@.tmp && mv $@.tmp $@
@@ -98,9 +101,9 @@ build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl
 	@mkdir -p $(@D)
 	@variant=$*; base=$${variant:6:1}; metal=$${variant:7:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shader-tables: test/scripts/shader-tables.cpp Makefile
+build/shader-tables: test/scripts/shader-tables.cpp Makefile test/scripts/native_hardening.sh
 	@mkdir -p $(@D)
-	@$(CXX) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -MMD -MP -MF $@.d -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
+	@$(CXX) $(NATIVE_HARDEN_COMPILE) $(NATIVE_HARDEN_LINK) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -MMD -MP -MF $@.d -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
 
 -include build/shader-tables.d
 
@@ -275,3 +278,7 @@ test-file-stamps: ## verify portable native test file metadata and failure handl
 .PHONY: test-shader-dependencies
 test-shader-dependencies: ## verify incremental shader closures and failed-build cleanup
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" python3 test/scripts/test_shader_dependencies.py
+
+.PHONY: test-native-hardening
+test-native-hardening: ## verify native hardening with real compiler diagnostics and executable probes
+	@python3 test/scripts/test_native_hardening.py
