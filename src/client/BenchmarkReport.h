@@ -41,6 +41,7 @@ struct ScenarioBenchmarkReport {
   std::vector<BenchmarkFrameSample> Frames;
   std::vector<Render::GpuFrameSample> GpuSamples;
   std::vector<DiagnosticSample> Measures;
+  std::string FinalWorldBlockers;
 };
 
 [[nodiscard]] std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report);

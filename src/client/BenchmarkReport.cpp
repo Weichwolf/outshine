@@ -207,6 +207,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
         {"hardware_metadata", report.HardwareMs}}},
       {"world_complete", measurementComplete && unrefined == 0},
       {"unrefined_frames", unrefined},
+      {"final_world_blockers", report.FinalWorldBlockers},
       {"budget",
        {{"cpu_p99_met", cpuPass},
         {"gpu_p99_met", gpuPass},

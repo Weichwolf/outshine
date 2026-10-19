@@ -101,6 +101,7 @@ Result FinishMeasurement(Engine &engine,
   }
   if (const auto samples = renderer.gpuSamples(report.GpuSamples); !samples) { return samples; }
   report.Finished = engine.loading();
+  report.FinalWorldBlockers = engine.unsettledReasons(WorldQuality::Refined);
   const auto measures = engine.measures();
   report.Measures.assign(measures.begin(), measures.end());
   if (!options.Image.empty()) {
