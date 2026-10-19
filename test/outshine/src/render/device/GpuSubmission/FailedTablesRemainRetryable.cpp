@@ -1,4 +1,4 @@
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "ReadbackTransfer.h"
 #include "Check.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"
@@ -48,15 +48,15 @@ std::vector<uint32_t> Read(Native::Device *device, const Native::Buffer *buffer,
 }
 
 void DeferredRetry(Native::Device *device) {
-  SubjectResidency residency;
+  GeometryResidency residency;
   CHECK(residency.StandsOn(device), "residency binds the native fixture device");
   const std::vector<uint32_t> initial{0, 0, 0, 0};
   const std::vector<uint32_t> expected{17, 23, 31, 47};
-  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
-  std::array<SubjectResidency::Crossing, 1> crossing{{{.Which = stream,
-                                                       .Usage = Native::BufferUse::Storage,
-                                                       .From = initial.data(),
-                                                       .Bytes = 16}}};
+  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
+  std::array<GeometryResidency::Crossing, 1> crossing{{{.Which = stream,
+                                                        .Usage = Native::BufferUse::Storage,
+                                                        .From = initial.data(),
+                                                        .Bytes = 16}}};
   std::string error;
   CHECK(Accepted(residency.Cross(crossing, false), error), "deferred fixture initializes GPU data");
   crossing[0].From = expected.data();
@@ -90,15 +90,15 @@ void DeferredRetry(Native::Device *device) {
 }
 
 void FailedReplacement(Native::Device *device) {
-  SubjectResidency residency;
+  GeometryResidency residency;
   CHECK(residency.StandsOn(device), "residency binds the native fixture device");
-  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
   const std::vector<uint32_t> initial{17, 23, 31, 47};
   const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
-  std::array<SubjectResidency::Crossing, 1> crossing{{{.Which = stream,
-                                                       .Usage = Native::BufferUse::Storage,
-                                                       .From = initial.data(),
-                                                       .Bytes = 16}}};
+  std::array<GeometryResidency::Crossing, 1> crossing{{{.Which = stream,
+                                                        .Usage = Native::BufferUse::Storage,
+                                                        .From = initial.data(),
+                                                        .Bytes = 16}}};
   std::string error;
   CHECK(Accepted(residency.Cross(crossing, false), error), "replacement fixture initializes data");
   const auto *original = residency.Buffer(stream).get();
@@ -124,19 +124,19 @@ void FailedReplacement(Native::Device *device) {
 }
 
 void FailedBatchReplacement(Native::Device *device) {
-  SubjectResidency residency;
+  GeometryResidency residency;
   CHECK(residency.StandsOn(device), "residency binds the native fixture device");
-  using Stream = SubjectResidency::Stream;
+  using Stream = GeometryResidency::Stream;
   const std::vector<uint32_t> initial{17, 23, 31, 47};
   const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
-  std::array<SubjectResidency::Crossing, 2> crossing{{{.Which = Stream::ClusterJobs,
-                                                       .Usage = Native::BufferUse::Storage,
-                                                       .From = initial.data(),
-                                                       .Bytes = 16},
-                                                      {.Which = Stream::ClusterBatches,
-                                                       .Usage = Native::BufferUse::Storage,
-                                                       .From = initial.data(),
-                                                       .Bytes = 16}}};
+  std::array<GeometryResidency::Crossing, 2> crossing{{{.Which = Stream::ClusterJobs,
+                                                        .Usage = Native::BufferUse::Storage,
+                                                        .From = initial.data(),
+                                                        .Bytes = 16},
+                                                       {.Which = Stream::ClusterBatches,
+                                                        .Usage = Native::BufferUse::Storage,
+                                                        .From = initial.data(),
+                                                        .Bytes = 16}}};
   std::string error;
   CHECK(Accepted(residency.Cross(crossing, false), error),
         "batch fixture initializes both buffers");
@@ -186,16 +186,16 @@ void FailedBatchReplacement(Native::Device *device) {
 }
 
 void MixedUploads(Native::Device *device) {
-  SubjectResidency residency;
+  GeometryResidency residency;
   CHECK(residency.StandsOn(device), "residency binds the native fixture device");
-  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
   const std::vector<uint32_t> initial{0, 0, 0, 0};
   const std::vector<uint32_t> staged{17, 23, 31, 47};
   const std::vector<uint32_t> latest{53, 59, 61, 67};
-  std::array<SubjectResidency::Crossing, 1> crossing{{{.Which = stream,
-                                                       .Usage = Native::BufferUse::Storage,
-                                                       .From = initial.data(),
-                                                       .Bytes = 16}}};
+  std::array<GeometryResidency::Crossing, 1> crossing{{{.Which = stream,
+                                                        .Usage = Native::BufferUse::Storage,
+                                                        .From = initial.data(),
+                                                        .Bytes = 16}}};
   std::string error;
   CHECK(Accepted(residency.Cross(crossing, false), error), "mixed fixture initializes data");
   crossing[0].From = staged.data();
@@ -238,14 +238,14 @@ void MixedUploads(Native::Device *device) {
 }
 
 void Growth(Native::Device *device) {
-  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
   constexpr auto usage = Native::BufferUse::Storage;
   const std::vector<uint32_t> expected{17, 23, 31, 47};
   for (const Failure point : {Failure::Acquire, Failure::Copy, Failure::Submit}) {
-    SubjectResidency residency;
+    GeometryResidency residency;
     CHECK(residency.StandsOn(device), "residency binds the native fixture device");
     std::string error;
-    std::array<SubjectResidency::Crossing, 1> crossing{
+    std::array<GeometryResidency::Crossing, 1> crossing{
         {{.Which = stream,
           .Usage = usage,
           .From = expected.data(),
@@ -255,15 +255,15 @@ void Growth(Native::Device *device) {
     const auto capacity = residency.HeldOf(stream);
     const auto maximum = std::numeric_limits<uint32_t>::max();
     for (const auto invalid :
-         {SubjectResidency::Crossing{.Which = SubjectResidency::Stream::Count},
-          SubjectResidency::Crossing{.Which = stream,
-                                     .Usage = usage,
-                                     .From = expected.data(),
-                                     .Bytes = 16,
-                                     .Offset = maximum - 7},
-          SubjectResidency::Crossing{
+         {GeometryResidency::Crossing{.Which = GeometryResidency::Stream::Count},
+          GeometryResidency::Crossing{.Which = stream,
+                                      .Usage = usage,
+                                      .From = expected.data(),
+                                      .Bytes = 16,
+                                      .Offset = maximum - 7},
+          GeometryResidency::Crossing{
               .Which = stream, .Usage = usage, .From = expected.data(), .Bytes = maximum}}) {
-      std::array<SubjectResidency::Crossing, 2> rejected{{{.Which = stream}, invalid}};
+      std::array<GeometryResidency::Crossing, 2> rejected{{{.Which = stream}, invalid}};
       const auto allocations = fault.DeviceBufferRequests;
       CHECK(!Accepted(residency.Cross(rejected, false), error),
             "invalid upload is rejected before mutation");
@@ -275,7 +275,7 @@ void Growth(Native::Device *device) {
     }
     auto large = crossing[0];
     large.Bytes = (maximum / 2u) + 1u;
-    std::array<SubjectResidency::Crossing, 2> oversized{{large, large}};
+    std::array<GeometryResidency::Crossing, 2> oversized{{large, large}};
     for (const bool deferred : {false, true}) {
       const auto allocations = fault.DeviceBufferRequests;
       CHECK(!Accepted(residency.Cross(oversized, deferred), error),
@@ -310,7 +310,7 @@ void Growth(Native::Device *device) {
 enum class TablePhase { Staging, Submission };
 
 struct TableRetry {
-  SubjectDraw &Draw;
+  GeometryRenderer &Draw;
   Native::Device *Device;
   uint32_t Piece;
   const Mat4 &Row;
@@ -352,14 +352,14 @@ struct TableRetry {
     CHECK(Draw.ClusterJobs() == 2 && Draw.ClusterBatchRows() == 2,
           "both instance jobs remain present after recovery");
     const std::vector<uint32_t> expected{0, 0, 0, 3, 0, 1, 0, 3};
-    CHECK(Read(Device, Draw.Resident().Buffer(SubjectResidency::Stream::ClusterJobs).get(), 8) ==
+    CHECK(Read(Device, Draw.Resident().Buffer(GeometryResidency::Stream::ClusterJobs).get(), 8) ==
               expected,
           "submitted GPU jobs share the source sphere and retain distinct instance batches");
   }
 };
 
 void Tables(Native::Device *device) {
-  SubjectDraw draw;
+  GeometryRenderer draw;
   outshine::Render::Gpu gpu{.Device = device,
                             .HdrFormat = Native::Format::Rgba16Float,
                             .SurfaceFormat = Native::Format::Rgba8Unorm,

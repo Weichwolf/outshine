@@ -66,7 +66,7 @@ Vec3f ReflectedColour(Vec3f up, bool upward, float roughness) {
   environment.UpUnit = {{up[0], up[1], up[2]}};
   environment.GroundAlbedo = {{0, 0, 0}};
   environment.SkyLux = environment.CosSunZenith = 1;
-  renderer.SetSubjectEnvironment(environment);
+  renderer.SetGeometryEnvironment(environment);
   CHECK(scene->Draw(error), "the first frame consumes the prepared reflection atlas");
   std::vector<float> pixels;
   CHECK(renderer.ReadSceneLinear(pixels) == ReadState::Ready, "linear radiance reaches readback");

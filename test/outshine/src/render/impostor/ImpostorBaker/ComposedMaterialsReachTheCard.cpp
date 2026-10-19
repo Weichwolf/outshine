@@ -81,8 +81,8 @@ void CheckCurrentLighting(const Geometry &card) {
   eye.ZFarM = 10;
   scene->Eye(eye);
   CHECK(scene->Draw(error), "camera and card publish through the runtime scene");
-  renderer.SetSubjectEnvironment({});
-  CHECK(renderer.SetSubjectLights({}, error), "capture light is absent from runtime lighting");
+  renderer.SetGeometryEnvironment({});
+  CHECK(renderer.SetGeometryLights({}, error), "capture light is absent from runtime lighting");
   CHECK(renderer.RenderFrame(), "unlit card frame draws");
   renderer.WaitForGpu();
   std::vector<float> before, after, depth;
@@ -94,7 +94,7 @@ void CheckCurrentLighting(const Geometry &card) {
   key.Light.Intensity = 100;
   const float axis = -1 / std::sqrt(3.0f);
   key.Light.Direction = {{axis, axis, axis}};
-  CHECK(renderer.SetSubjectLights(std::span(&key, 1), error),
+  CHECK(renderer.SetGeometryLights(std::span(&key, 1), error),
         "current light changes without recapture");
   CHECK(renderer.RenderFrame(), "relit card frame draws");
   renderer.WaitForGpu();

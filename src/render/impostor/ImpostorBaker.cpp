@@ -315,7 +315,7 @@ std::optional<Content::ImpostorAtlas> ImpostorBaker::Bake(ImpostorCapture captur
                            Resource::SceneSurfaceIdentity,
                            Resource::SceneSurfaceBase,
                            Resource::SceneSurfaceMetalRough};
-  specification.Content = {Stage::Subjects};
+  specification.Content = {Stage::Geometry};
   auto plan = Compiled::Compile(specification);
   if (!plan) {
     error = std::move(plan.error());

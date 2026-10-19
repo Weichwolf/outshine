@@ -1,5 +1,5 @@
-#include "SubjectDraw.h"
-#include "SubjectCullStage.h"
+#include "GeometryRenderer.h"
+#include "GeometryCullStage.h"
 #include "StageSubmission.h"
 #include "ReadbackTransfer.h"
 #include "NativeOfflineDevice.h"
@@ -117,9 +117,9 @@ void Pixels(Device &device, const Texture &image, const std::array<uint16_t, 4> 
 }
 
 void Draw(Device &device,
-          SubjectDraw &subject,
+          GeometryRenderer &subject,
           Targets &targets,
-          SubjectCullStage *cull = nullptr,
+          GeometryCullStage *cull = nullptr,
           const std::array<uint16_t, 4> &values = kBaseValues) {
   auto commands = Require(device.Begin());
   Require(subject.FlushCrossings(commands.get()));
@@ -152,7 +152,7 @@ void Draw(Device &device,
 }
 
 void Indirect(Device &device,
-              SubjectDraw &subject,
+              GeometryRenderer &subject,
               Targets &targets,
               const MeshData &source,
               const outshine::Render::Gpu &gpu) {
@@ -183,7 +183,7 @@ void Indirect(Device &device,
   mesh.Clusters = clusters;
   mesh.ClusterSpheres = spheres;
   CheckSceneUpload(subject.SetMesh(mesh, error), error);
-  SubjectCullStage stage;
+  GeometryCullStage stage;
   Require(stage.Configure({.Resident = &subject.Resident(),
                            .AnchorM = subject.AnchorM(),
                            .Jobs = subject.ClusterJobs(),
@@ -197,7 +197,7 @@ void Indirect(Device &device,
         "both real mesh clusters pass through the three native culling stages");
 }
 
-void PieceUv1(Device &device, SubjectDraw &subject, Targets &targets, const MeshData &source) {
+void PieceUv1(Device &device, GeometryRenderer &subject, Targets &targets, const MeshData &source) {
   std::string error;
   CheckSceneUpload(subject.SetMesh(SubjectMesh{}, error), error);
   constexpr std::array<uint8_t, 8> texels{255, 0, 0, 255, 0, 0, 255, 255};
@@ -243,7 +243,7 @@ void PieceUv1(Device &device, SubjectDraw &subject, Targets &targets, const Mesh
   subject.ReleasePiece(id);
 }
 
-void PreparedMipChain(Device &device, SubjectDraw &subject, Targets &targets) {
+void PreparedMipChain(Device &device, GeometryRenderer &subject, Targets &targets) {
   static constexpr std::array<uint8_t, 16> base{
       255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255};
   static constexpr std::array<uint8_t, 4> lower{0, 255, 0, 255};
@@ -289,7 +289,7 @@ int main() {
                               Resource::SceneSurfaceMetalRough}) {
     CHECK(gpu.SceneColours.Add(resource), "the full native material attachment order is accepted");
   }
-  SubjectDraw subject;
+  GeometryRenderer subject;
   Require(subject.Configure(gpu));
   CHECK(subject.PipelineCount() > 0,
         "all existing vertex/domain/coverage variants compile natively");

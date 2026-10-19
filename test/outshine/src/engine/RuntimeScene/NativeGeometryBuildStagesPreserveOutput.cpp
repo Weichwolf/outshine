@@ -69,7 +69,7 @@ int main() {
           CHECK(advanced.has_value(), advanced ? "paced stage advances" : advanced.error().c_str());
           if (!advanced) { break; }
           complete = *advanced;
-          sawPendingUpload |= pacedRenderer.SubjectMeshPending();
+          sawPendingUpload |= pacedRenderer.GeometryMeshPending();
           CHECK(paced->GeometryBuildActive() != complete,
                 "build remains active exactly until finalization");
         }

@@ -7,7 +7,7 @@ int main() {
   using namespace outshine::Test;
   const float source = 1;
   for (const uint32_t components : {2u, 3u, 4u}) {
-    VertexStreamUpload upload{.Which = SubjectResidency::Stream::Vertex,
+    VertexStreamUpload upload{.Which = GeometryResidency::Stream::Vertex,
                               .Source = {.From = &source},
                               .Carried = true,
                               .Components = components};

@@ -13,7 +13,7 @@ int main() {
   CHECK(!AccumulatedAttachmentHasEarlierProducer(Stage::GroundPyramid, Resource::DepthPyramid),
         "accumulated reads cannot hide derived-resource dependency cycles");
   const auto compiled = Compiled::Compile({.Outputs = {Resource::SceneHdr},
-                                           .Content = {Stage::Subjects},
+                                           .Content = {Stage::Geometry},
                                            .Exposure = {},
                                            .Display = {},
                                            .Precision = {}});
@@ -23,7 +23,7 @@ int main() {
   const auto at = [&plan](Stage stage) {
     return std::distance(plan.Order().begin(), std::ranges::find(plan.Order(), stage));
   };
-  CHECK(at(Stage::Subjects) < at(Stage::GroundPyramid) &&
+  CHECK(at(Stage::Geometry) < at(Stage::GroundPyramid) &&
             at(Stage::GroundPyramid) < at(Stage::GroundSelection) &&
             at(Stage::GroundSelection) < at(Stage::Ground),
         "opaque draw, current depth, selection and terrain have distinct ordered phases");

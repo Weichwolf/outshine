@@ -1,4 +1,4 @@
-#include "src/render/stages/SubjectResidency.h"
+#include "src/render/stages/GeometryResidency.h"
 #include "src/render/device/ReadbackTransfer.h"
 #include "NativeDeviceProxy.h"
 #include "NativeGpuCheck.h"
@@ -20,7 +20,7 @@ using namespace outshine::Render;
 using namespace outshine::Render::Native;
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
-constexpr auto kStream = SubjectResidency::Stream::Uv1;
+constexpr auto kStream = GeometryResidency::Stream::Uv1;
 constexpr std::array<uint32_t, 4> kInitial{1, 2, 3, 4};
 constexpr std::array<uint32_t, 8> kLarger{5, 6, 7, 8, 9, 10, 11, 12};
 
@@ -59,15 +59,15 @@ struct Faults final : NativeDeviceProxy {
   }
 };
 
-Result<void> Cross(SubjectResidency &resident, std::span<const uint32_t> words, bool deferred) {
-  SubjectResidency::Crossing crossing{.Which = kStream,
-                                      .Usage = BufferUse::Vertex,
-                                      .From = words.data(),
-                                      .Bytes = static_cast<uint32_t>(words.size_bytes())};
+Result<void> Cross(GeometryResidency &resident, std::span<const uint32_t> words, bool deferred) {
+  GeometryResidency::Crossing crossing{.Which = kStream,
+                                       .Usage = BufferUse::Vertex,
+                                       .From = words.data(),
+                                       .Bytes = static_cast<uint32_t>(words.size_bytes())};
   return resident.Cross(std::span(&crossing, 1), deferred);
 }
 
-std::vector<uint32_t> Read(Device &device, SubjectResidency &resident, size_t words) {
+std::vector<uint32_t> Read(Device &device, GeometryResidency &resident, size_t words) {
   auto transfer = Require(RetryOffline(
       [&] {
         return ReadbackTransfer::Start(
@@ -82,7 +82,7 @@ std::vector<uint32_t> Read(Device &device, SubjectResidency &resident, size_t wo
   return result;
 }
 
-void FailedCandidates(Faults &device, SubjectResidency &resident) {
+void FailedCandidates(Faults &device, GeometryResidency &resident) {
   auto *const original = resident.Buffer(kStream).get();
   const auto capacity = resident.HeldOf(kStream);
   for (auto point : {Faults::Point::Begin, Faults::Point::Map, Faults::Point::Submit}) {
@@ -107,7 +107,7 @@ void FailedCandidates(Faults &device, SubjectResidency &resident) {
         "cycling upload storage still publishes every source byte");
 }
 
-void DeferredRollback(Faults &device, SubjectResidency &resident) {
+void DeferredRollback(Faults &device, GeometryResidency &resident) {
   Require(Cross(resident, kInitial, true));
   {
     auto commands = Require(device.Begin());
@@ -126,7 +126,7 @@ void DeferredRollback(Faults &device, SubjectResidency &resident) {
         "an abandoned deferred submission can be retried without source regeneration");
 }
 
-void Growth(Device &device, SubjectResidency &resident) {
+void Growth(Device &device, GeometryResidency &resident) {
   auto *const previous = resident.Buffer(kStream).get();
   const auto capacity = resident.HeldOf(kStream);
   Require(
@@ -146,7 +146,7 @@ void Growth(Device &device, SubjectResidency &resident) {
 int main() {
   auto actual = Require(CreateDevice({.Validation = true}));
   Faults device(*actual);
-  SubjectResidency resident;
+  GeometryResidency resident;
   Require(resident.StandsOn(&device));
   Require(Cross(resident, kInitial, false));
   FailedCandidates(device, resident);

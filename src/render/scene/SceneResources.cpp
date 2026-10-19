@@ -1,6 +1,6 @@
 #include "SceneResources.h"
 
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "Surfacing.h"
 
 #include <algorithm>
@@ -42,7 +42,7 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
 }
 
 std::expected<PieceHandle, std::string>
-SceneResources::PlacePiece(SubjectDraw &subjects, const PieceMesh &piece, PieceOwner owner) {
+SceneResources::PlacePiece(GeometryRenderer &subjects, const PieceMesh &piece, PieceOwner owner) {
   if (!ValidPieceUv1(piece)) { return std::unexpected(std::string(kPieceUv1Error)); }
   if (FirstFreePiece_ == kNoResourceSlot && Pieces_.size() >= kNoResourceSlot) {
     return std::unexpected(Says::PieceSlotLimit);
@@ -81,7 +81,8 @@ SceneResources::PlacePiece(SubjectDraw &subjects, const PieceMesh &piece, PieceO
 }
 
 std::expected<size_t, std::string>
-SceneResources::ReconcileStructurePieces(SubjectDraw &subjects, std::span<const PieceHandle> held) {
+SceneResources::ReconcileStructurePieces(GeometryRenderer &subjects,
+                                         std::span<const PieceHandle> held) {
   std::vector<uint8_t> retained(Pieces_.size(), 0);
   for (const PieceHandle handle : held) {
     if (!HasPiece(handle) || Pieces_[handle.Slot].Owner != PieceOwner::StructureTile) {
@@ -113,7 +114,7 @@ bool SceneResources::HasPiece(PieceHandle handle) const noexcept {
   return handle.Slot < Pieces_.size() && Pieces_[handle.Slot].State.Matches(handle.Generation);
 }
 
-bool SceneResources::SetPieceInstances(SubjectDraw &subjects,
+bool SceneResources::SetPieceInstances(GeometryRenderer &subjects,
                                        PieceHandle which,
                                        std::span<const Mat4> rows,
                                        std::string &error) {
@@ -121,7 +122,7 @@ bool SceneResources::SetPieceInstances(SubjectDraw &subjects,
   return SetPieceInstances(subjects, {&one, 1}, error);
 }
 
-bool SceneResources::SetPieceInstances(SubjectDraw &subjects,
+bool SceneResources::SetPieceInstances(GeometryRenderer &subjects,
                                        std::span<const PieceRows> pieces,
                                        std::string &error) {
   for (size_t at = 0; at < pieces.size(); ++at) {
@@ -165,7 +166,7 @@ bool SceneResources::SetPieceInstances(SubjectDraw &subjects,
   return true;
 }
 
-void SceneResources::ReleasePiece(SubjectDraw &subjects, PieceHandle which) {
+void SceneResources::ReleasePiece(GeometryRenderer &subjects, PieceHandle which) {
   if (!HasPiece(which)) { return; }
   Piece &piece = Pieces_[which.Slot];
   subjects.ReleasePiece(piece.Resident);
@@ -213,8 +214,8 @@ SceneResources::ResolvePieceMaterials(Geometry source) {
   return held;
 }
 
-bool SceneResources::AppendPieceMaterials(SubjectDraw &subjects,
-                                          SubjectDraw *glass,
+bool SceneResources::AppendPieceMaterials(GeometryRenderer &subjects,
+                                          GeometryRenderer *glass,
                                           const PieceMaterials &materials,
                                           std::string &error) {
   if (materials.Slots.size() >= kNoSlot || RegisteredPieceSlots_.size() >= kNoSlot ||
@@ -235,12 +236,12 @@ bool SceneResources::AppendPieceMaterials(SubjectDraw &subjects,
     return false;
   }
   if (!subjects.AppendMaterials(
-          materials.Slots, error, SubjectResidency::ImageUploadMode::Deferred)) {
+          materials.Slots, error, GeometryResidency::ImageUploadMode::Deferred)) {
     return false;
   }
   if (glass != nullptr && !glass->AppendMaterials(materials.Slots,
                                                   error,
-                                                  SubjectResidency::ImageUploadMode::Deferred)) {
+                                                  GeometryResidency::ImageUploadMode::Deferred)) {
     subjects.TruncateMaterials(subjectBefore);
     return false;
   }
@@ -252,8 +253,8 @@ bool SceneResources::AppendPieceMaterials(SubjectDraw &subjects,
   return true;
 }
 
-std::expected<uint32_t, std::string>
-SceneResources::RegisterPieceMaterials(SubjectDraw &subjects, SubjectDraw *glass, Geometry source) {
+std::expected<uint32_t, std::string> SceneResources::RegisterPieceMaterials(
+    GeometryRenderer &subjects, GeometryRenderer *glass, Geometry source) {
   auto materials = ResolvePieceMaterials(std::move(source));
   if (!materials) { return std::unexpected(std::move(materials).error()); }
   const auto first = static_cast<uint32_t>(RegisteredPieceSlots_.size());
@@ -267,8 +268,8 @@ SceneResources::RegisterPieceMaterials(SubjectDraw &subjects, SubjectDraw *glass
   return first;
 }
 
-bool SceneResources::RestorePieceMaterials(SubjectDraw &subjects,
-                                           SubjectDraw *glass,
+bool SceneResources::RestorePieceMaterials(GeometryRenderer &subjects,
+                                           GeometryRenderer *glass,
                                            std::string &error) {
   const size_t subjectBefore = subjects.MaterialSlots();
   const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
@@ -287,7 +288,7 @@ bool SceneResources::RestorePieceMaterials(SubjectDraw &subjects,
   return true;
 }
 
-bool SceneResources::RestorePieces(SubjectDraw &subjects, std::string &error) {
+bool SceneResources::RestorePieces(GeometryRenderer &subjects, std::string &error) {
   size_t nextPiece = 0;
   auto restored = AdvancePieceRestore(subjects, nextPiece, std::numeric_limits<size_t>::max());
   if (!restored) {
@@ -297,8 +298,9 @@ bool SceneResources::RestorePieces(SubjectDraw &subjects, std::string &error) {
   return *restored;
 }
 
-std::expected<bool, std::string>
-SceneResources::AdvancePieceRestore(SubjectDraw &subjects, size_t &nextPiece, size_t piecesMost) {
+std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRenderer &subjects,
+                                                                     size_t &nextPiece,
+                                                                     size_t piecesMost) {
   if (piecesMost == 0) { return std::unexpected("piece restore budget is zero"); }
   size_t visited = 0;
   while (nextPiece < Pieces_.size() && visited < piecesMost) {

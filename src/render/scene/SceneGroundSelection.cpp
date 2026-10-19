@@ -12,7 +12,7 @@ Native::Result<TerrainRenderer::DrawArguments> SceneRenderer::ReadGroundDrawArgu
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = "no submitted ground frame"});
   }
   if (!state.Plan->Holds(Stage::Ground)) { return TerrainRenderer::DrawArguments{}; }
-  return state.Content.Subjects.Ground().ReadDrawArguments();
+  return state.Content.Geometry.Ground().ReadDrawArguments();
 }
 
 bool SceneRenderer::ConfigureGroundPyramid([[maybe_unused]] SceneRenderer &renderer,
@@ -34,20 +34,20 @@ bool SceneRenderer::ConfigureGroundSelection([[maybe_unused]] SceneRenderer &ren
                                              [[maybe_unused]] const Compiled &plan,
                                              [[maybe_unused]] bool drawsGlass,
                                              std::string &error) {
-  return Accepted(frame.SubjectPipelines.ConfigureGroundSelection(*frame.Handles.Device), error);
+  return Accepted(frame.GeometryPipelines.ConfigureGroundSelection(*frame.Handles.Device), error);
 }
 
 Native::Result<void> SceneRenderer::EncodeGroundPyramid([[maybe_unused]] const FrameContext &ctx,
                                                         const PassRecording &into) {
-  if (ActiveState().Content.Subjects.Ground().Drawn() == 0) { return {}; }
+  if (ActiveState().Content.Geometry.Ground().Drawn() == 0) { return {}; }
   return ActiveFrame().GroundPyramidStage.Encode(into);
 }
 
 Native::Result<void> SceneRenderer::EncodeGroundSelection(const FrameContext &ctx,
                                                           const PassRecording &into) {
-  const auto &subjects = ActiveState().Content.Subjects;
+  const auto &subjects = ActiveState().Content.Geometry;
   const auto &frame = ActiveFrame();
-  return ActiveState().Content.Subjects.Ground().SelectPatches(
+  return ActiveState().Content.Geometry.Ground().SelectPatches(
       ctx,
       subjects.AnchorM(),
       Picture(true, into),
@@ -58,6 +58,6 @@ Native::Result<void> SceneRenderer::EncodeGroundSelection(const FrameContext &ct
 
 Native::Result<void> SceneRenderer::EncodeGround(const FrameContext &ctx,
                                                  const PassRecording &into) {
-  return ActiveState().Content.Subjects.EncodeGround(ctx, Picture(true, into));
+  return ActiveState().Content.Geometry.EncodeGround(ctx, Picture(true, into));
 }
 }

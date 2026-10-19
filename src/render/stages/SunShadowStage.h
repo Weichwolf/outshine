@@ -19,13 +19,13 @@ namespace outshine::Render {
 
 constexpr uint32_t kNoBatch = 0xffffffffu;
 
-class SubjectDraw;
+class GeometryRenderer;
 
 class SunShadowStage {
 public:
-  [[nodiscard]] Native::Result<void> Configure(SubjectDraw &subjects, const Gpu &gpu);
+  [[nodiscard]] Native::Result<void> Configure(GeometryRenderer &subjects, const Gpu &gpu);
 
-  void Binds(SubjectDraw &subjects) noexcept {
+  void Binds(GeometryRenderer &subjects) noexcept {
     if (Subjects_ == &subjects) { return; }
     Cache_.Invalidate();
     Subjects_ = &subjects;
@@ -107,7 +107,7 @@ private:
 
   size_t CastBatches_ = 0;
   Vec3 ShadowCentreM_;
-  SubjectDraw *Subjects_ = nullptr;
+  GeometryRenderer *Subjects_ = nullptr;
   Native::Device *Device_ = nullptr;
   std::unique_ptr<Native::GraphicsPipeline> DepthOnly_;
   std::unique_ptr<Native::GraphicsPipeline> ClearTile_;
