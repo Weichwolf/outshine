@@ -66,8 +66,9 @@
   Vorladen noch Einzelobjektarbeit in der Ferne erzwingen; Bild-/Simulationswirkung bestimmt Bedarf.
   Einzelne Places oder abgeschaltete Inhalte belegen dieses Gesamtziel nicht (#5).
   Abdeckung, Sichtweite und 1280×720/60 sind feste Auslegungsbedingungen auf beiden Geräten;
-  offen ist die darin erreichbare visuelle Qualität. Leistungsdefizite erfordern bessere
-  Verfahren und Repräsentationen, keine Lockerung dieser Bedingungen.
+  ich erreiche sie zuerst mit vollständigen Szenen und steigere danach kontinuierlich die
+  Darstellungsqualität innerhalb dieser Bedingungen. Leistungsdefizite erfordern bessere
+  Verfahren und Repräsentationen, keine Lockerung der Bedingungen.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
   Baupläne. Gelieferte Angaben erhalten ihre Herkunft; fehlende Angaben werden plausibel
