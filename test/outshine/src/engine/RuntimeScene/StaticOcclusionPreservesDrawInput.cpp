@@ -10,7 +10,7 @@
 #include "RuntimeScene.h"
 #include "PreparedRoot.h"
 #include "SceneRenderer.h"
-#include "SubjectCullStage.h"
+#include "GeometryCullStage.h"
 
 int main() {
   using namespace outshine;
@@ -94,13 +94,13 @@ int main() {
   CHECK(kept[0].Arguments == kept[1].Arguments, "static indirect arguments repeat exactly");
   CHECK(kept[0].DrawIndex == kept[1].DrawIndex, "static compacted indices repeat exactly");
   CHECK(pixels[0] == pixels[1], "static clustered pixels repeat exactly");
-  CHECK(Render::SubjectCullStage::JobsSweptTaken() == 0,
+  CHECK(Render::GeometryCullStage::JobsSweptTaken() == 0,
         "unchanged view reuses clustered draw input");
   viewpoint->EyeM[0] += 0.01;
   scene->Eye(*viewpoint);
   CHECK(scene->Draw(error), "moved camera draws");
   renderer.WaitForGpu();
-  CHECK(Render::SubjectCullStage::JobsSweptTaken() > 0,
+  CHECK(Render::GeometryCullStage::JobsSweptTaken() > 0,
         "moved camera recomputes clustered draw input");
   SDL_Quit();
   return Report();

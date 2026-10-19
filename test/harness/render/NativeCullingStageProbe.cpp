@@ -1,4 +1,4 @@
-#include "src/render/stages/SubjectCullStage.h"
+#include "src/render/stages/GeometryCullStage.h"
 #include "src/render/stages/GpuPlacement.h"
 #include "src/render/device/ReadbackTransfer.h"
 #include "NativeGpuCheck.h"
@@ -19,7 +19,7 @@ using namespace outshine::Render;
 using namespace outshine::Render::Native;
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
-using Stream = SubjectResidency::Stream;
+using Stream = GeometryResidency::Stream;
 constexpr std::array<float, 16> kIdentity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 constexpr uint32_t kRejectedEvery = 5;
 constexpr float kSphereRadius = 0.01f;
@@ -95,7 +95,7 @@ Inputs MakeInputs(bool alternate, bool guarded = false) {
 }
 
 std::vector<uint32_t>
-Read(Device &device, SubjectResidency &resident, Stream stream, size_t count) {
+Read(Device &device, GeometryResidency &resident, Stream stream, size_t count) {
   auto transfer = Require(RetryOffline(
       [&] {
         return ReadbackTransfer::Start(
@@ -110,20 +110,20 @@ Read(Device &device, SubjectResidency &resident, Stream stream, size_t count) {
   return words;
 }
 
-void Upload(SubjectResidency &resident, Stream stream, const void *data, size_t bytes) {
-  SubjectResidency::Crossing crossing{.Which = stream,
-                                      .Usage = BufferUse::Storage,
-                                      .From = data,
-                                      .Bytes = static_cast<uint32_t>(bytes)};
+void Upload(GeometryResidency &resident, Stream stream, const void *data, size_t bytes) {
+  GeometryResidency::Crossing crossing{.Which = stream,
+                                       .Usage = BufferUse::Storage,
+                                       .From = data,
+                                       .Bytes = static_cast<uint32_t>(bytes)};
   Require(RetryOffline([&] { return resident.Cross(std::span(&crossing, 1), true); },
                        std::chrono::seconds(5)));
 }
 
 void Run(Device &device,
-         SubjectCullStage &stage,
+         GeometryCullStage &stage,
          const FrameContext &ctx,
          bool submit,
-         const SubjectCullStage::SelectionProjection *projection = nullptr) {
+         const GeometryCullStage::SelectionProjection *projection = nullptr) {
   auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
   StageSubmission submission;
   const PassRecording recording{
@@ -132,7 +132,7 @@ void Run(Device &device,
                            recording,
                            projection != nullptr
                                ? *projection
-                               : SubjectCullStage::SelectionProjection{.Clip = ctx.Mvp}));
+                               : GeometryCullStage::SelectionProjection{.Clip = ctx.Mvp}));
   Require(stage.EncodeScan(recording));
   Require(stage.EncodeCompact(recording));
   if (submit) {
@@ -143,7 +143,7 @@ void Run(Device &device,
   }
 }
 
-void Compare(Device &device, SubjectResidency &resident, const Inputs &expected) {
+void Compare(Device &device, GeometryResidency &resident, const Inputs &expected) {
   CHECK(Read(device, resident, Stream::ClusterSlot, expected.ExpectedSlots.size()) ==
             expected.ExpectedSlots,
         "all accepted and rejected jobs retain independently computed compacted slots");
@@ -168,16 +168,16 @@ void Compare(Device &device, SubjectResidency &resident, const Inputs &expected)
   CHECK(equal, "all actually drawn index ranges match the independent ordered reference");
 }
 
-void Reuse(SubjectCullStage &stage,
+void Reuse(GeometryCullStage &stage,
            const FrameContext &ctx,
-           const SubjectCullStage::SelectionProjection *projection = nullptr) {
+           const GeometryCullStage::SelectionProjection *projection = nullptr) {
   StageSubmission submission;
   const PassRecording recording{.Submission = submission, .Area = {}, .Clip = {}};
   Require(stage.EncodeCull(ctx,
                            recording,
                            projection != nullptr
                                ? *projection
-                               : SubjectCullStage::SelectionProjection{.Clip = ctx.Mvp}));
+                               : GeometryCullStage::SelectionProjection{.Clip = ctx.Mvp}));
   Require(stage.EncodeScan(recording));
   Require(stage.EncodeCompact(recording));
   CHECK(stage.JobsSwept() == 0,
@@ -185,8 +185,8 @@ void Reuse(SubjectCullStage &stage,
 }
 
 void JitteredSelection(Device &device,
-                       SubjectCullStage &stage,
-                       SubjectResidency &resident,
+                       GeometryCullStage &stage,
+                       GeometryResidency &resident,
                        std::vector<float> &spheres) {
   constexpr size_t kExchanged = 61;
   constexpr float kOutside = 1.015f;
@@ -200,8 +200,8 @@ void JitteredSelection(Device &device,
   Run(device, stage, frame, true);
   CHECK(Read(device, resident, Stream::ClusterKept, spheres.size() / 12)[0] == 0,
         "the edge cluster is truly outside the original frustum");
-  const SubjectCullStage::SelectionProjection projection{.Clip = frame.Mvp,
-                                                         .GuardNdc = {{1.0f / 64, 1.0f / 64}}};
+  const GeometryCullStage::SelectionProjection projection{.Clip = frame.Mvp,
+                                                          .GuardNdc = {{1.0f / 64, 1.0f / 64}}};
   Run(device, stage, frame, true, &projection);
   Compare(device, resident, MakeInputs(false, true));
   for (const float jitter : {-0.5f, 0.0f, 0.5f}) {
@@ -217,7 +217,7 @@ void JitteredSelection(Device &device,
 
 void Exercise(Device &device) {
   const auto input = MakeInputs(false);
-  SubjectResidency resident;
+  GeometryResidency resident;
   Require(resident.StandsOn(&device));
   std::vector<float> spheres(input.Jobs.size() * 12, 0);
   for (size_t i = 0; i < input.Jobs.size(); ++i) {
@@ -249,7 +249,7 @@ void Exercise(Device &device) {
   Require(resident.Grow(Stream::DrawIndex,
                         {.Usage = BufferUse::Storage | BufferUse::Index,
                          .Bytes = static_cast<uint32_t>(input.Source.size() * sizeof(uint32_t))}));
-  SubjectCullStage stage;
+  GeometryCullStage stage;
   Require(stage.Configure({.Resident = &resident,
                            .AnchorM = {},
                            .Jobs = static_cast<uint32_t>(input.Jobs.size()),

@@ -104,22 +104,22 @@ bool RenderObject::SetPlacement(size_t part, size_t instance, const Mat4 &placem
 
 bool Placed(SceneRenderer &renderer, const RenderObject &proxy, std::string &error) {
   const size_t rows = proxy.Placements();
-  if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
+  if (!renderer.GeometryPlacementRows(rows, error)) { return false; }
   Mat4 ecef{};
   for (size_t part = 0; part < rows; ++part) {
     for (int at = 0; at < 16; ++at) { ecef[at] = proxy.Placement(part)[at]; }
-    renderer.MoveSubjectPlacement(part, ecef);
+    renderer.MoveGeometryPlacement(part, ecef);
   }
-  return renderer.HandSubjectPlacements(error);
+  return renderer.HandGeometryPlacements(error);
 }
 
 bool Moved(SceneRenderer &renderer, Moving what, const Mat4 &ecef, std::string &error) {
   if (what.Many == 0 || what.Which >= what.Many) { return true; }
-  if (!renderer.SubjectPlacementRows(what.Rows, error)) { return false; }
+  if (!renderer.GeometryPlacementRows(what.Rows, error)) { return false; }
   for (size_t part = what.FromPart; part < what.ToPart; ++part) {
-    renderer.MoveSubjectPlacement(part * what.Many + what.Which, ecef);
+    renderer.MoveGeometryPlacement(part * what.Many + what.Which, ecef);
   }
-  return renderer.HandSubjectPlacements(error);
+  return renderer.HandGeometryPlacements(error);
 }
 
 namespace {
@@ -388,8 +388,8 @@ bool BindIllumination(SceneRenderer &renderer,
                       RenderObjectPreparation &scratch,
                       std::string &error) {
   if (!PlaceLights(proxy, scratch.Lights, error)) { return false; }
-  if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
-  renderer.SetSubjectEnvironment(proxy.IndirectLight());
+  if (!renderer.SetGeometryLights(scratch.Lights, error)) { return false; }
+  renderer.SetGeometryEnvironment(proxy.IndirectLight());
   return true;
 }
 
@@ -403,7 +403,7 @@ bool Surface(SceneRenderer &renderer,
     return false;
   }
   if (!Agrees(proxy, *proxy.Shaped(), error)) { return false; }
-  if (!renderer.SetSubjectMaterials(proxy.Slots(), error)) { return false; }
+  if (!renderer.SetGeometryMaterials(proxy.Slots(), error)) { return false; }
   return BindIllumination(renderer, proxy, scratch, error);
 }
 
@@ -696,7 +696,7 @@ struct PlacementMeshInput {
 };
 
 void RecordsMeshUpload(const SceneRenderer &renderer, RenderObjectPreparation &scratch) {
-  const SubjectMeshUploadMetrics stages = renderer.LastSubjectMeshUpload();
+  const GeometryUploadMetrics stages = renderer.LastGeometryMeshUpload();
   scratch.Metrics.MeshAdmissionMs = stages.AdmissionMs;
   scratch.Metrics.IndexUploadMs = stages.IndexMs;
   scratch.Metrics.StreamUploadMs = stages.StreamsMs;
@@ -705,7 +705,7 @@ void RecordsMeshUpload(const SceneRenderer &renderer, RenderObjectPreparation &s
 
 }
 
-std::expected<SubjectDraw::MeshTicket, std::string> BeginPlacementUpload(
+std::expected<GeometryRenderer::MeshTicket, std::string> BeginPlacementUpload(
     SceneRenderer &renderer, const RenderObject &proxy, RenderObjectPreparation &scratch) {
   const Shape *const source = PreparedSubject(proxy, scratch);
   if (source == nullptr) {
@@ -715,7 +715,7 @@ std::expected<SubjectDraw::MeshTicket, std::string> BeginPlacementUpload(
   static const Heap::Tag kHandingTag("subject-mesh");
   const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
-  auto began = renderer.BeginSubjectMesh(input.Mesh);
+  auto began = renderer.BeginGeometryMesh(input.Mesh);
   scratch.Metrics.UploadMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
           .count();
@@ -726,7 +726,7 @@ std::expected<SubjectDraw::MeshTicket, std::string> BeginPlacementUpload(
 bool FinishPlacementUpload(SceneRenderer &renderer,
                            const RenderObject &proxy,
                            RenderObjectPreparation &scratch,
-                           SubjectDraw::MeshTicket ticket,
+                           GeometryRenderer::MeshTicket ticket,
                            std::string &error) {
   const Shape *const source = PreparedSubject(proxy, scratch);
   if (source == nullptr) {
@@ -737,7 +737,7 @@ bool FinishPlacementUpload(SceneRenderer &renderer,
   static const Heap::Tag kHandingTag("subject-mesh");
   const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
-  const bool uploaded = renderer.FinishSubjectMesh(ticket, input.Mesh, error);
+  const bool uploaded = renderer.FinishGeometryMesh(ticket, input.Mesh, error);
   scratch.Metrics.UploadMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
           .count();
@@ -848,7 +848,7 @@ bool Move(SceneRenderer &renderer,
   static const Heap::Tag kHandingTag("subject-pose");
   const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
-  const bool uploaded = renderer.SetSubjectPose(pose, error);
+  const bool uploaded = renderer.SetGeometryPose(pose, error);
   scratch.Metrics.UploadMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
           .count();

@@ -147,7 +147,7 @@ Result Engine::render(Extent frame) {
       frameTiming.PhaseMs[static_cast<size_t>(Render::RenderFramePhase::FenceWait)],
       "ms");
   S_->Published.RecordMetric(
-      "subject draws", static_cast<double>(S_->Picture.Device.SubjectDrawCount()), "draws");
+      "subject draws", static_cast<double>(S_->Picture.Device.GeometryDrawCount()), "draws");
   S_->Published.RecordMetric("the geometry the renderer was last offered, digested",
                              S_->Picture.Standing->TransferMetrics().DigestValue(),
                              "");
@@ -161,7 +161,7 @@ Result Engine::render(Extent frame) {
                              static_cast<double>(S_->Picture.Standing->Shown().Clusters.size()),
                              "clusters");
   S_->Published.RecordMetric("cull: jobs it swept",
-                             static_cast<double>(Render::SubjectCullStage::JobsSweptTaken()),
+                             static_cast<double>(Render::GeometryCullStage::JobsSweptTaken()),
                              "jobs");
   if (!S_->Simulation->DynamicBodies.empty()) {
     S_->Published.RecordMetric("bodies standing on no route",
@@ -210,13 +210,13 @@ Result Engine::render(Extent frame) {
         "ring: clusters a frustum would keep", static_cast<double>(kept), "clusters");
   }
   S_->Published.RecordMetric("subject draw calls",
-                             static_cast<double>(S_->Picture.Device.SubjectDrawCallCount()),
+                             static_cast<double>(S_->Picture.Device.GeometryDrawCallCount()),
                              "calls");
   S_->Published.RecordMetric(
       "plan passes", static_cast<double>(S_->Picture.Standing->PlanPasses()), "passes");
   for (uint32_t at = 0; at < static_cast<uint32_t>(Render::kVertexLayouts.size()); ++at) {
     const uint32_t many =
-        S_->Picture.Device.SubjectBatchesTaking(static_cast<Render::VertexLayout>(at));
+        S_->Picture.Device.GeometryBatchesTaking(static_cast<Render::VertexLayout>(at));
     if (many == 0) { continue; }
     S_->Published.RecordMetric(
         "draws taking vertex layout " + std::to_string(at), static_cast<double>(many), "draws");

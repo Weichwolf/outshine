@@ -97,7 +97,7 @@ int main() {
       mesh.Indices = indices.data();
       mesh.IndexCount = 3;
       mesh.Draws = &draws;
-      const bool meshUploaded = renderer.SetSubjectMesh(mesh, error);
+      const bool meshUploaded = renderer.SetGeometryMesh(mesh, error);
       if (!meshUploaded) { std::println(stderr, "mesh upload: {}", error); }
       CHECK(meshUploaded, "distinct previous pose uploads");
       renderer.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});
@@ -144,7 +144,7 @@ int main() {
       for (const bool deforming : {false, true}) {
         SubjectPose pose = mesh;
         if (!deforming) { pose.PrevVerts = {}; }
-        CHECK(renderer.SetSubjectPose(pose, error), "pose changes without replacing the mesh");
+        CHECK(renderer.SetGeometryPose(pose, error), "pose changes without replacing the mesh");
         CHECK(scene->Draw(error), "transitioned pose renders alongside rigid geometry");
         CheckMotion(renderer, deforming ? kDeformationM / 2.0f : 0.0f);
       }
