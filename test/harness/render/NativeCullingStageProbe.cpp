@@ -281,6 +281,11 @@ void Exercise(Device &device) {
   Run(device, stage, frame, true);
   Compare(device, resident, translated);
   Run(device, stage, frame, true);
+  Compare(device, resident, translated);
+  CHECK(stage.JobsSwept() == 0,
+        "repeated accepted preparation reuses selection without treating it as depth history");
+  stage.DepthSubmitted(true);
+  Run(device, stage, frame, true);
   const auto occluded = Read(device, resident, Stream::DrawArguments, input.Arguments.size());
   for (size_t batch = 0; batch < 3; ++batch) {
     CHECK(occluded[batch * 5] == 0,

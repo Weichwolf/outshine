@@ -76,7 +76,7 @@ Native::Result<void> SubjectCullStage::Configure(Source source, const Gpu &gpu) 
 void SubjectCullStage::Binds(Source source) noexcept {
   if (Source_.Resident != source.Resident || Source_.AnchorM != source.AnchorM ||
       Source_.Jobs != source.Jobs || Source_.BatchRows != source.BatchRows) {
-    Cache_.Invalidate();
+    Invalidate();
   }
   Source_ = source;
 }
@@ -126,8 +126,9 @@ Native::Result<void> SubjectCullStage::EncodeCull(const FrameContext &ctx,
                          LastPreViewTranslation_ == ctx.PreViewTranslation &&
                          LastSubjectGeneration_ == Source_.Generation &&
                          LastGroundGeneration_ == Source_.GroundGeneration;
-  OccludeThisFrame_ = PyramidBuffer_ != nullptr && unchanged && projection.GuardNdc == Vec2f{} &&
-                      projection.Clip == ctx.Mvp;
+  if (!unchanged) { DepthForSelection_ = false; }
+  OccludeThisFrame_ = DepthForSelection_ && PyramidBuffer_ != nullptr && unchanged &&
+                      projection.GuardNdc == Vec2f{} && projection.Clip == ctx.Mvp;
   CullThisFrame_ = Source_.Resident != nullptr && Source_.Jobs != 0 &&
                    (!unchanged || (OccludeThisFrame_ && !Refined_));
   if (!CullThisFrame_) {

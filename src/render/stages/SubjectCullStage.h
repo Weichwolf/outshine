@@ -37,7 +37,7 @@ public:
   void PyramidFrom(Native::Buffer *pyramid, const PyramidShape &shape) {
     if (PyramidBuffer_ != pyramid || Pyramid_.Wide != shape.Wide || Pyramid_.High != shape.High ||
         Pyramid_.SourceWide != shape.SourceWide || Pyramid_.SourceHigh != shape.SourceHigh) {
-      Cache_.Invalidate();
+      Invalidate();
     }
     PyramidBuffer_ = pyramid;
     Pyramid_ = shape;
@@ -53,7 +53,14 @@ public:
   [[nodiscard]] Native::Result<void> Configure(Source source, const Gpu &gpu);
   void Binds(Source source) noexcept;
 
-  void Invalidate() noexcept { Cache_.Invalidate(); }
+  void Invalidate() noexcept {
+    Cache_.Invalidate();
+    DepthForSelection_ = false;
+  }
+
+  void DepthSubmitted(bool pyramidWritten) noexcept {
+    DepthForSelection_ = pyramidWritten && Cache_.Submitted();
+  }
 
   [[nodiscard]] Native::Result<void> EncodeCull(const FrameContext &ctx,
                                                 const PassRecording &into,
@@ -64,7 +71,7 @@ public:
   [[nodiscard]] uint32_t JobsSwept() const { return Swept_; }
 
   void Projects(float heightPx) {
-    if (HeightPx_ != heightPx) { Cache_.Invalidate(); }
+    if (HeightPx_ != heightPx) { Invalidate(); }
     HeightPx_ = heightPx;
   }
 
@@ -104,6 +111,7 @@ private:
   bool CullThisFrame_ = false;
   bool OccludeThisFrame_ = false;
   bool Refined_ = false;
+  bool DepthForSelection_ = false;
   SelectionProjection LastProjection_{};
   Vec3 LastPreViewTranslation_{};
   uint64_t LastSubjectGeneration_ = 0;

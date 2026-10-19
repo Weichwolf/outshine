@@ -1577,6 +1577,7 @@ void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission) {
   ActiveState().Content.Subjects.CommitCrossings();
   if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
   stageSubmission.Commit();
+  ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid));
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) {
     ActiveState().PrevEye[axis] = ActiveState().Camera.EyeM[axis];

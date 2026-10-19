@@ -40,3 +40,33 @@ work and report complete GPU windows, including the first frame. Less culling
 does not prove a general frame-budget pass or reduce ground-raster work.
 
 Reference: [Temporal Antialiasing Survey, CGF 2020](../../../doc/references/presentation/cgf/2020-temporal-antialiasing-survey.pdf).
+
+## Selection prepared before the first frame
+
+Cull/scan/compact also run during world-resource preparation. Their accepted
+GPU products can serve the first unchanged view. Preparation creates no colour
+frame, advances no camera publication serial and adds no measured world frames.
+A changed pose/source/projection still requires selection in the real frame.
+
+Accepted selection is independent of usable depth. Changing its key or invalidating
+its resources clears depth eligibility. Only a successfully submitted real frame
+which writes the depth pyramid marks that selection as having depth history.
+Repeated preparation cannot promote uninitialized depth into an occlusion source.
+An accepted submission remains ordered before later consumers; this does not
+claim that failed device work produces valid data.
+
+The real renderer fixture checks rejected/repeated preparation, actual pre-frame
+indices, zero published/measured frames, first-frame reuse and later depth
+refinement. The native culler additionally receives an intentionally occluding
+pyramid: repeated accepted preparation must keep its geometry until explicit
+depth submission. Removing that guard fails the retained-index checks. The
+unmodified d2bd3b14b archive/headers fail three preparation-fixture requirements.
+
+On the complete stationary Koerbersee/Tokyo worlds at 1280x720/60, with unchanged
+360-degree declared demand, one A/B/B/A sequence per place reduces measured-frame
+cull chains from one to zero; all PNGs match. Profiled Tokyo first frames are
+25.776/36.196 ms before and 17.814/21.994 ms after. Koerbersee remains
+23.614/23.363 versus 22.254/23.296 ms. These small samples do not establish a
+general timing gain or device-budget acceptance. Ordinary complete turns retain
+selection work as the view changes. All twelve final full-turn pictures remain
+byte-identical.
