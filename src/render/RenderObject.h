@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_SUBJECTPROXY_H
-#define OUTSHINE_RENDER_SUBJECTPROXY_H
+#ifndef OUTSHINE_RENDER_RENDEROBJECT_H
+#define OUTSHINE_RENDER_RENDEROBJECT_H
 
 #include "math/Mat4.h"
 #include "math/Vec3.h"
@@ -21,7 +21,7 @@ namespace outshine::Render {
 
 class SceneRenderer;
 
-class SubjectProxy {
+class RenderObject {
 public:
   void ResetForShape(const Shape &subject, const Vec3 &anchorEcefM);
   void SelectParts(std::span<const std::string> names);
@@ -87,7 +87,7 @@ private:
   SubjectEnvironment Environment_;
 };
 
-[[nodiscard]] bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &error);
+[[nodiscard]] bool Placed(SceneRenderer &renderer, const RenderObject &proxy, std::string &error);
 
 struct Moving {
   size_t Rows = 0;
@@ -100,7 +100,7 @@ struct Moving {
 [[nodiscard]] bool
 Moved(SceneRenderer &renderer, Moving what, const Mat4 &ecef, std::string &error);
 
-struct SubjectTransferMetrics {
+struct GeometryTransferMetrics {
   static constexpr uint64_t kDigestMask = 0xffffffffffffull;
   uint64_t GeometryDigest = 0;
   double DrawPlanMs = 0;
@@ -116,10 +116,10 @@ struct SubjectTransferMetrics {
     return static_cast<double>(GeometryDigest & kDigestMask);
   }
 
-  [[nodiscard]] bool operator==(const SubjectTransferMetrics &) const = default;
+  [[nodiscard]] bool operator==(const GeometryTransferMetrics &) const = default;
 };
 
-struct SubjectScratch {
+struct RenderObjectPreparation {
   struct PackCursor {
     enum class Phase : uint8_t { Indices, Positions, DigestIndices, DigestChannels, Done };
     Phase Next = Phase::Indices;
@@ -133,7 +133,7 @@ struct SubjectScratch {
     uint64_t Digest = 0;
   };
 
-  SubjectTransferMetrics Metrics;
+  GeometryTransferMetrics Metrics;
   PackCursor Packing;
 
   bool Digests = false;
@@ -152,64 +152,64 @@ struct SubjectScratch {
                        std::string &error);
 
 [[nodiscard]] bool Show(SceneRenderer &renderer,
-                        const SubjectProxy &proxy,
+                        const RenderObject &proxy,
                         const SubjectView &view,
-                        SubjectScratch &scratch,
+                        RenderObjectPreparation &scratch,
                         std::string &error);
 
 [[nodiscard]] bool BindIllumination(SceneRenderer &renderer,
-                                    const SubjectProxy &proxy,
-                                    SubjectScratch &scratch,
+                                    const RenderObject &proxy,
+                                    RenderObjectPreparation &scratch,
                                     std::string &error);
 
 [[nodiscard]] bool Surface(SceneRenderer &renderer,
-                           const SubjectProxy &proxy,
+                           const RenderObject &proxy,
                            const SubjectView &view,
-                           SubjectScratch &scratch,
+                           RenderObjectPreparation &scratch,
                            std::string &error);
 
 [[nodiscard]] bool PlanPlacement(SceneRenderer &renderer,
-                                 const SubjectProxy &proxy,
+                                 const RenderObject &proxy,
                                  const SubjectView &view,
-                                 SubjectScratch &scratch,
+                                 RenderObjectPreparation &scratch,
                                  std::string &error);
 
 [[nodiscard]] bool
-PackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, std::string &error);
+PackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch, std::string &error);
 
 [[nodiscard]] std::expected<bool, std::string>
-AdvancePackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, size_t wordsMost);
+AdvancePackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch, size_t wordsMost);
 
 [[nodiscard]] bool PreparePlacement(SceneRenderer &renderer,
-                                    const SubjectProxy &proxy,
+                                    const RenderObject &proxy,
                                     const SubjectView &view,
-                                    SubjectScratch &scratch,
+                                    RenderObjectPreparation &scratch,
                                     std::string &error);
 
 [[nodiscard]] bool SubmitPlacement(SceneRenderer &renderer,
-                                   const SubjectProxy &proxy,
-                                   SubjectScratch &scratch,
+                                   const RenderObject &proxy,
+                                   RenderObjectPreparation &scratch,
                                    std::string &error);
 
-[[nodiscard]] std::expected<SubjectDraw::MeshTicket, std::string>
-BeginPlacementUpload(SceneRenderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch);
+[[nodiscard]] std::expected<SubjectDraw::MeshTicket, std::string> BeginPlacementUpload(
+    SceneRenderer &renderer, const RenderObject &proxy, RenderObjectPreparation &scratch);
 
 [[nodiscard]] bool FinishPlacementUpload(SceneRenderer &renderer,
-                                         const SubjectProxy &proxy,
-                                         SubjectScratch &scratch,
+                                         const RenderObject &proxy,
+                                         RenderObjectPreparation &scratch,
                                          SubjectDraw::MeshTicket ticket,
                                          std::string &error);
 
 [[nodiscard]] bool Place(SceneRenderer &renderer,
-                         const SubjectProxy &proxy,
+                         const RenderObject &proxy,
                          const SubjectView &view,
-                         SubjectScratch &scratch,
+                         RenderObjectPreparation &scratch,
                          std::string &error);
 
 [[nodiscard]] bool Move(SceneRenderer &renderer,
-                        const SubjectProxy &proxy,
+                        const RenderObject &proxy,
                         const SubjectView &view,
-                        SubjectScratch &scratch,
+                        RenderObjectPreparation &scratch,
                         std::string &error);
 
 }

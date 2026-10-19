@@ -2,12 +2,12 @@
 #include <span>
 #include <vector>
 #include "Check.h"
-#include "SubjectProxy.h"
+#include "RenderObject.h"
 
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  SubjectProxy proxy;
+  RenderObject proxy;
   std::array<float, 9> positions{{-1, -1, 0, 1, -1, 0, 0, 1, 0}};
   proxy.BindPreviousPositions(positions);
   CHECK(proxy.Previous().data() == positions.data() && proxy.Previous().size() == positions.size(),

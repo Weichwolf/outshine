@@ -25,7 +25,7 @@
 
 #include "Heap.h"
 #include "CameraFraming.h"
-#include "SubjectProxy.h"
+#include "RenderObject.h"
 #include "Wgs84.h"
 
 namespace outshine::Core {
@@ -689,7 +689,7 @@ std::expected<void, std::string> RuntimeScene::BindBuild() {
       return std::unexpected(std::move(error));
     }
     Renderer_->SetPictureRegion({});
-    Stood_ = Render::SubjectProxy{};
+    Stood_ = Render::RenderObject{};
     Stood_.ResetForShape(Shaped_, Vec3{});
     Stood_.SelectParts(Declared_.Content.MeshParts);
     StandsLighting();
@@ -965,7 +965,7 @@ bool RuntimeScene::Stand(std::string &error) {
     standFrom = std::chrono::steady_clock::now();
     return ms;
   };
-  Stood_ = Render::SubjectProxy{};
+  Stood_ = Render::RenderObject{};
   const Vec3 anchorEcefM = {{kWgs84A, 0.0, 0.0}};
   if (!Reshape(error)) { return false; }
   ReshapeAgainMs_ = sinceStand();

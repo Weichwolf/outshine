@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "SceneRenderer.h"
-#include "SubjectProxy.h"
+#include "RenderObject.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <string>
@@ -24,14 +24,14 @@ void CheckLayouts() {
   shape.Parts = {&part, 1};
   shape.Indices = indices;
   shape.CarriesNormal = true;
-  SubjectProxy proxy;
+  RenderObject proxy;
   proxy.ResetForShape(shape, {});
   SubjectView view;
   view.HasExplicitCamera = true;
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = 0.05;
   view.Eye.ZFarM = 10;
-  SubjectScratch scratch;
+  RenderObjectPreparation scratch;
   std::string error;
   constexpr std::array<uint32_t, 1> slots{0};
   for (const bool unlit : {false, true}) {

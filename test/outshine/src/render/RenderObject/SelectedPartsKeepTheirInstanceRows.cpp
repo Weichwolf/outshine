@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "SceneRenderer.h"
-#include "SubjectProxy.h"
+#include "RenderObject.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <string>
@@ -28,7 +28,7 @@ void CheckSelection() {
   Shape shape;
   shape.Parts = parts;
   shape.Indices = indices;
-  SubjectProxy proxy;
+  RenderObject proxy;
   proxy.ResetForShape(shape, {});
   CHECK(proxy.ResizeInstances(2), "each original part retains two instance rows");
   SubjectMaterial material;
@@ -40,7 +40,7 @@ void CheckSelection() {
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = .05;
   view.Eye.ZFarM = 10;
-  SubjectScratch scratch;
+  RenderObjectPreparation scratch;
   const std::array<std::string, 1> wanted{"streets"};
   proxy.SelectParts(wanted);
   CHECK(PlanPlacement(renderer, proxy, view, scratch, error), error.c_str());

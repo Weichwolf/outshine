@@ -18,9 +18,9 @@
 #include <render/RenderConfiguration.h>
 #include "SceneGeometry.h"
 #include "CameraState.h"
-#include "SubjectProxy.h"
+#include "RenderObject.h"
 #include "SubjectMaterials.h"
-#include "SubjectPlacementHistory.h"
+#include "ObjectTransformHistory.h"
 #include "UiSession.h"
 #include "Layout.h"
 #include "Markup.h"
@@ -177,7 +177,7 @@ public:
 
   [[nodiscard]] double MediumMs() const { return MediumMs_; }
 
-  [[nodiscard]] Render::SubjectTransferMetrics TransferMetrics() const { return Scratch_.Metrics; }
+  [[nodiscard]] Render::GeometryTransferMetrics TransferMetrics() const { return Scratch_.Metrics; }
 
   [[nodiscard]] const GeometryBuildSliceMetrics &GeometrySlices() const noexcept {
     return GeometrySlices_;
@@ -443,7 +443,7 @@ private:
   std::shared_ptr<const Render::Compiled> PreparationPlan_;
   Render::CameraState Camera_;
   std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
-  Render::SubjectPlacementHistory PlacementUploadHistory_;
+  Render::ObjectTransformHistory PlacementUploadHistory_;
 
   std::vector<Box> PartBounds_;
   void CoverShapedParts();
@@ -455,8 +455,8 @@ private:
   [[nodiscard]] bool RestoresGroundResources(std::string &error);
   Geometry DrivenGeometry_;
   SceneGeometry Held_;
-  Render::SubjectProxy Stood_;
-  Render::SubjectScratch Scratch_;
+  Render::RenderObject Stood_;
+  Render::RenderObjectPreparation Scratch_;
 
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
