@@ -2,7 +2,7 @@
 
 import numpy as np
 from packed_normals import unpack
-from source_far_reprojection import intersect_source
+from triangle_image_reference import intersect_source
 
 REPRESENTATIONS = ("Fine", "Full", "Captured")
 BINDING_COLUMNS = ("slot", "source_index", "part", "face", "stream", "triangle")
