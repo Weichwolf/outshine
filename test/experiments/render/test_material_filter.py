@@ -3,6 +3,7 @@
 import unittest
 
 import numpy as np
+from ggx_reference import row_reference
 from material_filter import direct_ggx, filtered, fixtures
 
 
@@ -66,6 +67,53 @@ class MaterialFilterTests(unittest.TestCase):
         self.assertGreater(row[0, 0, 3], 0)
         self.assertEqual(row[0, 4, 3], 0)
         self.assertEqual(row[0, 5, 3], row[0, 0, 3])
+
+    def test_float64_ggx_against_decimal_for_float32_roughness_extremes(self):
+        roughness = np.array(
+            [
+                0,
+                np.finfo(np.float32).smallest_subnormal,
+                1e-12,
+                1e-6,
+                1e-4,
+                0.01,
+                0.02,
+                0.12,
+                0.5,
+                1,
+            ],
+            dtype=np.float32,
+        ).astype(float)
+        tables = {
+            "shape": (2, 2),
+            "kGgxAlbedo": np.ones(4),
+            "kGgxAlbedoAverage": np.ones(2),
+        }
+        for cosine in (1.0, 0.8):
+            for f0 in (0.0, 0.04, 1.0):
+                rows = np.zeros((len(roughness), 20))
+                rows[:, :3], rows[:, 3], rows[:, 4:7], rows[:, 7] = (
+                    [0.4, 0.3, 0.2],
+                    roughness,
+                    f0,
+                    1,
+                )
+                rows[:, 8:11] = [0, 0, 1]
+                sine = np.sqrt(1 - cosine * cosine)
+                rows[:, 12:15], rows[:, 16:19] = [sine, 0, cosine], [-sine, 0, cosine]
+                with np.errstate(all="raise"):
+                    actual = direct_ggx(rows, tables)
+                expected = [
+                    float(row_reference([r, 1, cosine, cosine, cosine, f0, 0, 0])[-1])
+                    for r in roughness
+                ]
+                np.testing.assert_allclose(
+                    actual[:, 4:7],
+                    np.repeat(np.array(expected)[:, None], 3, axis=1),
+                    rtol=64 * np.finfo(float).eps,
+                    atol=0,
+                )
+                self.assertTrue(np.isfinite(actual).all())
 
 
 if __name__ == "__main__":

@@ -51,6 +51,15 @@ maximum `abs(error)/(1+abs(reference))` 0.002292, including sharp r=0.12 lobes.
 This is numerical context, not a relaxed visual tolerance or GPU precision proof;
 all filtering errors below compare **native GPU response with native GPU response**.
 
+The current Float64 evaluator uses a positive NDF denominator and ordered division,
+checked against the independent Decimal/Smith reference from #829. The previous
+Float64 expression also cancelled at small r: r=1e−4 had a −18.87% normal-peak
+error and r=1e−6 returned +Inf. The corrected reference remains finite down to the
+smallest positive Float32 r without a roughness floor; zero-r and zero-Fresnel
+controls remain exact. Only a rounded geometric nh is bounded to its unit domain.
+This Python correction does not repair the product shader or revise the frozen
+native captures/statistics reported above. There is no new visual tolerance.
+
 ## Quantisation defect, distinct from spatial filtering
 
 Current `ImpostorOptics::FieldsOf` stores r^4; `Encoded` rounds it to UNORM8.
