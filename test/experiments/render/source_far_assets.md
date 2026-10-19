@@ -22,6 +22,8 @@ Only private input copies change. Generation error 0 requests Fine with recessed
 openings; generation error 512 selects native Shell. These are **asset-generation
 controls**, not loosened runtime profiles or a world-LOD admission. Actual view
 comparisons retain 1280×720 and the original 1044.33155 px focal length.
+That generation value is specific to this control; [additional source controls](far_voxel_preflight.md)
+show why the actually selected detail must always be checked.
 
 `gdb_read_source_mesh` reads registers/memory from that frozen x86-64/libc++ binary
 at `BuildingMesh::Mesh` entry/return. It makes no inferior calls, memory writes,

@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from far_voxel_preflight import voxel_preflight
 from packed_normals import unpack
 from PIL import Image, ImageDraw
 from source_far_assets import load_source
@@ -76,9 +77,11 @@ def query_fields(capture, origins, directions, palette):
 
 
 def save_panel(path, depths, fields, pixel_ids, view):
-    panel = Image.new("RGB", (1920, 1140), "white")
+    panel = Image.new("RGB", (480 * len(depths), 1140), "white")
     titles = ("Fine", "Native Shell", "Layered closest axis", "Layered compatible axes")
-    for col, (title, t, f) in enumerate(zip(titles, depths, fields, strict=True)):
+    for col, (title, t, f) in enumerate(
+        zip(titles[: len(depths)], depths, fields, strict=True)
+    ):
         for row, sun in enumerate(([0.3, -0.4, 0.8], [-0.6, 0.3, 0.5])):
             image = np.zeros((view[4], view[3], 3), np.uint8)
             image[pixel_ids] = (255 * relight(f, sun, t)).astype(np.uint8)
@@ -111,23 +114,29 @@ def save_panel(path, depths, fields, pixel_ids, view):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    for name in ("fine", "hull", "capture", "output"):
+    for name in ("fine", "hull", "output"):
         p.add_argument("--" + name, type=Path, required=True)
+    p.add_argument("--capture", type=Path)
+    p.add_argument("--distance-extents", type=float, nargs="+", default=[4, 8])
     a = p.parse_args()
+    if not all(np.isfinite(x) and 1 <= x <= 1024 for x in a.distance_extents):
+        raise ValueError("bounded orbit distances required")
     out = a.output.resolve()
     if not out.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise ValueError("fresh system-temp output required")
     out.mkdir(parents=True, exist_ok=False)
     fine, hull = load_source(a.fine), load_source(a.hull)
-    capture_report = json.loads((a.capture / "report.json").read_text())
-    if capture_report["source"] != fine["metadata"]:
+    capture_report = (
+        json.loads((a.capture / "report.json").read_text()) if a.capture else None
+    )
+    if capture_report and capture_report["source"] != fine["metadata"]:
         raise ValueError("capture belongs to another source")
     for name in ("subset.index", "subset.forms"):
         if (a.fine / name).read_bytes() != (a.hull / name).read_bytes():
             raise ValueError("hull changes source")
     captures = []
     bounds = [fine["positions"], hull["positions"]]
-    for i in range(len(capture_report["views"])):
+    for i in range(len(capture_report["views"]) if capture_report else 0):
         with np.load(a.capture / f"view-{i}.npz", allow_pickle=False) as f:
             data = dict(f)
         captures.append(data)
@@ -153,7 +162,7 @@ def main():
     records = []
     for yaw in (0, 44, 46, 90, 180, 270):
         angle = np.radians(yaw)
-        for scale in (4, 8):
+        for scale in a.distance_extents:
             eye = centre + scale * np.ptp(xyz, axis=0).max() * (
                 np.cos(angle) * east + np.sin(angle) * north + 0.3 * up
             )
@@ -199,8 +208,9 @@ def main():
                     best[replace] = t[replace]
                     for k in merged:
                         merged[k][replace] = f[k][replace]
-                depths.append(best)
-                fields.append(merged)
+                if order:
+                    depths.append(best)
+                    fields.append(merged)
                 row = {
                     "yaw": yaw,
                     "distance_extent_multiple": scale,
@@ -218,11 +228,23 @@ def main():
                     "comparisons": {
                         name: compare(depths[0], depths[i], fields[0], fields[i])
                         for i, name in enumerate(
-                            ("fine", "shell", "closest_axis", "compatible_axes")
+                            ("fine", "shell", "closest_axis", "compatible_axes")[
+                                : len(depths)
+                            ]
                         )
                         if i
                     },
                 }
+                hit = np.isfinite(depths[0])
+                row["voxel_preflight"] = voxel_preflight(
+                    xyz,
+                    view[0],
+                    origins[hit] + depths[0][hit, None] * directions[hit],
+                    extent_multiple=scale,
+                    focal_px=view[2],
+                    width=1280,
+                    height=720,
+                )
                 tag = f"{yaw}-{scale}-{move}"
                 save_panel(out / (tag + ".png"), depths, fields, pixels, view)
                 records.append(row)
@@ -230,6 +252,15 @@ def main():
     report = {
         "cases": records,
         "source": fine["metadata"],
+        "native_meshes": {
+            name: {
+                "triangles": len(source["indices"]),
+                "stored_vertices": len(source["positions"]),
+                "index_references": int(source["indices"].size),
+                "raw_used_bytes": source["native_bytes"],
+            }
+            for name, source in (("fine", fine), ("shell", hull))
+        },
         "input_sha256": {
             "fine_mesh_receipt": hashlib.sha256(
                 (a.fine / "mesh/receipt.json").read_bytes()
@@ -239,7 +270,9 @@ def main():
             ).hexdigest(),
             "capture_report": hashlib.sha256(
                 (a.capture / "report.json").read_bytes()
-            ).hexdigest(),
+            ).hexdigest()
+            if a.capture
+            else None,
             **{
                 f"capture_view_{i}": hashlib.sha256(
                     (a.capture / f"view-{i}.npz").read_bytes()
@@ -256,6 +289,7 @@ def main():
                 Path(__file__).name,
                 "source_far_reprojection.py",
                 "source_far_assets.py",
+                "far_voxel_preflight.py",
             )
         },
         "scope": "Same 1280x720/original-focal poses. Analytic front-facing native triangles versus stored sample-and-hold tangent-cell fields; lighting changes at query time. Colour factors plus Lambert, not native PBR/UV evaluation. No native frame or worldwide acceptance.",
