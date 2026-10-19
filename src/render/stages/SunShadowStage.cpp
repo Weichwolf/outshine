@@ -252,7 +252,8 @@ void SunShadowStage::Prepare(const FrameContext &ctx) {
   PreparedTransform_ = Static_;
 }
 
-Native::Result<void> SunShadowStage::Encode(const FrameContext &ctx, const PassRecording &into) {
+Native::Result<void> SunShadowStage::Encode([[maybe_unused]] const FrameContext &ctx,
+                                            const PassRecording &into) {
   if (!Casting_ || !Cache_.NeedsRecording()) { return {}; }
   if (!DepthOnly_ || Subjects_ == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -261,17 +262,14 @@ Native::Result<void> SunShadowStage::Encode(const FrameContext &ctx, const PassR
   CastBatches_ = 0;
   for (size_t region = 0; region < RegionCount(); ++region) {
     if (!DirtyRegions_[region]) { continue; }
-    const auto accepted = Cast(Projections_[region], ctx.PreViewTranslation, region, into);
+    const auto accepted = Cast(region, into);
     if (!accepted) { return accepted; }
   }
   into.Submission.Record(Stage::LightVisibility, Cache_);
   return {};
 }
 
-Native::Result<void> SunShadowStage::Cast(const Mat4 &lightFromWorld,
-                                          const Vec3 &preView,
-                                          size_t region,
-                                          const PassRecording &into) {
+Native::Result<void> SunShadowStage::Cast(size_t region, const PassRecording &into) {
   const auto tile = ShadowTile(region);
   const Native::Viewport square{.X = static_cast<float>(tile[0]) * kShadowTilePx,
                                 .Y = static_cast<float>(tile[1]) * kShadowTilePx,
@@ -293,11 +291,14 @@ Native::Result<void> SunShadowStage::Cast(const Mat4 &lightFromWorld,
     if (!cleared) { return cleared; }
   }
   ShadowView uniform;
-  for (int i = 0; i < 16; ++i) { uniform.Light[i] = static_cast<float>(lightFromWorld[i]); }
+  Mat4 anchored = Static_[region];
   const auto &anchor = Subjects_->AnchorM();
-  for (int axis = 0; axis < 3; ++axis) {
-    uniform.Shift[axis] = static_cast<float>(anchor[axis] + preView[axis]);
+  for (int row = 0; row < 4; ++row) {
+    for (int axis = 0; axis < 3; ++axis) {
+      anchored[12 + row] += Static_[region][4 * axis + row] * anchor[axis];
+    }
   }
+  for (int i = 0; i < 16; ++i) { uniform.Light[i] = static_cast<float>(anchored[i]); }
   const auto bytes = std::as_bytes(std::span(&uniform, 1));
   const std::array bindings{
       Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = bytes}}};
