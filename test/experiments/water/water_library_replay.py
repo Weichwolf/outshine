@@ -60,10 +60,18 @@ def replay(args):
             with np.load(args.reference.parent / "linear-vectors.npz") as vectors:
                 np.testing.assert_array_equal(captured["q"], vectors["q"])
                 np.testing.assert_array_equal(captured["b"], vectors["upper"])
+                np.testing.assert_array_equal(
+                    np.full(len(captured["b"]), -np.inf), vectors["lower"]
+                )
+                np.testing.assert_array_equal(
+                    np.median(mesh.vertices[:, 2]), vectors["datum"]
+                )
             np.savez_compressed(
                 args.output / "linear-vectors.npz",
                 q=captured["q"],
                 upper=captured["b"],
+                lower=np.full(len(captured["b"]), -np.inf),
+                datum=np.median(mesh.vertices[:, 2]),
                 solution=captured["solution"],
                 dual=captured["dual"],
             )
