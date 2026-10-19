@@ -89,7 +89,7 @@ def sample(source, prepared, origins, directions):
     return depth, faces, fields_at(source, origins, directions, depth, faces)
 
 
-def fields_at(source, origins, directions, depth, faces):
+def fields_at(source, origins, directions, depth, faces, *, rgba=False):
     """Interpolate unchanged source inputs at already identified original hits."""
     valid = faces >= 0
     fields = {"normal": np.zeros((len(faces), 3))}
@@ -111,7 +111,8 @@ def fields_at(source, origins, directions, depth, faces):
     if np.any(length == 0):
         raise ValueError("undefined interpolated normal")
     fields["normal"][valid] /= length[:, None]
-    fields["colour"] = fields["colour"][:, :3]
+    if not rgba:
+        fields["colour"] = fields["colour"][:, :3]
     return fields
 
 
