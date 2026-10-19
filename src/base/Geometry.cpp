@@ -54,6 +54,7 @@ struct Geometry::Held {
   struct Picture {
     int WidthPx = 0;
     int HeightPx = 0;
+    ImagePixelFormat Format = ImagePixelFormat::Rgba8Unorm;
     std::vector<uint8_t> Rgba;
     ImageMipData LowerMips;
   };
@@ -423,10 +424,10 @@ std::expected<int, GeometryImageError> Geometry::addImage(ImageView image) {
   if (!CanAppendGeometryEntry(Held_->Images.size(), Held_->Images.max_size())) {
     return std::unexpected(GeometryImageError::CapacityExceeded);
   }
-  constexpr size_t bytesPerPixel = 4;
+  const size_t bytesPerPixel = ImagePixelBytes(image.Format);
   const auto width = static_cast<size_t>(widthPx);
   const auto height = static_cast<size_t>(heightPx);
-  if (width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) {
+  if (bytesPerPixel == 0 || width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) {
     return std::unexpected(GeometryImageError::InvalidDimensions);
   }
   const size_t bytes = width * height * bytesPerPixel;
@@ -435,6 +436,7 @@ std::expected<int, GeometryImageError> Geometry::addImage(ImageView image) {
   Held::Picture made;
   made.WidthPx = widthPx;
   made.HeightPx = heightPx;
+  made.Format = image.Format;
   made.Rgba.assign(rgba.begin(), rgba.end());
   made.LowerMips = CopyImageMips(image.LowerMips);
   Held_->Images.push_back(std::move(made));
@@ -463,6 +465,7 @@ ImageView Geometry::imageAt(int image) const {
   const Held::Picture &held = Held_->Images[static_cast<size_t>(image)];
   return ImageView{.WidthPx = held.WidthPx,
                    .HeightPx = held.HeightPx,
+                   .Format = held.Format,
                    .Rgba = std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size()),
                    .LowerMips = ViewImageMips(held.LowerMips)};
 }

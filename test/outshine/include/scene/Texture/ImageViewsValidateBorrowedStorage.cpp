@@ -26,7 +26,8 @@ int main() {
   }
   CHECK((ImageView{.WidthPx = 1, .HeightPx = 1, .Rgba = pixels}.valid()),
         "a borrowed view may contain bytes after its declared image");
-  CHECK((SurfaceMap{.Image = 42}.bound()),
-        "bound reports assignment without pretending to validate the owner");
+  SurfaceMap bound;
+  bound.Image = 42;
+  CHECK(bound.bound(), "bound reports assignment without pretending to validate the owner");
   return Report();
 }

@@ -24,12 +24,14 @@
 #include <thread>
 #include <algorithm>
 #include "Image.h"
+#include "shade/HalfTexels.h"
 #include "Check.h"
 
 int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
+  const auto outputDirectory = (std::filesystem::path(OUTSHINE_TEST_NEST) / "crown-atlas").string();
   std::ifstream input("src/assets/world/species/birch.json");
   const std::string text{std::istreambuf_iterator<char>(input), {}};
   TreeSpecies species;
@@ -126,9 +128,9 @@ int main() {
                 static_cast<size_t>(std::count_if(
                     samples.begin(), samples.end(), [](double ms) { return ms > 1000.0 / 60; })));
   }
-  std::filesystem::create_directories("build/crown-atlas");
+  std::filesystem::create_directories(outputDirectory);
   CHECK(foreground.renderer()
-            .saveScreenshot("build/crown-atlas/concurrent-foreground.png")
+            .saveScreenshot(outputDirectory + "/concurrent-foreground.png")
             .has_value(),
         "concurrent foreground PNG is written");
 
@@ -209,14 +211,14 @@ int main() {
   resign(corrupt);
   CHECK(!Content::ImpostorAtlas::Decode(corrupt, provenance, error),
         "nonfinite material data is refused even with a valid checksum");
-  std::ofstream artifact("build/crown-atlas/birch.crown", std::ios::binary);
+  std::ofstream artifact(outputDirectory + "/birch.crown", std::ios::binary);
   artifact.write(reinterpret_cast<const char *>(encoded->data()),
                  static_cast<std::streamsize>(encoded->size()));
   CHECK(artifact.good(), "the verified crown artifact is written");
   std::printf("crown artifact %zu bytes; source/raw-data equality checked; compiled producer, "
               "species and capture shape identified\n",
               encoded->size());
-  const std::string cacheDirectory = "build/crown-atlas/cache";
+  const std::string cacheDirectory = outputDirectory + "/cache";
   std::filesystem::remove_all(cacheDirectory);
   const Data::ContentStore::Config cacheStore{.Directory = cacheDirectory + "/sources"};
   Data::ContentStore rawStore(cacheStore);
@@ -253,7 +255,9 @@ int main() {
   const AssetRecord stale{.Key = Sha256Hex(provenance + "changed"),
                           .Kind = "impostor-prototype",
                           .Bounds = {.Min = {{-100, -100, -100}}, .Max = {{100, 100, 100}}},
-                          .ByteCount = encoded->size()};
+                          .Package = {},
+                          .ByteCount = encoded->size(),
+                          .Parent = {}};
   CHECK((*native)->Publish(std::span(&stale, 1), *encoded).has_value(),
         "native stale control has valid indexed bytes but the wrong generator provenance");
   native->reset();
@@ -310,7 +314,7 @@ int main() {
         "an absent crown view is refused");
   const auto fine = tree->GeometryAt(0);
   CHECK(fine.has_value(), "fine geometry remains available for visual comparison");
-  std::filesystem::create_directories("build/crown-atlas");
+  std::filesystem::create_directories(outputDirectory);
   for (size_t view = 0; view < atlas->Views().size(); ++view) {
     const auto &texels = atlas->Views()[view].Texels;
     CHECK(texels.size() == 128u * 128u, "every view has its full pixel population");
@@ -350,7 +354,7 @@ int main() {
     CHECK(covered[1] > 0 && covered[2] > 0, "each crown view contains both bark and foliage");
     std::vector<uint8_t> png;
     CHECK(Core::EncodePng(rgba.data(), 128, 128, png), "intrinsic crown colour encodes as a PNG");
-    std::ofstream output("build/crown-atlas/birch-" + std::to_string(view) + ".png",
+    std::ofstream output(outputDirectory + "/birch-" + std::to_string(view) + ".png",
                          std::ios::binary);
     output.write(reinterpret_cast<const char *>(png.data()),
                  static_cast<std::streamsize>(png.size()));
@@ -367,7 +371,18 @@ int main() {
     CHECK(material.Scattering == ScatteringModel::AreaMixture && reflectionMap.valid() &&
               transmissionMap.valid(),
           "native crown card retains separate opaque and sheet optical maps");
-    bool coverageMatches = colourMap.valid(), materialsMatch = mrMap.valid();
+    const auto opticalMoments =
+        Core::UnpackHalfTexels({.WidthPx = static_cast<uint32_t>(mrMap.WidthPx),
+                                .HeightPx = static_cast<uint32_t>(mrMap.HeightPx)},
+                               mrMap.Rgba);
+    const auto fullImage = [&texels](ImageView image) {
+      return image.valid() && static_cast<size_t>(image.WidthPx) * image.HeightPx == texels.size();
+    };
+    bool coverageMatches = fullImage(colourMap);
+    bool materialsMatch = fullImage(mrMap) && fullImage(reflectionMap) &&
+                          fullImage(transmissionMap) &&
+                          mrMap.Format == ImagePixelFormat::Rgba16Float && opticalMoments;
+    constexpr float kHalfStep = 0x1p-10f;
     if (coverageMatches && materialsMatch) {
       for (size_t pixel = 0; pixel < texels.size(); ++pixel) {
         coverageMatches &= (colourMap.Rgba[pixel * 4 + 3] == (texels[pixel].Surface ? 255 : 0));
@@ -375,7 +390,8 @@ int main() {
         const auto &original = atlas->Surfaces()[texels[pixel].Surface - 1];
         const size_t offset = pixel * 4;
         if (original.Scattering == ScatteringModel::DiffuseThinSheet) {
-          materialsMatch &= mrMap.Rgba[offset + 3] == 0 && reflectionMap.Rgba[offset + 3] == 255;
+          materialsMatch &=
+              (*opticalMoments)[offset + 3] == 0 && reflectionMap.Rgba[offset + 3] == 255;
           const auto &sample = atlas->Views()[view].Materials[pixel];
           for (size_t channel = 0; channel < 3; ++channel) {
             materialsMatch &= std::abs(reflectionMap.Rgba[offset + channel] / 255.0f -
@@ -385,10 +401,12 @@ int main() {
           }
         } else {
           const float alpha = original.Roughness * original.Roughness;
-          materialsMatch &= std::abs(mrMap.Rgba[offset + 1] / 255.0f - alpha * alpha) <= 1.0f / 255;
+          materialsMatch &= std::abs((*opticalMoments)[offset + 1] - alpha * alpha) <=
+                            std::max(0x1p-24f, alpha * alpha * kHalfStep);
+          materialsMatch &= std::abs((*opticalMoments)[offset + 2] - original.Metalness) <=
+                            std::max(0x1p-24f, original.Metalness * kHalfStep);
           materialsMatch &=
-              std::abs(mrMap.Rgba[offset + 2] / 255.0f - original.Metalness) <= 1.0f / 255;
-          materialsMatch &= mrMap.Rgba[offset + 3] == 255 && reflectionMap.Rgba[offset + 3] == 0;
+              (*opticalMoments)[offset + 3] == 1 && reflectionMap.Rgba[offset + 3] == 0;
         }
       }
     }
@@ -457,7 +475,7 @@ int main() {
       CHECK(normalError <= 4 * std::sqrt(3.0) / 255,
             "rendered normals retain source directions within RGBA8 quantisation bound");
       CHECK(engine.renderer()
-                .saveScreenshot("build/crown-atlas/card-" + std::to_string(view) + "-light-" +
+                .saveScreenshot(outputDirectory + "/card-" + std::to_string(view) + "-light-" +
                                 std::to_string(light) + ".png")
                 .has_value(),
             "lit crown card PNG is written");
@@ -483,7 +501,7 @@ int main() {
         }
         CHECK(
             reference.renderer()
-                .saveScreenshot("build/crown-atlas/fine-0-light-" + std::to_string(light) + ".png")
+                .saveScreenshot(outputDirectory + "/fine-0-light-" + std::to_string(light) + ".png")
                 .has_value(),
             "fine comparison PNG is written");
       }
@@ -589,7 +607,7 @@ int main() {
           "shared tangent frames preserve rotated captured crown normals");
     CHECK(renderer.PieceTriangles() == 2 * atlas->Views().size(),
           "view switching retains the same prototype triangle count");
-    CHECK(screenshot("build/crown-atlas/pieces-" + std::to_string(view) + ".png", error),
+    CHECK(screenshot(outputDirectory + "/pieces-" + std::to_string(view) + ".png", error),
           "shared crown PNG is written");
     CHECK(crowns->Update({}, camera->EyeM, error) && live->Draw(error),
           "empty instance groups deactivate every view");
@@ -615,7 +633,7 @@ int main() {
   CHECK(catalogue.TreeFor(Generators::ClusterId{birch}) != nullptr,
         "the loaded atlas resolves to its actual catalogue cluster");
   std::array<WorldInstance, 2> placements{
-      {{.Body = 17, .Cluster = birch}, {.Body = 18, .Cluster = ~0u}}};
+      {{.Body = 17, .Cluster = birch, .Where = {}}, {.Body = 18, .Cluster = ~0u, .Where = {}}}};
   VegetationStreaming::Config worldConfig{.Cache = {.Directory = cacheDirectory},
                                           .Shape = {.Pixels = 128, .Views = 4}};
   const auto worldFrame = TangentFrame::At({});
@@ -662,7 +680,7 @@ int main() {
     }
     CHECK(mismatch == 0,
           "world consumer preserves the captured crown coverage at its geographic root");
-    CHECK(screenshot("build/crown-atlas/world.png", error), "world crown consumer PNG is written");
+    CHECK(screenshot(outputDirectory + "/world.png", error), "world crown consumer PNG is written");
     CHECK(renderer.PieceTriangles() == 8,
           "one geographic tree retains only the four shared view prototypes");
   }
