@@ -75,7 +75,11 @@ def run(fixture, output):
         ring = copied = None
         for index, frame in enumerate(fixture["frames"]):
             matrix = frame["world_matrices"][region]
-            work = {"triangle_pixel_candidates": 0, "covered_samples": 0}
+            work = {
+                "new_texels": side * side,
+                "triangle_pixel_candidates": 0,
+                "covered_samples": 0,
+            }
             full = raster(triangles, matrix, side, counters=work)
             ring, ring_cost = update(ring, triangles, matrix, side)
             copied, copy_cost = update(copied, triangles, matrix, side, ring=False)
@@ -152,6 +156,8 @@ def run(fixture, output):
                     "new_texels",
                     "triangle_pixel_candidates",
                     "covered_samples",
+                    "projected_vertices",
+                    "triangle_scissor_visits",
                     "staging_copy_bytes",
                     "retained_copy_bytes",
                 )
@@ -197,7 +203,17 @@ def main():
     (args.output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(
         json.dumps(
-            {k: v for k, v in result.items() if k not in ("rows", "rebase_arithmetic")}
+            {
+                k: v
+                for k, v in result.items()
+                if k
+                not in (
+                    "rows",
+                    "rebase_arithmetic",
+                    "native_geometric_workload",
+                    "totals",
+                )
+            }
         )
     )
 
