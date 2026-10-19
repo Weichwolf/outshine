@@ -211,9 +211,8 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
                           SurfaceKind::Blended,
                           SurfaceKind::ThinTransmissive,
                           SurfaceKind::Refractive}) {
-    if (!glass && (kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive)) {
-      continue;
-    }
+    const bool transmits = kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
+    if (glass != transmits) { continue; }
     const auto configured = ConfigureKind(gpu, options, colours, kind, shaders, pipelines, built);
     if (!configured) { return configured; }
   }
