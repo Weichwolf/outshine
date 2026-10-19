@@ -5,6 +5,12 @@ It changes no native code or renderer admission. The next useful voxel experimen
 belongs at very small projected detail, after complete sampling and shader fitting;
 the preflight is not a voxel renderer or a ready asset.
 
+Reference correction: the historical 432-view counts below use the previous
+automatic PyEmbree query. [The corrected reference](source_billboard.md) fixes a
+coincident front/back counterexample. Four real controls agree; the full old batch
+has not been rerun, so its image/occupancy counts remain historical measurements.
+Original native stream bytes and the point-pair projection formula are unaffected.
+
 ## Original inputs and controls
 
 Nine additional source controls preserve original index/form bytes, source ordinal

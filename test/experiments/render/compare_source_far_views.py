@@ -23,25 +23,7 @@ from source_far_reprojection import (
     intersect_source,
     view_rays,
 )
-
-
-def surface_fields(source, faces):
-    valid = faces >= 0
-    normal = np.zeros((len(faces), 3))
-    colour = np.zeros((len(faces), 3))
-    code = np.zeros(len(faces), np.int16)
-    normal[valid] = unpack(source["normal"][faces[valid]])
-    colour[valid] = source["palette"][source["colour_index"][faces[valid]], :3]
-    code[valid] = source["code"][faces[valid]]
-    return {"normal": normal, "colour": colour, "code": code}
-
-
-def relight(fields, sun, depth):
-    sun = np.array(sun, float)
-    sun /= np.linalg.norm(sun)
-    light = 0.2 + 0.8 * np.maximum(fields["normal"] @ sun, 0)
-    rgb = np.clip(fields["colour"] * light[:, None], 0, 1)
-    return np.where(np.isfinite(depth)[:, None], rgb, 0)
+from source_surface_fields import relight, surface_fields
 
 
 def compare(before, after, a, b):
@@ -290,6 +272,7 @@ def main():
                 "source_far_reprojection.py",
                 "source_far_assets.py",
                 "far_voxel_preflight.py",
+                "source_surface_fields.py",
             )
         },
         "scope": "Same 1280x720/original-focal poses. Analytic front-facing native triangles versus stored sample-and-hold tangent-cell fields; lighting changes at query time. Colour factors plus Lambert, not native PBR/UV evaluation. No native frame or worldwide acceptance.",

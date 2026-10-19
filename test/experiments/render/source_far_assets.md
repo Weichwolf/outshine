@@ -6,6 +6,11 @@ baker. The full novel-view/appearance comparison and native integration remain
 open. No image-based product receives a larger guessed `SurfaceError` or opaque
 coverage permission.
 
+Reference correction: the historical image counts below used automatic PyEmbree
+queries. [The corrected triangle reference and card comparison](source_billboard.md)
+retain coincident front/back IDs before culling. Four real controls agree, but the
+old 24-view batch has not been rerun with that correction; byte counts are unchanged.
+
 ## Original source and native controls
 
 The first controlled source is original ordinal 1 of cohort bbd9aab74311…,
