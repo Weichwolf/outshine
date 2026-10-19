@@ -56,13 +56,13 @@ Each actual group passes 128 rational clipping controls with zero omitted or ext
 contacts. Tests also cover independent dyadic cases, exact plane-boundary sides,
 whole original membership, unrelated local fallback and hard/empty domains.
 The 1280×720 diagnostic projects **occupancy densities**, not visibility or a
-runtime image; both figures were opened. Fine increases distinct cells only
+runtime image; all three figures were opened. Fine increases distinct cells only
 slightly here; that does not establish equivalent material/appearance quality.
 
-The 14 B model includes6 coordinate,4 normal and4 colour bytes; those latter fields
+The 14 B model includes 6 coordinate, 4 normal and 4 colour bytes; those latter fields
 are not constructed. It excludes opacity, PBR, hierarchy/mips, memberships and
 fallback. It is neither native GPU layout nor a global encoding lower bound.
-Actual complete original-face CSR costs 594016/870308 B separately. Empty-space
+Actual complete original-face CSR costs 594016/870308/2816476 B separately. Empty-space
 removal alone cannot make this **fixed 1 m model** beat the existing Full geometry.
 No renderer is built on that cost result. Adaptive/visibility-aware material
 models remain alternatives, not disproved by uniform geometric occupancy.
@@ -85,7 +85,8 @@ traced peak and Linux RSS. Coordinate-construction/concatenation/sort arrays are
 counted; total allocations/copies/physical bus traffic remain unmeasured. Wall/CPU
 covers assembly only; controls, input preparation and plotting remain outside it.
 The observed non-isolated source runs took 7.38/42.81 s, traced 8.34/16.95 MB and
-process RSS 201.47/211.28 MB; these are Python observations, not native budgets.
+process RSS 201.47/211.28 MB; Tokyo took 48.46 s, traced 39.50 MB,
+RSS 225.04 MB; these are Python observations, not native budgets.
 
 SIGGRAPH-first: [Far Voxels, Gobbetti/Marton 2005](https://www.crs4.it/vic/data/papers/sig2005-farvox.pdf),
 p.4/Fig.4, sampling and shader fitting textually/optically inspected. The paper
