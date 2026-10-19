@@ -28,13 +28,13 @@ TILE = np.dtype(
 
 
 class Reader:
-    def __init__(self, data):
-        self.data, self.offset = data, 0
+    def __init__(self, data, label="WATER2"):
+        self.data, self.offset, self.label = data, 0, label
 
     def number(self, code):
         size = struct.calcsize("<" + code)
         if self.offset + size > len(self.data):
-            raise ValueError("truncated WATER2 scalar")
+            raise ValueError(f"truncated {self.label} scalar")
         value = struct.unpack_from("<" + code, self.data, self.offset)[0]
         self.offset += size
         return value
@@ -43,7 +43,7 @@ class Reader:
         count = self.number(count_code)
         dtype = np.dtype(dtype)
         if count > (len(self.data) - self.offset) // dtype.itemsize:
-            raise ValueError("WATER2 array exceeds its byte range")
+            raise ValueError(f"{self.label} array exceeds its byte range")
         result = np.frombuffer(self.data, dtype=dtype, count=count, offset=self.offset)
         self.offset += result.nbytes
         return result
@@ -53,28 +53,35 @@ def within(first, count, end):
     return np.all(first.astype(np.uint64) + count.astype(np.uint64) <= end)
 
 
-def read_v2(path, expected_sha256, *, byte_limit=1 << 20):
-    """Return immutable array views of the complete original, including all sources."""
+def source_reader(path, expected_sha256, label, magic, byte_limit):
     path = Path(path)
-    if path.stat().st_size > byte_limit:
+    if type(byte_limit) is not int or byte_limit <= 0:
+        raise ValueError("invalid historical source byte budget")
+    with path.open("rb") as source:
+        data = source.read(byte_limit + 1)
+    if len(data) > byte_limit:
         raise ValueError("historical source byte budget exceeded")
-    data = path.read_bytes()
     if hashlib.sha256(data).hexdigest() != expected_sha256:
         raise ValueError("historical source digest mismatch")
-    reader = Reader(data)
-    if reader.number("Q") != 0x325245544157:
+    reader = Reader(data, label)
+    if reader.number("Q") != magic:
         raise ValueError(
-            "historical WATER2 required; other codecs are not interchangeable"
+            f"historical {label} required; other codecs are not interchangeable"
         )
+    return reader
+
+
+def geometry(reader, surface_dtype=SURFACE, course_dtype=COURSE):
+    """Shared historical geometry fields; version-specific metadata and EOF remain separate."""
     processed = reader.number("I")
     counters = [reader.number("q") for _ in range(3)]
     surfaces, rings, courses = (
-        reader.records(dtype) for dtype in (SURFACE, RING, COURSE)
+        reader.records(dtype) for dtype in (surface_dtype, RING, course_dtype)
     )
     levels, scalars = reader.records("<f4", "I"), reader.records("<f8", "I")
     tiles = reader.records(TILE)
-    if reader.offset != len(data) or len(scalars) % 2:
-        raise ValueError("WATER2 trailing bytes or incomplete point pairs")
+    if len(scalars) % 2:
+        raise ValueError(f"{reader.label} incomplete point pairs")
     points = scalars.reshape(-1, 2)
     if (
         min(counters) < 0
@@ -96,7 +103,7 @@ def read_v2(path, expected_sha256, *, byte_limit=1 << 20):
         or np.any((tiles["zoom"] < 0) | (tiles["zoom"] > 31))
         or not within(tiles["first_surface"], tiles["surface_count"], len(surfaces))
     ):
-        raise ValueError("invalid WATER2 ranges, coordinates or counters")
+        raise ValueError(f"invalid {reader.label} ranges, coordinates or counters")
     across = np.left_shift(np.uint64(1), tiles["zoom"].astype(np.uint64))
     if np.any(
         (tiles["x"] < 0)
@@ -104,7 +111,7 @@ def read_v2(path, expected_sha256, *, byte_limit=1 << 20):
         | (tiles["x"] >= across)
         | (tiles["y"] >= across)
     ):
-        raise ValueError("invalid WATER2 tile address")
+        raise ValueError(f"invalid {reader.label} tile address")
     return {
         "surfaces": surfaces,
         "rings": rings,
@@ -114,9 +121,16 @@ def read_v2(path, expected_sha256, *, byte_limit=1 << 20):
         "tiles": tiles,
         "processed_tiles": processed,
         "counters": counters,
-        "source_bytes": len(data),
-        "consumed_bytes": reader.offset,
     }
+
+
+def read_v2(path, expected_sha256, *, byte_limit=1 << 20):
+    """Return immutable array views of the complete original, including all sources."""
+    reader = source_reader(path, expected_sha256, "WATER2", 0x325245544157, byte_limit)
+    data = geometry(reader)
+    if reader.offset != len(reader.data):
+        raise ValueError("WATER2 trailing bytes")
+    return dict(data, source_bytes=len(reader.data), consumed_bytes=reader.offset)
 
 
 def surface_rings(data, index):
