@@ -9,6 +9,7 @@ from unittest.mock import patch
 import numpy as np
 from outshine_ref.contracts import Mesh
 from outshine_ref.water import fit_physical_surface
+from outshine_ref.water.frame import model_height_targets
 from outshine_ref.water.geodetic import query_facet
 
 
@@ -62,6 +63,28 @@ class WaterProfileLibraryTests(unittest.TestCase):
             )
         self.assertIsNone(fit.mesh)
         self.assertEqual(fit.report["reason"], "solver_budget_exhausted")
+
+    def test_zero_model_height_uses_signed_up_and_preserves_physical_contacts(self):
+        xy = np.array([[-1000, -1000], [1000, -1000], [0, 1000.0]])
+        height = model_height_targets([10, 47], xy, np.zeros(3))
+        self.assertTrue((height < 0).all())
+        mesh = Mesh(np.c_[xy, height], np.array([[0, 1, 2]]))
+        rows = np.array([[0, 1, 0, 0, -0.005, 0.005], [0, 0, 1, 0, -0.005, 0.005]])
+        fit = fit_physical_surface(
+            mesh,
+            [10, 47],
+            rows,
+            up_bounds_m=[-1, 1],
+            fixed={0: float(height[0])},
+            contact_points=mesh.vertices.mean(0)[None],
+            primary_rows=np.array([[0, 1]]),
+        )
+        self.assertIsNotNone(fit.mesh, fit.report)
+        self.assertTrue(fit.report["physical_whole_face_admitted"])
+        self.assertLessEqual(fit.report["fixed_point_up_error_m"], 1e-9)
+        self.assertAlmostEqual(fit.mesh.vertices[0, 2], height[0], delta=1e-9)
+        np.testing.assert_array_equal(fit.mesh.vertices[:, :2], xy)
+        np.testing.assert_array_equal(fit.mesh.triangles, mesh.triangles)
 
     def test_foreign_shape_and_bad_geographic_frame_rejected(self):
         mesh, rows = self.inputs()

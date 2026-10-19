@@ -5,7 +5,7 @@ from pyproj import Transformer
 from pyproj.enums import TransformDirection
 
 from outshine_ref.places.camera import axes
-from outshine_ref.water.geodetic import WGS84_A, WGS84_E2
+from outshine_ref.water.geodetic import WGS84_A, WGS84_E2, local_points
 
 
 def inverse_frame(anchor_lon_lat, points_enu_m):
@@ -59,14 +59,15 @@ def model_height_targets(anchor, xy, model_height_m):
 def normal_caps(anchor, vertices_xy, faces, up_bounds_m):
     """Enclose every geodetic unit Up over each entire bounded physical prism.
 
-    z>0 is outside the ellipsoid's supporting tangent plane at the anchor. Hence
-    h>=z_min throughout the prism, and ||D Up|| <= 1/(a(1-e²)+z_min).
-    A ball about the prism centre encloses its six extreme vertices and all of
-    their convex hull. Integrating the derivative along each radius bounds Up.
+    Signed closest height is at least the anchor's supporting-plane coordinate z.
+    For z_min>-a(1-e²), the closest normal is unique and its derivative is bounded
+    by 1/(a(1-e²)+z_min). Negative prisms additionally enclose the reconstructed
+    centre's forward/inverse discrepancy before integrating this derivative.
     """
     low, high = np.asarray(up_bounds_m, float)
-    if not np.isfinite([low, high]).all() or not 0 < low < high:
-        raise ValueError("explicit positive ordered ENU-Up bounds required")
+    minimum_radius = WGS84_A * (1 - WGS84_E2)
+    if not np.isfinite([low, high]).all() or not -minimum_radius < low < high:
+        raise ValueError("ordered ENU-Up bounds above the normal singularity required")
     triangle = np.asarray(vertices_xy, float)[faces]
     centre_xy = triangle.mean(axis=1)
     centre = np.c_[centre_xy, np.full(len(faces), (low + high) / 2)]
@@ -74,10 +75,22 @@ def normal_caps(anchor, vertices_xy, faces, up_bounds_m):
         np.max(np.sum((triangle - centre_xy[:, None]) ** 2, axis=2), axis=1)
         + ((high - low) / 2) ** 2
     )
-    delta = radius / (WGS84_A * (1 - WGS84_E2) + low) + 1e-12
+    if low <= 0:
+        geographic, height, up = inverse_frame(anchor, centre)
+        reconstructed = local_points(anchor, geographic, height)
+        error = np.linalg.norm(reconstructed - centre, axis=1) + 64 * np.spacing(
+            WGS84_A
+        )
+        denominator = minimum_radius + low - error
+        if np.any(denominator <= 0) or np.any(height <= -minimum_radius):
+            raise ValueError("signed prism centre exceeds the regular normal domain")
+        delta = (radius + error) / denominator + 1e-12
+    else:
+        delta = radius / (minimum_radius + low) + 1e-12
     if not np.isfinite(delta).all() or np.any(delta >= 0.01):
         raise ValueError("whole-prism normal cap exceeds the declared local domain")
-    geographic, _height, up = inverse_frame(anchor, centre)
+    if low > 0:
+        geographic, _height, up = inverse_frame(anchor, centre)
     return {
         "centre_enu_m": centre,
         "centre_lon_lat": geographic,
