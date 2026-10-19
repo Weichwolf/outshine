@@ -11,10 +11,9 @@ from pathlib import Path
 import numpy as np
 from capture_region_candidates import propose
 from capture_region_visibility import covered_from_ball
-from compare_depth_cluster import face_sources
-from compare_native_cell_views import low_eye_view
 from current_visibility import project, raster
-from source_far_assets import load_source
+from native_source_mesh import face_sources, load_source, read_capture
+from triangle_image_reference import low_eye_view
 
 
 def solve(triangles, eye, basis, radius):
@@ -148,6 +147,7 @@ def run(args):
     raw = json.loads((args.fine / "mesh/receipt.json").read_text())
     if raw["captures"][0] != raw["captures"][1] or raw["lumped_local_sources"]:
         raise ValueError("matching independent whole/cell Fine streams required")
+    read_capture(args.fine, raw, 1)
     xyz = source["positions"].astype(float)
     triangles = xyz[source["indices"]]
     anchor = np.array(native["anchor_ecef"])

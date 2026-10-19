@@ -5,8 +5,10 @@ reads the hash-pinned **historical WATER2** blob using its recorded codec layout
 including all 550 surfaces, 564 rings, 935 courses and every byte of its 257884-byte
 payload. Arrays are immutable views, ranges/tile addresses are checked, and the
 reader has an explicit 1 MiB input guard. WATER3/WATER4 are rejected rather than
-misinterpreted. The later WATER3 blob is separately hash-checked, not decoded or
-silently substituted for the original.
+misinterpreted. This original-frame path separately hash-checks the later WATER3
+blob without substituting it for WATER2. The independent
+[observed metadata audit](water_source_observation.md) decodes that later epoch
+separately and verifies its geometry/metadata bindings.
 
 Original coordinates are latitude,longitude. The adapter explicitly changes order
 when calling the WGS84 helper. The selected 13 surfaces/17 courses and 485 original
