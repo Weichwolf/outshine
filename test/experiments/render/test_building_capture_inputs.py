@@ -19,8 +19,10 @@ class NativeCaptureInputs(unittest.TestCase):
         cls.original = load(FIXTURE)
 
     def test_native_controls_match(self):
-        result = check(self.original)
-        self.assertGreater(result[0]["sources"], 0)
+        for path in (FIXTURE, FIXTURE.with_name("near-cell.json.gz")):
+            with self.subTest(path=path.name):
+                result = check(load(path))
+                self.assertGreater(result[0]["sources"], 0)
 
     def test_one_float32_bit_in_the_native_control_is_detected(self):
         document = copy.deepcopy(self.original)
