@@ -58,6 +58,17 @@
   Remote vor Arbeitsblöcken/Commits und spätestens alle 15 Minuten abrufen. Eigene Änderungen
   bleiben erhalten; laufende Gates bleiben auf ihrem eingefrorenen Stand.
 - Der aktive Nutzerauftrag bleibt maßgeblich; `goal.md` auf `master` beschreibt den Outshine-/Integrationsauftrag.
+- Ich will jeden beliebigen Ort der Erde bei 1280×720/60 einschließlich p99 darstellen können,
+  mit bis zu 240 km Sichtweite, soweit Gelände, Erdkrümmung und Wetter Sicht zulassen.
+  Realistische Vegetation, Gebäude, Infrastruktur, Fahrzeuge und NPCs gehören gemeinsam
+  in dieses Ziel und dasselbe Gerätebudget auf A18 Pro/Metal und i5-1135G7/Iris Xe/Vulkan.
+  Die Ausbaufolge ändert den Zielumfang nicht. Weltweite Inhaltsmenge darf weder vollständiges
+  Vorladen noch Einzelobjektarbeit in der Ferne erzwingen; Bild-/Simulationswirkung bestimmt Bedarf.
+  Einzelne Places oder abgeschaltete Inhalte belegen dieses Gesamtziel nicht (#5).
+  Abdeckung, Sichtweite und 1280×720/60 sind feste Auslegungsbedingungen auf beiden Geräten;
+  ich erreiche sie zuerst mit vollständigen Szenen und steigere danach kontinuierlich die
+  Darstellungsqualität innerhalb dieser Bedingungen. Leistungsdefizite erfordern bessere
+  Verfahren und Repräsentationen, keine Lockerung der Bedingungen.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
   Baupläne. Gelieferte Angaben erhalten ihre Herkunft; fehlende Angaben werden plausibel
