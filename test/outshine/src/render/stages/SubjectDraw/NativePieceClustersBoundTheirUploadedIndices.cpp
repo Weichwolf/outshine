@@ -76,6 +76,20 @@ void Compare(const outshine::Render::SubjectDraw &draw, outshine::Render::Native
     }
   }
   CHECK(contained, "each cluster sphere contains every actual GPU index it selects");
+  bool bounded = true;
+  for (const auto &batch : draw.Drawn()) {
+    if (batch.JobCount == 0) { continue; }
+    bounded &= batch.WorldSphere.has_value();
+    if (!batch.WorldSphere) { continue; }
+    const auto &sphere = *batch.WorldSphere;
+    for (size_t corner = 0; corner < batch.IndexCount; ++corner) {
+      const float *point = points + static_cast<size_t>(run[batch.FirstIndex + corner]) * 3;
+      bounded &= std::hypot(static_cast<double>(point[0]) - sphere[0],
+                            static_cast<double>(point[1]) - sphere[1],
+                            static_cast<double>(point[2]) - sphere[2]) <= sphere[3];
+    }
+  }
+  CHECK(bounded, "whole native-piece bounds contain every shadow index after residency growth");
 }
 }
 
