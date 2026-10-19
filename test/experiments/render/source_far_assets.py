@@ -16,7 +16,7 @@ import numpy as np
 import trimesh
 
 
-def load_source(root):
+def load_source(root, *, allow_mixed_codes=False):
     receipt = json.loads((root / "mesh/receipt.json").read_text())
     metadata = json.loads((root / "input.json").read_text())
     arrays = {}
@@ -48,9 +48,10 @@ def load_source(root):
         metres[: len(walls)] = arrays["metres"].view("<f4").reshape(-1, 2)
     uv = words[:, 3:5].view("<f4")
     code = np.where(uv[:, 0] < 0, uv[:, 0], np.floor(uv[:, 0] / 256))
+    code_uniform = (code[indices] == code[indices[:, :1]]).all(1)
     if (
         (abs(code) > 32767).any()
-        or not (code[indices] == code[indices[:, :1]]).all()
+        or (not allow_mixed_codes and not code_uniform.all())
         or not (words[indices, 5] == words[indices[:, :1], 5]).all()
         or not (colour[indices] == colour[indices[:, :1]]).all()
     ):
@@ -67,7 +68,9 @@ def load_source(root):
         "positions": words[:, :3].view("<f4"),
         "indices": indices,
         "normal": words[indices[:, 0], 5],
-        "code": code[indices[:, 0]].astype(np.int16),
+        "code": np.where(code_uniform, code[indices[:, 0]], -32768).astype(np.int16),
+        "code_uniform": code_uniform,
+        "vertex_code": code.astype(np.int16),
         "palette": palette,
         "colour_index": palette_index.astype(np.uint16),
         "uv": smooth,

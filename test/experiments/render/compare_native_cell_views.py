@@ -21,12 +21,12 @@ from source_far_reprojection import prepare_source
 from source_surface_fields import relight
 
 
-def load_pair(a, b):
+def load_pair(a, b, *, allow_mixed_codes=False):
     for name in ("subset.index", "subset.forms"):
         if (a / name).read_bytes() != (b / name).read_bytes():
             raise ValueError("candidate changes original cell input")
     native = [json.loads((p / "native.json").read_text()) for p in (a, b)]
-    source = [load_source(p) for p in (a, b)]
+    source = [load_source(a), load_source(b, allow_mixed_codes=allow_mixed_codes)]
     for key in ("original_parent", "original_cell", "original_sources"):
         if source[0]["metadata"][key] != source[1]["metadata"][key]:
             raise ValueError("cell ownership changed")
