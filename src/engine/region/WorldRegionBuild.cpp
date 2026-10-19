@@ -2021,8 +2021,8 @@ void Engine::State::FinishGroundPublication(const Patchwork &laid,
 }
 
 bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQuality quality) {
-  static const Heap::Tag kLayingTag("world-ground");
-  const Heap::Tagged laying(kLayingTag);
+  static const Heap::Tag kGroundBuildTag("world-ground");
+  const Heap::Tagged groundBuildScope(kGroundBuildTag);
   if (World.Pool) {
     World.RoadAlignmentBuilds.Poll(*World.Pool, World.GroundBuild ? World.GroundBuild->Id() : 0);
   }
