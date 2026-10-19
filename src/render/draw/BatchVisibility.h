@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_DRAW_BATCHVISIBILITY_H
 
 #include "FrameContext.h"
+#include "ClusterDag.h"
 #include "StoredVertex.h"
 #include "math/Mat4.h"
 #include "math/Vec3.h"
@@ -57,6 +58,43 @@ inline std::optional<BatchSphere> LocalSphereOf(std::span<const StoredVertex> ve
     extent[axis] = (upper[axis] - lower[axis]) / 2;
   }
   return PackSphere(centre, std::hypot(extent[0], extent[1], extent[2]));
+}
+
+inline std::optional<BatchSphere> LocalSphereOf(std::span<const DagCluster> clusters,
+                                                size_t indexCount) {
+  if (clusters.empty() || indexCount == 0 || indexCount % 3 != 0) { return std::nullopt; }
+  std::array<double, 3> lower{};
+  std::array<double, 3> upper{};
+  lower.fill(std::numeric_limits<double>::infinity());
+  upper.fill(-std::numeric_limits<double>::infinity());
+  size_t covered = 0;
+  for (const auto &cluster : clusters) {
+    if (cluster.First > covered || cluster.First > indexCount || cluster.First % 3 != 0 ||
+        cluster.Count == 0 || cluster.Count % 3 != 0 ||
+        cluster.Count > indexCount - cluster.First || cluster.SelfRadius < 0 ||
+        !NormalOrZero(cluster.SelfRadius)) {
+      return std::nullopt;
+    }
+    covered = std::max(covered, size_t{cluster.First} + cluster.Count);
+    for (size_t axis = 0; axis < 3; ++axis) {
+      const double value = cluster.SelfCenter[axis];
+      if (!NormalOrZero(value)) { return std::nullopt; }
+      lower[axis] = std::min(lower[axis], value - cluster.SelfRadius);
+      upper[axis] = std::max(upper[axis], value + cluster.SelfRadius);
+    }
+  }
+  if (covered != indexCount) { return std::nullopt; }
+  std::array<double, 3> centre{};
+  for (size_t axis = 0; axis < 3; ++axis) { centre[axis] = (lower[axis] + upper[axis]) / 2; }
+  double radius = 0;
+  for (const auto &cluster : clusters) {
+    radius = std::max(radius,
+                      std::hypot(cluster.SelfCenter[0] - centre[0],
+                                 cluster.SelfCenter[1] - centre[1],
+                                 cluster.SelfCenter[2] - centre[2]) +
+                          cluster.SelfRadius);
+  }
+  return PackSphere(centre, radius);
 }
 
 inline double SphereScaleUpperBound(const std::array<std::array<double, 4>, 3> &matrix) {

@@ -3,20 +3,31 @@
 #include "SceneRenderer.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace {
+constexpr int kMaterialOwnerOffsetM = 10000;
+constexpr double kSunLux = 10000;
+constexpr double kCameraHeightM = 100;
+constexpr double kNearM = 0.1;
+constexpr double kFarM = 20000;
+constexpr int kFirstOffsetM = 80;
+constexpr int kSecondOffsetM = 120;
+constexpr int kOutsideOffsetM = 100000;
 constexpr std::array<uint32_t, 36> kBoxIndices{0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7,
                                                0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2,
                                                0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5};
 
 bool CastAt(const std::vector<float> &atlas, int x) {
   using namespace outshine::Render;
-  if (atlas.size() != size_t(kShadowAtlasPx) * kShadowAtlasPx) { return false; }
+  if (atlas.size() != static_cast<size_t>(kShadowAtlasPx) * kShadowAtlasPx) { return false; }
   const int column = kShadowTilePx / 2 - x * kShadowTilePx / 512;
-  return atlas[size_t(kShadowTilePx / 2) * kShadowAtlasPx + size_t(column)] > 0;
+  return atlas[static_cast<size_t>(kShadowTilePx / 2) * kShadowAtlasPx +
+               static_cast<size_t>(column)] > 0;
 }
 
 void CheckInstances(bool clustered) {
@@ -33,7 +44,7 @@ void CheckInstances(bool clustered) {
   CHECK(part.has_value(), "native material owner exists");
   if (!part) { return; }
   Mat4 far;
-  far[12] = 10000;
+  far[12] = kMaterialOwnerOffsetM;
   CHECK(geometry.setPositions(*part, positions) && geometry.setTriangles(*part, kBoxIndices) &&
             geometry.setPlacement(*part, far).has_value(),
         "material owner lies outside the near shadow tile");
@@ -43,7 +54,7 @@ void CheckInstances(bool clustered) {
   declaration.Outputs = {"surface", "sceneLinear", "shadowAtlas"};
   declaration.DrawsSky = true;
   declaration.ShadowRadiusM = 16384;
-  declaration.KeyLux = 10000;
+  declaration.KeyLux = kSunLux;
   SceneRenderer renderer;
   std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;
@@ -51,10 +62,10 @@ void CheckInstances(bool clustered) {
         "instance shadow world opens");
   if (!scene) { return; }
   Viewpoint eye;
-  eye.EyeM = {{0, 0, 100}};
+  eye.EyeM = {{0, 0, kCameraHeightM}};
   eye.YfovRad = 1;
-  eye.ZNearM = 0.1;
-  eye.ZFarM = 20000;
+  eye.ZNearM = kNearM;
+  eye.ZFarM = kFarM;
   scene->Eye(eye);
   renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 16384, true, 0);
   std::array<StoredVertex, 8> vertices{};
@@ -63,8 +74,8 @@ void CheckInstances(bool clustered) {
         {{positions[at * 3], positions[at * 3 + 1], positions[at * 3 + 2]}}, {{0, 0}}, {{0, 0, 1}});
   }
   std::array<Mat4, 2> rows{};
-  rows[0][12] = -80;
-  rows[1][12] = 80;
+  rows[0][12] = -kFirstOffsetM;
+  rows[1][12] = kFirstOffsetM;
   const std::array<DagCluster, 1> clusters{{{.SelfRadius = 14,
                                              .ParentRadius = 14,
                                              .ParentErr = kDagRootErr,
@@ -83,14 +94,26 @@ void CheckInstances(bool clustered) {
   CHECK(renderer.ReadShadowAtlas(atlas) == ReadState::Ready && CastAt(atlas, -80) &&
             CastAt(atlas, 80) && !CastAt(atlas, 0),
         "both placements cast depth, with no unplaced prototype between them");
-  rows[0][12] = -120;
-  rows[1][12] = 120;
+  rows[0][12] = -kSecondOffsetM;
+  rows[1][12] = kSecondOffsetM;
   CHECK(renderer.SetPieceInstances(id, rows, error) && scene->Draw(error),
         "moving instances invalidates the cached shadow atlas");
   renderer.WaitForGpu();
   CHECK(renderer.ReadShadowAtlas(atlas) == ReadState::Ready && CastAt(atlas, -120) &&
             CastAt(atlas, 120) && !CastAt(atlas, -80) && !CastAt(atlas, 80),
         "every caster moves and clears its old footprint");
+  if (clustered) {
+    const auto bothCast = renderer.ShadowCastCount();
+    rows[0][12] = -kOutsideOffsetM;
+    CHECK(renderer.SetPieceInstances(id, rows, error) && scene->Draw(error),
+          "one clustered instance moves outside all light side planes");
+    renderer.WaitForGpu();
+    CHECK(renderer.ReadShadowAtlas(atlas) == ReadState::Ready && !CastAt(atlas, -120) &&
+              CastAt(atlas, 120),
+          "the retained near instance casts while the distant one leaves no shadow");
+    CHECK(renderer.ShadowCastCount() < bothCast,
+          "light-side selection removes the distant instance before encoding its shadow");
+  }
   CHECK(renderer.SetPieceInstances(id, {}, error) && scene->Draw(error),
         "removing instances invalidates their shadows");
   renderer.WaitForGpu();

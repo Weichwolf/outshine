@@ -1,4 +1,5 @@
 #include "GroundLattice.h"
+#include "BatchVisibility.h"
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "LightVisibilityStage.h"
@@ -317,13 +318,19 @@ Native::Result<void> LightVisibilityStage::CastSubjects(const PassRecording &int
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "shadow subjects have no native vertex/index data"});
   }
+  ShadowView packed;
+  std::memcpy(&packed, view.data(), sizeof(packed));
+  FrameContext frame;
+  std::ranges::copy(packed.Light, frame.Mvp.begin());
+  for (size_t axis = 0; axis < 3; ++axis) { frame.PreViewTranslation[axis] = packed.Shift[axis]; }
+  const BatchFrustum visible(frame, {});
   const auto subjectRows = Subjects_->SubjectRows();
   for (const auto &batch : batches) {
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < subjectRows) { continue; }
     const auto instances = batch.ModelSlot < subjectRows
                                ? std::min(batch.Instances, CastsBelow_ - batch.ModelSlot)
                                : batch.Instances;
-    if (instances == 0) { continue; }
+    if (instances == 0 || visible.Outside(batch.WorldSphere)) { continue; }
     const auto *const pipeline =
         batch.Kind == SurfaceKind::Masked ? MaskedPipeline(batch.Layout) : DepthOnly_.get();
     if (pipeline == nullptr) {

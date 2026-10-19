@@ -690,7 +690,8 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
     held.Rows.assign(piece.Instances.begin(), piece.Instances.end());
   }
   held.Clusters.assign(piece.Clusters.begin(), piece.Clusters.end());
-  held.LocalSphere = held.Clusters.empty() ? LocalSphereOf(piece.Verts) : std::nullopt;
+  held.LocalSphere = held.Clusters.empty() ? LocalSphereOf(piece.Verts)
+                                           : LocalSphereOf(held.Clusters, piece.Indices.size());
   held.WorldSphere = WorldSphereOf(held.LocalSphere, held.Rows);
   VertexRunsCarried carried;
   carried.Normal = true;
@@ -932,7 +933,9 @@ bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
     const auto row = static_cast<uint32_t>(Batches.size());
     DrawBatch batch{};
     batch.Motion = VertexMotion::Rigid;
-    batch.WorldSphere = one.WorldSphere;
+    batch.WorldSphere = runs == 1
+                            ? one.WorldSphere
+                            : WorldSphereOf(one.LocalSphere, std::span(&one.Rows[instance], 1));
     batch.FirstIndex = one.I.First;
     batch.IndexCount = one.IndexCount;
     batch.MaterialSlot = MaterialSlotFor(one);
