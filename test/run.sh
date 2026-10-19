@@ -67,9 +67,10 @@ NativeLink() {
   esac
 }
 
+CXXSTD=-std=c++23
 CXX=${CXX:-c++}
 . "$ROOT/test/scripts/native_hardening.sh"
-ConfigureNativeHardening || { printf '%s\n' 'run.sh: cannot determine native hardening target' >&2; exit 2; }
+ConfigureNativeHardening "$CXXSTD" || { printf '%s\n' 'run.sh: cannot determine native hardening target' >&2; exit 2; }
 
 if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
   printf '%s ' "$NATIVE_LINK_FLAGS"
@@ -92,7 +93,6 @@ export OUTSHINE_CORPUS_OWNER="$NEST"
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 PREPARED=${OUTSHINE_PREPARED:-$PREPARED}
-CXXSTD=-std=c++23
 WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"
 OPT="-O2 -ffp-contract=off $NATIVE_COMPILE_FLAGS"
 
