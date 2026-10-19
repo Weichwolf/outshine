@@ -36,6 +36,12 @@ crop is sampled at the original pixel scale; outside the isolated cell is empty.
 A sorted original-face tie rule matches the CPU full path. Native coplanar ties,
 colour/G-buffer writes, raster samples, alpha/material qualification, derivatives,
 TAA, reversed-Z precision and both backend/resource lifetimes need separate proof.
+In particular, current depth must use the actual current raster projection including
+jitter; a guard-expanded selection projection cannot substitute for it.
+[Master's global Metal diagnosis](https://github.com/Weichwolf/outshine/issues/891#issuecomment-6277527069)
+confirms the additional TAA guard and supplies actual global argument/bounds data;
+its last-depth Double controls are separate from this cell and remain unqualified
+for Float32/device admission. No guard removal or new data export is requested.
 
 ## Complete input and measured outcome
 
