@@ -91,7 +91,8 @@ are a possible remedy to assess with the backend owners, not a delivered change.
 
 ## Costs and limits
 
-The report counts triangle/pixel candidates, covered samples, new texels, CPU
+The report counts projected vertices, triangle/scissor visits, triangle/pixel
+candidates, covered samples, new texels, CPU
 staging-copy bytes and retained-copy assignment payloads. Ring transaction staging
 copies overlap in this Python reference. These are not GPU ring copies or bus
 traffic. The copy candidate assigns old→new once; the separate #870 scratch model

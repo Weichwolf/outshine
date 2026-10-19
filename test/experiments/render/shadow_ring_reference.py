@@ -19,6 +19,13 @@ def raster(triangles, matrix, side, rectangles=None, counters=None):
     vertices[:, :, :2] = (vertices[:, :, :2] * [0.5, -0.5] + 0.5) * side
     if rectangles is None:
         rectangles = [(0, 0, side, side)]
+    if counters is not None:
+        counters["projected_vertices"] = counters.get("projected_vertices", 0) + len(
+            clips
+        )
+        counters["triangle_scissor_visits"] = counters.get(
+            "triangle_scissor_visits", 0
+        ) + len(vertices) * len(rectangles)
     for x0, y0, x1, y1 in rectangles:
         for a, b, c in vertices:
             lo = np.maximum(
