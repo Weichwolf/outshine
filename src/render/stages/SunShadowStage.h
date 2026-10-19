@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_STAGES_LIGHTVISIBILITYSTAGE_H
-#define OUTSHINE_RENDER_STAGES_LIGHTVISIBILITYSTAGE_H
+#ifndef OUTSHINE_RENDER_STAGES_SUNSHADOWSTAGE_H
+#define OUTSHINE_RENDER_STAGES_SUNSHADOWSTAGE_H
 
 #include <array>
 #include <cstddef>
@@ -21,7 +21,7 @@ constexpr uint32_t kNoBatch = 0xffffffffu;
 
 class SubjectDraw;
 
-class LightVisibilityStage {
+class SunShadowStage {
 public:
   [[nodiscard]] Native::Result<void> Configure(SubjectDraw &subjects, const Gpu &gpu);
 
@@ -69,9 +69,9 @@ public:
 
   [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
 
-  [[nodiscard]] const Vec3 &StoodAtM() const { return StoodAtM_; }
+  [[nodiscard]] const Vec3 &ShadowCentreM() const { return ShadowCentreM_; }
 
-  [[nodiscard]] bool Standing() const { return Declared_; }
+  [[nodiscard]] bool IsDeclared() const { return Declared_; }
 
   void CastsBelow(uint32_t slot) noexcept {
     if (CastsBelow_ == slot) { return; }
@@ -106,7 +106,7 @@ private:
                                                   std::span<const std::byte> view);
 
   size_t CastBatches_ = 0;
-  Vec3 StoodAtM_;
+  Vec3 ShadowCentreM_;
   SubjectDraw *Subjects_ = nullptr;
   Native::Device *Device_ = nullptr;
   std::unique_ptr<Native::GraphicsPipeline> DepthOnly_;

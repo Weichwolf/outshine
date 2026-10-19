@@ -1,4 +1,4 @@
-#include "LightVisibilityStage.h"
+#include "SunShadowStage.h"
 #include "StagePipelines.h"
 #include "SpirvFile.h"
 #include <array>
@@ -62,13 +62,13 @@ Pipeline(Native::Device &device, ShaderFiles files, uint32_t uv, Native::Cull cu
 }
 }
 
-Native::GraphicsPipeline *LightVisibilityStage::MaskedPipeline(VertexLayout layout) const {
+Native::GraphicsPipeline *SunShadowStage::MaskedPipeline(VertexLayout layout) const {
   const auto uv = static_cast<size_t>(CarriesUv(layout)) + static_cast<size_t>(CarriesUv1(layout));
   return Masked_[uv + (CarriesColour(layout) ? kMaskedUvLayouts : 0u)].get();
 }
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
-LightVisibilityStage::ConfigureTileClear(Native::Device &device) {
+SunShadowStage::ConfigureTileClear(Native::Device &device) {
   return CreateFullscreenPipeline(device,
                                   "build/shaders/depth.frag.spv",
                                   {},
@@ -76,7 +76,7 @@ LightVisibilityStage::ConfigureTileClear(Native::Device &device) {
 }
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
-LightVisibilityStage::ConfigureDepthOnly(Native::Device &device) {
+SunShadowStage::ConfigureDepthOnly(Native::Device &device) {
   return Pipeline(
       device,
       {.Vertex = "build/shaders/subjectDepth.vert.spv", .Fragment = "build/shaders/depth.frag.spv"},
@@ -84,8 +84,8 @@ LightVisibilityStage::ConfigureDepthOnly(Native::Device &device) {
       Native::Cull::Front);
 }
 
-Native::Result<LightVisibilityStage::MaskedPipelines>
-LightVisibilityStage::ConfigureMasked(Native::Device &device) {
+Native::Result<SunShadowStage::MaskedPipelines>
+SunShadowStage::ConfigureMasked(Native::Device &device) {
   MaskedPipelines pipelines;
   constexpr auto uvLayouts = static_cast<uint32_t>(kMaskedUvLayouts);
   for (uint32_t at = 0; at < pipelines.size(); ++at) {

@@ -1,4 +1,4 @@
-#include "LightVisibilityStage.h"
+#include "SunShadowStage.h"
 #include "SubjectDraw.h"
 #include "ReadbackTransfer.h"
 #include "NativeOfflineDevice.h"
@@ -40,7 +40,7 @@ constexpr std::array<uint32_t, 6> kIndices{0, 1, 2, 0, 2, 3};
 constexpr std::array<uint8_t, 8> kMask{255, 255, 255, 255, 255, 255, 255, 0};
 constexpr Mat4 kIdentity{{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 constexpr size_t kTilePixels = size_t{kShadowTilePx} * kShadowTilePx;
-constexpr auto kSun = LightVisibilityStage::Overhead{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
+constexpr auto kSun = SunShadowStage::Overhead{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
 
 struct MaskCase {
   uint32_t Uv = 0;
@@ -49,7 +49,7 @@ struct MaskCase {
 
 struct Scene {
   SubjectDraw Subjects;
-  LightVisibilityStage Shadow;
+  SunShadowStage Shadow;
   std::unique_ptr<Texture> Atlas;
 
   explicit Scene(Device &device) {

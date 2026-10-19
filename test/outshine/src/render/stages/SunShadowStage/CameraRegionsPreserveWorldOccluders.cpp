@@ -1,4 +1,4 @@
-#include "LightVisibilityStage.h"
+#include "SunShadowStage.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
@@ -20,14 +20,15 @@ int main() {
   using namespace outshine;
   using namespace outshine::Render;
   using namespace outshine::Test;
-  LightVisibilityStage stage;
-  const LightVisibilityStage::Overhead sun{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
+  SunShadowStage stage;
+  const SunShadowStage::Overhead sun{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
   stage.Declare(sun, 10000, true);
-  CHECK(stage.Standing() && stage.RegionCount() == 4, "world shadows have four regions");
+  CHECK(stage.IsDeclared() && stage.RegionCount() == 4, "world shadows have four regions");
   const Vec3 eye{{20000.125, -30000.125, 100.0}};
   const Vec3 relative{{-eye[0], -eye[1], -eye[2]}};
   stage.Build(relative);
-  CHECK(stage.StoodAtM() == eye, "world shadows are centred at the eye independently of rotation");
+  CHECK(stage.ShadowCentreM() == eye,
+        "world shadows are centred at the eye independently of rotation");
   const std::array<Mat4, 4> original{stage.RegionProjection(0),
                                      stage.RegionProjection(1),
                                      stage.RegionProjection(2),
@@ -76,12 +77,12 @@ int main() {
           "repeated framing without movement preserves every region");
   }
   stage.Declare({.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}}, 10000, true);
-  CHECK(stage.Standing(), "zenith light has a defined alternate basis");
+  CHECK(stage.IsDeclared(), "zenith light has a defined alternate basis");
   stage.Build(relative);
   CHECK(std::ranges::all_of(stage.LightFromWorld(),
                             [](double value) { return std::isfinite(value); }),
         "parallel light and up produce a finite projection");
   stage.Declare(sun, std::numeric_limits<double>::infinity(), true);
-  CHECK(!stage.Standing(), "an infinite radius is refused at declaration");
+  CHECK(!stage.IsDeclared(), "an infinite radius is refused at declaration");
   return Report();
 }

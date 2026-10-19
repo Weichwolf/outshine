@@ -247,7 +247,7 @@ public:
 
   [[nodiscard]] const Vec3 &ShadowCentreStanding() const {
     const auto published = Renderer_->PublishedWorld();
-    return Renderer_->ShadowStoodAtM();
+    return Renderer_->ShadowCentreM();
   }
 
   struct Bearing {

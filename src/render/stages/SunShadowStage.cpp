@@ -2,7 +2,7 @@
 #include "BatchVisibility.h"
 #include "math/Units.h"
 #include "math/Mat4.h"
-#include "LightVisibilityStage.h"
+#include "SunShadowStage.h"
 #include "math/Vec3.h"
 
 #include <algorithm>
@@ -41,7 +41,7 @@ std::array<size_t, 2> ShadowTile(size_t region) {
 }
 }
 
-Native::Result<void> LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu) {
+Native::Result<void> SunShadowStage::Configure(SubjectDraw &subjects, const Gpu &gpu) {
   if (gpu.Device == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "shadow pipelines require a device"});
@@ -63,7 +63,7 @@ Native::Result<void> LightVisibilityStage::Configure(SubjectDraw &subjects, cons
   return {};
 }
 
-void LightVisibilityStage::Declare(Overhead sky, double radiusM, bool cameraCentred) {
+void SunShadowStage::Declare(Overhead sky, double radiusM, bool cameraCentred) {
   const Vec3 toSun = {{sky.ToSun[0], sky.ToSun[1], sky.ToSun[2]}};
   const Vec3 up = {{sky.Up[0], sky.Up[1], sky.Up[2]}};
   if (ToSun_ != toSun || Up_ != up || RadiusM_ != radiusM || CameraCentred_ != cameraCentred) {
@@ -85,7 +85,7 @@ void LightVisibilityStage::Declare(Overhead sky, double radiusM, bool cameraCent
               sunLength > 0.0 && std::isfinite(upLength) && upLength > 0.0;
 }
 
-Vec3 LightVisibilityStage::CasterCentre() const {
+Vec3 SunShadowStage::CasterCentre() const {
   const Vec3 anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : Vec3{};
   Vec3 centre = anchor;
   Vec3 least = {{kBeyondAnyCoordinate, kBeyondAnyCoordinate, kBeyondAnyCoordinate}};
@@ -112,7 +112,7 @@ Vec3 LightVisibilityStage::CasterCentre() const {
   return centre;
 }
 
-void LightVisibilityStage::Build(const Vec3 &preView) {
+void SunShadowStage::Build(const Vec3 &preView) {
   Vec3 forward = {{-ToSun_[0], -ToSun_[1], -ToSun_[2]}};
   double length = 0.0;
   for (const double axis : forward) { length += axis * axis; }
@@ -147,14 +147,14 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
         quantumM;
     radiusM = std::ceil(radiusM / quantumM) * quantumM * (1.0 + 2.0 / kShadowTilePx);
   }
-  StoodAtM_ = centre;
+  ShadowCentreM_ = centre;
   BuildRegions({.Right = right, .Upward = upward, .Forward = forward}, centre, radiusM, preView);
 }
 
-void LightVisibilityStage::BuildRegions(const LightBasis &basis,
-                                        const Vec3 &centre,
-                                        double radiusM,
-                                        const Vec3 &preView) {
+void SunShadowStage::BuildRegions(const LightBasis &basis,
+                                  const Vec3 &centre,
+                                  double radiusM,
+                                  const Vec3 &preView) {
   Vec3 centreLight{};
   Vec3 casterLight{};
   const Vec3 casterCentre = CasterCentre();
@@ -228,7 +228,7 @@ void LightVisibilityStage::BuildRegions(const LightBasis &basis,
   }
 }
 
-void LightVisibilityStage::Prepare(const FrameContext &ctx) {
+void SunShadowStage::Prepare(const FrameContext &ctx) {
   Casting_ = false;
   PreservesAtlas_ = false;
   CastBatches_ = 0;
@@ -252,8 +252,7 @@ void LightVisibilityStage::Prepare(const FrameContext &ctx) {
   PreparedTransform_ = Static_;
 }
 
-Native::Result<void> LightVisibilityStage::Encode(const FrameContext &ctx,
-                                                  const PassRecording &into) {
+Native::Result<void> SunShadowStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (!Casting_ || !Cache_.NeedsRecording()) { return {}; }
   if (!DepthOnly_ || Subjects_ == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -269,10 +268,10 @@ Native::Result<void> LightVisibilityStage::Encode(const FrameContext &ctx,
   return {};
 }
 
-Native::Result<void> LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
-                                                const Vec3 &preView,
-                                                size_t region,
-                                                const PassRecording &into) {
+Native::Result<void> SunShadowStage::Cast(const Mat4 &lightFromWorld,
+                                          const Vec3 &preView,
+                                          size_t region,
+                                          const PassRecording &into) {
   const auto tile = ShadowTile(region);
   const Native::Viewport square{.X = static_cast<float>(tile[0]) * kShadowTilePx,
                                 .Y = static_cast<float>(tile[1]) * kShadowTilePx,
@@ -307,8 +306,8 @@ Native::Result<void> LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   return CastSubjects(recording, bytes);
 }
 
-Native::Result<void> LightVisibilityStage::CastSubjects(const PassRecording &into,
-                                                        std::span<const std::byte> view) {
+Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
+                                                  std::span<const std::byte> view) {
   const auto &resident = Subjects_->Resident();
   const auto &batches = Subjects_->Drawn();
   if (batches.empty()) { return {}; }

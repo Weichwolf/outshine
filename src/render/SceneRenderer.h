@@ -48,7 +48,7 @@ struct SDL_Window;
 #include "stages/IrradianceStage.h"
 #include "stages/EnvironmentSpecularStage.h"
 #include "stages/MediumRadianceStage.h"
-#include "stages/LightVisibilityStage.h"
+#include "stages/SunShadowStage.h"
 #include "stages/SubjectCullStage.h"
 #include "stages/SkyStage.h"
 #include "stages/MediumTransmittanceStage.h"
@@ -517,7 +517,7 @@ public:
 
   void ForgetSubjectStaging() { ActiveState().Content.Subjects.ForgetStagedCount(); }
 
-  [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return ActiveFrame().Shadow.StoodAtM(); }
+  [[nodiscard]] const Vec3 &ShadowCentreM() const { return ActiveFrame().Shadow.ShadowCentreM(); }
 
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
     return ActiveState().Content.Subjects.SetPlacements(models, rows, error) &&
@@ -1025,7 +1025,7 @@ private:
     DepthPyramidStage PyramidStage;
     DepthPyramidStage GroundPyramidStage;
     SkyStage Sky;
-    LightVisibilityStage Shadow;
+    SunShadowStage Shadow;
     SubjectCullStage Cull;
     OverlayPipeline OverlayPipe;
     PresentStage Present;
