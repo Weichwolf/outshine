@@ -82,12 +82,25 @@ a primary-visibility omission grants no deletion of those consumers' geometry.
 
 `measure_native_capture_region.py --fine <explicit-original-Fine-export> --output
 <system-temp>/native-region` reads hash-checked original streams and exact native
-source ranges using existing readers. It preserves original source ordinals and
+source ranges through `native_source_mesh.py`; its camera comes from the shared
+`triangle_image_reference.py`. It has no dependency on parked comparison scripts.
+The unchanged original input is versioned under
+[`building-capture-movement`](../../outshine/data/render/building-capture-movement/README.md)
+with a complete fresh-checkout reproduction command. It preserves original source ordinals and
 all triangle indices. Part/Face membership is not inferred. The original eye
 position receives a declared cell-facing test orientation; a second declared
 low-eye camera supplies the near countercase. Both retain 1280×720 and the
 original focal length. Pose, rightward movement and a five-degree turn are inputs
 to comparisons against the complete original triangles, treated as opaque.
+
+Both actual whole/cell replay streams are checksum-checked, not only their
+matching receipt declarations. Stream counts/byte extents, each stream's own
+index bounds and complete nonoverlapping source ranges are checked before
+combining wall/roof geometry. Invalid UInt32 roof indices cannot wrap into wall
+vertices. Unbound source slots, unknown/non-Fine calls or differing original
+identity tables fail; unknown original IDs remain unchanged. Accepted Fine calls
+must include recessed openings. These checks tighten malformed input rejection;
+they change no valid original geometry, predicate, candidate, mask or camera.
 
 `capture_region_candidates.py` finds candidate blockers through projected
 triangle boxes and perspective-correct centroid depths. These are only proposals:
