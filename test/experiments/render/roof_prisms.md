@@ -63,7 +63,9 @@ the crop. Two-by-two subsamples are used; these are finite pixel samples, not a
 continuous 1 px silhouette/coverage bound. This one cell is not the entire city.
 
 The first full run evaluates 120,676 subsamples. Maximum coverage L1 per pose is
-0.25 pixel; maximum common camera-depth discrepancy is 0.01776 m. Two synthetic
+0.25 pixel: static-025 loses one quarter sample, and one pixel crosses below half
+coverage. The largest-coverage-error image was also opened separately. Maximum
+common camera-depth discrepancy is 0.01776 m. Two synthetic
 lights shade **white flat geometric normals** on both sides. These images do not
 compare the original stored shading normals, UVs, actual material or PBR response.
 The contact image must be opened; it includes actual static20/moving20/moving21.
