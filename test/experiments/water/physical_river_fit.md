@@ -36,18 +36,23 @@ seams, terrain/bridge contacts and source-class admission remain cooker work.
 ## Whole-facet curvature envelope
 
 Each face is a graph over fixed ENU XY, with unnormalised upward normal
-`n=(-gx,-gy,1)`. Heights are bounded by the explicit exterior prism
-`0 < z_min <= z <= z_max`. The anchor's h=0 tangent plane supports the ellipsoid;
-therefore every prism point is exterior and its geodetic height is at least z_min.
+`n=(-gx,-gy,1)`. Heights are bounded by the explicit prism
+`z_min <= z <= z_max`. The anchor's h=0 tangent plane supports the ellipsoid;
+signed closest ellipsoidal height is at least z_min, including interior points.
+The [signed extension](signed_physical_water.md) requires z_min above `-a(1-e²)`
+and additionally bounds centre roundtrip error for nonpositive prisms.
 The geodetic Up derivative has eigenvalues `1/(N+h),1/(M+h),0`, obtained by
 differentiating the WGS84 coordinate map. Both curvature radii are at least
 `a(1-e²)`. If a radius R encloses all six prism vertices about its centre c,
-integration along the straight exterior segment c→p gives
-`|Up(p)-Up(c)| <= delta = R/(a(1-e²)+z_min)` throughout the prism.
+integration along the straight segment c→p gives
+`|Up(p)-Up(c)| <= delta = R/(a(1-e²)+z_min)` throughout the original positive prism.
+The signed case replaces R by R+epsilon and the height floor by z_min-epsilon
+for the reconstructed centre and its forward/inverse discrepancy.
 The implementation adds 1e-12 unit-vector roundoff allowance; this is Float64
 numerics, not an interval-arithmetic implementation. Invalid/nonlocal prisms are
-rejected; the positive-Up domain is an explicit reference restriction, not a new
-worldwide altitude requirement. A different chart/enclosure is needed outside it.
+rejected; the regular-normal/local-cap domain is an explicit reference restriction,
+not a worldwide altitude or physical-source admission. The original positive
+Ill-case bounds and arithmetic are preserved.
 
 For each row choose a unit tangent d at u0=Up(c). At any physical point let
 `t=(I-u uᵀ)d`; its normalised projection defines the **declared direction field**.

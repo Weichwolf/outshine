@@ -16,7 +16,7 @@ from outshine_ref.water.frame import (
     normal_caps,
     tangent_directions,
 )
-from outshine_ref.water.geodetic import WGS84_A, curvature_radii, query_facet
+from outshine_ref.water.geodetic import WGS84_A, WGS84_E2, curvature_radii, query_facet
 
 
 def triangle():
@@ -52,7 +52,7 @@ class PhysicalRiverTests(unittest.TestCase):
             self.assertTrue(
                 (np.linalg.norm(up - cap["up"][0], axis=1) <= cap["delta"][0]).all()
             )
-        for bounds in ([-1, 600], [0, 600], [600, 400]):
+        for bounds in ([-WGS84_A * (1 - WGS84_E2), 600], [np.nan, 600], [600, 400]):
             with self.assertRaises(ValueError):
                 normal_caps([0, 0], mesh.vertices[:, :2], mesh.triangles, bounds)
 

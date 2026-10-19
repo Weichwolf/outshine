@@ -60,8 +60,13 @@ Datum und Auswahl des richtigen Wasserbereichs besitzt weiterhin der Aufrufer.
 Keine automatisch erfundenen See-/Terrain-/Brücken-/Regionskontakte.
 
 Die ganze Facette wird über die bestehende Prismenhülle geprüft, nicht nur an
-Stichproben. Grenzen bleiben8192 Vertices,16384 Faces,65536 Zeilen, positive endliche
-ENU-Up-Prismahöhe und lokale Normalenkappe delta<0,01. Default5s/200Iterationen sind
+Stichproben. Grenzen bleiben8192 Vertices,16384 Faces,65536 Zeilen und lokale Normalenkappe
+delta<0,01. Endliche geordnete ENU-Up-Prismen dürfen null und negative Höhen enthalten;
+Unterrand und rekonstruierter Mittelpunkt müssen oberhalb der normalen Singularität
+`-a(1-e²)` bleiben. Für nichtpositive Prismen vergrößert die gemessene
+Vorwärts-/Rückwärtsabweichung des Mittelpunkts samt Float64-Zuschlag die ganze Hülle.
+[Herleitung und signierte Gegenfälle](../test/experiments/water/signed_physical_water.md).
+Die bisherigen positiven Ill-Eingaben bleiben bitgleich. Default5s/200Iterationen sind
 kooperative Offline-Limits, kein Framebudget. Auch überlaufene Solverschritte und
 fehlende gültige Ergebnisse bleiben ausdrücklich möglich. Physische Neigungs-/
 Kontaktprüfung1e-9 und endliche Primal-/Dualprüfung1e-7 sind unverändert. Unzulässige
