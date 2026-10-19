@@ -39,18 +39,18 @@ struct Flag {
   Argument Kind;
 };
 
-constexpr std::array kFlags{Flag{"--output", Argument::Output},
-                            Flag{"--gpu-validation", Argument::Validation},
-                            Flag{"--scenario", Argument::Scenario},
-                            Flag{"--scenario-overrides", Argument::Overrides},
-                            Flag{"--view", Argument::View},
-                            Flag{"--frames", Argument::Frames},
-                            Flag{"--linear-velocity", Argument::Linear},
-                            Flag{"--angular-velocity", Argument::Angular},
-                            Flag{"--preload-seconds", Argument::Preload},
-                            Flag{"--offline", Argument::Offline},
-                            Flag{"--cache-dir", Argument::Cache},
-                            Flag{"--image", Argument::Image}};
+constexpr std::array kFlags{Flag{.Name = "--output", .Kind = Argument::Output},
+                            Flag{.Name = "--gpu-validation", .Kind = Argument::Validation},
+                            Flag{.Name = "--scenario", .Kind = Argument::Scenario},
+                            Flag{.Name = "--scenario-overrides", .Kind = Argument::Overrides},
+                            Flag{.Name = "--view", .Kind = Argument::View},
+                            Flag{.Name = "--frames", .Kind = Argument::Frames},
+                            Flag{.Name = "--linear-velocity", .Kind = Argument::Linear},
+                            Flag{.Name = "--angular-velocity", .Kind = Argument::Angular},
+                            Flag{.Name = "--preload-seconds", .Kind = Argument::Preload},
+                            Flag{.Name = "--offline", .Kind = Argument::Offline},
+                            Flag{.Name = "--cache-dir", .Kind = Argument::Cache},
+                            Flag{.Name = "--image", .Kind = Argument::Image}};
 
 std::expected<Vec3, std::string_view> ReadVelocity(std::string_view value) noexcept {
   Vec3 velocity{};
@@ -81,8 +81,10 @@ ApplyValue(BenchmarkOptions &options, Argument kind, std::string_view value) noe
     case Argument::Image: scenario.Image = value; break;
     case Argument::Cache: scenario.CacheDirectory = value; break;
     case Argument::Overrides: {
-      const auto read = ReadScenarioOverrides(value.data(), scenario.Overrides);
-      if (!read) { return read; }
+      if (!ValidScenarioOverrides(value)) {
+        return std::unexpected("--scenario-overrides requires one JSON object");
+      }
+      scenario.Overrides = value;
       break;
     }
     case Argument::Preload: {
@@ -114,6 +116,21 @@ ApplyValue(BenchmarkOptions &options, Argument kind, std::string_view value) noe
   }
   return {};
 }
+
+std::expected<void, std::string_view>
+ValidateCombination(const BenchmarkOptions &options) noexcept {
+  if (!options.Scenario) { return {}; }
+  if (options.Scenario->Source.empty() || options.Scenario->Motion.Frames == 0) {
+    return std::unexpected("scenario benchmark requires --scenario and --frames");
+  }
+  if (options.GpuValidation) {
+    return std::unexpected("--gpu-validation applies only to synthetic calibration");
+  }
+  if (!options.Output.empty() && options.Output == options.Scenario->Image) {
+    return std::unexpected("benchmark JSON and image require distinct output paths");
+  }
+  return {};
+}
 }
 
 std::expected<BenchmarkOptions, std::string_view>
@@ -124,7 +141,8 @@ ReadBenchmarkOptions(std::span<const char *const> arguments) noexcept {
     if (arguments[at] == nullptr) {
       return std::unexpected("benchmark arguments must not be null");
     }
-    const auto flag = std::ranges::find(kFlags, std::string_view(arguments[at]), &Flag::Name);
+    const auto *const flag =
+        std::ranges::find(kFlags, std::string_view(arguments[at]), &Flag::Name);
     if (flag == kFlags.end()) { return std::unexpected("unrecognized benchmark argument"); }
     const uint32_t bit = 1u << std::to_underlying(flag->Kind);
     if ((seen & bit) != 0) { return std::unexpected("repeated benchmark argument"); }
@@ -148,16 +166,8 @@ ReadBenchmarkOptions(std::span<const char *const> arguments) noexcept {
       return std::unexpected(applied.error());
     }
   }
-  if (options.Scenario) {
-    if (options.Scenario->Source.empty() || options.Scenario->Motion.Frames == 0) {
-      return std::unexpected("scenario benchmark requires --scenario and --frames");
-    }
-    if (options.GpuValidation) {
-      return std::unexpected("--gpu-validation applies only to synthetic calibration");
-    }
-    if (!options.Output.empty() && options.Output == options.Scenario->Image) {
-      return std::unexpected("benchmark JSON and image require distinct output paths");
-    }
+  if (const auto valid = ValidateCombination(options); !valid) {
+    return std::unexpected(valid.error());
   }
   return options;
 }

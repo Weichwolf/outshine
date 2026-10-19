@@ -33,6 +33,7 @@
 namespace outshine::Client {
 namespace {
 using Clock = std::chrono::steady_clock;
+constexpr Extent kDefaultBenchmarkFrame{.WidthPx = 1280, .HeightPx = 720};
 
 double ElapsedMs(Clock::time_point since) noexcept {
   return std::chrono::duration<double, std::milli>(Clock::now() - since).count();
@@ -149,7 +150,7 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   report.View = options.View.empty() ? document.Played.View : std::string(options.View);
   if (report.View.empty() && !document.Views.empty()) { report.View = document.Views.front().Id; }
   if (report.View.empty()) { return std::unexpected("scenario benchmark needs a declared view"); }
-  report.Frame = document.Render.Frame == Extent{} ? Extent{1280, 720} : document.Render.Frame;
+  report.Frame = document.Render.Frame == Extent{} ? kDefaultBenchmarkFrame : document.Render.Frame;
   if (report.Frame.WidthPx <= 0 || report.Frame.HeightPx <= 0) {
     return std::unexpected("benchmark frame dimensions must both be positive");
   }

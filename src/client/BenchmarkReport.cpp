@@ -63,7 +63,9 @@ ReportJson Distribution(std::vector<double> values, double budgetMs) {
 }
 
 ReportJson CpuTimes(const ScenarioBenchmarkReport &report, double budgetMs) {
-  std::vector<double> frame, advance, render;
+  std::vector<double> frame;
+  std::vector<double> advance;
+  std::vector<double> render;
   frame.reserve(report.Frames.size());
   advance.reserve(report.Frames.size());
   render.reserve(report.Frames.size());
@@ -164,7 +166,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
 #else
   constexpr std::string_view backend = "Vulkan";
 #endif
-  ReportJson json{
+  const ReportJson json{
       {"benchmark_version", 1},
       {"mode", "scenario"},
       {"measurement_complete", measurementComplete},
