@@ -35,18 +35,23 @@ whose segment intersects a convex opaque triangle form a convex cone on the
 observer side. If all eye-box vertices lie in it, their convex hull does too.
 For a fixed eye the blocker shadow is convex, so testing all candidate vertices
 covers the triangle interior. The behind-plane condition enforces depth ordering.
-The implementation uses Float64 original Float32 positions with inward margins;
-finite independent controls supplement this argument, not exact-arithmetic proof.
+The existing shared `outshine_ref.geometry.occlusion` compiler constructs the
+umbra with exact rational coefficients and outward Float64 intervals. Its bounded
+box classifier tests the three candidate vertices as degenerate boxes, using
+outward arithmetic and inward margins. The early backface/ranking/near-distance
+stage uses Float64; the complete algorithm is not an exact-arithmetic proof.
 
 The guard matters: an occluder clipped by the renderer's0.1camera-depth near plane
 cannot hide a distant surface. Blocker plane distance exceeds0.1times the maximum
 declared ray-vector length. Queries reject longer rays, nonfinite positions and
 eyes outside the box. This also protects against using arbitrary ray scaling.
 
-Limits:131072input triangles,512maximum configured blockers,1024maximum batch;
-the supplied profile uses128and256. The point/halfspace arrays are batched. Copies,
-gathered triangle bytes, tested elements and largest test buffers are reported;
-these counters are not a complete allocator trace. Process peaks include libraries.
+Limits:131072input triangles,512maximum configured blockers,170maximum triangle
+batch (the library accepts512point boxes); the profile uses128and128. Duplicate
+camera-box corners are removed by the compiler, so this planar motion box needs
+13halfspaces per blocker rather than25. Copies, gathered triangle bytes and tested
+elements are reported. The largest input buffer counter excludes classifier
+temporaries; process peaks include libraries, not a complete allocator trace.
 
 ## Product and independent controls
 
@@ -89,7 +94,7 @@ Actual containers, header, derived CPU fields/index allocations and peaks add co
 
 Backfaces alone leave5984triangles and438880Bcore arrays. They account for most
 of the reduction at much less cooker work. The extra umbra removes only30594Bcore
-in this cell for53016525halfspace/vertex tests. Measure total bake/amortization
+in this cell for27568593halfspace/vertex tests with interval arithmetic. Measure total bake/amortization
 before retaining that step in a real field builder; fewer records alone do not win.
 
 573of576source identities remain. This does **not** reduce world-level object
@@ -112,13 +117,14 @@ implements a small single-blocker halfspace specialization; it does not reproduc
 the paper's extended-depth raster, reprojection sweep or occluder fusion.
 
 ```sh
-OPENBLAS_NUM_THREADS=1 PYTHONPATH=test/experiments/render .venv/bin/python -m unittest \
+OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/render .venv/bin/python -m unittest \
   test_viewcell_visibility test_viewcell_product test_layered_tree test_attributed_prisms test_full_view_reference
-OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/render/compare_viewcell_support.py \
+OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p test_occlusion.py
+OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src .venv/bin/python test/experiments/render/compare_viewcell_support.py \
   --input test/outshine/data/render/building-full-view/cell.json.gz \
   --product /tmp/outshine-research-viewcell-product-<commit> \
   --output /tmp/outshine-research-viewcell-report-<commit>
-OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/render/bench_viewcell_product.py \
+OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src .venv/bin/python test/experiments/render/bench_viewcell_product.py \
   --product /tmp/outshine-research-viewcell-product-<commit> \
   --request /tmp/outshine-research-viewcell-report-<commit>/cache-request.json \
   --output /tmp/outshine-research-viewcell-cache-hit-<commit>

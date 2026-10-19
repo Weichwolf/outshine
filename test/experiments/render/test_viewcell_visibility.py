@@ -3,7 +3,8 @@
 import unittest
 
 import numpy as np
-from viewcell_visibility import corners, select_support, umbra
+from outshine_ref.geometry.occlusion import convex_patch_umbra
+from viewcell_visibility import select_support
 
 
 class ViewcellVisibilityTest(unittest.TestCase):
@@ -52,9 +53,10 @@ class ViewcellVisibilityTest(unittest.TestCase):
         self.assertTrue(self.support(target).keep[1])
 
     def test_crossing_occluder_plane_has_no_umbra(self):
-        self.assertIsNone(
-            umbra(self.blocker, corners([[-0.1, -0.1, 0], [0.1, 0.1, 2]]), 1e-8)
+        certificate = convex_patch_umbra(
+            self.blocker, [[-0.1, -0.1, 0], [0.1, 0.1, 2]], certified_opaque=True
         )
+        self.assertEqual(len(certificate.low), 0)
 
     def test_near_clipped_blocker_cannot_hide_target(self):
         self.blocker[:, 2] = 0.05

@@ -153,7 +153,20 @@ def main():
         * 1024,
         "source_hashes": {
             p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in [Path(__file__), *Path(__file__).parent.glob("*viewcell*.py")]
+            for p in [
+                Path(__file__),
+                *(
+                    Path(__file__).with_name(name)
+                    for name in (
+                        "viewcell_visibility.py",
+                        "viewcell_product.py",
+                        "check_viewcell_support.py",
+                        "bench_viewcell_product.py",
+                        "compare_layered_tree.py",
+                    )
+                ),
+                repo / "lib/src/outshine_ref/geometry/occlusion.py",
+            ]
         },
         "scope": "opaque camera-only support; original caster/logical assets remain; no projected field, global amortization, frame or device admission",
     }
