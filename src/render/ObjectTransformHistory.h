@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_SUBJECTPLACEMENTHISTORY_H
-#define OUTSHINE_RENDER_SUBJECTPLACEMENTHISTORY_H
+#ifndef OUTSHINE_RENDER_OBJECTTRANSFORMHISTORY_H
+#define OUTSHINE_RENDER_OBJECTTRANSFORMHISTORY_H
 
 #include <cassert>
 #include <cstddef>
@@ -10,7 +10,7 @@
 
 namespace outshine::Render {
 
-class SubjectPlacementHistory {
+class ObjectTransformHistory {
 public:
   void Reset() noexcept {
     for (Mat4 &body : Bodies_) { body = Unsent(); }

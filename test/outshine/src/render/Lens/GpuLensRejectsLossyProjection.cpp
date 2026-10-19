@@ -9,7 +9,7 @@
 #include "Lens.h"
 #include "SceneRenderer.h"
 #include "Shape.h"
-#include "SubjectProxy.h"
+#include "RenderObject.h"
 #include "Viewing.h"
 
 namespace {

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include "SubjectProxy.h"
+#include "RenderObject.h"
 #include "math/Vec3.h"
 
 #include <cstddef>
@@ -33,7 +33,7 @@ constexpr auto kInvalidLens =
     "the camera projection is invalid or cannot be represented by the GPU lens";
 }
 
-void SubjectProxy::ResetForShape(const Shape &subject, const Vec3 &anchorEcefM) {
+void RenderObject::ResetForShape(const Shape &subject, const Vec3 &anchorEcefM) {
   Shape_ = &subject;
   for (int axis = 0; axis < 3; ++axis) { AnchorEcefM_[axis] = anchorEcefM[axis]; }
   const size_t parts = subject.Parts.size();
@@ -47,14 +47,14 @@ void SubjectProxy::ResetForShape(const Shape &subject, const Vec3 &anchorEcefM) 
   Lights_.clear();
 }
 
-void SubjectProxy::SelectParts(std::span<const std::string> names) {
+void RenderObject::SelectParts(std::span<const std::string> names) {
   for (size_t part = 0; part < PartVisible_.size(); ++part) {
     PartVisible_[part] = static_cast<uint8_t>(
         names.empty() || std::ranges::find(names, Shape_->Parts[part].Name) != names.end());
   }
 }
 
-bool SubjectProxy::ResizeInstances(size_t instances) {
+bool RenderObject::ResizeInstances(size_t instances) {
   if (instances == 0 || Shape_ == nullptr) { return false; }
   const size_t parts = Parts();
   if (instances == Instances_) { return true; }
@@ -70,7 +70,7 @@ bool SubjectProxy::ResizeInstances(size_t instances) {
   return true;
 }
 
-bool SubjectProxy::SetMaterials(std::span<const uint32_t> partSlot,
+bool RenderObject::SetMaterials(std::span<const uint32_t> partSlot,
                                 std::span<const SubjectMaterial> slots,
                                 std::string &error) {
   if (partSlot.size() != Parts()) {
@@ -83,17 +83,17 @@ bool SubjectProxy::SetMaterials(std::span<const uint32_t> partSlot,
   return true;
 }
 
-bool SubjectProxy::SetEmission(size_t part, const std::array<float, 3> &radiance) {
+bool RenderObject::SetEmission(size_t part, const std::array<float, 3> &radiance) {
   if (part >= EmittedRadiance_.size()) { return false; }
   EmittedRadiance_[part] = radiance;
   return true;
 }
 
-bool SubjectProxy::SetPlacement(size_t part, const Mat4 &placement) {
+bool RenderObject::SetPlacement(size_t part, const Mat4 &placement) {
   return SetPlacement(part, 0, placement);
 }
 
-bool SubjectProxy::SetPlacement(size_t part, size_t instance, const Mat4 &placement) {
+bool RenderObject::SetPlacement(size_t part, size_t instance, const Mat4 &placement) {
   if (instance >= Instances_) { return false; }
   const size_t row = part * Instances_ + instance;
   if (row >= PartPlacement_.size()) { return false; }
@@ -102,7 +102,7 @@ bool SubjectProxy::SetPlacement(size_t part, size_t instance, const Mat4 &placem
   return true;
 }
 
-bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &error) {
+bool Placed(SceneRenderer &renderer, const RenderObject &proxy, std::string &error) {
   const size_t rows = proxy.Placements();
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   Mat4 ecef{};
@@ -193,20 +193,20 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
   return (along - eye.ZNearM) / span;
 }
 
-[[nodiscard]] bool Gathers(const SubjectProxy &proxy) {
+[[nodiscard]] bool Gathers(const RenderObject &proxy) {
   return !proxy.Lights().empty() || proxy.IndirectLight().SkyLux > 0.0 ||
          proxy.IndirectLight().RadianceLinear[0] > 0.0 ||
          proxy.IndirectLight().RadianceLinear[1] > 0.0 ||
          proxy.IndirectLight().RadianceLinear[2] > 0.0;
 }
 
-[[nodiscard]] bool Lit(const SubjectProxy &proxy, const Shape &subject, size_t part) {
+[[nodiscard]] bool Lit(const RenderObject &proxy, const Shape &subject, size_t part) {
   const SubjectMaterial &wearing = proxy.Slots()[proxy.Slot(part)];
   return subject.Parts[part].HasNormal && (Gathers(proxy) || wearing.Emissive.Rgba != nullptr) &&
          !wearing.Row.Unlit;
 }
 
-[[nodiscard]] bool Agrees(const SubjectProxy &proxy, const Shape &subject, std::string &error) {
+[[nodiscard]] bool Agrees(const RenderObject &proxy, const Shape &subject, std::string &error) {
   const size_t parts = subject.Parts.size();
   if (proxy.Slots().empty()) {
     error = "the proxy declares no surface at all, and every draw binds one";
@@ -232,7 +232,7 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
   return true;
 }
 
-[[nodiscard]] bool BuildDrawList(const SubjectProxy &proxy,
+[[nodiscard]] bool BuildDrawList(const RenderObject &proxy,
                                  const SubjectView &view,
                                  const Shape &subject,
                                  DrawList &list,
@@ -304,7 +304,7 @@ void PackChannel(const void *carrying, float *into, uint32_t floats) {
 
 struct EmitPack {
   const Shape *From = nullptr;
-  const SubjectProxy *Proxy = nullptr;
+  const RenderObject *Proxy = nullptr;
 };
 
 void PackEmitted(const void *carrying, float *into, uint32_t floats) {
@@ -333,7 +333,7 @@ void PackPrevious(const void *carrying, float *into, uint32_t floats) {
 }
 
 [[nodiscard]] bool
-PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::string &error) {
+PlaceLights(const RenderObject &proxy, std::vector<SubjectLight> &out, std::string &error) {
   out.clear();
   out.reserve(proxy.Lights().size());
   for (size_t at = 0; at < proxy.Lights().size(); ++at) {
@@ -384,8 +384,8 @@ bool Aim(SceneRenderer &renderer,
 }
 
 bool BindIllumination(SceneRenderer &renderer,
-                      const SubjectProxy &proxy,
-                      SubjectScratch &scratch,
+                      const RenderObject &proxy,
+                      RenderObjectPreparation &scratch,
                       std::string &error) {
   if (!PlaceLights(proxy, scratch.Lights, error)) { return false; }
   if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
@@ -394,9 +394,9 @@ bool BindIllumination(SceneRenderer &renderer,
 }
 
 bool Surface(SceneRenderer &renderer,
-             const SubjectProxy &proxy,
+             const RenderObject &proxy,
              [[maybe_unused]] const SubjectView &view,
-             SubjectScratch &scratch,
+             RenderObjectPreparation &scratch,
              std::string &error) {
   if (proxy.Shaped() == nullptr) {
     error = "the proxy declares no subject";
@@ -408,9 +408,9 @@ bool Surface(SceneRenderer &renderer,
 }
 
 bool Show(SceneRenderer &renderer,
-          const SubjectProxy &proxy,
+          const RenderObject &proxy,
           const SubjectView &view,
-          SubjectScratch &scratch,
+          RenderObjectPreparation &scratch,
           std::string &error) {
   return Surface(renderer, proxy, view, scratch, error) &&
          Place(renderer, proxy, view, scratch, error);
@@ -431,8 +431,8 @@ DigestBytes(uint64_t &digest, const void *source, size_t bytes, size_t &offset, 
   return count / sizeof(uint32_t);
 }
 
-bool PackIndexSlice(const Shape &subject, SubjectScratch &scratch, size_t wordsMost) {
-  SubjectScratch::PackCursor &cursor = scratch.Packing;
+bool PackIndexSlice(const Shape &subject, RenderObjectPreparation &scratch, size_t wordsMost) {
+  RenderObjectPreparation::PackCursor &cursor = scratch.Packing;
   const std::vector<IndexRun> &runs = scratch.Draws.Runs();
   if (cursor.Run == 0 && cursor.RunWord == 0) {
     scratch.Indices.reserve(scratch.Draws.IndexCount());
@@ -451,12 +451,12 @@ bool PackIndexSlice(const Shape &subject, SubjectScratch &scratch, size_t wordsM
     }
   }
   if (cursor.Run != runs.size()) { return false; }
-  cursor.Next = SubjectScratch::PackCursor::Phase::Positions;
+  cursor.Next = RenderObjectPreparation::PackCursor::Phase::Positions;
   return false;
 }
 
-bool PackPositionSlice(const Shape &subject, SubjectScratch &scratch, size_t wordsMost) {
-  SubjectScratch::PackCursor &cursor = scratch.Packing;
+bool PackPositionSlice(const Shape &subject, RenderObjectPreparation &scratch, size_t wordsMost) {
+  RenderObjectPreparation::PackCursor &cursor = scratch.Packing;
   if (cursor.Part == 0 && cursor.PartWord == 0) {
     scratch.Vertices.resize(subject.VertexCount() * 3u);
   }
@@ -480,31 +480,31 @@ bool PackPositionSlice(const Shape &subject, SubjectScratch &scratch, size_t wor
   }
   if (cursor.Part != subject.Parts.size()) { return false; }
   cursor.Digest = kDigestBasis;
-  cursor.Next = scratch.Digests ? SubjectScratch::PackCursor::Phase::DigestIndices
-                                : SubjectScratch::PackCursor::Phase::Done;
+  cursor.Next = scratch.Digests ? RenderObjectPreparation::PackCursor::Phase::DigestIndices
+                                : RenderObjectPreparation::PackCursor::Phase::Done;
   if (!scratch.Digests) { scratch.PreparedShape = &subject; }
-  return cursor.Next == SubjectScratch::PackCursor::Phase::Done;
+  return cursor.Next == RenderObjectPreparation::PackCursor::Phase::Done;
 }
 
-bool DigestIndexSlice(SubjectScratch &scratch, size_t wordsMost) {
-  SubjectScratch::PackCursor &cursor = scratch.Packing;
+bool DigestIndexSlice(RenderObjectPreparation &scratch, size_t wordsMost) {
+  RenderObjectPreparation::PackCursor &cursor = scratch.Packing;
   const size_t bytes = scratch.Indices.size() * sizeof(uint32_t);
   DigestBytes(cursor.Digest, scratch.Indices.data(), bytes, cursor.DigestByte, wordsMost);
   if (cursor.DigestByte != bytes) { return false; }
   cursor.DigestByte = 0;
   cursor.Part = 0;
-  cursor.Next = SubjectScratch::PackCursor::Phase::DigestChannels;
+  cursor.Next = RenderObjectPreparation::PackCursor::Phase::DigestChannels;
   return false;
 }
 
-bool DigestChannelSlice(const Shape &subject, SubjectScratch &scratch, size_t wordsMost) {
+bool DigestChannelSlice(const Shape &subject, RenderObjectPreparation &scratch, size_t wordsMost) {
   constexpr std::array<std::span<const float> ShapePart::*, 6> channels{&ShapePart::PositionsM,
                                                                         &ShapePart::Normals,
                                                                         &ShapePart::Tangents,
                                                                         &ShapePart::Uv,
                                                                         &ShapePart::Uv1,
                                                                         &ShapePart::Colours};
-  SubjectScratch::PackCursor &cursor = scratch.Packing;
+  RenderObjectPreparation::PackCursor &cursor = scratch.Packing;
   while (cursor.Part < subject.Parts.size() && wordsMost > 0) {
     const std::span<const float> values =
         subject.Parts[cursor.Part].*channels[cursor.DigestChannel];
@@ -522,16 +522,16 @@ bool DigestChannelSlice(const Shape &subject, SubjectScratch &scratch, size_t wo
   if (cursor.Part != subject.Parts.size()) { return false; }
   scratch.Metrics.GeometryDigest = cursor.Digest;
   scratch.PreparedShape = &subject;
-  cursor.Next = SubjectScratch::PackCursor::Phase::Done;
+  cursor.Next = RenderObjectPreparation::PackCursor::Phase::Done;
   return true;
 }
 
 }
 
 bool PlanPlacement(SceneRenderer &renderer,
-                   const SubjectProxy &proxy,
+                   const RenderObject &proxy,
                    const SubjectView &view,
-                   SubjectScratch &scratch,
+                   RenderObjectPreparation &scratch,
                    std::string &error) {
   scratch.PlannedShape = nullptr;
   scratch.PreparedShape = nullptr;
@@ -570,7 +570,9 @@ bool PlanPlacement(SceneRenderer &renderer,
   return true;
 }
 
-bool PackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, std::string &error) {
+bool PackPlacement(const RenderObject &proxy,
+                   RenderObjectPreparation &scratch,
+                   std::string &error) {
   while (true) {
     auto packed = AdvancePackPlacement(proxy, scratch, std::numeric_limits<size_t>::max());
     if (!packed) {
@@ -581,8 +583,9 @@ bool PackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, std::stri
   }
 }
 
-std::expected<bool, std::string>
-AdvancePackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, size_t wordsMost) {
+std::expected<bool, std::string> AdvancePackPlacement(const RenderObject &proxy,
+                                                      RenderObjectPreparation &scratch,
+                                                      size_t wordsMost) {
   const Shape *const source = proxy.Shaped();
   if (source == nullptr || source != scratch.PlannedShape) {
     return std::unexpected("subject packing no longer matches its draw plan");
@@ -591,27 +594,27 @@ AdvancePackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, size_t 
   static const Heap::Tag kPackingTag("index-run");
   const Heap::Tagged packing(kPackingTag);
   const auto began = std::chrono::steady_clock::now();
-  const SubjectScratch::PackCursor::Phase phase = scratch.Packing.Next;
+  const RenderObjectPreparation::PackCursor::Phase phase = scratch.Packing.Next;
   bool complete = false;
   switch (phase) {
-    case SubjectScratch::PackCursor::Phase::Indices:
+    case RenderObjectPreparation::PackCursor::Phase::Indices:
       complete = PackIndexSlice(*source, scratch, wordsMost);
       break;
-    case SubjectScratch::PackCursor::Phase::Positions:
+    case RenderObjectPreparation::PackCursor::Phase::Positions:
       complete = PackPositionSlice(*source, scratch, wordsMost);
       break;
-    case SubjectScratch::PackCursor::Phase::DigestIndices:
+    case RenderObjectPreparation::PackCursor::Phase::DigestIndices:
       complete = DigestIndexSlice(scratch, wordsMost);
       break;
-    case SubjectScratch::PackCursor::Phase::DigestChannels:
+    case RenderObjectPreparation::PackCursor::Phase::DigestChannels:
       complete = DigestChannelSlice(*source, scratch, wordsMost);
       break;
-    case SubjectScratch::PackCursor::Phase::Done: return true;
+    case RenderObjectPreparation::PackCursor::Phase::Done: return true;
   }
   const double elapsed =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-  if (phase == SubjectScratch::PackCursor::Phase::Indices ||
-      phase == SubjectScratch::PackCursor::Phase::Positions) {
+  if (phase == RenderObjectPreparation::PackCursor::Phase::Indices ||
+      phase == RenderObjectPreparation::PackCursor::Phase::Positions) {
     scratch.Metrics.PackingMs += elapsed;
   } else {
     scratch.Metrics.DigestMs += elapsed;
@@ -620,9 +623,9 @@ AdvancePackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, size_t 
 }
 
 bool PreparePlacement(SceneRenderer &renderer,
-                      const SubjectProxy &proxy,
+                      const RenderObject &proxy,
                       const SubjectView &view,
-                      SubjectScratch &scratch,
+                      RenderObjectPreparation &scratch,
                       std::string &error) {
   return PlanPlacement(renderer, proxy, view, scratch, error) &&
          PackPlacement(proxy, scratch, error);
@@ -630,7 +633,7 @@ bool PreparePlacement(SceneRenderer &renderer,
 
 namespace {
 
-const Shape *PreparedSubject(const SubjectProxy &proxy, const SubjectScratch &scratch) {
+const Shape *PreparedSubject(const RenderObject &proxy, const RenderObjectPreparation &scratch) {
   const Shape *const source = proxy.Shaped();
   if (source == nullptr || source != scratch.PreparedShape ||
       scratch.Indices.size() != scratch.Draws.IndexCount() ||
@@ -650,7 +653,9 @@ struct PlacementMeshInput {
   EmitPack Emitted;
   SubjectMesh Mesh;
 
-  PlacementMeshInput(const Shape &subject, const SubjectProxy &proxy, const SubjectScratch &scratch)
+  PlacementMeshInput(const Shape &subject,
+                     const RenderObject &proxy,
+                     const RenderObjectPreparation &scratch)
       : Positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3},
         Uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2},
         Uv1{.From = &subject, .Channel = &ShapePart::Uv1, .Wide = 2},
@@ -690,7 +695,7 @@ struct PlacementMeshInput {
   }
 };
 
-void RecordsMeshUpload(const SceneRenderer &renderer, SubjectScratch &scratch) {
+void RecordsMeshUpload(const SceneRenderer &renderer, RenderObjectPreparation &scratch) {
   const SubjectMeshUploadMetrics stages = renderer.LastSubjectMeshUpload();
   scratch.Metrics.MeshAdmissionMs = stages.AdmissionMs;
   scratch.Metrics.IndexUploadMs = stages.IndexMs;
@@ -700,8 +705,8 @@ void RecordsMeshUpload(const SceneRenderer &renderer, SubjectScratch &scratch) {
 
 }
 
-std::expected<SubjectDraw::MeshTicket, std::string>
-BeginPlacementUpload(SceneRenderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch) {
+std::expected<SubjectDraw::MeshTicket, std::string> BeginPlacementUpload(
+    SceneRenderer &renderer, const RenderObject &proxy, RenderObjectPreparation &scratch) {
   const Shape *const source = PreparedSubject(proxy, scratch);
   if (source == nullptr) {
     return std::unexpected("subject placement no longer matches its prepared geometry");
@@ -719,8 +724,8 @@ BeginPlacementUpload(SceneRenderer &renderer, const SubjectProxy &proxy, Subject
 }
 
 bool FinishPlacementUpload(SceneRenderer &renderer,
-                           const SubjectProxy &proxy,
-                           SubjectScratch &scratch,
+                           const RenderObject &proxy,
+                           RenderObjectPreparation &scratch,
                            SubjectDraw::MeshTicket ticket,
                            std::string &error) {
   const Shape *const source = PreparedSubject(proxy, scratch);
@@ -746,8 +751,8 @@ bool FinishPlacementUpload(SceneRenderer &renderer,
 }
 
 bool SubmitPlacement(SceneRenderer &renderer,
-                     const SubjectProxy &proxy,
-                     SubjectScratch &scratch,
+                     const RenderObject &proxy,
+                     RenderObjectPreparation &scratch,
                      std::string &error) {
   auto began = BeginPlacementUpload(renderer, proxy, scratch);
   if (!began) {
@@ -758,18 +763,18 @@ bool SubmitPlacement(SceneRenderer &renderer,
 }
 
 bool Place(SceneRenderer &renderer,
-           const SubjectProxy &proxy,
+           const RenderObject &proxy,
            const SubjectView &view,
-           SubjectScratch &scratch,
+           RenderObjectPreparation &scratch,
            std::string &error) {
   return PreparePlacement(renderer, proxy, view, scratch, error) &&
          SubmitPlacement(renderer, proxy, scratch, error);
 }
 
 bool Move(SceneRenderer &renderer,
-          const SubjectProxy &proxy,
+          const RenderObject &proxy,
           const SubjectView &view,
-          SubjectScratch &scratch,
+          RenderObjectPreparation &scratch,
           std::string &error) {
   if (proxy.Shaped() == nullptr) {
     error = "the proxy declares no subject";

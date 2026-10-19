@@ -4,7 +4,7 @@
 #include <SDL3/SDL.h>
 #include "Check.h"
 #include "SceneRenderer.h"
-#include "SubjectProxy.h"
+#include "RenderObject.h"
 
 namespace {
 void CheckLayouts() {
@@ -30,7 +30,7 @@ void CheckLayouts() {
   shape.Parts = {&part, 1};
   shape.Indices = indices;
   shape.CarriesUv = true;
-  SubjectProxy proxy;
+  RenderObject proxy;
   proxy.ResetForShape(shape, {});
   SubjectView view;
   view.HasExplicitCamera = true;
@@ -38,7 +38,7 @@ void CheckLayouts() {
   constexpr double kNearM = 0.05;
   view.Eye.ZNearM = kNearM;
   view.Eye.ZFarM = 10;
-  SubjectScratch scratch;
+  RenderObjectPreparation scratch;
   std::string error;
   constexpr std::array<uint32_t, 1> slots{0};
   for (const auto pattern :

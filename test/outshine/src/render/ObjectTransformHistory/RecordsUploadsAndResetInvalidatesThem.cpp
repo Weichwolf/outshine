@@ -1,12 +1,12 @@
 #include "Check.h"
-#include "SubjectPlacementHistory.h"
+#include "ObjectTransformHistory.h"
 
 int main() {
   using namespace outshine;
   using namespace outshine::Render;
   using namespace outshine::Test;
 
-  SubjectPlacementHistory history;
+  ObjectTransformHistory history;
   history.Resize(2);
   Mat4 body;
   body[12] = 4.0;
