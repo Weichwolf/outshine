@@ -3,8 +3,9 @@
 import unittest
 
 import numpy as np
-from native_profile_fit import area_mass, area_weights
+from native_profile_fit import area_weights
 from outshine_ref.contracts import Mesh
+from outshine_ref.water._mass import area_mass
 
 
 class ProfileMass(unittest.TestCase):
