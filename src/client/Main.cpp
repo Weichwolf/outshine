@@ -33,6 +33,7 @@
 #include "PixelProbe.h"
 #include "ScenarioRoundTrip.h"
 #include "ScenarioCapture.h"
+#include "ScenarioInput.h"
 #include "format/Number.h"
 #include <cmath>
 
@@ -82,6 +83,7 @@ private:
 
 Telling gTelling;
 
+using outshine::Client::ClientRoots;
 using outshine::Shots::Place;
 using outshine::Shots::Shot;
 
@@ -166,7 +168,19 @@ void Usage(std::string_view verb = {}) {
     std::println("Usage: outshine benchmark [--output <file.json>] [--gpu-validation]\n"
                  "Measure the fixed native CPU, GPU and memory workloads; output JSON.\n"
                  "An output path alone selects the synthetic hardware measurement.\n"
-                 "GPU validation changes measurement costs and must be reported separately.");
+                 "GPU validation applies to this synthetic mode and changes measurement costs.\n\n"
+                 "Usage: outshine benchmark --scenario <file|JSON> --frames <N> [options]\n"
+                 "  --view <id>                    starting declared camera\n"
+                 "  --scenario-overrides <JSON>    generic scenario overrides, including fps\n"
+                 "  --linear-velocity <x,y,z>      world-space velocity in m/s\n"
+                 "  --angular-velocity <x,y,z>     right-handed world-axis velocity in degrees/s\n"
+                 "  --preload-seconds <s>          refined preparation deadline (default10)\n"
+                 "  --cache-dir <directory>        source directory; assets remain separate\n"
+                 "  --offline                      use cached and shipped sources\n"
+                 "  --output <file.json>           atomic report; default stdout\n"
+                 "  --image <file.png>             save only the final measured frame\n"
+                 "N is 1..1000000; the scenario supplies width, height and target fps.\n"
+                 "No warmup frames; GPU percentiles stay absent when timestamps are incomplete.");
   } else if (verb == "run" || verb == "measures") {
     std::println(
         "Usage: outshine {} [options] <scenario> [name]\n"
@@ -326,14 +340,6 @@ void PrintStats(std::string_view name,
     row(prefix + "priority", source.Priority, "rank");
     row(prefix + "tile_deliveries", source.TileDeliveries, "tiles");
   }
-}
-
-[[nodiscard]] outshine::Roots ClientRoots(std::string_view cacheDirectory, bool offline) {
-  return {.Assets = "src/assets/drive",
-          .Shipped = "src/assets",
-          .Cache = std::string(cacheDirectory),
-          .Offline = offline,
-          .AssetCache = {}};
 }
 
 [[nodiscard]] bool InitializeClientEngine(
@@ -753,21 +759,15 @@ int CaptureView(outshine::Engine &engine,
   }
   const std::string_view sourceName =
       outshine::IsJsonScenario(options.Argv[0]) ? "inline scenario" : options.Argv[0];
-  outshine::Engine reader;
-  if (const auto rooted = reader.setRoots(ClientRoots(options.CacheDirectory, options.Offline));
-      !rooted) {
-    std::println("outshine: {} -- {}", sourceName, rooted.error());
+  auto input =
+      outshine::Client::ReadClientScenario(options.Argv[0],
+                                           options.ScenarioOverrides,
+                                           ClientRoots(options.CacheDirectory, options.Offline));
+  if (!input) {
+    std::println("outshine: {} -- {}", sourceName, input.error());
     return 1;
   }
-  if (const auto read = reader.readScenario(options.Argv[0], options.ScenarioOverrides); !read) {
-    std::println("outshine: {} -- {}", sourceName, read.error());
-    return 1;
-  }
-  auto declaration = reader.declaration();
-  if (const auto sources = outshine::Client::ConfigureWorldSources(declaration); !sources) {
-    std::println("outshine: {} -- {}", sourceName, sources.error());
-    return 1;
-  }
+  auto declaration = std::move(*input);
   if (options.ProbePixel) { outshine::Client::PreparePixelAttachments(declaration); }
   outshine::Extent frame = declaration.Render.Frame;
   if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {

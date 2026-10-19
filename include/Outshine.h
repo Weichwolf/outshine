@@ -25,6 +25,10 @@
 
 namespace outshine {
 
+namespace Render {
+struct GpuFrameSample;
+}
+
 /// What a door verb gives back: the value it was asked for, or the reason it could not be had.
 ///
 /// A refusal that carries only `false` makes the client invent the reason, and the reasons here are
@@ -237,6 +241,22 @@ public:
   /// Preserves the image, camera, temporal history and resources; requires an assembled scene.
   /// @return An owned scene/capture error, or success.
   [[nodiscard]] Result resetMeasurements();
+  /// Preallocate retention for at most gpuSamples actual GPU frame timings, then reset the window.
+  /// Configuration may allocate; subsequent collection adds no waits, queries or allocations.
+  /// Zero disables retention and releases the retained storage. Requires an assembled scene.
+  /// @return An owned scene/capture error, or success.
+  [[nodiscard]] Result resetMeasurements(size_t gpuSamples);
+  /// Copy retained completed GPU submission timings without polling, waiting or drawing.
+  /// Flush before reading a complete window. Unavailable timestamps have no sample.
+  /// @return An owned scene error or capacity-overflow error, or success; out is preserved on
+  /// error.
+  [[nodiscard]] Result gpuSamples(std::vector<Render::GpuFrameSample> &out) const;
+  /// Read the currently prepared render camera without drawing or advancing time.
+  /// @return Whether a render scene with a camera is available.
+  [[nodiscard]] bool camera(Camera &out) const;
+  /// Borrow the current native GPU model name; empty before device creation.
+  /// The Engine must outlive the returned view; serialize with device reconfiguration.
+  [[nodiscard]] std::string_view gpuName() const;
   /// Save the last successfully rendered frame as an RGBA PNG without drawing again.
   /// Runs on the Engine/video thread; may allocate, wait for the GPU and perform IO.
   /// Parent directories are created as needed; an existing file is overwritten.
@@ -319,6 +339,11 @@ public:
   /// @return Error for missing/unknown views, preserving the active selection; otherwise success.
   /// Serialize with Engine calls. Following/terrain errors may occur later during advance().
   [[nodiscard]] Result setView(std::string_view view);
+  /// Stage an absolute local camera pose for the active view, retaining its lens and clock.
+  /// Releases route, follow and sampled-height control. Invalid poses preserve the view.
+  /// The next advance applies pending input even when no simulation step is due.
+  /// @return An owned view, capture or pose error, or success.
+  [[nodiscard]] Result setCameraPose(const Camera &pose);
   /// Dispatch a borrowed SDL event to declared input bindings or UI surfaces.
   /// Call on the Engine/video thread. Host callbacks run synchronously and must not
   /// reenter or destroy the Engine; input data is not retained beyond this call.
@@ -634,7 +659,9 @@ public:
   /// Call on the Engine/video thread; steps may allocate and perform streaming/render setup.
   /// Invalid input or accumulator overflow fails before mutation. A failed step may retain
   /// partial state and consumes its queued time. Excess backlog may be discarded.
-  /// @param elapsedS Finite nonnegative seconds; zero may still process existing backlog.
+  /// Pending camera input updates world demand and render state even when no step is due,
+  /// without advancing simulation time or firing simulation triggers.
+  /// @param elapsedS Finite nonnegative seconds; zero may process backlog or pending camera input.
   /// @return Success or an owned time-validation/step error. No due steps is successful.
   [[nodiscard]] Result advance(double elapsedS);
   /// Return the declared fixed simulation step in seconds without advancing the clock.
@@ -677,6 +704,7 @@ public:
 private:
   friend class Capture;
   friend class Renderer;
+  [[nodiscard]] Result advanceFrame(bool simulate);
   [[nodiscard]] Result preloadWithQuality(double patienceS,
                                           WorldQuality required,
                                           const std::function<void(const Loading &)> &tell);
