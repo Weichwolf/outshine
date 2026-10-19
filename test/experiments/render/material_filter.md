@@ -7,6 +7,14 @@ isotropic dielectric inputs and unchanged geometry. It does not introduce a
 cache, lower geometry resolution, bake final lighting, or certify a full atlas,
 lit Place, environment, shadows, extensions or frame budget.
 
+The storage defect is specific to **AreaMixture**: BuildImpostorSurface chooses
+AddOpticalCardImages when any atlas surface is DiffuseThinSheet. Opaque-only
+atlases use AddOpaqueCardImages with perceptual-r UNORM8 and are unaffected by
+this r^4 encoding defect. A fully opaque footprint inside a mixed atlas still
+uses AreaMixture. The separate [native atlas/raster confirmation](https://github.com/Weichwolf/outshine/issues/824#issuecomment-6264456136)
+also preserves that positive opaque-only control; it is not an additional raster
+claim for this numeric probe.
+
 ## Reference and controls
 
 The private probe calls unchanged `metalRoughBrdf.glsl` and

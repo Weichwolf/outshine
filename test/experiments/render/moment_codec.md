@@ -5,6 +5,12 @@ It compares UNORM16 in existing R/G channels with FP16 numerically. It changes
 no product shader, image format, binding, cache or geometry. Hardware texture
 sampling and complete atlas/ThinSheet/normal/raster behavior remain unproved.
 
+This is the **AreaMixture** encoding used by AddOpticalCardImages for atlases
+containing any DiffuseThinSheet surface, including their opaque footprints.
+Opaque-only atlases use the separate perceptual-r path and do not have this
+r^4 storage defect. The owner's [actual raster confirmation and scope](https://github.com/Weichwolf/outshine/issues/824#issuecomment-6264456136)
+are separate evidence from the numeric tests here.
+
 ## Contract and reference
 
 Store premultiplied moment `M=A*r^4`, opaque coverage A and premultiplied
