@@ -21,7 +21,8 @@ translation change. For each integral shift `(dx,dy)`, geometric overlap is
 axis signs, diagonals and overlapping/disjoint translations, plus negative controls
 for nonintegral motion, projection/depth changes and corrupted native claims.
 
-Native input: 60 frames in one second, 36 updates, 12,119 original shadow packets.
+Native input: 60 frames with a 1/60-s simulation step, 36 updates and 12,119 original
+shadow packets. These workload totals are not measured bytes per wall-clock second.
 The 2048×2048 regions shift by one pixel per changed axis; all four native world-depth
 transforms stay fixed. Both observed packet masks and native matrix-change masks
 match. These results are geometric eligibility, not a Float32 raster equivalence proof.

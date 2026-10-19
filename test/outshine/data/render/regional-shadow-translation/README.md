@@ -19,7 +19,7 @@ build/outshine benchmark --scenario src/assets/places/Flensburg.scenario \
   --output "$scratch/benchmark.json" --image "$scratch/final.png"
 ```
 
-The benchmark profile is 1280×720 at60 fps. A GDB entry breakpoint on
+The benchmark profile is 1280×720 at a target of 60 fps. A GDB entry breakpoint on
 `SunShadowStage::BuildRegions` records the actual basis, centre, pre-view translation,
 requested world-fit radius and declared radius. A finish breakpoint reads the
 actual four completed `Static_` matrices. The native process exits normally with
