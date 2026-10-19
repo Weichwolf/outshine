@@ -88,3 +88,23 @@ Dependencies: NumPy, Matplotlib, glslangValidator and the native consumer/runtim
 Capture reports pin shader/table/binary and artifact hashes, commands and terminal
 statuses. Compare identical `fields.npy` and unchanged energy outputs before using
 a fixed shader to assess improvement. Keep diagnostic images local in system temp.
+
+## Weighted product call after #837
+
+Use `--weighted-product` for a source containing `brdfWeightedSpecular`, as on
+be8ca2ab3. It consumes the corrected light-path contract:
+`brdfWeightedSpecular(F,q,nl,nv,nh,nl).x*energy`. Do not multiply nl again. The
+historical default remains the explicit BRDF-then-cosine baseline for old commits;
+an unrepresentable unweighted BRDF intermediate does not test the fixed light call.
+No unused unweighted response is evaluated in the weighted wrapper.
+
+The same 730 records on be8ca2ab3 retain bit-identical input buffers and captured
+r²/a²/Fresnel/energy controls. There are no nonfinite final responses or failed
+representable final comparisons among 560 normal moments. Physical mirror case705
+is 7.9577064e36 versus Decimal7.9577088e36. Six explicit subnormal moments retain
+one failed representable final comparison (row716); 164 zero moments, including
+110 source-r⁴ losses, remain separate. Three true out-of-Float32-range final
+expectations are reported, not treated as accuracy passes. Full-matrix flags stay
+false; moment-class diagnostics expose the normal-domain result without hiding
+input losses. This is an independent scalar numerical check, not a Metal, RGB
+extension, raster, world or frame-budget admission.
