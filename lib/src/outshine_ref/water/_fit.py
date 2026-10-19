@@ -3,10 +3,11 @@
 import time
 
 import numpy as np
+
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.heights import HeightFit
-from physical_river_frame import normal_caps, normal_norm_bounds, tangent_directions
-from physical_river_program import solve_program
+from outshine_ref.water._program import solve_program
+from outshine_ref.water.frame import normal_caps, normal_norm_bounds, tangent_directions
 
 
 def grade_envelopes(normals, caps, faces, tangent):

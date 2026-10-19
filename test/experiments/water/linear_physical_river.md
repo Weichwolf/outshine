@@ -35,9 +35,9 @@ with the same required physical grade quality. Its objective optimum need not be
 identical. A separate cross-product reader checks actual normal bounds and whole-
 facet grade envelopes; the original 1e-9 grade/contact checks remain unchanged.
 
-The sparse assembly/solver code now belongs to `physical_river_program.py`; the
+The sparse assembly/solver code now belongs to `outshine_ref.water._program`; the
 physical fit owns input validation, caps and geometry admission. Default-SOCP
-consumers/tests migrated together. No native code or library fitter is changed.
+consumers/tests migrated together. No native code or earlier transport fitter is changed.
 
 ## Original Ill comparison and decision
 

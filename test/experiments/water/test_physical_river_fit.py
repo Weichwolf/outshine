@@ -6,16 +6,17 @@ from unittest.mock import patch
 
 import numpy as np
 from compare_physical_river import audit, inputs
-from geodetic_facet import WGS84_A, curvature_radii, query_facet
 from outshine_ref.contracts import Mesh
 from outshine_ref.places.camera import axes
-from physical_river_fit import fit_physical_surface, grade_envelopes
-from physical_river_frame import (
+from outshine_ref.water import fit_physical_surface
+from outshine_ref.water._fit import grade_envelopes
+from outshine_ref.water.frame import (
     inverse_frame,
     model_height_targets,
     normal_caps,
     tangent_directions,
 )
+from outshine_ref.water.geodetic import WGS84_A, curvature_radii, query_facet
 
 
 def triangle():
@@ -125,7 +126,8 @@ class PhysicalRiverTests(unittest.TestCase):
         mesh = triangle()
         rows = np.array([[0, 1, 0, 0, -0.1, 0]])
         with patch(
-            "physical_river_program.clarabel.DefaultSolver", side_effect=AssertionError
+            "outshine_ref.water._program.clarabel.DefaultSolver",
+            side_effect=AssertionError,
         ):
             result = fit_physical_surface(
                 mesh, [10, 47], rows, up_bounds_m=[400, 600], seconds=0

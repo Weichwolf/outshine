@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import platform
 import tempfile
@@ -16,15 +17,15 @@ import scipy
 import shapely
 from compare_native_water_frame import course_controls, footprints, original_case
 from directional_river_fit import infer_flow, source_face_rows
-from geodetic_facet import local_points
 from outshine_ref.contracts import Mesh
-from physical_river_fit import fit_physical_surface
-from physical_river_frame import (
+from outshine_ref.water import fit_physical_surface
+from outshine_ref.water.frame import (
     inverse_frame,
     model_height_targets,
     normal_caps,
     tangent_directions,
 )
+from outshine_ref.water.geodetic import local_points
 from river_membership import face_membership
 from river_profiles import RiverProfile
 from river_surface import surface_mesh
@@ -248,14 +249,26 @@ def run(manifest_path, output):
         "clarabel": clarabel.__version__,
     }
     report["experiment_sources_sha256"] = {
-        name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+        name: hashlib.sha256(
+            Path(importlib.util.find_spec(name).origin).read_bytes()
+        ).hexdigest()
         for name in (
-            "physical_river_frame.py",
-            "physical_river_fit.py",
-            "physical_river_program.py",
-            "compare_physical_river.py",
+            "outshine_ref.water",
+            "outshine_ref.water.geodetic",
+            "outshine_ref.water.frame",
+            "outshine_ref.water._fit",
+            "outshine_ref.water._program",
+            "outshine_ref.water._mass",
         )
     }
+    report["experiment_sources_sha256"].update(
+        {
+            name: hashlib.sha256(
+                Path(__file__).with_name(name).read_bytes()
+            ).hexdigest()
+            for name in ("compare_physical_river.py",)
+        }
+    )
     report["cost_scope"] = (
         "instrumented Python preparation/solver wrapper; GEOS/PROJ/Clarabel native allocations, factorization work and total copied bytes not measured; no native runtime or device admission"
     )
