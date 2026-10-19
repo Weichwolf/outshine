@@ -1,0 +1,46 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer Palette {
+  float palette[];
+};
+
+struct Probe {
+  vec4 PointDx;
+  vec2 Dy;
+  int Which;
+  uint Mode;
+};
+
+layout(std430, set = 0, binding = 1) readonly buffer Inputs {
+  Probe probes[];
+};
+
+struct Result {
+  vec4 Wearing;
+  vec4 Detail;
+};
+
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs {
+  Result results[];
+};
+
+layout(std140, set = 2, binding = 0) uniform Pushed {
+  uint count;
+  uint unmapped;
+  uvec2 padding;
+};
+
+#include "asphalt_field.glsl"
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  Probe p = probes[index];
+  float field = p.Which == 0 ? asphaltGaussian(p.PointDx.xy, vec2(0.0), vec2(0.0))
+                             : asphaltFiltered(p.PointDx.xy, p.PointDx.zw, p.Dy);
+  vec3 albedo = vec3(palette[4], palette[5], palette[6]) + palette[8] * field;
+  results[index] =
+      Result(vec4(albedo, palette[7] + palette[9] * field), vec4(field, 0.0, 0.0, 0.0));
+}
