@@ -10,6 +10,7 @@ def fit_physical_surface(
     *,
     up_bounds_m,
     fixed=None,
+    contact_points=None,
     seconds=5.0,
     iterations=200,
     normal_model="whole-prism",
@@ -20,6 +21,7 @@ def fit_physical_surface(
 
     Optional solver/geodesy imports occur on use. The complete datum, direction,
     primary-row and bounded-absence contract is documented in water_profiles.md.
+    contact_points are explicit hard ENU XYZ positions on the selected surface.
     """
     from ._fit import fit_physical_surface as fit
 
@@ -29,6 +31,7 @@ def fit_physical_surface(
         rows,
         up_bounds_m=up_bounds_m,
         fixed=fixed,
+        contact_points=contact_points,
         seconds=seconds,
         iterations=iterations,
         normal_model=normal_model,
