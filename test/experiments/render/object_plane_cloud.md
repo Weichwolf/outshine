@@ -2,8 +2,8 @@
 
 This is a Python comparison of a complete **known input surface group**, not a
 native representation or admission. It follows the measured dense-city Shell
-residency problem in #844. The requested actual 576-Shell Tokyo view remains a
-separate pending input; this first comparison does not represent that city.
+residency problem in #844. It includes both the first known far group and the
+delivered actual 576-Shell Tokyo cell. Neither is a whole-city/device admission.
 
 ## Whole surfaces before image sampling
 
@@ -75,8 +75,33 @@ changing only light directions and static diagnostic code.
 
 This first proposal is **not a port candidate**: texture residency grows while
 coverage and depth fail. A smaller triangle count or compressed archive does not
-repair it. No resolution/layer sweep or native API change follows. The dense
-original Tokyo input is still required before deciding the next aggregate recipe.
+repair it. No resolution/layer sweep or native API change follows. The dense original Tokyo control below independently rejects this recipe too.
+
+## Actual dense Shell control
+
+`full_view_reference` validates the delivered manifest and original native view,
+retains all576 sources/14169 triangles and compares every reconstructed vertex
+input byte against the native stream. Unknown triangle Part/Face stays unknown.
+The original Double scene frame supplies120 actual static/moving benchmark poses.
+The experiment selects the static pose nearest the cell's screen centre and the
+same moving frame plus its immediate successor. It never recentres the camera,
+changes focal length or changes the original1280x720 profile.
+
+Selected frames are static20, moving20 and moving21: 691.5535657096198px focal,
+6-degree angular steps, 6m/s, thus2m/2.1m translation at these sample times.
+These are three actual poses, **not a complete120-frame/6m endpoint admission**.
+At1m slab/pitch,256 charts replace3003 faces and retain11166 original triangles;
+base fields cost7091664B, declared mips9377868B before fallback. Direct declared
+48B vertex fields/UInt32 indices cost1546284B. Geometry/field scopes differ from
+native GPU bindings; both comparisons already disfavor this fixed recipe.
+
+Alpha L1 is30.09/29.62/32.31 pixel units;8/11/12 half-coverage pixels are lost,
+11/8/11 gained. Largest common-hit depth differences128.48/82.96/155.43m reflect
+surface selection, not point displacement. Two above-horizon diagnostic lights
+and192 independent exhaustive original-ray checks share the same frames. The
+1280x720 nearest-enlarged contact sheet was opened; the candidate breaks/softens
+parts of the thin skyline. These observations do not certify a native1px limit.
+No native port follows: texture storage increases while the image degrades.
 
 ## Reproduction
 
