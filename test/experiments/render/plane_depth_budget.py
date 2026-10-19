@@ -54,7 +54,10 @@ def main():
     parser.add_argument("--fine", type=Path, required=True)
     parser.add_argument("--views", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--reuse-m", type=float, nargs="+", default=[1.0, 6.0, 64.0])
     args = parser.parse_args()
+    if not all(math.isfinite(d) and 0 <= d <= 1024 for d in args.reuse_m):
+        raise ValueError("bounded nonnegative lateral comparison distances required")
     out = args.output.resolve()
     if not out.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise ValueError("fresh system-temp output required")
@@ -72,26 +75,35 @@ def main():
         )
         local = (source["positions"].astype(float) - eye) @ basis.T
         near, far = float(local[:, 2].min()), float(local[:, 2].max())
-        spec = budget(near, far, focal, 64, 0.5)
         box = projected_bounds(source["positions"], (eye, basis, focal, 1280, 720))
-        # The shared rectangle includes ±64m horizontal image shift at nearest z.
-        size = np.ceil(np.ptp(box, axis=0) + [2 * focal * 64 / near, 0]).astype(int)
-        slots = int(size[0]) * int(size[1]) * spec["planes"]
-        records.append(
-            {
-                "distance_extents": case["distance_extents"],
-                "yaw": case["yaw"],
-                "translation_m": case["translation_m"],
-                "z_range_m": [near, far],
-                "width_height": size.tolist(),
-                "dense_slots": slots,
-                "dense_unlit_field_bytes": 30 * slots,
-                **spec,
-            }
-        )
+        for reuse in args.reuse_m:
+            spec = budget(near, far, focal, reuse, 0.5)
+            # Include horizontal image displacement at nearest z for this reuse.
+            size = np.ceil(np.ptp(box, axis=0) + [2 * focal * reuse / near, 0]).astype(
+                int
+            )
+            slots = int(size[0]) * int(size[1]) * spec["planes"]
+            records.append(
+                {
+                    "distance_extents": case["distance_extents"],
+                    "yaw": case["yaw"],
+                    "translation_m": case["translation_m"],
+                    "reuse_m": reuse,
+                    "projected_source_span_px": (np.ptp(box, axis=0) - 4).tolist(),
+                    "motion_only_seconds_at_6mps": reuse / 6,
+                    "motion_only_frames_at_6mps_60fps": reuse / 6 * 60,
+                    "z_range_m": [near, far],
+                    "width_height": size.tolist(),
+                    "dense_slots": slots,
+                    "dense_unlit_field_bytes": 30 * slots,
+                    **spec,
+                }
+            )
     report = {
-        "scope": "Planning only. Parallel axes and purely horizontal lateral translation <=64m; original focal; 0.5px positional target. Not a 64m motion cube, disocclusion, alpha/material/shadow/PBR, coverage or world/device admission.",
+        "scope": "Planning only. Parallel axes and purely horizontal lateral translation; original focal; 0.5px positional target. 1/6/64m defaults are comparison cases, not fixed engine limits. Motion-only intervals at 6m/s and 60fps exclude earlier appearance/disocclusion invalidation. No motion cube, alpha/material/shadow/PBR, coverage or world/device admission.",
         "source": source["metadata"],
+        "focal_px": views["focal_px"],
+        "image_width_height": [1280, 720],
         "field_bytes": {
             "source_depth_f32": 4,
             "packed_normal": 4,

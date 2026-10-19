@@ -113,13 +113,38 @@ They do not prove PBR sufficiency or shader filtering quality. No plane/LDI bake
 or renderer runs in this planning step. The Fine geometry is an offline reference;
 a runtime selector would consume cached product metadata before Fine emission.
 
+The 64 m case is a challenge, not a universal reuse requirement. Following
+[master's comparison request](https://github.com/Weichwolf/outshine/issues/12#issuecomment-6261595758),
+the default planning matrix now also includes 1 m and 6 m. At 6 m/s and 60 fps
+these represent 10 and 60 motion-only frames (64 m: 640 frames). They are test
+loads, not engine limits or justified appearance refresh intervals. The source
+pixel span, padded storage rectangle and actual focal length are recorded separately.
+
+| Reuse / distance | Vienna planes / dense field bytes | Flensburg planes / dense field bytes |
+| --- | ---: | ---: |
+| 1 m / 8 | 1 / 58,320–93,960 B | 1 / 63,630–97,020 B |
+| 6 m / 8 | 1–2 / 86,940–143,640 B | 1 / 68,040–101,430 B |
+| 1 m / 32 | 1 / 7,440–11,280 B | 1 / 7,830–11,340 B |
+| 6 m / 32 | 1 / 8,160–12,000 B | 1 / 8,370–11,610 B |
+| 1 m / 128 | 1 / 1,650–2,250 B | 1 / 1,980–2,520 B |
+| 6 m / 128 | 1 / 1,800–2,400 B | 1 / 1,980–2,520 B |
+
+Short reuse changes the conclusion about plane count: most such intervals need
+one plane, and their intermediate-distance field estimates can fall below Shell
+bytes before missing costs. It must not be rejected just because 64 m needed more
+planes. These are geometric/storage estimates, not new 1/6 m rendered-image
+evidence. A useful refresh choice also needs amortized bake/update/transfer and
+draw/shading costs versus direct geometry; none of those GPU costs is measured
+by this planner. Visibility layers, source bindings and fallback can erase a
+storage advantage. The complete small-cluster depth-image comparison remains open.
+
 ## Procedure choice and remaining counterprobe
 
 Use the set analogy as a spatial hierarchy of native products with a common
 compositor, not a rule to replace scenery with planes. Preserve direct geometry
-for the near/interacting world and as the measured baseline. Dense planar
-stacks are unattractive in these near/reuse cases before disocclusion costs;
-Shell already gives much cheaper stable coverage. Far projected clusters remain
+for the near/interacting world and as the measured baseline. At distance 8 in
+these cells, dense field estimates exceed Shell bytes even with short reuse;
+their complete rendering/update costs remain unmeasured. Far projected clusters remain
 candidates. Their unseen surfaces, source membership and complete costs must be
 tested before choosing between depth-cluster images, layered samples and geometry.
 
@@ -132,8 +157,7 @@ the lateral displacement limit is `Dallow = epsilon / (f * drho)`; at constant
 lateral speed `v`, geometry reuse time is at most `Dallow / v`. Zero residual
 removes this particular parallax limit, not atlas/visibility/update constraints.
 Source changes and unsupported disocclusion can require an earlier update.
-Rotation needs
-resident roundabout products; a previously unseen direction is not reconstructed
+Rotation needs resident roundabout products; a previously unseen direction is not reconstructed
 by TAA. Near/far transitions still need common shading and explicit overlap tests.
 The next useful small image counterprobe is a source-complete, small projected
 cluster with true-depth/unlit fields versus these Shell/Massed baselines, with
