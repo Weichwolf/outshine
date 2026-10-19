@@ -6,9 +6,9 @@ from pathlib import Path
 import numpy as np
 from compare_physical_river import inputs
 from outshine_ref.contracts import Mesh
-from physical_river_fit import fit_physical_surface
-from physical_river_frame import normal_caps, normal_norm_bounds, tangent_directions
-from physical_river_program import condition_matrix
+from outshine_ref.water import fit_physical_surface
+from outshine_ref.water._program import condition_matrix
+from outshine_ref.water.frame import normal_caps, normal_norm_bounds, tangent_directions
 
 
 class LinearPhysicalRiverTests(unittest.TestCase):

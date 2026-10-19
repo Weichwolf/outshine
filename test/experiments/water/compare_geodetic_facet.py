@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pyproj
-from geodetic_facet import WGS84_A, local_points, query_facet
+from outshine_ref.water.geodetic import WGS84_A, local_points, query_facet
 from pyproj import Geod, Transformer
 from pyproj.enums import TransformDirection
 

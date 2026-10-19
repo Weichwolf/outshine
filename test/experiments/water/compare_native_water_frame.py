@@ -10,8 +10,8 @@ from pathlib import Path
 
 import numpy as np
 import shapely
-from geodetic_facet import local_points, query_facet
 from native_river_inputs import read_v2, surface_rings
+from outshine_ref.water.geodetic import local_points, query_facet
 from pyproj import Geod, Transformer
 from pyproj.enums import TransformDirection
 from river_membership import face_membership

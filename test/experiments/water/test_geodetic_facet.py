@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from geodetic_facet import WGS84_A, local_points, query_facet
+from outshine_ref.water.geodetic import WGS84_A, local_points, query_facet
 from pyproj import Geod, Transformer
 
 

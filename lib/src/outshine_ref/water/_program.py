@@ -5,9 +5,11 @@ from types import SimpleNamespace
 
 import clarabel
 import numpy as np
-from native_profile_fit import area_mass
-from outshine_ref.transport.heights import _gradient_weights
 from scipy import sparse
+
+from outshine_ref.transport.heights import _gradient_weights
+
+from ._mass import area_mass
 
 
 def solve_osqp(hessian, linear, matrix, bound, inequalities, seconds, iterations):

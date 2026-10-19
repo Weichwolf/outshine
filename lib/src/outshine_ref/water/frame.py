@@ -1,10 +1,11 @@
 """Explicit WGS84 frame, height targets and whole-prism normal bounds (#760)."""
 
 import numpy as np
-from geodetic_facet import WGS84_A, WGS84_E2
-from outshine_ref.places.camera import axes
 from pyproj import Transformer
 from pyproj.enums import TransformDirection
+
+from outshine_ref.places.camera import axes
+from outshine_ref.water.geodetic import WGS84_A, WGS84_E2
 
 
 def inverse_frame(anchor_lon_lat, points_enu_m):

@@ -16,6 +16,11 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`water.fit_physical_surface` liefert geteilte Float64-ENU-Wasserfacetten unter
+expliziten physischen Richtungsintervallen, optional als hergeleitetes lineares QP.
+Frame/Datum, Quellenzulassung und native Produkte bleiben beim Aufrufer:
+[water_profiles.md](water_profiles.md) (#760). Zusatzabhängigkeiten über `./lib[water]`.
+
 `Reservation.conflict_geometry(HeightInterval)` liefert für konstante Prismen die
 ursprüngliche unveränderliche Polygonfläche oder ein leeres Polygon. Abfrageband
 und Plan müssen denselben Frame/Höhenbezug verwenden; reine Höhenberührung bleibt

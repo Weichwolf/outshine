@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 from directional_river_fit import face_gradients
 from native_highs_model import write_model
+from outshine_ref.water._mass import area_mass
 from river_linear_model import linear_system
 from scipy import sparse
 from weighted_river_fit import directions as normalize_directions
@@ -23,22 +24,6 @@ def area_weights(mesh):
     if np.any(weights <= 0) or not np.isfinite(weights).all():
         raise ValueError("positive finite lumped vertex areas required")
     return weights / weights.mean()
-
-
-def area_mass(mesh):
-    faces = mesh.triangles
-    triangle = mesh.vertices[faces, :2]
-    u, v = triangle[:, 1] - triangle[:, 0], triangle[:, 2] - triangle[:, 0]
-    area = np.abs(u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]) / 2
-    local = area[:, None, None] / 12 * (np.ones((3, 3)) + np.eye(3))
-    mass = sparse.coo_matrix(
-        (
-            local.ravel(),
-            (np.repeat(faces, 3, axis=1).ravel(), np.tile(faces, (1, 3)).ravel()),
-        ),
-        shape=(len(mesh.vertices), len(mesh.vertices)),
-    ).tocsr()
-    return mass * (len(mesh.vertices) / mass.diagonal().sum())
 
 
 def inspect_solution(model, values, column_dual, row_dual):

@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import platform
@@ -13,11 +14,10 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
-import osqp
-import physical_river_program as program
+import outshine_ref.water._program as program
 from compare_physical_river import audit, inputs
 from native_profile_fit import inspect_solution
-from physical_river_fit import fit_physical_surface
+from outshine_ref.water import fit_physical_surface
 from scipy import sparse
 
 
@@ -72,6 +72,8 @@ def captured_solve(mesh, anchor, rows, box, primary, name):
 
 
 def run(path, output, repeats):
+    import osqp
+
     began = time.perf_counter()
     mesh, anchor, rows, box, arrays, report = inputs(path)
     report["input_wall_seconds"] = time.perf_counter() - began
@@ -195,15 +197,29 @@ def run(path, output, repeats):
         "same declared physical quality and objective; linear enclosure is more conservative, not an identical feasible set; cold host Python timings, native allocations/copies/factorization work unknown"
     )
     report["sources_sha256"] = {
-        name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+        name: hashlib.sha256(
+            Path(importlib.util.find_spec(name).origin).read_bytes()
+        ).hexdigest()
         for name in (
-            "physical_river_fit.py",
-            "physical_river_frame.py",
-            "physical_river_program.py",
-            "compare_physical_river.py",
-            "compare_linear_physical_river.py",
+            "outshine_ref.water",
+            "outshine_ref.water.geodetic",
+            "outshine_ref.water.frame",
+            "outshine_ref.water._fit",
+            "outshine_ref.water._program",
+            "outshine_ref.water._mass",
         )
     }
+    report["sources_sha256"].update(
+        {
+            name: hashlib.sha256(
+                Path(__file__).with_name(name).read_bytes()
+            ).hexdigest()
+            for name in (
+                "compare_physical_river.py",
+                "compare_linear_physical_river.py",
+            )
+        }
+    )
     np.savez_compressed(output / "comparison.npz", **arrays)
     return arrays, report
 
