@@ -5,6 +5,8 @@ original WATER2 Ill input. This replaces independent flat fragments **in Python*
 native water/terrain remain unchanged. The 13 selected original surfaces, island,
 121 raw course segments, original addresses and positive face/source CSR remain.
 Read/epoch/selection contracts belong to [the original frame comparison](native_water_frame.md).
+The [derived-bound QP comparison](linear_physical_river.md) removes normal auxiliaries
+using two existing directional intervals per face; the SOCP remains its control.
 
 ## Height and contact contract
 
