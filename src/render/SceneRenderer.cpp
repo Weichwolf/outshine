@@ -945,25 +945,21 @@ Native::Result<void> SceneRenderer::EncodeStage(Stage stage, const PassRecording
   spent.TookMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   spent.Draws = 0;
-  spent.Triangles = 0;
+  spent.DirectTriangles = 0;
+  spent.IndirectInputTriangles = 0;
+  spent.IndirectRecords = 0;
   spent.Surfaces = 0;
   spent.Placements = 0;
   if (stage == Stage::Geometry || stage == Stage::TransmissiveGeometry) {
     const GeometryRenderer &drew =
         stage == Stage::Geometry ? ActiveState().Content.Geometry : ActiveState().Content.Glass;
-    uint32_t surfaces = 0;
-    uint32_t placements = 0;
-    for (const DrawBatch &batch : drew.Drawn()) {
-      spent.Draws += 1u;
-      spent.Triangles += (batch.IndexCount / 3u) * batch.Instances;
-      surfaces = batch.MaterialSlot + 1u > surfaces ? batch.MaterialSlot + 1u : surfaces;
-      const uint32_t past = batch.ModelSlot + batch.Instances;
-      placements = past > placements ? past : placements;
-    }
-    spent.Triangles += drew.Ground().Triangles();
-    spent.Draws += drew.Ground().Drawn() > 0 ? 1u : 0u;
-    spent.Surfaces = surfaces;
-    spent.Placements = placements;
+    const auto &work = drew.Work();
+    spent.Draws = work.DrawRequests;
+    spent.DirectTriangles = work.DirectTriangles;
+    spent.IndirectInputTriangles = work.IndirectInputTriangles;
+    spent.IndirectRecords = work.IndirectRecords;
+    spent.Surfaces = work.SurfaceSlotLimit;
+    spent.Placements = work.PlacementSlotLimit;
     spent.Textured = drew.Textured();
     spent.Palettes = drew.ColourImages();
     spent.Distinct = drew.DistinctPlacements();
