@@ -46,8 +46,17 @@ included, including hidden/back content. 557 sources become 586 primitives with
 | Original fallback IDs, compact positions and indices | 35,828 |
 | Complete candidate payload | 279,359 |
 | Original Float32 positions + declared UInt32 indices | 514,092 |
+| Exact shared positions + UInt32 indices | 269,880 |
+| Exact shared positions + UInt16 indices | 184,866 |
 
-Candidate geometry is 45.66% smaller (1.84×). The original vertex buffer has
+Candidate geometry is 45.66% smaller than the original unfactored arrays (1.84×),
+but **does not beat exact position sharing**: 8,321 unique position records plus
+UInt32 indices already use 269,880 B; UInt16 indices use 184,866 B. The candidate
+is 51.1% larger than that narrow-index control. Every one of 42,507 original
+triangle corners is bit-identical after remapping, including winding/order.
+`compare_vertex_storage.py` stores and checks both actual alternatives.
+
+The original vertex buffer has
 28,672 vertices. The comparison **excludes attributes on both sides**: candidate
 UVs, metres, colours, stored shading normals, opacity, PBR, material recipes,
 mips and shader records are absent. Comparing 279 KB to the original full
@@ -92,8 +101,12 @@ rays additionally compare the corrected Trimesh/R-tree native-mesh reader with
 an exhaustive Möller reader. Geometric agreement with the native mesh is measured,
 not assumed. Sparse samples do not certify every ray or continuous motion.
 
-The storage result and small sampled geometric error justify further evaluation,
-not native adoption. Material evaluation/opacity, shadows, actual GPU traversal
+This fixed halfspace model is not the geometry-storage winner. Its low sampled
+geometric error alone does not justify native adoption. Exact full 48-byte vertex
+sharing finds no duplicate records: 28,672 remain, and UInt16 alone changes
+1,546,284 B to 1,461,270 B. The position-only control does not provide a complete
+material/attribute layout or a native draw contract. Neither comparison establishes
+a GPU-time improvement. Material evaluation/opacity, shadows, actual GPU traversal
 versus raster work, near views, other geography/roof classes, cache generation,
 transitions and complete world budgets remain open. The reference loads the full
 native input for comparison and fallback extraction; no native decode/emission
@@ -116,6 +129,12 @@ NumPy, Shapely, SciPy, Trimesh, Rtree and Pillow are required in `.venv`.
 The output must be fresh and explicit. It contains serialized queried arrays,
 per-visible-pose raw arrays, a report including source hashes and a contact PNG.
 Private diagnostics stay in system temp; no gallery/doc images are published.
+
+```sh
+.venv/bin/python test/experiments/render/compare_vertex_storage.py \
+  --input test/outshine/data/render/building-full-view/cell.json.gz \
+  --output /tmp/outshine-research-roof-prisms-<commit>/vertex-controls
+```
 
 SIGGRAPH first: [Pharr et al. 1997, Rendering Complex Scenes with Memory-Coherent
 Ray Tracing](https://graphics.stanford.edu/papers/coherentrt/) motivates demand
