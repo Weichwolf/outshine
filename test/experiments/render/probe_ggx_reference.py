@@ -41,6 +41,15 @@ void main() {
 """
 
 
+def shader_for(weighted_product=False):
+    if not weighted_product:
+        return SHADER
+    return SHADER.replace(
+        "Brdf response=metalRoughBrdf(vec3(0.0),vec3(f0),1.0,q,nl,nv,nh,vh);",
+        "float specular=brdfWeightedSpecular(brdfFresnel(vec3(f0),1.0,vh),q,nl,nv,nh,nl).x*e;",
+    ).replace("response.specular.x*e*nl", "specular")
+
+
 def analyse(rows, groups, values, tables):
     reference, source_reference = [], []
     for row, value in zip(rows, values, strict=True):
@@ -77,6 +86,20 @@ def analyse(rows, groups, values, tables):
             name: compare(actual[:, i], source_reference[:, i])
             for i, name in enumerate(CHANNELS)
         },
+        "moment_classes": {
+            name: {
+                channel: compare(actual[mask, i], reference[mask, i])
+                for i, channel in enumerate(CHANNELS)
+            }
+            for name, mask in (
+                ("normal", values[:, 3] >= np.finfo(np.float32).tiny),
+                (
+                    "subnormal",
+                    (values[:, 3] > 0) & (values[:, 3] < np.finfo(np.float32).tiny),
+                ),
+                ("zero", values[:, 3] == 0),
+            )
+        },
         "groups": {
             group: {
                 name: compare(actual[mask, i], reference[mask, i])
@@ -110,6 +133,11 @@ def main():
     parser.add_argument("--tables", type=Path, required=True)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--weighted-product",
+        action="store_true",
+        help="consume brdfWeightedSpecular with nl exactly once, as in the #829 fixed light path",
+    )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     includes = args.output / "shader"
@@ -123,7 +151,13 @@ def main():
     (includes / "brdfTables.glsl").write_bytes(args.tables.read_bytes())
     rows, groups = fixtures()
     np.save(args.output / "fields.npy", rows, allow_pickle=False)
-    values, cost = capture(rows, SHADER, args.output / "native", args.binary, includes)
+    values, cost = capture(
+        rows,
+        shader_for(args.weighted_product),
+        args.output / "native",
+        args.binary,
+        includes,
+    )
     result, reference, source_reference = analyse(
         rows, groups, values, read_tables(args.tables)
     )
@@ -134,6 +168,9 @@ def main():
     result.update(
         {
             "source_commit": args.source_commit,
+            "response_call": "brdfWeightedSpecular(F,q,nl,nv,nh,nl)*energy"
+            if args.weighted_product
+            else "metalRoughBrdf(...).specular*energy*nl",
             "consumer_sha256": sha(args.binary),
             "rows": len(rows),
             "groups_by_row": groups,
