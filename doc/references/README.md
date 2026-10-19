@@ -436,6 +436,15 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Gemeinsame räumliche Tiefenbilder mit projektionsabhängiger Hierarchiestufe;
   Seiten 2/3 samt Abtastdiagrammen und Gleichungen geprüft. Hier nur Grundlage:
   unbeleuchtete Material-/Normalfelder, Disokklusion und Gerätebudgets getrennt belegen (#899).
+- **Conservative Visibility Preprocessing using Extended Projections**, Durand / Drettakis /
+  Thollot / Puech, SIGGRAPH 2000.
+  [Publikation](https://doi.org/10.1145/344779.344891) ·
+  [Autoren](https://people.csail.mit.edu/fredo/PUBLI/Sig2000/index.htm) ·
+  [PDF](geometry/siggraph/2000-conservative-visibility-extended-projections.pdf).
+  Konservative Sichtbarkeit aus einer räumlichen Kamerazelle; Seiten 3/4 mit
+  Definitionen, Diagrammen und konvexer Projektion optisch geprüft. #899 prüft
+  zunächst einzelne Dreiecksumbrae als geometrischen Flächensupport; keine
+  Übernahme des Raster-/Occluder-Fusion-Systems oder Gerätefreigabe daraus.
 - **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
   [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
   [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·

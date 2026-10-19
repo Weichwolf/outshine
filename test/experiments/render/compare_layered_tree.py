@@ -73,7 +73,7 @@ def global_metadata(path, document, observer, profile):
     }
 
 
-def one_view(source, prepared, inputs, cut, view, suns, output):
+def one_view(source, prepared, inputs, cut, view, suns, output, *, query_fn=query):
     extent = {
         "positions": np.concatenate((source["positions"], cut["source"]["positions"]))
     }
@@ -87,7 +87,7 @@ def one_view(source, prepared, inputs, cut, view, suns, output):
     depth, face = intersect_source(source, origin, direction, prepared=prepared)
     fields = native_fields(inputs, origin, direction, depth, face)
     start = time.perf_counter()
-    candidate, values, owners, tag = query(cut, origin, direction)
+    candidate, values, owners, tag = query_fn(cut, origin, direction)
     query_s = time.perf_counter() - start
     a, b = np.isfinite(depth), np.isfinite(candidate)
     common = a & b
