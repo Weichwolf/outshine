@@ -10,7 +10,7 @@ Product: `37db0b9e38299ba55ed73d758c2b1b4167f5368e`, native Vulkan on
 Intel i5-1135G7/Iris Xe, Clang 22/libc++, Linux x86-64 System V ABI.
 The capture metadata retains the product binary SHA-256, source blob, declaration
 SHA-256 and image SHA-256. A declaration hash does not identify every external asset.
-The original prepared source/asset caches remain separate and unchanged.
+The computed matrix fixture is independent of the original prepared source/asset caches.
 
 ```sh
 build/outshine benchmark --scenario src/assets/places/Flensburg.scenario \
@@ -32,7 +32,7 @@ with `-fsyntax-only`. This exact build has `sizeof(SunShadowStage)==2080`, align
 At exact function entry: `rdi=this`, `rsi=&basis`, `rdx=&centre`, `rcx=&preView`, and
 `xmm0` low double is the radius. These are build-specific extraction details;
 other binaries/platforms must derive their own layout and calling convention.
-Each matrix payload retains a SHA-256 of its native 512 bytes; JSON numbers round-trip
+Each state retains a SHA-256 of its 64 native Float64 values (512 bytes); JSON numbers round-trip
 all Float64 values, including signed zero. Matrices are column-major.
 
 The simultaneous explicit observer from #866 supplies packet masks. Its dropped
