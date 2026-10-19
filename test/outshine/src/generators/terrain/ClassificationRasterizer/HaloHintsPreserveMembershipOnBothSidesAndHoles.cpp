@@ -1,5 +1,5 @@
 #include "ClassificationRasterizer.h"
-#include "ClassStructure.h"
+#include "TerrainClassificationMap.h"
 #include "Check.h"
 #include <cmath>
 #include <limits>
@@ -28,8 +28,8 @@ int main() {
   CHECK(built && built->Overflow == 0 && built->Grid->BoundaryHaloM == 2.5,
         "the halo fits the unchanged aggregate seed/reference budget");
   if (!built) { return Report(); }
-  const auto empty = std::make_shared<const ClassStructure::Grid>();
-  const ClassStructure field(TangentFrame::At({}), built->Grid, empty, {});
+  const auto empty = std::make_shared<const TerrainClassificationMap::Grid>();
+  const TerrainClassificationMap field(TangentFrame::At({}), built->Grid, empty, {});
   for (double north = -15.5; north < 16; north += 1) {
     for (double east = -15.5; east < 16; east += 1) {
       const bool outer = std::abs(east) < 12 && std::abs(north) < 12;
@@ -65,7 +65,7 @@ int main() {
   const auto coarse = rasterizer.Build(coarseInput);
   CHECK(coarse && coarse->Overflow == 0, "the same coverage has a coarser footprint product");
   if (coarse) {
-    const ClassStructure tiers(TangentFrame::At({}), built->Grid, coarse->Grid, {});
+    const TerrainClassificationMap tiers(TangentFrame::At({}), built->Grid, coarse->Grid, {});
     const auto selected = tiers.MaterialAt(0, -12.25, 2);
     CHECK(selected.Class == 3 && selected.HaloM == 5.5 && selected.SignedEdgeM == -.25,
           "a wide pixel selects the supported coarse field before neighbour evaluation");
@@ -85,10 +85,10 @@ int main() {
   const auto overlaid = rasterizer.Build(input);
   CHECK(overlaid && overlaid->Overflow == 0, "the higher material stays within the same budget");
   if (overlaid) {
-    const ClassStructure opaque(TangentFrame::At({}), overlaid->Grid, empty, {});
+    const TerrainClassificationMap opaque(TangentFrame::At({}), overlaid->Grid, empty, {});
     const auto material = opaque.MaterialAt(0, -12.25);
     CHECK(opaque.Evaluate(0, -12.25, nullptr, nullptr) == 4 && material.Class == 4 &&
-              material.SignedEdgeM == ClassStructure::kNoEdgeM,
+              material.SignedEdgeM == TerrainClassificationMap::kNoEdgeM,
           "an opaque higher-ranked interior suppresses a hidden lower boundary hint");
   }
   input.BoundaryHaloM = -1;

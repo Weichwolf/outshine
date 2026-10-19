@@ -1,10 +1,10 @@
 #ifndef OUTSHINE_ENGINE_GROUNDWORLDCANDIDATE_H
 #define OUTSHINE_ENGINE_GROUNDWORLDCANDIDATE_H
 
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "WorldCandidate.h"
-#include "ClassStructure.h"
-#include "GroundClassBuffer.h"
+#include "TerrainClassificationMap.h"
+#include "PackedTerrainClassification.h"
 #include <chrono>
 #include <expected>
 #include <limits>
@@ -25,8 +25,8 @@ struct GroundBuildProducts {
   std::vector<float> PositionsM;
   std::vector<uint32_t> Indices;
   std::vector<float> ClassPalette;
-  std::shared_ptr<const ClassStructure> ClassStructure;
-  std::shared_ptr<const Render::GroundClassBuffer> ClassUpload;
+  std::shared_ptr<const TerrainClassificationMap> TerrainClassificationMap;
+  std::shared_ptr<const Render::PackedTerrainClassification> ClassUpload;
   Material GroundMaterial;
   MaterialInstance GroundSurface;
   std::shared_ptr<const Path::Network> StreetGraph;
@@ -71,7 +71,7 @@ public:
 
   GroundWorldCandidate(
       Render::SceneRenderer &renderer,
-      const Surrounds &world,
+      const WorldRegionState &world,
       const ::outshine::Generators::Osm::BuildingField &footprints,
       Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy)
       : Products_{.Sheets = world.Sheets,
@@ -81,7 +81,7 @@ public:
                   .PositionsM = {},
                   .Indices = {},
                   .ClassPalette = {},
-                  .ClassStructure = {},
+                  .TerrainClassificationMap = {},
                   .ClassUpload = {},
                   .GroundMaterial = {},
                   .GroundSurface = {},
@@ -156,10 +156,11 @@ public:
     return PublicationMetrics_;
   }
 
-  [[nodiscard]] bool BeginGroundClasses(std::shared_ptr<const Render::GroundClassBuffer> packed,
-                                        std::vector<float> palette,
-                                        std::string &error,
-                                        Render::GroundClassUploadMetrics *metrics = nullptr) {
+  [[nodiscard]] bool
+  BeginGroundClasses(std::shared_ptr<const Render::PackedTerrainClassification> packed,
+                     std::vector<float> palette,
+                     std::string &error,
+                     Render::GroundClassUploadMetrics *metrics = nullptr) {
     if (!packed) {
       error = "ground classification has no upload product";
       return false;
@@ -232,7 +233,7 @@ public:
   }
 
   [[nodiscard]] std::expected<void, std::string>
-  Publish(Surrounds &world,
+  Publish(WorldRegionState &world,
           ::outshine::Generators::Osm::BuildingField &footprints,
           std::unique_ptr<Core::RuntimeScene> &published,
           const GroundRevision &revision) {
@@ -302,7 +303,8 @@ private:
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::PositionsM)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::Indices)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::ClassPalette)>);
-  static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::ClassStructure)>);
+  static_assert(
+      std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::TerrainClassificationMap)>);
   static_assert(std::is_nothrow_move_assignable_v<Material>);
   static_assert(std::is_nothrow_move_assignable_v<MaterialInstance>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::StreetGraph)>);

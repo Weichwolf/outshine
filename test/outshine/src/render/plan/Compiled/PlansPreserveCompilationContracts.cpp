@@ -1,42 +1,45 @@
 #include "Compiled.h"
 #include "Check.h"
 #include <array>
-#include <cstdio>
+#include <cstddef>
 #include <limits>
+#include <print>
 
 namespace {
+constexpr int kUnknownEnumValue = 255;
+
 void Snapshot(size_t index, const outshine::Render::Compiled &plan) {
   using namespace outshine::Render;
-  std::printf("PLAN %zu %s %a %d %d %d",
-              index,
-              plan.Digest().c_str(),
-              static_cast<double>(plan.Exposure()),
-              static_cast<int>(plan.Display()),
-              static_cast<int>(plan.Precision()),
-              plan.SettleFrames());
+  std::print("PLAN {} {} 0x{:a} {} {} {}",
+             index,
+             plan.Digest(),
+             static_cast<double>(plan.Exposure()),
+             static_cast<int>(plan.Display()),
+             static_cast<int>(plan.Precision()),
+             plan.SettleFrames());
   for (size_t at = 0; at < kResourceCount; ++at) {
     const auto resource = static_cast<Resource>(at);
-    std::printf(" R%zu:%d,%d,%d,%d",
-                at,
-                plan.Holds(resource),
-                plan.Stored(resource),
-                static_cast<int>(plan.Bound(resource)),
-                static_cast<int>(plan.Format(resource)));
+    std::print(" R{}:{},{},{},{}",
+               at,
+               static_cast<int>(plan.Holds(resource)),
+               static_cast<int>(plan.Stored(resource)),
+               static_cast<int>(plan.Bound(resource)),
+               static_cast<int>(plan.Format(resource)));
   }
   for (const auto stage : plan.Order()) {
-    std::printf(" S%d:%d", static_cast<int>(stage), plan.Fused(stage));
+    std::print(" S{}:{}", static_cast<int>(stage), static_cast<int>(plan.Fused(stage)));
   }
   for (const auto &pass : plan.Passes()) {
-    std::printf(" P%s:%d,%zu,%zu,%d",
-                pass.Name.c_str(),
-                static_cast<int>(pass.Kind),
-                pass.First,
-                pass.Count,
-                static_cast<int>(pass.Depth));
-    for (const auto target : pass.Targets) { std::printf(" T%d", static_cast<int>(target)); }
-    for (const auto buffer : pass.Buffers) { std::printf(" B%d", static_cast<int>(buffer)); }
+    std::print(" P{}:{},{},{},{}",
+               pass.Name,
+               static_cast<int>(pass.Kind),
+               pass.First,
+               pass.Count,
+               static_cast<int>(pass.Depth));
+    for (const auto target : pass.Targets) { std::print(" T{}", static_cast<int>(target)); }
+    for (const auto buffer : pass.Buffers) { std::print(" B{}", static_cast<int>(buffer)); }
   }
-  std::printf("\n");
+  std::println("");
 }
 }
 
@@ -44,11 +47,22 @@ int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
   const std::array specs{
-      PlanSpec{.Outputs = {Resource::SceneHdr}, .Content = {Stage::Subjects, Stage::Sky}},
-      PlanSpec{.Outputs = {Resource::FrameTex}, .Content = {Stage::Subjects, Stage::Sky}},
+      PlanSpec{.Outputs = {Resource::SceneHdr},
+               .Content = {Stage::Subjects, Stage::Sky},
+               .Exposure = {},
+               .Display = {},
+               .Precision = {}},
+      PlanSpec{.Outputs = {Resource::FrameTex},
+               .Content = {Stage::Subjects, Stage::Sky},
+               .Exposure = {},
+               .Display = {},
+               .Precision = {}},
       PlanSpec{
           .Outputs = {Resource::FrameTex},
-          .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve, Stage::AutoExposure}},
+          .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve, Stage::AutoExposure},
+          .Exposure = {},
+          .Display = {},
+          .Precision = {}},
       PlanSpec{.Outputs = {Resource::FrameTex},
                .Content = {Stage::Subjects, Stage::Sky},
                .Exposure = Declared<float>(2),
@@ -84,10 +98,10 @@ int main() {
     CHECK(!Compiled::Compile(invalid), "invalid exposure rejected");
   }
   auto invalid = specs[1];
-  invalid.Display = Declared<Transfer>(static_cast<Transfer>(255));
+  invalid.Display = Declared<Transfer>(static_cast<Transfer>(kUnknownEnumValue));
   CHECK(!Compiled::Compile(invalid), "unknown display transfer rejected");
   invalid = specs[1];
-  invalid.Precision = Declared<ScenePrecision>(static_cast<ScenePrecision>(255));
+  invalid.Precision = Declared<ScenePrecision>(static_cast<ScenePrecision>(kUnknownEnumValue));
   CHECK(!Compiled::Compile(invalid), "unknown precision rejected");
   for (const auto id :
        {-1, static_cast<int>(kResourceCount), static_cast<int>(kResourceCount) + 1}) {

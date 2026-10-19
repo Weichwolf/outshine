@@ -57,8 +57,8 @@ Job(uint16_t row, ClassGrain grain, ClassificationBuild::SourceRevision source) 
   return job;
 }
 
-std::shared_ptr<const ClassStructure> Build(ClassificationBuild &builder,
-                                            ClassificationBuild::Job job) {
+std::shared_ptr<const TerrainClassificationMap> Build(ClassificationBuild &builder,
+                                                      ClassificationBuild::Job job) {
   CHECK(builder.Submit(std::move(job)), "a bounded classification request is queued");
   CHECK(builder.AwaitCompletion(3), "classification reaches a terminal result");
   auto result = builder.Collect();

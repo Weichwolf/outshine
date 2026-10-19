@@ -234,6 +234,11 @@
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
   keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.
+- Ich halte Projekt und Zusammenarbeit kontextsparend: Pfad und Name führen direkt zum Besitzer;
+  jede Datei behandelt eine zusammenhängende Aufgabe. Header zeigen Verträge, größere
+  Implementierungen stehen in `.cpp`. Keine künstliche Fragmentierung oder Zeilenverdichtung.
+  Ich lese gezielte Symbole/Ausschnitte und fasse Logs als Ergebnis, Fehler und Belegpfad zusammen.
+  Entscheidungen und Belege haben einen Ort; andere Stellen verlinken statt zu duplizieren.
 - Modultests bauen nur die deklarierten Modulabhängigkeiten. Unerwartete Abhängigkeiten
   prüfe ich als Architekturfehler; gemischte Integrationsprüfungen erhalten einen eigenen Ort.
 - Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und

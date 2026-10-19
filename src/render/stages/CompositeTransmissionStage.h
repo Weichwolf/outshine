@@ -7,7 +7,8 @@
 
 #include "FrameContext.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
+#include <memory>
+#include <cstddef>
 
 namespace outshine::Render {
 
@@ -16,20 +17,20 @@ public:
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 2};
 
   struct Feeds {
-    SDL_GPUTexture *Opaque = nullptr;
-    SDL_GPUTexture *Transmissive = nullptr;
-    SDL_GPUSampler *Exact = nullptr;
-    SDL_GPUTextureFormat Target{};
+    Native::Texture *Opaque = nullptr;
+    Native::Texture *Transmissive = nullptr;
+    Native::Sampler *Exact = nullptr;
+    Native::Format Target = Native::Format::Count;
   };
 
-  [[nodiscard]] bool Configure(const Gpu &gpu, const Feeds &from, std::string &error);
-  void Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu, const Feeds &from);
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
 
 private:
-  OwnedPipeline Pipe;
-  SDL_GPUTexture *Opaque = nullptr;
-  SDL_GPUTexture *Transmissive = nullptr;
-  SDL_GPUSampler *Exact = nullptr;
+  std::unique_ptr<Native::GraphicsPipeline> Pipe;
+  Native::Texture *Opaque = nullptr;
+  Native::Texture *Transmissive = nullptr;
+  Native::Sampler *Exact = nullptr;
 };
 
 }

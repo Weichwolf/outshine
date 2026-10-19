@@ -276,7 +276,10 @@ SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget bud
   const auto vectorTile = ValidatePosition(at);
   if (!vectorTile) { return std::unexpected(vectorTile.error()); }
   if (!Pool_) { return complete(); }
-  if (UsesCachedRegionNetwork() && at != CachedNetworkFocus_) { RequestStreets(); }
+  if (UsesCachedRegionNetwork() &&
+      (vectorTile->X != CachedNetworkTile_.X || vectorTile->Y != CachedNetworkTile_.Y)) {
+    RequestStreets();
+  }
   const auto classificationAt = std::chrono::steady_clock::now();
   const auto classified = Cls_.Update(*Pool_, at);
   metrics.ClassificationMs = ElapsedMs(classificationAt);
@@ -426,9 +429,17 @@ bool SurfacePreparation::InputsReady() const {
 
 void SurfacePreparation::UseCachedRegionNetwork(LongitudeLatitude focus) {
   if (!Opened_ || StreetMode_ == StreetMode::RequiredSource) { return; }
-  if (StreetMode_ == StreetMode::CachedRegion && CachedNetworkFocus_ == focus) { return; }
+  const auto tile = Generators::Osm::OsmField::Locate(focus, VectorZoom_);
+  if (!tile) {
+    ForgetCachedRegionNetwork();
+    return;
+  }
+  if (StreetMode_ == StreetMode::CachedRegion && tile->X == CachedNetworkTile_.X &&
+      tile->Y == CachedNetworkTile_.Y) {
+    return;
+  }
   StreetMode_ = StreetMode::CachedRegion;
-  CachedNetworkFocus_ = focus;
+  CachedNetworkTile_ = *tile;
   Settled_.reset();
 }
 

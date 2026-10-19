@@ -8,9 +8,9 @@
 
 namespace outshine::Client {
 namespace Says {
-inline constexpr auto kFatalAllocation = "outshine-client: fatal: memory allocation failed\n";
-inline constexpr auto kFatalException = "outshine-client: fatal: ";
-inline constexpr auto kUnknownException = "outshine-client: fatal: unknown exception\n";
+inline constexpr auto kFatalAllocation = "outshine: fatal: memory allocation failed\n";
+inline constexpr auto kFatalException = "outshine: fatal: ";
+inline constexpr auto kUnknownException = "outshine: fatal: unknown exception\n";
 }
 
 template <class Entry>

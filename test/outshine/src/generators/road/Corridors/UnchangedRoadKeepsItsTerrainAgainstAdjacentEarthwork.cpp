@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "Corridors.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 #include "ProfiledRoadMesher.h"
 
 #include <array>
@@ -31,7 +31,7 @@ int main() {
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty,
                     .Field = [](EastNorth) -> std::optional<double> { return 10; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::Corridors::Site site{.Vectors = &vectors,
                                          .Ways = ways,
                                          .Materials = materials,
@@ -39,6 +39,8 @@ int main() {
                                          .Standing = frame,
                                          .Draped = drape,
                                          .Classes = noClasses,
+                                         .WaterUpM = {},
+                                         .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .Projection = {.FocalPx = 800}};
@@ -53,11 +55,15 @@ int main() {
     CHECK(contact.ApronM == 0, "an unchanged path needs no surrounding earthwork apron");
   }
   contacts.push_back({.RingEastNorthM = {-100, 4, 100, 4, 100, 6, -100, 6},
+                      .HoleRingsEastNorthM = {},
                       .LowE = -100,
                       .HighE = 100,
                       .LowN = 4,
                       .HighN = 6,
                       .PlateauM = 8,
+                      .SeamEastNorthM = {},
+                      .Profile = {},
+                      .PlanarSupportM = {},
                       .CorridorKey = 42,
                       .ApronM = 8,
                       .YieldM = 2,

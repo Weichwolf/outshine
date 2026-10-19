@@ -22,7 +22,7 @@
 #include "Earth.h"
 #include "curve/Fit.h"
 #include "GroundMesher.h"
-#include "ClassStructure.h"
+#include "TerrainClassificationMap.h"
 #include "GroundMaterials.h"
 #include "OsmField.h"
 #include "RoadMesher.h"
@@ -48,7 +48,7 @@ public:
     const Path::Network *Network = nullptr;
     const TangentFrame &Standing;
     const Drape &Draped;
-    const std::shared_ptr<const ClassStructure> &Classes;
+    const std::shared_ptr<const TerrainClassificationMap> &Classes;
     std::function<std::optional<double>(LongitudeLatitude)> WaterUpM;
     std::chrono::steady_clock::time_point CensusAt;
     double EyeLatDeg = 0.0;
@@ -85,7 +85,7 @@ private:
     std::unordered_map<uint64_t, uint64_t> &JoinedNodes;
     const Drape &Draped;
     const TangentFrame &Standing;
-    const std::shared_ptr<const ClassStructure> &Classes;
+    const std::shared_ptr<const TerrainClassificationMap> &Classes;
     const std::function<std::optional<double>(LongitudeLatitude)> &WaterUpM;
     int WaterRow = -1;
     double EyeLatDeg = 0.0;

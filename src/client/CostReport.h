@@ -7,5 +7,6 @@
 
 namespace outshine::Client {
 void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> samples);
+void PrintGpuRow(std::string_view scene, std::span<const DiagnosticSample> samples);
 }
 #endif

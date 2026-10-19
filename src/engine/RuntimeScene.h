@@ -247,7 +247,7 @@ public:
 
   [[nodiscard]] const Vec3 &ShadowCentreStanding() const {
     const auto published = Renderer_->PublishedWorld();
-    return Renderer_->ShadowStoodAtM();
+    return Renderer_->ShadowCentreM();
   }
 
   struct Bearing {
@@ -345,6 +345,35 @@ public:
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 
 private:
+  [[nodiscard]] static bool PrepareWithPlan(Render::SceneRenderer &renderer,
+                                            Declaration declaration,
+                                            const Ui::Font *font,
+                                            std::unique_ptr<RuntimeScene> &out,
+                                            std::string &error,
+                                            const GroundAtmosphere &atmosphere,
+                                            std::shared_ptr<const Render::Compiled> plan);
+  [[nodiscard]] std::expected<void, std::string> ValidGeometryBuild(const Geometry &built,
+                                                                    size_t drivenParts) const;
+  [[nodiscard]] static bool
+  PreparesRetainedGeometryReplacement(Render::SceneRenderer &renderer,
+                                      const RuntimeScene &previous,
+                                      std::shared_ptr<const Geometry> replacement,
+                                      size_t drivenParts,
+                                      const Ui::Font *font,
+                                      std::unique_ptr<RuntimeScene> &candidate,
+                                      std::string &error,
+                                      Render::SceneResources::PieceSources pieces,
+                                      ResourceRestoreMode restore);
+  [[nodiscard]] bool SetRetainedGeometry(std::shared_ptr<const Geometry> built,
+                                         size_t drivenParts,
+                                         std::string &error);
+  [[nodiscard]] bool SetRetainedGeometry(std::shared_ptr<const Geometry> built,
+                                         size_t drivenParts,
+                                         const Material &wearing,
+                                         std::string &error);
+  [[nodiscard]] std::expected<void, std::string> BeginRetainedGeometryBuild(
+      std::shared_ptr<const Geometry> built, size_t drivenParts, Material wearing);
+
   friend class ::outshine::Engine;
 
   enum class GeometryBuildStage : uint8_t {
@@ -373,6 +402,7 @@ private:
   void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
   void EmitsPerPart();
   [[nodiscard]] bool StandsPlan(std::string &error);
+  [[nodiscard]] bool InitializesFramePlan(std::string &error);
 
   [[nodiscard]] bool DeclaresKeyLight() const {
     return Declared_.KeyLux > 0.0 || Declared_.KeyFromClock;
@@ -410,6 +440,7 @@ private:
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::Compiled> Plan_;
+  std::shared_ptr<const Render::Compiled> PreparationPlan_;
   Render::CameraState Camera_;
   std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
   Render::SubjectPlacementHistory PlacementUploadHistory_;

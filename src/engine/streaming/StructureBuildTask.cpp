@@ -459,10 +459,10 @@ struct StructureBuildTask::NativeProducts {
 
   bool Lookup(const Generators::RawTile &raw,
               const Generators::PreparedStructureTile *base,
-              const Generators::PreparedBuildingBasis *basis,
+              const Generators::PreparedBuildingAssets::Basis &basis,
               Output &output,
               const std::atomic_bool &stopping) {
-    auto cached = basis != nullptr ? Cache->LoadGeometry(Key, *basis, raw)
+    auto cached = basis != nullptr ? Cache->LoadGeometry(Key, basis, raw)
                                    : Cache->LoadGeometry(Key, *base, raw);
     if (!cached) {
       output.Status = std::unexpected(cached.error());
@@ -482,11 +482,11 @@ struct StructureBuildTask::NativeProducts {
   bool BeforeBake(Generators::RawTile &raw,
                   const Ground::HeightField *heights,
                   std::shared_ptr<const Generators::PreparedStructureTile> &base,
-                  const Generators::PreparedBuildingBasis *basis,
+                  const Generators::PreparedBuildingAssets::Basis &basis,
                   Output &output,
                   const std::atomic_bool &stopping) {
     if (Current != Phase::Lookup) { return false; }
-    if (basis == nullptr && !EnsureBase(raw, heights, base, basis, output, stopping)) {
+    if (basis == nullptr && !EnsureBase(raw, heights, base, basis.get(), output, stopping)) {
       return true;
     }
     if (Lookup(raw, base.get(), basis, output, stopping)) { return true; }
@@ -503,7 +503,7 @@ struct StructureBuildTask::NativeProducts {
         if (Lookup(raw, base.get(), basis, output, stopping)) { return true; }
       }
     }
-    if (!EnsureBase(raw, heights, base, basis, output, stopping)) { return true; }
+    if (!EnsureBase(raw, heights, base, basis.get(), output, stopping)) { return true; }
     Current = Phase::Generating;
     return false;
   }
@@ -687,7 +687,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   Generators::RawTile *const raw = Raw_.get();
   const Ground::HeightField *const heights = Heights_.get();
   auto *const base = &Base_;
-  const auto *const basis = Basis_.get();
+  const auto basis = Basis_;
   NativeProducts *const native = Native_.get();
   MeshScratch *const scratch = Scratch_.get();
   Generators::StructureBakeProgress *const progress = Progress_.get();

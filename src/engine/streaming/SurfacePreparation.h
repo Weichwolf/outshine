@@ -170,7 +170,7 @@ public:
 
   [[nodiscard]] const ClassificationPreparation &Classes() const { return Cls_; }
 
-  [[nodiscard]] bool RestoreClasses(std::shared_ptr<const ClassStructure> classes) {
+  [[nodiscard]] bool RestoreClasses(std::shared_ptr<const TerrainClassificationMap> classes) {
     return Cls_.Restore(std::move(classes));
   }
 
@@ -287,7 +287,7 @@ private:
   std::shared_ptr<Generators::Osm::PreparedOsmTiles> PreparedVectors_;
   enum class StreetMode : uint8_t { Source, CachedRegion, RequiredSource };
   StreetMode StreetMode_ = StreetMode::Source;
-  LongitudeLatitude CachedNetworkFocus_;
+  TileAt CachedNetworkTile_;
   enum class WaterStage : uint8_t { Deferred, Requested, Ready };
   enum class WaterMode : uint8_t { Immediate, RegionLookup };
   WaterStage WaterStage_ = WaterStage::Requested;

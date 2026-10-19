@@ -1,0 +1,433 @@
+#include "Digest.h"
+#include "FrameCapture.h"
+#include "Image.h"
+#include "SceneRenderer.h"
+#include "math/Units.h"
+#include "math/Vec2.h"
+#include "math/Vec3.h"
+#include "Log.h"
+#include <algorithm>
+#include <atomic>
+#include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <expected>
+#include <memory>
+#include <cmath>
+#include "Heap.h"
+#include "TangentFrame.h"
+#include <array>
+#include <optional>
+#include <span>
+#include <numbers>
+#include <string>
+#include <ratio>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <chrono>
+#include <cstdio>
+#include <filesystem>
+#include <system_error>
+#include <vector>
+
+#include "Fit.h"
+#include "ReferenceLine.h"
+
+#include "EngineState.h"
+#include "GroundMesher.h"
+
+namespace outshine {
+
+namespace Says {
+constexpr auto kColourReadbackIsBytes = "Colour requires the RGBA8 readback overload";
+constexpr auto kUnknownReadbackBuffer = "unknown readback buffer";
+constexpr auto kAudioAssemblyRequired =
+    "assemble the current declaration before binding audio sources";
+constexpr auto kAudioDeclarationRequired = "declare content before preparing audio";
+constexpr auto kAudioPreparationRequired = "prepare audio before mixing";
+constexpr auto kFrameAlreadyOpen = "a frame is already open on this engine";
+constexpr auto kInvalidFrameExtent =
+    "frame extent must be zero in both dimensions or positive in both";
+}
+
+namespace {
+Result ValidateFrameExtent(Extent frame, const EngineRenderState &picture) {
+  const bool defaultTarget = frame.WidthPx == 0 && frame.HeightPx == 0;
+  if (!defaultTarget && (frame.WidthPx <= 0 || frame.HeightPx <= 0)) {
+    return std::unexpected(std::string(Says::kInvalidFrameExtent));
+  }
+  if (frame.WidthPx > 0 && frame.HeightPx > 0 &&
+      (frame.WidthPx != picture.Frame.WidthPx || frame.HeightPx != picture.Frame.HeightPx)) {
+    return std::unexpected("this engine stands on a " + std::to_string(picture.Frame.WidthPx) +
+                           "x" + std::to_string(picture.Frame.HeightPx) +
+                           " canvas and was asked to draw " + std::to_string(frame.WidthPx) + "x" +
+                           std::to_string(frame.HeightPx) +
+                           " -- a canvas is declared before a scenario stands on it");
+  }
+  return {};
+}
+
+bool DrawScene(EngineRenderState &picture, std::string &error) {
+  if (!picture.Standing->Draw(error)) { return false; }
+  if (picture.Scope != FrameScope::Closed) { picture.Scope = FrameScope::DrawSucceeded; }
+  return true;
+}
+}
+
+Result Engine::prepareAudio(int sampleRateHz) {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (!S_->Session.Taken) {
+    S_->Error = Says::kAudioDeclarationRequired;
+    return std::unexpected(S_->Error);
+  }
+  const bool bound =
+      std::ranges::any_of(S_->Session.Declared.Sounds,
+                          [](const Audio::SoundSource &sound) { return !sound.Body.empty(); });
+  if (bound && S_->Simulation->DeclarationRevision != S_->Session.DeclarationRevision) {
+    S_->Error = Says::kAudioAssemblyRequired;
+    return std::unexpected(S_->Error);
+  }
+  Audio::Mixer candidate;
+  auto setup =
+      candidate.Configure(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, sampleRateHz);
+  if (!setup) {
+    S_->Error = setup.error();
+    return setup;
+  }
+  std::vector<std::optional<size_t>> bindings(S_->Session.Declared.Sounds.size());
+  if (bound) {
+    auto resolved = S_->Simulation->BindAudio(S_->Session.Declared.Sounds);
+    if (!resolved) {
+      S_->Error = resolved.error();
+      return std::unexpected(S_->Error);
+    }
+    bindings = std::move(*resolved);
+  }
+  S_->Session.AudioBodies = std::move(bindings);
+  S_->PublishAudioSnapshot();
+  S_->Session.Sounding.emplace(std::move(candidate));
+  S_->Error.clear();
+  return {};
+}
+
+Result Engine::mix(std::span<float> stereo) {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (!S_->Session.Sounding) {
+    S_->Error = Says::kAudioPreparationRequired;
+    return std::unexpected(S_->Error);
+  }
+  const unsigned told = S_->Session.Told.load(std::memory_order_acquire);
+  if (!S_->Session.Sounding->Mix(
+          stereo, S_->Session.Sources[told], S_->Session.Ear[told], S_->Error)) {
+    return std::unexpected(S_->Error);
+  }
+  S_->Error.clear();
+  return {};
+}
+
+Result Engine::render(Extent frame) {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto valid = ValidateFrameExtent(frame, S_->Picture); !valid) {
+    return std::unexpected(valid.error());
+  }
+  if (!S_->EnsureRuntimeScene()) { return std::unexpected(S_->Error); }
+  const auto began = std::chrono::steady_clock::now();
+  if (!DrawScene(S_->Picture, S_->Error)) { return std::unexpected(S_->Error); }
+  const auto publicationAt = std::chrono::steady_clock::now();
+  S_->Published.BeginFrame();
+  S_->PublishSubmittedCameraMeasurements();
+  S_->Cost.Render.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+  const Render::RenderFrameTiming &frameTiming = S_->Picture.Device.LastRenderFrameTiming();
+  S_->Published.RecordMetric(
+      "render host last submitted: fence wait",
+      frameTiming.PhaseMs[static_cast<size_t>(Render::RenderFramePhase::FenceWait)],
+      "ms");
+  S_->Published.RecordMetric(
+      "subject draws", static_cast<double>(S_->Picture.Device.SubjectDrawCount()), "draws");
+  S_->Published.RecordMetric("the geometry the renderer was last offered, digested",
+                             S_->Picture.Standing->TransferMetrics().DigestValue(),
+                             "");
+  S_->Published.RecordMetric("subject residency upload attempts in all",
+                             static_cast<double>(S_->Picture.Device.TotalUploadAttempts()),
+                             "uploads");
+  S_->Published.RecordMetric("staged crossings recorded in copy passes",
+                             static_cast<double>(S_->Picture.Device.RecordedCrossings()),
+                             "crossings");
+  S_->Published.RecordMetric("subject clusters",
+                             static_cast<double>(S_->Picture.Standing->Shown().Clusters.size()),
+                             "clusters");
+  S_->Published.RecordMetric("cull: jobs it swept",
+                             static_cast<double>(Render::SubjectCullStage::JobsSweptTaken()),
+                             "jobs");
+  if (!S_->Simulation->DynamicBodies.empty()) {
+    S_->Published.RecordMetric("bodies standing on no route",
+                               static_cast<double>(S_->Simulation->DynamicBodies.size()),
+                               "bodies");
+    S_->Published.RecordMetric(
+        "the first of them, up", S_->Simulation->DynamicBodies.front().Motion.PositionM[1], "m");
+    S_->Published.RecordMetric(
+        "and how fast it falls", S_->Simulation->DynamicBodies.front().Motion.VelocityMs[1], "m/s");
+  }
+  if (S_->Session.Declared.Render.Audits) {
+    Render::PyramidDepths depths;
+    if (S_->Picture.Standing->Pyramid(depths) == Render::ReadState::Ready) {
+      S_->Published.RecordMetric(
+          "cull: the pyramid's nearest depth", static_cast<double>(depths.Nearest), "0..1");
+      S_->Published.RecordMetric(
+          "cull: its farthest", static_cast<double>(depths.Farthest), "0..1");
+      S_->Published.RecordMetric("cull: and its mean", static_cast<double>(depths.Mean), "0..1");
+    }
+  }
+  {
+    const Render::Viewpoint &eye = S_->Picture.Standing->Aimed();
+    const double aspect = S_->Picture.Frame.HeightPx > 0
+                              ? static_cast<double>(S_->Picture.Frame.WidthPx) /
+                                    static_cast<double>(S_->Picture.Frame.HeightPx)
+                              : 1.0;
+    const double half = 0.5 * eye.YfovRad;
+    const double up = std::tan(half);
+    const double across = up * aspect;
+    size_t kept = 0;
+    for (const DagCluster &one : S_->Picture.Standing->Shown().Clusters) {
+      const Vec3 to = {{static_cast<double>(one.SelfCenter[0]) - eye.EyeM[0],
+                        static_cast<double>(one.SelfCenter[1]) - eye.EyeM[1],
+                        static_cast<double>(one.SelfCenter[2]) - eye.EyeM[2]}};
+      const double ahead = to[0] * eye.Forward[0] + to[1] * eye.Forward[1] + to[2] * eye.Forward[2];
+      const double right = to[0] * eye.Right[0] + to[1] * eye.Right[1] + to[2] * eye.Right[2];
+      const double over = to[0] * eye.Up[0] + to[1] * eye.Up[1] + to[2] * eye.Up[2];
+      const auto radius = static_cast<double>(one.SelfRadius);
+      if (ahead + radius < eye.ZNearM) { continue; }
+      if (eye.ZFarM > 0.0 && ahead - radius > eye.ZFarM) { continue; }
+      if (std::fabs(right) - radius > across * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
+      if (std::fabs(over) - radius > up * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
+      ++kept;
+    }
+    S_->Published.RecordMetric(
+        "ring: clusters a frustum would keep", static_cast<double>(kept), "clusters");
+  }
+  S_->Published.RecordMetric("subject draw calls",
+                             static_cast<double>(S_->Picture.Device.SubjectDrawCallCount()),
+                             "calls");
+  S_->Published.RecordMetric(
+      "plan passes", static_cast<double>(S_->Picture.Standing->PlanPasses()), "passes");
+  for (uint32_t at = 0; at < static_cast<uint32_t>(Render::kVertexLayouts.size()); ++at) {
+    const uint32_t many =
+        S_->Picture.Device.SubjectBatchesTaking(static_cast<Render::VertexLayout>(at));
+    if (many == 0) { continue; }
+    S_->Published.RecordMetric(
+        "draws taking vertex layout " + std::to_string(at), static_cast<double>(many), "draws");
+  }
+  S_->Drew();
+  S_->PublishCostMeasurements();
+  S_->Cost.Diagnostics.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - publicationAt)
+          .count());
+  S_->Published.RecordMetric("cost.diagnostics.total_ms", S_->Cost.Diagnostics.TotalMs(), "ms");
+  S_->Published.RecordMetric("cost.diagnostics.max_ms", S_->Cost.Diagnostics.MostMs(), "ms");
+  return {};
+}
+
+Result Engine::inspect() {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (!S_->EnsureRuntimeScene()) { return std::unexpected(S_->Error); }
+  if (!S_->Picture.Standing) {
+    S_->Error = "nothing stands to be inspected -- a scenario is declared before a frame carries "
+                "anything a readback could tell";
+    return std::unexpected(S_->Error);
+  }
+  S_->Published.BeginFrame();
+  S_->Inspected();
+  return {};
+}
+
+Result Engine::readPixels(std::vector<uint8_t> &rgba) {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (!S_->Picture.Standing) {
+    return std::unexpected(std::string(
+        "nothing stands to be read -- a scenario is declared before a frame carries pixels"));
+  }
+  if (Core::ReadFrame(S_->Picture.Device, rgba, S_->Error)) {
+    S_->PublishGpuFrameMeasurements(true);
+    return {};
+  }
+  return std::unexpected(S_->Error);
+}
+
+Result Engine::readPixels(Buffer which, std::vector<float> &out) {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  switch (which) {
+    case Buffer::Linear:
+    case Buffer::Depth:
+    case Buffer::ShadingNormal:
+    case Buffer::SurfaceIdentity:
+    case Buffer::Velocity: break;
+    case Buffer::Colour: return std::unexpected(std::string(Says::kColourReadbackIsBytes));
+    default: return std::unexpected(std::string(Says::kUnknownReadbackBuffer));
+  }
+  if (!S_->Picture.Standing) {
+    return std::unexpected(std::string(
+        "nothing stands to be read -- a scenario is declared before a frame carries pixels"));
+  }
+  if (Core::ReadFrame(S_->Picture.Device, which, out, S_->Error)) { return {}; }
+  return std::unexpected(S_->Error);
+}
+
+void Engine::logsTo(LogSink *sink) {
+  S_->Diagnostics = sink;
+}
+
+Extent Engine::canvas() const {
+  return S_->Picture.Targeted ? S_->Picture.Frame : Extent{};
+}
+
+bool Engine::camera(Camera &out) const {
+  if (!S_->Picture.Standing) { return false; }
+  Render::CameraOf(S_->Picture.Standing->Aimed(), out);
+  return true;
+}
+
+bool Engine::presenting() const {
+  return S_->Picture.Device.Presents();
+}
+
+Result Engine::beginFrame() {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (S_->Picture.Scope != FrameScope::Closed) {
+    return std::unexpected(std::string(Says::kFrameAlreadyOpen));
+  }
+  if (!S_->EnsureRuntimeScene()) { return std::unexpected(S_->Error); }
+  if (!S_->Picture.Standing) {
+    return std::unexpected(std::string("a frame is begun over a scenario, and none stands"));
+  }
+  S_->Picture.Scope = FrameScope::Open;
+  return {};
+}
+
+Result Engine::endFrame() {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (S_->Picture.Scope == FrameScope::Closed) {
+    return std::unexpected(std::string("a frame was ended that was never begun"));
+  }
+  const auto completed = std::exchange(S_->Picture.Scope, FrameScope::Closed);
+  if (completed == FrameScope::DrawSucceeded || !S_->Picture.Standing ||
+      !S_->Picture.Device.Presents()) {
+    return {};
+  }
+  if (DrawScene(S_->Picture, S_->Error)) { return {}; }
+  return std::unexpected(S_->Error);
+}
+
+Result Engine::flushAndWait() {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (!S_->Picture.Standing) { return {}; }
+  if (!S_->Picture.Device.Settle(S_->Error)) { return std::unexpected(S_->Error); }
+  S_->PublishGpuFrameMeasurements(true);
+  return {};
+}
+
+Result Engine::saveScreenshot(std::string_view path) {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (!S_->Picture.Standing) {
+    return std::unexpected(std::string(
+        "nothing stands to be captured -- a scenario is declared before a frame is kept"));
+  }
+  if (Core::SaveFrame(S_->Picture.Device, S_->Picture.Frame, path, S_->Error)) {
+    S_->PublishGpuFrameMeasurements(true);
+    return {};
+  }
+  return std::unexpected(S_->Error);
+}
+
+}
+
+namespace outshine::Core {
+
+bool ReadFrame(Render::SceneRenderer &renderer, std::vector<uint8_t> &rgba, std::string &error) {
+  const auto published = renderer.PublishedWorld();
+  if (!renderer.Drew()) {
+    error = "nothing has been drawn yet, so there is no frame to read";
+    return false;
+  }
+  if (renderer.ReadPixels(rgba) != Render::ReadState::Ready) {
+    error = renderer.WhyNot();
+    return false;
+  }
+  return true;
+}
+
+bool ReadFrame(Render::SceneRenderer &renderer,
+               outshine::Buffer buffer,
+               std::vector<float> &out,
+               std::string &error) {
+  const auto published = renderer.PublishedWorld();
+  if (!renderer.Drew()) {
+    error = "nothing has been drawn yet, so there is no frame to read";
+    return false;
+  }
+  Render::ReadState state = Render::ReadState::Failed;
+  switch (buffer) {
+    case outshine::Buffer::Colour:
+      error = "the displayed picture is read as bytes, not as scene-referred float";
+      return false;
+    case outshine::Buffer::Linear: state = renderer.ReadSceneLinear(out); break;
+    case outshine::Buffer::Depth: state = renderer.ReadDepth(out); break;
+    case outshine::Buffer::ShadingNormal: state = renderer.ReadShadingNormal(out); break;
+    case outshine::Buffer::SurfaceIdentity: state = renderer.ReadSurfaceIdentity(out); break;
+    case outshine::Buffer::Velocity:
+      if (!renderer.Plan().Holds(Render::Resource::SceneVelocity)) {
+        error = "this plan carries no velocity, so no frame of it has one to read";
+        return false;
+      }
+      state = renderer.ReadSceneVelocity(out);
+      break;
+  }
+  if (state != Render::ReadState::Ready) {
+    error = "the frame did not come back from the device";
+    return false;
+  }
+  return true;
+}
+
+bool SaveFrame(Render::SceneRenderer &renderer,
+               Extent frame,
+               std::string_view path,
+               std::string &error) {
+  std::vector<uint8_t> rgba;
+  if (!ReadFrame(renderer, rgba, error)) { return false; }
+  const size_t want = static_cast<size_t>(frame.WidthPx) * static_cast<size_t>(frame.HeightPx) * 4u;
+  if (rgba.size() != want) {
+    error = "the frame read back " + std::to_string(rgba.size()) + " bytes and " +
+            std::to_string(frame.WidthPx) + " by " + std::to_string(frame.HeightPx) + " rgba is " +
+            std::to_string(want);
+    return false;
+  }
+  std::vector<uint8_t> png;
+  if (!EncodePng(rgba.data(), frame.WidthPx, frame.HeightPx, png)) {
+    error = "the frame did not encode as a png";
+    return false;
+  }
+  const std::filesystem::path named(path);
+  if (named.has_parent_path()) {
+    std::error_code ignored;
+    std::filesystem::create_directories(named.parent_path(), ignored);
+  }
+  std::FILE *const file = std::fopen(named.string().c_str(), "wb");
+  if (file == nullptr) {
+    error = "the screenshot could not be opened for writing at " + named.string();
+    return false;
+  }
+  const size_t wrote = std::fwrite(png.data(), 1, png.size(), file);
+  std::fclose(file);
+  if (wrote != png.size()) {
+    error = "the screenshot wrote " + std::to_string(wrote) + " of " + std::to_string(png.size()) +
+            " bytes to " + named.string();
+    return false;
+  }
+  return true;
+}
+
+}

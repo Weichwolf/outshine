@@ -40,11 +40,11 @@ bool CaptureTerrainShadow(double anchorZ, std::vector<float> &depth) {
   SubjectMesh mesh;
   mesh.Anchor = {{0, 0, anchorZ}};
   CHECK(renderer.SetSubjectMesh(mesh, error), "empty subjects retain the terrain anchor");
-  const std::vector<float> nodes(GroundLattice::kPageNodes, 3.0f);
+  const std::vector<float> nodes(TerrainRenderer::kPageNodes, 3.0f);
   const auto page = renderer.PlaceHeightPage(nodes);
   CHECK(page.has_value(), "terrain heights upload");
   if (!page) { return false; }
-  std::vector<float> fractions(GroundLattice::kSide);
+  std::vector<float> fractions(TerrainRenderer::kSide);
   for (size_t at = 0; at < fractions.size(); ++at) {
     fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
   }

@@ -1,4 +1,4 @@
-"""Exercise the production Vulkan archive on the declared RTX 3060 host."""
+"""Exercise the production Vulkan archive on an explicitly declared device."""
 
 import argparse
 import hashlib
@@ -41,6 +41,7 @@ def main():
     parser.add_argument('--validation', action='store_true')
     parser.add_argument('--present', action='store_true', help='also exercise actual SDL window presentation')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--device-name', required=True, help='exact Vulkan physical device name')
     args = parser.parse_args()
     if platform.system() != 'Linux':
         parser.error('the native Vulkan backend currently requires Linux')
@@ -68,6 +69,11 @@ def main():
         flags = shlex.split(run(
             ['pkg-config', '--cflags', 'vulkan', 'spirv-cross-c-shared', 'sdl3'], log).stdout)
         flags += shlex.split(run(['sh', 'test/run.sh', '--native-link-flags'], log).stdout)
+        run(['make', 'db'], log)
+        database = json.loads((ROOT / 'compile_commands.json').read_text())
+        stage = next(item for item in database if Path(item['file']).name == 'StagePipelines.cpp')
+        arguments = stage.get('arguments') or shlex.split(stage['command'])
+        includes = [flag for flag in arguments if flag.startswith('-I')]
         selected = run(['python3', 'test/scripts/source_units.py'], log).stdout.splitlines()
         native = [ROOT / name for name in selected if name.startswith('src/render/device/native/')]
         members = run(['ar', 't', str(archive)], log).stdout.splitlines()
@@ -109,6 +115,11 @@ def main():
             run(['nice', '-n', '10', *glslang, '-V', '--target-env', 'vulkan1.0',
                  '-Isrc', '-Isrc/content/shade', '-Isrc/render/shaders', str(source), '-o', str(shader)], log)
             shaders.append(shader)
+        write_shader = output / 'native_graphics_write.frag.spv'
+        run(['nice', '-n', '10', *glslang, '-V', '--target-env', 'vulkan1.0',
+             '-DNATIVE_GRAPHICS_WRITE=1', str(Path(__file__).with_name('native_metal_mrt.frag')),
+             '-o', str(write_shader)], log)
+        shaders.append(write_shader)
         consumers = [ROOT / 'test/harness/render' / name for name in
                      ('NativeVulkanProbe.cpp', 'NativeTextureProbe.cpp',
                       'NativeTextureLifetimeProbe.cpp', 'NativeRasterProbe.cpp',
@@ -129,16 +140,14 @@ def main():
         for source in consumers:
             binary = output / source.stem
             run(['nice', '-n', '10', *compiler, *toolchain, '-fno-exceptions', '-I.',
-                 '-Isrc/render/device/native', '-Itest/harness/shared', str(source),
+                 '-Isrc/render/device/native', *includes, '-Itest/harness/shared', str(source),
                  str(archive), *flags, '-o', str(binary)], log)
             binaries.append(binary)
         environment = os.environ.copy()
         suffix = ['--validation'] if args.validation else []
         if args.validation:
-            enabled = environment.get('VK_LAYER_ENABLES', '').split(',')
-            enabled.append('VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT')
-            environment['VK_LAYER_ENABLES'] = ','.join(dict.fromkeys(filter(None, enabled)))
-        result = run([str(binaries[0]), *map(str, shaders[:2]), *suffix], log,
+            environment['VK_LAYER_VALIDATE_SYNC'] = '1'
+        result = run([str(binaries[0]), *map(str, shaders[:2]), args.device_name, *suffix], log,
                      environment=environment, timeout=20)
         if result.stderr:
             raise RuntimeError(f'native Vulkan probe reported diagnostics (see {log.name})')
@@ -149,7 +158,7 @@ def main():
         report['texture_lifetime_checks'] = verdict(run(
             [str(binaries[2]), str(shaders[2]), *suffix], log,
             environment=environment, timeout=25), log)
-        raster_jobs = [('raster_pipeline_checks', 3, [4, 5, 6]),
+        raster_jobs = [('raster_pipeline_checks', 3, [4, 5, 6, len(shaders) - 1]),
                        ('render_pass_checks', 4, [7]),
                        ('mrt_draw_checks', 5, [4, 5]),
                        ('draw_transition_checks', 6, [8, 9, 10]),
@@ -196,13 +205,15 @@ def main():
                 [str(binaries[9]), str(shaders[4]), str(shaders[13])], log,
                 environment=environment, timeout=30), log)
             report['vulkan_wsi_checks'] = verdict(run(
-                [str(binaries[10]), str(shaders[4]), str(shaders[14]), str(output / 'swapchain.ppm')],
+                [str(binaries[10]), str(shaders[4]), str(shaders[14]), str(output / 'swapchain.ppm'),
+                 args.device_name],
                 log, environment=environment, timeout=30), log)
         if args.present:
             report['present_target_checks'] = verdict(run(
                 [str(binaries[11]), str(shaders[4]), str(shaders[13]), str(shaders[15])],
                 log, environment=environment, timeout=45), log)
         report.update(commit=commit, dirty=dirty, log=str(log_path),
+                      expected_device_name=args.device_name,
                       archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                       native_archive_objects=len(native))
         headers = list((ROOT / 'src/render/device/native').glob('*.h'))

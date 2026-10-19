@@ -1,4 +1,5 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
+#include "GpuFrameSample.h"
 #include "geo/Mercator.h"
 #include "math/Units.h"
 #include <algorithm>
@@ -56,7 +57,7 @@ constexpr auto kDuplicateGeneratorKind = "generator kind is already registered";
 namespace {
 
 [[nodiscard]] std::string_view OsmWorldBlocker(std::span<const Data::SourceProvider> providers,
-                                               const Surrounds &world) {
+                                               const WorldRegionState &world) {
   const bool requested = std::ranges::any_of(
       providers, [](const Data::SourceProvider &provider) { return provider.Kind == "osm"; });
   if (!requested) { return {}; }
@@ -90,7 +91,9 @@ RequiredBlocker(bool required, bool ready, std::string_view reason) noexcept {
 
 }
 
-Engine::Engine() : S_(std::make_unique<State>()) {}
+Engine::Engine() : Engine(std::make_unique<State>()) {}
+
+Engine::Engine(std::unique_ptr<State> state) : S_(std::move(state)) {}
 
 Capture::~Capture() {
   release();
@@ -419,6 +422,46 @@ Result Renderer::render(Extent frame) {
   return Of_->render(frame);
 }
 
+Result Renderer::resetMeasurements() {
+  if (const auto permission = Of_->S_->MutationPermission(); !permission) { return permission; }
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("frame measurement requires an assembled render scene");
+  }
+  Of_->S_->Picture.Device.ResetMeasurements();
+  Of_->S_->PublishGpuFrameMeasurements(false);
+  return {};
+}
+
+Result Renderer::resetMeasurements(size_t gpuSamples) {
+  if (const auto permission = Of_->S_->MutationPermission(); !permission) { return permission; }
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("frame measurement requires an assembled render scene");
+  }
+  Of_->S_->Picture.Device.KeepGpuSamples(gpuSamples);
+  return resetMeasurements();
+}
+
+Result Renderer::gpuSamples(std::vector<Render::GpuFrameSample> &out) const {
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("GPU samples require an assembled render scene");
+  }
+  const auto &device = Of_->S_->Picture.Device;
+  if (device.Costs().DroppedGpuSamples != 0) {
+    return std::unexpected("GPU frame sample capacity was exhausted");
+  }
+  const auto samples = device.GpuSamples();
+  out.assign(samples.begin(), samples.end());
+  return {};
+}
+
+bool Renderer::camera(Camera &out) const {
+  return Of_->camera(out);
+}
+
+std::string_view Renderer::gpuName() const {
+  return Of_->S_->Picture.Device.GpuName();
+}
+
 Result Renderer::saveScreenshot(std::string_view path) {
   return Of_->saveScreenshot(path);
 }
@@ -570,7 +613,7 @@ Result Engine::State::FinishesPreload(GroundQuality quality) {
   const bool continuingCandidate = World.GroundBuild != nullptr;
   const bool structuresReady =
       !continuingCandidate && published && StructuresReady(World.Stack.Footprints(), *published);
-  if (!Grounds(true, quality)) { return std::unexpected(Error); }
+  if (!AdvanceWorldRegionBuild(true, quality)) { return std::unexpected(Error); }
   if (structuresReady && !UpdateVegetation(true)) { return std::unexpected(Error); }
   return {};
 }
@@ -862,6 +905,7 @@ Result Engine::setView(std::string_view view) {
     return std::unexpected(S_->Error);
   }
   S_->RouteCamera = std::move(routeCamera);
+  S_->CameraPosePending = true;
   return {};
 }
 

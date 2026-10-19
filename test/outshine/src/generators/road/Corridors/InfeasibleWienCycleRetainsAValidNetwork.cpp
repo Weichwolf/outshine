@@ -149,7 +149,7 @@ Geometry Build(const Inputs &input, bool incremental) {
   if (!network.Graph) { return geometry; }
   const auto empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty, .Field = [&](EastNorth at) { return input.HeightAt(at); }};
-  const std::shared_ptr<const ClassStructure> classes;
+  const std::shared_ptr<const TerrainClassificationMap> classes;
   const RecordingMesher mesher;
   const Corridors corridors(mesher);
   const Corridors::Site site{.Vectors = &vectors,

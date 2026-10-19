@@ -1790,8 +1790,8 @@ void StructureBuildQueue::CommitFootprints(
   if (!bake.Task.FromPreparedInputs()) {
     auto &completed = bake.Task.Result().Tile;
     assert(completed && completed->Coordinates);
-    completed->Coordinates->Points = std::move(bake.Task.Raw().LatLon);
-    completed->Coordinates->Rings = std::move(bake.Task.Raw().Holes);
+    completed->Coordinates->OwnCoordinates(std::move(bake.Task.Raw().LatLon),
+                                           std::move(bake.Task.Raw().Holes));
   }
   if (bake.Replacement) {
     footprints.ReplaceAcceptance(std::move(landing.Footprints.value()), product);

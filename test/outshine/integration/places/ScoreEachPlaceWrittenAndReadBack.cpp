@@ -23,7 +23,7 @@
 int main(void) {
   using namespace outshine::Test;
   std::string said;
-  const int closed = Run("build/outshine-client roundtrip", said);
+  const int closed = Run("build/outshine roundtrip", said);
   std::printf("%s", said.c_str());
 
   size_t held = 0, apart = 0;

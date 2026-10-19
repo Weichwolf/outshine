@@ -1,6 +1,6 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "BinaryValueArchive.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "TerrainRefinement.h"
 #include <expected>
 #include <cstdint>
@@ -33,7 +33,7 @@ Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &
                   eye.YMagM,
                   Picture.Frame.HeightPx,
                   Generators::TerrainRefinementDetail{}.ErrorPx,
-                  Render::GroundLattice::kMaximumPages)) {
+                  Render::TerrainRenderer::kMaximumPages)) {
     return std::unexpected("ground region parameters exceed their encoding limit");
   }
   if ((!World.Stack.HasVectorSource() || World.Stack.HasDeclaredVectors()) &&

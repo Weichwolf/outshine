@@ -107,7 +107,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   SIGGRAPH 2004. [Quelle](https://hhoppe.com/geomclipmap.pdf) ·
   [PDF](terrain/siggraph/2004-geometry-clipmaps.pdf).
   Regelmäßige verschachtelte Gitter und inkrementelle Randaktualisierung vermeiden Vollneubau.
-  Mit GroundLattice vergleichen, keine zweite Terrainpipeline. Clipmaps allein liefern weder
+  Mit TerrainRenderer vergleichen, keine zweite Terrainpipeline. Clipmaps allein liefern weder
   weltweite Quellabdeckung noch Ellipsoidübergang oder konservative Höhenfehlerschranken.
 - **Procedural Noise using Sparse Gabor Convolution**, Lagae et al., SIGGRAPH 2009.
   [Quelle](https://graphics.cs.kuleuven.be/publications/LLDD09PNSGC/LLDD09PNSGC_paper.pdf) ·
@@ -473,6 +473,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 ## Physik, Animation, NPCs und Klang — WI [#2](https://github.com/Weichwolf/outshine/issues/2)
 
+- **Animating Rotation with Quaternion Curves**, Shoemake, SIGGRAPH 1985.
+  [Quelle](https://doi.org/10.1145/325165.325242) ·
+  [PDF](animation/siggraph/1985-rotation-quaternion-curves.pdf).
+  Einheitliche Rotationsdarstellung und Quaternionprodukt für Kamerabewegungen (#811).
+  Feste Winkelgeschwindigkeit wird direkt bei der Framezeit ausgewertet; keine Euler-
+  Integration oder gespeicherte Ansicht je Frame. Vorzeichen und Matrixkonvention gegen
+  Outshines Kamera und unabhängige Achsrotationen prüfen; keine Spline-Implementierung.
 - **XPBD: Position-Based Simulation of Compliant Constrained Dynamics**, Macklin et al.,
   Motion in Games 2016. [Quelle](https://mmacklin.com/xpbd.pdf) ·
   [PDF](physics/mig/2016-xpbd.pdf).

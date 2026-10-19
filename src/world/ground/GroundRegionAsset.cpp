@@ -27,7 +27,7 @@ template <class T> bool Finite(std::span<const T> values) {
   return std::ranges::all_of(values, [](T value) { return std::isfinite(value); });
 }
 
-bool ValidGrid(const ClassStructure::Grid &grid) {
+bool ValidGrid(const TerrainClassificationMap::Grid &grid) {
   if (grid.W < 0 || grid.H < 0 || !std::isfinite(grid.OrgE) || !std::isfinite(grid.OrgN) ||
       !std::isfinite(grid.CellM) || grid.CellM <= 0 || !std::isfinite(grid.BoundaryHaloM) ||
       grid.BoundaryHaloM < 0 || grid.BoundaryHaloM > std::numeric_limits<float>::max() ||
@@ -150,7 +150,8 @@ bool ValidRegion(const GroundRegionAsset &region) {
              [](double value) { return std::isfinite(value) && value >= 0 && value <= 1; });
 }
 
-bool WriteClasses(BinaryValueWriter &out, const std::shared_ptr<const ClassStructure> &classes) {
+bool WriteClasses(BinaryValueWriter &out,
+                  const std::shared_ptr<const TerrainClassificationMap> &classes) {
   if (!out(classes != nullptr)) { return false; }
   if (!classes) { return true; }
   const auto anchor = classes->Frame().Anchor();
@@ -162,14 +163,14 @@ bool WriteClasses(BinaryValueWriter &out, const std::shared_ptr<const ClassStruc
          GridFields(out, classes->Fine()) && GridFields(out, classes->Coarse());
 }
 
-bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const ClassStructure> &classes) {
+bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const TerrainClassificationMap> &classes) {
   bool present = false;
   if (!in(present)) { return false; }
   if (!present) { return true; }
   LongitudeLatitude anchor;
-  ClassStructure::FromRun version;
-  auto fine = std::make_shared<ClassStructure::Grid>();
-  auto coarse = std::make_shared<ClassStructure::Grid>();
+  TerrainClassificationMap::FromRun version;
+  auto fine = std::make_shared<TerrainClassificationMap::Grid>();
+  auto coarse = std::make_shared<TerrainClassificationMap::Grid>();
   if (!in(anchor.LongitudeDeg,
           anchor.LatitudeDeg,
           version.Version,
@@ -181,7 +182,7 @@ bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const ClassStructure> &c
       !GridFields(in, *coarse)) {
     return false;
   }
-  classes = std::make_shared<const ClassStructure>(
+  classes = std::make_shared<const TerrainClassificationMap>(
       TangentFrame::At(anchor), std::move(fine), std::move(coarse), version);
   return true;
 }

@@ -1,6 +1,7 @@
 #include "StructureBuildTask.h"
 #include "StructureCellAssembly.h"
 #include "PreparedBuildingAssets.h"
+#include "PreparedBuildingBasis.h"
 #include "SourceSet.h"
 #include "BuildingMesh.h"
 #include "Geodesy.h"
@@ -106,10 +107,12 @@ void Replay(const std::filesystem::path &root, bool warm) {
   block.Nodes.assign(4, 0.0f);
   CountingMesh mesher;
   Tasks pool(1);
+  std::weak_ptr<const PreparedBuildingBasis> warmBasis;
   auto task = [&] {
     if (warm) {
       const auto basis = cache->LoadBasis(std::string(kKey));
       CHECK(basis && *basis, "warm input loads only the owned source basis");
+      if (basis) { warmBasis = *basis; }
       return StructureBuildTask(0,
                                 basis ? *basis : nullptr,
                                 std::make_unique<RawTile>(raw),
@@ -134,9 +137,15 @@ void Replay(const std::filesystem::path &root, bool warm) {
     if (!tile) { return; }
     const auto &child = *tile;
     CHECK(child.RequestedCell && !child.RequestedDetail && child.Prints.size() == 1 &&
-              child.SelectedView && child.Coordinates && !child.Coordinates->Points.empty(),
+              child.SelectedView && child.Coordinates && !child.Coordinates->Points().empty(),
           "each bounded product owns complete coordinates and adaptive source selection");
     CHECK(task.Result().CacheHit == warm, "fresh replay uses the exact child cache identity");
+    if (warm) {
+      const auto basis = warmBasis.lock();
+      CHECK(basis && child.Coordinates->Points().data() == basis->PointsLatLon.data() &&
+                child.Coordinates->Rings().data() == basis->Holes.data(),
+            "each warm child leases complete immutable basis arrays without duplicate copies");
+    }
     assembly.Collect(child);
     assembly.Collect(child);
     if (assembly.Remaining() == 0) { break; }

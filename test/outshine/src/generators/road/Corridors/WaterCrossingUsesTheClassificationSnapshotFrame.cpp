@@ -1,7 +1,7 @@
 #include "src/generators/road/Corridors.h"
 #include "src/generators/road/ProfiledRoadMesher.h"
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 
 #include <algorithm>
 
@@ -111,17 +111,18 @@ int main() {
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const double longitude : {8.1, 9.0}) {
-    auto grid = std::make_shared<ClassStructure::Grid>();
+    auto grid = std::make_shared<TerrainClassificationMap::Grid>();
     grid->W = grid->H = 1;
     grid->OrgE = -8000;
     grid->OrgN = -1000;
     grid->CellM = 2000;
     grid->Cells = {static_cast<uint32_t>(water) | (1u << 8), 0};
-    const std::shared_ptr<const ClassStructure> classes = std::make_shared<ClassStructure>(
-        TangentFrame::At({.LongitudeDeg = longitude, .LatitudeDeg = 49}),
-        grid,
-        std::make_shared<const ClassStructure::Grid>(),
-        ClassStructure::FromRun{});
+    const std::shared_ptr<const TerrainClassificationMap> classes =
+        std::make_shared<TerrainClassificationMap>(
+            TangentFrame::At({.LongitudeDeg = longitude, .LatitudeDeg = 49}),
+            grid,
+            std::make_shared<const TerrainClassificationMap::Grid>(),
+            TerrainClassificationMap::FromRun{});
     const Generators::Corridors::Site site{
         .Vectors = &vectors,
         .Ways = ways,
@@ -131,6 +132,7 @@ int main() {
         .Draped = drape,
         .Classes = classes,
         .WaterUpM = [](LongitudeLatitude) { return std::optional<double>{0}; },
+        .CensusAt = {},
         .EyeLatDeg = origin.LatitudeDeg,
         .EyeLonDeg = origin.LongitudeDeg,
         .Projection = {.FocalPx = 800}};

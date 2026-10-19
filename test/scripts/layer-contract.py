@@ -227,9 +227,9 @@ def main():
         raise RuntimeError('world generator negative control failed')
     if not world_state_boundary({'src/generators/osm/import/OsmXmlReader.h'}):
         raise RuntimeError('world source interpretation negative control failed')
-    if not world_state_boundary({'src/render/device/GroundClassBuffer.h'}):
+    if not world_state_boundary({'src/render/terrain/PackedTerrainClassification.h'}):
         raise RuntimeError('world renderer negative control failed')
-    if generator_product_boundary({'src/world/ground/ClassStructure.h'}):
+    if generator_product_boundary({'src/world/ground/TerrainClassificationMap.h'}):
         raise RuntimeError('generator product positive control failed')
     for controller in ('src/engine/streaming/ClassificationPreparation.h',
                        'src/engine/streaming/ClassificationBuild.h',

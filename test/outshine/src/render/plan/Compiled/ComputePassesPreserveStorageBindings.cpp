@@ -1,11 +1,15 @@
 #include "Check.h"
 #include "Compiled.h"
+#include <cstddef>
 
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  const auto compiled = Compiled::Compile(
-      {.Outputs = {Resource::SceneHdr}, .Content = {Stage::Subjects, Stage::Sky}});
+  const auto compiled = Compiled::Compile({.Outputs = {Resource::SceneHdr},
+                                           .Content = {Stage::Subjects, Stage::Sky},
+                                           .Exposure = {},
+                                           .Display = {},
+                                           .Precision = {}});
   CHECK(compiled.has_value(), "the sky and subject plan compiles");
   if (!compiled) { return Report(); }
   bool irradiance = false;

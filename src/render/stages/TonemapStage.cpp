@@ -1,121 +1,99 @@
-#include "math/Vec2.h"
 #include "TonemapStage.h"
-#include "math/Vec3.h"
+#include "StagePipelines.h"
 #include "TransformMatrix.h"
-
-#include "ShaderFile.h"
 #include <array>
-#include <cstdint>
 #include <cstddef>
-#include <string>
+#include <cstdint>
+#include <expected>
+#include <span>
+#include <utility>
 
 namespace outshine::Render {
 
 namespace {
 
-constexpr uint32_t kTonemapImages = TonemapStage::ShaderShape.FragmentSamplers;
-constexpr uint32_t kTemporalImages = TonemapStage::TemporalShaderShape.FragmentSamplers;
+struct alignas(16) TemporalUniform {
+  Vec2f JitterDelta;
+  Vec2f Texel;
+  float HistoryHeld;
+  Vec3f Pad;
+  Mat4f PreviousClipFromCurrentClip;
+};
+
+static_assert(sizeof(TemporalUniform) == 6 * sizeof(Vec4f) && alignof(TemporalUniform) == 16);
+static_assert(offsetof(TemporalUniform, JitterDelta) == 0);
+static_assert(offsetof(TemporalUniform, Texel) == 8);
+static_assert(offsetof(TemporalUniform, HistoryHeld) == 16);
+static_assert(offsetof(TemporalUniform, Pad) == 16 + sizeof(float));
+static_assert(offsetof(TemporalUniform, PreviousClipFromCurrentClip) == 32);
+
+TemporalUniform
+TemporalParameters(const FrameContext &ctx, Vec2f jitter, int width, int height, bool historyHeld) {
+  TemporalUniform result{
+      .JitterDelta = jitter,
+      .Texel = {{1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height)}},
+      .HistoryHeld = historyHeld ? 1.0f : 0.0f,
+      .Pad = {},
+      .PreviousClipFromCurrentClip = {}};
+  Mat4 current;
+  Mat4 previous;
+  Mat4 inverse;
+  for (size_t i = 0; i < 16; ++i) {
+    current[i] = ctx.Mvp[i];
+    previous[i] = ctx.PrevMvp[i];
+  }
+  if (InverseMatrix(current, inverse)) {
+    const Mat4 reprojected = previous * inverse;
+    for (size_t i = 0; i < 16; ++i) {
+      result.PreviousClipFromCurrentClip[i] = static_cast<float>(reprojected[i]);
+    }
+  } else {
+    result.HistoryHeld = 0.0f;
+  }
+  return result;
+}
+
+Native::Binding
+ImageBinding(uint32_t slot, const Native::Texture *image, const Native::Sampler *sampler) {
+  return {.Set = 2,
+          .Slot = slot,
+          .Value = Native::SampledTexture{.Image = {.Image = image}, .Sampling = sampler}};
+}
 
 }
 
-bool TonemapStage::Configure(const Gpu &gpu,
-                             const Feeds &from,
-                             const DisplayOptions &options,
-                             std::string &error) {
+Native::Result<void>
+TonemapStage::Configure(const Gpu &gpu, const Feeds &from, const DisplayOptions &options) {
+  if (gpu.Device == nullptr || from.Scene == nullptr || from.Depth == nullptr ||
+      from.Exact == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "display transfer requires complete feeds"});
+  }
+  const std::array targets{
+      Native::ColourTarget{
+          .Texels = options.Temporal ? from.Linear : gpu.SurfaceFormat, .Rgb = {}, .Alpha = {}},
+      Native::ColourTarget{.Texels = gpu.SurfaceFormat, .Rgb = {}, .Alpha = {}}};
+  auto pipeline =
+      CreateFullscreenPipeline(*gpu.Device,
+                               options.Temporal ? "build/shaders/temporalResolve.frag.spv"
+                                                : "build/shaders/tonemap.frag.spv",
+                               std::span(targets.data(), options.Temporal ? 2u : 1u));
+  if (!pipeline) { return std::unexpected(pipeline.error()); }
+  Pipe = std::move(*pipeline);
   Scene = from.Scene;
   Depth = from.Depth;
   Exact = from.Exact;
-
   Temporal = options.Temporal;
   Display_ = options;
-  const DrawShape &shape = options.Temporal ? TemporalShaderShape : ShaderShape;
-  const OwnedShader vertex(gpu.Device,
-                           ShaderFrom(gpu.Device,
-                                      "build/shaders/fullscreen.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      shape,
-                                      error));
-  const OwnedShader fragment(gpu.Device,
-                             ShaderFrom(gpu.Device,
-                                        options.Temporal ? "build/shaders/temporalResolve.frag.spv"
-                                                         : "build/shaders/tonemap.frag.spv",
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        shape,
-                                        error));
-  if (!vertex || !fragment) { return false; }
-
-  std::array<SDL_GPUColorTargetDescription, 2> target = {{}};
-  target[0].format = options.Temporal ? from.Linear : gpu.SurfaceFormat;
-  target[1].format = gpu.SurfaceFormat;
-  SDL_GPUGraphicsPipelineCreateInfo pipeline{};
-  pipeline.vertex_shader = vertex.Get();
-  pipeline.fragment_shader = fragment.Get();
-  pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
-  pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  pipeline.target_info.color_target_descriptions = target.data();
-  pipeline.target_info.num_color_targets = options.Temporal ? 2u : 1u;
-  SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (made == nullptr) {
-    error = std::string("the display transfer's pipeline was refused: ") + SDL_GetError();
-    return false;
-  }
-  Pipe = OwnedPipeline(gpu.Device, made);
-  return true;
+  return {};
 }
 
-void TonemapStage::Encode(const FrameContext &ctx, const PassRecording &into) {
-  if (!Pipe) { return; }
-  SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  if (Temporal) {
-    if (History == nullptr || Velocity == nullptr) { return; }
-
-    struct alignas(16) TemporalUniform {
-      Vec2f JitterDelta;
-      Vec2f Texel;
-      float HistoryHeld;
-      Vec3f Pad;
-      Mat4f PreviousClipFromCurrentClip;
-    } uniforms{.JitterDelta = {JitterDelta[0], JitterDelta[1]},
-               .Texel = {Width > 0 ? 1.0f / static_cast<float>(Width) : 0.0f,
-                         Height > 0 ? 1.0f / static_cast<float>(Height) : 0.0f},
-               .HistoryHeld = HistoryHeld ? 1.0f : 0.0f,
-               .Pad = {0.0f, 0.0f, 0.0f},
-               .PreviousClipFromCurrentClip = {}};
-
-    static_assert(sizeof(TemporalUniform) == 6 * sizeof(Vec4f) && alignof(TemporalUniform) == 16);
-    static_assert(offsetof(TemporalUniform, JitterDelta) == 0);
-    static_assert(offsetof(TemporalUniform, Texel) == 8);
-    static_assert(offsetof(TemporalUniform, HistoryHeld) == 16);
-    static_assert(offsetof(TemporalUniform, Pad) == 16 + sizeof(float));
-    static_assert(offsetof(TemporalUniform, PreviousClipFromCurrentClip) == 32);
-    Mat4 current;
-    Mat4 previous;
-    Mat4 inverse;
-    for (size_t i = 0; i < 16; ++i) {
-      current[i] = ctx.Mvp[i];
-      previous[i] = ctx.PrevMvp[i];
-    }
-    if (InverseMatrix(current, inverse)) {
-      const Mat4 reprojected = previous * inverse;
-      for (size_t i = 0; i < 16; ++i) {
-        uniforms.PreviousClipFromCurrentClip[i] = static_cast<float>(reprojected[i]);
-      }
-    } else {
-      uniforms.HistoryHeld = 0.0f;
-    }
-    SDL_PushGPUFragmentUniformData(into.Commands, 0, &uniforms, sizeof uniforms);
-    const std::array<SDL_GPUTextureSamplerBinding, kTemporalImages> images = {
-        {{.texture = Scene, .sampler = Exact},
-         {.texture = Depth, .sampler = Exact},
-         {.texture = History, .sampler = Exact},
-         {.texture = Velocity, .sampler = Exact}}};
-    SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kTemporalImages);
-  } else {
-    const std::array<SDL_GPUTextureSamplerBinding, kTonemapImages> images = {
-        {{.texture = Scene, .sampler = Exact}, {.texture = Depth, .sampler = Exact}}};
-    SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kTonemapImages);
+Native::Result<void> TonemapStage::Encode(const FrameContext &ctx, const PassRecording &into) {
+  if (!Pipe || Scene == nullptr || Depth == nullptr || Exact == nullptr ||
+      into.Commands == nullptr ||
+      (Temporal && (History == nullptr || Velocity == nullptr || Width <= 0 || Height <= 0))) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "display transfer is not configured"});
   }
 
   const struct {
@@ -127,8 +105,29 @@ void TonemapStage::Encode(const FrameContext &ctx, const PassRecording &into) {
             .Pad = {}};
 
   static_assert(sizeof(display) == 16);
-  SDL_PushGPUFragmentUniformData(into.Commands, Temporal ? 1u : 0u, &display, sizeof display);
-  SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
+  const Native::Uniform displayData{.Bytes = std::as_bytes(std::span{&display, size_t{1}})};
+  std::array<Native::Binding, 6> bindings{};
+  bindings[0] = ImageBinding(0, Scene, Exact);
+  bindings[1] = ImageBinding(1, Depth, Exact);
+  TemporalUniform temporal{};
+  if (Temporal) {
+    temporal = TemporalParameters(ctx, JitterDelta, Width, Height, HistoryHeld);
+    bindings[2] = ImageBinding(2, History, Exact);
+    bindings[3] = ImageBinding(3, Velocity, Exact);
+    bindings[4] = {.Set = 3,
+                   .Slot = 0,
+                   .Value =
+                       Native::Uniform{.Bytes = std::as_bytes(std::span{&temporal, size_t{1}})}};
+    bindings[5] = {.Set = 3, .Slot = 1, .Value = displayData};
+  } else {
+    bindings[2] = {.Set = 3, .Slot = 0, .Value = displayData};
+  }
+  return into.Commands->Draw({.State = {.Pipeline = Pipe.get(),
+                                        .Bindings = std::span(bindings.data(), Temporal ? 6u : 3u),
+                                        .Vertices = {},
+                                        .Area = into.Area,
+                                        .Clip = into.Clip},
+                              .Range = {.Count = 3}});
 }
 
 }

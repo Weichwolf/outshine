@@ -35,8 +35,8 @@ ClassificationBuild::Job Polygon(bool overlay) {
   return job;
 }
 
-std::shared_ptr<const ClassStructure> Build(ClassificationBuild &builder,
-                                            ClassificationBuild::Job job) {
+std::shared_ptr<const TerrainClassificationMap> Build(ClassificationBuild &builder,
+                                                      ClassificationBuild::Job job) {
   CHECK(builder.Submit(std::move(job)), "classification uses the shared compute queue");
   CHECK(builder.AwaitCompletion(5.0), "small raster job wakes its waiter within five seconds");
   const auto result = builder.Collect();
@@ -44,7 +44,7 @@ std::shared_ptr<const ClassStructure> Build(ClassificationBuild &builder,
   return result ? result->Structure : nullptr;
 }
 
-void CheckShoreline(const ClassStructure &field) {
+void CheckShoreline(const TerrainClassificationMap &field) {
   CHECK(field.Evaluate(0, -11.5, nullptr, nullptr) == 3,
         "water remains inside the source outer boundary");
   CHECK(field.Evaluate(0, -12.5, nullptr, nullptr) == -1,

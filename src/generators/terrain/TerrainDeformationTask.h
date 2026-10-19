@@ -25,7 +25,7 @@ public:
 
   [[nodiscard]] bool Advance() const;
   [[nodiscard]] bool AwaitSlice(double seconds) const;
-  [[nodiscard]] std::expected<PressedTerrain, std::string> Take(Patchwork &candidate);
+  [[nodiscard]] std::expected<TerrainDeformationMetrics, std::string> Take(Patchwork &candidate);
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:

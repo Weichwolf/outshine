@@ -2,16 +2,19 @@
 #define OUTSHINE_RENDER_DEVICE_NATIVE_METAL_METALINTERNAL_H
 
 #include "Device.h"
-#include "MetalShader.h"
+#include "MetalGraphics.h"
+#include "MetalEncoderProfile.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #include <condition_variable>
+#include <array>
 #include <atomic>
 #include <deque>
 #include <mutex>
 #include <optional>
 #include <thread>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 namespace outshine::Render::Native::Metal {
@@ -31,9 +34,6 @@ namespace outshine::Render::Native::Metal {
                                   length:text.size()
                                 encoding:NSUTF8StringEncoding];
 }
-
-[[nodiscard]] Result<id<MTLFunction>>
-Function(id<MTLDevice> device, const Shader &shader, MTLFunctionType type);
 
 struct BufferState {
   id<MTLBuffer> Native;
@@ -198,10 +198,19 @@ struct AttachmentState {
 };
 
 struct RenderState {
+  struct VertexBinding {
+    id<MTLBuffer> Buffer = nil;
+    uint64_t Offset = 0;
+  };
+
   id<MTLRenderCommandEncoder> Encoder;
   std::vector<AttachmentState> Colours;
   std::optional<AttachmentState> Depth;
   uint32_t Width = 0, Height = 0;
+  std::shared_ptr<GraphicsState> Pipeline;
+  std::optional<std::array<float, 6>> ViewportValues;
+  std::optional<std::array<uint32_t, 4>> ScissorValues;
+  std::array<VertexBinding, kVertexBufferSlots> Vertices;
 };
 
 enum class DrawKind { Direct, Indexed, Indirect };
@@ -212,8 +221,9 @@ class MetalCommands final : public Commands {
 public:
   MetalCommands(uint64_t device,
                 id<MTLCommandBuffer> commands,
-                std::shared_ptr<CommandPermit> permit)
-      : Device(device), Native(commands), Permit(std::move(permit)) {}
+                std::shared_ptr<CommandPermit> permit,
+                std::shared_ptr<EncoderProfile> profile)
+      : Device(device), Native(commands), Permit(std::move(permit)), Profile(std::move(profile)) {}
 
   ~MetalCommands() override;
 
@@ -248,6 +258,7 @@ private:
   std::vector<Reservation> Held;
   std::vector<std::shared_ptr<TextureRecording>> HeldImages;
   std::shared_ptr<CommandPermit> Permit;
+  std::shared_ptr<EncoderProfile> Profile;
   std::unique_ptr<PresentFrame> Presentation;
   id<MTLComputeCommandEncoder> Compute = nil;
   std::optional<RenderState> Render;
@@ -310,6 +321,16 @@ private:
   void Collect();
 
   uint64_t Identity_, NextSerial_ = 1, Retired_ = 0;
+
+  struct CompiledShader {
+    Shader Translated;
+    id<MTLFunction> Function = nil;
+  };
+
+  [[nodiscard]] Result<CompiledShader *> ShaderProgram(std::span<const uint32_t> spirv,
+                                                       std::string_view entry);
+  [[nodiscard]] Result<id<MTLFunction>> Function(CompiledShader &shader, MTLFunctionType type);
+  std::unordered_map<std::string, CompiledShader> Shaders_;
   id<MTLDevice> Native_;
   id<MTLCommandQueue> Queue_;
   Capabilities Limits_;
@@ -317,6 +338,7 @@ private:
   static constexpr size_t kRetainedTimings = 8;
   std::array<SubmissionTiming, kRetainedTimings> Timings_{};
   bool GpuTiming_ = false;
+  std::shared_ptr<EncoderProfileSession> EncoderProfiling_;
   std::optional<Error> Failed_;
   std::shared_ptr<CommandCounts> Counts_ = std::make_shared<CommandCounts>();
   std::unique_ptr<MetalPresentation> Presentation_;

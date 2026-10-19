@@ -1,34 +1,27 @@
 #include "MediumTransmittanceStage.h"
-
+#include "StagePipelines.h"
 #include <array>
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-#include <string>
-
-#include "ShaderFile.h"
+#include <cstddef>
+#include <expected>
+#include <span>
 #include <utility>
 
 namespace outshine::Render {
 
-bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error) {
+Native::Result<void> MediumTransmittanceStage::Configure(const Gpu &gpu, Native::Texture *lut) {
+  if (gpu.Device == nullptr || lut == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "transmittance needs a device and target"});
+  }
+  if (!Pipe) {
+    auto made = CreateComputePipeline(*gpu.Device, Shader);
+    if (!made) { return std::unexpected(made.error()); }
+    Pipe = std::move(*made);
+    Cache_.Invalidate();
+  }
   if (Lut != lut) { Cache_.Invalidate(); }
   Lut = lut;
-  if (Lut == nullptr) {
-    error = "the plan holds no transmittance table for this stage to write, so nothing downstream "
-            "could read one";
-    return false;
-  }
-  if (Pipe) { return true; }
-
-  auto made = CreateComputePipeline(gpu.Device, Shader);
-  if (!made) {
-    error = std::move(made.error());
-    return false;
-  }
-  Pipe = std::move(*made);
-  Cache_.Invalidate();
-  return true;
+  return {};
 }
 
 void MediumTransmittanceStage::Declare(const Medium &medium) {
@@ -37,16 +30,28 @@ void MediumTransmittanceStage::Declare(const Medium &medium) {
   Cache_.Invalidate();
 }
 
-void MediumTransmittanceStage::Encode(const PassRecording &into) {
-  if (!Pipe || !Cache_.NeedsRecording() || into.Dispatch == nullptr) { return; }
-  SDL_PushGPUComputeUniformData(
-      into.Commands, 0, &Declared_, static_cast<uint32_t>(sizeof Declared_));
-  SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  SDL_DispatchGPUCompute(into.Dispatch,
-                         (kTransmittanceLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                         (kTransmittanceLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY,
-                         1u);
+Native::Result<void> MediumTransmittanceStage::Encode(const PassRecording &into) {
+  if (!Cache_.NeedsRecording()) { return {}; }
+  if (!Pipe || !Declared_ || Lut == nullptr || into.Commands == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "transmittance stage is not configured"});
+  }
+  const std::array bindings{
+      Native::Binding{
+          .Set = 1, .Slot = 0, .Value = Native::StorageTexture{.Image = {.Image = Lut}}},
+      Native::Binding{
+          .Set = 2,
+          .Slot = 0,
+          .Value = Native::Uniform{.Bytes = std::as_bytes(std::span{&*Declared_, size_t{1}})}}};
+  const auto encoded = into.Commands->Dispatch(
+      *Pipe,
+      bindings,
+      {.X = (kTransmittanceLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+       .Y = (kTransmittanceLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY,
+       .Z = 1u});
+  if (!encoded) { return encoded; }
   into.Submission.Record(Stage::MediumTransmittance, Cache_);
+  return {};
 }
 
 }

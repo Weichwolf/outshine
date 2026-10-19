@@ -9,6 +9,8 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for the capture contract");
   {
     Engine engine;
+    CHECK(!engine.renderer().resetMeasurements(),
+          "measurement reset requires an assembled render scene");
     Scenario::Document scene;
     scene.Render.Declared = true;
     scene.Render.Frame = {64, 64};
@@ -21,11 +23,14 @@ int main() {
     scene.Views.push_back(view);
     CHECK(engine.setRenderTarget({64, 64}) && engine.declare(scene) && engine.assemble(),
           "assembled scene is ready for capture without streamed ground");
+    CHECK(engine.renderer().resetMeasurements().has_value(),
+          "an assembled scene starts an explicit frame measurement interval");
     {
       auto capture = engine.beginCapture();
       CHECK(capture.has_value(), "capture accepts an assembled scene without ground");
       if (!capture) { return Report(); }
       CHECK(engine.renderer().render({}).has_value(), "capture permits rendering");
+      CHECK(!engine.renderer().resetMeasurements(), "capture refuses measurement replacement");
       CHECK(!engine.advance(), "capture refuses simulation advancement");
       CHECK(!engine.advance(0.0), "capture refuses elapsed-time simulation advancement");
       CHECK(!engine.preload(0.0), "capture refuses streaming advancement");
@@ -40,6 +45,8 @@ int main() {
       CHECK(!engine.setRoots({}), "capture refuses root replacement");
     }
     CHECK(engine.advance().has_value(), "capture destruction resumes simulation");
+    CHECK(engine.renderer().resetMeasurements().has_value(),
+          "capture destruction permits the next measurement interval");
     CHECK(engine.declare(scene).has_value(), "capture destruction resumes declaration replacement");
   }
   SDL_Quit();
