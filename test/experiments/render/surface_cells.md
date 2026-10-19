@@ -35,20 +35,22 @@ There is no source admission, invented capture radius, native codec or GPU bindi
 The versioned `native-cell.json.gz` is unchanged, SHA256
 `e29429e2fa670c2a5ce4b2357ee274c31fc6be7764866737b57933fb863a6c99`.
 It supplies 131 sources with complete Full/Fine controls. Full is not relabelled
-as the requested pure-Shell Tokyo view. Both runs use the original parent-relative
-ECEF axes and exactly 1 m pitch; this grid orientation is not optimised.
+as the pure-Shell Tokyo view. The delivered Tokyo input is separately checked
+against its manifest and original archived artifact, then adapted byte-exactly.
+All runs use original parent-relative ECEF axes and exactly 1 m pitch; this grid
+orientation is not optimised.
 
-| Whole known group | Full | Fine |
-| --- | ---: | ---: |
-| Original triangles | 2951 | 18081 |
-| Candidate boxes | 696733 | 944066 |
-| Axis/box projection pairs | 9057529 | 12272858 |
-| Triangle/cell incidences | 100641 | 169448 |
-| Distinct occupied cells | 47862 | 48128 |
-| Original fallback faces | 0 | 0 |
-| Actual coordinate/CSR/output array bytes | 884171 | 1177189 |
-| Declared14B-per-cell payload bytes | 670068 | 673792 |
-| Declared original48B vertices + UInt32 indices | 342516 | 1951692 |
+| Whole known group | Far Full | Far Fine | Tokyo Shell |
+| --- | ---: | ---: | ---: |
+| Original triangles | 2951 | 18081 | 14169 |
+| Candidate boxes | 696733 | 944066 | 3031744 |
+| Axis/box projection pairs | 9057529 | 12272858 | 39412672 |
+| Triangle/cell incidences | 100641 | 169448 | 464407 |
+| Distinct occupied cells | 47862 | 48128 | 239711 |
+| Original fallback faces | 0 | 0 | 0 |
+| Actual coordinate/CSR/output array bytes | 884171 | 1177189 | 4268943 |
+| Declared14B-per-cell payload bytes | 670068 | 673792 | 3355954 |
+| Declared original48B vertices + UInt32 indices | 342516 | 1951692 | 1546284 |
 
 Each actual group passes 128 rational clipping controls with zero omitted or extra
 contacts. Tests also cover independent dyadic cases, exact plane-boundary sides,
@@ -64,7 +66,7 @@ Actual complete original-face CSR costs 594016/870308 B separately. Empty-space
 removal alone cannot make this **fixed 1 m model** beat the existing Full geometry.
 No renderer is built on that cost result. Adaptive/visibility-aware material
 models remain alternatives, not disproved by uniform geometric occupancy.
-The requested actual dense Tokyo view and native/world/device evidence remain open.
+The dense Tokyo observation is included; native/world/device evidence remains open.
 
 ## Reproduction and measured work
 
