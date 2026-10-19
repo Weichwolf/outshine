@@ -27,6 +27,11 @@ opacity returns false. The proposed draw set retains all original triangles
 except targets certified covered throughout the ball. Uncertain inputs keep
 original geometry; they never become sampled patches or holes.
 
+`cull_backfaces=True` additionally requires the original triangle winding to face
+the whole observer ball. Its exact plane sign rejects a back-facing blocker;
+the existing ball/plane separation proves that the winding cannot flip inside
+the admitted ball. This supplements the caller's opacity/material admission.
+
 The eye ball must lie strictly on one side of the blocker plane, with the whole
 target strictly behind that plane. For each blocker edge A→B and target vertex P,
 the side predicate is
@@ -72,3 +77,53 @@ materials/culling, thin/occluded world cases, patch coverage/parallax, rotation,
 regional selection, native cost and full-world/device gates remain open. The
 source geometry must remain available for shadows, reflections and interaction;
 a primary-visibility omission grants no deletion of those consumers' geometry.
+
+## Original native geometry control
+
+`measure_native_capture_region.py --fine <explicit-original-Fine-export> --output
+<system-temp>/native-region` reads hash-checked original streams and exact native
+source ranges through `native_source_mesh.py`; its camera comes from the shared
+`triangle_image_reference.py`. It has no dependency on parked comparison scripts.
+The unchanged original input is versioned under
+[`building-capture-movement`](../../outshine/data/render/building-capture-movement/README.md)
+with a complete fresh-checkout reproduction command. It preserves original source ordinals and
+all triangle indices. Part/Face membership is not inferred. The original eye
+position receives a declared cell-facing test orientation; a second declared
+low-eye camera supplies the near countercase. Both retain 1280×720 and the
+original focal length. Pose, rightward movement and a five-degree turn are inputs
+to comparisons against the complete original triangles, treated as opaque.
+
+Both actual whole/cell replay streams are checksum-checked, not only their
+matching receipt declarations. Stream counts/byte extents, each stream's own
+index bounds and complete nonoverlapping source ranges are checked before
+combining wall/roof geometry. Invalid UInt32 roof indices cannot wrap into wall
+vertices. Unbound source slots, unknown/non-Fine calls or differing original
+identity tables fail; unknown original IDs remain unchanged. Accepted Fine calls
+must include recessed openings. These checks tighten malformed input rejection;
+they change no valid original geometry, predicate, candidate, mask or camera.
+
+`capture_region_candidates.py` finds candidate blockers through projected
+triangle boxes and perspective-correct centroid depths. These are only proposals:
+every omission still passes the exact predicate. Misses and near-plane crossing
+retain originals. Input cap131072 triangles; query batches are chosen *before*
+allocation so even all-overlapping boxes emit at most262144 query pairs. The
+total limit8388608 pairs is also checked before a batch; remaining targets stay
+unresolved and retain original geometry if that limit cannot admit the batch.
+The index is constructed once per observer; no all-pairs ray arrays are needed.
+GEOS/index allocation and total peak remain distinct from explicit array bytes.
+
+The driver records proposals/plane tests/arrays, retained index bytes, timings and
+process RSS peak, and saves face-to-source bindings plus point/region masks. It
+checks each pixel's coverage and exact reversed depth, independently solves
+segment/triangle systems at16 random ball-boundary eyes per admitted target, and
+renders cropped nearest-neighbour diagnostics from the full-resolution checks.
+Rasterized pixels and sampled segments test implementations; exact supporting
+planes provide the whole-ball argument. Masked materials, native patch emission,
+shader precision and device admission remain separate. An omission may itself
+use an omitted blocker: each covered ray then meets a strictly nearer opaque
+triangle; this chain terminates among the finite original triangles.
+
+This control measures a sufficient single-blocker subset, not the best possible
+PVS or native CaptureBuildingSurfaces output. Real benefit must be compared with
+the actual captured geometry and its original source/part/face contract before
+choosing a runtime replacement. Source-only oracles do not close #844.

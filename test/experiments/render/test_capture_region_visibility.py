@@ -3,6 +3,7 @@
 import unittest
 
 import numpy as np
+from capture_region_candidates import propose
 from capture_region_visibility import covered_from_ball
 
 
@@ -84,6 +85,28 @@ class RegionVisibilityTests(unittest.TestCase):
             covered_from_ball(self.blocker, front, self.eye, 0, opaque=True)["covered"]
         )
 
+    def test_culled_backface_cannot_occlude_an_observer_ball(self):
+        self.assertFalse(
+            covered_from_ball(
+                self.blocker,
+                self.target,
+                self.eye,
+                6,
+                opaque=True,
+                cull_backfaces=True,
+            )["covered"]
+        )
+        self.assertTrue(
+            covered_from_ball(
+                self.blocker[::-1],
+                self.target,
+                self.eye,
+                6,
+                opaque=True,
+                cull_backfaces=True,
+            )["covered"]
+        )
+
     def test_invalid_and_degenerate_inputs_do_not_certify_occlusion(self):
         with self.assertRaises(ValueError):
             covered_from_ball(self.blocker, self.target, self.eye, -1, opaque=True)
@@ -97,6 +120,37 @@ class RegionVisibilityTests(unittest.TestCase):
                 "covered"
             ]
         )
+
+    def test_projected_proposal_selects_nearest_front_blocker(self):
+        near = self.target.copy()
+        near[:, 2] = 5
+        triangles = np.array([self.blocker[::-1], self.target[::-1], near[::-1]])
+        answer, report = propose(triangles, self.eye, np.eye(3), pair_budget=3)
+        self.assertEqual(answer[1], 2)
+        self.assertEqual(answer[2], -1)
+        self.assertLessEqual(report["maximum_batch_pairs"], 3)
+        self.assertTrue(
+            blocked(
+                triangles[answer[1]], self.eye[None], triangles[1].mean(0)[None]
+            ).all()
+        )
+        triangles[2] = triangles[2, ::-1]
+        answer, _ = propose(triangles, self.eye, np.eye(3))
+        self.assertEqual(answer[1], 0)
+
+    def test_proposal_budget_and_near_plane_retain_unknown_geometry(self):
+        triangles = np.array([self.blocker[::-1], self.target[::-1]])
+        answer, report = propose(triangles, self.eye, np.eye(3), pair_budget=1)
+        self.assertTrue((answer == -1).all())
+        self.assertEqual(report["reason"], "candidate_pair_budget_too_small")
+        answer, report = propose(triangles, self.eye, np.eye(3), total_pair_budget=1)
+        self.assertTrue((answer == -1).all())
+        self.assertEqual(report["reason"], "total_candidate_budget_exhausted")
+        self.assertEqual(report["candidate_pairs"], 0)
+        triangles[0, 0, 2] = 0
+        answer, report = propose(triangles, self.eye, np.eye(3))
+        self.assertTrue((answer == -1).all())
+        self.assertEqual(report["reason"], "geometry_crosses_proposal_near_plane")
 
 
 if __name__ == "__main__":

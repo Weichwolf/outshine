@@ -60,11 +60,15 @@
 - Der aktive Nutzerauftrag bleibt maßgeblich; `goal.md` auf `master` beschreibt den Outshine-/Integrationsauftrag.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
-  Baupläne. Gelieferte Angaben steuern Vielfalt/Erdähnlichkeit. Prozedurale Rezepte ergänzen
-  und vereinfachen sie kohärent innerhalb des Budgets.
-  Ich suche eine schnelle, plausible, ästhetische und funktionale Lösung, keine eindeutige
-  Rekonstruktion. Ich darf Lage, Form und Profile kohärent anpassen und einfachere Rezepte wählen.
-- Solarpunk ist das Default-Setting. Den gemeinsamen Look besitzt [#4](https://github.com/Weichwolf/outshine/issues/4), Materialkomposition [#6](https://github.com/Weichwolf/outshine/issues/6).
+  Baupläne. Gelieferte Angaben erhalten ihre Herkunft; fehlende Angaben werden plausibel
+  und möglichst authentisch ergänzt. Prozedurale Rezepte vereinfachen sie innerhalb des Budgets.
+  Ich suche eine schnelle, möglichst realistische und funktionale Lösung, keine eindeutige
+  Rekonstruktion. Anpassungen an Lage, Form und Profilen sowie einfachere Rezepte erhalten
+  Quellbezug, Funktion und physikalische Plausibilität.
+- Darstellung und prozedurale Ergänzungen folgen OSM-/DEM- und Wetterdaten mit größtmöglichem
+  Realismus innerhalb der Gerätebudgets. Physikalisch basiertes Rendering bestimmt Licht,
+  Materialien und Kameraantwort; keine gestalterischen Stil-, Farbpaletten- oder Spiele-Look-Vorgaben.
+  Licht und Kameraantwort besitzt [#4](https://github.com/Weichwolf/outshine/issues/4), Materialkomposition [#6](https://github.com/Weichwolf/outshine/issues/6).
 - Ich liefere vom konkreten Bilddefizit bis zum integrierten Rendering. Interne Arbeit braucht
   einen Feature-Blocker oder gemessenen Engpass. Abstürze, Datenverlust und falsche Geometrie
   behebe ich sofort; vorhandene Straßenqualität und Terrain-Deformation bleiben erhalten.
@@ -144,8 +148,8 @@
   CPU-, GPU- und Speicherbudgets bleiben unabhängig, zusätzliche GPU-Leistung erhöht nicht pauschal CPU-Arbeit.
 
 ## Qualität und Abnahme
-- Ich priorisiere Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl. RDR2/GTA5 sind
-  Qualitätsmaßstäbe, keine unbelegten Versprechen. Auflösung/Zielrate bleiben unabhängige Profile:
+- Ich priorisiere Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl.
+  Reale Referenzen und physikalische Plausibilität bestimmen die Bildabnahme. Auflösung/Zielrate bleiben unabhängige Profile:
   480p, 1280×720, 1920×1080 und höher; 25/30/60 fps. Maße immer explizit Breite×Höhe.
   Hohe Bildqualität bei 1280×720/60 ist das Ziel auf A18 Pro/Metal und Intel i5-1135G7/Iris Xe/Vulkan.
   Framebudget: 1000/60 = 16,67 ms einschließlich p99. Andere Profile bleiben ausdrücklich
@@ -229,7 +233,7 @@
   Offene PRs, belegte Worktrees und nicht integrierte Commits schützen auch ältere Fachbranches
   vor automatischer Bereinigung; Remote-Löschungen sichern
   den geprüften Commitstand per Lease. Keine globale Merge-Löschautomatik für dauerhafte Agentenbranches.
-- Für Vegetation gilt SpeedTree als Qualitätsmaßstab;
+- Für Vegetation bestimmen botanische Referenzen und reale Pflanzen die Bildabnahme;
   die Nutzerbildreferenz besitzt [#1](https://github.com/Weichwolf/outshine/issues/1).
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
