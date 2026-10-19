@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "GpuOwned.h"
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include <SDL3/SDL.h>
 
 int main() {
@@ -14,14 +14,14 @@ int main() {
         nullptr));
     CHECK(device, "GPU device opens");
     if (!device) { return Report(); }
-    SubjectResidency residency;
+    GeometryResidency residency;
     residency.StandsOn(device.Get());
     const SubjectTexture missing;
     SDL_GPUTexture *image = nullptr;
     SDL_GPUSampler *sampler = nullptr;
     {
       const auto first =
-          residency.Upload(missing, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+          residency.Upload(missing, GeometryResidency::Transfer::Srgb, TexelKind::Value);
       CHECK(first && first->Image && first->Sample, "an unbound map has complete GPU resources");
       if (!first) { return Report(); }
       image = first->Image.Get();
@@ -31,7 +31,7 @@ int main() {
           "the first default is uploaded once");
     for (int slot = 0; slot < 1000; ++slot) {
       const auto shared =
-          residency.Upload(missing, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+          residency.Upload(missing, GeometryResidency::Transfer::Srgb, TexelKind::Value);
       CHECK(shared && shared->Image.Get() == image && shared->Sample.Get() == sampler,
             "repeated defaults retain the same live image and sampler");
     }
@@ -40,11 +40,11 @@ int main() {
     SubjectTexture nearest = missing;
     nearest.Magnify = SubjectFilter::Nearest;
     const auto filtered =
-        residency.Upload(nearest, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+        residency.Upload(nearest, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     const auto linear =
-        residency.Upload(missing, SubjectResidency::Transfer::Linear, TexelKind::Value);
+        residency.Upload(missing, GeometryResidency::Transfer::Linear, TexelKind::Value);
     const auto normal =
-        residency.Upload(missing, SubjectResidency::Transfer::Linear, TexelKind::Direction);
+        residency.Upload(missing, GeometryResidency::Transfer::Linear, TexelKind::Direction);
     CHECK(filtered && filtered->Sample.Get() != sampler,
           "a different sampler is not merged with the default sampler");
     CHECK(linear && linear->Image.Get() != image,
@@ -54,7 +54,7 @@ int main() {
     CHECK(residency.TakeUploadAttempts() == 3,
           "three new processing or sampling configurations require three uploads");
     const SubjectTexture invalid{.Width = 2, .Height = 2};
-    CHECK(!residency.Upload(invalid, SubjectResidency::Transfer::Srgb, TexelKind::Value),
+    CHECK(!residency.Upload(invalid, GeometryResidency::Transfer::Srgb, TexelKind::Value),
           "a sized missing image cannot read past the default texel");
   }
   SDL_Quit();

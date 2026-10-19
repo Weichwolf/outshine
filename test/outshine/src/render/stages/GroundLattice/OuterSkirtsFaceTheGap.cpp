@@ -29,7 +29,7 @@ int main() {
     if (scene) {
       SubjectMaterial material;
       material.Domain = SurfaceDomain::Ground;
-      CHECK(renderer.SetSubjectMaterials(std::array{material}, error), "ground material installs");
+      CHECK(renderer.SetGeometryMaterials(std::array{material}, error), "ground material installs");
       std::array<uint32_t, 3> classes{0, 0, ~0u};
       std::array<float, 30> palette{};
       palette[0] = std::bit_cast<float>(1u);

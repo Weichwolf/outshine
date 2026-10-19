@@ -4,7 +4,7 @@
 #include <expected>
 #include <limits>
 #include <array>
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include <algorithm>
 
 #include <cstdint>
@@ -49,11 +49,11 @@ inline constexpr std::string_view kTextureMipChainTooLarge =
 }
 
 namespace {
-std::optional<uint32_t> UploadBytes(std::span<const SubjectResidency::Crossing> crossings) {
+std::optional<uint32_t> UploadBytes(std::span<const GeometryResidency::Crossing> crossings) {
   uint64_t total = 0;
   constexpr auto maximum = std::numeric_limits<uint32_t>::max();
   for (const auto &crossing : crossings) {
-    if (static_cast<size_t>(crossing.Which) >= SubjectResidency::kStreams) { return std::nullopt; }
+    if (static_cast<size_t>(crossing.Which) >= GeometryResidency::kStreams) { return std::nullopt; }
     if (crossing.Bytes == 0 || !crossing.Stands()) { continue; }
     if (uint64_t{crossing.Offset} + crossing.Bytes > maximum) { return std::nullopt; }
     total = (total + crossing.Bytes + 15u) & ~uint64_t{15};
@@ -119,7 +119,7 @@ std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels) {
 
 }
 
-SubjectResidency::AllocationStats SubjectResidency::Allocations() const {
+GeometryResidency::AllocationStats GeometryResidency::Allocations() const {
   AllocationStats result{.StreamBytes = Held_,
                          .TransferBytes = uint64_t{StagingBytes_} + BulkBytes_,
                          .VertexSlots = TopV_,
@@ -130,32 +130,32 @@ SubjectResidency::AllocationStats SubjectResidency::Allocations() const {
   return result;
 }
 
-size_t SubjectResidency::TakeUploadAttempts() {
+size_t GeometryResidency::TakeUploadAttempts() {
   return std::exchange(UploadAttempts_, size_t{0});
 }
 
-size_t SubjectResidency::TotalUploadAttempts() const {
+size_t GeometryResidency::TotalUploadAttempts() const {
   return TotalUploadAttempts_;
 }
 
-size_t SubjectResidency::RecordedCrossings() const {
+size_t GeometryResidency::RecordedCrossings() const {
   return RecordedCrossings_;
 }
 
-size_t SubjectResidency::TakeUploadBytes() {
+size_t GeometryResidency::TakeUploadBytes() {
   return std::exchange(UploadBytes_, size_t{0});
 }
 
-size_t SubjectResidency::TakeBufferAllocationAttempts() {
+size_t GeometryResidency::TakeBufferAllocationAttempts() {
   return std::exchange(BufferAttempts_, size_t{0});
 }
 
-size_t SubjectResidency::TakeStagingAllocationAttempts() {
+size_t GeometryResidency::TakeStagingAllocationAttempts() {
   return std::exchange(StagingAttempts_, size_t{0});
 }
 
-SubjectResidency::Range
-SubjectResidency::Take(std::vector<Range> &free, uint32_t count, uint32_t &top) {
+GeometryResidency::Range
+GeometryResidency::Take(std::vector<Range> &free, uint32_t count, uint32_t &top) {
   for (size_t at = 0; at < free.size(); ++at) {
     if (free[at].Count < count) { continue; }
     const Range taken{.First = free[at].First, .Count = count};
@@ -169,7 +169,7 @@ SubjectResidency::Take(std::vector<Range> &free, uint32_t count, uint32_t &top) 
   return taken;
 }
 
-void SubjectResidency::Give(std::vector<Range> &free, Range back) {
+void GeometryResidency::Give(std::vector<Range> &free, Range back) {
   if (back.Count == 0) { return; }
   const auto after =
       std::ranges::lower_bound(free, back.First, {}, [](const Range &one) { return one.First; });
@@ -185,7 +185,7 @@ void SubjectResidency::Give(std::vector<Range> &free, Range back) {
   }
 }
 
-bool SubjectResidency::ReplacesBuffers(std::span<const Crossing> crossings) const {
+bool GeometryResidency::ReplacesBuffers(std::span<const Crossing> crossings) const {
   return std::ranges::any_of(crossings, [this](const Crossing &crossing) {
     return Buffer(crossing.Which) &&
            (crossing.Bytes == 0 || !crossing.Stands() ||
@@ -193,7 +193,7 @@ bool SubjectResidency::ReplacesBuffers(std::span<const Crossing> crossings) cons
   });
 }
 
-bool SubjectResidency::SubmitPendingUploads(std::string &error) {
+bool GeometryResidency::SubmitPendingUploads(std::string &error) {
   if (StagedCount_ == 0) { return true; }
   const auto copy = BeginCopy(Device_, error);
   if (!copy) { return false; }
@@ -203,7 +203,7 @@ bool SubjectResidency::SubmitPendingUploads(std::string &error) {
   return true;
 }
 
-bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::string &error) {
+bool GeometryResidency::Cross(std::span<Crossing> what, bool deferred, std::string &error) {
   const auto measured = UploadBytes(what);
   if (!measured) {
     error = Says::kInvalidCrossing;
@@ -223,9 +223,9 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
   return accepted;
 }
 
-bool SubjectResidency::PrepareBuffers(std::span<Crossing> what,
-                                      BufferChanges &previous,
-                                      std::string &error) {
+bool GeometryResidency::PrepareBuffers(std::span<Crossing> what,
+                                       BufferChanges &previous,
+                                       std::string &error) {
   std::array<OwnedBuffer, kStreams> candidates;
   auto capacities = Held_;
   std::array<bool, kStreams> changed{};
@@ -265,7 +265,7 @@ bool SubjectResidency::PrepareBuffers(std::span<Crossing> what,
   return true;
 }
 
-void SubjectResidency::RestoreBuffers(BufferChanges &previous) {
+void GeometryResidency::RestoreBuffers(BufferChanges &previous) {
   for (size_t slot = 0; slot < kStreams; ++slot) {
     if (!previous.Changed[slot]) { continue; }
     Buffers_[slot] = std::move(previous.Buffers[slot]);
@@ -273,7 +273,7 @@ void SubjectResidency::RestoreBuffers(BufferChanges &previous) {
   }
 }
 
-bool SubjectResidency::StageUploads(std::span<Crossing> what, uint32_t total, std::string &error) {
+bool GeometryResidency::StageUploads(std::span<Crossing> what, uint32_t total, std::string &error) {
   if (uint64_t{StagingUsed_} + total > StagingBytes_ || !Staging_) {
     const uint32_t widened = total > StagingBytes_ ? total : StagingBytes_;
     SDL_GPUTransferBufferCreateInfo room{};
@@ -329,7 +329,7 @@ bool SubjectResidency::StageUploads(std::span<Crossing> what, uint32_t total, st
   return true;
 }
 
-bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::string &error) {
+bool GeometryResidency::Submit(std::span<Crossing> what, uint32_t total, std::string &error) {
   SDL_GPUTransferBufferCreateInfo room{};
   room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   room.size = total;
@@ -378,7 +378,7 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
   return SubmitCopy(*copy, error);
 }
 
-bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
+bool GeometryResidency::Grow(Stream which, Need need, std::string &error) {
   if (static_cast<size_t>(which) >= kStreams) {
     error = Says::kInvalidCrossing;
     return false;
@@ -414,7 +414,7 @@ bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
   return true;
 }
 
-bool SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error) {
+bool GeometryResidency::FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error) {
   if (StagedCount_ == 0) { return true; }
   if (commands == nullptr) {
     error = std::format(Says::kCopyAcquireFailed, "no command buffer");
@@ -430,7 +430,7 @@ bool SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands, std::strin
   return true;
 }
 
-void SubjectResidency::RecordCrossings(SDL_GPUCopyPass *copy) {
+void GeometryResidency::RecordCrossings(SDL_GPUCopyPass *copy) {
   for (size_t at = 0; at < StagedCount_; ++at) {
     const SDL_GPUTransferBufferLocation source{.transfer_buffer = Staged_[at].Staging,
                                                .offset = Staged_[at].From};
@@ -441,14 +441,14 @@ void SubjectResidency::RecordCrossings(SDL_GPUCopyPass *copy) {
   }
 }
 
-void SubjectResidency::CommitCrossings() {
+void GeometryResidency::CommitCrossings() {
   StagedCount_ = 0;
   StagingUsed_ = 0;
   PendingUploadBytes_ = 0;
   Retired_.clear();
 }
 
-void SubjectResidency::ReleaseUploadScratch() {
+void GeometryResidency::ReleaseUploadScratch() {
   if (StagedCount_ != 0) { return; }
   Bulk_ = {};
   BulkBytes_ = 0;
@@ -457,8 +457,8 @@ void SubjectResidency::ReleaseUploadScratch() {
   Retired_.clear();
 }
 
-std::expected<SubjectResidency::BoundImage, std::string>
-SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
+std::expected<GeometryResidency::BoundImage, std::string>
+GeometryResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
   if (texture.Rgba != nullptr) { return UploadImage(texture, decode, kind); }
   if (texture.Width > 1 || texture.Height > 1) {
     return std::unexpected("a sized texture has no texel data");
@@ -477,7 +477,7 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   return bound;
 }
 
-std::expected<SubjectResidency::BoundImage, std::string> SubjectResidency::UploadImage(
+std::expected<GeometryResidency::BoundImage, std::string> GeometryResidency::UploadImage(
     const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
   static const std::array<uint8_t, 4> white = {{255, 255, 255, 255}};
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
@@ -540,10 +540,10 @@ std::expected<SubjectResidency::BoundImage, std::string> SubjectResidency::Uploa
   return bound;
 }
 
-std::expected<void, std::string> SubjectResidency::UploadMipChain(OwnedTexture &image,
-                                                                  ImageView pixels,
-                                                                  uint32_t levels,
-                                                                  ImageMipKind kind) const {
+std::expected<void, std::string> GeometryResidency::UploadMipChain(OwnedTexture &image,
+                                                                   ImageView pixels,
+                                                                   uint32_t levels,
+                                                                   ImageMipKind kind) const {
   const Texels extent{.WidthPx = static_cast<uint32_t>(pixels.WidthPx),
                       .HeightPx = static_cast<uint32_t>(pixels.HeightPx)};
   const auto chainBytes = MipChainBytes(extent, levels);

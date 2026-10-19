@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "GpuOwned.h"
 #include "Readback.h"
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cstdint>
@@ -14,11 +14,11 @@ using namespace outshine::Test;
 
 namespace {
 void Exercise(SDL_GPUDevice *device) {
-  SubjectResidency residency;
+  GeometryResidency residency;
   residency.StandsOn(device);
   std::array<uint32_t, 4> values{17, 23, 31, 47};
-  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
-  std::array<SubjectResidency::Crossing, 1> crossing{
+  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
+  std::array<GeometryResidency::Crossing, 1> crossing{
       {{.Which = stream,
         .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
         .From = values.data(),

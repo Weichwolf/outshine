@@ -1,4 +1,4 @@
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include "GpuPlacement.h"
 #include "VertexUpload.h"
 #include "Check.h"
@@ -6,7 +6,7 @@
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  SubjectResidency held;
+  GeometryResidency held;
   const auto unrelated = held.TakeVertices(1u << 20);
   const auto painted = held.TakeVertices(3);
   const auto colour = held.TakeColours(3);
@@ -23,7 +23,7 @@ int main() {
   CHECK(recycled.First == colour.First && recycled.Count == colour.Count,
         "released colour storage is reused independently of vertex lifetimes");
   const float source = 1.5f;
-  const auto transfer = VertexCrossing({.Which = SubjectResidency::Stream::Colour,
+  const auto transfer = VertexCrossing({.Which = GeometryResidency::Stream::Colour,
                                         .Source = {.From = &source},
                                         .Carried = true,
                                         .Components = 4},

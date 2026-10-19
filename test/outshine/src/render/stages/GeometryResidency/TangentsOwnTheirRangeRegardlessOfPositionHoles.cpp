@@ -1,4 +1,4 @@
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include "GpuPlacement.h"
 #include "VertexUpload.h"
 #include "Check.h"
@@ -6,7 +6,7 @@
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  SubjectResidency held;
+  GeometryResidency held;
   const auto unrelated = held.TakeVertices(1u << 20);
   const auto mapped = held.TakeVertices(3);
   const auto tangent = held.TakeTangents(3);
@@ -23,7 +23,7 @@ int main() {
   CHECK(recycled.First == tangent.First && held.TangentRoom() == 3,
         "released tangent slots are reused without growing the dense arena");
   const float source = -1.0f;
-  const auto upload = VertexCrossing({.Which = SubjectResidency::Stream::Tangent,
+  const auto upload = VertexCrossing({.Which = GeometryResidency::Stream::Tangent,
                                       .Source = {.From = &source},
                                       .Carried = true,
                                       .Components = 4},

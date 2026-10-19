@@ -1,6 +1,6 @@
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "GpuPlacement.h"
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include "math/Mat4.h"
 
 #include <algorithm>
@@ -11,19 +11,19 @@
 
 namespace outshine::Render {
 
-void SubjectDraw::BindPlacementStorage(const PassRecording &into, VertexLayout layout) {
-  std::array<SDL_GPUBuffer *, 3> rows{Bound().Buffer(SubjectResidency::Stream::Placements).Get()};
+void GeometryRenderer::BindPlacementStorage(const PassRecording &into, VertexLayout layout) {
+  std::array<SDL_GPUBuffer *, 3> rows{Bound().Buffer(GeometryResidency::Stream::Placements).Get()};
   uint32_t count = 1;
   if (CarriesColour(layout)) {
-    rows[count++] = Bound().Buffer(SubjectResidency::Stream::Colour).Get();
+    rows[count++] = Bound().Buffer(GeometryResidency::Stream::Colour).Get();
   }
   if (CarriesTangent(layout)) {
-    rows[count++] = Bound().Buffer(SubjectResidency::Stream::Tangent).Get();
+    rows[count++] = Bound().Buffer(GeometryResidency::Stream::Tangent).Get();
   }
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), count);
 }
 
-bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
+bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
   const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_));
   size_t all = needed;
   for (const Piece &piece : Pieces_) { all += piece.Rows.size(); }
@@ -57,8 +57,8 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
     Rows_[row].ColourOffset = Bound().SubjectColours().First - Bound().SubjectVertices().First;
     Rows_[row].TangentOffset = Bound().SubjectTangents().First - Bound().SubjectVertices().First;
   }
-  std::array rows = {SubjectResidency::Crossing{
-      .Which = SubjectResidency::Stream::Placements,
+  std::array rows = {GeometryResidency::Crossing{
+      .Which = GeometryResidency::Stream::Placements,
       .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
       .From = Rows_.data(),
       .Bytes = static_cast<uint32_t>(Rows_.size() * sizeof(GpuPlacement))}};

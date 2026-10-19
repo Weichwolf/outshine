@@ -2,7 +2,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "Readback.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
@@ -35,7 +35,7 @@ int main() {
         nullptr));
     CHECK(device, "GPU device opens");
     if (!device) { return Report(); }
-    SubjectDraw draw;
+    GeometryRenderer draw;
     Gpu gpu;
     gpu.Device = device.Get();
     gpu.HdrFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
@@ -72,7 +72,7 @@ int main() {
       CHECK(draw.SetMesh(mesh, error), "replacement mesh uploads");
       CHECK(emission.Calls == (phase + 1) / 2, "only unlit consumers execute the emission writer");
       const auto &resident = draw.Resident();
-      using Stream = SubjectResidency::Stream;
+      using Stream = GeometryResidency::Stream;
       if (phase == 0) {
         CHECK(resident.HeldOf(Stream::Emitted) == 0 && !resident.Buffer(Stream::Emitted),
               "lit geometry reserves no unused emission stream");

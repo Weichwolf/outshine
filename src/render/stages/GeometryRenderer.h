@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_STAGES_SUBJECTDRAW_H
-#define OUTSHINE_RENDER_STAGES_SUBJECTDRAW_H
+#ifndef OUTSHINE_RENDER_STAGES_GEOMETRYRENDERER_H
+#define OUTSHINE_RENDER_STAGES_GEOMETRYRENDERER_H
 
 #include <span>
 #include <optional>
@@ -21,7 +21,7 @@
 
 #include "KernelShape.h"
 #include "GroundLattice.h"
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include "GpuPlacement.h"
 #include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
@@ -29,16 +29,16 @@
 
 namespace outshine::Render {
 
-class SubjectPipelineBinding {
+class GeometryPipelineBinding {
 public:
-  SubjectPipelineBinding() = default;
-  SubjectPipelineBinding(const SubjectPipelineBinding &) = delete;
-  SubjectPipelineBinding &operator=(const SubjectPipelineBinding &) = delete;
-  SubjectPipelineBinding(SubjectPipelineBinding &&) noexcept = default;
-  SubjectPipelineBinding &operator=(SubjectPipelineBinding &&) noexcept = default;
+  GeometryPipelineBinding() = default;
+  GeometryPipelineBinding(const GeometryPipelineBinding &) = delete;
+  GeometryPipelineBinding &operator=(const GeometryPipelineBinding &) = delete;
+  GeometryPipelineBinding(GeometryPipelineBinding &&) noexcept = default;
+  GeometryPipelineBinding &operator=(GeometryPipelineBinding &&) noexcept = default;
 
 private:
-  friend class SubjectDraw;
+  friend class GeometryRenderer;
   static constexpr size_t kPipelineCount =
       kSurfaceDomains * kVertexLayouts.size() * 2 * kSurfaceKinds;
   SDL_GPUDevice *Device = nullptr;
@@ -53,14 +53,14 @@ private:
   bool CapturesMaterial = false;
 };
 
-struct SubjectMeshUploadMetrics {
+struct GeometryUploadMetrics {
   double AdmissionMs = 0.0;
   double IndexMs = 0.0;
   double StreamsMs = 0.0;
   double TablesMs = 0.0;
 };
 
-class SubjectDraw {
+class GeometryRenderer {
 public:
   struct MeshTicket {
     uint64_t Generation = 0;
@@ -82,18 +82,18 @@ public:
   static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
-  [[nodiscard]] bool Configure(SubjectPipelineBinding &binding,
+  [[nodiscard]] bool Configure(GeometryPipelineBinding &binding,
                                const Gpu &gpu,
                                SDL_GPUTexture *behind,
                                SDL_GPUSampler *exact,
                                bool separateTransmission,
                                std::string &error);
 
-  void AttachPipelines(SubjectPipelineBinding &binding, const Gpu &gpu) noexcept;
+  void AttachPipelines(GeometryPipelineBinding &binding, const Gpu &gpu) noexcept;
 
   [[nodiscard]] bool PrepareGroundStorage(const Gpu &gpu, std::string &error);
 
-  void UsePipelines(SubjectPipelineBinding &binding) noexcept {
+  void UsePipelines(GeometryPipelineBinding &binding) noexcept {
     Binding_ = &binding;
     Ground_.UsePipelines(binding.Ground);
   }
@@ -244,7 +244,7 @@ public:
 
   [[nodiscard]] bool MeshPending() const noexcept { return PendingMesh_.NeedsFinish; }
 
-  [[nodiscard]] SubjectMeshUploadMetrics LastMeshUpload() const noexcept { return LastMeshUpload_; }
+  [[nodiscard]] GeometryUploadMetrics LastMeshUpload() const noexcept { return LastMeshUpload_; }
 
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
@@ -311,11 +311,11 @@ public:
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
-  [[nodiscard]] const SubjectResidency &Resident() const { return Bound(); }
+  [[nodiscard]] const GeometryResidency &Resident() const { return Bound(); }
 
-  void Shares(SubjectResidency &other) { At_ = &other; }
+  void Shares(GeometryResidency &other) { At_ = &other; }
 
-  [[nodiscard]] SubjectResidency &Owned() { return Own_; }
+  [[nodiscard]] GeometryResidency &Owned() { return Own_; }
 
   [[nodiscard]] bool Borrows() const { return At_ != nullptr; }
 
@@ -360,15 +360,15 @@ private:
   static constexpr size_t kLightFloats = sizeof(SubjectLightingUniform) / sizeof(float);
 
   struct SurfaceSlot {
-    SubjectResidency::BoundImage Colour;
-    SubjectResidency::BoundImage Normal;
-    SubjectResidency::BoundImage MetalRough;
-    SubjectResidency::BoundImage Emissive;
+    GeometryResidency::BoundImage Colour;
+    GeometryResidency::BoundImage Normal;
+    GeometryResidency::BoundImage MetalRough;
+    GeometryResidency::BoundImage Emissive;
 
-    SubjectResidency::BoundImage SpecularStrength;
-    SubjectResidency::BoundImage SpecularTint;
-    SubjectResidency::BoundImage DiffuseReflection;
-    SubjectResidency::BoundImage DiffuseTransmission;
+    GeometryResidency::BoundImage SpecularStrength;
+    GeometryResidency::BoundImage SpecularTint;
+    GeometryResidency::BoundImage DiffuseReflection;
+    GeometryResidency::BoundImage DiffuseTransmission;
 
     PackedSubjectMaterial Row{};
     SurfaceKind Kind = SurfaceKind::Opaque;
@@ -401,14 +401,14 @@ private:
 
   std::vector<VertexLayout> BatchLayout;
 
-  SubjectResidency Own_;
-  SubjectResidency *At_ = nullptr;
+  GeometryResidency Own_;
+  GeometryResidency *At_ = nullptr;
   SDL_GPUBuffer *GroundClasses_ = nullptr;
   SDL_GPUBuffer *GroundPalette_ = nullptr;
 
-  [[nodiscard]] SubjectResidency &Bound() { return At_ != nullptr ? *At_ : Own_; }
+  [[nodiscard]] GeometryResidency &Bound() { return At_ != nullptr ? *At_ : Own_; }
 
-  [[nodiscard]] const SubjectResidency &Bound() const { return At_ != nullptr ? *At_ : Own_; }
+  [[nodiscard]] const GeometryResidency &Bound() const { return At_ != nullptr ? *At_ : Own_; }
 
   SDL_GPUTexture *Atlas_ = nullptr;
   SDL_GPUSampler *AtlasSampler_ = nullptr;
@@ -447,10 +447,10 @@ private:
   bool RowsStale_ = false;
 
   struct Piece {
-    SubjectResidency::Range V;
-    SubjectResidency::Range I;
-    SubjectResidency::Range C;
-    SubjectResidency::Range T;
+    GeometryResidency::Range V;
+    GeometryResidency::Range I;
+    GeometryResidency::Range C;
+    GeometryResidency::Range T;
     uint32_t IndexCount = 0;
     PieceSurface Surface;
     VertexLayout Layout = VertexLayout::PositionNormal;
@@ -498,18 +498,18 @@ private:
   size_t Moved_ = 0;
   bool PiecesVisible_ = true;
   uint64_t Reshaped_ = 0;
-  SubjectMeshUploadMetrics LastMeshUpload_;
+  GeometryUploadMetrics LastMeshUpload_;
   MeshTicket PendingMesh_;
   const DrawList *PendingDraws_ = nullptr;
   const uint32_t *PendingIndices_ = nullptr;
   uint32_t PendingIndexCount_ = 0;
 
-  SubjectPipelineBinding OwnedBinding_;
-  SubjectPipelineBinding *Binding_ = &OwnedBinding_;
+  GeometryPipelineBinding OwnedBinding_;
+  GeometryPipelineBinding *Binding_ = &OwnedBinding_;
 
-  [[nodiscard]] SubjectPipelineBinding &Binding() { return *Binding_; }
+  [[nodiscard]] GeometryPipelineBinding &Binding() { return *Binding_; }
 
-  [[nodiscard]] const SubjectPipelineBinding &Binding() const { return *Binding_; }
+  [[nodiscard]] const GeometryPipelineBinding &Binding() const { return *Binding_; }
 };
 
 }

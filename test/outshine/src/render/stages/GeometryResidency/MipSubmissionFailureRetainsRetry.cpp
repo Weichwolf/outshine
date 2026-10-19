@@ -5,7 +5,7 @@
 
 #include "Check.h"
 #include "GpuOwned.h"
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 
 namespace {
 bool reject = false;
@@ -37,29 +37,29 @@ int main() {
         nullptr));
     CHECK(device, "device opens");
     if (!device) { return Report(); }
-    SubjectResidency residency;
+    GeometryResidency residency;
     residency.StandsOn(device.Get());
     const std::array<uint8_t, 16> pixels = {
         255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255};
     const SubjectTexture texture{.Rgba = pixels.data(), .Width = 2, .Height = 2};
     reject = true;
     const auto failed =
-        residency.Upload(texture, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+        residency.Upload(texture, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     CHECK(!failed && rejected == 1 && !reject,
           "a complete mip submission failure returns no partially usable image");
     const auto retry =
-        residency.Upload(texture, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+        residency.Upload(texture, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     CHECK(retry && retry->Image && retry->Sample,
           "an immediate mip upload retry returns a complete sampled image");
     reject = true;
     const auto defaultFailed =
-        residency.Upload({}, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+        residency.Upload({}, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     CHECK(!defaultFailed && rejected == 2 && !reject,
           "a failed default upload is not published for reuse");
     const auto defaultRetry =
-        residency.Upload({}, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+        residency.Upload({}, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     const auto defaultShared =
-        residency.Upload({}, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+        residency.Upload({}, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     CHECK(defaultRetry && defaultShared && defaultRetry->Image.Get() == defaultShared->Image.Get(),
           "a repaired default is shared only after a complete retry");
   }

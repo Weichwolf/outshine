@@ -19,7 +19,7 @@
 #include "ShaderFile.h"
 #include "Shape.h"
 #include "SubjectMaterialPacking.h"
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include "Surfacing.h"
 #include "TexelChain.h"
 
@@ -482,10 +482,10 @@ bool ConfigureImported(Fixture &fixture, TextureUploadCounts &counts) {
     SDL_SetError("%s", error.c_str());
     return false;
   }
-  SubjectResidency residency;
+  GeometryResidency residency;
   residency.StandsOn(fixture.Device.Get());
   auto bound =
-      residency.Upload(material.Colour, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+      residency.Upload(material.Colour, GeometryResidency::Transfer::Srgb, TexelKind::Value);
   if (!bound) {
     SDL_SetError("%s", bound.error().c_str());
     return false;

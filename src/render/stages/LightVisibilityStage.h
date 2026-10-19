@@ -18,13 +18,13 @@ namespace outshine::Render {
 
 constexpr uint32_t kNoBatch = 0xffffffffu;
 
-class SubjectDraw;
+class GeometryRenderer;
 
 class LightVisibilityStage {
 public:
-  [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
+  [[nodiscard]] bool Configure(GeometryRenderer &subjects, const Gpu &gpu, std::string &error);
 
-  void Binds(SubjectDraw &subjects) noexcept { Subjects_ = &subjects; }
+  void Binds(GeometryRenderer &subjects) noexcept { Subjects_ = &subjects; }
 
   void Invalidate() noexcept { Cache_.Invalidate(); }
 
@@ -93,7 +93,7 @@ private:
 
   size_t CastBatches_ = 0;
   Vec3 StoodAtM_;
-  SubjectDraw *Subjects_ = nullptr;
+  GeometryRenderer *Subjects_ = nullptr;
   OwnedPipeline DepthOnly_;
   static constexpr size_t kMaskedUvLayouts = 3;
   std::array<OwnedPipeline, kMaskedUvLayouts * 2> Masked_;

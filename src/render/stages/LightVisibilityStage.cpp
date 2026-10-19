@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "ShaderFile.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 
 namespace outshine::Render {
 
@@ -29,7 +29,9 @@ std::array<size_t, 2> ShadowTile(size_t region) {
 }
 }
 
-bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
+bool LightVisibilityStage::Configure(GeometryRenderer &subjects,
+                                     const Gpu &gpu,
+                                     std::string &error) {
   Cache_.Invalidate();
   Binds(subjects);
   return ConfigureDepthOnly(gpu, error) && ConfigureMasked(gpu, error);
@@ -238,13 +240,13 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
                            ShaderFrom(device,
                                       "build/shaders/subjectDepth.vert.spv",
                                       SDL_GPU_SHADERSTAGE_VERTEX,
-                                      SubjectDraw::DepthOnlyShape,
+                                      GeometryRenderer::DepthOnlyShape,
                                       error));
   const OwnedShader fragment(device,
                              ShaderFrom(device,
                                         "build/shaders/depth.frag.spv",
                                         SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        SubjectDraw::DepthOnlyShape,
+                                        GeometryRenderer::DepthOnlyShape,
                                         error));
   if (!vertex || !fragment) { return false; }
 
@@ -312,21 +314,21 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
 }
 
 void LightVisibilityStage::CastSubjects(const PassRecording &into) {
-  const SubjectResidency &Resident_ = Subjects_->Resident();
+  const GeometryResidency &Resident_ = Subjects_->Resident();
   const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
-  if (Batches.empty() || !Resident_.Buffer(SubjectResidency::Stream::Vertex) ||
-      !Resident_.Buffer(SubjectResidency::Stream::Index)) {
+  if (Batches.empty() || !Resident_.Buffer(GeometryResidency::Stream::Vertex) ||
+      !Resident_.Buffer(GeometryResidency::Stream::Index)) {
     return;
   }
   SDL_BindGPUGraphicsPipeline(into.Pass, DepthOnly_.Get());
   const SDL_GPUBufferBinding vertices{
-      .buffer = Resident_.Buffer(SubjectResidency::Stream::Vertex).Get(), .offset = 0};
+      .buffer = Resident_.Buffer(GeometryResidency::Stream::Vertex).Get(), .offset = 0};
   SDL_BindGPUVertexBuffers(into.Pass, 0, &vertices, 1);
   const SDL_GPUBufferBinding indices{
-      .buffer = Resident_.Buffer(SubjectResidency::Stream::Index).Get(), .offset = 0};
+      .buffer = Resident_.Buffer(GeometryResidency::Stream::Index).Get(), .offset = 0};
   SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
   std::array<SDL_GPUBuffer *const, 1> rows = {
-      Resident_.Buffer(SubjectResidency::Stream::Placements).Get()};
+      Resident_.Buffer(GeometryResidency::Stream::Placements).Get()};
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
 
   const uint32_t subjectRows = Subjects_->SubjectRows();

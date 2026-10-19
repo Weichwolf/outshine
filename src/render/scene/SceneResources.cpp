@@ -1,6 +1,6 @@
 #include "SceneResources.h"
 
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "Surfacing.h"
 #include "TerrainTileUpload.h"
 
@@ -45,7 +45,7 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
 }
 
 std::expected<PieceHandle, std::string>
-SceneResources::PlacePiece(SubjectDraw &subjects, const PieceMesh &piece, PieceOwner owner) {
+SceneResources::PlacePiece(GeometryRenderer &subjects, const PieceMesh &piece, PieceOwner owner) {
   if (!ValidPieceUv1(piece)) { return std::unexpected(std::string(kPieceUv1Error)); }
   if (FirstFreePiece_ == kNoResourceSlot && Pieces_.size() >= kNoResourceSlot) {
     return std::unexpected(Says::PieceSlotLimit);
@@ -84,7 +84,8 @@ SceneResources::PlacePiece(SubjectDraw &subjects, const PieceMesh &piece, PieceO
 }
 
 std::expected<size_t, std::string>
-SceneResources::ReconcileStructurePieces(SubjectDraw &subjects, std::span<const PieceHandle> held) {
+SceneResources::ReconcileStructurePieces(GeometryRenderer &subjects,
+                                         std::span<const PieceHandle> held) {
   std::vector<uint8_t> retained(Pieces_.size(), 0);
   for (const PieceHandle handle : held) {
     if (!HasPiece(handle) || Pieces_[handle.Slot].Owner != PieceOwner::StructureTile) {
@@ -116,7 +117,7 @@ bool SceneResources::HasPiece(PieceHandle handle) const noexcept {
   return handle.Slot < Pieces_.size() && Pieces_[handle.Slot].State.Matches(handle.Generation);
 }
 
-bool SceneResources::SetPieceInstances(SubjectDraw &subjects,
+bool SceneResources::SetPieceInstances(GeometryRenderer &subjects,
                                        PieceHandle which,
                                        std::span<const Mat4> rows,
                                        std::string &error) {
@@ -124,7 +125,7 @@ bool SceneResources::SetPieceInstances(SubjectDraw &subjects,
   return SetPieceInstances(subjects, {&one, 1}, error);
 }
 
-bool SceneResources::SetPieceInstances(SubjectDraw &subjects,
+bool SceneResources::SetPieceInstances(GeometryRenderer &subjects,
                                        std::span<const PieceRows> pieces,
                                        std::string &error) {
   for (size_t at = 0; at < pieces.size(); ++at) {
@@ -168,7 +169,7 @@ bool SceneResources::SetPieceInstances(SubjectDraw &subjects,
   return true;
 }
 
-void SceneResources::ReleasePiece(SubjectDraw &subjects, PieceHandle which) {
+void SceneResources::ReleasePiece(GeometryRenderer &subjects, PieceHandle which) {
   if (!HasPiece(which)) { return; }
   Piece &piece = Pieces_[which.Slot];
   subjects.ReleasePiece(piece.Resident);
@@ -216,8 +217,8 @@ SceneResources::ResolvePieceMaterials(Geometry source) {
   return held;
 }
 
-bool SceneResources::AppendPieceMaterials(SubjectDraw &subjects,
-                                          SubjectDraw *glass,
+bool SceneResources::AppendPieceMaterials(GeometryRenderer &subjects,
+                                          GeometryRenderer *glass,
                                           const PieceMaterials &materials,
                                           std::string &error) {
   if (materials.Slots.size() >= kNoSlot || RegisteredPieceSlots_.size() >= kNoSlot ||
@@ -250,8 +251,8 @@ bool SceneResources::AppendPieceMaterials(SubjectDraw &subjects,
   return true;
 }
 
-std::expected<uint32_t, std::string>
-SceneResources::RegisterPieceMaterials(SubjectDraw &subjects, SubjectDraw *glass, Geometry source) {
+std::expected<uint32_t, std::string> SceneResources::RegisterPieceMaterials(
+    GeometryRenderer &subjects, GeometryRenderer *glass, Geometry source) {
   auto materials = ResolvePieceMaterials(std::move(source));
   if (!materials) { return std::unexpected(std::move(materials).error()); }
   const auto first = static_cast<uint32_t>(RegisteredPieceSlots_.size());
@@ -265,8 +266,8 @@ SceneResources::RegisterPieceMaterials(SubjectDraw &subjects, SubjectDraw *glass
   return first;
 }
 
-bool SceneResources::RestorePieceMaterials(SubjectDraw &subjects,
-                                           SubjectDraw *glass,
+bool SceneResources::RestorePieceMaterials(GeometryRenderer &subjects,
+                                           GeometryRenderer *glass,
                                            std::string &error) {
   const size_t subjectBefore = subjects.MaterialSlots();
   const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
@@ -285,7 +286,7 @@ bool SceneResources::RestorePieceMaterials(SubjectDraw &subjects,
   return true;
 }
 
-bool SceneResources::RestorePieces(SubjectDraw &subjects, std::string &error) {
+bool SceneResources::RestorePieces(GeometryRenderer &subjects, std::string &error) {
   size_t nextPiece = 0;
   auto restored = AdvancePieceRestore(subjects, nextPiece, std::numeric_limits<size_t>::max());
   if (!restored) {
@@ -295,8 +296,9 @@ bool SceneResources::RestorePieces(SubjectDraw &subjects, std::string &error) {
   return *restored;
 }
 
-std::expected<bool, std::string>
-SceneResources::AdvancePieceRestore(SubjectDraw &subjects, size_t &nextPiece, size_t piecesMost) {
+std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRenderer &subjects,
+                                                                     size_t &nextPiece,
+                                                                     size_t piecesMost) {
   if (piecesMost == 0) { return std::unexpected("piece restore budget is zero"); }
   size_t visited = 0;
   while (nextPiece < Pieces_.size() && visited < piecesMost) {
@@ -340,7 +342,7 @@ size_t SceneResources::PieceSourceCount() const noexcept {
 }
 
 std::expected<HeightPageHandle, std::string>
-SceneResources::PlaceHeightPage(SubjectDraw &subjects, std::span<const float> nodes) {
+SceneResources::PlaceHeightPage(GeometryRenderer &subjects, std::span<const float> nodes) {
   if (FirstFreeHeightPage_ == kNoResourceSlot && HeightPages_.size() >= kNoResourceSlot) {
     return std::unexpected(Says::HeightPageLimit);
   }
@@ -369,7 +371,7 @@ bool SceneResources::HasHeightPage(HeightPageHandle handle) const noexcept {
          HeightPages_[handle.Slot].State.Matches(handle.Generation);
 }
 
-void SceneResources::ReleaseHeightPage(SubjectDraw &subjects, HeightPageHandle which) {
+void SceneResources::ReleaseHeightPage(GeometryRenderer &subjects, HeightPageHandle which) {
   if (!HasHeightPage(which)) { return; }
   HeightPage &page = HeightPages_[which.Slot];
   subjects.Ground().ReleasePage(page.Resident);
@@ -386,7 +388,7 @@ PageId SceneResources::HeightPageResident(HeightPageHandle which) const noexcept
   return HasHeightPage(which) ? HeightPages_[which.Slot].Resident : kNoPage;
 }
 
-bool SceneResources::RestoreHeightPages(SubjectDraw &subjects, std::string &error) {
+bool SceneResources::RestoreHeightPages(GeometryRenderer &subjects, std::string &error) {
   for (HeightPage &page : HeightPages_) {
     if (!page.State.Occupied) { continue; }
     page.Resident = subjects.Ground().PlacePage(*page.Nodes, error);
@@ -395,7 +397,7 @@ bool SceneResources::RestoreHeightPages(SubjectDraw &subjects, std::string &erro
   return true;
 }
 
-bool SceneResources::SetGroundGrid(SubjectDraw &subjects,
+bool SceneResources::SetGroundGrid(GeometryRenderer &subjects,
                                    std::span<const float> fractions,
                                    std::string &error) {
   if (!subjects.Ground().SetGrid(fractions, error)) { return false; }
@@ -403,7 +405,7 @@ bool SceneResources::SetGroundGrid(SubjectDraw &subjects,
   return true;
 }
 
-bool SceneResources::SetTerrainTiles(SubjectDraw &subjects,
+bool SceneResources::SetTerrainTiles(GeometryRenderer &subjects,
                                      std::span<const TerrainTile> real,
                                      std::span<const TerrainTile> virtual_,
                                      std::string &error) {
@@ -432,7 +434,7 @@ bool SceneResources::SetTerrainTiles(SubjectDraw &subjects,
   return true;
 }
 
-bool SceneResources::RestoreTerrain(SubjectDraw &subjects, std::string &error) {
+bool SceneResources::RestoreTerrain(GeometryRenderer &subjects, std::string &error) {
   size_t nextPage = 0;
   auto restored = AdvanceTerrainRestore(subjects, nextPage, std::numeric_limits<size_t>::max());
   if (!restored) {
@@ -442,8 +444,9 @@ bool SceneResources::RestoreTerrain(SubjectDraw &subjects, std::string &error) {
   return *restored;
 }
 
-std::expected<bool, std::string>
-SceneResources::AdvanceTerrainRestore(SubjectDraw &subjects, size_t &nextPage, size_t pagesMost) {
+std::expected<bool, std::string> SceneResources::AdvanceTerrainRestore(GeometryRenderer &subjects,
+                                                                       size_t &nextPage,
+                                                                       size_t pagesMost) {
   assert(nextPage <= HeightPages_.size());
   const size_t count = std::min(pagesMost, HeightPages_.size() - nextPage);
   const size_t end = nextPage + count;

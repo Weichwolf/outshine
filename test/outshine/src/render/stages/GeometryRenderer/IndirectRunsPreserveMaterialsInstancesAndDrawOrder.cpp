@@ -92,9 +92,9 @@ void Compare(outshine::Render::SceneRenderer &actual, outshine::Render::SceneRen
     if (expected[at + 1] > bright && expected[at] < dark) { ++green; }
   }
   CHECK(red > 100 && green > 100, "both independent materials contribute visible pixels");
-  CHECK(actual.SubjectBatchCount() == 48 && oracle.SubjectBatchCount() == 25,
+  CHECK(actual.GeometryBatchCount() == 48 && oracle.GeometryBatchCount() == 25,
         "all instance batches and the direct fallback remain present");
-  CHECK(actual.SubjectDrawCallCount() == 6 && oracle.SubjectDrawCallCount() == 25,
+  CHECK(actual.GeometryDrawCallCount() == 6 && oracle.GeometryDrawCallCount() == 25,
         "material, layout and direct-batch boundaries split compatible indirect runs");
 }
 }

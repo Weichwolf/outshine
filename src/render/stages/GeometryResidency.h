@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_STAGES_SUBJECTRESIDENCY_H
-#define OUTSHINE_RENDER_STAGES_SUBJECTRESIDENCY_H
+#ifndef OUTSHINE_RENDER_STAGES_GEOMETRYRESIDENCY_H
+#define OUTSHINE_RENDER_STAGES_GEOMETRYRESIDENCY_H
 
 #include <span>
 #include <array>
@@ -19,7 +19,7 @@ namespace outshine::Render {
 using Core::TexelKind;
 using Core::Texels;
 
-struct SubjectResidency {
+struct GeometryResidency {
   [[nodiscard]] size_t TakeUploadAttempts();
 
   [[nodiscard]] size_t TotalUploadAttempts() const;

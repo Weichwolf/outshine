@@ -1,6 +1,6 @@
 #include "LightVisibilityStage.h"
 #include "ShaderFile.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 
 #include <array>
 #include <cstddef>

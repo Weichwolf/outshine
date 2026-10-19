@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "GpuOwned.h"
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
@@ -53,7 +53,7 @@ int main() {
         nullptr));
     CHECK(device, "GPU device opens");
     if (!device) { return Report(); }
-    SubjectResidency residency;
+    GeometryResidency residency;
     residency.StandsOn(device.Get());
     const std::array<uint8_t, 16> base{
         255, 255, 255, 7, 255, 255, 255, 7, 255, 255, 255, 7, 255, 255, 255, 7};
@@ -63,14 +63,14 @@ int main() {
     SubjectTexture texture{
         .Rgba = base.data(), .Width = 2, .Height = 2, .LowerMips = ViewImageMips(prepared)};
     const auto colour =
-        residency.Upload(texture, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+        residency.Upload(texture, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     CHECK(colour, "prepared colour image uploads");
     if (!colour) { return Report(); }
     const auto colourMip = ReadLevel(device.Get(), colour->Image.Get(), 1, 1);
     CHECK(colourMip && *colourMip == *prepared[1],
           "GPU receives stored colour levels rather than re-filtering the white base");
     const auto normal =
-        residency.Upload(texture, SubjectResidency::Transfer::Linear, TexelKind::Direction);
+        residency.Upload(texture, GeometryResidency::Transfer::Linear, TexelKind::Direction);
     CHECK(normal, "prepared normal image uploads");
     if (!normal) { return Report(); }
     const auto normalMip = ReadLevel(device.Get(), normal->Image.Get(), 1, 1);
@@ -82,12 +82,12 @@ int main() {
     static_cast<void>(residency.TakeUploadBytes());
     texture.Mip = SubjectMip::None;
     const auto single =
-        residency.Upload(texture, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+        residency.Upload(texture, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     CHECK(single && residency.TakeUploadBytes() == 16,
           "disabled mip sampling uploads only the base");
     prepared[1]->pop_back();
     texture.LowerMips = ViewImageMips(prepared);
-    CHECK(!residency.Upload(texture, SubjectResidency::Transfer::Srgb, TexelKind::Value),
+    CHECK(!residency.Upload(texture, GeometryResidency::Transfer::Srgb, TexelKind::Value),
           "malformed prepared levels cannot publish a sampled texture");
   }
   SDL_Quit();

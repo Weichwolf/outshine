@@ -3,7 +3,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "Readback.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
@@ -13,7 +13,7 @@
 #include <string>
 
 namespace {
-bool ReplaceMain(outshine::Render::SubjectDraw &draw, std::string &error) {
+bool ReplaceMain(outshine::Render::GeometryRenderer &draw, std::string &error) {
   using namespace outshine::Render;
   DrawList draws;
   DrawItem item;
@@ -34,12 +34,12 @@ bool ReplaceMain(outshine::Render::SubjectDraw &draw, std::string &error) {
   return draw.SetMesh(mesh, error);
 }
 
-void Compare(const outshine::Render::SubjectDraw &draw, SDL_GPUDevice *device) {
+void Compare(const outshine::Render::GeometryRenderer &draw, SDL_GPUDevice *device) {
   using namespace outshine;
   using namespace outshine::Render;
   using namespace outshine::Test;
   const auto &resident = draw.Resident();
-  const auto read = [&](SubjectResidency::Stream stream, Readback &into) {
+  const auto read = [&](GeometryResidency::Stream stream, Readback &into) {
     return into.FromBuffer(device, resident.Buffer(stream).Get(), resident.HeldOf(stream)) ==
            ReadState::Ready;
   };
@@ -47,10 +47,10 @@ void Compare(const outshine::Render::SubjectDraw &draw, SDL_GPUDevice *device) {
   Readback indices;
   Readback jobs;
   Readback spheres;
-  CHECK(read(SubjectResidency::Stream::Vertex, vertices) &&
-            read(SubjectResidency::Stream::Index, indices) &&
-            read(SubjectResidency::Stream::ClusterJobs, jobs) &&
-            read(SubjectResidency::Stream::ClusterSpheres, spheres),
+  CHECK(read(GeometryResidency::Stream::Vertex, vertices) &&
+            read(GeometryResidency::Stream::Index, indices) &&
+            read(GeometryResidency::Stream::ClusterJobs, jobs) &&
+            read(GeometryResidency::Stream::ClusterSpheres, spheres),
         "actual uploaded native vertex, index, job and sphere buffers are readable");
   if (vertices.Rows() == nullptr || indices.Rows() == nullptr || jobs.Rows() == nullptr ||
       spheres.Rows() == nullptr) {
@@ -90,7 +90,7 @@ int main() {
         nullptr));
     CHECK(device, "GPU device opens");
     if (!device) { return Report(); }
-    SubjectDraw draw;
+    GeometryRenderer draw;
     Gpu gpu;
     gpu.Device = device.Get();
     gpu.HdrFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;

@@ -39,14 +39,14 @@ int main() {
       pose.Verts.From = positions.data();
       pose.Emitted.From = emitted.data();
       pose.VertexCount = 3;
-      CHECK(renderer.SetSubjectPose(pose, error), "initial mesh accepts a native pose");
+      CHECK(renderer.SetGeometryPose(pose, error), "initial mesh accepts a native pose");
       CHECK(scene->Draw(error), "initial geometry renders");
       renderer.WaitForGpu();
       std::vector<float> before;
       CHECK(renderer.ReadSceneLinear(before) == ReadState::Ready && !before.empty(),
             "baseline pixels are readable");
       const auto uploads = renderer.TotalUploadAttempts();
-      const auto batches = renderer.SubjectBatchCount();
+      const auto batches = renderer.GeometryBatchCount();
       CHECK(batches > 0, "baseline contains actual draw batches");
       constexpr auto maximum = std::numeric_limits<uint32_t>::max();
       for (int fault = 0; fault < 10; ++fault) {
@@ -78,11 +78,11 @@ int main() {
           case 9: batch.FirstIndex = 1; break;
         }
         error.clear();
-        CHECK(!renderer.SetSubjectMesh(mesh, error) && !error.empty(),
+        CHECK(!renderer.SetGeometryMesh(mesh, error) && !error.empty(),
               "invalid mesh is rejected with a diagnosis");
-        CHECK(renderer.TotalUploadAttempts() == uploads && renderer.SubjectBatchCount() == batches,
+        CHECK(renderer.TotalUploadAttempts() == uploads && renderer.GeometryBatchCount() == batches,
               "rejection preserves uploaded geometry and draw tables");
-        CHECK(renderer.SetSubjectPose(pose, error),
+        CHECK(renderer.SetGeometryPose(pose, error),
               "valid pose update still finds the previous resident mesh after rejection");
         CHECK(scene->Draw(error), "old geometry remains drawable after rejection");
         renderer.WaitForGpu();
@@ -103,8 +103,8 @@ int main() {
       mesh.Indices = indices.data();
       mesh.IndexCount = 3;
       mesh.Draws = &draws;
-      auto began = renderer.BeginSubjectMesh(mesh);
-      CHECK(began.has_value() && began->NeedsFinish && renderer.SubjectMeshPending(),
+      auto began = renderer.BeginGeometryMesh(mesh);
+      CHECK(began.has_value() && began->NeedsFinish && renderer.GeometryMeshPending(),
             "index upload yields a pending subject");
       if (began) {
         CHECK(scene->Draw(error), "pending subject can enter a render pass without its geometry");
@@ -115,34 +115,34 @@ int main() {
         auto stale = *began;
         ++stale.Generation;
         std::string staleError;
-        CHECK(!renderer.FinishSubjectMesh(stale, mesh, staleError) && !staleError.empty(),
+        CHECK(!renderer.FinishGeometryMesh(stale, mesh, staleError) && !staleError.empty(),
               "stale completion cannot claim a newer subject upload");
-        CHECK(renderer.FinishSubjectMesh(*began, mesh, error),
+        CHECK(renderer.FinishGeometryMesh(*began, mesh, error),
               "the matching subject finishes its streams and tables");
-        CHECK(!renderer.SubjectMeshPending(), "completed subject leaves the pending state");
+        CHECK(!renderer.GeometryMeshPending(), "completed subject leaves the pending state");
         CHECK(scene->Draw(error), "finished subject renders");
         renderer.WaitForGpu();
         std::vector<float> staged;
         CHECK(renderer.ReadSceneLinear(staged) == ReadState::Ready,
               "finished subject remains readable");
-        CHECK(renderer.SetSubjectMesh(mesh, error) && scene->Draw(error),
+        CHECK(renderer.SetGeometryMesh(mesh, error) && scene->Draw(error),
               "the one-shot entry point uses the same mesh");
         renderer.WaitForGpu();
         std::vector<float> oneShot;
         CHECK(renderer.ReadSceneLinear(oneShot) == ReadState::Ready && oneShot == staged,
               "interrupted and one-shot uploads render identical pixels");
         SubjectMesh empty;
-        auto cleared = renderer.BeginSubjectMesh(empty);
-        CHECK(cleared.has_value() && !cleared->NeedsFinish && !renderer.SubjectMeshPending(),
+        auto cleared = renderer.BeginGeometryMesh(empty);
+        CHECK(cleared.has_value() && !cleared->NeedsFinish && !renderer.GeometryMeshPending(),
               "empty subject completes during admission");
         if (cleared) {
           auto staleClear = *cleared;
           ++staleClear.Generation;
           std::string staleClearError;
-          CHECK(!renderer.FinishSubjectMesh(staleClear, empty, staleClearError) &&
+          CHECK(!renderer.FinishGeometryMesh(staleClear, empty, staleClearError) &&
                     !staleClearError.empty(),
                 "stale empty-subject completion is rejected");
-          CHECK(renderer.FinishSubjectMesh(*cleared, empty, error),
+          CHECK(renderer.FinishGeometryMesh(*cleared, empty, error),
                 "matching empty-subject completion updates every subject pass");
         }
       }

@@ -430,7 +430,7 @@ private:
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
   GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
-  Render::SubjectDraw::MeshTicket BuildTicket_;
+  Render::GeometryRenderer::MeshTicket BuildTicket_;
   GeometryBuildSliceMetrics GeometrySlices_;
   std::optional<Render::ShapeCookJob> ShapeCooking_;
   std::vector<Material> GeometryBuildSurfaces_;

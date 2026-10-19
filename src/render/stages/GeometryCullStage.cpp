@@ -1,7 +1,7 @@
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "math/Vec4.h"
-#include "SubjectCullStage.h"
+#include "GeometryCullStage.h"
 
 #include <span>
 #include <array>
@@ -15,7 +15,7 @@
 
 #include "ShaderFile.h"
 #include <utility>
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 
 namespace outshine::Render {
 
@@ -76,10 +76,10 @@ void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out) {
 
 }
 
-bool SubjectCullStage::EnsurePipeline(const Gpu &gpu,
-                                      ComputeShaderId shader,
-                                      OwnedComputePipeline &into,
-                                      std::string &error) {
+bool GeometryCullStage::EnsurePipeline(const Gpu &gpu,
+                                       ComputeShaderId shader,
+                                       OwnedComputePipeline &into,
+                                       std::string &error) {
   if (into) { return true; }
   auto made = CreateComputePipeline(gpu.Device, shader);
   if (!made) {
@@ -90,22 +90,22 @@ bool SubjectCullStage::EnsurePipeline(const Gpu &gpu,
   return true;
 }
 
-bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
+bool GeometryCullStage::Configure(GeometryRenderer &subjects, const Gpu &gpu, std::string &error) {
   Binds(subjects);
   return EnsurePipeline(gpu, CullShader, Cull_, error) &&
          EnsurePipeline(gpu, ScanShader, Scan_, error) &&
          EnsurePipeline(gpu, CompactShader, Compact_, error);
 }
 
-uint32_t SubjectCullStage::JobsSweptTaken() {
+uint32_t GeometryCullStage::JobsSweptTaken() {
   return gJobsSwept.load(std::memory_order_relaxed);
 }
 
-float SubjectCullStage::ErrorPerMetreTaken() {
+float GeometryCullStage::ErrorPerMetreTaken() {
   return gErrorPerMetre.load(std::memory_order_relaxed);
 }
 
-uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
+uint32_t GeometryCullStage::Standing(const FrameContext &ctx, void *view) {
   if (Subjects_ == nullptr) { return 0; }
   const uint32_t jobs = Subjects_->ClusterJobs();
   if (jobs == 0) { return 0; }
@@ -138,7 +138,7 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
   return jobs;
 }
 
-void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &into) {
+void GeometryCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &into) {
   Swept_ = 0;
   const uint64_t generation = Subjects_ != nullptr ? Subjects_->Generation() : 0u;
   const uint64_t ground = Subjects_ != nullptr ? Subjects_->Ground().Generation() : 0u;
@@ -155,14 +155,14 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
   CullView view{};
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Cull_ || into.Dispatch == nullptr) { return; }
-  const SubjectResidency &resident = Subjects_->Resident();
+  const GeometryResidency &resident = Subjects_->Resident();
   std::array<SDL_GPUBuffer *const, 5> read = {
-      resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get(),
-      resident.Buffer(SubjectResidency::Stream::ClusterJobs).Get(),
-      resident.Buffer(SubjectResidency::Stream::Placements).Get(),
-      resident.Buffer(SubjectResidency::Stream::DrawArguments).Get(),
+      resident.Buffer(GeometryResidency::Stream::ClusterSpheres).Get(),
+      resident.Buffer(GeometryResidency::Stream::ClusterJobs).Get(),
+      resident.Buffer(GeometryResidency::Stream::Placements).Get(),
+      resident.Buffer(GeometryResidency::Stream::DrawArguments).Get(),
       PyramidBuffer_ != nullptr ? PyramidBuffer_
-                                : resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get()};
+                                : resident.Buffer(GeometryResidency::Stream::ClusterSpheres).Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
@@ -179,16 +179,16 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
   gJobsSwept.store(jobs, std::memory_order_relaxed);
 }
 
-void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &into) {
+void GeometryCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &into) {
   if (!CullThisFrame_) { return; }
   CullView view{};
   const uint32_t jobs = Standing(ctx, &view);
   const uint32_t batches = Subjects_ != nullptr ? Subjects_->ClusterBatchRows() : 0u;
   if (jobs == 0 || batches == 0 || !Scan_ || into.Dispatch == nullptr) { return; }
-  const SubjectResidency &resident = Subjects_->Resident();
+  const GeometryResidency &resident = Subjects_->Resident();
   std::array<SDL_GPUBuffer *const, 2> read = {
-      resident.Buffer(SubjectResidency::Stream::ClusterKept).Get(),
-      resident.Buffer(SubjectResidency::Stream::ClusterBatches).Get()};
+      resident.Buffer(GeometryResidency::Stream::ClusterKept).Get(),
+      resident.Buffer(GeometryResidency::Stream::ClusterBatches).Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
@@ -197,17 +197,17 @@ void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &
   SDL_DispatchGPUCompute(into.Dispatch, batches, 1u, 1u);
 }
 
-void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecording &into) {
+void GeometryCullStage::EncodeCompact(const FrameContext &ctx, const PassRecording &into) {
   if (!CullThisFrame_) { return; }
   CullView view{};
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Compact_ || into.Dispatch == nullptr) { return; }
-  const SubjectResidency &resident = Subjects_->Resident();
+  const GeometryResidency &resident = Subjects_->Resident();
   std::array<SDL_GPUBuffer *const, 4> read = {
-      resident.Buffer(SubjectResidency::Stream::ClusterJobs).Get(),
-      resident.Buffer(SubjectResidency::Stream::Index).Get(),
-      resident.Buffer(SubjectResidency::Stream::ClusterSlot).Get(),
-      resident.Buffer(SubjectResidency::Stream::DrawArguments).Get()};
+      resident.Buffer(GeometryResidency::Stream::ClusterJobs).Get(),
+      resident.Buffer(GeometryResidency::Stream::Index).Get(),
+      resident.Buffer(GeometryResidency::Stream::ClusterSlot).Get(),
+      resident.Buffer(GeometryResidency::Stream::DrawArguments).Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }

@@ -15,7 +15,7 @@
 
 #include "DrawList.h"
 #include "CameraState.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 
 namespace outshine::Render {
 
@@ -191,13 +191,13 @@ AdvancePackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch
                                    RenderObjectPreparation &scratch,
                                    std::string &error);
 
-[[nodiscard]] std::expected<SubjectDraw::MeshTicket, std::string> BeginPlacementUpload(
+[[nodiscard]] std::expected<GeometryRenderer::MeshTicket, std::string> BeginPlacementUpload(
     SceneRenderer &renderer, const RenderObject &proxy, RenderObjectPreparation &scratch);
 
 [[nodiscard]] bool FinishPlacementUpload(SceneRenderer &renderer,
                                          const RenderObject &proxy,
                                          RenderObjectPreparation &scratch,
-                                         SubjectDraw::MeshTicket ticket,
+                                         GeometryRenderer::MeshTicket ticket,
                                          std::string &error);
 
 [[nodiscard]] bool Place(SceneRenderer &renderer,

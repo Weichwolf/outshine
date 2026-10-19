@@ -27,7 +27,7 @@ cache path.
 The agreed generic `PieceMesh::Uv1` is an optional `span<const float>`:
 empty means absent; otherwise UV0/Textured plus exactly two finite values per
 vertex are required. `SceneResources` owns a deep copy and restores it with the
-other piece sources. `SubjectDraw` selects the existing UV1 stream/layout by
+other piece sources. `GeometryRenderer` selects the existing UV1 stream/layout by
 actual data presence, even without an image using UV1. Generic authored UV1
 retain their own meaning. Only the native producer defines its coordinates as
 metres. There is no temporary Float2 adapter copy or new SDL GPU operation.

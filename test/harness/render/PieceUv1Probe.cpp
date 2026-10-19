@@ -1,4 +1,4 @@
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "SceneResources.h"
 #include "Check.h"
 #include "Gpu.h"
@@ -28,7 +28,7 @@ using namespace outshine::Test;
 constexpr std::array<float, 6> kMetres{0, 0, 3, 0, 3, 2};
 constexpr float kChangedInput = 99.0f;
 
-void CheckResident(SDL_GPUDevice *device, SubjectDraw &subjects) {
+void CheckResident(SDL_GPUDevice *device, GeometryRenderer &subjects) {
   std::string error;
   CHECK(subjects.HandTables(error), error.c_str());
   CHECK(std::ranges::any_of(subjects.Drawn(),
@@ -37,7 +37,7 @@ void CheckResident(SDL_GPUDevice *device, SubjectDraw &subjects) {
   CHECK(subjects.Owned().SubmitPendingUploads(error), error.c_str());
   Readback read;
   const auto state = read.FromBuffer(
-      device, subjects.Resident().Buffer(SubjectResidency::Stream::Uv1).Get(), sizeof(kMetres));
+      device, subjects.Resident().Buffer(GeometryResidency::Stream::Uv1).Get(), sizeof(kMetres));
   CHECK(state == ReadState::Ready, "actual optional UV1 residency is readable");
   if (state == ReadState::Ready) {
     std::array<float, kMetres.size()> observed{};
@@ -46,7 +46,7 @@ void CheckResident(SDL_GPUDevice *device, SubjectDraw &subjects) {
   }
   const auto allocations = subjects.Resident().Allocations();
   std::println(R"({{"uv1_buffer_bytes":{},"vertex_slots":{},"transfer_bytes":{}}})",
-               allocations.StreamBytes[static_cast<size_t>(SubjectResidency::Stream::Uv1)],
+               allocations.StreamBytes[static_cast<size_t>(GeometryResidency::Stream::Uv1)],
                allocations.VertexSlots,
                allocations.TransferBytes);
 }
@@ -60,8 +60,8 @@ void GpuOwnership(SDL_GPUDevice *device) {
   gpu.Width = kExtent;
   gpu.Height = kExtent;
   CHECK(gpu.SceneColours.Add(Resource::SceneHdr), "the actual subject pipeline has an HDR target");
-  SubjectPipelineBinding binding;
-  SubjectDraw subjects;
+  GeometryPipelineBinding binding;
+  GeometryRenderer subjects;
   std::string error;
   const bool configured = subjects.Configure(binding, gpu, nullptr, nullptr, false, error);
   CHECK(configured, error.c_str());
@@ -116,7 +116,7 @@ void GpuOwnership(SDL_GPUDevice *device) {
           "a legacy piece retains its original layout beside the UV1 piece");
     kept.CopySourcesFrom(resources, SceneResources::PieceSources::Copy);
   }
-  SubjectDraw restored;
+  GeometryRenderer restored;
   restored.AttachPipelines(binding, gpu);
   CHECK(kept.RestorePieceMaterials(restored, nullptr, error), error.c_str());
   CHECK(kept.RestorePieces(restored, error), error.c_str());
@@ -142,7 +142,7 @@ int main(int argc, char *const *argv) {
   piece.Uv1 = coordinates;
   CHECK(ValidPieceUv1(piece),
         "physical metre values outside normalized texture range remain valid");
-  SubjectDraw subjects;
+  GeometryRenderer subjects;
   SceneResources resources;
   std::string error;
   const auto reject = [&] {

@@ -2,7 +2,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "Readback.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cstring>
@@ -13,7 +13,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
-using Stream = SubjectResidency::Stream;
+using Stream = GeometryResidency::Stream;
 constexpr std::array<float, 9> positions{-1, -1, 0, 1, -1, 0, 0, 1, 0};
 constexpr std::array<float, 9> previous{-1, -1, 0, 1, -1, 0, 0, 0.5f, 0};
 constexpr std::array<float, 9> normals{0, 0, 1, 0, 0, 1, 0, 0, 1};
@@ -28,7 +28,7 @@ const std::array<StoredVertex, 3> vertices{StoredVertex::Of({{-1, -1, 0}}, {{0, 
 
 template <class Payload>
 bool Verify(SDL_GPUDevice *device,
-            const SubjectResidency &resident,
+            const GeometryResidency &resident,
             Stream stream,
             const Payload &expected,
             uint32_t first) {
@@ -40,7 +40,7 @@ bool Verify(SDL_GPUDevice *device,
 }
 
 void CheckMainStreams(SDL_GPUDevice *device,
-                      const SubjectResidency &resident,
+                      const GeometryResidency &resident,
                       bool mapped,
                       bool second) {
   CHECK((resident.HeldOf(Stream::Colour) != 0) == second,
@@ -70,7 +70,7 @@ void CheckLayout(SDL_GPUDevice *device,
                  std::span<const uint32_t> prefixIndices,
                  bool mapped,
                  bool second) {
-  SubjectDraw draw;
+  GeometryRenderer draw;
   std::string error;
   Gpu gpu;
   gpu.Device = device;

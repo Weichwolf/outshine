@@ -1,10 +1,10 @@
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include "Check.h"
 
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  SubjectResidency held;
+  GeometryResidency held;
   constexpr uint32_t meshes = 1000;
   constexpr uint32_t triangleVertices = 3;
   for (uint32_t mesh = 0; mesh < meshes; ++mesh) {

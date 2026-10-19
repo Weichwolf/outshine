@@ -6,7 +6,7 @@
 #include <dlfcn.h>
 #include <string>
 #include <vector>
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "Readback.h"
 #include "Check.h"
 
@@ -109,12 +109,12 @@ std::vector<uint32_t> Read(SDL_GPUDevice *device, SDL_GPUBuffer *buffer, size_t 
 }
 
 void DeferredRetry(SDL_GPUDevice *device) {
-  SubjectResidency residency;
+  GeometryResidency residency;
   residency.StandsOn(device);
   const std::vector<uint32_t> initial{0, 0, 0, 0};
   const std::vector<uint32_t> expected{17, 23, 31, 47};
-  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
-  std::array<SubjectResidency::Crossing, 1> crossing{
+  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
+  std::array<GeometryResidency::Crossing, 1> crossing{
       {{.Which = stream,
         .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
         .From = initial.data(),
@@ -150,12 +150,12 @@ void DeferredRetry(SDL_GPUDevice *device) {
 }
 
 void FailedReplacement(SDL_GPUDevice *device) {
-  SubjectResidency residency;
+  GeometryResidency residency;
   residency.StandsOn(device);
-  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
   const std::vector<uint32_t> initial{17, 23, 31, 47};
   const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
-  std::array<SubjectResidency::Crossing, 1> crossing{
+  std::array<GeometryResidency::Crossing, 1> crossing{
       {{.Which = stream,
         .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
         .From = initial.data(),
@@ -184,12 +184,12 @@ void FailedReplacement(SDL_GPUDevice *device) {
 }
 
 void FailedBatchReplacement(SDL_GPUDevice *device) {
-  SubjectResidency residency;
+  GeometryResidency residency;
   residency.StandsOn(device);
-  using Stream = SubjectResidency::Stream;
+  using Stream = GeometryResidency::Stream;
   const std::vector<uint32_t> initial{17, 23, 31, 47};
   const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
-  std::array<SubjectResidency::Crossing, 2> crossing{
+  std::array<GeometryResidency::Crossing, 2> crossing{
       {{.Which = Stream::ClusterJobs,
         .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
         .From = initial.data(),
@@ -244,13 +244,13 @@ void FailedBatchReplacement(SDL_GPUDevice *device) {
 }
 
 void MixedUploads(SDL_GPUDevice *device) {
-  SubjectResidency residency;
+  GeometryResidency residency;
   residency.StandsOn(device);
-  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
   const std::vector<uint32_t> initial{0, 0, 0, 0};
   const std::vector<uint32_t> staged{17, 23, 31, 47};
   const std::vector<uint32_t> latest{53, 59, 61, 67};
-  std::array<SubjectResidency::Crossing, 1> crossing{
+  std::array<GeometryResidency::Crossing, 1> crossing{
       {{.Which = stream,
         .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
         .From = initial.data(),
@@ -297,14 +297,14 @@ void MixedUploads(SDL_GPUDevice *device) {
 }
 
 void Growth(SDL_GPUDevice *device) {
-  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
   constexpr auto usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
   const std::vector<uint32_t> expected{17, 23, 31, 47};
   for (Failure point : {Failure::Acquire, Failure::Pass, Failure::Submit}) {
-    SubjectResidency residency;
+    GeometryResidency residency;
     residency.StandsOn(device);
     std::string error;
-    std::array<SubjectResidency::Crossing, 1> crossing{
+    std::array<GeometryResidency::Crossing, 1> crossing{
         {{.Which = stream,
           .Usage = usage,
           .From = expected.data(),
@@ -314,15 +314,15 @@ void Growth(SDL_GPUDevice *device) {
     const auto capacity = residency.HeldOf(stream);
     const auto maximum = std::numeric_limits<uint32_t>::max();
     for (const auto invalid :
-         {SubjectResidency::Crossing{.Which = SubjectResidency::Stream::Count},
-          SubjectResidency::Crossing{.Which = stream,
-                                     .Usage = usage,
-                                     .From = expected.data(),
-                                     .Bytes = 16,
-                                     .Offset = maximum - 7},
-          SubjectResidency::Crossing{
+         {GeometryResidency::Crossing{.Which = GeometryResidency::Stream::Count},
+          GeometryResidency::Crossing{.Which = stream,
+                                      .Usage = usage,
+                                      .From = expected.data(),
+                                      .Bytes = 16,
+                                      .Offset = maximum - 7},
+          GeometryResidency::Crossing{
               .Which = stream, .Usage = usage, .From = expected.data(), .Bytes = maximum}}) {
-      std::array<SubjectResidency::Crossing, 2> rejected{{{.Which = stream}, invalid}};
+      std::array<GeometryResidency::Crossing, 2> rejected{{{.Which = stream}, invalid}};
       const auto allocations = bufferAllocations;
       CHECK(!residency.Cross(rejected, false, error), "invalid upload is rejected before mutation");
       CHECK(bufferAllocations == allocations, "invalid upload performs no GPU allocation");
@@ -333,7 +333,7 @@ void Growth(SDL_GPUDevice *device) {
     }
     auto large = crossing[0];
     large.Bytes = (maximum / 2u) + 1u;
-    std::array<SubjectResidency::Crossing, 2> oversized{{large, large}};
+    std::array<GeometryResidency::Crossing, 2> oversized{{large, large}};
     for (const bool deferred : {false, true}) {
       const auto allocations = bufferAllocations;
       CHECK(!residency.Cross(oversized, deferred, error),
@@ -366,7 +366,7 @@ void Growth(SDL_GPUDevice *device) {
 }
 
 void Tables(SDL_GPUDevice *device) {
-  SubjectDraw draw;
+  GeometryRenderer draw;
   Gpu gpu{.Device = device,
           .HdrFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT,
           .SurfaceFormat = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
@@ -439,7 +439,7 @@ void Tables(SDL_GPUDevice *device) {
       CHECK(draw.ClusterJobs() == 2 && draw.ClusterBatchRows() == 2,
             "both instance jobs are published only after recovery");
       const std::vector<uint32_t> expected{0, 0, 0, 3, 0, 1, 0, 3};
-      CHECK(Read(device, draw.Resident().Buffer(SubjectResidency::Stream::ClusterJobs).Get(), 8) ==
+      CHECK(Read(device, draw.Resident().Buffer(GeometryResidency::Stream::ClusterJobs).Get(), 8) ==
                 expected,
             "GPU jobs share the source sphere and retain distinct instance batches");
     }

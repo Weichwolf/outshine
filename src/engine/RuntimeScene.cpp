@@ -97,7 +97,7 @@ bool DeclarePlan(std::span<const Render::SubjectMaterial> surfaces,
     return true;
   }
   declaration.Outputs.push_back(Render::Resource::SceneVelocity);
-  declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
+  declaration.Content = {Render::Stage::Geometry, Render::Stage::Overlay};
   if (sky) {
     declaration.Content.push_back(Render::Stage::Sky);
     declaration.Content.push_back(Render::Stage::AerialPerspective);
@@ -110,7 +110,7 @@ bool DeclarePlan(std::span<const Render::SubjectMaterial> surfaces,
         carriesGlass || kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
   }
   if (carriesGlass) {
-    declaration.Content.push_back(Render::Stage::SubjectsTransmissive);
+    declaration.Content.push_back(Render::Stage::TransmissiveGeometry);
     declaration.Content.push_back(Render::Stage::CompositeTransmission);
   }
 
@@ -143,7 +143,7 @@ RuntimeScene::~RuntimeScene() {
   if (Renderer_ == nullptr) { return; }
 
   std::string ignored;
-  (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
+  (void)Renderer_->SetGeometryMesh(Render::SubjectMesh{}, ignored);
   (void)Renderer_->SetOverlay(nullptr, 0, ignored);
   Renderer_->SetPictureRegion({});
 }
@@ -384,8 +384,8 @@ void RuntimeScene::ClearsSubject() {
   PartBounds_.clear();
   if (Renderer_ != nullptr) {
     std::string ignored;
-    (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
-    (void)Renderer_->SetSubjectPlacements(nullptr, 0, ignored);
+    (void)Renderer_->SetGeometryMesh(Render::SubjectMesh{}, ignored);
+    (void)Renderer_->SetGeometryPlacements(nullptr, 0, ignored);
   }
 }
 
@@ -613,12 +613,12 @@ std::expected<void, std::string> RuntimeScene::PlanBuild() {
 std::expected<void, std::string> RuntimeScene::BindBuild() {
   std::string error;
   if (Shaped_.TriangleCount() == 0) {
-    if (!Renderer_->SetSubjectMesh(Render::SubjectMesh{}, error) ||
-        !Renderer_->SetSubjectPlacements(nullptr, 0, error)) {
+    if (!Renderer_->SetGeometryMesh(Render::SubjectMesh{}, error) ||
+        !Renderer_->SetGeometryPlacements(nullptr, 0, error)) {
       return std::unexpected(std::move(error));
     }
     if (!Camera_.NeedsBinding()) { Camera_.Unbind(); }
-    if (!Renderer_->SetSubjectMaterials(Materials_.Slots(), error)) {
+    if (!Renderer_->SetGeometryMaterials(Materials_.Slots(), error)) {
       return std::unexpected(std::move(error));
     }
     Renderer_->SetPictureRegion({});

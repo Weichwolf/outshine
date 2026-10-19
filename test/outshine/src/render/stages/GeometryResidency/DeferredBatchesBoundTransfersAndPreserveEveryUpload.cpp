@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "GpuOwned.h"
 #include "Readback.h"
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <cstdint>
@@ -20,12 +20,12 @@ int main() {
         nullptr));
     CHECK(device, "GPU device opens");
     if (!device) { return Report(); }
-    SubjectResidency resident;
+    GeometryResidency resident;
     resident.StandsOn(device.Get());
     constexpr uint32_t blockBytes = 1024u * 1024u;
     constexpr uint32_t blocks = 64;
     constexpr uint32_t totalBytes = blockBytes * blocks;
-    constexpr auto stream = SubjectResidency::Stream::Vertex;
+    constexpr auto stream = GeometryResidency::Stream::Vertex;
     std::string error;
     CHECK(resident.Grow(stream, {.Usage = SDL_GPU_BUFFERUSAGE_VERTEX, .Bytes = totalBytes}, error),
           "all destination ranges have storage before deferred writes");
@@ -33,11 +33,11 @@ int main() {
     uint64_t peak = 0;
     for (uint32_t block = 0; block < blocks; ++block) {
       std::ranges::fill(source, block + 1);
-      SubjectResidency::Crossing crossing{.Which = stream,
-                                          .Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                                          .From = source.data(),
-                                          .Bytes = blockBytes,
-                                          .Offset = block * blockBytes};
+      GeometryResidency::Crossing crossing{.Which = stream,
+                                           .Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+                                           .From = source.data(),
+                                           .Bytes = blockBytes,
+                                           .Offset = block * blockBytes};
       CHECK(resident.Cross(std::span(&crossing, 1), true, error),
             "each deferred write is accepted");
       peak = std::max(peak, resident.Allocations().TransferBytes);

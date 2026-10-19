@@ -2,7 +2,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "Readback.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cstring>
@@ -70,7 +70,7 @@ int main() {
     CHECK(device, "GPU device opens");
     if (!device) { return Report(); }
     for (const bool replacement : {false, true}) {
-      SubjectDraw draw;
+      GeometryRenderer draw;
       std::string error;
       Gpu gpu;
       gpu.Device = device.Get();
@@ -91,8 +91,8 @@ int main() {
       CHECK(draw.PlacePiece(PieceMesh{.Verts = vertices, .Indices = indices}, error) != kNoPiece,
             "independent piece upload is accepted");
       const auto &resident = draw.Resident();
-      auto *positions = resident.Buffer(SubjectResidency::Stream::Vertex).Get();
-      auto *triangles = resident.Buffer(SubjectResidency::Stream::Index).Get();
+      auto *positions = resident.Buffer(GeometryResidency::Stream::Vertex).Get();
+      auto *triangles = resident.Buffer(GeometryResidency::Stream::Index).Get();
       constexpr std::array<float, 9> expected{2, 3, 4, 5, 6, 7, 8, 9, 10};
       CHECK(Poison(device.Get(), positions, sizeof(expected)) &&
                 Poison(device.Get(), triangles, sizeof(indices)),
@@ -122,8 +122,8 @@ int main() {
       const auto retry = draw.BeginMesh(mesh);
       CHECK(retry.has_value(), "main mesh changes on retry");
       if (retry) { CHECK(draw.FinishMesh(*retry, mesh, error), "main mesh replacement finishes"); }
-      positions = resident.Buffer(SubjectResidency::Stream::Vertex).Get();
-      triangles = resident.Buffer(SubjectResidency::Stream::Index).Get();
+      positions = resident.Buffer(GeometryResidency::Stream::Vertex).Get();
+      triangles = resident.Buffer(GeometryResidency::Stream::Index).Get();
       Readback vertexReadback;
       Readback indexReadback;
       CHECK(vertexReadback.FromBuffer(device.Get(), positions, sizeof(expected)) ==

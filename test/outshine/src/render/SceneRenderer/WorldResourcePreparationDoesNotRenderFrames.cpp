@@ -109,8 +109,8 @@ void Exercise() {
           "failed preparation never publishes a camera frame");
   }
   const std::array<SubjectMaterial, 1> rebuiltMaterials{};
-  CHECK(prepared.SetSubjectMaterials(rebuiltMaterials, error) &&
-            control.SetSubjectMaterials(rebuiltMaterials, error),
+  CHECK(prepared.SetGeometryMaterials(rebuiltMaterials, error) &&
+            control.SetGeometryMaterials(rebuiltMaterials, error),
         "both scenes receive the final native materials after retrying acquisition");
   auto uploads = prepared.PrepareWorldResources();
   CHECK(uploads.has_value(), "upload preparation succeeds after both failures");

@@ -2,7 +2,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "Readback.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
@@ -22,7 +22,7 @@ int main() {
         nullptr));
     CHECK(device, "GPU device opens");
     if (!device) { return Report(); }
-    SubjectDraw draw;
+    GeometryRenderer draw;
     Gpu gpu;
     gpu.Device = device.Get();
     gpu.HdrFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
@@ -60,7 +60,7 @@ int main() {
     mesh.Draws = &draws;
     CHECK(draw.SetMesh(mesh, error), "rigid main mesh uploads");
     const auto &resident = draw.Resident();
-    using Stream = SubjectResidency::Stream;
+    using Stream = GeometryResidency::Stream;
     CHECK(resident.SubjectVertices().First > 0, "main mesh follows a native range");
     CHECK(resident.HeldOf(Stream::Previous) == 0 && !resident.Buffer(Stream::Previous),
           "a rigid main mesh allocates no duplicated positions or native-prefix hole");

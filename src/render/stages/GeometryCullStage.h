@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_STAGES_SUBJECTCULLSTAGE_H
-#define OUTSHINE_RENDER_STAGES_SUBJECTCULLSTAGE_H
+#ifndef OUTSHINE_RENDER_STAGES_GEOMETRYCULLSTAGE_H
+#define OUTSHINE_RENDER_STAGES_GEOMETRYCULLSTAGE_H
 
 #include <cstdint>
 #include <string>
@@ -13,9 +13,9 @@
 
 namespace outshine::Render {
 
-class SubjectDraw;
+class GeometryRenderer;
 
-class SubjectCullStage {
+class GeometryCullStage {
 public:
   void PyramidFrom(SDL_GPUBuffer *pyramid, const PyramidShape &shape) {
     if (PyramidBuffer_ != pyramid || Pyramid_.Wide != shape.Wide || Pyramid_.High != shape.High ||
@@ -33,9 +33,9 @@ public:
   static constexpr ComputeShaderId CompactShader = ComputeShaderId::SubjectCompact;
   static constexpr ComputeShape CompactShape = FindComputeShader(CompactShader)->Shape;
 
-  [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
+  [[nodiscard]] bool Configure(GeometryRenderer &subjects, const Gpu &gpu, std::string &error);
 
-  void Binds(SubjectDraw &subjects) noexcept {
+  void Binds(GeometryRenderer &subjects) noexcept {
     if (Subjects_ != &subjects) { Cache_.Invalidate(); }
     Subjects_ = &subjects;
   }
@@ -71,7 +71,7 @@ private:
                                            std::string &error);
   [[nodiscard]] uint32_t Standing(const FrameContext &ctx, void *view);
 
-  SubjectDraw *Subjects_ = nullptr;
+  GeometryRenderer *Subjects_ = nullptr;
   OwnedComputePipeline Cull_, Scan_, Compact_;
   uint32_t Swept_ = 0;
   float HeightPx_ = 0.0f;

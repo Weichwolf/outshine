@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "SubjectCullStage.h"
+#include "GeometryCullStage.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
 #include "SubjectTypes.h"
@@ -58,7 +58,7 @@ void RefineStaticView(outshine::Core::RuntimeScene &scene,
   CHECK(refined.Indices < initial.Indices,
         "stationary HiZ removes the hidden target instead of disabling occlusion");
   CHECK(before == after, "removing hidden geometry preserves the image exactly");
-  CHECK(scene.Draw(error) && SubjectCullStage::JobsSweptTaken() == 0,
+  CHECK(scene.Draw(error) && GeometryCullStage::JobsSweptTaken() == 0,
         "a settled unchanged view reuses its refined draw input");
 }
 
@@ -73,9 +73,9 @@ void ReplaceMaterials(outshine::Core::RuntimeScene &scene,
   red.Row.Unlit = true;
   red.Row.BaseColour = {{1, 0, 0, 1}};
   const std::array<SubjectMaterial, 1> materials{red};
-  CHECK(renderer.SetSubjectMaterials(materials, error) && scene.Draw(error),
+  CHECK(renderer.SetGeometryMaterials(materials, error) && scene.Draw(error),
         "replacement native materials remain drawable");
-  CHECK(SubjectCullStage::JobsSweptTaken() > 0,
+  CHECK(GeometryCullStage::JobsSweptTaken() > 0,
         "rebuilt draw tables invalidate cached GPU selection");
   std::vector<float> depth;
   CHECK(renderer.ReadDepth(depth) == ReadState::Ready &&

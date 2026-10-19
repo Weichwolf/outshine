@@ -1,10 +1,10 @@
-#include "SubjectResidency.h"
+#include "GeometryResidency.h"
 #include "Check.h"
 
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  SubjectResidency held;
+  GeometryResidency held;
   const auto first = held.TakeVertices(1);
   const auto second = held.TakeVertices(1025);
   const auto indices = held.TakeIndices(1);

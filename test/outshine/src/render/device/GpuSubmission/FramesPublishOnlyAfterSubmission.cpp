@@ -211,7 +211,7 @@ void ReinitializationInvalidatesFrames(bool temporal) {
   if (!compiled) { return; }
   const auto previous =
       temporal
-          ? CompilePlan({Resource::Surface}, {Stage::Subjects, Stage::Sky, Stage::TemporalResolve})
+          ? CompilePlan({Resource::Surface}, {Stage::Geometry, Stage::Sky, Stage::TemporalResolve})
           : compiled;
   CHECK(previous.has_value(), "previous render plan compiles");
   if (!previous) { return; }
@@ -265,9 +265,9 @@ void ReinitializationInvalidatesFrames(bool temporal) {
 }
 
 void TransmissionFollowsReplacementPlan() {
-  const auto opaque = CompilePlan({Resource::Surface}, {Stage::Subjects, Stage::Sky});
+  const auto opaque = CompilePlan({Resource::Surface}, {Stage::Geometry, Stage::Sky});
   const auto glass = CompilePlan({Resource::Surface, Resource::SceneComposited},
-                                 {Stage::Subjects, Stage::SubjectsTransmissive, Stage::Sky});
+                                 {Stage::Geometry, Stage::TransmissiveGeometry, Stage::Sky});
   CHECK(opaque.has_value() && glass.has_value(), "transmission switching plans compile");
   if (!opaque || !glass) { return; }
   std::array<SubjectMaterial, 1> materials{};
@@ -278,7 +278,7 @@ void TransmissionFollowsReplacementPlan() {
     CHECK(renderer.Init({32, 32}, enabled ? *glass : *opaque).has_value(),
           "replacement transmission configuration initializes");
     if (!renderer.DeviceUsable()) { return; }
-    CHECK(renderer.AppendSubjectMaterials(materials, error) == enabled,
+    CHECK(renderer.AppendGeometryMaterials(materials, error) == enabled,
           "material admission follows current transmission plan, not previous plan");
   }
 }
@@ -286,7 +286,7 @@ void TransmissionFollowsReplacementPlan() {
 void WorldPreparationCompletesLighting() {
   const auto compiled =
       CompilePlan({Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
-                  {Stage::Subjects, Stage::Sky, Stage::TemporalResolve});
+                  {Stage::Geometry, Stage::Sky, Stage::TemporalResolve});
   CHECK(compiled.has_value(), "world preparation uses the real atmosphere and temporal plan");
   if (!compiled) { return; }
   Faults faults;
@@ -357,7 +357,7 @@ void WorldPreparationCompletesLighting() {
 void Exercise() {
   const auto compiled =
       CompilePlan({Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
-                  {Stage::Subjects, Stage::Sky, Stage::TemporalResolve});
+                  {Stage::Geometry, Stage::Sky, Stage::TemporalResolve});
   CHECK(compiled.has_value(), "the real sky, irradiance and temporal plan compiles");
   if (!compiled) { return; }
   CHECK((*compiled)->Holds(Stage::TemporalResolve) && (*compiled)->Holds(Stage::MediumRadiance),

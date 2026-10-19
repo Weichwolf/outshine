@@ -2,7 +2,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "Readback.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cstring>
@@ -20,7 +20,7 @@ int main() {
         nullptr));
     CHECK(device, "GPU device opens");
     if (!device) { return Report(); }
-    SubjectDraw draw;
+    GeometryRenderer draw;
     std::string error;
     Gpu gpu;
     gpu.Device = device.Get();
@@ -96,11 +96,11 @@ int main() {
     constexpr std::array<float, 36> expected{0, 0, 0, 4,  0, 0, 0, 8,  0,      kDagRootErr, 0, 0,
                                              1, 0, 0, 4,  1, 0, 0, 8,  0.125f, kDagRootErr, 0, 0,
                                              4, 5, 6, 16, 4, 5, 6, 32, 0.5f,   kDagRootErr, 0, 0};
-    CHECK(resident.HeldOf(SubjectResidency::Stream::ClusterSpheres) == sizeof(expected),
+    CHECK(resident.HeldOf(GeometryResidency::Stream::ClusterSpheres) == sizeof(expected),
           "sphere storage depends on three source clusters, not nine instance jobs");
     Readback spheres, jobs, rows;
     CHECK(spheres.FromBuffer(device.Get(),
-                             resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get(),
+                             resident.Buffer(GeometryResidency::Stream::ClusterSpheres).Get(),
                              sizeof(expected)) == ReadState::Ready,
           "sphere bytes read from the actual GPU buffer");
     CHECK(spheres.Rows() != nullptr &&
@@ -109,11 +109,11 @@ int main() {
     CHECK(draw.ClusterJobs() == 9 && draw.Drawn().size() == 6,
           "all instance jobs and batches remain present");
     CHECK(jobs.FromBuffer(device.Get(),
-                          resident.Buffer(SubjectResidency::Stream::ClusterJobs).Get(),
+                          resident.Buffer(GeometryResidency::Stream::ClusterJobs).Get(),
                           36 * sizeof(uint32_t)) == ReadState::Ready,
           "job references read from the actual GPU buffer");
     CHECK(rows.FromBuffer(device.Get(),
-                          resident.Buffer(SubjectResidency::Stream::Placements).Get(),
+                          resident.Buffer(GeometryResidency::Stream::Placements).Get(),
                           6 * sizeof(GpuPlacement)) == ReadState::Ready,
           "instance transforms read from the actual GPU buffer");
     if (spheres.Rows() == nullptr || jobs.Rows() == nullptr || rows.Rows() == nullptr) {

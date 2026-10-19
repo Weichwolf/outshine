@@ -5,7 +5,7 @@ int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
   const auto compiled = Compiled::Compile(
-      {.Outputs = {Resource::SceneHdr}, .Content = {Stage::Subjects, Stage::Sky}});
+      {.Outputs = {Resource::SceneHdr}, .Content = {Stage::Geometry, Stage::Sky}});
   CHECK(compiled.has_value(), "the sky and subject plan compiles");
   if (!compiled) { return Report(); }
   bool irradiance = false;

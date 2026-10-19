@@ -35,9 +35,9 @@ namespace outshine::Render {
 
 void SceneRenderer::SetContentSelection(const ContentSelection &selection) {
   auto &content = ActiveState().Content;
-  content.Subjects.Ground().SetDrawEnabled(selection.HeightLattice);
+  content.Geometry.Ground().SetDrawEnabled(selection.HeightLattice);
   content.Glass.Ground().SetDrawEnabled(selection.HeightLattice);
-  content.Subjects.SetPiecesVisible(selection.Instances);
+  content.Geometry.SetPiecesVisible(selection.Instances);
   content.Glass.SetPiecesVisible(selection.Instances);
 }
 
@@ -166,24 +166,24 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
          .Configure = &SceneRenderer::ConfigureIrradiance,
          .Encode = &SceneRenderer::EncodeIrradiance},
         {.Named = Stage::SubjectCull,
-         .Configure = &SceneRenderer::ConfigureSubjectCull,
-         .Encode = &SceneRenderer::EncodeSubjectCull},
+         .Configure = &SceneRenderer::ConfigureGeometryCull,
+         .Encode = &SceneRenderer::EncodeGeometryCull},
         {.Named = Stage::SubjectScan,
-         .Configure = &SceneRenderer::ConfigureSubjectCull,
-         .Encode = &SceneRenderer::EncodeSubjectScan},
+         .Configure = &SceneRenderer::ConfigureGeometryCull,
+         .Encode = &SceneRenderer::EncodeGeometryScan},
         {.Named = Stage::SubjectCompact,
-         .Configure = &SceneRenderer::ConfigureSubjectCull,
-         .Encode = &SceneRenderer::EncodeSubjectCompact},
+         .Configure = &SceneRenderer::ConfigureGeometryCull,
+         .Encode = &SceneRenderer::EncodeGeometryCompact},
         {.Named = Stage::LightVisibility,
          .Configure = &SceneRenderer::ConfigureLightVisibility,
          .Encode = &SceneRenderer::EncodeLightVisibility},
         {.Named = Stage::Sky,
          .Configure = &SceneRenderer::ConfigureSky,
          .Encode = &SceneRenderer::EncodeSky},
-        {.Named = Stage::Subjects,
-         .Configure = &SceneRenderer::ConfigureSubjects,
-         .Encode = &SceneRenderer::EncodeSubjects},
-        {.Named = Stage::SubjectsTransmissive,
+        {.Named = Stage::Geometry,
+         .Configure = &SceneRenderer::ConfigureGeometry,
+         .Encode = &SceneRenderer::EncodeGeometry},
+        {.Named = Stage::TransmissiveGeometry,
          .Configure = &SceneRenderer::ConfigureGlass,
          .Encode = &SceneRenderer::EncodeGlass},
         {.Named = Stage::CompositeTransmission,
@@ -325,15 +325,15 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
   if (!reusesFrame) { return false; }
   Candidate_->Frame.reset();
   ActiveState().Plan = State_.Plan;
-  ActiveState().Content.DrawsGlass = plan.Holds(Stage::SubjectsTransmissive);
-  ActiveState().Content.Subjects.AttachPipelines(State_.Frame.SubjectPipelines,
+  ActiveState().Content.DrawsGlass = plan.Holds(Stage::TransmissiveGeometry);
+  ActiveState().Content.Geometry.AttachPipelines(State_.Frame.GeometryPipelines,
                                                  State_.Frame.Handles);
-  if (!ActiveState().Content.Subjects.PrepareGroundStorage(State_.Frame.Handles,
+  if (!ActiveState().Content.Geometry.PrepareGroundStorage(State_.Frame.Handles,
                                                            ActiveState().WhyNot)) {
     return std::unexpected(ActiveState().WhyNot);
   }
   ActiveState().Content.Glass.AttachPipelines(State_.Frame.GlassPipelines, State_.Frame.Handles);
-  ActiveState().Content.Glass.Shares(ActiveState().Content.Subjects.Owned());
+  ActiveState().Content.Glass.Shares(ActiveState().Content.Geometry.Owned());
   if (!ActiveState().Content.Ground.Ready()) {
     const auto ground =
         ActiveState().Content.Ground.Replace(State_.Frame.Handles.Device, {}, {}, Submission_);
@@ -342,7 +342,7 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
       return std::unexpected(ActiveState().WhyNot);
     }
   }
-  ActiveState().Content.Subjects.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
+  ActiveState().Content.Geometry.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                              .Palette = ActiveState().Content.Ground.Palette()});
   ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                           .Palette = ActiveState().Content.Ground.Palette()});
@@ -380,7 +380,7 @@ SceneRenderer::BuildFrameResources(Extent frame, const Compiled &plan, bool pres
   if (const auto stood = StandsOffscreen(candidate, &plan, presents); !stood) {
     return std::unexpected(stood.error());
   }
-  if (!ConfigurePlanStages(candidate, plan, plan.Holds(Stage::SubjectsTransmissive))) {
+  if (!ConfigurePlanStages(candidate, plan, plan.Holds(Stage::TransmissiveGeometry))) {
     return std::unexpected(ActiveState().WhyNot);
   }
   if (Device_ && !Settle(ActiveState().WhyNot)) { return std::unexpected(ActiveState().WhyNot); }
@@ -397,7 +397,7 @@ void SceneRenderer::PublishFrameResources(FrameResources frame,
     State_.Frame = std::move(frame);
   }
   ActiveState().Plan = std::move(plan);
-  ActiveState().Content.DrawsGlass = ActiveState().Plan->Holds(Stage::SubjectsTransmissive);
+  ActiveState().Content.DrawsGlass = ActiveState().Plan->Holds(Stage::TransmissiveGeometry);
   if (!Candidate_) { ApplyWorldDeclarations(); }
   BindFrameResources();
   if (!Candidate_) { BeginTemporalRun(); }
@@ -761,19 +761,22 @@ SDL_GPUTexture *SceneRenderer::Target(const FrameResources &frame, Resource reso
 }
 
 SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
-  const SubjectResidency &resident = ActiveState().Content.Subjects.Resident();
+  const GeometryResidency &resident = ActiveState().Content.Geometry.Resident();
   switch (resource) {
     case Resource::ClusterSphere:
-      return resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get();
-    case Resource::ClusterIndex: return resident.Buffer(SubjectResidency::Stream::Index).Get();
-    case Resource::ClusterJobs: return resident.Buffer(SubjectResidency::Stream::ClusterJobs).Get();
+      return resident.Buffer(GeometryResidency::Stream::ClusterSpheres).Get();
+    case Resource::ClusterIndex: return resident.Buffer(GeometryResidency::Stream::Index).Get();
+    case Resource::ClusterJobs:
+      return resident.Buffer(GeometryResidency::Stream::ClusterJobs).Get();
     case Resource::ClusterBatches:
-      return resident.Buffer(SubjectResidency::Stream::ClusterBatches).Get();
-    case Resource::ClusterKept: return resident.Buffer(SubjectResidency::Stream::ClusterKept).Get();
-    case Resource::ClusterSlot: return resident.Buffer(SubjectResidency::Stream::ClusterSlot).Get();
-    case Resource::DrawIndex: return resident.Buffer(SubjectResidency::Stream::DrawIndex).Get();
+      return resident.Buffer(GeometryResidency::Stream::ClusterBatches).Get();
+    case Resource::ClusterKept:
+      return resident.Buffer(GeometryResidency::Stream::ClusterKept).Get();
+    case Resource::ClusterSlot:
+      return resident.Buffer(GeometryResidency::Stream::ClusterSlot).Get();
+    case Resource::DrawIndex: return resident.Buffer(GeometryResidency::Stream::DrawIndex).Get();
     case Resource::DrawArguments:
-      return resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
+      return resident.Buffer(GeometryResidency::Stream::DrawArguments).Get();
     case Resource::IrradianceBuffer: return ActiveFrame().IrradianceBuffer.Get();
     case Resource::DepthPyramid: return ActiveFrame().Pyramid.Get();
     default: return nullptr;
@@ -849,14 +852,14 @@ bool SceneRenderer::Configure(
   return seat->Configure(*this, frame, plan, drawsGlass, error);
 }
 
-bool SceneRenderer::ConfigureSubjects(SceneRenderer &renderer,
+bool SceneRenderer::ConfigureGeometry(SceneRenderer &renderer,
                                       FrameResources &frame,
                                       const Compiled &plan,
                                       bool drawsGlass,
                                       std::string &error) {
   (void)plan;
-  return renderer.ActiveState().Content.Subjects.Configure(
-      frame.SubjectPipelines, frame.Handles, nullptr, nullptr, drawsGlass, error);
+  return renderer.ActiveState().Content.Geometry.Configure(
+      frame.GeometryPipelines, frame.Handles, nullptr, nullptr, drawsGlass, error);
 }
 
 bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
@@ -1012,7 +1015,7 @@ bool SceneRenderer::ConfigureLightVisibility(SceneRenderer &renderer,
                                              std::string &error) {
   (void)plan;
   (void)drawsGlass;
-  return frame.Shadow.Configure(renderer.ActiveState().Content.Subjects, frame.Handles, error);
+  return frame.Shadow.Configure(renderer.ActiveState().Content.Geometry, frame.Handles, error);
 }
 
 void SceneRenderer::ApplyWorldDeclarations() {
@@ -1026,7 +1029,7 @@ void SceneRenderer::ApplyWorldDeclarations() {
         ActiveState().Medium,
         ActiveState().CosSunZenith,
         ActiveState().EyeHeightM,
-        ActiveState().Content.Subjects.Environment().GroundAlbedo);
+        ActiveState().Content.Geometry.Environment().GroundAlbedo);
   }
   if (ActiveState().SkyDeclared) {
     const SkyStanding stands = {.SunDir = ActiveState().SkyToSun,
@@ -1036,14 +1039,14 @@ void SceneRenderer::ApplyWorldDeclarations() {
     ActiveFrame().Sky.Declare(ActiveState().Medium, stands);
     ActiveFrame().Aerial.Declare(ActiveState().Medium, stands);
   }
-  const SubjectDraw::Reflections reflections{.Atlas = ActiveState().MediumDeclared &&
-                                                              ActiveState().SkyDeclared
-                                                          ? ActiveFrame().EnvironmentSpecular.Get()
-                                                          : nullptr,
-                                             .Sampler = ActiveFrame().LutSamp.Get(),
-                                             .Up = ActiveState().SkyUp,
-                                             .ToSun = ActiveState().SkyToSun};
-  ActiveState().Content.Subjects.ReflectionsFrom(reflections);
+  const GeometryRenderer::Reflections reflections{
+      .Atlas = ActiveState().MediumDeclared && ActiveState().SkyDeclared
+                   ? ActiveFrame().EnvironmentSpecular.Get()
+                   : nullptr,
+      .Sampler = ActiveFrame().LutSamp.Get(),
+      .Up = ActiveState().SkyUp,
+      .ToSun = ActiveState().SkyToSun};
+  ActiveState().Content.Geometry.ReflectionsFrom(reflections);
   ActiveState().Content.Glass.ReflectionsFrom(reflections);
   if (ActiveState().ShadowDeclared) {
     ActiveFrame().Shadow.Declare({.ToSun = ActiveState().ShadowToSun, .Up = ActiveState().ShadowUp},
@@ -1053,11 +1056,11 @@ void SceneRenderer::ApplyWorldDeclarations() {
 }
 
 void SceneRenderer::BindFrameResources() {
-  ActiveState().Content.Subjects.UsePipelines(ActiveFrame().SubjectPipelines);
+  ActiveState().Content.Geometry.UsePipelines(ActiveFrame().GeometryPipelines);
   ActiveState().Content.Glass.UsePipelines(ActiveFrame().GlassPipelines);
-  ActiveState().Content.Glass.Shares(ActiveState().Content.Subjects.Owned());
-  ActiveFrame().Shadow.Binds(ActiveState().Content.Subjects);
-  ActiveFrame().Cull.Binds(ActiveState().Content.Subjects);
+  ActiveState().Content.Glass.Shares(ActiveState().Content.Geometry.Owned());
+  ActiveFrame().Shadow.Binds(ActiveState().Content.Geometry);
+  ActiveFrame().Cull.Binds(ActiveState().Content.Geometry);
 }
 
 void SceneRenderer::Picture(bool picture, const PassRecording &into) {
@@ -1113,9 +1116,9 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
   spent.Triangles = 0;
   spent.Surfaces = 0;
   spent.Placements = 0;
-  if (stage == Stage::Subjects || stage == Stage::SubjectsTransmissive) {
-    const SubjectDraw &drew =
-        stage == Stage::Subjects ? ActiveState().Content.Subjects : ActiveState().Content.Glass;
+  if (stage == Stage::Geometry || stage == Stage::TransmissiveGeometry) {
+    const GeometryRenderer &drew =
+        stage == Stage::Geometry ? ActiveState().Content.Geometry : ActiveState().Content.Glass;
     uint32_t surfaces = 0;
     uint32_t placements = 0;
     for (const DrawBatch &batch : drew.Drawn()) {
@@ -1137,9 +1140,9 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
   }
 }
 
-void SceneRenderer::EncodeSubjects(const FrameContext &ctx, const PassRecording &into) {
+void SceneRenderer::EncodeGeometry(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  ActiveState().Content.Subjects.Encode(ctx, into);
+  ActiveState().Content.Geometry.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeGlass(const FrameContext &ctx, const PassRecording &into) {
@@ -1274,7 +1277,7 @@ SceneRenderer::AdvanceGroundClasses(size_t bytesMost, GroundClassUploadMetrics *
     return std::unexpected(std::move(advanced.error()));
   }
   if (!*advanced) { return false; }
-  content.Subjects.GroundFrom(
+  content.Geometry.GroundFrom(
       {.Classes = content.Ground.Classes(), .Palette = content.Ground.Palette()});
   content.Glass.GroundFrom(
       {.Classes = content.Ground.Classes(), .Palette = content.Ground.Palette()});
@@ -1304,7 +1307,7 @@ bool SceneRenderer::UploadGroundClasses(std::span<const uint32_t> classes,
     error = uploaded.error();
     return false;
   }
-  ActiveState().Content.Subjects.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
+  ActiveState().Content.Geometry.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                              .Palette = ActiveState().Content.Ground.Palette()});
   ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                           .Palette = ActiveState().Content.Ground.Palette()});
@@ -1346,7 +1349,7 @@ bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
       error = uploaded.error();
       return false;
     }
-    renderer.ActiveState().Content.Subjects.GroundFrom(
+    renderer.ActiveState().Content.Geometry.GroundFrom(
         {.Classes = renderer.ActiveState().Content.Ground.Classes(),
          .Palette = renderer.ActiveState().Content.Ground.Palette()});
     renderer.ActiveState().Content.Glass.GroundFrom(
@@ -1387,29 +1390,29 @@ void SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx, const PassRecord
   ActiveFrame().PyramidStage.Encode(into);
 }
 
-bool SceneRenderer::ConfigureSubjectCull(SceneRenderer &renderer,
-                                         FrameResources &frame,
-                                         const Compiled &plan,
-                                         bool drawsGlass,
-                                         std::string &error) {
+bool SceneRenderer::ConfigureGeometryCull(SceneRenderer &renderer,
+                                          FrameResources &frame,
+                                          const Compiled &plan,
+                                          bool drawsGlass,
+                                          std::string &error) {
   (void)plan;
   (void)drawsGlass;
   frame.Cull.PyramidFrom(frame.Pyramid.Get(),
                          PyramidOver({.WidthPx = static_cast<uint32_t>(frame.Width),
                                       .HeightPx = static_cast<uint32_t>(frame.Height)}));
-  return frame.Cull.Configure(renderer.ActiveState().Content.Subjects, frame.Handles, error);
+  return frame.Cull.Configure(renderer.ActiveState().Content.Geometry, frame.Handles, error);
 }
 
-void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into) {
+void SceneRenderer::EncodeGeometryCull(const FrameContext &ctx, const PassRecording &into) {
   ActiveFrame().Cull.Projects(static_cast<float>(ActiveFrame().Height));
   ActiveFrame().Cull.EncodeCull(ctx, into);
 }
 
-void SceneRenderer::EncodeSubjectScan(const FrameContext &ctx, const PassRecording &into) {
+void SceneRenderer::EncodeGeometryScan(const FrameContext &ctx, const PassRecording &into) {
   ActiveFrame().Cull.EncodeScan(ctx, into);
 }
 
-void SceneRenderer::EncodeSubjectCompact(const FrameContext &ctx, const PassRecording &into) {
+void SceneRenderer::EncodeGeometryCompact(const FrameContext &ctx, const PassRecording &into) {
   ActiveFrame().Cull.EncodeCompact(ctx, into);
 }
 
@@ -1417,7 +1420,7 @@ void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRec
   ActiveFrame().Shadow.Encode(ctx, into);
   Spent_[static_cast<size_t>(Stage::LightVisibility)].DeviceBytes =
       static_cast<uint64_t>(kShadowAtlasPx) * kShadowAtlasPx * sizeof(float);
-  ActiveState().Content.Subjects.ShadowedBy(ActiveFrame().ShadowAtlas.Get(),
+  ActiveState().Content.Geometry.ShadowedBy(ActiveFrame().ShadowAtlas.Get(),
                                             ActiveFrame().LutSamp.Get(),
                                             ActiveState().ShadowLightIndex,
                                             ActiveFrame().Shadow.LightFromWorld(),
@@ -1599,12 +1602,12 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
   }
   if (!ActiveState().CameraFull) { return std::unexpected(Says::kCameraNotConfigured); }
 
-  ActiveState().Content.Subjects.CastsNoShadow();
+  ActiveState().Content.Geometry.CastsNoShadow();
   for (bool &touched : Touched_) { touched = false; }
   {
     std::string why;
-    if (!ActiveState().Content.Subjects.HandTables(why) ||
-        !ActiveState().Content.Subjects.HandPlacements(false, why) ||
+    if (!ActiveState().Content.Geometry.HandTables(why) ||
+        !ActiveState().Content.Geometry.HandPlacements(false, why) ||
         (ActiveState().Content.DrawsGlass && !ActiveState().Content.Glass.HandTables(why))) {
       return std::unexpected(std::move(why));
     }
@@ -1619,7 +1622,7 @@ std::expected<OwnedFence, std::string> SceneRenderer::PrepareWorldResources() {
   SDL_GPUCommandBuffer *commands = Submission_.Acquire(Submission_.Context, Device_.Get());
   if (commands == nullptr) { return std::unexpected(SDL_GetError()); }
   std::string error;
-  if (!ActiveState().Content.Subjects.FlushCrossings(commands, error) ||
+  if (!ActiveState().Content.Geometry.FlushCrossings(commands, error) ||
       (ActiveState().Content.DrawsGlass &&
        !ActiveState().Content.Glass.FlushCrossings(commands, error))) {
     SDL_CancelGPUCommandBuffer(commands);
@@ -1642,7 +1645,7 @@ std::expected<OwnedFence, std::string> SceneRenderer::PrepareWorldResources() {
   }
   SDL_GPUFence *fence = Submission_.Submit(Submission_.Context, commands);
   if (fence == nullptr) { return std::unexpected(SDL_GetError()); }
-  ActiveState().Content.Subjects.CommitCrossings();
+  ActiveState().Content.Geometry.CommitCrossings();
   if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
   preparation.Commit();
   return OwnedFence(Device_.Get(), fence);
@@ -1652,7 +1655,7 @@ bool SceneRenderer::WorldResourcesComplete(const OwnedFence &fence) {
   if (!fence || !Submission_.QueryFence(Submission_.Context, Device_.Get(), fence.Get())) {
     return false;
   }
-  ActiveState().Content.Subjects.Owned().ReleaseUploadScratch();
+  ActiveState().Content.Geometry.Owned().ReleaseUploadScratch();
   ActiveState().Content.Glass.Owned().ReleaseUploadScratch();
   return true;
 }
@@ -1663,20 +1666,20 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
 }
 
 void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission) {
-  ActiveState().Content.Subjects.CommitCrossings();
+  ActiveState().Content.Geometry.CommitCrossings();
   if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
   stageSubmission.Commit();
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) {
     ActiveState().PrevEye[axis] = ActiveState().Camera.EyeM[axis];
   }
-  ActiveState().Content.Subjects.CarryFrame();
+  ActiveState().Content.Geometry.CarryFrame();
   ActiveState().Content.Glass.CarryFrame();
 
   ActiveState().PrevMvp = Through().ViewProjection(ActiveState().Camera);
   ActiveState().Submitted = true;
   LastSubmittedCamera_.Basis = ActiveState().Camera;
-  LastSubmittedCamera_.GeometryAnchorM = ActiveState().Content.Subjects.AnchorM();
+  LastSubmittedCamera_.GeometryAnchorM = ActiveState().Content.Geometry.AnchorM();
   ++LastSubmittedCamera_.Serial;
 }
 
@@ -1700,7 +1703,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   if (commands == nullptr) { return std::unexpected(SDL_GetError()); }
   record(RenderFramePhase::Acquire);
   std::string uploadError;
-  if (!ActiveState().Content.Subjects.FlushCrossings(commands, uploadError) ||
+  if (!ActiveState().Content.Geometry.FlushCrossings(commands, uploadError) ||
       (ActiveState().Content.DrawsGlass &&
        !ActiveState().Content.Glass.FlushCrossings(commands, uploadError))) {
     SDL_CancelGPUCommandBuffer(commands);
@@ -1752,8 +1755,8 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     ActiveFrame().LinearAt = previousLinearAt;
   };
 
-  if (!ActiveState().Content.Subjects.Ground().Cull(
-          Framing(), ActiveState().Content.Subjects.AnchorM(), commands, uploadError)) {
+  if (!ActiveState().Content.Geometry.Ground().Cull(
+          Framing(), ActiveState().Content.Geometry.AnchorM(), commands, uploadError)) {
     SDL_CancelGPUCommandBuffer(commands);
     restoreTemporalState();
     return std::unexpected(std::move(uploadError));
@@ -1923,9 +1926,9 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 
 ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   into = {};
-  const SubjectResidency &resident = ActiveState().Content.Subjects.Resident();
-  SDL_GPUBuffer *const args = resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
-  const uint32_t rows = ActiveState().Content.Subjects.ClusterBatchRows();
+  const GeometryResidency &resident = ActiveState().Content.Geometry.Resident();
+  SDL_GPUBuffer *const args = resident.Buffer(GeometryResidency::Stream::DrawArguments).Get();
+  const uint32_t rows = ActiveState().Content.Geometry.ClusterBatchRows();
   if (!ActiveState().Ready || args == nullptr || rows == 0) { return ReadState::Failed; }
   Readback read;
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
@@ -1936,8 +1939,8 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     into.Indices += held[static_cast<size_t>(at) * 5];
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
-  const uint32_t jobs = ActiveState().Content.Subjects.ClusterJobs();
-  SDL_GPUBuffer *const kept = resident.Buffer(SubjectResidency::Stream::ClusterKept).Get();
+  const uint32_t jobs = ActiveState().Content.Geometry.ClusterJobs();
+  SDL_GPUBuffer *const kept = resident.Buffer(GeometryResidency::Stream::ClusterKept).Get();
   if (jobs > 0 && kept != nullptr) {
     Readback visibility;
     const uint32_t keptBytes = jobs * static_cast<uint32_t>(sizeof(uint32_t));
@@ -1948,7 +1951,7 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     const auto *const values = reinterpret_cast<const uint32_t *>(visibility.Rows());
     into.Visibility.assign(values, values + jobs);
   }
-  SDL_GPUBuffer *const index = resident.Buffer(SubjectResidency::Stream::DrawIndex).Get();
+  SDL_GPUBuffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).Get();
   if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
   Readback drawn;
   const uint32_t indexBytes = into.Indices * static_cast<uint32_t>(sizeof(uint32_t));
