@@ -59,7 +59,7 @@ def render(vertices, indices, eye, basis):
     )
 
 
-def image_comparison(model, records, output):
+def image_comparison(model, records, output, *, selector=None):
     vertices, indices, scene = model["vertices"], model["indices"], model["scene"]
     target = vertices[np.unique(indices)].mean(axis=0)
     if scene is not None:
@@ -79,12 +79,15 @@ def image_comparison(model, records, output):
         "cone": np.ones(len(indices), bool),
         "mask": np.ones(len(indices), bool),
     }
-    for (first, count), record in zip(model["ranges"], records, strict=True):
-        cone, mask = query(record, eye, **ENABLED)
-        selections["cone"][first : first + count] = cone
-        selections["mask"][first : first + count] = [
-            bool(mask & (1 << i)) for i in range(count)
-        ]
+    if selector is None:
+        for (first, count), record in zip(model["ranges"], records, strict=True):
+            cone, mask = query(record, eye, **ENABLED)
+            selections["cone"][first : first + count] = cone
+            selections["mask"][first : first + count] = [
+                bool(mask & (1 << i)) for i in range(count)
+            ]
+    else:
+        selections = {"original": np.ones(len(indices), bool), **selector(eye)}
     cases = []
     tag = model["group"][:12]
     # Facing depends on eye position only. All 72 yaw poses therefore reuse the

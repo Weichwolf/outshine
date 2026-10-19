@@ -175,3 +175,7 @@ Any useful next variant must recover substantially more work on the same
 original topology without growing batches or losing source/material ownership.
 Current runtime eligibility, camera/model precision and target-device costs
 remain the minimal missing consumer evidence.
+
+[The normal-group follow-up](group_facing.md) derives the exact whole-cluster
+removal limit and compares membership masks for orientation groups inside the
+same original clusters. It preserves this whole-cluster result and its scope.
