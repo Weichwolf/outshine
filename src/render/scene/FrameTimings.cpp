@@ -73,7 +73,10 @@ void SceneRenderer::ResetMeasurements() noexcept {
 void SceneRenderer::CollectCompletedFrameTimes() {
   for (auto &completion : Landed_) {
     if (!completion) { continue; }
+    const auto began = std::chrono::steady_clock::now();
     const auto ready = Device_->Poll(*completion);
+    Costs_.GpuQueryMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     if (ready && *ready == Native::CompletionStatus::Ready) {
       CollectGpuTime(*completion);
       completion.reset();

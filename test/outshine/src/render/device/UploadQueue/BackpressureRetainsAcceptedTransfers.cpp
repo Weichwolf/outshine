@@ -25,6 +25,7 @@ public:
   using NativeDeviceProxy::NativeDeviceProxy;
   unsigned Busy = 0, Begins = 0, Waits = 0, Submits = 0;
   bool DriverFailure = false, WaitFailure = false, ForeverBusy = false;
+  bool RejectNextSubmit = false;
 
   Result<std::unique_ptr<Commands>> Begin() override {
     ++Begins;
@@ -41,6 +42,10 @@ public:
 
   Result<Completion> Submit(std::unique_ptr<Commands> commands) override {
     ++Submits;
+    if (std::exchange(RejectNextSubmit, false)) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Driver, .Message = "owned submission failure"});
+    }
     return Backing().Submit(std::move(commands));
   }
 
@@ -56,7 +61,9 @@ public:
 void Probe(Observed &device) {
   constexpr std::array<uint32_t, 4> expected{17, 31, 47, 61};
   std::chrono::nanoseconds budget{};
-  UploadQueue queue(device, budget);
+  unsigned notifications = 0;
+  UploadQueue queue(
+      device, budget, [](void *context) { ++*static_cast<unsigned *>(context); }, &notifications);
   auto source = Require(device.CreateBuffer(
       {.Bytes = sizeof(expected), .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
   auto target = Require(device.CreateBuffer(
@@ -68,6 +75,7 @@ void Probe(Observed &device) {
   Require(commands->Copy(*source, *target, {.Bytes = sizeof(expected)}));
   const auto accepted = Require(SubmitUpload(device, &queue, std::move(commands)));
   CHECK(device.Submits == 1, "the data transfer is submitted exactly once");
+  CHECK(notifications == 1, "an accepted upload notifies its owner exactly once");
   {
     const UploadQueue::WaitScope offline(budget, std::chrono::seconds(5));
     device.Busy = 1;
@@ -122,6 +130,13 @@ void Probe(Observed &device) {
           "persistent backpressure returns recoverable Busy after one bounded wait and retry");
   }
   device.ForeverBusy = false;
+  auto rejectedCommands = Require(queue.Begin());
+  device.RejectNextSubmit = true;
+  const auto rejected = SubmitUpload(device, &queue, std::move(rejectedCommands));
+  CHECK(!rejected && rejected.error().Message == "owned submission failure" && notifications == 1,
+        "a rejected upload preserves its owned failure and never notifies completion collection");
+  queue.Submitted(accepted);
+  CHECK(notifications == 1, "tracking a regular frame adds no upload notification or polling");
 }
 }
 

@@ -1,5 +1,6 @@
 #include "Check.h"
 #include "RuntimeScene.h"
+#include <chrono>
 #include "SceneRenderer.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include <SDL3/SDL.h>
@@ -25,6 +26,7 @@ enum class BadTiming { None, Pending, NotFinite, Negative };
 struct Timings {
   bool Hold = false, Fail = false;
   bool RejectNextSubmit = false;
+  bool CompleteNextSubmit = false;
   BadTiming Bad = BadTiming::None;
   unsigned Waits = 0;
   std::vector<Native::Completion> Submitted, Queried;
@@ -48,7 +50,14 @@ public:
                                            .Message = "injected rejected submission"});
     }
     auto submitted = Backing().Submit(std::move(commands));
-    if (submitted) { State_.Submitted.push_back(*submitted); }
+    if (submitted) {
+      State_.Submitted.push_back(*submitted);
+      if (std::exchange(State_.CompleteNextSubmit, false)) {
+        const auto completed = Backing().Wait(*submitted, std::chrono::seconds(5));
+        CHECK(completed && *completed == Native::CompletionStatus::Ready,
+              "the fixture completes its frame before the upload burst");
+      }
+    }
     return submitted;
   }
 
@@ -143,6 +152,40 @@ void CheckInvalidTimings(Core::RuntimeScene &scene, SceneRenderer &renderer, Tim
   state.Bad = BadTiming::None;
 }
 
+void CheckUploadBurst(Core::RuntimeScene &scene, SceneRenderer &renderer, Timings &state) {
+  std::string error;
+  renderer.KeepGpuSamples(1);
+  renderer.ResetMeasurements();
+  state.CompleteNextSubmit = true;
+  CHECK(scene.Draw(error), "a measured frame precedes resource uploads");
+  const auto frame = state.Submitted.back();
+  const auto uploadsAt = state.Submitted.size();
+  const auto queriesAt = state.Queried.size();
+  const auto *reserved = renderer.GpuSamples().data();
+  constexpr unsigned uploadCount = 16;
+  OverlayQuad quad{.WidthPx = 1, .HeightPx = 1};
+  {
+    const auto offline = renderer.OfflineUploads(std::chrono::seconds(5));
+    for (unsigned at = 0; at < uploadCount; ++at) {
+      quad.Red = static_cast<float>(at % 2);
+      CHECK(renderer.SetOverlay(&quad, 1, error), "each overlay change submits a real upload");
+    }
+  }
+  CHECK(state.Submitted.size() >= uploadsAt + uploadCount,
+        "resource traffic exceeds the native eight-submission timing history");
+  renderer.WaitForGpu();
+  CHECK(renderer.Costs().Frames == 1 && renderer.Costs().Gpu.Frames == 1 &&
+            renderer.Costs().UnavailableGpuFrames == 0,
+        "the completed frame time survives the intervening native upload burst");
+  const auto samples = renderer.GpuSamples();
+  CHECK(samples.size() == 1 && samples.front().Device == frame.Device &&
+            samples.front().Submission == frame.Serial &&
+            samples.front().ElapsedMs == frame.Serial && samples.data() == reserved,
+        "resource uploads preserve the actual frame identity and bounded sample storage");
+  CHECK(state.Queried.size() == queriesAt + 1,
+        "the frame timestamp is queried exactly once across resource uploads and final settling");
+}
+
 void Exercise() {
   Geometry geometry;
   const auto part = geometry.addPart("triangle", MaterialInstance{});
@@ -233,6 +276,7 @@ void Exercise() {
         "the prior unavailable sample does not persist into a fresh interval");
   CheckRetentionLimits(*scene, renderer, state);
   CheckInvalidTimings(*scene, renderer, state);
+  CheckUploadBurst(*scene, renderer, state);
 }
 }
 

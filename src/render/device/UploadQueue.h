@@ -25,8 +25,11 @@ public:
     std::chrono::nanoseconds Previous_;
   };
 
-  UploadQueue(Native::Device &device, std::chrono::nanoseconds &budget)
-      : Device_(device), Budget_(budget) {}
+  UploadQueue(Native::Device &device,
+              std::chrono::nanoseconds &budget,
+              void (*afterSubmit)(void *) = nullptr,
+              void *context = nullptr)
+      : Device_(device), Budget_(budget), AfterSubmit_(afterSubmit), Context_(context) {}
 
   [[nodiscard]] Native::Result<std::unique_ptr<Native::Commands>> Begin() {
     return Begin([this] { return Device_.Begin(); });
@@ -48,7 +51,10 @@ public:
   [[nodiscard]] Native::Result<Native::Completion>
   Submit(std::unique_ptr<Native::Commands> commands) {
     auto submitted = Device_.Submit(std::move(commands));
-    if (submitted) { Submitted(*submitted); }
+    if (submitted) {
+      Submitted(*submitted);
+      if (AfterSubmit_ != nullptr) { AfterSubmit_(Context_); }
+    }
     return submitted;
   }
 
@@ -60,6 +66,8 @@ private:
   Native::Device &Device_;
   const std::chrono::nanoseconds &Budget_;
   std::optional<Native::Completion> Last_;
+  void (*AfterSubmit_)(void *);
+  void *Context_;
 };
 
 inline Native::Result<std::unique_ptr<Native::Commands>> BeginUpload(Native::Device &device,

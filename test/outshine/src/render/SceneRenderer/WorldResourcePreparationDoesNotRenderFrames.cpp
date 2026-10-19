@@ -110,6 +110,8 @@ void Exercise() {
   eye.ZFarM = kFarM;
   preparedScene->Eye(eye);
   controlScene->Eye(eye);
+  CHECK(preparedScene->Advance(error) && controlScene->Advance(error),
+        "both declared cameras bind before comparing GPU preparation");
   faults.Waits = 0;
   for (const auto failure : {Faults::Failure::Acquire, Faults::Failure::Submit}) {
     faults.Next = failure;
