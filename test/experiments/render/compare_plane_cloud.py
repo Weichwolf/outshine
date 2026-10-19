@@ -11,6 +11,8 @@ from pathlib import Path
 import numpy as np
 from check_building_capture_inputs import check, load
 from compare_actual_capture_movement import views
+from full_view_reference import load as load_full_view
+from full_view_reference import views as full_views
 from native_capture_meshes import independent_depth, mesh, sample
 from object_plane_cloud import mip_texels, partition
 from plane_cloud_fields import bake, query
@@ -65,9 +67,52 @@ def stored(baked, fallback, reasons, output):
     }
 
 
-def render(source, original_index, baked, fallback, fallback_index, view, suns):
+def image_roi(source, view):
+    eye, basis, focal, width, height = view
+    points = (source["positions"].astype(float) - eye) @ basis.T
+    x, y, z = points.T
+    planes = np.stack(
+        (
+            z - 0.1,
+            z * width / (2 * focal) + x,
+            z * width / (2 * focal) - x,
+            z * height / (2 * focal) + y,
+            z * height / (2 * focal) - y,
+        )
+    )
+    if (planes.max(1) < 0).any():
+        return None
     box = projected_bounds(source["positions"], view)
     box = np.stack((np.floor(box[0]), np.ceil(box[1])))
+    box = np.maximum(box, [0, 0])
+    box = np.minimum(box, [width, height])
+    return box if (box[1] > box[0]).all() else None
+
+
+def select_full_poses(source, poses):
+    candidates = []
+    for name, view in poses.items():
+        if name.startswith("static-"):
+            box = image_roi(source, view)
+            if box is not None:
+                candidates.append(
+                    (np.linalg.norm(box.mean(0) - np.array(view[3:]) / 2), name)
+                )
+    if not candidates:
+        raise ValueError(
+            "whole native rotation has no visible input; no empty-image success"
+        )
+    _, chosen = min(candidates)
+    frame = int(chosen.rsplit("-", 1)[1])
+    frames = sum(name.startswith("moving-") for name in poses)
+    names = (chosen, f"moving-{frame:03d}", f"moving-{frame % frames + 1:03d}")
+    return {name: poses[name] for name in names}
+
+
+def render(source, original_index, baked, fallback, fallback_index, view, suns):
+    box = image_roi(source, view)
+    if box is None:
+        raise ValueError("selected test pose has no on-screen source extent")
     width, height = (box[1] - box[0]).astype(int)
     if width * height * 4 > 4194304:
         raise ValueError("complete same-resolution ROI exceeds diagnostic budget")
@@ -126,6 +171,7 @@ def render(source, original_index, baked, fallback, fallback_index, view, suns):
         "roi_pixels": [int(width), int(height)],
         "screen_roi": box.tolist(),
         "evaluated_subsamples": len(origins),
+        "reference_covered_subsamples": int(source_alpha.sum()),
         "work": work,
         "independent_original_rays": len(selected),
         "errors_per_light": [difference(a, b) for a, b in zip(ref, cloud, strict=True)],
@@ -202,11 +248,22 @@ def main():
     parser.add_argument("--pitch", type=float, default=1.0)
     args = parser.parse_args()
     document = load(args.input)
-    check(document)
-    calls = [c for r in document["results"] for c in r["projection_calls"]]
-    if len(calls) != 1:
-        raise ValueError("one explicitly recorded complete input group required")
-    source = mesh(calls[0], "Full")
+    if "view_key" in document:
+        source, document, context, input_receipt = load_full_view(args.input)
+        available_poses = full_views(document, context)
+        poses = select_full_poses(source, available_poses)
+        pose_scope = "3 selected actual native benchmark poses from 120 supplied states; no full-sequence or continuous admission"
+    else:
+        check(document)
+        calls = [c for r in document["results"] for c in r["projection_calls"]]
+        if len(calls) != 1:
+            raise ValueError("one explicitly recorded complete input group required")
+        source = mesh(calls[0], "Full")
+        poses = views(document, calls[0], source["positions"])
+        input_receipt = {
+            "scope": "existing full known native surface group; opaque control"
+        }
+        pose_scope = "3 original declared cell-centred diagnostic poses"
     (charts, fallback, reasons, work), partition_cost = measured(
         lambda: partition(
             source["positions"],
@@ -234,7 +291,7 @@ def main():
     north = np.cross(up, east)
     suns = np.stack((up + 0.8 * east + 0.2 * north, up - 0.7 * east + 0.4 * north))
     rows, reports = [], {}
-    for name, view in views(document, calls[0], source["positions"]).items():
+    for name, view in poses.items():
         (report, arrays), cost = measured(
             lambda view=view: render(
                 source,
@@ -260,6 +317,8 @@ def main():
     picture(rows, args.output)
     result = {
         "input_sha256": hashlib.sha256(args.input.read_bytes()).hexdigest(),
+        "input_receipt": input_receipt,
+        "pose_scope": pose_scope,
         "source_paths_sha256": {
             name: hashlib.sha256(
                 (Path(__file__).parent / name).read_bytes()
@@ -268,6 +327,7 @@ def main():
                 "object_plane_cloud.py",
                 "plane_cloud_fields.py",
                 "compare_plane_cloud.py",
+                "full_view_reference.py",
             )
         },
         "epsilon_m": args.epsilon,
@@ -285,7 +345,7 @@ def main():
         "peak_rss_bytes_linux": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
         "views": reports,
-        "scope": "complete known Full surface group, 3 diagnostic poses, same native focal/1280x720/2x2 samples; colour-factor Lambert only, not native PBR/whole-city/360-degree or continuous movement admission; all originals retained by diagnostic",
+        "scope": "complete known original surface group, 3 explicit poses, same native focal/1280x720/2x2 samples; colour-factor Lambert and opaque control only; native PBR/shadow/whole-city/full-sequence/continuous/device admission open; all originals retained by diagnostic",
     }
     (args.output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
 
