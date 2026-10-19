@@ -9,6 +9,7 @@ from scipy import sparse
 
 from outshine_ref.transport.heights import _gradient_weights
 
+from ._contacts import contact_equations
 from ._mass import area_mass
 
 
@@ -159,6 +160,7 @@ def solve_program(
     *,
     normal_bound=None,
     solver_name="clarabel",
+    point_contacts=None,
 ):
     nv, nf = len(mesh.vertices), len(mesh.triangles)
     auxiliary_count = nf if normal_bound is None else 0
@@ -170,8 +172,16 @@ def solve_program(
         (np.ones(len(pins)), (np.arange(len(pins)), list(pins))),
         shape=(len(pins), nv + auxiliary_count),
     ).tocsc()
+    contact_heights = np.array(list(pins.values())) - datum
+    if point_contacts is not None and len(point_contacts.points):
+        extra, extra_height = contact_equations(
+            mesh, point_contacts, nv + auxiliary_count, datum
+        )
+        contact = sparse.vstack([contact, extra], format="csc")
+        contact_heights = np.r_[contact_heights, extra_height]
+    contact_count = contact.shape[0]
     matrix = sparse.vstack([inequality, contact, soc], format="csc")
-    bound = np.r_[rhs, np.array(list(pins.values())) - datum, soc_rhs]
+    bound = np.r_[rhs, contact_heights, soc_rhs]
     mass = area_mass(mesh)
     mass /= mass.sum()
     hessian = sparse.block_diag(
@@ -179,8 +189,8 @@ def solve_program(
     )
     linear = np.r_[-mass @ (mesh.vertices[:, 2] - datum), np.zeros(auxiliary_count)]
     cones = [clarabel.NonnegativeConeT(len(rhs))]
-    if pins:
-        cones.append(clarabel.ZeroConeT(len(pins)))
+    if contact_count:
+        cones.append(clarabel.ZeroConeT(contact_count))
     cones.extend(clarabel.SecondOrderConeT(4) for _ in range(auxiliary_count))
     settings = clarabel.DefaultSettings()
     settings.verbose = False
@@ -214,6 +224,7 @@ def solve_program(
         "solver": solver_name,
         "unknowns": matrix.shape[1],
         "normal_auxiliaries": auxiliary_count,
+        "equality_contacts": contact_count,
         "normal_norm_bound_max": None
         if normal_bound is None
         else float(normal_bound.max()),
@@ -240,7 +251,9 @@ def solve_program(
     if str(result.status) not in ("Solved", "AlmostSolved"):
         return None, None, dict(report, reason="solver_not_solved")
     report.update(
-        conic_certificate(result, hessian, linear, matrix, bound, len(rhs), len(pins))
+        conic_certificate(
+            result, hessian, linear, matrix, bound, len(rhs), contact_count
+        )
     )
     report["finite_qp_optimal"] = (
         max(

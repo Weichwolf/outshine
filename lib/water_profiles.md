@@ -13,6 +13,7 @@ fit = fit_physical_surface(
     up_bounds_m=(minimum_enu_up, maximum_enu_up),
     primary_rows=two_existing_row_indices_per_face,
     fixed=explicit_enu_up_contacts,
+    contact_points=explicit_physical_enu_points,
 )
 ```
 
@@ -32,6 +33,31 @@ Die daraus abgeleitete Normalnormgrenze liefert ein konservativeres lineares QP.
 Ohne diese Angabe bleibt die ursprüngliche SOCP-Referenz; es werden keine Richtungen
 oder Schranken erfunden. `fixed` enthält ausschließlich vorhandene Vertexindices
 und harte ENU-Up-Höhen. Quellen-/Datumbeleg für diese Pins besitzt der Aufrufer.
+
+`contact_points` ergänzt vorhandene Vertex-Pins um physische Punkte innerhalb der
+Facetten und auf geteilten Kanten. Jede Zeile enthält `(East, North, Up)` im selben
+expliziten Rahmen wie das Mesh, keine geografischen Gradwerte. Ein unverändertes
+XY-Dreieck mit baryzentrischen Gewichten w erhält die harte Gleichung
+`sum(w_i * vertex_up_i) = point.Up`; mit Solver-Datum d lautet ihre rechte Seite
+`point.Up - d*sum(w_i)`. Alle Verbraucher benutzen weiterhin dieselben physischen
+Dreiecke. Es gibt keine zusätzliche interpolierte Kontaktfläche/Neutriangulation.
+
+Der bestehende `SurfaceSampler` wählt ein eindeutiges Blatt ohne XY-Toleranz:
+kein Snapping, keine Extrapolation auf nahe Ufer. Gemeinsame Kanten haben dieselben
+Vertexindices; sonst mehrdeutige oder außerhalb liegende Kontakte liefern explizite
+Abwesenheit mit Eingabeindex/Grund. Widersprüchliche Punkte, Vertex-Pins oder
+Prismengrenzen werden nicht gelockert. Nach dem Fit prüft ein unabhängiger
+Kreuzprodukt-Reader den physischen Ebenenabstand als ENU-Up-Fehler mit unveränderter
+1e-9-Grenze. Geodätische Rückprojektion hat ihre eigene ECEF-Rundungsgröße und ist
+kein Beleg für gemessene Wasserstandgenauigkeit.
+
+Maximal 4096 Punkte; größere Mengen werden vor Kopie/Indexaufbau abgewiesen.
+Die begrenzte Kandidatenabfrage verwendet maximal 262144 Treffer, einschließlich
+konservativer Batchgrenzen des gemeinsamen Samplers. Nicht alle Baumtraversal-/
+GEOS-Allokationen sind damit gemessen. Punkte werden besessen kopiert; bei `None`
+oder leerer Menge wird kein Kontaktindex gebaut. Physische Koordinaten, Quellen-IDs,
+Datum und Auswahl des richtigen Wasserbereichs besitzt weiterhin der Aufrufer.
+Keine automatisch erfundenen See-/Terrain-/Brücken-/Regionskontakte.
 
 Die ganze Facette wird über die bestehende Prismenhülle geprüft, nicht nur an
 Stichproben. Grenzen bleiben8192 Vertices,16384 Faces,65536 Zeilen, positive endliche
@@ -69,10 +95,16 @@ geladenen Source-/Wheel-Paketpfad ausdrücklich. Er prüft Originalarrays/Vertic
 die tatsächlichen P/A/q/b exakt; Source/Wheel sowie zwei synthetische gemeinsame
 Kontakte nach +0,25m Prioränderung werden getrennt verglichen. Die synthetischen Pins
 sind keine beobachteten Pegel. Bestehender OSQP-Kontrolloutput wird wiederverwendet.
+Weitere Kontakttests prüfen Innen-/Kantenpunkte, widersprüchliche Bedingungen,
+außerhalb liegende und mehrdeutige Flächen sowie Begrenzung vor Kontaktaufbau.
+Der eigenständig mit versionierten Originaleingaben ausführbare
+[Punktkontaktvergleich](../test/experiments/water/point_contact_experiment.py) verschiebt
+weiche Ziele um +0,25 m und hält drei ausdrücklich synthetische Punkte der zuvor
+gelösten Originalfläche fest. Das prüft den Kontaktvertrag, keine Beobachtungspegel.
 
 ```sh
 OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src:lib/tests:test/experiments/water \
-  .venv/bin/python -W error -m unittest test_water_profiles test_physical_river_fit \
+  .venv/bin/python -W error -m unittest test_water_point_contacts test_water_profiles test_physical_river_fit \
   test_linear_physical_river test_native_river_inputs test_geodetic_facet \
   test_river_membership test_river_surface test_profile_mass test_profile_precision
 ```
