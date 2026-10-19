@@ -14,74 +14,9 @@ from pathlib import Path
 
 import numpy as np
 import trimesh
+from native_source_mesh import load_source
 
-
-def load_source(root, *, allow_mixed_codes=False):
-    receipt = json.loads((root / "mesh/receipt.json").read_text())
-    metadata = json.loads((root / "input.json").read_text())
-    arrays = {}
-    for name, spec in receipt["captures"][0].items():
-        data = (root / "mesh/0" / f"{name}.bin").read_bytes()
-        if (
-            len(data) != spec["bytes"]
-            or hashlib.sha256(data).hexdigest() != spec["sha256"]
-        ):
-            raise ValueError("source stream changed")
-        arrays[name] = np.frombuffer(data, dtype="<u4")
-    walls = arrays["walls"].reshape(-1, 6)
-    roofs = arrays["roofs"].reshape(-1, 6)
-    words = np.concatenate((walls, roofs))
-    indices = np.concatenate(
-        (
-            arrays["wall_indices"].reshape(-1, 3),
-            arrays["roof_indices"].reshape(-1, 3) + len(walls),
-        )
-    ).astype(np.uint32)
-    if indices.max() >= len(words) or not np.isfinite(words[:, :5].view("<f4")).all():
-        raise ValueError("invalid source vertices")
-    colour = np.ones((len(words), 4), dtype=np.float32)
-    if len(arrays["colours"]):
-        colour[: len(walls)] = arrays["colours"].view("<f4").reshape(-1, 4)
-    metres = None
-    if len(arrays["metres"]):
-        metres = np.zeros((len(words), 2), np.float32)
-        metres[: len(walls)] = arrays["metres"].view("<f4").reshape(-1, 2)
-    uv = words[:, 3:5].view("<f4")
-    code = np.where(uv[:, 0] < 0, uv[:, 0], np.floor(uv[:, 0] / 256))
-    code_uniform = (code[indices] == code[indices[:, :1]]).all(1)
-    if (
-        (abs(code) > 32767).any()
-        or (not allow_mixed_codes and not code_uniform.all())
-        or not (words[indices, 5] == words[indices[:, :1], 5]).all()
-        or not (colour[indices] == colour[indices[:, :1]]).all()
-    ):
-        raise ValueError(
-            "this first capture requires flat codes/normals/colour per triangle"
-        )
-    palette, palette_index = np.unique(
-        colour[indices[:, 0]], axis=0, return_inverse=True
-    )
-    if len(palette) > 65535:
-        raise ValueError("bounded exact colour palette required")
-    smooth = np.column_stack((np.mod(uv[:, 0], 256), uv[:, 1])).astype(np.float32)
-    return {
-        "positions": words[:, :3].view("<f4"),
-        "indices": indices,
-        "normal": words[indices[:, 0], 5],
-        "code": np.where(code_uniform, code[indices[:, 0]], -32768).astype(np.int16),
-        "code_uniform": code_uniform,
-        "vertex_code": code.astype(np.int16),
-        "palette": palette,
-        "colour_index": palette_index.astype(np.uint16),
-        "uv": smooth,
-        "metres": metres,
-        "domain": np.r_[
-            np.zeros(len(arrays["wall_indices"]) // 3, np.uint8),
-            np.ones(len(arrays["roof_indices"]) // 3, np.uint8),
-        ],
-        "metadata": metadata,
-        "native_bytes": sum(s["bytes"] for s in receipt["captures"][0].values()),
-    }
+__all__ = ["capture_view", "load_source", "main"]
 
 
 def capture_view(source, direction, up_hint, *, resolution, layers):

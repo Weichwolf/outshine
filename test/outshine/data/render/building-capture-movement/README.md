@@ -33,3 +33,37 @@ OSM-based building data; this file is neither source OSM nor an imagery texture.
 Only elapsed observer timing was removed. Gzip timestamp is 0 with no filename.
 Compressed SHA256:
 `e29429e2fa670c2a5ce4b2357ee274c31fc6be7764866737b57933fb863a6c99`.
+
+## Original Fine observer-ball control
+
+Refs #862/#852. `original-fine-cell.zip` contains the unchanged original cell58
+Fine geometry used by `measure_native_capture_region.py`: both independently
+exported native streams, their SHA/count/ownership receipt, input metadata,
+native camera/report, original index/forms and archived view package. No private
+logs or rendered images are included. Every archived file byte matches the
+preserved original; ZIP entry timestamps are1980-01-01 with sorted relative names.
+Archive SHA256:
+`7b7d196ac58b57f22e347d722de5a7e266b8f6398826d7ca7f1d4549c3421203`.
+
+```sh
+.venv/bin/python -m zipfile -e \
+  test/outshine/data/render/building-capture-movement/original-fine-cell.zip \
+  /tmp/outshine-original-fine-input
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error \
+  test/experiments/render/measure_native_capture_region.py \
+  --fine /tmp/outshine-original-fine-input --radius-m 6 \
+  --output /tmp/outshine-original-fine-region-result
+```
+
+Use fresh system-temp paths. The input contains51970 vertices and26378 triangles
+from32 original sources of parent
+`035e2150a3c1d52a53b4f299007ec4557489a8b51c5780f58928a84a7c8b4500`.
+Source ordinals remain stable; original ID[0,0] means unknown and stays unknown.
+Historical absolute path strings in metadata are provenance only: the Python
+consumer reads only these unpacked files and never follows those paths.
+
+This earlier geometry control is distinct from the actual capture cell64 above.
+It assumes opaque triangles, invents no Part/Face identity and grants no runtime
+capture, continuous native reuse, material/culling or device admission. Original
+source acquisition and rebuilding the native cooker require additional original
+producer resources; this bundle suffices for the independent Python control.

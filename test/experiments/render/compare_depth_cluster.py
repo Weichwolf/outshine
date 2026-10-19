@@ -12,32 +12,11 @@ import numpy as np
 from compare_native_cell_views import load_pair, low_eye_view
 from compare_source_billboard import depth_difference, difference, panel
 from depth_cluster import bake, fields, prepare, reference
+from native_source_mesh import face_sources
 from raster_depth_cluster import raster
 from source_billboard import average_samples, image_rays, projected_bounds
 from source_far_reprojection import prepare_source
 from source_surface_fields import relight
-
-
-def face_sources(root, source):
-    receipt = json.loads((root / "mesh/receipt.json").read_text())
-    count = receipt["captures"][0]["wall_indices"]["count"] // 3
-    result = np.full(len(source["indices"]), -1, np.int32)
-    for call in receipt["call_ranges"][0]:
-        index = call["native_call"]["source"]
-        if type(index) is not int or call["native_call"]["detail"] != 0:
-            raise ValueError("complete normal Fine source ranges required")
-        for name, offset in (("wall_indices", 0), ("roof_indices", count)):
-            begin, end = call[name]
-            if (
-                begin % 3
-                or end % 3
-                or (result[offset + begin // 3 : offset + end // 3] >= 0).any()
-            ):
-                raise ValueError("overlapping/misaligned original source range")
-            result[offset + begin // 3 : offset + end // 3] = index
-    if (result < 0).any():
-        raise ValueError("incomplete original face ownership")
-    return result
 
 
 def material_error(depths, fine_faces, slots, actual, cached, cache, owners):

@@ -19,6 +19,7 @@ from source_billboard import (
 from source_far_assets import load_source
 from source_far_reprojection import prepare_source
 from source_surface_fields import relight
+from triangle_image_reference import low_eye_view
 
 
 def load_pair(a, b, *, allow_mixed_codes=False):
@@ -46,22 +47,6 @@ def load_pair(a, b, *, allow_mixed_codes=False):
     if len(details) != count or any(d not in (0, 1, 2) for d in details):
         raise ValueError("only observed Fine/Shell/Massed controls supported")
     return source, native, details
-
-
-def low_eye_view(positions, up, east, north, focal, distance, yaw, move):
-    xyz = positions.astype(float)
-    centre = (xyz.min(0) + xyz.max(0)) / 2
-    angle = np.radians(yaw)
-    eye = centre + distance * np.ptp(xyz, axis=0).max() * (
-        np.cos(angle) * east + np.sin(angle) * north
-    )
-    eye += ((xyz @ up).min() + 1.7 - eye @ up) * up
-    forward = centre - eye
-    forward /= np.linalg.norm(forward)
-    right = np.cross(forward, up)
-    right /= np.linalg.norm(right)
-    basis = np.stack((right, np.cross(right, forward), forward))
-    return eye + move * right, basis, focal, 1280, 720
 
 
 def render(source, prepared, view, suns):
