@@ -76,7 +76,7 @@ def depth_difference(reference, candidate, covered):
 
 
 def panel(path, images, title):
-    result = Image.new("RGB", (4 * 384, 2 * 250), "white")
+    result = Image.new("RGB", (len(images[0]) * 384, 2 * 250), "white")
     draw = ImageDraw.Draw(result)
     for row, light in enumerate(images):
         for col, (name, pixels) in enumerate(light.items()):

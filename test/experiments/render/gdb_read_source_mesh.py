@@ -165,4 +165,5 @@ def main():
     entry.enabled = False
 
 
-main()
+if __name__ == "__main__":
+    main()
