@@ -17,6 +17,9 @@ import gdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gdb_read_source_mesh import FROZEN, MESH, STREAMS, read_streams
+from native_cell_mesh_validation import validate_row
+
+PROJECTED = "_ZN8outshine10Generators22StructurePlanSelection13EmitProjectedERKNS1_7CommandERKNS0_7RawTileERKNS_15StructureMesherERNS_11MeshScratchERNS0_9BakedTileE"
 
 
 def without_timing(value):
@@ -25,49 +28,6 @@ def without_timing(value):
     if isinstance(value, list):
         return [without_timing(v) for v in value]
     return value
-
-
-def validate_row(row, batch, source_count):
-    capture = batch["capture"]
-    if (
-        not row["accepted"]
-        or row["unsupported"]
-        or row["projection_calls"]
-        or len(row["details"]) != source_count
-        or row["footprints"] != source_count
-        or any(d not in (0, 1, 2) for d in row["details"])
-        or len(row["mesh_calls"]) != len(batch["calls"])
-        or row["lumped"] != row["details"].count(2)
-        or row["blocks"] != sum(c["detail"] == 2 for c in row["mesh_calls"])
-    ):
-        raise RuntimeError("incomplete/unsupported original cell selection")
-    normal = []
-    for call, ranges in zip(row["mesh_calls"], batch["calls"], strict=True):
-        if not call["accepted"] or call["error"] is not None:
-            raise RuntimeError("failed native mesh call")
-        if call["detail"] == 2:
-            if call["source"] is not None:
-                raise RuntimeError("unexpected invented mass source")
-        else:
-            i = call["source"]
-            if (
-                type(i) is not int
-                or not 0 <= i < source_count
-                or call["detail"] != row["details"][i]
-            ):
-                raise RuntimeError("native source range/detail mismatch")
-            normal.append(i)
-        ranges["native_call"] = call
-    if sorted(normal) != [i for i, d in enumerate(row["details"]) if d != 2]:
-        raise RuntimeError("missing or duplicated non-massed source")
-    if (
-        capture["walls"]["count"] != row["wall_vertices"]
-        or capture["roofs"]["count"] != row["roof_vertices"]
-        or sum(s["bytes"] for s in capture.values()) != row["built_bytes"]
-        or (capture["wall_indices"]["count"] + capture["roof_indices"]["count"]) // 3
-        != row["fallback_triangles"]
-    ):
-        raise RuntimeError("native JSON does not validate cell vector boundaries")
 
 
 def main():
@@ -93,8 +53,13 @@ def main():
     inferior = gdb.selected_inferior()
 
     class Entry(gdb.Breakpoint):
+        def __init__(self, address, register, offset, emitter):
+            super().__init__("*" + address, internal=True)
+            self.register, self.offset, self.emitter = register, offset, emitter
+
         def stop(self):
-            address = int(gdb.newest_frame().read_register("rcx"))
+            address = int(gdb.newest_frame().read_register(self.register)) + self.offset
+            emitter = self.emitter
             before = read_streams(inferior, address)
             if not any(before.values()):
                 if len(batches) >= 2:
@@ -109,7 +74,7 @@ def main():
             class Finish(gdb.FinishBreakpoint):
                 def stop(self):
                     after = read_streams(inferior, address)
-                    ranges = {}
+                    ranges = {"emitter": emitter}
                     for name, stride in STREAMS:
                         if not after[name].startswith(before[name]):
                             raise RuntimeError("mesh modified previous source bytes")
@@ -127,11 +92,20 @@ def main():
             finishes.append(Finish(gdb.newest_frame(), internal=True))
             return False
 
-    description = gdb.execute("info address " + MESH, to_string=True)
-    symbol = re.search(r" at (0x[0-9a-fA-F]+)", description)
-    if symbol is None:
-        raise RuntimeError("frozen mesh symbol missing")
-    entry = Entry("*" + symbol[1], internal=True)
+    entries = []
+    # Frozen SysV ABI: Mesh argument 4 is Raised&, while EmitProjected argument
+    # 6 is BakedTile&. The latter's first 16 bytes are libc++ shared_ptr, then
+    # Raised. Symbol disassembly reads roof vector at BakedTile+0x28, confirming
+    # Raised+24 after this 16-byte prefix. Final independent vector checks follow.
+    for name, register, offset, emitter in (
+        (MESH, "rcx", 0, "Mesh"),
+        (PROJECTED, "r9", 16, "EmitProjected"),
+    ):
+        description = gdb.execute("info address " + name, to_string=True)
+        symbol = re.search(r" at (0x[0-9a-fA-F]+)", description)
+        if symbol is None:
+            raise RuntimeError("frozen emitter symbol missing")
+        entries.append(Entry(symbol[1], register, offset, emitter))
 
     def exited(event):
         state["exit"] = getattr(event, "exit_code", -1)
@@ -181,13 +155,19 @@ def main():
                 "lumped_local_sources": [
                     i for i, d in enumerate(native["results"][0]["details"]) if d == 2
                 ],
-                "scope": "Complete original cell; normal calls retain source stream ranges, mass calls only collective lumped membership. No per-mass/part/face mapping or projected path contract is inferred. Whole/cell and independent native outputs match. Not runtime/device admission.",
+                "projected_local_sources": [
+                    m["source"]
+                    for c in native["results"][0]["projection_calls"]
+                    for m in c["members"]
+                ],
+                "scope": "Complete original cell; actual append ranges. Normal triangle ranges bind source; optional colour/metre backfill is not semantic per-source ownership. Mass and projected calls retain only collective membership, not per-member face/part mapping. Whole/cell and independent native outputs match. Frozen EmitProjected ABI r9+16; no runtime/device admission.",
             },
             indent=2,
         )
         + "\n"
     )
-    entry.enabled = False
+    for entry in entries:
+        entry.enabled = False
 
 
 main()
