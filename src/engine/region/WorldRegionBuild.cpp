@@ -584,50 +584,50 @@ Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
                                          WorldRegionBuildState &state,
                                          std::vector<EarthworkStamp> &yielding) {
   const auto sliceAt = std::chrono::steady_clock::now();
-  if (state.Stamping() == nullptr) {
-    state.BeginsStamping(
+  if (state.BuildingEarthworks() == nullptr) {
+    state.BeginBuildingEarthworks(
         std::make_unique<Generators::BuildingStampJob>(standing, state.Footprints().Revision()));
   }
   const auto advanced =
-      state.Stamping()->Advance({.Products = &state.Footprints(),
-                                 .Footprints = state.Footprints().Footprints(),
-                                 .Points = {},
-                                 .Rings = {},
-                                 .VectorGeneration = state.Footprints().Revision(),
-                                 .UnitsMost = kEarthworkStampUnitsPerFrame});
+      state.BuildingEarthworks()->Advance({.Products = &state.Footprints(),
+                                           .Footprints = state.Footprints().Footprints(),
+                                           .Points = {},
+                                           .Rings = {},
+                                           .VectorGeneration = state.Footprints().Revision(),
+                                           .UnitsMost = kEarthworkStampUnitsPerFrame});
   if (!advanced) {
     Error = std::string(advanced.error());
     return GroundBuildProgress::Failed;
   }
-  state.SamplesPressingSlice(
+  state.RecordTerrainDeformationSlice(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
           .count());
   state.SamplesProductPeak();
   if (!*advanced) { return GroundBuildProgress::Pending; }
-  auto stamped = std::move(*state.Stamping()).Take();
+  auto stamped = std::move(*state.BuildingEarthworks()).Take();
   if (!stamped) {
     Error = std::string(stamped.error());
     return GroundBuildProgress::Failed;
   }
   yielding = std::move(*stamped);
-  state.FinishesStamping();
+  state.FinishBuildingEarthworks();
   return GroundBuildProgress::Ready;
 }
 
 bool Engine::State::GroundDeformationPending() const noexcept {
-  return World.GroundBuild && World.GroundBuild->Pressing() != nullptr;
+  return World.GroundBuild && World.GroundBuild->TerrainDeformation() != nullptr;
 }
 
 bool Engine::State::AwaitGroundDeformation(double seconds) const {
   assert(GroundDeformationPending());
-  return World.GroundBuild->Pressing()->AwaitSlice(seconds);
+  return World.GroundBuild->TerrainDeformation()->AwaitSlice(seconds);
 }
 
 bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
                                           WorldRegionBuildState &state) {
   const auto sliceAt = std::chrono::steady_clock::now();
-  if (state.Pressing() == nullptr) {
+  if (state.TerrainDeformation() == nullptr) {
     const ::outshine::Generators::Osm::OsmField *const live = World.Stack.Vectors();
     const ::outshine::Generators::Osm::OsmField *const shapes =
         state.Candidate().Sources().Vectors.get();
@@ -639,7 +639,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     if (shapes != nullptr || !state.Footprints().Footprints().empty()) {
       const GroundBuildProgress stamped = BuildGroundBuildingStamps(standing, state, yielding);
       if (stamped != GroundBuildProgress::Ready) { return stamped != GroundBuildProgress::Failed; }
-    } else if (state.Stamping() != nullptr) {
+    } else if (state.BuildingEarthworks() != nullptr) {
       World.GroundBuild.reset();
       return true;
     }
@@ -703,7 +703,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     Published.RecordMetric("ground: corridor pieces that press it",
                            static_cast<double>(yielding.size() - builtPads - builtLakes),
                            "pieces");
-    state.BeginsPressing(std::make_unique<Generators::TerrainDeformationTask>(
+    state.BeginTerrainDeformation(std::make_unique<Generators::TerrainDeformationTask>(
         *World.Pool,
         World.Stack.TerrainAssets(),
         std::move(yielding),
@@ -711,26 +711,26 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
         standing,
         Generators::TerrainPageLayout{.Side = Render::TerrainRenderer::kSide, .Halo = 1},
         kMostEarthworkM));
-    state.SamplesPressingSlice(
+    state.RecordTerrainDeformationSlice(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
             .count());
     state.SamplesProductPeak();
     return true;
   }
-  const bool completed = state.Pressing()->Advance();
-  state.SamplesPressingSlice(
+  const bool completed = state.TerrainDeformation()->Advance();
+  state.RecordTerrainDeformationSlice(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
           .count());
   state.SamplesProductPeak();
   if (!completed) { return true; }
-  auto pressed = state.Pressing()->Take(patchwork);
-  state.FinishesPressing();
+  auto pressed = state.TerrainDeformation()->Take(patchwork);
+  state.FinishTerrainDeformation();
   if (!pressed) {
     Error = std::move(pressed.error());
     World.GroundBuild.reset();
     return false;
   }
-  PublishEarthworkMeasurements(*pressed, state.LongestPressingSliceMs());
+  PublishEarthworkMeasurements(*pressed, state.LongestTerrainDeformationSliceMs());
   state.AdvanceStage();
   return true;
 }

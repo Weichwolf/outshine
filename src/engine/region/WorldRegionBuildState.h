@@ -51,46 +51,7 @@ public:
                         const ::outshine::Generators::Osm::BuildingField &footprints,
                         Around coverage,
                         GroundRevision revision,
-                        uint64_t id)
-      : Coverage_(coverage),
-        Revision_(revision),
-        Candidate_(renderer, world, footprints),
-        TransportSnapshot_(world.CurrentTransportReady() ? world.OsmTransport->Current() : nullptr),
-        Id_(id) {
-    if (!world.CurrentOriginalReady()) { return; }
-    if (world.OsmSource->Current()) {
-      OriginalSources_.push_back(world.OsmSource->Current());
-    } else {
-      for (const auto &cell : world.OsmSource->CurrentCells()) {
-        if (cell.Product) {
-          OriginalCells_.push_back(
-              std::static_pointer_cast<const Generators::Osm::StructureCell>(cell.Product));
-        } else {
-          OriginalSources_.push_back(cell.Snapshot);
-        }
-      }
-    }
-    const auto accepted = Footprints().AcceptedTiles();
-    const auto sameLayout = [&] {
-      if (accepted.empty()) { return true; }
-      const size_t count = OriginalSources_.size() + OriginalCells_.size();
-      if (accepted.size() != count) { return false; }
-      for (size_t tile = 0; tile < count; ++tile) {
-        const auto *input = Footprints().InputOfTile(static_cast<uint32_t>(tile));
-        if (!input || !input->Coordinates || !input->Coordinates->Origin.Provenance ||
-            input->Coordinates->Origin.Provenance->Cell !=
-                (OriginalCells_.empty()
-                     ? OriginalSources_[tile]->Cell
-                     : OriginalCells_[tile]->Description.Footprints.Origin.Provenance->Cell)) {
-          return false;
-        }
-      }
-      return true;
-    }();
-    if (sameLayout) { return; }
-    for (const auto tile : accepted) { Candidate_.Products().Pieces.Forgets(tile); }
-    Footprints().ResetDerived();
-  }
+                        uint64_t id);
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
     return RevisionDifference(revision) == 0;
@@ -127,29 +88,10 @@ public:
     return RoadHeightCoverage_.Tiles;
   }
 
-  void AddStructureHeightCoverage(std::span<const Data::TileId> tiles) {
-    auto &all = RoadHeightCoverage_.Tiles;
-    all.insert(all.end(), tiles.begin(), tiles.end());
-    std::ranges::sort(all, [](const auto &a, const auto &b) {
-      return std::tie(a.Zoom, a.X, a.Y) < std::tie(b.Zoom, b.X, b.Y);
-    });
-    all.erase(std::ranges::unique(all).begin(), all.end());
-  }
+  void AddStructureHeightCoverage(std::span<const Data::TileId> tiles);
 
   [[nodiscard]] std::expected<bool, std::string> PrepareOriginalHeights(StructureBuildQueue &queue,
-                                                                        int zoom) {
-    const auto prepared = !OriginalCells_.empty()
-                              ? queue.PrepareOriginal(OriginalCells_, zoom)
-                              : queue.PrepareOriginal(OriginalSources_,
-                                                      Generators::Osm::kDefaultStructurePolicy,
-                                                      zoom);
-    if (!prepared) { return std::unexpected(prepared.error()); }
-    if (!*prepared) { return false; }
-    const auto tiles = queue.OriginalHeightTiles(zoom);
-    if (!tiles) { return std::unexpected(tiles.error()); }
-    AddStructureHeightCoverage(*tiles);
-    return true;
-  }
+                                                                        int zoom);
 
   [[nodiscard]] std::span<const size_t> RoadRouteIndices() const noexcept {
     return RoadHeightCoverage_.SelectedRouteIndices;
@@ -181,28 +123,35 @@ public:
 
   [[nodiscard]] GroundSurvey &Surveying() noexcept { return Surveying_; }
 
-  [[nodiscard]] Generators::TerrainDeformationTask *Pressing() noexcept { return Pressing_.get(); }
+  [[nodiscard]] Generators::TerrainDeformationTask *TerrainDeformation() noexcept {
+    return TerrainDeformation_.get();
+  }
 
-  [[nodiscard]] Generators::BuildingStampJob *Stamping() noexcept { return Stamping_.get(); }
+  [[nodiscard]] Generators::BuildingStampJob *BuildingEarthworks() noexcept {
+    return BuildingEarthworks_.get();
+  }
 
-  void BeginsStamping(std::unique_ptr<Generators::BuildingStampJob> stamping) noexcept {
+  void BeginBuildingEarthworks(std::unique_ptr<Generators::BuildingStampJob> stamping) noexcept {
     StampingCandidateHeapBytes_ = Candidate_.OwnedHeapBytes();
-    Stamping_ = std::move(stamping);
+    BuildingEarthworks_ = std::move(stamping);
   }
 
-  void FinishesStamping() noexcept { Stamping_.reset(); }
+  void FinishBuildingEarthworks() noexcept { BuildingEarthworks_.reset(); }
 
-  void BeginsPressing(std::unique_ptr<Generators::TerrainDeformationTask> pressing) noexcept {
-    Pressing_ = std::move(pressing);
+  void
+  BeginTerrainDeformation(std::unique_ptr<Generators::TerrainDeformationTask> pressing) noexcept {
+    TerrainDeformation_ = std::move(pressing);
   }
 
-  void FinishesPressing() noexcept { Pressing_.reset(); }
+  void FinishTerrainDeformation() noexcept { TerrainDeformation_.reset(); }
 
-  void SamplesPressingSlice(double milliseconds) noexcept {
-    LongestPressingSliceMs_ = std::max(LongestPressingSliceMs_, milliseconds);
+  void RecordTerrainDeformationSlice(double milliseconds) noexcept {
+    LongestTerrainDeformationSliceMs_ = std::max(LongestTerrainDeformationSliceMs_, milliseconds);
   }
 
-  [[nodiscard]] double LongestPressingSliceMs() const noexcept { return LongestPressingSliceMs_; }
+  [[nodiscard]] double LongestTerrainDeformationSliceMs() const noexcept {
+    return LongestTerrainDeformationSliceMs_;
+  }
 
   [[nodiscard]] ::outshine::Generators::Osm::BuildingField &Footprints() noexcept {
     return Candidate_.Products().Footprints;
@@ -210,29 +159,12 @@ public:
 
   void PublishesFootprints() noexcept { Revision_.Footprints = Footprints().Revision(); }
 
-  void PublishesWaterInputs(const Generators::WaterAsset &water) {
-    Revision_.WaterTiles = water.IngestedTiles();
-    Candidate_.RestoreWater(water);
-    WaterPhase_ = WaterPhase::Bound;
-    WaterWorker_.reset();
-  }
+  void PublishesWaterInputs(const Generators::WaterAsset &water);
 
   [[nodiscard]] bool HasWaterInputs() const noexcept { return WaterPhase_ == WaterPhase::Bound; }
 
   [[nodiscard]] std::optional<std::expected<WaterGeometryPreparation::Completed, std::string>>
-  AdvanceWater(Tasks &pool, const Generators::WaterAsset &source, const TangentFrame &frame) {
-    if (WaterWorker_ && !WaterWorker_->Matches(source)) {
-      WaterWorker_->Cancel();
-      if (!WaterWorker_->Complete()) { return std::nullopt; }
-      WaterWorker_.reset();
-    }
-    if (!WaterWorker_) {
-      WaterWorker_ = std::make_unique<WaterGeometryPreparation>(pool, source, frame);
-      WaterPhase_ = WaterPhase::Preparing;
-      return std::nullopt;
-    }
-    return WaterWorker_->Collect();
-  }
+  AdvanceWater(Tasks &pool, const Generators::WaterAsset &source, const TangentFrame &frame);
 
   void DiscardWaterPreparation() {
     WaterWorker_.reset();
@@ -272,26 +204,7 @@ public:
     RegionPhase_ = phase;
   }
 
-  [[nodiscard]] bool InstallRegion(GroundRegionAsset region, bool hit) {
-    if (hit && !Schedule_.LoadReadyRegion()) { return false; }
-    auto &build = Candidate_.Products();
-    Lays(std::move(region.Terrain));
-    build.Ground = std::move(region.Surfaces);
-    build.TerrainClassificationMap = std::move(region.Classes);
-    build.ClassPalette = std::move(region.ClassPalette);
-    build.ClassUpload = build.TerrainClassificationMap
-                            ? std::make_shared<const Render::PackedTerrainClassification>(
-                                  *build.TerrainClassificationMap)
-                            : nullptr;
-    build.StreetGraph = std::move(region.Network);
-    build.StreetGraphWayCount = static_cast<size_t>(region.NetworkWays);
-    build.RimsMissing = static_cast<size_t>(region.MissingRims);
-    build.GroundSurface = MaterialInstance(region.GroundSurface);
-    build.GroundMaterial = build.Ground.surfaceAt(build.GroundSurface);
-    build.Sheets.Framed(TangentFrame::At(region.Anchor));
-    Candidate_.Grounding(region.GroundAlbedo);
-    return true;
-  }
+  [[nodiscard]] bool InstallRegion(GroundRegionAsset region, bool hit);
 
   [[nodiscard]] Core::GroundBuildSchedule::SheetPhase CurrentSheetPhase() const noexcept {
     return Schedule_.CurrentSheetPhase();
@@ -329,29 +242,7 @@ public:
     return Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f);
   }
 
-  [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept {
-    if (WaterWorker_) {
-      WaterWorker_->Cancel();
-      if (!WaterWorker_->Complete()) { return false; }
-      WaterWorker_.reset();
-    }
-    if (StreetGraphWorker_) {
-      StreetGraphWorker_->Cancel();
-      if (!StreetGraphWorker_->Complete()) { return false; }
-      StreetGraphWorker_.reset();
-    }
-    if (CorridorJob_) {
-      if (!CorridorJob_->RetireStep(kCorridorRetireUnitsPerFrame)) { return false; }
-      CorridorJob_.reset();
-    }
-    if (Patchwork_) {
-      const size_t count = std::min(sheetsMost, Patchwork_->Sheets.size());
-      for (size_t released = 0; released < count; ++released) { Patchwork_->Sheets.pop_back(); }
-      if (!Patchwork_->Sheets.empty()) { return false; }
-      Patchwork_.reset();
-    }
-    return true;
-  }
+  [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept;
 
   void SamplesProductPeak() noexcept { RecordsProductPeak(); }
 
@@ -377,18 +268,7 @@ public:
 
   void FinishesCorridors() noexcept { CorridorJob_.reset(); }
 
-  [[nodiscard]] bool AdvancesCorridorRetirement(std::chrono::steady_clock::time_point began) {
-    const auto retireAt = std::chrono::steady_clock::now();
-    const bool retired = CorridorJob_->RetireStep(kCorridorRetireUnitsPerFrame);
-    if (retired) { FinishesCorridors(); }
-    SamplesCorridorRetirement(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retireAt)
-            .count());
-    SamplesCorridorSlice(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-            .count());
-    return retired;
-  }
+  [[nodiscard]] bool AdvancesCorridorRetirement(std::chrono::steady_clock::time_point began);
 
   [[nodiscard]] StreetGraphPreparation *StreetGraphWorker() noexcept {
     return StreetGraphWorker_.get();
@@ -467,20 +347,7 @@ public:
 
   [[nodiscard]] double TotalClassUploadMs() const noexcept { return TotalClassUploadMs_; }
 
-  void SamplesClassComponents(const Render::GroundClassUploadMetrics &seen) noexcept {
-    LongestClassComponents_.Storage.BytesSubmitted =
-        std::max(LongestClassComponents_.Storage.BytesSubmitted, seen.Storage.BytesSubmitted);
-    LongestClassComponents_.Storage.AllocationMs =
-        std::max(LongestClassComponents_.Storage.AllocationMs, seen.Storage.AllocationMs);
-    LongestClassComponents_.Storage.StagingMs =
-        std::max(LongestClassComponents_.Storage.StagingMs, seen.Storage.StagingMs);
-    LongestClassComponents_.Storage.SubmissionMs =
-        std::max(LongestClassComponents_.Storage.SubmissionMs, seen.Storage.SubmissionMs);
-    LongestClassComponents_.SourcePreparationMs =
-        std::max(LongestClassComponents_.SourcePreparationMs, seen.SourcePreparationMs);
-    LongestClassComponents_.RestoreSourceMs =
-        std::max(LongestClassComponents_.RestoreSourceMs, seen.RestoreSourceMs);
-  }
+  void SamplesClassComponents(const Render::GroundClassUploadMetrics &seen) noexcept;
 
   [[nodiscard]] const Render::GroundClassUploadMetrics &LongestClassComponents() const noexcept {
     return LongestClassComponents_;
@@ -511,14 +378,7 @@ public:
     return Schedule_.Status();
   }
 
-  [[nodiscard]] uint8_t Progress() const noexcept {
-    if (!Schedule_.Prepared()) { return 0; }
-    if (!Patchwork_) { return 1; }
-    if (Schedule_.CurrentSheetPhase() != Core::GroundBuildSchedule::SheetPhase::Ready) {
-      return static_cast<uint8_t>(Schedule_.CurrentSheetPhase()) + 2u;
-    }
-    return static_cast<uint8_t>(Schedule_.CurrentStage()) + 6u;
-  }
+  [[nodiscard]] uint8_t Progress() const noexcept;
 
 private:
   [[nodiscard]] static size_t StampHeapBytes(std::span<const EarthworkStamp> stamps) noexcept {
@@ -527,19 +387,7 @@ private:
     return bytes;
   }
 
-  [[nodiscard]] size_t CurrentProductBytes() const noexcept {
-    const size_t phaseBytes = (Patchwork_ ? Patchwork_->HeapBytes() : 0u) +
-                              RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
-                              RoadHeightCoverage_.SelectedRouteIndices.capacity() * sizeof(size_t) +
-                              Corridors_.capacity() * sizeof(EarthworkStamp) +
-                              Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f) +
-                              (Stamping_ ? Stamping_->HeapBytes() : 0u) +
-                              (Pressing_ ? Pressing_->HeapBytes() : 0u);
-    const size_t candidateBytes =
-        Stamping_ ? StampingCandidateHeapBytes_ : Candidate_.OwnedHeapBytes();
-    return candidateBytes + phaseBytes + CorridorHeapBytes_ + RoadEarthworkHeapBytes_ +
-           RoadEarthworks_.capacity() * sizeof(EarthworkStamp);
-  }
+  [[nodiscard]] size_t CurrentProductBytes() const noexcept;
 
   void RecordsProductPeak() noexcept {
     ProductPeakBytes_ = std::max(ProductPeakBytes_, CurrentProductBytes());
@@ -556,8 +404,8 @@ private:
   bool RoadSurfaceBuilt_ = false;
   size_t NextRoadSurfaceTransfer_ = 0;
   std::optional<Patchwork> Patchwork_;
-  std::unique_ptr<Generators::BuildingStampJob> Stamping_;
-  std::unique_ptr<Generators::TerrainDeformationTask> Pressing_;
+  std::unique_ptr<Generators::BuildingStampJob> BuildingEarthworks_;
+  std::unique_ptr<Generators::TerrainDeformationTask> TerrainDeformation_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::unique_ptr<StreetGraphPreparation> StreetGraphWorker_;
   std::unique_ptr<GroundRegionPreparation> RegionWorker_;
@@ -577,7 +425,7 @@ private:
   size_t StampingCandidateHeapBytes_ = 0;
   size_t CorridorHeapBytes_ = 0;
   size_t RoadEarthworkHeapBytes_ = 0;
-  double LongestPressingSliceMs_ = 0.0;
+  double LongestTerrainDeformationSliceMs_ = 0.0;
   double LongestCorridorSliceMs_ = 0.0;
   double LongestCorridorRetirementMs_ = 0.0;
   double LongestGeometrySliceMs_ = 0.0;
