@@ -7,6 +7,10 @@ Python resident-page comparison (`outshine_research`, `930392b72`). No product
 algorithm, cache schema, render contract, source or error budget changes.
 
 Analytic surface transfer for coverage is in `native_building_surface_inputs.md`.
+`--full-view` exports one archived normal-3D cell with complete geometry, original
+source index ranges and plans. Its native replay must match the original geometry
+bytes and footprint/detail metadata. The dense #844 input and reproduction are in
+`test/outshine/data/render/building-full-view/README.md`.
 
 ## Input and observer contract
 
