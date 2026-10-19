@@ -100,8 +100,7 @@ private:
 
   void
   BuildRegions(const LightBasis &basis, const Vec3 &centre, double radiusM, const Vec3 &preView);
-  [[nodiscard]] Native::Result<void>
-  Cast(const Mat4 &lightFromWorld, const Vec3 &preView, size_t region, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Cast(size_t region, const PassRecording &into);
   [[nodiscard]] Native::Result<void> CastSubjects(const PassRecording &into,
                                                   std::span<const std::byte> view);
 
