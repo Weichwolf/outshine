@@ -4,6 +4,7 @@ import itertools
 from dataclasses import dataclass
 
 import numpy as np
+from outshine_ref.geometry.occlusion import classify_boxes, convex_patch_umbra
 
 
 @dataclass
@@ -23,42 +24,8 @@ def corners(box):
     )
 
 
-def umbra(triangle, observers, margin):
-    """Inward halfspaces common to all corner-eye shadows of one triangle.
-
-    A point inside these cones is blocked for each corner. Its cone of blocked
-    eye positions is convex, so the convex hull of the corners is blocked too.
-    The final halfspace enforces strict depth ordering behind the blocker plane.
-    """
-    a, b, c = triangle
-    normal = np.cross(b - a, c - a)
-    length = np.linalg.norm(normal)
-    if length == 0:
-        return None
-    normal /= length
-    if np.min((observers - a) @ normal) <= margin:
-        return None
-    normals, anchors = [], []
-    centre = triangle.mean(0)
-    for start, end in ((a, b), (b, c), (c, a)):
-        side = np.cross(end - start, observers - start)
-        norm = np.linalg.norm(side, axis=1)
-        if np.any(norm == 0):
-            return None
-        side /= norm[:, None]
-        orientation = side @ (centre - start)
-        if np.any(abs(orientation) <= margin):
-            return None
-        side *= np.where(orientation >= 0, 1, -1)[:, None]
-        normals.extend(side)
-        anchors.extend([start] * len(side))
-    normals.append(-normal)
-    anchors.append(a)
-    return np.array(normals), np.array(anchors)
-
-
 def select_support(
-    positions, indices, observer_box, *, max_blockers=128, batch=256, near_radius_m=0.2
+    positions, indices, observer_box, *, max_blockers=128, batch=128, near_radius_m=0.2
 ):
     """Keep uncertain surfaces; bounded blocker budget affects savings, not coverage.
 
@@ -80,7 +47,7 @@ def select_support(
         or np.any(indices >= len(positions))
         or len(indices) > 131072
         or not 0 <= max_blockers <= 512
-        or not 1 <= batch <= 1024
+        or not 1 <= batch <= 170
         or not np.isfinite(near_radius_m)
         or near_radius_m < 0
     ):
@@ -116,6 +83,7 @@ def select_support(
         "triangle_blocker_tests": 0,
         "halfspace_vertex_tests": 0,
         "largest_test_array_bytes": 0,
+        "test_buffer_scope": "point-box inputs only; interval-classifier temporaries add peak memory",
         "margin_m": margin,
         "near_radius_m": near_radius_m,
         "input_position_copy_bytes": 0
@@ -124,24 +92,25 @@ def select_support(
         "triangle_gather_bytes": triangle.nbytes,
     }
     for blocker in ranked:
-        planes = umbra(triangle[blocker], observers, margin)
-        if planes is None:
+        certificate = convex_patch_umbra(
+            triangle[blocker], observer_box, certified_opaque=True
+        )
+        if not len(certificate.low):
             continue
-        normals, anchors = planes
         pending = np.flatnonzero(keep & ~protected)
         work["blockers_tested"] += 1
         for start in range(0, len(pending), batch):
             faces = pending[start : start + batch]
-            # Subtract a local anchor first; avoid cancellation in n.P - n.A.
-            delta = triangle[faces, :, None, :] - anchors[None, None, :, :]
-            values = np.einsum("bvhj,hj->bvh", delta, normals)
-            hidden = np.all(values > margin, axis=(1, 2))
+            points = triangle[faces].reshape(-1, 3)
+            point_boxes = np.stack((points, points), axis=1)
+            inside, _ = classify_boxes(point_boxes, certificate, margin_m=margin)
+            hidden = inside.reshape(-1, 3).all(axis=1)
             keep[faces[hidden]] = False
             witness[faces[hidden]] = blocker
             work["triangle_blocker_tests"] += len(faces)
-            work["halfspace_vertex_tests"] += values.size
+            work["halfspace_vertex_tests"] += len(points) * len(certificate.low)
             work["largest_test_array_bytes"] = max(
-                work["largest_test_array_bytes"], delta.nbytes + values.nbytes
+                work["largest_test_array_bytes"], point_boxes.nbytes
             )
     work["occluded_faces"] = int((witness >= 0).sum())
     work["kept_faces"] = int(keep.sum())
