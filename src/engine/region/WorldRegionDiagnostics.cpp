@@ -35,6 +35,10 @@ std::string Engine::State::GroundBuildDiagnostic() const {
     diagnostic += ", region absent";
   }
   if (!World.GroundBuild) { return diagnostic; }
+  if (const auto &published = World.GroundPublished.Current()) {
+    diagnostic += ", candidate revision delta=" +
+                  std::to_string(published->CandidateDifferenceMask(World.GroundBuild->Revision()));
+  }
   const auto &footprints = World.GroundBuild->Footprints();
   const auto *vectors = World.Stack.Vectors();
   diagnostic += World.GroundBuild->Revision().Quality == GroundQuality::Refined
