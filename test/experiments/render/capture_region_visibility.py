@@ -31,7 +31,9 @@ def _dot(a, b):
     return sum(x * y for x, y in zip(a, b, strict=True))
 
 
-def covered_from_ball(blocker, target, eye, radius_m, *, opaque=False):
+def covered_from_ball(
+    blocker, target, eye, radius_m, *, opaque=False, cull_backfaces=False
+):
     """Sufficient exact predicate on finite Float64 triangle/eye coordinates.
 
     Every supporting side-plane expression is affine in eye and target position.
@@ -56,6 +58,8 @@ def covered_from_ball(blocker, target, eye, radius_m, *, opaque=False):
     signed = _dot(normal, _subtract(origin, a))
     if signed == 0:
         return dict(report, reason="degenerate_blocker_or_eye_on_plane")
+    if cull_backfaces and signed < 0:
+        return dict(report, reason="blocker_back_facing")
     sign = 1 if signed > 0 else -1
 
     def positive_over_ball(margin, direction):
