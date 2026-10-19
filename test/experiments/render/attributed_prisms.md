@@ -74,11 +74,19 @@ check the original intersection path independently. Existing explicit-solid ray
 controls and stale-history/fallback tests remain available and are run unchanged.
 
 The material-ID and normal PNGs include the usual actual static/moving poses and
-the worst categorical/coverage pose if different. Open both locally. ID hash
+the worst categorical, coverage, source and normal poses separately if different. Open both locally. ID hash
 colours and normal RGB are diagnostics, **not** actual PBR material/shaded images.
 The archived geometry input does not supply actual native draw material bindings;
 PBR/texture/derivative/opacity/TAA/shadow and GPU/device admission remain open.
 The geometric errors already measured in #888 are not erased by adding attributes.
+The complete field sequence also finds a common-hit corner switch in moving23:
+same source3024, native back-wall code133 versus analytic entrance-wall code155,
+normal difference91.285degrees despite only0.326mm depth difference. Exhaustive
+original-triangle and independently triangulated-solid rays confirm both depths.
+Unknown native Part/Face remains unknown. One changed point sample does not mean
+a whole pixel changes, but small position error cannot establish material/normal
+stability. This is not approved as an attribute-equivalent replacement. The
+unrelated static25 sample loss is retained too; diagnostics show both failures.
 A finite camera sequence also establishes no continuous observer-volume bound.
 
 The stored CPU-array payload is594035B, including all material tables, full fallback

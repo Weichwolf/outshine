@@ -124,6 +124,23 @@ def check_view(source, reference, inputs, product, view, extent, output):
     return report
 
 
+def diagnostic_poses(reports, regular):
+    """Show distinct failures; summing unlike error counts can hide tied cases."""
+    shown = list(regular)
+    visible = {k: r for k, r in reports.items() if not r.get("offscreen")}
+    metrics = (
+        lambda r: r["fields"]["different_code_hits_all_common"],
+        lambda r: r["lost_samples"] + r["added_samples"],
+        lambda r: r["fields"]["max_normal_angle_all_common_deg"] or 0,
+        lambda r: r["fields"]["different_source_hits"],
+    )
+    for metric in metrics:
+        name = max(visible, key=lambda k: metric(visible[k]))
+        if metric(visible[name]) > 0 and name not in shown:
+            shown.append(name)
+    return shown
+
+
 def picture(names, directory, output, normals=False):
     from compare_prepared_fields import id_colours
     from PIL import Image, ImageDraw
@@ -264,18 +281,7 @@ def main():
             extent,
             args.output / (name + ".npz"),
         )
-    shown = list(select_full_poses(source, poses))
-    visible = {k: v for k, v in reports.items() if not v.get("offscreen")}
-    worst = max(
-        visible,
-        key=lambda k: (
-            visible[k]["fields"]["different_code_hits_all_common"]
-            + visible[k]["lost_samples"]
-            + visible[k]["added_samples"]
-        ),
-    )
-    if worst not in shown:
-        shown.append(worst)
+    shown = diagnostic_poses(reports, select_full_poses(source, poses))
     picture(shown, args.output, args.output / "material-ids.png")
     picture(shown, args.output, args.output / "normals.png", normals=True)
     result = {
