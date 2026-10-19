@@ -151,3 +151,19 @@ def panel(path, images, title):
                 fill="black",
             )
     result.save(path)
+
+
+def low_eye_view(positions, up, east, north, focal, distance, yaw, move):
+    xyz = positions.astype(float)
+    centre = (xyz.min(0) + xyz.max(0)) / 2
+    angle = np.radians(yaw)
+    eye = centre + distance * np.ptp(xyz, axis=0).max() * (
+        np.cos(angle) * east + np.sin(angle) * north
+    )
+    eye += ((xyz @ up).min() + 1.7 - eye @ up) * up
+    forward = centre - eye
+    forward /= np.linalg.norm(forward)
+    right = np.cross(forward, up)
+    right /= np.linalg.norm(right)
+    basis = np.stack((right, np.cross(right, forward), forward))
+    return eye + move * right, basis, focal, 1280, 720
