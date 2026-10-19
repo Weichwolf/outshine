@@ -5,10 +5,38 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
+
+namespace {
+void CheckBoundaryContinuity(std::span<const outshine::EarthworkStamp> contacts) {
+  using namespace outshine;
+  const auto &path = contacts.front();
+  const auto &ring = path.RingEastNorthM;
+  const double runE = ring[6] - ring[4];
+  const double runN = ring[7] - ring[5];
+  const double lengthM = std::hypot(runE, runN);
+  constexpr double stepM = 0.001;
+  constexpr double contactToleranceM = 1.e-6;
+  constexpr double maximumSlope = 0.01;
+  const EastNorth edge{.EastM = .5 * (ring[4] + ring[6]), .NorthM = .5 * (ring[5] + ring[7])};
+  const std::array<EastNorth, 2> samples{{{.EastM = edge.EastM - stepM * runN / lengthM,
+                                           .NorthM = edge.NorthM + stepM * runE / lengthM},
+                                          {.EastM = edge.EastM + stepM * runN / lengthM,
+                                           .NorthM = edge.NorthM - stepM * runE / lengthM}}};
+  std::array<double, 2> heights{10, 10};
+  (void)ApplyEarthworkStamps(contacts, samples, heights, kMostEarthworkM);
+  CHECK(std::abs(heights[0] - 10) < contactToleranceM,
+        "the neighboring cut preserves the physical path contact");
+  CHECK(std::abs(heights[1] - heights[0]) / (2 * stepM) < maximumSlope,
+        "an adjacent earthwork cannot create a step outside an unchanged path");
+}
+}
 
 int main() {
   using namespace outshine;
@@ -52,24 +80,33 @@ int main() {
   CHECK(corridors.Lay(site, geometry, contacts, notes), "the unchanged path is generated");
   CHECK(!contacts.empty(), "a ground surface publishes its physical core even without earthwork");
   for (const auto &contact : contacts) {
-    CHECK(contact.ApronM == 0, "an unchanged path needs no surrounding earthwork apron");
+    CHECK(contact.ApronM > 0, "every ground path retains a finite transition at its boundary");
   }
-  contacts.push_back({.RingEastNorthM = {-100, 4, 100, 4, 100, 6, -100, 6},
-                      .HoleRingsEastNorthM = {},
-                      .LowE = -100,
-                      .HighE = 100,
-                      .LowN = 4,
-                      .HighN = 6,
-                      .PlateauM = 8,
-                      .SeamEastNorthM = {},
-                      .Profile = {},
-                      .PlanarSupportM = {},
-                      .CorridorKey = 42,
-                      .ApronM = 8,
-                      .YieldM = 2,
-                      .Fills = true,
-                      .Kind = EarthworkKind::Corridor});
-  const std::array<EastNorth, 4> samples{{{-20, 0}, {0, 0}, {20, 0}, {0, 3}}};
+  constexpr double cutHalfLengthM = 100;
+  constexpr uint64_t neighborKey = 42;
+  constexpr double contactToleranceM = 0.001;
+  contacts.push_back(
+      {.RingEastNorthM =
+           {-cutHalfLengthM, 4, cutHalfLengthM, 4, cutHalfLengthM, 6, -cutHalfLengthM, 6},
+       .HoleRingsEastNorthM = {},
+       .LowE = -cutHalfLengthM,
+       .HighE = cutHalfLengthM,
+       .LowN = 4,
+       .HighN = 6,
+       .PlateauM = 8,
+       .SeamEastNorthM = {},
+       .Profile = {},
+       .PlanarSupportM = {},
+       .CorridorKey = neighborKey,
+       .ApronM = 8,
+       .YieldM = 2,
+       .Fills = true,
+       .Kind = EarthworkKind::Corridor});
+  constexpr double coreOffsetM = 20;
+  const std::array<EastNorth, 4> samples{{{.EastM = -coreOffsetM, .NorthM = 0},
+                                          {.EastM = 0, .NorthM = 0},
+                                          {.EastM = coreOffsetM, .NorthM = 0},
+                                          {.EastM = 0, .NorthM = 3}}};
   for (size_t at = 0; at + 1 < contacts.size(); ++at) {
     CHECK(samples.back().NorthM > contacts[at].HighN,
           "the outside probe lies beyond the path's physical shoulder");
@@ -77,10 +114,11 @@ int main() {
   std::array<double, 4> heights{{10, 10, 10, 10}};
   (void)ApplyEarthworkStamps(contacts, samples, heights, kMostEarthworkM);
   for (size_t at = 0; at < 3; ++at) {
-    CHECK(std::abs(heights[at] - 10) < .001,
+    CHECK(std::abs(heights[at] - 10) < contactToleranceM,
           "the neighboring cut apron cannot remove terrain under the unchanged path");
   }
   CHECK(heights.back() < 10 && heights.back() > 8,
         "the adjacent earthwork still deforms unoccupied terrain smoothly");
+  CheckBoundaryContinuity(contacts);
   return Report();
 }
