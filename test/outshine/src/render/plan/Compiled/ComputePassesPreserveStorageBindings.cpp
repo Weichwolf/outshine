@@ -6,7 +6,7 @@ int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
   const auto compiled = Compiled::Compile({.Outputs = {Resource::SceneHdr},
-                                           .Content = {Stage::Subjects, Stage::Sky},
+                                           .Content = {Stage::Geometry, Stage::Sky},
                                            .Exposure = {},
                                            .Display = {},
                                            .Precision = {}});

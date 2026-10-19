@@ -673,7 +673,7 @@ void Engine::State::Drew() {
                          static_cast<double>(World.Stack.Footprints().Footprints().size()),
                          "footprints");
   Published.RecordMetric("batches the picture draws",
-                         static_cast<double>(Picture.Device.SubjectBatchCount()),
+                         static_cast<double>(Picture.Device.GeometryBatchCount()),
                          "batches");
   Published.RecordMetric("stages the compiled plan runs",
                          static_cast<double>(Picture.Standing->PlanStages()),
@@ -681,12 +681,12 @@ void Engine::State::Drew() {
   Published.RecordMetric(
       "passes it runs them in", static_cast<double>(Picture.Standing->PlanPasses()), "passes");
   Published.RecordMetric("vertex uniform pushes the subject stages make",
-                         static_cast<double>(Picture.Device.SubjectUniformPushes()),
+                         static_cast<double>(Picture.Device.GeometryUniformPushes()),
                          "pushes");
   Published.RecordMetric(
       "batches the shadow casts", static_cast<double>(Picture.Device.ShadowCastCount()), "batches");
   Published.RecordMetric("placement rows the renderer has been sent",
-                         static_cast<double>(Picture.Device.SubjectPlacementsMoved()),
+                         static_cast<double>(Picture.Device.GeometryPlacementsMoved()),
                          "rows");
   Published.RecordMetric("frames the subject drew shadowed",
                          static_cast<double>(Picture.Device.ShadowedFrames()),

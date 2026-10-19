@@ -91,13 +91,13 @@ std::vector<float> CaptureSheet(const Geometry &mesh, float lux) {
     std::println(stderr, "draw: {}", error);
     return {};
   }
-  renderer.SetSubjectEnvironment({});
+  renderer.SetGeometryEnvironment({});
   Render::SubjectLight key;
   key.Light.Kind = LightKind::Directional;
   key.Light.Intensity = lux;
   key.Light.Direction = {{0, 0, -1}};
   renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 256, true, std::numeric_limits<size_t>::max());
-  const bool lit = renderer.SetSubjectLights(std::span(&key, size_t{1}), error);
+  const bool lit = renderer.SetGeometryLights(std::span(&key, size_t{1}), error);
   CHECK(lit, "one current directional light is installed");
   if (!lit) { return {}; }
   const bool rendered = renderer.RenderFrame().has_value();

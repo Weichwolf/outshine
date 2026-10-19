@@ -48,23 +48,23 @@ int main() {
   using namespace outshine::Test;
   const std::array specs{
       PlanSpec{.Outputs = {Resource::SceneHdr},
-               .Content = {Stage::Subjects, Stage::Sky},
+               .Content = {Stage::Geometry, Stage::Sky},
                .Exposure = {},
                .Display = {},
                .Precision = {}},
       PlanSpec{.Outputs = {Resource::FrameTex},
-               .Content = {Stage::Subjects, Stage::Sky},
+               .Content = {Stage::Geometry, Stage::Sky},
                .Exposure = {},
                .Display = {},
                .Precision = {}},
       PlanSpec{
           .Outputs = {Resource::FrameTex},
-          .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve, Stage::AutoExposure},
+          .Content = {Stage::Geometry, Stage::Sky, Stage::TemporalResolve, Stage::AutoExposure},
           .Exposure = {},
           .Display = {},
           .Precision = {}},
       PlanSpec{.Outputs = {Resource::FrameTex},
-               .Content = {Stage::Subjects, Stage::Sky},
+               .Content = {Stage::Geometry, Stage::Sky},
                .Exposure = Declared<float>(2),
                .Display = Declared<Transfer>(Transfer::Linear),
                .Precision = Declared<ScenePrecision>(ScenePrecision::Float)}};

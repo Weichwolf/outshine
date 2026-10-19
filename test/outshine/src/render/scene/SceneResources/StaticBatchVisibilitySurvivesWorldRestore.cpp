@@ -59,12 +59,12 @@ int main() {
       return depth[16u * 32u + 16u];
     };
     CHECK(depthAtCentre() > 0, "visible piece covers the depth probe");
-    const auto visibleCalls = renderer.SubjectDrawCallCount();
+    const auto visibleCalls = renderer.GeometryDrawCallCount();
     CHECK(visibleCalls > 0, "probe has recorded subject work");
     std::array<Mat4, 1> rows{};
     rows[0].SetTranslation({{100, 0, 0}});
     CHECK(renderer.SetPieceInstances(*piece, rows, error) && depthAtCentre() == 0 &&
-              renderer.SubjectDrawCallCount() + 1 == visibleCalls,
+              renderer.GeometryDrawCallCount() + 1 == visibleCalls,
           "off-view placement removes its draw without removing residency");
     Core::WorldCandidate candidate(renderer);
     const auto prepared = candidate.Prepare(*scene, nullptr);
@@ -73,11 +73,11 @@ int main() {
     CHECK(candidate.Publish(scene).has_value(), "restored world publishes");
     scene->Eye(eye);
     CHECK(scene->Advance(error) && depthAtCentre() == 0 &&
-              renderer.SubjectDrawCallCount() + 1 == visibleCalls,
+              renderer.GeometryDrawCallCount() + 1 == visibleCalls,
           "restored off-view batch is still rejected");
     rows[0] = {};
     CHECK(renderer.SetPieceInstances(*piece, rows, error) && depthAtCentre() > 0 &&
-              renderer.SubjectDrawCallCount() == visibleCalls,
+              renderer.GeometryDrawCallCount() == visibleCalls,
           "moving back refreshes its bound and restores the draw");
     renderer.ReleasePiece(*piece);
     for (auto &vertex : vertices) { vertex.pos[0] += 100; }
@@ -86,7 +86,7 @@ int main() {
     if (!reused) { return Report(); }
     rows[0].SetTranslation({{-100, 0, 0}});
     CHECK(renderer.SetPieceInstances(*reused, rows, error) && depthAtCentre() > 0 &&
-              renderer.SubjectDrawCallCount() == visibleCalls,
+              renderer.GeometryDrawCallCount() == visibleCalls,
           "reused slot gets the new local bound rather than its predecessor's bound");
   }
   SDL_Quit();

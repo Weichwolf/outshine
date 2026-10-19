@@ -1,5 +1,5 @@
 #include "SunShadowStage.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "ReadbackTransfer.h"
 #include "NativeOfflineDevice.h"
 #include "NativeDeviceProxy.h"
@@ -48,7 +48,7 @@ struct MaskCase {
 };
 
 struct Scene {
-  SubjectDraw Subjects;
+  GeometryRenderer Geometry;
   SunShadowStage Shadow;
   std::unique_ptr<Texture> Atlas;
 
@@ -61,8 +61,8 @@ struct Scene {
                               .SceneColours = {}};
     CHECK(gpu.SceneColours.Add(Resource::SceneHdr),
           "the shadow consumer keeps the existing subject pipeline");
-    Require(Subjects.Configure(gpu));
-    Require(Shadow.Configure(Subjects, gpu));
+    Require(Geometry.Configure(gpu));
+    Require(Shadow.Configure(Geometry, gpu));
     Shadow.Declare(kSun, 256);
     Atlas = Require(
         device.CreateTexture({.Width = kShadowAtlasPx,
@@ -99,8 +99,8 @@ void SetMask(Scene &scene, MaskCase mask) {
     material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Linear)] = std::span(lower);
   }
   std::string error;
-  CheckSceneUpload(scene.Subjects.SetMesh(SubjectMesh{}, error), error);
-  CheckSceneUpload(scene.Subjects.SetMaterials(std::span(&material, 1), error), error);
+  CheckSceneUpload(scene.Geometry.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(scene.Geometry.SetMaterials(std::span(&material, 1), error), error);
   std::array<float, 12> emitted{};
   std::array<float, 16> colours{};
   for (size_t i = 0; i < 4; ++i) {
@@ -124,7 +124,7 @@ void SetMask(Scene &scene, MaskCase mask) {
   std::ranges::copy(kIdentity.Column, models.begin());
   std::ranges::copy(kIdentity.Column, models.begin() + 16);
   models[16 + 12] = kInstanceStepM;
-  CheckSceneUpload(scene.Subjects.SetPlacements(models.data(), instances, error), error);
+  CheckSceneUpload(scene.Geometry.SetPlacements(models.data(), instances, error), error);
   DrawList draws;
   CheckSceneUpload(draws.Add({.Order = {.Surface = material.State()},
                               .IndexCount = 6,
@@ -144,14 +144,14 @@ void SetMask(Scene &scene, MaskCase mask) {
   if (mask.Uv > 0) { mesh.Uv.From = uv.data(); }
   if (mask.Uv > 1) { mesh.Uv1.From = uv1.data(); }
   if (mask.Tinted) { mesh.Colours.From = colours.data(); }
-  CheckSceneUpload(scene.Subjects.SetMesh(mesh, error), error);
+  CheckSceneUpload(scene.Geometry.SetMesh(mesh, error), error);
 }
 
 void Record(Device &device, Scene &scene, const FrameContext &frame, bool submit) {
   scene.Shadow.Prepare(frame);
   if (!scene.Shadow.Casting()) { return; }
   auto commands = Require(device.Begin());
-  Require(scene.Subjects.FlushCrossings(commands.get()));
+  Require(scene.Geometry.FlushCrossings(commands.get()));
   Require(commands->BeginRenderPass(
       {.Colours = {},
        .Depth = DepthAttachment{.Image = {.Image = scene.Atlas.get()}, .Begin = Load::Clear}}));
@@ -164,7 +164,7 @@ void Record(Device &device, Scene &scene, const FrameContext &frame, bool submit
   Require(commands->EndRenderPass());
   if (submit) {
     Require(device.Submit(std::move(commands)));
-    scene.Subjects.CommitCrossings();
+    scene.Geometry.CommitCrossings();
     submission.Commit();
   }
 }
@@ -267,9 +267,9 @@ void Regions(Device &device, Scene &scene, std::string_view output) {
   SetMask(scene, {.Tinted = true});
   Mat4 distant = kIdentity;
   distant[12] = kDistantCasterM;
-  scene.Subjects.MovePlacement(1, distant);
+  scene.Geometry.MovePlacement(1, distant);
   std::string error;
-  CheckSceneUpload(scene.Subjects.HandPlacements(false, error), error);
+  CheckSceneUpload(scene.Geometry.HandPlacements(false, error), error);
   scene.Shadow.Declare(kSun, 8192, true);
   FrameContext frame;
   Record(device, scene, frame, true);
@@ -380,21 +380,21 @@ void ConfigureRollback(Device &device, Scene &scene) {
   CHECK(scene.Shadow.Cached(), "the accepted state is cached before the configuration fault");
   RefusePipeline rejected(device);
   const auto changed =
-      scene.Shadow.Configure(scene.Subjects, {.Device = &rejected, .SceneColours = {}});
+      scene.Shadow.Configure(scene.Geometry, {.Device = &rejected, .SceneColours = {}});
   CHECK(!changed && changed.error().Kind == ErrorKind::Driver && scene.Shadow.Cached(),
         "failed native pipeline creation preserves the accepted cache and pipeline set");
-  SubjectDraw other;
+  GeometryRenderer other;
   scene.Shadow.Binds(other);
   CHECK(!scene.Shadow.HasSubmittedData(),
         "rebinding another subject owner explicitly invalidates the previous world atlas");
-  scene.Shadow.Binds(scene.Subjects);
+  scene.Shadow.Binds(scene.Geometry);
 }
 
 void GroundOnly(Device &device, Scene &scene) {
   std::string error;
-  CheckSceneUpload(scene.Subjects.SetMesh(SubjectMesh{}, error), error);
-  CheckSceneUpload(scene.Subjects.SetPlacements(nullptr, 0, error), error);
-  auto &ground = scene.Subjects.Ground();
+  CheckSceneUpload(scene.Geometry.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(scene.Geometry.SetPlacements(nullptr, 0, error), error);
+  auto &ground = scene.Geometry.Ground();
   std::vector<float> heights(TerrainRenderer::kPageNodes, 3);
   const auto page = Require(ground.PlacePage(heights));
   GroundTile tile;

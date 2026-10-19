@@ -166,9 +166,10 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 
 ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   into = {};
-  const SubjectResidency &resident = ActiveState().Content.Subjects.Resident();
-  const Native::Buffer *const args = resident.Buffer(SubjectResidency::Stream::DrawArguments).get();
-  const uint32_t rows = ActiveState().Content.Subjects.ClusterBatchRows();
+  const GeometryResidency &resident = ActiveState().Content.Geometry.Resident();
+  const Native::Buffer *const args =
+      resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
+  const uint32_t rows = ActiveState().Content.Geometry.ClusterBatchRows();
   if (!ActiveState().Ready || args == nullptr || rows == 0) { return ReadState::Failed; }
   Readback read;
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
@@ -179,8 +180,8 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     into.Indices += held[static_cast<size_t>(at) * 5];
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
-  const uint32_t jobs = ActiveState().Content.Subjects.ClusterJobs();
-  const Native::Buffer *const kept = resident.Buffer(SubjectResidency::Stream::ClusterKept).get();
+  const uint32_t jobs = ActiveState().Content.Geometry.ClusterJobs();
+  const Native::Buffer *const kept = resident.Buffer(GeometryResidency::Stream::ClusterKept).get();
   if (jobs > 0 && kept != nullptr) {
     Readback visibility;
     const uint32_t keptBytes = jobs * static_cast<uint32_t>(sizeof(uint32_t));
@@ -191,7 +192,7 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     const auto *const values = reinterpret_cast<const uint32_t *>(visibility.Rows());
     into.Visibility.assign(values, values + jobs);
   }
-  const Native::Buffer *const index = resident.Buffer(SubjectResidency::Stream::DrawIndex).get();
+  const Native::Buffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
   if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
   Readback drawn;
   const uint32_t indexBytes = into.Indices * static_cast<uint32_t>(sizeof(uint32_t));

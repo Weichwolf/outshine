@@ -512,7 +512,7 @@ int main() {
   };
   Render::SubjectMesh empty;
   empty.Anchor = {{kWgs84A, 0, 0}};
-  CHECK(renderer.SetSubjectMesh(empty, error),
+  CHECK(renderer.SetGeometryMesh(empty, error),
         "reference mesh leaves while the Live coordinate anchor remains");
   CHECK(!Render::ImpostorInstances::Create(renderer, *atlas, 0, error),
         "crown capacity must be positive");

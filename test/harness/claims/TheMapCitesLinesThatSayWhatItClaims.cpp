@@ -63,8 +63,8 @@ struct Citation {
 // AND THE BARE FORM `File.cpp:123`, path and lines together inside ONE span. That form was
 // invisible here and VISIBLE to the path walk below, which strips a trailing `:123` before
 // testing existence -- so a citation written that way had its file checked and its LINE never
-// looked at. CLAUDE.md:27 cited `src/render/stages/SubjectDraw.cpp:841,846,854` at a moment when
-// the file held 816 lines, and this case reported `0 citations` and passed. A guard that stops
+// looked at. CLAUDE.md:27 cited `src/render/stages/GeometryRenderer.cpp:841,846,854` at a moment
+// when the file held 816 lines, and this case reported `0 citations` and passed. A guard that stops
 // guarding goes GREEN rather than red, which is the failure mode that needs a walk of its own
 // (board:1857, 1874), and this one sat on the precision boundary -- the rule that decides
 // whether a body a thousand kilometres out has a wheelbase.
