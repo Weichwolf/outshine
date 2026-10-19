@@ -133,11 +133,15 @@ def direct_ggx(rows, tables):
     half = normalised(light + view)
     nl = np.maximum(np.einsum("ij,ij->i", n, light), 0)
     nv = np.maximum(np.einsum("ij,ij->i", n, view), 1e-6)
-    nh = np.maximum(np.einsum("ij,ij->i", n, half), 0)
+    nh = np.clip(np.einsum("ij,ij->i", n, half), 0, 1)
     vh = np.maximum(np.einsum("ij,ij->i", view, half), 0)
     a2 = roughness**4
+    # Positive factorisation avoids cancellation; ordered division avoids d^2
+    # underflow even for r^4 of the smallest positive Float32 roughness input.
+    denominator = (1 - nh) * (1 + nh) + a2 * nh * nh
+    distribution = np.divide(a2, denominator, out=np.zeros_like(a2), where=a2 > 0)
     distribution = np.divide(
-        a2, np.pi * (nh * nh * (a2 - 1) + 1) ** 2, out=np.zeros_like(a2), where=a2 > 0
+        distribution, np.pi * denominator, out=np.zeros_like(a2), where=a2 > 0
     )
     denominator = nl * np.sqrt(nv * nv * (1 - a2) + a2) + nv * np.sqrt(
         nl * nl * (1 - a2) + a2
