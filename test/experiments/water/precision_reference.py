@@ -4,7 +4,8 @@ import time
 
 import numpy as np
 import osqp
-from native_profile_fit import area_mass, inspect_solution
+from native_profile_fit import inspect_solution
+from outshine_ref.water._mass import area_mass
 from scipy import sparse
 from weighted_river_fit import constraints, directions
 

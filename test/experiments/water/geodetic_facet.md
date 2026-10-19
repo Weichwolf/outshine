@@ -1,6 +1,6 @@
 # Physical water-facet height and grade (#760)
 
-`geodetic_facet.py` evaluates a physical plane along WGS84 geodetic vertical and
+`outshine_ref.water.geodetic` evaluates a physical plane along WGS84 geodetic vertical and
 derives its height Jacobian. It consumes the existing shared ENU convention from
 `outshine_ref.places.camera`, matching native `TangentFrame` with origin at
 geodetic height zero. Longitudes precede latitudes in this experiment's API;
