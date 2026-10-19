@@ -17,11 +17,14 @@ int main() {
   for (uint32_t tile = 0; tile < 2; ++tile) {
     auto geometry = std::make_shared<Ground::BuildingGeometry>();
     const double longitude = static_cast<double>(tile) * 0.01;
-    geometry->Points = {
-        0, longitude, 0, longitude + 0.001, 0.001, longitude + 0.001, 0.001, longitude};
+    geometry->OwnCoordinates(
+        {0, longitude, 0, longitude + 0.001, 0.001, longitude + 0.001, 0.001, longitude}, {});
     owners[tile] = geometry;
-    const Ground::BuildingFootprint footprint{.PointCount = 4, .SeatM = 12};
-    const Field::Baked product{.Coordinates = geometry, .Prints = std::span(&footprint, 1)};
+    const Ground::BuildingFootprint footprint{.PointCount = 4, .SeatM = 12, .Street = {}};
+    const Field::Baked product{.Coordinates = geometry,
+                               .Prints = std::span(&footprint, 1),
+                               .SeatSpreadM = {},
+                               .AcrossM = {}};
     field.PreparesAcceptances({.Prints = 1, .Tiles = 1});
     field.Take(tile);
     auto pending = field.PrepareAcceptance(tile, product);
@@ -37,6 +40,8 @@ int main() {
   for (size_t step = 0; step < 100 && !done; ++step) {
     const auto advanced = job.Advance({.Products = &snapshot,
                                        .Footprints = snapshot.Footprints(),
+                                       .Points = {},
+                                       .Rings = {},
                                        .VectorGeneration = snapshot.Revision(),
                                        .UnitsMost = 1});
     CHECK(advanced.has_value(), "product-owned stamp advances without an external point buffer");

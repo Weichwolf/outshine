@@ -406,8 +406,7 @@ struct StructureBakeProgress::State {
     Tile.NoGround = base.NoGround;
     Tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
     Tile.Coordinates->Origin = base.Origin;
-    Tile.Coordinates->Points = base.PointsLatLon;
-    Tile.Coordinates->Rings = base.Holes;
+    Tile.Coordinates->OwnCoordinates(base.PointsLatLon, base.Holes);
   }
 };
 
