@@ -30,6 +30,15 @@ and projected-emission ownership are still missing contracts; they are not
 invented by matching bounds or nearest geometry. In Flensburg five sources
 become four masses, making this distinction concrete.
 
+Follow-up: the frozen reader now also observes `StructurePlanSelection::EmitProjected`
+at its verified SysV argument-six `BakedTile&` (`r9`), then `Raised` at byte 16.
+Independent final counts and whole/cell hashes validate this ABI. Projected
+members retain their observed collective source list, not invented per-face IDs.
+Normal triangle ranges still bind sources; optional colour/metre vectors may
+backfill previous vertices, so physical append ranges alone are not semantic
+ownership of those attributes. A 32-source control and the new image decision
+are documented in [the depth-cluster comparison](depth_cluster.md).
+
 ## Existing native products, not new speedups
 
 Two complete original cells preserve nine sources, including every generated part:
