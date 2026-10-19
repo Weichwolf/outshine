@@ -29,7 +29,7 @@ struct SDL_Window;
 #include "GpuSubmission.h"
 #include "GpuFrameSample.h"
 #include "UploadQueue.h"
-#include "GroundStorage.h"
+#include "TerrainMaterialBuffers.h"
 
 #include "Readback.h"
 #include "scene/SceneResources.h"
@@ -61,7 +61,7 @@ class RuntimeScene;
 namespace outshine::Render {
 
 struct GroundClassUploadMetrics {
-  GroundStorageUploadMetrics Storage;
+  TerrainMaterialBuffersUploadMetrics Storage;
   double SourcePreparationMs = 0.0;
   double RestoreSourceMs = 0.0;
 };
@@ -209,7 +209,7 @@ public:
 
   [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
 
-  [[nodiscard]] Native::Result<GroundLattice::DrawArguments> ReadGroundDrawArguments() const;
+  [[nodiscard]] Native::Result<TerrainRenderer::DrawArguments> ReadGroundDrawArguments() const;
 
   using PieceRows = SceneResources::PieceRows;
 
@@ -305,13 +305,13 @@ public:
         ActiveState().Content.Subjects, real, virtual_);
   }
 
-  [[nodiscard]] bool SetGroundLattice(std::span<const GroundTile> real,
-                                      std::span<const GroundTile> virtual_,
-                                      std::string &error) {
+  [[nodiscard]] bool SetTerrainRenderer(std::span<const GroundTile> real,
+                                        std::span<const GroundTile> virtual_,
+                                        std::string &error) {
     return Accepted(ActiveState().Content.Subjects.Ground().SetInstances(real, virtual_), error);
   }
 
-  [[nodiscard]] uint32_t GroundLatticeTriangles() const {
+  [[nodiscard]] uint32_t TerrainRendererTriangles() const {
     return ActiveState().Content.Subjects.Ground().Triangles();
   }
 
@@ -975,7 +975,7 @@ private:
   std::unique_ptr<UploadQueue> Uploads_;
 
   struct WorldContent {
-    GroundStorage Ground;
+    TerrainMaterialBuffers Ground;
     std::optional<GroundClassificationSource> PendingGroundClasses;
     SceneResources Resources;
     SubjectDraw Subjects;

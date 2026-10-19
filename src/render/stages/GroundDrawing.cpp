@@ -1,4 +1,4 @@
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include <array>
 #include <cstdint>
 #include <cstddef>
@@ -8,14 +8,14 @@
 #include <algorithm>
 
 namespace outshine::Render {
-Native::Result<void> GroundLattice::Draw(const PassRecording &into,
-                                         Native::GraphicsPipeline *pipeline,
-                                         const std::unique_ptr<Native::Buffer> &instances,
-                                         uint32_t real,
-                                         uint32_t virtual_,
-                                         std::span<const Native::Binding> bindings,
-                                         uint32_t first,
-                                         bool skirtsOnly) const {
+Native::Result<void> TerrainRenderer::Draw(const PassRecording &into,
+                                           Native::GraphicsPipeline *pipeline,
+                                           const std::unique_ptr<Native::Buffer> &instances,
+                                           uint32_t real,
+                                           uint32_t virtual_,
+                                           std::span<const Native::Binding> bindings,
+                                           uint32_t first,
+                                           bool skirtsOnly) const {
   if (real + virtual_ == 0) { return {}; }
   if (pipeline == nullptr || into.Commands == nullptr || !Grid_ || !UniformGrid_ || !Index_ ||
       !instances || !Pages_ || !Nearest_) {
@@ -61,8 +61,8 @@ Native::Result<void> GroundLattice::Draw(const PassRecording &into,
   return draw(*UniformGrid_, real, virtual_);
 }
 
-Native::Result<void> GroundLattice::Encode(const PassRecording &into,
-                                           std::span<const Native::Binding> bindings) const {
+Native::Result<void> TerrainRenderer::Encode(const PassRecording &into,
+                                             std::span<const Native::Binding> bindings) const {
   if (!DrawEnabled_) { return {}; }
   const auto patched = DrawPatches(into, bindings);
   if (!patched) { return patched; }

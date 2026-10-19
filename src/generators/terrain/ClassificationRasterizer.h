@@ -7,7 +7,7 @@
 #include <optional>
 #include <stop_token>
 #include <vector>
-#include "ClassStructure.h"
+#include "TerrainClassificationMap.h"
 
 namespace outshine::Generators {
 class ClassificationRasterizer {
@@ -41,7 +41,7 @@ public:
   };
 
   struct Built {
-    std::shared_ptr<const ClassStructure::Grid> Grid;
+    std::shared_ptr<const TerrainClassificationMap::Grid> Grid;
     double BuildMs = 0;
     int Overflow = 0;
   };
@@ -79,26 +79,26 @@ private:
 
   void BuildFeatureEdges(const Input &job, const Feature &feature);
   void IndexFeatureEdges(const Feature &feature,
-                         const ClassStructure::Grid &grid,
+                         const TerrainClassificationMap::Grid &grid,
                          const RasterWindow &window);
   void ScanlineHits(double northM, size_t &nextEdge);
   void SeedCell(const Feature &feature,
-                ClassStructure::Grid &grid,
+                TerrainClassificationMap::Grid &grid,
                 const RasterWindow &window,
                 CellSample sample,
                 int &overflow);
   void ScanFeature(const Feature &feature,
-                   ClassStructure::Grid &grid,
+                   TerrainClassificationMap::Grid &grid,
                    const RasterWindow &window,
                    int &overflow);
-  void PackGrid(ClassStructure::Grid &grid);
+  void PackGrid(TerrainClassificationMap::Grid &grid);
   void RasterizeFeature(const Input &job,
                         const Feature &feature,
                         uint32_t &generation,
-                        ClassStructure::Grid &grid,
+                        TerrainClassificationMap::Grid &grid,
                         int &overflow);
 
-  bool LayDown(const Input &job, ClassStructure::Grid &out, int &overflow);
+  bool LayDown(const Input &job, TerrainClassificationMap::Grid &out, int &overflow);
 
   Workspace Workspace_;
   std::stop_token Stop_;

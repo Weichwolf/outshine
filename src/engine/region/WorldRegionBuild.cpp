@@ -469,7 +469,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   World.AskedPending = sees->Pending;
   World.AskedWanted = sees->Tiles;
   const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
-  const std::shared_ptr<const ClassStructure> naming = World.Stack.Classes().Read();
+  const std::shared_ptr<const TerrainClassificationMap> naming = World.Stack.Classes().Read();
   const uint64_t classes = naming ? naming->Version() : 0;
   const bool elsewhere = from != previous.Region;
   const bool renamed = classes != previous.Classes;
@@ -709,7 +709,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
         std::move(yielding),
         patchwork,
         standing,
-        Generators::TerrainPageLayout{.Side = Render::GroundLattice::kSide, .Halo = 1},
+        Generators::TerrainPageLayout{.Side = Render::TerrainRenderer::kSide, .Halo = 1},
         kMostEarthworkM));
     state.SamplesPressingSlice(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
@@ -889,9 +889,9 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
       "ground refinement: road corridors", static_cast<double>(roadCorridors.size()), "edges");
   state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
       build.Sheets.BeginRefinement(patchwork,
-                                   {.Side = Render::GroundLattice::kSide, .Halo = 1},
+                                   {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
                                    detail,
-                                   Render::GroundLattice::kMaximumPages,
+                                   Render::TerrainRenderer::kMaximumPages,
                                    roadCorridors)));
   return GroundBuildProgress::Pending;
 }
@@ -902,8 +902,9 @@ Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patc
   WorldRegionBuildState::GroundSurvey &survey = state.Surveying();
   const auto began = std::chrono::steady_clock::now();
   if (survey.NextSheet == 0) {
-    const auto nodes = patchwork.Sheets.size() * static_cast<size_t>(Render::GroundLattice::kSide *
-                                                                     Render::GroundLattice::kSide);
+    const auto nodes =
+        patchwork.Sheets.size() *
+        static_cast<size_t>(Render::TerrainRenderer::kSide * Render::TerrainRenderer::kSide);
     survey.Terrain.ProbePositionsM.reserve((nodes + kBounceProbeStride - 1) / kBounceProbeStride);
   }
   const size_t end = std::min(survey.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
@@ -911,7 +912,7 @@ Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patc
     Generators::SurveyTerrainSheet(survey.Terrain,
                                    patchwork.Sheets[survey.NextSheet],
                                    standing,
-                                   {.Side = Render::GroundLattice::kSide, .Halo = 1},
+                                   {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
                                    kBounceProbeStride);
   }
   const double sliceMs =
@@ -1079,7 +1080,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundClasses() {
   Classed classed = Classify(state.Surveying().Terrain.ProbePositionsM, state.Candidate());
   std::vector<Vec3f>{}.swap(state.Surveying().Terrain.ProbePositionsM);
   build.ClassPalette = std::move(classed.Palette);
-  build.ClassStructure = std::move(classed.Structure);
+  build.TerrainClassificationMap = std::move(classed.Structure);
   build.ClassUpload = std::move(classed.Upload);
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
@@ -1579,7 +1580,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
       .Network = build.StreetGraph.get(),
       .Standing = standing,
       .Draped = drapedOver,
-      .Classes = build.ClassStructure,
+      .Classes = build.TerrainClassificationMap,
       .WaterUpM = [&sources, &standing](LongitudeLatitude at) -> std::optional<double> {
         return Generators::WaterSurfaceUpAt(sources.WaterBodies, standing, at);
       },
@@ -1753,7 +1754,7 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
       .Anchor = {.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg},
       .Terrain = std::move(*state.Laid()),
       .Surfaces = std::move(build.Ground),
-      .Classes = build.ClassStructure,
+      .Classes = build.TerrainClassificationMap,
       .ClassPalette = build.ClassPalette,
       .Network = build.StreetGraph,
       .NetworkWays = build.StreetGraphWayCount,

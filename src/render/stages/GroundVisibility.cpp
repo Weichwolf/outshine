@@ -1,4 +1,4 @@
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -54,7 +54,7 @@ Intersects(const SidePlanes &planes, const std::array<float, 4> &sphere, const V
 }
 
 Native::Result<void>
-GroundLattice::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Commands &commands) {
+TerrainRenderer::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Commands &commands) {
   VisibleReal_ = 0;
   VisibleVirtual_ = 0;
   Selection_.BeginFrame();
@@ -93,10 +93,10 @@ GroundLattice::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comman
   return {};
 }
 
-Native::Result<void> GroundLattice::Cast(const PassRecording &into,
-                                         const Mat4f &projection,
-                                         const Vec4f &shift,
-                                         std::span<const Native::Binding> bindings) const {
+Native::Result<void> TerrainRenderer::Cast(const PassRecording &into,
+                                           const Mat4f &projection,
+                                           const Vec4f &shift,
+                                           std::span<const Native::Binding> bindings) const {
   if (!DrawEnabled_) { return {}; }
   const SidePlanes planes = SidePlanesOf(projection);
   const auto total = static_cast<uint32_t>(Held_.size());
@@ -118,15 +118,15 @@ Native::Result<void> GroundLattice::Cast(const PassRecording &into,
   return {};
 }
 
-Native::Result<void> GroundLattice::HandsVisible(Native::Commands &commands) {
+Native::Result<void> TerrainRenderer::HandsVisible(Native::Commands &commands) {
   const auto count = static_cast<uint32_t>(Seen_.size());
-  const uint64_t tileBytes = uint64_t{count} * sizeof(GroundInstance);
+  const uint64_t tileBytes = uint64_t{count} * sizeof(TerrainInstance);
   const uint64_t patchBytes = uint64_t{count} * kPatchCount * sizeof(uint32_t);
   const uint64_t bytes = tileBytes + patchBytes;
   if (!Visible_ || VisibleRoom_ < count) {
     const auto room = std::max(count, VisibleRoom_ > 0 ? VisibleRoom_ * 2u : 64u);
     auto created =
-        Device_->CreateBuffer({.Bytes = uint64_t{room} * sizeof(GroundInstance),
+        Device_->CreateBuffer({.Bytes = uint64_t{room} * sizeof(TerrainInstance),
                                .Use = Native::BufferUse::Vertex | Native::BufferUse::Storage |
                                       Native::BufferUse::CopyDestination});
     if (!created) { return std::unexpected(created.error()); }
@@ -147,7 +147,7 @@ Native::Result<void> GroundLattice::HandsVisible(Native::Commands &commands) {
   if (!mapped && mapped.error().Kind == Native::ErrorKind::Busy) {
     auto created =
         Device_->CreateBuffer({.Bytes = uint64_t{VisibleRoom_} *
-                                        (sizeof(GroundInstance) + kPatchCount * sizeof(uint32_t)),
+                                        (sizeof(TerrainInstance) + kPatchCount * sizeof(uint32_t)),
                                .Use = Native::BufferUse::CopySource,
                                .Placement = Native::Memory::Upload});
     if (!created) { return std::unexpected(created.error()); }

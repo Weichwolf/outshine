@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_GROUNDREGIONASSET_H
 #define OUTSHINE_WORLD_GROUND_GROUNDREGIONASSET_H
 
-#include "ClassStructure.h"
+#include "TerrainClassificationMap.h"
 #include "GroundMesher.h"
 #include "Wayfinding.h"
 #include "scene/Geometry.h"
@@ -17,7 +17,7 @@ struct GroundRegionAsset {
   LongitudeLatitude Anchor;
   Patchwork Terrain;
   Geometry Surfaces;
-  std::shared_ptr<const ClassStructure> Classes;
+  std::shared_ptr<const TerrainClassificationMap> Classes;
   std::vector<float> ClassPalette;
   std::shared_ptr<const Path::Network> Network;
   uint64_t NetworkWays = 0;

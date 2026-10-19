@@ -32,16 +32,16 @@ int main() {
   CHECK(part && region.Surfaces.setPositions(*part, positions) &&
             region.Surfaces.setTriangles(*part, indices),
         "native transport geometry is created");
-  auto grid = std::make_shared<ClassStructure::Grid>();
+  auto grid = std::make_shared<TerrainClassificationMap::Grid>();
   grid->W = 1;
   grid->H = 1;
   grid->BoundaryHaloM = .75;
   grid->Cells = {7, 0};
-  region.Classes = std::make_shared<const ClassStructure>(
+  region.Classes = std::make_shared<const TerrainClassificationMap>(
       TangentFrame::At(region.Anchor),
       grid,
       grid,
-      ClassStructure::FromRun{.Version = 123, .UnmappedRow = 255});
+      TerrainClassificationMap::FromRun{.Version = 123, .UnmappedRow = 255});
   region.ClassPalette = {0.25f, 0.5f, 0.75f};
   auto encoded = EncodeGroundRegionAsset(region, bytesMost);
   CHECK(encoded, "complete region encodes with canonical geometry");

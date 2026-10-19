@@ -1,11 +1,11 @@
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "ReadbackTransfer.h"
 #include <chrono>
 #include <cstring>
 #include <expected>
 
 namespace outshine::Render {
-Native::Result<GroundLattice::DrawArguments> GroundLattice::ReadDrawArguments() const {
+Native::Result<TerrainRenderer::DrawArguments> TerrainRenderer::ReadDrawArguments() const {
   DrawArguments result;
   result.SkirtInstances = Drawn();
   if (result.SkirtInstances == 0) { return result; }

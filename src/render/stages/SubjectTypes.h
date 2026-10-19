@@ -7,7 +7,7 @@
 #include <cmath>
 #include <limits>
 #include "math/Mat4.h"
-#include "GroundInstance.h"
+#include "TerrainInstance.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
 #include <span>
@@ -177,7 +177,7 @@ using PieceId = uint32_t;
 inline constexpr PieceId kNoPiece = ~0u;
 
 struct GroundTile {
-  GroundInstance Instance;
+  TerrainInstance Instance;
   float LowM = 0.0f;
   float HighM = 0.0f;
 };

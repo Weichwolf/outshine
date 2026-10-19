@@ -5,7 +5,7 @@
 #include "NormalUpload.h"
 #include <format>
 #include <optional>
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "SubjectDraw.h"
 #include "BatchVisibility.h"
 #include "math/Vec3.h"

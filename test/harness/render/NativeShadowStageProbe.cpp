@@ -395,7 +395,7 @@ void GroundOnly(Device &device, Scene &scene) {
   CheckSceneUpload(scene.Subjects.SetMesh(SubjectMesh{}, error), error);
   CheckSceneUpload(scene.Subjects.SetPlacements(nullptr, 0, error), error);
   auto &ground = scene.Subjects.Ground();
-  std::vector<float> heights(GroundLattice::kPageNodes, 3);
+  std::vector<float> heights(TerrainRenderer::kPageNodes, 3);
   const auto page = Require(ground.PlacePage(heights));
   GroundTile tile;
   tile.Instance.Corners = {{-64, 64, 64, 64, -64, -64, 64, -64}};

@@ -3,7 +3,7 @@
 #include "ChunkSurface.h"
 #include "Digest.h"
 #include "Geodesy.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "Heap.h"
 #include "SceneRenderer.h"
 #include "TerrainGrid.h"
@@ -134,11 +134,11 @@ Render::TerrainTile TerrainResidency::TileOf(Data::TileId tile,
   made.Corners = {{nw[0], nw[1], ne[0], ne[1], sw[0], sw[1], se[0], se[1]}};
   made.Page = page;
   made.SagInv = static_cast<float>(1.0 / std::sqrt(Dot(centre, centre)));
-  const auto steps = static_cast<float>(Render::GroundLattice::kSide - 1);
+  const auto steps = static_cast<float>(Render::TerrainRenderer::kSide - 1);
   made.StepE = 0.5f * ((ne[0] - nw[0]) + (se[0] - sw[0])) / steps;
   made.StepN = 0.5f * ((nw[1] - sw[1]) + (ne[1] - se[1])) / steps;
   const auto [low, high] = std::ranges::minmax_element(nodes);
-  const float skirt = Render::GroundLattice::kSkirtSteps * std::max(made.StepE, made.StepN);
+  const float skirt = Render::TerrainRenderer::kSkirtSteps * std::max(made.StepE, made.StepN);
   const float sag = 0.5f * std::max({Dot2(nw), Dot2(ne), Dot2(sw), Dot2(se)}) * made.SagInv;
   made.LowM = (nodes.empty() ? 0.0f : *low) - skirt - sag;
   made.HighM = nodes.empty() ? 0.0f : *high;
@@ -147,15 +147,15 @@ Render::TerrainTile TerrainResidency::TileOf(Data::TileId tile,
 
 Render::Native::Result<void> TerrainResidency::PublishGrid(const Patchwork &patchwork) {
   for (const Sheet &sheet : patchwork.Sheets) {
-    if (sheet.Side != Render::GroundLattice::kSide || sheet.Virtual || sheet.Postings < 2 ||
+    if (sheet.Side != Render::TerrainRenderer::kSide || sheet.Virtual || sheet.Postings < 2 ||
         sheet.Postings == GridPostings_) {
       continue;
     }
     std::vector<float> fractions;
-    fractions.reserve(static_cast<size_t>(Render::GroundLattice::kSide));
-    for (int k = 0; k < Render::GroundLattice::kSide; ++k) {
+    fractions.reserve(static_cast<size_t>(Render::TerrainRenderer::kSide));
+    for (int k = 0; k < Render::TerrainRenderer::kSide; ++k) {
       fractions.push_back(
-          static_cast<float>(FractionOf(k, sheet.Postings, Render::GroundLattice::kSide)));
+          static_cast<float>(FractionOf(k, sheet.Postings, Render::TerrainRenderer::kSide)));
     }
     const auto uploaded = Renderer_->SetGroundGrid(fractions);
     if (!uploaded) { return uploaded; }

@@ -1,7 +1,7 @@
 #include "EngineState.h"
 #include "WorldInstanceSink.h"
 #include "InstancePlacementInputs.h"
-#include "ClassStructure.h"
+#include "TerrainClassificationMap.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -24,11 +24,12 @@ constexpr auto InstanceBudget = "generated instance count exceeds the prepared o
 namespace {
 constexpr size_t kBaseSnapshotRows = 40;
 
-InstancePlacementInputs PlacementInputs(const WorldRegionState &world,
-                                        const Generators::Tile &region,
-                                        LevelOfDetail coarseness,
-                                        const Generators::Fields &stands,
-                                        const std::shared_ptr<const ClassStructure> &classes) {
+InstancePlacementInputs
+PlacementInputs(const WorldRegionState &world,
+                const Generators::Tile &region,
+                LevelOfDetail coarseness,
+                const Generators::Fields &stands,
+                const std::shared_ptr<const TerrainClassificationMap> &classes) {
   return {.Cell = {region.Zoom(), region.X(), region.Y()},
           .Detail = coarseness,
           .Terrain = world.Stack.Pool().TerrainScopeRevision(),
@@ -100,12 +101,13 @@ std::expected<std::shared_ptr<const Generators::GroundPatch>, std::string> Prepa
   return world.PlacementGround->Advance(world.Stack.Ground(), how);
 }
 
-Generators::Snapped PlacementSnapshot(WorldRegionState &world,
-                                      const Generators::Tile &region,
-                                      const std::shared_ptr<const ClassStructure> &classes,
-                                      const Generators::Fields &stands,
-                                      Generators::Ground::Snapshot *snapshot,
-                                      std::string &error) {
+Generators::Snapped
+PlacementSnapshot(WorldRegionState &world,
+                  const Generators::Tile &region,
+                  const std::shared_ptr<const TerrainClassificationMap> &classes,
+                  const Generators::Fields &stands,
+                  Generators::Ground::Snapshot *snapshot,
+                  std::string &error) {
   Generators::Snapped how = Generators::Snapped::Waiting;
   auto patch = PreparePlacementGround(world, region, &how);
   if (!patch) {

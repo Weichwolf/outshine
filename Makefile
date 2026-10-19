@@ -108,11 +108,11 @@ build/shaders/brdfTables.glsl: build/shader-tables
 	@mkdir -p $(@D)
 	@$< > $@.tmp && if cmp -s $@.tmp $@; then rm $@.tmp; else mv $@.tmp $@; fi
 
-build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/stages/GroundConstants.inc
+build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/terrain/GroundConstants.inc
 	@mkdir -p $(@D)
 	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
-build/shaders/groundPatchLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/stages/GroundConstants.inc
+build/shaders/groundPatchLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl src/render/terrain/GroundConstants.inc
 	@mkdir -p $(@D)
 	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DGROUND_PATCHES=1 -DSUBJECT_WRITES_VELOCITY=$* $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 

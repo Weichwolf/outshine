@@ -79,11 +79,11 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "ground world opens");
     if (scene) {
-      std::vector<float> nodes(GroundLattice::kPageNodes, 3.0f);
+      std::vector<float> nodes(TerrainRenderer::kPageNodes, 3.0f);
       const auto page = renderer.PlaceHeightPage(nodes);
       CHECK(page.has_value(), "native ground nodes are placed");
       if (!page) { return Report(); }
-      std::vector<float> fractions(GroundLattice::kSide);
+      std::vector<float> fractions(TerrainRenderer::kSide);
       for (size_t at = 0; at < fractions.size(); ++at) {
         fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
       }

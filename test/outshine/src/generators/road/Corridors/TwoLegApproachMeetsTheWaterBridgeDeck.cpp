@@ -84,14 +84,18 @@ int main() {
     CHECK(ways.Ingest(vectors, vegetation) == declared.size(),
           "both adjoining roads reach the generator");
     const TangentFrame standing = TangentFrame::At(origin);
-    auto grid = std::make_shared<ClassStructure::Grid>();
+    auto grid = std::make_shared<TerrainClassificationMap::Grid>();
     grid->W = grid->H = 1;
     grid->OrgE = -500;
     grid->OrgN = betweenBridges ? -500 : 0;
     grid->CellM = 1000;
     grid->Cells = {static_cast<uint32_t>(water) | (1u << 8), 0};
-    const std::shared_ptr<const ClassStructure> classes = std::make_shared<ClassStructure>(
-        standing, grid, std::make_shared<const ClassStructure::Grid>(), ClassStructure::FromRun{});
+    const std::shared_ptr<const TerrainClassificationMap> classes =
+        std::make_shared<TerrainClassificationMap>(
+            standing,
+            grid,
+            std::make_shared<const TerrainClassificationMap::Grid>(),
+            TerrainClassificationMap::FromRun{});
     const TriangleBvh empty = TriangleBvh::Over({}, {});
     const Drape drape{.Surface = empty,
                       .Field = [betweenBridges](EastNorth at) -> std::optional<double> {

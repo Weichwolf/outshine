@@ -21,7 +21,7 @@ constexpr uint32_t kFirst = 8192;
 constexpr float kOldHeight = 3;
 constexpr float kChangedHeight = 7;
 constexpr float kFinalHeight = 9;
-constexpr size_t kPageBytes = Render::GroundLattice::kPageNodes * sizeof(float);
+constexpr size_t kPageBytes = Render::TerrainRenderer::kPageNodes * sizeof(float);
 constexpr size_t kTarget = Render::kHeightPageBatchMost + 1;
 constexpr size_t kFinishSteps = 8;
 constexpr LongitudeLatitude kRemovedPoint{.LongitudeDeg = 0.2427, .LatitudeDeg = -0.001};
@@ -32,9 +32,9 @@ Patchwork Pages(size_t first, size_t count, float height) {
   for (size_t at = first; at < first + count; ++at) {
     patch.Sheets.push_back(
         {.Tile = {.Zoom = kZoom, .X = kFirst + static_cast<uint32_t>(at), .Y = kFirst},
-         .Nodes = std::vector<float>(Render::GroundLattice::kPageNodes, height),
-         .Side = Render::GroundLattice::kSide,
-         .Postings = Render::GroundLattice::kSide});
+         .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, height),
+         .Side = Render::TerrainRenderer::kSide,
+         .Postings = Render::TerrainRenderer::kSide});
   }
   return patch;
 }
@@ -69,7 +69,7 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
   const auto removedHeight = residency.HeightMAt(kRemovedPoint);
   const auto changedHeight = residency.HeightMAt(kChangedPoint);
   CHECK(removedHeight && changedHeight, "both original tiles support real height queries");
-  const auto triangles = renderer.GroundLatticeTriangles();
+  const auto triangles = renderer.TerrainRendererTriangles();
   const auto bytes = renderer.HeightPageSourceBytes();
   auto replacement = Pages(0, kTarget + 1, kChangedHeight);
   replacement.Sheets.erase(replacement.Sheets.begin() + 11);
@@ -88,7 +88,7 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
         "a mid-group refusal defers without waiting inside the publication step");
   CHECK(failure.AcceptedSubmissions == accepted && residency.Standing() == 2 &&
             renderer.HeightPageSourceBytes() == bytes &&
-            renderer.GroundLatticeTriangles() == triangles,
+            renderer.TerrainRendererTriangles() == triangles,
         "unsubmitted group work exposes no cursor progress, payload or partial topology");
   CHECK(residency.HeightMAt(kRemovedPoint) == removedHeight &&
             residency.HeightMAt(kChangedPoint) == changedHeight,
@@ -100,7 +100,7 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
         "a larger requested step still accepts at most one packed 48-page group");
   CHECK(residency.Standing() == Render::kHeightPageBatchMost + 1 &&
             renderer.HeightPageSourceBytes() == (Render::kHeightPageBatchMost + 2) * kPageBytes &&
-            renderer.GroundLatticeTriangles() == triangles,
+            renderer.TerrainRendererTriangles() == triangles,
         "accepted pages are retained while final topology and removed-page retirement wait");
   CHECK(residency.HeightMAt(kRemovedPoint) == removedHeight,
         "an old tile scheduled for removal remains valid before complete publication");
@@ -112,7 +112,8 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
         "retry consumes the remaining page and publishes the full unchanged demand");
   CHECK(residency.Standing() == kTarget && residency.Instances() == kTarget &&
             renderer.HeightPageSourceBytes() == kTarget * kPageBytes &&
-            renderer.GroundLatticeTriangles() == kTarget * (Render::GroundLattice::kIndices / 3u),
+            renderer.TerrainRendererTriangles() ==
+                kTarget * (Render::TerrainRenderer::kIndices / 3u),
         "completion publishes all demanded tiles and retires precisely the removed tile");
   CHECK(!residency.HeightMAt(kRemovedPoint) && residency.HeightMAt(kChangedPoint) != changedHeight,
         "height queries switch from old removal coverage to accepted replacement data");

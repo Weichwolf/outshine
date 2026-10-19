@@ -70,7 +70,7 @@ void PublishRetry(outshine::Render::SceneRenderer &renderer,
     CHECK(retry.Publish(world, footprints, scene, nextRevision).has_value(),
           "complete retry publishes");
     CHECK(
-        scene.get() != oldScene && renderer.GroundLatticeTriangles() == 0 &&
+        scene.get() != oldScene && renderer.TerrainRendererTriangles() == 0 &&
             scene->DrivenParts() == 0 && world.GroundPositionsM == std::vector<float>({9, 8, 7}) &&
             world.GroundIndex == std::vector<uint32_t>({0, 0, 0}) &&
             world.StreetGraphWayCount == kReplacementWayCount && world.RimsMissing == 0 &&
@@ -114,11 +114,11 @@ int main() {
       const GroundRevision nextRevision{.Region = 18, .Coverage = {}};
       CHECK(world.GroundPublished.Publish(oldRevision), "original ground revision publishes");
       const Core::RuntimeScene *const oldScene = scene.get();
-      std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
+      std::vector<float> nodes(Render::TerrainRenderer::kPageNodes, 3.0f);
       const auto page = renderer.PlaceHeightPage(nodes);
       CHECK(page.has_value(), "original height page uploads");
       if (!page) { return Report(); }
-      std::vector<float> fractions(Render::GroundLattice::kSide);
+      std::vector<float> fractions(Render::TerrainRenderer::kSide);
       for (size_t at = 0; at < fractions.size(); ++at) {
         fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
       }
@@ -161,7 +161,7 @@ int main() {
           }
         }
         CHECK(scene.get() == oldScene &&
-                  renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
+                  renderer.TerrainRendererTriangles() == Render::TerrainRenderer::kIndices / 3u,
               "abandonment preserves the published owner and original GPU terrain");
         CHECK(world.GroundPositionsM == std::vector<float>({1, 2, 3}) &&
                   world.GroundIndex == std::vector<uint32_t>({0}) &&

@@ -101,7 +101,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   SIGGRAPH 2004. [Quelle](https://hhoppe.com/geomclipmap.pdf) ·
   [PDF](terrain/siggraph/2004-geometry-clipmaps.pdf).
   Regelmäßige verschachtelte Gitter und inkrementelle Randaktualisierung vermeiden Vollneubau.
-  Mit GroundLattice vergleichen, keine zweite Terrainpipeline. Clipmaps allein liefern weder
+  Mit TerrainRenderer vergleichen, keine zweite Terrainpipeline. Clipmaps allein liefern weder
   weltweite Quellabdeckung noch Ellipsoidübergang oder konservative Höhenfehlerschranken.
 - **Procedural Noise using Sparse Gabor Convolution**, Lagae et al., SIGGRAPH 2009.
   [Quelle](https://graphics.cs.kuleuven.be/publications/LLDD09PNSGC/LLDD09PNSGC_paper.pdf) ·

@@ -1,6 +1,6 @@
 #include "TerrainResidency.h"
 #include "SceneRenderer.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "VectorCapacity.h"
 #include <algorithm>
 #include <array>
@@ -18,8 +18,8 @@ TerrainResidency::PageBatch TerrainResidency::PlanPages(const Patchwork &patchwo
   batch.End = end;
   for (size_t at = NextSheet_; at < end; ++at) {
     const auto &sheet = patchwork.Sheets[at];
-    if (sheet.Side != Render::GroundLattice::kSide ||
-        sheet.Nodes.size() != Render::GroundLattice::kPageNodes) {
+    if (sheet.Side != Render::TerrainRenderer::kSide ||
+        sheet.Nodes.size() != Render::TerrainRenderer::kPageNodes) {
       ++batch.Flat;
       continue;
     }

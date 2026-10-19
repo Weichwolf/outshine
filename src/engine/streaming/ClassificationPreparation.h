@@ -75,16 +75,16 @@ public:
   void Open(double lat, double lon, Tasks &compute);
   void Close();
 
-  [[nodiscard]] bool Restore(std::shared_ptr<const ClassStructure> classes);
+  [[nodiscard]] bool Restore(std::shared_ptr<const TerrainClassificationMap> classes);
 
   [[nodiscard]] std::expected<void, std::string_view> Update(TilePool &tiles, LongitudeLatitude at);
 
   struct Publication {
-    std::shared_ptr<const ClassStructure> Classes;
-    std::shared_ptr<const Render::GroundClassBuffer> Upload;
+    std::shared_ptr<const TerrainClassificationMap> Classes;
+    std::shared_ptr<const Render::PackedTerrainClassification> Upload;
   };
 
-  std::shared_ptr<const ClassStructure> Read() const {
+  std::shared_ptr<const TerrainClassificationMap> Read() const {
     const std::scoped_lock lk(Mu_);
     return Published_.Classes;
   }
@@ -106,14 +106,16 @@ public:
     return Frame_.ToLocalGroundPosition(at);
   }
 
-  [[nodiscard]] static int
-  ClassAt(const ClassStructure &held, LongitudeLatitude at, double *edgeM, int *runnerUp) {
+  [[nodiscard]] static int ClassAt(const TerrainClassificationMap &held,
+                                   LongitudeLatitude at,
+                                   double *edgeM,
+                                   int *runnerUp) {
     const EastNorth on = held.Frame().ToLocalGroundPosition(at);
     return held.Evaluate(on.EastM, on.NorthM, edgeM, runnerUp);
   }
 
   [[nodiscard]] int ClassAt(LongitudeLatitude at, double *edgeM, int *runnerUp) const {
-    const std::shared_ptr<const ClassStructure> held = Read();
+    const std::shared_ptr<const TerrainClassificationMap> held = Read();
     if (!held) { return -1; }
     return ClassAt(*held, at, edgeM, runnerUp);
   }
@@ -238,7 +240,7 @@ private:
 
   mutable std::mutex Mu_;
   Publication Published_;
-  std::shared_ptr<const ClassStructure> Restored_;
+  std::shared_ptr<const TerrainClassificationMap> Restored_;
 
   TangentFrame Frame_;
   Vec2 Cam_ = {{0, 0}};

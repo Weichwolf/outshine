@@ -1,6 +1,6 @@
 #include "TerrainLoader.h"
 #include "HeightSheets.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "SourceSet.h"
 #include "Check.h"
 #include <array>
@@ -85,9 +85,9 @@ int main() {
   Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
   Patchwork candidate;
   candidate.Sheets.push_back({.Tile = {.Zoom = 4, .X = 8, .Y = 8},
-                              .Nodes = std::vector<float>(Render::GroundLattice::kNodes, 42.0f),
-                              .Side = Render::GroundLattice::kSide,
-                              .Postings = Render::GroundLattice::kSide});
+                              .Nodes = std::vector<float>(Render::TerrainRenderer::kNodes, 42.0f),
+                              .Side = Render::TerrainRenderer::kSide,
+                              .Postings = Render::TerrainRenderer::kSide});
   const Patchwork original = candidate;
   HeightSheets invalid;
   const std::array<Data::TileId, 1> wrongZoom{{{.Zoom = 5, .X = 0, .Y = 0}}};
@@ -105,7 +105,7 @@ int main() {
       candidate, ground, {.FinestZoom = 4, .RequestsMost = 9, .AdditionalTiles = routeTiles});
   CHECK(prepared.has_value() && !*prepared && !probe->CalledOnCaller,
         "unreleased source leaves a complete candidate pending without caller-side collection");
-  CHECK(candidate.Sheets.front().Nodes.size() == Render::GroundLattice::kNodes,
+  CHECK(candidate.Sheets.front().Nodes.size() == Render::TerrainRenderer::kNodes,
         "pending fields do not finalize missing height nodes");
   HeightSheets abandoned = sheets;
   abandoned.ForgetsFields();
@@ -159,9 +159,9 @@ int main() {
         "a worker snapshot keeps immutable sourced fields after the candidate releases them");
   std::string error;
   CHECK(sheets.RefineByError(candidate,
-                             {.Side = Render::GroundLattice::kSide, .Halo = 1},
+                             {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
                              {},
-                             Render::GroundLattice::kMaximumPages,
+                             Render::TerrainRenderer::kMaximumPages,
                              error),
         "resolved field refines the native candidate");
   Patchwork interrupted = candidate;
@@ -177,7 +177,7 @@ int main() {
             interruptedSheets.RimsMissing() == sheets.RimsMissing(),
         "interrupted and one-shot halo preparation produce identical pages and rim counts");
   for (const Sheet &sheet : candidate.Sheets) {
-    CHECK(sheet.Nodes.size() == Render::GroundLattice::kPageNodes,
+    CHECK(sheet.Nodes.size() == Render::TerrainRenderer::kPageNodes,
           "complete height page has all interior and rim samples");
     CHECK(std::ranges::all_of(sheet.Nodes, [](float height) { return height == 42.0f; }),
           "completed page agrees with the delivered source height");
@@ -190,9 +190,9 @@ int main() {
   CHECK(residentReady.has_value() && *residentReady,
         "all fields are resident for the independent one-step preparation");
   CHECK(residentSheets.RefineByError(resident,
-                                     {.Side = Render::GroundLattice::kSide, .Halo = 1},
+                                     {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
                                      {},
-                                     Render::GroundLattice::kMaximumPages,
+                                     Render::TerrainRenderer::kMaximumPages,
                                      error),
         "resident source refines");
   CHECK(residentSheets.Halos(resident, 4) == resident.Sheets.size(), "resident halos complete");
@@ -207,9 +207,9 @@ int main() {
   }
   Patchwork boundary;
   boundary.Sheets.push_back({.Tile = {.Zoom = 4, .X = 0, .Y = 0},
-                             .Nodes = std::vector<float>(Render::GroundLattice::kNodes, 42.0f),
-                             .Side = Render::GroundLattice::kSide,
-                             .Postings = Render::GroundLattice::kSide});
+                             .Nodes = std::vector<float>(Render::TerrainRenderer::kNodes, 42.0f),
+                             .Side = Render::TerrainRenderer::kSide,
+                             .Postings = Render::TerrainRenderer::kSide});
   HeightSheets boundarySheets;
   boundarySheets.Framed(TangentFrame::At({}));
   auto boundaryReady =
@@ -307,7 +307,7 @@ int main() {
       CHECK(!settled.has_value() && !settled.error().empty(),
             "source refusal aborts the private candidate with a concrete error");
     }
-    CHECK(other.Sheets.front().Nodes.size() == Render::GroundLattice::kNodes ||
+    CHECK(other.Sheets.front().Nodes.size() == Render::TerrainRenderer::kNodes ||
               answer == DelayedSource::Answer::Absent,
           "failure leaves the original candidate geometry untouched");
   }

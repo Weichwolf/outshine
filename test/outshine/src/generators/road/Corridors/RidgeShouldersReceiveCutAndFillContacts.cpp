@@ -30,7 +30,7 @@ int main() {
   CHECK(ways.Ingest(vectors, vegetation) == 1, "the road reaches the native generator");
   const TangentFrame frame = TangentFrame::At(origin);
   const TriangleBvh empty = TriangleBvh::Over({}, {});
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const double slope : {-2., 2.}) {

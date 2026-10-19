@@ -250,7 +250,7 @@ PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how
 
 Snapped SnapshotOver(const Tile &region,
                      const outshine::GroundQuery &heights,
-                     std::shared_ptr<const ClassStructure> classes,
+                     std::shared_ptr<const TerrainClassificationMap> classes,
                      const Fields &stands,
                      std::shared_ptr<const GroundTable> table,
                      Ground::Snapshot *out,

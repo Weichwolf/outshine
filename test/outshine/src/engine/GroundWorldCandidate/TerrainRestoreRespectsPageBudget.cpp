@@ -29,7 +29,7 @@ int main() {
     const ::outshine::Generators::Osm::BuildingField footprints;
     world.BindSceneResources(renderer);
     std::array<Render::HeightPageHandle, 3> pages;
-    const std::vector<float> nodes(Render::GroundLattice::kPageNodes, 2.0f);
+    const std::vector<float> nodes(Render::TerrainRenderer::kPageNodes, 2.0f);
     for (Render::HeightPageHandle &page : pages) {
       const auto placed = renderer.PlaceHeightPage(nodes);
       CHECK(placed.has_value(), "published height page uploads");

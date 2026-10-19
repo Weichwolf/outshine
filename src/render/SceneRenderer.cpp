@@ -344,7 +344,7 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
                                 ActiveState().WhyNot)) {
     return std::unexpected(ActiveState().WhyNot);
   }
-  if (!Accepted(ActiveState().Content.Subjects.PrepareGroundStorage(State_.Frame.Handles),
+  if (!Accepted(ActiveState().Content.Subjects.PrepareTerrainMaterialBuffers(State_.Frame.Handles),
                 ActiveState().WhyNot)) {
     return std::unexpected(ActiveState().WhyNot);
   }

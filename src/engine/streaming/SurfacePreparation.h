@@ -170,7 +170,7 @@ public:
 
   [[nodiscard]] const ClassificationPreparation &Classes() const { return Cls_; }
 
-  [[nodiscard]] bool RestoreClasses(std::shared_ptr<const ClassStructure> classes) {
+  [[nodiscard]] bool RestoreClasses(std::shared_ptr<const TerrainClassificationMap> classes) {
     return Cls_.Restore(std::move(classes));
   }
 

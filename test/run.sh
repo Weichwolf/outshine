@@ -262,7 +262,7 @@ TestProfile() {
     outshine/src/world/navigation/TransportTopology) printf '%s' 'profile/transport-native' ;;
     outshine/src/diagnostics/ProcessHeap | outshine/src/engine/WorldInstanceSink)
       printf '%s' 'profile/diagnostics' ;;
-    outshine/src/render/device/GpuSubmission | outshine/src/render/device/GroundStorage)
+    outshine/src/render/device/GpuSubmission | outshine/src/render/terrain/TerrainMaterialBuffers)
       printf '%s' 'profile/device' ;;
     outshine/src/audio/*) printf '%s' 'profile/audio' ;;
     outshine/src/base/io/Tasks) printf '%s' 'profile/tasks' ;;
@@ -291,7 +291,7 @@ TestProfile() {
     outshine/src/scenario/ScenarioRead|outshine/src/scenario/ScenarioLayer) printf '%s' 'profile/scenario' ;;
     outshine/src/scenario/ScenarioWrite) printf '%s' 'profile/scenario-write' ;;
     outshine/src/render/Shape) printf '%s' 'profile/render-geometry' ;;
-    outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError) printf '%s' 'profile/ground-patch' ;;
+    outshine/src/render/terrain/TerrainPatchMesh|outshine/src/render/terrain/TerrainPatchError) printf '%s' 'profile/ground-patch' ;;
     outshine/src/render/device/SpirvFile) printf '%s' 'profile/spirv' ;;
     outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) printf '%s' 'profile/species' ;;
     outshine/src/render/stages/MediumView) printf '%s' 'profile/medium-view' ;;
@@ -338,7 +338,7 @@ LayerIncludes() {
     profile/scenario) GroupIncludes src/scenario ;;
     profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
-    profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/stages' ;;
+    profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/terrain' ;;
     profile/plant-build) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
     profile/plant-recipe-json) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
     profile/plant-crown-asset) LayerIncludes profile/plant-crown; GroupIncludes src/base ;;
@@ -379,7 +379,7 @@ LayerToolchain() {
 NativeSafetyProfile() {
   case "$1" in
     outshine/src/generators/flora/PlantLimbPlan|outshine/src/generators/flora/PlantLimbSurface|outshine/src/generators/flora/PlantLimbAsset|outshine/integration/content/PlantSpatialCache) return 0 ;;
-    outshine/integration/content/PlantCrownCache|outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PlantRandom|outshine/src/generators/flora/PlantAxisDetail|outshine/src/generators/flora/PlantGrowth|outshine/src/generators/flora/PlantCrownPlan|outshine/src/generators/flora/PlantCrownAsset|outshine/src/generators/flora/PlantRecipeJson|outshine/src/generators/flora/PlantRecipe|outshine/src/generators/flora/PreparedPlant|outshine/src/generators/flora/PreparedPlantBuild) return 0 ;;
+    outshine/integration/content/PlantCrownCache|outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/terrain/TerrainPatchMesh|outshine/src/render/terrain/TerrainPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PlantRandom|outshine/src/generators/flora/PlantAxisDetail|outshine/src/generators/flora/PlantGrowth|outshine/src/generators/flora/PlantCrownPlan|outshine/src/generators/flora/PlantCrownAsset|outshine/src/generators/flora/PlantRecipeJson|outshine/src/generators/flora/PlantRecipe|outshine/src/generators/flora/PreparedPlant|outshine/src/generators/flora/PreparedPlantBuild) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -518,14 +518,14 @@ LayerGroups() {
     profile/world) SubtreeGroups src/base src/content src/world ;;
     profile/host) SubtreeGroups src/base src/content src/world src/host ;;
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
-    profile/ground-patch) printf '%s' 'src/render/stages/GroundPatchMesh.cpp src/render/stages/GroundPatchError.cpp' ;;
+    profile/ground-patch) printf '%s' 'src/render/terrain/TerrainPatchMesh.cpp src/render/terrain/TerrainPatchError.cpp' ;;
     profile/scenario-write) printf '%s' "$(LayerGroups profile/scenario) src/scenario/Triggers.cpp src/scenario/Views.cpp" ;;
     profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
     profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
     profile/species) SubtreeGroups src/base; printf '%s' ' src/generators/flora/TreeSpecies.cpp src/generators/flora/Species.cpp src/generators/flora/GrowthForm.cpp src/generators/flora/TreeLeaf.cpp' ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
-    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
-    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -687,7 +687,7 @@ GroupToolchain() {
       ;;
     src/client | src/client/*) printf '%s' "$CXXSTD -fno-exceptions" ;;
     src/generators | src/generators/*) printf '%s' "$CXXSTD -fno-exceptions" ;;
-    src/render | src/render/device | src/render/stages | src/render/Readback.cpp | src/engine/UiSession.cpp | src/engine/region | src/engine/region/* | src/engine/GroundDiagnostics.cpp | src/engine/WorldFocus.cpp | src/engine/WorldPlacement.cpp | src/engine/RuntimeWorldPreparation.cpp | src/engine/TerrainCoverage.cpp | src/engine/SceneRuntimeIntegration.cpp | src/engine/FrameMeasurements.cpp | src/engine/AudioScenePublication.cpp | src/engine/AudioOcclusion.cpp | src/engine/FrameIO.cpp | src/engine/ScenarioSetup.cpp | src/engine/StatePersistence.cpp | src/engine/EngineUpdate.cpp | src/engine/RenderDiagnostics.cpp | src/engine/TilePieces.cpp | src/engine/HeightSheets.cpp | src/engine/HeightSheetsRefinement.cpp | src/engine/streaming | src/engine/RuntimeScene.cpp) LayerToolchain render ;;
+    src/render | src/render/device | src/render/stages | src/render/terrain | src/render/terrain/* | src/render/Readback.cpp | src/engine/UiSession.cpp | src/engine/region | src/engine/region/* | src/engine/GroundDiagnostics.cpp | src/engine/WorldFocus.cpp | src/engine/WorldPlacement.cpp | src/engine/RuntimeWorldPreparation.cpp | src/engine/TerrainCoverage.cpp | src/engine/SceneRuntimeIntegration.cpp | src/engine/FrameMeasurements.cpp | src/engine/AudioScenePublication.cpp | src/engine/AudioOcclusion.cpp | src/engine/FrameIO.cpp | src/engine/ScenarioSetup.cpp | src/engine/StatePersistence.cpp | src/engine/EngineUpdate.cpp | src/engine/RenderDiagnostics.cpp | src/engine/TilePieces.cpp | src/engine/HeightSheets.cpp | src/engine/HeightSheetsRefinement.cpp | src/engine/streaming | src/engine/RuntimeScene.cpp) LayerToolchain render ;;
     *) printf '%s' "$CXXSTD -fno-exceptions" ;;
   esac
 }

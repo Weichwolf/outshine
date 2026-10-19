@@ -62,7 +62,7 @@ void InspectGround(const EngineRenderState &picture, Core::DiagnosticLedger &pub
     published.RecordMetric(indexNames[i], static_cast<double>(referenced), "indices");
     indices += referenced;
   }
-  const auto skirts = uint64_t{Render::GroundLattice::kSkirtQuads} * 6u * ground->SkirtInstances;
+  const auto skirts = uint64_t{Render::TerrainRenderer::kSkirtQuads} * 6u * ground->SkirtInstances;
   published.RecordMetric("ground: skirt instances", ground->SkirtInstances, "instances");
   published.RecordMetric("ground: skirt index references", static_cast<double>(skirts), "indices");
   published.RecordMetric(

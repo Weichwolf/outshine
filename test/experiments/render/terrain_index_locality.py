@@ -128,7 +128,7 @@ def main():
     if not output.is_relative_to(Path("/tmp")) or output == Path("/tmp"):
         parser.error("a dedicated /tmp output directory is required")
     output.mkdir(parents=True, exist_ok=False)
-    constants = ROOT / "src/render/stages/GroundConstants.inc"
+    constants = ROOT / "src/render/terrain/GroundConstants.inc"
     match = re.search(r"GROUND_INT\(kGroundSide, (\d+)\)", constants.read_text())
     side = int(match.group(1))
     report = {

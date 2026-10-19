@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_GROUNDPAGEUPLOAD_H
 #define OUTSHINE_RENDER_STAGES_GROUNDPAGEUPLOAD_H
 
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 
 namespace outshine::Render {
 [[nodiscard]] Native::Result<void> CopyHeightPageLayers(Native::Commands &commands,

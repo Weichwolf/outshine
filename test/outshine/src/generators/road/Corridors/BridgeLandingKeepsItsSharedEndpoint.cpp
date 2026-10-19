@@ -105,7 +105,7 @@ void CheckLanding(bool joined, bool reversed) {
   }
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty, .Field = [](EastNorth) { return std::optional<double>{0}; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   RecordingMesher mesher;
   mesher.CrossingEastM = frame
                              .ToLocalGroundPosition({.LongitudeDeg = declared[1].LatLon[3],

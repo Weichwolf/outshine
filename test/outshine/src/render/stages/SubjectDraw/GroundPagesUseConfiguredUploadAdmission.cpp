@@ -54,7 +54,7 @@ int main() {
   const auto marker = Require(uploads.Submit(Require(uploads.Begin())));
   CHECK(Require(actual->Wait(marker, std::chrono::seconds(5))) == Native::CompletionStatus::Ready,
         "the admission retry has an actual accepted completion");
-  std::array<float, GroundLattice::kPageNodes> heights{};
+  std::array<float, TerrainRenderer::kPageNodes> heights{};
   constexpr float heightM = 3.5f;
   heights.fill(heightM);
   const auto generation = draw.Ground().Generation();

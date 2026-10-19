@@ -161,7 +161,7 @@ Native::Result<void> SubjectDraw::AttachPipelines(SubjectPipelineBinding &bindin
   return {};
 }
 
-Native::Result<void> SubjectDraw::PrepareGroundStorage(const Gpu &gpu) {
+Native::Result<void> SubjectDraw::PrepareTerrainMaterialBuffers(const Gpu &gpu) {
   Ground_.UploadsFrom(gpu.Uploads);
   if (gpu.Device == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,

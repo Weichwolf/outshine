@@ -24,7 +24,7 @@ Native::Result<void> UploadHeightPages(Native::Device &device,
                                        Native::Texture &atlas,
                                        std::span<const PageId> pages,
                                        std::span<const HeightPageView> nodes) {
-  constexpr uint64_t pageBytes = GroundLattice::kPageNodes * sizeof(float);
+  constexpr uint64_t pageBytes = TerrainRenderer::kPageNodes * sizeof(float);
   auto staging = device.CreateBuffer({.Bytes = pageBytes * nodes.size(),
                                       .Use = Native::BufferUse::CopySource,
                                       .Placement = Native::Memory::Upload});
@@ -42,14 +42,15 @@ Native::Result<void> UploadHeightPages(Native::Device &device,
         **staging,
         atlas,
         {.BufferOffset = at * pageBytes,
-         .RowBytes = static_cast<uint64_t>(GroundLattice::kPageSide) * sizeof(float),
-         .Region = {.Layer = page / GroundLattice::kPagesPerLayer,
-                    .X = (page % GroundLattice::kPageColumns) *
-                         static_cast<uint32_t>(GroundLattice::kPageSide),
-                    .Y = ((page % GroundLattice::kPagesPerLayer) / GroundLattice::kPageColumns) *
-                         static_cast<uint32_t>(GroundLattice::kPageSide),
-                    .Width = static_cast<uint32_t>(GroundLattice::kPageSide),
-                    .Height = static_cast<uint32_t>(GroundLattice::kPageSide)}});
+         .RowBytes = static_cast<uint64_t>(TerrainRenderer::kPageSide) * sizeof(float),
+         .Region = {.Layer = page / TerrainRenderer::kPagesPerLayer,
+                    .X = (page % TerrainRenderer::kPageColumns) *
+                         static_cast<uint32_t>(TerrainRenderer::kPageSide),
+                    .Y =
+                        ((page % TerrainRenderer::kPagesPerLayer) / TerrainRenderer::kPageColumns) *
+                        static_cast<uint32_t>(TerrainRenderer::kPageSide),
+                    .Width = static_cast<uint32_t>(TerrainRenderer::kPageSide),
+                    .Height = static_cast<uint32_t>(TerrainRenderer::kPageSide)}});
     if (!copied) { return copied; }
   }
   return {};

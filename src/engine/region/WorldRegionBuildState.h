@@ -277,12 +277,12 @@ public:
     auto &build = Candidate_.Products();
     Lays(std::move(region.Terrain));
     build.Ground = std::move(region.Surfaces);
-    build.ClassStructure = std::move(region.Classes);
+    build.TerrainClassificationMap = std::move(region.Classes);
     build.ClassPalette = std::move(region.ClassPalette);
-    build.ClassUpload =
-        build.ClassStructure
-            ? std::make_shared<const Render::GroundClassBuffer>(*build.ClassStructure)
-            : nullptr;
+    build.ClassUpload = build.TerrainClassificationMap
+                            ? std::make_shared<const Render::PackedTerrainClassification>(
+                                  *build.TerrainClassificationMap)
+                            : nullptr;
     build.StreetGraph = std::move(region.Network);
     build.StreetGraphWayCount = static_cast<size_t>(region.NetworkWays);
     build.RimsMissing = static_cast<size_t>(region.MissingRims);

@@ -22,7 +22,7 @@ int main() {
   const std::array<std::string, 1> layers{"streets"};
   const TangentFrame frame = TangentFrame::At(origin);
   const TriangleBvh empty = TriangleBvh::Over({}, {});
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const std::string kind : {"residential", "track"}) {

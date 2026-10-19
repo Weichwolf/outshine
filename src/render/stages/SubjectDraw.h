@@ -22,7 +22,7 @@
 
 #include "KernelShape.h"
 #include "VertexArms.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "SubjectResidency.h"
 #include "GpuPlacement.h"
 #include "SubjectMaterialPacking.h"
@@ -51,7 +51,7 @@ private:
   std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelineCount> Pipelines;
   uint32_t Built = 0;
   std::vector<Resource> Colours;
-  GroundPipelineBinding Ground;
+  TerrainPipelines Ground;
   Native::Texture *Behind = nullptr;
   Native::Sampler *BehindSampler = nullptr;
   bool GlassDrawnElsewhere = false;
@@ -95,7 +95,7 @@ public:
                                                bool separateTransmission);
   [[nodiscard]] Native::Result<void> AttachPipelines(SubjectPipelineBinding &binding,
                                                      const Gpu &gpu);
-  [[nodiscard]] Native::Result<void> PrepareGroundStorage(const Gpu &gpu);
+  [[nodiscard]] Native::Result<void> PrepareTerrainMaterialBuffers(const Gpu &gpu);
 
   void UsePipelines(SubjectPipelineBinding &binding) noexcept {
     Binding_ = &binding;
@@ -131,9 +131,9 @@ public:
 
   [[nodiscard]] bool HandDrawArguments(bool deferred, std::string &error);
 
-  [[nodiscard]] GroundLattice &Ground() { return Ground_; }
+  [[nodiscard]] TerrainRenderer &Ground() { return Ground_; }
 
-  [[nodiscard]] const GroundLattice &Ground() const { return Ground_; }
+  [[nodiscard]] const TerrainRenderer &Ground() const { return Ground_; }
 
   void SetPiecesVisible(bool visible);
 
@@ -413,7 +413,7 @@ private:
     bool ReadsSecondUv = false;
   };
 
-  GroundLattice Ground_;
+  TerrainRenderer Ground_;
 
   [[nodiscard]] bool BindSurface(const SubjectMaterial &material,
                                  std::string &error,

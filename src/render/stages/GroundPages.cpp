@@ -1,5 +1,5 @@
 #include "UploadQueue.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "GroundPageUpload.h"
 #include "VectorCapacity.h"
 #include <array>
@@ -13,8 +13,8 @@
 #include <vector>
 
 namespace outshine::Render {
-Native::Result<void> GroundLattice::BuildPages(uint32_t layers,
-                                               std::unique_ptr<Native::Texture> &into) {
+Native::Result<void> TerrainRenderer::BuildPages(uint32_t layers,
+                                                 std::unique_ptr<Native::Texture> &into) {
   auto pages =
       Device_->CreateTexture({.Width = static_cast<uint32_t>(kPageSide) * kPageColumns,
                               .Height = static_cast<uint32_t>(kPageSide) * kPageColumns,
@@ -29,7 +29,7 @@ Native::Result<void> GroundLattice::BuildPages(uint32_t layers,
 }
 
 Native::Result<std::vector<PageId>>
-GroundLattice::PlacePages(std::span<const HeightPageView> nodes) {
+TerrainRenderer::PlacePages(std::span<const HeightPageView> nodes) {
   if (nodes.size() > kHeightPageBatchMost) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground height page batch exceeds its budget"});
@@ -98,7 +98,7 @@ GroundLattice::PlacePages(std::span<const HeightPageView> nodes) {
   return pages;
 }
 
-Native::Result<PageId> GroundLattice::PlacePage(std::span<const float> nodes) {
+Native::Result<PageId> TerrainRenderer::PlacePage(std::span<const float> nodes) {
   const std::array batch{nodes};
   auto placed = PlacePages(batch);
   if (!placed) { return std::unexpected(placed.error()); }

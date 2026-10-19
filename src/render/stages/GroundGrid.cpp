@@ -1,5 +1,5 @@
 #include "UploadQueue.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -13,11 +13,11 @@
 
 namespace outshine::Render {
 namespace {
-constexpr auto kSide = GroundLattice::kSide;
-constexpr auto kNodes = GroundLattice::kNodes;
-constexpr auto kVertices = GroundLattice::kVertices;
-constexpr auto kIndices = GroundLattice::kIndices;
-constexpr auto kGridFloats = GroundLattice::kGridFloats;
+constexpr auto kSide = TerrainRenderer::kSide;
+constexpr auto kNodes = TerrainRenderer::kNodes;
+constexpr auto kVertices = TerrainRenderer::kVertices;
+constexpr auto kIndices = TerrainRenderer::kIndices;
+constexpr auto kGridFloats = TerrainRenderer::kGridFloats;
 
 std::vector<float> Vertices(std::span<const float> fractions) {
   std::vector<float> grid;
@@ -79,8 +79,8 @@ std::vector<uint32_t> Indices() {
 }
 }
 
-Native::Result<void> GroundLattice::BuildGrid(std::span<const float> fractions,
-                                              std::shared_ptr<const Native::Buffer> &into) {
+Native::Result<void> TerrainRenderer::BuildGrid(std::span<const float> fractions,
+                                                std::shared_ptr<const Native::Buffer> &into) {
   const auto grid = Vertices(fractions);
   const auto index = Index_ ? std::vector<uint32_t>{} : Indices();
   auto madeGrid = Device_->CreateBuffer(

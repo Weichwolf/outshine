@@ -46,7 +46,7 @@ byte but has no consistent timing benefit in its paired trial; it is not adopted
 
 The complete production Metal probe passes with validation, including 154 math
 checks. A private negative control that also relaxes vertex arithmetic fails the
-five cancellation checks. All eight native Terrain/GroundLattice cases pass.
+five cancellation checks. All eight native Terrain/TerrainRenderer cases pass.
 Focused clang-tidy covers the changed Metal implementation and the new test
 translation unit/native headers; format and documentation checks pass.
 

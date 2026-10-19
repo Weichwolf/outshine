@@ -61,7 +61,7 @@ void CheckCrossings(int variant) {
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty,
                     .Field = [](EastNorth) -> std::optional<double> { return 0; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   const Generators::Corridors::Site site{.Vectors = &vectors,

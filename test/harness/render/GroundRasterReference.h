@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_TEST_RENDER_GROUNDRASTERREFERENCE_H
 #define OUTSHINE_TEST_RENDER_GROUNDRASTERREFERENCE_H
 
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "NativeGpuCheck.h"
 #include <array>
 #include <cstddef>
@@ -17,7 +17,7 @@ struct GroundReferenceInput {
 };
 
 inline std::vector<float> GroundControlGrid(std::span<const float> fractions) {
-  constexpr uint32_t side = Render::GroundLattice::kSide;
+  constexpr uint32_t side = Render::TerrainRenderer::kSide;
   std::vector<float> grid;
   for (uint32_t variant = 0; variant < 2; ++variant) {
     for (uint32_t y = 0; y < side; ++y) {
@@ -39,7 +39,7 @@ inline std::vector<float> GroundControlGrid(std::span<const float> fractions) {
 }
 
 inline std::vector<uint32_t> GroundControlIndices() {
-  constexpr uint32_t side = Render::GroundLattice::kSide;
+  constexpr uint32_t side = Render::TerrainRenderer::kSide;
   std::vector<uint32_t> indices;
   for (uint32_t y = 0; y + 1 < side; ++y) {
     for (uint32_t x = 0; x + 1 < side; ++x) {
@@ -63,7 +63,7 @@ inline std::vector<uint32_t> GroundControlIndices() {
 
 inline void DrawGroundReference(Device &device,
                                 Commands &commands,
-                                const Render::GroundPipelineBinding &pipelines,
+                                const Render::TerrainPipelines &pipelines,
                                 const GroundReferenceInput &input,
                                 std::span<const Binding> bindings,
                                 uint32_t width,
@@ -82,9 +82,9 @@ inline void DrawGroundReference(Device &device,
   auto instances = Upload(device, commands, words(tiles), BufferUse::Vertex);
   const auto page = static_cast<uint32_t>(tiles[0].Page);
   auto pages = Require(
-      device.CreateTexture({.Width = GroundLattice::kPageSide * GroundLattice::kPageColumns,
-                            .Height = GroundLattice::kPageSide * GroundLattice::kPageColumns,
-                            .Layers = page / GroundLattice::kPagesPerLayer + 1u,
+      device.CreateTexture({.Width = TerrainRenderer::kPageSide * TerrainRenderer::kPageColumns,
+                            .Height = TerrainRenderer::kPageSide * TerrainRenderer::kPageColumns,
+                            .Layers = page / TerrainRenderer::kPagesPerLayer + 1u,
                             .Type = TextureType::Image2DArray,
                             .Texels = Format::R32Float,
                             .Use = TextureUse::Sampled | TextureUse::CopyDestination}));
@@ -92,13 +92,13 @@ inline void DrawGroundReference(Device &device,
   Require(commands.Copy(
       *heights,
       *pages,
-      {.RowBytes = GroundLattice::kPageSide * sizeof(float),
-       .Region = {.Layer = page / GroundLattice::kPagesPerLayer,
-                  .X = (page % GroundLattice::kPageColumns) * GroundLattice::kPageSide,
-                  .Y = ((page % GroundLattice::kPagesPerLayer) / GroundLattice::kPageColumns) *
-                       GroundLattice::kPageSide,
-                  .Width = GroundLattice::kPageSide,
-                  .Height = GroundLattice::kPageSide}}));
+      {.RowBytes = TerrainRenderer::kPageSide * sizeof(float),
+       .Region = {.Layer = page / TerrainRenderer::kPagesPerLayer,
+                  .X = (page % TerrainRenderer::kPageColumns) * TerrainRenderer::kPageSide,
+                  .Y = ((page % TerrainRenderer::kPagesPerLayer) / TerrainRenderer::kPageColumns) *
+                       TerrainRenderer::kPageSide,
+                  .Width = TerrainRenderer::kPageSide,
+                  .Height = TerrainRenderer::kPageSide}}));
   const auto sampler = Require(device.CreateSampler(
       {.Min = Render::Native::Filter::Nearest, .Mag = Render::Native::Filter::Nearest}));
   std::vector<Binding> resources(bindings.begin(), bindings.end());
@@ -113,8 +113,8 @@ inline void DrawGroundReference(Device &device,
         VertexBuffer{
             .Stream = 0,
             .Data = vertices.get(),
-            .Range = {.Offset = uint64_t{tile} * GroundLattice::kVertices * 3u * sizeof(float),
-                      .Bytes = uint64_t{GroundLattice::kVertices} * 3u * sizeof(float)}},
+            .Range = {.Offset = uint64_t{tile} * TerrainRenderer::kVertices * 3u * sizeof(float),
+                      .Bytes = uint64_t{TerrainRenderer::kVertices} * 3u * sizeof(float)}},
         VertexBuffer{.Stream = 1,
                      .Data = instances.get(),
                      .Range = {.Bytes = instances->Description().Bytes}}};

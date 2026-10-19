@@ -79,7 +79,7 @@ selects the tile, patch and real/virtual fraction table. Original 33-sample
 fractions and tile rows are pulled from storage; outer skirts and shadow grids
 remain complete. Asset formats and terrain sampling are unchanged.
 
-`GroundLattice/SurfacePatchesPreserveRasterAndFractions` verifies native depth,
+`TerrainRenderer/SurfacePatchesPreserveRasterAndFractions` verifies native depth,
 material targets, array-layer growth, complete skirts, perspective and non-affine
 heights against an independently drawn complete grid on the same device.
 Current opaque depth now selects and stably compacts patches before drawing.

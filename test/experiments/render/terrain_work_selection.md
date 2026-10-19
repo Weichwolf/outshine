@@ -66,7 +66,7 @@ fixture uses two neighboring flat tiles at heights 0.6 and 0.2, viewed from
 x=2 at height 0.4 with near=0.1. The near gap wall at x=0 must produce reversed
 depth 0.1/2 = 0.05. Before correction, the GPU returned 0.1/3 = 0.0333333,
 the far wall at x=-1. Reversing only skirt winding restores the analytic depth.
-The native regression is `GroundLattice/OuterSkirtsFaceTheGap`; this correction
+The native regression is `TerrainRenderer/OuterSkirtsFaceTheGap`; this correction
 is independent of the rejected proxy optimization.
 
 ## Exact early terrain

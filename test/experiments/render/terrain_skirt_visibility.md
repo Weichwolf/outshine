@@ -1,6 +1,6 @@
 # Height-independent terrain skirt selection
 
-Owner #12; native costs #15, integration #531. The current GroundLattice keeps
+Owner #12; native costs #15, integration #531. The current TerrainRenderer keeps
 all four original skirts for every frustum-admitted tile. Hardware backface culling
 happens after their vertex work. This experiment moves only that decision earlier;
 it does not remove front faces, change terrain detail or prove native performance.
