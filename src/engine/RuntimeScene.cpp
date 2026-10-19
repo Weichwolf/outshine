@@ -259,7 +259,10 @@ bool RuntimeScene::PreparesRetainedGeometryReplacement(Render::SceneRenderer &re
                                                        std::string &error,
                                                        Render::SceneResources::PieceSources pieces,
                                                        ResourceRestoreMode restore) {
-  if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
+  if (!renderer.BeginsWorldCandidate(
+          error, pieces, Render::SceneRenderer::GroundSources::Published)) {
+    return false;
+  }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
   if (!PrepareWithPlan(renderer,
@@ -321,7 +324,10 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                        pieces,
                                        restore);
   }
-  if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
+  if (!renderer.BeginsWorldCandidate(
+          error, pieces, Render::SceneRenderer::GroundSources::Published)) {
+    return false;
+  }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
   if (!PrepareWithPlan(renderer,
@@ -1149,12 +1155,14 @@ bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
                                size_t drivenParts,
                                const Material &wearing,
                                std::string &error) {
+  const auto offlineUploads = Renderer_->OfflineUploads(std::chrono::seconds(5));
   if (auto valid = ValidGeometryBuild(built, drivenParts); !valid) {
     error = std::move(valid.error());
     return false;
   }
   return SetRetainedGeometry(
-      std::make_shared<const Geometry>(std::move(built)), drivenParts, wearing, error);
+             std::make_shared<const Geometry>(std::move(built)), drivenParts, wearing, error) &&
+         Renderer_->Settle(error);
 }
 
 bool RuntimeScene::SetRetainedGeometry(std::shared_ptr<const Geometry> built,

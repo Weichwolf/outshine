@@ -1,4 +1,7 @@
 #include "test/harness/render/NativeGroundLatticeProbe.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOffline.h"
+#include "Check.h"
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -7,6 +10,8 @@
 
 int main() {
   using namespace outshine::Test::GroundProbe;
+  constexpr float kHeightAmplitude = 0.005f;
+  constexpr double kHeightRate = 0.7;
   auto device = Require(CreateDevice({.Validation = true}));
   GroundLattice ground;
   std::array<ColourTarget, kTargetFormats.size()> targets;
@@ -24,7 +29,9 @@ int main() {
     pattern.Fractions[i] = static_cast<float>(i) / (pattern.Fractions.size() - 1);
   }
   for (size_t i = 0; i < pattern.Nodes.size(); ++i) {
-    pattern.Nodes[i] = 0.5f + 0.005f * static_cast<float>(std::sin(static_cast<double>(i) * 0.7));
+    pattern.Nodes[i] =
+        0.5f +
+        kHeightAmplitude * static_cast<float>(std::sin(static_cast<double>(i) * kHeightRate));
   }
   const auto page = Require(
       RetryOffline([&] { return ground.PlacePage(pattern.Nodes); }, std::chrono::seconds(5)));

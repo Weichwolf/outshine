@@ -40,6 +40,20 @@ Native::Result<std::unique_ptr<Native::Buffer>> Allocate(Native::Device &device,
 }
 }
 
+Native::Result<void> GroundStorage::ReuseInputsFrom(const GroundStorage &previous,
+                                                    Native::Device &device) {
+  if ((Device_ != nullptr && Device_ != &device) ||
+      (previous.Device_ != nullptr && previous.Device_ != &device)) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "ground inputs belong to another device"});
+  }
+  if (Ready() || Pending_ || !previous.Ready()) { return {}; }
+  Classes_ = previous.Classes_;
+  Palette_ = previous.Palette_;
+  Device_ = &device;
+  return {};
+}
+
 Native::Result<void> GroundStorage::BeginReplace(Native::Device *device,
                                                  std::span<const uint32_t> classes,
                                                  std::span<const float> palette,
@@ -136,6 +150,7 @@ Native::Result<bool> GroundStorage::AdvanceReplace(size_t bytesMost,
   if (pending.ClassOffset == pending.ClassBytes && pending.PaletteOffset == pending.PaletteBytes) {
     Classes_ = std::move(pending.Classes);
     Palette_ = std::move(pending.Palette);
+    Device_ = pending.Device;
     Pending_.reset();
     return true;
   }

@@ -233,6 +233,41 @@ inline std::vector<float> PatternControl(Device &device,
   return Read(device, *target, 1);
 }
 
+inline void CheckPattern(Device &device,
+                         Texture &normals,
+                         const HeightPattern &pattern,
+                         std::span<const Binding> bindings,
+                         std::span<const ColourAttachment> attachments,
+                         const std::vector<float> &depths,
+                         bool adaptive) {
+  constexpr float kNormalTolerance = 1e-6f;
+  const auto actualNormals = adaptive ? Read(device, normals, 4) : std::vector<float>{};
+  const auto expected = PatternControl(device, pattern, bindings, attachments);
+  if (adaptive) {
+    const auto expectedNormals = Read(device, normals, 4);
+    size_t coverageMismatch = 0;
+    size_t normalMismatch = 0;
+    for (size_t i = 0; i < kPixels; ++i) {
+      if ((depths[i] > 0) != (expected[i] > 0)) { ++coverageMismatch; }
+      for (size_t c = 0; c < 4; ++c) {
+        if (!std::isfinite(actualNormals[i * 4 + c]) ||
+            std::abs(actualNormals[i * 4 + c] - expectedNormals[i * 4 + c]) > kNormalTolerance) {
+          ++normalMismatch;
+        }
+      }
+    }
+    CHECK(coverageMismatch == 0, "adaptive patches retain closed full-grid coverage");
+    CHECK(normalMismatch == 0,
+          "coarse geometry reconstructs the original fine interpolated normals");
+  } else {
+    CHECK(depths == expected,
+          "all patch pixels exactly match independently drawn full-grid triangles");
+  }
+  CHECK(std::count_if(expected.begin(), expected.end(), [](float value) { return value > 0; }) >
+            static_cast<ptrdiff_t>(kPixels / 3),
+        "the non-affine control is nonempty");
+}
+
 inline void Lit(Device &device,
                 GroundLattice &ground,
                 const std::string &prefix,
@@ -313,28 +348,7 @@ inline void Lit(Device &device,
         "the actual five-target terrain material pass completes");
   auto depths = Read(device, *depth, 1);
   if (pattern != nullptr) {
-    const auto actualNormals = adaptive ? Read(device, *targets[1], 4) : std::vector<float>{};
-    const auto expected = PatternControl(device, *pattern, bindings, attachments);
-    if (adaptive) {
-      const auto expectedNormals = Read(device, *targets[1], 4);
-      size_t coverageMismatch = 0, normalMismatch = 0;
-      for (size_t i = 0; i < kPixels; ++i) {
-        coverageMismatch += (depths[i] > 0) != (expected[i] > 0);
-        for (size_t c = 0; c < 4; ++c) {
-          normalMismatch += !std::isfinite(actualNormals[i * 4 + c]) ||
-                            std::abs(actualNormals[i * 4 + c] - expectedNormals[i * 4 + c]) > 1e-6f;
-        }
-      }
-      CHECK(coverageMismatch == 0, "adaptive patches retain closed full-grid coverage");
-      CHECK(normalMismatch == 0,
-            "coarse geometry reconstructs the original fine interpolated normals");
-    } else {
-      CHECK(depths == expected,
-            "all patch pixels exactly match independently drawn full-grid triangles");
-    }
-    CHECK(std::count_if(expected.begin(), expected.end(), [](float value) { return value > 0; }) >
-              static_cast<ptrdiff_t>(kPixels / 3),
-          "the non-affine control is nonempty");
+    CheckPattern(device, *targets[1], *pattern, bindings, attachments, depths, adaptive);
     return;
   }
   CheckDepth(depths, true);

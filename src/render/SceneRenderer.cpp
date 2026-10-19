@@ -275,13 +275,16 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
   return InitForTarget(frame, std::move(plan), Showing_ != nullptr);
 }
 
-bool SceneRenderer::BeginsWorldCandidate(std::string &error, SceneResources::PieceSources pieces) {
+bool SceneRenderer::BeginsWorldCandidate(std::string &error,
+                                         SceneResources::PieceSources pieces,
+                                         GroundSources ground) {
   if (Candidate_) {
     error = "a renderer already builds a world candidate, so a second candidate cannot borrow its "
             "temporary GPU state";
     return false;
   }
   Candidate_.emplace();
+  Candidate_->GroundInputs = ground;
   Candidate_->Content.Resources.CopySourcesFrom(State_.Content.Resources, pieces);
   error.clear();
   return true;
@@ -322,16 +325,23 @@ std::expected<void, std::string> SceneRenderer::ValidateExecutablePlan(const Com
 
 std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame,
                                                                     const Compiled &plan) {
+  if (!Candidate_) { return false; }
   const bool reusesFrame =
-      Candidate_ && State_.Ready && State_.Plan != nullptr && State_.Frame.Width == frame.WidthPx &&
+      State_.Ready && State_.Plan != nullptr && State_.Frame.Width == frame.WidthPx &&
       State_.Frame.Height == frame.HeightPx && State_.Plan->Specification() == plan.Specification();
   if (!reusesFrame) { return false; }
+  const bool reusesGround = Candidate_->GroundInputs == GroundSources::Published;
   Candidate_->Frame.reset();
   ActiveState().Plan = State_.Plan;
   ActiveState().Content.DrawsGlass = plan.Holds(Stage::SubjectsTransmissive);
   if (!Accepted(ActiveState().Content.Subjects.AttachPipelines(State_.Frame.SubjectPipelines,
                                                                State_.Frame.Handles),
                 ActiveState().WhyNot)) {
+    return std::unexpected(ActiveState().WhyNot);
+  }
+  if (reusesGround && !Accepted(ActiveState().Content.Subjects.Ground().ReuseInputsFrom(
+                                    State_.Content.Subjects.Ground(), *Device_),
+                                ActiveState().WhyNot)) {
     return std::unexpected(ActiveState().WhyNot);
   }
   if (!Accepted(ActiveState().Content.Subjects.PrepareGroundStorage(State_.Frame.Handles),
@@ -344,6 +354,11 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
     return std::unexpected(ActiveState().WhyNot);
   }
   ActiveState().Content.Glass.Shares(ActiveState().Content.Subjects.Owned());
+  if (reusesGround &&
+      !Accepted(ActiveState().Content.Ground.ReuseInputsFrom(State_.Content.Ground, *Device_),
+                ActiveState().WhyNot)) {
+    return std::unexpected(ActiveState().WhyNot);
+  }
   if (!ActiveState().Content.Ground.Ready()) {
     const auto ground = ActiveState().Content.Ground.Replace(
         State_.Frame.Handles.Device, {}, {}, std::chrono::seconds(5));

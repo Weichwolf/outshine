@@ -37,9 +37,12 @@ public:
                                              std::chrono::nanoseconds budget,
                                              GroundStorageUploadMetrics *metrics = nullptr);
 
-  [[nodiscard]] Native::Buffer *Classes() const noexcept { return Classes_.get(); }
+  [[nodiscard]] Native::Result<void> ReuseInputsFrom(const GroundStorage &previous,
+                                                     Native::Device &device);
 
-  [[nodiscard]] Native::Buffer *Palette() const noexcept { return Palette_.get(); }
+  [[nodiscard]] const Native::Buffer *Classes() const noexcept { return Classes_.get(); }
+
+  [[nodiscard]] const Native::Buffer *Palette() const noexcept { return Palette_.get(); }
 
   [[nodiscard]] bool Ready() const noexcept { return Classes_ && Palette_; }
 
@@ -73,8 +76,9 @@ private:
                                                   GroundStorageUploadMetrics *metrics);
 
   UploadQueue *Uploads_ = nullptr;
-  std::unique_ptr<Native::Buffer> Classes_;
-  std::unique_ptr<Native::Buffer> Palette_;
+  Native::Device *Device_ = nullptr;
+  std::shared_ptr<const Native::Buffer> Classes_;
+  std::shared_ptr<const Native::Buffer> Palette_;
   std::optional<PendingUpload> Pending_;
 };
 

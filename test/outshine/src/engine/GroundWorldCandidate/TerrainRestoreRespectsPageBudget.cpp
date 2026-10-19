@@ -4,6 +4,8 @@
 
 #include <SDL3/SDL.h>
 #include <array>
+#include <chrono>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -15,6 +17,7 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
     Render::SceneRenderer renderer;
+    const auto uploads = renderer.OfflineUploads(std::chrono::seconds(5));
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
@@ -23,7 +26,7 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "published world opens");
     Surrounds world;
-    ::outshine::Generators::Osm::BuildingField footprints;
+    const ::outshine::Generators::Osm::BuildingField footprints;
     world.BindSceneResources(renderer);
     std::array<Render::HeightPageHandle, 3> pages;
     const std::vector<float> nodes(Render::GroundLattice::kPageNodes, 2.0f);

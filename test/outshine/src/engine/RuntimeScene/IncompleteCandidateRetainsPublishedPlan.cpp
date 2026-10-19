@@ -3,11 +3,14 @@
 #include "test/harness/render/NativeDeviceProxy.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
 #include <print>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -26,6 +29,10 @@ constexpr double kFarM = 100;
 
 struct Counts {
   unsigned Graphics = 0;
+  size_t Buffers = 0;
+  size_t BufferBytes = 0;
+  size_t Submissions = 0;
+  size_t Waits = 0;
 };
 
 class Counted final : public outshine::Test::Gpu::NativeDeviceProxy {
@@ -44,6 +51,25 @@ public:
   CreateGraphicsPipeline(const Native::GraphicsDescription &description) override {
     ++Counts_.Graphics;
     return Backing().CreateGraphicsPipeline(description);
+  }
+
+  Native::Result<std::unique_ptr<Native::Buffer>>
+  CreateBuffer(Native::BufferDescription description, std::string_view label = {}) override {
+    ++Counts_.Buffers;
+    Counts_.BufferBytes += description.Bytes;
+    return Backing().CreateBuffer(description, label);
+  }
+
+  Native::Result<Native::Completion> Submit(std::unique_ptr<Native::Commands> commands) override {
+    auto submitted = Backing().Submit(std::move(commands));
+    if (submitted) { ++Counts_.Submissions; }
+    return submitted;
+  }
+
+  Native::Result<Native::CompletionStatus> Wait(Native::Completion completion,
+                                                std::chrono::nanoseconds budget) override {
+    ++Counts_.Waits;
+    return Backing().Wait(completion, budget);
   }
 
 private:
@@ -115,6 +141,7 @@ void Exercise(bool glass) {
   for (const bool publish : {false, true}) {
     Core::WorldCandidate next(renderer);
     const auto graphics = counts.Graphics;
+    const auto previous = counts;
     CHECK(next.Prepare(*scene,
                        nullptr,
                        SceneResources::PieceSources::Copy,
@@ -127,6 +154,15 @@ void Exercise(bool glass) {
     std::println("glass={} new_graphics_before_complete={}", glass, counts.Graphics - graphics);
     CHECK(counts.Graphics == graphics,
           "incomplete world preparation builds no replacement graphics pipelines");
+    std::println("buffers={} bytes={} submits={} waits={}",
+                 counts.Buffers - previous.Buffers,
+                 counts.BufferBytes - previous.BufferBytes,
+                 counts.Submissions - previous.Submissions,
+                 counts.Waits - previous.Waits);
+    CHECK(counts.Buffers == previous.Buffers && counts.BufferBytes == previous.BufferBytes,
+          "unchanged terrain inputs allocate no replacement or staging buffers");
+    CHECK(counts.Submissions == previous.Submissions && counts.Waits == previous.Waits,
+          "unchanged terrain inputs neither submit uploads nor wait for the GPU");
     CHECK(Draw(*scene, renderer) == before,
           "published pixels stay exact while the candidate is incomplete");
     if (publish) {

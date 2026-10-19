@@ -121,6 +121,29 @@ Native::Result<void> GroundLattice::Configure(GroundPipelineBinding &pipelines,
   return {};
 }
 
+Native::Result<void> GroundLattice::ReuseInputsFrom(const GroundLattice &previous,
+                                                    Native::Device &device) {
+  if ((Device_ != nullptr && Device_ != &device) ||
+      (previous.Device_ != nullptr && previous.Device_ != &device)) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "ground geometry belongs to another device"});
+  }
+  if (Grid_ || UniformGrid_ || Index_ || PatchGrid_ || PatchIndex_ || PatchFractions_ ||
+      !previous.Grid_ || !previous.UniformGrid_ || !previous.Index_ || !previous.PatchGrid_ ||
+      !previous.PatchIndex_ || !previous.PatchFractions_) {
+    return {};
+  }
+  Grid_ = previous.Grid_;
+  UniformGrid_ = previous.UniformGrid_;
+  Index_ = previous.Index_;
+  PatchGrid_ = previous.PatchGrid_;
+  PatchIndex_ = previous.PatchIndex_;
+  PatchFractions_ = previous.PatchFractions_;
+  Selection_.Fractions(previous.Selection_.Fractions());
+  Device_ = &device;
+  return {};
+}
+
 Native::Result<void> GroundLattice::AttachPipelines(GroundPipelineBinding &pipelines,
                                                     Native::Device &device) {
   if (Device_ != nullptr && Device_ != &device) {

@@ -97,7 +97,7 @@ struct Faults final : NativeDeviceProxy {
   }
 };
 
-std::vector<uint32_t> Read(Device *device, Buffer *buffer, size_t words) {
+std::vector<uint32_t> Read(Device *device, const Buffer *buffer, size_t words) {
   auto readback =
       Require(ReadbackTransfer::Start(*device, *buffer, {.Bytes = words * sizeof(uint32_t)}));
   const auto bytes = Require(readback.Wait(*device, std::chrono::seconds(5)));
@@ -113,8 +113,10 @@ void FailedReplacements(Faults *device,
                         const std::vector<uint32_t> &classes,
                         const std::vector<uint32_t> &palette) {
   auto &faults = *device;
-  auto *const oldClasses = storage.Classes();
-  auto *const oldPalette = storage.Palette();
+  GroundStorage shared;
+  Require(shared.ReuseInputsFrom(storage, *device));
+  const auto *const oldClasses = storage.Classes();
+  const auto *const oldPalette = storage.Palette();
   const std::vector<uint32_t> zero(4);
   const std::array<uint32_t, 8> largerClasses{1, 2, 3, 4, 5, 6, 7, 8};
   const std::array<float, 5> largerPalette{1, 0.5f, 0.25f, 0.125f, 0.0625f};
@@ -134,6 +136,9 @@ void FailedReplacements(Faults *device,
             "admission precedes staging; map or acquire failure cannot submit commands");
       CHECK(storage.Classes() == oldClasses && storage.Palette() == oldPalette,
             "failed preparation or submission preserves both published handles");
+      CHECK(Read(device, shared.Classes(), classes.size()) == classes &&
+                Read(device, shared.Palette(), palette.size()) == palette,
+            "a rejected replacement preserves every shared published input");
       CHECK(Read(device, storage.Classes(), 4) == classes &&
                 Read(device, storage.Palette(), 4) == palette,
             "both previously submitted payloads survive a failed replacement");
@@ -272,8 +277,8 @@ void Exercise(Faults *device) {
   CHECK(Read(device, storage.Classes(), 4) == classes &&
             Read(device, storage.Palette(), 4) == palette,
         "payload and separately initialized padding reach both GPU buffers");
-  auto *const oldClasses = storage.Classes();
-  auto *const oldPalette = storage.Palette();
+  const auto *const oldClasses = storage.Classes();
+  const auto *const oldPalette = storage.Palette();
   const auto expired =
       storage.Replace(device, oneClass.Span(), oneColour.Span(), std::chrono::nanoseconds(1));
   CHECK(!expired && expired.error().Kind == ErrorKind::Busy && !storage.UploadActive() &&

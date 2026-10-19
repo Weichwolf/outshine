@@ -7,25 +7,50 @@
 #include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
+
+namespace {
+outshine::Geometry Triangle() {
+  using namespace outshine;
+  Geometry geometry;
+  const int part = geometry.addPart("triangle", MaterialInstance{}).value();
+  CHECK(geometry.setPositions(part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
+            geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),
+        "replacement geometry is valid");
+  return geometry;
+}
+
+outshine::Render::Viewpoint GroundView() {
+  constexpr double kNearM = 0.1;
+  constexpr double kFarM = 100;
+  auto eye = outshine::Render::Viewpoint::LookAt({.EyeM = {{0, 7, 8}}, .AimM = {{0, 3, 0}}}, 0.0);
+  CHECK(eye.has_value(), "the original ground-only camera remains valid");
+  if (!eye) { return {}; }
+  eye->YfovRad = 1;
+  eye->ZNearM = kNearM;
+  eye->ZFarM = kFarM;
+  return *eye;
+}
+}
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
-    Geometry geometry;
-    const int part = geometry.addPart("triangle", MaterialInstance{}).value();
-    CHECK(geometry.setPositions(part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
-              geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),
-          "replacement geometry is valid");
+    const Geometry geometry = Triangle();
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
     Gpu::UploadFailure failure;
     Render::SceneRenderer renderer(
         {.Context = &failure, .Create = Gpu::NativeUploadFaultDevice::Create});
+    const auto uploads = renderer.OfflineUploads(std::chrono::seconds(5));
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
@@ -55,17 +80,12 @@ int main() {
             "ground inputs retain stable page handles");
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "one published ground tile has its full topology");
-      Render::Viewpoint eye =
-          *Render::Viewpoint::LookAt({.EyeM = {{0, 7, 8}}, .AimM = {{0, 3, 0}}}, 0.0);
-      eye.YfovRad = 1;
-      eye.ZNearM = 0.1;
-      eye.ZFarM = 100;
-      scene->Eye(eye);
+      scene->Eye(GroundView());
       CHECK(scene->Draw(error), "a ground-only frame renders without any subject placement buffer");
       CHECK(renderer.GroundLatticeTriangles() > 0,
             "the ground-only draw actually culls the test tile into the frame");
       std::vector<uint8_t> pixels;
-      CHECK(Core::ReadFrame(renderer, pixels, error) && pixels.size() == 32u * 32u * 4u,
+      CHECK(Core::ReadFrame(renderer, pixels, error) && pixels.size() == size_t{32} * 32u * 4u,
             "the ground-only frame is readable at the declared size");
       std::unique_ptr<Core::RuntimeScene> candidate;
       const auto pipelines = failure.ComputePipelineRequests;
