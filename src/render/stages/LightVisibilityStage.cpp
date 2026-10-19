@@ -45,12 +45,15 @@ Native::Result<void> LightVisibilityStage::Configure(SubjectDraw &subjects, cons
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "shadow pipelines require a device"});
   }
-  if (Device_ != gpu.Device || !DepthOnly_) {
+  if (Device_ != gpu.Device || !DepthOnly_ || !ClearTile_) {
     auto depth = ConfigureDepthOnly(*gpu.Device);
     if (!depth) { return std::unexpected(depth.error()); }
     auto masked = ConfigureMasked(*gpu.Device);
     if (!masked) { return std::unexpected(masked.error()); }
+    auto clear = ConfigureTileClear(*gpu.Device);
+    if (!clear) { return std::unexpected(clear.error()); }
     DepthOnly_ = std::move(*depth);
+    ClearTile_ = std::move(*clear);
     Masked_ = std::move(*masked);
     Device_ = gpu.Device;
   }
@@ -226,15 +229,21 @@ void LightVisibilityStage::BuildRegions(const LightBasis &basis,
 
 void LightVisibilityStage::Prepare(const FrameContext &ctx) {
   Casting_ = false;
+  PreservesAtlas_ = false;
   CastBatches_ = 0;
   if (!Declared_ || Subjects_ == nullptr) { return; }
   Build(ctx.PreViewTranslation);
   const uint64_t stands = Subjects_->Generation();
   const uint64_t ground = Subjects_->Ground().Generation();
-  if (Cache_.Submitted() && stands == PreparedGeneration_ && ground == PreparedGroundGeneration_ &&
-      Static_ == PreparedTransform_) {
-    return;
+  const bool reusable =
+      Cache_.Submitted() && stands == PreparedGeneration_ && ground == PreparedGroundGeneration_;
+  size_t changed = 0;
+  for (size_t region = 0; region < RegionCount(); ++region) {
+    DirtyRegions_[region] = !reusable || Static_[region] != PreparedTransform_[region];
+    changed += DirtyRegions_[region] ? 1u : 0u;
   }
+  if (changed == 0) { return; }
+  PreservesAtlas_ = reusable && changed < RegionCount();
   Cache_.Invalidate();
   Casting_ = true;
   PreparedGeneration_ = stands;
@@ -251,6 +260,7 @@ Native::Result<void> LightVisibilityStage::Encode(const FrameContext &ctx,
   }
   CastBatches_ = 0;
   for (size_t region = 0; region < RegionCount(); ++region) {
+    if (!DirtyRegions_[region]) { continue; }
     const auto accepted = Cast(Projections_[region], ctx.PreViewTranslation, region, into);
     if (!accepted) { return accepted; }
   }
@@ -269,6 +279,19 @@ Native::Result<void> LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
                                 .Height = kShadowTilePx};
   const PassRecording recording{
       .Commands = into.Commands, .Submission = into.Submission, .Area = square, .Clip = into.Clip};
+  if (PreservesAtlas_) {
+    const auto cleared =
+        into.Commands->Draw({.State = {.Pipeline = ClearTile_.get(),
+                                       .Bindings = {},
+                                       .Vertices = {},
+                                       .Area = square,
+                                       .Clip = {.X = static_cast<uint32_t>(tile[0]) * kShadowTilePx,
+                                                .Y = static_cast<uint32_t>(tile[1]) * kShadowTilePx,
+                                                .Width = kShadowTilePx,
+                                                .Height = kShadowTilePx}},
+                             .Range = {.Count = 3}});
+    if (!cleared) { return cleared; }
+  }
   ShadowView uniform;
   for (int i = 0; i < 16; ++i) { uniform.Light[i] = static_cast<float>(lightFromWorld[i]); }
   const auto &anchor = Subjects_->AnchorM();

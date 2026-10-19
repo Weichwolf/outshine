@@ -1,4 +1,5 @@
 #include "LightVisibilityStage.h"
+#include "StagePipelines.h"
 #include "SpirvFile.h"
 #include <array>
 #include <cstddef>
@@ -64,6 +65,14 @@ Pipeline(Native::Device &device, ShaderFiles files, uint32_t uv, Native::Cull cu
 Native::GraphicsPipeline *LightVisibilityStage::MaskedPipeline(VertexLayout layout) const {
   const auto uv = static_cast<size_t>(CarriesUv(layout)) + static_cast<size_t>(CarriesUv1(layout));
   return Masked_[uv + (CarriesColour(layout) ? kMaskedUvLayouts : 0u)].get();
+}
+
+Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+LightVisibilityStage::ConfigureTileClear(Native::Device &device) {
+  return CreateFullscreenPipeline(device,
+                                  "build/shaders/depth.frag.spv",
+                                  {},
+                                  Native::DepthTarget{.Test = false, .Write = true});
 }
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
