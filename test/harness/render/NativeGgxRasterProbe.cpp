@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <ios>
 #include <limits>
@@ -123,7 +124,7 @@ std::vector<float> CaptureSheet(const Geometry &mesh, float lux) {
 }
 } // namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc != 2) { return 2; }
   const bool initialized = SDL_Init(SDL_INIT_VIDEO);
   CHECK(initialized, "video starts for GGX raster controls");
