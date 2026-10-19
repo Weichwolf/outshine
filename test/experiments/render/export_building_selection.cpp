@@ -1,5 +1,6 @@
 #include "building_selection_observer.h"
 #include "building_surface_inputs.h"
+#include "building_view_geometry.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
 #include "StructureArtifact.h"
@@ -63,7 +64,10 @@ bool LoadForms(PreparedStructureTile &base, const Json &input, const std::filesy
   return std::ranges::all_of(assigned, [](bool value) { return value; });
 }
 
-Json Sources(const PreparedStructureTile &base, const RawTile &view, bool surfaces) {
+Json Sources(const PreparedStructureTile &base,
+             const RawTile &view,
+             bool surfaces,
+             bool fullView = false) {
   const std::optional<Vec3> eye =
       view.EyeEcef ? std::optional<Vec3>(*view.EyeEcef - base.AnchorEcef) : std::nullopt;
   const BuildingMesh native;
@@ -71,6 +75,7 @@ Json Sources(const PreparedStructureTile &base, const RawTile &view, bool surfac
   auto sources = Json::array();
   for (size_t index = 0; index < base.Structures.size(); ++index) {
     const auto &source = base.Structures[index];
+    if (fullView && source.Layout.Cell.Index != view.RequestedCell) { continue; }
     auto plan = PreparedStructurePlan(
         source,
         base.PointsLatLon,
@@ -93,13 +98,29 @@ Json Sources(const PreparedStructureTile &base, const RawTile &view, bool surfac
     if (surfaces) {
       row["surface"] = Test::InputSurface(base.Surfaces[index], source.Layout.MinimumHeightM, eye);
     }
+    if (fullView) {
+      row["footprint_lat_lon"] = plan.RingLatLon;
+      row["corner_asl_m"] = plan.CornerAslM;
+      row["height_m"] = plan.HeightM;
+      row["minimum_height_m"] = plan.MinimumHeightM;
+      row["base_asl_m"] = plan.BaseAslM;
+      row["seat_asl_m"] = plan.SeatAslM;
+      row["foot_asl_m"] = plan.FootAslM;
+    }
     sources.push_back(std::move(row));
   }
   return sources;
 }
 
-Json Bake(const PreparedStructureTile &base, RawTile view, size_t captureTriangleLimit = 0) {
-  Test::BuildingSelectionObserver observer(base, captureTriangleLimit);
+Json Bake(const PreparedStructureTile &base,
+          RawTile view,
+          size_t captureTriangleLimit = 0,
+          const BakedTile *fullView = nullptr) {
+  Test::BuildingSelectionObserver observer(base,
+                                           captureTriangleLimit,
+                                           fullView != nullptr
+                                               ? Test::BuildingSelectionMode::FullView
+                                               : Test::BuildingSelectionMode::Projected);
   auto scratch = observer.Scratch();
   const auto start = std::chrono::steady_clock::now();
   auto baked = BakePreparedStructures(base, view, observer, *scratch);
@@ -117,6 +138,17 @@ Json Bake(const PreparedStructureTile &base, RawTile view, size_t captureTriangl
   if (!baked) {
     row["error"] = Describe(baked.error());
     return row;
+  }
+  if (fullView != nullptr) {
+    const bool same = Test::ViewGeometryEqual(baked->Built, fullView->Built);
+    const bool metadata = baked->Prints == fullView->Prints &&
+                          baked->FootprintDetails == fullView->FootprintDetails &&
+                          baked->UnsupportedMeshes == fullView->UnsupportedMeshes &&
+                          baked->SkippedRings == fullView->SkippedRings;
+    row["archived_geometry_identical"] = same;
+    row["archived_metadata_identical"] = metadata;
+    row["accepted"] = same && metadata;
+    row["geometry"] = Test::ViewGeometryInputs(fullView->Built);
   }
   row["details"] = Json::array();
   for (const auto detail : baked->FootprintDetails) {
@@ -139,6 +171,7 @@ struct Paths {
   std::filesystem::path Root;
   std::filesystem::path Target;
   bool SurfacesOnly = false;
+  bool FullView = false;
   size_t CaptureTriangleLimit = 0;
 };
 
@@ -159,10 +192,11 @@ int Run(const Json &input, const Paths &paths) {
   view.EyeEcef = selected.EyeEcef;
   view.Projection = selected.Projection;
   view.ClusterTriangles = input.at("cluster_triangles").get<uint32_t>();
+  if (paths.FullView) { view.RequestedCell = artifact->RequestedCell; }
   Json report{
       {"parent", input.at("parent")},
       {"anchor_ecef", {base->AnchorEcef[0], base->AnchorEcef[1], base->AnchorEcef[2]}},
-      {"sources", Sources(*base, view, paths.SurfacesOnly)},
+      {"sources", Sources(*base, view, paths.SurfacesOnly || paths.FullView, paths.FullView)},
       {"results", Json::array()},
       {"scope",
        "Actual unchanged native producer; observer costs included; no GPU or world admission."}};
@@ -177,7 +211,16 @@ int Run(const Json &input, const Paths &paths) {
       {"error_px", selected.Projection.AllowedErrorPx},
       {"cluster_triangles", view.ClusterTriangles}};
   bool accepted = true;
-  if (paths.CaptureTriangleLimit != 0) {
+  if (paths.FullView) {
+    if (!view.RequestedCell) { return 2; }
+    report["view_key"] = input.at("view_key");
+    report["view"]["cell"] = *view.RequestedCell;
+    report["view"]["reuse_radius_m"] = selected.EyeRadiusM;
+    report["results"].push_back(Bake(*base, view, 0, &*artifact));
+    accepted = report["results"].back().at("accepted");
+    report["scope"] = "Original complete 3D cell; native full-hierarchy replay byte-checked "
+                      "against the archived geometry. Opacity/material binding unqualified.";
+  } else if (paths.CaptureTriangleLimit != 0) {
     view.RequestedCell = artifact->RequestedCell;
     report["results"].push_back(Bake(*base, view, paths.CaptureTriangleLimit));
     const auto &row = report["results"].back();
@@ -213,7 +256,7 @@ int main(int argc, char *const *argv) {
         captureLimit == 0) {
       return 2;
     }
-  } else if (argc != 3 && (argc != 4 || mode != "--surfaces")) {
+  } else if (argc != 3 && (argc != 4 || (mode != "--surfaces" && mode != "--full-view"))) {
     return 2;
   }
   const std::filesystem::path inputPath(argv[1]);
@@ -226,5 +269,6 @@ int main(int argc, char *const *argv) {
              {.Root = inputPath.parent_path(),
               .Target = outputPath,
               .SurfacesOnly = mode == "--surfaces",
+              .FullView = mode == "--full-view",
               .CaptureTriangleLimit = captureLimit});
 }
