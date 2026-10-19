@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from check_building_capture_inputs import check, load
+from full_view_reference import load as load_full_view
 from native_capture_meshes import mesh
 from surface_cell_oracle import clipped
 from surface_cells import assemble, overlap
@@ -89,11 +90,17 @@ def main():
     parser.add_argument("--representation", choices=("Full", "Fine"), default="Full")
     args = parser.parse_args()
     document = load(args.input)
-    check(document)
-    calls = [c for r in document["results"] for c in r["projection_calls"]]
-    if len(calls) != 1:
-        raise ValueError("one recorded complete known surface group required")
-    source = mesh(calls[0], args.representation)
+    if "view_key" in document:
+        if args.representation != "Full":
+            raise ValueError("whole-view input contains its actual full detail only")
+        source, document, _context, input_receipt = load_full_view(args.input)
+    else:
+        check(document)
+        calls = [c for r in document["results"] for c in r["projection_calls"]]
+        if len(calls) != 1:
+            raise ValueError("one recorded complete known surface group required")
+        source = mesh(calls[0], args.representation)
+        input_receipt = {"scope": "existing known native capture-input Full/Fine group"}
     triangles = source["positions"][source["indices"]]
     tracemalloc.start()
     start, cpu = time.perf_counter(), time.process_time()
@@ -130,6 +137,7 @@ def main():
     report = {
         "input_sha256": hashlib.sha256(args.input.read_bytes()).hexdigest(),
         "representation": args.representation,
+        "input_receipt": input_receipt,
         "independent_controls": validation,
         "source_sha256": {
             name: hashlib.sha256(
@@ -139,6 +147,7 @@ def main():
                 "surface_cells.py",
                 "measure_surface_cells.py",
                 "surface_cell_oracle.py",
+                "full_view_reference.py",
             )
         },
         "pitch_m": args.pitch,
