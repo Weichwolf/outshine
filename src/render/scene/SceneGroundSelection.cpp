@@ -5,6 +5,16 @@
 #include <string>
 
 namespace outshine::Render {
+Native::Result<GroundLattice::DrawArguments> SceneRenderer::ReadGroundDrawArguments() const {
+  const auto &state = ActiveState();
+  if (!state.Ready || !state.Submitted || !state.Plan) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = "no submitted ground frame"});
+  }
+  if (!state.Plan->Holds(Stage::Ground)) { return GroundLattice::DrawArguments{}; }
+  return state.Content.Subjects.Ground().ReadDrawArguments();
+}
+
 bool SceneRenderer::ConfigureGroundPyramid([[maybe_unused]] SceneRenderer &renderer,
                                            FrameResources &frame,
                                            [[maybe_unused]] const Compiled &plan,

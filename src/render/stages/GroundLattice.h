@@ -129,6 +129,13 @@ public:
 
   [[nodiscard]] Native::Buffer *SelectedPatches() const { return Selection_.Codes(); }
 
+  struct DrawArguments {
+    std::array<Native::IndexedIndirectArguments, 4> Patches{};
+    uint32_t SkirtInstances = 0;
+  };
+
+  [[nodiscard]] Native::Result<DrawArguments> ReadDrawArguments() const;
+
   [[nodiscard]] Native::Result<void> Encode(const PassRecording &into,
                                             std::span<const Native::Binding> bindings) const;
   [[nodiscard]] Native::Result<void> Cast(const PassRecording &into,
