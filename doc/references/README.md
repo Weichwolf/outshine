@@ -429,6 +429,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Tiefensprites und geschichtete Tiefenbilder als Vergleich für Parallaxe und Verdeckungswechsel.
   Seite 2 mit Repräsentationshierarchie optisch geprüft. Eigene bedingte Einmoment-Reliefs ([#23](https://github.com/Weichwolf/outshine/issues/23))
   übernehmen keine Mehrschichtgarantie; Wind, Schatten und Disokklusion separat prüfen.
+- **LDI Tree: A Hierarchical Representation for Image-Based Rendering**, Chang / Bishop / Lastra, SIGGRAPH 1999.
+  [Publikation](https://doi.org/10.1145/311535.311571) ·
+  [Universitätsarchiv](https://www.cs.princeton.edu/courses/archive/spr01/cs598b/papers/chang99.pdf) ·
+  [PDF](geometry/siggraph/1999-ldi-tree.pdf).
+  Gemeinsame räumliche Tiefenbilder mit projektionsabhängiger Hierarchiestufe;
+  Seiten 2/3 samt Abtastdiagrammen und Gleichungen geprüft. Hier nur Grundlage:
+  unbeleuchtete Material-/Normalfelder, Disokklusion und Gerätebudgets getrennt belegen (#899).
 - **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
   [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
   [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·

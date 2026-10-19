@@ -1,0 +1,16 @@
+{
+  "url": "https://www.cs.princeton.edu/courses/archive/spr01/cs598b/papers/chang99.pdf",
+  "doi": "10.1145/311535.311571",
+  "title": "LDI Tree: A Hierarchical Representation for Image-Based Rendering",
+  "authors": [
+    "Chun-Fa Chang",
+    "Gary Bishop",
+    "Anselmo Lastra"
+  ],
+  "sha256": "e284732b37d220490ac2742627d75d31f19bb2feaee1a997227638e81618a49f",
+  "inspected_pages": [
+    2,
+    3
+  ],
+  "venue": "SIGGRAPH 1999"
+}
