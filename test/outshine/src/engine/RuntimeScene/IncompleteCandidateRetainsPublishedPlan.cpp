@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 #include <array>
 #include <cstdint>
+#include <expected>
 #include <memory>
 #include <print>
 #include <string>
@@ -14,6 +15,14 @@ namespace {
 using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
+constexpr Vec4f kBedColour = {{0.6f, 0.25f, 0.1f, 1}};
+constexpr Vec4f kPaneColour = {{0.3f, 0.5f, 0.7f, 1}};
+constexpr std::array<double, 3> kIndirectLight = {0.2, 0.2, 0.2};
+constexpr double kPaneTransmission = 0.6;
+constexpr double kKeyLux = 20;
+constexpr double kKeyElevationDeg = 45;
+constexpr double kNearM = 0.1;
+constexpr double kFarM = 100;
 
 struct Counts {
   unsigned Graphics = 0;
@@ -45,10 +54,10 @@ private:
 Geometry Mesh(bool glass) {
   Geometry mesh;
   Material back;
-  back.BaseColour = {{0.6f, 0.25f, 0.1f, 1}};
+  back.BaseColour = kBedColour;
   Material front;
-  front.BaseColour = {{0.3f, 0.5f, 0.7f, 1}};
-  front.Transmission = glass ? 0.6 : 0;
+  front.BaseColour = kPaneColour;
+  front.Transmission = glass ? kPaneTransmission : 0;
   const auto bed = mesh.addSurface("bed", back);
   const auto pane = mesh.addSurface("pane", front);
   CHECK(bed && pane, "both material inputs are complete");
@@ -80,9 +89,9 @@ void Exercise(bool glass) {
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
   declaration.Outputs = {"sceneLinear"};
   declaration.Exposure = 1;
-  declaration.KeyLux = 20;
-  declaration.KeyElevationDeg = 45;
-  declaration.IndirectLight = {0.2, 0.2, 0.2};
+  declaration.KeyLux = kKeyLux;
+  declaration.KeyElevationDeg = kKeyElevationDeg;
+  declaration.IndirectLight = kIndirectLight;
   std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;
   CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), error.c_str());
@@ -96,14 +105,14 @@ void Exercise(bool glass) {
   Viewpoint eye;
   eye.EyeM = {{0, 0, 4}};
   eye.YfovRad = 1;
-  eye.ZNearM = 0.1;
-  eye.ZFarM = 100;
+  eye.ZNearM = kNearM;
+  eye.ZFarM = kFarM;
   scene->Eye(eye);
   CHECK(scene->DrivenParts() == 0 && renderer.Plan().Holds(Stage::SubjectsTransmissive) == glass,
         "the published generated world has its complete material plan and no driven parts");
   const auto before = Draw(*scene, renderer);
   const auto spec = renderer.Plan().Specification();
-  for (bool publish : {false, true}) {
+  for (const bool publish : {false, true}) {
     Core::WorldCandidate next(renderer);
     const auto graphics = counts.Graphics;
     CHECK(next.Prepare(*scene,

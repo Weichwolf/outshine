@@ -2,6 +2,8 @@
 #include "FrameCapture.h"
 
 #include "Check.h"
+#include <cstddef>
+#include <cstdint>
 
 #include <SDL3/SDL.h>
 #include <array>
@@ -35,7 +37,7 @@ int main() {
     if (scene) {
       std::vector<uint8_t> baseline;
       CHECK(scene->Draw(error) && Core::ReadFrame(renderer, baseline, error) &&
-                baseline.size() == 32u * 32u * 4u,
+                baseline.size() == size_t{32} * 32u * 4u,
             "the initial published frame has a readable offscreen image");
       const std::array<StoredVertex, 3> vertices{
           StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 0, 1}}),
