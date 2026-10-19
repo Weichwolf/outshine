@@ -75,6 +75,29 @@ bool SameTile(const std::vector<float> &a, const std::vector<float> &b, size_t r
   return true;
 }
 
+outshine::Render::ReadState ReadLogicalAtlas(outshine::Render::SceneRenderer &renderer,
+                                             std::vector<float> &atlas) {
+  using namespace outshine::Render;
+  std::vector<float> physical;
+  const auto state = renderer.ReadShadowAtlas(physical);
+  if (state != ReadState::Ready) { return state; }
+  atlas.resize(physical.size());
+  for (size_t region = 0; region < kSunShadowRegions; ++region) {
+    const size_t firstX = (region % 2) * kShadowTilePx;
+    const size_t firstY = (region / 2) * kShadowTilePx;
+    const auto originX = static_cast<size_t>(renderer.ShadowRegions()[region].Depth[2]);
+    const auto originY = static_cast<size_t>(renderer.ShadowRegions()[region].Depth[3]);
+    for (size_t y = 0; y < kShadowTilePx; ++y) {
+      for (size_t x = 0; x < kShadowTilePx; ++x) {
+        const size_t px = firstX + (x + originX) % kShadowTilePx;
+        const size_t py = firstY + (y + originY) % kShadowTilePx;
+        atlas[(firstY + y) * kShadowAtlasPx + firstX + x] = physical[py * kShadowAtlasPx + px];
+      }
+    }
+  }
+  return state;
+}
+
 void Translation(outshine::Core::RuntimeScene &scene,
                  outshine::Render::SceneRenderer &renderer,
                  outshine::Render::Viewpoint eye,
@@ -97,20 +120,20 @@ void Translation(outshine::Core::RuntimeScene &scene,
   std::vector<float> before;
   std::vector<float> partial;
   std::vector<float> reference;
-  CHECK(renderer.ReadShadowAtlas(before) == ReadState::Ready, "initial reference is readable");
+  CHECK(ReadLogicalAtlas(renderer, before) == ReadState::Ready, "initial reference is readable");
   eye.EyeM[0] += 0.5;
   scene.Eye(eye);
   CHECK(scene.Draw(error), "half-metre camera translation submits");
   renderer.WaitForGpu();
-  CHECK(renderer.ShadowCastCount() * 4 == full, "only the changed nearest region draws casters");
-  CHECK(renderer.ReadShadowAtlas(partial) == ReadState::Ready, "partial update is readable");
+  CHECK(renderer.ShadowCastCount() < full, "new strips avoid complete regional caster work");
+  CHECK(ReadLogicalAtlas(renderer, partial) == ReadState::Ready, "partial update is readable");
   CHECK(!SameTile(before, partial, 0), "nearest shadow depths follow the translated projection");
   for (size_t region = 1; region < 4; ++region) {
     CHECK(SameTile(before, partial, region), "unchanged regions preserve every depth texel");
   }
   rebuild();
   CHECK(renderer.ShadowCastCount() == full, "explicit light invalidation updates all regions");
-  CHECK(renderer.ReadShadowAtlas(reference) == ReadState::Ready && reference == partial,
+  CHECK(ReadLogicalAtlas(renderer, reference) == ReadState::Ready && reference == partial,
         "partial atlas equals the complete current-camera reference");
   eye.EyeM[0] += kRetryTranslationM;
   scene.Eye(eye);
@@ -119,10 +142,22 @@ void Translation(outshine::Core::RuntimeScene &scene,
   CHECK(scene.Draw(error), "rejected partial update retries successfully");
   renderer.WaitForGpu();
   CHECK(renderer.ShadowCastCount() == full, "retry conservatively rebuilds every shadow region");
-  CHECK(renderer.ReadShadowAtlas(partial) == ReadState::Ready, "retried atlas is readable");
+  CHECK(ReadLogicalAtlas(renderer, partial) == ReadState::Ready, "retried atlas is readable");
   rebuild();
-  CHECK(renderer.ReadShadowAtlas(reference) == ReadState::Ready && reference == partial,
+  CHECK(ReadLogicalAtlas(renderer, reference) == ReadState::Ready && reference == partial,
         "rejected partial submission preserves the complete reference on retry");
+  for (const Vec3 &delta :
+       std::array<Vec3, 4>{{{{16, 0, 0}}, {{0, 16, 0}}, {{512, 512, 0}}, {{-528, -528, 0}}}}) {
+    eye.EyeM = eye.EyeM + delta;
+    scene.Eye(eye);
+    CHECK(scene.Draw(error), "both-axis regional movement submits");
+    renderer.WaitForGpu();
+    CHECK(ReadLogicalAtlas(renderer, partial) == ReadState::Ready,
+          "all-region, wrap and large-jump results are readable");
+    rebuild();
+    CHECK(ReadLogicalAtlas(renderer, reference) == ReadState::Ready && reference == partial,
+          "all-region, wrap and large-jump reuse matches the complete current reference");
+  }
 }
 
 void Rebasing(outshine::Core::RuntimeScene &scene,
