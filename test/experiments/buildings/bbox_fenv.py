@@ -143,7 +143,7 @@ def shape(name):
     return shapely.from_wkt(wkt[name])
 
 
-def probe(name, helper, geos_library=None):
+def probe(name, helper, geos_library=None, rectangle_path="geos"):
     fenv = FloatEnvironment(helper)
     initial_flags, initial_rounding = fenv.flags(), fenv.rounding()
     control = fenv.decoded(fenv.control())
@@ -160,7 +160,12 @@ def probe(name, helper, geos_library=None):
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", RuntimeWarning)
-            strict = shapely.oriented_envelope(source)
+            if rectangle_path == "library":
+                from outshine_ref.buildings._rectangle import minimum_rectangle
+
+                strict = minimum_rectangle(source)
+            else:
+                strict = shapely.oriented_envelope(source)
     except RuntimeWarning as exception:
         error = str(exception)
     after = fenv.decoded(fenv.flags())
@@ -227,7 +232,7 @@ def compile_helper(output):
     }
 
 
-def run(output, geos_library=None):
+def run(output, geos_library=None, rectangle_path="geos"):
     output.mkdir(parents=True, exist_ok=True)
     library, compilation = compile_helper(output)
     records = []
@@ -242,6 +247,8 @@ def run(output, geos_library=None):
                 name,
                 "--helper",
                 str(library.resolve()),
+                "--rectangle-path",
+                rectangle_path,
                 *(
                     ["--geos-library", str(geos_library.resolve(strict=True))]
                     if geos_library
@@ -255,6 +262,7 @@ def run(output, geos_library=None):
         records.append(json.loads(result.stdout))
     report = revision() | {
         "status": "diagnostic-recorded",
+        "rectangle_path": rectangle_path,
         "cases": records,
         "compilation": compilation,
         "environment": {
@@ -268,7 +276,7 @@ def run(output, geos_library=None):
             if geos_library
             else shapely.lib.__file__,
         },
-        "scope": "Fresh process per case; strict Python warnings retained, direct GEOS flags measured in C with its own context and WKB ownership. No modelling/backend change, warning suppression, platform fix or native gate claim.",
+        "scope": "Fresh process per case; selected strict Python path retains warnings; direct control always measures raw GEOS in C with its own context and WKB ownership. No warning suppression, platform fix or native gate claim.",
     }
     (output / "bbox-fenv.json").write_text(json.dumps(report, indent=2) + "\n")
     print(
@@ -295,9 +303,8 @@ def run(output, geos_library=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output", type=Path, default=Path("build/experiments/buildings/bbox-fenv")
-    )
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--rectangle-path", choices=("geos", "library"), default="geos")
     parser.add_argument("--case", choices=CASES)
     parser.add_argument("--helper", type=Path)
     parser.add_argument("--geos-library", type=Path)
@@ -305,6 +312,13 @@ if __name__ == "__main__":
     if args.case:
         if not args.helper:
             parser.error("--case requires --helper")
-        print(json.dumps(probe(args.case, args.helper, args.geos_library)))
+        print(
+            json.dumps(
+                probe(args.case, args.helper, args.geos_library, args.rectangle_path)
+            )
+        )
     else:
-        run(args.output, args.geos_library)
+        output = args.output or Path(tempfile.mkdtemp(prefix="outshine-bbox-fenv-"))
+        if not output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
+            parser.error("private diagnostic outputs belong in system temp")
+        run(output, args.geos_library, args.rectangle_path)
