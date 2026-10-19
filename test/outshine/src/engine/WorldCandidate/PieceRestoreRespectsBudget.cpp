@@ -42,7 +42,9 @@ int main() {
           StoredVertex::Of({{1, 0, 0}}, {{1, 0}}, {{0, 0, 1}}),
           StoredVertex::Of({{0, 1, 0}}, {{0, 1}}, {{0, 0, 1}})};
       const std::array<uint32_t, 3> indices{0, 1, 2};
-      const Render::PieceMesh mesh{.Verts = vertices, .Indices = indices};
+      Render::PieceMesh mesh{};
+      mesh.Verts = vertices;
+      mesh.Indices = indices;
       std::array<Render::PieceHandle, 3> handles;
       for (auto &handle : handles) {
         const auto placed = renderer.PlacePiece(mesh);

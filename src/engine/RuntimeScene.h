@@ -345,6 +345,13 @@ public:
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 
 private:
+  [[nodiscard]] static bool PrepareWithPlan(Render::SceneRenderer &renderer,
+                                            Declaration declaration,
+                                            const Ui::Font *font,
+                                            std::unique_ptr<RuntimeScene> &out,
+                                            std::string &error,
+                                            const GroundAtmosphere &atmosphere,
+                                            std::shared_ptr<const Render::Compiled> plan);
   [[nodiscard]] std::expected<void, std::string> ValidGeometryBuild(const Geometry &built,
                                                                     size_t drivenParts) const;
   [[nodiscard]] static bool
@@ -395,6 +402,7 @@ private:
   void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
   void EmitsPerPart();
   [[nodiscard]] bool StandsPlan(std::string &error);
+  [[nodiscard]] bool InitializesFramePlan(std::string &error);
 
   [[nodiscard]] bool DeclaresKeyLight() const {
     return Declared_.KeyLux > 0.0 || Declared_.KeyFromClock;
@@ -432,6 +440,7 @@ private:
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::Compiled> Plan_;
+  std::shared_ptr<const Render::Compiled> PreparationPlan_;
   Render::CameraState Camera_;
   std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
   Render::SubjectPlacementHistory PlacementUploadHistory_;
