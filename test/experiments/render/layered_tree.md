@@ -35,7 +35,8 @@ The tree is sized for the explicitly supplied bounding box of actual test-camera
 positions. `stamp` projects one physical grid edge using the declared viewport
 and focal length. Its1px limit is a **sampling-demand parameter**, not a two-sided
 geometry, opacity or PBR error bound; the full square/normal-dependent footprint
-is larger. Original1280x720and2x2reference samples are unchanged. Neither the
+is larger. Original1280x720and2x2reference samples are unchanged. The self-contained
+perspective sizing estimate is not imported from a parked geometric-proof module. Neither the
 motion box nor this pixel-spacing criterion proves a universal reuse radius.
 The field data do not depend on camera rotation or lighting during query.
 
@@ -49,7 +50,8 @@ from queries, not an implemented asynchronous engine or a legal frame-IO policy.
 The real engine's original fallback/publication path remains unchanged.
 
 Independent tests cover affine surfaces along all three dominant axes, metric
-coordinates and nonwhite RGBA, more than four hidden layers, near unresolved
+coordinates and nonwhite RGBA (including mixed default-white/coloured nodes),
+more than four hidden layers, near unresolved
 leaves, crossing source boxes and exhausted node budgets. Dominant-axis clipping
 bounds footprints but does **not** bind their whole area to the original triangle.
 An original-face tag only binds the sampled material provenance. Native Part/Face
@@ -74,6 +76,11 @@ Header arrays, Trimesh/Rtree allocations and query/output buffers add further co
 Both the compact field representation and the CPU expansion are worse than the
 native943302B/14169triangle alternative in this cell. Python cold preparation
 and query timings are not native raster/GPU times or device-budget evidence.
+The main comparison's cache files have just been written; its cut is cold in
+memory, not an OS-cache-flushed disk measurement. `bench_layered_tree.py` separately
+loads the field assets in a fresh process and queries the emitted request. That
+consumer accepts no original geometry/recipe input. Its output arrays must match
+the main trace, with cache-hit loading and held-query times reported separately.
 
 The first actual static20control already loses10and adds7point samples, with57
 changed material codes and49changed source owners among common hits. Known affine
@@ -124,9 +131,14 @@ OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/render/compare_layered_
   --input test/outshine/data/render/building-full-view/cell.json.gz \
   --product /tmp/outshine-research-layered-product-<commit> \
   --output /tmp/outshine-research-layered-report-<commit>
+.venv/bin/python test/experiments/render/bench_layered_tree.py \
+  --product /tmp/outshine-research-layered-product-<commit> \
+  --request /tmp/outshine-research-layered-report-<commit>/cache-request.json \
+  --output /tmp/outshine-research-layered-cache-hit-<commit>
 ```
 
 Both paths must be explicit system-temp paths; product is created if absent and
-binds its input SHA/parent/view. Existing NumPy/Trimesh/Rtree/Pillow are used. Open
+binds its input SHA/parent/view. Existing NumPy/Trimesh/Rtree/Pillow are used. The shared Oct16x2 encoder lives in
+packed_normals.py; its existing500000-direction roundtrip is included in the gate. Open
 the generated PNGs locally; no image is published in doc/README. Full-world goal
 and #899remain active; this delivery only completes the orthographic-tree control.

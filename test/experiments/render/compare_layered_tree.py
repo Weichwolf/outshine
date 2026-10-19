@@ -208,6 +208,19 @@ def main():
     names = diagnostic_poses(reports, select_full_poses(source, poses))
     picture(names, args.output, args.output / "material-ids.png")
     picture(names, args.output, args.output / "normals.png", normals=True)
+    case = next(iter(select_full_poses(source, poses)))
+    view = poses[case]
+    request = {
+        "case": case,
+        "profile": profile,
+        "provenance": provenance,
+        "observer_bounds": observer.tolist(),
+        "view": [view[0].tolist(), view[1].tolist(), *view[2:]],
+        "roi": reports[case]["roi"],
+    }
+    (args.output / "cache-request.json").write_text(
+        json.dumps(request, indent=2) + "\n"
+    )
     geometry = document["results"][0]["geometry"]
     native = (
         24 * len(source["positions"])

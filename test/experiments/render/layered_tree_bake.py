@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 import trimesh
 from attributed_prisms import native_inputs
-from depth_cluster import encode_normal
 from layered_tree_plan import plan
+from packed_normals import pack
 from trimesh.ray.ray_triangle import RayMeshIntersector
 
 
@@ -28,7 +28,7 @@ class Source:
             raise ValueError("this field profile requires flat native shading normals")
         self.group = np.argmax(abs(normal), axis=1) * 2
         self.group += normal[np.arange(len(normal)), self.group // 2] < 0
-        self.geometry_word = encode_normal(self.geometric)
+        self.geometry_word = pack(self.geometric)
         inputs = native_inputs(source)
         self.codes = inputs["flat_codes"]
         self.values = np.concatenate(
