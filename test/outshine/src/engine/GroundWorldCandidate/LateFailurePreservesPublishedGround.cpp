@@ -14,7 +14,7 @@ namespace {
 constexpr size_t kReplacementWayCount = 19;
 
 void RefusePublicationDuringCapture(outshine::Render::SceneRenderer &renderer,
-                                    outshine::Surrounds &world,
+                                    outshine::WorldRegionState &world,
                                     outshine::Generators::Osm::BuildingField &footprints,
                                     std::unique_ptr<outshine::Core::RuntimeScene> &scene,
                                     outshine::GroundRevision nextRevision) {
@@ -44,7 +44,7 @@ void RefusePublicationDuringCapture(outshine::Render::SceneRenderer &renderer,
 }
 
 void PublishRetry(outshine::Render::SceneRenderer &renderer,
-                  outshine::Surrounds &world,
+                  outshine::WorldRegionState &world,
                   outshine::Generators::Osm::BuildingField &footprints,
                   std::unique_ptr<outshine::Core::RuntimeScene> &scene,
                   const outshine::Geometry &geometry) {
@@ -99,7 +99,7 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "initial world opens");
     if (scene) {
-      Surrounds world;
+      WorldRegionState world;
       ::outshine::Generators::Osm::BuildingField footprints;
       world.BindSceneResources(renderer);
       world.GroundPositionsM = {1, 2, 3};

@@ -18,7 +18,7 @@ int main() {
   CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
         "empty initial world opens");
   if (scene) {
-    Surrounds world;
+    WorldRegionState world;
     ::outshine::Generators::Osm::BuildingField footprints;
     world.BindSceneResources(renderer);
     Geometry ground;

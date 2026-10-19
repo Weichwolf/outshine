@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_TEST_SHARED_TESTENGINE_H
 #define OUTSHINE_TEST_SHARED_TESTENGINE_H
 
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include <memory>
 
 namespace outshine {

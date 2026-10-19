@@ -53,7 +53,7 @@ int main() {
           "authored subject opens");
     CHECK(scene && scene->DrivenParts() == 1, "the initial authored part is driven");
 
-    Surrounds world;
+    WorldRegionState world;
     ::outshine::Generators::Osm::BuildingField footprints;
     world.BindSceneResources(renderer);
     for (const auto [revision, eastM] :

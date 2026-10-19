@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_ENGINEHELD_H
-#define OUTSHINE_ENGINE_ENGINEHELD_H
+#ifndef OUTSHINE_ENGINE_ENGINESTATE_H
+#define OUTSHINE_ENGINE_ENGINESTATE_H
 
 #include <algorithm>
 #include <array>
@@ -73,7 +73,7 @@ struct PressedTerrain;
 
 namespace outshine {
 struct GroundBuildProducts;
-class GroundBuildState;
+class WorldRegionBuildState;
 class GroundWorldCandidate;
 
 constexpr int kFrameUnsaidWidePx = 1280;
@@ -189,8 +189,8 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
 
 enum class FrameScope { Closed, Open, DrawSucceeded };
 
-struct Seen {
-  explicit Seen(Render::GpuSubmission submission = {}) : Device(submission) {}
+struct EngineRenderState {
+  explicit EngineRenderState(Render::GpuSubmission submission = {}) : Device(submission) {}
 
   Render::SceneRenderer Device;
   std::unique_ptr<Core::RuntimeScene> Standing;
@@ -203,7 +203,7 @@ struct Seen {
   std::optional<TriangleBvh> PendingAudioOcclusion;
 };
 
-struct Kept {
+struct ScenarioSession {
   Scenario::Document Declared;
   uint64_t DeclarationRevision = 0;
   bool Taken = false;
@@ -220,13 +220,13 @@ struct Kept {
   std::atomic<unsigned> Told{0};
 };
 
-struct Surrounds {
-  Surrounds();
-  ~Surrounds();
-  Surrounds(const Surrounds &) = delete;
-  Surrounds &operator=(const Surrounds &) = delete;
-  Surrounds(Surrounds &&) = delete;
-  Surrounds &operator=(Surrounds &&) = delete;
+struct WorldRegionState {
+  WorldRegionState();
+  ~WorldRegionState();
+  WorldRegionState(const WorldRegionState &) = delete;
+  WorldRegionState &operator=(const WorldRegionState &) = delete;
+  WorldRegionState(WorldRegionState &&) = delete;
+  WorldRegionState &operator=(WorldRegionState &&) = delete;
 
   void BindSceneResources(Render::SceneRenderer &renderer) noexcept {
     Pieces.Into(&renderer);
@@ -258,8 +258,8 @@ struct Surrounds {
   size_t AskedWanted = 0;
   GroundPublication GroundPublished;
   std::optional<GroundRevision> RequestedRefinedGround;
-  std::unique_ptr<GroundBuildState> GroundBuild;
-  std::unique_ptr<GroundBuildState> GroundRetirement;
+  std::unique_ptr<WorldRegionBuildState> GroundBuild;
+  std::unique_ptr<WorldRegionBuildState> GroundRetirement;
   std::string GroundLookupRequest;
   std::unique_ptr<GroundRegionPreparation> GroundLookup;
   std::unique_ptr<GroundPatchPreparation> PlacementGround;
@@ -315,7 +315,7 @@ struct Surrounds {
   }
 };
 
-struct Spent {
+struct EngineCostCounters {
   static constexpr size_t kGroundPhaseCount = 18;
 
   struct UpdateComponents {
@@ -429,7 +429,7 @@ struct Spent {
   }
 };
 
-struct Ticks {
+struct SimulationClock {
   double OwedS = 0.0;
 
   double ElapsedS = 0.0;
@@ -451,12 +451,12 @@ inline constexpr std::string_view kCaptureMutation =
 struct Engine::State {
   explicit State(Render::GpuSubmission submission = {}) : Picture(submission) {}
 
-  Seen Picture;
-  Kept Session;
+  EngineRenderState Picture;
+  ScenarioSession Session;
   std::unique_ptr<SimulationState> Simulation = std::make_unique<SimulationState>();
-  Surrounds World;
-  Spent Cost;
-  Ticks Ticking;
+  WorldRegionState World;
+  EngineCostCounters Cost;
+  SimulationClock Ticking;
   std::optional<RouteCameraMotion> RouteCamera;
   bool CameraPosePending = false;
   Core::DiagnosticLedger Published;
@@ -565,10 +565,10 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundPatchwork(const Around &coverage);
   [[nodiscard]] GroundBuildProgress AdvanceGroundRegion();
   [[nodiscard]] GroundBuildProgress AdvanceGroundWaterInputs();
-  [[nodiscard]] GroundBuildProgress BeginGroundRegionLookup(GroundBuildState &state);
+  [[nodiscard]] GroundBuildProgress BeginGroundRegionLookup(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress AdvanceReadyGroundSheets(Patchwork &patchwork,
-                                                             GroundBuildState &state);
-  [[nodiscard]] GroundBuildProgress StoreGroundRegion(GroundBuildState &state) const;
+                                                             WorldRegionBuildState &state);
+  [[nodiscard]] GroundBuildProgress StoreGroundRegion(WorldRegionBuildState &state) const;
   [[nodiscard]] GroundBuildProgress
   AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
   [[nodiscard]] GroundBuildProgress BeginGroundSheetRefinement(const TangentFrame &standing,
@@ -593,23 +593,25 @@ struct Engine::State {
   [[nodiscard]] std::expected<GroundRequest, Laid> RingWanted(bool alsoWhenTilesLanded,
                                                               GroundQuality quality);
 
-  [[nodiscard]] GroundBuildProgress BuildGroundBuildingStamps(
-      const TangentFrame &standing, GroundBuildState &state, std::vector<EarthworkStamp> &yielding);
+  [[nodiscard]] GroundBuildProgress
+  BuildGroundBuildingStamps(const TangentFrame &standing,
+                            WorldRegionBuildState &state,
+                            std::vector<EarthworkStamp> &yielding);
   [[nodiscard]] bool PressGroundEarthworks(const TangentFrame &standing,
                                            Patchwork &patchwork,
-                                           GroundBuildState &state);
+                                           WorldRegionBuildState &state);
   [[nodiscard]] bool BuildGroundCorridors(const TangentFrame &standing,
                                           const Around &coverage,
-                                          GroundBuildState &state);
-  [[nodiscard]] bool BuildGroundResidency(Patchwork &patchwork, GroundBuildState &state);
-  [[nodiscard]] bool PublishGroundGeometry(GroundBuildState &state);
+                                          WorldRegionBuildState &state);
+  [[nodiscard]] bool BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildState &state);
+  [[nodiscard]] bool PublishGroundGeometry(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress AdvanceGroundConstructionStages(const TangentFrame &standing,
                                                                     Patchwork &patchwork,
-                                                                    GroundBuildState &state);
+                                                                    WorldRegionBuildState &state);
   [[nodiscard]] bool BuildWaterSurfaces(const TangentFrame &standing,
                                         const ::outshine::Generators::Osm::RegionSources &sources,
                                         Geometry &ground);
-  [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded, GroundQuality quality);
+  [[nodiscard]] bool AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundWithinBudget(GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundRetirement();
   [[nodiscard]] bool GroundInputsReady(GroundQuality quality) const;
@@ -667,7 +669,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundSheetSurvey(const TangentFrame &standing,
                                                              const Patchwork &patchwork);
   void PublishGroundCandidateMeasurements(const GroundWorldCandidate &candidate,
-                                          const GroundBuildState &state);
+                                          const WorldRegionBuildState &state);
   void PublishGroundRenderMeasurements(std::chrono::steady_clock::time_point phaseAt);
   void FinishGroundPublication(const Patchwork &laid,
                                const Around &over,

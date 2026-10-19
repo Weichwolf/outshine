@@ -25,7 +25,7 @@ int main() {
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "published world opens");
-    Surrounds world;
+    WorldRegionState world;
     const ::outshine::Generators::Osm::BuildingField footprints;
     world.BindSceneResources(renderer);
     std::array<Render::HeightPageHandle, 3> pages;

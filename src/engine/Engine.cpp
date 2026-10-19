@@ -1,4 +1,4 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "GpuFrameSample.h"
 #include "geo/Mercator.h"
 #include "math/Units.h"
@@ -57,7 +57,7 @@ constexpr auto kDuplicateGeneratorKind = "generator kind is already registered";
 namespace {
 
 [[nodiscard]] std::string_view OsmWorldBlocker(std::span<const Data::SourceProvider> providers,
-                                               const Surrounds &world) {
+                                               const WorldRegionState &world) {
   const bool requested = std::ranges::any_of(
       providers, [](const Data::SourceProvider &provider) { return provider.Kind == "osm"; });
   if (!requested) { return {}; }
@@ -613,7 +613,7 @@ Result Engine::State::FinishesPreload(GroundQuality quality) {
   const bool continuingCandidate = World.GroundBuild != nullptr;
   const bool structuresReady =
       !continuingCandidate && published && StructuresReady(World.Stack.Footprints(), *published);
-  if (!Grounds(true, quality)) { return std::unexpected(Error); }
+  if (!AdvanceWorldRegionBuild(true, quality)) { return std::unexpected(Error); }
   if (structuresReady && !UpdateVegetation(true)) { return std::unexpected(Error); }
   return {};
 }

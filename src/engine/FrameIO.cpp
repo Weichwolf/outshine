@@ -36,7 +36,7 @@
 #include "Fit.h"
 #include "ReferenceLine.h"
 
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "GroundMesher.h"
 
 namespace outshine {
@@ -54,7 +54,7 @@ constexpr auto kInvalidFrameExtent =
 }
 
 namespace {
-Result ValidateFrameExtent(Extent frame, const Seen &picture) {
+Result ValidateFrameExtent(Extent frame, const EngineRenderState &picture) {
   const bool defaultTarget = frame.WidthPx == 0 && frame.HeightPx == 0;
   if (!defaultTarget && (frame.WidthPx <= 0 || frame.HeightPx <= 0)) {
     return std::unexpected(std::string(Says::kInvalidFrameExtent));
@@ -70,7 +70,7 @@ Result ValidateFrameExtent(Extent frame, const Seen &picture) {
   return {};
 }
 
-bool DrawScene(Seen &picture, std::string &error) {
+bool DrawScene(EngineRenderState &picture, std::string &error) {
   if (!picture.Standing->Draw(error)) { return false; }
   if (picture.Scope != FrameScope::Closed) { picture.Scope = FrameScope::DrawSucceeded; }
   return true;

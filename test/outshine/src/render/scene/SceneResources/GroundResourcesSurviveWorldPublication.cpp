@@ -1,6 +1,6 @@
 #include "RuntimeScene.h"
 #include "WorldCandidate.h"
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "SceneRenderer.h"
 #include "FrameCapture.h"
 #include "Check.h"
@@ -56,7 +56,7 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "ground fixture opens");
     if (scene) {
-      Surrounds world;
+      WorldRegionState world;
       world.BindSceneResources(renderer);
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
       const auto removed = renderer.PlaceHeightPage(nodes);

@@ -1,4 +1,4 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "Heap.h"
 #include "RuntimeScene.h"
 #include "math/Units.h"
@@ -13,7 +13,7 @@ namespace outshine {
 namespace {
 constexpr double kInvalidVelocityThresholdNdc = -1.0e3;
 
-void InspectShadow(Seen &picture, Core::DiagnosticLedger &published) {
+void InspectShadow(EngineRenderState &picture, Core::DiagnosticLedger &published) {
   std::vector<float> depth;
   if (picture.Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
     double least = kBeyondAnyCoordinate;
@@ -32,7 +32,7 @@ void InspectShadow(Seen &picture, Core::DiagnosticLedger &published) {
   }
 }
 
-void InspectCulling(Seen &picture, Core::DiagnosticLedger &published) {
+void InspectCulling(EngineRenderState &picture, Core::DiagnosticLedger &published) {
   Render::KeptDraws kept;
   if (picture.Device.ReadKeptIndices(kept) == Render::ReadState::Ready) {
     published.RecordMetric(
@@ -42,7 +42,7 @@ void InspectCulling(Seen &picture, Core::DiagnosticLedger &published) {
   }
 }
 
-void InspectGround(const Seen &picture, Core::DiagnosticLedger &published) {
+void InspectGround(const EngineRenderState &picture, Core::DiagnosticLedger &published) {
   const auto ground = picture.Device.ReadGroundDrawArguments();
   published.RecordMetric("ground: draw arguments available", ground.has_value() ? 1 : 0, "");
   if (!ground) { return; }
@@ -69,7 +69,7 @@ void InspectGround(const Seen &picture, Core::DiagnosticLedger &published) {
       "ground: colour draw triangles", static_cast<double>(indices + skirts) / 3.0, "triangles");
 }
 
-void InspectIrradiance(Seen &picture, Core::DiagnosticLedger &published) {
+void InspectIrradiance(EngineRenderState &picture, Core::DiagnosticLedger &published) {
   std::array<float, Render::kIrradianceFloats> held = {{}};
   if (picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
     picture.Standing->ReadIrradiance(held);
@@ -99,7 +99,7 @@ void InspectIrradiance(Seen &picture, Core::DiagnosticLedger &published) {
   }
 }
 
-void InspectVelocity(Seen &picture, Core::DiagnosticLedger &published) {
+void InspectVelocity(EngineRenderState &picture, Core::DiagnosticLedger &published) {
   std::vector<float> velocity;
   if (picture.Device.ReadSceneVelocity(velocity) == Render::ReadState::Ready) {
     double moving = 0.0;
@@ -119,7 +119,7 @@ void InspectVelocity(Seen &picture, Core::DiagnosticLedger &published) {
   }
 }
 
-void InspectLinearColour(Seen &picture, Core::DiagnosticLedger &published) {
+void InspectLinearColour(EngineRenderState &picture, Core::DiagnosticLedger &published) {
   std::vector<float> linear;
   if (picture.Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
     double brightest = 0.0;
@@ -134,14 +134,14 @@ void InspectLinearColour(Seen &picture, Core::DiagnosticLedger &published) {
   }
 }
 
-void InspectDepth(Seen &picture, Core::DiagnosticLedger &published) {
+void InspectDepth(EngineRenderState &picture, Core::DiagnosticLedger &published) {
   std::vector<float> depth;
   if (picture.Device.ReadDepth(depth) != Render::ReadState::Ready) { return; }
   const auto covered = std::ranges::count_if(depth, [](float value) { return value > 0.0f; });
   published.RecordMetric("render: pixels covered by geometry", static_cast<double>(covered), "px");
 }
 
-void InspectPresentedColour(Seen &picture, Core::DiagnosticLedger &published) {
+void InspectPresentedColour(EngineRenderState &picture, Core::DiagnosticLedger &published) {
   std::vector<uint8_t> shown;
   if (picture.Device.ReadPixels(shown) == Render::ReadState::Ready) {
     double peak = 0.0;

@@ -51,7 +51,7 @@ private:
   }
 
   const ::outshine::Generators::Osm::BuildingField *Products_ = nullptr;
-  const Ground::BuildingGeometry *Geometry_ = nullptr;
+  const ::outshine::Ground::BuildingGeometry *Geometry_ = nullptr;
   TangentFrame Frame_;
   uint64_t VectorGeneration_ = 0;
   std::vector<EarthworkStamp> Stamps_;

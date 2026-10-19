@@ -1,4 +1,4 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "Heap.h"
 
 #include <array>
@@ -143,27 +143,27 @@ void Engine::State::PublishGroundPreparationMeasurements() {
   Published.RecordMetric("ground retirement time, last", Cost.GroundRetirement.LastMs(), "ms");
   Published.RecordMetric(
       "ground retirement slices", static_cast<double>(Cost.GroundRetirement.Taken()), "slices");
-  static constexpr std::array<std::string_view, Spent::kGroundPhaseCount> kGroundPhases{
-      "candidate",
-      "patchwork",
-      "sheet fields",
-      "sheet refinement",
-      "sheet halos",
-      "terrain survey",
-      "classes",
-      "surface",
-      "models",
-      "network",
-      "road alignments",
-      "corridors",
-      "structure bake",
-      "earthworks",
-      "terrain residency",
-      "water",
-      "geometry",
-      "publication"};
+  static constexpr std::array<std::string_view, EngineCostCounters::kGroundPhaseCount>
+      kGroundPhases{"candidate",
+                    "patchwork",
+                    "sheet fields",
+                    "sheet refinement",
+                    "sheet halos",
+                    "terrain survey",
+                    "classes",
+                    "surface",
+                    "models",
+                    "network",
+                    "road alignments",
+                    "corridors",
+                    "structure bake",
+                    "earthworks",
+                    "terrain residency",
+                    "water",
+                    "geometry",
+                    "publication"};
   static const auto phaseNames = [] {
-    std::array<std::array<std::string, 2>, Spent::kGroundPhaseCount> out;
+    std::array<std::array<std::string, 2>, EngineCostCounters::kGroundPhaseCount> out;
     for (size_t phase = 0; phase < out.size(); ++phase) {
       const auto base = std::string("ground phase ") + std::string(kGroundPhases[phase]);
       out[phase] = {base + " time, most", base + " advances"};
@@ -186,7 +186,7 @@ void Engine::State::PublishAdvanceMeasurements() {
     Published.RecordMetric("the step's own time, most", Cost.Advance.MostMs(), "ms");
     Published.RecordMetric("steps taken", static_cast<double>(Cost.Advance.Taken()), "steps");
     Published.RecordMetric("world update time, most", Cost.Update.MostMs(), "ms");
-    const Spent::UpdateComponents &worst = Cost.WorstSuccessfulUpdate;
+    const EngineCostCounters::UpdateComponents &worst = Cost.WorstSuccessfulUpdate;
     if (worst.TotalMs > 0.0) {
       Published.RecordMetric("worst successful update: total", worst.TotalMs, "ms");
       Published.RecordMetric(

@@ -10,7 +10,7 @@
 #include "SourceProviderValidation.h"
 #include "RouteValidation.h"
 #include "AudioOcclusion.h"
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "ReadTextFile.h"
 #include "ActionHostAdapter.h"
 #include "Ephemeris.h"
@@ -332,7 +332,7 @@ PrepareRuntimeDeclaration(const Scenario::Document &scenario,
                           const GroundQuery *ground,
                           std::span<const float> groundPositionsM,
                           std::span<const uint32_t> groundIndex,
-                          Seen &picture,
+                          EngineRenderState &picture,
                           const Core::Declaration &declared) {
   auto headless =
       PrepareHeadlessDeclaration(scenario, registry, ground, groundPositionsM, groundIndex);
@@ -356,7 +356,7 @@ PrepareRuntimeDeclaration(const Scenario::Document &scenario,
 
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b);
 
-void PublishConfiguration(Kept &session,
+void PublishConfiguration(ScenarioSession &session,
                           std::optional<ViewBook> &views,
                           InputMap &bindings) noexcept {
   static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
@@ -367,8 +367,8 @@ void PublishConfiguration(Kept &session,
 
 [[nodiscard]] std::optional<Result> ReuseDeclaration(const Scenario::Document &scenario,
                                                      Core::Declaration &declared,
-                                                     Seen &picture,
-                                                     Kept &session,
+                                                     EngineRenderState &picture,
+                                                     ScenarioSession &session,
                                                      std::optional<ViewBook> &views,
                                                      InputMap &bindings,
                                                      std::string &error) {

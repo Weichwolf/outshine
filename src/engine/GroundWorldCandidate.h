@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_GROUNDWORLDCANDIDATE_H
 #define OUTSHINE_ENGINE_GROUNDWORLDCANDIDATE_H
 
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "WorldCandidate.h"
 #include "ClassStructure.h"
 #include "GroundClassBuffer.h"
@@ -71,7 +71,7 @@ public:
 
   GroundWorldCandidate(
       Render::SceneRenderer &renderer,
-      const Surrounds &world,
+      const WorldRegionState &world,
       const ::outshine::Generators::Osm::BuildingField &footprints,
       Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy)
       : Products_{.Sheets = world.Sheets,
@@ -232,7 +232,7 @@ public:
   }
 
   [[nodiscard]] std::expected<void, std::string>
-  Publish(Surrounds &world,
+  Publish(WorldRegionState &world,
           ::outshine::Generators::Osm::BuildingField &footprints,
           std::unique_ptr<Core::RuntimeScene> &published,
           const GroundRevision &revision) {

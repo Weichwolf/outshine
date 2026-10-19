@@ -1,4 +1,4 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 
 #include <array>
 #include <chrono>
@@ -197,7 +197,7 @@ void Engine::State::PublishCostMeasurements() {
   Published.RecordMetric(
       "cost.structures.ranges", static_cast<double>(structures.CompletedRanges()), "ranges");
   Published.RecordMetric("cost.structures.max_range_ms", structures.SlowestRangeMs(), "ms");
-  static const auto groundNames = MetricNames<Spent::kGroundPhaseCount>(
+  static const auto groundNames = MetricNames<EngineCostCounters::kGroundPhaseCount>(
       "cost.ground.", std::array{".total_ms", ".max_ms", ".calls"}, [](size_t at) {
         constexpr std::array names{"candidate",
                                    "patchwork",
