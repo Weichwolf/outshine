@@ -36,8 +36,8 @@ positions. `stamp` projects one physical grid edge using the declared viewport
 and focal length. Its1px limit is a **sampling-demand parameter**, not a two-sided
 geometry, opacity or PBR error bound; the full square/normal-dependent footprint
 is larger. Original1280x720and2x2reference samples are unchanged. The self-contained
-perspective sizing estimate is not imported from a parked geometric-proof module. Neither the
-motion box nor this pixel-spacing criterion proves a universal reuse radius.
+perspective sizing estimate is not imported from a parked geometric-proof module.
+Neither the motion box nor this pixel-spacing criterion proves a universal reuse radius.
 The field data do not depend on camera rotation or lighting during query.
 
 Runtime first selects metadata nodes. Too coarse leaves report unresolved/original
@@ -89,6 +89,12 @@ Extending a sampled plane over its cell changes boundary visibility and field
 ownership. Complete pose/normal/depth/two-light error records remain in the final
 run, including all failures. No resolution/layer sweep or native port follows.
 
+The complete120-pose trace has28visible poses and69972subsamples:11206native hits,
+11372candidate hits,394lost and560added hits. Common hits change source1866times
+and material code2116times; maximum normal error is126.824degrees. The maximum
+common-hit camera-depth error252.297m includes different surfaces, not an error
+conditioned on equal ownership. Independent exhaustive checks cover448native rays.
+
 The full driver uses all120actual static/moving cameras and the union of native
 and reconstructed extents at the same resolution. It checks reference rays
 independently against all native triangles. Codes, coverage, source changes and
@@ -102,7 +108,7 @@ Material-ID and normal images separately include the worst distinct error cases.
 A separate metadata-only control partitions all3066actual inventory views before
 reading any of their geometry/field payloads. The existing bounds leave all3066
 leaves needing finer field metadata; no coarse joint node satisfies this profile.
-These are native view/DAG bounds, not the proposed field-node bounds. For the
+These are declared native-view bounds, not the proposed field-node bounds. For the
 controlled view their extent is2232x2340x1744m while actual stored geometry spans
 262x311x225m. That is a measured scope difference, not a newly declared native bug.
 The one-cell reference is loaded separately for image validation. No global field
@@ -117,6 +123,11 @@ projector-aligned, anisotropic shared sampling and explicit disocclusion support
 it must not disguise this failed profile with a larger pixel budget. Actual draw
 material bindings, PBR/filtering/derivatives/opacity/TAA/shadows, movement reserve,
 async publication and both target-device budgets remain open in #844.
+
+Even deleting all24B/record coordinate coefficients for free leaves1054006B for
+selected fields plus the header, exceeding the943302B exact-native alternative.
+This only rules out coordinate sharing alone as a fix for the current layout;
+it is not a lower bound for other representations or general compression.
 
 SIGGRAPH-first basis: Shade et al.1998 *Layered Depth Images* (existing local PDF)
 and Chang/Bishop/Lastra1999 *LDI Tree*, DOI10.1145/311535.311571, local
@@ -138,7 +149,8 @@ OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/render/compare_layered_
 ```
 
 Both paths must be explicit system-temp paths; product is created if absent and
-binds its input SHA/parent/view. Existing NumPy/Trimesh/Rtree/Pillow are used. The shared Oct16x2 encoder lives in
-packed_normals.py; its existing500000-direction roundtrip is included in the gate. Open
-the generated PNGs locally; no image is published in doc/README. Full-world goal
+binds its input SHA/parent/view. Existing NumPy/Trimesh/Rtree/Pillow and shared
+reference helpers using Shapely/SciPy are used. The shared Oct16x2 encoder lives in
+packed_normals.py; its existing500000-direction roundtrip is included in the gate.
+Open the generated PNGs locally; no image is published in doc/README. Full-world goal
 and #899remain active; this delivery only completes the orthographic-tree control.
