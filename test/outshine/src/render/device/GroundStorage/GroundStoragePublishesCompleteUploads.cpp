@@ -120,7 +120,7 @@ void FailedReplacements(Faults *device,
   const std::vector<uint32_t> zero(4);
   const std::array<uint32_t, 8> largerClasses{1, 2, 3, 4, 5, 6, 7, 8};
   const std::array<float, 5> largerPalette{1, 0.5f, 0.25f, 0.125f, 0.0625f};
-  for (auto point : {Faults::Point::Map, Faults::Point::Acquire, Faults::Point::Submit}) {
+  for (const auto point : {Faults::Point::Map, Faults::Point::Acquire, Faults::Point::Submit}) {
     for (int attempt = 0; attempt != 2; ++attempt) {
       faults.Next = point;
       const auto acquired = faults.Acquired;

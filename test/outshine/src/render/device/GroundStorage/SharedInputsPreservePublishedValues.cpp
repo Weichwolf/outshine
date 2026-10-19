@@ -67,7 +67,7 @@ int main() {
         "pending data preserves the complete previous buffer pair");
   constexpr size_t kMaximumSteps = 16;
   for (size_t step = 0; step < kMaximumSteps && changed.UploadActive(); ++step) {
-    auto ready = Require(changed.AdvanceReplace(16));
+    const auto ready = Require(changed.AdvanceReplace(16));
     if (!ready) {
       CHECK(Read(*device, *kept.Classes(), oldClasses.size()) ==
                 std::vector<uint32_t>(oldClasses.begin(), oldClasses.end()),
