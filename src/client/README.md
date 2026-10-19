@@ -47,10 +47,11 @@ melden ausschließlich ihre eigenen Frames; Quelle-/Assetzähler bleiben davon u
 ```sh
 build/outshine benchmark
 build/outshine benchmark --output /tmp/outshine-calibration.json
-build/outshine benchmark --gpu-validation --output /tmp/outshine-calibration-validated.json
+MTL_DEBUG_LAYER=1 build/outshine benchmark --gpu-validation --output /tmp/outshine-calibration-validated.json
 ```
 
 Der explizite Befehl misst die festen CPU-, GPU- und Speicherarbeitsmengen der Version 2.
+Metal benötigt `MTL_DEBUG_LAYER=1` vor Prozessstart; Vulkan ignoriert diese Umgebungsvariable.
 Er benötigt weder Szenario noch Netzwerk, Python oder Compiler zur Laufzeit. Ein Ausgabepfad
 allein wählt dieselbe synthetische Messung. Ohne Pfad schreibt er JSON nach stdout; eine Datei
 wird erst nach vollständiger Ergebnisprüfung atomar ersetzt. Fehler lassen alte Ergebnisse erhalten.
