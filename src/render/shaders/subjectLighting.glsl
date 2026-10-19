@@ -130,7 +130,7 @@ vec3 shadeRow(M surface,
     float nh = max(dot(n, h), 0.0);
     float vh = max(dot(v, h), 0.0);
 
-    float lobe = brdfLobe(a2, nl, nv, nh);
+    float lobe = 0.0;
     if (anisotropic) {
 
       float at = mix(a, 1.0, anisotropy * anisotropy);
@@ -140,17 +140,25 @@ vec3 shadeRow(M surface,
                                        dot(anisoT, toward), dot(anisoB, toward), at, ab);
     }
     Brdf reflected;
+    vec3 fresnel = brdfFresnel(f0, f90, vh);
     if (iridescence > 0.0) {
 
       vec3 filmed = iridescenceFresnel(vh, iridescenceThickness, surface.iridescenceIor, f0);
-      reflected = brdfRgbMix(diffuseColour, mix(brdfFresnel(f0, f90, vh), filmed, iridescence), lobe);
+      fresnel = mix(fresnel, filmed, iridescence);
+      reflected = brdfRgbMix(diffuseColour, fresnel, lobe);
     } else {
-      reflected = brdfCombine(diffuseColour, brdfFresnel(f0, f90, vh), lobe);
+      reflected = brdfCombine(diffuseColour, fresnel, lobe);
+    }
+    reflected.diffuse *= nl;
+    if (anisotropic) {
+      reflected.specular *= nl;
+    } else {
+      reflected.specular = brdfWeightedSpecular(fresnel, a2, nl, nv, nh, nl);
     }
     reflected.specular *= energyScale;
 
     vec3 sheen = sheenColour * sheenDistribution(nh, sheenRoughness) *
-                   sheenVisibility(nl, nv, sheenRoughness);
+                   sheenVisibility(nl, nv, sheenRoughness) * nl;
     float keep = sheenAlbedoScaling(sheenColour, nv, sheenRoughness);
     vec3 layered = (reflected.diffuse + reflected.specular) * keep + sheen;
 
@@ -159,11 +167,10 @@ vec3 shadeRow(M surface,
       float coatA2 = coatA * coatA;
 
       float coatF = 0.04 + 0.96 * pow(1.0 - nv, 5.0);
-      float coatLobe = brdfLobe(coatA2, nl, nv, nh);
       float weight = clearcoat * coatF;
-      layered = layered * (1.0 - weight) + vec3(weight * coatLobe);
+      layered = layered * (1.0 - weight) + brdfWeightedSpecular(vec3(weight), coatA2, nl, nv, nh, nl);
     }
-    vec3 contribution = layered * nl * attenuation * light.tint.rgb;
+    vec3 contribution = layered * attenuation * light.tint.rgb;
     sum += materialWeight < 1.0 ? contribution * materialWeight : contribution;
   }
 
