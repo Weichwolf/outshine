@@ -31,7 +31,7 @@ The independent Gaussian primitive test retains its numerical thresholds and
 extends to1,345 checks over both phase axes. Disabled/unresolved cases move to
 actual field-level GPU checks, where visibility is now decided.
 
-## Current native Metal integration
+## Historical native Metal integration on 82e7a69d7
 
 The existing PR #386 is synchronized with native82e7a69d7. Filter mathematics is
 unchanged; the merged caller retains native regular/adaptive ground support.
@@ -268,3 +268,42 @@ No extra frames, content reduction, raised budget or green overall gate follows.
 Raw commands/hashed packages, all actual failures, original PNGs, PDFs and pixel
 reports remain under `/var/tmp/outshine-material-rock-world-598ace992/`;
 current CPU references under `/tmp/outshine-material-rock-cpu-598ace992/`.
+
+## Current common-native integration on 16cc64362
+
+The same three production shaders are tested against the current native world;
+no source classification, geometry, asset format, lighting or GPU binding changes.
+The actual full-CDB native compute consumer is rebuilt against the matching
+507-object archive. CPU/native references cover 86 cases, the independent
+Gaussian primitive retains 1,345 checks, and the test passes current full-flag
+analysis. All 522 shader artifacts and 14 compute contracts pass. All 42 actual
+before/after ground resource/attachment signatures match, including patches.
+
+Fresh offline A/B/B/A processes retain 1280x720/60, exactly 60 frames/360 degrees,
+complete worlds and 60 actual GPU timestamps. Before PNGs reproduce the accepted
+pictures; each arm repeats its own PNG exactly. Geometry counts are unchanged.
+Means below average the two complete-window GPU means, not isolated shader times:
+
+| Place | Original mean ms | Filtered mean ms |
+|---|---:|---:|
+| Koerbersee | 13.6138 | 13.2499 |
+| Tokyo | 13.8294 | 13.7581 |
+| CentralPark | 13.1513 | 12.7284 |
+| Jura | 13.6217 | 12.9274 |
+| ZuerichHauptbahnhof | 13.8578 | 13.5781 |
+
+The extra Jura/Zuerich sequence checks two high maxima from the twelve-place
+capture; those spikes do not repeat as a filter regression. Small sequential
+samples do not establish a general speedup. Peaks still exceed 16.67 ms.
+The full/crop pairs, twelve-place comparison, CPU plots and referenced Gabor
+page are visually reviewed. Rock crevices remain more legible; the foreground
+foliage, broad substrate distribution and terrain contacts remain poor.
+Maximum image changes for Koerbersee/Tokyo/CentralPark are still 38/2/15 LSB;
+these are intended material changes, not new oracle tolerances. The separate
+Metal-validated 60-frame world retains the identical candidate PNG.
+
+This admits the component only into the common native Draft #531. Its unchanged
+world/device gates retain budget failures; master admission, complete BRDF/normal
+variance (#422), device peaks and broader terrain art remain separate work.
+Originals, exact commands, shader signatures, current source/archive hashes and
+raw GPU samples: /tmp/outshine-rock-current-16cc64362/. Images remain local.
