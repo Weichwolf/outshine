@@ -94,7 +94,7 @@ struct Targets {
 
 constexpr std::array<uint16_t, 4> kBaseValues{0x3400, 0x3800, 0x3a00, 0x3c00};
 
-void Pixels(Device &device, Texture &image, const std::array<uint16_t, 4> &values) {
+void Pixels(Device &device, const Texture &image, const std::array<uint16_t, 4> &values) {
   auto read = Require(ReadbackTransfer::Start(device, image, {.Width = kWidth, .Height = kHeight}));
   auto data = Require(read.Wait(device, std::chrono::seconds(5)));
   CHECK(data, "native mesh pixels reach the bounded readback");
@@ -131,7 +131,7 @@ void Draw(Device &device,
                                 .Area = {.Width = kWidth, .Height = kHeight},
                                 .Clip = {.Width = kWidth, .Height = kHeight}};
   if (cull != nullptr) {
-    Require(cull->EncodeCull(frame, recording));
+    Require(cull->EncodeCull(frame, recording, {.Clip = frame.Mvp}));
     Require(cull->EncodeScan(recording));
     Require(cull->EncodeCompact(recording));
   }
@@ -282,11 +282,11 @@ int main() {
                             .Width = kWidth,
                             .Height = kHeight,
                             .SceneColours = {}};
-  for (auto resource : {Resource::SceneHdr,
-                        Resource::SceneShadingNormal,
-                        Resource::SceneSurfaceIdentity,
-                        Resource::SceneSurfaceBase,
-                        Resource::SceneSurfaceMetalRough}) {
+  for (const auto resource : {Resource::SceneHdr,
+                              Resource::SceneShadingNormal,
+                              Resource::SceneSurfaceIdentity,
+                              Resource::SceneSurfaceBase,
+                              Resource::SceneSurfaceMetalRough}) {
     CHECK(gpu.SceneColours.Add(resource), "the full native material attachment order is accepted");
   }
   SubjectDraw subject;
@@ -304,7 +304,7 @@ int main() {
     DrawList draws;
     CheckSceneUpload(draws.Add({.Order = {}, .IndexCount = 6, .Layout = row.Layout}, error), error);
     draws.Compile();
-    auto mesh = source.Mesh(row.Layout, draws);
+    const auto mesh = source.Mesh(row.Layout, draws);
     CheckSceneUpload(subject.SetMesh(mesh, error), error);
     Draw(device, subject, targets);
   }

@@ -30,11 +30,15 @@ Native::Result<void> SkyStage::Configure(const Gpu &gpu, Tables from) {
   }
   std::array<Native::ColourTarget, kMaxColourAttachments> targets{};
   size_t index = 0;
+  bool writesVelocity = false;
   for (const auto resource : gpu.SceneColours) {
     auto &target = targets[index++];
     switch (resource) {
       case Resource::SceneHdr: target.Texels = gpu.HdrFormat; break;
-      case Resource::SceneVelocity: target = VelocityTarget(true); break;
+      case Resource::SceneVelocity:
+        target = VelocityTarget(true);
+        writesVelocity = true;
+        break;
       case Resource::SceneSurfaceBase:
       case Resource::SceneShadingNormal:
         target.Texels = Native::Format::Rgba16Float;
@@ -54,7 +58,8 @@ Native::Result<void> SkyStage::Configure(const Gpu &gpu, Tables from) {
     }
   }
   auto made = CreateFullscreenNdcPipeline(*gpu.Device,
-                                          "build/shaders/sky.frag.spv",
+                                          writesVelocity ? "build/shaders/sky.frag.spv"
+                                                         : "build/shaders/skyHdr.frag.spv",
                                           std::span(targets).first(gpu.SceneColours.Size()),
                                           Native::DepthTarget{.Test = false, .Write = false});
   if (!made) { return std::unexpected(made.error()); }
