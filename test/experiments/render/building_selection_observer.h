@@ -14,11 +14,14 @@
 #include <utility>
 
 namespace outshine::Test {
+enum class BuildingSelectionMode { Projected, FullView };
+
 class BuildingSelectionObserver final : public StructureMesher {
 public:
   explicit BuildingSelectionObserver(const Generators::PreparedStructureTile &base,
-                                     size_t captureTriangleLimit = 0)
-      : CaptureTriangleLimit_(captureTriangleLimit) {
+                                     size_t captureTriangleLimit = 0,
+                                     BuildingSelectionMode mode = BuildingSelectionMode::Projected)
+      : CaptureTriangleLimit_(captureTriangleLimit), Mode_(mode) {
     for (size_t index = 0; index < base.Surfaces.size(); ++index) {
       Sources_.emplace(&base.Surfaces[index], index);
     }
@@ -26,7 +29,9 @@ public:
 
   std::unique_ptr<MeshScratch> Scratch() const override { return Native_.Scratch(); }
 
-  bool HasSurfaceProjection() const noexcept override { return true; }
+  bool HasSurfaceProjection() const noexcept override {
+    return Mode_ == BuildingSelectionMode::Projected;
+  }
 
   std::optional<Box> SourceEnvelopeBounds(const StructurePlan &plan,
                                           MeshScratch &scratch) const noexcept override {
@@ -40,6 +45,8 @@ public:
 
   std::expected<void, StructureMeshError>
   Mesh(const StructurePlan &plan, MeshScratch &scratch, Raised &into) const noexcept override {
+    const size_t wallFirst = into.WallRun.size();
+    const size_t roofFirst = into.RoofRun.size();
     auto result = Native_.Mesh(plan, scratch, into);
     Meshes_.push_back(
         {{"source", SourceOf(plan)},
@@ -47,6 +54,12 @@ public:
          {"openings", plan.RecessedOpenings},
          {"accepted", result.has_value()},
          {"error", result ? nlohmann::json(nullptr) : nlohmann::json(Describe(result.error()))}});
+    if (Mode_ == BuildingSelectionMode::FullView) {
+      auto &row = Meshes_.back();
+      row["wall_index_range"] = {wallFirst, into.WallRun.size() - wallFirst};
+      row["roof_index_range"] = {roofFirst, into.RoofRun.size() - roofFirst};
+      row["part"] = nullptr;
+    }
     return result;
   }
 
@@ -105,6 +118,7 @@ private:
   mutable nlohmann::json Meshes_ = nlohmann::json::array();
   mutable nlohmann::json Projections_ = nlohmann::json::array();
   size_t CaptureTriangleLimit_ = 0;
+  BuildingSelectionMode Mode_ = BuildingSelectionMode::Projected;
   mutable size_t CapturedCalls_ = 0;
   mutable std::optional<std::string> CaptureError_;
 
