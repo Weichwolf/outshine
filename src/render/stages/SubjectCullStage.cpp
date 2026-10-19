@@ -17,13 +17,13 @@ constexpr size_t kPlaneFloats = 24;
 std::atomic<float> gErrorPerMetre{0};
 std::atomic<uint32_t> gJobsSwept{0};
 
-void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out) {
+void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out, const Vec2f &guard = {}) {
   const auto row = [mvp](int r, int c) { return mvp[c * 4 + r]; };
   for (int at = 0; at < 6; ++at) {
     const int axis = at / 2;
     const bool minus = at % 2 == 1;
     for (int c = 0; c < 4; ++c) {
-      const float w = row(3, c);
+      const float w = row(3, c) * (axis < 2 ? 1.0f + guard[axis] : 1.0f);
       const float a = row(axis, c);
       const float plus = axis == 2 ? a : w + a;
       out[at * 4 + c] = minus ? w - a : plus;
@@ -89,10 +89,10 @@ float SubjectCullStage::ErrorPerMetreTaken() {
   return gErrorPerMetre.load(std::memory_order_relaxed);
 }
 
-void SubjectCullStage::Standing(const FrameContext &ctx) {
+void SubjectCullStage::Standing(const FrameContext &ctx, const SelectionProjection &projection) {
   auto &into = View_;
   into = CullView{};
-  PlanesOf(ctx.Mvp, into.Planes);
+  PlanesOf(projection.Clip, into.Planes);
   for (int axis = 0; axis < 3; ++axis) {
     into.Shift[axis] = static_cast<float>(Source_.AnchorM[axis] + ctx.PreViewTranslation[axis]);
   }
@@ -113,16 +113,21 @@ void SubjectCullStage::Standing(const FrameContext &ctx) {
                            ? HeightPx_ * 0.5f / halfTangent
                            : 0;
   gErrorPerMetre.store(into.ErrorPerMetre, std::memory_order_relaxed);
+  if (projection.GuardNdc != Vec2f{}) {
+    PlanesOf(projection.Clip, into.Planes, projection.GuardNdc);
+  }
 }
 
 Native::Result<void> SubjectCullStage::EncodeCull(const FrameContext &ctx,
-                                                  const PassRecording &into) {
+                                                  const PassRecording &into,
+                                                  const SelectionProjection &projection) {
   Swept_ = 0;
-  const bool unchanged = Cache_.Submitted() && LastMvp_ == ctx.Mvp &&
+  const bool unchanged = Cache_.Submitted() && LastProjection_ == projection &&
                          LastPreViewTranslation_ == ctx.PreViewTranslation &&
                          LastSubjectGeneration_ == Source_.Generation &&
                          LastGroundGeneration_ == Source_.GroundGeneration;
-  OccludeThisFrame_ = PyramidBuffer_ != nullptr && unchanged;
+  OccludeThisFrame_ = PyramidBuffer_ != nullptr && unchanged && projection.GuardNdc == Vec2f{} &&
+                      projection.Clip == ctx.Mvp;
   CullThisFrame_ = Source_.Resident != nullptr && Source_.Jobs != 0 &&
                    (!unchanged || (OccludeThisFrame_ && !Refined_));
   if (!CullThisFrame_) {
@@ -153,7 +158,7 @@ Native::Result<void> SubjectCullStage::EncodeCull(const FrameContext &ctx,
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "culling output buffer is missing"});
   }
-  Standing(ctx);
+  Standing(ctx, projection);
   const std::array bindings{
       Storage(0, 0, *read[0]),
       Storage(0, 1, *read[1]),
@@ -170,7 +175,7 @@ Native::Result<void> SubjectCullStage::EncodeCull(const FrameContext &ctx,
       bindings,
       {.X = (Source_.Jobs + CullShape.GroupX - 1u) / CullShape.GroupX, .Y = 1, .Z = 1});
   if (!encoded) { return encoded; }
-  LastMvp_ = ctx.Mvp;
+  LastProjection_ = projection;
   LastPreViewTranslation_ = ctx.PreViewTranslation;
   LastSubjectGeneration_ = Source_.Generation;
   LastGroundGeneration_ = Source_.GroundGeneration;

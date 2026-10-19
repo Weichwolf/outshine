@@ -30,7 +30,7 @@ public:
   }
 
   void Own(std::vector<double> points, std::vector<GeographicRing> rings) {
-    auto storage =
+    const auto storage =
         std::make_shared<Storage>(Storage{.Points = std::move(points), .Rings = std::move(rings)});
     Share(storage,
           storage->Points,

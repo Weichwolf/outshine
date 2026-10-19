@@ -8,6 +8,7 @@
 #include "StageSubmission.h"
 #include "SubjectResidency.h"
 #include "math/Vec4.h"
+#include "math/Vec2.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -24,6 +25,13 @@ public:
     uint32_t BatchRows = 0;
     uint64_t Generation = 0;
     uint64_t GroundGeneration = 0;
+  };
+
+  struct SelectionProjection {
+    Mat4f Clip{};
+    Vec2f GuardNdc{};
+
+    bool operator==(const SelectionProjection &) const = default;
   };
 
   void PyramidFrom(Native::Buffer *pyramid, const PyramidShape &shape) {
@@ -47,13 +55,18 @@ public:
 
   void Invalidate() noexcept { Cache_.Invalidate(); }
 
-  [[nodiscard]] Native::Result<void> EncodeCull(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeCull(const FrameContext &ctx,
+                                                const PassRecording &into,
+                                                const SelectionProjection &projection);
   [[nodiscard]] Native::Result<void> EncodeScan(const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeCompact(const PassRecording &into);
 
   [[nodiscard]] uint32_t JobsSwept() const { return Swept_; }
 
-  void Projects(float heightPx) { HeightPx_ = heightPx; }
+  void Projects(float heightPx) {
+    if (HeightPx_ != heightPx) { Cache_.Invalidate(); }
+    HeightPx_ = heightPx;
+  }
 
   [[nodiscard]] static float ErrorPerMetreTaken();
   [[nodiscard]] static uint32_t JobsSweptTaken();
@@ -91,7 +104,7 @@ private:
   bool CullThisFrame_ = false;
   bool OccludeThisFrame_ = false;
   bool Refined_ = false;
-  Mat4f LastMvp_{};
+  SelectionProjection LastProjection_{};
   Vec3 LastPreViewTranslation_{};
   uint64_t LastSubjectGeneration_ = 0;
   uint64_t LastGroundGeneration_ = 0;
@@ -99,7 +112,7 @@ private:
   EnsurePipeline(Native::Device &device,
                  ComputeShaderId shader,
                  std::unique_ptr<Native::ComputePipeline> &into);
-  void Standing(const FrameContext &ctx);
+  void Standing(const FrameContext &ctx, const SelectionProjection &projection);
 
   Source Source_;
   CullView View_{};
