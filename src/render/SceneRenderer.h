@@ -634,7 +634,9 @@ public:
     double TookMs = 0.0;
     uint64_t DeviceBytes = 0;
     uint32_t Draws = 0;
-    uint32_t Triangles = 0;
+    uint64_t DirectTriangles = 0;
+    uint64_t IndirectInputTriangles = 0;
+    uint32_t IndirectRecords = 0;
     uint32_t Surfaces = 0;
     uint32_t Placements = 0;
     uint32_t Textured = 0;
