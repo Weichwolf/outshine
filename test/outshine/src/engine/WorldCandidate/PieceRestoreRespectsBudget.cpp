@@ -53,6 +53,9 @@ int main() {
         CHECK(placed.has_value(), "published piece uploads");
         if (placed) { handle = *placed; }
       }
+      const bool uploadsReady = renderer.Settle(error);
+      CHECK(uploadsReady, "offline published piece uploads complete before candidate setup");
+      if (!uploadsReady) { return Report(); }
       Render::PieceHandle latePublished;
       {
         Core::WorldCandidate candidate(renderer);
