@@ -42,6 +42,33 @@ void InspectCulling(Seen &picture, Core::DiagnosticLedger &published) {
   }
 }
 
+void InspectGround(const Seen &picture, Core::DiagnosticLedger &published) {
+  const auto ground = picture.Device.ReadGroundDrawArguments();
+  published.RecordMetric("ground: draw arguments available", ground.has_value() ? 1 : 0, "");
+  if (!ground) { return; }
+  static constexpr std::array patchNames{"ground: LOD0 patch instances",
+                                         "ground: LOD1 patch instances",
+                                         "ground: LOD2 patch instances",
+                                         "ground: LOD3 patch instances"};
+  static constexpr std::array indexNames{"ground: LOD0 index references",
+                                         "ground: LOD1 index references",
+                                         "ground: LOD2 index references",
+                                         "ground: LOD3 index references"};
+  uint64_t indices = 0;
+  for (size_t i = 0; i < ground->Patches.size(); ++i) {
+    const auto &row = ground->Patches[i];
+    const auto referenced = uint64_t{row.IndexCount} * row.InstanceCount;
+    published.RecordMetric(patchNames[i], row.InstanceCount, "instances");
+    published.RecordMetric(indexNames[i], static_cast<double>(referenced), "indices");
+    indices += referenced;
+  }
+  const auto skirts = uint64_t{Render::GroundLattice::kSkirtQuads} * 6u * ground->SkirtInstances;
+  published.RecordMetric("ground: skirt instances", ground->SkirtInstances, "instances");
+  published.RecordMetric("ground: skirt index references", static_cast<double>(skirts), "indices");
+  published.RecordMetric(
+      "ground: colour draw triangles", static_cast<double>(indices + skirts) / 3.0, "triangles");
+}
+
 void InspectIrradiance(Seen &picture, Core::DiagnosticLedger &published) {
   std::array<float, Render::kIrradianceFloats> held = {{}};
   if (picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
@@ -155,6 +182,7 @@ void Engine::State::Inspected() {
                          "triangles");
   InspectShadow(Picture, Published);
   InspectCulling(Picture, Published);
+  InspectGround(Picture, Published);
   InspectIrradiance(Picture, Published);
   InspectVelocity(Picture, Published);
   Published.RecordMetric("the exposure the picture applied",

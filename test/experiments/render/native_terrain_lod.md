@@ -6,6 +6,36 @@ integrated SDL renderer until the port meets the device/image requirements.
 
 ## Representation and selection
 
+### Explicit draw inspection
+
+`shots --offline --audit --measures --rows` reports the final colour-pass terrain
+arguments through the existing explicit inspection path (#15). Read back only
+the four indexed indirect rows (80 bytes); direct fallback and skirt instances
+come from their actual draw parameters. Nothing is read back by normal frames.
+Failure publishes unavailable, rather than a fabricated zero-work result.
+
+Count `IndexCount * InstanceCount`, then divide by three for submitted triangles.
+These are index references, not unique vertices, hardware shader invocations,
+visible triangles, shadow work or an aggregate of the entire measurement window.
+
+Fresh offline A18 Pro processes, 2026-10-19, 1280x720/60, exactly 60 frames/360
+degrees; final-frame argument counts on b010d32aa plus the inspection change:
+
+| Place | Patch instances at LOD 0 / 1 / 2 / 3 | Skirt triangles | Total triangles |
+|---|---|---:|---:|
+| Koerbersee | 18123 / 12135 / 8449 / 11353 | 860928 | 4755648 |
+| Wien | 4484 / 1845 / 919 / 4655 | 227328 | 1119840 |
+| Tokyo | 1163 / 467 / 402 / 2978 | 223232 | 517096 |
+
+All three PNGs match the preceding images byte for byte. The native GPU fixture
+checks a direct 32-instance fine draw, flat pages selecting 32 coarse instances,
+and disabled terrain refusing stale GPU rows. Coarse patches still have 32
+triangles because all fine boundary edges remain. This is a topology floor,
+not proof that changing boundaries preserves the existing displacement bound.
+Audit retains diagnostic attachments; its timings are not a default-plan speedup.
+
+### Current topology
+
 The existing eight-cell patches use four shared index ranges, with strides
 1/2/4/8. Boundary fans keep every original perimeter edge at every level.
 Original outer skirts and shadow grids remain complete. No internal skirts,

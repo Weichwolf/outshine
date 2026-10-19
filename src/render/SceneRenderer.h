@@ -206,6 +206,8 @@ public:
 
   [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
 
+  [[nodiscard]] Native::Result<GroundLattice::DrawArguments> ReadGroundDrawArguments() const;
+
   using PieceRows = SceneResources::PieceRows;
 
   [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(const PieceMesh &piece) {
