@@ -62,7 +62,7 @@ int main(int argc, char**) {
 ''')
         self.assertEqual(subprocess.run([str(binary)], check=False).returncode, 0)
         failed = subprocess.run([str(binary), 'out-of-bounds'], capture_output=True, check=False)
-        self.assertNotEqual(failed.returncode, 0, 'bounds violation was not trapped')
+        self.assertLess(failed.returncode, 0, 'bounds violation did not terminate by signal')
 
     def test_nonliteral_format_is_rejected(self):
         self.compile('extern int log_format(const char*, ...) __attribute__((format(printf, 1, 2)));\n'
@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
         self.assertIn('__strcpy_chk', symbols)
         self.assertEqual(subprocess.run([str(binary)], capture_output=True, check=False).returncode, 0)
         failed = subprocess.run([str(binary), 'x' * 128], capture_output=True, check=False)
-        self.assertNotEqual(failed.returncode, 0, 'fortified overflow was not trapped')
+        self.assertLess(failed.returncode, 0, 'fortified overflow did not terminate by signal')
 
     def test_unusable_compiler_is_an_error(self):
         env = dict(os.environ, CXX='/nonexistent/outshine-compiler')
