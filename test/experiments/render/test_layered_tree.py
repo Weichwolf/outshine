@@ -5,11 +5,11 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-from depth_cluster import encode_normal
 from layered_tree_bake import Source, block
 from layered_tree_plan import Plan, plan, select
 from layered_tree_render import load_cut
 from layered_tree_render import query as layered_query
+from packed_normals import pack
 
 
 def sheets(axis=2, levels=(1.0,)):
@@ -42,7 +42,7 @@ def sheets(axis=2, levels=(1.0,)):
                 (0.5 + 0.2 * u, 0.6 + 0.1 * v, np.full(4, 0.7), 0.3 + 0.05 * u)
             )
         )
-        normal.extend(encode_normal(np.broadcast_to(n, (4, 3))))
+        normal.extend(pack(np.broadcast_to(n, (4, 3))))
         binding.extend([[0, layer, -1, -1, 0, 2 * layer + i] for i in range(2)])
     return {
         k: np.array(v, dtype)

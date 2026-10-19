@@ -4,7 +4,6 @@ import itertools
 from dataclasses import dataclass
 
 import numpy as np
-from far_product_cut import projection_error
 
 
 @dataclass
@@ -19,13 +18,26 @@ def stamp(box, eye, resolution, profile):
     observer = np.asarray(eye, float)
     if observer.shape == (3,):
         observer = np.stack((observer, observer))
-    return projection_error(
-        box,
-        observer,
-        displacement_m=float(np.ptp(box, axis=0).max() / resolution),
-        focal_px=profile["focal_px"],
-        width=profile["width"],
-        height=profile["height"],
+    focal = float(profile["focal_px"])
+    if (
+        observer.shape != (2, 3)
+        or not np.isfinite(observer).all()
+        or np.any(observer[0] > observer[1])
+        or not np.isfinite(focal)
+        or focal <= 0
+        or resolution <= 0
+    ):
+        raise ValueError("finite observer and positive sampling profile required")
+    gap = np.maximum(np.maximum(box[0] - observer[1], observer[0] - box[1]), 0)
+    factor = np.sqrt(
+        1
+        + (profile["width"] / (2 * focal)) ** 2
+        + (profile["height"] / (2 * focal)) ** 2
+    )
+    edge = float(np.ptp(box, axis=0).max() / resolution)
+    depth = np.linalg.norm(gap) / factor
+    return (
+        np.inf if depth - edge <= 0.1 else float(focal * factor * edge / (depth - edge))
     )
 
 
