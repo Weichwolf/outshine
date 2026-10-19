@@ -1355,7 +1355,8 @@ bool SceneRenderer::Settle(std::string &error) {
 
 void SceneRenderer::SettleShadow() {
   ActiveFrame().Shadow.Prepare(Framing());
-  Touched_[static_cast<size_t>(Resource::ShadowAtlas)] = ActiveFrame().Shadow.Cached();
+  Touched_[static_cast<size_t>(Resource::ShadowAtlas)] =
+      ActiveFrame().Shadow.Cached() || ActiveFrame().Shadow.PreservesAtlas();
 }
 
 EyeBasis SceneRenderer::Eye() const {

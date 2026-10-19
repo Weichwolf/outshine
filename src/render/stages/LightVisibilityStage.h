@@ -46,6 +46,8 @@ public:
 
   [[nodiscard]] bool Cached() const noexcept { return Cache_.Submitted() && !Casting_; }
 
+  [[nodiscard]] bool PreservesAtlas() const noexcept { return PreservesAtlas_; }
+
   [[nodiscard]] bool HasSubmittedData() const noexcept { return Cache_.Submitted(); }
 
   [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
@@ -85,6 +87,8 @@ private:
       std::array<std::unique_ptr<Native::GraphicsPipeline>, kMaskedUvLayouts * 2>;
   [[nodiscard]] static Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
   ConfigureDepthOnly(Native::Device &device);
+  [[nodiscard]] static Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+  ConfigureTileClear(Native::Device &device);
   [[nodiscard]] static Native::Result<MaskedPipelines> ConfigureMasked(Native::Device &device);
   [[nodiscard]] Native::GraphicsPipeline *MaskedPipeline(VertexLayout layout) const;
 
@@ -106,6 +110,7 @@ private:
   SubjectDraw *Subjects_ = nullptr;
   Native::Device *Device_ = nullptr;
   std::unique_ptr<Native::GraphicsPipeline> DepthOnly_;
+  std::unique_ptr<Native::GraphicsPipeline> ClearTile_;
   MaskedPipelines Masked_;
   Vec3 ToSun_ = {{0, 0, 1}};
   Vec3 Up_ = {{0, 1, 0}};
@@ -115,12 +120,14 @@ private:
   std::array<Mat4, kSunShadowRegions> Projections_{};
   std::array<Mat4, kSunShadowRegions> Static_{};
   std::array<Mat4, kSunShadowRegions> PreparedTransform_{};
+  std::array<bool, kSunShadowRegions> DirtyRegions_{};
   std::array<ShadowRegionUniform, kSunShadowRegions> RegionUniforms_{};
   bool CameraCentred_ = false;
   uint64_t PreparedGeneration_ = 0;
   uint64_t PreparedGroundGeneration_ = 0;
   StageCache Cache_;
   bool Casting_ = true;
+  bool PreservesAtlas_ = false;
   bool Declared_ = false;
 };
 
