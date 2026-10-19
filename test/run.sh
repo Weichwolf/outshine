@@ -242,6 +242,7 @@ done
 
 TestProfile() {
   case "$1" in
+    outshine/src/diagnostics/calibration/Hardware) printf '%s' 'profile/calibration' ;;
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
@@ -297,6 +298,7 @@ TestProfile() {
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
+    profile/calibration) GroupIncludes src/diagnostics/calibration; printf '%s' ' -I.' ;;
     profile/client-boundary) printf '%s' '-I.' ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
@@ -401,13 +403,14 @@ LayerValidation() {
     outshine/integration/places|outshine/integration/places/client|outshine/integration/places60|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
   esac
   case "$(TestProfile "$1")" in
-    profile/device) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;
+    profile/device|profile/calibration) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 LayerLink() {
   case "$(TestProfile "$1")" in
+    profile/calibration) pkg-config --libs sdl3; NativeLink ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
@@ -454,6 +457,7 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/calibration) printf '%s' "src/diagnostics/calibration $(NativeGroups) src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp" ;;
     profile/client-boundary) return 0 ;;
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
@@ -1826,7 +1830,7 @@ fi
 
 for selectedTest in $TESTS; do
   case "$(TestProfile "$(dirname "${selectedTest#test/}")")" in
-    profile/engine|profile/internal|profile/device|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
+    profile/engine|profile/internal|profile/device|profile/calibration|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
       make shaders || Die "selected tests require prepared shaders"
       break
       ;;
@@ -2101,11 +2105,10 @@ Fresh() {
 }
 
 JudgeArm() {
-  if [ "$(TestProfile "$layer")" = profile/device ] && [ "$(uname -s)" = Darwin ]; then
-    MTL_DEBUG_LAYER=1 Judge "$@"
-  else
-    Judge "$@"
-  fi
+  case "$(TestProfile "$layer"):$(uname -s)" in
+    profile/device:Darwin|profile/calibration:Darwin) MTL_DEBUG_LAYER=1 Judge "$@" ;;
+    *) Judge "$@" ;;
+  esac
 }
 
 JudgeArms() {
