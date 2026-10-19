@@ -1280,7 +1280,15 @@ Native::Result<void> SceneRenderer::EncodeSubjectCull(const FrameContext &ctx,
                                                       const PassRecording &into) {
   ActiveFrame().Cull.Binds(CullSource(ActiveState().Content.Subjects));
   ActiveFrame().Cull.Projects(static_cast<float>(ActiveFrame().Height));
-  return ActiveFrame().Cull.EncodeCull(ctx, into);
+  auto lens = Through();
+  const bool temporal = ActiveState().Plan->Holds(Stage::TemporalResolve);
+  lens.Jitter = {};
+  const SubjectCullStage::SelectionProjection projection{
+      .Clip = temporal ? lens.ViewProjection(ActiveState().Camera) : ctx.Mvp,
+      .GuardNdc = temporal ? Vec2f{{1.0f / static_cast<float>(lens.WidePx),
+                                    1.0f / static_cast<float>(lens.HighPx)}}
+                           : Vec2f{}};
+  return ActiveFrame().Cull.EncodeCull(ctx, into, projection);
 }
 
 Native::Result<void> SceneRenderer::EncodeSubjectScan([[maybe_unused]] const FrameContext &ctx,

@@ -45,7 +45,7 @@ struct Inputs {
   std::vector<uint32_t> ExpectedIndices;
 };
 
-Inputs MakeInputs(bool alternate) {
+Inputs MakeInputs(bool alternate, bool guarded = false) {
   constexpr uint32_t jobs = 701;
   constexpr uint32_t split = 300;
   constexpr uint32_t longEvery = 61;
@@ -71,7 +71,8 @@ Inputs MakeInputs(bool alternate) {
                           .Batch = at < split ? 0u : 2u,
                           .First = static_cast<uint32_t>(input.Source.size()),
                           .Count = count});
-    const bool kept = alternate ? at % rejectEvery == 0 : at % rejectEvery != 0;
+    const bool baseKept = alternate ? at % rejectEvery == 0 : at % rejectEvery != 0;
+    const bool kept = guarded ? at == 0 || (at % rejectEvery != 0 && at != longEvery) : baseKept;
     input.Kept.push_back(kept ? count : 0);
     for (uint32_t index = 0; index < count; ++index) {
       const auto value = at * sourceStride + index;
@@ -118,12 +119,20 @@ void Upload(SubjectResidency &resident, Stream stream, const void *data, size_t 
                        std::chrono::seconds(5)));
 }
 
-void Run(Device &device, SubjectCullStage &stage, const FrameContext &ctx, bool submit) {
+void Run(Device &device,
+         SubjectCullStage &stage,
+         const FrameContext &ctx,
+         bool submit,
+         const SubjectCullStage::SelectionProjection *projection = nullptr) {
   auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
   StageSubmission submission;
   const PassRecording recording{
       .Commands = commands.get(), .Submission = submission, .Area = {}, .Clip = {}};
-  Require(stage.EncodeCull(ctx, recording));
+  Require(stage.EncodeCull(ctx,
+                           recording,
+                           projection != nullptr
+                               ? *projection
+                               : SubjectCullStage::SelectionProjection{.Clip = ctx.Mvp}));
   Require(stage.EncodeScan(recording));
   Require(stage.EncodeCompact(recording));
   if (submit) {
@@ -159,14 +168,51 @@ void Compare(Device &device, SubjectResidency &resident, const Inputs &expected)
   CHECK(equal, "all actually drawn index ranges match the independent ordered reference");
 }
 
-void Reuse(SubjectCullStage &stage, const FrameContext &ctx) {
+void Reuse(SubjectCullStage &stage,
+           const FrameContext &ctx,
+           const SubjectCullStage::SelectionProjection *projection = nullptr) {
   StageSubmission submission;
   const PassRecording recording{.Submission = submission, .Area = {}, .Clip = {}};
-  Require(stage.EncodeCull(ctx, recording));
+  Require(stage.EncodeCull(ctx,
+                           recording,
+                           projection != nullptr
+                               ? *projection
+                               : SubjectCullStage::SelectionProjection{.Clip = ctx.Mvp}));
   Require(stage.EncodeScan(recording));
   Require(stage.EncodeCompact(recording));
   CHECK(stage.JobsSwept() == 0,
         "an unchanged accepted view needs no command recording or GPU work");
+}
+
+void JitteredSelection(Device &device,
+                       SubjectCullStage &stage,
+                       SubjectResidency &resident,
+                       std::vector<float> &spheres) {
+  constexpr size_t kExchanged = 61;
+  constexpr float kOutside = 1.015f;
+  spheres[0] = kOutside;
+  spheres[kExchanged * 12] = 3;
+  Upload(resident, Stream::ClusterSpheres, spheres.data(), spheres.size() * sizeof(float));
+  Require(RetryOffline([&] { return resident.SubmitPendingUploads(); }, std::chrono::seconds(5)));
+  stage.PyramidFrom(nullptr, {});
+  FrameContext frame;
+  frame.Mvp.Column = kIdentity;
+  Run(device, stage, frame, true);
+  CHECK(Read(device, resident, Stream::ClusterKept, spheres.size() / 12)[0] == 0,
+        "the edge cluster is truly outside the original frustum");
+  const SubjectCullStage::SelectionProjection projection{.Clip = frame.Mvp,
+                                                         .GuardNdc = {{1.0f / 64, 1.0f / 64}}};
+  Run(device, stage, frame, true, &projection);
+  Compare(device, resident, MakeInputs(false, true));
+  for (const float jitter : {-0.5f, 0.0f, 0.5f}) {
+    frame.Mvp[12] = 2 * jitter / 64;
+    frame.Mvp[13] = -2 * jitter / 64;
+    Reuse(stage, frame, &projection);
+  }
+  stage.Projects(64);
+  Run(device, stage, frame, true, &projection);
+  CHECK(stage.JobsSwept() == spheres.size() / 12,
+        "a changed pixel-error scale invalidates cached selection");
 }
 
 void Exercise(Device &device) {
@@ -195,7 +241,7 @@ void Exercise(Device &device) {
          input.Arguments.data(),
          input.Arguments.size() * sizeof(uint32_t));
   Require(RetryOffline([&] { return resident.SubmitPendingUploads(); }, std::chrono::seconds(5)));
-  for (auto stream : {Stream::ClusterKept, Stream::ClusterSlot}) {
+  for (const auto stream : {Stream::ClusterKept, Stream::ClusterSlot}) {
     Require(resident.Grow(stream,
                           {.Usage = BufferUse::Storage,
                            .Bytes = static_cast<uint32_t>(input.Jobs.size() * sizeof(uint32_t))}));
@@ -244,6 +290,7 @@ void Exercise(Device &device) {
   frame.PreViewTranslation[0] = 0;
   Run(device, stage, frame, true);
   Compare(device, resident, input);
+  JitteredSelection(device, stage, resident, spheres);
 }
 }
 
