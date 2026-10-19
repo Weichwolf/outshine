@@ -386,7 +386,18 @@ public:
 
   [[nodiscard]] uint32_t DrawCount() const;
 
-  [[nodiscard]] uint32_t EncodedDrawCalls() const noexcept { return EncodedDrawCalls_; }
+  struct EncodedWork {
+    uint64_t DirectTriangles = 0;
+    uint64_t IndirectInputTriangles = 0;
+    uint32_t DrawRequests = 0;
+    uint32_t IndirectRecords = 0;
+    uint32_t SurfaceSlotLimit = 0;
+    uint32_t PlacementSlotLimit = 0;
+  };
+
+  [[nodiscard]] const EncodedWork &Work() const noexcept { return EncodedWork_; }
+
+  [[nodiscard]] uint32_t EncodedDrawCalls() const noexcept { return EncodedWork_.DrawRequests; }
 
   [[nodiscard]] uint32_t PipelineCount() const { return Binding().Built; }
 
@@ -476,7 +487,7 @@ private:
 
   std::vector<uint32_t> Args_;
   uint32_t Jobs_ = 0;
-  uint32_t EncodedDrawCalls_ = 0;
+  EncodedWork EncodedWork_;
 
   struct Piece {
     GeometryResidency::Range V;

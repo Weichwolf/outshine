@@ -189,13 +189,24 @@ Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
                                                      .Instances = batch.Instances,
                                                      .FirstInstance = batch.ModelSlot}});
   }
-  if (recorded) { ++EncodedDrawCalls_; }
+  if (recorded) {
+    ++EncodedWork_.DrawRequests;
+    if (culled) { EncodedWork_.IndirectRecords += static_cast<uint32_t>(end - first); }
+    for (const auto &draw : std::span(Batches).subspan(first, end - first)) {
+      const auto triangles = uint64_t{draw.IndexCount / 3u} * draw.Instances;
+      (culled ? EncodedWork_.IndirectInputTriangles : EncodedWork_.DirectTriangles) += triangles;
+      EncodedWork_.SurfaceSlotLimit =
+          std::max(EncodedWork_.SurfaceSlotLimit, draw.MaterialSlot + 1u);
+      EncodedWork_.PlacementSlotLimit =
+          std::max(EncodedWork_.PlacementSlotLimit, draw.ModelSlot + draw.Instances);
+    }
+  }
   return recorded;
 }
 
 Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const PassRecording &into) {
   const BatchFrustum visible(ctx, Anchor);
-  EncodedDrawCalls_ = 0;
+  EncodedWork_ = {};
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
                             Bound().Buffer(GeometryResidency::Stream::Index);
   if (!drawsBatches && (Binding().Behind != nullptr || Ground_.Drawn() == 0)) { return {}; }
