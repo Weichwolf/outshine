@@ -83,7 +83,9 @@ remain the rendering control; this diagnostic makes no new visual quality claim.
 Requires the existing cache, Python with system libzstd/pkg-config and the native
 C++ build with nlohmann-json. No new package was required on the measured host.
 Build the C++ executable using the complete current generator compilation flags
-and declared native archives/libraries. A shortened ad hoc compiler invocation
+and declared native archives/libraries, compiling both `export_building_selection.cpp`
+and `building_capture_inputs.cpp`. Actual archived-cell capture pairs are described
+in `native_building_capture_inputs.md`. A shortened ad hoc compiler invocation
 does not reproduce the checked configuration. Run focused clang-tidy against
 that exact experiment entry in the compilation database, including its header.
 
