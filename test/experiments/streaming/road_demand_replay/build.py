@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""Link a Linux road-demand replay probe against a successfully built frozen client."""
+
+import argparse
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+
+def run_stage(command, name, output, directory, receipts):
+    with (output / f"{name}.log").open("w") as log:
+        result = subprocess.run(
+            ["nice", "-n", "10", *command],
+            cwd=directory,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+    receipts.append(
+        {
+            "stage": name,
+            "command": command,
+            "directory": directory,
+            "priority": 10,
+            "returncode": result.returncode,
+        }
+    )
+    (output / "build.json").write_text(json.dumps(receipts, indent=2) + "\n")
+    print(name, result.returncode, flush=True)
+    if result.returncode:
+        raise SystemExit(result.returncode)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--compile-commands", type=Path, required=True)
+    parser.add_argument("--client-link", type=Path, required=True)
+    parser.add_argument("--out", type=Path, required=True)
+    args = parser.parse_args()
+    if sys.platform != "linux":
+        parser.error("this experiment uses Linux linker wrapping")
+    temporary = Path(os.environ.get("TMPDIR", "/tmp")).resolve()
+    output = args.out.resolve()
+    if not output.is_relative_to(temporary) or output == temporary:
+        parser.error("--out must be a dedicated system-temp directory")
+    output.mkdir(parents=True, exist_ok=True)
+    link = json.loads(args.client_link.read_text())
+    if link.get("returncode") != 0:
+        parser.error("--client-link requires a successful frozen native link receipt")
+    rows = json.loads(args.compile_commands.read_text())
+    row = next(row for row in rows if Path(row["file"]).name == "Engine.cpp")
+    folder = Path(__file__).resolve().parent
+    source = folder / "ConsumerReplay.cpp"
+    obj = output / "ConsumerReplay.o"
+    command = list(row.get("arguments") or shlex.split(row["command"]))
+    command[command.index(row["file"])] = str(source)
+    command[command.index("-o") + 1] = str(obj)
+    for flag, target in [
+        ("-MF", output / "ConsumerReplay.d"),
+        ("-MT", obj),
+        ("-MQ", obj),
+    ]:
+        if flag in command:
+            command[command.index(flag) + 1] = str(target)
+    cdb = [{"directory": row["directory"], "file": str(source), "arguments": command}]
+    (output / "compile_commands.json").write_text(json.dumps(cdb, indent=2) + "\n")
+    receipts = []
+    run_stage(command, "compile", output, row["directory"], receipts)
+    declarations = re.findall(
+        r'asm\(((?:\s*"[^"]*")+\s*)\)',
+        (folder / "ConsumerHooks.h").read_text(),
+    )
+    names = ["".join(re.findall(r'"([^"]*)"', value)) for value in declarations]
+    symbols = sorted(
+        {
+            value.removeprefix("__wrap_")
+            for value in names
+            if value.startswith("__wrap_")
+        }
+    )
+    if len(symbols) != 5:
+        parser.error("the replay requires all five demand/read/render hooks")
+    command = list(link["command"])
+    archive = next(
+        i for i, value in enumerate(command) if value.endswith("/liboutshine.a")
+    )
+    command.insert(archive, str(obj))
+    compiler = next(i for i, value in enumerate(command) if "clang++" in value)
+    command[compiler + 1 : compiler + 1] = ["-Wl,--wrap=" + value for value in symbols]
+    command[command.index("-o") + 1] = str(output / "ConsumerReplay")
+    run_stage(command, "link", output, row["directory"], receipts)
+
+
+if __name__ == "__main__":
+    main()
