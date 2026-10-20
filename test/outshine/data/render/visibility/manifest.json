@@ -1,0 +1,114 @@
+{
+  "scope": "One fixed selected native view, no re-selection of previously unselected jobs; only unread position/index slots zeroed, every consumed word and original byte address retained",
+  "original": {
+    "arguments.bin": {
+      "bytes": 122680,
+      "sha256": "59cbeda010316b4e92203cc625483d2460804d5286d594fab0f1e2fdb6a40466"
+    },
+    "benchmark.json": {
+      "bytes": 97385,
+      "sha256": "22d85a6772e89ee4a7bc4b6817ecf40852e20b215f580d202962aea883440e22"
+    },
+    "draws.json": {
+      "bytes": 124640,
+      "sha256": "7e7939062d2575c8ee792d85e607c05886d8f15ae943b9ece3c66639ae59b548"
+    },
+    "indices.bin": {
+      "bytes": 105578496,
+      "sha256": "264e5d166266ebc1b3e9aad11a448f307d9f58ede14d028335520d3dcb6e5d9e"
+    },
+    "inputs.json": {
+      "bytes": 404,
+      "sha256": "94df6489213f91ac81735b020dd1d38d92694096dae0d83bf0bb4863eba8308c"
+    },
+    "jobs.bin": {
+      "bytes": 787680,
+      "sha256": "3b9f6a245fce1c4602674939cc8de25ab3e9a72635193d9eae40e9159dc25551"
+    },
+    "kept.bin": {
+      "bytes": 196920,
+      "sha256": "f72a7942f9c372695417dc5399f65ad695175f32e0e58c53f14434c7359c45b8"
+    },
+    "placements.bin": {
+      "bytes": 883296,
+      "sha256": "5c56d81cc8a7ee956f145b1880d7c5677db7669b5579adb75cd6bd1a0f216496"
+    },
+    "pyramid.bin": {
+      "bytes": 1224000,
+      "sha256": "a88895df2a8e88b0929dc5eaf7ee35df6e70d58d3bfcdd86d7a74aa33f9720cb"
+    },
+    "spheres.bin": {
+      "bytes": 2363040,
+      "sha256": "0a79e4d706aa1a67dfb85b3d8f2ba2e5b0865bceddba97873d804b70d1b2b34a"
+    },
+    "uniform.bin": {
+      "bytes": 256,
+      "sha256": "559b0779122ca70741ae598b81e9355b4fff8b5edb444a6d17b3ad6283a973cf"
+    },
+    "vertices.bin": {
+      "bytes": 214106112,
+      "sha256": "43e1cbbb44d7b5ad7da9b02ca96a5dd5390c8d2214b7cc0b42ab0efb702110c5"
+    }
+  },
+  "canonical": {
+    "arguments.bin": {
+      "bytes": 122680,
+      "sha256": "59cbeda010316b4e92203cc625483d2460804d5286d594fab0f1e2fdb6a40466"
+    },
+    "benchmark.json": {
+      "bytes": 97385,
+      "sha256": "22d85a6772e89ee4a7bc4b6817ecf40852e20b215f580d202962aea883440e22"
+    },
+    "draws.json": {
+      "bytes": 124640,
+      "sha256": "7e7939062d2575c8ee792d85e607c05886d8f15ae943b9ece3c66639ae59b548"
+    },
+    "indices.bin": {
+      "bytes": 105578496,
+      "sha256": "2a207f1e99e577750738c9b489d79d3a35923104f6070d4b1ccd39714f133142"
+    },
+    "inputs.json": {
+      "bytes": 404,
+      "sha256": "94df6489213f91ac81735b020dd1d38d92694096dae0d83bf0bb4863eba8308c"
+    },
+    "jobs.bin": {
+      "bytes": 787680,
+      "sha256": "3b9f6a245fce1c4602674939cc8de25ab3e9a72635193d9eae40e9159dc25551"
+    },
+    "kept.bin": {
+      "bytes": 196920,
+      "sha256": "f72a7942f9c372695417dc5399f65ad695175f32e0e58c53f14434c7359c45b8"
+    },
+    "placements.bin": {
+      "bytes": 883296,
+      "sha256": "5c56d81cc8a7ee956f145b1880d7c5677db7669b5579adb75cd6bd1a0f216496"
+    },
+    "pyramid.bin": {
+      "bytes": 1224000,
+      "sha256": "a88895df2a8e88b0929dc5eaf7ee35df6e70d58d3bfcdd86d7a74aa33f9720cb"
+    },
+    "spheres.bin": {
+      "bytes": 2363040,
+      "sha256": "0a79e4d706aa1a67dfb85b3d8f2ba2e5b0865bceddba97873d804b70d1b2b34a"
+    },
+    "uniform.bin": {
+      "bytes": 256,
+      "sha256": "559b0779122ca70741ae598b81e9355b4fff8b5edb444a6d17b3ad6283a973cf"
+    },
+    "vertices.bin": {
+      "bytes": 214106112,
+      "sha256": "fe3a29d5235392add8c5971f552c0068a8410f3d7d98c2244ab612190412e4ff"
+    }
+  },
+  "selected_jobs": 11938,
+  "index_references": 4284198,
+  "used_vertices": 2174806,
+  "source_commit": "2dfdaba32",
+  "tar_status": 0,
+  "xz_status": 0,
+  "archive_bytes": 15012884,
+  "archive_sha256": "7953cd3ebe51c8e115f97f5d2d0e0804569773ecb871950335ea2e714b53ef1b",
+  "schema": 1,
+  "archive": "selected-native.tar.xz",
+  "attribution": "Contains procedural geometry derived from OpenStreetMap data via OpenFreeMap. \u00a9 OpenStreetMap contributors, ODbL 1.0; https://www.openstreetmap.org/copyright"
+}

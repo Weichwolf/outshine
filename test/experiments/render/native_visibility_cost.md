@@ -54,6 +54,66 @@ The smallest group is not yet the native winner. Compare 8/16/32 on actual GPU
 execution with the two-phase path; preserve disocclusion, dynamic content,
 material coverage and shadow work. Do not disable TAA or the stale-depth guard.
 
+The same input with only box/frustum rejection retains 1,405,196 triangles for
+the original groups and 1,378,864/1,360,147/1,346,598/1,336,177 for limits
+64/32/16/8. Even the smallest groups remove only 91,889/1,428,066 = 6.43%
+without depth, despite increasing the group count from 11,938 to 179,168.
+These are Double final-pose counts, not Float32/raster or GPU-time evidence.
+The larger reduction above depends on occlusion; finer frustum checks alone
+do not justify a new native grouping path.
+
+## Native cost comparison
+
+An Apple A18 Pro prototype on native review basis `d74014221` replays the same
+original selected Tokyo inputs from `2dfdaba32`. It measures box selection,
+packing, the production prefix scan, a 32-lane-per-group index compactor and
+1280×720 D32F position-only raster together. The final full-scene depth pyramid
+is supplied without charging its construction. This excludes PBR, first-phase
+depth, parent selection, group construction, history recovery and complete frames.
+
+Each configuration has twelve GPU-timestamp samples, including the first.
+Variant order alternates forward/reverse; the three measured modes rotate order.
+Metal API validation is enabled. Every surviving index matches its original;
+there are no false rejections against the Double reference in this pose.
+Before culling, every regrouped baseline produces bit-identical depth.
+
+The following uses exact eight-corner projection with two shared reciprocals
+per corner. All rows retain the original 1,577 draw batches. Times are medians;
+the unculled raster baseline is 2.214–2.220 ms across these configurations.
+
+| Maximum triangles/group | GPU remaining triangles | Select/compact ms | Select/compact/raster ms |
+|---|---:|---:|---:|
+| Original groups, exact boxes | 1,055,004 | 0.547 | 2.252 |
+| 64 | 889,083 | 0.505 | 1.945 |
+| 32 | 709,050 | 0.542 | 1.728 |
+| 16 | 533,001 | 0.689 | 1.595 |
+| 8 | 379,436 | 1.071 | 1.805 |
+
+Sixteen beats eight here: additional query/scan/compaction work outweighs the
+smaller triangle count. Its measured saving is (2.214−1.595)/2.214 = 27.96%
+of this isolated path, not a full-frame speedup or a universal group size.
+
+A conservative clip-interval projection is cheaper in isolation but retains
+more geometry: sixteen-triangle groups keep 644,464 triangles and take 1.764 ms
+with selection, compaction and raster. It loses to the exact-corner path overall.
+
+For position-only depth, grouping equal model matrices into bounded runs of at
+most 256 groups reduces batch overhead. The eight-triangle configuration then
+has 701 batches and takes 1.238 ms against its 2.176 ms unculled baseline;
+index and baseline-depth checks remain exact. This does not authorize merging
+PBR batches: the 1,577 original placement records have different attribute
+offsets/colours despite only two distinct model matrices.
+
+Decision: retain 16 as a candidate with existing batches, compare bounded
+compatible batching separately, and reject the cheaper interval projection as
+the current winner. No product shader, bindings, TAA guard or LOD changed.
+The private native probe retains source, complete compile/link commands,
+shader hashes, raw samples and terminal receipts under the system-temp
+`outshine-gpu-visibility-894-*` task. Canonical device evidence and integration
+coordination belong to [#894](https://github.com/Weichwolf/outshine/issues/894).
+The shared [native pipeline replay](native_visibility_pipeline.md) now includes
+the C++/GLSL probe, fixed selected inputs and a starter for both native backends.
+
 ## Reproduce
 
 Use an interpreter with NumPy. Keep inputs and outputs in system temp.
