@@ -467,6 +467,15 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Alpha-Belegung, Mips, Normalen und Silhouette erhalten; leere Texel und Overdraw können
   den Geometriegewinn aufheben. Aus eigenen prozeduralen Modellen erzeugen, kein Fotoatlas. Gemeinsame Basisprodukte
   als Asset-Rohlinge speichern ([#10](https://github.com/Weichwolf/outshine/issues/10)); Nahdetails und aktuelles Licht/Wind folgen zur Laufzeit.
+- **Stereo Magnification: Learning view synthesis using multiplane images**,
+  Zhou / Tucker / Flynn / Fyffe / Snavely, SIGGRAPH 2018.
+  [Publikation](https://doi.org/10.1145/3197517.3201323) ·
+  [Autoren-PDF](https://tinghuiz.github.io/papers/siggraph18_mpi_lowres.pdf) ·
+  [PDF](geometry/siggraph/2018-stereo-magnification.pdf).
+  Seite 3 mit geometrischer Verankerung und Alpha-Komposition optisch geprüft.
+  #899 vergleicht eigene analytische, unbeleuchtete Flächenmaße statt gelernter
+  RGB-Schichten. Keine Foto-Welttexturen, kein gebackenes Licht und keine Übernahme
+  der trainierten Rekonstruktion; Disokklusion und Gerätebudgets bleiben gesondert.
 - **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
   [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
   [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·
