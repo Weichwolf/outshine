@@ -148,7 +148,7 @@ def project(snapshot, lower, upper, models):
     return outside, safe, low, high, most[:, 2]
 
 
-def query(snapshot, projected, weights, count):
+def classify(snapshot, projected, weights, count):
     outside, safe, low, high, nearest = projected
     rejected = outside.copy()
     reads, capped = 0, 0
@@ -173,6 +173,11 @@ def query(snapshot, projected, weights, count):
         values = depth[first[1] : last[1] + 1, first[0] : last[0] + 1]
         reads += values.size
         rejected[at] = nearest[at] < float(values.min())
+    return rejected, reads, capped
+
+
+def query(snapshot, projected, weights, count):
+    rejected, reads, capped = classify(snapshot, projected, weights, count)
     return {
         "levels": count,
         "rejected_triangles": int(weights[rejected].sum()),
