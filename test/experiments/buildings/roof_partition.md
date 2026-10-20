@@ -97,7 +97,7 @@ Ein neuer vollständiger Speicherpeak nach der Robustheitskorrektur ist ungemess
 37° Drehung und Translation um `(100000,-200000)m` ließen am früheren Stand
 vier Aufbaufehler und eine abweichende Quellflächen-Trennlinie entstehen.
 Die obigen Änderungen beheben die vier Aufbaufehler, ohne Pins oder Grenzen
-zu ändern. Alle16 lokalen Kontrollen bestehen einschließlich dieser fünf Fälle
+zu ändern. Alle17 lokalen Kontrollen bestehen einschließlich dieser fünf Fälle
 und einer analytischen fast rangdefizienten Ebenenkonfiguration.
 
 `check_roof_invariance.py` transformiert die48 festen Eingaben und ihre bestehenden
@@ -124,6 +124,32 @@ Textur-Seam-Abnahme. Dieser Unterschied bleibt ausdrücklich sichtbar im Report.
 Die vier korrigierten Dächer wurden paarweise als3D-Diagnose geöffnet; keine
 PBR-/Geräteabnahme und keine Bilder im Repository.
 
+## Verbrauch vorbereiteter Game-Assets
+
+`verify_roof_partition_consumer.py` prüft alle48 Originale in den tatsächlichen
+intrinsischen Quellframes von `Shape`: ein vorbereiteter Konturplan, danach
+`byHeight=3m` und `byAngle=30°` ohne erneute Konstruktion. Skeleton-Imports sind
+gesperrt; ein Aufruf von `roof_hip.prepare_hip` schlägt ausdrücklich fehl.
+96 Standarddächer ohne Überstand bestehen: orientiert geschlossene Dreiecksnetze,
+aufgelöste Normalen, Volumen gegen das analytische Facettenintegral sowie
+UV0–9 gegen die ursprünglichen nativen Interpolationsdreiecke.1.761.760 UV-Werte
+an Ecken/Innenpunkten und Quellmaterial/Gruppen/Tags/Appearance geprüft.
+Ein Linux/i5-Lauf benötigt20,06s Planaufbau und12,58s reinen Shape-Verbrauch,
+maximal0,322s je Shape; Prüfungen separat. Kein nativer Zeit-/Speicherbeleg.
+Even-/Inset-/Außenüberstände sind damit nicht zusätzlich zugelassen.
+
+Eine unabhängige koplanare Kontrolle benutzt ein10×6m-Rechteck mit geteilter
+Nordtraufe. Der innere Teilungsknoten wandert von `x=5` zu `x=6,5m` bei `y=3m`; jeweils2,25m²
+wechseln ihre Quellfacette. Beide analytisch gültigen Pläne behalten alle Traufen
+und dieselbe Höhenfläche; das Volumenintegral ist72m³ bei3m Höhe bzw.
+`72*tan(30°)m³`. Beide Teilungen erhalten die absichtlich nicht global affinen
+UV0–9 der gleichen Quelltriangulierung. Diese Python-Abnahme begründet den
+nativen Vertrag: UVs stammen aus Quellinterpolationsdomänen, nicht aus der
+zufälligen internen Quellkanten-Teilung. Sie ersetzt keine native Texturprüfung.
+Die vorhandene Blender4.3.2-Workbench-Prüfung zeigt beide ausgegebenen Netze mit
+derselben asymmetrischen Kontrolltextur bei1920×1080; tatsächliches UV-Binding
+geprüft und Bild geöffnet. Flat-Texturdiagnose, kein PBR-/Gerätenachweis.
+
 ## Gemeinsamer Kern und CPU/GPU-Grenze
 
 Wiederverwendet werden GEOS-Noding/Flächen und die vorhandene begrenzte numerische
@@ -149,12 +175,21 @@ PYTHONPATH=lib/src:test/experiments/buildings OPENBLAS_NUM_THREADS=1 .venv/bin/p
 PYTHONPATH=lib/src:test/experiments/buildings OPENBLAS_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/buildings/verify_hip_fixture.py --method contour
 PYTHONPATH=lib/src:test/experiments/buildings OPENBLAS_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/buildings/compare_roof_partition.py --output /tmp/outshine-roof-partition-proof --trace-allocations --check-offset-alternative
 PYTHONPATH=lib/src:test/experiments/buildings OPENBLAS_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/buildings/check_roof_invariance.py --output /tmp/outshine-roof-partition-proof
+PYTHONPATH=lib/src:test/experiments/buildings OPENBLAS_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/buildings/verify_roof_partition_consumer.py --output /tmp/outshine-roof-partition-proof --uv-inspection
 PYTHONPATH=lib/src:test/experiments/buildings .venv/bin/python -B test/experiments/buildings/plot_roof_partition.py --output /tmp/outshine-roof-partition-proof
+```
+
+`--uv-inspection` erzeugt auch Mesh/Textur/Scene für den bestehenden Prüfrenderer.
+Blender-Python muss ein kompatibles NumPy sehen; hier haben Blender und`.venv`
+jeweils Python3.13.5:
+
+```sh
+PYTHONPATH="$(.venv/bin/python -c 'import sysconfig;print(sysconfig.get_path("purelib"))')" OPENBLAS_NUM_THREADS=1 nice -n 10 blender --background --factory-startup --python-use-system-env --threads 2 --python-exit-code 1 --python test/experiments/buildings/render_uv_inspection.py -- /tmp/outshine-roof-partition-proof/scene.json
 ```
 
 Der Vergleich blockiert beide optionalen Skeleton-Imports im Kandidaten,
 prüft gegen vorhandene Pins und schreibt keine Orakel. Quellen-/Codehashes,
-Zeiten, Arbeit und unbekannte Kosten stehen im Report. 16 lokale Kontrollen prüfen auch den vorhandenen Desktop-Worker und die direkte
+Zeiten, Arbeit und unbekannte Kosten stehen im Report. 17 lokale Kontrollen prüfen auch den vorhandenen Desktop-Worker und die direkte
 Verwendung fertiger Pläne mit UV0–9 ohne erneute Konstruktion. Die lokale3D-Diagnose
 vergleicht vier Originaldächer bei gleichem30° Winkel/physikalischem Achsenmaß;
 sie muss geöffnet werden und ist kein PBR-/Weltbild. Keine Bildveröffentlichung.
