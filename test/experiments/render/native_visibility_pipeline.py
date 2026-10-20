@@ -40,12 +40,12 @@ def execute(command, checkout, output, name, records):
         row["wall_s"] = time.monotonic() - began
 
 
-def build(checkout, output, records):
+def build(checkout, output, records, source=None):
     database = json.loads((checkout / "compile_commands.json").read_text())
     entry = next(row for row in database if Path(row["file"]).name == "GpuCompute.cpp")
     if Path(entry["directory"]).resolve() != checkout:
         raise ValueError("compilation database belongs to another checkout")
-    source = Path(__file__).with_suffix(".cpp")
+    source = source or Path(__file__).with_suffix(".cpp")
     command = list(entry.get("arguments") or shlex.split(entry["command"]))
     command[command.index(entry["file"])] = str(source)
     command[command.index("-o") + 1] = str(output / "probe.o")
