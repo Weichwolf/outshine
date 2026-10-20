@@ -277,6 +277,8 @@ TestProfile() {
     outshine/src/generators/base/water/WaterSurfaceMesh) printf '%s' 'profile/water-mesh' ;;
     outshine/src/generators/base/water/WaterAsset) printf '%s' 'profile/water-asset' ;;
     outshine/src/generators/water/WaterSurfacePreparation) printf '%s' 'profile/water-geometry' ;;
+    outshine/src/generators/water/RiverBodyPlan) printf '%s' 'profile/water-preparation' ;;
+    outshine/src/generators/water/WaterCourseProfile) printf '%s' 'profile/water-targets' ;;
     outshine/src/engine/streaming/WaterGeometryPreparation) printf '%s' 'profile/water-worker' ;;
     outshine/integration/water/BasinFacets) printf '%s' 'profile/water-bed' ;;
     outshine/src/generators/flora/PreparedPlantBuild) printf '%s' 'profile/plant-build' ;;
@@ -314,6 +316,7 @@ LayerIncludes() {
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/water-mesh | profile/water-asset) GroupIncludes src/generators/base ;;
     profile/water-geometry | profile/water-preparation) GroupIncludes src/generators/water ;;
+    profile/water-targets) GroupIncludes src/generators/water ;;
     profile/water-worker) GroupIncludes src/engine ;;
     profile/water-bed) GroupIncludes src/generators/water; GroupIncludes src/generators/terrain ;;
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
@@ -419,6 +422,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$(TestProfile "$1")" in
+    profile/water-targets) printf '%s' '' ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/tasks) printf '%s' '-pthread' ;;
@@ -466,9 +470,10 @@ LayerGroups() {
   case "$(TestProfile "$1")" in
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
+    profile/water-targets) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/water/WaterCourseProfile.cpp' ;;
     profile/water-mesh) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/base/water/WaterSurfaceMesh.cpp src/generators/base/water/WaterSurfaceMeshQueries.cpp src/generators/base/water/WaterSurfaceMeshCodec.cpp' ;;
     profile/water-asset) LayerGroups profile/water-mesh; printf '%s' ' src/generators/base/water/WaterAsset.cpp src/generators/base/water/WaterAssetQueries.cpp src/generators/base/water/WaterAssetGeometry.cpp src/generators/base/water/WaterAssetCodec.cpp src/generators/base/water/WaterAssetMetadata.cpp src/world/ground/tiles/TileGeodesy.cpp' ;;
-    profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp src/generators/water/WaterSurfaceTopology.cpp src/generators/water/WaterPhysicalFrame.cpp src/generators/water/WaterHeightProgram.cpp src/generators/water/WaterHeightFit.cpp' ;;
+    profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp src/generators/water/WaterSurfaceTopology.cpp src/generators/water/WaterPhysicalFrame.cpp src/generators/water/WaterHeightProgram.cpp src/generators/water/WaterHeightFit.cpp src/generators/water/WaterCourseProfile.cpp src/generators/water/WaterSurfaceComponents.cpp src/generators/water/WaterSurfaceRoundoff.cpp src/generators/water/RiverBodyPlan.cpp src/generators/water/RiverBodyCourses.cpp src/generators/water/RiverBodyHeight.cpp' ;;
     profile/water-geometry) LayerGroups profile/water-preparation; printf '%s' ' src/generators/water/WaterSurfaceBuilder.cpp src/base/Geometry.cpp' ;;
     profile/water-worker) LayerGroups profile/water-preparation; printf '%s' ' src/base/io/Tasks.cpp src/engine/streaming/WaterGeometryPreparation.cpp' ;;
     profile/water-bed) LayerGroups profile/water-asset; printf '%s' ' src/generators/water/WaterBasinStamps.cpp src/generators/terrain/EarthworkPress.cpp src/generators/terrain/ProfiledCorridorPress.cpp' ;;

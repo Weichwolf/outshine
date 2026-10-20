@@ -1,5 +1,6 @@
 #include "WaterSurfacePreparation.h"
 #include "WaterSurfaceMesh.h"
+#include "RiverBodyHeight.h"
 
 #include "TangentFrame.h"
 #include "Earth.h"
@@ -122,6 +123,152 @@ std::optional<std::vector<uint32_t>> TriangulateWaterPolygon(const WaterPolygon 
   return oriented;
 }
 
+enum class SurfaceState { Pending, Prepared, Rejected };
+
+struct SurfaceAssembly {
+  std::vector<Vec3> Vertices;
+  std::vector<WaterSurfaceMesh::Face> Faces;
+  WaterAsset::SurfaceGeometry Product;
+  std::vector<SurfaceState> States;
+
+  explicit SurfaceAssembly(size_t count) : States(count, SurfaceState::Pending) {
+    Product.FaceSourceOffsets.push_back(0);
+  }
+
+  void Reject(uint32_t source, WaterAsset::SurfaceRejectionReason reason) {
+    Product.Rejections.push_back({.Surface = source, .Reason = reason});
+    States[source] = SurfaceState::Rejected;
+  }
+
+  void Source(std::span<const uint32_t> sources) {
+    Product.FaceSources.insert(Product.FaceSources.end(), sources.begin(), sources.end());
+    Product.FaceSourceOffsets.push_back(static_cast<uint32_t>(Product.FaceSources.size()));
+  }
+};
+
+std::vector<uint32_t> Sources(const RiverBody &body) {
+  auto sources = body.Surface.FaceSources;
+  std::ranges::sort(sources);
+  const auto duplicate = std::ranges::unique(sources);
+  sources.erase(duplicate.begin(), duplicate.end());
+  return sources;
+}
+
+std::expected<void, std::string> AppendRiver(const WaterAsset &water,
+                                             const TangentFrame &frame,
+                                             const RiverBody &body,
+                                             const std::stop_token &stop,
+                                             SurfaceAssembly &assembly) {
+  const auto sources = Sources(body);
+  auto fit = FitRiverBody(water, frame, body, {}, stop);
+  if (!fit) {
+    if (fit.error() == WaterHeightError::Canceled) {
+      return std::unexpected("river surface preparation canceled");
+    }
+    const auto reason = fit.error() == WaterHeightError::CapacityExceeded
+                            ? WaterAsset::SurfaceRejectionReason::CapacityExceeded
+                            : WaterAsset::SurfaceRejectionReason::InvalidHeightModel;
+    for (const auto source : sources) { assembly.Reject(source, reason); }
+    return {};
+  }
+  if (fit->VerticesEnuM.size() > std::numeric_limits<uint32_t>::max() - assembly.Vertices.size() ||
+      body.Surface.Faces.size() >
+          std::numeric_limits<uint32_t>::max() / 2 - assembly.Faces.size()) {
+    for (const auto source : sources) {
+      assembly.Reject(source, WaterAsset::SurfaceRejectionReason::CapacityExceeded);
+    }
+    return {};
+  }
+  const auto base = static_cast<uint32_t>(assembly.Vertices.size());
+  assembly.Vertices.insert(
+      assembly.Vertices.end(), fit->VerticesEnuM.begin(), fit->VerticesEnuM.end());
+  for (size_t index = 0; index < body.Surface.Faces.size(); ++index) {
+    auto face = body.Surface.Faces[index];
+    for (auto &vertex : face.Vertices) { vertex += base; }
+    assembly.Faces.push_back(face);
+    const auto first = body.Surface.FaceSourceOffsets[index];
+    const auto end = body.Surface.FaceSourceOffsets[index + 1];
+    assembly.Source(std::span(body.Surface.FaceSources).subspan(first, end - first));
+  }
+  for (const auto source : sources) { assembly.States[source] = SurfaceState::Prepared; }
+  return {};
+}
+
+std::expected<void, std::string> AppendRivers(const WaterAsset &water,
+                                              const TangentFrame &frame,
+                                              const std::stop_token &stop,
+                                              SurfaceAssembly &assembly) {
+  const auto plan =
+      PlanRiverBodies(water, frame, WaterGroundPolicy::AssumeUnlabelledGround, {}, stop);
+  if (!plan) { return std::unexpected("river body planning failed or was canceled"); }
+  for (const auto &rejection : plan->Rejections) {
+    assembly.Reject(rejection.Surface, rejection.Reason);
+  }
+  std::vector<uint32_t> owners(water.Surfaces().size());
+  for (const auto &body : plan->Bodies) {
+    for (const auto source : Sources(body)) { ++owners[source]; }
+  }
+  for (const auto &body : plan->Bodies) {
+    if (stop.stop_requested()) { return std::unexpected("river surface preparation canceled"); }
+    const auto sources = Sources(body);
+    if (body.Courses.empty() ||
+        std::ranges::any_of(sources, [&](uint32_t source) { return owners[source] != 1; })) {
+      continue;
+    }
+    const auto result = AppendRiver(water, frame, body, stop, assembly);
+    if (!result) { return std::unexpected(result.error()); }
+  }
+  return {};
+}
+
+void AppendFlat(const WaterAsset &water,
+                uint32_t index,
+                const TangentFrame &frame,
+                SurfaceAssembly &assembly) {
+  const auto &surface = water.Surfaces()[index];
+  const auto polygon =
+      ReadWaterPolygon(water.RingsOf(surface), water.Points(), surface.LevelM, frame);
+  if (!polygon) {
+    assembly.Reject(index, WaterAsset::SurfaceRejectionReason::InvalidTopology);
+    return;
+  }
+  if (polygon->Vertices.size() > std::numeric_limits<uint32_t>::max() - assembly.Vertices.size()) {
+    assembly.Reject(index, WaterAsset::SurfaceRejectionReason::CapacityExceeded);
+    return;
+  }
+  const auto oriented = TriangulateWaterPolygon(*polygon);
+  if (!oriented) {
+    assembly.Reject(index, WaterAsset::SurfaceRejectionReason::InvalidTopology);
+    return;
+  }
+  if (oriented->size() / 3 > std::numeric_limits<uint32_t>::max() / 2 - assembly.Faces.size()) {
+    assembly.Reject(index, WaterAsset::SurfaceRejectionReason::CapacityExceeded);
+    return;
+  }
+  const auto base = static_cast<uint32_t>(assembly.Vertices.size());
+  for (const auto &vertex : polygon->Vertices) {
+    assembly.Vertices.push_back({{vertex.EastM, vertex.NorthM, vertex.UpM}});
+  }
+  for (size_t at = 0; at < oriented->size(); at += 3) {
+    assembly.Faces.push_back({.Vertices = {base + (*oriented)[at],
+                                           base + (*oriented)[at + 1],
+                                           base + (*oriented)[at + 2]},
+                              .Surface = index});
+    assembly.Source(std::span(&index, 1));
+  }
+  assembly.States[index] = SurfaceState::Prepared;
+}
+
+bool ImplicitSources(const SurfaceAssembly &assembly) {
+  for (size_t at = 0; at < assembly.Faces.size(); ++at) {
+    const auto first = assembly.Product.FaceSourceOffsets[at];
+    const auto end = assembly.Product.FaceSourceOffsets[at + 1];
+    if (end - first != 1 || assembly.Product.FaceSources[first] != assembly.Faces[at].Surface) {
+      return false;
+    }
+  }
+  return true;
+}
 }
 
 std::expected<WaterAsset, std::string> PrepareWaterSurfaces(const WaterAsset &water,
@@ -129,55 +276,29 @@ std::expected<WaterAsset, std::string> PrepareWaterSurfaces(const WaterAsset &wa
                                                             const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("water surface preparation canceled"); }
   if (water.SurfacesReady()) { return water; }
+  SurfaceAssembly assembly(water.Surfaces().size());
+  const auto rivers = AppendRivers(water, frame, stop, assembly);
+  if (!rivers) { return std::unexpected(rivers.error()); }
   std::vector<uint32_t> ordered(water.Surfaces().size());
   std::ranges::iota(ordered, uint32_t{0});
   std::ranges::sort(ordered, {}, [&water](uint32_t index) {
-    return water.RingsOf(water.Surfaces()[index]).front().FirstPoint;
+    const auto rings = water.RingsOf(water.Surfaces()[index]);
+    return rings.empty() ? std::numeric_limits<uint32_t>::max() : rings.front().FirstPoint;
   });
-  std::vector<Vec3> vertices;
-  std::vector<WaterSurfaceMesh::Face> faces;
-  WaterAsset::SurfaceGeometry prepared;
-  constexpr size_t kMostVertices = std::numeric_limits<uint32_t>::max();
-  constexpr size_t kMostFaces = std::numeric_limits<uint32_t>::max() / 2u;
-  for (const uint32_t index : ordered) {
+  for (const auto index : ordered) {
     if (stop.stop_requested()) { return std::unexpected("water surface preparation canceled"); }
-    const auto &surface = water.Surfaces()[index];
-    const auto polygon =
-        ReadWaterPolygon(water.RingsOf(surface), water.Points(), surface.LevelM, frame);
-    if (!polygon) {
-      prepared.Rejections.push_back({.Surface = index});
-      continue;
-    }
-    if (polygon->Vertices.size() > kMostVertices - vertices.size()) {
-      prepared.Rejections.push_back(
-          {.Surface = index, .Reason = WaterAsset::SurfaceRejectionReason::CapacityExceeded});
-      continue;
-    }
-    const auto oriented = TriangulateWaterPolygon(*polygon);
-    if (!oriented) {
-      prepared.Rejections.push_back({.Surface = index});
-      continue;
-    }
-    if (oriented->size() / 3u > kMostFaces - faces.size()) {
-      prepared.Rejections.push_back(
-          {.Surface = index, .Reason = WaterAsset::SurfaceRejectionReason::CapacityExceeded});
-      continue;
-    }
-    const auto base = static_cast<uint32_t>(vertices.size());
-    for (const auto &vertex : polygon->Vertices) {
-      vertices.push_back({{vertex.EastM, vertex.NorthM, vertex.UpM}});
-    }
-    for (size_t at = 0; at < oriented->size(); at += 3u) {
-      faces.push_back({.Vertices = {base + (*oriented)[at],
-                                    base + (*oriented)[at + 1u],
-                                    base + (*oriented)[at + 2u]},
-                       .Surface = index});
+    if (assembly.States[index] == SurfaceState::Pending) {
+      AppendFlat(water, index, frame, assembly);
     }
   }
-  if (stop.stop_requested()) { return std::unexpected("water surface preparation canceled"); }
-  auto mesh = WaterSurfaceMesh::Build(frame.Anchor(), std::move(vertices), std::move(faces));
+  if (ImplicitSources(assembly)) {
+    assembly.Product.FaceSourceOffsets.clear();
+    assembly.Product.FaceSources.clear();
+  }
+  auto mesh = WaterSurfaceMesh::Build(
+      frame.Anchor(), std::move(assembly.Vertices), std::move(assembly.Faces));
   if (!mesh) { return std::unexpected("water surface mesh is invalid or exceeds its capacity"); }
-  prepared.Mesh = std::move(*mesh);
-  return water.WithSurfaces(std::move(prepared));
+  assembly.Product.Mesh = std::move(*mesh);
+  return water.WithSurfaces(std::move(assembly.Product));
 }
 }
