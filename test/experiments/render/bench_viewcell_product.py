@@ -14,6 +14,9 @@ from viewcell_product import load_product, query
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
+    parser.add_argument(
+        "--product-kind", choices=("viewcell", "beam"), default="viewcell"
+    )
     for name in ("product", "request", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args()
@@ -24,13 +27,23 @@ def main():
     eye, basis, focal, width, height = request["view"]
     view = np.array(eye), np.array(basis), focal, width, height
     start = time.perf_counter()
-    product = load_product(args.product, [eye], request["provenance"])
+    if args.product_kind == "beam":
+        from beam_field_product import load_product as load_beam
+
+        product = load_beam(args.product, [eye], request["provenance"])
+    else:
+        product = load_product(args.product, [eye], request["provenance"])
     prepare_s = time.perf_counter() - start
     roi = np.array(request["roi"])
     w, h = (roi[1] - roi[0]).astype(int)
     origins, directions = image_rays(view, roi, w, h, 2)
     start = time.perf_counter()
-    depth, fields, source, tag = query(product, origins, directions)
+    if args.product_kind == "beam":
+        from beam_field_product import query as query_beam
+
+        depth, fields, source, tag = query_beam(product, origins, directions)
+    else:
+        depth, fields, source, tag = query(product, origins, directions)
     query_s = time.perf_counter() - start
     np.savez_compressed(
         args.output / "fields.npz",
@@ -48,8 +61,12 @@ def main():
         "vertex_stage_copy_bytes": product["vertex_stage_copy_bytes"],
         "peak_process_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
-        "scope": "fresh CPU/Rtree process, ready camera-support asset; OS cache not flushed; no original input, native or device evidence",
+        "scope": "fresh CPU ready-product process; OS cache not flushed; no original input, native or device evidence",
     }
+    if args.product_kind == "beam":
+        result.update(
+            derived_cpu_bytes=product["derived_cpu_bytes"], query_work=product["work"]
+        )
     (args.output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
 
