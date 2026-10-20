@@ -1,0 +1,15 @@
+#version 450
+layout(local_size_x = 64) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer Results {
+  uvec4 results[];
+};
+
+layout(std430, set = 1, binding = 0) writeonly buffer Kept {
+  uint kept[];
+};
+
+void main() {
+  uint at = gl_GlobalInvocationID.x;
+  if (at < kept.length()) { kept[at] = results[at].x * 3u; }
+}

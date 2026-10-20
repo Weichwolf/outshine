@@ -1,0 +1,32 @@
+{
+  "schema": 2,
+  "scope": "Selected actual pre-port road sweep curves and original upper stencils, one acquired source region; no whole-world, final-contact, material or runtime admission",
+  "archive": "requests.jsonl.xz",
+  "records": 1462,
+  "captured_records": 62653,
+  "source_jsonl_sha256": "b84ca6a98f7e649f08a51fbd7e3df2987e7a53018a2bc180bd1363739ddd35cd",
+  "archive_sha256": "df68c2ff306fe5115db4daf7b1efd366caa96338bf673634bd9c5bba9f9d2bf8",
+  "archive_bytes": 3815968,
+  "uncompressed_bytes": 15288765,
+  "capture_cpp_commit": "e2ae8098599d142397c72e706499604fa3ffad60",
+  "original_ribbon_cpp_sha256": "3b1ca5810a6a5267521aabb804440b8f43b899a9c7823dfc43e8d647229f1545",
+  "selection": "1024 lowest original-schema full-record SHA256 values plus64 largest each curvature/slope/slope-rate/bank/bank-rate/stations/half-width, and12 parameter-overlay witnesses; retained original capture ordinals, no source deduplication",
+  "seam_columns": [
+    "station_m",
+    "east_from_first_m",
+    "north_from_first_m",
+    "height_from_first_m",
+    "heading_rad",
+    "curvature_per_m",
+    "curvature_rate_per_m2",
+    "slope",
+    "slope_rate_per_m",
+    "bank_rad",
+    "bank_rate_per_m"
+  ],
+  "upper_axes": "Float32 rings of4XYZ vertices: east/up/south relative to first reference pose; actual emitted positions/normals before external port stitching and final whole-world transforms",
+  "source_identity": "Native capture ordinal only; OSM way IDs/material families/end-port recipes are not supplied by this base-curve observer. This is a method fixture, not a production asset schema.",
+  "attribution": "Procedural curves derived from OpenStreetMap data via OpenFreeMap, with Mapterhorn elevations. © OpenStreetMap contributors, ODbL1.0; https://www.openstreetmap.org/copyright. Source provider records remain in original acquisition caches.",
+  "original_source_jsonl_sha256": "6edc5cc1d077f8e4fa478722fb2b771475296a1d130ec2ab79dba8abd8850eed",
+  "intervals": "One record per consecutive seams: range_m, midpoint pose using seam_columns, and native MaxAbsCurvaturePerM on that interval. Midpoint avoids ambiguous curvature-rate sidedness at plan seams. The bound covers reference-line plan curvature only, not the swept surface or final contacts."
+}
