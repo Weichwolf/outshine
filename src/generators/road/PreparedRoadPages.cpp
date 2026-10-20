@@ -139,7 +139,7 @@ PreparedRoadPages::Resolve(const RoadPageAddress &address,
     if (!existing) { return std::unexpected(std::move(existing.error())); }
     if (*existing) { return std::move(**existing); }
   }
-  auto generated = [&]() -> std::expected<CachedAsset, std::string> {
+  auto generated = [&] -> std::expected<CachedAsset, std::string> {
     auto geometry = factory(bytesMost);
     if (!geometry) { return std::unexpected(std::move(geometry.error())); }
     auto package =
