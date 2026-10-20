@@ -1,7 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define VARYING in
-#define GROUND_WORLD_POSITION
 #if LIT_TEXTURED == 0
 #define SUBJECT_CONSTANT_UV 1
 #endif
@@ -37,6 +36,7 @@ vec2 coordinate(vec3 u, vec3 v, float second) {
   return vec2(dot(u, homogeneous), dot(v, homogeneous));
 }
 void main() {
+  readSubjectVaryings();
   M surface = materialAt();
   vec4 tap = vec4(1.0);
   vec4 orm = vec4(1.0);
