@@ -26,6 +26,8 @@ public:
   Open(const std::string &directory);
   [[nodiscard]] std::expected<std::optional<Loaded>, std::string>
   Load(const RoadPageAddress &address, size_t bytesMost);
+  [[nodiscard]] std::expected<std::optional<Loaded>, std::string> LoadKey(const std::string &key,
+                                                                          size_t bytesMost);
   [[nodiscard]] std::expected<std::optional<Loaded>, std::string>
   LoadRequest(const std::string &requestKey, size_t bytesMost);
   [[nodiscard]] std::expected<Loaded, std::string> Resolve(const RoadPageAddress &address,

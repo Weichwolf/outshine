@@ -189,6 +189,13 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
                                   std::unexpected("fresh page cache unavailable")};
   CHECK(restored && *restored && Same((**restored).Page->Geometry.Mesh, first.Geometry.Mesh),
         "a fresh service restores a bound demand without source or plan inputs");
+  const auto direct = (*fresh)->LoadKey(cold->Record.Key, kLimit);
+  CHECK(direct && *direct && Same((**direct).Page->Geometry.Mesh, first.Geometry.Mesh),
+        "a product key from metadata restores the exact native page without an address");
+  const auto absent = (*fresh)->LoadKey(std::string(64, 'f'), kLimit);
+  CHECK(absent && !*absent, "a missing product key is a normal native-cache miss");
+  CHECK(!(*fresh)->LoadKey("", kLimit) && !(*fresh)->LoadKey(std::string(64, 'g'), kLimit),
+        "invalid direct product identities fail before cache loading");
   auto retained = cold->Page;
   const auto removed = (*cache)->Remove(cold->Record.Key);
   const auto afterRemoval = (*cache)->Find(cold->Record.Key);

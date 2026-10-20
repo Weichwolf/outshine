@@ -67,6 +67,15 @@ PreparedRoadPages::Load(const RoadPageAddress &address, size_t bytesMost) {
 }
 
 std::expected<std::optional<PreparedRoadPages::Loaded>, std::string>
+PreparedRoadPages::LoadKey(const std::string &key, size_t bytesMost) {
+  if (key.empty() || !OptionalKey(key)) {
+    return std::unexpected("invalid road page product identity");
+  }
+  const std::scoped_lock lock(Lock_);
+  return Read(key, bytesMost);
+}
+
+std::expected<std::optional<PreparedRoadPages::Loaded>, std::string>
 PreparedRoadPages::LoadRequest(const std::string &requestKey, size_t bytesMost) {
   const std::scoped_lock lock(Lock_);
   auto found = Cache_->FindRequest(requestKey);

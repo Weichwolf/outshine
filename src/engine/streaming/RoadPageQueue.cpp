@@ -1,8 +1,10 @@
 #include "RoadPageQueue.h"
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <stop_token>
 #include <string>
 #include <utility>
@@ -10,9 +12,9 @@
 
 namespace outshine {
 struct RoadPageQueue::Work {
+  Loader Load;
   std::stop_source Stop;
-  std::expected<Generators::PreparedRoadPages::Loaded, std::string> Result =
-      std::unexpected("road page work has not completed");
+  RoadPageQueue::Result Result = std::unexpected("road page work has not completed");
   std::atomic<bool> Complete{false};
 };
 
@@ -30,42 +32,68 @@ bool RoadPageQueue::Request(Generators::RoadPageAddress address,
                             std::string requestKey,
                             Factory factory) {
   const auto key = Generators::RoadPageKey(address);
-  if (key.empty() || !Pages_) { return false; }
+  const auto admission = RequestState(key);
+  if (admission != Admission::Available) { return admission == Admission::Pending; }
+  return Enqueue(
+      key,
+      [pages = Pages_,
+       address = std::move(address),
+       parent = std::move(parent),
+       requestKey = std::move(requestKey),
+       factory = std::move(factory),
+       bytesMost = Limits_.PageBytesMost](const std::stop_token &stop) -> Result {
+        auto result = pages->Resolve(
+            address,
+            parent,
+            requestKey,
+            bytesMost,
+            [&](size_t limit) -> std::expected<Generators::RoadPageGeometry, std::string> {
+              if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
+              if (!factory) { return std::unexpected("road page miss has no producer"); }
+              auto generated = factory(limit, stop);
+              if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
+              return generated;
+            });
+        if (!result) { return std::unexpected(std::move(result.error())); }
+        return std::optional(std::move(*result));
+      });
+}
+
+bool RoadPageQueue::RequestCached(const std::string &key) {
+  const auto admission = RequestState(key);
+  if (admission != Admission::Available) { return admission == Admission::Pending; }
+  return Enqueue(key,
+                 [pages = Pages_, key, bytesMost = Limits_.PageBytesMost](const std::stop_token &) {
+                   return pages->LoadKey(key, bytesMost);
+                 });
+}
+
+RoadPageQueue::Admission RoadPageQueue::RequestState(const std::string &key) const {
+  if (!Pages_ || key.size() != 64) { return Admission::Rejected; }
   if (const auto found = Work_.find(key); found != Work_.end()) {
-    return !found->second->Stop.stop_requested();
+    return found->second->Stop.stop_requested() ? Admission::Rejected : Admission::Pending;
   }
-  if (Work_.size() >= Limits_.PendingMost) { return false; }
+  if (Work_.size() >= Limits_.PendingMost || !std::ranges::all_of(key, [](char value) {
+        return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f');
+      })) {
+    return Admission::Rejected;
+  }
+  return Admission::Available;
+}
+
+bool RoadPageQueue::Enqueue(const std::string &key, Loader load) {
   auto work = std::make_shared<Work>();
+  work->Load = std::move(load);
   Work_.emplace(key, work);
-  auto run = [work,
-              pages = Pages_,
-              address = std::move(address),
-              parent = std::move(parent),
-              requestKey = std::move(requestKey),
-              factory = std::move(factory),
-              bytesMost = Limits_.PageBytesMost] {
+  auto run = [work] {
     const auto stop = work->Stop.get_token();
     if (stop.stop_requested()) {
       work->Result = std::unexpected("road page request canceled");
     } else {
-      auto result = pages->Resolve(
-          address,
-          parent,
-          requestKey,
-          bytesMost,
-          [&](size_t limit) -> std::expected<Generators::RoadPageGeometry, std::string> {
-            if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
-            if (!factory) { return std::unexpected("road page miss has no producer"); }
-            auto generated = factory(limit, stop);
-            if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
-            return generated;
-          });
-      if (stop.stop_requested()) {
-        work->Result = std::unexpected("road page request canceled");
-      } else {
-        work->Result = std::move(result);
-      }
+      work->Result = work->Load(stop);
+      if (stop.stop_requested()) { work->Result = std::unexpected("road page request canceled"); }
     }
+    work->Load = {};
     work->Complete.store(true, std::memory_order_release);
   };
   if (Pool_.PostDetached(std::move(run))) { return true; }
