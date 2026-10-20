@@ -10,7 +10,8 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 | SFCGAL | 2.3.0 | [#48](https://github.com/Weichwolf/outshine/issues/48) | Native Walmdachpartition mit Quellkanten/Höfen über C-API; mindestens 2.3, Rendererübernahme folgt |
 | simdjson | 4.6.11 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer JSON-Decoder |
 | pugixml | 1.16 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer XML-Decoder |
-| Eigen | 5.0.1 | [#2](https://github.com/Weichwolf/outshine/issues/2) | Geplant: lineare Berechnungen, keine Änderung der GPU-ABI |
+| Eigen | 5.0.1 | [#760](https://github.com/Weichwolf/outshine/issues/760), [#2](https://github.com/Weichwolf/outshine/issues/2) | Dünnbesetzte native Wasser-Höhenmodelle über sortierte Tripel; mindestens 5.0; weitere lineare Berechnungen geplant |
+| OSQP | 1.0.0 | [#760](https://github.com/Weichwolf/outshine/issues/760) | Nativer physischer Wasserfit über C-API, Float64; Solver und vollständige Prüfungen nur beim Asset-Aufbau |
 | Bullet | 3.25 | [#2](https://github.com/Weichwolf/outshine/issues/2) | Geplant: Kontakte, Starrkörper und Gelenke |
 | SQLite | 3.54.0 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
 | Zstandard | 1.5.7 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
@@ -18,7 +19,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 ## Installation
 
 ```sh
-brew install ccache geos geographiclib sfcgal simdjson pugixml eigen bullet sqlite zstd
+brew install ccache geos geographiclib sfcgal simdjson pugixml eigen osqp bullet sqlite zstd
 ```
 
 Debian/Ubuntu, abhängig von der Distributionsversion:
@@ -30,6 +31,10 @@ sudo apt install ccache libgeos-dev libgeographiclib-dev libsfcgal-dev libsimdjs
 SFCGAL benötigt mindestens 2.3; die Paketversion vor dem Build mit `pkg-config --modversion sfcgal` prüfen.
 GEOS, SFCGAL, SQLite, Zstandard, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten.
 Optionale Pakete werden erst beim jeweiligen Feature an den Build angeschlossen.
+Der Wasser-Höhenfit benötigt OSQP 1.x mit Float64 und Eigen ab 5.0. Vor dem Build
+`pkg-config --atleast-version=5.0 eigen3` prüfen. Ohne OSQP-pkg-config-Metadaten
+werden die üblichen Systempräfixe geprüft; einen eigenen Installationspräfix setzt
+`OSQP_PREFIX`. Die Verfügbarkeit eines OSQP-Entwicklungspakets hängt von der Distribution ab.
 
 Meshoptimizer ist keine Produktabhängigkeit. Einzelne optionale Forschungsvergleiche
 nutzen eine separat installierte Bibliothek; Aufrufe und historische Versionen stehen
