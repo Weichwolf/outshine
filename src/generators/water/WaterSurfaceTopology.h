@@ -48,5 +48,8 @@ BuildWaterSurfaceTopology(const WaterAsset &water,
                           const TangentFrame &frame,
                           WaterTopologyBudget budget = {},
                           const std::stop_token &stop = {});
+
+[[nodiscard]] std::expected<std::vector<WaterSurfaceTopology>, WaterTopologyError>
+SplitWaterSurfaceComponents(WaterSurfaceTopology topology, const std::stop_token &stop = {});
 }
 #endif
