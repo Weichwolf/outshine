@@ -22,7 +22,7 @@ from water_field_difference import compare_fields
 from water_grid_height import prepare_grid, sample_water
 
 
-def inputs(path):
+def inputs(path, *, kind="river"):
     data, raw, _ = observed_snapshots(path)
     manifest = json.loads(path.read_text())["observed_v3"]
     snapshots = {t: dataclasses.replace(s, complete=True) for t, s in raw.items()}
@@ -48,7 +48,7 @@ def inputs(path):
     if rejected:
         raise ValueError("delivered input cohort rejected")
     body = min(
-        (b for b in bodies if records[b.sources[0]][1].info["kind"] == "river"),
+        (b for b in bodies if records[b.sources[0]][1].info["kind"] == kind),
         key=lambda b: -len(b.sources),
     )
     selected = [records[i] for i in body.sources]
