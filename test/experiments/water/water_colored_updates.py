@@ -119,12 +119,19 @@ class ColoredUpdates:
             return UpdatedNode("budget_exhausted", None, None)
         self.work["states"] += 1
         if phase == -1:
-            world = np.asarray(self.parent(key), dtype=float).copy()
-            self.work["explicit_parent_copy_bytes"] += world.nbytes
-            if world.shape != (3,) or not np.isfinite(world).all():
-                raise ValueError("finite ECEF parent node required")
-            world.setflags(write=False)
-            result = UpdatedNode("ready", world, None)
+            parent = self.parent(key)
+            if isinstance(parent, UpdatedNode) and parent.state != "ready":
+                result = parent
+            else:
+                world = np.asarray(
+                    parent.world if isinstance(parent, UpdatedNode) else parent,
+                    dtype=float,
+                ).copy()
+                self.work["explicit_parent_copy_bytes"] += world.nbytes
+                if world.shape != (3,) or not np.isfinite(world).all():
+                    raise ValueError("finite ECEF parent node required")
+                world.setflags(write=False)
+                result = UpdatedNode("ready", world, None)
         elif (key[1] + key[2]) % 3 != phase:
             result = self.node(key, phase - 1)
         else:

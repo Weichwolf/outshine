@@ -1,7 +1,5 @@
 """Original-water adapter for the finite update experiment, not a world recipe."""
 
-import dataclasses
-
 import numpy as np
 from outshine_ref.contracts import Mesh
 from outshine_ref.places.camera import ecef
@@ -14,17 +12,35 @@ from water_nodal_height import Node, audit_face, evaluate_node
 
 class ReferenceUpdates:
     def __init__(
-        self, receipts, epoch, snapshots, data, order, *, parent_level_m, parent_version
+        self,
+        receipts,
+        epoch,
+        snapshots,
+        data,
+        order,
+        *,
+        parent_level_m=None,
+        parent_version,
+        parent=None,
     ):
-        if not np.isfinite(parent_level_m):
+        if (parent is None) == (parent_level_m is None) or (
+            parent is not None and not callable(parent)
+        ):
+            raise ValueError("one explicit constant or callable parent required")
+        if parent_level_m is not None and not np.isfinite(parent_level_m):
             raise ValueError("finite explicit laboratory parent level required")
         self.receipts, self.epoch = receipts, epoch
         self.snapshots, self.data, self.order = snapshots, data, order
         if not isinstance(parent_version, str) or not parent_version:
             raise ValueError("explicit parent recipe version required")
-        self.parent_level_m = float(parent_level_m)
+        self.parent_level_m = None if parent_level_m is None else float(parent_level_m)
+        self.parent_provider = parent
         self.parent_recipe_version = parent_version
-        self.parent_version = f"{parent_version}:ASL:{self.parent_level_m.hex()}"
+        self.parent_version = (
+            parent_version
+            if parent is not None
+            else f"{parent_version}:ASL:{self.parent_level_m.hex()}"
+        )
         self.targets, self.faces, self.plans = {}, {}, {}
         self.field = ColoredUpdates(self.target, self.parent, self.admissible)
         self.work = {
@@ -34,6 +50,8 @@ class ReferenceUpdates:
         }
 
     def parent(self, key):
+        if self.parent_provider is not None:
+            return self.parent_provider(key)
         z, x, y = key
         lat, lon = tile_geography([[x / 2, y / 2]], 1, (z, 0, 0))
         return ecef(lat[0], lon[0], self.parent_level_m)
@@ -59,11 +77,7 @@ class ReferenceUpdates:
                     None,
                 )
             else:
-                baseline = {
-                    key: dataclasses.replace(n, world=self.parent(key))
-                    for key, n in nodes.items()
-                }
-                _, arrays = audit_face(keys, baseline, self.data)
+                _, arrays = audit_face(keys, nodes, self.data)
                 self.faces[keys] = (
                     "ready",
                     (arrays["anchor"], arrays["rows"], arrays["bounds"]),
@@ -93,4 +107,8 @@ class ReferenceUpdates:
         plan = self.plans[key]
         if plan["state"] != "ready":
             return UpdatedNode(plan["state"], None, None)
+        if self.parent_provider is not None:
+            parent = self.parent(key)
+            if isinstance(parent, UpdatedNode) and parent.state != "ready":
+                return parent
         return self.field.node(key)
