@@ -215,8 +215,10 @@
 - Ich nutze Command Line Tools und CLI-Profiler; die Xcode-App ist keine Voraussetzung.
 - Fremdcode wird nicht im Repository gebündelt. Ich nutze eigene Implementierungen oder
   Standardbibliotheken aus Homebrew/apt; erforderliche Pakete nenne ich ausdrücklich.
-  Wo immer möglich nutze ich bewährte Bibliotheken statt eigener Standardalgorithmen;
-  Vertrag, Portabilität und gemessene Kosten müssen passen. Für Techniken und Algorithmen
+  Ich minimiere direkte und transitive Abhängigkeiten. Bewährte Bibliotheken bleiben,
+  wenn genutzter Umfang und Robustheit die Abhängigkeit rechtfertigen; kleine Teilmengen dürfen
+  geprüfte gemeinsame native Operationen ersetzen. Referenz, Randfälle, Portabilität
+  und gemessene Kosten entscheiden; keine Pakete auf Vorrat. Für Techniken und Algorithmen
   schlage ich immer zuerst in SIGGRAPH-Veröffentlichungen nach, ergänze
   passende Primärquellen und verankere Verfahren und Quellen im zuständigen Issue.
   PDFs prüfe ich immer auch optisch, insbesondere Abbildungen, Diagramme und Gleichungen.
