@@ -57,6 +57,8 @@ public:
     ProjectedErrorBudget Projection{};
   };
 
+  [[nodiscard]] static Material StreetMaterial(const outshine::Ground::GroundMaterials &wearing);
+
   [[nodiscard]] bool Lay(const Site &site,
                          Geometry &ground,
                          std::vector<EarthworkStamp> &corridor,
@@ -353,20 +355,12 @@ private:
                                   Paved &into,
                                   std::vector<EarthworkStamp> &corridor);
 
-  void PaveEdge(const Paving &on,
-                size_t edgeAt,
-                Paved &into,
-                std::vector<EarthworkStamp> &corridor,
-                RoadMeshBuffers &pavement) const;
+  void PaveEdge(const Paving &on, size_t edgeAt, Paved &into, RoadMeshBuffers &pavement) const;
 
   enum class Pass : uint8_t { Designing, Paving };
 
-  void PaveLane(const Paving &on,
-                Pass pass,
-                size_t laneAt,
-                Paved &into,
-                std::vector<EarthworkStamp> &corridor,
-                RoadMeshBuffers &pavement) const;
+  void PaveLane(
+      const Paving &on, Pass pass, size_t laneAt, Paved &into, RoadMeshBuffers &pavement) const;
 
   [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const;
 
@@ -416,6 +410,7 @@ public:
       Profiles,
       Heights,
       JunctionContacts,
+      TerrainContacts,
       Pave,
       Bodies,
       FinishNotes,
@@ -490,6 +485,10 @@ public:
 
   public:
     [[nodiscard]] double WorkMs() const noexcept { return TotalMs; }
+
+    [[nodiscard]] std::span<const DiagnosticSample> Diagnostics() const noexcept {
+      return Work.Notes;
+    }
   };
 
 private:
@@ -513,6 +512,8 @@ private:
   AdvanceRoadProfiles(Job &job, const JobSlice &slice);
   [[nodiscard]] static std::expected<bool, std::string_view>
   AdvanceRoadJunctions(Job &job, const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view>
+  AdvanceTerrainContacts(Job &job, const JobSlice &slice);
   [[nodiscard]] std::expected<bool, std::string_view>
   AdvanceRoadPaving(Job &job, const JobSlice &slice) const;
   [[nodiscard]] std::expected<bool, std::string_view>
@@ -532,6 +533,8 @@ public:
   AdvancePlan(Job &job, const Site &site, size_t lanesMost, size_t nodesMost) const;
   [[nodiscard]] static std::expected<std::vector<RoadPagePart>, std::string_view>
   PlannedParts(const Job &job);
+  [[nodiscard]] static std::expected<std::vector<EarthworkStamp>, std::string_view>
+  TakeTerrainContacts(Job &job);
   [[nodiscard]] static std::expected<RoadPageRecipe, std::string_view>
   PageRecipe(const Job &job, const Site &site, std::span<const RoadPagePart> parts);
   [[nodiscard]] std::expected<bool, std::string_view>

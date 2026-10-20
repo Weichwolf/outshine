@@ -82,6 +82,9 @@ std::expected<void, std::string> SurfacePreparation::BindAssetCaches(const std::
   if (!network) { return std::unexpected(std::move(network.error())); }
   auto vectors = Generators::Osm::PreparedOsmTiles::Open(directory, sources, compute);
   if (!vectors) { return std::unexpected(std::move(vectors.error())); }
+  auto roads = ::outshine::Generators::PreparedRoadPages::Open(directory);
+  if (!roads) { return std::unexpected(std::move(roads.error())); }
+  PreparedRoads_ = std::move(*roads);
   PreparedTerrain_ = std::move(*terrain);
   PreparedBuildings_ = std::move(*buildings);
   PreparedNetwork_ = std::move(*network);
@@ -225,6 +228,7 @@ void SurfacePreparation::Close() {
   PreparedBuildings_.reset();
   PreparedNetwork_.reset();
   PreparedRegions_.reset();
+  PreparedRoads_.reset();
   StreetMode_ = StreetMode::Source;
   WaterProducer_ = Generators::Osm::WaterField{};
   WaterBodies_ = Generators::WaterAsset{};

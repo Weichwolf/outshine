@@ -3,6 +3,7 @@
 
 #include "EngineState.h"
 #include "Corridors.h"
+#include "RoadPageConstruction.h"
 #include "RoadHeightCoverage.h"
 #include "StreetGraphPreparation.h"
 #include "GroundWorldCandidate.h"
@@ -257,6 +258,18 @@ public:
     CorridorJob_ = std::move(job);
   }
 
+  [[nodiscard]] RoadPageConstruction *RoadPages() noexcept { return RoadPages_.get(); }
+
+  void BeginRoadPages(std::unique_ptr<RoadPageConstruction> pages) noexcept {
+    RoadPages_ = std::move(pages);
+  }
+
+  void FinishRoadPages() noexcept { RoadPages_.reset(); }
+
+  [[nodiscard]] bool CorridorsPlanned() const noexcept { return CorridorsPlanned_; }
+
+  void MarkCorridorsPlanned() noexcept { CorridorsPlanned_ = true; }
+
   [[nodiscard]] bool RetiringCorridors() const noexcept {
     return CorridorCompletion_ == CorridorCompletion::Retire;
   }
@@ -402,11 +415,13 @@ private:
   RoadHeightCoverage RoadHeightCoverage_;
   bool RoadAlignmentRequested_ = false;
   bool RoadSurfaceBuilt_ = false;
+  bool CorridorsPlanned_ = false;
   size_t NextRoadSurfaceTransfer_ = 0;
   std::optional<Patchwork> Patchwork_;
   std::unique_ptr<Generators::BuildingStampJob> BuildingEarthworks_;
   std::unique_ptr<Generators::TerrainDeformationTask> TerrainDeformation_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
+  std::unique_ptr<RoadPageConstruction> RoadPages_;
   std::unique_ptr<StreetGraphPreparation> StreetGraphWorker_;
   std::unique_ptr<GroundRegionPreparation> RegionWorker_;
   std::string RegionKey_;

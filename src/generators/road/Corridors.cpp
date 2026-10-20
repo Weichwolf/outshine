@@ -362,12 +362,8 @@ void Corridors::DetermineWaterClearance(const Paving &on, size_t laneAt, Paved &
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
 }
 
-void Corridors::PaveLane(const Paving &on,
-                         Pass pass,
-                         size_t laneAt,
-                         Paved &into,
-                         std::vector<EarthworkStamp> &corridor,
-                         RoadMeshBuffers &pavement) const {
+void Corridors::PaveLane(
+    const Paving &on, Pass pass, size_t laneAt, Paved &into, RoadMeshBuffers &pavement) const {
   const ::outshine::Generators::Osm::StreetField::Way &lane = on.Ways.Ways()[laneAt];
   if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
       !(lane.HalfWidthM > 0.0f)) {
@@ -385,7 +381,7 @@ void Corridors::PaveLane(const Paving &on,
   if (into.Designed[laneAt].size() < 2) { return; }
   const std::pair<uint32_t, uint32_t> &edges = into.EdgesOf[laneAt];
   for (uint32_t edgeAt = edges.first; edgeAt < edges.first + edges.second; ++edgeAt) {
-    PaveEdge(on, edgeAt, into, corridor, pavement);
+    PaveEdge(on, edgeAt, into, pavement);
   }
 }
 
@@ -402,7 +398,6 @@ RoadProfile Corridors::ProfileOf(const Osm::StreetField::Way &lane,
 void Corridors::PaveEdge(const Paving &on,
                          size_t edgeAt,
                          Paved &into,
-                         std::vector<EarthworkStamp> &corridor,
                          RoadMeshBuffers &pavement) const {
   const Edge &edge = into.Edges[edgeAt];
   if (edge.PlannedCount < 2) { return; }
@@ -424,7 +419,6 @@ void Corridors::PaveEdge(const Paving &on,
   into.WaterMs += since();
   into.Swept += Sweeper_.Sweep(into.Along, surface, pavement);
   into.SweepMs += since();
-  AppendTerrainStamps(on, laneAt, into, corridor);
 }
 
 void Corridors::AppendTerrainStamps(const Paving &on,
@@ -1377,19 +1371,21 @@ void Corridors::TellsWhatTheFitFound(Paved &into) {
         "stations");
 }
 
+Material Corridors::StreetMaterial(const outshine::Ground::GroundMaterials &wearing) {
+  Material tarmac;
+  for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
+  const int asphalt = wearing.Find("asphalt");
+  tarmac.Roughness = asphalt >= 0 ? wearing.At(static_cast<size_t>(asphalt)).Roughness : kUnlitTint;
+  return tarmac;
+}
+
 bool Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
                                    const RoadMeshBuffers &pavement,
                                    Paved &into,
                                    Geometry &ground) {
 
   if (pavement.Index.size() < 3) { return true; }
-  Material tarmac;
-  for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
-  {
-    const int asphalt = wearing.Find("asphalt");
-    tarmac.Roughness =
-        asphalt >= 0 ? wearing.At(static_cast<size_t>(asphalt)).Roughness : kUnlitTint;
-  }
+  const Material tarmac = StreetMaterial(wearing);
   const auto paved = ground.addSurface("streets", tarmac);
   if (!paved) { return false; }
   const auto createdPart = ground.addPart("streets", *paved);
@@ -1748,6 +1744,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceStage(Job &job,
     case Stage::EndCuts:
     case Stage::JunctionGates:
     case Stage::JunctionContacts: return AdvanceRoadJunctions(job, slice);
+    case Stage::TerrainContacts: return AdvanceTerrainContacts(job, slice);
     case Stage::Pave: return AdvanceRoadPaving(job, slice);
     case Stage::Profiles:
     case Stage::Heights: return AdvanceRoadProfiles(job, slice);
@@ -2009,7 +2006,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
       const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
       if (paving != nullptr) {
         for (; job.NextLane < end; ++job.NextLane) {
-          PaveLane(*paving, Pass::Designing, job.NextLane, into, job.Corridor, job.Pavement);
+          PaveLane(*paving, Pass::Designing, job.NextLane, into, job.Pavement);
         }
       } else {
         job.NextLane = end;
@@ -2169,11 +2166,37 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
       Notes(into, "streets: of that, shaping the junctions", job.StageMs, "ms");
       job.NextLane = 0;
       job.StageMs = 0.0;
-      job.Phase = Job::Stage::Pave;
+      job.NextEdge = 0;
+      job.Phase = Job::Stage::TerrainContacts;
       return false;
     }
     default: return std::unexpected(Says::kStaleCorridorInput);
   }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceTerrainContacts(Job &job,
+                                                                        const JobSlice &slice) {
+  if (job.Phase != Job::Stage::TerrainContacts) {
+    return std::unexpected(Says::kStaleCorridorInput);
+  }
+  const size_t end =
+      std::min(job.NextEdge + std::max(size_t{1}, slice.lanesMost), job.Work.Edges.size());
+  if (slice.paving != nullptr) {
+    for (; job.NextEdge < end; ++job.NextEdge) {
+      const auto &edge = job.Work.Edges[job.NextEdge];
+      if (edge.PlannedCount < 2) { continue; }
+      const auto first = job.Work.Planned.begin() + edge.PlannedFirst;
+      job.Work.Along.assign(first, first + edge.PlannedCount);
+      AppendTerrainStamps(*slice.paving, edge.Lane, job.Work, job.Corridor);
+    }
+  } else {
+    job.NextEdge = end;
+  }
+  job.TotalMs += slice.Elapsed();
+  if (job.NextEdge < job.Work.Edges.size()) { return false; }
+  job.NextLane = 0;
+  job.Phase = Job::Stage::Pave;
+  return false;
 }
 
 std::expected<bool, std::string_view> Corridors::AdvanceRoadPaving(Job &job,
@@ -2186,7 +2209,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadPaving(Job &job,
   const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
   if (paving != nullptr) {
     for (; job.NextLane < end; ++job.NextLane) {
-      PaveLane(*paving, Pass::Paving, job.NextLane, into, job.Corridor, job.Pavement);
+      PaveLane(*paving, Pass::Paving, job.NextLane, into, job.Pavement);
     }
   } else {
     job.NextLane = end;
@@ -2346,12 +2369,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransfer(Job &job, const
 std::expected<bool, std::string_view> Corridors::BeginTransfer(Job &job, const JobSlice &slice) {
   if (job.Phase != Job::Stage::Transfer) { return std::unexpected(Says::kStaleCorridorInput); }
   if (job.Pavement.Index.size() >= 3) {
-    Material tarmac;
-    for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
-    const auto &wearing = slice.site.Materials;
-    const int asphalt = wearing.Find("asphalt");
-    tarmac.Roughness =
-        asphalt >= 0 ? wearing.At(static_cast<size_t>(asphalt)).Roughness : kUnlitTint;
+    const Material tarmac = StreetMaterial(slice.site.Materials);
     const auto paved = slice.ground.addSurface("streets", tarmac);
     if (!paved) { return std::unexpected(Says::kPavingCreationFailed); }
     const auto part = slice.ground.addPart("streets", *paved);
@@ -2414,6 +2432,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
       "profiles",
       "heights",
       "junction-contacts",
+      "terrain-contacts",
       "pave",
       "bodies",
       "notes",

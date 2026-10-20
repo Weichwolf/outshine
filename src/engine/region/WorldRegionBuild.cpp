@@ -67,8 +67,6 @@
 namespace outshine {
 namespace Says {
 constexpr auto MaterialCreationFailed = "could not create ground materials";
-constexpr auto CorridorTerrainIncomplete =
-    "corridor generation reached terrain without a DEM field";
 constexpr auto GroundContactIncomplete = "ground patchwork has no ready contact terrain";
 constexpr auto GroundDetailCameraInvalid =
     "ground detail needs a finite camera eye, positive lens and frame height";
@@ -127,8 +125,6 @@ constexpr size_t kRefinedStructureCandidates = 4;
 constexpr size_t kTerrainSheetsPerFrame = 48;
 constexpr size_t kTerrainResidencySheetsPerFrame = 64;
 constexpr size_t kEarthworkStampUnitsPerFrame = 2048;
-constexpr size_t kCorridorLanesPerFrame = 128;
-constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kClassUploadBytesPerFrame = 1u << 20u;
 constexpr size_t kHaloNodesPerFrame = 32768;
@@ -1539,122 +1535,6 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundPatchwork(const A
   }
   state.Lays(*std::move(made));
   return GroundBuildProgress::Pending;
-}
-
-bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
-                                         const Around &coverage,
-                                         WorldRegionBuildState &state) {
-  const auto began = std::chrono::steady_clock::now();
-  if (state.RetiringCorridors()) {
-    if (!state.AdvancesCorridorRetirement(began)) { return true; }
-    state.AdvanceStage();
-    Published.RecordMetric(
-        "ground candidate: corridor job retirement", state.LongestCorridorRetirementMs(), "ms");
-    Published.RecordMetric(
-        "ground candidate: longest corridor slice", state.LongestCorridorSliceMs(), "ms");
-    return true;
-  }
-  GroundBuildProducts &build = state.Candidate().Products();
-  const TriangleBvh surface;
-  Published.RecordMetric("ground: triangles the drape can reach",
-                         static_cast<double>(build.Indices.size()) / 3.0,
-                         "triangles");
-  Drape drapedOver{.Surface = surface, .Field = {}};
-  size_t fieldMisses = 0;
-  std::optional<Drape::EastNorth> firstFieldMiss;
-  drapedOver.Field = [&coverage, &build, &fieldMisses, &firstFieldMiss](Drape::EastNorth at) {
-    const std::optional<double> sampled = build.Sheets.FieldUpM(coverage.Zoom, at);
-    fieldMisses += sampled ? 0u : 1u;
-    if (!sampled && !firstFieldMiss) { firstFieldMiss = at; }
-    return sampled;
-  };
-  std::vector<EarthworkStamp> corridors;
-  std::vector<DiagnosticSample> notes;
-  const ::outshine::Generators::Osm::RegionSources &sources = state.Candidate().Sources();
-  const Generators::Corridors::Site site{
-      .Vectors = sources.Vectors.get(),
-      .Ways = sources.Ways,
-      .Materials = World.Stack.Materials(),
-      .Vegetation = World.Stack.Vegetation(),
-      .Ground = &World.Stack.Ground(),
-      .Network = build.StreetGraph.get(),
-      .Standing = standing,
-      .Draped = drapedOver,
-      .Classes = build.TerrainClassificationMap,
-      .WaterUpM = [&sources, &standing](LongitudeLatitude at) -> std::optional<double> {
-        return Generators::WaterSurfaceUpAt(sources.WaterBodies, standing, at);
-      },
-      .CensusAt = state.Began(),
-      .EyeLatDeg = coverage.LatitudeDeg,
-      .EyeLonDeg = coverage.LongitudeDeg,
-      .Projection = build.Footprints.Projection()};
-  if (state.CorridorJob() == nullptr) {
-    const auto jobAt = std::chrono::steady_clock::now();
-    state.BeginsCorridors(Generators::Corridors::Begin(site));
-    Published.RecordMetric(
-        "ground candidate: corridor job admission",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - jobAt).count(),
-        "ms");
-    const auto inventoryAt = std::chrono::steady_clock::now();
-    state.SamplesProductPeak();
-    Published.RecordMetric(
-        "ground candidate: corridor product inventory",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - inventoryAt)
-            .count(),
-        "ms");
-    state.SamplesCorridorSlice(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-            .count());
-    return true;
-  }
-  const auto paved = World.Shipping.Corridors().Advance(*state.CorridorJob(),
-                                                        site,
-                                                        kCorridorLanesPerFrame,
-                                                        kCorridorNodesPerFrame,
-                                                        build.Ground,
-                                                        corridors,
-                                                        notes);
-  state.SamplesProductPeak();
-  if (!paved) {
-    Error = paved.error();
-    return false;
-  }
-  if (fieldMisses > 0) {
-    if (firstFieldMiss) {
-      const ::outshine::Generators::Osm::OsmField *const shapes = sources.Vectors.get();
-      const int vectorZoom =
-          shapes != nullptr && !shapes->Tiles().empty() ? shapes->Tiles().front().Z : -1;
-      Error = std::format("{}: east {:.3f} m, north {:.3f} m, {} misses, sheet zoom {}, "
-                          "DEM zoom {}, OSM zoom {}",
-                          Says::CorridorTerrainIncomplete,
-                          firstFieldMiss->EastM,
-                          firstFieldMiss->NorthM,
-                          fieldMisses,
-                          coverage.Zoom,
-                          World.Stack.Ground().BlockZoom(),
-                          vectorZoom);
-    } else {
-      Error = Says::CorridorTerrainIncomplete;
-    }
-    return false;
-  }
-  if (!*paved) {
-    state.SamplesCorridorSlice(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-            .count());
-    return true;
-  }
-  for (const DiagnosticSample &one : notes) {
-    Published.RecordMetric(one.Name, one.Value, one.Unit.c_str());
-  }
-  Published.RecordMetric(
-      "ground candidate: corridor drape field misses", static_cast<double>(fieldMisses), "queries");
-  state.HoldsCorridors(std::move(corridors));
-  Published.RecordMetric("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
-  state.BeginsCorridorRetirement();
-  state.SamplesCorridorSlice(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
-  return true;
 }
 
 bool Engine::State::BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildState &state) {

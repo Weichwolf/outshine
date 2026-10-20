@@ -8,6 +8,7 @@
 #include <span>
 #include <string_view>
 #include <vector>
+#include <utility>
 
 namespace outshine::Generators {
 
@@ -47,6 +48,16 @@ Corridors::AdvancePlan(Job &job, const Site &site, size_t lanesMost, size_t node
   const auto advanced = Advance(job, site, lanesMost, nodesMost, unused, earthworks, notes);
   if (!advanced) { return std::unexpected(advanced.error()); }
   return *advanced || job.Phase == Job::Stage::Pave;
+}
+
+std::expected<std::vector<EarthworkStamp>, std::string_view>
+Corridors::TakeTerrainContacts(Job &job) {
+  if (job.Retirement != Job::RetireStage::Active ||
+      (job.Phase != Job::Stage::Pave &&
+       !(job.Phase == Job::Stage::Done && job.Work.Edges.empty() && job.Work.Junctions.empty()))) {
+    return std::unexpected("terrain contacts require a complete unmeshed road plan");
+  }
+  return std::exchange(job.Corridor, {});
 }
 
 std::expected<std::vector<RoadPagePart>, std::string_view> Corridors::PlannedParts(const Job &job) {

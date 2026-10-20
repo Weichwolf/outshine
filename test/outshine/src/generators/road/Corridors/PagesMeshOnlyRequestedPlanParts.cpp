@@ -174,7 +174,8 @@ int main() {
   CountedMesher observer;
   const Corridors corridors(observer);
   auto early = Corridors::Begin(site);
-  CHECK(!Corridors::PlannedParts(*early) && !Corridors::PageRecipe(*early, site, {}),
+  CHECK(!Corridors::PlannedParts(*early) && !Corridors::PageRecipe(*early, site, {}) &&
+            !Corridors::TakeTerrainContacts(*early),
         "unfinished plans cannot be used as finished assets");
   auto plan = Plan(corridors, site);
   CHECK(plan && observer.Sweeps == 0 && observer.Junctions == 0,
@@ -202,12 +203,35 @@ int main() {
   std::vector<DiagnosticSample> notes;
   CHECK(reference.Lay(site, whole, earthworks, notes),
         "the normal native path builds its reference");
+  const auto contacts = Corridors::TakeTerrainContacts(*plan);
+  CHECK(contacts && !contacts->empty() && *contacts == earthworks && observer.Sweeps == 0 &&
+            observer.Junctions == 0,
+        "complete terrain contacts precede every fine sweep and match the ordinary path");
+  const auto again = Corridors::TakeTerrainContacts(*plan);
+  CHECK(again && again->empty(), "terrain contact ownership transfers once without copying");
+  Geometry resumed;
+  std::vector<EarthworkStamp> remaining;
+  std::vector<DiagnosticSample> resumedNotes;
+  bool completed = false;
+  for (size_t step = 0; step < 2048; ++step) {
+    const auto advanced = corridors.Advance(*plan, site, 1, 1, resumed, remaining, resumedNotes);
+    if (!advanced) { break; }
+    if (*advanced) {
+      completed = true;
+      break;
+    }
+  }
+  CHECK(completed && remaining.empty(),
+        "normal meshing after contact transfer does not rebuild or duplicate terrain contacts");
+  CHECK(!Corridors::TakeTerrainContacts(*plan),
+        "finished meshing cannot expose an earlier plan-only ownership transfer");
   const auto mesh = MeshRoadPage(native, *recipe);
   int street = -1;
   for (int at = 0; at < whole.parts(); ++at) {
     if (whole.nameOf(at) == "streets") { street = at; }
   }
-  CHECK(mesh && street >= 0 && SameMesh(mesh->Mesh, whole, street),
+  CHECK(mesh && street >= 0 && SameMesh(mesh->Mesh, whole, street) &&
+            SameMesh(mesh->Mesh, resumed, street),
         "all page words match original positions, normals, colours and primitive order");
   auto changed = roads;
   changed[0].LatLon.back() += 0.001;
