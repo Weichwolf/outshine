@@ -1,0 +1,21 @@
+{
+  "scope": "Fixed original Outshine GGX energy table used by the independently checked #824/#829 CPU/native controls; no actual building material binding claim",
+  "native_shader_table_sha256": "866ea36735923d1f46a37249c8f1c2e8c9d9564fa65bb515a2636564b161352d",
+  "native_source_commit": "0eb2e739d",
+  "array_file_sha256": "7fa8ec713f7b78785f695903e42cdaeae2c24c6507002bc16e819c15a9b1c989",
+  "source": "test/scripts/shader-tables.cpp; prior frozen #838 receipt",
+  "arrays": {
+    "kGgxAlbedo": [
+      512
+    ],
+    "kGgxFresnelBias": [
+      512
+    ],
+    "kGgxAlbedoAverage": [
+      32
+    ],
+    "shape": [
+      2
+    ]
+  }
+}
