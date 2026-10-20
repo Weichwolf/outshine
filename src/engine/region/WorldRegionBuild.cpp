@@ -82,6 +82,28 @@ static_assert(Ground::kStreamGrid == 2 * kPatchGrid,
 
 namespace {
 
+void RecordWaterSurfaceState(Core::DiagnosticLedger &published,
+                             const Generators::WaterAsset &water) {
+  const auto built = Generators::InspectWaterSurfaceGeometry(water);
+  published.RecordMetric("water: surfaces laid", static_cast<double>(built.Laid), "surfaces");
+  published.RecordMetric("water: surfaces refused",
+                         static_cast<double>(built.RefusedTopology + built.RefusedCapacity),
+                         "surfaces");
+  published.RecordMetric("water: surfaces refused by topology",
+                         static_cast<double>(built.RefusedTopology),
+                         "surfaces");
+  published.RecordMetric("water: surfaces refused by capacity",
+                         static_cast<double>(built.RefusedCapacity),
+                         "surfaces");
+  published.RecordMetric("water: surfaces without admitted shared height model",
+                         static_cast<double>(built.ProfileDeclines),
+                         "surfaces");
+  published.RecordMetric("water: triangles", static_cast<double>(built.Triangles), "triangles");
+  published.RecordMetric("water: prepared surface payload",
+                         static_cast<double>(water.PreparedSurfaceBytes()),
+                         "bytes");
+}
+
 bool ValidGroundDetailCamera(const Render::Viewpoint &view, Extent frame) {
   if (frame.HeightPx <= 0) { return false; }
   for (int axis = 0; axis < 3; ++axis) {
@@ -755,20 +777,6 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
       "water: of that, laying the surfaces",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - waterAt).count(),
       "ms");
-  Published.RecordMetric("water: surfaces laid", static_cast<double>(built->Laid), "surfaces");
-  Published.RecordMetric("water: surfaces refused",
-                         static_cast<double>(built->RefusedTopology + built->RefusedCapacity),
-                         "surfaces");
-  Published.RecordMetric("water: surfaces refused by topology",
-                         static_cast<double>(built->RefusedTopology),
-                         "surfaces");
-  Published.RecordMetric("water: surfaces refused by capacity",
-                         static_cast<double>(built->RefusedCapacity),
-                         "surfaces");
-  Published.RecordMetric("water: triangles", static_cast<double>(built->Triangles), "triangles");
-  Published.RecordMetric("water: prepared surface payload",
-                         static_cast<double>(water.PreparedSurfaceBytes()),
-                         "bytes");
   if (built->Triangles > 0) {
     Published.RecordMetric("water: the geometry took it", 1.0, "yes/no");
   }
@@ -1480,6 +1488,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   if (hit && result.Loaded) {
     World.Stack.RestoreWater(std::move(result.Loaded->Water));
     state.PublishesWaterInputs(World.Stack.WaterBodies());
+    RecordWaterSurfaceState(Published, World.Stack.WaterBodies());
   }
   auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
   if (hit) { phase = Phase::Hit; }
@@ -1499,6 +1508,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
   const auto &water = World.Stack.WaterBodies();
   if (water.SurfacesReady()) {
     state.PublishesWaterInputs(water);
+    RecordWaterSurfaceState(Published, water);
     return GroundBuildProgress::Ready;
   }
   const auto origin = Session.Declared.Ground.Origin;
@@ -1516,6 +1526,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
   }
   Published.RecordMetric("water: geometry preparation worker", result->value().WorkerMs, "ms");
   state.PublishesWaterInputs(result->value().Water);
+  RecordWaterSurfaceState(Published, result->value().Water);
   return GroundBuildProgress::Ready;
 }
 
