@@ -167,7 +167,7 @@ void CheckSelection(Tasks &pool,
   const std::array<uint32_t, 2> duplicate{0, 0};
   CHECK(!RoadPageRestoration::Begin(pool, pages, manifest, std::span<const uint32_t>(duplicate)),
         "duplicate page selection cannot duplicate world geometry");
-  const std::array<uint32_t, 1> outside{2};
+  const std::array<uint32_t, 1> outside{static_cast<uint32_t>(manifest->Pages.size())};
   CHECK(!RoadPageRestoration::Begin(pool, pages, manifest, std::span<const uint32_t>(outside)),
         "unknown pages are not silently omitted");
   auto all = RoadPageRestoration::Begin(pool, pages, manifest, std::nullopt, key);
