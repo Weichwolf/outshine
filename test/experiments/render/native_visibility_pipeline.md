@@ -78,3 +78,26 @@ fewer triangles do not pay for selection/compaction there. Position-only
 equal-transform batching favors `block-16` (2.029 vs 2.171 ms), whereas A18
 favors `block-8`. No universal group size or PBR batch merge follows.
 [Device evidence and limits](https://github.com/Weichwolf/outshine/issues/894#issuecomment-6282044098).
+
+## Paid current depth and original PBR
+
+A subsequent private Metal control draws actual opaque occluders, builds the
+production depth pyramid, then pays for selection/scan/compaction and raster.
+At 131,032 occluder triangles, its position-only p50 is 2.430 ms versus 2.326 ms
+unculled. The combined depth and selected geometry drawn independently onto an
+empty target both match the replay baseline. This uses its own vertex arithmetic;
+internal depth equality does not certify all product vertex variants.
+
+A second control inserts that work into the original renderer at one fixed pose,
+preserving current parent selection, material batches, lighting and later passes.
+It reduces main triangles from 1,428,066 to 923,866, but eight normal 60-frame
+windows show no frame gain: original mean 13.069 ms, candidate 13.667 ms. A
+no-occlusion regroup/scan/compact control is image-exact and costs 13.750 ms.
+The candidate changes 133 pixels by at most 3/255 in its first validated image;
+the strict image check remains failed. No product path is changed or admitted.
+
+The original vertex pass gets cheaper, but paid filtering/compaction and depth
+creation erase that local saving. Counter stages overlap and are not additive
+frame times. This rejects this candidate, not current occlusion in general.
+It provides no movement, universal grouping, whole-world or p99 admission.
+[Canonical setup, controls, failures and measurements](https://github.com/Weichwolf/outshine/issues/894#issuecomment-6283256270).
