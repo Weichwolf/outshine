@@ -151,6 +151,7 @@ def run_case(
     selection_cost=None,
     owner_spacing_m=None,
     common_bounds=None,
+    publish_contacts=None,
 ):
     # The candidate owner is complete before even constructing the fine oracle.
     (coarse, anchor, rows, bounds, csr, inputs), prepare_cost = measured(
@@ -185,6 +186,11 @@ def run_case(
         digest.update(np.ascontiguousarray(array).tobytes())
     version = digest.hexdigest()
     owner_bytes = solved.mesh.vertices.tobytes()
+    contact_product, contact_cost = (
+        measured(lambda: publish_contacts(solved.mesh, anchor, version))
+        if publish_contacts is not None
+        else (None, None)
+    )
     (
         (fine, fine_anchor, fine_rows, _fine_bounds, _fine_csr, fine_inputs),
         fine_prepare_cost,
@@ -239,6 +245,8 @@ def run_case(
         "owner_version": version,
         "owner_descriptor": descriptor,
         "owner_before_fine_preparation": True,
+        "pre_fine_contacts": contact_product,
+        "pre_fine_contacts_cost": contact_cost,
         "model_contract": "one owned functional field for height queries, bed and render LODs; native adoption unproved",
         "boundary_spacing_m": owner_spacing_m,
         "oracle_boundary_spacing_m": 20.0,
@@ -344,7 +352,11 @@ def plot(owner, reference, comparison, path, owner_title):
     axes[2].set_xlabel("Canonical east (m)")
     axes[2].set_ylabel("North (m)")
     axes[2].scatter(*difference["worst"]["xy_m"], marker="x", color="black", s=35)
-    fig.colorbar(color, ax=axes[2], label="ENU Up difference (m)")
+    bar = fig.colorbar(color, ax=axes[2], label="ENU Up difference (m)")
+    bar.formatter = matplotlib.ticker.FuncFormatter(
+        lambda value, _position: f"{value:.2g}"
+    )
+    bar.update_ticks()
     fig.suptitle(
         f"Whole-overlap ENU Up error: max {difference['maximum_enu_up_difference_m']:.6g} m; RMS {difference['integrated_enu_up_rms_m']:.6g} m"
     )
