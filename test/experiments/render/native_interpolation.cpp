@@ -39,7 +39,7 @@ constexpr auto kMaximumShaderBytes = std::streamoff{16} * 1024 * 1024;
 constexpr unsigned kHalfExponentMask = 31;
 constexpr unsigned kHalfMantissaMask = 1023;
 constexpr unsigned kHalfSignMask = 32768;
-constexpr int kHalfFractionBits = 10;
+constexpr unsigned kHalfFractionBits = 10;
 constexpr int kHalfSubnormalExponent = -24;
 constexpr int kHalfMagnitudeShift = 25;
 static_assert(std::endian::native == std::endian::little);
@@ -171,7 +171,7 @@ Upload(N::Device &device, std::span<const std::byte> bytes, N::BufferUse usage) 
       {.Bytes = bytes.size(), .Use = N::BufferUse::CopySource, .Placement = N::Memory::Upload}));
   auto target = Require(
       device.CreateBuffer({.Bytes = bytes.size(), .Use = usage | N::BufferUse::CopyDestination}));
-  auto mapped = Require(device.MapWrite(*source, {.Bytes = bytes.size()}));
+  const auto mapped = Require(device.MapWrite(*source, {.Bytes = bytes.size()}));
   std::memcpy(mapped.data(), bytes.data(), bytes.size());
   Require(device.Unmap(*source));
   auto commands = Require(device.Begin());
@@ -190,11 +190,12 @@ std::unique_ptr<N::Texture> Dummy(N::Device &device, bool white) {
                             .Use = N::TextureUse::Sampled | N::TextureUse::CopyDestination}));
   auto source = Require(device.CreateBuffer(
       {.Bytes = bytes.size(), .Use = N::BufferUse::CopySource, .Placement = N::Memory::Upload}));
-  auto mapped = Require(device.MapWrite(*source, {.Bytes = bytes.size()}));
+  const auto mapped = Require(device.MapWrite(*source, {.Bytes = bytes.size()}));
   std::memcpy(mapped.data(), bytes.data(), bytes.size());
   Require(device.Unmap(*source));
   auto commands = Require(device.Begin());
-  Require(commands->Copy(*source, *texture, {.Region = {.Width = 8, .Height = 8}}));
+  Require(commands->Copy(
+      *source, *texture, {.RowBytes = uint64_t{8} * 4u, .Region = {.Width = 8, .Height = 8}}));
   Finish(device, std::move(commands));
   return texture;
 }
@@ -287,14 +288,14 @@ Prepare(const Input &input, std::span<const uint32_t> vertex, std::span<const ui
   f.Bindings.push_back({.Set = 3, .Slot = 0, .Value = N::Uniform{.Bytes = input.Material}});
   f.Bindings.push_back({.Set = 3, .Slot = 1, .Value = N::Uniform{.Bytes = input.Light}});
   for (uint32_t slot = 0; slot < 5; ++slot) {
-    auto *buffer = f.Streams[slot == 4 ? 0 : slot].get();
+    const auto *buffer = f.Streams[slot == 4 ? 0 : slot].get();
     f.Vertices[slot] = {
         .Stream = slot, .Data = buffer, .Range = {.Bytes = buffer->Description().Bytes}};
   }
   return f;
 }
 
-double Half(uint16_t value) {
+double Half(uint32_t value) {
   const int exponent = static_cast<int>((value >> kHalfFractionBits) & kHalfExponentMask);
   const int mantissa = static_cast<int>(value & kHalfMantissaMask);
   const bool negative = (value & kHalfSignMask) != 0;
@@ -303,9 +304,10 @@ double Half(uint16_t value) {
                ? std::numeric_limits<double>::quiet_NaN()
                : std::copysign(std::numeric_limits<double>::infinity(), negative ? -1 : 1);
   }
-  const double magnitude = exponent == 0 ? std::ldexp(mantissa, kHalfSubnormalExponent)
-                                         : std::ldexp(mantissa + (1 << kHalfFractionBits),
-                                                      exponent - kHalfMagnitudeShift);
+  const double magnitude = exponent == 0
+                               ? std::ldexp(mantissa, kHalfSubnormalExponent)
+                               : std::ldexp(mantissa + static_cast<int>(1u << kHalfFractionBits),
+                                            exponent - kHalfMagnitudeShift);
   return negative ? -magnitude : magnitude;
 }
 
@@ -380,7 +382,7 @@ int Inspect(Fixture &f, const std::array<double, 2> &expected, int iterations) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc != 5) { Fail("expected fixture directory, vertex SPIR-V, fragment SPIR-V, iterations"); }
   char *end = nullptr;
   const long iterations = std::strtol(argv[4], &end, 10);
