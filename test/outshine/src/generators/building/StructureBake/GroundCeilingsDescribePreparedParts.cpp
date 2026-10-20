@@ -70,7 +70,9 @@ Fixture Inputs() {
          .Cell = *cell,
          .HeightM = 12,
          .MinimumHeightM = index == 1 ? -3.0 : (index == 2 ? 3.0 : 0.0),
-         .Pitched = 0});
+         .Pitched = 0,
+         .WallColour = std::nullopt,
+         .Facade = std::nullopt});
   }
   return fixture;
 }
