@@ -70,4 +70,11 @@ full-scene depth includes other geometry not drawn by this position-only pass.
 Final full-scene depth is supplied free. Group construction, parent selection,
 first-phase depth/pyramid construction, disocclusion recovery, PBR, movement and
 complete frames remain outside the measurement. The replay does not establish
-the two-phase algorithm or the 720p60 world budget. Iris results remain separate.
+the two-phase algorithm or the 720p60 world budget.
+
+The matching Iris replay passes all ten variants and strict controls. With
+original batches, its best `source-32` costs 2.588 ms against 2.316 ms unculled;
+fewer triangles do not pay for selection/compaction there. Position-only
+equal-transform batching favors `block-16` (2.029 vs 2.171 ms), whereas A18
+favors `block-8`. No universal group size or PBR batch merge follows.
+[Device evidence and limits](https://github.com/Weichwolf/outshine/issues/894#issuecomment-6282044098).
