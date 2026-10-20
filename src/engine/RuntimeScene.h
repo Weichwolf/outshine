@@ -29,7 +29,7 @@
 #include "SceneRenderer.h"
 #include "Style.h"
 #include "scene/Material.h"
-#include "Atmosphere.h"
+#include "GroundAtmosphere.h"
 #include "Surfacing.h"
 
 namespace outshine::Core {
