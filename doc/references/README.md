@@ -429,6 +429,30 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Tiefensprites und geschichtete Tiefenbilder als Vergleich für Parallaxe und Verdeckungswechsel.
   Seite 2 mit Repräsentationshierarchie optisch geprüft. Eigene bedingte Einmoment-Reliefs ([#23](https://github.com/Weichwolf/outshine/issues/23))
   übernehmen keine Mehrschichtgarantie; Wind, Schatten und Disokklusion separat prüfen.
+- **LDI Tree: A Hierarchical Representation for Image-Based Rendering**, Chang / Bishop / Lastra, SIGGRAPH 1999.
+  [Publikation](https://doi.org/10.1145/311535.311571) ·
+  [Universitätsarchiv](https://www.cs.princeton.edu/courses/archive/spr01/cs598b/papers/chang99.pdf) ·
+  [PDF](geometry/siggraph/1999-ldi-tree.pdf).
+  Gemeinsame räumliche Tiefenbilder mit projektionsabhängiger Hierarchiestufe;
+  Seiten 2/3 samt Abtastdiagrammen und Gleichungen geprüft. Hier nur Grundlage:
+  unbeleuchtete Material-/Normalfelder, Disokklusion und Gerätebudgets getrennt belegen (#899).
+- **Conservative Visibility Preprocessing using Extended Projections**, Durand / Drettakis /
+  Thollot / Puech, SIGGRAPH 2000.
+  [Publikation](https://doi.org/10.1145/344779.344891) ·
+  [Autoren](https://people.csail.mit.edu/fredo/PUBLI/Sig2000/index.htm) ·
+  [PDF](geometry/siggraph/2000-conservative-visibility-extended-projections.pdf).
+  Konservative Sichtbarkeit aus einer räumlichen Kamerazelle; Seiten 3/4 mit
+  Definitionen, Diagrammen und konvexer Projektion optisch geprüft. #899 prüft
+  zunächst einzelne Dreiecksumbrae als geometrischen Flächensupport; keine
+  Übernahme des Raster-/Occluder-Fusion-Systems oder Gerätefreigabe daraus.
+- **Relief Texture Mapping**, Oliveira / Bishop / McAllister, SIGGRAPH 2000.
+  [Publikation](https://doi.org/10.1145/344779.344947) ·
+  [Autoren-PDF](https://www.inf.ufrgs.br/~oliveira/pubs_files/RTM_low_res.pdf) ·
+  [PDF](geometry/siggraph/2000-relief-texture-mapping.pdf).
+  Bild-/Tiefenfelder und Parallaxe als Verfahrensgrundlage; Seiten 2/3 mit
+  Projektionsgleichungen und Ablaufdiagramm optisch geprüft. #899 vergleicht
+  zunächst analytische Randfelder; deren Daten-/Suchkosten ersetzen keine
+  Prüfung des publizierten Relief-Prewarps oder einer gefilterten Fernhierarchie.
 - **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
   [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
   [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·
@@ -437,6 +461,15 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Alpha-Belegung, Mips, Normalen und Silhouette erhalten; leere Texel und Overdraw können
   den Geometriegewinn aufheben. Aus eigenen prozeduralen Modellen erzeugen, kein Fotoatlas. Gemeinsame Basisprodukte
   als Asset-Rohlinge speichern ([#10](https://github.com/Weichwolf/outshine/issues/10)); Nahdetails und aktuelles Licht/Wind folgen zur Laufzeit.
+- **Stereo Magnification: Learning view synthesis using multiplane images**,
+  Zhou / Tucker / Flynn / Fyffe / Snavely, SIGGRAPH 2018.
+  [Publikation](https://doi.org/10.1145/3197517.3201323) ·
+  [Autoren-PDF](https://tinghuiz.github.io/papers/siggraph18_mpi_lowres.pdf) ·
+  [PDF](geometry/siggraph/2018-stereo-magnification.pdf).
+  Seite 3 mit geometrischer Verankerung und Alpha-Komposition optisch geprüft.
+  #899 vergleicht eigene analytische, unbeleuchtete Flächenmaße statt gelernter
+  RGB-Schichten. Keine Foto-Welttexturen, kein gebackenes Licht und keine Übernahme
+  der trainierten Rekonstruktion; Disokklusion und Gerätebudgets bleiben gesondert.
 - **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
   [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
   [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·

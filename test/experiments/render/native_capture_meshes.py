@@ -86,6 +86,11 @@ def sample(source, prepared, origins, directions):
             },
         )
     depth, faces = intersect_source(source, origins, directions, prepared=prepared)
+    return depth, faces, fields_at(source, origins, directions, depth, faces)
+
+
+def fields_at(source, origins, directions, depth, faces, *, rgba=False):
+    """Interpolate unchanged source inputs at already identified original hits."""
     valid = faces >= 0
     fields = {"normal": np.zeros((len(faces), 3))}
     for name, width in (("colour", 4), ("uv", 2), ("metres", 2)):
@@ -106,8 +111,9 @@ def sample(source, prepared, origins, directions):
     if np.any(length == 0):
         raise ValueError("undefined interpolated normal")
     fields["normal"][valid] /= length[:, None]
-    fields["colour"] = fields["colour"][:, :3]
-    return depth, faces, fields
+    if not rgba:
+        fields["colour"] = fields["colour"][:, :3]
+    return fields
 
 
 def independent_depth(triangles, origins, directions):
