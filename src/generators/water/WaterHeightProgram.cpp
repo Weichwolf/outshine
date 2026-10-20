@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <numeric>
 #include <span>
 #include <stop_token>
 #include <utility>
@@ -14,20 +15,12 @@
 namespace outshine::Generators {
 namespace {
 using Error = WaterHeightError;
-using Entry = Eigen::Triplet<double, OSQPInt>;
+using Entry = SparseEntry<OSQPInt>;
 constexpr double kNormalMargin = 1e-12;
 constexpr double kContactWeightTolerance = 64 * std::numeric_limits<double>::epsilon();
 constexpr double kPositiveNormalFloor = .5;
 constexpr double kTriangleMassDivisor = 12;
 constexpr size_t kTriangleMassEntries = 9;
-
-void Assemble(WaterSparseMatrix &matrix, std::vector<Entry> &entries) {
-  std::ranges::sort(entries, [](const Entry &left, const Entry &right) {
-    if (left.col() != right.col()) { return left.col() < right.col(); }
-    return left.row() < right.row();
-  });
-  matrix.setFromSortedTriplets(entries.data(), entries.data() + entries.size());
-}
 
 std::expected<void, Error> Validate(const WaterHeightProblem &problem,
                                     const WaterHeightBudget &budget) {
@@ -143,14 +136,15 @@ std::expected<void, Error> Mass(const WaterHeightProblem &problem, WaterHeightPr
   if (entries.empty()) { return std::unexpected(Error::InvalidInput); }
   const auto count = static_cast<uint32_t>(problem.VerticesXY.size());
   if (count == 0) { return std::unexpected(Error::InvalidInput); }
-  WaterSparseMatrix mass(count, count);
-  Assemble(mass, entries);
-  mass /= mass.sum();
+  auto mass = WaterSparseMatrix::Assemble(count, count, entries);
+  const double sum = std::accumulate(mass.Values.begin(), mass.Values.end(), 0.);
+  for (double &value : mass.Values) { value /= sum; }
   program.Mass = std::move(mass);
-  program.Hessian = program.Mass.triangularView<Eigen::Upper>();
-  Eigen::VectorXd target(count);
+  program.Hessian = program.Mass.UpperTriangle();
+  std::vector<double> target(count);
   for (uint32_t at = 0; at < count; ++at) { target[at] = problem.TargetUpM[at] - program.DatumM; }
-  program.Linear = -(program.Mass * target);
+  program.Linear = program.Mass.Multiply(target);
+  for (double &value : program.Linear) { value = -value; }
   return {};
 }
 
@@ -232,19 +226,18 @@ std::expected<void, Error> Constraints(const WaterHeightProblem &problem,
   const auto contacts = Contacts(problem, program, rows);
   if (!contacts) { return contacts; }
   const auto count = static_cast<uint32_t>(rows.Upper.size());
-  program.Constraints.resize(count, static_cast<uint32_t>(problem.VerticesXY.size()));
-  Assemble(program.Constraints, rows.Entries);
-  program.Upper = Eigen::Map<Eigen::VectorXd>(rows.Upper.data(), count);
-  program.Lower = Eigen::VectorXd::Constant(count, -OSQP_INFTY);
+  program.Constraints = WaterSparseMatrix::Assemble(
+      count, static_cast<OSQPInt>(problem.VerticesXY.size()), rows.Entries);
+  program.Upper = std::move(rows.Upper);
+  program.Lower.assign(count, -OSQP_INFTY);
   for (auto at = static_cast<uint32_t>(program.Inequalities); at < count; ++at) {
     program.Lower[at] = program.Upper[at];
   }
-  if (!program.Linear.allFinite() || !program.Upper.allFinite() ||
-      !Eigen::Map<const Eigen::VectorXd>(program.Constraints.valuePtr(),
-                                         program.Constraints.nonZeros())
-           .allFinite() ||
-      !Eigen::Map<const Eigen::VectorXd>(program.Mass.valuePtr(), program.Mass.nonZeros())
-           .allFinite()) {
+  const auto finite = [](const auto &values) {
+    return std::ranges::all_of(values, [](double value) { return std::isfinite(value); });
+  };
+  if (!finite(program.Linear) || !finite(program.Upper) || !finite(program.Constraints.Values) ||
+      !finite(program.Mass.Values)) {
     return std::unexpected(Error::OutsidePhysicalDomain);
   }
   return {};
