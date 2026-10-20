@@ -202,10 +202,12 @@ def main():
     request = {
         "provenance": provenance,
         "observers": observers.tolist(),
-        "requested": source["binding"][:, 1].tolist(),
+        "requested": projection["sources"].tolist(),
     }
     (output / "selection-request.json").write_text(json.dumps(request) + "\n")
-    np.save(output / "expected-keep.npy", keep)
+    np.save(
+        output / "expected-keep.npy", select(product, observers, projection["sources"])
+    )
     report["process_peak_rss_bytes"] = (
         resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
     )
