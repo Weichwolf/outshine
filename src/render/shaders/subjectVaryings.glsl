@@ -1,5 +1,10 @@
+#if SUBJECT_CONSTANT_UV
+vec2 uv = vec2(0.0);
+vec2 uv1 = vec2(0.0);
+#else
 layout(location = 0) VARYING vec2 uv;
 layout(location = 1) VARYING vec2 uv1;
+#endif
 layout(location = 2) VARYING vec4 colour;
 layout(location = 3) VARYING vec3 normal;
 layout(location = 4) VARYING vec3 position;

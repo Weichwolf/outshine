@@ -2,9 +2,17 @@
 #extension GL_GOOGLE_include_directive : require
 #define VARYING in
 #define GROUND_WORLD_POSITION
+#if LIT_TEXTURED == 0
+#define SUBJECT_CONSTANT_UV 1
+#endif
 #include "subjectVaryings.glsl"
+#if SUBJECT_CONSTANT_UV
+float facadeBay = 0.0;
+float facadeCode = 0.0;
+#else
 layout(location = 11) in float facadeBay;
 layout(location = 12) flat in float facadeCode;
+#endif
 #include "subjectOutput.glsl"
 #include "surfaceTransfer.glsl"
 #include "material.glsl"
