@@ -11,6 +11,7 @@ from native_capture_meshes import independent_depth
 from opaque_sample_grid import samples
 from packed_normals import pack, unpack
 from visible_normal_bake import cook, histogram
+from visible_normal_compare import geometry_controls
 from visible_normal_material import shade, tables
 from visible_normal_query import load_product, query
 
@@ -69,6 +70,27 @@ def authored_measure(path, normals, weights):
 
 
 class MeasureTests(unittest.TestCase):
+    def test_matched_control_omits_unused_vertices_and_guaranteed_backfaces(self):
+        original = scene()
+        source = dict(original)
+        source["positions"] = np.vstack(
+            (original["positions"], [[999, 999, 999]])
+        ).astype(np.float32)
+        source["indices"] = np.vstack(
+            (original["indices"], original["indices"][:, ::-1])
+        )
+        source["binding"] = np.zeros((4, 6), np.int32)
+        with tempfile.TemporaryDirectory() as tmp:
+            report = geometry_controls(source, RECORDS, BOX, Path(tmp))
+            self.assertEqual(report["selection_work"]["kept_faces"], 2)
+            with np.load(Path(tmp) / "backface-control.npz") as data:
+                self.assertEqual(len(data["positions"]), 4)
+                self.assertEqual(len(data["indices"]), 2)
+            self.assertLess(
+                report["backface_only"]["appearance_array_bytes"],
+                report["full"]["appearance_array_bytes"],
+            )
+
     def test_histogram_preserves_coverage_and_distinct_normals(self):
         offsets, words, weights = histogram(
             [0, 0, 1, 1, 1, 2], [7, 9, 7, 7, 9, 42], 4, 4

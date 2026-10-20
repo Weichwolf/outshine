@@ -5,6 +5,7 @@ import time
 import numpy as np
 from opaque_area_reference import evaluate, pixel_grid, quadrature
 from triangle_image_reference import average_samples, image_rays, intersect_source
+from viewcell_visibility import select_support
 from visible_normal_query import query
 
 
@@ -30,9 +31,8 @@ def metrics(reference, candidate):
 
 def geometry_control(source, records, path):
     """Exact XYZ/flat normals/winding/source identity under the same opaque material."""
-    words, remap = np.unique(
-        source["positions"].view(np.uint32), axis=0, return_inverse=True
-    )
+    used = source["positions"][source["indices"]].reshape(-1, 3)
+    words, remap = np.unique(used.view(np.uint32), axis=0, return_inverse=True)
     normals, normal_index = np.unique(
         source["normal"][source["indices"][:, 0]], return_inverse=True
     )
@@ -43,7 +43,7 @@ def geometry_control(source, records, path):
     )
     arrays = {
         "positions": words.view(np.float32),
-        "indices": remap[source["indices"]].astype(
+        "indices": remap.reshape(source["indices"].shape).astype(
             np.uint16 if len(words) <= 65536 else np.uint32
         ),
         "normals": normals,
@@ -68,7 +68,27 @@ def geometry_control(source, records, path):
     return {
         "arrays": {k: a.nbytes for k, a in arrays.items()},
         "stored_array_bytes": sum(a.nbytes for a in arrays.values()),
+        "appearance_array_bytes": sum(
+            a.nbytes for k, a in arrays.items() if k != "face_source"
+        ),
         "container_bytes": path.stat().st_size,
+    }
+
+
+def geometry_controls(source, records, observer_box, output):
+    full = geometry_control(source, records, output / "geometry-control.npz")
+    support = select_support(
+        source["positions"], source["indices"], observer_box, max_blockers=0
+    )
+    selected = dict(source)
+    for key in ("indices", "binding"):
+        selected[key] = source[key][support.keep]
+    front = geometry_control(selected, records, output / "backface-control.npz")
+    return {
+        "full": full,
+        "backface_only": front,
+        "selection_work": support.work,
+        "scope": "appearance bytes omit per-face source IDs, which the measure also cannot return; global original identity table retained. Attributed bytes include that stronger capability. No UV, material codes or native packing claim",
     }
 
 
