@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
+from check_roof_invariance import check, transform_record
 from outshine_ref.buildings.modelling import (
     HipPlanner,
     SkeletonBudgetExceeded,
@@ -17,6 +18,7 @@ from outshine_ref.buildings.modelling import (
 )
 from outshine_ref.buildings.modelling._roof_contours import stitch_contacts
 from outshine_ref.buildings.modelling.roof_partition import collision, velocities
+from outshine_ref.buildings.modelling.skeleton_plan import refine
 from verify_hip_fixture import verify
 from verify_modelling_roof_hip import measure, uv_surface
 from verify_modelling_roof_shed import source
@@ -36,6 +38,61 @@ def height(plan, point):
 
 
 class RoofPartitionTests(unittest.TestCase):
+    def test_nearly_parallel_fronts_have_stable_unit_advance(self):
+        for angle in (1e-12, -1e-12, 0.0, 0.1):
+            normals = np.array(
+                [
+                    [0.6, 0.8],
+                    [
+                        0.6 * np.cos(angle) - 0.8 * np.sin(angle),
+                        0.6 * np.sin(angle) + 0.8 * np.cos(angle),
+                    ],
+                ]
+            )
+            speed = velocities(np.array([0, 1]), normals)
+            np.testing.assert_allclose(speed @ normals.T, 1.0, rtol=0, atol=2e-15)
+
+    def test_valid_nearly_dependent_planes_do_not_displace_their_node(self):
+        node = np.array([[12.0, 23.0]])
+        distances = np.array([3.0])
+        normals = np.array([[0.0, 1.0], [1e-12, 1.0], [1.0, 0.0]])
+        intercepts = distances[0] - normals @ node[0]
+        owners = [
+            (i, n, c) for i, (n, c) in enumerate(zip(normals, intercepts, strict=True))
+        ]
+        points, heights, correction = refine(node, distances, [(0,)] * 3, owners)
+        np.testing.assert_array_equal(points, node)
+        np.testing.assert_array_equal(heights, distances)
+        self.assertEqual(correction, 0.0)
+        inconsistent = [
+            (0, np.array([1.0, 0.0]), -1.0),
+            (1, np.array([0.0, 1.0]), -2.0),
+            (2, np.array([-1.0, 0.0]), 3.0),
+        ]
+        with self.assertRaisesRegex(ValueError, "metric correction"):
+            refine(np.zeros((1, 2)), np.ones(1), [(0,)] * 3, inconsistent)
+
+    def test_rigidly_transformed_original_countercases(self):
+        fixture = json.loads(
+            (Path(__file__).with_name("reference") / "hip-plans.json").read_text()
+        )
+        ids = {
+            "Vienna:327170:159",
+            "Tokyo:17970970:4224",
+            "Tokyo:11479717002:0",
+            "Tokyo:155129020:23",
+            "Tokyo:1367300462:0",
+        }
+        for original in fixture["records"]:
+            if original["id"] not in ids:
+                continue
+            with self.subTest(source=original["id"]):
+                row = transform_record(original, 37, np.array([100000.0, -200000.0]))
+                result = check(row, fixture["comparison"])
+                self.assertLessEqual(result["maximum_surface_height_error_m"], 1e-7)
+                if original["id"] != "Tokyo:1367300462:0":
+                    self.assertTrue(result["strict_facet_ownership_match"])
+
     def test_collapsed_remote_edge_is_a_point_not_its_supporting_line(self):
         small = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]])
         large = np.array([[100.0, 0.0], [120.0, 0.0], [120.0, 20.0], [100.0, 20.0]])

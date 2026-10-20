@@ -22,7 +22,13 @@ def refine_interfaces(points, face_owners, owners, fixed, tolerance, report):
         normals = np.array([owners[i][1] for i in incident])
         intercepts = np.array([owners[i][2] for i in incident])
         matrix = np.c_[normals, -np.ones(len(normals))]
-        solution, _, rank, _ = np.linalg.lstsq(matrix, -intercepts, rcond=None)
+        center = points[group].mean(axis=0)
+        current = np.r_[center, np.mean(normals @ center + intercepts)]
+        residual = -intercepts - matrix @ current
+        delta, _, rank, _ = np.linalg.lstsq(matrix, residual, rcond=None)
+        solution = current + delta
+        if np.max(abs(residual)) <= tolerance:
+            solution = current
         if rank == 3:
             candidate, height = solution[:2], solution[2]
         elif rank == 2:

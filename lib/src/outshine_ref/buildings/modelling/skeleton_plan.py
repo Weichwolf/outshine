@@ -1,13 +1,12 @@
 """Immutable metric hip-roof partitions with independently checked wavefront geometry."""
 
-from dataclasses import dataclass
 import math
 import threading
 import time as clock
+from dataclasses import dataclass
 
 import numpy as np
 import shapely
-from shapely import affinity
 
 from .scope import scalar
 
@@ -33,6 +32,9 @@ class SkeletonLimits:
         seconds = scalar(self.seconds)
         if seconds <= 0:
             raise ValueError('Skeleton cooperative deadline must be positive seconds')
+
+
+_DEFAULT_LIMITS = SkeletonLimits()
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,35 +191,67 @@ def face_boundaries(nodes, faces, boundaries):
 
 
 def refine(nodes, distances, faces, owners):
-    refined = nodes.copy(); heights = distances.copy(); incident = [[] for _ in nodes]
+    refined = nodes.copy()
+    heights = distances.copy()
+    incident = [[] for _ in nodes]
     for face, (_, gradient, intercept) in zip(faces, owners, strict=True):
         for index in face:
             incident[index].append((gradient, intercept))
     for index, constraints in enumerate(incident):
         if heights[index] == 0:
             continue
-        matrix = np.array([[*gradient, -1.] for gradient, _ in constraints])
+        matrix = np.array([[*gradient, -1.0] for gradient, _ in constraints])
         right = -np.array([intercept for _, intercept in constraints])
-        solution, _, rank, _ = np.linalg.lstsq(matrix, right, rcond=None)
-        if rank < 2 or np.max(abs(matrix@solution-right)) > 1e-7:
-            raise ValueError('Skeleton ridge topology has incompatible edge-plane constraints')
+        current = np.r_[nodes[index], heights[index]]
+        delta, _, rank, _ = np.linalg.lstsq(
+            matrix, right - matrix @ current, rcond=None
+        )
+        solution = current + delta
+        if rank < 2 or np.max(abs(matrix @ solution - right)) > 1e-7:
+            raise ValueError(
+                "Skeleton ridge topology has incompatible edge-plane constraints"
+            )
+        guard = (
+            64
+            * np.finfo(float).eps
+            * max(1.0, np.max(abs(right)), np.max(abs(current)))
+        )
+        if np.max(abs(matrix @ current - right)) <= guard:
+            solution = current
         if rank == 2:
-            candidates = np.array([nodes[index]@gradient+intercept for gradient, intercept in constraints])
+            candidates = np.array(
+                [
+                    nodes[index] @ gradient + intercept
+                    for gradient, intercept in constraints
+                ]
+            )
             if np.ptp(candidates) > 1e-7:
-                raise ValueError('Collinear skeleton facets disagree at their shared node')
+                raise ValueError(
+                    "Collinear skeleton facets disagree at their shared node"
+                )
             heights[index] = float(candidates.mean())
         else:
             refined[index], heights[index] = solution[:2], solution[2]
-    displacement = float(np.linalg.norm(refined-nodes, axis=1).max())
-    if displacement > 5e-5 or not np.isfinite(refined).all() or not np.isfinite(heights).all() or heights.min() < -1e-8:
-        raise ValueError('Skeleton refinement exceeds its metric correction contract')
-    heights = np.maximum(heights, 0.)
+    displacement = float(np.linalg.norm(refined - nodes, axis=1).max())
+    if (
+        displacement > 5e-5
+        or not np.isfinite(refined).all()
+        or not np.isfinite(heights).all()
+        or heights.min() < -1e-8
+    ):
+        raise ValueError("Skeleton refinement exceeds its metric correction contract")
+    heights = np.maximum(heights, 0.0)
     return refined, heights, displacement
 
 
 def validate(local, nodes, distances, faces, owners):
-    if not len(nodes) or not np.isfinite(nodes).all() or not np.isfinite(distances).all() or distances.max() <= 1e-10:
-        raise ValueError('Skeleton has no finite positive rise')
+    if (
+        not len(nodes)
+        or not np.isfinite(nodes).all()
+        or not np.isfinite(distances).all()
+        or distances.max() <= 1e-10
+    ):
+        raise ValueError("Skeleton has no finite positive rise")
     facets, edges = [], {}
     for face, (boundary, gradient, intercept) in zip(faces, owners, strict=True):
         polygon = shapely.Polygon(nodes[list(face)])
@@ -270,7 +304,7 @@ def finish(origin, local, boundaries, data, method, limits, began, fallback=None
     return HipPlan(tuple(origin), local, immutable_array(nodes), immutable_array(distances), facets, method, events, correction, fallback)
 
 
-def prepare_hip(polygon, method='auto', limits=SkeletonLimits()):
+def prepare_hip(polygon, method='auto', limits=_DEFAULT_LIMITS):
     """Prepare immutable facets; lifting never repeats skeleton construction.
 
     Auto tries strict native ownership first, then Python if native validation

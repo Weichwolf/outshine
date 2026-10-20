@@ -164,6 +164,21 @@ def contours(loops, normals, intercepts, now, tolerance):
                 & (abs(start_height) <= tolerance * 8)
                 & (abs(end_height) <= tolerance * 8)
             )
+            a, b = np.nonzero(match)
+            direction = np.sum(
+                (following[a] - points[a]) * (segments[b, 1] - segments[b, 0]), axis=1
+            )
+            match[a, b] &= (
+                (direction > 0)
+                & (
+                    shapely.distance(shapely.points(points[a]), source_lines[b])
+                    <= tolerance
+                )
+                & (
+                    shapely.distance(shapely.points(following[a]), source_lines[b])
+                    <= tolerance
+                )
+            )
             minimum = np.min(np.where(match, ids[None, :], len(normals)), axis=1)
             maximum = np.max(np.where(match, ids[None, :], -1), axis=1)
             if np.any(minimum != maximum):
