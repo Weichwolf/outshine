@@ -89,15 +89,15 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
   return std::clamp(kBatterRun * yieldM, minimumApronM, kMostApronM);
 }
 
-[[nodiscard]] Vec3f LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
-                               const Ground::VegetationTemplates &vegetation) {
+}
+
+Vec3f Corridors::LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
+                            const Ground::VegetationTemplates &vegetation) {
   if (lane.CoverRow < 0 || static_cast<size_t>(lane.CoverRow) >= vegetation.TemplateCount()) {
     return {{0.5f, 0.5f, 0.5f}};
   }
   const Vec4f &cover = vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
   return {{cover[0], cover[1], cover[2]}};
-}
-
 }
 
 double Corridors::RoadGradient(const ::outshine::Generators::Osm::StreetField::Way &way) noexcept {
@@ -389,11 +389,11 @@ void Corridors::PaveLane(const Paving &on,
   }
 }
 
-RoadProfile Corridors::ProfileOf(const Paving &on, size_t laneAt) {
-  const auto &lane = on.Ways.Ways()[laneAt];
+RoadProfile Corridors::ProfileOf(const Osm::StreetField::Way &lane,
+                                 const Ground::VegetationTemplates &vegetation) {
   const bool sealed = lane.CoverRow >= 0 &&
-                      static_cast<size_t>(lane.CoverRow) < on.Vegetation.TemplateCount() &&
-                      on.Vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
+                      static_cast<size_t>(lane.CoverRow) < vegetation.TemplateCount() &&
+                      vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
   RoadProfile profile = RoadProfile::Rounded;
   if (sealed) { profile = lane.Lanes >= 2 ? RoadProfile::Kerbed : RoadProfile::Simple; }
   return profile;
@@ -420,19 +420,9 @@ void Corridors::PaveEdge(const Paving &on,
   };
   into.LaidWays += lane.Bridge ? 1u : 0u;
   into.GroundWays += lane.Bridge ? 0u : 1u;
-  const RoadProfile profile = ProfileOf(on, laneAt);
-  const Vec3f wears = LaneColour(lane, on.Vegetation);
+  const auto surface = SurfaceOf(lane, on.Vegetation, edge, into.UnbankedWays.contains(laneAt));
   into.WaterMs += since();
-  into.Swept += Sweeper_.Sweep(std::span<const RoadStation>(into.Along.data(), into.Along.size()),
-                               {.HalfWidthM = static_cast<double>(lane.HalfWidthM),
-                                .Profile = profile,
-                                .WearsLinear = wears,
-                                .Crossfall = lane.Bridge && !into.UnbankedWays.contains(laneAt)
-                                                 ? std::atan(kCrossfall)
-                                                 : 0.0,
-                                .Form = lane.Bridge ? RibbonForm::ClosedShell : RibbonForm::Surface,
-                                .EndPorts = edge.EndPorts},
-                               pavement);
+  into.Swept += Sweeper_.Sweep(into.Along, surface, pavement);
   into.SweepMs += since();
   AppendTerrainStamps(on, laneAt, into, corridor);
 }
@@ -1033,7 +1023,8 @@ void Corridors::GatesOf(const Paving &on,
     const double spanM = line.AlongM[rim] - line.AlongM[before];
     const double along =
         spanM > kLeastRunM ? std::clamp((leg.CutM - line.AlongM[before]) / spanM, 0.0, 1.0) : 0.0;
-    const Section section = RoadSection(leg.HalfM, ProfileOf(on, edge.Lane));
+    const Section section =
+        RoadSection(leg.HalfM, ProfileOf(on.Ways.Ways()[edge.Lane], on.Vegetation));
     made.Gates.push_back(
         RoadGate{.EastM = line.EastM[before] + (line.EastM[rim] - line.EastM[before]) * along,
                  .NorthM = line.NorthM[before] + (line.NorthM[rim] - line.NorthM[before]) * along,
@@ -1605,20 +1596,12 @@ struct Corridors::JobSlice {
 
 namespace {
 
-std::string SourceOfWay(const Osm::OsmField &vectors, const Osm::StreetField::Way &way) {
-  const auto rings = vectors.Rings();
-  for (const auto &feature : vectors.Features()) {
-    for (size_t i = 0; i < feature.RingCount; ++i) {
-      const auto &ring = rings[feature.FirstRing + i];
-      if (ring.First == way.FirstPoint && ring.Count == way.PointCount) {
-        if (const auto sourceId = feature.ProviderFeatureId; sourceId.has_value()) {
-          return std::to_string(*sourceId);
-        }
-        return "declared";
-      }
-    }
-  }
-  return "unidentified";
+std::string SourceOfWay(const Osm::OsmField &vectors, const Osm::StreetField &ways, size_t way) {
+  const auto source = ways.SourceOf(vectors, way);
+  if (!source || source->Feature >= vectors.Features().size()) { return "unidentified"; }
+  const auto &feature = vectors.Features()[source->Feature];
+  if (feature.ProviderFeatureId) { return std::to_string(*feature.ProviderFeatureId); }
+  return "declared";
 }
 
 }
@@ -1647,7 +1630,7 @@ bool Corridors::RetainValidWays(Job &job, const JobSlice &slice) {
   if (!choice) { return false; }
   const size_t selected = std::get<size_t>(*choice);
   auto retained = slice.ways.Without(selected);
-  const auto source = SourceOfWay(*slice.vectors, slice.ways.Ways()[selected]);
+  const auto source = SourceOfWay(*slice.vectors, slice.ways, selected);
   Log::Warn(LogTag::World,
             "road_source_omitted",
             {{"source", source},

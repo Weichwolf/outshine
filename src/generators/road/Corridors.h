@@ -26,6 +26,7 @@
 #include "GroundMaterials.h"
 #include "OsmField.h"
 #include "RoadMesher.h"
+#include "RoadPageRecipe.h"
 #include "StreetField.h"
 #include "TerrainLoader.h"
 #include "TangentFrame.h"
@@ -325,7 +326,14 @@ private:
                         const Paved &into,
                         uint32_t edgeAt,
                         std::unordered_map<uint64_t, std::vector<Leg>> &legsAt);
-  static RoadProfile ProfileOf(const Paving &on, size_t lane);
+  static RoadProfile ProfileOf(const Osm::StreetField::Way &lane,
+                               const Ground::VegetationTemplates &vegetation);
+  static Vec3f LaneColour(const Osm::StreetField::Way &lane,
+                          const Ground::VegetationTemplates &vegetation);
+  static RoadSweep SurfaceOf(const Osm::StreetField::Way &lane,
+                             const Ground::VegetationTemplates &vegetation,
+                             const Edge &edge,
+                             bool unbanked);
   static void
   GatesOf(const Paving &on, std::span<const Leg> legs, const Paved &into, Junction &made);
   static void
@@ -520,6 +528,12 @@ private:
 
 public:
   [[nodiscard]] static std::unique_ptr<Job> Begin(const Site &site);
+  [[nodiscard]] std::expected<bool, std::string_view>
+  AdvancePlan(Job &job, const Site &site, size_t lanesMost, size_t nodesMost) const;
+  [[nodiscard]] static std::expected<std::vector<RoadPagePart>, std::string_view>
+  PlannedParts(const Job &job);
+  [[nodiscard]] static std::expected<RoadPageRecipe, std::string_view>
+  PageRecipe(const Job &job, const Site &site, std::span<const RoadPagePart> parts);
   [[nodiscard]] std::expected<bool, std::string_view>
   Advance(Job &job,
           const Site &site,
