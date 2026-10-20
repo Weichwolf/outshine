@@ -14,7 +14,7 @@ import numpy as np
 import shapely
 from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
-from water_parameter_cut import local_sources
+from water_cell_mask import local_sources
 
 
 @dataclass(frozen=True)
