@@ -2,8 +2,9 @@
 vec2 uv = vec2(0.0);
 vec2 uv1 = vec2(0.0);
 #else
-layout(location = 0) VARYING vec2 uv;
-layout(location = 1) VARYING vec2 uv1;
+layout(location = 0) VARYING vec4 textureCoordinates;
+vec2 uv;
+vec2 uv1;
 #endif
 layout(location = 2) VARYING vec4 colour;
 layout(location = 3) VARYING vec4 normalMetric;
@@ -26,12 +27,19 @@ layout(location = 12) VARYING vec2 groundSampleUV;
 
 #if defined(SUBJECT_VERTEX_STAGE)
 void writeSubjectVaryings() {
+#if !SUBJECT_CONSTANT_UV
+  textureCoordinates = vec4(uv, uv1);
+#endif
   normalMetric = vec4(normal, groundWorldM.x);
   positionMetric = vec4(position, groundWorldM.y);
   localPositionMetric = vec4(localPosition, groundWorldM.z);
 }
 #else
 void readSubjectVaryings() {
+#if !SUBJECT_CONSTANT_UV
+  uv = textureCoordinates.xy;
+  uv1 = textureCoordinates.zw;
+#endif
   normal = normalMetric.xyz;
   position = positionMetric.xyz;
   localPosition = localPositionMetric.xyz;
