@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from adaptive_water_boundary import refine_boundary
 from compare_native_water_frame import course_controls, original_case
 from native_river_inputs import surface_rings
 from outshine_ref.contracts import Mesh
@@ -88,11 +89,18 @@ def roundoff(mesh, rows, polygons):
     raise AssertionError("unreachable bounded intervention loop")
 
 
-def original_pair(path):
+def original_domain(
+    path,
+    xy_bounds,
+    *,
+    boundary_spacing_m=20.0,
+    boundary_tolerance_m=None,
+    boundary_rounds=8,
+):
     data, manifest, legacy = original_case(path)
     anchor = np.asarray(legacy["frame"]["origin_lon_lat"])
     selection = manifest["original_selection"]
-    window = shapely.box(-150, -300, 150, 300)
+    window = None if xy_bounds is None else shapely.box(*xy_bounds)
     originals, clipped, ledger = [], [], []
     for index in selection["selected_surface_indices"]:
         rings = [
@@ -101,7 +109,7 @@ def original_pair(path):
         ]
         polygon = shapely.Polygon(rings[0], rings[1:])
         originals.append(polygon)
-        piece = polygon.intersection(window)
+        piece = polygon if window is None else polygon.intersection(window)
         used = not piece.is_empty and piece.area > 0
         ledger.append(
             {
@@ -112,16 +120,29 @@ def original_pair(path):
         if used:
             clipped.append(piece)
     body = shapely.union_all(clipped)
-    flat, topology = surface_mesh(body)
     courses, course_report = course_controls(
         data, selection["selected_course_indices"], anchor, np.ones(2)
     )
     geographic = courses["course_original_lon_lat"]
     segments = local_points(anchor, geographic.reshape(-1, 2), 0).reshape(-1, 2, 3)
-    target, references = RiverProfile(
-        segments[:, :, :2], courses["course_original_levels_m"]
-    ).sample(flat.vertices[:, :2], "blend-affine")
-    up = model_height_targets(anchor, flat.vertices[:, :2], target)
+    profile = RiverProfile(segments[:, :, :2], courses["course_original_levels_m"])
+    sampling = {"height_point_queries": 0, "course_reference_visits": 0}
+
+    def sample_up(points):
+        target, references = profile.sample(points, "blend-affine")
+        sampling["height_point_queries"] += len(points)
+        sampling["course_reference_visits"] += int(references.sum())
+        return model_height_targets(anchor, points, target)
+
+    refinement = None
+    if boundary_tolerance_m is not None:
+        if boundary_spacing_m is not None:
+            raise ValueError("choose source-driven or uniform boundary sampling")
+        body, refinement = refine_boundary(
+            body, sample_up, boundary_tolerance_m, rounds=boundary_rounds
+        )
+    flat, topology = surface_mesh(body, boundary_spacing_m)
+    up = sample_up(flat.vertices[:, :2])
     mesh = Mesh(np.c_[flat.vertices[:, :2], up], flat.triangles)
     count = len(mesh.triangles)
     # Symmetric laboratory caps, no DEM-based hard flow-direction assumption.
@@ -138,8 +159,8 @@ def original_pair(path):
         bounds,
         csr,
         {
-            "scope": "bounded fixed pair in existing original Ill fixture; conditional admitted-source window, no world closure or source-completeness proof",
-            "canonical_pair_bounds_enu_m": [-150, -300, 150, 300],
+            "scope": "explicit domain in original Ill fixture; conditional admitted-source window, no world closure or source-completeness proof",
+            "domain_bounds_enu_m": xy_bounds,
             "historical_native_sha256": manifest["historical_v2"]["sha256"],
             "original_source_ledger": ledger,
             "projected_source_surfaces": len(originals),
@@ -152,18 +173,26 @@ def original_pair(path):
             ),
             "positive_clipped_sources": len(clipped),
             "original_source_holes": sum(len(p.interiors) for p in originals),
-            "derived_pair_holes_before_roundoff": sum(
+            "derived_domain_holes_before_roundoff": sum(
                 len(p.interiors) for p in shapely.get_parts(body)
             ),
             "topology_before_roundoff": topology,
             "roundoff": interventions,
             "membership": csr.work,
             "course_sampling": course_report,
-            "course_reference_visits": int(references.sum()),
+            "course_reference_visits": sampling["course_reference_visits"],
+            "source_height_sampling": sampling,
+            "source_boundary_refinement": refinement,
             "original_native_surface_indices": selection["selected_surface_indices"],
             "model": "existing blend-affine courses as soft numerical model heights; no observed ASL or flow direction",
             "lab_symmetric_physical_grade_cap": 0.01,
             "contact_plane_x_m": 0,
             "band_half_width_m": 20,
         },
+    )
+
+
+def original_pair(path, *, boundary_spacing_m=20.0):
+    return original_domain(
+        path, (-150, -300, 150, 300), boundary_spacing_m=boundary_spacing_m
     )

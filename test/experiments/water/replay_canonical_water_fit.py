@@ -31,7 +31,7 @@ from river_membership import face_membership
 from river_surface import surface_mesh
 
 
-def recipe(domain, data, indices):
+def recipe(domain, data, indices, *, boundary_spacing_m=20.0):
     z, x, y = domain.owner[:3]
     latitude, longitude = tile_geography(np.array([[0.5, 0.5]]), 1, (z, x, y))
     anchor = np.array([longitude[0], latitude[0]])
@@ -43,7 +43,7 @@ def recipe(domain, data, indices):
             for r in surface_rings(data, index)
         ]
         polygons.append(shapely.normalize(shapely.Polygon(rings[0], rings[1:])))
-    zero, topology = surface_mesh(shapely.union_all(polygons))
+    zero, topology = surface_mesh(shapely.union_all(polygons), boundary_spacing_m)
     csr = face_membership(zero.vertices, zero.triangles, polygons)
     if np.any(np.diff(csr.offsets) == 0):
         raise ValueError("original source coverage lost in canonical meshing")
