@@ -62,7 +62,7 @@ Preserving station spacing and events alone does not preserve the swept surface.
 
 **Do not port this candidate.** Product Ribbon source and recipe remain unchanged.
 The complete attempted native diff, including its additional test, is retained in
-[road_station_gap_trial.patch](road_station_gap_trial.patch) as a rejected experiment;
+[road_station_gap_trial.patch.xz](road_station_gap_trial.patch.xz) as a rejected experiment;
 it is not an automatically applied build input.
 
 ## Corrected architectural target
