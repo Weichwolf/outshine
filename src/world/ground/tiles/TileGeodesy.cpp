@@ -1,5 +1,6 @@
 #include "math/Units.h"
 #include "TileGeodesy.h"
+#include "Geocentric.h"
 
 #include <algorithm>
 #include <cmath>
@@ -9,7 +10,6 @@
 
 namespace outshine::Ground {
 
-constexpr double kAtPoleXy = 1e-9;
 constexpr double kPoleLatDeg = 90.0;
 constexpr double kOriginMostLatDeg = 89.9;
 
@@ -77,57 +77,15 @@ Geo TileFracToGeo(TileFrac at, int z) {
 }
 
 Ecef GeoToEcefWgs84(Geo g) {
-  const double a = kWgs84A;
-  const double f = kWgs84F;
-  const double e2 = f * (2.0 - f);
-
-  const double phi = g.LatitudeDeg * kDeg2Rad;
-  const double lam = g.LongitudeDeg * kDeg2Rad;
-  const double sphi = std::sin(phi);
-  const double cphi = std::cos(phi);
-  const double slam = std::sin(lam);
-  const double clam = std::cos(lam);
-
-  const double N = a / std::sqrt(1.0 - e2 * sphi * sphi);
-
-  Ecef p;
-  p.X = (N + g.HeightM) * cphi * clam;
-  p.Y = (N + g.HeightM) * cphi * slam;
-  p.Z = (N * (1.0 - e2) + g.HeightM) * sphi;
-  return p;
+  Vec3 point;
+  GeoToEcef(g, point);
+  return {.X = point[0], .Y = point[1], .Z = point[2]};
 }
 
 Geo EcefToGeoWgs84(Ecef p) {
-  const double a = kWgs84A;
-  const double f = kWgs84F;
-  const double e2 = f * (2.0 - f);
-  const double b = a * (1.0 - f);
-
-  const double pxy = std::sqrt(p.X * p.X + p.Y * p.Y);
-
-  Geo g;
-
-  if (pxy < kAtPoleXy) {
-    g.LongitudeDeg = 0.0;
-    g.LatitudeDeg = (p.Z >= 0.0) ? kPoleLatDeg : -kPoleLatDeg;
-    g.HeightM = std::fabs(p.Z) - b;
-    return g;
-  }
-
-  g.LongitudeDeg = kRad2Deg * std::atan2(p.Y, p.X);
-
-  const double ep2 = e2 / (1.0 - e2);
-  const double theta = std::atan2(p.Z * a, pxy * b);
-  const double st = std::sin(theta);
-  const double ct = std::cos(theta);
-  const double lat = std::atan2(p.Z + ep2 * b * st * st * st, pxy - e2 * a * ct * ct * ct);
-  const double slat = std::sin(lat);
-  const double clat = std::cos(lat);
-  const double N = a / std::sqrt(1.0 - e2 * slat * slat);
-
-  g.LatitudeDeg = kRad2Deg * lat;
-  g.HeightM = pxy / clat - N;
-  return g;
+  constexpr double invalid = std::numeric_limits<double>::quiet_NaN();
+  return GeoFromEcef(Vec3{{p.X, p.Y, p.Z}})
+      .value_or(Geo{.LongitudeDeg = invalid, .LatitudeDeg = invalid, .HeightM = invalid});
 }
 
 EnuFrame EnuFrame::At(Geo origin) {

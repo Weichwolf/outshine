@@ -380,12 +380,11 @@ std::shared_ptr<const TerrainField> TerrainTiles::StitchedField(int z, uint32_t 
       found->second.Seq = ++Seq_;
       return found->second.Field;
     }
+    StitchedBytes_ -= found->second.Field->Bytes();
     Stitched_.erase(found);
   }
   TerrainGrid grid = StitchedGrid(z, x, y);
-  TerrainField *field = grid.TryFieldMutable();
-  if (field == nullptr) { return nullptr; }
-  auto shared = std::make_shared<const TerrainField>(std::move(*field));
+  auto shared = grid.ShareField();
   HoldsStitched(of, shared);
   return shared;
 }
