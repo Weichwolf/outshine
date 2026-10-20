@@ -3,7 +3,14 @@
 import struct
 
 import numpy as np
-from cached_building_streams import Reader, array
+from prepared_surface_recipes import Reader
+
+
+def array(reader, item_bytes):
+    count = reader.number("Q")
+    start = reader.at
+    reader.skip(count * item_bytes)
+    return memoryview(reader.data)[start : reader.at], count
 
 
 def header(reader):
@@ -101,7 +108,7 @@ def summary(reader):
 def read_plans(data):
     if len(data) > 64 * 1024**2:
         raise ValueError("bounded native source index required")
-    reader = Reader(data)
+    reader = Reader(data, number_limit=16777216)
     if (reader.number("I"), reader.number("I")) != (0x31425350, 8):
         raise ValueError("explicitly supported prepared index schema 8 required")
     anchor = header(reader)
