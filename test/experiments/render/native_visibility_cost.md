@@ -111,6 +111,8 @@ The private native probe retains source, complete compile/link commands,
 shader hashes, raw samples and terminal receipts under the system-temp
 `outshine-gpu-visibility-894-*` task. Canonical device evidence and integration
 coordination belong to [#894](https://github.com/Weichwolf/outshine/issues/894).
+The shared [native pipeline replay](native_visibility_pipeline.md) now includes
+the C++/GLSL probe, fixed selected inputs and a starter for both native backends.
 
 ## Reproduce
 
