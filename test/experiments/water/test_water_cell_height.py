@@ -85,6 +85,22 @@ class WaterCellHeight(unittest.TestCase):
                 publish_contacts(mesh, anchor, "model", records, {}, path)
             self.assertFalse(path.exists())
 
+    def test_grid_height_outside_precise_mask_is_never_published_as_water(self):
+        mesh, anchor, records, knots = inputs()
+        with tempfile.TemporaryDirectory(prefix="outshine-water-cell-height-") as tmp:
+            path = Path(tmp) / "absent.npz"
+            result = publish_contacts(
+                mesh,
+                anchor,
+                "masked",
+                records,
+                knots,
+                path,
+                mask=shapely.box(1e6, 1e6, 1e6 + 10, 1e6 + 10),
+            )
+            self.assertEqual(result["state"], "unresolved_contacts")
+            self.assertFalse(path.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
