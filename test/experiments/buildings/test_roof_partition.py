@@ -20,8 +20,8 @@ from outshine_ref.buildings.modelling._roof_contours import stitch_contacts
 from outshine_ref.buildings.modelling.roof_partition import collision, velocities
 from outshine_ref.buildings.modelling.skeleton_plan import refine
 from verify_hip_fixture import verify
-from verify_modelling_roof_hip import measure, uv_surface
 from verify_modelling_roof_shed import source
+from verify_roof_partition_consumer import coplanar_control, verify_prepared
 
 
 def height(plan, point):
@@ -38,6 +38,20 @@ def height(plan, point):
 
 
 class RoofPartitionTests(unittest.TestCase):
+    def test_coplanar_cut_moves_without_changing_source_uv_or_volume(self):
+        original, first, second = coplanar_control()
+        for value, mode, expected in (
+            (3.0, "byHeight", 72.0),
+            (30.0, "byAngle", 72.0 * np.tan(np.deg2rad(30))),
+        ):
+            for plan in (first, second):
+                roof, result = verify_prepared(original, plan, value, mode)
+                self.assertAlmostEqual(result["volume_m3"], expected, places=9)
+                self.assertGreater(result["uv_values_checked"], 0)
+                self.assertTrue(
+                    {"uv", *(f"uv{i}" for i in range(1, 10))} <= roof.emit().keys()
+                )
+
     def test_nearly_parallel_fronts_have_stable_unit_advance(self):
         for angle in (1e-12, -1e-12, 0.0, 0.1):
             normals = np.array(
@@ -287,26 +301,7 @@ class RoofPartitionTests(unittest.TestCase):
             original = source(polygon)
             plan = prepare_hip(hip_footprints(original)[0], "contour")
             for value, mode in ((3.0, "byHeight"), (30.0, "byAngle")):
-                with patch(
-                    "outshine_ref.buildings.modelling.roof_hip.prepare_hip",
-                    side_effect=AssertionError("prepared hit must not reconstruct"),
-                ):
-                    roof = original.roof_hip(value, mode, prepared_plans=(plan,))
-                self.assertIs(roof.roof_info.plans[0], plan)
-                volume, _ = measure(roof.emit())
-                expected = sum(
-                    f.polygon.area
-                    * (
-                        np.array(f.polygon.centroid.coords[0]) @ f.gradient
-                        + f.intercept_m
-                    )
-                    for f in plan.facets
-                ) * plan.factor(value, mode)
-                np.testing.assert_allclose(volume, expected, atol=1e-7, rtol=1e-9)
-                self.assertGreater(uv_surface(original, roof), 0)
-                self.assertEqual(
-                    roof.geometry.material_defs, original.geometry.material_defs
-                )
+                verify_prepared(original, plan, value, mode)
 
 
 if __name__ == "__main__":
