@@ -196,6 +196,12 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   CHECK(absent && !*absent, "a missing product key is a normal native-cache miss");
   CHECK(!(*fresh)->LoadKey("", kLimit) && !(*fresh)->LoadKey(std::string(64, 'g'), kLimit),
         "invalid direct product identities fail before cache loading");
+  const std::string reboundRequest(64, 'e');
+  const auto rebound = pages.Resolve(first.Address, parent, reboundRequest, kLimit, {});
+  const auto reboundMetadata = (*cache)->FindRequest(reboundRequest);
+  CHECK(rebound && rebound->Record.RequestKey == reboundRequest && reboundMetadata &&
+            *reboundMetadata && (**reboundMetadata).Key == rebound->Record.Key,
+        "a rebound cache hit returns the metadata snapshot actually published for this demand");
   auto retained = cold->Page;
   const auto removed = (*cache)->Remove(cold->Record.Key);
   const auto afterRemoval = (*cache)->Find(cold->Record.Key);
