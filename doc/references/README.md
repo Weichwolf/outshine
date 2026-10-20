@@ -5,8 +5,9 @@ Papers, Kurse und Produktdokumentation sind als solche bezeichnet; Links und lok
 Die Einträge sind die kanonische Relevanzbewertung nach [#919](https://github.com/Weichwolf/outshine/issues/919),
 keine Machbarkeitsbestätigung und keine neue Architekturfreigabe.
 
-**Prüfstand: 29 von 70 Einträgen bewertet.** Streaming/Sichtbarkeit/LOD sowie Materialien/Licht;
-die übrigen 41 stehen ausdrücklich unter „Bewertung ausstehend“ und haben noch kein Relevanzurteil.
+**Prüfstand: 69 von 70 Einträgen bewertet.** Alle Bereiche sind eingeordnet;
+ein Normalenartikel bleibt wegen fehlender Volltext-/Abbildungsprüfung ausdrücklich
+unter „Bewertung ausstehend“, ohne Relevanzurteil.
 Bewertete Einträge folgen absteigend dem aktuellen Nutzen innerhalb jeder Stufe:
 
 | Relevanz | Bedeutung |
@@ -40,6 +41,13 @@ Alle vorhandenen PDFs liegen nach Bereich/Konferenz direkt unter `doc/references
 Die kanonischen Downloadlinks stehen bei jeder Quelle. Fehlende Volltexte sind im Eintrag benannt.
 Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen. Optisch geprüfte Seiten und
 terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bleiben lokal.
+
+Fachbesitz: [Vegetation #1](https://github.com/Weichwolf/outshine/issues/1),
+[Transport #11](https://github.com/Weichwolf/outshine/issues/11),
+[Straßen/Wasser #3](https://github.com/Weichwolf/outshine/issues/3),
+[Terrain #13](https://github.com/Weichwolf/outshine/issues/13),
+[Kontakte #14](https://github.com/Weichwolf/outshine/issues/14).
+Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
 
 ## Relevanz: Hoch
 
@@ -94,6 +102,26 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
   Tiefenpass, Reprojektion, Listen/Indexkompaktion und Änderungen auf Metal/Vulkan
   messen; alte PS4-Zahlen und unsichere History sind keine Freigabe für SSD/UMA.
 
+- **Procedural Modeling of Buildings**, Müller et al., SIGGRAPH 2006.
+  [Quelle](https://peterwonka.net/Publications/pdfs/2006.SG.Mueller.ProceduralModelingOfBuildings.final.pdf) ·
+  [PDF](buildings/siggraph/2006-procedural-modeling-of-buildings.pdf).
+  **Relevanz: Hoch — Gebäudeplan / #8, #33, #915.**
+  Ein hierarchischer Formplan verbindet Grundriss, Baukörper, Dach und wiederholte
+  Module; passende Stufen können aus demselben Plan entstehen. Das adressiert
+  Gebäudevielfalt ohne neue Einzelgeometrie je Instanz. Regeln benötigen gelieferte
+  Klasse/Höhe und begrenzte Ergänzungen; ein vollständiger CGA-Interpreter ist
+  nicht nötig. Hierarchie allein garantiert weder ladbare LOD-Seiten noch Formfehler.
+
+- **Grammar-based Encoding of Facades**, Haegler et al., EGSR 2010.
+  [Quelle](https://peterwonka.net/Publications/pdfs/2010.EGSR.Haegler.GrammarBasedEncoding.pdf) ·
+  [PDF](buildings/egsr/2010-grammar-based-encoding-of-facades.pdf).
+  **Relevanz: Hoch — Fassaden / #6, #8, #33.**
+  Wiederholte Fassadenelemente als kompakte Regeln statt ausmodellierter Einzelteile
+  speichern. Geeignet für eigene prozedurale Fassadenprodukte; das Paper dekodiert
+  Regeln pro Pixel mit zusätzlichen Puffern. Regeltiefe, Divergenz, Scratch und
+  Filterung mitmessen. Nahsilhouette, Laibungen und Räume brauchen eigene Geometrie;
+  Fotofassaden und historischer CUDA-/VRAM-Pfad werden nicht übernommen.
+
 - **Synthetic Texturing Using Digital Filters**, Feibush / Levoy / Cook, SIGGRAPH1980.
   [Quelle](https://graphics.stanford.edu/papers/texture-filtering/) ·
   [PDF](materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf).
@@ -113,6 +141,26 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
   Fernmaterialien. SH-/vMF-Approximationen kosten Koeffizienten, Fits und Sampling;
   schmale oder mehrgipflige Verteilungen sowie korrelierte Farbe/Materialien
   brauchen eigene Fehlerbelege. Kein universeller kleiner GGX-Ersatz daraus.
+
+- **Realistic Modeling and Rendering of Plant Ecosystems**, Deussen et al., SIGGRAPH 1998.
+  [Quelle](https://algorithmicbotany.org/papers/ecosys.sig98.pdf) ·
+  [PDF](vegetation/siggraph/1998-plant-ecosystems.pdf).
+  **Relevanz: Hoch — Bestände / #1, #12, #915.**
+  Bestandsplan, Pflanzenform und Darstellung trennen; Prototypen und Instanzen
+  teilen, statt überall Organprodukte aufzubauen. Grundprinzip für kompakte
+  Bestands-/Fernprodukte und späteres Nahdetail. Quantisierung und Artenmischung
+  gegen Deckung/Lichtantwort prüfen. Offline-Bestände sind kein Echtzeitbeleg;
+  Wind, Schatten, Overdraw und physische Übergangspeaks bleiben eigene Kosten.
+
+- **A Scalable and Production Ready Sky and Atmosphere Rendering Technique**, Hillaire,
+  EGSR 2020. [Quelle](https://sebh.github.io/publications/egsr2020.pdf) ·
+  [PDF](atmosphere/egsr/2020-production-ready-atmosphere.pdf).
+  **Relevanz: Hoch — Atmosphäre / #7, #4.**
+  Kompakte LUTs für Transmission, Mehrfachstreuung, Himmel und Luftperspektive
+  verbinden Boden-/Flug-/Orbitansichten. Konkrete Grundlage für die vorhandene
+  SkyStage und physikalisch begrenzte Fernsicht. LUT-Auflösung, Updates und
+  Sonnen-/Geländeschatten gegen Referenz prüfen; das Modell approximiert die
+  Streuung. Wetterparameter sind keine gemessene Aerosolverteilung oder Wolkenlösung.
 
 - **Surface Gradient-Based Bump Mapping Framework**, Mikkelsen, JCGT 9(3), 2020.
   [Quelle](https://jcgt.org/published/0009/03/04/paper.pdf) ·
@@ -187,6 +235,50 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
   Allgemeine Paaraggregation kann getrennte Teile verbinden: für Straßenkontakte
   und Verdeckung nur mit zusätzlichen Einschränkungen. Kein kontinuierlicher
   Hausdorff-/Coveragebeweis; Fine-Aufbau vor späterem Reduzieren spart keinen Miss-Cook.
+
+- **Procedural Generation of Roads**, Galin / Peytavie / Maréchal / Guérin, Eurographics 2010.
+  [Quelle](https://perso.liris.cnrs.fr/egalin/Articles/2010-roads.pdf) ·
+  [PDF](transport/eurographics/2010-procedural-generation-of-roads.pdf).
+  **Relevanz: Mittel — Straßenprofile / #3, #14, #18.**
+  Trajektorie, Querschnitt und Geländeanpassung gemeinsam auswerten; Brücken,
+  Tunnel, Einschnitt und Aufschüttung als eigene Modelle ableiten. Nützlich für
+  funktionale Kontakte und kohärente Renderstufen. Anisotrope Pfadsuche ersetzt
+  unser vorhandenes OSM-Netz nicht. Abtastung und Höhenschwellen allein sichern
+  keine Knotenanschlüsse, Durchfahrt oder kreuzungsfreie Baugeometrie.
+  Weitere Bezüge:
+  [Codevorbilder und Grenzen](transport/README.md).
+
+- **Interactive Procedural Street Modeling**, Chen et al., SIGGRAPH 2008.
+  [Quelle](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf) ·
+  [PDF](transport/siggraph/2008-interactive-procedural-street-modeling.pdf).
+  **Relevanz: Mittel — Transportplan / #11, #18.**
+  Graphbearbeitung von späterer Straßengeometrie trennen; lokale Bearbeitung und
+  Muster sind als Planungsbausteine nützlich. Die Tensorfeld-Neuerzeugung ersetzt
+  keine gelieferten OSM-Verbindungen, Ebenen oder Profile. Brücken/Tunnel und
+  funktionale Kontakte brauchen eigene Verträge; vollständiges Netz-Wachstum
+  vor jedem geladenen Fernprodukt wäre unnötige Arbeit.
+
+- **Instant Architecture**, Wonka et al., SIGGRAPH 2003.
+  [Quelle](https://peterwonka.net/Publications/pdfs/2003.SG.Wonka.InstantArchitecture.high.pdf) ·
+  [PDF](buildings/siggraph/2003-instant-architecture.pdf).
+  **Relevanz: Mittel — Gebäuderezepte / #8, #33.**
+  Split-/Kontrollgrammatik und Attributzuordnung strukturieren wiederholte Fassaden.
+  Nützlich zur begrenzten Rezeptwahl aus gelieferten Körpern und Nutzung, mit
+  geteilten Modulen. Keine Rekonstruktion unbekannter realer Fassaden; Regelwahl
+  und Modulbestand kosten Aufbau/Speicher. Der spätere Gebäude-Formplan muss
+  Außenform, Dach und begehbare Teile gemeinsam besitzen.
+
+- **Mesh Arrangements for Solid Geometry**, Zhou et al., SIGGRAPH 2016.
+  [Quelle](https://www.cs.columbia.edu/cg/mesh-arrangements/) ·
+  [PDF](buildings/geometry/2016-mesh-arrangements-for-solid-geometry.pdf).
+  **Relevanz: Mittel — Baukörper / #8, #88.**
+  Exakte Schnitte und Zell-/Winding-Klassifikation begründen robuste Boolesche
+  Baukörperoperationen. Für Supportregionen und schwierige Überlagerungen mit
+  lokal begrenzten Eingaben vergleichen. Rationale Schnittkoordinaten und
+  Arrangement-Aufbau können teuer sein; Rundung zum Ausgabemesh gesondert prüfen.
+  Keine notwendige Operation je Fassade oder Fernasset.
+  Weitere Bezüge:
+  [#88](https://github.com/Weichwolf/outshine/issues/88).
 
 - **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
   [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
@@ -306,7 +398,396 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
   Außerhalb des Bilds oder hinter der ersten Tiefe fehlen Flächen; zusätzliche
   Tiefenschichten sind nicht kostenlos. Kein Ersatz für räumliche Weltsichtbarkeit.
 
+- **Creation and Rendering of Realistic Trees**, Weber / Penn, SIGGRAPH 1995.
+  [Publikation](https://doi.org/10.1145/218380.218427) ·
+  [PDF-Quelle](https://courses.cs.duke.edu/cps124/fall02/resources/p119-weber.pdf) ·
+  [PDF](vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf).
+  **Relevanz: Mittel — Geteilte Baumrezepte / #1.**
+  Astordnungen, Elternprofile und kontrollierte Formvarianz liefern direkt
+  parametrisierbare Vergleichsformen. Begrenzte gemeinsame Prototypen erzeugen;
+  rekursive Verzweigung kann die Organanzahl stark vergrößern. Formparameter
+  ersetzen keine Lichtkonkurrenz, botanische Freigabe oder belegte Deckungs-/
+  Laufzeitgrenze. Ferne Bestände direkt aggregiert statt vollständig ausmodellieren.
+
+- **Self-organizing Tree Models for Image Synthesis**, Pałubicki et al., SIGGRAPH / TOG 2009.
+  [Autoren](https://algorithmicbotany.org/papers/selforg.sig2009.html) ·
+  [PDF-Quelle](https://algorithmicbotany.org/papers/selforg.sig2009.small.pdf) ·
+  [PDF](vegetation/siggraph/2009-self-organizing-trees.pdf).
+  **Relevanz: Mittel — Kronenform / #1.**
+  Knospen, Raum-/Lichtkonkurrenz und Wachstumssignale erzeugen natürliche lokale
+  Astarchitektur. Für wenige gemeinsame Prototypen gegen direkte Formrezepte
+  vergleichen. Wachstumsiterationen und Licht-/Raumfelder kosten Arbeit und Speicher;
+  keine Simulation jedes fernen Baums. Einzelbaumwachstum liefert noch kein
+  kompaktes Fernwaldprodukt und keine begrenzte Welt-Aufbauzeit.
+
+- **Modeling Trees with a Space Colonization Algorithm**, Runions / Lane / Prusinkiewicz,
+  Eurographics Workshop on Natural Phenomena 2007.
+  [Autoren](https://algorithmicbotany.org/papers/colonization.egwnp2007.html) ·
+  [PDF-Quelle](https://algorithmicbotany.org/papers/colonization.egwnp2007.pdf) ·
+  [PDF](vegetation/eg/2007-space-colonization.pdf).
+  **Relevanz: Mittel — Kronenplan / #1.**
+  Attraktoren lenken neue Internodien in freien Kronenraum; Einfluss- und
+  Entfernungsradien bestimmen Nachbarschaft und Abbruch. Konkreter Vergleich
+  begrenzter Nahpläne bei gleichen Eingaben. Nachbarsuche, Iterationen und
+  Stillstand protokollieren. Das Verfahren erzeugt weder fertige Blätter noch
+  einen Fernwaldpfad ohne Einzelbaum-/Organarbeit.
+
+- **Physically Based Real-Time Translucency for Leaves**, Habel / Kusternig / Wimmer,
+  EGSR 2007.
+  [Quelle](https://www.cg.tuwien.ac.at/research/publications/2007/Habel_2007_RTT/Habel_2007_RTT-Preprint.pdf) ·
+  [PDF](vegetation/egsr/2007-real-time-leaf-translucency.pdf).
+  **Relevanz: Mittel — Blattlicht / #1, #6.**
+  Dünnschicht-Streuung vorberechnen und in kompakter gerichteter Basis auswerten;
+  Reflexion und Transmission bleiben getrennt. Vergleich für eigene prozedurale
+  Blattparameter und instanzierbare Lichtantwort. Die fotografische Mess-/Textur-
+  akquisition wird nicht übernommen. Vorbereitungsdaten, Blattdicke, Schatten und
+  gefilterte Fernantwort prüfen; ein Blattmodell löst keine Bestandsdeckung.
+
+- **Physically Guided Animation of Trees**, Habel / Kusternig / Wimmer, Eurographics 2009.
+  [Autoren](https://www.cg.tuwien.ac.at/research/publications/2009/Habel_09_PGT/) ·
+  [PDF](vegetation/eg/habel-2009-physically-guided-animation.pdf).
+  **Relevanz: Mittel — Wind / #1, #41.**
+  Verjüngte Balken und hierarchische Verformung mit vorbereiteter spektraler
+  Bewegungsantwort verbinden. Vergleich für gemeinsame Astparameter statt
+  Vollphysik je Baum. Einspannung, Radiusabhängigkeit und Kräfte kalibrieren;
+  modaler Aufbau und Instanzzustand brauchen Speicher. Unser erstes gemeinsames
+  Verschiebungsfeld ist noch keine kalibrierte Balkendynamik oder vollständige Windlösung.
+  Weitere Bezüge:
+  [#41](https://github.com/Weichwolf/outshine/issues/41).
+
+- **Stochastic Transparency**, Enderton / Sintorn / Shirley / Luebke, TVCG 2011,
+  erweiterte Fassung der I3D-Arbeit 2010.
+  [Quelle](https://research.nvidia.com/sites/default/files/pubs/2011-08_Stochastic-Transparency/stochtransp-tvcg.pdf) ·
+  [PDF](vegetation/tvcg/2011-stochastic-transparency.pdf).
+  **Relevanz: Mittel — Vegetationsdeckung / #1, #6, #12.**
+  Stochastische Samplemasken liefern Alpha-Mischung im Erwartungswert bei
+  begrenztem Speicher. Gegen Alpha-Test/Dither mit gleichem Schatten-/Deckungsziel
+  vergleichen. Ein Frame bleibt verrauscht; MSAA, Akkumulation und Bewegung kosten
+  Zeit/Bandbreite und brauchen Stabilitätsprüfung. Kein automatischer Gewinner
+  auf UMA und kein konservativer opaker Occluder.
+  Weitere Bezüge:
+  [Computing Alpha Mipmaps, Castaño](https://www.ludicon.com/castano/blog/articles/computing-alpha-mipmaps/).
+  Castaños verlinkter Autorenartikel behandelt Alpha-Mips bei festem Cutoff;
+  kleine diskrete Mips erlauben nicht immer exakt gleiche Deckung.
+
+- **Computer-Generated Residential Building Layouts**, Merrell / Schkufza / Koltun, SIGGRAPH Asia 2010.
+  [Quelle](https://vladlen.info/papers/architecture.pdf) ·
+  [PDF](buildings/siggraph/2010-computer-generated-residential-building-layouts.pdf).
+  **Relevanz: Mittel — Innenräume / #8, #31.**
+  Raumprogramm und Adjazenzen gemeinsam mit Geschossumrissen optimieren;
+  Anschlüsse/Zugänglichkeit sind konkrete Vergleichskriterien für eigene Layouts.
+  Der stochastische Optimierer verändert auch Formen und benötigt viele Schritte;
+  OSM-Außenkörper bleiben unsere Randbedingung. Nur angeforderte Nah-/Funktions-
+  produkte erzeugen; vollständige Innenräume sind kein Fernrenderbedarf.
+  Weitere Bezüge:
+  [#31](https://github.com/Weichwolf/outshine/issues/31).
+
+- **Interactive Furniture Layout Using Interior Design Guidelines**, Merrell et al., SIGGRAPH 2011.
+  [Autorenquelle](https://graphics.stanford.edu/~pmerrell/furnitureLayout2.pdf) ·
+  [PDF](buildings/siggraph/2011-interactive-furniture-layout.pdf).
+  **Relevanz: Mittel — Nutzbare Räume / #8, #174.**
+  Objekt- und Aktivitätsflächen, Konfigurationsraum und erreichbare Nutzungsziele
+  liefern konkrete Kriterien für begrenzte Einrichtungssuche. Freie Wege und
+  Interaktionsflächen erhalten; Visual-LOD ersetzt diese Daten nicht. Der originale
+  GPU-MCMC-Optimierer und dessen Kosten werden nicht vorausgesetzt; Designregeln
+  sind weder Baurecht noch Beleg einer vollständig begehbaren Welt.
+  Weitere Bezüge:
+  [#174](https://github.com/Weichwolf/outshine/issues/174).
+
+- **Finding the Maximum Area Axis-Parallel Rectangle in a Polygon**, Daniels / Milenkovic / Roth,
+  Autorenpreprint Oktober 1993, später Computational Geometry 1997.
+  [Quelle](https://cogcomp.seas.upenn.edu/papers/maaprJ.pdf) ·
+  [PDF](buildings/geometry/1993-maximum-area-axis-parallel-rectangle.pdf).
+  **Relevanz: Mittel — Innenkerne / #30, #31.**
+  Randkontakte und Zerlegung helfen, vollständig innenliegende Rechtecke auch
+  bei Polygonen mit Löchern zu begründen. Für feste Treppen-/Kernmaße genügt
+  eine gültige Platzierung mit Anschluss. Das Paper optimiert Fläche bei fester
+  Achsrichtung; daraus folgt keine globale Optimalität unseres begrenzten
+  Platzierers oder eine Lösung für beliebig gedrehte Raumprogramme.
+  Weitere Bezüge:
+  [#30](https://github.com/Weichwolf/outshine/issues/30) ·
+  [#31](https://github.com/Weichwolf/outshine/issues/31).
+
+- **Wave Particles**, Yuksel / House / Keyser, SIGGRAPH 2007.
+  [Quelle](https://www.cemyuksel.com/research/waveparticles/waveparticles.pdf) ·
+  [PDF](water/siggraph/2007-wave-particles.pdf).
+  **Relevanz: Mittel — Nahwasser / #3, #14, #7.**
+  Lokale Wellenfronten durch begrenzte Partikel und ihre Überlagerung darstellen;
+  geeigneter Vergleich für Körper-/Uferwirkung ohne weltweite Fluidsimulation.
+  Aufspaltung, Nachbarschaft und Reflexionen kosten dynamische Arbeit, daher
+  Nahbedarf begrenzen und Fernwellen getrennt darstellen. Das linearisierte Modell
+  löst weder Quellpegel noch Küstenabschluss, Strömung oder Wasser/Bett-Kontakte.
+
+- **L-systems and Beyond**, Prusinkiewicz (Organizer), SIGGRAPH Course 2003.
+  [Autorenquelle](https://algorithmicbotany.org/papers/sigcourse.2003.pdf) ·
+  [PDF](vegetation/siggraph/2003-l-systems-and-beyond.pdf).
+  **Relevanz: Mittel — Pflanzenrezepte / #1, #36.**
+  Der SIGGRAPH-Kurs zeigt lageabhängige Profilkurven und Teilblätter entlang
+  gemeinsamer Achsen. Damit eigene begrenzte Farn-/Grasrezepte und geteilte
+  Prototypen aufbauen, ohne jeden Standort vollständig auszuwachsen. Kein
+  vollständiger L-System-Interpreter erforderlich; botanische Richtigkeit,
+  organische Kosten und Fernaggregation bleiben gesondert zu prüfen.
+  Weitere Bezüge:
+  [#36](https://github.com/Weichwolf/outshine/issues/36).
+
+- **Developmental Models of Plant Architecture**, Prusinkiewicz / Lindenmayer / Hanan,
+  SIGGRAPH 1988. [Autorenquelle](https://algorithmicbotany.org/papers/developmental.sig1988.pdf) ·
+  [PDF](vegetation/siggraph/1988-developmental-models-of-plant-architecture.pdf).
+  **Relevanz: Mittel — Wuchsform / #1, #105.**
+  Entwicklungsregeln und Tropismus lenken Achsen und Verzweigungen. Konkreter
+  Vergleich für vorbereitete räumliche Pflanzenpläne und lageabhängige Formen.
+  Unsere Tangentenprojektion/ODE ist eine eigene begrenzte Konstruktion;
+  heuristischer Tropismus ersetzt weder mechanischen Gewicht-/Steifheitssolver
+  noch Lichtkonkurrenz. Wachstum nur für angeforderte gemeinsame Prototypen.
+  Weitere Bezüge:
+  [#105](https://github.com/Weichwolf/outshine/issues/105).
+
+- **An Image Synthesizer**, Perlin, SIGGRAPH 1985.
+  [Primärquelle](https://doi.org/10.1145/325334.325247) ·
+  [PDF](vegetation/siggraph/1985-image-synthesizer.pdf), CMU-Kursarchiv.
+  **Relevanz: Mittel — Prozedurale Materialien / #6, #35.**
+  Räumliche Rauschfunktionen und ihre Komposition begründen kompakte Materialrezepte,
+  etwa Rinde in physischen Astkoordinaten. Kleine Parameter ersetzen individuelle
+  Fototexturen. Nichtlineare Kombinationen und zusätzliche Oktaven können neue
+  hohe Frequenzen erzeugen; Pixelfilter und fertige Materialstufen bleiben nötig.
+  Eigene Achsfelder/Blender-Rauschen sind kein Nachbau des Originalcodes.
+  Weitere Bezüge:
+  [#35](https://github.com/Weichwolf/outshine/issues/35).
+
+- **European Atlas of Forest Tree Species**, San-Miguel-Ayanz et al. (Hg.), JRC 2016,
+  DOI [10.2788/038466](https://doi.org/10.2788/038466).
+  Artspezifische Kapitel für [Picea abies](vegetation/botany/2016-european-atlas-picea-abies.pdf),
+  [Pinus sylvestris](vegetation/botany/2016-european-atlas-pinus-sylvestris.pdf),
+  [Pinus cembra](vegetation/botany/2016-european-atlas-pinus-cembra.pdf) und
+  [Larix decidua](vegetation/botany/2016-european-atlas-larix-decidua.pdf).
+  [JRC-Primärquelle](https://forest.jrc.ec.europa.eu/en/european-atlas/atlas-data-and-metadata/).
+  **Relevanz: Mittel — Botanisches Referenzwerk / #1, #131.**
+  Vier vorhandene Artenkapitel liefern Wuchsform, Nadeln, Rinde und Habitat als
+  Referenz für eigene geteilte Artenrezepte: Einzel-/Zweier-/Fünfernadeln und
+  Lärchen-Kurztriebe. Fotos bleiben Vergleich, keine Produkttexturen. Europäische
+  Kapitel belegen weder weltweite Abdeckung noch gemessene Allometrie;
+  Bestandsverteilung, Formfehler und Fernprodukte brauchen eigene Nachweise.
+  Ergänzende Schweizer Namen/IDs, am 14.10.2026 geprüft:
+  [#131](https://github.com/Weichwolf/outshine/issues/131) ·
+  [Fichte](https://www.infoflora.ch/de/flora/picea-abies.html) ·
+  [Wald-Föhre](https://www.infoflora.ch/de/flora/pinus-sylvestris.html) ·
+  [Arve](https://www.infoflora.ch/de/flora/pinus-cembra.html) ·
+  [Europäische Lärche](https://www.infoflora.ch/de/flora/larix-decidua.html).
+
+- **Leaf area index of boreal forests: Theory, techniques, and measurements**,
+  Chen et al., JGR 1997, DOI [10.1029/97JD01107](https://doi.org/10.1029/97JD01107).
+  [Autorenkopie](https://professorpaul.com/publications/chen_et_al_1997.pdf),
+  [PDF](vegetation/botany/1997-leaf-area-index-of-boreal-forests.pdf).
+  **Relevanz: Mittel — Bestandsdeckung / #1, #179.**
+  Halbe grüne Gesamtfläche je Grundfläche sowie tatsächliche/wirksame LAI und
+  Klumpung sauber trennen. Konkrete Referenz für Flächenziele und aggregierte
+  Lichtantwort statt bloßer Blattzahlen. Nominale Prototypflächen liefern keine
+  gemessene Bestands-LAI; Klumpung, Blickrichtung und Projektionsmodell verhindern,
+  dass ein LAI-Wert allein eine opake Deckung oder sichere Verdeckung beweist.
+  Weitere Bezüge:
+  [NASA-Produktdefinition](https://access.earthdata.nasa.gov/collections/C2222147000-LPCLOUD).
+
+- **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
+  [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
+  [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).
+  **Relevanz: Mittel — Astflächen / #1, #46.**
+  Glatte räumliche Achsen und variable Querschnitte als generalisierte Zylinder
+  verbinden; nützliche Grundlage für geteilte Ast-/Nadelformen. Stabile Rahmen
+  statt Frenet-Singularitäten bei geraden Teilen und Wendepunkten verwenden.
+  Dichte Ausgabe begrenzen und passende Stufen vorbereiten; fotografische
+  Rinden-/Blatttexturen der Veröffentlichung werden nicht übernommen.
+  Weitere Bezüge:
+  [#46](https://github.com/Weichwolf/outshine/issues/46).
+
+- **Global and Local Deformations of Solid Primitives**, Barr, SIGGRAPH 1984.
+  [Primärmetadata](https://authors.library.caltech.edu/records/99pd2-73028) ·
+  [DOI](https://doi.org/10.1145/964965.808573) ·
+  [PDF](vegetation/siggraph/1984-global-local-deformations.pdf), Universitätskopie.
+  **Relevanz: Mittel — Deformation / #1, #81.**
+  Jacobi-Matrix und inverse-transponierte beziehungsweise Kofaktor-Normalenabbildung
+  begründen kohärente eigene Rinden-/Astdeformation. Ableitungen gegen Differenzen
+  und Normalen gegen unabhängige lineare Lösung prüfen. Singularitäten und
+  Invertierbarkeit beachten; lokale Deformation liefert weder Boolean-Weld noch
+  allgemeinen Kollisionsnachweis. Vorbereitung gemeinsam statt je Instanz wiederholen.
+  Weitere Bezüge:
+  [#81](https://github.com/Weichwolf/outshine/issues/81).
+
+- **Computation of Rotation Minimizing Frames**, Wang / Jüttler / Zheng / Liu, TOG 2008.
+  [Autorenpreprint](https://www.ag.jku.at/pubs/2007wjzl.pdf) ·
+  [PDF](vegetation/tog/2008-rotation-minimizing-frames-preprint.pdf), ungesetzte Vorabfassung.
+  **Relevanz: Mittel — Räumliche Rahmen / #1, #27, #103.**
+  Doppelreflexion liefert twistarme Rahmen entlang regulärer Kurven. Gegen eigene
+  Tangentendrehung an identischen Ast-/Frondachsen vergleichen: Rahmenfehler,
+  Vorbereitungskosten und sichtbare Querschnitte. Differentialnormalen müssen zur
+  tatsächlichen Kurvenabbildung passen. Lokale Regularität ist kein Kollisions-
+  oder Kraftnachweis; vorbereitete Rahmen zwischen Instanzen teilen.
+  Weitere Bezüge:
+  [#27](https://github.com/Weichwolf/outshine/issues/27) ·
+  [#103](https://github.com/Weichwolf/outshine/issues/103).
+
+- **Efficient Implementation of Marching Cubes' Cases with Topological Guarantees**,
+  Lewiner / Lopes / Vieira / Tavares, JGT 2003.
+  [Autorenquelle](https://thomas.lewiner.org/pdfs/marching_cubes_jgt.pdf) ·
+  [PDF](vegetation/jgt/2003-marching-cubes-topological-guarantees.pdf), Autorenpreprint.
+  **Relevanz: Mittel — Implizite Gabeln / #1, #28.**
+  Mehrdeutige Zellfälle mit Flächen-/Innerentests auflösen, um gemeinsame
+  Astgabeloberflächen als Vergleich zu erzeugen. Die Topologiegarantie betrifft
+  die trilineare Gitterinterpolation, nicht die unbekannte kontinuierliche Fläche.
+  Abtastung, Speicher und Kontinuitätsfehler extra begrenzen; kein Vollgitter je
+  Pflanzeninstanz und kein notwendiger Zwischenschritt für Fernprodukte.
+  Weitere Bezüge:
+  [#28](https://github.com/Weichwolf/outshine/issues/28).
+
+- **Interval Arithmetic and Recursive Subdivision for Implicit Functions and
+  Constructive Solid Geometry**, Duff, SIGGRAPH 1992.
+  [Primärquelle im MIT-Kursarchiv](https://fab.cba.mit.edu/classes/S62.12/docs/Duff_interval_CSG.pdf) ·
+  [PDF](vegetation/siggraph/1992-interval-arithmetic-csg.pdf).
+  **Relevanz: Mittel — Feldbedarf / #1, #28.**
+  Intervallgrenzen und rekursive Gebietsunterteilung können unbetroffene Blöcke vor
+  teurer Feldabtastung verwerfen. Konkreter Hebel für lokale implizite Gabeln.
+  Alle Operationen einschließlich Rundung müssen einschließen; Punktproben allein
+  reichen nicht. Rekursion, Unterteilungszahl und Scratch begrenzen. Keine kostenlose
+  weltweite Verdeckung oder von Szenentiefe unabhängige Laufzeit daraus ableiten.
+  Weitere Bezüge:
+  [#28](https://github.com/Weichwolf/outshine/issues/28).
+
+- **Interactive and Robust Mesh Booleans**, Cherchi / Pellacini / Attene / Livesu,
+  SIGGRAPH Asia / TOG 2022. [Autorenquelle](https://arxiv.org/abs/2205.14151) ·
+  [PDF](vegetation/siggraph/2022-interactive-robust-mesh-booleans.pdf), Autorenpreprint.
+  **Relevanz: Mittel — Gemeinsame Oberflächen / #1, #29, #88.**
+  Konforme Oberflächenzerlegung und Innen-/Außenklassifikation begründen robuste
+  Vergleiche vollständiger Ast-/Baukörperflächen. Exakte beziehungsweise implizite
+  Schnittkoordinaten kosten Aufbau und Speicher; begrenzte Eingaben vorbereiten.
+  Manifold nutzt ein eigenes Verfahren. Dessen Bibliotheksgarantien ersetzen weder
+  lokale Prüfung und organische Ausrundung noch gültige gerundete Ausgabe.
+  Weitere Bezüge:
+  [#29](https://github.com/Weichwolf/outshine/issues/29).
+
+- **Embree: A Kernel Framework for Efficient CPU Ray Tracing**, Wald / Woop / Benthin /
+  Johnson / Ernst, SIGGRAPH / TOG 2014.
+  [Autorenquelle](https://www.sci.utah.edu/~wald/Publications/2014/embree/embree.pdf) ·
+  [PDF](vegetation/siggraph/2014-embree-ray-tracing.pdf).
+  **Relevanz: Mittel — CPU-Referenzabfragen / #1, #29.**
+  BVH-/SIMD-Strahlabfragen sind ein Vergleich zu skalaren Elternflächenabfragen
+  bei Astnormalen und Referenzbildern. Aufbau, Aktualisierung, Primitive-Kopien
+  und Peak-Speicher mitbezahlen; statische Beschleunigung zwischen Abfragen teilen.
+  Die Veröffentlichung behandelt damalige x86-Architekturen; publizierte Faktoren
+  belegen weder A18-Leistung noch eine Pflichtbibliothek oder günstiges GPU-Streaming.
+  Weitere Bezüge:
+  [#29](https://github.com/Weichwolf/outshine/issues/29).
+
+- **Improving Noise**, Perlin, SIGGRAPH2002.
+  [Autorenquelle](https://mrl.cs.nyu.edu/~perlin/paper445.pdf) ·
+  [PDF](clouds/siggraph/2002-improving-noise.pdf).
+  **Relevanz: Mittel — Prozedurale Felder / #6, #7, #447.**
+  Verbesserte Gittergradienten und glattere Interpolation reduzieren sichtbare
+  Ableitungsartefakte. Nützlicher Baustein für kompakte Material-/Wolkendichtefelder.
+  Relative Koordinaten, Advektion und große Weltkoordinaten gesondert numerisch
+  prüfen. Glattheit ist keine Pixelfilterung; Oktaven, Samples und geteilte
+  Texturbandbreite begrenzen. Keine native Präzisionsabnahme aus dem Paper.
+  Weitere Bezüge:
+  [#447](https://github.com/Weichwolf/outshine/issues/447).
+
+- **The Real-time Volumetric Cloudscapes of Horizon Zero Dawn**, Schneider / Vos,
+  SIGGRAPH-Kurs 2015.
+  [Quelle](https://advances.realtimerendering.com/s2015/The%20Real-time%20Volumetric%20Cloudscapes%20of%20Horizon%20-%20Zero%20Dawn%20-%20ARTR.pdf) ·
+  [PDF](clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf).
+  **Relevanz: Mittel — Wolken / #7.**
+  Der Kurs kombiniert geteilte 3D-Rauschtexturen, Höhen-/Formprofile und Raymarching
+  in einer sphärischen Wolkenschicht. Kandidat für plausible Wolken aus deklariertem
+  Wetter ohne globale Fluidsimulation. Dichte-/Lichtproben, Bandbreite, Schatten und
+  zeitliche Stabilität gemeinsam messen. Historische PS4-Zahlen und verkleinerter
+  Planetenradius sind keine Geräteabnahme oder physikalische Skalenvorgabe.
+
+- **Animating Rotation with Quaternion Curves**, Shoemake, SIGGRAPH 1985.
+  [Quelle](https://doi.org/10.1145/325165.325242) ·
+  [PDF](animation/siggraph/1985-rotation-quaternion-curves.pdf).
+  **Relevanz: Mittel — Kamera/Animation / #2, #811.**
+  Quaternionprodukt und sphärische Interpolation begründen kohärente Rotationen.
+  Konkreter Verbraucher ist die analytische Kamerarotation aus Framezeit statt
+  gespeicherter Ansichten. Vorzeichen, kurze Bögen und Matrix-/Multiplikations-
+  konventionen gegen unabhängige Achsrotationen prüfen. Quaternionkurven ersetzen
+  keine Gelenk-/Kontaktsteuerung; unser Kameraweg implementiert keine Splines.
+
+- **XPBD: Position-Based Simulation of Compliant Constrained Dynamics**, Macklin et al.,
+  Motion in Games 2016. [Quelle](https://mmacklin.com/xpbd.pdf) ·
+  [PDF](physics/mig/2016-xpbd.pdf).
+  **Relevanz: Mittel — Nahe flexible Körper / #2, #41.**
+  Zeitschrittbezogene Compliance und fortgeschriebene Multiplikatoren erlauben
+  vergleichbarere Steifheit als gewöhnliches PBD. Kandidat für begrenzte Seil-/
+  Stoff-/Pflanzenkontakte, kein allgemeiner Weltphysik-Ersatz. Iterationen, Substeps,
+  Kontaktzahl und Fehler messen; vollständige Konvergenz ist nicht kostenlos.
+  Render-LOD darf nötige Funktions-/Simulationsdaten nicht entfernen.
+
+- **Synthesizing Sounds from Rigid-Body Simulations**, O'Brien / Shen / Gatchalian,
+  ACM SIGGRAPH Symposium on Computer Animation 2002.
+  [Quelle](https://jamesobrien.com/papers/Obrien-SSR-2002-07/Obrien-SSR-2002-07.pdf) ·
+  [PDF](audio/sca/2002-rigid-body-sound-synthesis.pdf).
+  **Relevanz: Mittel — Kontaktklang / #2.**
+  Kontaktkräfte regen vorbereitete elastische Schwingungsmoden an. Wenige geteilte
+  Moden und analytische zeitliche Antworten sind ein konkreter Vergleich für
+  Materialklänge. Kleine lineare Schwingungen, Geometrie-/Materialparameter und
+  Modalaufbau begrenzen die Aussage; keine Vollmesh-Eigenanalyse je Kontakt.
+  Stimmenzahl, hörbarer Gewinn und Spatial-Audio-Kosten getrennt budgetieren.
+
 ## Relevanz: Gering
+
+- **Tutorial 15: Publish web scenes**, Esri 2013, Produktdokumentation.
+  [Quelle](https://resources.arcgis.com/en/help/pdf/cityengine/10.2/tutorial_15_publish_web_scenes.pdf) ·
+  [PDF](buildings/esri/2013-interior-floors-web-scenes.pdf).
+  **Relevanz: Gering — Produktdokumentation / #8, #30.**
+  Geschosslayer und Schnittansichten sind ein visueller Vergleich für darstellbare
+  Innenräume. Die Anleitung beschreibt Webexport und Bedienung eines vorhandenen
+  Beispiels, keinen automatischen Raumplaner oder geometrischen Gültigkeitsnachweis.
+  ArcGIS-/Webscene-Pipeline gehört nicht in unser Produkt; bei Raumverfahren
+  sind die Layout-/Zugänglichkeitsquellen aussagekräftiger.
+  Weitere Bezüge:
+  [#30](https://github.com/Weichwolf/outshine/issues/30).
+
+- **Leaf anatomy of Pinus thunbergii**, Ghimire et al., KJPT 2014.
+  [Primärquelle](https://doi.org/10.11110/kjpt.2014.44.2.91) ·
+  [PDF](vegetation/botany/2014-pinus-thunbergii-leaf-anatomy.pdf).
+  **Relevanz: Gering — Botanische Nahform / #1, #46.**
+  Mikroskopische Querschnitte begründen flache adaxiale und gekrümmte abaxiale
+  Nadelseiten als Formreferenz für eigene Sektorflächen. Nur bei ausreichender
+  Nahauflösung sichtbar; ferne Bestände brauchen keine Nadelquerschnitte.
+  Artspezifische Anatomie ist keine universelle Koniferenform, Zellmodellierung
+  und Texturübernahme sind nicht erforderlich.
+  Weitere Bezüge:
+  [#46](https://github.com/Weichwolf/outshine/issues/46).
+
+- **Projection onto the Probability Simplex**, Wang / Carreira-Perpiñán, arXiv 2013.
+  [Autorenquelle](https://arxiv.org/abs/1309.1541) ·
+  [PDF](vegetation/math/2013-probability-simplex-projection.pdf).
+  **Relevanz: Gering — Mathematischer Teilbaustein / #1, #28.**
+  Endliche Sortierprojektion liefert gültige nichtnegative Gewichte fester Summe
+  für die eigene symmetrische Feldmischung. Gegen unabhängige QP-/Gradienten-
+  prüfung absichern. Die Optimalität gilt für dieses Projektionsproblem,
+  nicht für Astgeometrie, Weltplanung oder Kosten. Kein eigenständiges Vegetations-
+  oder SpeedTree-Verfahren; nur bei tatsächlich benötigter Mischung einsetzen.
+
+- **Modeling and visualization of leaf venation patterns**, Runions et al., SIGGRAPH 2005.
+  [Autoren-PDF](https://www.algorithmicbotany.org/papers/venation.sig2005.pdf) ·
+  [PDF](vegetation/siggraph/2005-leaf-venation.pdf).
+  **Relevanz: Gering — Blatt-Nahdetail / #1, #42.**
+  Attraktoren und Entfernungsregeln erzeugen Adernetze, verbundene Radien steuern
+  Struktur. Nützlich für wenige geteilte Blattrezepte/Materialfelder. Unser offenes
+  Netz mit fester Kontur deckt Blattwachstum und geschlossene Maschen nicht ab.
+  Wachstum/Nachbarsuche nicht je Blattinstanz wiederholen; unterpixelgroße Adern
+  filtern, statt zusätzliche Geometrie oder Vollsolver zu laden.
+  Weitere Bezüge:
+  [#42](https://github.com/Weichwolf/outshine/issues/42).
+
+- **DeepMimic: Example-Guided Deep Reinforcement Learning of Physics-Based Character Skills**,
+  Peng et al., SIGGRAPH 2018.
+  [Quelle](https://xbpeng.github.io/projects/DeepMimic/DeepMimic_2018.pdf) ·
+  [PDF](animation/siggraph/2018-deepmimic.pdf).
+  **Relevanz: Gering — NPC-Spezialsteuerung / #2.**
+  Referenzbewegungen plus Training erzeugen physikbasierte Skills und lokale
+  Gelenkmotor-Ziele. Forschungsoption für späteren Nahcharakter-Vergleich, kein
+  fertiger allgemeiner NPC. Lizenzierte Referenzen, Training, Inferenz und
+  Körper-/Kontaktsimulation sind eigene Kosten; zuerst begrenzte ausführbare
+  Steuerung. Ein LLM-Ziel ist keine unmittelbar gültige Renderpose.
 
 - **LDI Tree: A Hierarchical Representation for Image-Based Rendering**, Chang / Bishop / Lastra, SIGGRAPH 1999.
   [Publikation](https://doi.org/10.1145/311535.311571) ·
@@ -358,9 +839,24 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
 
 ## Bewertung ausstehend
 
-Noch nicht nach #919 eingestuft; die bisherigen Fachnotizen bleiben als Arbeitsgrundlage erhalten.
+Ein Eintrag ohne Relevanzurteil; fehlenden Volltext nicht durch Abstract oder
+Implementierungswissen ersetzen.
 
-### Asset-Laden und Residency — WI [#10](https://github.com/Weichwolf/outshine/issues/10)
+- **Computing Vertex Normals from Polygonal Facets**, Thürmer / Wüthrich, JGT 1998.
+  [Primärabstract](https://doi.org/10.1080/10867651.1998.10487487).
+
+  **Volltext-/Abbildungsprüfung offen.** Der Primärabstract beschreibt Eckwinkel-
+  gewichtung; der Verlags-PDF-Abruf liefert 403. Der Bezug zu eigener lokaler
+  Differentialnormalenmittelung in [#40](https://github.com/Weichwolf/outshine/issues/40)
+  ist keine Volltextabnahme. Auch der ergänzende Max-1999-
+  [Autorenpreprint](https://escholarship.org/uc/item/7657d8h3) ist bisher nur textlich
+  gelesen; der lokale PDF-Abruf blieb ohne Dokumentdaten, optische Prüfung offen.
+  Die Unterscheidung von Oberflächenapproximation und Unterteilungserhaltung
+  bleibt zu prüfen. Quellenanfrage und Rest besitzt [#919](https://github.com/Weichwolf/outshine/issues/919).
+
+## Weitere Primärquellen und Fachnotizen
+
+### Assets und Sichtbedarf — WI [#10](https://github.com/Weichwolf/outshine/issues/10) / [#12](https://github.com/Weichwolf/outshine/issues/12)
 
 [Vorbereitete Assets, räumliche Pakete und Residency](engine/unreal/prepared-assets.md)
 fasst Unreal DDC, World Partition/HLOD, Texture Streaming und Geometry Clipmaps zusammen.
@@ -368,309 +864,17 @@ Die Notiz verlinkt die Primärquellen, grenzt deren Übertragung ab und trennt S
 von RAM-/GPU-Residency und budgetierten Laufzeitdetails. Epic-Referenzen sind Online-Dokumentation;
 das Clipmaps-Paper liegt bereits als PDF unter Terrain/SIGGRAPH.
 
-### Gebäude und kompakte Fassaden — WI [#8](https://github.com/Weichwolf/outshine/issues/8) / [#6](https://github.com/Weichwolf/outshine/issues/6)
+[Hierarchischer Bedarf vor Download und Geometrie](engine/visibility-driven-demand.md)
+prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outshine ab.
+
+### Gebäudeeingaben — WI [#8](https://github.com/Weichwolf/outshine/issues/8) / [#17](https://github.com/Weichwolf/outshine/issues/17)
 
 [OSM-Lieferinventur und Rezeptplan](data/osm/inventory.md), WI [#17](https://github.com/Weichwolf/outshine/issues/17):
 32 gezielte Standorte, alle gelieferten Layer, vollständiger beobachteter Klassenkatalog.
 Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Vollständigkeitsbehauptung.
 
-- **Instant Architecture**, Wonka et al., SIGGRAPH 2003.
-  [Quelle](https://peterwonka.net/Publications/pdfs/2003.SG.Wonka.InstantArchitecture.high.pdf) ·
-  [PDF](buildings/siggraph/2003-instant-architecture.pdf).
-  Begrenzte Split-Regeln strukturieren Fassaden. Regeln erst aus geliefertem Grundriss,
-  Höhe und Nutzung ableiten; sie rekonstruieren keine unbekannte reale Fassade.
-- **Procedural Modeling of Buildings**, Müller et al., SIGGRAPH 2006.
-  [Quelle](https://peterwonka.net/Publications/pdfs/2006.SG.Mueller.ProceduralModelingOfBuildings.final.pdf) ·
-  [PDF](buildings/siggraph/2006-procedural-modeling-of-buildings.pdf).
-  Ein gemeinsamer Gebäudeplan steuert Körper, Dach und Nahmodule. Kein allgemeiner
-  CGA-Interpreter; bekannte Sonderklassen dürfen keine Wohnhausregeln erhalten.
-- **Mesh Arrangements for Solid Geometry**, Zhou et al., SIGGRAPH 2016.
-  [Quelle](https://www.cs.columbia.edu/cg/mesh-arrangements/) ·
-  [PDF](buildings/geometry/2016-mesh-arrangements-for-solid-geometry.pdf).
-  Exakte Schnittkonstruktionen und Zellklassifikation für Boolesche Operationen.
-  Rationale Koordinaten vermeiden gerundete Schnittknoten; ihre Umwandlung in
-  Gleitkommazahlen braucht eine eigene Prüfung. Buildings untersucht zunächst
-  koplanare Supportregionen in [#88](https://github.com/Weichwolf/outshine/issues/88).
-- **Grammar-based Encoding of Facades**, Haegler et al., EGSR 2010.
-  [Quelle](https://peterwonka.net/Publications/pdfs/2010.EGSR.Haegler.GrammarBasedEncoding.pdf) ·
-  [PDF](buildings/egsr/2010-grammar-based-encoding-of-facades.pdf).
-  Wiederholungen kompakt parametrisieren und im Shader auswerten. Nahsilhouette,
-  Laibungen und betretbare Räume brauchen Geometrie; Fernmuster benötigen Filterung.
-- **Computer-Generated Residential Building Layouts**, Merrell / Schkufza / Koltun, SIGGRAPH Asia 2010.
-  [Quelle](https://vladlen.info/papers/architecture.pdf) ·
-  [PDF](buildings/siggraph/2010-computer-generated-residential-building-layouts.pdf).
-  Raumprogramm/Adjazenzen → gemeinsam abgestimmte Geschosspläne → vollständige Innen-/Außengeometrie.
-  WI [#31](https://github.com/Weichwolf/outshine/issues/31) vergleicht begrenzte Verfahren mit festen OSM-Körpern; keine ungemessene Übernahme des Optimierers.
-- **Interactive Furniture Layout Using Interior Design Guidelines**, Merrell et al., SIGGRAPH 2011.
-  [Autorenquelle](https://graphics.stanford.edu/~pmerrell/furnitureLayout2.pdf) ·
-  [PDF](buildings/siggraph/2011-interactive-furniture-layout.pdf).
-  Volle Objekt-/Aktivitätsflächen, freie Konfigurationsräume und erreichbare Nutzungsziele;
-  Seite 3/Tabelle 1/Gleichungen optisch geprüft. [#174](https://github.com/Weichwolf/outshine/issues/174)
-  vergleicht begrenzte eigene Kandidatensuche, keine vollständige GPU-MCMC- oder Baurechtsgleichheit.
-- **Finding the Maximum Area Axis-Parallel Rectangle in a Polygon**, Daniels / Milenkovic / Roth,
-  Autorenpreprint Oktober 1993, später Computational Geometry 1997.
-  [Quelle](https://cogcomp.seas.upenn.edu/papers/maaprJ.pdf) ·
-  [PDF](buildings/geometry/1993-maximum-area-axis-parallel-rectangle.pdf).
-  Randkontakte und Polygonzerlegung begründen vollständig innenliegende Rechtecke mit Löchern ([#30](https://github.com/Weichwolf/outshine/issues/30)/[#31](https://github.com/Weichwolf/outshine/issues/31)).
-  Seiten 1/5/8 optisch geprüft; feste Kernmaße brauchen gültige Platzierung, keine behauptete globale Flächenoptimierung.
-- **Tutorial 15: Publish web scenes**, Esri 2013, Produktdokumentation.
-  [Quelle](https://resources.arcgis.com/en/help/pdf/cityengine/10.2/tutorial_15_publish_web_scenes.pdf) ·
-  [PDF](buildings/esri/2013-interior-floors-web-scenes.pdf).
-  CityEngine Dev HQ mit drei Innenraumgeschossen, Außenwänden und Schnittansichten ([#30](https://github.com/Weichwolf/outshine/issues/30)).
-  Belegt Innenraumdarstellung; liefert keinen Nachweis eines automatischen Raumplaners im lokalen SDK.
+### Klang — WI [#2](https://github.com/Weichwolf/outshine/issues/2)
 
-### Geometrie, Sichtbarkeit und Terrain — WI [#12](https://github.com/Weichwolf/outshine/issues/12) / [#13](https://github.com/Weichwolf/outshine/issues/13) / [#14](https://github.com/Weichwolf/outshine/issues/14)
-
-[Hierarchischer Bedarf vor Download und Geometrie](engine/visibility-driven-demand.md)
-prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outshine ab.
-### Straßen, Wasser und technische Objekte — WI [#11](https://github.com/Weichwolf/outshine/issues/11) / [#3](https://github.com/Weichwolf/outshine/issues/3) / [#14](https://github.com/Weichwolf/outshine/issues/14)
-
-- **Interactive Procedural Street Modeling**, Chen et al., SIGGRAPH 2008.
-  [Quelle](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf) ·
-  [PDF](transport/siggraph/2008-interactive-procedural-street-modeling.pdf).
-  Graphbearbeitung von Geometrie trennen. OSM-Verbindungen und Ebenen bleiben maßgeblich;
-  die Tensorfeld-Netzerzeugung ersetzt unser reales Straßennetz nicht. Brückentragwerke
-  benötigen zusätzlich klare Anschluss-/Kontaktregeln und kompakte wiederholte Bauteile.
-- **Procedural Generation of Roads**, Galin / Peytavie / Maréchal / Guérin, Eurographics 2010.
-  [Quelle](https://perso.liris.cnrs.fr/egalin/Articles/2010-roads.pdf) ·
-  [PDF](transport/eurographics/2010-procedural-generation-of-roads.pdf).
-  Eigenständige Straßen-/Brücken-/Tunnelmodelle aus geglätteter Trajektorie und Querschnitt;
-  Geländeschnitt und Aufschüttung folgen demselben Profil. Für OSM übernehmen wir die
-  Modell-/Kontakttrennung, nicht die Neuerzeugung des vorhandenen Netzes.
-  [Codevorbilder und Grenzen](transport/README.md): OSM2World, SUMO und CARLA.
-- **Wave Particles**, Yuksel / House / Keyser, SIGGRAPH 2007.
-  [Quelle](https://www.cemyuksel.com/research/waveparticles/waveparticles.pdf) ·
-  [PDF](water/siggraph/2007-wave-particles.pdf).
-  Interaktive Wellen für nahe Körper-/Uferwirkung prüfen; ferne Wellen analytisch darstellen.
-  Das Verfahren löst weder Quellpegel noch Küstenabschluss. Erst Wasser/Bett/Ufer korrigieren,
-  danach Animation auf demselben Körper; kein globales Grundwassermesh.
-
-### Vegetation, Atmosphäre und Wetter — WI [#1](https://github.com/Weichwolf/outshine/issues/1) / [#7](https://github.com/Weichwolf/outshine/issues/7)
-
-- **L-systems and Beyond**, Prusinkiewicz (Organizer), SIGGRAPH Course 2003.
-  [Autorenquelle](https://algorithmicbotany.org/papers/sigcourse.2003.pdf) ·
-  [PDF](vegetation/siggraph/2003-l-systems-and-beyond.pdf).
-  PDF-Seiten 63/64 samt Algorithmus 4, Profilkurven und Pellaea-/Blechnum-Bildern optisch geprüft.
-  Teilblätter aus lageabhängigen Längen-/Breiten-/Winkelprofilen an gemeinsamen Achsen aufbauen ([#36](https://github.com/Weichwolf/outshine/issues/36)).
-  Eigene Guide-Deformation und Differentialnormalen; kein vollständiger L-System- oder Artennachbau.
-- **Developmental Models of Plant Architecture**, Prusinkiewicz / Lindenmayer / Hanan,
-  SIGGRAPH 1988. [Autorenquelle](https://algorithmicbotany.org/papers/developmental.sig1988.pdf) ·
-  [PDF](vegetation/siggraph/1988-developmental-models-of-plant-architecture.pdf).
-  PDF-Seite 4 samt Tropismuswinkel/-achse optisch geprüft; SIGGRAPH2003 Seite 66
-  ergänzt Orthotropismus und lageabhängige Wuchsformen. [#105](https://github.com/Weichwolf/outshine/issues/105)
-  nutzt eine eigene kontinuierliche Tangentenprojektion, konstante Richtungsreferenz
-  und begrenzte ODE-Vorbereitung. Mechanische Gewicht-/Steifheitssolver bleiben getrennt.
-- **An Image Synthesizer**, Perlin, SIGGRAPH 1985.
-  [Primärquelle](https://doi.org/10.1145/325334.325247) ·
-  [PDF](vegetation/siggraph/1985-image-synthesizer.pdf), CMU-Kursarchiv.
-  Prozedurale räumliche Textur und nichtlineare Rauschkomposition begründen eigene
-  anisotrope Rindenmaterialien in physischen Astkoordinaten ([#35](https://github.com/Weichwolf/outshine/issues/35)).
-  Seiten 1, 3, 8 und 10 samt Rauschprinzip/Bildbeispiel optisch geprüft; keine Fototexturen.
-  Eigene Koordinatenmischung und Blender-Rauschen sind keine Rekonstruktion des Papiercodes.
-  [#35](https://github.com/Weichwolf/outshine/issues/35) wertet getrennte physische Achsfelder aus und überblendet erst die Rauschwerte;
-  Seite 8 samt Musterbild erneut optisch geprüft. Unverändert getrennte Geometrie-/Normalenprodukte.
-- **Leaf anatomy of Pinus thunbergii**, Ghimire et al., KJPT 2014.
-  [Primärquelle](https://doi.org/10.11110/kjpt.2014.44.2.91) ·
-  [PDF](vegetation/botany/2014-pinus-thunbergii-leaf-anatomy.pdf).
-  PDF-Seite 3 optisch geprüft: verschiedene halbkreisähnliche Nadelquerschnitte,
-  flache adaxiale und gekrümmte abaxiale Seite. Eigene ideale Sektoren ([#46](https://github.com/Weichwolf/outshine/issues/46))
-  ergänzen den generalisierten Zylinder; keine mikroskopische Zellrekonstruktion oder
-  vollständige P.-thunbergii-Rezeptfreigabe. Fünfersektor ist eine Gattungsfunktionsprobe.
-- **European Atlas of Forest Tree Species**, San-Miguel-Ayanz et al. (Hg.), JRC 2016,
-  DOI [10.2788/038466](https://doi.org/10.2788/038466).
-  Artspezifische Kapitel für [Picea abies](vegetation/botany/2016-european-atlas-picea-abies.pdf),
-  [Pinus sylvestris](vegetation/botany/2016-european-atlas-pinus-sylvestris.pdf),
-  [Pinus cembra](vegetation/botany/2016-european-atlas-pinus-cembra.pdf) und
-  [Larix decidua](vegetation/botany/2016-european-atlas-larix-decidua.pdf).
-  [JRC-Primärquelle](https://forest.jrc.ec.europa.eu/en/european-atlas/atlas-data-and-metadata/).
-  PDF-Seiten optisch geprüft: Fichten-Kronen/Rinde (1), Föhrennadeln/Rinde (1),
-  Arvennadeln (2) und Lärchen-Kurztriebcluster/Herbstbestand (2).
-  Vierkantige Einzelnadeln, Zweier-/Fünferbündel und 20–40-Nadel-Kurztriebe
-  steuern eigene Sommerrezepte; junge Kronen sind plausible Interpretationen,
-  keine gemessene Allometrie oder vollständige botanische Freigabe ([#131](https://github.com/Weichwolf/outshine/issues/131)).
-  Schweizer Namen/IDs und Beschreibungen am 14.10.2026 gegen InfoFlora geprüft:
-  [Fichte](https://www.infoflora.ch/de/flora/picea-abies.html),
-  [Wald-Föhre](https://www.infoflora.ch/de/flora/pinus-sylvestris.html),
-  [Arve](https://www.infoflora.ch/de/flora/pinus-cembra.html),
-  [Europäische Lärche](https://www.infoflora.ch/de/flora/larix-decidua.html).
-- **Leaf area index of boreal forests: Theory, techniques, and measurements**,
-  Chen et al., JGR 1997, DOI [10.1029/97JD01107](https://doi.org/10.1029/97JD01107).
-  [Autorenkopie](https://professorpaul.com/publications/chen_et_al_1997.pdf),
-  [PDF](vegetation/botany/1997-leaf-area-index-of-boreal-forests.pdf).
-  PDF-Seite 2 optisch geprüft: halbe grüne Gesamtfläche je Grundfläche und
-  Trennung von tatsächlicher Fläche, wirksamer LAI und räumlicher Klumpung.
-  [NASA-Produktdefinition](https://access.earthdata.nasa.gov/collections/C2222147000-LPCLOUD)
-  bestätigt die Nadel-Flächenkonvention. Eigene Counts/Prototypflächen liefern
-  ein nominales Rezeptziel, keine gemessene Bestands-LAI oder Lichtfreigabe (#179).
-- **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
-  [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
-  [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).
-  Räumliche Astachsen und variable Querschnitte ergänzen die hierarchischen Formpläne.
-  PDF-Seite 2 erneut optisch geprüft: generalisierte Zylinder begründen eigene Nadel-Sektorflächen ([#46](https://github.com/Weichwolf/outshine/issues/46)).
-  Frenet-Singularitäten bei geraden Teilen/Wendepunkten durch stabile Rahmen vermeiden;
-  die fotografischen Rinden-/Blatttexturen der Veröffentlichung werden nicht übernommen.
-- **Global and Local Deformations of Solid Primitives**, Barr, SIGGRAPH 1984.
-  [Primärmetadata](https://authors.library.caltech.edu/records/99pd2-73028) ·
-  [DOI](https://doi.org/10.1145/964965.808573) ·
-  [PDF](vegetation/siggraph/1984-global-local-deformations.pdf), Universitätskopie.
-  Jacobi-Matrix und inverse-transponierte Normalenabbildung begründen die eigene
-  Ringanheftung prozeduraler Rindenstücke ([#81](https://github.com/Weichwolf/outshine/issues/81)).
-  PDF-Seite 3 optisch geprüft: lokale Ableitungen, Normalenmatrix und Taper-Abbildung.
-  Kofaktor-Normalen gegen NumPy solve, Ableitungen gegen unabhängige Differenzen prüfen;
-  dies rekonstruiert weder die originale Parent-Projektion noch einen Boolean-Weld.
-- **Computing Vertex Normals from Polygonal Facets**, Thürmer / Wüthrich, JGT 1998.
-  [Primärabstract](https://doi.org/10.1080/10867651.1998.10487487).
-  Eckwinkel berücksichtigen die geometrische Beteiligung statt der Zahl entstandener Dreiecke ([#40](https://github.com/Weichwolf/outshine/issues/40)).
-  Eigene lokale Mittelung vorhandener Differentialnormalen; kein vollständiger Papiernachbau.
-  Max 1999 ([Autorenpreprint](https://escholarship.org/uc/item/7657d8h3)) unterscheidet
-  Oberflächenapproximation von der Erhaltung unter Polygonunterteilung; PDF-Abruf hier durch
-  CloudFront-Challenge ohne Dokumentdaten, deshalb kein optischer PDF-Prüfbeleg hierfür.
-- **Computation of Rotation Minimizing Frames**, Wang / Jüttler / Zheng / Liu, TOG 2008.
-  [Autorenpreprint](https://www.ag.jku.at/pubs/2007wjzl.pdf) ·
-  [PDF](vegetation/tog/2008-rotation-minimizing-frames-preprint.pdf), ungesetzte Vorabfassung.
-  Doppelreflexion mit Tangentendrehung an gleichen Astachsen vergleichen ([#27](https://github.com/Weichwolf/outshine/issues/27)).
-  Rahmenfehler, Erzeugungskosten und sichtbare Querschnitte getrennt prüfen;
-  lokale Regularität ersetzt keinen globalen Kollisionsnachweis oder Kraftsolver.
-  [#103](https://github.com/Weichwolf/outshine/issues/103) bindet eigene Frondflächen an denselben
-  vorbereiteten räumlichen Rahmen. PDF-Seite 4/Figur 3 erneut optisch geprüft:
-  kohärente RMF vermeiden den Frenet-Twist an Wendepunkten. Differentialnormalen
-  folgen der tatsächlich vorbereiteten Kurven-/Bogenabbildung; keine Original-Oraclegleichheit.
-- **Efficient Implementation of Marching Cubes' Cases with Topological Guarantees**,
-  Lewiner / Lopes / Vieira / Tavares, JGT 2003.
-  [Autorenquelle](https://thomas.lewiner.org/pdfs/marching_cubes_jgt.pdf) ·
-  [PDF](vegetation/jgt/2003-marching-cubes-topological-guarantees.pdf), Autorenpreprint.
-  Gemeinsame Gabeloberflächen aus impliziten Feldformen als Vergleich erzeugen ([#28](https://github.com/Weichwolf/outshine/issues/28)).
-  Die Topologiegarantie betrifft trilineare Gitterinterpolation; Kontinuitäts-/Bildfehler eigens prüfen.
-- **Interval Arithmetic and Recursive Subdivision for Implicit Functions and
-  Constructive Solid Geometry**, Duff, SIGGRAPH 1992.
-  [Primärquelle im MIT-Kursarchiv](https://fab.cba.mit.edu/classes/S62.12/docs/Duff_interval_CSG.pdf) ·
-  [PDF](vegetation/siggraph/1992-interval-arithmetic-csg.pdf).
-  Optisch geprüfte Intervall-/Gebietsformeln begründen Blockauswahl vor Feldabtastung ([#28](https://github.com/Weichwolf/outshine/issues/28)).
-  Eigene Kapselgrenzen nach außen runden; Gleitkomma-Feldwerte zusätzlich absichern und prüfen.
-- **Projection onto the Probability Simplex**, Wang / Carreira-Perpiñán, arXiv 2013.
-  [Autorenquelle](https://arxiv.org/abs/1309.1541) ·
-  [PDF](vegetation/math/2013-probability-simplex-projection.pdf).
-  Endliche Sortierprojektion als mathematischer Baustein der eigenen symmetrischen Feldmischung;
-  unabhängige QP-/Gradientenprüfung. Kein Vegetations- oder SpeedTree-Verfahren daraus behaupten.
-- **Interactive and Robust Mesh Booleans**, Cherchi / Pellacini / Attene / Livesu,
-  SIGGRAPH Asia / TOG 2022. [Autorenquelle](https://arxiv.org/abs/2205.14151) ·
-  [PDF](vegetation/siggraph/2022-interactive-robust-mesh-booleans.pdf), Autorenpreprint.
-  Seite 1 optisch geprüft; Oberflächenzerlegung und Innen-/Außenklassifikation begründen
-  den Vergleich vollständiger Pflanzenoberflächen ([#29](https://github.com/Weichwolf/outshine/issues/29)). Manifold nutzt einen eigenen
-  Algorithmus; dessen Bibliotheksgarantien ersetzen weder lokale Prüfungen noch organische Ausrundung.
-- **Embree: A Kernel Framework for Efficient CPU Ray Tracing**, Wald / Woop / Benthin /
-  Johnson / Ernst, SIGGRAPH / TOG 2014.
-  [Autorenquelle](https://www.sci.utah.edu/~wald/Publications/2014/embree/embree.pdf) ·
-  [PDF](vegetation/siggraph/2014-embree-ray-tracing.pdf).
-  Seite 1 mit Abbildungen optisch geprüft. Beschleunigte CPU-Strahlabfragen begründen den
-  Vergleich gegen skalare Elternflächenabfragen bei Astnormalen ([#29](https://github.com/Weichwolf/outshine/issues/29)); eigene lokale
-  Messungen und Genauigkeitsprüfung, keine Übernahme publizierter Geschwindigkeitsfaktoren.
-- **Creation and Rendering of Realistic Trees**, Weber / Penn, SIGGRAPH 1995.
-  [Publikation](https://doi.org/10.1145/218380.218427) ·
-  [PDF-Quelle](https://courses.cs.duke.edu/cps124/fall02/resources/p119-weber.pdf) ·
-  [PDF](vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf).
-  Hierarchische Astordnungen, Elternprofile und kontrollierte Formvarianz als Vergleich
-  für begrenzte Pflanzenrezepte nutzen. Formparameter ersetzen keine Lichtkonkurrenz;
-  publizierte Vereinfachungen belegen keine Deckungs- oder Laufzeitgrenze unserer Produkte.
-- **Self-organizing Tree Models for Image Synthesis**, Pałubicki et al., SIGGRAPH / TOG 2009.
-  [Autoren](https://algorithmicbotany.org/papers/selforg.sig2009.html) ·
-  [PDF-Quelle](https://algorithmicbotany.org/papers/selforg.sig2009.small.pdf) ·
-  [PDF](vegetation/siggraph/2009-self-organizing-trees.pdf).
-  Lokale Astarchitektur, Licht-/Raumkonkurrenz und interne Wachstumssignale verbinden.
-  Konkurrenz kann natürliche Verteilung ergänzen; sie ist weder Pflicht für jedes Fernprodukt
-  noch ein Beleg für begrenzte Erzeugungsarbeit. Kosten gegen direkte Formrezepte messen.
-- **Modeling Trees with a Space Colonization Algorithm**, Runions / Lane / Prusinkiewicz,
-  Eurographics Workshop on Natural Phenomena 2007.
-  [Autoren](https://algorithmicbotany.org/papers/colonization.egwnp2007.html) ·
-  [PDF-Quelle](https://algorithmicbotany.org/papers/colonization.egwnp2007.pdf) ·
-  [PDF](vegetation/eg/2007-space-colonization.pdf).
-  Freien Kronenraum durch Attraktoren vertreten und gerichtete Internodien wachsen lassen.
-  Nahplan-Verfahrensvergleich mit gleichen Eingaben; Nachbarsuche und Stillstand begrenzen.
-  Ein Baum-Wachstumssolver ist kein direkter Fernwaldpfad ohne Organ- und Einzelbaumarbeit.
-- **Modeling and visualization of leaf venation patterns**, Runions et al., SIGGRAPH 2005.
-  [Autoren-PDF](https://www.algorithmicbotany.org/papers/venation.sig2005.pdf) ·
-  [PDF](vegetation/siggraph/2005-leaf-venation.pdf).
-  Nächste Aderknoten aus Quellen wachsen lassen, nahe Quellen entfernen und verbundene Radien ableiten.
-  PDF-Seiten 2/5 optisch geprüft; [#42](https://github.com/Weichwolf/outshine/issues/42) besitzt das eigene offene Netz mit fester Blattkontur,
-  begrenztem Wachstum und eigenem Materialfeld. Blattwachstum/geschlossene Maschen bleiben offen.
-- **Physically Based Real-Time Translucency for Leaves**, Habel / Kusternig / Wimmer,
-  EGSR 2007.
-  [Quelle](https://www.cg.tuwien.ac.at/research/publications/2007/Habel_2007_RTT/Habel_2007_RTT-Preprint.pdf) ·
-  [PDF](vegetation/egsr/2007-real-time-leaf-translucency.pdf).
-  Reflexion und Blatttransmission mit kompakter gerichteter Basis auswerten. Eigene
-  prozedurale Blattparameter statt fotografischer Mess-/Texturdaten; Instanzen, Schatten
-  und Wind teilen die Lichtwelt. Ein Blattmodell allein behebt keinen fehlenden Stammkontakt.
-- **Physically Guided Animation of Trees**, Habel / Kusternig / Wimmer, Eurographics 2009.
-  [Autoren](https://www.cg.tuwien.ac.at/research/publications/2009/Habel_09_PGT/) ·
-  [PDF](vegetation/eg/habel-2009-physically-guided-animation.pdf).
-  Hierarchische Verformung und verjüngte Balken verbinden; Bewegungsantwort spektral vorberechnen.
-  Seite 3 optisch geprüft: Gewichte, Einspannung und radiusabhängiges Flächenträgheitsmoment.
-  [#41](https://github.com/Weichwolf/outshine/issues/41) besitzt den eigenen Windpfad und den Vergleich; dessen erstes gemeinsames Verschiebungsfeld
-  ersetzt noch keine kalibrierte Balkendynamik oder den vollständigen SpeedTree-Wind.
-- **Stochastic Transparency**, Enderton / Sintorn / Shirley / Luebke, TVCG 2011,
-  erweiterte Fassung der I3D-Arbeit 2010.
-  [Quelle](https://research.nvidia.com/sites/default/files/pubs/2011-08_Stochastic-Transparency/stochtransp-tvcg.pdf) ·
-  [PDF](vegetation/tvcg/2011-stochastic-transparency.pdf).
-  Stochastische Subpixel-Abdeckung liefert korrekte Alpha-Mischung im Mittel bei begrenztem
-  Speicher, erzeugt aber Rauschen. Gegen einfaches Alpha-Test/Dither samt Schatten messen;
-  MSAA und Akkumulation sind echte Kosten. Keine automatische Wahl für den Zielchip.
-  [Computing Alpha Mipmaps, Castaño](https://www.ludicon.com/castano/blog/articles/computing-alpha-mipmaps/)
-  beschreibt die näherungsweise Belegungserhaltung bei festem Cutoff durch Skalierung/Bisektion;
-  diskrete kleine Mips erlauben nicht immer exakte Deckung. Autorenartikel, kein SIGGRAPH-Paper.
-- **Realistic Modeling and Rendering of Plant Ecosystems**, Deussen et al., SIGGRAPH 1998.
-  [Quelle](https://algorithmicbotany.org/papers/ecosys.sig98.pdf) ·
-  [PDF](vegetation/siggraph/1998-plant-ecosystems.pdf).
-  Bestandsplan, Pflanzenform und Darstellung trennen; Prototypen, Gruppen und Organe teilen.
-  Fernwald braucht Verbände statt Einzelbaum-/Blattarbeit. Das Offline-Verfahren belegt
-  keine Echtzeitkosten; Overdraw, Wind, Schatten und Artenmischung separat integrieren.
-- **A Scalable and Production Ready Sky and Atmosphere Rendering Technique**, Hillaire,
-  EGSR 2020. [Quelle](https://sebh.github.io/publications/egsr2020.pdf) ·
-  [PDF](atmosphere/egsr/2020-production-ready-atmosphere.pdf).
-  Kompakte LUTs verbinden Boden-, Flug- und Orbitansicht mit Luftperspektive.
-  Bestehende SkyStage vergleichen/ergänzen; gemeinsame planetare Maße und Lichtgrößen.
-  Wetterparametrisierung ist eine plausible Ergänzung, keine gemessene Aerosolverteilung.
-- **Improving Noise**, Perlin, SIGGRAPH2002.
-  [Autorenquelle](https://mrl.cs.nyu.edu/~perlin/paper445.pdf) ·
-  [PDF](clouds/siggraph/2002-improving-noise.pdf).
-  Gitter und relative Interpolationskoordinaten; Seite1 samt Gleichung/Fig.1 optisch geprüft.
-  Numerische Advektionsuntersuchung bei [#447](https://github.com/Weichwolf/outshine/issues/447);
-  keine Übernahme des Gradienten-Codes oder behauptete native Präzisionsabnahme.
-- **The Real-time Volumetric Cloudscapes of Horizon Zero Dawn**, Schneider / Vos,
-  SIGGRAPH-Kurs 2015.
-  [Quelle](https://advances.realtimerendering.com/s2015/The%20Real-time%20Volumetric%20Cloudscapes%20of%20Horizon%20-%20Zero%20Dawn%20-%20ARTR.pdf) ·
-  [PDF](clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf).
-  Prozedurale Dichte, adaptive Abtastung und temporale Rekonstruktion budgetieren;
-  Wind, Licht und Wolkenschatten nutzen denselben Zustand. Publizierte PS4-Zeiten sind
-  kein A18-Pro-Beleg. Keine Wolkenarbeit vor dem vereinbarten Welt-/Vegetationsausbau.
-
-### Physik, Animation, NPCs und Klang — WI [#2](https://github.com/Weichwolf/outshine/issues/2)
-
-- **Animating Rotation with Quaternion Curves**, Shoemake, SIGGRAPH 1985.
-  [Quelle](https://doi.org/10.1145/325165.325242) ·
-  [PDF](animation/siggraph/1985-rotation-quaternion-curves.pdf).
-  Einheitliche Rotationsdarstellung und Quaternionprodukt für Kamerabewegungen (#811).
-  Feste Winkelgeschwindigkeit wird direkt bei der Framezeit ausgewertet; keine Euler-
-  Integration oder gespeicherte Ansicht je Frame. Vorzeichen und Matrixkonvention gegen
-  Outshines Kamera und unabhängige Achsrotationen prüfen; keine Spline-Implementierung.
-- **XPBD: Position-Based Simulation of Compliant Constrained Dynamics**, Macklin et al.,
-  Motion in Games 2016. [Quelle](https://mmacklin.com/xpbd.pdf) ·
-  [PDF](physics/mig/2016-xpbd.pdf).
-  Zeitschrittbezogene Compliance für Seile, Stoff und Pflanzen prüfen. Bullet bleibt
-  Körper-/Kontaktbaseline; begrenzte Iterationen ersetzen keine Genauigkeitsprüfung.
-- **DeepMimic: Example-Guided Deep Reinforcement Learning of Physics-Based Character Skills**,
-  Peng et al., SIGGRAPH 2018.
-  [Quelle](https://xbpeng.github.io/projects/DeepMimic/DeepMimic_2018.pdf) ·
-  [PDF](animation/siggraph/2018-deepmimic.pdf).
-  Ziele → lokale Steuerung → Gelenkmotoren → Posen; LLM setzt keine Renderpose direkt.
-  Das Verfahren benötigt Referenzbewegungen und Training, erzeugt keinen fertigen NPC.
-  Zuerst begrenzte klassische Steuerung; Lernverfahren sind keine Meilenstein-Voraussetzung.
-- **Synthesizing Sounds from Rigid-Body Simulations**, O'Brien / Shen / Gatchalian,
-  ACM SIGGRAPH Symposium on Computer Animation 2002.
-  [Quelle](https://jamesobrien.com/papers/Obrien-SSR-2002-07/Obrien-SSR-2002-07.pdf) ·
-  [PDF](audio/sca/2002-rigid-body-sound-synthesis.pdf).
-  Kontakte/Kräfte treiben Materialresonanzen. Wenige analytische oder im RAM vorbereitete
-  Modi statt Vollmesh-Eigenanalyse je Klangereignis; Spatial Audio bleibt eigener Ausgabepfad.
-  Stimmen-/CPU-Budget und hörbarer Gewinn bestimmen die Modellkomplexität.
 - [Begrenztes Spatial Audio: geprüfter Steam-Audio-/Resonance-Audio-Code](audio/bounded-spatial-audio.md).
   Native Abfragen wiederverwenden; grobe gemeinsame Umgebung, begrenzte Stimmen/Hallbusse.
   Cubemap/GPU sind zu messende Experimente, keine von der Quellenzahl unabhängige Simulation.
