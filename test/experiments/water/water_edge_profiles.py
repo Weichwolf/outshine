@@ -32,6 +32,16 @@ class ProfileOwner:
     context: str
 
 
+def profile_owner_context(mesh, anchor, mask, owner_version):
+    if not isinstance(owner_version, str) or not owner_version:
+        raise ValueError("explicit owner version required")
+    digest = hashlib.sha256(owner_version.encode())
+    for array in (anchor, mesh.vertices, mesh.triangles):
+        digest.update(np.ascontiguousarray(array).tobytes())
+    digest.update(mask.wkb)
+    return digest.hexdigest()
+
+
 def prepare_profile_owner(mesh, *, anchor, mask, owner_version):
     anchor = np.asarray(anchor, dtype=float)
     if (
@@ -42,10 +52,7 @@ def prepare_profile_owner(mesh, *, anchor, mask, owner_version):
     ):
         raise ValueError("explicit finite owner frame and version required")
     vertices, gradient, polygons, _area = surface(mesh)
-    digest = hashlib.sha256(owner_version.encode())
-    for array in (anchor, mesh.vertices, mesh.triangles):
-        digest.update(np.ascontiguousarray(array).tobytes())
-    digest.update(mask.wkb)
+    context = profile_owner_context(mesh, anchor, mask, owner_version)
     for array in (vertices, gradient, polygons):
         array.setflags(write=False)
     frame = anchor.copy()
@@ -59,7 +66,33 @@ def prepare_profile_owner(mesh, *, anchor, mask, owner_version):
         polygons,
         SurfaceSampler(mesh, xy_tolerance_m=0, max_faces=16384),
         shapely.STRtree(polygons),
-        digest.hexdigest(),
+        context,
+    )
+
+
+def masked_profile_owner(owner, *, mask, owner_version):
+    """Bind a smaller eligibility mask while sharing the immutable height data."""
+    if (
+        not isinstance(mask, shapely.Geometry)
+        or mask.geom_type not in ("Polygon", "MultiPolygon")
+        or mask.is_empty
+        or not mask.is_valid
+        or shapely.get_num_coordinates(mask) > 32768
+        or not np.isfinite(shapely.get_coordinates(mask)).all()
+    ):
+        raise ValueError("bounded valid local water mask required")
+    if mask.difference(owner.mask).area > max(1e-8, mask.area * 1e-12):
+        raise ValueError("local eligibility mask extends beyond common water")
+    return ProfileOwner(
+        owner.mesh,
+        owner.anchor,
+        mask,
+        owner.vertices,
+        owner.gradient,
+        owner.polygons,
+        owner.sampler,
+        owner.tree,
+        profile_owner_context(owner.mesh, owner.anchor, mask, owner_version),
     )
 
 
