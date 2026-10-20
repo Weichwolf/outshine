@@ -56,13 +56,8 @@ Material WaterSurfaceMaterial() noexcept {
   return material;
 }
 
-std::expected<WaterSurfaceMetrics, std::string>
-AppendWaterSurfaceGeometry(Geometry &geometry,
-                           MaterialInstance material,
-                           const WaterAsset &water,
-                           const TangentFrame &frame) {
+WaterSurfaceMetrics InspectWaterSurfaceGeometry(const WaterAsset &water) noexcept {
   WaterSurfaceMetrics metrics;
-  if (!water.SurfacesReady()) { return std::unexpected("water surfaces have not been prepared"); }
   const auto *prepared = water.PreparedSurfaces();
   if (prepared == nullptr) { return metrics; }
   metrics.ProfileDeclines = prepared->ProfileDeclines.size();
@@ -74,8 +69,20 @@ AppendWaterSurfaceGeometry(Geometry &geometry,
     }
   }
   metrics.Laid = water.Surfaces().size() - prepared->Rejections.size();
+  metrics.Triangles = prepared->Mesh.Faces().size();
+  return metrics;
+}
+
+std::expected<WaterSurfaceMetrics, std::string>
+AppendWaterSurfaceGeometry(Geometry &geometry,
+                           MaterialInstance material,
+                           const WaterAsset &water,
+                           const TangentFrame &frame) {
+  if (!water.SurfacesReady()) { return std::unexpected("water surfaces have not been prepared"); }
+  const auto metrics = InspectWaterSurfaceGeometry(water);
+  const auto *prepared = water.PreparedSurfaces();
+  if (prepared == nullptr) { return metrics; }
   const auto &mesh = prepared->Mesh;
-  metrics.Triangles = mesh.Faces().size();
   if (mesh.Faces().empty()) { return metrics; }
   const auto source = TangentFrame::At(mesh.Anchor());
   const auto vertices = mesh.VerticesEnuM();

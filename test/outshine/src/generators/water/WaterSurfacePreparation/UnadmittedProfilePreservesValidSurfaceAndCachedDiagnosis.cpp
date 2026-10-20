@@ -1,4 +1,5 @@
 #include "WaterSurfacePreparation.h"
+#include "WaterSurfaceBuilder.h"
 #include "WaterSurfaceTopology.h"
 #include "Check.h"
 #include <cmath>
@@ -57,6 +58,10 @@ int main() {
   CHECK(replay && replay->PreparedSurfaces()->ProfileDeclines.size() == 1,
         "offline replay preserves the model diagnosis");
   if (replay) {
+    const auto metrics = InspectWaterSurfaceGeometry(*replay);
+    CHECK(metrics.ProfileDeclines == 1 && metrics.RefusedCapacity == 0 &&
+              metrics.RefusedTopology == 0 && metrics.Laid == 1 && metrics.Triangles > 0,
+          "cached state distinguishes a declined profile from a missing surface");
     const auto height = replay->LevelAt({});
     CHECK(height && std::abs(*height - 100) < 1e-4,
           "the retained individual surface is available to runtime height consumers");
