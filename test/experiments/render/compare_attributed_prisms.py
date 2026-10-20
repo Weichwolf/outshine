@@ -141,7 +141,14 @@ def diagnostic_poses(reports, regular):
     return shown
 
 
-def picture(names, directory, output, normals=False):
+def picture(
+    names,
+    directory,
+    output,
+    normals=False,
+    *,
+    candidate_label="stored procedural inputs",
+):
     from compare_prepared_fields import id_colours
     from PIL import Image, ImageDraw
 
@@ -184,7 +191,7 @@ def picture(names, directory, output, normals=False):
             first[~a], second[~b] = 0, 0
             for col, (label, data) in enumerate(
                 zip(
-                    ("native inputs", "stored procedural inputs", "difference"),
+                    ("native inputs", candidate_label, "difference"),
                     (first, second, error),
                     strict=True,
                 )
