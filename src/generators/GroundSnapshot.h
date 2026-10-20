@@ -27,6 +27,8 @@ struct Fields {
   int WetRow = -1;
 };
 
+[[nodiscard]] bool FeaturesReady(const Tile &region, const Fields &stands);
+
 [[nodiscard]] std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region,
                                                                const Fields &stands);
 

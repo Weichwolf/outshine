@@ -155,9 +155,9 @@ private:
 
 }
 
-std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Fields &stands) {
+bool FeaturesReady(const Tile &region, const Fields &stands) {
   if (stands.Footprints == nullptr || stands.WaterBodies == nullptr || stands.Ways == nullptr) {
-    return nullptr;
+    return false;
   }
   const bool vectorsReady =
       stands.Vectors != nullptr && stands.Vectors->Settled(region.X(), region.Y());
@@ -168,16 +168,24 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
   const bool waterReady = stands.WaterBodies->Complete() &&
                           !stands.WaterBodies->Surfaces().empty() &&
                           stands.WaterBodies->TileIndex(region.Zoom(), region.X(), region.Y()) >= 0;
-  if (!vectorsReady && !native && !waterReady) { return nullptr; }
+  if (!vectorsReady && !native && !waterReady) { return false; }
   const int tile = vectorsReady ? stands.Vectors->TileIndex(region.X(), region.Y()) : -1;
   if (tile >= 0 && stands.Footprints->InputOfTile(static_cast<uint32_t>(tile)) == nullptr) {
     const int buildings = stands.Vectors->Layer(Osm::OsmLayer::Buildings);
     if (std::ranges::any_of(stands.Vectors->OfTile(tile), [buildings](const auto &feature) {
           return feature.Layer == buildings;
         })) {
-      return nullptr;
+      return false;
     }
   }
+  return true;
+}
+
+std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Fields &stands) {
+  if (!FeaturesReady(region, stands)) { return nullptr; }
+  const bool vectorsReady =
+      stands.Vectors != nullptr && stands.Vectors->Settled(region.X(), region.Y());
+  const int tile = vectorsReady ? stands.Vectors->TileIndex(region.X(), region.Y()) : -1;
   const std::span<const double> points =
       vectorsReady ? stands.Vectors->Points() : std::span<const double>{};
   FeatureAssembly assembly(region);

@@ -15,6 +15,8 @@ int main() {
   const std::array<std::string, 1> layers{Osm::OsmLayerName(Osm::OsmLayer::Buildings)};
   Osm::OsmField vectors(14, layers);
   const std::array<Osm::OsmField::Declared, 1> declared{{{.Layer = layers[0],
+                                                          .Key = {},
+                                                          .Value = {},
                                                           .Area = true,
                                                           .LatLon = {a.LatitudeDeg,
                                                                      a.LongitudeDeg,
@@ -29,15 +31,18 @@ int main() {
   const Fields inputs{
       .Vectors = &vectors, .Footprints = &footprints, .WaterBodies = &water, .Ways = &streets};
   CHECK(vectors.Settled(region.X(), region.Y()), "vector input is fully available");
+  CHECK(!FeaturesReady(region, inputs), "pending building occupancy defers feature work");
   CHECK(!FeaturesOver(region, inputs),
         "known buildings pending preparation cannot be classified as unoccupied land");
   const auto tile = static_cast<uint32_t>(vectors.TileIndex(region.X(), region.Y()));
   const std::array<outshine::Ground::BuildingFootprint, 1> prints{
-      {{.FirstPoint = 0, .PointCount = 3, .HeightM = 12, .BaseM = 100}}};
-  const Osm::BuildingField::Baked baked{.Prints = prints};
+      {{.FirstPoint = 0, .PointCount = 3, .HeightM = 12, .BaseM = 100, .Street = {}}}};
+  const Osm::BuildingField::Baked baked{
+      .Coordinates = {}, .Prints = prints, .SeatSpreadM = {}, .AcrossM = {}};
   footprints.PreparesAcceptances({.Prints = 1, .Tiles = 1});
   footprints.Take(tile);
   footprints.CommitAcceptance(footprints.PrepareAcceptance(tile, baked), baked);
+  CHECK(FeaturesReady(region, inputs), "published building occupancy permits feature work");
   const auto ready = FeaturesOver(region, inputs);
   CHECK(ready && ready->Count() == 1 && ready->At(0).Kind == FeatureKind::Structure,
         "placement receives the building footprint after native publication");
@@ -46,11 +51,13 @@ int main() {
   footprints.PreparesAcceptances({.Tiles = 1});
   footprints.Take(tile);
   footprints.CommitAcceptance(footprints.PrepareAcceptance(tile, empty), empty);
+  CHECK(FeaturesReady(region, inputs), "explicit empty building result permits feature work");
   const auto filtered = FeaturesOver(region, inputs);
   CHECK(filtered && filtered->Count() == 0,
         "an explicitly prepared empty building result is ready");
   vectors.Declare({}, {.X = region.X(), .Y = region.Y()});
   footprints.ResetDerived();
+  CHECK(FeaturesReady(region, inputs), "source without buildings permits feature work");
   const auto vacant = FeaturesOver(region, inputs);
   CHECK(vacant && vacant->Count() == 0, "source without buildings needs no building product");
   return Report();

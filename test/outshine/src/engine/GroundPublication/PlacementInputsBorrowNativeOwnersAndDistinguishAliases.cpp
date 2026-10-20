@@ -11,7 +11,8 @@ int main() {
   const std::weak_ptr<std::array<int, 2>> lifetime = source;
   auto first = std::shared_ptr<const int>(source, &(*source)[0]);
   auto second = std::shared_ptr<const int>(source, &(*source)[1]);
-  const InstancePlacementInputs input{.Classes = {.Owner = first}};
+  const InstancePlacementInputs input{
+      .Publication = std::nullopt, .Classes = {.Owner = first}, .Table = {}, .FeatureOrigin = {}};
   const auto repeated = input;
   auto changed = input;
   changed.Classes.Owner = second;
@@ -25,7 +26,7 @@ int main() {
   changed.Classes.Owner = replacement;
   CHECK(input != changed, "a new native producer lifetime cannot reuse a retired input identity");
   auto publication = input;
-  publication.Publication = GroundRevision{.ResidentTiles = 1};
+  publication.Publication = GroundRevision{.ResidentTiles = 1, .Coverage = {}};
   auto wider = publication;
   wider.Publication->ResidentTiles = 2;
   CHECK(publication != wider, "exact placement dependencies include resident coverage changes");

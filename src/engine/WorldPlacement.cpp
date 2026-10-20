@@ -105,9 +105,10 @@ Generators::Snapped
 PlacementSnapshot(WorldRegionState &world,
                   const Generators::Tile &region,
                   const std::shared_ptr<const TerrainClassificationMap> &classes,
-                  const Generators::Fields &stands,
+                  Generators::Fields stands,
                   Generators::Ground::Snapshot *snapshot,
-                  std::string &error) {
+                  std::string &error,
+                  Core::DiagnosticLedger &metrics) {
   Generators::Snapped how = Generators::Snapped::Waiting;
   auto patch = PreparePlacementGround(world, region, &how);
   if (!patch) {
@@ -115,6 +116,14 @@ PlacementSnapshot(WorldRegionState &world,
     return Generators::Snapped::NoGround;
   }
   if (!*patch) { return how; }
+  snapshot->Patch = *patch;
+  snapshot->Classes = classes;
+  snapshot->Table = world.Table;
+  if (!classes || !Generators::FeaturesReady(region, stands)) {
+    return Generators::Snapped::Waiting;
+  }
+  Generators::Osm::StreetField localWays;
+  PrepareLocalStreetMask(stands, region, world, localWays, metrics);
   return Generators::SnapshotOver(
       region, world.Stack.Ground(), classes, stands, world.Table, snapshot, std::move(*patch));
 }
@@ -139,17 +148,15 @@ bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
 
 bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
                                                LevelOfDetail coarseness) {
-  Generators::Fields stands = GenerationFields(World);
+  const Generators::Fields stands = GenerationFields(World);
   const ::outshine::Generators::Osm::OsmField *const vectors = stands.Vectors;
   if (vectors == nullptr) { return false; }
-  Generators::Osm::StreetField localWays;
-  PrepareLocalStreetMask(stands, region, World, localWays, Published);
   const auto classes = World.Stack.Classes().Read();
   const auto inputs = PlacementInputs(World, region, coarseness, stands, classes);
   if (World.EmptyPlacementInputs == inputs) { return false; }
   Generators::Ground::Snapshot snapshot;
   const Generators::Snapped how =
-      PlacementSnapshot(World, region, classes, stands, &snapshot, Error);
+      PlacementSnapshot(World, region, classes, stands, &snapshot, Error, Published);
   World.Reached = static_cast<int>(kBaseSnapshotRows) + (snapshot.Patch ? 1 : 0) +
                   (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
   Published.RecordMetric("generators: the snapshot",
