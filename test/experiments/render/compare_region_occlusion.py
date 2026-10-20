@@ -193,7 +193,13 @@ def main():
                 flush=True,
             )
     for name, normal in (("material-ids.png", False), ("normals.png", True)):
-        picture(list(selected), output, output / name, normals=normal)
+        picture(
+            list(selected),
+            output,
+            output / name,
+            normals=normal,
+            candidate_label="retained original inputs",
+        )
     (output / "projection.wkb").write_bytes(shapely.to_wkb(projection["fused"]))
     np.savez_compressed(
         output / "projection.npz",
