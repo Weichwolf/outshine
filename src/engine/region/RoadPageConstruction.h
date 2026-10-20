@@ -28,8 +28,6 @@ public:
 
   [[nodiscard]] size_t MissRequests() const noexcept { return MissRequests_; }
 
-  [[nodiscard]] const RoadMeshingStats &Meshing() const noexcept { return Meshing_; }
-
   [[nodiscard]] size_t NativeBytes() const noexcept { return NativeBytes_; }
 
 private:
@@ -42,7 +40,6 @@ private:
   Generators::RoadPageAddress Address_;
   std::vector<Generators::RoadPagePart> Parts_;
   Generators::RoadPageManifest Manifest_;
-  RoadMeshingStats Meshing_;
   std::string PendingKey_;
   size_t Next_ = 0;
   size_t PageCount_ = 0;

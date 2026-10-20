@@ -34,6 +34,8 @@ public:
 
   [[nodiscard]] static std::expected<std::unique_ptr<PreparedRoadPages>, std::string>
   Open(const std::string &directory);
+  [[nodiscard]] std::expected<std::optional<AssetRecord>, std::string>
+  Inspect(const RoadPageAddress &address, size_t bytesMost);
   [[nodiscard]] std::expected<std::optional<Loaded>, std::string>
   Load(const RoadPageAddress &address, size_t bytesMost);
   [[nodiscard]] std::expected<std::optional<Loaded>, std::string> LoadKey(const std::string &key,

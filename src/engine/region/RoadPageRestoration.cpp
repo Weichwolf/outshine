@@ -12,6 +12,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace outshine {
 namespace {
@@ -136,18 +137,22 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
     for (const auto &pending : Window_) { Queue_.Cancel(Manifest_->Pages[pending.Index].Key); }
     return false;
   }
-  auto &loaded = **one;
-  Loaded_ = std::move(loaded.Page);
+  auto *loaded = std::get_if<Generators::PreparedRoadPages::Loaded>(&**one);
+  if (loaded == nullptr) {
+    return std::unexpected("road restoration received metadata instead of payload");
+  }
+  Loaded_ = std::move(loaded->Page);
   if (!Loaded_ || Loaded_->Address.PlanKey != Manifest_->PlanKey ||
       Loaded_->Address.MaterialKey != Manifest_->MaterialKey ||
       Loaded_->Address.MaterialIndex != 0 ||
       Loaded_->Address.Anchor.LongitudeDeg != Manifest_->Anchor.LongitudeDeg ||
       Loaded_->Address.Anchor.LatitudeDeg != Manifest_->Anchor.LatitudeDeg ||
       Loaded_->Address.Level != reference.Level || Loaded_->Address.Parts != reference.Parts ||
-      loaded.NativeBytes != reference.ByteCount) {
+      loaded->NativeBytes != reference.ByteCount) {
     return std::unexpected("road restoration product differs from its plan, material or frame");
   }
-  NativeBytes_ += loaded.NativeBytes;
+  NativeBytes_ += loaded->NativeBytes;
+  Meshing_ += Loaded_->Geometry.Swept;
   for (const auto &diagnostic : Loaded_->Geometry.Diagnostics) {
     Log::Warn(LogTag::World,
               "road_page_part_rejected",

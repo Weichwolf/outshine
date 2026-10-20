@@ -36,6 +36,8 @@ public:
 
   [[nodiscard]] size_t NativeBytes() const noexcept { return NativeBytes_; }
 
+  [[nodiscard]] const RoadMeshingStats &Meshing() const noexcept { return Meshing_; }
+
 private:
   struct Pending {
     uint32_t Index;
@@ -56,6 +58,7 @@ private:
   std::vector<uint32_t> Selected_;
   std::deque<Pending> Window_;
   Limits Limits_;
+  RoadMeshingStats Meshing_;
   std::shared_ptr<const Generators::RoadPageAsset> Loaded_;
   std::optional<MaterialInstance> Surface_;
   size_t Next_ = 0;

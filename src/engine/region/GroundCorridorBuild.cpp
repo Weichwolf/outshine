@@ -86,12 +86,6 @@ std::expected<void, std::string> FinishRoadPreparation(WorldRegionBuildState &st
   published.RecordMetric("ground candidate: native road miss requests",
                          static_cast<double>(pages->MissRequests()),
                          "pages");
-  published.RecordMetric("streets: pieces the sweep laid on a line",
-                         static_cast<double>(pages->Meshing().Pieces),
-                         "pieces");
-  published.RecordMetric("streets: pieces the sweep could not lay",
-                         static_cast<double>(pages->Meshing().Refused),
-                         "pieces");
   published.RecordMetric(
       "ground candidate: native road pages", static_cast<double>(pages->Pages()), "pages");
   published.RecordMetric("ground candidate: native road page bytes",
@@ -261,6 +255,12 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
   Published.RecordMetric("ground candidate: restored road package bytes",
                          static_cast<double>(restore->NativeBytes()),
                          "bytes");
+  Published.RecordMetric("streets: pieces the sweep laid on a line",
+                         static_cast<double>(restore->Meshing().Pieces),
+                         "pieces");
+  Published.RecordMetric("streets: pieces the sweep could not lay",
+                         static_cast<double>(restore->Meshing().Refused),
+                         "pieces");
   state.FinishRoadRestoration();
   return GroundBuildProgress::Pending;
 }

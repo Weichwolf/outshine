@@ -12,6 +12,7 @@
 #include <stop_token>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace outshine {
 RoadPageConstruction::RoadPageConstruction(Tasks &pool,
@@ -58,7 +59,7 @@ RoadPageConstruction::Advance(const Generators::Corridors::Job &plan,
   if (Stage_ == Stage::Request) {
     Address_.Parts.assign(requested.begin(), requested.end());
     PendingKey_ = Generators::RoadPageKey(Address_);
-    if (!Queue_.RequestCached(PendingKey_)) {
+    if (!Queue_.RequestMetadata(Address_)) {
       return std::unexpected("road page lookup admission failed");
     }
     Stage_ = Stage::Lookup;
@@ -98,19 +99,27 @@ std::expected<bool, std::string> RoadPageConstruction::Collect() {
     Stage_ = Stage::Generate;
     return false;
   }
-  const auto &loaded = **one.Result;
-  const auto &page = loaded.Page;
-  if (!page || Generators::RoadPageKey(page->Address) != PendingKey_ ||
-      page->Address.MaterialKey != Address_.MaterialKey || page->Address.MaterialIndex != 0) {
-    return std::unexpected("road page references an unavailable material or different plan");
+  const AssetRecord *record = nullptr;
+  if (Stage_ == Stage::Lookup) {
+    record = std::get_if<AssetRecord>(&**one.Result);
+  } else {
+    const auto *loaded = std::get_if<Generators::PreparedRoadPages::Loaded>(&**one.Result);
+    if (loaded == nullptr || !loaded->Page ||
+        Generators::RoadPageKey(loaded->Page->Address) != PendingKey_) {
+      return std::unexpected("road page references an unavailable material or different plan");
+    }
+    record = &loaded->Record;
   }
-  NativeBytes_ += loaded.NativeBytes;
-  Meshing_ += page->Geometry.Swept;
+  if (record == nullptr || record->Key != PendingKey_ || record->Level != Address_.Level ||
+      record->ByteCount == 0 || record->ByteCount > PageBytesMost) {
+    return std::unexpected("road page metadata differs from its admitted native request");
+  }
+  NativeBytes_ += static_cast<size_t>(record->ByteCount);
   Manifest_.Pages.push_back({.Key = PendingKey_,
-                             .Bounds = loaded.Record.Bounds,
-                             .ByteCount = loaded.NativeBytes,
-                             .Level = page->Address.Level,
-                             .Parts = page->Address.Parts});
+                             .Bounds = record->Bounds,
+                             .ByteCount = record->ByteCount,
+                             .Level = record->Level,
+                             .Parts = Address_.Parts});
   Next_ += Address_.Parts.size();
   ++PageCount_;
   Stage_ = Stage::Request;

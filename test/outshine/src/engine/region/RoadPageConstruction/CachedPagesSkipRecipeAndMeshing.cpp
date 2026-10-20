@@ -113,7 +113,7 @@ bool SameMesh(const Geometry &parts, const Geometry &whole) {
   return vertices * 3 == whole.positionsOf(0).size() && triangles == whole.trianglesOf(0).size();
 }
 
-bool CorruptPage(const std::filesystem::path &directory, const std::string &key) {
+bool ChangeRecord(const std::filesystem::path &directory, const std::string &key, const char *sql) {
   sqlite3 *raw = nullptr;
   if (sqlite3_open_v2(
           (directory / "assets.sqlite").c_str(), &raw, SQLITE_OPEN_READWRITE, nullptr) !=
@@ -123,14 +123,7 @@ bool CorruptPage(const std::filesystem::path &directory, const std::string &key)
   }
   const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> database(raw, &sqlite3_close);
   sqlite3_stmt *statement = nullptr;
-  if (sqlite3_prepare_v2(
-          raw,
-          "UPDATE packages SET crc=crc+1 WHERE key=(SELECT package FROM assets WHERE key=?1)",
-          -1,
-          &statement,
-          nullptr) != SQLITE_OK) {
-    return false;
-  }
+  if (sqlite3_prepare_v2(raw, sql, -1, &statement, nullptr) != SQLITE_OK) { return false; }
   const std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)> update(statement,
                                                                           &sqlite3_finalize);
   return sqlite3_bind_text(
@@ -148,11 +141,21 @@ void CheckSelection(Tasks &pool,
   using namespace outshine::Test;
   CHECK(manifest->Pages.size() == 2, "the selection fixture has exactly two native page packages");
   if (manifest->Pages.size() != 2) { return; }
-  CHECK(CorruptPage(directory, manifest->Pages[1].Key),
+  const auto retained = pages->LoadKey(manifest->Pages[1].Key, size_t{64} * 1024u * 1024u);
+  CHECK(retained && *retained, "the original page is retained for exact repair after corruption");
+  if (!retained || !*retained) { return; }
+  const auto address = (**retained).Page->Address;
+  CHECK(ChangeRecord(
+            directory,
+            manifest->Pages[1].Key,
+            "UPDATE packages SET crc=crc+1 WHERE key=(SELECT package FROM assets WHERE key=?1)"),
         "the excluded page payload is deliberately unreadable");
   const auto freshMetadata = pages->LoadManifest(key);
   CHECK(freshMetadata && *freshMetadata,
         "manifest restoration never reads an excluded fine payload");
+  const auto unverified = pages->Inspect(address, size_t{64} * 1024u * 1024u);
+  CHECK(unverified && *unverified,
+        "an index probe defers payload integrity until that fine page is actually required");
   const std::array<uint32_t, 1> selected{0};
   auto one =
       RoadPageRestoration::Begin(pool, pages, manifest, std::span<const uint32_t>(selected), key);
@@ -176,6 +179,54 @@ void CheckSelection(Tasks &pool,
   const auto retry = LoadRegion(pool, pages, region);
   CHECK(retry && !retry->Loaded && !retry->SurfacePages,
         "the regular region worker returns a normal miss for bounded regeneration");
+  const auto removed = pages->Inspect(address, size_t{64} * 1024u * 1024u);
+  CHECK(removed && !*removed,
+        "the failed payload loses its index row so metadata hits cannot cause a rebuild loop");
+  size_t repairs = 0;
+  const auto repaired = pages->Resolve(address, {}, {}, size_t{64} * 1024u * 1024u, [&](size_t) {
+    ++repairs;
+    return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
+  });
+  CHECK(repaired && repairs == 1, "exactly one generation repairs the corrupt native package");
+  const auto published = pages->StoreManifest(*manifest);
+  auto complete = RoadPageRestoration::Begin(pool, pages, manifest, std::nullopt, key);
+  Geometry rebuilt;
+  CHECK(published && *published == key && complete && Complete(**complete, rebuilt) &&
+            (*complete)->Pages() == manifest->Pages.size(),
+        "the repaired product can republish the same manifest and complete the full selection");
+  CHECK(ChangeRecord(
+            directory, manifest->Pages[1].Key, "UPDATE assets SET level=level+1 WHERE key=?1"),
+        "the indexed level is deliberately changed while the original payload stays valid");
+  const auto wrongLevel = pages->Inspect(address, size_t{64} * 1024u * 1024u);
+  CHECK(wrongLevel && !*wrongLevel,
+        "inconsistent index metadata becomes a regenerable miss before any fine read");
+  const auto corrected = pages->Resolve(address, {}, {}, size_t{64} * 1024u * 1024u, [&](size_t) {
+    ++repairs;
+    return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
+  });
+  CHECK(corrected && repairs == 2 && pages->StoreManifest(*manifest),
+        "the next generation repairs the invalid level and restores complete dependencies");
+}
+
+void CheckWarm(Tasks &pool,
+               const std::shared_ptr<PreparedRoadPages> &pages,
+               const Corridors::Job &plan,
+               const Corridors::Site &site,
+               const std::string &key,
+               const RoadPageManifest &expected) {
+  using namespace outshine::Test;
+  auto warm = RoadPageConstruction::Begin(pool, pages, plan, site, key);
+  CHECK(warm && Prepare(**warm, plan, site) && (*warm)->MissRequests() == 0 &&
+            (*warm)->Pages() == expected.Pages.size(),
+        "warm construction uses only native index hits without source recipes or meshing");
+  if (!warm) { return; }
+  const auto restored = (*warm)->TakeManifest();
+  const auto original = EncodeRoadPageManifest(expected, PreparedRoadPages::ManifestBytesMost);
+  const auto encoded = restored
+                           ? EncodeRoadPageManifest(*restored, PreparedRoadPages::ManifestBytesMost)
+                           : std::nullopt;
+  CHECK(original && encoded && *original == *encoded,
+        "metadata-only construction retains exactly the same complete manifest words");
 }
 
 void CheckBindings(RoadPageManifest &manifest) {
@@ -247,6 +298,7 @@ void CheckBuild(const std::filesystem::path &directory,
   const auto manifestKey = pages->StoreManifest(*manifest);
   CHECK(manifestKey.has_value(), "complete pages publish their independent native manifest");
   if (!manifestKey) { return; }
+  CheckWarm(pool, pages, *plan, site, key, *manifest);
   GroundRegionAsset root;
   root.Anchor = site.Standing.Anchor();
   root.SurfaceManifest = *manifestKey;
