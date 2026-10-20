@@ -7,8 +7,9 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
-from format_sources import ROOT, format_sources, sources
+from format_sources import BATCH_FILES, ROOT, format_sources, sources
 
 
 class Formatting(unittest.TestCase):
@@ -61,6 +62,27 @@ class Formatting(unittest.TestCase):
 
     def test_empty_coverage_is_an_error(self):
         self.assertEqual(self.run_format()[0], 2)
+
+    def test_clean_population_uses_bounded_batches(self):
+        for index in range(BATCH_FILES * 2 + 1):
+            self.write(f'src/file-{index:03}.cpp', 'int value();\n')
+        with mock.patch('format_sources.subprocess.run', wraps=subprocess.run) as run:
+            self.assertEqual(self.run_format()[0], 0)
+        commands = [call.args[0] for call in run.call_args_list
+                    if call.args[0][0] == self.tool]
+        self.assertEqual([len(command) - 3 for command in commands],
+                         [BATCH_FILES, BATCH_FILES, 1])
+
+    def test_failure_after_batch_boundary_keeps_all_diagnostics(self):
+        for index in range(5):
+            self.write(f'src/file-{index}.cpp',
+                       'int main(){return 0;}\n' if index in (0, 4) else 'int value();\n')
+        with mock.patch('format_sources.BATCH_FILES', 2):
+            status, output = self.run_format()
+        self.assertEqual(status, 1)
+        self.assertIn('5 owned C++ files checked; 2 failed', output)
+        self.assertIn('src/file-0.cpp:', output)
+        self.assertIn('src/file-4.cpp:', output)
 
     def test_missing_tool_is_an_error(self):
         self.write('src/main.cpp')
