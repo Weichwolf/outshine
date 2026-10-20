@@ -14,7 +14,7 @@ from full_view_reference import load, views
 from PIL import Image, ImageDraw
 from triangle_image_reference import prepare_source
 from visible_normal_bake import cook
-from visible_normal_compare import compare, display, geometry_control, references
+from visible_normal_compare import compare, display, geometry_controls, references
 from visible_normal_material import tables
 from visible_normal_query import load_product
 
@@ -123,8 +123,8 @@ def main():
         "native_input": receipt,
         "bake_s": bake_s,
         "derived_cpu_bytes": product["derived_cpu_bytes"],
-        "matched_homogeneous_geometry_control": geometry_control(
-            source, document["sources"], output / "geometry-control.npz"
+        "matched_homogeneous_geometry_control": geometry_controls(
+            source, document["sources"], domain, output
         ),
         "shared_ggx_table_array_bytes": sum(
             np.asarray(v).nbytes for v in energy.values()
