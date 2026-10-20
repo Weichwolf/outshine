@@ -34,7 +34,7 @@ def header(reader):
     return anchor
 
 
-def prepared(reader):
+def prepared(reader, terrain_fields=False):
     local, count, source, first_hole, holes, _ = (reader.number("I") for _ in range(6))
     cell = reader.number("I")
     reader.skip(32)
@@ -46,10 +46,16 @@ def prepared(reader):
     facade = reader.number("i") if reader.flag() else None
     standing = struct.unpack_from("<4I5fBB6d", reader.data, reader.at)
     reader.skip(86)
+    ceiling = None
+    if terrain_fields and reader.flag():
+        ceiling = {
+            "origin_point": reader.number("I"),
+            "height_asl_m": reader.number("d"),
+        }
     geographic_bounds = tuple(reader.number("d") for _ in range(4))
     first_corner = reader.number("Q")
     base, seat, area, across = (reader.number("d") for _ in range(4))
-    return {
+    result = {
         "source_id": (kind, identity),
         "source_first": source,
         "cell": cell,
@@ -71,6 +77,9 @@ def prepared(reader):
         "area_m2": area,
         "across_m": across,
     }
+    if terrain_fields:
+        result["terrain_ceiling"] = ceiling
+    return result
 
 
 def summary(reader):
@@ -109,8 +118,9 @@ def read_plans(data):
     if len(data) > 64 * 1024**2:
         raise ValueError("bounded native source index required")
     reader = Reader(data, number_limit=16777216)
-    if (reader.number("I"), reader.number("I")) != (0x31425350, 8):
-        raise ValueError("explicitly supported prepared index schema 8 required")
+    magic, version = reader.number("I"), reader.number("I")
+    if magic != 0x31425350 or version not in (8, 9):
+        raise ValueError("explicitly supported prepared index schema 8 or 9 required")
     anchor = header(reader)
     points, _ = array(reader, 8)
     holes, _ = array(reader, 9)
@@ -118,7 +128,7 @@ def read_plans(data):
     count = reader.number("Q")
     if count > 262144:
         raise ValueError("bounded source record count required")
-    records = [prepared(reader) for _ in range(count)]
+    records = [prepared(reader, terrain_fields=version >= 9) for _ in range(count)]
     if reader.number("Q") != len(records):
         raise ValueError("selection summaries must cover all enriched source records")
     summaries = [summary(reader) for _ in records]
@@ -157,6 +167,13 @@ def validate_plans(plans):
             or record["corner_first"] + record["point_count"] > len(corners)
         ):
             raise ValueError("source/cell/ring/corner range escapes the original plan")
+        ceiling = record.get("terrain_ceiling")
+        if ceiling is not None and (
+            ceiling["origin_point"] != record["local_first"]
+            or not np.isfinite(ceiling["height_asl_m"])
+            or record["minimum_height_m"] != 0.0
+        ):
+            raise ValueError("terrain ceiling escapes its prepared source frame")
         bounds, error = summary["envelope"], summary["shell_error_m"]
         if bounds is not None and (
             not np.isfinite(bounds).all() or (bounds[0] > bounds[1]).any()

@@ -69,6 +69,10 @@ void CheckSlices(const PreparedStructureTile &original,
   const auto reference = BakePreparedStructures(original, input, mesher, *scratch);
   CHECK(reference && reference->Prints.size() == 1, "one cell supplies the geometry reference");
   if (!reference) { return; }
+  auto expectedPrints = reference->Prints;
+  if (!prepared) {
+    for (auto &print : expectedPrints) { print.TerrainCeiling.reset(); }
+  }
   StructureBakeProgress progress;
   bool complete = false;
   size_t calls = 0;
@@ -84,7 +88,7 @@ void CheckSlices(const PreparedStructureTile &original,
         "foreign cells do not consume the selected-source quota or create empty worker slices");
   if (!complete) { return; }
   const auto tile = progress.Finalize(raw, mesher, *scratch);
-  CHECK(tile && tile->Digest == reference->Digest && tile->Prints == reference->Prints &&
+  CHECK(tile && tile->Digest == reference->Digest && tile->Prints == expectedPrints &&
             tile->OccupiedCells == reference->OccupiedCells,
         "skipping scheduling gaps preserves exact geometry and complete source contacts");
   auto all = raw;

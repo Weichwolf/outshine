@@ -15,7 +15,6 @@ namespace outshine::Generators {
 namespace {
 
 constexpr double kSinkM = 0.30;
-constexpr double kPlinthM = 0.50;
 constexpr double kRegularTowerWidthM = 12.0;
 
 class FoundationGround {
@@ -81,7 +80,7 @@ void PlaceFoundation(BuildingShape &shape, const FoundationGround &ground) {
       highest = std::max(highest, height);
     }
   }
-  shape.SeatM = std::max(ground.High(), highest) + kPlinthM;
+  shape.SeatM = std::max(ground.High(), highest) + kBuildingPlinthM;
   lowest = std::min(lowest, ground.Low());
   highest = std::max(highest, ground.High());
   const double spread = highest - lowest;

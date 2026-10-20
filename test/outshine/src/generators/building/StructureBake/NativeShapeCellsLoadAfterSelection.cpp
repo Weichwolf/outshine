@@ -172,6 +172,11 @@ int main() {
   CHECK(base && *base && (*cache)->Costs().SurfaceReadBytes == 0,
         "parent generation reloads metadata without reading any form cell");
   if (!reference || !base || !*base) { return Report(); }
+  CHECK((*base)->Structures.front().Standing.TerrainCeiling ==
+                reference->Structures.front().Standing.TerrainCeiling &&
+            (*base)->Structures.front().Standing.TerrainCeiling.has_value() &&
+            (*cache)->Costs().SurfaceReadBytes == 0,
+        "cached source contacts are ready without opening any fine form cell");
   raw = {};
   heights.reset();
   BuildingMesh mesher;

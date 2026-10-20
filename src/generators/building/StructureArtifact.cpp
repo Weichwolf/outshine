@@ -1,5 +1,6 @@
 #include "StructureArtifact.h"
 #include "StructureBinary.h"
+#include "BuildingFootprintFields.h"
 #include "StructureSourceKey.h"
 #include "Sha256.h"
 #include <algorithm>
@@ -21,7 +22,8 @@
 namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
-constexpr uint32_t kVersion = 10;
+constexpr uint32_t kPreviousVersion = 10;
+constexpr uint32_t kVersion = 11;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -51,18 +53,7 @@ constexpr auto cluster = [](auto &archive, auto &value) {
          archive.Number(value.SelfErr) && archive.Number(value.ParentErr) &&
          archive.Number(value.First) && archive.Number(value.Count) && archive.Number(value.Level);
 };
-constexpr auto footprint = [](auto &archive, auto &value) {
-  auto &street = value.Street;
-  return archive.Number(value.FirstPoint) && archive.Number(value.PointCount) &&
-         archive.Number(value.FirstHole) && archive.Number(value.HoleCount) &&
-         archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
-         archive.Number(value.BaseM) && archive.Number(value.SeatM) &&
-         archive.Number(value.FootM) && archive.Number(value.Source) &&
-         archive.Number(street.Known) && archive.Number(street.KerbEm) &&
-         archive.Number(street.KerbNm) && archive.Number(street.AlongE) &&
-         archive.Number(street.AlongN) && archive.Number(street.ToStreetE) &&
-         archive.Number(street.ToStreetN);
-};
+
 constexpr auto surface = [](auto &archive, auto &value) {
   return archive.Number(value.Upper.ReferenceToVariantM) &&
          archive.Number(value.Upper.VariantToReferenceM) &&
@@ -79,7 +70,8 @@ template <typename Archive, typename View> bool SelectionView(Archive &archive, 
          archive.Number(view.Projection.AllowedErrorPx) && archive.Number(view.EyeRadiusM);
 }
 
-template <typename Archive, typename Tile> bool Product(Archive &archive, Tile &tile) {
+template <typename Archive, typename Tile>
+bool Product(Archive &archive, Tile &tile, bool terrainFields = true) {
   if (!archive.List(tile.Built.WallCorners, vertex) ||
       !archive.List(tile.Built.RoofCorners, vertex) || !archive.List(tile.Built.WallRun, scalar) ||
       !archive.List(tile.Built.RoofRun, scalar) || !archive.List(tile.Walls.Clusters, cluster) ||
@@ -102,13 +94,17 @@ template <typename Archive, typename Tile> bool Product(Archive &archive, Tile &
   for (auto &error : tile.CellShellErrorM) {
     if (!archive.Number(error)) { return false; }
   }
-  return archive.List(tile.Prints, footprint) && archive.List(tile.FootprintDetails, scalar) &&
-         archive.List(tile.SeatSpreadM, scalar) && archive.List(tile.AcrossM, scalar) &&
-         archive.Number(tile.OsmHeights) && archive.Number(tile.DefaultHeights) &&
-         archive.Number(tile.Fronted) && archive.Number(tile.Lumped) &&
-         archive.Number(tile.Blocks) && archive.Number(tile.NoGround) &&
-         archive.Number(tile.UnsupportedMeshes) && archive.Number(tile.SkippedRings) &&
-         archive.Maybe(tile.SurfaceError, surface) && archive.Maybe(tile.SurfaceFailure, scalar);
+  return archive.List(tile.Prints,
+                      [terrainFields](auto &held, auto &print) {
+                        return StructureBinary::FootprintFields(held, print, terrainFields);
+                      }) &&
+         archive.List(tile.FootprintDetails, scalar) && archive.List(tile.SeatSpreadM, scalar) &&
+         archive.List(tile.AcrossM, scalar) && archive.Number(tile.OsmHeights) &&
+         archive.Number(tile.DefaultHeights) && archive.Number(tile.Fronted) &&
+         archive.Number(tile.Lumped) && archive.Number(tile.Blocks) &&
+         archive.Number(tile.NoGround) && archive.Number(tile.UnsupportedMeshes) &&
+         archive.Number(tile.SkippedRings) && archive.Maybe(tile.SurfaceError, surface) &&
+         archive.Maybe(tile.SurfaceFailure, scalar);
 }
 
 bool MeshValid(const std::vector<StoredVertex> &vertices,
@@ -148,7 +144,9 @@ bool Valid(const BakedTile &tile) {
     return false;
   }
   if (!std::ranges::all_of(tile.Prints, [](const ::outshine::Ground::BuildingFootprint &item) {
-        return item.Source <= ::outshine::Ground::BuildingHeightSource::Generated &&
+        return (!item.TerrainCeiling ||
+                (item.MinimumHeightM == 0.0 && std::isfinite(item.TerrainCeiling->HeightAslM))) &&
+               item.Source <= ::outshine::Ground::BuildingHeightSource::Generated &&
                std::isfinite(item.MinimumHeightM) && std::isfinite(item.HeightM) &&
                item.MinimumHeightM < item.HeightM && item.PointCount >= 3 &&
                item.PointCount <= std::numeric_limits<uint32_t>::max() - item.FirstPoint;
@@ -341,14 +339,16 @@ std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,
   }
   Reader reader(payload.subspan(kMagic.size()));
   uint32_t version = 0;
-  if (!reader.Number(version) || version != kVersion ||
+  if (!reader.Number(version) || (version != kVersion && version != kPreviousVersion) ||
       !std::equal(inputKey.begin(), inputKey.end(), reader.Bytes.begin())) {
     return std::nullopt;
   }
   reader.Bytes = reader.Bytes.subspan(kHashBytes);
   reader.Remaining -= kHashBytes;
   BakedTile tile;
-  if (!Product(reader, tile) || reader.Remaining != 0 || !Valid(tile)) { return std::nullopt; }
+  if (!Product(reader, tile, version == kVersion) || reader.Remaining != 0 || !Valid(tile)) {
+    return std::nullopt;
+  }
   if (tile.SurfaceError) {
     if (currentSourceKey == 0) { return std::nullopt; }
     tile.SurfaceError->Upper.SourceKey = currentSourceKey;
