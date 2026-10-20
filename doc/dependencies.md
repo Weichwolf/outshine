@@ -6,22 +6,47 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 | Bibliothek | Geprüfter lokaler Stand | Zuständiger WI | Verwendung |
 |---|---|---|---|
 | GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygontriangulation mit Höfen/Inseln über C-API; mindestens 3.10 |
-| GeographicLib | 2.7 | [#760](https://github.com/Weichwolf/outshine/issues/760) | Robuste geozentrische Rücktransformation für physische Wasserhöhen und Normalenhüllen |
 | SFCGAL | 2.3.0 | [#48](https://github.com/Weichwolf/outshine/issues/48) | Native Walmdachpartition mit Quellkanten/Höfen über C-API; mindestens 2.3, Rendererübernahme folgt |
 | OSQP | 1.0.0 | [#760](https://github.com/Weichwolf/outshine/issues/760) | Nativer physischer Wasserfit über C-API, Float64; Solver und vollständige Prüfungen nur beim Asset-Aufbau |
 | SQLite | 3.54.0 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
 | Zstandard | 1.5.7 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
 
+Wartung geprüft am 2026-10-20: [GEOS](https://libgeos.org/usage/download/)
+3.15.0 (2026-09), [SFCGAL](https://github.com/SFCGAL/SFCGAL) Codeänderungen 2026-10,
+[OSQP](https://github.com/osqp/osqp/releases) 1.0.0 (2025-03), letzter geprüfter
+Hauptzweig-Commit 2025-11, [SQLite](https://sqlite.org/changes.html) 3.54.1 (2026-10)
+und [Zstd](https://github.com/facebook/zstd/releases) 1.5.7 (2025-02),
+Hauptzweigänderungen 2026-10. Lokaler Paketstand und Upstream-Stand sind verschieden;
+Commitaktivität allein beweist keine Fehlerfreiheit oder künftige Wartung.
+
+## Weitere tatsächlich genutzte Bibliotheken
+
+| Bibliothek | Nutzung und Entscheidung |
+|---|---|
+| SDL3 | Fenster, Eingabe, Audio und Plattformdienste; bleibt. Native Metal-/Vulkan-Ausführung ersetzt SDL3_GPU. |
+| SDL3_image / SDL3_ttf | Bildcodecs / Schrift; bestehende Funktionen erhalten, Bildpfade erst nach Nutzerinventur zusammenführen. |
+| libcurl | HTTP/TLS und Transfers; bleibt, kein eigener Netzwerk-/Zertifikatsstack. |
+| zlib | PNG und bestehende Cachepfade; bleibt für diese Formate. |
+| LZ4 | Bestehender ArtifactStore; Vereinheitlichung mit Zstd erst mit lesbarer Altbestandsmigration. |
+| libtiff / libwebp | Copernicus-Raster / Terrarium-Höhen; Quellformatdecoder, kein eigener Codec-Eigenbau. |
+| SPIRV-Cross | Native Shaderübersetzung/Reflexion; bleibt. glslang ist ein Buildwerkzeug. |
+| nlohmann/json | Nur Benchmarkberichte im nativen Integrationszweig; eigenen JSON-Ausgabepfad als Ersatz prüfen. |
+
+Die Installation oben betrifft die numerischen/Assetpakete, nicht das gesamte Toolchain-
+Setup. Plattform-SDK, SDL/Codecs/Shaderwerkzeuge stehen in den Buildprofilen und
+`src/client/README.md`. Der alte Master-Renderpfad benötigt bis zur nativen Aufnahme
+zusätzlich SDL3_shadercross; der native Integrationszweig benötigt es nicht.
+
 ## Installation
 
 ```sh
-brew install ccache geos geographiclib sfcgal osqp sqlite zstd
+brew install ccache geos sfcgal osqp sqlite zstd
 ```
 
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install ccache libgeos-dev libgeographiclib-dev libsfcgal-dev libsqlite3-dev libzstd-dev
+sudo apt install ccache libgeos-dev libsfcgal-dev libsqlite3-dev libzstd-dev
 ```
 
 SFCGAL benötigt mindestens 2.3; die Paketversion vor dem Build mit `pkg-config --modversion sfcgal` prüfen.
@@ -44,10 +69,13 @@ nativen Produktabhängigkeiten; installierte Systempakete werden nicht pauschal 
 Eigen ist durch den gemeinsamen CSC-Baustein `src/base/math/SparseMatrix.h` ersetzt:
 sortierte Tripel/zusammengefasste Duplikate, obere Dreiecksmatrix und gewöhnliche/
 transponierte Matrix-Vektor-Produkte. OSQP erhält die eigenen Arrays ohne Matrixkopie.
-GeographicLib
-liefert nur die geozentrische Rücktransformation; eigene Geodäsiepfade werden samt
-Ellipsoid und Fehlergrenzen vereinheitlicht. Dieser Ersatz benötigt Referenz-
-und Kostenvergleiche, bevor seine Buildabhängigkeit entfällt.
+GeographicLib ist durch `src/base/geo/Geocentric.h` ersetzt. Wasser, Gelände und Kamera
+nutzen dieselbe Vorwärts-/Rücktransformation und dieselben abgeleiteten WGS84-Konstanten.
+Die Inverse löst die Ellipsoidnormalenbedingung mit begrenztem Newton-Verfahren;
+Höhe folgt aus der Normalprojektion statt einer polnahen Division durch cos(Breite).
+Nichtendliche, zentral mehrdeutige oder nicht konvergierte Eingaben werden abgelehnt.
+Der Anwendungsbereich ist Erdoberfläche/Untergrund bis Orbit, keine inverse Vermessung
+des Erdkerns. Alte geodätische Referenzkorpora bleiben Testdaten, keine Runtime-Library.
 
 SFCGAL liefert ausschließlich die Walmdachpartition und soll entfallen. Research baut
 zuerst einen geprüften Ersatz für konkave Grundrisse und Höfe; bis dahin bleibt der Pfad.
