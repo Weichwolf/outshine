@@ -7,7 +7,9 @@ import numpy as np
 import shapely
 from shapely.affinity import translate
 from test_water_parameter_cut import CELL, root
-from water_cell_field import prepare_field, sample_parameters
+from water_cell_field import field_facet, prepare_field, sample_parameters
+from water_nodal_height import cell_faces
+from water_parameter_cut import cut_cell
 
 
 class FunctionalWater(unittest.TestCase):
@@ -59,6 +61,27 @@ class FunctionalWater(unittest.TestCase):
                 {field.source_keys[j] for j in one},
                 {reverse.source_keys[j] for j in two},
             )
+
+    def test_later_render_detail_reuses_the_qualified_field_without_the_source_callback(
+        self,
+    ):
+        field = self.field()
+        cut, report = cut_cell(
+            CELL,
+            self.polygons,
+            field.source_keys,
+            lambda keys: field_facet(field, keys),
+            context=field.context,
+        )
+        self.assertEqual(report["state"], "diagnostic_cut")
+        sample = sample_parameters(field, cut.parameter.mean(axis=1))
+        self.assertEqual(sample.states, ("water",) * len(cut.world))
+        np.testing.assert_allclose(
+            sample.world, cut.world.mean(axis=1), rtol=0, atol=1e-12
+        )
+        self.assertEqual(
+            field_facet(field, cell_faces((4, 5, 5))[0]), ("unresolved_facet", None)
+        )
 
     def test_unavailable_root_refuses_the_whole_field_and_stops_early(self):
         calls = []

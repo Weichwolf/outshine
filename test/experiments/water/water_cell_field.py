@@ -39,6 +39,15 @@ class FieldSamples:
     report: dict
 
 
+def field_facet(field, keys):
+    """Reuse an admitted cached root when later render detail is requested."""
+    faces = cell_faces(field.cell)
+    for at, root in enumerate(field.roots):
+        if faces[int(root)] == keys:
+            return "admitted", field.world[at]
+    return "unresolved_facet", None
+
+
 def prepare_field(cell, polygons, source_keys, facet, *, context):
     cell = tile_tuple(cell)
     if not isinstance(context, str) or not context:
