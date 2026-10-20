@@ -122,6 +122,10 @@ class OwnedCells(unittest.TestCase):
         reversed_result = normalize(dataclasses.replace(raw, pieces=raw.pieces[::-1]))
         self.assertEqual(expected.snapshot.digest, reversed_result.snapshot.digest)
         self.assertEqual(expected.parents, reversed_result.parents)
+        reordered_source = normalize(
+            dataclasses.replace(raw, source=dict(reversed(list(raw.source.items()))))
+        )
+        self.assertEqual(expected.snapshot.digest, reordered_source.snapshot.digest)
         changed = normalize(
             dataclasses.replace(raw, source=dict(SOURCE, revision="r2"))
         )
