@@ -622,6 +622,10 @@ public:
 
   [[nodiscard]] size_t ShadowCastCount() const { return ActiveFrame().Shadow.CastBatches(); }
 
+  [[nodiscard]] const std::array<ShadowRegionUniform, kSunShadowRegions> &ShadowRegions() const {
+    return ActiveFrame().Shadow.Regions();
+  }
+
   [[nodiscard]] size_t ShadowedFrames() const {
     return ActiveState().Content.Geometry.ShadowedFrames();
   }
