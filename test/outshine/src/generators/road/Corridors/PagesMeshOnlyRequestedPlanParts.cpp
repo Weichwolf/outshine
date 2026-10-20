@@ -1,0 +1,225 @@
+#include "Corridors.h"
+#include "ProfiledRoadMesher.h"
+#include "Check.h"
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <span>
+#include <stop_token>
+#include <string>
+#include <vector>
+
+namespace {
+using namespace outshine;
+using namespace outshine::Generators;
+
+class CountedMesher final : public RoadMesher {
+public:
+  mutable size_t Sweeps = 0;
+  mutable size_t Junctions = 0;
+  std::stop_source *CancelAfterSweep = nullptr;
+
+  RoadMeshingStats
+  Sweep(std::span<const RoadStation> along, RoadSweep how, RoadMeshBuffers &into) const override {
+    ++Sweeps;
+    const auto result = Native_.Sweep(along, how, into);
+    if (CancelAfterSweep != nullptr) { (void)CancelAfterSweep->request_stop(); }
+    return result;
+  }
+
+  void Junction(std::span<const RoadGate> gates,
+                RoadPlane plane,
+                const Vec3f &wears,
+                RoadMeshBuffers &into) const override {
+    ++Junctions;
+    Native_.Junction(gates, plane, wears, into);
+  }
+
+private:
+  ProfiledRoadMesher Native_;
+};
+
+std::unique_ptr<Corridors::Job> Plan(const Corridors &corridors, const Corridors::Site &site) {
+  auto job = Corridors::Begin(site);
+  for (size_t slice = 0; slice < 2048; ++slice) {
+    const auto ready = corridors.AdvancePlan(*job, site, 1, 1);
+    if (!ready) { return {}; }
+    if (*ready) { return job; }
+  }
+  return {};
+}
+
+template <class T> bool SameWords(std::span<const T> left, std::span<const T> right) {
+  return std::ranges::equal(std::as_bytes(left), std::as_bytes(right));
+}
+
+bool SameMesh(const RoadMeshBuffers &mesh, const Geometry &geometry, int part) {
+  return SameWords<float>(mesh.PositionM, geometry.positionsOf(part)) &&
+         SameWords<float>(mesh.NormalM, geometry.normalsOf(part)) &&
+         SameWords<float>(mesh.ColourRgba, geometry.coloursOf(part)) &&
+         SameWords<uint32_t>(mesh.Index, geometry.trianglesOf(part));
+}
+
+void CheckSelection(const Corridors::Job &plan,
+                    const Corridors::Site &site,
+                    std::span<const RoadPagePart> parts) {
+  using namespace outshine::Test;
+  const auto interval = std::ranges::find(parts, RoadPagePartKind::Interval, &RoadPagePart::Kind);
+  const auto junction = std::ranges::find(parts, RoadPagePartKind::Junction, &RoadPagePart::Kind);
+  CHECK(interval != parts.end() && junction != parts.end(),
+        "fixture plans intervals and a junction");
+  if (interval == parts.end() || junction == parts.end()) { return; }
+  const std::array<RoadPagePart, 1> one{*interval};
+  const auto recipe = Corridors::PageRecipe(plan, site, one);
+  CHECK(recipe && recipe->Intervals.size() == 1 && recipe->Junctions.empty(),
+        "a page owns only its requested whole interval");
+  CountedMesher selected;
+  const auto product =
+      recipe
+          ? MeshRoadPage(selected, *recipe)
+          : std::expected<RoadPageGeometry, std::string_view>{std::unexpected("missing interval")};
+  CHECK(product && !product->Mesh.Index.empty() && selected.Sweeps == 1 && selected.Junctions == 0,
+        "unrequested intervals and junctions cause no mesh work");
+  const auto node = Corridors::PageRecipe(plan, site, std::array{*junction});
+  CountedMesher body;
+  const auto bodyProduct =
+      node ? MeshRoadPage(body, *node)
+           : std::expected<RoadPageGeometry, std::string_view>{std::unexpected("missing junction")};
+  CHECK(node && node->Intervals.empty() && node->Junctions.size() == 1 &&
+            node->Junctions[0].Gates.size() >= 2 && bodyProduct && body.Sweeps == 0 &&
+            body.Junctions == 1,
+        "a junction is an independently generated whole native piece");
+  CHECK(!Corridors::PageRecipe(plan, site, std::array{*interval, *interval}),
+        "duplicate part requests cannot duplicate native geometry");
+  CHECK(!Corridors::PageRecipe(
+            plan,
+            site,
+            std::array{RoadPagePart{.Kind = RoadPagePartKind::Interval, .Index = UINT32_MAX}}),
+        "an unknown interval is not silently omitted");
+  const auto empty = Corridors::PageRecipe(plan, site, {});
+  CountedMesher none;
+  const auto emptyProduct = empty ? MeshRoadPage(none, *empty)
+                                  : std::expected<RoadPageGeometry, std::string_view>{
+                                        std::unexpected("missing empty recipe")};
+  CHECK(emptyProduct && emptyProduct->Mesh.Index.empty() && none.Sweeps == 0 && none.Junctions == 0,
+        "no demand requires no mesh work");
+}
+
+void CheckCancellation(const RoadPageRecipe &recipe) {
+  using namespace outshine::Test;
+  std::stop_source before;
+  (void)before.request_stop();
+  CountedMesher untouched;
+  CHECK(!MeshRoadPage(untouched, recipe, before.get_token()) && untouched.Sweeps == 0 &&
+            untouched.Junctions == 0,
+        "an already canceled page does no mesh work");
+  std::stop_source during;
+  CountedMesher interrupted;
+  interrupted.CancelAfterSweep = &during;
+  CHECK(!MeshRoadPage(interrupted, recipe, during.get_token()) && interrupted.Sweeps == 1 &&
+            interrupted.Junctions == 0,
+        "cancellation discards a partial page before remaining work");
+}
+}
+
+int main() {
+  using namespace outshine::Test;
+  constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
+  const std::array<std::string, 1> layers{"streets"};
+  Osm::OsmField vectors(14, layers);
+  const std::array<Osm::OsmField::Declared, 3> roads{
+      {{.Layer = "streets",
+        .Key = "kind",
+        .Value = "residential",
+        .LatLon = {48.9998, 7.9990, 49.0, 8.0, 49.0002, 8.0010}},
+       {.Layer = "streets",
+        .Key = "kind",
+        .Value = "residential",
+        .Bridge = true,
+        .Level = 1,
+        .LatLon = {48.9990, 8.0, 49.0, 8.0, 49.0010, 8.0}},
+       {.Layer = "streets",
+        .Key = "kind",
+        .Value = "residential",
+        .LatLon = {49.0, 8.0, 49.0007, 8.0008}}}};
+  CHECK(vectors.Declare(roads, origin).has_value(), "source roads are declared");
+  Ground::GroundMaterials materials;
+  Ground::VegetationTemplates vegetation;
+  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
+            vegetation.Load("src/assets/world/vegetation.json", materials),
+        "the page uses production transport recipes");
+  if (!vegetation.Ready()) { return Report(); }
+  Osm::StreetField ways;
+  while (!ways.Ingested(vectors)) { (void)ways.Ingest(vectors, vegetation); }
+  const TangentFrame frame = TangentFrame::At(origin);
+  const TriangleBvh surface = TriangleBvh::Over({}, {});
+  const Drape drape{.Surface = surface,
+                    .Field = [](Drape::EastNorth) -> std::optional<double> { return 0; }};
+  const std::shared_ptr<const TerrainClassificationMap> classes;
+  const Corridors::Site site{.Vectors = &vectors,
+                             .Ways = ways,
+                             .Materials = materials,
+                             .Vegetation = vegetation,
+                             .Standing = frame,
+                             .Draped = drape,
+                             .Classes = classes,
+                             .WaterUpM = {},
+                             .CensusAt = {},
+                             .EyeLatDeg = origin.LatitudeDeg,
+                             .EyeLonDeg = origin.LongitudeDeg,
+                             .Projection = {.FocalPx = 800}};
+  CountedMesher observer;
+  const Corridors corridors(observer);
+  auto early = Corridors::Begin(site);
+  CHECK(!Corridors::PlannedParts(*early) && !Corridors::PageRecipe(*early, site, {}),
+        "unfinished plans cannot be used as finished assets");
+  auto plan = Plan(corridors, site);
+  CHECK(plan && observer.Sweeps == 0 && observer.Junctions == 0,
+        "native plan completion performs no fine mesh generation");
+  if (!plan) { return Report(); }
+  const auto parts = Corridors::PlannedParts(*plan);
+  CHECK(parts && !parts->empty(), "the completed plan exposes its actual semantic parts");
+  if (!parts || parts->empty()) { return Report(); }
+  Osm::OsmField foreign(14, layers);
+  CHECK(foreign.Declare(roads, origin).has_value(), "a separate source has equal local ordinals");
+  auto wrongSource = site;
+  wrongSource.Vectors = &foreign;
+  CHECK(!corridors.AdvancePlan(*plan, wrongSource, 1, 1) &&
+            !Corridors::PageRecipe(*plan, wrongSource, *parts),
+        "equal generation numbers cannot alias a different source context");
+  CheckSelection(*plan, site, *parts);
+  const auto recipe = Corridors::PageRecipe(*plan, site, *parts);
+  CHECK(recipe && !recipe->Intervals.empty(), "all requested plan data is owned by the recipe");
+  if (!recipe || recipe->Intervals.empty()) { return Report(); }
+  CheckCancellation(*recipe);
+  ProfiledRoadMesher native;
+  const Corridors reference(native);
+  Geometry whole;
+  std::vector<EarthworkStamp> earthworks;
+  std::vector<DiagnosticSample> notes;
+  CHECK(reference.Lay(site, whole, earthworks, notes),
+        "the normal native path builds its reference");
+  const auto mesh = MeshRoadPage(native, *recipe);
+  int street = -1;
+  for (int at = 0; at < whole.parts(); ++at) {
+    if (whole.nameOf(at) == "streets") { street = at; }
+  }
+  CHECK(mesh && street >= 0 && SameMesh(mesh->Mesh, whole, street),
+        "all page words match original positions, normals, colours and primitive order");
+  auto changed = roads;
+  changed[0].LatLon.back() += 0.001;
+  CHECK(vectors.Declare(changed, origin).has_value(),
+        "source coordinates publish a new generation");
+  CHECK(!corridors.AdvancePlan(*plan, site, 1, 1) && !Corridors::PageRecipe(*plan, site, *parts),
+        "a changed source cannot be combined with an older plan");
+  (void)plan->RetireStep(1);
+  CHECK(!Corridors::PlannedParts(*plan), "retired plan storage is not a readable page input");
+  plan.reset();
+  const auto after = MeshRoadPage(native, *recipe);
+  CHECK(after && street >= 0 && SameMesh(after->Mesh, whole, street),
+        "page recipes retain exact native inputs after the original plan is released");
+  return Report();
+}
