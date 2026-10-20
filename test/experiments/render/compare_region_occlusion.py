@@ -16,6 +16,7 @@ from compare_beam_field import control
 from compare_layered_tree import one_view
 from compare_visible_normals import inputs
 from packed_normals import unpack
+from prepared_support_reference import apply_prepared
 from region_occlusion import compile_projection
 from region_occlusion_product import load_product, select, store
 from triangle_image_reference import prepare_source
@@ -79,6 +80,7 @@ def main():
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--area-reference", type=Path)
+    parser.add_argument("--prepared-support", type=Path)
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(
@@ -103,6 +105,13 @@ def main():
         source, domain, certified_opaque=True, tight_hulls=True
     )
     compile_s = time.perf_counter() - start
+    prepared = (
+        apply_prepared(
+            args.prepared_support, args.input, document, source, projection, output
+        )
+        if args.prepared_support
+        else None
+    )
     header = store(projection, document["sources"], output / "product", provenance)
     product = load_product(output / "product", observers, provenance)
     keep = select(product, observers, source["binding"][:, 1])
@@ -113,6 +122,7 @@ def main():
         "binding_check": receipt,
         "compile_s": compile_s,
         "projection_work": projection["work"],
+        "prepared_support": prepared,
         "product": header,
         "geometry_controls": cost_controls(source, keep, domain),
         "poses": {},

@@ -11,9 +11,16 @@ from current_visibility import mesh_boxes
 
 def project(points, eyes, plane):
     """Outward projection intervals for represented world points and fixed eyes."""
-    points, eyes = np.asarray(points, float), np.asarray(eyes, float)
-    p, e = points[None], eyes[:, None]
-    denominator = sub(exact(p[:, :, 2]), exact(e[:, :, 2]))
+    return project_ranges(exact(np.asarray(points, float)), eyes, plane)
+
+
+def project_ranges(points, eyes, plane):
+    """Project an interval enclosure without collapsing it to centre points."""
+    low, high = (np.asarray(p, float)[None] for p in points)
+    e = np.asarray(eyes, float)[:, None]
+    if low.shape != high.shape or np.any(low > high):
+        raise ValueError("ordered point intervals required")
+    denominator = sub((low[:, :, 2], high[:, :, 2]), exact(e[:, :, 2]))
     if denominator[0].min() <= 0:
         raise ValueError("extended projection crosses observer depth")
     ratio = divide(sub(exact(plane), exact(e[:, :, 2])), denominator)
@@ -21,7 +28,7 @@ def project(points, eyes, plane):
         exact(e[:, :, :2]),
         mul(
             tuple(r[:, :, None] for r in ratio),
-            sub(exact(p[:, :, :2]), exact(e[:, :, :2])),
+            sub((low[:, :, :2], high[:, :, :2]), exact(e[:, :, :2])),
         ),
     )
     if not all(np.isfinite(r).all() for r in result):
@@ -50,6 +57,11 @@ def inner_projection(polygon, eyes, plane, guard):
 
 def outer_projection(points, eyes, plane, guard):
     low, high = project(points, eyes, plane)
+    return outer_ranges((low, high), guard)
+
+
+def outer_ranges(projected, guard):
+    low, high = projected
     choices = np.array(list(itertools.product((0, 1), repeat=2)))
     boxes = np.where(choices[:, None, None, :], high, low).reshape(-1, 2)
     return shapely.MultiPoint(boxes).convex_hull.buffer(guard)
