@@ -458,7 +458,8 @@ void Corridors::CrossingClearances(const Paving &on, const Paved &into, HeightGr
       const size_t lane = crossing.Lanes[side];
       const auto &way = on.Ways.Ways()[lane];
       if (!way.Bridge || into.UnbankedWays.contains(lane)) { return 0.0; }
-      const Section section = RoadSection(way.HalfWidthM, ProfileOf(on, lane));
+      const Section section =
+          RoadSection(way.HalfWidthM, ProfileOf(on.Ways.Ways()[lane], on.Vegetation));
       return (section.HalfWidthM + section.ShoulderM) * kCrossfall;
     };
     const double lowerBankM = bankExtent(lower);
@@ -478,7 +479,8 @@ void Corridors::CrossingClearances(const Paving &on, const Paved &into, HeightGr
 
 void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &graph) {
   PrepareCrossingCores(on, into, graph, [&](size_t lane) {
-    const Section section = RoadSection(on.Ways.Ways()[lane].HalfWidthM, ProfileOf(on, lane));
+    const Section section = RoadSection(on.Ways.Ways()[lane].HalfWidthM,
+                                        ProfileOf(on.Ways.Ways()[lane], on.Vegetation));
     return section.HalfWidthM + section.ShoulderM;
   });
   graph.Nodes.clear();
