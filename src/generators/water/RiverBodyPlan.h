@@ -7,6 +7,8 @@
 #include <expected>
 #include <stop_token>
 #include <vector>
+#include <array>
+#include <optional>
 
 namespace outshine::Generators {
 enum class WaterGroundPolicy { SeparateInputs, AssumeUnlabelledGround };
@@ -22,6 +24,7 @@ struct RiverBodyPlan {
   std::vector<WaterAsset::SurfaceRejection> Rejections;
   uint64_t EnvelopePairs = 0;
   uint64_t CourseTriangleTests = 0;
+  WaterRoundoffReport Roundoff;
 };
 
 [[nodiscard]] std::expected<RiverBodyPlan, WaterTopologyError>
@@ -35,5 +38,9 @@ PlanRiverBodies(const WaterAsset &water,
                                                                        const TangentFrame &frame,
                                                                        RiverBodyPlan &plan,
                                                                        const std::stop_token &stop);
+[[nodiscard]] std::optional<double>
+WaterCourseFaceEntry(const WaterSurfaceTopology &topology,
+                     uint32_t face,
+                     const std::array<std::array<double, 2>, 2> &segment);
 }
 #endif
