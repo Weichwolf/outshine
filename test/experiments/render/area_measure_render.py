@@ -8,15 +8,11 @@ from packed_normals import unpack
 from visible_normal_material import shade
 
 
-def program(arrays, geometry, view, box, *, refined=False):
+def fragments(arrays, geometry, view, box, work):
+    """Shared projected leaf/pixel intersections before any normal-point expansion."""
     rectangles = leaf_bounds(arrays)
     eye, basis, focal, width, height = view
-    rows, words, weights, coordinates = [], [], [], []
-    work = {
-        "leaves_tested": len(rectangles),
-        "leaf_pixel_clips": 0,
-        "quadrature_records": 0,
-    }
+    work["leaves_tested"] = len(rectangles)
     for leaf, bounds in enumerate(rectangles):
         begin, end = arrays["offsets"][leaf : leaf + 2]
         if begin == end:
@@ -45,23 +41,30 @@ def program(arrays, geometry, view, box, *, refined=False):
                 part = shapely.intersection(polygon, shapely.box(x, y, x + 1, y + 1))
                 if part.area <= 0:
                     continue
-                points, mass = integration_points(part, refined=refined)
-                count = len(points)
-                selected = arrays["normal_words"][begin:end]
-                rows.append(
-                    np.full(
-                        count * len(selected),
-                        (y - int(box[0, 1])) * int(box[1, 0] - box[0, 0])
-                        + x
-                        - int(box[0, 0]),
-                        np.int32,
-                    )
+                row = (
+                    (y - int(box[0, 1])) * int(box[1, 0] - box[0, 0])
+                    + x
+                    - int(box[0, 0])
                 )
-                words.append(np.tile(selected, count))
-                coordinates.append(np.repeat(points, len(selected), axis=0))
-                weights.append(
-                    (mass[:, None] * arrays["weights"][None, begin:end]).ravel()
+                yield (
+                    row,
+                    arrays["normal_words"][begin:end],
+                    arrays["weights"][begin:end],
+                    part,
                 )
+
+
+def program(arrays, geometry, view, box, *, refined=False):
+    _, basis, focal, width, height = view
+    rows, words, weights, coordinates = [], [], [], []
+    work = {"leaf_pixel_clips": 0, "quadrature_records": 0}
+    for row, selected, density, polygon in fragments(arrays, geometry, view, box, work):
+        points, mass = integration_points(polygon, refined=refined)
+        count = len(points)
+        rows.append(np.full(count * len(selected), row, np.int32))
+        words.append(np.tile(selected, count))
+        coordinates.append(np.repeat(points, len(selected), axis=0))
+        weights.append((mass[:, None] * density[None]).ravel())
     if not rows:
         return {
             "rows": np.empty(0, np.int32),
