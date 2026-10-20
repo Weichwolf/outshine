@@ -3,7 +3,6 @@
 import argparse
 import hashlib
 import json
-import os
 import shlex
 import subprocess
 import time
@@ -31,7 +30,62 @@ def nearest_oracle(segments, points, selected):
     return tests
 
 
-def compare(path, output):
+def build_native(database, output):
+    records = json.loads(database.read_text())
+    units = (
+        "src/generators/water/WaterCourseProfile.cpp",
+        "src/base/spatial/PlanHierarchy.cpp",
+    )
+    objects = []
+    commands = []
+    link = None
+    directory = None
+    with (output / "build.log").open("w") as log:
+        for unit in (*units, None):
+            selected = units[0] if unit is None else unit
+            entry = next(r for r in records if r["file"].endswith(selected))
+            command = list(entry.get("arguments") or shlex.split(entry["command"]))
+            directory = Path(entry["directory"])
+            source = Path(entry["file"])
+            destination = output / (source.stem + ".o" if unit else "probe.o")
+            at = command.index("-o")
+            command[at + 1] = str(destination)
+            if unit is None:
+                command[command.index(str(source))] = str(
+                    HERE / "native_course_profile_probe.cpp"
+                )
+            subprocess.run(
+                command, cwd=directory, check=True, stdout=log, stderr=subprocess.STDOUT
+            )
+            commands.append({"directory": str(directory), "arguments": command})
+            objects.append(str(destination))
+            if unit is None:
+                link = [
+                    v
+                    for i, v in enumerate(command)
+                    if v != "-c"
+                    and i not in (at, at + 1)
+                    and v != str(HERE / "native_course_profile_probe.cpp")
+                ]
+        subprocess.run(
+            link + objects + ["-o", str(output / "native-course-profile")],
+            cwd=directory,
+            check=True,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+        )
+        commands.append(
+            {
+                "directory": str(directory),
+                "arguments": link
+                + objects
+                + ["-o", str(output / "native-course-profile")],
+            }
+        )
+    return commands
+
+
+def compare(path, output, database):
     output.mkdir(parents=True, exist_ok=True)
     inputs = np.load(path, allow_pickle=False)
     segments = inputs["segment_nodes"]
@@ -43,25 +97,7 @@ def compare(path, output):
     python_ms = (time.perf_counter() - started) * 1000
     if not np.isfinite(height).all():
         raise ValueError("reference input exceeds the native local-reference budget")
-    command = shlex.split(os.environ.get("CXX", "c++")) + [
-        "-std=c++23",
-        "-O2",
-        "-ffp-contract=off",
-        "-fno-exceptions",
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-I" + str(ROOT / "include"),
-        "-I" + str(ROOT / "src/base/spatial"),
-        "-I" + str(ROOT / "src/generators/water"),
-        str(HERE / "native_course_profile_probe.cpp"),
-        str(ROOT / "src/generators/water/WaterCourseProfile.cpp"),
-        str(ROOT / "src/base/spatial/PlanHierarchy.cpp"),
-        "-o",
-        str(output / "native-course-profile"),
-    ]
-    with (output / "build.log").open("w") as log:
-        subprocess.run(command, check=True, stdout=log, stderr=subprocess.STDOUT)
+    commands = build_native(database, output)
     native_input = output / "input.txt"
     with native_input.open("w") as stream:
         stream.write(f"{len(segments)} {len(points)}\n")
@@ -110,7 +146,8 @@ def compare(path, output):
             str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sources
         },
-        build_command=command,
+        build_commands=commands,
+        compile_database_sha256=hashlib.sha256(database.read_bytes()).hexdigest(),
         scope="Finite planar target field. No hydrological, engine, GPU or frame admission. "
         "Sample timings exclude output; native persistent memory is not process peak.",
     )
@@ -124,11 +161,16 @@ def main():
         "--input", type=Path, default=HERE / "fixtures/feldkirch-ill-profile.npz"
     )
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--compile-db", type=Path, default=ROOT / "compile_commands.json"
+    )
     args = parser.parse_args()
     output = args.output.resolve()
     if output.is_relative_to(ROOT):
         parser.error("private results belong outside the checkout")
-    report = compare(args.input, output)
+    if not args.compile_db.is_file():
+        parser.error("compile database missing; run make db first")
+    report = compare(args.input, output, args.compile_db)
     print(
         json.dumps(
             {
