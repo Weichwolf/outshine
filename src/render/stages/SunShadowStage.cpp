@@ -10,7 +10,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstddef>
-#include <cstring>
 #include <limits>
 #include <string>
 #include <vector>
@@ -233,6 +232,11 @@ void SunShadowStage::Prepare(const FrameContext &ctx) {
   PreservesAtlas_ = false;
   CastBatches_ = 0;
   if (!Declared_ || Subjects_ == nullptr) { return; }
+  if (Cache_.Submitted()) {
+    for (size_t region = 0; region < RegionCount(); ++region) {
+      AcceptedRaster_[region] = RasterUpdates_[region].Next;
+    }
+  }
   Build(ctx.PreViewTranslation);
   const uint64_t stands = Subjects_->Generation();
   const uint64_t ground = Subjects_->Ground().Generation();
@@ -240,16 +244,21 @@ void SunShadowStage::Prepare(const FrameContext &ctx) {
       Cache_.Submitted() && stands == PreparedGeneration_ && ground == PreparedGroundGeneration_;
   size_t changed = 0;
   for (size_t region = 0; region < RegionCount(); ++region) {
-    DirtyRegions_[region] = !reusable || Static_[region] != PreparedTransform_[region];
+    RasterUpdates_[region] = PrepareShadowRaster(
+        AcceptedRaster_[region], Static_[region], Subjects_->AnchorM(), kShadowTilePx, !reusable);
+    for (size_t axis = 0; axis < 2; ++axis) {
+      RegionUniforms_[region].Depth[2 + axis] =
+          static_cast<float>(RasterUpdates_[region].Origin[axis]);
+    }
+    DirtyRegions_[region] = RasterUpdates_[region].Count > 0;
     changed += DirtyRegions_[region] ? 1u : 0u;
   }
   if (changed == 0) { return; }
-  PreservesAtlas_ = reusable && changed < RegionCount();
+  PreservesAtlas_ = reusable;
   Cache_.Invalidate();
   Casting_ = true;
   PreparedGeneration_ = stands;
   PreparedGroundGeneration_ = ground;
-  PreparedTransform_ = Static_;
 }
 
 Native::Result<void> SunShadowStage::Encode([[maybe_unused]] const FrameContext &ctx,
@@ -275,40 +284,40 @@ Native::Result<void> SunShadowStage::Cast(size_t region, const PassRecording &in
                                 .Y = static_cast<float>(tile[1]) * kShadowTilePx,
                                 .Width = kShadowTilePx,
                                 .Height = kShadowTilePx};
-  const PassRecording recording{
-      .Commands = into.Commands, .Submission = into.Submission, .Area = square, .Clip = into.Clip};
-  if (PreservesAtlas_) {
-    const auto cleared =
-        into.Commands->Draw({.State = {.Pipeline = ClearTile_.get(),
-                                       .Bindings = {},
-                                       .Vertices = {},
-                                       .Area = square,
-                                       .Clip = {.X = static_cast<uint32_t>(tile[0]) * kShadowTilePx,
-                                                .Y = static_cast<uint32_t>(tile[1]) * kShadowTilePx,
-                                                .Width = kShadowTilePx,
-                                                .Height = kShadowTilePx}},
-                             .Range = {.Count = 3}});
-    if (!cleared) { return cleared; }
-  }
-  ShadowView uniform;
-  Mat4 anchored = Static_[region];
-  const auto &anchor = Subjects_->AnchorM();
-  for (int row = 0; row < 4; ++row) {
-    for (int axis = 0; axis < 3; ++axis) {
-      anchored[12 + row] += Static_[region][4 * axis + row] * anchor[axis];
+  const auto &update = RasterUpdates_[region];
+  for (size_t at = 0; at < update.Count; ++at) {
+    const auto &patch = update.Patches[at];
+    const Native::Scissor clip{.X = static_cast<uint32_t>(tile[0]) * kShadowTilePx + patch.X,
+                               .Y = static_cast<uint32_t>(tile[1]) * kShadowTilePx + patch.Y,
+                               .Width = patch.Width,
+                               .Height = patch.Height};
+    const PassRecording recording{
+        .Commands = into.Commands, .Submission = into.Submission, .Area = square, .Clip = clip};
+    if (PreservesAtlas_) {
+      const auto cleared = into.Commands->Draw({.State = {.Pipeline = ClearTile_.get(),
+                                                          .Bindings = {},
+                                                          .Vertices = {},
+                                                          .Area = square,
+                                                          .Clip = clip},
+                                                .Range = {.Count = 3}});
+      if (!cleared) { return cleared; }
     }
+    ShadowView uniform{.Light = ShadowPatchProjection(update.Next, patch)};
+    const auto selection = ShadowPatchCullProjection(uniform.Light, patch, kShadowTilePx);
+    const auto bytes = std::as_bytes(std::span(&uniform, 1));
+    const std::array bindings{
+        Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = bytes}}};
+    const auto ground = Subjects_->Ground().Cast(recording, selection, uniform.Shift, bindings);
+    if (!ground) { return ground; }
+    const auto subjects = CastSubjects(recording, bytes, selection);
+    if (!subjects) { return subjects; }
   }
-  for (int i = 0; i < 16; ++i) { uniform.Light[i] = static_cast<float>(anchored[i]); }
-  const auto bytes = std::as_bytes(std::span(&uniform, 1));
-  const std::array bindings{
-      Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = bytes}}};
-  const auto ground = Subjects_->Ground().Cast(recording, uniform.Light, uniform.Shift, bindings);
-  if (!ground) { return ground; }
-  return CastSubjects(recording, bytes);
+  return {};
 }
 
 Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
-                                                  std::span<const std::byte> view) {
+                                                  std::span<const std::byte> view,
+                                                  const Mat4f &selection) {
   const auto &resident = Subjects_->Resident();
   const auto &batches = Subjects_->Drawn();
   if (batches.empty()) { return {}; }
@@ -318,11 +327,8 @@ Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "shadow subjects have no native vertex/index data"});
   }
-  ShadowView packed;
-  std::memcpy(&packed, view.data(), sizeof(packed));
   FrameContext frame;
-  std::ranges::copy(packed.Light, frame.Mvp.begin());
-  for (size_t axis = 0; axis < 3; ++axis) { frame.PreViewTranslation[axis] = packed.Shift[axis]; }
+  std::ranges::copy(selection, frame.Mvp.begin());
   const BatchFrustum visible(frame, {});
   const auto subjectRows = Subjects_->SubjectRows();
   for (const auto &batch : batches) {

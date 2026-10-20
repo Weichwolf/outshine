@@ -2,7 +2,7 @@
 #include "thinSheet.glsl"
 
 float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, vec2 receiverSlope,
-                          vec4 atlas) {
+                          vec4 atlas, vec2 origin) {
   ivec2 extent = textureSize(map, 0);
   vec2 texel = (atlas.xy + uv * atlas.z) * vec2(extent) - 0.5;
   ivec2 base = ivec2(floor(texel));
@@ -10,10 +10,17 @@ float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, vec2 rece
   ivec2 limit = first + ivec2(atlas.z * vec2(extent)) - 1;
   ivec2 low = clamp(base, first, limit);
   ivec2 high = clamp(base + ivec2(1), first, limit);
-  vec4 depths = vec4(texelFetch(map, low, 0).r,
-                     texelFetch(map, ivec2(high.x, low.y), 0).r,
-                     texelFetch(map, ivec2(low.x, high.y), 0).r,
-                     texelFetch(map, high, 0).r);
+  ivec2 tileSize = limit - first + ivec2(1);
+  ivec2 offsetLow = low - first + ivec2(origin);
+  ivec2 offsetHigh = high - first + ivec2(origin);
+  ivec2 physicalLow = first + mix(offsetLow, offsetLow - tileSize,
+                                  greaterThanEqual(offsetLow, tileSize));
+  ivec2 physicalHigh = first + mix(offsetHigh, offsetHigh - tileSize,
+                                   greaterThanEqual(offsetHigh, tileSize));
+  vec4 depths = vec4(texelFetch(map, physicalLow, 0).r,
+                     texelFetch(map, ivec2(physicalHigh.x, physicalLow.y), 0).r,
+                     texelFetch(map, ivec2(physicalLow.x, physicalHigh.y), 0).r,
+                     texelFetch(map, physicalHigh, 0).r);
   vec4 receivers = shadowReceiverDepths(receiverDepth, receiverSlope / (atlas.z * vec2(extent)),
                                          vec2(low) - texel, vec2(high - low));
   return bilinearShadowVisibility(depths, fract(texel), receivers);
@@ -27,7 +34,7 @@ float regionShadowVisibility(sampler2D map, vec3 lightCoordinate, vec2 receiverS
   float depth = lightCoordinate.z * area.depth.x + area.depth.y;
   if (depth < 0.0 || depth > 1.0) { return 1.0; }
   return sunShadowVisibility(map, uv, depth + area.atlas.w,
-                             receiverSlope * area.depth.x / area.transform.xy, area.atlas);
+                             receiverSlope * area.depth.x / area.transform.xy, area.atlas, area.depth.zw);
 }
 
 float worldSunShadowVisibility(sampler2D map, vec3 coordinate, vec2 receiverSlope) {

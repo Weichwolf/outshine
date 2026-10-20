@@ -14,6 +14,7 @@
 #include "Gpu.h"
 #include "StageSubmission.h"
 #include "ShadowRegionUniform.h"
+#include "ShadowRaster.h"
 
 namespace outshine::Render {
 
@@ -101,8 +102,8 @@ private:
   void
   BuildRegions(const LightBasis &basis, const Vec3 &centre, double radiusM, const Vec3 &preView);
   [[nodiscard]] Native::Result<void> Cast(size_t region, const PassRecording &into);
-  [[nodiscard]] Native::Result<void> CastSubjects(const PassRecording &into,
-                                                  std::span<const std::byte> view);
+  [[nodiscard]] Native::Result<void>
+  CastSubjects(const PassRecording &into, std::span<const std::byte> view, const Mat4f &selection);
 
   size_t CastBatches_ = 0;
   Vec3 ShadowCentreM_;
@@ -118,7 +119,8 @@ private:
 
   std::array<Mat4, kSunShadowRegions> Projections_{};
   std::array<Mat4, kSunShadowRegions> Static_{};
-  std::array<Mat4, kSunShadowRegions> PreparedTransform_{};
+  std::array<ShadowRaster, kSunShadowRegions> AcceptedRaster_{};
+  std::array<ShadowRasterUpdate, kSunShadowRegions> RasterUpdates_{};
   std::array<bool, kSunShadowRegions> DirtyRegions_{};
   std::array<ShadowRegionUniform, kSunShadowRegions> RegionUniforms_{};
   bool CameraCentred_ = false;
