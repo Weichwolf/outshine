@@ -1,4 +1,4 @@
-# Road profile event sampling
+# Rejected road profile station-gap experiment
 
 Owner: [#915](https://github.com/Weichwolf/outshine/issues/915), under
 [#844](https://github.com/Weichwolf/outshine/issues/844).
@@ -9,7 +9,7 @@ The native fixed-pose inventory identifies the largest selected Tokyo package as
 root groups, without coarser replacement surfaces. Finer current-depth culling
 alone did not improve whole-frame cost (#894).
 
-## Candidate and limited proof
+## Candidate and limited counting proof
 
 Road sweep generation currently combines required elevation events with a second
 uniform sampling grid. The candidate starts with all required events and endpoints,
@@ -43,12 +43,45 @@ candidate has 198 stations. Maximum observed Float64 gap excess is 4.93e-14 m;
 this is measured roundoff, not a universal numeric proof. Validation takes 2.27 s
 on the measured host and includes both models and input checks, not only sampling.
 
-The first native candidate produces 2,513,462 road triangles and 2,755,970 vertices:
-14.18% and 9.41% fewer respectively. This fixed-pose image changes 903 pixels by at
-most 53/255. Both original and candidate were opened; image/curve and full-frame
-admission remain open. All eleven Ribbon/ProfiledRoadMesher tests pass without
-changing existing expectations. Counts alone do not justify adoption or a cache
-recipe version change.
+The native candidate produces 2,513,462 road triangles and 2,755,970 vertices:
+`(2928930 - 2513462) / 2928930 = 14.18%` fewer triangles and 9.41% fewer vertices.
+The fixed-pose image changes 903 pixels by at most 53/255. Eleven existing/new
+Ribbon/ProfiledRoadMesher tests pass without changing prior expectations.
+
+Full 60-frame controls on twelve places complete, but counts do not establish a
+useful frame gain. In sixteen normal-priority A/B/B/A windows across four places,
+mean GPU changes range from -2.00% to +10.58%; the latter slowdown does not recur
+in a separate four-window control. The p99 budget remains unmet. These noisy,
+nonisolated windows establish neither a general gain nor a general regression.
+
+Direct point-to-opposing-triangle checks on actual pre-port upper surfaces find
+an original vertex 0.3509328475 m from the candidate surface. A larger 1.205478 m
+same-parameter envelope is **not** a Hausdorff lower bound. Neither measurement
+proves which mesh is closer to the analytical road, nor certifies final contacts.
+Preserving station spacing and events alone does not preserve the swept surface.
+
+**Do not port this candidate.** Product Ribbon source and recipe remain unchanged.
+The complete attempted native diff, including its additional test, is retained in
+[road_station_gap_trial.patch](road_station_gap_trial.patch) as a rejected experiment;
+it is not an automatically applied build input.
+
+## Corrected architectural target
+
+The asset DB retains the complete, adequately resolved functional road geometry,
+profiles and contacts. Vehicle motion/collision must not inherit a display LOD.
+Sparse rendering requires independently loadable render products selected before
+fine payload reads, decode and upload, rather than thinning the functional basis.
+Near-to-far demand uses coarse all-direction visibility; unknown visibility keeps
+an available coarse parent. AABB intersection is not opaque coverage.
+
+The existing SQLite R*Tree, metadata-only selection, parent and level fields are
+reusable; they do not make the current flattened road package selectively readable.
+Fast SSDs and shared CPU/GPU memory on both targets require measured IO, decode,
+copies, residency and bandwidth costs, not inherited HDD-era loading assumptions.
+The current strategy and cross-agent decision live only in #915, #10 and #12.
+
+[Native curve inputs](road_curve_requests.md) support the next geometry/LOD study
+without reducing the functional baseline or rebuilding the whole engine.
 
 ## Reproduce the request comparison
 

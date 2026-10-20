@@ -1,0 +1,106 @@
+diff --git a/src/base/curve/Ribbon.cpp b/src/base/curve/Ribbon.cpp
+index 3c3a790d2..b1f6535ac 100644
+--- a/src/base/curve/Ribbon.cpp
++++ b/src/base/curve/Ribbon.cpp
+@@ -251,6 +251,21 @@ bool AppendSections(const ReferenceLine &along,
+   return true;
+ }
+ 
++bool FillSamplingGap(std::vector<double> &sampling, double toM, double stepM) {
++  const double fromM = sampling.back();
++  if (toM == fromM) { return true; }
++  const auto intervals = static_cast<size_t>((toM - fromM) / stepM);
++  for (size_t at = 1; at <= intervals; ++at) {
++    const double nextM = fromM + static_cast<double>(at) * stepM;
++    if (nextM >= toM) { break; }
++    if (nextM <= sampling.back() || sampling.size() == kMaxRibbonStations) { return false; }
++    sampling.push_back(nextM);
++  }
++  if (sampling.size() == kMaxRibbonStations) { return false; }
++  sampling.push_back(toM);
++  return true;
++}
++
+ std::expected<std::vector<double>, std::string_view>
+ SamplingStations(const Section &section,
+                  double fromM,
+@@ -267,16 +282,16 @@ SamplingStations(const Section &section,
+       })) {
+     return std::unexpected("required ribbon stations must be finite, sorted and in the interval");
+   }
+-  std::vector<double> uniform(*count);
+-  for (size_t at = 0; at < *count; ++at) {
+-    uniform[at] = at + 1 == *count ? toM : std::min(toM, fromM + static_cast<double>(at) * stepM);
++  std::vector<double> sampling;
++  sampling.reserve(std::min(kMaxRibbonStations, *count + required.size()));
++  sampling.push_back(fromM);
++  for (const double eventM : required) {
++    if (!FillSamplingGap(sampling, eventM, stepM)) {
++      return std::unexpected("required ribbon stations exceed the count or precision budget");
++    }
+   }
+-  std::vector<double> sampling(uniform.size() + required.size());
+-  std::ranges::merge(uniform, required, sampling.begin());
+-  const auto duplicates = std::ranges::unique(sampling);
+-  sampling.erase(duplicates.begin(), duplicates.end());
+-  if (sampling.size() > kMaxRibbonStations) {
+-    return std::unexpected("combined ribbon stations exceed their generation budget");
++  if (!FillSamplingGap(sampling, toM, stepM)) {
++    return std::unexpected("ribbon endpoint exceeds the count or precision budget");
+   }
+   return sampling;
+ }
+diff --git a/test/outshine/src/base/curve/Ribbon/RibbonFillsOnlyRequiredStationGaps.cpp b/test/outshine/src/base/curve/Ribbon/RibbonFillsOnlyRequiredStationGaps.cpp
+new file mode 100644
+--- /dev/null
++++ b/test/outshine/src/base/curve/Ribbon/RibbonFillsOnlyRequiredStationGaps.cpp
+@@ -0,0 +1,49 @@
++#include "Ribbon.h"
++#include "Check.h"
++#include <array>
++#include <cstddef>
++#include <string>
++
++int main() {
++  using namespace outshine;
++  using namespace outshine::Test;
++  ReferenceLine line;
++  std::string error;
++  CHECK(line.Lay({}, {{.LengthM = 10}}, error), "straight independent station reference");
++  const Section section{.HalfWidthM = 2, .ShoulderM = 1, .ThicknessM = 0.5};
++  constexpr std::array dense{0.0, 1.5, 4.5, 7.5, 10.0};
++  const auto ribbon = Sweep(line, section, 0, 10, 3, RibbonForm::Surface, dense);
++  CHECK(ribbon.Woven, "required profile events form a valid ribbon");
++  CHECK(ribbon.Stations == dense.size(), "already bounded event gaps need no second raster");
++  if (ribbon.Woven && ribbon.Stations == dense.size()) {
++    for (size_t at = 0; at < dense.size(); ++at) {
++      CHECK_NEAR(ribbon.PositionM[at * kRibbonAcross * 3], dense[at], 0, "m", "event retained");
++    }
++  }
++  constexpr std::array sparse{0.0, 1.5, 1.5, 4.5, 10.0};
++  const auto filled = Sweep(line, section, 0, 10, 3, RibbonForm::Surface, sparse);
++  constexpr std::array expected{0.0, 1.5, 4.5, 7.5, 10.0};
++  CHECK(filled.Woven && filled.Stations == expected.size(), "only the uncovered gap is filled");
++  if (filled.Woven && filled.Stations == expected.size()) {
++    for (size_t at = 0; at < expected.size(); ++at) {
++      const double stationM = filled.PositionM[at * kRibbonAcross * 3];
++      CHECK_NEAR(stationM, expected[at], 0, "m", "gap interpolation retains required stations");
++      if (at > 0) {
++        const double previousM = filled.PositionM[(at - 1) * kRibbonAcross * 3];
++        CHECK(stationM > previousM && stationM - previousM <= 3, "strict bounded station gaps");
++      }
++    }
++  }
++  CHECK(line.Rise({{.AlongM = 0, .Value = 0},
++                   {.AlongM = 1.5, .Value = 2},
++                   {.AlongM = 4.5, .Value = 0},
++                   {.AlongM = 10, .Value = 0}},
++                  error),
++        "narrow height event remains a physical profile constraint");
++  const auto crest = Sweep(line, section, 0, 10, 3, RibbonForm::Surface, dense);
++  CHECK(crest.Woven && crest.Stations == dense.size(), "height knots retain bounded sampling");
++  if (crest.Woven) {
++    CHECK_NEAR(crest.PositionM[kRibbonAcross * 3 + 1], 2, 1e-6, "m", "crest is not skipped");
++  }
++  return Report();
++}
