@@ -1,6 +1,7 @@
 """Reproduce strict local-frame water cuts; write private diagnostics only."""
 
 import argparse
+import dataclasses
 import json
 import resource
 from collections import defaultdict
@@ -15,6 +16,7 @@ from outshine_ref.places.sources import tile_geography
 from physical_boundary import from_world
 from water_colored_reference import ReferenceUpdates
 from water_envelope_fixture import acquire, prepare_parent
+from water_indexed_cell import index_cell, owned
 from water_nodal_height import cell_faces, parameter_triangle, sample_face
 from water_parameter_cut import cut_cell
 from water_region_mesh import boundary_edges
@@ -65,27 +67,58 @@ def verify_contacts(products, refined):
     return contacts
 
 
-def save_product(output, product):
-    arrays = {
-        "parameter_tile_units": product.parameter,
-        "world_ecef_m": product.world,
-        "parent_faces": product.parents,
-        "parent_normals": product.normals,
-        "source_offsets": product.membership.offsets,
-        "source_members": product.membership.members,
-        "source_representative": product.membership.representative,
-        "source_overlap_projected_m2": product.membership.member_area_m2,
-        "source_uncovered_projected_m2": product.membership.uncovered_area_m2,
-        "source_status": product.membership.status,
-        "source_keys_json": np.asarray(json.dumps(product.source_keys)),
-        "cell": np.asarray(product.cell),
-        "context": np.asarray(product.context),
-    }
+def index_replay(output, cut, polygons):
+    output.mkdir(parents=True, exist_ok=True)
+    product, cost = measured(lambda: index_cell(cut, polygons))
+    names = ("parameter", "world", "faces", "parents", "parent_normals", "boundary")
+    csr_names = (
+        "offsets",
+        "members",
+        "representative",
+        "member_area_m2",
+        "uncovered_area_m2",
+        "status",
+    )
+    arrays = {name: getattr(product, name) for name in names}
+    arrays.update(
+        {"source_" + name: getattr(product.membership, name) for name in csr_names}
+    )
+    arrays.update(
+        source_keys_json=np.asarray(json.dumps(product.source_keys)),
+        cell=np.asarray(product.cell),
+        context=np.asarray(product.context),
+    )
     path = output / ("cell-" + "-".join(map(str, product.cell)) + ".npz")
     np.savez_compressed(path, **arrays)
     with np.load(path) as saved:
         for key, value in arrays.items():
             np.testing.assert_array_equal(saved[key], value)
+        # Only this diagnostic reconstructs a soup for the old plotting/contact
+        # oracle. These copies are not part of the retained indexed product.
+        product = dataclasses.replace(
+            product,
+            **{name: owned(saved[name]) for name in names},
+            membership=dataclasses.replace(
+                product.membership,
+                **{name: owned(saved["source_" + name]) for name in csr_names},
+            ),
+        )
+    view = dataclasses.replace(
+        cut,
+        parameter=product.parameter[product.faces],
+        world=product.world[product.faces],
+        parents=product.parents,
+        normals=product.parent_normals[product.parents],
+        membership=product.membership,
+    )
+    np.testing.assert_array_equal(view.parameter, cut.parameter)
+    np.testing.assert_array_equal(view.world, cut.world)
+    np.testing.assert_array_equal(view.normals, cut.normals)
+    report = dict(product.report, cost=cost)
+    report["diagnostic_soup_reconstruction_bytes"] = sum(
+        a.nbytes for a in (view.parameter, view.world, view.normals)
+    )
+    return view, report
 
 
 def source_memberships(product):
@@ -199,11 +232,30 @@ def plot(products, records, output):
     space.set_zlabel("ENU up / m")
     space.set_title(f"Cell detail {detail}; vertical scale exaggerated")
     figure.suptitle(
-        "Finite WATER3 snapshot; triangle soup, not a native asset or hydrology proof"
+        "Finite WATER3 snapshot; indexed NPZ replay, not native or observed hydrology"
     )
     figure.tight_layout()
     figure.savefig(output / "masked-water.png", dpi=150)
     plt.close(figure)
+
+
+def one_face_control():
+    cell = (4, 5, 5)
+    polygon = shapely.Polygon([(5.0625, 5.0625), (5.125, 5.125), (5.125, 5.0625)])
+
+    def planar(keys):
+        xy = parameter_triangle(keys) - cell[1:]
+        return "admitted", np.c_[xy, np.zeros(3)]
+
+    cut, _ = cut_cell(
+        cell, [polygon], ("analytic-triangle",), planar, context="planar-control-v1"
+    )
+    indexed = index_cell(cut, [polygon])
+    np.testing.assert_array_equal(indexed.world[indexed.faces], cut.world)
+    return dict(
+        indexed.report,
+        scope="analytic one-triangle representation overhead; not a physical Earth admission",
+    )
 
 
 def run(path, output):
@@ -248,7 +300,7 @@ def run(path, output):
             "global_coordinates": global_refusals(cell, polygons),
         }
         if product is not None:
-            products[cell] = product
+            products[cell], item["indexed"] = index_replay(output, product, polygons)
             fine, _ = cut_cell(
                 cell,
                 polygons,
@@ -259,7 +311,9 @@ def run(path, output):
             )
             if fine is None:
                 raise ValueError("interior refinement lost admitted parent")
-            refined[cell] = fine
+            refined[cell], item["refined_indexed"] = index_replay(
+                output / "refined", fine, polygons
+            )
             reverse, _ = cut_cell(
                 cell, polygons[::-1], keys[::-1], facet, context=context
             )
@@ -268,7 +322,6 @@ def run(path, output):
             if source_memberships(product) != source_memberships(reverse):
                 raise ValueError("source order changed original source membership")
             item["welding_diagnostic"] = welding_diagnostic(product)
-            save_product(output, product)
         results.append(item)
     report = {
         "source": origin,
@@ -282,12 +335,16 @@ def run(path, output):
         "cut_numerical_array_bytes": sum(
             p.report["numerical_array_bytes"] for p in products.values()
         ),
+        "indexed_numerical_array_bytes": sum(
+            c["indexed"]["indexed_numerical_bytes"] for c in results if "indexed" in c
+        ),
         "root_adapter_work": recipe.work,
+        "one_face_control": one_face_control(),
         "process_peak_rss_bytes_linux": resource.getrusage(
             resource.RUSAGE_SELF
         ).ru_maxrss
         * 1024,
-        "scope": "resident finite source snapshot; no DB IO, welded mesh, native image, hydrology, global completeness or device claim",
+        "scope": "resident finite source snapshot and indexed cuts; no DB IO, native image, hydrology, global completeness or device claim",
     }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     plot(products, records, output)
