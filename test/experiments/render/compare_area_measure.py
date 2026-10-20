@@ -20,13 +20,20 @@ from visible_normal_compare import display, geometry_controls, metrics
 from visible_normal_material import tables
 
 
-def picture(path, fine, candidate):
+def picture(
+    path,
+    fine,
+    candidate,
+    *,
+    reference_label="analytic original GGX",
+    candidate_label="adaptive anchored measure GGX",
+):
     canvas = Image.new("RGB", (1200, 250), "white")
     draw = ImageDraw.Draw(canvas)
     for i, (label, data) in enumerate(
         (
-            ("analytic original GGX", display(fine)),
-            ("adaptive anchored measure GGX", display(candidate)),
+            (reference_label, display(fine)),
+            (candidate_label, display(candidate)),
             (
                 "display error x8",
                 np.clip(8 * abs(display(fine) - display(candidate)), 0, 1),
