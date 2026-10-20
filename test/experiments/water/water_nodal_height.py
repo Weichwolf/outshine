@@ -115,9 +115,21 @@ def parameter_triangle(keys):
     return np.array([key[1:] for key in keys], dtype=float) / SUBDIVISIONS
 
 
-def sample_face(keys, world, xy):
-    """One globally keyed facet, with no consumer-dependent ENU lifting."""
-    triangle = parameter_triangle(keys)
+def sample_face(keys, world, xy, *, origin=(0, 0)):
+    """Sample tile coordinates relative to an explicit integer Mercator origin.
+
+    Clip in that same frame before calling: subtracting an origin after global
+    GEOS clipping cannot recover precision already lost at the intersection.
+    Node identity, the ECEF plane and the containment guard remain unchanged.
+    """
+    origin = np.asarray(origin, dtype=float)
+    if (
+        origin.shape != (2,)
+        or not np.isfinite(origin).all()
+        or np.any(origin != np.floor(origin))
+    ):
+        raise ValueError("integer Mercator origin pair required")
+    triangle = parameter_triangle(keys) - origin
     xy = np.asarray(xy, dtype=float)
     if xy.ndim != 2 or xy.shape[1] != 2 or not np.isfinite(xy).all():
         raise ValueError("finite Mercator query pairs required")
