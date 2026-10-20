@@ -445,6 +445,14 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Definitionen, Diagrammen und konvexer Projektion optisch geprüft. #899 prüft
   zunächst einzelne Dreiecksumbrae als geometrischen Flächensupport; keine
   Übernahme des Raster-/Occluder-Fusion-Systems oder Gerätefreigabe daraus.
+- **Relief Texture Mapping**, Oliveira / Bishop / McAllister, SIGGRAPH 2000.
+  [Publikation](https://doi.org/10.1145/344779.344947) ·
+  [Autoren-PDF](https://www.inf.ufrgs.br/~oliveira/pubs_files/RTM_low_res.pdf) ·
+  [PDF](geometry/siggraph/2000-relief-texture-mapping.pdf).
+  Bild-/Tiefenfelder und Parallaxe als Verfahrensgrundlage; Seiten 2/3 mit
+  Projektionsgleichungen und Ablaufdiagramm optisch geprüft. #899 vergleicht
+  zunächst analytische Randfelder; deren Daten-/Suchkosten ersetzen keine
+  Prüfung des publizierten Relief-Prewarps oder einer gefilterten Fernhierarchie.
 - **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
   [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
   [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·

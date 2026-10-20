@@ -1,7 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define VARYING in
-#define GROUND_WORLD_POSITION
 #include "subjectVaryings.glsl"
 #include "subjectOutput.glsl"
 #include "material.glsl"
@@ -28,6 +27,7 @@ const float kPi = acos(-1.0);
 #include "groundFineNormal.glsl"
 #endif
 void main() {
+  readSubjectVaryings();
 #if GROUND_PATCHES
   vec3 surfaceNormal = groundFineNormal();
 #else
