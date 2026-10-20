@@ -24,11 +24,8 @@ def velocities(ids, normals):
     parallel = abs(determinant) < 1e-12
     if np.any(parallel & (np.sum(left * right, axis=1) < 0)):
         raise ValueError("Opposite parallel fronts did not extinguish")
-    velocity = right.copy()
-    moving = ~parallel
-    velocity[moving, 0] = (right[moving, 1] - left[moving, 1]) / determinant[moving]
-    velocity[moving, 1] = (left[moving, 0] - right[moving, 0]) / determinant[moving]
-    return velocity
+    bisector = left + right
+    return 2 * bisector / np.sum(bisector * bisector, axis=1)[:, None]
 
 
 def collision(loops, motions, normals, intercepts, now, tolerance):
@@ -37,7 +34,6 @@ def collision(loops, motions, normals, intercepts, now, tolerance):
     ends = np.concatenate([np.roll(p, -1, axis=0) for _, p in loops])
     end_speed = np.concatenate([np.roll(v, -1, axis=0) for v in motions])
     ids = np.concatenate([ids for ids, _ in loops])
-    previous = np.concatenate([np.roll(ids, 1) for ids, _ in loops])
     following = np.concatenate(
         [
             np.roll(np.arange(offset, offset + len(p)), -1)
@@ -82,28 +78,18 @@ def collision(loops, motions, normals, intercepts, now, tolerance):
         abs(times - minimum) <= 64 * np.finfo(float).eps * max(1, now + minimum)
     )
     events = []
-    for vertex, edge, point in zip(
-        a[simultaneous], b[simultaneous], target[simultaneous], strict=True
-    ):
-        planes = np.array([previous[vertex], ids[vertex], ids[edge]])
-        matrix = np.c_[normals[planes], -np.ones(3)]
-        solution, _, rank, _ = np.linalg.lstsq(matrix, -intercepts[planes], rcond=None)
-        if rank == 3:
-            point = solution[:2]
+    for vertex, point in zip(a[simultaneous], target[simultaneous], strict=True):
         events.append(([vertex], point))
     for edge in np.flatnonzero(
         abs(edge_times - minimum) <= 64 * np.finfo(float).eps * max(1, now + minimum)
     ):
         vertex = following[edge]
-        planes = np.array([previous[edge], ids[edge], ids[vertex]])
-        matrix = np.c_[normals[planes], -np.ones(3)]
-        solution, _, rank, _ = np.linalg.lstsq(matrix, -intercepts[planes], rcond=None)
         best = (
             edge
             if np.linalg.norm(speed[edge]) < np.linalg.norm(speed[vertex])
             else vertex
         )
-        point = solution[:2] if rank == 3 else points[best] + speed[best] * minimum
+        point = points[best] + speed[best] * minimum
         events.append(([edge, vertex], point))
     return minimum, len(points) ** 2, events
 
@@ -154,7 +140,7 @@ def prepare(polygon, limits=None, work=None):
         dt, count, events = collision(
             loops, motions, normals, intercepts, now, tolerance
         )
-        work["contact_event_solves"] = work.get("contact_event_solves", 0) + len(events)
+        work["contact_events"] = work.get("contact_events", 0) + len(events)
         tests += count
         before = np.concatenate([p for _, p in loops])
         after = before + np.concatenate(motions) * dt
