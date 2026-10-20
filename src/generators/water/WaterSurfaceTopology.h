@@ -51,5 +51,23 @@ BuildWaterSurfaceTopology(const WaterAsset &water,
 
 [[nodiscard]] std::expected<std::vector<WaterSurfaceTopology>, WaterTopologyError>
 SplitWaterSurfaceComponents(WaterSurfaceTopology topology, const std::stop_token &stop = {});
+
+struct WaterRoundoffReport {
+  uint32_t ContractedEdges = 0;
+  double MaximumDisplacementBoundM = 0;
+  double SweptAreaBoundM2 = 0;
+};
+
+struct WaterRoundoffBudget {
+  uint32_t Edges = 64;
+  std::span<const uint32_t> ProtectedVertices;
+};
+
+[[nodiscard]] std::expected<WaterRoundoffReport, WaterTopologyError>
+ContractWaterRoundoffEdges(const WaterAsset &water,
+                           const TangentFrame &frame,
+                           WaterSurfaceTopology &topology,
+                           WaterRoundoffBudget budget = {},
+                           const std::stop_token &stop = {});
 }
 #endif

@@ -168,6 +168,20 @@ std::expected<void, Error> BuildBucket(const WaterAsset &water,
       Reject(plan, selected, topology.error());
       continue;
     }
+    const auto roundoff = ContractWaterRoundoffEdges(water, frame, *topology, {}, stop);
+    if (!roundoff) {
+      if (roundoff.error() == Error::Canceled) { return std::unexpected(Error::Canceled); }
+      Reject(plan, selected, roundoff.error());
+      continue;
+    }
+    plan.Roundoff.ContractedEdges += roundoff->ContractedEdges;
+    plan.Roundoff.MaximumDisplacementBoundM =
+        std::max(plan.Roundoff.MaximumDisplacementBoundM, roundoff->MaximumDisplacementBoundM);
+    if (roundoff->SweptAreaBoundM2 > 0) {
+      plan.Roundoff.SweptAreaBoundM2 =
+          std::nextafter(plan.Roundoff.SweptAreaBoundM2 + roundoff->SweptAreaBoundM2,
+                         std::numeric_limits<double>::infinity());
+    }
     auto bodies = SplitWaterSurfaceComponents(std::move(*topology), stop);
     if (!bodies) {
       if (bodies.error() == Error::Canceled) { return std::unexpected(Error::Canceled); }

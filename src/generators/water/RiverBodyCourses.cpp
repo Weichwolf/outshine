@@ -143,4 +143,10 @@ std::expected<void, WaterTopologyError> BindRiverCourses(const WaterAsset &water
   }
   return {};
 }
+
+std::optional<double> WaterCourseFaceEntry(const WaterSurfaceTopology &topology,
+                                           uint32_t face,
+                                           const std::array<std::array<double, 2>, 2> &segment) {
+  return SegmentCoverage(topology, face, segment);
+}
 }
