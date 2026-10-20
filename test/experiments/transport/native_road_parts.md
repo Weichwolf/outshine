@@ -47,8 +47,9 @@ native_road_parts.load() returns manifest, metadata, parts, immutable payload an
 one shared native material-table asset. checked_payload(part, payload) returns
 borrowed stream views without copying. Whole-member and per-stream SHA-256 hashes,
 sizes, finite words, original index ownership and junction bindings are checked.
-Tests retain negative controls for cross-part indices, missing incident payload
-and changed cut values. Normal invocation never regenerates this fixture.
+Tests retain negative controls for cross-part indices, missing incident payload,
+changed gate heights, leg cuts and leg half-widths. The latter two must match the
+edge cut and gate width exactly. Normal invocation never regenerates this fixture.
 
 The tar archive has four regular members: metadata.json, parts.jsonl, payloads.bin
 and materials.asset. No archive extraction is needed. Payloads contain original
