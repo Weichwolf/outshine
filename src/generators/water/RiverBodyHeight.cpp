@@ -19,14 +19,12 @@ namespace {
 using Error = WaterHeightError;
 
 struct Courses {
-  std::vector<WaterCourseSegment> All, Falling;
-  std::vector<Vec3> Directions, Downstream;
+  std::vector<WaterCourseSegment> Segments;
+  std::vector<Vec3> Directions;
 };
 
-std::expected<Courses, Error> ReadCourses(const WaterAsset &water,
-                                          const TangentFrame &frame,
-                                          const RiverBody &body,
-                                          const RiverHeightBudget &budget) {
+std::expected<Courses, Error>
+ReadCourses(const WaterAsset &water, const TangentFrame &frame, const RiverBody &body) {
   Courses result;
   for (const auto index : body.Courses) {
     const auto &course = water.Courses()[index];
@@ -35,7 +33,7 @@ std::expected<Courses, Error> ReadCourses(const WaterAsset &water,
       return std::unexpected(Error::InvalidInput);
     }
     for (uint32_t at = 1; at < course.PointCount; ++at) {
-      if (result.All.size() == WaterCourseProfile::MaximumSegments) {
+      if (result.Segments.size() == WaterCourseProfile::MaximumSegments) {
         return std::unexpected(Error::CapacityExceeded);
       }
       std::array<Vec3, 2> placed;
@@ -56,13 +54,8 @@ std::expected<Courses, Error> ReadCourses(const WaterAsset &water,
         continue;
       }
       const auto direction = placed[1] - placed[0];
-      result.All.push_back(segment);
+      result.Segments.push_back(segment);
       result.Directions.push_back(direction);
-      const double drop = segment.ModelHeightsM[0] - segment.ModelHeightsM[1];
-      if (std::abs(drop) > budget.MinimumDirectionalDropM) {
-        result.Falling.push_back(segment);
-        result.Downstream.push_back(direction * std::copysign(1.0, drop));
-      }
     }
   }
   return result;
@@ -78,8 +71,8 @@ std::expected<void, Error> CourseGrades(const Courses &courses,
                                         const RiverHeightBudget &budget,
                                         std::vector<WaterGradeConstraint> &grades) {
   const auto &surface = body.Surface;
-  for (size_t at = 0; at < courses.Falling.size(); ++at) {
-    const auto &points = courses.Falling[at].Points;
+  for (size_t at = 0; at < courses.Segments.size(); ++at) {
+    const auto &points = courses.Segments[at].Points;
     const std::array<std::array<double, 2>, 2> segment{
         {{points[0].EastM, points[0].NorthM}, {points[1].EastM, points[1].NorthM}}};
     Box bounds;
@@ -101,9 +94,9 @@ std::expected<void, Error> CourseGrades(const Courses &courses,
             return;
           }
           grades.push_back({.Face = face,
-                            .DirectionEnu = courses.Downstream[at],
+                            .DirectionEnu = courses.Directions[at],
                             .Lower = -budget.DownGrade,
-                            .Upper = 0});
+                            .Upper = budget.DownGrade});
         });
     if (failure) { return std::unexpected(*failure); }
   }
@@ -131,15 +124,14 @@ PrimaryGrades(const Courses &courses,
     const auto nearest = directionProfile.Sample(center);
     const auto cap = BoundWaterFacetNormals(frame, triangle, bounds);
     if (!nearest || !cap) { return std::unexpected(Error::OutsidePhysicalDomain); }
-    const auto direction = courses.Falling.empty() ? courses.Directions[nearest->NearestSegment]
-                                                   : courses.Downstream[nearest->NearestSegment];
+    const auto direction = courses.Directions[nearest->NearestSegment];
     const auto tangent = direction - cap->Up * Dot(direction, cap->Up);
     const double length = Length(tangent);
     if (!std::isfinite(length) || length <= 0) { return std::unexpected(Error::InvalidInput); }
     grades[at] = {.Face = at,
                   .DirectionEnu = direction,
                   .Lower = -budget.DownGrade,
-                  .Upper = courses.Falling.empty() ? budget.DownGrade : 0};
+                  .Upper = budget.DownGrade};
     grades[at + count] = {.Face = at,
                           .DirectionEnu = Cross(cap->Up, tangent * (1 / length)),
                           .Lower = -budget.CrossGrade,
@@ -159,7 +151,6 @@ std::expected<WaterHeightFit, WaterHeightError> FitRiverBody(const WaterAsset &w
   if (surface.VerticesXY.empty() || surface.Faces.empty() || body.Courses.empty() ||
       !std::isfinite(budget.DownGrade) || budget.DownGrade <= 0 ||
       !std::isfinite(budget.CrossGrade) || budget.CrossGrade <= 0 ||
-      !std::isfinite(budget.MinimumDirectionalDropM) || budget.MinimumDirectionalDropM < 0 ||
       !std::isfinite(budget.TargetMarginM) || budget.TargetMarginM <= 0) {
     return std::unexpected(Error::InvalidInput);
   }
@@ -168,12 +159,10 @@ std::expected<WaterHeightFit, WaterHeightError> FitRiverBody(const WaterAsset &w
           budget.Fit.Rows) {
     return std::unexpected(Error::CapacityExceeded);
   }
-  const auto courses = ReadCourses(water, frame, body, budget);
+  const auto courses = ReadCourses(water, frame, body);
   if (!courses) { return std::unexpected(courses.error()); }
-  const auto profile = WaterCourseProfile::Build(courses->All);
-  const auto directions =
-      WaterCourseProfile::Build(courses->Falling.empty() ? courses->All : courses->Falling);
-  if (!profile || !directions) { return std::unexpected(Error::InvalidInput); }
+  const auto profile = WaterCourseProfile::Build(courses->Segments);
+  if (!profile) { return std::unexpected(Error::InvalidInput); }
   std::vector<double> targets;
   targets.reserve(surface.VerticesXY.size());
   for (const auto &xy : surface.VerticesXY) {
@@ -188,7 +177,7 @@ std::expected<WaterHeightFit, WaterHeightError> FitRiverBody(const WaterAsset &w
   const auto range = std::ranges::minmax_element(targets);
   const std::array<double, 2> bounds{*range.min - budget.TargetMarginM,
                                      *range.max + budget.TargetMarginM};
-  auto grades = PrimaryGrades(*courses, *directions, body, frame, budget, bounds);
+  auto grades = PrimaryGrades(*courses, *profile, body, frame, budget, bounds);
   if (!grades) { return std::unexpected(grades.error()); }
   const auto extra = CourseGrades(*courses, body, budget, *grades);
   if (!extra) { return std::unexpected(extra.error()); }

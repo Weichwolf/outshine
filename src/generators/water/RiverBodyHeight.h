@@ -10,12 +10,10 @@ namespace outshine::Generators {
 struct RiverHeightBudget {
   static constexpr double DefaultDownGrade = .1;
   static constexpr double DefaultCrossGrade = .005;
-  static constexpr double DefaultDirectionalDropM = .01;
   static constexpr double DefaultTargetMarginM = 20;
   WaterHeightBudget Fit;
   double DownGrade = DefaultDownGrade;
   double CrossGrade = DefaultCrossGrade;
-  double MinimumDirectionalDropM = DefaultDirectionalDropM;
   double TargetMarginM = DefaultTargetMarginM;
 };
 
