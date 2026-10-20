@@ -1,0 +1,109 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "cullView.glsl"
+layout(local_size_x = 64) in;
+
+struct Group {
+  vec4 low;
+  vec4 high;
+  uvec4 info;
+};
+
+layout(std430, set = 0, binding = 0) readonly buffer Groups {
+  Group groups[];
+};
+
+layout(std430, set = 0, binding = 1) readonly buffer Models {
+  mat4 models[];
+};
+
+layout(std430, set = 0, binding = 2) readonly buffer Pyramid {
+  float pyramid[];
+};
+
+layout(std430, set = 1, binding = 0) writeonly buffer Result {
+  uvec4 result[];
+};
+
+const float epsilon = 64.0 * 1.1920928955078125e-7;
+
+void finish(uint id, uint reason, uint taps) {
+  result[id] = uvec4(reason == 1u || reason == 2u ? 0u : groups[id].info.y, reason, taps, 0u);
+}
+
+void main() {
+  uint id = gl_GlobalInvocationID.x;
+  if (id >= view.jobs) { return; }
+  Group group = groups[id];
+  mat4 model = models[group.info.x];
+  vec3 centre = 0.5 * (group.low.xyz + group.high.xyz);
+  vec3 halfSize = 0.5 * (group.high.xyz - group.low.xyz);
+  vec3 worldCentre = (model * vec4(centre, 1)).xyz + view.shift.xyz;
+  for (uint at = 0u; at < 6u; ++at) {
+    vec4 plane = view.planes[at];
+    if (dot(plane.xyz, plane.xyz) < 0.5) { continue; }
+    float radius = dot(abs(transpose(mat3(model)) * plane.xyz), halfSize);
+    float distance = dot(plane.xyz, worldCentre) + plane.w;
+    float error = epsilon * (dot(abs(plane.xyz), abs(worldCentre)) + abs(plane.w) + radius + 1.0);
+    if (distance + radius < -error) {
+      finish(id, 1u, 0u);
+      return;
+    }
+  }
+  if (view.occludes == 0u) {
+    finish(id, 0u, 0u);
+    return;
+  }
+  vec3 maximum = max(abs(group.low.xyz), abs(group.high.xyz));
+  vec3 worldMagnitude = abs(model[0].xyz) * maximum.x + abs(model[1].xyz) * maximum.y +
+                        abs(model[2].xyz) * maximum.z + abs(model[3].xyz) + abs(view.shift.xyz);
+  vec4 error =
+      epsilon * max(vec4(1e-10),
+                    abs(view.clip[0]) * worldMagnitude.x + abs(view.clip[1]) * worldMagnitude.y +
+                        abs(view.clip[2]) * worldMagnitude.z + abs(view.clip[3]));
+  vec3 least = vec3(3.4e38), most = vec3(-3.4e38);
+  for (uint corner = 0u; corner < 8u; ++corner) {
+    vec3 point = mix(group.low.xyz,
+                     group.high.xyz,
+                     bvec3((corner & 1u) != 0u, (corner & 2u) != 0u, (corner & 4u) != 0u));
+    vec4 world = model * vec4(point, 1);
+    vec4 clip = view.clip * vec4(world.xyz + view.shift.xyz, 1);
+    float w0 = clip.w - error.w, w1 = clip.w + error.w;
+    if (w0 <= 1e-6 || any(isnan(clip)) || any(isinf(clip))) {
+      finish(id, 3u, 0u);
+      return;
+    }
+    float r0 = 1.0 / w0, r1 = 1.0 / w1;
+    vec3 a = (clip.xyz - error.xyz) * r0, b = (clip.xyz - error.xyz) * r1;
+    vec3 c = (clip.xyz + error.xyz) * r0, d = (clip.xyz + error.xyz) * r1;
+    least = min(least, min(min(a, b), min(c, d)));
+    most = max(most, max(max(a, b), max(c, d)));
+  }
+  vec2 lo = clamp(vec2(least.x * .5 + .5, .5 - most.y * .5), 0, 1);
+  vec2 hi = clamp(vec2(most.x * .5 + .5, .5 - least.y * .5), 0, 1);
+  vec2 source = vec2(view.sourceWide, view.sourceHigh);
+  float across = .5 * max((hi.x - lo.x) * source.x, (hi.y - lo.y) * source.y);
+  uint level = 0u;
+  while (level + 1u < 4u && across > 2.0) {
+    across *= .5;
+    ++level;
+  }
+  uint wide = view.pyramidWide[level], high = view.pyramidHigh[level],
+       offset = view.pyramidAt[level];
+  vec2 blocks = source / float(2u << level);
+  uvec2 from = min(uvec2(lo * blocks), uvec2(wide - 1u, high - 1u));
+  uvec2 to = min(uvec2(hi * blocks), uvec2(wide - 1u, high - 1u));
+  if (any(greaterThanEqual(to - from, uvec2(4)))) {
+    finish(id, 4u, 0u);
+    return;
+  }
+  float farthest = 1.0;
+  uint taps = 0u;
+  for (uint y = from.y; y <= to.y; ++y) {
+    for (uint x = from.x; x <= to.x; ++x) {
+      farthest = min(farthest, pyramid[offset + y * wide + x]);
+      ++taps;
+    }
+  }
+  finish(id, most.z < farthest ? 2u : 0u, taps);
+}
