@@ -1,4 +1,5 @@
 #include "GroundRegionPreparation.h"
+#include "PreparedRoadPages.h"
 #include <atomic>
 #include <chrono>
 #include <expected>
@@ -15,14 +16,40 @@ struct GroundRegionPreparation::Work {
   std::atomic<bool> Complete{false};
 };
 
-GroundRegionPreparation::GroundRegionPreparation(Tasks &pool, Factory factory)
+namespace {
+std::expected<void, std::string>
+RestoreSurfacePages(GroundRegionPreparation::Completed &result,
+                    const std::shared_ptr<Generators::PreparedRoadPages> &pages) {
+  if (!result.Loaded || result.Loaded->Region.SurfaceManifest.empty()) { return {}; }
+  if (!pages) { return std::unexpected("ground region surface products have no cache service"); }
+  auto manifest = pages->LoadManifest(result.Loaded->Region.SurfaceManifest);
+  if (!manifest) { return std::unexpected(std::move(manifest.error())); }
+  if (!*manifest) {
+    result.Loaded.reset();
+    result.SurfacePages.reset();
+  } else {
+    result.SurfacePages = std::move(**manifest);
+  }
+  return {};
+}
+}
+
+GroundRegionPreparation::GroundRegionPreparation(
+    Tasks &pool, Factory factory, std::shared_ptr<Generators::PreparedRoadPages> pages)
     : Work_(std::make_shared<Work>()) {
-  const auto run = [work = Work_, stop = Stop_.get_token(), factory = std::move(factory)] {
+  const auto run = [work = Work_,
+                    stop = Stop_.get_token(),
+                    factory = std::move(factory),
+                    pages = std::move(pages)] {
     const auto began = std::chrono::steady_clock::now();
     if (stop.stop_requested()) {
       work->Result.emplace(std::unexpected("ground region preparation canceled"));
     } else {
       work->Result = factory(stop);
+      if (*work->Result) {
+        const auto restored = RestoreSurfacePages(work->Result->value(), pages);
+        if (!restored) { work->Result.emplace(std::unexpected(restored.error())); }
+      }
       if (stop.stop_requested()) {
         work->Result.emplace(std::unexpected("ground region preparation canceled"));
       } else if (*work->Result) {

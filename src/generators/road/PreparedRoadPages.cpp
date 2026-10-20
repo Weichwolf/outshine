@@ -49,7 +49,14 @@ std::expected<std::optional<PreparedRoadPages::Loaded>, std::string>
 PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::string &requestKey) {
   auto cached = Cache_->Load(key, bytesMost);
   if (!cached) { return std::unexpected("could not load the native road page package"); }
-  if (!*cached) { return std::optional<Loaded>{}; }
+  if (!*cached) {
+    const auto stale = Cache_->Find(key);
+    if (!stale) { return std::unexpected("could not inspect the missing road page"); }
+    if (*stale && (**stale).Kind == "road-render-page" && !Cache_->Remove(key)) {
+      return std::unexpected("could not remove the missing road page metadata");
+    }
+    return std::optional<Loaded>{};
+  }
   auto record = (**cached).Record();
   if (record.Kind != "road-render-page") {
     return std::unexpected("road page metadata does not match its owning format");
@@ -90,6 +97,31 @@ PreparedRoadPages::Load(const RoadPageAddress &address, size_t bytesMost) {
   }
   const std::scoped_lock lock(Lock_);
   return Read(key, bytesMost);
+}
+
+std::expected<std::optional<AssetRecord>, std::string>
+PreparedRoadPages::Inspect(const RoadPageAddress &address, size_t bytesMost) {
+  const auto key = RoadPageKey(address);
+  if (key.empty() || !FitsHeader(address, bytesMost)) {
+    return std::unexpected("road page metadata needs a valid bounded address");
+  }
+  const std::scoped_lock lock(Lock_);
+  auto record = Cache_->Find(key);
+  if (!record) { return std::unexpected("could not inspect the native road page metadata"); }
+  if (!*record) { return std::nullopt; }
+  if ((**record).Kind != "road-render-page") {
+    return std::unexpected("road page metadata differs from its owning format");
+  }
+  if ((**record).Level != address.Level || (**record).ByteCount == 0) {
+    if (!Cache_->Remove(key)) {
+      return std::unexpected("could not remove invalid road page metadata");
+    }
+    return std::nullopt;
+  }
+  if ((**record).ByteCount > bytesMost) {
+    return std::unexpected("road page metadata exceeds its native payload budget");
+  }
+  return std::move(*record);
 }
 
 std::expected<std::optional<PreparedRoadPages::Loaded>, std::string>

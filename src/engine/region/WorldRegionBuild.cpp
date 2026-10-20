@@ -67,8 +67,6 @@
 namespace outshine {
 namespace Says {
 constexpr auto MaterialCreationFailed = "could not create ground materials";
-constexpr auto CorridorTerrainIncomplete =
-    "corridor generation reached terrain without a DEM field";
 constexpr auto GroundContactIncomplete = "ground patchwork has no ready contact terrain";
 constexpr auto GroundDetailCameraInvalid =
     "ground detail needs a finite camera eye, positive lens and frame height";
@@ -149,8 +147,6 @@ constexpr size_t kRefinedStructureCandidates = 4;
 constexpr size_t kTerrainSheetsPerFrame = 48;
 constexpr size_t kTerrainResidencySheetsPerFrame = 64;
 constexpr size_t kEarthworkStampUnitsPerFrame = 2048;
-constexpr size_t kCorridorLanesPerFrame = 128;
-constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kClassUploadBytesPerFrame = 1u << 20u;
 constexpr size_t kHaloNodesPerFrame = 32768;
@@ -256,7 +252,8 @@ ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
     return GroundRegionPreparation::Completed{.Key = std::move(key),
                                               .Loaded = std::move(*demanded),
                                               .RequestKey = std::move(request),
-                                              .RequestHit = true};
+                                              .RequestHit = true,
+                                              .SurfacePages = nullptr};
   }
   if (std::ranges::any_of(vectors.Tiles(),
                           [](const auto &tile) { return tile.InputDigest.empty(); })) {
@@ -271,8 +268,10 @@ ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
     auto bound = assets.BindRequest(key, request);
     if (!bound) { return std::unexpected(std::move(bound.error())); }
   }
-  return GroundRegionPreparation::Completed{
-      .Key = std::move(key), .Loaded = std::move(*loaded), .RequestKey = std::move(request)};
+  return GroundRegionPreparation::Completed{.Key = std::move(key),
+                                            .Loaded = std::move(*loaded),
+                                            .RequestKey = std::move(request),
+                                            .SurfacePages = nullptr};
 }
 
 bool GroundSourcesReady(const Ground::SurfacePreparation &stack, GroundQuality quality) {
@@ -1453,7 +1452,8 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
         return ReadGroundRegion(
             *assets, *vectors, shape, *native, std::move(request), checked, stop);
       },
-      Phase::Loading);
+      Phase::Loading,
+      World.Stack.RoadAssets());
   return GroundBuildProgress::Pending;
 }
 
@@ -1492,6 +1492,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   }
   auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
   if (hit) { phase = Phase::Hit; }
+  if (result.Loaded) { state.HoldRoadManifest(std::move(result.SurfacePages)); }
   state.FinishRegion(std::move(result.Key), phase, std::move(result.RequestKey));
   return GroundBuildProgress::Ready;
 }
@@ -1550,122 +1551,6 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundPatchwork(const A
   }
   state.Lays(*std::move(made));
   return GroundBuildProgress::Pending;
-}
-
-bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
-                                         const Around &coverage,
-                                         WorldRegionBuildState &state) {
-  const auto began = std::chrono::steady_clock::now();
-  if (state.RetiringCorridors()) {
-    if (!state.AdvancesCorridorRetirement(began)) { return true; }
-    state.AdvanceStage();
-    Published.RecordMetric(
-        "ground candidate: corridor job retirement", state.LongestCorridorRetirementMs(), "ms");
-    Published.RecordMetric(
-        "ground candidate: longest corridor slice", state.LongestCorridorSliceMs(), "ms");
-    return true;
-  }
-  GroundBuildProducts &build = state.Candidate().Products();
-  const TriangleBvh surface;
-  Published.RecordMetric("ground: triangles the drape can reach",
-                         static_cast<double>(build.Indices.size()) / 3.0,
-                         "triangles");
-  Drape drapedOver{.Surface = surface, .Field = {}};
-  size_t fieldMisses = 0;
-  std::optional<Drape::EastNorth> firstFieldMiss;
-  drapedOver.Field = [&coverage, &build, &fieldMisses, &firstFieldMiss](Drape::EastNorth at) {
-    const std::optional<double> sampled = build.Sheets.FieldUpM(coverage.Zoom, at);
-    fieldMisses += sampled ? 0u : 1u;
-    if (!sampled && !firstFieldMiss) { firstFieldMiss = at; }
-    return sampled;
-  };
-  std::vector<EarthworkStamp> corridors;
-  std::vector<DiagnosticSample> notes;
-  const ::outshine::Generators::Osm::RegionSources &sources = state.Candidate().Sources();
-  const Generators::Corridors::Site site{
-      .Vectors = sources.Vectors.get(),
-      .Ways = sources.Ways,
-      .Materials = World.Stack.Materials(),
-      .Vegetation = World.Stack.Vegetation(),
-      .Ground = &World.Stack.Ground(),
-      .Network = build.StreetGraph.get(),
-      .Standing = standing,
-      .Draped = drapedOver,
-      .Classes = build.TerrainClassificationMap,
-      .WaterUpM = [&sources, &standing](LongitudeLatitude at) -> std::optional<double> {
-        return Generators::WaterSurfaceUpAt(sources.WaterBodies, standing, at);
-      },
-      .CensusAt = state.Began(),
-      .EyeLatDeg = coverage.LatitudeDeg,
-      .EyeLonDeg = coverage.LongitudeDeg,
-      .Projection = build.Footprints.Projection()};
-  if (state.CorridorJob() == nullptr) {
-    const auto jobAt = std::chrono::steady_clock::now();
-    state.BeginsCorridors(Generators::Corridors::Begin(site));
-    Published.RecordMetric(
-        "ground candidate: corridor job admission",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - jobAt).count(),
-        "ms");
-    const auto inventoryAt = std::chrono::steady_clock::now();
-    state.SamplesProductPeak();
-    Published.RecordMetric(
-        "ground candidate: corridor product inventory",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - inventoryAt)
-            .count(),
-        "ms");
-    state.SamplesCorridorSlice(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-            .count());
-    return true;
-  }
-  const auto paved = World.Shipping.Corridors().Advance(*state.CorridorJob(),
-                                                        site,
-                                                        kCorridorLanesPerFrame,
-                                                        kCorridorNodesPerFrame,
-                                                        build.Ground,
-                                                        corridors,
-                                                        notes);
-  state.SamplesProductPeak();
-  if (!paved) {
-    Error = paved.error();
-    return false;
-  }
-  if (fieldMisses > 0) {
-    if (firstFieldMiss) {
-      const ::outshine::Generators::Osm::OsmField *const shapes = sources.Vectors.get();
-      const int vectorZoom =
-          shapes != nullptr && !shapes->Tiles().empty() ? shapes->Tiles().front().Z : -1;
-      Error = std::format("{}: east {:.3f} m, north {:.3f} m, {} misses, sheet zoom {}, "
-                          "DEM zoom {}, OSM zoom {}",
-                          Says::CorridorTerrainIncomplete,
-                          firstFieldMiss->EastM,
-                          firstFieldMiss->NorthM,
-                          fieldMisses,
-                          coverage.Zoom,
-                          World.Stack.Ground().BlockZoom(),
-                          vectorZoom);
-    } else {
-      Error = Says::CorridorTerrainIncomplete;
-    }
-    return false;
-  }
-  if (!*paved) {
-    state.SamplesCorridorSlice(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-            .count());
-    return true;
-  }
-  for (const DiagnosticSample &one : notes) {
-    Published.RecordMetric(one.Name, one.Value, one.Unit.c_str());
-  }
-  Published.RecordMetric(
-      "ground candidate: corridor drape field misses", static_cast<double>(fieldMisses), "queries");
-  state.HoldsCorridors(std::move(corridors));
-  Published.RecordMetric("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
-  state.BeginsCorridorRetirement();
-  state.SamplesCorridorSlice(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
-  return true;
 }
 
 bool Engine::State::BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildState &state) {
@@ -1771,29 +1656,50 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
       .NetworkWays = build.StreetGraphWayCount,
       .GroundSurface = build.GroundSurface.index(),
       .GroundAlbedo = state.Candidate().GroundAlbedo(),
-      .MissingRims = build.RimsMissing});
+      .MissingRims = build.RimsMissing,
+      .SurfaceManifest =
+          state.RoadManifest()
+              ? Generators::RoadPageManifestKey(*state.RoadManifest(),
+                                                Generators::PreparedRoadPages::ManifestBytesMost)
+              : std::string{}});
   const auto key = state.RegionKey();
   const auto request = state.RegionRequest();
+  const auto roadManifest = state.RoadManifest();
+  const auto roadAssets = World.Stack.RoadAssets();
   const auto water =
       std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
   state.BeginRegion(
       *World.Pool,
-      [assets, region, key, request, water](const std::stop_token &stop)
+      [assets, region, key, request, water, roadManifest, roadAssets](const std::stop_token &stop)
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
         if (stop.stop_requested()) { return std::unexpected("ground region publication canceled"); }
-        const auto bounds = GroundRegionBoundsEcef(*region);
+        if (roadManifest) {
+          if (!roadAssets) { return std::unexpected("road manifest has no native cache service"); }
+          const auto stored = roadAssets->StoreManifest(*roadManifest);
+          if (!stored) { return std::unexpected(stored.error()); }
+          if (*stored != region->SurfaceManifest) {
+            return std::unexpected("stored road manifest differs from its region reference");
+          }
+        }
+        auto bounds = GroundRegionBoundsEcef(*region);
+        if (roadManifest) { bounds.Cover(Generators::RoadPageManifestBounds(*roadManifest)); }
         auto loaded = assets->Store(key, bounds, *region, *water, request);
         if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-        return GroundRegionPreparation::Completed{
-            .Key = key, .Loaded = std::move(*loaded), .RequestKey = request};
+        return GroundRegionPreparation::Completed{.Key = key,
+                                                  .Loaded = std::move(*loaded),
+                                                  .RequestKey = request,
+                                                  .SurfacePages = nullptr};
       },
-      Phase::Storing);
+      Phase::Storing,
+      roadAssets);
   return GroundBuildProgress::Pending;
 }
 
 bool Engine::State::PublishGroundGeometry(WorldRegionBuildState &state) {
   const GroundBuildProgress stored = StoreGroundRegion(state);
   if (stored != GroundBuildProgress::Ready) { return stored != GroundBuildProgress::Failed; }
+  const auto roadPages = RestoreGroundRoadPages(state);
+  if (roadPages != GroundBuildProgress::Ready) { return roadPages != GroundBuildProgress::Failed; }
   const auto sliceBegan = std::chrono::steady_clock::now();
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
@@ -2038,6 +1944,14 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
     World.RoadAlignmentBuilds.Poll(*World.Pool, World.GroundBuild ? World.GroundBuild->Id() : 0);
   }
   if (!AdvancesGroundRetirement()) { return true; }
+  if (World.GroundBuild && World.GroundBuild->RoadsMissing()) {
+    World.Stack.ForgetCachedRegionNetwork();
+    World.Stack.RequestStreets();
+    World.GroundLookup.reset();
+    World.GroundLookupRequest.clear();
+    World.GroundRetirement = std::move(World.GroundBuild);
+    return true;
+  }
   if (!GroundInputsReady(quality)) { return true; }
   const Scenario::Document &declared = Session.Declared;
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;

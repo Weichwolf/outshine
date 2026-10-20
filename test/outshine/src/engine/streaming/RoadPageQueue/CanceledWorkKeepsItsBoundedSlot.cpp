@@ -14,6 +14,7 @@
 #include <system_error>
 #include <thread>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -57,6 +58,11 @@ std::vector<RoadPageQueue::Completed> Wait(RoadPageQueue &queue) {
   return {};
 }
 
+const PreparedRoadPages::Loaded *Payload(const std::vector<RoadPageQueue::Completed> &done) {
+  if (done.size() != 1 || !done[0].Result || !*done[0].Result) { return nullptr; }
+  return std::get_if<PreparedRoadPages::Loaded>(&**done[0].Result);
+}
+
 void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   using namespace outshine::Test;
   RoadPageQueue queue(pool, pages, {.PendingMost = 1, .PageBytesMost = 1024u * 1024u});
@@ -92,6 +98,8 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   CHECK(queue.RequestCached(RoadPageKey(first)) && queue.Pending() == 1 &&
             control->Factories.load() == 1,
         "a metadata demand shares an already running producer for the same product");
+  CHECK(!queue.RequestMetadata(first) && queue.Pending() == 1,
+        "an index probe cannot silently coalesce with a different payload result type");
   CHECK(!queue.RequestCached(RoadPageKey(other)) && !queue.Request(other, {}, {}, {}) &&
             queue.Collect().empty(),
         "the frame cannot enqueue beyond its bound or wait for a blocked producer");
@@ -120,16 +128,14 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   pool.Wait(generated);
   CHECK(retainedSource.expired(), "worker completion releases generator inputs before collection");
   auto done = Wait(queue);
-  CHECK(done.size() == 1 && done[0].Result && *done[0].Result &&
-            !(*done[0].Result)->Page->Geometry.Mesh.Index.empty(),
+  CHECK(Payload(done) && !Payload(done)->Page->Geometry.Mesh.Index.empty(),
         "completed work exposes an independently owned native page");
-  const auto retained = done.empty() || !done[0].Result || !*done[0].Result
-                            ? std::shared_ptr<const RoadPageAsset>{}
-                            : (*done[0].Result)->Page;
+  const auto retained =
+      Payload(done) ? Payload(done)->Page : std::shared_ptr<const RoadPageAsset>{};
   CHECK(queue.Request(other, {}, {}, {}), "a cached page can be requested without any generator");
   auto hit = Wait(queue);
-  CHECK(hit.size() == 1 && hit[0].Result && *hit[0].Result && retained &&
-            (*hit[0].Result)->Record.Key == RoadPageKey(other) && control->Factories.load() == 1,
+  CHECK(Payload(hit) && retained && Payload(hit)->Record.Key == RoadPageKey(other) &&
+            control->Factories.load() == 1,
         "a warm asynchronous request restores the existing page without source preparation");
   CHECK(queue.RequestCached(RoadPageKey(other)),
         "a metadata-only hit can enter a new demand generation");
@@ -171,10 +177,18 @@ void CheckMetadata(Tasks &pool, const std::filesystem::path &directory) {
             queue.Pending() == 1,
         "metadata alone enqueues and coalesces one bounded cached-page load");
   auto hit = Wait(queue);
-  CHECK(hit.size() == 1 && hit[0].Result && *hit[0].Result &&
-            (*hit[0].Result)->Record == selected &&
-            !(*hit[0].Result)->Page->Geometry.Mesh.Index.empty(),
+  CHECK(Payload(hit) && Payload(hit)->Record == selected &&
+            !Payload(hit)->Page->Geometry.Mesh.Index.empty(),
         "a fresh worker restores the selected native page without any plan address or factory");
+  CHECK(queue.RequestMetadata(Address(8)) && queue.RequestMetadata(Address(8)) &&
+            !queue.RequestCached(selected.Key) && queue.Pending() == 1,
+        "index probes coalesce while a fine load requires its own explicit result contract");
+  const auto probe = Wait(queue);
+  const auto *record = probe.size() == 1 && probe[0].Result && *probe[0].Result
+                           ? std::get_if<AssetRecord>(&**probe[0].Result)
+                           : nullptr;
+  CHECK(record && *record == selected && !Payload(probe),
+        "the metadata result carries the indexed product without a native mesh lease");
   CHECK(queue.RequestCached(std::string(64, 'f')), "an absent valid product can be queried");
   const auto miss = Wait(queue);
   CHECK(miss.size() == 1 && miss[0].Result && !*miss[0].Result,

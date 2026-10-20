@@ -109,7 +109,7 @@ int main() {
   Data::SourceSet sources(store);
   std::string rules(160u * 1024u, 'r');
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-83",
+      "prepared-ground-region-84",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   recipe.append(rules);

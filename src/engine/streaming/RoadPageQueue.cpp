@@ -13,6 +13,7 @@
 namespace outshine {
 struct RoadPageQueue::Work {
   Loader Load;
+  Kind Type = Kind::Payload;
   std::stop_source Stop;
   RoadPageQueue::Result Result = std::unexpected("road page work has not completed");
   std::atomic<bool> Complete{false};
@@ -32,10 +33,11 @@ bool RoadPageQueue::Request(Generators::RoadPageAddress address,
                             std::string requestKey,
                             Factory factory) {
   const auto key = Generators::RoadPageKey(address);
-  const auto admission = RequestState(key);
+  const auto admission = RequestState(key, Kind::Payload);
   if (admission != Admission::Available) { return admission == Admission::Pending; }
   return Enqueue(
       key,
+      Kind::Payload,
       [pages = Pages_,
        address = std::move(address),
        parent = std::move(parent),
@@ -55,23 +57,50 @@ bool RoadPageQueue::Request(Generators::RoadPageAddress address,
               return generated;
             });
         if (!result) { return std::unexpected(std::move(result.error())); }
-        return std::optional(std::move(*result));
+        return std::optional<Product>(std::move(*result));
       });
 }
 
-bool RoadPageQueue::RequestCached(const std::string &key) {
-  const auto admission = RequestState(key);
+bool RoadPageQueue::RequestCached(const std::string &key, Manifest dependency) {
+  const auto admission = RequestState(key, Kind::Payload);
   if (admission != Admission::Available) { return admission == Admission::Pending; }
   return Enqueue(key,
-                 [pages = Pages_, key, bytesMost = Limits_.PageBytesMost](const std::stop_token &) {
-                   return pages->LoadKey(key, bytesMost);
+                 Kind::Payload,
+                 [pages = Pages_,
+                  key,
+                  manifest = std::move(dependency.Key),
+                  bytesMost = Limits_.PageBytesMost](const std::stop_token &) -> Result {
+                   auto loaded = pages->LoadKey(key, bytesMost);
+                   if (loaded && !*loaded && !manifest.empty()) {
+                     const auto invalidated = pages->InvalidateManifest(manifest);
+                     if (!invalidated) { return std::unexpected(invalidated.error()); }
+                   }
+                   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
+                   if (!*loaded) { return std::nullopt; }
+                   return std::optional<Product>(std::move(**loaded));
                  });
 }
 
-RoadPageQueue::Admission RoadPageQueue::RequestState(const std::string &key) const {
+bool RoadPageQueue::RequestMetadata(Generators::RoadPageAddress address) {
+  const auto key = Generators::RoadPageKey(address);
+  const auto admission = RequestState(key, Kind::Metadata);
+  if (admission != Admission::Available) { return admission == Admission::Pending; }
+  return Enqueue(key,
+                 Kind::Metadata,
+                 [pages = Pages_, address = std::move(address), bytesMost = Limits_.PageBytesMost](
+                     const std::stop_token &) -> Result {
+                   auto record = pages->Inspect(address, bytesMost);
+                   if (!record) { return std::unexpected(std::move(record.error())); }
+                   if (!*record) { return std::nullopt; }
+                   return std::optional<Product>(std::move(**record));
+                 });
+}
+
+RoadPageQueue::Admission RoadPageQueue::RequestState(const std::string &key, Kind kind) const {
   if (!Pages_ || key.size() != 64) { return Admission::Rejected; }
   if (const auto found = Work_.find(key); found != Work_.end()) {
-    return found->second->Stop.stop_requested() ? Admission::Rejected : Admission::Pending;
+    return found->second->Stop.stop_requested() || found->second->Type != kind ? Admission::Rejected
+                                                                               : Admission::Pending;
   }
   if (Work_.size() >= Limits_.PendingMost || !std::ranges::all_of(key, [](char value) {
         return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f');
@@ -81,8 +110,9 @@ RoadPageQueue::Admission RoadPageQueue::RequestState(const std::string &key) con
   return Admission::Available;
 }
 
-bool RoadPageQueue::Enqueue(const std::string &key, Loader load) {
+bool RoadPageQueue::Enqueue(const std::string &key, Kind kind, Loader load) {
   auto work = std::make_shared<Work>();
+  work->Type = kind;
   work->Load = std::move(load);
   Work_.emplace(key, work);
   auto run = [work] {
