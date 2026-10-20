@@ -38,7 +38,10 @@ def inner_projection(polygon, eyes, plane, guard):
         return shapely.Polygon()
     result = None
     for xy in middle:
-        p = shapely.Polygon(xy).buffer(-guard)
+        original = shapely.Polygon(xy)
+        if not original.is_valid or not original.equals(original.convex_hull):
+            return shapely.Polygon()
+        p = original.buffer(-guard)
         result = p if result is None else shapely.intersection(result, p)
         if result.is_empty:
             break

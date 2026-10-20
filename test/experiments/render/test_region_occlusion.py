@@ -46,6 +46,25 @@ BOX = np.array([[-0.5, -0.2, -0.1], [0.5, 0.2, 0.1]])
 
 
 class RegionTests(unittest.TestCase):
+    def test_tight_support_can_cull_while_world_axis_box_cannot(self):
+        source = walls()
+        source["positions"][5:7, 0] = 2
+        source["positions"][8:] = [[-4, -1, 8], [4, -1, 12], [4, 1, 12], [-4, 1, 8]]
+        result = compile_projection(
+            source, BOX, certified_opaque=True, tight_hulls=True, plane=7.5
+        )
+        self.assertTrue(result["hidden"][2])
+        self.assertFalse(result["hidden_bounds"][2])
+
+    def test_boundary_contact_does_not_admit_occlusion(self):
+        source = walls()
+        source["positions"][8:, 0] *= 3
+        point_domain = np.zeros((2, 3))
+        result = compile_projection(
+            source, point_domain, certified_opaque=True, tight_hulls=True, plane=7.5
+        )
+        self.assertFalse(result["hidden"][2])
+
     def test_finished_selection_preserves_anonymous_identities_and_unknown_sources(
         self,
     ):
