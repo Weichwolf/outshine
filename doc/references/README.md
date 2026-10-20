@@ -5,8 +5,8 @@ Papers, Kurse und Produktdokumentation sind als solche bezeichnet; Links und lok
 Die Einträge sind die kanonische Relevanzbewertung nach [#919](https://github.com/Weichwolf/outshine/issues/919),
 keine Machbarkeitsbestätigung und keine neue Architekturfreigabe.
 
-**Prüfstand: 12 von 70 Einträgen bewertet.** Zuerst Streaming/Sichtbarkeit/LOD;
-die übrigen 58 stehen ausdrücklich unter „Bewertung ausstehend“ und haben noch kein Relevanzurteil.
+**Prüfstand: 29 von 70 Einträgen bewertet.** Streaming/Sichtbarkeit/LOD sowie Materialien/Licht;
+die übrigen 41 stehen ausdrücklich unter „Bewertung ausstehend“ und haben noch kein Relevanzurteil.
 Bewertete Einträge folgen absteigend dem aktuellen Nutzen innerhalb jeder Stufe:
 
 | Relevanz | Bedeutung |
@@ -26,6 +26,13 @@ Render-, Funktions- und Simulationsbedarf bleiben getrennt ([#10](https://github
 IO-Latenz/Batchgröße, Decode, Kopien, geteilte Bandbreite, physische Residency und GPU-/Updatearbeit
 messen; gemeinsame Seiten einmal zählen, Zero-Copy nicht voraussetzen. Historische HDD-/VRAM-
 Modelle und publizierte Zeiten nicht als aktuelle Gerätebelege übernehmen.
+
+Der Bedarfsfilter verwirft unbenötigte Nutzdaten vor Laden/Decode und GPU-Nutzung;
+passende fertige LODs begrenzen danach räumliche Frequenzen und Arbeit. Coverage,
+mittlere Lichtantwort und Kontakte erhalten; erforderliche Interaktionsdaten separat laden.
+A18 Pros 8 GB sind der geteilte Systemspeicher, kein Assetbudget. Physische Peaks samt
+komprimierten/entpackten Daten, Übergängen, Renderzielen und Scratch zählen; gemeinsame
+Seiten einmal erfassen. Spätes Aussortieren gibt den vorherigen Ladepeak nicht zurück.
 
 ## PDFs und Nutzung
 
@@ -87,6 +94,78 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
   Tiefenpass, Reprojektion, Listen/Indexkompaktion und Änderungen auf Metal/Vulkan
   messen; alte PS4-Zahlen und unsichere History sind keine Freigabe für SSD/UMA.
 
+- **Synthetic Texturing Using Digital Filters**, Feibush / Levoy / Cook, SIGGRAPH1980.
+  [Quelle](https://graphics.stanford.edu/papers/texture-filtering/) ·
+  [PDF](materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf).
+  **Relevanz: Hoch — Pixelfilter / #6, #306, #899.**
+  Projizierte Pixelfläche, sichtbarer Polygonanteil und Texturfilter gemeinsam
+  integrieren: konkrete Referenz für Coverage und unterpixelgroße Materialdetails.
+  Unser Polygon-Clipping bleibt unabhängiges Orakel; den historischen Scanline-/
+  Dateiladepfad nicht übernehmen. Ein korrekter Referenzfilter beweist noch keinen
+  günstigen Runtime-Filter oder selbstständig ladbare Fernprodukte.
+
+- **Frequency Domain Normal Map Filtering**, Han / Sun / Ramamoorthi / Grinspun,
+  SIGGRAPH / TOG 2007. [Autorenquelle](https://www.cs.columbia.edu/cg/normalmap/) ·
+  [PDF](vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf).
+  **Relevanz: Hoch — Normalenfilter / #6, #422, [#44](https://github.com/Weichwolf/outshine/issues/44).**
+  Die Verteilung der Normalen statt nur ihrer mittleren Richtung erhält die
+  Glanzstruktur unter Verkleinerung. Direkter Maßstab für Blatt-/Relief-Mips und
+  Fernmaterialien. SH-/vMF-Approximationen kosten Koeffizienten, Fits und Sampling;
+  schmale oder mehrgipflige Verteilungen sowie korrelierte Farbe/Materialien
+  brauchen eigene Fehlerbelege. Kein universeller kleiner GGX-Ersatz daraus.
+
+- **Surface Gradient-Based Bump Mapping Framework**, Mikkelsen, JCGT 9(3), 2020.
+  [Quelle](https://jcgt.org/published/0009/03/04/paper.pdf) ·
+  [PDF](materials/jcgt/2020-surface-gradient-bump-mapping.pdf).
+  **Relevanz: Hoch — Bump-Komposition / #6.**
+  Reliefbeiträge aus mehreren UVs/Projektionen im gemeinsamen Gradientenraum
+  mischen und die Normale einmal rekonstruieren; Grundlage der vorhandenen
+  Materialkomposition. Lokalkonstante Triplanar-Gewichte sind eine Näherung.
+  Gradientenmischung ersetzt weder Silhouette/Kontakte noch Normalenvarianz- und
+  GGX-Filterung; zusätzliche Detailtexturen und Samples separat budgetieren.
+
+- **Moving Frostbite to Physically Based Rendering**, Lagarde / de Rousiers,
+  SIGGRAPH-Kurs 2014, Kursnotizen Revision 3 (2015).
+  [Quelle](https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf) ·
+  [PDF](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf).
+  **Relevanz: Hoch — Lichtkalibrierung / #4, #6.**
+  BRDF-Energie, Rauheitskonventionen, Lichtgrößen und Kameraexposition gemeinsam
+  kalibrieren; direkt gegen flache Tag-/Nachtantwort und dunkles Glas verwenden.
+  Referenzintegration und Energieprüfungen von Runtime-Näherungen trennen.
+  Der Kurs ist keine unverändert zu übernehmende Passkette: IBL-Produkte, HDR-/
+  Schattenziele und deren gleichzeitige Lebensdauer auf beiden Geräten messen.
+
+- **Real Shading in Unreal Engine 4**, Karis, SIGGRAPH-Kurs 2013.
+  [Quelle](https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf) ·
+  [PDF](materials/siggraph/2013-unreal-engine-4-shading.pdf).
+  **Relevanz: Hoch — GGX und IBL / #4, #6.**
+  GGX, kompakte Materialparameter und vorgefiltertes Environment mit Split-Sum
+  stützen den bestehenden gemeinsamen Shader. Parameterblend spart mehrere
+  BRDF-Auswertungen, entspricht aber nicht exakt einer Mischung ihrer Ergebnisse.
+  Split-Sum und n=v beim Environment-Filter sind eigene Näherungen; direkte
+  Roughness-Remaps nicht auf IBL übertragen. Atlas-/Mipbytes und Updates zählen.
+
+- **A Survey of Temporal Antialiasing Techniques**, Yang / Liu / Salvi, CGF / Eurographics 2020.
+  [Autoren](https://research.nvidia.com/labs/rtr/publication/yang2020survey/) ·
+  [Verlags-PDF](https://diglib.eg.org/server/api/core/bitstreams/53732e70-b64d-46f4-bbae-865eb7673a35/content) ·
+  [PDF](presentation/cgf/2020-temporal-antialiasing-survey.pdf).
+  **Relevanz: Hoch — Bewegungsstabilität / #4, #16.**
+  Reprojektion, History-Prüfung und Rekonstruktion zusammen behandeln; entscheidend
+  bei LOD-Wechseln, neuer Geometrie, Wind, Wasser und Ursprungssprüngen.
+  Ungültige History verwerfen; Clamping kann Geisterbilder/Detailverlust nur abwägen.
+  Ein zusätzliches RGBA16F-Bild bei 1280×720 hat bereits 7,03125 MiB Texelnutzdaten
+  ohne Padding/weitere Puffer. TAA spart nicht automatisch Raster- oder Assetarbeit.
+
+- **Clustered Deferred and Forward Shading**, Olsson / Billeter / Assarsson, HPG 2012.
+  [Quelle](https://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) ·
+  [PDF](lighting/hpg/2012-clustered-shading.pdf).
+  **Relevanz: Hoch — Lokale Lichtauswahl / #4.**
+  Räumliche Tiefencluster ordnen den benötigten tausenden lokalen Lichtern kleine
+  Fragmentlisten zu; direkter Baustein für Nacht-/Innenraumlicht. Aufbau, Listenbytes,
+  Überlauf und dynamische Änderungen begrenzen und messen; kleine Lichtmengen
+  dürfen den einfachen Pfad behalten. Dies wählt Lichtarbeit, liefert aber weder
+  Asset-Verdeckung vor IO noch eine Schattenkarte pro sichtbarem Fenster.
+
 - **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
   [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
   [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·
@@ -119,6 +198,16 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
   GGX-, Tiefen-/Disokklusions- und Schattenfehler nicht ab; Texturleerraum/Overdraw
   und laufende Wind-/Lichtänderungen können den Meshgewinn aufheben.
 
+- **LEAN Mapping**, Olano / Baker, I3D 2010, korrigierte Autorenfassung.
+  [Autorenquelle](https://userpages.cs.umbc.edu/olano/papers/lean/) ·
+  [PDF](vegetation/i3d/2010-lean-mapping.pdf).
+  **Relevanz: Mittel — Filterbare Neigungsstatistik / [#44](https://github.com/Weichwolf/outshine/issues/44), #422.**
+  Erste/zweite Neigungsmomente im gemeinsamen Tangentialraum linear filtern;
+  nützlicher Vergleich für vorbereitete Material-LODs. Fünf Momente, deren Format/
+  Mips und die Rekonstruktion kosten Speicher/Bandbreite. Beckmann-Gaußmodell und
+  endliche Neigungen sind Voraussetzungen; GGX, verdeckte Mikroflächen und
+  mehrgipflige Glanzverteilungen sind dadurch nicht allgemein korrekt vertreten.
+
 - **Layered Depth Images**, Shade / Gortler / He / Szeliski, SIGGRAPH 1998.
   [Publikation](https://doi.org/10.1145/280814.280882) ·
   [Autoren-PDF](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Shade-SG98.pdf) ·
@@ -140,6 +229,83 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
   Der verwandte eigene Planarschnitt in [#917](https://github.com/Weichwolf/outshine/issues/917)
   bleibt wegen Bild-/Gesamtkosten verworfen; seine kleine Pixelparallaxe beweist keine Welttiefe.
 
+- **Procedural Noise using Sparse Gabor Convolution**, Lagae et al., SIGGRAPH 2009.
+  [Quelle](https://graphics.cs.kuleuven.be/publications/LLDD09PNSGC/LLDD09PNSGC_paper.pdf) ·
+  [PDF](materials/siggraph/2009-sparse-gabor-noise.pdf).
+  **Relevanz: Mittel — Gerichtete Materialfelder / #6, #13.**
+  Steuerbares Spektrum und anisotrope Filterung aus dem Mapping-Jacobian passen
+  zu Fels-/Holzstruktur ohne große individuelle Texturen. Kernel-/Nachbarschafts-
+  und Ableitungskosten gegen einfachere gefilterte Noise messen, gegebenenfalls
+  fertige Stufen cachen. Nichtlineare Farb-/Materialabbildungen können neue
+  Frequenzen erzeugen; Noise ersetzt weder DEM-Form noch belegte Geologie.
+
+- **Crafting a Next-Gen Material Pipeline for The Order: 1886**, Neubelt / Pettineo,
+  SIGGRAPH-Kurs 2013.
+  [Quelle](https://blog.selfshadow.com/publications/s2013-shading-course/rad/s2013_pbs_rad_notes.pdf) ·
+  [PDF](materials/siggraph/2013-the-order-material-pipeline.pdf).
+  **Relevanz: Mittel — Materialrezepte / #6.**
+  Wiederverwendbare Materialtemplates und Parameter-/Maskenkomposition passen
+  zu prozeduralen Baustoffen, Schmutz und Nässe. Die publizierte Werkzeug-/Foto-/
+  Bake-Pipeline ist kein Produktvertrag für Outshine. Einzigartige Maps je Objekt
+  vermeiden; Detailkarten, Runtime-Layer und Normalenfilter benötigen ein
+  gemessenes Speicher-/Samplingbudget und gültige Übergänge.
+
+- **Physically Based Shading at Disney**, Burley, SIGGRAPH-Kurs 2012.
+  [Quelle](https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf) ·
+  [PDF](materials/siggraph/2012-disney-physically-based-shading.pdf).
+  **Relevanz: Mittel — Materialfamilien / #6.**
+  Gemessene Reflexionen und wenige Parameter helfen beim Vergleich von Metall,
+  Dielektrikum, Beschichtung und Fasern. Der Kurs priorisiert auch künstlerische
+  Bedienbarkeit und erlaubt unphysikalische Parameter; das ist keine verbindliche
+  Materialkalibrierung. Vorhandenen GGX-/Energievertrag erhalten, zusätzliche
+  Lobes nur für einen konkreten Oberflächentyp mit Filter-/Kostenbeleg ergänzen.
+
+- **Precomputed Radiance Transfer for Real-Time Rendering in Dynamic,
+  Low-Frequency Lighting Environments**, Sloan / Kautz / Snyder, SIGGRAPH 2002.
+  [Quelle](https://www.microsoft.com/en-us/research/publication/precomputed-radiance-transfer-real-time-rendering-dynamic-low-frequency-lighting-environments/) ·
+  [PDF](lighting/siggraph/2002-precomputed-radiance-transfer.pdf).
+  **Relevanz: Mittel — Aggregierte Lichtantwort / #4, #451.**
+  Geometrischen Transfer vom aktuellen niederfrequenten Umgebungslicht trennen;
+  Baustein für vorbereitete Antworten gemeinsamer Prototypen/Fernbestände.
+  Transfervektoren/-matrizen je Sample, Vorberechnung und Änderungen kosten
+  Speicher/Arbeit. Der vorbereitete Transfer ist an die Form gebunden und setzt
+  räumlich glattes Licht voraus; Verformung, lokale scharfe Schatten und GGX-
+  Spitzen benötigen zusätzliche Behandlung.
+
+- **Real-Time Polygonal-Light Shading with Linearly Transformed Cosines**,
+  Heitz / Dupuy / Hill / Neubelt, SIGGRAPH / TOG 2016.
+  [Autorenquelle und PDF](https://eheitzresearch.wordpress.com/415-2/).
+  [PDF](lighting/siggraph/2016-linearly-transformed-cosines.pdf).
+  **Relevanz: Mittel — Flächenlicht und Referenzintegrale / #4, [#422](https://github.com/Weichwolf/outshine/issues/422).**
+  Analytisches Kosinus-Randintegral ist ein wiederverwendbarer mathematischer
+  Baustein; LTC-Fits ermöglichen später polygonale Flächenlichter. Der BRDF-Fit
+  und die Approximation texturierter Leuchten haben eigene Fehler; Horizont-
+  Clipping und Verdeckung bleiben zusätzlich nötig. Der [GGX-Kernvergleich](../../test/experiments/render/relief_finite.md)
+  verwendet nur Randintegration und scheitert weiterhin an seinen Resttermen;
+  daraus weder den vollständigen LTC-Ansatz verwerfen noch einen Shaderport ableiten.
+
+- **Moment Shadow Mapping**, Peters / Klein, ACM SIGGRAPH I3D 2015.
+  [Autoren/Errata](https://momentsingraphics.de/I3D2015.html) ·
+  [korrigierte Autorenfassung](https://momentsingraphics.de/Media/I3D2015/MomentShadowMapping.pdf) ·
+  [PDF](lighting/i3d/2015-moment-shadow-mapping.pdf).
+  **Relevanz: Mittel — Filterbare Schatten / #4, #16.**
+  Vier Tiefenmomente erlauben breite Filter als Alternative zu PCF. Bei 2048×2048
+  benötigen vier 16-Bit-Kanäle bereits 32 MiB reine Texeldaten; Mips, Tiefenziel
+  und Blur-Ziele kommen je tatsächlicher Lebensdauer hinzu. Quantisierung,
+  Moment-Bias und Light Bleeding gegen vorhandenes Reverse-Z-PCF prüfen.
+  Ein Lookup oder alte GTX-Zeiten belegen keinen Gewinn im gemeinsamen UMA-Peak.
+
+- **Efficient GPU Screen-Space Ray Tracing**, McGuire / Mara, JCGT 2014.
+  [Quelle](https://jcgt.org/published/0003/04/04/) ·
+  [PDF-Quelle](https://jcgt.org/published/0003/04/04/paper.pdf) ·
+  [PDF](lighting/jcgt/2014-efficient-screen-space-rays.pdf).
+  **Relevanz: Mittel — Lokale Reflexionen / #4, #3.**
+  Perspektivkorrekte DDA vermeidet mehrfache Abfragen derselben Tiefenpixel;
+  sinnvoll für begrenzte Reflexionen auf Wasser/Glas neben dem vorhandenen IBL.
+  Schrittlänge, maximale Schritte und Flächendicke verursachen Fehler/Kosten.
+  Außerhalb des Bilds oder hinter der ersten Tiefe fehlen Flächen; zusätzliche
+  Tiefenschichten sind nicht kostenlos. Kein Ersatz für räumliche Weltsichtbarkeit.
+
 ## Relevanz: Gering
 
 - **LDI Tree: A Hierarchical Representation for Image-Based Rendering**, Chang / Bishop / Lastra, SIGGRAPH 1999.
@@ -153,6 +319,16 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
   portieren oder durch weitere Layer-/Packingrunden retten. Andere Hierarchien brauchen
   einen neuen Bild-/Kostenbeleg; der negative Versuch widerlegt nicht jede LDI-Variante.
 
+- **Taming the Shadow Terminator**, Chiang / Li / Burley, SIGGRAPH Talks 2019.
+  [Autorenquelle](https://www.yiningkarlli.com/projects/shadowterminator.html) ·
+  [PDF](vegetation/siggraph/2019-taming-shadow-terminator.pdf), korrigierte Autorenfassung.
+  **Relevanz: Gering — Schattennormalen-Spezialfall / #29, #4.**
+  Gezielter Schattenfaktor mildert den Übergang zwischen geometrischer und
+  abweichender Schattierungsnormale. Als Diagnosevergleich nützlich, wenn genau
+  dieser Fehler auftritt; behebt keine fehlende Geometrie oder grobe Schattenkarte.
+  Die modellierte Mikroverschattung ist nicht echter Relieftransport. EEVEE-
+  Positionsoffsets sind ein anderes Verfahren, kein Beleg einer eigenen Übernahme.
+
 ## Relevanz: Nicht relevant
 
 - **Stereo Magnification: Learning view synthesis using multiplane images**,
@@ -165,6 +341,20 @@ terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bl
   und RGB-Schichten; das passt nicht zu Outshines prozeduralen Assets und aktuellem
   PBR/Wetter. Geometrische Verankerung/Alpha-Komposition bleiben Vergleichsmathematik,
   begründen aber weder Modellübernahme noch Welt-/Residenzfreigabe.
+
+- **Color Compatibility From Large Datasets**, O'Donovan / Agarwala / Hertzmann,
+  SIGGRAPH / ACM TOG 2011.
+  [Autoren](https://www.dgp.toronto.edu/~donovan/color/) ·
+  [Quelle](https://www.dgp.toronto.edu/~donovan/color/colorcomp.pdf) ·
+  [PDF](presentation/siggraph/2011-color-compatibility.pdf).
+  **Relevanz: Nicht relevant — Gelernte Palettenpräferenz / #4, #6.**
+  Bewertungen von Fünffarben-Paletten modellieren menschliche Präferenzen und
+  Datensatz-/Benennungsbias, keine physikalischen Materialwerte oder Beleuchtung.
+  Outshine besitzt keine vorgegebene Stilpalette; deshalb diese Auswahl nicht auf
+  Weltmaterialien übertragen und keine Trainingsdaten/Modelle übernehmen.
+  Separater Autorenartikel, kein Paper: [Oklab/OKLCH, Ottosson 2020](https://bottosson.github.io/posts/oklab/).
+  Wahrnehmungsnahe Abstände können Diagnose/UI unterstützen; physikalische
+  Beleuchtung und Materialmischung bleiben in linearem RGB.
 
 ## Bewertung ausstehend
 
@@ -233,102 +423,6 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
 
 [Hierarchischer Bedarf vor Download und Geometrie](engine/visibility-driven-demand.md)
 prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outshine ab.
-- **Procedural Noise using Sparse Gabor Convolution**, Lagae et al., SIGGRAPH 2009.
-  [Quelle](https://graphics.cs.kuleuven.be/publications/LLDD09PNSGC/LLDD09PNSGC_paper.pdf) ·
-  [PDF](materials/siggraph/2009-sparse-gabor-noise.pdf).
-  Richtung und Frequenzspektrum explizit steuern, anisotrop aus dem Pixel-Footprint filtern.
-  Gerichtete Felsstruktur prototypisieren; Kernelkosten gegen einfachere gefilterte Noise
-  messen. Noise liefert keine belegte Geologie und keinen Ersatz für DEM-Silhouette.
-
-### Materialien, Licht und Bildstabilität — WI [#6](https://github.com/Weichwolf/outshine/issues/6) / [#4](https://github.com/Weichwolf/outshine/issues/4)
-
-- **Physically Based Shading at Disney**, Burley, SIGGRAPH-Kurs 2012.
-  [Quelle](https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf) ·
-  [PDF](materials/siggraph/2012-disney-physically-based-shading.pdf).
-  Kleine verständliche Parameterfamilie aus gemessenen Reflexionen; Metallic/Roughness
-  als gemeinsame Gestaltungssprache. Unser Khronos-BRDF bleibt verbindlich; Disney-Modell
-  und zusätzliche Lobes nicht ungeprüft übernehmen.
-- **Real Shading in Unreal Engine 4**, Karis, SIGGRAPH-Kurs 2013.
-  [Quelle](https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf) ·
-  [PDF](materials/siggraph/2013-unreal-engine-4-shading.pdf).
-  BaseColor/Metallic/Roughness und gemeinsame Materialbibliothek vereinheitlichen den Look.
-  Masken vor Licht auswerten; begrenzte Parameterblend spart BRDF-Arbeit, ist aber keine
-  exakte Mischung beliebiger Reflexionsmodelle. Lack/Metall und extreme Roughness prüfen.
-- **Synthetic Texturing Using Digital Filters**, Feibush / Levoy / Cook, SIGGRAPH1980.
-  [Quelle](https://graphics.stanford.edu/papers/texture-filtering/) ·
-  [PDF](materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf).
-  Gefilterte projizierte Pixelfläche und Geometriekanten gemeinsam betrachten;
-  Seiten3/7 optisch geprüft. #306 nutzt unabhängiges Polygon-Clipping als Referenz,
-  keinen übernommenen Renderer oder Shadercode.
-- **Crafting a Next-Gen Material Pipeline for The Order: 1886**, Neubelt / Pettineo,
-  SIGGRAPH-Kurs 2013.
-  [Quelle](https://blog.selfshadow.com/publications/s2013-shading-course/rad/s2013_pbs_rad_notes.pdf) ·
-  [PDF](materials/siggraph/2013-the-order-material-pipeline.pdf).
-  Gemeinsame Templates, Masken und Materialkomposition für Schmutz, Mörtel und Nässe.
-  Die Pipeline ist keine Metallic-Roughness-Spezifikation. Offline-Texturbakes/Fotoerwerb
-  nicht übernehmen; unsere Masken/Parameter bleiben prozedural und begrenzt.
-- **Surface Gradient-Based Bump Mapping Framework**, Mikkelsen, JCGT 9(3), 2020.
-  [Quelle](https://jcgt.org/published/0009/03/04/paper.pdf) ·
-  [PDF](materials/jcgt/2020-surface-gradient-bump-mapping.pdf).
-  Höhen/Normalen aus verschiedenen UVs, Triplanar- und Decal-Projektionen im gemeinsamen
-  Oberflächengradientenraum komponieren. Finale Normale einmal rekonstruieren, gemeinsame
-  Filterung/Roughness prüfen. Bump ersetzt weder Silhouettengeometrie noch Materialschichtung.
-- **Color Compatibility From Large Datasets**, O'Donovan / Agarwala / Hertzmann,
-  SIGGRAPH / ACM TOG 2011.
-  [Autoren](https://www.dgp.toronto.edu/~donovan/color/) ·
-  [Quelle](https://www.dgp.toronto.edu/~donovan/color/colorcomp.pdf) ·
-  [PDF](presentation/siggraph/2011-color-compatibility.pdf).
-  Gelernte Bewertungen von Fünffarben-Paletten sind Gestaltungshilfen, kein universelles
-  Schönheitsgesetz. Grau/Beige, Erde, Grün und Blau gemeinsam statt je Generator wählen;
-  Flächenanteile, Licht und Szene zusätzlich beurteilen. Keine Trainingsdaten/Modelle übernehmen.
-  [Oklab/OKLCH, Ottosson 2020](https://bottosson.github.io/posts/oklab/) ergänzt wahrnehmungsnahe
-  Helligkeits-/Chroma-/Farbtonabstände bei Vorbereitung; es ist ein Autorenartikel, kein Paper.
-  Beleuchtung und physikalische Materialmischung erfolgen weiterhin in linearem RGB.
-- **Moving Frostbite to Physically Based Rendering**, Lagarde / de Rousiers,
-  SIGGRAPH-Kurs 2014, Kursnotizen Revision 3 (2015).
-  [Quelle](https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf) ·
-  [PDF](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf).
-  BRDF, Roughness, Lichtgrößen, Reflexion, Farbraum und Kameraantwort gemeinsam kalibrieren.
-  Vorhandenen Khronos-Vertrag erhalten; Parameter/IBL vor neuen Passketten verbessern.
-  Referenzverfahren separat prüfen, ihre Kosten sind kein Runtime-Budget.
-- **Precomputed Radiance Transfer for Real-Time Rendering in Dynamic,
-  Low-Frequency Lighting Environments**, Sloan / Kautz / Snyder, SIGGRAPH 2002.
-  [Quelle](https://www.microsoft.com/en-us/research/publication/precomputed-radiance-transfer-real-time-rendering-dynamic-low-frequency-lighting-environments/) ·
-  [PDF](lighting/siggraph/2002-precomputed-radiance-transfer.pdf).
-  Geometrischen Transfer und aktuelles Licht trennen; #451 prüft zunächst die
-  reduzierte Materialantwort eines festen Gras-Footprints. Keine SH-/Winkel-/
-  Weltfreigabe aus einem einzelnen begrenzten Transferprodukt.
-- **A Survey of Temporal Antialiasing Techniques**, Yang / Liu / Salvi, CGF / Eurographics 2020.
-  [Autoren](https://research.nvidia.com/labs/rtr/publication/yang2020survey/) ·
-  [Verlags-PDF](https://diglib.eg.org/server/api/core/bitstreams/53732e70-b64d-46f4-bbae-865eb7673a35/content) ·
-  [PDF](presentation/cgf/2020-temporal-antialiasing-survey.pdf).
-  Bewegungsvektoren, History-Gültigkeit und Rekonstruktion gemeinsam behandeln.
-  Neue Produkte, Ursprungssprünge, Disocclusion, Wasser und Wind sind eigene Lastfälle;
-  längere History darf Detailverlust und Geisterbilder nicht als Stabilität kaschieren.
-- **Moment Shadow Mapping**, Peters / Klein, ACM SIGGRAPH I3D 2015.
-  [Autoren/Errata](https://momentsingraphics.de/I3D2015.html) ·
-  [korrigierte Autorenfassung](https://momentsingraphics.de/Media/I3D2015/MomentShadowMapping.pdf) ·
-  [PDF](lighting/i3d/2015-moment-shadow-mapping.pdf).
-  Vier filterbare Tiefenmomente gegen PCF vergleichen; zunächst bestehende Tiefenschatten
-  stabilisieren und filtern. Vier 16-Bit-Kanäle brauchen bei 2048² bereits
-  2048² × 8 / 2²⁰ = 32 MiB ohne Mips, Blur-Ziele und Tiefe. Ein einzelner Lookup bedeutet
-  keinen kostenlosen Pass. Quantisierungs-/Moment-Bias und Light Bleeding eigens prüfen.
-- **Clustered Deferred and Forward Shading**, Olsson / Billeter / Assarsson, HPG 2012.
-  [Quelle](https://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) ·
-  [PDF](lighting/hpg/2012-clustered-shading.pdf).
-  Lokale Lichter anhand räumlicher Cluster zuordnen statt alle Lichter je Fragment zu prüfen.
-  Sonne/Himmelslicht separat behandeln; transparente Flächen brauchen gültige Clusterlisten.
-  Listenaufbau, Speicher und Überlauf gehören zum Vertrag. Für wenige Lichter bleibt der
-  einfache Pfad; Cluster erst mit einem gemessenen Nacht-/Innenraumlastfall integrieren.
-- **Efficient GPU Screen-Space Ray Tracing**, McGuire / Mara, JCGT 2014.
-  [Quelle](https://jcgt.org/published/0003/04/04/) ·
-  [PDF-Quelle](https://jcgt.org/published/0003/04/04/paper.pdf) ·
-  [PDF](lighting/jcgt/2014-efficient-screen-space-rays.pdf).
-  Perspektivkorrekte DDA vermeidet redundante Pixelabfragen beim Strahlmarsch.
-  Begrenzte Schritte und konsistente Tiefe/Dickenannahmen; fehlende verdeckte oder außerhalb
-  des Bildes liegende Flächen bleiben eine grundlegende Grenze. Gefiltertes IBL liefert
-  die Grundreflexion, SSR ergänzt gültige Treffer. Gemeinsamer Pfad für Wasser und Fassaden.
-
 ### Straßen, Wasser und technische Objekte — WI [#11](https://github.com/Weichwolf/outshine/issues/11) / [#3](https://github.com/Weichwolf/outshine/issues/3) / [#14](https://github.com/Weichwolf/outshine/issues/14)
 
 - **Interactive Procedural Street Modeling**, Chen et al., SIGGRAPH 2008.
@@ -458,35 +552,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [PDF](vegetation/math/2013-probability-simplex-projection.pdf).
   Endliche Sortierprojektion als mathematischer Baustein der eigenen symmetrischen Feldmischung;
   unabhängige QP-/Gradientenprüfung. Kein Vegetations- oder SpeedTree-Verfahren daraus behaupten.
-- **Frequency Domain Normal Map Filtering**, Han / Sun / Ramamoorthi / Grinspun,
-  SIGGRAPH / TOG 2007. [Autorenquelle](https://www.cs.columbia.edu/cg/normalmap/) ·
-  [PDF](vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf).
-  Seite 1 mit V-Rillen- und Bildvergleich optisch geprüft: Normalenmittelung verliert die
-  Verteilung. Begründet getrennte Neigungsstatistik und Grenzen einzelner Glanzverteilungen ([#44](https://github.com/Weichwolf/outshine/issues/44)).
-- **LEAN Mapping**, Olano / Baker, I3D 2010, korrigierte Autorenfassung.
-  [Autorenquelle](https://userpages.cs.umbc.edu/olano/papers/lean/) ·
-  [PDF](vegetation/i3d/2010-lean-mapping.pdf).
-  Seiten 3–4 einschließlich Gleichungen 2–6 optisch geprüft: erste/zweite Neigungsmomente
-  linear filtern. Unsere isotrope Übertragung auf GGX bleibt eine gesonderte Näherung ([#44](https://github.com/Weichwolf/outshine/issues/44)).
-- **Real-Time Polygonal-Light Shading with Linearly Transformed Cosines**,
-  Heitz / Dupuy / Hill / Neubelt, SIGGRAPH / TOG 2016.
-  [Autorenquelle und PDF](https://eheitzresearch.wordpress.com/415-2/).
-  Seite4/Fig5/Gl11 der Autoren-PDF optisch geprüft: analytisches Kosinus-Randintegral.
-  Der [endliche GGX-Kernvergleich](../../test/experiments/render/relief_finite.md)
-  in [#422](https://github.com/Weichwolf/outshine/issues/422) nutzt die Randintegration,
-  keinen approximativen LTC-BRDF-Fit oder fremde Tabellen; beide Restterm-Näherungen scheitern.
 - **Interactive and Robust Mesh Booleans**, Cherchi / Pellacini / Attene / Livesu,
   SIGGRAPH Asia / TOG 2022. [Autorenquelle](https://arxiv.org/abs/2205.14151) ·
   [PDF](vegetation/siggraph/2022-interactive-robust-mesh-booleans.pdf), Autorenpreprint.
   Seite 1 optisch geprüft; Oberflächenzerlegung und Innen-/Außenklassifikation begründen
   den Vergleich vollständiger Pflanzenoberflächen ([#29](https://github.com/Weichwolf/outshine/issues/29)). Manifold nutzt einen eigenen
   Algorithmus; dessen Bibliotheksgarantien ersetzen weder lokale Prüfungen noch organische Ausrundung.
-- **Taming the Shadow Terminator**, Chiang / Li / Burley, SIGGRAPH Talks 2019.
-  [Autorenquelle](https://www.yiningkarlli.com/projects/shadowterminator.html) ·
-  [PDF](vegetation/siggraph/2019-taming-shadow-terminator.pdf), korrigierte Autorenfassung.
-  Beide Seiten einschließlich Normalendiagrammen, Gleichungen und Bildvergleichen optisch geprüft.
-  Begründet die getrennte Prüfung von Schattierungsnormalen und geometrischer Selbstverschattung ([#29](https://github.com/Weichwolf/outshine/issues/29)).
-  EEVEE-Positionsoffsets sind eine andere Korrektur als der dort beschriebene BRDF-Schattenfaktor.
 - **Embree: A Kernel Framework for Efficient CPU Ray Tracing**, Wald / Woop / Benthin /
   Johnson / Ernst, SIGGRAPH / TOG 2014.
   [Autorenquelle](https://www.sci.utah.edu/~wald/Publications/2014/embree/embree.pdf) ·
