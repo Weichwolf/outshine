@@ -540,6 +540,13 @@ erfüllen. Der vollständige Verfahrensvergleich umfasst auch die nötigen Rück
 `python_events` gilt nur für den Python-Solver. Native Ereigniszahlen sind unbekannt
 und werden als `None` gemeldet. Schwere Aufrufe gehören in abbrechbare Worker,
 keine Deadline-Garantie innerhalb jedes Backend-Aufrufs.
+
+`prepare_hip(polygon, method='contour')` wählt die SFCGAL-freie begrenzte
+Kontur-/Facettenreferenz aus den Basisabhängigkeiten. Sie bewahrt Originaltraufe,
+Höfe und denselben `HipPlan`; fertige Pläne lassen sich unmittelbar über
+`Shape.roof_hip(..., prepared_plans=...)` konsumieren. `python_events` begrenzt hier
+die Kollaps-/Split-Schritte. Verfahren, Originalvergleich, Kosten und CPU/GPU-Grenze
+stehen in [roof_partition.md](../test/experiments/buildings/roof_partition.md) (#955).
 `HipPlanner` besitzt als expliziter Desktop-Kontext einen wiederverwendbaren
 Spawn-Prozess für dieselben Pläne. Eine Anfrage zugleich; begrenzte private
 Nachrichten, externe Anfragedeadline, `cancel()` und vollständiges Verwerfen

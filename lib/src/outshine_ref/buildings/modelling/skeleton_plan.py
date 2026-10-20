@@ -277,9 +277,14 @@ def prepare_hip(polygon, method='auto', limits=SkeletonLimits()):
     rejects it. Rectangles avoid both backends. Python event limits do not
     measure native events; native deadlines are checked after the call. Calls
     belong in cancellable workers, not a frame. Sources never get simplified.
+    Contour selects the independent bounded GEOS-based roof reference and never
+    calls either skeleton backend. Its native port is a separate integration.
     """
-    if method not in ('auto', 'skeleton', 'rectangle') or not isinstance(limits, SkeletonLimits):
+    if method not in ('auto', 'skeleton', 'rectangle', 'contour') or not isinstance(limits, SkeletonLimits):
         raise ValueError('Unknown hip planning method or limits')
+    if method == 'contour':
+        from .roof_partition import prepare
+        return prepare(polygon, limits=limits)
     began = clock.perf_counter(); origin, local, rings, boundaries = input_data(polygon, limits)
     if method == 'rectangle' or method == 'auto' and rectangular(rings):
         return finish(origin, local, boundaries, rectangle_data(rings), 'rectangle', limits, began)
