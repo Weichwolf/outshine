@@ -54,6 +54,14 @@ The smallest group is not yet the native winner. Compare 8/16/32 on actual GPU
 execution with the two-phase path; preserve disocclusion, dynamic content,
 material coverage and shadow work. Do not disable TAA or the stale-depth guard.
 
+The same input with only box/frustum rejection retains 1,405,196 triangles for
+the original groups and 1,378,864/1,360,147/1,346,598/1,336,177 for limits
+64/32/16/8. Even the smallest groups remove only 91,889/1,428,066 = 6.43%
+without depth, despite increasing the group count from 11,938 to 179,168.
+These are Double final-pose counts, not Float32/raster or GPU-time evidence.
+The larger reduction above depends on occlusion; finer frustum checks alone
+do not justify a new native grouping path.
+
 ## Native cost comparison
 
 An Apple A18 Pro prototype on native review basis `d74014221` replays the same
