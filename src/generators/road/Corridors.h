@@ -533,6 +533,8 @@ public:
   AdvancePlan(Job &job, const Site &site, size_t lanesMost, size_t nodesMost) const;
   [[nodiscard]] static std::expected<std::vector<RoadPagePart>, std::string_view>
   PlannedParts(const Job &job);
+  [[nodiscard]] static std::expected<std::vector<std::vector<RoadPagePart>>, std::string_view>
+  PlannedPages(const Job &job, double cellWidthM, size_t partsMost);
   [[nodiscard]] static std::expected<std::vector<EarthworkStamp>, std::string_view>
   TakeTerrainContacts(Job &job);
   [[nodiscard]] static std::expected<RoadPageRecipe, std::string_view>

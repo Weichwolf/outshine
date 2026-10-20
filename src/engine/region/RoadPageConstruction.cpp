@@ -28,11 +28,12 @@ RoadPageConstruction::Begin(Tasks &pool,
   if (!pages || planKey.size() != 64) {
     return std::unexpected("road construction needs its native cache and complete plan identity");
   }
-  auto parts = Generators::Corridors::PlannedParts(plan);
+  constexpr double kCellWidthM = 256;
+  auto parts = Generators::Corridors::PlannedPages(plan, kCellWidthM, PartsMost);
   if (!parts) { return std::unexpected(std::string(parts.error())); }
   auto result =
       std::unique_ptr<RoadPageConstruction>(new RoadPageConstruction(pool, std::move(pages)));
-  result->Parts_ = std::move(*parts);
+  result->Pages_ = std::move(*parts);
   Geometry materials;
   if (!materials.addSurface("streets", Generators::Corridors::StreetMaterial(site.Materials))) {
     return std::unexpected("could not prepare the shared road material");
@@ -53,9 +54,8 @@ std::expected<bool, std::string>
 RoadPageConstruction::Advance(const Generators::Corridors::Job &plan,
                               const Generators::Corridors::Site &site) {
   if (Stage_ == Stage::Lookup || Stage_ == Stage::Generating) { return Collect(); }
-  if (Next_ == Parts_.size()) { return true; }
-  const auto count = std::min(PartsMost, Parts_.size() - Next_);
-  const auto requested = std::span(Parts_).subspan(Next_, count);
+  if (Next_ == Pages_.size()) { return true; }
+  const auto requested = std::span(Pages_[Next_]);
   if (Stage_ == Stage::Request) {
     Address_.Parts.assign(requested.begin(), requested.end());
     PendingKey_ = Generators::RoadPageKey(Address_);
@@ -120,14 +120,14 @@ std::expected<bool, std::string> RoadPageConstruction::Collect() {
                              .ByteCount = record->ByteCount,
                              .Level = record->Level,
                              .Parts = Address_.Parts});
-  Next_ += Address_.Parts.size();
+  ++Next_;
   ++PageCount_;
   Stage_ = Stage::Request;
   return false;
 }
 
 std::expected<Generators::RoadPageManifest, std::string> RoadPageConstruction::TakeManifest() {
-  if (ManifestTaken_ || Stage_ != Stage::Request || Next_ != Parts_.size()) {
+  if (ManifestTaken_ || Stage_ != Stage::Request || Next_ != Pages_.size()) {
     return std::unexpected("road page manifest requires complete unpublished native products");
   }
   ManifestTaken_ = true;

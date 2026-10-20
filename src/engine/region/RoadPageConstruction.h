@@ -38,7 +38,7 @@ private:
   static constexpr size_t PartsMost = 64;
   RoadPageQueue Queue_;
   Generators::RoadPageAddress Address_;
-  std::vector<Generators::RoadPagePart> Parts_;
+  std::vector<std::vector<Generators::RoadPagePart>> Pages_;
   Generators::RoadPageManifest Manifest_;
   std::string PendingKey_;
   size_t Next_ = 0;

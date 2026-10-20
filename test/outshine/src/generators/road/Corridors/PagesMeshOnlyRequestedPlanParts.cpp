@@ -2,6 +2,9 @@
 #include "ProfiledRoadMesher.h"
 #include "Check.h"
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <numeric>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -108,6 +111,58 @@ void CheckSelection(const Corridors::Job &plan,
         "no demand requires no mesh work");
 }
 
+std::array<int64_t, 2> CellOf(const auto &points) {
+  std::array<double, 2> low{points.front().EastM, points.front().NorthM};
+  auto high = low;
+  for (const auto &point : points) {
+    low[0] = std::min(low[0], point.EastM);
+    low[1] = std::min(low[1], point.NorthM);
+    high[0] = std::max(high[0], point.EastM);
+    high[1] = std::max(high[1], point.NorthM);
+  }
+  return {static_cast<int64_t>(std::floor(std::midpoint(low[0], high[0]) / 64)),
+          static_cast<int64_t>(std::floor(std::midpoint(low[1], high[1]) / 64))};
+}
+
+void CheckLayout(const Corridors::Job &plan,
+                 const Corridors::Site &site,
+                 std::span<const RoadPagePart> original) {
+  using namespace outshine::Test;
+  const auto pages = Corridors::PlannedPages(plan, 64, 2);
+  CHECK(pages && !pages->empty(), "whole planned parts receive spatial page owners before meshing");
+  if (!pages) { return; }
+  const auto repeated = Corridors::PlannedPages(plan, 64, 2);
+  CHECK(repeated && *repeated == *pages, "page ownership is deterministic on the immutable plan");
+  std::vector<RoadPagePart> flattened;
+  for (const auto &page : *pages) {
+    CHECK(!page.empty() && page.size() <= 2, "dense cells keep the caller's per-page part bound");
+    flattened.insert(flattened.end(), page.begin(), page.end());
+    const auto recipe = Corridors::PageRecipe(plan, site, page);
+    CHECK(recipe, "each spatial page produces an independently readable original recipe");
+    if (!recipe) { continue; }
+    std::optional<std::array<int64_t, 2>> cell;
+    const auto accept = [&](const auto &points) {
+      const auto key = CellOf(points);
+      if (!cell) { cell = key; }
+      CHECK(*cell == key, "spatial groups never combine parts assigned to different cells");
+    };
+    for (const auto &interval : recipe->Intervals) { accept(interval.Stations); }
+    for (const auto &junction : recipe->Junctions) {
+      if (!junction.Gates.empty()) { accept(junction.Gates); }
+    }
+  }
+  std::ranges::sort(flattened, [](const auto &left, const auto &right) {
+    return left.Kind != right.Kind ? left.Kind < right.Kind : left.Index < right.Index;
+  });
+  CHECK(
+      std::ranges::equal(flattened, original),
+      "spatial pages preserve every whole original part exactly once without invented identities");
+  CHECK(!Corridors::PlannedPages(plan, 0, 2) && !Corridors::PlannedPages(plan, 64, 0) &&
+            !Corridors::PlannedPages(plan, std::numeric_limits<double>::infinity(), 2) &&
+            !Corridors::PlannedPages(plan, std::numeric_limits<double>::min(), 2),
+        "invalid widths, limits and overflowing signed cells are explicit errors");
+}
+
 void CheckCancellation(const RoadPageRecipe &recipe) {
   using namespace outshine::Test;
   std::stop_source before;
@@ -174,8 +229,8 @@ int main() {
   CountedMesher observer;
   const Corridors corridors(observer);
   auto early = Corridors::Begin(site);
-  CHECK(!Corridors::PlannedParts(*early) && !Corridors::PageRecipe(*early, site, {}) &&
-            !Corridors::TakeTerrainContacts(*early),
+  CHECK(!Corridors::PlannedParts(*early) && !Corridors::PlannedPages(*early, 64, 2) &&
+            !Corridors::PageRecipe(*early, site, {}) && !Corridors::TakeTerrainContacts(*early),
         "unfinished plans cannot be used as finished assets");
   auto plan = Plan(corridors, site);
   CHECK(plan && observer.Sweeps == 0 && observer.Junctions == 0,
@@ -191,6 +246,9 @@ int main() {
   CHECK(!corridors.AdvancePlan(*plan, wrongSource, 1, 1) &&
             !Corridors::PageRecipe(*plan, wrongSource, *parts),
         "equal generation numbers cannot alias a different source context");
+  CheckLayout(*plan, site, *parts);
+  CHECK(observer.Sweeps == 0 && observer.Junctions == 0,
+        "spatial page planning does not produce or inspect fine geometry");
   CheckSelection(*plan, site, *parts);
   const auto recipe = Corridors::PageRecipe(*plan, site, *parts);
   CHECK(recipe && !recipe->Intervals.empty(), "all requested plan data is owned by the recipe");
@@ -240,7 +298,8 @@ int main() {
   CHECK(!corridors.AdvancePlan(*plan, site, 1, 1) && !Corridors::PageRecipe(*plan, site, *parts),
         "a changed source cannot be combined with an older plan");
   (void)plan->RetireStep(1);
-  CHECK(!Corridors::PlannedParts(*plan), "retired plan storage is not a readable page input");
+  CHECK(!Corridors::PlannedParts(*plan) && !Corridors::PlannedPages(*plan, 64, 2),
+        "retired plan storage is not a readable page input");
   plan.reset();
   const auto after = MeshRoadPage(native, *recipe);
   CHECK(after && street >= 0 && SameMesh(after->Mesh, whole, street),

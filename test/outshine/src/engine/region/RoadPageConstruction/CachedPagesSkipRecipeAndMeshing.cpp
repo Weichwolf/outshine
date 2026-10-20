@@ -139,8 +139,9 @@ void CheckSelection(Tasks &pool,
                     const std::filesystem::path &directory,
                     const std::vector<uint8_t> &region) {
   using namespace outshine::Test;
-  CHECK(manifest->Pages.size() == 2, "the selection fixture has exactly two native page packages");
-  if (manifest->Pages.size() != 2) { return; }
+  CHECK(manifest->Pages.size() >= 2,
+        "the selection fixture has multiple spatial native page packages");
+  if (manifest->Pages.size() < 2) { return; }
   const auto retained = pages->LoadKey(manifest->Pages[1].Key, size_t{64} * 1024u * 1024u);
   CHECK(retained && *retained, "the original page is retained for exact repair after corruption");
   if (!retained || !*retained) { return; }
@@ -294,6 +295,10 @@ void CheckBuild(const std::filesystem::path &directory,
         "the manifest owns shared materials and metadata without road meshes");
   CHECK(!(*cold)->TakeManifest(), "a complete manifest transfers ownership once");
   if (!manifest) { return; }
+  CHECK(std::ranges::all_of(
+            manifest->Pages,
+            [](const auto &page) { return !page.Parts.empty() && page.Parts.size() <= 64; }),
+        "spatial construction retains the existing bounded whole-part work per page");
   CheckBindings(*manifest);
   const auto manifestKey = pages->StoreManifest(*manifest);
   CHECK(manifestKey.has_value(), "complete pages publish their independent native manifest");
