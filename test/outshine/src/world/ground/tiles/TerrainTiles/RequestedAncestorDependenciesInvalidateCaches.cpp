@@ -54,6 +54,27 @@ public:
                               stamp);
   }
 };
+
+void CheckStitchedBudget(size_t fieldBytes) {
+  CertifiedAncestor source;
+  TerrainTiles tiles(source,
+                     EnuFrame::At(Geo{}),
+                     {.DemCacheBytes = 1024u * 1024u, .StitchedFieldBytes = 2 * fieldBytes});
+  const Data::TileId centre{.Zoom = 3, .X = 1, .Y = 1};
+  const Data::TileId other{.Zoom = 3, .X = 2, .Y = 2};
+  const auto first = tiles.StitchedField(centre.Zoom, centre.X, centre.Y);
+  const auto retained = tiles.StitchedField(other.Zoom, other.X, other.Y);
+  CHECK(first && retained && tiles.HeldStitched(centre) && tiles.HeldStitched(other),
+        "two complete stitched fields fit the exact byte budget");
+  CHECK(source.Revisions->IssueDeliveryStamp({.Zoom = 3, .X = 0, .Y = 0}).has_value(),
+        "one stitched dependency is replaced");
+  const auto changed = tiles.StitchedField(centre.Zoom, centre.X, centre.Y);
+  CHECK(changed && changed != first && tiles.HeldStitched(other) == retained,
+        "stale replacement releases its bytes without evicting an unchanged neighbour");
+  const auto third = tiles.StitchedField(3, 1, 2);
+  CHECK(third && !tiles.HeldStitched(other) && tiles.HeldStitched(centre) == changed,
+        "the next admission evicts only the least recently used field within budget");
+}
 }
 
 int main() {
@@ -70,6 +91,7 @@ int main() {
           "all requests share one delivered ancestor identity");
     CHECK(first && first->Certificate().IsComplete(), "complete stencil is certified");
     if (!first) { return Report(); }
+    CheckStitchedBudget(first->Bytes());
     CHECK(first->Certificate().Dependencies().size() == 9,
           "nine requested addresses remain distinct");
     for (uint32_t x = 1; x <= 3; ++x) {
