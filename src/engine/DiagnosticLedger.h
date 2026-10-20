@@ -31,6 +31,11 @@ public:
     return ConflictingNames_;
   }
 
+  [[nodiscard]] bool RecordedThisFrame(std::string_view what) const {
+    const auto found = Indices_.find(what);
+    return found != Indices_.end() && SampleFrameSerials_[found->second] == FrameSerial_;
+  }
+
   void RecordMetric(const std::string &what, double how, const char *unit) {
     RecordMetric(what.c_str(), how, unit);
   }
