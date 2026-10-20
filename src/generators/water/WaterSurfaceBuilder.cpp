@@ -65,6 +65,7 @@ AppendWaterSurfaceGeometry(Geometry &geometry,
   if (!water.SurfacesReady()) { return std::unexpected("water surfaces have not been prepared"); }
   const auto *prepared = water.PreparedSurfaces();
   if (prepared == nullptr) { return metrics; }
+  metrics.ProfileDeclines = prepared->ProfileDeclines.size();
   for (const auto &rejection : prepared->Rejections) {
     if (rejection.Reason == WaterAsset::SurfaceRejectionReason::CapacityExceeded) {
       ++metrics.RefusedCapacity;

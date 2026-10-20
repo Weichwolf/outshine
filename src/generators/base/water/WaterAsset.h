@@ -68,6 +68,7 @@ public:
     std::vector<SurfaceRejection> Rejections;
     std::vector<uint32_t> FaceSourceOffsets;
     std::vector<uint32_t> FaceSources;
+    std::vector<SurfaceRejection> ProfileDeclines;
   };
 
   struct Data {

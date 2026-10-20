@@ -12,6 +12,12 @@
 
 namespace outshine::Generators {
 namespace {
+bool ValidReason(WaterAsset::SurfaceRejectionReason reason) {
+  using Reason = WaterAsset::SurfaceRejectionReason;
+  return reason == Reason::InvalidTopology || reason == Reason::CapacityExceeded ||
+         reason == Reason::InvalidHeightModel;
+}
+
 bool MarkSources(const WaterAsset::SurfaceGeometry &geometry, std::span<uint8_t> covered) {
   const auto faces = geometry.Mesh.Faces();
   const auto &offsets = geometry.FaceSourceOffsets;
@@ -54,11 +60,12 @@ bool WaterAsset::SurfacesReady() const noexcept {
 }
 
 size_t WaterAsset::PreparedSurfaceBytes() const noexcept {
-  return Geometry_ ? sizeof(SurfaceGeometry) + Geometry_->Mesh.HeapBytes() +
-                         CapacityBytes(Geometry_->Rejections) +
-                         CapacityBytes(Geometry_->FaceSourceOffsets) +
-                         CapacityBytes(Geometry_->FaceSources)
-                   : 0;
+  return Geometry_
+             ? sizeof(SurfaceGeometry) + Geometry_->Mesh.HeapBytes() +
+                   CapacityBytes(Geometry_->Rejections) +
+                   CapacityBytes(Geometry_->FaceSourceOffsets) +
+                   CapacityBytes(Geometry_->FaceSources) + CapacityBytes(Geometry_->ProfileDeclines)
+             : 0;
 }
 
 std::expected<WaterAsset, std::string> WaterAsset::WithSurfaces(SurfaceGeometry geometry) const {
@@ -68,15 +75,21 @@ std::expected<WaterAsset, std::string> WaterAsset::WithSurfaces(SurfaceGeometry 
   }
   for (const auto &rejection : geometry.Rejections) {
     if (rejection.Surface >= covered.size() || covered[rejection.Surface] != 0 ||
-        (rejection.Reason != SurfaceRejectionReason::InvalidTopology &&
-         rejection.Reason != SurfaceRejectionReason::CapacityExceeded &&
-         rejection.Reason != SurfaceRejectionReason::InvalidHeightModel)) {
+        !ValidReason(rejection.Reason)) {
       return std::unexpected("water surface rejection is duplicate or invalid");
     }
     covered[rejection.Surface] = 1;
   }
   if (std::ranges::any_of(covered, [](uint8_t mark) { return mark == 0; })) {
     return std::unexpected("water surface has neither prepared facets nor an explicit rejection");
+  }
+  std::ranges::fill(covered, 0);
+  for (const auto &decline : geometry.ProfileDeclines) {
+    if (decline.Surface >= covered.size() || covered[decline.Surface] != 0 ||
+        !ValidReason(decline.Reason)) {
+      return std::unexpected("water profile decline is duplicate or invalid");
+    }
+    covered[decline.Surface] = 1;
   }
   WaterAsset asset = *this;
   asset.Geometry_ = std::make_shared<const SurfaceGeometry>(std::move(geometry));
