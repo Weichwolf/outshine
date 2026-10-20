@@ -442,6 +442,10 @@ void Corridors::AppendTerrainStamps(const Paving &on,
                                     Paved &into,
                                     std::vector<EarthworkStamp> &corridor) {
   const auto &lane = on.Ways.Ways()[laneAt];
+  const Section section = RoadSection(lane.HalfWidthM, ProfileOf(on, laneAt));
+  const double half = lane.Bridge ? static_cast<double>(lane.HalfWidthM) + kVergeM
+                                  : section.HalfWidthM + section.ShoulderM;
+  const double softVergeM = lane.Bridge ? 0.0 : std::max(0.0, kVergeM - section.ShoulderM);
   const auto yieldsAt = std::chrono::steady_clock::now();
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double runE = into.Along[at].EastM - into.Along[at - 1u].EastM;
@@ -457,7 +461,7 @@ void Corridors::AppendTerrainStamps(const Paving &on,
                                        std::fabs(into.Along[at - 1u].GradeM - groundBefore));
     const double outE = runN / runM;
     const double outN = -runE / runM;
-    const double half = static_cast<double>(lane.HalfWidthM) + kVergeM;
+
     double shoulderYieldM = 0;
     for (const double hand : {1.0, -1.0}) {
       for (int end = 0; end < 2; ++end) {
@@ -496,7 +500,7 @@ void Corridors::AppendTerrainStamps(const Paving &on,
     const double rise = (into.Along[at].GradeM - into.Along[at - 1u].GradeM) / runM;
     made.SlopeE = rise * runE / runM;
     made.SlopeN = rise * runN / runM;
-    made.ApronM = CorridorApronM(lane, yieldM);
+    made.ApronM = std::min(kMostApronM, CorridorApronM(lane, yieldM) + softVergeM);
     made.YieldM = yieldM;
     made.CorridorKey = into.ContactKeys[laneAt];
     const bool rests = !lane.Bridge || at == 1u || at + 1u == into.Along.size();
