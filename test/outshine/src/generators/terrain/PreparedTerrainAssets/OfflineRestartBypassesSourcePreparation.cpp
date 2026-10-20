@@ -107,6 +107,19 @@ int main() {
         "offline restart resolves native fields before invoking any source or stitching factory");
   CHECK(assets->Costs().Hits == 1 && assets->Costs().Misses == 0 && assets->Costs().Writes == 0,
         "warm hit consumes exactly one stored package with no generation or rewrite");
+  {
+    auto stored = ready.ShareField();
+    Ground::TerrainTiles first(offline, Ground::EnuFrame::At(Ground::Geo{}), Resolver(assets));
+    Ground::TerrainTiles second(offline, Ground::EnuFrame::At(Ground::Geo{}), Resolver(assets));
+    const auto borrowed = first.StitchedField(at.Zoom, at.X, at.Y);
+    CHECK(borrowed == stored, "stitched readers retain the prepared immutable sample allocation");
+    ready = Ground::TerrainGrid::NotHere();
+    stored.reset();
+    const auto reused = second.StitchedField(at.Zoom, at.X, at.Y);
+    CHECK(reused == borrowed, "independent readers share a live field without a local cache");
+    CHECK(offline.Calls == 0 && assets->Costs().Hits == 1 && assets->Costs().Resident == 2,
+          "live borrowed fields prevent another package load, decode or source access");
+  }
   auto encoded = Generators::EncodePreparedTerrain(at, *reference.TryField());
   CHECK(encoded.has_value(), "native field codec accepts the complete reference");
   if (encoded) {
