@@ -423,8 +423,8 @@ LayerLink() {
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/tasks) printf '%s' '-pthread' ;;
     profile/water-mesh | profile/water-asset | profile/water-bed) return 0 ;;
-    profile/water-geometry | profile/water-preparation) pkg-config --libs geos geographiclib; OsqpFlags --libs ;;
-    profile/water-worker) printf '%s' "-pthread $(pkg-config --libs geos sdl3 geographiclib) $(OsqpFlags --libs)" ;;
+    profile/water-geometry | profile/water-preparation) pkg-config --libs geos; OsqpFlags --libs ;;
+    profile/water-worker) printf '%s' "-pthread $(pkg-config --libs geos sdl3) $(OsqpFlags --libs)" ;;
     profile/plant-crown-cache) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
     profile/plant-spatial-cache) LayerLink profile/plant-crown-cache ;;
     profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
@@ -436,7 +436,7 @@ LayerLink() {
     profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal geographiclib) $(OsqpFlags --libs) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) $(OsqpFlags --libs) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
@@ -650,7 +650,7 @@ GroupIncludes() {
       ;;
     src/generators/flora|src/generators/flora/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/generators/building) includeSet="$includeSet $(pkg-config --cflags sfcgal)" ;;
-    src/generators/water|src/generators/water/*) includeSet="$includeSet $(pkg-config --cflags geographiclib) $(OsqpFlags --cflags)" ;;
+    src/generators/water|src/generators/water/*) includeSet="$includeSet $(OsqpFlags --cflags)" ;;
     src/content/assets) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
     src/generators/terrain/providers) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
     src/world/data) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;

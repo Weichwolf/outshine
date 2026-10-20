@@ -45,8 +45,10 @@ constexpr double kMPerDegLat = 111132.0;
 
 /// WGS84's semi-major axis, the ellipsoid every ECEF here stands on.
 constexpr double kWgs84A = 6378137.0;
+/// WGS84 flattening, the source of the derived eccentricity.
+constexpr double kWgs84F = 1.0 / 298.257223563;
 /// WGS84's first eccentricity squared.
-constexpr double kWgs84E2 = 6.69437999014e-3;
+constexpr double kWgs84E2 = kWgs84F * (2.0 - kWgs84F);
 /// @}
 
 /// @name Units

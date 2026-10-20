@@ -1,7 +1,6 @@
 #include "WaterPhysicalFrame.h"
 #include "Geodesy.h"
 #include "math/Units.h"
-#include <GeographicLib/Geocentric.hpp>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -41,19 +40,12 @@ std::expected<WaterGeodeticPoint, WaterFrameError> GeodeticWaterPoint(const Tang
   }
   const auto ecef = frame.ToEcefPosition({.EastM = point[0], .NorthM = point[1], .UpM = point[2]});
   if (!Finite(ecef)) { return std::unexpected(WaterFrameError::InvalidInput); }
-  static const GeographicLib::Geocentric earth(kWgs84A, kWgs84E2 / (1 + std::sqrt(1 - kWgs84E2)));
-  WaterGeodeticPoint result;
-  earth.Reverse(ecef[0],
-                ecef[1],
-                ecef[2],
-                result.Geographic.LatitudeDeg,
-                result.Geographic.LongitudeDeg,
-                result.Geographic.HeightM);
-  if (!std::isfinite(result.Geographic.HeightM) ||
-      result.Geographic.HeightM <= -kMinimumNormalRadiusM) {
+  const auto geographic = GeoFromEcef(ecef);
+  if (!geographic || geographic->HeightM <= -kMinimumNormalRadiusM) {
     return std::unexpected(WaterFrameError::OutsideLocalDomain);
   }
-  const auto up = frame.ToLocalDirection(EnuAxesEcef(result.Geographic).Up);
+  WaterGeodeticPoint result{.Geographic = *geographic, .Up = {}};
+  const auto up = frame.ToLocalDirection(EnuAxesEcef(*geographic).Up);
   result.Up = {{up.EastM, up.NorthM, up.UpM}};
   if (!Finite(result.Up)) { return std::unexpected(WaterFrameError::OutsideLocalDomain); }
   return result;
