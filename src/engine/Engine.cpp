@@ -17,6 +17,7 @@
 #include <string_view>
 #include <cstdint>
 #include <functional>
+#include <format>
 #include <chrono>
 #include <cmath>
 #include <ratio>
@@ -87,6 +88,35 @@ StructureDetailBlocker(bool published, bool refined, bool detailReady) noexcept 
 [[nodiscard]] constexpr std::string_view
 RequiredBlocker(bool required, bool ready, std::string_view reason) noexcept {
   return required && !ready ? reason : "";
+}
+
+Result
+CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatitude at, int ring) {
+  const auto *vectors = stack.Vectors();
+  if (vectors == nullptr || vectors->RefusedTiles() == 0) { return {}; }
+  const auto window =
+      Generators::Osm::OsmField::SourceWindow(at, vectors->Zoom(), ring, Ground::kVectorTiles);
+  if (!window) { return std::unexpected(std::string(window.error())); }
+  for (int64_t y = window->MinY; y <= window->MaxY; ++y) {
+    for (int64_t x = window->MinX; x <= window->MaxX; ++x) {
+      if (vectors->Settled(static_cast<int>(x), static_cast<int>(y))) { continue; }
+      const Data::Fetch request(Data::DataKind::VectorMap,
+                                Data::Address::At({.Zoom = vectors->Zoom(),
+                                                   .X = static_cast<uint32_t>(x),
+                                                   .Y = static_cast<uint32_t>(y)}));
+      const auto failure = stack.Pool().Refusal(request);
+      if (!failure || failure->Reason != Data::FetchFailureReason::OfflineMiss) { continue; }
+      return std::unexpected(std::format(
+          "required vector input unavailable: {} at {}; served={}; source={}; revision={}; key={}",
+          Data::Name(failure->Reason),
+          request.Key(),
+          failure->Served ? failure->Served->Text() : "unknown",
+          failure->SourceId,
+          failure->SourceRevision,
+          failure->SourceKey));
+    }
+  }
+  return {};
 }
 
 }
@@ -689,6 +719,13 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
   if (!streamed) {
     Error = streamed.error();
     return std::unexpected(Error);
+  }
+  if (quality == GroundQuality::Refined) {
+    const auto inputs = CheckPreloadVectorInputs(World.Stack, stands, vectorRing);
+    if (!inputs) {
+      Error = inputs.error();
+      return std::unexpected(Error);
+    }
   }
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   if (!AdvanceStructureBuilds(kBakesLandedInPreload)) { return std::unexpected(Error); }

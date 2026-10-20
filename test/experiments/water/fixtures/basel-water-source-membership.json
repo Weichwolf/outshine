@@ -1,0 +1,21 @@
+{
+  "scope": "Unresolved source-membership counterexample, not an approved replacement topology or a render oracle.",
+  "coordinate_system": "Native local east/north metres; WKB preserves the captured binary64 coordinates.",
+  "native_geos": "3.14.1",
+  "native_input_sha256": "ae536364ad1f4f39b457d3370ad95149fc2cfc8d483bc7a7ccc0d9d721f35bf6",
+  "native_input_bytes": 1924718,
+  "native_input_format": "WATER4 with original source tables and historical prepared individual surfaces; those prepared surfaces are not an oracle.",
+  "compressed_input_sha256": "8dd38073113c59ff026dd74b9e2876d007a05feabff9e0ae899f9019f4600ff9",
+  "geometry_fixture_sha256": "a797fe0995bb575eaf4f933e452cb8391c6be410ded573721d3c5798d77fba82",
+  "observed_sources": 48,
+  "observed_positive_source_overlaps": 0,
+  "observed_union_overlap_m2": 7.830840767201789e-07,
+  "native_source_blob": {
+    "key": "0846e904de1bc1bff4f30cab86e68929db3743b370afca8654f6bf9c47ca64cd",
+    "package": "ddc1d0bcf03693f4fc63ce132dd7606f8787fc6f0ff4a22fbeb77cf917e33b59",
+    "native_bytes": 83290986,
+    "water_bytes": 1924718
+  },
+  "owner_issue": 970,
+  "native_reproduction_commit": "7bbc7b42b"
+}
