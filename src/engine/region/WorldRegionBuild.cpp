@@ -230,7 +230,8 @@ ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
     return GroundRegionPreparation::Completed{.Key = std::move(key),
                                               .Loaded = std::move(*demanded),
                                               .RequestKey = std::move(request),
-                                              .RequestHit = true};
+                                              .RequestHit = true,
+                                              .SurfacePages = nullptr};
   }
   if (std::ranges::any_of(vectors.Tiles(),
                           [](const auto &tile) { return tile.InputDigest.empty(); })) {
@@ -245,8 +246,10 @@ ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
     auto bound = assets.BindRequest(key, request);
     if (!bound) { return std::unexpected(std::move(bound.error())); }
   }
-  return GroundRegionPreparation::Completed{
-      .Key = std::move(key), .Loaded = std::move(*loaded), .RequestKey = std::move(request)};
+  return GroundRegionPreparation::Completed{.Key = std::move(key),
+                                            .Loaded = std::move(*loaded),
+                                            .RequestKey = std::move(request),
+                                            .SurfacePages = nullptr};
 }
 
 bool GroundSourcesReady(const Ground::SurfacePreparation &stack, GroundQuality quality) {
@@ -1441,7 +1444,8 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
         return ReadGroundRegion(
             *assets, *vectors, shape, *native, std::move(request), checked, stop);
       },
-      Phase::Loading);
+      Phase::Loading,
+      World.Stack.RoadAssets());
   return GroundBuildProgress::Pending;
 }
 
@@ -1479,6 +1483,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   }
   auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
   if (hit) { phase = Phase::Hit; }
+  if (result.Loaded) { state.HoldRoadManifest(std::move(result.SurfacePages)); }
   state.FinishRegion(std::move(result.Key), phase, std::move(result.RequestKey));
   return GroundBuildProgress::Ready;
 }
@@ -1640,29 +1645,50 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
       .NetworkWays = build.StreetGraphWayCount,
       .GroundSurface = build.GroundSurface.index(),
       .GroundAlbedo = state.Candidate().GroundAlbedo(),
-      .MissingRims = build.RimsMissing});
+      .MissingRims = build.RimsMissing,
+      .SurfaceManifest =
+          state.RoadManifest()
+              ? Generators::RoadPageManifestKey(*state.RoadManifest(),
+                                                Generators::PreparedRoadPages::ManifestBytesMost)
+              : std::string{}});
   const auto key = state.RegionKey();
   const auto request = state.RegionRequest();
+  const auto roadManifest = state.RoadManifest();
+  const auto roadAssets = World.Stack.RoadAssets();
   const auto water =
       std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
   state.BeginRegion(
       *World.Pool,
-      [assets, region, key, request, water](const std::stop_token &stop)
+      [assets, region, key, request, water, roadManifest, roadAssets](const std::stop_token &stop)
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
         if (stop.stop_requested()) { return std::unexpected("ground region publication canceled"); }
-        const auto bounds = GroundRegionBoundsEcef(*region);
+        if (roadManifest) {
+          if (!roadAssets) { return std::unexpected("road manifest has no native cache service"); }
+          const auto stored = roadAssets->StoreManifest(*roadManifest);
+          if (!stored) { return std::unexpected(stored.error()); }
+          if (*stored != region->SurfaceManifest) {
+            return std::unexpected("stored road manifest differs from its region reference");
+          }
+        }
+        auto bounds = GroundRegionBoundsEcef(*region);
+        if (roadManifest) { bounds.Cover(Generators::RoadPageManifestBounds(*roadManifest)); }
         auto loaded = assets->Store(key, bounds, *region, *water, request);
         if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-        return GroundRegionPreparation::Completed{
-            .Key = key, .Loaded = std::move(*loaded), .RequestKey = request};
+        return GroundRegionPreparation::Completed{.Key = key,
+                                                  .Loaded = std::move(*loaded),
+                                                  .RequestKey = request,
+                                                  .SurfacePages = nullptr};
       },
-      Phase::Storing);
+      Phase::Storing,
+      roadAssets);
   return GroundBuildProgress::Pending;
 }
 
 bool Engine::State::PublishGroundGeometry(WorldRegionBuildState &state) {
   const GroundBuildProgress stored = StoreGroundRegion(state);
   if (stored != GroundBuildProgress::Ready) { return stored != GroundBuildProgress::Failed; }
+  const auto roadPages = RestoreGroundRoadPages(state);
+  if (roadPages != GroundBuildProgress::Ready) { return roadPages != GroundBuildProgress::Failed; }
   const auto sliceBegan = std::chrono::steady_clock::now();
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
@@ -1907,6 +1933,14 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
     World.RoadAlignmentBuilds.Poll(*World.Pool, World.GroundBuild ? World.GroundBuild->Id() : 0);
   }
   if (!AdvancesGroundRetirement()) { return true; }
+  if (World.GroundBuild && World.GroundBuild->RoadsMissing()) {
+    World.Stack.ForgetCachedRegionNetwork();
+    World.Stack.RequestStreets();
+    World.GroundLookup.reset();
+    World.GroundLookupRequest.clear();
+    World.GroundRetirement = std::move(World.GroundBuild);
+    return true;
+  }
   if (!GroundInputsReady(quality)) { return true; }
   const Scenario::Document &declared = Session.Declared;
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;

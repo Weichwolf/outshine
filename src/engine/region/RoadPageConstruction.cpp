@@ -1,7 +1,6 @@
 #include "RoadPageConstruction.h"
 #include "ProfiledRoadMesher.h"
 #include "Sha256.h"
-#include "Log.h"
 #include <content/GeometryAsset.h>
 #include <algorithm>
 #include <cstddef>
@@ -33,9 +32,8 @@ RoadPageConstruction::Begin(Tasks &pool,
   auto result =
       std::unique_ptr<RoadPageConstruction>(new RoadPageConstruction(pool, std::move(pages)));
   result->Parts_ = std::move(*parts);
-  result->Material_ = Generators::Corridors::StreetMaterial(site.Materials);
   Geometry materials;
-  if (!materials.addSurface("streets", result->Material_)) {
+  if (!materials.addSurface("streets", Generators::Corridors::StreetMaterial(site.Materials))) {
     return std::unexpected("could not prepare the shared road material");
   }
   const auto encoded = EncodeGeometryAsset(materials, 4096);
@@ -43,15 +41,17 @@ RoadPageConstruction::Begin(Tasks &pool,
   result->Address_.PlanKey = Sha256Hex("world-road-pages-1\n" + planKey);
   result->Address_.MaterialKey = Sha256Hex(encoded->data(), encoded->size());
   result->Address_.Anchor = site.Standing.Anchor();
+  result->Manifest_.PlanKey = result->Address_.PlanKey;
+  result->Manifest_.MaterialKey = result->Address_.MaterialKey;
+  result->Manifest_.Anchor = result->Address_.Anchor;
+  result->Manifest_.Materials = std::move(materials);
   return result;
 }
 
 std::expected<bool, std::string>
 RoadPageConstruction::Advance(const Generators::Corridors::Job &plan,
-                              const Generators::Corridors::Site &site,
-                              Geometry &ground) {
-  if (Stage_ == Stage::Lookup || Stage_ == Stage::Generating) { return Collect(ground); }
-  if (Stage_ != Stage::Request && Stage_ != Stage::Generate) { return Transfer(ground); }
+                              const Generators::Corridors::Site &site) {
+  if (Stage_ == Stage::Lookup || Stage_ == Stage::Generating) { return Collect(); }
   if (Next_ == Parts_.size()) { return true; }
   const auto count = std::min(PartsMost, Parts_.size() - Next_);
   const auto requested = std::span(Parts_).subspan(Next_, count);
@@ -83,7 +83,7 @@ RoadPageConstruction::Advance(const Generators::Corridors::Job &plan,
   return false;
 }
 
-std::expected<bool, std::string> RoadPageConstruction::Collect(Geometry &ground) {
+std::expected<bool, std::string> RoadPageConstruction::Collect() {
   auto completed = Queue_.Collect();
   if (completed.empty()) { return false; }
   auto &one = completed.front();
@@ -98,69 +98,30 @@ std::expected<bool, std::string> RoadPageConstruction::Collect(Geometry &ground)
     Stage_ = Stage::Generate;
     return false;
   }
-  Loaded_ = std::move((**one.Result).Page);
-  if (!Loaded_ || Generators::RoadPageKey(Loaded_->Address) != PendingKey_ ||
-      Loaded_->Address.MaterialKey != Address_.MaterialKey || Loaded_->Address.MaterialIndex != 0) {
+  const auto &loaded = **one.Result;
+  const auto &page = loaded.Page;
+  if (!page || Generators::RoadPageKey(page->Address) != PendingKey_ ||
+      page->Address.MaterialKey != Address_.MaterialKey || page->Address.MaterialIndex != 0) {
     return std::unexpected("road page references an unavailable material or different plan");
   }
-  NativeBytes_ += (**one.Result).NativeBytes;
-  Meshing_ += Loaded_->Geometry.Swept;
-  for (const auto &diagnostic : Loaded_->Geometry.Diagnostics) {
-    Log::Warn(
-        LogTag::World,
-        "road_page_part_rejected",
-        {{"source", std::to_string(diagnostic.Source)},
-         {"kind",
-          diagnostic.Part.Kind == Generators::RoadPagePartKind::Interval ? "interval" : "junction"},
-         {"part", static_cast<int64_t>(diagnostic.Part.Index)},
-         {"reason", diagnostic.Empty ? "empty_native_mesh" : "partial_native_mesh"},
-         {"refused", static_cast<int64_t>(diagnostic.Stats.Refused)}});
-  }
-  if (Loaded_->Geometry.Mesh.Index.empty()) {
-    Next_ += Address_.Parts.size();
-    ++PageCount_;
-    Loaded_.reset();
-    Stage_ = Stage::Request;
-    return false;
-  }
-  if (!Surface_) {
-    const auto surface = ground.addSurface("streets", Material_);
-    if (!surface) { return std::unexpected("could not admit the shared road material"); }
-    Surface_ = *surface;
-  }
-  const auto part = ground.addPart("streets", *Surface_);
-  if (!part) { return std::unexpected("could not admit the native road page"); }
-  Part_ = *part;
-  Stage_ = Stage::Positions;
+  NativeBytes_ += loaded.NativeBytes;
+  Meshing_ += page->Geometry.Swept;
+  Manifest_.Pages.push_back({.Key = PendingKey_,
+                             .Bounds = loaded.Record.Bounds,
+                             .ByteCount = loaded.NativeBytes,
+                             .Level = page->Address.Level,
+                             .Parts = page->Address.Parts});
+  Next_ += Address_.Parts.size();
+  ++PageCount_;
+  Stage_ = Stage::Request;
   return false;
 }
 
-std::expected<bool, std::string> RoadPageConstruction::Transfer(Geometry &ground) {
-  const auto &mesh = Loaded_->Geometry.Mesh;
-  bool copied = false;
-  switch (Stage_) {
-    case Stage::Positions:
-      copied = ground.setPositions(Part_, mesh.PositionM).has_value();
-      Stage_ = Stage::Normals;
-      break;
-    case Stage::Normals:
-      copied = ground.setNormals(Part_, mesh.NormalM).has_value();
-      Stage_ = Stage::Colours;
-      break;
-    case Stage::Colours:
-      copied = ground.setColours(Part_, mesh.ColourRgba).has_value();
-      Stage_ = Stage::Triangles;
-      break;
-    case Stage::Triangles:
-      copied = ground.setTriangles(Part_, mesh.Index).has_value();
-      Next_ += Address_.Parts.size();
-      ++PageCount_;
-      Loaded_.reset();
-      Stage_ = Stage::Request;
-      break;
-    default: return std::unexpected("road page transfer is not active");
+std::expected<Generators::RoadPageManifest, std::string> RoadPageConstruction::TakeManifest() {
+  if (ManifestTaken_ || Stage_ != Stage::Request || Next_ != Parts_.size()) {
+    return std::unexpected("road page manifest requires complete unpublished native products");
   }
-  if (!copied) { return std::unexpected("could not transfer a native road page into the world"); }
-  return false;
+  ManifestTaken_ = true;
+  return std::move(Manifest_);
 }
 }

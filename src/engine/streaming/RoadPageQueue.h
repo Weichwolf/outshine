@@ -26,6 +26,10 @@ public:
     RoadPageQueue::Result Result;
   };
 
+  struct Manifest {
+    std::string Key;
+  };
+
   struct Limits {
     size_t PendingMost = 0;
     size_t PageBytesMost = 0;
@@ -40,7 +44,7 @@ public:
                              std::string parent,
                              std::string requestKey,
                              Factory factory);
-  [[nodiscard]] bool RequestCached(const std::string &key);
+  [[nodiscard]] bool RequestCached(const std::string &key, Manifest dependency = {});
   void Cancel(const std::string &key);
   [[nodiscard]] std::vector<Completed> Collect();
 

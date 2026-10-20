@@ -59,12 +59,20 @@ bool RoadPageQueue::Request(Generators::RoadPageAddress address,
       });
 }
 
-bool RoadPageQueue::RequestCached(const std::string &key) {
+bool RoadPageQueue::RequestCached(const std::string &key, Manifest dependency) {
   const auto admission = RequestState(key);
   if (admission != Admission::Available) { return admission == Admission::Pending; }
   return Enqueue(key,
-                 [pages = Pages_, key, bytesMost = Limits_.PageBytesMost](const std::stop_token &) {
-                   return pages->LoadKey(key, bytesMost);
+                 [pages = Pages_,
+                  key,
+                  manifest = std::move(dependency.Key),
+                  bytesMost = Limits_.PageBytesMost](const std::stop_token &) -> Result {
+                   auto loaded = pages->LoadKey(key, bytesMost);
+                   if (loaded && !*loaded && !manifest.empty()) {
+                     const auto invalidated = pages->InvalidateManifest(manifest);
+                     if (!invalidated) { return std::unexpected(invalidated.error()); }
+                   }
+                   return loaded;
                  });
 }
 

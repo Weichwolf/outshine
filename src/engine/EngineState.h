@@ -569,6 +569,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceReadyGroundSheets(Patchwork &patchwork,
                                                              WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress StoreGroundRegion(WorldRegionBuildState &state) const;
+  [[nodiscard]] GroundBuildProgress RestoreGroundRoadPages(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress
   AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
   [[nodiscard]] GroundBuildProgress BeginGroundSheetRefinement(const TangentFrame &standing,

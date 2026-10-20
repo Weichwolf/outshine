@@ -76,15 +76,42 @@ std::string TerrainMissMessage(const std::optional<Drape::EastNorth> &first,
       vectorZoom);
 }
 
+std::expected<void, std::string> FinishRoadPreparation(WorldRegionBuildState &state,
+                                                       Core::DiagnosticLedger &published) {
+  auto *pages = state.RoadPages();
+  for (const auto &diagnostic : state.CorridorJob()->Diagnostics()) {
+    published.RecordMetric(diagnostic.Name, diagnostic.Value, diagnostic.Unit.c_str());
+  }
+  published.RecordMetric("ground candidate: road plan", state.CorridorJob()->WorkMs(), "ms");
+  published.RecordMetric("ground candidate: native road miss requests",
+                         static_cast<double>(pages->MissRequests()),
+                         "pages");
+  published.RecordMetric("streets: pieces the sweep laid on a line",
+                         static_cast<double>(pages->Meshing().Pieces),
+                         "pieces");
+  published.RecordMetric("streets: pieces the sweep could not lay",
+                         static_cast<double>(pages->Meshing().Refused),
+                         "pieces");
+  published.RecordMetric(
+      "ground candidate: native road pages", static_cast<double>(pages->Pages()), "pages");
+  published.RecordMetric("ground candidate: native road page bytes",
+                         static_cast<double>(pages->NativeBytes()),
+                         "bytes");
+  auto manifest = pages->TakeManifest();
+  if (!manifest) { return std::unexpected(std::move(manifest.error())); }
+  state.HoldRoadManifest(
+      std::make_shared<const Generators::RoadPageManifest>(std::move(*manifest)));
+  state.FinishRoadPages();
+  return {};
+}
+
 std::expected<bool, std::string> AdvanceRoadProducts(const Generators::Corridors &generator,
                                                      WorldRegionBuildState &state,
                                                      const Generators::Corridors::Site &site,
                                                      Geometry &ground,
                                                      std::vector<EarthworkStamp> &contacts,
                                                      std::vector<DiagnosticSample> &notes) {
-  if (auto *pages = state.RoadPages()) {
-    return pages->Advance(*state.CorridorJob(), site, ground);
-  }
+  if (auto *pages = state.RoadPages()) { return pages->Advance(*state.CorridorJob(), site); }
   const auto ready =
       !state.CorridorsPlanned()
           ? generator.AdvancePlan(
@@ -187,26 +214,12 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   }
   Published.RecordMetric(
       "ground candidate: corridor drape field misses", static_cast<double>(fieldMisses), "queries");
-  if (auto *pages = state.RoadPages()) {
-    for (const auto &diagnostic : state.CorridorJob()->Diagnostics()) {
-      Published.RecordMetric(diagnostic.Name, diagnostic.Value, diagnostic.Unit.c_str());
+  if (state.RoadPages() != nullptr) {
+    const auto finished = FinishRoadPreparation(state, Published);
+    if (!finished) {
+      Error = finished.error();
+      return false;
     }
-    Published.RecordMetric("ground candidate: road plan", state.CorridorJob()->WorkMs(), "ms");
-    Published.RecordMetric("ground candidate: native road miss requests",
-                           static_cast<double>(pages->MissRequests()),
-                           "pages");
-    Published.RecordMetric("streets: pieces the sweep laid on a line",
-                           static_cast<double>(pages->Meshing().Pieces),
-                           "pieces");
-    Published.RecordMetric("streets: pieces the sweep could not lay",
-                           static_cast<double>(pages->Meshing().Refused),
-                           "pieces");
-    Published.RecordMetric(
-        "ground candidate: native road pages", static_cast<double>(pages->Pages()), "pages");
-    Published.RecordMetric("ground candidate: native road page bytes",
-                           static_cast<double>(pages->NativeBytes()),
-                           "bytes");
-    state.FinishRoadPages();
   } else {
     Published.RecordMetric("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
   }
@@ -214,6 +227,42 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   state.SamplesCorridorSlice(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   return true;
+}
+
+Engine::State::GroundBuildProgress
+Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
+  if (state.RoadsRestored() || !state.RoadManifest()) { return GroundBuildProgress::Ready; }
+  if (state.RoadRestoration() == nullptr) {
+    if (!World.Pool) {
+      Error = "road restoration has no worker pool";
+      return GroundBuildProgress::Failed;
+    }
+    auto restore = RoadPageRestoration::Begin(*World.Pool,
+                                              World.Stack.RoadAssets(),
+                                              state.RoadManifest(),
+                                              std::nullopt,
+                                              state.SurfaceManifestKey());
+    if (!restore) {
+      Error = std::move(restore.error());
+      return GroundBuildProgress::Failed;
+    }
+    state.BeginRoadRestoration(std::move(*restore));
+    return GroundBuildProgress::Pending;
+  }
+  auto *restore = state.RoadRestoration();
+  const auto advanced = restore->Advance(state.Candidate().Products().Ground);
+  if (!advanced) {
+    Error = advanced.error();
+    return GroundBuildProgress::Failed;
+  }
+  if (!*advanced) { return GroundBuildProgress::Pending; }
+  Published.RecordMetric(
+      "ground candidate: restored road pages", static_cast<double>(restore->Pages()), "pages");
+  Published.RecordMetric("ground candidate: restored road package bytes",
+                         static_cast<double>(restore->NativeBytes()),
+                         "bytes");
+  state.FinishRoadRestoration();
+  return GroundBuildProgress::Pending;
 }
 
 }

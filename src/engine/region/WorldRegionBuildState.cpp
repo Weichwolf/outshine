@@ -116,6 +116,9 @@ WorldRegionBuildState::AdvanceWater(Tasks &pool,
   auto &build = Candidate_.Products();
   Lays(std::move(region.Terrain));
   build.Ground = std::move(region.Surfaces);
+  SurfaceManifestKey_ = std::move(region.SurfaceManifest);
+  RoadRestoration_.reset();
+  RoadsRestored_ = false;
   build.TerrainClassificationMap = std::move(region.Classes);
   build.ClassPalette = std::move(region.ClassPalette);
   build.ClassUpload = build.TerrainClassificationMap

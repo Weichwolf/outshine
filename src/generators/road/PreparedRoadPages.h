@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_ROAD_PREPAREDROADPAGES_H
 
 #include "RoadPageAsset.h"
+#include "RoadPageManifest.h"
 #include "content/AssetCache.h"
 #include <cstddef>
 #include <expected>
@@ -19,6 +20,14 @@ public:
     AssetRecord Record;
     size_t NativeBytes = 0;
   };
+
+  static constexpr size_t ManifestBytesMost = size_t{8} * 1024u * 1024u;
+
+  [[nodiscard]] std::expected<std::string, std::string>
+  StoreManifest(const RoadPageManifest &manifest);
+  [[nodiscard]] std::expected<std::optional<std::shared_ptr<const RoadPageManifest>>, std::string>
+  LoadManifest(const std::string &key);
+  [[nodiscard]] std::expected<void, std::string> InvalidateManifest(const std::string &key);
 
   using Factory = std::function<std::expected<RoadPageGeometry, std::string>(size_t)>;
 
@@ -38,6 +47,8 @@ public:
 
 private:
   explicit PreparedRoadPages(std::unique_ptr<AssetCache> cache);
+  [[nodiscard]] std::expected<bool, std::string>
+  ManifestReady(const RoadPageManifest &manifest) const;
   [[nodiscard]] std::expected<std::optional<Loaded>, std::string> Read(const std::string &key,
                                                                        size_t bytesMost);
   std::unique_ptr<AssetCache> Cache_;

@@ -4,6 +4,7 @@
 #include "EngineState.h"
 #include "Corridors.h"
 #include "RoadPageConstruction.h"
+#include "RoadPageRestoration.h"
 #include "RoadHeightCoverage.h"
 #include "StreetGraphPreparation.h"
 #include "GroundWorldCandidate.h"
@@ -188,8 +189,12 @@ public:
 
   [[nodiscard]] bool HasReadyRegion() const noexcept { return Schedule_.HasReadyRegion(); }
 
-  void BeginRegion(Tasks &pool, GroundRegionPreparation::Factory factory, RegionPhase phase) {
-    RegionWorker_ = std::make_unique<GroundRegionPreparation>(pool, std::move(factory));
+  void BeginRegion(Tasks &pool,
+                   GroundRegionPreparation::Factory factory,
+                   RegionPhase phase,
+                   std::shared_ptr<Generators::PreparedRoadPages> pages = {}) {
+    RegionWorker_ =
+        std::make_unique<GroundRegionPreparation>(pool, std::move(factory), std::move(pages));
     RegionPhase_ = phase;
   }
 
@@ -256,6 +261,36 @@ public:
 
   void BeginsCorridors(std::unique_ptr<Generators::Corridors::Job> job) noexcept {
     CorridorJob_ = std::move(job);
+  }
+
+  void HoldRoadManifest(std::shared_ptr<const Generators::RoadPageManifest> manifest) noexcept {
+    RoadManifest_ = std::move(manifest);
+  }
+
+  [[nodiscard]] const std::shared_ptr<const Generators::RoadPageManifest> &
+  RoadManifest() const noexcept {
+    return RoadManifest_;
+  }
+
+  [[nodiscard]] const std::string &SurfaceManifestKey() const noexcept {
+    return SurfaceManifestKey_;
+  }
+
+  [[nodiscard]] RoadPageRestoration *RoadRestoration() noexcept { return RoadRestoration_.get(); }
+
+  [[nodiscard]] bool RoadsRestored() const noexcept { return RoadsRestored_; }
+
+  [[nodiscard]] bool RoadsMissing() const noexcept {
+    return RoadRestoration_ && RoadRestoration_->Missing();
+  }
+
+  void BeginRoadRestoration(std::unique_ptr<RoadPageRestoration> restore) noexcept {
+    RoadRestoration_ = std::move(restore);
+  }
+
+  void FinishRoadRestoration() noexcept {
+    RoadRestoration_.reset();
+    RoadsRestored_ = true;
   }
 
   [[nodiscard]] RoadPageConstruction *RoadPages() noexcept { return RoadPages_.get(); }
@@ -422,6 +457,10 @@ private:
   std::unique_ptr<Generators::TerrainDeformationTask> TerrainDeformation_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::unique_ptr<RoadPageConstruction> RoadPages_;
+  std::unique_ptr<RoadPageRestoration> RoadRestoration_;
+  std::shared_ptr<const Generators::RoadPageManifest> RoadManifest_;
+  std::string SurfaceManifestKey_;
+  bool RoadsRestored_ = false;
   std::unique_ptr<StreetGraphPreparation> StreetGraphWorker_;
   std::unique_ptr<GroundRegionPreparation> RegionWorker_;
   std::string RegionKey_;

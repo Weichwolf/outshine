@@ -21,8 +21,8 @@ public:
         const Generators::Corridors::Site &site,
         const std::string &planKey);
   [[nodiscard]] std::expected<bool, std::string> Advance(const Generators::Corridors::Job &plan,
-                                                         const Generators::Corridors::Site &site,
-                                                         Geometry &ground);
+                                                         const Generators::Corridors::Site &site);
+  [[nodiscard]] std::expected<Generators::RoadPageManifest, std::string> TakeManifest();
 
   [[nodiscard]] size_t Pages() const noexcept { return PageCount_; }
 
@@ -33,34 +33,22 @@ public:
   [[nodiscard]] size_t NativeBytes() const noexcept { return NativeBytes_; }
 
 private:
-  enum class Stage : unsigned char {
-    Request,
-    Lookup,
-    Generate,
-    Generating,
-    Positions,
-    Normals,
-    Colours,
-    Triangles
-  };
+  enum class Stage : unsigned char { Request, Lookup, Generate, Generating };
   RoadPageConstruction(Tasks &pool, std::shared_ptr<Generators::PreparedRoadPages> pages);
-  [[nodiscard]] std::expected<bool, std::string> Collect(Geometry &ground);
-  [[nodiscard]] std::expected<bool, std::string> Transfer(Geometry &ground);
+  [[nodiscard]] std::expected<bool, std::string> Collect();
   static constexpr size_t PageBytesMost = size_t{64} * 1024u * 1024u;
   static constexpr size_t PartsMost = 64;
   RoadPageQueue Queue_;
   Generators::RoadPageAddress Address_;
   std::vector<Generators::RoadPagePart> Parts_;
-  std::shared_ptr<const Generators::RoadPageAsset> Loaded_;
-  Material Material_;
+  Generators::RoadPageManifest Manifest_;
   RoadMeshingStats Meshing_;
-  std::optional<MaterialInstance> Surface_;
   std::string PendingKey_;
   size_t Next_ = 0;
   size_t PageCount_ = 0;
   size_t MissRequests_ = 0;
   size_t NativeBytes_ = 0;
-  int Part_ = -1;
+  bool ManifestTaken_ = false;
   Stage Stage_ = Stage::Request;
 };
 }
