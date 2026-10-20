@@ -374,6 +374,18 @@ void ReadyForms(const PreparedStructureTile &base, const BuildingMesh &mesher) {
   }
 }
 
+void AttachPreparedCeilings(BakedTile &reference, const PreparedStructureTile &base) {
+  CHECK(reference.Prints.size() == base.Structures.size(),
+        "legacy cold footprints retain every prepared source");
+  if (reference.Prints.size() != base.Structures.size()) { return; }
+  for (size_t index = 0; index < reference.Prints.size(); ++index) {
+    auto &print = reference.Prints[index];
+    CHECK(!print.TerrainCeiling && print.FirstPoint == base.Structures[index].Standing.FirstPoint,
+          "legacy raw meshing has no asset-cook contact metadata and retains source order");
+    print.TerrainCeiling = base.Structures[index].Standing.TerrainCeiling;
+  }
+}
+
 void UnsupportedMass() {
   auto raw = Inputs();
   constexpr double tiny = 0.0000001;
@@ -401,6 +413,7 @@ void UnsupportedMass() {
   BakedTile reference;
   const auto original = BakeStructures(raw, *heights, mesher, *scratch, reference);
   const auto ready = BakePreparedStructures(*restored, raw, mesher, *scratch);
+  AttachPreparedCeilings(reference, *base);
   CHECK(original && ready && ready->Digest == reference.Digest &&
             ready->Prints == reference.Prints &&
             ready->UnsupportedMeshes == reference.UnsupportedMeshes,
@@ -440,6 +453,7 @@ int main() {
     BakedTile reference;
     CHECK(BakeStructures(original, *heights, mesher, *scratch, reference).has_value(),
           "cold native path supplies the geometry reference at every envelope");
+    AttachPreparedCeilings(reference, *base);
     references.push_back(std::move(reference));
   }
   const auto decoded = CachedBase(*base);

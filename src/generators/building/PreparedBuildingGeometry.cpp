@@ -2,6 +2,7 @@
 #include "StructureArtifact.h"
 #include "ByteArchive.h"
 #include "Sha256.h"
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -27,7 +28,7 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
   const auto number = [&bytes](double value) {
     return std::isfinite(value) && bytes.Number(value == 0.0 ? 0.0 : value);
   };
-  if (!text("building-lod-3") || !text(base) ||
+  if (!text("building-lod-4") || !text(base) ||
       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||
       !bytes.Number(view.RequestedCell.value_or(0)) || !bytes.Number(view.ClusterTriangles) ||
       !number(view.Projection.FocalPx) || !number(view.Projection.AllowedErrorPx) ||
@@ -41,6 +42,12 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
     }
   }
   return Sha256Hex(bytes.Bytes().data(), bytes.Bytes().size());
+}
+
+bool ValidCeilings(const BakedTile &tile, size_t points) {
+  return std::ranges::all_of(tile.Prints, [points](const auto &print) {
+    return !print.TerrainCeiling || print.TerrainCeiling->OriginPoint < points;
+  });
 }
 
 void RestoreCoordinates(BakedTile &tile, const PreparedStructureTile &base) {
@@ -74,7 +81,9 @@ void RestoreCoordinates(BakedTile &tile, const PreparedBuildingBasis &basis) {
 }
 
 std::expected<std::optional<BakedTile>, StructureBakeError>
-PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey, const RawTile &view) {
+PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
+                                             const RawTile &view,
+                                             size_t coordinatePoints) {
   const auto key = GeometryKey(baseKey, view);
   if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
   const std::scoped_lock lock(Lock_);
@@ -82,7 +91,7 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey, const R
   if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
   if (*loaded) {
     auto tile = DecodeStructureArtifact((**loaded).Bytes(), key, 0);
-    if (tile) {
+    if (tile && ValidCeilings(*tile, coordinatePoints)) {
       ++GeometryHits_;
       GeometryReadBytes_ += (**loaded).Bytes().size();
       return std::move(tile);
@@ -94,14 +103,14 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey, const R
 
 std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAssets::LoadGeometry(
     const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view) {
-  auto loaded = LoadGeometryArtifact(baseKey, view);
+  auto loaded = LoadGeometryArtifact(baseKey, view, base.PointsLatLon.size() / 2u);
   if (loaded && *loaded) { RestoreCoordinates(**loaded, base); }
   return loaded;
 }
 
 std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAssets::LoadGeometry(
     const std::string &baseKey, const PreparedBuildingBasis &basis, const RawTile &view) {
-  auto loaded = LoadGeometryArtifact(baseKey, view);
+  auto loaded = LoadGeometryArtifact(baseKey, view, basis.PointsLatLon.size() / 2u);
   if (loaded && *loaded) { RestoreCoordinates(**loaded, basis); }
   return loaded;
 }
@@ -112,7 +121,9 @@ PreparedBuildingAssets::StoreGeometry(const std::string &baseKey,
                                       const RawTile &view,
                                       const BakedTile &tile) {
   const auto key = GeometryKey(baseKey, view);
-  if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
+  if (key.empty() || !ValidCeilings(tile, base.PointsLatLon.size() / 2u)) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
   const auto encoded = EncodeStructureArtifact(tile, key);
   if (!encoded) {
     if (encoded.error() == StructureArtifactError::CapacityExceeded) {
