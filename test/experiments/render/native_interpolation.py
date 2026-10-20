@@ -9,13 +9,13 @@ import hashlib
 import json
 import math
 import os
-from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = ROOT / "test/outshine/data/render/interpolation"
@@ -81,6 +81,8 @@ def main():
     parser.add_argument("--iterations", type=int, default=1024)
     parser.add_argument("--device-name", help="reject a different native GPU")
     args = parser.parse_args()
+    if sys.platform == "darwin":
+        os.environ.setdefault("MTL_DEBUG_LAYER", "1")
     checkout, output = args.checkout.resolve(), args.output.resolve()
     temporary_roots = {Path(tempfile.gettempdir()).resolve(), Path("/tmp").resolve()}
     if (not any(output != root and output.is_relative_to(root) for root in temporary_roots)
