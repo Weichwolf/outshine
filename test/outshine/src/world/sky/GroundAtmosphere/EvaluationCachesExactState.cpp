@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include "Atmosphere.h"
+#include "GroundAtmosphere.h"
 #include "Check.h"
 
 int main() {
