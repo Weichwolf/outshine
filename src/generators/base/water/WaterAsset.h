@@ -56,7 +56,7 @@ public:
     std::optional<bool> Intermittent;
   };
 
-  enum class SurfaceRejectionReason { InvalidTopology, CapacityExceeded };
+  enum class SurfaceRejectionReason { InvalidTopology, CapacityExceeded, InvalidHeightModel };
 
   struct SurfaceRejection {
     uint32_t Surface = 0;

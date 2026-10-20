@@ -69,7 +69,8 @@ std::expected<WaterAsset, std::string> WaterAsset::WithSurfaces(SurfaceGeometry 
   for (const auto &rejection : geometry.Rejections) {
     if (rejection.Surface >= covered.size() || covered[rejection.Surface] != 0 ||
         (rejection.Reason != SurfaceRejectionReason::InvalidTopology &&
-         rejection.Reason != SurfaceRejectionReason::CapacityExceeded)) {
+         rejection.Reason != SurfaceRejectionReason::CapacityExceeded &&
+         rejection.Reason != SurfaceRejectionReason::InvalidHeightModel)) {
       return std::unexpected("water surface rejection is duplicate or invalid");
     }
     covered[rejection.Surface] = 1;
