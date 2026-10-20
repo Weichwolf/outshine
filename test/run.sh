@@ -453,7 +453,7 @@ LayerGroups() {
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/water-mesh) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/base/water/WaterSurfaceMesh.cpp src/generators/base/water/WaterSurfaceMeshQueries.cpp src/generators/base/water/WaterSurfaceMeshCodec.cpp' ;;
     profile/water-asset) LayerGroups profile/water-mesh; printf '%s' ' src/generators/base/water/WaterAsset.cpp src/generators/base/water/WaterAssetQueries.cpp src/generators/base/water/WaterAssetGeometry.cpp src/generators/base/water/WaterAssetCodec.cpp src/generators/base/water/WaterAssetMetadata.cpp src/world/ground/tiles/TileGeodesy.cpp' ;;
-    profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp' ;;
+    profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp src/generators/water/WaterSurfaceTopology.cpp' ;;
     profile/water-geometry) LayerGroups profile/water-preparation; printf '%s' ' src/generators/water/WaterSurfaceBuilder.cpp src/base/Geometry.cpp' ;;
     profile/water-worker) LayerGroups profile/water-preparation; printf '%s' ' src/base/io/Tasks.cpp src/engine/streaming/WaterGeometryPreparation.cpp' ;;
     profile/water-bed) LayerGroups profile/water-asset; printf '%s' ' src/generators/water/WaterBasinStamps.cpp src/generators/terrain/EarthworkPress.cpp src/generators/terrain/ProfiledCorridorPress.cpp' ;;
