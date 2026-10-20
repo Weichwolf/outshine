@@ -92,7 +92,7 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
 }
 
 Vec3f Corridors::LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
-                            const Ground::VegetationTemplates &vegetation) {
+                            const outshine::Ground::VegetationTemplates &vegetation) {
   if (lane.CoverRow < 0 || static_cast<size_t>(lane.CoverRow) >= vegetation.TemplateCount()) {
     return {{0.5f, 0.5f, 0.5f}};
   }
@@ -390,7 +390,7 @@ void Corridors::PaveLane(const Paving &on,
 }
 
 RoadProfile Corridors::ProfileOf(const Osm::StreetField::Way &lane,
-                                 const Ground::VegetationTemplates &vegetation) {
+                                 const outshine::Ground::VegetationTemplates &vegetation) {
   const bool sealed = lane.CoverRow >= 0 &&
                       static_cast<size_t>(lane.CoverRow) < vegetation.TemplateCount() &&
                       vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
