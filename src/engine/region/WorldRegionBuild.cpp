@@ -765,6 +765,9 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
   Published.RecordMetric("water: surfaces refused by capacity",
                          static_cast<double>(built->RefusedCapacity),
                          "surfaces");
+  Published.RecordMetric("water: surfaces without admitted shared height model",
+                         static_cast<double>(built->ProfileDeclines),
+                         "surfaces");
   Published.RecordMetric("water: triangles", static_cast<double>(built->Triangles), "triangles");
   Published.RecordMetric("water: prepared surface payload",
                          static_cast<double>(water.PreparedSurfaceBytes()),

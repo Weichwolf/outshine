@@ -123,7 +123,7 @@ std::optional<std::vector<uint32_t>> TriangulateWaterPolygon(const WaterPolygon 
   return oriented;
 }
 
-enum class SurfaceState { Pending, Prepared, Rejected };
+enum class SurfaceState { Pending, Unprofiled, Prepared, Rejected };
 
 struct SurfaceAssembly {
   std::vector<Vec3> Vertices;
@@ -138,6 +138,12 @@ struct SurfaceAssembly {
   void Reject(uint32_t source, WaterAsset::SurfaceRejectionReason reason) {
     Product.Rejections.push_back({.Surface = source, .Reason = reason});
     States[source] = SurfaceState::Rejected;
+  }
+
+  void DeclineProfile(uint32_t source, WaterAsset::SurfaceRejectionReason reason) {
+    if (States[source] == SurfaceState::Unprofiled) { return; }
+    Product.ProfileDeclines.push_back({.Surface = source, .Reason = reason});
+    States[source] = SurfaceState::Unprofiled;
   }
 
   void Source(std::span<const uint32_t> sources) {
@@ -168,14 +174,14 @@ std::expected<void, std::string> AppendRiver(const WaterAsset &water,
     const auto reason = fit.error() == WaterHeightError::CapacityExceeded
                             ? WaterAsset::SurfaceRejectionReason::CapacityExceeded
                             : WaterAsset::SurfaceRejectionReason::InvalidHeightModel;
-    for (const auto source : sources) { assembly.Reject(source, reason); }
+    for (const auto source : sources) { assembly.DeclineProfile(source, reason); }
     return {};
   }
   if (fit->VerticesEnuM.size() > std::numeric_limits<uint32_t>::max() - assembly.Vertices.size() ||
       body.Surface.Faces.size() >
           std::numeric_limits<uint32_t>::max() / 2 - assembly.Faces.size()) {
     for (const auto source : sources) {
-      assembly.Reject(source, WaterAsset::SurfaceRejectionReason::CapacityExceeded);
+      assembly.DeclineProfile(source, WaterAsset::SurfaceRejectionReason::CapacityExceeded);
     }
     return {};
   }
@@ -202,7 +208,7 @@ std::expected<void, std::string> AppendRivers(const WaterAsset &water,
       PlanRiverBodies(water, frame, WaterGroundPolicy::AssumeUnlabelledGround, {}, stop);
   if (!plan) { return std::unexpected("river body planning failed or was canceled"); }
   for (const auto &rejection : plan->Rejections) {
-    assembly.Reject(rejection.Surface, rejection.Reason);
+    assembly.DeclineProfile(rejection.Surface, rejection.Reason);
   }
   std::vector<uint32_t> owners(water.Surfaces().size());
   for (const auto &body : plan->Bodies) {
@@ -211,8 +217,11 @@ std::expected<void, std::string> AppendRivers(const WaterAsset &water,
   for (const auto &body : plan->Bodies) {
     if (stop.stop_requested()) { return std::unexpected("river surface preparation canceled"); }
     const auto sources = Sources(body);
-    if (body.Courses.empty() ||
-        std::ranges::any_of(sources, [&](uint32_t source) { return owners[source] != 1; })) {
+    if (body.Courses.empty()) { continue; }
+    if (std::ranges::any_of(sources, [&](uint32_t source) { return owners[source] != 1; })) {
+      for (const auto source : sources) {
+        assembly.DeclineProfile(source, WaterAsset::SurfaceRejectionReason::InvalidHeightModel);
+      }
       continue;
     }
     const auto result = AppendRiver(water, frame, body, stop, assembly);
@@ -287,7 +296,8 @@ std::expected<WaterAsset, std::string> PrepareWaterSurfaces(const WaterAsset &wa
   });
   for (const auto index : ordered) {
     if (stop.stop_requested()) { return std::unexpected("water surface preparation canceled"); }
-    if (assembly.States[index] == SurfaceState::Pending) {
+    if (assembly.States[index] == SurfaceState::Pending ||
+        assembly.States[index] == SurfaceState::Unprofiled) {
       AppendFlat(water, index, frame, assembly);
     }
   }
