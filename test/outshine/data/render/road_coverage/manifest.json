@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "scope": "Fixed native full-world depth reference, not a runtime streaming input; opaque depth ties can share surface ownership",
+  "source_cpp": "e2ae8098599d142397c72e706499604fa3ffad60",
+  "source_shaders": "36149251fb55eeda14dac3351205d3bffeb15ab1",
+  "frame_shape": [
+    1280,
+    720
+  ],
+  "frames": 60,
+  "angular_velocity_degrees_per_s": [
+    0,
+    0,
+    0
+  ],
+  "raster_view": [
+    0.827876091003418,
+    0.12956328690052032,
+    0.0,
+    0.6392663717269897,
+    -2.0415716790012084e-05,
+    1.910378098487854,
+    0.0,
+    -0.10452846437692642,
+    0.6944169998168945,
+    -0.15440751612186432,
+    0.0,
+    -0.761847972869873,
+    0.0,
+    0.0,
+    0.05000000074505806,
+    0.0,
+    0.0,
+    -75.1875,
+    -5.834195349052607e-10,
+    0.0
+  ],
+  "uncompressed_bytes": 3686400,
+  "compressed_bytes": 1139792,
+  "depth_sha256": "f4e4673ea6fb2d6174049838800f58568b7a5b5f5cd3d9f0e45e97cd4ae43d92",
+  "compressed_sha256": "ad8588ac21f2bb8f6f870644cbea46c6b10078ee04c16fb50b38daf3e10ffa71",
+  "original_image_sha256": "fe0fc4335484c83814e243df7a26b7f3ba39742bff0a7cbfd5679ca19f5d3d2e",
+  "existing_geometry_fixture": "test/outshine/data/render/visibility/selected-native.tar.xz",
+  "existing_geometry_fixture_sha256": "7953cd3ebe51c8e115f97f5d2d0e0804569773ecb871950335ea2e714b53ef1b",
+  "road_batch": 0,
+  "road_indices": 2490624,
+  "road_primitives": 830208,
+  "road_jobs": 6486,
+  "device": "Apple A18 Pro",
+  "raster_view_note": "Current PBR raster view, not the cached CullView; all consumed geometry words are identical to the existing selected-native fixture."
+}
