@@ -78,6 +78,10 @@ def checked_contacts(parts, metadata):
                 raise ValueError("junction does not bind its original endpoint")
             if port["gate"] != gate or port["plane"] != junction["plane"]:
                 raise ValueError("original native cut gate or plane differs")
+            if leg[4] != edge["cut_m"][end]:
+                raise ValueError("original native leg cut differs")
+            if leg[3] != gate[5]:
+                raise ValueError("original native leg half-width differs")
             legs += 1
     referenced = list(edges.values()) + [
         r for r in metadata["boundary_references"] if r["kind"] == "edge"
