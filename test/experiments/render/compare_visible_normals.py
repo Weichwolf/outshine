@@ -131,6 +131,15 @@ def main():
         ),
         "poses": {},
     }
+    name, view = next(iter(selected.items()))
+    request = {
+        "view": [np.asarray(v).tolist() for v in view],
+        "roi": image_roi(source, view).tolist(),
+        "light": suns["day"].tolist(),
+        "roughness": 0.12,
+        "provenance": provenance,
+    }
+    (output / "cache-request.json").write_text(json.dumps(request, indent=2) + "\n")
     unobserved = {r["ordinal"] for r in header["unsampled_sources"]}
     for name, view in poses.items():
         box = image_roi(source, view)
