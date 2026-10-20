@@ -1,11 +1,13 @@
 #include "PreparedStructureCodec.h"
 #include "math/Units.h"
 #include "StructureBinary.h"
+#include "BuildingFootprintFields.h"
 #include "PreparedStructurePlan.h"
 #include "BuildingMesh.h"
 #include "BuildingScratch.h"
 #include "HipRoofCodec.h"
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -23,9 +25,11 @@ using StructureBinary::Reader;
 using StructureBinary::Writer;
 constexpr uint32_t kMagic = 0x31425350;
 constexpr uint32_t kLegacyVersion = 3;
-constexpr uint32_t kVersion = 9;
+constexpr uint32_t kPreviousVersion = 9;
+constexpr uint32_t kVersion = 10;
 constexpr uint32_t kLegacyIndexVersion = 4;
-constexpr uint32_t kIndexVersion = 8;
+constexpr uint32_t kPreviousIndexVersion = 8;
+constexpr uint32_t kIndexVersion = 9;
 constexpr uint32_t kBasisVersion = 6;
 constexpr uint32_t kLegacyBlockMagic = 0x31435342;
 constexpr uint32_t kBlockMagic = 0x33435342;
@@ -50,20 +54,6 @@ constexpr auto ring = [](auto &archive, auto &value) {
 };
 constexpr auto cell = [](auto &archive, auto &value) {
   return archive.Number(value.Level) && archive.Number(value.X) && archive.Number(value.Y);
-};
-constexpr auto street = [](auto &archive, auto &value) {
-  return archive.Number(value.Known) && archive.Number(value.KerbEm) &&
-         archive.Number(value.KerbNm) && archive.Number(value.AlongE) &&
-         archive.Number(value.AlongN) && archive.Number(value.ToStreetE) &&
-         archive.Number(value.ToStreetN);
-};
-constexpr auto footprint = [](auto &archive, auto &value) {
-  return archive.Number(value.FirstPoint) && archive.Number(value.PointCount) &&
-         archive.Number(value.FirstHole) && archive.Number(value.HoleCount) &&
-         archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
-         archive.Number(value.BaseM) && archive.Number(value.SeatM) &&
-         archive.Number(value.FootM) && archive.Number(value.Source) &&
-         street(archive, value.Street);
 };
 
 bool text(Writer &archive, const std::string &value) {
@@ -149,8 +139,9 @@ constexpr auto layout = [](auto &archive, auto &value, bool facadeFields) {
          archive.Number(value.SourceId.Kind) &&
          (!facadeFields || archive.Maybe(value.Facade, scalar));
 };
-constexpr auto prepared = [](auto &archive, auto &value, bool facadeFields) {
-  return layout(archive, value.Layout, facadeFields) && footprint(archive, value.Standing) &&
+constexpr auto prepared = [](auto &archive, auto &value, bool facadeFields, bool terrainFields) {
+  return layout(archive, value.Layout, facadeFields) &&
+         StructureBinary::FootprintFields(archive, value.Standing, terrainFields) &&
          bounds(archive, value.Bounds) && archive.Number(value.CornerFirst) &&
          archive.Number(value.BaseAslM) && archive.Number(value.SeatAslM) &&
          archive.Number(value.AreaM2) && archive.Number(value.AcrossM);
@@ -217,19 +208,23 @@ public:
   }
 
   template <typename Archive, typename Tile, typename Visit>
-  static bool
-  MetadataFields(Archive &archive, Tile &value, Visit visitHeightTile, bool facadeFields = true) {
+  static bool MetadataFields(Archive &archive,
+                             Tile &value,
+                             Visit visitHeightTile,
+                             bool facadeFields = true,
+                             bool terrainFields = true) {
     return HeaderFields(archive, value, visitHeightTile) &&
            archive.List(value.PointsLatLon, scalar) && archive.List(value.Holes, ring) &&
            archive.List(value.CornerAslM, scalar) &&
-           archive.List(value.Structures, [facadeFields](auto &held, auto &entry) {
-             return prepared(held, entry, facadeFields);
+           archive.List(value.Structures, [facadeFields, terrainFields](auto &held, auto &entry) {
+             return prepared(held, entry, facadeFields, terrainFields);
            });
   }
 
   template <typename Archive, typename Tile>
-  static bool TileFields(Archive &archive, Tile &value, bool facadeFields = true) {
-    return MetadataFields(archive, value, heightTile, facadeFields) &&
+  static bool
+  TileFields(Archive &archive, Tile &value, bool facadeFields = true, bool terrainFields = true) {
+    return MetadataFields(archive, value, heightTile, facadeFields, terrainFields) &&
            archive.List(value.Surfaces, [facadeFields](auto &held, auto &surface) {
              return SurfaceFields(held, surface, facadeFields);
            });
@@ -280,8 +275,11 @@ public:
     return true;
   }
 
-  static bool IndexFields(Reader &archive, PreparedStructureTile &value, bool facadeFields) {
-    return MetadataFields(archive, value, indexedHeightTile, facadeFields) &&
+  static bool IndexFields(Reader &archive,
+                          PreparedStructureTile &value,
+                          bool facadeFields,
+                          bool terrainFields) {
+    return MetadataFields(archive, value, indexedHeightTile, facadeFields, terrainFields) &&
            archive.List(value.Surfaces, [](auto &held, auto &surface) {
              BuildingSurface::Selection selection;
              if (!SummaryFields(held, surface, selection)) { return false; }
@@ -408,6 +406,10 @@ public:
           record.PointCount > value.CornerAslM.size() - entry.CornerFirst ||
           record.Cell.Index == 0 || record.Cell.Index > kStructureCellsPerTile ||
           entry.Standing.PointCount != record.PointCount ||
+          (entry.Standing.TerrainCeiling &&
+           (entry.Standing.TerrainCeiling->OriginPoint != record.LocalFirst ||
+            !std::isfinite(entry.Standing.TerrainCeiling->HeightAslM) ||
+            record.MinimumHeightM != 0.0)) ||
           entry.Standing.Source > Ground::BuildingHeightSource::Generated || entry.AreaM2 < 0 ||
           entry.AcrossM < 0 || (record.Facade && !ValidFacadeStyle(*record.Facade)) ||
           !ValidSurface(value.Surfaces[index])) {
@@ -474,8 +476,9 @@ std::optional<PreparedStructureTile> DecodePreparedStructureTile(std::span<const
   uint32_t version = 0;
   PreparedStructureTile tile;
   if (!input.Number(magic) || magic != kMagic || !input.Number(version) ||
-      (version != kVersion && version != kLegacyVersion) ||
-      !PreparedStructureCodec::TileFields(input, tile, version == kVersion) ||
+      (version != kVersion && version != kPreviousVersion && version != kLegacyVersion) ||
+      !PreparedStructureCodec::TileFields(
+          input, tile, version != kLegacyVersion, version == kVersion) ||
       input.Remaining != 0 || !PreparedStructureCodec::Valid(tile)) {
     return std::nullopt;
   }
@@ -504,8 +507,10 @@ std::optional<PreparedStructureTile> DecodePreparedStructureIndex(std::span<cons
   uint32_t version = 0;
   PreparedStructureTile tile;
   if (!input.Number(magic) || magic != kMagic || !input.Number(version) ||
-      (version != kIndexVersion && version != kLegacyIndexVersion) ||
-      !PreparedStructureCodec::IndexFields(input, tile, version == kIndexVersion) ||
+      (version != kIndexVersion && version != kPreviousIndexVersion &&
+       version != kLegacyIndexVersion) ||
+      !PreparedStructureCodec::IndexFields(
+          input, tile, version != kLegacyIndexVersion, version == kIndexVersion) ||
       input.Remaining != 0 || !PreparedStructureCodec::Valid(tile)) {
     return std::nullopt;
   }

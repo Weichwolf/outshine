@@ -40,7 +40,7 @@ private:
   void FinishStamp();
   [[nodiscard]] std::expected<void, std::string_view> Choose(Work work);
   [[nodiscard]] std::expected<void, std::string_view> AdvanceStep(Work work);
-  void AppendOuterPoint(Work work);
+  [[nodiscard]] std::expected<void, std::string_view> AppendOuterPoint(Work work);
 
   [[nodiscard]] std::span<const double> PointsOf(Work work) const noexcept {
     return Geometry_ != nullptr ? std::span<const double>(Geometry_->Points()) : work.Points;

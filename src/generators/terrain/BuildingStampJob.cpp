@@ -68,6 +68,10 @@ std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
                                    footprint.HoleCount > rings.size() - footprint.FirstHole)) {
     return std::unexpected("building courtyard ring range is invalid");
   }
+  if (footprint.TerrainCeiling && (footprint.TerrainCeiling->OriginPoint >= points.size() / 2u ||
+                                   !std::isfinite(footprint.TerrainCeiling->HeightAslM))) {
+    return std::unexpected("building terrain ceiling is invalid");
+  }
   Current_ = EarthworkStamp{};
   Current_.RingEastNorthM.reserve(count * 2u);
   Current_.LowE = Current_.LowN = kBeyondAnyCoordinate;
@@ -78,7 +82,7 @@ std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
   return {};
 }
 
-void BuildingStampJob::AppendOuterPoint(Work work) {
+std::expected<void, std::string_view> BuildingStampJob::AppendOuterPoint(Work work) {
   const auto &footprint = work.Footprints[NextFootprint_];
   const auto points = PointsOf(work);
   const size_t point = static_cast<size_t>(footprint.FirstPoint) + NextPoint_;
@@ -100,18 +104,36 @@ void BuildingStampJob::AppendOuterPoint(Work work) {
                                               .LatitudeDeg = points[first],
                                               .HeightM = static_cast<double>(footprint.SeatM)})
                             .UpM;
+    if (footprint.TerrainCeiling) {
+      const auto &ceiling = *footprint.TerrainCeiling;
+      const size_t origin = static_cast<size_t>(ceiling.OriginPoint) * 2u;
+      const LongitudeLatitudeHeight position{.LongitudeDeg = points[origin + 1u],
+                                             .LatitudeDeg = points[origin],
+                                             .HeightM = ceiling.HeightAslM};
+      const auto at = Frame_.ToLocalPosition(position);
+      const auto normal = Frame_.ToLocalDirection(EnuAxesEcef(position).Up);
+      if (!std::isfinite(normal.UpM) || normal.UpM <= 0.0) {
+        return std::unexpected("building terrain ceiling is not a height graph in this frame");
+      }
+      Current_.AtE = at.EastM;
+      Current_.AtN = at.NorthM;
+      Current_.PlateauM = at.UpM;
+      Current_.SlopeE = -normal.EastM / normal.UpM;
+      Current_.SlopeN = -normal.NorthM / normal.UpM;
+    }
     Current_.ApronM = kPadApronM;
     Current_.YieldM =
         std::fabs(static_cast<double>(footprint.SeatM) - static_cast<double>(footprint.BaseM));
     NextSeam_ = 0;
     Phase_ = Phase::Seam;
   }
+  return {};
 }
 
 std::expected<void, std::string_view> BuildingStampJob::AdvanceStep(Work work) {
   switch (Phase_) {
     case Phase::Choose: return Choose(work);
-    case Phase::Ring: AppendOuterPoint(work); return {};
+    case Phase::Ring: return AppendOuterPoint(work);
     case Phase::Holes:
       if (const auto appended = AppendHolePoint(work); !appended) { return appended; }
       if (NextHole_ == work.Footprints[NextFootprint_].HoleCount) { FinishStamp(); }
