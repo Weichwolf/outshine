@@ -14,10 +14,12 @@ from compare_coarse_water_owner import measured
 from compare_water_grid_height import inputs
 from compare_water_parameter_cut import run as render_cuts
 from outshine_ref.geometry.sampling import owned
-from water_cell_field import CellField, prepare_field, sample_parameters
+from shapely.affinity import translate
+from water_cell_field import CellField, field_facet, prepare_field, sample_parameters
 from water_colored_reference import ReferenceUpdates
 from water_envelope_fixture import acquire, prepare_parent
 from water_nodal_height import cell_faces, parameter_triangle
+from water_parameter_cut import cut_cell
 
 
 def replay_field(field, output):
@@ -132,6 +134,40 @@ def mesh_audit(field, path):
         }
 
 
+def cached_render_audit(field, path):
+    polygons = [
+        translate(p, xoff=field.cell[1], yoff=field.cell[2]) for p in field.polygons
+    ]
+    with patch.object(
+        ReferenceUpdates,
+        "target",
+        side_effect=AssertionError("cached field reacquired source profile"),
+    ):
+        (cut, report), cost = measured(
+            lambda: cut_cell(
+                field.cell,
+                polygons,
+                field.source_keys,
+                lambda keys: field_facet(field, keys),
+                context=field.context,
+            )
+        )
+    if cut is None:
+        raise ValueError("cached functional field could not supply render roots")
+    with np.load(path) as data:
+        np.testing.assert_array_equal(cut.parameter, data["parameter"][data["faces"]])
+        np.testing.assert_array_equal(cut.world, data["world"][data["faces"]])
+        np.testing.assert_array_equal(
+            cut.normals, data["parent_normals"][data["parents"]]
+        )
+    return {
+        "render_faces": len(cut.world),
+        "source_profile_preparations": 0,
+        "cut": report,
+        "cost": cost,
+    }
+
+
 def plot(fields, queries, output):
     import matplotlib
 
@@ -201,6 +237,9 @@ def run(path, output):
             ).sum()
         )
         row["render_interiors"] = mesh_audit(field, output / "render" / filename)
+        row["render_from_cached_field"] = cached_render_audit(
+            field, output / "render" / filename
+        )
         row["refined_interiors"] = mesh_audit(
             field, output / "render/refined" / filename
         )
