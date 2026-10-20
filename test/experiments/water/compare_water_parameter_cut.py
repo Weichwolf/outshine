@@ -188,6 +188,7 @@ def plot(products, records, output):
         all_world.append(world.reshape(-1, 3))
     if all_world:
         space.auto_scale_xyz(*np.concatenate(all_world).T)
+    space.view_init(elev=45, azim=110)
     top.autoscale_view()
     top.set_aspect("equal")
     top.set_title("Actual source masks: blue diagnostic cuts; grey pending")
