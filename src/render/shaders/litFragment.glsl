@@ -63,9 +63,6 @@ void main() {
   }
 #endif
   roughness *= orm.g;
-#if LIT_KIND == 1
-  if (materialCoverage(surface, tap.a, colour.a) < surface.cut) { discard; }
-#endif
 #if LIT_MAPPED
   vec4 mapped = texture(normalMap, coordinate(surface.normalUvU, surface.normalUvV, surface.normalUvSecond));
   shadingNormal = normalFromMap(normal, tangent, mapped.xyz * 2.0 - 1.0, surface.normalScale, gl_FrontFacing);
@@ -105,12 +102,18 @@ void main() {
     surface.diffuseTransmission *= keep;
   }
 #endif
+#if SUBJECT_BASE_LOCATION == 0
+  vec2 receiverSlope = sunShadowReceiverSlope(lightSpace);
+#endif
+#if LIT_KIND == 1
+  if (materialCoverage(surface, tap.a, colour.a) < surface.cut) { discard; }
+#endif
 #if SUBJECT_BASE_LOCATION > 0
   outputMaterial(albedo, roughness, metalness);
   outputSurface(vec4(0.0), shadingNormal, surface.identity);
 #else
   vec4 shaded = vec4(shadeRow(surface, localPosition, shadingNormal, position, albedo,
-      metalness, roughness, f0, f90, emission, tangentDir, lightSpace, shadowMap), 1.0);
+      metalness, roughness, f0, f90, emission, tangentDir, lightSpace, receiverSlope, shadowMap), 1.0);
 #if LIT_KIND == 2
   shaded.a = surface.factor * tap.a * colour.a;
 #endif
