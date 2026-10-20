@@ -57,9 +57,6 @@ PreparedRoadPages::LoadManifest(const std::string &key) {
   const auto bytes = (**package).Bytes();
   auto manifest = DecodeRoadPageManifest(bytes, ManifestBytesMost);
   if (!manifest || Sha256Hex(bytes.data(), bytes.size()) != key) { return std::nullopt; }
-  const auto ready = ManifestReady(*manifest);
-  if (!ready) { return std::unexpected(ready.error()); }
-  if (!*ready) { return std::nullopt; }
   return std::make_shared<const RoadPageManifest>(std::move(*manifest));
 }
 
