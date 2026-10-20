@@ -1,5 +1,6 @@
 #include "RoadPageQueue.h"
 #include "ProfiledRoadMesher.h"
+#include "TangentFrame.h"
 #include "Check.h"
 #include <atomic>
 #include <chrono>
@@ -88,7 +89,11 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   CHECK(queue.Request(first, {}, {}, blocked) && control->Factories.load() == 1 &&
             queue.Pending() == 1,
         "identical pending requests are coalesced before IO or generation");
-  CHECK(!queue.Request(other, {}, {}, {}) && queue.Collect().empty(),
+  CHECK(queue.RequestCached(RoadPageKey(first)) && queue.Pending() == 1 &&
+            control->Factories.load() == 1,
+        "a metadata demand shares an already running producer for the same product");
+  CHECK(!queue.RequestCached(RoadPageKey(other)) && !queue.Request(other, {}, {}, {}) &&
+            queue.Collect().empty(),
         "the frame cannot enqueue beyond its bound or wait for a blocked producer");
   queue.Cancel(RoadPageKey(first));
   CHECK(!queue.Request(other, {}, {}, {}) && !queue.Request(first, {}, {}, blocked) &&
@@ -100,19 +105,34 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
         "the canceled product is not published to the consumer");
   const auto missing = pages->Load(first, 1024u * 1024u);
   CHECK(missing && !*missing, "cancellation before encoding publishes no partial cached page");
-  CHECK(queue.Request(other, {}, {}, [](size_t, const std::stop_token &) { return Produce(8); }),
+  auto source = std::make_shared<uint32_t>(8);
+  const std::weak_ptr<uint32_t> retainedSource = source;
+  CHECK(queue.Request(other,
+                      {},
+                      {},
+                      [source = std::move(source)](size_t, const std::stop_token &) {
+                        return Produce(*source);
+                      }),
         "completed cancellation releases capacity for the next needed page");
+  const auto generated = pool.Post([] {});
+  CHECK(generated != Tasks::kNoTask, "a worker barrier observes completed native generation");
+  if (generated == Tasks::kNoTask) { return; }
+  pool.Wait(generated);
+  CHECK(retainedSource.expired(), "worker completion releases generator inputs before collection");
   auto done = Wait(queue);
-  CHECK(done.size() == 1 && done[0].Result && !done[0].Result->Page->Geometry.Mesh.Index.empty(),
+  CHECK(done.size() == 1 && done[0].Result && *done[0].Result &&
+            !(*done[0].Result)->Page->Geometry.Mesh.Index.empty(),
         "completed work exposes an independently owned native page");
-  const auto retained = done.empty() || !done[0].Result ? std::shared_ptr<const RoadPageAsset>{}
-                                                        : done[0].Result->Page;
+  const auto retained = done.empty() || !done[0].Result || !*done[0].Result
+                            ? std::shared_ptr<const RoadPageAsset>{}
+                            : (*done[0].Result)->Page;
   CHECK(queue.Request(other, {}, {}, {}), "a cached page can be requested without any generator");
   auto hit = Wait(queue);
-  CHECK(hit.size() == 1 && hit[0].Result && retained &&
-            hit[0].Result->Record.Key == RoadPageKey(other) && control->Factories.load() == 1,
+  CHECK(hit.size() == 1 && hit[0].Result && *hit[0].Result && retained &&
+            (*hit[0].Result)->Record.Key == RoadPageKey(other) && control->Factories.load() == 1,
         "a warm asynchronous request restores the existing page without source preparation");
-  CHECK(queue.Request(other, {}, {}, {}), "the warm page can enter a new demand generation");
+  CHECK(queue.RequestCached(RoadPageKey(other)),
+        "a metadata-only hit can enter a new demand generation");
   const auto barrier = pool.Post([] {});
   CHECK(barrier != Tasks::kNoTask, "a worker barrier can observe completed cache restoration");
   if (barrier == Tasks::kNoTask) { return; }
@@ -122,6 +142,50 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   CHECK(retired.size() == 1 && !retired[0].Result,
         "a canceled generation cannot admit an already completed page");
 }
+
+void CheckMetadata(Tasks &pool, const std::filesystem::path &directory) {
+  using namespace outshine::Test;
+  auto metadata = AssetCache::Open((directory / "assets.sqlite").string());
+  CHECK(metadata.has_value(), "the independent metadata connection opens");
+  if (!metadata) { return; }
+  const auto frame = TangentFrame::At({.LongitudeDeg = 8, .LatitudeDeg = 49});
+  const Vec3 extent{{200, 200, 200}};
+  const Box envelope{.Min = frame.OriginEcef() - extent, .Max = frame.OriginEcef() + extent};
+  const auto rows = (*metadata)->Select({.Bounds = envelope,
+                                         .Kind = "road-render-page",
+                                         .Level = std::nullopt,
+                                         .Radius = std::nullopt,
+                                         .Planes = {}});
+  CHECK(rows && rows->size() == 1, "the existing spatial index returns the prepared page metadata");
+  if (!rows || rows->size() != 1) { return; }
+  auto opened = PreparedRoadPages::Open(directory.string());
+  CHECK(opened.has_value(), "the consumer starts with a fresh page service");
+  if (!opened) { return; }
+  auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));
+  RoadPageQueue queue(pool, pages, {.PendingMost = 1, .PageBytesMost = 1024u * 1024u});
+  CHECK(!queue.RequestCached("") && !queue.RequestCached(std::string(64, 'g')) &&
+            queue.Pending() == 0,
+        "invalid metadata keys are rejected without occupying worker slots");
+  const auto &selected = rows->front();
+  CHECK(queue.RequestCached(selected.Key) && queue.RequestCached(selected.Key) &&
+            queue.Pending() == 1,
+        "metadata alone enqueues and coalesces one bounded cached-page load");
+  auto hit = Wait(queue);
+  CHECK(hit.size() == 1 && hit[0].Result && *hit[0].Result &&
+            (*hit[0].Result)->Record == selected &&
+            !(*hit[0].Result)->Page->Geometry.Mesh.Index.empty(),
+        "a fresh worker restores the selected native page without any plan address or factory");
+  CHECK(queue.RequestCached(std::string(64, 'f')), "an absent valid product can be queried");
+  const auto miss = Wait(queue);
+  CHECK(miss.size() == 1 && miss[0].Result && !*miss[0].Result,
+        "an absent product is a typed normal miss without source or generator work");
+  RoadPageQueue limited(pool, pages, {.PendingMost = 1, .PageBytesMost = 1});
+  CHECK(limited.RequestCached(selected.Key), "the same metadata can be queried under a byte limit");
+  const auto excess = Wait(limited);
+  CHECK(excess.size() == 1 && !excess[0].Result,
+        "metadata-only loading preserves the complete-package byte budget");
+}
+
 }
 
 int main() {
@@ -137,6 +201,12 @@ int main() {
   {
     Tasks pool(1);
     CheckQueue(pool, pages);
+    auto distant = Address(9);
+    distant.Anchor.LongitudeDeg = 9;
+    CHECK(pages->Resolve(distant, {}, {}, 1024u * 1024u, [](size_t) { return Produce(9); })
+              .has_value(),
+          "a second complete native package lies outside the metadata query");
+    CheckMetadata(pool, root);
   }
   pages.reset();
   std::error_code error;

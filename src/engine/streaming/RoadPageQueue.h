@@ -4,9 +4,11 @@
 #include "PreparedRoadPages.h"
 #include "Tasks.h"
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stop_token>
 #include <string>
 #include <unordered_map>
@@ -17,10 +19,11 @@ class RoadPageQueue {
 public:
   using Factory = std::function<std::expected<Generators::RoadPageGeometry, std::string>(
       size_t, const std::stop_token &)>;
+  using Result = std::expected<std::optional<Generators::PreparedRoadPages::Loaded>, std::string>;
 
   struct Completed {
     std::string Key;
-    std::expected<Generators::PreparedRoadPages::Loaded, std::string> Result;
+    RoadPageQueue::Result Result;
   };
 
   struct Limits {
@@ -37,6 +40,7 @@ public:
                              std::string parent,
                              std::string requestKey,
                              Factory factory);
+  [[nodiscard]] bool RequestCached(const std::string &key);
   void Cancel(const std::string &key);
   [[nodiscard]] std::vector<Completed> Collect();
 
@@ -44,6 +48,10 @@ public:
 
 private:
   struct Work;
+  enum class Admission : uint8_t { Rejected, Pending, Available };
+  using Loader = std::function<Result(const std::stop_token &)>;
+  [[nodiscard]] Admission RequestState(const std::string &key) const;
+  [[nodiscard]] bool Enqueue(const std::string &key, Loader load);
   Tasks &Pool_;
   std::shared_ptr<Generators::PreparedRoadPages> Pages_;
   Limits Limits_;
