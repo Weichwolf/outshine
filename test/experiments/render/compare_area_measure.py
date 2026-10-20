@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from area_measure_bake import cook
 from area_measure_render import evaluate, program
+from compare_plane_cloud import image_roi
 from compare_visible_normals import inputs
 from opaque_area_reference import evaluate as reference_evaluate
 from opaque_area_reference import pixel_grid, quadrature
@@ -71,7 +72,8 @@ def compare_pose(
     reference_program = None
     start = time.perf_counter()
     if not all(
-        (reference / f"{name}-{sun}-r{str(r).replace('.', 'p')}.npz").exists()
+        reference is not None
+        and (reference / f"{name}-{sun}-r{str(r).replace('.', 'p')}.npz").exists()
         for sun in lights
         for r in (0.12, 0.45)
     ):
@@ -85,8 +87,8 @@ def compare_pose(
     for sun, light in lights.items():
         for roughness in (0.12, 0.45):
             case = f"{sun}-r{str(roughness).replace('.', 'p')}"
-            path = reference / f"{name}-{case}.npz"
-            if path.exists():
+            path = reference / f"{name}-{case}.npz" if reference is not None else None
+            if path is not None and path.exists():
                 with np.load(path, allow_pickle=False) as original:
                     fine = original["fine"]
                     original_coverage = original["original_coverage"]
@@ -96,12 +98,13 @@ def compare_pose(
                     reference_program, source, shape, light, roughness, energy
                 )
                 reference_hash = None
-            np.testing.assert_allclose(
-                float(original_coverage.sum()),
-                expected_cases[case]["reference_coverage_px"],
-                atol=1e-8,
-                rtol=1e-11,
-            )
+            if case in expected_cases:
+                np.testing.assert_allclose(
+                    float(original_coverage.sum()),
+                    expected_cases[case]["reference_coverage_px"],
+                    atol=1e-8,
+                    rtol=1e-11,
+                )
             start = time.perf_counter()
             rgb, coverage = evaluate(p, shape, light, roughness, energy)
             shade_s = time.perf_counter() - start
@@ -137,10 +140,35 @@ def compare_pose(
     return result
 
 
+def reference_metadata(path, source, poses, domain, profile, provenance):
+    if path is None:
+        records = {}
+        for name, view in poses.items():
+            box = image_roi(source, view)
+            records[name] = (
+                {"offscreen": True}
+                if box is None
+                else {"roi": box.tolist(), "cases": {}}
+            )
+        return {"poses": records}
+    reference = json.loads(path.read_text())
+    if (
+        reference["product"]["provenance"] != provenance
+        or reference["product"]["observer_bounds"] != domain.tolist()
+        or reference["product"]["profile"] != profile
+        or set(reference["poses"]) != set(poses)
+    ):
+        raise ValueError(
+            "area reference belongs to another input/domain/profile/pose set"
+        )
+    return reference
+
+
 def main():
     parser = argparse.ArgumentParser(__doc__)
-    for name in ("input", "area_reference", "output"):
+    for name in ("input", "output"):
         parser.add_argument("--" + name.replace("_", "-"), type=Path, required=True)
+    parser.add_argument("--area-reference", type=Path)
     parser.add_argument("--all-poses", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
@@ -161,16 +189,9 @@ def main():
         profile,
         provenance,
     ) = inputs(args.input)
-    reference = json.loads(args.area_reference.read_text())
-    if (
-        reference["product"]["provenance"] != provenance
-        or reference["product"]["observer_bounds"] != domain.tolist()
-        or reference["product"]["profile"] != profile
-        or set(reference["poses"]) != set(poses)
-    ):
-        raise ValueError(
-            "area reference belongs to another input/domain/profile/pose set"
-        )
+    reference = reference_metadata(
+        args.area_reference, source, poses, domain, profile, provenance
+    )
     controls = geometry_controls(source, document["sources"], domain, output)
     limit = controls["backface_only"]["appearance_array_bytes"]
     up, east, north = (
@@ -201,7 +222,9 @@ def main():
         "binding_check": receipt,
         "reused_area_report_sha256": hashlib.sha256(
             args.area_reference.read_bytes()
-        ).hexdigest(),
+        ).hexdigest()
+        if args.area_reference
+        else None,
         "poses": {},
     }
     energy = tables()
@@ -218,7 +241,7 @@ def main():
             source,
             view,
             np.array(reference["poses"][name]["roi"]),
-            args.area_reference.parent,
+            args.area_reference.parent if args.area_reference else None,
             name,
             lights,
             energy,
