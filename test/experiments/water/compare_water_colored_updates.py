@@ -236,7 +236,13 @@ def run(fixture, output, parent_level_m):
     }
 
 
-def plot(mask, faces, output):
+def plot(
+    mask,
+    faces,
+    output,
+    *,
+    after_title="One fixed colour sweep from explicit lab parent",
+):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -290,7 +296,7 @@ def plot(mask, faces, output):
             ylabel="Mercator tile y (offset)",
         )
     axes[0].set_title("Direct source targets on the completed subset")
-    axes[1].set_title("One fixed colour sweep from explicit lab parent")
+    axes[1].set_title(after_title)
     fig.savefig(output / "updated.png", dpi=140)
     plt.close(fig)
 
