@@ -66,6 +66,8 @@ public:
   struct SurfaceGeometry {
     WaterSurfaceMesh Mesh;
     std::vector<SurfaceRejection> Rejections;
+    std::vector<uint32_t> FaceSourceOffsets;
+    std::vector<uint32_t> FaceSources;
   };
 
   struct Data {

@@ -16,25 +16,36 @@
 
 namespace outshine::Generators {
 namespace {
-constexpr uint64_t kVersion = 0x345245544157ULL;
+constexpr uint64_t kLegacyVersion = 0x345245544157ULL;
+constexpr uint64_t kVersion = 0x355245544157ULL;
 
 bool Rejections(auto &archive, auto &rejections) {
   return WaterFormat::Records<2 * sizeof(uint32_t)>(
       archive, rejections, [](auto &out, auto &one) { return out(one.Surface, one.Reason); });
 }
 
-bool ArchiveGeometry(BinaryValueWriter &out, const WaterAsset::SurfaceGeometry *geometry) {
+bool ArchiveGeometry(BinaryValueWriter &out,
+                     const WaterAsset::SurfaceGeometry *geometry,
+                     uint64_t version) {
   return out(geometry != nullptr) &&
-         (geometry == nullptr || (WaterSurfaceMeshCodec::Fields(out, geometry->Mesh) &&
-                                  Rejections(out, geometry->Rejections)));
+         (geometry == nullptr ||
+          (WaterSurfaceMeshCodec::Fields(out, geometry->Mesh) &&
+           Rejections(out, geometry->Rejections) &&
+           (version == kLegacyVersion || (out.Array<uint32_t>(geometry->FaceSourceOffsets) &&
+                                          out.Array<uint32_t>(geometry->FaceSources)))));
 }
 
-bool ArchiveGeometry(BinaryValueReader &in, std::optional<WaterAsset::SurfaceGeometry> &geometry) {
+bool ArchiveGeometry(BinaryValueReader &in,
+                     std::optional<WaterAsset::SurfaceGeometry> &geometry,
+                     uint64_t version) {
   bool present = false;
   if (!in(present)) { return false; }
   if (!present) { return true; }
   geometry.emplace();
-  return WaterSurfaceMeshCodec::Fields(in, geometry->Mesh) && Rejections(in, geometry->Rejections);
+  return WaterSurfaceMeshCodec::Fields(in, geometry->Mesh) &&
+         Rejections(in, geometry->Rejections) &&
+         (version == kLegacyVersion ||
+          (in.Array(geometry->FaceSourceOffsets) && in.Array(geometry->FaceSources)));
 }
 
 bool ArchiveSurfaces(auto &archive, auto &surfaces) {
@@ -108,7 +119,10 @@ std::expected<std::vector<uint8_t>, std::string> WaterAsset::EncodeNative(size_t
     return std::unexpected("water asset is incomplete or invalid");
   }
   BinaryValueWriter out(bytesMost);
-  if (!out(kVersion,
+  const auto *geometry = PreparedSurfaces();
+  const auto version =
+      geometry != nullptr && !geometry->FaceSourceOffsets.empty() ? kVersion : kLegacyVersion;
+  if (!out(version,
            data.ProcessedTiles,
            static_cast<int64_t>(data.NoGround),
            static_cast<int64_t>(data.Outliers),
@@ -116,7 +130,7 @@ std::expected<std::vector<uint8_t>, std::string> WaterAsset::EncodeNative(size_t
       !ArchiveSurfaces(out, data.Surfaces) || !ArchiveRings(out, data.Rings) ||
       !ArchiveCourses(out, data.Courses) || !out.Array<float>(data.Levels) ||
       !out.Array<double>(data.Points) || !ArchiveTiles(out, data.Tiles) ||
-      !WaterFormat::Metadata(out, data) || !ArchiveGeometry(out, PreparedSurfaces())) {
+      !WaterFormat::Metadata(out, data) || !ArchiveGeometry(out, geometry, version)) {
     return std::unexpected("water asset exceeds its encoding budget");
   }
   return std::move(out.Out).TakeBytes();
@@ -130,13 +144,14 @@ std::expected<WaterAsset, std::string> WaterAsset::DecodeNative(std::span<const 
   int64_t invalidBodies = 0;
   Data data;
   std::optional<SurfaceGeometry> geometry;
-  if (!in(version, data.ProcessedTiles, noGround, outliers, invalidBodies) || version != kVersion ||
-      noGround < 0 || noGround > std::numeric_limits<long>::max() || outliers < 0 ||
+  if (!in(version, data.ProcessedTiles, noGround, outliers, invalidBodies) ||
+      (version != kVersion && version != kLegacyVersion) || noGround < 0 ||
+      noGround > std::numeric_limits<long>::max() || outliers < 0 ||
       outliers > std::numeric_limits<long>::max() || invalidBodies < 0 ||
       invalidBodies > std::numeric_limits<long>::max() || !ArchiveSurfaces(in, data.Surfaces) ||
       !ArchiveRings(in, data.Rings) || !ArchiveCourses(in, data.Courses) ||
       !in.Array(data.Levels) || !in.Array(data.Points) || !ArchiveTiles(in, data.Tiles) ||
-      !WaterFormat::Metadata(in, data) || !ArchiveGeometry(in, geometry) ||
+      !WaterFormat::Metadata(in, data) || !ArchiveGeometry(in, geometry, version) ||
       in.In.Remaining() != 0) {
     return std::unexpected("invalid native water asset");
   }
