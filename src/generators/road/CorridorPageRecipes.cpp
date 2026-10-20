@@ -52,9 +52,10 @@ Corridors::AdvancePlan(Job &job, const Site &site, size_t lanesMost, size_t node
 
 std::expected<std::vector<EarthworkStamp>, std::string_view>
 Corridors::TakeTerrainContacts(Job &job) {
-  if (job.Retirement != Job::RetireStage::Active ||
-      (job.Phase != Job::Stage::Pave &&
-       !(job.Phase == Job::Stage::Done && job.Work.Edges.empty() && job.Work.Junctions.empty()))) {
+  const bool ready =
+      job.Phase == Job::Stage::Pave ||
+      (job.Phase == Job::Stage::Done && job.Work.Edges.empty() && job.Work.Junctions.empty());
+  if (job.Retirement != Job::RetireStage::Active || !ready) {
     return std::unexpected("terrain contacts require a complete unmeshed road plan");
   }
   return std::exchange(job.Corridor, {});
