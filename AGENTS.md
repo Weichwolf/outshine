@@ -8,13 +8,16 @@
   Ich lese und bearbeite sie mit `gh issue list`, `gh issue view`, `gh issue create` und `gh issue edit`.
   Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
   Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
-- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Drei Agenten arbeiten zusammen:
+- Ich trage die Gesamtverantwortung für das Projekt als Technical und Art Director;
+  der Nutzer ist Regisseur. Research und Engine unterstützen mich nach meinem Bedarf.
+  Ich bestimme Prioritäten, teile Arbeit zu und verantworte das integrierte Ergebnis.
+  Ihre Fachverantwortung bleibt erhalten; Optimierung gehört jeweils dazu.
 
   | Worktree/Branch | Verantwortung | Einstieg |
   |---|---|---|
   | `outshine` / `master` | Gesamtarchitektur, Art Direction, native Übernahme, Integration/Merges, gebündelte Lint-/Test-/Bildprüfung und Metal/A18 Pro | [#5](https://github.com/Weichwolf/outshine/issues/5) |
   | `outshine_research` | Ausschließlich Python: Verfahren, Solver und Rezepte entwickeln und nach Bildwirkung, Rechenarbeit und Speicher optimieren | [#788](https://github.com/Weichwolf/outshine/issues/788) |
-  | `outshine_engine` | Gemeinsame C++-Engine/Vulkan nach CPU-, GPU-, IO- und Speicherkosten optimieren; Intel i5-1135G7 / Iris Xe | [#789](https://github.com/Weichwolf/outshine/issues/789) |
+  | `outshine_engine` | Gemeinsame C++-Engine entwickeln, Python-Referenzen nativ übernehmen, Vulkan pflegen und CPU/GPU/IO/Speicher optimieren; Intel i5-1135G7 / Iris Xe | [#789](https://github.com/Weichwolf/outshine/issues/789) |
 
   Worktrees liegen als Geschwister unter `Git/`; Branch und Verzeichnis der beiden Kollegen
   heißen gleich. A18 Pro und Intel/Iris Xe haben jeweils das Ziel 1280×720/60.
@@ -28,9 +31,10 @@
 - `outshine_research` priorisiert mit mir den wichtigsten fehlenden Verfahrensbaustein und
   liefert kleine geprüfte vertikale Schritte. Experimente liegen unter `test/experiments/`,
   gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Implementierung.
-  Ich übernehme verifizierte Verfahren maschinennah nach `src/` samt Verbrauchern und
-  nativen Produkten. `outshine_engine` konzentriert sich auf Optimierungen der gemeinsamen
-  Engine und Vulkan. Integration, Lint, Tests und Bildprüfung liegen vorrangig bei mir.
+  `outshine_engine` entwickelt die gemeinsame native Engine und Vulkan, übernimmt verifizierte
+  Python-Verfahren maschinennah nach `src/` und optimiert die integrierten Verfahren.
+  Ich übernehme native Arbeit nach Bedarf und verantworte Metal/A18 Pro.
+  Gemeinsame Integration, Lint, Tests und Bildprüfung liegen vorrangig bei mir.
   Forschung und native Umsetzung können unabhängig voranschreiten; fehlende Teilverträge
   benennen und unabhängig weiterarbeiten. Python-Zeiten ersetzen keine native Geräteabnahme.
 - Transport plant zuerst und liefert angepasste Gebäudegrundrisse/Freiräume, Buildings baut
@@ -41,7 +45,7 @@
 - Jeder Agent darf architektonische und organisatorische Verbesserungen einbringen. Outshine
   soll in Darstellung, Code und Projektgestaltung schön sein: kohärent, klar benannt, gut
   gegliedert und frei von unnötiger Komplexität. Lokale Verbesserungen brauchen keine Freigaberunde.
-- Beide Kollegen committen und pushen kleine vollständige Optimierungen als PRs gegen den
+- Beide Kollegen committen und pushen kleine vollständige Fachlieferungen als PRs gegen den
   vereinbarten Integrationsstand. Ich übernehme Zusammenführung, Merges und gebündelte Prüfungen.
   Die Lieferanten prüfen gezielt die Korrektheit ihrer Verfahren/Änderungen und messen ihre
   Kosten; vollständige Lint-/Testwiederholungen sind keine pauschale Lieferbedingung.
@@ -266,13 +270,13 @@
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
   Lokale Tests bauen nur ihre benötigten Komponenten. Modul-, Speicher-, Nebenläufigkeits- und
   Render-/Places-Prüfungen bleiben gezielt aufrufbar; Vollsuite und Instrumentierung sind getrennte Aufträge.
-- Research und Engine liefern reproduzierbare Optimierungen mit gezielten Korrektheitskontrollen
+- Research und Engine liefern Verfahren, neue Funktionen und Optimierungen mit gezielten Korrektheitskontrollen
   und Kostenvergleichen; Engine ergänzt erforderliche Vulkan-/Iris-Gerätemessungen.
   Der PR nennt Commit, Umfang, Plattform, Aufruf und terminales Ergebnis, offene Prüfungen ausdrücklich.
   Ich übernehme Integration, Format, fokussiertes clang-tidy, betroffene Tests, gebündelte Gesamtläufe
   und Places-/Metal-Bildprüfung. Neue breite Läufe koordiniere ich; vorhandene passende Belege
   wiederverwenden. Gezielte Eigenprüfungen der Kollegen bleiben erlaubt und nötig, wenn sie
-  Optimierungsentscheidungen absichern. Gemeinsame Verträge vorher mit Verbrauchern abstimmen.
+  Entwicklungs- und Optimierungsentscheidungen absichern. Gemeinsame Verträge vorher mit Verbrauchern abstimmen.
   Gemessene A18-Engpässe gehen mit Szenario, Profil, Commit und Kostenbeleg an `outshine_engine`;
   ich übernehme die Geräte-/Bildgegenprüfung.
   Ein gemeinsamer Voll-Lint gilt dem eingefrorenen Integrationsstand;
