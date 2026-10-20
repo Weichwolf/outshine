@@ -7,7 +7,7 @@ from beam_intervals import cross, dot, exact, sub
 
 
 class Patches:
-    def __init__(self, source, beams):
+    def __init__(self, source, beams, *, with_polygons=False):
         _, welded = np.unique(
             source["positions"].view(np.uint32), axis=0, return_inverse=True
         )
@@ -65,11 +65,14 @@ class Patches:
                 pairs.append([a, b])
                 polygons.append(polygon)
         self.pairs = np.array(pairs, np.uint32).reshape(-1, 2)
+        self.polygons = (
+            np.asarray(polygons, float).reshape(-1, 4, 3) if with_polygons else None
+        )
         if not len(pairs):
             self.edges = (np.empty((8, 0, 4, 3)),) * 2
             self.high = np.empty(0)
             return
-        polygons = np.array(polygons)
+        polygons = self.polygons if with_polygons else np.array(polygons)
         a = exact(polygons)
         b = exact(np.roll(polygons, -1, axis=1))
         self.edges = cross(sub(b, a), sub(exact(corners[:, None, None]), a))
