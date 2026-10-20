@@ -85,6 +85,7 @@ def normalize_cell(
                 snapshot.complete,
             ],
             separators=(",", ":"),
+            sort_keys=True,
         ).encode()
     )
     for raw in sorted(snapshot.pieces, key=lambda p: (p.feature, p.part)):
