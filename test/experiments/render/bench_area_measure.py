@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from area_measure_moments import program as moment_program
 from area_measure_render import evaluate, program
 from viewcell_product import require_domain
 from visible_normal_material import tables
@@ -31,6 +32,7 @@ def main():
     parser = argparse.ArgumentParser(__doc__)
     for name in ("product", "request", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--moments", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(
@@ -45,7 +47,7 @@ def main():
     load_s = time.perf_counter() - start
     box = np.array(request["box"])
     start = time.perf_counter()
-    p = program(arrays, arrays, view, box)
+    p = (moment_program if args.moments else program)(arrays, arrays, view, box)
     prepare_s = time.perf_counter() - start
     start = time.perf_counter()
     rgb, coverage = evaluate(
@@ -56,6 +58,7 @@ def main():
         output / "images.npz", candidate=rgb, candidate_coverage=coverage
     )
     report = {
+        "method": "conditional_view_moments" if args.moments else "full_quadrature",
         "load_s": load_s,
         "program_s": prepare_s,
         "shade_s": shade_s,
