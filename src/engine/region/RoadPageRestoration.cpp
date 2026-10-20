@@ -1,6 +1,7 @@
 #include "RoadPageRestoration.h"
 #include "Log.h"
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -13,27 +14,36 @@
 #include <utility>
 
 namespace outshine {
+namespace {
+constexpr size_t kPageBytesMost = size_t{64} * 1024u * 1024u;
+}
+
 RoadPageRestoration::RoadPageRestoration(
     Tasks &pool,
     std::shared_ptr<Generators::PreparedRoadPages> pages,
-    std::shared_ptr<const Generators::RoadPageManifest> manifest)
-    : Queue_(
-          pool, std::move(pages), {.PendingMost = 1, .PageBytesMost = size_t{64} * 1024u * 1024u}),
-      Manifest_(std::move(manifest)) {}
+    std::shared_ptr<const Generators::RoadPageManifest> manifest,
+    Limits limits)
+    : Queue_(pool,
+             std::move(pages),
+             {.PendingMost = limits.PendingMost, .PageBytesMost = kPageBytesMost}),
+      Manifest_(std::move(manifest)),
+      Limits_(limits) {}
 
 std::expected<std::unique_ptr<RoadPageRestoration>, std::string>
 RoadPageRestoration::Begin(Tasks &pool,
                            std::shared_ptr<Generators::PreparedRoadPages> pages,
                            std::shared_ptr<const Generators::RoadPageManifest> manifest,
                            std::optional<std::span<const uint32_t>> selected,
-                           std::string manifestKey) {
+                           std::string manifestKey,
+                           Limits limits) {
   if (!pages || !manifest || manifest->Materials.surfaces() != 1 ||
       manifest->Materials.parts() != 0 || manifest->Materials.images() != 0 ||
-      manifest->Pages.size() > std::numeric_limits<uint32_t>::max()) {
+      manifest->Pages.size() > std::numeric_limits<uint32_t>::max() || limits.PendingMost == 0 ||
+      limits.NativeBytesMost == 0) {
     return std::unexpected("road restoration needs complete native page and material metadata");
   }
   auto result = std::unique_ptr<RoadPageRestoration>(
-      new RoadPageRestoration(pool, std::move(pages), std::move(manifest)));
+      new RoadPageRestoration(pool, std::move(pages), std::move(manifest), limits));
   result->ManifestKey_ = std::move(manifestKey);
   if (selected) {
     result->Selected_.assign(selected->begin(), selected->end());
@@ -47,6 +57,12 @@ RoadPageRestoration::Begin(Tasks &pool,
     return std::unexpected(
         "road restoration selection is duplicated, unordered or outside its manifest");
   }
+  for (const auto index : result->Selected_) {
+    const auto bytes = result->Manifest_->Pages[index].ByteCount;
+    if (bytes == 0 || bytes > kPageBytesMost) {
+      return std::unexpected("road restoration page exceeds its native payload ceiling");
+    }
+  }
   return result;
 }
 
@@ -58,33 +74,69 @@ std::expected<bool, std::string> RoadPageRestoration::Advance(Geometry &ground) 
         ground.addSurface("streets", Manifest_->Materials.surfaceAt(MaterialInstance(0)));
     if (!surface) { return std::unexpected("could not restore the shared road material"); }
     Surface_ = *surface;
-    Stage_ = Stage::Request;
-    return false;
+    Stage_ = Stage::Waiting;
   }
-  if (Stage_ == Stage::Request) {
-    if (!Queue_.RequestCached(Manifest_->Pages[Selected_[Next_]].Key, {.Key = ManifestKey_})) {
+  constexpr size_t kStepsMost = 32;
+  const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(1);
+  for (size_t step = 0; step < kStepsMost; ++step) {
+    const auto requested = Prefetch();
+    if (!requested) { return std::unexpected(requested.error()); }
+    const auto collected = CollectReady();
+    if (!collected) { return std::unexpected(collected.error()); }
+    if (Stage_ == Stage::Waiting && !Window_.front().Result) { return false; }
+    const auto advanced = Stage_ == Stage::Waiting ? Collect(ground) : Transfer(ground);
+    if (!advanced) { return std::unexpected(advanced.error()); }
+    if (Missing_) { return false; }
+    if (Next_ == Selected_.size()) { return true; }
+    if (std::chrono::steady_clock::now() >= until) { return false; }
+  }
+  return false;
+}
+
+std::expected<void, std::string> RoadPageRestoration::Prefetch() {
+  while (Requested_ < Selected_.size() && Window_.size() < Limits_.PendingMost) {
+    const auto index = Selected_[Requested_];
+    const auto &page = Manifest_->Pages[index];
+    if (!Window_.empty() && (WindowBytes_ >= Limits_.NativeBytesMost ||
+                             page.ByteCount > Limits_.NativeBytesMost - WindowBytes_)) {
+      break;
+    }
+    if (!Queue_.RequestCached(page.Key, {.Key = ManifestKey_})) {
       return std::unexpected("road restoration lookup admission failed");
     }
-    Stage_ = Stage::Waiting;
-    return false;
+    Window_.push_back({.Index = index, .Result = std::nullopt});
+    WindowBytes_ += static_cast<size_t>(page.ByteCount);
+    ++Requested_;
   }
-  return Stage_ == Stage::Waiting ? Collect(ground) : Transfer(ground);
+  return {};
+}
+
+std::expected<void, std::string> RoadPageRestoration::CollectReady() {
+  for (auto &completed : Queue_.Collect()) {
+    const auto slot = std::ranges::find_if(Window_, [&](const Pending &pending) {
+      return Manifest_->Pages[pending.Index].Key == completed.Key;
+    });
+    if (slot == Window_.end() || slot->Result) {
+      return std::unexpected("road restoration completion differs from selected metadata");
+    }
+    slot->Result = std::move(completed.Result);
+  }
+  return {};
 }
 
 std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) {
-  auto completed = Queue_.Collect();
-  if (completed.empty()) { return false; }
-  auto &one = completed.front();
+  if (Window_.empty()) { return std::unexpected("road restoration has no admitted page"); }
+  auto &ready = Window_.front().Result;
+  if (!ready) { return false; }
+  auto one = std::move(*ready);
   const auto &reference = Manifest_->Pages[Selected_[Next_]];
-  if (completed.size() != 1 || one.Key != reference.Key) {
-    return std::unexpected("road restoration completion differs from selected metadata");
-  }
-  if (!one.Result) { return std::unexpected(std::move(one.Result.error())); }
-  if (!*one.Result) {
+  if (!one) { return std::unexpected(std::move(one.error())); }
+  if (!*one) {
     Missing_ = true;
+    for (const auto &pending : Window_) { Queue_.Cancel(Manifest_->Pages[pending.Index].Key); }
     return false;
   }
-  auto &loaded = **one.Result;
+  auto &loaded = **one;
   Loaded_ = std::move(loaded.Page);
   if (!Loaded_ || Loaded_->Address.PlanKey != Manifest_->PlanKey ||
       Loaded_->Address.MaterialKey != Manifest_->MaterialKey ||
@@ -105,9 +157,7 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
                {"refused", static_cast<int64_t>(diagnostic.Stats.Refused)}});
   }
   if (Loaded_->Geometry.Mesh.Index.empty()) {
-    Loaded_.reset();
-    ++Next_;
-    Stage_ = Stage::Request;
+    FinishPage();
     return false;
   }
   if (!Surface_) { return std::unexpected("road restoration material is not ready"); }
@@ -136,13 +186,19 @@ std::expected<bool, std::string> RoadPageRestoration::Transfer(Geometry &ground)
       break;
     case Stage::Triangles:
       copied = ground.setTriangles(Part_, mesh.Index).has_value();
-      ++Next_;
-      Loaded_.reset();
-      Stage_ = Stage::Request;
+      FinishPage();
       break;
     default: return std::unexpected("road restoration transfer is not active");
   }
   if (!copied) { return std::unexpected("could not transfer a restored road page into the world"); }
   return false;
+}
+
+void RoadPageRestoration::FinishPage() {
+  WindowBytes_ -= static_cast<size_t>(Manifest_->Pages[Window_.front().Index].ByteCount);
+  Window_.pop_front();
+  ++Next_;
+  Loaded_.reset();
+  Stage_ = Stage::Waiting;
 }
 }
