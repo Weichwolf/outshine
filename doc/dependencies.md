@@ -6,6 +6,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 | Bibliothek | Geprüfter lokaler Stand | Zuständiger WI | Verwendung |
 |---|---|---|---|
 | GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygontriangulation mit Höfen/Inseln über C-API; mindestens 3.10 |
+| GeographicLib | 2.7 | [#760](https://github.com/Weichwolf/outshine/issues/760) | Robuste geozentrische Rücktransformation für physische Wasserhöhen und Normalenhüllen |
 | SFCGAL | 2.3.0 | [#48](https://github.com/Weichwolf/outshine/issues/48) | Native Walmdachpartition mit Quellkanten/Höfen über C-API; mindestens 2.3, Rendererübernahme folgt |
 | simdjson | 4.6.11 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer JSON-Decoder |
 | pugixml | 1.16 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer XML-Decoder |
@@ -17,13 +18,13 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 ## Installation
 
 ```sh
-brew install ccache geos sfcgal simdjson pugixml eigen bullet sqlite zstd
+brew install ccache geos geographiclib sfcgal simdjson pugixml eigen bullet sqlite zstd
 ```
 
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install ccache libgeos-dev libsfcgal-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev libzstd-dev
+sudo apt install ccache libgeos-dev libgeographiclib-dev libsfcgal-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev libzstd-dev
 ```
 
 SFCGAL benötigt mindestens 2.3; die Paketversion vor dem Build mit `pkg-config --modversion sfcgal` prüfen.

@@ -408,8 +408,8 @@ LayerLink() {
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/tasks) printf '%s' '-pthread' ;;
     profile/water-mesh | profile/water-asset | profile/water-bed) return 0 ;;
-    profile/water-geometry | profile/water-preparation) pkg-config --libs geos ;;
-    profile/water-worker) printf '%s' "-pthread $(pkg-config --libs geos sdl3)" ;;
+    profile/water-geometry | profile/water-preparation) pkg-config --libs geos geographiclib ;;
+    profile/water-worker) printf '%s' "-pthread $(pkg-config --libs geos sdl3 geographiclib)" ;;
     profile/plant-crown-cache) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
     profile/plant-spatial-cache) LayerLink profile/plant-crown-cache ;;
     profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
@@ -421,7 +421,7 @@ LayerLink() {
     profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal geographiclib) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
@@ -453,7 +453,7 @@ LayerGroups() {
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/water-mesh) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/base/water/WaterSurfaceMesh.cpp src/generators/base/water/WaterSurfaceMeshQueries.cpp src/generators/base/water/WaterSurfaceMeshCodec.cpp' ;;
     profile/water-asset) LayerGroups profile/water-mesh; printf '%s' ' src/generators/base/water/WaterAsset.cpp src/generators/base/water/WaterAssetQueries.cpp src/generators/base/water/WaterAssetGeometry.cpp src/generators/base/water/WaterAssetCodec.cpp src/generators/base/water/WaterAssetMetadata.cpp src/world/ground/tiles/TileGeodesy.cpp' ;;
-    profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp src/generators/water/WaterSurfaceTopology.cpp' ;;
+    profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp src/generators/water/WaterSurfaceTopology.cpp src/generators/water/WaterPhysicalFrame.cpp' ;;
     profile/water-geometry) LayerGroups profile/water-preparation; printf '%s' ' src/generators/water/WaterSurfaceBuilder.cpp src/base/Geometry.cpp' ;;
     profile/water-worker) LayerGroups profile/water-preparation; printf '%s' ' src/base/io/Tasks.cpp src/engine/streaming/WaterGeometryPreparation.cpp' ;;
     profile/water-bed) LayerGroups profile/water-asset; printf '%s' ' src/generators/water/WaterBasinStamps.cpp src/generators/terrain/EarthworkPress.cpp src/generators/terrain/ProfiledCorridorPress.cpp' ;;
@@ -635,6 +635,7 @@ GroupIncludes() {
       ;;
     src/generators/flora|src/generators/flora/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/generators/building) includeSet="$includeSet $(pkg-config --cflags sfcgal)" ;;
+    src/generators/water) includeSet="$includeSet $(pkg-config --cflags geographiclib)" ;;
     src/content/assets) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
     src/generators/terrain/providers) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
     src/world/data) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;
