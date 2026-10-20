@@ -81,8 +81,10 @@ Das sind gemessene Gegenbeispiele, kein Nachweis eines Fehlers im aktuellen Cook
 ## Kosten und Grenzen
 
 Ein Schnitt besucht 1492 Facetten/8952 Halbraumkanten; zehn Intersektionen werden
-einmal erzeugt. Aufwand O(F + B), zusätzliche gemeinsame Randdaten O(B), kein
-Nachbar-Fit beim Lesen. Eingabecaps: 8192 Vertices/16384 Facetten, Randcap 1024;
+einmal erzeugt. Die Clipping-Hauptschleife besucht jede Facette konstant oft;
+`np.unique`/Sortierung und die lokale ID-Abbildung verursachen zusätzliche Arbeit.
+Eine pauschale O(F + B)-Gesamtschranke ist damit nicht belegt. Gemeinsame Randdaten
+benötigen O(B); beim Lesen ist kein Nachbar-Fit nötig. Eingabecaps: 8192 Vertices/16384 Facetten, Randcap 1024;
 unbrauchbare Projektion, degenerierter Schnitt oder Budgetende werden lokal abgelehnt.
 Unvereinbare harte Kontakte liefern keine Geometrie; gesunde andere Produkte bleiben
 ladbar. Die zwölf Kontrollen prüfen auch diese Fälle und veraltete Randversionen.
@@ -121,3 +123,21 @@ des vorhandenen PDFs optisch geprüft: Übergänge und T-Junctions sind getrennt
 Anschlussfragen. Das Paper liefert keinen geografischen Randbeweis. Frame-/Normal-
 Herleitung und Primärquellen besitzt `lib/water_profiles.md`; affiner Schnitt und
 konvexer Randfehlernachweis sind oben explizit hergeleitet.
+
+## Gegenprüfung bei der nativen Integration
+
+Auf macOS/arm64 bestehen dieselben zwölf Kontrollen. Die direkte Python-Neutriangulierung
+liefert hier 1494 Vertices/1495 Facetten; ihr kanonischer Fit meldet InsufficientProgress.
+Der Prozess liefert dafür einen gültigen Diagnosebericht, aber keinen bestandenen
+Originalfall. Solver-/Hüllengrenzen wurden nicht geändert.
+
+Mit den bereits geprüften nativen horizontalen Originaldaten (1492/1492) besteht
+auch hier der vollständige Vergleich: gemeinsamer Fit und beide Ausschnitte gültig,
+756/754 Kindfacetten, zehn neue Randpunkte/neun gemeinsame Teilkanten; ganze Randstrecken
+schließen. Alle 13 Quellen und die Insel bleiben erhalten. Dies bestätigt den begrenzten
+Schnittvertrag; es ist keine Freigabe beliebiger GEOS-Neutriangulierungen oder Weltflüsse.
+
+`child_rows` verwendet die Primärzeilenblöcke dieses Versuchs (0:F und F:2F).
+Der native allgemeine Fitter besitzt explizite `PrimaryGrades`; seine Integration muss
+diese Zuordnung beim Schneiden erhalten und darf keine beliebige Zeilenordnung annehmen.
+Integrationsbelege und aktuelle Quell-/Commitzuordnung stehen in PR #947.

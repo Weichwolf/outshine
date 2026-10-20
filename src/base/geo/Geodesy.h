@@ -4,6 +4,7 @@
 #include <cmath>
 #include <limits>
 #include "Earth.h"
+#include "Geocentric.h"
 #include "math/Vec3.h"
 #include "math/Units.h"
 
@@ -105,22 +106,6 @@ GeodesicOn(const LongitudeLatitudeHeight &from, const LongitudeLatitudeHeight &t
   out.ToBearingDeg =
       std::atan2(cosU1 * sinLambda, -sinU1 * cosU2 + cosU1 * sinU2 * cosLambda) / kDeg2Rad;
   return out;
-}
-
-inline void GeoToEcef(const LongitudeLatitudeHeight &at, Vec3 &out) {
-  const double latDeg = at.LatitudeDeg;
-  const double lonDeg = at.LongitudeDeg;
-  const double altM = at.HeightM;
-  const double a = kWgs84A;
-  const double e2 = kWgs84E2;
-  const double lat = latDeg * kDeg2Rad;
-  const double lon = lonDeg * kDeg2Rad;
-  const double sl = std::sin(lat);
-  const double cl = std::cos(lat);
-  const double N = a / std::sqrt(1.0 - e2 * sl * sl);
-  out[0] = (N + altM) * cl * std::cos(lon);
-  out[1] = (N + altM) * cl * std::sin(lon);
-  out[2] = (N * (1.0 - e2) + altM) * sl;
 }
 
 [[nodiscard]] inline EnuAxes EnuAxesEcef(const LongitudeLatitudeHeight &at) {

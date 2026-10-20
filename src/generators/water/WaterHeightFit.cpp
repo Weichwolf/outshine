@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <numeric>
 #include <ratio>
 #include <span>
 #include <stop_token>
@@ -28,41 +29,44 @@ double Milliseconds(Clock::time_point began) {
 }
 
 OSQPCscMatrix View(WaterSparseMatrix &matrix) {
-  assert(matrix.isCompressed());
-  return {.m = static_cast<OSQPInt>(matrix.rows()),
-          .n = static_cast<OSQPInt>(matrix.cols()),
-          .p = matrix.outerIndexPtr(),
-          .i = matrix.innerIndexPtr(),
-          .x = matrix.valuePtr(),
-          .nzmax = static_cast<OSQPInt>(matrix.nonZeros()),
+  return {.m = static_cast<OSQPInt>(matrix.Rows),
+          .n = static_cast<OSQPInt>(matrix.Columns),
+          .p = matrix.ColumnOffsets.data(),
+          .i = matrix.RowIndices.data(),
+          .x = matrix.Values.data(),
+          .nzmax = static_cast<OSQPInt>(matrix.Values.size()),
           .nz = -1,
           .owned = 0};
-}
-
-size_t Bytes(const WaterSparseMatrix &matrix) {
-  return static_cast<size_t>(matrix.data().allocatedSize()) * (sizeof(double) + sizeof(OSQPInt)) +
-         static_cast<size_t>(matrix.cols() + 1) * sizeof(OSQPInt);
 }
 
 bool Certificate(const WaterHeightProgram &program,
                  const OSQPSolution &solution,
                  WaterHeightFit &fit) {
-  const Eigen::Map<const Eigen::VectorXd> x(solution.x, program.Mass.rows());
-  const Eigen::Map<const Eigen::VectorXd> dual(solution.y, program.Constraints.rows());
-  if (!x.allFinite() || !dual.allFinite()) { return false; }
-  const Eigen::VectorXd slack = program.Upper - program.Constraints * x;
-  for (Eigen::Index row = 0; row < slack.size(); ++row) {
-    const bool inequality = std::cmp_less(row, program.Inequalities);
+  const std::span<const double> x(solution.x, static_cast<size_t>(program.Mass.Rows));
+  const std::span<const double> dual(solution.y, static_cast<size_t>(program.Constraints.Rows));
+  const auto finite = [](const auto &values) {
+    return std::ranges::all_of(values, [](double value) { return std::isfinite(value); });
+  };
+  if (!finite(x) || !finite(dual)) { return false; }
+  auto slack = program.Constraints.Multiply(x);
+  for (size_t row = 0; row < slack.size(); ++row) {
+    slack[row] = program.Upper[row] - slack[row];
+    const bool inequality = row < program.Inequalities;
     fit.PrimalViolation =
         std::max(fit.PrimalViolation, inequality ? -slack[row] : std::abs(slack[row]));
     if (inequality) { fit.DualViolation = std::max(fit.DualViolation, -dual[row]); }
   }
-  const Eigen::VectorXd product = program.Mass * x;
-  const Eigen::VectorXd stationarity =
-      product + program.Linear + program.Constraints.transpose() * dual;
-  fit.StationarityResidual = stationarity.cwiseAbs().maxCoeff();
-  fit.DualGap = std::abs(x.dot(product) + program.Linear.dot(x) + program.Upper.dot(dual));
-  fit.ComplementarityResidual = std::abs(slack.dot(dual));
+  const auto product = program.Mass.Multiply(x);
+  const auto transposed = program.Constraints.TransposeMultiply(dual);
+  for (size_t at = 0; at < x.size(); ++at) {
+    fit.StationarityResidual = std::max(
+        fit.StationarityResidual, std::abs(product[at] + program.Linear[at] + transposed[at]));
+  }
+  const auto dot = [](std::span<const double> a, std::span<const double> b) {
+    return std::inner_product(a.begin(), a.end(), b.begin(), 0.);
+  };
+  fit.DualGap = std::abs(dot(x, product) + dot(program.Linear, x) + dot(program.Upper, dual));
+  fit.ComplementarityResidual = std::abs(dot(slack, dual));
   const std::array residuals{fit.PrimalViolation,
                              fit.DualViolation,
                              fit.StationarityResidual,
@@ -145,17 +149,18 @@ bool Geometry(const WaterHeightProblem &problem,
               const WaterHeightProgram &program,
               const OSQPSolution &solution,
               WaterHeightFit &fit) {
-  Eigen::VectorXd error(static_cast<Eigen::Index>(problem.VerticesXY.size()));
+  std::vector<double> error(problem.VerticesXY.size());
   fit.VerticesEnuM.reserve(problem.VerticesXY.size());
   for (size_t at = 0; at < problem.VerticesXY.size(); ++at) {
     const double height = solution.x[at] + program.DatumM;
     if (!std::isfinite(height)) { return false; }
     fit.VerticesEnuM.push_back({{problem.VerticesXY[at][0], problem.VerticesXY[at][1], height}});
-    error[static_cast<Eigen::Index>(at)] = height - problem.TargetUpM[at];
+    error[at] = height - problem.TargetUpM[at];
     fit.MaximumTargetErrorM =
         std::max(fit.MaximumTargetErrorM, std::abs(height - problem.TargetUpM[at]));
   }
-  const double squared = error.dot(program.Mass * error);
+  const auto product = program.Mass.Multiply(error);
+  const double squared = std::inner_product(error.begin(), error.end(), product.begin(), 0.);
   if (!std::isfinite(squared) || squared < 0) { return false; }
   fit.IntegratedRmsM = std::sqrt(squared);
   const auto normals = FacetNormals(problem, program, fit);
@@ -186,10 +191,11 @@ std::expected<WaterHeightFit, WaterHeightError> FitWaterSurfaceHeights(
   if (!program) { return std::unexpected(program.error()); }
   WaterHeightFit fit;
   fit.AssemblyMs = Milliseconds(began);
-  fit.Rows = static_cast<size_t>(program->Constraints.rows());
-  fit.Nonzeros = static_cast<size_t>(program->Constraints.nonZeros());
+  fit.Rows = static_cast<size_t>(program->Constraints.Rows);
+  fit.Nonzeros = static_cast<size_t>(program->Constraints.Values.size());
   fit.MatrixBytes =
-      Bytes(program->Mass) + Bytes(program->Hessian) + Bytes(program->Constraints) +
+      program->Mass.StorageBytes() + program->Hessian.StorageBytes() +
+      program->Constraints.StorageBytes() +
       static_cast<size_t>(program->Linear.size() + program->Lower.size() + program->Upper.size()) *
           sizeof(double);
   const auto hessian = View(program->Hessian);
