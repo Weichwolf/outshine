@@ -5,12 +5,14 @@ the GPU disagreed with the independent CPU motion reference; it is never a pass.
 """
 
 import argparse
+import gzip
 import hashlib
 import json
 import math
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -27,6 +29,39 @@ def digest(path):
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             value.update(block)
     return value.hexdigest()
+
+
+def validate_inputs(fixture, manifest):
+    for name, expected in manifest["files"].items():
+        encoded = expected.get("encoded", name)
+        if any(not isinstance(part, str) or part in ("", ".", "..")
+               or Path(part).name != part for part in (name, encoded)):
+            raise ValueError("fixture names must be plain filenames")
+        path = fixture / encoded
+        size = expected.get("encoded_bytes", expected["bytes"])
+        checksum = expected.get("encoded_sha256", expected["sha256"])
+        if path.stat().st_size != size or digest(path) != checksum:
+            raise ValueError("fixed input differs from its provenance manifest: " + encoded)
+
+
+def materialize_inputs(fixture, manifest, output):
+    if not any("encoded" in expected for expected in manifest["files"].values()):
+        return fixture
+    destination = output / "inputs"
+    destination.mkdir()
+    for name, expected in manifest["files"].items():
+        encoded = expected.get("encoded")
+        target = destination / name
+        if encoded:
+            if expected["bytes"] > 1024 * 1024 or expected.get("compression") != "gzip":
+                raise ValueError("unsupported fixture encoding or decoded size")
+            with gzip.open(fixture / encoded, "rb") as source:
+                target.write_bytes(source.read(expected["bytes"] + 1))
+        else:
+            shutil.copyfile(fixture / name, target)
+        if target.stat().st_size != expected["bytes"] or digest(target) != expected["sha256"]:
+            raise ValueError("decoded fixed input differs from its manifest: " + name)
+    return destination
 
 
 def git(root, *args):
@@ -79,6 +114,9 @@ def main():
     parser.add_argument("--checkout", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--iterations", type=int, default=1024)
+    parser.add_argument("--case", choices=("original", "tinted-backface"), default="original")
+    parser.add_argument("--shader-root", type=Path,
+                        help="use this checkout's frozen shader package with the native archive")
     parser.add_argument("--device-name", help="reject a different native GPU")
     args = parser.parse_args()
     if sys.platform == "darwin":
@@ -91,16 +129,19 @@ def main():
     if not 1 <= args.iterations <= 4096:
         parser.error("iterations must be between 1 and 4096")
     archive = checkout / "build/liboutshine.a"
-    shaders = [checkout / "build/shaders" / name
-               for name in ("lit-200-1.vert.spv", "lit-010-100.frag.spv")]
+    shader_root = args.shader_root.resolve() if args.shader_root else checkout
+    fixture = FIXTURE if args.case == "original" else FIXTURE / args.case
+    vertex_name = "lit-200-1.vert.spv" if args.case == "original" else "lit-210-1.vert.spv"
+    shaders = [shader_root / "build/shaders" / name
+               for name in (vertex_name, "lit-010-100.frag.spv")]
     if not archive.is_file() or not all(path.is_file() for path in shaders):
         parser.error("build the native product archive and shader package first")
     source = Path(__file__).with_suffix(".cpp")
-    manifest = json.loads((FIXTURE / "manifest.json").read_text())
-    for name, expected in manifest["files"].items():
-        path = FIXTURE / name
-        if path.stat().st_size != expected["bytes"] or digest(path) != expected["sha256"]:
-            parser.error("fixed input differs from its provenance manifest: " + name)
+    manifest = json.loads((fixture / "manifest.json").read_text())
+    try:
+        validate_inputs(fixture, manifest)
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
     output.mkdir(parents=True, exist_ok=False)
     receipt = output / "report.json"
     record = {"status": "running", "scope": "native correctness diagnostic; no FPS or image admission",
@@ -109,7 +150,10 @@ def main():
               "native_checkout": str(checkout), "native_commit": git(checkout, "rev-parse", "HEAD"),
               "native_dirty": git(checkout, "status", "--porcelain"),
               "archive_sha256": digest(archive), "source_sha256": digest(source),
-              "input_manifest_sha256": digest(FIXTURE / "manifest.json"),
+              "case": args.case, "input_manifest_sha256": digest(fixture / "manifest.json"),
+              "shader_checkout": str(shader_root),
+              "shader_commit": git(shader_root, "rev-parse", "HEAD"),
+              "shader_dirty": git(shader_root, "status", "--porcelain"),
               "platform": sys.platform,
               "environment": {key: os.environ[key] for key in
                               ("VK_DRIVER_FILES", "VK_ICD_FILENAMES", "VK_INSTANCE_LAYERS",
@@ -119,6 +163,8 @@ def main():
     receipt.write_text(json.dumps(record, indent=2) + "\n")
     code = 2
     try:
+        runtime_fixture = materialize_inputs(fixture, manifest, output)
+        record["runtime_fixture"] = str(runtime_fixture)
         command, entry = compile_command(checkout, output, source)
         record["original_compilation_record"] = entry
         phase = execute(["nice", "-n", "10", *command], checkout, output, "compile")
@@ -138,7 +184,8 @@ def main():
         record["phases"].append(phase)
         if phase["exit_code"]:
             raise RuntimeError("native probe link failed")
-        run = [str(binary), str(FIXTURE), *(str(path) for path in shaders), str(args.iterations)]
+        run = [str(binary), str(runtime_fixture), *(str(path) for path in shaders),
+               str(args.iterations)]
         phase = execute(run, checkout, output, "run")
         record["phases"].append(phase)
         log = (output / "run.log").read_text(errors="replace")

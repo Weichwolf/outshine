@@ -24,14 +24,17 @@
 namespace {
 namespace N = outshine::Render::Native;
 constexpr uint32_t kWidth = 1280, kHeight = 720;
-constexpr size_t kTargetTriangle = 195;
-constexpr int kPixelX = 442, kPixelY = 239;
+constexpr uint32_t kTinted = 1, kCullBack = 2, kStrictDepth = 4;
+
+struct Parameters {
+  uint32_t Triangle = 195, PixelX = 442, PixelY = 239, Indices = 1038, Flags = 0;
+};
+
 using Four = std::array<double, 4>;
 constexpr size_t kViewElements = 56;
 constexpr size_t kPlacementElements = 36;
 constexpr size_t kMaterialBytes = 384;
 constexpr size_t kLightBytes = 1344;
-constexpr size_t kIndexCount = 1038;
 constexpr size_t kCurrentShiftOffset = 48;
 constexpr size_t kPreviousShiftOffset = 52;
 constexpr auto kWaitBudget = std::chrono::seconds(30);
@@ -75,28 +78,49 @@ std::vector<T> Read(const std::filesystem::path &path, std::streamoff maximumByt
 }
 
 struct Input {
+  Parameters Check;
   std::array<std::vector<std::byte>, 4> Streams;
   std::vector<uint32_t> Indices;
   std::vector<float> View, Placement;
-  std::vector<std::byte> Material, Light;
+  std::vector<std::byte> Material, Light, Colours;
 };
+
+Parameters ReadParameters(const std::filesystem::path &path) {
+  const std::ifstream file(path / "parameters.bin", std::ios::binary);
+  if (!file) { return {}; }
+  const auto words = Read<uint32_t>(path / "parameters.bin");
+  if (words.size() != 5) { Fail("parameters must contain five little-endian words"); }
+  const Parameters result{.Triangle = words[0],
+                          .PixelX = words[1],
+                          .PixelY = words[2],
+                          .Indices = words[3],
+                          .Flags = words[4]};
+  if (result.PixelX >= kWidth || result.PixelY >= kHeight || result.Flags > 7 ||
+      result.Indices == 0 || result.Indices % 3 != 0 || result.Triangle >= result.Indices / 3) {
+    Fail("fixture parameters are out of range");
+  }
+  return result;
+}
 
 Input Load(const std::filesystem::path &path) {
   Input input;
+  input.Check = ReadParameters(path);
   for (size_t i = 0; i < input.Streams.size(); ++i) {
     input.Streams[i] = Read<std::byte>(path / ("stream-" + std::to_string(i) + ".bin"));
   }
-  input.Indices = Read<uint32_t>(path / "indices.bin");
+  input.Indices = Read<uint32_t>(path / "indices.bin", std::streamoff{1024} * 1024);
   input.View = Read<float>(path / "view.bin");
   input.Placement = Read<float>(path / "placement.bin");
   input.Material = Read<std::byte>(path / "material.bin");
   input.Light = Read<std::byte>(path / "light.bin");
+  if ((input.Check.Flags & kTinted) != 0) { input.Colours = Read<std::byte>(path / "colours.bin"); }
   const size_t vertices = input.Streams[0].size() / 12;
   if (input.View.size() != kViewElements || input.Placement.size() != kPlacementElements ||
       input.Material.size() != kMaterialBytes || input.Light.size() != kLightBytes ||
       input.Streams[0].size() != vertices * 12 || input.Streams[1].size() != vertices * 8 ||
       input.Streams[2].size() != vertices * 8 || input.Streams[3].size() != vertices * 4 ||
-      input.Indices.size() != kIndexCount ||
+      input.Indices.size() != input.Check.Indices ||
+      ((input.Check.Flags & kTinted) != 0 && input.Colours.size() != vertices * 16) ||
       !std::ranges::all_of(input.Indices, [vertices](uint32_t v) { return v < vertices; })) {
     Fail("fixture sizes or indices violate the preserved shader input contract");
   }
@@ -117,7 +141,7 @@ std::array<double, 2> Expected(const Input &input) {
   std::array<std::array<double, 2>, 3> screen{};
   for (size_t i = 0; i < 3; ++i) {
     std::array<float, 3> position{};
-    const size_t index = input.Indices[kTargetTriangle * 3 + i];
+    const size_t index = input.Indices[size_t{input.Check.Triangle} * 3 + i];
     std::memcpy(position.data(), input.Streams[0].data() + index * 12, 12);
     const Four point{position[0], position[1], position[2], 1};
     auto current = Transform(std::span(input.Placement).first(16), point);
@@ -135,7 +159,8 @@ std::array<double, 2> Expected(const Input &input) {
   const auto cross = [](auto a, auto b) { return a[0] * b[1] - a[1] * b[0]; };
   const std::array ab{screen[1][0] - screen[0][0], screen[1][1] - screen[0][1]};
   const std::array ac{screen[2][0] - screen[0][0], screen[2][1] - screen[0][1]};
-  const std::array ap{kPixelX + 0.5 - screen[0][0], kPixelY + 0.5 - screen[0][1]};
+  const std::array ap{input.Check.PixelX + 0.5 - screen[0][0],
+                      input.Check.PixelY + 0.5 - screen[0][1]};
   const double area = cross(ab, ac);
   if (!std::isfinite(area) || std::abs(area) < 1) { Fail("the reference triangle is degenerate"); }
   const double u = cross(ap, ac) / area;
@@ -150,8 +175,8 @@ std::array<double, 2> Expected(const Input &input) {
       before[axis] += weights[i] * previous[i][axis] / clip[i][3];
     }
   }
-  const std::array result{(kPixelX + 0.5) * 2 / kWidth - 1 - before[0] / before[3],
-                          1 - (kPixelY + 0.5) * 2 / kHeight - before[1] / before[3]};
+  const std::array result{(input.Check.PixelX + 0.5) * 2 / kWidth - 1 - before[0] / before[3],
+                          1 - (input.Check.PixelY + 0.5) * 2 / kHeight - before[1] / before[3]};
   if (!std::ranges::all_of(result, [](double x) { return std::isfinite(x); })) {
     Fail("the independent projected motion must be finite");
   }
@@ -201,9 +226,10 @@ std::unique_ptr<N::Texture> Dummy(N::Device &device, bool white) {
 }
 
 struct Fixture {
+  Parameters Check;
   std::unique_ptr<N::Device> Device;
   std::array<std::unique_ptr<N::Buffer>, 4> Streams;
-  std::unique_ptr<N::Buffer> Placements, Indices, Indirect;
+  std::unique_ptr<N::Buffer> Placements, Indices, Indirect, Colours;
   std::unique_ptr<N::Texture> White, Black, Hdr, Velocity, Depth;
   std::unique_ptr<N::Sampler> Sampler;
   std::unique_ptr<N::GraphicsPipeline> Pipeline;
@@ -213,7 +239,8 @@ struct Fixture {
 
 std::unique_ptr<N::GraphicsPipeline> PreparePipeline(N::Device &device,
                                                      std::span<const uint32_t> vertex,
-                                                     std::span<const uint32_t> fragment) {
+                                                     std::span<const uint32_t> fragment,
+                                                     Parameters check) {
   const std::array streams{N::VertexStream{.Slot = 0, .Stride = 12},
                            N::VertexStream{.Slot = 1, .Stride = 8},
                            N::VertexStream{.Slot = 2, .Stride = 8},
@@ -234,8 +261,10 @@ std::unique_ptr<N::GraphicsPipeline> PreparePipeline(N::Device &device,
        .Streams = streams,
        .Attributes = attributes,
        .Colours = colours,
-       .Depth = N::DepthTarget{.Compare = N::DepthCompare::GreaterEqual},
-       .Culling = N::Cull::None,
+       .Depth = N::DepthTarget{.Compare = (check.Flags & kStrictDepth) != 0
+                                              ? N::DepthCompare::Greater
+                                              : N::DepthCompare::GreaterEqual},
+       .Culling = (check.Flags & kCullBack) != 0 ? N::Cull::Back : N::Cull::None,
        .ClampDepth = true,
        .Label = {}}));
 }
@@ -243,6 +272,7 @@ std::unique_ptr<N::GraphicsPipeline> PreparePipeline(N::Device &device,
 Fixture
 Prepare(const Input &input, std::span<const uint32_t> vertex, std::span<const uint32_t> fragment) {
   Fixture f;
+  f.Check = input.Check;
   f.Device = Require(N::CreateDevice({.Validation = true}));
   auto &device = *f.Device;
   std::println("DEVICE {}", device.Limits().Name);
@@ -270,7 +300,15 @@ Prepare(const Input &input, std::span<const uint32_t> vertex, std::span<const ui
                                           .Height = kHeight,
                                           .Texels = N::Format::Depth32Float,
                                           .Use = N::TextureUse::DepthAttachment}));
-  f.Pipeline = PreparePipeline(device, vertex, fragment);
+  f.Pipeline = PreparePipeline(device, vertex, fragment, input.Check);
+  if ((input.Check.Flags & kTinted) != 0) {
+    f.Colours = Upload(device, input.Colours, N::BufferUse::Storage);
+    f.Bindings.push_back(
+        {.Set = 0,
+         .Slot = 1,
+         .Value = N::StorageBuffer{.Data = f.Colours.get(),
+                                   .Range = {.Bytes = f.Colours->Description().Bytes}}});
+  }
   for (uint32_t slot = 0; slot < 9; ++slot) {
     f.Bindings.push_back(
         {.Set = 2,
@@ -341,8 +379,8 @@ int Inspect(Fixture &f, const std::array<double, 2> &expected, int iterations) {
     }
     std::array<uint16_t, 2> half{};
     std::memcpy(half.data(),
-                read.Rows() + static_cast<size_t>(kPixelY) * read.RowBytes() +
-                    static_cast<size_t>(kPixelX) * sizeof(half),
+                read.Rows() + static_cast<size_t>(f.Check.PixelY) * read.RowBytes() +
+                    static_cast<size_t>(f.Check.PixelX) * sizeof(half),
                 4);
     std::array<double, 2> actual{Half(half[0]), Half(half[1])};
     bool bad = false;
