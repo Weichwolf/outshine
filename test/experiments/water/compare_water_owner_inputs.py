@@ -16,13 +16,11 @@ from compare_water_grid_height import inputs
 from compare_water_region_mesh import independent_audit
 from native_water_observation import NO_INPUT
 from physical_boundary import from_world, to_world
-from water_body_domains import assemble
-from water_cell_edges import align_edges, edge_knots
-from water_cell_handoff import route_cells
 from water_cell_height import body_geometry, project
 from water_contact_band import physical_audit
 from water_edge_profiles import prepare_profile_owner, restrict_profile
 from water_field_difference import compare_fields
+from water_fixture_cohort import prepare_cohort
 from water_grid_height import prepare_grid
 from water_owner_inputs import LAYERS, LayerReceipt, fixed_owner_inputs
 from water_region_mesh import cook_region
@@ -94,48 +92,9 @@ def layer_receipts(data, snapshots, epoch):
 
 def fixed_case(centre, receipts, snapshots, data, course_order, epoch):
     plan = fixed_owner_inputs(centre, receipts, epoch=epoch, model_revision=RECIPE)
-    if plan.state != "ready":
-        raise ValueError(f"no owner before required source layers arrive: {plan.state}")
-    products, handoff = route_cells(
-        snapshots,
-        source_tiles=plan.tiles,
-        recipients=plan.tiles,
-        scope="fixed-inputs:" + plan.version,
+    prepared, records, knots, source_report = prepare_cohort(
+        plan, snapshots, data, course_order, cells=(centre,)
     )
-    knots = edge_knots(products)
-    products, edge_work = align_edges(products, knots)
-    records = [
-        (tile, p, c.parents[tile + (p.feature, p.part)], c.snapshot.source)
-        for tile, c in products.items()
-        for p in c.snapshot.pieces
-    ]
-    bodies, rejected, _ = assemble(
-        [r[1].polygon for r in records],
-        [r[1].info for r in records],
-        [r[3] for r in records],
-        assume_ground=True,
-    )
-    if rejected:
-        raise ValueError("fixed finite source body rejected")
-    candidates = [
-        b
-        for b in bodies
-        if records[b.sources[0]][1].info["kind"] == "river"
-        and any(records[i][0] == centre for i in b.sources)
-    ]
-    if not candidates:
-        raise ValueError("fixture centre has no admitted river component")
-    body = min(
-        candidates,
-        key=lambda b: (
-            -len(b.sources),
-            tuple(sorted(records[i][2] for i in b.sources)),
-        ),
-    )
-    records = [records[i] for i in body.sources]
-    original_courses = [i for tile in plan.tiles for i in course_order[tile]]
-    scoped = dict(data, courses=data["courses"][original_courses])
-    prepared = prepare_grid(records, scoped, 1024)
     fitted = solve(prepared.mesh, prepared.anchor, prepared.rows, prepared.bounds)
     audit = physical_audit(fitted.mesh, prepared.anchor, prepared.rows, prepared.bounds)
     if not audit["admitted"]:
@@ -181,16 +140,7 @@ def fixed_case(centre, receipts, snapshots, data, course_order, epoch):
         prepared,
         {
             "plan": dataclasses.asdict(plan),
-            "handoff": handoff,
-            "edge_work": edge_work,
-            "selected_original_course_table_indices": [
-                original_courses[i]
-                for i in prepared.report["sources"]["selected_original_courses"]
-            ],
-            "finite_course_table_original_indices": original_courses,
-            "scoped_course_table_copied_bytes": scoped["courses"].nbytes,
-            "body_original_keys": sorted({r[2] for r in records}),
-            "prepared": prepared.report,
+            **source_report,
             "fit": dict(fitted.report),
             "physical_audit": audit,
             "border_status": border_status,
@@ -303,13 +253,32 @@ def profile_changes(data, snapshots, epoch, centre, first, report, output):
 
 
 def adjacent_counterexample(
-    centre, receipts, snapshots, data, courses, epoch, first, report, output
+    centre,
+    receipts,
+    snapshots,
+    data,
+    courses,
+    epoch,
+    first,
+    report,
+    output,
+    *,
+    neighbour_cell=None,
+    shared_edge=None,
 ):
-    neighbour = (centre[0], centre[1], centre[2] - 1)
+    neighbour = (
+        neighbour_cell
+        if neighbour_cell is not None
+        else (centre[0], centre[1], centre[2] - 1)
+    )
     owner, _product, prepared, second = fixed_case(
         neighbour, receipts, snapshots, data, courses, epoch
     )
-    edge = (centre[0], 1, centre[1], centre[2])
+    edge = (
+        shared_edge if shared_edge is not None else (centre[0], 1, centre[1], centre[2])
+    )
+    if {centre, neighbour} != set(adjacent_cells(edge)):
+        raise ValueError("counterexample cells do not share the declared edge")
     border = next(b for b in report["border_curves"] if tuple(b["edge"]) == edge)
     geographic = np.unique(np.concatenate(border["polylines"]), axis=0)
     projected = [project(geographic, centre[0], o.anchor) for o in (first[0], owner)]
