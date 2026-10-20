@@ -10,14 +10,17 @@ import numpy as np
 
 
 class Reader:
-    def __init__(self, data):
+    def __init__(self, data, *, number_limit=1048576):
         if not 0 < len(data) <= 64 * 1024**2:
             raise ValueError("bounded BSC3 block required")
+        if type(number_limit) is not int or not 1 <= number_limit <= 16777216:
+            raise ValueError("bounded prepared scalar budget required")
         self.data, self.at, self.items, self.numbers = data, 0, 131072, 0
+        self.number_limit = number_limit
 
     def number(self, code):
         size = struct.calcsize("<" + code)
-        if self.at + size > len(self.data) or self.numbers >= 1048576:
+        if self.at + size > len(self.data) or self.numbers >= self.number_limit:
             raise ValueError("truncated or over-budget prepared recipe")
         value = struct.unpack_from("<" + code, self.data, self.at)[0]
         self.at += size
@@ -25,6 +28,19 @@ class Reader:
         if isinstance(value, float) and not math.isfinite(value):
             raise ValueError("nonfinite prepared scalar")
         return value
+
+    def skip(self, size):
+        if size < 0 or size > len(self.data) - self.at:
+            raise ValueError("truncated prepared data")
+        self.at += size
+
+    def text(self):
+        self.skip(self.number("Q"))
+
+    def fixed_list(self, size):
+        count = self.number("Q")
+        self.skip(count * size)
+        return count
 
     def flag(self):
         value = self.number("B")
