@@ -1,22 +1,176 @@
 # Forschungsgrundlage für Outshine
 
-Stand: 2026-10-12. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-Publikationen und Referenzdokumente sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
-Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
-vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
+Stand: 2026-10-20. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+Papers, Kurse und Produktdokumentation sind als solche bezeichnet; Links und lokale PDFs bleiben erhalten.
+Die Einträge sind die kanonische Relevanzbewertung nach [#919](https://github.com/Weichwolf/outshine/issues/919),
+keine Machbarkeitsbestätigung und keine neue Architekturfreigabe.
 
-Die folgenden Empfehlungen sind Architekturentscheidungen für die Feature-WIs;
-eine Literaturquelle ersetzt weder Integration noch Bild- und Laufzeitbelege.
-Priorität aus WI [#5](https://github.com/Weichwolf/outshine/issues/5): Transport → Gebäude → Terrain → Vegetation → Wolken;
-Simulation und Gameplay folgen dem visuellen Meilenstein.
+**Prüfstand: 12 von 70 Einträgen bewertet.** Zuerst Streaming/Sichtbarkeit/LOD;
+die übrigen 58 stehen ausdrücklich unter „Bewertung ausstehend“ und haben noch kein Relevanzurteil.
+Bewertete Einträge folgen absteigend dem aktuellen Nutzen innerhalb jeder Stufe:
+
+| Relevanz | Bedeutung |
+|---|---|
+| Hoch | Direkt benötigtes Verfahren für aktuelle Engpässe oder Bildlücken |
+| Mittel | Nützlicher Baustein mit konkretem Anpassungs- oder späterem Integrationsbedarf |
+| Gering | Spezialfall oder gemessen ungünstiger Ansatz im aktuellen Pfad |
+| Nicht relevant | Veröffentlichtes Verfahren passt nicht zu Eingaben, Ziel oder Kosten |
+
+Maßstab sind vollständige bewegte Welten bis 240 km, soweit physikalisch sichtbar,
+bei 1280×720/60 einschließlich p99 auf A18 Pro/Metal und i5-1135G7/Iris Xe/Vulkan ([#5](https://github.com/Weichwolf/outshine/issues/5)).
+Beide Ziele nutzen schnelle SSD und Unified Memory: kleine Rundum-Metadaten → Sicht-/Spielbedarf
+→ passende unabhängig lesbare fertige Produkte. Eltern bleiben bis vollständiger Kindabdeckung.
+Render-, Funktions- und Simulationsbedarf bleiben getrennt ([#10](https://github.com/Weichwolf/outshine/issues/10),
+[#12](https://github.com/Weichwolf/outshine/issues/12), [#915](https://github.com/Weichwolf/outshine/issues/915),
+[#2](https://github.com/Weichwolf/outshine/issues/2)); verdeckte Schatten-/Spielwirkung zählt weiterhin.
+IO-Latenz/Batchgröße, Decode, Kopien, geteilte Bandbreite, physische Residency und GPU-/Updatearbeit
+messen; gemeinsame Seiten einmal zählen, Zero-Copy nicht voraussetzen. Historische HDD-/VRAM-
+Modelle und publizierte Zeiten nicht als aktuelle Gerätebelege übernehmen.
 
 ## PDFs und Nutzung
 
-Alle PDFs liegen nach Bereich/Konferenz direkt unter `doc/references/` und sind versioniert.
-Die kanonischen Downloadlinks stehen bei jeder Quelle.
-Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
+Alle vorhandenen PDFs liegen nach Bereich/Konferenz direkt unter `doc/references/` und sind versioniert.
+Die kanonischen Downloadlinks stehen bei jeder Quelle. Fehlende Volltexte sind im Eintrag benannt.
+Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen. Optisch geprüfte Seiten und
+terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bleiben lokal.
 
-## Asset-Laden und Residency — WI [#10](https://github.com/Weichwolf/outshine/issues/10)
+## Relevanz: Hoch
+
+- **GigaVoxels: Ray-Guided Streaming for Efficient and Detailed Voxel Rendering**,
+  Crassin et al., I3D 2009.
+  [Quelle](https://www-sop.inria.fr/reves/Basilic/2009/CNLE09/CNLE09.pdf) ·
+  [PDF](geometry/i3d/2009-gigavoxels-ray-guided-streaming.pdf).
+  **Relevanz: Hoch — Streaming / #10, #12, #915.**
+  Sicht-/LOD-Traversierung fordert fehlende Knoten erst bei tatsächlichem Bedarf an;
+  Eltern liefern gröbere Darstellung, Requests werden zusammengefasst. Das ist unser
+  Hebel vor Fine-IO/Decode, keine Entscheidung für eine Voxelwelt. Feedback, Baumzugriffe
+  und Miss-Latenz mitbezahlen; HDD-/getrennte-VRAM-Stufen nicht auf SSD/UMA übertragen.
+
+- **Conservative Visibility Preprocessing using Extended Projections**, Durand / Drettakis /
+  Thollot / Puech, SIGGRAPH 2000.
+  [Publikation](https://doi.org/10.1145/344779.344891) ·
+  [Autoren](https://people.csail.mit.edu/fredo/PUBLI/Sig2000/index.htm) ·
+  [PDF](geometry/siggraph/2000-conservative-visibility-extended-projections.pdf).
+  **Relevanz: Hoch — Verdeckung / #12, #915.**
+  Konservative Verdeckung für eine ganze Kamerazelle kann Detailanforderungen schon
+  vor dem Laden ausschließen. Innenprojektion des Occluders, Außenprojektion des Ziels
+  und konservative Tiefe gemeinsam prüfen. Nur vorhandene qualifizierte opake Flächen
+  zählen; AABBs, zugeschlossene Löcher oder veraltete bewegte Occluder reichen nicht.
+  Vorberechnung, Zellwechsel und Invalidierung kosten Arbeit; unbekannt bleibt sichtbar.
+
+- **Geometry Clipmaps: Terrain Rendering Using Nested Regular Grids**, Losasso / Hoppe,
+  SIGGRAPH 2004. [Quelle](https://hhoppe.com/geomclipmap.pdf) ·
+  [PDF](terrain/siggraph/2004-geometry-clipmaps.pdf).
+  **Relevanz: Hoch — Terrain / #13, #10, #915.**
+  Verschachtelte Gitter, toroidale Wiederverwendung, grob-vor-fein und begrenzte
+  Randupdates passen zu Rundumabdeckung bei Bewegung. Fertige Höhen-/Materialstufen
+  unabhängig lesen; SSD-Latenz, Decode und UMA-Schreibbandbreite trotzdem bezahlen.
+  Höhenfeldverfahren: kein allgemeines Gebäude-/Straßen-LOD, keine automatische
+  Erdkrümmungs-, Verdeckungs- oder konservative Fehlergarantie.
+
+- **Simplification Envelopes**, Cohen et al., SIGGRAPH 1996.
+  [Quelle](https://www.cs.umd.edu/gvil/papers/simp_env.pdf) ·
+  [PDF](geometry/siggraph/1996-simplification-envelopes.pdf).
+  **Relevanz: Hoch — Formfehler / #12, #14, #915.**
+  Begrenzende Hüllen liefern das Prinzip für überprüfbare räumliche LOD-Fehler statt
+  bloßer Samples. Benötigt bei Eltern-/Kindauswahl und Kontaktverträglichkeit.
+  Die publizierte Konstruktion hat Topologie-/Regularitätsannahmen und Aufbaukosten;
+  Distanznähe allein macht ein Ersatzmesh weder zum sicheren Occluder noch fahrbar.
+
+- **GPU-Driven Rendering Pipelines**, Haar / Aaltonen, SIGGRAPH-Kurs 2015.
+  [Quelle](https://advances.realtimerendering.com/s2015/aaltonenhaar_siggraph2015_combined_final_footer_220dpi.pdf) ·
+  [PDF](geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf).
+  **Relevanz: Hoch — Renderauswahl / #48, #844, #12.**
+  Instanz-/Cluster-Culling, kompakte Listen und indirekte Submission vermeiden Arbeit
+  an unsichtbarer Geometrie. Vorhandene grobe Occluder können den Bedarfsentscheid
+  unterstützen; GPU-Culling nach dem Upload spart vorheriges Fine-IO nicht.
+  Tiefenpass, Reprojektion, Listen/Indexkompaktion und Änderungen auf Metal/Vulkan
+  messen; alte PS4-Zahlen und unsichere History sind keine Freigabe für SSD/UMA.
+
+- **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
+  [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
+  [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·
+  [PDF](vegetation/eg/2012-real-time-forests.pdf).
+  **Relevanz: Hoch — Fernvegetation / #1, #12, #899.**
+  Bestandsdeckung und Blick-/Lichtkorrelation statt Einzelbaum-/Blattarbeit für den
+  Fernwald; gemeinsame Prototypen und bedarfsabhängige Seeds/Coverage liefern einen
+  konkreten Verbraucher. Z-Felder, vorberechnete Tabellen und Artmischung samt
+  Bytes/Bandbreite prüfen; keine ungeprüfte Vollübernahme. Wind, Änderungen und
+  Simulation sind zusätzlich zu lösen; eine Dichtekarte ist kein opaker Occluder.
+
+## Relevanz: Mittel
+
+- **Surface Simplification Using Quadric Error Metrics**, Garland / Heckbert, SIGGRAPH 1997.
+  [Quelle](https://www.cs.cmu.edu/~garland/Papers/quadrics.pdf) ·
+  [PDF](geometry/siggraph/1997-quadric-error-metrics.pdf).
+  **Relevanz: Mittel — Geometrie-LOD / #12, #899, #915.**
+  Quadriken priorisieren lokale Kontraktionen und erlauben vorgefertigte Mesh-LODs.
+  Allgemeine Paaraggregation kann getrennte Teile verbinden: für Straßenkontakte
+  und Verdeckung nur mit zusätzlichen Einschränkungen. Kein kontinuierlicher
+  Hausdorff-/Coveragebeweis; Fine-Aufbau vor späterem Reduzieren spart keinen Miss-Cook.
+
+- **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
+  [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
+  [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·
+  [PDF](vegetation/siggraph/2003-billboard-clouds.pdf).
+  **Relevanz: Mittel — Fernrepräsentation / #1, #899.**
+  Mehrere geometrisch gewählte Ebenen sind ein konkreter Kandidat für eigene
+  prozedurale Fernprodukte. Geometrische Ebenenabweichung deckt Alpha-/Mipmap-,
+  GGX-, Tiefen-/Disokklusions- und Schattenfehler nicht ab; Texturleerraum/Overdraw
+  und laufende Wind-/Lichtänderungen können den Meshgewinn aufheben.
+
+- **Layered Depth Images**, Shade / Gortler / He / Szeliski, SIGGRAPH 1998.
+  [Publikation](https://doi.org/10.1145/280814.280882) ·
+  [Autoren-PDF](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Shade-SG98.pdf) ·
+  [PDF](vegetation/siggraph/1998-layered-depth-images.pdf).
+  **Relevanz: Mittel — Parallaxe / [#23](https://github.com/Weichwolf/outshine/issues/23), #899.**
+  Mehrere Tiefentreffer erhalten verdeckte Flächen für neue Ansichten und begründen
+  den Vergleich gegen flache Mattes. Zusätzliche Schichten kosten Speicher/Sampling;
+  feste Ansicht und Abtastung begrenzen Wiederverwendung. Eigene unbeleuchtete
+  PBR-Felder brauchen Material-/Normalfilterung und gültige Disokklusionsunterstützung.
+
+- **Relief Texture Mapping**, Oliveira / Bishop / McAllister, SIGGRAPH 2000.
+  [Publikation](https://doi.org/10.1145/344779.344947) ·
+  [Autoren-PDF](https://www.inf.ufrgs.br/~oliveira/pubs_files/RTM_low_res.pdf) ·
+  [PDF](geometry/siggraph/2000-relief-texture-mapping.pdf).
+  **Relevanz: Mittel — Parallaxe / #899.**
+  Geometrisch verankerte Tiefe und Prewarp liefern einen prüfbaren Baustein für
+  eigene Reliefprodukte. Ein Höhenwert pro Texel vertritt keine beliebig geschichtete
+  Welt; Silhouette, neue Sichtflächen und aktuelles PBR gesondert prüfen.
+  Der verwandte eigene Planarschnitt in [#917](https://github.com/Weichwolf/outshine/issues/917)
+  bleibt wegen Bild-/Gesamtkosten verworfen; seine kleine Pixelparallaxe beweist keine Welttiefe.
+
+## Relevanz: Gering
+
+- **LDI Tree: A Hierarchical Representation for Image-Based Rendering**, Chang / Bishop / Lastra, SIGGRAPH 1999.
+  [Publikation](https://doi.org/10.1145/311535.311571) ·
+  [Universitätsarchiv](https://www.cs.princeton.edu/courses/archive/spr01/cs598b/papers/chang99.pdf) ·
+  [PDF](geometry/siggraph/1999-ldi-tree.pdf).
+  **Relevanz: Gering — Räumliche Tiefenhierarchie / #899.**
+  Hierarchische Abtastung ist mathematisch nützlich; unser orthographischer
+  Gittervergleich [#902](https://github.com/Weichwolf/outshine/issues/902) verliert jedoch
+  bei Coverage/Materialgrenzen und Speicher gegen die Originale. Dieses Profil nicht
+  portieren oder durch weitere Layer-/Packingrunden retten. Andere Hierarchien brauchen
+  einen neuen Bild-/Kostenbeleg; der negative Versuch widerlegt nicht jede LDI-Variante.
+
+## Relevanz: Nicht relevant
+
+- **Stereo Magnification: Learning view synthesis using multiplane images**,
+  Zhou / Tucker / Flynn / Fyffe / Snavely, SIGGRAPH 2018.
+  [Publikation](https://doi.org/10.1145/3197517.3201323) ·
+  [Autoren-PDF](https://tinghuiz.github.io/papers/siggraph18_mpi_lowres.pdf) ·
+  [PDF](geometry/siggraph/2018-stereo-magnification.pdf).
+  **Relevanz: Nicht relevant — Gelernte Ansichtsrekonstruktion / #899.**
+  Das veröffentlichte Gesamtverfahren braucht Stereo-Fotos, trainierte Rekonstruktion
+  und RGB-Schichten; das passt nicht zu Outshines prozeduralen Assets und aktuellem
+  PBR/Wetter. Geometrische Verankerung/Alpha-Komposition bleiben Vergleichsmathematik,
+  begründen aber weder Modellübernahme noch Welt-/Residenzfreigabe.
+
+## Bewertung ausstehend
+
+Noch nicht nach #919 eingestuft; die bisherigen Fachnotizen bleiben als Arbeitsgrundlage erhalten.
+
+### Asset-Laden und Residency — WI [#10](https://github.com/Weichwolf/outshine/issues/10)
 
 [Vorbereitete Assets, räumliche Pakete und Residency](engine/unreal/prepared-assets.md)
 fasst Unreal DDC, World Partition/HLOD, Texture Streaming und Geometry Clipmaps zusammen.
@@ -24,7 +178,7 @@ Die Notiz verlinkt die Primärquellen, grenzt deren Übertragung ab und trennt S
 von RAM-/GPU-Residency und budgetierten Laufzeitdetails. Epic-Referenzen sind Online-Dokumentation;
 das Clipmaps-Paper liegt bereits als PDF unter Terrain/SIGGRAPH.
 
-## Gebäude und kompakte Fassaden — WI [#8](https://github.com/Weichwolf/outshine/issues/8) / [#6](https://github.com/Weichwolf/outshine/issues/6)
+### Gebäude und kompakte Fassaden — WI [#8](https://github.com/Weichwolf/outshine/issues/8) / [#6](https://github.com/Weichwolf/outshine/issues/6)
 
 [OSM-Lieferinventur und Rezeptplan](data/osm/inventory.md), WI [#17](https://github.com/Weichwolf/outshine/issues/17):
 32 gezielte Standorte, alle gelieferten Layer, vollständiger beobachteter Klassenkatalog.
@@ -75,34 +229,10 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
   CityEngine Dev HQ mit drei Innenraumgeschossen, Außenwänden und Schnittansichten ([#30](https://github.com/Weichwolf/outshine/issues/30)).
   Belegt Innenraumdarstellung; liefert keinen Nachweis eines automatischen Raumplaners im lokalen SDK.
 
-## Geometrie, Sichtbarkeit und Terrain — WI [#12](https://github.com/Weichwolf/outshine/issues/12) / [#13](https://github.com/Weichwolf/outshine/issues/13) / [#14](https://github.com/Weichwolf/outshine/issues/14)
+### Geometrie, Sichtbarkeit und Terrain — WI [#12](https://github.com/Weichwolf/outshine/issues/12) / [#13](https://github.com/Weichwolf/outshine/issues/13) / [#14](https://github.com/Weichwolf/outshine/issues/14)
 
 [Hierarchischer Bedarf vor Download und Geometrie](engine/visibility-driven-demand.md)
 prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outshine ab.
-- **GigaVoxels: Ray-Guided Streaming for Efficient and Detailed Voxel Rendering**,
-  Crassin et al., I3D 2009.
-  [Quelle](https://www-sop.inria.fr/reves/Basilic/2009/CNLE09/CNLE09.pdf) ·
-  [PDF](geometry/i3d/2009-gigavoxels-ray-guided-streaming.pdf).
-  Sicht-/LOD-Traversierung meldet nur benötigte fehlende Hierarchieknoten. Anfragebündelung
-  und gröbere Ersatzdaten übernehmen; keine HTTP-Anfrage je Pixel und keine Pflicht zur Voxelwelt.
-- **Simplification Envelopes**, Cohen et al., SIGGRAPH 1996.
-  [Quelle](https://www.cs.umd.edu/gvil/papers/simp_env.pdf) ·
-  [PDF](geometry/siggraph/1996-simplification-envelopes.pdf).
-  Beidseitige Oberflächenabstände über begrenzende Hüllen sichern. Das Prinzip ergänzt
-  unsere Formfehlerverträge; Hausdorff-Nähe folgt nicht aus wenigen Samples oder einem
-  meshoptimizer-Fehlerwert. Offene/nichtmannigfaltige Baukörper und Kontakte eigens behandeln.
-- **GPU-Driven Rendering Pipelines**, Haar / Aaltonen, SIGGRAPH-Kurs 2015.
-  [Quelle](https://advances.realtimerendering.com/s2015/aaltonenhaar_siggraph2015_combined_final_footer_220dpi.pdf) ·
-  [PDF](geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf).
-  Material-Batches, kompakte Instanzen und Cluster mit Bounds statt Einzelobjekt-Draws.
-  Bedarf vor Mesh-Erzeugung bleibt CPU-/Generatorarbeit; GPU-Culling spart keine bereits
-  erzeugten Bytes. Indirect-/Compute-Pfade nur bei passendem SDL_GPU-Backend und Messgewinn.
-- **Geometry Clipmaps: Terrain Rendering Using Nested Regular Grids**, Losasso / Hoppe,
-  SIGGRAPH 2004. [Quelle](https://hhoppe.com/geomclipmap.pdf) ·
-  [PDF](terrain/siggraph/2004-geometry-clipmaps.pdf).
-  Regelmäßige verschachtelte Gitter und inkrementelle Randaktualisierung vermeiden Vollneubau.
-  Mit TerrainRenderer vergleichen, keine zweite Terrainpipeline. Clipmaps allein liefern weder
-  weltweite Quellabdeckung noch Ellipsoidübergang oder konservative Höhenfehlerschranken.
 - **Procedural Noise using Sparse Gabor Convolution**, Lagae et al., SIGGRAPH 2009.
   [Quelle](https://graphics.cs.kuleuven.be/publications/LLDD09PNSGC/LLDD09PNSGC_paper.pdf) ·
   [PDF](materials/siggraph/2009-sparse-gabor-noise.pdf).
@@ -110,7 +240,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Gerichtete Felsstruktur prototypisieren; Kernelkosten gegen einfachere gefilterte Noise
   messen. Noise liefert keine belegte Geologie und keinen Ersatz für DEM-Silhouette.
 
-## Materialien, Licht und Bildstabilität — WI [#6](https://github.com/Weichwolf/outshine/issues/6) / [#4](https://github.com/Weichwolf/outshine/issues/4)
+### Materialien, Licht und Bildstabilität — WI [#6](https://github.com/Weichwolf/outshine/issues/6) / [#4](https://github.com/Weichwolf/outshine/issues/4)
 
 - **Physically Based Shading at Disney**, Burley, SIGGRAPH-Kurs 2012.
   [Quelle](https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf) ·
@@ -199,7 +329,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   des Bildes liegende Flächen bleiben eine grundlegende Grenze. Gefiltertes IBL liefert
   die Grundreflexion, SSR ergänzt gültige Treffer. Gemeinsamer Pfad für Wasser und Fassaden.
 
-## Straßen, Wasser und technische Objekte — WI [#11](https://github.com/Weichwolf/outshine/issues/11) / [#3](https://github.com/Weichwolf/outshine/issues/3) / [#14](https://github.com/Weichwolf/outshine/issues/14)
+### Straßen, Wasser und technische Objekte — WI [#11](https://github.com/Weichwolf/outshine/issues/11) / [#3](https://github.com/Weichwolf/outshine/issues/3) / [#14](https://github.com/Weichwolf/outshine/issues/14)
 
 - **Interactive Procedural Street Modeling**, Chen et al., SIGGRAPH 2008.
   [Quelle](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf) ·
@@ -221,7 +351,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Das Verfahren löst weder Quellpegel noch Küstenabschluss. Erst Wasser/Bett/Ufer korrigieren,
   danach Animation auf demselben Körper; kein globales Grundwassermesh.
 
-## Vegetation, Atmosphäre und Wetter — WI [#1](https://github.com/Weichwolf/outshine/issues/1) / [#7](https://github.com/Weichwolf/outshine/issues/7)
+### Vegetation, Atmosphäre und Wetter — WI [#1](https://github.com/Weichwolf/outshine/issues/1) / [#7](https://github.com/Weichwolf/outshine/issues/7)
 
 - **L-systems and Beyond**, Prusinkiewicz (Organizer), SIGGRAPH Course 2003.
   [Autorenquelle](https://algorithmicbotany.org/papers/sigcourse.2003.pdf) ·
@@ -422,62 +552,6 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Bestandsplan, Pflanzenform und Darstellung trennen; Prototypen, Gruppen und Organe teilen.
   Fernwald braucht Verbände statt Einzelbaum-/Blattarbeit. Das Offline-Verfahren belegt
   keine Echtzeitkosten; Overdraw, Wind, Schatten und Artenmischung separat integrieren.
-- **Layered Depth Images**, Shade / Gortler / He / Szeliski, SIGGRAPH 1998.
-  [Publikation](https://doi.org/10.1145/280814.280882) ·
-  [Autoren-PDF](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Shade-SG98.pdf) ·
-  [PDF](vegetation/siggraph/1998-layered-depth-images.pdf).
-  Tiefensprites und geschichtete Tiefenbilder als Vergleich für Parallaxe und Verdeckungswechsel.
-  Seite 2 mit Repräsentationshierarchie optisch geprüft. Eigene bedingte Einmoment-Reliefs ([#23](https://github.com/Weichwolf/outshine/issues/23))
-  übernehmen keine Mehrschichtgarantie; Wind, Schatten und Disokklusion separat prüfen.
-- **LDI Tree: A Hierarchical Representation for Image-Based Rendering**, Chang / Bishop / Lastra, SIGGRAPH 1999.
-  [Publikation](https://doi.org/10.1145/311535.311571) ·
-  [Universitätsarchiv](https://www.cs.princeton.edu/courses/archive/spr01/cs598b/papers/chang99.pdf) ·
-  [PDF](geometry/siggraph/1999-ldi-tree.pdf).
-  Gemeinsame räumliche Tiefenbilder mit projektionsabhängiger Hierarchiestufe;
-  Seiten 2/3 samt Abtastdiagrammen und Gleichungen geprüft. Hier nur Grundlage:
-  unbeleuchtete Material-/Normalfelder, Disokklusion und Gerätebudgets getrennt belegen (#899).
-- **Conservative Visibility Preprocessing using Extended Projections**, Durand / Drettakis /
-  Thollot / Puech, SIGGRAPH 2000.
-  [Publikation](https://doi.org/10.1145/344779.344891) ·
-  [Autoren](https://people.csail.mit.edu/fredo/PUBLI/Sig2000/index.htm) ·
-  [PDF](geometry/siggraph/2000-conservative-visibility-extended-projections.pdf).
-  Konservative Sichtbarkeit aus einer räumlichen Kamerazelle; Seiten 3/4 mit
-  Definitionen, Diagrammen und konvexer Projektion optisch geprüft. #899 prüft
-  zunächst einzelne Dreiecksumbrae als geometrischen Flächensupport; keine
-  Übernahme des Raster-/Occluder-Fusion-Systems oder Gerätefreigabe daraus.
-- **Relief Texture Mapping**, Oliveira / Bishop / McAllister, SIGGRAPH 2000.
-  [Publikation](https://doi.org/10.1145/344779.344947) ·
-  [Autoren-PDF](https://www.inf.ufrgs.br/~oliveira/pubs_files/RTM_low_res.pdf) ·
-  [PDF](geometry/siggraph/2000-relief-texture-mapping.pdf).
-  Bild-/Tiefenfelder und Parallaxe als Verfahrensgrundlage; Seiten 2/3 mit
-  Projektionsgleichungen und Ablaufdiagramm optisch geprüft. #899 vergleicht
-  zunächst analytische Randfelder; deren Daten-/Suchkosten ersetzen keine
-  Prüfung des publizierten Relief-Prewarps oder einer gefilterten Fernhierarchie.
-- **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
-  [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
-  [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·
-  [PDF](vegetation/siggraph/2003-billboard-clouds.pdf).
-  Mehrere räumliche Ebenen statt einer flachen Kronenkarte als Fernprototyp vergleichen.
-  Alpha-Belegung, Mips, Normalen und Silhouette erhalten; leere Texel und Overdraw können
-  den Geometriegewinn aufheben. Aus eigenen prozeduralen Modellen erzeugen, kein Fotoatlas. Gemeinsame Basisprodukte
-  als Asset-Rohlinge speichern ([#10](https://github.com/Weichwolf/outshine/issues/10)); Nahdetails und aktuelles Licht/Wind folgen zur Laufzeit.
-- **Stereo Magnification: Learning view synthesis using multiplane images**,
-  Zhou / Tucker / Flynn / Fyffe / Snavely, SIGGRAPH 2018.
-  [Publikation](https://doi.org/10.1145/3197517.3201323) ·
-  [Autoren-PDF](https://tinghuiz.github.io/papers/siggraph18_mpi_lowres.pdf) ·
-  [PDF](geometry/siggraph/2018-stereo-magnification.pdf).
-  Seite 3 mit geometrischer Verankerung und Alpha-Komposition optisch geprüft.
-  #899 vergleicht eigene analytische, unbeleuchtete Flächenmaße statt gelernter
-  RGB-Schichten. Keine Foto-Welttexturen, kein gebackenes Licht und keine Übernahme
-  der trainierten Rekonstruktion; Disokklusion und Gerätebudgets bleiben gesondert.
-- **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
-  [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
-  [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·
-  [PDF](vegetation/eg/2012-real-time-forests.pdf).
-  Sicht-/Lichtkorrelation und mittlere Bestandsreflexion über Detailwechsel erhalten.
-  Z-Felder und Shader-Maps sind Vergleichsmodelle, keine automatische Wahl: ihre vorbereiteten
-  Texturmengen passen nicht ungeprüft zum A18-Pro-Ziel. Horizontbestand aggregiert Deckung,
-  Kronenhöhe und Lichtantwort; einzelne Bäume erst bei sichtbarer Formwirkung.
 - **A Scalable and Production Ready Sky and Atmosphere Rendering Technique**, Hillaire,
   EGSR 2020. [Quelle](https://sebh.github.io/publications/egsr2020.pdf) ·
   [PDF](atmosphere/egsr/2020-production-ready-atmosphere.pdf).
@@ -498,7 +572,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Wind, Licht und Wolkenschatten nutzen denselben Zustand. Publizierte PS4-Zeiten sind
   kein A18-Pro-Beleg. Keine Wolkenarbeit vor dem vereinbarten Welt-/Vegetationsausbau.
 
-## Physik, Animation, NPCs und Klang — WI [#2](https://github.com/Weichwolf/outshine/issues/2)
+### Physik, Animation, NPCs und Klang — WI [#2](https://github.com/Weichwolf/outshine/issues/2)
 
 - **Animating Rotation with Quaternion Curves**, Shoemake, SIGGRAPH 1985.
   [Quelle](https://doi.org/10.1145/325165.325242) ·
@@ -530,14 +604,14 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Native Abfragen wiederverwenden; grobe gemeinsame Umgebung, begrenzte Stimmen/Hallbusse.
   Cubemap/GPU sind zu messende Experimente, keine von der Quellenzahl unabhängige Simulation.
 
-## Bereiche mit geeigneteren Primärquellen
+### Bereiche mit geeigneteren Primärquellen
 
 | Bereich / WI | Grundlage | Entscheidung für Outshine |
 |---|---|---|
 | Quellen/HTTP/Cache — [#10](https://github.com/Weichwolf/outshine/issues/10) | [HTTP-Semantik, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | libcurl; paralleles begrenztes IO, Status-/Retry-/Abbruchverträge; Quellbytes separat, Assetbedarf → Treffer laden / Miss generieren; räumlicher Assetcache mit LOD/Residency |
 | Weltweite Auswahl — [#12](https://github.com/Weichwolf/outshine/issues/12) | [Cesium Native: Auswahl](https://cesium.com/learn/cesium-native/ref-doc/selection-algorithm-details.html) | Elternabdeckung bis Kindpublikation, projizierter Fehler; Blick-Culling getrennt von Rundum-Residency |
-| Import/Material/Animation — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#6](https://github.com/Weichwolf/outshine/issues/6) / [#2](https://github.com/Weichwolf/outshine/issues/2) | [Khronos glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) | Szenario und glTF in dieselben nativen Produkte, keine parallele Assetwelt |
-| Backend/Submission — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#4](https://github.com/Weichwolf/outshine/issues/4) | [SDL3 GPU](https://wiki.libsdl.org/SDL3/CategoryGPU) | Nur verfügbare Backendverträge; Ownership, Synchronisation, tatsächliche GPU-Bytes messen |
+| Import/Material/Animation — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#6](https://github.com/Weichwolf/outshine/issues/6) / [#2](https://github.com/Weichwolf/outshine/issues/2) | [Khronos glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) | Material-/Transformkonventionen als Referenz; kein glTF-Import/-Export im Produkt |
+| Backend/Submission — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#4](https://github.com/Weichwolf/outshine/issues/4) | [SDL3 GPU](https://wiki.libsdl.org/SDL3/CategoryGPU) | Historischer SDL3_GPU-Bezug; aktuell native Metal-/Vulkan-Verträge in [#48](https://github.com/Weichwolf/outshine/issues/48) |
 | JS/UI/LLM — [#2](https://github.com/Weichwolf/outshine/issues/2) | [ECMAScript](https://tc39.es/ecma262/) und vorhandene HTML/CSS-Teilmenge | Begrenzte Commands/Events, lokale ausführbare Steuerung, keine Netzwerkabhängigkeit im Tick |
 | Navigation — [#2](https://github.com/Weichwolf/outshine/issues/2) | [Recast/Detour](https://recastnav.com/md_Docs_2__1__Introduction.html) | Begehbare Flächen und lokale Pfadkorridore; Straßengraph für Verkehr, eigene Flug-/Wassermodelle statt einer universellen 2D-Navigation |
 | Astronomie — [#7](https://github.com/Weichwolf/outshine/issues/7) | [IAU SOFA](https://www.iausofa.org/cookbooks) | Zeit-/Koordinatenkonventionen und Beobachterkorrekturen prüfen; Astronomie aus UTC/Ort, nicht als Live-Datenabhängigkeit |
