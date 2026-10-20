@@ -650,7 +650,7 @@ GroupIncludes() {
       ;;
     src/generators/flora|src/generators/flora/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/generators/building) includeSet="$includeSet $(pkg-config --cflags sfcgal)" ;;
-    src/generators/water|src/generators/water/*) includeSet="$includeSet $(pkg-config --cflags geographiclib) $(pkg-config --cflags eigen3 | sed 's/-I/-isystem /g') $(OsqpFlags --cflags)" ;;
+    src/generators/water|src/generators/water/*) includeSet="$includeSet $(pkg-config --cflags geographiclib) $(OsqpFlags --cflags)" ;;
     src/content/assets) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
     src/generators/terrain/providers) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
     src/world/data) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;

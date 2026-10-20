@@ -8,7 +8,6 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 | GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygontriangulation mit Höfen/Inseln über C-API; mindestens 3.10 |
 | GeographicLib | 2.7 | [#760](https://github.com/Weichwolf/outshine/issues/760) | Robuste geozentrische Rücktransformation für physische Wasserhöhen und Normalenhüllen |
 | SFCGAL | 2.3.0 | [#48](https://github.com/Weichwolf/outshine/issues/48) | Native Walmdachpartition mit Quellkanten/Höfen über C-API; mindestens 2.3, Rendererübernahme folgt |
-| Eigen | 5.0.1 | [#760](https://github.com/Weichwolf/outshine/issues/760), [#2](https://github.com/Weichwolf/outshine/issues/2) | Dünnbesetzte native Wasser-Höhenmodelle über sortierte Tripel; mindestens 5.0; weitere lineare Berechnungen geplant |
 | OSQP | 1.0.0 | [#760](https://github.com/Weichwolf/outshine/issues/760) | Nativer physischer Wasserfit über C-API, Float64; Solver und vollständige Prüfungen nur beim Asset-Aufbau |
 | SQLite | 3.54.0 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
 | Zstandard | 1.5.7 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
@@ -16,19 +15,18 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 ## Installation
 
 ```sh
-brew install ccache geos geographiclib sfcgal eigen osqp sqlite zstd
+brew install ccache geos geographiclib sfcgal osqp sqlite zstd
 ```
 
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install ccache libgeos-dev libgeographiclib-dev libsfcgal-dev libeigen3-dev libsqlite3-dev libzstd-dev
+sudo apt install ccache libgeos-dev libgeographiclib-dev libsfcgal-dev libsqlite3-dev libzstd-dev
 ```
 
 SFCGAL benötigt mindestens 2.3; die Paketversion vor dem Build mit `pkg-config --modversion sfcgal` prüfen.
-GEOS, SFCGAL, SQLite, Zstandard und Eigen liefern pkg-config-Metadaten.
-Der Wasser-Höhenfit benötigt OSQP 1.x mit Float64 und Eigen ab 5.0. Vor dem Build
-`pkg-config --atleast-version=5.0 eigen3` prüfen. Ohne OSQP-pkg-config-Metadaten
+GEOS, SFCGAL, SQLite und Zstandard liefern pkg-config-Metadaten.
+Der Wasser-Höhenfit benötigt OSQP 1.x mit Float64. Ohne OSQP-pkg-config-Metadaten
 werden die üblichen Systempräfixe geprüft; einen eigenen Installationspräfix setzt
 `OSQP_PREFIX`. Die Verfügbarkeit eines OSQP-Entwicklungspakets hängt von der Distribution ab.
 
@@ -43,14 +41,19 @@ simdjson, pugixml und Bullet sind ungenutzt und keine Installationsanforderungen
 JSON/XML und die vorhandene Physik bleiben erhalten. Forschungspakete sind keine
 nativen Produktabhängigkeiten; installierte Systempakete werden nicht pauschal entfernt.
 
-Eigen dient nur Sparse-Assembly und Matrix-Vektor-Operationen in drei Wasserdateien,
-nicht dem Lösen. Ein kleiner gemeinsamer CSC-Baustein soll es ersetzen. GeographicLib
+Eigen ist durch den gemeinsamen CSC-Baustein `src/base/math/SparseMatrix.h` ersetzt:
+sortierte Tripel/zusammengefasste Duplikate, obere Dreiecksmatrix und gewöhnliche/
+transponierte Matrix-Vektor-Produkte. OSQP erhält die eigenen Arrays ohne Matrixkopie.
+GeographicLib
 liefert nur die geozentrische Rücktransformation; eigene Geodäsiepfade werden samt
-Ellipsoid und Fehlergrenzen vereinheitlicht. Beide Ersetzungen benötigen Referenz-
-und Kostenvergleiche, bevor ihre Buildabhängigkeiten entfallen.
+Ellipsoid und Fehlergrenzen vereinheitlicht. Dieser Ersatz benötigt Referenz-
+und Kostenvergleiche, bevor seine Buildabhängigkeit entfällt.
 
-SFCGAL liefert ausschließlich die Walmdachpartition. Gezielte Dachrezepte werden gegen
-konkave Grundrisse und Höfe geprüft; bis zur belegten Gleichwertigkeit bleibt der Pfad.
+SFCGAL liefert ausschließlich die Walmdachpartition und soll entfallen. Research baut
+zuerst einen geprüften Ersatz für konkave Grundrisse und Höfe; bis dahin bleibt der Pfad.
+Ein kleiner gemeinsamer Geometriekern darf weitere konkrete Asset-Rezepte bedienen;
+parallele Rezeptauswertung/Tessellierung und verzweigte CPU-Topologie bleiben getrennt.
+GPU-Eignung ist zu prüfen, kein pauschaler GPU-Port aller Solver.
 Das Paket zieht CGAL, Boost, GMP und MPFR mit; CGAL benötigt wiederum Eigen. Ein
 entfernter direkter Eigen-Include bedeutet deshalb noch kein Eigen-freies System.
 GEOS bleibt für robuste Polygonoperationen, OSQP für den beschränkten Wasser-QP.
