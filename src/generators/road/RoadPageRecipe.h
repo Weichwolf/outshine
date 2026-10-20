@@ -39,9 +39,18 @@ struct RoadPageRecipe {
   std::vector<RoadPageJunction> Junctions;
 };
 
+struct RoadPageDiagnostic {
+  RoadPagePart Part;
+  uint64_t Source = 0;
+  RoadMeshingStats Stats;
+  bool Empty = false;
+};
+
 struct RoadPageGeometry {
   RoadMeshBuffers Mesh;
   RoadMeshingStats Swept;
+  std::vector<RoadPageDiagnostic> Diagnostics;
+  std::vector<RoadPagePart> Parts;
 };
 
 [[nodiscard]] std::expected<RoadPageGeometry, std::string_view> MeshRoadPage(
