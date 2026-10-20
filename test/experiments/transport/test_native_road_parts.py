@@ -59,6 +59,20 @@ class NativeRoadParts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cut gate"):
             corpus.checked_contacts(parts, self.metadata)
 
+    def test_unchanged_gate_cannot_hide_changed_leg_cut(self):
+        parts = copy.deepcopy(self.parts)
+        junction = next(p for p in parts if p["kind"] == "junction")
+        junction["legs"][0][4] += 0.01
+        with self.assertRaisesRegex(ValueError, "leg cut"):
+            corpus.checked_contacts(parts, self.metadata)
+
+    def test_unchanged_gate_cannot_hide_changed_leg_width(self):
+        parts = copy.deepcopy(self.parts)
+        junction = next(p for p in parts if p["kind"] == "junction")
+        junction["legs"][0][3] += 0.01
+        with self.assertRaisesRegex(ValueError, "leg half-width"):
+            corpus.checked_contacts(parts, self.metadata)
+
 
 if __name__ == "__main__":
     unittest.main()
