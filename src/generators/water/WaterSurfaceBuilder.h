@@ -26,6 +26,8 @@ struct WaterSurfaceMetrics {
   size_t Triangles = 0;
 };
 
+[[nodiscard]] WaterSurfaceMetrics InspectWaterSurfaceGeometry(const WaterAsset &water) noexcept;
+
 [[nodiscard]] Material WaterSurfaceMaterial() noexcept;
 
 [[nodiscard]] std::optional<double>
