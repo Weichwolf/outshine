@@ -648,6 +648,15 @@ TilePool::Reply TilePool::Bytes(const Data::Fetch &request, Landing *out) {
   return posted;
 }
 
+std::optional<Data::FetchFailure> TilePool::Refusal(const Data::Fetch &request) const {
+  const std::string key = request.Key();
+  const double nowMs = Wire_.NowMs();
+  const std::scoped_lock lock(CacheMutex_);
+  const auto found = CacheEntryOf(key);
+  if (!found || Cache_[*found].RefusedUntilMs <= nowMs) { return std::nullopt; }
+  return Cache_[*found].Failure;
+}
+
 TilePool::Reply TilePool::BytesBlocking(const Data::Fetch &request, Landing *out) {
   const Reply resident = ReadCachedDelivery(request.Key(), out);
   if (resident != Reply::Pending) { return resident; }
