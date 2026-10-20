@@ -7,7 +7,7 @@
 
 namespace outshine::Data {
 
-constexpr double kWgs84F = 1.0 / 298.257223563;
+using outshine::kWgs84F;
 constexpr double kMercatorGirthM = 2.0 * std::numbers::pi * outshine::kWgs84A;
 
 }
