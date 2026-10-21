@@ -1,5 +1,10 @@
 #include "GpuSupport.h"
 #include "Support.h"
+#include "Envelope.h"
+#include "EnvelopeChecks.h"
+#include "Input.h"
+#include <expected>
+#include <ratio>
 #include "device/native/Device.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -240,6 +245,10 @@ struct Metrics {
   std::array<uint64_t, 4> ComparableNativeDepthBounds{};
   std::array<double, 4> GpuNs{};
   uint64_t Missing = 0;
+  uint64_t EnvelopeEscapes = 0;
+  uint64_t EnclosedSamples = 0;
+  uint64_t EnvelopeDepthComparable = 0;
+  uint64_t EnvelopeDepthUnsafe = 0;
 };
 
 bool ComparableDepth(const Vector &point) {
@@ -255,7 +264,37 @@ std::optional<bool> CornerBoundAbove(const Vector &cpu, const Vector &gpu) {
   return static_cast<double>(bound) * gpu[3] > gpu[2];
 }
 
-Json Observe(Probe &probe, const Case &fixture, uint32_t mode, Metrics &totals) {
+void CheckEnvelope(const Capture &gpu,
+                   const Case &fixture,
+                   const std::expected<Projection::Envelope, Projection::EnvelopeUnknown> &envelope,
+                   Metrics &totals) {
+  if (envelope) {
+    ++totals.EnclosedSamples;
+    for (size_t component = 0; component < 4; ++component) {
+      const auto bounds = envelope->Clip[component];
+      const double value = gpu.Value[component];
+      totals.EnvelopeEscapes +=
+          !std::isfinite(value) || value < bounds.Lower || value > bounds.Upper ? 1u : 0u;
+    }
+  }
+  if (envelope) {
+    const auto ndc = Projection::Divide(*envelope);
+    if (fixture.Native && ndc && ComparableDepth(gpu.Value) && (*ndc)[2].Lower >= 0) {
+      ++totals.EnvelopeDepthComparable;
+      const auto lower = (*ndc)[2].Lower;
+      auto depthBound = static_cast<float>(lower);
+      if (depthBound > lower) { depthBound = std::nextafter(depthBound, 0.f); }
+      totals.EnvelopeDepthUnsafe +=
+          static_cast<double>(depthBound) * gpu.Value[3] > gpu.Value[2] ? 1u : 0u;
+    }
+  }
+}
+
+Json Observe(Probe &probe,
+             const Case &fixture,
+             uint32_t mode,
+             Metrics &totals,
+             const std::expected<Projection::Envelope, Projection::EnvelopeUnknown> &envelope) {
   auto input = fixture.Values;
   input.Options[0] = mode;
   const auto cpu = Reference(input);
@@ -273,6 +312,7 @@ Json Observe(Probe &probe, const Case &fixture, uint32_t mode, Metrics &totals) 
   totals.UnsafeNativeDepthBounds[mode] += depth.value_or(false) ? 1u : 0u;
   totals.GpuNs[mode] += gpu.GpuNs;
   totals.Missing += gpu.HasGpuTime ? 0u : 1u;
+  CheckEnvelope(gpu, fixture, envelope, totals);
   return {{"name", fixture.Name},
           {"native_input", fixture.Native},
           {"mode", mode},
@@ -285,18 +325,57 @@ Json Observe(Probe &probe, const Case &fixture, uint32_t mode, Metrics &totals) 
           {"cpu_corner_bound_above_gpu_depth", depth ? Json(*depth) : Json(nullptr)}};
 }
 
+Json Enclosure(const Case &fixture,
+               const std::expected<Projection::Envelope, Projection::EnvelopeUnknown> &envelope,
+               double ns) {
+  Json bounds = Json::array();
+  if (envelope) {
+    for (const auto &value : envelope->Clip) { bounds.push_back({value.Lower, value.Upper}); }
+  }
+  Json result{{"name", fixture.Name},
+              {"native_input", fixture.Native},
+              {"model", fixture.Values.Model},
+              {"view", fixture.Values.View},
+              {"shift", fixture.Values.Shift},
+              {"point", fixture.Values.Point},
+              {"clip", bounds},
+              {"cpu_ns", ns},
+              {"unknown", envelope ? Json(nullptr) : Json(static_cast<int>(envelope.error()))}};
+  if (envelope) {
+    const auto &work = envelope->Work;
+    result["work"] = {{"inputs", work.Inputs},
+                      {"products", work.Products},
+                      {"sums", work.Sums},
+                      {"outward_steps", work.OutwardSteps},
+                      {"divisions", work.Divisions}};
+    const auto divided = Projection::Divide(*envelope);
+    if (divided) {
+      result["ndc"] = Json::array();
+      for (const auto &value : *divided) { result["ndc"].push_back({value.Lower, value.Upper}); }
+    }
+  }
+  return result;
+}
+
 }
 
 int main(int argc, char *const *argv) {
   if (argc != 4) { return 2; }
+  if (!Projection::CheckEnvelopeDomain()) { return 1; }
   auto cases = SyntheticCases();
   for (auto &native : NativeCases(argv[2])) { cases.push_back(std::move(native)); }
   auto probe = Create(argv[1]);
   Json rows = Json::array();
   Metrics totals;
+  Json enclosures = Json::array();
   for (const auto &fixture : cases) {
+    const auto began = std::chrono::steady_clock::now();
+    const auto envelope = Projection::Enclose(fixture.Values);
+    const auto ns =
+        std::chrono::duration<double, std::nano>(std::chrono::steady_clock::now() - began).count();
+    enclosures.push_back(Enclosure(fixture, envelope, ns));
     for (uint32_t mode = 0; mode < 4; ++mode) {
-      rows.push_back(Observe(probe, fixture, mode, totals));
+      rows.push_back(Observe(probe, fixture, mode, totals, envelope));
     }
   }
   std::ofstream out(argv[3]);
@@ -316,11 +395,26 @@ int main(int argc, char *const *argv) {
               {"gpu_ns", totals.GpuNs},
               {"missing_gpu_samples", totals.Missing},
               {"rows", rows},
+              {"enclosures", enclosures},
+              {"envelope_domain_checks", true},
+              {"envelope_value_bytes", sizeof(Projection::Envelope)},
+              {"envelope_result_bytes",
+               sizeof(std::expected<Projection::Envelope, Projection::EnvelopeUnknown>)},
+              {"enclosed_samples", totals.EnclosedSamples},
+              {"envelope_escapes", totals.EnvelopeEscapes},
+              {"envelope_depth_comparable", totals.EnvelopeDepthComparable},
+              {"envelope_depth_unsafe", totals.EnvelopeDepthUnsafe},
+              {"enclosure_model",
+               "Positive add/multiply normal forms; 20 monomials, degree 3. General "
+               "compiler-rewrite completeness remains unproved."},
               {"qualified_for_page_suppression", false},
               {"scope",
                "Vertex-stage arithmetic diagnostic sharing extracted native position expressions. "
                "Transport through flat varying/RGBA32F; not an actual world shader output capture "
                "or a portable precision bound."}}
              .dump(2);
-  return out && totals.Missing == 0 ? 0 : 1;
+  return out && totals.Missing == 0 && totals.EnvelopeEscapes == 0 &&
+                 totals.EnvelopeDepthUnsafe == 0 && totals.EnclosedSamples > 0
+             ? 0
+             : 1;
 }

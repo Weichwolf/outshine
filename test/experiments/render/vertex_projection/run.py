@@ -112,6 +112,11 @@ def main():
     sources = [
         SOURCE / "Probe.cpp",
         SOURCE / "Support.h",
+        SOURCE / "Input.h",
+        SOURCE / "Envelope.h",
+        SOURCE / "EnvelopeChecks.cpp",
+        SOURCE / "EnvelopeChecks.h",
+        SOURCE / "Envelope.cpp",
         SOURCE / "projection.vert.in",
         SOURCE / "projection.frag",
         Path(__file__),
@@ -177,7 +182,11 @@ def main():
             args.compile_database.resolve(),
             output,
             steps,
-            sources=(SOURCE / "Probe.cpp",),
+            sources=(
+                SOURCE / "Probe.cpp",
+                SOURCE / "Envelope.cpp",
+                SOURCE / "EnvelopeChecks.cpp",
+            ),
         )
         compile_entry = json.loads((output / "compile_commands.json").read_text())[0]
         flags = compile_entry["arguments"]
