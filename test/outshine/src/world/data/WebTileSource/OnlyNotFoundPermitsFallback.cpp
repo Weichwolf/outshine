@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "ContentStore.h"
 #include "SourceSet.h"
-#include "TerrariumDem.h"
+#include "WebTileFixture.h"
 #include <world/data/Transport.h>
 
 #include <memory>
@@ -37,19 +37,19 @@ void CheckResponse(int status) {
   using namespace outshine::Test;
   ContentStore store({.Using = ContentStore::Use::Off});
   SourceSet sources(store);
-  CHECK(sources.Add(std::make_unique<TerrariumDem>("pin",
-                                                   Rank{0},
-                                                   AbsencePolicy::Continue,
-                                                   "primary",
-                                                   "https://primary.example/{z}/{x}/{y}.png")) ==
-            SourceSet::Registration::Accepted,
+  CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
+            "pin",
+            Rank{0},
+            AbsencePolicy::Continue,
+            "primary",
+            "https://primary.example/{z}/{x}/{y}.png")) == SourceSet::Registration::Accepted,
         "primary source registered");
-  CHECK(sources.Add(std::make_unique<TerrariumDem>("pin",
-                                                   Rank{1},
-                                                   AbsencePolicy::Continue,
-                                                   "fallback",
-                                                   "https://fallback.example/{z}/{x}/{y}.png")) ==
-            SourceSet::Registration::Accepted,
+  CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
+            "pin",
+            Rank{1},
+            AbsencePolicy::Continue,
+            "fallback",
+            "https://fallback.example/{z}/{x}/{y}.png")) == SourceSet::Registration::Accepted,
         "fallback source registered");
   HttpTransport transport;
   transport.Status = status;
