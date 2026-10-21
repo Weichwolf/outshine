@@ -138,6 +138,7 @@ def main():
     parser.add_argument("--compile-database", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--seed", default=990, type=int)
+    parser.add_argument("--tessellated", action="store_true")
     args = parser.parse_args()
     if not 0 <= args.seed < 2**32:
         parser.error("seed must be a uint32")
@@ -188,8 +189,11 @@ def main():
         environment = None
         if sys.platform == "darwin":
             environment = dict(os.environ, MTL_DEBUG_LAYER="1")
+        command = [binary, output, output / "result.json", str(args.seed)]
+        if args.tessellated:
+            command.append("--tessellated")
         execute(
-            [binary, output, output / "result.json", str(args.seed)],
+            command,
             checkout,
             output,
             "run",

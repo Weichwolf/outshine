@@ -14,12 +14,15 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <ios>
+#include <format>
 #include <print>
 #include <limits>
 #include <optional>
 #include <random>
 #include <span>
 #include <string_view>
+#include <string>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -150,7 +153,7 @@ std::vector<float> Draw(N::Device &device,
                         N::GraphicsPipeline &pipeline,
                         N::Texture &image,
                         N::Buffer &readback,
-                        const Triangle &triangle,
+                        std::span<const Triangle> triangles,
                         Timing &timing) {
   auto sample = Take(C::Measure(device, [&](N::Commands &commands) -> N::Result<void> {
     const std::array colours{N::ColourAttachment{
@@ -159,18 +162,22 @@ std::vector<float> Draw(N::Device &device,
     pass.Colours = colours;
     auto begun = commands.BeginRenderPass(pass);
     if (!begun) { return begun; }
-    const std::array bindings{N::Binding{
-        .Set = 1, .Slot = 0, .Value = N::Uniform{.Bytes = std::as_bytes(std::span(&triangle, 1))}}};
     N::DrawDescription draw;
     draw.State.Pipeline = &pipeline;
-    draw.State.Bindings = bindings;
     draw.State.Area.Width = Side;
     draw.State.Area.Height = Side;
     draw.State.Clip.Width = Side;
     draw.State.Clip.Height = Side;
     draw.Range.Count = 3;
-    auto drawn = commands.Draw(draw);
-    if (!drawn) { return drawn; }
+    for (const auto &triangle : triangles) {
+      const std::array bindings{
+          N::Binding{.Set = 1,
+                     .Slot = 0,
+                     .Value = N::Uniform{.Bytes = std::as_bytes(std::span(&triangle, 1))}}};
+      draw.State.Bindings = bindings;
+      auto drawn = commands.Draw(draw);
+      if (!drawn) { return drawn; }
+    }
     return commands.EndRenderPass();
   }));
   if (sample.GpuNs) {
@@ -299,10 +306,139 @@ std::vector<Triangle> Cases(uint32_t seed) {
   for (const auto &points : aligned) { result.push_back(FromPixels(points, {1, 1, 1})); }
   return result;
 }
+
+constexpr uint32_t PatchBegin = 8;
+constexpr uint32_t PatchExtent = 48;
+constexpr float PatchDepth = .5f;
+
+std::vector<Triangle> TilePatch(uint32_t step, bool hole, uint32_t mode) {
+  std::vector<Triangle> triangles;
+  const uint32_t removed = PatchBegin + (PatchExtent / step / 2) * step;
+  for (uint32_t y = PatchBegin; y < PatchBegin + PatchExtent; y += step) {
+    for (uint32_t x = PatchBegin; x < PatchBegin + PatchExtent; x += step) {
+      if (hole && x == removed && y == removed) { continue; }
+      const long double left = x;
+      const long double top = y;
+      const long double right = x + step;
+      const long double bottom = y + step;
+      auto a = FromPixels({{{.X = left, .Y = top, .Z = PatchDepth},
+                            {.X = right, .Y = top, .Z = PatchDepth},
+                            {.X = left, .Y = bottom, .Z = PatchDepth}}},
+                          {1, 1, 1});
+      auto b = FromPixels({{{.X = right, .Y = top, .Z = PatchDepth},
+                            {.X = right, .Y = bottom, .Z = PatchDepth},
+                            {.X = left, .Y = bottom, .Z = PatchDepth}}},
+                          {1, 1, 1});
+      a.Options[0] = mode;
+      b.Options[0] = mode;
+      triangles.push_back(a);
+      triangles.push_back(b);
+    }
+  }
+  return triangles;
+}
+
+Counts CheckPatch(std::span<const float> values, uint32_t step, bool hole) {
+  Counts counts;
+  const uint32_t removed = PatchBegin + (PatchExtent / step / 2) * step;
+  for (uint32_t y = 0; y < Side; ++y) {
+    for (uint32_t x = 0; x < Side; ++x) {
+      const float value = values[size_t{y} * Side + x];
+      const bool inside = x >= PatchBegin && x < PatchBegin + PatchExtent && y >= PatchBegin &&
+                          y < PatchBegin + PatchExtent;
+      const bool omitted =
+          hole && x >= removed && x < removed + step && y >= removed && y < removed + step;
+      const bool covered = inside && !omitted;
+      const bool accepted = value > 0;
+      counts.FullyCovered += covered ? 1u : 0u;
+      counts.Accepted += accepted ? 1u : 0u;
+      counts.FalseCoverage += accepted && !covered ? 1u : 0u;
+      counts.FalseDepth += accepted && value > PatchDepth ? 1u : 0u;
+      counts.InvalidOutput += !std::isfinite(value) || value < 0 || value > 1 ? 1u : 0u;
+    }
+  }
+  return counts;
+}
+
+int Tessellated(N::Device &device,
+                N::GraphicsPipeline &pipeline,
+                N::Texture &image,
+                N::Buffer &readback,
+                const std::filesystem::path &output) {
+  constexpr std::array<uint32_t, 6> steps{1, 2, 4, 8, 16, PatchExtent};
+  nlohmann::json rows = nlohmann::json::array();
+  bool valid = true;
+  bool useful = true;
+  const auto began = std::chrono::steady_clock::now();
+  for (const auto step : steps) {
+    for (const bool hole : {false, true}) {
+      for (uint32_t mode = 0; mode < 2; ++mode) {
+        auto triangles = TilePatch(step, hole, mode);
+        Timing timing;
+        const auto values = Draw(device, pipeline, image, readback, triangles, timing);
+        std::ranges::reverse(triangles);
+        const auto reverse = Draw(device, pipeline, image, readback, triangles, timing);
+        const auto counts = CheckPatch(values, step, hole);
+        const bool equal =
+            std::ranges::equal(std::as_bytes(std::span(values)), std::as_bytes(std::span(reverse)));
+        valid = valid && equal && counts.FalseCoverage == 0 && counts.FalseDepth == 0 &&
+                counts.InvalidOutput == 0;
+        if (mode == 0) { valid = valid && counts.Accepted == counts.FullyCovered; }
+        useful = useful &&
+                 (mode != 1 || counts.FullyCovered == 0 ||
+                  counts.Accepted * PercentScale >= counts.FullyCovered * MinimumCoveragePercent);
+        const std::string file = std::format("patch-{}-{}-{}.f32", step, hole, mode);
+        std::ofstream pixels(output.parent_path() / file, std::ios::binary);
+        pixels.write(reinterpret_cast<const char *>(values.data()),
+                     static_cast<std::streamsize>(Bytes));
+        valid = valid && static_cast<bool>(pixels);
+        rows.push_back({{"step_pixels", step},
+                        {"hole", hole},
+                        {"mode", mode},
+                        {"triangles", triangles.size()},
+                        {"true_opaque_pixels", counts.FullyCovered},
+                        {"accepted_pixels", counts.Accepted},
+                        {"false_coverage", counts.FalseCoverage},
+                        {"false_depth", counts.FalseDepth},
+                        {"invalid_output", counts.InvalidOutput},
+                        {"order_invariant", equal},
+                        {"gpu_ns", timing.GpuNs},
+                        {"gpu_samples", timing.Samples},
+                        {"missing_gpu_samples", timing.Missing},
+                        {"pixels", file}});
+        std::println("step {} hole {} mode {} accepted {}/{}",
+                     step,
+                     hole,
+                     mode,
+                     counts.Accepted,
+                     counts.FullyCovered);
+        std::fflush(stdout);
+      }
+    }
+  }
+  std::ofstream result(output);
+  result << nlohmann::json{
+      {"device", device.Limits().Name},
+      {"side_pixels", Side},
+      {"cases", rows},
+      {"readback_bytes", Bytes * steps.size() * 8},
+      {"wall_seconds",
+       std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count()},
+      {"scope",
+       "Equal-depth planar union only. No arbitrary-depth composition, hierarchy, world or general "
+       "float proof."},
+      {"correctness_passed", valid},
+      {"coverage_target_percent", MinimumCoveragePercent},
+      {"coverage_target_passed",
+       useful}}.dump(2);
+  return result && valid ? 0 : 1;
+}
 }
 
 int main(int argc, char *const *argv) {
-  if (argc != 4) { return 2; }
+  if (argc != 4 && argc != 5) { return 2; }
+  const bool tessellated = argc == 5 && std::string_view(argv[4]) == "--tessellated";
+  if (argc == 5 && !tessellated) { return 2; }
   const std::string_view seedText(argv[3]);
   uint32_t seed = 0;
   const auto parsed = std::from_chars(seedText.data(), seedText.data() + seedText.size(), seed);
@@ -327,6 +463,7 @@ int main(int argc, char *const *argv) {
   desc.Colours = targets;
   desc.Culling = N::Cull::None;
   auto pipeline = Take(device->CreateGraphicsPipeline(desc));
+  if (tessellated) { return Tessellated(*device, *pipeline, *image, *readback, argv[2]); }
   std::array<Counts, 2> counts{};
   std::array<Timing, 2> timing{};
   auto cases = Cases(seed);
@@ -334,7 +471,8 @@ int main(int argc, char *const *argv) {
   for (size_t i = 0; i < cases.size(); ++i) {
     for (uint32_t mode = 0; mode < 2; ++mode) {
       cases[i].Options[0] = mode;
-      auto values = Draw(*device, *pipeline, *image, *readback, cases[i], timing[mode]);
+      auto values =
+          Draw(*device, *pipeline, *image, *readback, std::span(&cases[i], 1), timing[mode]);
       Check(cases[i], values, counts[mode]);
     }
     if (i % ProgressInterval == 0) {
