@@ -365,10 +365,6 @@ private:
   [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const;
 
   static void TellsWhatTheFitFound(Paved &into);
-  [[nodiscard]] static bool HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
-                                               const RoadMeshBuffers &pavement,
-                                               Paved &into,
-                                               Geometry &ground);
 
   [[nodiscard]] static std::unordered_map<uint64_t, uint32_t>
   SharedNodesOf(const ::outshine::Generators::Osm::StreetField &ways,

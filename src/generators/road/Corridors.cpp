@@ -1382,42 +1382,6 @@ Material Corridors::StreetMaterial(const outshine::Ground::GroundMaterials &wear
   return tarmac;
 }
 
-bool Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
-                                   const RoadMeshBuffers &pavement,
-                                   Paved &into,
-                                   Geometry &ground) {
-
-  if (pavement.Index.size() < 3) { return true; }
-  const Material tarmac = StreetMaterial(wearing);
-  const auto paved = ground.addSurface("streets", tarmac);
-  if (!paved) { return false; }
-  const auto createdPart = ground.addPart("streets", *paved);
-  if (!createdPart) { return false; }
-  const int pavedPart = *createdPart;
-  const bool tookPaving =
-      pavedPart >= 0 &&
-      ground.setPositions(
-          pavedPart,
-          std::span<const float>(pavement.PositionM.data(), pavement.PositionM.size())) &&
-      ground.setNormals(pavedPart,
-                        std::span<const float>(pavement.NormalM.data(), pavement.NormalM.size())) &&
-      ground.setColours(
-          pavedPart,
-          std::span<const float>(pavement.ColourRgba.data(), pavement.ColourRgba.size())) &&
-      ground.setTriangles(pavedPart,
-                          std::span<const uint32_t>(pavement.Index.data(), pavement.Index.size()));
-  Notes(into, "streets: the surface they were given", static_cast<double>(paved->index()), "index");
-  Notes(into, "streets: the part they were given", static_cast<double>(pavedPart), "index");
-  Notes(into, "streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
-  Notes(into,
-        "streets: triangles wound against their normals",
-        static_cast<double>(ground.windingAgainstNormals(pavedPart)),
-        "triangles");
-  Notes(
-      into, "streets: parts the geometry now holds", static_cast<double>(ground.parts()), "parts");
-  return tookPaving;
-}
-
 std::unordered_map<uint64_t, uint32_t>
 Corridors::SharedNodesOf(const ::outshine::Generators::Osm::StreetField &ways,
                          std::span<const double> points) {
