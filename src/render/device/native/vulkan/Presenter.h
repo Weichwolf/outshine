@@ -128,6 +128,7 @@ CreateSwapchain(std::shared_ptr<SurfaceState> surface,
                 VkExtent2D extent,
                 uint64_t generation,
                 const std::shared_ptr<SwapchainState> &before);
+[[nodiscard]] Result<VkSurfaceCapabilitiesKHR> ReadSurfaceCapabilities(const SurfaceState &surface);
 [[nodiscard]] Result<std::shared_ptr<PresentLease>>
 AcquireLease(const std::shared_ptr<PresentState> &state,
              const std::shared_ptr<SwapchainState> &target);

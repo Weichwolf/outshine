@@ -15,7 +15,6 @@ from PIL import Image,ImageDraw
 
 from modelling_scope_probe import engine_mesh
 from modelling_uv_cases import adjacent,courtyard
-from showcase_groups import save_plot
 from showcase_profile import PROFILE
 
 
@@ -58,6 +57,8 @@ def textured(output,provenance,key,title,cases,flat=False):
 
 
 def plan(output,provenance):
+    from showcase_groups import save_plot
+
     source=adjacent();cases=[('Quelle',source),('collectiveAllFaces',source.normalize_uv(0)),('separatePerFace',source.normalize_uv(0,'uv','separatePerFace'))]
     began=time.perf_counter();fig,axes=plt.subplots(1,3,figsize=(15,7))
     for ax,(title,shape) in zip(axes,cases,strict=True):

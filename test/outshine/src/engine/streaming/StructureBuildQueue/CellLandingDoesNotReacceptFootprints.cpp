@@ -57,6 +57,7 @@ void CheckViewReplacement(outshine::Ground::SurfacePreparation &stack,
   StructureBuildQueue queue;
   queue.Opens(&pool, &mesher);
   const auto originalKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
+  const auto sourceRevision = prints.Revision();
   bool ready = true;
   const auto viewReady = [&ready](uint32_t) { return ready; };
   const auto post = [&] {
@@ -93,11 +94,13 @@ void CheckViewReplacement(outshine::Ground::SurfacePreparation &stack,
     landed = std::move(*next);
     if (landed.empty()) { (void)queue.AwaitSlice(0.01); }
   }
-  CHECK(landed.size() == 1, "missing view product reaches a validated replacement landing");
+  CHECK(landed.size() == 1 && !landed.front().Footprints,
+        "view replacement lands without replacing unchanged authoritative source contacts");
   if (landed.empty()) { return; }
   queue.CommitsLandings(prints, landed);
   ready = true;
-  CHECK(StructureBuildQueue::QualifiedSourceKey(prints, 0) == originalKey &&
+  CHECK(prints.Revision() == sourceRevision &&
+            StructureBuildQueue::QualifiedSourceKey(prints, 0) == originalKey &&
             queue.Complete(stack, prints, eye, viewReady) && post() == 0 && queue.Posted() == 1,
         "replacement preserves source identity and stops generating once published");
 }
@@ -133,7 +136,7 @@ int main() {
        .Area = true,
        .LatLon = {49.32739, 8.56589, 49.32739, 8.56591, 49.32741, 8.56591, 49.32741, 8.56589}},
   }};
-  CHECK(stack.Declares(buildings).has_value(), "declared buildings satisfy input validation");
+  CHECK(stack.Declares(buildings), "declared source snapshot is accepted");
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "declared building enters the vector snapshot");
   const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();

@@ -65,8 +65,13 @@ RawTile Inputs() {
     if (!cell) { return {}; }
     const auto first = static_cast<uint32_t>(raw.LatLon.size() / 2);
     raw.LatLon.insert(raw.LatLon.end(), ring.begin(), ring.end());
-    raw.Structures.push_back(
-        {.LocalFirst = first, .PointCount = 4, .Cell = *cell, .HeightM = 9, .Pitched = 0});
+    raw.Structures.emplace_back();
+    auto &structure = raw.Structures.back();
+    structure.LocalFirst = first;
+    structure.PointCount = 4;
+    structure.Cell = *cell;
+    structure.HeightM = 9;
+    structure.Pitched = 0;
   }
   return raw;
 }

@@ -21,13 +21,37 @@ float brdfAnisotropicVisibility(float nl, float nv, float tv, float bv, float tl
   return clamp(0.5 / s, 0.0, 1.0);
 }
 
+float brdfDenominator(float nh, float a2) {
+  precise float cosine = min(abs(nh), 1.0);
+  precise float denominator = (1.0 - cosine) * (1.0 + cosine) + cosine * cosine * a2;
+  return denominator;
+}
+
 float brdfDistribution(float nh, float a2) {
-  float denominator = nh * nh * (a2 - 1.0) + 1.0;
-  return a2 / (kPi * denominator * denominator);
+  float denominator = brdfDenominator(nh, a2);
+  precise float scaled = a2 / denominator;
+  precise float distribution = (scaled / denominator) * (1.0 / kPi);
+  return distribution;
 }
 
 float brdfVisibility(float nl, float nv, float a2) {
   return 0.5 / (nl * sqrt(nv * nv * (1.0 - a2) + a2) + nv * sqrt(nl * nl * (1.0 - a2) + a2));
+}
+
+vec3 brdfWeightedSpecular(vec3 fresnel, float a2, float nl, float nv, float nh,
+                        float incidentCosine) {
+  if (!(a2 > 0.0)) { return vec3(0.0); }
+  float denominator = brdfDenominator(nh, a2);
+  precise vec3 scaled = fresnel / denominator;
+  precise float visibility = (brdfVisibility(nl, nv, a2) * incidentCosine) * (1.0 / kPi);
+  precise vec3 weighted = scaled * visibility;
+  precise float fraction = a2 / denominator;
+  precise vec3 specular = weighted * fraction;
+  return min(specular, vec3(uintBitsToFloat(0x7f7fffffu)));
+}
+
+vec3 brdfSpecular(vec3 fresnel, float a2, float nl, float nv, float nh) {
+  return brdfWeightedSpecular(fresnel, a2, nl, nv, nh, 1.0);
 }
 
 float toksvigA2(float a2, float l) {
@@ -44,14 +68,13 @@ float roughenedBy(float roughness, float meanResultantLength) {
 }
 
 vec3 brdfFresnel(vec3 f0, float f90, float vh) {
-  float grazing = 1.0 - vh;
+  float grazing = 1.0 - clamp(vh, 0.0, 1.0);
   float squared = grazing * grazing;
   return f0 + (vec3(f90) - f0) * (squared * squared * grazing);
 }
 
 float brdfLobe(float a2, float nl, float nv, float nh) {
-  if (!(a2 > 0.0)) { return 0.0; }
-  return brdfDistribution(nh, a2) * brdfVisibility(nl, nv, a2);
+  return brdfSpecular(vec3(1.0), a2, nl, nv, nh).x;
 }
 
 Brdf brdfCombine(vec3 diffuseColour, vec3 fresnel, float lobe) {
@@ -70,5 +93,8 @@ Brdf brdfRgbMix(vec3 diffuseColour, vec3 fresnel, float lobe) {
 
 Brdf metalRoughBrdf(vec3 diffuseColour, vec3 f0, float f90, float a2,
                                   float nl, float nv, float nh, float vh) {
-  return brdfCombine(diffuseColour, brdfFresnel(f0, f90, vh), brdfLobe(a2, nl, nv, nh));
+  vec3 fresnel = brdfFresnel(f0, f90, vh);
+  Brdf terms = brdfCombine(diffuseColour, fresnel, 0.0);
+  terms.specular = brdfSpecular(fresnel, a2, nl, nv, nh);
+  return terms;
 }

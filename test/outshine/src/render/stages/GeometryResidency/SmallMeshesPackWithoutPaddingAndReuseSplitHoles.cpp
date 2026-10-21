@@ -1,5 +1,6 @@
 #include "GeometryResidency.h"
 #include "Check.h"
+#include <cstdint>
 
 int main() {
   using namespace outshine::Render;

@@ -10,6 +10,11 @@
 #include <stop_token>
 #include <string>
 
+namespace outshine::Generators {
+class PreparedRoadPages;
+struct RoadPageManifest;
+}
+
 namespace outshine {
 class GroundRegionPreparation {
 public:
@@ -19,11 +24,14 @@ public:
     double WorkerMs = 0;
     std::string RequestKey;
     bool RequestHit = false;
+    std::shared_ptr<const Generators::RoadPageManifest> SurfacePages;
   };
 
   using Factory = std::function<std::expected<Completed, std::string>(std::stop_token)>;
 
-  GroundRegionPreparation(Tasks &pool, Factory factory);
+  GroundRegionPreparation(Tasks &pool,
+                          Factory factory,
+                          std::shared_ptr<Generators::PreparedRoadPages> pages = {});
   ~GroundRegionPreparation();
   GroundRegionPreparation(const GroundRegionPreparation &) = delete;
   GroundRegionPreparation &operator=(const GroundRegionPreparation &) = delete;

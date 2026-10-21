@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "Corridors.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 #include "ProfiledRoadMesher.h"
 
 #include <array>
@@ -59,7 +59,7 @@ int main() {
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty,
                     .Field = [](EastNorth) -> std::optional<double> { return 10; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::Corridors::Site site{.Vectors = &vectors,
                                          .Ways = ways,
                                          .Materials = materials,
@@ -67,6 +67,8 @@ int main() {
                                          .Standing = frame,
                                          .Draped = drape,
                                          .Classes = noClasses,
+                                         .WaterUpM = {},
+                                         .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .Projection = {.FocalPx = 800}};
@@ -86,11 +88,15 @@ int main() {
   contacts.push_back(
       {.RingEastNorthM =
            {-cutHalfLengthM, 4, cutHalfLengthM, 4, cutHalfLengthM, 6, -cutHalfLengthM, 6},
+       .HoleRingsEastNorthM = {},
        .LowE = -cutHalfLengthM,
        .HighE = cutHalfLengthM,
        .LowN = 4,
        .HighN = 6,
        .PlateauM = 8,
+       .SeamEastNorthM = {},
+       .Profile = {},
+       .PlanarSupportM = {},
        .CorridorKey = neighborKey,
        .ApronM = 8,
        .YieldM = 2,

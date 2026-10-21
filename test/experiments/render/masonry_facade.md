@@ -41,7 +41,7 @@ and6.25 reduces phase before subcell offsets; it cannot recover lost input bits.
 
 Build the normal production archives and shaders, then link the harnesses against
 that same header/archive commit using the repository compiler/include/link flags.
-Required tools: Clang/libc++23, SDL3 and shadercross, Vulkan validation, glslang,
+Required tools: Clang/libc++23, SDL3, native Metal/Vulkan validation, glslang,
 SPIRV-Cross, Python with NumPy, Shapely, Matplotlib and installed `outshine_ref`.
 Use explicit system-temp outputs; no images are published under `doc/`.
 

@@ -50,7 +50,7 @@ def main():
         subprocess.run(command, cwd=output, check=True, capture_output=True, timeout=30)
     control = ROOT/'build/experiments/render/ground-detail/GroundGrains.scenario'
     log = Path(os.environ.get('TMPDIR', '/tmp'))/'outshine-ground-shadow-control.log'
-    command = [str(ROOT/'build/outshine-client'), 'measures', '--offline', '--quality',
+    command = [str(ROOT/'build/outshine'), 'measures', '--offline', '--quality',
                'refined', '--view', 'station', '--at-seconds', '0', '--into', 'terrain-contact',
                str(control), 'GroundShadowControl']
     with log.open('w') as stream:

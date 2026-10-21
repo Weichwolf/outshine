@@ -17,10 +17,9 @@ int main() {
   constexpr int ordinaryStatus = 7;
   CHECK(RunAtProcessBoundary([] { return ordinaryStatus; }) == ordinaryStatus,
         "ordinary command status survives unchanged");
-  const std::array<std::string_view, 3> expected{
-      "outshine-client: fatal: memory allocation failed\n",
-      "outshine-client: fatal: injected failure\n",
-      "outshine-client: fatal: unknown exception\n"};
+  const std::array<std::string_view, 3> expected{"outshine: fatal: memory allocation failed\n",
+                                                 "outshine: fatal: injected failure\n",
+                                                 "outshine: fatal: unknown exception\n"};
   for (size_t kind = 0; kind < expected.size(); ++kind) {
     std::unique_ptr<std::FILE, decltype(&std::fclose)> stream(std::tmpfile(), &std::fclose);
     CHECK(stream != nullptr, "diagnostic stream opens");

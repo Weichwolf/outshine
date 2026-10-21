@@ -45,8 +45,8 @@ std::vector<EarthworkStamp> Stamps() {
   return {stamp};
 }
 
-std::expected<PressedTerrain, std::string> Complete(TerrainDeformationTask &task,
-                                                    Patchwork &pages) {
+std::expected<TerrainDeformationMetrics, std::string> Complete(TerrainDeformationTask &task,
+                                                               Patchwork &pages) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (!task.Advance()) {
     if (std::chrono::steady_clock::now() >= deadline) {
@@ -68,7 +68,7 @@ int main() {
   const auto frame = TangentFrame::At({});
   Tasks pool(1);
   Patchwork reference = Inputs();
-  TerrainPressJob original(Stamps(), reference, frame, kLayout, 30);
+  TerrainDeformationJob original(Stamps(), reference, frame, kLayout, 30);
   while (!original.Advance(32, 8192)) {}
   const auto expected = original.Take();
   CHECK(expected.Nodes > 0, "fixture creates actual deformed terrain");

@@ -95,7 +95,7 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     runtime(native, output / "before")
     commands = runtime(native, output / "after", args.alternative)
-    binary = native / "build/outshine-client"
+    binary = native / "build/outshine"
     report = {"native_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=native, text=True).strip(),
               "alternative": args.alternative,
               "client_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),

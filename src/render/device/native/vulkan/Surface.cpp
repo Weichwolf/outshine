@@ -69,9 +69,12 @@ Result<VkSurfaceKHR> MakeSurface(Context &context, SDL_Window *window) {
 
 Result<void> CreateSurface(Context &context, SDL_Window *window) {
   if (window == nullptr) { return {}; }
+  auto claim = ClaimWindow(context, window);
+  if (!claim) { return std::unexpected(claim.error()); }
   auto made = MakeSurface(context, window);
   if (!made) { return std::unexpected(made.error()); }
   context.Surface = *made;
+  context.SurfaceClaim = std::move(*claim);
   return {};
 }
 
@@ -86,10 +89,14 @@ Result<std::shared_ptr<SurfaceState>> PrepareSurface(const std::shared_ptr<Conte
   surface->WindowId = SDL_GetWindowID(window);
   if (context->Surface != VK_NULL_HANDLE) {
     surface->Handle = std::exchange(context->Surface, VK_NULL_HANDLE);
+    surface->Claim = std::move(context->SurfaceClaim);
   } else {
+    auto claim = ClaimWindow(*context, window);
+    if (!claim) { return std::unexpected(claim.error()); }
     auto made = MakeSurface(*context, window);
     if (!made) { return std::unexpected(made.error()); }
     surface->Handle = *made;
+    surface->Claim = std::move(*claim);
   }
   VkBool32 supported = VK_FALSE;
   const auto result = vkGetPhysicalDeviceSurfaceSupportKHR(

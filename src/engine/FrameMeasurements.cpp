@@ -1,4 +1,4 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "Heap.h"
 
 #include <array>
@@ -37,17 +37,19 @@ void PublishRenderFrameTiming(Core::DiagnosticLedger &published,
 void PublishStageMeasurements(Core::DiagnosticLedger &published,
                               const Render::SceneRenderer &device) {
   static const auto names = [] {
-    std::array<std::array<std::string, 10>, Render::kStageCount> out;
-    constexpr std::array<const char *, 10> suffixes{", took",
-                                                    ", drew",
-                                                    ", triangles",
-                                                    ", surfaces",
-                                                    ", placements",
-                                                    ", textured",
-                                                    ", colour images",
-                                                    ", device bytes",
-                                                    ", placements that differ",
-                                                    ", vertex layouts"};
+    std::array<std::array<std::string, 12>, Render::kStageCount> out;
+    constexpr std::array<const char *, 12> suffixes{", took",
+                                                    ", encoded draw requests",
+                                                    ", direct input triangles",
+                                                    ", referenced surface slot limit",
+                                                    ", referenced placement slot limit",
+                                                    ", resident textured slots",
+                                                    ", resident colour images",
+                                                    ", owned device bytes",
+                                                    ", resident placements that differ",
+                                                    ", resident vertex layouts",
+                                                    ", indirect input triangles",
+                                                    ", indirect draw records"};
     for (size_t at = 0; at < out.size(); ++at) {
       for (size_t key = 0; key < suffixes.size(); ++key) {
         out[at][key] = std::string(Row(static_cast<Render::Stage>(at)).Name) + suffixes[key];
@@ -58,17 +60,19 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
   for (size_t at = 0; at < Render::kStageCount; ++at) {
     const auto &spent = device.Spent(static_cast<Render::Stage>(at));
     if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
-    const std::array<double, 10> values{spent.TookMs,
+    const std::array<double, 12> values{spent.TookMs,
                                         static_cast<double>(spent.Draws),
-                                        static_cast<double>(spent.Triangles),
+                                        static_cast<double>(spent.DirectTriangles),
                                         static_cast<double>(spent.Surfaces),
                                         static_cast<double>(spent.Placements),
                                         static_cast<double>(spent.Textured),
                                         static_cast<double>(spent.Palettes),
                                         static_cast<double>(spent.DeviceBytes),
                                         static_cast<double>(spent.Distinct),
-                                        static_cast<double>(spent.Layouts)};
-    constexpr std::array<const char *, 10> units{"ms",
+                                        static_cast<double>(spent.Layouts),
+                                        static_cast<double>(spent.IndirectInputTriangles),
+                                        static_cast<double>(spent.IndirectRecords)};
+    constexpr std::array<const char *, 12> units{"ms",
                                                  "draws",
                                                  "triangles",
                                                  "slots",
@@ -77,8 +81,15 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
                                                  "images",
                                                  "bytes",
                                                  "rows",
-                                                 "layouts"};
-    for (size_t key = 0; key < values.size(); ++key) {
+                                                 "layouts",
+                                                 "triangles",
+                                                 "records"};
+    published.RecordMetric(names[at][0], values[0], units[0]);
+    const auto stage = static_cast<Render::Stage>(at);
+    if (stage != Render::Stage::Geometry && stage != Render::Stage::TransmissiveGeometry) {
+      continue;
+    }
+    for (size_t key = 1; key < values.size(); ++key) {
       published.RecordMetric(names[at][key], values[key], units[key]);
     }
   }
@@ -143,27 +154,27 @@ void Engine::State::PublishGroundPreparationMeasurements() {
   Published.RecordMetric("ground retirement time, last", Cost.GroundRetirement.LastMs(), "ms");
   Published.RecordMetric(
       "ground retirement slices", static_cast<double>(Cost.GroundRetirement.Taken()), "slices");
-  static constexpr std::array<std::string_view, Spent::kGroundPhaseCount> kGroundPhases{
-      "candidate",
-      "patchwork",
-      "sheet fields",
-      "sheet refinement",
-      "sheet halos",
-      "terrain survey",
-      "classes",
-      "surface",
-      "models",
-      "network",
-      "road alignments",
-      "corridors",
-      "structure bake",
-      "earthworks",
-      "terrain residency",
-      "water",
-      "geometry",
-      "publication"};
+  static constexpr std::array<std::string_view, EngineCostCounters::kGroundPhaseCount>
+      kGroundPhases{"candidate",
+                    "patchwork",
+                    "sheet fields",
+                    "sheet refinement",
+                    "sheet halos",
+                    "terrain survey",
+                    "classes",
+                    "surface",
+                    "models",
+                    "network",
+                    "road alignments",
+                    "corridors",
+                    "structure bake",
+                    "earthworks",
+                    "terrain residency",
+                    "water",
+                    "geometry",
+                    "publication"};
   static const auto phaseNames = [] {
-    std::array<std::array<std::string, 2>, Spent::kGroundPhaseCount> out;
+    std::array<std::array<std::string, 2>, EngineCostCounters::kGroundPhaseCount> out;
     for (size_t phase = 0; phase < out.size(); ++phase) {
       const auto base = std::string("ground phase ") + std::string(kGroundPhases[phase]);
       out[phase] = {base + " time, most", base + " advances"};
@@ -186,7 +197,7 @@ void Engine::State::PublishAdvanceMeasurements() {
     Published.RecordMetric("the step's own time, most", Cost.Advance.MostMs(), "ms");
     Published.RecordMetric("steps taken", static_cast<double>(Cost.Advance.Taken()), "steps");
     Published.RecordMetric("world update time, most", Cost.Update.MostMs(), "ms");
-    const Spent::UpdateComponents &worst = Cost.WorstSuccessfulUpdate;
+    const EngineCostCounters::UpdateComponents &worst = Cost.WorstSuccessfulUpdate;
     if (worst.TotalMs > 0.0) {
       Published.RecordMetric("worst successful update: total", worst.TotalMs, "ms");
       Published.RecordMetric(

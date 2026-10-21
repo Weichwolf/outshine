@@ -189,28 +189,26 @@ struct BuildingDetail {
 
 BuildingDetail DetailOf(const RawTile &raw, const Spread &bounds, double statedM) {
   BuildingDetail detail{.Envelope = raw.RequestedDetail.value_or(LevelOfDetail::Fine)};
-  if (!raw.RequestedDetail || raw.RequestedCell) {
-    const double nearLat = std::clamp(raw.Eye.LatitudeDeg, bounds.LowLat, bounds.HighLat);
-    const double midLon = 0.5 * (bounds.LowLon + bounds.HighLon);
-    const double localEyeLon = midLon + std::remainder(raw.Eye.LongitudeDeg - midLon, kDegPerTurn);
-    const double nearLon = std::clamp(localEyeLon, bounds.LowLon, bounds.HighLon);
-    const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
-    const double eastM =
-        (nearLon - localEyeLon) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
-    const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
-    const double conservativeAwayM =
-        std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
-    const auto &projection = raw.Projection;
-    detail.RecessedOpenings = !projection.Allows(
-        kOpeningDepthM, std::max(awayAtLeastM - kStructureEyeReuseM, kNearestSeenM));
-    if (!raw.RequestedDetail &&
-        projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
-      detail.Envelope = LevelOfDetail::Shell;
-    }
-    if (!raw.RequestedDetail && detail.Envelope == LevelOfDetail::Shell &&
-        projection.Allows(0.5 * raw.TileSpanM / kBlocksPerTile, conservativeAwayM)) {
-      detail.Envelope = LevelOfDetail::Massed;
-    }
+  if (raw.RequestedDetail) { return detail; }
+  const double nearLat = std::clamp(raw.Eye.LatitudeDeg, bounds.LowLat, bounds.HighLat);
+  const double midLon = 0.5 * (bounds.LowLon + bounds.HighLon);
+  const double localEyeLon = midLon + std::remainder(raw.Eye.LongitudeDeg - midLon, kDegPerTurn);
+  const double nearLon = std::clamp(localEyeLon, bounds.LowLon, bounds.HighLon);
+  const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
+  const double eastM =
+      (nearLon - localEyeLon) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
+  const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
+  const double conservativeAwayM =
+      std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
+  const auto &projection = raw.Projection;
+  detail.RecessedOpenings = !projection.Allows(
+      kOpeningDepthM, std::max(awayAtLeastM - kStructureEyeReuseM, kNearestSeenM));
+  if (projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
+    detail.Envelope = LevelOfDetail::Shell;
+  }
+  if (detail.Envelope == LevelOfDetail::Shell &&
+      projection.Allows(0.5 * raw.TileSpanM / kBlocksPerTile, conservativeAwayM)) {
+    detail.Envelope = LevelOfDetail::Massed;
   }
   return detail;
 }
@@ -406,8 +404,7 @@ struct StructureBakeProgress::State {
     Tile.NoGround = base.NoGround;
     Tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
     Tile.Coordinates->Origin = base.Origin;
-    Tile.Coordinates->Points = base.PointsLatLon;
-    Tile.Coordinates->Rings = base.Holes;
+    Tile.Coordinates->OwnCoordinates(base.PointsLatLon, base.Holes);
   }
 };
 

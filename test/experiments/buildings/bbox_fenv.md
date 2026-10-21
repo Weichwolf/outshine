@@ -9,7 +9,8 @@ from the GEOS operation; it changes no modelling algorithm or warning policy.
 .venv/bin/python -W error test/experiments/buildings/bbox_fenv.py
 ```
 
-Outputs go to `build/experiments/buildings/bbox-fenv/`. The script compiles its
+Outputs go to a fresh `outshine-bbox-fenv-*` directory in system temp; an explicit
+`--output` must also stay in system temp. The script compiles its
 own small C11 helper using the system C compiler; build logs stay in system temp.
 No GEOS headers, implementation or vendor library are copied. It binds the
 public reentrant C API from the actual loaded Shapely extension. The control
@@ -44,3 +45,48 @@ Run the existing isolated ScopeBBox tests and complete source/wheel suites
 separately with `-W error`. A clean Linux diagnostic cannot admit macOS, and
 correct-looking geometry cannot excuse a strict warning. The outcome should
 identify either the faulty backend path or a verified supported combination.
+
+The library path can be checked in the same fresh-process observer:
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -W error \
+  test/experiments/buildings/bbox_fenv.py --rectangle-path library \
+  --output /tmp/outshine-bbox-library-observation
+```
+
+`buildings._rectangle.minimum_rectangle` checks whether all four corners of the
+input's axis-aligned bounds are actual input coordinates. All coordinates are in
+these bounds, so their convex hull is exactly that rectangle. Every enclosing box
+has area at least the hull's area, and that box attains the bound. Axis-degenerate
+inputs use their point/line hull. There is no geometric tolerance, snapping or
+warning filter; even a one-ULP non-axis edge retains GEOS. Other polygons keep the
+original GEOS call on the original geometry, without an intermediate hull or
+changed starting-corner order. Scope normalizes as before; footprint metrics
+retain their original convention. Axis ties, geometry and payloads stay with
+their existing consumers; both library consumers use the shared procedure.
+Both consumers lend their already constructed/validated coordinate arrays;
+the helper neither decodes those coordinates again nor retains them.
+
+The offline original-footprint comparison is independently reproducible:
+
+```sh
+OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/buildings \
+  .venv/bin/python -W error \
+  test/experiments/buildings/rectangle_bounds_comparison.py \
+  --baseline ed48f0f7b --output /tmp/outshine-rectangle-original-comparison
+```
+
+It reads only existing pinned sources. Historical source acquisition fields in
+the inventory are not timings for this run. Fallback rectangle bytes stay on the
+original GEOS call; changed answers must independently equal the exact source
+hull. Emitted bodies/payloads use the existing scope stationarity bound. The
+original source vertices are retained; tiny caliper rounding differences in
+returned box corners/dimensions are recorded, never hidden by a new tolerance.
+
+The direct C comparison still calls raw GEOS, including its original platform
+warning/flag counterexample. A clean library path is therefore distinguishable
+from an upstream backend fix. Primary reports:
+[Shapely #2215](https://github.com/shapely/shapely/issues/2215),
+[GEOS #1235](https://github.com/libgeos/geos/issues/1235).
+The affected macOS tests and source/wheel suites remain necessary; Linux alone
+does not close #178.

@@ -108,7 +108,7 @@ def main():
     parser.add_argument("--pages", type=Path, required=True)
     parser.add_argument("--scenario", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--cells", type=int, choices=(4, 8, 16), default=8)
+    parser.add_argument("--cells", type=int, choices=(4, 8, 16, 32), default=8)
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):

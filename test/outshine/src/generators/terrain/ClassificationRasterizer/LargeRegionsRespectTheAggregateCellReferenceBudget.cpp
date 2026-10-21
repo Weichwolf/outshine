@@ -40,9 +40,9 @@ int main() {
   CHECK(built && built->Overflow == 0,
         "a complete 400-edge region fits the existing cell work budget");
   if (!built) { return Report(); }
-  const auto empty = std::make_shared<const ClassStructure::Grid>();
-  const auto classes = std::make_shared<const ClassStructure>(
-      TangentFrame::At({}), built->Grid, empty, ClassStructure::FromRun{});
+  const auto empty = std::make_shared<const TerrainClassificationMap::Grid>();
+  const auto classes = std::make_shared<const TerrainClassificationMap>(
+      TangentFrame::At({}), built->Grid, empty, TerrainClassificationMap::FromRun{});
   double distance = 0;
   CHECK(classes->Evaluate(4, 4, &distance, nullptr) == 7 && distance > .9998 && distance <= 1.0001,
         "the full reference counter retains polygon winding and its actual boundary distance");
@@ -75,7 +75,7 @@ int main() {
   const auto oversized = rasterizer.Build(Circle(kClassReferencesPerCell + 1));
   CHECK(oversized && oversized->Overflow > 0, "the derived aggregate reference limit is enforced");
   if (oversized) {
-    const ClassStructure rejected(TangentFrame::At({}), oversized->Grid, empty, {});
+    const TerrainClassificationMap rejected(TangentFrame::At({}), oversized->Grid, empty, {});
     CHECK(rejected.Evaluate(4, 4, nullptr, nullptr) == -1,
           "an over-budget fragment does not become a partially evaluated polygon");
   }
@@ -92,7 +92,7 @@ int main() {
             aggregate->Grid->Seeds.size() == 2 * kClassSeedWords,
         "reference usage is shared by the whole cell rather than granted anew per region");
   if (aggregate) {
-    const ClassStructure partial(TangentFrame::At({}), aggregate->Grid, empty, {});
+    const TerrainClassificationMap partial(TangentFrame::At({}), aggregate->Grid, empty, {});
     CHECK(partial.Evaluate(4, 4, nullptr, nullptr) == 8,
           "accepted regions retain their complete priority when the next region exceeds budget");
   }
