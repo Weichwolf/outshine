@@ -60,6 +60,14 @@ OsqpFlags() {
   esac
 }
 
+HighsFlags() {
+  pkg-config --exists highs || { printf '%s\n' 'HiGHS required; install highs with pkg-config metadata' >&2; return 1; }
+  case "$1" in
+    --cflags) pkg-config --cflags highs | sed 's/-I/-isystem /g' ;;
+    --libs) pkg-config --libs highs ;;
+  esac
+}
+
 SpirvCrossFlags() {
   if pkg-config --exists spirv-cross-c-shared; then
     pkg-config "$1" spirv-cross-c-shared
@@ -265,6 +273,7 @@ TestProfile() {
     outshine/src/render/Viewing) printf '%s' 'profile/render-viewing' ;;
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
+    outshine/src/generators/road/RoadProfileHeightFit) printf '%s' 'profile/road-profile' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
@@ -327,6 +336,7 @@ LayerIncludes() {
     profile/scenario-views) GroupIncludes src/scenario ;;
     profile/render-viewing) GroupIncludes src/render ;;
     profile/client-boundary) printf '%s' '-I.' ;;
+    profile/road-profile) GroupIncludes src/generators/road/profile ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/water-mesh | profile/water-asset) GroupIncludes src/generators/base ;;
@@ -441,6 +451,7 @@ LayerLink() {
   case "$(TestProfile "$1")" in
     profile/calibration) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
+    profile/road-profile) HighsFlags --libs ;;
     profile/water-targets) printf '%s' '' ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
@@ -461,7 +472,7 @@ LayerLink() {
     profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf liblz4 libtiff-4 libwebp geos sqlite3 libzstd) $(OsqpFlags --libs) -lz -lcurl $(NativeLink)" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf liblz4 libtiff-4 libwebp geos sqlite3 libzstd) $(OsqpFlags --libs) $(HighsFlags --libs) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
@@ -501,6 +512,7 @@ LayerGroups() {
     profile/scenario-views) printf '%s' 'src/scenario/Views.cpp src/base/math/Camera.cpp' ;;
     profile/render-viewing) printf '%s' 'src/base/math/Camera.cpp src/base/math/Rotation.cpp' ;;
     profile/client-boundary) return 0 ;;
+    profile/road-profile) printf '%s' 'src/generators/road/profile' ;;
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/water-targets) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/water/WaterCourseProfile.cpp' ;;
@@ -695,6 +707,7 @@ GroupIncludes() {
     src/generators/terrain/providers|src/generators/terrain/providers/*) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
     src/world/data|src/world/data/*) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;
     src/content/shade|src/content/shade/*|src/engine|src/engine/*) includeSet="$includeSet $(pkg-config --cflags sdl3-image)" ;;
+    src/generators/road/profile|src/generators/road/profile/*) includeSet="$includeSet $(HighsFlags --cflags)" ;;
   esac
   printf '%s' "$includeSet"
 }

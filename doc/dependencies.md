@@ -7,6 +7,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 |---|---|---|---|
 | GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygonoperationen, Triangulation und Dachkonturen über C-API; mindestens 3.12 |
 | OSQP | 1.0.0 | [#760](https://github.com/Weichwolf/outshine/issues/760) | Nativer physischer Wasserfit über C-API, Float64; Solver und vollständige Prüfungen nur beim Asset-Aufbau |
+| HiGHS | 1.15.1 | [#1003](https://github.com/Weichwolf/outshine/issues/1003) | Begrenzter nativer Treppen-/Wegprofilfit über C-API; ursprüngliche Bedingungen werden nachgerechnet, Weltanbindung noch offen |
 | SQLite | 3.54.0 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
 | Zstandard | 1.5.7 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
 
@@ -39,7 +40,7 @@ zusätzlich SDL3_shadercross; der native Integrationszweig benötigt es nicht.
 ## Installation
 
 ```sh
-brew install ccache geos osqp sqlite zstd
+brew install ccache geos osqp highs sqlite zstd
 ```
 
 Debian/Ubuntu, abhängig von der Distributionsversion:
@@ -53,6 +54,12 @@ GEOS benötigt mindestens 3.12 (`GEOSOrientPolygons`); die Paketversion mit
 Der Wasser-Höhenfit benötigt OSQP 1.x mit Float64. Ohne OSQP-pkg-config-Metadaten
 werden die üblichen Systempräfixe geprüft; einen eigenen Installationspräfix setzt
 `OSQP_PREFIX`. Die Verfügbarkeit eines OSQP-Entwicklungspakets hängt von der Distribution ab.
+HiGHS benötigt Systembibliothek und `highs.pc`; `pkg-config --modversion highs` prüft den Stand.
+Die Verfügbarkeit eines HiGHS-Entwicklungspakets hängt ebenfalls von der Distribution ab.
+Der Profilfit verwendet einen Thread und begrenzte Dualsimplex-Iterationen/Laufzeit;
+Abbruch und Originalmatrixprüfung bleiben im nativen Besitzer. Die vorhandene
+OSQP-Variante wurde am identischen lokalen LP geprüft und erreichte das Laufzeitlimit
+mit verletzten Bedingungen; andere Skalierungen wurden damit nicht ausgeschlossen.
 
 Meshoptimizer ist keine Produktabhängigkeit. Einzelne optionale Forschungsvergleiche
 nutzen eine separat installierte Bibliothek; Aufrufe und historische Versionen stehen
