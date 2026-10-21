@@ -318,11 +318,10 @@ void CheckRawStore(Data::ContentStore &raw,
   const auto key = Sha256Hex(provenance);
   CHECK(raw.Keep(key, bytes.data(), bytes.size()),
         "a second store can publish the same key independently");
-  CHECK(!raw.Read(key, bytes.size() - 1),
+  CHECK(raw.Lookup(key, bytes.size() - 1).Where == Data::ContentStore::Presence::Unknown,
         "the byte budget rejects a large file before returning its payload");
-  const auto read = raw.Read(key, bytes.size());
-  CHECK(read.has_value() && *read == bytes,
-        "the complete payload is readable at its exact byte budget");
+  const auto read = raw.Lookup(key, bytes.size());
+  CHECK(read.Bytes == bytes, "the complete payload is readable at its exact byte budget");
   std::filesystem::create_directory(config.Directory + "/blocked");
   CHECK(!raw.Keep("blocked", bytes.data(), bytes.size()) &&
             std::filesystem::is_directory(config.Directory + "/blocked"),
@@ -728,7 +727,7 @@ bool OpenInstances(InstanceScene &scene, const Content::ImpostorAtlas &atlas) {
   if (!scene.Live) { return false; }
   Render::SubjectMesh empty;
   empty.Anchor = {{kWgs84A, 0, 0}};
-  CHECK(scene.Renderer.SetSubjectMesh(empty, scene.Error),
+  CHECK(scene.Renderer.SetGeometryMesh(empty, scene.Error),
         "reference mesh leaves while the Live coordinate anchor remains");
   return true;
 }
