@@ -54,6 +54,22 @@ constexpr bool kGpuValidation = true;
 #else
 constexpr bool kGpuValidation = false;
 #endif
+
+struct FrameAcquisition {
+  const GpuSubmission &Submission;
+  Native::Device *Device = nullptr;
+  std::optional<std::chrono::steady_clock::time_point> Previous = std::nullopt;
+  std::chrono::steady_clock::duration QueueWait{};
+
+  [[nodiscard]] Native::Result<std::unique_ptr<Native::Commands>> operator()() {
+    if (Previous) { QueueWait += std::chrono::steady_clock::now() - *Previous; }
+    auto commands = Submission.Acquire(Submission.Context, Device);
+    if (!commands && commands.error().Kind == Native::ErrorKind::Busy) {
+      Previous = std::chrono::steady_clock::now();
+    }
+    return commands;
+  }
+};
 }
 
 namespace {
@@ -1556,15 +1572,12 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   const auto nonblocking = OfflineUploads(std::chrono::nanoseconds::zero());
   const auto began = std::chrono::steady_clock::now();
   auto phaseBegan = began;
-  const auto phaseMs = [&phaseBegan] {
-    const auto now = std::chrono::steady_clock::now();
-    const double ms = std::chrono::duration<double, std::milli>(now - phaseBegan).count();
-    phaseBegan = now;
-    return ms;
-  };
   RenderFrameTiming timing;
-  const auto record = [&timing, &phaseMs](RenderFramePhase phase) {
-    timing.PhaseMs[static_cast<size_t>(phase)] = phaseMs();
+  const auto record = [&timing, &phaseBegan](RenderFramePhase phase) {
+    const auto now = std::chrono::steady_clock::now();
+    timing.PhaseMs[static_cast<size_t>(phase)] =
+        std::chrono::duration<double, std::milli>(now - phaseBegan).count();
+    phaseBegan = now;
   };
   const auto slot = WaitForFrameSlot();
   if (!slot) { return std::unexpected(slot.error().Message); }
@@ -1572,9 +1585,15 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   auto prepared = PrepareFrame();
   if (!prepared) { return prepared; }
   record(RenderFramePhase::Prepare);
-  auto commands =
-      Uploads_->Begin([this] { return Submission_.Acquire(Submission_.Context, Device_.get()); });
+  FrameAcquisition acquire{.Submission = Submission_, .Device = Device_.get()};
+  auto commands = [&] {
+    const auto waiting = OfflineUploads(std::chrono::seconds(5));
+    return Uploads_->Begin([&acquire] { return acquire(); });
+  }();
   if (!commands) { return std::unexpected(commands.error().Message); }
+  timing.PhaseMs[static_cast<size_t>(RenderFramePhase::FenceWait)] +=
+      std::chrono::duration<double, std::milli>(acquire.QueueWait).count();
+  phaseBegan += acquire.QueueWait;
   record(RenderFramePhase::Acquire);
   const auto uploaded = FlushCrossings(**commands);
   if (!uploaded) { return std::unexpected(uploaded.error().Message); }
