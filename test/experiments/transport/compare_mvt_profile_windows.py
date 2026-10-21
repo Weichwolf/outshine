@@ -210,26 +210,54 @@ def display(case, results, ports, output):
         f"native-part:{w['native_way']}": np.array(w["source_xy_m"])
         for w in case["ways"]
     }
-    selected = {w["source_id"] for w in results["captured"]["windows"]}
     for axis in axes:
-        for key, xy in by_key.items():
+        for index, xy in enumerate(by_key.values()):
             axis.plot(
                 xy[:, 0],
                 xy[:, 1],
-                color="#45674a" if key in selected else "#b9bdb9",
-                linewidth=1.5,
+                color="#b9bdb9",
+                linewidth=1,
+                label="retained original context" if index == 0 else None,
             )
-        for request in results["requested"]["profile_requests"]:
+        for index, window in enumerate(results["captured"]["windows"]):
+            xy = by_key[window["source_id"]]
+            arc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
+            low, high = window["source_station_range_m"]
+            stations = np.r_[low, arc[(arc > low) & (arc < high)], high]
+            chosen = np.c_[
+                np.interp(stations, arc, xy[:, 0]), np.interp(stations, arc, xy[:, 1])
+            ]
+            axis.plot(
+                chosen[:, 0],
+                chosen[:, 1],
+                color="#45674a",
+                linewidth=2,
+                label="selected source intervals" if index == 0 else None,
+            )
+        for index, request in enumerate(results["requested"]["profile_requests"]):
             point = request["center_xy_m"]
-            axis.plot(*point, "x", color="#b67432", markersize=8)
-        for port in ports:
+            axis.plot(
+                *point,
+                "x",
+                color="#b67432",
+                markersize=8,
+                label="new profile request" if index == 0 else None,
+            )
+        for index, port in enumerate(ports):
             xy = np.array(port["profile_xyz_m"])[:, :2]
-            axis.plot(xy[:, 0], xy[:, 1], color="#7b4c82", linewidth=2)
+            axis.plot(
+                xy[:, 0],
+                xy[:, 1],
+                color="#7b4c82",
+                linewidth=2,
+                label="captured control" if index == 0 else None,
+            )
         axis.set_aspect("equal")
         axis.set(xlabel="east / m", ylabel="north / m")
     points = np.concatenate([np.array(p["profile_xyz_m"])[:, :2] for p in ports])
     low, high = points.min(axis=0) - 3, points.max(axis=0) + 3
     axes[1].set(xlim=(low[0], high[0]), ylim=(low[1], high[1]))
+    axes[1].legend(fontsize=7)
     axes[0].set_title("Seven retained sources; four remain unchanged")
     axes[1].set_title("Orange: new profile requests; purple: captured control ports")
     figure.suptitle(
