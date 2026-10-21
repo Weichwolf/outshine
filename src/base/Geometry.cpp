@@ -3,6 +3,7 @@
 #include "GeometryCapacity.h"
 #include <array>
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstddef>
@@ -156,6 +157,24 @@ std::expected<int, GeometryPartError> Geometry::addPart(std::string_view named,
 namespace {
 
 constexpr double kUnitWithin = 1.0e-3;
+constexpr int kBinary64Digits = 53;
+constexpr uint64_t kBinary64OneBits = 0x3ff0000000000000ULL;
+static_assert(std::numeric_limits<double>::is_iec559 &&
+              std::numeric_limits<double>::digits == kBinary64Digits &&
+              std::bit_cast<uint64_t>(1.0) == kBinary64OneBits);
+
+[[nodiscard]] consteval double NextPositiveDouble(double value) noexcept {
+  return std::bit_cast<double>(std::bit_cast<uint64_t>(value) + 1);
+}
+
+[[nodiscard]] consteval double PreviousPositiveDouble(double value) noexcept {
+  return std::bit_cast<double>(std::bit_cast<uint64_t>(value) - 1);
+}
+
+constexpr double kUnitLengthMin = NextPositiveDouble(1.0 - kUnitWithin);
+constexpr double kUnitLengthMax = PreviousPositiveDouble(1.0 + kUnitWithin);
+constexpr double kUnitSquaredMin = NextPositiveDouble(kUnitLengthMin * kUnitLengthMin);
+constexpr double kUnitSquaredMax = PreviousPositiveDouble(kUnitLengthMax * kUnitLengthMax);
 constexpr double kNoAreaM4 = 1.0e-12;
 
 [[nodiscard]] std::expected<void, GeometryAttributeError>
@@ -170,9 +189,11 @@ Finite(std::span<const float> from) noexcept {
 ValidateNormals(std::span<const float> unit) noexcept {
   if (unit.size() % 3 != 0) { return std::unexpected(GeometryAttributeError::IncompleteTuple); }
   for (size_t at = 0; at + 2 < unit.size(); at += 3) {
-    const double length = std::sqrt(static_cast<double>(unit[at]) * unit[at] +
-                                    static_cast<double>(unit[at + 1]) * unit[at + 1] +
-                                    static_cast<double>(unit[at + 2]) * unit[at + 2]);
+    const double squared = static_cast<double>(unit[at]) * unit[at] +
+                           static_cast<double>(unit[at + 1]) * unit[at + 1] +
+                           static_cast<double>(unit[at + 2]) * unit[at + 2];
+    if (squared >= kUnitSquaredMin && squared <= kUnitSquaredMax) { continue; }
+    const double length = std::sqrt(squared);
     if (!std::isfinite(length)) { return std::unexpected(GeometryAttributeError::NonFiniteValue); }
     if (std::fabs(length - 1.0) > kUnitWithin) {
       return std::unexpected(GeometryAttributeError::NonUnitNormal);
