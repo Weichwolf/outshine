@@ -60,6 +60,14 @@ OsqpFlags() {
   esac
 }
 
+HighsFlags() {
+  pkg-config --exists highs || { printf '%s\n' 'HiGHS required; install highs with pkg-config metadata' >&2; return 1; }
+  case "$1" in
+    --cflags) pkg-config --cflags highs | sed 's/-I/-isystem /g' ;;
+    --libs) pkg-config --libs highs ;;
+  esac
+}
+
 SpirvCrossFlags() {
   if pkg-config --exists spirv-cross-c-shared; then
     pkg-config "$1" spirv-cross-c-shared
@@ -257,6 +265,7 @@ done
 
 TestProfile() {
   case "$1" in
+    outshine/src/generators/road/RoadProfileHeightFit) printf '%s' 'profile/road-profile' ;;
     outshine/integration/places/client) printf '%s' 'profile/client-shots' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
@@ -312,6 +321,7 @@ TestProfile() {
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
+    profile/road-profile) GroupIncludes src/generators/road/profile ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/water-mesh | profile/water-asset) GroupIncludes src/generators/base ;;
@@ -422,6 +432,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$(TestProfile "$1")" in
+    profile/road-profile) HighsFlags --libs ;;
     profile/water-targets) printf '%s' '' ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
@@ -440,7 +451,7 @@ LayerLink() {
     profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd) $(OsqpFlags --libs) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd) $(OsqpFlags --libs) $(HighsFlags --libs) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
@@ -468,6 +479,7 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/road-profile) printf '%s' 'src/generators/road/profile' ;;
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/water-targets) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/water/WaterCourseProfile.cpp' ;;
@@ -655,6 +667,7 @@ GroupIncludes() {
       ;;
     src/generators/flora|src/generators/flora/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/generators/water|src/generators/water/*) includeSet="$includeSet $(OsqpFlags --cflags)" ;;
+    src/generators/road/profile|src/generators/road/profile/*) includeSet="$includeSet $(HighsFlags --cflags)" ;;
     src/content/assets) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
     src/generators/terrain/providers) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
     src/world/data) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;
