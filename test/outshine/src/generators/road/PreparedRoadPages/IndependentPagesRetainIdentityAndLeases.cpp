@@ -1,5 +1,6 @@
 #include "PreparedRoadPages.h"
 #include "ProfiledRoadMesher.h"
+#include "Earth.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
@@ -10,6 +11,7 @@
 #include <expected>
 #include <filesystem>
 #include <limits>
+#include <optional>
 #include <span>
 #include <string>
 #include <system_error>
@@ -19,13 +21,16 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Generators;
-constexpr size_t kLimit = 1024u * 1024u;
+constexpr size_t kLimit = size_t{1024} * 1024;
+constexpr LongitudeLatitude kAnchor{.LongitudeDeg = 8, .LatitudeDeg = 49};
+constexpr double kSpanM = 100;
+constexpr double kSiblingEastM = 2 * kSpanM;
 
 RoadPageAddress Address(uint32_t part) {
   return {.PlanKey = std::string(64, 'a'),
           .MaterialKey = std::string(64, 'b'),
           .MaterialIndex = 0,
-          .Anchor = {.LongitudeDeg = 8, .LatitudeDeg = 49},
+          .Anchor = kAnchor,
           .Level = 0,
           .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = part}}};
 }
@@ -36,7 +41,7 @@ std::expected<RoadPageGeometry, std::string> Produce(double east, uint32_t edge 
       {.Edge = edge,
        .Lane = 0,
        .Stations = {{.EastM = east, .NorthM = 0, .GradeM = 0, .Node = 1},
-                    {.EastM = east + 100, .NorthM = 0, .GradeM = 0, .Node = 2}},
+                    {.EastM = east + kSpanM, .NorthM = 0, .GradeM = 0, .Node = 2}},
        .Surface = {.HalfWidthM = 4,
                    .Profile = RoadProfile::Kerbed,
                    .WearsLinear = {{0.5f, 0.5f, 0.5f}},
@@ -103,13 +108,16 @@ void CheckFormat(const RoadPageAsset &page) {
 
 class RefusingMesher final : public RoadMesher {
 public:
-  RoadMeshingStats
-  Sweep(std::span<const RoadStation>, RoadSweep, RoadMeshBuffers &) const override {
+  RoadMeshingStats Sweep(std::span<const RoadStation> /*stations*/,
+                         RoadSweep /*surface*/,
+                         RoadMeshBuffers & /*mesh*/) const override {
     return {.Pieces = 0, .Cuts = 0, .Refused = 1, .Rejections = {.Fit = 1}};
   }
 
-  void
-  Junction(std::span<const RoadGate>, RoadPlane, const Vec3f &, RoadMeshBuffers &) const override {}
+  void Junction(std::span<const RoadGate> gates,
+                RoadPlane plane,
+                const Vec3f &wears,
+                RoadMeshBuffers &mesh) const override {}
 };
 
 void CheckDiagnostics() {
@@ -166,9 +174,12 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   CHECK(hit && factories == 1 && hit->Record.Key == cold->Record.Key &&
             hit->Record.Package == cold->Record.Package,
         "a hit loads without any source or mesh factory");
+  CHECK(hit && hit->Page.get() != cold->Page.get() &&
+            hit->Page->Geometry.Mesh.PositionM.data() != cold->Page->Geometry.Mesh.PositionM.data(),
+        "independent loads exclusively own distinct decoded pages and mesh allocations");
   const auto siblingAddress = Address(8);
-  const auto sibling =
-      pages.Resolve(siblingAddress, parent, {}, kLimit, [](size_t) { return Produce(200, 8); });
+  const auto sibling = pages.Resolve(
+      siblingAddress, parent, {}, kLimit, [](size_t) { return Produce(kSiblingEastM, 8); });
   CHECK(sibling && sibling->Record.Package != cold->Record.Package &&
             sibling->Page->Address.MaterialKey == cold->Page->Address.MaterialKey,
         "whole page blobs are independently compressed with one shared material reference");
@@ -202,7 +213,7 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   CHECK(rebound && rebound->Record.RequestKey == reboundRequest && reboundMetadata &&
             *reboundMetadata && (**reboundMetadata).Key == rebound->Record.Key,
         "a rebound cache hit returns the metadata snapshot actually published for this demand");
-  auto retained = cold->Page;
+  auto retained = std::move(cold->Page);
   const auto removed = (*cache)->Remove(cold->Record.Key);
   const auto afterRemoval = (*cache)->Find(cold->Record.Key);
   CHECK(removed && afterRemoval && !*afterRemoval, "the indexed product can be evicted");
@@ -211,6 +222,10 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   cache->reset();
   CHECK(Same(retained->Geometry.Mesh, first.Geometry.Mesh),
         "an owned page lease survives cache closure and eviction");
+  retained->Geometry.Mesh.PositionM[0] += 1;
+  CHECK(hit && direct && *direct && Same(hit->Page->Geometry.Mesh, first.Geometry.Mesh) &&
+            Same((**direct).Page->Geometry.Mesh, first.Geometry.Mesh),
+        "the exclusive owner may change its page without mutating any other decoded lease");
 }
 }
 
@@ -219,7 +234,7 @@ int main() {
   auto geometry = Produce(0);
   CHECK(geometry && !geometry->Mesh.Index.empty(), "the test uses actual native road generation");
   if (!geometry || geometry->Mesh.Index.empty()) { return Report(); }
-  RoadPageAsset page{.Address = Address(7), .Geometry = std::move(*geometry)};
+  const RoadPageAsset page{.Address = Address(7), .Geometry = std::move(*geometry)};
   CheckFormat(page);
   CheckDiagnostics();
   const auto bounds = RoadPageBoundsEcef(page);

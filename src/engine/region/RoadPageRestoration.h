@@ -59,7 +59,7 @@ private:
   std::deque<Pending> Window_;
   Limits Limits_;
   RoadMeshingStats Meshing_;
-  std::shared_ptr<const Generators::RoadPageAsset> Loaded_;
+  std::unique_ptr<Generators::RoadPageAsset> Loaded_;
   std::optional<MaterialInstance> Surface_;
   size_t Next_ = 0;
   size_t Requested_ = 0;
