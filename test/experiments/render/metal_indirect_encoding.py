@@ -28,17 +28,24 @@ def run(output, validation):
     output.mkdir(parents=True, exist_ok=False)
     source = Path(__file__).with_suffix(".mm").resolve()
     compiler = shlex.split(os.environ.get("CXX", "c++"))
+    root = source.parents[3]
+    declarations = dict(
+        line.split("=", 1)
+        for line in (root / "test/run.sh").read_text().splitlines()
+        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
+    )
+    toolchain = [
+        flag
+        for key in ("CXXSTD", "WARN", "OPT")
+        for flag in shlex.split(declarations[key].strip('"'))
+    ]
     build = [
         "nice",
         "-n",
         "10",
         *compiler,
-        "-std=c++23",
+        *toolchain,
         "-fobjc-arc",
-        "-O3",
-        "-Wall",
-        "-Wextra",
-        "-Werror",
         str(source),
         "-framework",
         "Foundation",

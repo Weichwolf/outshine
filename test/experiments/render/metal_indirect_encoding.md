@@ -11,7 +11,8 @@ python3 test/experiments/render/metal_indirect_encoding.py --validation --output
 The output directory must be new and inside system temp. It contains the compiler
 command, source/binary hashes, logs, structured report and a rendered PNG witness.
 Requires macOS, Command Line Tools and the Metal/Foundation/ImageIO frameworks.
-No Xcode application, network request or engine build is needed.
+No Xcode application, network request or engine build is needed. Standard, warning
+and optimization flags come from the shared declarations in `test/run.sh`.
 
 ## Compared work
 
@@ -35,7 +36,8 @@ MSL command_buffer/render_command operations directly.
 
 ## A18 Pro result and decision
 
-One reproducible run from 2026-10-22, 8192 records. Times are milliseconds.
+Original `f81132553` run from 2026-10-22, 8192 records; its reports record the
+original compiler flags. Times are milliseconds.
 These are whole command-encoding CPU medians and command-buffer GPU medians.
 
 | Indices | API validation | CPU loop | CPU ICB | GPU loop | GPU ICB |
