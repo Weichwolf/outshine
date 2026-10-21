@@ -5,14 +5,13 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 
 | Bibliothek | Geprüfter lokaler Stand | Zuständiger WI | Verwendung |
 |---|---|---|---|
-| GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygontriangulation mit Höfen/Inseln über C-API; mindestens 3.10 |
-| SFCGAL | 2.3.0 | [#48](https://github.com/Weichwolf/outshine/issues/48) | Native Walmdachpartition mit Quellkanten/Höfen über C-API; mindestens 2.3, Rendererübernahme folgt |
+| GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygonoperationen, Triangulation und Dachkonturen über C-API; mindestens 3.12 |
 | OSQP | 1.0.0 | [#760](https://github.com/Weichwolf/outshine/issues/760) | Nativer physischer Wasserfit über C-API, Float64; Solver und vollständige Prüfungen nur beim Asset-Aufbau |
 | SQLite | 3.54.0 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
 | Zstandard | 1.5.7 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
 
 Wartung geprüft am 2026-10-20: [GEOS](https://libgeos.org/usage/download/)
-3.15.0 (2026-09), [SFCGAL](https://github.com/SFCGAL/SFCGAL) Codeänderungen 2026-10,
+3.15.0 (2026-09),
 [OSQP](https://github.com/osqp/osqp/releases) 1.0.0 (2025-03), letzter geprüfter
 Hauptzweig-Commit 2025-11, [SQLite](https://sqlite.org/changes.html) 3.54.1 (2026-10)
 und [Zstd](https://github.com/facebook/zstd/releases) 1.5.7 (2025-02),
@@ -40,17 +39,17 @@ zusätzlich SDL3_shadercross; der native Integrationszweig benötigt es nicht.
 ## Installation
 
 ```sh
-brew install ccache geos sfcgal osqp sqlite zstd
+brew install ccache geos osqp sqlite zstd
 ```
 
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install ccache libgeos-dev libsfcgal-dev libsqlite3-dev libzstd-dev
+sudo apt install ccache libgeos-dev libsqlite3-dev libzstd-dev
 ```
 
-SFCGAL benötigt mindestens 2.3; die Paketversion vor dem Build mit `pkg-config --modversion sfcgal` prüfen.
-GEOS, SFCGAL, SQLite und Zstandard liefern pkg-config-Metadaten.
+GEOS benötigt mindestens 3.12 (`GEOSOrientPolygons`); die Paketversion mit
+`pkg-config --modversion geos` prüfen. GEOS, SQLite und Zstandard liefern pkg-config-Metadaten.
 Der Wasser-Höhenfit benötigt OSQP 1.x mit Float64. Ohne OSQP-pkg-config-Metadaten
 werden die üblichen Systempräfixe geprüft; einen eigenen Installationspräfix setzt
 `OSQP_PREFIX`. Die Verfügbarkeit eines OSQP-Entwicklungspakets hängt von der Distribution ab.
@@ -77,15 +76,15 @@ Nichtendliche, zentral mehrdeutige oder nicht konvergierte Eingaben werden abgel
 Der Anwendungsbereich ist Erdoberfläche/Untergrund bis Orbit, keine inverse Vermessung
 des Erdkerns. Alte geodätische Referenzkorpora bleiben Testdaten, keine Runtime-Library.
 
-SFCGAL bleibt nur für noch nicht ersetzte komplexe Walmdachpartitionen. Rechteckpläne
-werden einschließlich Quellkantenvorbereitung ohne Bibliotheksaufruf erzeugt. Die geprüfte
-Python-Konturreferenz für konkave Grundrisse und Höfe liegt vor; deren native Übernahme
-und anschließende vollständige Entfernung besitzt #955. Bis dahin bleibt der komplexe Pfad.
-Ein kleiner gemeinsamer Geometriekern darf weitere konkrete Asset-Rezepte bedienen;
-parallele Rezeptauswertung/Tessellierung und verzweigte CPU-Topologie bleiben getrennt.
-GPU-Eignung ist zu prüfen, kein pauschaler GPU-Port aller Solver.
-Das Paket zieht CGAL, Boost, GMP und MPFR mit; CGAL benötigt wiederum Eigen. Ein
-entfernter direkter Eigen-Include bedeutet deshalb noch kein Eigen-freies System.
+SFCGAL ist durch den begrenzten nativen Konturpfad ersetzt (#955). Rechtecke bleiben
+analytisch; konkave Grundrisse und Höfe verwenden gerichtete Konturereignisse,
+quelleneigene überstrichene Facetten und gemeinsame Firstknoten. GEOS übernimmt
+Polygonoperationen. Originaltraufen, Ebenen, Deckung, Kapazität und Deadline werden
+weiter geprüft. Die Dachimplementierung benötigt weder SFCGAL noch dessen
+transitive CGAL-/Boost-/GMP-/MPFR-/Eigen-Abhängigkeiten. Historische Python-
+Vergleiche behalten ihre Herkunft, sind keine Produktabhängigkeiten.
+Ein gemeinsamer Geometriekern wächst nur mit konkreten weiteren Verbrauchern;
+GPU-Eignung fester Rezepte und verzweigte CPU-Topologie bleiben getrennte Fragen.
 GEOS bleibt für robuste Polygonoperationen, OSQP für den beschränkten Wasser-QP.
 Weitere Kandidaten: nlohmann/json für native Benchmarkberichte, LZ4/Zstd und Bildcodecs.
 Bestehende Formate und Inhalte dürfen bei einer Reduktion nicht unlesbar werden.
@@ -106,7 +105,7 @@ Grundlagen: [DuckDB-Speicherformat](https://duckdb.org/docs/current/internals/st
 
 Der integrierte native Assetcache benötigt SQLite und Zstandard auch im Runtime-Link. Statische
 Nutzer von `liboutshine.a` binden zusätzlich `pkg-config --libs sqlite3 libzstd` ein.
-Der Building-Generator benötigt beim statischen Link zusätzlich `pkg-config --libs sfcgal`.
+Die Polygon- und Dachverfahren benötigen beim statischen Link `pkg-config --libs geos`.
 
 Native Builds benötigen `ccache`. Der Compiler-Cache liegt standardmäßig unter
 `${TMPDIR:-/tmp}/outshine-compiler-cache`, auf 1 GiB begrenzt; bestehende
