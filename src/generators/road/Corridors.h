@@ -300,11 +300,7 @@ private:
 
   static void EaseRampPass(const Paving &on, double mostDeckM, Paved &into);
 
-  static void EasesRamps(const Paving &on, double mostDeckM, Paved &into);
-
   static void GradesApproaches(const Paving &on, Paved &into);
-
-  static void SeedsBridgeEnds(const Paving &on, Paved &into);
 
   static void RecordBridgeConnectionMetrics(Paved &into);
 
@@ -320,8 +316,6 @@ private:
   static void HeightConstraints(const Paving &on, Paved &into, HeightGraph &graph);
   [[nodiscard]] static std::expected<void, std::string_view> PlanHeights(const Paving &on,
                                                                          Paved &into);
-  [[nodiscard]] static std::unordered_map<uint64_t, std::vector<Leg>> LegsOf(const Paving &on,
-                                                                             const Paved &into);
   static void AppendLeg(const Paving &on,
                         const Paved &into,
                         uint32_t edgeAt,

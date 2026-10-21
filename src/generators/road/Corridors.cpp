@@ -663,24 +663,6 @@ Corridors::RelevantBridgeEnds(const Paving &on, const BridgeTopology &topology, 
   return ordered;
 }
 
-void Corridors::SeedsBridgeEnds(const Paving &on, Paved &into) {
-  const BridgeTopology topology = BridgeTopologyOf(on);
-  const std::vector<uint64_t> ordered = RelevantBridgeEnds(on, topology, into);
-  for (const uint64_t key : ordered) {
-    const auto place = topology.PlaceOf.find(key);
-    if (place == topology.PlaceOf.end()) { continue; }
-    const std::optional<Grounded> under = GroundUnder(on, place->second);
-    if (!under) { continue; }
-    into.EndM.insert_or_assign(key, under->GradeM);
-    into.GroundEndM.insert_or_assign(key, under->GradeM);
-  }
-  for (size_t at = 0; at < on.Ways.Ways().size(); ++at) {
-    if (topology.HasEnds[at] != 0 && on.Ways.Ways()[at].Bridge && into.DeckM[at] > kUnraisedDeckM) {
-      RaisesEnds(topology.EndsOfWay[at].Key, into.DeckM[at], into);
-    }
-  }
-}
-
 double Corridors::HighestDeckM(const Paved &over) {
   double mostDeckM = 0.0;
   for (const auto &one : over.EndM) {
@@ -689,10 +671,6 @@ double Corridors::HighestDeckM(const Paved &over) {
     mostDeckM = std::max(mostDeckM, one.second - seeded->second);
   }
   return mostDeckM;
-}
-
-void Corridors::EasesRamps(const Paving &on, double mostDeckM, Paved &into) {
-  for (int pass = 0; pass < kRampPasses; ++pass) { EaseRampPass(on, mostDeckM, into); }
 }
 
 void Corridors::EaseRampPass(const Paving &on, double mostDeckM, Paved &into) {
@@ -931,15 +909,6 @@ Bound RayOf(const Bound &along) {
   return ray;
 }
 
-}
-
-std::unordered_map<uint64_t, std::vector<Corridors::Leg>> Corridors::LegsOf(const Paving &on,
-                                                                            const Paved &into) {
-  std::unordered_map<uint64_t, std::vector<Leg>> legsAt;
-  for (uint32_t edgeAt = 0; edgeAt < static_cast<uint32_t>(into.Edges.size()); ++edgeAt) {
-    AppendLeg(on, into, edgeAt, legsAt);
-  }
-  return legsAt;
 }
 
 void Corridors::AppendLeg(const Paving &on,
