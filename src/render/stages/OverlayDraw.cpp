@@ -1,5 +1,6 @@
 #include "UploadQueue.h"
 #include "OverlayDraw.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
