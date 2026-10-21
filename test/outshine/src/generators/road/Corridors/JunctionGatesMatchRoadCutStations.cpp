@@ -26,7 +26,7 @@ int main() {
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty,
                     .Field = [](EastNorth at) -> std::optional<double> { return .1 * at.NorthM; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const bool reverse : {false, true}) {
@@ -62,6 +62,8 @@ int main() {
                                            .Standing = frame,
                                            .Draped = drape,
                                            .Classes = noClasses,
+                                           .WaterUpM = {},
+                                           .CensusAt = {},
                                            .EyeLatDeg = origin.LatitudeDeg,
                                            .EyeLonDeg = origin.LongitudeDeg,
                                            .Projection = {.FocalPx = 800}};

@@ -29,12 +29,12 @@ Commitaktivität allein beweist keine Fehlerfreiheit oder künftige Wartung.
 | zlib | PNG und bestehende Cachepfade; bleibt für diese Formate. |
 | libtiff / libwebp | Copernicus-Raster / Terrarium-Höhen; Quellformatdecoder, kein eigener Codec-Eigenbau. |
 | SPIRV-Cross | Native Shaderübersetzung/Reflexion; bleibt. glslang ist ein Buildwerkzeug. |
-| nlohmann/json | Nur Benchmarkberichte im nativen Integrationszweig; eigenen JSON-Ausgabepfad als Ersatz prüfen. |
+| nlohmann/json | Benchmarkberichte; eigenen JSON-Ausgabepfad als Ersatz prüfen. |
 
 Die Installation oben betrifft die numerischen/Assetpakete, nicht das gesamte Toolchain-
 Setup. Plattform-SDK, SDL/Codecs/Shaderwerkzeuge stehen in den Buildprofilen und
-`src/client/README.md`. Der alte Master-Renderpfad benötigt bis zur nativen Aufnahme
-zusätzlich SDL3_shadercross; der native Integrationszweig benötigt es nicht.
+`src/client/README.md`. Metal und Vulkan verwenden die nativen Backendverträge;
+SDL3_shadercross ist keine Produkt- oder Buildabhängigkeit.
 
 ## Installation
 

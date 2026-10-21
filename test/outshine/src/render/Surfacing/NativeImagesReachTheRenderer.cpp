@@ -7,7 +7,6 @@
 #include <Outshine.h>
 #include <scenario/Scenario.h>
 #include "Surfacing.h"
-#include "Subject.h"
 #include "Check.h"
 
 int main() {
@@ -76,27 +75,17 @@ int main() {
   slots[0].Row.BaseColourMap.Image = image + 1;
   CHECK(!Render::ResolveNativeTextures(geometry, slots, error),
         "absent image references are refused");
-  Gltf::Subject assembled;
-  CHECK(assembled.Assemble(geometry), "native geometry assembles");
-  auto converted = assembled.Handed();
-  CHECK(converted.has_value(), "native conversion succeeds");
-  if (!converted) { return Report(); }
-  Geometry roundtrip = std::move(*converted);
+  Geometry roundtrip = geometry.clone();
   CHECK(roundtrip.images() == 1 && roundtrip.imageAt(0).Rgba.size() == pixels.size() &&
             std::equal(pixels.begin(), pixels.end(), roundtrip.imageAt(0).Rgba.begin()),
-        "assembly roundtrip owns and preserves native image bytes");
+        "native clone owns and preserves image bytes");
   const std::array<uint8_t, 4> secondPixel{17, 31, 63, 255};
   Material secondMaterial = material;
   secondMaterial.BaseColourMap.Image = *roundtrip.addImage(1, 1, secondPixel);
   CHECK(roundtrip.setSurface(roundtrip.materialOf(0), secondMaterial).has_value(),
         "second material names its own image");
-  Gltf::Subject appended;
-  CHECK(appended.Assemble(roundtrip) && assembled.Append(appended),
-        "native textured subjects append");
-  auto appendedGeometry = assembled.Handed();
-  CHECK(appendedGeometry.has_value(), "appended conversion succeeds");
-  if (!appendedGeometry) { return Report(); }
-  Geometry joined = std::move(*appendedGeometry);
+  Geometry joined = geometry.clone();
+  CHECK(joined.append(roundtrip), "native textured geometries append");
   CHECK(joined.images() == 3 && joined.surfaces() == 2 &&
             joined.surfaceAt(joined.materialOf(0)).BaseColourMap.Image == 0 &&
             joined.surfaceAt(joined.materialOf(1)).BaseColourMap.Image == 2 &&

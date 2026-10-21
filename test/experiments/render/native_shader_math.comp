@@ -1,0 +1,6 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "native_shader_math.glsl"
+layout(local_size_x = 1) in;
+layout(set = 1, binding = 0, std430) writeonly buffer Results { vec4 value; } result;
+void main() { result.value = mathChecks(); }

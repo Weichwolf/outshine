@@ -59,7 +59,7 @@ Stand Place(const ::outshine::Ground::VegetationTemplates &templates,
                                           static_cast<double>(kSide - 1) * std::tan(40 * kDeg2Rad));
     }
   }
-  auto grid = std::make_shared<ClassStructure::Grid>();
+  auto grid = std::make_shared<TerrainClassificationMap::Grid>();
   grid->W = grid->H = 1;
   grid->OrgE = grid->OrgN = -1;
   grid->CellM = 2 * std::max(region.SpanEm(), region.SpanNm()) + 2;
@@ -67,11 +67,11 @@ Stand Place(const ::outshine::Ground::VegetationTemplates &templates,
   Generators::Ground::Snapshot snapshot;
   snapshot.Patch = GroundPatch::Complete(region, kSide, samples);
   snapshot.Table = TableOf(templates);
-  snapshot.Classes =
-      std::make_shared<ClassStructure>(TangentFrame::At(region.Geo({0, 0})),
-                                       grid,
-                                       std::make_shared<const ClassStructure::Grid>(),
-                                       ClassStructure::FromRun{});
+  snapshot.Classes = std::make_shared<TerrainClassificationMap>(
+      TangentFrame::At(region.Geo({0, 0})),
+      grid,
+      std::make_shared<const TerrainClassificationMap::Grid>(),
+      TerrainClassificationMap::FromRun{});
   snapshot.Features = FeatureField::Of({}, {}, {});
   const auto ground = Generators::Ground::Of(region, snapshot);
   CHECK(ground.has_value(), "source habitat and sloping native ground form a complete snapshot");

@@ -2,8 +2,10 @@
 #define OUTSHINE_RENDER_SCENE_SCENERESOURCES_H
 
 #include "ResourceHandle.h"
+#include "HeightPageBatch.h"
 #include "SubjectTypes.h"
 #include "TerrainTile.h"
+#include "device/native/Commands.h"
 #include "scene/Geometry.h"
 
 #include <cstddef>
@@ -77,19 +79,20 @@ public:
     return Pieces_.capacity() * sizeof(Piece);
   }
 
-  [[nodiscard]] std::expected<HeightPageHandle, std::string>
-  PlaceHeightPage(GeometryRenderer &subjects, std::span<const float> nodes);
+  [[nodiscard]] Native::Result<HeightPageHandle> PlaceHeightPage(GeometryRenderer &subjects,
+                                                                 std::span<const float> nodes);
+  [[nodiscard]] Native::Result<std::vector<HeightPageHandle>>
+  PlaceHeightPages(GeometryRenderer &subjects, std::span<const HeightPageView> nodes);
   void ReleaseHeightPage(GeometryRenderer &subjects, HeightPageHandle which);
   [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
   [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
   [[nodiscard]] std::expected<bool, std::string>
   AdvanceTerrainRestore(GeometryRenderer &subjects, size_t &nextPage, size_t pagesMost);
-  [[nodiscard]] bool
-  SetGroundGrid(GeometryRenderer &subjects, std::span<const float> fractions, std::string &error);
-  [[nodiscard]] bool SetTerrainTiles(GeometryRenderer &subjects,
-                                     std::span<const TerrainTile> real,
-                                     std::span<const TerrainTile> virtual_,
-                                     std::string &error);
+  [[nodiscard]] Native::Result<void> SetGroundGrid(GeometryRenderer &subjects,
+                                                   std::span<const float> fractions);
+  [[nodiscard]] Native::Result<void> SetTerrainTiles(GeometryRenderer &subjects,
+                                                     std::span<const TerrainTile> real,
+                                                     std::span<const TerrainTile> virtual_);
   [[nodiscard]] bool RestoreTerrain(GeometryRenderer &subjects, std::string &error);
   void SetGroundClassification(std::span<const uint32_t> classes, std::span<const float> palette);
   void SetGroundClassification(GroundClassificationSource source) noexcept;
@@ -151,6 +154,9 @@ private:
     std::shared_ptr<const std::vector<float>> Nodes;
     PageId Resident = kNoPage;
   };
+
+  [[nodiscard]] Native::Result<size_t>
+  RestoreHeightPageBatch(GeometryRenderer &subjects, size_t first, size_t pagesMost);
 
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;

@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "ChunkSurface.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "TerrainResidency.h"
@@ -32,8 +32,8 @@ int main() {
       const TangentFrame frame = TangentFrame::At({anchor.LongitudeDeg, anchor.LatitudeDeg});
       Patchwork patch;
       patch.Sheets.push_back({.Tile = {.Zoom = zoom, .X = centre, .Y = centre},
-                              .Nodes = std::vector<float>(Render::GroundLattice::kPageNodes, 100),
-                              .Side = Render::GroundLattice::kSide,
+                              .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, 100),
+                              .Side = Render::TerrainRenderer::kSide,
                               .Virtual = true});
       TerrainResidency terrain;
       terrain.Into(&renderer);

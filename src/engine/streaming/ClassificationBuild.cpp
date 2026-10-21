@@ -17,7 +17,7 @@
 
 namespace outshine::Ground {
 namespace {
-size_t GridBytes(const ClassStructure::Grid &grid) {
+size_t GridBytes(const TerrainClassificationMap::Grid &grid) {
   return CapacityBytes(grid.Cells) + CapacityBytes(grid.Seeds) + CapacityBytes(grid.Refs) +
          CapacityBytes(grid.Edges);
 }
@@ -31,9 +31,10 @@ struct ClassificationBuild::Work {
   std::optional<Job> Pending;
   std::optional<Handback> Result;
   Generators::ClassificationRasterizer Rasterizer;
-  std::shared_ptr<const ClassStructure::Grid> Fine = std::make_shared<const ClassStructure::Grid>();
-  std::shared_ptr<const ClassStructure::Grid> Coarse =
-      std::make_shared<const ClassStructure::Grid>();
+  std::shared_ptr<const TerrainClassificationMap::Grid> Fine =
+      std::make_shared<const TerrainClassificationMap::Grid>();
+  std::shared_ptr<const TerrainClassificationMap::Grid> Coarse =
+      std::make_shared<const TerrainClassificationMap::Grid>();
   SourceRevision FineSource;
   SourceRevision CoarseSource;
   uint64_t Version = 0;
@@ -99,11 +100,11 @@ void ClassificationBuild::Run(Work &work, const std::stop_token &stop) {
   const auto built = regions ? work.Rasterizer.Build(regions->Raster, stop) : std::nullopt;
   if (built && !stop.stop_requested()) {
     if (work.FineSource.Frame != job.Source.Frame || work.FineSource.Fine != job.Source.Fine) {
-      work.Fine = std::make_shared<const ClassStructure::Grid>();
+      work.Fine = std::make_shared<const TerrainClassificationMap::Grid>();
     }
     if (work.CoarseSource.Frame != job.Source.Frame ||
         work.CoarseSource.Coarse != job.Source.Coarse) {
-      work.Coarse = std::make_shared<const ClassStructure::Grid>();
+      work.Coarse = std::make_shared<const TerrainClassificationMap::Grid>();
     }
     if (job.Grain == ClassGrain::Fine) {
       work.Fine = built->Grid;
@@ -114,15 +115,15 @@ void ClassificationBuild::Run(Work &work, const std::stop_token &stop) {
     }
     result.BuildMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    result.Structure = std::make_shared<const ClassStructure>(
+    result.Structure = std::make_shared<const TerrainClassificationMap>(
         job.Frame,
         work.Fine,
         work.Coarse,
-        ClassStructure::FromRun{.Version = ++work.Version,
-                                .UnmappedRow = job.UnmappedRow,
-                                .BuildMs = result.BuildMs,
-                                .Overflow = built->Overflow});
-    result.Upload = std::make_shared<const Render::GroundClassBuffer>(*result.Structure);
+        TerrainClassificationMap::FromRun{.Version = ++work.Version,
+                                          .UnmappedRow = job.UnmappedRow,
+                                          .BuildMs = result.BuildMs,
+                                          .Overflow = built->Overflow});
+    result.Upload = std::make_shared<const Render::PackedTerrainClassification>(*result.Structure);
     work.UploadBytes.store(result.Upload->HeapBytes(), std::memory_order_relaxed);
     work.HeapBytes.store(GridBytes(*work.Fine) + GridBytes(*work.Coarse) +
                              work.Rasterizer.ScratchBytes(),

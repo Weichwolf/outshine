@@ -7,7 +7,7 @@
 #include <optional>
 #include <stop_token>
 #include "ClassificationRasterizer.h"
-#include "GroundClassBuffer.h"
+#include "PackedTerrainClassification.h"
 #include "Tasks.h"
 #include "TangentFrame.h"
 
@@ -32,8 +32,8 @@ public:
   };
 
   struct Handback {
-    std::shared_ptr<const ClassStructure> Structure;
-    std::shared_ptr<const Render::GroundClassBuffer> Upload;
+    std::shared_ptr<const TerrainClassificationMap> Structure;
+    std::shared_ptr<const Render::PackedTerrainClassification> Upload;
     Job Returned;
     double BuildMs = 0;
   };

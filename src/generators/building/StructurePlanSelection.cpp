@@ -336,16 +336,19 @@ StructurePlanSelection::EmitProjected(const Command &command,
          out.Built.RoofRun,
          projected->Mesh.RoofCorners,
          projected->Mesh.RoofRun);
-  if (!out.Built.WallColours.empty() || !projected->Mesh.WallColours.empty()) {
-    if (out.Built.WallColours.empty()) { out.Built.WallColours.resize(first * 4, 1.0f); }
-    if (projected->Mesh.WallColours.empty()) {
-      out.Built.WallColours.resize(out.Built.WallCorners.size() * 4, 1.0f);
+  const auto appendAttribute = [first, count = out.Built.WallCorners.size()](
+                                   auto &into, const auto &from, size_t components, float missing) {
+    if (into.empty() && from.empty()) { return; }
+    into.reserve(count * components);
+    if (into.empty()) { into.resize(first * components, missing); }
+    if (from.empty()) {
+      into.resize(count * components, missing);
     } else {
-      out.Built.WallColours.insert(out.Built.WallColours.end(),
-                                   projected->Mesh.WallColours.begin(),
-                                   projected->Mesh.WallColours.end());
+      into.insert(into.end(), from.begin(), from.end());
     }
-  }
+  };
+  appendAttribute(out.Built.WallColours, projected->Mesh.WallColours, 4, 1.0f);
+  appendAttribute(out.Built.WallMaterialM, projected->Mesh.WallMaterialM, 2, 0.0f);
   return {};
 }
 

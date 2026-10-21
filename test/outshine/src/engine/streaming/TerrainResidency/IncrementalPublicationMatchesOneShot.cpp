@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "TerrainResidency.h"
@@ -27,10 +27,10 @@ int main() {
       Patchwork patch;
       for (uint32_t x = 8192; x < 8195; ++x) {
         patch.Sheets.push_back({.Tile = {.Zoom = 14, .X = x, .Y = 8192},
-                                .Nodes = std::vector<float>(Render::GroundLattice::kPageNodes,
+                                .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes,
                                                             static_cast<float>(x - 8190)),
-                                .Side = Render::GroundLattice::kSide,
-                                .Postings = Render::GroundLattice::kSide});
+                                .Side = Render::TerrainRenderer::kSide,
+                                .Postings = Render::TerrainRenderer::kSide});
       }
       const TangentFrame frame = TangentFrame::At({});
       TerrainResidency staged;
@@ -40,11 +40,11 @@ int main() {
       CHECK(staged.BeginPublish(patch, error), "complete tile set validates before staging");
       for (size_t step = 0; step < 2; ++step) {
         const auto advanced = staged.AdvancePublish(patch, frame, 1);
-        CHECK(advanced && !*advanced && renderer.GroundLatticeTriangles() == 0,
+        CHECK(advanced && !*advanced && renderer.TerrainRendererTriangles() == 0,
               "partial height pages do not expose partial terrain tiles");
       }
       const auto completed = staged.AdvancePublish(patch, frame, 1);
-      CHECK(completed && *completed && renderer.GroundLatticeTriangles() > 0,
+      CHECK(completed && *completed && renderer.TerrainRendererTriangles() > 0,
             "last slice publishes the complete terrain set");
       const uint64_t digest = staged.Digest();
       const size_t bytes = renderer.HeightPageSourceBytes();
@@ -54,14 +54,14 @@ int main() {
                 renderer.HeightPageSourceBytes() == bytes,
             "duplicate identity rejects before changing staged or visible resources");
       staged.Clear();
-      CHECK(renderer.GroundLatticeTriangles() == 0, "clear removes the staged publication");
+      CHECK(renderer.TerrainRendererTriangles() == 0, "clear removes the staged publication");
 
       TerrainResidency oneShot;
       oneShot.Into(&renderer);
       CHECK(oneShot.Publish(patch, frame, error) && oneShot.Digest() == digest &&
                 renderer.HeightPageSourceBytes() == bytes,
             "one-shot and sheet-wise publication have the same native product");
-      CHECK(oneShot.Publish({}, frame, error) && renderer.GroundLatticeTriangles() == 0,
+      CHECK(oneShot.Publish({}, frame, error) && renderer.TerrainRendererTriangles() == 0,
             "empty publication releases all terrain pages");
       oneShot.Clear();
     }

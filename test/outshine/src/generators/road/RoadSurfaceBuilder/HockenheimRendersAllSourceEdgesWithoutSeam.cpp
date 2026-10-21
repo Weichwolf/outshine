@@ -1,6 +1,6 @@
 #include "OsmTransportBuilder.h"
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 #include "OsmXmlReader.h"
 #include "RoadSurfaceBuilder.h"
 #include "RoadSurfaceSampler.h"

@@ -31,7 +31,7 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "initial world opens");
     if (scene) {
-      Surrounds world;
+      WorldRegionState world;
       ::outshine::Generators::Osm::BuildingField footprints;
       world.BindSceneResources(renderer);
       GroundWorldCandidate ground(renderer, world, footprints);

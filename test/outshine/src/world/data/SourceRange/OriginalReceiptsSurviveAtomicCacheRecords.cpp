@@ -79,10 +79,11 @@ int main() {
           "receipt and raw body written atomically");
   }
   ContentStore reopened(config);
-  auto stored = reopened.Read(key, bytes.size() + MaximumRangeRecordOverhead);
-  CHECK(stored && UnpackSourceRange(*stored) && *stored == std::vector<uint8_t>({4, 5, 6}),
+  auto stored = reopened.Lookup(key, bytes.size() + MaximumRangeRecordOverhead);
+  CHECK(stored.Where == ContentStore::Presence::Bytes && UnpackSourceRange(stored.Bytes) &&
+            stored.Bytes == std::vector<uint8_t>({4, 5, 6}),
         "reopened existing content store delivers unchanged original bytes and a usable receipt");
-  CHECK(!reopened.Read(ContentKey(decl, at)),
+  CHECK(reopened.Lookup(ContentKey(decl, at)).Where == ContentStore::Presence::Unknown,
         "partial cache record cannot be mistaken for a whole object");
   std::error_code error;
   std::filesystem::remove_all(directory, error);

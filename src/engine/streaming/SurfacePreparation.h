@@ -17,6 +17,7 @@
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedGroundRegions.h"
+#include "PreparedRoadPages.h"
 #include "PreparedOsmTiles.h"
 #include "PreparedStreetGraph.h"
 #include "TerrainLoader.h"
@@ -146,6 +147,11 @@ public:
     return PreparedNetwork_;
   }
 
+  [[nodiscard]] const std::shared_ptr<::outshine::Generators::PreparedRoadPages> &
+  RoadAssets() const noexcept {
+    return PreparedRoads_;
+  }
+
   [[nodiscard]] const std::shared_ptr<Generators::Osm::PreparedGroundRegions> &
   RegionAssets() const noexcept {
     return PreparedRegions_;
@@ -170,7 +176,7 @@ public:
 
   [[nodiscard]] const ClassificationPreparation &Classes() const { return Cls_; }
 
-  [[nodiscard]] bool RestoreClasses(std::shared_ptr<const ClassStructure> classes) {
+  [[nodiscard]] bool RestoreClasses(std::shared_ptr<const TerrainClassificationMap> classes) {
     return Cls_.Restore(std::move(classes));
   }
 
@@ -284,10 +290,11 @@ private:
   std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> PreparedBuildings_;
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;
   std::shared_ptr<Generators::Osm::PreparedGroundRegions> PreparedRegions_;
+  std::shared_ptr<::outshine::Generators::PreparedRoadPages> PreparedRoads_;
   std::shared_ptr<Generators::Osm::PreparedOsmTiles> PreparedVectors_;
   enum class StreetMode : uint8_t { Source, CachedRegion, RequiredSource };
   StreetMode StreetMode_ = StreetMode::Source;
-  LongitudeLatitude CachedNetworkFocus_;
+  TileAt CachedNetworkTile_;
   enum class WaterStage : uint8_t { Deferred, Requested, Ready };
   enum class WaterMode : uint8_t { Immediate, RegionLookup };
   WaterStage WaterStage_ = WaterStage::Requested;

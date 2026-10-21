@@ -181,6 +181,35 @@ Pixel Expected(uint32_t x, uint32_t y, const ColourTarget &target, bool culled) 
   return pixel;
 }
 
+void CycleRasterState(Device &device,
+                      Commands &commands,
+                      const Shaders &shaders,
+                      ColourTarget target,
+                      const DrawState &state) {
+  Require(commands.Draw({.State = state, .Range = {.Count = 0}}));
+  auto alternate = Pipeline(device, shaders, target, Cull::Front, Winding::Clockwise);
+  std::array<VertexBuffer, 2> vertices;
+  for (size_t at = 0; at < vertices.size(); ++at) {
+    vertices[at] = state.Vertices[1 - at];
+    vertices[at].Stream = static_cast<uint32_t>(at);
+    vertices[at].Range.Offset += 8;
+    vertices[at].Range.Bytes -= 8;
+  }
+  auto changed = state;
+  changed.Pipeline = alternate.get();
+  changed.Vertices = vertices;
+  changed.Area = {.Width = kWidth / 2, .Height = kHeight / 2, .MinDepth = .25f, .MaxDepth = .75f};
+  changed.Clip = {.Width = 1, .Height = 1};
+  Require(commands.Draw({.State = changed, .Range = {.Count = 0}}));
+  Require(commands.Draw({.State = changed, .Range = {.Count = 0}}));
+  for (size_t at = 0; at < vertices.size(); ++at) {
+    vertices[at] = state.Vertices[at];
+    vertices[at].Range.Offset += 8;
+    vertices[at].Range.Bytes -= 8;
+  }
+  Require(commands.Draw({.State = changed, .Range = {.Count = 0}}));
+}
+
 void Case(Device &device,
           const Shaders &shaders,
           Mode mode,
@@ -228,6 +257,7 @@ void Case(Device &device,
                         .Area = {.Width = kWidth, .Height = kHeight},
                         .Clip = {.X = 1, .Y = 1, .Width = kWidth - 2, .Height = kHeight - 2}};
   Rejections(*commands, state, *colour);
+  CycleRasterState(device, *commands, shaders, target, state);
   if (mode == Mode::Direct) {
     Require(
         commands->Draw({.State = state, .Range = {.First = 1, .Count = 6, .FirstInstance = 2}}));

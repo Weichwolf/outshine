@@ -61,8 +61,8 @@ struct TerrainDeformationTask::State {
         return Tasks::StepResult::Complete;
       }
     }
-    Press =
-        std::make_unique<TerrainPressJob>(std::move(Stamps), Input, Frame, Layout, MostEarthworkM);
+    Press = std::make_unique<TerrainDeformationJob>(
+        std::move(Stamps), Input, Frame, Layout, MostEarthworkM);
     Current = Phase::Generate;
     return Tasks::StepResult::Yield;
   }
@@ -84,7 +84,7 @@ struct TerrainDeformationTask::State {
       return Fail(loaded ? "published terrain deformation asset is missing"
                          : std::move(loaded.error()));
     }
-    const PressedTerrain effects = Product.Effects;
+    const TerrainDeformationMetrics effects = Product.Effects;
     Product = std::move(**loaded);
     Product.Effects = effects;
     Current = Phase::Complete;
@@ -135,7 +135,7 @@ struct TerrainDeformationTask::State {
   double MostEarthworkM;
   size_t LoadBytesMost = 0;
   std::string Key;
-  std::unique_ptr<TerrainPressJob> Press;
+  std::unique_ptr<TerrainDeformationJob> Press;
   std::expected<void, std::string> Outcome;
   Phase Current = Phase::Lookup;
   std::atomic_bool Stopping{false};
@@ -179,7 +179,8 @@ bool TerrainDeformationTask::AwaitSlice(double seconds) const {
       lock, std::chrono::duration<double>(seconds), [state = State_] { return state->Completed; });
 }
 
-std::expected<PressedTerrain, std::string> TerrainDeformationTask::Take(Patchwork &candidate) {
+std::expected<TerrainDeformationMetrics, std::string>
+TerrainDeformationTask::Take(Patchwork &candidate) {
   assert(State_->Finished());
   if (!State_->Outcome) { return std::unexpected(std::move(State_->Outcome.error())); }
   candidate.Sheets = std::move(State_->Product.Pages);

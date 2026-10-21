@@ -2,6 +2,7 @@
 #include "GpuPlacement.h"
 #include "VertexUpload.h"
 #include "Check.h"
+#include <cstdint>
 
 int main() {
   using namespace outshine::Render;
@@ -28,7 +29,9 @@ int main() {
                                       .Carried = true,
                                       .Components = 4},
                                      recycled);
-  CHECK(upload && upload->Usage == SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ &&
+  CHECK(upload &&
+            static_cast<uint32_t>(upload->Usage) ==
+                static_cast<uint32_t>(Native::BufferUse::Storage) &&
             upload->Bytes == 48 && upload->Offset == 0 && upload->From == &source,
         "three tangents transfer exactly 48 bytes independently of the position prefix");
   return Report();

@@ -116,7 +116,14 @@ Result<void> MetalCommands::Dispatch(const ComputePipeline &pipeline,
     std::vector<id<MTLResource>> hazards;
     const auto prepared = PrepareResources(*arguments, hazards);
     if (!prepared) { return prepared; }
-    if (Compute == nil) { Compute = [Native computeCommandEncoder]; }
+    if (Compute == nil && Profile) {
+      MTLComputePassDescriptor *const description =
+          [MTLComputePassDescriptor computePassDescriptor];
+      ProfileComputeEncoder(*Profile, description, metal->State->Native.label);
+      Compute = [Native computeCommandEncoderWithDescriptor:description];
+    } else if (Compute == nil) {
+      Compute = [Native computeCommandEncoder];
+    }
     if (Compute == nil) {
       return Failure(ErrorKind::Driver, "Metal compute encoder creation failed");
     }

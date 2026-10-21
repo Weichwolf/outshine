@@ -94,6 +94,16 @@ void Compare(outshine::Render::SceneRenderer &actual, outshine::Render::SceneRen
   CHECK(red > 100 && green > 100, "both independent materials contribute visible pixels");
   CHECK(actual.GeometryBatchCount() == 48 && oracle.GeometryBatchCount() == 25,
         "all instance batches and the direct fallback remain present");
+  const auto &indirect = actual.Spent(Stage::Geometry);
+  const auto &direct = oracle.Spent(Stage::Geometry);
+  CHECK(indirect.Draws == 6 && direct.Draws == 25,
+        "stage counters count encoded requests rather than all prepared batches");
+  CHECK(indirect.DirectTriangles == 4 && indirect.IndirectInputTriangles == 93 &&
+            indirect.IndirectRecords == 47,
+        "indirect inputs and direct fallback geometry remain distinct");
+  CHECK(direct.DirectTriangles == 96 && direct.IndirectInputTriangles == 1 &&
+            direct.IndirectRecords == 1,
+        "direct pieces and the shared indirect main triangle have distinct input counts");
   CHECK(actual.GeometryDrawCallCount() == 6 && oracle.GeometryDrawCallCount() == 25,
         "material, layout and direct-batch boundaries split compatible indirect runs");
 }

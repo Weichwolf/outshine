@@ -95,56 +95,80 @@ void Compress(std::span<uint32_t, 8> state, std::span<const uint8_t, 64> block) 
 }
 #endif
 
-std::array<uint8_t, 32> Sha256Digest(const void *data, size_t bytes) {
+Sha256Prefix::Sha256Prefix(const void *data, size_t bytes) noexcept {
 #ifdef __APPLE__
-  CC_SHA256_CTX state;
-  (void)CC_SHA256_Init(&state);
+  (void)CC_SHA256_Init(&State_);
+#else
+  State_ = kInitialState;
+#endif
+  Append(data, bytes);
+}
+
+void Sha256Prefix::Append(const void *data, size_t bytes) noexcept {
+  if (bytes == 0) { return; }
   const auto *cursor = static_cast<const uint8_t *>(data);
+#ifdef __APPLE__
   for (size_t left = bytes; left != 0;) {
     const auto count = static_cast<CC_LONG>(
         std::min(left, static_cast<size_t>(std::numeric_limits<CC_LONG>::max())));
-    (void)CC_SHA256_Update(&state, cursor, count);
+    (void)CC_SHA256_Update(&State_, cursor, count);
     cursor += count;
     left -= count;
   }
+#else
+  Bytes_ += static_cast<uint64_t>(bytes);
+  if (Buffered_ != 0) {
+    const auto count = std::min(BufferedBytes_.size() - Buffered_, bytes);
+    std::memcpy(BufferedBytes_.data() + Buffered_, cursor, count);
+    Buffered_ += count;
+    cursor += count;
+    bytes -= count;
+    if (Buffered_ != BufferedBytes_.size()) { return; }
+    Compress(State_, BufferedBytes_);
+    Buffered_ = 0;
+  }
+  while (bytes >= BufferedBytes_.size()) {
+    Compress(State_, std::span<const uint8_t, 64>(cursor, BufferedBytes_.size()));
+    cursor += BufferedBytes_.size();
+    bytes -= BufferedBytes_.size();
+  }
+  if (bytes != 0) { std::memcpy(BufferedBytes_.data(), cursor, bytes); }
+  Buffered_ = bytes;
+#endif
+}
+
+std::array<uint8_t, 32> Sha256Prefix::Digest(const void *data, size_t bytes) const noexcept {
+  auto copy = *this;
+  copy.Append(data, bytes);
+#ifdef __APPLE__
   std::array<unsigned char, CC_SHA256_DIGEST_LENGTH> digest{};
-  (void)CC_SHA256_Final(digest.data(), &state);
+  (void)CC_SHA256_Final(digest.data(), &copy.State_);
   return digest;
 #else
-  std::array<uint32_t, 8> state = kInitialState;
-  const auto *p = static_cast<const uint8_t *>(data);
-  size_t left = bytes;
-  while (left >= 64) {
-    Compress(state, std::span<const uint8_t, 64>(p, 64));
-    p += 64;
-    left -= 64;
-  }
-
-  std::array<uint8_t, 128> tail = {{}};
-  if (left != 0) { std::memcpy(tail.data(), p, left); }
-  tail[left] = 0x80;
-  const size_t tailBlocks = (left + 9 > 64) ? 2u : 1u;
-  const uint64_t bits = static_cast<uint64_t>(bytes) * 8u;
+  std::array<uint8_t, 128> tail{};
+  if (copy.Buffered_ != 0) { std::memcpy(tail.data(), copy.BufferedBytes_.data(), copy.Buffered_); }
+  tail[copy.Buffered_] = 0x80;
+  const size_t tailBlocks = (copy.Buffered_ + 9 > 64) ? 2u : 1u;
+  const uint64_t bits = copy.Bytes_ * 8u;
   for (uint32_t i = 0; i < 8u; i++) {
     tail[tailBlocks * 64 - 1 - static_cast<size_t>(i)] = static_cast<uint8_t>(bits >> (8u * i));
   }
-  for (size_t b = 0; b < tailBlocks; b++) {
-    Compress(state, std::span<const uint8_t, 64>(tail.data() + b * 64, 64));
+  for (size_t block = 0; block < tailBlocks; block++) {
+    Compress(copy.State_, std::span<const uint8_t, 64>(tail.data() + block * 64, 64));
   }
-
   std::array<uint8_t, 32> digest{};
-  for (size_t i = 0; i < state.size(); ++i) {
+  for (size_t i = 0; i < copy.State_.size(); ++i) {
     for (size_t n = 0; n < kWordBytes; ++n) {
       digest[i * kWordBytes + n] =
-          static_cast<uint8_t>(state[i] >> ((kWordBytes - 1u - n) * kByteShift));
+          static_cast<uint8_t>(copy.State_[i] >> ((kWordBytes - 1u - n) * kByteShift));
     }
   }
   return digest;
 #endif
 }
 
-std::string Sha256Hex(const void *data, size_t bytes) {
-  const auto digest = Sha256Digest(data, bytes);
+std::string Sha256Prefix::Hex(const void *data, size_t bytes) const {
+  const auto digest = Digest(data, bytes);
   static constexpr std::string_view kHex = "0123456789abcdef";
   std::string out(digest.size() * 2, '0');
   for (size_t at = 0; at < digest.size(); ++at) {
@@ -152,6 +176,14 @@ std::string Sha256Hex(const void *data, size_t bytes) {
     out[at * 2 + 1] = kHex[digest[at] & 15u];
   }
   return out;
+}
+
+std::array<uint8_t, 32> Sha256Digest(const void *data, size_t bytes) {
+  return Sha256Prefix(nullptr, 0).Digest(data, bytes);
+}
+
+std::string Sha256Hex(const void *data, size_t bytes) {
+  return Sha256Prefix(nullptr, 0).Hex(data, bytes);
 }
 
 std::string Sha256Hex(std::string_view text) {

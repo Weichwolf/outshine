@@ -30,7 +30,7 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
     return std::isfinite(value) && bytes.Number(value == 0.0 ? 0.0 : value);
   };
   const bool intrinsic = view.RequestedDetail.has_value();
-  if (!text(intrinsic ? "building-static-lod-1" : "building-lod-4") || !text(base) ||
+  if (!text(intrinsic ? "building-static-lod-2" : "building-lod-5") || !text(base) ||
       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||
       !bytes.Number(view.RequestedCell.value_or(0)) || !bytes.Number(view.ClusterTriangles)) {
     return {};
@@ -72,8 +72,7 @@ bool ValidCeilings(const BakedTile &tile, size_t points) {
 void RestoreCoordinates(BakedTile &tile, const PreparedStructureTile &base) {
   tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
   tile.Coordinates->Origin = base.Origin;
-  tile.Coordinates->Points = base.PointsLatLon;
-  tile.Coordinates->Rings = base.Holes;
+  tile.Coordinates->OwnCoordinates(base.PointsLatLon, base.Holes);
   if (base.Origin.Provenance) {
     for (const auto &structure : base.Structures) {
       if (!tile.RequestedCell || structure.Layout.Cell.Index == *tile.RequestedCell) {
@@ -83,18 +82,20 @@ void RestoreCoordinates(BakedTile &tile, const PreparedStructureTile &base) {
   }
 }
 
-void RestoreCoordinates(BakedTile &tile, const PreparedBuildingBasis &basis) {
+void RestoreCoordinates(BakedTile &tile, PreparedBuildingAssets::Basis basis) {
   tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
-  tile.Coordinates->Origin = basis.Origin;
-  tile.Coordinates->Points = basis.PointsLatLon;
-  tile.Coordinates->Rings = basis.Holes;
-  if (basis.Origin.Provenance) {
-    for (const auto &source : basis.Sources) {
+  tile.Coordinates->Origin = basis->Origin;
+  if (basis->Origin.Provenance) {
+    for (const auto &source : basis->Sources) {
       if (!tile.RequestedCell || source.Cell == *tile.RequestedCell) {
         tile.Coordinates->Sources.push_back(source.Id);
       }
     }
   }
+  const std::span<const double> points = basis->PointsLatLon;
+  const std::span<const GeographicRing> rings = basis->Holes;
+  const size_t retainedBytes = basis->HeapBytes();
+  tile.Coordinates->ShareCoordinates(std::move(basis), points, rings, retainedBytes);
 }
 
 }
@@ -127,10 +128,11 @@ std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAsse
   return loaded;
 }
 
-std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAssets::LoadGeometry(
-    const std::string &baseKey, const PreparedBuildingBasis &basis, const RawTile &view) {
-  auto loaded = LoadGeometryArtifact(baseKey, view, basis.PointsLatLon.size() / 2u);
-  if (loaded && *loaded) { RestoreCoordinates(**loaded, basis); }
+std::expected<std::optional<BakedTile>, StructureBakeError>
+PreparedBuildingAssets::LoadGeometry(const std::string &baseKey, Basis basis, const RawTile &view) {
+  if (!basis) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
+  auto loaded = LoadGeometryArtifact(baseKey, view, basis->PointsLatLon.size() / 2u);
+  if (loaded && *loaded) { RestoreCoordinates(**loaded, std::move(basis)); }
   return loaded;
 }
 

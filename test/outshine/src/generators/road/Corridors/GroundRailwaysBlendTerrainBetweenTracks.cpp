@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "Corridors.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 #include "ProfiledRoadMesher.h"
 
 #include <algorithm>
@@ -51,7 +51,7 @@ std::vector<EarthworkStamp> Contacts(bool bridge, Sampler sample) {
   const TangentFrame frame = TangentFrame::At(origin);
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty, .Field = std::move(sample)};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::Corridors::Site site{.Vectors = &vectors,
                                          .Ways = ways,
                                          .Materials = materials,
@@ -59,6 +59,8 @@ std::vector<EarthworkStamp> Contacts(bool bridge, Sampler sample) {
                                          .Standing = frame,
                                          .Draped = drape,
                                          .Classes = noClasses,
+                                         .WaterUpM = {},
+                                         .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .Projection = {.FocalPx = 800}};

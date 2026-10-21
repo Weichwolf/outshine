@@ -1,7 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define VARYING in
-#define GROUND_WORLD_POSITION
 #include "subjectVaryings.glsl"
 #include "subjectOutput.glsl"
 #include "material.glsl"
@@ -24,9 +23,18 @@ const float kPi = acos(-1.0);
 #include "surfaceBlend.glsl"
 #include "groundLayers.glsl"
 #include "surfaceGradient.glsl"
+#if GROUND_PATCHES
+#include "groundFineNormal.glsl"
+#endif
 void main() {
+  readSubjectVaryings();
+#if GROUND_PATCHES
+  vec3 surfaceNormal = groundFineNormal();
+#else
+  vec3 surfaceNormal = normal;
+#endif
   M surface = materialAt();
-  vec3 shadingNormal = facing(normal, gl_FrontFacing);
+  vec3 shadingNormal = facing(surfaceNormal, gl_FrontFacing);
   float edgeM;
   float haloM;
   int runnerUp;
@@ -36,17 +44,16 @@ void main() {
   float reachM = groundBoundaryReach(which, runnerUp, rows);
   float halfFootprintM = min(acrossM, max(haloM - reachM, 0.0));
   float classWeight = groundEdgeWeight(edgeM, reachM, halfFootprintM);
-  float slopeDeg = degrees(acos(clamp(dot(normalize(normal), normalize(lights.up.xyz)), 0.0, 1.0)));
+  float slopeDeg = degrees(acos(clamp(dot(normalize(surfaceNormal), normalize(lights.up.xyz)), 0.0, 1.0)));
   float rockWeight = groundRockWeight(which, rows, slopeDeg);
   float otherRockWeight = edgeM < kGroundNoEdgeM ? groundRockWeight(runnerUp, rows, slopeDeg) : rockWeight;
   vec3 worldM = groundWorldM;
   vec3 worldDx = dFdx(worldM);
   vec3 worldDy = dFdy(worldM);
-  float footprintM = max(length(worldDx), length(worldDy));
   int rockRow = int(floatBitsToUint(groundPalette[1]));
   GroundSurface rock = groundSurface(groundWears(rockRow, rows), GroundDetail(1.0, 0.0, vec2(0.0)));
   if (max(rockWeight, otherRockWeight) > 0.0) {
-    rock = groundSurface(groundWears(rockRow, rows), rockDetail(worldM, worldDx, worldDy, footprintM, rows));
+    rock = groundSurface(groundWears(rockRow, rows), rockDetail(worldM, worldDx, worldDy, rows));
   }
   vec2 atM = worldM.xz;
   GroundSurface composed = rock;

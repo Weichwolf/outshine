@@ -16,6 +16,11 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`water.fit_physical_surface` liefert geteilte Float64-ENU-Wasserfacetten unter
+expliziten physischen Richtungsintervallen, optional als hergeleitetes lineares QP.
+Frame/Datum, Quellenzulassung und native Produkte bleiben beim Aufrufer:
+[water_profiles.md](water_profiles.md) (#760). Zusatzabhängigkeiten über `./lib[water]`.
+
 `Reservation.conflict_geometry(HeightInterval)` liefert für konstante Prismen die
 ursprüngliche unveränderliche Polygonfläche oder ein leeres Polygon. Abfrageband
 und Plan müssen denselben Frame/Höhenbezug verwenden; reine Höhenberührung bleibt
@@ -535,6 +540,13 @@ erfüllen. Der vollständige Verfahrensvergleich umfasst auch die nötigen Rück
 `python_events` gilt nur für den Python-Solver. Native Ereigniszahlen sind unbekannt
 und werden als `None` gemeldet. Schwere Aufrufe gehören in abbrechbare Worker,
 keine Deadline-Garantie innerhalb jedes Backend-Aufrufs.
+
+`prepare_hip(polygon, method='contour')` wählt die SFCGAL-freie begrenzte
+Kontur-/Facettenreferenz aus den Basisabhängigkeiten. Sie bewahrt Originaltraufe,
+Höfe und denselben `HipPlan`; fertige Pläne lassen sich unmittelbar über
+`Shape.roof_hip(..., prepared_plans=...)` konsumieren. `python_events` begrenzt hier
+die Kollaps-/Split-Schritte. Verfahren, Originalvergleich, Kosten und CPU/GPU-Grenze
+stehen in [roof_partition.md](../test/experiments/buildings/roof_partition.md) (#955).
 `HipPlanner` besitzt als expliziter Desktop-Kontext einen wiederverwendbaren
 Spawn-Prozess für dieselben Pläne. Eine Anfrage zugleich; begrenzte private
 Nachrichten, externe Anfragedeadline, `cancel()` und vollständiges Verwerfen
