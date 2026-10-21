@@ -14,8 +14,8 @@ Master owns intrinsic Fine/Shell/Massed production and finite cache identities.
 Keep the existing intrinsic coarse geometry as the moving-world fallback.
 One camera-independent **tangent-frame cell box** selects exactly the same
 triangles as the tested32source groups in all123poses. It needs120bytes of
-Double axes/bounds and one box test instead of32. A single ECEF AABB wrongly
-retains two additional offscreen cells; orientation matters in this finite case.
+Double axes/bounds and one box test instead of32. An ECEF AABB also selects this
+offscreen cell at two additional poses; orientation matters in this finite case.
 The32-group split removes no triangles in any visible pose and is not a useful
 additional camera hierarchy inside this cell. This says nothing against useful
 larger spatial hierarchy or shadow/light patch granularity (#1048).
