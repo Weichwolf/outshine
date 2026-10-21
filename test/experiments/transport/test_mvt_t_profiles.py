@@ -56,6 +56,16 @@ class SharedProfiles(unittest.TestCase):
 
     def test_navigation_mesh_interfaces_and_terrain_share_one_plan(self):
         products = shared_products(self.plan, self.heights, self.data)
+        _case, original = inputs()
+        self.assertEqual(products["format_version"], 1)
+        for source in original:
+            metadata = products["source_metadata"][source["source_id"]]
+            self.assertEqual(
+                metadata["provider_feature_id"], source["provider_feature_id"]
+            )
+            self.assertEqual(metadata["tile"], source["tile"])
+            self.assertEqual(metadata["supplied_tags"], source["supplied_tags"])
+            self.assertEqual(metadata["xy_m"], source["xy_m"])
         self.assertEqual(len(products["landings"]), 2)
         self.assertEqual(len(products["terrain_reservations"]), 3)
         self.assertTrue(products["interface_ports"])
@@ -79,6 +89,12 @@ class SharedProfiles(unittest.TestCase):
                 pending.extend(adjacency[node])
         self.assertEqual(len(seen), len(adjacency))
         self.assertEqual(len(products["external_contacts"]), 4)
+        self.assertTrue(
+            all(
+                r["footprint_parts"][0]["outer_xy_m"]
+                for r in products["terrain_reservations"]
+            )
+        )
         self.assertTrue(
             all(
                 c["profile_status"].startswith("proposed")

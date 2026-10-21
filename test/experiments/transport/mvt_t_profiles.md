@@ -71,6 +71,9 @@ countercase stays infeasible; it is never silently increased.
 the exact mesh interface edges between landing and corridor, retained source
 references, whole centreline profiles including facet crossings, a connected
 source graph, explicit stair levels, terrain footprints and source-face indices.
+Original provider feature IDs, tiles, tags, XY lines, adapter assumptions and
+the supplied frame accompany the fixture-local part keys. Reservation rings
+are numeric XY arrays with explicit holes; consumers need no WKT parser.
 All are derived from the same XY/height arrays saved in `products.npz`.
 
 The four outer profiles include every intersection of their full cross-section
