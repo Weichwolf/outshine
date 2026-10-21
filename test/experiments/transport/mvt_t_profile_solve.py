@@ -4,6 +4,7 @@ import math
 import time
 
 import numpy as np
+from mvt_t_profile_contacts import add_contacts, contact_residuals, prepare_contacts
 from mvt_t_profile_layout import prior_values
 from scipy.optimize import linprog
 from stair_junction_solve import (
@@ -15,13 +16,38 @@ from stair_junction_solve import (
 )
 
 
-def solve_profiles(plan, *, max_prior_change_m=2.0, seconds=5.0, solver="highs-ds"):
+def _prior_conditions(plan, system, datum, delta):
+    targets = []
+    for row, faces in zip(plan["rows"], plan["parts"], strict=True):
+        vertices = np.unique(faces)
+        prior = prior_values(row, plan["xy"][vertices]) - datum
+        for vertex, height in zip(vertices, prior, strict=True):
+            system.add([int(vertex), delta], [1, -1], height)
+            system.add([int(vertex), delta], [-1, -1], -height)
+        targets.append((vertices, prior + datum))
+    return targets
+
+
+def solve_profiles(
+    plan,
+    *,
+    max_prior_change_m=2.0,
+    seconds=5.0,
+    solver="highs-ds",
+    fixed_contacts=(),
+    max_contact_samples=32768,
+    contact_method="index",
+    contact_row_scale=1024.0,
+    contact_presolve=False,
+):
     if solver not in ("highs-ds", "highs-ipm"):
         raise ValueError("known HiGHS method required")
     if not math.isfinite(max_prior_change_m) or not 0 <= max_prior_change_m <= 5:
         raise ValueError("bounded nonnegative prior-change recipe required")
     if not math.isfinite(seconds) or not 0 <= seconds <= 60:
         raise ValueError("bounded nonnegative cooperative solver time required")
+    if type(contact_presolve) is not bool:
+        raise ValueError("explicit contact presolve choice required")
     began = time.perf_counter()
     count, planes = len(plan["xy"]), 3 * len(plan["nodes"])
     if count > 4096 or sum(map(len, plan["parts"])) > 8192:
@@ -31,14 +57,11 @@ def solve_profiles(plan, *, max_prior_change_m=2.0, seconds=5.0, solver="highs-d
     datum = float(
         np.median(np.concatenate([r["height_prior_xyz_m"][:, 2] for r in plan["rows"]]))
     )
-    targets = []
-    for row, faces in zip(plan["rows"], plan["parts"], strict=True):
-        vertices = np.unique(faces)
-        prior = prior_values(row, plan["xy"][vertices]) - datum
-        for vertex, height in zip(vertices, prior, strict=True):
-            system.add([int(vertex), delta], [1, -1], height)
-            system.add([int(vertex), delta], [-1, -1], -height)
-        targets.append((vertices, prior + datum))
+    contacts, contact_work = prepare_contacts(
+        plan, fixed_contacts, max_samples=max_contact_samples, method=contact_method
+    )
+    add_contacts(system, contacts, datum, row_scale=contact_row_scale)
+    targets = _prior_conditions(plan, system, datum, delta)
     angles = np.arange(16) * 2 * np.pi / 16
     normals, reserve = np.c_[np.cos(angles), np.sin(angles)], float(np.cos(np.pi / 16))
     height_bound = max(abs(p).max() for _v, p in targets) + max_prior_change_m
@@ -63,7 +86,11 @@ def solve_profiles(plan, *, max_prior_change_m=2.0, seconds=5.0, solver="highs-d
         b_ub=system.bounds,
         bounds=[(None, None)] * delta + [(0, max_prior_change_m)],
         method=solver,
-        options={"time_limit": seconds, "primal_feasibility_tolerance": 1e-9},
+        options={
+            "time_limit": seconds,
+            "primal_feasibility_tolerance": 1e-9,
+            "presolve": contact_presolve if contacts else True,
+        },
     )
     note = {
         "valid": bool(answer.success),
@@ -75,11 +102,14 @@ def solve_profiles(plan, *, max_prior_change_m=2.0, seconds=5.0, solver="highs-d
         "solver_s": time.perf_counter() - prepared,
         "elapsed_s": time.perf_counter() - began,
         "max_prior_change_budget_m": max_prior_change_m,
+        "contact_work": contact_work,
+        "contact_row_scale": contact_row_scale,
+        "presolve": contact_presolve if contacts else True,
         "overlap_vertex_constraints": overlaps,
         "sparse_array_bytes": matrix.data.nbytes
         + matrix.indices.nbytes
         + matrix.indptr.nbytes,
-        "scope": "local finite profile proposal; all external ports remain proposed",
+        "scope": "local finite profile proposal; only explicitly supplied fixed contacts are bound",
     }
     if not answer.success:
         return None, note
@@ -89,5 +119,6 @@ def solve_profiles(plan, *, max_prior_change_m=2.0, seconds=5.0, solver="highs-d
         objective=float(answer.fun),
         maximum_constraint_residual=float(np.max(matrix @ answer.x - system.bounds)),
         junction_planes=(answer.x[count:delta].reshape(-1, 3) + [datum, 0, 0]).tolist(),
+        fixed_contact_residuals_m=contact_residuals(contacts, heights),
     )
     return heights, note

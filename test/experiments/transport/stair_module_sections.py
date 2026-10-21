@@ -38,12 +38,16 @@ def interpolate(triangles, xy, values):
     )
 
 
-def line_pieces(vertices, faces, line):
+def line_pieces(vertices, faces, line, *, minimum_length_m=1e-10):
+    if not np.isfinite(minimum_length_m) or minimum_length_m < 0:
+        raise ValueError("finite nonnegative line-piece threshold required")
     intersections = shapely.intersection(
         shapely.polygons(vertices[faces, :2]), shapely.LineString(line)
     )
     pieces, parents = shapely.get_parts(intersections, return_index=True)
-    keep = (shapely.get_type_id(pieces) == 1) & (shapely.length(pieces) > 1e-10)
+    keep = (shapely.get_type_id(pieces) == 1) & (
+        shapely.length(pieces) > minimum_length_m
+    )
     return pieces[keep], parents[keep]
 
 
