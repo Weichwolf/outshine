@@ -86,10 +86,6 @@ GeometryRenderer::FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLa
   return FragmentArmNamed(domain, ShadingArmOf(layout), CarriesUv(layout), kind);
 }
 
-const char *GeometryRenderer::VertexEntry(VertexLayout layout) {
-  return VertexArmName(layout);
-}
-
 namespace {
 
 std::string VertexShaderVariant(VertexLayout layout) {

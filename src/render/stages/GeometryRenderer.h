@@ -76,7 +76,6 @@ public:
 
   using SourceOptions = SurfaceOutputs;
 
-  [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
   [[nodiscard]] static const char *
   FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
   static constexpr size_t kSubjectFragmentStorage = 3;
