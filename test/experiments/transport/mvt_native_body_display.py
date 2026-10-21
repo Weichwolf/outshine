@@ -19,7 +19,7 @@ def display(plan, data, output):
     walls = data["wall_faces"]
     inside = shapely.covers(
         plan["prepared_domains"][stair].buffer(1e-10),
-        shapely.points(vertices[walls, :2]),
+        shapely.points(data["body_vertices"][walls, :2]),
     ).all(axis=1)
     detail = vertices[np.vstack([top, walls[inside]])]
     figure = plt.figure(figsize=(13, 7))
@@ -60,5 +60,5 @@ def display(plan, data, output):
         "Local Python body at Float32 coordinates; native outside integration remains open"
     )
     figure.tight_layout()
-    figure.savefig(output / "native-body.png", dpi=170)
+    figure.savefig(output / "native-body.png", dpi=170, bbox_inches="tight")
     plt.close(figure)
