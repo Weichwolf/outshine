@@ -7,7 +7,7 @@ from scipy.spatial import cKDTree
 
 
 class BankDistance:
-    def __init__(self, segments):
+    def __init__(self, segments, *, prepare_index=True):
         if (
             not isinstance(segments, np.ndarray)
             or segments.ndim != 3
@@ -22,12 +22,14 @@ class BankDistance:
         self.length2 = np.einsum("ij,ij->i", self.delta, self.delta)
         if np.any(self.length2 <= 0):
             raise ValueError("positive bank segments required")
-        self.centres = self.segments.mean(axis=1)
+        self.centres = self.segments.mean(axis=1) if prepare_index else None
         self.half_length = math.sqrt(float(self.length2.max())) / 2
         self.margin = 64 * math.ulp(max(1.0, float(abs(self.segments).max())))
-        self.tree = cKDTree(self.centres)
-        for array in (self.segments, self.delta, self.length2, self.centres):
+        self.tree = cKDTree(self.centres) if prepare_index else None
+        for array in (self.segments, self.delta, self.length2):
             array.setflags(write=False)
+        if self.centres is not None:
+            self.centres.setflags(write=False)
 
     def query(self, points, *, cap_m, method="index", max_tests=2000000):
         """Midpoint ball + maximum half-length encloses every candidate segment.
@@ -55,6 +57,8 @@ class BankDistance:
             raise ValueError("bounded points, cap and distance work required")
         if method == "scan" and len(points) * len(self.segments) > max_tests:
             raise ValueError("bank segment-test budget exhausted")
+        if method == "index" and self.tree is None:
+            raise ValueError("bank index was not prepared")
         result = np.full(len(points), float(cap_m))
         work = {"point_queries": len(points), "returned_indices": 0, "segment_tests": 0}
         for i, point in enumerate(points):

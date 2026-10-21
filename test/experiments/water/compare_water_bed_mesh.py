@@ -291,7 +291,9 @@ def main():
     (shores, segments, unknown, paired), shore_cost = measure(
         lambda: shore_inputs(cells)
     )
-    bank, cost = measure(lambda: BankDistance(segments))
+    bank, cost = measure(
+        lambda: BankDistance(segments, prepare_index=args.method == "index")
+    )
     reports = []
     rows = []
     products = {}
@@ -336,6 +338,7 @@ def main():
         "paired_water_segments": paired,
         "paired_bed_subsegments": shared_bed_edges(products),
         "bank_preparation_cost": cost,
+        "bank_index_prepared": args.method == "index",
         "input_read_cost": input_cost,
         "shore_preparation_cost": shore_cost,
         "instrumented": args.trace_memory,
