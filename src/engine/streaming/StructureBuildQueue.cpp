@@ -751,9 +751,19 @@ StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
                                 const HeightSource &heightAt,
                                 std::span<const CellRequest> requests) {
   if (requests.empty() || requests.size() > 8 || Pool_ == nullptr || Mesher_ == nullptr ||
-      !heightAt.CaptureFields || !footprints.Anchored()) {
+      !footprints.Anchored()) {
     return 0;
   }
+  const auto *input = footprints.InputOfTile(requests.front().Tile);
+  if (input == nullptr ||
+      QualifiedSourceKey(footprints, requests.front().Tile) != requests.front().SourceKey ||
+      !CellRequestsValid(requests, *input)) {
+    return 0;
+  }
+  if (input->Bake.PreparedAssetKey) {
+    return PostAssetCells(stack, footprints, eye, heightAt, requests);
+  }
+  if (!heightAt.CaptureFields) { return 0; }
   if (stack.UsesCachedRegionNetwork()) {
     stack.RequestStreets();
     return 0;
@@ -769,17 +779,6 @@ StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
       (!accepted->Bake.PreparedAssetKey.has_value() &&
        StreetDigest(stack.Ways(), *vectors, first.Tile) != accepted->Bake.StreetDigest)) {
     return 0;
-  }
-  uint64_t cells = 0;
-  for (const auto request : requests) {
-    if (request.Tile != first.Tile || request.SourceKey != first.SourceKey || request.Cell == 0 ||
-        request.Cell > Generators::kStructureCellsPerTile ||
-        request.Detail > LevelOfDetail::Massed || CellQueued(request)) {
-      return 0;
-    }
-    const uint64_t bit = uint64_t{1} << (request.Cell - 1u);
-    if ((cells & bit) != 0 || (accepted->OccupiedCells & bit) == 0) { return 0; }
-    cells |= bit;
   }
   auto *const slot = std::ranges::find(PreparedCells_, nullptr);
   if (slot == PreparedCells_.end()) { return 0; }
@@ -1658,6 +1657,12 @@ bool StructureBuildQueue::ValidateCellLandingSource(
     const QueuedBuild &bake) {
   const auto *vectors = stack.Vectors();
   const auto *accepted = footprints.InputOfTile(bake.Task.Tile());
+  if (accepted != nullptr && bake.Task.FromPreparedInputs() && bake.Task.PreparedAssetKey() &&
+      accepted->Bake.PreparedAssetKey &&
+      *bake.Task.PreparedAssetKey() == *accepted->Bake.PreparedAssetKey) {
+    ++FastCellValidations_;
+    return true;
+  }
   if (accepted != nullptr &&
       (accepted->Bake.PreparedAssetKey.has_value() ||
        StreetDigest(stack.Ways(), *vectors, bake.Task.Tile()) == bake.StreetDigest) &&

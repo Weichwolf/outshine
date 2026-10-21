@@ -8,6 +8,7 @@
 #include "MvtWireFixture.h"
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -74,6 +75,58 @@ public:
 
   void Say(const std::string &) override {}
 };
+
+void CheckAssetCell(outshine::StructureBuildQueue &queue,
+                    outshine::Ground::SurfacePreparation &stack,
+                    const outshine::StructureBuildQueue::HeightSource &source,
+                    outshine::LongitudeLatitude eye,
+                    const size_t &pins) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  auto &prints = stack.Footprints();
+  const auto *input = prints.InputOfTile(0);
+  CHECK(input && input->Bake.PreparedAssetKey && input->OccupiedCells,
+        "a ready immutable building basis owns the requested cells");
+  if (!input || !input->Bake.PreparedAssetKey || !input->OccupiedCells) { return; }
+  const auto sourceKey = input->SourceKey;
+  const auto *contacts = prints.Footprints().data();
+  const auto pinsBefore = pins;
+  const auto streetsBefore = stack.Ways().LookedCount();
+  const std::array requests{StructureBuildQueue::CellRequest{
+      .Tile = 0,
+      .Cell = static_cast<uint32_t>(std::countr_zero(input->OccupiedCells)) + 1,
+      .Detail = LevelOfDetail::Fine,
+      .SourceKey = sourceKey}};
+  eye.LongitudeDeg += 0.00001;
+  bool landed = false;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!landed && std::chrono::steady_clock::now() < deadline) {
+    const auto posted = queue.PostsCells(stack, prints, eye, source, requests);
+    CHECK(posted.has_value(), "asset cell request keeps a valid bounded queue");
+    if (!posted) { break; }
+    const auto ready = queue.NextCellLanding(stack, prints, source);
+    CHECK(ready.has_value(), "asset cell completion validates the accepted source identity");
+    if (!ready) { break; }
+    if (*ready) {
+      const auto &baked = *(**ready).Baked;
+      CHECK((**ready).SourceKey == sourceKey && baked.RequestedCell == requests[0].Cell &&
+                baked.RequestedDetail == LevelOfDetail::Fine && !baked.SelectedView,
+            "the moved eye receives intrinsic fine geometry for exactly its source cell");
+      CHECK(!baked.Walls.Index.empty() && baked.Coordinates && !baked.Coordinates->Points().empty(),
+            "the prepared basis produces complete native building geometry and contacts");
+      queue.CommitsCellLanding(**ready);
+      landed = true;
+    } else {
+      (void)queue.AwaitSlice(0.001);
+      if (queue.Queued() == 0) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
+    }
+  }
+  CHECK(landed, "ready asset cells do not depend on height or street reconstruction");
+  CHECK(pins == pinsBefore && stack.Ways().LookedCount() == streetsBefore,
+        "a cell asset hit never calls the terrain provider or street preparation");
+  CHECK(prints.Footprints().data() == contacts && prints.InputOfTile(0)->SourceKey == sourceKey,
+        "a view cell leaves the accepted physical source and contact allocation unchanged");
+}
 
 void Replay(const std::filesystem::path &directory,
             bool warm,
@@ -254,6 +307,7 @@ void Replay(const std::filesystem::path &directory,
         "native content identity remains the accepted dependency without source revalidation");
   CHECK(!warm || stack.Ways().LookedCount() == 0,
         "native replay leaves unprepared street inputs untouched");
+  if (warm && !initialCells) { CheckAssetCell(queue, stack, source, eye, pins); }
   queue.Clear();
 }
 }

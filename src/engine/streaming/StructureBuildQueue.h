@@ -339,6 +339,16 @@ private:
     double ReadMs = 0.0;
   };
 
+  [[nodiscard]] bool
+  CellRequestsValid(std::span<const CellRequest> requests,
+                    const Generators::Osm::BuildingField::AcceptedInput &input) const noexcept;
+  [[nodiscard]] std::expected<size_t, std::string>
+  PostAssetCells(Ground::SurfacePreparation &stack,
+                 const Generators::Osm::BuildingField &footprints,
+                 LongitudeLatitude eye,
+                 const HeightSource &heightAt,
+                 std::span<const CellRequest> requests);
+
   [[nodiscard]] size_t PendingBasisLookups() const noexcept;
   [[nodiscard]] bool SelectNativeBasis(Ground::SurfacePreparation &stack,
                                        const ::outshine::Generators::Osm::BuildingField &prints,
