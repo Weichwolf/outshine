@@ -98,10 +98,10 @@ int main() {
     secondPiece.Indices = std::span(indices).first(3);
     secondPiece.Clusters = secondClusters;
     secondPiece.Instances = otherInstances;
-    const auto first = draw.PlacePiece(firstPiece, error);
-    const auto second = draw.PlacePiece(secondPiece, error);
-    CHECK(first != kNoPiece && second != kNoPiece, "both independent pieces register");
-    if (first == kNoPiece || second == kNoPiece) { return Report(); }
+    const auto first = draw.PlacePiece(firstPiece);
+    const auto second = draw.PlacePiece(secondPiece);
+    CHECK(first.has_value() && second.has_value(), "both independent pieces register");
+    if (!first || !second) { return Report(); }
     const bool published = draw.HandTables(error) && draw.HandPlacements(false, error);
     CHECK(published, "GPU tables publish");
     if (!published) { return Report(); }
@@ -157,7 +157,7 @@ int main() {
               "current and previous instance transforms remain distinct and intact");
       }
     }
-    CHECK(draw.SetPieceInstances(second, {}, error) && draw.HandTables(error),
+    CHECK(draw.SetPieceInstances(*second, {}, error) && draw.HandTables(error),
           "an empty instance set leaves no jobs for its piece");
     CHECK(draw.ClusterJobs() == 6 && draw.Drawn().size() == 3, "only first-piece instances remain");
   }

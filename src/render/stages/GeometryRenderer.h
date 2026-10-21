@@ -137,7 +137,7 @@ public:
 
   void SetPiecesVisible(bool visible);
 
-  [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error);
+  [[nodiscard]] Native::Result<PieceId> PlacePiece(const PieceMesh &piece);
   void ReleasePiece(PieceId which);
   [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error);
@@ -518,7 +518,7 @@ private:
   uint32_t PiecesLive_ = 0;
   uint32_t PieceTriangles_ = 0;
 
-  [[nodiscard]] bool RoomForStreams(std::string &error);
+  [[nodiscard]] Native::Result<void> RoomForStreams();
 
   struct OptionalStreamEnds {
     uint32_t VertexEnd;
@@ -526,8 +526,8 @@ private:
     uint32_t TangentEnd;
   };
 
-  [[nodiscard]] bool
-  RoomForOptionalStreams(OptionalStreamEnds ends, VertexRunsCarried carried, std::string &error);
+  [[nodiscard]] Native::Result<void> RoomForOptionalStreams(OptionalStreamEnds ends,
+                                                            VertexRunsCarried carried);
   void BindPlacementStorage(DrawResources &into, VertexLayout layout) const;
   [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);

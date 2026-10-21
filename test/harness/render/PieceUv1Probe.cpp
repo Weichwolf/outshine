@@ -147,10 +147,10 @@ int main(int argc, char *const *argv) {
         "physical metre values outside normalized texture range remain valid");
   GeometryRenderer subjects;
   SceneResources resources;
-  std::string error;
   const auto reject = [&] {
     CHECK(!ValidPieceUv1(piece), "inconsistent second UV input is invalid");
-    CHECK(subjects.PlacePiece(piece, error) == kNoPiece && error == kPieceUv1Error,
+    const auto invalid = subjects.PlacePiece(piece);
+    CHECK(!invalid && invalid.error().Message == kPieceUv1Error,
           "the actual subject entry rejects malformed data before device access");
     const auto result = resources.PlacePiece(subjects, piece);
     CHECK(!result && result.error() == kPieceUv1Error,
