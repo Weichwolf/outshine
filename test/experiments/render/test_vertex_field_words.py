@@ -123,6 +123,17 @@ class VertexFieldWords(unittest.TestCase):
         fields["indices"] = np.empty((0, 3), "<u4")
         self.assertIsNone(encode(fields).payload)
 
+    def test_shared_tables_allow_u32_vertex_identity_without_welding(self):
+        fields = source(65537)
+        fields["positions"][:] = 0
+        fields["indices"][0] = [0, 1, 65536]
+        payload = encode(fields).payload
+        self.assertEqual(HEADER.unpack_from(payload)[3], 4)
+        for current in (decode(payload), scalar_decode(payload)):
+            self.assertEqual(len(current["positions"]), 65537)
+            self.assertEqual(current["indices"].dtype, np.dtype("<u4"))
+            self.assertEqual(shader_records(current), shader_records(fields))
+
     def test_truncation_trailing_and_invalid_counts_reject_before_arrays(self):
         payload = encode(source()).payload
         for data in (b"", payload[:47], payload[:-1], payload + b"\0"):
