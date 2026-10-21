@@ -23,7 +23,8 @@ namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
 constexpr uint32_t kPreviousVersion = 10;
-constexpr uint32_t kVersion = 11;
+constexpr uint32_t kCeilingVersion = 11;
+constexpr uint32_t kVersion = 12;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -71,7 +72,7 @@ template <typename Archive, typename View> bool SelectionView(Archive &archive, 
 }
 
 template <typename Archive, typename Tile>
-bool Product(Archive &archive, Tile &tile, bool terrainFields = true) {
+bool Product(Archive &archive, Tile &tile, bool terrainFields = true, bool partFields = true) {
   if (!archive.List(tile.Built.WallCorners, vertex) ||
       !archive.List(tile.Built.RoofCorners, vertex) || !archive.List(tile.Built.WallRun, scalar) ||
       !archive.List(tile.Built.RoofRun, scalar) || !archive.List(tile.Walls.Clusters, cluster) ||
@@ -95,8 +96,9 @@ bool Product(Archive &archive, Tile &tile, bool terrainFields = true) {
     if (!archive.Number(error)) { return false; }
   }
   return archive.List(tile.Prints,
-                      [terrainFields](auto &held, auto &print) {
-                        return StructureBinary::FootprintFields(held, print, terrainFields);
+                      [terrainFields, partFields](auto &held, auto &print) {
+                        return StructureBinary::FootprintFields(
+                            held, print, terrainFields, partFields);
                       }) &&
          archive.List(tile.FootprintDetails, scalar) && archive.List(tile.SeatSpreadM, scalar) &&
          archive.List(tile.AcrossM, scalar) && archive.Number(tile.OsmHeights) &&
@@ -144,7 +146,9 @@ bool Valid(const BakedTile &tile) {
     return false;
   }
   if (!std::ranges::all_of(tile.Prints, [](const ::outshine::Ground::BuildingFootprint &item) {
-        return (!item.TerrainCeiling ||
+        return item.TerrainContacts.Valid() &&
+               (!item.TerrainContacts.Parts || item.TerrainCeiling) &&
+               (!item.TerrainCeiling ||
                 (item.MinimumHeightM == 0.0 && std::isfinite(item.TerrainCeiling->HeightAslM))) &&
                item.Source <= ::outshine::Ground::BuildingHeightSource::Generated &&
                std::isfinite(item.MinimumHeightM) && std::isfinite(item.HeightM) &&
@@ -339,14 +343,16 @@ std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,
   }
   Reader reader(payload.subspan(kMagic.size()));
   uint32_t version = 0;
-  if (!reader.Number(version) || (version != kVersion && version != kPreviousVersion) ||
+  if (!reader.Number(version) ||
+      (version != kVersion && version != kCeilingVersion && version != kPreviousVersion) ||
       !std::equal(inputKey.begin(), inputKey.end(), reader.Bytes.begin())) {
     return std::nullopt;
   }
   reader.Bytes = reader.Bytes.subspan(kHashBytes);
   reader.Remaining -= kHashBytes;
   BakedTile tile;
-  if (!Product(reader, tile, version == kVersion) || reader.Remaining != 0 || !Valid(tile)) {
+  if (!Product(reader, tile, version >= kCeilingVersion, version == kVersion) ||
+      reader.Remaining != 0 || !Valid(tile)) {
     return std::nullopt;
   }
   if (tile.SurfaceError) {
