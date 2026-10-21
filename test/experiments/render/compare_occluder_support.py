@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 from current_visibility import box_bounds, mesh_boxes, occluded, project, raster
 from depth_reprojection import depth_errors
+from occluder_control_scene import scene as analytic_scene
 from supported_occluders import (
     raster_faces,
     raster_patches,
@@ -206,6 +207,7 @@ def compare_pose(
             or result["maximum_final_depth_error"] != 0
         ):
             raise ValueError("Candidate lost actual current original geometry")
+    potential, _ = evaluate(points, faces, owners, live, view, full, full, winners)
     np.savez_compressed(
         output / "depths.npz", reference=full, original_face=winners, **depths
     )
@@ -215,8 +217,20 @@ def compare_pose(
         "basis": view[1].tolist(),
         "focal": view[2],
         "reference_cost": ref_cost,
+        "full_depth_diagnostic": potential,
         "methods": methods,
     }
+
+
+def input_scene(args):
+    if args.control:
+        points, faces, owners, document, old_view = analytic_scene()
+        source_hash = hashlib.sha256(
+            points.tobytes() + faces.tobytes() + owners.tobytes()
+        ).hexdigest()
+        return points, faces, owners, document, old_view, source_hash
+    points, faces, owners, document, source_hash = load_cell(args.input)
+    return points, faces, owners, document, camera(document, points), source_hash
 
 
 def run(args):
@@ -228,6 +242,7 @@ def run(args):
             "supported_occluders.py",
             "current_visibility.py",
             "depth_reprojection.py",
+            "occluder_control_scene.py",
         ]
     ]
     if subprocess.check_output(
@@ -243,8 +258,7 @@ def run(args):
     ).strip():
         raise ValueError("Freeze the measured geometry-control sources first")
     args.output.mkdir(parents=True, exist_ok=False)
-    points, faces, owners, document, source_hash = load_cell(args.input)
-    old_view = camera(document, points)
+    points, faces, owners, document, old_view, source_hash = input_scene(args)
     (_, old_winners), old_cost = measured(
         lambda: reference(points, faces, np.ones(len(faces), bool), old_view),
         args.trace,
@@ -288,6 +302,9 @@ def run(args):
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "input_sha256": source_hash,
+        "input_kind": "analytic layered opaque control"
+        if args.control
+        else "original real-cell opaque control",
         "implementation_sha256": {
             p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sources
         },
@@ -317,7 +334,7 @@ def run(args):
         "host_load_average": os.getloadavg(),
         "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
-        "scope": "Complete original real-cell geometry under an explicit all-opaque CPU control assumption; native material bindings remain unqualified. Controlled 500m eye, same 1280x720/focal, not native recorded poses or complete world. Original 3D edges/planes certify geometric support with finite Double guards; no all-input Float32 coverage guarantee. Unknown/changed source support released. Point-depth alone never supplies these tiles. Old seed selection uses old geometry/projection, not full current depth or reference winners. Extra prepass submits seed triangles; late colour submits original retained triangles again. Python times omit native GPU passes/fences/IO. Source IDs/ranges retained; dynamic changes are diagnostic source edits, not a completed runtime feature.",
+        "scope": "Either complete original real-cell geometry under an explicit all-opaque CPU assumption, or separate analytic layered opaque geometry; native material bindings remain unqualified. Real-cell control uses a 500m eye; analytic control uses its explicit metre geometry. Both 1280x720, not native recorded poses or complete world. Original 3D edges/planes certify geometric support with finite Double guards; no all-input Float32 coverage guarantee. Unknown/changed source support released. Point-depth alone never supplies these tiles. Old seed selection uses old geometry/projection, not full current depth or reference winners. Extra prepass submits seed triangles; late colour submits original retained triangles again. Full current depth is a diagnostic potential control only, never candidate selection/repair. Python times omit native GPU passes/fences/IO. Source IDs/ranges retained; dynamic changes are diagnostic source edits, not a completed runtime feature.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(
@@ -329,7 +346,9 @@ def run(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, required=True)
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--input", type=Path)
+    inputs.add_argument("--control", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seeds", type=int, default=64)
     parser.add_argument("--block", type=int, default=16)
