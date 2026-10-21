@@ -136,7 +136,9 @@ class WindowRange:
         point, radius = np.asarray(values, float), float(radius)
         boxes = self.metadata.boxes
         if self.tree is None:
-            ids = np.arange(len(boxes))
+            chosen, exact = intersects(boxes, point, radius)
+            selected = np.flatnonzero(chosen)
+            tested = len(boxes)
         else:
             low = np.nextafter(point[:2] - radius, -np.inf)
             high = np.nextafter(point[:2] + radius, np.inf)
@@ -144,7 +146,8 @@ class WindowRange:
                 shapely.Point(point[:2]) if radius == 0 else shapely.box(*low, *high)
             )
             ids = np.sort(np.r_[self.tree_ids[self.tree.query(region)], self.special])
-        chosen, exact = intersects(boxes[ids], point, radius)
+            chosen, exact = intersects(boxes[ids], point, radius)
+            selected, tested = ids[chosen], len(ids)
         return RangeSelection(
-            tuple(self.metadata.identifiers[i] for i in ids[chosen]), len(ids), exact
+            tuple(self.metadata.identifiers[i] for i in selected), tested, exact
         )
