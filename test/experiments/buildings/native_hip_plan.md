@@ -43,3 +43,28 @@ plans and two existing `InvalidFacet` refusals (`Vienna:112890:2` and
 behaviour. The complete SFCGAL replacement must handle the original corpus with
 the verified contour method, then pass native consumer, cache, image and cost checks.
 No geometry recipe or cache-format version changes for this byte-identical step.
+
+## Complete native contour port, #955
+
+The runtime now uses the typed contour implementation under
+`src/generators/building/roof/`. `HipRoofPlan::Prepare` keeps the analytic rectangle
+fast path; other footprints use bounded moving-front events, directed contact
+pairing, per-original-eave swept facets, shared-node refinement and final
+plane/manifold/disjoint-coverage checks. GEOS handles polygon operations; no
+SFCGAL call remains in plan construction. The existing precision, clearance,
+capacity and deadline limits remain. JSON is diagnostic glue outside the kernel.
+
+The previously library-disabled control is now `PlansAvoidSkeletonLibrary`:
+rectangles and a triangular roof succeed with zero skeleton calls. The fixed
+57-eave courtyard must succeed with every original eave and the same area;
+it can no longer pass by refusing the plan. The original 48 pins and their
+comparison tolerances remain unchanged. The actual rebuilt product archive
+passes all 48 pins; all 64 rectangle Codec results remain byte-identical.
+
+Prepared building assets use recipe `prepared-building-base-11`, and mesh producer `outshine-building-mesh-20`, because complex
+roof geometry and old refusals change. The binary plan format does not change;
+existing valid plans remain readable. A recipe miss rebuilds the affected product;
+a hit continues loading the stored immutable plan without constructing topology.
+This kernel result alone admits neither the complete client, Places, resource
+budgets nor removal of the remaining package/build/test dependency. Their actual
+terminal results are recorded in #955.
