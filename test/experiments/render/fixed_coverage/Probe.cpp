@@ -1,4 +1,6 @@
 #include "FixedPatch.h"
+#include "CaseInput.h"
+#include "UncertainPatch.h"
 #include "Exact.h"
 #include "GpuSupport.h"
 #include "SpirvFile.h"
@@ -7,7 +9,6 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -27,6 +28,8 @@
 #include <utility>
 #include <vector>
 
+using CoverageCases::Case;
+using CoverageCases::ReadCases;
 namespace F = FixedCoverage;
 namespace N = outshine::Render::Native;
 namespace C = outshine::Diagnostics::Calibration;
@@ -143,92 +146,6 @@ ImagePair Draw(N::Device &device,
   return result;
 }
 
-struct Case {
-  std::string Name;
-  std::vector<F::SourceQuad> Sources;
-  std::optional<uint32_t> RequiredPixels = std::nullopt;
-  std::optional<F::Unknown> RequiredUnknown = std::nullopt;
-  bool ExternalReference = false;
-};
-
-std::expected<std::array<float, 4>, std::string> ReadPoint(const nlohmann::json &point) {
-  if (!point.is_array() || point.size() != 4) {
-    return std::unexpected("invalid clip-space point");
-  }
-  std::array<float, 4> result{};
-  for (size_t i = 0; i < result.size(); ++i) {
-    if (!point[i].is_number()) { return std::unexpected("non-numeric clip coordinate"); }
-    const double value = point[i].get<double>();
-    if (!std::isfinite(value) || std::abs(value) > std::numeric_limits<float>::max()) {
-      return std::unexpected("coordinate outside finite float32");
-    }
-    result[i] = static_cast<float>(value);
-  }
-  return result;
-}
-
-std::expected<F::SourceQuad, std::string> ReadQuad(const nlohmann::json &source) {
-  if (!source.is_object() || !source.contains("points") || !source["points"].is_array() ||
-      source["points"].size() != 4) {
-    return std::unexpected("source requires four corners");
-  }
-  F::SourceQuad quad;
-  quad.Opaque = true;
-  quad.Complete = true;
-  for (size_t i = 0; i < quad.Points.size(); ++i) {
-    auto point = ReadPoint(source["points"][i]);
-    if (!point) { return std::unexpected(point.error()); }
-    quad.Points[i] = *point;
-  }
-  return quad;
-}
-
-std::expected<Case, std::string> ReadCase(const nlohmann::json &entry) {
-  constexpr size_t SourceLimit = 4096;
-  constexpr size_t NameLimit = 128;
-  if (!entry.is_object() || !entry.contains("name") || !entry["name"].is_string() ||
-      !entry.contains("sources") || !entry["sources"].is_array() ||
-      entry["sources"].size() > SourceLimit) {
-    return std::unexpected("invalid case fields");
-  }
-  Case fixture{.Name = entry["name"].get<std::string>(), .Sources = {}, .ExternalReference = true};
-  if (fixture.Name.empty() || fixture.Name.size() > NameLimit ||
-      !std::ranges::all_of(
-          fixture.Name, [](unsigned char c) { return std::isalnum(c) || c == '-' || c == '_'; })) {
-    return std::unexpected("case name must be a filename-safe identifier");
-  }
-  for (const auto &source : entry["sources"]) {
-    auto quad = ReadQuad(source);
-    if (!quad) { return std::unexpected(quad.error()); }
-    fixture.Sources.push_back(*quad);
-  }
-  return fixture;
-}
-
-std::expected<std::vector<Case>, std::string> ReadCases(const std::filesystem::path &path) {
-  constexpr std::streamoff InputLimit = std::streamoff{8} * 1024 * 1024;
-  constexpr size_t CaseLimit = 64;
-  std::ifstream input(path, std::ios::binary | std::ios::ate);
-  if (!input || input.tellg() < 0 || input.tellg() > InputLimit) {
-    return std::unexpected("case input missing or too large");
-  }
-  input.seekg(0);
-  const auto data = nlohmann::json::parse(input, nullptr, false);
-  if (data.is_discarded() || !data.is_object() || !data.contains("cases") ||
-      !data["cases"].is_array() || data["cases"].size() > CaseLimit ||
-      !data.contains("qualified_for_page_suppression") ||
-      data["qualified_for_page_suppression"] != false) {
-    return std::unexpected("input must declare calibration-only cases");
-  }
-  std::vector<Case> cases;
-  for (const auto &entry : data["cases"]) {
-    auto fixture = ReadCase(entry);
-    if (!fixture) { return std::unexpected(fixture.error()); }
-    cases.push_back(std::move(*fixture));
-  }
-  return cases;
-}
-
 struct PixelRectangle {
   std::array<float, 2> Min;
   std::array<float, 2> Max;
@@ -261,11 +178,13 @@ std::vector<Case> Cases() {
   cases.push_back({.Name = "closed-square",
                    .Sources = {Rectangle(
                        {.Min = {leftEdge, leftEdge}, .Max = {rightEdge, rightEdge}}, farDepth)},
+                   .UncertainSources = {},
                    .RequiredPixels = full});
   cases.push_back(
       {.Name = "whole-viewport",
        .Sources = {Rectangle(
            {.Min = {-leftEdge, -leftEdge}, .Max = {Side + leftEdge, Side + leftEdge}}, farDepth)},
+       .UncertainSources = {},
        .RequiredPixels = fullFrame});
   cases.push_back(
       {.Name = "adjacent-patches",
@@ -273,6 +192,7 @@ std::vector<Case> Cases() {
                              farDepth),
                    Rectangle({.Min = {middleEdge, leftEdge}, .Max = {rightEdge, rightEdge}},
                              farDepth)},
+       .UncertainSources = {},
        .RequiredPixels = full});
   cases.push_back(
       {.Name = "overlapping-depths",
@@ -281,6 +201,7 @@ std::vector<Case> Cases() {
                    Rectangle({.Min = {leftEdge * 2, leftEdge * 2},
                               .Max = {rightEdge - leftEdge, rightEdge - leftEdge}},
                              nearDepth)},
+       .UncertainSources = {},
        .RequiredPixels = full});
   cases.push_back(
       {.Name = "real-hole",
@@ -291,6 +212,7 @@ std::vector<Case> Cases() {
                       farDepth),
             Rectangle({.Min = {middleEdge + 4, middleEdge - 4}, .Max = {rightEdge, middleEdge + 4}},
                       farDepth)},
+       .UncertainSources = {},
        .RequiredPixels = hole});
   for (int i = 0; i < 16; ++i) {
     const float shift = static_cast<float>(i) / 16;
@@ -301,7 +223,9 @@ std::vector<Case> Cases() {
       constexpr std::array<float, 4> weights{.37f, 1.13f, 2.77f, 8.91f};
       for (auto &value : source.Points[corner]) { value *= weights[corner]; }
     }
-    cases.push_back({.Name = "projective-subpixel-" + std::to_string(i), .Sources = {source}});
+    cases.push_back({.Name = "projective-subpixel-" + std::to_string(i),
+                     .Sources = {source},
+                     .UncertainSources = {}});
   }
   auto diamond = Rectangle({.Min = {leftEdge, leftEdge}, .Max = {rightEdge, rightEdge}}, nearDepth);
   constexpr std::array<std::array<float, 2>, 4> xy{{{32, -20}, {84, 32}, {32, 84}, {-20, 32}}};
@@ -309,7 +233,7 @@ std::vector<Case> Cases() {
     diamond.Points[i][0] = xy[i][0] / (static_cast<float>(Side) / 2) - 1;
     diamond.Points[i][1] = 1 - xy[i][1] / (static_cast<float>(Side) / 2);
   }
-  cases.push_back({.Name = "eight-corner-clip", .Sources = {diamond}});
+  cases.push_back({.Name = "eight-corner-clip", .Sources = {diamond}, .UncertainSources = {}});
   for (size_t i = 0; i < 5; ++i) {
     auto unknown = cases.front().Sources.front();
     if (i == 0) { unknown.Opaque = false; }
@@ -324,6 +248,7 @@ std::vector<Case> Cases() {
                                  F::Unknown::ClipCrossing};
     cases.push_back({.Name = "unknown-" + std::to_string(i),
                      .Sources = {unknown},
+                     .UncertainSources = {},
                      .RequiredPixels = 0,
                      .RequiredUnknown = reasons[i]});
   }
@@ -334,8 +259,11 @@ std::vector<Case> AdversarialCases() {
   std::vector<Case> cases;
   const auto original = Rectangle({.Min = {8, 8}, .Max = {56, 56}}, .5f);
   const auto reject = [&](const std::string &name, const F::SourceQuad &source, F::Unknown why) {
-    cases.push_back(
-        {.Name = name, .Sources = {source}, .RequiredPixels = 0, .RequiredUnknown = why});
+    cases.push_back({.Name = name,
+                     .Sources = {source},
+                     .UncertainSources = {},
+                     .RequiredPixels = 0,
+                     .RequiredUnknown = why});
   };
   auto source = original;
   source.Points[0][0] = std::numeric_limits<float>::quiet_NaN();
@@ -362,15 +290,19 @@ std::vector<Case> AdversarialCases() {
   for (auto &point : source.Points) { point[2] = std::numeric_limits<float>::denorm_min(); }
   reject("subnormal-depth", source, F::Unknown::NoDepth);
   for (auto &point : source.Points) { point[2] = std::numeric_limits<float>::min(); }
-  cases.push_back(
-      {.Name = "minimum-normal-depth", .Sources = {source}, .RequiredPixels = FullSquarePixels});
+  cases.push_back({.Name = "minimum-normal-depth",
+                   .Sources = {source},
+                   .UncertainSources = {},
+                   .RequiredPixels = FullSquarePixels});
   source = original;
   for (auto &point : source.Points) {
     point[0] = std::copysign(std::numeric_limits<float>::max(), point[0]);
     point[1] = std::copysign(std::numeric_limits<float>::max(), point[1]);
   }
-  cases.push_back(
-      {.Name = "maximum-finite-clipped", .Sources = {source}, .RequiredPixels = Side * Side});
+  cases.push_back({.Name = "maximum-finite-clipped",
+                   .Sources = {source},
+                   .UncertainSources = {},
+                   .RequiredPixels = Side * Side});
   return cases;
 }
 
@@ -404,6 +336,10 @@ nlohmann::json ProfileChecks() {
 
 bool Requirements(const Case &fixture, const nlohmann::json &row, const nlohmann::json &unknown) {
   if (fixture.RequiredPixels && row["accepted_pixels"] != *fixture.RequiredPixels) { return false; }
+  if (fixture.RequiredMinimum && row["accepted_pixels"] < *fixture.RequiredMinimum) {
+    return false;
+  }
+  if (fixture.RequiredDepth && row["maximum_depth"] != *fixture.RequiredDepth) { return false; }
   return !fixture.RequiredUnknown ||
          (row["patches"] == 0 &&
           unknown == nlohmann::json::array({static_cast<int>(*fixture.RequiredUnknown)}));
@@ -429,6 +365,16 @@ float ExpectedDepth(std::span<const F::FixedPatch> patches, uint32_t x, uint32_t
   return result;
 }
 
+bool SourceCovers(std::span<const F::Projected> sources,
+                  std::span<const F::UncertainOracle> uncertain,
+                  const std::array<uint32_t, 2> &pixel,
+                  float value) {
+  return std::ranges::any_of(
+             sources, [&](const auto &source) { return SourceCovers(source, pixel, value); }) ||
+         std::ranges::any_of(uncertain,
+                             [&](const auto &source) { return F::Covers(source, pixel, value); });
+}
+
 nlohmann::json
 Check(const Case &fixture, std::span<const F::FixedPatch> patches, const ImagePair &images) {
   std::vector<F::Projected> sources;
@@ -436,24 +382,31 @@ Check(const Case &fixture, std::span<const F::FixedPatch> patches, const ImagePa
     auto projected = F::Project(source, Side, Side);
     if (projected) { sources.push_back(std::move(*projected)); }
   }
+  std::vector<F::UncertainOracle> uncertain;
+  for (const auto &source : fixture.UncertainSources) {
+    auto oracle = F::MakeOracle(source, Side, Side);
+    if (oracle) { uncertain.push_back(std::move(*oracle)); }
+  }
   uint64_t falsePixels = 0;
   uint64_t mismatches = 0;
   uint64_t invalid = 0;
   uint64_t accepted = 0;
+  float maximumDepth = 0;
   for (uint32_t y = 0; y < Side; ++y) {
     for (uint32_t x = 0; x < Side; ++x) {
       const float value = images.Colour[size_t{y} * Side + x];
+      if (std::isfinite(value)) { maximumDepth = std::max(maximumDepth, value); }
       const float expected = ExpectedDepth(patches, x, y);
       mismatches += value != expected || images.Depth[size_t{y} * Side + x] != expected ? 1u : 0u;
       invalid += !std::isfinite(value) || value < 0 || value > 1 ? 1u : 0u;
       if (!(value > 0)) { continue; }
       ++accepted;
-      const bool safe = std::ranges::any_of(
-          sources, [&](const auto &source) { return SourceCovers(source, {x, y}, value); });
-      falsePixels += safe ? 0u : 1u;
+      const bool safe = SourceCovers(sources, uncertain, {x, y}, value);
+      falsePixels += static_cast<uint64_t>(!safe);
     }
   }
   return {{"accepted_pixels", accepted},
+          {"maximum_depth", maximumDepth},
           {"false_source_coverage_or_depth", falsePixels},
           {"fixed_mask_or_d32_mismatch", mismatches},
           {"invalid_output", invalid}};
@@ -465,14 +418,36 @@ void Save(const std::filesystem::path &path, std::span<const float> values) {
              static_cast<std::streamsize>(values.size_bytes()));
   if (!file) { std::_Exit(2); }
 }
+
+void Prepare(const Case &fixture, std::vector<F::FixedPatch> &patches, nlohmann::json &unknown) {
+
+  for (const auto &source : fixture.Sources) {
+    auto patch = F::Prepare(source, Side, Side);
+    if (patch) {
+      patches.push_back(*patch);
+    } else {
+      unknown.push_back(static_cast<int>(patch.error()));
+    }
+  }
+  for (const auto &source : fixture.UncertainSources) {
+    auto patch = (fixture.IntegerCertificate ? F::PrepareInteger(source, Side, Side)
+                                             : F::Prepare(source, Side, Side));
+    if (patch) {
+      patches.push_back(*patch);
+    } else {
+      unknown.push_back(static_cast<int>(patch.error()));
+    }
+  }
+}
+
 }
 
 int main(int argc, char *const *argv) {
-  if (argc != 3 && argc != 4) { return 2; }
+  if (argc < 3 || argc > 5) { return 2; }
   auto cases = Cases();
   for (auto &fixture : AdversarialCases()) { cases.push_back(std::move(fixture)); }
-  if (argc == 4) {
-    auto extra = ReadCases(argv[3]);
+  for (int input = 3; input < argc; ++input) {
+    auto extra = ReadCases(argv[input]);
     if (!extra) {
       std::println(stderr, "{}", extra.error());
       return 2;
@@ -502,14 +477,7 @@ int main(int argc, char *const *argv) {
     std::vector<F::FixedPatch> patches;
     nlohmann::json unknown = nlohmann::json::array();
     const auto started = std::chrono::steady_clock::now();
-    for (const auto &source : fixture.Sources) {
-      auto patch = F::Prepare(source, Side, Side);
-      if (patch) {
-        patches.push_back(*patch);
-      } else {
-        unknown.push_back(static_cast<int>(patch.error()));
-      }
-    }
+    Prepare(fixture, patches, unknown);
     const double prepareSeconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     const auto images = Draw(*device, *pipeline, target, patches);
