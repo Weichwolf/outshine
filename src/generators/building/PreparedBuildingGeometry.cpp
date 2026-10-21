@@ -131,9 +131,6 @@ PreparedBuildingAssets::StoreGeometry(const std::string &baseKey,
     if (encoded.error() == StructureArtifactError::CapacityExceeded) {
       return std::unexpected(StructureBakeErrorKind::ArtifactCapacityExceeded);
     }
-    if (encoded.error() == StructureArtifactError::WriteFailed) {
-      return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
-    }
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
   }
   if (encoded->size() > kGeometryBytesMost) {

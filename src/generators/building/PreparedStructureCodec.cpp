@@ -66,7 +66,7 @@ bool text(Writer &archive, const std::string &value) {
 
 bool text(Reader &archive, std::string &value) {
   uint64_t count = 0;
-  if (!archive.Number(count) || count > archive.Remaining || count > archive.AllocationLeft) {
+  if (!archive.Number(count) || count > archive.Bytes.size() || count > archive.AllocationLeft) {
     return false;
   }
   archive.AllocationLeft -= static_cast<size_t>(count);
@@ -455,7 +455,7 @@ std::optional<PreparedBuildingBasis> DecodePreparedBuildingBasis(std::span<const
   PreparedBuildingBasis basis;
   if (!input.Number(magic) || magic != kMagic || !input.Number(version) ||
       version != kBasisVersion || !PreparedStructureCodec::BasisFields(input, basis) ||
-      input.Remaining != 0 || !PreparedStructureCodec::ValidBasis(basis)) {
+      !input.Bytes.empty() || !PreparedStructureCodec::ValidBasis(basis)) {
     return std::nullopt;
   }
   return basis;
@@ -495,7 +495,7 @@ std::optional<PreparedStructureTile> DecodePreparedStructureTile(std::span<const
                                           version != kLegacyVersion,
                                           version >= kCeilingVersion,
                                           version == kVersion) ||
-      input.Remaining != 0 || !PreparedStructureCodec::Valid(tile)) {
+      !input.Bytes.empty() || !PreparedStructureCodec::Valid(tile)) {
     return std::nullopt;
   }
   return tile;
@@ -530,7 +530,7 @@ std::optional<PreparedStructureTile> DecodePreparedStructureIndex(std::span<cons
                                            version != kLegacyIndexVersion,
                                            version >= kCeilingIndexVersion,
                                            version == kIndexVersion) ||
-      input.Remaining != 0 || !PreparedStructureCodec::Valid(tile)) {
+      !input.Bytes.empty() || !PreparedStructureCodec::Valid(tile)) {
     return std::nullopt;
   }
   return tile;
@@ -566,7 +566,7 @@ DecodeBuildingSurfaceBlock(std::span<const uint8_t> bytes, size_t residentBytesM
                                held, surface, magic == kBlockMagic) &&
                            PreparedStructureCodec::ValidSurface(surface);
                   }) ||
-      input.Remaining != 0) {
+      !input.Bytes.empty()) {
     return std::nullopt;
   }
   return surfaces;
