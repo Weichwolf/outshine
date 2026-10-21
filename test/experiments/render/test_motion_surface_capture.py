@@ -122,6 +122,12 @@ class MotionCaptureTests(unittest.TestCase):
                 out[key][out["indices"]].tobytes(),
             )
         np.testing.assert_array_equal(mesh["binding"], source["binding"])
+        source["metres"][0, 0] = -0.0
+        negative_zero = decoded(shared_mesh(source, np.arange(3)))
+        self.assertEqual(
+            source["metres"][source["indices"]].tobytes(),
+            negative_zero["metres"][negative_zero["indices"]].tobytes(),
+        )
         source["colour"][0, 3] = 0.5
         source["metres"][0, 0] = 3
         other = decoded(shared_mesh(source, np.arange(3)))

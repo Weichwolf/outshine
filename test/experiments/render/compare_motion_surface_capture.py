@@ -5,6 +5,8 @@ import hashlib
 import json
 import resource
 import subprocess
+import sys
+import tempfile
 import time
 from functools import partial
 from pathlib import Path
@@ -365,9 +367,10 @@ def run(args):
         },
         "poses": reports,
         "panels": sorted(selected_panels),
+        "platform": sys.platform,
         "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        * 1024,
-        "scope": "Linux Python opaque-control only. Whole original triangles give generous support before resampling. Captures are not LDI textures and do not establish an eye radius. All intrinsic coarse arrays remain resident; captures add bytes if kept with them. Hierarchy frustum demand is checked against every original sampled first hit; CPU diagnostic ray readers use full stored coarse arrays, not a native draw implementation. No source regeneration during the frozen sequence; group draw demand changes. Source IDs/material codes/normal/coordinate/metre/RGBA fields compared. Two Lambert lights are diagnostics, not PBR/opacity/shadow/GPU/frame qualification. Build and query intervals exclude imports/output; complete allocation/copy traffic is unknown.",
+        * (1 if sys.platform == "darwin" else 1024),
+        "scope": "Python opaque-control only. Whole original triangles give generous support before resampling. Captures are not LDI textures and do not establish an eye radius. All intrinsic coarse arrays remain resident; captures add bytes if kept with them. Hierarchy frustum demand is checked against every original sampled first hit; CPU diagnostic ray readers use full stored coarse arrays, not a native draw implementation. No source regeneration during the frozen sequence; group draw demand changes. Source IDs/material codes/normal/coordinate/metre/RGBA fields compared. Two Lambert lights are diagnostics, not PBR/opacity/shadow/GPU/frame qualification. Build and query intervals exclude imports/output; complete allocation/copy traffic is unknown.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
 
@@ -377,8 +380,16 @@ def main():
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.output.exists() or not args.output.resolve().is_relative_to(Path("/tmp")):
-        parser.error("A fresh explicit system-temp directory is required")
+    output = args.output.resolve()
+    temporary_roots = (Path("/tmp").resolve(), Path(tempfile.gettempdir()).resolve())
+    if (
+        output.exists()
+        or not any(output.is_relative_to(root) for root in temporary_roots)
+        or output.is_relative_to(Path(__file__).resolve().parents[3])
+    ):
+        parser.error(
+            "A fresh explicit system-temp directory outside the checkout is required"
+        )
     run(args)
 
 

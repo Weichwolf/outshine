@@ -136,6 +136,9 @@ frozen checkout set `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1` and
 All original products/rays/reports/panels and private replay/metadata/tracing
 reproducers remain under `/tmp/outshine-research-building-motion-933e89cd0/`.
 No versioned code depends on that private output path; no pictures are published.
+The runner resolves system-temp roots on Linux/macOS and refuses checkout outputs.
+Peak RSS records host units correctly: bytes on macOS, KiB converted to bytes on Linux.
+Sparse zero-metre fields are omitted only for all-zero words; signed zero remains exact.
 
 SIGGRAPH-first: [Layered Depth Images1998, p3/p5/Fig3–4](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 optically inspected for depth-layer/disocclusion context. Existing whole-view,

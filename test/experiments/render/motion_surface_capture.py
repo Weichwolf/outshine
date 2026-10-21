@@ -29,7 +29,7 @@ def shared_mesh(source, selected):
             k == "colour"
             and np.all(source[k][used] == 1)
             or k == "metres"
-            and not np.any(source[k][used])
+            and not np.any(source[k][used].view(np.uint8))
         )
     )
     dtype = np.dtype([(k, source[k].dtype, source[k].shape[1:]) for k in fields])
