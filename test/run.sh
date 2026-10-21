@@ -265,6 +265,7 @@ done
 
 TestProfile() {
   case "$1" in
+    outshine/src/generators/road/FootpathConnectionPlan) printf '%s' 'profile/footpath-plan' ;;
     outshine/src/generators/road/RoadProfileHeightFit) printf '%s' 'profile/road-profile' ;;
     outshine/integration/places/client) printf '%s' 'profile/client-shots' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
@@ -321,6 +322,7 @@ TestProfile() {
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
+    profile/footpath-plan) GroupIncludes src/generators/road/plan ;;
     profile/road-profile) GroupIncludes src/generators/road/profile ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
@@ -432,6 +434,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$(TestProfile "$1")" in
+    profile/footpath-plan) return 0 ;;
     profile/road-profile) HighsFlags --libs ;;
     profile/water-targets) printf '%s' '' ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
@@ -479,6 +482,7 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/footpath-plan) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/road/plan' ;;
     profile/road-profile) printf '%s' 'src/generators/road/profile' ;;
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
