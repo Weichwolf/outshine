@@ -6,6 +6,10 @@ from current_visibility import project, raster
 
 def selected_faces(vertices, triangles, view, eligible, limit):
     """Current projected area per original triangle; geometry-only finite seed control."""
+    if type(limit) is not int or not 0 <= limit <= 8192:
+        raise ValueError("Seed selection requires a bounded 0..8192 triangle budget")
+    if np.shape(eligible) != (len(triangles),):
+        raise ValueError("Every source triangle needs explicit eligibility")
     projected, z = project(vertices, view)
     p = projected[triangles]
     a, b = p[:, 1, :2] - p[:, 0, :2], p[:, 2, :2] - p[:, 0, :2]

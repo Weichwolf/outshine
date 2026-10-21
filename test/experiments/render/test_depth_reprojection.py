@@ -6,7 +6,12 @@ from fractions import Fraction
 import numpy as np
 from current_visibility import project, raster
 from depth_reprojection import depth_errors, forward_points, transfer_matrix
-from supported_occluders import raster_faces, raster_patches, tile_patches
+from supported_occluders import (
+    raster_faces,
+    raster_patches,
+    selected_faces,
+    tile_patches,
+)
 
 
 def clip(focal=8, width=16, height=16, near=0.125):
@@ -159,6 +164,25 @@ class GeometricSupport(unittest.TestCase):
         some, work = raster_patches(self.quads, self.owners, view(), [False, True])
         self.assertGreater(np.count_nonzero(some), 0)
         self.assertEqual(work["input_triangles"], int((self.owners == 1).sum()) * 2)
+
+    def test_bounded_support_and_invalid_owner_contract(self):
+        quads, owners, work = tile_patches(
+            self.points, self.faces, [0, 1], view(), block=2, max_tiles=1
+        )
+        self.assertEqual(len(quads), 1)
+        self.assertTrue(work["limit_reached"])
+        with self.assertRaises(ValueError):
+            raster_patches(quads, np.array([-1]), view(), [True, True])
+        with self.assertRaises(ValueError):
+            selected_faces(self.points, self.faces, view(), [True, True], -1)
+        with self.assertRaises(ValueError):
+            selected_faces(self.points, self.faces, view(), [True], 1)
+
+    def test_unknown_near_plane_support_remains_empty(self):
+        points = self.points.copy()
+        points[0, 2] = 0.05
+        quads, _, _ = tile_patches(points, self.faces, [0, 1], view(), block=1)
+        self.assertEqual(len(quads), 0)
 
 
 if __name__ == "__main__":
