@@ -291,7 +291,6 @@ private:
     std::unordered_map<uint64_t, LongitudeLatitude> PlaceOf;
   };
 
-  [[nodiscard]] static BridgeTopology BridgeTopologyOf(const Paving &on);
   static void AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology);
   [[nodiscard]] static std::vector<uint64_t>
   RelevantBridgeEnds(const Paving &on, const BridgeTopology &topology, const Paved &into);
@@ -352,8 +351,6 @@ private:
 
   void PaveLane(
       const Paving &on, Pass pass, size_t laneAt, Paved &into, RoadMeshBuffers &pavement) const;
-
-  [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const;
 
   static void TellsWhatTheFitFound(Paved &into);
 

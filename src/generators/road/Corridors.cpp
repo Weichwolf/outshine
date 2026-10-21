@@ -600,16 +600,6 @@ void Corridors::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &i
   }
 }
 
-Corridors::BridgeTopology Corridors::BridgeTopologyOf(const Paving &on) {
-  const ::outshine::Generators::Osm::StreetField &ways = on.Ways;
-  BridgeTopology topology{.EndsOfWay = std::vector<Ends>(ways.Ways().size()),
-                          .HasEnds = std::vector<uint8_t>(ways.Ways().size()),
-                          .WaysAt = {},
-                          .PlaceOf = {}};
-  for (size_t at = 0; at < ways.Ways().size(); ++at) { AppendBridgeTopology(on, at, topology); }
-  return topology;
-}
-
 void Corridors::AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology) {
   const ::outshine::Generators::Osm::StreetField::Way &lane = on.Ways.Ways()[laneAt];
   if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon || lane.PointCount < 2) {
@@ -1215,16 +1205,6 @@ void Corridors::BindJunctionPorts(const Junction &made, Paved &into) {
     edge.EndPorts[leg.End] =
         RoadPort{.Gate = gate, .Plane = {.SlopeE = made.SlopeE, .SlopeN = made.SlopeN}};
   }
-}
-
-size_t Corridors::RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const {
-  for (const Junction &one : into.Junctions) {
-    Sweeper_.Junction(std::span<const RoadGate>(one.Gates.data(), one.Gates.size()),
-                      {.SlopeE = one.SlopeE, .SlopeN = one.SlopeN},
-                      one.WearsLinear,
-                      pavement);
-  }
-  return into.Junctions.size();
 }
 
 void Corridors::TellsWhatTheFitFound(Paved &into) {
