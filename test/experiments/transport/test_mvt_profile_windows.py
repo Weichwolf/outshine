@@ -119,6 +119,19 @@ class BoundedProfileWindows(unittest.TestCase):
                     self.case, self.proposal, self.seed, padding_m=2, interfaces=ports
                 )
 
+    def test_catalog_rejects_a_stale_station_on_an_otherwise_true_native_port(self):
+        ports = copy.deepcopy(self.ports)
+        ports[0]["source_station_m"] += 1
+        with self.assertRaisesRegex(ValueError, "original source station"):
+            select_window(
+                self.case, self.proposal, self.seed, padding_m=2, interfaces=ports
+            )
+        native = copy.deepcopy(self.native)
+        native["cuts"][0]["source_station_m"] += 1
+        case, _sources = inputs()
+        with self.assertRaisesRegex(ValueError, "original source station"):
+            construct(case, native)
+
     def test_rigid_coordinates_preserve_station_choices_and_exact_node_ids(self):
         case = copy.deepcopy(self.case)
         coordinates, _rotation = rigid_coordinates(0.437, [37, -81])
