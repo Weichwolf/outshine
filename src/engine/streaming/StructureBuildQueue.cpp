@@ -1013,25 +1013,21 @@ bool StructureBuildQueue::PostPreparedCell(
           .count());
   std::unique_ptr<StructureBuildTask::Output> output = Borrowed(IdleOut_);
   *output = {};
-  CellQueue_.push_back({.Revision = {.Vectors = vectors->Generation(),
-                                     .HeightSource = heightAt.Revision,
-                                     .Projection = footprints.Projection(),
-                                     .TileSpanM = footprints.TileSpanM(),
-                                     .Eye = eye,
-                                     .EyeEcef = footprints.EyeEcef(),
-                                     .RequestedDetail = request.Detail,
-                                     .Purpose = BuildPurpose::ViewDetail},
-                        .Task = StructureBuildTask(request.Tile,
-                                                   std::move(raw),
-                                                   std::move(heights),
-                                                   std::move(output),
-                                                   LentScratch(),
-                                                   std::nullopt,
-                                                   std::nullopt),
-                        .StreetDigest = *streetDigest,
-                        .SourceKey = request.SourceKey,
-                        .Cell = request.Cell,
-                        .ReservationOwner = std::move(owner)});
+  CellQueue_.push_back(
+      {.Revision = {.Vectors = vectors->Generation(),
+                    .HeightSource = heightAt.Revision,
+                    .Projection = footprints.Projection(),
+                    .TileSpanM = footprints.TileSpanM(),
+                    .Eye = eye,
+                    .EyeEcef = footprints.EyeEcef(),
+                    .RequestedDetail = request.Detail,
+                    .Purpose = BuildPurpose::ViewDetail},
+       .Task = StructureBuildTask(
+           request.Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
+       .StreetDigest = *streetDigest,
+       .SourceKey = request.SourceKey,
+       .Cell = request.Cell,
+       .ReservationOwner = std::move(owner)});
   PostSlice(CellQueue_.back());
   ++Posted_;
   return true;
@@ -1134,13 +1130,8 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
   auto output = Borrowed(IdleOut_);
   *output = {};
   Queue_.push_back({.Revision = revision,
-                    .Task = StructureBuildTask(tile,
-                                               std::move(raw),
-                                               std::move(heights),
-                                               std::move(output),
-                                               LentScratch(),
-                                               std::nullopt,
-                                               std::nullopt),
+                    .Task = StructureBuildTask(
+                        tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
                     .SourceKey = sourceKey,
                     .Replacement = accepted != nullptr,
                     .ReservationOwner = prints.ReservationOwner()});

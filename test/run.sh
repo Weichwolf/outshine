@@ -364,8 +364,8 @@ LayerIncludes() {
     profile/tasks) printf '%s' '-Isrc/base/io' ;;
     profile/base) GroupIncludes src/base ;;
     profile/content) GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sdl3-image sqlite3 libzstd)" ;;
-    profile/host) GroupIncludes src/host; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
-    profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
+    profile/host) GroupIncludes src/host; printf ' %s' "$(pkg-config --cflags sdl3-image libtiff-4 libwebp sqlite3 libzstd)" ;;
+    profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image libtiff-4 libwebp sqlite3 libzstd)" ;;
     profile/scenario) GroupIncludes src/scenario ;;
     profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
@@ -382,7 +382,7 @@ LayerIncludes() {
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
     profile/species) GroupIncludes src/generators/flora ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
-    profile/engine) printf '%s ' "-Itest/harness/shared"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags liblz4 libtiff-4 sqlite3 libzstd)" ;;
+    profile/engine) printf '%s ' "-Itest/harness/shared"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags libtiff-4 sqlite3 libzstd)" ;;
     harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/import -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
     harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
     *) return 1 ;;
@@ -472,10 +472,10 @@ LayerLink() {
     profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
     profile/host) LayerLink profile/world ;;
-    profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
+    profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs libtiff-4 libwebp) -lcurl" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf liblz4 libtiff-4 libwebp geos sqlite3 libzstd) $(OsqpFlags --libs) $(HighsFlags --libs) -lz -lcurl $(NativeLink)" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf libtiff-4 libwebp geos sqlite3 libzstd) $(OsqpFlags --libs) $(HighsFlags --libs) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
@@ -709,7 +709,7 @@ GroupIncludes() {
     src/generators/water|src/generators/water/*) includeSet="$includeSet $(OsqpFlags --cflags)" ;;
     src/content/assets|src/content/assets/*) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
     src/generators/terrain/providers|src/generators/terrain/providers/*) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
-    src/world/data|src/world/data/*) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;
+    src/world/data|src/world/data/*) includeSet="$includeSet $(pkg-config --cflags libtiff-4)" ;;
     src/content/shade|src/content/shade/*|src/engine|src/engine/*) includeSet="$includeSet $(pkg-config --cflags sdl3-image)" ;;
     src/generators/road/profile|src/generators/road/profile/*) includeSet="$includeSet $(HighsFlags --cflags)" ;;
   esac
