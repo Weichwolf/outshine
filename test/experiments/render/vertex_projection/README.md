@@ -68,6 +68,13 @@ Root/world/camera/light validity and shadow/reflection/game/change demand remain
 independent requirements. Mode 3 is an arithmetic-contract candidate, not an adopted
 renderer change; cost on the real vertex workload and Metal must be checked first.
 
+The [shared decision](https://github.com/Weichwolf/outshine/pull/1015#issuecomment-6308557044)
+is to enclose the existing production expressions conservatively, accounting for
+permitted operation orders, FMA, rounding and denormals. Nonfinite or unclear cases
+remain needed. Ordered modes remain controls and alternatives; bit agreement alone
+does not justify changing production shaders. The A18 countercheck is recorded at
+that decision, with its original evidence and limits.
+
 The inspected Iris properties advertise float32 RTE, denormal and signed-zero/
 Inf/NaN preservation. The optional Linux/Vulkan comparison below requests all three
 vertex execution modes explicitly. On the same 65 inputs it retains the same
@@ -104,6 +111,44 @@ new empty output directory. This requires SPIR-V Tools (`spirv-dis`, `spirv-as`,
 option, transformed vertex assembly and final SPIR-V hash, validates the module,
 and propagates validation/build/run errors. It changes only the diagnostic vertex module;
 Metal translation and production shader compilation are outside this comparison.
+
+## Indexed depth cost comparison
+
+`cost.py` uses the same checkout/database/output/input arguments as `run.py`.
+It generates four static vertex pipelines from the same extracted expressions,
+replaces the uniform point with a float3 vertex attribute, and removes the
+diagnostic varying and fullscreen raster-position replacement. The projected value
+becomes the actual raster position in a 1280×720 D32 depth pass, without a fragment
+shader. Vertex/index buffers preserve each recorded mesh's positions and faces.
+Only position processing is tested: uniform model/camera inputs, 12-byte position
+stride and absent material/normal/motion work differ from the production pipeline.
+No rounding/denormal execution mode is requested by this cost comparison.
+
+The default fixture supplies 17 meshes and 17536 triangles. Each load uses one or
+64 identical instances, 17 indexed draws per submission. For each load, one warmup
+and twelve measured rounds rotate mode order; all raw samples identify load, mode
+and round zero. GPU timestamps, CPU encoding and wall time remain separate. These
+are logical submissions, not measured shader invocations; repeated instances are
+not a larger geographic scene. Times include depth clear/raster/store and cannot
+isolate vertex arithmetic, establish a portable throughput ratio or prove world FPS.
+Desktop GPU competition is not excluded. Wide spreads remain uncertainty.
+
+Four full D32 readbacks after the single-instance warmups occur outside timing.
+Empty/nonfinite/out-of-range captures or missing GPU timestamps fail the run.
+The buffers remain numerical evidence, not whole-pixel coverage certificates;
+different projection orders can change depth values and occupied pixel masks.
+Inspect images derived from these buffers before interpreting a cost result.
+JSON reports logical geometry/attachment/uniform/readback bytes; allocations,
+physical GPU/driver peaks, invocation counts and complete app memory are unmeasured.
+
+On Mesa/Intel, optionally prefix the command with `INTEL_DEBUG=vs
+MESA_SHADER_CACHE_DISABLE=true` to retain compiler IR/ISA in `run.log`. The receipt
+records these diagnostic settings, source/SPIR-V/binary hashes and CPU load averages.
+Compare final SPIR-V hashes before reusing an ISA dump. Compiler instruction counts,
+scheduling-cycle estimates, registers and spills describe generated code, not
+measured hardware execution counts or elapsed cycles. GPU timings under these
+settings remain a diagnostic profile. Actual world quality/cost and A18/Metal remain
+separate checks before adopting a projection rule; no product shader is changed.
 
 ## Primary precision references
 
