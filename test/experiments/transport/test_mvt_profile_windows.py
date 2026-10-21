@@ -107,6 +107,19 @@ class BoundedProfileWindows(unittest.TestCase):
             "unknown_boundary_requires_contract",
         )
 
+    def test_explicit_seed_denials_stop_new_and_stale_proposals_before_windows(self):
+        for tags in ({"access": "private"}, {"brunnel": "tunnel"}):
+            case = copy.deepcopy(self.case)
+            for way in case["ways"]:
+                if f"native-part:{way['native_way']}" == self.seed:
+                    way["tags"].update(tags)
+            proposal = plan_connections(source_rows(case["ways"]))
+            result = select_window(case, proposal, self.seed, padding_m=2)
+            self.assertEqual(result["status"], "deferred")
+            self.assertEqual(result["profile_requests"], [])
+            with self.assertRaisesRegex(ValueError, "ground/access"):
+                select_window(case, self.proposal, self.seed, padding_m=2)
+
     def test_changed_candidate_axis_or_missing_profile_evidence_is_rejected(self):
         for missing in (False, True):
             ports = copy.deepcopy(self.ports)
