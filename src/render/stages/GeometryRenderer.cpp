@@ -369,6 +369,8 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
                           [](const DrawBatch &batch) { return !CarriesNormal(batch.Layout); });
   Bound().Shape().HasPrevious = Binding().WritesVelocity && mesh.Draws != nullptr &&
                                 UsesPrevious(mesh, mesh.Draws->Batches());
+  SubjectBoundsCurrent_ = false;
+  ShadowCasters_.Invalidate();
   SubjectBatches_.clear();
   SubjectJobs_.clear();
   SubjectSpheres_.clear();
@@ -485,6 +487,7 @@ bool GeometryRenderer::FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, st
     SubjectJobs_ = jobs;
     SubjectSpheres_.assign(mesh.ClusterSpheres.begin(), mesh.ClusterSpheres.end());
   }
+  SubjectBoundsCurrent_ = true;
   const bool handed = HandTables(error);
   LastMeshUpload_.TablesMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tablesAt)
@@ -767,6 +770,7 @@ bool GeometryRenderer::HandTables(std::string &error) {
 }
 
 bool GeometryRenderer::Retable(std::string &error) {
+  ShadowCasters_.Invalidate();
   static const Heap::Tag kUploadingTag("mesh-cull");
   const Heap::Tagged uploading(kUploadingTag);
   Batches.clear();
@@ -1035,6 +1039,8 @@ bool GeometryRenderer::HandDrawArguments(bool deferred, std::string &error) {
 }
 
 bool GeometryRenderer::SetPose(const SubjectPose &pose, std::string &error) {
+  SubjectBoundsCurrent_ = false;
+  ShadowCasters_.Invalidate();
   ++Reshaped_;
   if (Borrows()) { return true; }
   if (Bound().Shape().Indices == 0) {
