@@ -215,12 +215,27 @@ def arrangement(rows, domains, masks, *, constraints=(), section_provider=None):
     )
 
 
-def layout(rows, method, *, width_reach_m=0.75, junctions=None, stairs=None):
+def layout(
+    rows,
+    method,
+    *,
+    width_reach_m=0.75,
+    junctions=None,
+    stairs=None,
+    source_domains=None,
+    section_provider=None,
+):
     if method not in ("fixed", "width"):
         raise ValueError("known stair core method required")
-    domains = [corridor(row) for row in rows]
+    domains = (
+        [corridor(row) for row in rows] if source_domains is None else source_domains
+    )
+    if len(domains) != len(rows):
+        raise ValueError("one prepared source domain per row required")
     nodes, incident, masks = landings(rows, domains, method, width_reach_m, junctions)
-    xy, faces, owners, note = arrangement(rows, domains, masks)
+    xy, faces, owners, note = arrangement(
+        rows, domains, masks, section_provider=section_provider
+    )
     # Vertex identity remains per source until a real endpoint landing joins it.
     keys = {
         (i, int(v)) for i in range(len(rows)) for v in np.unique(faces[owners[:, i]])
