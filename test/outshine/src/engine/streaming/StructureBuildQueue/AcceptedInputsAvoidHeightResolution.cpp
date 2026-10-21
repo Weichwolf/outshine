@@ -96,7 +96,7 @@ int main() {
        .Area = true,
        .LatLon = {49.32739, 8.56589, 49.32739, 8.56591, 49.32741, 8.56591, 49.32741, 8.56589}},
   }};
-  stack.Declares(buildings);
+  CHECK(stack.Declares(buildings).has_value(), "declared buildings satisfy input validation");
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "declared building enters the vector snapshot");
   const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
