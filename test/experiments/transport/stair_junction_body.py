@@ -91,6 +91,13 @@ def close(points, faces, step, levels):
 
 def build(plan, heights):
     points, faces, owners, steps, levels, note = partition(plan, heights)
+    if plan.get("float32_edge_cleanup", False):
+        from stair_float32_edges import contract_alias_edges
+
+        points, faces, owners, steps, cleanup = contract_alias_edges(
+            points, faces, owners, steps
+        )
+        note["float32_edge_cleanup"] = cleanup
     body, top, bottom, walls, families, volume = close(points, faces, steps, levels)
     extra = {}
     if "stairs" in note:

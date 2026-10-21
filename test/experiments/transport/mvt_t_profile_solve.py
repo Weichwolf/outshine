@@ -30,6 +30,21 @@ def _prior_conditions(plan, system, datum, delta):
     return targets
 
 
+def _compact_capacity(plan, system, plane_offset):
+    for recipe in plan.get("compact_flights", []):
+        flight = next(
+            f for f in plan["stair_lofts"] if f["source_id"] == recipe["source_id"]
+        )
+        a, b = flight["start_node"], flight["end_node"]
+        if plan["stair_directions"][flight["owner"]] < 0:
+            a, b = b, a
+        system.add(
+            [plane_offset + 3 * b, plane_offset + 3 * a],
+            [1, -1],
+            recipe["maximum_rise_m"],
+        )
+
+
 def solve_profiles(
     plan,
     *,
@@ -81,6 +96,7 @@ def solve_profiles(
             direction=plan["stair_directions"][stair[0]],
         )
     overlaps = overlap_conditions(plan, system, 0)
+    _compact_capacity(plan, system, count)
     if height_formulation == "equalities":
         add_loft_equalities(plan, system)
     full_matrix = system.matrix()
