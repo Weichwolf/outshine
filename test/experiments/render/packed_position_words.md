@@ -75,10 +75,15 @@ decode. Traced peaks are stage-local Python allocations; whole-process RSS inclu
 original JSON, validation and both oracles. Total allocation events/copy traffic,
 driver memory and application residency are not fully instrumented.
 
-The worthwhile next hypothesis is **direct** packed GPU consumption: interleaved
-vertex bytes24→20, with local integer extraction and no table gathers. No consumer
-or native upload exists here. Agree Metal/Vulkan bindings and measure actual device
-decode/vertex cost, upload/residency and frame/p99 before a product choice. Retain
+The worthwhile next hypothesis is **direct** packed GPU consumption, with local
+integer extraction and no field-table gathers. The24→20 B records above are a
+storage layout: the current `GeometryRenderer::WritePiecePositions` separates
+stored records into a12 B/vertex position arena, with UV/normal arenas separate.
+A direct consumer would need an8 B position arena and an agreed way to select each
+cell's base/widths. Header selection, possible batch splitting and CPU bounds' need
+for original positions are unmeasured; no GPU-residency saving is established.
+No consumer or native upload exists here. Agree Metal/Vulkan bindings and measure
+actual device decode/vertex cost, upload/residency and frame/p99 before a product choice. Retain
 Raw until such a comparison supports the total pipeline; smaller storage alone is
 not a recommendation to adopt this codec.
 
