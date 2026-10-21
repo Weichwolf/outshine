@@ -49,7 +49,6 @@ static_assert(offsetof(CullView, PyramidWide) == kCullPyramidOffset);
 static_assert(offsetof(CullView, SourceWide) == kCullSourceOffset);
 static_assert(offsetof(CullView, SourceHigh) == kCullSourceOffset + sizeof(uint32_t));
 
-std::atomic<float> gErrorPerMetre{0.0f};
 std::atomic<uint32_t> gJobsSwept{0};
 
 void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out) {
@@ -101,10 +100,6 @@ uint32_t GeometryCullStage::JobsSweptTaken() {
   return gJobsSwept.load(std::memory_order_relaxed);
 }
 
-float GeometryCullStage::ErrorPerMetreTaken() {
-  return gErrorPerMetre.load(std::memory_order_relaxed);
-}
-
 uint32_t GeometryCullStage::Standing(const FrameContext &ctx, void *view) {
   if (Subjects_ == nullptr) { return 0; }
   const uint32_t jobs = Subjects_->ClusterJobs();
@@ -134,7 +129,6 @@ uint32_t GeometryCullStage::Standing(const FrameContext &ctx, void *view) {
   into.ErrorPerMetre = halfTangent > static_cast<float>(kLeastRunM) && HeightPx_ > 0.0f
                            ? HeightPx_ * 0.5f / halfTangent
                            : 0.0f;
-  gErrorPerMetre.store(into.ErrorPerMetre, std::memory_order_relaxed);
   return jobs;
 }
 

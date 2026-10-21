@@ -388,15 +388,6 @@ PageId SceneResources::HeightPageResident(HeightPageHandle which) const noexcept
   return HasHeightPage(which) ? HeightPages_[which.Slot].Resident : kNoPage;
 }
 
-bool SceneResources::RestoreHeightPages(GeometryRenderer &subjects, std::string &error) {
-  for (HeightPage &page : HeightPages_) {
-    if (!page.State.Occupied) { continue; }
-    page.Resident = subjects.Ground().PlacePage(*page.Nodes, error);
-    if (page.Resident == kNoPage) { return false; }
-  }
-  return true;
-}
-
 bool SceneResources::SetGroundGrid(GeometryRenderer &subjects,
                                    std::span<const float> fractions,
                                    std::string &error) {

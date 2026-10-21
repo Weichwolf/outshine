@@ -151,12 +151,6 @@ struct RenderObjectPreparation {
                        const Vec3 &anchorEcefM,
                        std::string &error);
 
-[[nodiscard]] bool Show(SceneRenderer &renderer,
-                        const RenderObject &proxy,
-                        const SubjectView &view,
-                        RenderObjectPreparation &scratch,
-                        std::string &error);
-
 [[nodiscard]] bool BindIllumination(SceneRenderer &renderer,
                                     const RenderObject &proxy,
                                     RenderObjectPreparation &scratch,
