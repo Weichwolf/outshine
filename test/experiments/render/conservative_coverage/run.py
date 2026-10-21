@@ -80,7 +80,9 @@ def build(checkout, database, output, records):
     flags = [
         flag
         for flag in command
-        if flag.startswith(("-stdlib=", "-fsanitize=", "-fno-sanitize=", "-fuse-ld="))
+        if flag.startswith(
+            ("-std=", "-stdlib=", "-fsanitize=", "-fno-sanitize=", "-fuse-ld=")
+        )
     ]
     binary = output / "coverage-probe"
     execute(
@@ -89,7 +91,6 @@ def build(checkout, database, output, records):
             "-n",
             "10",
             command[0],
-            "-std=c++23",
             *flags,
             str(output / "Probe.o"),
             str(checkout / "build/liboutshine.a"),
