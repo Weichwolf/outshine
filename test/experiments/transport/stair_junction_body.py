@@ -90,7 +90,22 @@ def close(points, faces, step, levels):
 
 
 def build(plan, heights):
-    points, faces, owners, steps, levels, note = partition(plan, heights)
+    recipe = plan.get("tread_partition_recipe", "legacy_levels")
+    if recipe == "indexed_band_remesh":
+        from stair_band_remesh import remesh
+        from stair_indexed_levels import partition as indexed_partition
+
+        points, faces, owners, steps, levels, note = remesh(
+            *indexed_partition(plan, heights), plan
+        )
+    elif recipe == "indexed_levels":
+        from stair_indexed_levels import partition as indexed_partition
+
+        points, faces, owners, steps, levels, note = indexed_partition(plan, heights)
+    elif recipe == "legacy_levels":
+        points, faces, owners, steps, levels, note = partition(plan, heights)
+    else:
+        raise ValueError("known declared tread partition recipe required")
     if plan.get("float32_edge_cleanup", False):
         from stair_float32_edges import contract_alias_edges
 

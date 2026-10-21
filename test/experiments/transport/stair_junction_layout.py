@@ -139,9 +139,10 @@ def arrangement(rows, domains, masks, *, constraints=(), section_provider=None):
     lines = [p.boundary for p in domains + masks] + list(constraints)
     section_counts = []
     for row in rows:
-        lines.append(shapely.LineString(row.get("surface_axis_xy_m", row["xy"])))
-        if "surface_axis_xy_m" in row:
-            lines.append(shapely.LineString(row["xy"]))
+        if row.get("surface_axis_constraints", True):
+            lines.append(shapely.LineString(row.get("surface_axis_xy_m", row["xy"])))
+            if "surface_axis_xy_m" in row:
+                lines.append(shapely.LineString(row["xy"]))
         sections = (
             cross_sections(row) if section_provider is None else section_provider(row)
         )

@@ -63,7 +63,34 @@ def interface_ports(plan, heights):
     return ports
 
 
+def native_external_profiles(plan, samplers):
+    owners = {row["source_id"]: i for i, row in enumerate(plan["rows"])}
+    result = []
+    for profile in plan["native_cut_context"]["profiles"]:
+        owner = owners[profile["source_id"]]
+        xy = np.array(profile["profile_xyz_m"])[:, :2]
+        xyz = whole_section(
+            shapely.LineString(xy),
+            shapely.polygons(plan["xy"][plan["parts"][owner]]),
+            samplers[owner],
+            xy,
+        )
+        result.append(
+            {
+                "source_id": profile["source_id"],
+                "source_station_m": profile["source_station_m"],
+                "profile_xyz_m": xyz,
+                "boundary_role": "artificial_native_mesh_cut",
+                "profile_status": "sampled_local_body_pending_native_outside_integration",
+                "station_scope": "Original source arclength; native navstation remains unqualified.",
+            }
+        )
+    return result
+
+
 def external_profiles(plan, samplers):
+    if "native_cut_context" in plan:
+        return native_external_profiles(plan, samplers)
     result = []
     roles = {
         (r["source_id"], r["endpoint"]): r["status"]
@@ -113,14 +140,44 @@ def stair_level_ranges(plan, body_data):
     ]
 
 
-def shared_products(plan, heights, body_data):
+def _consumer_samplers(plan, heights):
+    tolerance = plan.get("consumer_sampling_tolerance_m", 0)
+    if not np.isfinite(tolerance) or not 0 <= tolerance <= 1e-12:
+        raise ValueError(
+            "bounded explicit numeric consumer sampling allowance required"
+        )
+    if tolerance:
+        for owner, row in enumerate(plan["rows"]):
+            axis = row.get("navigation_axis_xy_m", row["xy"])
+            queries = [
+                *axis,
+                *[
+                    xy
+                    for xy, incident in zip(
+                        plan["nodes"], plan["incident"], strict=True
+                    )
+                    if owner in incident
+                ],
+            ]
+            if not shapely.covers(
+                plan["domains"][owner], shapely.points(queries)
+            ).all():
+                raise ValueError(
+                    "numeric sampling cannot extend an axis outside its input domain"
+                )
     samplers = [
-        SurfaceSampler(Mesh(np.c_[plan["xy"], heights], f), xy_tolerance_m=0)
+        SurfaceSampler(Mesh(np.c_[plan["xy"], heights], f), xy_tolerance_m=tolerance)
         for f in plan["parts"]
     ]
+    return samplers, tolerance
+
+
+def shared_products(plan, heights, body_data):
+    samplers, tolerance = _consumer_samplers(plan, heights)
     axes, profiles, graph_nodes, graph_edges = {}, {}, {}, []
     for owner, row in enumerate(plan["rows"]):
-        sampled = samplers[owner].sample(row["xy"])
+        axis = row.get("navigation_axis_xy_m", row["xy"])
+        sampled = samplers[owner].sample(axis)
         if any(sampled.reasons):
             raise ValueError(
                 "retained navigation axis has an unsupported surface point"
@@ -128,10 +185,10 @@ def shared_products(plan, heights, body_data):
         xyz = sampled.points_enu_m
         axes[row["source_id"]] = xyz.tolist()
         profiles[row["source_id"]] = whole_section(
-            shapely.LineString(row["xy"]),
+            shapely.LineString(axis),
             shapely.polygons(plan["xy"][plan["parts"][owner]]),
             samplers[owner],
-            row["xy"],
+            axis,
         )
         for a, b in pairwise(xyz):
             keys = []
@@ -172,7 +229,13 @@ def shared_products(plan, heights, body_data):
         "status": "local_2.5d_proposal_pending_external_ports_and_native_admission",
         "coordinate_frame": plan["coordinate_frame"],
         "source_metadata": plan["source_metadata"],
+        **(
+            {"native_cut_context": plan["native_cut_context"]}
+            if "native_cut_context" in plan
+            else {}
+        ),
         "source_id_scope": "fixture native parts; no provider-node identity claim",
+        **({"consumer_sampling_tolerance_m": tolerance} if tolerance else {}),
         **(
             {"compact_flights": plan["compact_flights"]}
             if plan.get("compact_flights")

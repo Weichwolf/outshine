@@ -6,19 +6,33 @@ from mvt_t_profile_layout import prior_values
 from stair_junction_audit import audit
 
 
-def audit_profiles(plan, heights, data, *, max_prior_change_m=2.0):
+def audit_profiles(
+    plan,
+    heights,
+    data,
+    *,
+    max_prior_change_m=2.0,
+    gradient_model="whole_norm",
+    crossfall_limit=0.2,
+):
+    from mvt_t_directional_audit import (
+        audit_directional_profiles,
+        requested_norm_limits,
+    )
+
+    limits = requested_norm_limits(plan, gradient_model, crossfall_limit)
     if heights.shape != (len(plan["xy"]),) or not np.isfinite(heights).all():
         raise ValueError("finite height for every retained surface vertex required")
     grades, prior_error, landing_error = [], 0.0, 0.0
     transverse = {}
-    for row, faces in zip(plan["rows"], plan["parts"], strict=True):
+    for row, faces, limit in zip(plan["rows"], plan["parts"], limits, strict=True):
         points = np.c_[plan["xy"], heights][faces]
         normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
         if np.any(normals[:, 2] <= 0):
             raise ValueError("positive whole-profile projected facets required")
         gradients = -normals[:, :2] / normals[:, 2:3]
         maximum = float(np.linalg.norm(gradients, axis=1).max())
-        if maximum > row["gradient"] + 1e-7:
+        if maximum > limit + 1e-7:
             raise ValueError("whole profile exceeds its declared grade")
         grades.append(maximum)
         if row["original"]["source"]["feature"]["properties"]["subclass"] == "steps":
@@ -62,10 +76,20 @@ def audit_profiles(plan, heights, data, *, max_prior_change_m=2.0):
     body = audit(
         data,
         plan["prepared_domains"],
-        limits=[r["gradient"] for r in plan["rows"]],
+        limits=limits,
         crossings=[],
     )
     return {
+        "gradient_model": gradient_model,
+        **(
+            {
+                "directional_profiles": audit_directional_profiles(
+                    plan, heights, data, crossfall_limit
+                )
+            }
+            if gradient_model == "axis_crossfall"
+            else {}
+        ),
         "maximum_prior_error_m": prior_error,
         "maximum_whole_grades": grades,
         "whole_flight_transverse_gradients": transverse,
