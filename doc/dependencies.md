@@ -77,8 +77,10 @@ Nichtendliche, zentral mehrdeutige oder nicht konvergierte Eingaben werden abgel
 Der Anwendungsbereich ist Erdoberfläche/Untergrund bis Orbit, keine inverse Vermessung
 des Erdkerns. Alte geodätische Referenzkorpora bleiben Testdaten, keine Runtime-Library.
 
-SFCGAL liefert ausschließlich die Walmdachpartition und soll entfallen. Research baut
-zuerst einen geprüften Ersatz für konkave Grundrisse und Höfe; bis dahin bleibt der Pfad.
+SFCGAL bleibt nur für noch nicht ersetzte komplexe Walmdachpartitionen. Rechteckpläne
+werden einschließlich Quellkantenvorbereitung ohne Bibliotheksaufruf erzeugt. Die geprüfte
+Python-Konturreferenz für konkave Grundrisse und Höfe liegt vor; deren native Übernahme
+und anschließende vollständige Entfernung besitzt #955. Bis dahin bleibt der komplexe Pfad.
 Ein kleiner gemeinsamer Geometriekern darf weitere konkrete Asset-Rezepte bedienen;
 parallele Rezeptauswertung/Tessellierung und verzweigte CPU-Topologie bleiben getrennt.
 GPU-Eignung ist zu prüfen, kein pauschaler GPU-Port aller Solver.

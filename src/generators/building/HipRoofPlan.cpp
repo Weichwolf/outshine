@@ -30,7 +30,6 @@ struct Edge {
 };
 
 struct Input {
-  OwnedGeometry Polygon{nullptr, &sfcgal_geometry_delete};
   std::vector<Edge> Edges;
   double ToleranceM = 0;
 };
@@ -80,19 +79,13 @@ RingArea(std::span<const EastNorth> points, EastNorth origin, double &magnitude)
   return area;
 }
 
-std::expected<OwnedGeometry, HipRoofError> BuildRing(std::span<const EastNorth> points,
-                                                     EastNorth origin,
-                                                     size_t ring,
-                                                     double area,
-                                                     std::vector<Edge> &edges) {
-  OwnedGeometry line(sfcgal_linestring_create(), &sfcgal_geometry_delete);
-  if (!line) { return std::unexpected(HipRoofError::PartitionFailed); }
-  for (size_t at = 0; at <= points.size(); ++at) {
-    const auto a = Local(points[at % points.size()], origin);
-    OwnedGeometry point(sfcgal_point_create_from_xy(a.EastM, a.NorthM), &sfcgal_geometry_delete);
-    if (!point) { return std::unexpected(HipRoofError::PartitionFailed); }
-    sfcgal_linestring_add_point(line.get(), point.release());
-    if (at == points.size()) { break; }
+void AppendEdges(std::span<const EastNorth> points,
+                 EastNorth origin,
+                 size_t ring,
+                 double area,
+                 std::vector<Edge> &edges) {
+  for (size_t at = 0; at < points.size(); ++at) {
+    const auto a = Local(points[at], origin);
     const auto b = Local(points[(at + 1) % points.size()], origin);
     const double length = std::hypot(b.EastM - a.EastM, b.NorthM - a.NorthM);
     const double direction = (area > 0 ? 1.0 : -1.0) * (ring == 0 ? 1.0 : -1.0);
@@ -105,7 +98,41 @@ std::expected<OwnedGeometry, HipRoofError> BuildRing(std::span<const EastNorth> 
                      .Ring = ring,
                      .Number = at});
   }
+}
+
+std::expected<OwnedGeometry, HipRoofError> BuildLibraryRing(std::span<const Edge> edges) {
+  OwnedGeometry line(sfcgal_linestring_create(), &sfcgal_geometry_delete);
+  if (!line) { return std::unexpected(HipRoofError::PartitionFailed); }
+  for (size_t at = 0; at <= edges.size(); ++at) {
+    const auto a = edges[at % edges.size()].From;
+    OwnedGeometry point(sfcgal_point_create_from_xy(a.EastM, a.NorthM), &sfcgal_geometry_delete);
+    if (!point) { return std::unexpected(HipRoofError::PartitionFailed); }
+    sfcgal_linestring_add_point(line.get(), point.release());
+  }
   return line;
+}
+
+std::expected<OwnedGeometry, HipRoofError> BuildLibraryPolygon(const Input &input) {
+  static std::once_flag initialised;
+  std::call_once(initialised, InitialiseLibrary);
+  OwnedGeometry polygon(nullptr, &sfcgal_geometry_delete);
+  for (size_t from = 0; from < input.Edges.size();) {
+    size_t end = from + 1;
+    while (end < input.Edges.size() && input.Edges[end].Ring == input.Edges[from].Ring) { ++end; }
+    auto line = BuildLibraryRing(std::span(input.Edges).subspan(from, end - from));
+    if (!line) { return std::unexpected(line.error()); }
+    if (from == 0) {
+      polygon.reset(sfcgal_polygon_create_from_exterior_ring(line->release()));
+      if (!polygon) { return std::unexpected(HipRoofError::PartitionFailed); }
+    } else {
+      sfcgal_polygon_add_interior_ring(polygon.get(), line->release());
+    }
+    from = end;
+  }
+  if (sfcgal_geometry_is_valid(polygon.get()) == 0) {
+    return std::unexpected(HipRoofError::InvalidInput);
+  }
+  return polygon;
 }
 
 std::expected<Input, HipRoofError> ReadInput(std::span<const EastNorth> exterior,
@@ -124,19 +151,9 @@ std::expected<Input, HipRoofError> ReadInput(std::span<const EastNorth> exterior
     count += points.size();
     const auto area = RingArea(points, origin, magnitude);
     if (!area) { return std::unexpected(area.error()); }
-    auto line = BuildRing(points, origin, ring, *area, input.Edges);
-    if (!line) { return std::unexpected(line.error()); }
-    if (ring == 0) {
-      input.Polygon.reset(sfcgal_polygon_create_from_exterior_ring(line->release()));
-      if (!input.Polygon) { return std::unexpected(HipRoofError::PartitionFailed); }
-    } else {
-      sfcgal_polygon_add_interior_ring(input.Polygon.get(), line->release());
-    }
+    AppendEdges(points, origin, ring, *area, input.Edges);
   }
   input.ToleranceM = magnitude * 64 * std::numeric_limits<double>::epsilon();
-  if (sfcgal_geometry_is_valid(input.Polygon.get()) == 0) {
-    return std::unexpected(HipRoofError::InvalidInput);
-  }
   return input;
 }
 
@@ -252,6 +269,8 @@ std::optional<std::vector<HipRoofPlan::Facet>> RectangleFacets(const Input &inpu
 std::expected<std::vector<HipRoofPlan::Facet>, HipRoofError>
 PrepareFacets(const Input &input, HipRoofPlan::Limits limits) {
   if (auto rectangle = RectangleFacets(input)) { return std::move(*rectangle); }
+  auto polygon = BuildLibraryPolygon(input);
+  if (!polygon) { return std::unexpected(polygon.error()); }
   std::vector<PolygonRing> rings;
   for (const auto &edge : input.Edges) {
     if (edge.Number == 0) { rings.emplace_back(); }
@@ -262,9 +281,8 @@ PrepareFacets(const Input &input, HipRoofPlan::Limits limits) {
   if (!clearance || *clearance < kMinimumRoofClearanceM) {
     return std::unexpected(HipRoofError::InsufficientClearance);
   }
-  const OwnedGeometry partition(
-      sfcgal_geometry_straight_skeleton_partition(input.Polygon.get(), true),
-      &sfcgal_geometry_delete);
+  const OwnedGeometry partition(sfcgal_geometry_straight_skeleton_partition(polygon->get(), true),
+                                &sfcgal_geometry_delete);
   if (!partition || sfcgal_geometry_type_id(partition.get()) != SFCGAL_TYPE_POLYHEDRALSURFACE) {
     return std::unexpected(HipRoofError::PartitionFailed);
   }
@@ -335,8 +353,6 @@ HipRoofPlan::Prepare(std::span<const EastNorth> exterior,
       limits.Corners == 0) {
     return std::unexpected(HipRoofError::InvalidInput);
   }
-  static std::once_flag initialised;
-  std::call_once(initialised, InitialiseLibrary);
   auto input = ReadInput(exterior, holes, limits, exterior.front());
   if (!input) { return std::unexpected(input.error()); }
   auto facets = PrepareFacets(*input, limits);
