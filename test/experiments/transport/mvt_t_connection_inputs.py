@@ -8,8 +8,12 @@ FIXTURE = Path(__file__).with_name("fixtures") / "mvt_stair_t_junction.json"
 
 def inputs(path=FIXTURE):
     case = json.loads(path.read_text())
+    return case, source_rows(case["ways"])
+
+
+def source_rows(ways):
     rows = []
-    for way in case["ways"]:
+    for way in ways:
         tags = way["tags"]
         rows.append(
             {
@@ -33,7 +37,7 @@ def inputs(path=FIXTURE):
                 ],
             }
         )
-    return case, rows
+    return rows
 
 
 def vienna_inputs():

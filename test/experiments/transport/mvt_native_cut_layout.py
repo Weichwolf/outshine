@@ -7,12 +7,13 @@ import numpy as np
 import shapely
 from mvt_native_cut_domains import cut_ribbon
 from mvt_native_cut_profiles import cut_profiles
+from mvt_native_path_sections import sections
 from mvt_t_profile_layout import prepare_profiles
 from shared_bridge_geometry import corridor
 
 
 def prepare_native_cut_plan(
-    case, sources, proposal, native_case, *, landing_reach_m=0.3
+    case, sources, proposal, native_case, *, landing_reach_m=0.3, section_spacing_m=None
 ):
     for key in ("frame_longitude_latitude_deg", "units"):
         if case["provenance"][key] != native_case["provenance"][key]:
@@ -63,6 +64,10 @@ def prepare_native_cut_plan(
             )
             scopes[key] = {"scope": "Complete constructed stair axis retained."}
         domains.append(domain)
+    by_source = {
+        source["source_id"]: domain
+        for source, domain in zip(sources, domains, strict=True)
+    }
     plan = prepare_profiles(
         case,
         sources,
@@ -70,7 +75,9 @@ def prepare_native_cut_plan(
         landing_reach_m=landing_reach_m,
         mesh_recipe="native_interfaces",
         source_domains=domains,
-        section_provider=lambda _row: [],
+        section_provider=lambda row: sections(
+            row, by_source[row["source_id"]], section_spacing_m
+        ),
     )
     contacts = []
     for profile in profiles:

@@ -70,6 +70,30 @@ def _check_recipes(mesh_recipe, stair_recipe, source_domains):
         raise ValueError("known constructed flight recipe required")
 
 
+def _profile_row(way, source, proposal, mesh_recipe):
+    row = {
+        "source_id": source["source_id"],
+        "xy": np.array(proposal["axes_xy_m"][source["source_id"]]),
+        "height_prior_xyz_m": np.array(way["sampled_design_xyz_m"]),
+        "width_m": proposal.get("surface_widths_m", {}).get(
+            source["source_id"], 2 * source["half_width_m"]
+        ),
+        "gradient": way["max_gradient"],
+        "original": {
+            "source": {"feature": {"properties": way["tags"]}},
+            "bridge": way["derived_bridge"],
+        },
+    }
+    row["prior"] = prior_values(row, row["xy"])
+    if "surface_axis_constraints" in proposal:
+        if type(proposal["surface_axis_constraints"]) is not bool:
+            raise ValueError("explicit axis constraint choice required")
+        row["surface_axis_constraints"] = proposal["surface_axis_constraints"]
+    if mesh_recipe == "outward_binary_grid":
+        row["source_grid_m"] = GRID_M
+    return row
+
+
 def prepare_profiles(
     case,
     sources,
@@ -84,25 +108,10 @@ def prepare_profiles(
     if not 1 <= len(sources) <= 64 or not 0 <= landing_reach_m <= 2:
         raise ValueError("bounded sources and declared landing reach required")
     _check_recipes(mesh_recipe, stair_recipe, source_domains)
-    rows = []
-    for way, source in zip(case["ways"], sources, strict=True):
-        row = {
-            "source_id": source["source_id"],
-            "xy": np.array(proposal["axes_xy_m"][source["source_id"]]),
-            "height_prior_xyz_m": np.array(way["sampled_design_xyz_m"]),
-            "width_m": proposal.get("surface_widths_m", {}).get(
-                source["source_id"], 2 * source["half_width_m"]
-            ),
-            "gradient": way["max_gradient"],
-            "original": {
-                "source": {"feature": {"properties": way["tags"]}},
-                "bridge": way["derived_bridge"],
-            },
-        }
-        row["prior"] = prior_values(row, row["xy"])
-        if mesh_recipe == "outward_binary_grid":
-            row["source_grid_m"] = GRID_M
-        rows.append(row)
+    rows = [
+        _profile_row(way, source, proposal, mesh_recipe)
+        for way, source in zip(case["ways"], sources, strict=True)
+    ]
     indices = {r["source_id"]: i for i, r in enumerate(rows)}
     contacts = proposal["connections"]
     nodes = [
