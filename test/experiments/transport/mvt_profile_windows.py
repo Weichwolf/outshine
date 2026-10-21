@@ -2,6 +2,7 @@
 
 import math
 from collections import defaultdict
+from itertools import pairwise
 
 import numpy as np
 from mvt_t_connection_geometry import ground_foot
@@ -53,7 +54,7 @@ def _context(case):
             or abs(xy).max() > 1e7
         ):
             raise ValueError("unique finite bounded original axes required")
-        lengths = np.linalg.norm(np.diff(xy, axis=0), axis=1)
+        lengths = np.array([math.dist(a, b) for a, b in pairwise(xy)])
         if (lengths <= 0).any():
             raise ValueError("positive original source segments required")
         stations = np.r_[0, np.cumsum(lengths)]
