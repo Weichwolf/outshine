@@ -23,11 +23,10 @@ and repeated rectangle preparation are separate; serialization and the original
 48-case comparison follow the measured rectangle loop. No cache hits, rendering
 or GPU times are measured. A checksum and refusal count accompany timing.
 
-The library-disabled unit `RectanglesAvoidSkeletonLibrary` independently proves
-that analytic rectangles need no SFCGAL calls. Its complex-input negative control
-still enters the unavailable backend. The original implementation fails this
-rectangle control before partitioning. Ordinary roof tests continue using the
-real library for complex cases, courtyards, clearances, capacities and cache use.
+The first-step library-disabled unit `RectanglesAvoidSkeletonLibrary` proved
+that analytic rectangles need no SFCGAL calls. Its then-negative complex control
+entered the unavailable backend. The original implementation fails this
+rectangle control before partitioning. Those historical checks preceded the complete contour port below.
 
 ## First native boundary change, #955
 
@@ -54,8 +53,8 @@ plane/manifold/disjoint-coverage checks. GEOS handles polygon operations; no
 SFCGAL call remains in plan construction. The existing precision, clearance,
 capacity and deadline limits remain. JSON is diagnostic glue outside the kernel.
 
-The previously library-disabled control is now `PlansAvoidSkeletonLibrary`:
-rectangles and a triangular roof succeed with zero skeleton calls. The fixed
+The scalar regression `AnalyticRoofsPreserveEaves` checks rotated rectangles
+and a triangular roof after removing the obsolete skeleton-library stubs. The fixed
 57-eave courtyard must succeed with every original eave and the same area;
 it can no longer pass by refusing the plan. The original 48 pins and their
 comparison tolerances remain unchanged. The actual rebuilt product archive
@@ -65,6 +64,6 @@ Prepared building assets use recipe `prepared-building-base-11`, and mesh produc
 roof geometry and old refusals change. The binary plan format does not change;
 existing valid plans remain readable. A recipe miss rebuilds the affected product;
 a hit continues loading the stored immutable plan without constructing topology.
-This kernel result alone admits neither the complete client, Places, resource
-budgets nor removal of the remaining package/build/test dependency. Their actual
-terminal results are recorded in #955.
+SFCGAL headers, package flags and stubs are removed. Complete scene/cache/image
+and device-budget results remain separate; their actual terminal results are
+recorded in #955.
