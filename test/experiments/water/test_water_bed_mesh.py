@@ -123,6 +123,12 @@ class BankDistanceControls(unittest.TestCase):
         scan, _ = bank.query(points, cap_m=4, method="scan")
         indexed, _ = bank.query(points, cap_m=4, method="index")
         np.testing.assert_array_equal(scan, indexed)
+        unindexed = BankDistance(segments, prepare_index=False)
+        without_tree, _ = unindexed.query(points, cap_m=4, method="scan")
+        np.testing.assert_array_equal(without_tree, indexed)
+        self.assertIsNone(unindexed.tree)
+        with self.assertRaisesRegex(ValueError, "not prepared"):
+            unindexed.query(points, cap_m=4, method="index")
         self.assertEqual(indexed[-1], 0.25)
 
     def test_budget_refusal_does_not_modify_inputs_or_return_partial_distances(self):
