@@ -54,6 +54,8 @@ def compact_caps(sources, proposal, source_ids, *, cap_depth_m=0.3):
     rows = {s["source_id"]: s for s in sources}
     if any(key not in rows or rows[key]["kind"] != "steps" for key in source_ids):
         raise ValueError("explicit retained stair sources required for compact caps")
+    if any(2 * rows[key]["half_width_m"] <= 0.28 for key in source_ids):
+        raise ValueError("compact flight width must contain the required support disk")
     result = copy.deepcopy(proposal)
     result.setdefault("boundary_caps", [])
     result.setdefault("compact_flights", [])
