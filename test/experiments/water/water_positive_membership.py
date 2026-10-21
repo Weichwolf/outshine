@@ -1,12 +1,19 @@
 """Positive triangle/source membership without constructing overlay polygons."""
 
 from dataclasses import dataclass
+from enum import IntEnum
 from fractions import Fraction
 from itertools import chain
 
 import numpy as np
 from shapely import get_num_coordinates
 from water_orientation_predicates import centroid, orientations
+
+
+class OverlapRelation(IntEnum):
+    DISJOINT = 0
+    PARTIAL = 1
+    COVERS_TRIANGLE = 2
 
 
 @dataclass(frozen=True)
@@ -87,13 +94,15 @@ def _inside(triangle, edges, budget, exact):
     return bool(np.count_nonzero(np.where(upward, signs > 0, signs < 0)) % 2)
 
 
-def positive_overlap(triangle, source, budget, *, exact=False):
-    """Return the exact positive-area predicate or refuse under the work budget.
+def overlap_relation(triangle, source, budget, *, exact=False):
+    """Classify exact single-source coverage or refuse under the work budget.
 
     If a boundary segment meets the open triangle, source interior occupies a
     positive part of it. Otherwise membership is constant over the connected
     open triangle, so its rational centroid decides. Ring parity retains holes.
-    Areas, representative-owner ranking and union coverage are separate outputs.
+    A valid source boundary inside the open triangle also leaves a positive
+    uncovered portion. Without such a boundary, the entire open triangle is
+    inside or outside; source closedness extends containment to its boundary.
     """
     triangle = np.asarray(triangle, dtype=float)
     if (
@@ -111,6 +120,15 @@ def positive_overlap(triangle, source, budget, *, exact=False):
         raise ValueError("positive exact triangle area required")
     if sign < 0:
         triangle = triangle[[0, 2, 1]]
-    return _boundary_interior(triangle, source.edges, budget, exact) or _inside(
-        triangle, source.edges, budget, exact
+    if _boundary_interior(triangle, source.edges, budget, exact):
+        return OverlapRelation.PARTIAL
+    if _inside(triangle, source.edges, budget, exact):
+        return OverlapRelation.COVERS_TRIANGLE
+    return OverlapRelation.DISJOINT
+
+
+def positive_overlap(triangle, source, budget, *, exact=False):
+    return (
+        overlap_relation(triangle, source, budget, exact=exact)
+        != OverlapRelation.DISJOINT
     )
