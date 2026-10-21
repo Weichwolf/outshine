@@ -91,7 +91,12 @@ def close(points, faces, step, levels):
 
 def build(plan, heights):
     recipe = plan.get("tread_partition_recipe", "legacy_levels")
-    if recipe == "indexed_band_remesh":
+    envelope = None
+    if recipe == "envelope_indexed_band_remesh":
+        from stair_envelope_remesh import coarsen_envelope
+
+        plan, envelope = coarsen_envelope(plan, heights)
+    if recipe in ("indexed_band_remesh", "envelope_indexed_band_remesh"):
         from stair_band_remesh import remesh
         from stair_indexed_levels import partition as indexed_partition
 
@@ -106,6 +111,8 @@ def build(plan, heights):
         points, faces, owners, steps, levels, note = partition(plan, heights)
     else:
         raise ValueError("known declared tread partition recipe required")
+    if envelope is not None:
+        note["envelope_remesh"] = envelope
     if plan.get("float32_edge_cleanup", False):
         from stair_float32_edges import contract_alias_edges
 

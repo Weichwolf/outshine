@@ -90,7 +90,9 @@ class NativeBoundedBodyTests(unittest.TestCase):
         self.assertEqual(self.geometry["level_weld_m"], 0)
         self.assertNotIn("float32_edge_cleanup", self.geometry)
         remesh = self.geometry["band_remesh"]
-        self.assertLess(remesh["output_faces"], remesh["input_faces"] / 2)
+        self.assertLess(remesh["output_faces"], remesh["input_faces"])
+        self.assertLess(self.geometry["edge_queries"], 200)
+        self.assertLess(self.geometry["edge_intersections"], 80)
         self.assertLess(remesh["maximum_chain_vertex_deviation_m"], 1e-10)
         self.assertLess(remesh["maximum_loft_height_residual_m"], 1e-8)
 

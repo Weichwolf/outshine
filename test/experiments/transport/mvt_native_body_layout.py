@@ -23,8 +23,19 @@ def _navigation_axes(plan, proposal):
 
 
 def prepare_native_body_plan(
-    case, sources, proposal, native_case, *, section_spacing_m=2.0
+    case,
+    sources,
+    proposal,
+    native_case,
+    *,
+    section_spacing_m=2.0,
+    tread_partition_recipe="envelope_indexed_band_remesh",
 ):
+    if tread_partition_recipe not in (
+        "indexed_band_remesh",
+        "envelope_indexed_band_remesh",
+    ):
+        raise ValueError("known declared native body partition recipe required")
     proposal = copy.deepcopy(proposal)
     for source in sources:
         if source["kind"] != "steps":
@@ -49,12 +60,12 @@ def prepare_native_body_plan(
         section_spacing_m=section_spacing_m,
     )
     _navigation_axes(plan, proposal)
-    plan["tread_partition_recipe"] = "indexed_band_remesh"
+    plan["tread_partition_recipe"] = tread_partition_recipe
     plan["consumer_sampling_tolerance_m"] = 1e-12
     plan["native_cut_context"]["body_recipe"] = {
         "interior_path_section_spacing_m": section_spacing_m,
         "surface_axis_constraints": False,
-        "tread_partition_recipe": "indexed_band_remesh",
+        "tread_partition_recipe": tread_partition_recipe,
         "consumer_sampling_tolerance_m": 1e-12,
         "sampling_scope": "Numeric affine lookup only for axes/nodes inside the unsimplified prepared domains. Native fixed-contact audits retain zero XY tolerance.",
         "scope": "Local straight-flight construction. Original native navstation and outside mesh/terrain integration remain unqualified.",
