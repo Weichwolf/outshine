@@ -142,7 +142,7 @@ def reference(points, faces, live, view):
     return depth, winner_ids
 
 
-def evaluate(points, faces, owners, live, view, seed_depth, full, winners):
+def query_sources(points, faces, owners, live, view, seed_depth):
     boxes = mesh_boxes(points, faces[live], owners[live], int(owners.max()) + 1)
     present = np.isfinite(boxes[0]).all(axis=1)
     # Removed sources have no bound and must not enter numeric projection.
@@ -151,12 +151,25 @@ def evaluate(points, faces, owners, live, view, seed_depth, full, winners):
     hidden = occluded(lo, hi, nearest, safe, seed_depth, 4)
     keep = np.zeros(len(present), bool)
     keep[present] = visible & ~hidden
-    accepted = live & keep[owners]
-    image, ids = reference(points, faces, accepted, view)
-    changed = ids != winners
-    return {
+    return keep, {
         "visible_sources": int(np.count_nonzero(visible)),
         "hidden_sources": int(np.count_nonzero(hidden & visible)),
+    }
+
+
+def evaluate(points, faces, owners, live, view, seed_depth, full, winners, trace=False):
+    (keep, counts), query_cost = measured(
+        lambda: query_sources(points, faces, owners, live, view, seed_depth), trace
+    )
+    accepted = live & keep[owners]
+    (image, ids), draw_cost = measured(
+        lambda: reference(points, faces, accepted, view), trace
+    )
+    changed = ids != winners
+    return {
+        **counts,
+        "query_cost": query_cost,
+        "late_draw_cost": draw_cost,
         "late_colour_triangles": int(np.count_nonzero(accepted)),
         "changed_original_face_pixels": int(np.count_nonzero(changed)),
         "maximum_final_depth_error": float(np.abs(image - full).max()),
@@ -195,9 +208,14 @@ def compare_pose(
     }
     for name, call in calls.items():
         (depth, work), cost = measured(call, trace)
-        result, keep = evaluate(points, faces, owners, live, view, depth, full, winners)
+        result, keep = evaluate(
+            points, faces, owners, live, view, depth, full, winners, trace
+        )
         methods[name] = result | {
             "cost": cost,
+            "candidate_seconds": cost["seconds"]
+            + result["query_cost"]["seconds"]
+            + result["late_draw_cost"]["seconds"],
             "raster_work": work,
             "kept_source_ordinals": np.flatnonzero(keep).tolist(),
         }
