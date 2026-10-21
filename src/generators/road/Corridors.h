@@ -265,7 +265,6 @@ private:
   static bool FindCrossings(const Path::Network &network,
                             std::vector<Path::Network::Crossing> &crossed,
                             Paved &into);
-  static void Crosses(const Paving &on, Paved &into);
 
   struct Ends {
     std::array<uint64_t, 2> Key{};
@@ -307,7 +306,6 @@ private:
 
   static void SeedsBridgeEnds(const Paving &on, Paved &into);
 
-  static void ResolveBridgeConnections(const Paving &on, Paved &into);
   static void RecordBridgeConnectionMetrics(Paved &into);
 
   [[nodiscard]] static double StepAlongM(std::span<const RoadStation> along, size_t at);
@@ -344,7 +342,6 @@ private:
   AppendJunctionTerrainStamp(const Junction &made, double rootsM, bool elevated, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
   static bool IsContinuation(const Paving &on, std::span<const Leg> legs, const Paved &into);
-  static void ShapesJunctions(const Paving &on, Paved &into);
   static void RecordJunctionMetrics(Paved &into);
   static void LimitEndCuts(Edge &edge, const Paved &into);
   static void FinalizeJunction(const Paving &on, Junction &made, Paved &into);
