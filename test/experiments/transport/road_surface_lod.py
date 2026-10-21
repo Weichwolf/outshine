@@ -1,5 +1,7 @@
 """Direct display subdivision using piecewise upper-surface error envelopes."""
 
+from itertools import pairwise
+
 import numpy as np
 
 
@@ -33,7 +35,7 @@ def envelope(curve, start, end, endpoints=None):
     return longitudinal + twist, ends, len(stations)
 
 
-def prepare(curve, error_m, max_stations=262144):
+def limits(error_m, max_stations):
     if (
         not np.isfinite(error_m)
         or error_m <= 0
@@ -41,6 +43,10 @@ def prepare(curve, error_m, max_stations=262144):
         or not 2 <= max_stations <= 262144
     ):
         raise ValueError("Positive metric error and bounded station capacity required")
+
+
+def prepare(curve, error_m, max_stations=262144):
+    limits(error_m, max_stations)
     pending = [(float(curve.stations[0]), float(curve.stations[-1]))]
     evaluations_before = curve.evaluations
     accepted = []
@@ -64,6 +70,39 @@ def prepare(curve, error_m, max_stations=262144):
             raise RuntimeError("Road display subdivision cannot advance")
         pending.extend(((middle, end), (start, middle)))
     accepted.sort(key=lambda item: item[0])
+    return assembled(curve, accepted, evaluations_before, queries)
+
+
+def prepare_uniform(curve, error_m, max_stations=262144):
+    """First qualifying whole-curve dyadic grid, using the same surface bound."""
+    limits(error_m, max_stations)
+    evaluations_before, queries, intervals = curve.evaluations, 0, 1
+    while True:
+        grid = np.linspace(curve.stations[0], curve.stations[-1], intervals + 1)
+        if np.any(np.diff(grid) <= 0):
+            raise RuntimeError("Uniform road display subdivision cannot advance")
+        accepted = []
+        for start, end in pairwise(grid):
+            bound, points, work = envelope(curve, start, end)
+            queries += work
+            if queries > 4_000_000:
+                raise RuntimeError("Direct road display query capacity exceeded")
+            quantization = float(
+                np.linalg.norm(points - points.astype(np.float32), axis=2).max()
+            )
+            if bound + quantization > error_m:
+                break
+            accepted.append((start, end, bound, points, quantization))
+        if len(accepted) == intervals:
+            plan = assembled(curve, accepted, evaluations_before, queries)
+            plan["whole_grid_levels"] = intervals.bit_length()
+            return plan
+        if 2 * intervals + 1 > max_stations:
+            raise RuntimeError("Direct road display work/station capacity exceeded")
+        intervals *= 2
+
+
+def assembled(curve, accepted, evaluations_before, queries):
     stations = np.array([a[0] for a in accepted] + [accepted[-1][1]])
     vertices = np.concatenate(
         [a[3][:1] for a in accepted] + [accepted[-1][3][1:]]
