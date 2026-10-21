@@ -158,7 +158,9 @@ def accents(writer, mass, facade, portals=()):
             if w.storey in keepout:
                 line = line.difference(keepout[w.storey])
             s = mass.storeys[w.storey]
-            writer.segment(line, s.bottom_m + 0.06, s.top_m - 0.06, 9, w.identifier)
+            writer.segment(
+                line, s.bottom_m + 0.06, s.top_m - 0.06, 9, w.identifier + "/pier"
+            )
 
 
 def caps(prepared):
