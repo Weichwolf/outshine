@@ -1611,6 +1611,10 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
                   .SourceComplete = complete,
                   .Footprints = std::nullopt};
   if (!complete) { return landing; }
+  if (bake.Replacement && bake.Revision.Purpose == BuildPurpose::ViewDetail &&
+      landing.SourceKey != 0 && QualifiedSourceKey(prints, landing.Tile) == landing.SourceKey) {
+    return landing;
+  }
   const std::optional<Data::TileSourceIdentity> vectorSource =
       baked.Coordinates->Origin.Provenance ? std::nullopt
                                            : VectorSource(*vectors, bake.Task.Tile());
@@ -1781,12 +1785,17 @@ void StructureBuildQueue::CommitFootprints(
     Landing &landing,
     ::outshine::Generators::Osm::BuildingField &footprints) noexcept {
   const auto product = ContactMetadata(bake);
-  if (!landing.Footprints || !product.Coordinates) { std::terminate(); }
+  if (!product.Coordinates) { std::terminate(); }
   if (!bake.Task.FromPreparedInputs()) {
     auto &completed = bake.Task.Result().Tile;
     assert(completed && completed->Coordinates);
     completed->Coordinates->Points = std::move(bake.Task.Raw().LatLon);
     completed->Coordinates->Rings = std::move(bake.Task.Raw().Holes);
+  }
+  if (!landing.Footprints) {
+    assert(bake.Replacement && bake.Revision.Purpose == BuildPurpose::ViewDetail &&
+           QualifiedSourceKey(footprints, landing.Tile) == landing.SourceKey);
+    return;
   }
   if (bake.Replacement) {
     footprints.ReplaceAcceptance(std::move(landing.Footprints.value()), product);
