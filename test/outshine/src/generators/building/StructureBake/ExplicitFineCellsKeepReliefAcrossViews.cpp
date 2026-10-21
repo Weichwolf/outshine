@@ -33,15 +33,28 @@ int main() {
     auto scratch = mesher.Scratch();
     BakedTile baked;
     CHECK(BakeStructures(raw, *heights, mesher, *scratch, baked).has_value(),
-          "the requested Fine cell bakes under its view allowance");
+          "the intrinsic Fine cell bakes independently of its caller projection");
     CHECK(baked.FootprintDetails == std::vector{LevelOfDetail::Fine},
           "feature selection preserves the requested envelope LOD");
     triangles[mode] = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3;
     CHECK(baked.Prints.size() == 1 && baked.Prints.front().HeightM == 9,
           "relief selection preserves the semantic building and its height");
   }
-  CHECK(triangles[0] > triangles[1],
-        "distant Fine cells retain the shell without recess expansion");
+  CHECK(triangles[0] == triangles[1] && triangles[0] > 0,
+        "explicit Fine retains the complete relief at both camera positions");
   CHECK(triangles[0] == triangles[2], "zero allowance preserves the full canonical reference");
+  raw.RequestedDetail.reset();
+  std::array<size_t, 2> adaptive{};
+  for (size_t mode = 0; mode < adaptive.size(); ++mode) {
+    raw.Eye = {.LongitudeDeg = mode == 0 ? 9 : 9.02, .LatitudeDeg = 47};
+    raw.Projection = {.FocalPx = 1000, .AllowedErrorPx = 1};
+    auto scratch = mesher.Scratch();
+    BakedTile baked;
+    CHECK(BakeStructures(raw, *heights, mesher, *scratch, baked).has_value(),
+          "automatic selection still bakes within the view's detail allowance");
+    adaptive[mode] = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3;
+  }
+  CHECK(adaptive[0] == triangles[0] && adaptive[0] > adaptive[1],
+        "automatic demand retains full near relief and selects a cheaper distant representation");
   return Report();
 }
