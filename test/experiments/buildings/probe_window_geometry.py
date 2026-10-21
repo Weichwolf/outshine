@@ -43,9 +43,9 @@ def probe(output, reference, name, prepared, proof):
         visible = frozenset(camera_candidates(metadata, view))
         canonical = []
 
-        def mixed(current, window, selected=visible, emitted=canonical):
+        def mixed(current, window, selected=visible, emitted=canonical, **options):
             if window.identifier in selected:
-                return window_patch(current, window)
+                return window_patch(current, window, **options)
             emitted.append(window.identifier)
             return draw_patch(restored, window.identifier)
 
