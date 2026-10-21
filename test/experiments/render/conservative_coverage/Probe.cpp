@@ -117,8 +117,8 @@ std::optional<long double> PixelDepth(const std::array<Point, 3> &points, uint32
   if (area == 0) { return {}; }
   long double least = 1;
   for (size_t corner = 0; corner < 4; ++corner) {
-    const Point p{.X = static_cast<long double>(x) + (corner & 1u),
-                  .Y = static_cast<long double>(y) + ((corner >> 1u) & 1u),
+    const Point p{.X = static_cast<long double>(x) + static_cast<long double>(corner & 1u),
+                  .Y = static_cast<long double>(y) + static_cast<long double>((corner >> 1u) & 1u),
                   .Z = 0};
     const auto a = Edge(points[1], points[2], p) / area;
     const auto b = Edge(points[2], points[0], p) / area;
@@ -193,7 +193,7 @@ std::vector<float> Draw(N::Device &device,
   transfer.Region.Height = Side;
   Take(commands->Copy(image, readback, transfer));
   Take(C::Finish(device, std::move(commands)));
-  auto mapped = Take(device.MapRead(readback, {.Bytes = Bytes}));
+  const auto mapped = Take(device.MapRead(readback, {.Bytes = Bytes}));
   std::vector<float> output(size_t{Side} * Side);
   std::memcpy(output.data(), mapped.data(), Bytes);
   Take(device.Unmap(readback));
@@ -435,7 +435,7 @@ int Tessellated(N::Device &device,
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc != 4 && argc != 5) { return 2; }
   const bool tessellated = argc == 5 && std::string_view(argv[4]) == "--tessellated";
   if (argc == 5 && !tessellated) { return 2; }
@@ -495,19 +495,20 @@ int main(int argc, char **argv) {
   }
   std::ofstream output(argv[2]);
   output
-      << nlohmann::
-             json{{"device", device->Limits().Name},
-                  {"cases", cases.size()},
-                  {"seed", seed},
-                  {"side_pixels", Side},
-                  {"readback_bytes", Bytes * cases.size() * 2},
-                  {"wall_seconds",
-                   std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count()},
-                  {"modes", rows},
-                  {"scope",
-                   "Projected finite homogeneous triangles only; no current world/Metal/general "
-                   "floating-error proof. Near/far/eye crossings retain unknown coverage."}}
-                 .dump(2);
+      << nlohmann::json{{"device", device->Limits().Name},
+                        {"cases", cases.size()},
+                        {"seed", seed},
+                        {"oracle_mantissa_bits", std::numeric_limits<long double>::digits},
+                        {"side_pixels", Side},
+                        {"readback_bytes", Bytes * cases.size() * 2},
+                        {"wall_seconds",
+                         std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
+                             .count()},
+                        {"modes", rows},
+                        {"scope",
+                         "Projected finite homogeneous triangles only; no current world/general "
+                         "floating-error proof. Near/far/eye crossings retain unknown coverage."}}
+             .dump(2);
   std::println("point false {} conservative false {} depth {}",
                counts[0].FalseCoverage,
                counts[1].FalseCoverage,
