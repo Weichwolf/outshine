@@ -5,7 +5,8 @@ import unittest
 import numpy as np
 from compare_mvt_profile_windows import fit_attempts
 from mvt_native_cut_profiles import cut_profiles
-from mvt_profile_windows import select_window
+from mvt_profile_windows import _context, select_window
+from mvt_t_connection_geometry import segment_records
 from mvt_t_connection_inputs import FIXTURE, inputs, source_rows
 from mvt_t_connections import plan_connections
 from stair_test_transform import rigid_coordinates
@@ -222,6 +223,15 @@ class BoundedProfileWindows(unittest.TestCase):
         case["ways"][0]["sampled_design_xy_height_node"][0][3] = float(2**63)
         with self.assertRaisesRegex(ValueError, "uint64"):
             select_window(case, self.proposal, self.seed, padding_m=2)
+
+    def test_source_arclength_exactly_matches_the_existing_2d_plan_metric(self):
+        axes, _observed = _context(self.case)
+        for source, index, _a, _b, station, length in segment_records(
+            source_rows(self.case["ways"])
+        ):
+            arc = axes[source["source_id"]][1]
+            self.assertEqual(arc[index], station)
+            self.assertEqual(arc[index + 1], station + length)
 
 
 if __name__ == "__main__":
