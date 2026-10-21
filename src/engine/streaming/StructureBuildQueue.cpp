@@ -345,7 +345,9 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
                                      const Generators::PreparedBuildingAssets::Basis &basis,
                                      const std::string &preparedAssetKey,
                                      GroundStands &&groundStands,
-                                     size_t &remaining) {
+                                     size_t &remaining,
+                                     bool checksView,
+                                     const std::function<bool(uint32_t)> &cellReady) {
   if (remaining == 0) { return {.Next = std::nullopt, .Deferred = true}; }
   --remaining;
   const std::optional<uint32_t> tile = prints.RefinementTile();
@@ -374,7 +376,7 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
            ? accepted->Bake.StreetDigest == StreetDigest(streets, vectors, *tile)
            : accepted->Bake.PreparedAssetKey == preparedAssetKey) &&
       accepted->Bake.TileSpanM == prints.TileSpanM();
-  if (sourceCurrent) {
+  if (sourceCurrent && (!checksView || !cellReady || cellReady(*tile))) {
     prints.AdvanceRefinement();
     return {};
   }
@@ -1039,7 +1041,7 @@ void StructureBuildQueue::PrepareViewRefinement(::outshine::Generators::Osm::Bui
                                                 BuildPurpose purpose,
                                                 const std::function<bool(uint32_t)> &cellReady) {
   if (requirement == HeightRequirement::FineOnly && purpose == BuildPurpose::ViewDetail &&
-      !cellReady && prints.RefinementComplete() && Queue_.empty() &&
+      prints.RefinementComplete() && Queue_.empty() &&
       !AcceptedViewCurrent(prints, eye, cellReady)) {
     prints.BeginRefinement();
   }
@@ -1382,7 +1384,9 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                                               selected.Basis,
                                                               selected.Key,
                                                               groundStands,
-                                                              remaining);
+                                                              remaining,
+                                                              purpose == BuildPurpose::ViewDetail,
+                                                              cellReady);
       if (refinement.Deferred) { break; }
       if (!refinement.Next) { continue; }
       next = refinement.Next;
