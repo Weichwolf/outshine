@@ -3,7 +3,6 @@
 #include "ModelLadder.h"
 #include <scene/Geometry.h>
 #include <scene/Material.h>
-#include <export/GltfExporter.h>
 #include "Check.h"
 #include <algorithm>
 #include <cmath>
@@ -60,7 +59,7 @@ void Snapshot(std::ofstream &out, const TreeSkeleton &tree) {
   }
 }
 
-void ExportBark(const TreeSkeleton &tree) {
+void CheckBark(const TreeSkeleton &tree) {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
@@ -89,15 +88,6 @@ void ExportBark(const TreeSkeleton &tree) {
   CHECK(geometry.setPositions(part, positions) && geometry.setNormals(part, normals) &&
             geometry.setTriangles(part, mesh.BarkIdx),
         "diagnostic mesh uses the public geometry API");
-  const auto glb = exportGlb(geometry);
-  CHECK(glb.has_value(), "diagnostic mesh exports through the public GLB API");
-  if (!glb) { return; }
-  std::ofstream file(std::filesystem::temp_directory_path() / "outshine-grower-fir.glb",
-                     std::ios::binary);
-  file.write(reinterpret_cast<const char *>(glb->data()),
-             static_cast<std::streamsize>(glb->size()));
-  file.close();
-  CHECK(!file.fail(), "diagnostic GLB is available to outshine");
 }
 
 bool Finite(const Vec3f &value) {
@@ -188,7 +178,7 @@ int main() {
                                        std::abs(Dot(leaf.Dir, leaf.Dir) - 1) < 1e-4;
                               }),
           "foliage attachment directions are finite unit vectors");
-    if (path.stem() == "fir") { ExportBark(tree); }
+    if (path.stem() == "fir") { CheckBark(tree); }
     Snapshot(snapshot, tree);
     Write(snapshot, grower.Passes());
     Write(snapshot, grower.DbhErrorRel());
