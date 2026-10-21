@@ -87,3 +87,6 @@ This is a finite alternative comparison, not a general alternate-port solver or
 a new physical tolerance. The diagnostic image was opened; generated products
 stay in system temp. Face ownership, actual outside splitting/shared packing,
 native navigation/terrain binding and world/Place admission remain open.
+
+[Bounded alternate-port search](mvt_port_alternatives.md) compares asymmetric
+combinations of these same observations under unchanged qualification contracts.
