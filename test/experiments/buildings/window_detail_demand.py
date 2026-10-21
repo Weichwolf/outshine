@@ -89,7 +89,7 @@ class WindowDetails:
             raise ValueError("Window plan contains duplicate identities")
         self.prepared = prepared
         self.max_windows = max_windows
-        self.coarse = compact(prepared, portals=portals, legacy_trim=False)
+        self.coarse = compact(prepared, portals=portals)
         if tuple(self.windows) != self.coarse.window_ids:
             raise ValueError("Coarse and detailed window identities disagree")
         self.base_spans = coarse_spans(self.coarse)

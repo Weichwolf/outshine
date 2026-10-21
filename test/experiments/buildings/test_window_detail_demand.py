@@ -7,9 +7,11 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
+from outshine_ref.buildings.rooflight_panels import triangle_surface
 from terraced_admission_probe import controls
 from terraced_facade_details import details
 from terraced_facade_prepare import positions, prepare
+from terraced_facade_surface import compact
 from terraced_mass_plan import plan
 from terraced_mass_sources import sources
 from window_detail_demand import (
@@ -38,6 +40,17 @@ def triangles(mesh):
     return values[order]
 
 
+def draw_triangles(mesh):
+    values = np.c_[
+        tuple(
+            mesh[key][mesh["faces"]].reshape(len(mesh["faces"]), -1)
+            for key in ("vertices", "normals", "uv", "facade_extent")
+        )
+        + (mesh["materials"],)
+    ]
+    return values[np.lexsort(values[:, ::-1].T)]
+
+
 class WindowDemandTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -60,6 +73,16 @@ class WindowDemandTests(unittest.TestCase):
                 )
                 actual = actual[np.lexsort(actual[:, ::-1].T)]
                 np.testing.assert_array_equal(expected, actual)
+                full_draw = triangle_surface(original, 10)
+                full_draw["materials"] = original["materials"]
+                actual_draw = np.concatenate(
+                    [
+                        draw_triangles(window_patch(prepared, w).mesh)
+                        for w in prepared.facade.windows
+                    ]
+                )
+                actual_draw = actual_draw[np.lexsort(actual_draw[:, ::-1].T)]
+                np.testing.assert_array_equal(draw_triangles(full_draw), actual_draw)
 
     def test_closed_components_keep_positive_volume_and_two_sided_edges(self):
         for prepared in self.plans:
@@ -128,6 +151,23 @@ class WindowDemandTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             next(iter(product.resident.values())).mesh["vertices"].setflags(write=True)
 
+    def test_every_source_keeps_the_original_complete_coarse_product(self):
+        for prepared in self.plans:
+            baseline = compact(prepared)
+            product = WindowDetails(prepared)
+            for key in baseline.mesh:
+                np.testing.assert_array_equal(
+                    baseline.mesh[key], product.coarse.mesh[key]
+                )
+            self.assertEqual(baseline.owner_ids, product.coarse.owner_ids)
+            np.testing.assert_array_equal(
+                baseline.triangle_owners, product.coarse.triangle_owners
+            )
+            draw = product.update(tuple(product.windows)[::31][:5])
+            for span in product.base_spans:
+                if span.identifier not in draw.detailed_ids:
+                    self.assertIn(span, draw.spans)
+
     def test_motion_generates_only_entering_ids_and_releases_departing_ownership(self):
         product = WindowDetails(self.prepared)
         identifiers = tuple(product.windows)
@@ -175,7 +215,11 @@ class WindowDemandTests(unittest.TestCase):
                     product.update(invalid)
         with (
             patch(
-                "window_detail_demand.window_patch", side_effect=RuntimeError("failed")
+                "window_detail_demand.window_patch",
+                side_effect=[
+                    window_patch(self.prepared, product.windows[identifiers[1]]),
+                    RuntimeError("failed"),
+                ],
             ),
             self.assertRaises(RuntimeError),
         ):
