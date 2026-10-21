@@ -52,6 +52,7 @@ def _check_options(
     contact_presolve,
     height_formulation,
     gradient_model,
+    selection,
 ):
     if solver not in ("highs-ds", "highs-ipm"):
         raise ValueError("known HiGHS method required")
@@ -65,6 +66,8 @@ def _check_options(
         raise ValueError("known height formulation required")
     if gradient_model not in ("whole_norm", "axis_crossfall"):
         raise ValueError("known declared profile gradient model required")
+    if selection not in ("minimax", "minimax_then_variation"):
+        raise ValueError("known declared profile solution selection required")
 
 
 def _gradient_conditions(
@@ -86,11 +89,83 @@ def _gradient_conditions(
         )
     else:
         facets(plan, system, normals, reserve, True, True, height_bound_m=height_bound)
-    return directional_work
+    return {
+        "gradient_model": gradient_model,
+        **(
+            {"crossfall_limit": crossfall_limit, "directional_work": directional_work}
+            if directional_work
+            else {}
+        ),
+    }
 
 
 def _sparse_bytes(matrix):
     return sum(a.nbytes for a in (matrix.data, matrix.indices, matrix.indptr))
+
+
+def _matrix_note(matrix, projection):
+    return {
+        "variables": matrix.shape[1],
+        "unreduced_variables": projection.shape[0],
+        "projection_array_bytes": _sparse_bytes(projection),
+        "constraints": matrix.shape[0],
+        "nonzeros": matrix.nnz,
+        "sparse_array_bytes": _sparse_bytes(matrix),
+    }
+
+
+def _project_conditions(plan, system, formulation):
+    full = system.matrix()
+    projection = (
+        height_projection(plan, full.shape[1])
+        if formulation == "projected"
+        else sparse.eye(full.shape[1], format="csc")
+    )
+    return full, projection, (full @ projection).tocsc()
+
+
+def _linear_fit(
+    matrix,
+    projection,
+    error_variable,
+    rhs,
+    max_prior_change_m,
+    seconds,
+    solver,
+    presolve,
+):
+    objective = np.zeros(projection.shape[0])
+    objective[error_variable] = 1
+    objective = np.asarray(projection.T @ objective).ravel()
+    bounds = [(None, None)] * (matrix.shape[1] - 1) + [(0, max_prior_change_m)]
+    prepared = time.perf_counter()
+    answer = linprog(
+        objective,
+        A_ub=matrix,
+        b_ub=rhs,
+        bounds=bounds,
+        method=solver,
+        options={
+            "time_limit": seconds,
+            "primal_feasibility_tolerance": 1e-9,
+            "presolve": presolve,
+        },
+    )
+    return answer, prepared, bounds
+
+
+def _select_solution(
+    plan, matrix, rhs, projection, answer, bounds, selection, solver, deadline
+):
+    if selection == "minimax":
+        return answer.x, {}
+    if not answer.success:
+        return answer.x, {"selected": False, "status": "primary_not_valid"}
+    from stair_profile_variation import select_variation
+
+    return select_variation(
+        plan, matrix, rhs, projection, answer.x, answer.fun, bounds, solver, deadline
+    )
 
 
 def solve_profiles(
@@ -107,6 +182,7 @@ def solve_profiles(
     height_formulation="projected",
     gradient_model="whole_norm",
     crossfall_limit=0.2,
+    selection="minimax",
 ):
     _check_options(
         solver,
@@ -115,6 +191,7 @@ def solve_profiles(
         contact_presolve,
         height_formulation,
         gradient_model,
+        selection,
     )
     began = time.perf_counter()
     count, planes = len(plan["xy"]), 3 * len(plan["nodes"])
@@ -133,7 +210,7 @@ def solve_profiles(
     angles = np.arange(16) * 2 * np.pi / 16
     normals, reserve = np.c_[np.cos(angles), np.sin(angles)], float(np.cos(np.pi / 16))
     height_bound = max(abs(p).max() for _v, p in targets) + max_prior_change_m
-    directional_work = _gradient_conditions(
+    gradient_note = _gradient_conditions(
         plan, system, normals, reserve, height_bound, gradient_model, crossfall_limit
     )
     junctions(plan, system, normals, reserve, True, plane_offset=count)
@@ -149,58 +226,55 @@ def solve_profiles(
     _compact_capacity(plan, system, count)
     if height_formulation == "equalities":
         add_loft_equalities(plan, system)
-    full_matrix = system.matrix()
-    projection = (
-        height_projection(plan, delta + 1)
-        if height_formulation == "projected"
-        else sparse.eye(delta + 1, format="csc")
+    full_matrix, projection, matrix = _project_conditions(
+        plan, system, height_formulation
     )
-    matrix = (full_matrix @ projection).tocsc()
-    objective = np.zeros(delta + 1)
-    objective[delta] = 1
-    objective = np.asarray(projection.T @ objective).ravel()
-    prepared = time.perf_counter()
-    answer = linprog(
-        objective,
-        A_ub=matrix,
-        b_ub=system.bounds,
-        bounds=[(None, None)] * (matrix.shape[1] - 1) + [(0, max_prior_change_m)],
-        method=solver,
-        options={
-            "time_limit": seconds,
-            "primal_feasibility_tolerance": 1e-9,
-            "presolve": contact_presolve if contacts else True,
-        },
+    answer, prepared, bounds = _linear_fit(
+        matrix,
+        projection,
+        delta,
+        system.bounds,
+        max_prior_change_m,
+        seconds,
+        solver,
+        contact_presolve if contacts else True,
+    )
+    primary_finished = time.perf_counter()
+    selected, selection_report = _select_solution(
+        plan,
+        matrix,
+        system.bounds,
+        projection,
+        answer,
+        bounds,
+        selection,
+        solver,
+        began + seconds,
     )
     note = {
         "valid": bool(answer.success),
         "status": answer.message,
-        "variables": matrix.shape[1],
-        "unreduced_variables": delta + 1,
+        **_matrix_note(matrix, projection),
         "height_formulation": height_formulation,
-        "gradient_model": gradient_model,
-        **(
-            {"crossfall_limit": crossfall_limit, "directional_work": directional_work}
-            if directional_work
-            else {}
-        ),
-        "projection_array_bytes": _sparse_bytes(projection),
-        "constraints": matrix.shape[0],
-        "nonzeros": matrix.nnz,
+        **gradient_note,
         "preparation_s": prepared - began,
-        "solver_s": time.perf_counter() - prepared,
+        "solver_s": primary_finished - prepared,
         "elapsed_s": time.perf_counter() - began,
         "max_prior_change_budget_m": max_prior_change_m,
         "contact_work": contact_work,
         "contact_row_scale": contact_row_scale,
         "presolve": contact_presolve if contacts else True,
         "overlap_vertex_constraints": overlaps,
-        "sparse_array_bytes": _sparse_bytes(matrix),
         "scope": "local finite profile proposal; only explicitly supplied fixed contacts are bound",
+        **(
+            {"solution_selection": selection, "selection_report": selection_report}
+            if selection_report
+            else {}
+        ),
     }
     if not answer.success:
         return None, note
-    solution = projection @ answer.x
+    solution = projection @ selected
     heights = solution[:count] + datum
     note.update(
         max_prior_change_m=float(max(abs(heights[v] - p).max() for v, p in targets)),
