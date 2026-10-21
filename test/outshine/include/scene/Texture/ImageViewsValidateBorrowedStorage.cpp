@@ -1,6 +1,9 @@
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <scene/Texture.h>
+#include <span>
 #include "Check.h"
 
 int main() {
@@ -14,7 +17,7 @@ int main() {
         "a complete borrowed RGBA row is valid");
   CHECK((ImageView{.WidthPx = 1, .HeightPx = 2, .Rgba = pixels}.valid()),
         "multiple tightly packed rows are valid");
-  for (int dimension : {0, -1, std::numeric_limits<int>::max()}) {
+  for (const int dimension : {0, -1, std::numeric_limits<int>::max()}) {
     CHECK(!(ImageView{.WidthPx = dimension, .HeightPx = dimension, .Rgba = pixels}.valid()),
           "invalid or unbacked extreme dimensions are rejected without pixel access");
   }
@@ -27,7 +30,8 @@ int main() {
   CHECK((ImageView{.WidthPx = 1, .HeightPx = 1, .Rgba = pixels}.valid()),
         "a borrowed view may contain bytes after its declared image");
   SurfaceMap bound;
-  bound.Image = 42;
+  constexpr int kAssignedImage = 42;
+  bound.Image = kAssignedImage;
   CHECK(bound.bound(), "bound reports assignment without pretending to validate the owner");
   return Report();
 }
