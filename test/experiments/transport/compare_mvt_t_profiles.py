@@ -24,7 +24,7 @@ from stair_junction_body import build
 from stair_network_geometry import vertex_links
 
 
-def run(solver, *, output=None, trace_memory=False):
+def run(solver, *, output=None, trace_memory=False, formulation="projected"):
     if trace_memory:
         tracemalloc.start()
     began = time.perf_counter()
@@ -33,7 +33,7 @@ def run(solver, *, output=None, trace_memory=False):
     connected = time.perf_counter()
     plan = prepare_profiles(case, sources, proposal, mesh_recipe="outward_binary_grid")
     prepared = time.perf_counter()
-    heights, solve = solve_profiles(plan, solver=solver)
+    heights, solve = solve_profiles(plan, solver=solver, height_formulation=formulation)
     solved = time.perf_counter()
     if heights is None:
         raise ValueError(solve)
@@ -60,6 +60,7 @@ def run(solver, *, output=None, trace_memory=False):
         "geometry": geometry,
         "proof": proof,
         "layout": plan["note"],
+        "station_refinement": plan["station_refinement"],
         "connection_work": proposal["work"],
         "footprint_checks": plan["footprint_checks"],
         "landing_displacement_m": plan["landing_displacement_m"],
@@ -132,6 +133,21 @@ def compare(output):
         cmd, capture_output=True, text=True, check=True, env=os.environ.copy()
     )
     results["memory_run"] = json.loads(measured.stdout)
+    explicit = subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__).resolve()),
+            "--worker",
+            "highs-ds",
+            "--formulation",
+            "equalities",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=os.environ.copy(),
+    )
+    results["equalities_control"] = json.loads(explicit.stdout)
     if (
         abs(
             results["highs-ds"]["solve"]["objective"]
@@ -140,6 +156,16 @@ def compare(output):
         > 1e-7
     ):
         raise ValueError("independent algorithms differ on the same finite objective")
+    if (
+        abs(
+            results["equalities_control"]["solve"]["objective"]
+            - results["highs-ds"]["solve"]["objective"]
+        )
+        > 1e-7
+    ):
+        raise ValueError(
+            "equivalent height formulations differ on the finite objective"
+        )
     case, _rows = inputs()
     report = {
         "commit": subprocess.check_output(
@@ -158,11 +184,19 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--worker", choices=("highs-ds", "highs-ipm"))
     parser.add_argument("--trace-memory", action="store_true")
+    parser.add_argument(
+        "--formulation", choices=("projected", "equalities"), default="projected"
+    )
     args = parser.parse_args()
     if args.worker:
         print(
             json.dumps(
-                run(args.worker, output=args.output, trace_memory=args.trace_memory)
+                run(
+                    args.worker,
+                    output=args.output,
+                    trace_memory=args.trace_memory,
+                    formulation=args.formulation,
+                )
             )
         )
     elif args.output is not None:

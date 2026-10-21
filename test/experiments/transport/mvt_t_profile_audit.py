@@ -10,6 +10,7 @@ def audit_profiles(plan, heights, data, *, max_prior_change_m=2.0):
     if heights.shape != (len(plan["xy"]),) or not np.isfinite(heights).all():
         raise ValueError("finite height for every retained surface vertex required")
     grades, prior_error, landing_error = [], 0.0, 0.0
+    transverse = {}
     for row, faces in zip(plan["rows"], plan["parts"], strict=True):
         points = np.c_[plan["xy"], heights][faces]
         normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
@@ -20,6 +21,16 @@ def audit_profiles(plan, heights, data, *, max_prior_change_m=2.0):
         if maximum > row["gradient"] + 1e-7:
             raise ValueError("whole profile exceeds its declared grade")
         grades.append(maximum)
+        if row["original"]["source"]["feature"]["properties"]["subclass"] == "steps":
+            tangent = row["xy"][-1] - row["xy"][0]
+            tangent /= np.linalg.norm(tangent)
+            normal = np.array([-tangent[1], tangent[0]])
+            crossfall = float(abs(gradients @ normal).max())
+            if crossfall > 1e-7:
+                raise ValueError(
+                    "whole straight-flight transverse gradient is not level"
+                )
+            transverse[row["source_id"]] = crossfall
         vertices = np.unique(faces)
         prior_error = max(
             prior_error,
@@ -57,6 +68,7 @@ def audit_profiles(plan, heights, data, *, max_prior_change_m=2.0):
     return {
         "maximum_prior_error_m": prior_error,
         "maximum_whole_grades": grades,
+        "whole_flight_transverse_gradients": transverse,
         "whole_landing_error_m": landing_error,
         "body": body,
     }

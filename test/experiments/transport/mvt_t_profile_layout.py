@@ -4,6 +4,7 @@ import copy
 
 import numpy as np
 import shapely
+from mvt_t_stair_loft import prepare_stair_lofts
 from shared_bridge_geometry import corridor
 from stair_junction_layout import layout
 from stair_seed_precision import GRID_M, outward_contract
@@ -57,12 +58,20 @@ def freeze_regions(plan):
 
 
 def prepare_profiles(
-    case, sources, proposal, *, landing_reach_m=0.75, mesh_recipe="source"
+    case,
+    sources,
+    proposal,
+    *,
+    landing_reach_m=0.75,
+    mesh_recipe="source",
+    stair_recipe="station_loft",
 ):
     if not 1 <= len(sources) <= 64 or not 0 <= landing_reach_m <= 2:
         raise ValueError("bounded sources and declared landing reach required")
     if mesh_recipe not in ("source", "outward_binary_grid"):
         raise ValueError("known declared surface mesh recipe required")
+    if stair_recipe not in ("station_loft", "legacy_sections"):
+        raise ValueError("known constructed flight recipe required")
     rows = []
     for way, source in zip(case["ways"], sources, strict=True):
         row = {
@@ -127,4 +136,7 @@ def prepare_profiles(
         k: case["provenance"][k] for k in ("frame_longitude_latitude_deg", "units")
     }
     freeze_regions(plan)
+    plan["stair_recipe"] = stair_recipe
+    if stair_recipe == "station_loft":
+        prepare_stair_lofts(plan)
     return plan

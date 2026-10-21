@@ -35,7 +35,7 @@ class SharedProfiles(unittest.TestCase):
         proof = audit_profiles(self.plan, self.heights, self.data)
         self.assertLess(proof["maximum_prior_error_m"], 0.53)
         self.assertLess(proof["whole_landing_error_m"], 1e-7)
-        self.assertEqual(proof["body"]["source_coverage_error_m2"], [0, 0, 0])
+        self.assertLessEqual(max(proof["body"]["source_coverage_error_m2"]), 1e-7)
         self.assertGreater(proof["body"]["treads"]["risers"], 0)
         self.assertLessEqual(proof["body"]["treads"]["maximum_float32_riser_m"], 0.18)
         vertex_links(self.body.vertices, self.body.triangles)
