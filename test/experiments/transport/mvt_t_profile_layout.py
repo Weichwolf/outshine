@@ -4,6 +4,7 @@ import copy
 
 import numpy as np
 import shapely
+from mvt_t_connection_geometry import endpoint_nodes
 from mvt_t_stair_loft import prepare_stair_lofts
 from shared_bridge_geometry import corridor
 from stair_junction_layout import layout
@@ -72,6 +73,8 @@ def prepare_profiles(
         raise ValueError("known declared surface mesh recipe required")
     if stair_recipe not in ("station_loft", "legacy_sections"):
         raise ValueError("known constructed flight recipe required")
+    if proposal.get("compact_flights") and stair_recipe != "station_loft":
+        raise ValueError("compact flight capacity requires the station loft recipe")
     rows = []
     for way, source in zip(case["ways"], sources, strict=True):
         row = {
@@ -90,10 +93,19 @@ def prepare_profiles(
             row["source_grid_m"] = GRID_M
         rows.append(row)
     indices = {r["source_id"]: i for i, r in enumerate(rows)}
-    contacts = proposal["connections"] + proposal.get("observed_junctions", [])
+    contacts = (
+        proposal["connections"]
+        + proposal.get("observed_junctions", [])
+        + proposal.get("boundary_caps", [])
+    )
     nodes = [
         {
             "xy": c["xy_m"],
+            **(
+                {"flat_patch_xy_m": c["flat_patch_xy_m"]}
+                if "flat_patch_xy_m" in c
+                else {}
+            ),
             "incident": [
                 indices[key]
                 for key in (
@@ -109,11 +121,7 @@ def prepare_profiles(
     for owner, source in enumerate(sources):
         if source["kind"] != "steps":
             continue
-        found = {
-            c["source_endpoint"]: j
-            for j, c in enumerate(contacts)
-            if c.get("source_id") == source["source_id"]
-        }
+        found = endpoint_nodes(contacts, source["source_id"])
         if set(found) != {0, -1}:
             raise ValueError(
                 "each retained stair needs both explicit construction contacts"
@@ -134,6 +142,8 @@ def prepare_profiles(
     )
     plan["stair_directions"] = directions
     plan["construction_contacts"] = contacts
+    plan["compact_flights"] = copy.deepcopy(proposal.get("compact_flights", []))
+    plan["float32_edge_cleanup"] = proposal.get("float32_edge_cleanup", False)
     if "region_context" in proposal:
         plan["region_context"] = copy.deepcopy(proposal["region_context"])
     plan["landing_reach_m"] = landing_reach_m
@@ -148,4 +158,17 @@ def prepare_profiles(
     plan["stair_recipe"] = stair_recipe
     if stair_recipe == "station_loft":
         prepare_stair_lofts(plan)
+    for recipe in plan["compact_flights"]:
+        flight = next(
+            f for f in plan["stair_lofts"] if f["source_id"] == recipe["source_id"]
+        )
+        run = flight["end_cut_m"] - flight["start_cut_m"]
+        count = min(64, int(np.floor(run / recipe["minimum_tread_depth_m"])))
+        if count < 1:
+            raise ValueError("compact flight has no supported uniform tread run")
+        recipe.update(
+            usable_run_m=run,
+            maximum_risers=count,
+            maximum_rise_m=count * recipe["riser_height_budget_m"],
+        )
     return plan
