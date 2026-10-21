@@ -30,6 +30,36 @@ def cost_source(checkout):
     return vertex[: vertex.index(tail)] + "}\n"
 
 
+def precise_source(checkout, mode):
+    header = cost_source(checkout).split("vec4 controlledMultiply", 1)[0]
+    if mode == 4:
+        declaration = "  GpuPlacement placement = GpuPlacement(s.model);\n"
+        source, begin, end = (
+            "litVertex.glsl",
+            "  mat4 m = placement.current;",
+            "  position = world.xyz;",
+        )
+    elif mode == 5:
+        declaration = "  GpuPlacement placed = GpuPlacement(s.model);\n"
+        source, begin, end = (
+            "flatVertex.glsl",
+            "  mat4 placement = placed.current;",
+            "  uv = vec2(0.0);",
+        )
+    else:
+        raise ValueError("precise projection mode must be Lit or Flat")
+    position = projection.block(
+        (checkout / "src/render/shaders" / source).read_text(), begin, end
+    )
+    return (
+        header
+        + "precise gl_Position;\nvoid main() {\n  vec3 p = sourcePoint;\n"
+        + declaration
+        + position
+        + "\n}\n"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native-checkout", required=True, type=Path)
@@ -40,6 +70,11 @@ def main():
         type=Path,
         default=SOURCE.parents[3]
         / "test/outshine/data/render/patch_selection/native-mesh-subset.json",
+    )
+    parser.add_argument(
+        "--projection-contract",
+        action="store_true",
+        help="also compare native Lit/Flat expressions with precise position output",
     )
     args = parser.parse_args()
     checkout, output = args.native_checkout.resolve(), args.output.resolve()
@@ -71,9 +106,15 @@ def main():
     sources.append(helper_path)
     steps = []
     receipt = {
+        "projection_contract": args.projection_contract,
         "source_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=SOURCE, text=True
         ).strip(),
+        "source_worktree_dirty": bool(
+            subprocess.check_output(
+                ["git", "status", "--porcelain"], cwd=SOURCE, text=True
+            )
+        ),
         "native_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=checkout, text=True
         ).strip(),
@@ -92,9 +133,13 @@ def main():
     try:
         vertex = cost_source(checkout)
         receipt["shaders_sha256"] = {}
-        for mode in range(4):
+        for mode in range(6 if args.projection_contract else 4):
             shader = output / f"cost-{mode}.vert"
-            shader.write_text(vertex.replace("s.options.x", f"{mode}u"))
+            shader.write_text(
+                precise_source(checkout, mode)
+                if mode >= 4
+                else vertex.replace("s.options.x", f"{mode}u")
+            )
             binary = output / (shader.name + ".spv")
             shared.execute(
                 [
@@ -134,7 +179,13 @@ def main():
             dict(os.environ, MTL_DEBUG_LAYER="1") if sys.platform == "darwin" else None
         )
         shared.execute(
-            [binary, output, args.input.resolve(), output / "result.json"],
+            [
+                binary,
+                output,
+                args.input.resolve(),
+                output / "result.json",
+                *(["--projection-contract"] if args.projection_contract else []),
+            ],
             checkout,
             output,
             "run",

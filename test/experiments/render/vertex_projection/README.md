@@ -119,6 +119,13 @@ Metal translation and production shader compilation are outside this comparison.
 
 ## Indexed depth cost comparison
 
+The optional projection-contract comparison is described in
+[CONTRACT.md](CONTRACT.md). `cost.py --projection-contract` adds precise native
+Lit/Flat modes 4/5 while retaining the original four controls. The standalone
+arithmetic probe accepts `run.py --precise-projection`; default shaders remain
+unchanged. These options propose a bounded producer contract, not a fixed matrix
+summation order, world page admission or a Metal precision guarantee.
+
 `cost.py` uses the same checkout/database/output/input arguments as `run.py`.
 It generates four static vertex pipelines from the same extracted expressions,
 replaces the uniform point with a float3 vertex attribute, and removes the
