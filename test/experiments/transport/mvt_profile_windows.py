@@ -5,6 +5,7 @@ from collections import defaultdict
 from itertools import pairwise
 
 import numpy as np
+from mvt_native_cut_profiles import validate_source_frame
 from mvt_t_connection_geometry import ground_foot
 from mvt_t_connection_inputs import source_rows
 
@@ -113,6 +114,7 @@ def _catalog(axes, interfaces):
     catalog = defaultdict(list)
     seen = set()
     for port in interfaces:
+        validate_source_frame(port)
         key = port["source_id"]
         station = port["source_station_m"]
         identity = (key, station)
