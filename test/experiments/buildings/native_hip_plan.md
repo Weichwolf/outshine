@@ -60,10 +60,20 @@ it can no longer pass by refusing the plan. The original 48 pins and their
 comparison tolerances remain unchanged. The actual rebuilt product archive
 passes all 48 pins; all 64 rectangle Codec results remain byte-identical.
 
-Prepared building assets use recipe `prepared-building-base-11`, and mesh producer `outshine-building-mesh-20`, because complex
+Prepared building assets use recipe `prepared-building-base-12`, and mesh producer `outshine-building-mesh-21`, because complex
 roof geometry and old refusals change. The binary plan format does not change;
 existing valid plans remain readable. A recipe miss rebuilds the affected product;
 a hit continues loading the stored immutable plan without constructing topology.
 SFCGAL headers, package flags and stubs are removed. Complete scene/cache/image
 and device-budget results remain separate; their actual terminal results are
 recorded in #955.
+
+Contour noding and source-plane agreement have distinct tolerances. Joining two
+nearby facet vertices now requires every incident plane to agree with the target
+height within half the public plan precision; the two residuals can then differ
+by at most that precision. The 50-micrometre metric correction budget is unchanged.
+A fixed rotated/translated 32-eave regression retains two genuine neighbouring
+ridge junctions instead of collapsing them into an inconsistent four-plane node.
+The public plan still checks its original plane bound. All 144 rigid variants
+pass the complete height-surface and height-mode comparison; the known coplanar
+facet-ownership split in one variant remains a separate diagnostic.

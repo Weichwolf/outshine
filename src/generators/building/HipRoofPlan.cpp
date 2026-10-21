@@ -161,7 +161,8 @@ PrepareFacets(const Input &input, HipRoofPlan::Limits limits) {
                                    .Normals = normals,
                                    .Intercepts = intercepts,
                                    .Limits = limits,
-                                   .ToleranceM = std::max(1e-12, 32 * input.ToleranceM)};
+                                   .ToleranceM = std::max(1e-12, 32 * input.ToleranceM),
+                                   .PlaneToleranceM = input.ToleranceM};
   auto partition = RoofContour::Prepare(request);
   if (!partition) { return std::unexpected(partition.error().Kind); }
   std::vector<HipRoofPlan::Facet> facets;

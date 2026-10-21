@@ -168,9 +168,7 @@ std::optional<double> InterfaceCorrection(std::span<const Point> points,
                         std::abs(Dot(planes.Normals[id], target.Position) + planes.Intercepts[id] -
                                  target.HeightM));
   }
-  if (correction <= kMaximumInterfaceCorrectionM && residual <= tolerance * 8) {
-    return correction;
-  }
+  if (correction <= kMaximumInterfaceCorrectionM && residual <= tolerance) { return correction; }
   return std::nullopt;
 }
 }
@@ -205,7 +203,7 @@ Checked<Refined> Refine(std::vector<Point> points,
                         std::span<const double> intercepts,
                         RefinementLimits limits) {
   const auto fixed = limits.FixedVertices;
-  const auto tolerance = limits.ToleranceM;
+  const auto tolerance = limits.PlaneToleranceM / 2;
   const auto clustered = WeldVertices(points, kMaximumInterfaceCorrectionM);
   if (!clustered) { return std::unexpected(clustered.error()); }
   std::map<Point, std::vector<size_t>> groups;
