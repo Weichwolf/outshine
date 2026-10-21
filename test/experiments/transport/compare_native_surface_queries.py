@@ -106,7 +106,9 @@ def compare(case, native, crop, paddings):
     return candidates, outer, products, report
 
 
-def display(crop, data, path):
+def display(
+    crop, data, path, *, replacement_title="New queried outer interfaces / replacement"
+):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
@@ -120,7 +122,7 @@ def display(crop, data, path):
     figure = plt.figure(figsize=(13, 6))
     for at, triangles, title in (
         (1, original, "Retained native surfaces"),
-        (2, replacement, "New queried outer interfaces / replacement"),
+        (2, replacement, replacement_title),
     ):
         axis = figure.add_subplot(1, 2, at, projection="3d")
         axis.add_collection3d(
