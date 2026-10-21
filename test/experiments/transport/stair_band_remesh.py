@@ -10,7 +10,10 @@ from stair_band_rings import clean_ring
 def _groups(points, faces, owners, steps, flights):
     bits = {1 << owner: flight for owner, flight in flights.items()}
     selected = np.array(
-        [int(o) in bits and k >= 0 for o, k in zip(owners, steps, strict=True)]
+        [
+            int(o) in bits and (steps is None or steps[i] >= 0)
+            for i, o in enumerate(owners)
+        ]
     )
     groups = defaultdict(list)
     for i in np.flatnonzero(selected):
@@ -28,7 +31,9 @@ def _groups(points, faces, owners, steps, flights):
             )
         ):
             raise ValueError("prepared band face crosses a loft plane boundary")
-        groups[int(owners[i]), int(steps[i]), region].append(int(i))
+        groups[int(owners[i]), None if steps is None else int(steps[i]), region].append(
+            int(i)
+        )
     return selected, groups
 
 
@@ -180,12 +185,13 @@ def remesh(points, faces, owners, steps, levels, note, plan):
     work["output_faces"] = len(output)
     work["input_vertices"] = len(points)
     work["output_vertices"] = len(retained)
-    work["selected_array_copy_bytes"] = int(points[retained].nbytes + inverse.nbytes)
+    retained_points = points[retained]
+    work["selected_array_copy_bytes"] = int(retained_points.nbytes + inverse.nbytes)
     work["copy_scope"] = (
         "Final selected vertex and face arrays only; not all GEOS/NumPy allocations."
     )
     return (
-        points[retained],
+        retained_points,
         inverse.reshape(-1, 3),
         np.array(masks),
         np.array(bands),

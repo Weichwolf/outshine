@@ -35,14 +35,18 @@ def orientation_counts(data):
     }
 
 
-def run(solver):
+def run(solver, partition_recipe="envelope_indexed_band_remesh"):
     began = time.perf_counter()
     case, sources = inputs()
     native = json.loads(
         FIXTURE.with_name("mvt_stair_native_crosscuts.json").read_text()
     )
     plan, contacts = prepare_native_body_plan(
-        case, sources, plan_connections(sources), native
+        case,
+        sources,
+        plan_connections(sources),
+        native,
+        tread_partition_recipe=partition_recipe,
     )
     prepared = time.perf_counter()
     heights, solve = solve_profiles(
@@ -88,6 +92,7 @@ def run(solver):
         {
             "scope": "Local Python directional construction. Native outside mesh, navstation, terrain and device/Places admission remain open.",
             "solver": solver,
+            "partition_recipe": partition_recipe,
             "solve": solve,
             "geometry": geometry,
             "profile_audit": proof,
@@ -132,10 +137,15 @@ def main():
         "--solver", choices=("highs-ds", "highs-ipm"), default="highs-ds"
     )
     parser.add_argument("--trace-memory", action="store_true")
+    parser.add_argument(
+        "--partition-recipe",
+        choices=("indexed_band_remesh", "envelope_indexed_band_remesh"),
+        default="envelope_indexed_band_remesh",
+    )
     args = parser.parse_args()
     if args.trace_memory:
         tracemalloc.start()
-    plan, data, baseline, products, report = run(args.solver)
+    plan, data, baseline, products, report = run(args.solver, args.partition_recipe)
     if args.trace_memory:
         _current, report["python_traced_peak_bytes"] = tracemalloc.get_traced_memory()
         report["python_traced_live_blocks"] = sum(
