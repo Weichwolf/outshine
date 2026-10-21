@@ -17,12 +17,8 @@
 #include <string>
 
 #include "Heap.h"
-#include "StructureArtifact.h"
-#include "ArtifactBlocks.h"
-#include <limits>
 #include <string_view>
 #include <span>
-#include <vector>
 
 namespace outshine {
 
@@ -247,182 +243,6 @@ struct StructureBuildTask::Comparison {
   Phase Phase_ = Phase::Reference;
 };
 
-struct StructureBuildTask::Artifact {
-  enum class Phase { Identity, Read, Decode, Bake, Write, Done };
-
-  explicit Artifact(CacheRequest request, std::optional<ProofRequest> proof)
-      : Request(std::move(request)), Proof(proof) {}
-
-  [[nodiscard]] bool UsesIo() const { return Stage == Phase::Read || Stage == Phase::Write; }
-
-  bool BeforeBake(const Generators::RawTile &raw,
-                  const Ground::HeightField &heights,
-                  const StructureMesher &mesher,
-                  Output &output,
-                  const std::atomic_bool &stopping) {
-    const auto began = std::chrono::steady_clock::now();
-    switch (Stage) {
-      case Phase::Identity: Identify(raw, heights, mesher, output); return true;
-      case Phase::Read:
-        Input = Request.Store->Read(Key, Limits);
-        output.CacheReadMs +=
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                .count();
-        Stage = Phase::Decode;
-        return true;
-      case Phase::Decode:
-        Decode(output, stopping);
-        if (output.Tile) {
-          output.CacheHit = true;
-          Stage = Phase::Done;
-          return true;
-        }
-        Stage = Phase::Bake;
-        return false;
-      case Phase::Write:
-        if (!Pending || !Pending->Publish() || !Request.Store->Trim()) {
-          Fail(output);
-        } else {
-          output.Tile = std::move(Product);
-          Stage = Phase::Done;
-        }
-        Pending.reset();
-        output.CacheWriteMs +=
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                .count();
-        return true;
-      case Phase::Bake: return false;
-      case Phase::Done: return true;
-    }
-    return true;
-  }
-
-  void Identify(const Generators::RawTile &raw,
-                const Ground::HeightField &heights,
-                const StructureMesher &mesher,
-                Output &output) {
-    std::string producer(mesher.ArtifactVersion());
-    if (!producer.empty() && Proof) {
-      producer += ":proof:" + std::to_string(Proof->Limits.MaxTriangleQueries) + ":" +
-                  std::to_string(Proof->Limits.MaxRegions) + ":" +
-                  std::to_string(std::bit_cast<uint64_t>(Proof->Limits.TargetUncertaintyM));
-    }
-    auto key = Generators::StructureArtifactKey(raw, heights, Request.Source, producer);
-    if (!key || !Request.Store || !Request.Store->Enabled() || Request.Io == nullptr ||
-        Request.ResidentBytesMost == 0 ||
-        Request.ResidentBytesMost >
-            std::numeric_limits<size_t>::max() - sizeof(Generators::BakedTile)) {
-      Fail(output);
-      return;
-    }
-    Key = std::move(*key);
-    Limits.EncodedBytesMost = Request.ResidentBytesMost + sizeof(Generators::BakedTile);
-    Stage = Phase::Read;
-  }
-
-  void CancelIfStopping(Output &output, const std::atomic_bool &stopping, Tasks *activePool) {
-    if (!stopping.load(std::memory_order_relaxed)) { return; }
-    Release(activePool);
-    output.Tile.reset();
-    output.Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
-  }
-
-  void Release(Tasks *activePool) {
-    if (!Input && !Pending) { return; }
-    const auto close = [this] {
-      Input.reset();
-      Pending.reset();
-    };
-    if (activePool == Request.Io) {
-      close();
-    } else {
-      const auto job = Request.Io->Post(close);
-      Request.Io->Wait(job);
-    }
-  }
-
-  void Decode(Output &output, const std::atomic_bool &stopping) {
-    if (Input) {
-      const auto encodedBytes = static_cast<size_t>(Input->Manifest().Bytes);
-      Data::ArtifactBlockReader reader(
-          Input->Manifest(), [&](std::string_view blockKey, size_t mostBytes) {
-            if (stopping.load(std::memory_order_relaxed)) {
-              return std::optional<std::vector<uint8_t>>{};
-            }
-            const auto readBegan = std::chrono::steady_clock::now();
-            std::optional<std::vector<uint8_t>> loaded;
-            const auto job = Request.Io->Post(
-                [&, blockKey, mostBytes] { loaded = Input->ReadBlock(blockKey, mostBytes); });
-            Request.Io->Wait(job);
-            output.CacheReadMs += std::chrono::duration<double, std::milli>(
-                                      std::chrono::steady_clock::now() - readBegan)
-                                      .count();
-            return loaded;
-          });
-      output.Tile = Generators::ReadStructureProduct(
-          [&](std::span<uint8_t> into) { return reader.Read(into); },
-          {.EncodedBytes = encodedBytes, .ResidentBytesMost = Request.ResidentBytesMost},
-          Request.SourceKey);
-    }
-    Release(nullptr);
-  }
-
-  void AfterBake(Output &output, const std::atomic_bool &stopping) {
-    if (!output.Tile || !output.Status) { return; }
-    Data::ArtifactBlockWriter writer(
-        Limits, [&](std::string_view blockKey, std::span<const uint8_t> bytes) {
-          if (stopping.load(std::memory_order_relaxed)) { return false; }
-          const auto writeBegan = std::chrono::steady_clock::now();
-          bool written = false;
-          const auto job = Request.Io->Post([&, blockKey, bytes] {
-            if (!Pending) { Pending = Request.Store->Begin(Key, Limits); }
-            written = Pending && Pending->Append(blockKey, bytes);
-          });
-          Request.Io->Wait(job);
-          output.CacheWriteMs += std::chrono::duration<double, std::milli>(
-                                     std::chrono::steady_clock::now() - writeBegan)
-                                     .count();
-          return written;
-        });
-    const auto encoded = Generators::WriteStructureProduct(
-        *output.Tile,
-        [&](std::span<const uint8_t> bytes) { return writer.Append(bytes); },
-        Limits.BlockBytes);
-    if (!encoded) {
-      Release(nullptr);
-      output.Tile.reset();
-      auto failure = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
-      if (encoded.error() == Generators::StructureArtifactError::CapacityExceeded) {
-        failure = Generators::StructureBakeErrorKind::ArtifactCapacityExceeded;
-      } else if (encoded.error() == Generators::StructureArtifactError::WriteFailed) {
-        failure = Generators::StructureBakeErrorKind::ArtifactFailure;
-      }
-      if (stopping.load(std::memory_order_relaxed)) {
-        failure = Generators::StructureBakeErrorKind::Cancelled;
-      }
-      output.Status = std::unexpected(failure);
-      return;
-    }
-    Product = std::move(output.Tile);
-    output.Tile.reset();
-    Stage = Phase::Write;
-  }
-
-  static void Fail(Output &output) {
-    output.Tile.reset();
-    output.Status = std::unexpected(Generators::StructureBakeErrorKind::ArtifactFailure);
-  }
-
-  CacheRequest Request;
-  Data::ArtifactLimits Limits;
-  std::optional<ProofRequest> Proof;
-  Phase Stage = Phase::Identity;
-  std::string Key;
-  std::unique_ptr<Data::ArtifactStore::Reader> Input;
-  std::unique_ptr<Data::ArtifactStore::Writer> Pending;
-  std::optional<Generators::BakedTile> Product;
-};
-
 struct StructureBuildTask::NativeProducts {
   enum class Phase : uint8_t { Lookup, Generating, Complete };
 
@@ -532,8 +352,7 @@ StructureBuildTask::StructureBuildTask(uint32_t tile,
                                        std::shared_ptr<const Ground::HeightField> heights,
                                        std::unique_ptr<Output> output,
                                        std::unique_ptr<MeshScratch> scratch,
-                                       std::optional<ProofRequest> proof,
-                                       std::optional<CacheRequest> cache)
+                                       std::optional<ProofRequest> proof)
     : Tile_(tile),
       Raw_(std::move(raw)),
       Heights_(std::move(heights)),
@@ -541,8 +360,7 @@ StructureBuildTask::StructureBuildTask(uint32_t tile,
       Scratch_(std::move(scratch)),
       Progress_(std::make_unique<Generators::StructureBakeProgress>()),
       Stopping_(std::make_shared<std::atomic_bool>(false)),
-      Comparison_(proof ? std::make_unique<Comparison>(*proof) : nullptr),
-      Artifact_(cache ? std::make_unique<Artifact>(std::move(*cache), proof) : nullptr) {
+      Comparison_(proof ? std::make_unique<Comparison>(*proof) : nullptr) {
   assert(Raw_ != nullptr && Heights_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
 }
 
@@ -633,7 +451,6 @@ StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) no
   Progress_ = std::move(other.Progress_);
   Stopping_ = std::move(other.Stopping_);
   Comparison_ = std::move(other.Comparison_);
-  Artifact_ = std::move(other.Artifact_);
   ActivePool_ = std::exchange(other.ActivePool_, nullptr);
   Handle_ = std::exchange(other.Handle_, Tasks::kNoTask);
   State_ = std::exchange(other.State_, State::Empty);
@@ -671,7 +488,7 @@ uint64_t StructureBuildTask::InitialCells() const noexcept {
 }
 
 void StructureBuildTask::SelectNextCell(uint32_t cell) {
-  assert(State_ == State::Completed && Native_ && Native_->Cells && !Comparison_ && !Artifact_ &&
+  assert(State_ == State::Completed && Native_ && Native_->Cells && !Comparison_ &&
          Output_->Status && Output_->Tile && !Stopping_->load(std::memory_order_relaxed));
   assert(cell > 0 && cell <= Generators::kStructureCellsPerTile &&
          (InitialCells() & (uint64_t{1} << (cell - 1u))) != 0);
@@ -693,13 +510,10 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   Generators::StructureBakeProgress *const progress = Progress_.get();
   Output *const output = Output_.get();
   Comparison *const comparison = Comparison_.get();
-  Artifact *const artifact = Artifact_.get();
   const std::shared_ptr<std::atomic_bool> stopping = Stopping_;
   const auto posted = std::chrono::steady_clock::now();
   State_ = State::Running;
-  ActivePool_ = artifact != nullptr && artifact->UsesIo() ? artifact->Request.Io : &pool;
-  assert(ActivePool_ != nullptr);
-  Tasks *const activePool = ActivePool_;
+  ActivePool_ = &pool;
   Handle_ = ActivePool_->Post([raw,
                                heights,
                                base,
@@ -710,10 +524,8 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
                                progress,
                                output,
                                comparison,
-                               artifact,
                                stopping,
-                               posted,
-                               activePool] {
+                               posted] {
     const auto began = std::chrono::steady_clock::now();
     output->LastQueueMs = std::chrono::duration<double, std::milli>(began - posted).count();
     static const Heap::Tag kBakingTag("structure-bake");
@@ -722,12 +534,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
     output->LastProofWork = 0;
     output->LastRangeMs = 0.0;
     if (stopping->load(std::memory_order_relaxed)) {
-      if (artifact != nullptr) { artifact->Release(activePool); }
       output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
-      return;
-    }
-    if (artifact && artifact->BeforeBake(*raw, *heights, mesher, *output, *stopping)) {
-      artifact->CancelIfStopping(*output, *stopping, activePool);
       return;
     }
     if (native && native->BeforeBake(*raw, heights, *base, basis, *output, *stopping)) {
@@ -748,7 +555,6 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
     if (comparison != nullptr) { Comparison::CancelIfStopping(*output, *stopping); }
     const double taskMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    if (artifact) { artifact->AfterBake(*output, *stopping); }
     output->LastTaskMs = taskMs;
     output->BakeMs += taskMs;
   });

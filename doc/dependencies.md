@@ -27,7 +27,6 @@ Commitaktivität allein beweist keine Fehlerfreiheit oder künftige Wartung.
 | SDL3_image / SDL3_ttf | Bildcodecs / Schrift; bestehende Funktionen erhalten, Bildpfade erst nach Nutzerinventur zusammenführen. |
 | libcurl | HTTP/TLS und Transfers; bleibt, kein eigener Netzwerk-/Zertifikatsstack. |
 | zlib | PNG und bestehende Cachepfade; bleibt für diese Formate. |
-| LZ4 | Bestehender ArtifactStore; Vereinheitlichung mit Zstd erst mit lesbarer Altbestandsmigration. |
 | libtiff / libwebp | Copernicus-Raster / Terrarium-Höhen; Quellformatdecoder, kein eigener Codec-Eigenbau. |
 | SPIRV-Cross | Native Shaderübersetzung/Reflexion; bleibt. glslang ist ein Buildwerkzeug. |
 | nlohmann/json | Nur Benchmarkberichte im nativen Integrationszweig; eigenen JSON-Ausgabepfad als Ersatz prüfen. |
@@ -93,7 +92,10 @@ Vergleiche behalten ihre Herkunft, sind keine Produktabhängigkeiten.
 Ein gemeinsamer Geometriekern wächst nur mit konkreten weiteren Verbrauchern;
 GPU-Eignung fester Rezepte und verzweigte CPU-Topologie bleiben getrennte Fragen.
 GEOS bleibt für robuste Polygonoperationen, OSQP für den beschränkten Wasser-QP.
-Weitere Kandidaten: nlohmann/json für native Benchmarkberichte, LZ4/Zstd und Bildcodecs.
+Der frühere ArtifactStore samt LZ4-Container und optionalem Taskpfad ist ohne
+Produktkonsumenten entfernt (#1032). Aktive Gebäudeprodukte verwenden AssetCache
+mit SQLite/Zstd; ihre Formate und gespeicherten Pakete bleiben unverändert.
+Weitere Kandidaten: nlohmann/json für native Benchmarkberichte und Bildcodecs.
 Bestehende Formate und Inhalte dürfen bei einer Reduktion nicht unlesbar werden.
 
 Python-Experimente prüfen native Umsetzungen. Shapely/GEOS und Python-OSQP/native OSQP

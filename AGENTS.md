@@ -95,6 +95,9 @@
 - Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
+- Entfällt der letzte Produktkonsument, entferne ich den überholten Pfad samt exklusiven Tests,
+  Buildregeln, Abhängigkeiten und Dokumentation. Tests allein rechtfertigen keinen Altpfad.
+  Aktive Verbraucher, benötigte Datenformate und laufende Fachlieferungen vorher prüfen.
 - Echtzeit und glaubwürdige Bild-/Spielwirkung bestimmen die Genauigkeit. Ich nutze gemessene
   räumliche/zeitliche Approximationen. Transport braucht konstruktive CAD-Qualität: saubere
   Geometrie, Anschlüsse und funktionale Profile; keine exakte Vermessung der Erde.
