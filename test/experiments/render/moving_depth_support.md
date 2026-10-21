@@ -142,7 +142,7 @@ more than these original triangles. Original geometry/current seeds are a simple
 native candidate; **no overall/native winner is selected** from these CPU timings.
 Next: the supplied native opaque geometry/material/placement/validity contract,
 then the real new-frame case and device acquisition/query/draw cost. The broader
-#1078/#1081 task remains active.
+#1078/#1081 comparison remains open.
 
 ## Verification and reproduction
 
