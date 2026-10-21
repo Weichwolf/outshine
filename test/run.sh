@@ -273,6 +273,7 @@ TestProfile() {
     outshine/src/render/Viewing) printf '%s' 'profile/render-viewing' ;;
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
+    outshine/src/generators/road/FootpathConnectionPlan) printf '%s' 'profile/footpath-plan' ;;
     outshine/src/generators/road/RoadProfileHeightFit) printf '%s' 'profile/road-profile' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
@@ -336,6 +337,7 @@ LayerIncludes() {
     profile/scenario-views) GroupIncludes src/scenario ;;
     profile/render-viewing) GroupIncludes src/render ;;
     profile/client-boundary) printf '%s' '-I.' ;;
+    profile/footpath-plan) GroupIncludes src/generators/road/plan ;;
     profile/road-profile) GroupIncludes src/generators/road/profile ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
@@ -451,6 +453,7 @@ LayerLink() {
   case "$(TestProfile "$1")" in
     profile/calibration) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
+    profile/footpath-plan) return 0 ;;
     profile/road-profile) HighsFlags --libs ;;
     profile/water-targets) printf '%s' '' ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
@@ -512,6 +515,7 @@ LayerGroups() {
     profile/scenario-views) printf '%s' 'src/scenario/Views.cpp src/base/math/Camera.cpp' ;;
     profile/render-viewing) printf '%s' 'src/base/math/Camera.cpp src/base/math/Rotation.cpp' ;;
     profile/client-boundary) return 0 ;;
+    profile/footpath-plan) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/road/plan' ;;
     profile/road-profile) printf '%s' 'src/generators/road/profile' ;;
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
