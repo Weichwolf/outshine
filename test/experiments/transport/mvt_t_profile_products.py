@@ -21,7 +21,21 @@ def polygon_parts(shape):
     ]
 
 
+def _supported_triangles(line, triangles, tolerance):
+    indices = np.sort(
+        shapely.STRtree(triangles).query(line, predicate="dwithin", distance=tolerance)
+    )
+    selected = triangles[indices]
+    domain = shapely.union_all(selected)
+    if not domain.covers(line) and not (
+        tolerance and domain.buffer(tolerance).covers(line)
+    ):
+        raise ValueError("whole profile has unsupported intervals")
+    return selected
+
+
 def whole_section(line, triangles, sampler, extra_xy):
+    triangles = _supported_triangles(line, triangles, sampler.xy_tolerance_m)
     crossings = shapely.intersection(line, shapely.boundary(triangles))
     xy = np.unique(np.vstack([shapely.get_coordinates(crossings), extra_xy]), axis=0)
     order = np.argsort(shapely.line_locate_point(line, shapely.points(xy)))
