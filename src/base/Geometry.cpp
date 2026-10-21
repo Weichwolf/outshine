@@ -223,6 +223,51 @@ std::expected<void, GeometryAttributeError> Geometry::setPositions(int part,
   return Into(Held_->Parts[static_cast<size_t>(part)].Data.PositionsM, metres);
 }
 
+std::expected<void, GeometryAttributeError>
+Geometry::adoptPositions(int part, std::vector<float> &metres) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || metres.size() % 3 != 0) {
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
+  }
+  if (const auto valid = Finite(metres); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.PositionsM = std::move(metres);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptNormals(int part, std::vector<float> &unit) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(GeometryAttributeError::MissingPart);
+  }
+  if (const auto valid = ValidateNormals(unit); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.Normals = std::move(unit);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptColours(int part, std::vector<float> &rgba) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || rgba.size() % 4 != 0) {
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
+  }
+  if (const auto valid = Finite(rgba); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.Colours = std::move(rgba);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptTriangles(int part, std::vector<uint32_t> &indices) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || indices.size() % 3 != 0) {
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
+  }
+  Held_->Parts[static_cast<size_t>(part)].Data.Indices = std::move(indices);
+  return {};
+}
+
 std::expected<void, GeometryAttributeError> Geometry::setNormals(int part,
                                                                  std::span<const float> unit) {
   if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
