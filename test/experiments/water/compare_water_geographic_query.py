@@ -210,6 +210,8 @@ def run(path, output):
             np.testing.assert_array_equal(wet, expected)
             error = abs(result.height_m[wet] - height[wet])
             bank["maximum_input_world_height_residual_m"] = float(error.max(initial=0))
+            if error.max(initial=0) > 64 * np.spacing(6378137.0):
+                raise ValueError("bank height lost georeferenced coordinate agreement")
             bank["skipped_test_poses_outside_cell_or_unavailable_support"] = skipped
             rows.append({"cell": cell, "regular": regular, "banks": bank})
             plotted.append((cell, field, xy, wet, alias))
@@ -232,6 +234,12 @@ def run(path, output):
             report["maximum_input_world_height_residual_m"] = float(
                 abs(result.height_m - height).max()
             )
+            if report["maximum_input_world_height_residual_m"] > 64 * np.spacing(
+                6378137.0
+            ):
+                raise ValueError(
+                    "render height lost georeferenced coordinate agreement"
+                )
             row[name] = report
     report = {
         "source": origin,
