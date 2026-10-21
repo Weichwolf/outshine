@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 from mvt_native_cut_profiles import canonical_profile, cut_profiles
 from mvt_stair_native_crosscuts import FIXTURE, cross_section
+from stair_test_transform import assert_shared_vertices, rigid_coordinates
 
 
 class NativeCutProfileTests(unittest.TestCase):
@@ -62,23 +63,16 @@ class NativeCutProfileTests(unittest.TestCase):
             self.assertEqual(expected["native_faces"], actual["native_faces"])
 
     def test_rotated_translated_mesh_keeps_its_native_profile(self):
-        angle = 0.437
-        rotation = np.array(
-            [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
-        )
-        translation = np.array([37.0, -81.0])
+        coordinates, rotation = rigid_coordinates(0.437, np.array([37.0, -81.0]))
         for original in self.case["cuts"]:
             cut = copy.deepcopy(original)
             for triangle in cut["triangles"]:
-                xyz = np.array(triangle["enu_m"])
-                xyz[:, :2] = xyz[:, :2] @ rotation.T + translation
-                triangle["enu_m"] = xyz.tolist()
-            cut["center_xy_m"] = (
-                np.array(cut["center_xy_m"]) @ rotation.T + translation
-            ).tolist()
+                triangle["enu_m"] = coordinates(triangle["enu_m"])
+            cut["center_xy_m"] = coordinates(cut["center_xy_m"])
+            cut["original_source_xy_m"] = coordinates(cut["original_source_xy_m"])
             cut["tangent_xy"] = (np.array(cut["tangent_xy"]) @ rotation.T).tolist()
-            expected = np.array(canonical_profile(original)["profile_xyz_m"])
-            expected[:, :2] = expected[:, :2] @ rotation.T + translation
+            assert_shared_vertices(self, [original], [cut])
+            expected = coordinates(canonical_profile(original)["profile_xyz_m"])
             np.testing.assert_allclose(
                 canonical_profile(cut)["profile_xyz_m"], expected, rtol=0, atol=1e-10
             )
