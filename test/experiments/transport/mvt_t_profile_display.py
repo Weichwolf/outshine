@@ -141,7 +141,12 @@ def display(plan, heights, data, products, output):
         axes.plot(prior_arc, prior[:, 2], "o--", label="soft source height samples")
         axes.plot(arc, xyz[:, 2], ".-", label="shared solved surface envelope")
         if row["original"]["source"]["feature"]["properties"]["subclass"] == "steps":
-            for level in data["levels_m"]:
+            level_range = next(
+                r
+                for r in products["navigation"]["stair_level_ranges"]
+                if r["source_id"] == row["source_id"]
+            )
+            for level in data["levels_m"][level_range["begin"] : level_range["end"]]:
                 axes.axhline(level, color="gray", lw=0.5, alpha=0.4)
         axes.set(title=row["source_id"], xlabel="axis station / m", ylabel="height / m")
         axes.grid(alpha=0.2)
