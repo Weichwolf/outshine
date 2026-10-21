@@ -12,6 +12,7 @@ from mvt_t_profile_products import shared_products
 from mvt_t_profile_solve import solve_profiles
 from stair_junction_body import build
 from stair_network_geometry import vertex_links
+from stair_test_transform import assert_shared_vertices, rigid_coordinates
 
 
 def construct(case, native):
@@ -39,15 +40,7 @@ def construct(case, native):
 
 
 def transform(case, native, angle, translation):
-    rotation = np.array(
-        [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
-    )
-
-    def coordinates(value):
-        result = np.array(value)
-        result[..., :2] = result[..., :2] @ rotation.T + translation
-        return result.tolist()
-
+    coordinates, rotation = rigid_coordinates(angle, translation)
     case, native = copy.deepcopy(case), copy.deepcopy(native)
     for way in case["ways"]:
         for key in ("source_xy_m", "sampled_design_xyz_m", "prepared_stations_xyz_m"):
@@ -197,6 +190,7 @@ class NativeBoundedBodyTests(unittest.TestCase):
 
     def test_rotated_translated_native_input_keeps_a_valid_body(self):
         case, native = transform(self.case, self.native, 0.437, np.array([37.0, -81.0]))
+        assert_shared_vertices(self, self.native["cuts"], native["cuts"])
         result = construct(case, native)
         self.assertLess(max(result[7]["height_errors_m"].values()), 1e-10)
         self.assertEqual(result[6]["body"]["treads"]["risers"], 18)
