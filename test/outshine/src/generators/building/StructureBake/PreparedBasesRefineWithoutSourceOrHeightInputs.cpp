@@ -24,6 +24,7 @@
 #include <memory>
 #include <vector>
 #include <variant>
+#include <sqlite3.h>
 
 namespace {
 using namespace outshine;
@@ -209,12 +210,41 @@ void RequestMigration(const std::filesystem::path &root) {
         "legacy producer stores an unbound complete base");
   const auto unbound = (*cache)->LoadBasisRequest(request);
   CHECK(unbound && !*unbound, "unbound products do not claim a request hit");
+  sqlite3 *raw = nullptr;
+  const int opened = sqlite3_open((root / "assets.sqlite").string().c_str(), &raw);
+  const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> database(raw, &sqlite3_close);
+  CHECK(opened == SQLITE_OK, "request binding write guard opens the existing cache");
+  if (opened != SQLITE_OK) { return; }
+  constexpr const char *protect =
+      "CREATE TRIGGER binding_no_insert BEFORE INSERT ON packages "
+      "BEGIN SELECT RAISE(ABORT,'package insert during metadata binding'); END;"
+      "CREATE TRIGGER binding_no_update BEFORE UPDATE ON packages "
+      "BEGIN SELECT RAISE(ABORT,'package update during metadata binding'); END;"
+      "CREATE TRIGGER binding_no_delete BEFORE DELETE ON packages "
+      "BEGIN SELECT RAISE(ABORT,'package delete during metadata binding'); END;";
+  const int protectedPackages = sqlite3_exec(database.get(), protect, nullptr, nullptr, nullptr);
+  CHECK(protectedPackages == SQLITE_OK, "request migration forbids all native package writes");
+  if (protectedPackages != SQLITE_OK) { return; }
+  const auto original = (*cache)->LoadBasis(key);
   const auto before = (*cache)->Costs();
   const auto migrated = (*cache)->LoadBasis(key, request);
   const auto bound = (*cache)->LoadBasisRequest(request);
   CHECK(migrated && *migrated && bound && *bound && (**bound).BaseKey == key &&
             (*cache)->Costs().ReadBytes == before.ReadBytes,
         "migration binds the existing native basis without opening full plans");
+  CHECK(original && *original && migrated && *migrated &&
+            EncodePreparedBuildingBasis(**original) == EncodePreparedBuildingBasis(**migrated) &&
+            (*cache)->Costs().BasisWrites == before.BasisWrites &&
+            (*cache)->Costs().Writes == before.Writes &&
+            (*cache)->Costs().SurfaceWrites == before.SurfaceWrites &&
+            (*cache)->Costs().GeometryWrites == before.GeometryWrites,
+        "binding preserves the complete basis and never counts a native product write");
+  constexpr const char *unprotect = "DROP TRIGGER binding_no_insert;"
+                                    "DROP TRIGGER binding_no_update;"
+                                    "DROP TRIGGER binding_no_delete;";
+  const int writable = sqlite3_exec(database.get(), unprotect, nullptr, nullptr, nullptr);
+  CHECK(writable == SQLITE_OK, "later replacement and repair retain normal package publication");
+  if (writable != SQLITE_OK) { return; }
   const auto replacement = (*cache)->Key(tile, 18, shape, 1000);
   CHECK((*cache)->Generate(replacement, Inputs(), *Heights(), stopping, request).has_value(),
         "explicit changed input publishes a complete replacement binding");
