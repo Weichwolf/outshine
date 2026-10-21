@@ -27,6 +27,7 @@
 #include "GpuPlacement.h"
 #include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
+#include "ShadowCasterSelection.h"
 #include "SubjectLightingUniform.h"
 
 namespace outshine::Render {
@@ -353,11 +354,12 @@ public:
 
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
 
-  [[nodiscard]] Native::Result<void> EncodeShadow(const PassRecording &into,
-                                                  const Native::GraphicsPipeline &pipeline,
-                                                  const DrawBatch &batch,
-                                                  uint32_t instances,
-                                                  std::span<const std::byte> view) const;
+  [[nodiscard]] Native::Result<uint32_t> EncodeShadow(const PassRecording &into,
+                                                      const Native::GraphicsPipeline &pipeline,
+                                                      size_t batchIndex,
+                                                      const BatchFrustum &visible,
+                                                      uint32_t instances,
+                                                      std::span<const std::byte> view) const;
 
   [[nodiscard]] uint32_t ColourImages() const;
   [[nodiscard]] uint32_t DistinctPlacements() const;
@@ -511,6 +513,8 @@ private:
   std::vector<float> SubjectSpheres_;
   std::vector<uint32_t> TableJobs_, TableOrder_, TableRows_;
   std::vector<float> TableSpheres_;
+  ShadowCasterSelection ShadowCasters_;
+  bool SubjectBoundsCurrent_ = false;
   uint32_t SubjectRows_ = 0;
   std::vector<Piece> Pieces_;
   std::vector<uint32_t> Spare_;
@@ -529,10 +533,14 @@ private:
   [[nodiscard]] Native::Result<void> RoomForOptionalStreams(OptionalStreamEnds ends,
                                                             VertexRunsCarried carried);
   void BindPlacementStorage(DrawResources &into, VertexLayout layout) const;
+  void BindShadowResources(DrawResources &resources,
+                           const DrawBatch &batch,
+                           std::span<const std::byte> view) const;
   [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildSubjectBatches(std::string &error);
   void PrepareSubjectTables();
+  void PrepareShadowCasters();
   [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
   void OrderPieces();
   [[nodiscard]] bool AppendPieceBatches(Piece &one, std::string &error);
