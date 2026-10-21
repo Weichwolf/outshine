@@ -3,6 +3,62 @@
 import numpy as np
 
 
+def display_compact_flights(plan, data, output):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import MaxNLocator
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+    triangles = data["body_vertices"][
+        np.vstack([data["top_faces"], data["wall_faces"]])
+    ]
+    centre = triangles.mean(axis=1)
+    for flight in plan["compact_flights"]:
+        owner = next(
+            i
+            for i, r in enumerate(plan["rows"])
+            if r["source_id"] == flight["source_id"]
+        )
+        low_x, low_y, high_x, high_y = plan["prepared_domains"][owner].bounds
+        pad = plan["rows"][owner]["width_m"] / 4
+        chosen = triangles[
+            (centre[:, 0] >= low_x - pad)
+            & (centre[:, 0] <= high_x + pad)
+            & (centre[:, 1] >= low_y - pad)
+            & (centre[:, 1] <= high_y + pad)
+        ]
+        low_z, high_z = float(chosen[:, :, 2].min()), float(chosen[:, :, 2].max())
+        fig = plt.figure(figsize=(7, 6))
+        axes = fig.add_subplot(projection="3d")
+        axes.add_collection3d(
+            Poly3DCollection(
+                chosen,
+                facecolors=(0.55, 0.67, 0.52),
+                edgecolors=(0, 0, 0, 0.15),
+                linewidths=0.3,
+            )
+        )
+        axes.set(
+            xlim=(low_x - pad, high_x + pad),
+            ylim=(low_y - pad, high_y + pad),
+            zlim=(low_z - 0.02, high_z + 0.02),
+            xlabel="east / m",
+            ylabel="north / m",
+            zlabel="height / m",
+            title=f"{flight['source_id']}: actual compact flight; boundary unqualified",
+        )
+        axes.set_box_aspect(
+            (high_x - low_x + 2 * pad, high_y - low_y + 2 * pad, high_z - low_z + 0.04)
+        )
+        axes.zaxis.set_major_locator(MaxNLocator(4))
+        axes.view_init(elev=32, azim=-60)
+        fig.tight_layout()
+        fig.savefig(output / f"compact-flight-{owner}.png", dpi=150)
+        plt.close(fig)
+
+
 def display(plan, heights, data, products, output):
     import matplotlib
 
@@ -85,7 +141,12 @@ def display(plan, heights, data, products, output):
         axes.plot(prior_arc, prior[:, 2], "o--", label="soft source height samples")
         axes.plot(arc, xyz[:, 2], ".-", label="shared solved surface envelope")
         if row["original"]["source"]["feature"]["properties"]["subclass"] == "steps":
-            for level in data["levels_m"]:
+            level_range = next(
+                r
+                for r in products["navigation"]["stair_level_ranges"]
+                if r["source_id"] == row["source_id"]
+            )
+            for level in data["levels_m"][level_range["begin"] : level_range["end"]]:
                 axes.axhline(level, color="gray", lw=0.5, alpha=0.4)
         axes.set(title=row["source_id"], xlabel="axis station / m", ylabel="height / m")
         axes.grid(alpha=0.2)
