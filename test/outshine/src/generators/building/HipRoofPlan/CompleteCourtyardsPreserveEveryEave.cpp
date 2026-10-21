@@ -74,6 +74,7 @@ int main() {
   };
   const std::vector holes{hole1, hole2};
   const auto plan = HipRoofPlan::Prepare(exterior, holes, {});
+  CHECK(plan.has_value(), "the complete native contour recipe builds the original courtyard");
   if (plan) {
     CHECK(plan->Facets().size() == 57,
           "the real courtyard requires a facet for each of its 57 source eaves");
@@ -89,9 +90,6 @@ int main() {
     }
     CHECK(std::abs(area - 2649.9305988923356) < 1e-7,
           "accepted real courtyard facets retain the full roof area excluding both holes");
-  } else {
-    CHECK(plan.error() == HipRoofError::InvalidFacet,
-          "an incomplete library partition is explicitly refused before publication");
   }
   return Report();
 }

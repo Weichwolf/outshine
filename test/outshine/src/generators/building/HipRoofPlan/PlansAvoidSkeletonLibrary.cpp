@@ -41,8 +41,11 @@ int main() {
   CHECK(LibraryCalls == 0, "analytic input, validation and partition make no skeleton calls");
   const std::array<EastNorth, 3> triangle{{{0, 0}, {12, 0}, {0, 9}}};
   const auto complex = HipRoofPlan::Prepare(triangle, {}, {});
-  CHECK(!complex && complex.error() == HipRoofError::PartitionFailed,
-        "the unreplaced complex path still reports its backend failure");
-  CHECK(LibraryCalls > 0, "the disabled backend is a live control for complex inputs");
+  CHECK(complex.has_value(), "the contour recipe builds a nonrectangular roof without the library");
+  if (complex) {
+    CHECK_NEAR(complex->MaximumDistanceM(), 3, 1e-10, "metres", "triangle inradius");
+    CHECK(complex->Facets().size() == 3, "every original triangular eave owns one facet");
+  }
+  CHECK(LibraryCalls == 0, "nonrectangular construction makes no skeleton calls");
   return Report();
 }
