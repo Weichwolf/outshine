@@ -9,6 +9,18 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
 
 
+def polygon_parts(shape):
+    return [
+        {
+            "outer_xy_m": [list(p) for p in part.exterior.coords[:-1]],
+            "holes_xy_m": [
+                [list(p) for p in ring.coords[:-1]] for ring in part.interiors
+            ],
+        }
+        for part in shapely.get_parts(shape)
+    ]
+
+
 def whole_section(line, triangles, sampler, extra_xy):
     crossings = shapely.intersection(line, shapely.boundary(triangles))
     xy = np.unique(np.vstack([shapely.get_coordinates(crossings), extra_xy]), axis=0)
@@ -125,11 +137,15 @@ def shared_products(plan, heights, body_data):
                 "xy_m": list(xy),
                 "height_m": float(zs[0]),
                 "source_ids": [plan["rows"][i]["source_id"] for i in owners],
-                "reservation_wkt": patch.wkt,
+                "reservation_parts": polygon_parts(patch),
             }
         )
     return {
+        "format_version": 1,
         "status": "local_2.5d_proposal_pending_external_ports_and_native_admission",
+        "coordinate_frame": plan["coordinate_frame"],
+        "source_metadata": plan["source_metadata"],
+        "source_id_scope": "fixture native parts; no provider-node identity claim",
         "landings": landings,
         "interface_ports": interface_ports(plan, heights),
         "navigation": {
@@ -146,7 +162,7 @@ def shared_products(plan, heights, body_data):
         "terrain_reservations": [
             {
                 "source_id": r["source_id"],
-                "footprint_wkt": domain.wkt,
+                "footprint_parts": polygon_parts(domain),
                 "surface_face_ids": f.tolist(),
             }
             for r, domain, f in zip(

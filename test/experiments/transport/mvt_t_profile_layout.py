@@ -1,5 +1,7 @@
 """Adapt retained source parts and the explicit 2D proposals to shared surfaces."""
 
+import copy
+
 import numpy as np
 import shapely
 from shared_bridge_geometry import corridor
@@ -118,5 +120,11 @@ def prepare_profiles(
     plan["construction_contacts"] = contacts
     plan["landing_reach_m"] = landing_reach_m
     plan["mesh_recipe"] = mesh_recipe
+    plan["source_metadata"] = {
+        source["source_id"]: copy.deepcopy(source) for source in sources
+    }
+    plan["coordinate_frame"] = {
+        k: case["provenance"][k] for k in ("frame_longitude_latitude_deg", "units")
+    }
     freeze_regions(plan)
     return plan
