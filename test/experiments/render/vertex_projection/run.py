@@ -21,11 +21,51 @@ def block(text, begin, end):
     return result
 
 
+def float32_controls(shared, checkout, output, steps):
+    binary = output / "projection.vert.spv"
+    assembly = output / "projection.vert.spvasm"
+    shared.execute(
+        ["spirv-dis", binary, "-o", assembly],
+        checkout,
+        output,
+        "float32-disassemble",
+        steps,
+    )
+    lines = assembly.read_text().splitlines()
+    entries = [line.split()[2] for line in lines if "OpEntryPoint " in line]
+    if len(entries) != 1:
+        raise ValueError("float32 controls require exactly one shader entry point")
+    modes = ("DenormPreserve", "SignedZeroInfNanPreserve", "RoundingModeRTE")
+    first = next(
+        i
+        for i, line in enumerate(lines)
+        if "OpExtInstImport " in line or "OpMemoryModel " in line
+    )
+    lines[first:first] = [f"               OpCapability {mode}" for mode in modes]
+    first = next(i for i, line in enumerate(lines) if "OpEntryPoint " in line) + 1
+    lines[first:first] = [
+        f"               OpExecutionMode {entries[0]} {mode} 32" for mode in modes
+    ]
+    assembly.write_text("\n".join(lines) + "\n")
+    shared.execute(
+        ["spirv-as", "--target-env", "vulkan1.3", assembly, "-o", binary],
+        checkout,
+        output,
+        "float32-assemble",
+        steps,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native-checkout", required=True, type=Path)
     parser.add_argument("--compile-database", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--spirv-float32-controls",
+        action="store_true",
+        help="Vulkan-only vertex RTE/denormal/signed-zero preservation comparison",
+    )
     parser.add_argument(
         "--input",
         type=Path,
@@ -33,6 +73,8 @@ def main():
         / "test/outshine/data/render/patch_selection/native-mesh-subset.json",
     )
     args = parser.parse_args()
+    if args.spirv_float32_controls and sys.platform != "linux":
+        parser.error("SPIR-V float32 controls are measured only with Vulkan on Linux")
     checkout, output = args.native_checkout.resolve(), args.output.resolve()
     output.relative_to(Path(tempfile.gettempdir()).resolve())
     output.mkdir(parents=True, exist_ok=True)
@@ -67,6 +109,7 @@ def main():
         "input_sha256": shared.digest(args.input.resolve()),
         "archive_sha256": shared.digest(checkout / "build/liboutshine.a"),
         "compile_database_sha256": shared.digest(args.compile_database.resolve()),
+        "spirv_float32_controls": args.spirv_float32_controls,
         "steps": steps,
         "success": False,
     }
@@ -111,6 +154,8 @@ def main():
                 name,
                 steps,
             )
+        if args.spirv_float32_controls:
+            float32_controls(shared, checkout, output, steps)
         for name in ("projection.vert", "projection.frag"):
             shared.execute(
                 ["spirv-val", "--target-env", "vulkan1.3", output / (name + ".spv")],
@@ -120,6 +165,7 @@ def main():
                 steps,
             )
         receipt["generated_vertex_sha256"] = shared.digest(output / "projection.vert")
+        receipt["vertex_spirv_sha256"] = shared.digest(output / "projection.vert.spv")
         binary = shared.build(
             checkout,
             args.compile_database.resolve(),

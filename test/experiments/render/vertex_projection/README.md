@@ -45,7 +45,7 @@ geographic corpus. The same 65 cases run in four modes:
 Observed on Iris Xe/Vulkan: numeric case differences 46/59/0/0; native-input bit
 differences 38/51/0/0. These are actual numeric differences, not merely signed zero.
 Controls matching in this finite cohort establish no portable arithmetic theorem.
-The shader requests no rounding/denormal execution mode and no correctly-rounded
+The default run requests no rounding/denormal execution mode and no correctly-rounded
 FMA extension. Ordinary GLSL `Fma` must not be promoted to a correctly-rounded
 portable contract solely because this GPU happened to match `std::fma`.
 
@@ -69,7 +69,12 @@ independent requirements. Mode 3 is an arithmetic-contract candidate, not an ado
 renderer change; cost on the real vertex workload and Metal must be checked first.
 
 The inspected Iris properties advertise float32 RTE, denormal and signed-zero/
-Inf/NaN preservation, but support does not mean the probe requested those modes.
+Inf/NaN preservation. The optional Linux/Vulkan comparison below requests all three
+vertex execution modes explicitly. On the same 65 inputs it retains the same
+46/59/0/0 numeric differences and 7/18/0/0 corner witnesses: controlling rounding
+alone does not constrain matrix expression ordering or contraction. This finite
+cohort contains no dedicated denormal or halfway-rounding qualification and proves
+neither device conformance nor portable equivalence. No product mode is changed.
 `VK_KHR_shader_fma` was absent from the inspected extension list. Current Metal
 vertex compilation uses safe math; safe math still permits contraction. No backend
 flags are changed here.
@@ -92,6 +97,13 @@ vertices, 45760 logical uniform bytes and 266240 readback bytes for the default 
 Those are logical submissions/transfers, not measured hardware vertex invocations.
 Tiny draw timings are diagnostic costs, not a world/vertex-throughput/FPS benchmark.
 Allocation counts and GPU/driver peaks are not fully instrumented.
+
+For the explicit Vulkan float32 comparison, add `--spirv-float32-controls` with a
+new empty output directory. This requires SPIR-V Tools (`spirv-dis`, `spirv-as`,
+`spirv-val`) and a device supporting the requested modes. The runner records the
+option, transformed vertex assembly and final SPIR-V hash, validates the module,
+and propagates validation/build/run errors. It changes only the diagnostic vertex module;
+Metal translation and production shader compilation are outside this comparison.
 
 ## Primary precision references
 
