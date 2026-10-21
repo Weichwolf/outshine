@@ -1337,7 +1337,7 @@ StateAccess() {
   printf '\n## Access\n\nWhat stands wider than private. Private is the default and a wider door justifies itself.\n\n'
   printf '%s protected section(s), and inheritance is right where a stable interface carries\n' \
     "$(grep -rc '^ *protected:' src --include=*.h 2>/dev/null | awk -F: '{ n += $2 } END { print n + 0 }')"
-  printf 'shared machinery -- Source, WebTileSource, TerrariumDem is that shape.\n\n'
+  printf 'shared machinery -- Source and WebTileSource is that shape.\n\n'
   grep -rn '^ *protected:' src --include=*.h 2>/dev/null | sed -E 's|:[0-9]+:.*||' | sort -u |
     sed 's|^|- `|; s|$|`|'
   printf '\n%s public data member(s) in a class -- an invariant nobody can hold.\n\n| members | header |\n|---|---|\n' "$OPENDATA"
