@@ -57,6 +57,32 @@ class WindowDemandTests(unittest.TestCase):
         cls.plans = cases()
         cls.prepared = cls.plans[0]
 
+    def test_original_piers_survive_every_window_replacement_and_release(self):
+        for prepared in self.plans:
+            if prepared.mass.kind != "paired-wings":
+                continue
+            product = WindowDetails(prepared, max_windows=MAX_WINDOWS)
+            coarse = dict(product.coarse.mesh)
+            mask = coarse["materials"] == 9
+            coarse["faces"] = coarse["faces"][mask]
+            coarse["materials"] = coarse["materials"][mask]
+            expected = draw_triangles(coarse)
+            self.assertGreater(len(expected), 0)
+            ids = tuple(product.windows)
+            for request in (ids, ids[:3], ()):
+                output = materialize(product.update(request))
+                mask = output["materials"] == 9
+                output["faces"] = output["faces"][mask]
+                output["materials"] = output["materials"][mask]
+                np.testing.assert_array_equal(draw_triangles(output), expected)
+            self.assertEqual(tuple(product.windows), product.coarse.window_ids)
+            for owner in np.unique(
+                product.coarse.triangle_owners[product.coarse.mesh["materials"] == 9]
+            ):
+                self.assertNotIn(product.coarse.owner_ids[owner], product.windows)
+            with self.assertRaises(ValueError):
+                product.update((ids[0] + "/pier",))
+
     def test_all_actual_windows_match_the_existing_full_batch_recipe(self):
         for prepared in self.plans:
             with self.subTest(source=prepared.mass.identifier, kind=prepared.mass.kind):
