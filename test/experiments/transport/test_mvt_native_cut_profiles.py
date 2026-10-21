@@ -3,7 +3,11 @@ import json
 import unittest
 
 import numpy as np
-from mvt_native_cut_profiles import canonical_profile, cut_profiles
+from mvt_native_cut_profiles import (
+    canonical_profile,
+    cut_profiles,
+    validate_source_frame,
+)
 from mvt_stair_native_crosscuts import FIXTURE, cross_section
 from stair_test_transform import assert_shared_vertices, rigid_coordinates
 
@@ -49,6 +53,38 @@ class NativeCutProfileTests(unittest.TestCase):
                     (a[1] + b[1]) / 2,
                     delta=1e-10,
                 )
+
+    def test_mislabeled_station_center_or_direction_cannot_change_boundary_scope(self):
+        for field in ("source_station_m", "center_xy_m", "tangent_xy"):
+            with self.subTest(field=field):
+                cut = copy.deepcopy(self.case["cuts"][0])
+                if field == "source_station_m":
+                    cut[field] += 1
+                elif field == "center_xy_m":
+                    cut[field][0] += 0.001
+                else:
+                    cut[field] = [-v for v in cut[field]]
+                with self.assertRaisesRegex(ValueError, "original source station"):
+                    canonical_profile(cut)
+
+    def test_source_frame_uses_forward_segment_at_knots_and_preceding_at_last(self):
+        cut = {
+            "original_source_xy_m": [[0, 0], [3, 0], [3, 4]],
+            "source_station_m": 3,
+            "center_xy_m": [3, 0],
+            "tangent_xy": [0, 7],
+        }
+        validate_source_frame(cut)
+        cut["tangent_xy"] = [1, 0]
+        with self.assertRaises(ValueError):
+            validate_source_frame(cut)
+        for station, center, tangent in ((0, [0, 0], [1, 0]), (7, [3, 4], [0, 1])):
+            cut.update(source_station_m=station, center_xy_m=center, tangent_xy=tangent)
+            validate_source_frame(cut)
+        for station in (-1, 8, float("nan")):
+            cut["source_station_m"] = station
+            with self.assertRaises(ValueError):
+                validate_source_frame(cut)
 
     def test_triangle_order_and_orientation_do_not_change_canonical_points(self):
         for original in self.case["cuts"]:
