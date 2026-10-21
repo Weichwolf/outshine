@@ -170,6 +170,7 @@ class GeometricSupport(unittest.TestCase):
             self.points, self.faces, [0, 1], view(), block=2, max_tiles=1
         )
         self.assertEqual(len(quads), 1)
+        self.assertEqual(owners.tolist(), [0])
         self.assertTrue(work["limit_reached"])
         with self.assertRaises(ValueError):
             raster_patches(quads, np.array([-1]), view(), [True, True])
