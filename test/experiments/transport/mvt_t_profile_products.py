@@ -65,11 +65,18 @@ def interface_ports(plan, heights):
 
 def external_profiles(plan, samplers):
     result = []
+    roles = {
+        (r["source_id"], r["endpoint"]): r["status"]
+        for r in plan.get("region_context", {}).get("endpoint_roles", [])
+    }
     for owner, row in enumerate(plan["rows"]):
         if row["original"]["source"]["feature"]["properties"]["subclass"] == "steps":
             continue
         triangles = shapely.polygons(plan["xy"][plan["parts"][owner]])
         for end, adjacent in ((0, 1), (-1, -2)):
+            role = roles.get((row["source_id"], end))
+            if role in ("joint_observed_contact", "joint_construction_proposal"):
+                continue
             point = row["xy"][end]
             tangent = point - row["xy"][adjacent]
             tangent /= np.linalg.norm(tangent)
@@ -82,6 +89,7 @@ def external_profiles(plan, samplers):
                     "endpoint": end,
                     "profile_xyz_m": xyz,
                     "profile_status": "proposed_pending_actual_neighbour_contact",
+                    **({"boundary_role": role} if role is not None else {}),
                 }
             )
     return result
@@ -147,6 +155,11 @@ def shared_products(plan, heights, body_data):
         "coordinate_frame": plan["coordinate_frame"],
         "source_metadata": plan["source_metadata"],
         "source_id_scope": "fixture native parts; no provider-node identity claim",
+        **(
+            {"region_context": plan["region_context"]}
+            if "region_context" in plan
+            else {}
+        ),
         "stair_flights": [
             {
                 "source_id": flight["source_id"],
