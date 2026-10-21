@@ -227,7 +227,7 @@
   PDFs prüfe ich immer auch optisch, insbesondere Abbildungen, Diagramme und Gleichungen.
 - C++23, native Metal-/Vulkan-Backends, GLSL; SDL3 für Fenster, Eingabe und Audio.
   Ich implementiere Metal, `outshine_engine` Vulkan; gemeinsame GPU-Verträge stimmen wir
-  vor der Integration ab. SDL3_GPU wird ersetzt; vorhandene Bildqualität und Funktionen erhalten.
+  vor der Integration ab. Vorhandene Bildqualität und Funktionen bleiben erhalten.
   Backendentscheidungen und Übergang stehen in [#48](https://github.com/Weichwolf/outshine/issues/48).
   RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.

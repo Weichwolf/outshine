@@ -1,6 +1,6 @@
 #include "SourceSet.h"
 #include "OfflineTransport.h"
-#include "TerrariumDem.h"
+#include "WebTileFixture.h"
 #include "Check.h"
 #include <memory>
 #include <array>
@@ -155,8 +155,8 @@ int main() {
     ContentStore cache({.Using = ContentStore::Use::Off});
     SourceSet sources(cache);
     OfflineTransport transport;
-    CHECK(sources.Add(std::make_unique<TerrariumDem>("", Rank{0}, AbsencePolicy::Continue)) ==
-              SourceSet::Registration::Accepted,
+    CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
+              "", Rank{0}, AbsencePolicy::Continue)) == SourceSet::Registration::Accepted,
           "offline terrain source registers");
     auto query = sources.Ask(Fetch(DataKind::Elevation, Address::At({.Zoom = 0, .X = 0, .Y = 0})));
     CHECK(sources.Collect(query, transport).Where() == Delivery::State::Refused,
