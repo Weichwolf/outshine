@@ -46,6 +46,7 @@ def fit_physical_surface(
     normal_model="whole-prism",
     primary_rows=None,
     solver="clarabel",
+    vertex_up_bounds_m=None,
 ):
     """Rows are (face, ENU dx,dy,dz,lower<=0,upper>=0), not old planar rows.
 
@@ -54,6 +55,8 @@ def fit_physical_surface(
     contact_points add hard physical ENU positions inside/on the same facets.
     Two explicit primary row indices per face select the derived-bound linear QP;
     otherwise the original norm-SOCP reference remains the default.
+    Optional Nx2 vertex_up_bounds_m restricts each vertex inside the global
+    normal-envelope prism; these are ENU-Up coordinates, not geodetic heights.
     """
     start = time.perf_counter()
     report = {"valid": False, "scope": "finite conservative physical SOCP reference"}
@@ -106,6 +109,27 @@ def fit_physical_surface(
     if contacts is None:
         return absent(report["reason"])
     caps = normal_caps(anchor, mesh.vertices[:, :2], mesh.triangles, up_bounds_m)
+    vertex_bounds = None
+    if vertex_up_bounds_m is not None:
+        if not isinstance(
+            vertex_up_bounds_m, np.ndarray
+        ) or vertex_up_bounds_m.shape != (nv, 2):
+            raise ValueError("bounded NumPy Nx2 vertex Up bounds required")
+        vertex_bounds = np.array(vertex_up_bounds_m, dtype=float, copy=True)
+        if (
+            vertex_bounds.shape != (nv, 2)
+            or not np.isfinite(vertex_bounds).all()
+            or np.any(vertex_bounds[:, 0] > vertex_bounds[:, 1])
+            or np.any(vertex_bounds[:, 0] < caps["up_bounds_m"][0])
+            or np.any(vertex_bounds[:, 1] > caps["up_bounds_m"][1])
+        ):
+            raise ValueError(
+                "finite ordered vertex Up bounds inside the global prism required"
+            )
+        if any(
+            not vertex_bounds[i, 0] <= h <= vertex_bounds[i, 1] for i, h in pins.items()
+        ):
+            return absent("fixed_contact_outside_vertex_bounds")
     if np.any(
         (contacts.points[:, 2] < caps["up_bounds_m"][0])
         | (contacts.points[:, 2] > caps["up_bounds_m"][1])
@@ -145,6 +169,7 @@ def fit_physical_surface(
         normal_bound=bound,
         solver_name=solver,
         point_contacts=contacts,
+        vertex_up_bounds_m=vertex_bounds,
     )
     report.update(solver_report)
     if height is None:
@@ -176,6 +201,17 @@ def fit_physical_surface(
     )
     result_mesh = Mesh(vertices, mesh.triangles)
     report.update(point_contact_errors(result_mesh, contacts))
+    vertex_error = 0.0
+    if vertex_bounds is not None:
+        vertex_error = max(
+            float((vertex_bounds[:, 0] - height).max(initial=0)),
+            float((height - vertex_bounds[:, 1]).max(initial=0)),
+            0.0,
+        )
+        report.update(
+            vertex_height_box_violation_m=vertex_error,
+            vertex_bound_array_bytes=vertex_bounds.nbytes,
+        )
     if (
         max(
             violation,
@@ -183,6 +219,7 @@ def fit_physical_surface(
             box_error,
             report.get("derived_normal_bound_excess", 0),
             report["fixed_point_up_error_m"],
+            vertex_error,
         )
         > 1e-9
     ):
