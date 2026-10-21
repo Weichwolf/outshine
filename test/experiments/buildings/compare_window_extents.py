@@ -56,7 +56,8 @@ def query_case(prepared, index, args, jobs):
     )
     poses = [replace(view, width=1280, height=720) for view in requests(prepared)[0]]
     choices, rows = {}, {}
-    for indexed in (False, True):
+    order = (True, False) if bool(index % 2) ^ args.selective_first else (False, True)
+    for indexed in order:
         name = "tree" if indexed else "scan"
         selector, build = measured(
             lambda indexed=indexed: WindowRange(metadata, indexed=indexed), args.trace
@@ -233,6 +234,17 @@ def main():
             "window_detail_demand.py",
             "opening_modules.py",
             "terraced_facade_details.py",
+        )
+    ]
+    tracked += [
+        "test/experiments/buildings/" + name
+        for name in (
+            "opening_details.py",
+            "terraced_facade_prepare.py",
+            "terraced_facade_surface.py",
+            "compare_window_detail_demand.py",
+            "data/stepped-profiles.json",
+            "data/terraced-admission-controls.json",
         )
     ]
     if subprocess.check_output(["git", "status", "--porcelain", "--", *tracked]):
