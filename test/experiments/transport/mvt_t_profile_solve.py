@@ -6,6 +6,8 @@ import time
 import numpy as np
 from mvt_t_profile_contacts import add_contacts, contact_residuals, prepare_contacts
 from mvt_t_profile_layout import prior_values
+from mvt_t_stair_loft import add_loft_equalities, height_projection
+from scipy import sparse
 from scipy.optimize import linprog
 from stair_junction_solve import (
     Conditions,
@@ -39,6 +41,7 @@ def solve_profiles(
     contact_method="index",
     contact_row_scale=1024.0,
     contact_presolve=False,
+    height_formulation="projected",
 ):
     if solver not in ("highs-ds", "highs-ipm"):
         raise ValueError("known HiGHS method required")
@@ -48,6 +51,8 @@ def solve_profiles(
         raise ValueError("bounded nonnegative cooperative solver time required")
     if type(contact_presolve) is not bool:
         raise ValueError("explicit contact presolve choice required")
+    if height_formulation not in ("projected", "equalities"):
+        raise ValueError("known height formulation required")
     began = time.perf_counter()
     count, planes = len(plan["xy"]), 3 * len(plan["nodes"])
     if count > 4096 or sum(map(len, plan["parts"])) > 8192:
@@ -76,15 +81,24 @@ def solve_profiles(
             direction=plan["stair_directions"][stair[0]],
         )
     overlaps = overlap_conditions(plan, system, 0)
-    matrix = system.matrix()
+    if height_formulation == "equalities":
+        add_loft_equalities(plan, system)
+    full_matrix = system.matrix()
+    projection = (
+        height_projection(plan, delta + 1)
+        if height_formulation == "projected"
+        else sparse.eye(delta + 1, format="csc")
+    )
+    matrix = (full_matrix @ projection).tocsc()
     objective = np.zeros(delta + 1)
     objective[delta] = 1
+    objective = np.asarray(projection.T @ objective).ravel()
     prepared = time.perf_counter()
     answer = linprog(
         objective,
         A_ub=matrix,
         b_ub=system.bounds,
-        bounds=[(None, None)] * delta + [(0, max_prior_change_m)],
+        bounds=[(None, None)] * (matrix.shape[1] - 1) + [(0, max_prior_change_m)],
         method=solver,
         options={
             "time_limit": seconds,
@@ -96,6 +110,11 @@ def solve_profiles(
         "valid": bool(answer.success),
         "status": answer.message,
         "variables": matrix.shape[1],
+        "unreduced_variables": delta + 1,
+        "height_formulation": height_formulation,
+        "projection_array_bytes": projection.data.nbytes
+        + projection.indices.nbytes
+        + projection.indptr.nbytes,
         "constraints": matrix.shape[0],
         "nonzeros": matrix.nnz,
         "preparation_s": prepared - began,
@@ -113,12 +132,15 @@ def solve_profiles(
     }
     if not answer.success:
         return None, note
-    heights = answer.x[:count] + datum
+    solution = projection @ answer.x
+    heights = solution[:count] + datum
     note.update(
         max_prior_change_m=float(max(abs(heights[v] - p).max() for v, p in targets)),
         objective=float(answer.fun),
-        maximum_constraint_residual=float(np.max(matrix @ answer.x - system.bounds)),
-        junction_planes=(answer.x[count:delta].reshape(-1, 3) + [datum, 0, 0]).tolist(),
+        maximum_constraint_residual=float(
+            np.max(full_matrix @ solution - system.bounds)
+        ),
+        junction_planes=(solution[count:delta].reshape(-1, 3) + [datum, 0, 0]).tolist(),
         fixed_contact_residuals_m=contact_residuals(contacts, heights),
     )
     return heights, note

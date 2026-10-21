@@ -89,7 +89,8 @@ def external_profiles(plan, samplers):
 
 def shared_products(plan, heights, body_data):
     samplers = [
-        SurfaceSampler(Mesh(np.c_[plan["xy"], heights], f)) for f in plan["parts"]
+        SurfaceSampler(Mesh(np.c_[plan["xy"], heights], f), xy_tolerance_m=0)
+        for f in plan["parts"]
     ]
     axes, profiles, graph_nodes, graph_edges = {}, {}, {}, []
     for owner, row in enumerate(plan["rows"]):
@@ -146,6 +147,19 @@ def shared_products(plan, heights, body_data):
         "coordinate_frame": plan["coordinate_frame"],
         "source_metadata": plan["source_metadata"],
         "source_id_scope": "fixture native parts; no provider-node identity claim",
+        "stair_flights": [
+            {
+                "source_id": flight["source_id"],
+                "origin_xy_m": flight["origin_xy_m"].tolist(),
+                "tangent_xy": flight["tangent"].tolist(),
+                "start_landing": flight["start_node"],
+                "end_landing": flight["end_node"],
+                "start_cut_m": flight["start_cut_m"],
+                "end_cut_m": flight["end_cut_m"],
+                "height_rule": "flat_linear_flat",
+            }
+            for flight in plan.get("stair_lofts", [])
+        ],
         "landings": landings,
         "interface_ports": interface_ports(plan, heights),
         "navigation": {

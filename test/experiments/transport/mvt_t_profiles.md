@@ -52,7 +52,12 @@ vertex-prior objective, not a continuous DEM-error or global reconstruction boun
 There are no invented fixed neighbour heights or hard old stair height targets.
 
 Reuse16-sided conservative whole-face gradient constraints, horizontal common
-landing planes, monotonic stairs and level stair cross-sections. The Float32
+landing planes and monotonic stairs. Prepared straight flights use shared indexed
+station cuts and one flat-linear-flat height rule between the two landing heights;
+see `mvt_t_stair_loft.md`. Reconstructing analytical cross-sections by proximity
+after XY rounding missed every section in the original fixture. That diagnostic
+path remains available, but cannot qualify level transverse envelope gradients.
+The Float32
 coefficient check uses a height magnitude bounded by the priors plus the declared
 budget. Opposite stair source orientation changes monotonic direction, while
 source provenance remains unchanged. Solver failure/time exhaustion yields no
@@ -61,7 +66,8 @@ profile; preparation and solver time are measured separately and are offline.
 Both landings, the continuous grade envelope and every original way are solved
 together. Existing level-set slicing creates actual treads/risers and a closed
 body. Independent audits check the actual saved caps, original containment,
-whole normals, shared flat patches, ≤0.18m risers, tread support disks, volume,
+whole normals, actual transverse envelope gradients, shared flat patches,
+≤0.18m risers, tread support disks, volume,
 Float32 orientation/road grades and cyclic vertex links. The0.1m prior-budget
 countercase stays infeasible; it is never silently increased.
 

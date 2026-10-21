@@ -225,7 +225,7 @@ def audit_fixed_contacts(plan, heights, contacts, *, max_samples=32768):
             raise ValueError("fixed contact audit leaves its retained source surface")
         if owner not in samplers:
             samplers[owner] = SurfaceSampler(
-                Mesh(np.c_[plan["xy"], heights], plan["parts"][owner])
+                Mesh(np.c_[plan["xy"], heights], plan["parts"][owner]), xy_tolerance_m=0
             )
         sampler = samplers[owner]
         if len(xyz) == 1:
