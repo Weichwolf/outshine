@@ -41,6 +41,14 @@ class ExactBudget:
         self.operations += 1
         self.counts[name] = self.counts.get(name, 0) + 1
 
+    def charge(self, name, count):
+        if type(count) is not int or count < 0:
+            raise ValueError("nonnegative integer batch charge required")
+        if count > self.limit - self.operations:
+            raise ExactBudgetExceeded("exact operation budget")
+        self.operations += count
+        self.counts[name] = self.counts.get(name, 0) + count
+
     def check(self, value):
         bits = max(value.numerator.bit_length(), value.denominator.bit_length())
         self.peak_bits = max(self.peak_bits, bits)
