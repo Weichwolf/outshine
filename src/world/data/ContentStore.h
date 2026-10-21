@@ -52,13 +52,9 @@ public:
   explicit ContentStore(const Config &config);
   ~ContentStore();
 
-  [[nodiscard]] bool Trim();
-
   ContentStore(const ContentStore &) = delete;
   ContentStore &operator=(const ContentStore &) = delete;
 
-  [[nodiscard]] std::optional<std::vector<uint8_t>> Read(std::string_view key,
-                                                         size_t mostBytes = 0) const;
   [[nodiscard]] bool Keep(std::string_view key, const uint8_t *data, size_t bytes);
   [[nodiscard]] Entry Lookup(std::string_view key, size_t mostBytes = 0) const;
   [[nodiscard]] bool KeepAbsent(std::string_view key);
@@ -77,8 +73,7 @@ public:
   [[nodiscard]] bool Enabled() const noexcept { return Using_ == Use::On; }
 
   struct Ledger {
-    long long Hits = 0, Misses = 0, Writes = 0, WriteFailures = 0, Swept = 0;
-    long long SweptBytes = 0;
+    long long Hits = 0, Misses = 0, Writes = 0, WriteFailures = 0;
     uint64_t ReadCalls = 0, ReadBytes = 0, WriteBytes = 0;
     double ReadMs = 0.0, WriteMs = 0.0;
   };
@@ -118,7 +113,6 @@ private:
   mutable std::atomic<uint64_t> ReadCalls_{0}, ReadBytes_{0}, ReadNs_{0};
   std::atomic<uint64_t> WriteBytes_{0}, WriteNs_{0};
   std::atomic<long long> Writes_{0}, WriteFailures_{0};
-  long long Swept_ = 0, SweptBytes_ = 0;
 };
 
 }

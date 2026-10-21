@@ -237,9 +237,9 @@ int main() {
         "native prototype publishes through the common package and spatial-index service");
   CHECK(rawStore.Keep(key, encoded->data(), encoded->size()),
         "a second store can publish the same key independently");
-  CHECK(!rawStore.Read(key, encoded->size() - 1),
+  CHECK(rawStore.Lookup(key, encoded->size() - 1).Where == Data::ContentStore::Presence::Unknown,
         "the byte budget rejects a large file before returning its payload");
-  CHECK(rawStore.Read(key, encoded->size()) == encoded,
+  CHECK(rawStore.Lookup(key, encoded->size()).Bytes == *encoded,
         "the complete payload is readable at its exact byte budget");
   std::filesystem::create_directory(cacheStore.Directory + "/blocked");
   CHECK(!rawStore.Keep("blocked", encoded->data(), encoded->size()) &&
