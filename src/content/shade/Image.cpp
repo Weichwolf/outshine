@@ -39,39 +39,6 @@ struct OwnedSurface {
 
 }
 
-bool DecodeImage(const uint8_t *bytes, size_t count, Raster &out) {
-  out = Raster();
-  if ((bytes == nullptr) || count == 0) { return false; }
-
-  SDL_IOStream *io = SDL_IOFromConstMem(bytes, count);
-  if (io == nullptr) { return false; }
-
-  const OwnedSurface decoded(IMG_Load_IO(io, true));
-  if (decoded.Surface == nullptr) { return false; }
-
-  constexpr int kMaxSide = 16384;
-  if (decoded.Surface->w <= 0 || decoded.Surface->h <= 0 || decoded.Surface->w > kMaxSide ||
-      decoded.Surface->h > kMaxSide) {
-    return false;
-  }
-  const OwnedSurface rgba(SDL_ConvertSurface(decoded.Surface, SDL_PIXELFORMAT_RGBA32));
-  if (rgba.Surface == nullptr) { return false; }
-  if (rgba.Surface->w <= 0 || rgba.Surface->h <= 0) { return false; }
-
-  out.Width = rgba.Surface->w;
-  out.Height = rgba.Surface->h;
-  out.Rgba.resize(static_cast<size_t>(out.Width) * static_cast<size_t>(out.Height) * 4u);
-  const auto *source = static_cast<const uint8_t *>(rgba.Surface->pixels);
-  const size_t rowBytes = static_cast<size_t>(out.Width) * 4u;
-  for (int row = 0; row < out.Height; ++row) {
-    const uint8_t *from =
-        source + static_cast<size_t>(row) * static_cast<size_t>(rgba.Surface->pitch);
-    uint8_t *to = out.Rgba.data() + static_cast<size_t>(row) * rowBytes;
-    for (size_t at = 0; at < rowBytes; ++at) { to[at] = from[at]; }
-  }
-  return true;
-}
-
 bool EncodePng(const uint8_t *rgba, int width, int height, std::vector<uint8_t> &out) {
   out.clear();
   if ((rgba == nullptr) || width <= 0 || height <= 0) { return false; }
