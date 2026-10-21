@@ -3,9 +3,11 @@
 import argparse
 import hashlib
 import json
+import os
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -18,8 +20,10 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def execute(command, checkout, output, name, records):
+def execute(command, checkout, output, name, records, environment=None):
     row = {"name": name, "command": list(map(str, command)), "returncode": None}
+    if environment is not None:
+        row["environment"] = {"MTL_DEBUG_LAYER": environment["MTL_DEBUG_LAYER"]}
     records.append(row)
     began = time.monotonic()
     try:
@@ -31,6 +35,7 @@ def execute(command, checkout, output, name, records):
                 stderr=subprocess.STDOUT,
                 timeout=180,
                 check=False,
+                env=environment,
             )
         row["returncode"] = result.returncode
         if result.returncode:
@@ -180,12 +185,16 @@ def main():
         shaders(checkout, output, records)
         binary = build(checkout, database, output, records)
         receipt["binary_sha256"] = digest(binary)
+        environment = None
+        if sys.platform == "darwin":
+            environment = dict(os.environ, MTL_DEBUG_LAYER="1")
         execute(
             [binary, output, output / "result.json", str(args.seed)],
             checkout,
             output,
             "run",
             records,
+            environment=environment,
         )
         receipt["success"] = True
     finally:

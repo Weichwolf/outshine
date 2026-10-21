@@ -16,7 +16,10 @@ the minimum of the three vertex depths, reduced by an experimental rounding guar
 For an unclipped valid projected triangle, depth is screen-linear and this minimum
 is no closer than any point inside the triangle. A separate long-double CPU oracle
 checks every pixel's four corners against the exact float32 input vertices and
-checks the bound against the interpolated depth at those corners.
+checks the bound against the interpolated depth at those corners. The result reports
+`oracle_mantissa_bits`, so host precision can be compared explicitly. Finite
+float32 inputs are represented exactly; subsequent division/interpolation is
+still rounded, not exact interval arithmetic.
 
 Near/far/eye-plane crossings and nonfinite inputs contribute no coverage. XY clipping
 is exercised. The corpus includes subpixel shifts, varying homogeneous W, thin and
@@ -29,7 +32,7 @@ fails. The point-sample control must exhibit false coverage.
 
 The pixel and depth guards are empirical. These checks are **not a general float32
 rounding proof**, an original world-to-clip transformation error bound, a guarantee
-over arbitrary camera movement, or a Metal/world integration test. Individual triangle
+over arbitrary camera movement, or a product-world integration test. Individual triangle
 erosion also loses coverage at shared edges. Multi-triangle composition, hierarchical
 depth reduction, actual opaque root acquisition, receiver/shadow/game/reflection union
 and generation/fence ownership remain separate parts of #990. Alpha-tested surfaces
@@ -41,7 +44,9 @@ Use a prepared native checkout/archive and its complete compilation database. Th
 runner reuses the calibration unit's full compiler flags and the checkout's native
 link flags; it does not rebuild the engine or run broad gates. Shader compilation
 requires `glslangValidator`; device execution uses the existing native backend and
-requests validation and GPU timestamps.
+requests validation and GPU timestamps. On macOS it enables `MTL_DEBUG_LAYER=1`
+for the device process and records that setting; shaders and compiler processes
+inherit the caller's environment.
 
 ```sh
 python3 test/experiments/render/conservative_coverage/run.py \
