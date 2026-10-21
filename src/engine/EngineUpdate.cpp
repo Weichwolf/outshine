@@ -399,6 +399,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commitAt)
             .count());
   }
+  if (!AdvanceStructureCells(eye, heightAt)) { return false; }
   const auto postingAt = std::chrono::steady_clock::now();
   (void)World.StructureBuilds.Posts(
       World.Stack,
@@ -409,7 +410,10 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
       StructureBuildQueue::HeightRequirement::FineOnly,
       std::nullopt,
       StructureBuildQueue::BuildPurpose::ViewDetail,
-      [this, eye](uint32_t tile) { return StructureProductsReady(tile, eye); });
+      [this, eye](uint32_t tile) {
+        const auto *input = World.Stack.Footprints().InputOfTile(tile);
+        return (input && input->Bake.PreparedAssetKey) || StructureProductsReady(tile, eye);
+      });
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
           .count());

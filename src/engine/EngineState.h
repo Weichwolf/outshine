@@ -655,6 +655,8 @@ struct Engine::State {
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateVegetation(bool prepare);
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
+  [[nodiscard]] bool AdvanceStructureCells(LongitudeLatitude eye,
+                                           const StructureBuildQueue::HeightSource &heightAt);
   [[nodiscard]] bool StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const;
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates(bool simulate);

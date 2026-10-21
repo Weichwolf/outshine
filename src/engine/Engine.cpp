@@ -1,3 +1,4 @@
+#include "StructureCellPlanner.h"
 #include "EngineState.h"
 #include "GpuFrameSample.h"
 #include "geo/Mercator.h"
@@ -315,6 +316,16 @@ bool Engine::State::StructureProductsReady(uint32_t tile, LongitudeLatitude eye)
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
   if (vectors == nullptr || accepted == nullptr || !sourceKey) { return false; }
   if (accepted->OccupiedCells == 0) { return true; }
+  if (accepted->Bake.PreparedAssetKey) {
+    return PlanStructureCells(tile,
+                              *accepted,
+                              *sourceKey,
+                              eye,
+                              footprints.Projection(),
+                              World.Pieces,
+                              World.StructureBuilds)
+        .Active;
+  }
   return World.Pieces.HasProjectedTile(tile,
                                        {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
                                        eye,
