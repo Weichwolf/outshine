@@ -168,11 +168,12 @@ Checked<Partition> Assemble(const Input &input,
     combined.insert(combined.end(), polygons[at].begin(), polygons[at].end());
     owners.insert(owners.end(), polygons[at].size(), static_cast<int>(at));
   }
-  auto refined = Refine(std::move(combined),
-                        owners,
-                        normals,
-                        intercepts,
-                        {.FixedVertices = original.size(), .ToleranceM = tolerance});
+  auto refined =
+      Refine(std::move(combined),
+             owners,
+             normals,
+             intercepts,
+             {.FixedVertices = original.size(), .PlaneToleranceM = input.PlaneToleranceM});
   if (!refined) { return std::unexpected(refined.error()); }
   auto shared = WeldVertices(refined->Points, tolerance, original.size());
   if (!shared) { return std::unexpected(shared.error()); }

@@ -34,6 +34,7 @@ struct Input {
   std::span<const double> Intercepts;
   HipRoofPlan::Limits Limits;
   double ToleranceM;
+  double PlaneToleranceM;
   size_t EventLimit = 4096;
   double Seconds = 2;
 };
@@ -152,7 +153,7 @@ LeastSquares SolveSmall(std::vector<Vector3> rows, std::span<const double> rhs);
 
 struct RefinementLimits {
   size_t FixedVertices;
-  double ToleranceM;
+  double PlaneToleranceM;
 };
 
 Checked<Refined> Refine(Ring points,
