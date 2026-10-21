@@ -70,18 +70,34 @@ VkCompositeAlphaFlagBitsKHR Composite(VkCompositeAlphaFlagsKHR supported) {
 
 }
 
+Result<VkSurfaceCapabilitiesKHR> ReadSurfaceCapabilities(const SurfaceState &surface) {
+  VkSurfaceCapabilitiesKHR caps{.minImageCount = 0,
+                                .maxImageCount = 0,
+                                .currentExtent = {},
+                                .minImageExtent = {},
+                                .maxImageExtent = {},
+                                .maxImageArrayLayers = 0,
+                                .supportedTransforms = 0,
+                                .currentTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+                                .supportedCompositeAlpha = 0,
+                                .supportedUsageFlags = 0};
+  const auto result =
+      vkGetPhysicalDeviceSurfaceCapabilitiesKHR(surface.Owner->Physical, surface.Handle, &caps);
+  if (result != VK_SUCCESS) {
+    return std::unexpected(Failure("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", result));
+  }
+  return caps;
+}
+
 Result<std::shared_ptr<SwapchainState>>
 CreateSwapchain(std::shared_ptr<SurfaceState> surface,
                 VkExtent2D extent,
                 uint64_t generation,
                 const std::shared_ptr<SwapchainState> &before) {
   const auto &context = surface->Owner;
-  VkSurfaceCapabilitiesKHR caps{};
-  auto result =
-      vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->Physical, surface->Handle, &caps);
-  if (result != VK_SUCCESS) {
-    return std::unexpected(Failure("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", result));
-  }
+  const auto supported = ReadSurfaceCapabilities(*surface);
+  if (!supported) { return std::unexpected(supported.error()); }
+  const auto &caps = *supported;
   const auto format = SurfaceFormat(*surface);
   if (!format) { return std::unexpected(format.error()); }
   if (caps.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
@@ -110,23 +126,27 @@ CreateSwapchain(std::shared_ptr<SurfaceState> surface,
   }
   uint32_t count = std::max(3u, caps.minImageCount);
   if (caps.maxImageCount != 0) { count = std::min(count, caps.maxImageCount); }
-  VkSwapchainCreateInfoKHR create{};
-  create.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  create.surface = state->Surface->Handle;
-  create.minImageCount = count;
-  create.imageFormat = format->format;
-  create.imageColorSpace = format->colorSpace;
-  create.imageExtent = extent;
-  create.imageArrayLayers = 1;
-  create.imageUsage = usage;
-  create.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  create.preTransform = caps.currentTransform;
-  create.compositeAlpha = Composite(caps.supportedCompositeAlpha);
-  create.presentMode = VK_PRESENT_MODE_FIFO_KHR;
-  create.clipped = (usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0 ? VK_FALSE : VK_TRUE;
-  create.oldSwapchain = before ? before->Handle : VK_NULL_HANDLE;
+  const VkSwapchainCreateInfoKHR create{
+      .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+      .pNext = nullptr,
+      .flags = 0,
+      .surface = state->Surface->Handle,
+      .minImageCount = count,
+      .imageFormat = format->format,
+      .imageColorSpace = format->colorSpace,
+      .imageExtent = extent,
+      .imageArrayLayers = 1,
+      .imageUsage = usage,
+      .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      .queueFamilyIndexCount = 0,
+      .pQueueFamilyIndices = nullptr,
+      .preTransform = caps.currentTransform,
+      .compositeAlpha = Composite(caps.supportedCompositeAlpha),
+      .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+      .clipped = (usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0 ? VK_FALSE : VK_TRUE,
+      .oldSwapchain = before ? before->Handle : VK_NULL_HANDLE};
   if (before) { before->DriverRetired = true; }
-  result = vkCreateSwapchainKHR(state->Owner->Logical, &create, nullptr, &state->Handle);
+  auto result = vkCreateSwapchainKHR(state->Owner->Logical, &create, nullptr, &state->Handle);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateSwapchainKHR", result)); }
   result = vkGetSwapchainImagesKHR(state->Owner->Logical, state->Handle, &count, nullptr);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkGetSwapchainImagesKHR", result)); }

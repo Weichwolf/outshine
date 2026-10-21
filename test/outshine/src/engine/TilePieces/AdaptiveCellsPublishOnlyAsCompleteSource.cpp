@@ -87,7 +87,8 @@ Generators::BakedTile Mesh(float northM, std::optional<uint32_t> cell) {
   tile.Digest = cell.value_or(0) + 1u;
   tile.RequestedCell = cell;
   tile.OccupiedCells = cell ? uint64_t{1} << (*cell - 1u) : 3;
-  tile.SelectedView = Generators::StructureSelectionView{.Eye = {}, .Projection = kProjection};
+  tile.SelectedView = Generators::StructureSelectionView{
+      .Eye = {}, .EyeEcef = std::nullopt, .Projection = kProjection};
   tile.Built.WallCorners = {StoredVertex::Of({{-0.5f, -0.5f, northM}}, {{1, 1}}, {{0, 0, -1}}),
                             StoredVertex::Of({{-0.5f, 0.5f, northM}}, {{1, 1}}, {{0, 0, -1}}),
                             StoredVertex::Of({{0.5f, 0, northM}}, {{1, 1}}, {{0, 0, -1}})};

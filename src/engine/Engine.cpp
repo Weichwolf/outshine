@@ -1,4 +1,5 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
+#include "GpuFrameSample.h"
 #include "geo/Mercator.h"
 #include "math/Units.h"
 #include <algorithm>
@@ -16,6 +17,7 @@
 #include <string_view>
 #include <cstdint>
 #include <functional>
+#include <format>
 #include <chrono>
 #include <cmath>
 #include <ratio>
@@ -56,7 +58,7 @@ constexpr auto kDuplicateGeneratorKind = "generator kind is already registered";
 namespace {
 
 [[nodiscard]] std::string_view OsmWorldBlocker(std::span<const Data::SourceProvider> providers,
-                                               const Surrounds &world) {
+                                               const WorldRegionState &world) {
   const bool requested = std::ranges::any_of(
       providers, [](const Data::SourceProvider &provider) { return provider.Kind == "osm"; });
   if (!requested) { return {}; }
@@ -88,9 +90,40 @@ RequiredBlocker(bool required, bool ready, std::string_view reason) noexcept {
   return required && !ready ? reason : "";
 }
 
+Result
+CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatitude at, int ring) {
+  const auto *vectors = stack.Vectors();
+  if (vectors == nullptr || vectors->RefusedTiles() == 0) { return {}; }
+  const auto window =
+      Generators::Osm::OsmField::SourceWindow(at, vectors->Zoom(), ring, Ground::kVectorTiles);
+  if (!window) { return std::unexpected(std::string(window.error())); }
+  for (int64_t y = window->MinY; y <= window->MaxY; ++y) {
+    for (int64_t x = window->MinX; x <= window->MaxX; ++x) {
+      if (vectors->Settled(static_cast<int>(x), static_cast<int>(y))) { continue; }
+      const Data::Fetch request(Data::DataKind::VectorMap,
+                                Data::Address::At({.Zoom = vectors->Zoom(),
+                                                   .X = static_cast<uint32_t>(x),
+                                                   .Y = static_cast<uint32_t>(y)}));
+      const auto failure = stack.Pool().Refusal(request);
+      if (!failure || failure->Reason != Data::FetchFailureReason::OfflineMiss) { continue; }
+      return std::unexpected(std::format(
+          "required vector input unavailable: {} at {}; served={}; source={}; revision={}; key={}",
+          Data::Name(failure->Reason),
+          request.Key(),
+          failure->Served ? failure->Served->Text() : "unknown",
+          failure->SourceId,
+          failure->SourceRevision,
+          failure->SourceKey));
+    }
+  }
+  return {};
 }
 
-Engine::Engine() : S_(std::make_unique<State>()) {}
+}
+
+Engine::Engine() : Engine(std::make_unique<State>()) {}
+
+Engine::Engine(std::unique_ptr<State> state) : S_(std::move(state)) {}
 
 Capture::~Capture() {
   release();
@@ -419,6 +452,46 @@ Result Renderer::render(Extent frame) {
   return Of_->render(frame);
 }
 
+Result Renderer::resetMeasurements() {
+  if (const auto permission = Of_->S_->MutationPermission(); !permission) { return permission; }
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("frame measurement requires an assembled render scene");
+  }
+  Of_->S_->Picture.Device.ResetMeasurements();
+  Of_->S_->PublishGpuFrameMeasurements(false);
+  return {};
+}
+
+Result Renderer::resetMeasurements(size_t gpuSamples) {
+  if (const auto permission = Of_->S_->MutationPermission(); !permission) { return permission; }
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("frame measurement requires an assembled render scene");
+  }
+  Of_->S_->Picture.Device.KeepGpuSamples(gpuSamples);
+  return resetMeasurements();
+}
+
+Result Renderer::gpuSamples(std::vector<Render::GpuFrameSample> &out) const {
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("GPU samples require an assembled render scene");
+  }
+  const auto &device = Of_->S_->Picture.Device;
+  if (device.Costs().DroppedGpuSamples != 0) {
+    return std::unexpected("GPU frame sample capacity was exhausted");
+  }
+  const auto samples = device.GpuSamples();
+  out.assign(samples.begin(), samples.end());
+  return {};
+}
+
+bool Renderer::camera(Camera &out) const {
+  return Of_->camera(out);
+}
+
+std::string_view Renderer::gpuName() const {
+  return Of_->S_->Picture.Device.GpuName();
+}
+
 Result Renderer::saveScreenshot(std::string_view path) {
   return Of_->saveScreenshot(path);
 }
@@ -570,7 +643,7 @@ Result Engine::State::FinishesPreload(GroundQuality quality) {
   const bool continuingCandidate = World.GroundBuild != nullptr;
   const bool structuresReady =
       !continuingCandidate && published && StructuresReady(World.Stack.Footprints(), *published);
-  if (!Grounds(true, quality)) { return std::unexpected(Error); }
+  if (!AdvanceWorldRegionBuild(true, quality)) { return std::unexpected(Error); }
   if (structuresReady && !UpdateVegetation(true)) { return std::unexpected(Error); }
   return {};
 }
@@ -646,6 +719,13 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
   if (!streamed) {
     Error = streamed.error();
     return std::unexpected(Error);
+  }
+  if (quality == GroundQuality::Refined) {
+    const auto inputs = CheckPreloadVectorInputs(World.Stack, stands, vectorRing);
+    if (!inputs) {
+      Error = inputs.error();
+      return std::unexpected(Error);
+    }
   }
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   if (!AdvanceStructureBuilds(kBakesLandedInPreload)) { return std::unexpected(Error); }
@@ -862,6 +942,7 @@ Result Engine::setView(std::string_view view) {
     return std::unexpected(S_->Error);
   }
   S_->RouteCamera = std::move(routeCamera);
+  S_->CameraPosePending = true;
   return {};
 }
 

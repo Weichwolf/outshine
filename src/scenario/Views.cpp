@@ -102,4 +102,23 @@ bool ViewBook::Take(std::string_view id) {
   return false;
 }
 
+std::expected<void, CameraMatrixError> ViewBook::SetCameraPose(const Camera &pose) noexcept {
+  if (Held_.empty()) { return std::unexpected(CameraMatrixError::InvalidPose); }
+  Mat4 viewMatrix;
+  if (const auto valid = pose.viewMatrix(viewMatrix); !valid) { return valid; }
+  auto &view = Held_[Active_];
+  view.Sees.PositionM = pose.PositionM;
+  view.Sees.Orientation = pose.Orientation;
+  view.Sees.LooksAt = pose.LooksAt;
+  view.Sees.LookAtM = pose.LookAtM;
+  view.Sees.UpM = pose.UpM;
+  view.Placement = Scenario::CameraPlacement::Local;
+  view.OffsetM = {};
+  view.Geographic = {};
+  view.Route = {};
+  view.Follows.clear();
+  view.Person.clear();
+  return {};
+}
+
 }

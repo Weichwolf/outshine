@@ -15,6 +15,8 @@ void CheckLayouts() {
   const auto target = renderer.DrawsInto(32, 32, nullptr);
   CHECK(target.has_value(), "the native draw planner has a viewport");
   if (!target) { return; }
+  CHECK(renderer.PictureW() == 32 && renderer.PictureH() == 32,
+        "target dimensions are available before a render plan exists");
   constexpr std::array<float, 9> positions{-1, -1, -2, 1, -1, -2, 0, 1, -2};
   constexpr std::array<float, 6> uv{0, -1, 1, -1, 0, -2};
   constexpr std::array<uint32_t, 3> indices{0, 1, 2};
@@ -56,6 +58,12 @@ void CheckLayouts() {
     CHECK(scratch.Draws.Draws().front().Layout == expected,
           "facade coordinates survive without allocating UVs for ordinary materials");
   }
+  CHECK(renderer.DrawsInto(64, 48, nullptr) && renderer.PictureW() == 64 &&
+            renderer.PictureH() == 48,
+        "planning-only targets retain a changed aspect ratio");
+  CHECK(!renderer.DrawsInto(0, 48, nullptr) && renderer.PictureW() == 64 &&
+            renderer.PictureH() == 48,
+        "invalid target changes preserve the previous planning extent");
 }
 }
 

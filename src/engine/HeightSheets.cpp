@@ -18,14 +18,14 @@
 #include "ChunkSurface.h"
 #include "Geodesy.h"
 #include "TerrainGrid.h"
-#include "GroundLattice.h"
+#include "TerrainRenderer.h"
 #include "TerrainSourceCoverage.h"
 #include "TileGeodesy.h"
 #include "math/Vec3.h"
 
 namespace outshine {
 
-static_assert(kPatchGrid + 1 == Render::GroundLattice::kSide,
+static_assert(kPatchGrid + 1 == Render::TerrainRenderer::kSide,
               "a page holds the nodes the patchwork's chunk was built from, so the lattice draws "
               "the surface the roads are draped on");
 
@@ -46,7 +46,7 @@ namespace {
 }
 
 [[nodiscard]] double NodeFraction(const Sheet &sheet, int k) {
-  constexpr int side = Render::GroundLattice::kSide;
+  constexpr int side = Render::TerrainRenderer::kSide;
   if (sheet.Virtual || sheet.SourceZoom >= 0) {
     return static_cast<double>(k) / static_cast<double>(side - 1);
   }
@@ -56,12 +56,12 @@ namespace {
 }
 
 [[nodiscard]] size_t PageNode(int i, int j) {
-  constexpr int pageSide = Render::GroundLattice::kPageSide;
+  constexpr int pageSide = Render::TerrainRenderer::kPageSide;
   return static_cast<size_t>(j + 1) * static_cast<size_t>(pageSide) + static_cast<size_t>(i + 1);
 }
 
 void CopiesEdgeIntoRim(std::vector<float> &page, const std::vector<bool> &missing) {
-  constexpr int side = Render::GroundLattice::kSide;
+  constexpr int side = Render::TerrainRenderer::kSide;
   for (int j = -1; j <= side; ++j) {
     for (int i = -1; i <= side; ++i) {
       if (!missing[PageNode(i, j)]) { continue; }
@@ -210,7 +210,7 @@ HeightSheets::HaloBuildJob::HaloBuildJob(HeightSheets &sheets,
 }
 
 bool HeightSheets::HaloBuildJob::BeginsSheet() {
-  constexpr int side = Render::GroundLattice::kSide;
+  constexpr int side = Render::TerrainRenderer::kSide;
   while (SheetAt_ < Candidate_->Sheets.size()) {
     const Sheet &sheet = Candidate_->Sheets[SheetAt_];
     if (sheet.Side != side) {
@@ -218,8 +218,8 @@ bool HeightSheets::HaloBuildJob::BeginsSheet() {
       continue;
     }
     Whole_ = (sheet.Virtual || sheet.SourceZoom >= 0) &&
-             sheet.Nodes.size() != Render::GroundLattice::kNodes;
-    if (!Whole_ && sheet.Nodes.size() != Render::GroundLattice::kNodes) {
+             sheet.Nodes.size() != Render::TerrainRenderer::kNodes;
+    if (!Whole_ && sheet.Nodes.size() != Render::TerrainRenderer::kNodes) {
       ++SheetAt_;
       continue;
     }
@@ -231,8 +231,8 @@ bool HeightSheets::HaloBuildJob::BeginsSheet() {
            static_cast<double>(sheet.Tile.X & ((1u << drop) - 1u)) * Span_;
     AtY_ = static_cast<double>(sheet.Tile.Y >> drop) +
            static_cast<double>(sheet.Tile.Y & ((1u << drop) - 1u)) * Span_;
-    Page_.assign(Render::GroundLattice::kPageNodes, 0.0f);
-    Missing_.assign(Render::GroundLattice::kPageNodes, false);
+    Page_.assign(Render::TerrainRenderer::kPageNodes, 0.0f);
+    Missing_.assign(Render::TerrainRenderer::kPageNodes, false);
     AnyMissing_ = false;
     NodeAt_ = 0;
     Working_ = true;
@@ -242,7 +242,7 @@ bool HeightSheets::HaloBuildJob::BeginsSheet() {
 }
 
 bool HeightSheets::HaloBuildJob::AdvancesNode() {
-  constexpr int side = Render::GroundLattice::kSide;
+  constexpr int side = Render::TerrainRenderer::kSide;
   constexpr auto pageSide = static_cast<size_t>(side) + 2u;
   Sheet &sheet = Candidate_->Sheets[SheetAt_];
   const int j = static_cast<int>(NodeAt_ / pageSide) - 1;
@@ -287,7 +287,7 @@ bool HeightSheets::HaloBuildJob::Advance(size_t nodesMost) {
     if (!Working_ && !BeginsSheet()) { return true; }
     --nodesMost;
     if (!AdvancesNode()) { continue; }
-    if (NodeAt_ == Render::GroundLattice::kPageNodes) { CompletesSheet(); }
+    if (NodeAt_ == Render::TerrainRenderer::kPageNodes) { CompletesSheet(); }
   }
   return !Working_ && SheetAt_ == Candidate_->Sheets.size();
 }

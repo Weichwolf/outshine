@@ -1,4 +1,5 @@
 #include "CostReport.h"
+#include "GpuFrameTiming.h"
 
 #include <print>
 #include <span>
@@ -43,6 +44,36 @@ void Group(std::string_view scene,
   std::println("");
 }
 
+void PrintGpuTimes(std::span<const DiagnosticSample> samples, double frames) {
+  auto gpu = GpuFrameTiming::Read(samples);
+  if (gpu.RenderedFrames != frames) { gpu = GpuFrameTiming::Read(samples, false); }
+  if (gpu.TimedFrames > 0) {
+    std::println("; gpu_ms(mean/max)={:.3f}/{:.3f} samples={:.0f}/{:.0f} unavailable={:.0f} "
+                 "query_cpu_total_ms={:.3f}",
+                 gpu.TotalMs / gpu.TimedFrames,
+                 gpu.MaxMs,
+                 gpu.TimedFrames,
+                 frames,
+                 gpu.UnavailableFrames,
+                 gpu.QueryMs);
+  } else {
+    std::println(
+        "; gpu_ms=unavailable samples=0/{:.0f} unavailable={:.0f}", frames, gpu.UnavailableFrames);
+  }
+}
+
+}
+
+void PrintGpuRow(std::string_view scene, std::span<const DiagnosticSample> samples) {
+  const auto gpu = GpuFrameTiming::Read(samples);
+  std::println("GPUROW\t{}\t{:.17g}\t{:.17g}\t{:.17g}\t{:.17g}\t{:.17g}\t{:.17g}",
+               scene,
+               gpu.RenderedFrames,
+               gpu.TimedFrames,
+               gpu.TotalMs,
+               gpu.MaxMs,
+               gpu.UnavailableFrames,
+               gpu.QueryMs);
 }
 
 void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> samples) {
@@ -147,7 +178,7 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
                sample.Value / frames,
                get(base + ".worst_ms"));
   }
-  std::println("; gpu_ms=unavailable(SDL_GPU timestamps)");
+  PrintGpuTimes(samples, frames);
   Group(scene, samples, "cost.stage.", frames);
   std::println("PERF {} diagnostics lifetime: publication={:.2f}ms max={:.3f}ms; "
                "parents include children; output after measurement",

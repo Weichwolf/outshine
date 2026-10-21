@@ -51,7 +51,7 @@ int main() {
   const Drape drape{.Surface = empty, .Field = [&](EastNorth at) -> std::optional<double> {
                       return grade(at.EastM, at.NorthM);
                     }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const ObservedMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const double separation : {.000012, .000054, .00018}) {
@@ -95,6 +95,8 @@ int main() {
                                              .Standing = frame,
                                              .Draped = drape,
                                              .Classes = noClasses,
+                                             .WaterUpM = {},
+                                             .CensusAt = {},
                                              .EyeLatDeg = origin.LatitudeDeg,
                                              .EyeLonDeg = origin.LongitudeDeg,
                                              .Projection = {.FocalPx = 800}};

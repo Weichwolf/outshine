@@ -68,15 +68,18 @@ int main() {
   std::array<GroundPatch::Posting, 4> samples;
   for (auto &sample : samples) { sample.Height = GroundSample::At(0); }
   const auto frame = TangentFrame::At(region.Geo({0, 0}));
-  auto grid = std::make_shared<ClassStructure::Grid>();
+  auto grid = std::make_shared<TerrainClassificationMap::Grid>();
   grid->W = grid->H = 1;
   grid->OrgE = grid->OrgN = -1;
   grid->CellM = 2 * std::max(region.SpanEm(), region.SpanNm()) + 2;
   grid->Cells = {1u << 8, 0};
   Generators::Ground::Snapshot snapshot;
   snapshot.Patch = GroundPatch::Complete(region, 2, samples);
-  snapshot.Classes = std::make_shared<ClassStructure>(
-      frame, grid, std::make_shared<const ClassStructure::Grid>(), ClassStructure::FromRun{});
+  snapshot.Classes = std::make_shared<TerrainClassificationMap>(
+      frame,
+      grid,
+      std::make_shared<const TerrainClassificationMap::Grid>(),
+      TerrainClassificationMap::FromRun{});
   const std::array<GroundTable::Row, 1> rows{};
   snapshot.Table = GroundTable::Of(rows);
   const std::array<float, 1> density{1};

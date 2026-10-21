@@ -1,65 +1,49 @@
 #include "CompositeTransmissionStage.h"
-
-#include "ShaderFile.h"
+#include "StagePipelines.h"
 #include <array>
-#include <cstdint>
-#include <string>
+#include <expected>
+#include <span>
+#include <utility>
 
 namespace outshine::Render {
-
-namespace {
-
-constexpr uint32_t kCompositeImages = CompositeTransmissionStage::ShaderShape.FragmentSamplers;
-
-}
-
-bool CompositeTransmissionStage::Configure(const Gpu &gpu, const Feeds &from, std::string &error) {
+Native::Result<void> CompositeTransmissionStage::Configure(const Gpu &gpu, const Feeds &from) {
+  if (gpu.Device == nullptr || from.Opaque == nullptr || from.Transmissive == nullptr ||
+      from.Exact == nullptr) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "transmission composite requires native images and sampler"});
+  }
+  const std::array colours{Native::ColourTarget{.Texels = from.Target, .Rgb = {}, .Alpha = {}}};
+  auto made = CreateFullscreenPipeline(
+      *gpu.Device, "build/shaders/compositeTransmission.frag.spv", colours);
+  if (!made) { return std::unexpected(made.error()); }
+  Pipe = std::move(*made);
   Opaque = from.Opaque;
   Transmissive = from.Transmissive;
   Exact = from.Exact;
+  return {};
+}
 
-  const OwnedShader vertex(gpu.Device,
-                           ShaderFrom(gpu.Device,
-                                      "build/shaders/fullscreen.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      ShaderShape,
-                                      error));
-  const OwnedShader fragment(gpu.Device,
-                             ShaderFrom(gpu.Device,
-                                        "build/shaders/compositeTransmission.frag.spv",
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        ShaderShape,
-                                        error));
-  if (!vertex || !fragment) { return false; }
-
-  SDL_GPUColorTargetDescription target{};
-  target.format = from.Target;
-  SDL_GPUGraphicsPipelineCreateInfo pipeline{};
-  pipeline.vertex_shader = vertex.Get();
-  pipeline.fragment_shader = fragment.Get();
-  pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
-  pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  pipeline.target_info.color_target_descriptions = &target;
-  pipeline.target_info.num_color_targets = 1;
-  SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (made == nullptr) {
-    error = std::string("the transmission composite's pipeline was refused: ") + SDL_GetError();
-    return false;
+Native::Result<void> CompositeTransmissionStage::Encode([[maybe_unused]] const FrameContext &ctx,
+                                                        const PassRecording &into) {
+  if (!Pipe || into.Commands == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "transmission composite is not configured"});
   }
-  Pipe = OwnedPipeline(gpu.Device, made);
-  return true;
+  const std::array bindings{
+      Native::Binding{.Set = 2,
+                      .Slot = 0,
+                      .Value =
+                          Native::SampledTexture{.Image = {.Image = Opaque}, .Sampling = Exact}},
+      Native::Binding{
+          .Set = 2,
+          .Slot = 1,
+          .Value = Native::SampledTexture{.Image = {.Image = Transmissive}, .Sampling = Exact}}};
+  return into.Commands->Draw({.State = {.Pipeline = Pipe.get(),
+                                        .Bindings = bindings,
+                                        .Vertices = {},
+                                        .Area = into.Area,
+                                        .Clip = into.Clip},
+                              .Range = {.Count = 3}});
 }
-
-void CompositeTransmissionStage::Encode([[maybe_unused]] const FrameContext &ctx,
-                                        const PassRecording &into) {
-  if (!Pipe) { return; }
-  SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const std::array<SDL_GPUTextureSamplerBinding, kCompositeImages> images = {
-      {{.texture = Opaque, .sampler = Exact}, {.texture = Transmissive, .sampler = Exact}}};
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kCompositeImages);
-  SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
-}
-
 }

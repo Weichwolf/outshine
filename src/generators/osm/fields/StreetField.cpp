@@ -114,7 +114,7 @@ uint32_t StreetField::Ingest(const OsmField &field,
       continue;
     }
 
-    AppendFeature(field, f, *rule, ribbon ? Shape::Ribbon : Shape::Area);
+    AppendFeature(field, static_cast<uint32_t>(c), *rule, ribbon ? Shape::Ribbon : Shape::Area);
   }
 
   ByTile_.Set(next.Tile, firstWay, static_cast<uint32_t>(Ways_.size()));
@@ -134,10 +134,20 @@ std::optional<uint64_t> StreetField::SourceDigest(const OsmField &field,
   return tile < SourceDigests_.size() ? SourceDigests_[tile] : kDigestBasis;
 }
 
+std::optional<StreetField::SourceReference> StreetField::SourceOf(const OsmField &field,
+                                                                  size_t way) const noexcept {
+  if (SourceOrigin_.get() != field.OriginToken() || SourceGeneration_ != field.Generation() ||
+      way >= Ways_.size()) {
+    return std::nullopt;
+  }
+  return Ways_[way].Source;
+}
+
 void StreetField::AppendFeature(const OsmField &field,
-                                const OsmField::Feature &feature,
+                                uint32_t featureAt,
                                 const VegetationTemplates::Rule &rule,
                                 Shape shape) {
+  const auto &feature = field.Features()[featureAt];
   const auto layer = field.Integer(feature, "layer");
   if (!layer) {
     ++InvalidLayers_;
@@ -174,6 +184,7 @@ void StreetField::AppendFeature(const OsmField &field,
     w.Priority = rule.Priority;
     w.Sealed = rule.Sealed;
     w.Oneway = rule.Oneway;
+    w.Source = SourceReference{.Feature = featureAt, .Ring = feature.FirstRing + r};
     Bridges_ += w.Bridge ? 1 : 0;
     Layered_ += w.Layer != 0 ? 1 : 0;
     LayerSaid_ += layer->has_value() ? 1 : 0;

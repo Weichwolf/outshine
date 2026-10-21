@@ -24,6 +24,11 @@ public:
   enum class Shape : uint8_t { Ribbon, Area };
   enum class Traffic : uint8_t { Road, Path, Rail };
 
+  struct SourceReference {
+    uint32_t Feature = 0;
+    uint32_t Ring = 0;
+  };
+
   struct Way {
     uint32_t FirstPoint = 0, PointCount = 0;
     float HalfWidthM = 0.0f;
@@ -41,6 +46,7 @@ public:
     bool Oneway = false;
     bool Bridge = false;
     bool Ramp = false;
+    std::optional<SourceReference> Source;
   };
 
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
@@ -50,6 +56,9 @@ public:
 
   [[nodiscard]] std::optional<uint64_t> SourceDigest(const OsmField &field,
                                                      uint32_t tile) const noexcept;
+
+  [[nodiscard]] std::optional<SourceReference> SourceOf(const OsmField &field,
+                                                        size_t way) const noexcept;
 
   [[nodiscard]] const std::vector<Way> &Ways() const { return Ways_; }
 
@@ -104,7 +113,7 @@ public:
 
 private:
   void AppendFeature(const OsmField &field,
-                     const OsmField::Feature &feature,
+                     uint32_t featureAt,
                      const VegetationTemplates::Rule &rule,
                      Shape shape);
   long InvalidLayers_ = 0;

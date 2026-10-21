@@ -4,10 +4,12 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  static_assert(std::is_trivially_copyable_v<Sha256Prefix>);
   const std::array<uint8_t, 32> abc{{0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea,
                                      0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22, 0x23,
                                      0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c,
@@ -43,6 +45,17 @@ int main() {
     for (size_t at = 0; at < bytes.size(); ++at) { bytes[at] = static_cast<char>(at % 251); }
     CHECK(Sha256Hex(bytes) == test.Digest,
           "digest matches independent padding and block-boundary vectors");
+    for (size_t split : std::array<size_t, 10>{0, 1, 55, 56, 63, 64, 65, 127, 128, test.Bytes}) {
+      if (split > bytes.size()) { continue; }
+      const Sha256Prefix prefix(bytes.data(), split);
+      CHECK(prefix.Hex(bytes.data() + split, bytes.size() - split) == test.Digest,
+            "reused partial-block prefix matches the independent whole-message oracle");
+      const auto copy = prefix;
+      CHECK(copy.Hex(bytes.data() + split, bytes.size() - split) == test.Digest,
+            "copying and finalizing a prefix leaves its original state reusable");
+      CHECK(prefix.Hex(bytes.data() + split, bytes.size() - split) == test.Digest,
+            "a const prefix can be finalized repeatedly without consuming it");
+    }
   }
   return Report();
 }

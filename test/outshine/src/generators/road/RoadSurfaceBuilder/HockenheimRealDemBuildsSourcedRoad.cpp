@@ -1,6 +1,6 @@
 #include "OsmTransportBuilder.h"
 #include "Check.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 #include "HeightField.h"
 #include "Json.h"
 #include "OsmXmlReader.h"
@@ -9,7 +9,7 @@
 #include "Sha256.h"
 #include "TerrainGrid.h"
 #include "TerrainMesh.h"
-#include "TerrainPress.h"
+#include "TerrainDeformation.h"
 #include "TerrainRefinement.h"
 #include "TileGeodesy.h"
 
@@ -414,7 +414,7 @@ int main() {
     }
   }
   const auto meshPress =
-      PressTerrain(surface->Earthworks, candidate, frame, layout, kMostEarthworkM);
+      DeformTerrain(surface->Earthworks, candidate, frame, layout, kMostEarthworkM);
   const auto mesh = BuildTerrainMesh(candidate, frame, layout);
   CHECK(meshPress.Nodes > 0 && mesh.PositionsM.size() == candidate.Sheets.size() * 33u * 33u * 3u,
         "production terrain press and triangulation cover each selected page");

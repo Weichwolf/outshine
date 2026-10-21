@@ -221,7 +221,7 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
   const TangentFrame standing = TangentFrame::At(origin);
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty, .Field = [](EastNorth) { return std::optional<double>{0}; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const RecordingMesher mesher;
   const Generators::Corridors corridors(mesher);
   const Generators::Corridors::Site site{.Vectors = &vectors,
@@ -232,6 +232,8 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
                                          .Standing = standing,
                                          .Draped = drape,
                                          .Classes = noClasses,
+                                         .WaterUpM = {},
+                                         .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .Projection = {.FocalPx = 800}};

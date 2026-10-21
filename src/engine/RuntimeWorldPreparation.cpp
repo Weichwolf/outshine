@@ -1,5 +1,5 @@
 #include "ShippedProviders.h"
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "Heap.h"
 #include "OfflineTransport.h"
 #include "math/Units.h"
@@ -284,7 +284,7 @@ bool Engine::State::PrepareRuntimeWorld() {
   }
 
   HandsPiecesOver();
-  return Grounds(true, GroundQuality::Playable);
+  return AdvanceWorldRegionBuild(true, GroundQuality::Playable);
 }
 
 void Engine::State::PollOsmSources() {

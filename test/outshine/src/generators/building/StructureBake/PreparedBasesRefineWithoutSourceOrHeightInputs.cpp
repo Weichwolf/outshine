@@ -3,6 +3,7 @@
 #include "ContentStore.h"
 #include "SourceSet.h"
 #include "StructureBuildTask.h"
+#include "StructureArtifact.h"
 #include "Tasks.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
@@ -22,6 +23,7 @@
 #include <chrono>
 #include <string>
 #include <memory>
+#include <optional>
 #include <vector>
 #include <variant>
 #include <sqlite3.h>
@@ -54,6 +56,7 @@ RawTile Inputs() {
                               .HeightM = index == 0 ? 0.0 : 12.0,
                               .MinimumHeightM = index == 2 ? 3.0 : 0.0,
                               .Pitched = 0,
+                              .WallColour = {},
                               .Facade = facades[index]});
   }
   raw.Ways.push_back({.LocalFirst = static_cast<uint32_t>(raw.LatLon.size() / 2),
@@ -97,11 +100,24 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   CHECK(task.Result().Status && task.Result().Tile && task.Result().CacheHit &&
             task.Result().Tile->Digest == reference.Digest &&
             task.Result().Tile->Prints == reference.Prints &&
-            task.Result().Tile->Coordinates->Points == (*basis)->PointsLatLon &&
+            std::ranges::equal(task.Result().Tile->Coordinates->Points(), (*basis)->PointsLatLon) &&
             task.PreparedBase() == nullptr && cache->Costs().ReadBytes == before.ReadBytes,
         "a cached LOD and its owned contacts load with no full plan product or source inputs");
   RawTile moved = view;
   moved.Eye.LongitudeDeg += 0.01;
+  StructureBuildTask replay(0,
+                            *basis,
+                            std::make_unique<RawTile>(moved),
+                            std::make_unique<StructureBuildTask::Output>(),
+                            mesher.Scratch());
+  replay.UseNativeAssets(cache, key);
+  replay.Start(pool, mesher);
+  replay.Join(pool);
+  CHECK(replay.Result().Status && replay.Result().Tile && replay.Result().CacheHit &&
+            replay.Result().Tile->Digest == reference.Digest && replay.PreparedBase() == nullptr &&
+            cache->Costs().ReadBytes == before.ReadBytes,
+        "moved camera loads an existing intrinsic LOD without reopening plans or source inputs");
+  moved.ClusterTriangles = 64;
   StructureBuildTask miss(0,
                           *basis,
                           std::make_unique<RawTile>(moved),
@@ -121,6 +137,88 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   const auto generated = cache->Generate(key, Inputs(), *Heights(), stopping);
   CHECK(generated && *generated && cache->LoadBasis(key),
         "the same miss can regenerate complete inputs and restore native delivery");
+}
+
+void IntrinsicLODs(const std::filesystem::path &root,
+                   PreparedBuildingAssets &cache,
+                   const std::string &key,
+                   const PreparedStructureTile &base) {
+  BuildingMesh mesher;
+  auto scratch = mesher.Scratch();
+  std::optional<Vec3> remotePoint;
+  for (const bool cell : {false, true}) {
+    for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
+      RawTile near;
+      near.RequestedDetail = detail;
+      if (cell) { near.RequestedCell = base.Structures.front().Layout.Cell.Index; }
+      near.Eye = {.LongitudeDeg = 9.001, .LatitudeDeg = 47.001};
+      Vec3 eye;
+      GeoToEcef({.LongitudeDeg = near.Eye.LongitudeDeg, .LatitudeDeg = near.Eye.LatitudeDeg}, eye);
+      near.EyeEcef = eye;
+      near.Projection = {.FocalPx = 720, .AllowedErrorPx = 1};
+      near.ClusterTriangles = 128;
+      auto far = near;
+      far.Eye.LongitudeDeg += 2;
+      GeoToEcef({.LongitudeDeg = far.Eye.LongitudeDeg, .LatitudeDeg = far.Eye.LatitudeDeg}, eye);
+      far.EyeEcef = eye;
+      far.Projection = {.FocalPx = 1080, .AllowedErrorPx = 0.25};
+      const auto original = BakePreparedStructures(base, near, mesher, *scratch);
+      const auto remote = BakePreparedStructures(base, far, mesher, *scratch);
+      CHECK(original && remote, "each explicit whole/cell LOD is constructible at both views");
+      if (!original || !remote) { continue; }
+      if (!cell && detail == LevelOfDetail::Fine) {
+        double most = -1;
+        const auto farthest = [&](const auto &vertices) {
+          for (const auto &vertex : vertices) {
+            const Vec3 local{{vertex.pos[0], vertex.pos[1], vertex.pos[2]}};
+            if (Dot(local, local) > most) {
+              most = Dot(local, local);
+              remotePoint = base.AnchorEcef + local;
+            }
+          }
+        };
+        farthest(original->Built.WallCorners);
+        farthest(original->Built.RoofCorners);
+      }
+      const std::string identity(64, 'a');
+      const auto a = EncodeStructureArtifact(*original, identity);
+      const auto b = EncodeStructureArtifact(*remote, identity);
+      CHECK(a && b && *a == *b && !original->SelectedView && !remote->SelectedView,
+            "explicit LOD payload and contacts are independent of eye and pixel projection");
+      const auto writes = cache.Costs().GeometryWrites;
+      CHECK(cache.StoreGeometry(key, base, near, *original).has_value(),
+            "one intrinsic LOD is published for its source, cell and layout");
+      const auto loaded = cache.LoadGeometry(key, base, far);
+      const auto bytes = loaded && *loaded
+                             ? EncodeStructureArtifact(**loaded, identity)
+                             : decltype(a)(std::unexpected(StructureArtifactError::InvalidProduct));
+      CHECK(bytes && a && *bytes == *a && cache.Costs().GeometryWrites == writes + 1,
+            "another camera loads the exact intrinsic LOD without another product write");
+      auto layout = far;
+      layout.ClusterTriangles = 64;
+      const auto distinct = cache.LoadGeometry(key, base, layout);
+      CHECK(distinct && !*distinct, "cluster layout remains a distinct prepared product");
+    }
+  }
+  auto index = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(index && remotePoint, "static LODs have indexed geometry in the source world frame");
+  if (index && remotePoint) {
+    const auto selected = (*index)->Select({.Bounds = {.Min = *remotePoint, .Max = *remotePoint},
+                                            .Kind = "building-static-lod",
+                                            .Level = static_cast<uint32_t>(LevelOfDetail::Fine)});
+    CHECK(selected && selected->size() == 1 && selected->front().Parent == key,
+          "a remote visible point selects whole Fine and excludes the unrelated Fine cell");
+  }
+  RawTile adaptive;
+  adaptive.Eye = {.LongitudeDeg = 9.001, .LatitudeDeg = 47.001};
+  adaptive.Projection = {.FocalPx = 720, .AllowedErrorPx = 1};
+  const auto selected = BakePreparedStructures(base, adaptive, mesher, *scratch);
+  CHECK(selected && selected->SelectedView &&
+            cache.StoreGeometry(key, base, adaptive, *selected).has_value(),
+        "automatic view selection remains an explicitly scoped product");
+  adaptive.Eye.LongitudeDeg += 0.01;
+  const auto moved = cache.LoadGeometry(key, base, adaptive);
+  CHECK(moved && !*moved, "automatic view-dependent snapshots cannot alias intrinsic LODs");
 }
 
 void NativeCache(const std::filesystem::path &root) {
@@ -172,13 +270,14 @@ void NativeCache(const std::filesystem::path &root) {
                                std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct));
   CHECK(ready && *ready && (**ready).Digest == geometry->Digest &&
             (**ready).Prints == geometry->Prints && (**ready).Coordinates &&
-            (**ready).Coordinates->Points == (**hit).PointsLatLon &&
+            std::ranges::equal((**ready).Coordinates->Points(), (**hit).PointsLatLon) &&
             (*restarted)->Costs().GeometryWrites == 0,
         "restart loads render geometry and owned contacts without meshing or source inputs");
   auto moved = view;
   moved.Eye.LongitudeDeg += 0.01;
-  const auto absent = (*restarted)->LoadGeometry(key, **hit, moved);
-  CHECK(absent && !*absent, "changed position never reuses a view-dependent LOD snapshot");
+  const auto movedGeometry = (*restarted)->LoadGeometry(key, **hit, moved);
+  CHECK(movedGeometry && *movedGeometry && (**movedGeometry).Digest == geometry->Digest,
+        "explicit Shell is the same intrinsic asset after camera movement");
   auto changed = shape;
   changed.Gradient = 0.1;
   CHECK((*restarted)->Key(tile, 17, changed, 1000) != key &&
@@ -191,6 +290,7 @@ void NativeCache(const std::filesystem::path &root) {
             !(*restarted)->LoadBasisRequest(changedRequest)->has_value() &&
             (*restarted)->RequestKey({.Zoom = -1, .X = 0, .Y = 0}, shape, 1000).empty(),
         "native demand separates configuration and rejects invalid cells before any inputs");
+  if (hit && *hit) { IntrinsicLODs(root, **restarted, key, **hit); }
   NativeLODWithoutPlans(root, key, *restarted, view, *geometry);
 }
 
@@ -295,7 +395,9 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
     package.Records.push_back({.Key = key,
                                .Kind = "buildings",
                                .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                               .ByteCount = package.Bytes.size()});
+                               .Package = {},
+                               .ByteCount = package.Bytes.size(),
+                               .Parent = {}});
     return std::expected<GeneratedAssetPackage, std::string>(std::move(package));
   });
   CHECK(published && generated == 1, "one miss publishes an actual native prepared building tile");
@@ -506,7 +608,8 @@ int main() {
     CHECK(built && built->Digest == references[index].Digest &&
               built->Prints == references[index].Prints && built->NoGround == 0,
           "prepared bases reproduce cold geometry and contacts after source/height owners vanish");
-    CHECK(built && built->Coordinates && built->Coordinates->Points == decoded->PointsLatLon,
+    CHECK(built && built->Coordinates &&
+              std::ranges::equal(built->Coordinates->Points(), decoded->PointsLatLon),
           "runtime native footprints carry their own geometry rather than source-cache views");
   }
   std::atomic_bool stopping{true};

@@ -1,40 +1,12 @@
 #include "WorldCandidate.h"
 #include "Check.h"
+#include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
 #include <array>
-#include <cassert>
-#include <dlfcn.h>
-
-namespace {
-bool rejectSubmit = false;
-
-bool RejectCommands(SDL_GPUCommandBuffer *commands) {
-  if (!rejectSubmit) { return false; }
-  rejectSubmit = false;
-  const bool cancelled = SDL_CancelGPUCommandBuffer(commands);
-  assert(cancelled);
-  SDL_SetError("injected piece upload failure");
-  return true;
-}
-}
-
-extern "C" bool SDLCALL SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer *commands) {
-  if (RejectCommands(commands)) { return false; }
-  static const auto original = reinterpret_cast<decltype(&SDL_SubmitGPUCommandBuffer)>(
-      dlsym(RTLD_NEXT, "SDL_SubmitGPUCommandBuffer"));
-  assert(original != nullptr);
-  return original(commands);
-}
-
-extern "C" SDL_GPUFence *SDLCALL
-SDL_SubmitGPUCommandBufferAndAcquireFence(SDL_GPUCommandBuffer *commands) {
-  if (RejectCommands(commands)) { return nullptr; }
-  static const auto original =
-      reinterpret_cast<decltype(&SDL_SubmitGPUCommandBufferAndAcquireFence)>(
-          dlsym(RTLD_NEXT, "SDL_SubmitGPUCommandBufferAndAcquireFence"));
-  assert(original != nullptr);
-  return original(commands);
-}
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <string>
 
 int main() {
   using namespace outshine;
@@ -53,7 +25,10 @@ int main() {
     declaration.InitialGeometry = &base;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
-    Render::SceneRenderer renderer;
+    outshine::Test::Gpu::UploadFailure failure{.Message = "injected piece upload failure"};
+    Render::SceneRenderer renderer(
+        {.Context = &failure, .Create = outshine::Test::Gpu::NativeUploadFaultDevice::Create});
+    const auto uploadBudget = renderer.OfflineUploads(std::chrono::seconds(5));
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), "world opens");
@@ -63,7 +38,9 @@ int main() {
           StoredVertex::Of({{1, 0, 0}}, {{1, 0}}, {{0, 0, 1}}),
           StoredVertex::Of({{0, 1, 0}}, {{0, 1}}, {{0, 0, 1}})};
       const std::array<uint32_t, 3> indices{0, 1, 2};
-      const Render::PieceMesh mesh{.Verts = vertices, .Indices = indices};
+      Render::PieceMesh mesh{};
+      mesh.Verts = vertices;
+      mesh.Indices = indices;
       const auto first = renderer.PlacePiece(mesh);
       const auto second = renderer.PlacePiece(mesh);
       CHECK(first && second, "two native identities exist");
@@ -90,9 +67,11 @@ int main() {
       CHECK(prepared.has_value(), "retry prepares");
       if (!prepared) { return Report(); }
       const auto preparedBytes = renderer.PieceSourceBytes();
-      rejectSubmit = true;
+      failure.Point = outshine::Test::Gpu::UploadFailurePoint::Map;
+      failure.Armed = true;
       const auto failed = renderer.PlacePiece(mesh);
-      CHECK(!failed && !rejectSubmit, "injected GPU upload fails and consumes the rejection");
+      CHECK(!failed && !failure.Armed && failure.Rejected == 1,
+            "injected staging failure rejects the piece before publishing a handle");
       CHECK(renderer.PieceSlots() == 2, "failed GPU upload consumes no source slot");
       CHECK(renderer.PieceSourceBytes() == preparedBytes,
             "failed GPU upload consumes no source payload");
@@ -102,6 +81,18 @@ int main() {
             "retry keeps the free slot generation unchanged after failure");
       if (!replacement) { return Report(); }
       CHECK(candidate.Publish(scene).has_value(), "complete resource world publishes");
+      const auto publishedBytes = renderer.PieceSourceBytes();
+      failure.Point = outshine::Test::Gpu::UploadFailurePoint::Submit;
+      failure.Armed = true;
+      const auto rejectedUpload = renderer.PrepareWorldResources();
+      CHECK(!rejectedUpload && !failure.Armed && failure.Rejected == 2,
+            "a deferred GPU submission failure remains observable at world preparation");
+      CHECK(renderer.PiecesStanding() == 2 && renderer.PieceSourceBytes() == publishedBytes &&
+                renderer.SetPieceInstances(*second, {}, error) &&
+                renderer.SetPieceInstances(*replacement, {}, error),
+            "failed deferred submission retains both original handles and source payloads");
+      CHECK(renderer.PrepareWorldResources().has_value(),
+            "deferred upload retries without allocating another piece identity");
       CHECK(renderer.SetPieceInstances(*second, {}, error) &&
                 renderer.SetPieceInstances(*replacement, {}, error) &&
                 !renderer.SetPieceInstances(*first, {}, error),

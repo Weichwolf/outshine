@@ -1,8 +1,5 @@
 #include "Structures.h"
 #include "Check.h"
-#include "export/GltfExporter.h"
-#include <cstdlib>
-#include <fstream>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -58,16 +55,6 @@ int main() {
   if (!defaultProduct) { return Report(); }
   const Geometry &held = *defaultProduct;
   CHECK(HasNominalEastSides(held, 12.0), "default width is twelve metres");
-  if (const char *path = std::getenv("OUTSHINE_TEST_GLB")) {
-    const auto glb = exportGlb(held);
-    CHECK(glb.has_value(), "public exporter accepts native building");
-    if (glb) {
-      std::ofstream file(path, std::ios::binary);
-      file.write(reinterpret_cast<const char *>(glb->data()),
-                 static_cast<std::streamsize>(glb->size()));
-      CHECK(file.good(), "building render fixture written completely");
-    }
-  }
   const int parts = held.parts();
   const int surfaces = held.surfaces();
   for (const std::string_view invalid :

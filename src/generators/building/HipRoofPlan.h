@@ -56,6 +56,7 @@ public:
 
 private:
   friend class HipRoofCodec;
+  static void MergeCoincidentCorners(Facet &facet, double precisionM);
   [[nodiscard]] bool OwnsEveryEave(size_t count) const;
   EastNorth Origin_;
   double MaximumDistanceM_ = 0;

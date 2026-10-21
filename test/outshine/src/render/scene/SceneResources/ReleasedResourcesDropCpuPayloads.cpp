@@ -38,7 +38,7 @@ int main() {
       mesh.Indices = indices;
       mesh.Instances = instances;
       mesh.MaxInstances = instances.size();
-      std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
+      std::vector<float> nodes(Render::TerrainRenderer::kPageNodes, 3.0f);
       Render::PieceHandle stalePiece;
       Render::HeightPageHandle stalePage;
       size_t slotBytes = 0;

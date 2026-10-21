@@ -204,7 +204,7 @@ def run(command, path, environment=None, cwd=ROOT):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--client", type=Path, default=ROOT / "build/outshine-client")
+    parser.add_argument("--client", type=Path, default=ROOT / "build/outshine")
     parser.add_argument("--runtime-root", type=Path, default=ROOT)
     parser.add_argument("--place", default="Tokyo")
     parser.add_argument("--overrides", default='{"render":{"fps":60}}')
