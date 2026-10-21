@@ -83,6 +83,26 @@ public:
     }
   }
 
+  [[nodiscard]] uint32_t Side() const noexcept { return Side_; }
+
+  [[nodiscard]] bool Covers(Rectangle r) const noexcept {
+    if (r.Left > r.Right || r.Right >= Side_ || r.Top > r.Bottom || r.Bottom >= Side_) {
+      return false;
+    }
+    constexpr uint64_t All = std::numeric_limits<uint64_t>::max();
+    const uint32_t first = r.Left / WordBits;
+    const uint32_t last = r.Right / WordBits;
+    const uint64_t left = All << (r.Left % WordBits);
+    const uint64_t right = All >> (WordBits - 1 - r.Right % WordBits);
+    for (uint32_t y = r.Top; y <= r.Bottom; ++y) {
+      for (uint32_t word = first; word <= last; ++word) {
+        const uint64_t mask = (word == first ? left : All) & (word == last ? right : All);
+        if ((Words_[size_t{y} * Stride_ + word] & mask) != mask) { return false; }
+      }
+    }
+    return true;
+  }
+
   void Finish() {}
 
   [[nodiscard]] bool Occupied(size_t index) const {
