@@ -105,6 +105,38 @@ def select_groups(bounds, view):
     return np.flatnonzero(box_bounds((low, high), view)[4]).astype(np.uint32)
 
 
+def intrinsic_cell_box(positions, anchor):
+    """One camera-independent tangent-frame bound; reuse the existing clip test."""
+    positions, anchor = np.asarray(positions, float), np.asarray(anchor, float)
+    if (
+        positions.ndim != 2
+        or positions.shape[1:] != (3,)
+        or not 0 < len(positions) <= 393216
+        or not np.isfinite(positions).all()
+        or np.max(abs(positions)) > 1e8
+        or anchor.shape != (3,)
+        or not np.isfinite(anchor).all()
+        or not np.any(anchor)
+    ):
+        raise ValueError("Bounded finite cell geometry and nonzero anchor required")
+    up = anchor / np.max(abs(anchor))
+    up /= np.linalg.norm(up)
+    east = np.cross([0.0, 0.0, 1.0], up)
+    if np.linalg.norm(east) == 0:
+        east = np.cross([0.0, 1.0, 0.0], up)
+    east /= np.linalg.norm(east)
+    axes = np.column_stack((east, np.cross(up, east), up))
+    points = positions @ axes
+    bounds = np.array([points.min(0), points.max(0)])
+    margin = 64 * np.finfo(float).eps * np.maximum(abs(bounds).max(0), 1)
+    return axes, bounds + np.array([-1, 1])[:, None] * margin
+
+
+def select_intrinsic_cell(axes, bounds, view):
+    local_view = view[0] @ axes, view[1] @ axes, *view[2:]
+    return bool(len(select_groups(np.asarray(bounds)[None], local_view)))
+
+
 def front_layers(source, prepared, origins, directions, layers=2):
     """Keep exact sample depths; never replace distinct depths by an epsilon tie."""
     if (

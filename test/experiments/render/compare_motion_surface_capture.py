@@ -16,7 +16,9 @@ from full_view_reference import load, views
 from motion_surface_capture import (
     decoded,
     front_layers,
+    intrinsic_cell_box,
     select_groups,
+    select_intrinsic_cell,
     shared_mesh,
     source_groups,
 )
@@ -223,6 +225,12 @@ def run(args):
             source, selected, args.output / f"{name}.npz"
         )
     (bounds, groups), group_seconds = stage(lambda: source_groups(source))
+    (cell_axes, cell_bounds), cell_seconds = stage(
+        partial(intrinsic_cell_box, source["positions"], document["anchor_ecef"])
+    )
+    np.savez_compressed(
+        args.output / "intrinsic-cell.npz", axes=cell_axes, bounds=cell_bounds
+    )
     group_offsets = np.cumsum([0] + [len(group) for group in groups], dtype=np.uint32)
     group_faces = np.concatenate(groups)
     np.savez_compressed(
@@ -239,6 +247,13 @@ def run(args):
     for name, view in poses.items():
         selected, selection_seconds = stage(partial(select_groups, bounds, view))
         active = set(map(int, selected))
+        cell_visible, cell_selection_seconds = stage(
+            partial(select_intrinsic_cell, cell_axes, cell_bounds, view)
+        )
+        if cell_visible != bool(active):
+            raise ValueError(
+                "Single intrinsic cell and grouped control draw sets differ"
+            )
         group_report = {
             "active_groups": sorted(active),
             "entering_groups": sorted(active - previous),
@@ -246,6 +261,9 @@ def run(args):
             "metadata_box_tests": len(bounds),
             "selection_seconds": selection_seconds,
             "selected_triangles": sum(len(groups[i]) for i in active),
+            "intrinsic_cell_visible": cell_visible,
+            "intrinsic_cell_box_tests": 1,
+            "intrinsic_cell_selection_seconds": cell_selection_seconds,
         }
         previous = active
         box = image_roi(source, view)
@@ -328,6 +346,10 @@ def run(args):
         ).strip(),
         "input_sha256": hashlib.sha256(args.input.read_bytes()).hexdigest(),
         "receipt": receipt,
+        "uncaptured_source_ids": np.setdiff1d(
+            np.unique(source["binding"][:, 1]), owners
+        ).tolist(),
+        "uncaptured_reason": "No triangle selected by either projector's two front layers; every source remains in the full coarse product.",
         "decode_verify_seconds": decode_seconds,
         "captures": captures,
         "payload": payload,
@@ -335,6 +357,11 @@ def run(args):
             "count": len(groups),
             "build_seconds": group_seconds,
             "array_bytes": bounds.nbytes + group_offsets.nbytes + group_faces.nbytes,
+        },
+        "intrinsic_cell": {
+            "build_seconds": cell_seconds,
+            "metadata_bytes": cell_axes.nbytes + cell_bounds.nbytes,
+            "same_grouped_primitive_sets_at_every_pose": True,
         },
         "poses": reports,
         "panels": sorted(selected_panels),

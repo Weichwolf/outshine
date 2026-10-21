@@ -4,11 +4,13 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-from full_view_reference import load
+from full_view_reference import load, views
 from motion_surface_capture import (
     decoded,
     front_layers,
+    intrinsic_cell_box,
     select_groups,
+    select_intrinsic_cell,
     shared_mesh,
     source_groups,
 )
@@ -37,6 +39,51 @@ def fixture():
 
 
 class MotionCaptureTests(unittest.TestCase):
+    def test_intrinsic_frame_contains_geometry_and_handles_both_poles(self):
+        points = fixture()["positions"]
+        for anchor in (
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, -1.0],
+            [1.0, 2.0, 3.0],
+            [1e-300, 0.0, 1.0],
+        ):
+            axes, bounds = intrinsic_cell_box(points, anchor)
+            np.testing.assert_allclose(axes.T @ axes, np.eye(3), atol=1e-15, rtol=0)
+            self.assertGreater(np.linalg.det(axes), 0.99999999999999)
+            local = points @ axes
+            self.assertTrue((local >= bounds[0]).all() and (local <= bounds[1]).all())
+        with self.assertRaises(ValueError):
+            intrinsic_cell_box(points, [0.0, 0.0, 0.0])
+        with self.assertRaises(ValueError):
+            intrinsic_cell_box(np.full((1, 3), 1e300), [1.0, 0.0, 0.0])
+
+    def test_one_intrinsic_bound_matches_every_original_and_side_pose_group_cut(self):
+        path = (
+            Path(__file__).parents[2]
+            / "outshine/data/render/building-full-view/cell.json.gz"
+        )
+        source, document, context, _receipt = load(path)
+        poses = views(document, context)
+        boxes, _groups = source_groups(source)
+        axes, bounds = intrinsic_cell_box(source["positions"], document["anchor_ecef"])
+        original = axes.tobytes(), bounds.tobytes()
+        eye, _basis, *projection = poses["static-001"]
+        up = np.asarray(document["anchor_ecef"], float)
+        up /= np.linalg.norm(up)
+        forward = (source["positions"].min(0) + source["positions"].max(0)) / 2 - eye
+        forward /= np.linalg.norm(forward)
+        right = np.cross(forward, up)
+        right /= np.linalg.norm(right)
+        basis = np.array([right, np.cross(right, forward), forward])
+        for delta in (-30.0, 6.0, 30.0):
+            poses[f"side{delta}"] = eye + delta * right, basis, *projection
+        for view in poses.values():
+            self.assertEqual(
+                select_intrinsic_cell(axes, bounds, view),
+                bool(len(select_groups(boxes, view))),
+            )
+        self.assertEqual(original, (axes.tobytes(), bounds.tobytes()))
+
     def test_complete_archived_native_cell_replays_every_corner_and_all_source_groups(
         self,
     ):
