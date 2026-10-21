@@ -2,6 +2,7 @@
 #include "SpirvFile.h"
 #include "Check.h"
 #include <array>
+#include <cstdint>
 #include <print>
 
 int main() {
@@ -24,6 +25,12 @@ int main() {
           "unknown stages cannot publish an empty or unrelated pipeline");
   }
   const auto depth = *FindComputeShader(ComputeShaderId::DepthPyramid);
+  auto previousCompact = *FindComputeShader(ComputeShaderId::SubjectCompact);
+  constexpr uint32_t kPreviousCompactGroupX = 128;
+  previousCompact.Shape.GroupX = kPreviousCompactGroupX;
+  const auto incompatibleCompact = CompileComputePipeline(**device, previousCompact);
+  CHECK(!incompatibleCompact && incompatibleCompact.error().Kind == Native::ErrorKind::Invalid,
+        "the compact shader cannot retain the previous workgroup contract");
   for (auto field : {&ComputeShape::Samplers,
                      &ComputeShape::ReadOnlyTextures,
                      &ComputeShape::ReadWriteTextures,
@@ -37,7 +44,7 @@ int main() {
     ++(wrong.Shape.*field);
     const auto rejected = CompileComputePipeline(**device, wrong);
     CHECK(!rejected && rejected.error().Kind == Native::ErrorKind::Invalid &&
-              rejected.error().Message.find("declared compute bindings") != std::string::npos,
+              rejected.error().Message.contains("declared compute bindings"),
           "native SPIR-V reflection rejects each incorrect binding count or group dimension");
   }
   auto missing = depth;

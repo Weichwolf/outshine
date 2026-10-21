@@ -76,7 +76,7 @@ inline constexpr std::array kComputeShaders = {
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::SubjectCompact,
         .Path = "build/shaders/subjectCompactKernel.comp.spv",
-        .Shape = {.ReadOnlyBuffers = 4, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 128}},
+        .Shape = {.ReadOnlyBuffers = 4, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::TerrainPatchCull,
         .Path = "build/shaders/groundPatchCull.comp.spv",

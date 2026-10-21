@@ -1,15 +1,21 @@
 #include "NativeGpuCheck.h"
+#include "Check.h"
 
 #include <algorithm>
 #include <array>
 #include <bit>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <print>
 #include <span>
 #include <thread>
+#include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine::Render::Native;
@@ -33,7 +39,8 @@ Data Inputs() {
     uint32_t possible = 0;
     for (uint32_t i = 0; i < count; ++i) {
       const auto job = first + i;
-      const auto indices = 3 * (job % 3 + 1);
+      constexpr std::array<uint32_t, 5> lengths{3, 18, 72, 381, 384};
+      const auto indices = lengths[job % lengths.size()];
       const auto source = static_cast<uint32_t>(data.Source.size());
       const bool visible = job % 5 != 0;
       data.Kept.push_back(visible ? indices : 0);
