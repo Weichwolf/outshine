@@ -62,6 +62,49 @@ relevant native-RHI/calibration sources and recording that distinction in the
 delivery. It records both commits and content hashes; it does not certify that an
 arbitrary archive matches its checkout. Current device results belong in #990.
 
+## Tessellation counterexample
+
+Add `--tessellated` to the runner to rasterize one closed, equal-depth 48×48 pixel
+square with six grid resolutions, then repeat with one cell removed. Both sampling
+modes run in forward and reversed triangle order; readbacks must match byte for
+byte. The analytic square and omitted cell provide an independent union oracle.
+Every accepted pixel must stay inside that union with a valid farther depth. Point
+sampling must exactly cover the known union, including the empty-patch case.
+
+This uses the **same unmodified shaders** as the single-triangle calibration. It
+changes the diagnostic draw function to encode all triangles in one pass before
+readback. Because every triangle has the same depth, colour attachment overwrites
+compose the union correctly. This does not test arbitrary-depth composition or a
+hardware depth pyramid.
+
+The initial Iris Xe result exposes an important usefulness limit:
+
+| Grid cell side in pixels | Triangles | Actual opaque pixels | Retained full-pixel coverage |
+|---|---:|---:|---:|
+| 1 | 4608 | 2304 | 0 |
+| 2 | 1152 | 2304 | 0 |
+| 4 | 288 | 2304 | 0 |
+| 8 | 72 | 2304 | 720 (31.25%) |
+| 16 | 18 | 2304 | 1404 (60.94%) |
+| 48 | 2 | 2304 | 1980 (85.94%) |
+
+The closed surface is identical in every row. Shrinking each triangle separately
+creates artificial gaps along internal edges. High usefulness on isolated large
+triangles therefore does not establish useful coverage on finely tessellated root
+geometry. A minimum-depth hierarchy cannot recover those missing pixels. This
+limits the current primitive's suitability for #990; it requires actual-root
+measurements and a solution for internal edges or justified occluder patches.
+The experiment retains false holes as unknown and does not relax the oracle or
+claim that point sampling is generally safe. The original single-triangle negative
+control continues to demonstrate point sampling's false full-pixel claims.
+The result reports `correctness_passed` separately from `coverage_target_passed`:
+the 90% usefulness target is red in this counterexample. Exit status checks the
+measurement's correctness; it does not certify the method as suitable for roots.
+
+All accepted/rejected depth images remain local `.f32` diagnostic artifacts in
+the explicit temporary output directory. Runtime costs describe repeated uniform
+draws and readback, not a batched production root or a scene FPS measurement.
+
 ## Primary reference
 
 Durand et al., SIGGRAPH 2000, *Conservative Visibility Preprocessing using Extended
