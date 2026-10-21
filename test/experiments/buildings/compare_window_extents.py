@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import shapely
 from compare_window_detail_demand import fingerprint, full_draw, requests
+from evidence import revision
 from industrial_relief_probe import camera
 from podium_probe import write
 from terraced_admission_probe import controls
@@ -190,7 +191,7 @@ def lifecycle(prepared, poses, selected, all_details, args):
             "facade_materials": {},
             "scope": "5m window-AABB radius requests; complete existing compact exterior retained. Same requested products in all/selective residency. No visibility/radiance/PBR/native LOD/device admission.",
         },
-        {"producer": args.producer},
+        revision() | {"producer": args.producer},
     )
     return {
         "coarse_construction": coarse,
