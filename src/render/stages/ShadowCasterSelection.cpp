@@ -12,14 +12,16 @@ namespace outshine::Render {
 namespace {
 constexpr size_t kSphereFloats = 12;
 
-std::optional<BatchSphere>
-WorldBounds(std::span<const float> spheres, uint32_t which, const Mat4 &model) {
+std::optional<BatchSphere> WorldBounds(std::span<const float> spheres,
+                                       uint32_t which,
+                                       const std::optional<SphereTransform> &transform) {
+  if (!transform) { return std::nullopt; }
   const size_t at = size_t{which} * kSphereFloats;
   if (at > spheres.size() || spheres.size() - at < kSphereFloats) { return std::nullopt; }
   BatchSphere local{};
   std::ranges::copy(spheres.subspan(at, local.size()), local.begin());
   if (local[3] < 0 || !std::ranges::all_of(local, NormalOrZero)) { return std::nullopt; }
-  return TransformedSphere(local, model);
+  return transform->Apply(local);
 }
 
 bool Append(std::vector<ShadowCasterRange> &into,
@@ -35,6 +37,7 @@ bool Append(std::vector<ShadowCasterRange> &into,
   }
   Mat4 model{};
   std::ranges::copy(placements[batch.ModelSlot].Current, model.begin());
+  const auto transform = SphereTransform::From(model);
   const uint64_t end = uint64_t{batch.FirstIndex} + batch.IndexCount;
   uint64_t covered = batch.FirstIndex;
   uint32_t previous = batch.FirstIndex;
@@ -46,7 +49,7 @@ bool Append(std::vector<ShadowCasterRange> &into,
       return false;
     }
     into.push_back(
-        {.First = job[2], .Count = job[3], .Bounds = WorldBounds(spheres, job[0], model)});
+        {.First = job[2], .Count = job[3], .Bounds = WorldBounds(spheres, job[0], transform)});
     covered = std::max(covered, next);
     previous = job[2];
   }
