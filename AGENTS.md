@@ -173,7 +173,7 @@
   deklarierte Vergleiche; Speicher und CPU/GPU pro Gerät getrennt belegen.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
 - Die Bildveröffentlichung in `doc/` und README pausiert auf Nutzerauftrag. Ich pushe dort
-  vorerst keine neuen oder aktualisierten Bilder. Fachagenten veröffentlichen ebenfalls keine
+  nur ausdrücklich beauftragte README-Bilder. Fachagenten veröffentlichen ebenfalls keine
   Bilder oder Ersatzgalerien. Forschungs-/Diagnosebilder bleiben lokal im System-Tempverzeichnis;
   Verfahren, Tests und Renderer werden weiterhin geliefert. Tatsächliche Bildprüfung bleibt Pflicht.
 - Ich pflege zwölf wechselnde Places als Beurteilungswerkzeug, keine vorgeschriebene Ortsliste.
