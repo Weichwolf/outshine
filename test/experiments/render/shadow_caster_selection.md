@@ -132,3 +132,38 @@ The reference rejects logs containing a changed vertex pose: one snapshot cannot
 establish correct work for changing vertex revisions. Native interval, unknown,
 placement and pose tests cover those separate contracts. Master owns current
 Metal/A18, broad integration/Places and final default-renderer admission.
+
+## Remaining Iris work after selection
+
+The existing private Vulkan work probe (#756) builds with all six current native
+source anchors on ab0af74da. A fresh offline process repeats the same 60-frame
+moving profile on Iris Xe. Pipeline statistics are supported; timestamps have
+36 valid bits and a 52.08333206176758 ns period. All 1,209 records in 61 completed
+traces validate, including preparation. Exactly 60 sky-bearing traces join the
+benchmark's 60 unique device/submission pairs by individually identical native
+submission durations, with no ambiguous match, omitted capture or cancelled trace.
+The final image matches the original moving hash above and was opened locally.
+
+| Measured interval | Records | Median ms | Actual median work per record |
+|---|---:|---:|---|
+| Opaque subjects, all observed pipeline sets | 60 | 12.051 | 2,597,123.5 vertex and 1,969,124 fragment invocations |
+| Terrain parent pass | 60 | 2.441 | Parent statistics deliberately absent; children measured separately |
+| Subject index compaction | 60 | 1.455 | 6,442,240 compute invocations |
+| Shadow raster pass | 60 | 0.214 | 649,668 IA vertices and 211,326 vertex invocations |
+
+Intervals can overlap and must not be added into a frame breakdown. The shadow
+IA count includes patch-clear geometry; it is not the object-only observer total.
+The opaque interval does not separate vertex from fragment execution, so it does
+not establish which shader stage limits that pass. Terrain-parent and absent-stage
+counters remain null rather than invented zeros. Instrumented GPU frame median is
+19.957 ms and p99 53.464 ms; this is not an uninstrumented performance comparison
+or admission. All 60 frames remain unrefined. CPU hook scopes total 14.389 ms across
+52,640 calls, with another 4.929 ms for cold teardown output; added GPU query cost
+is uncalibrated. The result shifts the next GPU investigation to opaque subjects
+and their representation/selection, rather than assuming shadows still dominate.
+
+Exact build/source hashes and commands: `/tmp/outshine-engine-iris-pass-work-ab0af74da/probe/build.json`.
+Validated records, unique joins and summaries: `analysis.json` alongside `analyze.py`
+in that directory. Original benchmark report, trace log, load and PNG remain under
+`/tmp/outshine-engine-motion-profile-493877d6e/runtime/moving-iris-pass-work-ready/`.
+These are explicit diagnostics on the selected source, not a new whole-engine gate.
