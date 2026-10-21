@@ -61,7 +61,7 @@ def inputs():
     for name, p in (("courts", plans[0]), ("concave", plans[5]), ("compact", plans[8])):
         poses, selections = requests(p)
         result.append((name, p, poses[0], selections))
-    poses, _ = requests(varied)
+    poses, _ = requests(plans[0])
     ids = tuple(w.identifier for w in varied.facade.windows)
     result.append(("distinct-dimensions", varied, poses[0], [ids, ids, (), ids]))
     return result, elapsed
