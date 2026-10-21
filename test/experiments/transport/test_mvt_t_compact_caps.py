@@ -113,6 +113,14 @@ class SevenSourceCompactCaps(unittest.TestCase):
             )
         self.assertEqual(before, self.proposal)
 
+    def test_narrow_source_is_refused_before_patch_preparation(self):
+        sources = copy.deepcopy(self.sources)
+        next(s for s in sources if s["source_id"] == "native-part:239")[
+            "half_width_m"
+        ] = 0.1
+        with self.assertRaisesRegex(ValueError, "support disk"):
+            compact_caps(sources, self.proposal, ["native-part:239"])
+
     def test_quarter_turn_with_translation_keeps_actual_body_and_profiles_valid(self):
         capture = copy.deepcopy(self.capture)
         capture["provenance"]["synthetic_xy_transform"] = {
