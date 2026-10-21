@@ -46,7 +46,9 @@ def execute(command, checkout, output, name, records, environment=None):
         row["seconds"] = time.monotonic() - began
 
 
-def build(checkout, database, output, records):
+def build(
+    checkout, database, output, records, *, sources=None, cflags=(), libraries=()
+):
     entry = next(
         row
         for row in json.loads(database.read_text())
@@ -55,28 +57,37 @@ def build(checkout, database, output, records):
     )
     if Path(entry["directory"]).resolve() != checkout:
         raise ValueError("compilation database belongs to another checkout")
-    command = list(entry.get("arguments") or shlex.split(entry["command"]))
-    source = SOURCE / "Probe.cpp"
-    command[command.index(entry["file"])] = str(source)
-    command[command.index("-o") + 1] = str(output / "Probe.o")
-    for flag, name in (("-MF", "Probe.d"), ("-MJ", "Probe-command.json")):
-        if flag in command:
-            command[command.index(flag) + 1] = str(output / name)
-    (output / "compile_commands.json").write_text(
-        json.dumps(
-            [{"directory": str(checkout), "file": str(source), "arguments": command}],
-            indent=2,
+    commands, objects = [], []
+    for source in sources or (SOURCE / "Probe.cpp",):
+        command = list(entry.get("arguments") or shlex.split(entry["command"]))
+        command[command.index(entry["file"])] = str(source)
+        obj = output / (source.stem + ".o")
+        command[command.index("-o") + 1] = str(obj)
+        for flag, suffix in (("-MF", ".d"), ("-MJ", "-command.json")):
+            if flag in command:
+                command[command.index(flag) + 1] = str(output / (source.stem + suffix))
+        command.extend(cflags)
+        commands.append(
+            {"directory": str(checkout), "file": str(source), "arguments": command}
         )
-        + "\n"
-    )
-    execute(["nice", "-n", "10", *command], checkout, output, "compile", records)
-    libraries = shlex.split(
+        objects.append(str(obj))
+    (output / "compile_commands.json").write_text(json.dumps(commands, indent=2) + "\n")
+    for row in commands:
+        execute(
+            ["nice", "-n", "10", *row["arguments"]],
+            checkout,
+            output,
+            "compile-" + Path(row["file"]).stem,
+            records,
+        )
+    link_flags = shlex.split(
         subprocess.check_output(
             ["sh", "test/run.sh", "--native-link-flags"], cwd=checkout, text=True
         )
     ) + shlex.split(
         subprocess.check_output(["pkg-config", "--libs", "sdl3"], text=True)
     )
+    command = commands[0]["arguments"]
     flags = [
         flag
         for flag in command
@@ -92,8 +103,9 @@ def build(checkout, database, output, records):
             "10",
             command[0],
             *flags,
-            str(output / "Probe.o"),
+            *objects,
             str(checkout / "build/liboutshine.a"),
+            *link_flags,
             *libraries,
             "-o",
             str(binary),
