@@ -30,7 +30,7 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
     return std::isfinite(value) && bytes.Number(value == 0.0 ? 0.0 : value);
   };
   const bool intrinsic = view.RequestedDetail.has_value();
-  if (!text(intrinsic ? "building-static-lod-2" : "building-lod-5") || !text(base) ||
+  if (!text(intrinsic ? "building-static-lod-3" : "building-lod-6") || !text(base) ||
       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||
       !bytes.Number(view.RequestedCell.value_or(0)) || !bytes.Number(view.ClusterTriangles)) {
     return {};
