@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import resource
 import subprocess
 import sys
@@ -137,6 +138,7 @@ def measure(output, name, prepared, view, selections, module, traced, proof):
 
 
 def run(args):
+    load = os.getloadavg()
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze the measured implementation before running")
@@ -175,6 +177,7 @@ def run(args):
     ]
     report = {
         "producer": proof["commit"],
+        "host_load_average_at_start": load,
         "trace": args.trace,
         "method_order": [item[0] for item in order],
         "baseline_commit": BASELINE_COMMIT,

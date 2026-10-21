@@ -77,6 +77,19 @@ def coarse_spans(coarse):
     )
 
 
+def repeated_dimensions(windows, resident, identifiers):
+    seen = set()
+    for identifier in identifiers:
+        if identifier in resident:
+            continue
+        window = windows[identifier]
+        key = window.width_m, window.height_m
+        if key in seen:
+            return True
+        seen.add(key)
+    return False
+
+
 class WindowDetails:
     """Caller-owned residency, bounded in window count; no visibility or DB policy."""
 
@@ -119,11 +132,12 @@ class WindowDetails:
         # Commit only after every new product and the complete draw list succeed.
         resident, generated = {}, []
         templates = None
+        reuse = repeated_dimensions(self.windows, self.resident, admitted)
         try:
             for identifier in admitted:
                 patch = self.resident.get(identifier)
                 if patch is None:
-                    if templates is None:
+                    if reuse and templates is None:
                         templates = lru_cache(maxsize=16)(opening_details.template)
                     patch = window_patch(
                         self.prepared,

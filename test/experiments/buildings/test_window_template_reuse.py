@@ -133,6 +133,24 @@ class TemplateReuseTests(unittest.TestCase):
                 self, original(varied, w).mesh, product.resident[w.identifier].mesh
             )
 
+    def test_all_distinct_or_single_new_dimensions_need_no_shared_context(self):
+        prepared = self.plans[0]
+        windows = tuple(
+            replace(w, width_m=w.width_m - 0.005 * i)
+            for i, w in enumerate(prepared.facade.windows[:21])
+        )
+        varied = replace(prepared, facade=replace(prepared.facade, windows=windows))
+        product = demand.WindowDetails(varied)
+        with patch.object(demand, "lru_cache", side_effect=AssertionError("no reuse")):
+            product.update(tuple(product.windows))
+            product.update(())
+            product.update((windows[0].identifier,))
+        assert_mesh_equal(
+            self,
+            demand.window_patch(varied, windows[0]).mesh,
+            product.resident[windows[0].identifier].mesh,
+        )
+
     def test_legacy_expand_variants_defaults_and_empty_inputs(self):
         openings = [
             {
