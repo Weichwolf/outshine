@@ -36,10 +36,10 @@ public:
   ~Exact() { mpq_clear(Value_); }
 
   [[nodiscard]] static Exact Float32(float value) {
-    constexpr int FractionBits = 23;
-    constexpr int ExponentBits = 8;
-    constexpr uint32_t ExponentMask = (1u << ExponentBits) - 1;
-    constexpr uint32_t FractionMask = (1u << FractionBits) - 1;
+    constexpr uint32_t FractionBits = 23;
+    constexpr uint32_t ExponentBits = 8;
+    constexpr uint32_t ExponentMask = (1u << ExponentBits) - 1u;
+    constexpr uint32_t FractionMask = (1u << FractionBits) - 1u;
     constexpr int ExponentBias = 127;
     constexpr uint32_t OneBits = 0x3f800000;
     static_assert(std::numeric_limits<float>::is_iec559);
@@ -49,8 +49,8 @@ public:
     const auto exponent = (bits >> FractionBits) & ExponentMask;
     if (exponent == ExponentMask) { std::_Exit(2); }
     const uint32_t mantissa = (bits & FractionMask) | (exponent == 0 ? 0u : 1u << FractionBits);
-    const int power =
-        (exponent == 0 ? 1 : static_cast<int>(exponent)) - ExponentBias - FractionBits;
+    const int power = (exponent == 0 ? 1 : static_cast<int>(exponent)) - ExponentBias -
+                      static_cast<int>(FractionBits);
     Exact result;
     mpq_set_ui(result.Value_, mantissa, 1);
     if (power < 0) {

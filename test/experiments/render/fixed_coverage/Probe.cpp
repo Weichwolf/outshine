@@ -89,7 +89,7 @@ Target MakeTarget(N::Device &device) {
   return target;
 }
 
-std::vector<float> Download(N::Device &device, N::Texture &image, N::Buffer &readback) {
+std::vector<float> Download(N::Device &device, const N::Texture &image, N::Buffer &readback) {
   auto commands = Take(device.Begin());
   N::TextureTransfer transfer;
   transfer.RowBytes = uint64_t{Side} * sizeof(float);
@@ -97,7 +97,7 @@ std::vector<float> Download(N::Device &device, N::Texture &image, N::Buffer &rea
   transfer.Region.Height = Side;
   Take(commands->Copy(image, readback, transfer));
   Take(C::Finish(device, std::move(commands)));
-  auto mapped = Take(device.MapRead(readback, {.Bytes = Bytes}));
+  const auto mapped = Take(device.MapRead(readback, {.Bytes = Bytes}));
   std::vector<float> values(size_t{Side} * Side);
   std::memcpy(values.data(), mapped.data(), Bytes);
   Take(device.Unmap(readback));
@@ -467,7 +467,7 @@ void Save(const std::filesystem::path &path, std::span<const float> values) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc != 3 && argc != 4) { return 2; }
   auto cases = Cases();
   for (auto &fixture : AdversarialCases()) { cases.push_back(std::move(fixture)); }
