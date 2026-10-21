@@ -1,6 +1,7 @@
 """Finite image controls: all closed windows, fixed radius and camera-bound candidates."""
 
 import argparse
+import hashlib
 import itertools
 import json
 import resource
@@ -101,10 +102,19 @@ def source(output, name, prepared, traced, proof):
     del full_draw
     span = 2.5 * np.ptp(full_mesh["vertices"][:, :2], axis=0).max()
     rows, jobs = [], []
-    for pose, view in poses.items():
+    for pose_index, (pose, view) in enumerate(poses.items()):
         for method, ids in needed[pose].items():
             if method == "full":
-                mesh, cost, generated = full_mesh, full_cost, list(ids)
+                mesh = full_mesh
+                cost = (
+                    full_cost
+                    if pose_index == 0
+                    else {
+                        "seconds": 0.0,
+                        "additional_traced_peak_bytes": 0 if traced else None,
+                    }
+                )
+                generated = list(ids) if pose_index == 0 else []
                 released, detail_bytes = (
                     [],
                     sum(
@@ -171,13 +181,22 @@ def run(args):
         rows.append(row)
         jobs.extend(work)
     report = proof | {
+        "input_sha256": {
+            str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in (
+                Path("test/experiments/buildings/data/stepped-profiles.json"),
+                Path(
+                    "test/experiments/buildings/data/terraced-admission-controls.json"
+                ),
+            )
+        },
         "trace": args.trace,
         "plan_preparation_seconds": preparation,
         "cases": rows,
         "jobs": jobs,
         "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
-        "scope": "Finite static Python controls at 1280x720, original explicit 5m radius versus metadata camera-plane candidates versus all closed windows in the same complete coarse hull. No occlusion, independent shadow/reflection demand, general LOD/radiance or native/device admission. Full reference generated once per source and reused; its repeated row cost must not be added twice. Diagnostic materialization/hash/export excluded from stage timers; process RSS includes them and all imports/plans/products. Trace omits some native heaps.",
+        "scope": "Finite static Python controls at 1280x720, original explicit 5m radius versus metadata camera-plane candidates versus all closed windows in the same complete coarse hull. No occlusion, independent shadow/reflection demand, general LOD/radiance or native/device admission. Full reference generated once per source; its far row reuses that mesh without new construction. Existing selected-owner replacement semantics, including paired-wing owned accents, are unchanged. Diagnostic materialization/hash/export excluded from stage timers; process RSS includes them and all imports/plans/products. Trace omits some native heaps.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(
