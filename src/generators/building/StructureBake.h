@@ -160,8 +160,11 @@ struct BakedTile {
   std::optional<StructureSurfaceErrorFailure> SurfaceFailure;
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return Built.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes() + CapacityBytes(Prints) +
-           CapacityBytes(FootprintDetails) + CapacityBytes(SeatSpreadM) + CapacityBytes(AcrossM);
+    size_t bytes = Built.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes() +
+                   CapacityBytes(Prints) + CapacityBytes(FootprintDetails) +
+                   CapacityBytes(SeatSpreadM) + CapacityBytes(AcrossM);
+    for (const auto &print : Prints) { bytes += print.HeapBytes(); }
+    return bytes;
   }
 };
 

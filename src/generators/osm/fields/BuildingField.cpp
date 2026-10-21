@@ -20,6 +20,14 @@ static_assert(std::is_nothrow_move_assignable_v<BuildingFootprint>);
 static_assert(std::is_nothrow_move_constructible_v<BuildingField::AcceptedInput>);
 static_assert(std::is_nothrow_move_assignable_v<BuildingField::AcceptedInput>);
 
+namespace {
+size_t ContactBytes(std::span<const BuildingFootprint> prints) noexcept {
+  size_t bytes = 0;
+  for (const auto &print : prints) { bytes += print.HeapBytes(); }
+  return bytes;
+}
+}
+
 BuildingField BuildingField::SnapshotAccepted() const {
   BuildingField copy = *this;
   const size_t released = copy.Admission_.ReleaseUnaccepted(copy.AcceptedTiles_);
@@ -32,6 +40,7 @@ void BuildingField::ResetDerived() {
   ReservationOwner_ = ReservationDomain{};
   ++Revision_;
   Prints_.clear();
+  ContactBytes_ = 0;
   AcceptedTiles_.clear();
   AcceptedInputs_.clear();
   Products_.clear();
@@ -107,6 +116,7 @@ BuildingField::PrepareAcceptance(uint32_t tile,
 }
 
 void BuildingField::CommitAcceptance(PendingAcceptance pending, const Baked &baked) noexcept {
+  const size_t contactBytes = ContactBytes(baked.Prints);
   assert(pending.Owner_ == this && pending.Prints_ == baked.Prints.size() &&
          pending.Spread_ == baked.SeatSpreadM.size() && pending.Across_ == baked.AcrossM.size());
   assert(Prints_.capacity() - Prints_.size() >= baked.Prints.size() &&
@@ -140,6 +150,7 @@ void BuildingField::CommitAcceptance(PendingAcceptance pending, const Baked &bak
   DefaultHeights_ += baked.DefaultHeights;
   Fronted_ += baked.Fronted;
   TrianglesHanded_ += baked.Triangles;
+  ContactBytes_ += contactBytes;
   Products_.insert(Products_.begin() + static_cast<ptrdiff_t>(at),
                    {.Prints = {.First = firstPrint, .Count = baked.Prints.size()},
                     .Spread = {.First = firstSpread, .Count = baked.SeatSpreadM.size()},
@@ -147,7 +158,8 @@ void BuildingField::CommitAcceptance(PendingAcceptance pending, const Baked &bak
                     .Triangles = baked.Triangles,
                     .OsmHeights = baked.OsmHeights,
                     .DefaultHeights = baked.DefaultHeights,
-                    .Fronted = baked.Fronted});
+                    .Fronted = baked.Fronted,
+                    .ContactBytes = contactBytes});
   AcceptedInputs_.insert(AcceptedInputs_.begin() + static_cast<ptrdiff_t>(at),
                          std::move(pending.Input_));
   AcceptedTiles_.insert(nextTile, pending.Tile_);
@@ -156,6 +168,7 @@ void BuildingField::CommitAcceptance(PendingAcceptance pending, const Baked &bak
 }
 
 void BuildingField::ReplaceAcceptance(PendingAcceptance pending, const Baked &baked) noexcept {
+  const size_t contactBytes = ContactBytes(baked.Prints);
   assert(pending.Owner_ == this && pending.Prints_ == baked.Prints.size() &&
          pending.Spread_ == baked.SeatSpreadM.size() && pending.Across_ == baked.AcrossM.size());
   const auto tile = std::ranges::lower_bound(AcceptedTiles_, pending.Tile_);
@@ -209,9 +222,11 @@ void BuildingField::ReplaceAcceptance(PendingAcceptance pending, const Baked &ba
                    .Triangles = baked.Triangles,
                    .OsmHeights = baked.OsmHeights,
                    .DefaultHeights = baked.DefaultHeights,
-                   .Fronted = baked.Fronted};
+                   .Fronted = baked.Fronted,
+                   .ContactBytes = contactBytes};
   AcceptedInputs_[at] = std::move(pending.Input_);
   TrianglesHanded_ = TrianglesHanded_ - old.Triangles + baked.Triangles;
+  ContactBytes_ = ContactBytes_ - old.ContactBytes + contactBytes;
   OsmHeights_ += baked.OsmHeights - old.OsmHeights;
   DefaultHeights_ += baked.DefaultHeights - old.DefaultHeights;
   Fronted_ += baked.Fronted - old.Fronted;

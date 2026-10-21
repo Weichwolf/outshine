@@ -71,7 +71,10 @@ void CheckSlices(const PreparedStructureTile &original,
   if (!reference) { return; }
   auto expectedPrints = reference->Prints;
   if (!prepared) {
-    for (auto &print : expectedPrints) { print.TerrainCeiling.reset(); }
+    for (auto &print : expectedPrints) {
+      print.TerrainCeiling.reset();
+      print.TerrainContacts = {};
+    }
   }
   StructureBakeProgress progress;
   bool complete = false;

@@ -286,16 +286,15 @@ public:
 
   [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const noexcept;
 
-  [[nodiscard]] size_t PrintBytes() const { return CapacityBytes(Prints_); }
+  [[nodiscard]] size_t PrintBytes() const { return CapacityBytes(Prints_) + ContactBytes_; }
 
   [[nodiscard]] size_t MeasurementBytes() const {
     return CapacityBytes(SeatSpread_) + CapacityBytes(Across_);
   }
 
   [[nodiscard]] size_t HeapBytes() const {
-    size_t bytes = CapacityBytes(Prints_) + CapacityBytes(AcceptedTiles_) +
-                   CapacityBytes(AcceptedInputs_) + CapacityBytes(Products_) +
-                   Admission_.HeapBytes() + MeasurementBytes();
+    size_t bytes = PrintBytes() + CapacityBytes(AcceptedTiles_) + CapacityBytes(AcceptedInputs_) +
+                   CapacityBytes(Products_) + Admission_.HeapBytes() + MeasurementBytes();
     for (const AcceptedInput &input : AcceptedInputs_) {
       if (input.Bake.PreparedAssetKey) { bytes += input.Bake.PreparedAssetKey->capacity() + 1u; }
       if (input.Coordinates) { bytes += input.Coordinates->HeapBytes(); }
@@ -347,6 +346,7 @@ private:
     int OsmHeights = 0;
     int DefaultHeights = 0;
     int Fronted = 0;
+    size_t ContactBytes = 0;
   };
 
   uint64_t Revision_ = 0;
@@ -355,6 +355,7 @@ private:
   std::vector<AcceptedInput> AcceptedInputs_;
   std::vector<TileProduct> Products_;
   size_t TrianglesHanded_ = 0;
+  size_t ContactBytes_ = 0;
   size_t Taken_ = 0, Accepted_ = 0;
   size_t RefinementAt_ = 0, RefinementEnd_ = 0;
   bool RefinementActive_ = false;
