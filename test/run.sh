@@ -347,7 +347,7 @@ LayerIncludes() {
     profile/water-worker) GroupIncludes src/engine ;;
     profile/water-bed) GroupIncludes src/generators/water; GroupIncludes src/generators/terrain ;;
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
-    profile/medium-view) printf '%s' "-Iinclude -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
+    profile/medium-view) printf '%s' "-Iinclude -Isrc/base/math -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
     profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
     profile/osm-xml) GroupIncludes src/generators/osm/import ;;
     profile/transport-native) printf '%s' "-Iinclude -Isrc/world/navigation -Isrc/world/products" ;;
