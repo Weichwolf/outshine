@@ -107,8 +107,8 @@ def parameters(values, triangle, cast):
     u, v = u / determinant, v / determinant
     return tuple(
         cast(float(triangle[0, axis]))
-        + u * cast(float(triangle[1, axis] - triangle[0, axis]))
-        + v * cast(float(triangle[2, axis] - triangle[0, axis]))
+        + u * (cast(float(triangle[1, axis])) - cast(float(triangle[0, axis])))
+        + v * (cast(float(triangle[2, axis])) - cast(float(triangle[0, axis])))
         for axis in range(2)
     )
 
