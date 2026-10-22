@@ -72,9 +72,23 @@ def surface_radiance_upper(profile, max_height, albedo=0.6):
     ):
         raise ValueError("finite nonnegative lighting and bounded albedo required")
     if profile["kind"] == "point":
-        height = float(profile["position"][2])
-        if not np.isfinite(height) or height <= max_height:
+        position = np.asarray(profile["position"], float)
+        if (
+            position.shape != (3,)
+            or not np.isfinite(position).all()
+            or position[2] <= max_height
+        ):
             raise ValueError("point emitter above represented volume required")
-        energy /= max(height - max_height, 1) ** 2
+        energy /= max(position[2] - max_height, 1) ** 2
+    elif profile["kind"] == "sun":
+        direction = np.asarray(profile["direction"], float)
+        if (
+            direction.shape != (3,)
+            or not np.isfinite(direction).all()
+            or np.linalg.norm(direction) == 0
+        ):
+            raise ValueError("finite nonzero sun direction required")
+    else:
+        raise ValueError("supported single direct light required")
     alpha = ROUGHNESS**2
     return (albedo / np.pi + 1 / (2 * np.pi * alpha**3)) * energy + ambient * albedo

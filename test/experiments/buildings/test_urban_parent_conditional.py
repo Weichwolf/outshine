@@ -4,7 +4,12 @@ import itertools
 import unittest
 
 import numpy as np
-from urban_parent_conditional import blocker_probability, render_conditional
+from urban_parent_conditional import (
+    blocker_probability,
+    grid,
+    primary_cap,
+    render_conditional,
+)
 from urban_parent_light import light_at, shade
 from urban_parent_stats import UrbanParent
 
@@ -135,7 +140,8 @@ class ConditionalParentTest(unittest.TestCase):
             )
             np.testing.assert_allclose(alpha, coverage, rtol=0, atol=2e-14)
             np.testing.assert_allclose(actual, rgb, rtol=0, atol=2e-13)
-            self.assertGreater(work["shadow_history_cell_comparisons"], 0)
+            self.assertGreater(work["shadow_primary_condition_tests"], 0)
+            self.assertEqual(work["shadow_history_cell_comparisons"], 0)
 
     def test_all_81_scenes_from_ground_up_down_and_horizon(self):
         parent = UrbanParent(
@@ -201,6 +207,50 @@ class ConditionalParentTest(unittest.TestCase):
             parent, np.array([[0.5, 8.0, 2.0]]), np.array([[1.0, 0.0, 0.0]]), p
         )
         self.assertTrue(np.isfinite(rgb).all())
+
+    def test_prefix_conditioning_matches_independent_closed_boxes(self):
+        rng = np.random.default_rng(1113)
+        parent = UrbanParent(
+            np.ones((2, 2, 3)),
+            np.array([0, 0, 1, 32, 16, 0.75, 0.15]),
+            np.array([6.0, 12.0]),
+            np.array([0.7, 0.3]),
+        )
+        o = rng.uniform([-16, -16, 1], [48, 48, 50], (80, 3))
+        d = rng.normal(size=o.shape)
+        d /= np.linalg.norm(d, axis=1)[:, None]
+        limit = rng.uniform(1, 100, len(o))
+        ground = np.divide(
+            -o[:, 2], d[:, 2], out=np.full(len(o), np.inf), where=d[:, 2] < 0
+        )
+        limit = np.minimum(limit, ground)
+        # Include exact opaque roof ties: the background owns the endpoint.
+        o = np.vstack((o, [[5.0, 5.0, 50.0], [5.0, 5.0, 50.0]]))
+        d = np.vstack((d, [[0.0, 0.0, -1.0], [0.0, 0.0, -1.0]]))
+        limit = np.r_[limit, 38.0, 44.0]
+        product = grid(parent)
+        for cell in [[0, 0], [1, 0], [0, 1], [1, 1]]:
+            cell = np.array(cell)
+            work = {"primary_condition_tests": 0}
+            cap = primary_cap(
+                product,
+                (o, d, limit),
+                np.arange(len(o)),
+                np.tile(cell, (len(o), 1)),
+                work,
+            )
+            for height in [6.0, 12.0]:
+                bounds = np.array(
+                    [
+                        [
+                            np.r_[(cell + 0.125) * 16, 0],
+                            np.r_[(cell + 0.875) * 16, height],
+                        ]
+                    ]
+                )
+                depth, _ = brute_hit(bounds, o, d, 0.1)
+                expected = ~np.isfinite(depth) | (depth >= limit)
+                np.testing.assert_array_equal(height < cap, expected)
 
 
 if __name__ == "__main__":

@@ -54,7 +54,25 @@ def blocker_probability(parent, q, height, cap):
     return numerator / np.maximum(denominator, 1e-15)
 
 
-def expected_shadow(parent, product, points, light, history, own, work):
+def primary_cap(product, primary, ids, cell, work):
+    """Intersect one caster footprint with the known-missed primary prefix."""
+    origin, direction, limit = primary
+    near, far, _ = xy_interval(product, origin, direction, ids, cell)
+    entry, exit = np.maximum(near, 0.1), np.minimum(far, limit[ids])
+    valid = (entry < exit) & ~covered_cells(cell, product.get("primary_covered", ()))
+    cap = np.full(len(ids), np.inf)
+    rays = ids[valid]
+    first_z = origin[rays, 2] + entry[valid] * direction[rays, 2]
+    last_z = origin[rays, 2] + exit[valid] * direction[rays, 2]
+    cap[valid] = np.minimum(first_z, last_z)
+    # An opaque endpoint owns an exact tie; the primary prefix is open there.
+    endpoint = valid & (exit == limit[ids]) & (direction[ids, 2] < 0)
+    cap[endpoint] = np.nextafter(cap[endpoint], np.inf)
+    work["primary_condition_tests"] += len(ids)
+    return cap
+
+
+def expected_shadow(parent, product, points, light, primary, own, work):
     if covered_grid(product, product.get("caster_covered", ())):
         return np.ones(len(points))
     if np.any(light[:, 2] <= 0):
@@ -66,11 +84,7 @@ def expected_shadow(parent, product, points, light, history, own, work):
     ):
         near, far, _ = xy_interval(product, origin, light, ids, cell)
         entry = np.maximum(begin[ids], near)
-        cap = np.full(len(ids), np.inf)
-        for previous_cell, previous_cap in history:
-            same = np.all(previous_cell[ids] == cell, axis=1)
-            cap = np.where(same, np.minimum(cap, previous_cap[ids]), cap)
-            work["history_cell_comparisons"] += len(ids)
+        cap = primary_cap(product, primary, ids, cell, work)
         height = origin[ids, 2] + entry * light[ids, 2]
         probability = blocker_probability(
             parent, density(parent, product, cell, caster=True), height, cap
@@ -79,19 +93,6 @@ def expected_shadow(parent, product, points, light, history, own, work):
         transmission[ids] *= 1 - np.where(valid, probability, 0)
         keep[:] = transmission[ids] > 0
     return transmission
-
-
-def record_miss(product, origin, direction, ids, cell, begin, leave):
-    near, far, _ = xy_interval(product, origin, direction, ids, cell)
-    entry, exit = np.maximum(near, begin[ids]), np.minimum(far, leave)
-    cells = np.full((len(origin), 2), -1, np.int64)
-    caps = np.full(len(origin), np.inf)
-    valid = entry < exit
-    cells[ids[valid]] = cell[valid]
-    first_z = origin[ids[valid], 2] + entry[valid] * direction[ids[valid], 2]
-    last_z = origin[ids[valid], 2] + exit[valid] * direction[ids[valid], 2]
-    caps[ids[valid]] = np.minimum(first_z, last_z)
-    return cells, caps
 
 
 def events(parent, product, origin, direction, ids, cell, begin, leave):
@@ -134,7 +135,7 @@ def surface_visibility(
     product,
     points,
     normals,
-    history,
+    primary,
     own,
     slots,
     rays,
@@ -156,13 +157,17 @@ def surface_visibility(
         visibility[lit[known]] = estimate[known]
         lit = lit[~known]
         work["fallback_rays"] = work.get("fallback_rays", 0) + len(lit)
-    h = [(c[rays][lit], z[rays][lit]) for c, z in history]
+    conditioned = tuple(a[lit] for a in primary)
+    work["conditioning_peak_bytes"] = max(
+        work["conditioning_peak_bytes"],
+        sum(a.nbytes for a in primary) + sum(a.nbytes for a in conditioned),
+    )
     visibility[lit] = expected_shadow(
         parent,
         product,
         points[lit] + normals[lit] * 0.001,
         light[lit],
-        h,
+        conditioned,
         own[lit],
         work,
     )
@@ -211,8 +216,14 @@ def integrate_packet(
 ):
     origin = origins - product["reference_origin_m"]
     transmission = np.ones(len(origin))
-    history = []
-    shadow_work = {"steps": 0, "cell_ray_visits": 0, "history_cell_comparisons": 0}
+    traversed = np.full(len(origin), 0.1)
+    shadow_work = {
+        "steps": 0,
+        "cell_ray_visits": 0,
+        "history_cell_comparisons": 0,
+        "primary_condition_tests": 0,
+        "conditioning_peak_bytes": 0,
+    }
     maximum = stop if stop is not None else None
     if covered_grid(product, product.get("primary_covered", ())):
         maximum = np.zeros(len(origin))
@@ -220,6 +231,7 @@ def integrate_packet(
         product, origin, directions, work, maximum=maximum
     ):
         all_ids = ids
+        traversed[ids] = leave
         active = ~covered_cells(cell, product.get("primary_covered", ()))
         ids, cell, leave = ids[active], cell[active], leave[active]
         if not len(ids):
@@ -240,7 +252,7 @@ def integrate_packet(
                 product,
                 points,
                 normal[at],
-                history,
+                (origin[rays], directions[rays], entry[at]),
                 cell[at],
                 slots,
                 rays,
@@ -252,10 +264,6 @@ def integrate_packet(
             receive(rays, slots, points, normal[at], weight, visibility)
             blocked += np.where(valid, probability, 0)
         transmission[ids] *= 1 - blocked
-        missed_cells, caps = record_miss(
-            product, origin, directions, ids, cell, begin, leave
-        )
-        history.append((missed_cells, caps))
         terminated = (transmission[all_ids] > 0) & (
             transmission[all_ids] <= transmission_tolerance
         )
@@ -278,7 +286,7 @@ def integrate_packet(
         product,
         points,
         normals,
-        [(c[rays], z[rays]) for c, z in history],
+        (origin[rays], directions[rays], traversed[rays]),
         np.full((len(points), 2), -1),
         slots,
         np.arange(len(rays)),
@@ -287,11 +295,12 @@ def integrate_packet(
         approximation if stop is None else None,
     )
     receive(rays, slots, points, normals, transmission[rays], visibility)
-    work["history_peak_bytes"] = max(
-        work["history_peak_bytes"], sum(c.nbytes + z.nbytes for c, z in history)
-    )
     for key, value in shadow_work.items():
-        work["shadow_" + key] = work.get("shadow_" + key, 0) + value
+        work["shadow_" + key] = (
+            max(work.get("shadow_" + key, 0), value)
+            if key.endswith("peak_bytes")
+            else work.get("shadow_" + key, 0) + value
+        )
     return transmission
 
 
