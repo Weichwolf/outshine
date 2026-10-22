@@ -3,8 +3,10 @@
 import unittest
 
 import numpy as np
-from compare_far_height_profiles import FIELDS, combine, subset
+from compare_far_height_profiles import FIELDS, combine, selected_profiles, subset
+from far_height_profiles import plan_source
 from probe_far_profile_fields import hit_codes
+from test_far_height_profiles import source
 
 
 class ProfileFieldControls(unittest.TestCase):
@@ -22,6 +24,23 @@ class ProfileFieldControls(unittest.TestCase):
         broken = dict(mesh, indices=np.array([[0, 1, 4]], np.uint32))
         with self.assertRaisesRegex(ValueError, "Categorical material seam"):
             hit_codes(broken, np.array([0]))
+
+    def test_unknown_or_near_geometric_error_keeps_original_source(self):
+        surface = source()
+        surface["bounds"] = [[-3, -2, 0], [3, 2, 12]]
+        plans = {17: plan_source(17, surface)}
+        surfaces = {17: surface}
+        view = (np.array([0, 0, 5000]), np.eye(3), 700.0, 1280, 720)
+        for error in [None, -1, np.nan, np.inf]:
+            selected, limits = selected_profiles(
+                plans, surfaces, {17: {"shell_error_m": error}}, view
+            )
+            self.assertEqual(selected, set())
+            self.assertIsNone(limits[17])
+        metadata = {17: {"shell_error_m": 0.25}}
+        self.assertEqual(selected_profiles(plans, surfaces, metadata, view)[0], {17})
+        near = (np.array([0, 0, 6]), *view[1:])
+        self.assertEqual(selected_profiles(plans, surfaces, metadata, near)[0], set())
 
     def test_whole_fallback_preserves_all_original_words_and_anonymous_sources(self):
         rng = np.random.default_rng(1045)

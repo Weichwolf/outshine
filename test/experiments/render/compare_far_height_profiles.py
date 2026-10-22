@@ -78,7 +78,7 @@ def selected_profiles(plans, surfaces, metadata, view):
     eye_box = np.stack((eye - 6, eye + 6))
     for ordinal, parts in plans.items():
         old_error = metadata[ordinal]["shell_error_m"]
-        if old_error is None or old_error < 0:
+        if old_error is None or not np.isfinite(old_error) or old_error < 0:
             limits[ordinal] = None
             continue
         change = max(part.height_change_m for part in parts)
