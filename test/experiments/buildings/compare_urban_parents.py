@@ -49,6 +49,18 @@ def camera(extent, distance, motion, altitude=None):
 
 
 def lighting(extent, name):
+    dawn = {
+        "dawn-north": [0, 1, 0.03],
+        "dawn-slant": [0.03, 1, 0.03],
+        "dawn-diagonal": [0.7, 0.7, 0.03],
+    }
+    if name in dawn:
+        return {
+            "kind": "sun",
+            "direction": dawn[name],
+            "intensity": 3.0,
+            "ambient": 0.1,
+        }
     if name == "night":
         return {
             "kind": "point",

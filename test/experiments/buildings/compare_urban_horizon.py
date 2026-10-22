@@ -4,7 +4,9 @@ import argparse
 import hashlib
 import itertools
 import json
+import resource
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -19,6 +21,7 @@ from urban_parent_light import display, surface_radiance_upper
 from urban_parent_reference import prepare_resolved
 from urban_parent_stats import UrbanParent
 from urban_patches import load
+from urban_shadow_runs import RowRunShadows
 
 
 def probe(parent, profile, tolerance):
@@ -85,6 +88,23 @@ def region(parent, resolved, view, profile):
     )
 
 
+def parent_sample(parent, origins, directions, profile, tolerance, query=None):
+    started = time.perf_counter()
+    colour, coverage, work = render_conditional(
+        parent,
+        origins,
+        directions,
+        profile,
+        transmission_tolerance=tolerance,
+        shadow_query=query,
+    )
+    sky = ~np.isfinite(ground_stops(origins, directions))
+    colour[sky] += (1 - coverage[sky, None]) * (
+        0.002 if profile["kind"] == "point" else 0.1
+    )
+    return colour, coverage, work, time.perf_counter() - started
+
+
 def compare(parent, resolved, args):
     extent = parent.frame[2] * parent.frame[3]
     view = camera(extent, args.distance, args.motion, altitude=args.altitude)
@@ -99,14 +119,15 @@ def compare(parent, resolved, args):
     reference, alpha, reference_work = opaque_image(resolved, o, d, profile)
     reference_seconds = time.perf_counter() - started
     started = time.perf_counter()
-    colour, coverage, work = render_conditional(
-        parent, o, d, profile, transmission_tolerance=args.tolerance
+    query = (
+        RowRunShadows(parent, force=args.force_shadow_runs)
+        if args.shadow_runs
+        else None
     )
-    sky = ~np.isfinite(ground_stops(o, d))
-    colour[sky] += (1 - coverage[sky, None]) * (
-        0.002 if args.lighting == "night" else 0.1
+    build_seconds = time.perf_counter() - started
+    colour, coverage, work, seconds = parent_sample(
+        parent, o, d, profile, args.tolerance, query
     )
-    seconds = time.perf_counter() - started
     target = average_samples(reference, width, height, args.samples)
     crop = average_samples(colour, width, height, args.samples)
     backdrop = background_image(view, profile)
@@ -120,6 +141,25 @@ def compare(parent, resolved, args):
         "coverage": average_samples(coverage, width, height, args.samples),
         "resolved_coverage": average_samples(alpha, width, height, args.samples),
     }
+    paired = {}
+    if args.paired_exact:
+        exact, exact_coverage, exact_work, exact_seconds = parent_sample(
+            parent, o, d, profile, args.tolerance
+        )
+        np.testing.assert_array_equal(exact_coverage, coverage)
+        difference = float(np.abs(exact - colour).max())
+        if difference > 2e-9:
+            raise AssertionError(f"run shadow RGB differs from DDA by {difference}")
+        arrays["exact"] = average_samples(exact, width, height, args.samples)
+        image = backdrop.copy()
+        image[box[0, 1] : box[1, 1], box[0, 0] : box[1, 0]] = arrays["exact"]
+        Image.fromarray(display(image)).save(args.output / "exact.png")
+        paired = {
+            "seconds": exact_seconds,
+            "work": exact_work,
+            "max_sample_rgb_difference": difference,
+            "crop_rgb_rmse": float(np.sqrt(np.mean((arrays["exact"] - crop) ** 2))),
+        }
     bound = args.tolerance * max(
         surface_radiance_upper(profile, parent.heights[-1]),
         0.002 if args.lighting == "night" else 0.1,
@@ -139,6 +179,11 @@ def compare(parent, resolved, args):
         "parent_seconds": seconds,
         "resolved_seconds": reference_seconds,
         "parent_work": work,
+        "shadow_method": "affine-runs" if args.shadow_runs else "dda",
+        "shadow_build_seconds": build_seconds,
+        "paired_exact": paired,
+        "resolved_control_shape": resolved["shape"].tolist(),
+        "resolved_control_masses": len(resolved["columns"]),
         "resolved_work": reference_work,
         "tolerance": args.tolerance,
         "derived_linear_termination_bound": bound,
@@ -154,13 +199,23 @@ def run(args):
     if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise ValueError("private system-temp output required")
     args.output.mkdir(parents=True, exist_ok=False)
+    if args.paired_exact and (not args.shadow_runs or args.ray_probe):
+        raise ValueError("paired exact comparison requires the image run-shadow path")
+    if args.force_shadow_runs and not args.shadow_runs:
+        raise ValueError("forced run comparison requires --shadow-runs")
+    started = time.perf_counter()
     with np.load(args.parent, allow_pickle=False) as a:
         parent = UrbanParent(**{k: a[k] for k in UrbanParent.__annotations__})
+    load_seconds = time.perf_counter() - started
+    preparation_seconds = 0.0
     if args.ray_probe:
         profile = lighting(parent.frame[2] * parent.frame[3], args.lighting)
         report, arrays = probe(parent, profile, args.tolerance)
     else:
-        report, arrays = compare(parent, prepare_resolved(load(args.resolved)), args)
+        started = time.perf_counter()
+        resolved = prepare_resolved(load(args.resolved))
+        preparation_seconds = time.perf_counter() - started
+        report, arrays = compare(parent, resolved, args)
     np.savez_compressed(args.output / "linear.npz", **arrays)
     report.update(
         head=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
@@ -168,6 +223,13 @@ def run(args):
             subprocess.check_output(["git", "status", "--porcelain"], text=True)
         ),
         parent_sha256=hashlib.sha256(args.parent.read_bytes()).hexdigest(),
+        resolved_sha256=hashlib.sha256(args.resolved.read_bytes()).hexdigest()
+        if args.resolved
+        else None,
+        parent_load_seconds=load_seconds,
+        resolved_preparation_seconds=preparation_seconds,
+        process_peak_rss_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        * (1 if sys.platform == "darwin" else 1024),
         scope="Flat ENU source/control transport only; no curved Earth/terrain/world/native/device or temporal admission. Positive camera height relative to the flat base; possible interior needs resolved geometry.",
     )
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -180,7 +242,14 @@ if __name__ == "__main__":
     parser.add_argument("--resolved", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--ray-probe", action="store_true")
-    parser.add_argument("--lighting", choices=["day", "back", "night"], default="day")
+    parser.add_argument(
+        "--lighting",
+        choices=["day", "back", "night", "dawn-north", "dawn-slant", "dawn-diagonal"],
+        default="day",
+    )
+    parser.add_argument("--shadow-runs", action="store_true")
+    parser.add_argument("--force-shadow-runs", action="store_true")
+    parser.add_argument("--paired-exact", action="store_true")
     parser.add_argument("--distance", type=float, default=50000.0)
     parser.add_argument("--altitude", type=float, default=2.0)
     parser.add_argument("--motion", type=float, default=0.0)

@@ -143,6 +143,7 @@ def surface_visibility(
     work,
     approximation,
     wall_visibility=None,
+    shadow_query=None,
 ):
     light = light_at(points, profile)[0]
     visibility = np.zeros(len(points))
@@ -171,7 +172,8 @@ def surface_visibility(
         work["conditioning_peak_bytes"],
         sum(a.nbytes for a in primary) + sum(a.nbytes for a in conditioned),
     )
-    visibility[lit] = expected_shadow(
+    query = expected_shadow if shadow_query is None else shadow_query
+    visibility[lit] = query(
         parent,
         product,
         points[lit] + normals[lit] * 0.001,
@@ -225,6 +227,7 @@ def integrate_packet(
     stop=None,
     receiver_normals=None,
     transmission_tolerance=0.0,
+    shadow_query=None,
 ):
     origin = origins - product["reference_origin_m"]
     transmission = np.ones(len(origin))
@@ -284,6 +287,7 @@ def integrate_packet(
                 shadow_work,
                 approximation,
                 wall_visibility,
+                shadow_query,
             )
             weight = transmission[rays] * probability[at]
             receive(rays, slots, points, normal[at], weight, visibility)
@@ -318,6 +322,7 @@ def integrate_packet(
         profile,
         shadow_work,
         approximation if stop is None else None,
+        shadow_query=shadow_query,
     )
     receive(rays, slots, points, normals, transmission[rays], visibility)
     for key, value in shadow_work.items():
@@ -343,6 +348,7 @@ def trace_transport(
     primary_covered=None,
     caster_covered=None,
     transmission_tolerance=0.0,
+    shadow_query=None,
 ):
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     if (
@@ -429,6 +435,7 @@ def trace_transport(
             None if stop is None else stop[part],
             None if receiver_normals is None else receiver_normals[part],
             transmission_tolerance,
+            shadow_query,
         )
     return 1 - transmission, work
 
@@ -442,6 +449,7 @@ def render_conditional(
     batch=2048,
     approximation=None,
     transmission_tolerance=0.0,
+    shadow_query=None,
 ):
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     colour = np.zeros_like(origins)
@@ -468,5 +476,6 @@ def render_conditional(
         batch=batch,
         approximation=approximation,
         transmission_tolerance=transmission_tolerance,
+        shadow_query=shadow_query,
     )
     return colour, coverage, work
