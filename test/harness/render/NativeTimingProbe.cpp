@@ -190,6 +190,10 @@ int main(int argc, char **argv) {
       {.Validation = true, .GpuTiming = outshine::Render::Native::GpuTimingMode::Dispatches}));
   CHECK(device->Limits().GpuTimestamps, "this hardware proves actual GPU timestamp support");
   const auto oldest = PendingAndReady(*device, argv[1]);
+  const auto submission = Require(device->SubmissionGpuTime(oldest));
+  CHECK(submission.Status == CompletionStatus::Ready &&
+            std::isfinite(submission.ElapsedNanoseconds) && submission.ElapsedNanoseconds >= 0,
+        "dispatch mode also retains the complete submission interval");
   Ownership(*device, argv[1], oldest);
   Bounded(*device, argv + 1, oldest);
   auto inFlight = Prepare(*device, argv[1], kLongSteps);
