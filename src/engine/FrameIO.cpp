@@ -136,6 +136,7 @@ Result Engine::render(Extent frame) {
   if (!S_->EnsureRuntimeScene()) { return std::unexpected(S_->Error); }
   const auto began = std::chrono::steady_clock::now();
   if (!DrawScene(S_->Picture, S_->Error)) { return std::unexpected(S_->Error); }
+  const auto published = S_->Picture.Device.PublishedWorld();
   const auto publicationAt = std::chrono::steady_clock::now();
   S_->Published.BeginFrame();
   S_->PublishSubmittedCameraMeasurements();

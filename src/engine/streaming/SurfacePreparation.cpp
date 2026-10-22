@@ -82,6 +82,8 @@ std::expected<void, std::string> SurfacePreparation::BindAssetCaches(const std::
   if (!network) { return std::unexpected(std::move(network.error())); }
   auto vectors = Generators::Osm::PreparedOsmTiles::Open(directory, sources, compute);
   if (!vectors) { return std::unexpected(std::move(vectors.error())); }
+  auto urban = Generators::Osm::PreparedUrbanAreas::Open(directory, sources, compute, *vectors);
+  if (!urban) { return std::unexpected(std::move(urban.error())); }
   auto roads = ::outshine::Generators::PreparedRoadPages::Open(directory);
   if (!roads) { return std::unexpected(std::move(roads.error())); }
   PreparedRoads_ = std::move(*roads);
@@ -89,6 +91,7 @@ std::expected<void, std::string> SurfacePreparation::BindAssetCaches(const std::
   PreparedBuildings_ = std::move(*buildings);
   PreparedNetwork_ = std::move(*network);
   PreparedVectors_ = std::move(*vectors);
+  PreparedUrban_ = std::move(*urban);
   return {};
 }
 
@@ -221,6 +224,7 @@ bool SurfacePreparation::OpenSession(const World::StoragePaths &under,
 void SurfacePreparation::Close() {
   Cls_.Close();
   Vectors_.reset();
+  PreparedUrban_.reset();
   PreparedVectors_.reset();
   Ground_.reset();
   Pool_.reset();

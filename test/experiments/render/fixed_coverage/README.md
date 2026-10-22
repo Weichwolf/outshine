@@ -6,6 +6,11 @@ convex patch once, rather than eroding each of its constituent triangles. It is
 a calibration/reference experiment, not an asset-page selector or a mesh-to-patch
 algorithm. Product rendering, cache formats and shared GPU bindings are unchanged.
 
+[UNCERTAINTY.md](UNCERTAINTY.md) adds interval-valued projection, an exact erosion
+reference, an independent endpoint oracle and a bounded integer constructor. The
+runner always includes their 20 fixed analytic/adversarial cases. Those cases
+remain unqualified for page suppression, as do optional external inputs.
+
 ## Domain and construction
 
 Each input is four finite IEEE binary32 clip-space corners of one completely

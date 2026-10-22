@@ -163,7 +163,24 @@ std::expected<FixedPatch, Unknown>
 Prepare(const SourceQuad &source, uint32_t width, uint32_t height) {
   auto projected = Project(source, width, height);
   if (!projected) { return std::unexpected(projected.error()); }
-  std::vector<ExactPoint> points(projected->Corners.begin(), projected->Corners.end());
+  return Prepare(*projected, width, height);
+}
+
+std::expected<FixedPatch, Unknown>
+Prepare(const Projected &source, uint32_t width, uint32_t height) {
+  if (width == 0 || height == 0 || width > MaximumCoordinate || height > MaximumCoordinate) {
+    return std::unexpected(Unknown::InvalidProfile);
+  }
+  if (source.FarDepth.Sign() <= 0 || Exact(1) < source.FarDepth) {
+    return std::unexpected(Unknown::NoDepth);
+  }
+  for (size_t i = 0; i < source.Corners.size(); ++i) {
+    if (Edge(source.Corners[i], source.Corners[(i + 1) % 4], source.Corners[(i + 2) % 4]).Sign() <=
+        0) {
+      return std::unexpected(Unknown::Nonconvex);
+    }
+  }
+  std::vector<ExactPoint> points(source.Corners.begin(), source.Corners.end());
   points = Clip(points, 0, Exact(0), false);
   points = Clip(points, 0, Exact(width), true);
   points = Clip(points, 1, Exact(0), false);
@@ -171,11 +188,11 @@ Prepare(const SourceQuad &source, uint32_t width, uint32_t height) {
   if (points.size() < 3) { return std::unexpected(Unknown::Outside); }
   uint32_t scale = PreferredScale;
   while (std::max(width, height) * scale > MaximumCoordinate) { scale /= 2; }
-  auto result = Quantize(*projected, points, width, height, scale);
+  auto result = Quantize(source, points, width, height, scale);
   if (!result) { return std::unexpected(Unknown::Quantization); }
-  auto depth = static_cast<float>(projected->FarDepth.Approximate());
-  if (projected->FarDepth < Exact::Float32(depth)) { depth = std::nextafter(depth, 0.0f); }
-  if (!std::isnormal(depth) || !(depth > 0) || projected->FarDepth < Exact::Float32(depth)) {
+  auto depth = static_cast<float>(source.FarDepth.Approximate());
+  if (source.FarDepth < Exact::Float32(depth)) { depth = std::nextafter(depth, 0.0f); }
+  if (!std::isnormal(depth) || !(depth > 0) || source.FarDepth < Exact::Float32(depth)) {
     return std::unexpected(Unknown::NoDepth);
   }
   result->Depth[0] = depth;

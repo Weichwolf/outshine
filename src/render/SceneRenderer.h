@@ -977,7 +977,6 @@ private:
   void BindFrameResources();
   void ApplyWorldDeclarations();
 
-  [[nodiscard]] Native::Buffer *BufferFor(Resource resource) const;
   [[nodiscard]] DisplayOptions Display() const;
 
   [[nodiscard]] Native::Texture *LinearSource() const;

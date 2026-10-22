@@ -5,7 +5,6 @@
 #include "ReadbackTransfer.h"
 #include "NativeGpuCheck.h"
 #include "NativeOfflineDevice.h"
-#include "VertexArms.h"
 #include "DrawList.h"
 #include "scene/Geometry.h"
 #include "scene/Material.h"
