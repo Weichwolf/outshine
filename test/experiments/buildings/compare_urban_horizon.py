@@ -2,7 +2,6 @@
 
 import argparse
 import hashlib
-import itertools
 import json
 import resource
 import subprocess
@@ -12,7 +11,13 @@ import time
 from pathlib import Path
 
 import numpy as np
-from compare_urban_parents import background_image, camera, lighting, opaque_image
+from compare_urban_parents import (
+    background_image,
+    camera,
+    ground,
+    lighting,
+    opaque_image,
+)
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays, projected_bounds
 from urban_parent_conditional import grid, ground_stops, render_conditional
@@ -21,6 +26,7 @@ from urban_parent_light import display, surface_radiance_upper
 from urban_parent_reference import prepare_resolved
 from urban_parent_stats import UrbanParent
 from urban_patches import load
+from urban_pixel_filter import filter_correction, support_points, support_polygon
 from urban_shadow_runs import select_shadow_query
 
 
@@ -60,24 +66,7 @@ def probe(parent, profile, tolerance):
 
 def region(parent, resolved, view, profile):
     products = [grid(parent), resolved]
-    points = []
-    for p in products:
-        xy = np.array(
-            [
-                p["reference_origin_m"][:2],
-                p["reference_origin_m"][:2] + p["shape"] * p["header"]["pitch_m"],
-            ]
-        )
-        corners = np.array(list(itertools.product(xy[:, 0], xy[:, 1])), float)
-        h = parent.heights[-1]
-        points.extend([np.c_[corners, np.zeros(4)], np.c_[corners, np.full(4, h)]])
-        if profile["kind"] == "point":
-            centre = np.array(profile["position"])
-            shadows = corners + (corners - centre[:2]) * h / (centre[2] - h)
-        else:
-            light = np.array(profile["direction"], float)
-            shadows = corners - h * light[:2] / light[2]
-        points.append(np.c_[shadows, np.zeros(4)])
+    points = [support_points(p, parent.heights[-1], profile) for p in products]
     box = projected_bounds(np.vstack(points), view)
     return np.array(
         [
@@ -106,6 +95,8 @@ def parent_sample(parent, origins, directions, profile, tolerance, query=None):
 
 
 def compare(parent, resolved, args):
+    if args.footprint_order:
+        return compare_pixel(parent, resolved, args)
     extent = parent.frame[2] * parent.frame[3]
     view = camera(extent, args.distance, args.motion, altitude=args.altitude)
     profile = lighting(extent, args.lighting)
@@ -195,6 +186,101 @@ def compare(parent, resolved, args):
     return report, arrays
 
 
+def compare_pixel(parent, resolved, args):
+    extent = parent.frame[2] * parent.frame[3]
+    view = camera(extent, args.distance, args.motion, altitude=args.altitude)
+    profile = lighting(extent, args.lighting)
+    box = region(parent, resolved, view, profile)
+    width, height = box[1] - box[0]
+    polygon = support_polygon(
+        support_points(grid(parent), parent.heights[-1], profile), view
+    )
+    query = select_shadow_query(parent, profile) if args.shadow_runs else None
+    baseline_image = background_image(view, profile)
+    baseline = baseline_image[box[0, 1] : box[1, 1], box[0, 0] : box[1, 0]]
+
+    def background(o, d):
+        return ground(o, d, profile)[0]
+
+    def scene(o, d):
+        rgb, alpha, work, _ = parent_sample(
+            parent, o, d, profile, args.tolerance, query
+        )
+        return rgb, alpha, work
+
+    started = time.perf_counter()
+    delta, coverage, filtered_work = filter_correction(
+        polygon, box, view, scene, background, order=args.footprint_order
+    )
+    seconds = time.perf_counter() - started
+    candidate = baseline + delta
+    o, d = image_rays(view, box, width, height, args.samples, jitter_seed=args.seed)
+    d /= np.linalg.norm(d, axis=1)[:, None]
+    old_rgb, old_coverage, old_work, old_seconds = parent_sample(
+        parent, o, d, profile, args.tolerance, query
+    )
+    uniform = baseline + average_samples(
+        old_rgb - background(o, d), width, height, args.samples
+    )
+    old_coverage = average_samples(old_coverage, width, height, args.samples)[..., 0]
+    o, d = image_rays(
+        view, box, width, height, args.reference_samples, jitter_seed=args.seed + 1
+    )
+    d /= np.linalg.norm(d, axis=1)[:, None]
+    started = time.perf_counter()
+    ref_rgb, ref_coverage, ref_work = opaque_image(resolved, o, d, profile)
+    target = baseline + average_samples(
+        ref_rgb - background(o, d), width, height, args.reference_samples
+    )
+    ref_coverage = average_samples(ref_coverage, width, height, args.reference_samples)[
+        ..., 0
+    ]
+    ref_seconds = time.perf_counter() - started
+    arrays = {
+        "parent": candidate,
+        "uniform": uniform,
+        "resolved": target,
+        "coverage": coverage,
+        "uniform_coverage": old_coverage,
+        "resolved_coverage": ref_coverage,
+        "support_polygon": polygon,
+    }
+    for name in ["parent", "uniform", "resolved"]:
+        image = baseline_image.copy()
+        image[box[0, 1] : box[1, 1], box[0, 0] : box[1, 0]] = arrays[name]
+        Image.fromarray(display(image)).save(args.output / f"{name}.png")
+    report = {
+        "profile": [1280, 720],
+        "roi": box.tolist(),
+        "target_distance_m": args.distance,
+        "altitude_m": args.altitude,
+        "motion_m": args.motion,
+        "lighting": profile,
+        "footprint_order": args.footprint_order,
+        "uniform_samples_per_axis": args.samples,
+        "reference_samples_per_axis": args.reference_samples,
+        "jitter_seed": args.seed,
+        "rays": filtered_work["quadrature_samples"],
+        "parent_seconds": seconds,
+        "parent_work": filtered_work,
+        "uniform_seconds": old_seconds,
+        "uniform_work": old_work,
+        "resolved_seconds": ref_seconds,
+        "resolved_work": ref_work,
+        "resolved_control_shape": resolved["shape"].tolist(),
+        "resolved_control_masses": len(resolved["columns"]),
+        "linear_rgb_rmse": float(np.sqrt(np.mean((candidate - target) ** 2))),
+        "uniform_linear_rgb_rmse": float(np.sqrt(np.mean((uniform - target) ** 2))),
+        "coverage_l1_pixels": float(np.abs(coverage - ref_coverage).sum()),
+        "uniform_coverage_l1_pixels": float(np.abs(old_coverage - ref_coverage).sum()),
+        "filtered_coverage_pixels": float(coverage.sum()),
+        "uniform_coverage_pixels": float(old_coverage.sum()),
+        "resolved_coverage_pixels": float(ref_coverage.sum()),
+        "filter_scope": "Area-weighted signed correction; common pixel-centre opaque baseline. Within-support quadrature and dense resolved sampling are not certified error bounds.",
+    }
+    return report, arrays
+
+
 def run(args):
     if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise ValueError("private system-temp output required")
@@ -203,6 +289,12 @@ def run(args):
         raise ValueError("paired exact comparison requires the image run-shadow path")
     if args.force_shadow_runs and not args.shadow_runs:
         raise ValueError("forced run comparison requires --shadow-runs")
+    if args.footprint_order and (
+        args.ray_probe or args.paired_exact or args.force_shadow_runs
+    ):
+        raise ValueError(
+            "footprint study requires its independent uniform/resolved controls"
+        )
     started = time.perf_counter()
     with np.load(args.parent, allow_pickle=False) as a:
         parent = UrbanParent(**{k: a[k] for k in UrbanParent.__annotations__})
@@ -250,6 +342,10 @@ if __name__ == "__main__":
     parser.add_argument("--shadow-runs", action="store_true")
     parser.add_argument("--force-shadow-runs", action="store_true")
     parser.add_argument("--paired-exact", action="store_true")
+    parser.add_argument("--footprint-order", type=int, choices=range(1, 17))
+    parser.add_argument(
+        "--reference-samples", type=int, choices=range(1, 65), default=16
+    )
     parser.add_argument("--distance", type=float, default=50000.0)
     parser.add_argument("--altitude", type=float, default=2.0)
     parser.add_argument("--motion", type=float, default=0.0)
