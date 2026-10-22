@@ -28,5 +28,16 @@ static_assert(offsetof(GpuPrismPatch, Previous) == 64);
 static_assert(offsetof(GpuPrismPatch, Samples) == 128);
 static_assert(offsetof(GpuPrismPatch, Shape) == 128 + 16);
 static_assert(offsetof(GpuPrismPatch, Bounds) == 128 + 2 * 16);
+
+struct alignas(16) PrismDepthView {
+  Mat4f ClipFromWorld;
+  std::array<float, 4> Shift{};
+};
+
+static_assert(std::is_standard_layout_v<PrismDepthView>);
+static_assert(std::is_trivially_copyable_v<PrismDepthView>);
+static_assert(sizeof(PrismDepthView) == 64 + 16 && alignof(PrismDepthView) == 16);
+static_assert(offsetof(PrismDepthView, ClipFromWorld) == 0);
+static_assert(offsetof(PrismDepthView, Shift) == 64);
 }
 #endif

@@ -37,6 +37,17 @@ public:
   [[nodiscard]] Native::Result<void> SetInstances(uint64_t id,
                                                   std::span<const PrismInstance> instances);
   [[nodiscard]] bool Release(uint64_t id);
+  [[nodiscard]] Native::Result<void> EncodeDepth(Native::Commands &commands,
+                                                 const Native::GraphicsPipeline &pipeline,
+                                                 const PrismDepthView &view,
+                                                 Native::Viewport area,
+                                                 Native::Scissor clip) const;
+  [[nodiscard]] static Native::Result<void> Encode(const PrismProduct &product,
+                                                   Native::Commands &commands,
+                                                   const Native::GraphicsPipeline &pipeline,
+                                                   std::span<const Native::Binding> bindings,
+                                                   Native::Viewport area,
+                                                   Native::Scissor clip);
 
   [[nodiscard]] std::span<const PrismProduct> Products() const noexcept { return Products_; }
 

@@ -605,7 +605,7 @@ LayerGroups() {
     profile/ground-patch) printf '%s' 'src/render/terrain/TerrainPatchMesh.cpp src/render/terrain/TerrainPatchError.cpp' ;;
     profile/instance-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp' ;;
     profile/prism-grid) printf '%s' 'src/render/prism/PrismGrid.cpp src/render/prism/PrismPlacements.cpp' ;;
-    profile/prism-native) printf '%s' "src/render/prism $(NativeGroups)" ;;
+    profile/prism-native) printf '%s' "src/render/prism src/render/device/SpirvFile.cpp src/render/device/ReadbackTransfer.cpp src/base/io/ReadTextFile.cpp $(NativeGroups)" ;;
     profile/urban-assets) LayerGroups profile/world; printf ' %s' 'src/generators/terrain src/generators/base/AssetSourceRecipe.cpp src/generators/base/Tile.cpp src/generators/base/GroundPatch.cpp src/generators/osm/urban src/generators/osm/regions/PreparedOsmTiles.cpp src/generators/osm/regions/PreparedOsmTileAssets.cpp src/generators/osm/fields/OsmField.cpp src/generators/osm/fields/OsmNativeTile.cpp src/generators/osm/fields/OsmNativeAssembly.cpp src/generators/osm/fields/OsmDeclaredInput.cpp src/generators/osm/import src/generators/osm/providers/MvtLayer.cpp' ;;
     profile/urban-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaBounds.cpp' ;;
     profile/urban-instances) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/engine/streaming/UrbanAreaInstances.cpp' ;;
@@ -1957,6 +1957,10 @@ fi
 
 for selectedTest in $TESTS; do
   case "$(TestProfile "$(dirname "${selectedTest#test/}")")" in
+    profile/prism-native)
+      make build/shaders/prism-colour.vert.spv build/shaders/prism-depth.vert.spv build/shaders/prismDepth.frag.spv build/shaders/prismLit-000.frag.spv || Die "prism tests require prepared shaders"
+      break
+      ;;
     profile/engine|profile/internal|profile/device|profile/calibration|profile/stage-pipelines|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
       make shaders || Die "selected tests require prepared shaders"
       break
