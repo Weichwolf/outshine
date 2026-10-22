@@ -34,6 +34,9 @@ class NativeInputTest(unittest.TestCase):
             (fixtures / "coarse_city_native.reference.json").read_text()
         )
         self.assertEqual(
+            np.linalg.det(np.array(reference["native_to_reference"])[:3, :3]), 1
+        )
+        self.assertEqual(
             hashlib.sha256(field).hexdigest(), reference["input_field_sha256"]
         )
         snapshot = (fixtures / "coarse_city_source.json.gz").read_bytes()
@@ -53,24 +56,28 @@ class NativeInputTest(unittest.TestCase):
         columns, rows, pitch, fill, *tops = map(float, text.split())
         self.assertEqual((columns, rows, pitch, fill), (6, 2, 8, 0.75))
         np.testing.assert_array_equal(
-            np.array(tops).reshape(2, 6), [[6, 0, 0, 0, 0, 24], [12, 24, 0, 0, 6, 12]]
+            np.array(tops).reshape(2, 6), [[12, 24, 0, 0, 6, 12], [6, 0, 0, 0, 0, 24]]
         )
         self.assertEqual(report["occupied_cells"], 6)
         self.assertEqual(report["global_first_cell_xy"], [-4, 6])
+        self.assertEqual(report["native_first_reference_cell_xy"], [-4, 7])
         transform = np.array(report["native_to_reference"])
-        self.assertEqual(np.linalg.det(transform[:3, :3]), -1)
-        np.testing.assert_array_equal(transform @ [0, 0, 0, 1], [-112, 88, 0, 1])
+        self.assertEqual(np.linalg.det(transform[:3, :3]), 1)
+        np.testing.assert_array_equal(transform @ [0, 0, 0, 1], [-112, 104, 0, 1])
+        np.testing.assert_array_equal(transform[:3, :3] @ [0, 0, 1], [0, -1, 0])
         # Independent global-cell coordinates versus the documented native box template.
         grid = np.array(tops).reshape(2, 6)
         for row, column in np.argwhere(grid > 0):
             height = grid[row, column]
             native_low = [(column + 0.125) * 8, 0, (row + 0.125) * 8, 1]
             native_high = [(column + 0.875) * 8, height, (row + 0.875) * 8, 1]
-            cell = np.array([column - 4, row + 6])
+            cell = np.array([column - 4, 7 - row])
             centre = ((cell + 0.5) * 16 - [160, -80]) * 0.5
-            np.testing.assert_array_equal(transform @ native_low, [*(centre - 3), 0, 1])
             np.testing.assert_array_equal(
-                transform @ native_high, [*(centre + 3), height, 1]
+                transform @ native_low, [centre[0] - 3, centre[1] + 3, 0, 1]
+            )
+            np.testing.assert_array_equal(
+                transform @ native_high, [centre[0] + 3, centre[1] - 3, height, 1]
             )
         self.assertEqual(text, control_field(product, [0, 1])[0])
 

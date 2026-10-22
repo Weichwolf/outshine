@@ -206,9 +206,13 @@ negative/global coordinates, unselected gaps, explicit axis mapping, rejection,
 fixed input/source pins and a fresh blocked-import ready export. Normal tests
 never regenerate the reference input or its pin.
 
-Native X follows columns, +Z follows rows and +Y is height. The receipt's affine
-map restores reference X/Y/Z and its local origin; its axis permutation has
-determinant -1. Native unit-box winding is constructed independently. Comparing
+Native X is east/columns, +Y is up/height and +Z is south/rows, matching master's
+ENU→East/Up/South contract at #1102/6333851856. The adapter reverses the stored
+north-increasing rows and uses the rectangle's north-west corner as its origin.
+The receipt's affine map is a proper rotation with determinant +1. The earlier
+e4bc08e50 experimental reflected input is superseded; its test assumption was
+changed explicitly to the established native frame. Native unit-box winding is
+constructed independently. Comparing
 every stored independent opaque box bound against this documented native unit-box
 construction gives 2,795 matched boxes, exact heights and maximum Double corner
 deviation 1.82e-12 m. This checks content and coordinates, not executed native
@@ -233,6 +237,42 @@ python -B -W error test/experiments/buildings/export_urban_patches.py \
   --prepared /tmp/outshine-urban-study --output /tmp/outshine-urban-native-input
 python -B -W error -m unittest test_export_urban_patches
 ```
+
+## Python mask semantics for the native comparison
+
+The native resource/material/binding implementation is owned and agreed by master
+and engine. These are the mathematical semantics of the supplied Python reference;
+the contract adds no binding numbers or native asset format.
+
+Let P be pitch, f the footprint fraction and m=(1-f)/2. In native local X/Z,
+u=(X-originX)/P, v=(Z-originZ)/P, c=floor(u), r=floor(v), with phases fract(u/v).
+H(r,c) is the stored, unlit physical height; zero is an absent mass in this
+**diagnostic field**. Read discrete cells without bilinear filtering or mip mixing.
+Patch/plane kind, roof height and fixed wall cell indices are categorical/flat.
+Do not interpolate a patch ID or derive a fixed wall's cell from a rounded vertex.
+
+| Face | Plane and outward normal | Keep fragment when |
+| --- | --- | --- |
+| X wall | X=(c+m)P or (c+1-m)P, normal -X/+X | H(r,c)>0, m≤fract(v)≤1-m, 0≤Y≤H(r,c) |
+| Z wall | Z=(r+m)P or (r+1-m)P, normal -Z/+Z | H(r,c)>0, m≤fract(u)≤1-m, 0≤Y≤H(r,c) |
+| Roof | Y=h for each occupied height tier, normal +Y | H(r,c)=h>0 and both footprint phases inside |
+| Floor | Y=0, normal -Y | H(r,c)>0 and both footprint phases inside |
+
+Positions above are relative to the patch origin. X walls carry their fixed column
+as a flat descriptor; Z walls carry their fixed row. The other cell index comes
+from the fragment. Lookup outside the patch discards. An N×N nonempty patch uses
+4N+K+1 quads with K occupied roof tiers; completely empty patches need no planes.
+The source case uses N=8 and f=0.75. This reproduces the recipe's closed solids;
+raster edge/AA conventions still need native qualification.
+
+This is binary geometric cutout, independent of lighting. Camera/depth/caster
+passes must use the same field and predicate. The common ground remains separate.
+Use the same existing native MR parameters, camera, lights and transforms for both
+box and mask paths; the diagnostic Blender material is not a new native look.
+The stored field remains valid during movement/light changes. Original sources
+and functional/near assets stay separate; no Fine building generation precedes
+this field. Native measurement pays complete decode/upload/residency, projected
+area, shading and shadow costs; fewer triangles alone do not choose the winner.
 
 ## Sources and reproduction
 

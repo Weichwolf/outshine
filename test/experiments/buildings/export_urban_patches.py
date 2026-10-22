@@ -49,9 +49,11 @@ def control_field(product, chunks):
     for chunk, key in zip(chunks, keys, strict=True):
         x, y = key * product.side - first
         grid[y : y + product.side, x : x + product.side] = heights[product.tiers[chunk]]
+    grid = grid[::-1]
     header = f"{size[0]} {size[1]} {product.pitch:.17g} {product.frame[4]:.17g}\n"
     text = header + "\n".join(" ".join(f"{h:.9g}" for h in row) for row in grid) + "\n"
-    origin = (first * product.frame[3] - product.frame[:2]) * product.frame[2]
+    north_west = first + [0, size[1]]
+    origin = (north_west * product.frame[3] - product.frame[:2]) * product.frame[2]
     return text, {
         "grid_columns_rows": size.tolist(),
         "grid_float32_bytes": grid.nbytes,
@@ -59,13 +61,14 @@ def control_field(product, chunks):
         "selected_cells": int(len(chunks) * product.side**2),
         "occupied_cells": int(np.count_nonzero(grid)),
         "global_first_cell_xy": first.tolist(),
+        "native_first_reference_cell_xy": (first + [0, size[1] - 1]).tolist(),
         "native_to_reference": [
             [1, 0, 0, float(origin[0])],
-            [0, 0, 1, float(origin[1])],
+            [0, 0, -1, float(origin[1])],
             [0, 1, 0, 0],
             [0, 0, 0, 1],
         ],
-        "coordinates": "Native X=columns, Y=height, Z=rows; reference X=columns, Y=rows, Z=height. The axis map has determinant -1; native unit-box winding is independent. Camera/light equivalence is not asserted.",
+        "coordinates": "Native X=east/columns, Y=up/height, Z=south/rows. Stored north-increasing reference rows are reversed. ENU to EUS is a proper rotation (determinant +1); the origin is the rectangle's north-west corner. Native camera/light must use that same frame; cross-renderer equivalence is not asserted.",
         "scope": "Exact selected occupancy/height data, zero padding between selected patches. Unselected cells are omitted from this diagnostic subset, never evidence of World Empty. Not a native world asset or worldwide/LOD/device admission.",
     }
 

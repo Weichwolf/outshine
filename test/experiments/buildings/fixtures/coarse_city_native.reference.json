@@ -86,8 +86,8 @@
     [
       0,
       0,
-      1,
-      7104.8618998894535
+      -1,
+      8976.485349751194
     ],
     [
       0,
@@ -102,7 +102,7 @@
       1
     ]
   ],
-  "coordinates": "Native X=columns, Y=height, Z=rows; reference X=columns, Y=rows, Z=height. The axis map has determinant -1; native unit-box winding is independent. Camera/light equivalence is not asserted.",
+  "coordinates": "Native X=east/columns, Y=up/height, Z=south/rows. Stored north-increasing reference rows are reversed. ENU to EUS is a proper rotation (determinant +1); the origin is the rectangle's north-west corner. Native camera/light must use that same frame; cross-renderer equivalence is not asserted.",
   "scope": "Exact selected occupancy/height data, zero padding between selected patches. Unselected cells are omitted from this diagnostic subset, never evidence of World Empty. Not a native world asset or worldwide/LOD/device admission.",
   "prepared_product_sha256": "c279e8153594f97ea711dcd87b40cdf5462973e895e53d0f1b9c909730d435e2",
   "source": {
@@ -122,7 +122,7 @@
     }
   ],
   "snapshot_sha256": "5bba30afef6d2e685787039eeebca5d8dae876d575fcd6a6b47ef3fae6fb91b7",
-  "input_field_sha256": "94470f559556f02b1d7f6d8bd274bca2bc09c2f5d44f966ec756677bfa287e05",
+  "input_field_sha256": "2ae64ca9fca45372227a93025e1763272d6a250c8ddb81e6340dd4d372304cbd",
   "consumer_header_sha256": "6ca913204a6658e2395aab9361e39fe67965020c598ddd3496606b20de1156f0",
   "source_recipe_producer": "a98eabfc5347ca7eaec6e2dd6dbdc47a9cf65989",
   "source_recipe_revision": "inferred-lattice-v1",
@@ -130,11 +130,19 @@
   "geometry_equivalence": {
     "source_boxes": 2795,
     "native_occupied_cells": 2795,
+    "all_global_cell_height_pairs_equal": true,
+    "axis_determinant": 1,
+    "native_positive_z_is_reference_south": true,
     "maximum_double_corner_error_m": 1.8189894035458565e-12,
     "height_columns_exact": true,
     "source_product_sha256": "c279e8153594f97ea711dcd87b40cdf5462973e895e53d0f1b9c909730d435e2",
-    "native_field_sha256": "94470f559556f02b1d7f6d8bd274bca2bc09c2f5d44f966ec756677bfa287e05",
-    "scope": "All independent stored opaque diagnostic box bounds match the native documented unit-box construction after explicit coordinate mapping, within measured double arithmetic. No native execution, shader/Float32/camera/light/raster equality or device admission."
+    "native_field_sha256": "2ae64ca9fca45372227a93025e1763272d6a250c8ddb81e6340dd4d372304cbd",
+    "scope": "Every stored opaque box matches the documented native unit box under the proper ENU/EUS rotation; all global cell/height pairs exact. Measured double corners only, no executed shader/raster/device claim."
   },
-  "role": "Shared fixed test input for the existing native --field control, not a product asset or parallel source/cache format. Tests check this pin and never regenerate it."
+  "role": "Shared fixed test input for the existing native --field control, not a product asset or parallel source/cache format. Tests check this pin and never regenerate it.",
+  "native_first_reference_cell_xy": [
+    485800,
+    133039
+  ],
+  "coordinate_contract": "Canonical ENU -> East/Up/South, proper rotation; source row reversal supersedes the experimental e4bc08e50 reflected control input."
 }
