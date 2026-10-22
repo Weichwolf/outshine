@@ -127,7 +127,47 @@ bound and epsilon=1e-8. Source heights remain priors, not original-world maxima.
 The Horizon slide's alpha=1 early exit is a precedent; this finite-error derivation
 is explicit here rather than attributed to that slide.
 
-## Current evidence
+## Shared visibility at coincident wall hits
+
+In the independent categorical cell model, several possible heights can produce
+the same wall point and normal. The known own cell is excluded from shadow queries,
+so the other cells' conditional visibility is independent of which of those own
+heights was selected. Reuse that exact visibility within the current ray/cell step.
+Height probabilities, callbacks and surface-category labels remain separate and in
+their original order. Roof points are distinct and are not shared. Height-specific
+approximate shadow tables are also not shared: their filtered estimates can differ.
+No per-view or persistent cache is added. The temporary scalar array is allocated
+only when an earlier wall hit can have another height hypothesis, bounded by the
+ray packet size (16,384 B at 2,048 rays in the measured cases).
+
+Code/frozen producer `5d20d8618` adds one direct query-accounting and category-retention
+counterexample; **75 focused tests pass** (4.737 s), with Ruff/format/function-size
+checks. Four frozen runs finish terminal 0; **ten actual 1280x720 images were opened**
+with full-image/crop sheets. All saved arrays in the real-ray probe, ground day/night
+and all six elevated composition crops are bit-identical to the previous controls.
+No source or asset generation, input/profile/epsilon or geometry changes.
+
+| Case | Prior seconds | Shared-wall seconds |
+| --- | ---: | ---: |
+| Two-ray complete probe | 8.03 | 2.94 |
+| Two-ray bounded probe | .467 | .125 |
+| Ground day | 31.81 | 19.51 |
+| Ground night | 54.02 | 34.90 |
+| Elevated pending | 2.32 | 1.60 |
+| Elevated half-ready | 2.08 | 1.61 |
+
+These sequential normal-priority, shared-development-host measurements reuse the
+previous frozen baselines; they are not device/frame evidence or repeated isolated
+acceptance trials. Day/night Parent times improve 1.63x/1.55x. Primary visits and
+height tests stay unchanged; day caster visits fall 3,988,400→2,772,110 and night
+3,137,236→2,474,154. The additional 423,610/421,748 wall visibility reuses include
+unlit values, so they are not all avoided nonempty shadow rays. Full copy/allocation/
+process/driver/device peaks remain unmeasured; the scalar-array size is partial
+accounting. The prepared resolved CPU control still wins, and native/world/p99
+qualification remains open. Further cost reduction must address recipe-cell traversal,
+not treat this local reuse as cell-detail-independent rendering.
+
+## Prefix-conditioning evidence
 
 General-ray control `8aa9686ed`; direct conditioning `d0807364b`; clean frozen producer
 `725ee7d5` includes master `dd7864b0f`. **74 focused tests pass** (5.918 s). They include
@@ -214,7 +254,8 @@ controlled view; none supplies terrain/curvature or complete-world evidence.
 Parent compilation precedes the offline reference bake. A stored `--parent`/`--resolved`
 reuses finished data without source parsing or child generation.
 
-Current raw evidence: `/tmp/outshine-research-urban-horizon-3ba4d5a12/receipt.json`.
+Current raw evidence: `/tmp/outshine-research-urban-wall-fdc98f113/receipt.json`.
+Prior prefix/horizon: `/tmp/outshine-research-urban-horizon-3ba4d5a12/receipt.json`.
 Prior filtering: `/tmp/outshine-research-urban-layer-filter-86969ff1e/receipt.json`.
 Earlier source/compiler/conditional controls: `urban-parent-1edb4404d/receipt.json`;
 phase: `urban-phase-6f84f25f3/receipt.json`; transfer: `urban-transfer-c2bc91d25/receipt.json`;
