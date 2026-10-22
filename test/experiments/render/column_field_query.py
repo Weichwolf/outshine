@@ -149,7 +149,7 @@ def test_columns(
     return tests
 
 
-def walk_cells(product, origin, direction, work, *, minimum=0.1):
+def walk_cells(product, origin, direction, work, *, minimum=0.1, maximum=None):
     """Yield ordered XY packets; consumers can clear keep to stop a ray."""
     pitch = product["header"]["pitch_m"]
     low, shape = product["low"], product["shape"]
@@ -166,6 +166,8 @@ def walk_cells(product, origin, direction, work, *, minimum=0.1):
     far = np.where(parallel, np.inf, t.max(1))
     begin, end = np.maximum(minimum, near.max(1)), far.min(1)
     begin, end = clip_height(product, origin, direction, begin, end)
+    if maximum is not None:
+        end = np.minimum(end, maximum)
     missed = np.any(
         parallel & ((origin[:, :2] < bounds[0]) | (origin[:, :2] >= bounds[1])), axis=1
     )

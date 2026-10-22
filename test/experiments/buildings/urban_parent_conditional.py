@@ -19,13 +19,28 @@ def grid(parent):
     }
 
 
-def density(parent, product, cell):
+def covered_cells(cell, regions):
+    covered = np.zeros(len(cell), bool)
+    for low, high in regions:
+        covered |= np.all((cell >= low) & (cell < high), axis=1)
+    return covered
+
+
+def covered_grid(product, regions):
+    return any(
+        np.all(low <= 0) and np.all(high >= product["shape"]) for low, high in regions
+    )
+
+
+def density(parent, product, cell, *, caster=False):
     points = np.column_stack(
         ((cell + 0.5) * product["header"]["pitch_m"], np.zeros(len(cell)))
     )
-    return centres_at(parent, points + product["reference_origin_m"], "midpoint") * (
+    result = centres_at(parent, points + product["reference_origin_m"], "midpoint") * (
         1 - parent.frame[6]
     )
+    regions = product.get("caster_covered" if caster else "primary_covered", ())
+    return np.where(covered_cells(cell, regions), 0, result)
 
 
 def blocker_probability(parent, q, height, cap):
@@ -40,6 +55,8 @@ def blocker_probability(parent, q, height, cap):
 
 
 def expected_shadow(parent, product, points, light, history, own, work):
+    if covered_grid(product, product.get("caster_covered", ())):
+        return np.ones(len(points))
     if np.any(light[:, 2] <= 0):
         raise ValueError("initial conditional study requires lights above the field")
     origin = points - product["reference_origin_m"]
@@ -56,7 +73,7 @@ def expected_shadow(parent, product, points, light, history, own, work):
             work["history_cell_comparisons"] += len(ids)
         height = origin[ids, 2] + entry * light[ids, 2]
         probability = blocker_probability(
-            parent, density(parent, product, cell), height, cap
+            parent, density(parent, product, cell, caster=True), height, cap
         )
         valid = (entry < np.minimum(leave, far)) & np.any(cell != own[ids], axis=1)
         transmission[ids] *= 1 - np.where(valid, probability, 0)
@@ -114,6 +131,10 @@ def surface_visibility(
     light = light_at(points, profile)[0]
     lit = np.flatnonzero(np.einsum("ij,ij->i", normals, light) > 0)
     visibility = np.zeros(len(points))
+    if profile["kind"] == "point":
+        above = points[lit, 2] > parent.heights[-1]
+        visibility[lit[above]] = 1
+        lit = lit[~above]
     if approximation is not None:
         estimate = approximation(rays[lit], slots[lit])
         work["lookup_samples"] = work.get("lookup_samples", 0) + len(lit)
@@ -135,13 +156,32 @@ def surface_visibility(
 
 
 def integrate_packet(
-    parent, product, origins, directions, profile, work, receive, approximation=None
+    parent,
+    product,
+    origins,
+    directions,
+    profile,
+    work,
+    receive,
+    approximation=None,
+    stop=None,
+    receiver_normals=None,
 ):
     origin = origins - product["reference_origin_m"]
     transmission = np.ones(len(origin))
     history = []
     shadow_work = {"steps": 0, "cell_ray_visits": 0, "history_cell_comparisons": 0}
-    for ids, cell, begin, leave, keep in walk_cells(product, origin, directions, work):
+    maximum = stop if stop is not None else None
+    if covered_grid(product, product.get("primary_covered", ())):
+        maximum = np.zeros(len(origin))
+    for ids, cell, begin, leave, keep in walk_cells(
+        product, origin, directions, work, maximum=maximum
+    ):
+        all_ids = ids
+        active = ~covered_cells(cell, product.get("primary_covered", ()))
+        ids, cell, leave = ids[active], cell[active], leave[active]
+        if not len(ids):
+            continue
         blocked = np.zeros(len(ids))
         for height_index, (valid, entry, normal, probability) in enumerate(
             events(parent, product, origin, directions, ids, cell, begin, leave)
@@ -170,28 +210,34 @@ def integrate_packet(
             receive(rays, slots, points, normal[at], weight, visibility)
             blocked += np.where(valid, probability, 0)
         transmission[ids] *= 1 - blocked
-        history.append(
-            record_miss(product, origin, directions, ids, cell, begin, leave)
+        missed_cells, caps = record_miss(
+            product, origin, directions, ids, cell, begin, leave
         )
-        keep[:] = transmission[ids] > 0
-    times = -origins[:, 2] / directions[:, 2]
-    points = origins + times[:, None] * directions
-    slots = np.full(len(points), len(parent.heights) * 5, int)
-    normals = np.tile([0.0, 0.0, 1.0], (len(points), 1))
+        history.append((missed_cells, caps))
+        keep[:] = transmission[all_ids] > 0
+    times = -origins[:, 2] / directions[:, 2] if stop is None else stop
+    rays = np.flatnonzero(np.isfinite(times))
+    points = origins[rays] + times[rays, None] * directions[rays]
+    slots = np.full(len(rays), len(parent.heights) * 5, int)
+    normals = (
+        np.tile([0.0, 0.0, 1.0], (len(rays), 1))
+        if receiver_normals is None
+        else receiver_normals[rays]
+    )
     visibility = surface_visibility(
         parent,
         product,
         points,
         normals,
-        history,
+        [(c[rays], z[rays]) for c, z in history],
         np.full((len(points), 2), -1),
         slots,
-        np.arange(len(points)),
+        np.arange(len(rays)),
         profile,
         shadow_work,
-        approximation,
+        approximation if stop is None else None,
     )
-    receive(np.arange(len(points)), slots, points, normals, transmission, visibility)
+    receive(rays, slots, points, normals, transmission[rays], visibility)
     work["history_peak_bytes"] = max(
         work["history_peak_bytes"], sum(c.nbytes + z.nbytes for c, z in history)
     )
@@ -201,13 +247,51 @@ def integrate_packet(
 
 
 def trace_transport(
-    parent, origins, directions, profile, receive, *, batch=2048, approximation=None
+    parent,
+    origins,
+    directions,
+    profile,
+    receive,
+    *,
+    batch=2048,
+    approximation=None,
+    stop=None,
+    receiver_normals=None,
+    primary_covered=None,
+    caster_covered=None,
 ):
     if np.any(directions[:, 2] >= 0) or np.any(origins[:, 2] <= parent.heights[-1]):
         raise ValueError("initial conditional study requires downward rays from above")
     if profile["kind"] == "point" and profile["position"][2] <= parent.heights[-1]:
         raise ValueError("initial conditional study requires the light above the field")
     product = grid(parent)
+    for key, regions in [
+        ("primary_covered", primary_covered),
+        ("caster_covered", caster_covered),
+    ]:
+        regions = np.empty((0, 2, 2), int) if regions is None else np.asarray(regions)
+        if (
+            regions.ndim != 3
+            or regions.shape[1:] != (2, 2)
+            or not np.issubdtype(regions.dtype, np.integer)
+            or np.any(regions[:, 0] >= regions[:, 1])
+        ):
+            raise ValueError("integer complete coverage rectangles required")
+        product[key] = regions
+    if stop is not None:
+        stop = np.asarray(stop, float)
+        if stop.shape != (len(origins),) or np.any(np.isnan(stop) | (stop < 0.1)):
+            raise ValueError("opaque stop must match ray parameters and near minimum")
+    if receiver_normals is not None:
+        receiver_normals = np.asarray(receiver_normals, float)
+        if (
+            receiver_normals.shape != origins.shape
+            or not np.isfinite(receiver_normals).all()
+            or not np.allclose(
+                np.linalg.norm(receiver_normals, axis=1), 1, rtol=0, atol=1e-12
+            )
+        ):
+            raise ValueError("finite unit receiver normals required")
     work = dict.fromkeys(
         [
             "cell_ray_visits",
@@ -239,6 +323,8 @@ def trace_transport(
             work,
             sink,
             estimate if approximation is not None else None,
+            None if stop is None else stop[part],
+            None if receiver_normals is None else receiver_normals[part],
         )
     return 1 - transmission, work
 
