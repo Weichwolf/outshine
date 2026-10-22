@@ -55,6 +55,7 @@ public:
   [[nodiscard]] uint64_t Digest() const noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
   [[nodiscard]] std::optional<double> HeightMAt(LongitudeLatitude at) const noexcept;
+  [[nodiscard]] std::optional<std::array<double, 2>> AslBoundsM() const noexcept;
   [[nodiscard]] bool
   Occludes(const Ray &ray, float nearM, float distanceM, const TangentFrame &frame) const noexcept;
 
@@ -105,6 +106,7 @@ private:
                                                   Render::HeightPageHandle page,
                                                   std::span<const float> nodes,
                                                   const TangentFrame &frame);
+  [[nodiscard]] static bool HasNativePage(const Sheet &sheet) noexcept;
   [[nodiscard]] Render::Native::Result<void> PublishGrid(const Patchwork &patchwork);
   [[nodiscard]] bool ReindexPages(std::string &error);
 
