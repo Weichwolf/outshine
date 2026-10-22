@@ -2,12 +2,20 @@
 #include "FieldSurface.h"
 #include "SpirvFile.h"
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <expected>
+#include <memory>
+#include <span>
 #include <string_view>
 #include <vector>
 
 namespace outshine::Render {
 namespace {
+struct ShaderFiles {
+  std::string_view Vertex, Fragment;
+};
+
 std::vector<Native::VertexAttribute> Attributes(bool depth) {
   using F = Native::VertexFormat;
   constexpr std::array attributes{
@@ -35,17 +43,16 @@ std::vector<Native::VertexAttribute> Attributes(bool depth) {
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
 Configure(Native::Device &device,
-          std::string_view vertexPath,
-          std::string_view fragmentPath,
+          const ShaderFiles &files,
           std::span<const Native::ColourTarget> targets,
           bool depth,
           Native::Cull culling) {
-  auto vertex = ReadSpirv(vertexPath);
+  auto vertex = ReadSpirv(files.Vertex);
   if (!vertex) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = vertex.error()});
   }
-  auto fragment = ReadSpirv(fragmentPath);
+  auto fragment = ReadSpirv(files.Fragment);
   if (!fragment) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = fragment.error()});
@@ -68,19 +75,19 @@ Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
 ConfigureFieldColour(Native::Device &device,
                      const SurfaceOutputs &outputs,
                      std::span<const Native::ColourTarget> targets) {
-  return Configure(device,
-                   outputs.VertexPath("field"),
-                   outputs.FragmentPath("field"),
-                   targets,
-                   false,
-                   Native::Cull::Back);
+  return Configure(
+      device,
+      {.Vertex = outputs.VertexPath("field"), .Fragment = outputs.FragmentPath("field")},
+      targets,
+      false,
+      Native::Cull::Back);
 }
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
 ConfigureFieldDepth(Native::Device &device, Native::Cull culling) {
   return Configure(device,
-                   "build/shaders/fieldDepth.vert.spv",
-                   "build/shaders/fieldDepth.frag.spv",
+                   {.Vertex = "build/shaders/fieldDepth.vert.spv",
+                    .Fragment = "build/shaders/fieldDepth.frag.spv"},
                    {},
                    true,
                    culling);

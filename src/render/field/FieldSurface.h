@@ -26,14 +26,21 @@ struct alignas(16) FieldVertex {
   std::array<float, 2> LevelReserved{};
 };
 
-static_assert(sizeof(FieldMaskGpu) == 48 && alignof(FieldMaskGpu) == 16);
+inline constexpr size_t kFieldMaskBytes = 48;
+inline constexpr size_t kFieldVertexBytes = 48;
+inline constexpr size_t kFieldFixedCellOffset = 28;
+inline constexpr size_t kFieldLevelOffset = 40;
+
+static_assert(sizeof(FieldMaskGpu) == kFieldMaskBytes && alignof(FieldMaskGpu) == 16);
 static_assert(offsetof(FieldMaskGpu, OriginPitch) == 0 && offsetof(FieldMaskGpu, Shape) == 16 &&
               offsetof(FieldMaskGpu, Coverage) == 32);
 static_assert(sizeof(FieldFace) == sizeof(uint32_t));
-static_assert(sizeof(FieldVertex) == 48 && alignof(FieldVertex) == 16);
+static_assert(sizeof(FieldVertex) == kFieldVertexBytes && alignof(FieldVertex) == 16);
 static_assert(offsetof(FieldVertex, Position) == 0 && offsetof(FieldVertex, Kind) == 12 &&
-              offsetof(FieldVertex, Normal) == 16 && offsetof(FieldVertex, FixedCell) == 28 &&
-              offsetof(FieldVertex, PatchCell) == 32 && offsetof(FieldVertex, LevelReserved) == 40);
+              offsetof(FieldVertex, Normal) == 16 &&
+              offsetof(FieldVertex, FixedCell) == kFieldFixedCellOffset &&
+              offsetof(FieldVertex, PatchCell) == 32 &&
+              offsetof(FieldVertex, LevelReserved) == kFieldLevelOffset);
 
 struct FieldSurface {
   FieldMaskGpu Parameters;

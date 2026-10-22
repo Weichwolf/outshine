@@ -1,6 +1,8 @@
 #include "GeometryRenderer.h"
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <span>
 
@@ -20,18 +22,18 @@ Native::Result<uint64_t> GeometryRenderer::PlaceField(const FieldMaskGpu &parame
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "field requires a device and an opaque lit back-culled material"});
   }
-  return Bound().Fields.Place(
+  return Bound().Fields().Place(
       *Bound().Device(), Bound().Uploads(), parameters, heights, materialSlot, placement);
 }
 
 Native::Result<void> GeometryRenderer::EncodeFields(const PassRecording &into,
                                                     const FrameUniforms &uniforms) {
-  if (Binding().Behind != nullptr || Bound().Fields.Drawn().empty()) { return {}; }
+  if (Binding().Behind != nullptr || Bound().Fields().Drawn().empty()) { return {}; }
   if (into.Commands == nullptr || !Binding().FieldColour) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "field colour pass is unavailable"});
   }
-  for (const auto &field : Bound().Fields.Drawn()) {
+  for (const auto &field : Bound().Fields().Drawn()) {
     if (field.IndexCount == 0) { continue; }
     if (field.MaterialSlot >= Slots.size()) {
       return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -69,7 +71,7 @@ GeometryRenderer::EncodeFieldShadow(const PassRecording &into,
                                          .Message = "field caster pass is unavailable"});
   }
   uint32_t draws = 0;
-  for (const auto &field : Bound().Fields.Drawn()) {
+  for (const auto &field : Bound().Fields().Drawn()) {
     if (field.IndexCount == 0) { continue; }
     const auto resources = field.Bindings();
     const std::array bindings{

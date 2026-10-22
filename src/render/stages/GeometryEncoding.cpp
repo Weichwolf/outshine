@@ -209,7 +209,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
   EncodedWork_ = {};
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
                             Bound().Buffer(GeometryResidency::Stream::Index);
-  if (!drawsBatches && Bound().Fields.Drawn().empty() &&
+  if (!drawsBatches && Bound().Fields().Drawn().empty() &&
       (Binding().Behind != nullptr || Ground_.Drawn() == 0)) {
     return {};
   }

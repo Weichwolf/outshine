@@ -54,6 +54,44 @@ struct VideoSystem {
   ~VideoSystem() { SDL_QuitSubSystem(SDL_INIT_VIDEO); }
 };
 
+struct RunOptions {
+  ViewControl View;
+  DeviceControl Device;
+  bool Masks = false;
+};
+
+std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const char *const *argv) {
+  RunOptions options{
+      .View = {.RadiusM = std::max(field.Columns, field.Rows) * field.CellM * kOrbitScale},
+      .Device = {}};
+  if (argc >= 6 && std::string_view(argv[5]) != "auto") {
+    const std::string_view value(argv[5]);
+    const auto parsed =
+        std::from_chars(value.data(), value.data() + value.size(), options.View.RadiusM);
+    if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() ||
+        !std::isfinite(options.View.RadiusM) || options.View.RadiusM <= 0) {
+      return std::nullopt;
+    }
+  }
+  if (argc >= 7) {
+    const std::string_view validation(argv[6]);
+    if (validation == "validate") {
+      options.Device.Validation = true;
+    } else if (argc != 8 || validation != "normal") {
+      return std::nullopt;
+    }
+  }
+  if (argc == 8) {
+    const std::string_view representation(argv[7]);
+    if (representation == "field") {
+      options.Masks = true;
+    } else if (representation != "boxes") {
+      return std::nullopt;
+    }
+  }
+  return options;
+}
+
 Camera CameraAt(const HeightGrid &field, double angle, const ViewControl &view) {
   const double width = field.Columns * field.CellM;
   const double depth = field.Rows * field.CellM;
@@ -280,30 +318,16 @@ int main(int argc, const char *const *argv) {
     return 1;
   }
   const UrbanControl::VideoSystem video;
-  UrbanControl::ViewControl control{.RadiusM = std::max(field->Columns, field->Rows) *
-                                               field->CellM * UrbanControl::kOrbitScale};
-  if (argc >= 6 && std::string_view(argv[5]) != "auto") {
-    const std::string_view value(argv[5]);
-    const auto parsed = std::from_chars(value.data(), value.data() + value.size(), control.RadiusM);
-    if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() ||
-        !std::isfinite(control.RadiusM) || control.RadiusM <= 0) {
-      return 2;
-    }
-  }
+  const auto options = UrbanControl::ParseOptions(*field, argc, argv);
+  if (!options) { return 2; }
   const auto loaded = UrbanControl::Clock::now();
-  const bool masks = argc == 8 && std::string_view(argv[7]) == "field";
-  if (argc == 8 && !masks && std::string_view(argv[7]) != "boxes") { return 2; }
+  const bool masks = options->Masks;
   const auto rows = masks ? std::vector<outshine::Mat4>{} : UrbanControl::InstanceRows(*field);
   const auto mesh = UrbanControl::UnitBox();
-  if (argc >= 7 && std::string_view(argv[6]) != "validate" &&
-      !(argc == 8 && std::string_view(argv[6]) == "normal")) {
-    return 2;
-  }
-  UrbanControl::DeviceControl devices{.Validation =
-                                          argc >= 7 && std::string_view(argv[6]) == "validate"};
+  auto devices = options->Device;
   auto engine =
       outshine::TestEngine::WithGpu({.Context = &devices, .Create = UrbanControl::CreateDevice});
-  if (!UrbanControl::PrepareScene(engine, *field, control)) { return 1; }
+  if (!UrbanControl::PrepareScene(engine, *field, options->View)) { return 1; }
   std::optional<outshine::Render::PieceHandle> piece;
   std::optional<uint64_t> fieldDraw;
   if (masks) {
@@ -323,7 +347,7 @@ int main(int argc, const char *const *argv) {
   }
   UrbanControl::DeclareShadows(engine, *field);
   const auto prepared = UrbanControl::Clock::now();
-  const bool okay = UrbanControl::RenderOrbit(engine, *field, control, argv[4]);
+  const bool okay = UrbanControl::RenderOrbit(engine, *field, options->View, argv[4]);
   auto &device = outshine::TestEngine::StateOf(engine).Picture.Device;
   std::println(
       "URBAN instances={} prototype_vertices={} prototype_indices={} potential_references={} "

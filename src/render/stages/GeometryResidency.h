@@ -144,8 +144,14 @@ struct GeometryResidency {
 
   [[nodiscard]] UploadQueue *Uploads() const { return Uploads_; }
 
-  FieldRenderer Fields;
+  [[nodiscard]] FieldRenderer &Fields() { return Fields_; }
 
+  [[nodiscard]] const FieldRenderer &Fields() const { return Fields_; }
+
+private:
+  FieldRenderer Fields_;
+
+public:
   [[nodiscard]] std::unique_ptr<Native::Buffer> &Buffer(Stream which) {
     return Buffers_[static_cast<size_t>(which)];
   }

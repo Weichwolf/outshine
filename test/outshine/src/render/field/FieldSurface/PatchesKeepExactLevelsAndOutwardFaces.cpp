@@ -50,9 +50,20 @@ int main() {
   if (surface) {
     CheckFaces(*surface);
     std::array<uint32_t, 3> roofLevels{};
+    float roofArea = 0;
     for (size_t first = 0; first < surface->Vertices.size(); first += 4) {
       const auto &v = surface->Vertices[first];
+      if ((v.Kind == FieldFace::XWall || v.Kind == FieldFace::ZWall) &&
+          v.PatchCell == std::array<uint32_t, 2>{0, 0} && v.FixedCell == 0) {
+        for (size_t corner = 0; corner < 4; ++corner) {
+          CHECK(surface->Vertices[first + corner].Position[1] <= 5,
+                "wall envelopes stop at their occupied row or column height");
+        }
+      }
       if (v.Kind != FieldFace::Roof) { continue; }
+      const auto &opposite = surface->Vertices[first + 2];
+      roofArea +=
+          std::abs((opposite.Position[0] - v.Position[0]) * (opposite.Position[2] - v.Position[2]));
       roofLevels[0] += v.LevelReserved[0] == heights[0];
       roofLevels[1] += v.LevelReserved[0] == heights[4];
       roofLevels[2] += v.LevelReserved[0] == heights[2];
@@ -61,11 +72,18 @@ int main() {
     }
     CHECK((roofLevels == std::array<uint32_t, 3>{1, 1, 1}),
           "repeated roof heights produce one plane per distinct level and patch");
+    CHECK(roofArea == 318.75f,
+          "roof envelopes cover occupied level bounds instead of three complete patch planes");
   }
   heights.fill(0);
   const auto empty = BuildFieldSurface(parameters, heights);
   CHECK(empty && empty->Vertices.empty() && empty->Indices.empty(),
         "empty fields create no raster work");
+  heights[0] = 1;
+  const auto isolated = BuildFieldSurface(parameters, heights);
+  CHECK(isolated && isolated->Vertices.size() == 24 && isolated->Indices.size() == 36,
+        "unoccupied rows and columns emit no wall planes");
+  heights[0] = 0;
   heights[1] = -1;
   CHECK(!BuildFieldSurface(parameters, heights), "negative height fails before geometry upload");
   heights[1] = std::numeric_limits<float>::quiet_NaN();

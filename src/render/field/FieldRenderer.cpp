@@ -3,8 +3,11 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <expected>
+#include <memory>
 #include <span>
 #include <utility>
 
@@ -124,7 +127,7 @@ Native::Result<uint64_t> FieldRenderer::Place(Native::Device &device,
 
 bool FieldRenderer::Release(uint64_t id) {
   const auto count = std::erase_if(Draws_, [id](const FieldDraw &draw) { return draw.Id == id; });
-  Generation_ += count != 0;
+  if (count != 0) { ++Generation_; }
   return count != 0;
 }
 

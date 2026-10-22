@@ -201,7 +201,7 @@ public:
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
   [[nodiscard]] uint64_t Generation() const {
-    return Moved_ + Reshaped_ + Bound().Fields.Generation();
+    return Moved_ + Reshaped_ + Bound().Fields().Generation();
   }
 
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
@@ -348,10 +348,10 @@ public:
                                                     PieceSurface surface,
                                                     const GpuPlacement &placement);
 
-  [[nodiscard]] bool ReleaseField(uint64_t id) { return Bound().Fields.Release(id); }
+  [[nodiscard]] bool ReleaseField(uint64_t id) { return Bound().Fields().Release(id); }
 
   [[nodiscard]] FieldRenderer::AllocationStats FieldAllocations() const {
-    return Bound().Fields.Allocations();
+    return Bound().Fields().Allocations();
   }
 
   [[nodiscard]] Native::Result<uint32_t> EncodeFieldShadow(const PassRecording &into,
