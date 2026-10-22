@@ -1,18 +1,35 @@
 #include "UrbanArea.h"
+#include "UrbanAreaCodec.h"
 #include "OsmField.h"
 #include "Check.h"
+#include "Sha256.h"
+#include "content/AssetGeneration.h"
+#include "TileGeodesy.h"
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
+#include <expected>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
+using namespace outshine;
 using namespace outshine::Generators::Osm;
 
 namespace {
+using Clock = std::chrono::steady_clock;
+
+struct Work {
+  size_t Cooks = 0, LotTests = 0, PatchTests = 0, ReadBytes = 0;
+  double CookMs = 0;
+};
+
 int Number(const char *text) {
   int value = -1;
   const std::string_view token(text);
@@ -33,27 +50,74 @@ std::vector<uint8_t> Read(const char *path) {
   CHECK(in.good(), "source reads fully");
   return bytes;
 }
-}
 
-int main(int argc, char **argv) {
-  CHECK(argc == 10, "owner and parent source tiles plus output supplied");
-  if (argc != 10) { return 1; }
+std::expected<UrbanArea, std::string> Cook(char **argv, Work &work) {
   const std::array<std::string, 7> layers{
       "sites", "land", "park", "water_polygons", "water_lines", "streets", "aeroway"};
   const std::array<std::string, 1> parentLayers{"sites"};
   OsmField owner(Number(argv[2]), layers, MvtSchema::OpenMapTiles);
   OsmField parent(Number(argv[6]), parentLayers, MvtSchema::OpenMapTiles);
-  auto first = owner.Accept(Number(argv[3]), Number(argv[4]), Read(argv[1]));
-  auto second = parent.Accept(Number(argv[7]), Number(argv[8]), Read(argv[5]));
-  CHECK(first.has_value() && second.has_value(),
-        "existing native source decoder accepts both inputs");
-  if (!first || !second) { return 1; }
+  const auto first = owner.Accept(Number(argv[3]), Number(argv[4]), Read(argv[1]));
+  const auto second = parent.Accept(Number(argv[7]), Number(argv[8]), Read(argv[5]));
+  if (!first || !second) { return std::unexpected("source decode failed"); }
   const std::array<const OsmField *, 2> inputs{&owner, &parent};
-  const auto began = std::chrono::steady_clock::now();
+  const auto began = Clock::now();
   auto area = GenerateUrbanArea(inputs);
-  const auto ms =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-  CHECK(area.has_value(), "native coarse-area recipe completes");
+  work.CookMs = std::chrono::duration<double, std::milli>(Clock::now() - began).count();
+  ++work.Cooks;
+  if (area) {
+    work.LotTests = area->LotTests;
+    work.PatchTests = area->PatchTests;
+  }
+  return area;
+}
+
+std::expected<UrbanArea, std::string> Cached(char **argv, Work &work) {
+  auto cache = AssetCache::Open(argv[10]);
+  if (!cache) { return std::unexpected("asset cache open failed"); }
+  const std::string request(argv[11]);
+  const auto loaded = ResolveAssetRequest(
+      **cache,
+      request,
+      kUrbanAreaBytesMost,
+      [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
+        auto area = Cook(argv, work);
+        if (!area) { return std::unexpected(area.error()); }
+        auto encoded = EncodeUrbanArea(*area, budget);
+        if (!encoded) { return std::unexpected(encoded.error()); }
+        const auto key = Sha256Hex(request + Sha256Hex(encoded->data(), encoded->size()));
+        const double cell = area->Recipe.ProjectedPitchM * area->MetresPerProjectedMetre;
+        const double span =
+            std::ldexp(Data::kMercatorGirthM, -area->Inputs.front().Identity.Tile.Zoom) *
+            area->MetresPerProjectedMetre;
+        return GeneratedAssetPackage{
+            .Records =
+                {{.Key = key,
+                  .Kind = "urban-area",
+                  .Bounds = {.Min = {{-cell, 0, -cell}},
+                             .Max = {{span + cell, UrbanArea::HeightsM.back(), span + cell}}},
+                  .ByteCount = encoded->size(),
+                  .RequestKey = request}},
+            .Bytes = std::move(*encoded)};
+      });
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  if (loaded->Record().Kind != "urban-area") {
+    return std::unexpected("unexpected native asset kind");
+  }
+  work.ReadBytes = loaded->Bytes().size();
+  return DecodeUrbanArea(loaded->Bytes());
+}
+}
+
+int main(int argc, char **argv) {
+  CHECK(argc == 10 || argc == 12,
+        "owner/parent tiles and output, optionally database/request key supplied");
+  if (argc != 10 && argc != 12) { return 1; }
+  Work work;
+  const auto began = Clock::now();
+  const auto area = argc == 12 ? Cached(argv, work) : Cook(argv, work);
+  const auto totalMs = std::chrono::duration<double, std::milli>(Clock::now() - began).count();
+  CHECK(area, "native area request completes");
   if (!area) {
     std::cerr << area.error() << '\n';
     return 1;
@@ -62,7 +126,10 @@ int main(int argc, char **argv) {
   output.write(reinterpret_cast<const char *>(area->Tiers.data()),
                static_cast<std::streamsize>(area->Tiers.size()));
   CHECK(output.good(), "canonical native tiers saved");
-  std::cout << "AREA " << area->Columns << ' ' << area->Rows << ' ' << area->Occupied << ' '
-            << area->LotTests << ' ' << area->PatchTests << ' ' << ms << '\n';
+  std::cout << std::setprecision(17) << "AREA " << area->Columns << ' ' << area->Rows << ' '
+            << area->Occupied << ' ' << work.LotTests << ' ' << work.PatchTests << ' '
+            << work.CookMs << '\n';
+  std::cout << "CACHE enabled=" << (argc == 12) << " cooks=" << work.Cooks
+            << " read_bytes=" << work.ReadBytes << " total_ms=" << totalMs << '\n';
   return outshine::Test::Report();
 }
