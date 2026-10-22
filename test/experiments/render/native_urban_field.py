@@ -31,6 +31,14 @@ def packages(database):
 
 def build(native, output):
     database = json.loads((native / "compile_commands.json").read_text())
+    bounds = HERE / "urban_fields/NativeUrbanFieldBounds.cpp"
+    bounds_command = compile_unit(database, native, "Engine.cpp", bounds, output / "bounds.o")
+    bounds_command.insert(1, f"-I{native / 'test/harness/shared'}")
+    checked(["nice", "-n", "10", *bounds_command], native, output / "bounds-compile.log", 180)
+    runtime_flags = [flag for flag in bounds_command[1:] if flag.startswith("-stdlib=")]
+    checked([bounds_command[0], *runtime_flags, str(output / "bounds.o"),
+             "-o", str(output / "bounds")], native, output / "bounds-link.log", 180)
+    checked([str(output / "bounds")], native, output / "bounds-run.log", 30)
     source = HERE / "urban_fields/NativeUrbanFieldControl.cpp"
     obj, binary = output / "control.o", output / "control"
     compile_command = compile_unit(database, native, "Engine.cpp", source, obj)
@@ -43,18 +51,22 @@ def build(native, output):
     return binary, {"compile": compile_command, "link": command,
                     "flags_from": "Engine.cpp", "source_sha256": sha(source),
                     "header_sha256": sha(source.with_name("NativeUrbanField.h")),
+                    "bounds_sha256": sha(bounds), "bounds_checked": True,
                     "library_sha256": sha(native / "build/liboutshine.a")}
 
 
 def run(binary, native, directory, key, source, label, args):
     prefix = directory / label
     command = [str(binary), str(directory / "assets.sqlite"), key, str(source), str(prefix)]
-    if args.radius is not None or args.validation or args.sequence != "orbit":
+    altitude = getattr(args, "altitude", None)
+    if args.radius is not None or args.validation or args.sequence != "orbit" or altitude is not None:
         command.append(str(args.radius) if args.radius is not None else "auto")
-    if args.validation or args.sequence != "orbit":
+    if args.validation or args.sequence != "orbit" or altitude is not None:
         command.append("validate" if args.validation else "normal")
-    if args.sequence != "orbit":
+    if args.sequence != "orbit" or altitude is not None:
         command.append(args.sequence)
+    if altitude is not None:
+        command.append(str(altitude))
     validation = args.validation
     environment = dict(os.environ)
     for name in ("MTL_DEBUG_LAYER", "MTL_SHADER_VALIDATION", "OUTSHINE_METAL_ENCODER_PROFILE",
@@ -63,6 +75,8 @@ def run(binary, native, directory, key, source, label, args):
         environment.pop(name, None)
     if validation:
         environment["MTL_DEBUG_LAYER"] = "1"
+        if platform.system() == "Darwin":
+            environment["MTL_SHADER_VALIDATION"] = "1"
         if platform.system() == "Linux":
             environment["VK_LAYER_VALIDATE_SYNC"] = "1"
     started = time.monotonic()
@@ -137,12 +151,15 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--field", type=Path)
     parser.add_argument("--radius", type=float, help="model-space orbit radius in metres")
+    parser.add_argument("--altitude", type=float, help="model-space camera height in metres")
     parser.add_argument("--validation", action="store_true")
     parser.add_argument("--sequence", choices=("orbit", "relight", "relit", "replace", "replaced", "verify"),
                         default="orbit", help="functional mutation controls; timings are diagnostic")
     args = parser.parse_args()
     if args.radius is not None and (not math.isfinite(args.radius) or args.radius <= 0):
         parser.error("radius must be finite and positive")
+    if args.altitude is not None and (not math.isfinite(args.altitude) or args.altitude <= 0):
+        parser.error("altitude must be finite and positive")
     native, output = args.native.resolve(), args.output.resolve()
     if not any(output.is_relative_to(root.resolve()) for root in
                (Path(tempfile.gettempdir()), Path("/tmp"))):
@@ -159,7 +176,7 @@ def main():
     result = {"commit": subprocess.check_output(["git", "rev-parse", "HEAD"],
                                                cwd=native, text=True).strip(),
               "platform": platform.platform(), "resolution": [1280, 720],
-              "radius_m": args.radius, "sequence": args.sequence,
+              "radius_m": args.radius, "altitude_m": args.altitude, "sequence": args.sequence,
               "build": build_record, "scope": "model-space controls; no complete-world admission",
               "cases": []}
     for name, text in inputs:

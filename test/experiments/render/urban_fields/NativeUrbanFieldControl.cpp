@@ -43,7 +43,18 @@ constexpr double kOrbitScale = 0.85, kAltitudeScale = 0.4, kNearM = 0.1;
 
 struct ViewControl {
   double RadiusM = 0;
+  std::optional<double> AltitudeM;
 };
+
+std::optional<double> PositiveDistance(std::string_view value) {
+  double distance = 0;
+  const auto parsed = std::from_chars(value.data(), value.data() + value.size(), distance);
+  if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() ||
+      !std::isfinite(distance) || distance <= 0) {
+    return std::nullopt;
+  }
+  return distance;
+}
 
 enum class ChangeKind { None, Light, Boxes };
 
@@ -78,7 +89,7 @@ Camera CameraAt(const HeightGrid &field, double angle, const ViewControl &view) 
   const double radius = view.RadiusM;
   Camera pose;
   pose.PositionM = {{width * 0.5 + std::sin(angle) * radius,
-                     radius * kAltitudeScale,
+                     view.AltitudeM.value_or(radius * kAltitudeScale),
                      depth * 0.5 + std::cos(angle) * radius}};
   pose.LooksAt = true;
   pose.LookAtM = {{width * 0.5, 0, depth * 0.5}};
@@ -361,7 +372,7 @@ bool RenderOrbit(Engine &engine,
 }
 
 int main(int argc, const char *const *argv) {
-  if ((argc < 5 || argc > 8) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }
+  if ((argc < 5 || argc > 9) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }
   const auto begin = UrbanControl::Clock::now();
   auto field = UrbanControl::LoadHeightGrid(
       {.Database = argv[1], .SourceSha256 = argv[2], .InputPath = argv[3]});
@@ -371,16 +382,18 @@ int main(int argc, const char *const *argv) {
   }
   const UrbanControl::VideoSystem video;
   UrbanControl::ViewControl control{.RadiusM = std::max(field->Columns, field->Rows) *
-                                               field->CellM * UrbanControl::kOrbitScale};
+                                               field->CellM * UrbanControl::kOrbitScale,
+                                    .AltitudeM = std::nullopt};
   if (argc >= 6 && std::string_view(argv[5]) != "auto") {
-    const std::string_view value(argv[5]);
-    const auto parsed = std::from_chars(value.data(), value.data() + value.size(), control.RadiusM);
-    if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() ||
-        !std::isfinite(control.RadiusM) || control.RadiusM <= 0) {
-      return 2;
-    }
+    const auto radius = UrbanControl::PositiveDistance(argv[5]);
+    if (!radius) { return 2; }
+    control.RadiusM = *radius;
   }
-  const auto sequence = UrbanControl::SequenceOf(argc == 8 ? argv[7] : "orbit");
+  if (argc >= 9 && std::string_view(argv[8]) != "auto") {
+    control.AltitudeM = UrbanControl::PositiveDistance(argv[8]);
+    if (!control.AltitudeM) { return 2; }
+  }
+  const auto sequence = UrbanControl::SequenceOf(argc >= 8 ? argv[7] : "orbit");
   if (!sequence) { return 2; }
   if (sequence->Kind == UrbanControl::ChangeKind::Boxes && sequence->Fresh) {
     UrbanControl::ChangedHeights(*field);
@@ -389,7 +402,7 @@ int main(int argc, const char *const *argv) {
   const auto rows = UrbanControl::InstanceRows(*field);
   const auto mesh = UrbanControl::UnitBox();
   if (argc >= 7 && std::string_view(argv[6]) != "validate" &&
-      (argc != 8 || std::string_view(argv[6]) != "normal")) {
+      std::string_view(argv[6]) != "normal") {
     return 2;
   }
   UrbanControl::DeviceControl devices{.Validation =
