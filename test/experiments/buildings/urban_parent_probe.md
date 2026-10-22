@@ -30,90 +30,96 @@ child cells. The filtered signed correction to a preserved opaque baseline is
 C/T/S. Full readiness gives D=0 and bypasses parent traversal. Native World bounds,
 terrain/curvature, original-height evidence and readiness remain #1102.
 
-## Current step: affine categorical shadow runs
+## Current step: pixel-area support filtering
 
-`urban_shadow_runs.py` retains fixed centres and the original bilinear density q.
-For each categorical height, the projected light footprint minus the known-missed
-view footprint leaves at most two intervals per canonical column. Actual box/cap
-predicates trim padded integer endpoints, including closed lower-roof contacts.
-Own-hit cells are removed. Source knots split intervals into affine-density runs;
-two source endpoint samples determine each run. Summing the atomic mark weights
-`mu[k]=log((1-q*tail[k+1])/(1-q*tail[k]))` over the surviving intervals reproduces the
-categorical conditional void probability without enumerating all those cells.
-This aggregates long shadows; primary first-hit transport still traverses cells.
+`pixel_polygon_quadrature.py` clips a convex screen support polygon against each
+pixel in pixel-local coordinates. Vertical strips split at polygon x vertices;
+both vertical endpoints are affine there. Positive tensor Gauss weights integrate
+constant, linear and quadratic test fields exactly to floating tolerance. Weights
+sum to the actual intersection area, never to one. Even a1e-8-pixel-high strip keeps
+its measure. This is a box pixel filter, not a general reconstruction kernel.
 
-`affine_transmission.py` evaluates each affine log product. For ascending void values
-`a+i*d`, its sum is `n*log(d)+logGamma(a/d+n)-logGamma(a/d)`. Cancellation-safe log1p
-terms evaluate that difference. Short runs use at most16 direct terms; nearly flat
-runs use midpoint/second-moment evaluation. Other runs use at most8 recurrence terms
-and the positive-real Stirling correction through inverse power11, with arguments
-at least8. Domain:0<=q<=.85,0<=tail<=1, integer0<=n<=2**31. NIST's analytic remainder
-result does not certify our complete floating evaluation or a native culling bound.
-No SciPy/ML/new dependency is introduced.
+`urban_pixel_filter.py` projects12 coarse model-box/flat-ground-shadow vertices,
+without child/source/GEOS preparation. The convex hull is only a work domain;
+inside it, original categorical transport still retains streets, fixed canonical
+centres, source-density variation, height labels and view-conditioned shadows.
+The hull provides no real-World bound from missing original-height evidence.
+Finite support currently requires model/light in front of the near plane and the
+light above the flat model. Terrain, curvature and foreign surfaces remain open.
 
-`select_shadow_query` and packet work estimates retain original DDA for short or
-diagonal beams. Masks, unsupported/grazing configurations and run-budget overflow
-also fall back; no probability is discarded. The optional trailing `shadow_query`
-Python hook uses the original query arguments. Existing callers/defaults and shared
-BoxField/actual3D-clipped DDA contracts remain intact. No native API change.
+At every generated ray the complete scene and its unparented background are
+requeried, then the **signed difference** is weighted. An independently filtered
+opaque baseline belongs to the caller. This diagnostic uses a common pixel-centre
+baseline in candidate and controls: its reported RGB error measures the correction,
+not the accuracy of that baseline's own pixel filter. No separately averaged C/T/S
+or reused opaque boundary sample is introduced.
 
-Frozen code `f25db1d43`, incorporating master `b7bc12683`: **110 focused tests OK**
-(17.920s). Added independent affine products versus math.fsum, variable-density
-X/Y-major shadows, free corridors, closed-roof contacts, mask/budget fallbacks and
-full RGB versus81 independently enumerated box worlds for each of4 light profiles.
-All prior source/transport/composition/BoxField tests remain. Ruff/format/function
-size checks pass. This is local Python validation, not device admission.
+Initial all-Gauss sampling made an elevated view worse: RGB RMSE.026770->.052472,
+with visible lattice spokes. Frozen `a63aa20f2` retains that negative case. Final
+`57e2b2a9d` keeps the original4x4 jittered nodes in every fully supported pixel;
+only genuinely clipped pixels use area quadrature. Exact four-corner membership,
+not a near-one area threshold, selects this fallback. Thus existing interior
+sampling quality is preserved. Neither method supplies a global RGB error bound.
 
-Eight clean terminal0 comparisons retain all247,731 original masses in the616x624
-resolved control. The same4x4 jittered samples/seed1113/tolerance1e-8 compare original
-categorical DDA, run candidate and resolved geometry. **Only the projected region
-is traced**, embedded in1280x720 diagnostic images; this is not a complete frame
-benchmark. All24 actual RGB PNGs were inspected, including enlarged crops. All8
-candidate PNGs are byte-identical to categorical DDA, coverage is bit-identical,
-and maximum per-sample linear RGB difference is6.94e-17. These are different from
-the still-material model errors against resolved geometry shown in the last column.
+**117 focused tests OK (17.943s)** on the shared Linux host. Added700 independent
+GEOS polygon/pixel intersections with triangle-moment controls, subpixel slivers,
+translation/degeneracy, signed partial correction, exact interior-node retention
+and300 box/shadow containment probes for each of sun/point lights. Existing source,
+transport, opaque composition and actual3D-clipped BoxField/DDA tests remain.
+Ruff/format/function-size and docs checks pass; no native gate is implied.
 
-| Case | Rays | DDA s | Candidate s | Runs used | Resolved RGB RMSE |
-| --- | ---: | ---: | ---: | --- | ---: |
-| dawn-north | 27040 | 9.405 | 4.847 | yes | 0.006249 |
-| dawn-slant | 27456 | 11.730 | 6.324 | yes | 0.006897 |
-| dawn-diagonal | 29120 | 15.483 | 15.333 | no | 0.003961 |
-| day | 24960 | 1.968 | 2.021 | no | 0.025638 |
-| back | 24960 | 1.385 | 1.465 | no | 0.034251 |
-| night | 27200 | 4.927 | 4.994 | no | 0.285815 |
-| ground-north | 33696 | 11.081 | 9.482 | no | 0.001095 |
-| ground-motion | 33024 | 11.361 | 9.955 | no | 0.001201 |
+Six initial clean runs (`a63aa20f2`) and three final clean runs (`57e2b2a9d`) are
+terminal0;27 actual RGB PNGs were inspected through full/crop/coverage sheets.
+The5 thin initial cases contain zero full pixels: generated nodes/IDs/weights are
+bit-identical under the final hybrid. The final far-day arrays/PNGs also exactly
+match the earlier case. The unmodified default driver matches all arrays/PNGs of
+`f25db1d43`'s day control bit for bit. Do not rerun these proven-equivalent controls
+merely to attach a new commit number.
 
-The first6 cases use target distance240km and altitude75,894.663844m in flat ENU;
-ground cases use50km/2m, the last also moves8km. These distances establish no curved
-Earth visibility. Shared Linux host under interactive/other-process load; focused
-nice10 tests overlapped the first case. Paired sequential timings support the large
-1.85-1.94x low-sun improvement, not small differences in identical DDA paths.
-Ground queries all fall back; primary work dominates. No general ground speedup.
+The complete original247,731-mass616x624 field is retained. Only the projected ROI
+is traced inside1280x720 diagnostics, not a full-frame/world/device benchmark.
+All use target distance240km in flat ENU; ground views have altitude2m, the elevated
+view75,894.663844m. Motion is8km. These are mathematical planar counterexamples,
+not proof of actual240km visibility from2m over a curved Earth.
 
-For dawn-north, shadow DDA visits2,033,776->25,654; additionally the candidate performs
-1,461,740 light endpoint tests and449,902 primary-cap tests. It samples366,734 source
-endpoints for183,367 affine runs representing3,051,401 height-mark/cell incidences
-(not unique physical cells);2,109,706 incidences use the long-product path. This is
-work substitution, not a claim that all operations disappeared. Construction uses
-400 named retained array bytes in addition to the shared6,264B parent; measured
-named transient peak400,208B excludes untracked NumPy/Python temporaries. Whole
-process RSS373.5-538.1MB includes the resolved oracle and image arrays. No full peak
-allocation/copied-byte/device-memory bound is claimed. No fine table/GEOS/source
-parse is used by run construction or queries; resolved preparation stays separate.
+| Case / quadrature / resolved side | Uniform RGB RMSE | Filtered RGB RMSE | Uniform coverage L1 px | Filtered coverage L1 px |
+| --- | ---: | ---: | ---: | ---: |
+| Far day /2 /64 | 0.007108 | 0.000963 | 5.1635 | 0.2496 |
+| Far motion /2 /32 | 0.007184 | 0.000652 | 5.1875 | 0.3145 |
+| Far night /2 /32 | 0.006351 | 0.007851 | 6.0518 | 0.3659 |
+| Far night /4 /64 | 0.005399 | 0.004855 | 6.0269 | 0.2004 |
+| Elevated day, hybrid /2 /16 | 0.026770 | 0.027643 | 99.3131 | 101.9898 |
 
-The earlier forced-run day probe was4.0x slower (.433/.107s). Packet dispatch still
-added4.3% in one full day pair, motivating the profile-level bypass. Those negative
-controls remain in the compact receipt. The final day/back/night/diagonal profiles
-now select the original query directly, with no per-packet run dispatch.
+Far day improves RGB error7.4x and coverage error20.7x against64x64 resolved samples;
+500 scene rays replace6,240 uniform rays, but measured time grows5.838->6.763s.
+Geometry costs about.06s; more rays now actually encounter the long field. Source
+transport is still cell-based. Motion also improves the thin silhouette. Elevated
+hybrid removes the large spoke regression but remains3.3% worse in RGB than uniform;
+coverage L1 is101.99 versus99.31. It is not an equal-quality winner there.
 
-Decision: retain as an optional categorical shadow optimization, not a qualified
-parent representation. Resolved images still show missing structure/silhouette
-contrast and a large night error. Pixel-footprint filtering, cheaper primary
-transport, ready-child/foreign-opaque composition, terrain/curvature, transitions
-and devices remain open. The earlier far single-sample aliasing case remains valid.
-Raw reports, commands, arrays and inspected diagnostics:
-`/tmp/outshine-research-urban-runs-f25db1d43/receipt.json`.
+Night remains unqualified. The resolved32->64 RGB difference is.002346 RMS;
+parent quadrature2->4 changes.012090 RMS. Order2 versus the same64 reference has
+error.008473, order4 .004855 (uniform .005399). Those uncertainties do not prove
+convergence or a night-quality advantage. Day reference32->64 differs.000457 RMS,
+well below the uniform error.007108. Reference convergence is empirical, not a
+formal bound. Snapshot motion does not establish temporal transition stability.
+
+Far-day work:12 projected vertices,120 clipped pixels/125 strips,16,000 named node
+output bytes and32,000 named ray/ID/weight bytes. Elevated hybrid retains966 full
+pixels/15,456 original rays, plus780 boundary rays;16,236 versus24,960 total rays.
+Its ray arrays occupy1,039,104B. These are named arrays, not peak live allocation
+or copied-byte bounds. Whole-process RSS367-806MB includes dense resolved controls
+and full diagnostic images. The shared parent remains6,264B; no global fine table,
+source parsing or GEOS is needed by support generation/quadrature. Interactive
+host load remains; timings establish no native speed or16.67ms/p99 admission.
+
+Decision: keep optional `--footprint-order` for image research, default unchanged.
+Analytic edge-area weighting is useful, but remaining light/integrand variation and
+primary-transport cost need improvement before a general parent substitute. No
+Ready/Empty certificate, native port request or replacement admission is produced.
+Methods/negative controls and old shadow gains are linked below. Raw commands,
+source SHA256 pins, terminal reports, arrays, image reviews and equivalence checks:
+`/tmp/outshine-research-pixel-filter-57e2b2a9d/receipt.json`.
 
 ## Earlier controlled alternatives
 
@@ -122,6 +128,7 @@ versions; original inputs and referenced raw artifacts have not been removed.
 
 | Alternative | Result/limit | Detailed method |
 | --- | --- | --- |
+| Affine categorical shadows |1.85-1.94x low-sun transport gain with unchanged PNGs; primary traversal/model errors remain | [f6c5727bc](https://github.com/Weichwolf/outshine/blob/f6c5727bc/test/experiments/buildings/urban_parent_probe.md) |
 | Rational atomic prefix | Exact lattice counts; slow pixel packets and broad intervals, retained as geometric oracle | [425f1d199](https://github.com/Weichwolf/outshine/blob/425f1d199/test/experiments/buildings/urban_parent_probe.md) |
 | Coarse joint Poisson void | Correlation improves errors1.97-2.38x; GEOS slow and continuous centres destroy lattice corridors | [99fca1fec](https://github.com/Weichwolf/outshine/blob/99fca1fec/test/experiments/buildings/urban_parent_probe.md) |
 | Projected M/J/D/S field | Cheap pixel sampling, cell-dependent construction, blurred boundaries/highlights and horizon bias; not default | [9e87685b8](https://github.com/Weichwolf/outshine/blob/9e87685b8/test/experiments/buildings/urban_parent_probe.md) |
@@ -129,7 +136,7 @@ versions; original inputs and referenced raw artifacts have not been removed.
 | Phase/shadow transfer/signed correction | Better joint filtering; still limited phase kernels and reference-sensitive night error | [3ba4d5a12](https://github.com/Weichwolf/outshine/blob/3ba4d5a12/test/experiments/buildings/urban_parent_probe.md) |
 
 Prior raw receipts remain under `/tmp/outshine-research-urban-` with suffixes
-`prefix-d4bbacf61`, `poisson-7cc596588`, `response-8282c30a3`, `wall-fdc98f113`, `horizon-3ba4d5a12`,
+`runs-f25db1d43`, `prefix-d4bbacf61`, `poisson-7cc596588`, `response-8282c30a3`, `wall-fdc98f113`, `horizon-3ba4d5a12`,
 `layer-filter-86969ff1e`, `layer-897451cc6`, `adaptive-cf6a67e95`,
 `transfer-c2bc91d25`, `phase-6f84f25f3` and `parent-1edb4404d`.
 
@@ -146,8 +153,8 @@ python -B -W error test/experiments/buildings/compare_urban_parents.py \
   --output /tmp/outshine-urban-control --samples 16 --jitter-seed 1113
 python -B -W error test/experiments/buildings/compare_urban_horizon.py \
   --parent "$PARENT_NPZ" --resolved "$RESOLVED_NPZ" \
-  --output /tmp/outshine-urban-runs --shadow-runs --paired-exact \
-  --distance 240000 --altitude 75894.6638440411 --lighting dawn-north
+  --output /tmp/outshine-urban-pixel-filter --shadow-runs --footprint-order 2 \
+  --reference-samples 64 --distance 240000 --altitude 2 --lighting day
 ```
 
 Set PARENT_NPZ/RESOLVED_NPZ to the saved original inputs pinned in the reports;
@@ -162,7 +169,7 @@ versions document sampling, independent controls and qualification limits.
 - [Bruneton/Neyret2012](../../../doc/references/vegetation/eg/2012-real-time-forests.pdf), section3/Figure2/equations1-6: joint visible/lit proportions and projected overlap. The box/atomic derivations here are separate.
 - [NIST DLMF5.11](https://dlmf.nist.gov/5.11), equation5.11.1 and section(ii): positive-real logGamma/Stirling expansion and first-neglected-term analytic remainder. Floating implementation accuracy is checked separately.
 - [AtCoder floor_sum specification](https://atcoder.github.io/ac-library/production/document_en/math.html): floor-sum definition and bounded-integer logarithmic contract. Our signed/unbounded arithmetic uses an independently implemented Euclidean recurrence; no foreign library code is bundled or its native timing claim inherited.
-- [Feibush/Levoy/Cook1980](../../../doc/references/materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf), section2.4/Figure2: joint edge/footprint filtering.
+- [Feibush/Levoy/Cook1980](../../../doc/references/materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf), section2.4/Figure2, PDF pages3-4: clipping and weighting in the actual pixel footprint. Re-read optically for this step; the coarse support/strip quadrature here is separate.
 - [Han et al.2007](../../../doc/references/vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf), Figures1-2/section3: normal filtering excludes occlusion/geometry simplification/cast shadows.
 - [Horizon cloudscapes2015](../../../doc/references/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf), PDF pages37/81 (slides35/79): coverage/height and alpha1 exit; our finite-error analysis is not attributed to these slides.
 - [Sloan/Kautz/Snyder2002](../../../doc/references/lighting/siggraph/2002-precomputed-radiance-transfer.pdf), introduction/Figure2/PDF page2: transport/lighting separation, without a general SH/GI guarantee here.
