@@ -5,11 +5,25 @@ import unittest
 import numpy as np
 from compare_urban_parents import camera
 from test_urban_patches import example
+from triangle_image_reference import image_rays
 from urban_parent_reference import prepare_resolved, trace_resolved
 from urban_patch_trace import trace
 
 
 class ParentReferenceTest(unittest.TestCase):
+    def test_jittered_reference_samples_stay_in_their_pixel_strata(self):
+        view = camera(16000, 240000, 0)
+        box = np.array([[640, 360], [642, 362]])
+        _, directions = image_rays(view, box, 2, 2, 4, jitter_seed=1113)
+        _, repeated = image_rays(view, box, 2, 2, 4, jitter_seed=1113)
+        np.testing.assert_array_equal(directions, repeated)
+        local = directions @ view[1].T
+        pixels = [640, 360] + view[2] * local[:, :2] / local[:, 2, None] * [1, -1]
+        x, y = np.meshgrid(np.arange(8), np.arange(8))
+        np.testing.assert_array_equal(
+            np.floor((pixels - [640, 360]) * 4), np.column_stack((x.ravel(), y.ravel()))
+        )
+
     def test_motion_and_altitude_preserve_the_declared_target_distance(self):
         target = np.array([8000, 8000, 12])
         for motion, altitude in [(0, None), (8000, None), (0, 10000)]:

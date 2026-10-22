@@ -178,7 +178,9 @@ def study_rays(parent, args):
     high = np.minimum(np.ceil(box[1]).astype(int), [1280, 720])
     width, height = high - low
     box = np.array([low, high])
-    origins, directions = image_rays(view, box, width, height, args.samples)
+    origins, directions = image_rays(
+        view, box, width, height, args.samples, jitter_seed=args.jitter_seed
+    )
     directions /= np.linalg.norm(directions, axis=1)[:, None]
     origins = np.array(origins)
     if np.any(directions[:, 2] >= 0):
@@ -225,6 +227,7 @@ def run(args):
         "camera_basis": view[1].tolist(),
         "parent_cache_hit": args.parent is not None,
         "samples_per_axis": args.samples,
+        "jitter_seed": args.jitter_seed,
         "roi": box.tolist(),
         "rays": len(origins),
         "parent_compile_s": compile_seconds,
@@ -306,4 +309,5 @@ if __name__ == "__main__":
     parser.add_argument("--altitude", type=float)
     parser.add_argument("--divisions", type=int, default=16)
     parser.add_argument("--samples", type=int, default=4)
+    parser.add_argument("--jitter-seed", type=int)
     run(parser.parse_args())

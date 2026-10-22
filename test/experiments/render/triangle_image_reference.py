@@ -61,7 +61,7 @@ def projected_bounds(positions, view):
     return np.stack((xy.min(0) - 2, xy.max(0) + 2))
 
 
-def image_rays(view, box, width, height, supersample=2):
+def image_rays(view, box, width, height, supersample=2, *, jitter_seed=None):
     eye, basis, focal, screen_width, screen_height = view
     x = box[0, 0] + (np.arange(width * supersample) + 0.5) / (
         width * supersample
@@ -70,6 +70,18 @@ def image_rays(view, box, width, height, supersample=2):
         height * supersample
     ) * np.ptp(box[:, 1])
     xx, yy = np.meshgrid(x, y)
+    if jitter_seed is not None:
+        generator = np.random.default_rng(jitter_seed)
+        xx += (
+            generator.uniform(-0.5, 0.5, xx.shape)
+            * np.ptp(box[:, 0])
+            / (width * supersample)
+        )
+        yy += (
+            generator.uniform(-0.5, 0.5, yy.shape)
+            * np.ptp(box[:, 1])
+            / (height * supersample)
+        )
     direction = (
         np.column_stack(
             (
