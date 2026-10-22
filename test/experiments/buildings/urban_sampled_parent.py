@@ -7,6 +7,7 @@ this is no persisted random world, native replacement or visibility certificate.
 
 import numpy as np
 from urban_first_hit import merge_work, sample_first_hits
+from urban_grouped_first_hit import sample_grouped_first_hits
 from urban_parent_conditional import ground_stops, surface_slots, surface_visibility
 from urban_parent_light import shade
 from urban_prefix_first_hit import PrefixFirstHits
@@ -71,13 +72,23 @@ def sampled_surfaces(
     profile,
     query,
     first_hit_query=None,
+    group_first_hits=False,
 ):
     count = uniform.shape[1]
     rays = np.flatnonzero(probability > 0)
     owners = np.repeat(rays, count)
     thresholds = (uniform[rays] * probability[rays, None]).ravel()
     thresholds = np.minimum(thresholds, np.nextafter(probability[owners], 0))
-    if first_hit_query is None:
+    if group_first_hits:
+        hit, primary = sample_grouped_first_hits(
+            model.parent,
+            model.product,
+            origins[rays],
+            directions[rays],
+            thresholds.reshape(len(rays), count),
+            stops[rays],
+        )
+    elif first_hit_query is None:
         hit, primary = sample_first_hits(
             model.parent,
             model.product,
@@ -128,6 +139,8 @@ def sampled_surfaces(
     work = {
         "surface_samples": len(owners),
         "unique_surface_queries": len(index),
+        "known_geometry_input_copy_bytes": 56
+        * (len(rays) if group_first_hits else len(owners)),
         "surface_sample_arrays_peak_bytes": sum(
             v.nbytes
             for v in [
@@ -163,7 +176,16 @@ def render_sampled(
     batch=512,
     shadow_query=None,
     first_hit_prefix=False,
+    group_first_hits=None,
 ):
+    if group_first_hits is None:
+        group_first_hits = (
+            type(samples) is int and samples >= 4 and not first_hit_prefix
+        )
+    if first_hit_prefix and group_first_hits:
+        raise ValueError(
+            "grouped and prefix first-hit studies require separate controls"
+        )
     if (
         type(samples) is not int
         or not 1 <= samples <= 512
@@ -197,7 +219,16 @@ def render_sampled(
             np.arange(samples)[None] + generator.random((len(o), samples))
         ) / samples
         surface, counts = sampled_surfaces(
-            model, o, d, stops, probability, uniform, profile, query, first_hit_query
+            model,
+            o,
+            d,
+            stops,
+            probability,
+            uniform,
+            profile,
+            query,
+            first_hit_query,
+            group_first_hits,
         )
         colour[part], coverage[part] = background + surface, probability
         work["packets"] += 1

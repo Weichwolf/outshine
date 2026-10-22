@@ -21,6 +21,7 @@ from compare_urban_parents import (
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays, projected_bounds
 from urban_first_hit import sample_first_hits
+from urban_grouped_first_hit import sample_grouped_first_hits
 from urban_parent_conditional import grid, ground_stops, render_conditional
 from urban_parent_layer import render_layer
 from urban_parent_light import display, surface_radiance_upper
@@ -92,6 +93,7 @@ def parent_sample(
     surface_samples=None,
     surface_seed=1113,
     first_hit_prefix=False,
+    group_first_hits=None,
 ):
     started = time.perf_counter()
     if surface_samples is None:
@@ -113,6 +115,7 @@ def parent_sample(
             seed=surface_seed,
             shadow_query=query,
             first_hit_prefix=first_hit_prefix,
+            group_first_hits=group_first_hits,
         )
     sky = ~np.isfinite(ground_stops(origins, directions))
     colour[sky] += (1 - coverage[sky, None]) * (
@@ -153,6 +156,7 @@ def compare(parent, resolved, args):
         surface_samples=args.surface_samples,
         surface_seed=args.surface_seed,
         first_hit_prefix=args.first_hit_prefix,
+        group_first_hits=args.group_first_hits,
     )
     target = average_samples(reference, width, height, args.samples)
     crop = average_samples(colour, width, height, args.samples)
@@ -217,7 +221,7 @@ def compare(parent, resolved, args):
         "jitter_seed": args.seed,
         "surface_samples_per_ray": args.surface_samples,
         "surface_seed": args.surface_seed,
-        "first_hit_method": "prefix-inversion" if args.first_hit_prefix else "dda",
+        "first_hit_method": args.first_hit_method,
         "rays": len(o),
         "upward_rays": int((d[:, 2] > 0).sum()),
         "downward_rays": int((d[:, 2] < 0).sum()),
@@ -348,7 +352,7 @@ def compare_pixel(parent, resolved, args):
     return report, arrays
 
 
-def sparse_first_hit_probe(parent, invert=False):
+def sparse_first_hit_probe(parent, invert=False, grouped=False):
     rows = []
     for factor in [0.25, 1, 4]:
         grown = UrbanParent(**{k: a.copy() for k, a in parent.arrays().items()})
@@ -375,11 +379,18 @@ def sparse_first_hit_probe(parent, invert=False):
         )
         seconds = time.perf_counter() - started
         candidate = {}
-        if invert:
+        if invert or grouped:
             started = time.perf_counter()
-            answer, counts = PrefixFirstHits(model).sample(
-                np.repeat(origin, 4, axis=0), np.repeat(direction, 4, axis=0), uniform
-            )
+            if grouped:
+                answer, counts = sample_grouped_first_hits(
+                    grown, p, origin, direction, uniform[None]
+                )
+            else:
+                answer, counts = PrefixFirstHits(model).sample(
+                    np.repeat(origin, 4, axis=0),
+                    np.repeat(direction, 4, axis=0),
+                    uniform,
+                )
             candidate = {"seconds": time.perf_counter() - started, "work": counts}
             for key, value in hit.items():
                 np.testing.assert_array_equal(answer[key], value)
@@ -394,7 +405,8 @@ def sparse_first_hit_probe(parent, invert=False):
                 "sample_seconds": seconds,
                 "prefix_work": prefix,
                 "sampling_work": work,
-                "prefix_sampling": candidate,
+                "prefix_sampling": candidate if invert else {},
+                "group_sampling": candidate if grouped else {},
                 "hit_probability": float(1 - transmission[0]),
             }
         )
@@ -402,6 +414,12 @@ def sparse_first_hit_probe(parent, invert=False):
 
 
 def run(args):
+    if args.group_first_hits is None:
+        args.group_first_hits = (
+            args.surface_samples is not None
+            and args.surface_samples >= 4
+            and not args.first_hit_prefix
+        )
     if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise ValueError("private system-temp output required")
     args.output.mkdir(parents=True, exist_ok=False)
@@ -413,6 +431,13 @@ def run(args):
         raise ValueError("sparse sampling probe requires first-hit mode")
     if args.first_hit_prefix and args.surface_samples is None:
         raise ValueError("prefix inversion requires first-hit mode")
+    if args.group_first_hits and (
+        args.surface_samples is None or args.first_hit_prefix
+    ):
+        raise ValueError("grouped sampling requires its separate first-hit control")
+    args.first_hit_method = "prefix-inversion" if args.first_hit_prefix else "dda"
+    if args.group_first_hits:
+        args.first_hit_method = "grouped"
     if args.surface_samples is not None and (args.ray_probe or args.footprint_order):
         raise ValueError(
             "first-hit comparison requires its paired fixed-spatial-ray controls"
@@ -438,7 +463,7 @@ def run(args):
         report, arrays = compare(parent, resolved, args)
     np.savez_compressed(args.output / "linear.npz", **arrays)
     report["sparse_first_hit_probe"] = (
-        sparse_first_hit_probe(parent, args.first_hit_prefix)
+        sparse_first_hit_probe(parent, args.first_hit_prefix, args.group_first_hits)
         if args.sparse_probe
         else []
     )
@@ -478,6 +503,11 @@ if __name__ == "__main__":
     parser.add_argument("--surface-samples", type=int, choices=range(1, 513))
     parser.add_argument("--surface-seed", type=int, default=1113)
     parser.add_argument("--first-hit-prefix", action="store_true")
+    grouping = parser.add_mutually_exclusive_group()
+    grouping.add_argument("--group-first-hits", action="store_true", default=None)
+    grouping.add_argument(
+        "--repeat-first-hits", dest="group_first_hits", action="store_false"
+    )
     parser.add_argument("--sparse-probe", action="store_true")
     parser.add_argument("--footprint-order", type=int, choices=range(1, 17))
     parser.add_argument(
