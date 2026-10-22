@@ -43,15 +43,15 @@ void Timing(Device &device, Completion done, std::string_view scope) {
   CHECK(timing.Status == CompletionStatus::Ready && std::isfinite(timing.ElapsedNanoseconds) &&
             timing.ElapsedNanoseconds >= 0,
         "copy and raster submissions have a real finite GPU interval without dispatches");
-  const auto dispatches = Require(device.GpuTimings(done));
-  CHECK(dispatches.Status == CompletionStatus::Ready && dispatches.DispatchCount == 0 &&
-            dispatches.Dispatches.empty() && !dispatches.Truncated,
-        "submission timing is available independently of any dispatch timing samples");
+  const auto dispatches = device.GpuTimings(done);
+  CHECK(!dispatches && dispatches.error().Kind == ErrorKind::Unsupported,
+        "submission-only mode explicitly leaves dispatch timing disabled");
   std::println("{} submission_gpu_ns={}", scope, timing.ElapsedNanoseconds);
 }
 
 void CopyOnly() {
-  auto device = Require(CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device = Require(CreateDevice(
+      {.Validation = true, .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission}));
   auto input = Require(device->CreateBuffer({.Bytes = uint64_t{kWords} * sizeof(uint32_t),
                                              .Use = BufferUse::CopySource,
                                              .Placement = Memory::Upload}));
@@ -92,7 +92,10 @@ void CopyOnly() {
 
 std::vector<float>
 Raster(std::span<const uint32_t> vertex, std::span<const uint32_t> fragment, bool timed) {
-  auto device = Require(CreateDevice({.Validation = true, .GpuTiming = timed}));
+  auto device =
+      Require(CreateDevice({.Validation = true,
+                            .GpuTiming = timed ? outshine::Render::Native::GpuTimingMode::Submission
+                                               : outshine::Render::Native::GpuTimingMode::None}));
   const std::array targets{ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}}};
   auto pipeline = Require(device->CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
                                                           .Fragment = ShaderCode{.Spirv = fragment},

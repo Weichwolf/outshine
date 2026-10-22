@@ -22,13 +22,19 @@ std::string Key(std::string_view value) {
 }
 
 GeneratedAssetPackage Package(std::string_view revision, std::string request) {
+  constexpr double kCellExtentM = 1000;
   GeneratedAssetPackage result;
   result.Bytes.assign(revision.begin(), revision.end());
-  result.Records.push_back({.Key = Key(revision),
-                            .Kind = "native-world-cell",
-                            .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1000, 1000, 1000}}},
-                            .ByteCount = result.Bytes.size(),
-                            .RequestKey = std::nullopt});
+  result.Records.push_back(
+      {.Key = Key(revision),
+       .Kind = "native-world-cell",
+       .Bounds = {.Min = {{0, 0, 0}}, .Max = {{kCellExtentM, kCellExtentM, kCellExtentM}}},
+       .Package = {},
+       .OffsetBytes = {},
+       .ByteCount = result.Bytes.size(),
+       .Level = {},
+       .Parent = {},
+       .RequestKey = std::nullopt});
   if (!request.empty()) { result.Records.back().RequestKey = std::move(request); }
   return result;
 }
@@ -92,7 +98,7 @@ void MigratesVersionTwo(const std::string &path) {
   cache->reset();
   sqlite3 *database = nullptr;
   CHECK(sqlite3_open(path.c_str(), &database) == SQLITE_OK, "migration fixture opens");
-  if (!database) { return; }
+  if (database == nullptr) { return; }
   CHECK(sqlite3_exec(database,
                      "DROP INDEX asset_requests; ALTER TABLE assets DROP COLUMN request_key;"
                      "PRAGMA user_version=2;",

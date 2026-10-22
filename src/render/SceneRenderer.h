@@ -234,7 +234,12 @@ public:
   }
 
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error) {
-    return ActiveState().Content.Geometry.PlacePiece(piece, error);
+    auto placed = ActiveState().Content.Geometry.PlacePiece(piece);
+    if (!placed) {
+      error = std::move(placed.error().Message);
+      return kNoPiece;
+    }
+    return *placed;
   }
 
   void ReleasePiece(PieceHandle which) {
@@ -972,7 +977,6 @@ private:
   void BindFrameResources();
   void ApplyWorldDeclarations();
 
-  [[nodiscard]] Native::Buffer *BufferFor(Resource resource) const;
   [[nodiscard]] DisplayOptions Display() const;
 
   [[nodiscard]] Native::Texture *LinearSource() const;

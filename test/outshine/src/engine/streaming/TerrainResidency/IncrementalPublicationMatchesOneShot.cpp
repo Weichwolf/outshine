@@ -6,6 +6,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,13 +25,17 @@ int main() {
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), "world opens");
     if (scene) {
+      constexpr uint32_t firstTileX = 8192;
+      constexpr uint32_t tileCount = 3;
+      constexpr float firstAslM = 2;
       Patchwork patch;
-      for (uint32_t x = 8192; x < 8195; ++x) {
-        patch.Sheets.push_back({.Tile = {.Zoom = 14, .X = x, .Y = 8192},
-                                .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes,
-                                                            static_cast<float>(x - 8190)),
-                                .Side = Render::TerrainRenderer::kSide,
-                                .Postings = Render::TerrainRenderer::kSide});
+      for (uint32_t x = firstTileX; x < firstTileX + tileCount; ++x) {
+        patch.Sheets.push_back(
+            {.Tile = {.Zoom = 14, .X = x, .Y = 8192},
+             .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes,
+                                         static_cast<float>(x - firstTileX) + firstAslM),
+             .Side = Render::TerrainRenderer::kSide,
+             .Postings = Render::TerrainRenderer::kSide});
       }
       const TangentFrame frame = TangentFrame::At({});
       TerrainResidency staged;
@@ -56,6 +61,7 @@ int main() {
       staged.Clear();
       CHECK(renderer.TerrainRendererTriangles() == 0, "clear removes the staged publication");
 
+      const auto offlineUploads = renderer.OfflineUploads(std::chrono::seconds(1));
       TerrainResidency oneShot;
       oneShot.Into(&renderer);
       CHECK(oneShot.Publish(patch, frame, error) && oneShot.Digest() == digest &&

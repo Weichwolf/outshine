@@ -210,6 +210,7 @@ private:
     std::shared_ptr<Native::Texture> Image;
     std::unique_ptr<Native::Buffer> Staging;
     uint32_t Levels = 0;
+    uint32_t PixelBytes = 0;
   };
 
   [[nodiscard]] static Native::Result<void> RecordImage(Native::Commands &commands,

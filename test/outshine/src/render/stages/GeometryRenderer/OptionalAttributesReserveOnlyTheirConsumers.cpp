@@ -94,7 +94,7 @@ void CheckLayout(Native::Device *device,
   PieceMesh prefixPiece{};
   prefixPiece.Verts = prefix;
   prefixPiece.Indices = prefixIndices;
-  CHECK(draw.PlacePiece(prefixPiece, error) != kNoPiece,
+  CHECK(draw.PlacePiece(prefixPiece).has_value(),
         "thousands of unmapped vertices precede the main mesh in the shared arena");
   const auto &resident = draw.Resident();
   CHECK(resident.HeldOf(Stream::Previous) == 0,
@@ -149,7 +149,7 @@ void CheckLayout(Native::Device *device,
   mappedPiece.Indices = indices;
   mappedPiece.Colours = colours;
   mappedPiece.Textured = true;
-  CHECK(draw.PlacePiece(mappedPiece, error) != kNoPiece,
+  CHECK(draw.PlacePiece(mappedPiece).has_value(),
         "independent tangent-bearing piece reserves and uploads its own range");
   CHECK(draw.HandTables(error) && draw.HandPlacements(false, error),
         "independent pieces publish their explicit colour addressing");
@@ -180,7 +180,7 @@ void CheckLayout(Native::Device *device,
   unmapped.Verts = vertices;
   unmapped.Indices = indices;
   for (int extra = 0; extra < 3; ++extra) {
-    CHECK(draw.PlacePiece(unmapped, error) != kNoPiece,
+    CHECK(draw.PlacePiece(unmapped).has_value(),
           "untextured untinted pieces extend the arena beyond its spare capacity");
   }
   CHECK(resident.HeldOf(Stream::Colour) == colourBytes && resident.HeldOf(Stream::Uv) == uvBytes,

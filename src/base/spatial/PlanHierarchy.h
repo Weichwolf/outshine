@@ -70,6 +70,34 @@ public:
     SelectNodes([&](const Node &node) { return accept(node.Bounds); }, emit);
   }
 
+  template <class Emit> [[nodiscard]] bool Query(const Box &region, Emit &&emit) const {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      if (!(region.Min[axis] <= region.Max[axis])) { return true; }
+    }
+    if (Nodes_.empty()) { return true; }
+    std::array<uint32_t, 32> pending{};
+    size_t count = 1;
+    const auto overlaps = [&region](const Box &bounds) {
+      for (size_t axis = 0; axis < 3; ++axis) {
+        if (!(bounds.Min[axis] <= region.Max[axis]) || !(bounds.Max[axis] >= region.Min[axis])) {
+          return false;
+        }
+      }
+      return true;
+    };
+    while (count != 0) {
+      const Node &node = Nodes_[pending[--count]];
+      if (!overlaps(node.Bounds)) { continue; }
+      if (node.Count == 1) {
+        if (!emit(Order_[node.First])) { return false; }
+      } else {
+        pending[count++] = node.Right;
+        pending[count++] = node.Left;
+      }
+    }
+    return true;
+  }
+
   template <class Intersect>
   [[nodiscard]] std::optional<RayHit> TraceClosest(const Vec3 &origin,
                                                    const Vec3 &direction,

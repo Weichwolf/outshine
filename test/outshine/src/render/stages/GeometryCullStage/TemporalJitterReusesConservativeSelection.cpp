@@ -24,7 +24,30 @@ using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
 
-void Exercise() {
+enum class DepthRequest { None, Stage, Output, Both };
+
+void PlanTransitions(SceneRenderer &renderer, Core::RuntimeScene &scene, std::string &error) {
+  const auto original = renderer.Plan().Specification();
+  for (const bool temporal : {false, true}) {
+    auto specification = original;
+    if (!temporal) { std::erase(specification.Content, Stage::TemporalResolve); }
+    auto plan = Compiled::Compile(specification);
+    CHECK(plan.has_value(), "the changed temporal plan compiles");
+    if (!plan) { return; }
+    CHECK(renderer.Init({64, 64}, *plan).has_value(), "the same renderer accepts the changed plan");
+    for (unsigned frame = 0; frame < 4; ++frame) {
+      CHECK(scene.Draw(error), "the resident scene draws after the temporal plan changes");
+      CHECK(renderer.Plan().Holds(Stage::TemporalResolve) == temporal,
+            "drawing retains the selected temporal mode");
+      std::vector<float> depth;
+      CHECK(renderer.ReadDepth(depth) == ReadState::Ready &&
+                std::ranges::any_of(depth, [](float value) { return value > 0; }),
+            "changing temporal mode preserves the visible geometry");
+    }
+  }
+}
+
+void Exercise(DepthRequest requestedDepth) {
   constexpr double kNearM = 0.1;
   constexpr double kFarM = 100;
   constexpr double kMovedEyeXM = 0.1;
@@ -42,8 +65,14 @@ void Exercise() {
   Core::Declaration declaration;
   declaration.InitialGeometry = &base;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 64;
-  declaration.Stages = {"subjects", "temporalResolve", "depthPyramid"};
-  declaration.Outputs = {"surface", "sceneDepth", "sceneVelocity", "depthPyramid"};
+  declaration.Stages = {"subjects", "temporalResolve"};
+  declaration.Outputs = {"surface", "sceneDepth", "sceneVelocity"};
+  if (requestedDepth == DepthRequest::Stage || requestedDepth == DepthRequest::Both) {
+    declaration.Stages.emplace_back("depthPyramid");
+  }
+  if (requestedDepth == DepthRequest::Output || requestedDepth == DepthRequest::Both) {
+    declaration.Outputs.emplace_back("depthPyramid");
+  }
   bool reject = false;
   SceneRenderer renderer(
       {.Context = &reject,
@@ -111,12 +140,16 @@ void Exercise() {
   scene->Eye(eye);
   CHECK(scene->Draw(error) && GeometryCullStage::JobsSweptTaken() > 0,
         "projection changes invalidate the selection");
+  PlanTransitions(renderer, *scene, error);
 }
 }
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
-  Exercise();
+  for (const auto depth :
+       {DepthRequest::None, DepthRequest::Stage, DepthRequest::Output, DepthRequest::Both}) {
+    Exercise(depth);
+  }
   SDL_Quit();
   return outshine::Test::Report();
 }
