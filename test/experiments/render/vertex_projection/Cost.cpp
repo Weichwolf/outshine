@@ -1,4 +1,5 @@
 #include "Support.h"
+#include "Input.h"
 #include "GpuSupport.h"
 #include <fstream>
 #include <memory>

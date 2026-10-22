@@ -55,7 +55,14 @@ def main():
     spec.loader.exec_module(shared)
     sources = [
         SOURCE / name
-        for name in ("Cost.cpp", "Support.h", "projection.vert.in", "run.py", "cost.py")
+        for name in (
+            "Cost.cpp",
+            "Support.h",
+            "Input.h",
+            "projection.vert.in",
+            "run.py",
+            "cost.py",
+        )
     ]
     sources += [
         checkout / "src/render/shaders" / name

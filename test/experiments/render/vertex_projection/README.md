@@ -75,6 +75,11 @@ remain needed. Ordered modes remain controls and alternatives; bit agreement alo
 does not justify changing production shaders. The A18 countercheck is recorded at
 that decision, with its original evidence and limits.
 
+The [bounded native envelope](ENVELOPE.md) now accompanies this diagnostic. It
+records coordinate/ratio intervals and CPU work separately, retaining all original
+numeric outputs. Its stated expression-family scope still needs producer
+qualification; no world page may be suppressed from a matching sample alone.
+
 The inspected Iris properties advertise float32 RTE, denormal and signed-zero/
 Inf/NaN preservation. The optional Linux/Vulkan comparison below requests all three
 vertex execution modes explicitly. On the same 65 inputs it retains the same
