@@ -287,6 +287,7 @@ TestProfile() {
     outshine/src/scenario/Views) printf '%s' 'profile/scenario-views' ;;
     outshine/src/render/Viewing) printf '%s' 'profile/render-viewing' ;;
     outshine/src/render/stages/StagePipelines) printf '%s' 'profile/stage-pipelines' ;;
+    outshine/src/render/draw/InstanceDemand) printf '%s' 'profile/instance-demand' ;;
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
     outshine/src/generators/road/FootpathConnectionPlan) printf '%s' 'profile/footpath-plan' ;;
@@ -386,6 +387,7 @@ LayerIncludes() {
     profile/scenario) GroupIncludes src/scenario ;;
     profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
+    profile/instance-demand) GroupIncludes src/render/draw ;;
     profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/terrain' ;;
     profile/shadow-raster) printf '%s' '-Iinclude -Isrc/render/shadow' ;;
     profile/plant-build) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
@@ -585,6 +587,7 @@ LayerGroups() {
     profile/host) SubtreeGroups src/base src/content src/world src/host ;;
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
     profile/ground-patch) printf '%s' 'src/render/terrain/TerrainPatchMesh.cpp src/render/terrain/TerrainPatchError.cpp' ;;
+    profile/instance-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp' ;;
     profile/shadow-raster) printf '%s' 'src/render/shadow/ShadowRaster.cpp' ;;
     profile/scenario-write) printf '%s' "$(LayerGroups profile/scenario) src/scenario/Triggers.cpp src/scenario/Views.cpp" ;;
     profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
