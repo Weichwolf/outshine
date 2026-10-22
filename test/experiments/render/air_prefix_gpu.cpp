@@ -606,6 +606,12 @@ int main(int argc, char **argv) {
     return 2;
   }
   std::unique_ptr<gpu::Device> device;
-  if (!Keep(gpu::CreateDevice({.Validation = true, .GpuTiming = timing}), device)) { return 2; }
+  if (!Keep(gpu::CreateDevice(
+                {.Validation = true,
+                 .GpuTiming = timing ? outshine::Render::Native::GpuTimingMode::Dispatches
+                                     : outshine::Render::Native::GpuTimingMode::None}),
+            device)) {
+    return 2;
+  }
   return Run(*device, argv[1], data, argv[7], repeats, argc == 10 ? argv[9] : nullptr, timing);
 }

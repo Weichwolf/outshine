@@ -10,6 +10,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 | HiGHS | 1.15.1 | [#1003](https://github.com/Weichwolf/outshine/issues/1003) | Begrenzter nativer Treppen-/Wegprofilfit über C-API; ursprüngliche Bedingungen werden nachgerechnet, Weltanbindung noch offen |
 | SQLite | 3.54.0 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
 | Zstandard | 1.5.7 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
+| OpenSSL libcrypto | 3.5.7 | [#1098](https://github.com/Weichwolf/outshine/issues/1098) | Linux-Einmal-Digests für SHA-256; nur tatsächliche SHA-Verbraucher, Apple verwendet CommonCrypto |
 
 Wartung geprüft am 2026-10-20: [GEOS](https://libgeos.org/usage/download/)
 3.15.0 (2026-09),
@@ -45,8 +46,13 @@ brew install ccache geos osqp highs sqlite zstd
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install ccache libgeos-dev libsqlite3-dev libzstd-dev
+sudo apt install ccache libgeos-dev libsqlite3-dev libzstd-dev libssl-dev
 ```
+
+Linux verwendet für Einmal-SHA-256 die Systembibliothek libcrypto; `libssl-dev`
+liefert Header und `libcrypto.pc`. `pkg-config --modversion libcrypto` prüft den Stand.
+Prefix-/Append-Zustände und Cacheformate bleiben erhalten; isolierte native Render-/
+Stage-Profile benötigen libcrypto nicht. Apple bleibt bei CommonCrypto ohne OpenSSL-Paket.
 
 GEOS benötigt mindestens 3.12 (`GEOSOrientPolygons`); die Paketversion mit
 `pkg-config --modversion geos` prüfen. GEOS, SQLite und Zstandard liefern pkg-config-Metadaten.

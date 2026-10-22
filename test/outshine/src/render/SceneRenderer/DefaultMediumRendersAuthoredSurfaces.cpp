@@ -39,7 +39,9 @@ void Exercise(bool timing) {
   Render::GpuSubmission submission;
   submission.Context = &timing;
   submission.Create = [](void *context, Render::Native::DeviceOptions options) {
-    if (!*static_cast<const bool *>(context)) { options.GpuTiming = false; }
+    if (!*static_cast<const bool *>(context)) {
+      options.GpuTiming = outshine::Render::Native::GpuTimingMode::None;
+    }
     return Render::Native::CreateDevice(options);
   };
   Render::SceneRenderer renderer(submission);

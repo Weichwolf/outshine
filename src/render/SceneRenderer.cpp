@@ -186,7 +186,9 @@ bool SceneRenderer::Executable(Stage stage) {
 bool SceneRenderer::Stands() {
   if (Device_) { return true; }
   auto made =
-      Submission_.Create(Submission_.Context, {.Validation = kGpuValidation, .GpuTiming = true});
+      Submission_.Create(Submission_.Context,
+                         {.Validation = kGpuValidation,
+                          .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission});
   if (!made) {
     ActiveState().WhyNot = made.error().Message;
     return false;

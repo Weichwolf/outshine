@@ -68,6 +68,15 @@ HighsFlags() {
   esac
 }
 
+Sha256Flags() {
+  [ "$BUILD_PLATFORM" = Linux ] || return 0
+  pkg-config --exists libcrypto || {
+    printf '%s\n' 'libcrypto required for SHA-256; install libssl-dev with pkg-config metadata' >&2
+    return 1
+  }
+  pkg-config "$1" libcrypto
+}
+
 SpirvCrossFlags() {
   if pkg-config --exists spirv-cross-c-shared; then
     pkg-config "$1" spirv-cross-c-shared
@@ -94,6 +103,12 @@ if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
   pkg-config --libs sdl3 | tr '\n' ' '
   NativeLink
   exit $?
+fi
+
+LINK_FLAGS_PROFILE=
+if [ "$#" -eq 2 ] && [ "$1" = --link-flags ]; then
+  LINK_FLAGS_PROFILE=$2
+  set --
 fi
 
 BUILD=${TMPDIR:-/tmp}
@@ -178,11 +193,11 @@ ReleaseCorpus() {
 
 trap 'KillRunning; ReleaseNest; ReleaseCorpus' EXIT
 
-ClaimCorpus
+if [ -z "$LINK_FLAGS_PROFILE" ]; then ClaimCorpus; fi
 
 NESTLOCK=$BUILD.lock
 NESTLOCK_MINE=no
-if [ "$INHERITED_NEST" != "$BUILD" ]; then
+if [ -z "$LINK_FLAGS_PROFILE" ] && [ "$INHERITED_NEST" != "$BUILD" ]; then
   # the claim and the identity are ONE atomic step: noclobber-create the lock FILE with the
   # pid already inside -- no window in which a second runner reads an empty claim. A stale
   # lock (dead pid) is removed and the claim retried under the same noclobber, so of two
@@ -451,7 +466,7 @@ LayerValidation() {
   esac
 }
 
-LayerLink() {
+LayerLibraryLink() {
   case "$(TestProfile "$1")" in
     profile/calibration|profile/stage-pipelines) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
@@ -459,7 +474,7 @@ LayerLink() {
     profile/road-profile) HighsFlags --libs ;;
     profile/water-targets) printf '%s' '' ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
-    profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
+    profile/client-roundtrip | profile/client-preparation) LayerLibraryLink profile/internal ;;
     profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
     profile/tasks) printf '%s' '-pthread' ;;
     profile/shadow-raster) return 0 ;;
@@ -467,20 +482,33 @@ LayerLink() {
     profile/water-geometry | profile/water-preparation) pkg-config --libs geos; OsqpFlags --libs ;;
     profile/water-worker) printf '%s' "-pthread $(pkg-config --libs geos sdl3) $(OsqpFlags --libs)" ;;
     profile/plant-crown-cache) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
-    profile/plant-spatial-cache) LayerLink profile/plant-crown-cache ;;
+    profile/plant-spatial-cache) LayerLibraryLink profile/plant-crown-cache ;;
     profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
     profile/plant-plan | profile/plant-build | profile/plant-random | profile/plant-recipe | profile/plant-recipe-json | profile/plant-axis-detail | profile/plant-growth | profile/plant-crown | profile/plant-crown-asset | profile/plant-limb) return 0 ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
-    profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLink profile/base ;;
+    profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLibraryLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
-    profile/host) LayerLink profile/world ;;
-    profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs libtiff-4 libwebp) -lcurl" ;;
-    profile/diagnostics) LayerLink profile/internal ;;
-    profile/internal|profile/device) LayerLink profile/engine ;;
+    profile/host) LayerLibraryLink profile/world ;;
+    profile/world) LayerLibraryLink profile/content; printf ' %s' "$(pkg-config --libs libtiff-4 libwebp) -lcurl" ;;
+    profile/diagnostics) LayerLibraryLink profile/internal ;;
+    profile/internal|profile/device) LayerLibraryLink profile/engine ;;
     profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf libtiff-4 libwebp geos sqlite3 libzstd) $(OsqpFlags --libs) $(HighsFlags --libs) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
+}
+
+LayerLink() {
+  for shaGroup in $(LayerGroups "$1"); do
+    case "$shaGroup" in
+      src/base/format|src/base/format/Sha256.cpp)
+        Sha256Flags --libs || return 1
+        printf ' '
+        break
+        ;;
+    esac
+  done
+  LayerLibraryLink "$1"
 }
 
 GeneratorGroups() {
@@ -698,6 +726,10 @@ GroupIncludes() {
   done
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
   case "$1" in
+    src/base/format|src/base/format/Sha256.cpp)
+      shaIncludes=$(Sha256Flags --cflags) || return 1
+      includeSet="$includeSet $shaIncludes"
+      ;;
     src/client|src/client/*) includeSet="$includeSet -Ibuild/generated $(pkg-config --cflags nlohmann_json)" ;;
     src/diagnostics/calibration|src/diagnostics/calibration/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/render/device/native|src/render/device/native/*)
@@ -1078,6 +1110,11 @@ BuildLibrary() {
   done
 
 }
+if [ -n "$LINK_FLAGS_PROFILE" ]; then
+  LayerLink "$LINK_FLAGS_PROFILE"
+  exit $?
+fi
+
 if [ -n "${LIBRARY:-}" ]; then
   [ -n "${COMPILEDB:-}" ] && rm -f "$BUILD/compile_commands.part"
   BuildLibrary
