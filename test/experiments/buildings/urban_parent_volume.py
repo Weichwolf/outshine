@@ -59,7 +59,15 @@ def wall_radiance(parent, points, directions, visibility, profile):
 
 
 def render_volume(
-    parent, origins, directions, profile, *, mode="midpoint", phase_mixture=False
+    parent,
+    origins,
+    directions,
+    profile,
+    *,
+    mode="midpoint",
+    phase_mixture=False,
+    visibility_query=None,
+    extinction_query=None,
 ):
     from urban_parent_light import light_at
 
@@ -102,7 +110,11 @@ def render_volume(
                 / np.maximum(1 - roof_fraction * higher_probability, 1e-15)
             )
             light = light_at(points, profile)[0]
-            visible = shadow_transmission(parent, points, light, mode)
+            visible = (
+                shadow_transmission(parent, points, light, mode)
+                if visibility_query is None
+                else visibility_query(origins[ids], points, light)
+            )
             radiance = shade(
                 points, np.array([0, 0, 1]), -directions[ids], 0.6, visible, profile
             )
@@ -122,12 +134,20 @@ def render_volume(
             )
             centres = centres_at(parent, points, mode) / active_phase[ids]
             survival = parent.probabilities[index:].sum()
-            extinction = centres * (1 - vacancy) * fill / (pitch * scale) * survival
+            extinction = (
+                centres * (1 - vacancy) * fill / (pitch * scale) * survival
+                if extinction_query is None
+                else extinction_query(parent, points, mode)
+            )
             opacity = -np.expm1(
                 -extinction * np.abs(directions[ids, :2]).sum(axis=1) * length
             )
             light = light_at(points, profile)[0]
-            visible = shadow_transmission(parent, points, light, mode)
+            visible = (
+                shadow_transmission(parent, points, light, mode)
+                if visibility_query is None
+                else visibility_query(origins[ids], points, light)
+            )
             radiance = wall_radiance(parent, points, directions[ids], visible, profile)
             colour[ids] += (transmission[ids] * opacity)[:, None] * radiance
             transmission[ids] *= 1 - opacity
