@@ -178,7 +178,7 @@ def run(args):
     plans, needs, surfaces, identity, plan_seconds, archive_hash, cell = plan_cell(
         args, document
     )
-    all_views = views(context, document["anchor_ecef"])
+    all_views = views(document, context)
     named = {
         name: all_views[name] for name in ["static-020", "moving-020", "moving-021"]
     }
