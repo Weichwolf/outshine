@@ -1,9 +1,8 @@
 #include <span>
 #include "Transport.h"
+#include "FeatureField.h"
 #include <array>
-#include <optional>
 #include <cstddef>
-#include <cstdint>
 
 namespace outshine::Generators {
 
@@ -11,27 +10,6 @@ std::span<const char *const> Transport::NoteNames() const noexcept {
   static constexpr std::array<const char *const, kNotes> kNames = {"ways", "widestWayM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
   return {kNames.data(), kNames.size()};
-}
-
-std::optional<Transport::Made> Transport::MadeAt(const Ground &ground, EastNorth at) noexcept {
-  const double eastM = at.EastM;
-  const double northM = at.NorthM;
-  const FeatureField &features = ground.Features();
-  std::optional<Made> made;
-  for (size_t i = 0; i < features.Count(); i++) {
-    const FeatureField::Feature &f = features.At(i);
-    if (f.Kind != FeatureKind::Way || !FeatureField::Boxed(f, {.EastM = eastM, .NorthM = northM})) {
-      continue;
-    }
-
-    const float widthM = f.Form == FeatureForm::Ribbon ? 2.0f * f.HalfWidthM : 0.0f;
-    if (made && widthM <= made->WidthM) { continue; }
-    if (!features.Contains(f, {.EastM = eastM, .NorthM = northM})) { continue; }
-    made = Made{.CoverRow = f.CoverRow,
-                .WidthM = widthM,
-                .SurfaceAslM = ground.HeightAslM({.EastM = eastM, .NorthM = northM})};
-  }
-  return made;
 }
 
 void Transport::Occupy(const Ground &ground, Yield &yield) const noexcept {

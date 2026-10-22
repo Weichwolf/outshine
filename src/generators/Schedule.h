@@ -26,8 +26,6 @@ public:
 
   [[nodiscard]] std::optional<Tile> Widest(LongitudeLatitude over) const;
 
-  [[nodiscard]] Tile Broadest() const;
-
 private:
   struct Offset {
     int X, Y;

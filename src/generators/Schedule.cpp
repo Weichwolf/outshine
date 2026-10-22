@@ -31,10 +31,6 @@ std::optional<Tile> Schedule::At(size_t i, LongitudeLatitude over) const {
   return Tile(Zoom_, ((centre.X() + Offsets_[i].X) % side + side) % side, y);
 }
 
-Tile Schedule::Broadest() const {
-  return {Zoom_, 0, static_cast<int>(1u << static_cast<uint32_t>(Zoom_ - 1))};
-}
-
 std::optional<Tile> Schedule::Widest(LongitudeLatitude over) const {
   std::optional<Tile> widest;
   for (size_t i = 0; i < Offsets_.size(); i++) {
