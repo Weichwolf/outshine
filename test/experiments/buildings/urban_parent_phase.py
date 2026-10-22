@@ -31,7 +31,9 @@ def phase_rays(parent, origins, directions, side):
     return shifted.reshape(-1, 3), np.repeat(directions, side**2, axis=0), weights
 
 
-def render_phase(parent, origins, directions, profile, *, side=4, batch=256):
+def render_phase(
+    parent, origins, directions, profile, *, side=4, batch=256, shadow_transfer=None
+):
     if type(batch) is not int or not 1 <= batch <= 4096:
         raise ValueError("bounded macro packet required")
     colour, coverage = np.empty_like(origins), np.empty(len(origins))
@@ -45,7 +47,17 @@ def render_phase(parent, origins, directions, profile, *, side=4, batch=256):
         rays, directions_at, weights = phase_rays(
             parent, origins[part], directions[part], side
         )
-        rgb, alpha, counts = render_conditional(parent, rays, directions_at, profile)
+        if shadow_transfer is not None:
+            shadow_transfer.prepare(first, len(origins[part]))
+            work["retained_visibility_buffer_peak_bytes"] = max(
+                work.get("retained_visibility_buffer_peak_bytes", 0),
+                shadow_transfer.visibility.nbytes,
+            )
+            if shadow_transfer.phase_side != side:
+                raise ValueError("transfer and rendered phase layout must match")
+        rgb, alpha, counts = render_conditional(
+            parent, rays, directions_at, profile, approximation=shadow_transfer
+        )
         colour[part] = np.einsum("nsc,s->nc", rgb.reshape(-1, side**2, 3), weights)
         coverage[part] = alpha.reshape(-1, side**2) @ weights
         work["phase_rays"] += len(rays)

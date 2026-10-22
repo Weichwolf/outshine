@@ -91,15 +91,60 @@ def events(parent, product, origin, direction, ids, cell, begin, leave):
         yield valid, entry, normal, q * probability
 
 
-def render_packet(parent, product, origins, directions, profile, work):
+def surface_slots(height_index, normals):
+    axis = np.abs(normals).argmax(axis=1)
+    sign = normals[np.arange(len(normals)), axis] < 0
+    code = np.where(axis == 2, 0, 1 + 2 * axis + sign)
+    return height_index * 5 + code
+
+
+def surface_visibility(
+    parent,
+    product,
+    points,
+    normals,
+    history,
+    own,
+    slots,
+    rays,
+    profile,
+    work,
+    approximation,
+):
+    light = light_at(points, profile)[0]
+    lit = np.flatnonzero(np.einsum("ij,ij->i", normals, light) > 0)
+    visibility = np.zeros(len(points))
+    if approximation is not None:
+        estimate = approximation(rays[lit], slots[lit])
+        work["lookup_samples"] = work.get("lookup_samples", 0) + len(lit)
+        known = np.isfinite(estimate) & (estimate >= 0) & (estimate <= 1)
+        visibility[lit[known]] = estimate[known]
+        lit = lit[~known]
+        work["fallback_rays"] = work.get("fallback_rays", 0) + len(lit)
+    h = [(c[rays][lit], z[rays][lit]) for c, z in history]
+    visibility[lit] = expected_shadow(
+        parent,
+        product,
+        points[lit] + normals[lit] * 0.001,
+        light[lit],
+        h,
+        own[lit],
+        work,
+    )
+    return visibility
+
+
+def integrate_packet(
+    parent, product, origins, directions, profile, work, receive, approximation=None
+):
     origin = origins - product["reference_origin_m"]
-    transmission, colour = np.ones(len(origin)), np.zeros_like(origin)
+    transmission = np.ones(len(origin))
     history = []
     shadow_work = {"steps": 0, "cell_ray_visits": 0, "history_cell_comparisons": 0}
     for ids, cell, begin, leave, keep in walk_cells(product, origin, directions, work):
         blocked = np.zeros(len(ids))
-        for valid, entry, normal, probability in events(
-            parent, product, origin, directions, ids, cell, begin, leave
+        for height_index, (valid, entry, normal, probability) in enumerate(
+            events(parent, product, origin, directions, ids, cell, begin, leave)
         ):
             at = np.flatnonzero(valid & (probability > 0))
             work["height_hypothesis_tests"] += len(ids)
@@ -107,24 +152,22 @@ def render_packet(parent, product, origins, directions, profile, work):
                 continue
             rays = ids[at]
             points = origins[rays] + entry[at, None] * directions[rays]
-            own = cell[at]
-            light = light_at(points, profile)[0]
-            lit = np.einsum("ij,ij->i", normal[at], light) > 0
-            visibility = np.zeros(len(rays))
-            h = [(c[rays][lit], z[rays][lit]) for c, z in history]
-            visibility[lit] = expected_shadow(
+            slots = surface_slots(height_index, normal[at])
+            visibility = surface_visibility(
                 parent,
                 product,
-                points[lit] + normal[at][lit] * 0.001,
-                light[lit],
-                h,
-                own[lit],
+                points,
+                normal[at],
+                history,
+                cell[at],
+                slots,
+                rays,
+                profile,
                 shadow_work,
+                approximation,
             )
             weight = transmission[rays] * probability[at]
-            colour[rays] += weight[:, None] * shade(
-                points, normal[at], -directions[rays], 0.6, visibility, profile
-            )
+            receive(rays, slots, points, normal[at], weight, visibility)
             blocked += np.where(valid, probability, 0)
         transmission[ids] *= 1 - blocked
         history.append(
@@ -133,28 +176,33 @@ def render_packet(parent, product, origins, directions, profile, work):
         keep[:] = transmission[ids] > 0
     times = -origins[:, 2] / directions[:, 2]
     points = origins + times[:, None] * directions
-    light = light_at(points, profile)[0]
-    visible = expected_shadow(
+    slots = np.full(len(points), len(parent.heights) * 5, int)
+    normals = np.tile([0.0, 0.0, 1.0], (len(points), 1))
+    visibility = surface_visibility(
         parent,
         product,
-        points + [0, 0, 0.001],
-        light,
+        points,
+        normals,
         history,
         np.full((len(points), 2), -1),
+        slots,
+        np.arange(len(points)),
+        profile,
         shadow_work,
+        approximation,
     )
-    colour += transmission[:, None] * shade(
-        points, np.array([0, 0, 1]), -directions, 0.2, visible, profile
-    )
+    receive(np.arange(len(points)), slots, points, normals, transmission, visibility)
     work["history_peak_bytes"] = max(
         work["history_peak_bytes"], sum(c.nbytes + z.nbytes for c, z in history)
     )
     for key, value in shadow_work.items():
-        work["shadow_" + key] += value
-    return colour, 1 - transmission
+        work["shadow_" + key] = work.get("shadow_" + key, 0) + value
+    return transmission
 
 
-def render_conditional(parent, origins, directions, profile, *, batch=2048):
+def trace_transport(
+    parent, origins, directions, profile, receive, *, batch=2048, approximation=None
+):
     if np.any(directions[:, 2] >= 0) or np.any(origins[:, 2] <= parent.heights[-1]):
         raise ValueError("initial conditional study requires downward rays from above")
     if profile["kind"] == "point" and profile["position"][2] <= parent.heights[-1]:
@@ -172,10 +220,54 @@ def render_conditional(parent, origins, directions, profile, *, batch=2048):
         ],
         0,
     )
-    colour, coverage = np.empty_like(origins), np.empty(len(origins))
+    transmission = np.empty(len(origins))
     for first in range(0, len(origins), batch):
+
+        def sink(rays, *terms, first=first):
+            receive(first + rays, *terms)
+
+        def estimate(rays, slots, first=first):
+            return approximation(first + rays, slots)
+
         part = slice(first, first + batch)
-        colour[part], coverage[part] = render_packet(
-            parent, product, origins[part], directions[part], profile, work
+        transmission[part] = integrate_packet(
+            parent,
+            product,
+            origins[part],
+            directions[part],
+            profile,
+            work,
+            sink,
+            estimate if approximation is not None else None,
         )
+    return 1 - transmission, work
+
+
+def render_conditional(
+    parent, origins, directions, profile, *, batch=2048, approximation=None
+):
+    colour = np.zeros_like(origins)
+
+    def receive(rays, slots, points, normal, weight, visibility):
+        ground = slots == len(parent.heights) * 5
+        for selected, albedo in [(~ground, 0.6), (ground, 0.2)]:
+            at = rays[selected]
+            colour[at] += weight[selected, None] * shade(
+                points[selected],
+                normal[selected],
+                -directions[at],
+                albedo,
+                visibility[selected],
+                profile,
+            )
+
+    coverage, work = trace_transport(
+        parent,
+        origins,
+        directions,
+        profile,
+        receive,
+        batch=batch,
+        approximation=approximation,
+    )
     return colour, coverage, work
