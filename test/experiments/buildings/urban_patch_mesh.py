@@ -4,6 +4,18 @@ import numpy as np
 from urban_patches import descriptors
 
 
+def height_atlas(product, chunks):
+    columns = max(1, int(np.ceil(np.sqrt(len(chunks)))))
+    rows = max(1, int(np.ceil(len(chunks) / columns)))
+    image = np.zeros((rows * product.side, columns * product.side, 4), np.float32)
+    image[:, :, 3] = 1
+    for index, chunk in enumerate(chunks):
+        x, y = index % columns * product.side, index // columns * product.side
+        height = product.heights[product.tiers[chunk]]
+        image[y : y + product.side, x : x + product.side, :3] = height[:, :, None]
+    return image, columns, rows
+
+
 def quad(axis, sign, coordinate, low, high):
     other = [(axis + 1) % 3, (axis + 2) % 3]
     points = np.zeros((4, 3))

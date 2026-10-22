@@ -31,6 +31,47 @@ def memberships(chunks, side, pitch, data):
     return offsets, sources
 
 
+def covered_lots(data, ix, iy, pitch, footprint, side):
+    vacancy = hash_cells(ix, iy, 1105) % 100 >= 15
+    blocks, inverse = np.unique(
+        np.column_stack((ix // side, iy // side)), axis=0, return_inverse=True
+    )
+    low = blocks * side * pitch
+    high = low + side * pitch
+    margin = (
+        64 * np.finfo(float).eps * np.maximum(np.maximum(np.abs(low), np.abs(high)), 1)
+    )
+    broad = shapely.box(
+        low[:, 0] - margin[:, 0],
+        low[:, 1] - margin[:, 1],
+        high[:, 0] + margin[:, 0],
+        high[:, 1] + margin[:, 1],
+    )
+    shapely.prepare(data["allowed"])
+    safe = shapely.covers(data["allowed"], broad)
+    whole = safe[inverse] & vacancy
+    accepted_broad = int(whole.sum())
+    tested = 0
+    half = pitch * footprint / 2
+    for begin in range(0, len(ix), 4096):
+        ids = np.arange(begin, min(begin + 4096, len(ix)))
+        ids = ids[vacancy[ids] & ~whole[ids]]
+        centre = (np.column_stack((ix[ids], iy[ids])) + 0.5) * pitch
+        boxes = shapely.box(
+            centre[:, 0] - half,
+            centre[:, 1] - half,
+            centre[:, 0] + half,
+            centre[:, 1] + half,
+        )
+        whole[ids] = shapely.covers(data["allowed"], boxes)
+        tested += len(ids)
+    return whole, {
+        "patch_domain_tests": len(blocks),
+        "footprint_geometries_tested": tested,
+        "lots_accepted_without_footprint_geometry": accepted_broad,
+    }
+
+
 def bake(
     document, *, projected_pitch_m=32.0, side=8, footprint=0.75, max_cells=1048576
 ):
@@ -55,23 +96,7 @@ def bake(
         raise ValueError("cell work budget exceeded before generating cell arrays")
     ix, iy = np.meshgrid(np.arange(lower[0], upper[0]), np.arange(lower[1], upper[1]))
     ix, iy = ix.ravel(), iy.ravel()
-    whole = np.zeros(count, bool)
-    vacancy = hash_cells(ix, iy, 1105) % 100 >= 15
-    tested = 0
-    half = projected_pitch_m * footprint / 2
-    shapely.prepare(data["allowed"])
-    for begin in range(0, count, 4096):
-        ids = np.arange(begin, min(begin + 4096, count))
-        ids = ids[vacancy[ids]]
-        centre = (np.column_stack((ix[ids], iy[ids])) + 0.5) * projected_pitch_m
-        boxes = shapely.box(
-            centre[:, 0] - half,
-            centre[:, 1] - half,
-            centre[:, 0] + half,
-            centre[:, 1] + half,
-        )
-        whole[ids] = shapely.covers(data["allowed"], boxes)
-        tested += len(ids)
+    whole, work = covered_lots(data, ix, iy, projected_pitch_m, footprint, side)
     xi, yi = ix[whole], iy[whole]
     chunk_ids, inverse = np.unique(
         np.column_stack((xi // side, yi // side)), axis=0, return_inverse=True
@@ -101,6 +126,9 @@ def bake(
         "format_revision": "urban-patch-v1",
         "recipe_revision": "inferred-lattice-v1",
         "source": document["source"],
+        "supporting_sources": [
+            parent["source"] for parent in document.get("parents", [])
+        ],
         "tile": document["tile"],
         "building_layer_present": document["building_layer_present"],
         "status": "inferred_partial_urban"
@@ -112,8 +140,12 @@ def bake(
         "urban_source_rows": data["urban_rows"],
         "urban_area_projected_m2": data["urban_area_projected_m2"],
         "allowed_area_projected_m2": data["allowed_area_projected_m2"],
+        "owner_area_projected_m2": data["owner_area_projected_m2"],
+        "unknown_urban_evidence_area_projected_m2": max(
+            0.0, data["owner_area_projected_m2"] - data["urban_area_projected_m2"]
+        ),
         "cells_considered": count,
-        "footprint_geometries_tested": tested,
+        **work,
         "occupied_lots": len(xi),
         "patches": len(chunk_ids),
         "whole_lot_setback": "Boundary-crossing lots are not generated; urban evidence remains in provenance, not declared empty.",

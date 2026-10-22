@@ -2,9 +2,10 @@
 
 import bpy
 import numpy as np
+from urban_patch_mesh import height_atlas
 
 
-def material(product, chunk=None):
+def material(product, chunks=None):
     result = bpy.data.materials.new("same neutral city PBR")
     result.use_nodes = True
     result.use_backface_culling = True
@@ -12,7 +13,7 @@ def material(product, chunk=None):
     principled.inputs["Base Color"].default_value = (0.6, 0.6, 0.6, 1)
     principled.inputs["Metallic"].default_value = 0
     principled.inputs["Roughness"].default_value = 0.7
-    if chunk is None:
+    if chunks is None:
         return result
     result.surface_render_method = "DITHERED"
     result.use_transparent_shadow = True
@@ -33,29 +34,36 @@ def material(product, chunk=None):
         node.attribute_name = name
         return node.outputs["Fac"]
 
+    rgba, columns, rows = height_atlas(product, chunks)
     image = bpy.data.images.new(
         "unlit discrete city heights",
-        width=product.side,
-        height=product.side,
+        width=rgba.shape[1],
+        height=rgba.shape[0],
         alpha=True,
         float_buffer=True,
     )
     image.colorspace_settings.name = "Non-Color"
-    height = product.heights[product.tiers[chunk]].astype(np.float32)
-    rgba = np.ones((product.side, product.side, 4), np.float32)
-    rgba[:, :, :3] = height[:, :, None]
     image.pixels.foreach_set(rgba.ravel())
     image.update()
+    result["height_field_payload_bytes"] = int(rgba.nbytes)
     texture = nodes.new("ShaderNodeTexImage")
     texture.image, texture.interpolation, texture.extension = image, "Closest", "CLIP"
     uv = nodes.new("ShaderNodeUVMap")
     uv.uv_map = "grid uv"
-    links.new(uv.outputs["UV"], texture.inputs["Vector"])
     colour = nodes.new("ShaderNodeSeparateColor")
     links.new(texture.outputs["Color"], colour.inputs[0])
     height_value = colour.outputs[0]
     split = nodes.new("ShaderNodeSeparateXYZ")
     links.new(uv.outputs["UV"], split.inputs[0])
+    atlas = nodes.new("ShaderNodeCombineXYZ")
+    patch = math("ROUND", attribute("patch index"))
+    column = math("MODULO", patch, columns)
+    row = math("FLOOR", math("DIVIDE", patch, columns))
+    links.new(
+        math("DIVIDE", math("ADD", split.outputs[0], column), columns), atlas.inputs[0]
+    )
+    links.new(math("DIVIDE", math("ADD", split.outputs[1], row), rows), atlas.inputs[1])
+    links.new(atlas.outputs[0], texture.inputs["Vector"])
     kind = attribute("plane kind")
     roof_height = attribute("plane height")
     margins = (1 - float(product.frame[4])) / 2
@@ -97,9 +105,11 @@ def install(scene, arrays, product, chunks, masked):
         attribute = mesh.attributes.new(label, "FLOAT", "POINT")
         attribute.data.foreach_set("value", arrays[key])
     if masked:
-        for chunk in chunks:
-            mesh.materials.append(material(product, chunk))
-        mesh.polygons.foreach_set("material_index", arrays["material"])
+        attribute = mesh.attributes.new("patch index", "FLOAT", "POINT")
+        attribute.data.foreach_set(
+            "value", np.repeat(arrays["material"], 4).astype(np.float32)
+        )
+        mesh.materials.append(material(product, chunks))
     else:
         mesh.materials.append(material(product))
     obj = bpy.data.objects.new("ready city", mesh)
@@ -108,8 +118,8 @@ def install(scene, arrays, product, chunks, masked):
         "quads": len(arrays["quads"]),
         "materials": len(mesh.materials),
         "masked": masked,
-        "diagnostic_image_payload_bytes": len(chunks) * product.side**2 * 4 * 4
-        if masked
-        else 0,
+        "diagnostic_image_payload_bytes": int(
+            mesh.materials[0].get("height_field_payload_bytes", 0)
+        ),
         "mask_rule": "Categorical nearest height; continuous footprint/height tests. Dithered camera and shadow alpha; no baked lighting.",
     }

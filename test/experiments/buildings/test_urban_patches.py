@@ -10,9 +10,10 @@ from pathlib import Path
 import numpy as np
 import shapely
 from coarse_city_domains import domains
-from urban_patch_bake import bake
-from urban_patch_mesh import build
+from urban_patch_bake import bake, hash_cells
+from urban_patch_mesh import build, height_atlas
 from urban_patch_trace import trace
+from urban_patch_projection import projected_work
 from urban_patches import UrbanPatches, load
 
 
@@ -89,6 +90,121 @@ def source_document():
 
 
 class UrbanPatchTest(unittest.TestCase):
+    def test_chunk_acceptance_matches_individual_geos_footprint_predicates(self):
+        document = source_document()
+        product, metadata = bake(document)
+        data = domains(document)
+        left, bottom, right, top = data["tile_bounds"]
+        pitch = 32.0
+        lower = np.ceil(np.array([left, bottom]) / pitch - 0.5).astype(np.int64)
+        upper = np.ceil(np.array([right, top]) / pitch - 0.5).astype(np.int64)
+        expected = set()
+        for y in range(lower[1], upper[1]):
+            for x in range(lower[0], upper[0]):
+                if hash_cells(np.array([x]), np.array([y]), 1105)[0] % 100 < 15:
+                    continue
+                centre = (np.array([x, y]) + 0.5) * pitch
+                if shapely.covers(
+                    data["allowed"], shapely.box(*(centre - 12), *(centre + 12))
+                ):
+                    expected.add((x, y))
+        actual = {
+            (int(key[0] * product.side + x), int(key[1] * product.side + y))
+            for row, key in enumerate(product.chunks)
+            for y, x in np.argwhere(product.tiers[row] > 0)
+        }
+        self.assertEqual(actual, expected)
+        self.assertGreater(metadata["lots_accepted_without_footprint_geometry"], 0)
+
+    def test_projected_work_counts_front_geometry_and_clips_viewport(self):
+        mesh = {
+            "positions": np.array(
+                [[-0.5, -0.5, 1], [-0.5, 0.5, 1], [0.5, 0.5, 1], [0.5, -0.5, 1]]
+            ),
+            "quads": np.array([[0, 1, 2, 3]]),
+        }
+        camera = {
+            "eye": [0, 0, 0],
+            "camera_basis": np.eye(3),
+            "width": 200,
+            "height": 200,
+            "focal_px": 100,
+        }
+        report = projected_work(mesh, camera)
+        self.assertAlmostEqual(report["projected_geometric_pixel_area"], 10000)
+        mesh["positions"][:, :2] *= 4
+        self.assertAlmostEqual(
+            projected_work(mesh, camera)["projected_geometric_pixel_area"], 40000
+        )
+        mesh["quads"] = mesh["quads"][:, ::-1]
+        self.assertEqual(
+            projected_work(mesh, camera)["projected_geometric_pixel_area"], 0
+        )
+
+    def test_parent_urban_evidence_fills_unknown_without_removing_child_exclusions(
+        self,
+    ):
+        child = source_document()
+        before, _ = bake(child)
+        parent = copy.deepcopy(child)
+        parent["tile"] = [13, 4096, 4096]
+        parent["source"]["sha256"] = "synthetic-parent"
+        parent["layers"] = {
+            "landuse": parent["layers"]["landuse"],
+            "transportation": parent["layers"]["transportation"],
+        }
+        child["layers"]["landuse"]["features"][0]["properties"]["class"] = (
+            "unclassified"
+        )
+        child["parents"] = [parent]
+        after, metadata = bake(child)
+        self.assertGreater((after.tiers > 0).sum(), 0)
+        self.assertEqual(
+            metadata["urban_area_projected_m2"], metadata["owner_area_projected_m2"]
+        )
+        self.assertTrue(
+            any(
+                row["role"] == "superseded_by_finer_transport_evidence"
+                for row in metadata["source_records"]
+            )
+        )
+        rows = {tuple(key): i for i, key in enumerate(after.chunks)}
+        for i, key in enumerate(before.chunks):
+            occupied = before.tiers[i] > 0
+            np.testing.assert_array_equal(
+                before.tiers[i][occupied], after.tiers[rows[tuple(key)]][occupied]
+            )
+        data = domains(child)
+        left, _bottom, right, top = data["tile_bounds"]
+        step = (right - left) / 4096
+        self.assertFalse(
+            shapely.covers(
+                data["allowed"], shapely.Point(left + 1500 * step, top - 1500 * step)
+            )
+        )
+        self.assertLess(
+            data["allowed_area_projected_m2"], data["owner_area_projected_m2"]
+        )
+
+    def test_one_atlas_preserves_every_selected_patch_without_filtering_tiers(self):
+        product = example()
+        product.chunks = np.array([[0, 0], [1, 0]], np.int32)
+        product.tiers = np.concatenate((product.tiers, np.flip(product.tiers, axis=1)))
+        product.bounds = np.repeat(product.bounds, 2, axis=0)
+        product.bounds[1, :, 0] += 48
+        product.source_offsets = np.array([0, 1, 2], np.uint32)
+        product.source_indices = np.array([0, 0], np.uint32)
+        selected = [1, 0, 1]
+        image, columns, rows = height_atlas(product, selected)
+        self.assertEqual((columns, rows), (2, 2))
+        for i in range(3):
+            wanted = product.heights[product.tiers[selected[i]]].astype(np.float32)
+            x, y = i % columns * product.side, i // columns * product.side
+            np.testing.assert_array_equal(
+                image[y : y + product.side, x : x + product.side, 0], wanted
+            )
+        self.assertTrue((image[product.side :, product.side :, :3] == 0).all())
+
     def test_exact_mask_depth_identity_and_normals_against_boxes(self):
         product = example()
         rng = np.random.default_rng(1105)

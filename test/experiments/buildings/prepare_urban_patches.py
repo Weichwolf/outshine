@@ -23,6 +23,7 @@ def camera_cases(target):
         "reverse": [650, 750, 160],
         "elevated": [250, -700, 500],
         "moving": [-492, -800, 130],
+        "far": [-5000, -10000, 1200],
     }.items():
         eye = target + offset
         forward = target - eye
@@ -40,19 +41,40 @@ def camera_cases(target):
     return result
 
 
-def image_rays(camera):
+def image_rays(camera, extent):
     right, up, forward = np.array(camera["camera_basis"])
-    x, y = np.meshgrid(np.linspace(0.5, 1279.5, 64), np.linspace(0.5, 719.5, 36))
+    local = (extent - camera["eye"]) @ np.array([right, up, forward]).T
+    low, high = np.array([0.5, 0.5]), np.array([1279.5, 719.5])
+    if np.all(local[:, 2] > 0.1):
+        pixels = local[:, :2] / local[:, 2, None] * camera["focal_px"]
+        pixels = pixels * [1, -1] + [640, 360]
+        low = np.maximum(low, pixels.min(axis=0))
+        high = np.minimum(high, pixels.max(axis=0))
+    x, y = np.meshgrid(
+        np.linspace(low[0], high[0], 64), np.linspace(low[1], high[1], 36)
+    )
     directions = forward + (x.ravel() - 640)[:, None] / camera["focal_px"] * right
     directions -= (y.ravel() - 360)[:, None] / camera["focal_px"] * up
     directions /= np.linalg.norm(directions, axis=1)[:, None]
     return np.broadcast_to(camera["eye"], directions.shape).copy(), directions
 
 
-def verify_views(product, chunks, cameras):
+def verify_views(product, chunks, cameras, output):
     reports = {}
+    origins_all, directions_all = [], []
+    extent = np.array(
+        [
+            [x, y, z]
+            for low, high in product.bounds[chunks]
+            for x in [low[0], high[0]]
+            for y in [low[1], high[1]]
+            for z in [low[2], high[2]]
+        ]
+    )
     for name, camera in cameras.items():
-        origins, directions = image_rays(camera)
+        origins, directions = image_rays(camera, extent)
+        origins_all.append(origins)
+        directions_all.append(directions)
         rows = {}
         results = []
         for mode in ["boxes", "masks"]:
@@ -71,6 +93,12 @@ def verify_views(product, chunks, cameras):
             "exact_depth_owner_face_normal": True,
             **rows,
         }
+    np.savez_compressed(
+        output / "rays.npz",
+        origins=np.concatenate(origins_all),
+        directions=np.concatenate(directions_all),
+        chunks=chunks,
+    )
     return reports
 
 
@@ -100,6 +128,7 @@ def run(args):
             },
         }
     )
+    (args.output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     centres = np.array(
         [
             product.origin(i) + product.side * product.pitch / 2
@@ -114,7 +143,7 @@ def run(args):
     chunks = np.argsort(np.linalg.norm(centres - anchor, axis=1), kind="stable")[:64]
     target = np.array([*centres[chunks].mean(axis=0), 12.0])
     cameras = camera_cases(target)
-    point_reports = verify_views(product, chunks, cameras)
+    point_reports = verify_views(product, chunks, cameras, args.output)
     for mode in ["boxes", "masks"]:
         arrays = build(product, chunks, mode)
         arrays["positions"] -= np.array([*target[:2], 0])
