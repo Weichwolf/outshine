@@ -6,6 +6,7 @@
 #include "math/Vec3.h"
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -24,6 +25,12 @@ struct UrbanAreaRecipe {
   double ProjectedPitchM = 32;
   double FillFraction = DefaultFillFraction;
   uint32_t PatchSide = 8;
+
+  [[nodiscard]] bool Valid() const noexcept {
+    return std::isfinite(ProjectedPitchM) && ProjectedPitchM >= 8 && ProjectedPitchM <= 512 &&
+           std::isfinite(FillFraction) && FillFraction > 0 && FillFraction < 1 && PatchSide > 0 &&
+           PatchSide <= 32;
+  }
 };
 
 struct UrbanAreaLimits {

@@ -36,12 +36,8 @@ bool ValidInput(const UrbanAreaInput &input) {
 }
 
 bool Valid(const UrbanArea &area) {
-  const auto &recipe = area.Recipe;
   const uint64_t cells = static_cast<uint64_t>(area.Columns) * area.Rows;
-  if (!std::isfinite(recipe.ProjectedPitchM) || recipe.ProjectedPitchM < 8 ||
-      recipe.ProjectedPitchM > 512 || !std::isfinite(recipe.FillFraction) ||
-      recipe.FillFraction <= 0 || recipe.FillFraction >= 1 || recipe.PatchSide == 0 ||
-      recipe.PatchSide > 32 || !std::isfinite(area.MetresPerProjectedMetre) ||
+  if (!area.Recipe.Valid() || !std::isfinite(area.MetresPerProjectedMetre) ||
       area.MetresPerProjectedMetre <= 0 || area.MetresPerProjectedMetre > 1 ||
       !std::ranges::all_of(area.ProjectedOriginM, [](double v) { return std::isfinite(v); }) ||
       ((area.Columns == 0) != (area.Rows == 0)) || cells > kCellsMost ||
