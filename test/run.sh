@@ -271,6 +271,7 @@ TestProfile() {
     outshine/src/client/BenchmarkReport) printf '%s' 'profile/benchmark-report' ;;
     outshine/src/scenario/Views) printf '%s' 'profile/scenario-views' ;;
     outshine/src/render/Viewing) printf '%s' 'profile/render-viewing' ;;
+    outshine/src/render/stages/StagePipelines) printf '%s' 'profile/stage-pipelines' ;;
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
     outshine/src/generators/road/FootpathConnectionPlan) printf '%s' 'profile/footpath-plan' ;;
@@ -336,6 +337,7 @@ LayerIncludes() {
     profile/benchmark-options|profile/benchmark-report) GroupIncludes src/client ;;
     profile/scenario-views) GroupIncludes src/scenario ;;
     profile/render-viewing) GroupIncludes src/render ;;
+    profile/stage-pipelines) GroupIncludes src/render/stages ;;
     profile/client-boundary) printf '%s' '-I.' ;;
     profile/footpath-plan) GroupIncludes src/generators/road/plan ;;
     profile/road-profile) GroupIncludes src/generators/road/profile ;;
@@ -451,7 +453,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$(TestProfile "$1")" in
-    profile/calibration) pkg-config --libs sdl3; NativeLink ;;
+    profile/calibration|profile/stage-pipelines) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
     profile/footpath-plan) return 0 ;;
     profile/road-profile) HighsFlags --libs ;;
@@ -504,6 +506,7 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/stage-pipelines) printf '%s' "src/render/stages/StagePipelines.cpp src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp $(NativeGroups)" ;;
     profile/calibration) printf '%s' "src/diagnostics/calibration $(NativeGroups) src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp src/base/io/HostProcessor.cpp" ;;
     profile/benchmark-motion) printf '%s' 'src/client/BenchmarkMotion.cpp src/base/math/Camera.cpp src/base/math/Rotation.cpp' ;;
     profile/benchmark-options) printf '%s' 'src/client/BenchmarkOptions.cpp' ;;
@@ -1893,7 +1896,7 @@ fi
 
 for selectedTest in $TESTS; do
   case "$(TestProfile "$(dirname "${selectedTest#test/}")")" in
-    profile/engine|profile/internal|profile/device|profile/calibration|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
+    profile/engine|profile/internal|profile/device|profile/calibration|profile/stage-pipelines|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
       make shaders || Die "selected tests require prepared shaders"
       break
       ;;

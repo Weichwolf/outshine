@@ -1,6 +1,10 @@
 """Preserve header reachability and ordered resolution across compile contexts."""
 
 import importlib.util
+import os
+import re
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -82,6 +86,53 @@ class HeaderTraversal(unittest.TestCase):
         later = self.write('src/Later.h')
         next_run = CONTRACT.HeaderDependencies(self.root)
         self.assertEqual(next_run.read(source, []), {source, later})
+
+
+class NativeStageDependencies(unittest.TestCase):
+    root = SCRIPT.parents[2]
+    required = {'src/render/stages/StagePipelines.cpp',
+                'src/render/device/SpirvFile.cpp', 'src/base/io/ReadTextFile.cpp'}
+
+    def sources(self, declaration):
+        names = {'SourceUnits', 'NativeGroups', 'GeneratorGroups', 'EngineRootGroups',
+                 'SubtreeGroups', 'TestProfile', 'LayerGroups'}
+        functions = []
+        collecting = False
+        for line in declaration.splitlines():
+            if line.removesuffix('() {') in names and line.endswith('() {'):
+                collecting = True
+            if collecting:
+                functions.append(line)
+                if line == '}':
+                    collecting = False
+        environment = dict(os.environ)
+        environment['SOURCE_UNITS'] = subprocess.check_output(
+            [sys.executable, 'test/scripts/source_units.py'], cwd=self.root, text=True)
+        environment['SOURCE_DIRECTORIES'] = '\n'.join(
+            str(path.relative_to(self.root)) for path in (self.root / 'src').rglob('*')
+            if path.is_dir())
+        command = '\n'.join(functions) + (
+            '\nfor group in $(LayerGroups outshine/src/render/stages/StagePipelines); '
+            'do SourceUnits "$group"; done\n')
+        result = subprocess.run(['sh', '-eu', '-c', command], cwd=self.root,
+                                env=environment, capture_output=True, text=True, check=True)
+        return result.stdout.splitlines()
+
+    def test_native_stage_sources_stay_in_their_declared_components(self):
+        units = self.sources((self.root / 'test/run.sh').read_text())
+        self.assertEqual(len(units), len(set(units)))
+        self.assertTrue(self.required <= set(units))
+        self.assertTrue(any(unit.startswith('src/render/device/native/') for unit in units))
+        self.assertEqual([unit for unit in units if unit not in self.required and
+                          not unit.startswith('src/render/device/native/')], [])
+
+    def test_original_fallback_reintroduces_unrelated_implementations(self):
+        original = (self.root / 'test/run.sh').read_text()
+        fallback, count = re.subn(
+            r'(?m)^    outshine/src/render/stages/StagePipelines\).*\n', '', original, count=1)
+        self.assertEqual(count, 1)
+        units = self.sources(fallback)
+        self.assertTrue(any(unit.startswith(('src/engine/', 'src/generators/')) for unit in units))
 
 
 if __name__ == '__main__':
