@@ -2,6 +2,7 @@
 
 import itertools
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 from urban_parent_conditional import (
@@ -9,6 +10,7 @@ from urban_parent_conditional import (
     grid,
     primary_cap,
     render_conditional,
+    trace_transport,
 )
 from urban_parent_light import light_at, shade
 from urban_parent_stats import UrbanParent
@@ -85,6 +87,65 @@ def brute_image(heights, origins, directions, profile):
 
 
 class ConditionalParentTest(unittest.TestCase):
+    def test_equal_wall_lighting_is_shared_without_merging_height_labels(self):
+        parent = UrbanParent(
+            np.ones((1, 1, 3)),
+            np.array([0, 0, 1, 16, 16, 0.75, 0.15]),
+            np.array([6.0, 12.0, 24.0, 48.0]),
+            np.array([0.62, 0.28, 0.08, 0.02]),
+        )
+        o, d = np.array([[-8.0, 8.0, 2.0]]), np.array([[1.0, 0.0, 0.0]])
+        p = {
+            "kind": "sun",
+            "direction": [-0.4, 0.3, 0.7],
+            "intensity": 3.0,
+            "ambient": 0.1,
+        }
+        deliveries = []
+
+        def receive(rays, slots, points, normals, weight, visibility):
+            if len(rays):
+                deliveries.append((slots.copy(), weight.copy(), visibility.copy()))
+
+        with patch(
+            "urban_parent_conditional.expected_shadow",
+            side_effect=lambda parent, product, points, *args: np.full(
+                len(points), 0.4
+            ),
+        ) as shadow:
+            _, work = trace_transport(parent, o, d, p, receive)
+            self.assertEqual(
+                sum(len(call.args[2]) for call in shadow.call_args_list), 1
+            )
+        self.assertEqual(len(deliveries), 4)
+        self.assertEqual(len({int(row[0][0]) for row in deliveries}), 4)
+        np.testing.assert_allclose(
+            [row[1][0] for row in deliveries], 0.85 * parent.probabilities
+        )
+        self.assertEqual(work["shadow_shared_wall_visibilities"], 3)
+        expected = deliveries.copy()
+        deliveries.clear()
+        with patch(
+            "urban_parent_conditional.expected_shadow",
+            side_effect=lambda parent, product, points, *args: np.full(
+                len(points), 0.4
+            ),
+        ) as shadow:
+            trace_transport(
+                parent,
+                o,
+                d,
+                p,
+                receive,
+                approximation=lambda rays, slots: np.full(len(rays), np.nan),
+            )
+            self.assertEqual(
+                sum(len(call.args[2]) for call in shadow.call_args_list), 4
+            )
+        for first, second in zip(expected, deliveries, strict=True):
+            for a, b in zip(first, second, strict=True):
+                np.testing.assert_array_equal(a, b)
+
     def test_known_miss_conditions_mutually_exclusive_heights(self):
         parent = UrbanParent(
             np.ones((2, 2, 3)),

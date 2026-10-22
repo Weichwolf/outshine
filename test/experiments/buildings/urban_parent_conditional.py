@@ -142,10 +142,18 @@ def surface_visibility(
     profile,
     work,
     approximation,
+    wall_visibility=None,
 ):
     light = light_at(points, profile)[0]
-    lit = np.flatnonzero(np.einsum("ij,ij->i", normals, light) > 0)
     visibility = np.zeros(len(points))
+    shared = np.zeros(len(points), bool)
+    if wall_visibility is not None and approximation is None:
+        shared = (normals[:, 2] == 0) & np.isfinite(wall_visibility[rays])
+        visibility[shared] = wall_visibility[rays[shared]]
+        work["shared_wall_visibilities"] = work.get(
+            "shared_wall_visibilities", 0
+        ) + int(shared.sum())
+    lit = np.flatnonzero((np.einsum("ij,ij->i", normals, light) > 0) & ~shared)
     if profile["kind"] == "point":
         above = points[lit, 2] > parent.heights[-1]
         visibility[lit[above]] = 1
@@ -171,6 +179,9 @@ def surface_visibility(
         own[lit],
         work,
     )
+    if wall_visibility is not None and approximation is None:
+        wall = normals[:, 2] == 0
+        wall_visibility[rays[wall]] = visibility[wall]
     return visibility
 
 
@@ -223,6 +234,7 @@ def integrate_packet(
         "history_cell_comparisons": 0,
         "primary_condition_tests": 0,
         "conditioning_peak_bytes": 0,
+        "shared_wall_visibilities": 0,
     }
     maximum = stop if stop is not None else None
     if covered_grid(product, product.get("primary_covered", ())):
@@ -237,6 +249,13 @@ def integrate_packet(
         if not len(ids):
             continue
         blocked = np.zeros(len(ids))
+        wall_visibility = (
+            np.full(len(origin), np.nan) if approximation is None else None
+        )
+        work["wall_visibility_peak_bytes"] = max(
+            work.get("wall_visibility_peak_bytes", 0),
+            0 if wall_visibility is None else wall_visibility.nbytes,
+        )
         for height_index, (valid, entry, normal, probability) in enumerate(
             events(parent, product, origin, directions, ids, cell, begin, leave)
         ):
@@ -259,6 +278,7 @@ def integrate_packet(
                 profile,
                 shadow_work,
                 approximation,
+                wall_visibility,
             )
             weight = transmission[rays] * probability[at]
             receive(rays, slots, points, normal[at], weight, visibility)
