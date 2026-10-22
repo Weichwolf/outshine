@@ -21,6 +21,11 @@ class Materials:
     metres: np.ndarray
 
 
+@dataclass
+class IndexedMaterials(Materials):
+    edge_offsets: np.ndarray
+
+
 def material_tables(prisms, recipes):
     count = len(prisms.planes)
     frames, heights, metric = [], [], []
@@ -98,20 +103,25 @@ def material_fields(materials, prisms, owners, planes, points):
     bay = np.remainder(code, 256).astype(np.float32)
     vertical = local[:, 2].astype(np.float32)
     metre = np.zeros((len(points), 2), np.float32)
-    a, e = materials.edge[planes, :2], materials.edge[planes, 2:]
+    wall_indices = planes[wall]
+    offsets = getattr(materials, "edge_offsets", None)
+    if offsets is not None:
+        wall_indices = (
+            offsets[owners[wall]] + planes[wall] - prisms.offsets[owners[wall]] - 1
+        )
+    a, e = materials.edge[wall_indices, :2], materials.edge[wall_indices, 2:]
     length = np.hypot(e[:, 0], e[:, 1])
-    dot = np.sum((local[:, :2] - a) * e, axis=1)
-    fraction = np.divide(
-        dot, length * length, out=np.zeros(len(points)), where=length > 0
-    )
+    dot = np.sum((local[wall, :2] - a) * e, axis=1)
+    fraction = np.divide(dot, length * length, out=np.zeros(len(dot)), where=length > 0)
     bay[wall] = (
-        np.where(gable[wall], 0, materials.bays[planes[wall]]) * fraction[wall]
+        np.where(gable[wall], 0, materials.bays[wall_indices]) * fraction
     ).astype(np.float32)
     vertical[wall] = np.float32(1) + (
         (local[wall, 2] - seat[wall] - foot[wall]) / floor[wall]
     ).astype(np.float32)
-    take = wall & materials.metres[owners]
-    metre[take, 0] = (dot[take] / length[take]).astype(np.float32)
+    metric = materials.metres[owners[wall]]
+    take = np.flatnonzero(wall)[metric]
+    metre[take, 0] = (dot[metric] / length[metric]).astype(np.float32)
     metre[take, 1] = (local[take, 2] - (seat[take] + foot[take])).astype(np.float32)
     return {
         "code": code,
@@ -176,7 +186,9 @@ def load_product(path):
         }
 
     prisms = Prisms(**group("prism_"))
-    materials = Materials(**group("material_"))
+    material = group("material_")
+    cls = IndexedMaterials if "edge_offsets" in material else Materials
+    materials = cls(**material)
     hierarchy = Hierarchy(arrays["node_bounds"], arrays["node_children"])
     fallback = group("fallback_")
     fallback["vertex_normal"] = unpack(fallback["normal"])
@@ -224,7 +236,7 @@ def render_product(product, origins, directions):
         work = {"node_ray_tests": 0, "primitive_ray_tests": 0, "plane_ray_tests": 0}
     good = owner >= 0
     work["material_hit_queries"] = int(good.sum())
-    work["material_record_operand_bytes"] = 195 * int(good.sum())
+
     work["fallback_field_queries"] = 0
     fields = {
         "code": np.zeros(len(depth), np.int32),
@@ -242,6 +254,12 @@ def render_product(product, origins, directions):
     )
     for k, field in fields.items():
         field[good] = values[k]
+    wall_queries = int((values["code"] >= 0).sum())
+    work["material_wall_queries"] = wall_queries
+    work["material_record_operand_bytes"] = (
+        161 * int(good.sum())
+        + (42 if isinstance(materials, IndexedMaterials) else 34) * wall_queries
+    )
     source = np.full(len(depth), -1, np.int32)
     part = source.copy()
     source[good], part[good] = prisms.binding[owner[good]].T
@@ -254,8 +272,12 @@ def render_product(product, origins, directions):
         for k, field in fields.items():
             field[use] = values[k][use]
         depth[use] = t[use]
-        source[use] = fallback["binding"][f[use], 1]
-        part[use] = fallback["binding"][f[use], 2]
+        if "binding" in fallback:
+            source[use] = fallback["binding"][f[use], 1]
+            part[use] = fallback["binding"][f[use], 2]
+        else:
+            source[use] = fallback["source_id"][f[use]]
+            part[use] = fallback["part_id"][f[use]] if len(fallback["part_id"]) else -1
         fallback_owner[use] = prisms.fallback_faces[f[use]]
         owner[use], plane[use] = -1, -1
     work["attribute_output_bytes"] = sum(a.nbytes for a in fields.values())
