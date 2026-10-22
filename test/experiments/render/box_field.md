@@ -50,14 +50,18 @@ Its arrays total515086B:515066 hierarchy bytes+5×4 palette bytes, excluding Pyt
 objects, construction scratch, outputs and traversal scratch. The native611×611 /
 247741 control remains a different input. Do not substitute one for the other.
 
-At160×90 rays, the elevated full-field query uses roughly0.08s vs0.61s in Python;
-all executed3D slab tests fall from about3.08M to0.58M. Low view reverses the time
-ranking despite fewer tests. Exact commands/results belong to the linked issue.
+At160×90 rays, direct DDA uses roughly0.02s versus0.08s for the hierarchy in the
+elevated full field; executed3D slab tests are100319 versus584722. Low view also
+favours DDA, roughly0.02s versus0.09s. The earlier0.61s direct result only rejected
+rays at the3D envelope, then started DDA at its2D boundary. It counted empty space
+above the roofs. The corrected control clips the actual traversal interval too.
+Exact commands/results belong to the linked issue.
 Independent triangle controls, random/ragged fields, full-precision fallback,
 periodic gaps, empty fields, inside exits and packet partitioning are tested.
 The dense no-zero palette counterexample must keep padded nodes empty.
 
-The hierarchy merits native comparison, not automatic production selection.
+Direct DDA is the preferred current opponent; hierarchy storage alone proves no
+traversal advantage. Native comparison does not select a production renderer.
 Terrain variation, Earth curvature, filtered pixel footprints, moving-view/TAA
 stability, material/light/shadow composition, warm asset IO and both GPU budgets
 remain open. Filtered unresolved parents remain #1113; no smaller LOD error follows.

@@ -102,7 +102,9 @@ def test_columns(
     return tests
 
 
-def trace(product, origins, directions, *, intersect_columns=test_columns):
+def trace(
+    product, origins, directions, *, intersect_columns=test_columns, ray_bounds=None
+):
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     if (
         origins.shape != directions.shape
@@ -130,6 +132,12 @@ def trace(product, origins, directions, *, intersect_columns=test_columns):
     near = np.where(parallel, -np.inf, t.min(1))
     far = np.where(parallel, np.inf, t.max(1))
     begin, end = np.maximum(0.1, near.max(1)), far.min(1)
+    if ray_bounds is not None:
+        ray_bounds = np.asarray(ray_bounds, float)
+        if ray_bounds.shape != (len(origin), 2) or np.isnan(ray_bounds).any():
+            raise ValueError("one non-NaN traversal interval per ray required")
+        begin = np.maximum(begin, ray_bounds[:, 0])
+        end = np.minimum(end, ray_bounds[:, 1])
     missed = np.any(
         parallel & ((origin[:, :2] < bounds[0]) | (origin[:, :2] >= bounds[1])), axis=1
     )

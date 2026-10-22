@@ -121,7 +121,7 @@ class BoxField:
         high[:, :2] -= inset
         return low, high
 
-    def root_hits(self, origins, directions):
+    def root_intervals(self, origins, directions):
         inset = (1 - self.fill) * self.pitch / 2
         low = np.array([inset, inset, 0.0])
         high = [
@@ -130,7 +130,11 @@ class BoxField:
             self.maximum_height,
         ]
         entry, leave, _, _ = intervals(origins, directions, low, high)
-        return (entry <= leave) & (leave > 0.1) & (high[2] > 0)
+        return entry, leave
+
+    def root_hits(self, origins, directions):
+        entry, leave = self.root_intervals(origins, directions)
+        return (entry <= leave) & (leave > 0.1) & (self.maximum_height > 0)
 
     def leaf_hits(self, origins, directions, x, y):
         low, high = self.boxes(0, x, y)
@@ -146,7 +150,10 @@ class BoxField:
 
     def trace_direct(self, origins, directions):
         origins, directions = validate_rays(origins, directions)
-        keep = np.flatnonzero(self.root_hits(origins, directions))
+        entry, leave = self.root_intervals(origins, directions)
+        keep = np.flatnonzero(
+            (entry <= leave) & (leave > 0.1) & (self.maximum_height > 0)
+        )
         depth, normal = np.full(len(origins), np.inf), np.zeros_like(origins)
 
         def intersect(product, origin, direction, ids, cell, begin, leave, d, n, owner):
@@ -166,7 +173,11 @@ class BoxField:
             "header": {"pitch_m": self.pitch},
         }
         d, n, _, work = trace_columns(
-            product, origins[keep], directions[keep], intersect_columns=intersect
+            product,
+            origins[keep],
+            directions[keep],
+            intersect_columns=intersect,
+            ray_bounds=np.column_stack((entry[keep], leave[keep])),
         )
         depth[keep], normal[keep] = d, n
         work["box_ray_tests"] = len(origins) + work["interval_ray_tests"]

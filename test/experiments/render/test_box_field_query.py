@@ -8,6 +8,15 @@ from triangle_image_reference import box_grid_source, intersect_source, prepare_
 
 
 class BoxFieldTests(unittest.TestCase):
+    def test_direct_starts_at_the_three_dimensional_field_entry(self):
+        field = BoxField(np.full((1000, 1), 6.0), 1.0, 1.0)
+        origins = np.array([[0.5, -0.25, 100.0]])
+        directions = np.array([[0.0, 1.0, -0.1]])
+        depth, normal, work = field.trace_direct(origins, directions)
+        np.testing.assert_allclose(depth, [940.0])
+        np.testing.assert_array_equal(normal, [[0, 0, 1]])
+        self.assertLessEqual(work["interval_ray_tests"], 2)
+
     def check_methods(self, field, origins, directions):
         a = field.trace_direct(origins, directions)
         b = field.trace_hierarchy(origins, directions)
