@@ -3,7 +3,7 @@
 #include "GeometryRenderer.h"
 #include "Gpu.h"
 #include "SurfaceState.h"
-#include "VertexArms.h"
+#include "DrawList.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include "test/harness/render/NativeGpuCheck.h"
 

@@ -72,7 +72,7 @@ inline constexpr std::array kComputeShaders = {
         .Shape = {.ReadOnlyBuffers = 5, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64}},
     ComputeShaderDescriptor{.Id = ComputeShaderId::SubjectScan,
                             .Path = "build/shaders/subjectScanKernel.comp.spv",
-                            .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .GroupX = 256}},
+                            .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .GroupX = 32}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::SubjectCompact,
         .Path = "build/shaders/subjectCompactKernel.comp.spv",

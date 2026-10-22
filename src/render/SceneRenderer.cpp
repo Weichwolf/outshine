@@ -585,32 +585,6 @@ Native::Texture *SceneRenderer::Target(const FrameResources &frame, Resource res
   return nullptr;
 }
 
-Native::Buffer *SceneRenderer::BufferFor(Resource resource) const {
-  const GeometryResidency &resident = ActiveState().Content.Geometry.Resident();
-  switch (resource) {
-    case Resource::ClusterSphere:
-      return resident.Buffer(GeometryResidency::Stream::ClusterSpheres).get();
-    case Resource::ClusterIndex: return resident.Buffer(GeometryResidency::Stream::Index).get();
-    case Resource::ClusterJobs:
-      return resident.Buffer(GeometryResidency::Stream::ClusterJobs).get();
-    case Resource::ClusterBatches:
-      return resident.Buffer(GeometryResidency::Stream::ClusterBatches).get();
-    case Resource::ClusterKept:
-      return resident.Buffer(GeometryResidency::Stream::ClusterKept).get();
-    case Resource::ClusterSlot:
-      return resident.Buffer(GeometryResidency::Stream::ClusterSlot).get();
-    case Resource::DrawIndex: return resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
-    case Resource::DrawArguments:
-      return resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
-    case Resource::IrradianceBuffer: return ActiveFrame().IrradianceBuffer.get();
-    case Resource::DepthPyramid: return ActiveFrame().Pyramid.get();
-    case Resource::GroundPyramid: return ActiveFrame().GroundPyramid.get();
-    case Resource::GroundSelection:
-      return ActiveState().Content.Geometry.Ground().SelectedPatches();
-    default: return nullptr;
-  }
-}
-
 DisplayOptions SceneRenderer::Display() const {
   DisplayOptions options;
   options.Exposure = ActiveState().Plan->Exposure();

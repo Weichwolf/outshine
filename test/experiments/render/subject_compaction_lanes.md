@@ -17,7 +17,7 @@ job lengths. It predicts unchanged copy counts and 1,610,560 / 3,221,120 /
 6,442,240 launched invocations respectively. Those operational counts do not
 substitute for issued SIMD instructions, actual visibility or measured GPU time.
 
-The existing native scan/compact fixture also uses representative original job
+The original three-batch native scan/compact fixture used representative original job
 lengths 3,18,72,381,384, with skipped jobs, three batches, partial tails and guard
 words. All three variants pass 120,913 native checks each: output words, scanned
 slots, arguments and untouched guards agree with the independent CPU reference.
@@ -75,3 +75,39 @@ Originals and commands: `/tmp/outshine-engine-compact-lanes-2ec263b57/`, includi
 initially omitted the shipped asset path; the failed control and cancelled next
 run contain no measurement window. Corrected variants resolve the same frozen
 asset root; invalid attempts are excluded from this table and retained compactly.
+
+## Metal integration comparison
+
+The shared integration preserves the expanded scan fixture: boundary counts around
+32/64/128/256 and the original longest1939-job batch with384indices each. Other
+jobs use3/18/72/381/384indices. Real Metal execution passes1,118,443word/slot/argument/
+guard checks with API validation. Pipeline metadata, including stale128rejection,
+and the camera-motion visibility consumer pass. Only SubjectCompact SPIR-V differs;
+the other521shaders are byte-identical.
+
+A18 Pro/Metal, fresh offline processes, unchanged original scenario contents,
+1280x720/60, fill0.6/TAA/240km, exactly60frames/360degrees per window. API/shader
+validation unset; no concurrent native build/lint/render. A is128, B is64.
+
+| Place | Run | GPU p50 ms | GPU p99 ms |
+|---|---|---:|---:|
+| Feldkirch | A1 |13.293|21.993|
+| Feldkirch | B |13.418|17.925|
+| Feldkirch | A2 |12.868|24.208|
+| Tokyo | A1 |13.054|22.086|
+| Tokyo | B |14.188|18.755|
+| Tokyo | A2 |13.376|21.319|
+| Tokyo | B2 |12.956|18.518|
+| Tokyo | A3 |13.319|29.960|
+
+All eight windows are complete with0unrefined; each image is byte-identical to its
+qualified original. Candidate images were opened. The bounded extra Tokyo pair
+checks the first slower candidate; it does not reproduce a consistent slowdown.
+Metal frame gains remain unproved, as do causal RSS differences; p99 remains over
+16.67ms. The common choice is supported by Iris compaction time and exact results,
+not a universal frame-speedup claim. Movement detail residency remains #1045.
+
+Root originals: system-temp pointer `/tmp/outshine-compact64-integration-task.txt`,
+with immutable per-process receipts, process snapshots, compute words/checks,
+source/library/binary hashes and `all-normal-comparison.json`. The current source
+commit and integration lint verdict are recorded in #1069 / PR#1071.

@@ -555,28 +555,6 @@ bool Corridors::FindCrossings(const Path::Network &net,
   return true;
 }
 
-void Corridors::Crosses(const Paving &on, Paved &into) {
-  auto partAt = std::chrono::steady_clock::now();
-  const auto part = [&partAt] {
-    const auto was = partAt;
-    partAt = std::chrono::steady_clock::now();
-    return std::chrono::duration<double, std::milli>(partAt - was).count();
-  };
-
-  if (on.Network == nullptr) { return; }
-  const Path::Network &net = *on.Network;
-  into.CrossNetworkMs = part();
-
-  std::vector<Path::Network::Crossing> crossed;
-  if (!FindCrossings(net, crossed, into)) { return; }
-  into.CrossSweepMs = part();
-  for (const Path::Network::Crossing &one : crossed) { FileCrossing(one, on, net, into); }
-  SettleCrossings(on, into);
-  into.CrossFilingMs = part();
-  for (const Path::Network::Crossing &one : crossed) { RaiseDeckOver(one, on, net, into); }
-  into.CrossDecksMs = part();
-}
-
 std::optional<Corridors::Ends>
 Corridors::EndsOf(const Paving &on, const ::outshine::Generators::Osm::StreetField::Way &lane) {
   const std::span<const double> points = on.Vectors.Points();
@@ -620,16 +598,6 @@ void Corridors::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &i
     }
     found->second = std::max(found->second, deckM);
   }
-}
-
-Corridors::BridgeTopology Corridors::BridgeTopologyOf(const Paving &on) {
-  const ::outshine::Generators::Osm::StreetField &ways = on.Ways;
-  BridgeTopology topology{.EndsOfWay = std::vector<Ends>(ways.Ways().size()),
-                          .HasEnds = std::vector<uint8_t>(ways.Ways().size()),
-                          .WaysAt = {},
-                          .PlaceOf = {}};
-  for (size_t at = 0; at < ways.Ways().size(); ++at) { AppendBridgeTopology(on, at, topology); }
-  return topology;
 }
 
 void Corridors::AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology) {
@@ -685,24 +653,6 @@ Corridors::RelevantBridgeEnds(const Paving &on, const BridgeTopology &topology, 
   return ordered;
 }
 
-void Corridors::SeedsBridgeEnds(const Paving &on, Paved &into) {
-  const BridgeTopology topology = BridgeTopologyOf(on);
-  const std::vector<uint64_t> ordered = RelevantBridgeEnds(on, topology, into);
-  for (const uint64_t key : ordered) {
-    const auto place = topology.PlaceOf.find(key);
-    if (place == topology.PlaceOf.end()) { continue; }
-    const std::optional<Grounded> under = GroundUnder(on, place->second);
-    if (!under) { continue; }
-    into.EndM.insert_or_assign(key, under->GradeM);
-    into.GroundEndM.insert_or_assign(key, under->GradeM);
-  }
-  for (size_t at = 0; at < on.Ways.Ways().size(); ++at) {
-    if (topology.HasEnds[at] != 0 && on.Ways.Ways()[at].Bridge && into.DeckM[at] > kUnraisedDeckM) {
-      RaisesEnds(topology.EndsOfWay[at].Key, into.DeckM[at], into);
-    }
-  }
-}
-
 double Corridors::HighestDeckM(const Paved &over) {
   double mostDeckM = 0.0;
   for (const auto &one : over.EndM) {
@@ -711,10 +661,6 @@ double Corridors::HighestDeckM(const Paved &over) {
     mostDeckM = std::max(mostDeckM, one.second - seeded->second);
   }
   return mostDeckM;
-}
-
-void Corridors::EasesRamps(const Paving &on, double mostDeckM, Paved &into) {
-  for (int pass = 0; pass < kRampPasses; ++pass) { EaseRampPass(on, mostDeckM, into); }
 }
 
 void Corridors::EaseRampPass(const Paving &on, double mostDeckM, Paved &into) {
@@ -786,22 +732,6 @@ void Corridors::RecordBridgeConnectionMetrics(Paved &into) {
         "crossings");
   Notes(into, "streets: decks a crossing raised", static_cast<double>(into.DecksRaised), "decks");
   Notes(into, "streets: and the most one stands over what it crosses", into.MostRaisedM, "m");
-}
-
-void Corridors::ResolveBridgeConnections(const Paving &on, Paved &into) {
-  auto began = std::chrono::steady_clock::now();
-  const auto elapsed = [&began] {
-    const auto previous = began;
-    began = std::chrono::steady_clock::now();
-    return std::chrono::duration<double, std::milli>(began - previous).count();
-  };
-  SeedsBridgeEnds(on, into);
-  Notes(into, "streets: of raising decks, seeding bridge ends", elapsed(), "ms");
-  Notes(into, "streets: the highest deck a ramp must reach", HighestDeckM(into), "m");
-  EasesRamps(on, HighestDeckM(into), into);
-  Notes(into, "streets: of raising decks, easing ramps", elapsed(), "ms");
-  GradesApproaches(on, into);
-  Notes(into, "streets: of raising decks, grading approaches", elapsed(), "ms");
 }
 
 void Corridors::SplitsEdges(Paved &into) {
@@ -969,15 +899,6 @@ Bound RayOf(const Bound &along) {
   return ray;
 }
 
-}
-
-std::unordered_map<uint64_t, std::vector<Corridors::Leg>> Corridors::LegsOf(const Paving &on,
-                                                                            const Paved &into) {
-  std::unordered_map<uint64_t, std::vector<Leg>> legsAt;
-  for (uint32_t edgeAt = 0; edgeAt < static_cast<uint32_t>(into.Edges.size()); ++edgeAt) {
-    AppendLeg(on, into, edgeAt, legsAt);
-  }
-  return legsAt;
 }
 
 void Corridors::AppendLeg(const Paving &on,
@@ -1219,26 +1140,6 @@ bool Corridors::IsContinuation(const Paving &on, std::span<const Leg> legs, cons
   return true;
 }
 
-void Corridors::ShapesJunctions(const Paving &on, Paved &into) {
-  std::unordered_map<uint64_t, std::vector<Leg>> legsAt = LegsOf(on, into);
-  std::vector<uint64_t> nodes;
-  for (const auto &one : legsAt) {
-    if (one.second.size() >= 2) { nodes.push_back(one.first); }
-  }
-  std::ranges::sort(nodes);
-  for (const uint64_t node : nodes) {
-    std::vector<Leg> &legs = legsAt[node];
-    std::ranges::sort(legs, ByBearing);
-    if (IsContinuation(on, legs, into)) {
-      ++into.Continuations;
-      continue;
-    }
-    ShapeOf(on, node, legs, into);
-  }
-  for (Edge &edge : into.Edges) { LimitEndCuts(edge, into); }
-  for (Junction &made : into.Junctions) { FinalizeJunction(on, made, into); }
-}
-
 void Corridors::RecordJunctionMetrics(Paved &into) {
   Notes(
       into, "streets: edges the ways split into", static_cast<double>(into.Edges.size()), "edges");
@@ -1304,16 +1205,6 @@ void Corridors::BindJunctionPorts(const Junction &made, Paved &into) {
     edge.EndPorts[leg.End] =
         RoadPort{.Gate = gate, .Plane = {.SlopeE = made.SlopeE, .SlopeN = made.SlopeN}};
   }
-}
-
-size_t Corridors::RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const {
-  for (const Junction &one : into.Junctions) {
-    Sweeper_.Junction(std::span<const RoadGate>(one.Gates.data(), one.Gates.size()),
-                      {.SlopeE = one.SlopeE, .SlopeN = one.SlopeN},
-                      one.WearsLinear,
-                      pavement);
-  }
-  return into.Junctions.size();
 }
 
 void Corridors::TellsWhatTheFitFound(Paved &into) {

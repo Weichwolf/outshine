@@ -21,7 +21,7 @@
 #include <cstddef>
 
 #include "KernelShape.h"
-#include "VertexArms.h"
+#include "DrawList.h"
 #include "TerrainRenderer.h"
 #include "GeometryResidency.h"
 #include "GpuPlacement.h"
@@ -76,7 +76,6 @@ public:
 
   using SourceOptions = SurfaceOutputs;
 
-  [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
   [[nodiscard]] static const char *
   FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
   static constexpr size_t kSubjectFragmentStorage = 3;

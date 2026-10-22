@@ -1,13 +1,12 @@
 """Remove obsolete Outshine build artifacts; retain inputs, references and active work."""
 import argparse
 import os
-from pathlib import Path
 import shutil
 import stat
 import subprocess
 import tempfile
 import time
-
+from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 PROTECTED = {"outshine-content", "outshine-prepared", "outshine-reference-images"}
@@ -65,10 +64,15 @@ def disposable_worktree(repo, path, fields, roots, keep, active):
         return False
     if not path.name.startswith("outshine-") or not any(root in path.parents for root in roots):
         return False
-    if busy(path, active) or git(path, "status", "--porcelain").strip():
+    if busy(path, active):
+        return False
+    try:
+        if git(path, "status", "--porcelain").strip():
+            return False
+    except (OSError, subprocess.CalledProcessError):
         return False
     merged = subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor",
-                             fields["HEAD"], "master"], capture_output=True)
+                             fields["HEAD"], "master"], capture_output=True, check=False)
     if merged.returncode != 0:
         return False
     build = path / "build"
@@ -109,15 +113,15 @@ def candidates(repo, roots, keep, active, hours):
             elif path.is_dir() and path.name.startswith(("outshine-lint.", "outshine-lint-docs.")):
                 if old(path, 7 * 24):
                     result.append(("report", path, {}))
-            elif path.is_file() and path.name.startswith("outshine-") and path.suffix == ".log":
-                if old(path, 7 * 24):
-                    result.append(("log", path, {}))
+            elif (path.is_file() and path.name.startswith("outshine-") and
+                  path.suffix == ".log" and old(path, 7 * 24)):
+                result.append(("log", path, {}))
         benchmark = root / "outshine-provider-review"
         if benchmark.is_dir() and owned(benchmark) and not busy(benchmark, active):
             for path in benchmark.iterdir():
-                if path.is_dir() and path.name.startswith(("bulk-", "mixed-map-", "coverage-")):
-                    if owned(path) and old(path, hours):
-                        result.append(("benchmark", path, {}))
+                if (path.is_dir() and path.name.startswith(("bulk-", "mixed-map-", "coverage-"))
+                        and owned(path) and old(path, hours)):
+                    result.append(("benchmark", path, {}))
     return result
 
 

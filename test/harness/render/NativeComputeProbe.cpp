@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -31,7 +33,28 @@ Data Inputs() {
   constexpr uint32_t sourceBias = 17;
   Data data;
   uint32_t first = 0;
-  for (const auto count : {301u, 1u, 399u}) {
+  constexpr uint32_t longestObservedBatch = 1939;
+  constexpr uint32_t rejectedBatch = 17;
+  constexpr uint32_t acceptedBatch = 18;
+  for (const auto count : {301u,
+                           1u,
+                           399u,
+                           0u,
+                           31u,
+                           32u,
+                           33u,
+                           63u,
+                           64u,
+                           65u,
+                           127u,
+                           128u,
+                           129u,
+                           255u,
+                           256u,
+                           257u,
+                           longestObservedBatch,
+                           7u,
+                           7u}) {
     const auto batch = static_cast<uint32_t>(data.Batches.size() / 2);
     data.Batches.insert(data.Batches.end(), {first, count});
     const auto base = static_cast<uint32_t>(data.Draw.size());
@@ -40,9 +63,9 @@ Data Inputs() {
     for (uint32_t i = 0; i < count; ++i) {
       const auto job = first + i;
       constexpr std::array<uint32_t, 5> lengths{3, 18, 72, 381, 384};
-      const auto indices = lengths[job % lengths.size()];
+      const auto indices = count == longestObservedBatch ? 384u : lengths[job % lengths.size()];
       const auto source = static_cast<uint32_t>(data.Source.size());
-      const bool visible = job % 5 != 0;
+      const bool visible = batch != rejectedBatch && (batch == acceptedBatch || job % 5 != 0);
       data.Kept.push_back(visible ? indices : 0);
       data.Slots.push_back(visible ? kept : std::numeric_limits<uint32_t>::max());
       data.Jobs.insert(data.Jobs.end(), {0, batch, source, indices});
@@ -88,7 +111,8 @@ void ScanCompact(Device &device, const char *scanPath, const char *compactPath) 
   const std::vector<uint32_t> emptySlots(data.Slots.size(), 0);
   auto slots = Upload(device, *commands, emptySlots);
   auto initialArgs = data.Args;
-  for (size_t at = 0; at < initialArgs.size(); at += 5) { initialArgs[at] = 0; }
+  constexpr uint32_t staleCount = 0xdeadbeefu;
+  for (size_t at = 0; at < initialArgs.size(); at += 5) { initialArgs[at] = staleCount; }
   auto args = Upload(device, *commands, initialArgs);
   const std::vector<uint32_t> untouched(data.Draw.size(), 0xdeadbeefu);
   auto draw = Upload(device, *commands, untouched);
@@ -98,8 +122,10 @@ void ScanCompact(Device &device, const char *scanPath, const char *compactPath) 
       commands->Dispatch(*scan, scanBindings, {.X = std::numeric_limits<uint32_t>::max()});
   CHECK(!overflowing && overflowing.error().Kind == ErrorKind::Invalid,
         "dispatch grid multiplication cannot overflow shader coordinates");
-  Require(commands->Dispatch(*scan, scanBindings, {.X = 3}));
+  Require(commands->Dispatch(
+      *scan, scanBindings, {.X = static_cast<uint32_t>(data.Batches.size() / 2)}));
   CullConstants constants;
+  constants.Jobs = static_cast<uint32_t>(data.Kept.size());
   const std::array compactBindings{
       Storage(0, 0, *jobs),
       Storage(0, 1, *source),

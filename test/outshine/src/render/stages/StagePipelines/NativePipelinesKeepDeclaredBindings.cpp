@@ -47,6 +47,11 @@ int main() {
               rejected.error().Message.contains("declared compute bindings"),
           "native SPIR-V reflection rejects each incorrect binding count or group dimension");
   }
+  auto staleScan = *FindComputeShader(ComputeShaderId::SubjectScan);
+  staleScan.Shape.GroupX = 256;
+  const auto stale = CompileComputePipeline(**device, staleScan);
+  CHECK(!stale && stale.error().Kind == Native::ErrorKind::Invalid,
+        "the native subject scan rejects the previous workgroup size");
   auto missing = depth;
   missing.Path = "build/shaders/no-such-stage.comp.spv";
   const auto absent = CompileComputePipeline(**device, missing);

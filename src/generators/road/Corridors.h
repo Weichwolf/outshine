@@ -265,7 +265,6 @@ private:
   static bool FindCrossings(const Path::Network &network,
                             std::vector<Path::Network::Crossing> &crossed,
                             Paved &into);
-  static void Crosses(const Paving &on, Paved &into);
 
   struct Ends {
     std::array<uint64_t, 2> Key{};
@@ -292,7 +291,6 @@ private:
     std::unordered_map<uint64_t, LongitudeLatitude> PlaceOf;
   };
 
-  [[nodiscard]] static BridgeTopology BridgeTopologyOf(const Paving &on);
   static void AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology);
   [[nodiscard]] static std::vector<uint64_t>
   RelevantBridgeEnds(const Paving &on, const BridgeTopology &topology, const Paved &into);
@@ -301,13 +299,8 @@ private:
 
   static void EaseRampPass(const Paving &on, double mostDeckM, Paved &into);
 
-  static void EasesRamps(const Paving &on, double mostDeckM, Paved &into);
-
   static void GradesApproaches(const Paving &on, Paved &into);
 
-  static void SeedsBridgeEnds(const Paving &on, Paved &into);
-
-  static void ResolveBridgeConnections(const Paving &on, Paved &into);
   static void RecordBridgeConnectionMetrics(Paved &into);
 
   [[nodiscard]] static double StepAlongM(std::span<const RoadStation> along, size_t at);
@@ -322,8 +315,6 @@ private:
   static void HeightConstraints(const Paving &on, Paved &into, HeightGraph &graph);
   [[nodiscard]] static std::expected<void, std::string_view> PlanHeights(const Paving &on,
                                                                          Paved &into);
-  [[nodiscard]] static std::unordered_map<uint64_t, std::vector<Leg>> LegsOf(const Paving &on,
-                                                                             const Paved &into);
   static void AppendLeg(const Paving &on,
                         const Paved &into,
                         uint32_t edgeAt,
@@ -344,7 +335,6 @@ private:
   AppendJunctionTerrainStamp(const Junction &made, double rootsM, bool elevated, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
   static bool IsContinuation(const Paving &on, std::span<const Leg> legs, const Paved &into);
-  static void ShapesJunctions(const Paving &on, Paved &into);
   static void RecordJunctionMetrics(Paved &into);
   static void LimitEndCuts(Edge &edge, const Paved &into);
   static void FinalizeJunction(const Paving &on, Junction &made, Paved &into);
@@ -361,8 +351,6 @@ private:
 
   void PaveLane(
       const Paving &on, Pass pass, size_t laneAt, Paved &into, RoadMeshBuffers &pavement) const;
-
-  [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const;
 
   static void TellsWhatTheFitFound(Paved &into);
 

@@ -20,6 +20,8 @@ public:
 
   [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override;
 
+  [[nodiscard]] bool KnownEmptySurface(const StructurePlan &plan) const noexcept override;
+
   [[nodiscard]] bool HasSurfaceProjection() const noexcept override { return true; }
 
   [[nodiscard]] std::expected<ProjectedStructureMesh, StructureMeshError>
