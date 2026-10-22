@@ -43,7 +43,7 @@ def load(path):
     )
 
 
-def rays(field, width, height, altitude, supersample):
+def camera(field, altitude):
     side = max(field.rows, field.columns) * field.pitch
     eye = np.array([field.columns * field.pitch / 2, -side * 0.2, altitude])
     target = np.array(
@@ -54,6 +54,11 @@ def rays(field, width, height, altitude, supersample):
     right = np.cross(forward, [0, 0, 1.0])
     right /= np.linalg.norm(right)
     up = np.cross(right, forward)
+    return np.array([eye, forward, right, up])
+
+
+def rays(field, width, height, altitude, supersample):
+    eye, forward, right, up = camera(field, altitude)
     w, h = width * supersample, height * supersample
     x, y = np.meshgrid(
         (np.arange(w) + 0.5 - w / 2) / w, (h / 2 - np.arange(h) - 0.5) / w

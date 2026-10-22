@@ -48,6 +48,12 @@ def main():
         Path(__file__),
         FIXED / "FixedPatch.cpp",
         FIXED / "FixedPatch.h",
+        FIXED / "UncertainPatch.cpp",
+        FIXED / "IntegerUncertainty.cpp",
+        FIXED / "UncertainPatch.h",
+        SOURCE.parent / "vertex_projection/Envelope.cpp",
+        SOURCE.parent / "vertex_projection/Envelope.h",
+        SOURCE.parent / "vertex_projection/Input.h",
         FIXED / "Exact.h",
         FIXED / "run.py",
         Path(shared.__file__),
@@ -84,6 +90,9 @@ def main():
                 SOURCE / "MeshPairs.cpp",
                 SOURCE / "Probe.cpp",
                 FIXED / "FixedPatch.cpp",
+                FIXED / "UncertainPatch.cpp",
+                FIXED / "IntegerUncertainty.cpp",
+                SOURCE.parent / "vertex_projection/Envelope.cpp",
             ),
             cflags=shlex.split(
                 subprocess.check_output(["pkg-config", "--cflags", "gmp"], text=True)
@@ -125,7 +134,12 @@ def main():
             steps,
         )
         equivalence = []
-        for name in ("native-first-edge", "native-aligned-normals"):
+        for name in (
+            "native-first-edge",
+            "native-aligned-normals",
+            "native-uncertain",
+            "native-uncertain-integer",
+        ):
             for kind in ("colour", "depth"):
                 original = output / "gpu" / f"{name}.{kind}.f32"
                 reduced = output / "gpu" / f"{name}-reduced.{kind}.f32"

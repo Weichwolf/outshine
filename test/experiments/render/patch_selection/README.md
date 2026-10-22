@@ -95,6 +95,22 @@ and original outputs remain local evidence; they are not production algorithms o
 independently certified mesh-union implementations. The maintained comparison is
 only the two source-preserving pair policies above.
 
+## Projection uncertainty comparison
+
+The aligned candidate ranking is also shared by two interval-valued controls:
+exact rational erosion and fixed-width integer certification. Both use the
+projection envelope from `../vertex_projection/` with its explicitly restricted
+arithmetic model. Construction, independent oracle, supported domains and open
+producer contracts are described once in
+[UNCERTAINTY.md](../fixed_coverage/UNCERTAINTY.md).
+
+On the same subset they retain 308 and 310 cells respectively, versus the
+exact-input reference's 316. Both reduce 128 packets to 42 without changing their
+own R32F/D32F buffers. This compares different safe interior proposals; the integer
+method is not an exact implementation of the rational erosion polygon. Unknown
+inputs remain needed. Preparation and ranking are reported separately, and no
+world-load or page-admission claim follows from these isolated controls.
+
 ## Costs and reproduction
 
 The selector records edge records, sort comparisons, neighbor candidates and
@@ -122,8 +138,9 @@ nonmanifold adjacency, inconsistent winding, invalid indices, empty input and
 nonfinite positions. Envelope checks cover repeated/nearer/farther depth, an
 empty subpixel patch, invalid profile and nonfinite depth. Every actual pair is
 checked for source topology preservation.
-The four original/reduced cases run with the original 37 synthetic GPU cases, eight
-CPU grid-profile checks, exact source/grid/D32 checks and reverse draw ordering.
+The eight original/reduced cases run with the original 37 synthetic GPU cases,
+20 uncertainty fixtures, eight CPU grid-profile checks, exact source/grid/D32
+checks and reverse draw ordering.
 `reduction-equivalence.json` records the actual original/reduced buffer comparisons.
 Images and detailed evidence stay in the explicit temporary output directory.
 

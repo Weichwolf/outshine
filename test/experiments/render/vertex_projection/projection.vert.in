@@ -1,0 +1,57 @@
+#version 450
+layout(std140, set = 1, binding = 0) uniform Input {
+  mat4 model;
+  mat4 viewProj;
+  vec4 shift;
+  vec4 point;
+  uvec4 options;
+} s;
+layout(location = 0) flat out vec4 measured;
+struct GpuPlacement { mat4 current; };
+
+vec4 controlledMultiply(mat4 m, vec4 p) {
+  precise vec4 result;
+  for (int row = 0; row < 4; ++row) {
+    precise float sum = m[3][row] * p.w;
+    sum = fma(m[2][row], p.z, sum);
+    sum = fma(m[1][row], p.y, sum);
+    sum = fma(m[0][row], p.x, sum);
+    result[row] = sum;
+  }
+  return result;
+}
+
+vec4 unfusedMultiply(mat4 m, vec4 p) {
+  precise vec4 result;
+  for (int row = 0; row < 4; ++row) {
+    precise float sum = m[0][row] * p.x;
+    sum = sum + m[1][row] * p.y;
+    sum = sum + m[2][row] * p.z;
+    sum = sum + m[3][row] * p.w;
+    result[row] = sum;
+  }
+  return result;
+}
+
+void main() {
+  vec3 p = s.point.xyz;
+  if (s.options.x == 0u) {
+    GpuPlacement placement = GpuPlacement(s.model);
+@LIT_POSITION@
+  } else if (s.options.x == 1u) {
+    GpuPlacement placed = GpuPlacement(s.model);
+@FLAT_POSITION@
+  } else if (s.options.x == 2u) {
+    precise vec4 stable = controlledMultiply(s.model, vec4(p, 1.0));
+    precise vec4 world = stable + vec4(s.shift.xyz, 0.0);
+    gl_Position = controlledMultiply(s.viewProj, world);
+  }
+  if (s.options.x == 3u) {
+    precise vec4 stable = unfusedMultiply(s.model, vec4(p, 1.0));
+    precise vec4 world = stable + vec4(s.shift.xyz, 0.0);
+    gl_Position = unfusedMultiply(s.viewProj, world);
+  }
+  measured = gl_Position;
+  const vec2 fullscreen[3] = vec2[3](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+  gl_Position = vec4(fullscreen[gl_VertexIndex], 0.0, 1.0);
+}

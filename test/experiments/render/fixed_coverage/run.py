@@ -40,7 +40,12 @@ def main():
     database = (args.compile_database or checkout / "compile_commands.json").resolve()
     shared = helpers()
     commands = []
+    fixed_cases = (
+        SOURCE.parents[3]
+        / "test/outshine/data/render/fixed_coverage/uncertain-patches.json"
+    )
     sources = [
+        fixed_cases,
         *sorted(SOURCE.glob("*.cpp")),
         *sorted(SOURCE.glob("*.h")),
         *sorted(SOURCE.glob("*.glsl")),
@@ -48,6 +53,8 @@ def main():
         SOURCE / "patch.frag",
         Path(__file__),
         Path(shared.__file__),
+        SOURCE.parent / "vertex_projection/Envelope.h",
+        SOURCE.parent / "vertex_projection/Input.h",
     ]
     receipt = {
         "native_checkout": str(checkout),
@@ -107,7 +114,13 @@ def main():
             database,
             output,
             commands,
-            sources=(SOURCE / "FixedPatch.cpp", SOURCE / "Probe.cpp"),
+            sources=(
+                SOURCE / "FixedPatch.cpp",
+                SOURCE / "UncertainPatch.cpp",
+                SOURCE / "IntegerUncertainty.cpp",
+                SOURCE / "Probe.cpp",
+                SOURCE / "CaseInput.cpp",
+            ),
             cflags=shlex.split(
                 subprocess.check_output(["pkg-config", "--cflags", "gmp"], text=True)
             ),
@@ -120,6 +133,7 @@ def main():
         if sys.platform == "darwin":
             environment = dict(os.environ, MTL_DEBUG_LAYER="1")
         command = [binary, output, output / "result.json"]
+        command.append(str(fixed_cases))
         if args.cases:
             command.append(str(args.cases.resolve()))
         shared.execute(
