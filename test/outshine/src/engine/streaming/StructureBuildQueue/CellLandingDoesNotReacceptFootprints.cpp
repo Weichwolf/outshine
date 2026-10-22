@@ -45,6 +45,66 @@ struct TemporaryCache {
   }
 };
 
+void CheckViewReplacement(outshine::Ground::SurfacePreparation &stack,
+                          const outshine::Generators::Osm::BuildingField &source,
+                          const outshine::StructureBuildQueue::HeightSource &heights,
+                          outshine::LongitudeLatitude eye) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  auto prints = source.SnapshotAccepted();
+  Tasks pool(1);
+  Generators::BuildingMesh mesher;
+  StructureBuildQueue queue;
+  queue.Opens(&pool, &mesher);
+  const auto originalKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
+  const auto sourceRevision = prints.Revision();
+  bool ready = true;
+  const auto viewReady = [&ready](uint32_t) { return ready; };
+  const auto post = [&] {
+    return queue.Posts(stack,
+                       prints,
+                       eye,
+                       heights,
+                       1,
+                       StructureBuildQueue::HeightRequirement::FineOnly,
+                       std::nullopt,
+                       StructureBuildQueue::BuildPurpose::ViewDetail,
+                       viewReady);
+  };
+  prints.BeginRefinement();
+  CHECK(post() == 0 && queue.Queued() == 0 && prints.RefinementComplete(),
+        "valid published view does not repeat source or geometry work");
+  ready = false;
+  size_t posted = 0;
+  for (int attempt = 0; attempt < 100 && posted == 0; ++attempt) {
+    posted += post();
+    if (posted == 0) { (void)queue.AwaitSlice(0.01); }
+  }
+  CHECK(posted == 1 && queue.Queued() == 1,
+        "missing view product requests replacement even when its physical source is unchanged");
+  if (posted != 1) { return; }
+  CHECK(post() == 0 && queue.Posted() == 1,
+        "pending view replacement retains its bounded reservation without duplicate work");
+  std::vector<StructureBuildQueue::Landing> landed;
+  for (int attempt = 0; attempt < 100 && landed.empty(); ++attempt) {
+    auto next = queue.NextLandings(
+        stack, prints, eye, heights, 1, StructureBuildQueue::HeightRequirement::FineOnly);
+    CHECK(next.has_value(), "stopped view replacement retains valid source and height inputs");
+    if (!next) { return; }
+    landed = std::move(*next);
+    if (landed.empty()) { (void)queue.AwaitSlice(0.01); }
+  }
+  CHECK(landed.size() == 1 && !landed.front().Footprints,
+        "view replacement lands without replacing unchanged authoritative source contacts");
+  if (landed.empty()) { return; }
+  queue.CommitsLandings(prints, landed);
+  ready = true;
+  CHECK(prints.Revision() == sourceRevision &&
+            StructureBuildQueue::QualifiedSourceKey(prints, 0) == originalKey &&
+            queue.Complete(stack, prints, eye, viewReady) && post() == 0 && queue.Posted() == 1,
+        "replacement preserves source identity and stops generating once published");
+}
+
 }
 
 int main() {
@@ -76,7 +136,7 @@ int main() {
        .Area = true,
        .LatLon = {49.32739, 8.56589, 49.32739, 8.56591, 49.32741, 8.56591, 49.32741, 8.56589}},
   }};
-  stack.Declares(buildings);
+  CHECK(stack.Declares(buildings), "declared source snapshot is accepted");
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "declared building enters the vector snapshot");
   const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
@@ -154,6 +214,7 @@ int main() {
           [&residentField, demTile](Data::TileId at) {
             return at == demTile ? residentField : std::shared_ptr<const TerrainField>{};
           }};
+  CheckViewReplacement(stack, prints, heights, eye);
   CHECK(StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey),
         "accepted cell source still matches resident DEM and street data");
   prints.BeginRefinement();

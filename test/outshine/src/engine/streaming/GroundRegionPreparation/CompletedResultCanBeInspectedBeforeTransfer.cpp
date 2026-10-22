@@ -1,6 +1,7 @@
 #include "GroundRegionPreparation.h"
 #include "Check.h"
 #include <chrono>
+#include <optional>
 #include <semaphore>
 #include <thread>
 
@@ -15,8 +16,11 @@ int main() {
       pool, [&](std::stop_token) -> std::expected<GroundRegionPreparation::Completed, std::string> {
         entered.release();
         release.acquire();
-        return GroundRegionPreparation::Completed{
-            .Key = "native-product", .RequestKey = "planned-demand", .RequestHit = true};
+        return GroundRegionPreparation::Completed{.Key = "native-product",
+                                                  .Loaded = std::nullopt,
+                                                  .RequestKey = "planned-demand",
+                                                  .RequestHit = true,
+                                                  .SurfacePages = nullptr};
       });
   const bool running = entered.try_acquire_for(5s);
   CHECK(running, "region lookup starts on the compute worker");

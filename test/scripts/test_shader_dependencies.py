@@ -19,7 +19,7 @@ class ShaderDependencies(unittest.TestCase):
         self.write('test/scripts/shader_dependencies.py',
                    (ROOT / 'test/scripts/shader_dependencies.py').read_text())
         for name in ('src/world/sky/AtmosphereCore.h', 'src/world/sky/AtmosphereConstants.inc',
-                     'src/render/stages/SceneConstants.inc', 'src/render/stages/GroundConstants.inc'):
+                     'src/render/stages/SceneConstants.inc', 'src/render/terrain/GroundConstants.inc'):
             self.write(name, '')
         self.write('src/render/shaders/leaf.glsl', 'vec4 value() { return vec4(1.0); }\n')
         self.write('src/render/shaders/branch.glsl', '#include "leaf.glsl"\n')

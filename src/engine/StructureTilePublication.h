@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STRUCTURETILEPUBLICATION_H
 #define OUTSHINE_ENGINE_STRUCTURETILEPUBLICATION_H
 
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include <cassert>
 #include <cstdint>
 #include <expected>
@@ -11,7 +11,7 @@
 
 namespace outshine {
 [[nodiscard]] inline std::expected<void, std::string>
-PublishStructureTile(Surrounds &world,
+PublishStructureTile(WorldRegionState &world,
                      Render::SceneRenderer &renderer,
                      const StructureBuildQueue::Landing &landing) {
   assert(landing.Baked);
@@ -29,7 +29,7 @@ PublishStructureTile(Surrounds &world,
 }
 
 [[nodiscard]] inline std::expected<void, std::string>
-StageStructureCell(Surrounds &world,
+StageStructureCell(WorldRegionState &world,
                    Render::SceneRenderer &renderer,
                    const StructureBuildQueue::Landing &landing) {
   assert(landing.Baked);
@@ -52,7 +52,7 @@ StageStructureCell(Surrounds &world,
 }
 
 [[nodiscard]] inline std::expected<void, std::string>
-ActivateStructureCells(Surrounds &world,
+ActivateStructureCells(WorldRegionState &world,
                        Render::SceneRenderer &renderer,
                        uint32_t tile,
                        uint64_t sourceKey,

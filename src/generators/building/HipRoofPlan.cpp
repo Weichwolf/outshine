@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdarg>
 #include <expected>
 #include <limits>
 #include <map>
@@ -217,6 +218,13 @@ bool HipRoofPlan::Facet::Contains(EastNorth point, double tolerance) const noexc
   return ContainsPoint(Ring, point, tolerance);
 }
 
+void HipRoofPlan::MergeCoincidentCorners(Facet &facet, double precisionM) {
+  const auto same = [precisionM](EastNorth a, EastNorth b) { return Same(a, b, precisionM); };
+  auto &ring = facet.Ring;
+  ring.erase(std::ranges::unique(ring, same).begin(), ring.end());
+  if (ring.size() > 1 && same(ring.front(), ring.back())) { ring.pop_back(); }
+}
+
 std::expected<HipRoofPlan, HipRoofError>
 HipRoofPlan::Prepare(std::span<const EastNorth> exterior,
                      std::span<const std::vector<EastNorth>> holes,
@@ -237,6 +245,8 @@ HipRoofPlan::Prepare(std::span<const EastNorth> exterior,
   std::map<std::pair<double, double>, double> nodes;
   size_t corners = 0;
   for (auto &facet : *facets) {
+    MergeCoincidentCorners(facet, input->ToleranceM);
+    if (facet.Ring.size() < 3) { return std::unexpected(HipRoofError::InvalidFacet); }
     if (facet.Ring.size() > limits.Corners - corners) {
       return std::unexpected(HipRoofError::CapacityExceeded);
     }

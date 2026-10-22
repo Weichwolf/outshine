@@ -1,0 +1,140 @@
+{
+  "topology": {
+    "planned_vertices_most": 1495,
+    "planned_faces_most": 1497,
+    "vertices": 1494,
+    "faces": 1495,
+    "holes": 2,
+    "components": 1,
+    "area_m2": 453639.6459473243,
+    "missing_or_excess_area_m2": 0.0,
+    "overlap_area_m2": -6.9267116487026215e-09,
+    "shared_edges": 1495,
+    "boundary_edges": 1495
+  },
+  "membership": {
+    "faces": 1495,
+    "sources": 13,
+    "source_coordinates": 499,
+    "indexed": true,
+    "all_pairs": 19435,
+    "enumerated_candidates": 1678,
+    "maximum_candidates_per_face": 4,
+    "requested_intersections": 1678,
+    "positive_intersections": 1619,
+    "union_difference_pairs": 1495,
+    "committed_members": 1619,
+    "status_counts": {
+      "mapped": 1495,
+      "no_positive_overlap": 0,
+      "intersection_budget": 0,
+      "membership_budget": 0,
+      "geometry_error": 0
+    },
+    "output_array_bytes": 44847,
+    "geometry_workspace_bytes": null
+  },
+  "directions": {
+    "falling_source_segments": 98,
+    "direction_unknown_segments": 23,
+    "directed_rows": 1485,
+    "source_length_m": 12291.308483178242,
+    "inside_domain_length_m": 12200.564166294567,
+    "outside_domain_length_m": 90.74431688367521,
+    "partly_outside_source_segments": [
+      58,
+      88,
+      89
+    ]
+  },
+  "original_course_records": 121,
+  "prior_enumerated_references": 3005,
+  "nearest_course_distance_max_m": 112.52359246408024,
+  "up_bounds_m": [
+    408.5089990679893,
+    498.19494250469506
+  ],
+  "historical_sha256": "f60008cd35242655b9620af93b24f13647f55e30e256d265f1ce5b7e3c5f5868",
+  "fixture_sha256": "e8d85a46526456dbbdfc155f0984c06c341f051eb2516e6039f08aaa5e7bd5d6",
+  "source_observation": "later replay metadata/permutation remain in the hash-pinned original fixture; not a historical epoch or flow-tag claim",
+  "prior_policy": "original DEM-derived course levels form a soft blend-affine target; coarse flat surface percentiles retained as provenance/baseline, not imposed as constant heights",
+  "hard_conditions": "shared vertices, fixed reference XY coverage/island, declared physical facet grade intervals and explicit ENU-Up contacts; no observed height pins in the real case",
+  "direction_scope": "height-delta hypotheses, not observed source flow directions",
+  "outside_selection": "original full WATER2 retained; finite selection unchanged",
+  "diagnostic_old_prior_gap_m": 10.227783203125,
+  "program": {
+    "hessian": [
+      1494,
+      1494
+    ],
+    "constraints": [
+      13433,
+      1494
+    ],
+    "cones": [
+      "NonnegativeConeT(13433)"
+    ],
+    "settings": "DefaultSettings {\n    max_iter: 200,\n    time_limit: 9.990426208009012,\n    verbose: false,\n    max_step_fraction: 0.99,\n    tol_gap_abs: 1e-11,\n    tol_gap_rel: 1e-11,\n    tol_feas: 1e-11,\n    tol_infeas_abs: 1e-8,\n    tol_infeas_rel: 1e-8,\n    tol_ktratio: 1e-6,\n    reduced_tol_gap_abs: 5e-5,\n    reduced_tol_gap_rel: 5e-5,\n    reduced_tol_feas: 0.0001,\n    reduced_tol_infeas_abs: 5e-12,\n    reduced_tol_infeas_rel: 5e-5,\n    reduced_tol_ktratio: 0.0001,\n    equilibrate_enable: true,\n    equilibrate_max_iter: 10,\n    equilibrate_min_scaling: 0.0001,\n    equilibrate_max_scaling: 10000.0,\n    linesearch_backtrack_step: 0.8,\n    min_switch_step_length: 0.1,\n    min_terminate_step_length: 0.0001,\n    max_threads: 1,\n    direct_kkt_solver: true,\n    direct_solve_method: \"auto\",\n    static_regularization_enable: true,\n    static_regularization_constant: 1e-8,\n    static_regularization_proportional: 4.930380657631324e-32,\n    dynamic_regularization_enable: true,\n    dynamic_regularization_eps: 1e-13,\n    dynamic_regularization_delta: 2e-7,\n    iterative_refinement_enable: true,\n    iterative_refinement_reltol: 1e-13,\n    iterative_refinement_abstol: 1e-12,\n    iterative_refinement_max_iter: 10,\n    iterative_refinement_stop_ratio: 5.0,\n    presolve_enable: true,\n    input_sparse_dropzeros: false,\n    chordal_decomposition_enable: true,\n    chordal_decomposition_merge_method: \"clique_graph\",\n    chordal_decomposition_compact: true,\n    chordal_decomposition_complete_dual: true,\n    pardiso_iparm: iparm array [i32; 64],\n    pardiso_verbose: false,\n}",
+    "solved": false
+  },
+  "python": "3.12.15 (main, Sep 30 2026, 22:04:19) [Clang 21.0.0 (clang-2100.3.34.2)]",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "versions": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "shapely": "2.2.0",
+    "clarabel": "0.11.1",
+    "pyproj": "3.8.0"
+  },
+  "geos": "3.14.1",
+  "proj": "9.8.1",
+  "source_commit": "316b328efdfffd5b271f036725f6c1bb2907e138",
+  "files": {
+    "physical-constraints.npz": {
+      "bytes": 251499,
+      "sha256": "f57624fd3389609077be33c61a2ddb1218a149c36c7d375e08c3ffeebcbf8f20"
+    },
+    "physical-hessian.npz": {
+      "bytes": 39799,
+      "sha256": "decf3e2105a1d5a82c7be971e6738b8498df1244e7a4aa9b67650fddf9662a1d"
+    },
+    "physical-inputs.npz": {
+      "bytes": 249691,
+      "sha256": "8f4855a17a75d1cd27adc56aecd1b93ebd6bc5c8b2fe1cad3f710fd409a0c760"
+    },
+    "physical-vectors.npz": {
+      "bytes": 72527,
+      "sha256": "9b27f4fa1654afee041b55ffcf926e53740df9de22f6d04decd843f9cd42e5f5"
+    }
+  },
+  "inputs_source": "../feldkirch-ill-native-inputs.json",
+  "python_fit_result": {
+    "valid": false,
+    "scope": "finite physical whole-prism envelope",
+    "point_contacts": 0,
+    "point_contact_candidates": 0,
+    "normal_model": "whole-prism",
+    "solver_api_wall_ms": 8.911874960176647,
+    "solver_api_cpu_ms": 8.913000000000004,
+    "solver_status": "InsufficientProgress",
+    "iterations": 1,
+    "solve_ms": 6.436875,
+    "vertices": 1494,
+    "solver": "clarabel",
+    "unknowns": 1494,
+    "normal_auxiliaries": 0,
+    "equality_contacts": 0,
+    "normal_norm_bound_max": 1.0050952595691747,
+    "faces": 1495,
+    "directed_rows": 4475,
+    "matrix_rows": 13433,
+    "matrix_nonzeros": 34323,
+    "matrix_bytes": 417856,
+    "hessian_nonzeros": 7474,
+    "hessian_bytes": 95668,
+    "requested_solver_vector_bytes": 119416,
+    "cap_delta_max": 1.0017300531088096e-05,
+    "reason": "solver_not_solved",
+    "total_ms": 15.494875027798116
+  }
+}

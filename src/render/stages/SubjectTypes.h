@@ -7,6 +7,7 @@
 #include <cmath>
 #include <limits>
 #include "math/Mat4.h"
+#include "TerrainInstance.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
 #include <span>
@@ -50,6 +51,7 @@ struct SubjectTexture {
   const uint8_t *Rgba = nullptr;
   uint32_t Width = 0;
   uint32_t Height = 0;
+  ImagePixelFormat Format = ImagePixelFormat::Rgba8Unorm;
   ImageMipViews LowerMips{};
   SubjectWrap WrapU = SubjectWrap::Repeat;
   SubjectWrap WrapV = SubjectWrap::Repeat;
@@ -175,21 +177,8 @@ inline constexpr auto kPieceUv1Error =
 using PieceId = uint32_t;
 inline constexpr PieceId kNoPiece = ~0u;
 
-struct GroundInstance {
-  Mat4f Row = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-  std::array<float, 8> Corners = {{}};
-  float Page = 0.0f;
-  float SagInv = 0.0f;
-  float StepE = 0.0f;
-  float StepN = 0.0f;
-};
-
-inline constexpr uint32_t kGroundInstanceFloats = 28;
-static_assert(sizeof(GroundInstance) == kGroundInstanceFloats * sizeof(float),
-              "an instance is the twenty-eight floats the lattice's vertex shader reads");
-
 struct GroundTile {
-  GroundInstance Instance;
+  TerrainInstance Instance;
   float LowM = 0.0f;
   float HighM = 0.0f;
 };

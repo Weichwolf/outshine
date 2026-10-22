@@ -24,7 +24,7 @@ constexpr auto point = [](auto &archive, auto &value) {
 template <typename T, typename Visit>
 bool BoundedList(Reader &archive, std::vector<T> &items, size_t most, Visit visit) {
   uint64_t count = 0;
-  if (!archive.Number(count) || count > most || count > archive.Remaining ||
+  if (!archive.Number(count) || count > most || count > archive.Bytes.size() ||
       count > archive.AllocationLeft / sizeof(T)) {
     return false;
   }
@@ -82,6 +82,7 @@ bool HipRoofCodec::Fields(Reader &archive, Product &value) {
               return false;
             }
             cornersLeft -= face.Ring.size();
+            HipRoofPlan::MergeCoincidentCorners(face, plan.PrecisionM_);
             return true;
           })) {
     return false;

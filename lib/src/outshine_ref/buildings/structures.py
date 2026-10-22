@@ -1,12 +1,13 @@
 """Structural interpretations from delivered vector geometry, heights and scoped context."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 from types import MappingProxyType
 
 import numpy as np
 import shapely
 
+from ._rectangle import minimum_rectangle
 
 SPECIAL_KINDS = MappingProxyType({
     'chimney':'chimney', 'mast':'mast', 'antenna':'antenna',
@@ -88,7 +89,8 @@ def finite(value, name):
 def footprint_metrics(footprint, properties, coordinate_step_m, industrial_coverage):
     if not isinstance(footprint, shapely.Polygon) or not footprint.is_valid or footprint.is_empty:
         raise ValueError('Structure needs one valid nonempty polygon in local XY metres')
-    if shapely.get_coordinate_dimension(footprint)!=2 or not np.isfinite(shapely.get_coordinates(footprint)).all():
+    coordinates = shapely.get_coordinates(footprint)
+    if shapely.get_coordinate_dimension(footprint)!=2 or not np.isfinite(coordinates).all():
         raise ValueError('Structure footprint must have finite two-dimensional coordinates')
     step = finite(coordinate_step_m, 'Coordinate step')
     coverage = finite(industrial_coverage, 'Industrial coverage')
@@ -98,7 +100,7 @@ def footprint_metrics(footprint, properties, coordinate_step_m, industrial_cover
     bottom = finite(properties.get('render_min_height', 0.), 'Provider bottom height')
     if top<=bottom:
         raise ValueError('Structure height interval must be positive')
-    rectangle = np.asarray(footprint.minimum_rotated_rectangle.exterior.coords)[:4]
+    rectangle = np.asarray(minimum_rectangle(footprint, coordinates).exterior.coords)[:4]
     width, length = sorted(np.linalg.norm(rectangle[1:3]-rectangle[:2], axis=1))
     return StructureMetrics(float(footprint.area), float(width), float(length), top-bottom, bottom, top,
         4*math.pi*footprint.area/footprint.length**2, min(1., footprint.area/footprint.convex_hull.area),

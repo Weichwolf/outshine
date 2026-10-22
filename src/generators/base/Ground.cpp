@@ -31,7 +31,7 @@ Cover Ground::CoverAt(EastNorth at) const noexcept {
   int runnerUp = -1;
   const int row = Classes_->Evaluate(on.EastM, on.NorthM, &edgeM, &runnerUp);
   if (row < 0) { return Cover::None(); }
-  if (edgeM >= ClassStructure::kNoEdgeM) {
+  if (edgeM >= TerrainClassificationMap::kNoEdgeM) {
     return Cover::Of({.Row = row, .RunnerUpRow = runnerUp});
   }
   return Cover::Of({.Row = row, .RunnerUpRow = runnerUp}, static_cast<float>(edgeM));

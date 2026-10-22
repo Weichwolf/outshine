@@ -1,6 +1,7 @@
 #include "Viewing.h"
 #include "Check.h"
 #include <array>
+#include <cmath>
 #include <type_traits>
 
 static_assert(noexcept(outshine::Render::ViewpointOf(std::declval<const outshine::Camera &>())));
@@ -44,6 +45,23 @@ int main() {
           "perspective and orthographic lens values survive the native round trip");
   }
   Camera invalid;
+  auto large = perspective;
+  large.EyeM = {{1e20, -1e20, 1e20}};
+  large.Forward = {{std::sqrt(3.0) / 2, 0, -0.5}};
+  large.Right = {{0.5, 0, std::sqrt(3.0) / 2}};
+  Camera carried;
+  CameraOf(large, carried);
+  const auto restoredLarge = ViewpointOf(carried);
+  CHECK(restoredLarge.has_value() && restoredLarge->EyeM == large.EyeM,
+        "large finite translations do not collapse a valid camera orientation");
+  if (restoredLarge) {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      CHECK(std::abs(restoredLarge->Forward[axis] - large.Forward[axis]) < 1e-15 &&
+                std::abs(restoredLarge->Right[axis] - large.Right[axis]) < 1e-15 &&
+                std::abs(restoredLarge->Up[axis] - large.Up[axis]) < 1e-15,
+            "the quaternion fallback preserves the original complete renderer basis");
+    }
+  }
   invalid.LooksAt = true;
   invalid.PositionM = {{1, 2, 3}};
   invalid.LookAtM = invalid.PositionM;

@@ -1,0 +1,18 @@
+{
+  "url": "https://www.cs.princeton.edu/courses/archive/spring01/cs598b/papers/durand00.pdf",
+  "author_page": "https://people.csail.mit.edu/fredo/PUBLI/Sig2000/index.htm",
+  "doi": "10.1145/344779.344891",
+  "title": "Conservative Visibility Preprocessing using Extended Projections",
+  "authors": [
+    "Frédo Durand",
+    "George Drettakis",
+    "Joëlle Thollot",
+    "Claude Puech"
+  ],
+  "venue": "SIGGRAPH 2000",
+  "sha256": "f782ebde7b15b02a56a3be492722b081f69c36f9f83f25fea816408074f87ab6",
+  "inspected_pages": [
+    3,
+    4
+  ]
+}

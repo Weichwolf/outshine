@@ -107,6 +107,7 @@ Result<void> MetalCommands::BeginRenderPass(const RenderPassDescription &descrip
     const auto held = HoldImages(images);
     if (!held) { return held; }
     Finish();
+    ProfileRenderEncoder(Profile.get(), descriptor);
     state.Encoder = [Native renderCommandEncoderWithDescriptor:descriptor];
     if (state.Encoder == nil) {
       return Failure(ErrorKind::Driver, "Metal render encoder creation failed");

@@ -2,6 +2,8 @@
 #include "FrameCapture.h"
 
 #include "Check.h"
+#include <cstddef>
+#include <cstdint>
 
 #include <SDL3/SDL.h>
 #include <array>
@@ -35,20 +37,25 @@ int main() {
     if (scene) {
       std::vector<uint8_t> baseline;
       CHECK(scene->Draw(error) && Core::ReadFrame(renderer, baseline, error) &&
-                baseline.size() == 32u * 32u * 4u,
+                baseline.size() == size_t{32} * 32u * 4u,
             "the initial published frame has a readable offscreen image");
       const std::array<StoredVertex, 3> vertices{
           StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 0, 1}}),
           StoredVertex::Of({{1, 0, 0}}, {{1, 0}}, {{0, 0, 1}}),
           StoredVertex::Of({{0, 1, 0}}, {{0, 1}}, {{0, 0, 1}})};
       const std::array<uint32_t, 3> indices{0, 1, 2};
-      const Render::PieceMesh mesh{.Verts = vertices, .Indices = indices};
+      Render::PieceMesh mesh{};
+      mesh.Verts = vertices;
+      mesh.Indices = indices;
       std::array<Render::PieceHandle, 3> handles;
       for (auto &handle : handles) {
         const auto placed = renderer.PlacePiece(mesh);
         CHECK(placed.has_value(), "published piece uploads");
         if (placed) { handle = *placed; }
       }
+      const bool uploadsReady = renderer.Settle(error);
+      CHECK(uploadsReady, "offline published piece uploads complete before candidate setup");
+      if (!uploadsReady) { return Report(); }
       Render::PieceHandle latePublished;
       {
         Core::WorldCandidate candidate(renderer);

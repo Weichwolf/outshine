@@ -26,17 +26,18 @@ Generators::Ground::Snapshot
 Flat(const Tile &region, uint32_t row, const ::outshine::Ground::VegetationTemplates &templates) {
   std::array<GroundPatch::Posting, 4> samples;
   for (auto &sample : samples) { sample.Height = GroundSample::At(500); }
-  auto grid = std::make_shared<ClassStructure::Grid>();
+  auto grid = std::make_shared<TerrainClassificationMap::Grid>();
   grid->W = grid->H = 1;
   grid->OrgE = grid->OrgN = -1;
   grid->CellM = 2 * std::max(region.SpanEm(), region.SpanNm()) + 2;
   grid->Cells = {row | (1u << 8u), 0};
   Generators::Ground::Snapshot result;
   result.Patch = GroundPatch::Complete(region, 2, samples);
-  result.Classes = std::make_shared<ClassStructure>(TangentFrame::At(region.Geo({0, 0})),
-                                                    grid,
-                                                    std::make_shared<const ClassStructure::Grid>(),
-                                                    ClassStructure::FromRun{});
+  result.Classes = std::make_shared<TerrainClassificationMap>(
+      TangentFrame::At(region.Geo({0, 0})),
+      grid,
+      std::make_shared<const TerrainClassificationMap::Grid>(),
+      TerrainClassificationMap::FromRun{});
   result.Table = TableOf(templates);
   result.Features = FeatureField::Of({}, {}, {});
   return result;

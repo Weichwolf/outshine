@@ -1,19 +1,14 @@
 #include "DepthPyramidStage.h"
-
+#include "StagePipelines.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <string>
-
-#include "ShaderFile.h"
+#include <expected>
+#include <span>
 #include <utility>
 
-#include <Extent.h>
-
 namespace outshine::Render {
-
 namespace {
-
 struct alignas(16) Reducing {
   std::array<uint32_t, 4> Source{}, Wide{}, High{}, At{};
 };
@@ -25,49 +20,68 @@ static_assert(offsetof(Reducing, Source) == 0 && offsetof(Reducing, Wide) == 16 
 static_assert(kPyramidLevels == 4 && DepthPyramidStage::KernelShape.GroupX == 8 &&
               DepthPyramidStage::KernelShape.GroupY == 8 &&
               DepthPyramidStage::KernelShape.GroupZ == 1);
-
 }
 
-bool DepthPyramidStage::Configure(const Gpu &gpu,
-                                  SDL_GPUTexture *depth,
-                                  SDL_GPUSampler *held,
-                                  SDL_GPUBuffer *into,
-                                  Extent size,
-                                  std::string &error) {
+Native::Result<void> DepthPyramidStage::Configure(const Gpu &gpu,
+                                                  Native::Texture *depth,
+                                                  Native::Sampler *held,
+                                                  Native::Buffer *into,
+                                                  Extent size) {
+  if (gpu.Device == nullptr || depth == nullptr || held == nullptr || into == nullptr ||
+      size.WidthPx <= 0 || size.HeightPx <= 0 ||
+      std::cmp_greater(size.WidthPx, depth->Description().Width) ||
+      std::cmp_greater(size.HeightPx, depth->Description().Height)) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "depth pyramid needs valid source bounds"});
+  }
+  const auto wide = static_cast<uint32_t>(size.WidthPx);
+  const auto high = static_cast<uint32_t>(size.HeightPx);
+  const auto shape = PyramidOver({.WidthPx = wide, .HeightPx = high});
+  if (into->Description().Bytes < uint64_t{shape.Texels} * sizeof(float)) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "depth pyramid exceeds output storage"});
+  }
+  if (!Pipe) {
+    auto made = CreateComputePipeline(*gpu.Device, Shader);
+    if (!made) { return std::unexpected(made.error()); }
+    Pipe = std::move(*made);
+  }
   Depth_ = depth;
   Held_ = held;
   Into_ = into;
-  Wide_ = static_cast<uint32_t>(size.WidthPx > 0 ? size.WidthPx : 0);
-  High_ = static_cast<uint32_t>(size.HeightPx > 0 ? size.HeightPx : 0);
-  Shape_ = PyramidOver({.WidthPx = Wide_, .HeightPx = High_});
-  if (Depth_ == nullptr || Held_ == nullptr || Into_ == nullptr || Wide_ == 0 || High_ == 0) {
-    error = "the depth pyramid needs the frame's depth, a sampler and a buffer of its own, and "
-            "the plan did not hold all three";
-    return false;
-  }
-  if (Pipe) { return true; }
-
-  auto made = CreateComputePipeline(gpu.Device, Shader);
-  if (!made) {
-    error = std::move(made.error());
-    return false;
-  }
-  Pipe = std::move(*made);
-  return true;
+  Wide_ = wide;
+  High_ = high;
+  Shape_ = shape;
+  return {};
 }
 
-void DepthPyramidStage::Encode(const PassRecording &into) {
-  if (!Stands() || into.Dispatch == nullptr) { return; }
-  SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  const SDL_GPUTextureSamplerBinding bound{.texture = Depth_, .sampler = Held_};
-  SDL_BindGPUComputeSamplers(into.Dispatch, 0, &bound, 1);
+Native::Result<void> DepthPyramidStage::Encode(const PassRecording &into) {
+  if (!Stands() || Depth_ == nullptr || Held_ == nullptr || into.Commands == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "depth pyramid is not configured"});
+  }
   const Reducing over{
       .Source = {Wide_, High_, 0, 0}, .Wide = Shape_.Wide, .High = Shape_.High, .At = Shape_.At};
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &over, static_cast<uint32_t>(sizeof over));
-  SDL_DispatchGPUCompute(into.Dispatch,
-                         (Shape_.Wide[0] + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                         (Shape_.High[0] + KernelShape.GroupY - 1u) / KernelShape.GroupY,
-                         1u);
+  const std::array bindings{
+      Native::Binding{.Set = 0,
+                      .Slot = 0,
+                      .Value =
+                          Native::SampledTexture{.Image = {.Image = Depth_}, .Sampling = Held_}},
+      Native::Binding{
+          .Set = 1,
+          .Slot = 0,
+          .Value =
+              Native::StorageBuffer{.Data = Into_, .Range = {.Bytes = Into_->Description().Bytes}}},
+      Native::Binding{.Set = 2,
+                      .Slot = 0,
+                      .Value =
+                          Native::Uniform{.Bytes = std::as_bytes(std::span{&over, size_t{1}})}}};
+  return into.Commands->Dispatch(
+      *Pipe,
+      bindings,
+      {.X = (Shape_.Wide[0] + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+       .Y = (Shape_.High[0] + KernelShape.GroupY - 1u) / KernelShape.GroupY,
+       .Z = 1u});
 }
 
 }

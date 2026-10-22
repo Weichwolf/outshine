@@ -12,7 +12,7 @@ void MetalDevice::Collect() {
       if (!submission->Done) { return; }
       if (submission->Failed && !Failed_) { Failed_ = submission->Failed; }
       Retired_ = submission->Serial;
-      if (GpuTiming_) {
+      if (GpuTiming_ == GpuTimingMode::Submission) {
         Timings_[(submission->Serial - 1) % Timings_.size()] = {
             .Serial = submission->Serial, .Nanoseconds = submission->GpuNanoseconds};
       }
@@ -45,8 +45,15 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     metal->Permit->ReleaseRecording();
     held->Permit = std::move(metal->Permit);
     held->Presentation = std::move(metal->Presentation);
-    const bool gpuTiming = GpuTiming_;
+    const bool gpuTiming = GpuTiming_ == GpuTimingMode::Submission;
+    const auto profile = metal->Profile;
+    const uint64_t serial = submission->Serial;
     [metal->Native addCompletedHandler:^(id<MTLCommandBuffer> finished) {
+      if (profile && finished.status == MTLCommandBufferStatusCompleted) {
+        @autoreleasepool {
+          CollectEncoderProfile(profile, finished, serial);
+        }
+      }
       held->Buffers.clear();
       held->Permit.reset();
       held->Presentation.reset();
@@ -117,7 +124,7 @@ Result<CompletionStatus> MetalDevice::Wait(Completion completion, std::chrono::n
 Result<SubmissionGpuTiming> MetalDevice::SubmissionGpuTime(Completion completion) {
   const auto status = Poll(completion);
   if (!status) { return std::unexpected(status.error()); }
-  if (!GpuTiming_) {
+  if (GpuTiming_ == GpuTimingMode::None) {
     return Failure(ErrorKind::Unsupported, "Metal submission timing is disabled");
   }
   if (*status == CompletionStatus::Pending) { return SubmissionGpuTiming{}; }

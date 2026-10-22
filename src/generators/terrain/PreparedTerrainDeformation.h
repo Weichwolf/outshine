@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_TERRAIN_PREPAREDTERRAINDEFORMATION_H
 #define OUTSHINE_GENERATORS_TERRAIN_PREPAREDTERRAINDEFORMATION_H
 
-#include "TerrainPress.h"
+#include "TerrainDeformation.h"
 #include <cstdint>
 #include <expected>
 #include <optional>
@@ -14,7 +14,7 @@ inline constexpr size_t kTerrainDeformationBytesMost = size_t{64} * 1024 * 1024;
 
 struct PreparedTerrainDeformation {
   std::vector<Sheet> Pages;
-  PressedTerrain Effects;
+  TerrainDeformationMetrics Effects;
 };
 
 [[nodiscard]] std::expected<std::string, std::string>
@@ -23,8 +23,10 @@ TerrainDeformationKey(const Patchwork &input,
                       const TangentFrame &frame,
                       TerrainPageLayout layout,
                       double mostEarthworkM);
-[[nodiscard]] std::optional<std::vector<uint8_t>> EncodeTerrainDeformation(
-    const std::string &key, std::span<const Sheet> pages, const PressedTerrain &measures);
+[[nodiscard]] std::optional<std::vector<uint8_t>>
+EncodeTerrainDeformation(const std::string &key,
+                         std::span<const Sheet> pages,
+                         const TerrainDeformationMetrics &measures);
 [[nodiscard]] std::optional<std::vector<uint8_t>>
 EncodeTerrainDeformation(const std::string &key, const PreparedTerrainDeformation &product);
 [[nodiscard]] std::optional<PreparedTerrainDeformation>

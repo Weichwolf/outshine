@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "ClassStructure.h"
+#include "TerrainClassificationMap.h"
 #include "Ground.h"
 #include "GroundTable.h"
 #include "BuildingField.h"
@@ -37,7 +37,7 @@ PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how
 
 [[nodiscard]] Snapped SnapshotOver(const Tile &region,
                                    const outshine::GroundQuery &heights,
-                                   std::shared_ptr<const ClassStructure> classes,
+                                   std::shared_ptr<const TerrainClassificationMap> classes,
                                    const Fields &stands,
                                    std::shared_ptr<const GroundTable> table,
                                    Ground::Snapshot *out,

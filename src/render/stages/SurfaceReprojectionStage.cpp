@@ -1,6 +1,7 @@
 #include "SurfaceReprojectionStage.h"
 
-#include "ShaderFile.h"
+#include "StagePipelines.h"
+#include <span>
 #include "TransformMatrix.h"
 #include "math/Vec4.h"
 
@@ -82,8 +83,8 @@ std::expected<ReprojectionUniform, std::string> Reprojection(const CameraBasis &
 
 }
 
-std::expected<void, std::string>
-SurfaceReprojectionStage::Configure(const Gpu &gpu, Capture source, SDL_GPUSampler *sampler) {
+Native::Result<void>
+SurfaceReprojectionStage::Configure(const Gpu &gpu, Capture source, Native::Sampler *sampler) {
   constexpr std::array<Resource, 5> outputs{Resource::SceneHdr,
                                             Resource::SceneShadingNormal,
                                             Resource::SceneSurfaceIdentity,
@@ -93,73 +94,65 @@ SurfaceReprojectionStage::Configure(const Gpu &gpu, Capture source, SDL_GPUSampl
       !std::equal(outputs.begin(), outputs.end(), gpu.SceneColours.begin()) || sampler == nullptr ||
       !std::ranges::all_of(source.DepthNormalIdentityBaseMetalRough,
                            [](auto *texture) { return texture != nullptr; })) {
-    return std::unexpected(
-        "surface reprojection requires complete captured channels and matching targets");
+    return std::unexpected(Native::Error{
+        .Kind = Native::ErrorKind::Invalid,
+        .Message =
+            "surface reprojection requires complete captured channels and matching targets"});
   }
   auto checked = Reprojection(source.Camera, source.Projection, source.Camera, source.Projection);
-  if (!checked) { return std::unexpected(std::move(checked.error())); }
-  std::string error;
-  const OwnedShader vertex(gpu.Device,
-                           ShaderFrom(gpu.Device,
-                                      "build/shaders/fullscreen.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      ShaderShape,
-                                      error));
-  const OwnedShader fragment(gpu.Device,
-                             ShaderFrom(gpu.Device,
-                                        "build/shaders/surfaceReprojection.frag.spv",
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        ShaderShape,
-                                        error));
-  if (!vertex || !fragment) { return std::unexpected(std::move(error)); }
-  std::array<SDL_GPUColorTargetDescription, 5> targets{};
-  constexpr std::array formats{SDL_GPU_TEXTUREFORMAT_INVALID,
-                               SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT,
-                               SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
-                               SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT,
-                               SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT};
-  for (size_t at = 0; at < targets.size(); ++at) {
-    targets[at].format = at == 0 ? gpu.HdrFormat : formats[at];
+  if (!checked) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(checked.error())});
   }
-  targets[0].blend_state.enable_color_write_mask = true;
-  SDL_GPUGraphicsPipelineCreateInfo pipeline{};
-  pipeline.vertex_shader = vertex.Get();
-  pipeline.fragment_shader = fragment.Get();
-  pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
-  pipeline.depth_stencil_state.enable_depth_test = true;
-  pipeline.depth_stencil_state.enable_depth_write = true;
-  pipeline.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER_OR_EQUAL;
-  pipeline.target_info.color_target_descriptions = targets.data();
-  pipeline.target_info.num_color_targets = static_cast<uint32_t>(targets.size());
-  pipeline.target_info.has_depth_stencil_target = true;
-  pipeline.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-  auto *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (made == nullptr) { return std::unexpected(SDL_GetError()); }
-  Pipe_ = OwnedPipeline(gpu.Device, made);
+  std::array<Native::ColourTarget, 5> targets{};
+  const std::array formats{gpu.HdrFormat,
+                           Native::Format::Rgba16Float,
+                           Native::Format::Rgba32Float,
+                           Native::Format::Rgba16Float,
+                           Native::Format::Rg16Float};
+  for (size_t at = 0; at < targets.size(); ++at) { targets[at].Texels = formats[at]; }
+  targets[0].Write = {};
+  auto made =
+      CreateFullscreenPipeline(*gpu.Device,
+                               "build/shaders/surfaceReprojection.frag.spv",
+                               targets,
+                               Native::DepthTarget{.Compare = Native::DepthCompare::GreaterEqual});
+  if (!made) { return std::unexpected(made.error()); }
+  Pipe_ = std::move(*made);
   Source_ = source;
   Sampler_ = sampler;
   return {};
 }
 
-std::expected<void, std::string> SurfaceReprojectionStage::Encode(const CameraBasis &camera,
-                                                                  const Lens &projection,
-                                                                  const PassRecording &into) const {
-  if (!Pipe_ || into.Commands == nullptr || into.Pass == nullptr) {
-    return std::unexpected("surface reprojection requires a configured raster pass");
+Native::Result<void> SurfaceReprojectionStage::Encode(const CameraBasis &camera,
+                                                      const Lens &projection,
+                                                      const PassRecording &into) const {
+  if (!Pipe_ || into.Commands == nullptr) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "surface reprojection requires a configured native raster pass"});
   }
   auto uniforms = Reprojection(Source_.Camera, Source_.Projection, camera, projection);
-  if (!uniforms) { return std::unexpected(std::move(uniforms.error())); }
-  SDL_BindGPUGraphicsPipeline(into.Pass, Pipe_.Get());
-  SDL_PushGPUFragmentUniformData(into.Commands, 0, &*uniforms, sizeof(*uniforms));
-  std::array<SDL_GPUTextureSamplerBinding, 5> feeds{};
-  for (size_t at = 0; at < feeds.size(); ++at) {
-    feeds[at] = {.texture = Source_.DepthNormalIdentityBaseMetalRough[at], .sampler = Sampler_};
+  if (!uniforms) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(uniforms.error())});
   }
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, feeds.data(), static_cast<uint32_t>(feeds.size()));
-  SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
-  return {};
+  std::array<Native::Binding, ShaderShape.FragmentSamplers + 1> bindings;
+  for (uint32_t at = 0; at < ShaderShape.FragmentSamplers; ++at) {
+    bindings[at] = {.Set = 2,
+                    .Slot = at,
+                    .Value = Native::SampledTexture{
+                        .Image = {.Image = Source_.DepthNormalIdentityBaseMetalRough[at]},
+                        .Sampling = Sampler_}};
+  }
+  bindings.back() = {.Set = 3,
+                     .Slot = 0,
+                     .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&*uniforms, 1))}};
+  return into.Commands->Draw({.State = {.Pipeline = Pipe_.get(),
+                                        .Bindings = bindings,
+                                        .Vertices = {},
+                                        .Area = into.Area,
+                                        .Clip = into.Clip},
+                              .Range = {.Count = 3}});
 }
-
 }

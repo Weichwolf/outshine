@@ -42,11 +42,11 @@ int main() {
   for (auto &sample : samples) { sample.Height = GroundSample::At(500); }
   Generators::Ground::Snapshot snapshot;
   snapshot.Patch = GroundPatch::Complete(region, 2, samples);
-  snapshot.Classes =
-      std::make_shared<ClassStructure>(TangentFrame::At({.LongitudeDeg = 10, .LatitudeDeg = 47}),
-                                       std::make_shared<ClassStructure::Grid>(),
-                                       std::make_shared<ClassStructure::Grid>(),
-                                       ClassStructure::FromRun{});
+  snapshot.Classes = std::make_shared<TerrainClassificationMap>(
+      TangentFrame::At({.LongitudeDeg = 10, .LatitudeDeg = 47}),
+      std::make_shared<TerrainClassificationMap::Grid>(),
+      std::make_shared<TerrainClassificationMap::Grid>(),
+      TerrainClassificationMap::FromRun{});
   snapshot.Features = FeatureField::Of({}, {}, {});
   const std::array<GroundTable::Row, 1> rows{};
   snapshot.Table = GroundTable::Of(rows);

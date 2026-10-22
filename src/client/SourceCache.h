@@ -5,9 +5,18 @@
 #include <expected>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace outshine::Client {
+
+[[nodiscard]] inline Roots ClientRoots(std::string_view cacheDirectory = {}, bool offline = false) {
+  return {.Assets = "src/assets/drive",
+          .Shipped = "src/assets",
+          .Cache = std::string(cacheDirectory),
+          .Offline = offline,
+          .AssetCache = {}};
+}
 
 [[nodiscard]] inline std::expected<Roots, std::string> WithSourceCache(Roots roots) {
   if (roots.Cache.empty()) {

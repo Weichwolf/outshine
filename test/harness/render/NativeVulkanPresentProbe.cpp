@@ -70,7 +70,7 @@ void Pixels(Device &device, const GraphicsPipeline &pipeline, const char *path) 
   const auto size = frame->Image().Description();
   CHECK(IsSrgb(size.Texels) &&
             (static_cast<uint32_t>(size.Use) & static_cast<uint32_t>(TextureUse::CopySource)) != 0,
-        "the measured RTX SDR surface supplies an actual sRGB copyable image");
+        "the measured SDR surface supplies an actual sRGB copyable image");
   const uint64_t bytes = uint64_t{size.Width} * size.Height * 4;
   auto readback = Require(device.CreateBuffer(
       {.Bytes = bytes, .Use = BufferUse::CopyDestination, .Placement = Memory::Readback}));
@@ -177,7 +177,7 @@ void AcceptedResize(Device &device, SDL_Window *window, const GraphicsPipeline &
 }
 
 int main(int argc, char *const *argv) {
-  if (argc != 4) { return 1; }
+  if (argc != 5) { return 1; }
   CHECK(SDL_Init(SDL_INIT_VIDEO), "the Vulkan WSI probe initializes SDL video");
   std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> window(
       SDL_CreateWindow("Outshine Vulkan WSI pixel and lifetime probe", kWidth, kHeight, 0),
@@ -185,8 +185,7 @@ int main(int argc, char *const *argv) {
   CHECK(window, "the Vulkan adapter accepts an ordinary SDL window");
   if (!window) { Failed(); }
   auto device = Require(CreateDevice({.Validation = true, .Window = window.get()}));
-  CHECK(device->Limits().Name.find("RTX 3060") != std::string::npos,
-        "WSI runs on the declared RTX 3060");
+  CHECK(device->Limits().Name == argv[4], "WSI runs on the declared device");
   auto formatFrame = Acquire(*device);
   const auto format = formatFrame->Image().Description().Texels;
   formatFrame.reset();
@@ -204,10 +203,21 @@ int main(int argc, char *const *argv) {
   frame = Acquire(*device);
   commands = Require(device->Begin());
   Draw(*commands, *pipeline, frame->Image());
+  const auto occupied = CreateDevice({.Validation = true, .Window = window.get()});
+  CHECK(!occupied && occupied.error().Kind == ErrorKind::Busy,
+        "a window cannot have two live Vulkan presentation owners");
   pipeline.reset();
   device.reset();
+  const auto retained = CreateDevice({.Validation = true, .Window = window.get()});
+  CHECK(!retained && retained.error().Kind == ErrorKind::Busy,
+        "retained leases and recordings preserve window ownership after facade shutdown");
   frame.reset();
   commands.reset();
+  auto replacement = Require(CreateDevice({.Validation = true, .Window = window.get()}));
+  auto reclaimed = Acquire(*replacement);
+  CHECK(reclaimed != nullptr, "the window can be reclaimed after its final resource retires");
+  reclaimed.reset();
+  replacement.reset();
   window.reset();
   SDL_Quit();
   std::println("VULKAN_WSI rendered_frames=3");

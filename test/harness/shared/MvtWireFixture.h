@@ -1,4 +1,5 @@
-#pragma once
+#ifndef OUTSHINE_TEST_MVTWIREFIXTURE_H
+#define OUTSHINE_TEST_MVTWIREFIXTURE_H
 #include <cassert>
 #include <cstdint>
 #include <span>
@@ -14,3 +15,5 @@ inline void Append(Bytes &out, uint8_t tag, std::span<const uint8_t> bytes) {
   out.insert(out.end(), bytes.begin(), bytes.end());
 }
 }
+
+#endif

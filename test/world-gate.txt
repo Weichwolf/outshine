@@ -4,7 +4,7 @@ outshine/include/render
 outshine/include/scenario
 outshine/include/scene
 outshine/include/world
-outshine/include/Outshine/GeneratorProductsComposeAtomically
+outshine/src/engine/WorldCandidate/GeneratorProductsComposeAtomically
 outshine/include/Outshine/GeneratorRedeclarationInvokesTheProducer
 outshine/include/Outshine/RegisteredProviderSuppliesRenderedTerrain
 outshine/include/Outshine/NativeOsmDeclarationIsValidated

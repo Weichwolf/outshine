@@ -1,4 +1,4 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include <optional>
 #include <expected>
 #include <string_view>
@@ -34,6 +34,10 @@ std::optional<LongitudeLatitudeHeight> Engine::State::CurrentGeographicPosition(
     const auto position = GeodeticCameraPosition(Session.Views->Active());
     if (!position || !*position) { return std::nullopt; }
     eye = **position;
+  } else if (CameraPosePending && Session.Views &&
+             Session.Views->Active().Placement == Scenario::CameraPlacement::Local) {
+    const auto &view = Session.Views->Active();
+    eye = view.Sees.PositionM + view.OffsetM;
   } else {
     if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return std::nullopt; }
     eye = Picture.Standing->Watching().EyeM;

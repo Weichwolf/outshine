@@ -7,9 +7,53 @@ import numpy as np
 from mvt_stair_native_crosscuts import cross_section
 
 
+def validate_source_frame(cut):
+    """Audit station/plane metadata; never move native points or relax contacts.
+
+    The 1e-7 m agreement is the existing raw-section inspection precision. It
+    applies only to derived source-frame metadata, not surface seams or welding.
+    Positive tangent rescaling is allowed; direction follows the original axis.
+    """
+    axis = np.asarray(cut["original_source_xy_m"], float)
+    center = np.asarray(cut["center_xy_m"], float)
+    tangent = np.asarray(cut["tangent_xy"], float)
+    station = cut["source_station_m"]
+    if (
+        axis.ndim != 2
+        or axis.shape[1] != 2
+        or not 2 <= len(axis) <= 256
+        or center.shape != (2,)
+        or tangent.shape != (2,)
+        or not all(np.isfinite(a).all() for a in (axis, center, tangent))
+        or not math.isfinite(station)
+    ):
+        raise ValueError("bounded finite original source frame required")
+    lengths = [math.dist(a, b) for a, b in pairwise(axis)]
+    if min(lengths) <= 0 or not all(math.isfinite(v) for v in lengths):
+        raise ValueError("positive original source segments required")
+    arc = np.r_[0, np.cumsum(lengths)]
+    if not np.isfinite(arc).all() or not 0 <= station <= arc[-1]:
+        raise ValueError("cut station must lie on its original source")
+    index = min(len(axis) - 2, int(np.searchsorted(arc, station, side="right")) - 1)
+    expected = (axis[index + 1] - axis[index]) / lengths[index]
+    point = axis[index] + (station - arc[index]) * expected
+    norm = math.hypot(*tangent)
+    if (
+        norm == 0
+        or not math.isfinite(norm)
+        or math.dist(point, center) > 1e-7
+        or float(expected @ (tangent / norm)) <= 0
+        or math.dist(expected, tangent / norm) * lengths[index] > 1e-7
+    ):
+        raise ValueError(
+            "native cut plane must match its original source station on the original axis"
+        )
+
+
 def canonical_profile(cut):
     if not 1 <= len(cut["triangles"]) <= 128:
         raise ValueError("bounded native cut face set required")
+    validate_source_frame(cut)
     raw = cross_section(
         cut["triangles"], cut["center_xy_m"], cut["tangent_xy"], cut["half_span_m"]
     )

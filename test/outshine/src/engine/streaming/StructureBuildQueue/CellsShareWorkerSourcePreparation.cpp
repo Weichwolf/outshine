@@ -76,7 +76,7 @@ int main() {
        .Area = true,
        .LatLon = {49.32739, 8.56589, 49.32739, 8.56591, 49.32741, 8.56591, 49.32741, 8.56589}},
   }};
-  stack.Declares(buildings);
+  CHECK(stack.Declares(buildings), "declared source snapshot is accepted");
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "declared building enters the vector snapshot");
   const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
@@ -107,7 +107,7 @@ int main() {
                              lat + radius,
                              lon - radius}};
   }
-  stack.Declares(spread);
+  CHECK(stack.Declares(spread), "declared source snapshot is accepted");
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "eight independent buildings enter the source tile");
   const auto &tile = vectors->Tiles().front();

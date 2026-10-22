@@ -13,6 +13,8 @@
 
 namespace outshine::Render::Native::Vulkan {
 
+struct WindowClaim;
+
 struct Context {
   VkInstance Instance = VK_NULL_HANDLE;
   VkDebugUtilsMessengerEXT Debug = VK_NULL_HANDLE;
@@ -29,7 +31,7 @@ struct Context {
   PFN_vkReleaseSwapchainImagesEXT ReleaseImages = nullptr;
   uint32_t QueueFamily = 0;
   uint32_t TimestampValidBits = 0;
-  bool GpuTiming = false;
+  GpuTimingMode GpuTiming = GpuTimingMode::None;
   uint64_t Cookie = 0;
   bool DebugMarkers = false;
   bool StorageImageExtendedFormats = false;
@@ -44,6 +46,7 @@ struct Context {
   VkPhysicalDeviceProperties Properties{};
   VkPhysicalDeviceMemoryProperties MemoryProperties{};
   Capabilities Limits;
+  std::shared_ptr<WindowClaim> SurfaceClaim;
 
   Context() = default;
   ~Context();

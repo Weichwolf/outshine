@@ -12,7 +12,7 @@
 namespace outshine::Generators {
 struct TerrainDeformationParts {
   uint64_t HeapBytes = 0;
-  PressedTerrain Effects;
+  TerrainDeformationMetrics Effects;
   std::vector<uint32_t> PageCounts;
 };
 
