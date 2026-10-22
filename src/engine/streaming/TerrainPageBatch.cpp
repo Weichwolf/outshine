@@ -32,6 +32,7 @@ TerrainResidency::PageBatch TerrainResidency::PlanPages(const Patchwork &patchwo
       pending.Appended = found == nullptr;
       pending.Value = {.Tile = sheet.Tile,
                        .Nodes = std::vector<float>(sheet.Nodes.begin(), sheet.Nodes.end()),
+                       .SamplesDigest = SamplesIdentity(sheet.Nodes),
                        .Postings = sheet.Postings,
                        .Virtual = sheet.Virtual};
       batch.Appended += static_cast<size_t>(pending.Appended);

@@ -24,6 +24,8 @@ namespace Render {
 class SceneRenderer;
 }
 
+enum class TerrainIdentityError { InvalidRequest, Unpublished, NoSource, OverBudget };
+
 class TerrainResidency {
 public:
   TerrainResidency() = default;
@@ -57,6 +59,8 @@ public:
   [[nodiscard]] double FinalizeMs() const noexcept { return FinalizeMs_; }
 
   [[nodiscard]] uint64_t Digest() const noexcept;
+  [[nodiscard]] std::expected<std::array<uint8_t, 32>, TerrainIdentityError>
+  SurfaceIdentity(Data::TileId region, size_t pagesMost) const;
   [[nodiscard]] size_t HeapBytes() const noexcept;
   [[nodiscard]] std::optional<double> HeightMAt(LongitudeLatitude at) const noexcept;
   [[nodiscard]] std::optional<std::array<double, 2>> AslBoundsM() const noexcept;
@@ -72,6 +76,7 @@ private:
     Data::TileId Tile;
     Render::HeightPageHandle Page{};
     std::vector<float> Nodes;
+    std::array<uint8_t, 32> SamplesDigest{};
     uint32_t Postings = 0;
     bool Virtual = false;
   };
@@ -113,11 +118,22 @@ private:
   [[nodiscard]] static bool HasNativePage(const Sheet &sheet) noexcept;
   [[nodiscard]] Render::Native::Result<void> PublishGrid(const Patchwork &patchwork);
   [[nodiscard]] bool ReindexPages(std::string &error);
+  [[nodiscard]] static std::array<uint8_t, 32> SamplesIdentity(std::span<const float> nodes);
+  [[nodiscard]] bool AppendSurfacePage(size_t slot, std::vector<size_t> &slots, size_t most) const;
+  [[nodiscard]] bool SurfaceLevelPages(size_t zoom,
+                                       Data::TileId region,
+                                       size_t most,
+                                       std::vector<size_t> &slots) const;
+
+  struct PageRange {
+    size_t First = 0, End = 0;
+  };
 
   std::vector<Held> Held_;
   std::vector<size_t> Retiring_;
   std::vector<Render::HeightPageHandle> Replaced_;
   FlatMap<size_t, Data::TileId, TileHash> PageIndex_;
+  std::array<PageRange, kZoomLevels> PageLevels_{};
   std::vector<Render::TerrainTile> Instances_;
   std::vector<Render::TerrainTile> Virtual_;
   size_t Flat_ = 0;

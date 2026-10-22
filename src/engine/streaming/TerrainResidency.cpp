@@ -88,11 +88,13 @@ using SheetIndex = FlatMap<size_t, Data::TileId, SheetHash>;
 
 TerrainResidency::TerrainResidency(const TerrainResidency &other)
     : Held_(other.Held_),
+      PageLevels_(other.PageLevels_),
       Instances_(other.Instances_),
       Virtual_(other.Virtual_),
       Flat_(other.Flat_),
       GridPostings_(other.GridPostings_),
-      Renderer_(other.Renderer_) {
+      Renderer_(other.Renderer_),
+      Publishing_(other.Publishing_) {
   for (size_t at = 0; at < Held_.size(); ++at) {
     if (!PageIndex_.Emplace(Held_[at].Tile, at)) { Heap::Exhausted("height page index"); }
   }
@@ -167,6 +169,7 @@ Render::Native::Result<void> TerrainResidency::PublishGrid(const Patchwork &patc
 
 bool TerrainResidency::ReindexPages(std::string &error) {
   PageIndex_.Clear();
+  PageLevels_.fill({});
   for (size_t at = 0; at < Held_.size(); ++at) {
     const auto indexed = PageIndex_.Emplace(Held_[at].Tile, at);
     if (!indexed) {
@@ -174,6 +177,12 @@ bool TerrainResidency::ReindexPages(std::string &error) {
                   ? Says::HeightPageIndexAllocationFailed
                   : Says::HeightPageIndexCapacityExceeded;
       return false;
+    }
+    const int zoom = Held_[at].Tile.Zoom;
+    if (zoom >= 0 && static_cast<size_t>(zoom) < PageLevels_.size()) {
+      auto &level = PageLevels_[static_cast<size_t>(zoom)];
+      if (level.First == level.End) { level.First = at; }
+      level.End = at + 1;
     }
   }
   return true;
@@ -303,6 +312,7 @@ void TerrainResidency::Clear() {
   Retiring_.clear();
   Replaced_.clear();
   PageIndex_.Clear();
+  PageLevels_.fill({});
   Instances_.clear();
   Virtual_.clear();
   GridPostings_ = 0;
