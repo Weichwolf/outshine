@@ -75,7 +75,6 @@ public:
     HeightPx_ = heightPx;
   }
 
-  [[nodiscard]] static float ErrorPerMetreTaken();
   [[nodiscard]] static uint32_t JobsSweptTaken();
 
 private:

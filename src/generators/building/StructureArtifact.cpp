@@ -1,7 +1,6 @@
 #include "StructureArtifact.h"
 #include "StructureBinary.h"
 #include "BuildingFootprintFields.h"
-#include "StructureSourceKey.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <array>
@@ -185,131 +184,6 @@ bool KeyValid(std::string_view key) {
          });
 }
 
-bool Text(Writer &writer, std::string_view value) {
-  return writer.Number(static_cast<uint64_t>(value.size())) &&
-         std::ranges::all_of(value,
-                             [&](char byte) { return writer.Number(static_cast<uint8_t>(byte)); });
-}
-
-bool Identity(Writer &writer, const Data::TileSourceIdentity &value) {
-  return writer.Number(value.From) && writer.Number(value.Kind) && writer.Number(value.Tile.Zoom) &&
-         writer.Number(value.Tile.X) && writer.Number(value.Tile.Y) &&
-         Text(writer, value.SourceId) && Text(writer, value.Revision);
-}
-
-bool ViewInputs(Writer &writer, const RawTile &raw) {
-  if (raw.RequestedDetail) { return true; }
-  return writer.Number(raw.Eye.LongitudeDeg) && writer.Number(raw.Eye.LatitudeDeg) &&
-         writer.Number(raw.Projection.FocalPx) && writer.Number(raw.Projection.AllowedErrorPx) &&
-         writer.Maybe(raw.EyeEcef, [](auto &held, const Vec3 &point) {
-           return held.Number(point[0]) && held.Number(point[1]) && held.Number(point[2]);
-         });
-}
-
-bool HeightInputs(Writer &writer, const Ground::HeightField &heights) {
-  if (!writer.Number(heights.CaptureRequest().Zoom) || !writer.Number(heights.Fallback()) ||
-      !writer.Number(static_cast<uint64_t>(heights.Blocks().size()))) {
-    return false;
-  }
-  for (const auto &block : heights.Blocks()) {
-    if (!writer.Number(block.At.Zoom) || !writer.Number(block.At.X) || !writer.Number(block.At.Y) ||
-        !writer.Number(block.Raster.Side) || !writer.Number(block.Raster.Postings) ||
-        !writer.Number(block.MissingBoundary) ||
-        !writer.Number(static_cast<uint64_t>(block.Sources.size())) ||
-        !std::ranges::all_of(block.Sources,
-                             [&](const auto &source) { return Identity(writer, source); })) {
-      return false;
-    }
-    const auto nodes =
-        block.Terrain
-            ? std::span(block.Terrain->Data(),
-                        static_cast<size_t>(block.Terrain->Rows()) * block.Terrain->Cols())
-            : std::span<const float>(block.Nodes);
-    if (!writer.Number(static_cast<uint64_t>(nodes.size())) ||
-        !std::ranges::all_of(nodes, [&](float node) { return writer.Number(node); })) {
-      return false;
-    }
-  }
-  return true;
-}
-}
-
-std::expected<void, StructureArtifactError>
-WriteStructureProduct(const BakedTile &tile, const StructureArtifactSink &sink, size_t blockBytes) {
-  if (!Valid(tile)) { return std::unexpected(StructureArtifactError::InvalidProduct); }
-  if (!sink || blockBytes < sizeof(uint64_t) || blockBytes > kMostBytes) {
-    return std::unexpected(StructureArtifactError::CapacityExceeded);
-  }
-  Writer writer(sink, blockBytes);
-  if (!Product(writer, tile) || !writer.Flush()) { return std::unexpected(writer.Failure); }
-  return {};
-}
-
-std::optional<BakedTile> ReadStructureProduct(const StructureArtifactSource &source,
-                                              StructureArtifactReadLimits limits,
-                                              uint64_t currentSourceKey) {
-  if (!source || limits.EncodedBytes == 0 || limits.ResidentBytesMost == 0) { return std::nullopt; }
-  Reader reader(source, limits);
-  BakedTile tile;
-  if (!Product(reader, tile) || reader.Remaining != 0 || !Valid(tile)) { return std::nullopt; }
-  if (tile.SurfaceError) {
-    if (currentSourceKey == 0) { return std::nullopt; }
-    tile.SurfaceError->Upper.SourceKey = currentSourceKey;
-  }
-  return tile;
-}
-
-std::optional<std::string>
-StructureArtifactKey(const RawTile &raw,
-                     const Ground::HeightField &heights,
-                     const std::optional<Data::TileSourceIdentity> &source,
-                     std::string_view producerVersion) {
-  if (producerVersion.empty()) { return std::nullopt; }
-  Writer writer;
-  if (raw.SourceInputs.Objects) {
-    const uint64_t original = StructureSourceKey(
-        {.Vector = std::nullopt, .HeightSources = {}, .Origin = &raw.SourceInputs.Origin});
-    if (!writer.Number(original)) { return std::nullopt; }
-  }
-  const auto structure = [](auto &archive, const RawTile::Structure &value) {
-    const auto colour = [](auto &out, const Vec3f &rgb) {
-      for (const float channel : rgb) {
-        if (!out.Number(channel)) { return false; }
-      }
-      return true;
-    };
-    return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
-           archive.Number(value.SourceFirst) && archive.Number(value.FirstHole) &&
-           archive.Number(value.HoleCount) && archive.Number(value.SourceFirstHole) &&
-           archive.Number(value.Cell.Index) && bounds(archive, value.Cell.Footprint) &&
-           archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
-           archive.Number(value.Pitched) && archive.Maybe(value.WallColour, colour) &&
-           archive.Maybe(value.Facade, scalar) && archive.Number(value.HeightOrigin.has_value()) &&
-           (!value.HeightOrigin || archive.Number(*value.HeightOrigin)) &&
-           archive.Number(value.SourceId.Kind) && archive.Number(value.SourceId.Id);
-  };
-  const auto ring = [](auto &archive, const GeographicRing &value) {
-    return archive.Number(value.First) && archive.Number(value.Count) &&
-           archive.Number(value.Exterior);
-  };
-  const auto way = [](auto &archive, const RawTile::Way &value) {
-    return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
-           archive.Number(value.HalfWidthM);
-  };
-  if (!Text(writer, kMagic) || !writer.Number(kVersion) || !Text(writer, producerVersion) ||
-      !writer.Number(source.has_value()) || (source && !Identity(writer, *source)) ||
-      !writer.List(raw.LatLon, scalar) || !writer.List(raw.Structures, structure) ||
-      !writer.List(raw.Holes, ring) || !writer.List(raw.Ways, way) ||
-      !writer.Maybe(raw.RequestedDetail, scalar) || !writer.Maybe(raw.RequestedCell, scalar) ||
-      !writer.Number(raw.TileSpanM) || !writer.Number(raw.Extent) ||
-      !writer.Number(raw.ClusterTriangles)) {
-    return std::nullopt;
-  }
-  for (size_t at = 0; at < 3; ++at) {
-    if (!writer.Number(raw.AnchorEcef[at])) { return std::nullopt; }
-  }
-  if (!ViewInputs(writer, raw) || !HeightInputs(writer, heights)) { return std::nullopt; }
-  return Sha256Hex(writer.Bytes.data(), writer.Bytes.size());
 }
 
 std::expected<std::vector<uint8_t>, StructureArtifactError>
@@ -349,10 +223,9 @@ std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,
     return std::nullopt;
   }
   reader.Bytes = reader.Bytes.subspan(kHashBytes);
-  reader.Remaining -= kHashBytes;
   BakedTile tile;
   if (!Product(reader, tile, version >= kCeilingVersion, version == kVersion) ||
-      reader.Remaining != 0 || !Valid(tile)) {
+      !reader.Bytes.empty() || !Valid(tile)) {
     return std::nullopt;
   }
   if (tile.SurfaceError) {

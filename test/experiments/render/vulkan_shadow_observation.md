@@ -5,7 +5,8 @@ native 1280×720/60 moving-camera benchmark (#15/#4)?
 
 `VulkanShadowObservation.cpp` is an explicit Linux/Vulkan `LD_PRELOAD` diagnostic.
 It forwards each intercepted API call once, unchanged. It records the existing
-submission timestamp boundaries, viewport settings and successful submissions.
+submission timestamp boundaries, viewport/scissor settings, pipeline metadata,
+draw arguments and successful submissions.
 It adds no Vulkan commands, GPU queries, resource allocations or readbacks.
 
 The Vulkan backend sets one viewport immediately before each draw packet. Four
@@ -15,8 +16,9 @@ Negative Vulkan viewport heights are normalized before assigning tile bits 0–3
 a triangle count nor the number of draws inside an indirect multi-draw packet.
 Other viewport packets remain in `viewports`.
 
-Collection uses fixed tables: 4096 command-buffer handles, 4096 submissions and
-four queues. On the measured x86-64 build these tables occupy 229440 bytes;
+Collection uses fixed tables: 4096 command-buffer handles, 4096 submissions,
+4096 pipeline descriptions, 16384 shadow patches and four queues. On the measured
+x86-64 build these tables occupy 4620368 bytes;
 mutexes, counters, loader/code and process memory are separate. Hot-path collection
 uses a mutex and counters, with no formatting or output. The final JSON is emitted
 to stderr during library teardown. CPU interception and locking overhead remains
@@ -86,3 +88,66 @@ Next decision: reduce work for genuinely changed tiles while preserving shadow
 coverage, resolution, offscreen casters, dynamic changes and cache invalidation.
 The counts do not justify shrinking regions, suppressing updates or choosing an
 incremental-shadow algorithm without a conservative correctness/cost comparison.
+
+## Submitted index work per atlas strip (#1048)
+
+The observer also intercepts graphics-pipeline creation/binding, scissor changes,
+and direct/indirect draws. `shadow_patches` groups actual submitted packets by
+submission serial, physical atlas tile and scissor rectangle. Indexed work is
+reported both as the sum of `indexCount` and as `indexCount * instanceCount`;
+these are requested indices, not measured shader invocations or unique vertices.
+Direct non-indexed work is separate. Indirect calls count records, but their index
+payload remains unknown; do not treat that case as a complete index-work trace.
+Unknown pipelines, exhausted tables and arithmetic overflow invalidate admission.
+The helper's 13 checks cover grouping, weighting, capacities, overflow, command
+reuse, accepted serials and explicit unknown indirect work.
+
+Pipeline binding counts separate one-stream object depth from two-stream terrain
+depth in the current native pipeline contract. Zero-stream tile clears remain
+separate non-indexed packets. Raw field names retain the binding count rather
+than assigning a material/world-class owner. Fragment-stage presence is metadata,
+not a fragment invocation count. The four largest direct indexed packets in each
+patch retain index range, instance/model slot and pipeline binding metadata.
+
+Current Tokyo input: Native933e89cd0 with the #1051 upload-pressure candidate,
+Intel i5-1135G7/Iris Xe, 1280×720/60, full prepared offline cache, exactly 60 frames,
+360° rotation, velocity `0,0,-30`. The candidate is a source-verified overlay of the
+three changed render translation units and current StructureBuildQueue onto the
+fully built `493877d6e` archive, not a fresh whole933 build. Exact commands, hashes,
+source/terminal receipts and original inputs remain in
+`/tmp/outshine-engine-frame-upload-pressure-28bf6c5d0/` and
+`/tmp/outshine-engine-motion-profile-493877d6e/`.
+
+| Work in the measured window | Rotation only | 30 m translation |
+|---|---:|---:|
+| Frames drawing shadows | 0/60 | 60/60 |
+| Submitted patches | 0 | 193 |
+| Total instance-weighted index requests | 0 | 1791048021 |
+| Median index requests/frame | 0 | 23277022.5 |
+| Median updated atlas pixels/frame | 0 | 6144 |
+
+One-stream object pipelines account for 1769282133/1791048021 index requests
+(98.8%); terrain accounts for 21765888. The largest object packet in the measured
+patches requests 744501 indices for one instance, model slot 2206. This identifies
+object caster selection as the next measured target; it does not assign that
+packet to a particular generator. The current shadow path draws full original
+batch index ranges after its batch-sphere patch test, rather than selecting the
+main camera's visible clusters. Offscreen caster correctness remains mandatory.
+
+Both traces have zero dropped records and one queue. Every benchmark GPU sample
+joins a unique timed, ended successful submission; packet totals match the
+observed shadow viewport counts. The moving trace has no indirect or unknown
+pipeline packets. Static control/observed/candidate PNGs are byte-identical
+(SHA256 `b74ebc9d94b00b7d7fe3c0226d346637decc6336fcd0e1253be181eada9fd5dd`).
+Moving candidate control/observed PNGs are also identical
+(`57e427d31a806e0e20433fc9701b49c27941826faace2a866212115236ffa412`). Both
+actual final images were inspected. The observer adds no GPU commands; its
+CPU/mutex overhead remains unisolated, so these runs prove submitted work rather
+than an isolated timing improvement.
+
+All 60 moving frames remain unrefined (#1045); #1051 removes the previous fatal
+upload-pressure abort but does not resolve world completeness or 60 fps. The
+unobserved moving run reports CPU p99 96.619 ms and GPU p99 51.346 ms under its recorded
+host load; neither is a passing budget result. These facts do not justify reduced
+content, disabling shadows or another atlas cache. The next native step is finer
+conservative caster selection before vertex processing for the actual strip.

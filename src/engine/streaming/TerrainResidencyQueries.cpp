@@ -5,9 +5,11 @@
 #include "TileGeodesy.h"
 #include "math/RenderFrame.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 
 namespace outshine {
@@ -33,6 +35,27 @@ CellCoordinate CellAt(double fraction, uint32_t postings, bool uniform) noexcept
   const double high = Ground::ChunkNodePosting(node + 1, postings, kSide);
   return {.Node = node, .Fraction = high > low ? (at - low) / (high - low) : 0.0};
 }
+}
+
+std::optional<std::array<double, 2>> TerrainResidency::AslBoundsM() const noexcept {
+  if (Publishing_) { return std::nullopt; }
+  std::array<double, 2> bounds{std::numeric_limits<double>::infinity(),
+                               -std::numeric_limits<double>::infinity()};
+  for (const auto *tiles : {&Instances_, &Virtual_}) {
+    for (const auto &tile : *tiles) {
+      if (!std::isfinite(tile.LowM) || !std::isfinite(tile.HighM) || tile.LowM > tile.HighM) {
+        return std::nullopt;
+      }
+      bounds[0] = std::min(bounds[0], static_cast<double>(tile.LowM));
+      bounds[1] = std::max(bounds[1], static_cast<double>(tile.HighM));
+    }
+  }
+  if (!std::isfinite(bounds[0])) { return std::nullopt; }
+  const double margin = 16 * std::numeric_limits<double>::epsilon() *
+                        std::max({1., std::abs(bounds[0]), std::abs(bounds[1])});
+  bounds[0] = std::nextafter(bounds[0] - margin, -std::numeric_limits<double>::infinity());
+  bounds[1] = std::nextafter(bounds[1] + margin, std::numeric_limits<double>::infinity());
+  return bounds;
 }
 
 std::optional<double> TerrainResidency::HeightMAt(LongitudeLatitude at) const noexcept {

@@ -11,6 +11,7 @@ layout(std430, set = 0, binding = 3) readonly buffer Buffer_args { uint args[]; 
 layout(std430, set = 0, binding = 4) readonly buffer Buffer_pyramid { float pyramid[]; };
 layout(std430, set = 1, binding = 0) buffer Buffer_kept { uint kept[]; };
 #include "depthRectangle.glsl"
+#include "cullAffine.glsl"
 const uint kClusterFloat4s = 3u;
 float projectedError(float error, vec3 centre, float radius) {
   float away = max(length(centre) - radius, 1.0e-3);
@@ -25,23 +26,33 @@ void main() {
   const vec4 sphere = spheres[job.x * kClusterFloat4s];
   const vec4 parent = spheres[job.x * kClusterFloat4s + 1u];
   const vec4 errs = spheres[job.x * kClusterFloat4s + 2u];
-  const vec3 centre = (model * vec4(sphere.xyz, 1.0)).xyz + view.shift.xyz;
-  const float widest = max(max(length(model[0].xyz), length(model[1].xyz)), length(model[2].xyz));
-  const float radius = sphere.w * widest;
+  float widest;
+  vec4 worldSphere;
+  if (!cullAffineScale(model, widest) ||
+      !cullAffineSphere(model, sphere, view.shift.xyz, widest, worldSphere)) {
+    kept[id] = job.w;
+    return;
+  }
+  const vec3 centre = worldSphere.xyz;
+  const float radius = worldSphere.w;
 
   for (uint at = 0u; at < 6u; ++at) {
     const vec4 plane = view.planes[at];
     if (dot(plane.xyz, plane.xyz) < 0.5) { continue; }
-    if (dot(plane.xyz, centre) + plane.w < -radius) {
+    if (cullAffineOutside(plane, centre, radius)) {
       kept[id] = 0u;
       return;
     }
   }
 
   if (view.errorPerMetre > 0.0) {
-    const vec3 parentCentre = (model * vec4(parent.xyz, 1.0)).xyz + view.shift.xyz;
+    vec4 parentSphere;
+    if (!cullAffineSphere(model, parent, view.shift.xyz, widest, parentSphere)) {
+      kept[id] = job.w;
+      return;
+    }
     const float mine = projectedError(errs.x * widest, centre, radius);
-    const float theirs = projectedError(errs.y * widest, parentCentre, parent.w * widest);
+    const float theirs = projectedError(errs.y * widest, parentSphere.xyz, parentSphere.w);
     if (!(mine <= 1.0 && theirs > 1.0)) {
       kept[id] = 0u;
       return;

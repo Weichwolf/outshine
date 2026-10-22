@@ -47,11 +47,11 @@ int main() {
     ContentStore fresh({.Directory = path, .CapBytes = payload.size()});
     CHECK(fresh.HasCompleteChildCoverage(source, root),
           "coverage survives destruction of the receiving process state");
-    CHECK(fresh.LookupCell(source, children[0]).Bytes ==
-              std::vector<uint8_t>(payload.begin(), payload.end()),
-          "source payload roundtrips in a fresh store");
-    CHECK(fresh.Counters().Swept == 0,
-          "opening below the stored working-set size cannot invalidate qualified coverage");
+    for (const auto child : children) {
+      CHECK(fresh.LookupCell(source, child).Bytes ==
+                std::vector<uint8_t>(payload.begin(), payload.end()),
+            "opening below the working-set size preserves every qualified source payload");
+    }
   }
   const auto key = ContentKey(source, Address::AtGeoCell(children[0]));
   std::ofstream(path + "/" + key, std::ios::binary) << "<y/>";

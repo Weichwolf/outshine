@@ -6,6 +6,9 @@
 #ifdef __APPLE__
 #include <CommonCrypto/CommonDigest.h>
 #endif
+#ifdef __linux__
+#include <openssl/sha.h>
+#endif
 #include <span>
 #include <cstdint>
 #include <cstddef>
@@ -14,6 +17,17 @@
 #include <string_view>
 
 namespace outshine {
+namespace {
+std::string DigestHex(std::span<const uint8_t, 32> digest) {
+  static constexpr std::string_view kHex = "0123456789abcdef";
+  std::string out(digest.size() * 2, '0');
+  for (size_t at = 0; at < digest.size(); ++at) {
+    out[at * 2] = kHex[digest[at] >> 4u];
+    out[at * 2 + 1] = kHex[digest[at] & 15u];
+  }
+  return out;
+}
+}
 #ifndef __APPLE__
 namespace {
 
@@ -169,21 +183,21 @@ std::array<uint8_t, 32> Sha256Prefix::Digest(const void *data, size_t bytes) con
 
 std::string Sha256Prefix::Hex(const void *data, size_t bytes) const {
   const auto digest = Digest(data, bytes);
-  static constexpr std::string_view kHex = "0123456789abcdef";
-  std::string out(digest.size() * 2, '0');
-  for (size_t at = 0; at < digest.size(); ++at) {
-    out[at * 2] = kHex[digest[at] >> 4u];
-    out[at * 2 + 1] = kHex[digest[at] & 15u];
-  }
-  return out;
+  return DigestHex(digest);
 }
 
 std::array<uint8_t, 32> Sha256Digest(const void *data, size_t bytes) {
+#ifdef __linux__
+  std::array<uint8_t, 32> digest{};
+  if (SHA256(static_cast<const uint8_t *>(data), bytes, digest.data()) != nullptr) {
+    return digest;
+  }
+#endif
   return Sha256Prefix(nullptr, 0).Digest(data, bytes);
 }
 
 std::string Sha256Hex(const void *data, size_t bytes) {
-  return Sha256Prefix(nullptr, 0).Hex(data, bytes);
+  return DigestHex(Sha256Digest(data, bytes));
 }
 
 std::string Sha256Hex(std::string_view text) {

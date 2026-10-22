@@ -7,6 +7,8 @@
 namespace outshine {
 class TestEngine {
 public:
+  [[nodiscard]] static auto &StateOf(Engine &engine) noexcept { return *engine.S_; }
+
   [[nodiscard]] static Engine WithGpu(Render::GpuSubmission submission) {
     return Engine(std::make_unique<Engine::State>(submission));
   }
