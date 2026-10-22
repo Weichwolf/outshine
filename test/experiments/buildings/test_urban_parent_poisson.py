@@ -51,6 +51,23 @@ def monte_carlo_shadow(model, origins, points, light, *, worlds=12000):
 
 
 class ParentPoissonTest(unittest.TestCase):
+    def test_atomic_log_weights_reproduce_categorical_conditional_height_states(self):
+        """Keeping centres atomic preserves the recipe instead of smoothing it."""
+        parent = homogeneous_parent()
+        states = np.arange(-1, len(parent.heights))
+        for q in [0.0, 0.1, 0.5, 0.85, 0.999]:
+            probabilities = np.r_[1 - q, q * parent.probabilities]
+            rates = calibrated_rates(q, parent.probabilities, 1)
+            for view in range(5):
+                allowed = states < view
+                for light in range(5):
+                    brute = (
+                        probabilities[allowed & (states < light)].sum()
+                        / probabilities[allowed].sum()
+                    )
+                    atomic = np.exp(-rates[light:view].sum()) if light < view else 1
+                    self.assertAlmostEqual(atomic, brute, delta=3e-14)
+
     def test_calibration_matches_every_vertical_height_cdf(self):
         parent = homogeneous_parent()
         coverage = np.array([0, 0.1, 0.85 * 0.75**2])

@@ -62,6 +62,73 @@ support/overlap changes, with nonuniform bilinear lookup. Prior paired controls 
 slower, so uniform remains default. This heuristic is not a conservative error bound.
 Those controls remain available, but are not silently reused across opaque stops.
 
+## Coarse joint void: correlation matters, lattice support must remain
+
+`urban_parent_poisson.py` tests a different spatial model: marked Poisson centres
+with overlapping axis-aligned box footprints. Coarse density has256 bins, not one
+entry per recipe cell. Let s be footprint side, q accepted-centre probability,
+a=q*f*f, and t[k]=P(H>=height[k]). Rates
+`lambda[k]=log((1-a*t[k+1])/(1-a*t[k]))/(s*s)` reproduce every vertical height CDF
+in a homogeneous interior. This calibration does not preserve regular corridors.
+
+For each height, a box blocks a ray segment iff its centre lies in the projected
+XY segment swept by the footprint square. Let V/L be these view/light sets. The
+conditional shadow transmission is `exp(-sum(integral(L[k] minus V[k], lambda[k])))`:
+conditioned primary misses remove overlapping potential blockers. Independent
+shadows omit this subtraction and lose the view/light hotspot. Each coarse bin has
+constant rates; GEOS polygons/STRtree provide an **offline geometric reference** for
+the weighted areas. This is the projected-overlap principle of Bruneton/Neyret2012,
+section3/Figure2, visually rechecked; the box/CDF derivation here is our experiment.
+GEOS is not proposed for the frame path. No shaded colour is stored.
+
+The kernel matches independently sampled actual boxes in12,000 nonuniform marked
+worlds: four conditional probabilities differ by less than one Monte Carlo standard
+error. Coincident view/light gives visibility1 instead of independent .521875;
+an outside receiver correctly sees inside-support shadows. The image experiment
+retains a separate primary slab approximation; **only the void kernel is exact for
+its Poisson model**, not the complete renderer or original lattice distribution.
+
+Frozen image code `7cc596588`, master `77466b5e5`: four clean terminal0 comparisons,
+16 actual1280x720 PNGs inspected. Candidate4x4/resolved16x16 jitter, original stored
+inputs, true240km target distance, same region/material/light settings. Both Poisson
+variants have identical coverage, isolating the shadow subtraction. All four
+resolved RGB/coverage controls are bit-identical to the previous frozen references.
+
+| Case | Independent RGB RMS | Joint RGB RMS | Independent s | Joint s |
+| --- | ---: | ---: | ---: | ---: |
+| Day | .037338 | .018967 | 9.182 | 18.535 |
+| Night | .227433 | .095474 | 10.744 | 20.970 |
+| Backlight | .024454 | .010976 | 8.855 | 18.154 |
+| Motion8km | .041213 | .017907 | 8.634 | 18.979 |
+
+Correlation reduces these errors by1.97-2.38x but does not qualify this renderer.
+GEOS roughly doubles query time; the prior cheap volume takes .206-.223s with larger
+errors. Day uses159,433 receivers,737,506 swept polygons,368,753 subtractions and
+351,437 coarse overlaps; all preparation/clipping costs are counted. A256-receiver
+scaling probe stretches the same256-bin density pattern from15.9 to254.3km:
+hypothetical recipe cells374,544->95,726,656, rates8,192B,2,048 polygons/2,304 coarse
+overlaps remain unchanged. Fixed local rays take .075-.089s. This is neither an
+equal-quality geographic expansion nor complete scene/native/device/p99 evidence.
+GEOS/STRtree allocations and full residency remain unmeasured; process RSS includes
+the resolved control. The stored parent stays6,264B, with no fine generation/source
+parse in candidate preparation. The timing contexts are shared-host diagnostics.
+
+**Reject continuous smoothing as a replacement for the lattice:** the explicit
+parallel gap has categorical coverage0 and Poisson coverage .9999999999991. The
+primary slab renderer also requires downward rays; no horizon image/composition
+qualification follows from the general void kernel. Preserve existing defaults.
+Their RGB/T/work match the original `9e87685b8` code in3lights x2phase modes x104rays.
+
+A useful exact identity survives: keep centres *atomic*, use a=q and s=1 in the
+log weights, and the sum over light-blocking/view-allowed height marks reproduces
+categorical conditional visibility. Exhaustive enumeration checks125 combinations
+of occupancy probability and view/light height thresholds. This suggests aggregating
+canonical-centre counts while preserving corridors. No fast aggregate-count query
+or production primary integration has yet been delivered. **85 tests pass** (6.023s),
+including the new identity and original contracts. Next work must preserve this
+discrete support while reducing prefix work, rather than optimise the failed smooth
+model or tune sampling. Evidence: `/tmp/outshine-research-urban-poisson-7cc596588/receipt.json`.
+
 ## Projected response field: cheaper consumption, unqualified construction
 
 `urban_parent_response.py` integrates a temporary per-view/light-geometry response
@@ -312,6 +379,10 @@ python -B -W error test/experiments/buildings/compare_urban_response.py \
   --parent /tmp/outshine-urban-control/parent.npz \
   --resolved /tmp/outshine-urban-control/reference.npz \
   --output /tmp/outshine-urban-response
+python -B -W error test/experiments/buildings/compare_urban_poisson.py \
+  --parent /tmp/outshine-urban-control/parent.npz \
+  --resolved /tmp/outshine-urban-control/reference.npz \
+  --output /tmp/outshine-urban-poisson --scaling-probe
 ```
 
 `--tolerance 0` selects complete traversal; `--ray-probe` runs the tiny real-field
@@ -323,7 +394,8 @@ controlled view; none supplies terrain/curvature or complete-world evidence.
 Parent compilation precedes the offline reference bake. A stored `--parent`/`--resolved`
 reuses finished data without source parsing or child generation.
 
-Current response evidence: `/tmp/outshine-research-urban-response-8282c30a3/receipt.json`.
+Current joint-void evidence: `/tmp/outshine-research-urban-poisson-7cc596588/receipt.json`.
+Prior response evidence: `/tmp/outshine-research-urban-response-8282c30a3/receipt.json`.
 Prior exact wall-sharing: `/tmp/outshine-research-urban-wall-fdc98f113/receipt.json`.
 Prior prefix/horizon: `/tmp/outshine-research-urban-horizon-3ba4d5a12/receipt.json`.
 Prior filtering: `/tmp/outshine-research-urban-layer-filter-86969ff1e/receipt.json`.
