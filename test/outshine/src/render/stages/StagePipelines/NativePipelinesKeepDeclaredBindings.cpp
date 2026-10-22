@@ -25,6 +25,12 @@ int main() {
           "unknown stages cannot publish an empty or unrelated pipeline");
   }
   const auto depth = *FindComputeShader(ComputeShaderId::DepthPyramid);
+  auto previousCompact = *FindComputeShader(ComputeShaderId::SubjectCompact);
+  constexpr uint32_t kPreviousCompactGroupX = 128;
+  previousCompact.Shape.GroupX = kPreviousCompactGroupX;
+  const auto incompatibleCompact = CompileComputePipeline(**device, previousCompact);
+  CHECK(!incompatibleCompact && incompatibleCompact.error().Kind == Native::ErrorKind::Invalid,
+        "the compact shader cannot retain the previous workgroup contract");
   for (auto field : {&ComputeShape::Samplers,
                      &ComputeShape::ReadOnlyTextures,
                      &ComputeShape::ReadWriteTextures,

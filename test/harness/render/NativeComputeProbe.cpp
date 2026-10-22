@@ -5,6 +5,8 @@
 #include <array>
 #include <bit>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <cstddef>
 #include <cstdint>
@@ -60,7 +62,8 @@ Data Inputs() {
     uint32_t possible = 0;
     for (uint32_t i = 0; i < count; ++i) {
       const auto job = first + i;
-      const auto indices = count == longestObservedBatch ? 384u : 3 * (job % 3 + 1);
+      constexpr std::array<uint32_t, 5> lengths{3, 18, 72, 381, 384};
+      const auto indices = count == longestObservedBatch ? 384u : lengths[job % lengths.size()];
       const auto source = static_cast<uint32_t>(data.Source.size());
       const bool visible = batch != rejectedBatch && (batch == acceptedBatch || job % 5 != 0);
       data.Kept.push_back(visible ? indices : 0);
