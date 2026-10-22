@@ -292,7 +292,7 @@ TestProfile() {
     outshine/src/render/Viewing) printf '%s' 'profile/render-viewing' ;;
     outshine/src/render/stages/StagePipelines) printf '%s' 'profile/stage-pipelines' ;;
     outshine/src/render/draw/InstanceDemand) printf '%s' 'profile/instance-demand' ;;
-    outshine/src/render/prism/PrismGrid) printf '%s' 'profile/prism-grid' ;;
+    outshine/src/content/scene/PrismGrid) printf '%s' 'profile/prism-grid' ;;
     outshine/src/generators/osm/UrbanAreaPrisms) printf '%s' 'profile/urban-prisms' ;;
     outshine/src/generators/osm/PreparedUrbanAreas|outshine/src/generators/osm/PreparedOsmTiles|outshine/src/generators/osm/UrbanArea) printf '%s' 'profile/urban-assets' ;;
     outshine/integration/render/UrbanPatchDemand) printf '%s' 'profile/urban-demand' ;;
@@ -397,7 +397,7 @@ LayerIncludes() {
     profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
     profile/instance-demand) GroupIncludes src/render/draw ;;
-    profile/prism-grid) GroupIncludes src/render/prism ;;
+    profile/prism-grid) GroupIncludes src/content/scene ;;
     profile/urban-prisms) GroupIncludes src/generators/osm/urban ;;
     profile/urban-assets) GroupIncludes src/generators/osm ;;
     profile/urban-demand) LayerIncludes profile/instance-demand; printf ' %s' '-Isrc/generators/osm/urban' ;;
@@ -604,7 +604,7 @@ LayerGroups() {
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
     profile/ground-patch) printf '%s' 'src/render/terrain/TerrainPatchMesh.cpp src/render/terrain/TerrainPatchError.cpp' ;;
     profile/instance-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp' ;;
-    profile/prism-grid) printf '%s' 'src/render/prism/PrismGrid.cpp' ;;
+    profile/prism-grid) printf '%s' 'src/content/scene/PrismGrid.cpp' ;;
     profile/urban-prisms) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaPrisms.cpp' ;;
     profile/urban-assets) LayerGroups profile/world; printf ' %s' 'src/generators/terrain src/generators/base/AssetSourceRecipe.cpp src/generators/base/Tile.cpp src/generators/base/GroundPatch.cpp src/generators/osm/urban src/generators/osm/regions/PreparedOsmTiles.cpp src/generators/osm/regions/PreparedOsmTileAssets.cpp src/generators/osm/fields/OsmField.cpp src/generators/osm/fields/OsmNativeTile.cpp src/generators/osm/fields/OsmNativeAssembly.cpp src/generators/osm/fields/OsmDeclaredInput.cpp src/generators/osm/import src/generators/osm/providers/MvtLayer.cpp' ;;
     profile/urban-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaBounds.cpp' ;;
