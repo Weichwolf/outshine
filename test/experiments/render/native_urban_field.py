@@ -73,13 +73,15 @@ def run(binary, native, directory, key, source, label, args):
     device = next(row.removeprefix("DEVICE ") for row in text.splitlines() if row.startswith("DEVICE "))
     line = next(row for row in text.splitlines() if row.startswith("URBAN "))
     counters = dict(word.split("=", 1) for word in line.split()[1:])
-    values = [float(row.split()[1]) for row in prefix.with_suffix(".times").read_text().splitlines()]
+    samples = [row.split() for row in prefix.with_suffix(".times").read_text().splitlines()]
+    submissions = [int(row[0]) for row in samples]
+    assert len(submissions) == 60 and submissions == sorted(set(submissions))
+    values = [float(row[1]) for row in samples]
     assert len(values) == 60 and all(math.isfinite(v) and v >= 0 for v in values)
     assert counters["okay"] == "true" and counters["raster_frames"] == "60"
     assert counters["device_creations"] == "1"
     ordered = sorted(values)
-    hosts = sorted(float(row.split()[2]) for row in
-                   prefix.with_suffix(".times").read_text().splitlines())
+    hosts = sorted(float(row[2]) for row in samples)
     return {"command": command, "returncode": 0, "wall_seconds": time.monotonic() - started,
             "validation": validation, "gpu_device": device, "counters": counters, "gpu_samples": len(values),
             "gpu_ms": {"p50": (ordered[29] + ordered[30]) / 2,

@@ -2,6 +2,8 @@
 #include "TestEngine.h"
 #include "NativeUrbanField.h"
 #include "StoredVertex.h"
+#include "AzimuthElevation.h"
+#include "math/Units.h"
 #include "native/Device.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -190,6 +192,17 @@ UploadBoxes(Engine &engine, const BoxMesh &mesh, std::span<const Mat4> rows) {
   return renderer.PlacePiece(piece);
 }
 
+void DeclareShadows(Engine &engine, const HeightGrid &field) {
+  const auto direction =
+      EastUpSouthDirection(kSunBearingDeg * kDeg2Rad, kSunElevationDeg * kDeg2Rad);
+  const Vec3f toSun{{static_cast<float>(direction[0]),
+                     static_cast<float>(direction[1]),
+                     static_cast<float>(direction[2])}};
+  const double radius = std::hypot(field.Columns * field.CellM, field.Rows * field.CellM) +
+                        std::ranges::max(field.HeightsM);
+  TestEngine::StateOf(engine).Picture.Device.SetShadowFrame(toSun, {{0, 1, 0}}, radius, false, 0);
+}
+
 bool RenderOrbit(Engine &engine,
                  const HeightGrid &field,
                  const ViewControl &control,
@@ -216,6 +229,7 @@ bool RenderOrbit(Engine &engine,
   TestEngine::StateOf(engine).Picture.Device.WaitForGpu();
   std::vector<Render::GpuFrameSample> samples;
   if (!Accepted(renderer.gpuSamples(samples)) || samples.size() != kFrames) { return false; }
+  std::ranges::sort(samples, {}, &Render::GpuFrameSample::Submission);
   std::ofstream times(output + ".times");
   times << std::setprecision(std::numeric_limits<double>::max_digits10);
   for (size_t sample = 0; sample < samples.size(); ++sample) {
@@ -270,6 +284,7 @@ int main(int argc, const char *const *argv) {
     }
     piece = *uploaded;
   }
+  UrbanControl::DeclareShadows(engine, *field);
   const auto prepared = UrbanControl::Clock::now();
   const bool okay = UrbanControl::RenderOrbit(engine, *field, control, argv[4]);
   auto &device = outshine::TestEngine::StateOf(engine).Picture.Device;
