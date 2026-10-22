@@ -482,7 +482,8 @@ int main(int argc, char *const *argv) {
   const std::filesystem::path folder(argv[1]);
   const auto vertex = Shader(folder / "patch.vert.spv");
   const auto fragment = Shader(folder / "patch.frag.spv");
-  auto device = Take(N::CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device = Take(N::CreateDevice(
+      {.Validation = true, .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission}));
   auto target = MakeTarget(*device);
   N::ColourTarget colour;
   colour.Texels = N::Format::R32Float;

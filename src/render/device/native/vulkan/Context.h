@@ -31,7 +31,7 @@ struct Context {
   PFN_vkReleaseSwapchainImagesEXT ReleaseImages = nullptr;
   uint32_t QueueFamily = 0;
   uint32_t TimestampValidBits = 0;
-  bool GpuTiming = false;
+  GpuTimingMode GpuTiming = GpuTimingMode::None;
   uint64_t Cookie = 0;
   bool DebugMarkers = false;
   bool StorageImageExtendedFormats = false;

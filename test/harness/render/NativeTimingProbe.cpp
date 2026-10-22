@@ -186,7 +186,8 @@ void Ownership(Device &device, const char *shader, Completion done) {
 int main(int argc, char **argv) {
   if (argc != 3) { return 2; }
   Disabled();
-  auto device = Require(CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device = Require(CreateDevice(
+      {.Validation = true, .GpuTiming = outshine::Render::Native::GpuTimingMode::Dispatches}));
   CHECK(device->Limits().GpuTimestamps, "this hardware proves actual GPU timestamp support");
   const auto oldest = PendingAndReady(*device, argv[1]);
   Ownership(*device, argv[1], oldest);
