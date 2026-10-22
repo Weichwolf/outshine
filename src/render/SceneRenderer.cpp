@@ -32,6 +32,13 @@
 #include "stages/SceneTargets.h"
 
 namespace outshine::Render {
+namespace {
+bool DepthPyramidNeeded(const Compiled &plan) {
+  return !plan.Holds(Stage::TemporalResolve) ||
+         std::ranges::contains(plan.Specification().Outputs, Resource::DepthPyramid) ||
+         std::ranges::contains(plan.Specification().Content, Stage::DepthPyramid);
+}
+}
 
 void SceneRenderer::SetContentSelection(const ContentSelection &selection) {
   auto &content = ActiveState().Content;
@@ -1209,6 +1216,7 @@ bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
 Native::Result<void> SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx,
                                                        const PassRecording &into) {
   (void)ctx;
+  if (!DepthPyramidNeeded(*ActiveState().Plan)) { return {}; }
   return ActiveFrame().PyramidStage.Encode(into);
 }
 
@@ -1529,7 +1537,8 @@ void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission) {
   ActiveState().Content.Geometry.CommitCrossings();
   if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
   stageSubmission.Commit();
-  ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid));
+  ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid) &&
+                                    DepthPyramidNeeded(*ActiveState().Plan));
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) {
     ActiveState().PrevEye[axis] = ActiveState().Camera.EyeM[axis];
