@@ -62,6 +62,71 @@ support/overlap changes, with nonuniform bilinear lookup. Prior paired controls 
 slower, so uniform remains default. This heuristic is not a conservative error bound.
 Those controls remain available, but are not silently reused across opaque stops.
 
+## Projected response field: cheaper consumption, unqualified construction
+
+`urban_parent_response.py` integrates a temporary per-view/light-geometry response
+at sparse image anchors. Seven categories (roof, four walls, ground, sky) retain
+visible mass M, visible-and-lit mass J, and diffuse/specular response D/S to unit
+light intensity. Each actual event position/normal is shaded before integration;
+no averaged normal or mean point-light distance is substituted. For this fixed
+grey dielectric study (roughness .7, F0 .04), current radiance is
+`sum(I*(albedo*D+S) + ambient*albedo*M) + sky*M_sky`. Intensity/ambient changes
+reuse coefficients; view/light geometry and material-model changes require rebuilding.
+The consumer rejects changed light geometry; its caller owns view invalidation.
+This is not a general material/SH/GI asset or a cached lit-RGB product. M/J/D/S
+includes the same visibility correlations at anchors, not a new occlusion model.
+
+The ground-projected phase kernel remains available for elevated downward views.
+A separate centre-depth phase kernel shifts XY phase at the projected owner centre,
+avoiding singular ground projections for horizon/upward rays. Both are local
+stationarity approximations, not exact pixel-footprint filters. The same explicit
+kernel is used for sparse and dense anchors, independently of packet boundaries.
+Sky residual mass completes each partition; clamped bilinear lookup conserves it.
+Sampling 28 coefficients replaces recipe traversal in the pixel consumer, but the
+field builder still performs exact categorical cell/height/shadow queries.
+
+Frozen code `8282c30a3`, master base `77466b5e5`: **79 focused tests pass** (5.736 s),
+including analytic footprint mass, original shader/node equality for sun/point,
+energy-independent coefficients, changed-light rejection and packet-invariant mixed
+horizon rays. Six clean terminal0 runs use the original parent/owner inputs, same
+1280x720 viewport, geometry-derived region and 16x16 jittered resolved-box controls.
+All 18 actual PNGs were inspected through six full-frame/crop sheets. Parent storage
+remains 6,264B and no children/source/GEOS are built by the candidate. Named array
+counts and process RSS do not establish native/driver residency or a memory win.
+
+| Case | Dense build+consume s | Sparse build+consume s | Dense RGB RMS | Sparse RGB RMS |
+| --- | ---: | ---: | ---: | ---: |
+| Elevated day | 7.192 | 1.940 | .014370 | .017346 |
+| Elevated night | 16.624 | 4.210 | .081954 | .089027 |
+| Elevated backlight | 4.976 | 1.309 | .011582 | .011685 |
+| Elevated motion 8km | 8.808 | 2.323 | .015077 | .018716 |
+| Ground/horizon day | 64.836 | 17.655 | .015594 | .015592 |
+| Ground/horizon night | 104.175 | 30.868 | .040080 | .039424 |
+
+Elevated views have true 240km target distance; ground views use 50km, camera2m
+above the flat base. These are not real-Earth visibility claims. Sparse spacing is
+four macro samples horizontally and one vertically; both use 1x2 macro samples and
+6x6 phase quadrature. Sparse build+consume is 3.37-3.95x faster than its matched
+dense response, with unequal image error. Consumption alone takes 4.1-6.1ms for
+these small crops, with zero recipe queries; this is not a full-frame/native/p99
+result. Day anchors fall3120->816, response698,880->182,784B; build visits511,166->
+133,038 and height tests2,044,664->532,152. All these build costs remain counted.
+
+**Do not promote this candidate to the default/World consumer.** Sparse elevated
+boundaries and point-light highlights blur visibly. Elevated-night sparse-vs-dense
+RMS .07306 shows interpolation error even though total errors partly cancel.
+Ground-day sparse-vs-dense RMS is only .00102: denser anchors do not fix the phase
+kernel's error. Against the same new resolved16 control, the previous direct
+jitter4 parent has day/night RMS .00758/.03617, versus .01559/.03942 here. The
+resolved4-vs-resolved16 differences are .00828/.03013, so fine rankings remain
+reference-sensitive. Ground-day coverage L1 grows25.38->89.02 pixel-equivalents.
+Construction is also slower than the resolved CPU control in both ground cases.
+No ready-child/foreground composition or temporal reuse has been qualified.
+The next structural need is coarser joint transport construction and a valid horizon
+footprint, not another anchor-spacing sweep. Exact transport and existing opaque
+composition remain unchanged. Raw evidence and all counterexamples are retained at
+`/tmp/outshine-research-urban-response-8282c30a3/receipt.json`.
+
 ## Joint filtering with an opaque baseline
 
 `render_composed_phase` passes every shifted ray to the scene callback. Opaque depth,
@@ -243,6 +308,10 @@ python -B -W error test/experiments/buildings/compare_urban_horizon.py \
   --parent /tmp/outshine-urban-control/parent.npz \
   --resolved /tmp/outshine-urban-control/reference.npz \
   --output /tmp/outshine-urban-horizon --altitude 2 --distance 50000
+python -B -W error test/experiments/buildings/compare_urban_response.py \
+  --parent /tmp/outshine-urban-control/parent.npz \
+  --resolved /tmp/outshine-urban-control/reference.npz \
+  --output /tmp/outshine-urban-response
 ```
 
 `--tolerance 0` selects complete traversal; `--ray-probe` runs the tiny real-field
@@ -254,7 +323,8 @@ controlled view; none supplies terrain/curvature or complete-world evidence.
 Parent compilation precedes the offline reference bake. A stored `--parent`/`--resolved`
 reuses finished data without source parsing or child generation.
 
-Current raw evidence: `/tmp/outshine-research-urban-wall-fdc98f113/receipt.json`.
+Current response evidence: `/tmp/outshine-research-urban-response-8282c30a3/receipt.json`.
+Prior exact wall-sharing: `/tmp/outshine-research-urban-wall-fdc98f113/receipt.json`.
 Prior prefix/horizon: `/tmp/outshine-research-urban-horizon-3ba4d5a12/receipt.json`.
 Prior filtering: `/tmp/outshine-research-urban-layer-filter-86969ff1e/receipt.json`.
 Earlier source/compiler/conditional controls: `urban-parent-1edb4404d/receipt.json`;
