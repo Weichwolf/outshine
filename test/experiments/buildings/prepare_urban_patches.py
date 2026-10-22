@@ -158,7 +158,7 @@ def run(args):
                     "mesh": "../" + mode + ".npz",
                     "product": "../product.npz",
                     "chunks": chunks.tolist(),
-                    "ground_span": 12000,
+                    "ground_span": 60000,
                     "study": "Bounded flat procedural coarse-city control, not observed detailed buildings/world admission.",
                 }
             )

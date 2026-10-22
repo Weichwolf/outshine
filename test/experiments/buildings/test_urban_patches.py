@@ -12,8 +12,8 @@ import shapely
 from coarse_city_domains import domains
 from urban_patch_bake import bake, hash_cells
 from urban_patch_mesh import build, height_atlas
-from urban_patch_trace import trace
 from urban_patch_projection import projected_work
+from urban_patch_trace import trace
 from urban_patches import UrbanPatches, load
 
 
