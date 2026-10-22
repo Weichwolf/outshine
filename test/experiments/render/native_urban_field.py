@@ -49,10 +49,12 @@ def build(native, output):
 def run(binary, native, directory, key, source, label, args):
     prefix = directory / label
     command = [str(binary), str(directory / "assets.sqlite"), key, str(source), str(prefix)]
-    if args.radius is not None or args.validation:
+    if args.radius is not None or args.validation or args.sequence != "orbit":
         command.append(str(args.radius) if args.radius is not None else "auto")
-    if args.validation:
-        command.append("validate")
+    if args.validation or args.sequence != "orbit":
+        command.append("validate" if args.validation else "normal")
+    if args.sequence != "orbit":
+        command.append(args.sequence)
     validation = args.validation
     environment = dict(os.environ)
     for name in ("MTL_DEBUG_LAYER", "MTL_SHADER_VALIDATION", "OUTSHINE_METAL_ENCODER_PROFILE",
@@ -73,6 +75,8 @@ def run(binary, native, directory, key, source, label, args):
     device = next(row.removeprefix("DEVICE ") for row in text.splitlines() if row.startswith("DEVICE "))
     line = next(row for row in text.splitlines() if row.startswith("URBAN "))
     counters = dict(word.split("=", 1) for word in line.split()[1:])
+    changed = next(row for row in text.splitlines() if row.startswith("CHANGES "))
+    changes = dict(word.split("=", 1) for word in changed.split()[1:])
     samples = [row.split() for row in prefix.with_suffix(".times").read_text().splitlines()]
     submissions = [int(row[0]) for row in samples]
     assert len(submissions) == 60 and submissions == sorted(set(submissions))
@@ -83,7 +87,8 @@ def run(binary, native, directory, key, source, label, args):
     ordered = sorted(values)
     hosts = sorted(float(row[2]) for row in samples)
     return {"command": command, "returncode": 0, "wall_seconds": time.monotonic() - started,
-            "validation": validation, "gpu_device": device, "counters": counters, "gpu_samples": len(values),
+            "validation": validation, "gpu_device": device, "counters": counters,
+            "changes": changes, "gpu_samples": len(values),
             "gpu_ms": {"p50": (ordered[29] + ordered[30]) / 2,
                        "p95": ordered[math.ceil(0.95 * len(values)) - 1],
                        "p99": ordered[math.ceil(0.99 * len(values)) - 1]},
@@ -101,6 +106,29 @@ def field(size, empty=False):
     return f"{size} {size} {512 / size} 0.72\n" + " ".join(map(str, tops)) + "\n"
 
 
+def verify_transitions(binary, native, directory, key, baseline, args):
+    variants = {}
+    for sequence in ("relit", "relight", "replaced", "replace"):
+        selected = argparse.Namespace(**vars(args))
+        selected.sequence = sequence
+        row = run(binary, native, directory, key, "-", sequence, selected)
+        expected = "1" if sequence in ("relight", "replace") else "0"
+        assert row["changes"]["applied"] == expected
+        variants[sequence] = row
+    for changed, fresh in (("relight", "relit"), ("replace", "replaced")):
+        for prop in ("image_sha256", "depth_sha256"):
+            assert variants[changed][prop] == variants[fresh][prop], (changed, prop)
+    assert baseline["depth_sha256"] == variants["relit"]["depth_sha256"]
+    if int(baseline["counters"]["instances"]) > 0:
+        assert baseline["image_sha256"] != variants["relit"]["image_sha256"]
+        assert baseline["depth_sha256"] != variants["replaced"]["depth_sha256"]
+    else:
+        assert baseline["depth_sha256"] == variants["replaced"]["depth_sha256"]
+    return {"variants": variants, "matches_fresh": True,
+            "prior_frame_pending_before_release":
+                variants["replace"]["changes"]["pending_before_release"] == "true"}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", type=Path, default=ROOT)
@@ -108,6 +136,8 @@ def main():
     parser.add_argument("--field", type=Path)
     parser.add_argument("--radius", type=float, help="model-space orbit radius in metres")
     parser.add_argument("--validation", action="store_true")
+    parser.add_argument("--sequence", choices=("orbit", "relight", "relit", "replace", "replaced", "verify"),
+                        default="orbit", help="functional mutation controls; timings are diagnostic")
     args = parser.parse_args()
     if args.radius is not None and (not math.isfinite(args.radius) or args.radius <= 0):
         parser.error("radius must be finite and positive")
@@ -119,12 +149,16 @@ def main():
     if any(output.iterdir()):
         parser.error("output must be empty")
     binary, build_record = build(native, output)
+    selected = argparse.Namespace(**vars(args))
+    if args.sequence == "verify":
+        selected.sequence = "orbit"
     inputs = [("provided", args.field.read_text())] if args.field else [
         (f"grid-{size}", field(size)) for size in (32, 64, 128)] + [("empty", field(8, True))]
     result = {"commit": subprocess.check_output(["git", "rev-parse", "HEAD"],
                                                cwd=native, text=True).strip(),
               "platform": platform.platform(), "resolution": [1280, 720],
-              "radius_m": args.radius, "build": build_record, "scope": "model-space controls; no complete-world admission",
+              "radius_m": args.radius, "sequence": args.sequence,
+              "build": build_record, "scope": "model-space controls; no complete-world admission",
               "cases": []}
     for name, text in inputs:
         directory = output / name
@@ -132,16 +166,20 @@ def main():
         source = directory / "input.field"
         source.write_text(text)
         key = sha(source)
-        cold = run(binary, native, directory, key, source, "cold", args)
+        cold = run(binary, native, directory, key, source, "cold", selected)
         before = packages(directory / "assets.sqlite")
         retained = source.with_suffix(".retained")
         source.rename(retained)
-        warm = run(binary, native, directory, key, "-", "warm", args)
+        warm = run(binary, native, directory, key, "-", "warm", selected)
         assert before == packages(directory / "assets.sqlite")
         assert cold["image_sha256"] == warm["image_sha256"]
         assert cold["depth_sha256"] == warm["depth_sha256"]
-        result["cases"].append({"name": name, "source_sha256": key,
-                                "cold": cold, "warm": warm, "packages_unchanged": True})
+        case = {"name": name, "source_sha256": key,
+                "cold": cold, "warm": warm, "packages_unchanged": True}
+        if args.sequence == "verify":
+            case["transitions"] = verify_transitions(binary, native, directory, key, warm, args)
+            assert before == packages(directory / "assets.sqlite")
+        result["cases"].append(case)
         (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
         (directory / "warm.png").unlink()
         (directory / "warm.depth").unlink()

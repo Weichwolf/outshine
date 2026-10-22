@@ -45,9 +45,27 @@ struct ViewControl {
   double RadiusM = 0;
 };
 
+enum class ChangeKind { None, Light, Boxes };
+
+struct Sequence {
+  ChangeKind Kind = ChangeKind::None;
+  bool Fresh = false;
+};
+
+std::optional<Sequence> SequenceOf(std::string_view name) {
+  if (name == "orbit") { return Sequence{}; }
+  if (name == "relight") { return Sequence{.Kind = ChangeKind::Light}; }
+  if (name == "relit") { return Sequence{.Kind = ChangeKind::Light, .Fresh = true}; }
+  if (name == "replace") { return Sequence{.Kind = ChangeKind::Boxes}; }
+  if (name == "replaced") { return Sequence{.Kind = ChangeKind::Boxes, .Fresh = true}; }
+  return std::nullopt;
+}
+
 struct DeviceControl {
   bool Validation = false;
   size_t Creates = 0;
+  Render::Native::Device *Device = nullptr;
+  std::optional<Render::Native::Completion> LastSubmitted = std::nullopt;
 };
 
 struct VideoSystem {
@@ -74,7 +92,18 @@ CreateDevice(void *context, outshine::Render::Native::DeviceOptions options) {
   auto &control = *static_cast<DeviceControl *>(context);
   ++control.Creates;
   options.Validation = control.Validation;
-  return outshine::Render::Native::CreateDevice(options);
+  auto device = outshine::Render::Native::CreateDevice(options);
+  if (device) { control.Device = device->get(); }
+  return device;
+}
+
+Render::Native::Result<Render::Native::Completion>
+Submit(void *context,
+       Render::Native::Device *device,
+       std::unique_ptr<Render::Native::Commands> commands) {
+  auto submitted = device->Submit(std::move(commands));
+  if (submitted) { static_cast<DeviceControl *>(context)->LastSubmitted = *submitted; }
+  return submitted;
 }
 
 struct BoxMesh {
@@ -192,9 +221,8 @@ UploadBoxes(Engine &engine, const BoxMesh &mesh, std::span<const Mat4> rows) {
   return renderer.PlacePiece(piece);
 }
 
-void DeclareShadows(Engine &engine, const HeightGrid &field) {
-  const auto direction =
-      EastUpSouthDirection(kSunBearingDeg * kDeg2Rad, kSunElevationDeg * kDeg2Rad);
+void DeclareShadows(Engine &engine, const HeightGrid &field, double bearingDeg = kSunBearingDeg) {
+  const auto direction = EastUpSouthDirection(bearingDeg * kDeg2Rad, kSunElevationDeg * kDeg2Rad);
   const Vec3f toSun{{static_cast<float>(direction[0]),
                      static_cast<float>(direction[1]),
                      static_cast<float>(direction[2])}};
@@ -203,14 +231,91 @@ void DeclareShadows(Engine &engine, const HeightGrid &field) {
   TestEngine::StateOf(engine).Picture.Device.SetShadowFrame(toSun, {{0, 1, 0}}, radius, false, 0);
 }
 
+bool Relight(Engine &engine, const HeightGrid &field) {
+  constexpr double bearingDeg = 300;
+  const auto direction = EastUpSouthDirection(bearingDeg * kDeg2Rad, kSunElevationDeg * kDeg2Rad);
+  Render::SubjectLight light;
+  light.Light.Intensity = static_cast<float>(kSunLux);
+  for (size_t axis = 0; axis < 3; ++axis) {
+    light.Light.Direction[axis] = -static_cast<float>(direction[axis]);
+  }
+  auto &renderer = TestEngine::StateOf(engine).Picture.Device;
+  std::string error;
+  if (!renderer.SetGeometryLights(std::span(&light, 1), error)) {
+    std::cerr << error << '\n';
+    return false;
+  }
+  DeclareShadows(engine, field, bearingDeg);
+  return true;
+}
+
+void ChangedHeights(HeightGrid &field) {
+  for (float &height : field.HeightsM) { height *= 0.5f; }
+}
+
+struct SceneChange {
+  Sequence Plan;
+  const BoxMesh *Mesh = nullptr;
+  std::optional<Render::PieceHandle> *Piece = nullptr;
+  DeviceControl *Device = nullptr;
+  size_t Changes = 0;
+  bool PendingAtRelease = false;
+};
+
+bool ReplaceBoxes(Engine &engine, HeightGrid &field, SceneChange &change) {
+  const auto previousFrame = change.Device->LastSubmitted;
+  HeightGrid next = field;
+  ChangedHeights(next);
+  const auto rows = InstanceRows(next);
+  std::optional<Render::PieceHandle> replacement;
+  if (!rows.empty()) {
+    const auto uploaded = UploadBoxes(engine, *change.Mesh, rows);
+    if (!uploaded) {
+      std::cerr << uploaded.error() << '\n';
+      return false;
+    }
+    replacement = *uploaded;
+  }
+  auto &device = TestEngine::StateOf(engine).Picture.Device;
+  if (previousFrame && *change.Piece) {
+    const auto status = change.Device->Device->Poll(*previousFrame);
+    if (!status) {
+      std::cerr << status.error().Message << '\n';
+      return false;
+    }
+    change.PendingAtRelease = *status == Render::Native::CompletionStatus::Pending;
+  }
+  if (*change.Piece) { device.ReleasePiece(**change.Piece); }
+  *change.Piece = replacement;
+  field = std::move(next);
+  DeclareShadows(engine, field);
+  return true;
+}
+
+bool UpdateScene(Engine &engine, HeightGrid &field, SceneChange &change, size_t frame) {
+  constexpr size_t switchFrame = 30;
+  if (!change.Plan.Fresh && change.Plan.Kind != ChangeKind::None && frame == switchFrame) {
+    if (change.Plan.Kind == ChangeKind::Boxes && !ReplaceBoxes(engine, field, change)) {
+      return false;
+    }
+    ++change.Changes;
+  }
+  return change.Plan.Kind != ChangeKind::Light || (!change.Plan.Fresh && change.Changes == 0) ||
+         Relight(engine, field);
+}
+
 bool RenderOrbit(Engine &engine,
-                 const HeightGrid &field,
+                 HeightGrid &field,
                  const ViewControl &control,
-                 const std::string &output) {
+                 const std::string &output,
+                 SceneChange &change) {
   constexpr size_t kFrames = 60;
   auto renderer = engine.renderer();
   for (size_t warm = 0; warm < 3; ++warm) {
-    if (!Accepted(engine.advance()) || !Accepted(renderer.render({}))) { return false; }
+    if (!Accepted(engine.advance()) || !UpdateScene(engine, field, change, warm) ||
+        !Accepted(renderer.render({}))) {
+      return false;
+    }
   }
   if (!Accepted(renderer.resetMeasurements(kFrames))) { return false; }
   std::vector<double> hostTimes;
@@ -221,7 +326,7 @@ bool RenderOrbit(Engine &engine,
                          std::numbers::pi / 4;
     const auto pose = CameraAt(field, theta, control);
     if (!Accepted(engine.setCameraPose(pose)) || !Accepted(engine.advance()) ||
-        !Accepted(renderer.render({}))) {
+        !UpdateScene(engine, field, change, frame) || !Accepted(renderer.render({}))) {
       return false;
     }
     hostTimes.push_back(std::chrono::duration<double, std::milli>(Clock::now() - began).count());
@@ -248,9 +353,9 @@ bool RenderOrbit(Engine &engine,
 }
 
 int main(int argc, const char *const *argv) {
-  if ((argc < 5 || argc > 7) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }
+  if ((argc < 5 || argc > 8) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }
   const auto begin = UrbanControl::Clock::now();
-  const auto field = UrbanControl::LoadHeightGrid(
+  auto field = UrbanControl::LoadHeightGrid(
       {.Database = argv[1], .SourceSha256 = argv[2], .InputPath = argv[3]});
   if (!field) {
     std::cerr << field.error() << '\n';
@@ -267,13 +372,22 @@ int main(int argc, const char *const *argv) {
       return 2;
     }
   }
+  const auto sequence = UrbanControl::SequenceOf(argc == 8 ? argv[7] : "orbit");
+  if (!sequence) { return 2; }
+  if (sequence->Kind == UrbanControl::ChangeKind::Boxes && sequence->Fresh) {
+    UrbanControl::ChangedHeights(*field);
+  }
   const auto loaded = UrbanControl::Clock::now();
   const auto rows = UrbanControl::InstanceRows(*field);
   const auto mesh = UrbanControl::UnitBox();
-  if (argc == 7 && std::string_view(argv[6]) != "validate") { return 2; }
-  UrbanControl::DeviceControl devices{.Validation = argc == 7};
-  auto engine =
-      outshine::TestEngine::WithGpu({.Context = &devices, .Create = UrbanControl::CreateDevice});
+  if (argc >= 7 && std::string_view(argv[6]) != "validate" &&
+      (argc != 8 || std::string_view(argv[6]) != "normal")) {
+    return 2;
+  }
+  UrbanControl::DeviceControl devices{.Validation =
+                                          argc >= 7 && std::string_view(argv[6]) == "validate"};
+  auto engine = outshine::TestEngine::WithGpu(
+      {.Context = &devices, .Create = UrbanControl::CreateDevice, .Submit = UrbanControl::Submit});
   if (!UrbanControl::PrepareScene(engine, *field, control)) { return 1; }
   std::optional<outshine::Render::PieceHandle> piece;
   if (!rows.empty()) {
@@ -286,7 +400,9 @@ int main(int argc, const char *const *argv) {
   }
   UrbanControl::DeclareShadows(engine, *field);
   const auto prepared = UrbanControl::Clock::now();
-  const bool okay = UrbanControl::RenderOrbit(engine, *field, control, argv[4]);
+  UrbanControl::SceneChange change{
+      .Plan = *sequence, .Mesh = &mesh, .Piece = &piece, .Device = &devices};
+  const bool okay = UrbanControl::RenderOrbit(engine, *field, control, argv[4], change);
   auto &device = outshine::TestEngine::StateOf(engine).Picture.Device;
   std::println(
       "URBAN instances={} prototype_vertices={} prototype_indices={} potential_references={} "
@@ -305,6 +421,8 @@ int main(int argc, const char *const *argv) {
       device.GeometryDrawCallCount(),
       okay);
   std::println("DEVICE {}", device.GpuName());
+  std::println(
+      "CHANGES applied={} pending_before_release={}", change.Changes, change.PendingAtRelease);
   if (piece) { device.ReleasePiece(*piece); }
   return okay ? 0 : 1;
 }
