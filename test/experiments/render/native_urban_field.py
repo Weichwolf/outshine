@@ -7,7 +7,6 @@ import math
 import os
 import platform
 import random
-import shlex
 import sqlite3
 import subprocess
 import tempfile
@@ -37,7 +36,8 @@ def build(native, output):
     compile_command = compile_unit(database, native, "Engine.cpp", source, obj)
     compile_command.insert(1, f"-I{native / 'test/harness/shared'}")
     checked(["nice", "-n", "10", *compile_command], native, output / "compile.log", 180)
-    command = [shlex.split(database[0]["command"])[0], str(obj),
+    runtime_flags = [flag for flag in compile_command[1:] if flag.startswith("-stdlib=")]
+    command = [compile_command[0], *runtime_flags, str(obj),
                str(native / "build/liboutshine.a"), *libraries(native), "-o", str(binary)]
     checked(["nice", "-n", "10", *command], native, output / "link.log", 180)
     return binary, {"compile": compile_command, "link": command,
@@ -56,10 +56,13 @@ def run(binary, native, directory, key, source, label, args):
     validation = args.validation
     environment = dict(os.environ)
     for name in ("MTL_DEBUG_LAYER", "MTL_SHADER_VALIDATION", "OUTSHINE_METAL_ENCODER_PROFILE",
-                 "VK_INSTANCE_LAYERS", "VK_LOADER_LAYERS_ENABLE", "VK_LAYER_ENABLES"):
+                 "VK_INSTANCE_LAYERS", "VK_LOADER_LAYERS_ENABLE", "VK_LAYER_ENABLES",
+                 "VK_LAYER_VALIDATE_SYNC"):
         environment.pop(name, None)
     if validation:
         environment["MTL_DEBUG_LAYER"] = "1"
+        if platform.system() == "Linux":
+            environment["VK_LAYER_VALIDATE_SYNC"] = "1"
     started = time.monotonic()
     with (directory / f"{label}.log").open("w") as log:
         subprocess.run(command, cwd=native, env=environment, stdout=log,
