@@ -28,6 +28,12 @@ def control(native):
     return module
 
 
+def settling(directory, label):
+    rows = np.loadtxt(directory / f"{label}.settling.times")
+    assert rows.shape == (3, 3) and np.all(np.isfinite(rows))
+    return {"gpu_ms": rows[:, 1].tolist(), "host_ms": rows[:, 2].tolist()}
+
+
 def comparison(directory, name):
     paths = [directory / f"{name}-{mode}" for mode in ("boxes", "field")]
     images = [np.asarray(Image.open(p / "cold.png")) for p in paths]
@@ -108,10 +114,12 @@ def main():
                 cold = module.run(
                     binary, native, directory, key, source, "cold", options
                 )
+                cold["settling"] = settling(directory, "cold")
                 before = module.packages(directory / "assets.sqlite")
                 warm = module.run(binary, native, directory, key, "-", "warm", options)
+                warm["settling"] = settling(directory, "warm")
                 assert before == module.packages(directory / "assets.sqlite")
-                for suffix in ("png", "depth", "shadow"):
+                for suffix in ("png", "depth", "shadow", "shadow-frame"):
                     assert sha(directory / f"cold.{suffix}") == sha(
                         directory / f"warm.{suffix}"
                     )
