@@ -30,71 +30,90 @@ child cells. The filtered signed correction to a preserved opaque baseline is
 C/T/S. Full readiness gives D=0 and bypasses parent traversal. Native World bounds,
 terrain/curvature, original-height evidence and readiness remain #1102.
 
-## Current step: atomic prefix reference
+## Current step: affine categorical shadow runs
 
-`lattice_footprint.py` counts integer centres in a closed convex rational polygon
-without enumerating cells. Vertical decomposition sums floors of upper/lower edge
-lines. Euclidean reciprocity evaluates these floor sums; a separately owned final
-integer column handles vertices/vertical edges. Strict interior inequalities become
-integer-equivalent closed inequalities. Footprints are exact rational Minkowski sums
-of the height-clipped view segment and the recipe square, in canonical-centre units.
-Python Fraction/unbounded integers are a geometric reference, not a native design.
+`urban_shadow_runs.py` retains fixed centres and the original bilinear density q.
+For each categorical height, the projected light footprint minus the known-missed
+view footprint leaves at most two intervals per canonical column. Actual box/cap
+predicates trim padded integer endpoints, including closed lower-roof contacts.
+Own-hit cells are removed. Source knots split intervals into affine-density runs;
+two source endpoint samples determine each run. Summing the atomic mark weights
+`mu[k]=log((1-q*tail[k+1])/(1-q*tail[k]))` over the surviving intervals reproduces the
+categorical conditional void probability without enumerating all those cells.
+This aggregates long shadows; primary first-hit transport still traverses cells.
 
-`urban_parent_prefix.py` retains the original fixed lattice, height probabilities
-and bilinear source-density model. Atomic log weights are
-`mu[k]=log((1-q*tail[k+1])/(1-q*tail[k]))`. Their sums reproduce categorical void
-probabilities; the prior125-case height-threshold enumeration checks that identity.
-Disjoint coarse interpolation blocks bound q using their integer-rectangle corners.
-Monotone mu bounds times strict/closed lattice counts give a transmission interval.
-The counter is exact for its rational polygons; floating density/log/exp guards
-have **not** been proved as native directed-rounding/culling bounds.
+`affine_transmission.py` evaluates each affine log product. For ascending void values
+`a+i*d`, its sum is `n*log(d)+logGamma(a/d+n)-logGamma(a/d)`. Cancellation-safe log1p
+terms evaluate that difference. Short runs use at most16 direct terms; nearly flat
+runs use midpoint/second-moment evaluation. Other runs use at most8 recurrence terms
+and the positive-real Stirling correction through inverse power11, with arguments
+at least8. Domain:0<=q<=.85,0<=tail<=1, integer0<=n<=2**31. NIST's analytic remainder
+result does not certify our complete floating evaluation or a native culling bound.
+No SciPy/ML/new dependency is introduced.
 
-The parent-only constructor has289 blocks,1,156 density-corner evaluations and
-32,368 named retained array bytes. No source parse, GEOS or fine-child generation is
-needed. Fraction allocation peaks, index/dictionary overhead and full process/device
-residency are not established by those named arrays or integer-bit counters.
+`select_shadow_query` and packet work estimates retain original DDA for short or
+diagonal beams. Masks, unsupported/grazing configurations and run-budget overflow
+also fall back; no probability is discarded. The optional trailing `shadow_query`
+Python hook uses the original query arguments. Existing callers/defaults and shared
+BoxField/actual3D-clipped DDA contracts remain intact. No native API change.
 
-Frozen code `d4bbacf61`, integrated with master `f6ab4d255`: **102 focused tests OK**
-(10.514s), including the shared BoxField/column transition. Tests cover signed sums,
-750 independent GEOS polygon/interior/rectangle point-membership comparisons,
-degenerate/tangent boundaries, large integer arithmetic, a known clipped-boundary
-counterexample, and70 nonuniform slanted prefixes against individual box expectation.
-A trillion-cell-length corridor stays empty; a parallel occupied strip counts its
-canonical centres. These are mathematical/functional controls, not image admission.
+Frozen code `f25db1d43`, incorporating master `b7bc12683`: **110 focused tests OK**
+(17.920s). Added independent affine products versus math.fsum, variable-density
+X/Y-major shadows, free corridors, closed-roof contacts, mask/budget fallbacks and
+full RGB versus81 independently enumerated box worlds for each of4 light profiles.
+All prior source/transport/composition/BoxField tests remain. Ruff/format/function
+size checks pass. This is local Python validation, not device admission.
 
-Four clean terminal0 diagnostics reuse the original stored parent and1280x720
-viewport. All5,828 sampled DDA prefix probabilities lie in the reported intervals.
-Sixteen actual grayscale coverage/width PNGs were inspected through four sheets.
-**These are coverage-only diagnostics, not RGB renders or a pixel-footprint filter.**
+Eight clean terminal0 comparisons retain all247,731 original masses in the616x624
+resolved control. The same4x4 jittered samples/seed1113/tolerance1e-8 compare original
+categorical DDA, run candidate and resolved geometry. **Only the projected region
+is traced**, embedded in1280x720 diagnostic images; this is not a complete frame
+benchmark. All24 actual RGB PNGs were inspected, including enlarged crops. All8
+candidate PNGs are byte-identical to categorical DDA, coverage is bit-identical,
+and maximum per-sample linear RGB difference is6.94e-17. These are different from
+the still-material model errors against resolved geometry shown in the last column.
 
-| Case | Rays | DDA s | Rational interval s | Mean width | Maximum width |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Elevated240km |1472 |.0208 |9.981 |.05991 |.56579 |
-| Ground50km |2004 |.9144 |8.643 |.00619 |.30573 |
-| Ground50km/motion8km |1968 |.9328 |11.477 |.00488 |.29875 |
-| Ground240km |384 |.00065 |.0969 |0 |0 |
+| Case | Rays | DDA s | Candidate s | Runs used | Resolved RGB RMSE |
+| --- | ---: | ---: | ---: | --- | ---: |
+| dawn-north | 27040 | 9.405 | 4.847 | yes | 0.006249 |
+| dawn-slant | 27456 | 11.730 | 6.324 | yes | 0.006897 |
+| dawn-diagonal | 29120 | 15.483 | 15.333 | no | 0.003961 |
+| day | 24960 | 1.968 | 2.021 | no | 0.025638 |
+| back | 24960 | 1.385 | 1.465 | no | 0.034251 |
+| night | 27200 | 4.927 | 4.994 | no | 0.285815 |
+| ground-north | 33696 | 11.081 | 9.482 | no | 0.001095 |
+| ground-motion | 33024 | 11.361 | 9.955 | no | 0.001201 |
 
-The ground240km single-sample rays miss the subpixel mass in both methods. This is
-an explicit aliasing counterexample, not proof of an empty/far-ready scene. Flat2m
-observers at50/240km also establish no real-Earth terrain/curvature visibility.
-55.77% of elevated intervals exceed .01 width; the high .56579 maximum precludes
-using these data as a qualified image-error substitute. No first-hit depth, normal,
-radiance, ready-child/foreign-opaque composition or native consumer is delivered.
+The first6 cases use target distance240km and altitude75,894.663844m in flat ENU;
+ground cases use50km/2m, the last also moves8km. These distances establish no curved
+Earth visibility. Shared Linux host under interactive/other-process load; focused
+nice10 tests overlapped the first case. Paired sequential timings support the large
+1.85-1.94x low-sun improvement, not small differences in identical DDA paths.
+Ground queries all fall back; primary work dominates. No general ground speedup.
 
-The separate long-axis probe preserves the original free corridor with T=[1,1].
-Potential canonical cells grow375,156->95,736,440 while the fixed256-bin pattern is
-stretched. Two queries use272 counted polygons/272 Euclidean steps at all3 sizes;
-reference DDA visits613/742/776, stopping when double transmission underflows to0.
-Intervals take .119/.083/.098s versus .436/.465/.612s for that small probe, but the
-pixel packets above are much slower. This is no equal-quality global scene expansion
-or runtime speedup claim. Endpoint uncertainty and source-density ranges remain
-explicit. Do not port the rational implementation as the proposed hot path.
+For dawn-north, shadow DDA visits2,033,776->25,654; additionally the candidate performs
+1,461,740 light endpoint tests and449,902 primary-cap tests. It samples366,734 source
+endpoints for183,367 affine runs representing3,051,401 height-mark/cell incidences
+(not unique physical cells);2,109,706 incidences use the long-product path. This is
+work substitution, not a claim that all operations disappeared. Construction uses
+400 named retained array bytes in addition to the shared6,264B parent; measured
+named transient peak400,208B excludes untracked NumPy/Python temporaries. Whole
+process RSS373.5-538.1MB includes the resolved oracle and image arrays. No full peak
+allocation/copied-byte/device-memory bound is claimed. No fine table/GEOS/source
+parse is used by run construction or queries; resolved preparation stays separate.
 
-Next work needs cheap packet queries with retained discrete support, tighter useful
-source-density evaluation and valid pixel filtering before C/T/S/radiance integration.
-The old categorical renderer/default remains unchanged. Raw terminal reports,
-commands, all arrays, probes and diagnostics:
-`/tmp/outshine-research-urban-prefix-d4bbacf61/receipt.json`.
+The earlier forced-run day probe was4.0x slower (.433/.107s). Packet dispatch still
+added4.3% in one full day pair, motivating the profile-level bypass. Those negative
+controls remain in the compact receipt. The final day/back/night/diagonal profiles
+now select the original query directly, with no per-packet run dispatch.
+
+Decision: retain as an optional categorical shadow optimization, not a qualified
+parent representation. Resolved images still show missing structure/silhouette
+contrast and a large night error. Pixel-footprint filtering, cheaper primary
+transport, ready-child/foreign-opaque composition, terrain/curvature, transitions
+and devices remain open. The earlier far single-sample aliasing case remains valid.
+Raw reports, commands, arrays and inspected diagnostics:
+`/tmp/outshine-research-urban-runs-f25db1d43/receipt.json`.
 
 ## Earlier controlled alternatives
 
@@ -103,13 +122,14 @@ versions; original inputs and referenced raw artifacts have not been removed.
 
 | Alternative | Result/limit | Detailed method |
 | --- | --- | --- |
+| Rational atomic prefix | Exact lattice counts; slow pixel packets and broad intervals, retained as geometric oracle | [425f1d199](https://github.com/Weichwolf/outshine/blob/425f1d199/test/experiments/buildings/urban_parent_probe.md) |
 | Coarse joint Poisson void | Correlation improves errors1.97-2.38x; GEOS slow and continuous centres destroy lattice corridors | [99fca1fec](https://github.com/Weichwolf/outshine/blob/99fca1fec/test/experiments/buildings/urban_parent_probe.md) |
 | Projected M/J/D/S field | Cheap pixel sampling, cell-dependent construction, blurred boundaries/highlights and horizon bias; not default | [9e87685b8](https://github.com/Weichwolf/outshine/blob/9e87685b8/test/experiments/buildings/urban_parent_probe.md) |
 | Direct conditioning/wall sharing | Exact colour/coverage preserved; stored history removed and coincident wall visibility reused | [823c31fe0](https://github.com/Weichwolf/outshine/blob/823c31fe0/test/experiments/buildings/urban_parent_probe.md) |
 | Phase/shadow transfer/signed correction | Better joint filtering; still limited phase kernels and reference-sensitive night error | [3ba4d5a12](https://github.com/Weichwolf/outshine/blob/3ba4d5a12/test/experiments/buildings/urban_parent_probe.md) |
 
 Prior raw receipts remain under `/tmp/outshine-research-urban-` with suffixes
-`poisson-7cc596588`, `response-8282c30a3`, `wall-fdc98f113`, `horizon-3ba4d5a12`,
+`prefix-d4bbacf61`, `poisson-7cc596588`, `response-8282c30a3`, `wall-fdc98f113`, `horizon-3ba4d5a12`,
 `layer-filter-86969ff1e`, `layer-897451cc6`, `adaptive-cf6a67e95`,
 `transfer-c2bc91d25`, `phase-6f84f25f3` and `parent-1edb4404d`.
 
@@ -124,12 +144,15 @@ consume only the saved parent. Choose fresh system-temp output directories.
 python -B -W error test/experiments/buildings/compare_urban_parents.py \
   --input test/experiments/buildings/fixtures/coarse_city_source.json.gz \
   --output /tmp/outshine-urban-control --samples 16 --jitter-seed 1113
-python -B -W error test/experiments/buildings/compare_urban_prefix.py \
-  --parent /tmp/outshine-urban-control/parent.npz \
-  --output /tmp/outshine-urban-prefix --altitude 2 --distance 50000 --scaling-probe
+python -B -W error test/experiments/buildings/compare_urban_horizon.py \
+  --parent "$PARENT_NPZ" --resolved "$RESOLVED_NPZ" \
+  --output /tmp/outshine-urban-runs --shadow-runs --paired-exact \
+  --distance 240000 --altitude 75894.6638440411 --lighting dawn-north
 ```
 
-Omit altitude for the elevated view; `--motion 8000` changes the camera.
+Set PARENT_NPZ/RESOLVED_NPZ to the saved original inputs pinned in the reports;
+do not refresh the changed owner URI. Omit distance/altitude for50km/2m;
+`--motion 8000` changes the camera. See lighting choices in the driver.
 Other retained drivers: `compare_urban_horizon.py`, `compare_urban_response.py`,
 `compare_urban_poisson.py` and `compare_urban_layer_filter.py`; their pinned method
 versions document sampling, independent controls and qualification limits.
@@ -137,6 +160,7 @@ versions document sampling, independent controls and qualification limits.
 ## Primary sources read and visually inspected
 
 - [Bruneton/Neyret2012](../../../doc/references/vegetation/eg/2012-real-time-forests.pdf), section3/Figure2/equations1-6: joint visible/lit proportions and projected overlap. The box/atomic derivations here are separate.
+- [NIST DLMF5.11](https://dlmf.nist.gov/5.11), equation5.11.1 and section(ii): positive-real logGamma/Stirling expansion and first-neglected-term analytic remainder. Floating implementation accuracy is checked separately.
 - [AtCoder floor_sum specification](https://atcoder.github.io/ac-library/production/document_en/math.html): floor-sum definition and bounded-integer logarithmic contract. Our signed/unbounded arithmetic uses an independently implemented Euclidean recurrence; no foreign library code is bundled or its native timing claim inherited.
 - [Feibush/Levoy/Cook1980](../../../doc/references/materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf), section2.4/Figure2: joint edge/footprint filtering.
 - [Han et al.2007](../../../doc/references/vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf), Figures1-2/section3: normal filtering excludes occlusion/geometry simplification/cast shadows.
