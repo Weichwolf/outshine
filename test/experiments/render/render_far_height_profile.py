@@ -11,6 +11,7 @@ from pathlib import Path
 
 import bpy
 import numpy as np
+from blender_roof_normal_field import install
 from outshine_ref.rendering.blender_camera import configure_camera, verify_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 
@@ -32,7 +33,7 @@ def material(name, colour=None):
     return result
 
 
-def build_mesh(scene, arrays):
+def build_mesh(scene, arrays, normal_field=None):
     mesh = bpy.data.meshes.new("source geometry")
     mesh.from_pydata(arrays["positions"].tolist(), [], arrays["indices"].tolist())
     mesh.update()
@@ -45,7 +46,9 @@ def build_mesh(scene, arrays):
         polygon.use_smooth = True
     obj = bpy.data.objects.new("source geometry", mesh)
     scene.collection.objects.link(obj)
-    mesh.materials.append(material("same neutral source PBR"))
+    shading = material("same neutral source PBR")
+    mesh.materials.append(shading)
+    return install(mesh, shading, normal_field) if normal_field is not None else None
 
 
 def lighting(scene, profile, ground):
@@ -94,7 +97,7 @@ def run(args):
     mesh_path = args.scene.parent / scene_data["mesh"]
     with np.load(mesh_path, allow_pickle=False) as data:
         arrays = {k: data[k] for k in data.files}
-    build_mesh(scene, arrays)
+    normal_field = build_mesh(scene, arrays, scene_data.get("roof_normal_field"))
     ground = scene_data["ground"]
     bpy.ops.mesh.primitive_plane_add(size=ground["span"], location=(0, 0, ground["z"]))
     bpy.context.object.data.materials.append(
@@ -145,6 +148,7 @@ def run(args):
         "light": light,
         "camera": proof,
         "triangles": len(arrays["indices"]),
+        "roof_normal_field": normal_field,
         "scope": scene_data["scope"]
         + " No emissive-window state or native procedural wall/roof shader; common source-colour neutral PBR isolates geometric/normal/light effects.",
     }
