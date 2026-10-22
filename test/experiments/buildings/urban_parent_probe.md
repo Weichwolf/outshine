@@ -43,34 +43,65 @@ make oblique visibility or pixel filtering exact. The CLI excludes ground pixels
 whose sampled smallest edge-Jacobian singular value is below one recipe pitch;
 that guard is not a stationarity/quality guarantee. Macro X/Y counts are independent.
 
-Frozen eb707864e completed nine new 1280×720 runs, terminal 0; all images inspected
-in comparison sheets. Controls are frozen fdfc50d1c, true 240-km target distance,
-day 32 and other cases 16 jittered samples per axis, seed 1113. The table reports
-linear RGB region RMSE against resolved boxes, not a physical world error bound.
+## Shared shadow transfer
 
-| Case | Macro X×Y / phase K | Fraction of control rays | Conditional RMSE | Filtered RMSE |
-| --- | --- | ---: | ---: | ---: |
-| Day | 2×2 / 4 | 1/16 | 0.01272 | 0.01223 |
-| Back | 2×2 / 6 | 9/16 | 0.00980 | 0.01151 |
-| Night | 2×2 / 6 | 9/16 | 0.07198 | 0.07831 |
-| Lateral movement | 2×2 / 4 | 1/4 | 0.01387 | 0.01409 |
-| Low altitude, inadequate macro sampling | 2×2 / 4 | 1/4 | 0.00403 | 0.01402 |
-| Low altitude, anisotropic macro sampling | 1×8 / 4 | 1/2 | 0.00403 | 0.00584 |
+`urban_parent_transfer.py` collects two unlit moments per surface category: visible
+mass M and visible/unshadowed mass J. Categories retain each recipe height and the
+five box normals; the ground has its own category. Four heights give 21 categories,
+42 F64 values per anchor. Interpolate M and J, then use J/M as conditional visibility;
+BRDF, light energy and ambient are evaluated at each actual primary event. No mean
+normal or shaded-colour field. Zero mass means unsupported category, not empty world:
+that event falls back to the exact conditional shadow query.
 
-Day primary visits fall from 7.15M to 0.456M, shadow visits 34.24M to 1.528M and history
-comparisons 160.69M to 7.216M. Query time 6.89 s versus historical 142.81 s is a shared-load
-Python observation, not a current paired/device speedup. Day phase-packet arrays
-retain 196,608 B and history 393,216 B; these exclude other temporaries/process peaks
-and copied bytes. The raw RSS field uses Linux KiB, not an application budget.
+The table is transient and view/light-direction dependent. Changing the view or light
+direction/position requires rebuilding it. Intensity/ambient changes do not alter its
+moments. This is not general SH radiance transfer or an independently relightable
+lighting asset. Table collection streams phase packets; each macro packet prepares
+one bounded lookup buffer rather than allocating a full-image coefficient array.
 
-**No universal cost/quality winner.** Conditional day 16→32 sampling difference is
-0.00561; reference uncertainty remains material. Boundaries/local structure are
-still too regular. Coarse phase sampling damages back/night; coarse macro sampling
-damages the thin low-view silhouette. More phase points alone do not fix that case.
-Next work must preserve pixel coverage and joint view/light response while sharing
-unlit transfer work instead of repeating expensive quadrature for every pixel.
-Transitions, other geographic inputs and complete native/world/device/p99 admission
-remain open; Python observations admit none of those requirements.
+At matching quadrature nodes, directional-light GGX integration agrees with direct
+phase integration. Point-light position and coarse interpolation remain approximations.
+The categorical traversal is shared through `trace_transport`; the three actual
+paired direct crops remain bit-identical to the earlier eb707864e products.
+
+Frozen 19156f3eb completed ten runs / 13 actual 1280×720 images, including three same-process
+paired controls; all terminal 0 and actually inspected. Inputs remain the true 240-km
+fdfc50d1c controls: day 32/other cases 16 jittered samples per axis, seed 1113. Times below
+include transfer construction and consumption; paired controls use the same prepared
+rays, profile and process, sequentially at normal priority under development load.
+
+| Case | Direct phase RGB RMSE | Shared RGB RMSE | Shared total, s | Paired direct, s |
+| --- | ---: | ---: | ---: | ---: |
+| Day | .01267 | .01367 | 5.31 | 17.17 |
+| Back | .01151 | .01158 | 5.65 | — |
+| Night, fine table | .07831 | .07681 | 14.71 | 36.37 |
+| Lateral movement | .01409 | .01427 | 2.56 | — |
+| Low altitude, anisotropic table | .00584 | .00618 | 5.82 | 17.29 |
+| Night, too-coarse table | .07831 | .12192 | 6.17 | — |
+| Low altitude, too-coarse table | .00584 | .00732 | 21.70 | — |
+
+These are linear RGB region errors against inferred resolved boxes, not world error
+bounds. The three paired cases retain bit-identical primary coverage and reduce total
+shadow cell visits, including table build, by 98.59%/75.23%/93.50% for day/night/low.
+Their measured Python time ratios are 3.23×/2.47×/2.97×; no native/device speedup follows.
+Day/back use 4×4-pixel table spacing, night 1×1 and low 4×1. Primary phase counts are 6
+for day/back/night and 4 for movement/low; table phase count 6. Low macro sampling is 1×8,
+other cases 2×2. Three matched phase 4-table runs are retained as sensitivity controls.
+
+Day/night/low moment arrays contain 34,272/646,464/45,696 B. The retained per-packet
+visibility buffer peaks at 43,008 B. These are component sizes, not full temporary,
+copy-traffic or process/device memory peaks; raw RSS uses Linux KiB. A coarse low-view
+table misses all mass anchors and triggers 1,046,182 exact fallback rays, while its
+ground visibility still errs. A coarse night table misses the narrow brightness peak.
+No generic spacing or safe-occlusion claim follows from the supported cases.
+
+54 focused tests pass: unlit partition/height CDF, energy independence, streaming,
+exact directional-node GGX, unknown-category fallback and existing geometry/image
+contracts. Ruff/format/function-size checks pass. Conditional day 16→32 difference
+remains .00561, so reference sampling uncertainty and regularised local structure
+remain material. Native material/GI, transitions, geographic counterexamples and full
+world/device/p99 admission remain open. Next: adaptive anchors driven by coverage
+and light direction, preserving current pixel geometry and unknown-sample semantics.
 
 ## Generation growth and reproduction
 
@@ -91,14 +122,15 @@ python -B -W error test/experiments/buildings/compare_urban_parents.py \
   --output /tmp/outshine-urban-parent-control --samples 32 --jitter-seed 1113
 python -B -W error test/experiments/buildings/compare_urban_phase.py \
   --reference /tmp/outshine-urban-parent-control \
-  --output /tmp/outshine-urban-parent-filtered --macro 2 --phase 4
+  --output /tmp/outshine-urban-parent-filtered --macro 2 --phase 6 \
+  --shadow-stride 4 --paired
 ```
 
-The parent is saved before the offline control is built. `--parent` consumes a saved parent; `--resolved` reuses an existing field
+The parent is saved before the offline control is built. `--parent` consumes a saved
+parent; `--resolved` reuses an existing field
 solely for the control. `--motion`, `--altitude`, `--lighting` vary view/light without
 rebuilding the asset. `--macro-x 1 --macro-y 8` requests anisotropic pixel sampling.
 The phase comparator reads the saved control images/parent, not resolved child data.
-51 focused tests pass; Ruff/format and 120-line function checks pass. No native gates.
 
 ## Primary sources read and visually inspected
 
@@ -106,3 +138,4 @@ The phase comparator reads the saved control images/parent, not resolved child d
 - [Bruneton/Neyret 2012](../../../doc/references/vegetation/eg/2012-real-time-forests.pdf), section 3 / Figure 2 / equations 1–6: correlated visible/lit proportions and their geometric parameters. Our phase quadrature does not adopt the Poisson ellipsoid model or precomputed forest implementation.
 - [Han et al. 2007](../../../doc/references/vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf), Figures 1–2 / section 3: normal distributions for BRDF filtering; explicitly excludes occlusion, geometry simplification and cast shadows.
 - [Horizon cloudscapes 2015](../../../doc/references/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf), PDF page 37 / slide 35: separate coverage and height density; no cloud implementation or cloud/building equivalence adopted.
+- [Sloan/Kautz/Snyder 2002](../../../doc/references/lighting/siggraph/2002-precomputed-radiance-transfer.pdf), introduction / Figure 2, PDF page 2: separate transport coefficients from current lighting/BRDF evaluation. This probe uses neither the paper's SH representation nor its GI/low-frequency-light guarantees.
