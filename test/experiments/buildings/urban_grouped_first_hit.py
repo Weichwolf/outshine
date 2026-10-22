@@ -35,7 +35,6 @@ def sample_grouped_first_hits(
         "sample_threshold_comparisons": 0,
         "event_arrays_peak_bytes": 0,
         "grouped_rays": len(o),
-        "group_size": count,
         "sample_state_bytes": pending.nbytes + target.nbytes + transmission.nbytes,
     }
     for ids, cell, begin, leave, keep in walk_cells(
