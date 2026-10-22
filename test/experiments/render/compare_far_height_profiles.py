@@ -7,6 +7,7 @@ import resource
 import subprocess
 import tempfile
 import time
+import tracemalloc
 from pathlib import Path
 
 import numpy as np
@@ -169,6 +170,19 @@ def comparison_views(source, document, context):
     return named, midpoint, right, up
 
 
+def traced_memory(enabled):
+    if not enabled:
+        return None
+    current, peak = tracemalloc.get_traced_memory()
+    snapshot = tracemalloc.take_snapshot()
+    return {
+        "current_bytes": current,
+        "peak_bytes": peak,
+        "live_traced_blocks": sum(s.count for s in snapshot.statistics("filename")),
+        "scope": "Python-traced allocations only; not all native GEOS allocations or cumulative traffic",
+    }
+
+
 def run(args):
     output = args.output.resolve()
     root = Path(__file__).resolve().parents[3]
@@ -194,6 +208,9 @@ def run(args):
         raise ValueError("Freeze profile sources before evidence")
     output.mkdir(parents=True, exist_ok=False)
     producer = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    started = time.perf_counter()
+    if args.trace_memory:
+        tracemalloc.start()
     source, document, context, receipt = load(args.input)
     if set(document["results"][0]["details"]) != {1}:
         raise ValueError("Complete original Shell control required")
@@ -202,10 +219,12 @@ def run(args):
     )
     named, midpoint, right, up = comparison_views(source, document, context)
     metadata = {s["index"]: s for s in document["sources"]}
+    query_start = time.perf_counter()
     choices = {
         name: selected_profiles(plans, surfaces, metadata, view)
         for name, view in named.items()
     }
+    query_seconds = time.perf_counter() - query_start
     required = set().union(*(s for s, _ in choices.values()))
     generated, bake_costs = cook_selected(plans, required, needs)
     basis = np.stack((right, np.cross(up, right), up))
@@ -252,12 +271,27 @@ def run(args):
         "planned_sources": len(plans),
         "needs": needs,
         "plan_seconds": plan_seconds,
+        "query_seconds": query_seconds,
+        "query_source_visits": len(plans) * len(named),
+        "planned_parts": sum(len(parts) for parts in plans.values()),
+        "planned_domains": sum(
+            len(p.patches) for parts in plans.values() for p in parts
+        ),
+        "generated_arrays": sum(len(mesh) for mesh in generated.values()),
+        "generated_array_bytes": sum(
+            a.nbytes for mesh in generated.values() for a in mesh.values()
+        ),
+        "generated_corner_record_bytes": sum(
+            len(mesh["indices"]) * 3 * 48 for mesh in generated.values()
+        ),
+        "comparison_seconds_before_report": time.perf_counter() - started,
+        "traced_python_memory": traced_memory(args.trace_memory),
         "generated_sources": len(generated),
         "bake_seconds": bake_costs,
         "views": rows,
         "process_raw_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
-        "scope": "One original complete cell; same source coordinates, source IDs and footprint holes. Plan first, selection before profile triangulation, bake each required source once. All remaining source geometry retained. Provisional height/rounding displacement model, not a native Float32/PBR/radiance or transition certificate. Reference source geometry loaded for comparison/fallback only; no Fine/native generation.",
+        "scope": "One original complete cell; same source coordinates, source IDs and footprint holes. Plan first, selection before profile triangulation, bake each required source once. All remaining source geometry retained. Provisional height/rounding displacement model, not a native Float32/PBR/radiance or transition certificate. Reference source geometry loaded for comparison/fallback only; no Fine/native generation. Generated array and corner-record bytes are actual payload/work counts, not all allocator/copy traffic. Cumulative allocations/copied bytes and native GPU/IO/device peaks unmeasured. Timings cover this Python comparison, not native product load.",
     }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(
@@ -282,6 +316,7 @@ def run(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--trace-memory", action="store_true")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     run(parser.parse_args())
