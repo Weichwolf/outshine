@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 from test_urban_parent_conditional import brute_hit
 from urban_parent_conditional import grid, render_conditional
-from urban_parent_layer import compose, render_layer
+from urban_parent_layer import compose, correction, render_layer
 from urban_parent_light import light_at, shade
 from urban_parent_stats import UrbanParent
 
@@ -208,6 +208,17 @@ class ParentLayerTest(unittest.TestCase):
                     len(points), np.nan
                 ),
             )
+
+    def test_signed_correction_preserves_background_and_shadow(self):
+        c = np.array([[0.1, 0.2, 0.3], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+        t, s = np.array([0.4, 1.0, 1.0]), np.array([0.5, 1.0, 0.25])
+        direct, other = np.ones((3, 3)), np.full((3, 3), 0.2)
+        delta = correction(c, t, s, direct, other)
+        np.testing.assert_allclose(
+            delta + direct + other, compose(c, t, s, direct, other), rtol=0, atol=3e-16
+        )
+        np.testing.assert_array_equal(delta[1], 0)
+        np.testing.assert_array_equal(delta[2], -0.75)
 
 
 if __name__ == "__main__":

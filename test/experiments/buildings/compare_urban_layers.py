@@ -13,7 +13,7 @@ from compare_urban_parents import background_image, camera, lighting, opaque_ima
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays
 from urban_parent_conditional import grid
-from urban_parent_layer import compose, render_layer
+from urban_parent_layer import compose, correction, render_layer
 from urban_parent_light import display, light_at, shade
 from urban_parent_reference import prepare_resolved, trace_resolved
 from urban_parent_stats import UrbanParent
@@ -33,9 +33,14 @@ def ready_subset(resolved, parent_grid, region):
     return result
 
 
-def child_visibility(product, points, normals, profile):
+def child_visibility(product, points, normals, profile, work=None):
     light, _, limit = light_at(points, profile)
-    depth, _, _, _ = trace_resolved(product, points + normals * 0.001, light, minimum=0)
+    depth, _, _, counts = trace_resolved(
+        product, points + normals * 0.001, light, minimum=0
+    )
+    if work is not None:
+        for key, value in counts.items():
+            work[key] = work.get(key, 0) + value
     return (~np.isfinite(depth) | (depth >= limit)).astype(float)
 
 
@@ -49,12 +54,16 @@ def mixed(
     view_region,
     caster_region,
     foreground,
+    *,
+    foreground_fraction=0.5,
+    correction_only=False,
 ):
     total_started = time.perf_counter()
     stop = -o[:, 2] / d[:, 2]
     normals = np.tile([0.0, 0.0, 1.0], (len(o), 1))
     albedo = np.full(len(o), 0.2)
     primary_work = {}
+    shadow_work = {}
     if camera_child is not None:
         depth, n, _, primary_work = trace_resolved(camera_child, o, d)
         hit = depth < stop
@@ -63,7 +72,7 @@ def mixed(
         plane = (120 - o[:, 2]) / d[:, 2]
         points = o + plane[:, None] * d
         width = parent.frame[2] * parent.frame[3]
-        foreground_mask = (points[:, 0] < width / 2) & (plane < stop)
+        foreground_mask = (points[:, 0] < width * foreground_fraction) & (plane < stop)
         stop[foreground_mask] = plane[foreground_mask]
         normals[foreground_mask], albedo[foreground_mask] = [0, 0, 1], 0.35
     points = o + stop[:, None] * d
@@ -74,7 +83,9 @@ def mixed(
         def external(points, normals):
             visibility = np.ones(len(points))
             if caster_child is not None:
-                visibility = child_visibility(caster_child, points, normals, profile)
+                visibility = child_visibility(
+                    caster_child, points, normals, profile, shadow_work
+                )
             if foreground:
                 light, _, limit = light_at(points, profile)
                 origin = points + normals * 0.001
@@ -83,7 +94,7 @@ def mixed(
                 blocked = (
                     (distance > 0)
                     & (distance < limit)
-                    & (at_x < parent.frame[2] * parent.frame[3] / 2)
+                    & (at_x < parent.frame[2] * parent.frame[3] * foreground_fraction)
                 )
                 visibility[blocked] = 0
             return visibility
@@ -112,12 +123,14 @@ def mixed(
         caster_covered=caster_region,
         external_visibility=external,
     )
-    rgb = compose(c, t, s, direct, profile["ambient"] * albedo[:, None])
+    composite = correction if correction_only else compose
+    rgb = composite(c, t, s, direct, profile["ambient"] * albedo[:, None])
     return rgb, {
         "layer_and_compose_seconds": time.perf_counter() - started,
         "total_mixed_seconds": time.perf_counter() - total_started,
         "parent_work": work,
         "child_primary_work": primary_work,
+        "child_shadow_work": shadow_work,
         "parent_array_bytes": c.nbytes + t.nbytes + s.nbytes,
         "background_ray_arrays_bytes": sum(
             a.nbytes for a in (stop, normals, albedo, points, visibility, direct)

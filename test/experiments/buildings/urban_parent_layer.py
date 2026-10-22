@@ -67,3 +67,16 @@ def compose(colour, transmission, receiver_visibility, direct, other):
     return colour + transmission[:, None] * (
         receiver_visibility[:, None] * direct + other
     )
+
+
+def correction(colour, transmission, receiver_visibility, direct, other):
+    """Signed difference from the same opaque scene without the parent.
+
+    Add its filtered value to an independently filtered opaque baseline. With
+    complete replacement it is exactly zero, preserving the baseline's sampling.
+    """
+    return (
+        colour
+        + (transmission * receiver_visibility - 1)[:, None] * direct
+        + (transmission - 1)[:, None] * other
+    )

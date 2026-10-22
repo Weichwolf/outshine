@@ -71,3 +71,43 @@ def render_phase(
                 else work.get(key, 0) + value
             )
     return colour, coverage, work
+
+
+def render_composed_phase(
+    parent, origins, directions, sample_scene, *, side=4, batch=256
+):
+    """Requery opaque geometry/material/casters for every shifted phase ray.
+
+    The callback supplies composed radiance or a signed parent correction.
+    Reusing the macro ray's stop, normal or shaded background is incorrect at
+    opaque/child boundaries. This is still a local stationary phase approximation,
+    not an exact pixel-footprint or temporal transition filter.
+    """
+    if type(batch) is not int or not 1 <= batch <= 4096:
+        raise ValueError("bounded macro packet required")
+    colour = np.empty_like(origins)
+    work = {
+        "macro_samples": len(origins),
+        "phase_rays": 0,
+        "phase_packet_array_peak_bytes": 0,
+    }
+    for first in range(0, len(origins), batch):
+        part = slice(first, first + batch)
+        rays, directions_at, weights = phase_rays(
+            parent, origins[part], directions[part], side
+        )
+        rgb, counts = sample_scene(rays, directions_at)
+        if rgb.shape != rays.shape or not np.isfinite(rgb).all():
+            raise ValueError("scene must return finite composed RGB per phase ray")
+        colour[part] = np.einsum("nsc,s->nc", rgb.reshape(-1, side**2, 3), weights)
+        work["phase_rays"] += len(rays)
+        work["phase_packet_array_peak_bytes"] = max(
+            work["phase_packet_array_peak_bytes"], rays.nbytes + directions_at.nbytes
+        )
+        for key, value in counts.items():
+            work[key] = (
+                max(work.get(key, 0), value)
+                if key.endswith("peak_bytes")
+                else work.get(key, 0) + value
+            )
+    return colour, work

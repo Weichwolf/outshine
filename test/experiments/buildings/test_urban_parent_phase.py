@@ -5,8 +5,14 @@ import unittest
 import numpy as np
 from compare_urban_parents import camera
 from compare_urban_phase import footprint_periods
+from urban_parent_layer import compose, render_layer
 from urban_parent_light import shade
-from urban_parent_phase import phase_quadrature, phase_rays, render_phase
+from urban_parent_phase import (
+    phase_quadrature,
+    phase_rays,
+    render_composed_phase,
+    render_phase,
+)
 from urban_parent_stats import UrbanParent
 
 
@@ -98,6 +104,75 @@ class ParentPhaseTest(unittest.TestCase):
         for side, fill in [(2, 0.75), (17, 0.75), (4, 1), (4, 0)]:
             with self.assertRaises(ValueError):
                 phase_quadrature(side, fill)
+
+    def test_joint_opaque_edge_matches_analytic_half_cell(self):
+        parent = homogeneous_parent()
+        origins, directions = (
+            np.array([[253.0, 255.0, 100.0]]),
+            np.array([[0.0, 0.0, -1.0]]),
+        )
+        profile = {
+            "kind": "sun",
+            "direction": [0, 0, 1],
+            "intensity": 3,
+            "ambient": 0.1,
+        }
+
+        def scene(o, d):
+            foreground = o[:, 0] >= 248
+            stop = np.where(foreground, 40.0, 100.0)
+            albedo = np.where(foreground, 0.9, 0.2)
+            c, t, s, work = render_layer(parent, o, d, profile, stop)
+            points, n = o + stop[:, None] * d, np.tile([0.0, 0.0, 1.0], (len(o), 1))
+            direct = np.zeros_like(o)
+            for mask, value in [(foreground, 0.9), (~foreground, 0.2)]:
+                direct[mask] = shade(
+                    points[mask],
+                    n[mask],
+                    -d[mask],
+                    value,
+                    np.ones(mask.sum()),
+                    profile | {"ambient": 0},
+                )
+            return compose(c, t, s, direct, profile["ambient"] * albedo[:, None]), work
+
+        roof, ground, front = [
+            shade(origins, np.array([0, 0, 1]), -directions, a, np.ones(1), profile)
+            for a in [0.6, 0.2, 0.9]
+        ]
+        alpha = 0.85 * 0.75**2
+        expected = 0.5 * front + 0.5 * (alpha * roof + (1 - alpha) * ground)
+        for side in [4, 6, 8]:
+            rgb, work = render_composed_phase(
+                parent, origins, directions, scene, side=side
+            )
+            np.testing.assert_allclose(rgb, expected, rtol=0, atol=2e-14)
+            self.assertEqual(work["phase_rays"], side**2)
+        frozen_macro, _ = scene(origins, directions)
+        self.assertGreater(np.linalg.norm(frozen_macro - expected), 0.1)
+
+    def test_joint_filter_preserves_existing_parent_and_packet_results(self):
+        parent = homogeneous_parent()
+        o = np.array(
+            [[235.0, 231.0, 100.0], [238.0, 234.0, 100.0], [251.0, 251.0, 100.0]]
+        )
+        d = np.tile([0.0, 0.0, -1.0], (len(o), 1))
+        p = {"kind": "sun", "direction": [0, 0, 1], "intensity": 3, "ambient": 0.1}
+        from urban_parent_conditional import render_conditional
+
+        def scene(origins, directions):
+            rgb, _, work = render_conditional(parent, origins, directions, p)
+            return rgb, work
+
+        expected, _, _ = render_phase(parent, o, d, p, side=4, batch=1)
+        for batch in [1, 3]:
+            rgb, work = render_composed_phase(parent, o, d, scene, side=4, batch=batch)
+            np.testing.assert_array_equal(rgb, expected)
+            self.assertEqual(work["phase_rays"], 48)
+        with self.assertRaises(ValueError):
+            render_composed_phase(parent, o, d, lambda a, b: (a * np.nan, {}))
+        with self.assertRaises(ValueError):
+            render_composed_phase(parent, o, d, scene, batch=0)
 
 
 if __name__ == "__main__":
