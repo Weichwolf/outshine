@@ -11,13 +11,33 @@ from fractions import Fraction as F
 from itertools import pairwise
 
 import numpy as np
+from column_field_query import walk_cells
 from lattice_footprint import (
     clip_rectangle,
     count_centres,
     strict_interior,
     swept_square,
 )
-from urban_parent_conditional import density, grid
+from urban_parent_conditional import density, events, grid
+
+
+def dda_prefix(parent, origins, directions, stops=None):
+    product = grid(parent)
+    work = {"steps": 0, "cell_ray_visits": 0, "height_hypothesis_tests": 0}
+    local = origins - product["reference_origin_m"]
+    transmission = np.ones(len(origins))
+    for ids, cells, begin, leave, keep in walk_cells(
+        product, local, directions, work, maximum=stops
+    ):
+        probability = np.zeros(len(ids))
+        for valid, _, _, mass in events(
+            parent, product, local, directions, ids, cells, begin, leave
+        ):
+            probability += valid * mass
+            work["height_hypothesis_tests"] += len(ids)
+        transmission[ids] *= 1 - probability
+        keep[:] = transmission[ids] > 0
+    return transmission, work
 
 
 def prefix_footprint(product, origin, direction, stop, height, *, minimum=0.1):
