@@ -30,7 +30,7 @@ child cells. The filtered signed correction to a preserved opaque baseline is
 C/T/S. Full readiness gives D=0 and bypasses parent traversal. Native World bounds,
 terrain/curvature, original-height evidence and readiness remain #1102.
 
-## Current step: sampled first-hit RGB
+## Sampled first-hit RGB control
 
 `urban_first_hit.py` samples the first geometric event from the original categorical
 CDF. DDA visits implicit cells in order and stops at the selected event. Height
@@ -127,6 +127,82 @@ preserving corridors, conditional lighting and the ready/opaque contract. No sep
 material/night technique was added. Original-height evidence, terrain/curvature and
 devices remain open. Raw commands, source hashes, test/memory logs, arrays, image
 checks and counterexamples: `/tmp/outshine-research-first-hit-de291413a/receipt.json`.
+
+## Sparse first-hit prefix inversion
+
+`urban_prefix_first_hit.py` adds optional `--first-hit-prefix` to the sampled path.
+It preserves uniforms, event ordering, heights/normals, coverage, conditional light
+and the shader. The prefix uses the same saved coarse parent, never generated fine
+children or a per-cell CDF/alias table. Default rendering remains unchanged.
+
+Long rays spanning more than256 major-axis slabs and at most4 minor-axis cells
+first run up to64 original packet-DDA steps. Early hits/misses finish directly.
+Only remaining samples invert full-prefix transmission by binary search at whole
+major-axis cell boundaries. The final slab resumes the original geometric events
+with its pre-slab transmission; a finite stop remains open. This relies on gaps
+between footprints; footprint fraction1 and primary replacement masks retain DDA.
+Short/wide rays retain DDA. `PrefixFirstHits(..., force=True)` bypasses the scout
+and geometric cost selection only for comparative tests, not the renderer.
+
+A transmission comparison within1e-10 of the sampled threshold, or a lost tail
+hit, restarts original DDA. This is an empirical numerical guard, not a certified
+floating-error bound. Extremely small densities deliberately expose its fallback;
+zero/near-zero probability is not a native Empty/occluder certificate. Binary
+search also does not remove the prefix's minor-axis/source-knot/height costs.
+
+Frozen `65c7f40bf` includes code `fdea3af9b` and master `aecc9e7a5`.
+132 focused tests pass in16.105s: independent81-world PMFs,120 nonuniform forced
+rays with arbitrary angles/heights/misses/stops, reversed long sparse rays, roof/
+wall contacts, CDF-boundary fallback, exact RGB/batch equality and prior controls.
+Four clean full-field runs (day/night/elevated/dawn) retain247,731 masses and the
+original616x624 oracle. All arrays and12 actual PNGs are bit-identical to the
+previous `de291413a` first-hit delivery;12 PNGs rechecked optically. This preserves
+its noise and source/model/silhouette deficits; it supplies no new quality claim.
+They still trace only the projected ROI inside1280x720, not an admitted world frame.
+
+| Span / density / XY slope | DDA s | Selected s | Forced s |
+| --- | ---: | ---: | ---: |
+| 0.25 / 0.0001 / 0 | 0.0932 | 0.0954 | 0.1032 |
+| 1 / 0.0001 / 0 | 0.3562 | 0.1874 | 0.1767 |
+| 4 / 0.0001 / 0 | 1.4685 | 0.2055 | 0.1883 |
+| 1 / 1 / 0 | 0.0040 | 0.0066 | 0.0970 |
+| 1 / 0.0001 / 0.5 | 0.5604 | 0.5362 | 0.2323 |
+| 1 / 0.0001 / 1 | 0.3941 | 0.3552 | 0.1810 |
+| 4 / 1e-12 / 0 | 1.4819 | 1.5470 | 1.6267 |
+
+These are four identical hit-conditioned draws in density-scaled versions of the
+same coarse pattern, not reduced-content substitutes for the complete-city gate.
+The prefix and direct consumers receive the same inputs/uniforms and produce
+identical depth, cell, height label and normal arrays. The .25-span case retains
+DDA. At spans1/4, scout+tail visit260 cells instead of1,225/4,790; search uses37/45
+prefix comparisons, plus4 full-T queries. Total source-density endpoints are
+3,240/3,736; those are additional work, not free skipping. For fixed coarse layout
+and minor extent, search rounds grow logarithmically with major extent; neither
+all directions nor the ambiguous fallback has that bound.
+
+Paired full-scene sampler timings: ground-day: 8.443->9.587s (+13.5%); ground-night: 8.600->9.109s (+5.9%).
+They use identical prepared rays/light and run sequentially at normal priority.
+No own tests/profiling overlap; interactive host load remains. This is overhead,
+not a complete-city acceleration. Only224/208 surface draws use inversion; the
+day direct visits fall1,073,612->1,054,141 with1,987 additional prefix comparisons.
+The separate elevated/dawn runs choose no inversion; differences versus older
+process timings are not algorithmic gains.
+
+A separate256-ray,4-span sparse allocation profile observes direct peak371,657B
+versus selected1,338,944B, live blocks119/166. Prepared inputs/model stay outside
+tracing; outputs are retained. Instrumented times are not normal timing evidence.
+Selected-input copy counters are lower bounds, not all copies/allocations; source
+endpoints, scouting, tail and fallback work remain separate. No new retained
+per-cell arrays are added; device allocation and actual GPU costs remain unmeasured.
+
+Decision: retain this narrow optional alternative and its negative cases. Dense
+forced search is much worse; diagonal/wide rays remain linear under selection,
+and tiny-density numeric fallback remains linear. The original sampled RGB noise,
+pixel/temporal integration and ready/opaque composition are still open. No native
+port request, material/night technique, source refresh or world/device admission.
+Reproduce the previous image command with `--first-hit-prefix --sparse-probe`;
+full commands, hashes, terminal states, memory/paired measurements and duplicate
+redirects: `/tmp/outshine-research-prefix-hit-65c7f40bf/receipt.json`.
 
 ## Earlier controlled alternatives
 
