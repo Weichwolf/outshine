@@ -47,8 +47,42 @@ images: 16→32 reference difference 0.00757, two independent 32-sample seeds 0.
 Sampling uncertainty remains explicit; the model error is larger (day seed1113:
 raw/midpoint/phase RGB RMSE 0.03231/0.03717/0.04277). The current volume therefore
 remains unqualified; improved coverage has not recovered its lost light response.
-Conditional height/visibility/shadow correlations are the next hypothesis, rather
-than fitting a source-specific brightness multiplier.
+Conditional height/visibility/shadow correlations motivate the next control below;
+no source-specific brightness multiplier is fitted.
+
+Frozen fdfc50d1c adds a categorical-height expectation control. A cell has exactly
+one height or is vacant. Contributions from its height hypotheses are mutually
+exclusive. Shadow queries skip the known hit cell and condition other cells on
+earlier primary-ray misses: a missed footprint excludes heights reaching that ray.
+The shared packet DDA supplies the traversal; the parent still stores only area
+statistics, not a generated child field. This control **traverses recipe cells at
+query time** and is not the intended coarse fast renderer.
+
+Exhaustive enumeration of 81 independent four-cell scenes matches RGB and coverage
+for vertical/day/back sun and point light against independent box intersections.
+47 focused tests pass; the four earlier day32 crops remain bit-identical after the
+DDA extraction. Six additional frozen runs / 30 actual 1280×720 images completed
+with exit 0; the complete comparison sheet was inspected. All use true 240-km
+target distance and seed1113, with no stored-product changes between views/lights.
+
+| Case / samples per axis | Midpoint RGB RMSE | Conditional RGB RMSE | Python time ratio |
+| --- | ---: | ---: | ---: |
+| Day / 32 | 0.03717 | 0.01272 | 9.89× |
+| Back / 16 | 0.02251 | 0.00980 | 5.26× |
+| Night / 16 | 0.21414 | 0.07198 | 22.27× |
+| Lateral movement / 16 | 0.04193 | 0.01387 | 9.85× |
+| Low altitude / 16 | 0.01023 | 0.00403 | 71.01× |
+
+Lighting improves, but boundaries remain too regular and the inferred density loses
+local structure. Day32 coverage is 657.90 versus 633.79 resolved pixels; coverage
+L1 is 56.83 pixels. Conditional 16→32 RGB difference is 0.00561, so sampling error
+is material and these numbers are not a certified error bound. Day32 needs 7.15M
+primary cell visits, 34.24M shadow visits and 160.69M history comparisons; low view
+needs 222.23M history comparisons. Retained history peaks at 393,216 / 2,408,448 B
+for day / low view, **not** total temporary/process peak or copied bytes. Times are
+Python shared-load controls, not native device measurements. No cost/quality winner
+or parent admission: use this as a visibility reference while seeking a cheaper
+filtered transfer that preserves height/view/light correlations and pixel coverage.
 
 A separate generation-growth check compiles the existing z5/28/12 parent directly:
 one source record, 256 regions, zero child cells and 6,264 array bytes. Enumerating
