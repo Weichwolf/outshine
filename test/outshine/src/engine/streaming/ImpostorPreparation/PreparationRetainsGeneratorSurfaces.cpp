@@ -861,7 +861,7 @@ void CheckInstanceViews(InstanceScene &scene,
   }
 }
 
-uint32_t FindBirch(Generators::Shipping &catalogue, const TreeSpecies &species) {
+uint32_t FindBirch(const Generators::Shipping &catalogue, const TreeSpecies &species) {
   uint32_t birch = 0;
   while (const auto *tree = catalogue.TreeFor(Generators::ClusterId{birch})) {
     if (tree->Definition() == species.Definition()) { break; }
@@ -897,7 +897,7 @@ void CheckWorldCoverage(InstanceScene &scene, const Content::ImpostorAtlas &atla
 
 void CheckMissing(InstanceScene &scene,
                   Tasks &worker,
-                  Generators::Shipping &catalogue,
+                  const Generators::Shipping &catalogue,
                   std::span<const WorldInstance> placements,
                   const TangentFrame &frame,
                   VegetationStreaming::Config config) {

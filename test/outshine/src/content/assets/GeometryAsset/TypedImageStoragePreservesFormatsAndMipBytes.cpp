@@ -67,7 +67,7 @@ int main() {
   CHECK(restored->images() == 2 && restored->imageAt(1).Format == ImagePixelFormat::Rgba8Unorm &&
             std::ranges::equal(restored->imageAt(1).Rgba, ordinary),
         "mixed image tables retain each image format instead of applying one global format");
-  auto clone = restored->clone();
+  const auto clone = restored->clone();
   restored->clear();
   CHECK(clone.imageAt(0).valid() && clone.imageAt(0).Format == format &&
             std::ranges::equal(clone.imageAt(0).Rgba, original),
