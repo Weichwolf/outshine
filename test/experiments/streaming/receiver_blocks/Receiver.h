@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_EXPERIMENT_RECEIVER_BLOCK_RECEIVER_H
 #define OUTSHINE_EXPERIMENT_RECEIVER_BLOCK_RECEIVER_H
 #include "Projection.h"
-#include "../receiver_coverage/Coverage.h"
+#include "receiver_coverage/Coverage.h"
 #include <array>
 #include <cstdint>
 #include <span>

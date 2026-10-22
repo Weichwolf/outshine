@@ -3,7 +3,7 @@
 #include <fstream>
 #include <array>
 
-int main(int argc, char **argv) {
+int main(int argc, const char *const *argv) {
   if (argc != 3) { return 2; }
   std::ifstream input(argv[1]);
   auto frame = nlohmann::json::parse(input, nullptr, false);

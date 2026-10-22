@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_EXPERIMENT_PATCH_DEPTH_ENVELOPE_H
 #define OUTSHINE_EXPERIMENT_PATCH_DEPTH_ENVELOPE_H
 
-#include "../fixed_coverage/FixedPatch.h"
+#include "fixed_coverage/FixedPatch.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

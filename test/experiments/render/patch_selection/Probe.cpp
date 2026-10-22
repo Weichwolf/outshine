@@ -1,9 +1,9 @@
 #include "MeshPairs.h"
 #include "DepthEnvelope.h"
-#include "../fixed_coverage/UncertainPatch.h"
-#include "../vertex_projection/Envelope.h"
-#include "../vertex_projection/Input.h"
-#include "../fixed_coverage/FixedPatch.h"
+#include "fixed_coverage/UncertainPatch.h"
+#include "vertex_projection/Envelope.h"
+#include "vertex_projection/Input.h"
+#include "fixed_coverage/FixedPatch.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <array>

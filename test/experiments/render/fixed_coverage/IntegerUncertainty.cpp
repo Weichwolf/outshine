@@ -1,6 +1,6 @@
 #include "UncertainPatch.h"
 #include "FixedPatch.h"
-#include "../vertex_projection/Envelope.h"
+#include "vertex_projection/Envelope.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -16,8 +16,8 @@ namespace {
 using Wide = __uint128_t;
 using Point = std::array<int64_t, 2>;
 using Approximate = std::array<double, 2>;
-constexpr int64_t Scale = int64_t{1} << 16;
-constexpr int64_t Maximum = int64_t{1} << 29;
+constexpr int64_t Scale = static_cast<int64_t>(uint64_t{1} << 16U);
+constexpr int64_t Maximum = static_cast<int64_t>(uint64_t{1} << 29U);
 constexpr uint64_t DoubleFraction = (uint64_t{1} << 52) - 1;
 constexpr uint64_t DoubleExponent = (uint64_t{1} << 11) - 1;
 constexpr uint64_t DoubleOne = uint64_t{0x3ff} << 52;
@@ -356,7 +356,7 @@ Quantize(std::array<Rectangle, 4> rectangles, uint32_t width, uint32_t height) {
          refinement < MaximumShift && (upper - lower) * maximumMotion * grid > 1;
          ++refinement) {
       const double middle = (lower + upper) * .5;
-      auto refined = candidate(middle);
+      const auto refined = candidate(middle);
       if (refined) {
         best = refined;
         upper = middle;
