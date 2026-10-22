@@ -2,6 +2,7 @@
 
 import argparse
 import json
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,31 @@ def angles(first, second):
         "mean_deg": float(error.mean()),
         "over_one_degree": int((error > 1).sum()),
     }
+
+
+def unique_field_roofs(field, binding, codes):
+    fields = {
+        tuple(key): int(code)
+        for key, code in zip(field["keys"], field["roof_codes"], strict=True)
+    }
+    counts = Counter(
+        (int(key[0]), int(code))
+        for key, code in zip(field["keys"], field["roof_codes"], strict=True)
+    )
+    counts.update(
+        (int(key[0]), int(code))
+        for key, code in zip(
+            field["no_field_keys"], field["no_field_codes"], strict=True
+        )
+    )
+    return np.array(
+        [
+            fields.get(tuple(key)) == int(code)
+            and counts[(int(key[0]), int(code))] == 1
+            for key, code in zip(binding, codes, strict=True)
+        ],
+        bool,
+    )
 
 
 def compare(name, args, field, old_report):
@@ -69,19 +95,10 @@ def compare(name, args, field, old_report):
     roof &= candidate["plan_binding"][np.maximum(faces, 0), 2] == 1
     # Native part/face bindings are unavailable in this capture. A unique
     # source/material-code association is required; ambiguous parts stay unknown.
-    for index in np.flatnonzero(roof):
-        source = data["candidate_source"][index]
-        if (
-            np.count_nonzero(
-                (field["keys"][:, 0] == source) & (field["roof_codes"] == codes[index])
-            )
-            + np.count_nonzero(
-                (field["no_field_keys"][:, 0] == source)
-                & (field["no_field_codes"] == codes[index])
-            )
-            != 1
-        ):
-            roof[index] = False
+    observed = np.flatnonzero(roof)
+    roof[observed] &= unique_field_roofs(
+        field, candidate["plan_binding"][faces[observed], :2], codes[observed]
+    )
     # Infer the common display origin from the verified source frame and one
     # unmodified metadata association, supplied explicitly by the frozen adapter.
     centre = np.array(scene["roof_normal_field"]["parent_origin"])

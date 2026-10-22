@@ -192,7 +192,7 @@ python -B test/experiments/render/render_far_height_profile.py \
   --lighting day --output /tmp/outshine-roof-field-day
 ```
 
-The final affected run passes 14 tests, including analytic gable directions,
+The final affected run passes 15 tests, including analytic gable directions,
 frame changes, unchanged eligibility/geometry, source identity, empty/no-field
 contracts and a fresh ready reader with forms/GEOS imports explicitly blocked.
 Seven Python files pass focused Ruff check/format. The renderer uses the existing

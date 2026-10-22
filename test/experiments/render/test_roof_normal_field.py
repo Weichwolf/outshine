@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from bake_roof_normal_field import bake
 from far_height_profiles import emit, plan_source
+from probe_roof_normal_field import unique_field_roofs
 from roof_normal_field import roof_uv, sample_uv
 from test_far_height_profiles import source
 
@@ -81,6 +82,21 @@ class RoofNormalField(unittest.TestCase):
         mesh["plan_binding"][:, 0] = 23
         with self.assertRaisesRegex(ValueError, "no contract"):
             roof_uv(mesh, field, np.eye(3), np.zeros(3))
+
+    def test_mixed_flat_field_diagnosis_never_indexes_an_absent_tile(self):
+        field = {
+            "keys": np.array([[17, 0]]),
+            "roof_codes": np.array([-82]),
+            "no_field_keys": np.array([[17, 1]]),
+            "no_field_codes": np.array([-83]),
+        }
+        binding = np.array([[17, 0], [17, 1], [23, 0]])
+        codes = np.array([-82, -83, -82])
+        np.testing.assert_array_equal(
+            unique_field_roofs(field, binding, codes), [True, False, False]
+        )
+        field["no_field_codes"][0] = -82
+        self.assertFalse(unique_field_roofs(field, binding[:1], codes[:1])[0])
 
     def test_fresh_ready_reader_uses_no_forms_or_geos(self):
         field = bake(plan_source(17, source()))
