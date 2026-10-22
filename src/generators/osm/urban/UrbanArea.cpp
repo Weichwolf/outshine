@@ -37,19 +37,19 @@ int64_t FloorDiv(int64_t value, int64_t divisor) {
   return value / divisor - (value % divisor < 0 ? 1 : 0);
 }
 
-struct PatchGrid {
+struct CoverageBlocks {
   int64_t X = 0, Y = 0, Columns = 0, Rows = 0, Side = 0;
   std::vector<bool> Covered;
 };
 
-std::expected<PatchGrid, std::string> CoveredPatches(const UrbanDetail::Domain &domain,
-                                                     const UrbanArea &area,
-                                                     const UrbanAreaLimits &limits) {
+std::expected<CoverageBlocks, std::string> CoveredBlocks(const UrbanDetail::Domain &domain,
+                                                         const UrbanArea &area,
+                                                         const UrbanAreaLimits &limits) {
   constexpr int64_t coverageSideMost = 4;
   const int64_t side = std::min<int64_t>(area.Recipe.PatchSide, coverageSideMost);
   const int64_t x0 = area.FirstCell[0];
   const int64_t y1 = area.FirstCell[1];
-  PatchGrid grid;
+  CoverageBlocks grid;
   grid.Side = side;
   grid.X = FloorDiv(x0, side);
   grid.Y = FloorDiv(y1 - area.Rows + 1, side);
@@ -84,11 +84,11 @@ std::expected<PatchGrid, std::string> CoveredPatches(const UrbanDetail::Domain &
 
 std::expected<bool, std::string> CoveredCell(const UrbanDetail::Domain &domain,
                                              UrbanArea &area,
-                                             const PatchGrid &patches,
+                                             const CoverageBlocks &blocks,
                                              std::array<int64_t, 2> cell) {
-  const auto px = FloorDiv(cell[0], patches.Side) - patches.X;
-  const auto py = FloorDiv(cell[1], patches.Side) - patches.Y;
-  if (patches.Covered[static_cast<size_t>(py * patches.Columns + px)]) { return true; }
+  const auto px = FloorDiv(cell[0], blocks.Side) - blocks.X;
+  const auto py = FloorDiv(cell[1], blocks.Side) - blocks.Y;
+  if (blocks.Covered[static_cast<size_t>(py * blocks.Columns + px)]) { return true; }
   ++area.LotTests;
   const double pitch = area.Recipe.ProjectedPitchM;
   const double half = pitch * area.Recipe.FillFraction / 2;
@@ -99,9 +99,9 @@ std::expected<bool, std::string> CoveredCell(const UrbanDetail::Domain &domain,
 
 std::expected<void, std::string>
 Fill(UrbanArea &area, const UrbanDetail::Domain &domain, const UrbanAreaLimits &limits) {
-  const auto patches = CoveredPatches(domain, area, limits);
-  if (!patches) { return std::unexpected(patches.error()); }
-  area.PatchTests = patches->Covered.size();
+  const auto blocks = CoveredBlocks(domain, area, limits);
+  if (!blocks) { return std::unexpected(blocks.error()); }
+  area.PatchTests = blocks->Covered.size();
   for (uint32_t row = 0; row < area.Rows; ++row) {
     if (UrbanDetail::Expired(limits)) {
       return std::unexpected("urban generation cancelled or expired");
@@ -110,7 +110,7 @@ Fill(UrbanArea &area, const UrbanDetail::Domain &domain, const UrbanAreaLimits &
     for (uint32_t column = 0; column < area.Columns; ++column) {
       const std::array<int64_t, 2> cell{area.FirstCell[0] + column, y};
       if (CellHash(cell, NoiseStream::Vacancy) % kPercentageScale < kVacancyPercent) { continue; }
-      const auto covered = CoveredCell(domain, area, *patches, cell);
+      const auto covered = CoveredCell(domain, area, *blocks, cell);
       if (!covered) { return std::unexpected(covered.error()); }
       if (!*covered) { continue; }
       const double random =
