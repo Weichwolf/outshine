@@ -53,6 +53,7 @@ def run(args):
             "path": str((args.output / "field.npz").resolve()),
             "uv": str((output / "roof-uv.npz").resolve()),
             "normal_basis": basis.tolist(),
+            "parent_origin": centre.tolist(),
         }
         scene["scope"] += (
             " Source-owned nearest RGB8 normal-field control. Geometry, original UV/metres/categories and alpha coverage unchanged; normal filtering/NDF and native procedural materials unqualified."

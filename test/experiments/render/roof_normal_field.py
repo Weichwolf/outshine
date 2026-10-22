@@ -12,18 +12,20 @@ def roof_uv(mesh, field, basis, centre):
     for key in sorted(set(map(tuple, binding[roof, :2]))):
         row = keys[key]
         selected = roof & np.all(binding[:, :2] == key, axis=1)
-        frame = field["frames"][row]
         parent = (
             mesh["positions"][mesh["indices"][selected]].astype(float) @ basis + centre
         )
-        xy = ((parent - frame[0]) @ np.linalg.inv(frame[1:]))[..., :2]
-        low, high = field["xy_bounds"][row]
-        fraction = (xy - low) / (high - low)
-        x, y, size = field["rects"][row]
-        result[selected] = (fraction * size + [x, y]) / np.array(
-            field["pixels"].shape[1::-1]
-        )
+        result[selected] = part_uv(field, row, parent)
     return result
+
+
+def part_uv(field, row, parent):
+    frame = field["frames"][row]
+    xy = ((np.asarray(parent) - frame[0]) @ np.linalg.inv(frame[1:]))[..., :2]
+    low, high = field["xy_bounds"][row]
+    fraction = (xy - low) / (high - low)
+    x, y, size = field["rects"][row]
+    return (fraction * size + [x, y]) / np.array(field["pixels"].shape[1::-1])
 
 
 def sample_uv(field, uv, basis):
