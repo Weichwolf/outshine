@@ -44,6 +44,10 @@ public:
 
   [[nodiscard]] size_t Standing() const noexcept { return Held_.size(); }
 
+  [[nodiscard]] bool HasPublishedSurface() const noexcept {
+    return !Publishing_ && (!Instances_.empty() || !Virtual_.empty());
+  }
+
   [[nodiscard]] size_t Instances() const noexcept { return Instances_.size() + Virtual_.size(); }
 
   [[nodiscard]] size_t Flat() const noexcept { return Flat_; }
