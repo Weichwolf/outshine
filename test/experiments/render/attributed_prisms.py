@@ -24,6 +24,7 @@ class Materials:
 @dataclass
 class IndexedMaterials(Materials):
     edge_offsets: np.ndarray
+    code_index: np.ndarray | None = None
 
 
 def material_tables(prisms, recipes):
@@ -97,8 +98,9 @@ def material_fields(materials, prisms, owners, planes, points):
     local = np.einsum("ni,nji->nj", points - frame[:, 0], frame[:, 1:])
     floor, seat, foot, deck = materials.heights[owners].T
     gable = local[:, 2] > deck
-    pair = materials.codes[planes]
-    code = pair[np.arange(len(owners)), gable.astype(int)]
+    lookup = getattr(materials, "code_index", None)
+    pair = materials.codes[planes if lookup is None else lookup[planes]]
+    code = pair[np.arange(len(owners)), gable.astype(int)].astype(np.int32, copy=False)
     wall = code >= 0
     bay = np.remainder(code, 256).astype(np.float32)
     vertical = local[:, 2].astype(np.float32)
@@ -256,9 +258,25 @@ def render_product(product, origins, directions):
         field[good] = values[k]
     wall_queries = int((values["code"] >= 0).sum())
     work["material_wall_queries"] = wall_queries
+    offsets = getattr(materials, "edge_offsets", None)
+    extra = (
+        0 if offsets is None else offsets.dtype.itemsize + prisms.offsets.dtype.itemsize
+    )
+    lookup = getattr(materials, "code_index", None)
+    code_bytes = 0 if lookup is None else lookup.dtype.itemsize
+    base = (
+        materials.frames.dtype.itemsize * 12
+        + materials.heights.dtype.itemsize * 4
+        + materials.codes.dtype.itemsize * 2
+        + materials.metres.dtype.itemsize
+        + prisms.planes.dtype.itemsize * 3
+        + code_bytes
+    )
+    wall_bytes = (
+        materials.edge.dtype.itemsize * 4 + materials.bays.dtype.itemsize + extra
+    )
     work["material_record_operand_bytes"] = (
-        161 * int(good.sum())
-        + (42 if isinstance(materials, IndexedMaterials) else 34) * wall_queries
+        base * int(good.sum()) + wall_bytes * wall_queries
     )
     source = np.full(len(depth), -1, np.int32)
     part = source.copy()
