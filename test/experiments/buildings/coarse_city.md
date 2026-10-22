@@ -188,6 +188,52 @@ sources before individual Fine geometry. Source/terrain/coverage uncertainty,
 GPU field/index layout, filtering, caster/reflection behavior, demand/residency,
 LOD transitions, native full-scene cost and device p99 remain open at #1083/#1102.
 
+## Same stored field in the existing native box control
+
+Master e55ce64d7 adds a model-space instanced-box control with a bounded `--field`
+input. The shared fixed test input `fixtures/coarse_city_native.field` contains
+exactly the same 64 selected patches / 2,795 occupied cells as the lit study.
+Its 72×72 rectangle pads unselected patches with zero for this diagnostic subset;
+those zeros say nothing about world emptiness. The text is 11,477 B and its decoded
+Float32 grid 20,736 B. These are control input sizes, not native allocation peaks.
+The adjacent `.reference.json` pins input/source/consumer hashes and coordinates.
+
+`export_urban_patches.py` reproduces this input directly from a prepared product
+and manifest, without source/GEOS/mesh work. It preserves occupancy and exact
+Float32 height values; oversized rectangles, duplicate cells or lossy heights
+reject the entire export instead of silently truncating. Five adapter tests check
+negative/global coordinates, unselected gaps, explicit axis mapping, rejection,
+fixed input/source pins and a fresh blocked-import ready export. Normal tests
+never regenerate the reference input or its pin.
+
+Native X follows columns, +Z follows rows and +Y is height. The receipt's affine
+map restores reference X/Y/Z and its local origin; its axis permutation has
+determinant -1. Native unit-box winding is constructed independently. Comparing
+every stored independent opaque box bound against this documented native unit-box
+construction gives 2,795 matched boxes, exact heights and maximum Double corner
+deviation 1.82e-12 m. This checks content and coordinates, not executed native
+Float32/shader geometry. Native camera/light are independent; cross-renderer
+raster equality and device performance are not asserted. The original 30-render
+code producer and its city fields remain unchanged.
+
+The native owner can feed the fixed input directly to the existing driver, with
+its required native archive, compilation database and shaders, without rebuilding
+the source study:
+
+```sh
+python3 test/experiments/render/native_urban_field.py \
+  --field test/experiments/buildings/fixtures/coarse_city_native.field \
+  --output /tmp/outshine-urban-control-source
+```
+
+For another prepared study, use the existing `.venv` and fresh temp output:
+
+```sh
+python -B -W error test/experiments/buildings/export_urban_patches.py \
+  --prepared /tmp/outshine-urban-study --output /tmp/outshine-urban-native-input
+python -B -W error -m unittest test_export_urban_patches
+```
+
 ## Sources and reproduction
 
 SIGGRAPH 2003 Decoret et al., *Billboard Clouds for Extreme Model Simplification*,
