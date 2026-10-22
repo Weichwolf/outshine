@@ -5,10 +5,45 @@ import unittest
 import numpy as np
 from compare_urban_parents import camera
 from shapely.geometry import Point, Polygon
-from urban_pixel_filter import filter_correction, support_points, support_polygon
+from urban_pixel_filter import (
+    filter_correction,
+    screen_rays,
+    support_points,
+    support_polygon,
+)
 
 
 class UrbanPixelTest(unittest.TestCase):
+    def test_full_pixels_retain_original_nodes_and_partial_pixels_keep_area(self):
+        polygon = np.array([[0, 0], [1.5, 0], [1.5, 1], [0, 1]])
+        bounds = np.array([[0, 0], [2, 1]])
+        view = (np.array([0, 0, 2]), np.eye(3), 2.0, 2, 1)
+        xy = np.array([[0.2, 0.3], [0.8, 0.9], [1.1, 0.2], [1.6, 0.8]])
+        o, d = screen_rays(view, xy)
+        visited = []
+
+        def scene(origins, directions):
+            visited.extend(directions.copy())
+            return directions**2, np.ones(len(origins)), {}
+
+        def background(origins, directions):
+            return np.zeros_like(origins)
+
+        delta, coverage, work = filter_correction(
+            polygon,
+            bounds,
+            view,
+            scene,
+            background,
+            order=2,
+            interior=(o, d, np.array([0, 0, 1, 1])),
+        )
+        np.testing.assert_allclose(delta[0, 0], (d[:2] ** 2).mean(axis=0), atol=1e-16)
+        np.testing.assert_array_equal(np.asarray(visited)[-2:], d[:2])
+        np.testing.assert_allclose(coverage, [[1, 0.5]], atol=1e-16)
+        self.assertEqual(work["retained_full_pixels"], 1)
+        self.assertEqual(work["retained_uniform_rays"], 2)
+
     def test_signed_difference_keeps_area_and_background_separate(self):
         polygon = np.array([[0, 0.1], [2, 0.1], [2, 0.2], [0, 0.2]])
         view = (np.array([0, 0, 2]), np.eye(3), 2.0, 2, 1)

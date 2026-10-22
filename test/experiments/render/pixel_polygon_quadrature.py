@@ -88,7 +88,7 @@ def strip_quadrature(polygon, roots, weights):
     return np.concatenate(points), np.concatenate(areas), strips
 
 
-def pixel_quadrature(polygon, box, *, order=2):
+def pixel_quadrature(polygon, box, *, order=2, skip_full=False):
     """Return screen nodes, row-major pixel IDs, area weights and work counts.
 
     Weights sum to polygon/pixel intersection area; they are never normalized
@@ -107,6 +107,7 @@ def pixel_quadrature(polygon, box, *, order=2):
         "clipped_pixels": 0,
         "axis_strips": 0,
         "max_clip_vertices": 0,
+        "full_pixel_ids": [],
     }
     points, owners, areas = [], [], []
     width = int(box[1, 0] - box[0, 0])
@@ -119,6 +120,12 @@ def pixel_quadrature(polygon, box, *, order=2):
                 clipped = clip_pixel(polygon, pixel)
                 work["pixel_clip_tests"] += 1
                 work["max_clip_vertices"] = max(work["max_clip_vertices"], len(clipped))
+                owner = (y - box[0, 1]) * width + x - box[0, 0]
+                if skip_full and np.array_equal(
+                    clipped, [[0, 0], [0, 1], [1, 0], [1, 1]]
+                ):
+                    work["full_pixel_ids"].append(int(owner))
+                    continue
                 if len(clipped) < 3:
                     continue
                 xy, weight, count = strip_quadrature(clipped, roots, weights)
@@ -130,7 +137,7 @@ def pixel_quadrature(polygon, box, *, order=2):
                 owners.append(
                     np.full(
                         positive.sum(),
-                        (y - box[0, 1]) * width + x - box[0, 0],
+                        owner,
                         np.int64,
                     )
                 )

@@ -209,13 +209,26 @@ def compare_pixel(parent, resolved, args):
         return rgb, alpha, work
 
     started = time.perf_counter()
+    o, d = image_rays(view, box, width, height, args.samples, jitter_seed=args.seed)
+    d /= np.linalg.norm(d, axis=1)[:, None]
+    owners = np.repeat(
+        np.repeat(
+            np.arange(width * height).reshape(height, width), args.samples, axis=0
+        ),
+        args.samples,
+        axis=1,
+    ).ravel()
     delta, coverage, filtered_work = filter_correction(
-        polygon, box, view, scene, background, order=args.footprint_order
+        polygon,
+        box,
+        view,
+        scene,
+        background,
+        order=args.footprint_order,
+        interior=(o, d, owners),
     )
     seconds = time.perf_counter() - started
     candidate = baseline + delta
-    o, d = image_rays(view, box, width, height, args.samples, jitter_seed=args.seed)
-    d /= np.linalg.norm(d, axis=1)[:, None]
     old_rgb, old_coverage, old_work, old_seconds = parent_sample(
         parent, o, d, profile, args.tolerance, query
     )
@@ -260,7 +273,7 @@ def compare_pixel(parent, resolved, args):
         "uniform_samples_per_axis": args.samples,
         "reference_samples_per_axis": args.reference_samples,
         "jitter_seed": args.seed,
-        "rays": filtered_work["quadrature_samples"],
+        "rays": filtered_work["scene_rays"],
         "parent_seconds": seconds,
         "parent_work": filtered_work,
         "uniform_seconds": old_seconds,
