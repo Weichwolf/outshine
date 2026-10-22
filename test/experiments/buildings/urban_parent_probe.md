@@ -20,8 +20,9 @@ The existing DDA supplies an independent resolved-lot control with explicit gaps
 height clipping and a separate shadow-ray minimum. It is never a parent prerequisite.
 
 At the pinned owner, raw area overestimates resolved roof area by 14.7%; continuous
-setback estimates give +2.9% / -1.7%. The first 1280×720 day image at 240 km, 80 km
-altitude and 16×16 samples in the common 62×23-pixel region gives:
+setback estimates give +2.9% / -1.7%. The first 1280×720 day preflight used 240 km
+horizontal offset / 80 km vertical offset (252.98 km target distance) and 16×16
+samples in the common 62×23-pixel region:
 
 | Model | Coverage sum, px | Coverage L1, px | Linear RGB region RMSE |
 | --- | ---: | ---: | ---: |
@@ -30,7 +31,9 @@ altitude and 16×16 samples in the common 62×23-pixel region gives:
 | Setback midpoint volume | 599.45 | 58.11 | 0.03734 |
 | Swept-phase mixture | 559.23 | 51.66 | 0.04310 |
 
-These are preliminary, uncommitted preflight images. Improved coverage does not
+These are preliminary, uncommitted preflight images; current camera inputs declare
+actual target distance so the required 240-km comparisons stay at that distance.
+Improved coverage does not
 improve lighting here; the consumer remains red. Reference sampling convergence,
 movement/back/night/ascent/transition cases, fair work/peak controls and conditional
 height/shadow treatment remain required. Local images stay in system temp.

@@ -22,11 +22,17 @@ from urban_patches import load
 
 def camera(extent, distance, motion, altitude=None):
     target = np.array([extent / 2, extent / 2, 12.0])
-    eye = target + [
-        motion,
-        -distance,
-        altitude if altitude is not None else distance / 3,
-    ]
+    height = altitude if altitude is not None else distance / math.sqrt(10)
+    vertical = height - target[2]
+    if (
+        not np.isfinite([distance, motion, height]).all()
+        or distance <= 0
+        or motion**2 + vertical**2 >= distance**2
+    ):
+        raise ValueError(
+            "finite camera pose inside the declared target distance required"
+        )
+    eye = target + [motion, -math.sqrt(distance**2 - motion**2 - vertical**2), vertical]
     forward = target - eye
     forward /= np.linalg.norm(forward)
     right = np.cross(forward, [0, 0, 1])
@@ -214,7 +220,9 @@ def run(args):
         "lighting": profile,
         "distance_m": args.distance,
         "motion_m": args.motion,
-        "altitude_m": args.altitude if args.altitude is not None else args.distance / 3,
+        "altitude_m": float(view[0][2]),
+        "eye_m": view[0].tolist(),
+        "camera_basis": view[1].tolist(),
         "parent_cache_hit": args.parent is not None,
         "samples_per_axis": args.samples,
         "roi": box.tolist(),

@@ -3,12 +3,21 @@
 import unittest
 
 import numpy as np
+from compare_urban_parents import camera
 from test_urban_patches import example
 from urban_parent_reference import prepare_resolved, trace_resolved
 from urban_patch_trace import trace
 
 
 class ParentReferenceTest(unittest.TestCase):
+    def test_motion_and_altitude_preserve_the_declared_target_distance(self):
+        target = np.array([8000, 8000, 12])
+        for motion, altitude in [(0, None), (8000, None), (0, 10000)]:
+            eye = camera(16000, 240000, motion, altitude)[0]
+            self.assertAlmostEqual(np.linalg.norm(eye - target), 240000, places=8)
+            if altitude is not None:
+                self.assertEqual(eye[2], altitude)
+
     def test_inset_lots_match_independent_box_geometry_in_random_views(self):
         product = example()
         rng = np.random.default_rng(1113)
