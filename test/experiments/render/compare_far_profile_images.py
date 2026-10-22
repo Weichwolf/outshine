@@ -117,6 +117,14 @@ def run(args):
                 lookup[("after", "profile")],
             ),
         ]
+        if ("after-hold", "profile") in lookup:
+            groups.append(
+                (
+                    "fixed-eye switch only",
+                    lookup[("after-hold", "profile")],
+                    lookup[("after", "profile")],
+                )
+            )
         rows.extend(
             {"light": "transition-day", **r}
             for r in panel(

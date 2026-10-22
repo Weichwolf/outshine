@@ -78,6 +78,7 @@ def run(args):
     producer = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     original = subset(source, np.ones(len(source["indices"]), bool))
     rows = []
+    held_candidate = None
     for name, view in poses.items():
         selected, limits = choices[name]
         selected &= set(generated)
@@ -85,6 +86,8 @@ def run(args):
         candidate = combine([fallback, *(generated[i] for i in sorted(selected))])
         if set(candidate["source_id"]) != set(original["source_id"]):
             raise ValueError("Incomplete cell at transition")
+        if name == "before":
+            held_candidate = candidate
         for strategy, mesh in [("original", original), ("profile", candidate)]:
             write_scene(
                 args.output / name / strategy,
@@ -103,11 +106,24 @@ def run(args):
                 "triangles": len(candidate["indices"]),
             }
         )
+    before_set, after_set = (choices[name][0] for name in ["before", "after"])
+    if after_set - before_set != {args.source} or before_set - after_set:
+        raise ValueError("Fixed-eye control requires exactly one changed source")
+    write_scene(
+        args.output / "after-hold/profile",
+        held_candidate,
+        poses["after"],
+        basis,
+        centre,
+        ground,
+        producer,
+    )
     report = {
         "producer": producer,
         "source": args.source,
         "threshold_distance_m": threshold,
         "eye_separation_m": 0.25,
+        "fixed_eye_control": "after-hold/profile uses after camera with before selection; only target source remains original",
         "views": rows,
         "needs": needs,
         "scope": "Full original cell, fixed orientation and intrinsics, two eyes 0.25m apart bracketing a genuine source LOD switch. Raw hard-switch baseline; no temporal/radiance/caster certificate.",
