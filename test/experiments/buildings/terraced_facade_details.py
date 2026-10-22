@@ -18,7 +18,7 @@ def keepouts(mass, portals):
     return {i: shapely.union_all(parts) for i, parts in values.items()}
 
 
-def details(mass, facade, *, portals=(), legacy_trim=True):
+def details(mass, facade, *, portals=(), legacy_trim=True, template_builder=None):
     if type(legacy_trim) is not bool:
         raise ValueError("Legacy facade trim selection requires a boolean")
     keepout = (
@@ -52,7 +52,8 @@ def details(mass, facade, *, portals=(), legacy_trim=True):
                 "sill": False,
             }
             for p in portals
-        ]
+        ],
+        template_builder=template_builder,
     )
     storage = [], [], [], []
     skipped_parts = 0

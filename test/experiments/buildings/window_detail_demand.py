@@ -1,9 +1,11 @@
 """Explicit window demand before detail expansion; the coarse exterior stays complete."""
 
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from types import MappingProxyType
 
 import numpy as np
+import opening_details
 from outshine_ref.buildings.modelling.prism_union import frozen
 from outshine_ref.buildings.rooflight_panels import triangle_surface
 from terraced_facade_details import details
@@ -43,16 +45,18 @@ def buffer_bytes(mesh):
     return sum(value.nbytes for value in mesh.values())
 
 
-def window_closed(prepared, window):
+def window_closed(prepared, window, *, template_builder=None):
     """Reuse the existing closed recipe without floors, stair building or CSG."""
     facade = replace(prepared.facade, windows=(window,))
-    raw = details(prepared.local, facade, legacy_trim=False)
+    raw = details(
+        prepared.local, facade, legacy_trim=False, template_builder=template_builder
+    )
     raw = raw | {"vertices": positions(raw["vertices"], prepared.mass.core)}
     return raw
 
 
-def window_patch(prepared, window):
-    raw = window_closed(prepared, window)
+def window_patch(prepared, window, *, template_builder=None):
+    raw = window_closed(prepared, window, template_builder=template_builder)
     mesh = triangle_surface(raw, 10)
     if len(mesh["faces"]) != len(raw["faces"]):
         raise ValueError("Window draw cannot drop a physical triangle")
@@ -71,6 +75,19 @@ def coarse_spans(coarse):
         MeshSpan(coarse.mesh, int(a), int(b - a), coarse.owner_ids[owners[a]])
         for a, b in zip(starts, ends, strict=True)
     )
+
+
+def repeated_dimensions(windows, resident, identifiers):
+    seen = set()
+    for identifier in identifiers:
+        if identifier in resident:
+            continue
+        window = windows[identifier]
+        key = window.width_m, window.height_m
+        if key in seen:
+            return True
+        seen.add(key)
+    return False
 
 
 class WindowDetails:
@@ -114,12 +131,24 @@ class WindowDetails:
         admitted, fallback = self.request(identifiers)
         # Commit only after every new product and the complete draw list succeed.
         resident, generated = {}, []
-        for identifier in admitted:
-            patch = self.resident.get(identifier)
-            if patch is None:
-                patch = window_patch(self.prepared, self.windows[identifier])
-                generated.append(identifier)
-            resident[identifier] = patch
+        templates = None
+        reuse = repeated_dimensions(self.windows, self.resident, admitted)
+        try:
+            for identifier in admitted:
+                patch = self.resident.get(identifier)
+                if patch is None:
+                    if reuse and templates is None:
+                        templates = lru_cache(maxsize=16)(opening_details.template)
+                    patch = window_patch(
+                        self.prepared,
+                        self.windows[identifier],
+                        template_builder=templates,
+                    )
+                    generated.append(identifier)
+                resident[identifier] = patch
+        finally:
+            if templates is not None:
+                templates.cache_clear()
         released = tuple(
             identifier for identifier in self.resident if identifier not in resident
         )
