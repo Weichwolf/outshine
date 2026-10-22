@@ -29,9 +29,17 @@ def read_scene(path):
     return mesh, view
 
 
-def codes(uv):
-    u = uv[:, 0]
-    return np.where(u < 0, u, np.floor(u / 256)).astype(np.int64)
+def hit_codes(mesh, faces):
+    """Decode categorical vertex tags before barycentric roundoff at a hit."""
+    u = mesh["uv"][:, 0]
+    codes = np.where(u < 0, u, np.floor(u / 256)).astype(np.int64)
+    per_triangle = codes[mesh["indices"]]
+    if not np.all(per_triangle == per_triangle[:, :1]):
+        raise ValueError("Categorical material seam crosses an input triangle")
+    result = np.full(len(faces), np.iinfo(np.int64).min, np.int64)
+    covered = faces >= 0
+    result[covered] = per_triangle[faces[covered], 0]
+    return result
 
 
 def compare(directory):
@@ -61,8 +69,8 @@ def compare(directory):
         owner = np.full(len(faces), -1, np.int32)
         covered = faces >= 0
         owner[covered] = mesh["source_id"][faces[covered]]
-        outputs.append((depth, faces, data, owner))
-    (a, af, aa, ao), (b, bf, bb, bo) = outputs
+        outputs.append((depth, faces, data, owner, hit_codes(mesh, faces)))
+    (a, af, aa, ao, ac), (b, bf, bb, bo, bc) = outputs
     both = np.isfinite(a) & np.isfinite(b)
     same = both & (ao == bo)
     dots = np.einsum("ij,ij->i", aa["normal"][same], bb["normal"][same])
@@ -83,9 +91,7 @@ def compare(directory):
         )
         if same.any()
         else None,
-        "same_source_encoded_category_mismatches": int(
-            (codes(aa["uv"])[same] != codes(bb["uv"])[same]).sum()
-        ),
+        "same_source_encoded_category_mismatches": int((ac[same] != bc[same]).sum()),
         "same_source_samples": int(same.sum()),
         "scope": "Opaque Double pixel-centre triangle/Rtree control with four fixed samples/pixel. Categories include encoded source identity; native vertex shader/PBR/filtering/MSAA/shadows not qualified.",
     }
@@ -100,6 +106,8 @@ def compare(directory):
         "candidate_normal": bb["normal"],
         "original_uv": aa["uv"],
         "candidate_uv": bb["uv"],
+        "original_code": ac,
+        "candidate_code": bc,
     }
     return result, arrays
 

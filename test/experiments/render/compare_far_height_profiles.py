@@ -147,6 +147,28 @@ def cook_selected(plans, required, needs):
     return generated, bake_costs
 
 
+def comparison_views(source, document, context):
+    all_views = views(document, context)
+    named = {
+        name: all_views[name] for name in ["static-020", "moving-020", "moving-021"]
+    }
+    midpoint = (
+        source["positions"].min(0).astype(float) + source["positions"].max(0)
+    ) / 2
+    old_eye = named["static-020"][0]
+    near_eye = (
+        midpoint + (old_eye - midpoint) / np.linalg.norm(old_eye - midpoint) * 500
+    )
+    forward = (midpoint - near_eye) / np.linalg.norm(midpoint - near_eye)
+    up = np.array(document["anchor_ecef"])
+    up /= np.linalg.norm(up)
+    right = np.cross(forward, up)
+    right /= np.linalg.norm(right)
+    near_basis = np.stack((right, np.cross(right, forward), forward))
+    named["near-control"] = near_eye, near_basis, *named["static-020"][2:]
+    return named, midpoint, right, up
+
+
 def run(args):
     output = args.output.resolve()
     root = Path(__file__).resolve().parents[3]
@@ -178,24 +200,7 @@ def run(args):
     plans, needs, surfaces, identity, plan_seconds, archive_hash, cell = plan_cell(
         args, document
     )
-    all_views = views(document, context)
-    named = {
-        name: all_views[name] for name in ["static-020", "moving-020", "moving-021"]
-    }
-    midpoint = (
-        source["positions"].min(0).astype(float) + source["positions"].max(0)
-    ) / 2
-    old_eye = named["static-020"][0]
-    near_eye = (
-        midpoint + (old_eye - midpoint) / np.linalg.norm(old_eye - midpoint) * 500
-    )
-    forward = (midpoint - near_eye) / np.linalg.norm(midpoint - near_eye)
-    up = np.array(document["anchor_ecef"])
-    up /= np.linalg.norm(up)
-    right = np.cross(forward, up)
-    right /= np.linalg.norm(right)
-    near_basis = np.stack((right, np.cross(right, forward), forward))
-    named["near-control"] = near_eye, near_basis, *named["static-020"][2:]
+    named, midpoint, right, up = comparison_views(source, document, context)
     metadata = {s["index"]: s for s in document["sources"]}
     choices = {
         name: selected_profiles(plans, surfaces, metadata, view)
