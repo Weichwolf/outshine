@@ -88,13 +88,13 @@ UrbanPrismPreparation::~UrbanPrismPreparation() {
 
 void UrbanPrismPreparation::Post(Operation operation, AssetFactory factory) {
   Work_ = std::make_shared<Work>();
-  const auto run = [work = Work_,
-                    stop = Stop_.get_token(),
-                    database = Database_,
-                    request = Request_,
-                    bytesMost = BytesMost_,
-                    operation,
-                    factory = std::move(factory)] {
+  auto run = [work = Work_,
+              stop = Stop_.get_token(),
+              database = Database_,
+              request = Request_,
+              bytesMost = BytesMost_,
+              operation,
+              factory = std::move(factory)] {
     const auto began = std::chrono::steady_clock::now();
     if (stop.stop_requested()) {
       work->Value = std::unexpected("prism preparation canceled");
@@ -118,7 +118,7 @@ void UrbanPrismPreparation::Post(Operation operation, AssetFactory factory) {
     }
     work->Complete.store(true, std::memory_order_release);
   };
-  if (Pool_.PostDetached(run)) { return; }
+  if (Pool_.PostDetached(std::move(run))) { return; }
   Work_->Value = std::unexpected("prism preparation compute queue is closed");
   Work_->Complete.store(true, std::memory_order_release);
 }
