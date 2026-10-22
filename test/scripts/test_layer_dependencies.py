@@ -16,6 +16,19 @@ CONTRACT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CONTRACT)
 
 
+def shell_functions(declaration, names):
+    functions = []
+    collecting = False
+    for line in declaration.splitlines():
+        if line.removesuffix('() {') in names and line.endswith('() {'):
+            collecting = True
+        if collecting:
+            functions.append(line)
+            if line == '}':
+                collecting = False
+    return '\n'.join(functions)
+
+
 class HeaderTraversal(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='outshine-layer-dependencies-')
@@ -96,22 +109,14 @@ class NativeStageDependencies(unittest.TestCase):
     def sources(self, declaration):
         names = {'SourceUnits', 'NativeGroups', 'GeneratorGroups', 'EngineRootGroups',
                  'SubtreeGroups', 'TestProfile', 'LayerGroups'}
-        functions = []
-        collecting = False
-        for line in declaration.splitlines():
-            if line.removesuffix('() {') in names and line.endswith('() {'):
-                collecting = True
-            if collecting:
-                functions.append(line)
-                if line == '}':
-                    collecting = False
+        functions = shell_functions(declaration, names)
         environment = dict(os.environ)
         environment['SOURCE_UNITS'] = subprocess.check_output(
             [sys.executable, 'test/scripts/source_units.py'], cwd=self.root, text=True)
         environment['SOURCE_DIRECTORIES'] = '\n'.join(
             str(path.relative_to(self.root)) for path in (self.root / 'src').rglob('*')
             if path.is_dir())
-        command = '\n'.join(functions) + (
+        command = functions + (
             '\nfor group in $(LayerGroups outshine/src/render/stages/StagePipelines); '
             'do SourceUnits "$group"; done\n')
         result = subprocess.run(['sh', '-eu', '-c', command], cwd=self.root,
@@ -133,6 +138,75 @@ class NativeStageDependencies(unittest.TestCase):
         self.assertEqual(count, 1)
         units = self.sources(fallback)
         self.assertTrue(any(unit.startswith(('src/engine/', 'src/generators/')) for unit in units))
+
+
+class Sha256Dependencies(unittest.TestCase):
+    root = SCRIPT.parents[2]
+    profiles = ('profile/base', 'profile/content', 'profile/engine', 'harness/claims',
+                'profile/plant-asset', 'profile/plant-crown-cache', 'profile/plant-limb',
+                'profile/stage-pipelines', 'profile/calibration', 'profile/tasks',
+                'profile/plant-recipe-json')
+
+    def links(self, platform, profiles=None, available=True):
+        names = {'SourceUnits', 'NativeGroups', 'GeneratorGroups', 'EngineRootGroups',
+                 'SubtreeGroups', 'TestProfile', 'LayerGroups', 'LayerLink',
+                 'LayerLibraryLink', 'Sha256Flags', 'NativeLink', 'SpirvCrossFlags',
+                 'OsqpFlags', 'HighsFlags'}
+        functions = shell_functions((self.root / 'test/run.sh').read_text(), names)
+        environment = dict(os.environ, BUILD_PLATFORM=platform,
+                           LIBCRYPTO_AVAILABLE=str(int(available)))
+        environment['SOURCE_UNITS'] = subprocess.check_output(
+            [sys.executable, 'test/scripts/source_units.py'], cwd=self.root, text=True)
+        environment['SOURCE_DIRECTORIES'] = '\n'.join(
+            str(path.relative_to(self.root)) for path in (self.root / 'src').rglob('*')
+            if path.is_dir())
+        stub = r"""
+#!/bin/sh
+for package do
+  if [ "$package" = libcrypto ]; then
+    [ "$LIBCRYPTO_AVAILABLE" = 1 ] || exit 1
+    case "$1" in --libs) printf '%s' '-lcrypto' ;; esac
+  fi
+done
+exit 0
+"""
+        loop = r"""
+for suite do
+  if for group in $(LayerGroups "$suite"); do SourceUnits "$group"; done |
+      grep -qx 'src/base/format/Sha256.cpp'; then sha=1; else sha=0; fi
+  printf '%s\t%s\t' "$suite" "$sha"
+  LayerLink "$suite"
+  printf '\n'
+done
+"""
+        with tempfile.TemporaryDirectory(prefix='outshine-sha-link-') as directory:
+            package_tool = Path(directory) / 'pkg-config'
+            package_tool.write_text(stub.lstrip())
+            package_tool.chmod(0o755)
+            environment['PATH'] = directory + os.pathsep + environment['PATH']
+            return subprocess.run(['sh', '-eu', '-c', functions + loop,
+                                   'sha-link-test', *(profiles or self.profiles)],
+                                  cwd=self.root, env=environment, capture_output=True, text=True)
+
+    def test_linux_links_crypto_exactly_when_the_declared_sources_use_sha(self):
+        result = self.links('Linux')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for row in result.stdout.splitlines():
+            profile, uses_sha, flags = row.split('\t', 2)
+            self.assertEqual(flags.split().count('-lcrypto'), int(uses_sha), profile)
+
+    def test_apple_uses_commoncrypto_without_an_openssl_package(self):
+        result = self.links('Darwin', available=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('-lcrypto', result.stdout)
+
+    def test_missing_crypto_does_not_block_native_stage_profiles(self):
+        isolated = self.links('Linux', ['profile/stage-pipelines', 'profile/calibration'],
+                              available=False)
+        self.assertEqual(isolated.returncode, 0, isolated.stderr)
+        required = self.links('Linux', ['profile/base'], available=False)
+        self.assertNotEqual(required.returncode, 0)
+        self.assertIn('install libssl-dev', required.stderr)
 
 
 if __name__ == '__main__':

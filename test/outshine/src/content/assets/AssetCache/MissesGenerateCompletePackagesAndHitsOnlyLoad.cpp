@@ -31,8 +31,12 @@ GeneratedAssetPackage Package() {
     package.Records.push_back({.Key = Key(kind),
                                .Kind = kind,
                                .Bounds = {.Min = {{0, 0, 0}}, .Max = {{10, 10, 10}}},
+                               .Package = {},
                                .OffsetBytes = package.Records.size() * 3,
-                               .ByteCount = 3});
+                               .ByteCount = 3,
+                               .Level = {},
+                               .Parent = {},
+                               .RequestKey = {}});
   }
   return package;
 }
@@ -119,7 +123,15 @@ void RepairsCorruption(const std::string &path) {
   });
   CHECK(rebuilt && generated == 1 && rebuilt->Bytes().front() == 1,
         "corruption causes exactly one fresh generation and republishes a complete package");
-  const AssetRecord empty{.Key = Key("empty"), .Kind = "water", .Bounds = {.Min = {}, .Max = {}}};
+  const AssetRecord empty{.Key = Key("empty"),
+                          .Kind = "water",
+                          .Bounds = {.Min = {}, .Max = {}},
+                          .Package = {},
+                          .OffsetBytes = {},
+                          .ByteCount = {},
+                          .Level = {},
+                          .Parent = {},
+                          .RequestKey = {}};
   CHECK((*opened)->Publish(std::span(&empty, 1), {}).has_value(),
         "known empty asset is persistently representable");
   const auto known = (*opened)->Load(empty.Key, 0);

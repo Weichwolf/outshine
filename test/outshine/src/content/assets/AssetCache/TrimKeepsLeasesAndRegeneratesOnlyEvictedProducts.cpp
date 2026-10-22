@@ -23,7 +23,12 @@ AssetRecord Record(char identity) {
   return {.Key = std::string(64, identity),
           .Kind = "trim-fixture",
           .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-          .ByteCount = kOld.size()};
+          .Package = {},
+          .OffsetBytes = {},
+          .ByteCount = kOld.size(),
+          .Level = {},
+          .Parent = {},
+          .RequestKey = {}};
 }
 
 void Exercise(const std::filesystem::path &path) {

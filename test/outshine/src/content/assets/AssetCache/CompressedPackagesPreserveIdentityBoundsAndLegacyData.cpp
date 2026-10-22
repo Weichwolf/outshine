@@ -27,8 +27,12 @@ AssetRecord Record(std::string_view name, size_t bytes, size_t offset = 0) {
   return {.Key = Key(name),
           .Kind = "native",
           .Bounds = {.Min = {}, .Max = {{1, 1, 1}}},
+          .Package = {},
           .OffsetBytes = offset,
-          .ByteCount = bytes};
+          .ByteCount = bytes,
+          .Level = {},
+          .Parent = {},
+          .RequestKey = {}};
 }
 
 bool Execute(const std::string &path, const char *sql) {

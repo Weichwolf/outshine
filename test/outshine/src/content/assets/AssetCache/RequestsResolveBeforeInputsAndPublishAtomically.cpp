@@ -27,7 +27,11 @@ GeneratedAssetPackage Package(std::string_view revision, std::string request) {
   result.Records.push_back({.Key = Key(revision),
                             .Kind = "native-world-cell",
                             .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1000, 1000, 1000}}},
+                            .Package = {},
+                            .OffsetBytes = {},
                             .ByteCount = result.Bytes.size(),
+                            .Level = {},
+                            .Parent = {},
                             .RequestKey = std::nullopt});
   if (!request.empty()) { result.Records.back().RequestKey = std::move(request); }
   return result;
