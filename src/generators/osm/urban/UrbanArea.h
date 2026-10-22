@@ -3,6 +3,7 @@
 
 #include "TileSourceIdentity.h"
 #include "Earth.h"
+#include "math/Vec3.h"
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -12,6 +13,7 @@
 #include <span>
 #include <stop_token>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace outshine::Generators::Osm {
@@ -60,6 +62,15 @@ struct UrbanLot {
   float HeightM = 0;
 };
 
+struct UrbanPatchRange {
+  uint32_t Column = 0, Row = 0, Columns = 0, Rows = 0;
+};
+
+struct UrbanPatchBounds {
+  Vec3 CentreEcef;
+  double RadiusM = 0;
+};
+
 struct UrbanArea {
   UrbanAreaRecipe Recipe;
   std::array<int64_t, 2> FirstCell{};
@@ -75,6 +86,8 @@ struct UrbanArea {
   static constexpr std::array<float, 5> HeightsM{0, 6, 12, 24, 48};
 
   [[nodiscard]] std::optional<UrbanLot> LotAt(uint32_t column, uint32_t row) const noexcept;
+  [[nodiscard]] std::expected<UrbanPatchBounds, std::string_view>
+  BoundPatch(UrbanPatchRange patch, std::array<double, 2> groundAslMinMaxM) const noexcept;
 };
 
 [[nodiscard]] std::expected<UrbanArea, std::string>
