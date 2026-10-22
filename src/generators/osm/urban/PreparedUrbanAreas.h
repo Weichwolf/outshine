@@ -50,12 +50,13 @@ public:
   };
 
   struct Budget {
+    static constexpr auto DefaultGenerationTime = std::chrono::seconds(30);
     size_t PendingMost = 4;
     size_t SourceBytesMost = size_t{64} * 1024u * 1024u;
     size_t CellsMost = 1048576;
     size_t SourceVerticesMost = 1048576;
     size_t FeaturesMost = 8192;
-    std::chrono::milliseconds GenerationTime{std::chrono::seconds(2)};
+    std::chrono::milliseconds GenerationTime{DefaultGenerationTime};
   };
 
   struct Counters {
