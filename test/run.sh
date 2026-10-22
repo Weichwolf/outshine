@@ -294,6 +294,8 @@ TestProfile() {
     outshine/src/render/draw/InstanceDemand) printf '%s' 'profile/instance-demand' ;;
     outshine/src/content/scene/PrismGrid) printf '%s' 'profile/prism-grid' ;;
     outshine/src/generators/osm/UrbanAreaPrisms) printf '%s' 'profile/urban-prisms' ;;
+    outshine/src/generators/osm/UrbanPrismCodec) printf '%s' 'profile/urban-prism-codec' ;;
+    outshine/src/generators/osm/UrbanPrismAsset) printf '%s' 'profile/urban-prism-asset' ;;
     outshine/src/generators/osm/PreparedUrbanAreas|outshine/src/generators/osm/PreparedOsmTiles|outshine/src/generators/osm/UrbanArea) printf '%s' 'profile/urban-assets' ;;
     outshine/integration/render/UrbanPatchDemand) printf '%s' 'profile/urban-demand' ;;
     outshine/src/engine/streaming/UrbanAreaInstances) printf '%s' 'profile/urban-instances' ;;
@@ -399,6 +401,8 @@ LayerIncludes() {
     profile/instance-demand) GroupIncludes src/render/draw ;;
     profile/prism-grid) GroupIncludes src/content/scene ;;
     profile/urban-prisms) GroupIncludes src/generators/osm/urban ;;
+    profile/urban-prism-codec) LayerIncludes profile/urban-prisms ;;
+    profile/urban-prism-asset) LayerIncludes profile/urban-prism-codec; GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sqlite3 libzstd)" ;;
     profile/urban-assets) GroupIncludes src/generators/osm ;;
     profile/urban-demand) LayerIncludes profile/instance-demand; printf ' %s' '-Isrc/generators/osm/urban' ;;
     profile/urban-instances) GroupIncludes src/engine/streaming ;;
@@ -499,6 +503,7 @@ LayerLibraryLink() {
     profile/water-geometry | profile/water-preparation) pkg-config --libs geos; OsqpFlags --libs ;;
     profile/water-worker) printf '%s' "-pthread $(pkg-config --libs geos sdl3) $(OsqpFlags --libs)" ;;
     profile/plant-crown-cache) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
+    profile/urban-prism-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
     profile/plant-spatial-cache) LayerLibraryLink profile/plant-crown-cache ;;
     profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
     profile/plant-plan | profile/plant-build | profile/plant-random | profile/plant-recipe | profile/plant-recipe-json | profile/plant-axis-detail | profile/plant-growth | profile/plant-crown | profile/plant-crown-asset | profile/plant-limb) return 0 ;;
@@ -606,6 +611,8 @@ LayerGroups() {
     profile/instance-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp' ;;
     profile/prism-grid) printf '%s' 'src/content/scene/PrismGrid.cpp' ;;
     profile/urban-prisms) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaPrisms.cpp' ;;
+    profile/urban-prism-codec) printf '%s' 'src/generators/osm/urban/UrbanPrismCodec.cpp src/content/scene/PrismGrid.cpp' ;;
+    profile/urban-prism-asset) LayerGroups profile/urban-prism-codec; printf '%s' ' src/generators/osm/urban/UrbanPrismAsset.cpp src/base/format/Sha256.cpp src/content/assets/AssetCache.cpp src/content/assets/AssetCacheLoading.cpp src/content/assets/AssetCachePublication.cpp src/content/assets/AssetCacheSelection.cpp src/content/assets/AssetGeneration.cpp src/content/assets/AssetPackageCodec.cpp src/content/cache' ;;
     profile/urban-assets) LayerGroups profile/world; printf ' %s' 'src/generators/terrain src/generators/base/AssetSourceRecipe.cpp src/generators/base/Tile.cpp src/generators/base/GroundPatch.cpp src/generators/osm/urban src/generators/osm/regions/PreparedOsmTiles.cpp src/generators/osm/regions/PreparedOsmTileAssets.cpp src/generators/osm/fields/OsmField.cpp src/generators/osm/fields/OsmNativeTile.cpp src/generators/osm/fields/OsmNativeAssembly.cpp src/generators/osm/fields/OsmDeclaredInput.cpp src/generators/osm/import src/generators/osm/providers/MvtLayer.cpp' ;;
     profile/urban-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaBounds.cpp' ;;
     profile/urban-instances) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/engine/streaming/UrbanAreaInstances.cpp' ;;
