@@ -32,10 +32,27 @@ Completion Empty(Device &device) {
 }
 
 void Disabled() {
-  auto device = Require(CreateDevice({.Validation = true}));
-  const auto timing = device->SubmissionGpuTime(Empty(*device));
+  auto device = Require(CreateDevice({.Validation = true, .GpuTiming = GpuTimingMode::None}));
+  const auto done = Empty(*device);
+  const auto timing = device->SubmissionGpuTime(done);
   CHECK(!timing && timing.error().Kind == ErrorKind::Unsupported,
         "default devices explicitly leave timing disabled");
+  const auto dispatches = device->GpuTimings(done);
+  CHECK(!dispatches && dispatches.error().Kind == ErrorKind::Unsupported,
+        "none mode also leaves dispatch timing disabled");
+}
+
+void Modes() {
+  CHECK(DeviceOptions{}.GpuTiming == GpuTimingMode::None,
+        "device options default to explicit none mode");
+  const auto invalid = CreateDevice({.GpuTiming = static_cast<GpuTimingMode>(255)});
+  CHECK(!invalid && invalid.error().Kind == ErrorKind::Invalid,
+        "unknown timing modes cannot silently change measurement granularity");
+#ifdef __APPLE__
+  const auto unsupported = CreateDevice({.GpuTiming = GpuTimingMode::Dispatches});
+  CHECK(!unsupported && unsupported.error().Kind == ErrorKind::Unsupported,
+        "Metal explicitly rejects unavailable dispatch granularity at device creation");
+#endif
 }
 
 void Ownership(Device &device, Completion completion) {
@@ -131,9 +148,14 @@ void Bounded(Device &device, Completion oldest) {
 
 int main(int argc, const char *const *argv) {
   if (argc != 2) { return 2; }
+  Modes();
   Disabled();
-  auto device = Require(CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device = Require(CreateDevice(
+      {.Validation = true, .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission}));
   const auto completion = Measured(*device, argv[1]);
+  const auto dispatches = device->GpuTimings(completion);
+  CHECK(!dispatches && dispatches.error().Kind == ErrorKind::Unsupported,
+        "submission-only mode never presents dispatch timing results");
   Ownership(*device, completion);
   Bounded(*device, completion);
   return Report();

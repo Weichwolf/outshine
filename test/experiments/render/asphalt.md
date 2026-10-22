@@ -32,7 +32,7 @@ Commands, source/archive hashes and failed attempts remain in
 
 RoadSurfaceBuilder carries separate transport surface semantics for named
 alignment/routes. Its asphalt is linear [0.11,0.11,0.10], roughness0.92.
-Actual Places use Corridors::HandsThePavingOver/BeginTransfer: one streets
+Actual Places use Corridors::BeginTransfer: one streets
 material with vertex-coloured pavement, kerbs and sides. Marking that entire
 draw as asphalt would be wrong. Neither RGB nor slope establishes a material.
 The existing world catalogue has asphalt [0.1256,0.1193,0.1104], roughness0.65,

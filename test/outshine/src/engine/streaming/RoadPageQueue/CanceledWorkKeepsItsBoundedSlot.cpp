@@ -1,13 +1,16 @@
 #include "RoadPageQueue.h"
 #include "ProfiledRoadMesher.h"
 #include "TangentFrame.h"
+#include "Earth.h"
 #include "Check.h"
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <semaphore>
 #include <stop_token>
 #include <string>
@@ -20,12 +23,15 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Generators;
+constexpr LongitudeLatitude kAnchor{.LongitudeDeg = 8, .LatitudeDeg = 49};
+constexpr double kSpanM = 100;
+constexpr size_t kPageBytesMost = size_t{1024} * 1024;
 
 RoadPageAddress Address(uint32_t id) {
   return {.PlanKey = std::string(64, 'a'),
           .MaterialKey = std::string(64, 'b'),
           .MaterialIndex = 0,
-          .Anchor = {.LongitudeDeg = 8, .LatitudeDeg = 49},
+          .Anchor = kAnchor,
           .Level = 0,
           .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = id}}};
 }
@@ -35,7 +41,7 @@ std::expected<RoadPageGeometry, std::string> Produce(uint32_t edge = 7) {
   recipe.Intervals.push_back({.Edge = edge,
                               .Lane = 0,
                               .Stations = {{.EastM = 0, .NorthM = 0, .GradeM = 0, .Node = 1},
-                                           {.EastM = 100, .NorthM = 0, .GradeM = 0, .Node = 2}},
+                                           {.EastM = kSpanM, .NorthM = 0, .GradeM = 0, .Node = 2}},
                               .Surface = {.HalfWidthM = 4,
                                           .Profile = RoadProfile::Kerbed,
                                           .WearsLinear = {{0.5f, 0.5f, 0.5f}},
@@ -58,14 +64,21 @@ std::vector<RoadPageQueue::Completed> Wait(RoadPageQueue &queue) {
   return {};
 }
 
-const PreparedRoadPages::Loaded *Payload(const std::vector<RoadPageQueue::Completed> &done) {
-  if (done.size() != 1 || !done[0].Result || !*done[0].Result) { return nullptr; }
-  return std::get_if<PreparedRoadPages::Loaded>(&**done[0].Result);
+RoadPageQueue::Product *ReadyProduct(std::vector<RoadPageQueue::Completed> &done) {
+  if (done.size() != 1) { return nullptr; }
+  auto &result = done.front().Result;
+  if (!result) { return nullptr; }
+  auto &product = *result;
+  return product ? std::addressof(*product) : nullptr;
+}
+
+PreparedRoadPages::Loaded *Payload(std::vector<RoadPageQueue::Completed> &done) {
+  return std::get_if<PreparedRoadPages::Loaded>(ReadyProduct(done));
 }
 
 void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   using namespace outshine::Test;
-  RoadPageQueue queue(pool, pages, {.PendingMost = 1, .PageBytesMost = 1024u * 1024u});
+  RoadPageQueue queue(pool, pages, {.PendingMost = 1, .PageBytesMost = kPageBytesMost});
 
   struct Control {
     std::binary_semaphore Entered{0};
@@ -111,7 +124,7 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   auto canceled = Wait(queue);
   CHECK(canceled.size() == 1 && !canceled[0].Result && queue.Pending() == 0,
         "the canceled product is not published to the consumer");
-  const auto missing = pages->Load(first, 1024u * 1024u);
+  const auto missing = pages->Load(first, kPageBytesMost);
   CHECK(missing && !*missing, "cancellation before encoding publishes no partial cached page");
   auto source = std::make_shared<uint32_t>(8);
   const std::weak_ptr<uint32_t> retainedSource = source;
@@ -131,7 +144,7 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   CHECK(Payload(done) && !Payload(done)->Page->Geometry.Mesh.Index.empty(),
         "completed work exposes an independently owned native page");
   const auto retained =
-      Payload(done) ? Payload(done)->Page : std::shared_ptr<const RoadPageAsset>{};
+      Payload(done) != nullptr ? std::move(Payload(done)->Page) : std::unique_ptr<RoadPageAsset>{};
   CHECK(queue.Request(other, {}, {}, {}), "a cached page can be requested without any generator");
   auto hit = Wait(queue);
   CHECK(Payload(hit) && retained && Payload(hit)->Record.Key == RoadPageKey(other) &&
@@ -154,7 +167,7 @@ void CheckMetadata(Tasks &pool, const std::filesystem::path &directory) {
   auto metadata = AssetCache::Open((directory / "assets.sqlite").string());
   CHECK(metadata.has_value(), "the independent metadata connection opens");
   if (!metadata) { return; }
-  const auto frame = TangentFrame::At({.LongitudeDeg = 8, .LatitudeDeg = 49});
+  const auto frame = TangentFrame::At(kAnchor);
   const Vec3 extent{{200, 200, 200}};
   const Box envelope{.Min = frame.OriginEcef() - extent, .Max = frame.OriginEcef() + extent};
   const auto rows = (*metadata)->Select({.Bounds = envelope,
@@ -168,7 +181,7 @@ void CheckMetadata(Tasks &pool, const std::filesystem::path &directory) {
   CHECK(opened.has_value(), "the consumer starts with a fresh page service");
   if (!opened) { return; }
   auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));
-  RoadPageQueue queue(pool, pages, {.PendingMost = 1, .PageBytesMost = 1024u * 1024u});
+  RoadPageQueue queue(pool, pages, {.PendingMost = 1, .PageBytesMost = kPageBytesMost});
   CHECK(!queue.RequestCached("") && !queue.RequestCached(std::string(64, 'g')) &&
             queue.Pending() == 0,
         "invalid metadata keys are rejected without occupying worker slots");
@@ -183,10 +196,8 @@ void CheckMetadata(Tasks &pool, const std::filesystem::path &directory) {
   CHECK(queue.RequestMetadata(Address(8)) && queue.RequestMetadata(Address(8)) &&
             !queue.RequestCached(selected.Key) && queue.Pending() == 1,
         "index probes coalesce while a fine load requires its own explicit result contract");
-  const auto probe = Wait(queue);
-  const auto *record = probe.size() == 1 && probe[0].Result && *probe[0].Result
-                           ? std::get_if<AssetRecord>(&**probe[0].Result)
-                           : nullptr;
+  auto probe = Wait(queue);
+  const auto *record = std::get_if<AssetRecord>(ReadyProduct(probe));
   CHECK(record && *record == selected && !Payload(probe),
         "the metadata result carries the indexed product without a native mesh lease");
   CHECK(queue.RequestCached(std::string(64, 'f')), "an absent valid product can be queried");
@@ -217,7 +228,7 @@ int main() {
     CheckQueue(pool, pages);
     auto distant = Address(9);
     distant.Anchor.LongitudeDeg = 9;
-    CHECK(pages->Resolve(distant, {}, {}, 1024u * 1024u, [](size_t) { return Produce(9); })
+    CHECK(pages->Resolve(distant, {}, {}, kPageBytesMost, [](size_t) { return Produce(9); })
               .has_value(),
           "a second complete native package lies outside the metadata query");
     CheckMetadata(pool, root);

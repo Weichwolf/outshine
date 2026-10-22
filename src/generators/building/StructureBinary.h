@@ -16,21 +16,6 @@
 namespace outshine::Generators::StructureBinary {
 class Writer {
 public:
-  Writer() = default;
-
-  Writer(const StructureArtifactSink &sink, size_t blockBytes)
-      : Sink(&sink), BlockBytes(blockBytes) {}
-
-  bool Flush() {
-    if (Bytes.empty()) { return true; }
-    if (Sink == nullptr || !(*Sink)(Bytes)) {
-      Failure = StructureArtifactError::WriteFailed;
-      return false;
-    }
-    Bytes.clear();
-    return true;
-  }
-
   template <typename T> bool Number(const T &value) {
     if constexpr (std::is_enum_v<T>) {
       return Number(static_cast<std::underlying_type_t<T>>(value));
@@ -43,12 +28,7 @@ public:
           return false;
         }
       }
-      if (Sink != nullptr) {
-        if (BlockBytes < sizeof(T)) { return false; }
-        if (Bytes.size() > BlockBytes - sizeof(T) && !Flush()) { return false; }
-      } else if (Bytes.size() > kStructureArtifactBytesMost - sizeof(T)) {
-        return false;
-      }
+      if (Bytes.size() > kStructureArtifactBytesMost - sizeof(T)) { return false; }
       using Word = std::conditional_t<sizeof(T) == 8,
                                       uint64_t,
                                       std::conditional_t<sizeof(T) == 4, uint32_t, uint8_t>>;
@@ -72,26 +52,16 @@ public:
 
   std::vector<uint8_t> Bytes;
   StructureArtifactError Failure = StructureArtifactError::CapacityExceeded;
-  const StructureArtifactSink *Sink = nullptr;
-  size_t BlockBytes = 0;
 };
 
 class Reader {
 public:
-  explicit Reader(std::span<const uint8_t> bytes) : Bytes(bytes), Remaining(bytes.size()) {}
-
-  Reader(const StructureArtifactSource &source, StructureArtifactReadLimits limits)
-      : Remaining(limits.EncodedBytes), AllocationLeft(limits.ResidentBytesMost), Source(&source) {}
+  explicit Reader(std::span<const uint8_t> bytes) : Bytes(bytes) {}
 
   bool Get(std::span<uint8_t> into) {
-    if (into.size() > Remaining) { return false; }
-    if (Source != nullptr) {
-      if (!(*Source)(into)) { return false; }
-    } else {
-      std::copy_n(Bytes.begin(), into.size(), into.begin());
-      Bytes = Bytes.subspan(into.size());
-    }
-    Remaining -= into.size();
+    if (into.size() > Bytes.size()) { return false; }
+    std::copy_n(Bytes.begin(), into.size(), into.begin());
+    Bytes = Bytes.subspan(into.size());
     return true;
   }
 
@@ -125,7 +95,9 @@ public:
 
   template <typename T, typename Visit> bool List(std::vector<T> &items, Visit visit) {
     uint64_t count = 0;
-    if (!Number(count) || count > Remaining || count > AllocationLeft / sizeof(T)) { return false; }
+    if (!Number(count) || count > Bytes.size() || count > AllocationLeft / sizeof(T)) {
+      return false;
+    }
     AllocationLeft -= static_cast<size_t>(count) * sizeof(T);
     items.resize(static_cast<size_t>(count));
     for (auto &item : items) {
@@ -146,9 +118,7 @@ public:
   }
 
   std::span<const uint8_t> Bytes;
-  size_t Remaining = 0;
   size_t AllocationLeft = kStructureArtifactBytesMost;
-  const StructureArtifactSource *Source = nullptr;
 };
 
 }

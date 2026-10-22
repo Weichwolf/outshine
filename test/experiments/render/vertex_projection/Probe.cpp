@@ -60,7 +60,8 @@ struct Probe {
 
 Probe Create(const std::filesystem::path &folder) {
   Probe probe;
-  probe.Device = Take(N::CreateDevice({.Validation = true, .GpuTiming = true}));
+  probe.Device =
+      Take(N::CreateDevice({.Validation = true, .GpuTiming = N::GpuTimingMode::Submission}));
   const auto vertex = Shader(folder / "projection.vert.spv");
   const auto fragment = Shader(folder / "projection.frag.spv");
   N::ColourTarget colour;
