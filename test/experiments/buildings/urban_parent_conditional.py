@@ -146,14 +146,15 @@ def surface_visibility(
 ):
     light = light_at(points, profile)[0]
     visibility = np.zeros(len(points))
-    shared = np.zeros(len(points), bool)
+    lit_mask = np.einsum("ij,ij->i", normals, light) > 0
     if wall_visibility is not None and approximation is None:
         shared = (normals[:, 2] == 0) & np.isfinite(wall_visibility[rays])
         visibility[shared] = wall_visibility[rays[shared]]
         work["shared_wall_visibilities"] = work.get(
             "shared_wall_visibilities", 0
         ) + int(shared.sum())
-    lit = np.flatnonzero((np.einsum("ij,ij->i", normals, light) > 0) & ~shared)
+        lit_mask &= ~shared
+    lit = np.flatnonzero(lit_mask)
     if profile["kind"] == "point":
         above = points[lit, 2] > parent.heights[-1]
         visibility[lit[above]] = 1
@@ -249,13 +250,7 @@ def integrate_packet(
         if not len(ids):
             continue
         blocked = np.zeros(len(ids))
-        wall_visibility = (
-            np.full(len(origin), np.nan) if approximation is None else None
-        )
-        work["wall_visibility_peak_bytes"] = max(
-            work.get("wall_visibility_peak_bytes", 0),
-            0 if wall_visibility is None else wall_visibility.nbytes,
-        )
+        wall_visibility = None
         for height_index, (valid, entry, normal, probability) in enumerate(
             events(parent, product, origin, directions, ids, cell, begin, leave)
         ):
@@ -263,6 +258,16 @@ def integrate_packet(
             work["height_hypothesis_tests"] += len(ids)
             if not len(at):
                 continue
+            if (
+                wall_visibility is None
+                and approximation is None
+                and height_index + 1 < len(parent.heights)
+                and np.any(normal[at, 2] == 0)
+            ):
+                wall_visibility = np.full(len(origin), np.nan)
+                work["wall_visibility_peak_bytes"] = max(
+                    work["wall_visibility_peak_bytes"], wall_visibility.nbytes
+                )
             rays = ids[at]
             points = origins[rays] + entry[at, None] * directions[rays]
             slots = surface_slots(height_index, normal[at])
@@ -398,6 +403,7 @@ def trace_transport(
             "shadow_history_cell_comparisons",
             "early_terminated_rays",
             "truncated_probability_sum",
+            "wall_visibility_peak_bytes",
         ],
         0,
     )
