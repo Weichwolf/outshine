@@ -38,6 +38,11 @@ change it. The baseline image must respond to changed light for a nonempty field
 All package keys/bytes/CRC remain unchanged: these controlled runtime products do
 not alter their source asset. Empty fields remain valid without uploading boxes.
 
+The light mutation invokes the light setter once at frame 30 and then retains it;
+the fresh relit control invokes it once before settling. Reports count actual light
+setter calls separately from the selected mutation branch. Camera changes and
+Engine advancement continue without reapplying the light.
+
 The submission hook records the actual preceding completion. A zero-wait Poll
 immediately before release reports whether the old frame is still Pending; absence
 of an observed pending fence leaves that lifetime case unproven. This is diagnostic

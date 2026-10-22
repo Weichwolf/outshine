@@ -114,6 +114,8 @@ def verify_transitions(binary, native, directory, key, baseline, args):
         row = run(binary, native, directory, key, "-", sequence, selected)
         expected = "1" if sequence in ("relight", "replace") else "0"
         assert row["changes"]["applied"] == expected
+        expected_light_calls = "1" if sequence in ("relight", "relit") else "0"
+        assert row["changes"]["light_setter_calls"] == expected_light_calls
         variants[sequence] = row
     for changed, fresh in (("relight", "relit"), ("replace", "replaced")):
         for prop in ("image_sha256", "depth_sha256"):

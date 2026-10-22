@@ -231,7 +231,7 @@ void DeclareShadows(Engine &engine, const HeightGrid &field, double bearingDeg =
   TestEngine::StateOf(engine).Picture.Device.SetShadowFrame(toSun, {{0, 1, 0}}, radius, false, 0);
 }
 
-bool Relight(Engine &engine, const HeightGrid &field) {
+bool Relight(Engine &engine, const HeightGrid &field, size_t &setterCalls) {
   constexpr double bearingDeg = 300;
   const auto direction = EastUpSouthDirection(bearingDeg * kDeg2Rad, kSunElevationDeg * kDeg2Rad);
   Render::SubjectLight light;
@@ -241,6 +241,7 @@ bool Relight(Engine &engine, const HeightGrid &field) {
   }
   auto &renderer = TestEngine::StateOf(engine).Picture.Device;
   std::string error;
+  ++setterCalls;
   if (!renderer.SetGeometryLights(std::span(&light, 1), error)) {
     std::cerr << error << '\n';
     return false;
@@ -259,6 +260,7 @@ struct SceneChange {
   std::optional<Render::PieceHandle> *Piece = nullptr;
   DeviceControl *Device = nullptr;
   size_t Changes = 0;
+  size_t LightSetterCalls = 0;
   bool PendingAtRelease = false;
 };
 
@@ -298,10 +300,12 @@ bool UpdateScene(Engine &engine, HeightGrid &field, SceneChange &change, size_t 
     if (change.Plan.Kind == ChangeKind::Boxes && !ReplaceBoxes(engine, field, change)) {
       return false;
     }
+    if (change.Plan.Kind == ChangeKind::Light && !Relight(engine, field, change.LightSetterCalls)) {
+      return false;
+    }
     ++change.Changes;
   }
-  return change.Plan.Kind != ChangeKind::Light || (!change.Plan.Fresh && change.Changes == 0) ||
-         Relight(engine, field);
+  return true;
 }
 
 bool RenderOrbit(Engine &engine,
@@ -311,6 +315,10 @@ bool RenderOrbit(Engine &engine,
                  SceneChange &change) {
   constexpr size_t kFrames = 60;
   auto renderer = engine.renderer();
+  if (change.Plan.Kind == ChangeKind::Light && change.Plan.Fresh &&
+      !Relight(engine, field, change.LightSetterCalls)) {
+    return false;
+  }
   for (size_t warm = 0; warm < 3; ++warm) {
     if (!Accepted(engine.advance()) || !UpdateScene(engine, field, change, warm) ||
         !Accepted(renderer.render({}))) {
@@ -421,8 +429,10 @@ int main(int argc, const char *const *argv) {
       device.GeometryDrawCallCount(),
       okay);
   std::println("DEVICE {}", device.GpuName());
-  std::println(
-      "CHANGES applied={} pending_before_release={}", change.Changes, change.PendingAtRelease);
+  std::println("CHANGES applied={} pending_before_release={} light_setter_calls={}",
+               change.Changes,
+               change.PendingAtRelease,
+               change.LightSetterCalls);
   if (piece) { device.ReleasePiece(*piece); }
   return okay ? 0 : 1;
 }
