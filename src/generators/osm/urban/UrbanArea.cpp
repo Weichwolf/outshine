@@ -38,23 +38,26 @@ int64_t FloorDiv(int64_t value, int64_t divisor) {
 }
 
 struct PatchGrid {
-  int64_t X = 0, Y = 0, Columns = 0, Rows = 0;
+  int64_t X = 0, Y = 0, Columns = 0, Rows = 0, Side = 0;
   std::vector<bool> Covered;
 };
 
 std::expected<PatchGrid, std::string> CoveredPatches(const UrbanDetail::Domain &domain,
                                                      const UrbanArea &area,
                                                      const UrbanAreaLimits &limits) {
-  const int64_t side = area.Recipe.PatchSide;
+  constexpr int64_t coverageSideMost = 4;
+  const int64_t side = std::min<int64_t>(area.Recipe.PatchSide, coverageSideMost);
   const int64_t x0 = area.FirstCell[0];
   const int64_t y1 = area.FirstCell[1];
   PatchGrid grid;
+  grid.Side = side;
   grid.X = FloorDiv(x0, side);
   grid.Y = FloorDiv(y1 - area.Rows + 1, side);
   grid.Columns = FloorDiv(x0 + area.Columns - 1, side) - grid.X + 1;
   grid.Rows = FloorDiv(y1, side) - grid.Y + 1;
   grid.Covered.resize(static_cast<size_t>(grid.Columns * grid.Rows));
   const double span = static_cast<double>(side) * area.Recipe.ProjectedPitchM;
+  const double padding = area.Recipe.ProjectedPitchM * (1 - area.Recipe.FillFraction) / 2;
   for (int64_t row = 0; row < grid.Rows; ++row) {
     if (UrbanDetail::Expired(limits)) {
       return std::unexpected("urban generation cancelled or expired");
@@ -68,8 +71,10 @@ std::expected<PatchGrid, std::string> CoveredPatches(const UrbanDetail::Domain &
                                       std::abs(bottom),
                                       std::abs(left + span),
                                       std::abs(bottom + span)});
-      const auto covered = domain.Covers(
-          {left - margin, bottom - margin, left + span + margin, bottom + span + margin});
+      const auto covered = domain.Covers({left + padding - margin,
+                                          bottom + padding - margin,
+                                          left + span - padding + margin,
+                                          bottom + span - padding + margin});
       if (!covered) { return std::unexpected(covered.error()); }
       grid.Covered[static_cast<size_t>(row * grid.Columns + column)] = *covered;
     }
@@ -81,8 +86,8 @@ std::expected<bool, std::string> CoveredCell(const UrbanDetail::Domain &domain,
                                              UrbanArea &area,
                                              const PatchGrid &patches,
                                              std::array<int64_t, 2> cell) {
-  const auto px = FloorDiv(cell[0], area.Recipe.PatchSide) - patches.X;
-  const auto py = FloorDiv(cell[1], area.Recipe.PatchSide) - patches.Y;
+  const auto px = FloorDiv(cell[0], patches.Side) - patches.X;
+  const auto py = FloorDiv(cell[1], patches.Side) - patches.Y;
   if (patches.Covered[static_cast<size_t>(py * patches.Columns + px)]) { return true; }
   ++area.LotTests;
   const double pitch = area.Recipe.ProjectedPitchM;
