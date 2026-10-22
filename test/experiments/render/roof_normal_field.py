@@ -38,6 +38,8 @@ def sample_uv(field, uv, basis):
     """Nearest RGB8 normal sample in the display frame; alpha is field eligibility."""
     uv = np.asarray(uv)
     height, width = field["pixels"].shape[:2]
+    if height == 0 or width == 0:
+        return np.zeros((*uv.shape[:-1], 3)), np.zeros(uv.shape[:-1], bool)
     valid = np.all((uv >= 0) & (uv < 1), axis=-1)
     xy = np.floor(uv * np.array([width, height])).astype(np.int64)
     xy = np.clip(xy, [0, 0], [width - 1, height - 1])

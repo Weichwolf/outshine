@@ -43,7 +43,7 @@ def elevated_control(args, scenes, plans, surfaces, document, basis, centre):
         output.mkdir(parents=True)
         copy = json.loads(json.dumps(scene))
         if strategy != "field":
-            copy.pop("roof_normal_field")
+            copy.pop("roof_normal_field", None)
         if strategy == "original":
             copy["mesh"] = str(
                 (args.profiles / "static-020/original/mesh.npz").resolve()

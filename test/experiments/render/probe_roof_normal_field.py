@@ -75,6 +75,10 @@ def compare(name, args, field, old_report):
             np.count_nonzero(
                 (field["keys"][:, 0] == source) & (field["roof_codes"] == codes[index])
             )
+            + np.count_nonzero(
+                (field["no_field_keys"][:, 0] == source)
+                & (field["no_field_codes"] == codes[index])
+            )
             != 1
         ):
             roof[index] = False

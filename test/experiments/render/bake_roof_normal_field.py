@@ -65,6 +65,13 @@ def bake(parts, size=16):
         "frames": np.array(frames).reshape(-1, 4, 3),
         "rects": np.array(rects, np.int32).reshape(-1, 3),
         "no_field_keys": np.array(sorted(no_field), np.int32).reshape(-1, 2),
+        "no_field_codes": np.array(
+            [
+                -(1 + (2 if p.shape["roof_kind"] == 0 else 1) + 16 * p.shape["ident"])
+                for p in sorted(flat, key=lambda p: (p.source, p.part))
+            ],
+            np.int32,
+        ),
         "roof_codes": np.array(
             [
                 -(1 + (2 if p.shape["roof_kind"] == 0 else 1) + 16 * p.shape["ident"])
