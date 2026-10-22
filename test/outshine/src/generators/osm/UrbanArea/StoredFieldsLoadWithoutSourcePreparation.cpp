@@ -116,7 +116,9 @@ void CacheMissThenRead() {
           .Records = {{.Key = key,
                        .Kind = "urban-area",
                        .Bounds = {.Min = {{0, 0, 0}}, .Max = {{64, 48, 64}}},
+                       .Package = {},
                        .ByteCount = encoded->size(),
+                       .Parent = {},
                        .RequestKey = request}},
           .Bytes = std::move(*encoded)};
     };
