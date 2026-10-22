@@ -1,6 +1,6 @@
 # Native urban field control
 
-Owners: #1102 / #1105. A shared indexed box is the native opponent for aggregate
+Owners: #1102 / #1111. A shared indexed box is the native opponent for aggregate
 urban masks. This is a model-space renderer/control, not the world integration.
 
 Requires a fresh native product archive, compilation database and shader bundle.
@@ -26,6 +26,8 @@ frames. GPU submission intervals and host frame times are separate. Median uses 
 two middle samples; nearest-rank p95/p99 use ceil(p·60), so p99 is the maximum.
 Validation explicitly requests the backend's validation mode; normal runs remove
 the Metal validation/profiling environment. Validation runs are functional evidence.
+The scene declares an actual shadow frame. Fixed world/light may reuse its initial
+shadow during the orbit; no steady-state caster work is inferred from the setup.
 
 Reports retain exact commands, source/archive hashes, device, field/matrix/buffer
 counters and encoded geometry draw calls. Triangle references describe the box
@@ -33,3 +35,14 @@ input, not measured shader invocations. Buffer counters are not
 process/driver/unified-memory peaks. The fixed-light model scene
 contains no world acquisition, real terrain, atmosphere, vegetation or simulation
 load. It does not establish a complete-scene device budget or a LOD error bound.
+
+## Logical heights and terrain placement
+
+`field_height_coordinates.py --output <empty-system-temp-directory>` uses the
+research NumPy/Pillow environment to illustrate #1111's World boundary. A fixed
+field-origin subtraction handles datum shifts but cannot undo spatially varying
+terrain/curvature displacement. Logical mask coordinates must survive placement.
+Float32 point classification and a 2D wall-section comparison cover flat, sloped
+and parabolic reference cases. The parabolic interpolation bound applies only to
+that analytic reference; this is no native shader, DEM, upright-building or World
+qualification. Images remain local, not pins or a presentation gallery.
