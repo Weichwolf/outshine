@@ -116,9 +116,59 @@ The recorded sizes exclude full scratch, copies, driver and process/device peaks
 
 The source statistics have no admitted native Draw/Depth/Caster consumer; geographical
 XY coverage is not a World render bound. Readiness clarification is in #1102/6338364477.
-Next: a colour/transmission reference against explicit opaque ray stops and parent/
-child composition, instead of another sampling-tuning round. Native placement,
-DEM/curvature bounds and caster-interest domains remain #1102 responsibilities.
+Native placement, DEM/curvature bounds and caster-interest domains remain #1102 responsibilities.
+
+## Opaque stops and ready child composition
+
+`urban_parent_layer.py` consumes an explicit opaque stop in each camera ray's own
+parameterisation. Infinity means no opaque receiver. The result contains urban-only
+premultiplied linear colour C, remaining transmission T and conditional parent
+shadow visibility S at the receiver. Compose each subsample as
+`C + T * (S * background_direct + background_other)`, then filter the resulting
+colour. The direct background term already includes non-parent caster visibility;
+ambient is not multiplied by S. Averaging C/T/S separately would lose correlations.
+Additional deterministic caster visibility is applied to the parent surface terms.
+Opaque stops win exact depth ties. Finite receivers provide their actual normals;
+this first reference still requires downward camera rays from above the flat field.
+
+Camera and caster replacement use independent complete ready cell rectangles in
+the parent's canonical local grid. The caller asserts readiness of the whole domain,
+including its empty cells. No readiness is inferred from parent statistics, a zero
+probability or an asset's existence. A camera-replaced cell must not condition the
+remaining statistical caster as a known miss: independent exhaustive boxes exposed
+and verify the correction of that error. Covered primary cells skip height tests;
+whole-grid camera/caster replacement skips the corresponding traversal entirely.
+
+Frozen `6f892d438` adds three day/back/night runs, five replacement states plus a
+resolved control each: 18 actual 1280×720 images, all terminal 0 and inspected with
+enlarged crops. The unchanged stored parent and original resolved owner field are
+reused; no source parsing or child generation occurs. Camera distance is exactly
+240 km; 32,736 rays cover the fixed 66×31-pixel diagnostic region at four samples
+per axis. Pending, half-camera-only, half-camera-and-caster, all-ready and an
+additional 120-m opaque foreground plane exercise the composition. The plane also
+casts shadows; its image differs in geometry and is not a same-quality error test.
+
+All-ready colour equals the complete child control exactly in all three runs, with
+zero parent primary/shadow visits. Half-ready reduces height hypotheses from
+450,400 to 225,364; primary DDA visits only fall 112,600→106,673 because rays still
+cross the grid. Day shadow visits fall 557,751→304,657. The foreground clips primary
+visits to 56,341. These are work counts, not a native/device performance claim.
+For this ray packet, returned C/T/S arrays occupy 1,309,440 B; named background
+ray arrays are recorded separately. Full allocation/copy/peak and device costs
+remain unmeasured. Complete timings include child queries, unlike the layer timer;
+neither includes disk loading, source preparation, output or native rendering.
+
+This is a composition reference, not an admitted filtered LOD transition. The raw
+four-by-four regular samples visibly alias the resolved control, especially at night;
+pending/half-ready linear region RMSEs are day .07878/.05686, back .12050/.08381,
+night .83200/.54038. These do not replace the earlier higher-sample filtered controls.
+Hard domain replacement changes brightness/structure and has no temporal continuity
+guarantee. Next: joint pixel-footprint filtering at depth and ready-domain boundaries;
+phase-shifted rays must query matching opaque stops and readiness, not reuse unrelated
+depths. Terrain, curvature, arbitrary ground views, native readiness and world/p99
+admission remain open. All 64 focused tests pass, including independent enumeration
+of 81 box scenes for four stop/replacement configurations, old ground composition,
+foreground receivers, sky, exact depth ties and external caster validation.
 
 ## Generation growth and reproduction
 
@@ -149,10 +199,20 @@ parent; `--resolved` reuses an existing field
 solely for the control. `--motion`, `--altitude`, `--lighting` vary view/light without
 rebuilding the asset. `--macro-x 1 --macro-y 8` requests anisotropic pixel sampling.
 The phase comparator reads the saved control images/parent, not resolved child data.
+The composition comparator uses the existing resolved field only for its offline
+ready-child control (explicit empty cells included):
+
+```sh
+python -B -W error test/experiments/buildings/compare_urban_layers.py \
+  --parent /tmp/outshine-urban-parent-control/parent.npz \
+  --resolved /tmp/outshine-urban-parent-control/reference.npz \
+  --output /tmp/outshine-urban-parent-layers --lighting night
+```
 
 ## Primary sources read and visually inspected
 
 - [Feibush/Levoy/Cook 1980](../../../doc/references/materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf), section 2.4 / Figure 2: filter polygon edges together with texture footprint.
+- [Enderton et al. 2011](../../../doc/references/vegetation/tvcg/2011-stochastic-transparency.pdf), PDF page 2 / section 3.1 / equations 1–2: depth-ordered premultiplied contributions and remaining transmission. No stochastic GPU/OIT implementation or independent-layer assumption is adopted; categorical shadow conditioning remains explicit.
 - [Bruneton/Neyret 2012](../../../doc/references/vegetation/eg/2012-real-time-forests.pdf), section 3 / Figure 2 / equations 1–6: correlated visible/lit proportions and their geometric parameters. Our phase quadrature does not adopt the Poisson ellipsoid model or precomputed forest implementation.
 - [Han et al. 2007](../../../doc/references/vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf), Figures 1–2 / section 3: normal distributions for BRDF filtering; explicitly excludes occlusion, geometry simplification and cast shadows.
 - [Horizon cloudscapes 2015](../../../doc/references/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf), PDF page 37 / slide 35: separate coverage and height density; no cloud implementation or cloud/building equivalence adopted.
