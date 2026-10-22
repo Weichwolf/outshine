@@ -83,7 +83,7 @@ class PrefixFirstHits:
         eligible = active & (span > 256) & thin
         if self.force:
             eligible = active & (speed != 0)
-        if model.parent.frame[5] >= 1 or model.product.get("primary_covered"):
+        if model.parent.frame[5] >= 1 or len(model.product.get("primary_covered", ())):
             eligible[:] = False
         result = {
             "depth": np.full(len(o), np.inf),

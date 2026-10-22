@@ -21,8 +21,8 @@ from lattice_footprint import (
 from urban_parent_conditional import density, events, grid
 
 
-def dda_prefix(parent, origins, directions, stops=None):
-    product = grid(parent)
+def dda_prefix(parent, origins, directions, stops=None, *, product=None):
+    product = grid(parent) if product is None else product
     work = {"steps": 0, "cell_ray_visits": 0, "height_hypothesis_tests": 0}
     local = origins - product["reference_origin_m"]
     transmission = np.ones(len(origins))

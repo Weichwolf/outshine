@@ -27,21 +27,32 @@ def shadow_work():
     )
 
 
-def background_radiance(
-    model, origins, directions, stops, transmission, profile, query
+def receiver_visibility(
+    model,
+    origins,
+    directions,
+    stops,
+    transmission,
+    profile,
+    query,
+    receiver_normals=None,
 ):
     product = model.product
     local = origins - product["reference_origin_m"]
     _, end, _ = clipped_span(product, local, directions, stops)
     rays = np.flatnonzero(np.isfinite(stops) & (transmission > 0))
-    colour = np.zeros_like(origins)
+    visibility = np.ones(len(origins))
     work = shadow_work()
     points = (
         local[rays]
         + stops[rays, None] * directions[rays]
         + product["reference_origin_m"]
     )
-    normals = np.tile([0.0, 0.0, 1.0], (len(rays), 1))
+    normals = (
+        np.tile([0.0, 0.0, 1.0], (len(rays), 1))
+        if receiver_normals is None
+        else receiver_normals[rays]
+    )
     visible = surface_visibility(
         model.parent,
         product,
@@ -56,8 +67,28 @@ def background_radiance(
         None,
         shadow_query=query,
     )
+    visibility[rays] = visible
+    return visibility, work
+
+
+def background_radiance(
+    model, origins, directions, stops, transmission, profile, query
+):
+    visibility, work = receiver_visibility(
+        model, origins, directions, stops, transmission, profile, query
+    )
+    product = model.product
+    local = origins - product["reference_origin_m"]
+    rays = np.flatnonzero(np.isfinite(stops) & (transmission > 0))
+    points = (
+        local[rays]
+        + stops[rays, None] * directions[rays]
+        + product["reference_origin_m"]
+    )
+    normals = np.tile([0.0, 0.0, 1.0], (len(rays), 1))
+    colour = np.zeros_like(origins)
     colour[rays] = transmission[rays, None] * shade(
-        points, normals, -directions[rays], 0.2, visible, profile
+        points, normals, -directions[rays], 0.2, visibility[rays], profile
     )
     return colour, work
 
@@ -73,6 +104,7 @@ def sampled_surfaces(
     query,
     first_hit_query=None,
     group_first_hits=False,
+    external_visibility=None,
 ):
     count = uniform.shape[1]
     rays = np.flatnonzero(probability > 0)
@@ -130,6 +162,15 @@ def sampled_surfaces(
         None,
         shadow_query=query,
     )
+    if external_visibility is not None and len(points):
+        external = np.asarray(external_visibility(points, normal), float)
+        if (
+            external.shape != visible.shape
+            or not np.isfinite(external).all()
+            or np.any((external < 0) | (external > 1))
+        ):
+            raise ValueError("external caster visibility must be finite in [0, 1]")
+        visible *= external
     radiance = shade(points, normal, -direction, 0.6, visible, profile)
     weights = (
         np.bincount(inverse, minlength=len(index)) / count * probability[unique_rays]

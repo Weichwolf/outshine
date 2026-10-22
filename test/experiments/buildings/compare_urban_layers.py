@@ -1,6 +1,7 @@
 """Compose a stored parent with complete ready child domains and an opaque stop."""
 
 import argparse
+import functools
 import hashlib
 import json
 import subprocess
@@ -9,6 +10,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from compare_urban_horizon import region
 from compare_urban_parents import background_image, camera, lighting, opaque_image
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays
@@ -18,6 +20,8 @@ from urban_parent_light import display, light_at, shade
 from urban_parent_reference import prepare_resolved, trace_resolved
 from urban_parent_stats import UrbanParent
 from urban_patches import load
+from urban_sampled_layer import render_sampled_layer
+from urban_shadow_runs import select_shadow_query
 
 
 def ready_subset(resolved, parent_grid, region):
@@ -36,7 +40,7 @@ def ready_subset(resolved, parent_grid, region):
 def child_visibility(product, points, normals, profile, work=None):
     light, _, limit = light_at(points, profile)
     depth, _, _, counts = trace_resolved(
-        product, points + normals * 0.001, light, minimum=0
+        product, points + normals * 0.001, light, minimum=0, inside_is_hit=True
     )
     if work is not None:
         for key, value in counts.items():
@@ -57,6 +61,7 @@ def mixed(
     *,
     foreground_fraction=0.5,
     correction_only=False,
+    layer_query=render_layer,
 ):
     total_started = time.perf_counter()
     stop = -o[:, 2] / d[:, 2]
@@ -112,7 +117,7 @@ def mixed(
             profile | {"ambient": 0},
         )
     started = time.perf_counter()
-    c, t, s, work = render_layer(
+    c, t, s, work = layer_query(
         parent,
         o,
         d,
@@ -138,7 +143,46 @@ def mixed(
     }
 
 
+def layer_state(parent, o, d, profile, state, args, arrays):
+    name, child, caster, region, caster_region, front = state
+    query = render_layer
+    if args.surface_samples is not None:
+        query = functools.partial(
+            render_sampled_layer,
+            samples=args.surface_samples,
+            seed=args.surface_seed,
+            batch=args.layer_batch,
+            shadow_query=select_shadow_query(parent, profile),
+        )
+    inputs = (parent, o, d, profile, child, caster, region, caster_region, front)
+    rgb, report = mixed(
+        *inputs, layer_query=query, foreground_fraction=args.foreground_fraction
+    )
+    if args.paired_sampled:
+        reference, control = mixed(
+            *inputs,
+            layer_query=functools.partial(render_layer, batch=args.layer_batch),
+            foreground_fraction=args.foreground_fraction,
+        )
+        arrays[name + "_control"] = reference
+        mean = lambda value: average_samples(value, *args.pixel_shape, args.samples)
+        report["paired_control"] = {
+            **control,
+            "max_sample_rgb_difference": float(np.abs(rgb - reference).max()),
+            "pixel_rgb_rmse": float(
+                np.sqrt(np.mean((mean(rgb) - mean(reference)) ** 2))
+            ),
+        }
+        if name == "all_ready":
+            np.testing.assert_array_equal(rgb, reference)
+    return rgb, report
+
+
 def run(args):
+    if args.paired_sampled and args.surface_samples is None:
+        raise ValueError("paired sampling requires --surface-samples")
+    if not 0 <= args.foreground_fraction <= 1:
+        raise ValueError("foreground fraction must lie in [0,1]")
     if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise ValueError("private system-temp output required")
     args.output.mkdir(parents=True, exist_ok=False)
@@ -149,10 +193,13 @@ def run(args):
     whole = np.array([[[0, 0], pg["shape"]]])
     half = np.array([[[0, 0], [pg["shape"][0] // 2, pg["shape"][1]]]])
     subset = ready_subset(resolved, pg, half[0])
-    view = camera(parent.frame[2] * parent.frame[3], 240000, 0)
+    view = camera(
+        parent.frame[2] * parent.frame[3], args.distance, args.motion, args.altitude
+    )
     profile = lighting(parent.frame[2] * parent.frame[3], args.lighting)
-    box = np.array([[607, 345], [673, 376]])
+    box = region(parent, resolved, view, profile)
     width, height = box[1] - box[0]
+    args.pixel_shape = (width, height)
     o, d = image_rays(view, box, width, height, args.samples)
     d /= np.linalg.norm(d, axis=1)[:, None]
     backdrop = background_image(view, profile)
@@ -161,22 +208,14 @@ def run(args):
     states = [
         ("pending", None, None, None, None, False),
         ("half_view", subset, None, half, None, False),
+        ("half_caster", None, subset, None, half, False),
         ("half_ready", subset, subset, half, half, False),
         ("all_ready", resolved, resolved, whole, whole, False),
         ("foreground", subset, subset, half, half, True),
     ]
-    for name, camera_child, caster_child, view_region, caster_region, front in states:
-        rgb, report = mixed(
-            parent,
-            o,
-            d,
-            profile,
-            camera_child,
-            caster_child,
-            view_region,
-            caster_region,
-            front,
-        )
+    for state in states:
+        name = state[0]
+        rgb, report = layer_state(parent, o, d, profile, state, args, arrays)
         arrays[name] = rgb
         report["linear_rgb_vs_resolved_rmse"] = float(
             np.sqrt(np.mean((rgb - control) ** 2))
@@ -202,15 +241,23 @@ def run(args):
         ),
         "parent_sha256": hashlib.sha256(args.parent.read_bytes()).hexdigest(),
         "resolved_sha256": hashlib.sha256(args.resolved.read_bytes()).hexdigest(),
-        "target_distance_m": 240000,
+        "target_distance_m": args.distance,
+        "altitude_m": float(view[0][2]),
+        "motion_m": args.motion,
+        "foreground_fraction": args.foreground_fraction,
+        "layer_batch": args.layer_batch,
         "profile": [1280, 720],
         "lighting": profile,
         "rays": len(o),
         "samples_per_axis": args.samples,
+        "surface_samples_per_ray": args.surface_samples,
+        "surface_seed": args.surface_seed,
+        "resolved_control_shape": resolved["shape"].tolist(),
+        "resolved_control_masses": len(resolved["columns"]),
         "roi": box.tolist(),
         "results": results,
         "control_work": control_work,
-        "scope": "Flat ENU controlled direct lighting; exact finite-ray composition, not a filtered LOD transition, terrain/curvature or native admission.",
+        "scope": "Flat ENU finite-ray composition, optional sampled C with deterministic T/S; not a filtered LOD transition, terrain/curvature or native admission.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report))
@@ -223,4 +270,12 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--lighting", choices=["day", "back", "night"], default="day")
     parser.add_argument("--samples", type=int, choices=range(1, 17), default=4)
+    parser.add_argument("--surface-samples", type=int, choices=range(1, 513))
+    parser.add_argument("--surface-seed", type=int, default=1113)
+    parser.add_argument("--paired-sampled", action="store_true")
+    parser.add_argument("--layer-batch", type=int, choices=range(1, 2049), default=2048)
+    parser.add_argument("--foreground-fraction", type=float, default=0.5)
+    parser.add_argument("--distance", type=float, default=240000.0)
+    parser.add_argument("--altitude", type=float)
+    parser.add_argument("--motion", type=float, default=0.0)
     run(parser.parse_args())

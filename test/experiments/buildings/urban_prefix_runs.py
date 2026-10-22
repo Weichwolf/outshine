@@ -12,7 +12,7 @@ from urban_lattice_runs import (
     column_bounds,
     repeat_intervals,
 )
-from urban_parent_conditional import grid
+from urban_parent_conditional import covered_grid, grid
 from urban_parent_prefix import dda_prefix
 
 
@@ -176,6 +176,15 @@ class PrefixRuns:
             or np.any(np.isnan(stops) | (stops < 0.1))
         ):
             raise ValueError("finite above-base prefix geometry required")
+        regions = self.product.get("primary_covered", ())
+        if covered_grid(self.product, regions):
+            return np.ones(len(o)), {
+                "prefix_queries": len(o),
+                "ready_bypass_rays": len(o),
+            }
+        if len(regions):
+            result, work = dda_prefix(self.parent, o, d, stops, product=self.product)
+            return result, {"prefix_queries": len(o), "masked_dda": work}
         local = o - self.product["reference_origin_m"]
         begin, end, active = clipped_span(self.product, local, d, stops)
         span = (

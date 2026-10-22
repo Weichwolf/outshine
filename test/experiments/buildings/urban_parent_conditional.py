@@ -334,21 +334,16 @@ def integrate_packet(
     return transmission
 
 
-def trace_transport(
+def transport_inputs(
     parent,
     origins,
     directions,
     profile,
-    receive,
-    *,
-    batch=2048,
-    approximation=None,
     stop=None,
     receiver_normals=None,
     primary_covered=None,
     caster_covered=None,
     transmission_tolerance=0.0,
-    shadow_query=None,
 ):
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     if (
@@ -398,6 +393,36 @@ def trace_transport(
             )
         ):
             raise ValueError("finite unit receiver normals required")
+    return origins, directions, product, stop, receiver_normals
+
+
+def trace_transport(
+    parent,
+    origins,
+    directions,
+    profile,
+    receive,
+    *,
+    batch=2048,
+    approximation=None,
+    stop=None,
+    receiver_normals=None,
+    primary_covered=None,
+    caster_covered=None,
+    transmission_tolerance=0.0,
+    shadow_query=None,
+):
+    origins, directions, product, stop, receiver_normals = transport_inputs(
+        parent,
+        origins,
+        directions,
+        profile,
+        stop,
+        receiver_normals,
+        primary_covered,
+        caster_covered,
+        transmission_tolerance,
+    )
     work = dict.fromkeys(
         [
             "cell_ray_visits",

@@ -83,7 +83,19 @@ def clip_height(product, origin, direction, begin, end):
 
 
 def test_columns(
-    product, origin, direction, ids, cell, begin, leave, depth, normal, owner, minimum
+    product,
+    origin,
+    direction,
+    ids,
+    cell,
+    begin,
+    leave,
+    depth,
+    normal,
+    owner,
+    minimum,
+    *,
+    inside_is_hit=False,
 ):
     """Update nearest surface hits for the current packet of XY cells."""
     columns = product["lookup"][cell[:, 1], cell[:, 0]]
@@ -117,7 +129,7 @@ def test_columns(
             inside_z = (z + minimum * dz >= spans[:, 0]) & (
                 z + minimum * dz <= spans[:, 1]
             )
-            if np.any(
+            if not inside_is_hit and np.any(
                 (begin[rays] == minimum)
                 & inside_z
                 & (xy_near <= minimum)
@@ -244,7 +256,13 @@ def trace(
     minimum=0.1,
     intersect_columns=None,
     ray_bounds=None,
+    inside_is_hit=False,
 ):
+    """Trace surfaces, or count initial containment as a column occlusion hit.
+
+    The explicit occlusion mode gives no surface-normal guarantee for a hit at
+    the near limit. Default camera queries still reject occupied initial points.
+    """
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     if (
         origins.shape != directions.shape
@@ -262,6 +280,8 @@ def trace(
         ray_bounds = np.asarray(ray_bounds, float)
         if ray_bounds.shape != (len(origins), 2) or np.isnan(ray_bounds).any():
             raise ValueError("one non-NaN traversal interval per ray required")
+    if inside_is_hit and intersect_columns is not None:
+        raise ValueError("inside-hit mode requires the standard column intersection")
     basis = product["basis"]
     origin, direction = origins @ basis.T, directions @ basis.T
     depth, owner = np.full(len(origin), np.inf), np.full(len(origin), -1, np.int32)
@@ -283,7 +303,7 @@ def trace(
             owner,
         )
         work["interval_ray_tests"] += (
-            test_columns(*args, minimum)
+            test_columns(*args, minimum, inside_is_hit=inside_is_hit)
             if intersect_columns is None
             else intersect_columns(*args)
         )
@@ -302,4 +322,6 @@ def trace(
         owner[take] = -2 - f[take]
         work["fallback_query_rays"] = len(origins)
         work["fallback_original_triangles"] = len(fallback["indices"])
+    if inside_is_hit:
+        work["near_limit_hits"] = int(np.count_nonzero(depth == minimum))
     return depth, normal, owner, work

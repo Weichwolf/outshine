@@ -43,10 +43,11 @@ def prepare_resolved(product):
     return result
 
 
-def trace_resolved(product, origins, directions, *, minimum=0.1):
+def trace_resolved(product, origins, directions, *, minimum=0.1, inside_is_hit=False):
     return trace(
         product,
         np.asarray(origins) - product["reference_origin_m"],
         directions,
         minimum=minimum,
+        inside_is_hit=inside_is_hit,
     )

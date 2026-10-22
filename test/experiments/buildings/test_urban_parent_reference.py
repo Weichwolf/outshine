@@ -63,6 +63,18 @@ class ParentReferenceTest(unittest.TestCase):
         depth, _, _, _ = trace_resolved(product, [[8, 1.99, 3]], [[0, 1, 0]], minimum=0)
         self.assertAlmostEqual(depth[0], 0.01)
 
+    def test_explicit_shadow_containment_hits_without_relaxing_camera_guard(self):
+        product = prepare_resolved(example())
+        o = np.array([[8.0, 8, 3], [0.5, 8, 3], [8, 8, 6.001], [8, 8, -1]])
+        d = np.tile([0.0, 0, 1], (len(o), 1))
+        with self.assertRaisesRegex(ValueError, "inside occupied"):
+            trace_resolved(product, o[:1], d[:1], minimum=0)
+        depth, _, _, work = trace_resolved(product, o, d, minimum=0, inside_is_hit=True)
+        self.assertEqual(depth[0], 0)
+        np.testing.assert_array_equal(np.isinf(depth[1:3]), True)
+        self.assertEqual(depth[3], 1)
+        self.assertEqual(work["near_limit_hits"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
