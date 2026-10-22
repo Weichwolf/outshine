@@ -52,7 +52,8 @@ AssetQuery QueryAt(const Vec3 &point) {
   return {.Bounds = box,
           .Kind = "urban-area",
           .Level = kZoom,
-          .Radius = AssetRadius{.Centre = point, .Metres = radiusM}};
+          .Radius = AssetRadius{.Centre = point, .Metres = radiusM},
+          .Planes = {}};
 }
 
 void TileCoverage(const Osm::UrbanArea &area, const Box &coverage) {

@@ -288,6 +288,7 @@ TestProfile() {
     outshine/src/render/Viewing) printf '%s' 'profile/render-viewing' ;;
     outshine/src/render/stages/StagePipelines) printf '%s' 'profile/stage-pipelines' ;;
     outshine/src/render/draw/InstanceDemand) printf '%s' 'profile/instance-demand' ;;
+    outshine/src/generators/osm/PreparedUrbanAreas|outshine/src/generators/osm/PreparedOsmTiles|outshine/src/generators/osm/UrbanArea) printf '%s' 'profile/urban-assets' ;;
     outshine/integration/render/UrbanPatchDemand) printf '%s' 'profile/urban-demand' ;;
     outshine/src/engine/streaming/UrbanAreaInstances) printf '%s' 'profile/urban-instances' ;;
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
@@ -390,6 +391,7 @@ LayerIncludes() {
     profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
     profile/instance-demand) GroupIncludes src/render/draw ;;
+    profile/urban-assets) GroupIncludes src/generators/osm ;;
     profile/urban-demand) LayerIncludes profile/instance-demand; printf ' %s' '-Isrc/generators/osm/urban' ;;
     profile/urban-instances) GroupIncludes src/engine/streaming ;;
     profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/terrain' ;;
@@ -483,6 +485,7 @@ LayerLibraryLink() {
     profile/client-roundtrip | profile/client-preparation) LayerLibraryLink profile/internal ;;
     profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
     profile/tasks) printf '%s' '-pthread' ;;
+    profile/urban-assets) LayerLibraryLink profile/world ;;
     profile/shadow-raster) return 0 ;;
     profile/water-mesh | profile/water-asset | profile/water-bed) return 0 ;;
     profile/water-geometry | profile/water-preparation) pkg-config --libs geos; OsqpFlags --libs ;;
@@ -592,6 +595,7 @@ LayerGroups() {
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
     profile/ground-patch) printf '%s' 'src/render/terrain/TerrainPatchMesh.cpp src/render/terrain/TerrainPatchError.cpp' ;;
     profile/instance-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp' ;;
+    profile/urban-assets) LayerGroups profile/world; printf ' %s' 'src/generators/terrain src/generators/base/AssetSourceRecipe.cpp src/generators/base/Tile.cpp src/generators/base/GroundPatch.cpp src/generators/osm/urban src/generators/osm/regions/PreparedOsmTiles.cpp src/generators/osm/regions/PreparedOsmTileAssets.cpp src/generators/osm/fields/OsmField.cpp src/generators/osm/fields/OsmNativeTile.cpp src/generators/osm/fields/OsmNativeAssembly.cpp src/generators/osm/fields/OsmDeclaredInput.cpp src/generators/osm/import src/generators/osm/providers/MvtLayer.cpp' ;;
     profile/urban-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaBounds.cpp' ;;
     profile/urban-instances) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/engine/streaming/UrbanAreaInstances.cpp' ;;
     profile/shadow-raster) printf '%s' 'src/render/shadow/ShadowRaster.cpp' ;;

@@ -120,10 +120,7 @@ Fill(UrbanArea &area, const UrbanDetail::Domain &domain, const UrbanAreaLimits &
 }
 
 bool Valid(UrbanAreaRecipe recipe, const UrbanAreaLimits &limits) {
-  return std::isfinite(recipe.ProjectedPitchM) && recipe.ProjectedPitchM >= 8 &&
-         recipe.ProjectedPitchM <= 512 && std::isfinite(recipe.FillFraction) &&
-         recipe.FillFraction > 0 && recipe.FillFraction < 1 && recipe.PatchSide > 0 &&
-         recipe.PatchSide <= 32 && limits.CellsMost > 0 && limits.CellsMost <= 4194304;
+  return recipe.Valid() && limits.CellsMost > 0 && limits.CellsMost <= 4194304;
 }
 }
 
