@@ -8,7 +8,7 @@ from test_urban_parent_conditional import brute_image
 from test_urban_parent_phase import homogeneous_parent
 from urban_parent_conditional import expected_shadow, grid, render_conditional
 from urban_parent_stats import UrbanParent
-from urban_shadow_runs import RowRunShadows
+from urban_shadow_runs import RowRunShadows, select_shadow_query
 
 
 def shadow_work():
@@ -60,6 +60,8 @@ class ShadowRunsTest(unittest.TestCase):
             [0.45, -0.5, 0.7],
             [-0.45, 0.5, 0.7],
             [0.0, 1.0, 0.01],
+            [1.0, 0.0, 0.01],
+            [0.8, -0.1, 0.7],
         ]:
             l = np.broadcast_to(light, points.shape).copy()
             l /= np.linalg.norm(l, axis=1)[:, None]
@@ -144,7 +146,7 @@ class ShadowRunsTest(unittest.TestCase):
         parent = homogeneous_parent()
         parent.frame[3] = 8192
         parent.centre_fractions = np.linspace(0.00001, 0.0001, 4)[
-            None, :, None
+            :, None, None
         ] * np.ones((4, 4, 3))
         product = grid(parent)
         query = RowRunShadows(parent)
@@ -164,6 +166,24 @@ class ShadowRunsTest(unittest.TestCase):
         np.testing.assert_allclose(actual, expected, rtol=0, atol=3e-12)
         self.assertEqual(actual[1], 1)
         self.assertGreater(work["gamma_cells"], 16)
+
+    def test_light_profile_bound_keeps_short_and_diagonal_work_direct(self):
+        parent = homogeneous_parent()
+        parent.frame[2:5] = [0.812, 19567.0, 32.0]
+        extent = parent.frame[2] * parent.frame[3]
+        for profile in [
+            {"kind": "sun", "direction": [0.45, -0.5, 0.7]},
+            {"kind": "sun", "direction": [0.7, 0.7, 0.03]},
+            {"kind": "point", "position": [extent / 2, extent / 2, 1000.0]},
+        ]:
+            self.assertIsNone(select_shadow_query(parent, profile))
+            self.assertIsInstance(
+                select_shadow_query(parent, profile, force=True), RowRunShadows
+            )
+        self.assertIsInstance(
+            select_shadow_query(parent, {"kind": "sun", "direction": [0, 1, 0.03]}),
+            RowRunShadows,
+        )
 
 
 if __name__ == "__main__":

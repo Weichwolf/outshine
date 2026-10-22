@@ -12,6 +12,31 @@ from column_field_query import xy_interval
 from urban_parent_conditional import density, expected_shadow, grid, primary_cap
 
 
+def select_shadow_query(parent, profile, *, force=False):
+    """Skip packet dispatch when its global work bound cannot select runs."""
+    if not force:
+        product = grid(parent)
+        pitch, height = product["header"]["pitch_m"], parent.heights[-1]
+        if profile["kind"] == "sun":
+            light = np.asarray(profile["direction"], float)
+            if light[2] <= 0:
+                return None
+            xy = np.abs(light[:2])
+            if height * (xy.sum() - 12 * xy.min()) / (pitch * light[2]) <= 16:
+                return None
+        elif profile["kind"] == "point":
+            light = np.asarray(profile["position"], float)
+            low = product["reference_origin_m"][:2]
+            high = low + product["shape"] * pitch
+            major = np.maximum(np.abs(light[:2] - low), np.abs(light[:2] - high)).max()
+            if (
+                light[2] > height
+                and height * major / ((light[2] - height) * pitch) <= 16
+            ):
+                return None
+    return RowRunShadows(parent, force=force)
+
+
 def repeat_intervals(low, high):
     sizes = np.maximum(high - low + 1, 0)
     ids = np.repeat(np.arange(len(low)), sizes)

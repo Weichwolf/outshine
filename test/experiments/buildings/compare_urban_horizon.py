@@ -21,7 +21,7 @@ from urban_parent_light import display, surface_radiance_upper
 from urban_parent_reference import prepare_resolved
 from urban_parent_stats import UrbanParent
 from urban_patches import load
-from urban_shadow_runs import RowRunShadows
+from urban_shadow_runs import select_shadow_query
 
 
 def probe(parent, profile, tolerance):
@@ -120,7 +120,7 @@ def compare(parent, resolved, args):
     reference_seconds = time.perf_counter() - started
     started = time.perf_counter()
     query = (
-        RowRunShadows(parent, force=args.force_shadow_runs)
+        select_shadow_query(parent, profile, force=args.force_shadow_runs)
         if args.shadow_runs
         else None
     )
@@ -179,7 +179,7 @@ def compare(parent, resolved, args):
         "parent_seconds": seconds,
         "resolved_seconds": reference_seconds,
         "parent_work": work,
-        "shadow_method": "affine-runs" if args.shadow_runs else "dda",
+        "shadow_method": "affine-runs" if query is not None else "dda",
         "shadow_build_seconds": build_seconds,
         "paired_exact": paired,
         "resolved_control_shape": resolved["shape"].tolist(),
