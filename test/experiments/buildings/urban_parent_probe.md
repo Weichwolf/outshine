@@ -95,13 +95,54 @@ table misses all mass anchors and triggers 1,046,182 exact fallback rays, while 
 ground visibility still errs. A coarse night table misses the narrow brightness peak.
 No generic spacing or safe-occlusion claim follows from the supported cases.
 
-54 focused tests pass: unlit partition/height CDF, energy independence, streaming,
-exact directional-node GGX, unknown-category fallback and existing geometry/image
-contracts. Ruff/format/function-size checks pass. Conditional day 16→32 difference
-remains .00561, so reference sampling uncertainty and regularised local structure
-remain material. Native material/GI, transitions, geographic counterexamples and full
-world/device/p99 admission remain open. Next: adaptive anchors driven by coverage
-and light direction, preserving current pixel geometry and unknown-sample semantics.
+## Adaptive anchor placement
+
+`urban_parent_adaptive.py` samples potential support at the ground and recipe height
+planes. It refines changes in that mask and changes in projected view/light separation
+where their footprints overlap. The angular rule resolves half-footprint changes
+across a base step. This follows projected-footprint/overlap geometry, not an intensity
+or colour fit, and is a heuristic rather than a conservative visibility/error bound.
+
+Nonuniform axes reuse bilinear M/J filtering through coordinate interpolation.
+Refined pixels replace coarse nodes instead of duplicating them. If pixel-centre
+support probes miss an evidenced subpixel parent, projected centre/height anchors
+are inserted. Neither that probe nor q=0 proves empty world. Unsupported categories
+still use exact shadows; those fallbacks can erase a node-count saving.
+
+Frozen b4cdc97a7 adds five same-process comparisons / ten actual 1280×720 images,
+all terminal 0 and inspected. Primary coverage is bit-identical across each pair;
+all five uniform-control RGB crops are bit-identical to their earlier 19156f3eb
+products. Adaptive totals include planning, table construction and consumption;
+uniform totals include construction and consumption. Both run sequentially at
+normal priority under development load, adaptive first, on the same prepared rays.
+
+| Case | Uniform nodes | Adaptive nodes | RGB RMSE uniform→adaptive | Total seconds uniform→adaptive |
+| --- | ---: | ---: | --- | --- |
+| Day | 102 | 276 | .01367→.01265 | 5.15→5.60 |
+| Night | 1924 | 792 | .07681→.07547 | 14.74→10.31 |
+| Low | 136 | 105 | .0061769→.0061774 | 5.59→6.20 |
+| Back | 102 | 276 | .01158→.01113 | 4.93→5.25 |
+| Movement | 102 | 325 | .01427→.01408 | 2.38→3.23 |
+
+Night uses 58.8% fewer moment-table nodes and 646,464→266,112 B of moment arrays,
+plus 496 B of axis arrays; measured total time is 1.43× faster with slightly lower
+RGB error. The other four cases are slower. Uniform remains the default; adaptive
+sampling is an explicit experimental option, not a universal winner or a device
+result. Day/night/low planning examines 7,920/9,620/2,640 ray-plane pairs. Low view
+still triggers 5,601 unsupported-category fallbacks; fewer nodes alone are not enough.
+
+58 focused tests pass: projection equivalence, affine nonuniform interpolation,
+subpixel support, energy independence, no duplicate dense nodes and prior transport/
+geometry contracts. Ruff/format/function-size checks pass. Conditional day 16→32
+difference remains .00561; reference uncertainty and regularised local structure
+remain material. No native material/GI, geographic/transition/world/device/p99 admission.
+The recorded sizes exclude full scratch, copies, driver and process/device peaks.
+
+The source statistics have no admitted native Draw/Depth/Caster consumer; geographical
+XY coverage is not a World render bound. Readiness clarification is in #1102/6338364477.
+Next: a colour/transmission reference against explicit opaque ray stops and parent/
+child composition, instead of another sampling-tuning round. Native placement,
+DEM/curvature bounds and caster-interest domains remain #1102 responsibilities.
 
 ## Generation growth and reproduction
 
@@ -119,11 +160,12 @@ With the existing `.venv`, fresh system-temp outputs and
 ```sh
 python -B -W error test/experiments/buildings/compare_urban_parents.py \
   --input test/experiments/buildings/fixtures/coarse_city_source.json.gz \
-  --output /tmp/outshine-urban-parent-control --samples 32 --jitter-seed 1113
+  --output /tmp/outshine-urban-parent-control --samples 16 --jitter-seed 1113 \
+  --lighting night
 python -B -W error test/experiments/buildings/compare_urban_phase.py \
   --reference /tmp/outshine-urban-parent-control \
   --output /tmp/outshine-urban-parent-filtered --macro 2 --phase 6 \
-  --shadow-stride 4 --paired
+  --shadow-stride 4 --adaptive-shadow --paired-uniform 1
 ```
 
 The parent is saved before the offline control is built. `--parent` consumes a saved
