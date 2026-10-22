@@ -148,7 +148,10 @@ int main(int argc, char **argv) {
   }
   const size_t frameWords = argc == 7 ? kMaximumFrameWords : kDefaultFrameWords;
   const auto input = Read(argv[2], frameWords);
-  auto device = Require(CreateDevice({.Validation = true, .GpuTiming = timed}));
+  auto device =
+      Require(CreateDevice({.Validation = true,
+                            .GpuTiming = timed ? outshine::Render::Native::GpuTimingMode::Dispatches
+                                               : outshine::Render::Native::GpuTimingMode::None}));
   const auto first = Run(*device, argv[1], input, frameWords, timed);
   const auto repeat = Run(*device, argv[1], input, frameWords, timed);
   CHECK(first.Values == repeat.Values,

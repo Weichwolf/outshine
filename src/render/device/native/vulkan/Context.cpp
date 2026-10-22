@@ -305,6 +305,10 @@ void ReadLimits(Context &context) {
 }
 
 Result<std::shared_ptr<Context>> CreateContext(DeviceOptions options) {
+  if (options.GpuTiming != GpuTimingMode::None && options.GpuTiming != GpuTimingMode::Submission &&
+      options.GpuTiming != GpuTimingMode::Dispatches) {
+    return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "unknown GPU timing mode"});
+  }
   static std::atomic<uint64_t> nextCookie{1};
   auto context = std::make_shared<Context>();
   context->Cookie = nextCookie.fetch_add(1, std::memory_order_relaxed);
@@ -317,7 +321,11 @@ Result<std::shared_ptr<Context>> CreateContext(DeviceOptions options) {
   if (auto result = SelectPhysical(*context); !result) { return std::unexpected(result.error()); }
   if (auto result = InitLogical(*context); !result) { return std::unexpected(result.error()); }
   ReadLimits(*context);
-  context->GpuTiming = options.GpuTiming && context->Limits.GpuTimestamps;
+  if (options.GpuTiming != GpuTimingMode::None && !context->Limits.GpuTimestamps) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "Vulkan GPU timing is unavailable"});
+  }
+  context->GpuTiming = options.GpuTiming;
   return context;
 }
 
