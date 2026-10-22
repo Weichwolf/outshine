@@ -264,6 +264,10 @@ std::expected<void, StructureBakeError> EmitStructure(const PreparedStructure &p
   plan.Prepared = surface;
   plan.Coarseness = level;
   plan.RecessedOpenings = detail.RecessedOpenings;
+  if (mesher.KnownEmptySurface(plan)) {
+    ++out.UnsupportedMeshes;
+    return {};
+  }
 
   const auto mass = StructureMassOf(bounds,
                                     {.BaseM = base,

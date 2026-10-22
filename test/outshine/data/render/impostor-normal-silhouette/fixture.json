@@ -1,0 +1,25 @@
+{
+  "purpose": "Fixed intrinsic crown input for the native silhouette-normal countercase; not a presentation image or GPU acceptance oracle.",
+  "producer_commit": "a53f5bb7c496916fc21d74cc9da3db7dd328bbd1",
+  "source": "src/assets/world/species/birch.json",
+  "source_sha256": "630cc4214d2fa1ad3360f0cadafdb896d3059a4f06ff23ce6b145a0673dbabeb",
+  "capture_device": "Intel i5-1135G7 / Iris Xe (TGL GT2), Vulkan",
+  "width_px": 128,
+  "height_px": 128,
+  "views": 4,
+  "countercase_view": 2,
+  "countercase_pixels": [
+    [
+      81,
+      70
+    ],
+    [
+      81,
+      71
+    ]
+  ],
+  "atlas_sha256": "e2d286f120e6c908d9909500abc06c6f614fd14feb7adf7cf10c0e7dc1640c8f",
+  "provenance_sha256": "b9a4b0961264fe7338f744f30ca11f647a7ab0287cde39ac11bedb7e1cf23731",
+  "bound": "4 * sqrt(3) / 255 on normalized shading normals; coverage must match source identities exactly",
+  "owner_issue": "https://github.com/Weichwolf/outshine/issues/847"
+}

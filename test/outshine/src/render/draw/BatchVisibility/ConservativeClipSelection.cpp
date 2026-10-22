@@ -196,6 +196,26 @@ void TransformedPoints() {
   CHECK(rejectedCases > 0, "random controls exercise real rejection");
 }
 
+void PreparedTransformOwnsItsPlacement() {
+  constexpr std::array<float, 3> translation{10, 20, 30};
+  constexpr std::array<float, 3> firstCentre{11, 22, 33};
+  constexpr std::array<float, 3> secondCentre{9, 18, 27};
+  Mat4 placement;
+  for (size_t axis = 0; axis < 3; ++axis) { placement.At(axis, 3) = translation[axis]; }
+  const auto prepared = SphereTransform::From(placement);
+  CHECK(prepared.has_value(), "finite affine placement can prepare multiple local bounds");
+  if (!prepared) { return; }
+  placement = {};
+  const auto first = prepared->Apply(BatchSphere{1, 2, 3, 0});
+  CHECK(first && (*first)[0] == firstCentre[0] && (*first)[1] == firstCentre[1] &&
+            (*first)[2] == firstCentre[2],
+        "prepared transform owns its placement after the input changes");
+  const auto second = prepared->Apply(BatchSphere{-1, -2, -3, 2});
+  CHECK(second && (*second)[0] == secondCentre[0] && (*second)[1] == secondCentre[1] &&
+            (*second)[2] == secondCentre[2] && (*second)[3] >= 2,
+        "reuse applies an independent sphere and preserves its radius conservatively");
+}
+
 void InvalidTransforms() {
   std::array<StoredVertex, 2> vertices{};
   vertices[0].pos = {{-1, -1, -1}};
@@ -272,6 +292,7 @@ void ClusterBounds() {
 int main() {
   FixedCases();
   TransformedPoints();
+  PreparedTransformOwnsItsPlacement();
   InvalidTransforms();
   ClusterBounds();
   return Report();

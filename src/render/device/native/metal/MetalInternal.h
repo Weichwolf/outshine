@@ -284,7 +284,10 @@ private:
 
 class MetalDevice final : public Device {
 public:
-  MetalDevice(uint64_t identity, id<MTLDevice> device, id<MTLCommandQueue> queue, bool gpuTiming);
+  MetalDevice(uint64_t identity,
+              id<MTLDevice> device,
+              id<MTLCommandQueue> queue,
+              GpuTimingMode gpuTiming);
   ~MetalDevice() override;
 
   [[nodiscard]] const Capabilities &Limits() const noexcept override { return Limits_; }
@@ -337,7 +340,7 @@ private:
   std::deque<std::shared_ptr<Submission>> Pending_;
   static constexpr size_t kRetainedTimings = 8;
   std::array<SubmissionTiming, kRetainedTimings> Timings_{};
-  bool GpuTiming_ = false;
+  GpuTimingMode GpuTiming_ = GpuTimingMode::None;
   std::shared_ptr<EncoderProfileSession> EncoderProfiling_;
   std::optional<Error> Failed_;
   std::shared_ptr<CommandCounts> Counts_ = std::make_shared<CommandCounts>();

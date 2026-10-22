@@ -331,7 +331,8 @@ Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
   std::ranges::copy(selection, frame.Mvp.begin());
   const BatchFrustum visible(frame, {});
   const auto subjectRows = Subjects_->SubjectRows();
-  for (const auto &batch : batches) {
+  for (size_t batchIndex = 0; batchIndex < batches.size(); ++batchIndex) {
+    const auto &batch = batches[batchIndex];
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < subjectRows) { continue; }
     const auto instances = batch.ModelSlot < subjectRows
                                ? std::min(batch.Instances, CastsBelow_ - batch.ModelSlot)
@@ -343,9 +344,10 @@ Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
       return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                            .Message = "shadow pipeline is missing"});
     }
-    const auto cast = Subjects_->EncodeShadow(into, *pipeline, batch, instances, view);
-    if (!cast) { return cast; }
-    ++CastBatches_;
+    const auto cast =
+        Subjects_->EncodeShadow(into, *pipeline, batchIndex, visible, instances, view);
+    if (!cast) { return std::unexpected(cast.error()); }
+    CastBatches_ += *cast;
   }
   return {};
 }

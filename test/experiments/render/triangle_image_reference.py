@@ -25,6 +25,25 @@ def bilinear(image, uv):
     return result
 
 
+def box_grid_source(heights, pitch, fill):
+    """Independent triangle boxes for a finished flat-base height lattice."""
+    y, x = np.nonzero(heights)
+    h = heights[y, x]
+    unit = trimesh.creation.box()
+    extent = np.column_stack(
+        (np.full(len(h), pitch * fill), np.full(len(h), pitch * fill), h)
+    )
+    centre = np.column_stack(((x + 0.5) * pitch, (y + 0.5) * pitch, h / 2))
+    return {
+        "positions": (unit.vertices[None] * extent[:, None] + centre[:, None]).reshape(
+            -1, 3
+        ),
+        "indices": (
+            unit.faces[None] + np.arange(len(h))[:, None, None] * len(unit.vertices)
+        ).reshape(-1, 3),
+    }
+
+
 def prepare_source(source):
     """Prepare one immutable source's triangle index outside repeated view queries."""
     xyz, ids = source["positions"].astype(float), source["indices"]

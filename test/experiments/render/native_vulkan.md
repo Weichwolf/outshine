@@ -137,11 +137,14 @@ with `--unavailable`, optionally selecting that driver via `VK_DRIVER_FILES`.
 It requires Unsupported for window attachment and verifies the pre-existing
 buffer/queue remain functional. This does not replace the actual target-device run.
 
-Submission and dispatch timing are opt-in through `DeviceOptions.GpuTiming`. Capability support
-is reported separately by `Capabilities.GpuTimestamps`. Without opt-in, no query
-pools, timestamp commands, result reads or completed timing history are created.
-The default shared implementation returns Unsupported until the backend provides
-actual dispatch counters; whole-commandbuffer time is not a substitute.
+`DeviceOptions.GpuTiming` selects `GpuTimingMode::None`, `Submission`, or `Dispatches`.
+None is the default and creates no query pools, timestamp commands, result reads,
+or completed timing history. Submission records the whole command buffer; Dispatches
+also records bounded per-dispatch intervals. SceneRenderer and calibration select
+Submission; dispatch probes select Dispatches. `Capabilities.GpuTimestamps` reports
+hardware timestamp support separately. A requested mode without backend support
+returns Unsupported at device creation. Metal supports None and Submission and
+explicitly rejects Dispatches; whole-command-buffer time is not a substitute.
 
 `GpuTimings(Completion)` never waits for the GPU. Pending results contain no
 dispatch samples. Ready results include the actual DispatchCount and at most
@@ -222,9 +225,10 @@ The techniques follow SIGGRAPH 2015's GPU-driven rendering discussion and
 measured Outshine costs and the exact scope remain in #398.
 
 
-`SubmissionGpuTime(Completion)` implements the shared Metal/Vulkan contract using
-two additional query slots in the same optional recording pool. A TOP_OF_PIPE
-marker starts the complete recording; BOTTOM_OF_PIPE follows its final work,
+`SubmissionGpuTime(Completion)` implements the shared Metal/Vulkan contract. Vulkan
+uses two query slots in Submission mode and two submission slots plus 256 dispatch
+slots in Dispatches mode. A TOP_OF_PIPE marker starts the complete recording;
+BOTTOM_OF_PIPE follows its final work,
 including raster, copies and presentation transitions. Results are collected
 without WAIT_BIT only after the actual submission fence completes. Pending
 returns no invented elapsed time. Invalid/unavailable timestamps return an
@@ -233,12 +237,14 @@ own numeric metadata rather than command buffers, query pools or GPU resources.
 
 This same-queue GPU interval is separate from CPU encode/submit/fence waiting,
 dispatch sums and display presentation. It may include GPU dependency stalls;
-markers and the existing per-dispatch instrumentation also have measurement
-cost. Enabling timing now reserves 258 query slots instead of 256, adds two
-markers and reads two completed queries per recording; without opt-in none of
-this query work runs. No claim is made about driver allocation bytes or active
-GPU cycles. The shared `NativeSubmissionTimingProbe` remains unchanged; the
-Vulkan scope probe additionally verifies pure copy/raster submissions, cancelled
-recordings, resource retirement and byte-identical timed/untimed raster output.
+markers and optional per-dispatch instrumentation also have measurement cost.
+Submission mode resets two slots, writes two markers, and reads two completed
+queries per recording. Dispatches mode resets 258 slots and additionally writes
+two markers per measured dispatch; None performs no query work. No claim is made
+about driver allocation bytes or active GPU cycles. The shared
+`NativeSubmissionTimingProbe` verifies explicit modes, submission measurements,
+ownership and retention; the Vulkan scope probe additionally verifies pure
+copy/raster submissions, cancelled recordings, resource retirement and
+byte-identical timed/untimed raster output.
 Its `submission-scope.ppm` contains the actual checked GPU pixels. See #411 and
 the [Khronos timestamp sample](https://docs.vulkan.org/samples/latest/samples/api/timestamp_queries/README.html).

@@ -3,6 +3,7 @@
 #include "GeometryCapacity.h"
 #include <array>
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstddef>
@@ -54,6 +55,7 @@ struct Geometry::Held {
   struct Picture {
     int WidthPx = 0;
     int HeightPx = 0;
+    ImagePixelFormat Format = ImagePixelFormat::Rgba8Unorm;
     std::vector<uint8_t> Rgba;
     ImageMipData LowerMips;
   };
@@ -156,6 +158,24 @@ std::expected<int, GeometryPartError> Geometry::addPart(std::string_view named,
 namespace {
 
 constexpr double kUnitWithin = 1.0e-3;
+constexpr int kBinary64Digits = 53;
+constexpr uint64_t kBinary64OneBits = 0x3ff0000000000000ULL;
+static_assert(std::numeric_limits<double>::is_iec559 &&
+              std::numeric_limits<double>::digits == kBinary64Digits &&
+              std::bit_cast<uint64_t>(1.0) == kBinary64OneBits);
+
+[[nodiscard]] consteval double NextPositiveDouble(double value) noexcept {
+  return std::bit_cast<double>(std::bit_cast<uint64_t>(value) + 1);
+}
+
+[[nodiscard]] consteval double PreviousPositiveDouble(double value) noexcept {
+  return std::bit_cast<double>(std::bit_cast<uint64_t>(value) - 1);
+}
+
+constexpr double kUnitLengthMin = NextPositiveDouble(1.0 - kUnitWithin);
+constexpr double kUnitLengthMax = PreviousPositiveDouble(1.0 + kUnitWithin);
+constexpr double kUnitSquaredMin = NextPositiveDouble(kUnitLengthMin * kUnitLengthMin);
+constexpr double kUnitSquaredMax = PreviousPositiveDouble(kUnitLengthMax * kUnitLengthMax);
 constexpr double kNoAreaM4 = 1.0e-12;
 
 [[nodiscard]] std::expected<void, GeometryAttributeError>
@@ -170,9 +190,11 @@ Finite(std::span<const float> from) noexcept {
 ValidateNormals(std::span<const float> unit) noexcept {
   if (unit.size() % 3 != 0) { return std::unexpected(GeometryAttributeError::IncompleteTuple); }
   for (size_t at = 0; at + 2 < unit.size(); at += 3) {
-    const double length = std::sqrt(static_cast<double>(unit[at]) * unit[at] +
-                                    static_cast<double>(unit[at + 1]) * unit[at + 1] +
-                                    static_cast<double>(unit[at + 2]) * unit[at + 2]);
+    const double squared = static_cast<double>(unit[at]) * unit[at] +
+                           static_cast<double>(unit[at + 1]) * unit[at + 1] +
+                           static_cast<double>(unit[at + 2]) * unit[at + 2];
+    if (squared >= kUnitSquaredMin && squared <= kUnitSquaredMax) { continue; }
+    const double length = std::sqrt(squared);
     if (!std::isfinite(length)) { return std::unexpected(GeometryAttributeError::NonFiniteValue); }
     if (std::fabs(length - 1.0) > kUnitWithin) {
       return std::unexpected(GeometryAttributeError::NonUnitNormal);
@@ -423,10 +445,10 @@ std::expected<int, GeometryImageError> Geometry::addImage(ImageView image) {
   if (!CanAppendGeometryEntry(Held_->Images.size(), Held_->Images.max_size())) {
     return std::unexpected(GeometryImageError::CapacityExceeded);
   }
-  constexpr size_t bytesPerPixel = 4;
+  const size_t bytesPerPixel = ImagePixelBytes(image.Format);
   const auto width = static_cast<size_t>(widthPx);
   const auto height = static_cast<size_t>(heightPx);
-  if (width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) {
+  if (bytesPerPixel == 0 || width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) {
     return std::unexpected(GeometryImageError::InvalidDimensions);
   }
   const size_t bytes = width * height * bytesPerPixel;
@@ -435,6 +457,7 @@ std::expected<int, GeometryImageError> Geometry::addImage(ImageView image) {
   Held::Picture made;
   made.WidthPx = widthPx;
   made.HeightPx = heightPx;
+  made.Format = image.Format;
   made.Rgba.assign(rgba.begin(), rgba.end());
   made.LowerMips = CopyImageMips(image.LowerMips);
   Held_->Images.push_back(std::move(made));
@@ -463,6 +486,7 @@ ImageView Geometry::imageAt(int image) const {
   const Held::Picture &held = Held_->Images[static_cast<size_t>(image)];
   return ImageView{.WidthPx = held.WidthPx,
                    .HeightPx = held.HeightPx,
+                   .Format = held.Format,
                    .Rgba = std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size()),
                    .LowerMips = ViewImageMips(held.LowerMips)};
 }

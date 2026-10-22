@@ -198,6 +198,11 @@ bool TerrainResidency::Publish(const Patchwork &patchwork,
   }
 }
 
+bool TerrainResidency::HasNativePage(const Sheet &sheet) noexcept {
+  return sheet.Side == Render::TerrainRenderer::kSide &&
+         sheet.Nodes.size() == Render::TerrainRenderer::kPageNodes;
+}
+
 bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &error) {
   if (Renderer_ == nullptr) { return true; }
   auto wanted = IndexSheets(patchwork);
@@ -207,7 +212,8 @@ bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &err
   }
   Retiring_.clear();
   for (size_t at = 0; at < Held_.size(); ++at) {
-    if (!wanted->Holds(Held_[at].Tile)) { Retiring_.push_back(at); }
+    const size_t *sheet = wanted->Find(Held_[at].Tile);
+    if (sheet == nullptr || !HasNativePage(patchwork.Sheets[*sheet])) { Retiring_.push_back(at); }
   }
   Flat_ = 0;
   Instances_.clear();
