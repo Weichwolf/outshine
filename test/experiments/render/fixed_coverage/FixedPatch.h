@@ -55,7 +55,9 @@ enum class Unknown {
   Nonconvex,
   Outside,
   Quantization,
-  NoDepth
+  NoDepth,
+  UncertainFacing,
+  EmptyInterior
 };
 
 [[nodiscard]] Exact Edge(const ExactPoint &a, const ExactPoint &b, const ExactPoint &point);
@@ -64,6 +66,8 @@ enum class Unknown {
 Project(const SourceQuad &source, uint32_t width, uint32_t height);
 [[nodiscard]] std::expected<FixedPatch, Unknown>
 Prepare(const SourceQuad &source, uint32_t width, uint32_t height);
+[[nodiscard]] std::expected<FixedPatch, Unknown>
+Prepare(const Projected &source, uint32_t width, uint32_t height);
 [[nodiscard]] bool FullPixel(const FixedPatch &patch, uint32_t x, uint32_t y);
 }
 #endif

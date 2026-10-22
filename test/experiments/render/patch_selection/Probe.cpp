@@ -1,5 +1,8 @@
 #include "MeshPairs.h"
 #include "DepthEnvelope.h"
+#include "../fixed_coverage/UncertainPatch.h"
+#include "../vertex_projection/Envelope.h"
+#include "../vertex_projection/Input.h"
 #include "../fixed_coverage/FixedPatch.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -39,6 +42,7 @@ using Point2 = std::array<double, 2>;
 struct Input {
   P::Mesh Geometry;
   std::vector<Clip> ClipPoints;
+  Projection::Input Transform;
   uint32_t Id = 0;
 };
 
@@ -47,7 +51,29 @@ struct Candidate {
   std::array<P::Position, 4> Local;
   std::array<uint32_t, 2> Faces;
   uint32_t Mesh = 0;
+  size_t InputSlot = 0;
   double Area = 0;
+};
+
+struct Ranked {
+  std::vector<Candidate> Items;
+  Json Work;
+  uint64_t Faces = 0;
+  uint64_t Pairs = 0;
+  uint64_t Comparisons = 0;
+  double Seconds = 0;
+};
+
+enum class ProjectionPolicy { ExactInput, RationalUncertainty, IntegerUncertainty };
+
+struct UncertaintyWork {
+  uint64_t Calls = 0;
+  Projection::EnvelopeCosts Known;
+};
+
+struct PreparedCandidate {
+  F::FixedPatch Packet;
+  Json Source;
 };
 
 struct Evaluated {
@@ -130,8 +156,10 @@ ReadMesh(const Json &source, const Matrix &mvp, const std::array<float, 3> &shif
   auto model = Floats<16>(source["model_f32"]);
   auto mesh = Mesh(source);
   if (!id || !model || !mesh) { return std::unexpected("invalid source identity/placement/mesh"); }
+  Projection::Input transform{.Model = *model, .View = mvp};
+  std::ranges::copy(shift, transform.Shift.begin());
   for (size_t i = 0; i < 3; ++i) { (*model)[12 + i] += shift[i]; }
-  Input result{.Geometry = std::move(*mesh), .ClipPoints = {}, .Id = *id};
+  Input result{.Geometry = std::move(*mesh), .ClipPoints = {}, .Transform = transform, .Id = *id};
   for (const auto &point : result.Geometry.Positions) {
     result.ClipPoints.push_back(Multiply(mvp, Multiply(*model, {point[0], point[1], point[2], 1})));
   }
@@ -243,13 +271,15 @@ bool SourcePairsPreserved(const P::Mesh &mesh, const P::Selection &selection) {
 }
 
 void AddCandidates(const Input &input,
+                   size_t inputSlot,
                    const P::Selection &selection,
                    std::vector<Candidate> &candidates) {
   for (const auto &pair : selection.Pairs) {
     Candidate candidate{.Quad = {.Points = {}, .Opaque = true, .Complete = true},
                         .Local = {},
                         .Faces = pair.Faces,
-                        .Mesh = input.Id};
+                        .Mesh = input.Id,
+                        .InputSlot = inputSlot};
     for (size_t i = 0; i < 4; ++i) {
       candidate.Quad.Points[i] = input.ClipPoints[pair.Corners[i]];
       candidate.Local[i] = input.Geometry.Positions[pair.Corners[i]];
@@ -259,14 +289,14 @@ void AddCandidates(const Input &input,
   }
 }
 
-std::expected<Evaluated, std::string>
-Evaluate(std::span<const Input> inputs, P::Policy policy, const std::string &name) {
+std::expected<Ranked, std::string> Rank(std::span<const Input> inputs, P::Policy policy) {
   const auto began = std::chrono::steady_clock::now();
   std::vector<Candidate> candidates;
   Json costs = Json::array();
   uint64_t faces = 0;
   uint64_t pairs = 0;
-  for (const auto &input : inputs) {
+  for (size_t inputSlot = 0; inputSlot < inputs.size(); ++inputSlot) {
+    const auto &input = inputs[inputSlot];
     const auto selected = P::Select(input.Geometry, policy);
     if (!selected) { return std::unexpected(std::string(selected.error())); }
     if (!SourcePairsPreserved(input.Geometry, *selected)) {
@@ -277,13 +307,86 @@ Evaluate(std::span<const Input> inputs, P::Policy policy, const std::string &nam
     costs.push_back(std::move(work));
     faces += input.Geometry.Faces.size();
     pairs += selected->Pairs.size();
-    AddCandidates(input, *selected, candidates);
+    AddCandidates(input, inputSlot, *selected, candidates);
   }
   uint64_t comparisons = 0;
   std::ranges::stable_sort(candidates, [&](const Candidate &a, const Candidate &b) {
     ++comparisons;
     return a.Area > b.Area;
   });
+  return Ranked{
+      .Items = std::move(candidates),
+      .Work = std::move(costs),
+      .Faces = faces,
+      .Pairs = pairs,
+      .Comparisons = comparisons,
+      .Seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count()};
+}
+
+std::expected<PreparedCandidate, std::string> ProjectCandidate(const Candidate &candidate,
+                                                               const Input &input,
+                                                               ProjectionPolicy projection,
+                                                               UncertaintyWork &work) {
+  Json source{{"points", candidate.Quad.Points},
+              {"mesh", candidate.Mesh},
+              {"triangles", candidate.Faces},
+              {"local_vertices_f32", candidate.Local}};
+  std::expected<F::Projected, F::Unknown> projected = std::unexpected(F::Unknown::Incomplete);
+  if (projection != ProjectionPolicy::ExactInput) {
+    F::UncertainQuad quad{.FrontWindowOrientation = -1, .Opaque = true, .Complete = true};
+    source["clip_bounds"] = Json::array();
+    source["front_sign"] = quad.FrontWindowOrientation;
+    for (size_t i = 0; i < 4; ++i) {
+      auto transform = input.Transform;
+      transform.Point = {candidate.Local[i][0], candidate.Local[i][1], candidate.Local[i][2], 1};
+      ++work.Calls;
+      const auto hull = Projection::Enclose(transform);
+      if (!hull) {
+        return std::unexpected("projection-domain-" +
+                               std::to_string(static_cast<int>(hull.error())));
+      }
+      work.Known.Inputs += hull->Work.Inputs;
+      work.Known.Products += hull->Work.Products;
+      work.Known.Sums += hull->Work.Sums;
+      work.Known.OutwardSteps += hull->Work.OutwardSteps;
+      work.Known.Divisions += hull->Work.Divisions;
+      quad.Clip[i] = hull->Clip;
+      Json corner = Json::array();
+      for (const auto &range : hull->Clip) { corner.push_back({range.Lower, range.Upper}); }
+      source["clip_bounds"].push_back(std::move(corner));
+    }
+    if (projection == ProjectionPolicy::IntegerUncertainty) {
+      auto packet = F::PrepareInteger(quad, Side, Side);
+      if (!packet) {
+        return std::unexpected("integer-geometry-" +
+                               std::to_string(static_cast<int>(packet.error())));
+      }
+      return PreparedCandidate{.Packet = *packet, .Source = std::move(source)};
+    }
+    projected = F::Project(quad, Side, Side);
+  } else {
+    projected = F::Project(candidate.Quad, Side, Side);
+  }
+  if (!projected) {
+    return std::unexpected("geometry-" + std::to_string(static_cast<int>(projected.error())));
+  }
+  if (projected->SourceWindowOrientation >= 0) { return std::unexpected("backfacing"); }
+  const auto packet = F::Prepare(*projected, Side, Side);
+  if (!packet) {
+    return std::unexpected("quantization-" + std::to_string(static_cast<int>(packet.error())));
+  }
+  return PreparedCandidate{.Packet = *packet, .Source = std::move(source)};
+}
+
+std::expected<Evaluated, std::string>
+Evaluate(std::span<const Input> inputs,
+         const Ranked &ranked,
+         const std::string &name,
+         ProjectionPolicy projection = ProjectionPolicy::ExactInput) {
+  const auto began = std::chrono::steady_clock::now();
+  const auto &candidates = ranked.Items;
+  UncertaintyWork work;
+  std::map<std::string, uint64_t> unknownReasons;
   Json sources = Json::array();
   Json reduced = Json::array();
   P::DepthEnvelope envelope;
@@ -291,26 +394,20 @@ Evaluate(std::span<const Input> inputs, P::Policy policy, const std::string &nam
   uint64_t unknown = 0;
   uint64_t backfacing = 0;
   for (const auto &candidate : candidates) {
-    const auto projected = F::Project(candidate.Quad, Side, Side);
+    auto projected = ProjectCandidate(candidate, inputs[candidate.InputSlot], projection, work);
     if (!projected) {
-      ++unknown;
+      if (projected.error() == "backfacing") {
+        ++backfacing;
+      } else {
+        ++unknown;
+        ++unknownReasons[projected.error()];
+      }
       continue;
     }
-    if (projected->SourceWindowOrientation >= 0) {
-      ++backfacing;
-      continue;
-    }
-    const auto prepared = F::Prepare(candidate.Quad, Side, Side);
-    if (!prepared) {
-      ++unknown;
-      continue;
-    }
-    sources.push_back({{"points", candidate.Quad.Points},
-                       {"mesh", candidate.Mesh},
-                       {"triangles", candidate.Faces},
-                       {"local_vertices_f32", candidate.Local}});
+    const auto &prepared = projected->Packet;
+    sources.push_back(std::move(projected->Source));
     const auto reductionStarted = std::chrono::steady_clock::now();
-    const auto keep = envelope.Keep(*prepared);
+    const auto keep = envelope.Keep(prepared);
     reductionSeconds +=
         std::chrono::duration<double>(std::chrono::steady_clock::now() - reductionStarted).count();
     if (!keep) { return std::unexpected(std::string(keep.error())); }
@@ -318,20 +415,36 @@ Evaluate(std::span<const Input> inputs, P::Policy policy, const std::string &nam
     if (sources.size() == Wanted) { break; }
   }
   const double seconds =
+      ranked.Seconds +
       std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
   return Evaluated{
-      .Case = {{"name", name}, {"sources", sources}},
-      .ReducedCase = {{"name", name + "-reduced"}, {"sources", reduced}},
+      .Case = {{"name", name},
+               {"sources", sources},
+               {"integer_certificate", projection == ProjectionPolicy::IntegerUncertainty}},
+      .ReducedCase = {{"name", name + "-reduced"},
+                      {"sources", reduced},
+                      {"integer_certificate", projection == ProjectionPolicy::IntegerUncertainty}},
       .Report = {{"name", name},
-                 {"faces", faces},
-                 {"paired_faces", pairs * 2},
+                 {"faces", ranked.Faces},
+                 {"paired_faces", ranked.Pairs * 2},
                  {"candidate_pairs", candidates.size()},
                  {"selected", sources.size()},
                  {"backfacing", backfacing},
                  {"unknown", unknown},
-                 {"candidate_sort_comparisons", comparisons},
+                 {"candidate_sort_comparisons", ranked.Comparisons},
                  {"candidate_storage_capacity_bytes", candidates.capacity() * sizeof(Candidate)},
                  {"seconds", seconds},
+                 {"ranking_seconds", ranked.Seconds},
+                 {"preparation_seconds", seconds - ranked.Seconds},
+                 {"uncertainty", static_cast<int>(projection)},
+                 {"unknown_reasons", unknownReasons},
+                 {"envelope_calls", work.Calls},
+                 {"known_envelope_work",
+                  {{"inputs", work.Known.Inputs},
+                   {"products", work.Known.Products},
+                   {"sums", work.Known.Sums},
+                   {"outward_steps", work.Known.OutwardSteps},
+                   {"divisions", work.Known.Divisions}}},
                  {"source_pair_invariants", true},
                  {"reduction",
                   {{"retained", envelope.Costs().Retained},
@@ -343,7 +456,7 @@ Evaluate(std::span<const Input> inputs, P::Policy policy, const std::string &nam
                    {"state_bytes", P::DepthEnvelope::StateBytes},
                    {"state_heap_allocations", 0},
                    {"seconds", reductionSeconds}}},
-                 {"per_mesh_work", costs}}};
+                 {"per_mesh_work", ranked.Work}}};
 }
 
 bool SelfChecks() {
@@ -418,25 +531,39 @@ int main(int argc, char *const *argv) {
   }
   const double commonSeconds =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-  auto first = Evaluate(*inputs, P::Policy::FirstEdge, "native-first-edge");
-  auto aligned = Evaluate(*inputs, P::Policy::AlignedNormals, "native-aligned-normals");
-  if (!first || !aligned) { return 2; }
+  auto firstRank = Rank(*inputs, P::Policy::FirstEdge);
+  auto alignedRank = Rank(*inputs, P::Policy::AlignedNormals);
+  if (!firstRank || !alignedRank) { return 2; }
+  auto first = Evaluate(*inputs, *firstRank, "native-first-edge");
+  auto aligned = Evaluate(*inputs, *alignedRank, "native-aligned-normals");
+  auto uncertain =
+      Evaluate(*inputs, *alignedRank, "native-uncertain", ProjectionPolicy::RationalUncertainty);
+  auto integer = Evaluate(
+      *inputs, *alignedRank, "native-uncertain-integer", ProjectionPolicy::IntegerUncertainty);
+  if (!first || !aligned || !uncertain || !integer) { return 2; }
   std::ofstream output(argv[2]);
   std::ofstream report(argv[3]);
   output << Json{{"qualified_for_page_suppression", false},
                  {"scope",
                   "CPU float projection reference only; no page or world-transform admission"},
                  {"cases",
-                  Json::array(
-                      {first->Case, first->ReducedCase, aligned->Case, aligned->ReducedCase})}}
+                  Json::array({first->Case,
+                               first->ReducedCase,
+                               aligned->Case,
+                               aligned->ReducedCase,
+                               uncertain->Case,
+                               uncertain->ReducedCase,
+                               integer->Case,
+                               integer->ReducedCase})}}
                 .dump(2);
-  report << Json{{"self_checks_passed", true},
-                 {"side_pixels", Side},
-                 {"mesh_count", inputs->size()},
-                 {"common_input_weld_projection_seconds", commonSeconds},
-                 {"methods", Json::array({first->Report, aligned->Report})},
-                 {"scope",
-                  "Pair selection work; allocations outside pairing and OS peak unmeasured"}}
-                .dump(2);
+  report
+      << Json{{"self_checks_passed", true},
+              {"side_pixels", Side},
+              {"mesh_count", inputs->size()},
+              {"common_input_weld_projection_seconds", commonSeconds},
+              {"methods",
+               Json::array({first->Report, aligned->Report, uncertain->Report, integer->Report})},
+              {"scope", "Pair selection work; allocations outside pairing and OS peak unmeasured"}}
+             .dump(2);
   return output && report ? 0 : 1;
 }
