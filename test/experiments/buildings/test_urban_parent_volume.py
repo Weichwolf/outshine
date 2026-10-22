@@ -72,6 +72,7 @@ import urban_parent_volume
 import urban_parent_conditional
 import urban_parent_phase
 import urban_parent_transfer
+import urban_parent_adaptive
 """
         subprocess.run([sys.executable, "-B", "-W", "error", "-c", code], check=True)
 

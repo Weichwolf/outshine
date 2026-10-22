@@ -59,6 +59,7 @@ class ShadowTransfer:
     macro_shape: tuple
     phase_side: int
     macro_first: int = 0
+    axes: tuple | None = None
 
     def prepare(self, first, count):
         self.macro_first = first
@@ -67,6 +68,12 @@ class ShadowTransfer:
         uv = np.column_stack(
             ((macro % width + 0.5) / width, (macro // width + 0.5) / height)
         )
+        if self.axes is not None:
+            for axis in range(2):
+                nodes = self.axes[axis]
+                uv[:, axis] = np.interp(
+                    uv[:, axis], nodes, (np.arange(len(nodes)) + 0.5) / len(nodes)
+                )
         image = self.moments.reshape(*self.moments.shape[:2], -1)
         samples = bilinear(image, uv).reshape(count, -1, 2)
         mass, joint = samples[..., 0], samples[..., 1]

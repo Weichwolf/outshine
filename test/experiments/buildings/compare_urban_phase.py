@@ -13,6 +13,7 @@ import numpy as np
 from compare_urban_parents import camera
 from PIL import Image
 from triangle_image_reference import image_rays
+from urban_parent_adaptive import adaptive_axes, rays_at
 from urban_parent_light import display
 from urban_parent_phase import render_phase
 from urban_parent_stats import UrbanParent
@@ -36,6 +37,8 @@ def footprint_periods(parent, view, box):
 
 
 def build_shadow_transfer(parent, view, box, profile, macro_shape, phase_side, args):
+    if args.adaptive_shadow and not args.shadow_stride:
+        raise ValueError("adaptive sampling requires positive base spacing")
     if not args.shadow_stride:
         return None, {"seconds": 0, "work": {}}
     if not 1 <= args.shadow_stride <= 32:
@@ -47,28 +50,44 @@ def build_shadow_transfer(parent, view, box, profile, macro_shape, phase_side, a
     stride = [args.shadow_stride, stride_y]
     if not 1 <= stride[1] <= 32:
         raise ValueError("bounded vertical transfer spacing required")
-    shape = np.ceil(np.array([width, height]) / stride).astype(int)
-    origins, directions = image_rays(view, box, *shape, 1)
-    directions /= np.linalg.norm(directions, axis=1)[:, None]
+    planning_started = time.perf_counter()
+    axes, planning = None, {}
+    if args.adaptive_shadow:
+        axes, planning = adaptive_axes(parent, view, box, profile, stride)
+        shape = np.array([len(axis) for axis in axes])
+        origins, directions = rays_at(view, box, axes)
+    else:
+        shape = np.ceil(np.array([width, height]) / stride).astype(int)
+        origins, directions = image_rays(view, box, *shape, 1)
+        directions /= np.linalg.norm(directions, axis=1)[:, None]
+    planning["seconds"] = time.perf_counter() - planning_started
     started = time.perf_counter()
     moments, work = collect_transfer(
         parent, np.array(origins), directions, profile, side=args.transfer_phase
     )
     moments = moments.reshape(shape[1], shape[0], *moments.shape[1:])
-    return ShadowTransfer(moments, macro_shape, phase_side), {
+    return ShadowTransfer(moments, macro_shape, phase_side, axes=axes), {
         "seconds": time.perf_counter() - started,
         "work": work,
         "grid_shape": shape.tolist(),
         "spacing_xy": stride,
+        "planning": planning,
         "phase_samples_per_axis": args.transfer_phase,
     }
 
 
-def paired_control(parent, origins, directions, profile, shape, phase_side, crop):
+def paired_control(
+    parent, origins, directions, profile, shape, phase_side, crop, shadow_transfer=None
+):
     width, height, macro_x, macro_y = shape
     started = time.perf_counter()
     rgb, alpha, work = render_phase(
-        parent, origins, directions, profile, side=phase_side
+        parent,
+        origins,
+        directions,
+        profile,
+        side=phase_side,
+        shadow_transfer=shadow_transfer,
     )
     seconds = time.perf_counter() - started
     exact = rgb.reshape(height, macro_y, width, macro_x, 3).mean((1, 3))
@@ -82,6 +101,57 @@ def paired_control(parent, origins, directions, profile, shape, phase_side, crop
             "linear_rgb_difference_rmse": float(np.sqrt(np.mean((exact - crop) ** 2))),
         },
     )
+
+
+def uniform_control(parent, view, box, origins, directions, profile, shape, crop, args):
+    if not 1 <= args.paired_uniform <= 32:
+        raise ValueError("positive bounded uniform reference spacing required")
+    reference_args = argparse.Namespace(**vars(args))
+    reference_args.adaptive_shadow = False
+    reference_args.shadow_stride = args.paired_uniform
+    reference_args.shadow_stride_y = args.paired_uniform_y
+    width, height, macro_x, macro_y = shape
+    started = time.perf_counter()
+    transfer, build = build_shadow_transfer(
+        parent,
+        view,
+        box,
+        profile,
+        (width * macro_x, height * macro_y),
+        args.phase,
+        reference_args,
+    )
+    image, coverage, report = paired_control(
+        parent, origins, directions, profile, shape, args.phase, crop, transfer
+    )
+    report["total_seconds"] = time.perf_counter() - started
+    report["transfer_build"] = build
+    return image, coverage, report
+
+
+def write_outputs(output, reference, box, crop, coverage, paired, transfer):
+    output.mkdir(parents=True, exist_ok=False)
+    with Image.open(reference / "resolved.png") as source:
+        image = np.array(source)
+    low, high = box
+    image[low[1] : high[1], low[0] : high[0]] = display(crop)
+    Image.fromarray(image).save(output / "filtered.png")
+    if paired is not None:
+        image[low[1] : high[1], low[0] : high[0]] = display(paired)
+        Image.fromarray(image).save(output / "paired.png")
+    np.savez_compressed(
+        output / "samples.npz",
+        colour=crop,
+        coverage=coverage,
+        **({"paired_colour": paired} if paired is not None else {}),
+    )
+    if transfer is not None:
+        extra = (
+            {}
+            if transfer.axes is None
+            else {"x_nodes": transfer.axes[0], "y_nodes": transfer.axes[1]}
+        )
+        np.savez_compressed(output / "transfer.npz", moments=transfer.moments, **extra)
 
 
 def run(args):
@@ -134,7 +204,20 @@ def run(args):
     crop = rgb.reshape(height, macro_y, width, macro_x, 3).mean((1, 3))
     coverage = alpha.reshape(height, macro_y, width, macro_x).mean((1, 3))
     paired, paired_report = None, None
-    if args.paired:
+    if args.paired_uniform is not None:
+        paired, paired_coverage, paired_report = uniform_control(
+            parent,
+            view,
+            box,
+            origins,
+            directions,
+            control["lighting"],
+            (width, height, macro_x, macro_y),
+            crop,
+            args,
+        )
+        paired_report["coverage_bit_equal"] = np.array_equal(coverage, paired_coverage)
+    elif args.paired:
         paired, paired_coverage, paired_report = paired_control(
             parent,
             origins,
@@ -145,23 +228,7 @@ def run(args):
             crop,
         )
         paired_report["coverage_bit_equal"] = np.array_equal(coverage, paired_coverage)
-    args.output.mkdir(parents=True, exist_ok=False)
-    with Image.open(args.reference / "resolved.png") as source:
-        image = np.array(source)
-    low, high = box
-    image[low[1] : high[1], low[0] : high[0]] = display(crop)
-    Image.fromarray(image).save(args.output / "filtered.png")
-    if paired is not None:
-        image[low[1] : high[1], low[0] : high[0]] = display(paired)
-        Image.fromarray(image).save(args.output / "paired.png")
-    np.savez_compressed(
-        args.output / "samples.npz",
-        colour=crop,
-        coverage=coverage,
-        **({"paired_colour": paired} if paired is not None else {}),
-    )
-    if transfer is not None:
-        np.savez_compressed(args.output / "transfer.npz", moments=transfer.moments)
+    write_outputs(args.output, args.reference, box, crop, coverage, paired, transfer)
     with np.load(args.reference / "linear-crops.npz", allow_pickle=False) as reference:
         errors = {
             key: float(np.sqrt(np.mean((crop - reference[key]) ** 2)))
@@ -189,7 +256,8 @@ def run(args):
         "phase_samples_per_axis": args.phase,
         "seconds": seconds,
         "candidate_seconds": candidate_seconds,
-        "paired_exact": paired_report,
+        "paired_exact": paired_report if args.paired else None,
+        "paired_uniform": paired_report if args.paired_uniform is not None else None,
         "transfer_build": transfer_report,
         "work": work,
         "linear_rgb_roi_rmse": errors,
@@ -214,6 +282,10 @@ if __name__ == "__main__":
     parser.add_argument("--phase", type=int, default=4)
     parser.add_argument("--shadow-stride", type=int, default=0)
     parser.add_argument("--shadow-stride-y", type=int)
+    parser.add_argument("--adaptive-shadow", action="store_true")
     parser.add_argument("--transfer-phase", type=int, default=6)
-    parser.add_argument("--paired", action="store_true")
+    paired_group = parser.add_mutually_exclusive_group()
+    paired_group.add_argument("--paired", action="store_true")
+    paired_group.add_argument("--paired-uniform", type=int)
+    parser.add_argument("--paired-uniform-y", type=int)
     run(parser.parse_args())
