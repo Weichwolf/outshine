@@ -1,15 +1,21 @@
 #include "NativeGpuCheck.h"
+#include "Check.h"
 
 #include <algorithm>
 #include <array>
 #include <bit>
 #include <chrono>
 #include <cstring>
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <print>
 #include <span>
 #include <thread>
+#include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine::Render::Native;
@@ -102,7 +108,8 @@ void ScanCompact(Device &device, const char *scanPath, const char *compactPath) 
   const std::vector<uint32_t> emptySlots(data.Slots.size(), 0);
   auto slots = Upload(device, *commands, emptySlots);
   auto initialArgs = data.Args;
-  for (size_t at = 0; at < initialArgs.size(); at += 5) { initialArgs[at] = 0xdeadbeefu; }
+  constexpr uint32_t staleCount = 0xdeadbeefu;
+  for (size_t at = 0; at < initialArgs.size(); at += 5) { initialArgs[at] = staleCount; }
   auto args = Upload(device, *commands, initialArgs);
   const std::vector<uint32_t> untouched(data.Draw.size(), 0xdeadbeefu);
   auto draw = Upload(device, *commands, untouched);
