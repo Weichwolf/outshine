@@ -1,7 +1,7 @@
 #include "Projection.h"
 #include "Receiver.h"
 #include "Outward.h"
-#include "../receiver_coverage/Coverage.h"
+#include "receiver_coverage/Coverage.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <array>
@@ -65,7 +65,7 @@ void Coverage(Checks &checks, std::mt19937_64 &random) {
     std::vector<uint8_t> expected(size_t{side} * side);
     constexpr size_t Updates = 160;
     for (size_t step = 0; step < Updates; ++step) {
-      const auto rectangle = [&]() {
+      const auto rectangle = [&] {
         const auto x = static_cast<uint32_t>(random() % side);
         const auto y = static_cast<uint32_t>(random() % side);
         return C::Rectangle{.Left = x,
@@ -155,7 +155,7 @@ Json Frame(const Json &source) {
 
 }
 
-int main(int argc, char **argv) {
+int main(int argc, const char *const *argv) {
   if (argc != 3) { return 2; }
   std::ifstream input(argv[1]);
   const auto description = Json::parse(input, nullptr, false);

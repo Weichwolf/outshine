@@ -275,7 +275,8 @@
 - Modultests bauen nur die deklarierten Modulabhängigkeiten. Unerwartete Abhängigkeiten
   prüfe ich als Architekturfehler; gemischte Integrationsprüfungen erhalten einen eigenen Ort.
 - Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und
-  betroffene Places prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
+  betroffene Places prüfen. Bei geänderten C++-Includes oder Modulpfaden zusätzlich
+  `python3 test/scripts/layer-contract.py` gegen die aktuelle Kompilationsdatenbank prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
   nicht je Kleincommit. Fokussiertes clang-tidy nutzt die vollständigen Flags aus der aktuellen
   Kompilationsdatenbank; handgekürzte Aufrufe sind kein gleichwertiger Nachweis.
   Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.

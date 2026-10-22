@@ -121,9 +121,14 @@ def main():
                 SOURCE / "Probe.cpp",
                 SOURCE / "CaseInput.cpp",
             ),
-            cflags=shlex.split(
-                subprocess.check_output(["pkg-config", "--cflags", "gmp"], text=True)
-            ),
+            cflags=[
+                "-I" + str(SOURCE.parent),
+                *shlex.split(
+                    subprocess.check_output(
+                        ["pkg-config", "--cflags", "gmp"], text=True
+                    )
+                ),
+            ],
             libraries=shlex.split(
                 subprocess.check_output(["pkg-config", "--libs", "gmp"], text=True)
             ),
