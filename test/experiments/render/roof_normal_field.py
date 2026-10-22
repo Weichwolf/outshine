@@ -5,11 +5,17 @@ import numpy as np
 
 def roof_uv(mesh, field, basis, centre):
     """Map only generated roof corners; original fallback surfaces stay untouched."""
-    result = np.full((*mesh["indices"].shape, 2), -1, np.float32)
     keys = {tuple(key): i for i, key in enumerate(field["keys"])}
     binding = mesh["plan_binding"]
     roof = (mesh["native_binding"][:, 0] < 0) & (binding[:, 2] == 1)
-    for key in sorted(set(map(tuple, binding[roof, :2]))):
+    needed = set(map(tuple, binding[roof, :2]))
+    flat = set(map(tuple, field["no_field_keys"]))
+    if not needed.issubset(keys.keys() | flat):
+        raise ValueError("Ready field has no contract for a generated roof")
+    if needed.issubset(flat):
+        return None
+    result = np.full((*mesh["indices"].shape, 2), -1, np.float32)
+    for key in sorted(needed - flat):
         row = keys[key]
         selected = roof & np.all(binding[:, :2] == key, axis=1)
         parent = (

@@ -89,15 +89,18 @@ def run(args):
         output = args.output / name
         output.mkdir()
         uv = roof_uv(mesh, field, basis, centre)
-        np.savez_compressed(output / "roof-uv.npz", uv=uv)
+        if uv is not None:
+            np.savez_compressed(output / "roof-uv.npz", uv=uv)
         old = args.profiles / name / "profile" / scene["mesh"]
         scene["mesh"] = str(old.resolve())
-        scene["roof_normal_field"] = {
-            "path": str((args.output / "field.npz").resolve()),
-            "uv": str((output / "roof-uv.npz").resolve()),
-            "normal_basis": basis.tolist(),
-            "parent_origin": centre.tolist(),
-        }
+        scene["parent_frame"] = {"basis": basis.tolist(), "origin": centre.tolist()}
+        if uv is not None:
+            scene["roof_normal_field"] = {
+                "path": str((args.output / "field.npz").resolve()),
+                "uv": str((output / "roof-uv.npz").resolve()),
+                "normal_basis": basis.tolist(),
+                "parent_origin": centre.tolist(),
+            }
         scene["scope"] += (
             " Source-owned nearest RGB8 normal-field control. Geometry, original UV/metres/categories and alpha coverage unchanged; normal filtering/NDF and native procedural materials unqualified."
         )
@@ -105,8 +108,10 @@ def run(args):
         rows.append(
             {
                 "pose": name,
-                "loop_uv_bytes": uv.nbytes,
-                "generated_roof_triangles": int(np.all(uv >= 0, axis=(1, 2)).sum()),
+                "loop_uv_bytes": uv.nbytes if uv is not None else 0,
+                "generated_roof_triangles": int(np.all(uv >= 0, axis=(1, 2)).sum())
+                if uv is not None
+                else 0,
                 "geometry_sha256": hashlib.sha256(old.read_bytes()).hexdigest(),
             }
         )
@@ -122,7 +127,16 @@ def run(args):
         "field_bake_seconds": bake_s,
         "tile_resolution": [16, 16],
         "field_arrays": {key: array.nbytes for key, array in field.items()},
-        "tiles": len(parts),
+        "tiles": len(field["keys"]),
+        "flat_parts_without_field": len(field["no_field_keys"]),
+        "sample_points": len(field["keys"]) * 16 * 16,
+        "domain_distance_evaluations": sum(
+            len([p for p, _ in part.patches if p.area > 0])
+            for part in parts
+            if (part.source, part.part) not in set(map(tuple, field["no_field_keys"]))
+        )
+        * 16
+        * 16,
         "scenes": rows,
         "elevated_control": elevated,
         "scope": "Canonical parent-axis RGB8 normal tiles from original plans, camera/light independent. Per-view adapters reuse identical field and unchanged saved geometry. Added draw UVs and textures counted separately; neither geometric/radiance admission nor native timing/format.",

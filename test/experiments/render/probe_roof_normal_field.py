@@ -31,6 +31,13 @@ def compare(name, args, field, old_report):
     if not scene_path.exists():
         scene_path = args.field / name / "field/scene.json"
     scene = json.loads(scene_path.read_text())
+    if "roof_normal_field" not in scene:
+        return {
+            "pose": name,
+            "normal_overrides": 0,
+            "no_field_required": True,
+            "scope": "Flat original roof normals already match the profile; no atlas/UV/shader field is referenced or loaded by the scene.",
+        }
     basis = np.array(scene["roof_normal_field"]["normal_basis"])
     with np.load(scene["roof_normal_field"]["uv"], allow_pickle=False) as archive:
         uv = archive["uv"]

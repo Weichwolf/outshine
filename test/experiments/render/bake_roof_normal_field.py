@@ -37,6 +37,14 @@ def bake(parts, size=16):
     keys = [(part.source, part.part) for part in parts]
     if len(set(keys)) != len(keys):
         raise ValueError("Duplicate original source/part field identity")
+    flat = [
+        part
+        for part in parts
+        if all(np.all(plane[:2] == 0) for _, plane in part.patches)
+    ]
+    no_field = {(part.source, part.part) for part in flat}
+    parts = [part for part in parts if (part.source, part.part) not in no_field]
+    keys = [(part.source, part.part) for part in parts]
     grid = math.ceil(math.sqrt(len(parts)))
     stride = size + 2
     pixels = np.zeros((grid * stride, grid * stride, 4), np.uint8)
@@ -52,10 +60,11 @@ def bake(parts, size=16):
         frames.append([part.surface[k] for k in ["origin", "east", "north", "up"]])
     return {
         "pixels": pixels,
-        "keys": np.asarray(keys, np.int32),
-        "xy_bounds": np.array(bounds),
-        "frames": np.array(frames),
-        "rects": np.array(rects, np.int32),
+        "keys": np.asarray(keys, np.int32).reshape(-1, 2),
+        "xy_bounds": np.array(bounds).reshape(-1, 2, 2),
+        "frames": np.array(frames).reshape(-1, 4, 3),
+        "rects": np.array(rects, np.int32).reshape(-1, 3),
+        "no_field_keys": np.array(sorted(no_field), np.int32).reshape(-1, 2),
         "roof_codes": np.array(
             [
                 -(1 + (2 if p.shape["roof_kind"] == 0 else 1) + 16 * p.shape["ident"])

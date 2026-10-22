@@ -47,7 +47,7 @@ class RoofNormalField(unittest.TestCase):
         roof = mesh["plan_binding"][:, 2] == 1
         np.testing.assert_array_equal(np.all(uv >= 0, axis=(1, 2)), roof)
         mesh["native_binding"][:] = 0
-        self.assertTrue(np.all(roof_uv(mesh, field, np.eye(3), np.zeros(3)) == -1))
+        self.assertIsNone(roof_uv(mesh, field, np.eye(3), np.zeros(3)))
         _, valid = sample_uv(field, np.array([[-1, -1], [2, 2]]), np.eye(3))
         self.assertFalse(valid.any())
 
@@ -63,6 +63,21 @@ class RoofNormalField(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "Duplicate original"):
             bake([*a, *a])
+
+    def test_flat_roofs_need_no_atlas_or_uv_and_unknown_keys_fail(self):
+        original = source()
+        original["shapes"][0]["roof_kind"] = 0
+        parts = plan_source(17, original)
+        field = bake(parts)
+        self.assertEqual(field["pixels"].nbytes, 0)
+        np.testing.assert_array_equal(field["no_field_keys"], [[17, 0]])
+        mesh = emit(parts)
+        mesh["plan_binding"] = mesh.pop("profile_binding")
+        mesh["native_binding"] = np.full((len(mesh["indices"]), 6), -1, np.int32)
+        self.assertIsNone(roof_uv(mesh, field, np.eye(3), np.zeros(3)))
+        mesh["plan_binding"][:, 0] = 23
+        with self.assertRaisesRegex(ValueError, "no contract"):
+            roof_uv(mesh, field, np.eye(3), np.zeros(3))
 
     def test_fresh_ready_reader_uses_no_forms_or_geos(self):
         field = bake(plan_source(17, source()))
