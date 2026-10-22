@@ -1,219 +1,181 @@
 # Direct urban parent probe (#1113)
 
-Ongoing Python research under #1083 / Draft #1115. No admitted parent/world renderer,
-native/device result or certified error bound. Runtime images remain local.
+Ongoing Python research under #1083 / Draft #1115. No admitted native parent/world
+renderer, certified error bound, device result or temporal transition guarantee.
+Images and raw diagnostics remain in system temp.
 
-## Source product and controls
+## Source and transport
 
-The source compiler clips coarse regions directly against urban/open-space evidence;
-it generates zero child cells. Continuous circle/diagonal setbacks estimate allowable
-centre area. Their midpoint is a candidate, not a place fit or certified discrete
-bound. Parents retain an inferred height CDF and unlit areas for six orientations.
-The resolved generator shares vacancy, pitch, footprint and height constants;
-all seven actual owner arrays remain byte-identical (247,731 masses / 5,962 patches).
-Missing original heights remain unknown, not certified maxima or safe occluders.
+The compiler clips coarse regions directly against urban/open-space evidence,
+generating zero child cells and 6,264 array bytes. Circle/diagonal setbacks estimate
+allowable centre area; their midpoint is a candidate, not a certified discrete/GEOS
+bound. Parents store inferred height probabilities and six unlit orientation areas.
+Missing original heights are unknown, not safe maxima/occluders. Zero probability,
+XY evidence and asset existence never certify empty world or replacement readiness.
+The resolved generator shares the recipe; all seven original owner arrays remain
+byte-identical (247,731 masses / 5,962 patches). Coarse evidence lacks finer exclusions:
+avoiding 1,531,626,496 hypothetical z5-parent child candidates proves bounded generation,
+not equal-quality global coverage. Earlier source/compiler evidence is linked below.
 
-The controlled renderer uses common direct GGX/diffuse plus unoccluded ambient.
-The independent resolved DDA has inset lots, bounded heights and a shadow minimum
-separate from the camera minimum. It is solely an offline control, never a compiler
-prerequisite. No native material/GI, detailed true city, DEM or curvature equivalence.
+The controlled renderer uses direct GGX/diffuse plus unoccluded ambient, flat inferred
+boxes and one prescribed sun/point light. Resolved fields are offline controls, never
+compiler prerequisites. Categorical transport treats a cell's heights as mutually
+exclusive, skips its known hit cell in shadow queries, and conditions other cells
+on previous primary misses. All 81 independent four-cell scenes match independent
+box intersections under four light profiles. This exact reference still traverses
+recipe cells; its cost is not an acceptable worldwide renderer qualification.
 
-The raw/midpoint roof-sheet/wall-extinction models lose visibility correlations;
-the swept-phase mixture improves coverage while worsening light response. The
-categorical control treats the four heights of one cell as mutually exclusive,
-skips the known hit cell in shadow queries and conditions other cells on previous
-primary-ray misses. It still traverses recipe cells at query time and is expensive.
-Exhaustive enumeration of all 81 independent four-cell scenes matches RGB/coverage
-under vertical/day/back sun and point light against independent box intersections.
+`urban_parent_layer.py` returns urban-only premultiplied linear colour C, remaining
+transmission T and conditional parent receiver-shadow visibility S until an explicit
+opaque stop in each ray's own parameterisation. Infinity means sky; opaque stops win
+exact depth ties. Finite receiver normals and deterministic external casters are
+explicit. Compose each subsample as `C + T*(S*B_direct + B_other)` before filtering.
+B_direct already includes non-parent shadow visibility; ambient is not multiplied by S.
+Averaging C/T/S separately would lose correlations.
 
-## Local phase filtering
+Camera and caster replacement are independent complete ready cell rectangles in the
+parent's canonical local grid, including ready empty cells. A camera-replaced cell
+must not condition a remaining parent caster as a known miss; exhaustive independent
+boxes exposed and verify that correction. Covered cells skip height hypotheses;
+full-grid replacement skips the corresponding primary/caster traversal. Native
+World bounds/readiness stay with #1102; existing resolved box paths remain independent.
 
-`urban_parent_phase.py` separates macro pixel samples from subcell phase. Each macro
-ray keeps its direction but shifts its origin within one recipe pitch, so its ground
-hit samples the canonical cell phase. The existing categorical query evaluates the
-actual per-event lighting and conditional shadows. No lit colour is stored or baked;
-only the final pixel integrates the samples. Parent assets remain camera-independent.
+## Filtering and retained alternatives
 
-A uniform four-point phase grid aliases the footprint edges and overcounts area.
-Instead split each axis into the two gaps and the footprint. For fill fraction f,
-gap e=(1-f)/2 and K samples, use one midpoint per gap and K-2 Gauss-Legendre points
-inside the footprint. Their weights are e, f/2 times the Legendre weights, and e;
-the tensor product integrates vertical footprint coverage exactly. This does not
-make oblique visibility or pixel filtering exact. The CLI excludes ground pixels
-whose sampled smallest edge-Jacobian singular value is below one recipe pitch;
-that guard is not a stationarity/quality guarantee. Macro X/Y counts are independent.
+`urban_parent_phase.py` keeps macro ray directions but shifts XY origins so the
+ground-hit cell samples its canonical phase. For fill f, edge e=(1-f)/2 and K samples,
+each axis uses one midpoint per gap and K-2 Gauss-Legendre points inside the footprint,
+with weights e, f/2 times the Legendre weights, e. The tensor product integrates
+vertical footprint coverage exactly; oblique visibility/pixel filtering remain
+approximate. Uniform four-point phases alias footprint edges. Independent X/Y macro
+counts address anisotropic views. The sampled pixel-edge Jacobian must span at least
+one recipe period; this guard is not a stationarity or error guarantee.
 
-## Shared shadow transfer
+Transient shadow transfer stores visible mass M and visible/unshadowed mass J per
+height/normal (four heights: 21 categories including ground). Interpolate M and J,
+then use J/M as conditional visibility; evaluate live BRDF/energy at each event.
+Zero mass is unsupported, not empty: use exact conditional shadows. Tables depend
+on view/light direction/position, not intensity/ambient; no SH/GI or lit-colour asset.
+Bounded packets avoid full-image coefficient gathers. Optional adaptive axes refine
+support/overlap changes, with nonuniform bilinear lookup. Prior paired controls find
+1.43x faster adaptive night sampling with 58.8% fewer nodes; four other cases are
+slower, so uniform remains default. This heuristic is not a conservative error bound.
+Those controls remain available, but are not silently reused across opaque stops.
 
-`urban_parent_transfer.py` collects two unlit moments per surface category: visible
-mass M and visible/unshadowed mass J. Categories retain each recipe height and the
-five box normals; the ground has its own category. Four heights give 21 categories,
-42 F64 values per anchor. Interpolate M and J, then use J/M as conditional visibility;
-BRDF, light energy and ambient are evaluated at each actual primary event. No mean
-normal or shaded-colour field. Zero mass means unsupported category, not empty world:
-that event falls back to the exact conditional shadow query.
+## Joint filtering with an opaque baseline
 
-The table is transient and view/light-direction dependent. Changing the view or light
-direction/position requires rebuilding it. Intensity/ambient changes do not alter its
-moments. This is not general SH radiance transfer or an independently relightable
-lighting asset. Table collection streams phase packets; each macro packet prepares
-one bounded lookup buffer rather than allocating a full-image coefficient array.
+`render_composed_phase` passes every shifted ray to the scene callback. Opaque depth,
+normal, material and child/external-caster visibility are queried before composition.
+Reusing the macro ray's depth/background fails an analytic half-cell foreground edge.
 
-At matching quadrature nodes, directional-light GGX integration agrees with direct
-phase integration. Point-light position and coarse interpolation remain approximations.
-The categorical traversal is shared through `trace_transport`; the three actual
-paired direct crops remain bit-identical to the earlier eb707864e products.
+Filtering the whole scene also filters existing ready detail: the frozen whole-phase
+day control adds .02271 region RMS to the all-ready child image. Instead retain an
+independently filtered opaque baseline B containing actual ready children, ground
+and external opaque surfaces, without the parent. Integrate only the signed parent
+correction `D = C + (T*S-1)*B_direct + (T-1)*B_other`, then add its filtered value to B.
+Negative corrections encode extinction/shadow and must not be clamped. With full
+camera/caster replacement D=0 exactly, preserving the chosen baseline and bypassing
+all phase queries. The baseline contains no unready children. Complete resolved
+fields occur only in the offline oracle; the candidate queries the selected ready subset.
 
-The prior shared-shadow control (19156f3eb) measured 2.47–3.23× Python speedups over
-direct phase queries in three same-process pairs, with bit-identical primary coverage.
-Its coarse night table lost the narrow brightness peak; the coarse low-view table
-missed all mass anchors and triggered 1,046,182 fallbacks. Full earlier evidence is
-linked from the current receipt. Table coefficients remain view/light conditioned,
-not independently relightable assets or safe-occlusion certificates.
+This applies the baseline-plus-difference identity in Mueller et al. 2020, page 1
+Equation 1 / Figure 1, visually inspected. No neural network, learned sampler, path
+truncation or unbiasedness claim is adopted. Stationary phase quadrature and finite
+baseline integration remain approximations; no cached shaded-colour asset is added.
 
-## Adaptive anchor placement
+## Current evidence
 
-`urban_parent_adaptive.py` samples potential support at the ground and recipe height
-planes. It refines changes in that mask and changes in projected view/light separation
-where their footprints overlap. The angular rule resolves half-footprint changes
-across a base step. This follows projected-footprint/overlap geometry, not an intensity
-or colour fit, and is a heuristic rather than a conservative visibility/error bound.
+Code `4bb7df3c2`, frozen image producer `35dea38c2` incorporates native-only master
+`21782ef64`; Python is unchanged by that merge. **67 focused tests pass**: independent
+boxes, analytic foreground edge, signed shadow correction, baseline preservation,
+packet/old-phase equivalence, invalid contracts and prior transport/source checks.
+Ruff/format, functions <=120 lines, diff check and docs gate pass.
 
-Nonuniform axes reuse bilinear M/J filtering through coordinate interpolation.
-Refined pixels replace coarse nodes instead of duplicating them. If pixel-centre
-support probes miss an evidenced subpixel parent, projected centre/height anchors
-are inserted. Neither that probe nor q=0 proves empty world. Unsupported categories
-still use exact shadows; those fallbacks can erase a node-count saving.
+Five frozen runs, all terminal 0: day, backlight, night, 8-km camera displacement,
+and the whole-phase day negative control. **54 actual 1280x720 images were inspected**
+with full-image/crop sheets; a saved 32x32 night reference was also opened. The unchanged
+parent/owner inputs, true 240-km camera-target distance and fixed 66x31 diagnostic
+region are shared. This is not a complete world/Places/device gate.
 
-Frozen b4cdc97a7 adds five same-process comparisons / ten actual 1280×720 images,
-all terminal 0 and inspected. Primary coverage is bit-identical across each pair;
-all five uniform-control RGB crops are bit-identical to their earlier 19156f3eb
-products. Adaptive totals include planning, table construction and consumption;
-uniform totals include construction and consumption. Both run sequentially at
-normal priority under development load, adaptive first, on the same prepared rays.
+Each pixel uses 2x2 macro rays and 6x6 phase nodes (144 expensive parent queries),
+versus 16x16 jittered rays in the dense control (256). The opaque baseline separately
+uses those 16x16 rays and is fully counted. Its shared sample set makes all-ready
+control equality a preservation check, not exact physical/independent-reference accuracy.
+The 120-m foreground plane also casts shadows, with its edge displaced inside a pixel.
 
-| Case | Uniform nodes | Adaptive nodes | RGB RMSE uniform→adaptive | Total seconds uniform→adaptive |
-| --- | ---: | ---: | --- | --- |
-| Day | 102 | 276 | .01367→.01265 | 5.15→5.60 |
-| Night | 1924 | 792 | .07681→.07547 | 14.74→10.31 |
-| Low | 136 | 105 | .0061769→.0061774 | 5.59→6.20 |
-| Back | 102 | 276 | .01158→.01113 | 4.93→5.25 |
-| Movement | 102 | 325 | .01427→.01408 | 2.38→3.23 |
+| Light/view | Pending RMS | Half-ready RMS | Full-ready added error |
+| --- | ---: | ---: | ---: |
+| Day | .01236 | .00950 | 0 |
+| Backlight | .01035 | .00693 | 0 |
+| Night | .07223 | .04194 | 0 |
+| Movement | .01281 | .00960 | 0 |
 
-Night uses 58.8% fewer moment-table nodes and 646,464→266,112 B of moment arrays,
-plus 496 B of axis arrays; measured total time is 1.43× faster with slightly lower
-RGB error. The other four cases are slower. Uniform remains the default; adaptive
-sampling is an explicit experimental option, not a universal winner or a device
-result. Day/night/low planning examines 7,920/9,620/2,640 ray-plane pairs. Low view
-still triggers 5,601 unsupported-category fallbacks; fewer nodes alone are not enough.
+Day same-process totals include baseline and all child/parent queries. Filtered then
+dense, normal priority, sequential shared-host runs with unrelated development load:
 
-58 focused tests pass: projection equivalence, affine nonuniform interpolation,
-subpixel support, energy independence, no duplicate dense nodes and prior transport/
-geometry contracts. Ruff/format/function-size checks pass. Conditional day 16→32
-difference remains .00561; reference uncertainty and regularised local structure
-remain material. No native material/GI, geographic/transition/world/device/p99 admission.
-The recorded sizes exclude full scratch, copies, driver and process/device peaks.
+| State | Filtered seconds | Dense seconds | Filtered / dense RMS |
+| --- | ---: | ---: | --- |
+| Pending | 17.78 | 31.86 | .01236 / .01182 |
+| Half-ready | 17.93 | 29.56 | .00950 / .00907 |
+| Foreground | 17.24 | 27.81 | .00950 / .00907 |
 
-The source statistics have no admitted native Draw/Depth/Caster consumer; geographical
-XY coverage is not a World render bound. Readiness clarification is in #1102/6338364477.
-Native placement, DEM/curvature bounds and caster-interest domains remain #1102 responsibilities.
+These are 1.61-1.79x Python speedups with slightly higher error, not equal-output,
+universal or native/device wins. Pending primary visits fall 1,787,938→1,022,374;
+shadow visits 8,552,605→4,299,419; history comparisons 40,153,133→20,493,765. Child
+primary/shadow work and baseline work are recorded separately. The faster whole-phase
+negative control loses the required ready-detail preservation and has .01820 half-ready
+RMS versus .00950 for signed correction. No final composite has negative channels in
+these runs; the signed correction itself is deliberately allowed to be negative.
 
-## Opaque stops and ready child composition
+Night is not converged: independent seed 1114 at 32x32 differs from seed 1113 at
+16x16 by .05344 RMS. Against that saved denser reference, pending/half-ready/baseline
+errors are .06012/.05742/.05344. Small night rankings remain unproved. Hard readiness
+changes can still change brightness/structure; no temporal continuity claim.
 
-`urban_parent_layer.py` consumes an explicit opaque stop in each camera ray's own
-parameterisation. Infinity means no opaque receiver. The result contains urban-only
-premultiplied linear colour C, remaining transmission T and conditional parent
-shadow visibility S at the receiver. Compose each subsample as
-`C + T * (S * background_direct + background_other)`, then filter the resulting
-colour. The direct background term already includes non-parent caster visibility;
-ambient is not multiplied by S. Averaging C/T/S separately would lose correlations.
-Additional deterministic caster visibility is applied to the parent surface terms.
-Opaque stops win exact depth ties. Finite receivers provide their actual normals;
-this first reference still requires downward camera rays from above the flat field.
+Named phase-packet arrays peak at 442,368 B for rays, 368,640 B for returned C/T/S,
+and 884,736 B for background ray arrays. The separate dense baseline currently still
+allocates 20,951,040 B of C/T/S and 50,282,496 B of named background arrays. These are
+partial logical sizes, not total peaks/copies/allocator/driver/device accounting or
+an application-memory saving. IO/source preparation/output are outside render timers.
 
-Camera and caster replacement use independent complete ready cell rectangles in
-the parent's canonical local grid. The caller asserts readiness of the whole domain,
-including its empty cells. No readiness is inferred from parent statistics, a zero
-probability or an asset's existence. A camera-replaced cell must not condition the
-remaining statistical caster as a known miss: independent exhaustive boxes exposed
-and verify the correction of that error. Covered primary cells skip height tests;
-whole-grid camera/caster replacement skips the corresponding traversal entirely.
+Remaining qualification: arbitrary ground/horizon views (currently downward rays
+from above), terrain/curvature, field-size-independent cost, temporal transitions,
+native consumer/readiness and complete World/device/p99 admission. No existing native
+child may be removed on the strength of these Python assets or pictures.
 
-Frozen `6f892d438` adds three day/back/night runs, five replacement states plus a
-resolved control each: 18 actual 1280×720 images, all terminal 0 and inspected with
-enlarged crops. The unchanged stored parent and original resolved owner field are
-reused; no source parsing or child generation occurs. Camera distance is exactly
-240 km; 32,736 rays cover the fixed 66×31-pixel diagnostic region at four samples
-per axis. Pending, half-camera-only, half-camera-and-caster, all-ready and an
-additional 120-m opaque foreground plane exercise the composition. The plane also
-casts shadows; its image differs in geometry and is not a same-quality error test.
+## Reproduction and previous evidence
 
-All-ready colour equals the complete child control exactly in all three runs, with
-zero parent primary/shadow visits. Half-ready reduces height hypotheses from
-450,400 to 225,364; primary DDA visits only fall 112,600→106,673 because rays still
-cross the grid. Day shadow visits fall 557,751→304,657. The foreground clips primary
-visits to 56,341. These are work counts, not a native/device performance claim.
-For this ray packet, returned C/T/S arrays occupy 1,309,440 B; named background
-ray arrays are recorded separately. Full allocation/copy/peak and device costs
-remain unmeasured. Complete timings include child queries, unlike the layer timer;
-neither includes disk loading, source preparation, output or native rendering.
-
-This is a composition reference, not an admitted filtered LOD transition. The raw
-four-by-four regular samples visibly alias the resolved control, especially at night;
-pending/half-ready linear region RMSEs are day .07878/.05686, back .12050/.08381,
-night .83200/.54038. These do not replace the earlier higher-sample filtered controls.
-Hard domain replacement changes brightness/structure and has no temporal continuity
-guarantee. Next: joint pixel-footprint filtering at depth and ready-domain boundaries;
-phase-shifted rays must query matching opaque stops and readiness, not reuse unrelated
-depths. Terrain, curvature, arbitrary ground views, native readiness and world/p99
-admission remain open. All 64 focused tests pass, including independent enumeration
-of 81 box scenes for four stop/replacement configurations, old ground composition,
-foreground receivers, sky, exact depth ties and external caster validation.
-
-## Generation growth and reproduction
-
-Direct compilation of the versioned z5/28/12 parent needs one source record,
-256 regions, zero children and 6,264 array bytes instead of 1,531,626,496 hypothetical
-32-m rectangular child candidates. One cold source compilation took 0.101 s with
-39,878,656 B raw process RSS. Coarser evidence lacks finer owner exclusions: bounded
-generation only, not equal-quality/global coverage or a device performance result.
-At the owner, raw roof area overcounts by 14.7%; continuous setback variants give
-+2.9% / -1.7%. They are not certified lattice/hash/GEOS bounds.
-
-With the existing `.venv`, fresh system-temp outputs and
+Use the existing `.venv`, fresh system-temp outputs and
 `PYTHONPATH=lib/src:test/experiments/render:test/experiments/buildings`:
 
 ```sh
 python -B -W error test/experiments/buildings/compare_urban_parents.py \
   --input test/experiments/buildings/fixtures/coarse_city_source.json.gz \
-  --output /tmp/outshine-urban-parent-control --samples 16 --jitter-seed 1113 \
-  --lighting night
-python -B -W error test/experiments/buildings/compare_urban_phase.py \
-  --reference /tmp/outshine-urban-parent-control \
-  --output /tmp/outshine-urban-parent-filtered --macro 2 --phase 6 \
-  --shadow-stride 4 --adaptive-shadow --paired-uniform 1
+  --output /tmp/outshine-urban-control --samples 16 --jitter-seed 1113
+python -B -W error test/experiments/buildings/compare_urban_layer_filter.py \
+  --parent /tmp/outshine-urban-control/parent.npz \
+  --resolved /tmp/outshine-urban-control/reference.npz \
+  --output /tmp/outshine-urban-layers --paired-dense
 ```
 
-The parent is saved before the offline control is built. `--parent` consumes a saved
-parent; `--resolved` reuses an existing field
-solely for the control. `--motion`, `--altitude`, `--lighting` vary view/light without
-rebuilding the asset. `--macro-x 1 --macro-y 8` requests anisotropic pixel sampling.
-The phase comparator reads the saved control images/parent, not resolved child data.
-The composition comparator uses the existing resolved field only for its offline
-ready-child control (explicit empty cells included):
+`--lighting night --reference-check-samples 32` checks the brighter point-light case;
+`--motion 8000` changes the view; `--whole-phase` retains the negative control.
+Parent compilation precedes the offline reference bake. A stored `--parent`/`--resolved`
+reuses finished data without source parsing or child generation.
 
-```sh
-python -B -W error test/experiments/buildings/compare_urban_layers.py \
-  --parent /tmp/outshine-urban-parent-control/parent.npz \
-  --resolved /tmp/outshine-urban-parent-control/reference.npz \
-  --output /tmp/outshine-urban-parent-layers --lighting night
-```
+Current raw evidence: `/tmp/outshine-research-urban-layer-filter-86969ff1e/receipt.json`.
+Earlier source/compiler/conditional controls: `urban-parent-1edb4404d/receipt.json`;
+phase: `urban-phase-6f84f25f3/receipt.json`; transfer: `urban-transfer-c2bc91d25/receipt.json`;
+adaptive: `urban-adaptive-cf6a67e95/receipt.json`; opaque composition:
+`urban-layer-897451cc6/receipt.json`, each below `/tmp/outshine-research-`.
+All original fields, controls and needed negative cases remain preserved.
 
 ## Primary sources read and visually inspected
 
-- [Feibush/Levoy/Cook 1980](../../../doc/references/materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf), section 2.4 / Figure 2: filter polygon edges together with texture footprint.
-- [Enderton et al. 2011](../../../doc/references/vegetation/tvcg/2011-stochastic-transparency.pdf), PDF page 2 / section 3.1 / equations 1–2: depth-ordered premultiplied contributions and remaining transmission. No stochastic GPU/OIT implementation or independent-layer assumption is adopted; categorical shadow conditioning remains explicit.
-- [Bruneton/Neyret 2012](../../../doc/references/vegetation/eg/2012-real-time-forests.pdf), section 3 / Figure 2 / equations 1–6: correlated visible/lit proportions and their geometric parameters. Our phase quadrature does not adopt the Poisson ellipsoid model or precomputed forest implementation.
-- [Han et al. 2007](../../../doc/references/vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf), Figures 1–2 / section 3: normal distributions for BRDF filtering; explicitly excludes occlusion, geometry simplification and cast shadows.
-- [Horizon cloudscapes 2015](../../../doc/references/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf), PDF page 37 / slide 35: separate coverage and height density; no cloud implementation or cloud/building equivalence adopted.
-- [Sloan/Kautz/Snyder 2002](../../../doc/references/lighting/siggraph/2002-precomputed-radiance-transfer.pdf), introduction / Figure 2, PDF page 2: separate transport coefficients from current lighting/BRDF evaluation. This probe uses neither the paper's SH representation nor its GI/low-frequency-light guarantees.
+- [Feibush/Levoy/Cook 1980](../../../doc/references/materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf), section 2.4 / Figure 2: joint filtering of polygon edges and texture footprint.
+- [Enderton et al. 2011](../../../doc/references/vegetation/tvcg/2011-stochastic-transparency.pdf), PDF page 2 / section 3.1 / equations 1-2: depth-ordered premultiplied contributions and remaining transmission; no stochastic GPU/OIT implementation adopted.
+- [Bruneton/Neyret 2012](../../../doc/references/vegetation/eg/2012-real-time-forests.pdf), section 3 / Figure 2 / equations 1-6: correlated visible/lit proportions; no Poisson ellipsoid forest implementation adopted.
+- [Han et al. 2007](../../../doc/references/vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf), Figures 1-2 / section 3: BRDF normal filtering explicitly excludes occlusion, geometry simplification and cast shadows.
+- [Horizon cloudscapes 2015](../../../doc/references/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf), PDF page 37 / slide 35: separate coverage and height density; no cloud/building equivalence claimed.
+- [Sloan/Kautz/Snyder 2002](../../../doc/references/lighting/siggraph/2002-precomputed-radiance-transfer.pdf), introduction / Figure 2, PDF page 2: separate transport from current light/BRDF; no SH/GI guarantees adopted.
+- [Mueller et al. 2020](https://tom94.net/data/publications/mueller20neural/mueller20neural.pdf), PDF page 1 / Figure 1 / Equation 1: baseline-plus-difference identity only; no neural implementation or unbiasedness guarantee adopted.
