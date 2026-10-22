@@ -56,4 +56,11 @@ def bake(parts, size=16):
         "xy_bounds": np.array(bounds),
         "frames": np.array(frames),
         "rects": np.array(rects, np.int32),
+        "roof_codes": np.array(
+            [
+                -(1 + (2 if p.shape["roof_kind"] == 0 else 1) + 16 * p.shape["ident"])
+                for p in parts
+            ],
+            np.int32,
+        ),
     }

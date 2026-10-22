@@ -27,9 +27,12 @@ def angles(first, second):
 def compare(name, args, field, old_report):
     original, view = read_scene(args.profiles / name / "original/scene.json")
     candidate, _ = read_scene(args.profiles / name / "profile/scene.json")
-    scene = json.loads((args.field / name / "scene.json").read_text())
+    scene_path = args.field / name / "scene.json"
+    if not scene_path.exists():
+        scene_path = args.field / name / "field/scene.json"
+    scene = json.loads(scene_path.read_text())
     basis = np.array(scene["roof_normal_field"]["normal_basis"])
-    with np.load(args.field / name / "roof-uv.npz", allow_pickle=False) as archive:
+    with np.load(scene["roof_normal_field"]["uv"], allow_pickle=False) as archive:
         uv = archive["uv"]
     with np.load(args.depths / (name + ".npz"), allow_pickle=False) as archive:
         data = {key: archive[key] for key in archive.files}
@@ -53,15 +56,21 @@ def compare(name, args, field, old_report):
     both = covered & (data["original_face"] >= 0)
     same = both & (data["original_source"] == data["candidate_source"])
     both &= candidate["native_binding"][np.maximum(faces, 0), 0] < 0
-    ids = np.flatnonzero(both)
-    old_binding = original["plan_binding"][data["original_face"][both]]
-    new_binding = candidate["plan_binding"][faces[both]]
-    roof = np.zeros(len(faces), bool)
-    roof[ids] = (
-        np.all(old_binding[:, :2] == new_binding[:, :2], axis=1)
-        & (old_binding[:, 2] == 1)
-        & (new_binding[:, 2] == 1)
-    )
+    codes = data["original_code"]
+    is_roof = (codes < 0) & np.isin((-codes - 1) % 16, [1, 2])
+    roof = same & both & is_roof & (codes == data["candidate_code"])
+    roof &= candidate["plan_binding"][np.maximum(faces, 0), 2] == 1
+    # Native part/face bindings are unavailable in this capture. A unique
+    # source/material-code association is required; ambiguous parts stay unknown.
+    for index in np.flatnonzero(roof):
+        source = data["candidate_source"][index]
+        if (
+            np.count_nonzero(
+                (field["keys"][:, 0] == source) & (field["roof_codes"] == codes[index])
+            )
+            != 1
+        ):
+            roof[index] = False
     # Infer the common display origin from the verified source frame and one
     # unmodified metadata association, supplied explicitly by the frozen adapter.
     centre = np.array(scene["roof_normal_field"]["parent_origin"])
@@ -80,12 +89,15 @@ def compare(name, args, field, old_report):
     return {
         "pose": name,
         "normal_overrides": len(indices),
+        "original_roof_to_profile_nonroof_samples": int(
+            (same & is_roof & (data["candidate_code"] >= 0)).sum()
+        ),
         "all_same_source_flat": angles(reference[same], data["candidate_normal"][same]),
         "all_same_source_field": angles(reference[same], actual[same]),
-        "same_source_part_roof_flat": angles(
+        "same_source_unique_roof_code_flat": angles(
             reference[roof], data["candidate_normal"][roof]
         ),
-        "same_source_part_roof_field": angles(reference[roof], actual[roof]),
+        "same_source_unique_roof_code_field": angles(reference[roof], actual[roof]),
         "same_roof_field_at_original_hit": angles(
             reference[roof][eligible], at_original[eligible]
         ),
@@ -99,12 +111,17 @@ if __name__ == "__main__":
     parser.add_argument("--field", type=Path, required=True)
     parser.add_argument("--depths", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--poses",
+        nargs="+",
+        default=["static-020", "moving-020", "moving-021", "near-control"],
+    )
     args = parser.parse_args()
     old = {r["view"]: r for r in json.loads((args.depths / "report.json").read_text())}
     with np.load(args.field / "field.npz", allow_pickle=False) as archive:
         field = {k: archive[k] for k in archive.files}
     result = []
-    for name in ["static-020", "moving-020", "moving-021", "near-control"]:
+    for name in args.poses:
         row = compare(name, args, field, old[name])
         result.append(row)
         print(json.dumps(row), flush=True)
