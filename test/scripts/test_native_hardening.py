@@ -1,5 +1,6 @@
 """Exercise native hardening with the selected compiler and real executables."""
 
+import json
 import os
 import platform
 import resource
@@ -64,6 +65,41 @@ class NativeHardening(unittest.TestCase):
             (signal.SIGABRT, signal.SIGILL, signal.SIGTRAP),
             "hardening did not terminate through a guard trap",
         )
+
+    def test_docs_resolve_shared_compile_and_link_hardening(self):
+        compiler = self.root / "compiler"
+        captured = self.root / "compiler.jsonl"
+        compiler.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, subprocess, sys\n"
+            f"with open({str(captured)!r}, 'a') as stream:\n"
+            "    stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+            f"sys.exit(subprocess.call({self.compiler!r} + sys.argv[1:]))\n"
+        )
+        compiler.chmod(0o755)
+        result = subprocess.run(
+            ["sh", "test/lint-docs.sh"],
+            cwd=ROOT,
+            env=dict(os.environ, CXX=str(compiler)),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        commands = [json.loads(line) for line in captured.read_text().splitlines()]
+        invocations = [
+            a
+            for a in commands
+            if any(v.endswith("TheMapCitesLinesThatSayWhatItClaims.cpp") for v in a)
+        ]
+        self.assertEqual(len(invocations), 1)
+        for flag in (
+            self.compile_flags
+            + self.link_flags
+            + [STANDARD, "-O2", "-ffp-contract=off"]
+        ):
+            self.assertIn(flag, invocations[0])
+        self.assertFalse(any("$NATIVE_" in a for a in invocations[0]))
 
     def test_library_selection_and_runtime_bounds(self):
         binary = self.compile("""
