@@ -183,6 +183,22 @@ def traced_memory(enabled):
     }
 
 
+def profile_work(plans, generated):
+    return {
+        "planned_parts": sum(len(parts) for parts in plans.values()),
+        "planned_domains": sum(
+            len(p.patches) for parts in plans.values() for p in parts
+        ),
+        "generated_arrays": sum(len(mesh) for mesh in generated.values()),
+        "generated_array_bytes": sum(
+            a.nbytes for mesh in generated.values() for a in mesh.values()
+        ),
+        "generated_corner_record_bytes": sum(
+            len(mesh["indices"]) * 3 * 48 for mesh in generated.values()
+        ),
+    }
+
+
 def run(args):
     output = args.output.resolve()
     root = Path(__file__).resolve().parents[3]
@@ -273,17 +289,7 @@ def run(args):
         "plan_seconds": plan_seconds,
         "query_seconds": query_seconds,
         "query_source_visits": len(plans) * len(named),
-        "planned_parts": sum(len(parts) for parts in plans.values()),
-        "planned_domains": sum(
-            len(p.patches) for parts in plans.values() for p in parts
-        ),
-        "generated_arrays": sum(len(mesh) for mesh in generated.values()),
-        "generated_array_bytes": sum(
-            a.nbytes for mesh in generated.values() for a in mesh.values()
-        ),
-        "generated_corner_record_bytes": sum(
-            len(mesh["indices"]) * 3 * 48 for mesh in generated.values()
-        ),
+        **profile_work(plans, generated),
         "comparison_seconds_before_report": time.perf_counter() - started,
         "traced_python_memory": traced_memory(args.trace_memory),
         "generated_sources": len(generated),
