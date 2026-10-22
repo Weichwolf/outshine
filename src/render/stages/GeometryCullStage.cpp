@@ -14,7 +14,6 @@
 namespace outshine::Render {
 namespace {
 constexpr size_t kPlaneFloats = 24;
-std::atomic<float> gErrorPerMetre{0};
 std::atomic<uint32_t> gJobsSwept{0};
 
 void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out, const Vec2f &guard = {}) {
@@ -85,10 +84,6 @@ uint32_t GeometryCullStage::JobsSweptTaken() {
   return gJobsSwept.load(std::memory_order_relaxed);
 }
 
-float GeometryCullStage::ErrorPerMetreTaken() {
-  return gErrorPerMetre.load(std::memory_order_relaxed);
-}
-
 void GeometryCullStage::Standing(const FrameContext &ctx, const SelectionProjection &projection) {
   auto &into = View_;
   into = CullView{};
@@ -112,7 +107,6 @@ void GeometryCullStage::Standing(const FrameContext &ctx, const SelectionProject
   into.ErrorPerMetre = halfTangent > static_cast<float>(kLeastRunM) && HeightPx_ > 0.0f
                            ? HeightPx_ * 0.5f / halfTangent
                            : 0;
-  gErrorPerMetre.store(into.ErrorPerMetre, std::memory_order_relaxed);
   if (projection.GuardNdc != Vec2f{}) {
     PlanesOf(projection.Clip, into.Planes, projection.GuardNdc);
   }

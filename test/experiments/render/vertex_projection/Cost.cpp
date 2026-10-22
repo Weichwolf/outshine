@@ -181,7 +181,8 @@ Json Snapshot(N::Device &device, N::Texture &target, const std::filesystem::path
 
 int main(int argc, char **argv) {
   if (argc != 4) { return 2; }
-  auto device = Take(N::CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device =
+      Take(N::CreateDevice({.Validation = true, .GpuTiming = N::GpuTimingMode::Submission}));
   auto meshes = Meshes(*device, argv[2]);
   auto target = Take(
       device->CreateTexture({.Width = TargetWidth,

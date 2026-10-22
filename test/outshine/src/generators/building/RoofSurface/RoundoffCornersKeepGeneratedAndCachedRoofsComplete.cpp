@@ -102,7 +102,7 @@ int main() {
   HipRoofCodec::Product restored;
   CHECK(HipRoofCodec::Fields(reader, restored),
         "old cached facets load without rebuilding skeleton");
-  CHECK(reader.Remaining == 0 && restored && *restored, "complete cached payload is consumed");
+  CHECK(reader.Bytes.empty() && restored && *restored, "complete cached payload is consumed");
   if (restored && *restored) {
     CHECK(HipRoofCodec::BoundTo(restored, shape.Ring, {}),
           "cache retains original source ownership");

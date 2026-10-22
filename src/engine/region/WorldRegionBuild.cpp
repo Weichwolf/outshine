@@ -1320,10 +1320,6 @@ size_t Engine::State::StructureCandidatesMost() const noexcept {
              : kRefinedStructureCandidates;
 }
 
-::outshine::Generators::Osm::BuildingField *Engine::State::CandidateFootprints() const noexcept {
-  return World.GroundBuild ? &World.GroundBuild->Footprints() : nullptr;
-}
-
 bool Engine::State::StagesGroundBakes(size_t landsMost) {
   if (!World.GroundBuild ||
       (World.GroundBuild->CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsCorridors &&

@@ -4,7 +4,7 @@ import copy
 import math
 import unittest
 
-from mvt_t_connection_inputs import inputs
+from mvt_t_connection_inputs import inputs, source_rows
 from mvt_t_connections import plan_connections
 from shapely import LineString, Point
 
@@ -43,6 +43,52 @@ def stable(plan):
 class OriginalCase(unittest.TestCase):
     def setUp(self):
         self.case, self.rows = inputs()
+
+    def test_supplied_access_and_tunnel_tags_reach_the_actual_admission(self):
+        baseline = plan_connections(self.rows)
+        for owner in range(len(self.case["ways"])):
+            for tags in (
+                {"access": "private"},
+                {"access": "no"},
+                {"foot": "no"},
+                {"brunnel": "tunnel"},
+            ):
+                with self.subTest(owner=owner, tags=tags):
+                    case = copy.deepcopy(self.case)
+                    case["ways"][owner]["tags"].update(tags)
+                    before = copy.deepcopy(case)
+                    rows = source_rows(case["ways"])
+                    key = rows[owner]["source_id"]
+                    result = plan_connections(rows)
+                    self.assertEqual(
+                        result["connections"],
+                        [
+                            c
+                            for c in baseline["connections"]
+                            if key not in (c["source_id"], c["target_source_id"])
+                        ],
+                    )
+                    self.assertEqual(case, before)
+                    self.assertEqual(
+                        rows[owner]["supplied_tags"], case["ways"][owner]["tags"]
+                    )
+                    self.assertEqual(
+                        set(result["axes_xy_m"]),
+                        {r["source_id"] for r in self.rows},
+                    )
+
+    def test_observed_denials_are_not_reported_as_recipe_assumptions(self):
+        case = copy.deepcopy(self.case)
+        case["ways"][0]["tags"].update(access="private", brunnel="tunnel")
+        row = source_rows(case["ways"])[0]
+        self.assertFalse(row["foot"])
+        self.assertTrue(row["tunnel"])
+        self.assertEqual(row["recipe_assumptions"], ["connectable_stair_endpoints"])
+        case["ways"][0]["tags"].update(access="yes", brunnel="none")
+        row = source_rows(case["ways"])[0]
+        self.assertTrue(row["foot"])
+        self.assertFalse(row["tunnel"])
+        self.assertEqual(row["recipe_assumptions"], ["connectable_stair_endpoints"])
 
     def test_original_knots_and_source_metadata_retained_without_mutation(self):
         original = copy.deepcopy(self.rows)

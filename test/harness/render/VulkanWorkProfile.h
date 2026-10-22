@@ -112,7 +112,8 @@ inline void Register(VkPipeline pipeline, VkDevice device, std::string_view name
 
 inline Trace &Start(const Context &context, VkCommandBuffer commands) {
   Require(OnOwner(context), "wrong render thread");
-  Require(context.GpuTiming, "work probe requires client --measures");
+  Require(context.GpuTiming != outshine::Render::Native::GpuTimingMode::None,
+          "work probe requires client --measures");
   if (const auto found = Traces.find(commands); found != Traces.end()) { return *found->second; }
   Require(Traces.size() < 16, "live command limit exceeded");
   auto trace = std::make_unique<Trace>();

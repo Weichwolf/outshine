@@ -47,7 +47,8 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
   auto device =
-      Native::CreateDevice({.Validation = std::string_view(argv[8]) == "1", .GpuTiming = true});
+      Native::CreateDevice({.Validation = std::string_view(argv[8]) == "1",
+                            .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission});
   if (!device) {
     std::println(stderr, "{}", device.error().Message);
     return EXIT_FAILURE;

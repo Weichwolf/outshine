@@ -51,6 +51,7 @@ struct SubjectTexture {
   const uint8_t *Rgba = nullptr;
   uint32_t Width = 0;
   uint32_t Height = 0;
+  ImagePixelFormat Format = ImagePixelFormat::Rgba8Unorm;
   ImageMipViews LowerMips{};
   SubjectWrap WrapU = SubjectWrap::Repeat;
   SubjectWrap WrapV = SubjectWrap::Repeat;

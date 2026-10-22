@@ -1,6 +1,6 @@
 #include "OriginalBuildingInput.h"
 #include "StructureBake.h"
-#include "StructureArtifact.h"
+#include "PreparedStructureCodec.h"
 #include "BuildingMesh.h"
 #include "BuildingScratch.h"
 #include "BuildingShape.h"
@@ -11,10 +11,26 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <optional>
 #include <span>
-#include <string>
+#include <utility>
+#include <vector>
+
+namespace {
+std::optional<std::vector<uint8_t>> PreparedBytes(const outshine::Generators::RawTile &raw,
+                                                  const outshine::Ground::HeightField &heights) {
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  const auto prepared = PrepareStructureTile(raw, heights);
+  CHECK(prepared, "the active native source recipe prepares the input");
+  if (!prepared) { return std::nullopt; }
+  auto bytes = EncodePreparedStructureTile(*prepared);
+  CHECK(bytes, "the current asset codec accepts the complete prepared product");
+  return bytes ? std::optional(std::move(*bytes)) : std::nullopt;
+}
+}
 
 int main() {
   using namespace outshine;
@@ -64,7 +80,7 @@ int main() {
   raw.RequestedDetail = LevelOfDetail::Fine;
   raw.Structures[0].HeightM = 5;
   raw.Structures[0].MinimumHeightM = 0;
-  std::optional<std::string> previousKey;
+  std::optional<std::vector<uint8_t>> previousBytes;
   for (const auto origin : {outshine::Ground::BuildingHeightOrigin::Declared,
                             outshine::Ground::BuildingHeightOrigin::Storeys,
                             outshine::Ground::BuildingHeightOrigin::Generated}) {
@@ -78,11 +94,10 @@ int main() {
               product.OsmHeights == (measured ? 1 : 0) &&
               product.DefaultHeights == (measured ? 0 : 1),
           "resolved five-metre heights bypass tile-default inference without losing provenance");
-    const auto identity =
-        StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion());
-    CHECK(identity && identity != previousKey,
-          "height provenance participates in product identity");
-    previousKey = identity;
+    auto bytes = PreparedBytes(raw, *heights);
+    CHECK(bytes && bytes != previousBytes,
+          "the active prepared-asset codec preserves distinct height provenance");
+    previousBytes = std::move(bytes);
   }
   raw.Structures[0].HeightM = 12;
   raw.Structures[0].MinimumHeightM = 5;
@@ -92,10 +107,11 @@ int main() {
   CHECK(thin && thin->size() == 1 && std::abs(thin->front().TopM() - 5.5) < 1e-9 &&
             thin->front().FootM == 5,
         "thin raised parts are not inflated to a default storey height");
-  const auto key = StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion());
+  const auto firstBytes = PreparedBytes(raw, *heights);
   raw.Structures[0].MinimumHeightM = 6;
-  CHECK(key && key != StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion()),
-        "input identity includes the lower elevation");
+  const auto secondBytes = PreparedBytes(raw, *heights);
+  CHECK(firstBytes && secondBytes && firstBytes != secondBytes,
+        "the active prepared-asset codec preserves the lower elevation");
   auto original = outshine::Generators::Osm::XmlReader::Read(
       R"(<osm version="0.6"><node id="7" lat="47" lon="9"><tag k="building" v="yes"/></node></osm>)",
       {.DatasetId = "native", .Revision = "one"});

@@ -16,8 +16,6 @@
 
 namespace outshine::Render {
 namespace {
-constexpr size_t kRgbaChannels = 4;
-
 Native::Address AddressOf(SubjectWrap wrap) {
   switch (wrap) {
     case SubjectWrap::ClampToEdge: return Native::Address::ClampToEdge;
@@ -31,13 +29,18 @@ Native::Filter FilterOf(SubjectFilter filter) {
   return filter == SubjectFilter::Nearest ? Native::Filter::Nearest : Native::Filter::Linear;
 }
 
-std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels) {
+std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels, ImagePixelFormat format) {
+  const auto pixelBytes = ImagePixelBytes(format);
+  if (pixelBytes == 0) { return std::nullopt; }
   uint32_t width = extent.WidthPx;
   uint32_t height = extent.HeightPx;
   uint64_t total = 0;
   for (uint32_t level = 0; level < levels; ++level) {
-    total += uint64_t{width} * height * kRgbaChannels;
-    if (total > std::numeric_limits<uint32_t>::max()) { return std::nullopt; }
+    const uint64_t rowBytes = uint64_t{width} * pixelBytes;
+    if (height == 0 || rowBytes > (std::numeric_limits<uint32_t>::max() - total) / height) {
+      return std::nullopt;
+    }
+    total += rowBytes * height;
     width = std::max(1u, width / 2u);
     height = std::max(1u, height / 2u);
   }
@@ -56,7 +59,7 @@ Native::Result<GeometryResidency::BoundImage> GeometryResidency::Upload(
                                          .Message = "image upload needs a device"});
   }
   if (texture.Rgba != nullptr) { return UploadImage(texture, decode, kind, mode); }
-  if (texture.Width > 1 || texture.Height > 1) {
+  if (texture.Width > 1 || texture.Height > 1 || texture.Format != ImagePixelFormat::Rgba8Unorm) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "a sized texture has no texel data"});
   }
@@ -89,23 +92,29 @@ Native::Result<GeometryResidency::BoundImage> GeometryResidency::UploadImage(
   uint32_t levels = 1;
   for (uint32_t extent = std::max(width, height); extent > 1; extent /= 2) { ++levels; }
   if (texture.Mip == SubjectMip::None) { levels = 1; }
-  if (!MipChainBytes({.WidthPx = width, .HeightPx = height}, levels)) {
+  if (!MipChainBytes({.WidthPx = width, .HeightPx = height}, levels, texture.Format)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "texture mip chain exceeds transfer storage"});
   }
-  auto image = Device_->CreateTexture(
-      {.Width = width,
-       .Height = height,
-       .Mips = levels,
-       .Texels = decode == Transfer::Srgb ? Native::Format::Rgba8Srgb : Native::Format::Rgba8Unorm,
-       .Use = Native::TextureUse::Sampled | Native::TextureUse::CopyDestination |
-              Native::TextureUse::CopySource});
+  const bool half = texture.Format == ImagePixelFormat::Rgba16Float;
+  auto format = decode == Transfer::Srgb ? Native::Format::Rgba8Srgb : Native::Format::Rgba8Unorm;
+  if (half) { format = Native::Format::Rgba16Float; }
+  auto image = Device_->CreateTexture({.Width = width,
+                                       .Height = height,
+                                       .Mips = levels,
+                                       .Texels = format,
+                                       .Use = Native::TextureUse::Sampled |
+                                              Native::TextureUse::CopyDestination |
+                                              Native::TextureUse::CopySource});
   if (!image) { return std::unexpected(image.error()); }
-  const ImageView pixels{.WidthPx = static_cast<int>(width),
-                         .HeightPx = static_cast<int>(height),
-                         .Rgba = {texels, static_cast<size_t>(width) * height * kRgbaChannels},
-                         .LowerMips = texture.LowerMips};
-  auto interpretation = decode == Transfer::Srgb ? ImageMipKind::Colour : ImageMipKind::Linear;
+  const ImageView pixels{
+      .WidthPx = static_cast<int>(width),
+      .HeightPx = static_cast<int>(height),
+      .Format = texture.Format,
+      .Rgba = {texels, static_cast<size_t>(width) * height * ImagePixelBytes(texture.Format)},
+      .LowerMips = texture.LowerMips};
+  auto interpretation =
+      decode == Transfer::Srgb && !half ? ImageMipKind::Colour : ImageMipKind::Linear;
   if (kind == TexelKind::Direction) { interpretation = ImageMipKind::Normal; }
   std::shared_ptr<Native::Texture> shared = std::move(*image);
   const auto uploaded = UploadMipChain(shared, pixels, levels, interpretation, mode);
@@ -131,7 +140,7 @@ GeometryResidency::UploadMipChain(const std::shared_ptr<Native::Texture> &image,
                                   ImageUploadMode mode) {
   const Texels extent{.WidthPx = static_cast<uint32_t>(pixels.WidthPx),
                       .HeightPx = static_cast<uint32_t>(pixels.HeightPx)};
-  const auto chainBytes = MipChainBytes(extent, levels);
+  const auto chainBytes = MipChainBytes(extent, levels, pixels.Format);
   if (!pixels.valid() || !chainBytes || levels == 0) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "invalid image or prepared mip chain"});
@@ -146,7 +155,8 @@ GeometryResidency::UploadMipChain(const std::shared_ptr<Native::Texture> &image,
     }
     lower = std::span<const uint8_t>(*generated);
   }
-  const auto baseBytes = size_t{extent.WidthPx} * extent.HeightPx * kRgbaChannels;
+  const auto pixelBytes = ImagePixelBytes(pixels.Format);
+  const auto baseBytes = size_t{extent.WidthPx} * extent.HeightPx * pixelBytes;
   if (levels > 1 && (!lower || lower->size() != *chainBytes - baseBytes)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "mip levels do not match transfer storage"});
@@ -162,8 +172,13 @@ GeometryResidency::UploadMipChain(const std::shared_ptr<Native::Texture> &image,
   if (!mapped) { return std::unexpected(mapped.error()); }
   std::memcpy(mapped->data(), pixels.Rgba.data(), baseBytes);
   if (kind == ImageMipKind::Normal) {
-    for (size_t at = 3; at < baseBytes; at += kRgbaChannels) {
-      (*mapped)[at] = std::byte{std::numeric_limits<uint8_t>::max()};
+    constexpr uint16_t kHalfOne = 0x3c00;
+    for (size_t at = 0; at < baseBytes; at += pixelBytes) {
+      if (pixels.Format == ImagePixelFormat::Rgba16Float) {
+        std::memcpy(mapped->data() + at + 3 * sizeof(uint16_t), &kHalfOne, sizeof(kHalfOne));
+      } else {
+        (*mapped)[at + 3] = std::byte{std::numeric_limits<uint8_t>::max()};
+      }
     }
   }
   if (levels > 1 && lower) {
@@ -171,7 +186,10 @@ GeometryResidency::UploadMipChain(const std::shared_ptr<Native::Texture> &image,
   }
   const auto unmapped = Device_->Unmap(**staging);
   if (!unmapped) { return unmapped; }
-  StagedImage staged{.Image = image, .Staging = std::move(*staging), .Levels = levels};
+  StagedImage staged{.Image = image,
+                     .Staging = std::move(*staging),
+                     .Levels = levels,
+                     .PixelBytes = static_cast<uint32_t>(pixelBytes)};
   if (mode == ImageUploadMode::Deferred) {
     StagedImages_.push_back(std::move(staged));
     return {};
@@ -196,10 +214,10 @@ Native::Result<void> GeometryResidency::RecordImage(Native::Commands &commands,
         commands.Copy(*image.Staging,
                       *image.Image,
                       {.BufferOffset = offset,
-                       .RowBytes = uint64_t{size.WidthPx} * kRgbaChannels,
+                       .RowBytes = uint64_t{size.WidthPx} * image.PixelBytes,
                        .Region = {.Mip = mip, .Width = size.WidthPx, .Height = size.HeightPx}});
     if (!copied) { return copied; }
-    offset += static_cast<uint32_t>(uint64_t{size.WidthPx} * size.HeightPx * kRgbaChannels);
+    offset += static_cast<uint32_t>(uint64_t{size.WidthPx} * size.HeightPx * image.PixelBytes);
     size.WidthPx = std::max(1u, size.WidthPx / 2u);
     size.HeightPx = std::max(1u, size.HeightPx / 2u);
   }
