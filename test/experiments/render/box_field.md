@@ -70,4 +70,43 @@ Basis: [GigaVoxels, I3D2009](../../../doc/references/geometry/i3d/2009-gigavoxel
 particularly §§2–4: sparse hierarchy; empty-space skipping; front-to-back traversal;
 ray-guided residency; filtering. This2.5D box prototype is not the paper's full
 voxel streaming/filtering implementation. Figures1/3 and the corresponding text
-were inspected. No new runtime dependency or GPU binding is introduced here.
+were inspected. No new runtime dependency or product GPU binding is introduced here.
+
+## Native GPU query control
+
+With an already prepared native archive/CDB and the pinned GLSL compiler:
+
+```sh
+python test/experiments/render/bench_box_field_gpu.py \
+  --input product.npz --output "$(mktemp -d)" --glslang "$GLSLANG" \
+  --width 1280 --height 720 --altitude 1622
+```
+
+The same RHI probe runs direct DDA and a bounded stack hierarchy. Both use the
+same packed height palette/mips and Float32 camera. Camera rays are generated on
+the GPU from64B of basis data; no per-pixel ray list is resident for this case.
+The current codec accepts at most256 exact heights; full-precision fallback is
+not implemented here. Explicit ray controls cover whole-circle views, ragged/dense
+fields, empty fields, parallel/vertical rays, inside exits and street corridors.
+Three controls also compare against independent full triangle meshes.
+
+Normal A/B/B/A processes each execute three settling dispatches followed by60
+measured dispatches. Upload/pipeline creation and final readback are outside those
+GPU submission intervals. Separate instrumented shaders count node evaluations;
+their timings are excluded from normal comparisons. `--validation` enables native
+validation, including Metal shader validation; these runs are functional evidence.
+
+The fixed std140 block is304B: shape at0, metric at16, view/mode at32, sixteen
+level descriptors at48. Descriptors hold byte offset/row stride/columns/rows.
+Each16B std430 result holds ray parameter, face code, diagnostic evaluations and
+overflow flag. C++ asserts sizes/alignment/offsets and validates input byte ranges.
+Ray parameter is distance for normalized rays. Budget checks bound buffers/loops;
+overflow is an error, never an accepted approximate hit.
+
+Reports retain commands, source/archive/binary/SPIR-V hashes, actual device,
+payload sizes, independent control results and sampled full-field CPU comparisons.
+All full-frame GPU results are additionally compared against the first GPU run.
+The32-epsilon Float32 tolerance is diagnostic, not a proven LOD/rendering bound.
+PNGs use CPU diagnostic shading of actual GPU hits; they are not native PBR Places.
+No material/shadow/World/terrain/curvature/filtering or complete-frame budget
+admission follows from query time. Vulkan execution remains a separate device check.
