@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from native_tree_detail_world import checked, compile_unit, libraries
+from native_urban_field import packages
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -120,7 +121,37 @@ def main():
         *map(str, receipts[1]["tile"]),
         str(output / "native.u8"),
     ]
+    parameters = {
+        "version": "urban-area-ecef-v1",
+        "recipe": [32, 0.75, 8],
+        "sources": [
+            {key: receipt[key] for key in ("url", "tile")} for receipt in receipts
+        ],
+    }
+    request = hashlib.sha256(
+        json.dumps(parameters, sort_keys=True).encode()
+    ).hexdigest()
+    database = output / "assets.sqlite"
+    command.extend([str(database), request])
     checked(command, native, output / "native.log", 120)
+    before = packages(database)
+    for receipt in receipts:
+        path = Path(receipt["path"])
+        retained = path.with_suffix(".retained")
+        path.rename(retained)
+        receipt["retained_path"] = str(retained)
+    warm = list(command)
+    warm[1], warm[5], warm[9] = "-", "-", str(output / "warm.u8")
+    checked(warm, native, output / "warm.log", 120)
+    assert before == packages(database), "warm read rewrote a native package"
+    assert (output / "warm.u8").read_bytes() == expected
+    cache = next(
+        row
+        for row in (output / "warm.log").read_text().splitlines()
+        if row.startswith("CACHE ")
+    )
+    counters = dict(word.split("=", 1) for word in cache.split()[1:])
+    assert counters["cooks"] == "0"
     actual = (output / "native.u8").read_bytes()
     summary = next(
         row.split()[1:]
@@ -147,7 +178,11 @@ def main():
             "native_lot_queries": int(summary[3]),
             "native_patch_queries": int(summary[4]),
             "all_cells_equal": True,
-            "scope": "source-to-categorical-field cook only; no asset-cache hit, GPU/world/240-km admission",
+            "warm_command": warm,
+            "warm_factory_calls": 0,
+            "package_unchanged": True,
+            "warm_total_ms": float(counters["total_ms"]),
+            "scope": "source cook and source-free fresh-process cache hit; no GPU/world/240-km admission",
         }
     )
     (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
