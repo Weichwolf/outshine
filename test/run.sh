@@ -293,6 +293,7 @@ TestProfile() {
     outshine/src/render/stages/StagePipelines) printf '%s' 'profile/stage-pipelines' ;;
     outshine/src/render/draw/InstanceDemand) printf '%s' 'profile/instance-demand' ;;
     outshine/src/render/prism/PrismGrid) printf '%s' 'profile/prism-grid' ;;
+    outshine/src/render/prism/PrismRenderer) printf '%s' 'profile/prism-native' ;;
     outshine/src/generators/osm/PreparedUrbanAreas|outshine/src/generators/osm/PreparedOsmTiles|outshine/src/generators/osm/UrbanArea) printf '%s' 'profile/urban-assets' ;;
     outshine/integration/render/UrbanPatchDemand) printf '%s' 'profile/urban-demand' ;;
     outshine/src/engine/streaming/UrbanAreaInstances) printf '%s' 'profile/urban-instances' ;;
@@ -397,6 +398,7 @@ LayerIncludes() {
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
     profile/instance-demand) GroupIncludes src/render/draw ;;
     profile/prism-grid) GroupIncludes src/render/prism ;;
+    profile/prism-native) printf '%s ' '-I.'; GroupIncludes src/render/prism ;;
     profile/urban-assets) GroupIncludes src/generators/osm ;;
     profile/urban-demand) LayerIncludes profile/instance-demand; printf ' %s' '-Isrc/generators/osm/urban' ;;
     profile/urban-instances) GroupIncludes src/engine/streaming ;;
@@ -482,7 +484,7 @@ LayerValidation() {
 
 LayerLibraryLink() {
   case "$(TestProfile "$1")" in
-    profile/calibration|profile/stage-pipelines) pkg-config --libs sdl3; NativeLink ;;
+    profile/calibration|profile/stage-pipelines|profile/prism-native) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
     profile/footpath-plan) return 0 ;;
     profile/road-profile) HighsFlags --libs ;;
@@ -602,7 +604,8 @@ LayerGroups() {
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
     profile/ground-patch) printf '%s' 'src/render/terrain/TerrainPatchMesh.cpp src/render/terrain/TerrainPatchError.cpp' ;;
     profile/instance-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp' ;;
-    profile/prism-grid) printf '%s' 'src/render/prism/PrismGrid.cpp' ;;
+    profile/prism-grid) printf '%s' 'src/render/prism/PrismGrid.cpp src/render/prism/PrismPlacements.cpp' ;;
+    profile/prism-native) printf '%s' "src/render/prism $(NativeGroups)" ;;
     profile/urban-assets) LayerGroups profile/world; printf ' %s' 'src/generators/terrain src/generators/base/AssetSourceRecipe.cpp src/generators/base/Tile.cpp src/generators/base/GroundPatch.cpp src/generators/osm/urban src/generators/osm/regions/PreparedOsmTiles.cpp src/generators/osm/regions/PreparedOsmTileAssets.cpp src/generators/osm/fields/OsmField.cpp src/generators/osm/fields/OsmNativeTile.cpp src/generators/osm/fields/OsmNativeAssembly.cpp src/generators/osm/fields/OsmDeclaredInput.cpp src/generators/osm/import src/generators/osm/providers/MvtLayer.cpp' ;;
     profile/urban-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaBounds.cpp' ;;
     profile/urban-instances) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/engine/streaming/UrbanAreaInstances.cpp' ;;
@@ -612,8 +615,8 @@ LayerGroups() {
     profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
     profile/species) SubtreeGroups src/base; printf '%s' ' src/generators/flora/TreeSpecies.cpp src/generators/flora/Species.cpp src/generators/flora/GrowthForm.cpp src/generators/flora/TreeLeaf.cpp' ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
-    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
-    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/prism src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/prism src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     *) return 1 ;;
   esac
 }
