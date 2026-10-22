@@ -17,7 +17,9 @@
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedGroundRegions.h"
+#include "PreparedRoadPages.h"
 #include "PreparedOsmTiles.h"
+#include "PreparedUrbanAreas.h"
 #include "PreparedStreetGraph.h"
 #include "TerrainLoader.h"
 #include <world/data/SourceDecl.h>
@@ -144,6 +146,16 @@ public:
   [[nodiscard]] const std::shared_ptr<Generators::Osm::PreparedStreetGraph> &
   NetworkAssets() const noexcept {
     return PreparedNetwork_;
+  }
+
+  [[nodiscard]] const std::shared_ptr<::outshine::Generators::PreparedRoadPages> &
+  RoadAssets() const noexcept {
+    return PreparedRoads_;
+  }
+
+  [[nodiscard]] const std::shared_ptr<Generators::Osm::PreparedUrbanAreas> &
+  UrbanAssets() const noexcept {
+    return PreparedUrban_;
   }
 
   [[nodiscard]] const std::shared_ptr<Generators::Osm::PreparedGroundRegions> &
@@ -284,7 +296,9 @@ private:
   std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> PreparedBuildings_;
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;
   std::shared_ptr<Generators::Osm::PreparedGroundRegions> PreparedRegions_;
+  std::shared_ptr<::outshine::Generators::PreparedRoadPages> PreparedRoads_;
   std::shared_ptr<Generators::Osm::PreparedOsmTiles> PreparedVectors_;
+  std::shared_ptr<Generators::Osm::PreparedUrbanAreas> PreparedUrban_;
   enum class StreetMode : uint8_t { Source, CachedRegion, RequiredSource };
   StreetMode StreetMode_ = StreetMode::Source;
   TileAt CachedNetworkTile_;

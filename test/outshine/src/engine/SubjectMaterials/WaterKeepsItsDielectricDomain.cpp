@@ -6,27 +6,40 @@
 #include "TerrainLoader.h"
 #include "WaterField.h"
 #include "WaterSurfaceBuilder.h"
+#include "WaterSurfacePreparation.h"
+#include "math/Vec4.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstddef>
 #include <string>
 
 namespace {
+constexpr float kWaterLevelM = -10.0f;
+constexpr float kHeightToleranceM = 0.01f;
+constexpr outshine::Vec4f kSoilColour{{0.2f, 0.1f, 0.05f, 1.0f}};
+constexpr float kLeastWaterReflectance = 0.020f;
+constexpr float kMostWaterReflectance = 0.021f;
+
 class BelowSeaLevel final : public outshine::GroundQuery {
 public:
-  outshine::GroundSample At(outshine::LongitudeLatitude) const override {
-    return outshine::GroundSample::At(-10.0);
+  [[nodiscard]] outshine::GroundSample
+  At([[maybe_unused]] outshine::LongitudeLatitude at) const override {
+    return outshine::GroundSample::At(kWaterLevelM);
   }
 
-  outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override { return At(at); }
+  [[nodiscard]] outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override {
+    return At(at);
+  }
 
-  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override {
+  [[nodiscard]] outshine::Ground::GroundBlock
+  BlockAt([[maybe_unused]] outshine::Ground::TileSpot tile) const override {
     return outshine::Ground::GroundBlock::Waiting();
   }
 
-  double PostM(double) const override { return 1.0; }
+  [[nodiscard]] double PostM([[maybe_unused]] double radiusM) const override { return 1.0; }
 };
 }
 
@@ -42,18 +55,18 @@ int main() {
       .Area = true,
       .LatLon = {0, 0, 0, 0.0001, 0.0001, 0.0001, 0.0001, 0}}};
   field.Declare(features, Ground::TileAt{.X = 8192, .Y = 8192});
-  BelowSeaLevel heights;
+  const BelowSeaLevel heights;
   ::outshine::Generators::Osm::WaterField water;
-  Ground::VegetationTemplates vegetation;
+  const Ground::VegetationTemplates vegetation;
   for (int step = 0; step < 8 && !water.Ingested(field); ++step) {
     (void)water.Ingest(heights, field, vegetation);
   }
-  CHECK(water.Surfaces().size() == 1 && water.Surfaces()[0].LevelM == -10.0f,
+  CHECK(water.Surfaces().size() == 1 && water.Surfaces()[0].LevelM == kWaterLevelM,
         "a known lake below sea level retains its own negative datum height");
 
   Geometry geometry;
   Material soil;
-  soil.BaseColour = {{0.2f, 0.1f, 0.05f, 1.0f}};
+  soil.BaseColour = kSoilColour;
   const auto ground = geometry.addSurface("ground", soil);
   const auto wet = geometry.addSurface("water", Generators::WaterSurfaceMaterial());
   CHECK(ground && wet && *ground != *wet, "terrain and water have different owning handles");
@@ -65,14 +78,16 @@ int main() {
             geometry.setTriangles(*terrain, std::array<uint32_t, 3>{0, 1, 2}),
         "submerged terrain retains its geometry");
   const auto frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
-  const auto built =
-      Generators::AppendWaterSurfaceGeometry(geometry, *wet, water.Asset(field), frame);
+  const auto prepared = Generators::PrepareWaterSurfaces(water.Asset(field), frame);
+  CHECK(prepared && prepared->SurfacesReady(), "water source supplies a prepared native asset");
+  if (!prepared) { return Report(); }
+  const auto built = Generators::AppendWaterSurfaceGeometry(geometry, *wet, *prepared, frame);
   CHECK(built && built->Laid == 1 && built->Triangles == 2 && geometry.parts() == 2,
         "generator appends a separate surface above its bed");
   if (!built || geometry.parts() != 2) { return Report(); }
   const auto positions = geometry.positionsOf(1);
   for (size_t at = 1; at < positions.size(); at += 3) {
-    CHECK(std::abs(positions[at] + 10.0f) < 0.01f,
+    CHECK(std::abs(positions[at] - kWaterLevelM) < kHeightToleranceM,
           "water geometry retains the source level instead of clamping to sea level");
   }
   Render::ShapeStore storage;
@@ -95,7 +110,11 @@ int main() {
         "water selects dielectric transmission with full coverage, separately from opaque ground");
   Vec3f f0;
   DielectricF0(waterMaterial.Row, f0);
-  CHECK(std::ranges::all_of(f0, [](float value) { return value > 0.020f && value < 0.021f; }),
+  CHECK(std::ranges::all_of(f0,
+                            [](float value) {
+                              return value > kLeastWaterReflectance &&
+                                     value < kMostWaterReflectance;
+                            }),
         "water reflects about two percent at normal incidence, derived from its refractive index");
   return Report();
 }

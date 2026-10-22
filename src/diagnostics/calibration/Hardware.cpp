@@ -47,7 +47,9 @@ Native::Result<Report> Run(bool gpuValidation) {
     }
     words[at] = std::move(*loaded);
   }
-  auto device = Native::CreateDevice({.Validation = gpuValidation, .GpuTiming = true});
+  auto device =
+      Native::CreateDevice({.Validation = gpuValidation,
+                            .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission});
   if (!device) { return std::unexpected(device.error()); }
   auto report = Run(**device,
                     {.Fma = words[0], .Triad = words[1], .Vertex = words[2], .Fragment = words[3]},

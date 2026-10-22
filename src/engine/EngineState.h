@@ -569,6 +569,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceReadyGroundSheets(Patchwork &patchwork,
                                                              WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress StoreGroundRegion(WorldRegionBuildState &state) const;
+  [[nodiscard]] GroundBuildProgress RestoreGroundRoadPages(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress
   AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
   [[nodiscard]] GroundBuildProgress BeginGroundSheetRefinement(const TangentFrame &standing,
@@ -582,7 +583,6 @@ struct Engine::State {
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;
-  [[nodiscard]] ::outshine::Generators::Osm::BuildingField *CandidateFootprints() const noexcept;
   [[nodiscard]] bool StagesGroundBakes(size_t landsMost);
 
   [[nodiscard]] Laid Focuses(GroundRequest &request,

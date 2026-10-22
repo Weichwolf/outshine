@@ -21,7 +21,7 @@ int main() {
   StructureBinary::Reader reader(writer.Bytes);
   HipRoofCodec::Product restored;
   CHECK(HipRoofCodec::Fields(reader, restored), "decoder restores native plan directly from bytes");
-  CHECK(reader.Remaining == 0 && restored && *restored, "entire ready roof payload is consumed");
+  CHECK(reader.Bytes.empty() && restored && *restored, "entire ready roof payload is consumed");
   if (restored && *restored) {
     CHECK(HipRoofCodec::BoundTo(restored, ring, {}), "a cached plan owns every original eave");
     auto subdivided = std::vector<EastNorth>(ring.begin(), ring.end());

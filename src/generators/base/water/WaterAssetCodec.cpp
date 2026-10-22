@@ -17,7 +17,14 @@
 namespace outshine::Generators {
 namespace {
 constexpr uint64_t kLegacyVersion = 0x345245544157ULL;
-constexpr uint64_t kVersion = 0x355245544157ULL;
+constexpr uint64_t kSourceVersion = 0x355245544157ULL;
+constexpr uint64_t kVersion = 0x365245544157ULL;
+
+uint64_t NativeVersion(const WaterAsset::SurfaceGeometry *geometry) {
+  if (geometry == nullptr) { return kLegacyVersion; }
+  if (!geometry->ProfileDeclines.empty()) { return kVersion; }
+  return geometry->FaceSourceOffsets.empty() ? kLegacyVersion : kSourceVersion;
+}
 
 bool Rejections(auto &archive, auto &rejections) {
   return WaterFormat::Records<2 * sizeof(uint32_t)>(
@@ -32,7 +39,8 @@ bool ArchiveGeometry(BinaryValueWriter &out,
           (WaterSurfaceMeshCodec::Fields(out, geometry->Mesh) &&
            Rejections(out, geometry->Rejections) &&
            (version == kLegacyVersion || (out.Array<uint32_t>(geometry->FaceSourceOffsets) &&
-                                          out.Array<uint32_t>(geometry->FaceSources)))));
+                                          out.Array<uint32_t>(geometry->FaceSources))) &&
+           (version != kVersion || Rejections(out, geometry->ProfileDeclines))));
 }
 
 bool ArchiveGeometry(BinaryValueReader &in,
@@ -45,7 +53,8 @@ bool ArchiveGeometry(BinaryValueReader &in,
   return WaterSurfaceMeshCodec::Fields(in, geometry->Mesh) &&
          Rejections(in, geometry->Rejections) &&
          (version == kLegacyVersion ||
-          (in.Array(geometry->FaceSourceOffsets) && in.Array(geometry->FaceSources)));
+          (in.Array(geometry->FaceSourceOffsets) && in.Array(geometry->FaceSources))) &&
+         (version != kVersion || Rejections(in, geometry->ProfileDeclines));
 }
 
 bool ArchiveSurfaces(auto &archive, auto &surfaces) {
@@ -120,8 +129,7 @@ std::expected<std::vector<uint8_t>, std::string> WaterAsset::EncodeNative(size_t
   }
   BinaryValueWriter out(bytesMost);
   const auto *geometry = PreparedSurfaces();
-  const auto version =
-      geometry != nullptr && !geometry->FaceSourceOffsets.empty() ? kVersion : kLegacyVersion;
+  const auto version = NativeVersion(geometry);
   if (!out(version,
            data.ProcessedTiles,
            static_cast<int64_t>(data.NoGround),
@@ -145,8 +153,8 @@ std::expected<WaterAsset, std::string> WaterAsset::DecodeNative(std::span<const 
   Data data;
   std::optional<SurfaceGeometry> geometry;
   if (!in(version, data.ProcessedTiles, noGround, outliers, invalidBodies) ||
-      (version != kVersion && version != kLegacyVersion) || noGround < 0 ||
-      noGround > std::numeric_limits<long>::max() || outliers < 0 ||
+      (version != kVersion && version != kSourceVersion && version != kLegacyVersion) ||
+      noGround < 0 || noGround > std::numeric_limits<long>::max() || outliers < 0 ||
       outliers > std::numeric_limits<long>::max() || invalidBodies < 0 ||
       invalidBodies > std::numeric_limits<long>::max() || !ArchiveSurfaces(in, data.Surfaces) ||
       !ArchiveRings(in, data.Rings) || !ArchiveCourses(in, data.Courses) ||

@@ -17,6 +17,7 @@
 namespace outshine::Generators {
 
 constexpr double kFloorUnsaidM = 2.9;
+constexpr double kBuildingPlinthM = 0.50;
 
 enum class RoofKind : uint8_t { Flat, Gable, Hip, Shed, Mansard, Sawtooth, Dome };
 

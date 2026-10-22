@@ -3,6 +3,11 @@
 #include "Sha256.h"
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -19,60 +24,83 @@ std::string Key(std::string_view name) {
 
 std::vector<std::string> Keys(const std::vector<AssetRecord> &records) {
   std::vector<std::string> keys;
+  keys.reserve(records.size());
   for (const auto &record : records) { keys.push_back(record.Key); }
   std::ranges::sort(keys);
   return keys;
 }
 
 void SelectsPackages(AssetCache &index) {
-  const Box all{.Min = {{-20, -20, -20}}, .Max = {{20, 20, 20}}};
-  const std::array<uint8_t, 250> payload{};
-  std::array<AssetRecord, 4> records = {{{.Key = Key("terrain"),
-                                          .Kind = "terrain",
-                                          .Bounds = {.Min = {{-4, -1, -4}}, .Max = {{4, 1, 4}}},
-                                          .Package = {},
-                                          .OffsetBytes = 0,
-                                          .ByteCount = 100,
-                                          .Level = 3},
-                                         {.Key = Key("roads"),
-                                          .Kind = "roads",
-                                          .Bounds = {.Min = {{-2, 0, -2}}, .Max = {{2, 2, 2}}},
-                                          .Package = {},
-                                          .OffsetBytes = 100,
-                                          .ByteCount = 50,
-                                          .Level = 1},
-                                         {.Key = Key("trees"),
-                                          .Kind = "vegetation",
-                                          .Bounds = {.Min = {{6, 0, 6}}, .Max = {{8, 15, 8}}},
-                                          .Package = {},
-                                          .OffsetBytes = 150,
-                                          .ByteCount = 20,
-                                          .Level = 1},
-                                         {.Key = Key("houses"),
-                                          .Kind = "buildings",
-                                          .Bounds = {.Min = {{4, 0, 0}}, .Max = {{5, 20, 1}}},
-                                          .Package = {},
-                                          .OffsetBytes = 170,
-                                          .ByteCount = 80,
-                                          .Level = 0,
-                                          .Parent = Key("cluster")}}};
+  constexpr uint64_t kTerrainBytes = 100;
+  constexpr uint64_t kRoadBytes = 50;
+  constexpr uint64_t kBuildingBytes = 20;
+  constexpr uint64_t kClusterBytes = 80;
+  constexpr auto kPayloadBytes = kTerrainBytes + kRoadBytes + kBuildingBytes + kClusterBytes;
+  constexpr double kEnvelopeM = 20;
+  const Box all{.Min = {{-kEnvelopeM, -kEnvelopeM, -kEnvelopeM}},
+                .Max = {{kEnvelopeM, kEnvelopeM, kEnvelopeM}}};
+  const std::array<uint8_t, kPayloadBytes> payload{};
+  std::array<AssetRecord, 4> records = {
+      {{.Key = Key("terrain"),
+        .Kind = "terrain",
+        .Bounds = {.Min = {{-4, -1, -4}}, .Max = {{4, 1, 4}}},
+        .Package = {},
+        .OffsetBytes = 0,
+        .ByteCount = kTerrainBytes,
+        .Level = 3,
+        .Parent = {},
+        .RequestKey = {}},
+       {.Key = Key("roads"),
+        .Kind = "roads",
+        .Bounds = {.Min = {{-2, 0, -2}}, .Max = {{2, 2, 2}}},
+        .Package = {},
+        .OffsetBytes = kTerrainBytes,
+        .ByteCount = kRoadBytes,
+        .Level = 1,
+        .Parent = {},
+        .RequestKey = {}},
+       {.Key = Key("trees"),
+        .Kind = "vegetation",
+        .Bounds = {.Min = {{6, 0, 6}}, .Max = {{8, 15, 8}}},
+        .Package = {},
+        .OffsetBytes = kTerrainBytes + kRoadBytes,
+        .ByteCount = kBuildingBytes,
+        .Level = 1,
+        .Parent = {},
+        .RequestKey = {}},
+       {.Key = Key("houses"),
+        .Kind = "buildings",
+        .Bounds = {.Min = {{4, 0, 0}}, .Max = {{5, kEnvelopeM, 1}}},
+        .Package = {},
+        .OffsetBytes = kTerrainBytes + kRoadBytes + kBuildingBytes,
+        .ByteCount = kClusterBytes,
+        .Level = 0,
+        .Parent = Key("cluster"),
+        .RequestKey = {}}}};
   for (auto &record : records) { record.Package = Sha256Hex(payload.data(), payload.size()); }
   CHECK(index.Publish(records, payload).has_value(),
         "one package transaction indexes all native content kinds");
-  const auto selected = index.Select({.Bounds = all});
+  const auto selected =
+      index.Select({.Bounds = all, .Kind = {}, .Level = {}, .Radius = {}, .Planes = {}});
   CHECK(selected && selected->size() == records.size(),
         "unfiltered query retains every package slice");
-  const auto level = index.Select({.Bounds = all, .Level = 1});
+  const auto level =
+      index.Select({.Bounds = all, .Kind = {}, .Level = 1, .Radius = {}, .Planes = {}});
   CHECK(level && level->size() == 2, "detail selection is independent of generator semantics");
-  const auto radius =
-      index.Select({.Bounds = all, .Radius = AssetRadius{.Centre = {}, .Metres = 4}});
+  const auto radius = index.Select({.Bounds = all,
+                                    .Kind = {},
+                                    .Level = {},
+                                    .Radius = AssetRadius{.Centre = {}, .Metres = 4},
+                                    .Planes = {}});
   CHECK(radius && Keys(*radius) == Keys({records[0], records[1], records[3]}),
         "radius intersects boxes at their nearest point, including the boundary");
   const std::array<std::array<double, 4>, 1> planes = {{{1, 0, 0, -4.5}}};
-  const auto frustum = index.Select({.Bounds = all, .Planes = planes});
+  const auto frustum =
+      index.Select({.Bounds = all, .Kind = {}, .Level = {}, .Radius = {}, .Planes = planes});
   CHECK(frustum && Keys(*frustum) == Keys({records[2], records[3]}),
         "frustum keeps crossing and contained boxes while rejecting fully outside packages");
-  const auto water = index.Select({.Bounds = all, .Kind = "water"});
+  const auto water =
+      index.Select({.Bounds = all, .Kind = "water", .Level = {}, .Radius = {}, .Planes = {}});
   CHECK(water && water->empty(), "a valid empty demand is distinguishable from storage failure");
   const auto house = index.Find(records[3].Key);
   CHECK(house && *house == records[3], "lookup retains exact bounds, parent, byte range and level");
@@ -85,21 +113,36 @@ void ConservativeEarthBounds(AssetCache &index) {
                      .Kind = "terrain",
                      .Bounds = {.Min = {{earth, earth, earth}},
                                 .Max = {{earth + width, earth + width, earth + width}}},
-                     .Package = Key("")};
+                     .Package = Key(""),
+                     .OffsetBytes = {},
+                     .ByteCount = {},
+                     .Level = {},
+                     .Parent = {},
+                     .RequestKey = {}};
   CHECK(index.Publish(std::span(&record, 1), {}).has_value(),
         "small ECEF asset preserves double bounds");
   const Vec3 tip = record.Bounds.Max;
-  const auto boundary = index.Select({.Bounds = {.Min = tip, .Max = tip}, .Kind = "terrain"});
+  const auto boundary = index.Select({.Bounds = {.Min = tip, .Max = tip},
+                                      .Kind = "terrain",
+                                      .Level = {},
+                                      .Radius = {},
+                                      .Planes = {}});
   CHECK(boundary && boundary->size() == 1 && boundary->front() == record,
         "outward-rounded R*Tree bounds cannot lose a centimetre-sized boundary intersection");
   const Vec3 outside{{earth + width * 2, earth, earth}};
-  const auto excluded = index.Select({.Bounds = {.Min = outside, .Max = outside}});
+  const auto excluded = index.Select({.Bounds = {.Min = outside, .Max = outside},
+                                      .Kind = {},
+                                      .Level = {},
+                                      .Radius = {},
+                                      .Planes = {}});
   CHECK(excluded && excluded->empty(), "double refinement removes float-rounded false positives");
-  record.Bounds.Min[0] -= 100;
-  record.Bounds.Max[0] -= 100;
+  constexpr double kTranslationM = 100;
+  record.Bounds.Min[0] -= kTranslationM;
+  record.Bounds.Max[0] -= kTranslationM;
   CHECK(index.Publish(std::span(&record, 1), {}).has_value(),
         "replacement updates one stable asset identity");
-  const auto moved = index.Select({.Bounds = {.Min = tip, .Max = tip}});
+  const auto moved = index.Select(
+      {.Bounds = {.Min = tip, .Max = tip}, .Kind = {}, .Level = {}, .Radius = {}, .Planes = {}});
   CHECK(moved && moved->empty(), "replacement removes obsolete spatial coverage atomically");
   CHECK(index.Remove(record.Key).has_value(),
         "eviction removes metadata and spatial bounds together");
@@ -111,7 +154,12 @@ void RejectsInvalidInputs(AssetCache &index) {
   AssetRecord good{.Key = Key("valid"),
                    .Kind = "terrain",
                    .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                   .Package = Key("")};
+                   .Package = Key(""),
+                   .OffsetBytes = {},
+                   .ByteCount = {},
+                   .Level = {},
+                   .Parent = {},
+                   .RequestKey = {}};
   auto invalid = good;
   invalid.Key = Key("invalid");
   invalid.OffsetBytes = std::numeric_limits<uint64_t>::max();
@@ -123,9 +171,13 @@ void RejectsInvalidInputs(AssetCache &index) {
   CHECK(absent && !*absent, "a rejected batch cannot publish a valid prefix");
   CHECK(!index.Find("bad-key"),
         "malformed identities are invalid input rather than ordinary misses");
-  CHECK(!index.Select({.Bounds = {}}), "empty unbounded boxes are refused at the IO boundary");
-  const auto radius =
-      index.Select({.Bounds = good.Bounds, .Radius = AssetRadius{.Centre = {}, .Metres = -1}});
+  CHECK(!index.Select({.Bounds = {}, .Kind = {}, .Level = {}, .Radius = {}, .Planes = {}}),
+        "empty unbounded boxes are refused at the IO boundary");
+  const auto radius = index.Select({.Bounds = good.Bounds,
+                                    .Kind = {},
+                                    .Level = {},
+                                    .Radius = AssetRadius{.Centre = {}, .Metres = -1},
+                                    .Planes = {}});
   CHECK(!radius && radius.error() == AssetCacheError::InvalidInput,
         "negative radius cannot select assets");
   good.Bounds.Min[1] = std::numeric_limits<double>::quiet_NaN();

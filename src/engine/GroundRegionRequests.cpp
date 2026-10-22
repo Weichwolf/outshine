@@ -94,9 +94,13 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
           auto loaded = assets->LoadRequest(key);
           if (!loaded) { return std::unexpected(std::move(loaded.error())); }
           const auto product = *loaded ? (**loaded).Key : std::string{};
-          return GroundRegionPreparation::Completed{
-              .Key = product, .Loaded = std::move(*loaded), .RequestKey = key, .RequestHit = true};
-        });
+          return GroundRegionPreparation::Completed{.Key = product,
+                                                    .Loaded = std::move(*loaded),
+                                                    .RequestKey = key,
+                                                    .RequestHit = true,
+                                                    .SurfacePages = nullptr};
+        },
+        World.Stack.RoadAssets());
   }
   if (!World.GroundLookup) { return true; }
   const auto *result = World.GroundLookup->Peek();

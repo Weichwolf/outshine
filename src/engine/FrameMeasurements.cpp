@@ -285,7 +285,9 @@ void Engine::State::PublishAdvanceMeasurements() {
 }
 
 void Engine::State::PublishGroundMemoryMeasurements() {
-  Published.RecordMetric("building triangles the world meshed",
+  constexpr auto kSnapshotAnchor = "building triangles the world meshed";
+  if (Published.RecordedThisFrame(kSnapshotAnchor)) { return; }
+  Published.RecordMetric(kSnapshotAnchor,
                          static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
                          "triangles");
   Published.RecordMetric(

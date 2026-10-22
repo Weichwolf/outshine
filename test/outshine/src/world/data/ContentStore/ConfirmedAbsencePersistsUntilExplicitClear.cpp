@@ -19,7 +19,8 @@ int main() {
     ContentStore store(config);
     CHECK(store.Lookup(first).Where == ContentStore::Presence::Unknown, "unknown is not absent");
     CHECK(store.KeepAbsent(first), "authoritative evidence published");
-    CHECK(store.Lookup(first).Where == ContentStore::Presence::Absent && !store.Read(first),
+    const auto absent = store.Lookup(first);
+    CHECK(absent.Where == ContentStore::Presence::Absent && absent.Bytes.empty(),
           "typed absence never invents a byte payload");
     bool retained = true;
     for (unsigned index = 0; index < 5000; ++index) {

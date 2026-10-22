@@ -18,8 +18,7 @@ TerrainResidency::PageBatch TerrainResidency::PlanPages(const Patchwork &patchwo
   batch.End = end;
   for (size_t at = NextSheet_; at < end; ++at) {
     const auto &sheet = patchwork.Sheets[at];
-    if (sheet.Side != Render::TerrainRenderer::kSide ||
-        sheet.Nodes.size() != Render::TerrainRenderer::kPageNodes) {
+    if (!HasNativePage(sheet)) {
       ++batch.Flat;
       continue;
     }

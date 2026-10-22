@@ -23,6 +23,7 @@
 
 namespace outshine::Generators::Osm {
 namespace {
+constexpr size_t kRequestBytesMost = size_t{4} * 1024u * 1024u;
 constexpr uint64_t kPackageVersion = 0x35524e474fULL;
 
 bool ShapeValues(BinaryValueWriter &out, const ::outshine::Ground::ShapedGround &shape) {
@@ -79,14 +80,20 @@ Encode(const GroundRegionAsset &region, const WaterAsset &water, size_t bytesMos
 }
 
 PreparedGroundRegions::PreparedGroundRegions(std::unique_ptr<AssetCache> cache, std::string recipe)
-    : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {}
+    : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {
+  BinaryValueWriter prefix(kRequestBytesMost);
+  if (!prefix.Text("native-ground-region-demand-2") || !prefix.Text(Recipe_)) { return; }
+  const auto bytes = prefix.Out.Bytes();
+  RequestPrefix_.emplace(bytes.data(), bytes.size());
+  RequestPrefixBytes_ = bytes.size();
+}
 
 std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroundRegions::Open(
     const std::string &directory, const Data::SourceSet &sources, std::string_view rules) {
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the prepared ground region cache"); }
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-79",
+      "prepared-ground-region-91",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   recipe.append(rules);
@@ -133,15 +140,15 @@ PreparedGroundRegions::RequestKey(int zoom,
                                   const ::outshine::Ground::ShapedGround &shape,
                                   std::span<const uint8_t> parameters,
                                   std::span<const ::outshine::Ground::TileSpot> tiles) const {
-  BinaryValueWriter out(size_t{4} * 1024u * 1024u);
-  if (!out.Text("native-ground-region-demand-2") || !out.Text(Recipe_) ||
-      !ShapeValues(out, shape) || !out(zoom, schema, static_cast<uint64_t>(tiles.size())) ||
+  if (!RequestPrefix_) { return {}; }
+  BinaryValueWriter out(kRequestBytesMost - RequestPrefixBytes_);
+  if (!ShapeValues(out, shape) || !out(zoom, schema, static_cast<uint64_t>(tiles.size())) ||
       !std::ranges::all_of(tiles,
                            [&](const auto &tile) { return out(tile.Zoom, tile.X, tile.Y); }) ||
       !out.Array(parameters)) {
     return {};
   }
-  return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
+  return RequestPrefix_->Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
 std::expected<std::string, std::string>

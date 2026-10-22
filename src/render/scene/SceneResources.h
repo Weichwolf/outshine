@@ -86,7 +86,6 @@ public:
   void ReleaseHeightPage(GeometryRenderer &subjects, HeightPageHandle which);
   [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
   [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
-  [[nodiscard]] bool RestoreHeightPages(GeometryRenderer &subjects, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
   AdvanceTerrainRestore(GeometryRenderer &subjects, size_t &nextPage, size_t pagesMost);
   [[nodiscard]] Native::Result<void> SetGroundGrid(GeometryRenderer &subjects,

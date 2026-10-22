@@ -76,7 +76,7 @@ int main() {
                     ("outshine-region-binding-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root);
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::ContentStore store({.Directory = {}, .Using = Data::ContentStore::Use::Off});
   Data::SourceSet sources(store);
   const auto opened = PreparedGroundRegions::Open(root.string(), sources, "fixture-rules");
   CHECK(opened, "native regions open before any source or street preparation");

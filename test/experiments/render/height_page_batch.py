@@ -37,12 +37,8 @@ def main():
     command = [str(source) if part == entry['file'] else part
                for part in command if part != '-c']
     binary = output.with_suffix('.bin')
-    packages = ['sdl3', 'sdl3-image', 'sdl3-ttf', 'liblz4', 'libtiff-4', 'libwebp',
-                'geos', 'sqlite3', 'libzstd', 'sfcgal']
-    libraries = shlex.split(subprocess.check_output(['pkg-config', '--libs', *packages], text=True))
-    libraries += ['-lz', '-lcurl']
-    libraries += shlex.split(subprocess.check_output(
-        ['sh', 'test/run.sh', '--native-link-flags'], cwd=root, text=True))
+    libraries = shlex.split(subprocess.check_output(
+        ['sh', 'test/run.sh', '--link-flags', 'profile/engine'], cwd=root, text=True))
     command += ['-I.', '-Itest/harness/render',
                 f'-DOUTSHINE_HEIGHT_PAGE_BATCH={int(not args.scalar)}',
                 *['-I' + str(path.relative_to(root)) for path in sorted((root / 'src').rglob('*'))

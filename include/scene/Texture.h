@@ -10,13 +10,14 @@
 #include <vector>
 
 #include "UvTransform.h"
+#include "scene/ImageFormat.h"
 
 namespace outshine {
 
-/// Filtering interpretation of prepared RGBA8 mip levels.
+/// Filtering interpretation of prepared mip levels.
 enum class ImageMipKind : uint8_t {
   Linear, ///< Area-filtered linear channels, including alpha.
-  Colour, ///< Linear-light filtering with sRGB-encoded RGB and linear alpha.
+  Colour, ///< Linear-light filtering; RGBA8 RGB is sRGB-encoded and alpha stays linear.
   Normal  ///< Unit directions with resultant length in alpha.
 };
 
@@ -46,19 +47,21 @@ using ImageMipViews = std::array<std::optional<std::span<const uint8_t>>, 3>;
   return data;
 }
 
-/// @return Exact bytes below the RGBA8 base, or no value for invalid dimensions/overflow.
+/// @return Exact bytes below the base, or no value for invalid dimensions/overflow.
 /// Each dimension halves with floor rounding and a minimum of one; no allocation.
-[[nodiscard]] constexpr std::optional<size_t> LowerImageMipBytes(int width, int height) noexcept {
-  if (width <= 0 || height <= 0) { return std::nullopt; }
+[[nodiscard]] constexpr std::optional<size_t> LowerImageMipBytes(
+    int width, int height, ImagePixelFormat format = ImagePixelFormat::Rgba8Unorm) noexcept {
+  const size_t pixelBytes = ImagePixelBytes(format);
+  if (width <= 0 || height <= 0 || pixelBytes == 0) { return std::nullopt; }
   size_t bytes = 0;
   while (width > 1 || height > 1) {
     width = width > 1 ? width / 2 : 1;
     height = height > 1 ? height / 2 : 1;
     if (static_cast<size_t>(width) >
-        (std::numeric_limits<size_t>::max() - bytes) / 4u / static_cast<size_t>(height)) {
+        (std::numeric_limits<size_t>::max() - bytes) / pixelBytes / static_cast<size_t>(height)) {
       return std::nullopt;
     }
-    bytes += static_cast<size_t>(width) * static_cast<size_t>(height) * 4u;
+    bytes += static_cast<size_t>(width) * static_cast<size_t>(height) * pixelBytes;
   }
   return bytes;
 }
@@ -113,7 +116,7 @@ struct SurfaceMap {
   [[nodiscard]] bool operator==(const SurfaceMap &) const = default;
 };
 
-/// Borrowed, tightly packed RGBA8 base-level image, with no row padding.
+/// Borrowed, tightly packed base-level image, with no row padding.
 /// Channels occur in R, G, B, A order. Rows are stored consecutively; this view performs
 /// no origin, alpha or colour-space conversion. Material usage determines interpretation.
 /// The byte owner must outlive every use; its reallocation or destruction invalidates Rgba.
@@ -122,6 +125,7 @@ struct SurfaceMap {
 struct ImageView {
   int WidthPx = 0;  ///< Width in pixels; nonpositive values describe an invalid image.
   int HeightPx = 0; ///< Height in pixels; nonpositive values describe an invalid image.
+  ImagePixelFormat Format = ImagePixelFormat::Rgba8Unorm;
   std::span<const uint8_t> Rgba; ///< Borrowed bytes; any trailing bytes are outside this image.
   ImageMipViews LowerMips{};     ///< Optional prepared levels indexed by ImageMipKind.
 
@@ -129,14 +133,15 @@ struct ImageView {
   /// Checks sizes without overflow, allocation or pixel access; cannot prove pointer lifetime.
   /// Extra trailing bytes are permitted. Geometry::addImage requires an exact byte count.
   [[nodiscard]] constexpr bool valid() const noexcept {
-    if (WidthPx <= 0 || HeightPx <= 0 ||
-        Rgba.size() / 4u / static_cast<size_t>(HeightPx) < static_cast<size_t>(WidthPx)) {
+    const size_t pixelBytes = ImagePixelBytes(Format);
+    if (WidthPx <= 0 || HeightPx <= 0 || pixelBytes == 0 ||
+        Rgba.size() / pixelBytes / static_cast<size_t>(HeightPx) < static_cast<size_t>(WidthPx)) {
       return false;
     }
     std::optional<size_t> bytes;
     for (const auto &levels : LowerMips) {
       if (!levels) { continue; }
-      if (!bytes) { bytes = LowerImageMipBytes(WidthPx, HeightPx); }
+      if (!bytes) { bytes = LowerImageMipBytes(WidthPx, HeightPx, Format); }
       if (!bytes || levels->size() != *bytes) { return false; }
     }
     return true;

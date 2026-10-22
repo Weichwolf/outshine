@@ -45,6 +45,38 @@ NativeGroups() {
   SourceUnits | sed -n '\|^src/render/device/native/|s|/[^/]*$||p' | sort -u | tr '\n' ' '
 }
 
+OsqpFlags() {
+  if pkg-config --exists osqp; then pkg-config "$1" osqp; return; fi
+  osqpPrefix=${OSQP_PREFIX:-}
+  if [ -z "$osqpPrefix" ]; then
+    for osqpCandidate in /opt/homebrew /usr/local /usr; do
+      if [ -f "$osqpCandidate/include/osqp/osqp.h" ]; then osqpPrefix=$osqpCandidate; break; fi
+    done
+  fi
+  [ -n "$osqpPrefix" ] || { printf '%s\n' 'OSQP 1.x required; install osqp or set OSQP_PREFIX' >&2; return 1; }
+  case "$1" in
+    --cflags) printf '%s' "-I$osqpPrefix/include/osqp" ;;
+    --libs) printf '%s' "-L$osqpPrefix/lib -losqp" ;;
+  esac
+}
+
+HighsFlags() {
+  pkg-config --exists highs || { printf '%s\n' 'HiGHS required; install highs with pkg-config metadata' >&2; return 1; }
+  case "$1" in
+    --cflags) pkg-config --cflags highs | sed 's/-I/-isystem /g' ;;
+    --libs) pkg-config --libs highs ;;
+  esac
+}
+
+Sha256Flags() {
+  [ "$BUILD_PLATFORM" = Linux ] || return 0
+  pkg-config --exists libcrypto || {
+    printf '%s\n' 'libcrypto required for SHA-256; install libssl-dev with pkg-config metadata' >&2
+    return 1
+  }
+  pkg-config "$1" libcrypto
+}
+
 SpirvCrossFlags() {
   if pkg-config --exists spirv-cross-c-shared; then
     pkg-config "$1" spirv-cross-c-shared
@@ -67,10 +99,22 @@ NativeLink() {
   esac
 }
 
+CXXSTD=-std=c++23
+CXX=${CXX:-c++}
+. "$ROOT/test/scripts/native_hardening.sh"
+ConfigureNativeHardening "$CXXSTD" || { printf '%s\n' 'run.sh: cannot determine native hardening target' >&2; exit 2; }
+
 if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
+  printf '%s ' "$NATIVE_LINK_FLAGS"
   pkg-config --libs sdl3 | tr '\n' ' '
   NativeLink
   exit $?
+fi
+
+LINK_FLAGS_PROFILE=
+if [ "$#" -eq 2 ] && [ "$1" = --link-flags ]; then
+  LINK_FLAGS_PROFILE=$2
+  set --
 fi
 
 BUILD=${TMPDIR:-/tmp}
@@ -87,10 +131,8 @@ export OUTSHINE_CORPUS_OWNER="$NEST"
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 PREPARED=${OUTSHINE_PREPARED:-$PREPARED}
-CXX=${CXX:-c++}
-CXXSTD=-std=c++23
 WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"
-OPT="-O2 -ffp-contract=off"
+OPT="-O2 -ffp-contract=off $NATIVE_COMPILE_FLAGS"
 
 TIMEOUT_S=120
 ALLOWED_SKIPS=""
@@ -155,11 +197,11 @@ ReleaseCorpus() {
 
 trap 'KillRunning; ReleaseNest; ReleaseCorpus' EXIT
 
-ClaimCorpus
+if [ -z "$LINK_FLAGS_PROFILE" ]; then ClaimCorpus; fi
 
 NESTLOCK=$BUILD.lock
 NESTLOCK_MINE=no
-if [ "$INHERITED_NEST" != "$BUILD" ]; then
+if [ -z "$LINK_FLAGS_PROFILE" ] && [ "$INHERITED_NEST" != "$BUILD" ]; then
   # the claim and the identity are ONE atomic step: noclobber-create the lock FILE with the
   # pid already inside -- no window in which a second runner reads an empty claim. A stale
   # lock (dead pid) is removed and the claim retried under the same noclobber, so of two
@@ -201,7 +243,7 @@ SUITES=
 ALL_CASES=0
 FORCED_SANITIZER=
 HARDEN=0
-HARDENING_FLAGS="-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG -D_GLIBCXX_ASSERTIONS"
+HARDENING_FLAGS=$NATIVE_DEBUG_FLAGS
 while [ $# -gt 0 ]; do
   case "$1" in
     --sanitizer)
@@ -248,8 +290,15 @@ TestProfile() {
     outshine/src/client/BenchmarkReport) printf '%s' 'profile/benchmark-report' ;;
     outshine/src/scenario/Views) printf '%s' 'profile/scenario-views' ;;
     outshine/src/render/Viewing) printf '%s' 'profile/render-viewing' ;;
+    outshine/src/render/stages/StagePipelines) printf '%s' 'profile/stage-pipelines' ;;
+    outshine/src/render/draw/InstanceDemand) printf '%s' 'profile/instance-demand' ;;
+    outshine/src/generators/osm/PreparedUrbanAreas|outshine/src/generators/osm/PreparedOsmTiles|outshine/src/generators/osm/UrbanArea) printf '%s' 'profile/urban-assets' ;;
+    outshine/integration/render/UrbanPatchDemand) printf '%s' 'profile/urban-demand' ;;
+    outshine/src/engine/streaming/UrbanAreaInstances) printf '%s' 'profile/urban-instances' ;;
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
+    outshine/src/generators/road/FootpathConnectionPlan) printf '%s' 'profile/footpath-plan' ;;
+    outshine/src/generators/road/RoadProfileHeightFit) printf '%s' 'profile/road-profile' ;;
     outshine/src/content/cache/CacheUsageIndex) printf '%s' 'profile/cache-usage' ;;
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
@@ -269,6 +318,8 @@ TestProfile() {
     outshine/src/generators/base/water/WaterSurfaceMesh) printf '%s' 'profile/water-mesh' ;;
     outshine/src/generators/base/water/WaterAsset) printf '%s' 'profile/water-asset' ;;
     outshine/src/generators/water/WaterSurfacePreparation) printf '%s' 'profile/water-geometry' ;;
+    outshine/src/generators/water/RiverBodyPlan) printf '%s' 'profile/water-preparation' ;;
+    outshine/src/generators/water/WaterCourseProfile) printf '%s' 'profile/water-targets' ;;
     outshine/src/engine/streaming/WaterGeometryPreparation) printf '%s' 'profile/water-worker' ;;
     outshine/integration/water/BasinFacets) printf '%s' 'profile/water-bed' ;;
     outshine/src/generators/flora/PreparedPlantBuild) printf '%s' 'profile/plant-build' ;;
@@ -309,15 +360,19 @@ LayerIncludes() {
     profile/benchmark-options|profile/benchmark-report) GroupIncludes src/client ;;
     profile/scenario-views) GroupIncludes src/scenario ;;
     profile/render-viewing) GroupIncludes src/render ;;
+    profile/stage-pipelines) GroupIncludes src/render/stages ;;
     profile/client-boundary) printf '%s' '-I.' ;;
+    profile/footpath-plan) GroupIncludes src/generators/road/plan ;;
+    profile/road-profile) GroupIncludes src/generators/road/profile ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/water-mesh | profile/water-asset) GroupIncludes src/generators/base ;;
     profile/water-geometry | profile/water-preparation) GroupIncludes src/generators/water ;;
+    profile/water-targets) GroupIncludes src/generators/water ;;
     profile/water-worker) GroupIncludes src/engine ;;
     profile/water-bed) GroupIncludes src/generators/water; GroupIncludes src/generators/terrain ;;
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
-    profile/medium-view) printf '%s' "-Iinclude -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
+    profile/medium-view) printf '%s' "-Iinclude -Isrc/base/math -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
     profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
     profile/osm-xml) GroupIncludes src/generators/osm/import ;;
     profile/transport-native) printf '%s' "-Iinclude -Isrc/world/navigation -Isrc/world/products" ;;
@@ -328,17 +383,21 @@ LayerIncludes() {
     # carried its own hand-written list beside the build line, which is the second spelling of the
     # layering this file exists to prevent -- and it went stale the day `Json.h` moved into the
     # door, breaking `make` while every suite stayed green.
-    tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
-    harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
-    harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
+    tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io" ;;
+    harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
+    harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
     profile/tasks) printf '%s' '-Isrc/base/io' ;;
     profile/base) GroupIncludes src/base ;;
     profile/content) GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sdl3-image sqlite3 libzstd)" ;;
-    profile/host) GroupIncludes src/host; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
-    profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
+    profile/host) GroupIncludes src/host; printf ' %s' "$(pkg-config --cflags sdl3-image libtiff-4 libwebp sqlite3 libzstd)" ;;
+    profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image libtiff-4 libwebp sqlite3 libzstd)" ;;
     profile/scenario) GroupIncludes src/scenario ;;
     profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
+    profile/instance-demand) GroupIncludes src/render/draw ;;
+    profile/urban-assets) GroupIncludes src/generators/osm ;;
+    profile/urban-demand) LayerIncludes profile/instance-demand; printf ' %s' '-Isrc/generators/osm/urban' ;;
+    profile/urban-instances) GroupIncludes src/engine/streaming ;;
     profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/terrain' ;;
     profile/shadow-raster) printf '%s' '-Iinclude -Isrc/render/shadow' ;;
     profile/plant-build) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
@@ -352,8 +411,8 @@ LayerIncludes() {
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
     profile/species) GroupIncludes src/generators/flora ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
-    profile/engine) printf '%s ' "-Itest/harness/shared"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags liblz4 libtiff-4 sqlite3 libzstd)" ;;
-    harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/import -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
+    profile/engine) printf '%s ' "-Itest/harness/shared"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags libtiff-4 sqlite3 libzstd)" ;;
+    harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
     harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
     *) return 1 ;;
   esac
@@ -394,14 +453,14 @@ LayerSanitiser() {
     return
   fi
   if [ "$FORCED_SANITIZER" = address ] || NativeSafetyProfile "$1"; then
-    printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1"
+    printf '%s' "$NATIVE_ADDRESS_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1"
     return
   fi
   case "$(TestProfile "$1")" in
     profile/medium-view | profile/vector | profile/osm-xml | profile/transport-topology | profile/transport-native | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
-      printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+      printf '%s' "$NATIVE_ADDRESS_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     harness/geographiclib/geodesic)
-      printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+      printf '%s' "$NATIVE_ADDRESS_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -419,37 +478,51 @@ LayerValidation() {
   esac
 }
 
-LayerLink() {
+LayerLibraryLink() {
   case "$(TestProfile "$1")" in
-    profile/calibration) pkg-config --libs sdl3; NativeLink ;;
+    profile/calibration|profile/stage-pipelines) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
+    profile/footpath-plan) return 0 ;;
+    profile/road-profile) HighsFlags --libs ;;
+    profile/water-targets) printf '%s' '' ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
-    profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
+    profile/client-roundtrip | profile/client-preparation) LayerLibraryLink profile/internal ;;
     profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
     profile/tasks) printf '%s' '-pthread' ;;
+    profile/urban-assets) LayerLibraryLink profile/world ;;
     profile/shadow-raster) return 0 ;;
     profile/water-mesh | profile/water-asset | profile/water-bed) return 0 ;;
-    profile/water-geometry | profile/water-preparation) pkg-config --libs geos geographiclib ;;
-    profile/water-worker) printf '%s' "-pthread $(pkg-config --libs geos sdl3 geographiclib)" ;;
+    profile/water-geometry | profile/water-preparation) pkg-config --libs geos; OsqpFlags --libs ;;
+    profile/water-worker) printf '%s' "-pthread $(pkg-config --libs geos sdl3) $(OsqpFlags --libs)" ;;
     profile/plant-crown-cache) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
-    profile/plant-spatial-cache) LayerLink profile/plant-crown-cache ;;
+    profile/plant-spatial-cache) LayerLibraryLink profile/plant-crown-cache ;;
     profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
     profile/plant-plan | profile/plant-build | profile/plant-random | profile/plant-recipe | profile/plant-recipe-json | profile/plant-axis-detail | profile/plant-growth | profile/plant-crown | profile/plant-crown-asset | profile/plant-limb) return 0 ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
-    profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLink profile/base ;;
+    profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLibraryLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
-    profile/host) LayerLink profile/world ;;
-    profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
-    profile/diagnostics) LayerLink profile/internal ;;
-    profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal geographiclib) -lz -lcurl $(NativeLink)" ;;
+    profile/host) LayerLibraryLink profile/world ;;
+    profile/world) LayerLibraryLink profile/content; printf ' %s' "$(pkg-config --libs libtiff-4 libwebp) -lcurl" ;;
+    profile/diagnostics) LayerLibraryLink profile/internal ;;
+    profile/internal|profile/device) LayerLibraryLink profile/engine ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf libtiff-4 libwebp geos sqlite3 libzstd) $(OsqpFlags --libs) $(HighsFlags --libs) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
 }
 
-ImportGroups() {
-  SourceUnits | sed -n '\|^src/import/|p' | tr '\n' ' '
+LayerLink() {
+  printf '%s ' "$NATIVE_LINK_FLAGS"
+  for shaGroup in $(LayerGroups "$1"); do
+    case "$shaGroup" in
+      src/base/format|src/base/format/Sha256.cpp)
+        Sha256Flags --libs || return 1
+        printf ' '
+        break
+        ;;
+    esac
+  done
+  LayerLibraryLink "$1"
 }
 
 GeneratorGroups() {
@@ -475,6 +548,7 @@ SubtreeGroups() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/stage-pipelines) printf '%s' "src/render/stages/StagePipelines.cpp src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp $(NativeGroups)" ;;
     profile/calibration) printf '%s' "src/diagnostics/calibration $(NativeGroups) src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp src/base/io/HostProcessor.cpp" ;;
     profile/benchmark-motion) printf '%s' 'src/client/BenchmarkMotion.cpp src/base/math/Camera.cpp src/base/math/Rotation.cpp' ;;
     profile/benchmark-options) printf '%s' 'src/client/BenchmarkOptions.cpp' ;;
@@ -482,14 +556,17 @@ LayerGroups() {
     profile/scenario-views) printf '%s' 'src/scenario/Views.cpp src/base/math/Camera.cpp' ;;
     profile/render-viewing) printf '%s' 'src/base/math/Camera.cpp src/base/math/Rotation.cpp' ;;
     profile/client-boundary) return 0 ;;
+    profile/footpath-plan) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/road/plan' ;;
+    profile/road-profile) printf '%s' 'src/generators/road/profile' ;;
     profile/client-shots) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
+    profile/water-targets) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/water/WaterCourseProfile.cpp' ;;
     profile/water-mesh) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/base/water/WaterSurfaceMesh.cpp src/generators/base/water/WaterSurfaceMeshQueries.cpp src/generators/base/water/WaterSurfaceMeshCodec.cpp' ;;
     profile/water-asset) LayerGroups profile/water-mesh; printf '%s' ' src/generators/base/water/WaterAsset.cpp src/generators/base/water/WaterAssetQueries.cpp src/generators/base/water/WaterAssetGeometry.cpp src/generators/base/water/WaterAssetCodec.cpp src/generators/base/water/WaterAssetMetadata.cpp src/world/ground/tiles/TileGeodesy.cpp' ;;
-    profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp src/generators/water/WaterSurfaceTopology.cpp src/generators/water/WaterPhysicalFrame.cpp' ;;
+    profile/water-preparation) LayerGroups profile/water-asset; printf '%s' ' src/base/spatial/PolygonTriangulation.cpp src/generators/water/WaterSurfacePreparation.cpp src/generators/water/WaterSurfaceTopology.cpp src/generators/water/WaterPhysicalFrame.cpp src/generators/water/WaterHeightProgram.cpp src/generators/water/WaterHeightFit.cpp src/generators/water/WaterCourseProfile.cpp src/generators/water/WaterSurfaceComponents.cpp src/generators/water/WaterSurfaceRoundoff.cpp src/generators/water/RiverBodyPlan.cpp src/generators/water/RiverBodyCourses.cpp src/generators/water/RiverBodyHeight.cpp' ;;
     profile/water-geometry) LayerGroups profile/water-preparation; printf '%s' ' src/generators/water/WaterSurfaceBuilder.cpp src/base/Geometry.cpp' ;;
     profile/water-worker) LayerGroups profile/water-preparation; printf '%s' ' src/base/io/Tasks.cpp src/engine/streaming/WaterGeometryPreparation.cpp' ;;
-    profile/water-bed) LayerGroups profile/water-asset; printf '%s' ' src/generators/water/WaterBasinStamps.cpp src/generators/terrain/EarthworkDeformation.cpp src/generators/terrain/ProfiledCorridorPress.cpp' ;;
+    profile/water-bed) LayerGroups profile/water-asset; printf '%s' ' src/generators/water/WaterBasinStamps.cpp src/generators/terrain/EarthworkDeformation.cpp src/generators/terrain/CorridorApronBlend.cpp src/generators/terrain/ProfiledCorridorPress.cpp' ;;
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/medium-view) printf '%s' "src/render/Lens.cpp src/render/stages/MediumView.cpp" ;;
@@ -522,14 +599,18 @@ LayerGroups() {
     profile/host) SubtreeGroups src/base src/content src/world src/host ;;
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
     profile/ground-patch) printf '%s' 'src/render/terrain/TerrainPatchMesh.cpp src/render/terrain/TerrainPatchError.cpp' ;;
+    profile/instance-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp' ;;
+    profile/urban-assets) LayerGroups profile/world; printf ' %s' 'src/generators/terrain src/generators/base/AssetSourceRecipe.cpp src/generators/base/Tile.cpp src/generators/base/GroundPatch.cpp src/generators/osm/urban src/generators/osm/regions/PreparedOsmTiles.cpp src/generators/osm/regions/PreparedOsmTileAssets.cpp src/generators/osm/fields/OsmField.cpp src/generators/osm/fields/OsmNativeTile.cpp src/generators/osm/fields/OsmNativeAssembly.cpp src/generators/osm/fields/OsmDeclaredInput.cpp src/generators/osm/import src/generators/osm/providers/MvtLayer.cpp' ;;
+    profile/urban-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaBounds.cpp' ;;
+    profile/urban-instances) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/engine/streaming/UrbanAreaInstances.cpp' ;;
     profile/shadow-raster) printf '%s' 'src/render/shadow/ShadowRaster.cpp' ;;
     profile/scenario-write) printf '%s' "$(LayerGroups profile/scenario) src/scenario/Triggers.cpp src/scenario/Views.cpp" ;;
     profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
     profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
     profile/species) SubtreeGroups src/base; printf '%s' ' src/generators/flora/TreeSpecies.cpp src/generators/flora/Species.cpp src/generators/flora/GrowthForm.cpp src/generators/flora/TreeLeaf.cpp' ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
-    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
-    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -663,6 +744,10 @@ GroupIncludes() {
   done
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
   case "$1" in
+    src/base/format|src/base/format/Sha256.cpp)
+      shaIncludes=$(Sha256Flags --cflags) || return 1
+      includeSet="$includeSet $shaIncludes"
+      ;;
     src/client|src/client/*) includeSet="$includeSet -Ibuild/generated $(pkg-config --cflags nlohmann_json)" ;;
     src/diagnostics/calibration|src/diagnostics/calibration/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/render/device/native|src/render/device/native/*)
@@ -670,12 +755,12 @@ GroupIncludes() {
       case "$BUILD_PLATFORM" in Linux) includeSet="$includeSet $(pkg-config --cflags vulkan)" ;; esac
       ;;
     src/generators/flora|src/generators/flora/*) includeSet="$includeSet -Ibuild/generated" ;;
-    src/generators/building|src/generators/building/*) includeSet="$includeSet $(pkg-config --cflags sfcgal)" ;;
-    src/generators/water|src/generators/water/*) includeSet="$includeSet $(pkg-config --cflags geographiclib)" ;;
+    src/generators/water|src/generators/water/*) includeSet="$includeSet $(OsqpFlags --cflags)" ;;
     src/content/assets|src/content/assets/*) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
     src/generators/terrain/providers|src/generators/terrain/providers/*) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
-    src/world/data|src/world/data/*) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;
+    src/world/data|src/world/data/*) includeSet="$includeSet $(pkg-config --cflags libtiff-4)" ;;
     src/content/shade|src/content/shade/*|src/engine|src/engine/*) includeSet="$includeSet $(pkg-config --cflags sdl3-image)" ;;
+    src/generators/road/profile|src/generators/road/profile/*) includeSet="$includeSet $(HighsFlags --cflags)" ;;
   esac
   printf '%s' "$includeSet"
 }
@@ -949,7 +1034,7 @@ SkipAllowed() {
 
 mkdir -p "$BUILD/obj" "$BUILD/obj-address" "$BUILD/obj-thread" "$BUILD/obj-validated" "$BUILD/log" || Die "cannot write under $BUILD"
 SAN=""
-$CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
+$CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN $NATIVE_LINK_FLAGS -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
 FreshAgainst() {
@@ -1043,6 +1128,11 @@ BuildLibrary() {
   done
 
 }
+if [ -n "$LINK_FLAGS_PROFILE" ]; then
+  LayerLink "$LINK_FLAGS_PROFILE"
+  exit $?
+fi
+
 if [ -n "${LIBRARY:-}" ]; then
   [ -n "${COMPILEDB:-}" ] && rm -f "$BUILD/compile_commands.part"
   BuildLibrary
@@ -1109,7 +1199,7 @@ EveryProgramStillLinks() {
     for named in $EXPECT_UNLINKED; do
       [ "$named" = "$one" ] && declaredUnlinked=yes
     done
-    if $CXX $CXXSTD $(LayerToolchain "$layer") $WARN $(LayerIncludes "$layer") -c "$one" \
+    if $CXX $CXXSTD $(LayerToolchain "$layer") $OPT $WARN $(LayerIncludes "$layer") -c "$one" \
          -o "$BUILD/program.o" \
          >"$BUILD/program.log" 2>&1 &&
        $CXX $CXXSTD "$BUILD/program.o" build/liboutshine.a $(LayerLink "$layer") \
@@ -1305,7 +1395,7 @@ StateAccess() {
   printf '\n## Access\n\nWhat stands wider than private. Private is the default and a wider door justifies itself.\n\n'
   printf '%s protected section(s), and inheritance is right where a stable interface carries\n' \
     "$(grep -rc '^ *protected:' src --include=*.h 2>/dev/null | awk -F: '{ n += $2 } END { print n + 0 }')"
-  printf 'shared machinery -- Source, WebTileSource, TerrariumDem is that shape.\n\n'
+  printf 'shared machinery -- Source and WebTileSource is that shape.\n\n'
   grep -rn '^ *protected:' src --include=*.h 2>/dev/null | sed -E 's|:[0-9]+:.*||' | sort -u |
     sed 's|^|- `|; s|$|`|'
   printf '\n%s public data member(s) in a class -- an invariant nobody can hold.\n\n| members | header |\n|---|---|\n' "$OPENDATA"
@@ -1753,7 +1843,7 @@ for pruneObject in $OBJECTS; do
   [ "$pruneObject" -nt "$BUILD/prune" ] && pruneStale=yes
 done
 if [ "$pruneStale" = yes ]; then
-  $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN $(LayerIncludes tool/prune) -o "$BUILD/prune" ||
+  $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN $(LayerIncludes tool/prune) $NATIVE_LINK_FLAGS -o "$BUILD/prune" ||
     Die "the prune did not build"
 fi
 PRUNE_MARKER=$BUILD/prune.marker
@@ -1861,7 +1951,7 @@ fi
 
 for selectedTest in $TESTS; do
   case "$(TestProfile "$(dirname "${selectedTest#test/}")")" in
-    profile/engine|profile/internal|profile/device|profile/calibration|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
+    profile/engine|profile/internal|profile/device|profile/calibration|profile/stage-pipelines|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
       make shaders || Die "selected tests require prepared shaders"
       break
       ;;

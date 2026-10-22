@@ -1,6 +1,7 @@
 #include "StructurePreparation.h"
 #include "PreparedStructurePlan.h"
 #include "BuildingScratch.h"
+#include "BuildingShape.h"
 #include "Geodesy.h"
 #include "math/Units.h"
 #include <algorithm>
@@ -9,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <memory>
 #include <optional>
 #include <span>
 #include <utility>
@@ -427,6 +429,27 @@ EnrichStructure(const RawTile &raw,
                            .AcrossM = acrossM};
 }
 
+namespace {
+std::optional<Ground::BuildingTerrainCeiling> TerrainCeiling(const BuildingSurface &surface,
+                                                             PreparedStructure &prepared) {
+  if (prepared.Layout.MinimumHeightM != 0.0) { return std::nullopt; }
+  std::optional<double> support;
+  std::vector<Ground::BuildingTerrainPart> contacts;
+  for (const auto &part : surface.Shapes()) {
+    if (!part.OnGround()) { continue; }
+    const double height = part.SeatM - kBuildingPlinthM;
+    support = support ? std::min(*support, height) : height;
+    contacts.push_back(
+        {.HeightAslM = prepared.BaseAslM + height, .Ring = part.Ring, .Holes = part.Holes});
+  }
+  if (!support) { return std::nullopt; }
+  prepared.Standing.TerrainContacts.Parts =
+      std::make_shared<const std::vector<Ground::BuildingTerrainPart>>(std::move(contacts));
+  return Ground::BuildingTerrainCeiling{.OriginPoint = prepared.Layout.LocalFirst,
+                                        .HeightAslM = prepared.BaseAslM + *support};
+}
+}
+
 std::expected<PreparedStructureTile, StructureBakeError> PrepareStructureTile(
     const RawTile &raw, const Ground::HeightField &heights, const std::atomic_bool *stopping) {
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
@@ -454,15 +477,17 @@ std::expected<PreparedStructureTile, StructureBakeError> PrepareStructureTile(
         EnrichStructure(raw, heights, one, raw.LatLon, ways, corners, diagnostics, stopping);
     if (!prepared) { return std::unexpected(prepared.error()); }
     if (!*prepared) { continue; }
-    (**prepared).CornerFirst = base.CornerAslM.size();
+    auto &entry = **prepared;
+    entry.CornerFirst = base.CornerAslM.size();
     base.CornerAslM.insert(base.CornerAslM.end(), corners.begin(), corners.end());
     const auto plan =
-        PreparedStructurePlan(**prepared, base.PointsLatLon, base.Holes, corners, base.AnchorEcef);
+        PreparedStructurePlan(entry, base.PointsLatLon, base.Holes, corners, base.AnchorEcef);
     auto surface = BuildingSurface::Prepare(plan, scratch);
     if (!surface && surface.error() != StructureMeshError::UnsupportedFootprint) {
       return std::unexpected(surface.error());
     }
-    base.Structures.push_back(**prepared);
+    if (surface) { entry.Standing.TerrainCeiling = TerrainCeiling(*surface, entry); }
+    base.Structures.push_back(entry);
     base.Surfaces.push_back(surface ? std::move(*surface) : BuildingSurface{});
   }
   base.SkippedRings = diagnostics.SkippedRings;

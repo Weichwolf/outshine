@@ -89,15 +89,15 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
   return std::clamp(kBatterRun * yieldM, minimumApronM, kMostApronM);
 }
 
-[[nodiscard]] Vec3f LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
-                               const Ground::VegetationTemplates &vegetation) {
+}
+
+Vec3f Corridors::LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
+                            const outshine::Ground::VegetationTemplates &vegetation) {
   if (lane.CoverRow < 0 || static_cast<size_t>(lane.CoverRow) >= vegetation.TemplateCount()) {
     return {{0.5f, 0.5f, 0.5f}};
   }
   const Vec4f &cover = vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
   return {{cover[0], cover[1], cover[2]}};
-}
-
 }
 
 double Corridors::RoadGradient(const ::outshine::Generators::Osm::StreetField::Way &way) noexcept {
@@ -362,12 +362,8 @@ void Corridors::DetermineWaterClearance(const Paving &on, size_t laneAt, Paved &
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
 }
 
-void Corridors::PaveLane(const Paving &on,
-                         Pass pass,
-                         size_t laneAt,
-                         Paved &into,
-                         std::vector<EarthworkStamp> &corridor,
-                         RoadMeshBuffers &pavement) const {
+void Corridors::PaveLane(
+    const Paving &on, Pass pass, size_t laneAt, Paved &into, RoadMeshBuffers &pavement) const {
   const ::outshine::Generators::Osm::StreetField::Way &lane = on.Ways.Ways()[laneAt];
   if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
       !(lane.HalfWidthM > 0.0f)) {
@@ -385,15 +381,15 @@ void Corridors::PaveLane(const Paving &on,
   if (into.Designed[laneAt].size() < 2) { return; }
   const std::pair<uint32_t, uint32_t> &edges = into.EdgesOf[laneAt];
   for (uint32_t edgeAt = edges.first; edgeAt < edges.first + edges.second; ++edgeAt) {
-    PaveEdge(on, edgeAt, into, corridor, pavement);
+    PaveEdge(on, edgeAt, into, pavement);
   }
 }
 
-RoadProfile Corridors::ProfileOf(const Paving &on, size_t laneAt) {
-  const auto &lane = on.Ways.Ways()[laneAt];
+RoadProfile Corridors::ProfileOf(const Osm::StreetField::Way &lane,
+                                 const outshine::Ground::VegetationTemplates &vegetation) {
   const bool sealed = lane.CoverRow >= 0 &&
-                      static_cast<size_t>(lane.CoverRow) < on.Vegetation.TemplateCount() &&
-                      on.Vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
+                      static_cast<size_t>(lane.CoverRow) < vegetation.TemplateCount() &&
+                      vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
   RoadProfile profile = RoadProfile::Rounded;
   if (sealed) { profile = lane.Lanes >= 2 ? RoadProfile::Kerbed : RoadProfile::Simple; }
   return profile;
@@ -402,7 +398,6 @@ RoadProfile Corridors::ProfileOf(const Paving &on, size_t laneAt) {
 void Corridors::PaveEdge(const Paving &on,
                          size_t edgeAt,
                          Paved &into,
-                         std::vector<EarthworkStamp> &corridor,
                          RoadMeshBuffers &pavement) const {
   const Edge &edge = into.Edges[edgeAt];
   if (edge.PlannedCount < 2) { return; }
@@ -420,21 +415,10 @@ void Corridors::PaveEdge(const Paving &on,
   };
   into.LaidWays += lane.Bridge ? 1u : 0u;
   into.GroundWays += lane.Bridge ? 0u : 1u;
-  const RoadProfile profile = ProfileOf(on, laneAt);
-  const Vec3f wears = LaneColour(lane, on.Vegetation);
+  const auto surface = SurfaceOf(lane, on.Vegetation, edge, into.UnbankedWays.contains(laneAt));
   into.WaterMs += since();
-  into.Swept += Sweeper_.Sweep(std::span<const RoadStation>(into.Along.data(), into.Along.size()),
-                               {.HalfWidthM = static_cast<double>(lane.HalfWidthM),
-                                .Profile = profile,
-                                .WearsLinear = wears,
-                                .Crossfall = lane.Bridge && !into.UnbankedWays.contains(laneAt)
-                                                 ? std::atan(kCrossfall)
-                                                 : 0.0,
-                                .Form = lane.Bridge ? RibbonForm::ClosedShell : RibbonForm::Surface,
-                                .EndPorts = edge.EndPorts},
-                               pavement);
+  into.Swept += Sweeper_.Sweep(into.Along, surface, pavement);
   into.SweepMs += since();
-  AppendTerrainStamps(on, laneAt, into, corridor);
 }
 
 void Corridors::AppendTerrainStamps(const Paving &on,
@@ -442,6 +426,10 @@ void Corridors::AppendTerrainStamps(const Paving &on,
                                     Paved &into,
                                     std::vector<EarthworkStamp> &corridor) {
   const auto &lane = on.Ways.Ways()[laneAt];
+  const Section section = RoadSection(lane.HalfWidthM, ProfileOf(lane, on.Vegetation));
+  const double half = lane.Bridge ? static_cast<double>(lane.HalfWidthM) + kVergeM
+                                  : section.HalfWidthM + section.ShoulderM;
+  const double softVergeM = lane.Bridge ? 0.0 : std::max(0.0, kVergeM - section.ShoulderM);
   const auto yieldsAt = std::chrono::steady_clock::now();
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double runE = into.Along[at].EastM - into.Along[at - 1u].EastM;
@@ -457,7 +445,6 @@ void Corridors::AppendTerrainStamps(const Paving &on,
                                        std::fabs(into.Along[at - 1u].GradeM - groundBefore));
     const double outE = runN / runM;
     const double outN = -runE / runM;
-    const double half = static_cast<double>(lane.HalfWidthM) + kVergeM;
     double shoulderYieldM = 0;
     for (const double hand : {1.0, -1.0}) {
       for (int end = 0; end < 2; ++end) {
@@ -496,7 +483,7 @@ void Corridors::AppendTerrainStamps(const Paving &on,
     const double rise = (into.Along[at].GradeM - into.Along[at - 1u].GradeM) / runM;
     made.SlopeE = rise * runE / runM;
     made.SlopeN = rise * runN / runM;
-    made.ApronM = CorridorApronM(lane, yieldM);
+    made.ApronM = std::min(kMostApronM, CorridorApronM(lane, yieldM) + softVergeM);
     made.YieldM = yieldM;
     made.CorridorKey = into.ContactKeys[laneAt];
     const bool rests = !lane.Bridge || at == 1u || at + 1u == into.Along.size();
@@ -568,28 +555,6 @@ bool Corridors::FindCrossings(const Path::Network &net,
   return true;
 }
 
-void Corridors::Crosses(const Paving &on, Paved &into) {
-  auto partAt = std::chrono::steady_clock::now();
-  const auto part = [&partAt] {
-    const auto was = partAt;
-    partAt = std::chrono::steady_clock::now();
-    return std::chrono::duration<double, std::milli>(partAt - was).count();
-  };
-
-  if (on.Network == nullptr) { return; }
-  const Path::Network &net = *on.Network;
-  into.CrossNetworkMs = part();
-
-  std::vector<Path::Network::Crossing> crossed;
-  if (!FindCrossings(net, crossed, into)) { return; }
-  into.CrossSweepMs = part();
-  for (const Path::Network::Crossing &one : crossed) { FileCrossing(one, on, net, into); }
-  SettleCrossings(on, into);
-  into.CrossFilingMs = part();
-  for (const Path::Network::Crossing &one : crossed) { RaiseDeckOver(one, on, net, into); }
-  into.CrossDecksMs = part();
-}
-
 std::optional<Corridors::Ends>
 Corridors::EndsOf(const Paving &on, const ::outshine::Generators::Osm::StreetField::Way &lane) {
   const std::span<const double> points = on.Vectors.Points();
@@ -633,16 +598,6 @@ void Corridors::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &i
     }
     found->second = std::max(found->second, deckM);
   }
-}
-
-Corridors::BridgeTopology Corridors::BridgeTopologyOf(const Paving &on) {
-  const ::outshine::Generators::Osm::StreetField &ways = on.Ways;
-  BridgeTopology topology{.EndsOfWay = std::vector<Ends>(ways.Ways().size()),
-                          .HasEnds = std::vector<uint8_t>(ways.Ways().size()),
-                          .WaysAt = {},
-                          .PlaceOf = {}};
-  for (size_t at = 0; at < ways.Ways().size(); ++at) { AppendBridgeTopology(on, at, topology); }
-  return topology;
 }
 
 void Corridors::AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology) {
@@ -698,24 +653,6 @@ Corridors::RelevantBridgeEnds(const Paving &on, const BridgeTopology &topology, 
   return ordered;
 }
 
-void Corridors::SeedsBridgeEnds(const Paving &on, Paved &into) {
-  const BridgeTopology topology = BridgeTopologyOf(on);
-  const std::vector<uint64_t> ordered = RelevantBridgeEnds(on, topology, into);
-  for (const uint64_t key : ordered) {
-    const auto place = topology.PlaceOf.find(key);
-    if (place == topology.PlaceOf.end()) { continue; }
-    const std::optional<Grounded> under = GroundUnder(on, place->second);
-    if (!under) { continue; }
-    into.EndM.insert_or_assign(key, under->GradeM);
-    into.GroundEndM.insert_or_assign(key, under->GradeM);
-  }
-  for (size_t at = 0; at < on.Ways.Ways().size(); ++at) {
-    if (topology.HasEnds[at] != 0 && on.Ways.Ways()[at].Bridge && into.DeckM[at] > kUnraisedDeckM) {
-      RaisesEnds(topology.EndsOfWay[at].Key, into.DeckM[at], into);
-    }
-  }
-}
-
 double Corridors::HighestDeckM(const Paved &over) {
   double mostDeckM = 0.0;
   for (const auto &one : over.EndM) {
@@ -724,10 +661,6 @@ double Corridors::HighestDeckM(const Paved &over) {
     mostDeckM = std::max(mostDeckM, one.second - seeded->second);
   }
   return mostDeckM;
-}
-
-void Corridors::EasesRamps(const Paving &on, double mostDeckM, Paved &into) {
-  for (int pass = 0; pass < kRampPasses; ++pass) { EaseRampPass(on, mostDeckM, into); }
 }
 
 void Corridors::EaseRampPass(const Paving &on, double mostDeckM, Paved &into) {
@@ -799,22 +732,6 @@ void Corridors::RecordBridgeConnectionMetrics(Paved &into) {
         "crossings");
   Notes(into, "streets: decks a crossing raised", static_cast<double>(into.DecksRaised), "decks");
   Notes(into, "streets: and the most one stands over what it crosses", into.MostRaisedM, "m");
-}
-
-void Corridors::ResolveBridgeConnections(const Paving &on, Paved &into) {
-  auto began = std::chrono::steady_clock::now();
-  const auto elapsed = [&began] {
-    const auto previous = began;
-    began = std::chrono::steady_clock::now();
-    return std::chrono::duration<double, std::milli>(began - previous).count();
-  };
-  SeedsBridgeEnds(on, into);
-  Notes(into, "streets: of raising decks, seeding bridge ends", elapsed(), "ms");
-  Notes(into, "streets: the highest deck a ramp must reach", HighestDeckM(into), "m");
-  EasesRamps(on, HighestDeckM(into), into);
-  Notes(into, "streets: of raising decks, easing ramps", elapsed(), "ms");
-  GradesApproaches(on, into);
-  Notes(into, "streets: of raising decks, grading approaches", elapsed(), "ms");
 }
 
 void Corridors::SplitsEdges(Paved &into) {
@@ -984,15 +901,6 @@ Bound RayOf(const Bound &along) {
 
 }
 
-std::unordered_map<uint64_t, std::vector<Corridors::Leg>> Corridors::LegsOf(const Paving &on,
-                                                                            const Paved &into) {
-  std::unordered_map<uint64_t, std::vector<Leg>> legsAt;
-  for (uint32_t edgeAt = 0; edgeAt < static_cast<uint32_t>(into.Edges.size()); ++edgeAt) {
-    AppendLeg(on, into, edgeAt, legsAt);
-  }
-  return legsAt;
-}
-
 void Corridors::AppendLeg(const Paving &on,
                           const Paved &into,
                           uint32_t edgeAt,
@@ -1033,7 +941,8 @@ void Corridors::GatesOf(const Paving &on,
     const double spanM = line.AlongM[rim] - line.AlongM[before];
     const double along =
         spanM > kLeastRunM ? std::clamp((leg.CutM - line.AlongM[before]) / spanM, 0.0, 1.0) : 0.0;
-    const Section section = RoadSection(leg.HalfM, ProfileOf(on, edge.Lane));
+    const Section section =
+        RoadSection(leg.HalfM, ProfileOf(on.Ways.Ways()[edge.Lane], on.Vegetation));
     made.Gates.push_back(
         RoadGate{.EastM = line.EastM[before] + (line.EastM[rim] - line.EastM[before]) * along,
                  .NorthM = line.NorthM[before] + (line.NorthM[rim] - line.NorthM[before]) * along,
@@ -1231,26 +1140,6 @@ bool Corridors::IsContinuation(const Paving &on, std::span<const Leg> legs, cons
   return true;
 }
 
-void Corridors::ShapesJunctions(const Paving &on, Paved &into) {
-  std::unordered_map<uint64_t, std::vector<Leg>> legsAt = LegsOf(on, into);
-  std::vector<uint64_t> nodes;
-  for (const auto &one : legsAt) {
-    if (one.second.size() >= 2) { nodes.push_back(one.first); }
-  }
-  std::ranges::sort(nodes);
-  for (const uint64_t node : nodes) {
-    std::vector<Leg> &legs = legsAt[node];
-    std::ranges::sort(legs, ByBearing);
-    if (IsContinuation(on, legs, into)) {
-      ++into.Continuations;
-      continue;
-    }
-    ShapeOf(on, node, legs, into);
-  }
-  for (Edge &edge : into.Edges) { LimitEndCuts(edge, into); }
-  for (Junction &made : into.Junctions) { FinalizeJunction(on, made, into); }
-}
-
 void Corridors::RecordJunctionMetrics(Paved &into) {
   Notes(
       into, "streets: edges the ways split into", static_cast<double>(into.Edges.size()), "edges");
@@ -1318,16 +1207,6 @@ void Corridors::BindJunctionPorts(const Junction &made, Paved &into) {
   }
 }
 
-size_t Corridors::RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const {
-  for (const Junction &one : into.Junctions) {
-    Sweeper_.Junction(std::span<const RoadGate>(one.Gates.data(), one.Gates.size()),
-                      {.SlopeE = one.SlopeE, .SlopeN = one.SlopeN},
-                      one.WearsLinear,
-                      pavement);
-  }
-  return into.Junctions.size();
-}
-
 void Corridors::TellsWhatTheFitFound(Paved &into) {
   if (into.FitsMeasured == 0) { return; }
   Notes(into,
@@ -1386,46 +1265,12 @@ void Corridors::TellsWhatTheFitFound(Paved &into) {
         "stations");
 }
 
-bool Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
-                                   const RoadMeshBuffers &pavement,
-                                   Paved &into,
-                                   Geometry &ground) {
-
-  if (pavement.Index.size() < 3) { return true; }
+Material Corridors::StreetMaterial(const outshine::Ground::GroundMaterials &wearing) {
   Material tarmac;
   for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
-  {
-    const int asphalt = wearing.Find("asphalt");
-    tarmac.Roughness =
-        asphalt >= 0 ? wearing.At(static_cast<size_t>(asphalt)).Roughness : kUnlitTint;
-  }
-  const auto paved = ground.addSurface("streets", tarmac);
-  if (!paved) { return false; }
-  const auto createdPart = ground.addPart("streets", *paved);
-  if (!createdPart) { return false; }
-  const int pavedPart = *createdPart;
-  const bool tookPaving =
-      pavedPart >= 0 &&
-      ground.setPositions(
-          pavedPart,
-          std::span<const float>(pavement.PositionM.data(), pavement.PositionM.size())) &&
-      ground.setNormals(pavedPart,
-                        std::span<const float>(pavement.NormalM.data(), pavement.NormalM.size())) &&
-      ground.setColours(
-          pavedPart,
-          std::span<const float>(pavement.ColourRgba.data(), pavement.ColourRgba.size())) &&
-      ground.setTriangles(pavedPart,
-                          std::span<const uint32_t>(pavement.Index.data(), pavement.Index.size()));
-  Notes(into, "streets: the surface they were given", static_cast<double>(paved->index()), "index");
-  Notes(into, "streets: the part they were given", static_cast<double>(pavedPart), "index");
-  Notes(into, "streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
-  Notes(into,
-        "streets: triangles wound against their normals",
-        static_cast<double>(ground.windingAgainstNormals(pavedPart)),
-        "triangles");
-  Notes(
-      into, "streets: parts the geometry now holds", static_cast<double>(ground.parts()), "parts");
-  return tookPaving;
+  const int asphalt = wearing.Find("asphalt");
+  tarmac.Roughness = asphalt >= 0 ? wearing.At(static_cast<size_t>(asphalt)).Roughness : kUnlitTint;
+  return tarmac;
 }
 
 std::unordered_map<uint64_t, uint32_t>
@@ -1605,20 +1450,12 @@ struct Corridors::JobSlice {
 
 namespace {
 
-std::string SourceOfWay(const Osm::OsmField &vectors, const Osm::StreetField::Way &way) {
-  const auto rings = vectors.Rings();
-  for (const auto &feature : vectors.Features()) {
-    for (size_t i = 0; i < feature.RingCount; ++i) {
-      const auto &ring = rings[feature.FirstRing + i];
-      if (ring.First == way.FirstPoint && ring.Count == way.PointCount) {
-        if (const auto sourceId = feature.ProviderFeatureId; sourceId.has_value()) {
-          return std::to_string(*sourceId);
-        }
-        return "declared";
-      }
-    }
-  }
-  return "unidentified";
+std::string SourceOfWay(const Osm::OsmField &vectors, const Osm::StreetField &ways, size_t way) {
+  const auto source = ways.SourceOf(vectors, way);
+  if (!source || source->Feature >= vectors.Features().size()) { return "unidentified"; }
+  const auto &feature = vectors.Features()[source->Feature];
+  if (feature.ProviderFeatureId) { return std::to_string(*feature.ProviderFeatureId); }
+  return "declared";
 }
 
 }
@@ -1647,7 +1484,7 @@ bool Corridors::RetainValidWays(Job &job, const JobSlice &slice) {
   if (!choice) { return false; }
   const size_t selected = std::get<size_t>(*choice);
   auto retained = slice.ways.Without(selected);
-  const auto source = SourceOfWay(*slice.vectors, slice.ways.Ways()[selected]);
+  const auto source = SourceOfWay(*slice.vectors, slice.ways, selected);
   Log::Warn(LogTag::World,
             "road_source_omitted",
             {{"source", source},
@@ -1765,6 +1602,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceStage(Job &job,
     case Stage::EndCuts:
     case Stage::JunctionGates:
     case Stage::JunctionContacts: return AdvanceRoadJunctions(job, slice);
+    case Stage::TerrainContacts: return AdvanceTerrainContacts(job, slice);
     case Stage::Pave: return AdvanceRoadPaving(job, slice);
     case Stage::Profiles:
     case Stage::Heights: return AdvanceRoadProfiles(job, slice);
@@ -2026,7 +1864,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
       const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
       if (paving != nullptr) {
         for (; job.NextLane < end; ++job.NextLane) {
-          PaveLane(*paving, Pass::Designing, job.NextLane, into, job.Corridor, job.Pavement);
+          PaveLane(*paving, Pass::Designing, job.NextLane, into, job.Pavement);
         }
       } else {
         job.NextLane = end;
@@ -2186,11 +2024,37 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
       Notes(into, "streets: of that, shaping the junctions", job.StageMs, "ms");
       job.NextLane = 0;
       job.StageMs = 0.0;
-      job.Phase = Job::Stage::Pave;
+      job.NextEdge = 0;
+      job.Phase = Job::Stage::TerrainContacts;
       return false;
     }
     default: return std::unexpected(Says::kStaleCorridorInput);
   }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceTerrainContacts(Job &job,
+                                                                        const JobSlice &slice) {
+  if (job.Phase != Job::Stage::TerrainContacts) {
+    return std::unexpected(Says::kStaleCorridorInput);
+  }
+  const size_t end =
+      std::min(job.NextEdge + std::max(size_t{1}, slice.lanesMost), job.Work.Edges.size());
+  if (slice.paving != nullptr) {
+    for (; job.NextEdge < end; ++job.NextEdge) {
+      const auto &edge = job.Work.Edges[job.NextEdge];
+      if (edge.PlannedCount < 2) { continue; }
+      const auto first = job.Work.Planned.begin() + edge.PlannedFirst;
+      job.Work.Along.assign(first, first + edge.PlannedCount);
+      AppendTerrainStamps(*slice.paving, edge.Lane, job.Work, job.Corridor);
+    }
+  } else {
+    job.NextEdge = end;
+  }
+  job.TotalMs += slice.Elapsed();
+  if (job.NextEdge < job.Work.Edges.size()) { return false; }
+  job.NextLane = 0;
+  job.Phase = Job::Stage::Pave;
+  return false;
 }
 
 std::expected<bool, std::string_view> Corridors::AdvanceRoadPaving(Job &job,
@@ -2203,7 +2067,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadPaving(Job &job,
   const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
   if (paving != nullptr) {
     for (; job.NextLane < end; ++job.NextLane) {
-      PaveLane(*paving, Pass::Paving, job.NextLane, into, job.Corridor, job.Pavement);
+      PaveLane(*paving, Pass::Paving, job.NextLane, into, job.Pavement);
     }
   } else {
     job.NextLane = end;
@@ -2363,12 +2227,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransfer(Job &job, const
 std::expected<bool, std::string_view> Corridors::BeginTransfer(Job &job, const JobSlice &slice) {
   if (job.Phase != Job::Stage::Transfer) { return std::unexpected(Says::kStaleCorridorInput); }
   if (job.Pavement.Index.size() >= 3) {
-    Material tarmac;
-    for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
-    const auto &wearing = slice.site.Materials;
-    const int asphalt = wearing.Find("asphalt");
-    tarmac.Roughness =
-        asphalt >= 0 ? wearing.At(static_cast<size_t>(asphalt)).Roughness : kUnlitTint;
+    const Material tarmac = StreetMaterial(slice.site.Materials);
     const auto paved = slice.ground.addSurface("streets", tarmac);
     if (!paved) { return std::unexpected(Says::kPavingCreationFailed); }
     const auto part = slice.ground.addPart("streets", *paved);
@@ -2431,6 +2290,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
       "profiles",
       "heights",
       "junction-contacts",
+      "terrain-contacts",
       "pave",
       "bodies",
       "notes",

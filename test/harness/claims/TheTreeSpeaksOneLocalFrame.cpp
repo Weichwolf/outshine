@@ -26,9 +26,11 @@ int main(void) {
   const size_t negated =
       Counted("grep -rnE --include='*.h' --include='*.cpp' -- "
               "'([=(,{*+/?:]|return)[[:space:]]*-[[:space:]]*[A-Za-z_.]*NorthM' src include "
-              "| grep -v 'src/base/math/RenderFrame.h'");
+              "| grep -v 'src/base/math/RenderFrame.h' "
+              "| grep -vF 'Current_.SlopeN = -normal.NorthM / normal.UpM;'");
   std::printf("  SouthM or EastSouth anywhere      %zu\n", south);
-  std::printf("  a negated north outside RenderFrame %zu (%zu are rotations in the plane)\n",
+  std::printf("  a negated north outside RenderFrame, excluding plane gradients %zu "
+              "(%zu are rotations in the plane)\n",
               negated,
               kRotationsInThePlane);
 
@@ -43,8 +45,10 @@ int main(void) {
         "is the conversion from East-North-Up to the renderer's right-handed Y-up frame, and its "
         "static assertions state the axes. The three negations allowed outside it are the "
         "building generator's rotations of a footprint axis by a quarter turn IN THE PLANE "
-        "(BuildingShape.h AxisV, BuildingMesh.cpp, BuildingShape.cpp), which convert nothing; a "
-        "fourth is a hand-written frame conversion and the count may only fall. The walk counts a "
+        "(BuildingShape.h AxisV, BuildingMesh.cpp, BuildingShape.cpp), which convert nothing. "
+        "BuildingStampJob's height gradient -normal.NorthM/normal.UpM follows the plane equation, "
+        "not an axis conversion, and is excluded explicitly. Any other negation needs review. "
+        "The walk counts a "
         "NEGATION -- a minus after an operator, a bracket or `return` -- and never a subtraction: "
         "its first cut matched `a.NorthM - b.NorthM` and read 60");
 

@@ -8,13 +8,16 @@
   Ich lese und bearbeite sie mit `gh issue list`, `gh issue view`, `gh issue create` und `gh issue edit`.
   Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
   Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
-- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Drei Agenten arbeiten zusammen:
+- Ich trage die Gesamtverantwortung für das Projekt als Technical und Art Director;
+  der Nutzer ist Regisseur. Research und Engine unterstützen mich nach meinem Bedarf.
+  Ich bestimme Prioritäten, teile Arbeit zu und verantworte das integrierte Ergebnis.
+  Ihre Fachverantwortung bleibt erhalten; Optimierung gehört jeweils dazu.
 
   | Worktree/Branch | Verantwortung | Einstieg |
   |---|---|---|
-  | `outshine` / `master` | Gesamtarchitektur, Art Direction, Prioritäten, Koordination, Metal-/A18-Pro-Integration und Optimierung, integrierte Bild-/Geräteprüfung | [#5](https://github.com/Weichwolf/outshine/issues/5) |
-  | `outshine_research` | Ausschließlich Python: Forschung, Verfahren, Solver und Rezepte für alle Bereiche einschließlich Transport, Buildings, Vegetation, Materialien, Licht und Wetter | [#788](https://github.com/Weichwolf/outshine/issues/788) |
-  | `outshine_engine` | Gemeinsame native C++-Engine, Übernahme der Python-Referenzen, Vulkan und CPU-/GPU-/Speicheroptimierung auf Intel i5-1135G7 / Iris Xe | [#789](https://github.com/Weichwolf/outshine/issues/789) |
+  | `outshine` / `master` | Gesamtarchitektur, Art Direction, native Übernahme, Integration/Merges, gebündelte Lint-/Test-/Bildprüfung und Metal/A18 Pro | [#5](https://github.com/Weichwolf/outshine/issues/5) |
+  | `outshine_research` | Ausschließlich Python: Verfahren, Solver und Rezepte entwickeln und nach Bildwirkung, Rechenarbeit und Speicher optimieren | [#788](https://github.com/Weichwolf/outshine/issues/788) |
+  | `outshine_engine` | Gemeinsame C++-Engine entwickeln, Python-Referenzen nativ übernehmen, Vulkan pflegen und CPU/GPU/IO/Speicher optimieren; Intel i5-1135G7 / Iris Xe | [#789](https://github.com/Weichwolf/outshine/issues/789) |
 
   Worktrees liegen als Geschwister unter `Git/`; Branch und Verzeichnis der beiden Kollegen
   heißen gleich. A18 Pro und Intel/Iris Xe haben jeweils das Ziel 1280×720/60.
@@ -28,8 +31,10 @@
 - `outshine_research` priorisiert mit mir den wichtigsten fehlenden Verfahrensbaustein und
   liefert kleine geprüfte vertikale Schritte. Experimente liegen unter `test/experiments/`,
   gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Implementierung.
-  `outshine_engine` übernimmt verifizierte Verfahren maschinennah nach `src/` samt allen
-  Verbrauchern und nativen Produkten. Ich verantworte Metal und die Gesamtintegration.
+  `outshine_engine` entwickelt die gemeinsame native Engine und Vulkan, übernimmt verifizierte
+  Python-Verfahren maschinennah nach `src/` und optimiert die integrierten Verfahren.
+  Ich übernehme native Arbeit nach Bedarf und verantworte Metal/A18 Pro.
+  Gemeinsame Integration, Lint, Tests und Bildprüfung liegen vorrangig bei mir.
   Forschung und native Umsetzung können unabhängig voranschreiten; fehlende Teilverträge
   benennen und unabhängig weiterarbeiten. Python-Zeiten ersetzen keine native Geräteabnahme.
 - Transport plant zuerst und liefert angepasste Gebäudegrundrisse/Freiräume, Buildings baut
@@ -37,12 +42,14 @@
   Quellen/Quell-IDs erhalten. Räumliche Verträge stehen in [#18](https://github.com/Weichwolf/outshine/issues/18).
   Materialparameter, Licht-/Schattenkomposition und Wetterzustand haben klare Modulbesitzer;
   gemeinsame Pässe, Bindings und Radiance-/Transmittanzkomposition mit Verbrauchern abstimmen.
-- Jeder Agent darf architektonische und organisatorische Verbesserungen einbringen. Outshine
-  soll in Darstellung, Code und Projektgestaltung schön sein: kohärent, klar benannt, gut
-  gegliedert und frei von unnötiger Komplexität. Lokale Verbesserungen brauchen keine Freigaberunde.
-- Beide Kollegen committen, pushen und mergen kleine vollständige PRs nach bestandenen
-  betroffenen Prüfungen selbstständig. Vorher gegen `master` aktualisieren, Konflikte lösen
-  und gemeinsame Übergänge prüfen. Ich prüfe die Integration, Bildqualität und Metal/A18.
+- Jeder Agent verantwortet selbst auch Struktur und Informationsdichte von Repository und
+  Backlog: erwartbare Namen, klare Ablage, kurze auffindbare Verträge, keine doppelte Wahrheit.
+  Unklare Namen, veraltete Angaben und unnötige Komplexität korrigieren wir samt Verbrauchern;
+  lokale Verbesserungen brauchen keine Freigaberunde. Outshine soll in Bild und Aufbau kohärent sein.
+- Beide Kollegen committen und pushen kleine vollständige Fachlieferungen als PRs gegen den
+  vereinbarten Integrationsstand. Ich übernehme Zusammenführung, Merges und gebündelte Prüfungen.
+  Die Lieferanten prüfen gezielt die Korrektheit ihrer Verfahren/Änderungen und messen ihre
+  Kosten; vollständige Lint-/Testwiederholungen sind keine pauschale Lieferbedingung.
   Bei einem Defizit nenne ich reproduzierbare Eingabe, Bild-/Funktionsfehler, Vertrag und
   Priorität im Fach-Issue; Referenzfehler und native Umsetzungsfehler getrennt belegen.
 - [#47](https://github.com/Weichwolf/outshine/issues/47) bleibt der gemeinsame Kommunikationseingang;
@@ -89,6 +96,9 @@
 - Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
+- Entfällt der letzte Produktkonsument, entferne ich den überholten Pfad samt exklusiven Tests,
+  Buildregeln, Abhängigkeiten und Dokumentation. Tests allein rechtfertigen keinen Altpfad.
+  Aktive Verbraucher, benötigte Datenformate und laufende Fachlieferungen vorher prüfen.
 - Echtzeit und glaubwürdige Bild-/Spielwirkung bestimmen die Genauigkeit. Ich nutze gemessene
   räumliche/zeitliche Approximationen. Transport braucht konstruktive CAD-Qualität: saubere
   Geometrie, Anschlüsse und funktionale Profile; keine exakte Vermessung der Erde.
@@ -167,7 +177,7 @@
   deklarierte Vergleiche; Speicher und CPU/GPU pro Gerät getrennt belegen.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
 - Die Bildveröffentlichung in `doc/` und README pausiert auf Nutzerauftrag. Ich pushe dort
-  vorerst keine neuen oder aktualisierten Bilder. Fachagenten veröffentlichen ebenfalls keine
+  nur ausdrücklich beauftragte README-Bilder. Fachagenten veröffentlichen ebenfalls keine
   Bilder oder Ersatzgalerien. Forschungs-/Diagnosebilder bleiben lokal im System-Tempverzeichnis;
   Verfahren, Tests und Renderer werden weiterhin geliefert. Tatsächliche Bildprüfung bleibt Pflicht.
 - Ich pflege zwölf wechselnde Places als Beurteilungswerkzeug, keine vorgeschriebene Ortsliste.
@@ -209,14 +219,16 @@
 - Ich nutze Command Line Tools und CLI-Profiler; die Xcode-App ist keine Voraussetzung.
 - Fremdcode wird nicht im Repository gebündelt. Ich nutze eigene Implementierungen oder
   Standardbibliotheken aus Homebrew/apt; erforderliche Pakete nenne ich ausdrücklich.
-  Wo immer möglich nutze ich bewährte Bibliotheken statt eigener Standardalgorithmen;
-  Vertrag, Portabilität und gemessene Kosten müssen passen. Für Techniken und Algorithmen
+  Ich minimiere direkte und transitive Abhängigkeiten. Bewährte Bibliotheken bleiben,
+  wenn genutzter Umfang und Robustheit die Abhängigkeit rechtfertigen; kleine Teilmengen dürfen
+  geprüfte gemeinsame native Operationen ersetzen. Referenz, Randfälle, Portabilität
+  und gemessene Kosten entscheiden; keine Pakete auf Vorrat. Für Techniken und Algorithmen
   schlage ich immer zuerst in SIGGRAPH-Veröffentlichungen nach, ergänze
   passende Primärquellen und verankere Verfahren und Quellen im zuständigen Issue.
   PDFs prüfe ich immer auch optisch, insbesondere Abbildungen, Diagramme und Gleichungen.
 - C++23, native Metal-/Vulkan-Backends, GLSL; SDL3 für Fenster, Eingabe und Audio.
   Ich implementiere Metal, `outshine_engine` Vulkan; gemeinsame GPU-Verträge stimmen wir
-  vor der Integration ab. SDL3_GPU wird ersetzt; vorhandene Bildqualität und Funktionen erhalten.
+  vor der Integration ab. Vorhandene Bildqualität und Funktionen bleiben erhalten.
   Backendentscheidungen und Übergang stehen in [#48](https://github.com/Weichwolf/outshine/issues/48).
   RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
@@ -229,7 +241,8 @@
   Status-, Prioritäts- und Architekturfelder in Beschreibung und Labels gemeinsam aktualisieren.
   Beim Aktivieren das andere Statuslabel entfernen; abschließen erst nach erfüllter Abnahme mit `gh issue close`.
   `priority:P0` bis `priority:P3`, `architecture:ready`/`architecture:planned` und `owner:*` erhalten.
-  Beschreibungen enthalten Ergebnis/Ist, Besitzer, Umsetzung, fehlende Verträge und kurze Abnahme, keine Prüfchronik.
+  Titel benennen das Ergebnis/Problem. Beschreibungen enthalten aktuellen Iststand, Besitzer,
+  Entscheidung, fehlende Verträge und kurze Abnahme; keine Prüfchronik oder überholten Aussagen.
   Bevorzugt 80 Zeilen/6 KiB; ausführliche Diskussion und Belege bleiben in Kommentaren.
 - `Parent` und `Depends` nennen GitHub-Issuenummern. `Depends` bezeichnet einen fehlenden Vertrag,
   keine Reihenfolge oder pauschal ein ganzes Subsystem. Priorität, Abhängigkeiten und Vision getrennt prüfen.
@@ -249,7 +262,7 @@
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
   keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.
-- Ich halte Projekt und Zusammenarbeit kontextsparend: Pfad und Name führen direkt zum Besitzer;
+- Ich halte Projekt und Zusammenarbeit kontextsparend: Pfad, Datei, Typ und Funktion heißen wie erwartet;
   jede Datei behandelt eine zusammenhängende Aufgabe. Header zeigen Verträge, größere
   Implementierungen stehen in `.cpp`. Keine künstliche Fragmentierung oder Zeilenverdichtung.
   Ich lese gezielte Symbole/Ausschnitte und fasse Logs als Ergebnis, Fehler und Belegpfad zusammen.
@@ -264,15 +277,15 @@
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
   Lokale Tests bauen nur ihre benötigten Komponenten. Modul-, Speicher-, Nebenläufigkeits- und
   Render-/Places-Prüfungen bleiben gezielt aufrufbar; Vollsuite und Instrumentierung sind getrennte Aufträge.
-- Native Lieferungen enthalten Format, betroffene Tests und fokussiertes clang-tidy selbst;
-  der PR nennt Commit, Umfang, Plattform, Aufruf und terminales Ergebnis, offene Prüfungen ausdrücklich.
-  Sie aktualisieren ihren Branch vor dem Merge gegen `master`, lösen Konflikte und prüfen betroffene
-  Übergänge. Kleine vollständige PRs eigenständig mergen; zusätzliche Features folgen separat.
-  Gemeinsame Verträge vorher mit betroffenen Verbrauchern abstimmen. Vorhandene passende Belege wiederverwenden;
-  sporadische Gesamtläufe untereinander abstimmen, keine pauschalen Wiederholungen je Agent oder PR.
-  Ich prüfe integrierte Änderungen gebündelt auf neue Wechselwirkungen, Metal/A18 und betroffene
-  Places. Gemessene A18-Engpässe gehen mit Szenario, Profil, Commit und
-  Kostenbeleg an `outshine_engine`; ich übernehme die Geräte-/Bildgegenprüfung.
+- Research und Engine liefern Verfahren, neue Funktionen und Optimierungen mit gezielten Korrektheitskontrollen
+  und Kostenvergleichen; Engine ergänzt erforderliche Vulkan-/Iris-Gerätemessungen.
+  Der PR nennt Commit, Umfang, Plattform, Aufruf und terminales Ergebnis, offene Prüfungen ausdrücklich.
+  Ich übernehme Integration, Format, fokussiertes clang-tidy, betroffene Tests, gebündelte Gesamtläufe
+  und Places-/Metal-Bildprüfung. Neue breite Läufe koordiniere ich; vorhandene passende Belege
+  wiederverwenden. Gezielte Eigenprüfungen der Kollegen bleiben erlaubt und nötig, wenn sie
+  Entwicklungs- und Optimierungsentscheidungen absichern. Gemeinsame Verträge vorher mit Verbrauchern abstimmen.
+  Gemessene A18-Engpässe gehen mit Szenario, Profil, Commit und Kostenbeleg an `outshine_engine`;
+  ich übernehme die Geräte-/Bildgegenprüfung.
   Ein gemeinsamer Voll-Lint gilt dem eingefrorenen Integrationsstand;
   Änderungen danach benötigen die davon betroffenen Prüfungen. Unabhängige Drafts halten das Paket nicht auf.
 - Agenten beurteilen parallele Läufe selbst anhand laufender Prozesse und verfügbarer Ressourcen;

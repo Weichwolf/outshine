@@ -78,7 +78,7 @@ private:
              const PreparedBuildingBasis &basis,
              const std::string &requestKey = {});
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
-  LoadGeometryArtifact(const std::string &baseKey, const RawTile &view);
+  LoadGeometryArtifact(const std::string &baseKey, const RawTile &view, size_t coordinatePoints);
 
   struct SurfaceCosts {
     std::atomic_uint64_t Hits{0}, Misses{0}, Writes{0}, ReadBytes{0};

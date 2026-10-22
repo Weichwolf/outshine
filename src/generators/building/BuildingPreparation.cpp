@@ -15,7 +15,6 @@ namespace outshine::Generators {
 namespace {
 
 constexpr double kSinkM = 0.30;
-constexpr double kPlinthM = 0.50;
 constexpr double kRegularTowerWidthM = 12.0;
 
 class FoundationGround {
@@ -70,53 +69,22 @@ private:
   double HighM_ = 0.0, LowM_ = 0.0;
 };
 
-constexpr double kGroundStepM = 2.0;
-
-void SampleGround(const BuildingShape &s,
-                  const FoundationGround &ground,
-                  double *lowest,
-                  double *highest) {
-  bool first = true;
-  const size_t n = s.Ring.size();
-  for (size_t i = 0; i < n; i++) {
-    const EastNorth &p = s.Ring[i];
-    const EastNorth &q = s.Ring[(i + 1) % n];
-    const double len = std::hypot(q.EastM - p.EastM, q.NorthM - p.NorthM);
-    const int steps = 1 + static_cast<int>(len / kGroundStepM);
-    for (int step = 0; step < steps; ++step) {
-      const double fraction = static_cast<double>(step) / static_cast<double>(steps);
-      const double at = ground.At({.EastM = p.EastM + fraction * (q.EastM - p.EastM),
-                                   .NorthM = p.NorthM + fraction * (q.NorthM - p.NorthM)});
-      if (first) {
-        *lowest = *highest = at;
-        first = false;
-        continue;
-      }
-      *lowest = std::min(at, *lowest);
-      *highest = std::max(at, *highest);
-    }
-  }
-  if (first) { *lowest = *highest = 0.0; }
-}
-
-double PlinthFootZ(const BuildingShape &s, const FoundationGround &ground) {
+void PlaceFoundation(BuildingShape &shape, const FoundationGround &ground) {
   double lowest = 0.0;
   double highest = 0.0;
-  SampleGround(s, ground, &lowest, &highest);
+  if (!shape.Ring.empty()) {
+    lowest = highest = ground.At(shape.Ring.front());
+    for (const EastNorth &corner : std::span(shape.Ring).subspan(1)) {
+      const double height = ground.At(corner);
+      lowest = std::min(lowest, height);
+      highest = std::max(highest, height);
+    }
+  }
+  shape.SeatM = std::max(ground.High(), highest) + kBuildingPlinthM;
   lowest = std::min(lowest, ground.Low());
   highest = std::max(highest, ground.High());
   const double spread = highest - lowest;
-  return lowest - (spread > kSinkM ? 2.0 * spread : kSinkM);
-}
-
-double PlinthTopZ(const BuildingShape &s, const FoundationGround &ground) {
-  double lowest = 0.0;
-  double highest = 0.0;
-  SampleGround(s, ground, &lowest, &highest);
-  const double seatZ = ground.High();
-  const double seat = std::max(seatZ, highest) + kPlinthM;
-
-  return seat;
+  shape.SoleM = lowest - (spread > kSinkM ? 2.0 * spread : kSinkM);
 }
 
 }
@@ -150,8 +118,12 @@ PrepareBuildingShapes(const StructurePlan &plan, BuildingScratch &scratch) {
       part.BayM = profile.BayM;
     }
     if (plan.WallColour) { part.WallVariant = 0; }
-    part.SeatM = plan.MinimumHeightM != 0.0 ? 0.0 : PlinthTopZ(part, ground);
-    part.SoleM = plan.MinimumHeightM != 0.0 ? plan.MinimumHeightM : PlinthFootZ(part, ground);
+    if (plan.MinimumHeightM == 0.0) {
+      PlaceFoundation(part, ground);
+    } else {
+      part.SeatM = 0.0;
+      part.SoleM = plan.MinimumHeightM;
+    }
   }
   return parts;
 }

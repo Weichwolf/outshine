@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+BATCH_FILES = 64
 
 
 def sources(root):
@@ -26,13 +27,18 @@ def format_sources(root, tool, check):
         if not paths:
             raise ValueError('no repository-owned C++ files; formatting coverage is empty')
         flags = ['--dry-run', '--Werror'] if check else ['-i']
-        failed = 0
-        for path in paths:
-            result = subprocess.run([tool, *flags, path], cwd=root, timeout=60, check=False,
+
+        def run_batch(batch):
+            result = subprocess.run([tool, *flags, *batch], cwd=root, timeout=60, check=False,
                                     capture_output=True, text=True)
+            if result.returncode and len(batch) > 1:
+                return sum(run_batch([path]) for path in batch)
             sys.stdout.write(result.stdout)
             sys.stderr.write(result.stderr)
-            failed += result.returncode != 0
+            return int(result.returncode != 0)
+
+        failed = sum(run_batch(paths[start:start + BATCH_FILES])
+                     for start in range(0, len(paths), BATCH_FILES))
         print(f'format: {len(paths)} owned C++ files {"checked" if check else "formatted"}; '
               f'{failed} failed')
         return 1 if failed else 0
