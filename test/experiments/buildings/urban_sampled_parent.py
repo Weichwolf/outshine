@@ -6,23 +6,11 @@ this is no persisted random world, native replacement or visibility certificate.
 """
 
 import numpy as np
-from urban_first_hit import sample_first_hits
+from urban_first_hit import merge_work, sample_first_hits
 from urban_parent_conditional import ground_stops, surface_slots, surface_visibility
 from urban_parent_light import shade
+from urban_prefix_first_hit import PrefixFirstHits
 from urban_prefix_runs import PrefixRuns, clipped_span
-
-
-def merge_work(target, source, prefix=""):
-    for key, value in source.items():
-        if isinstance(value, dict):
-            merge_work(target, value, prefix + key + "_")
-        else:
-            name = prefix + key
-            target[name] = (
-                max(target.get(name, 0), value)
-                if key.endswith("peak_bytes")
-                else target.get(name, 0) + value
-            )
 
 
 def shadow_work():
@@ -74,21 +62,34 @@ def background_radiance(
 
 
 def sampled_surfaces(
-    model, origins, directions, stops, probability, uniform, profile, query
+    model,
+    origins,
+    directions,
+    stops,
+    probability,
+    uniform,
+    profile,
+    query,
+    first_hit_query=None,
 ):
     count = uniform.shape[1]
     rays = np.flatnonzero(probability > 0)
     owners = np.repeat(rays, count)
     thresholds = (uniform[rays] * probability[rays, None]).ravel()
     thresholds = np.minimum(thresholds, np.nextafter(probability[owners], 0))
-    hit, primary = sample_first_hits(
-        model.parent,
-        model.product,
-        origins[owners],
-        directions[owners],
-        thresholds,
-        stops[owners],
-    )
+    if first_hit_query is None:
+        hit, primary = sample_first_hits(
+            model.parent,
+            model.product,
+            origins[owners],
+            directions[owners],
+            thresholds,
+            stops[owners],
+        )
+    else:
+        hit, primary = first_hit_query.sample(
+            origins[owners], directions[owners], thresholds, stops[owners]
+        )
     if not np.isfinite(hit["depth"]).all():
         raise ArithmeticError(
             "conditional hit probability failed to produce a first event"
@@ -161,6 +162,7 @@ def render_sampled(
     seed=1113,
     batch=512,
     shadow_query=None,
+    first_hit_prefix=False,
 ):
     if (
         type(samples) is not int
@@ -177,6 +179,7 @@ def render_sampled(
     if not np.allclose(np.linalg.norm(directions, axis=1), 1, rtol=0, atol=1e-12):
         raise ValueError("unit view directions required")
     model = PrefixRuns(parent)
+    first_hit_query = PrefixFirstHits(model) if first_hit_prefix else None
     query = shadow_query
     generator = np.random.default_rng(np.random.SeedSequence(seed, spawn_key=(1,)))
     colour, coverage = np.zeros_like(origins), np.zeros(len(origins))
@@ -194,7 +197,7 @@ def render_sampled(
             np.arange(samples)[None] + generator.random((len(o), samples))
         ) / samples
         surface, counts = sampled_surfaces(
-            model, o, d, stops, probability, uniform, profile, query
+            model, o, d, stops, probability, uniform, profile, query, first_hit_query
         )
         colour[part], coverage[part] = background + surface, probability
         work["packets"] += 1
