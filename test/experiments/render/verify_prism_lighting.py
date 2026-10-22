@@ -20,6 +20,13 @@ def legacy_module(path):
     return module
 
 
+def verification_bounds(product):
+    bounds, hierarchy = product[0].bounds, product[2]
+    if len(bounds) or hierarchy is None:
+        return bounds
+    return hierarchy.bounds[hierarchy.children[:, 0] < 0]
+
+
 def run(args):
     from attributed_prisms import load_product, native_inputs, render_product
     from compare_attributed_prisms import check_view
@@ -39,11 +46,9 @@ def run(args):
     poses = views(document, context)
     extra, _, _ = camera_cases(source, document, context)
     poses.update({name: view for name, view in extra.items() if name not in poses})
+    bounds = verification_bounds(legacy)
     corners = np.array(
-        [
-            list(itertools.product(*zip(box[0], box[1], strict=True)))
-            for box in legacy[0].bounds
-        ]
+        [list(itertools.product(*zip(box[0], box[1], strict=True))) for box in bounds]
     ).reshape(-1, 3)
     extent = {"positions": np.concatenate((source["positions"], corners))}
     rows = []
@@ -88,6 +93,7 @@ def run(args):
         ).hexdigest()
         if args.legacy_traversal is not None
         else None,
+        "extent_primitive_boxes": len(bounds),
         "poses": rows,
         "known_native_counterexamples": counter,
         "scope": "Same exact old consumer outputs, not native equivalence. Native material/coverage counterexamples remain reported, no tolerance relaxed.",

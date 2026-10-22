@@ -1,11 +1,13 @@
 """Cached box bounds retain ties and pruning under divergent ray packets."""
 
 import unittest
+from dataclasses import replace
 
 import numpy as np
 from primitive_bvh import Hierarchy, build, trace
 from roof_prisms import Prisms, intersect_planes
 from test_roof_prisms import box
+from verify_prism_lighting import verification_bounds
 
 
 def cubes(centres):
@@ -29,6 +31,28 @@ def cubes(centres):
 
 
 class IntervalTraversalTest(unittest.TestCase):
+    def test_verifier_recovers_compact_leaf_extents_and_handles_no_primitives(self):
+        solids = cubes([[0, 0, 0], [5, 0, 0]])
+        hierarchy = build(solids.bounds)
+        dense = (solids, None, hierarchy, None, None)
+        self.assertIs(verification_bounds(dense), solids.bounds)
+        compact = (replace(solids, bounds=np.empty((0, 2, 3))), *dense[1:])
+        bounds = verification_bounds(compact)
+        self.assertEqual(len(bounds), 2)
+        self.assertTrue((bounds[:, 0] <= solids.bounds[:, 0]).all())
+        self.assertTrue((bounds[:, 1] >= solids.bounds[:, 1]).all())
+        empty = Prisms(
+            np.empty((0, 4)),
+            np.array([0]),
+            np.empty((0, 2), np.int32),
+            np.empty((0, 2, 3)),
+            np.empty(0, bool),
+            np.empty(0, np.uint32),
+        )
+        self.assertEqual(
+            verification_bounds((empty, None, None, None, None)).shape, (0, 2, 3)
+        )
+
     def test_inclusive_cached_bound_keeps_lower_id_at_equal_depth(self):
         solids = cubes([[0, 0, 0], [0, 0, 0]])
         # Visit primitive 1 first; primitive 0's cached entry then equals depth.
