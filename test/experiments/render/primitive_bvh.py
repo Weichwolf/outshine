@@ -80,35 +80,53 @@ def trace(prisms, hierarchy, origins, directions):
         "primitive_ray_tests": 0,
         "plane_ray_tests": 0,
         "max_pending_ray_indices": 0,
+        "cached_interval_ray_tests": 0,
+        "max_pending_interval_bytes": 0,
+        "interval_stack_gather_bytes": 0,
     }
     for start in range(0, len(origins), 256):
-        stack = [(0, np.arange(start, min(start + 256, len(origins))))]
+        ids = np.arange(start, min(start + 256, len(origins)))
+        hit, near = box_hits(
+            hierarchy.bounds[0], origins[ids], directions[ids], depth[ids]
+        )
+        work["node_ray_tests"] += len(ids)
+        ids, near = ids[hit], near[hit]
+        stack = [(0, ids, near)] if len(ids) else []
+        work["interval_stack_gather_bytes"] += ids.nbytes + near.nbytes
         while stack:
             work["max_pending_ray_indices"] = max(
-                work["max_pending_ray_indices"], sum(len(ids) for _, ids in stack)
+                work["max_pending_ray_indices"], sum(len(ids) for _, ids, _ in stack)
             )
-            node, ids = stack.pop()
-            work["node_ray_tests"] += len(ids)
-            hit, _ = box_hits(
-                hierarchy.bounds[node], origins[ids], directions[ids], depth[ids]
+            work["max_pending_interval_bytes"] = max(
+                work["max_pending_interval_bytes"],
+                sum(ids.nbytes + near.nbytes for _, ids, near in stack),
             )
-            ids = ids[hit]
+            node, ids, near = stack.pop()
+            work["cached_interval_ray_tests"] += len(ids)
+            ids = ids[near <= depth[ids]]
             if not len(ids):
                 continue
             left, right = hierarchy.children[node]
             if left >= 0:
                 # Shared packet order; per-ray nearest-depth pruning remains valid.
                 a, b = left, right
-                _, ta = box_hits(
+                ha, ta = box_hits(
                     hierarchy.bounds[a], origins[ids], directions[ids], depth[ids]
                 )
-                _, tb = box_hits(
+                hb, tb = box_hits(
                     hierarchy.bounds[b], origins[ids], directions[ids], depth[ids]
                 )
                 work["node_ray_tests"] += 2 * len(ids)
                 if np.min(ta) > np.min(tb):
                     a, b = b, a
-                stack.extend([(b, ids), (a, ids)])
+                    ha, hb, ta, tb = hb, ha, tb, ta
+                for child, mask, entry in [(b, hb, tb), (a, ha, ta)]:
+                    if mask.any():
+                        child_ids, child_near = ids[mask], entry[mask]
+                        stack.append((child, child_ids, child_near))
+                        work["interval_stack_gather_bytes"] += (
+                            child_ids.nbytes + child_near.nbytes
+                        )
                 continue
             begin, end = prisms.offsets[right : right + 2]
             planes = prisms.planes[begin:end]

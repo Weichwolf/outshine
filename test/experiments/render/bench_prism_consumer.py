@@ -17,6 +17,9 @@ def run(args):
     if args.legacy is not None:
         old = legacy_module(args.legacy)
         load, query = old.load_product, old.render_product
+    if args.traversal_reference is not None:
+        # This benchmark runs in a fresh process; leave the ready product unchanged.
+        query.__globals__["trace"] = legacy_module(args.traversal_reference).trace
     if args.trace:
         tracemalloc.start()
     started = time.perf_counter()
@@ -41,6 +44,9 @@ def run(args):
         "material_edge_rows": len(product[1].edge),
         "material_code_rows": len(product[1].codes),
         "primitive_bound_bytes": product[0].bounds.nbytes,
+        "traversal_reference": str(args.traversal_reference)
+        if args.traversal_reference is not None
+        else None,
         "scope": "Complete ready load plus clip/fallback/fields. Normal-priority Python cost, not native/GPU or all allocator/copy-traffic measurement.",
     }
     args.output.write_text(json.dumps(report, indent=2) + "\n")
@@ -52,6 +58,7 @@ if __name__ == "__main__":
     parser.add_argument("--product", type=Path, required=True)
     parser.add_argument("--rays", type=Path, required=True)
     parser.add_argument("--legacy", type=Path)
+    parser.add_argument("--traversal-reference", type=Path)
     parser.add_argument("--trace", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     run(parser.parse_args())
