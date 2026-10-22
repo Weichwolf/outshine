@@ -9,12 +9,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from attributed_prisms import load_product, native_inputs, render_product
-from compare_attributed_prisms import check_view
-from compare_plane_cloud import image_roi
-from full_view_reference import load, views
-from prepare_prism_lighting import camera_cases
-from triangle_image_reference import image_rays, prepare_source
 
 
 def legacy_module(path):
@@ -27,6 +21,13 @@ def legacy_module(path):
 
 
 def run(args):
+    from attributed_prisms import load_product, native_inputs, render_product
+    from compare_attributed_prisms import check_view
+    from compare_plane_cloud import image_roi
+    from full_view_reference import load, views
+    from prepare_prism_lighting import camera_cases
+    from triangle_image_reference import image_rays, prepare_source
+
     args.output.mkdir(parents=True, exist_ok=False)
     old = legacy_module(args.legacy)
     legacy = old.load_product(args.product / "dense-product.npz")

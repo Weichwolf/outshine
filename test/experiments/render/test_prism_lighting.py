@@ -15,7 +15,7 @@ from attributed_prisms import (
     material_tables,
     render_product,
 )
-from compact_attributed_prisms import compact
+from compact_attributed_prisms import compact, narrow_integer
 from native_capture_meshes import independent_depth
 from packed_normals import pack
 from primitive_bvh import build, trace
@@ -81,12 +81,27 @@ class PrismLighting(unittest.TestCase):
                 if name == "compact":
                     self.assertEqual(len(product[1].edge), 4)
                     self.assertEqual(len(product[1].bays), 4)
+                    self.assertLess(len(product[1].codes), len(product[0].planes))
+                    self.assertEqual(len(product[1].code_index), len(product[0].planes))
                     self.assertEqual(product[0].bounds.nbytes, 0)
                     self.assertEqual(product[0].roof.nbytes, 0)
             for index in [0, 2, 3, 4, 5, 6]:
                 np.testing.assert_array_equal(values[0][index], values[1][index])
             for key in values[0][1]:
                 np.testing.assert_array_equal(values[0][1][key], values[1][1][key])
+
+    def test_integer_table_widths_keep_boundaries_and_signed_sentinels(self):
+        for values in [
+            np.array([0, 255, 256], np.int64),
+            np.array([-1, 127, 128], np.int64),
+            np.array([0, 65535, 65536], np.int64),
+            np.array([], np.int32),
+        ]:
+            np.testing.assert_array_equal(narrow_integer(values), values)
+        self.assertEqual(narrow_integer(np.array([-1, 127, 128])).dtype, np.int16)
+        self.assertEqual(narrow_integer(np.array([0, 255, 256])).dtype, np.uint16)
+        with self.assertRaises(ValueError):
+            narrow_integer(np.array([2**40], np.uint64))
 
     def test_fallback_only_keeps_source_rgba_and_ready_reader(self):
         source = {
