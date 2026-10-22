@@ -15,8 +15,9 @@ from native_interpolation import validate_inputs
 DATA = Path(__file__).parents[2] / "outshine/data/render"
 
 
-def native_bytes(chunks_):
+def native_bytes(chunks_, *, vertex_spans=None):
     result = []
+    offset = 0
     vertex = np.dtype([("p", "<f4", 3), ("uv", "<f4", 2), ("normal", "<u4")])
     for chunk in chunks_:
         for name in ("walls", "roofs"):
@@ -25,7 +26,10 @@ def native_bytes(chunks_):
             records["p"] = np.asarray(chunk[name]["positions"], "<f4").reshape(n, 3)
             records["uv"] = np.asarray(chunk[name]["uv"], "<f4").reshape(n, 2)
             records["normal"] = np.asarray(chunk[name]["normal_words"], "<u4")
+            if vertex_spans is not None:
+                vertex_spans.append([offset, n, 24])
             result.append(records.tobytes())
+            offset += records.nbytes
         for name in ("walls", "roofs"):
             n = len(chunk[name]["positions"])
             result.append(
@@ -33,10 +37,12 @@ def native_bytes(chunks_):
                     chunk[name]["triangles"], "<u2" if n <= 65536 else "<u4"
                 ).tobytes()
             )
+            offset += len(result[-1])
         result.extend(
             np.asarray(chunk[name], "<f4").tobytes()
             for name in ("wall_colours", "wall_material_metres")
         )
+        offset += sum(len(block) for block in result[-2:])
     return b"".join(result)
 
 
@@ -60,11 +66,14 @@ def cases():
         geometry, "roofs"
     ):
         raise ValueError("Whole-cell fields disagree with original native streams")
+    spans = []
+    raw = native_bytes([geometry], vertex_spans=spans)
     yield (
         "dense-shell",
         source,
-        native_bytes([geometry]),
+        raw,
         {
+            "vertex_spans": spans,
             "input": str(path),
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             "receipt": receipt,
@@ -94,11 +103,14 @@ def cases():
                 raise ValueError(
                     "Adapted vertex fields disagree with original native streams"
                 )
+            spans = []
+            raw = native_bytes(parts, vertex_spans=spans)
             yield (
                 filename.removesuffix(".json.gz") + "-" + mode,
                 source,
-                native_bytes(parts),
+                raw,
                 {
+                    "vertex_spans": spans,
                     "input": str(path),
                     "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                     "receipt": receipt,
@@ -129,6 +141,7 @@ def cases():
         source,
         raw,
         {
+            "vertex_spans": [[0, n, 12]],
             "input": str(directory),
             "manifest_sha256": hashlib.sha256(
                 (directory / "manifest.json").read_bytes()
