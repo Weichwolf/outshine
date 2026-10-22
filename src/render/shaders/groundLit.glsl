@@ -76,7 +76,7 @@ void main() {
   outputSurface(vec4(0.0), shadingNormal, surface.identity);
 #else
   vec3 shaded = shadeRow(surface, localPosition, shadingNormal, position, albedo,
-      surface.metalness, roughness, vec3(surface.f0), surface.specularWeight, surface.emissive, vec3(0.0), lightSpace, shadowMap);
+      surface.metalness, roughness, vec3(surface.f0), surface.specularWeight, surface.emissive, vec3(0.0), lightSpace, sunShadowReceiverSlope(lightSpace), shadowMap);
   outputSurface(vec4(shaded, 1.0), shadingNormal, surface.identity);
 #endif
 }
