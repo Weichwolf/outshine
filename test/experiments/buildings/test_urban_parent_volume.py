@@ -69,6 +69,7 @@ def checked(name, *args, **kwargs):
     return original(name, *args, **kwargs)
 builtins.__import__ = checked
 import urban_parent_volume
+import urban_parent_conditional
 """
         subprocess.run([sys.executable, "-B", "-W", "error", "-c", code], check=True)
 

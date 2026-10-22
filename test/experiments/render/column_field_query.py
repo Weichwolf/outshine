@@ -149,22 +149,8 @@ def test_columns(
     return tests
 
 
-def trace(product, origins, directions, *, minimum=0.1):
-    origins, directions = np.asarray(origins, float), np.asarray(directions, float)
-    if (
-        origins.shape != directions.shape
-        or origins.ndim != 2
-        or origins.shape[1] != 3
-        or len(origins) > 4194304
-        or not np.isfinite(origins).all()
-        or not np.isfinite(directions).all()
-        or np.any(np.linalg.norm(directions, axis=1) == 0)
-        or not np.isfinite(minimum)
-        or minimum < 0
-    ):
-        raise ValueError("bounded finite nonzero ray packet required")
-    basis = product["basis"]
-    origin, direction = origins @ basis.T, directions @ basis.T
+def walk_cells(product, origin, direction, work, *, minimum=0.1):
+    """Yield ordered XY packets; consumers can clear keep to stop a ray."""
     pitch = product["header"]["pitch_m"]
     low, shape = product["low"], product["shape"]
     bounds = np.array([low, low + shape]) * pitch
@@ -199,29 +185,15 @@ def trace(product, origins, directions, *, minimum=0.1):
     delta = np.divide(
         pitch, np.abs(dxy[ids]), out=np.full((len(ids), 2), np.inf), where=dxy[ids] != 0
     )
-    depth, owner = np.full(len(origin), np.inf), np.full(len(origin), -1, np.int32)
-    normal = np.zeros((len(origin), 3))
-    work = {"cell_ray_visits": 0, "interval_ray_tests": 0, "steps": 0}
     for _ in range(int(shape.sum()) + 1):
         if not len(ids):
             break
         work["steps"] += 1
         work["cell_ray_visits"] += len(ids)
         leave = np.minimum(crossing.min(1), end[ids])
-        work["interval_ray_tests"] += test_columns(
-            product,
-            origin,
-            direction,
-            ids,
-            cell,
-            begin,
-            leave,
-            depth,
-            normal,
-            owner,
-            minimum,
-        )
-        keep = (depth[ids] > leave) & (leave < end[ids])
+        keep = np.ones(len(ids), bool)
+        yield ids, cell, begin, leave, keep
+        keep &= leave < end[ids]
         ids, cell, step, crossing, delta = (
             ids[keep],
             cell[keep],
@@ -246,6 +218,44 @@ def trace(product, origins, directions, *, minimum=0.1):
         )
     if len(ids):
         raise RuntimeError("DDA exceeded the finite grid traversal bound")
+
+
+def trace(product, origins, directions, *, minimum=0.1):
+    origins, directions = np.asarray(origins, float), np.asarray(directions, float)
+    if (
+        origins.shape != directions.shape
+        or origins.ndim != 2
+        or origins.shape[1] != 3
+        or len(origins) > 4194304
+        or not np.isfinite(origins).all()
+        or not np.isfinite(directions).all()
+        or np.any(np.linalg.norm(directions, axis=1) == 0)
+        or not np.isfinite(minimum)
+        or minimum < 0
+    ):
+        raise ValueError("bounded finite nonzero ray packet required")
+    basis = product["basis"]
+    origin, direction = origins @ basis.T, directions @ basis.T
+    depth, owner = np.full(len(origin), np.inf), np.full(len(origin), -1, np.int32)
+    normal = np.zeros((len(origin), 3))
+    work = {"cell_ray_visits": 0, "interval_ray_tests": 0, "steps": 0}
+    for ids, cell, begin, leave, keep in walk_cells(
+        product, origin, direction, work, minimum=minimum
+    ):
+        work["interval_ray_tests"] += test_columns(
+            product,
+            origin,
+            direction,
+            ids,
+            cell,
+            begin,
+            leave,
+            depth,
+            normal,
+            owner,
+            minimum,
+        )
+        keep[:] = depth[ids] > leave
     normal = normal @ basis
     if "fallback" in product:
         from triangle_image_reference import intersect_source

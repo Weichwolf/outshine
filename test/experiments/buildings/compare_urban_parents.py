@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays, projected_bounds
+from urban_parent_conditional import render_conditional
 from urban_parent_light import display, light_at, shade
 from urban_parent_reference import prepare_resolved, trace_resolved
 from urban_parent_stats import UrbanParent, compile_parent
@@ -239,10 +240,14 @@ def run(args):
     }
     crops = {}
     coverage = {}
-    for mode in ["resolved", "raw", "midpoint", "phase"]:
+    for mode in ["resolved", "raw", "midpoint", "phase", "conditional"]:
         started = time.perf_counter()
         if mode == "resolved":
             values, alpha, work = opaque_image(resolved, origins, directions, profile)
+        elif mode == "conditional":
+            values, alpha, work = render_conditional(
+                parent, origins, directions, profile
+            )
         else:
             emission, transmission, work = render_volume(
                 parent,
