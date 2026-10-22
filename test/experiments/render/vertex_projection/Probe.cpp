@@ -1,5 +1,5 @@
 #include "GpuSupport.h"
-#include "SpirvFile.h"
+#include "Support.h"
 #include "device/native/Device.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -31,50 +31,19 @@ using Json = nlohmann::json;
 namespace {
 constexpr uint32_t Width = 64;
 constexpr uint64_t TransferBytes = uint64_t{Width} * 4 * sizeof(float);
-using Matrix = std::array<float, 16>;
-using Vector = std::array<float, 4>;
-
-struct alignas(16) Input {
-  Matrix Model{};
-  Matrix View{};
-  Vector Shift{};
-  Vector Point{};
-  std::array<uint32_t, 4> Options{};
-};
-
-static_assert(sizeof(Input) == sizeof(Matrix) * 2 + sizeof(Vector) * 3 && alignof(Input) == 16);
-static_assert(offsetof(Input, View) == 64 && offsetof(Input, Shift) == 128);
-static_assert(offsetof(Input, Point) == sizeof(Matrix) * 2 + sizeof(Vector) &&
-              offsetof(Input, Options) == sizeof(Matrix) * 2 + sizeof(Vector) * 2);
+using Projection::Floats;
+using Projection::Input;
+using Projection::InvalidInput;
+using Projection::Matrix;
+using Projection::Shader;
+using Projection::Take;
+using Projection::Vector;
 
 struct Case {
   std::string Name;
   Input Values;
   bool Native = false;
 };
-
-[[noreturn]] void Fail(const N::Error &error) {
-  std::println(stderr, "{}", error.Message);
-  std::_Exit(2);
-}
-
-template <class T> T Take(N::Result<T> result) {
-  if (!result) { Fail(result.error()); }
-  return std::move(*result);
-}
-
-void Take(N::Result<void> result) {
-  if (!result) { Fail(result.error()); }
-}
-
-std::vector<uint32_t> Shader(const std::filesystem::path &file) {
-  auto words = outshine::Render::ReadSpirv(file.string());
-  if (!words) {
-    std::println(stderr, "{}", words.error());
-    std::_Exit(2);
-  }
-  return std::move(*words);
-}
 
 struct Capture {
   Vector Value{};
@@ -210,25 +179,6 @@ std::vector<Case> SyntheticCases() {
     cases.push_back(fixture);
   }
   return cases;
-}
-
-[[noreturn]] void InvalidInput(std::string_view why) {
-  std::println(stderr, "{}", why);
-  std::_Exit(2);
-}
-
-template <size_t Size> std::array<float, Size> Floats(const Json &value) {
-  if (!value.is_array() || value.size() != Size) { InvalidInput("invalid float array size"); }
-  std::array<float, Size> result{};
-  for (size_t i = 0; i < Size; ++i) {
-    if (!value[i].is_number()) { InvalidInput("non-numeric coordinate"); }
-    const auto number = value[i].get<double>();
-    if (!std::isfinite(number) || std::abs(number) > std::numeric_limits<float>::max()) {
-      InvalidInput("coordinate outside finite float32");
-    }
-    result[i] = static_cast<float>(number);
-  }
-  return result;
 }
 
 std::vector<Case> NativeCases(const std::filesystem::path &path) {

@@ -56,6 +56,27 @@ def float32_controls(shared, checkout, output, steps):
     )
 
 
+def vertex_source(checkout):
+    vertex = (SOURCE / "projection.vert.in").read_text()
+    vertex = vertex.replace(
+        "@LIT_POSITION@",
+        block(
+            (checkout / "src/render/shaders/litVertex.glsl").read_text(),
+            "  mat4 m = placement.current;",
+            "  position = world.xyz;",
+        ),
+    )
+    vertex = vertex.replace(
+        "@FLAT_POSITION@",
+        block(
+            (checkout / "src/render/shaders/flatVertex.glsl").read_text(),
+            "  mat4 placement = placed.current;",
+            "  uv = vec2(0.0);",
+        ),
+    )
+    return vertex
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native-checkout", required=True, type=Path)
@@ -90,6 +111,7 @@ def main():
     flat = checkout / "src/render/shaders/flatVertex.glsl"
     sources = [
         SOURCE / "Probe.cpp",
+        SOURCE / "Support.h",
         SOURCE / "projection.vert.in",
         SOURCE / "projection.frag",
         Path(__file__),
@@ -114,23 +136,7 @@ def main():
         "success": False,
     }
     try:
-        vertex = (SOURCE / "projection.vert.in").read_text()
-        vertex = vertex.replace(
-            "@LIT_POSITION@",
-            block(
-                lit.read_text(),
-                "  mat4 m = placement.current;",
-                "  position = world.xyz;",
-            ),
-        )
-        vertex = vertex.replace(
-            "@FLAT_POSITION@",
-            block(
-                flat.read_text(),
-                "  mat4 placement = placed.current;",
-                "  uv = vec2(0.0);",
-            ),
-        )
+        vertex = vertex_source(checkout)
         (output / "projection.vert").write_text(vertex)
         for name, source in [
             ("projection.vert", output / "projection.vert"),
