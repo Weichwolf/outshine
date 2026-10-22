@@ -1,6 +1,6 @@
 #include "GeometryRenderer.h"
 #include "SurfaceBindings.h"
-#include "VertexArms.h"
+#include "DrawList.h"
 #include "SceneTargets.h"
 #include "SpirvFile.h"
 #include <algorithm>
@@ -84,10 +84,6 @@ std::array<Native::ColourTarget, kMaxColourAttachments> Targets(const Gpu &gpu,
 const char *
 GeometryRenderer::FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout) {
   return FragmentArmNamed(domain, ShadingArmOf(layout), CarriesUv(layout), kind);
-}
-
-const char *GeometryRenderer::VertexEntry(VertexLayout layout) {
-  return VertexArmName(layout);
 }
 
 namespace {

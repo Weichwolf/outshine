@@ -43,7 +43,7 @@ int main() {
     PieceMesh rigid{};
     rigid.Verts = piece;
     rigid.Indices = indices;
-    CHECK(draw.PlacePiece(rigid, error) != kNoPiece,
+    CHECK(draw.PlacePiece(rigid).has_value(),
           "native geometry precedes the main mesh in the vertex arena");
     DrawList draws;
     DrawItem item{};

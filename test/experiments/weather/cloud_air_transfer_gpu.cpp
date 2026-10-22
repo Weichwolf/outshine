@@ -446,7 +446,8 @@ int main(int argc, char **argv) {
   const char *last = argv[6] + std::strlen(argv[6]);
   const auto parsed = std::from_chars(argv[6], last, repeats);
   if (parsed.ec != std::errc{} || parsed.ptr != last || repeats < 1 || repeats > 16) { return 2; }
-  auto device = Require(CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device = Require(CreateDevice(
+      {.Validation = true, .GpuTiming = outshine::Render::Native::GpuTimingMode::Dispatches}));
   const auto data = Prepare(*device, argv + 1, argc == 9 ? argv[8] : nullptr);
   std::println("device={} image_rays={} field_rays={} field_bytes={}",
                device->Limits().Name,

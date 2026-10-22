@@ -111,32 +111,52 @@ inline double SphereScaleUpperBound(const std::array<std::array<double, 4>, 3> &
   return std::sqrt(squaredScale);
 }
 
+class SphereTransform {
+public:
+  [[nodiscard]] static std::optional<SphereTransform> From(const Mat4 &row) {
+    if (static_cast<float>(row.At(3, 3)) != 1) { return std::nullopt; }
+    for (size_t axis = 0; axis < 3; ++axis) {
+      if (static_cast<float>(row.At(3, axis)) != 0) { return std::nullopt; }
+    }
+    SphereTransform result;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      for (size_t column = 0; column < 4; ++column) {
+        result.Matrix_[axis][column] = static_cast<float>(row.At(axis, column));
+        if (!NormalOrZero(result.Matrix_[axis][column])) { return std::nullopt; }
+      }
+    }
+    result.Scale_ = SphereScaleUpperBound(result.Matrix_);
+    return result;
+  }
+
+  [[nodiscard]] std::optional<BatchSphere> Apply(const BatchSphere &local) const {
+    constexpr double kGuard = 8 * std::numeric_limits<float>::epsilon();
+    std::array<double, 3> centre{};
+    std::array<double, 3> error{};
+    for (size_t axis = 0; axis < 3; ++axis) {
+      centre[axis] = Matrix_[axis][3];
+      error[axis] = std::abs(Matrix_[axis][3]) + 1;
+      for (size_t column = 0; column < 3; ++column) {
+        centre[axis] += Matrix_[axis][column] * local[column];
+        error[axis] += std::abs(Matrix_[axis][column]) * (std::abs(local[column]) + local[3]);
+      }
+      if (error[axis] > std::numeric_limits<float>::max()) { return std::nullopt; }
+      error[axis] *= kGuard;
+    }
+    const double radius =
+        local[3] * Scale_ * (1 + kGuard) + std::hypot(error[0], error[1], error[2]);
+    return PackSphere(centre, radius);
+  }
+
+private:
+  SphereTransform() = default;
+  std::array<std::array<double, 4>, 3> Matrix_{};
+  double Scale_ = 0;
+};
+
 inline std::optional<BatchSphere> TransformedSphere(const BatchSphere &local, const Mat4 &row) {
-  if (static_cast<float>(row.At(3, 3)) != 1) { return std::nullopt; }
-  for (size_t axis = 0; axis < 3; ++axis) {
-    if (static_cast<float>(row.At(3, axis)) != 0) { return std::nullopt; }
-  }
-  constexpr double kGuard = 8 * std::numeric_limits<float>::epsilon();
-  std::array<std::array<double, 4>, 3> matrix{};
-  std::array<double, 3> centre{};
-  std::array<double, 3> error{};
-  for (size_t axis = 0; axis < 3; ++axis) {
-    for (size_t column = 0; column < 4; ++column) {
-      matrix[axis][column] = static_cast<float>(row.At(axis, column));
-      if (!NormalOrZero(matrix[axis][column])) { return std::nullopt; }
-    }
-    centre[axis] = matrix[axis][3];
-    error[axis] = std::abs(matrix[axis][3]) + 1;
-    for (size_t column = 0; column < 3; ++column) {
-      centre[axis] += matrix[axis][column] * local[column];
-      error[axis] += std::abs(matrix[axis][column]) * (std::abs(local[column]) + local[3]);
-    }
-    if (error[axis] > std::numeric_limits<float>::max()) { return std::nullopt; }
-    error[axis] *= kGuard;
-  }
-  const double radius = local[3] * SphereScaleUpperBound(matrix) * (1 + kGuard) +
-                        std::hypot(error[0], error[1], error[2]);
-  return PackSphere(centre, radius);
+  const auto transform = SphereTransform::From(row);
+  return transform ? transform->Apply(local) : std::nullopt;
 }
 
 inline std::optional<BatchSphere> WorldSphereOf(const std::optional<BatchSphere> &local,

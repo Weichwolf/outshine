@@ -32,6 +32,13 @@
 #include "stages/SceneTargets.h"
 
 namespace outshine::Render {
+namespace {
+bool DepthPyramidNeeded(const Compiled &plan) {
+  return !plan.Holds(Stage::TemporalResolve) ||
+         std::ranges::contains(plan.Specification().Outputs, Resource::DepthPyramid) ||
+         std::ranges::contains(plan.Specification().Content, Stage::DepthPyramid);
+}
+}
 
 void SceneRenderer::SetContentSelection(const ContentSelection &selection) {
   auto &content = ActiveState().Content;
@@ -54,6 +61,22 @@ constexpr bool kGpuValidation = true;
 #else
 constexpr bool kGpuValidation = false;
 #endif
+
+struct FrameAcquisition {
+  const GpuSubmission &Submission;
+  Native::Device *Device = nullptr;
+  std::optional<std::chrono::steady_clock::time_point> Previous = std::nullopt;
+  std::chrono::steady_clock::duration QueueWait{};
+
+  [[nodiscard]] Native::Result<std::unique_ptr<Native::Commands>> operator()() {
+    if (Previous) { QueueWait += std::chrono::steady_clock::now() - *Previous; }
+    auto commands = Submission.Acquire(Submission.Context, Device);
+    if (!commands && commands.error().Kind == Native::ErrorKind::Busy) {
+      Previous = std::chrono::steady_clock::now();
+    }
+    return commands;
+  }
+};
 }
 
 namespace {
@@ -170,7 +193,9 @@ bool SceneRenderer::Executable(Stage stage) {
 bool SceneRenderer::Stands() {
   if (Device_) { return true; }
   auto made =
-      Submission_.Create(Submission_.Context, {.Validation = kGpuValidation, .GpuTiming = true});
+      Submission_.Create(Submission_.Context,
+                         {.Validation = kGpuValidation,
+                          .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission});
   if (!made) {
     ActiveState().WhyNot = made.error().Message;
     return false;
@@ -567,32 +592,6 @@ Native::Texture *SceneRenderer::Target(const FrameResources &frame, Resource res
     case Resource::kCount: return nullptr;
   }
   return nullptr;
-}
-
-Native::Buffer *SceneRenderer::BufferFor(Resource resource) const {
-  const GeometryResidency &resident = ActiveState().Content.Geometry.Resident();
-  switch (resource) {
-    case Resource::ClusterSphere:
-      return resident.Buffer(GeometryResidency::Stream::ClusterSpheres).get();
-    case Resource::ClusterIndex: return resident.Buffer(GeometryResidency::Stream::Index).get();
-    case Resource::ClusterJobs:
-      return resident.Buffer(GeometryResidency::Stream::ClusterJobs).get();
-    case Resource::ClusterBatches:
-      return resident.Buffer(GeometryResidency::Stream::ClusterBatches).get();
-    case Resource::ClusterKept:
-      return resident.Buffer(GeometryResidency::Stream::ClusterKept).get();
-    case Resource::ClusterSlot:
-      return resident.Buffer(GeometryResidency::Stream::ClusterSlot).get();
-    case Resource::DrawIndex: return resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
-    case Resource::DrawArguments:
-      return resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
-    case Resource::IrradianceBuffer: return ActiveFrame().IrradianceBuffer.get();
-    case Resource::DepthPyramid: return ActiveFrame().Pyramid.get();
-    case Resource::GroundPyramid: return ActiveFrame().GroundPyramid.get();
-    case Resource::GroundSelection:
-      return ActiveState().Content.Geometry.Ground().SelectedPatches();
-    default: return nullptr;
-  }
 }
 
 DisplayOptions SceneRenderer::Display() const {
@@ -1217,6 +1216,7 @@ bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
 Native::Result<void> SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx,
                                                        const PassRecording &into) {
   (void)ctx;
+  if (!DepthPyramidNeeded(*ActiveState().Plan)) { return {}; }
   return ActiveFrame().PyramidStage.Encode(into);
 }
 
@@ -1537,7 +1537,8 @@ void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission) {
   ActiveState().Content.Geometry.CommitCrossings();
   if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
   stageSubmission.Commit();
-  ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid));
+  ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid) &&
+                                    DepthPyramidNeeded(*ActiveState().Plan));
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) {
     ActiveState().PrevEye[axis] = ActiveState().Camera.EyeM[axis];
@@ -1556,15 +1557,12 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   const auto nonblocking = OfflineUploads(std::chrono::nanoseconds::zero());
   const auto began = std::chrono::steady_clock::now();
   auto phaseBegan = began;
-  const auto phaseMs = [&phaseBegan] {
-    const auto now = std::chrono::steady_clock::now();
-    const double ms = std::chrono::duration<double, std::milli>(now - phaseBegan).count();
-    phaseBegan = now;
-    return ms;
-  };
   RenderFrameTiming timing;
-  const auto record = [&timing, &phaseMs](RenderFramePhase phase) {
-    timing.PhaseMs[static_cast<size_t>(phase)] = phaseMs();
+  const auto record = [&timing, &phaseBegan](RenderFramePhase phase) {
+    const auto now = std::chrono::steady_clock::now();
+    timing.PhaseMs[static_cast<size_t>(phase)] =
+        std::chrono::duration<double, std::milli>(now - phaseBegan).count();
+    phaseBegan = now;
   };
   const auto slot = WaitForFrameSlot();
   if (!slot) { return std::unexpected(slot.error().Message); }
@@ -1572,9 +1570,15 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   auto prepared = PrepareFrame();
   if (!prepared) { return prepared; }
   record(RenderFramePhase::Prepare);
-  auto commands =
-      Uploads_->Begin([this] { return Submission_.Acquire(Submission_.Context, Device_.get()); });
+  FrameAcquisition acquire{.Submission = Submission_, .Device = Device_.get()};
+  auto commands = [&] {
+    const auto waiting = OfflineUploads(std::chrono::seconds(5));
+    return Uploads_->Begin([&acquire] { return acquire(); });
+  }();
   if (!commands) { return std::unexpected(commands.error().Message); }
+  timing.PhaseMs[static_cast<size_t>(RenderFramePhase::FenceWait)] +=
+      std::chrono::duration<double, std::milli>(acquire.QueueWait).count();
+  phaseBegan += acquire.QueueWait;
   record(RenderFramePhase::Acquire);
   const auto uploaded = FlushCrossings(**commands);
   if (!uploaded) { return std::unexpected(uploaded.error().Message); }

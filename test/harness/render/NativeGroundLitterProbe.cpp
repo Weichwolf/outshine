@@ -282,7 +282,10 @@ bool Run(const char *const *argv, bool timed) {
   }
   std::vector<uint32_t> words(code.size() / sizeof(uint32_t));
   std::memcpy(words.data(), code.data(), code.size());
-  auto device = Gpu::CreateDevice({.Validation = true, .GpuTiming = timed});
+  auto device =
+      Gpu::CreateDevice({.Validation = true,
+                         .GpuTiming = timed ? outshine::Render::Native::GpuTimingMode::Dispatches
+                                            : outshine::Render::Native::GpuTimingMode::None});
   if (!Checked(device)) { return false; }
   auto pipeline =
       (*device)->CreateComputePipeline(words, {.Entry = "main", .Label = "ground litter probe"});

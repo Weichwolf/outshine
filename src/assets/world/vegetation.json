@@ -1037,7 +1037,7 @@
           "kind": "residential",
           "rank": 83,
           "widthM": 5.5,
-          "maxGradient": 0.1,
+          "maxGradient": 0.2,
           "lanes": 2,
           "oneway": 0
         },

@@ -174,28 +174,30 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
 }
 
 std::expected<bool, std::string> RoadPageRestoration::Transfer(Geometry &ground) {
-  const auto &mesh = Loaded_->Geometry.Mesh;
-  bool copied = false;
+  auto &mesh = Loaded_->Geometry.Mesh;
+  bool transferred = false;
   switch (Stage_) {
     case Stage::Positions:
-      copied = ground.setPositions(Part_, mesh.PositionM).has_value();
+      transferred = ground.adoptPositions(Part_, mesh.PositionM).has_value();
       Stage_ = Stage::Normals;
       break;
     case Stage::Normals:
-      copied = ground.setNormals(Part_, mesh.NormalM).has_value();
+      transferred = ground.adoptNormals(Part_, mesh.NormalM).has_value();
       Stage_ = Stage::Colours;
       break;
     case Stage::Colours:
-      copied = ground.setColours(Part_, mesh.ColourRgba).has_value();
+      transferred = ground.adoptColours(Part_, mesh.ColourRgba).has_value();
       Stage_ = Stage::Triangles;
       break;
     case Stage::Triangles:
-      copied = ground.setTriangles(Part_, mesh.Index).has_value();
+      transferred = ground.adoptTriangles(Part_, mesh.Index).has_value();
       FinishPage();
       break;
     default: return std::unexpected("road restoration transfer is not active");
   }
-  if (!copied) { return std::unexpected("could not transfer a restored road page into the world"); }
+  if (!transferred) {
+    return std::unexpected("could not transfer a restored road page into the world");
+  }
   return false;
 }
 

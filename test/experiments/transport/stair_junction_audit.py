@@ -188,7 +188,7 @@ def audit(data, domains, *, limits=None, crossings=None):
         "source_coverage_error_m2": coverage,
         "clearance": separation,
         "treads": (
-            tread_proof(data)
+            tread_proof(data, *stairs[0])
             if len(stairs) == 1
             else {str(o): tread_proof(data, o, a, b) for o, a, b in stairs}
         ),

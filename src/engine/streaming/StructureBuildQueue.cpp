@@ -345,7 +345,9 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
                                      const Generators::PreparedBuildingAssets::Basis &basis,
                                      const std::string &preparedAssetKey,
                                      GroundStands &&groundStands,
-                                     size_t &remaining) {
+                                     size_t &remaining,
+                                     bool checksView,
+                                     const std::function<bool(uint32_t)> &cellReady) {
   if (remaining == 0) { return {.Next = std::nullopt, .Deferred = true}; }
   --remaining;
   const std::optional<uint32_t> tile = prints.RefinementTile();
@@ -374,7 +376,7 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
            ? accepted->Bake.StreetDigest == StreetDigest(streets, vectors, *tile)
            : accepted->Bake.PreparedAssetKey == preparedAssetKey) &&
       accepted->Bake.TileSpanM == prints.TileSpanM();
-  if (sourceCurrent) {
+  if (sourceCurrent && (!checksView || !cellReady || cellReady(*tile))) {
     prints.AdvanceRefinement();
     return {};
   }
@@ -1013,25 +1015,21 @@ bool StructureBuildQueue::PostPreparedCell(
           .count());
   std::unique_ptr<StructureBuildTask::Output> output = Borrowed(IdleOut_);
   *output = {};
-  CellQueue_.push_back({.Revision = {.Vectors = vectors->Generation(),
-                                     .HeightSource = heightAt.Revision,
-                                     .Projection = footprints.Projection(),
-                                     .TileSpanM = footprints.TileSpanM(),
-                                     .Eye = eye,
-                                     .EyeEcef = footprints.EyeEcef(),
-                                     .RequestedDetail = request.Detail,
-                                     .Purpose = BuildPurpose::ViewDetail},
-                        .Task = StructureBuildTask(request.Tile,
-                                                   std::move(raw),
-                                                   std::move(heights),
-                                                   std::move(output),
-                                                   LentScratch(),
-                                                   std::nullopt,
-                                                   std::nullopt),
-                        .StreetDigest = *streetDigest,
-                        .SourceKey = request.SourceKey,
-                        .Cell = request.Cell,
-                        .ReservationOwner = std::move(owner)});
+  CellQueue_.push_back(
+      {.Revision = {.Vectors = vectors->Generation(),
+                    .HeightSource = heightAt.Revision,
+                    .Projection = footprints.Projection(),
+                    .TileSpanM = footprints.TileSpanM(),
+                    .Eye = eye,
+                    .EyeEcef = footprints.EyeEcef(),
+                    .RequestedDetail = request.Detail,
+                    .Purpose = BuildPurpose::ViewDetail},
+       .Task = StructureBuildTask(
+           request.Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
+       .StreetDigest = *streetDigest,
+       .SourceKey = request.SourceKey,
+       .Cell = request.Cell,
+       .ReservationOwner = std::move(owner)});
   PostSlice(CellQueue_.back());
   ++Posted_;
   return true;
@@ -1043,7 +1041,7 @@ void StructureBuildQueue::PrepareViewRefinement(::outshine::Generators::Osm::Bui
                                                 BuildPurpose purpose,
                                                 const std::function<bool(uint32_t)> &cellReady) {
   if (requirement == HeightRequirement::FineOnly && purpose == BuildPurpose::ViewDetail &&
-      !cellReady && prints.RefinementComplete() && Queue_.empty() &&
+      prints.RefinementComplete() && Queue_.empty() &&
       !AcceptedViewCurrent(prints, eye, cellReady)) {
     prints.BeginRefinement();
   }
@@ -1134,13 +1132,8 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
   auto output = Borrowed(IdleOut_);
   *output = {};
   Queue_.push_back({.Revision = revision,
-                    .Task = StructureBuildTask(tile,
-                                               std::move(raw),
-                                               std::move(heights),
-                                               std::move(output),
-                                               LentScratch(),
-                                               std::nullopt,
-                                               std::nullopt),
+                    .Task = StructureBuildTask(
+                        tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
                     .SourceKey = sourceKey,
                     .Replacement = accepted != nullptr,
                     .ReservationOwner = prints.ReservationOwner()});
@@ -1391,7 +1384,9 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                                               selected.Basis,
                                                               selected.Key,
                                                               groundStands,
-                                                              remaining);
+                                                              remaining,
+                                                              purpose == BuildPurpose::ViewDetail,
+                                                              cellReady);
       if (refinement.Deferred) { break; }
       if (!refinement.Next) { continue; }
       next = refinement.Next;
@@ -1616,6 +1611,10 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
                   .SourceComplete = complete,
                   .Footprints = std::nullopt};
   if (!complete) { return landing; }
+  if (bake.Replacement && bake.Revision.Purpose == BuildPurpose::ViewDetail &&
+      landing.SourceKey != 0 && QualifiedSourceKey(prints, landing.Tile) == landing.SourceKey) {
+    return landing;
+  }
   const std::optional<Data::TileSourceIdentity> vectorSource =
       baked.Coordinates->Origin.Provenance ? std::nullopt
                                            : VectorSource(*vectors, bake.Task.Tile());
@@ -1786,12 +1785,17 @@ void StructureBuildQueue::CommitFootprints(
     Landing &landing,
     ::outshine::Generators::Osm::BuildingField &footprints) noexcept {
   const auto product = ContactMetadata(bake);
-  if (!landing.Footprints || !product.Coordinates) { std::terminate(); }
+  if (!product.Coordinates) { std::terminate(); }
   if (!bake.Task.FromPreparedInputs()) {
     auto &completed = bake.Task.Result().Tile;
     assert(completed && completed->Coordinates);
     completed->Coordinates->OwnCoordinates(std::move(bake.Task.Raw().LatLon),
                                            std::move(bake.Task.Raw().Holes));
+  }
+  if (!landing.Footprints) {
+    assert(bake.Replacement && bake.Revision.Purpose == BuildPurpose::ViewDetail &&
+           QualifiedSourceKey(footprints, landing.Tile) == landing.SourceKey);
+    return;
   }
   if (bake.Replacement) {
     footprints.ReplaceAcceptance(std::move(landing.Footprints.value()), product);

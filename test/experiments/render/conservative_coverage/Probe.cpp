@@ -446,7 +446,8 @@ int main(int argc, char *const *argv) {
   const std::filesystem::path folder(argv[1]);
   auto vertex = Shader(folder / "coverage.vert.spv");
   auto fragment = Shader(folder / "coverage.frag.spv");
-  auto device = Take(N::CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device = Take(N::CreateDevice(
+      {.Validation = true, .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission}));
   auto image = Take(
       device->CreateTexture({.Width = Side,
                              .Height = Side,
