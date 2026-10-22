@@ -5,7 +5,6 @@
 
 namespace {
 using namespace outshine;
-using namespace outshine::Render;
 using namespace outshine::Test;
 }
 
