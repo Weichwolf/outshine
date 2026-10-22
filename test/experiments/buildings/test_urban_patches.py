@@ -90,6 +90,79 @@ def source_document():
 
 
 class UrbanPatchTest(unittest.TestCase):
+    def test_ready_reader_rejects_signed_fractional_and_out_of_range_tiers(self):
+        original = example().arrays()
+        variants = [
+            original["tiers"].astype(np.int8),
+            original["tiers"].astype(np.float64),
+            original["tiers"].astype(np.uint16),
+            original["tiers"].astype(bool),
+            original["tiers"].copy(),
+        ]
+        variants[0][0, 0, 0] = -1
+        variants[1][0, 0, 0] = 0.5
+        variants[-1][0, 0, 0] = len(original["heights"])
+        with tempfile.TemporaryDirectory(prefix="outshine-urban-reader-") as folder:
+            path = Path(folder) / "invalid.npz"
+            for tier in variants:
+                with self.subTest(dtype=tier.dtype):
+                    np.savez_compressed(path, **(original | {"tiers": tier}))
+                    with self.assertRaises(ValueError):
+                        load(path)
+
+    def test_ready_reader_checks_schema_shapes_before_indexing(self):
+        original = example().arrays()
+        replacements = [
+            {"chunks": np.array(0, np.int32)},
+            {"tiers": np.array(1, np.uint8)},
+            {"heights": np.empty(0, np.float64)},
+            {"frame": np.array(1, np.float64)},
+            {"bounds": np.zeros((1, 3, 2), np.float32)},
+            {"source_offsets": np.array(0, np.uint32)},
+            {"source_indices": np.array([[0]], np.uint32)},
+            {"chunks": original["chunks"].astype(np.float64)},
+            {"source_indices": original["source_indices"].astype(np.int32)},
+            {"extra": np.zeros(1, np.uint8)},
+        ]
+        with tempfile.TemporaryDirectory(prefix="outshine-urban-reader-") as folder:
+            path = Path(folder) / "invalid.npz"
+            for replacement in replacements:
+                with self.subTest(fields=list(replacement)):
+                    np.savez_compressed(path, **(original | replacement))
+                    with self.assertRaises(ValueError):
+                        load(path)
+            np.savez_compressed(
+                path, **{k: v for k, v in original.items() if k != "tiers"}
+            )
+            with self.assertRaises(ValueError):
+                load(path)
+
+    def test_ready_reader_checks_finite_bounds_and_monotonic_source_offsets(self):
+        original = example().arrays()
+        nonfinite = original["bounds"].copy()
+        nonfinite[0, 1, 0] = np.inf
+        reversed_bounds = original["bounds"].copy()
+        reversed_bounds[0, 0, 0] = 49
+        two = {k: v.copy() for k, v in original.items()}
+        two["chunks"] = np.array([[0, 0], [1, 0]], np.int32)
+        two["tiers"] = np.repeat(two["tiers"], 2, axis=0)
+        two["bounds"] = np.repeat(two["bounds"], 2, axis=0)
+        two["source_offsets"] = np.array([0, 2, 1], np.uint32)
+        variants = [
+            original | {"bounds": nonfinite},
+            original | {"bounds": reversed_bounds},
+            original | {"source_offsets": np.array([1, 1], np.uint32)},
+            original | {"source_offsets": np.array([0, 2], np.uint32)},
+            two,
+        ]
+        with tempfile.TemporaryDirectory(prefix="outshine-urban-reader-") as folder:
+            path = Path(folder) / "invalid.npz"
+            for index, arrays in enumerate(variants):
+                with self.subTest(index=index):
+                    np.savez_compressed(path, **arrays)
+                    with self.assertRaises(ValueError):
+                        load(path)
+
     def test_chunk_acceptance_matches_individual_geos_footprint_predicates(self):
         document = source_document()
         product, metadata = bake(document)
@@ -286,6 +359,12 @@ class UrbanPatchTest(unittest.TestCase):
         self.assertEqual(len(product.chunks), 0)
         self.assertEqual(metadata["status"], "no_urban_evidence_not_world_empty")
         self.assertEqual(metadata["footprint_geometries_tested"], 0)
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-urban-reader-empty-"
+        ) as folder:
+            path = Path(folder) / "empty.npz"
+            np.savez_compressed(path, **product.arrays())
+            self.assertEqual(load(path).tiers.shape, (0, product.side, product.side))
 
     def test_fresh_ready_reader_and_query_do_not_import_source_or_geos(self):
         with tempfile.TemporaryDirectory(prefix="outshine-urban-patches-") as temporary:

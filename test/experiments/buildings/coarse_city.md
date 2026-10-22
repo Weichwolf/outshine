@@ -63,7 +63,14 @@ memory is additional. The point reader loads the NPZ only. These are not native
 GPU allocation or application-memory figures.
 
 A cache hit needs neither MVT nor GEOS nor source processing. A fresh blocked-
-import reader/query test verifies this. The same stored fields drive both the
+import reader/query test verifies this. The reader requires the seven canonical
+array dtypes and bounded associated shapes, finite ordered bounds and height values,
+valid frame parameters, Uint8 tier indices and monotonic Uint32 source CSR starting at zero and ending
+at the index count. Invalid signed/fractional tiers reject before indexing;
+negative Int8 tiers previously selected the last height (48 m in the real case).
+Eighteen focused source/geometry/adapter tests now include these boundary cases.
+All seven valid owner arrays remain byte-identical to the prior reader, so the
+existing geometry/image evidence is retained; no new image behavior is claimed. The same stored fields drive both the
 box and mask paths; a best procedural box opponent can also consume these fields
 with a shared unit template. Do not compare expanded box diagnostic vertex bytes
 against mask fields as a purported asset-memory victory.
@@ -218,7 +225,8 @@ construction gives 2,795 matched boxes, exact heights and maximum Double corner
 deviation 1.82e-12 m. This checks content and coordinates, not executed native
 Float32/shader geometry. Native camera/light are independent; cross-renderer
 raster equality and device performance are not asserted. The original 30-render
-code producer and its city fields remain unchanged.
+producer remains the recorded image evidence. The later reader boundary correction
+returns byte-identical valid city fields; generator, masks and geometry are unchanged.
 
 The native owner can feed the fixed input directly to the existing driver, with
 its required native archive, compilation database and shaders, without rebuilding

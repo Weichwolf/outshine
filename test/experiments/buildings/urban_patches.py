@@ -33,30 +33,50 @@ class UrbanPatches:
 
 
 def load(path):
+    dtypes = {
+        "chunks": np.dtype("int32"),
+        "tiers": np.dtype("uint8"),
+        "heights": np.dtype("float64"),
+        "frame": np.dtype("float64"),
+        "bounds": np.dtype("float32"),
+        "source_offsets": np.dtype("uint32"),
+        "source_indices": np.dtype("uint32"),
+    }
     with np.load(path, allow_pickle=False) as archive:
-        product = UrbanPatches(
-            **{key: archive[key] for key in UrbanPatches.__annotations__}
-        )
+        if set(archive.files) != set(dtypes):
+            raise ValueError("invalid inferred city array fields")
+        arrays = {key: archive[key] for key in dtypes}
+    if any(arrays[key].dtype != dtype for key, dtype in dtypes.items()):
+        raise ValueError("invalid inferred city array dtype")
+    product = UrbanPatches(**arrays)
     if (
-        product.tiers.ndim != 3
-        or product.tiers.shape[1] != product.tiers.shape[2]
-        or not 1 <= product.side <= 32
-        or len(product.chunks) > 65536
-        or product.tiers.shape[0] != len(product.chunks)
+        product.chunks.ndim != 2
         or product.chunks.shape[1:] != (2,)
+        or len(product.chunks) > 65536
+        or product.tiers.ndim != 3
+        or not 1 <= product.side <= 32
+        or product.tiers.shape != (len(product.chunks), product.side, product.side)
         or product.bounds.shape != (len(product.chunks), 2, 3)
         or product.frame.shape != (5,)
-        or not np.isfinite(product.frame).all()
-        or not 0 < product.frame[2] <= 1
-        or product.frame[3] <= 0
-        or not 0 < product.frame[4] < 1
         or product.heights.ndim != 1
         or not 2 <= len(product.heights) <= 256
+        or product.source_offsets.shape != (len(product.chunks) + 1,)
+        or product.source_indices.ndim != 1
+    ):
+        raise ValueError("invalid inferred city array shape")
+    if (
+        not np.isfinite(product.bounds).all()
+        or np.any(product.bounds[:, 0] > product.bounds[:, 1])
+        or not np.isfinite(product.frame).all()
+        or not 0 < product.frame[2] <= 1
+        or not 8 <= product.frame[3] <= 512
+        or not 0 < product.frame[4] < 1
         or product.heights[0] != 0
         or not np.isfinite(product.heights).all()
-        or np.any(np.diff(product.heights) <= 0)
+        or np.any(product.heights[1:] <= product.heights[:-1])
         or (product.tiers.size and product.tiers.max() >= len(product.heights))
-        or product.source_offsets.shape != (len(product.chunks) + 1,)
+        or product.source_offsets[0] != 0
+        or np.any(product.source_offsets[1:] < product.source_offsets[:-1])
         or product.source_offsets[-1] != len(product.source_indices)
     ):
         raise ValueError("invalid bounded inferred city product")
