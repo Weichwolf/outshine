@@ -5,6 +5,12 @@ import math
 import numpy as np
 import shapely
 from packed_normals import pack, unpack
+from prepared_material_fields import at_local
+
+
+def roof_code(part):
+    uv, _ = at_local(part.shape, 1, np.zeros((1, 3)), catalog={})
+    return int(uv[0, 0])
 
 
 def tile(part, size):
@@ -66,17 +72,11 @@ def bake(parts, size=16):
         "rects": np.array(rects, np.int32).reshape(-1, 3),
         "no_field_keys": np.array(sorted(no_field), np.int32).reshape(-1, 2),
         "no_field_codes": np.array(
-            [
-                -(1 + (2 if p.shape["roof_kind"] == 0 else 1) + 16 * p.shape["ident"])
-                for p in sorted(flat, key=lambda p: (p.source, p.part))
-            ],
+            [roof_code(p) for p in sorted(flat, key=lambda p: (p.source, p.part))],
             np.int32,
         ),
         "roof_codes": np.array(
-            [
-                -(1 + (2 if p.shape["roof_kind"] == 0 else 1) + 16 * p.shape["ident"])
-                for p in parts
-            ],
+            [roof_code(p) for p in parts],
             np.int32,
         ),
     }
