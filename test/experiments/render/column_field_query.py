@@ -149,7 +149,9 @@ def test_columns(
     return tests
 
 
-def walk_cells(product, origin, direction, work, *, minimum=0.1, maximum=None):
+def walk_cells(
+    product, origin, direction, work, *, minimum=0.1, maximum=None, ray_bounds=None
+):
     """Yield ordered XY packets; consumers can clear keep to stop a ray."""
     pitch = product["header"]["pitch_m"]
     low, shape = product["low"], product["shape"]
@@ -168,6 +170,9 @@ def walk_cells(product, origin, direction, work, *, minimum=0.1, maximum=None):
     begin, end = clip_height(product, origin, direction, begin, end)
     if maximum is not None:
         end = np.minimum(end, maximum)
+    if ray_bounds is not None:
+        begin = np.maximum(begin, ray_bounds[:, 0])
+        end = np.minimum(end, ray_bounds[:, 1])
     missed = np.any(
         parallel & ((origin[:, :2] < bounds[0]) | (origin[:, :2] >= bounds[1])), axis=1
     )
@@ -231,7 +236,15 @@ def walk_cells(product, origin, direction, work, *, minimum=0.1, maximum=None):
         raise RuntimeError("DDA exceeded the finite grid traversal bound")
 
 
-def trace(product, origins, directions, *, minimum=0.1):
+def trace(
+    product,
+    origins,
+    directions,
+    *,
+    minimum=0.1,
+    intersect_columns=None,
+    ray_bounds=None,
+):
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     if (
         origins.shape != directions.shape
@@ -245,15 +258,19 @@ def trace(product, origins, directions, *, minimum=0.1):
         or minimum < 0
     ):
         raise ValueError("bounded finite nonzero ray packet required")
+    if ray_bounds is not None:
+        ray_bounds = np.asarray(ray_bounds, float)
+        if ray_bounds.shape != (len(origins), 2) or np.isnan(ray_bounds).any():
+            raise ValueError("one non-NaN traversal interval per ray required")
     basis = product["basis"]
     origin, direction = origins @ basis.T, directions @ basis.T
     depth, owner = np.full(len(origin), np.inf), np.full(len(origin), -1, np.int32)
     normal = np.zeros((len(origin), 3))
     work = {"cell_ray_visits": 0, "interval_ray_tests": 0, "steps": 0}
     for ids, cell, begin, leave, keep in walk_cells(
-        product, origin, direction, work, minimum=minimum
+        product, origin, direction, work, minimum=minimum, ray_bounds=ray_bounds
     ):
-        work["interval_ray_tests"] += test_columns(
+        args = (
             product,
             origin,
             direction,
@@ -264,7 +281,11 @@ def trace(product, origins, directions, *, minimum=0.1):
             depth,
             normal,
             owner,
-            minimum,
+        )
+        work["interval_ray_tests"] += (
+            test_columns(*args, minimum)
+            if intersect_columns is None
+            else intersect_columns(*args)
         )
         keep[:] = depth[ids] > leave
     normal = normal @ basis

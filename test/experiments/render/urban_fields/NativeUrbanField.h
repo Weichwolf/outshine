@@ -19,6 +19,12 @@ namespace UrbanControl {
 using namespace outshine;
 constexpr size_t kBytes = size_t{8} * 1024 * 1024;
 constexpr uint64_t kFormat = 0x3144495247425255ULL;
+constexpr size_t kHeaderBytes = sizeof(uint64_t) + 3 * sizeof(uint32_t) + 2 * sizeof(double);
+constexpr size_t kCellsMost = (kBytes - kHeaderBytes) / sizeof(float);
+
+inline bool DimensionsFit(uint32_t columns, uint32_t rows) {
+  return columns > 0 && rows > 0 && columns <= kCellsMost / rows;
+}
 
 struct Request {
   std::string Database, SourceSha256, InputPath;
@@ -30,9 +36,9 @@ struct HeightGrid {
   std::vector<float> HeightsM;
 
   [[nodiscard]] bool Valid() const {
-    return Columns > 0 && Columns <= 256 && Rows > 0 && Rows <= 256 && std::isfinite(CellM) &&
-           CellM > 0 && CellM <= 1024 && std::isfinite(FillFraction) && FillFraction > 0 &&
-           FillFraction <= 1 && HeightsM.size() == static_cast<size_t>(Columns) * Rows &&
+    return DimensionsFit(Columns, Rows) && std::isfinite(CellM) && CellM > 0 && CellM <= 1024 &&
+           std::isfinite(FillFraction) && FillFraction > 0 && FillFraction <= 1 &&
+           HeightsM.size() == static_cast<size_t>(Columns) * Rows &&
            std::ranges::all_of(HeightsM,
                                [](float h) { return std::isfinite(h) && h >= 0 && h <= 1024; });
   }
@@ -53,7 +59,7 @@ inline std::expected<std::vector<uint8_t>, std::string> EncodeInput(const Reques
   std::istringstream values(text);
   HeightGrid field;
   if (!(values >> field.Columns >> field.Rows >> field.CellM >> field.FillFraction) ||
-      field.Columns == 0 || field.Rows == 0 || field.Columns > 256 || field.Rows > 256) {
+      !DimensionsFit(field.Columns, field.Rows)) {
     return std::unexpected("invalid cold field header");
   }
   field.HeightsM.resize(static_cast<size_t>(field.Columns) * field.Rows);

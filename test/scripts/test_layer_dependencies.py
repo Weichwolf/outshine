@@ -103,8 +103,8 @@ class HeaderTraversal(unittest.TestCase):
 
 class NativeStageDependencies(unittest.TestCase):
     root = SCRIPT.parents[2]
-    required = {'src/render/stages/StagePipelines.cpp',
-                'src/render/device/SpirvFile.cpp', 'src/base/io/ReadTextFile.cpp'}
+    required = frozenset({'src/render/stages/StagePipelines.cpp',
+                          'src/render/device/SpirvFile.cpp', 'src/base/io/ReadTextFile.cpp'})
 
     def sources(self, declaration):
         names = {'SourceUnits', 'NativeGroups', 'GeneratorGroups', 'EngineRootGroups',
@@ -154,7 +154,8 @@ class Sha256Dependencies(unittest.TestCase):
                  'OsqpFlags', 'HighsFlags'}
         functions = shell_functions((self.root / 'test/run.sh').read_text(), names)
         environment = dict(os.environ, BUILD_PLATFORM=platform,
-                           LIBCRYPTO_AVAILABLE=str(int(available)))
+                           LIBCRYPTO_AVAILABLE=str(int(available)),
+                           NATIVE_LINK_FLAGS='-Wl,test-hardening')
         environment['SOURCE_UNITS'] = subprocess.check_output(
             [sys.executable, 'test/scripts/source_units.py'], cwd=self.root, text=True)
         environment['SOURCE_DIRECTORIES'] = '\n'.join(
@@ -186,13 +187,15 @@ done
             environment['PATH'] = directory + os.pathsep + environment['PATH']
             return subprocess.run(['sh', '-eu', '-c', functions + loop,
                                    'sha-link-test', *(profiles or self.profiles)],
-                                  cwd=self.root, env=environment, capture_output=True, text=True)
+                                  cwd=self.root, env=environment, capture_output=True, text=True,
+                                  check=False)
 
     def test_linux_links_crypto_exactly_when_the_declared_sources_use_sha(self):
         result = self.links('Linux')
         self.assertEqual(result.returncode, 0, result.stderr)
         for row in result.stdout.splitlines():
             profile, uses_sha, flags = row.split('\t', 2)
+            self.assertEqual(flags.split().count('-Wl,test-hardening'), 1, profile)
             self.assertEqual(flags.split().count('-lcrypto'), int(uses_sha), profile)
 
     def test_apple_uses_commoncrypto_without_an_openssl_package(self):

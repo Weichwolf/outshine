@@ -1,6 +1,6 @@
 # Native urban field control
 
-Owners: #1102 / #1111. A shared indexed box is the native opponent for aggregate
+Owners: #1102 / #1127. A shared indexed box is the native opponent for aggregate
 urban masks. This is a model-space renderer/control, not the world integration.
 
 Requires a fresh native product archive, compilation database and shader bundle.
@@ -14,9 +14,13 @@ python3.12 test/experiments/render/native_urban_field.py --output "$(mktemp -d)"
 
 `--field` reads text: `columns rows cellM fillFraction`, then row-major top heights
 in metres. X follows columns, +Z follows rows, +Y is up. Zero means no column.
-The maximum is 256×256 cells. Default cases are synthetic scaling controls and an
-empty field; they are not equal-quality source reconstructions. `--radius` changes
-camera distance without changing the stored field or asset identity.
+Input text and the encoded asset each have an 8 MiB budget. The encoded header is
+36 bytes, followed by one float per cell; dimensions must fit before allocation.
+This admits the complete stored 624×616 product without enlarging that budget.
+Default cases are synthetic scaling controls and an empty field; they are not
+equal-quality source reconstructions. `--radius` changes orbit distance and
+`--altitude` changes camera height independently; neither changes the stored field
+or asset identity. Without an altitude, height remains 0.4 times the radius.
 
 Each fresh process opens the prototype DB, loads the native field and prepares
 instances. The cold process imports the field; the warm process receives no input

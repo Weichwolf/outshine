@@ -144,6 +144,10 @@ public:
     return Framed_ ? Residency_.HeightMAt(at) : std::nullopt;
   }
 
+  [[nodiscard]] std::optional<std::array<double, 2>> AslBoundsM() const noexcept {
+    return Framed_ ? Residency_.AslBoundsM() : std::nullopt;
+  }
+
   [[nodiscard]] uint64_t Digest() const;
 
   [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }

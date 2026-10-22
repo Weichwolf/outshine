@@ -99,7 +99,13 @@ NativeLink() {
   esac
 }
 
+CXXSTD=-std=c++23
+CXX=${CXX:-c++}
+. "$ROOT/test/scripts/native_hardening.sh"
+ConfigureNativeHardening "$CXXSTD" || { printf '%s\n' 'run.sh: cannot determine native hardening target' >&2; exit 2; }
+
 if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
+  printf '%s ' "$NATIVE_LINK_FLAGS"
   pkg-config --libs sdl3 | tr '\n' ' '
   NativeLink
   exit $?
@@ -125,10 +131,8 @@ export OUTSHINE_CORPUS_OWNER="$NEST"
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 PREPARED=${OUTSHINE_PREPARED:-$PREPARED}
-CXX=${CXX:-c++}
-CXXSTD=-std=c++23
 WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"
-OPT="-O2 -ffp-contract=off"
+OPT="-O2 -ffp-contract=off $NATIVE_COMPILE_FLAGS"
 
 TIMEOUT_S=120
 ALLOWED_SKIPS=""
@@ -239,7 +243,7 @@ SUITES=
 ALL_CASES=0
 FORCED_SANITIZER=
 HARDEN=0
-HARDENING_FLAGS="-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG -D_GLIBCXX_ASSERTIONS"
+HARDENING_FLAGS=$NATIVE_DEBUG_FLAGS
 while [ $# -gt 0 ]; do
   case "$1" in
     --sanitizer)
@@ -449,14 +453,14 @@ LayerSanitiser() {
     return
   fi
   if [ "$FORCED_SANITIZER" = address ] || NativeSafetyProfile "$1"; then
-    printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1"
+    printf '%s' "$NATIVE_ADDRESS_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1"
     return
   fi
   case "$(TestProfile "$1")" in
     profile/medium-view | profile/vector | profile/osm-xml | profile/transport-topology | profile/transport-native | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
-      printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+      printf '%s' "$NATIVE_ADDRESS_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     harness/geographiclib/geodesic)
-      printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+      printf '%s' "$NATIVE_ADDRESS_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -508,6 +512,7 @@ LayerLibraryLink() {
 }
 
 LayerLink() {
+  printf '%s ' "$NATIVE_LINK_FLAGS"
   for shaGroup in $(LayerGroups "$1"); do
     case "$shaGroup" in
       src/base/format|src/base/format/Sha256.cpp)
@@ -1029,7 +1034,7 @@ SkipAllowed() {
 
 mkdir -p "$BUILD/obj" "$BUILD/obj-address" "$BUILD/obj-thread" "$BUILD/obj-validated" "$BUILD/log" || Die "cannot write under $BUILD"
 SAN=""
-$CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
+$CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN $NATIVE_LINK_FLAGS -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
 FreshAgainst() {
@@ -1194,7 +1199,7 @@ EveryProgramStillLinks() {
     for named in $EXPECT_UNLINKED; do
       [ "$named" = "$one" ] && declaredUnlinked=yes
     done
-    if $CXX $CXXSTD $(LayerToolchain "$layer") $WARN $(LayerIncludes "$layer") -c "$one" \
+    if $CXX $CXXSTD $(LayerToolchain "$layer") $OPT $WARN $(LayerIncludes "$layer") -c "$one" \
          -o "$BUILD/program.o" \
          >"$BUILD/program.log" 2>&1 &&
        $CXX $CXXSTD "$BUILD/program.o" build/liboutshine.a $(LayerLink "$layer") \
@@ -1838,7 +1843,7 @@ for pruneObject in $OBJECTS; do
   [ "$pruneObject" -nt "$BUILD/prune" ] && pruneStale=yes
 done
 if [ "$pruneStale" = yes ]; then
-  $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN $(LayerIncludes tool/prune) -o "$BUILD/prune" ||
+  $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN $(LayerIncludes tool/prune) $NATIVE_LINK_FLAGS -o "$BUILD/prune" ||
     Die "the prune did not build"
 fi
 PRUNE_MARKER=$BUILD/prune.marker

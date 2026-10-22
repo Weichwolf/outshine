@@ -10,17 +10,22 @@ namespace outshine::Core {
 struct Raster {
   int Width = 0;
   int Height = 0;
+  ImagePixelFormat Format = ImagePixelFormat::Rgba8Unorm;
   std::vector<uint8_t> Rgba;
   ImageMipData LowerMips{};
 
   [[nodiscard]] ImageView View() const {
-    return {
-        .WidthPx = Width, .HeightPx = Height, .Rgba = Rgba, .LowerMips = ViewImageMips(LowerMips)};
+    return {.WidthPx = Width,
+            .HeightPx = Height,
+            .Format = Format,
+            .Rgba = Rgba,
+            .LowerMips = ViewImageMips(LowerMips)};
   }
 
   [[nodiscard]] bool Holds() const {
-    return Width > 0 && Height > 0 &&
-           Rgba.size() == static_cast<size_t>(Width) * static_cast<size_t>(Height) * 4u;
+    return View().valid() && Rgba.size() == static_cast<size_t>(Width) *
+                                                static_cast<size_t>(Height) *
+                                                ImagePixelBytes(Format);
   }
 };
 
