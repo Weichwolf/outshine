@@ -29,6 +29,31 @@ the Metal validation/profiling environment. Validation runs are functional evide
 The scene declares an actual shadow frame. Fixed world/light may reuse its initial
 shadow during the orbit; no steady-state caster work is inferred from the setup.
 
+`--sequence verify` adds four source-free functional runs to the cold/warm orbit:
+`relight` changes the sun bearing at frame 30, `replace` uploads boxes with half
+their previous heights and then releases the old piece. `relit` and `replaced`
+start from those final states. Each transition's final PNG/D32 must exactly match
+its fresh counterpart. Light preserves primary depth; a nonempty replacement must
+change it. The baseline image must respond to changed light for a nonempty field.
+All package keys/bytes/CRC remain unchanged: these controlled runtime products do
+not alter their source asset. Empty fields remain valid without uploading boxes.
+
+The light mutation invokes the light setter once at frame 30 and then retains it;
+the fresh relit control invokes it once before settling. Reports count actual light
+setter calls separately from the selected mutation branch. Camera changes and
+Engine advancement continue without reapplying the light.
+
+The submission hook records the actual preceding completion. A zero-wait Poll
+immediately before release reports whether the old frame is still Pending; absence
+of an observed pending fence leaves that lifetime case unproven. This is diagnostic
+coverage, not a timing gate. Mutation-run timings include runtime preparation and
+must not be used as steady-state FPS evidence. Exactly 60 measured frames and three
+settling frames remain explicit for every process; readbacks add no render frames.
+
+```sh
+python3.12 test/experiments/render/native_urban_field.py --output "$(mktemp -d)" --field ready.field --sequence verify --validation
+```
+
 Reports retain exact commands, source/archive hashes, device, field/matrix/buffer
 counters and encoded geometry draw calls. Triangle references describe the box
 input, not measured shader invocations. Buffer counters are not
