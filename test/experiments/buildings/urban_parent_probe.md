@@ -64,36 +64,12 @@ phase integration. Point-light position and coarse interpolation remain approxim
 The categorical traversal is shared through `trace_transport`; the three actual
 paired direct crops remain bit-identical to the earlier eb707864e products.
 
-Frozen 19156f3eb completed ten runs / 13 actual 1280×720 images, including three same-process
-paired controls; all terminal 0 and actually inspected. Inputs remain the true 240-km
-fdfc50d1c controls: day 32/other cases 16 jittered samples per axis, seed 1113. Times below
-include transfer construction and consumption; paired controls use the same prepared
-rays, profile and process, sequentially at normal priority under development load.
-
-| Case | Direct phase RGB RMSE | Shared RGB RMSE | Shared total, s | Paired direct, s |
-| --- | ---: | ---: | ---: | ---: |
-| Day | .01267 | .01367 | 5.31 | 17.17 |
-| Back | .01151 | .01158 | 5.65 | — |
-| Night, fine table | .07831 | .07681 | 14.71 | 36.37 |
-| Lateral movement | .01409 | .01427 | 2.56 | — |
-| Low altitude, anisotropic table | .00584 | .00618 | 5.82 | 17.29 |
-| Night, too-coarse table | .07831 | .12192 | 6.17 | — |
-| Low altitude, too-coarse table | .00584 | .00732 | 21.70 | — |
-
-These are linear RGB region errors against inferred resolved boxes, not world error
-bounds. The three paired cases retain bit-identical primary coverage and reduce total
-shadow cell visits, including table build, by 98.59%/75.23%/93.50% for day/night/low.
-Their measured Python time ratios are 3.23×/2.47×/2.97×; no native/device speedup follows.
-Day/back use 4×4-pixel table spacing, night 1×1 and low 4×1. Primary phase counts are 6
-for day/back/night and 4 for movement/low; table phase count 6. Low macro sampling is 1×8,
-other cases 2×2. Three matched phase 4-table runs are retained as sensitivity controls.
-
-Day/night/low moment arrays contain 34,272/646,464/45,696 B. The retained per-packet
-visibility buffer peaks at 43,008 B. These are component sizes, not full temporary,
-copy-traffic or process/device memory peaks; raw RSS uses Linux KiB. A coarse low-view
-table misses all mass anchors and triggers 1,046,182 exact fallback rays, while its
-ground visibility still errs. A coarse night table misses the narrow brightness peak.
-No generic spacing or safe-occlusion claim follows from the supported cases.
+The prior shared-shadow control (19156f3eb) measured 2.47–3.23× Python speedups over
+direct phase queries in three same-process pairs, with bit-identical primary coverage.
+Its coarse night table lost the narrow brightness peak; the coarse low-view table
+missed all mass anchors and triggered 1,046,182 fallbacks. Full earlier evidence is
+linked from the current receipt. Table coefficients remain view/light conditioned,
+not independently relightable assets or safe-occlusion certificates.
 
 ## Adaptive anchor placement
 
