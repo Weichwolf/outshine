@@ -42,9 +42,10 @@
   Quellen/Quell-IDs erhalten. Räumliche Verträge stehen in [#18](https://github.com/Weichwolf/outshine/issues/18).
   Materialparameter, Licht-/Schattenkomposition und Wetterzustand haben klare Modulbesitzer;
   gemeinsame Pässe, Bindings und Radiance-/Transmittanzkomposition mit Verbrauchern abstimmen.
-- Jeder Agent darf architektonische und organisatorische Verbesserungen einbringen. Outshine
-  soll in Darstellung, Code und Projektgestaltung schön sein: kohärent, klar benannt, gut
-  gegliedert und frei von unnötiger Komplexität. Lokale Verbesserungen brauchen keine Freigaberunde.
+- Jeder Agent verantwortet selbst auch Struktur und Informationsdichte von Repository und
+  Backlog: erwartbare Namen, klare Ablage, kurze auffindbare Verträge, keine doppelte Wahrheit.
+  Unklare Namen, veraltete Angaben und unnötige Komplexität korrigieren wir samt Verbrauchern;
+  lokale Verbesserungen brauchen keine Freigaberunde. Outshine soll in Bild und Aufbau kohärent sein.
 - Beide Kollegen committen und pushen kleine vollständige Fachlieferungen als PRs gegen den
   vereinbarten Integrationsstand. Ich übernehme Zusammenführung, Merges und gebündelte Prüfungen.
   Die Lieferanten prüfen gezielt die Korrektheit ihrer Verfahren/Änderungen und messen ihre
@@ -240,7 +241,8 @@
   Status-, Prioritäts- und Architekturfelder in Beschreibung und Labels gemeinsam aktualisieren.
   Beim Aktivieren das andere Statuslabel entfernen; abschließen erst nach erfüllter Abnahme mit `gh issue close`.
   `priority:P0` bis `priority:P3`, `architecture:ready`/`architecture:planned` und `owner:*` erhalten.
-  Beschreibungen enthalten Ergebnis/Ist, Besitzer, Umsetzung, fehlende Verträge und kurze Abnahme, keine Prüfchronik.
+  Titel benennen das Ergebnis/Problem. Beschreibungen enthalten aktuellen Iststand, Besitzer,
+  Entscheidung, fehlende Verträge und kurze Abnahme; keine Prüfchronik oder überholten Aussagen.
   Bevorzugt 80 Zeilen/6 KiB; ausführliche Diskussion und Belege bleiben in Kommentaren.
 - `Parent` und `Depends` nennen GitHub-Issuenummern. `Depends` bezeichnet einen fehlenden Vertrag,
   keine Reihenfolge oder pauschal ein ganzes Subsystem. Priorität, Abhängigkeiten und Vision getrennt prüfen.
@@ -260,7 +262,7 @@
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
   keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.
-- Ich halte Projekt und Zusammenarbeit kontextsparend: Pfad und Name führen direkt zum Besitzer;
+- Ich halte Projekt und Zusammenarbeit kontextsparend: Pfad, Datei, Typ und Funktion heißen wie erwartet;
   jede Datei behandelt eine zusammenhängende Aufgabe. Header zeigen Verträge, größere
   Implementierungen stehen in `.cpp`. Keine künstliche Fragmentierung oder Zeilenverdichtung.
   Ich lese gezielte Symbole/Ausschnitte und fasse Logs als Ergebnis, Fehler und Belegpfad zusammen.
