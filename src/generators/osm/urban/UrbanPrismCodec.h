@@ -10,6 +10,7 @@
 #include <vector>
 
 namespace outshine::Generators::Osm {
+inline constexpr uint64_t kUrbanPrismFormat = 0x31534d535250534fULL;
 inline constexpr size_t kUrbanPrismBytesMost = size_t{16} * 1024 * 1024;
 
 [[nodiscard]] std::expected<std::vector<uint8_t>, std::string>

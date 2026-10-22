@@ -2,6 +2,7 @@
 #include "UrbanPrismAsset.h"
 #include "Sha256.h"
 #include <scene/PrismGrid.h>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
@@ -40,7 +41,13 @@ int main() {
   std::filesystem::create_directories(root, error);
   CHECK(!error, "the isolated native cache directory opens");
   const auto path = (root / "assets.sqlite").string();
-  const auto request = Sha256Hex("urban-prisms-recipe-v1/source-id/terrain-content-id/selection");
+  const std::array<Osm::UrbanPatchRange, 1> patches{{{.Columns = 2, .Rows = 1}}};
+  const auto source = Sha256Hex("native area source content");
+  auto terrain = Sha256Digest("published surface", 17);
+  const auto identity = Osm::UrbanPrismRequestKey(source, terrain, patches, 3);
+  CHECK(identity, "the ready asset request binds source, surface, selection and level");
+  if (!identity) { return Report(); }
+  const auto &request = *identity;
   size_t generations = 0;
   {
     auto cache = AssetCache::Open(path);
@@ -73,9 +80,10 @@ int main() {
                           .Level = 3});
     CHECK(selected && selected->size() == 1 && selected->front().RequestKey == request,
           "ready geometry participates in the existing spatial and LOD index");
-    CHECK(!ResolveAssetRequest(
-              **cache, Sha256Hex("different-terrain"), Osm::kUrbanPrismBytesMost, {}),
-          "a different persistent input cannot reuse an unrelated native asset");
+    terrain[0] ^= 1;
+    const auto changed = Osm::UrbanPrismRequestKey(source, terrain, patches, 3);
+    CHECK(changed && !ResolveAssetRequest(**cache, *changed, Osm::kUrbanPrismBytesMost, {}),
+          "changed published terrain misses rather than loading an unrelated ready asset");
   }
   CHECK(!Osm::PackageUrbanPrisms(Product(), "unknown-request", {.Level = 3}),
         "unbound source identity cannot publish a ready product");

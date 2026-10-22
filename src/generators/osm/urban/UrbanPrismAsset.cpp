@@ -1,8 +1,11 @@
 #include "UrbanPrismAsset.h"
 #include "Sha256.h"
+#include "BinaryValueArchive.h"
 #include "math/Box.h"
 #include <scene/PrismGrid.h>
 #include <algorithm>
+#include <array>
+#include <span>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -44,6 +47,38 @@ std::expected<Box, std::string> Coverage(const UrbanPrisms &product) {
   }
   return result;
 }
+}
+
+std::expected<std::string, std::string>
+UrbanPrismRequestKey(std::string_view areaAssetKey,
+                     const std::array<uint8_t, 32> &terrainIdentity,
+                     std::span<const UrbanPatchRange> patches,
+                     uint32_t level) {
+  constexpr size_t patchesMost = kUrbanPrismBytesMost / sizeof(PrismSpan);
+  if (areaAssetKey.size() != 64 ||
+      areaAssetKey.find_first_not_of("0123456789abcdef") != std::string_view::npos ||
+      patches.empty() || patches.size() > patchesMost) {
+    return std::unexpected("urban-prism request requires a source asset and bounded selection");
+  }
+  constexpr size_t headerBytesMost = 160;
+  BinaryValueWriter writer(headerBytesMost + patches.size() * sizeof(uint32_t) * 4);
+  if (!writer.Text("urban-prisms-generator-1") || !writer(kUrbanPrismFormat) ||
+      !writer.Text(areaAssetKey) ||
+      !writer(terrainIdentity, level, static_cast<uint32_t>(patches.size()))) {
+    return std::unexpected("could not encode urban-prism request header");
+  }
+  uint64_t samples = 0;
+  for (const auto &patch : patches) {
+    const uint64_t count = uint64_t{patch.Columns} * patch.Rows;
+    if (patch.Columns == 0 || patch.Rows == 0 || count > patchesMost - samples ||
+        patch.Column > std::numeric_limits<uint32_t>::max() - patch.Columns ||
+        patch.Row > std::numeric_limits<uint32_t>::max() - patch.Rows ||
+        !writer(patch.Column, patch.Row, patch.Columns, patch.Rows)) {
+      return std::unexpected("urban-prism request has invalid or excessive sample ranges");
+    }
+    samples += count;
+  }
+  return Sha256Hex(writer.Out.Bytes().data(), writer.Out.Bytes().size());
 }
 
 std::expected<GeneratedAssetPackage, std::string> PackageUrbanPrisms(

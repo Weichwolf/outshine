@@ -16,7 +16,6 @@
 
 namespace outshine::Generators::Osm {
 namespace {
-constexpr uint64_t kFormat = 0x31534d535250534fULL;
 constexpr size_t kHeaderBytes = 16;
 constexpr size_t kPatchBytes = 164;
 
@@ -86,7 +85,7 @@ std::expected<std::vector<uint8_t>, std::string> EncodeUrbanPrisms(const UrbanPr
   if (!Valid(product)) { return std::unexpected("invalid native urban-prism product"); }
   BinaryValueWriter writer(budget);
   writer.Out.Reserve(kHeaderBytes + count * sizeof(PrismSpan) + patches * kPatchBytes);
-  if (!writer(kFormat, static_cast<uint32_t>(count), static_cast<uint32_t>(patches))) {
+  if (!writer(kUrbanPrismFormat, static_cast<uint32_t>(count), static_cast<uint32_t>(patches))) {
     return std::unexpected("could not encode native urban-prism header");
   }
   if (product.Geometry.Samples) {
@@ -113,7 +112,7 @@ std::expected<UrbanPrisms, std::string> DecodeUrbanPrisms(std::span<const uint8_
   uint64_t format = 0;
   uint32_t count = 0;
   uint32_t patches = 0;
-  if (!reader(format, count, patches) || format != kFormat ||
+  if (!reader(format, count, patches) || format != kUrbanPrismFormat ||
       !Fits({.Samples = count, .Patches = patches}, bytes.size()) ||
       kHeaderBytes + uint64_t{count} * sizeof(PrismSpan) + uint64_t{patches} * kPatchBytes !=
           bytes.size()) {
