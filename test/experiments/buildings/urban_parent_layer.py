@@ -17,6 +17,7 @@ def render_layer(
     caster_covered=None,
     external_visibility=None,
     batch=2048,
+    transmission_tolerance=0.0,
 ):
     """Coverage rectangles mean complete ready cells, including known vacancies.
 
@@ -25,6 +26,7 @@ def render_layer(
     product alone never supplies either declaration. External visibility, when
     present, is deterministic visibility of additional opaque casters.
     """
+    origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     colour = np.zeros_like(origins)
     receiver_visibility = np.ones(len(origins))
 
@@ -58,6 +60,7 @@ def render_layer(
         receiver_normals=receiver_normals,
         primary_covered=primary_covered,
         caster_covered=caster_covered,
+        transmission_tolerance=transmission_tolerance,
     )
     return colour, 1 - coverage, receiver_visibility, work
 

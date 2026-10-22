@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays, projected_bounds
-from urban_parent_conditional import render_conditional
+from urban_parent_conditional import ground_stops, render_conditional
 from urban_parent_light import display, light_at, shade
 from urban_parent_reference import prepare_resolved, trace_resolved
 from urban_parent_stats import UrbanParent, compile_parent
@@ -67,8 +67,10 @@ def lighting(extent, name):
 def ground(
     origins, directions, profile, *, resolved=None, parent=None, mode="midpoint"
 ):
-    times = -origins[:, 2] / directions[:, 2]
-    points = origins + times[:, None] * directions
+    times = ground_stops(origins, directions)
+    rays = np.flatnonzero(np.isfinite(times))
+    result = np.full_like(origins, 0.002 if profile["kind"] == "point" else 0.1)
+    points = origins[rays] + times[rays, None] * directions[rays]
     light, _, limit = light_at(points, profile)
     work = {}
     if resolved is not None:
@@ -80,7 +82,10 @@ def ground(
         visible = shadow_transmission(parent, points, light, mode)
     else:
         visible = np.ones(len(points))
-    return shade(points, np.array([0, 0, 1]), -directions, 0.2, visible, profile), work
+    result[rays] = shade(
+        points, np.array([0, 0, 1]), -directions[rays], 0.2, visible, profile
+    )
+    return result, work
 
 
 def opaque_image(resolved, origins, directions, profile):

@@ -171,6 +171,15 @@ def walk_cells(product, origin, direction, work, *, minimum=0.1, maximum=None):
     missed = np.any(
         parallel & ((origin[:, :2] < bounds[0]) | (origin[:, :2] >= bounds[1])), axis=1
     )
+    fraction = product["header"].get("footprint_fraction", 1.0)
+    if not 0 < fraction <= 1:
+        raise ValueError("bounded column footprint fraction required")
+    if fraction < 1:
+        phase = origin[:, :2] - np.floor(origin[:, :2] / pitch) * pitch
+        guard = 8 * np.finfo(float).eps * (np.abs(origin[:, :2]) + pitch)
+        edge = (1 - fraction) * pitch / 2
+        gap = (phase < edge - guard) | (phase > pitch - edge + guard)
+        missed |= np.any(parallel & gap, axis=1)
     ids = np.flatnonzero(~missed & (begin <= end))
     point = origin[ids, :2] + begin[ids, None] * dxy[ids]
     # Select the cell entered in the ray direction, including exact grid ties.

@@ -7,7 +7,7 @@ import numpy as np
 from test_urban_parent_conditional import brute_hit
 from urban_parent_conditional import grid, render_conditional
 from urban_parent_layer import compose, correction, render_layer
-from urban_parent_light import light_at, shade
+from urban_parent_light import light_at, shade, surface_radiance_upper
 from urban_parent_stats import UrbanParent
 
 
@@ -219,6 +219,131 @@ class ParentLayerTest(unittest.TestCase):
         )
         np.testing.assert_array_equal(delta[1], 0)
         np.testing.assert_array_equal(delta[2], -0.75)
+
+    def test_ground_view_opaque_stops_and_separate_casters(self):
+        parent, _, _, p = fixture()
+        o = np.array(
+            [[-8.0, 5.0, 2.0], [-8.0, 11.0, 7.0], [-8.0, 19.0, 6.0], [-8.0, 27.0, 12.0]]
+        )
+        d = np.array(
+            [
+                [1.0, 0.013, 0.23],
+                [1.0, 0.013, 0.0],
+                [1.0, 0.013, -0.03],
+                [1.0, 0.013, 0.0],
+            ]
+        )
+        d /= np.linalg.norm(d, axis=1)[:, None]
+        stop = np.array([11.0, 30.0, 40.0, 10.0])
+        regions = np.array([[[0, 0], [1, 2]]])
+        mask = np.array([True, False, True, False])
+        for view, caster in [
+            (False, False),
+            (True, False),
+            (False, True),
+            (True, True),
+        ]:
+            expected, alpha = np.zeros_like(o), np.zeros(len(o))
+            for state in itertools.product(range(3), repeat=4):
+                weight = np.prod(np.array([0.15, 0.85 * 0.7, 0.85 * 0.3])[list(state)])
+                rgb, hit = brute_layer(
+                    np.array([0, 6, 12])[list(state)],
+                    o,
+                    d,
+                    stop,
+                    p,
+                    mask & view,
+                    mask & caster,
+                )
+                expected += weight * rgb
+                alpha += weight * hit
+            c, t, s, _ = render_layer(
+                parent,
+                o,
+                d,
+                p,
+                stop,
+                primary_covered=regions if view else None,
+                caster_covered=regions if caster else None,
+                batch=2,
+            )
+            points = o + stop[:, None] * d
+            direct = shade(
+                points,
+                np.tile([0.0, 0.0, 1.0], (len(o), 1)),
+                -d,
+                0.2,
+                np.ones(len(o)),
+                p | {"ambient": 0},
+            )
+            with self.subTest(view=view, caster=caster):
+                np.testing.assert_allclose(1 - t, alpha, atol=2e-14, rtol=0)
+                np.testing.assert_allclose(
+                    compose(c, t, s, direct, np.full_like(o, p["ambient"] * 0.2)),
+                    expected,
+                    atol=2e-13,
+                    rtol=0,
+                )
+
+    def test_optional_termination_bounds_colour_and_transmission(self):
+        parent = UrbanParent(
+            np.ones((16, 16, 3)),
+            np.array([0, 0, 1, 512, 16, 0.75, 0.15]),
+            np.array([6.0, 12.0]),
+            np.array([0.7, 0.3]),
+        )
+        o = np.array([[-16.0, y, 2.0] for y in [7.0, 15.8, 23.0, 39.0]])
+        d = np.array(
+            [[1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.03], [1.0, 0.0, -0.03]]
+        )
+        d /= np.linalg.norm(d, axis=1)[:, None]
+        p = {
+            "kind": "sun",
+            "direction": [-0.4, 0.3, 0.7],
+            "intensity": 3.0,
+            "ambient": 0.1,
+        }
+        stop = np.full(len(o), np.inf)
+        c, t, s, full = render_layer(parent, o, d, p, stop)
+        ca, ta, sa, fast = render_layer(
+            parent, o, d, p, stop, transmission_tolerance=1e-5
+        )
+        background = np.broadcast_to([1.3, 0.4, 5.0], o.shape)
+        expected = compose(c, t, s, np.zeros_like(o), background)
+        actual = compose(ca, ta, sa, np.zeros_like(o), background)
+        bound = 1e-5 * max(surface_radiance_upper(p, 12), background.max())
+        self.assertLessEqual(float(np.abs(expected - actual).max()), bound + 1e-14)
+        self.assertTrue(np.all(ta >= t - 1e-15))
+        self.assertLessEqual(float((ta - t).max()), 1e-5)
+        self.assertGreater(fast["early_terminated_rays"], 0)
+        self.assertLess(fast["cell_ray_visits"], full["cell_ray_visits"])
+        for value in [-1.0, 1.0, np.nan]:
+            with self.assertRaises(ValueError):
+                render_layer(parent, o, d, p, stop, transmission_tolerance=value)
+
+    def test_ggx_bound_contains_unit_direction_samples(self):
+        rng = np.random.default_rng(1113)
+        points = rng.uniform([-100, -100, 0], [100, 100, 48], (4096, 3))
+        normal = rng.normal(size=points.shape)
+        normal /= np.linalg.norm(normal, axis=1)[:, None]
+        outgoing = rng.normal(size=points.shape)
+        outgoing /= np.linalg.norm(outgoing, axis=1)[:, None]
+        for p in [
+            {
+                "kind": "sun",
+                "direction": [-0.4, 0.3, 0.7],
+                "intensity": 3.0,
+                "ambient": 0.1,
+            },
+            {
+                "kind": "point",
+                "position": [0, 0, 1000],
+                "intensity": 2e8,
+                "ambient": 0.002,
+            },
+        ]:
+            colour = shade(points, normal, outgoing, 0.6, np.ones(len(points)), p)
+            self.assertLessEqual(float(colour.max()), surface_radiance_upper(p, 48))
 
 
 if __name__ == "__main__":

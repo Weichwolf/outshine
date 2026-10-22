@@ -88,20 +88,34 @@ def record_miss(product, origin, direction, ids, cell, begin, leave):
     caps = np.full(len(origin), np.inf)
     valid = entry < exit
     cells[ids[valid]] = cell[valid]
-    caps[ids[valid]] = origin[ids[valid], 2] + exit[valid] * direction[ids[valid], 2]
+    first_z = origin[ids[valid], 2] + entry[valid] * direction[ids[valid], 2]
+    last_z = origin[ids[valid], 2] + exit[valid] * direction[ids[valid], 2]
+    caps[ids[valid]] = np.minimum(first_z, last_z)
     return cells, caps
 
 
 def events(parent, product, origin, direction, ids, cell, begin, leave):
     near, far, axis = xy_interval(product, origin, direction, ids, cell)
     q = density(parent, product, cell)
+    dz, z = direction[ids, 2], origin[ids, 2]
     for height, probability in zip(parent.heights, parent.probabilities, strict=True):
-        roof = (height - origin[ids, 2]) / direction[ids, 2]
-        entry = np.maximum(np.maximum(near, roof), begin[ids])
-        valid = entry < np.minimum(far, leave)
+        vertical = np.divide(
+            np.column_stack((-z, height - z)),
+            dz[:, None],
+            out=np.zeros((len(ids), 2)),
+            where=dz[:, None] != 0,
+        )
+        zn = np.where(dz == 0, -np.inf, vertical.min(axis=1))
+        zf = np.where(dz == 0, np.inf, vertical.max(axis=1))
+        entry = np.maximum(np.maximum(near, zn), begin[ids])
+        valid = (
+            (entry < leave)
+            & (entry <= np.minimum(far, zf))
+            & ((dz != 0) | ((z >= 0) & (z <= height)))
+        )
         normal = np.zeros((len(ids), 3))
-        normal[:, 2] = 1
-        wall = roof < near
+        normal[:, 2] = -np.sign(dz)
+        wall = zn < near
         normal[wall] = 0
         rows = np.flatnonzero(wall)
         normal[rows, axis[rows]] = -np.sign(direction[ids[rows], axis[rows]])
@@ -155,6 +169,33 @@ def surface_visibility(
     return visibility
 
 
+def ground_stops(origins, directions):
+    times = np.divide(
+        -origins[:, 2],
+        directions[:, 2],
+        out=np.full(len(origins), np.inf),
+        where=directions[:, 2] < 0,
+    )
+    return np.where(times >= 0.1, times, np.inf)
+
+
+def validate_eye(parent, product, origins, directions):
+    near_z = origins[:, 2] + 0.1 * directions[:, 2]
+    at = np.flatnonzero((near_z >= 0) & (near_z <= parent.heights[-1]))
+    point = (
+        origins[at, :2] + 0.1 * directions[at, :2] - product["reference_origin_m"][:2]
+    ) / product["header"]["pitch_m"]
+    point = point[np.all((point >= 0) & (point < product["shape"]), axis=1)]
+    cell = np.floor(point).astype(np.int64)
+    fraction = point - cell
+    edge = (1 - parent.frame[5]) / 2
+    inside = np.all((fraction >= edge) & (fraction <= 1 - edge), axis=1)
+    if np.any(density(parent, product, cell[inside]) > 0):
+        raise ValueError(
+            "eye inside possible unresolved mass requires a resolved product"
+        )
+
+
 def integrate_packet(
     parent,
     product,
@@ -166,6 +207,7 @@ def integrate_packet(
     approximation=None,
     stop=None,
     receiver_normals=None,
+    transmission_tolerance=0.0,
 ):
     origin = origins - product["reference_origin_m"]
     transmission = np.ones(len(origin))
@@ -214,8 +256,15 @@ def integrate_packet(
             product, origin, directions, ids, cell, begin, leave
         )
         history.append((missed_cells, caps))
-        keep[:] = transmission[all_ids] > 0
-    times = -origins[:, 2] / directions[:, 2] if stop is None else stop
+        terminated = (transmission[all_ids] > 0) & (
+            transmission[all_ids] <= transmission_tolerance
+        )
+        work["early_terminated_rays"] += int(terminated.sum())
+        work["truncated_probability_sum"] += float(
+            transmission[all_ids[terminated]].sum()
+        )
+        keep[:] = transmission[all_ids] > transmission_tolerance
+    times = ground_stops(origins, directions) if stop is None else stop
     rays = np.flatnonzero(np.isfinite(times))
     points = origins[rays] + times[rays, None] * directions[rays]
     slots = np.full(len(rays), len(parent.heights) * 5, int)
@@ -259,9 +308,25 @@ def trace_transport(
     receiver_normals=None,
     primary_covered=None,
     caster_covered=None,
+    transmission_tolerance=0.0,
 ):
-    if np.any(directions[:, 2] >= 0) or np.any(origins[:, 2] <= parent.heights[-1]):
-        raise ValueError("initial conditional study requires downward rays from above")
+    origins, directions = np.asarray(origins, float), np.asarray(directions, float)
+    if (
+        origins.shape != directions.shape
+        or origins.ndim != 2
+        or origins.shape[1] != 3
+        or not np.isfinite(origins).all()
+        or not np.isfinite(directions).all()
+        or np.any(np.linalg.norm(directions, axis=1) == 0)
+        or np.any(origins[:, 2] < 0)
+    ):
+        raise ValueError("finite nonzero rays from above-ground origins required")
+    if not np.isfinite(transmission_tolerance) or not 0 <= transmission_tolerance < 1:
+        raise ValueError("finite transmission tolerance in [0, 1) required")
+    if transmission_tolerance and not np.allclose(
+        np.linalg.norm(directions, axis=1), 1, rtol=0, atol=1e-12
+    ):
+        raise ValueError("bounded radiance termination requires unit view directions")
     if profile["kind"] == "point" and profile["position"][2] <= parent.heights[-1]:
         raise ValueError("initial conditional study requires the light above the field")
     product = grid(parent)
@@ -278,6 +343,7 @@ def trace_transport(
         ):
             raise ValueError("integer complete coverage rectangles required")
         product[key] = regions
+    validate_eye(parent, product, origins, directions)
     if stop is not None:
         stop = np.asarray(stop, float)
         if stop.shape != (len(origins),) or np.any(np.isnan(stop) | (stop < 0.1)):
@@ -301,6 +367,8 @@ def trace_transport(
             "shadow_steps",
             "shadow_cell_ray_visits",
             "shadow_history_cell_comparisons",
+            "early_terminated_rays",
+            "truncated_probability_sum",
         ],
         0,
     )
@@ -325,13 +393,22 @@ def trace_transport(
             estimate if approximation is not None else None,
             None if stop is None else stop[part],
             None if receiver_normals is None else receiver_normals[part],
+            transmission_tolerance,
         )
     return 1 - transmission, work
 
 
 def render_conditional(
-    parent, origins, directions, profile, *, batch=2048, approximation=None
+    parent,
+    origins,
+    directions,
+    profile,
+    *,
+    batch=2048,
+    approximation=None,
+    transmission_tolerance=0.0,
 ):
+    origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     colour = np.zeros_like(origins)
 
     def receive(rays, slots, points, normal, weight, visibility):
@@ -355,5 +432,6 @@ def render_conditional(
         receive,
         batch=batch,
         approximation=approximation,
+        transmission_tolerance=transmission_tolerance,
     )
     return colour, coverage, work

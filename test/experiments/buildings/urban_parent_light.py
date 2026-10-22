@@ -2,6 +2,8 @@
 
 import numpy as np
 
+ROUGHNESS = 0.7
+
 
 def light_at(points, profile):
     if profile["kind"] == "point":
@@ -30,7 +32,7 @@ def shade(points, normals, outgoing, albedo, visibility, profile):
     halfway /= np.maximum(np.linalg.norm(halfway, axis=1)[:, None], 1e-15)
     nh = np.maximum(np.einsum("ij,ij->i", normals, halfway), 0)
     vh = np.maximum(np.einsum("ij,ij->i", outgoing, halfway), 0)
-    a2 = 0.7**4
+    a2 = ROUGHNESS**4
     distribution = a2 / (np.pi * (nh**2 * (a2 - 1) + 1) ** 2)
     g_light = 2 * nl / np.maximum(nl + np.sqrt(a2 + (1 - a2) * nl**2), 1e-15)
     g_view = 2 * nv / np.maximum(nv + np.sqrt(a2 + (1 - a2) * nv**2), 1e-15)
@@ -53,3 +55,26 @@ def display(linear):
         value <= 0.0031308, value * 12.92, 1.055 * value ** (1 / 2.4) - 0.055
     )
     return np.round(np.clip(value, 0, 1) * 255).astype(np.uint8)
+
+
+def surface_radiance_upper(profile, max_height, albedo=0.6):
+    """Per-channel bound for this shader's unit normals/view/light directions.
+
+    D <= 1/(pi*alpha^2), G_light <= 1 and G_view/N_view <= 2/alpha;
+    Fresnel <= 1 and diffuse <= albedo/pi. Point emitters must be above the
+    represented volume; this bounds urban surfaces, not arbitrary backgrounds.
+    """
+    energy, ambient = float(profile["intensity"]), float(profile["ambient"])
+    if (
+        not np.isfinite([energy, ambient, max_height, albedo]).all()
+        or min(energy, ambient, albedo) < 0
+        or albedo > 1
+    ):
+        raise ValueError("finite nonnegative lighting and bounded albedo required")
+    if profile["kind"] == "point":
+        height = float(profile["position"][2])
+        if not np.isfinite(height) or height <= max_height:
+            raise ValueError("point emitter above represented volume required")
+        energy /= max(height - max_height, 1) ** 2
+    alpha = ROUGHNESS**2
+    return (albedo / np.pi + 1 / (2 * np.pi * alpha**3)) * energy + ambient * albedo
