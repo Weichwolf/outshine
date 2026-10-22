@@ -148,8 +148,6 @@ public:
   StructureMesher(const StructureMesher &) = delete;
   StructureMesher &operator=(const StructureMesher &) = delete;
 
-  [[nodiscard]] virtual std::string_view ArtifactVersion() const noexcept { return {}; }
-
   [[nodiscard]] virtual std::optional<double>
   ShellSurfaceErrorM([[maybe_unused]] std::span<const StoredVertex> walls) const noexcept {
     return std::nullopt;
@@ -162,6 +160,11 @@ public:
   }
 
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
+
+  [[nodiscard]] virtual bool
+  KnownEmptySurface([[maybe_unused]] const StructurePlan &plan) const noexcept {
+    return false;
+  }
 
   [[nodiscard]] virtual bool HasSurfaceProjection() const noexcept { return false; }
 

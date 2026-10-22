@@ -87,7 +87,7 @@ public:
       const bool original = geometry != nullptr && geometry->Origin.Provenance;
       if (!original && std::cmp_not_equal(tiles[product], tile)) { continue; }
       const auto coordinates =
-          geometry != nullptr ? std::span<const double>(geometry->Points) : points;
+          geometry != nullptr ? std::span<const double>(geometry->Points()) : points;
       for (const auto &footprint : stands.Footprints->OfTile(static_cast<int>(tiles[product]))) {
         if (footprint.PointCount < 3 ||
             (original && !Intersects(Region_, footprint, coordinates))) {
@@ -102,7 +102,7 @@ public:
         Take(feature, {.First = footprint.FirstPoint, .Count = footprint.PointCount}, coordinates);
         if (geometry == nullptr) { continue; }
         for (const auto &hole :
-             std::span(geometry->Rings).subspan(footprint.FirstHole, footprint.HoleCount)) {
+             std::span(geometry->Rings()).subspan(footprint.FirstHole, footprint.HoleCount)) {
           AppendRing({.First = hole.First, .Count = hole.Count}, coordinates);
           ++Features_.back().RingCount;
         }
@@ -250,7 +250,7 @@ PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how
 
 Snapped SnapshotOver(const Tile &region,
                      const outshine::GroundQuery &heights,
-                     std::shared_ptr<const ClassStructure> classes,
+                     std::shared_ptr<const TerrainClassificationMap> classes,
                      const Fields &stands,
                      std::shared_ptr<const GroundTable> table,
                      Ground::Snapshot *out,

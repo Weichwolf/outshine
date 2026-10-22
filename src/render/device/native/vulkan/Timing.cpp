@@ -18,11 +18,13 @@ TimingQueries::~TimingQueries() {
 }
 
 Result<void> TimingQueries::BeginSubmission(VkCommandBuffer commands) {
-  if (!Context_.GpuTiming) { return {}; }
+  if (Context_.GpuTiming == GpuTimingMode::None) { return {}; }
   VkQueryPoolCreateInfo create{};
   create.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
   create.queryType = VK_QUERY_TYPE_TIMESTAMP;
-  create.queryCount = kSubmissionQueries + 2 * kMaximumDispatches;
+  create.queryCount =
+      kSubmissionQueries +
+      (Context_.GpuTiming == GpuTimingMode::Dispatches ? 2 * kMaximumDispatches : 0);
   const auto result = vkCreateQueryPool(Context_.Logical, &create, nullptr, &Pool_);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateQueryPool", result)); }
   RecordedAt_ = std::chrono::steady_clock::now();
@@ -68,7 +70,7 @@ Result<SubmissionGpuTiming> TimingQueries::ReadSubmission() const {
 }
 
 Result<std::optional<uint32_t>> TimingQueries::Begin(VkCommandBuffer commands) {
-  if (!Context_.GpuTiming) { return std::nullopt; }
+  if (Context_.GpuTiming != GpuTimingMode::Dispatches) { return std::nullopt; }
   const uint64_t ordinal = DispatchCount_++;
   if (ordinal >= kMaximumDispatches) { return std::nullopt; }
   const auto query = kSubmissionQueries + static_cast<uint32_t>(ordinal) * 2;

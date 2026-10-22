@@ -2,7 +2,6 @@
 
 #include "GeometryRenderer.h"
 #include "Surfacing.h"
-#include "TerrainTileUpload.h"
 
 #include <algorithm>
 #include <cassert>
@@ -20,11 +19,8 @@ namespace outshine::Render {
 namespace Says {
 constexpr auto MissingPiece = "the piece handle names no live resource in this world";
 constexpr auto RepeatedPiece = "an instance update names one piece more than once";
-constexpr auto PieceUploadFailed = "piece geometry upload failed";
 constexpr auto PieceSlotLimit = "piece storage exceeds the native slot index range";
 constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
-constexpr auto HeightPageLimit = "height-page storage exceeds the native slot index range";
-constexpr auto HeightPageUploadFailed = "height-page upload failed";
 constexpr auto NoPieceMaterials = "piece material registration requires native materials";
 constexpr auto PieceMaterialLimit = "piece material registration exceeds the slot index range";
 constexpr auto PieceMaterialTables = "subject material tables disagree before piece registration";
@@ -65,11 +61,9 @@ SceneResources::PlacePiece(GeometryRenderer &subjects, const PieceMesh &piece, P
              .Owner = owner,
              .Textured = piece.Textured};
   if (held.Rows.empty()) { held.Rows.push_back(piece.Row); }
-  std::string error;
-  held.Resident = subjects.PlacePiece(held.Mesh(), error);
-  if (held.Resident == kNoPiece) {
-    return std::unexpected(error.empty() ? std::string(Says::PieceUploadFailed) : std::move(error));
-  }
+  auto placed = subjects.PlacePiece(held.Mesh());
+  if (!placed) { return std::unexpected(std::move(placed.error().Message)); }
+  held.Resident = *placed;
   held.State.Occupied = true;
   uint32_t slot = FirstFreePiece_;
   if (slot != kNoResourceSlot) {
@@ -238,8 +232,13 @@ bool SceneResources::AppendPieceMaterials(GeometryRenderer &subjects,
     error = Says::PieceMaterialTables;
     return false;
   }
-  if (!subjects.AppendMaterials(materials.Slots, error)) { return false; }
-  if (glass != nullptr && !glass->AppendMaterials(materials.Slots, error)) {
+  if (!subjects.AppendMaterials(
+          materials.Slots, error, GeometryResidency::ImageUploadMode::Deferred)) {
+    return false;
+  }
+  if (glass != nullptr && !glass->AppendMaterials(materials.Slots,
+                                                  error,
+                                                  GeometryResidency::ImageUploadMode::Deferred)) {
     subjects.TruncateMaterials(subjectBefore);
     return false;
   }
@@ -293,6 +292,7 @@ bool SceneResources::RestorePieces(GeometryRenderer &subjects, std::string &erro
     error = std::move(restored.error());
     return false;
   }
+  if (!*restored) { error = "piece restoration is waiting for GPU upload capacity"; }
   return *restored;
 }
 
@@ -302,20 +302,26 @@ std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRen
   if (piecesMost == 0) { return std::unexpected("piece restore budget is zero"); }
   size_t visited = 0;
   while (nextPiece < Pieces_.size() && visited < piecesMost) {
-    Piece &piece = Pieces_[nextPiece++];
-    ++visited;
-    if (!piece.State.Occupied || piece.Resident != kNoPiece) { continue; }
-    std::string error;
-    piece.Resident = subjects.PlacePiece(piece.Mesh(), error);
-    if (piece.Resident == kNoPiece) {
-      return std::unexpected(error.empty() ? std::string(Says::PieceUploadFailed)
-                                           : std::move(error));
+    Piece &piece = Pieces_[nextPiece];
+    if (!piece.State.Occupied || piece.Resident != kNoPiece) {
+      ++nextPiece;
+      ++visited;
+      continue;
     }
+    auto placed = subjects.PlacePiece(piece.Mesh());
+    if (!placed) {
+      if (placed.error().Kind == Native::ErrorKind::Busy) { return false; }
+      return std::unexpected(std::move(placed.error().Message));
+    }
+    piece.Resident = *placed;
+    std::string error;
     if (piece.Rows.empty() && !subjects.SetPieceInstances(piece.Resident, {}, error)) {
       subjects.ReleasePiece(piece.Resident);
       piece.Resident = kNoPiece;
       return std::unexpected(std::move(error));
     }
+    ++nextPiece;
+    ++visited;
   }
   return nextPiece == Pieces_.size();
 }
@@ -339,157 +345,6 @@ size_t SceneResources::PieceSourceBytes() const noexcept {
 size_t SceneResources::PieceSourceCount() const noexcept {
   return static_cast<size_t>(
       std::ranges::count_if(Pieces_, [](const Piece &piece) { return piece.State.Occupied; }));
-}
-
-std::expected<HeightPageHandle, std::string>
-SceneResources::PlaceHeightPage(GeometryRenderer &subjects, std::span<const float> nodes) {
-  if (FirstFreeHeightPage_ == kNoResourceSlot && HeightPages_.size() >= kNoResourceSlot) {
-    return std::unexpected(Says::HeightPageLimit);
-  }
-  HeightPage held{.Nodes = std::make_shared<const std::vector<float>>(nodes.begin(), nodes.end())};
-  std::string error;
-  held.Resident = subjects.Ground().PlacePage(*held.Nodes, error);
-  if (held.Resident == kNoPage) {
-    return std::unexpected(error.empty() ? std::string(Says::HeightPageUploadFailed)
-                                         : std::move(error));
-  }
-  held.State.Occupied = true;
-  uint32_t slot = FirstFreeHeightPage_;
-  if (slot != kNoResourceSlot) {
-    held.State.Generation = HeightPages_[slot].State.Generation;
-    FirstFreeHeightPage_ = HeightPages_[slot].State.NextFree;
-    HeightPages_[slot] = std::move(held);
-  } else {
-    slot = static_cast<uint32_t>(HeightPages_.size());
-    HeightPages_.push_back(std::move(held));
-  }
-  return HeightPageHandle{.Slot = slot, .Generation = HeightPages_[slot].State.Generation};
-}
-
-bool SceneResources::HasHeightPage(HeightPageHandle handle) const noexcept {
-  return handle.Slot < HeightPages_.size() &&
-         HeightPages_[handle.Slot].State.Matches(handle.Generation);
-}
-
-void SceneResources::ReleaseHeightPage(GeometryRenderer &subjects, HeightPageHandle which) {
-  if (!HasHeightPage(which)) { return; }
-  HeightPage &page = HeightPages_[which.Slot];
-  subjects.Ground().ReleasePage(page.Resident);
-  ResourceSlotState state = page.State;
-  if (state.Release()) {
-    state.NextFree = FirstFreeHeightPage_;
-    FirstFreeHeightPage_ = which.Slot;
-  }
-  page = HeightPage{};
-  page.State = state;
-}
-
-PageId SceneResources::HeightPageResident(HeightPageHandle which) const noexcept {
-  return HasHeightPage(which) ? HeightPages_[which.Slot].Resident : kNoPage;
-}
-
-bool SceneResources::RestoreHeightPages(GeometryRenderer &subjects, std::string &error) {
-  for (HeightPage &page : HeightPages_) {
-    if (!page.State.Occupied) { continue; }
-    page.Resident = subjects.Ground().PlacePage(*page.Nodes, error);
-    if (page.Resident == kNoPage) { return false; }
-  }
-  return true;
-}
-
-bool SceneResources::SetGroundGrid(GeometryRenderer &subjects,
-                                   std::span<const float> fractions,
-                                   std::string &error) {
-  if (!subjects.Ground().SetGrid(fractions, error)) { return false; }
-  GroundGrid_.assign(fractions.begin(), fractions.end());
-  return true;
-}
-
-bool SceneResources::SetTerrainTiles(GeometryRenderer &subjects,
-                                     std::span<const TerrainTile> real,
-                                     std::span<const TerrainTile> virtual_,
-                                     std::string &error) {
-  const auto translate = [this, &error](std::span<const TerrainTile> source,
-                                        std::vector<GroundTile> &into) {
-    into.reserve(source.size());
-    for (const TerrainTile &tile : source) {
-      const auto encoded = EncodeTerrainTile(tile, HeightPageResident(tile.Page));
-      if (!encoded) {
-        error = std::string(encoded.error()) + ": slot=" + std::to_string(tile.Page.Slot) +
-                ", generation=" + std::to_string(tile.Page.Generation);
-        return false;
-      }
-      into.push_back(*encoded);
-    }
-    return true;
-  };
-  std::vector<GroundTile> residentReal;
-  std::vector<GroundTile> residentVirtual;
-  if (!translate(real, residentReal) || !translate(virtual_, residentVirtual) ||
-      !subjects.Ground().SetInstances(residentReal, residentVirtual, error)) {
-    return false;
-  }
-  GroundReal_.assign(real.begin(), real.end());
-  GroundVirtual_.assign(virtual_.begin(), virtual_.end());
-  return true;
-}
-
-bool SceneResources::RestoreTerrain(GeometryRenderer &subjects, std::string &error) {
-  size_t nextPage = 0;
-  auto restored = AdvanceTerrainRestore(subjects, nextPage, std::numeric_limits<size_t>::max());
-  if (!restored) {
-    error = std::move(restored.error());
-    return false;
-  }
-  return *restored;
-}
-
-std::expected<bool, std::string> SceneResources::AdvanceTerrainRestore(GeometryRenderer &subjects,
-                                                                       size_t &nextPage,
-                                                                       size_t pagesMost) {
-  assert(nextPage <= HeightPages_.size());
-  const size_t count = std::min(pagesMost, HeightPages_.size() - nextPage);
-  const size_t end = nextPage + count;
-  for (; nextPage < end; ++nextPage) {
-    HeightPage &page = HeightPages_[nextPage];
-    if (!page.State.Occupied) { continue; }
-    std::string error;
-    page.Resident = subjects.Ground().PlacePage(*page.Nodes, error);
-    if (page.Resident == kNoPage) { return std::unexpected(std::move(error)); }
-  }
-  if (nextPage < HeightPages_.size()) { return false; }
-  std::string error;
-  if (!GroundGrid_.empty() && !subjects.Ground().SetGrid(GroundGrid_, error)) {
-    return std::unexpected(std::move(error));
-  }
-  if (!SetTerrainTiles(subjects, GroundReal_, GroundVirtual_, error)) {
-    return std::unexpected(std::move(error));
-  }
-  return true;
-}
-
-void SceneResources::SetGroundClassification(std::span<const uint32_t> classes,
-                                             std::span<const float> palette) {
-  const auto classCopy =
-      std::make_shared<const std::vector<uint32_t>>(classes.begin(), classes.end());
-  const auto paletteCopy =
-      std::make_shared<const std::vector<float>>(palette.begin(), palette.end());
-  SetGroundClassification({.Classes = {classCopy, classCopy->data()},
-                           .ClassWords = classCopy->size(),
-                           .Palette = {paletteCopy, paletteCopy->data()},
-                           .PaletteFloats = paletteCopy->size()});
-}
-
-void SceneResources::SetGroundClassification(GroundClassificationSource source) noexcept {
-  GroundClassification_ = std::move(source);
-}
-
-size_t SceneResources::HeightPageSourceBytes() const noexcept {
-  size_t bytes = 0;
-  for (const HeightPage &page : HeightPages_) {
-    if (page.Nodes) { bytes += page.Nodes->capacity() * sizeof(float); }
-  }
-  return bytes;
 }
 
 }

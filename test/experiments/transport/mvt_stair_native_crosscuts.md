@@ -53,7 +53,40 @@ prior guard is not a physical law. The actual existing432 cross profile already
 differs from the sampled unconstructed design prior. Research owns the bounded
 joint profile solution in #1003; Master owns native integration in #826.
 
-Private export source, full206-face input, receipts and resulting sections remain
+Private export source, acquisition receipts and original diagnostic images remain
 in the system-temp task recorded by
 `/tmp/outshine-motion-integration-844/stair-ports-task.txt`. No asset was rewritten
 and no new world render was needed to inspect the stored geometry.
+
+## Queries beyond the four controls
+
+`fixtures/mvt_stair_native_surface_crop.json` retains the complete206-face original
+export, byte-identical to the existing provenance hash. The original four cuts
+remain unchanged. `mvt_native_surface_queries.py` queries original source stations
+against every retained crossing face, including downward faces. Its finite crop,
+height window and work caps are explicit; it never supplies ownership by proximity
+or chooses the highest surface. Other cuts are reported as declined.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$PY" \
+  test/experiments/transport/compare_native_surface_queries.py \
+  --output "${TMPDIR:-/tmp}/outshine-native-interface-queries" --image
+```
+
+The bounded2/4/8/16m query schedule derives stations from the accepted construction,
+without new source-ID or place rules. Eleven further single-height interfaces are
+available. Four tight queries encounter incomplete or overlapping body sections;
+one candidate exceeds the original source. No faces or heights are discarded to
+force those candidates into ribbons.
+
+Nearest captured interfaces can still make the unchanged local fit infeasible.
+The wider observed candidate pair for each target yields a valid replacement
+with414vertices/824faces and18risers under the same local3m prior budget and
+axis/crossfall constraints. Its Float32 self-mesh has no orientation reversal.
+This is a finite alternative comparison, not a general alternate-port solver or
+a new physical tolerance. The diagnostic image was opened; generated products
+stay in system temp. Face ownership, actual outside splitting/shared packing,
+native navigation/terrain binding and world/Place admission remain open.
+
+[Bounded alternate-port search](mvt_port_alternatives.md) compares asymmetric
+combinations of these same observations under unchanged qualification contracts.

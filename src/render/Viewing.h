@@ -6,7 +6,10 @@
 
 #include "math/Units.h"
 #include "math/Vec3.h"
+#include "math/Mat4.h"
+#include "Rotation.h"
 #include <array>
+#include <cstddef>
 #include <cmath>
 #include "scene/Camera.h"
 #include <numbers>
@@ -106,6 +109,16 @@ inline void CameraOf(const Viewpoint &from, outshine::Camera &out) {
     out.PositionM[axis] = from.EyeM[axis];
     out.LookAtM[axis] = from.EyeM[axis] + from.Forward[axis];
     out.UpM[axis] = from.Up[axis];
+  }
+  if (out.LookAtM - out.PositionM != from.Forward) {
+    Mat4 basis = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+    for (size_t axis = 0; axis < 3; ++axis) {
+      basis[axis] = from.Right[axis];
+      basis[4 + axis] = from.Up[axis];
+      basis[8 + axis] = -from.Forward[axis];
+    }
+    out.Orientation = UnitRotationOf(basis);
+    out.LooksAt = false;
   }
   if (from.Kind == CameraKind::Orthographic) {
     out.setProjection(outshine::Camera::Ortho{

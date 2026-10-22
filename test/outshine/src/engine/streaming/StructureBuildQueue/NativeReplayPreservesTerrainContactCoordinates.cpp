@@ -83,11 +83,11 @@ void Replay(const std::filesystem::path &directory,
   using namespace outshine::Ground;
   using namespace outshine::Test;
   const LongitudeLatitude eye{.LongitudeDeg = 0.01, .LatitudeDeg = 0.01};
-  const std::array providers{
-      Data::SourceProvider{.Kind = "terrain"},
-      Data::SourceProvider{.Kind = "vector",
-                           .Dataset = "fixture.native-replay",
-                           .Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf"}};
+  std::array<Data::SourceProvider, 2> providers{};
+  providers[0].Kind = "terrain";
+  providers[1].Kind = "vector";
+  providers[1].Dataset = "fixture.native-replay";
+  providers[1].Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf";
   Transport wire;
   wire.TwoCells = initialCells;
   SilentSink sink;
@@ -207,7 +207,7 @@ void Replay(const std::filesystem::path &directory,
     if (!ready) { break; }
     if (!ready->empty()) {
       CHECK(ready->front().Baked->Coordinates &&
-                ready->front().Baked->Coordinates->Points.size() == coordinateCount,
+                ready->front().Baked->Coordinates->Points().size() == coordinateCount,
             "native geometry owns its complete ground-contact ring before publication");
       if (initialCells) {
         CHECK(ready->front().SourceComplete || prints.Footprints().data() == initialContactBuffer,
@@ -242,7 +242,7 @@ void Replay(const std::filesystem::path &directory,
                 queue.Deferred());
   }
   const auto *input = prints.InputOfTile(0);
-  CHECK(input && input->Coordinates && input->Coordinates->Points.size() == coordinateCount,
+  CHECK(input && input->Coordinates && input->Coordinates->Points().size() == coordinateCount,
         "publication preserves native coordinates instead of moving an empty source buffer");
   CHECK(!warm || (pins == 0 && stack.BuildingAssets()->Costs().GeometryHits == sourceCount),
         "fresh warm replay loads ready geometry without touching the height provider");

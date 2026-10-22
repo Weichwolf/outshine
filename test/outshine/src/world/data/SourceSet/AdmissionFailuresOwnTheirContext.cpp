@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "OfflineTransport.h"
 #include "SourceSet.h"
-#include "TerrariumDem.h"
+#include "WebTileFixture.h"
 #include <memory>
 #include <string>
 
@@ -42,14 +42,14 @@ int main() {
     for (const bool fallback : {false, true}) {
       ContentStore store({.Using = ContentStore::Use::Off});
       SourceSet sources(store);
-      CHECK(sources.Add(std::make_unique<TerrariumDem>(
+      CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
                 "primary-pin",
                 Rank{0},
                 AbsencePolicy::Continue,
                 "primary",
                 "https://primary.example/{z}/{x}/{y}.png")) == SourceSet::Registration::Accepted,
             "primary provider registered");
-      CHECK(sources.Add(std::make_unique<TerrariumDem>(
+      CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
                 "fallback-pin",
                 Rank{1},
                 AbsencePolicy::Continue,
@@ -81,8 +81,8 @@ int main() {
   {
     ContentStore store({.Using = ContentStore::Use::Off});
     SourceSet sources(store);
-    CHECK(sources.Add(std::make_unique<TerrariumDem>("pin", Rank{0}, AbsencePolicy::Fail)) ==
-              SourceSet::Registration::Accepted,
+    CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
+              "pin", Rank{0}, AbsencePolicy::Fail)) == SourceSet::Registration::Accepted,
           "retry provider registered");
     AdmissionTransport transport;
     transport.FirstRetry = true;

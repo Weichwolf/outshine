@@ -197,24 +197,24 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
     const auto vertices = Vertices(description);
     if (!vertices) { return std::unexpected(vertices.error()); }
     pipeline.vertexDescriptor = *vertices;
-    auto vertex = Translate(description.Vertex.Spirv, description.Vertex.Entry);
+    const auto vertex = ShaderProgram(description.Vertex.Spirv, description.Vertex.Entry);
     if (!vertex) { return std::unexpected(vertex.error()); }
-    state->Vertex = std::move(*vertex);
-    const auto function = Function(Native_, state->Vertex, MTLFunctionTypeVertex);
-    if (!function) { return std::unexpected(function.error()); }
-    pipeline.vertexFunction = *function;
+    state->Vertex = (*vertex)->Translated;
+    const auto vertexFunction = Function(**vertex, MTLFunctionTypeVertex);
+    if (!vertexFunction) { return std::unexpected(vertexFunction.error()); }
+    pipeline.vertexFunction = *vertexFunction;
     GraphicsLayout layout;
     if (auto valid = StageBindings(layout, state->Vertex, ShaderStage::Vertex); !valid) {
       return std::unexpected(valid.error());
     }
     if (description.Fragment) {
-      auto fragment = Translate(description.Fragment->Spirv, description.Fragment->Entry);
+      const auto fragment = ShaderProgram(description.Fragment->Spirv, description.Fragment->Entry);
       if (!fragment) { return std::unexpected(fragment.error()); }
-      state->Fragment = std::move(*fragment);
+      state->Fragment = (*fragment)->Translated;
       if (auto valid = CompatibleImages(state->Vertex, *state->Fragment); !valid) {
         return std::unexpected(valid.error());
       }
-      const auto fragmentFunction = Function(Native_, *state->Fragment, MTLFunctionTypeFragment);
+      const auto fragmentFunction = Function(**fragment, MTLFunctionTypeFragment);
       if (!fragmentFunction) { return std::unexpected(fragmentFunction.error()); }
       pipeline.fragmentFunction = *fragmentFunction;
       if (auto valid = StageBindings(layout, *state->Fragment, ShaderStage::Fragment); !valid) {

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-CLIENT = ROOT / 'build/outshine-client'
+CLIENT = ROOT / 'build/outshine'
 
 
 def scenario(lat=12.5, fov=42, width=321):

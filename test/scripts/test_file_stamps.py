@@ -167,13 +167,16 @@ printf '%s\\n' "$first" "$OBJECTS"
         self.assertNotIn(b'ENV_A', second.read_bytes())
 
     def test_compiler_version_is_part_of_the_object_configuration(self):
-        compiler = shutil.which(os.environ.get('CXX', 'c++'))
+        command = shlex.split(os.environ.get('CXX') or 'c++')
+        compiler = shutil.which(command[0])
         self.assertIsNotNone(compiler)
+        command[0] = compiler
         version = self.root / 'compiler-version'
         version.write_text('fixture-version-one\n')
         wrapper = self.root / 'compiler'
-        wrapper.write_text('#!/bin/sh\nif [ "$1" = --version ]; then cat "' + str(version) +
-                           '"; else exec "' + compiler + '" "$@"; fi\n')
+        wrapper.write_text('#!/bin/sh\nif [ "$1" = --version ]; then cat ' +
+                           shlex.quote(str(version)) + '; else exec ' + shlex.join(command) +
+                           ' "$@"; fi\n')
         wrapper.chmod(0o755)
         first = self.build({'CXX': str(wrapper)})
         version.write_text('fixture-version-two\n')

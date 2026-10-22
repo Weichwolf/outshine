@@ -19,7 +19,7 @@ Referenzen bleiben unter build/shots/reference/webcams/, aktuelle Kontrollbilder
 unter build/shots/places/. In doc/ und README werden vorerst keine Bilder veröffentlicht.
 
 Jede .scenario-Datei ist ein normales Outshine-Szenario. Der Dateistamm ist der Name.
-`outshine-client --places <Verzeichnis> places|shots|prepare|roundtrip` lädt den Katalog;
+`outshine --places <Verzeichnis> places|shots|prepare|roundtrip` lädt den Katalog;
 Standard ist src/assets/places. Neue Szenarien benötigen keinen Renderer-Sonderpfad.
 Kataloge verlangen eine geodätische Kamera, feste Uhr und positive Rendergröße.
 
@@ -35,5 +35,5 @@ vollständige vorbereitete Welten, schnellstmöglicher Aufbau mit begründeten L
 genau Ziel-fps Frames/360 Grad in einer Sekunde, p99 <=1000/Ziel-fps ms. A18-Pro-Ziel:
 1280×720/30; 1280×720/60 ist ein getrenntes Vergleichsprofil. Internet-Erwerb separat messen.
 `make prepare-place PLACE=Wien PREPARE_SECONDS=1800` bereitet Quellen vor;
-`build/outshine-client shots --offline Wien` misst danach im frischen Prozess ohne Netzwerk.
+`build/outshine shots --offline Wien` misst danach im frischen Prozess ohne Netzwerk.
 Fehlende Cachebytes sind eine unerfüllte Voraussetzung, kein Beleg für zu langsamen Warmaufbau.

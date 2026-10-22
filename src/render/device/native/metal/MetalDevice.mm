@@ -7,8 +7,11 @@ namespace outshine::Render::Native::Metal {
 MetalDevice::MetalDevice(uint64_t identity,
                          id<MTLDevice> device,
                          id<MTLCommandQueue> queue,
-                         bool gpuTiming)
+                         GpuTimingMode gpuTiming)
     : Identity_(identity), Native_(device), Queue_(queue), GpuTiming_(gpuTiming) {
+  if (GpuTiming_ == GpuTimingMode::Submission) {
+    EncoderProfiling_ = CreateEncoderProfileSession(device, identity);
+  }
   constexpr uint32_t colourTargets = 8;
   constexpr uint32_t maxUniformBytes = 64 * 1024;
   constexpr uint32_t baselineInvocations = 256;
@@ -124,7 +127,8 @@ Result<std::unique_ptr<Commands>> MetalDevice::Begin() {
     if (commands == nil) {
       return Failure(ErrorKind::Driver, "Metal command buffer allocation failed");
     }
-    return std::make_unique<MetalCommands>(Identity_, commands, std::move(permit));
+    return std::make_unique<MetalCommands>(
+        Identity_, commands, std::move(permit), CreateEncoderProfile(EncoderProfiling_));
   }
 }
 
@@ -134,6 +138,13 @@ namespace outshine::Render::Native {
 
 Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
   @autoreleasepool {
+    if (options.GpuTiming == GpuTimingMode::Dispatches) {
+      return Metal::Failure(ErrorKind::Unsupported, "Metal dispatch timing is unavailable");
+    }
+    if (options.GpuTiming != GpuTimingMode::None &&
+        options.GpuTiming != GpuTimingMode::Submission) {
+      return Metal::Failure(ErrorKind::Invalid, "unknown GPU timing mode");
+    }
     static std::atomic<uint64_t> identity{1};
     const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     if (device == nil) { return Metal::Failure(ErrorKind::Unsupported, "no native Metal device"); }

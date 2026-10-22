@@ -1,0 +1,16 @@
+{
+  "url": "https://www.inf.ufrgs.br/~oliveira/pubs_files/RTM_low_res.pdf",
+  "doi": "10.1145/344779.344947",
+  "title": "Relief Texture Mapping",
+  "authors": [
+    "Manuel M. Oliveira",
+    "Gary Bishop",
+    "David McAllister"
+  ],
+  "venue": "SIGGRAPH 2000",
+  "sha256": "59147ee5cc4a64aed2c81396da9d0ee8dc957db86f71a7d2864e1dec4e536629",
+  "inspected_pages": [
+    2,
+    3
+  ]
+}

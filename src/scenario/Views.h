@@ -19,6 +19,8 @@ public:
 
   [[nodiscard]] bool Take(std::string_view id);
 
+  [[nodiscard]] std::expected<void, CameraMatrixError> SetCameraPose(const Camera &pose) noexcept;
+
   [[nodiscard]] const Scenario::View &Active() const noexcept { return Held_[Active_]; }
 
   [[nodiscard]] std::string_view ActiveId() const noexcept { return Held_[Active_].Id; }

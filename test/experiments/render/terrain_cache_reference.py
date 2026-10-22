@@ -29,14 +29,13 @@ def compile_helper(output, source=SOURCE, unit="TerrainMesh.cpp"):
     environment = os.environ.copy()
     prefix = ROOT / 'build/deps/install/lib'
     environment['PKG_CONFIG_PATH'] = str(prefix / 'pkgconfig') + os.pathsep + environment.get('PKG_CONFIG_PATH', '')
-    packages = ['sdl3', 'sdl3-image', 'sdl3-ttf', 'sdl3-shadercross', 'liblz4',
-                'libtiff-4', 'libwebp', 'geos', 'sqlite3', 'libzstd', 'sfcgal', 'libcurl']
     libraries = shlex.split(subprocess.check_output(
-        ['pkg-config', '--libs', *packages], env=environment, text=True, timeout=30))
+        ['sh', 'test/run.sh', '--link-flags', 'profile/engine'], cwd=ROOT,
+        env=environment, text=True, timeout=30))
     binary = output / source.stem
     command += [str(source), str(ROOT / 'build/libgenerators.a'),
-                str(ROOT / 'build/liboutshine.a'), *libraries, '-lz',
-                f'-Wl,-rpath,{prefix}', '-o', str(binary)]
+                str(ROOT / 'build/liboutshine.a'), *libraries,
+                '-o', str(binary)]
     subprocess.run(command, cwd=ROOT, check=True, timeout=120)
     return binary, command
 

@@ -6,7 +6,7 @@
 # supposed to move a picture and moves one says so here, in a line of text, instead of in a memory
 # of what the last frame looked like.
 #
-# The picture itself stays OUT of the tree. `build/outshine-client shots` writes
+# The picture itself stays OUT of the tree. `build/outshine shots` writes
 # build/shots/<place>-<digest>.png, where a changed frame does not overwrite the frame it changed
 # from and the two stand side by side for an eye. Committing the PNGs was considered and refused: a
 # digest-named file is never overwritten, so six 720p frames a commit grow a repository

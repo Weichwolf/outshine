@@ -353,6 +353,10 @@ bool MeasureFrames(Engine &engine,
                    std::string_view name,
                    Shot &shot,
                    std::span<const Scenario::View> turn) {
+  if (const auto reset = engine.renderer().resetMeasurements(); !reset) {
+    shot.Why = std::string(name) + " could not start frame measurements: " + reset.error();
+    return false;
+  }
   const auto count = turn.empty() ? static_cast<std::size_t>(kTimedFrames) : turn.size();
   constexpr double kBytesPerMiB = 1024 * 1024;
   std::vector<double> heldMs;
@@ -397,6 +401,7 @@ bool MeasureFrames(Engine &engine,
     heldMs.push_back(std::chrono::duration<double, std::milli>(rendered - before).count());
     shot.OverBudget += heldMs.back() > shot.Timing.BudgetMs() ? 1u : 0u;
   }
+  schedule.Wait(count);
   shot.WorstAt = static_cast<std::size_t>(std::ranges::max_element(heldMs) - heldMs.begin());
   if (const auto result = engine.renderer().flushAndWait(); !result) {
     shot.Why = std::string(name) + " could not complete its measured frames: " + result.error();

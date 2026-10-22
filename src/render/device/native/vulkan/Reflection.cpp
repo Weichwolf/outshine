@@ -28,7 +28,7 @@ Result<void> ParseReflection(Reflection &reflection,
   constexpr uint32_t magic = 0x07230203u;
   constexpr std::size_t headerWords = 5;
   if (spirv.size() < headerWords || spirv.front() != magic || entry.empty() ||
-      entry.find('\0') != std::string_view::npos) {
+      entry.contains('\0')) {
     return std::unexpected(
         Error{.Kind = ErrorKind::Invalid, .Message = "invalid compute SPIR-V or entry point"});
   }
@@ -45,9 +45,11 @@ Result<void> ParseReflection(Reflection &reflection,
     return std::unexpected(ReflectionError(reflection));
   }
   const std::string name(entry);
+  spvc_set active = nullptr;
   if (spvc_compiler_set_entry_point(reflection.Compiler, name.c_str(), stage) != SPVC_SUCCESS ||
-      spvc_compiler_create_shader_resources(reflection.Compiler, &reflection.Resources) !=
-          SPVC_SUCCESS) {
+      spvc_compiler_get_active_interface_variables(reflection.Compiler, &active) != SPVC_SUCCESS ||
+      spvc_compiler_create_shader_resources_for_active_variables(
+          reflection.Compiler, &reflection.Resources, active) != SPVC_SUCCESS) {
     return std::unexpected(ReflectionError(reflection));
   }
   constexpr std::array unsupported = {SPVC_RESOURCE_TYPE_SEPARATE_IMAGE,

@@ -17,20 +17,27 @@
 
 #include "FrameContext.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
+#include <memory>
+#include <cstddef>
 
 #include "KernelShape.h"
-#include "GroundLattice.h"
+#include "DrawList.h"
+#include "TerrainRenderer.h"
 #include "GeometryResidency.h"
 #include "GpuPlacement.h"
 #include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
+#include "ShadowCasterSelection.h"
 #include "SubjectLightingUniform.h"
 
 namespace outshine::Render {
 
 class GeometryPipelineBinding {
 public:
+  [[nodiscard]] Native::Result<void> ConfigureGroundSelection(Native::Device &device) {
+    return Ground.ConfigureSelection(device);
+  }
+
   GeometryPipelineBinding() = default;
   GeometryPipelineBinding(const GeometryPipelineBinding &) = delete;
   GeometryPipelineBinding &operator=(const GeometryPipelineBinding &) = delete;
@@ -41,13 +48,13 @@ private:
   friend class GeometryRenderer;
   static constexpr size_t kPipelineCount =
       kSurfaceDomains * kVertexLayouts.size() * 2 * kSurfaceKinds;
-  SDL_GPUDevice *Device = nullptr;
-  std::array<OwnedPipeline, kPipelineCount> Pipelines;
+  Native::Device *Device = nullptr;
+  std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelineCount> Pipelines;
   uint32_t Built = 0;
   std::vector<Resource> Colours;
-  GroundPipelineBinding Ground;
-  SDL_GPUTexture *Behind = nullptr;
-  SDL_GPUSampler *BehindSampler = nullptr;
+  TerrainPipelines Ground;
+  Native::Texture *Behind = nullptr;
+  Native::Sampler *BehindSampler = nullptr;
   bool GlassDrawnElsewhere = false;
   bool WritesVelocity = false;
   bool CapturesMaterial = false;
@@ -69,7 +76,6 @@ public:
 
   using SourceOptions = SurfaceOutputs;
 
-  [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
   [[nodiscard]] static const char *
   FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
   static constexpr size_t kSubjectFragmentStorage = 3;
@@ -81,32 +87,30 @@ public:
                                          .FragmentStorageBuffers = kSubjectFragmentStorage};
   static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
 
-  [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
-  [[nodiscard]] bool Configure(GeometryPipelineBinding &binding,
-                               const Gpu &gpu,
-                               SDL_GPUTexture *behind,
-                               SDL_GPUSampler *exact,
-                               bool separateTransmission,
-                               std::string &error);
-
-  void AttachPipelines(GeometryPipelineBinding &binding, const Gpu &gpu) noexcept;
-
-  [[nodiscard]] bool PrepareGroundStorage(const Gpu &gpu, std::string &error);
+  [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu);
+  [[nodiscard]] Native::Result<void> Configure(GeometryPipelineBinding &binding,
+                                               const Gpu &gpu,
+                                               Native::Texture *behind,
+                                               Native::Sampler *exact,
+                                               bool separateTransmission);
+  [[nodiscard]] Native::Result<void> AttachPipelines(GeometryPipelineBinding &binding,
+                                                     const Gpu &gpu);
+  [[nodiscard]] Native::Result<void> PrepareTerrainMaterialBuffers(const Gpu &gpu);
 
   void UsePipelines(GeometryPipelineBinding &binding) noexcept {
     Binding_ = &binding;
     Ground_.UsePipelines(binding.Ground);
   }
 
-  void SeeThroughTo(SDL_GPUTexture *behind, SDL_GPUSampler *exact) {
+  void SeeThroughTo(Native::Texture *behind, Native::Sampler *exact) {
     Binding().Behind = behind;
     Binding().BehindSampler = exact;
   }
 
   void SetSeparateTransmission(bool enabled) { Binding().GlassDrawnElsewhere = enabled; }
 
-  void ShadowedBy(SDL_GPUTexture *atlas,
-                  SDL_GPUSampler *exact,
+  void ShadowedBy(Native::Texture *atlas,
+                  Native::Sampler *exact,
                   size_t lightIndex,
                   const Mat4 &lightFromWorld,
                   const std::array<ShadowRegionUniform, kSunShadowRegions> &regions,
@@ -127,13 +131,13 @@ public:
 
   [[nodiscard]] bool HandDrawArguments(bool deferred, std::string &error);
 
-  [[nodiscard]] GroundLattice &Ground() { return Ground_; }
+  [[nodiscard]] TerrainRenderer &Ground() { return Ground_; }
 
-  [[nodiscard]] const GroundLattice &Ground() const { return Ground_; }
+  [[nodiscard]] const TerrainRenderer &Ground() const { return Ground_; }
 
   void SetPiecesVisible(bool visible);
 
-  [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error);
+  [[nodiscard]] Native::Result<PieceId> PlacePiece(const PieceMesh &piece);
   void ReleasePiece(PieceId which);
   [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error);
@@ -230,8 +234,10 @@ public:
   [[nodiscard]] bool SetMaterials(std::span<const SubjectMaterial> materials, std::string &error);
   [[nodiscard]] bool ValidateMaterials(std::span<const SubjectMaterial> materials,
                                        std::string &error) const;
-  [[nodiscard]] bool AppendMaterials(std::span<const SubjectMaterial> materials,
-                                     std::string &error);
+  [[nodiscard]] bool AppendMaterials(
+      std::span<const SubjectMaterial> materials,
+      std::string &error,
+      GeometryResidency::ImageUploadMode mode = GeometryResidency::ImageUploadMode::Immediate);
 
   [[nodiscard]] size_t MaterialSlots() const noexcept { return Slots.size(); }
 
@@ -253,35 +259,59 @@ private:
   static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
   static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;
 
-  void PushFrameUniforms(const FrameContext &ctx, const PassRecording &into);
-  void BindVertexStreams(const PassRecording &into, VertexLayout layout, VertexMotion motion) const;
+  static constexpr int kUniFloats = 56;
+
+  struct FrameUniforms {
+    std::array<float, kUniFloats> View{};
+    std::array<float, sizeof(SubjectLightingUniform) / sizeof(float)> Light{};
+  };
+
+  struct DrawResources {
+    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 1;
+    std::array<Native::Binding, kMostBindings> Bindings{};
+    std::array<Native::VertexBuffer, kMostVertexRuns> Vertices{};
+    uint32_t BindingCount = 0;
+    uint32_t VertexCount = 0;
+  };
+
+  [[nodiscard]] FrameUniforms FrameUniformsOf(const FrameContext &ctx);
+  void BindVertexStreams(DrawResources &into, VertexLayout layout, VertexMotion motion) const;
   [[nodiscard]] static long ColourAttachment(std::span<const Resource> colours, Resource which);
-  [[nodiscard]] static bool ConfigureKind(const Gpu &gpu,
-                                          const SourceOptions &options,
-                                          std::span<const Resource> colours,
-                                          SurfaceKind kind,
-                                          PipelineShaders &shaders,
-                                          std::array<OwnedPipeline, kPipelines> &pipelines,
-                                          uint32_t &built,
-                                          std::string &error);
-  [[nodiscard]] static bool ConfigureVariant(SurfaceKind kind,
-                                             SurfaceDomain domain,
-                                             VertexLayout layout,
-                                             const SourceOptions &options,
-                                             std::span<const SDL_GPUColorTargetDescription> targets,
-                                             SDL_GPUDevice *device,
-                                             PipelineShaders &shaders,
-                                             std::array<OwnedPipeline, kPipelines> &pipelines,
-                                             uint32_t &built,
-                                             std::string &error);
+  [[nodiscard]] static Native::Result<void>
+  ConfigureKind(const Gpu &gpu,
+                const SourceOptions &options,
+                std::span<const Resource> colours,
+                SurfaceKind kind,
+                PipelineShaders &shaders,
+                std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
+                uint32_t &built);
+  [[nodiscard]] static Native::Result<void>
+  ConfigureVariant(SurfaceKind kind,
+                   SurfaceDomain domain,
+                   VertexLayout layout,
+                   const SourceOptions &options,
+                   std::span<const Native::ColourTarget> targets,
+                   Native::Device &device,
+                   PipelineShaders &shaders,
+                   std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
+                   uint32_t &built);
 
   [[nodiscard]] bool
   ValidateBatch(const SubjectMesh &mesh, const DrawBatch &batch, std::string &error) const;
   [[nodiscard]] bool ValidatePiece(const PieceMesh &piece, std::string &error) const;
 
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
-  void BindSlot(const PassRecording &into, size_t slot, VertexLayout layout) const;
-  void EncodeGround(const PassRecording &into) const;
+  void BindSlot(DrawResources &into,
+                size_t slot,
+                VertexLayout layout,
+                const FrameUniforms &uniforms) const;
+  [[nodiscard]] Native::Result<void> EncodeGround(const PassRecording &into,
+                                                  const FrameUniforms &uniforms) const;
+  [[nodiscard]] Native::Result<void> DrawBatchRange(const PassRecording &into,
+                                                    size_t first,
+                                                    bool culled,
+                                                    size_t end,
+                                                    const DrawResources &resources);
 
 public:
   [[nodiscard]] bool SetLights(std::span<const SubjectLight> lights, std::string &error);
@@ -291,8 +321,8 @@ public:
   [[nodiscard]] const SubjectEnvironment &Environment() const { return IndirectLight; }
 
   struct Reflections {
-    SDL_GPUTexture *Atlas = nullptr;
-    SDL_GPUSampler *Sampler = nullptr;
+    Native::Texture *Atlas = nullptr;
+    Native::Sampler *Sampler = nullptr;
     Vec3f Up = {{0, 1, 0}};
     Vec3f ToSun = {{0, 1, 0}};
   };
@@ -300,8 +330,8 @@ public:
   void ReflectionsFrom(Reflections from) { Reflections_ = from; }
 
   struct GroundBuffers {
-    SDL_GPUBuffer *Classes = nullptr;
-    SDL_GPUBuffer *Palette = nullptr;
+    const Native::Buffer *Classes = nullptr;
+    const Native::Buffer *Palette = nullptr;
   };
 
   void GroundFrom(GroundBuffers from) {
@@ -309,7 +339,9 @@ public:
     GroundPalette_ = from.Palette;
   }
 
-  void Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
+                                                  const PassRecording &into);
 
   [[nodiscard]] const GeometryResidency &Resident() const { return Bound(); }
 
@@ -321,7 +353,12 @@ public:
 
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
 
-  void BindShadowMask(const PassRecording &into, const DrawBatch &batch) const;
+  [[nodiscard]] Native::Result<uint32_t> EncodeShadow(const PassRecording &into,
+                                                      const Native::GraphicsPipeline &pipeline,
+                                                      size_t batchIndex,
+                                                      const BatchFrustum &visible,
+                                                      uint32_t instances,
+                                                      std::span<const std::byte> view) const;
 
   [[nodiscard]] uint32_t ColourImages() const;
   [[nodiscard]] uint32_t DistinctPlacements() const;
@@ -350,13 +387,22 @@ public:
 
   [[nodiscard]] uint32_t DrawCount() const;
 
-  [[nodiscard]] uint32_t EncodedDrawCalls() const noexcept { return EncodedDrawCalls_; }
+  struct EncodedWork {
+    uint64_t DirectTriangles = 0;
+    uint64_t IndirectInputTriangles = 0;
+    uint32_t DrawRequests = 0;
+    uint32_t IndirectRecords = 0;
+    uint32_t SurfaceSlotLimit = 0;
+    uint32_t PlacementSlotLimit = 0;
+  };
+
+  [[nodiscard]] const EncodedWork &Work() const noexcept { return EncodedWork_; }
+
+  [[nodiscard]] uint32_t EncodedDrawCalls() const noexcept { return EncodedWork_.DrawRequests; }
 
   [[nodiscard]] uint32_t PipelineCount() const { return Binding().Built; }
 
 private:
-  static constexpr int kUniFloats = 56;
-
   static constexpr size_t kLightFloats = sizeof(SubjectLightingUniform) / sizeof(float);
 
   struct SurfaceSlot {
@@ -379,13 +425,15 @@ private:
     bool ReadsSecondUv = false;
   };
 
-  GroundLattice Ground_;
+  TerrainRenderer Ground_;
 
-  [[nodiscard]] bool BindSurface(const SubjectMaterial &material, std::string &error);
+  [[nodiscard]] bool BindSurface(const SubjectMaterial &material,
+                                 std::string &error,
+                                 GeometryResidency::ImageUploadMode mode);
 
 public:
-  [[nodiscard]] bool FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error) {
-    return Bound().FlushCrossings(commands, error);
+  [[nodiscard]] Native::Result<void> FlushCrossings(Native::Commands *commands) {
+    return Bound().FlushCrossings(commands);
   }
 
   void CommitCrossings() { Bound().CommitCrossings(); }
@@ -403,20 +451,19 @@ private:
 
   GeometryResidency Own_;
   GeometryResidency *At_ = nullptr;
-  SDL_GPUBuffer *GroundClasses_ = nullptr;
-  SDL_GPUBuffer *GroundPalette_ = nullptr;
+  const Native::Buffer *GroundClasses_ = nullptr;
+  const Native::Buffer *GroundPalette_ = nullptr;
 
   [[nodiscard]] GeometryResidency &Bound() { return At_ != nullptr ? *At_ : Own_; }
 
   [[nodiscard]] const GeometryResidency &Bound() const { return At_ != nullptr ? *At_ : Own_; }
 
-  SDL_GPUTexture *Atlas_ = nullptr;
-  SDL_GPUSampler *AtlasSampler_ = nullptr;
+  Native::Texture *Atlas_ = nullptr;
+  Native::Sampler *AtlasSampler_ = nullptr;
   std::array<ShadowRegionUniform, kSunShadowRegions> ShadowRegions_{};
   size_t ShadowRegionCount_ = 0;
   size_t ShadowLightIndex_ = 0;
   Mat4 LightFromWorld_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-  bool Shadowed_ = false;
   size_t ShadowedFrames_ = 0;
   size_t UniformPushes_ = 0;
 
@@ -426,8 +473,6 @@ public:
   [[nodiscard]] size_t UniformPushes() const { return UniformPushes_; }
 
 private:
-  OwnedPipeline DepthOnly_;
-
   std::vector<SubjectLight> Placed;
   SubjectEnvironment IndirectLight;
   Reflections Reflections_;
@@ -443,8 +488,7 @@ private:
 
   std::vector<uint32_t> Args_;
   uint32_t Jobs_ = 0;
-  uint32_t EncodedDrawCalls_ = 0;
-  bool RowsStale_ = false;
+  EncodedWork EncodedWork_;
 
   struct Piece {
     GeometryResidency::Range V;
@@ -468,15 +512,16 @@ private:
   std::vector<float> SubjectSpheres_;
   std::vector<uint32_t> TableJobs_, TableOrder_, TableRows_;
   std::vector<float> TableSpheres_;
+  ShadowCasterSelection ShadowCasters_;
+  bool SubjectBoundsCurrent_ = false;
   uint32_t SubjectRows_ = 0;
   std::vector<Piece> Pieces_;
   std::vector<uint32_t> Spare_;
   std::vector<uint32_t> SlotOf_, RegisteredSlotOf_;
   uint32_t PiecesLive_ = 0;
   uint32_t PieceTriangles_ = 0;
-  bool TablesStale_ = false;
 
-  [[nodiscard]] bool RoomForStreams(std::string &error);
+  [[nodiscard]] Native::Result<void> RoomForStreams();
 
   struct OptionalStreamEnds {
     uint32_t VertexEnd;
@@ -484,19 +529,22 @@ private:
     uint32_t TangentEnd;
   };
 
-  [[nodiscard]] bool
-  RoomForOptionalStreams(OptionalStreamEnds ends, VertexRunsCarried carried, std::string &error);
-  void BindPlacementStorage(const PassRecording &into, VertexLayout layout);
+  [[nodiscard]] Native::Result<void> RoomForOptionalStreams(OptionalStreamEnds ends,
+                                                            VertexRunsCarried carried);
+  void BindPlacementStorage(DrawResources &into, VertexLayout layout) const;
+  void BindShadowResources(DrawResources &resources,
+                           const DrawBatch &batch,
+                           std::span<const std::byte> view) const;
   [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildSubjectBatches(std::string &error);
   void PrepareSubjectTables();
+  void PrepareShadowCasters();
   [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
   void OrderPieces();
   [[nodiscard]] bool AppendPieceBatches(Piece &one, std::string &error);
   [[nodiscard]] bool UploadTables(std::string &error);
   size_t Moved_ = 0;
-  bool PiecesVisible_ = true;
   uint64_t Reshaped_ = 0;
   GeometryUploadMetrics LastMeshUpload_;
   MeshTicket PendingMesh_;
@@ -506,6 +554,10 @@ private:
 
   GeometryPipelineBinding OwnedBinding_;
   GeometryPipelineBinding *Binding_ = &OwnedBinding_;
+  bool Shadowed_ = false;
+  bool RowsStale_ = false;
+  bool TablesStale_ = false;
+  bool PiecesVisible_ = true;
 
   [[nodiscard]] GeometryPipelineBinding &Binding() { return *Binding_; }
 

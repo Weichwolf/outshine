@@ -60,12 +60,10 @@ PreparedBuildingAssets::LoadBasis(const std::string &key, const std::string &req
       auto basis = DecodePreparedBuildingBasis((**loaded).Bytes(), kResidentBytesMost);
       if (record.Kind == "building-basis" && record.Parent == key && basis) {
         if (!requestKey.empty() && record.RequestKey != requestKey) {
-          AssetRecord bound = record;
-          bound.RequestKey = requestKey;
-          if (!Cache_->Publish(std::span(&bound, 1), (**loaded).Bytes())) {
+          const auto bound = Cache_->BindRequest(BasisKey(key), requestKey);
+          if (!bound || !*bound) {
             return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
           }
-          ++BasisWrites_;
         }
         ++BasisHits_;
         BasisReadBytes_ += (**loaded).Bytes().size();

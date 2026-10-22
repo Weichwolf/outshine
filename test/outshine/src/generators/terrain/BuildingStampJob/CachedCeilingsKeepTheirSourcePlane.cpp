@@ -14,14 +14,18 @@ int main() {
   const Ground::BuildingFootprint print{
       .PointCount = 4,
       .SeatM = 20,
+      .Street = {},
       .TerrainCeiling = Ground::BuildingTerrainCeiling{.OriginPoint = 4, .HeightAslM = 125}};
   const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 8, .LatitudeDeg = 48});
   const std::array footprints{print};
   BuildingStampJob job(frame, 17);
   bool done = false;
   for (size_t step = 0; step < 32 && !done; ++step) {
-    const auto advance = job.Advance(
-        {.Footprints = footprints, .Points = points, .VectorGeneration = 17, .UnitsMost = 1});
+    const auto advance = job.Advance({.Footprints = footprints,
+                                      .Points = points,
+                                      .Rings = {},
+                                      .VectorGeneration = 17,
+                                      .UnitsMost = 1});
     CHECK(advance.has_value(), "bounded stamp work accepts cached contact metadata");
     if (!advance) { return Report(); }
     done = *advance;
@@ -52,8 +56,11 @@ int main() {
   auto invalid = footprints;
   invalid[0].TerrainCeiling->OriginPoint = UINT32_MAX;
   BuildingStampJob bad(frame, 17);
-  CHECK(!bad.Advance(
-            {.Footprints = invalid, .Points = points, .VectorGeneration = 17, .UnitsMost = 32}),
+  CHECK(!bad.Advance({.Footprints = invalid,
+                      .Points = points,
+                      .Rings = {},
+                      .VectorGeneration = 17,
+                      .UnitsMost = 32}),
         "invalid cached origin references fail before coordinate access");
   return Report();
 }

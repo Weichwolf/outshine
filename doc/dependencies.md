@@ -10,6 +10,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 | HiGHS | 1.15.1 | [#1003](https://github.com/Weichwolf/outshine/issues/1003) | Begrenzter nativer Treppen-/Wegprofilfit über C-API; ursprüngliche Bedingungen werden nachgerechnet, Weltanbindung noch offen |
 | SQLite | 3.54.0 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
 | Zstandard | 1.5.7 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
+| OpenSSL libcrypto | 3.5.7 | [#1098](https://github.com/Weichwolf/outshine/issues/1098) | Linux-Einmal-Digests für SHA-256; nur tatsächliche SHA-Verbraucher, Apple verwendet CommonCrypto |
 
 Wartung geprüft am 2026-10-20: [GEOS](https://libgeos.org/usage/download/)
 3.15.0 (2026-09),
@@ -27,15 +28,14 @@ Commitaktivität allein beweist keine Fehlerfreiheit oder künftige Wartung.
 | SDL3_image / SDL3_ttf | Bildcodecs / Schrift; bestehende Funktionen erhalten, Bildpfade erst nach Nutzerinventur zusammenführen. |
 | libcurl | HTTP/TLS und Transfers; bleibt, kein eigener Netzwerk-/Zertifikatsstack. |
 | zlib | PNG und bestehende Cachepfade; bleibt für diese Formate. |
-| LZ4 | Bestehender ArtifactStore; Vereinheitlichung mit Zstd erst mit lesbarer Altbestandsmigration. |
 | libtiff / libwebp | Copernicus-Raster / Terrarium-Höhen; Quellformatdecoder, kein eigener Codec-Eigenbau. |
 | SPIRV-Cross | Native Shaderübersetzung/Reflexion; bleibt. glslang ist ein Buildwerkzeug. |
-| nlohmann/json | Nur Benchmarkberichte im nativen Integrationszweig; eigenen JSON-Ausgabepfad als Ersatz prüfen. |
+| nlohmann/json | Benchmarkberichte; eigenen JSON-Ausgabepfad als Ersatz prüfen. |
 
 Die Installation oben betrifft die numerischen/Assetpakete, nicht das gesamte Toolchain-
 Setup. Plattform-SDK, SDL/Codecs/Shaderwerkzeuge stehen in den Buildprofilen und
-`src/client/README.md`. Der alte Master-Renderpfad benötigt bis zur nativen Aufnahme
-zusätzlich SDL3_shadercross; der native Integrationszweig benötigt es nicht.
+`src/client/README.md`. Metal und Vulkan verwenden die nativen Backendverträge;
+SDL3_shadercross ist keine Produkt- oder Buildabhängigkeit.
 
 ## Installation
 
@@ -46,8 +46,13 @@ brew install ccache geos osqp highs sqlite zstd
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install ccache libgeos-dev libsqlite3-dev libzstd-dev
+sudo apt install ccache libgeos-dev libsqlite3-dev libzstd-dev libssl-dev
 ```
+
+Linux verwendet für Einmal-SHA-256 die Systembibliothek libcrypto; `libssl-dev`
+liefert Header und `libcrypto.pc`. `pkg-config --modversion libcrypto` prüft den Stand.
+Prefix-/Append-Zustände und Cacheformate bleiben erhalten; isolierte native Render-/
+Stage-Profile benötigen libcrypto nicht. Apple bleibt bei CommonCrypto ohne OpenSSL-Paket.
 
 GEOS benötigt mindestens 3.12 (`GEOSOrientPolygons`); die Paketversion mit
 `pkg-config --modversion geos` prüfen. GEOS, SQLite und Zstandard liefern pkg-config-Metadaten.
@@ -93,7 +98,10 @@ Vergleiche behalten ihre Herkunft, sind keine Produktabhängigkeiten.
 Ein gemeinsamer Geometriekern wächst nur mit konkreten weiteren Verbrauchern;
 GPU-Eignung fester Rezepte und verzweigte CPU-Topologie bleiben getrennte Fragen.
 GEOS bleibt für robuste Polygonoperationen, OSQP für den beschränkten Wasser-QP.
-Weitere Kandidaten: nlohmann/json für native Benchmarkberichte, LZ4/Zstd und Bildcodecs.
+Der frühere ArtifactStore samt LZ4-Container und optionalem Taskpfad ist ohne
+Produktkonsumenten entfernt (#1032). Aktive Gebäudeprodukte verwenden AssetCache
+mit SQLite/Zstd; ihre Formate und gespeicherten Pakete bleiben unverändert.
+Weitere Kandidaten: nlohmann/json für native Benchmarkberichte und Bildcodecs.
 Bestehende Formate und Inhalte dürfen bei einer Reduktion nicht unlesbar werden.
 
 Python-Experimente prüfen native Umsetzungen. Shapely/GEOS und Python-OSQP/native OSQP

@@ -61,10 +61,12 @@ struct SubmissionGpuTiming {
   double ElapsedNanoseconds = std::numeric_limits<double>::quiet_NaN();
 };
 
+enum class GpuTimingMode : uint8_t { None, Submission, Dispatches };
+
 struct DeviceOptions {
   bool Validation = false;
   SDL_Window *Window = nullptr;
-  bool GpuTiming = false;
+  GpuTimingMode GpuTiming = GpuTimingMode::None;
 };
 
 struct ComputeOptions {

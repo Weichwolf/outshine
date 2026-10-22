@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "Corridors.h"
-#include "EarthworkPress.h"
+#include "EarthworkDeformation.h"
 #include "ProfiledRoadMesher.h"
 
 #include <array>
@@ -32,7 +32,7 @@ int main() {
   CHECK(ways.Ingest(vectors, vegetation) == 1, "the loop remains a road ribbon");
   const TangentFrame frame = TangentFrame::At(origin);
   const TriangleBvh empty = TriangleBvh::Over({}, {});
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const double amplitude : {-10., 10.}) {
@@ -48,6 +48,8 @@ int main() {
                                            .Standing = frame,
                                            .Draped = drape,
                                            .Classes = noClasses,
+                                           .WaterUpM = {},
+                                           .CensusAt = {},
                                            .EyeLatDeg = origin.LatitudeDeg,
                                            .EyeLonDeg = origin.LongitudeDeg,
                                            .Projection = {.FocalPx = 800}};

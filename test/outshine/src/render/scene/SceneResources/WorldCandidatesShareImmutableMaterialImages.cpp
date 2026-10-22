@@ -62,11 +62,12 @@ int main() {
                               StoredVertex::Of({{1, -1, 0}}, {{1, 0}}, {{0, 0, 1}}),
                               StoredVertex::Of({{0, 1, 0}}, {{0.5f, 1}}, {{0, 0, 1}})};
     const std::array<uint32_t, 3> indices{0, 1, 2};
-    const auto piece =
-        renderer.PlacePiece({.Verts = vertices,
-                             .Indices = indices,
-                             .Surface = Render::PieceSurface::Registered(*registered),
-                             .Textured = true});
+    Render::PieceMesh mesh{};
+    mesh.Verts = vertices;
+    mesh.Indices = indices;
+    mesh.Surface = Render::PieceSurface::Registered(*registered);
+    mesh.Textured = true;
+    const auto piece = renderer.PlacePiece(mesh);
     CHECK(piece && scene->Draw(error), "mapped piece draws before world replacement");
     renderer.WaitForGpu();
     std::vector<float> before;

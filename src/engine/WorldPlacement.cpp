@@ -1,7 +1,7 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "WorldInstanceSink.h"
 #include "InstancePlacementInputs.h"
-#include "ClassStructure.h"
+#include "TerrainClassificationMap.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -24,11 +24,12 @@ constexpr auto InstanceBudget = "generated instance count exceeds the prepared o
 namespace {
 constexpr size_t kBaseSnapshotRows = 40;
 
-InstancePlacementInputs PlacementInputs(const Surrounds &world,
-                                        const Generators::Tile &region,
-                                        LevelOfDetail coarseness,
-                                        const Generators::Fields &stands,
-                                        const std::shared_ptr<const ClassStructure> &classes) {
+InstancePlacementInputs
+PlacementInputs(const WorldRegionState &world,
+                const Generators::Tile &region,
+                LevelOfDetail coarseness,
+                const Generators::Fields &stands,
+                const std::shared_ptr<const TerrainClassificationMap> &classes) {
   return {.Cell = {region.Zoom(), region.X(), region.Y()},
           .Detail = coarseness,
           .Terrain = world.Stack.Pool().TerrainScopeRevision(),
@@ -42,7 +43,7 @@ InstancePlacementInputs PlacementInputs(const Surrounds &world,
           .FeatureOrigin = {.Owner = stands.Vectors->ShareOriginToken()}};
 }
 
-[[nodiscard]] Generators::Fields GenerationFields(const Surrounds &world) {
+[[nodiscard]] Generators::Fields GenerationFields(const WorldRegionState &world) {
   if (world.GroundPublished.Current()) {
     if (!world.Region) { return {}; }
     return {.Vectors = world.Region->Vectors(),
@@ -58,7 +59,7 @@ InstancePlacementInputs PlacementInputs(const Surrounds &world,
 
 void PrepareLocalStreetMask(Generators::Fields &stands,
                             const Generators::Tile &region,
-                            const Surrounds &world,
+                            const WorldRegionState &world,
                             Generators::Osm::StreetField &mask,
                             Core::DiagnosticLedger &metrics) {
   if (stands.Ways == nullptr || stands.Ways->Ingested(*stands.Vectors)) { return; }
@@ -72,8 +73,8 @@ void PrepareLocalStreetMask(Generators::Fields &stands,
       "placement: local street mask bytes", static_cast<double>(mask.HeapBytes()), "bytes");
 }
 
-std::expected<std::shared_ptr<const Generators::GroundPatch>, std::string>
-PreparePlacementGround(Surrounds &world, const Generators::Tile &region, Generators::Snapped *how) {
+std::expected<std::shared_ptr<const Generators::GroundPatch>, std::string> PreparePlacementGround(
+    WorldRegionState &world, const Generators::Tile &region, Generators::Snapped *how) {
   const auto assets = world.Stack.TerrainAssets();
   if (!assets || !world.Pool) { return Generators::PatchOver(region, world.Stack.Ground(), how); }
   const auto shape = world.Stack.Pool().Shaped();
@@ -100,12 +101,13 @@ PreparePlacementGround(Surrounds &world, const Generators::Tile &region, Generat
   return world.PlacementGround->Advance(world.Stack.Ground(), how);
 }
 
-Generators::Snapped PlacementSnapshot(Surrounds &world,
-                                      const Generators::Tile &region,
-                                      const std::shared_ptr<const ClassStructure> &classes,
-                                      const Generators::Fields &stands,
-                                      Generators::Ground::Snapshot *snapshot,
-                                      std::string &error) {
+Generators::Snapped
+PlacementSnapshot(WorldRegionState &world,
+                  const Generators::Tile &region,
+                  const std::shared_ptr<const TerrainClassificationMap> &classes,
+                  const Generators::Fields &stands,
+                  Generators::Ground::Snapshot *snapshot,
+                  std::string &error) {
   Generators::Snapped how = Generators::Snapped::Waiting;
   auto patch = PreparePlacementGround(world, region, &how);
   if (!patch) {
