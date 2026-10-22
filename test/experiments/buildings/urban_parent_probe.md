@@ -38,6 +38,26 @@ improve lighting here; the consumer remains red. Reference sampling convergence,
 movement/back/night/ascent/transition cases, fair work/peak controls and conditional
 height/shadow treatment remain required. Local images stay in system temp.
 
+Frozen 2e2073540 subsequently completed six runs / 24 actual images at a true
+240-km target distance: day 16/32 per-axis sampling, backlight, point-lit night,
+8-km lateral movement and a 10-km camera altitude. Both full comparison sheets
+were inspected. Regular 16→32 reference sampling still differs by 0.01971 linear
+RGB RMSE. Stratified sampling at frozen 67a423bae adds three runs / 12 inspected
+images: 16→32 reference difference 0.00757, two independent 32-sample seeds 0.00405.
+Sampling uncertainty remains explicit; the model error is larger (day seed1113:
+raw/midpoint/phase RGB RMSE 0.03231/0.03717/0.04277). The current volume therefore
+remains unqualified; improved coverage has not recovered its lost light response.
+Conditional height/visibility/shadow correlations are the next hypothesis, rather
+than fitting a source-specific brightness multiplier.
+
+A separate generation-growth check compiles the existing z5/28/12 parent directly:
+one source record, 256 regions, zero child cells and 6,264 array bytes. Enumerating
+the full 32-m rectangular candidate grid would involve 1,531,626,496 centres.
+The one cold Python source compilation took 0.101 s / 39,878,656 B raw process RSS
+under shared load. This coarse source omits finer owner exclusions: it proves
+bounded direct generation, not equal-quality/global coverage or device performance.
+All seven actual resolved owner arrays remain byte-identical after sharing the recipe.
+
 Reproduce without private input dependencies, with the existing `.venv`, fresh temp
 output and `PYTHONPATH=lib/src:test/experiments/render:test/experiments/buildings`:
 
