@@ -83,65 +83,103 @@ Equation 1 / Figure 1, visually inspected. No neural network, learned sampler, p
 truncation or unbiasedness claim is adopted. Stationary phase quadrature and finite
 baseline integration remain approximations; no cached shaded-colour asset is added.
 
+## Ground views and direct conditioning
+
+The exact query now uses closed slab intersections for horizontal/upward/downward
+rays, with open opaque stop endpoints. Primary-miss conditioning uses the lowest
+traversed height, which is at entry for upward rays. Sky rays have no ground receiver.
+Camera origins are nonnegative relative to the flat base; a near point inside any
+possible unresolved lot requires resolved geometry. The local phase filter still
+requires downward macro rays; it has not been generalized to the horizon.
+
+Long primary rays exposed quadratic shadow work: every caster query searched every
+stored primary-miss cell. No history storage is necessary. A straight primary ray
+visits each cell at most once. Intersect the caster cell's inset footprint with the
+known primary prefix, clip to the actual traversed endpoint, and evaluate its lowest
+height directly. Ignore camera-replaced cells and the known current hit cell as before.
+A crossed footprint yields exactly the same height cap as the old miss history;
+uncrossed cells retain an infinite cap. The endpoint owns exact opaque depth ties.
+
+`primary_cap` performs one geometric check per candidate instead of a history search.
+The current surface supplies its event depth; surviving background rays supply the
+actual traversed prefix, including an optional early stop. Independent full XYZ-box
+intersections check the conditioning for random directions and exact roof endpoints.
+Parallel rays strictly inside a centred-lot gap skip the entire grid, with an ULP guard
+that retains surface boundaries. This is a geometric skip in the declared model,
+not an empty-world or native occluder certificate.
+
+## Optional termination bound
+
+`transmission_tolerance=0` keeps the complete reference and remains the renderer
+default. With explicit tolerance epsilon, stop primary work once remaining T is at
+most epsilon. Retain T rather than making it opaque; conditional receiver visibility
+uses the prefix actually visited. For nonnegative radiance bounded by L, the missing
+conditional tail and the substituted background each lie in [0,L], so per-channel
+colour error is at most epsilon*L; transmission overestimation is at most epsilon.
+This bounds only termination error in this model, not parent/source/LOD error.
+
+For this shader, alpha=roughness^2, D<=1/(pi*alpha^2), G_light<=1 and
+G_view/N_view<=2/alpha. With unit directions and albedo A, direct radiance is bounded
+by `(A/pi + 1/(2*pi*alpha^3))*energy`; add ambient*A. For the point emitter above the
+represented volume, its height clearance bounds inverse-square energy. Arbitrary
+backgrounds need their own bound. The diagnostic uses ground/sky within the same
+bound and epsilon=1e-8. Source heights remain priors, not original-world maxima.
+The Horizon slide's alpha=1 early exit is a precedent; this finite-error derivation
+is explicit here rather than attributed to that slide.
+
 ## Current evidence
 
-Code `4bb7df3c2`, frozen image producer `35dea38c2` incorporates native-only master
-`21782ef64`; Python is unchanged by that merge. **67 focused tests pass**: independent
-boxes, analytic foreground edge, signed shadow correction, baseline preservation,
-packet/old-phase equivalence, invalid contracts and prior transport/source checks.
-Ruff/format, functions <=120 lines, diff check and docs gate pass.
+General-ray control `8aa9686ed`; direct conditioning `d0807364b`; clean frozen producer
+`725ee7d5` includes master `dd7864b0f`. **74 focused tests pass** (5.918 s). They include
+81 independently enumerated four-cell scenes under four lights for elevated and
+mixed horizontal/up/down ground rays, separate camera/caster replacement, opaque
+stops, random closed-box prefix checks, optional error bounds and old phase contracts.
+Ruff/format/function-size/diff checks and the docs gate pass.
 
-Five frozen runs, all terminal 0: day, backlight, night, 8-km camera displacement,
-and the whole-phase day negative control. **54 actual 1280x720 images were inspected**
-with full-image/crop sheets; a saved 32x32 night reference was also opened. The unchanged
-parent/owner inputs, true 240-km camera-target distance and fixed 66x31 diagnostic
-region are shared. This is not a complete world/Places/device gate.
+Two frozen control runs and eight candidate/regression runs finish terminal 0.
+**20 actual 1280x720 images were opened** with full-image/crop sheets. Day/back/night,
+8-km displacement, 50/240-km target distances and the prior elevated composition are
+covered. The original stored parent/owner inputs are unchanged; no source parsing or
+child generation occurs. Ground eye height is 2 m, with four jittered samples per
+axis. The 50-km day ROI is 338x6 pixels /32,448 rays, including 17,178 upward rays.
+These are mathematical flat-ENU controls: omitted terrain/curvature means a 2-m
+observer's real 50/240-km city visibility cannot be inferred from these pictures.
 
-Each pixel uses 2x2 macro rays and 6x6 phase nodes (144 expensive parent queries),
-versus 16x16 jittered rays in the dense control (256). The opaque baseline separately
-uses those 16x16 rays and is fully counted. Its shared sample set makes all-ready
-control equality a preservation check, not exact physical/independent-reference accuracy.
-The 120-m foreground plane also casts shadows, with its edge displaced inside a pixel.
+At the same epsilon, all four saved day colour/coverage arrays are **bit-identical**
+between history and direct conditioning. Their primary/shadow visits are unchanged.
+History comparisons 795,409,138 become 3,988,400 direct checks (different operation
+types, not a claimed 199x speedup). The measured Parent time falls 104.83→31.81 s,
+3.30x, under sequential normal-priority development-host runs. Named stored history
+falls 34,258,944 B→0; named conditioning arrays peak 229,376 B. This is partial buffer
+accounting, not full allocator/copy/process/device peak evidence or a general app-memory win.
+The precomputed resolved CPU control is still much faster (.50 s); no native parent
+runtime win is established. Original child preparation/storage is outside these timers.
 
-| Light/view | Pending RMS | Half-ready RMS | Full-ready added error |
-| --- | ---: | ---: | ---: |
-| Day | .01236 | .00950 | 0 |
-| Backlight | .01035 | .00693 | 0 |
-| Night | .07223 | .04194 | 0 |
-| Movement | .01281 | .00960 | 0 |
+| Flat ground case | Parent seconds | RGB region RMS vs inferred boxes |
+| --- | ---: | ---: |
+| Day, epsilon1e-8 | 31.81 | .00987 |
+| Day, complete | 53.37 | .00987 |
+| Night | 54.02 | .05266 |
+| Backlight | 13.49 | .00505 |
+| 8-km displacement | 27.68 | .00783 |
+| 240-km target | 4.42 | .00126 |
 
-Day same-process totals include baseline and all child/parent queries. Filtered then
-dense, normal priority, sequential shared-host runs with unrelated development load:
+The bounded/full day comparison differs at most 6.19e-10 in linear colour and
+2.46e-9 in coverage, below the derived 4.69e-8 colour bound. A two-ray real-field
+probe goes 42.50→8.03 s without truncation; prefix checks 9,792 replace3,001,244 history
+comparisons. The optional bounded probe needs 25 instead of613 primary visits, with
+1.31e-9 measured colour difference under the same 4.69e-8 bound. The parallel-gap ray
+needs zero visits. Short prefixes have no universal timing-win claim.
 
-| State | Filtered seconds | Dense seconds | Filtered / dense RMS |
-| --- | ---: | ---: | --- |
-| Pending | 17.78 | 31.86 | .01236 / .01182 |
-| Half-ready | 17.93 | 29.56 | .00950 / .00907 |
-| Foreground | 17.24 | 27.81 | .00950 / .00907 |
+All six elevated composition RGB crops remain bit-identical to the original
+6f892d438 controls. The original signed-correction, phase/transfer and independent
+night-reference evidence remains in the [previous method](https://github.com/Weichwolf/outshine/blob/3ba4d5a12/test/experiments/buildings/urban_parent_probe.md)
+and its preserved receipts. No new convergence or temporal continuity claim: phase
+aliasing, statistical shape/material error and the earlier night sensitivity remain.
 
-These are 1.61-1.79x Python speedups with slightly higher error, not equal-output,
-universal or native/device wins. Pending primary visits fall 1,787,938→1,022,374;
-shadow visits 8,552,605→4,299,419; history comparisons 40,153,133→20,493,765. Child
-primary/shadow work and baseline work are recorded separately. The faster whole-phase
-negative control loses the required ready-detail preservation and has .01820 half-ready
-RMS versus .00950 for signed correction. No final composite has negative channels in
-these runs; the signed correction itself is deliberately allowed to be negative.
-
-Night is not converged: independent seed 1114 at 32x32 differs from seed 1113 at
-16x16 by .05344 RMS. Against that saved denser reference, pending/half-ready/baseline
-errors are .06012/.05742/.05344. Small night rankings remain unproved. Hard readiness
-changes can still change brightness/structure; no temporal continuity claim.
-
-Named phase-packet arrays peak at 442,368 B for rays, 368,640 B for returned C/T/S,
-and 884,736 B for background ray arrays. The separate dense baseline currently still
-allocates 20,951,040 B of C/T/S and 50,282,496 B of named background arrays. These are
-partial logical sizes, not total peaks/copies/allocator/driver/device accounting or
-an application-memory saving. IO/source preparation/output are outside render timers.
-
-Remaining qualification: arbitrary ground/horizon views (currently downward rays
-from above), terrain/curvature, field-size-independent cost, temporal transitions,
-native consumer/readiness and complete World/device/p99 admission. No existing native
-child may be removed on the strength of these Python assets or pictures.
+Remaining: cameras below the flat base, mixed terrain/curvature, horizon pixel-phase
+filtering, field-size-independent query cost, temporal transitions and native
+World/device/p99 admission. No existing native child may be removed on this evidence.
 
 ## Reproduction and previous evidence
 
@@ -158,12 +196,26 @@ python -B -W error test/experiments/buildings/compare_urban_layer_filter.py \
   --output /tmp/outshine-urban-layers --paired-dense
 ```
 
+The generic horizon comparison reuses those same saved inputs:
+
+```sh
+python -B -W error test/experiments/buildings/compare_urban_horizon.py \
+  --parent /tmp/outshine-urban-control/parent.npz \
+  --resolved /tmp/outshine-urban-control/reference.npz \
+  --output /tmp/outshine-urban-horizon --altitude 2 --distance 50000
+```
+
+`--tolerance 0` selects complete traversal; `--ray-probe` runs the tiny real-field
+cost/error pair. `--lighting night`, `--motion 8000` and `--distance 240000` vary the
+controlled view; none supplies terrain/curvature or complete-world evidence.
+
 `--lighting night --reference-check-samples 32` checks the brighter point-light case;
 `--motion 8000` changes the view; `--whole-phase` retains the negative control.
 Parent compilation precedes the offline reference bake. A stored `--parent`/`--resolved`
 reuses finished data without source parsing or child generation.
 
-Current raw evidence: `/tmp/outshine-research-urban-layer-filter-86969ff1e/receipt.json`.
+Current raw evidence: `/tmp/outshine-research-urban-horizon-3ba4d5a12/receipt.json`.
+Prior filtering: `/tmp/outshine-research-urban-layer-filter-86969ff1e/receipt.json`.
 Earlier source/compiler/conditional controls: `urban-parent-1edb4404d/receipt.json`;
 phase: `urban-phase-6f84f25f3/receipt.json`; transfer: `urban-transfer-c2bc91d25/receipt.json`;
 adaptive: `urban-adaptive-cf6a67e95/receipt.json`; opaque composition:
@@ -176,6 +228,6 @@ All original fields, controls and needed negative cases remain preserved.
 - [Enderton et al. 2011](../../../doc/references/vegetation/tvcg/2011-stochastic-transparency.pdf), PDF page 2 / section 3.1 / equations 1-2: depth-ordered premultiplied contributions and remaining transmission; no stochastic GPU/OIT implementation adopted.
 - [Bruneton/Neyret 2012](../../../doc/references/vegetation/eg/2012-real-time-forests.pdf), section 3 / Figure 2 / equations 1-6: correlated visible/lit proportions; no Poisson ellipsoid forest implementation adopted.
 - [Han et al. 2007](../../../doc/references/vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf), Figures 1-2 / section 3: BRDF normal filtering explicitly excludes occlusion, geometry simplification and cast shadows.
-- [Horizon cloudscapes 2015](../../../doc/references/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf), PDF page 37 / slide 35: separate coverage and height density; no cloud/building equivalence claimed.
+- [Horizon cloudscapes 2015](../../../doc/references/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf), PDF page 37 / slide 35: separate coverage/height density; page 81 / slide 79: alpha=1 early exit. Both inspected; no cloud/building equivalence or finite-error bound attributed to the slides.
 - [Sloan/Kautz/Snyder 2002](../../../doc/references/lighting/siggraph/2002-precomputed-radiance-transfer.pdf), introduction / Figure 2, PDF page 2: separate transport from current light/BRDF; no SH/GI guarantees adopted.
 - [Mueller et al. 2020](https://tom94.net/data/publications/mueller20neural/mueller20neural.pdf), PDF page 1 / Figure 1 / Equation 1: baseline-plus-difference identity only; no neural implementation or unbiasedness guarantee adopted.
