@@ -102,7 +102,7 @@ def test_columns(
     return tests
 
 
-def trace(product, origins, directions):
+def trace(product, origins, directions, *, intersect_columns=test_columns):
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     if (
         origins.shape != directions.shape
@@ -158,7 +158,7 @@ def trace(product, origins, directions):
         work["steps"] += 1
         work["cell_ray_visits"] += len(ids)
         leave = np.minimum(crossing.min(1), end[ids])
-        work["interval_ray_tests"] += test_columns(
+        work["interval_ray_tests"] += intersect_columns(
             product, origin, direction, ids, cell, begin, leave, depth, normal, owner
         )
         keep = (depth[ids] > leave) & (leave < end[ids])
