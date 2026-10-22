@@ -3,6 +3,11 @@
 #include "Sha256.h"
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -19,50 +24,59 @@ std::string Key(std::string_view name) {
 
 std::vector<std::string> Keys(const std::vector<AssetRecord> &records) {
   std::vector<std::string> keys;
+  keys.reserve(records.size());
   for (const auto &record : records) { keys.push_back(record.Key); }
   std::ranges::sort(keys);
   return keys;
 }
 
 void SelectsPackages(AssetCache &index) {
-  const Box all{.Min = {{-20, -20, -20}}, .Max = {{20, 20, 20}}};
-  const std::array<uint8_t, 250> payload{};
-  std::array<AssetRecord, 4> records = {{{.Key = Key("terrain"),
-                                          .Kind = "terrain",
-                                          .Bounds = {.Min = {{-4, -1, -4}}, .Max = {{4, 1, 4}}},
-                                          .Package = {},
-                                          .OffsetBytes = 0,
-                                          .ByteCount = 100,
-                                          .Level = 3,
-                                          .Parent = {},
-                                          .RequestKey = {}},
-                                         {.Key = Key("roads"),
-                                          .Kind = "roads",
-                                          .Bounds = {.Min = {{-2, 0, -2}}, .Max = {{2, 2, 2}}},
-                                          .Package = {},
-                                          .OffsetBytes = 100,
-                                          .ByteCount = 50,
-                                          .Level = 1,
-                                          .Parent = {},
-                                          .RequestKey = {}},
-                                         {.Key = Key("trees"),
-                                          .Kind = "vegetation",
-                                          .Bounds = {.Min = {{6, 0, 6}}, .Max = {{8, 15, 8}}},
-                                          .Package = {},
-                                          .OffsetBytes = 150,
-                                          .ByteCount = 20,
-                                          .Level = 1,
-                                          .Parent = {},
-                                          .RequestKey = {}},
-                                         {.Key = Key("houses"),
-                                          .Kind = "buildings",
-                                          .Bounds = {.Min = {{4, 0, 0}}, .Max = {{5, 20, 1}}},
-                                          .Package = {},
-                                          .OffsetBytes = 170,
-                                          .ByteCount = 80,
-                                          .Level = 0,
-                                          .Parent = Key("cluster"),
-                                          .RequestKey = {}}}};
+  constexpr uint64_t kTerrainBytes = 100;
+  constexpr uint64_t kRoadBytes = 50;
+  constexpr uint64_t kBuildingBytes = 20;
+  constexpr uint64_t kClusterBytes = 80;
+  constexpr auto kPayloadBytes = kTerrainBytes + kRoadBytes + kBuildingBytes + kClusterBytes;
+  constexpr double kEnvelopeM = 20;
+  const Box all{.Min = {{-kEnvelopeM, -kEnvelopeM, -kEnvelopeM}},
+                .Max = {{kEnvelopeM, kEnvelopeM, kEnvelopeM}}};
+  const std::array<uint8_t, kPayloadBytes> payload{};
+  std::array<AssetRecord, 4> records = {
+      {{.Key = Key("terrain"),
+        .Kind = "terrain",
+        .Bounds = {.Min = {{-4, -1, -4}}, .Max = {{4, 1, 4}}},
+        .Package = {},
+        .OffsetBytes = 0,
+        .ByteCount = kTerrainBytes,
+        .Level = 3,
+        .Parent = {},
+        .RequestKey = {}},
+       {.Key = Key("roads"),
+        .Kind = "roads",
+        .Bounds = {.Min = {{-2, 0, -2}}, .Max = {{2, 2, 2}}},
+        .Package = {},
+        .OffsetBytes = kTerrainBytes,
+        .ByteCount = kRoadBytes,
+        .Level = 1,
+        .Parent = {},
+        .RequestKey = {}},
+       {.Key = Key("trees"),
+        .Kind = "vegetation",
+        .Bounds = {.Min = {{6, 0, 6}}, .Max = {{8, 15, 8}}},
+        .Package = {},
+        .OffsetBytes = kTerrainBytes + kRoadBytes,
+        .ByteCount = kBuildingBytes,
+        .Level = 1,
+        .Parent = {},
+        .RequestKey = {}},
+       {.Key = Key("houses"),
+        .Kind = "buildings",
+        .Bounds = {.Min = {{4, 0, 0}}, .Max = {{5, kEnvelopeM, 1}}},
+        .Package = {},
+        .OffsetBytes = kTerrainBytes + kRoadBytes + kBuildingBytes,
+        .ByteCount = kClusterBytes,
+        .Level = 0,
+        .Parent = Key("cluster"),
+        .RequestKey = {}}}};
   for (auto &record : records) { record.Package = Sha256Hex(payload.data(), payload.size()); }
   CHECK(index.Publish(records, payload).has_value(),
         "one package transaction indexes all native content kinds");
@@ -122,8 +136,9 @@ void ConservativeEarthBounds(AssetCache &index) {
                                       .Radius = {},
                                       .Planes = {}});
   CHECK(excluded && excluded->empty(), "double refinement removes float-rounded false positives");
-  record.Bounds.Min[0] -= 100;
-  record.Bounds.Max[0] -= 100;
+  constexpr double kTranslationM = 100;
+  record.Bounds.Min[0] -= kTranslationM;
+  record.Bounds.Max[0] -= kTranslationM;
   CHECK(index.Publish(std::span(&record, 1), {}).has_value(),
         "replacement updates one stable asset identity");
   const auto moved = index.Select(

@@ -1,6 +1,7 @@
 #include "Sha256.h"
 #include "Check.h"
 #include <array>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -19,6 +20,7 @@ int main() {
       "5f25142fe5c2f000b681959dc79fe5049999d19c35a88d653e644e69d926dc08",
       "31022f75d35b00d749dc38fa59bd7e740addbd2bb04b741fa4d306dd43ade784",
   };
+  constexpr size_t kRepetitions = 200;
   const Sha256Prefix prefix("parallel/", 9);
   std::array<bool, expected.size()> matched{};
   {
@@ -28,7 +30,7 @@ int main() {
         const auto suffix = std::to_string(at);
         const auto message = std::string("parallel/") + suffix;
         bool correct = true;
-        for (size_t repeat = 0; repeat < 200; ++repeat) {
+        for (size_t repeat = 0; repeat < kRepetitions; ++repeat) {
           correct &= Sha256Hex(message) == expected[at];
           correct &= prefix.Hex(suffix.data(), suffix.size()) == expected[at];
         }

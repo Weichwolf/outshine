@@ -12,6 +12,7 @@
 #include <span>
 #include <sqlite3.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -90,12 +91,13 @@ void FreshHitsAndSnapshots(const std::string &path) {
   const auto constrained = (*restarted)->Load(Key("terrain"), 2);
   CHECK(!constrained && constrained.error() == AssetCacheError::CapacityExceeded,
         "whole-package budget is checked before allocating its payload");
+  constexpr uint8_t kReplacementByte = 42;
   auto changed = Package();
-  changed.Bytes.front() = 42;
+  changed.Bytes.front() = kReplacementByte;
   CHECK((*restarted)->Publish(changed.Records, changed.Bytes).has_value(),
         "replacement publishes all slices atomically");
   auto replacement = (*restarted)->Load(Key("terrain"), 16);
-  CHECK(replacement && *replacement && (**replacement).Bytes().front() == 42 &&
+  CHECK(replacement && *replacement && (**replacement).Bytes().front() == kReplacementByte &&
             cold->Bytes().front() == 1,
         "new readers observe replacement while held bytes remain immutable");
   restarted->reset();

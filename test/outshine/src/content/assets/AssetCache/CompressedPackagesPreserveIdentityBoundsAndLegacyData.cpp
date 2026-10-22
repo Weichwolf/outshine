@@ -47,8 +47,10 @@ void ReadsCompressedSlices(const std::string &path) {
   auto cache = AssetCache::Open(path);
   CHECK(cache.has_value(), "cache opens for compressed native assets");
   if (!cache) { return; }
-  std::vector<uint8_t> bytes(1024 * 1024);
-  for (size_t index = 0; index < bytes.size(); index += 1024) { bytes[index] = 91; }
+  constexpr size_t kPageBytes = 1024;
+  constexpr uint8_t kMarker = 91;
+  std::vector<uint8_t> bytes(kPageBytes * kPageBytes);
+  for (size_t index = 0; index < bytes.size(); index += kPageBytes) { bytes[index] = kMarker; }
   const std::array records{Record("first", 4096), Record("second", 3072, bytes.size() - 3072)};
   CHECK((*cache)->Publish(records, bytes).has_value(), "compressible package publishes atomically");
   cache->reset();
