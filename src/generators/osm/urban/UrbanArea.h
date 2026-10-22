@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_URBAN_URBANAREA_H
 
 #include "TileSourceIdentity.h"
+#include "Earth.h"
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -53,6 +54,12 @@ struct UrbanAreaInput {
   std::string PayloadDigest;
 };
 
+struct UrbanLot {
+  LongitudeLatitude Centre;
+  double EastSpanM = 0, NorthSpanM = 0;
+  float HeightM = 0;
+};
+
 struct UrbanArea {
   UrbanAreaRecipe Recipe;
   std::array<int64_t, 2> FirstCell{};
@@ -66,6 +73,8 @@ struct UrbanArea {
   bool HasUrbanEvidence = false;
 
   static constexpr std::array<float, 5> HeightsM{0, 6, 12, 24, 48};
+
+  [[nodiscard]] std::optional<UrbanLot> LotAt(uint32_t column, uint32_t row) const noexcept;
 };
 
 [[nodiscard]] std::expected<UrbanArea, std::string>

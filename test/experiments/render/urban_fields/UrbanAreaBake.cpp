@@ -5,6 +5,7 @@
 #include "Check.h"
 #include "content/AssetGeneration.h"
 #include <array>
+#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cstdint>
@@ -113,5 +114,16 @@ int main(int argc, char **argv) {
             << work.CookMs << '\n';
   std::cout << "CACHE enabled=" << (argc == 12) << " cooks=" << work.Cooks
             << " read_bytes=" << work.ReadBytes << " total_ms=" << totalMs << '\n';
+  const auto occupied = std::ranges::find_if(area->Tiers, [](uint8_t tier) { return tier != 0; });
+  if (occupied != area->Tiers.end()) {
+    const auto index = static_cast<size_t>(occupied - area->Tiers.begin());
+    const auto lot = area->LotAt(static_cast<uint32_t>(index % area->Columns),
+                                 static_cast<uint32_t>(index / area->Columns));
+    CHECK(lot, "occupied stored cell has a geographic lot");
+    if (lot) {
+      std::cout << "LOT " << lot->Centre.LongitudeDeg << ' ' << lot->Centre.LatitudeDeg << ' '
+                << lot->EastSpanM << ' ' << lot->NorthSpanM << ' ' << lot->HeightM << '\n';
+    }
+  }
   return outshine::Test::Report();
 }
