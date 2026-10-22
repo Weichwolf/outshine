@@ -453,14 +453,14 @@ LayerSanitiser() {
     return
   fi
   if [ "$FORCED_SANITIZER" = address ] || NativeSafetyProfile "$1"; then
-    printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1"
+    printf '%s' "$NATIVE_ADDRESS_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1"
     return
   fi
   case "$(TestProfile "$1")" in
     profile/medium-view | profile/vector | profile/osm-xml | profile/transport-topology | profile/transport-native | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
-      printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+      printf '%s' "$NATIVE_ADDRESS_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     harness/geographiclib/geodesic)
-      printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+      printf '%s' "$NATIVE_ADDRESS_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }

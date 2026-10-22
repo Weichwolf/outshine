@@ -6,9 +6,10 @@ ConfigureNativeHardening() {
   NATIVE_COMPILE_FLAGS='-fstack-protector-strong -Wformat=2 -Werror=format-security'
   NATIVE_LINK_FLAGS=
   NATIVE_DEBUG_FLAGS=
+  NATIVE_ADDRESS_SANITIZER_FLAGS=
   case "$nativeMacros" in
     *'define __linux__ '*)
-      NATIVE_COMPILE_FLAGS="$NATIVE_COMPILE_FLAGS -fstack-clash-protection -fPIE -D_FORTIFY_SOURCE=3"
+      NATIVE_COMPILE_FLAGS="$NATIVE_COMPILE_FLAGS -fstack-clash-protection -fPIE -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3"
       NATIVE_LINK_FLAGS='-pie -Wl,-z,relro,-z,now,-z,noexecstack'
       case "$nativeMacros" in
         *'define __x86_64__ '*|*'define __i386__ '*)
@@ -17,8 +18,9 @@ ConfigureNativeHardening() {
       esac
       ;;
     *'define __APPLE__ '*)
-      NATIVE_COMPILE_FLAGS="$NATIVE_COMPILE_FLAGS -fPIE -D_FORTIFY_SOURCE=2"
+      NATIVE_COMPILE_FLAGS="$NATIVE_COMPILE_FLAGS -fPIE -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"
       NATIVE_LINK_FLAGS='-Wl,-pie'
+      NATIVE_ADDRESS_SANITIZER_FLAGS='-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0'
       ;;
     *)
       printf '%s\n' 'native_hardening: unsupported compiler target' >&2
@@ -36,11 +38,12 @@ ConfigureNativeHardening() {
   esac
 }
 
-if [ "${1:-}" = --compile ] || [ "${1:-}" = --link ]; then
+if [ "${1:-}" = --compile ] || [ "${1:-}" = --link ] || [ "${1:-}" = --address-sanitizer ]; then
   nativeStandard=$(sed -n 's/^CXXSTD=//p' "$(dirname "$0")/../run.sh") || exit 2
   ConfigureNativeHardening "$nativeStandard" || exit 2
   case "$1" in
     --compile) printf '%s\n' "$NATIVE_COMPILE_FLAGS" ;;
     --link) printf '%s\n' "$NATIVE_LINK_FLAGS" ;;
+    --address-sanitizer) printf '%s\n' "$NATIVE_ADDRESS_SANITIZER_FLAGS" ;;
   esac
 fi
