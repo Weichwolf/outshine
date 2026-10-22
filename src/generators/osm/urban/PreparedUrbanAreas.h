@@ -47,6 +47,7 @@ public:
   struct Delivery {
     State Status = State::Pending;
     std::shared_ptr<const UrbanArea> Product;
+    std::string AssetKey;
   };
 
   struct Budget {
@@ -82,7 +83,10 @@ public:
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
-  using Product = std::shared_ptr<const UrbanArea>;
+  struct Loaded {
+    std::shared_ptr<const UrbanArea> Area;
+    std::string Key;
+  };
 
   struct Definition {
     Data::TileId Owner;
@@ -99,7 +103,7 @@ private:
     size_t SourceCount = 0;
     Phase Stage = Phase::Lookup;
     Tasks::Handle Task = Tasks::kNoTask;
-    std::expected<Product, std::string> Result;
+    std::expected<Loaded, std::string> Result;
   };
 
   PreparedUrbanAreas(std::unique_ptr<AssetCache> cache,
@@ -111,10 +115,10 @@ private:
   static void Observe(Work &work, const std::shared_ptr<const uint8_t> &owner);
   [[nodiscard]] static Data::TileId Parent(Data::TileId owner) noexcept;
   [[nodiscard]] std::string RequestKey(const Definition &input) const;
-  [[nodiscard]] std::expected<Product, std::string> Load(const std::string &request,
-                                                         const Definition &input);
-  [[nodiscard]] std::expected<Product, std::string> Generate(const std::string &request,
-                                                             const Work &work);
+  [[nodiscard]] std::expected<Loaded, std::string> Load(const std::string &request,
+                                                        const Definition &input);
+  [[nodiscard]] std::expected<Loaded, std::string> Generate(const std::string &request,
+                                                            const Work &work);
   [[nodiscard]] std::expected<Delivery, std::string> GatherSources(TilePool &tiles, Work &work);
   [[nodiscard]] std::expected<Delivery, std::string>
   Advance(TilePool &tiles, const std::string &key, const std::shared_ptr<Work> &work);
