@@ -1,6 +1,6 @@
 #include "Receiver.h"
 #include "Projection.h"
-#include "../receiver_coverage/Coverage.h"
+#include "receiver_coverage/Coverage.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -12,7 +12,7 @@
 
 namespace ReceiverBlocks {
 namespace {
-using Rectangle = ReceiverCoverage::Rectangle;
+using ReceiverCoverage::Rectangle;
 constexpr uint32_t Cell = 16;
 constexpr uint32_t Halo = 8;
 constexpr uint32_t Tile = 16;

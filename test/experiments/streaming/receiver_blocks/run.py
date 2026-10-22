@@ -211,6 +211,7 @@ def main():
             command = list(entry.get("arguments") or shlex.split(entry["command"]))
             command[command.index(entry["file"])] = str(SOURCE / f"{name}.cpp")
             command[command.index("-o") + 1] = str(output / f"{name}.o")
+            command.append("-I" + str(SOURCE.parent))
             for flag, suffix in (("-MF", ".d"), ("-MJ", "-command.json")):
                 if flag in command:
                     command[command.index(flag) + 1] = str(output / f"{name}{suffix}")
