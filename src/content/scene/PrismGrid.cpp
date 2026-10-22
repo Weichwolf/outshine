@@ -7,7 +7,7 @@
 #include <limits>
 #include <span>
 
-namespace outshine::Render {
+namespace outshine {
 std::expected<PrismPatchInfo, PrismGridError>
 InspectPrismPatch(const PrismPatch &patch, std::span<const PrismSpan> samples) noexcept {
   if (patch.Columns == 0 || patch.Rows == 0) {
