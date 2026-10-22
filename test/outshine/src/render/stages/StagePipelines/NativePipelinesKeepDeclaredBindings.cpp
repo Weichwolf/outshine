@@ -2,6 +2,7 @@
 #include "SpirvFile.h"
 #include "Check.h"
 #include <array>
+#include <cstdint>
 #include <print>
 
 int main() {
@@ -37,7 +38,7 @@ int main() {
     ++(wrong.Shape.*field);
     const auto rejected = CompileComputePipeline(**device, wrong);
     CHECK(!rejected && rejected.error().Kind == Native::ErrorKind::Invalid &&
-              rejected.error().Message.find("declared compute bindings") != std::string::npos,
+              rejected.error().Message.contains("declared compute bindings"),
           "native SPIR-V reflection rejects each incorrect binding count or group dimension");
   }
   auto staleScan = *FindComputeShader(ComputeShaderId::SubjectScan);
