@@ -5,6 +5,7 @@
 #include "TerrainResidency.h"
 #include "TileGeodesy.h"
 #include "UrbanAreaTerrainInstances.h"
+#include "UrbanAreaTerrainPrisms.h"
 #include "Geodesy.h"
 #include "math/RenderFrame.h"
 #include "math/Units.h"
@@ -39,13 +40,19 @@ void CheckSelectedInstances(const TerrainResidency &terrain,
   area.Columns = area.Rows = side;
   area.Tiers.assign(static_cast<size_t>(side) * side, 4);
   const auto instances = PrepareUrbanPatchInstances(area, selected, terrain, frame, 4);
+  const std::array selectedPatches{selected};
+  const auto prisms = PrepareUrbanPrisms(area, selectedPatches, terrain, 4);
   if (!ready) {
     CHECK(!instances && instances.error() == UrbanInstanceError::MissingTerrain,
           "unpublished or changing terrain cannot ground selected urban instances");
+    CHECK(!prisms && prisms.error() == Generators::Osm::UrbanPrismError::MissingTerrain,
+          "unpublished or changing terrain cannot become a ready prism asset");
     return;
   }
   CHECK(instances && instances->size() == 4,
         "only the selected patch grounds instances despite occupied surrounding cells");
+  CHECK(prisms && prisms->Geometry.Samples->size() == 4 && prisms->Placements.size() == 1,
+        "published terrain produces one shared sample block and one static patch frame");
   if (!instances || instances->size() != 4) { return; }
   for (uint32_t row = 0; row < selected.Rows; ++row) {
     for (uint32_t column = 0; column < selected.Columns; ++column) {
@@ -61,6 +68,16 @@ void CheckSelectedInstances(const TerrainResidency &terrain,
                  .HeightM = *height},
                 ecef);
       const Vec3 base{RenderFrame::Of(frame.ToLocalPosition(ecef))};
+      if (prisms) {
+        const auto &shape = prisms->Geometry.Patches.front();
+        const auto sample = (*prisms->Geometry.Samples)[row * selected.Columns + column];
+        const Vec3 local{{(column + .5) * shape.PitchX, sample.Lower, (row + .5) * shape.PitchZ}};
+        const auto &placement = prisms->Placements.front();
+        const Vec3 packedBase = placement.EcefFromLocal.TransformPoint(local);
+        CHECK(Length(packedBase - ecef) <= placement.MaxCornerErrorM + kPositionToleranceM,
+              "packed lower samples follow the final deformed terrain within their recorded "
+              "deviation");
+      }
       CHECK(Length((*instances)[row * selected.Columns + column].TransformPoint({{0, 0, 0}}) -
                    base) < kPositionToleranceM,
             "urban bases follow the final published deformation rather than a raw DEM height");
