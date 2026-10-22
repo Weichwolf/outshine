@@ -4,6 +4,13 @@ import numpy as np
 import shapely
 from coarse_city_domains import domains
 from urban_patches import UrbanPatches
+from urban_recipe import (
+    DEFAULT_FOOTPRINT,
+    DEFAULT_PROJECTED_PITCH_M,
+    HEIGHT_CUMULATIVE,
+    HEIGHTS_M,
+    VACANCY_PERCENT,
+)
 
 
 def hash_cells(x, y, salt):
@@ -32,7 +39,7 @@ def memberships(chunks, side, pitch, data):
 
 
 def covered_lots(data, ix, iy, pitch, footprint, side):
-    vacancy = hash_cells(ix, iy, 1105) % 100 >= 15
+    vacancy = hash_cells(ix, iy, 1105) % 100 >= VACANCY_PERCENT
     blocks, inverse = np.unique(
         np.column_stack((ix // side, iy // side)), axis=0, return_inverse=True
     )
@@ -73,7 +80,12 @@ def covered_lots(data, ix, iy, pitch, footprint, side):
 
 
 def bake(
-    document, *, projected_pitch_m=32.0, side=8, footprint=0.75, max_cells=1048576
+    document,
+    *,
+    projected_pitch_m=DEFAULT_PROJECTED_PITCH_M,
+    side=8,
+    footprint=DEFAULT_FOOTPRINT,
+    max_cells=1048576,
 ):
     if (
         not np.isfinite([projected_pitch_m, footprint]).all()
@@ -106,10 +118,10 @@ def bake(
     tiers = np.zeros((len(chunk_ids), side, side), np.uint8)
     random = (hash_cells(xi, yi, 708) >> 11).astype(float) * 2.0**-53
     tiers[inverse, yi % side, xi % side] = (
-        np.searchsorted([0.62, 0.90, 0.98], random) + 1
+        np.searchsorted(HEIGHT_CUMULATIVE, random) + 1
     )
     frame = np.array([*data["origin_scale"], projected_pitch_m, footprint])
-    heights = np.array([0, 6, 12, 24, 48], float)
+    heights = np.array(HEIGHTS_M, float)
     low = (chunk_ids * side * projected_pitch_m - frame[:2]) * frame[2]
     bounds = np.zeros((len(chunk_ids), 2, 3), np.float32)
     if len(chunk_ids):

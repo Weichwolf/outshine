@@ -41,12 +41,52 @@ def load_product(path):
     return product
 
 
+def xy_interval(product, origin, direction, rays, cell):
+    """Optional centred lots retain XY gaps while sharing the packet traversal."""
+    pitch = product["header"]["pitch_m"]
+    fraction = product["header"].get("footprint_fraction", 1.0)
+    if not 0 < fraction <= 1:
+        raise ValueError("bounded column footprint fraction required")
+    low = (cell + product["low"] + (1 - fraction) / 2) * pitch
+    high = low + pitch * fraction
+    dxy = direction[rays, :2]
+    parallel = dxy == 0
+    times = np.divide(
+        np.stack((low, high), axis=1) - origin[rays, None, :2],
+        dxy[:, None],
+        out=np.zeros((len(rays), 2, 2)),
+        where=~parallel[:, None],
+    )
+    near = np.where(parallel, -np.inf, times.min(axis=1))
+    far = np.where(parallel, np.inf, times.max(axis=1)).min(axis=1)
+    missed = np.any(
+        parallel & ((origin[rays, :2] < low) | (origin[rays, :2] > high)), axis=1
+    )
+    return near.max(axis=1), np.where(missed, -np.inf, far), near.argmax(axis=1)
+
+
+def clip_height(product, origin, direction, begin, end):
+    if "height_bounds" not in product:
+        return begin, end
+    bounds = np.asarray(product["height_bounds"], float)
+    dz = direction[:, 2]
+    t = np.divide(
+        bounds[None] - origin[:, 2, None],
+        dz[:, None],
+        out=np.zeros((len(origin), 2)),
+        where=dz[:, None] != 0,
+    )
+    near = np.where(dz == 0, -np.inf, t.min(axis=1))
+    far = np.where(dz == 0, np.inf, t.max(axis=1))
+    missed = (dz == 0) & ((origin[:, 2] < bounds[0]) | (origin[:, 2] > bounds[1]))
+    return np.maximum(begin, near), np.where(missed, -np.inf, np.minimum(end, far))
+
+
 def test_columns(
-    product, origin, direction, ids, cell, begin, leave, depth, normal, owner
+    product, origin, direction, ids, cell, begin, leave, depth, normal, owner, minimum
 ):
     """Update nearest surface hits for the current packet of XY cells."""
     columns = product["lookup"][cell[:, 1], cell[:, 0]]
-    low, pitch = product["low"], product["header"]["pitch_m"]
     tests = 0
     occupied = np.flatnonzero(columns >= 0)
     if len(occupied):
@@ -67,10 +107,22 @@ def test_columns(
             )
             zn = np.where(dz == 0, -np.inf, zt.min(1))
             zf = np.where(dz == 0, np.inf, zt.max(1))
-            entry = np.maximum(begin[rays], zn)
-            exit = np.minimum(leave[at], zf)
-            inside_z = (z + 0.1 * dz >= spans[:, 0]) & (z + 0.1 * dz <= spans[:, 1])
-            if np.any((begin[rays] == 0.1) & inside_z):
+            xy_near, xy_far, xy_axis = begin[rays], leave[at], None
+            if product["header"].get("footprint_fraction", 1.0) != 1:
+                xy_near, xy_far, xy_axis = xy_interval(
+                    product, origin, direction, rays, cell[at]
+                )
+            entry = np.maximum(np.maximum(begin[rays], zn), xy_near)
+            exit = np.minimum(np.minimum(leave[at], zf), xy_far)
+            inside_z = (z + minimum * dz >= spans[:, 0]) & (
+                z + minimum * dz <= spans[:, 1]
+            )
+            if np.any(
+                (begin[rays] == minimum)
+                & inside_z
+                & (xy_near <= minimum)
+                & (xy_far >= minimum)
+            ):
                 raise ValueError(
                     "eye inside occupied column requires an original/finer product"
                 )
@@ -82,27 +134,22 @@ def test_columns(
             tests += len(rays)
             rr = rays[hit]
             depth[rr], owner[rr] = entry[hit], spans_at[hit]
-            roof_hit = zn[hit] >= begin[rr]
+            roof_hit = zn[hit] >= np.maximum(begin[rr], xy_near[hit])
             n = np.zeros((len(rr), 3))
             n[roof_hit, 2] = -np.sign(direction[rr[roof_hit], 2])
             other = ~roof_hit
-            # The XY entry axis is recomputed from the current cell's slab.
-            ray_cell = cell[at[hit]] + low
-            p = (ray_cell + (direction[rr, :2] < 0)) * pitch
-            near_xy = np.divide(
-                p - origin[rr, :2],
-                direction[rr, :2],
-                out=np.full((len(rr), 2), -np.inf),
-                where=direction[rr, :2] != 0,
+            axis = (
+                xy_interval(product, origin, direction, rr, cell[at[hit]])[2]
+                if xy_axis is None
+                else xy_axis[hit]
             )
-            axis = near_xy.argmax(1)
             rows = np.flatnonzero(other)
             n[rows, axis[rows]] = -np.sign(direction[rr[rows], axis[rows]])
             normal[rr] = n
     return tests
 
 
-def trace(product, origins, directions):
+def trace(product, origins, directions, *, minimum=0.1):
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     if (
         origins.shape != directions.shape
@@ -112,6 +159,8 @@ def trace(product, origins, directions):
         or not np.isfinite(origins).all()
         or not np.isfinite(directions).all()
         or np.any(np.linalg.norm(directions, axis=1) == 0)
+        or not np.isfinite(minimum)
+        or minimum < 0
     ):
         raise ValueError("bounded finite nonzero ray packet required")
     basis = product["basis"]
@@ -129,7 +178,8 @@ def trace(product, origins, directions):
     )
     near = np.where(parallel, -np.inf, t.min(1))
     far = np.where(parallel, np.inf, t.max(1))
-    begin, end = np.maximum(0.1, near.max(1)), far.min(1)
+    begin, end = np.maximum(minimum, near.max(1)), far.min(1)
+    begin, end = clip_height(product, origin, direction, begin, end)
     missed = np.any(
         parallel & ((origin[:, :2] < bounds[0]) | (origin[:, :2] >= bounds[1])), axis=1
     )
@@ -159,7 +209,17 @@ def trace(product, origins, directions):
         work["cell_ray_visits"] += len(ids)
         leave = np.minimum(crossing.min(1), end[ids])
         work["interval_ray_tests"] += test_columns(
-            product, origin, direction, ids, cell, begin, leave, depth, normal, owner
+            product,
+            origin,
+            direction,
+            ids,
+            cell,
+            begin,
+            leave,
+            depth,
+            normal,
+            owner,
+            minimum,
         )
         keep = (depth[ids] > leave) & (leave < end[ids])
         ids, cell, step, crossing, delta = (

@@ -3,10 +3,11 @@
 import unittest
 
 import numpy as np
+from field_sampling import bilinear
 from object_plane_cloud import partition
 from plane_cloud_fields import bake, query
 from test_object_plane_cloud import combine, squares
-from triangle_image_reference import bilinear, prepare_source
+from triangle_image_reference import prepare_source
 
 
 def source(parts):
