@@ -18,6 +18,7 @@
 #include <span>
 #include <utility>
 #include "GeometryRenderer.h"
+#include "field/FieldPipelines.h"
 
 namespace outshine::Render {
 
@@ -52,9 +53,12 @@ Native::Result<void> SunShadowStage::Configure(GeometryRenderer &subjects, const
     if (!masked) { return std::unexpected(masked.error()); }
     auto clear = ConfigureTileClear(*gpu.Device);
     if (!clear) { return std::unexpected(clear.error()); }
+    auto field = ConfigureFieldDepth(*gpu.Device, Native::Cull::Front);
+    if (!field) { return std::unexpected(field.error()); }
     DepthOnly_ = std::move(*depth);
     ClearTile_ = std::move(*clear);
     Masked_ = std::move(*masked);
+    FieldDepth_ = std::move(*field);
     Device_ = gpu.Device;
   }
   Cache_.Invalidate();
@@ -311,6 +315,9 @@ Native::Result<void> SunShadowStage::Cast(size_t region, const PassRecording &in
     if (!ground) { return ground; }
     const auto subjects = CastSubjects(recording, bytes, selection);
     if (!subjects) { return subjects; }
+    const auto fields = Subjects_->EncodeFieldShadow(recording, *FieldDepth_, bytes);
+    if (!fields) { return std::unexpected(fields.error()); }
+    CastBatches_ += *fields;
   }
   return {};
 }

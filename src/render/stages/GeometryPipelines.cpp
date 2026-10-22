@@ -3,6 +3,7 @@
 #include "DrawList.h"
 #include "SceneTargets.h"
 #include "SpirvFile.h"
+#include "field/FieldPipelines.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -224,6 +225,13 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
     if (!configured) { return configured; }
   }
   binding.Device = gpu.Device;
+  if (!glass) {
+    const auto targets = Targets(gpu, options, colours, false);
+    auto field =
+        ConfigureFieldColour(*gpu.Device, options, std::span(targets).first(colours.size()));
+    if (!field) { return std::unexpected(field.error()); }
+    binding.FieldColour = std::move(*field);
+  }
   binding.Colours = std::move(colours);
   binding.WritesVelocity = options.WritesVelocity;
   binding.CapturesMaterial = options.BaseIndex >= 0;

@@ -213,6 +213,21 @@ public:
 
   using PieceRows = SceneResources::PieceRows;
 
+  [[nodiscard]] Native::Result<uint64_t> PlaceField(const FieldMaskGpu &parameters,
+                                                    std::span<const float> heights,
+                                                    PieceSurface surface,
+                                                    const GpuPlacement &placement) {
+    return ActiveState().Content.Geometry.PlaceField(parameters, heights, surface, placement);
+  }
+
+  [[nodiscard]] bool ReleaseField(uint64_t id) {
+    return ActiveState().Content.Geometry.ReleaseField(id);
+  }
+
+  [[nodiscard]] FieldRenderer::AllocationStats FieldAllocations() const {
+    return ActiveState().Content.Geometry.FieldAllocations();
+  }
+
   [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(const PieceMesh &piece) {
     return ActiveState().Content.Resources.PlacePiece(ActiveState().Content.Geometry, piece);
   }

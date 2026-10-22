@@ -53,6 +53,7 @@ private:
   uint32_t Built = 0;
   std::vector<Resource> Colours;
   TerrainPipelines Ground;
+  std::unique_ptr<Native::GraphicsPipeline> FieldColour;
   Native::Texture *Behind = nullptr;
   Native::Sampler *BehindSampler = nullptr;
   bool GlassDrawnElsewhere = false;
@@ -199,7 +200,9 @@ public:
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
-  [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_; }
+  [[nodiscard]] uint64_t Generation() const {
+    return Moved_ + Reshaped_ + Bound().Fields.Generation();
+  }
 
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
     if (models == nullptr && rows > 0) {
@@ -340,6 +343,20 @@ public:
   }
 
   [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<uint64_t> PlaceField(const FieldMaskGpu &parameters,
+                                                    std::span<const float> heights,
+                                                    PieceSurface surface,
+                                                    const GpuPlacement &placement);
+
+  [[nodiscard]] bool ReleaseField(uint64_t id) { return Bound().Fields.Release(id); }
+
+  [[nodiscard]] FieldRenderer::AllocationStats FieldAllocations() const {
+    return Bound().Fields.Allocations();
+  }
+
+  [[nodiscard]] Native::Result<uint32_t> EncodeFieldShadow(const PassRecording &into,
+                                                           const Native::GraphicsPipeline &pipeline,
+                                                           std::span<const std::byte> view) const;
   [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
                                                   const PassRecording &into);
 
@@ -404,6 +421,8 @@ public:
 
 private:
   static constexpr size_t kLightFloats = sizeof(SubjectLightingUniform) / sizeof(float);
+  [[nodiscard]] Native::Result<void> EncodeFields(const PassRecording &into,
+                                                  const FrameUniforms &uniforms);
 
   struct SurfaceSlot {
     GeometryResidency::BoundImage Colour;

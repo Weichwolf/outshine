@@ -209,7 +209,10 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
   EncodedWork_ = {};
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
                             Bound().Buffer(GeometryResidency::Stream::Index);
-  if (!drawsBatches && (Binding().Behind != nullptr || Ground_.Drawn() == 0)) { return {}; }
+  if (!drawsBatches && Bound().Fields.Drawn().empty() &&
+      (Binding().Behind != nullptr || Ground_.Drawn() == 0)) {
+    return {};
+  }
   const auto uniforms = FrameUniformsOf(ctx);
   const bool cut = Bound().Buffer(GeometryResidency::Stream::DrawIndex) &&
                    Bound().Buffer(GeometryResidency::Stream::DrawArguments) && !Args_.empty();
@@ -246,7 +249,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
     if (!recorded) { return recorded; }
     at = end - 1;
   }
-  return {};
+  return EncodeFields(into, uniforms);
 }
 
 Native::Result<void> GeometryRenderer::EncodeGround(const FrameContext &ctx,

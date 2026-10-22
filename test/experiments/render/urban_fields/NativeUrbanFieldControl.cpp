@@ -171,8 +171,7 @@ bool PrepareScene(Engine &engine, const HeightGrid &field, const ViewControl &co
          Accepted(engine.setGeometry(floor)) && Accepted(engine.assemble());
 }
 
-std::expected<Render::PieceHandle, std::string>
-UploadBoxes(Engine &engine, const BoxMesh &mesh, std::span<const Mat4> rows) {
+std::expected<uint32_t, std::string> RegisterMaterial(Engine &engine) {
   auto &renderer = TestEngine::StateOf(engine).Picture.Device;
   Geometry materials;
   Material material;
@@ -182,6 +181,13 @@ UploadBoxes(Engine &engine, const BoxMesh &mesh, std::span<const Mat4> rows) {
     return std::unexpected("invalid control material");
   }
   const auto slots = renderer.RegisterPieceMaterials(std::move(materials));
+  return slots;
+}
+
+std::expected<Render::PieceHandle, std::string>
+UploadBoxes(Engine &engine, const BoxMesh &mesh, std::span<const Mat4> rows) {
+  auto &renderer = TestEngine::StateOf(engine).Picture.Device;
+  const auto slots = RegisterMaterial(engine);
   if (!slots) { return std::unexpected(slots.error()); }
   Render::PieceMesh piece;
   piece.Verts = mesh.Vertices;
@@ -190,6 +196,23 @@ UploadBoxes(Engine &engine, const BoxMesh &mesh, std::span<const Mat4> rows) {
   piece.MaxInstances = static_cast<uint32_t>(rows.size());
   piece.Surface = Render::PieceSurface::Registered(*slots);
   return renderer.PlacePiece(piece);
+}
+
+Render::Native::Result<uint64_t> UploadField(Engine &engine, const HeightGrid &field) {
+  const auto slot = RegisterMaterial(engine);
+  if (!slot) {
+    return std::unexpected(
+        Render::Native::Error{.Kind = Render::Native::ErrorKind::Invalid, .Message = slot.error()});
+  }
+  const Render::FieldMaskGpu parameters{
+      .OriginPitch = {0, 0, 0, static_cast<float>(field.CellM)},
+      .Shape = {field.Columns, field.Rows, 8, 0},
+      .Coverage = {static_cast<float>(field.FillFraction), 0, 0, 0}};
+  Render::GpuPlacement placement;
+  placement.Current = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  placement.Previous = placement.Current;
+  return TestEngine::StateOf(engine).Picture.Device.PlaceField(
+      parameters, field.HeightsM, Render::PieceSurface::Registered(*slot), placement);
 }
 
 void DeclareShadows(Engine &engine, const HeightGrid &field) {
@@ -248,7 +271,7 @@ bool RenderOrbit(Engine &engine,
 }
 
 int main(int argc, const char *const *argv) {
-  if ((argc < 5 || argc > 7) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }
+  if ((argc < 5 || argc > 8) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }
   const auto begin = UrbanControl::Clock::now();
   const auto field = UrbanControl::LoadHeightGrid(
       {.Database = argv[1], .SourceSha256 = argv[2], .InputPath = argv[3]});
@@ -268,15 +291,29 @@ int main(int argc, const char *const *argv) {
     }
   }
   const auto loaded = UrbanControl::Clock::now();
-  const auto rows = UrbanControl::InstanceRows(*field);
+  const bool masks = argc == 8 && std::string_view(argv[7]) == "field";
+  if (argc == 8 && !masks && std::string_view(argv[7]) != "boxes") { return 2; }
+  const auto rows = masks ? std::vector<outshine::Mat4>{} : UrbanControl::InstanceRows(*field);
   const auto mesh = UrbanControl::UnitBox();
-  if (argc == 7 && std::string_view(argv[6]) != "validate") { return 2; }
-  UrbanControl::DeviceControl devices{.Validation = argc == 7};
+  if (argc >= 7 && std::string_view(argv[6]) != "validate" &&
+      !(argc == 8 && std::string_view(argv[6]) == "normal")) {
+    return 2;
+  }
+  UrbanControl::DeviceControl devices{.Validation =
+                                          argc >= 7 && std::string_view(argv[6]) == "validate"};
   auto engine =
       outshine::TestEngine::WithGpu({.Context = &devices, .Create = UrbanControl::CreateDevice});
   if (!UrbanControl::PrepareScene(engine, *field, control)) { return 1; }
   std::optional<outshine::Render::PieceHandle> piece;
-  if (!rows.empty()) {
+  std::optional<uint64_t> fieldDraw;
+  if (masks) {
+    const auto uploaded = UrbanControl::UploadField(engine, *field);
+    if (!uploaded) {
+      std::cerr << uploaded.error().Message << '\n';
+      return 1;
+    }
+    fieldDraw = *uploaded;
+  } else if (!rows.empty()) {
     const auto uploaded = UrbanControl::UploadBoxes(engine, mesh, rows);
     if (!uploaded) {
       std::cerr << uploaded.error() << '\n';
@@ -291,10 +328,10 @@ int main(int argc, const char *const *argv) {
   std::println(
       "URBAN instances={} prototype_vertices={} prototype_indices={} potential_references={} "
       "matrix_bytes={} load_ms={:.3f} prepare_ms={:.3f} piece_bytes={} raster_frames={} "
-      "device_creations={} geometry_draw_calls={} okay={}",
-      rows.size(),
-      mesh.Vertices.size(),
-      mesh.Indices.size(),
+      "device_creations={} geometry_draw_calls={} okay={} representation={}",
+      std::ranges::count_if(field->HeightsM, [](float height) { return height > 0; }),
+      masks ? 0 : mesh.Vertices.size(),
+      masks ? 0 : mesh.Indices.size(),
       rows.size() * 12,
       rows.size() * sizeof(outshine::Mat4),
       std::chrono::duration<double, std::milli>(loaded - begin).count(),
@@ -303,8 +340,16 @@ int main(int argc, const char *const *argv) {
       device.Costs().Frames,
       devices.Creates,
       device.GeometryDrawCallCount(),
-      okay);
+      okay,
+      masks ? "field" : "boxes");
   std::println("DEVICE {}", device.GpuName());
+  const auto fieldBytes = device.FieldAllocations();
+  std::println("FIELD vertex_bytes={} index_bytes={} placement_bytes={} height_payload_bytes={}",
+               fieldBytes.VertexBytes,
+               fieldBytes.IndexBytes,
+               fieldBytes.PlacementBytes,
+               fieldBytes.HeightPayloadBytes);
   if (piece) { device.ReleasePiece(*piece); }
+  if (fieldDraw && !device.ReleaseField(*fieldDraw)) { return 1; }
   return okay ? 0 : 1;
 }

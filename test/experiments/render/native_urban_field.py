@@ -1,4 +1,4 @@
-"""Measure the native instanced-box opponent for shared urban height fields."""
+"""Compare native boxes and masked patch surfaces for shared urban height fields."""
 
 import argparse
 import hashlib
@@ -49,10 +49,12 @@ def build(native, output):
 def run(binary, native, directory, key, source, label, args):
     prefix = directory / label
     command = [str(binary), str(directory / "assets.sqlite"), key, str(source), str(prefix)]
-    if args.radius is not None or args.validation:
+    if args.radius is not None or args.validation or args.representation == "field":
         command.append(str(args.radius) if args.radius is not None else "auto")
-    if args.validation:
-        command.append("validate")
+    if args.validation or args.representation == "field":
+        command.append("validate" if args.validation else "normal")
+    if args.representation == "field":
+        command.append("field")
     validation = args.validation
     environment = dict(os.environ)
     for name in ("MTL_DEBUG_LAYER", "MTL_SHADER_VALIDATION", "OUTSHINE_METAL_ENCODER_PROFILE",
@@ -73,6 +75,9 @@ def run(binary, native, directory, key, source, label, args):
     device = next(row.removeprefix("DEVICE ") for row in text.splitlines() if row.startswith("DEVICE "))
     line = next(row for row in text.splitlines() if row.startswith("URBAN "))
     counters = dict(word.split("=", 1) for word in line.split()[1:])
+    field_line = next(row for row in text.splitlines() if row.startswith("FIELD "))
+    field_payload = {key: int(value) for key, value in
+                     (word.split("=", 1) for word in field_line.split()[1:])}
     samples = [row.split() for row in prefix.with_suffix(".times").read_text().splitlines()]
     submissions = [int(row[0]) for row in samples]
     assert len(submissions) == 60 and submissions == sorted(set(submissions))
@@ -83,7 +88,8 @@ def run(binary, native, directory, key, source, label, args):
     ordered = sorted(values)
     hosts = sorted(float(row[2]) for row in samples)
     return {"command": command, "returncode": 0, "wall_seconds": time.monotonic() - started,
-            "validation": validation, "gpu_device": device, "counters": counters, "gpu_samples": len(values),
+            "validation": validation, "gpu_device": device, "counters": counters,
+            "field_requested_allocation_bytes": field_payload, "gpu_samples": len(values),
             "gpu_ms": {"p50": (ordered[29] + ordered[30]) / 2,
                        "p95": ordered[math.ceil(0.95 * len(values)) - 1],
                        "p99": ordered[math.ceil(0.99 * len(values)) - 1]},
@@ -108,6 +114,7 @@ def main():
     parser.add_argument("--field", type=Path)
     parser.add_argument("--radius", type=float, help="model-space orbit radius in metres")
     parser.add_argument("--validation", action="store_true")
+    parser.add_argument("--representation", choices=("boxes", "field"), default="boxes")
     args = parser.parse_args()
     if args.radius is not None and (not math.isfinite(args.radius) or args.radius <= 0):
         parser.error("radius must be finite and positive")
@@ -124,7 +131,8 @@ def main():
     result = {"commit": subprocess.check_output(["git", "rev-parse", "HEAD"],
                                                cwd=native, text=True).strip(),
               "platform": platform.platform(), "resolution": [1280, 720],
-              "radius_m": args.radius, "build": build_record, "scope": "model-space controls; no complete-world admission",
+              "radius_m": args.radius, "representation": args.representation,
+              "build": build_record, "scope": "model-space controls; no complete-world admission",
               "cases": []}
     for name, text in inputs:
         directory = output / name

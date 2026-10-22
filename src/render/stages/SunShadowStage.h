@@ -110,6 +110,7 @@ private:
   GeometryRenderer *Subjects_ = nullptr;
   Native::Device *Device_ = nullptr;
   std::unique_ptr<Native::GraphicsPipeline> DepthOnly_;
+  std::unique_ptr<Native::GraphicsPipeline> FieldDepth_;
   std::unique_ptr<Native::GraphicsPipeline> ClearTile_;
   MaskedPipelines Masked_;
   Vec3 ToSun_ = {{0, 0, 1}};

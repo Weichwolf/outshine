@@ -11,6 +11,7 @@
 
 #include "SubjectTypes.h"
 #include "shade/TexelChain.h"
+#include "field/FieldRenderer.h"
 
 namespace outshine::Render {
 class UploadQueue;
@@ -140,6 +141,10 @@ struct GeometryResidency {
   [[nodiscard]] Native::Result<void> StandsOn(Native::Device *device);
 
   [[nodiscard]] Native::Device *Device() const { return Device_; }
+
+  [[nodiscard]] UploadQueue *Uploads() const { return Uploads_; }
+
+  FieldRenderer Fields;
 
   [[nodiscard]] std::unique_ptr<Native::Buffer> &Buffer(Stream which) {
     return Buffers_[static_cast<size_t>(which)];

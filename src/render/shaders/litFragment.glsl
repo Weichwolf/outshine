@@ -5,6 +5,11 @@
 #define SUBJECT_CONSTANT_UV 1
 #endif
 #include "subjectVaryings.glsl"
+#if LIT_FIELD
+#include "fieldMask.glsl"
+layout(location = 11) flat in uvec4 fieldFace;
+layout(location = 12) flat in float fieldRoofLevel;
+#endif
 #if SUBJECT_CONSTANT_UV
 float facadeBay = 0.0;
 float facadeCode = 0.0;
@@ -37,6 +42,9 @@ vec2 coordinate(vec3 u, vec3 v, float second) {
 }
 void main() {
   readSubjectVaryings();
+#if LIT_FIELD
+  if (!fieldOccupied(localPosition, fieldFace, fieldRoofLevel)) { discard; }
+#endif
   M surface = materialAt();
   vec4 tap = vec4(1.0);
   vec4 orm = vec4(1.0);
