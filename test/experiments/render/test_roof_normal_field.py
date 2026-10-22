@@ -55,6 +55,7 @@ class RoofNormalField(unittest.TestCase):
         a, b = plan_source(17, source()), plan_source(23, source())
         field = bake([*a, *b])
         np.testing.assert_array_equal(field["keys"], [[17, 0], [23, 0]])
+        np.testing.assert_array_equal(field["roof_codes"], [-82, -82])
         x, y, size = field["rects"][0]
         pixels = field["pixels"]
         np.testing.assert_array_equal(

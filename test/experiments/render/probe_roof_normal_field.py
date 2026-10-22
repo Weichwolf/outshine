@@ -25,7 +25,7 @@ def angles(first, second):
 
 
 def compare(name, args, field, old_report):
-    original, view = read_scene(args.profiles / name / "original/scene.json")
+    _, view = read_scene(args.profiles / name / "original/scene.json")
     candidate, _ = read_scene(args.profiles / name / "profile/scene.json")
     scene_path = args.field / name / "scene.json"
     if not scene_path.exists():
