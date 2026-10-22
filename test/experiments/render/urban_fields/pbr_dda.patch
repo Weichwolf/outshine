@@ -530,22 +530,25 @@ index 7f47b8f47..4be56d10d 100644
 -      field.Columns == 0 || field.Rows == 0 || field.Columns > 256 || field.Rows > 256) {
 +      !DimensionsFit(field.Columns, field.Rows)) {
 diff --git a/test/experiments/render/urban_fields/NativeUrbanFieldControl.cpp b/test/experiments/render/urban_fields/NativeUrbanFieldControl.cpp
-index 0fcb6e4b9..2492a6197 100644
+index 0fcb6e4b9..d2503acaf 100644
 --- a/test/experiments/render/urban_fields/NativeUrbanFieldControl.cpp
 +++ b/test/experiments/render/urban_fields/NativeUrbanFieldControl.cpp
-@@ -45,0 +46 @@ struct ViewControl {
+@@ -4,0 +5,2 @@
++#include "SunShadowStage.h"
++#include "ShadowRaster.h"
+@@ -45,0 +48 @@ struct ViewControl {
 +  std::optional<double> AltitudeM;
-@@ -65 +66,2 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
+@@ -65 +68,2 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
 -      .View = {.RadiusM = std::max(field.Columns, field.Rows) * field.CellM * kOrbitScale},
 +      .View = {.RadiusM = std::max(field.Columns, field.Rows) * field.CellM * kOrbitScale,
 +               .AltitudeM = std::nullopt},
-@@ -80 +82 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
+@@ -80 +84 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
 -    } else if (argc != 8 || validation != "normal") {
 +    } else if (validation != "normal") {
-@@ -84 +86 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
+@@ -84 +88 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
 -  if (argc == 8) {
 +  if (argc >= 8) {
-@@ -91,0 +94,10 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
+@@ -91,0 +96,10 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
 +  if (argc == 9) {
 +    const std::string_view value(argv[8]);
 +    double altitude = 0;
@@ -556,10 +559,88 @@ index 0fcb6e4b9..2492a6197 100644
 +    }
 +    options.View.AltitudeM = altitude;
 +  }
-@@ -101 +113 @@ Camera CameraAt(const HeightGrid &field, double angle, const ViewControl &view)
+@@ -101 +115 @@ Camera CameraAt(const HeightGrid &field, double angle, const ViewControl &view)
 -                     radius * kAltitudeScale,
 +                     view.AltitudeM.value_or(radius * kAltitudeScale),
-@@ -306 +318,10 @@ bool RenderOrbit(Engine &engine,
+@@ -266,0 +281,50 @@ void DeclareShadows(Engine &engine, const HeightGrid &field) {
++bool WriteTimings(Engine &engine, std::span<const double> hostTimes, const std::string &output) {
++  const auto renderer = engine.renderer();
++  TestEngine::StateOf(engine).Picture.Device.WaitForGpu();
++  std::vector<Render::GpuFrameSample> samples;
++  if (!Accepted(renderer.gpuSamples(samples)) || samples.size() != hostTimes.size()) {
++    return false;
++  }
++  std::ranges::sort(samples, {}, &Render::GpuFrameSample::Submission);
++  std::ofstream times(output + ".times");
++  times << std::setprecision(std::numeric_limits<double>::max_digits10);
++  for (size_t sample = 0; sample < samples.size(); ++sample) {
++    times << samples[sample].Submission << ' ' << samples[sample].ElapsedMs << ' '
++          << hostTimes[sample] << '\n';
++  }
++  return times.good();
++}
++
++bool WriteShadowFrame(Engine &engine, const HeightGrid &field, const std::string &output) {
++  const auto direction =
++      EastUpSouthDirection(kSunBearingDeg * kDeg2Rad, kSunElevationDeg * kDeg2Rad);
++  const Vec3f toSun{{static_cast<float>(direction[0]),
++                     static_cast<float>(direction[1]),
++                     static_cast<float>(direction[2])}};
++  const double radius = std::hypot(field.Columns * field.CellM, field.Rows * field.CellM) +
++                        std::ranges::max(field.HeightsM);
++  Render::SunShadowStage projection;
++  projection.Declare({.ToSun = toSun, .Up = {{0, 1, 0}}}, radius, false);
++  projection.Build({});
++  const auto centre = TestEngine::StateOf(engine).Picture.Device.ShadowCentreM();
++  Mat4 anchored = projection.RegionProjection(0);
++  for (size_t row = 0; row < 3; ++row) {
++    double offset = 0;
++    for (size_t axis = 0; axis < 3; ++axis) { offset += anchored[axis * 4 + row] * centre[axis]; }
++    anchored[12 + row] =
++        row < 2 ? -std::floor(offset * Render::kShadowTilePx * .5) * 2 / Render::kShadowTilePx
++                : .5 - offset;
++  }
++  const auto update =
++      Render::PrepareShadowRaster({}, anchored, centre, Render::kShadowTilePx, true);
++  const auto matrix = Render::ShadowPatchProjection(update.Next, update.Patches[0]);
++  std::ofstream frame(output + ".shadow-frame");
++  frame << std::setprecision(std::numeric_limits<float>::max_digits10);
++  frame << Render::kShadowTilePx << ' ' << Render::kShadowAtlasPx << '\n';
++  for (const double axis : centre) { frame << axis << ' '; }
++  frame << '\n';
++  for (const float component : matrix) { frame << component << ' '; }
++  frame << '\n';
++  return frame.good();
++}
++
+@@ -273 +337,6 @@ bool RenderOrbit(Engine &engine,
+-  for (size_t warm = 0; warm < 3; ++warm) {
++  constexpr size_t kSettling = 3;
++  if (!Accepted(renderer.resetMeasurements(kSettling))) { return false; }
++  std::vector<double> settling;
++  settling.reserve(kSettling);
++  for (size_t warm = 0; warm < kSettling; ++warm) {
++    const auto began = Clock::now();
+@@ -274,0 +344 @@ bool RenderOrbit(Engine &engine,
++    settling.push_back(std::chrono::duration<double, std::milli>(Clock::now() - began).count());
+@@ -275,0 +346 @@ bool RenderOrbit(Engine &engine,
++  if (!WriteTimings(engine, settling, output + ".settling")) { return false; }
+@@ -290,9 +361,3 @@ bool RenderOrbit(Engine &engine,
+-  TestEngine::StateOf(engine).Picture.Device.WaitForGpu();
+-  std::vector<Render::GpuFrameSample> samples;
+-  if (!Accepted(renderer.gpuSamples(samples)) || samples.size() != kFrames) { return false; }
+-  std::ranges::sort(samples, {}, &Render::GpuFrameSample::Submission);
+-  std::ofstream times(output + ".times");
+-  times << std::setprecision(std::numeric_limits<double>::max_digits10);
+-  for (size_t sample = 0; sample < samples.size(); ++sample) {
+-    times << samples[sample].Submission << ' ' << samples[sample].ElapsedMs << ' '
+-          << hostTimes[sample] << '\n';
++  if (!WriteTimings(engine, hostTimes, output) || !WriteShadowFrame(engine, field, output) ||
++      !Accepted(renderer.saveScreenshot(output + ".png"))) {
++    return false;
+@@ -300 +364,0 @@ bool RenderOrbit(Engine &engine,
+-  if (!times.good() || !Accepted(renderer.saveScreenshot(output + ".png"))) { return false; }
+@@ -306 +370,10 @@ bool RenderOrbit(Engine &engine,
 -  return depthFile.good();
 +  if (!depthFile.good()) { return false; }
 +  std::vector<float> shadowValues;
@@ -571,6 +652,6 @@ index 0fcb6e4b9..2492a6197 100644
 +  shadowFile.write(reinterpret_cast<const char *>(shadowValues.data()),
 +                   static_cast<std::streamsize>(shadowValues.size() * sizeof(float)));
 +  return shadowFile.good();
-@@ -312 +333 @@ int main(int argc, const char *const *argv) {
+@@ -312 +385 @@ int main(int argc, const char *const *argv) {
 -  if ((argc < 5 || argc > 8) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }
 +  if ((argc < 5 || argc > 9) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }

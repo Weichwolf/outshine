@@ -57,6 +57,28 @@ Four camera cases separate distance and altitude; reports include actual device,
 requested field allocations, GPU/host quantiles and image/depth/atlas differences.
 PNG/D32/atlas readbacks occur after measurements. Keep results in system temp.
 
+The three settling frames also retain separate GPU/host samples, including the
+initial atlas build. They do not enter steady-state quantiles. Do not add host
+submission time to asynchronous GPU time. `.shadow-frame` reconstructs the packed
+native sun projection from its actual caster centre and existing raster packing;
+this harness has an identity scene placement whose centre equals its anchor.
+It is not a GPU-uniform readback or a general arbitrary-scene projection exporter.
+
+`shadow_oracle.py` checks selected atlas disagreements against every prism and
+the floor, independently of DDA/grid pruning. It models both actual Float32 box
+placements and field bounds. Returned-point/prism distance and first-hit edge
+distance distinguish boundary-sensitive cases; neither is a certified SSE bound.
+Its intentionally quadratic all-pairs work is reference code, never a runtime path.
+Small mixed/empty fields and parallel rays compare against independent triangles
+in `test_shadow_oracle.py`. To inspect all outliers of the current field:
+
+```sh
+python test/experiments/render/urban_fields/shadow_oracle.py \
+  --input complete.field --boxes "$prototype/normal/far-low-boxes" \
+  --field "$prototype/normal/far-low-field" --rays 1024 \
+  --output "$prototype/shadow-oracle.json"
+```
+
 ## Decision boundaries
 
 The qualified experiment selects DDA for the next native field implementation;
@@ -65,6 +87,6 @@ Matching primary coverage does not prove identical shading or shadow depth.
 Raster boundary rules, Float32 arithmetic and subpixel temporal filtering remain
 separate concerns; no bit-identical rendering or derived screen-error bound claimed.
 The fixed-light atlas is rendered during settling and reused during measurements.
-Its update time is not measured independently. Model base is0 with parallel upright
+The initial frame is timed; its caster pass is not isolated. Model base is0 with parallel upright
 prisms; terrain, curvature, filtered parents, moving light, native World integration,
 Iris PBR execution and complete-world p99 remain open. Places are unchanged.
