@@ -1,15 +1,12 @@
 #include "UrbanArea.h"
 #include "UrbanAreaCodec.h"
+#include "UrbanAreaAsset.h"
 #include "OsmField.h"
 #include "Check.h"
-#include "Sha256.h"
 #include "content/AssetGeneration.h"
-#include "TileGeodesy.h"
-#include <algorithm>
 #include <array>
 #include <charconv>
 #include <chrono>
-#include <cmath>
 #include <cstdint>
 #include <expected>
 #include <fstream>
@@ -76,30 +73,15 @@ std::expected<UrbanArea, std::string> Cached(char **argv, Work &work) {
   auto cache = AssetCache::Open(argv[10]);
   if (!cache) { return std::unexpected("asset cache open failed"); }
   const std::string request(argv[11]);
-  const auto loaded = ResolveAssetRequest(
-      **cache,
-      request,
-      kUrbanAreaBytesMost,
-      [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
-        auto area = Cook(argv, work);
-        if (!area) { return std::unexpected(area.error()); }
-        auto encoded = EncodeUrbanArea(*area, budget);
-        if (!encoded) { return std::unexpected(encoded.error()); }
-        const auto key = Sha256Hex(request + Sha256Hex(encoded->data(), encoded->size()));
-        const double cell = area->Recipe.ProjectedPitchM * area->MetresPerProjectedMetre;
-        const double span =
-            std::ldexp(Data::kMercatorGirthM, -area->Inputs.front().Identity.Tile.Zoom) *
-            area->MetresPerProjectedMetre;
-        return GeneratedAssetPackage{
-            .Records =
-                {{.Key = key,
-                  .Kind = "urban-area",
-                  .Bounds = {.Min = {{-cell, 0, -cell}},
-                             .Max = {{span + cell, UrbanArea::HeightsM.back(), span + cell}}},
-                  .ByteCount = encoded->size(),
-                  .RequestKey = request}},
-            .Bytes = std::move(*encoded)};
-      });
+  const auto loaded =
+      ResolveAssetRequest(**cache,
+                          request,
+                          kUrbanAreaBytesMost,
+                          [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
+                            auto area = Cook(argv, work);
+                            if (!area) { return std::unexpected(area.error()); }
+                            return PackageUrbanArea(*area, request, budget);
+                          });
   if (!loaded) { return std::unexpected(loaded.error()); }
   if (loaded->Record().Kind != "urban-area") {
     return std::unexpected("unexpected native asset kind");

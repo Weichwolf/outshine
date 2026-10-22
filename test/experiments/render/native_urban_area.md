@@ -39,8 +39,15 @@ python3.12 test/experiments/render/native_urban_area.py \
 A cold process generates and atomically stores the field. The driver then removes
 the source paths and starts a fresh warm process with no input files. Package
 keys/lengths/SHA/CRC and the complete categorical field must remain unchanged; the
-warm factory-call count must be zero. Control index bounds are model-space coverage,
-not a World/ECEF placement contract.
+warm factory-call count must be zero. `PackageUrbanArea` publishes the geographic
+coverage and source zoom through the existing ECEF asset index. Radius queries select
+metadata before payload reads, including antimeridian and high-latitude cases.
+
+The coverage envelope describes the owner tile plus one projected cell at ellipsoid
+height zero. With WGS84 semi-major axis `a` and flattening `f`, both angular ECEF
+derivatives have norm at most `a/(1-f)`. The midpoint-to-corner angular L1 distance
+therefore bounds the coverage radius; outward rounding covers floating-point error.
+These are data-coverage bounds, not terrain/building bounds or an occlusion proof.
 
 The driver retains exact compiler/link commands, actual C++ standard-library option,
 archive hash, source receipts, scalar work and complete byte equality of the

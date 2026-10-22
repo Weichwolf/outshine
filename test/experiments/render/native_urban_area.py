@@ -122,7 +122,7 @@ def main():
         str(output / "native.u8"),
     ]
     parameters = {
-        "version": "urban-area-v1",
+        "version": "urban-area-ecef-v1",
         "recipe": [32, 0.75, 8],
         "sources": [
             {key: receipt[key] for key in ("url", "tile")} for receipt in receipts
