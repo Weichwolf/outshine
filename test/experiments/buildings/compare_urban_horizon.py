@@ -20,6 +20,7 @@ from compare_urban_parents import (
 )
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays, projected_bounds
+from urban_first_hit import sample_first_hits
 from urban_parent_conditional import grid, ground_stops, render_conditional
 from urban_parent_layer import render_layer
 from urban_parent_light import display, surface_radiance_upper
@@ -27,6 +28,8 @@ from urban_parent_reference import prepare_resolved
 from urban_parent_stats import UrbanParent
 from urban_patches import load
 from urban_pixel_filter import filter_correction, support_points, support_polygon
+from urban_prefix_runs import PrefixRuns
+from urban_sampled_parent import render_sampled
 from urban_shadow_runs import select_shadow_query
 
 
@@ -77,16 +80,37 @@ def region(parent, resolved, view, profile):
     )
 
 
-def parent_sample(parent, origins, directions, profile, tolerance, query=None):
+def parent_sample(
+    parent,
+    origins,
+    directions,
+    profile,
+    tolerance,
+    query=None,
+    *,
+    surface_samples=None,
+    surface_seed=1113,
+):
     started = time.perf_counter()
-    colour, coverage, work = render_conditional(
-        parent,
-        origins,
-        directions,
-        profile,
-        transmission_tolerance=tolerance,
-        shadow_query=query,
-    )
+    if surface_samples is None:
+        colour, coverage, work = render_conditional(
+            parent,
+            origins,
+            directions,
+            profile,
+            transmission_tolerance=tolerance,
+            shadow_query=query,
+        )
+    else:
+        colour, coverage, work = render_sampled(
+            parent,
+            origins,
+            directions,
+            profile,
+            samples=surface_samples,
+            seed=surface_seed,
+            shadow_query=query,
+        )
     sky = ~np.isfinite(ground_stops(origins, directions))
     colour[sky] += (1 - coverage[sky, None]) * (
         0.002 if profile["kind"] == "point" else 0.1
@@ -117,7 +141,14 @@ def compare(parent, resolved, args):
     )
     build_seconds = time.perf_counter() - started
     colour, coverage, work, seconds = parent_sample(
-        parent, o, d, profile, args.tolerance, query
+        parent,
+        o,
+        d,
+        profile,
+        args.tolerance,
+        query,
+        surface_samples=args.surface_samples,
+        surface_seed=args.surface_seed,
     )
     target = average_samples(reference, width, height, args.samples)
     crop = average_samples(colour, width, height, args.samples)
@@ -135,11 +166,21 @@ def compare(parent, resolved, args):
     paired = {}
     if args.paired_exact:
         exact, exact_coverage, exact_work, exact_seconds = parent_sample(
-            parent, o, d, profile, args.tolerance
+            parent,
+            o,
+            d,
+            profile,
+            args.tolerance,
+            query if args.surface_samples is not None else None,
         )
-        np.testing.assert_array_equal(exact_coverage, coverage)
+        if args.surface_samples is None:
+            np.testing.assert_array_equal(exact_coverage, coverage)
+        else:
+            np.testing.assert_allclose(
+                exact_coverage, coverage, rtol=0, atol=args.tolerance + 3e-12
+            )
         difference = float(np.abs(exact - colour).max())
-        if difference > 2e-9:
+        if args.surface_samples is None and difference > 2e-9:
             raise AssertionError(f"run shadow RGB differs from DDA by {difference}")
         arrays["exact"] = average_samples(exact, width, height, args.samples)
         image = backdrop.copy()
@@ -150,6 +191,12 @@ def compare(parent, resolved, args):
             "work": exact_work,
             "max_sample_rgb_difference": difference,
             "crop_rgb_rmse": float(np.sqrt(np.mean((arrays["exact"] - crop) ** 2))),
+            "max_sample_coverage_difference": float(
+                np.abs(exact_coverage - coverage).max()
+            ),
+            "reference_resolved_rgb_rmse": float(
+                np.sqrt(np.mean((arrays["exact"] - target) ** 2))
+            ),
         }
     bound = args.tolerance * max(
         surface_radiance_upper(profile, parent.heights[-1]),
@@ -164,6 +211,8 @@ def compare(parent, resolved, args):
         "roi": box.tolist(),
         "samples_per_axis": args.samples,
         "jitter_seed": args.seed,
+        "surface_samples_per_ray": args.surface_samples,
+        "surface_seed": args.surface_seed,
         "rays": len(o),
         "upward_rays": int((d[:, 2] > 0).sum()),
         "downward_rays": int((d[:, 2] < 0).sum()),
@@ -294,6 +343,49 @@ def compare_pixel(parent, resolved, args):
     return report, arrays
 
 
+def sparse_first_hit_probe(parent):
+    rows = []
+    for factor in [0.25, 1, 4]:
+        grown = UrbanParent(**{k: a.copy() for k, a in parent.arrays().items()})
+        grown.frame[3] *= factor
+        grown.centre_fractions *= 1e-4
+        model = PrefixRuns(grown)
+        p = model.product
+        pitch = p["header"]["pitch_m"]
+        x = p["reference_origin_m"][0] + (p["shape"][0] // 2 + 0.5) * pitch
+        y = p["reference_origin_m"][1] - pitch
+        origin = np.array([[x, y, 2.0]])
+        direction = np.array([[0, 1.0, 0]])
+        started = time.perf_counter()
+        transmission, prefix = model.transmission(origin, direction)
+        prefix_seconds = time.perf_counter() - started
+        uniform = (1 - transmission[0]) * np.array([0.125, 0.375, 0.625, 0.875])
+        started = time.perf_counter()
+        hit, work = sample_first_hits(
+            grown,
+            p,
+            np.repeat(origin, 4, axis=0),
+            np.repeat(direction, 4, axis=0),
+            uniform,
+        )
+        seconds = time.perf_counter() - started
+        if not np.isfinite(hit["depth"]).all():
+            raise AssertionError("sparse conditional sample lost its event")
+        rows.append(
+            {
+                "factor": factor,
+                "shape": p["shape"].tolist(),
+                "density_scale": 1e-4,
+                "prefix_seconds": prefix_seconds,
+                "sample_seconds": seconds,
+                "prefix_work": prefix,
+                "sampling_work": work,
+                "hit_probability": float(1 - transmission[0]),
+            }
+        )
+    return rows
+
+
 def run(args):
     if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise ValueError("private system-temp output required")
@@ -302,6 +394,12 @@ def run(args):
         raise ValueError("paired exact comparison requires the image run-shadow path")
     if args.force_shadow_runs and not args.shadow_runs:
         raise ValueError("forced run comparison requires --shadow-runs")
+    if args.sparse_probe and args.surface_samples is None:
+        raise ValueError("sparse sampling probe requires first-hit mode")
+    if args.surface_samples is not None and (args.ray_probe or args.footprint_order):
+        raise ValueError(
+            "first-hit comparison requires its paired fixed-spatial-ray controls"
+        )
     if args.footprint_order and (
         args.ray_probe or args.paired_exact or args.force_shadow_runs
     ):
@@ -322,6 +420,9 @@ def run(args):
         preparation_seconds = time.perf_counter() - started
         report, arrays = compare(parent, resolved, args)
     np.savez_compressed(args.output / "linear.npz", **arrays)
+    report["sparse_first_hit_probe"] = (
+        sparse_first_hit_probe(parent) if args.sparse_probe else []
+    )
     report.update(
         head=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         working_tree_dirty=bool(
@@ -355,6 +456,9 @@ if __name__ == "__main__":
     parser.add_argument("--shadow-runs", action="store_true")
     parser.add_argument("--force-shadow-runs", action="store_true")
     parser.add_argument("--paired-exact", action="store_true")
+    parser.add_argument("--surface-samples", type=int, choices=range(1, 513))
+    parser.add_argument("--surface-seed", type=int, default=1113)
+    parser.add_argument("--sparse-probe", action="store_true")
     parser.add_argument("--footprint-order", type=int, choices=range(1, 17))
     parser.add_argument(
         "--reference-samples", type=int, choices=range(1, 65), default=16
