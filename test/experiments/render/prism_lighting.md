@@ -180,7 +180,7 @@ switch remain red. No view/content/profile/budget condition was weakened.
 Prior source/algorithm assumptions belong to `roof_prisms.md`,
 `prepared_surface_recipes.md` and `attributed_prisms.md`. SIGGRAPH2000 *Relief
 Texture Mapping* was read, including its displacement/parallax discussion and
-page2 diagram/equation; it explains why shading alone cannot recover displaced
+page1 figures and page2 equation; it explains why shading alone cannot recover displaced
 visibility. This implementation uses existing convex clipping, not that paper's
 texture warp. No third-party code or photo textures were copied.
 
