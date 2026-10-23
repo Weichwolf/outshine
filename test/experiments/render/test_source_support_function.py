@@ -1,6 +1,7 @@
 """Closed contour/height support and bound pruning, independent of render pixels."""
 
 import unittest
+from itertools import product
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -126,6 +127,27 @@ class SupportFunctionTest(unittest.TestCase):
         actual, _ = values(compiled, [[2, 1, 1]])
         self.assertAlmostEqual(actual[0], 0)
 
+    def test_steep_roof_residual_is_normalized_to_world_distance(self):
+        compiled = compile_surfaces(
+            [
+                surface(
+                    [
+                        shape(
+                            roof_kind=3,
+                            rise_m=20,
+                            centre=[1, 1],
+                            axis_u=[1, 0],
+                            half_v_m=1,
+                        )
+                    ]
+                )
+            ]
+        )
+        point = np.array([1.0, 1.0, 12.0])
+        normal = np.array([0.0, -10.0, 1.0]) / np.sqrt(101)
+        actual, _ = values(compiled, [point + 0.25 * normal, point - 0.25 * normal])
+        np.testing.assert_allclose(actual, [0.25, -0.25], atol=1e-12, rtol=1e-12)
+
     def test_affine_source_frame_and_world_lipschitz_bound(self):
         frame = np.array([[2, 0, 0], [0, 1, 0], [0.25, 0, 1.5]])
         compiled = compile_surfaces(
@@ -179,12 +201,22 @@ class SupportFunctionTest(unittest.TestCase):
 
 
 class SupportRangeTest(unittest.TestCase):
-    def test_adaptive_control_keeps_an_unsampled_thin_source_unresolved(self):
+    def test_all_corner_misses_keep_a_contained_source_unresolved(self):
         from probe_source_support import adaptive_frontier
 
-        thin = shape(ring=[[0.01, 0.01], [0.02, 0.01], [0.02, 0.02], [0.01, 0.02]])
+        thin = shape(
+            ring=[[0.01, 0.01], [0.02, 0.01], [0.02, 0.02], [0.01, 0.02]],
+            sole_m=0.25,
+            eaves_m=0.75,
+        )
         support = compile_surfaces([surface([thin])])[0]
         root = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
+        corners = np.array(list(product([0, 1], repeat=3)), float)
+        outside, _ = sample_support(support, np.r_[corners, [[0.5] * 3]])
+        self.assertTrue((outside > 0).all())
+        point = np.array([0.015, 0.015, 0.51])
+        inside, _ = sample_support(support, point[None])
+        self.assertLess(inside[0], 0)
         with TemporaryDirectory(prefix="outshine-tests.source-support.") as directory:
             output = Path(directory)
             adaptive_frontier(support, root, output)
@@ -192,7 +224,6 @@ class SupportRangeTest(unittest.TestCase):
                 boxes, states = data["bounds"], data["states"]
                 volume = np.prod(boxes[:, 1] - boxes[:, 0], axis=1).sum()
                 self.assertAlmostEqual(volume, 1)
-                point = np.array([0.015, 0.015, 0.51])
                 covered = ((point >= boxes[:, 0]) & (point <= boxes[:, 1])).all(axis=1)
                 self.assertEqual(covered.sum(), 1)
                 self.assertEqual(states[covered][0], 0)
