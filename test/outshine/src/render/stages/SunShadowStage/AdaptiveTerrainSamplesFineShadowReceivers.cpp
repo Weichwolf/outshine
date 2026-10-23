@@ -126,7 +126,10 @@ int main() {
     if (!scene) { return Report(); }
     const bool placed = PlaceTerrain(renderer, error);
     CHECK(placed, "the independent fine caster is complete");
-    if (!placed) { return Report(); }
+    if (!placed) {
+      std::println(stderr, "terrain receiver setup: {}", error);
+      return Report();
+    }
     auto eye = Viewpoint::LookAt({.EyeM = {{0, kEyeHeightM, kEyeHeightM}}, .AimM = {{0, 0, 0}}}, 0);
     CHECK(eye.has_value(), "the downward camera has a valid frame");
     if (!eye) { return Report(); }
