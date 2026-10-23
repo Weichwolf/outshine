@@ -19,6 +19,7 @@ int main() {
   footprints.SeenWith({.FocalPx = 720.0});
   footprints.TilesSpan(2400.0);
   const StructureBuildQueue::BakeRevision revision{.Vectors = vectors.Generation(),
+                                                   .HeightSource = {},
                                                    .Projection = footprints.Projection(),
                                                    .TileSpanM = footprints.TileSpanM(),
                                                    .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
@@ -34,6 +35,7 @@ int main() {
         "another candidate cannot release the stale bake's footprint reservation");
   const StructureBuildQueue::BakeRevision fallbackRevision{
       .Vectors = vectors.Generation(),
+      .HeightSource = {},
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
@@ -73,6 +75,7 @@ int main() {
       "camera movement cannot strand a discarded bake's footprint reservation");
   const StructureBuildQueue::BakeRevision sourceRevision{
       .Vectors = vectors.Generation(),
+      .HeightSource = {},
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
@@ -101,6 +104,7 @@ int main() {
         "source qualification still rejects a changed height snapshot");
   const StructureBuildQueue::BakeRevision explicitRevision{
       .Vectors = vectors.Generation(),
+      .HeightSource = {},
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
@@ -154,6 +158,7 @@ int main() {
   footprints.TilesSpan(2400.0);
   const StructureBuildQueue::BakeRevision vectorRevision{
       .Vectors = vectors.Generation(),
+      .HeightSource = {},
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};

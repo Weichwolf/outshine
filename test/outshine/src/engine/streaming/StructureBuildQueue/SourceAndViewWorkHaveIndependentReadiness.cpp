@@ -218,6 +218,40 @@ int main() {
   auto otherOwner = prints.SnapshotAccepted();
   CHECK(otherOwner.SourceRefinementComplete() && !queue.SourcesComplete(stack, otherOwner),
         "a view task with a different reservation owner cannot certify a source snapshot");
+  const auto accepted = *prints.InputOfTile(0);
+  const auto products = prints.PinProducts();
+  const Generators::Osm::BuildingField::Baked physicalInput{
+      .Coordinates = accepted.Coordinates,
+      .Prints = products.front().Physical->Prints,
+      .SeatSpreadM = products.front().Physical->SeatSpreadM,
+      .AcrossM = products.front().Physical->AcrossM,
+      .OccupiedCells = accepted.OccupiedCells,
+      .CellBounds = accepted.CellBounds,
+      .CellMaxHeightM = accepted.CellMaxHeightM,
+      .CellShellErrorM = accepted.CellShellErrorM};
+  const auto replaceInput = [&](bool qualified, Generators::Osm::BuildingField::BakeInputs bake) {
+    prints.ReplaceAcceptance(prints.PrepareAcceptance(0,
+                                                      physicalInput,
+                                                      accepted.Sources,
+                                                      qualified,
+                                                      accepted.Vector,
+                                                      std::move(bake),
+                                                      accepted.HeightRevision,
+                                                      accepted.Heights),
+                             physicalInput);
+  };
+  auto changedHeight = accepted.Bake;
+  changedHeight.HeightRasterDigest ^= 1;
+  replaceInput(true, std::move(changedHeight));
+  CHECK(prints.InputOfTile(0)->SourceKey != accepted.SourceKey &&
+            !queue.SourcesComplete(stack, prints),
+        "pending view work cannot certify changed physical height content");
+  replaceInput(false, accepted.Bake);
+  CHECK(!queue.SourcesComplete(stack, prints),
+        "a view task cannot certify an unqualified accepted input");
+  replaceInput(true, accepted.Bake);
+  CHECK(queue.SourcesComplete(stack, prints),
+        "restoring the exact qualified source restores only physical readiness");
   queue.Clear();
   CHECK(queue.SourcesComplete(stack, prints) && !queue.Complete(stack, prints, eye, missingView),
         "discarding view work preserves physical inputs and leaves the view explicitly pending");

@@ -88,8 +88,10 @@ int main() {
                       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Tasks sourceCompute(1);
   SurfacePreparation stack;
-  const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.string()},
+  Data::SourceProvider terrainProvider;
+  terrainProvider.Kind = "terrain";
+  const std::array providers{terrainProvider};
+  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.string(), .AssetCache = {}},
                    providers,
                    eye,
                    wire,
