@@ -38,10 +38,27 @@ void HighestDomainBit() {
           "the highest explicitly selected domain can own the shared variable");
   }
 }
+
+void PortHolesRemainSeparate() {
+  const std::array ports{
+      SurfaceHeightPort{.Region = {.Rings = {{{-1, -1}, {5, -1}, {5, 5}, {-1, 5}},
+                                             {{-.5, -.5}, {-.5, .5}, {.5, .5}, {.5, -.5}}}},
+                        .Domains = {0, 1}}};
+  const auto joined = BuildSurfaceHeightTopology(ThreeLevels(), 3, ports, 0);
+  CHECK(joined && joined->Points.size() == 7 && joined->Work.Joins == 2,
+        "a port hole excludes its vertex while other qualified vertices still join");
+  if (joined) {
+    const auto a = joined->Sources[0].Faces[0];
+    const auto b = joined->Sources[1].Faces[0];
+    CHECK(a[0] != b[0] && a[1] == b[1] && a[2] == b[2],
+          "the hole preserves independent source heights rather than filling the whole port box");
+  }
+}
 }
 
 int main() {
   HighestDomainBit();
+  PortHolesRemainSeparate();
   const auto mesh = ThreeLevels();
   const auto separate = BuildSurfaceHeightTopology(mesh, 3, {}, 0);
   CHECK(separate && separate->Points.size() == 9 && separate->Sources.size() == 3,
