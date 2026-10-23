@@ -311,6 +311,7 @@ TestProfile() {
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
     outshine/src/base/spatial/PlanarStationMesh) printf '%s' 'profile/planar-stations' ;;
+    outshine/integration/transport/SurfaceHeightProgram) printf '%s' 'profile/road-height-program' ;;
     outshine/src/base/math/SparseMatrix) printf '%s' 'profile/sparse-matrix' ;;
     outshine/integration/transport/StationHeightTopology) printf '%s' 'profile/station-heights' ;;
     outshine/src/generators/road/SurfaceHeightTopology) printf '%s' 'profile/road-surface' ;;
@@ -383,6 +384,7 @@ LayerIncludes() {
     profile/stage-pipelines) GroupIncludes src/render/stages ;;
     profile/client-boundary) printf '%s' '-I.' ;;
     profile/planar-stations) GroupIncludes src/base/spatial ;;
+    profile/road-height-program) GroupIncludes src/generators/road/surface ;;
     profile/sparse-matrix) GroupIncludes src/base/math ;;
     profile/road-surface|profile/station-heights) GroupIncludes src/generators/road/surface ;;
     profile/footpath-plan) GroupIncludes src/generators/road/plan ;;
@@ -516,6 +518,7 @@ LayerLibraryLink() {
     profile/calibration|profile/stage-pipelines|profile/prism-native) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
     profile/planar-stations) return 0 ;;
+    profile/road-height-program) pkg-config --libs geos; HighsFlags --libs ;;
     profile/sparse-matrix) return 0 ;;
     profile/road-surface|profile/station-heights) pkg-config --libs geos ;;
     profile/footpath-plan) return 0 ;;
@@ -601,8 +604,9 @@ LayerGroups() {
     profile/building-measurements) printf '%s' 'src/generators/osm/fields/BuildingField.cpp src/generators/osm/fields/BuildingFieldProducts.cpp src/engine/BuildingFootprintMeasurements.cpp' ;;
     profile/planar-stations) printf '%s' 'src/base/spatial/PlanarStationMesh.cpp src/base/spatial/PlanarStationCuts.cpp' ;;
     profile/sparse-matrix) return 0 ;;
-    profile/road-surface) printf '%s' 'src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanHierarchy.cpp src/generators/road/surface' ;;
-    profile/station-heights) printf '%s' 'src/base/spatial/PlanarStationMesh.cpp src/base/spatial/PlanarStationCuts.cpp src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanHierarchy.cpp src/generators/road/surface' ;;
+    profile/road-height-program) printf '%s' 'src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanHierarchy.cpp src/generators/road/surface/SurfaceHeightProgram.cpp src/generators/road/surface/SurfaceHeightInput.cpp src/generators/road/surface/SurfaceHeightGeometry.cpp src/generators/road/surface/SurfaceHeightContacts.cpp src/generators/road/surface/SurfaceHeightGrades.cpp src/generators/road/surface/SurfaceHeightJunctions.cpp src/generators/road/surface/SurfaceHeightProjection.cpp src/generators/road/surface/SurfaceHeightOrder.cpp src/generators/road/profile' ;;
+    profile/road-surface) printf '%s' 'src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanHierarchy.cpp src/generators/road/surface/SurfaceHeightTopology.cpp src/generators/road/surface/SurfaceHeightPorts.cpp' ;;
+    profile/station-heights) printf '%s' 'src/base/spatial/PlanarStationMesh.cpp src/base/spatial/PlanarStationCuts.cpp src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanHierarchy.cpp src/generators/road/surface/SurfaceHeightTopology.cpp src/generators/road/surface/SurfaceHeightPorts.cpp' ;;
     profile/footpath-plan) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/road/plan' ;;
     profile/road-profile) printf '%s' 'src/generators/road/profile' ;;
     profile/client-shots) printf '%s' '' ;;
