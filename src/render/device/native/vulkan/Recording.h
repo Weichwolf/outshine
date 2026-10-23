@@ -76,15 +76,12 @@ private:
     VkAccessFlags2 Access = 0;
   };
 
-  struct ImageAccess {
-    VkPipelineStageFlags2 Stage = 0;
-    VkAccessFlags2 Access = 0;
-    VkImageLayout Layout = VK_IMAGE_LAYOUT_GENERAL;
-  };
+  using ImageAccess = ImageReadScope::Access;
 
   struct TrackedImage {
     std::shared_ptr<ImageState> Image;
     std::vector<VkImageLayout> Layouts;
+    ImageReadScope Read{};
   };
 
   [[nodiscard]] Result<TrackedImage *> TrackImage(const std::shared_ptr<ImageState> &image,
@@ -93,6 +90,7 @@ private:
   [[nodiscard]] Result<void> Hold(const std::shared_ptr<BufferState> &buffer);
   [[nodiscard]] Result<void>
   UseImage(const std::shared_ptr<ImageState> &image, TextureView view, ImageAccess access);
+  void ForgetImageRead(const ImageState &image) noexcept;
   [[nodiscard]] Result<VkDescriptorImageInfo> BindImage(const ShaderBinding &declared,
                                                         const Binding &binding,
                                                         const PipelineState &pipeline,
