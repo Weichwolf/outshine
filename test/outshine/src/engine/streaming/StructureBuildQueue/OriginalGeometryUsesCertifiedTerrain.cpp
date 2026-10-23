@@ -60,7 +60,8 @@ int main() {
                         .SouthDeg = 49.327399,
                         .EastDeg = 8.565901,
                         .NorthDeg = 49.327401}},
-          .Chunks = {{.PayloadSha256 = std::string(64, 'a'), .PinVerified = true}}});
+          .Chunks = {
+              {.Location = {}, .PayloadSha256 = std::string(64, 'a'), .PinVerified = true}}});
   SilentSink sink;
   Data::OfflineTransport wire;
   const auto cache = std::filesystem::temp_directory_path() /
@@ -163,7 +164,7 @@ int main() {
       (void)queue.AwaitSlice(0.02);
     }
   }
-  CHECK(landed && queue.SourcesComplete(stack, prints) && prints.Footprints().size() == 2,
+  CHECK(landed && queue.SourcesComplete(stack, prints) && prints.FootprintCount() == 2,
         "complete native objects publish without a vector tile watermark");
   if (!landed) { return Report(); }
   const auto *accepted = prints.InputOfTile(0);
@@ -189,7 +190,9 @@ int main() {
   bool stamped = false;
   for (int attempt = 0; attempt < 100 && !stamped; ++attempt) {
     auto ready = stamping.Advance({.Products = &prints,
-                                   .Footprints = prints.Footprints(),
+                                   .Footprints = {},
+                                   .Points = {},
+                                   .Rings = {},
                                    .VectorGeneration = prints.Revision(),
                                    .UnitsMost = 1});
     CHECK(ready.has_value(), "native footprints reach the existing terrain stamp job");
@@ -212,8 +215,8 @@ int main() {
   CHECK(empty.has_value(), "replacement source explicitly contains no buildings");
   if (!empty) { return Report(); }
   auto emptySource = std::make_shared<outshine::Generators::Osm::SourceSnapshot>(
-      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*empty),
-                                                .Coverage = source->Coverage});
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*empty), .Coverage = source->Coverage, .Chunks = {}});
   bool replacementPrepared = false;
   for (int attempt = 0; attempt < 100 && !replacementPrepared; ++attempt) {
     const auto ready =
@@ -253,7 +256,7 @@ int main() {
       (void)queue.AwaitSlice(0.02);
     }
   }
-  CHECK(replaced && prints.Footprints().empty() && queue.SourcesComplete(stack, prints),
+  CHECK(replaced && (prints.FootprintCount() == 0) && queue.SourcesComplete(stack, prints),
         "empty revision removes obsolete buildings without retaining stale geometry");
   std::error_code error;
   std::filesystem::remove_all(cache, error);

@@ -22,7 +22,9 @@ int main() {
                                                    .HeightSource = {},
                                                    .Projection = footprints.Projection(),
                                                    .TileSpanM = footprints.TileSpanM(),
-                                                   .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
+                                                   .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                                   .EyeEcef = {},
+                                                   .RequestedDetail = {}};
   CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "posted bake inputs still match");
   CHECK(revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
@@ -39,6 +41,8 @@ int main() {
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .EyeEcef = {},
+      .RequestedDetail = {},
       .FallbackHeights = true};
   CHECK(fallbackRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "playable accepts fallback heights");
@@ -79,6 +83,8 @@ int main() {
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .EyeEcef = {},
+      .RequestedDetail = {},
       .Purpose = StructureBuildQueue::BuildPurpose::SourceGeometry};
   CHECK(sourceRevision.Matches(vectors,
                                footprints,
@@ -108,6 +114,7 @@ int main() {
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .EyeEcef = {},
       .RequestedDetail = LevelOfDetail::Shell};
   CHECK(explicitRevision.Matches(vectors,
                                  footprints,
@@ -161,7 +168,9 @@ int main() {
       .HeightSource = {},
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
-      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
+      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .EyeEcef = {},
+      .RequestedDetail = {}};
   CHECK(vectorRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "declared vector source still matches");
   vectors.Declare(noFeatures, {.X = 19, .Y = 27});

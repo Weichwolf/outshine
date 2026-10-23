@@ -60,7 +60,8 @@ int main() {
                         .SouthDeg = 49.327399,
                         .EastDeg = 8.565901,
                         .NorthDeg = 49.327401}},
-          .Chunks = {{.PayloadSha256 = std::string(64, 'a'), .PinVerified = true}}});
+          .Chunks = {
+              {.Location = {}, .PayloadSha256 = std::string(64, 'a'), .PinVerified = true}}});
   auto relationElements = outshine::Generators::Osm::XmlReader::Read(
       R"(<osm version="0.6">
     <node id="1" lat="49.32739" lon="8.56589"/>
@@ -77,8 +78,8 @@ int main() {
         "neighbor includes the same elements and a consuming relation");
   if (!relationElements) { return Report(); }
   auto neighbor = std::make_shared<outshine::Generators::Osm::SourceSnapshot>(
-      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*relationElements),
-                                                .Coverage = source->Coverage});
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*relationElements), .Coverage = source->Coverage, .Chunks = {}});
   const std::array<std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot>, 2> sources{
       source, neighbor};
   SilentSink sink;
@@ -188,7 +189,7 @@ int main() {
     CHECK(landed, "cell product lands within the bounded wait");
     if (!landed) { return Report(); }
   }
-  CHECK(queue.SourcesComplete(stack, prints) && prints.Footprints().size() == 2,
+  CHECK(queue.SourcesComplete(stack, prints) && prints.FootprintCount() == 2,
         "cross-cell duplicates and consumed member ways produce exactly two buildings");
   const auto *first = prints.InputOfTile(0);
   const auto *next = prints.InputOfTile(1);
@@ -223,7 +224,9 @@ int main() {
   bool stamped = false;
   for (int attempt = 0; attempt < 100 && !stamped; ++attempt) {
     auto ready = stamping.Advance({.Products = &prints,
-                                   .Footprints = prints.Footprints(),
+                                   .Footprints = {},
+                                   .Points = {},
+                                   .Rings = {},
                                    .VectorGeneration = prints.Revision(),
                                    .UnitsMost = 1});
     CHECK(ready.has_value(), "native footprints reach the existing terrain stamp job");
@@ -282,7 +285,7 @@ int main() {
   }
   first = prints.InputOfTile(0);
   next = prints.InputOfTile(1);
-  CHECK(queue.SourcesComplete(stack, prints) && prints.Footprints().size() == 2 && first && next &&
+  CHECK(queue.SourcesComplete(stack, prints) && prints.FootprintCount() == 2 && first && next &&
             first->Coordinates->Sources.size() == 2 && next->Coordinates->Sources.empty(),
         "unchanged first snapshot regains the body; the duplicate neighbor publishes an empty "
         "product");
@@ -326,7 +329,7 @@ int main() {
     if (!rejected) { (void)queue.AwaitSlice(0.02); }
   }
   CHECK(rejected && prints.Revision() == publishedRevision &&
-            queue.SourcesComplete(stack, prints) && prints.Footprints().size() == 2,
+            queue.SourcesComplete(stack, prints) && prints.FootprintCount() == 2,
         "contradictory overlap rejects the whole candidate and preserves the accepted world");
   std::error_code error;
   std::filesystem::remove_all(cache, error);
