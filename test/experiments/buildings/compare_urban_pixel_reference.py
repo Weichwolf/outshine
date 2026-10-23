@@ -46,8 +46,24 @@ def accumulate_work(total, counts):
             total[key] = total.get(key, 0) + value
 
 
-def composed_scene(parent, resolved, profile, state, foreground_fraction):
+def opaque_background(parent, origins, directions, profile, stop, **kwargs):
+    """Zero unknown-parent contribution; keep mixed()'s actual opaque receiver."""
+    return (
+        np.zeros_like(origins),
+        np.ones(len(origins)),
+        np.ones(len(origins)),
+        {"opaque_background_rays": len(origins)},
+    )
+
+
+def composed_scene(
+    parent, resolved, profile, state, foreground_fraction, *, component="complete"
+):
+    if component not in {"complete", "correction", "background"}:
+        raise ValueError("complete, correction or background component required")
     if state == "resolved":
+        if component != "complete":
+            raise ValueError("Ready state required for background/correction")
         return None
     from compare_urban_layers import layer_states, mixed
 
@@ -59,6 +75,9 @@ def composed_scene(parent, resolved, profile, state, foreground_fraction):
     _, child, caster, view_region, caster_region, foreground = matches[0]
 
     def query(origins, directions):
+        options = {"correction_only": component == "correction"}
+        if component == "background":
+            options["layer_query"] = opaque_background
         rgb, work = mixed(
             parent,
             origins,
@@ -70,6 +89,7 @@ def composed_scene(parent, resolved, profile, state, foreground_fraction):
             caster_region,
             foreground,
             foreground_fraction=foreground_fraction,
+            **options,
         )
         # Complete RGB includes the opaque ground/environment. This channel is
         # unused; it is not the resolved-only child-hit coverage diagnostic.
@@ -129,6 +149,65 @@ def integrate(resolved, view, box, profile, args, *, scene_query=None):
     )
 
 
+def integrate_control(
+    resolved, view, box, profile, args, correction_query, background_query
+):
+    if not (
+        type(args.samples) is int
+        and type(args.background_samples) is int
+        and 1 <= args.samples <= args.background_samples <= 128
+        and args.state in STATES[1:]
+    ):
+        raise ValueError(
+            "bounded background density at least correction density required"
+        )
+    phase_args = argparse.Namespace(**(vars(args) | {"trace_memory": False}))
+    if args.trace_memory:
+        tracemalloc.start()
+    started = time.perf_counter()
+    peak = None
+    try:
+        if args.state == "all_ready":
+            width, height = np.asarray(box)[1] - np.asarray(box)[0]
+            delta = np.zeros((height, width, 3))
+            correction_work = {
+                "integration_seconds": 0.0,
+                "scene_seconds": 0.0,
+                "pixel_work": {"rays": 0},
+                "explicit_full_ready_zero_correction_pixels": int(width * height),
+            }
+        else:
+            delta, _, correction_work = integrate(
+                resolved, view, box, profile, phase_args, scene_query=correction_query
+            )
+        phase_args.samples = args.background_samples
+        background, _, background_work = integrate(
+            resolved, view, box, profile, phase_args, scene_query=background_query
+        )
+        rgb = background + delta
+    finally:
+        if args.trace_memory:
+            peak = tracemalloc.get_traced_memory()[1]
+            tracemalloc.stop()
+    seconds = time.perf_counter() - started
+    if not np.isfinite(rgb).all():
+        raise ValueError("finite composed control image required")
+    return (
+        rgb,
+        {"background": background, "correction": delta},
+        {
+            "integration_seconds": seconds,
+            "scene_seconds": correction_work["scene_seconds"]
+            + background_work["scene_seconds"],
+            "integration_traced_peak_B": peak,
+            "process_peak_after_integration_B": rss_bytes(),
+            "correction_phase": correction_work,
+            "background_phase": background_work,
+            "method": "dense background plus signed coarse correction",
+        },
+    )
+
+
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--parent", type=Path, required=True)
@@ -145,6 +224,7 @@ def arguments():
     parser.add_argument("--trace-memory", action="store_true")
     parser.add_argument("--state", choices=STATES, default="resolved")
     parser.add_argument("--foreground-fraction", type=float, default=0.75)
+    parser.add_argument("--background-samples", type=int)
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -153,6 +233,11 @@ def arguments():
         parser.error("fresh output directory required")
     if not 0 <= args.foreground_fraction <= 1:
         parser.error("foreground fraction must be in [0,1]")
+    if args.background_samples is not None and (
+        args.state == "resolved"
+        or not 1 <= args.samples <= args.background_samples <= 128
+    ):
+        parser.error("Ready state and 1 <= correction <= background <= 128 required")
     args.output = output
     return args
 
@@ -178,15 +263,38 @@ def main():
     if np.any(box < 0) or np.any(box > [1280, 720]) or np.any(box[1] <= box[0]):
         raise ValueError("nonempty pixel ROI inside 1280x720 required")
     query = composed_scene(
-        parent, resolved, profile, args.state, args.foreground_fraction
+        parent,
+        resolved,
+        profile,
+        args.state,
+        args.foreground_fraction,
+        component="complete" if args.background_samples is None else "correction",
+    )
+    background_query = (
+        composed_scene(
+            parent,
+            resolved,
+            profile,
+            args.state,
+            args.foreground_fraction,
+            component="background",
+        )
+        if args.background_samples is not None
+        else None
     )
     preparation_seconds = time.perf_counter() - started
     prepared_peak = rss_bytes()
-    rgb, alpha, measured = integrate(
-        resolved, view, box, profile, args, scene_query=query
-    )
+    if background_query is None:
+        rgb, alpha, measured = integrate(
+            resolved, view, box, profile, args, scene_query=query
+        )
+        arrays = {}
+    else:
+        rgb, arrays, measured = integrate_control(
+            resolved, view, box, profile, args, query, background_query
+        )
     args.output.mkdir(parents=True, exist_ok=True)
-    arrays = {args.state: rgb}
+    arrays[args.state] = rgb
     if args.state == "resolved":
         arrays["coverage"] = alpha
         Image.fromarray(np.uint8(np.rint(alpha * 255))).save(
@@ -211,6 +319,9 @@ def main():
         "trace_memory": args.trace_memory,
         "state": args.state,
         "foreground_fraction": args.foreground_fraction,
+        "background_samples_per_axis": args.background_samples,
+        "linear_rgb_min": float(rgb.min()),
+        "negative_linear_rgb_channels": int(np.count_nonzero(rgb < 0)),
         "coverage_semantics": "resolved child hits" if query is None else None,
         "preparation_seconds": preparation_seconds,
         "process_peak_after_preparation_B": prepared_peak,
@@ -222,6 +333,8 @@ def main():
             "Complete composed RGB per ray, pixel box average; resolved-only "
             "state also records child-hit coverage. Mixed states requery all "
             "stops/normals/casters per ray and compose before averaging. "
+            "Optional control integration adds a dense physical background to "
+            "signed coarse D without clamping; both phases and total cost count. "
             "flat ENU original field, offline ROI of 1280x720. Seed/density "
             "differences are observed uncertainty, not certified error bounds. "
             "Preparation/storage/PNG outside integration; traced peak excludes "
