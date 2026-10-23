@@ -30,94 +30,136 @@ child cells. The filtered signed correction to a preserved opaque baseline is
 C/T/S. Full readiness gives D=0 and bypasses parent traversal. Native World bounds,
 terrain/curvature, original-height evidence and readiness remain #1102.
 
-## Current step: bounded dense pixel references
+## Current step: jointly integrate deterministic Ready composition
 
-The source-resolution comparison changed sign between fixed4x4 and the earlier
-jittered16x16 reference at night/backlight. The earlier night16/32 discrepancy was
-0.053445. That uncertainty must be measured before choosing finer source products.
-Original pins, geometry, lighting and the default direct16 source compiler remain.
+The previous reference step left parent expectations at fixed4x4 camera rays.
+Those ray-grid errors must not be mistaken for a better source model or transition.
+The same direct16 parent, original resolved field, camera/lighting and six existing
+Ready/foreground states are now integrated at fixed8x8 and16x16 spatial strata.
+There is no added surface/CDF Monte Carlo, temporal history, changed geometry,
+source refresh, new material/shadow path or fading of known children.
 
-`render/pixel_reference.py` integrates complete linear RGB and coverage from camera
-and scene callbacks. It uses existing camera rays and opaque GGX/shadow evaluation,
-without averaging C/T/S separately or clamping signed RGB. Fixed strata use pixel
-centres within each subcell; optional jitter uses NumPy SeedSequence namespace4,
-absolute pixel(x,y) and the requested seed. Crop/packet changes preserve addresses.
-The two replicate seeds are independent; equal seed labels at different densities
-are not asserted independent. Pixel-box integration is an offline control, not a
-new reconstruction filter or exact geometric oracle.
+`compare_urban_pixel_reference.py --state` selects the existing complete composed
+RGB callback. Every node re-queries actual child/foreground stops, normals,
+materials and casters, then evaluates the joint C/T/S expression before averaging.
+Separately averaged T/S/background products are not equivalent. Camera/caster Ready
+regions remain independent, including known vacancies and complete Ready unions.
+The resolved-only default still records child-hit coverage; composed states save
+RGB only, not an invented child-coverage measurement. Their unused integrator
+channel is one for the already composed opaque ground/environment background.
+No dependency or native/world/cache change is introduced.
 
-Only one pixel's S² camera rays and one bounded packet are live. S is1..128 per
-axis and packet capacity1..8192; the CLI default is2048. The measured runs use8192.
-Reported logical storage is32P output bytes,56B packet bytes and48S² camera-output
-bytes; normalization/validation and scene temporaries are additional. A broadcast
-camera origin's logical size is not its allocated backing size. Packet copies are
-48 bytes/ray plus8 owner-index bytes/ray; these are explicit writes, not complete
-allocator traffic or physical memory-bandwidth measurements. Scene counters retain
-visits/tests and per-packet loop steps, whose sum depends on packet partitioning.
-The integrator itself requires only NumPy; this scene driver retains its existing
-render/import dependencies and loads the prepared original field outside queries.
+Work aggregation adds visits/tests/copies and query times across packets. Live
+array/conditioning peaks use maxima, not sums. Output buffers, per-pixel camera
+rays, packet copies and structural allocation counts retain the preceding bounded
+integrator contract; these are not total allocator or physical bandwidth counts.
+The original full field is an offline opponent, never a required fine build for
+the source-only parent compiler/consumer. Preparing inputs remains outside queries.
 
-Freeze `893160bf5`:174 focused tests pass in26.649s, including eight new analytic
-area/moment, signed-RGB, fixed-camera, crop/packet, bounded-query, empty/invalid and
-import-isolation controls. Full original-field fixed4 matches the previous stored
-RGB to2.67e-15. Fixed16 packet/whole-image RGB differs at most2.49e-14 and coverage
-is identical; trace instrumentation preserves both outputs.
+Freeze `78d9149d1`:177 focused tests terminal OK in26.242s. Three new tests include
+an anti-correlated T/S analytic case that fails separate filtering/clamping,
+comparison with direct existing per-ray composition in all seven modes, full-Ready
+opaque equivalence and parent/child-array immutability, plus real Ready-boundary
+crop/packet identity. Existing81-world, finite-stop, independent Ready, conditional
+shadow and source/cache tests remain. A pre-freeze original-field half-Ready fixed4 crosscheck reproduces
+the preceding result within2.67e-15. All36 density/state/light jobs terminate0;
+all36 new RGB PNGs are optically represented in three local comparison sheets.
 
-| Fixed16 night, same rays | Whole-image arrays | Packet8192 |
-| --- | ---: | ---: |
-| Uninstrumented integration s | 4.793 | 5.272 |
-| Separately traced temporary peak B | 190,150,816 | 5,502,867 |
-| Uninstrumented fresh-process peak RSS B | 372,822,016 | 132,636,672 |
-
-Traced peaks cover integration including scene temporaries, excluding imports and
-prepared input. Fresh-process RSS includes both; it is not an app/device budget.
-Uninstrumented times and separately instrumented peaks must not be conflated.
-One paired timing is descriptive, under shared-host load, not a speed guarantee.
-The packet path pays query/accumulation overhead; its benefit here is bounded
-memory for denser references, not fewer rays or a native/frame speedup.
-
-| Light | Seed RMSE16 | Seed RMSE32 | Seed RMSE64 | Old fixed4 vs64 seed mean |
-| --- | ---: | ---: | ---: | ---: |
-| day | 0.009585 | 0.004007 | 0.001557 | 0.028208 |
-| back | 0.011822 | 0.005694 | 0.002117 | 0.038833 |
-| night | 0.087215 | 0.036327 | 0.014662 | 0.263506 |
-
-At64, day/back query6,389,760 rays and night6,963,200. Camera-to-packet writes
-are306,708,480/334,233,600B plus51,118,080/55,705,600B owner indices. Query times
-are47.874..80.884s and fresh-process RSS133,677,056..136,007,680B. This includes
-per-pixel camera requests and complete shading; preparation and serialization are
-outside. Two output arrays and three packet buffers are allocated per integration;
-one normalized direction array is allocated per pixel. Camera/scene internals and
-total allocator counts are not captured by these structural counts.
-
-Each density/light has two independent seeds1113/1729 over the same complete ROI.
-Seed difference is observed disagreement, not a confidence interval or certified
-error bound; agreement of two seeds cannot exclude bias or rare bright features.
-There are18 terminal successful density runs and36 optically inspected RGB/coverage
-PNGs in three local sheets. Original247,731 masses in616x624 are preserved. These
-are projected ROIs inside1280x720 at240km/75,894.663844m, flat ENU, not curved-Earth
-World/native/Metal/Iris/p99 evidence. PNGs contain only the measured ROI.
-
-| Light, dense64 resolved seed mean | Model regions16 | Regions32 | Regions64 |
+| Light / state | Fixed4 RGB RMSE | Fixed8 | Fixed16 |
 | --- | ---: | ---: | ---: |
-| day | 0.022896 | 0.021514 | 0.020331 |
-| back | 0.016896 | 0.016840 | 0.016961 |
-| night | 0.133905 | 0.136133 | 0.139265 |
+| day / pending | 0.022896 | 0.018849 | 0.017574 |
+| day / half_view | 0.031308 | 0.026459 | 0.024748 |
+| day / half_caster | 0.030637 | 0.027373 | 0.025682 |
+| day / half_ready | 0.026402 | 0.017714 | 0.015068 |
+| day / all_ready | 0.028208 | 0.015358 | 0.010716 |
+| back / pending | 0.016896 | 0.011499 | 0.010359 |
+| back / half_view | 0.031051 | 0.022775 | 0.019964 |
+| back / half_caster | 0.025733 | 0.021702 | 0.020761 |
+| back / half_ready | 0.029924 | 0.015705 | 0.010953 |
+| back / all_ready | 0.038833 | 0.018440 | 0.011819 |
+| night / pending | 0.133905 | 0.105889 | 0.086854 |
+| night / half_view | 0.212506 | 0.203943 | 0.180386 |
+| night / half_caster | 0.148365 | 0.184677 | 0.165078 |
+| night / half_ready | 0.207658 | 0.150429 | 0.094022 |
+| night / all_ready | 0.263506 | 0.158283 | 0.090680 |
 
-The table re-evaluates existing complete categorical expectations at fixed4x4
-model rays against the mean of the two new64x64 resolved references. The model is
-not densely integrated here: remaining model spatial aliasing and height/recipe,
-correlation and readiness errors remain. No general source-resolution promotion,
-new learned model, material/night method, pin update or native port follows.
+All errors are complete pixel linear-RGB RMSE against the mean of the same two
+64x64 opaque-field references. This comparison uses the same physical scene:
+foreground has an additional plane and is excluded from bare-reference errors,
+while its geometry/requery/sampling controls and images remain. The all-Ready
+row is finite child-ray integration error, not missing/altered child geometry.
+Night full-Ready16 agrees with the previous original opaque fixed16 control to
+exactly zero; this does not imply convergence to the64 mean.
+Reference uncertainty is inherited: seed RGB disagreement at64 is0.001557 day,
+0.002117 back and0.014662 night. These are observed discrepancies, not certified
+bounds/confidence intervals. Remaining16-vs8 grid differences and reference error
+are not zero. The residual at16 is not an exact isolated model-error estimate.
 
-Previous source-area delivery `c431da988` / method pin
-[4c022df0b](https://github.com/Weichwolf/outshine/blob/4c022df0b/test/experiments/buildings/urban_parent_probe.md)
-retains all detailed attribution, costs and negatives: recursive GEOS clipping
-preserves source/provenance/recipe and64er images, with3.63x faster64er compilation;
-at16er it is slower. Direct16 remains default. Original inputs and raw evidence
-remain protected; source-only reproducibility and dense-reference uncertainty are
-separate concerns. Complete commands, hashes, timings, counters, comparisons and
-optical review: `/tmp/outshine-research-pixel-reference-893160bf5/receipt.json`.
+| Light / Ready change | Fixed4 jump RMSE | Fixed8 | Fixed16 |
+| --- | ---: | ---: | ---: |
+| day / pending->half_view | 0.030910 | 0.026979 | 0.026700 |
+| day / half_view->half_ready | 0.024339 | 0.021826 | 0.022004 |
+| day / half_caster->half_ready | 0.028527 | 0.023360 | 0.022664 |
+| day / half_ready->all_ready | 0.019388 | 0.012768 | 0.010747 |
+| back / pending->half_view | 0.028205 | 0.020881 | 0.018903 |
+| back / half_view->half_ready | 0.021451 | 0.018811 | 0.018914 |
+| back / half_caster->half_ready | 0.029642 | 0.021490 | 0.020552 |
+| back / half_ready->all_ready | 0.024792 | 0.011874 | 0.007447 |
+| night / pending->half_view | 0.225818 | 0.191458 | 0.166041 |
+| night / half_view->half_ready | 0.185551 | 0.127283 | 0.147929 |
+| night / half_caster->half_ready | 0.203779 | 0.141576 | 0.142335 |
+| night / half_ready->all_ready | 0.173802 | 0.062249 | 0.046609 |
+
+These are static image differences when readiness changes at fixed physical
+inputs/camera, not a qualified temporal animation. Stable8/16 jumps in day/back
+support a remaining representation mismatch; supersampling alone is not a qualified fix.
+Night must be assessed with its larger remaining quadrature/reference uncertainty.
+The exact observational identity is `(P4-R)^2 = (P16-R)^2 + (P4-P16)^2 + cross`,
+averaged over pixels/channels, with `cross=2*mean((P16-R)*(P4-P16))`. The terms are
+not independent error percentages. The night caster-only negative and cross-term
+cancellation remain in the full table; denser sampling is not uniformly better.
+
+| Light / state | Fixed8 integration s | Fixed16 s | Fixed16 process peak RSS B |
+| --- | ---: | ---: | ---: |
+| day / pending | 6.743 | 24.748 | 144,273,408 |
+| day / half_ready | 6.511 | 26.184 | 144,326,656 |
+| day / all_ready | 1.192 | 4.325 | 144,568,320 |
+| back / pending | 4.480 | 18.102 | 144,080,896 |
+| back / half_ready | 5.010 | 16.396 | 144,150,528 |
+| back / all_ready | 1.274 | 3.981 | 144,027,648 |
+| night / pending | 15.923 | 58.950 | 143,962,112 |
+| night / half_ready | 14.629 | 50.767 | 144,515,072 |
+| night / all_ready | 1.569 | 5.853 | 144,359,424 |
+
+At16, day/back query399,360 rays per state, night435,200. Camera packet writes
+are19,169,280/20,889,600B plus3,194,880/3,481,600B owner indices; all six states keep
+the same original247,731 masses in616x624. Work also records parent/child visits,
+height tests, shadow steps and array peaks. The unused alpha/output channel and
+all queries count. Peak RSS includes imports, prepared fields and native/NumPy
+allocations; it is neither isolated temporary memory nor an app/device budget.
+Shared host with foreign CPU builds/shader tools, no own broad tests/profiling or
+image processing during normal timings; single calls give descriptive costs.
+Fixed16 is a diagnostic reference/control, not a proposed real-time sampler.
+
+These projected ROIs inside1280x720 at flat ENU240km/75,894.663844m do not prove
+complete World frames, curvature, devices, p99 or a filtered temporal transition.
+Direct16 source and render defaults stay; all previous variants/negative cases are
+preserved. No automatic source-resolution promotion follows from these new data.
+Complete commands/input hashes, terminal logs, unclamped arrays, work/peaks,
+algebraic attribution and optical review:
+`/tmp/outshine-research-ready-pixels-78d9149d1/receipt.json`.
+
+The prior bounded opaque reference, equal-ray190MB->5.5MB temporary-memory control,
+independent seed/density evidence and limits remain in method pin
+[8b00c2b84](https://github.com/Weichwolf/outshine/blob/8b00c2b84/test/experiments/buildings/urban_parent_probe.md).
+Source clipping/provenance/compile-cost details remain in
+[4c022df0b](https://github.com/Weichwolf/outshine/blob/4c022df0b/test/experiments/buildings/urban_parent_probe.md).
+
+Next bounded candidate: reuse the existing signed correction D with a separately
+denser physical Ready-background baseline, at unchanged expensive parent-query
+count. Full readiness requires D=0; known children stay in the opaque baseline.
+Compare quality, total background/parent work and failure cases before selecting it.
+This is an experiment direction, not a new runtime/transition contract.
 
 ## Earlier controlled alternatives
 
@@ -126,6 +168,7 @@ versions; original inputs and referenced raw artifacts have not been removed.
 
 | Alternative | Result/limit | Detailed method |
 | --- | --- | --- |
+| Bounded opaque pixel reference | Same fixed rays with lower temporary memory; seed/density uncertainty and fixed4 parent limits | [8b00c2b84](https://github.com/Weichwolf/outshine/blob/8b00c2b84/test/experiments/buildings/urban_parent_probe.md) |
 | Recursive source areas | Same64er images,3.63x faster compilation;16er slower, no general resolution promotion | [4c022df0b](https://github.com/Weichwolf/outshine/blob/4c022df0b/test/experiments/buildings/urban_parent_probe.md) |
 | Absolute screen CDF addresses | Cropped/tiled queries share samples; static window artifact removed, higher memory and remaining temporal/model errors | [06bcac0e3](https://github.com/Weichwolf/outshine/blob/06bcac0e3/test/experiments/buildings/urban_parent_probe.md) |
 | Pixel-wise CDF coupling | Lower mean error in fixed-seed sets, negative seeds/time/memory cases; crop-relative streams | [05ea51345](https://github.com/Weichwolf/outshine/blob/05ea51345/test/experiments/buildings/urban_parent_probe.md) |
@@ -155,6 +198,9 @@ The source compiler runs before the independent resolved bake; subsequent probes
 consume only the saved parent. Choose fresh system-temp output directories.
 
 ```sh
+python -B -W error test/experiments/buildings/compare_urban_pixel_reference.py \
+  --parent "$PARENT_NPZ" --resolved "$RESOLVED_NPZ" --lighting night \
+  --state half_ready --samples 16 --batch 8192 --output /tmp/outshine-ready-pixels
 python -B -W error test/experiments/buildings/compare_urban_pixel_reference.py \
   --parent "$PARENT_NPZ" --resolved "$RESOLVED_NPZ" --lighting night \
   --samples 64 --seed 1113 --batch 8192 --output /tmp/outshine-dense-reference
