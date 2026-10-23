@@ -60,12 +60,16 @@ def compare(binary, source, output):
         check=True,
     )
     actual, metadata, surface_faces = read_output(output_path)
-    np.testing.assert_array_equal(actual.vertices.view(np.uint64), reference.vertices.view(np.uint64))
+    np.testing.assert_array_equal(
+        actual.vertices.view(np.uint64), reference.vertices.view(np.uint64)
+    )
     np.testing.assert_array_equal(actual.triangles, reference.triangles)
     np.testing.assert_array_equal(metadata[:, 1], families)
     if surface_faces != len(args[1]) or not (metadata[:, 0] < surface_faces).all():
         raise ValueError("every wall must retain its input surface-face owner")
-    float32_volume = audit_closed(Mesh(actual.vertices.astype(np.float32), actual.triangles))
+    float32_volume = audit_closed(
+        Mesh(actual.vertices.astype(np.float32), actual.triangles)
+    )
     native = json.loads(result.stdout)
     if min(native["volume_m3"], float32_volume) <= 0:
         raise ValueError("positive analytic and closed Float32 volume required")
@@ -101,7 +105,10 @@ def run(args):
                 levels=data["levels_m"],
             )
             sources.append(path)
-    cases = [compare(binary, path, args.output / f"case-{i}") for i, path in enumerate(sources)]
+    cases = [
+        compare(binary, path, args.output / f"case-{i}")
+        for i, path in enumerate(sources)
+    ]
     (args.output / "result.json").write_text(json.dumps(cases, indent=2) + "\n")
     print(json.dumps(cases, indent=2))
 
