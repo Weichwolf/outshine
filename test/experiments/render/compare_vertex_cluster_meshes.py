@@ -157,6 +157,12 @@ def errors(reference, candidate, width, height):
         "common_source_hit_max_normal_angle_degrees": float(angle.max())
         if len(angle)
         else None,
+        "common_source_hit_normal_angle_quantiles_degrees": np.quantile(
+            angle, [0, 0.5, 0.9, 0.99, 1]
+        ).tolist()
+        if len(angle)
+        else None,
+        "common_source_hit_normal_rays_above_one_degree": int((angle > 1).sum()),
     }
 
 

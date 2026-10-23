@@ -147,7 +147,7 @@ def cluster_mesh(positions, indices, *, method, radius=3.0):
         "positions": final,
         "indices": faces,
         "corner_swap": swap,
-        "input_vertex_map": vertex_map.astype(np.uint32),
+        "input_vertex_map": vertex_map.astype(index_type),
     }, {
         "method": method,
         "radius_m": radius,
