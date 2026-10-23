@@ -107,6 +107,7 @@ PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
     if (resident != ResidentBases_.end()) {
       if (resident->second.Record == record) {
         if (auto product = resident->second.Product.lock()) {
+          Cache_->UsePackage(record.Package);
           ++BasisResidentHits_;
           return RequestedBasis{.BaseKey = record.Parent, .Product = std::move(product)};
         }

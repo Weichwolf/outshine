@@ -127,6 +127,7 @@ public:
   /// @return Immutable owned lease, a miss or an error before publication to the caller.
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   Load(std::string_view key, size_t packageBytesMost) const;
+  void UsePackage(std::string_view packageKey) const;
   /// Return spatially filtered metadata without decoding products or reading their payloads.
   /// @param query Borrowed finite filters in the cache's common metric coordinate frame.
   /// @return Owned matching metadata or an error; result order is unspecified.
