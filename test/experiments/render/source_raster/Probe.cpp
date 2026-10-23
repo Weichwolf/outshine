@@ -1,5 +1,5 @@
 #include "Input.h"
-#include "../fixed_coverage/FixedPatch.h"
+#include "FixedPatch.h"
 #include "GpuSupport.h"
 #include "SpirvFile.h"
 #include "device/native/Device.h"
@@ -73,7 +73,7 @@ std::unique_ptr<N::GraphicsPipeline> Pipeline(N::Device &device,
 void Render(N::Device &device,
             const N::GraphicsPipeline &pipeline,
             const N::Buffer &quads,
-            N::Texture &depth,
+            const N::Texture &depth,
             uint32_t selected) {
   auto commands = Take(device.Begin());
   N::RenderPassDescription pass;
@@ -110,7 +110,7 @@ std::vector<float> Download(N::Device &device, const N::Texture &depth) {
   transfer.Region.Height = S::Side;
   Take(commands->Copy(depth, *buffer, transfer));
   Take(C::Finish(device, std::move(commands)));
-  auto mapped = Take(device.MapRead(*buffer, {.Bytes = DepthBytes}));
+  const auto mapped = Take(device.MapRead(*buffer, {.Bytes = DepthBytes}));
   std::vector<float> result(size_t{S::Side} * S::Side);
   std::memcpy(result.data(), mapped.data(), DepthBytes);
   Take(device.Unmap(*buffer));
@@ -202,7 +202,7 @@ Json Audit(std::span<const S::Quad> sources, std::span<const float> depth, uint3
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc != 5) { return 2; }
   uint32_t seed = 0;
   const std::string_view seedText(argv[2]);
@@ -220,10 +220,10 @@ int main(int argc, char **argv) {
   if (std::string_view(argv[4]) != "0" && std::string_view(argv[4]) != "1") { return 2; }
   const bool normalized = std::string_view(argv[4]) == "1";
   const auto sources = S::Generate(seed, normalized);
-  auto device = Take(N::CreateDevice({.Validation = true}));
-  auto quads = Upload(*device, sources);
-  auto pipeline = Pipeline(*device, output / "source.vert.spv");
-  auto target = Take(
+  const auto device = Take(N::CreateDevice({.Validation = true}));
+  const auto quads = Upload(*device, sources);
+  const auto pipeline = Pipeline(*device, output / "source.vert.spv");
+  const auto target = Take(
       device->CreateTexture({.Width = S::Side,
                              .Height = S::Side,
                              .Texels = N::Format::Depth32Float,

@@ -106,9 +106,14 @@ def main():
                 SOURCE / "Probe.cpp",
                 fixed / "FixedPatch.cpp",
             ),
-            cflags=shlex.split(
-                subprocess.check_output(["pkg-config", "--cflags", "gmp"], text=True)
-            ),
+            cflags=[
+                "-I" + str(fixed),
+                *shlex.split(
+                    subprocess.check_output(
+                        ["pkg-config", "--cflags", "gmp"], text=True
+                    )
+                ),
+            ],
             libraries=shlex.split(
                 subprocess.check_output(["pkg-config", "--libs", "gmp"], text=True)
             ),
@@ -145,7 +150,7 @@ def main():
         )
         shared.execute(
             [
-                "python3",
+                sys.executable,
                 SOURCE / "verify.py",
                 output,
                 "--output",
