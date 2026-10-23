@@ -26,6 +26,7 @@
 
 namespace {
 constexpr auto kCameraShiftDeg = 0.01;
+constexpr auto kViewWaitSliceS = 0.01;
 constexpr auto kWaitSliceS = 0.02;
 constexpr auto kAttemptBudget = 100;
 constexpr auto kTileSpanM = 1000;
@@ -92,7 +93,7 @@ void CheckViewReplacement(outshine::Ground::SurfacePreparation &stack,
   size_t posted = 0;
   for (int attempt = 0; attempt < kAttemptBudget && posted == 0; ++attempt) {
     posted += post();
-    if (posted == 0) { (void)queue.AwaitSlice(kCameraShiftDeg); }
+    if (posted == 0) { (void)queue.AwaitSlice(kViewWaitSliceS); }
   }
   CHECK(posted == 1 && queue.Queued() == 1,
         "missing view product requests replacement even when its physical source is unchanged");
@@ -106,7 +107,7 @@ void CheckViewReplacement(outshine::Ground::SurfacePreparation &stack,
     CHECK(next.has_value(), "stopped view replacement retains valid source and height inputs");
     if (!next) { return; }
     landed = std::move(*next);
-    if (landed.empty()) { (void)queue.AwaitSlice(kCameraShiftDeg); }
+    if (landed.empty()) { (void)queue.AwaitSlice(kViewWaitSliceS); }
   }
   CHECK(landed.size() == 1 && !landed.front().Footprints,
         "view replacement lands without replacing unchanged authoritative source contacts");
