@@ -72,6 +72,7 @@ def run(args):
     units = (
         "SurfaceHeightTopology.cpp",
         "SurfaceHeightPorts.cpp",
+        "SurfaceFlightPlan.cpp",
         "GeosPolygon.cpp",
         "PlanHierarchy.cpp",
     )

@@ -51,5 +51,7 @@ is reported, not redefined or used to weld these points. No tolerance is enlarge
 This station experiment still uses Python for flight selection, LP assembly and
 final body products. The separate native `BuildSurfaceHeightProgram` operator
 assembles the height model from prepared topology/recipes/junctions/flights and
-whole profiles (#1189); native planning and body/runtime integration remain open.
+whole profiles (#1189). `native_flight_plan.py` separately exercises native port/flight
+selection and the complete native cut/rebinding chain. Native 2D construction planning
+and body/runtime integration remain open.
 No runtime/cache/Places fix or frame-budget admission follows from either operator.

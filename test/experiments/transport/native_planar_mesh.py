@@ -37,6 +37,8 @@ def build_probe(output, *, units=UNITS, probe_source=None, libraries=()):
         argv = row.get("arguments") or shlex.split(row["command"])
         argv = list(argv)
         argv[argv.index(row["file"])] = str(source)
+        if source == sources[-1][1]:
+            argv.append("-I" + str(ROOT / "test/harness/spatial"))
         target = output / (source.stem + ".o")
         argv[argv.index("-o") + 1] = str(target)
         if "-MF" in argv:
