@@ -5,13 +5,8 @@ import itertools
 import numpy as np
 from source_field_probes import geometry_probes, sample_packets
 from source_support_function import sample_support
-from trilinear_support import CORNERS, evaluate
+from trilinear_support import CORNERS, EMPTY, LEAF, SOLID, UNKNOWN, evaluate
 
-EMPTY = 0
-SOLID = 1 << 29
-UNKNOWN = 1 << 30
-LEAF = 1 << 31
-PAYLOAD = (1 << 29) - 1
 GRID = np.array(list(itertools.product([0.0, 0.5, 1.0], repeat=3)))
 CORNER_IDS = np.array([0, 2, 6, 8, 18, 20, 24, 26])
 
@@ -157,6 +152,9 @@ class FieldBuilder:
         return {
             "root_low": self.low,
             "root_side": np.array(self.side),
+            "source_bounds": np.stack(
+                (self.boxes[:, 0].min(0), self.boxes[:, 1].max(0))
+            ),
             "tags": np.array(self.tags, np.uint32),
             "values": np.asarray(self.values, np.float32).reshape(-1, 8),
             "unknown_offsets": np.array(self.unknown_offsets, np.uint32),

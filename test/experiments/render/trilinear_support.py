@@ -7,6 +7,11 @@ import numpy as np
 CORNERS = np.array(list(itertools.product([0, 1], repeat=3)), float)
 ABSCISSA = np.linspace(0, 1, 4)
 POWER_INVERSE = np.linalg.inv(np.vander(ABSCISSA, 4, increasing=True))
+EMPTY = 0
+SOLID = 1 << 29
+UNKNOWN = 1 << 30
+LEAF = 1 << 31
+PAYLOAD = (1 << 29) - 1
 
 
 def evaluate(values, low, high, points):
@@ -81,7 +86,8 @@ def first_surface(values, low, high, origins, directions, near, far, axes, box_n
             out=np.zeros_like(gradient),
             where=magnitude[:, None] > 0,
         )
-    capped = np.flatnonzero(cap & ~interior)
+    strict_cap = (scalar[:, 0] < -1e-10) | (np.linalg.norm(normal, axis=1) == 0)
+    capped = np.flatnonzero(cap & ~interior & strict_cap)
     normal[capped] = 0
     normal[capped, axes[capped]] = -np.sign(directions[capped, axes[capped]])
     return (

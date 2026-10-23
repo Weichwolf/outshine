@@ -71,3 +71,11 @@ class TrilinearSupportTest(unittest.TestCase):
     def test_positive_constant_field_does_not_invent_a_surface(self):
         depth, _, _, _ = self.trace(np.full(8, 0.01), [[0.5, 0.5, 2]], [[0, 0, -1]])
         self.assertTrue(np.isinf(depth[0]))
+
+    def test_zero_on_a_box_face_uses_the_implicit_normal_when_defined(self):
+        values = CORNERS[:, 2] - 0.5 - CORNERS[:, 0]
+        depth, normal, _, _ = self.trace(values, [[-1, 0.3, 0.5]], [[1, 0, 0]])
+        np.testing.assert_allclose(depth, [1])
+        np.testing.assert_allclose(
+            normal, np.array([[-1, 0, 1]]) / np.sqrt(2), atol=1e-12
+        )
