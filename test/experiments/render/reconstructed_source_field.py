@@ -14,7 +14,13 @@ CORNER_IDS = np.array([0, 2, 6, 8, 18, 20, 24, 26])
 
 class FieldBuilder:
     def __init__(
-        self, support, *, max_nodes=4681, minimum_side=1.0, probe_offset=0.125
+        self,
+        support,
+        *,
+        max_nodes=4681,
+        minimum_side=1.0,
+        probe_offset=0.125,
+        observer=None,
     ):
         if (
             not 1 <= max_nodes <= 65535
@@ -25,6 +31,7 @@ class FieldBuilder:
                 "bounded field node budget and positive minimum side required"
             )
         self.support = support
+        self.observer = observer
         self.boxes, self.owners, probes = geometry_probes(support, offset=probe_offset)
         self.domain_slots = np.repeat(
             np.arange(len(support.source_ids)), np.diff(support.offsets)
@@ -156,6 +163,8 @@ class FieldBuilder:
                 and error <= max(1e-4, side * 0.05)
                 and signs_match
             )
+            if self.observer is not None:
+                self.observer(self, record, sampled, error, probe_value, reconstructed)
             if reconstructed:
                 self.tags[node] = LEAF | len(self.values)
                 self.values.append(values)
