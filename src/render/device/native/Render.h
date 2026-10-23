@@ -31,7 +31,7 @@ struct DepthAttachment {
 struct RenderPassDescription {
   std::span<const ColourAttachment> Colours;
   std::optional<DepthAttachment> Depth;
-  std::string_view Label{};
+  std::string_view Label{nullptr, 0};
 };
 
 struct Viewport {
