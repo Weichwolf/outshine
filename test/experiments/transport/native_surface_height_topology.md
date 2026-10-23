@@ -41,6 +41,9 @@ against the unchanged Python layout algorithm. Only its prepared geometry and
 landing inputs are injected at that operator boundary; the union algorithm stays
 unchanged. Stacked layers, ordered/transitive ports, highest domain bit, invalid
 input, cancellation and refusal budgets have separate native controls.
+The driver infers `--native-body` from its arrangement result, using the same
+actual cut-domain/port input for the Python comparison. It does not fall back to
+the initial uncropped source proposal. Height-profile equations remain separate.
 
 Reported output vector capacities and hierarchy storage describe those components;
 they are neither whole-process RAM nor summed simultaneous peak residency. GEOS

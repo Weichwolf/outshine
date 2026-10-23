@@ -85,7 +85,12 @@ def run(args):
         / "test/experiments/transport/NativeSurfaceHeightTopologyProbe.cpp",
         libraries=libraries,
     )
-    _reference, _raw, (rows, domains, masks, _kwargs) = original_layout()
+    native_body = json.loads((args.arrangement / "result.json").read_text()).get(
+        "native_body", False
+    )
+    _reference, _raw, (rows, domains, masks, _kwargs) = original_layout(
+        native_body=native_body
+    )
     _case, sources = inputs()
     proposal = plan_connections(sources)
     owners = {row["source_id"]: i for i, row in enumerate(rows)}
@@ -149,6 +154,7 @@ def run(args):
             exact_reference=True,
         )
     report = {
+        "native_body": native_body,
         "producer": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),

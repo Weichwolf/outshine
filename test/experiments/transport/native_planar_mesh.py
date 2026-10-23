@@ -43,7 +43,11 @@ def build_probe(output, *, units=UNITS, probe_source=None, libraries=()):
             argv[argv.index("-MF") + 1] = str(target.with_suffix(".d"))
         with (output / (source.stem + ".log")).open("w") as log:
             subprocess.run(
-                argv, cwd=row["directory"], stdout=log, stderr=log, check=True
+                ["nice", "-n", "10", *argv],
+                cwd=row["directory"],
+                stdout=log,
+                stderr=log,
+                check=True,
             )
         commands.append(
             {"directory": row["directory"], "file": str(source), "arguments": argv}

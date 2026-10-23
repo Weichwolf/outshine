@@ -9,6 +9,8 @@ from pathlib import Path
 
 import numpy as np
 import shapely
+from mvt_native_cut_profiles import cut_profiles
+from mvt_t_connection_inputs import FIXTURE
 from native_planar_mesh import ROOT, UNITS, build_probe
 from planar_layout_reference import hanging_pairs, original_layout
 from stair_junction_layout import cross_sections
@@ -137,6 +139,29 @@ def validate(xy, faces, owners, domains, constraints):
     return errors
 
 
+def validate_native_profiles(xy, faces, owners, rows, transform):
+    native = json.loads(
+        FIXTURE.with_name("mvt_stair_native_crosscuts.json").read_text()
+    )
+    profiles = cut_profiles(native)
+    by_source = {row["source_id"]: i for i, row in enumerate(rows)}
+    points = 0
+    for profile in profiles:
+        owner = by_source[profile["source_id"]]
+        used = np.unique(faces[owners[:, owner]])
+        actual = {tuple(point) for point in xy[used]}
+        required = transform(np.asarray(profile["profile_xyz_m"])[:, :2])
+        if any(tuple(point) not in actual for point in required):
+            raise ValueError(
+                "an immutable native outer-profile vertex lost exact source ownership"
+            )
+        points += len(required)
+    return {
+        "fixed_native_profiles": len(profiles),
+        "exact_outer_profile_vertices": points,
+    }
+
+
 def run(args):
     args.output.mkdir(parents=True, exist_ok=False)
     build = args.output / "native"
@@ -156,7 +181,9 @@ def run(args):
         probe_source=ROOT / "test/harness/spatial/PlanarArrangementProbe.cpp",
         libraries=libraries,
     )
-    reference, _raw, (rows, domains, masks, kwargs) = original_layout()
+    reference, _raw, (rows, domains, masks, kwargs) = original_layout(
+        native_body=args.native_body
+    )
     constraints = input_lines(rows, masks, kwargs)
     np.savez_compressed(
         args.output / "python-reference.npz",
@@ -210,6 +237,8 @@ def run(args):
             ),
             metrics=json.loads(result.stdout),
         )
+        if args.native_body:
+            row.update(validate_native_profiles(xy, faces, owners, rows, transform))
         if name == "original":
             row.update(
                 reference_points=len(reference[0]),
@@ -223,6 +252,7 @@ def run(args):
             )
         (args.output / "runs.json").write_text(json.dumps(results, indent=2) + "\n")
     summary = {
+        "native_body": args.native_body,
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
@@ -240,4 +270,5 @@ def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--native-body", action="store_true")
     run(parser.parse_args())

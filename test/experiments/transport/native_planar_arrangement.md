@@ -49,3 +49,10 @@ replays three rigid transformations. Native and Python GEOS versions are recorde
 No height-program assembly, stair loft, port union, body/navigation/terrain,
 asset/runtime integration, GPU saving or world/p99 admission follows from this
 operator comparison. Those remain the next steps in #1189/#1003.
+
+`--native-body` selects the actual `prepare_native_body_plan` input instead of
+the initial uncropped corridor proposal. Native cut ribbons and their section
+provider enter the same operator. All four original transverse profiles retain
+their 32 XY vertices and source ownership exactly in every rigid control. Their
+height values stay in the original fixture for subsequent LP binding; this
+planar stage neither solves nor flattens them. The result records this input mode.

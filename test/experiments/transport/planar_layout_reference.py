@@ -1,12 +1,13 @@
 """Actual shared MVT layout, isolated repairs and independent edge diagnostics."""
 
 import copy
+import json
 from unittest.mock import patch
 
 import numpy as np
 import shapely
 import stair_junction_layout as layout
-from mvt_t_connection_inputs import inputs
+from mvt_t_connection_inputs import FIXTURE, inputs
 from mvt_t_connections import plan_connections
 from mvt_t_profile_layout import prepare_profiles
 from outshine_ref.geometry import conform_triangles
@@ -21,7 +22,7 @@ def unchanged_faces(_xy, faces, **_kwargs):
     return faces, {}
 
 
-def original_layout():
+def original_layout(*, native_body=False):
     captured = {}
     arrangement = layout.arrangement
 
@@ -38,7 +39,15 @@ def original_layout():
 
     case, sources = inputs()
     with patch.object(layout, "arrangement", record):
-        prepare_profiles(case, sources, plan_connections(sources))
+        if native_body:
+            from mvt_native_body_layout import prepare_native_body_plan
+
+            native = json.loads(
+                FIXTURE.with_name("mvt_stair_native_crosscuts.json").read_text()
+            )
+            prepare_native_body_plan(case, sources, plan_connections(sources), native)
+        else:
+            prepare_profiles(case, sources, plan_connections(sources))
     rows, domains, masks, kwargs = captured["args"]
     with (
         patch.object(layout, "arrangement_vertices", unchanged_vertices),
