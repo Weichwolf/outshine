@@ -20,6 +20,7 @@ struct JoinState {
   std::vector<uint32_t> Parents;
   std::vector<uint64_t> PointDomains;
   std::vector<size_t> FaceCounts;
+  std::vector<std::vector<uint32_t>> PortKeys;
   SurfaceHeightTopologyWork Work;
 };
 

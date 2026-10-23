@@ -40,6 +40,7 @@ struct SurfaceHeightTopology {
   std::vector<uint32_t> PlanarVertices;
   std::vector<uint32_t> PrimaryDomains;
   std::vector<SurfaceHeightFaces> Sources;
+  std::vector<std::vector<uint32_t>> PortVertices;
   SurfaceHeightTopologyWork Work;
 };
 

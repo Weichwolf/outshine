@@ -34,6 +34,8 @@ void HighestDomainBit() {
         "the highest domain bit remains valid without signed shifts or phantom sources");
   if (joined) {
     const auto vertex = joined->Sources[0].Faces[0][0];
+    CHECK(joined->PortVertices == std::vector<std::vector<uint32_t>>{{vertex}},
+          "qualified port membership retains the final shared height variable");
     CHECK(joined->PrimaryDomains[vertex] == count - 1,
           "the highest explicitly selected domain can own the shared variable");
   }
@@ -50,6 +52,8 @@ void PortHolesRemainSeparate() {
   if (joined) {
     const auto a = joined->Sources[0].Faces[0];
     const auto b = joined->Sources[1].Faces[0];
+    CHECK((joined->PortVertices == std::vector<std::vector<uint32_t>>{{a[1], a[2]}}),
+          "the port height list excludes hole vertices and unqualified source layers");
     CHECK(a[0] != b[0] && a[1] == b[1] && a[2] == b[2],
           "the hole preserves independent source heights rather than filling the whole port box");
   }
@@ -90,6 +94,8 @@ int main() {
     CHECK(vertex == connected->Sources[1].Faces[0][0] &&
               vertex == connected->Sources[2].Faces[0][0] && connected->PrimaryDomains[vertex] == 2,
           "all admitted sources agree on the final representative without cycles");
+    CHECK((connected->PortVertices == std::vector<std::vector<uint32_t>>{{vertex}, {vertex}}),
+          "later port unions remap earlier port membership to the final representative");
     CHECK(connected->Sources[2].PlanarFaces == std::vector<uint32_t>{0},
           "each source face retains its original shared planar face index");
   }
