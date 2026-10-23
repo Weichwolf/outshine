@@ -51,6 +51,13 @@ int main() {
     old = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
         ::outshine::Generators::Osm::RegionSources::Snapshot(&ingest, ways, water.Asset(ingest)),
         footprints.SnapshotAccepted());
+    const auto reused = ::outshine::Generators::Osm::RegionSources::Snapshot(
+        &ingest, ways, water.Asset(ingest), old->VectorSnapshot());
+    CHECK(reused.Vectors.get() == old->Vectors(),
+          "a new region reuses the published immutable vector owner");
+    const auto absent = ::outshine::Generators::Osm::RegionSources::Snapshot(
+        nullptr, ways, water.Asset(ingest), old->VectorSnapshot());
+    CHECK(!absent.Vectors, "an absent vector source cannot inherit the previous publication");
     CHECK(old->MatchesLiveSources(&ingest, footprints),
           "a published region accepts live detail from its unchanged semantic sources");
     ::outshine::Generators::Osm::BuildingField changedFootprints = footprints.SnapshotAccepted();
