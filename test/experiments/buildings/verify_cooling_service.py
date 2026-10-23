@@ -10,6 +10,7 @@ from cooling_service_mesh import components, world_points
 from cooling_service_plan import plan
 from cooling_tower_details import refine
 from cooling_tower_mesh import components as tower_components
+from cooling_tower_plan import plan as tower_plan
 from cooling_tower_probe import sources
 from structural_shell_geometry import native
 from verify_cooling_tower import passage
@@ -120,6 +121,38 @@ class CoolingService(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "no bounded service landing"):
             plan(replace(tower, collector=collector))
+
+    def test_translated_elevated_source_keeps_the_same_connected_service_geometry(self):
+        tower = self.cases[0][1]
+        delta = np.array([1024.0, -2048.0, 37.0])
+        source = replace(
+            tower.source,
+            centre_xy=tuple(np.asarray(tower.source.centre_xy) + delta[:2]),
+            knots=tuple(
+                (z + delta[2], outer, inner) for z, outer, inner in tower.source.knots
+            ),
+        )
+        moved = plan(tower_plan(source))
+        before, after = components(self.access[0]), components(moved)
+        self.assertEqual(before.keys(), after.keys())
+        for key in before:
+            np.testing.assert_allclose(
+                after[key]["vertices"],
+                before[key]["vertices"] + delta,
+                rtol=0,
+                atol=1e-10,
+            )
+            np.testing.assert_array_equal(after[key]["faces"], before[key]["faces"])
+            np.testing.assert_array_equal(
+                after[key]["materials"], before[key]["materials"]
+            )
+        solid = manifold.Manifold.batch_boolean(
+            [native(p) for p in (tower_components(moved.tower) | after).values()],
+            manifold.OpType.Add,
+        )
+        self.assertEqual(len(solid.decompose()), 1)
+        for mesh in components(moved, clearance=True).values():
+            self.assertEqual((solid ^ native(mesh)).volume(), 0)
 
 
 if __name__ == "__main__":
