@@ -254,7 +254,7 @@ def models(output):
     for index, ((row, tower), access) in enumerate(zip(towers, accesses, strict=True)):
         radius = tower.source.knots[0][1]
         close = View(
-            world_points(access, [[radius + 14, -10, access.floor_m + 2.5]])[0],
+            world_points(access, [[radius + 12, -3, access.floor_m + 3]])[0],
             world_points(access, [[radius - 1.3, 0, access.floor_m / 2]])[0],
             width=1920,
             height=1080,
