@@ -127,6 +127,39 @@ void BufferOrdering(Device &device) {
   Require(device.Unmap(*readback));
 }
 
+void ManyReadRanges(Device &device) {
+  constexpr size_t kWords = 64;
+  std::array<uint32_t, kWords> expected{};
+  for (size_t word = 0; word < kWords; ++word) { expected[word] = static_cast<uint32_t>(word + 1); }
+  auto source = BufferOf(device, expected);
+  auto result = Require(device.CreateBuffer({.Bytes = 2 * sizeof(expected),
+                                             .Use = BufferUse::CopyDestination,
+                                             .Placement = Memory::Readback}));
+  auto commands = Require(device.Begin());
+  for (size_t pass = 0; pass < 2; ++pass) {
+    for (size_t word = 0; word < kWords; ++word) {
+      const auto from = pass == 0 ? word : kWords - word - 1;
+      Require(commands->Copy(*source,
+                             *result,
+                             {.SourceOffset = from * sizeof(uint32_t),
+                              .DestinationOffset = (pass * kWords + word) * sizeof(uint32_t),
+                              .Bytes = sizeof(uint32_t)}));
+    }
+  }
+  Complete(device, Require(device.Submit(std::move(commands))));
+  const auto bytes = Require(device.MapRead(*result, {.Bytes = 2 * sizeof(expected)}));
+  for (size_t pass = 0; pass < 2; ++pass) {
+    for (size_t word = 0; word < kWords; ++word) {
+      uint32_t value = 0;
+      std::memcpy(&value, bytes.data() + (pass * kWords + word) * sizeof(value), sizeof(value));
+      const auto from = pass == 0 ? word : kWords - word - 1;
+      CHECK(value == expected[from],
+            "many distinct read ranges and their reverse revisit preserve every source word");
+    }
+  }
+  Require(device.Unmap(*result));
+}
+
 void ImageRegion(Device &device) {
   constexpr uint32_t width = 4;
   constexpr uint32_t height = 3;
@@ -258,6 +291,7 @@ int main(int argc, char **argv) {
   auto device = Require(CreateDevice({.Validation = true}));
   BufferRanges(*device);
   BufferOrdering(*device);
+  ManyReadRanges(*device);
   ImageRegion(*device);
   InvalidRegions(*device);
   PendingAndCancel(*device, argv[1]);

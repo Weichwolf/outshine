@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <limits>
@@ -87,6 +88,7 @@ Result<void> Recording::Hold(const std::shared_ptr<BufferState> &buffer) {
 }
 
 bool Recording::RepeatsRead(BufferState &buffer, ByteRange range, BufferAccess access) const {
+  constexpr size_t kRememberedReads = 16;
   constexpr VkAccessFlags2 reads =
       VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT |
       VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_UNIFORM_READ_BIT |
@@ -105,6 +107,7 @@ bool Recording::RepeatsRead(BufferState &buffer, ByteRange range, BufferAccess a
            read.Stage == access.Stage && read.Access == access.Access;
   };
   if (std::ranges::any_of(known, matches)) { return true; }
+  if (known.size() == kRememberedReads) { known.clear(); }
   known.push_back({.Range = range, .Stage = access.Stage, .Access = access.Access});
   return false;
 }
