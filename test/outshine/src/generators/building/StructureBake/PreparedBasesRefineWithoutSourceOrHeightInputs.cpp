@@ -205,7 +205,9 @@ void IntrinsicLODs(const std::filesystem::path &root,
   if (index && remotePoint) {
     const auto selected = (*index)->Select({.Bounds = {.Min = *remotePoint, .Max = *remotePoint},
                                             .Kind = "building-static-lod",
-                                            .Level = static_cast<uint32_t>(LevelOfDetail::Fine)});
+                                            .Level = static_cast<uint32_t>(LevelOfDetail::Fine),
+                                            .Radius = {},
+                                            .Planes = {}});
     CHECK(selected && selected->size() == 1 && selected->front().Parent == key,
           "a remote visible point selects whole Fine and excludes the unrelated Fine cell");
   }
@@ -373,6 +375,196 @@ void RequestMigration(const std::filesystem::path &root) {
         "invalidated basis cannot leave a false native request hit");
 }
 
+void ResidentRequests(const std::filesystem::path &root) {
+  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::SourceSet sources(store);
+  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  CHECK(cache.has_value(), "resident basis fixture opens");
+  if (!cache) { return; }
+  const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
+  const Ground::ShapedGround shape;
+  const auto request = (*cache)->RequestKey(tile, shape, 1000);
+  const auto key = (*cache)->Key(tile, 17, shape, 1000);
+  const std::atomic_bool stopping{false};
+  const auto generated = (*cache)->Generate(key, Inputs(), *Heights(), stopping, request);
+  CHECK(generated && *generated, "resident fixture publishes real complete building inputs");
+  if (!generated || !*generated) { return; }
+  BuildingMesh mesher;
+  auto scratch = mesher.Scratch();
+  RawTile view;
+  view.RequestedDetail = LevelOfDetail::Shell;
+  view.Eye = {.LongitudeDeg = 10, .LatitudeDeg = 47};
+  const auto built = BakePreparedStructures(**generated, view, mesher, *scratch);
+  CHECK(built && (*cache)->StoreGeometry(key, **generated, view, *built).has_value(),
+        "resident fixture stores the actual intrinsic geometry consumer");
+  if (!built) { return; }
+  auto first = (*cache)->LoadBasisRequest(request);
+  CHECK(first && *first, "initial request decodes a complete native basis");
+  if (!first || !*first) { return; }
+  const auto *identity = (**first).Product.get();
+  const std::weak_ptr<const PreparedBuildingBasis> weak = (**first).Product;
+  const auto encoded = EncodePreparedBuildingBasis(*(**first).Product);
+  auto geometry = (*cache)->LoadGeometry(key, (**first).Product, view);
+  CHECK(encoded && geometry && *geometry && (**geometry).Coordinates,
+        "the native geometry consumer retains the basis coordinates");
+  if (!encoded || !geometry || !*geometry) { return; }
+  first->reset();
+  CHECK(!weak.expired(), "live geometry keeps its backing basis alive");
+  if (weak.expired()) { return; }
+  const auto before = (*cache)->Costs();
+  for (size_t repeat = 0; repeat < 8; ++repeat) {
+    const auto again = (*cache)->LoadBasisRequest(request);
+    CHECK(again && *again && (**again).Product.get() == identity &&
+              EncodePreparedBuildingBasis(*(**again).Product) == encoded,
+          "repeated requests share the exact verified native basis and byte content");
+  }
+  const auto reused = (*cache)->Costs();
+  CHECK(reused.BasisResidentHits == before.BasisResidentHits + 8 &&
+            reused.BasisHits == before.BasisHits &&
+            reused.BasisReadBytes == before.BasisReadBytes && reused.ReadBytes == before.ReadBytes,
+        "resident reuse performs no native payload or complete-plan reads");
+  auto records = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(records.has_value(), "resident fixture opens current request metadata");
+  if (!records) { return; }
+  const auto record = (*records)->FindRequest(request);
+  CHECK(record && *record, "live basis has a current native asset record");
+  if (!record || !*record) { return; }
+  const auto payload = (*records)->Load((**record).Key, size_t{64} * 1024 * 1024);
+  CHECK(payload && *payload, "resident metadata fixture retains the original native packet");
+  if (!payload || !*payload) { return; }
+  auto corrupt = **record;
+  corrupt.Kind = "wrong-native-kind";
+  CHECK((*records)->Publish(std::span(&corrupt, 1), (**payload).Bytes()).has_value(),
+        "resident fixture changes only current metadata");
+  const auto rejected = (*cache)->LoadBasisRequest(request);
+  CHECK(rejected && !*rejected && !weak.expired(),
+        "a live old product cannot mask the wrong current record kind");
+  CHECK((*records)->Publish(std::span(&**record, 1), (**payload).Bytes()).has_value(),
+        "resident fixture restores the original verified record");
+  {
+    const auto restored = (*cache)->LoadBasisRequest(request);
+    CHECK(restored && *restored && (**restored).Product.get() == identity,
+          "restored identical metadata permits the still-live verified product");
+  }
+  auto changed = *weak.lock();
+  changed.HeightRasterDigest = changed.HeightRasterDigest == 1 ? 2 : 1;
+  const auto changedBytes = EncodePreparedBuildingBasis(changed);
+  CHECK(changedBytes.has_value(), "replacement packet retains the native basis contract");
+  if (!changedBytes) { return; }
+  auto changedRecord = **record;
+  changedRecord.Package.clear();
+  changedRecord.ByteCount = changedBytes->size();
+  CHECK((*records)->Publish(std::span(&changedRecord, 1), *changedBytes).has_value(),
+        "a repaired packet replaces the same indexed product identity");
+  {
+    const auto repaired = (*cache)->LoadBasisRequest(request);
+    CHECK(repaired && *repaired && (**repaired).Product.get() != identity &&
+              (**repaired).Product->HeightRasterDigest == changed.HeightRasterDigest,
+          "a changed package cannot reuse a live previous packet under the same asset key");
+  }
+  CHECK((*records)->Publish(std::span(&**record, 1), (**payload).Bytes()).has_value(),
+        "the fixture restores original bytes before explicit invalidation");
+  CHECK((*cache)->InvalidateBasis(key).has_value(), "explicit native invalidation succeeds");
+  const auto invalidated = (*cache)->LoadBasisRequest(request);
+  CHECK(invalidated && !*invalidated && !weak.expired(),
+        "explicit invalidation remains a miss while old geometry still owns its basis");
+  const auto replacementKey = (*cache)->Key(tile, 18, shape, 1000);
+  CHECK((*cache)->Generate(replacementKey, Inputs(), *Heights(), stopping, request).has_value(),
+        "changed physical input publishes a complete replacement binding");
+  auto replacement = (*cache)->LoadBasisRequest(request);
+  CHECK(replacement && *replacement && (**replacement).BaseKey == replacementKey &&
+            (**replacement).Product.get() != identity,
+        "current request replacement cannot reuse a previous live content identity");
+  if (!replacement || !*replacement) { return; }
+  const std::weak_ptr<const PreparedBuildingBasis> replacementWeak = (**replacement).Product;
+  replacement->reset();
+  geometry->reset();
+  CHECK(weak.expired() && replacementWeak.expired(),
+        "the resident index retains no basis payload after its real consumers disappear");
+  const auto expired = (*cache)->Costs();
+  const auto reloaded = (*cache)->LoadBasisRequest(request);
+  CHECK(reloaded && *reloaded && (*cache)->Costs().BasisHits == expired.BasisHits + 1 &&
+            (*cache)->Costs().BasisResidentHits == expired.BasisResidentHits,
+        "expired weak products follow the real payload-read path again");
+}
+
+void ResidentRequestLimit(const std::filesystem::path &root) {
+  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::SourceSet sources(store);
+  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  CHECK(cache.has_value(), "bounded resident fixture opens");
+  if (!cache) { return; }
+  const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
+  const Ground::ShapedGround shape;
+  const auto request = (*cache)->RequestKey(tile, shape, 1000);
+  const auto key = (*cache)->Key(tile, 17, shape, 1000);
+  const std::atomic_bool stopping{false};
+  CHECK((*cache)->Generate(key, Inputs(), *Heights(), stopping, request).has_value(),
+        "bounded fixture publishes one real native basis");
+  auto first = (*cache)->LoadBasisRequest(request);
+  auto records = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(first && *first && records, "bounded fixture opens its current product and metadata");
+  if (!first || !*first || !records) { return; }
+  const auto encoded = EncodePreparedBuildingBasis(*(**first).Product);
+  const auto record = (*records)->FindRequest(request);
+  CHECK(encoded && record && *record, "bounded fixture has one complete verified packet");
+  if (!encoded || !record || !*record) { return; }
+  std::vector<AssetRecord> declarations;
+  std::vector<std::string> requests{request};
+  for (size_t index = 0; index < 256; ++index) {
+    auto sibling = **record;
+    sibling.Parent = Sha256Hex("resident-parent-" + std::to_string(index));
+    sibling.Key = Sha256Hex("prepared-building-basis-2/" + sibling.Parent);
+    sibling.RequestKey = Sha256Hex("resident-request-" + std::to_string(index));
+    sibling.Package.clear();
+    sibling.OffsetBytes = 0;
+    sibling.ByteCount = encoded->size();
+    requests.push_back(*sibling.RequestKey);
+    declarations.push_back(std::move(sibling));
+  }
+  CHECK((*records)->Publish(declarations, *encoded).has_value(),
+        "bounded fixture publishes independent identities sharing one valid packet");
+  std::vector<PreparedBuildingAssets::Basis> held{(**first).Product};
+  first->reset();
+  for (size_t index = 1; index < requests.size(); ++index) {
+    const auto loaded = (*cache)->LoadBasisRequest(requests[index]);
+    CHECK(loaded && *loaded, "each independently requested basis remains loadable");
+    if (!loaded || !*loaded) { return; }
+    held.push_back((**loaded).Product);
+  }
+  const auto full = (*cache)->Costs();
+  for (size_t index = 0; index < 256; ++index) {
+    const auto reused = (*cache)->LoadBasisRequest(requests[index]);
+    CHECK(reused && *reused && (**reused).Product == held[index],
+          "the bounded index preserves each remembered live product");
+  }
+  CHECK((*cache)->Costs().BasisResidentHits == full.BasisResidentHits + 256 &&
+            (*cache)->Costs().BasisHits == full.BasisHits,
+        "all remembered products reuse their payloads without additional reads");
+  const auto beforeOverflow = (*cache)->Costs();
+  {
+    const auto overflow = (*cache)->LoadBasisRequest(requests.back());
+    CHECK(overflow && *overflow && (*cache)->Costs().BasisHits == beforeOverflow.BasisHits + 1 &&
+              (*cache)->Costs().BasisResidentHits == beforeOverflow.BasisResidentHits,
+          "a full index does not grow to retain another simultaneously live identity");
+  }
+  const auto survivor = held.front();
+  const std::weak_ptr<const PreparedBuildingBasis> expired = held[1];
+  held.clear();
+  CHECK(expired.expired(), "expired slots retain no native payloads");
+  const auto recovered = (*cache)->LoadBasisRequest(requests.back());
+  const auto beforeReuse = (*cache)->Costs();
+  const auto reused = (*cache)->LoadBasisRequest(requests.back());
+  CHECK(recovered && *recovered && reused && *reused &&
+            (**reused).Product == (**recovered).Product &&
+            (*cache)->Costs().BasisResidentHits == beforeReuse.BasisResidentHits + 1 &&
+            (*cache)->Costs().BasisHits == beforeReuse.BasisHits,
+        "expired metadata slots admit and reuse a previously unremembered product");
+  const auto preserved = (*cache)->LoadBasisRequest(requests.front());
+  CHECK(preserved && *preserved && (**preserved).Product == survivor,
+        "removing expired entries preserves the remaining live consumer");
+}
+
 std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &base) {
   const auto encoded = EncodePreparedStructureTile(base);
   CHECK(encoded.has_value(), "complete intrinsic forms, roofs and terrain contacts serialize");
@@ -435,6 +627,8 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
   (*restarted).reset();
   NativeCache(root);
   RequestMigration(root / "request-migration");
+  ResidentRequests(root / "resident-requests");
+  ResidentRequestLimit(root / "resident-limit");
   std::filesystem::remove_all(root);
   return decoded;
 }

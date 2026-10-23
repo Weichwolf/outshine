@@ -1,6 +1,7 @@
 #include "PreparedBuildingAssets.h"
 #include "PreparedStructureCodec.h"
 #include "Sha256.h"
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <expected>
@@ -36,6 +37,7 @@ PreparedBuildingAssets::StoreBasis(const std::string &key,
   if (!Cache_->Publish(std::span(&record, 1), *bytes)) {
     return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
   }
+  ResidentBases_.erase(record.Key);
   ++BasisWrites_;
   return {};
 }
@@ -43,9 +45,11 @@ PreparedBuildingAssets::StoreBasis(const std::string &key,
 std::expected<void, StructureBakeError>
 PreparedBuildingAssets::InvalidateBasis(const std::string &key) {
   const std::scoped_lock lock(Lock_);
-  if (!Cache_->Remove(BasisKey(key))) {
+  const auto basisKey = BasisKey(key);
+  if (!Cache_->Remove(basisKey)) {
     return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
   }
+  ResidentBases_.erase(basisKey);
   return {};
 }
 
@@ -97,9 +101,33 @@ PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
     ++BasisMisses_;
     return std::optional<RequestedBasis>{};
   }
+  {
+    const std::scoped_lock lock(Lock_);
+    const auto resident = ResidentBases_.find(record.Key);
+    if (resident != ResidentBases_.end()) {
+      if (resident->second.Record == record) {
+        if (auto product = resident->second.Product.lock()) {
+          ++BasisResidentHits_;
+          return RequestedBasis{.BaseKey = record.Parent, .Product = std::move(product)};
+        }
+      }
+      ResidentBases_.erase(resident);
+    }
+  }
   auto basis = LoadBasis(record.Parent, requestKey);
   if (!basis) { return std::unexpected(basis.error()); }
   if (!*basis) { return std::optional<RequestedBasis>{}; }
+  {
+    const std::scoped_lock lock(Lock_);
+    if (ResidentBases_.size() >= kResidentBasisEntriesMost) {
+      std::erase_if(ResidentBases_,
+                    [](const auto &entry) { return entry.second.Product.expired(); });
+    }
+    if (ResidentBases_.size() < kResidentBasisEntriesMost || ResidentBases_.contains(record.Key)) {
+      ResidentBases_.insert_or_assign(record.Key,
+                                      ResidentBasis{.Record = record, .Product = *basis});
+    }
+  }
   return RequestedBasis{.BaseKey = record.Parent, .Product = std::move(*basis)};
 }
 }
