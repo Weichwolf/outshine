@@ -22,6 +22,8 @@ TerrainResidency::PageBatch TerrainResidency::PlanPages(const Patchwork &patchwo
       ++batch.Flat;
       continue;
     }
+    const auto extrema = std::ranges::minmax(sheet.Nodes);
+    const std::array<float, 2> samples{extrema.min, extrema.max};
     const auto *const found = PageIndex_.Find(sheet.Tile);
     const size_t slot = found != nullptr ? *found : Held_.size() + batch.Appended;
     const bool unchanged = found != nullptr && Renderer_->HasHeightPage(Held_[slot].Page) &&
@@ -33,11 +35,12 @@ TerrainResidency::PageBatch TerrainResidency::PlanPages(const Patchwork &patchwo
       pending.Value = {.Tile = sheet.Tile,
                        .Nodes = std::vector<float>(sheet.Nodes.begin(), sheet.Nodes.end()),
                        .SamplesDigest = SamplesIdentity(sheet.Nodes),
+                       .SampleBounds = samples,
                        .Postings = sheet.Postings,
                        .Virtual = sheet.Virtual};
       batch.Appended += static_cast<size_t>(pending.Appended);
     }
-    batch.Sheets[batch.SheetCount++] = {.Tile = TileOf(sheet.Tile, {}, sheet.Nodes, frame),
+    batch.Sheets[batch.SheetCount++] = {.Tile = TileOf(sheet.Tile, {}, samples, frame),
                                         .Slot = slot,
                                         .Postings = sheet.Postings,
                                         .Virtual = sheet.Virtual};

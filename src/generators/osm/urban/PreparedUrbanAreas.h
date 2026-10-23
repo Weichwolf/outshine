@@ -81,6 +81,7 @@ public:
   [[nodiscard]] std::expected<Delivery, std::string> Acquire(TilePool &tiles,
                                                              const Request &request);
   [[nodiscard]] Counters Costs() const noexcept;
+  [[nodiscard]] bool AwaitProgress(double seconds) const;
 
 private:
   struct Loaded {

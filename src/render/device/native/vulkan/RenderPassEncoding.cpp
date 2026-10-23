@@ -81,7 +81,9 @@ Result<void> Recording::EndRenderPass() {
   if (Finished_ || !Render_) {
     return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "no open render pass"});
   }
+  const bool labelled = Render_->Labelled;
   EncodeRenderPass(*Render_, true);
+  if (labelled) { EndLabel(); }
   return {};
 }
 

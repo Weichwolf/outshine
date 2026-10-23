@@ -58,6 +58,8 @@ int main(int argc, char **argv) {
   {
     Fixture fixture(directory, Availability::Ready);
     if (!fixture.Urban) { return Report(); }
+    CHECK(fixture.Urban->AwaitProgress(1),
+          "without an admitted job the caller must keep advancing");
     const auto result = Await(fixture, request);
     CHECK(result && result->Status == PreparedUrbanAreas::State::Ready && result->Product,
           "miss obtains known owner and parent products then publishes a complete urban asset");

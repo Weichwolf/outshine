@@ -293,6 +293,8 @@ TestProfile() {
     outshine/src/render/stages/StagePipelines) printf '%s' 'profile/stage-pipelines' ;;
     outshine/src/render/draw/InstanceDemand) printf '%s' 'profile/instance-demand' ;;
     outshine/src/content/scene/PrismGrid) printf '%s' 'profile/prism-grid' ;;
+    outshine/src/render/prism/PrismPlacements) printf '%s' 'profile/prism-placements' ;;
+    outshine/src/render/prism/PrismRenderer) printf '%s' 'profile/prism-native' ;;
     outshine/src/generators/osm/UrbanAreaPrisms) printf '%s' 'profile/urban-prisms' ;;
     outshine/src/generators/osm/UrbanPrismCodec) printf '%s' 'profile/urban-prism-codec' ;;
     outshine/src/generators/osm/UrbanPrismAsset) printf '%s' 'profile/urban-prism-asset' ;;
@@ -401,6 +403,8 @@ LayerIncludes() {
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
     profile/instance-demand) GroupIncludes src/render/draw ;;
     profile/prism-grid) GroupIncludes src/content/scene ;;
+    profile/prism-placements) GroupIncludes src/render/prism ;;
+    profile/prism-native) printf '%s ' '-I.'; GroupIncludes src/render/prism ;;
     profile/urban-prisms) GroupIncludes src/generators/osm/urban ;;
     profile/urban-prism-codec) LayerIncludes profile/urban-prisms ;;
     profile/urban-prism-asset) LayerIncludes profile/urban-prism-codec; GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sqlite3 libzstd)" ;;
@@ -490,7 +494,7 @@ LayerValidation() {
 
 LayerLibraryLink() {
   case "$(TestProfile "$1")" in
-    profile/calibration|profile/stage-pipelines) pkg-config --libs sdl3; NativeLink ;;
+    profile/calibration|profile/stage-pipelines|profile/prism-native) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
     profile/footpath-plan) return 0 ;;
     profile/road-profile) HighsFlags --libs ;;
@@ -612,8 +616,10 @@ LayerGroups() {
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
     profile/ground-patch) printf '%s' 'src/render/terrain/TerrainPatchMesh.cpp src/render/terrain/TerrainPatchError.cpp' ;;
     profile/instance-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp' ;;
-    profile/prism-grid) printf '%s' 'src/content/scene/PrismGrid.cpp' ;;
-    profile/urban-prisms) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaPrisms.cpp' ;;
+    profile/prism-grid) printf '%s' 'src/content/scene/PrismGrid.cpp src/content/scene/PrismGridViews.cpp' ;;
+    profile/prism-placements) printf '%s' 'src/content/scene/PrismGrid.cpp src/render/prism/PrismPlacements.cpp' ;;
+    profile/prism-native) printf '%s' "src/render/prism src/content/scene/PrismGrid.cpp src/render/device/SpirvFile.cpp src/render/device/ReadbackTransfer.cpp src/base/io/ReadTextFile.cpp $(NativeGroups)" ;;
+    profile/urban-prisms) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaPrisms.cpp src/generators/osm/urban/UrbanAreaGroups.cpp' ;;
     profile/urban-prism-codec) printf '%s' 'src/generators/osm/urban/UrbanPrismCodec.cpp src/content/scene/PrismGrid.cpp' ;;
     profile/urban-prism-asset) LayerGroups profile/urban-prism-codec; printf '%s' ' src/generators/osm/urban/UrbanPrismAsset.cpp src/base/format/Sha256.cpp src/content/assets/AssetCache.cpp src/content/assets/AssetCacheLoading.cpp src/content/assets/AssetCachePublication.cpp src/content/assets/AssetCacheSelection.cpp src/content/assets/AssetGeneration.cpp src/content/assets/AssetPackageCodec.cpp src/content/cache' ;;
     profile/urban-prism-preparation) LayerGroups profile/urban-prism-asset; printf '%s' ' src/base/io/Tasks.cpp src/engine/streaming/UrbanPrismPreparation.cpp src/engine/streaming/UrbanPrismSlot.cpp' ;;
@@ -626,8 +632,8 @@ LayerGroups() {
     profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
     profile/species) SubtreeGroups src/base; printf '%s' ' src/generators/flora/TreeSpecies.cpp src/generators/flora/Species.cpp src/generators/flora/GrowthForm.cpp src/generators/flora/TreeLeaf.cpp' ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
-    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
-    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/prism src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/cache src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io src/render/plan src/render/draw src/render/shadow src/render/impostor src/render/scene src/render src/render/prism src/render/device $(NativeGroups) src/render/stages src/render/terrain src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -1968,6 +1974,10 @@ fi
 
 for selectedTest in $TESTS; do
   case "$(TestProfile "$(dirname "${selectedTest#test/}")")" in
+    profile/prism-native)
+      make build/shaders/prism-colour.vert.spv build/shaders/prism-depth.vert.spv build/shaders/prismDepth.frag.spv build/shaders/prismLit-000.frag.spv || Die "prism tests require prepared shaders"
+      break
+      ;;
     profile/engine|profile/internal|profile/device|profile/calibration|profile/stage-pipelines|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
       make shaders || Die "selected tests require prepared shaders"
       break

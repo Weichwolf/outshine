@@ -153,6 +153,8 @@ Native::Result<void> GeometryRenderer::AttachPipelines(GeometryPipelineBinding &
   Ground_.UploadsFrom(gpu.Uploads);
   const auto attached = Bound().StandsOn(gpu.Device);
   if (!attached) { return attached; }
+  const auto prisms = Prisms_.Uses(*gpu.Device, gpu.Uploads);
+  if (!prisms) { return prisms; }
   Binding_ = &binding;
   Ground_.UsePipelines(binding.Ground);
   return {};
@@ -216,12 +218,19 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
   Ground_.UploadsFrom(gpu.Uploads);
   const auto attached = Bound().StandsOn(gpu.Device);
   if (!attached) { return attached; }
+  const auto prisms = Prisms_.Uses(*gpu.Device, gpu.Uploads);
+  if (!prisms) { return prisms; }
   if (!glass) {
     const auto targets = Targets(gpu, options, colours, false);
     const auto configured = Ground_.Configure(
         binding.Ground, *gpu.Device, options, std::span(targets).first(colours.size()));
     Ground_.UsePipelines(Binding().Ground);
     if (!configured) { return configured; }
+    const auto prismColour = binding.Prisms.ConfigureColour(
+        *gpu.Device, options, std::span(targets).first(colours.size()));
+    if (!prismColour) { return prismColour; }
+    const auto prismDepth = binding.Prisms.ConfigureDepth(*gpu.Device);
+    if (!prismDepth) { return prismDepth; }
   }
   binding.Device = gpu.Device;
   binding.Colours = std::move(colours);

@@ -13,6 +13,11 @@ bool UrbanPrismSlot::InFlight() const noexcept {
   return (Job_ && Job_->InFlight()) || (Retiring_ && Retiring_->InFlight());
 }
 
+bool UrbanPrismSlot::AwaitProgress(double seconds) const {
+  if (Retiring_ && Retiring_->InFlight()) { return Retiring_->AwaitProgress(seconds); }
+  return !Job_ || Job_->AwaitProgress(seconds);
+}
+
 void UrbanPrismSlot::Retire() {
   if (!Job_) { return; }
   Job_->Cancel();
@@ -29,7 +34,9 @@ void UrbanPrismSlot::Clear() {
 }
 
 std::expected<bool, std::string>
-UrbanPrismSlot::Advance(const std::string &request, const UrbanPrismPreparation::Capture &capture) {
+UrbanPrismSlot::Advance(const std::string &request,
+                        const UrbanPrismPreparation::Capture &capture,
+                        Admission admission) {
   if (request.size() != 64 || request.find_first_not_of("0123456789abcdef") != std::string::npos) {
     return std::unexpected("invalid prism slot request identity");
   }
@@ -43,10 +50,12 @@ UrbanPrismSlot::Advance(const std::string &request, const UrbanPrismPreparation:
   }
   if (ReadyKey_ == Wanted_) { return false; }
   if (!Job_) {
+    if (admission == Admission::CollectOnly) { return false; }
     Job_ = std::make_unique<UrbanPrismPreparation>(Pool_, Database_, Wanted_, BytesMost_);
     ++Costs_.Started;
   }
-  auto result = Job_->Advance(capture);
+  const UrbanPrismPreparation::Capture noCapture;
+  auto result = Job_->Advance(admission == Admission::AllowWork ? capture : noCapture);
   if (!result) { return std::unexpected(result.error()); }
   if (!*result) { return false; }
   Ready_ = std::move(*result);

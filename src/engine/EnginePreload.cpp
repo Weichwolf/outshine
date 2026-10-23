@@ -89,7 +89,8 @@ Result Engine::preloadWithQuality(double patienceS,
     if (!S_->Session.Declared.Ground.Declared && S_->Readiness(quality).Ready()) {
       return timed(Result{});
     }
-    if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate()) {
+    if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate() ||
+        S_->Readiness(quality).Ready()) {
       const auto flushAt = std::chrono::steady_clock::now();
       const auto finished = S_->FlushPreloadGround(began, bound, quality);
       S_->PreloadFlushMs += elapsedMs(flushAt);

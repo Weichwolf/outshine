@@ -1433,8 +1433,8 @@ Native::Result<void> SceneRenderer::EncodeGraphicsPass(Native::Commands *command
   const auto &image = view.Image->Description();
   const uint32_t width = std::max(1u, image.Width >> view.FirstMip);
   const uint32_t height = std::max(1u, image.Height >> view.FirstMip);
-  auto begun =
-      commands->BeginRenderPass({.Colours = std::span(colours).first(count), .Depth = depth});
+  auto begun = commands->BeginRenderPass(
+      {.Colours = std::span(colours).first(count), .Depth = depth, .Label = declared.Name});
   if (!begun) { return begun; }
   const PassRecording into{
       .Commands = commands,

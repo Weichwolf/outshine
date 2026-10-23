@@ -109,6 +109,8 @@ def main():
             sources.append(Path(__file__).with_name('native_present.frag'))
         sources += [Path(__file__).with_name('native_depth_clamp.' + stage)
                     for stage in ('vert', 'frag')]
+        sources += [Path(__file__).with_name('native_binding_' + kind + '.frag')
+                    for kind in ('storage', 'uniform', 'texture')]
         shaders = []
         for source in sources:
             shader = output / (source.name + '.spv')
@@ -136,6 +138,7 @@ def main():
         consumers += [ROOT / 'test/harness/render' / name
                       for name in ('NativeSubmissionTimingProbe.cpp', 'NativeSubmissionScopeProbe.cpp')]
         consumers.append(ROOT / 'test/harness/render/NativeDepthClampProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeBindingTransitionsProbe.cpp')
         binaries = []
         for source in consumers:
             binary = output / source.stem
@@ -168,6 +171,12 @@ def main():
             report[key] = verdict(run(
                 [str(binaries[binary]), *(str(shaders[index]) for index in indices), *suffix],
                 log, environment=environment, timeout=25), log)
+        report['binding_transition_checks'] = verdict(run(
+            [str(output / 'NativeBindingTransitionsProbe'),
+             str(output / 'fullscreen.vert.spv'),
+             *(str(output / ('native_binding_' + kind + '.frag.spv'))
+               for kind in ('storage', 'uniform', 'texture')), *suffix],
+            log, environment=environment, timeout=25), log)
         report['dispatch_timing_checks'] = verdict(run(
             [str(output / 'NativeTimingProbe'), str(output / 'native_timing.comp.spv'),
              str(output / 'native_timing_empty.comp.spv')], log,

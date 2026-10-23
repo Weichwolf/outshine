@@ -206,7 +206,9 @@ CreateEncoderProfile(const std::shared_ptr<EncoderProfileSession> &session) {
   return profile;
 }
 
-void ProfileRenderEncoder(EncoderProfile *profile, MTLRenderPassDescriptor *description) {
+void ProfileRenderEncoder(EncoderProfile *profile,
+                          MTLRenderPassDescriptor *description,
+                          std::string_view label) {
   if (profile == nullptr) { return; }
   if (profile->Encoders.size() == kMaxEncoders) {
     ++profile->Dropped;
@@ -214,6 +216,7 @@ void ProfileRenderEncoder(EncoderProfile *profile, MTLRenderPassDescriptor *desc
   }
   ProfiledEncoder encoder{};
   encoder.Kind = EncoderKind::Render;
+  encoder.Label = label;
   constexpr size_t colourSlots = 8;
   for (size_t slot = 0; slot < colourSlots; ++slot) {
     if (description.colorAttachments[slot].texture != nil) { ++encoder.Colours; }

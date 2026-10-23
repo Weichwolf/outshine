@@ -199,7 +199,7 @@ DeclaredCaptureRoute(const Engine &engine, std::string_view viewId) {
 [[nodiscard]] std::expected<std::optional<CaptureRoute>, std::string>
 PrepareCapturePath(Engine &engine, std::string_view viewId, double durationS) {
   auto route = DeclaredCaptureRoute(engine, viewId);
-  if (!route) { return std::unexpected(route.error()); }
+  if (!route || !*route) { return route; }
   if (const auto prepared = engine.prepareViewData(durationS, kRefinedPreloadBudgetS); !prepared) {
     return std::unexpected(Refusal("view data preparation", prepared.error()));
   }

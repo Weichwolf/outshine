@@ -23,6 +23,8 @@
 #include "KernelShape.h"
 #include "DrawList.h"
 #include "TerrainRenderer.h"
+#include "PrismRenderer.h"
+#include "PrismPipelines.h"
 #include "GeometryResidency.h"
 #include "GpuPlacement.h"
 #include "SubjectMaterialPacking.h"
@@ -53,6 +55,7 @@ private:
   uint32_t Built = 0;
   std::vector<Resource> Colours;
   TerrainPipelines Ground;
+  PrismPipelines Prisms;
   Native::Texture *Behind = nullptr;
   Native::Sampler *BehindSampler = nullptr;
   bool GlassDrawnElsewhere = false;
@@ -135,6 +138,17 @@ public:
 
   [[nodiscard]] const TerrainRenderer &Ground() const { return Ground_; }
 
+  [[nodiscard]] const PrismRenderer &Prisms() const noexcept { return Prisms_; }
+
+  [[nodiscard]] Native::Result<uint64_t> PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
+                                                        std::span<const PrismInstance> instances,
+                                                        uint32_t material);
+  [[nodiscard]] Native::Result<void>
+  SetPrismGridInstances(uint64_t id, std::span<const PrismInstance> instances);
+  void ReleasePrismGrid(uint64_t id);
+  [[nodiscard]] Native::Result<void> EncodePrismShadow(const PassRecording &into,
+                                                       const PrismDepthView &view) const;
+
   void SetPiecesVisible(bool visible);
 
   [[nodiscard]] Native::Result<PieceId> PlacePiece(const PieceMesh &piece);
@@ -199,7 +213,7 @@ public:
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
-  [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_; }
+  [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_ + Prisms_.Generation(); }
 
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
     if (models == nullptr && rows > 0) {
@@ -267,7 +281,7 @@ private:
   };
 
   struct DrawResources {
-    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 1;
+    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 2;
     std::array<Native::Binding, kMostBindings> Bindings{};
     std::array<Native::VertexBuffer, kMostVertexRuns> Vertices{};
     uint32_t BindingCount = 0;
@@ -304,9 +318,12 @@ private:
   void BindSlot(DrawResources &into,
                 size_t slot,
                 VertexLayout layout,
-                const FrameUniforms &uniforms) const;
+                const FrameUniforms &uniforms,
+                uint32_t prefixBindings = 0) const;
   [[nodiscard]] Native::Result<void> EncodeGround(const PassRecording &into,
                                                   const FrameUniforms &uniforms) const;
+  [[nodiscard]] Native::Result<void> EncodePrisms(const PassRecording &into,
+                                                  const FrameUniforms &uniforms);
   [[nodiscard]] Native::Result<void> DrawBatchRange(const PassRecording &into,
                                                     size_t first,
                                                     bool culled,
@@ -371,7 +388,9 @@ public:
 
   [[nodiscard]] const Mat4 &ModelM() const { return Model; }
 
-  [[nodiscard]] uint64_t HeldBytes() const { return At_ != nullptr ? 0u : Own_.HeldBytes(); }
+  [[nodiscard]] uint64_t HeldBytes() const {
+    return (At_ != nullptr ? 0u : Own_.HeldBytes()) + Prisms_.HeldBytes();
+  }
 
   [[nodiscard]] uint32_t StagedBytes() const { return Bound().StagedBytes(); }
 
@@ -426,6 +445,7 @@ private:
   };
 
   TerrainRenderer Ground_;
+  PrismRenderer Prisms_;
 
   [[nodiscard]] bool BindSurface(const SubjectMaterial &material,
                                  std::string &error,

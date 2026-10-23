@@ -102,7 +102,7 @@ TerrainResidency::TerrainResidency(const TerrainResidency &other)
 
 Render::TerrainTile TerrainResidency::TileOf(Data::TileId tile,
                                              Render::HeightPageHandle page,
-                                             std::span<const float> nodes,
+                                             std::array<float, 2> samples,
                                              const TangentFrame &frame) {
   const Ground::GeoBounds bounds = Ground::TileBounds(tile);
   const double midLon = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg);
@@ -139,11 +139,10 @@ Render::TerrainTile TerrainResidency::TileOf(Data::TileId tile,
   const auto steps = static_cast<float>(Render::TerrainRenderer::kSide - 1);
   made.StepE = 0.5f * ((ne[0] - nw[0]) + (se[0] - sw[0])) / steps;
   made.StepN = 0.5f * ((nw[1] - sw[1]) + (ne[1] - se[1])) / steps;
-  const auto [low, high] = std::ranges::minmax_element(nodes);
   const float skirt = Render::TerrainRenderer::kSkirtSteps * std::max(made.StepE, made.StepN);
   const float sag = 0.5f * std::max({Dot2(nw), Dot2(ne), Dot2(sw), Dot2(se)}) * made.SagInv;
-  made.LowM = (nodes.empty() ? 0.0f : *low) - skirt - sag;
-  made.HighM = nodes.empty() ? 0.0f : *high;
+  made.LowM = samples[0] - skirt - sag;
+  made.HighM = samples[1];
   return made;
 }
 

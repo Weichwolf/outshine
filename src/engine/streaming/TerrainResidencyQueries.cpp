@@ -89,6 +89,23 @@ std::optional<double> TerrainResidency::HeightMAt(LongitudeLatitude at) const no
   return std::nullopt;
 }
 
+std::optional<std::array<double, 2>> TerrainResidency::SampleAslBoundsM() const noexcept {
+  if (Publishing_) { return std::nullopt; }
+  std::array<double, 2> bounds{std::numeric_limits<double>::infinity(),
+                               -std::numeric_limits<double>::infinity()};
+  for (const Held &page : Held_) {
+    if (!page.Virtual && page.Postings < 2) { continue; }
+    bounds[0] = std::min(bounds[0], static_cast<double>(page.SampleBounds[0]));
+    bounds[1] = std::max(bounds[1], static_cast<double>(page.SampleBounds[1]));
+  }
+  if (!std::isfinite(bounds[0])) { return std::nullopt; }
+  const double margin = 16 * std::numeric_limits<double>::epsilon() *
+                        std::max({1., std::abs(bounds[0]), std::abs(bounds[1])});
+  bounds[0] = std::nextafter(bounds[0] - margin, -std::numeric_limits<double>::infinity());
+  bounds[1] = std::nextafter(bounds[1] + margin, std::numeric_limits<double>::infinity());
+  return bounds;
+}
+
 bool TerrainResidency::Occludes(const Ray &ray,
                                 float nearM,
                                 float distanceM,

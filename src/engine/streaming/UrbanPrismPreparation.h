@@ -44,6 +44,7 @@ public:
   [[nodiscard]] Result Advance(const Capture &capture = {});
 
   [[nodiscard]] bool InFlight() const noexcept;
+  [[nodiscard]] bool AwaitProgress(double seconds) const;
 
   void Cancel() noexcept { Stop_.request_stop(); }
 

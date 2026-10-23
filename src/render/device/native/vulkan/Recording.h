@@ -98,7 +98,8 @@ private:
                                                         const PipelineState &pipeline,
                                                         VkPipelineStageFlags2 stages);
 
-  void Use(const BufferState &buffer, ByteRange range, BufferAccess access);
+  void Use(BufferState &buffer, ByteRange range, BufferAccess access);
+  [[nodiscard]] bool RepeatsRead(BufferState &buffer, ByteRange range, BufferAccess access) const;
   [[nodiscard]] Result<std::vector<VkDescriptorSet>>
   BindResources(const PipelineState &pipeline,
                 std::span<const ShaderBinding> layout,
@@ -129,6 +130,7 @@ private:
   VkCommandBuffer Commands_ = VK_NULL_HANDLE;
   bool Finished_ = false;
   bool Submitted_ = false;
+  uint64_t Identity_ = 0;
   std::vector<TrackedImage> Images_;
   std::vector<std::shared_ptr<SamplerState>> Samplers_;
   std::vector<std::shared_ptr<BufferState>> Buffers_;

@@ -112,6 +112,14 @@ def native_api(output, glslang, toolchain, link_flags):
         transition_shaders.append(destination)
     transition_checks = check_probe("native-draw-transitions-probe", "NativeDrawTransitionsProbe.cpp",
                                     *transition_shaders, "--validation")
+    binding_shaders = []
+    for name in ("native_binding_storage.frag", "native_binding_uniform.frag", "native_binding_texture.frag"):
+        source = Path(__file__).with_name(name)
+        destination = output / (name + ".spv")
+        run([glslang, "-V", "--target-env", "vulkan1.0", str(source), "-o", str(destination)])
+        binding_shaders.append(destination)
+    binding_checks = check_probe("native-binding-transitions-probe", "NativeBindingTransitionsProbe.cpp",
+                                 output / "fullscreen.vert.spv", *binding_shaders, "--validation")
     mrt_draw_checks = check_probe("native-mrt-draw-probe", "NativeMrtDrawProbe.cpp",
                                   output / "fullscreen.vert.spv", output / "native_metal_mrt.frag.spv",
                                   "--validation")
@@ -150,6 +158,7 @@ def native_api(output, glslang, toolchain, link_flags):
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
             "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks,
             "indexed_indirect_checks": indexed_checks, "draw_transition_checks": transition_checks,
+            "binding_transition_checks": binding_checks,
             "mrt_draw_checks": mrt_draw_checks, "presentation_checks": present_checks,
             "presentation_target_checks": target_checks, "sdr_transfer_checks": sdr_checks,
             "display_colour_space_checks": display_checks, "native_readback_checks": readback_checks,
@@ -218,6 +227,10 @@ def main():
              ROOT / "test/harness/render/NativeDrawProbe.cpp",
              ROOT / "test/harness/render/NativeIndexedProbe.cpp",
              ROOT / "test/harness/render/NativeDrawTransitionsProbe.cpp",
+             ROOT / "test/harness/render/NativeBindingTransitionsProbe.cpp",
+             Path(__file__).with_name("native_binding_storage.frag"),
+             Path(__file__).with_name("native_binding_uniform.frag"),
+             Path(__file__).with_name("native_binding_texture.frag"),
              ROOT / "test/harness/render/NativeMrtDrawProbe.cpp",
              ROOT / "test/harness/render/NativePresentProbe.cpp",
              ROOT / "test/harness/render/NativePresentTargetProbe.cpp",

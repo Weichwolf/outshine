@@ -11,6 +11,8 @@
 namespace outshine {
 class UrbanPrismSlot {
 public:
+  enum class Admission { AllowWork, CollectOnly };
+
   struct Counters {
     uint64_t Started = 0, Canceled = 0, Replaced = 0;
   };
@@ -19,9 +21,12 @@ public:
                  std::string database,
                  size_t bytesMost = Generators::Osm::kUrbanPrismBytesMost);
   [[nodiscard]] std::expected<bool, std::string>
-  Advance(const std::string &request, const UrbanPrismPreparation::Capture &capture = {});
+  Advance(const std::string &request,
+          const UrbanPrismPreparation::Capture &capture = {},
+          Admission admission = Admission::AllowWork);
   void Clear();
   [[nodiscard]] bool InFlight() const noexcept;
+  [[nodiscard]] bool AwaitProgress(double seconds) const;
 
   [[nodiscard]] const UrbanPrismPreparation::Product &Ready() const noexcept { return Ready_; }
 

@@ -2,9 +2,11 @@
 #include "content/AssetCache.h"
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <ratio>
 #include <stop_token>
@@ -16,6 +18,16 @@ struct UrbanPrismPreparation::Work {
   Result Value;
   Costs Measured;
   std::atomic<bool> Complete{false};
+  std::mutex Mutex;
+  std::condition_variable Landed;
+
+  void Finish() {
+    {
+      const std::scoped_lock lock(Mutex);
+      Complete.store(true, std::memory_order_release);
+    }
+    Landed.notify_all();
+  }
 };
 
 namespace {
@@ -86,6 +98,15 @@ bool UrbanPrismPreparation::InFlight() const noexcept {
   return Work_ && !Work_->Complete.load(std::memory_order_acquire);
 }
 
+bool UrbanPrismPreparation::AwaitProgress(double seconds) const {
+  if (!Work_) { return true; }
+  if (!(seconds > 0.0)) { return Work_->Complete.load(std::memory_order_acquire); }
+  std::unique_lock lock(Work_->Mutex);
+  return Work_->Landed.wait_for(lock, std::chrono::duration<double>(seconds), [this] {
+    return Work_->Complete.load(std::memory_order_acquire);
+  });
+}
+
 UrbanPrismPreparation::~UrbanPrismPreparation() {
   Cancel();
 }
@@ -121,11 +142,11 @@ void UrbanPrismPreparation::Post(Operation operation, AssetFactory factory) {
     } else {
       work->Measured.BuildWorkerMs = elapsed;
     }
-    work->Complete.store(true, std::memory_order_release);
+    work->Finish();
   };
   if (Pool_.PostDetached(std::move(run))) { return; }
   Work_->Value = std::unexpected("prism preparation compute queue is closed");
-  Work_->Complete.store(true, std::memory_order_release);
+  Work_->Finish();
 }
 
 UrbanPrismPreparation::Result UrbanPrismPreparation::Advance(const Capture &capture) {
