@@ -66,13 +66,14 @@ void BufferRanges(Device &device) {
 }
 
 void BufferOrdering(Device &device) {
+  constexpr size_t kSnapshots = 5;
   constexpr std::array<uint32_t, 4> before{11, 22, 33, 44};
   constexpr std::array<uint32_t, 4> after{91, 92, 93, 94};
   auto first = BufferOf(device, before);
   auto second = BufferOf(device, after);
   auto shared = Require(device.CreateBuffer(
       {.Bytes = sizeof(before), .Use = BufferUse::CopySource | BufferUse::CopyDestination}));
-  auto readback = Require(device.CreateBuffer({.Bytes = 5 * sizeof(before),
+  auto readback = Require(device.CreateBuffer({.Bytes = kSnapshots * sizeof(before),
                                                .Use = BufferUse::CopyDestination,
                                                .Placement = Memory::Readback}));
   auto commands = Require(device.Begin());
@@ -99,8 +100,8 @@ void BufferOrdering(Device &device) {
   Require(later->Copy(*second, *shared, {.Bytes = sizeof(after)}));
   snapshot(4);
   Complete(device, Require(device.Submit(std::move(commands))));
-  auto mapped = Require(device.MapRead(*readback, {.Bytes = 5 * sizeof(before)}));
-  std::array<uint32_t, 20> actual{};
+  auto mapped = Require(device.MapRead(*readback, {.Bytes = kSnapshots * sizeof(before)}));
+  std::array<uint32_t, before.size() * kSnapshots> actual{};
   std::memcpy(actual.data(), mapped.data(), sizeof(actual));
   CHECK(std::equal(before.begin(), before.end(), actual.begin()) &&
             std::equal(before.begin(), before.end(), actual.begin() + 4),

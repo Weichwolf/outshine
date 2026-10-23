@@ -86,7 +86,7 @@ Result<void> Recording::Hold(const std::shared_ptr<BufferState> &buffer) {
   return {};
 }
 
-bool Recording::RepeatsRead(BufferState &buffer, ByteRange range, BufferAccess access) {
+bool Recording::RepeatsRead(BufferState &buffer, ByteRange range, BufferAccess access) const {
   constexpr VkAccessFlags2 reads =
       VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT |
       VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_UNIFORM_READ_BIT |

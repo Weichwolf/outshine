@@ -99,7 +99,7 @@ private:
                                                         VkPipelineStageFlags2 stages);
 
   void Use(BufferState &buffer, ByteRange range, BufferAccess access);
-  [[nodiscard]] bool RepeatsRead(BufferState &buffer, ByteRange range, BufferAccess access);
+  [[nodiscard]] bool RepeatsRead(BufferState &buffer, ByteRange range, BufferAccess access) const;
   [[nodiscard]] Result<std::vector<VkDescriptorSet>>
   BindResources(const PipelineState &pipeline,
                 std::span<const ShaderBinding> layout,
