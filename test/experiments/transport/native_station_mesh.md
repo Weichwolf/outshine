@@ -8,7 +8,9 @@ identity does not depend on those height variables. This order avoids the lost
 overlap constraints demonstrated in #1200; the separate corrected Python lineage
 remains an independent reference.
 
-The operator ports the existing `mvt_t_stair_loft._split` half-plane clipping.
+The operator ports the existing `stair_station_cuts._split` half-plane clipping
+(extracted from `mvt_t_stair_loft`). This native comparison explicitly keeps the
+global cut scope; the independent-flight recipe's local scope is separate.
 A per-cut undirected edge map shares every edge intersection. Fixed original
 points never move. Each axis has one station array; new vertices interpolate all
 arrays and retain the exact active cut station. Triangle fans preserve positive
