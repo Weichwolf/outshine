@@ -40,6 +40,8 @@ void Recording::ContinueRenderPass(RenderState &pass) {
 }
 
 void Recording::EncodeRenderPass(RenderState &pass, bool final) {
+  for (const auto &colour : pass.Colours) { ForgetImageRead(*colour.Image); }
+  if (pass.Depth) { ForgetImageRead(*pass.Depth->Image); }
   std::array<VkRenderingAttachmentInfo, 8> colours{};
   for (std::size_t at = 0; at < pass.Colours.size(); ++at) {
     colours[at] = pass.Colours[at].Native;

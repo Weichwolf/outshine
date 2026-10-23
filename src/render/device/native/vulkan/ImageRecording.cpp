@@ -54,6 +54,12 @@ Result<void> Recording::UseImage(const std::shared_ptr<ImageState> &image,
   const auto tracked = TrackImage(image, view);
   if (!tracked) { return std::unexpected(tracked.error()); }
   auto *const found = *tracked;
+  const VkImageSubresourceRange range{.aspectMask = Aspect(image->Description.Texels),
+                                      .baseMipLevel = view.FirstMip,
+                                      .levelCount = view.Mips,
+                                      .baseArrayLayer = view.FirstLayer,
+                                      .layerCount = view.Layers};
+  if (found->Read.Repeats(range, access)) { return {}; }
   std::vector<VkImageMemoryBarrier2> barriers;
   for (uint32_t mip = view.FirstMip; mip < view.FirstMip + view.Mips; ++mip) {
     uint32_t layer = view.FirstLayer;
@@ -106,6 +112,36 @@ Result<void> Recording::UseImage(const std::shared_ptr<ImageState> &image,
   dependency.pImageMemoryBarriers = barriers.data();
   vkCmdPipelineBarrier2(Commands_, &dependency);
   return {};
+}
+
+bool ImageReadScope::Repeats(VkImageSubresourceRange range, Access access) noexcept {
+  constexpr VkAccessFlags2 reads = VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT |
+                                   VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT |
+                                   VK_ACCESS_2_SHADER_SAMPLED_READ_BIT |
+                                   VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+  if (access.Stage == 0 || access.Access == 0 || (access.Access & ~reads) != 0) {
+    Read_.reset();
+    return false;
+  }
+  if (Read_ && Read_->Range.aspectMask == range.aspectMask &&
+      Read_->Range.baseMipLevel == range.baseMipLevel &&
+      Read_->Range.levelCount == range.levelCount &&
+      Read_->Range.baseArrayLayer == range.baseArrayLayer &&
+      Read_->Range.layerCount == range.layerCount && Read_->Scope.Stage == access.Stage &&
+      Read_->Scope.Access == access.Access && Read_->Scope.Layout == access.Layout) {
+    return true;
+  }
+  Read_ = Read{.Range = range, .Scope = access};
+  return false;
+}
+
+void Recording::ForgetImageRead(const ImageState &image) noexcept {
+  for (auto &tracked : Images_) {
+    if (tracked.Image.get() == &image) {
+      tracked.Read.Reset();
+      return;
+    }
+  }
 }
 
 }
