@@ -1,5 +1,5 @@
 #include "Input.h"
-#include "../fixed_coverage/FixedPatch.h"
+#include "FixedPatch.h"
 #include "GpuSupport.h"
 #include "SpirvFile.h"
 #include "device/native/Device.h"
