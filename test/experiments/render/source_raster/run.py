@@ -106,14 +106,14 @@ def main():
                 SOURCE / "Probe.cpp",
                 fixed / "FixedPatch.cpp",
             ),
-            cflags=[
-                "-I" + str(fixed),
+            cflags=(
+                f"-I{fixed}",
                 *shlex.split(
                     subprocess.check_output(
                         ["pkg-config", "--cflags", "gmp"], text=True
                     )
                 ),
-            ],
+            ),
             libraries=shlex.split(
                 subprocess.check_output(["pkg-config", "--libs", "gmp"], text=True)
             ),
