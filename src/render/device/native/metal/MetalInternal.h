@@ -115,6 +115,8 @@ struct ShaderArgument {
   id<MTLResource> Resource = nil;
 };
 
+struct RenderState;
+
 [[nodiscard]] Result<std::vector<ShaderArgument>>
 Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint64_t device);
 [[nodiscard]] Result<std::vector<ShaderArgument>>
@@ -124,7 +126,7 @@ Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t devi
 [[nodiscard]] Result<void> Bind(id<MTLComputeCommandEncoder> encoder,
                                 const Shader &shader,
                                 const std::vector<ShaderArgument> &arguments);
-[[nodiscard]] Result<void> Bind(id<MTLRenderCommandEncoder> encoder,
+[[nodiscard]] Result<void> Bind(RenderState &pass,
                                 ShaderStage stage,
                                 const Shader &shader,
                                 const std::vector<ShaderArgument> &arguments);
@@ -198,9 +200,16 @@ struct AttachmentState {
 };
 
 struct RenderState {
-  struct VertexBinding {
+  struct BufferBinding {
     id<MTLBuffer> Buffer = nil;
     uint64_t Offset = 0;
+  };
+
+  struct ShaderBindings {
+    std::array<BufferBinding, kBufferSizesSlot> Buffers;
+    std::optional<std::array<uint32_t, kBufferSizesSlot>> Sizes;
+    std::array<id<MTLTexture>, 16> Textures{};
+    std::array<id<MTLSamplerState>, 16> Samplers{};
   };
 
   id<MTLRenderCommandEncoder> Encoder;
@@ -210,7 +219,8 @@ struct RenderState {
   std::shared_ptr<GraphicsState> Pipeline;
   std::optional<std::array<float, 6>> ViewportValues;
   std::optional<std::array<uint32_t, 4>> ScissorValues;
-  std::array<VertexBinding, kVertexBufferSlots> Vertices;
+  std::array<BufferBinding, kVertexBufferSlots> Vertices;
+  std::array<ShaderBindings, 2> Bindings;
 };
 
 enum class DrawKind { Direct, Indexed, Indirect };

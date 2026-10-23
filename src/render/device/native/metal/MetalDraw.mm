@@ -203,10 +203,10 @@ Result<void> MetalCommands::PrepareDraw(const DrawState &state,
         return std::ranges::find(hazards, one.Resource) != hazards.end();
       });
     }
-    auto bound = Bind(encoder, ShaderStage::Vertex, graphics.Vertex, *vertex);
+    auto bound = Bind(*Render, ShaderStage::Vertex, graphics.Vertex, *vertex);
     if (!bound) { return bound; }
     if (graphics.Fragment) {
-      bound = Bind(encoder, ShaderStage::Fragment, *graphics.Fragment, *fragment);
+      bound = Bind(*Render, ShaderStage::Fragment, *graphics.Fragment, *fragment);
       if (!bound) { return bound; }
     }
     ApplyRasterState(*Render, pipeline->State, state, *vertices);
