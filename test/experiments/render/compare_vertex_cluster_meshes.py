@@ -101,6 +101,7 @@ def render(source, prepared, origins, directions, ground, profile):
         "source_hit": hit,
         "first_depth": stop,
         "source_depth": depth,
+        "source_face": faces,
         "normal": normals,
     }, {
         "render_seconds": time.perf_counter() - started,
