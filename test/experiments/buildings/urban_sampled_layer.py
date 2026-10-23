@@ -22,6 +22,7 @@ def render_sampled_layer(
     seed=1113,
     batch=2048,
     shadow_query=None,
+    surface_packets=None,
 ):
     """Return parent C, miss T and miss-conditioned receiver-shadow S.
 
@@ -30,6 +31,8 @@ def render_sampled_layer(
     Deterministic external visibility affects direct parent light; the caller
     already includes non-parent shadows in its opaque direct term. Compose
     C+T*(S*direct+other) jointly before filtering; signed corrections stay signed.
+    Optional packet uniforms let the pixel integrator coordinate samples. Each
+    packet has the current ray count by M values; storage may be reused on next().
     """
     if (
         type(samples) is not int
@@ -61,6 +64,8 @@ def render_sampled_layer(
         return colour, transmission, visibility, work
     model = PrefixRuns(parent)
     model.product = product
+    if surface_packets is not None:
+        surface_packets = iter(surface_packets)
     generator = np.random.default_rng(np.random.SeedSequence(seed, spawn_key=(1,)))
     for first in range(0, len(origins), batch):
         part = slice(first, first + batch)
@@ -77,9 +82,16 @@ def render_sampled_layer(
             shadow_query,
             None if receiver_normals is None else receiver_normals[part],
         )
-        uniform = (
-            np.arange(samples)[None] + generator.random((len(o), samples))
-        ) / samples
+        if surface_packets is None:
+            uniform = (
+                np.arange(samples)[None] + generator.random((len(o), samples))
+            ) / samples
+        else:
+            uniform = np.asarray(next(surface_packets, []), float)
+            if uniform.shape != (len(o), samples) or not np.all(
+                np.isfinite(uniform) & (uniform >= 0) & (uniform < 1)
+            ):
+                raise ValueError("one [0,1) uniform per packet ray and draw required")
         c, counts = sampled_surfaces(
             model,
             o,
@@ -97,4 +109,8 @@ def render_sampled_layer(
         merge_work(work, prefix, "prefix_")
         merge_work(work, shadow, "receiver_shadow_")
         merge_work(work, counts)
+    if surface_packets is not None:
+        exhausted = object()
+        if next(surface_packets, exhausted) is not exhausted:
+            raise ValueError("surface packet stream exceeds ray count")
     return colour, transmission, visibility, work

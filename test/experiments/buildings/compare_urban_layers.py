@@ -20,6 +20,7 @@ from urban_parent_light import display, light_at, shade
 from urban_parent_reference import prepare_resolved, trace_resolved
 from urban_parent_stats import UrbanParent
 from urban_patches import load
+from urban_pixel_samples import pixel_surface_packets
 from urban_sampled_layer import render_sampled_layer
 from urban_shadow_runs import select_shadow_query
 
@@ -153,6 +154,17 @@ def layer_state(parent, o, d, profile, state, args, arrays):
             seed=args.surface_seed,
             batch=args.layer_batch,
             shadow_query=select_shadow_query(parent, profile),
+            surface_packets=(
+                pixel_surface_packets(
+                    *map(int, args.pixel_shape),
+                    args.samples,
+                    args.surface_samples,
+                    args.surface_seed,
+                    batch=args.layer_batch,
+                )
+                if args.pixel_strata
+                else None
+            ),
         )
     inputs = (parent, o, d, profile, child, caster, region, caster_region, front)
     rgb, report = mixed(
@@ -181,6 +193,8 @@ def layer_state(parent, o, d, profile, state, args, arrays):
 def run(args):
     if args.paired_sampled and args.surface_samples is None:
         raise ValueError("paired sampling requires --surface-samples")
+    if args.pixel_strata and args.surface_samples is None:
+        raise ValueError("pixel stratification requires --surface-samples")
     if not 0 <= args.foreground_fraction <= 1:
         raise ValueError("foreground fraction must lie in [0,1]")
     if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -252,6 +266,8 @@ def run(args):
         "samples_per_axis": args.samples,
         "surface_samples_per_ray": args.surface_samples,
         "surface_seed": args.surface_seed,
+        "pixel_strata": args.pixel_strata,
+        "surface_sampling_scope": "One pixel-row band plus ray packet; generation inside layer timings.",
         "resolved_control_shape": resolved["shape"].tolist(),
         "resolved_control_masses": len(resolved["columns"]),
         "roi": box.tolist(),
@@ -273,6 +289,7 @@ if __name__ == "__main__":
     parser.add_argument("--surface-samples", type=int, choices=range(1, 513))
     parser.add_argument("--surface-seed", type=int, default=1113)
     parser.add_argument("--paired-sampled", action="store_true")
+    parser.add_argument("--pixel-strata", action="store_true")
     parser.add_argument("--layer-batch", type=int, choices=range(1, 2049), default=2048)
     parser.add_argument("--foreground-fraction", type=float, default=0.5)
     parser.add_argument("--distance", type=float, default=240000.0)
