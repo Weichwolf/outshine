@@ -48,5 +48,8 @@ identical words/indices. Exact GEOS canonical/source coverages are valid; a real
 T-junction control is invalid. The shared scale-based `hanging_pairs` diagnostic
 is reported, not redefined or used to weld these points. No tolerance is enlarged.
 
-Flight selection, LP assembly and final body products still use Python. No native
-runtime/cache/Places fix or frame-budget admission follows from this operator.
+This station experiment still uses Python for flight selection, LP assembly and
+final body products. The separate native `BuildSurfaceHeightProgram` operator
+assembles the height model from prepared topology/recipes/junctions/flights and
+whole profiles (#1189); native planning and body/runtime integration remain open.
+No runtime/cache/Places fix or frame-budget admission follows from either operator.
