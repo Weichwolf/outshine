@@ -63,7 +63,9 @@ bool Engine::State::AdvanceUrbanAreas() {
   const auto &revision = World.GroundPublished.Current();
   const auto *terrain = World.Sheets.PublishedSurface();
   const auto eye = CurrentGeographicEyeEcef();
-  if (!revision || terrain == nullptr || !eye) { return true; }
+  if (!revision || revision->Quality != GroundQuality::Refined || terrain == nullptr || !eye) {
+    return true;
+  }
   if (!World.UrbanAreas) {
     World.UrbanAreas =
         std::make_unique<UrbanAreaStreaming>(*World.Pool,

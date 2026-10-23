@@ -384,7 +384,7 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
        published && (!refined || RefinedGroundClassified(*ground)) ? ""
                                                                    : Says::kPendingClassification,
        vectorBlocker,
-       UrbanWorldBlocker(),
+       refined ? UrbanWorldBlocker() : "",
        !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
                (World.Vegetation && World.Vegetation->Ready())
            ? ""
