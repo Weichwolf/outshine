@@ -116,7 +116,9 @@ Result<void> Recording::BeginRenderPass(const RenderPassDescription &description
     pass.Height = std::max(1u, attachment->Image->Description.Height >> depth.Image.FirstMip);
     pass.Depth = std::move(*attachment);
   }
+  pass.Labelled = !description.Label.empty();
   Render_ = std::move(pass);
+  if (Render_->Labelled) { BeginLabel(description.Label); }
   return {};
 }
 

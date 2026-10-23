@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string_view>
 
 namespace outshine::Render::Native {
 
@@ -30,6 +31,7 @@ struct DepthAttachment {
 struct RenderPassDescription {
   std::span<const ColourAttachment> Colours;
   std::optional<DepthAttachment> Depth;
+  std::string_view Label{};
 };
 
 struct Viewport {
