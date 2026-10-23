@@ -58,6 +58,23 @@ std::vector<uint8_t> TileBytes() {
   Append(tile, 0x1a, layer);
   return tile;
 }
+
+void CheckPendingTravel(::outshine::Generators::Osm::OsmField &staged,
+                        Ground::TilePool &pool,
+                        const double *originalPublication) {
+  using namespace outshine::Test;
+  const auto pinnedBeforeTravel = staged.SnapshotQueries();
+  CHECK(staged.Build(pool, {.LongitudeDeg = 90.0}, 1, 9).has_value() &&
+            staged.Points().data() == originalPublication,
+        "a pending distant contact preserves the previously published snapshot");
+  const auto pendingTravel = staged.SnapshotQueries(pinnedBeforeTravel);
+  CHECK(staged.Generation() == pinnedBeforeTravel->Generation() &&
+            pendingTravel != pinnedBeforeTravel && pendingTravel->CentreX() == staged.CentreX() &&
+            pendingTravel->PendingTiles() == staged.PendingTiles() &&
+            !pendingTravel->SettledWithin(1),
+        "changed focus and pending query state invalidate reuse before geometry publication");
+}
+
 }
 
 int main() {
@@ -147,9 +164,7 @@ int main() {
   const std::vector<double> originalPoints(staged.Points().begin(), staged.Points().end());
   const size_t originalBytes = staged.HeapBytes();
   const auto *originalPublication = staged.Points().data();
-  CHECK(staged.Build(pool, {.LongitudeDeg = 90.0}, 1, 9).has_value() &&
-            staged.Points().data() == originalPublication,
-        "a pending distant contact preserves the previously published snapshot");
+  CheckPendingTravel(staged, pool, originalPublication);
   for (uint32_t y = 7; y <= 9; ++y) {
     for (uint32_t x = 11; x <= 13; ++x) {
       Ground::TilePool::Landing landed;
