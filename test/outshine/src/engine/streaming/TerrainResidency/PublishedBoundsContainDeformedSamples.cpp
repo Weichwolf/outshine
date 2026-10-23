@@ -87,8 +87,10 @@ void CheckSelectedInstances(const TerrainResidency &terrain,
 
 void CheckSamples(const TerrainResidency &terrain, Data::TileId tile) {
   const auto bounds = terrain.AslBoundsM();
+  const auto samples = terrain.SampleAslBoundsM();
+  CHECK(samples, "published scalar samples provide their own ASL interval");
   CHECK(bounds, "completed native terrain provides conservative ASL bounds");
-  if (!bounds) { return; }
+  if (!bounds || !samples) { return; }
   bool contained = true;
   constexpr int side = 33;
   for (int row = 0; row < side; ++row) {
@@ -97,8 +99,8 @@ void CheckSamples(const TerrainResidency &terrain, Data::TileId tile) {
           {.X = tile.X + (column + .25) / side, .Y = tile.Y + (row + .75) / side}, tile.Zoom);
       const auto sample =
           terrain.HeightMAt({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg});
-      contained &=
-          sample && std::isfinite(*sample) && *sample >= (*bounds)[0] && *sample <= (*bounds)[1];
+      contained &= sample && std::isfinite(*sample) && *sample >= (*bounds)[0] &&
+                   *sample <= (*bounds)[1] && *sample >= (*samples)[0] && *sample <= (*samples)[1];
     }
   }
   CHECK(contained, "every sampled published triangle stays inside the metadata-only bound");
@@ -135,12 +137,18 @@ int main() {
            .Virtual = true});
       CHECK(terrain.Publish(patch, frame, error), "uniform virtual terrain publishes");
       CheckSamples(terrain, tile);
+      const auto flatSamples = terrain.SampleAslBoundsM();
+      const auto flatMesh = terrain.AslBoundsM();
+      CHECK(flatSamples && flatMesh && (*flatSamples)[0] > (*flatMesh)[0] &&
+                std::abs((*flatSamples)[0] - kFlatAslM) < kPositionToleranceM,
+            "skirts and geometric sag do not lower the scalar ASL sampler bounds");
       CheckSelectedInstances(terrain, focus, frame, true);
       auto &sheet = patch.Sheets.front();
       sheet.Nodes[kMiddleNode * kPageSide + kMiddleNode] = kDeformedAslM[1];
       sheet.Nodes[(kMiddleNode - 1) * kPageSide + kMiddleNode] = kDeformedAslM[0];
       CHECK(terrain.BeginPublish(patch, error), "deformation begins a new publication");
-      CHECK(!terrain.AslBoundsM(), "an incomplete publication cannot lend stale bounds");
+      CHECK(!terrain.AslBoundsM() && !terrain.SampleAslBoundsM(),
+            "an incomplete publication cannot lend stale bounds");
       CheckSelectedInstances(terrain, focus, frame, false);
       CHECK(terrain.Publish(patch, frame, error), "deformation replaces the resident page");
       CheckSamples(terrain, tile);
@@ -164,10 +172,12 @@ int main() {
       CHECK(!terrain.HeightMAt(
                 {.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg}),
             "an omitted page cannot supply its previous published height");
-      CHECK(!terrain.AslBoundsM(), "omitted terrain has no rendered height interval");
+      CHECK(!terrain.AslBoundsM() && !terrain.SampleAslBoundsM(),
+            "omitted terrain has no rendered or scalar height interval");
       CheckSelectedInstances(terrain, focus, frame, false);
       terrain.Clear();
-      CHECK(!terrain.AslBoundsM(), "cleared terrain has no stale height bounds");
+      CHECK(!terrain.AslBoundsM() && !terrain.SampleAslBoundsM(),
+            "cleared terrain has no stale height bounds");
     }
   }
   SDL_Quit();

@@ -64,6 +64,7 @@ public:
   [[nodiscard]] size_t HeapBytes() const noexcept;
   [[nodiscard]] std::optional<double> HeightMAt(LongitudeLatitude at) const noexcept;
   [[nodiscard]] std::optional<std::array<double, 2>> AslBoundsM() const noexcept;
+  [[nodiscard]] std::optional<std::array<double, 2>> SampleAslBoundsM() const noexcept;
   [[nodiscard]] bool
   Occludes(const Ray &ray, float nearM, float distanceM, const TangentFrame &frame) const noexcept;
 
@@ -77,6 +78,7 @@ private:
     Render::HeightPageHandle Page{};
     std::vector<float> Nodes;
     std::array<uint8_t, 32> SamplesDigest{};
+    std::array<float, 2> SampleBounds{};
     uint32_t Postings = 0;
     bool Virtual = false;
   };
@@ -113,7 +115,7 @@ private:
   void RetirePages();
   [[nodiscard]] static Render::TerrainTile TileOf(Data::TileId tile,
                                                   Render::HeightPageHandle page,
-                                                  std::span<const float> nodes,
+                                                  std::array<float, 2> samples,
                                                   const TangentFrame &frame);
   [[nodiscard]] static bool HasNativePage(const Sheet &sheet) noexcept;
   [[nodiscard]] Render::Native::Result<void> PublishGrid(const Patchwork &patchwork);
