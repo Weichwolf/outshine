@@ -130,7 +130,8 @@ class PlaneUnionTest(unittest.TestCase):
         groups, membership, work = compile_unions(
             [plate(shapely.box(0, 0, 2000, 2000)), tilted], epsilon=0.001
         )
-        self.assertEqual(work["fallback_patches"], 1)
+        self.assertEqual(work["fallback_patches"], 2)
+        self.assertEqual(work["retained_singleton_patches"], 1)
         kept = groups[membership[1]]
         self.assertTrue(kept.fallback)
         self.assertAlmostEqual(kept.domain.area, 1e6, places=6)

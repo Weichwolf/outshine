@@ -10,6 +10,7 @@ import numpy as np
 import shapely
 from parent_surface_inputs import open_parent
 from process_memory import peak_rss_bytes
+from source_plane_diagnostic import plot_meshes
 from source_plane_mesh import factorized_positions, union_mesh, unshifted_mesh
 from source_plane_union import compile_unions
 from source_surface_patches import original_patches
@@ -74,6 +75,13 @@ def run(args):
         **{"union_" + k: v for k, v in factored.items()},
         **{"unshifted_" + k: v for k, v in unshifted.items()},
     )
+    plot_meshes(
+        control,
+        mesh,
+        sum(a.nbytes for a in unshifted.values()),
+        sum(a.nbytes for a in factored.values()),
+        args.output / "construction.png",
+    )
     report.update(
         array_bytes={key: value.nbytes for key, value in mesh.items()},
         all_mesh_array_bytes=sum(a.nbytes for a in mesh.values()),
@@ -87,6 +95,7 @@ def run(args):
         process_peak_rss_bytes=peak_rss_bytes(),
         total_allocation_count=None,
         total_physical_copied_bytes=None,
+        material_scope="Geometry-only construction screen. Original UV, metre coordinates, colour factors and material/program selectors are not transferred. Packed normals represent chosen geometric plane/source normals, not original stored shading normals. Source/patch lineage does not implement a shading lookup. No replacement UV/BRDF mapping, material atlas or new indirection contract is provided; their eventual costs are absent and cannot rescue an already larger geometry-only result.",
         scope="One source-only 3m/0.5-degree plane-union profile with exact polygon masks, no sampled alpha/normal charts. Each source patch is projected as a whole or kept by its own plane; every accepted source remains mapped, incomplete original sources remain needs. The real-arithmetic slab bound plus measured Float32 vertex rounding is a positional model, not a silhouette/coverage/depth-order/closed-solid/PBR guarantee. Includes cold patch/group provenance; excludes required whole original fallback source products. No runtime/world/device admission or globally optimal plane cover.",
     )
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")

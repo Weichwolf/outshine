@@ -2,7 +2,7 @@
 
 import numpy as np
 import shapely
-from packed_normals import pack
+from packed_normals import pack, unpack
 
 
 def triangulate(domain, work=None):
@@ -53,6 +53,11 @@ def pack_mesh(triangles, normals, group_ids):
         ),
         "float32_degenerate_triangles": int(
             (np.linalg.norm(geometric, axis=1) == 0).sum()
+        ),
+        "maximum_normal_word_packing_angle_degrees": float(
+            np.degrees(
+                np.arccos(np.clip(np.einsum("ij,ij->i", unpack(words), normal), -1, 1))
+            ).max()
         ),
     }
 
