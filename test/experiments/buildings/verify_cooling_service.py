@@ -63,6 +63,9 @@ class CoolingService(unittest.TestCase):
         self,
     ):
         for access, solid in zip(self.access, self.solids, strict=True):
+            self.assertEqual(access.material, access.tower.source.materials[2])
+            for mesh in components(access).values():
+                self.assertTrue(np.all(mesh["materials"] == access.material))
             for mesh in components(access, clearance=True).values():
                 swept = native(mesh)
                 self.assertGreater(swept.volume(), 1)

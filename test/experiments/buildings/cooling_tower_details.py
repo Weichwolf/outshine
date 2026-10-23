@@ -33,6 +33,7 @@ def refine(row, source, info, error_m, *, service_access=False, service_bay=0):
                 "floor_m": access.floor_m,
                 "ground_m": access.ground_m,
                 "components": len(access.parts),
+                "material_binding": access.material,
                 "foot_route_xyz_m": world_points(access, access.route).tolist(),
                 "limits": "Geometric climb/step-off clearance only; no controller, complete tower access, structural load or native/device admission",
             }

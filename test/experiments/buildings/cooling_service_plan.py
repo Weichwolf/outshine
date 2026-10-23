@@ -23,6 +23,7 @@ class ServiceAccess:
     route: tuple
     floor_m: float
     ground_m: float
+    material: int
 
 
 def plan(tower, *, bay=0):
@@ -106,4 +107,5 @@ def plan(tower, *, bay=0):
         route,
         floor,
         ground,
+        tower.source.materials[2],
     )

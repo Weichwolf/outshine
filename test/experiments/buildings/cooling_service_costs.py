@@ -36,7 +36,7 @@ def general_components(access):
         result[part.identifier] = sealed(
             triangle_surface(
                 {"vertices": world_points(access, points), "faces": raw["faces"]},
-                access.tower.source.materials[0],
+                access.material,
             )
         )
     return result

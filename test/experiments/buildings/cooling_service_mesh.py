@@ -23,7 +23,7 @@ def components(plan, *, clearance=False):
         result[part.identifier] = sealed(
             triangle_surface(
                 {"vertices": world_points(plan, local), "faces": unit.faces},
-                plan.tower.source.materials[0],
+                plan.material,
             )
         )
     return result
