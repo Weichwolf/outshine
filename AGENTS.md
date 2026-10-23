@@ -47,10 +47,14 @@
   Unklare Namen, veraltete Angaben und unnötige Komplexität korrigieren wir samt Verbrauchern;
   lokale Verbesserungen brauchen keine Freigaberunde. Outshine soll in Bild und Aufbau kohärent sein.
 - Beide Kollegen committen und pushen kleine vollständige Fachlieferungen als PRs gegen den
-  vereinbarten Integrationsstand. Ich koordiniere dauerhaft Paketbesitz, Reihenfolge und gemeinsame
-  Basis der PR-Integration. `outshine_engine` unterstützt mich dauerhaft bei Review und Merges:
-  übernommene Pakete aktualisieren, Konflikte lösen, betroffene Prüfungen ausführen und eigenständig
-  nach `master` mergen. Paketbesitz vor Arbeit melden, damit wir keinen PR doppelt bearbeiten.
+  vereinbarten Integrationsstand. Jeder mergt seine fertigen PRs selbst nach Aktualisierung gegen
+  `master`, Konfliktlösung und betroffenen Prüfungen; gewöhnliche Fachlieferungen benötigen keine
+  zusätzliche Merge-Freigabe von mir. Research integriert ausschließlich Python-Verfahren,
+  Referenzen und abgeschlossene Experimente mit ausdrücklich benannten Grenzen; native Übernahme
+  bleibt ein eigener Auftrag bei Engine oder mir. Große Drafts in vollständige Lieferungen teilen.
+  Ich koordiniere Paketbesitz, Reihenfolge und gemeinsame Basis. `outshine_engine` unterstützt
+  zusätzlich bei Review/Merges übernommener Pakete. Paketbesitz vor Arbeit melden, damit wir keinen
+  PR doppelt bearbeiten. Nach dem Merge räumt der Besitzer seinen temporären Themenbranch auf.
   Gemeinsame Vertragsänderungen vorher abstimmen; Draft oder Mergefähigkeit allein ist keine Abnahme.
   Ich verantworte Gesamtintegration und bündele Voll-Lint, Metal-/Geräte- und Places-Prüfung.
   Die Lieferanten prüfen gezielt die Korrektheit ihrer Verfahren/Änderungen und messen ihre
