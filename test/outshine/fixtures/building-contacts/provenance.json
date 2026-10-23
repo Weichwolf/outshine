@@ -1,0 +1,12 @@
+{
+  "producer_commit": "369b9420e",
+  "producer_input": "test/outshine/src/generators/building/StructureBake/GroundCeilingsDescribePreparedParts.cpp:Inputs",
+  "producer_key": "Sha256Hex(\"ground-contact-asset\")",
+  "producer_archive_sha256": "f73e9a530233a89781304e740b8f0ae8e8acba56a6214a4fdf2df8ecf8a5acd0",
+  "files": {
+    "index-v9.bin": "cb308cf829cdc37fcf5ccd821a3ce4f570b6c9421f066144fe37d38cc490fbc3",
+    "lod-v11.bin": "c72a2a7ffb5d4f6b0f8c31e0aeaedee37d42fd83d3c645560bb4ba13ada1e181",
+    "prepared-v10.bin": "342374c3449c1ee0262fc697e0bc4387214873f270f6edc16ed6b4dc67f016ea"
+  },
+  "scope": "Frozen previous-format products from the unmodified original native writer; ordinary tests only read these files."
+}

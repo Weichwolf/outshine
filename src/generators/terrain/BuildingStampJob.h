@@ -30,7 +30,7 @@ public:
       : Frame_(frame), VectorGeneration_(vectorGeneration) {}
 
   [[nodiscard]] std::expected<bool, std::string_view> Advance(Work work);
-  [[nodiscard]] std::expected<std::vector<EarthworkStamp>, std::string_view> Take() &&;
+  [[nodiscard]] std::expected<std::vector<EarthworkStamp>, std::string_view> Take();
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:
@@ -39,8 +39,22 @@ private:
   [[nodiscard]] std::expected<void, std::string_view> AppendHolePoint(Work work);
   void FinishStamp();
   [[nodiscard]] std::expected<void, std::string_view> Choose(Work work);
+  [[nodiscard]] std::expected<void, std::string_view> SelectProduct();
   [[nodiscard]] std::expected<void, std::string_view> AdvanceStep(Work work);
   [[nodiscard]] std::expected<void, std::string_view> AppendOuterPoint(Work work);
+
+  [[nodiscard]] size_t HoleCount(Work work) const noexcept {
+    return Part_ != nullptr ? Part_->Holes.size() : FootprintOf(work).HoleCount;
+  }
+
+  [[nodiscard]] const ::outshine::Ground::BuildingFootprint &FootprintOf(Work work) const noexcept {
+    return work.Products != nullptr ? *ProductFootprint_ : work.Footprints[NextFootprint_];
+  }
+
+  [[nodiscard]] EastNorthUp PartPosition(EastNorth point) const {
+    return Frame_.ToLocalPosition(PartFrame_.ToEcefPosition(
+        {.EastM = point.EastM, .NorthM = point.NorthM, .UpM = Part_->HeightAslM}));
+  }
 
   [[nodiscard]] std::span<const double> PointsOf(Work work) const noexcept {
     return Geometry_ != nullptr ? std::span<const double>(Geometry_->Points()) : work.Points;
@@ -52,7 +66,12 @@ private:
 
   const ::outshine::Generators::Osm::BuildingField *Products_ = nullptr;
   const ::outshine::Ground::BuildingGeometry *Geometry_ = nullptr;
+  std::vector<::outshine::Generators::Osm::BuildingField::PinnedProduct> PinnedProducts_;
+  const ::outshine::Ground::BuildingFootprint *ProductFootprint_ = nullptr;
+  size_t NextProduct_ = 0;
+  const ::outshine::Ground::BuildingTerrainPart *Part_ = nullptr;
   TangentFrame Frame_;
+  TangentFrame PartFrame_;
   uint64_t VectorGeneration_ = 0;
   std::vector<EarthworkStamp> Stamps_;
   EarthworkStamp Current_;
@@ -64,6 +83,8 @@ private:
   size_t NextFootprint_ = 0;
   size_t NextPoint_ = 0;
   size_t NextSeam_ = 0;
+  size_t NextPart_ = 0;
+  size_t PartCount_ = 0;
   Phase Phase_ = Phase::Unstarted;
 };
 

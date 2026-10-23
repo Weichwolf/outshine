@@ -9,6 +9,7 @@ from scipy import sparse
 from scipy.optimize import linprog
 from stair_crossing_order import crossing_order
 from stair_junction_layout import cross_sections
+from stair_planar_lineage import overlap_faces
 
 
 def gradient_rows(xy, face):
@@ -39,12 +40,15 @@ class Conditions:
         )
 
 
-def facets(plan, system, directions, reserve, flat, precision):
+def facets(plan, system, directions, reserve, flat, precision, *, height_bound_m=None):
     seen = set()
     stair_owners = {s[0] for s in plan.get("stairs", [(0, 0, 1)])}
     cast_xy = plan["xy"].astype(np.float32).astype(float)
     root = plan["rows"][0]["prior"][0]
-    epsilon = float(np.spacing(np.float32(max(abs(root - 2), abs(root + 10))))) / 2
+    magnitude_bound = (
+        max(abs(root - 2), abs(root + 10)) if height_bound_m is None else height_bound_m
+    )
+    epsilon = float(np.spacing(np.float32(magnitude_bound))) / 2
     for owner, (row, faces) in enumerate(zip(plan["rows"], plan["parts"], strict=True)):
         limit = row["gradient"] - (0.002 if row["gradient"] > 0.1 else 0.0002)
         for face in faces:
@@ -75,8 +79,9 @@ def facets(plan, system, directions, reserve, flat, precision):
                     system.add(face, values, bound)
 
 
-def junctions(plan, system, directions, reserve, flat):
+def junctions(plan, system, directions, reserve, flat, *, plane_offset=None):
     count = len(plan["xy"])
+    offset = 2 * count if plane_offset is None else plane_offset
     for j, (node, owners, mask) in enumerate(
         zip(plan["nodes"], plan["incident"], plan["masks"], strict=True)
     ):
@@ -84,7 +89,7 @@ def junctions(plan, system, directions, reserve, flat):
         indices = indices[
             shapely.dwithin(mask, shapely.points(plan["xy"][indices]), 1e-8)
         ]
-        h, east, north = 2 * count + 3 * j + np.arange(3)
+        h, east, north = offset + 3 * j + np.arange(3)
         for i in indices:
             xy = plan["xy"][i] - node
             system.equal([i, h, east, north], [1, -1, -xy[0], -xy[1]])
@@ -93,10 +98,7 @@ def junctions(plan, system, directions, reserve, flat):
 
 
 def overlap_conditions(plan, system, gap, gap_variable=None):
-    mapped = [
-        {int(k): f for k, f in zip(keys, faces, strict=True)}
-        for keys, faces in zip(plan["part_global_faces"], plan["parts"], strict=True)
-    ]
+    mapped = overlap_faces(plan)
     checks = 0
     for i, j in itertools.combinations(range(len(plan["rows"])), 2):
         for key in mapped[i].keys() & mapped[j].keys():
@@ -116,10 +118,13 @@ def overlap_conditions(plan, system, gap, gap_variable=None):
     return checks
 
 
-def stair_condition(plan, system, owner, low_node, high_node):
+def stair_condition(
+    plan, system, owner, low_node, high_node, *, plane_offset=None, direction=1
+):
     count = len(plan["xy"])
+    offset = 2 * count if plane_offset is None else plane_offset
     face = plan["parts"][owner]
-    low, high = 2 * count + 3 * low_node, 2 * count + 3 * high_node
+    low, high = offset + 3 * low_node, offset + 3 * high_node
     for i in np.unique(face):
         system.add([low, i], [1, -1], 0)
         system.add([i, high], [1, -1], 0)
@@ -132,7 +137,7 @@ def stair_condition(plan, system, owner, low_node, high_node):
             shapely.area(shapely.intersection(shapes, influence)) > 1e-10
         ):
             f = face[index]
-            system.add(f, -tangent @ gradient_rows(plan["xy"], f), 0)
+            system.add(f, -direction * tangent @ gradient_rows(plan["xy"], f), 0)
     indices = np.unique(face)
     for line in cross_sections(row):
         selected = indices[

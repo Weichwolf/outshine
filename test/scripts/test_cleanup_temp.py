@@ -1,6 +1,6 @@
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import cleanup_temp as cleanup
@@ -31,6 +31,21 @@ class CleanupTests(unittest.TestCase):
 
     def test_clean_merged_worktree_is_disposable(self):
         self.assertTrue(self.eligible())
+
+    def test_unreadable_worktree_retains_its_files_and_test_cache(self):
+        broken = self.root / "outshine-worktree-broken"
+        cleanup.git(self.repo, "worktree", "add", "--detach", str(broken))
+        (broken / ".git").unlink()
+        cache = self.root / ("outshine-tests." + str(broken).replace("/", "_"))
+        cache.mkdir()
+        selected = {path for _, path, _ in cleanup.candidates(
+            self.repo, self.roots, self.keep, self.active, 0)}
+        self.assertEqual(selected, {self.worktree})
+        self.assertTrue((broken / "source.cpp").exists() and cache.exists())
+
+    def test_status_access_failure_protects_worktree(self):
+        with patch.object(cleanup, "git", side_effect=PermissionError("status unavailable")):
+            self.assertFalse(self.eligible())
 
     def test_removal_deletes_only_the_registered_clean_worktree(self):
         with patch.object(cleanup, "running", return_value=self.active):
@@ -109,10 +124,10 @@ class CleanupTests(unittest.TestCase):
     def test_new_owner_activity_prevents_test_cache_deletion(self):
         cache = self.root / "outshine-tests.fixture"
         cache.mkdir()
-        with patch.object(cleanup, "running", return_value=([self.worktree], "")):
-            with self.assertRaises(RuntimeError):
-                cleanup.remove(self.repo, "tests", cache, {"owner": str(self.worktree)},
-                               self.roots, self.keep)
+        with (patch.object(cleanup, "running", return_value=([self.worktree], "")),
+              self.assertRaises(RuntimeError)):
+            cleanup.remove(self.repo, "tests", cache, {"owner": str(self.worktree)},
+                           self.roots, self.keep)
         self.assertTrue(cache.exists())
 
     def test_disappearing_inventory_entry_does_not_abort_cleanup(self):

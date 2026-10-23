@@ -50,16 +50,14 @@ def build_consumer(args, execute, source=None, extra_includes=()):
     ).strip()
     if commit != provenance["commit"] or dirty:
         raise RuntimeError("archive API checkout must match its clean producer commit")
-    declaration = dict(
-        line.split("=", 1)
-        for line in (api / "test/run.sh").read_text().splitlines()
-        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
+    flags = shlex.split(
+        execute(
+            ["sh", api / "test/run.sh", "--native-compile-flags"],
+            args.output,
+            "compile-flags",
+            cwd=api,
+        )
     )
-    flags = [
-        flag
-        for key in ("CXXSTD", "WARN", "OPT")
-        for flag in shlex.split(declaration[key].strip('"'))
-    ]
     link = shlex.split(
         execute(
             ["sh", api / "test/run.sh", "--native-link-flags"],

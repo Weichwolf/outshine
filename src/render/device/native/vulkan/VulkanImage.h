@@ -5,6 +5,7 @@
 #include "Context.h"
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -12,6 +13,27 @@ namespace outshine::Render::Native::Vulkan {
 
 class Recording;
 struct PresentLease;
+
+class ImageReadScope {
+public:
+  struct Access {
+    VkPipelineStageFlags2 Stage = 0;
+    VkAccessFlags2 Access = 0;
+    VkImageLayout Layout = VK_IMAGE_LAYOUT_GENERAL;
+  };
+
+  [[nodiscard]] bool Repeats(VkImageSubresourceRange range, Access access) noexcept;
+
+  void Reset() noexcept { Read_.reset(); }
+
+private:
+  struct Read {
+    VkImageSubresourceRange Range{};
+    Access Scope;
+  };
+
+  std::optional<Read> Read_ = std::nullopt;
+};
 
 struct ImageState {
   std::shared_ptr<Context> Owner;

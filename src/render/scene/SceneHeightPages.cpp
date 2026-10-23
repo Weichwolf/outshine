@@ -113,19 +113,6 @@ SceneResources::RestoreHeightPageBatch(GeometryRenderer &subjects, size_t first,
   return end;
 }
 
-bool SceneResources::RestoreHeightPages(GeometryRenderer &subjects, std::string &error) {
-  size_t next = 0;
-  while (next < HeightPages_.size()) {
-    auto advanced = RestoreHeightPageBatch(subjects, next, kHeightPageBatchMost);
-    if (!advanced) {
-      error = std::move(advanced.error().Message);
-      return false;
-    }
-    next = *advanced;
-  }
-  return true;
-}
-
 Native::Result<void> SceneResources::SetGroundGrid(GeometryRenderer &subjects,
                                                    std::span<const float> fractions) {
   const auto uploaded = subjects.Ground().SetGrid(fractions);

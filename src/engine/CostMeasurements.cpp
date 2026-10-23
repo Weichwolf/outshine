@@ -47,6 +47,9 @@ void PublishPreparedGeometryCosts(Core::DiagnosticLedger &published,
       "cost.assets.building_basis.writes", static_cast<double>(costs.BasisWrites), "packages");
   published.RecordMetric(
       "cost.assets.building_basis.read_bytes", static_cast<double>(costs.BasisReadBytes), "bytes");
+  published.RecordMetric("cost.assets.building_basis.resident_hits",
+                         static_cast<double>(costs.BasisResidentHits),
+                         "reuses");
   published.RecordMetric(
       "cost.assets.building_lod.hits", static_cast<double>(costs.GeometryHits), "reads");
   published.RecordMetric(

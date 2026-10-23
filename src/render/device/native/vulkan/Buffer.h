@@ -7,8 +7,15 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
+#include <vector>
 
 namespace outshine::Render::Native::Vulkan {
+
+struct BufferReadScope {
+  ByteRange Range;
+  VkPipelineStageFlags2 Stage = 0;
+  VkAccessFlags2 Access = 0;
+};
 
 struct BufferState {
   std::shared_ptr<Context> Owner;
@@ -19,6 +26,8 @@ struct BufferState {
   void *Mapped = nullptr;
   bool Writing = false;
   uint32_t RecordedUses = 0;
+  uint64_t ReadRecording = 0;
+  std::vector<BufferReadScope> ReadScopes;
 
   BufferState() = default;
   ~BufferState();

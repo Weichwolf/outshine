@@ -12,6 +12,7 @@ struct AssetCache::State {
   std::unique_ptr<CacheUsageIndex> Usage;
   bool UsageWarning = false;
   void Observe(std::string_view key, uint64_t storedBytes, bool published = false);
+  void WarnUsage();
   ~State();
 };
 

@@ -9,7 +9,6 @@
 #include <cstdio>
 #include <memory>
 #include <span>
-#include <limits>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -166,60 +165,6 @@ void ContentStore::ObserveUsage(std::string_view key, size_t bytes, bool publish
   }
 }
 
-bool ContentStore::Trim() {
-  if (Using_ != Use::On) { return true; }
-  std::error_code ec;
-
-  struct StoredFile {
-    std::filesystem::path Path;
-    std::filesystem::file_time_type When;
-    uintmax_t Bytes = 0;
-  };
-
-  std::vector<StoredFile> entries;
-  uintmax_t total = 0;
-  for (std::filesystem::directory_iterator it(Directory_, ec), end; !ec && it != end;
-       it.increment(ec)) {
-    if (!ValidKey(it->path().filename().string())) { continue; }
-    if (!std::filesystem::is_regular_file(it->symlink_status(ec)) || ec) { continue; }
-    StoredFile e;
-    e.Path = it->path();
-    e.When = it->last_write_time(ec);
-    if (ec) { break; }
-    e.Bytes = it->file_size(ec);
-    if (ec || e.Bytes > static_cast<uintmax_t>(std::numeric_limits<long long>::max()) - total) {
-      return false;
-    }
-    total += e.Bytes;
-    entries.push_back(std::move(e));
-  }
-  if (ec) { return false; }
-  if (total <= static_cast<uintmax_t>(CapBytes_)) { return true; }
-  std::ranges::sort(entries,
-                    [](const StoredFile &a, const StoredFile &b) { return a.When < b.When; });
-  for (const StoredFile &e : entries) {
-    if (total <= static_cast<uintmax_t>(CapBytes_)) { break; }
-    std::error_code removeError;
-    if (!std::filesystem::remove(e.Path, removeError)) { continue; }
-    total -= e.Bytes;
-    Swept_++;
-    SweptBytes_ += static_cast<long long>(e.Bytes);
-  }
-  return total <= static_cast<uintmax_t>(CapBytes_);
-}
-
-std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key,
-                                                       size_t mostBytes) const {
-  if (Using_ != Use::On) { return std::nullopt; }
-  auto kept = ReadBytes(key, mostBytes);
-  if (!kept) {
-    Misses_.fetch_add(1, std::memory_order_relaxed);
-    return std::nullopt;
-  }
-  Hits_.fetch_add(1, std::memory_order_relaxed);
-  return kept;
-}
-
 std::optional<std::vector<uint8_t>> ContentStore::ReadBytes(std::string_view key,
                                                             size_t mostBytes) const {
   const size_t limit = mostBytes == 0 ? CapBytes_ : std::min(mostBytes, CapBytes_);
@@ -283,8 +228,6 @@ ContentStore::Ledger ContentStore::Counters() const {
   out.WriteBytes = WriteBytes_.load(std::memory_order_relaxed);
   out.ReadMs = static_cast<double>(ReadNs_.load(std::memory_order_relaxed)) / kNsPerMs;
   out.WriteMs = static_cast<double>(WriteNs_.load(std::memory_order_relaxed)) / kNsPerMs;
-  out.Swept = Swept_;
-  out.SweptBytes = SweptBytes_;
   return out;
 }
 

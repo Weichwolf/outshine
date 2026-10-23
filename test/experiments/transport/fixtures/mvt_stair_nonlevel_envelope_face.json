@@ -1,0 +1,43 @@
+{
+  "case_version": 1,
+  "provenance": {
+    "input_sha256": "2cd29bc5943fc41dcb6f5e81a8ba3e32a76d67fb93f8d5796dcd7c5710c24739",
+    "reference_commit": "e3404bd2dd7f20a953a350fc4a3e9b0c771c4dfa",
+    "source_id": "native-part:240",
+    "attribution": "\u00a9 OpenStreetMap contributors",
+    "scope": "Actual generated envelope facet; horizontal treads did not prove transverse envelope levelness."
+  },
+  "source_axis_xy_m": [
+    [
+      -14.541602046434075,
+      133.2874351392129
+    ],
+    [
+      -21.78964582309931,
+      137.41995098116604
+    ],
+    [
+      -22.035027618506703,
+      137.55985689069058
+    ]
+  ],
+  "triangle_xyz_m": [
+    [
+      -19.71875,
+      136.32080078125,
+      31.454056946091963
+    ],
+    [
+      -19.720703125,
+      136.3173828125,
+      31.453406022337887
+    ],
+    [
+      -18.0166015625,
+      135.26904296875,
+      30.52049125445526
+    ]
+  ],
+  "declared_max_gradient": 0.5,
+  "observed_transverse_gradient": 0.1657922660990386
+}

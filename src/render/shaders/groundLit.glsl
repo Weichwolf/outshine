@@ -25,11 +25,17 @@ const float kPi = acos(-1.0);
 #include "surfaceGradient.glsl"
 #if GROUND_PATCHES
 #include "groundFineNormal.glsl"
+#if SUBJECT_BASE_LOCATION == 0
+#include "groundFineShadow.glsl"
+#endif
 #endif
 void main() {
   readSubjectVaryings();
 #if GROUND_PATCHES
   vec3 surfaceNormal = groundFineNormal();
+#if SUBJECT_BASE_LOCATION == 0
+  vec4 shadowLightSpace = fineGroundShadow();
+#endif
 #else
   vec3 surfaceNormal = normal;
 #endif
@@ -76,7 +82,13 @@ void main() {
   outputSurface(vec4(0.0), shadingNormal, surface.identity);
 #else
   vec3 shaded = shadeRow(surface, localPosition, shadingNormal, position, albedo,
-      surface.metalness, roughness, vec3(surface.f0), surface.specularWeight, surface.emissive, vec3(0.0), lightSpace, shadowMap);
+      surface.metalness, roughness, vec3(surface.f0), surface.specularWeight, surface.emissive, vec3(0.0),
+#if GROUND_PATCHES
+      shadowLightSpace,
+#else
+      lightSpace,
+#endif
+      shadowMap);
   outputSurface(vec4(shaded, 1.0), shadingNormal, surface.identity);
 #endif
 }

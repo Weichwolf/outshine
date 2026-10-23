@@ -13,6 +13,24 @@
 
 namespace outshine {
 
+void AssetCache::UsePackage(std::string_view packageKey) const {
+  AssetSql::Statement statement;
+  const auto prepared =
+      AssetSql::Prepare(State_->Database,
+                        "SELECT length(bytes) FROM packages WHERE key=? AND typeof(bytes)='blob'",
+                        statement);
+  if (!prepared || !AssetSql::Text(statement.Value, 1, packageKey) ||
+      sqlite3_step(statement.Value) != SQLITE_ROW ||
+      sqlite3_column_type(statement.Value, 0) != SQLITE_INTEGER ||
+      sqlite3_column_int64(statement.Value, 0) < 0) {
+    State_->WarnUsage();
+    return;
+  }
+  const auto bytes = static_cast<uint64_t>(sqlite3_column_int64(statement.Value, 0));
+  sqlite3_reset(statement.Value);
+  State_->Observe(packageKey, bytes);
+}
+
 CachedAsset::CachedAsset(AssetRecord record, std::shared_ptr<const std::vector<uint8_t>> bytes)
     : Record_(std::move(record)), Package_(std::move(bytes)) {}
 

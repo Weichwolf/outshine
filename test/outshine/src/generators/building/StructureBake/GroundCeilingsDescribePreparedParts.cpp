@@ -94,8 +94,20 @@ void CheckPhysicalPlane(const PreparedStructureTile &base) {
   const auto &surface = base.Surfaces.front();
   const auto &axes = surface.Axes();
   double least = std::numeric_limits<double>::infinity();
+  size_t contactIndex = 0;
   for (const auto &part : surface.Shapes()) {
     if (!part.OnGround()) { continue; }
+    CHECK(contactIndex < base.Structures.front().Standing.TerrainContacts.PartsView().size(),
+          "each standing part has its own stored contact");
+    if (contactIndex >= base.Structures.front().Standing.TerrainContacts.PartsView().size()) {
+      return;
+    }
+    const auto &piece =
+        base.Structures.front().Standing.TerrainContacts.PartsView()[contactIndex++];
+    CHECK(piece.Ring == part.Ring && piece.Holes == part.Holes &&
+              std::abs(piece.HeightAslM -
+                       (base.Structures.front().BaseAslM + part.SeatM - kBuildingPlinthM)) < 1e-9,
+          "stored contacts preserve the actual spatial ownership and physical standing plane");
     for (const auto &corner : part.Ring) {
       const Vec3 floor = base.AnchorEcef + surface.Origin() + axes.East * corner.EastM +
                          axes.North * corner.NorthM + axes.Up * part.SeatM;
@@ -107,6 +119,10 @@ void CheckPhysicalPlane(const PreparedStructureTile &base) {
   }
   CHECK(std::abs(least - kBuildingPlinthM) < 1e-6,
         "the lowest actual ground floor determines the conservative ceiling");
+  CHECK(contactIndex == base.Structures.front().Standing.TerrainContacts.PartsView().size() &&
+            base.Structures.front().Standing.TerrainContacts.Valid() &&
+            base.Structures.front().Standing.HeapBytes() > 0,
+        "metadata contains exactly the standing parts and accounts for their retained payload");
   CHECK(!base.Structures[1].Standing.TerrainCeiling && !base.Structures[2].Standing.TerrainCeiling,
         "basement and elevated recipes retain their existing contact treatment");
 }
@@ -122,7 +138,10 @@ int main() {
   const auto bytes = EncodePreparedStructureIndex(*base);
   const auto header =
       bytes ? DecodePreparedStructureIndex(*bytes, size_t{8} * 1024 * 1024) : std::nullopt;
-  CHECK(header && header->Surfaces.front().PreparedSelection() &&
+  CHECK(header &&
+            header->Structures.front().Standing.TerrainContacts ==
+                base->Structures.front().Standing.TerrainContacts &&
+            header->Surfaces.front().PreparedSelection() &&
             header->Structures.front().Standing.TerrainCeiling ==
                 base->Structures.front().Standing.TerrainCeiling,
         "source-frame contacts survive a metadata-only native cache restart");
@@ -133,6 +152,9 @@ int main() {
   const auto product = BakePreparedStructures(*base, view, mesher, *scratch);
   CHECK(product && product->Prints.size() == 3, "render products carry the same source contacts");
   if (!product) { return Report(); }
+  CHECK(product->Prints.front().TerrainContacts.Parts ==
+            base->Structures.front().Standing.TerrainContacts.Parts,
+        "LOD products share immutable contact polygons instead of copying them");
   const auto key = Sha256Hex("ground-contact-asset");
   const auto artifact = EncodeStructureArtifact(*product, key);
   const auto restored = artifact ? DecodeStructureArtifact(*artifact, key, 1) : std::nullopt;
@@ -145,5 +167,11 @@ int main() {
   invalid.Structures.front().Standing.TerrainCeiling->HeightAslM =
       std::numeric_limits<double>::infinity();
   CHECK(!EncodePreparedStructureIndex(invalid), "nonfinite contact heights cannot publish");
+  invalid = *base;
+  auto parts = *invalid.Structures.front().Standing.TerrainContacts.Parts;
+  parts.front().Ring.front().EastM = std::numeric_limits<double>::infinity();
+  invalid.Structures.front().Standing.TerrainContacts.Parts =
+      std::make_shared<const std::vector<Ground::BuildingTerrainPart>>(std::move(parts));
+  CHECK(!EncodePreparedStructureIndex(invalid), "nonfinite contact polygons cannot publish");
   return Report();
 }

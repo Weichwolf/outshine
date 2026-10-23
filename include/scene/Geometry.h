@@ -257,6 +257,14 @@ public:
   /// @return Success or a typed attribute error, without partial publication.
   [[nodiscard]] std::expected<void, GeometryAttributeError> adoptMesh(int part,
                                                                       Mesh &mesh) noexcept;
+  [[nodiscard]] std::expected<void, GeometryAttributeError>
+  adoptPositions(int part, std::vector<float> &metres) noexcept;
+  [[nodiscard]] std::expected<void, GeometryAttributeError>
+  adoptNormals(int part, std::vector<float> &unit) noexcept;
+  [[nodiscard]] std::expected<void, GeometryAttributeError>
+  adoptColours(int part, std::vector<float> &rgba) noexcept;
+  [[nodiscard]] std::expected<void, GeometryAttributeError>
+  adoptTriangles(int part, std::vector<uint32_t> &indices) noexcept;
 
   /// Copy finite XYZ positions in local metres; the source is borrowed only during the call.
   /// Return a typed error without mutation for an invalid part, incomplete XYZ tuple or nonfinite

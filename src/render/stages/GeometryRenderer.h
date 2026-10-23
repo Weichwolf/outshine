@@ -21,12 +21,16 @@
 #include <cstddef>
 
 #include "KernelShape.h"
-#include "VertexArms.h"
+#include "DrawList.h"
 #include "TerrainRenderer.h"
+#include "PrismRenderer.h"
+#include "PrismPipelines.h"
 #include "GeometryResidency.h"
 #include "GpuPlacement.h"
 #include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
+#include "ShadowCasterSelection.h"
+#include "CasterChanges.h"
 #include "SubjectLightingUniform.h"
 
 namespace outshine::Render {
@@ -52,6 +56,7 @@ private:
   uint32_t Built = 0;
   std::vector<Resource> Colours;
   TerrainPipelines Ground;
+  PrismPipelines Prisms;
   Native::Texture *Behind = nullptr;
   Native::Sampler *BehindSampler = nullptr;
   bool GlassDrawnElsewhere = false;
@@ -75,7 +80,6 @@ public:
 
   using SourceOptions = SurfaceOutputs;
 
-  [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
   [[nodiscard]] static const char *
   FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
   static constexpr size_t kSubjectFragmentStorage = 3;
@@ -135,9 +139,32 @@ public:
 
   [[nodiscard]] const TerrainRenderer &Ground() const { return Ground_; }
 
+  [[nodiscard]] const PrismRenderer &Prisms() const noexcept { return Prisms_; }
+
+  [[nodiscard]] CasterChanges::Snapshot ShadowChangesSince(uint64_t revision) const noexcept {
+    return ShadowChanges_.Since(revision);
+  }
+
+  void AcknowledgeShadowChanges(uint64_t revision) noexcept {
+    ShadowChanges_.Acknowledge(revision);
+  }
+
+  void AcknowledgePrismShadowChanges(uint64_t revision) noexcept {
+    Prisms_.AcknowledgeShadowChanges(revision);
+  }
+
+  [[nodiscard]] Native::Result<uint64_t> PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
+                                                        std::span<const PrismInstance> instances,
+                                                        uint32_t material);
+  [[nodiscard]] Native::Result<void>
+  SetPrismGridInstances(uint64_t id, std::span<const PrismInstance> instances);
+  void ReleasePrismGrid(uint64_t id);
+  [[nodiscard]] Native::Result<void> EncodePrismShadow(const PassRecording &into,
+                                                       const PrismDepthView &view) const;
+
   void SetPiecesVisible(bool visible);
 
-  [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error);
+  [[nodiscard]] Native::Result<PieceId> PlacePiece(const PieceMesh &piece);
   void ReleasePiece(PieceId which);
   [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error);
@@ -159,6 +186,7 @@ public:
 
   [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
     if (rows == 0) {
+      if (!Placed_.empty()) { ShadowChanges_.Unknown(); }
       Placed_.clear();
       Before_.clear();
       Stamped_.clear();
@@ -171,10 +199,12 @@ public:
       error = "a draw names placement slot " + std::to_string(batch.ModelSlot) + " and " +
               std::to_string(batch.Instances) + " instance(s) over a table of " +
               std::to_string(rows) + " placements";
+      ShadowChanges_.Unknown();
       Placed_.clear();
       return false;
     }
     if (Placed_.size() == rows * 16u) { return true; }
+    ShadowChanges_.Unknown();
     Placed_.resize(rows * 16u, 0.0);
     Before_.assign(rows * 16u, 0.0);
     Stamped_.assign(rows, 0u);
@@ -192,6 +222,7 @@ public:
     }
     for (size_t at = 0; at < 16u; ++at) { Placed_[slot * 16u + at] = model[at]; }
     ++Moved_;
+    ShadowChanges_.Unknown();
     RowsStale_ = true;
   }
 
@@ -199,9 +230,11 @@ public:
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
-  [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_; }
+  [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_ + Prisms_.Generation(); }
 
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
+    ShadowChanges_.Unknown();
+    RowsStale_ = true;
     if (models == nullptr && rows > 0) {
       Placed_.clear();
       error = "a placement table of " + std::to_string(rows) +
@@ -267,7 +300,7 @@ private:
   };
 
   struct DrawResources {
-    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 1;
+    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 2;
     std::array<Native::Binding, kMostBindings> Bindings{};
     std::array<Native::VertexBuffer, kMostVertexRuns> Vertices{};
     uint32_t BindingCount = 0;
@@ -304,9 +337,12 @@ private:
   void BindSlot(DrawResources &into,
                 size_t slot,
                 VertexLayout layout,
-                const FrameUniforms &uniforms) const;
+                const FrameUniforms &uniforms,
+                uint32_t prefixBindings = 0) const;
   [[nodiscard]] Native::Result<void> EncodeGround(const PassRecording &into,
                                                   const FrameUniforms &uniforms) const;
+  [[nodiscard]] Native::Result<void> EncodePrisms(const PassRecording &into,
+                                                  const FrameUniforms &uniforms);
   [[nodiscard]] Native::Result<void> DrawBatchRange(const PassRecording &into,
                                                     size_t first,
                                                     bool culled,
@@ -345,7 +381,10 @@ public:
 
   [[nodiscard]] const GeometryResidency &Resident() const { return Bound(); }
 
-  void Shares(GeometryResidency &other) { At_ = &other; }
+  void Shares(GeometryResidency &other) {
+    if (At_ != &other) { ShadowChanges_.Unknown(); }
+    At_ = &other;
+  }
 
   [[nodiscard]] GeometryResidency &Owned() { return Own_; }
 
@@ -353,11 +392,12 @@ public:
 
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
 
-  [[nodiscard]] Native::Result<void> EncodeShadow(const PassRecording &into,
-                                                  const Native::GraphicsPipeline &pipeline,
-                                                  const DrawBatch &batch,
-                                                  uint32_t instances,
-                                                  std::span<const std::byte> view) const;
+  [[nodiscard]] Native::Result<uint32_t> EncodeShadow(const PassRecording &into,
+                                                      const Native::GraphicsPipeline &pipeline,
+                                                      size_t batchIndex,
+                                                      const BatchFrustum &visible,
+                                                      uint32_t instances,
+                                                      std::span<const std::byte> view) const;
 
   [[nodiscard]] uint32_t ColourImages() const;
   [[nodiscard]] uint32_t DistinctPlacements() const;
@@ -370,7 +410,9 @@ public:
 
   [[nodiscard]] const Mat4 &ModelM() const { return Model; }
 
-  [[nodiscard]] uint64_t HeldBytes() const { return At_ != nullptr ? 0u : Own_.HeldBytes(); }
+  [[nodiscard]] uint64_t HeldBytes() const {
+    return (At_ != nullptr ? 0u : Own_.HeldBytes()) + Prisms_.HeldBytes();
+  }
 
   [[nodiscard]] uint32_t StagedBytes() const { return Bound().StagedBytes(); }
 
@@ -425,6 +467,17 @@ private:
   };
 
   TerrainRenderer Ground_;
+  PrismRenderer Prisms_;
+  CasterChanges ShadowChanges_;
+
+  void RecordPieceShadowChange(const std::optional<std::array<float, 4>> &before,
+                               size_t beforeRows,
+                               const std::optional<std::array<float, 4>> &after,
+                               size_t afterRows) noexcept;
+  [[nodiscard]] bool ChangesShadowSurfaces(std::span<const uint32_t> before,
+                                           std::span<const uint32_t> after,
+                                           PieceSurface::Source source) const noexcept;
+  [[nodiscard]] bool TruncatesShadowMaterials(size_t count) const noexcept;
 
   [[nodiscard]] bool BindSurface(const SubjectMaterial &material,
                                  std::string &error,
@@ -511,6 +564,8 @@ private:
   std::vector<float> SubjectSpheres_;
   std::vector<uint32_t> TableJobs_, TableOrder_, TableRows_;
   std::vector<float> TableSpheres_;
+  ShadowCasterSelection ShadowCasters_;
+  bool SubjectBoundsCurrent_ = false;
   uint32_t SubjectRows_ = 0;
   std::vector<Piece> Pieces_;
   std::vector<uint32_t> Spare_;
@@ -518,7 +573,7 @@ private:
   uint32_t PiecesLive_ = 0;
   uint32_t PieceTriangles_ = 0;
 
-  [[nodiscard]] bool RoomForStreams(std::string &error);
+  [[nodiscard]] Native::Result<void> RoomForStreams();
 
   struct OptionalStreamEnds {
     uint32_t VertexEnd;
@@ -526,13 +581,17 @@ private:
     uint32_t TangentEnd;
   };
 
-  [[nodiscard]] bool
-  RoomForOptionalStreams(OptionalStreamEnds ends, VertexRunsCarried carried, std::string &error);
+  [[nodiscard]] Native::Result<void> RoomForOptionalStreams(OptionalStreamEnds ends,
+                                                            VertexRunsCarried carried);
   void BindPlacementStorage(DrawResources &into, VertexLayout layout) const;
+  void BindShadowResources(DrawResources &resources,
+                           const DrawBatch &batch,
+                           std::span<const std::byte> view) const;
   [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildSubjectBatches(std::string &error);
   void PrepareSubjectTables();
+  void PrepareShadowCasters();
   [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
   void OrderPieces();
   [[nodiscard]] bool AppendPieceBatches(Piece &one, std::string &error);

@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import shapely
 from column_field_bake import merge_columns, patch_columns, store_native_fallback
-from column_field_query import load_product, trace
+from column_field_query import load_product, trace, walk_cells
 from column_roof_patches import project_patch, roof_patches
 from native_capture_meshes import independent_depth
 from parent_surface_inputs import open_parent
@@ -63,6 +63,38 @@ def explicit_boxes(product):
 
 
 class ColumnTests(unittest.TestCase):
+    def test_parallel_inset_gap_skips_grid_without_losing_boundaries(self):
+        product = {
+            "low": np.array([0, 0]),
+            "shape": np.array([4096, 4096]),
+            "height_bounds": np.array([0.0, 48.0]),
+            "header": {"pitch_m": 16.0, "footprint_fraction": 0.75},
+        }
+        for y in [
+            1.0,
+            15.0,
+            2.0,
+            14.0,
+            np.nextafter(2.0, 0.0),
+            np.nextafter(14.0, 16.0),
+        ]:
+            work = {"steps": 0, "cell_ray_visits": 0}
+            result = next(
+                walk_cells(
+                    product,
+                    np.array([[-8.0, y, 2.0]]),
+                    np.array([[1.0, 0.0, 0.0]]),
+                    work,
+                ),
+                None,
+            )
+            if y in [1.0, 15.0]:
+                self.assertIsNone(result)
+                self.assertEqual(work["cell_ray_visits"], 0)
+            else:
+                # Exact/adjacent-ULP surface boundaries remain conservative.
+                self.assertIsNotNone(result)
+
     def test_ready_native_fallback_is_queried_before_field(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "field"
@@ -79,6 +111,15 @@ class ColumnTests(unittest.TestCase):
             store_native_fallback(path, source, header)
             ready = load_product(path)
             depth, normal, owner, _ = trace(ready, [[0.5, 0.5, 5]], [[0, 0, -1]])
+            self.assertEqual(depth[0], 1)
+            self.assertEqual(owner[0], -2)
+            np.testing.assert_array_equal(normal[0], [0, 0, 1])
+            empty = ready | {
+                "shape": np.zeros(2, np.int64),
+                "lookup": np.empty((0, 0), np.int32),
+            }
+            depth, normal, owner, work = trace(empty, [[0.5, 0.5, 5]], [[0, 0, -1]])
+            self.assertEqual(work["cell_ray_visits"], 0)
             self.assertEqual(depth[0], 1)
             self.assertEqual(owner[0], -2)
             np.testing.assert_array_equal(normal[0], [0, 0, 1])

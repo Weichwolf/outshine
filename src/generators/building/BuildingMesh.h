@@ -12,10 +12,6 @@ namespace outshine::Generators {
 
 class BuildingMesh : public StructureMesher {
 public:
-  [[nodiscard]] std::string_view ArtifactVersion() const noexcept override {
-    return "outshine-building-mesh-19";
-  }
-
   [[nodiscard]] std::optional<double>
   ShellSurfaceErrorM(std::span<const StoredVertex> walls) const noexcept override;
 
@@ -23,6 +19,8 @@ public:
                                                          MeshScratch &lent) const noexcept override;
 
   [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override;
+
+  [[nodiscard]] bool KnownEmptySurface(const StructurePlan &plan) const noexcept override;
 
   [[nodiscard]] bool HasSurfaceProjection() const noexcept override { return true; }
 

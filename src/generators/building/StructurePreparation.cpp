@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <memory>
 #include <optional>
 #include <span>
 #include <utility>
@@ -430,15 +431,20 @@ EnrichStructure(const RawTile &raw,
 
 namespace {
 std::optional<Ground::BuildingTerrainCeiling> TerrainCeiling(const BuildingSurface &surface,
-                                                             const PreparedStructure &prepared) {
+                                                             PreparedStructure &prepared) {
   if (prepared.Layout.MinimumHeightM != 0.0) { return std::nullopt; }
   std::optional<double> support;
+  std::vector<Ground::BuildingTerrainPart> contacts;
   for (const auto &part : surface.Shapes()) {
     if (!part.OnGround()) { continue; }
     const double height = part.SeatM - kBuildingPlinthM;
     support = support ? std::min(*support, height) : height;
+    contacts.push_back(
+        {.HeightAslM = prepared.BaseAslM + height, .Ring = part.Ring, .Holes = part.Holes});
   }
   if (!support) { return std::nullopt; }
+  prepared.Standing.TerrainContacts.Parts =
+      std::make_shared<const std::vector<Ground::BuildingTerrainPart>>(std::move(contacts));
   return Ground::BuildingTerrainCeiling{.OriginPoint = prepared.Layout.LocalFirst,
                                         .HeightAslM = prepared.BaseAslM + *support};
 }

@@ -50,7 +50,8 @@ Source(std::span<const Ground::GeoBounds> bounds) {
   return std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
       outshine::Generators::Osm::SourceSnapshot{
           .Elements = std::move(*elements),
-          .Coverage = {{.WestDeg = -180, .SouthDeg = -80, .EastDeg = 180, .NorthDeg = 80}}});
+          .Coverage = {{.WestDeg = -180, .SouthDeg = -80, .EastDeg = 180, .NorthDeg = 80}},
+          .Chunks = {}});
 }
 
 std::expected<bool, std::string>

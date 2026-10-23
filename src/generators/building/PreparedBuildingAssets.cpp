@@ -52,7 +52,7 @@ PreparedBuildingAssets::Open(const std::string &directory, const Data::SourceSet
   if (!cache) { return std::unexpected("could not open the native building cache"); }
   constexpr std::array kinds{Data::DataKind::Elevation, Data::DataKind::VectorMap};
   auto assets = std::shared_ptr<PreparedBuildingAssets>(new PreparedBuildingAssets(
-      std::move(*cache), AssetSourceRecipe("prepared-building-base-9", sources, kinds)));
+      std::move(*cache), AssetSourceRecipe("prepared-building-base-12", sources, kinds)));
   assets->Self_ = assets;
   return assets;
 }
@@ -179,6 +179,7 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
           .BasisMisses = BasisMisses_.load(std::memory_order_relaxed),
           .BasisWrites = BasisWrites_.load(std::memory_order_relaxed),
           .BasisReadBytes = BasisReadBytes_.load(std::memory_order_relaxed),
+          .BasisResidentHits = BasisResidentHits_.load(std::memory_order_relaxed),
           .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
           .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
           .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),

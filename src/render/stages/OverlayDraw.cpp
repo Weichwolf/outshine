@@ -73,15 +73,6 @@ Native::Result<void> UploadOverlay(Native::Device &device,
 
 }
 
-Native::Result<void> OverlayDraw::EnsureAtlas(const Gpu &gpu) {
-  if (Atlas_) {
-    if (Device_ != gpu.Device) { return std::unexpected(InvalidOverlay()); }
-    return {};
-  }
-  static constexpr std::array<uint8_t, 4> white{255, 255, 255, 255};
-  return SetAtlas(gpu, white.data(), 1, 1);
-}
-
 Native::Result<void>
 OverlayDraw::SetAtlas(const Gpu &gpu, const uint8_t *rgba, int width, int height) {
   const AtlasPixels atlas{.Rgba = rgba, .Width = width, .Height = height};

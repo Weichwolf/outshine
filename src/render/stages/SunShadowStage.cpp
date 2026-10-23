@@ -4,6 +4,7 @@
 #include "math/Mat4.h"
 #include "SunShadowStage.h"
 #include "math/Vec3.h"
+#include "math/Box.h"
 
 #include <algorithm>
 #include <array>
@@ -86,29 +87,25 @@ void SunShadowStage::Declare(Overhead sky, double radiusM, bool cameraCentred) {
 
 Vec3 SunShadowStage::CasterCentre() const {
   const Vec3 anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : Vec3{};
-  Vec3 centre = anchor;
-  Vec3 least = {{kBeyondAnyCoordinate, kBeyondAnyCoordinate, kBeyondAnyCoordinate}};
-  Vec3 most = {{-kBeyondAnyCoordinate, -kBeyondAnyCoordinate, -kBeyondAnyCoordinate}};
-  size_t counted = 0;
+  Box bounds;
   if (Subjects_ != nullptr) {
     const std::vector<double> &placed = Subjects_->Placements();
     const size_t slots = placed.size() / 16u;
     for (size_t slot = 0; slot < slots && slot < CastsBelow_; ++slot) {
       const double *const model = placed.data() + slot * 16u;
-      for (int axis = 0; axis < 3; ++axis) {
-        const double at = model[12 + static_cast<size_t>(axis)];
-        least[axis] = at < least[axis] ? at : least[axis];
-        most[axis] = at > most[axis] ? at : most[axis];
-      }
-      ++counted;
+      bounds.Cover(Vec3{{model[12], model[13], model[14]}});
+    }
+    const auto prisms = Subjects_->Prisms().Bounds();
+    if (!prisms.Empty()) {
+      bounds.Cover(Vec3{{static_cast<double>(prisms.Min[0]),
+                         static_cast<double>(prisms.Min[1]),
+                         static_cast<double>(prisms.Min[2])}});
+      bounds.Cover(Vec3{{static_cast<double>(prisms.Max[0]),
+                         static_cast<double>(prisms.Max[1]),
+                         static_cast<double>(prisms.Max[2])}});
     }
   }
-  if (counted > 0) {
-    for (int axis = 0; axis < 3; ++axis) {
-      centre[axis] = 0.5 * (least[axis] + most[axis]) + anchor[axis];
-    }
-  }
-  return centre;
+  return bounds.Empty() ? anchor : bounds.Middle() + anchor;
 }
 
 void SunShadowStage::Build(const Vec3 &preView) {
@@ -238,14 +235,25 @@ void SunShadowStage::Prepare(const FrameContext &ctx) {
     }
   }
   Build(ctx.PreViewTranslation);
-  const uint64_t stands = Subjects_->Generation();
+  const auto geometry = Subjects_->ShadowChangesSince(PreparedGeometryRevision_);
+  const auto prisms = Subjects_->Prisms().ShadowChangesSince(PreparedPrismRevision_);
   const uint64_t ground = Subjects_->Ground().Generation();
-  const bool reusable =
-      Cache_.Submitted() && stands == PreparedGeneration_ && ground == PreparedGroundGeneration_;
+  const bool reusable = Cache_.Submitted() && ground == PreparedGroundGeneration_;
+  const bool full = !reusable || !geometry.Complete || !prisms.Complete;
+  Boxf bounds = geometry.Bounds;
+  bounds.Cover(prisms.Bounds);
+  bool allFull = true;
   size_t changed = 0;
   for (size_t region = 0; region < RegionCount(); ++region) {
     RasterUpdates_[region] = PrepareShadowRaster(
-        AcceptedRaster_[region], Static_[region], Subjects_->AnchorM(), kShadowTilePx, !reusable);
+        AcceptedRaster_[region], Static_[region], Subjects_->AnchorM(), kShadowTilePx, full);
+    bool regionFull = RasterUpdates_[region].Texels == uint64_t{kShadowTilePx} * kShadowTilePx;
+    if (!full && !regionFull && !IncludeShadowChange(RasterUpdates_[region], bounds)) {
+      RasterUpdates_[region] = PrepareShadowRaster(
+          AcceptedRaster_[region], Static_[region], Subjects_->AnchorM(), kShadowTilePx, true);
+      regionFull = true;
+    }
+    allFull = allFull && regionFull;
     for (size_t axis = 0; axis < 2; ++axis) {
       RegionUniforms_[region].Depth[2 + axis] =
           static_cast<float>(RasterUpdates_[region].Origin[axis]);
@@ -253,12 +261,16 @@ void SunShadowStage::Prepare(const FrameContext &ctx) {
     DirtyRegions_[region] = RasterUpdates_[region].Count > 0;
     changed += DirtyRegions_[region] ? 1u : 0u;
   }
-  if (changed == 0) { return; }
-  PreservesAtlas_ = reusable;
-  Cache_.Invalidate();
-  Casting_ = true;
-  PreparedGeneration_ = stands;
+  if (changed != 0) {
+    PreservesAtlas_ = reusable && !allFull;
+    Cache_.Invalidate();
+    Casting_ = true;
+  }
+  PreparedGeometryRevision_ = geometry.Revision;
+  PreparedPrismRevision_ = prisms.Revision;
   PreparedGroundGeneration_ = ground;
+  Subjects_->AcknowledgeShadowChanges(geometry.Revision);
+  Subjects_->AcknowledgePrismShadowChanges(prisms.Revision);
 }
 
 Native::Result<void> SunShadowStage::Encode([[maybe_unused]] const FrameContext &ctx,
@@ -311,6 +323,9 @@ Native::Result<void> SunShadowStage::Cast(size_t region, const PassRecording &in
     if (!ground) { return ground; }
     const auto subjects = CastSubjects(recording, bytes, selection);
     if (!subjects) { return subjects; }
+    const auto prisms = Subjects_->EncodePrismShadow(
+        recording, {.ClipFromWorld = uniform.Light, .Shift = uniform.Shift.Axis});
+    if (!prisms) { return prisms; }
   }
   return {};
 }
@@ -331,7 +346,8 @@ Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
   std::ranges::copy(selection, frame.Mvp.begin());
   const BatchFrustum visible(frame, {});
   const auto subjectRows = Subjects_->SubjectRows();
-  for (const auto &batch : batches) {
+  for (size_t batchIndex = 0; batchIndex < batches.size(); ++batchIndex) {
+    const auto &batch = batches[batchIndex];
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < subjectRows) { continue; }
     const auto instances = batch.ModelSlot < subjectRows
                                ? std::min(batch.Instances, CastsBelow_ - batch.ModelSlot)
@@ -343,9 +359,10 @@ Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
       return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                            .Message = "shadow pipeline is missing"});
     }
-    const auto cast = Subjects_->EncodeShadow(into, *pipeline, batch, instances, view);
-    if (!cast) { return cast; }
-    ++CastBatches_;
+    const auto cast =
+        Subjects_->EncodeShadow(into, *pipeline, batchIndex, visible, instances, view);
+    if (!cast) { return std::unexpected(cast.error()); }
+    CastBatches_ += *cast;
   }
   return {};
 }

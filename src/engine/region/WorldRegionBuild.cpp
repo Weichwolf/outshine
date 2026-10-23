@@ -392,8 +392,11 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
                                             GroundBuildProducts &build,
                                             Phasing &clocks) {
   build.Pieces.Framed(standing);
-  Core::ReportBuildingFootprints(
-      Published, World.Stack.Footprints(), World.Stack.Vectors(), standing);
+  Core::ReportBuildingFootprints(Published,
+                                 World.Stack.Footprints(),
+                                 World.Stack.Vectors(),
+                                 standing,
+                                 Session.Declared.Render.Audits);
   if (!build.Surfaces) {
     Geometry materials;
     Material walls;
@@ -611,7 +614,7 @@ Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
   }
   const auto advanced =
       state.BuildingEarthworks()->Advance({.Products = &state.Footprints(),
-                                           .Footprints = state.Footprints().Footprints(),
+                                           .Footprints = {},
                                            .Points = {},
                                            .Rings = {},
                                            .VectorGeneration = state.Footprints().Revision(),
@@ -625,7 +628,7 @@ Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
           .count());
   state.SamplesProductPeak();
   if (!*advanced) { return GroundBuildProgress::Pending; }
-  auto stamped = std::move(*state.BuildingEarthworks()).Take();
+  auto stamped = state.BuildingEarthworks()->Take();
   if (!stamped) {
     Error = std::string(stamped.error());
     return GroundBuildProgress::Failed;
@@ -657,7 +660,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
       return true;
     }
     std::vector<EarthworkStamp> yielding;
-    if (shapes != nullptr || !state.Footprints().Footprints().empty()) {
+    if (shapes != nullptr || state.Footprints().FootprintCount() != 0) {
       const GroundBuildProgress stamped = BuildGroundBuildingStamps(standing, state, yielding);
       if (stamped != GroundBuildProgress::Ready) { return stamped != GroundBuildProgress::Failed; }
     } else if (state.BuildingEarthworks() != nullptr) {
@@ -1318,10 +1321,6 @@ size_t Engine::State::StructureCandidatesMost() const noexcept {
                   World.GroundBuild->Revision().Quality == GroundQuality::Playable)
              ? kPlayableStructureCandidates
              : kRefinedStructureCandidates;
-}
-
-::outshine::Generators::Osm::BuildingField *Engine::State::CandidateFootprints() const noexcept {
-  return World.GroundBuild ? &World.GroundBuild->Footprints() : nullptr;
 }
 
 bool Engine::State::StagesGroundBakes(size_t landsMost) {

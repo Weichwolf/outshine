@@ -2,6 +2,7 @@
 #include "Check.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <string>
 #include <memory>
 #include <utility>
@@ -18,7 +19,7 @@ int main() {
                       .Bounds = {.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}};
   Field field;
   Field::Baked product{.Coordinates = geometry, .Prints = {}, .SeatSpreadM = {}, .AcrossM = {}};
-  field.PreparesAcceptances({.Tiles = 1});
+  field.PreparesAcceptances(1);
   field.Take(0);
   auto pending = field.PrepareAcceptance(0, product, {}, true);
   field.CommitAcceptance(std::move(pending), product);

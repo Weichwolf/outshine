@@ -99,10 +99,8 @@ def compile_variant(output, points, variant, glslang, translator):
 
 
 def native_syntax(output):
-    declarations = dict(line.split('=', 1) for line in (ROOT / 'test/run.sh').read_text().splitlines()
-                        if line.startswith(('CXXSTD=', 'WARN=', 'OPT=')))
-    flags = [flag for key in ('CXXSTD', 'WARN', 'OPT')
-             for flag in shlex.split(declarations[key].strip('"'))]
+    flags = shlex.split(subprocess.check_output(
+        ["sh", "test/run.sh", "--native-compile-flags"], cwd=ROOT, text=True))
     include = Path(os.environ.get('NATIVE_INCLUDE', str(ROOT / 'src/render/device')))
     command = [*shlex.split(os.environ.get('CXX', 'c++')), *flags, '-fno-exceptions',
                '-I' + str(include), '-fsyntax-only', 'test/harness/render/NativeGroundLitterProbe.cpp']

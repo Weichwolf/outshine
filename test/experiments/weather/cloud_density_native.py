@@ -50,16 +50,13 @@ def build_native(archive_root, output, run):
     link = shlex.split(
         run(["sh", "test/run.sh", "--native-link-flags"], "native-link", archive_root)
     )
-    flags = dict(
-        line.split("=", 1)
-        for line in (archive_root / "test/run.sh").read_text().splitlines()
-        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
+    toolchain = shlex.split(
+        run(
+            ["sh", "test/run.sh", "--native-compile-flags"],
+            "compile-flags",
+            archive_root,
+        )
     )
-    toolchain = [
-        flag
-        for key in ("CXXSTD", "WARN", "OPT")
-        for flag in shlex.split(flags[key].strip('"'))
-    ]
     binary = output / "cloud-density-native"
     run(
         [

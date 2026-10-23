@@ -255,7 +255,7 @@ void Growth(Native::Device *device) {
     const auto capacity = residency.HeldOf(stream);
     const auto maximum = std::numeric_limits<uint32_t>::max();
     for (const auto invalid :
-         {GeometryResidency::Crossing{.Which = GeometryResidency::Stream::Count},
+         {GeometryResidency::Crossing{.Which = GeometryResidency::Stream::Count, .Usage = {}},
           GeometryResidency::Crossing{.Which = stream,
                                       .Usage = usage,
                                       .From = expected.data(),
@@ -263,7 +263,8 @@ void Growth(Native::Device *device) {
                                       .Offset = maximum - 7},
           GeometryResidency::Crossing{
               .Which = stream, .Usage = usage, .From = expected.data(), .Bytes = maximum}}) {
-      std::array<GeometryResidency::Crossing, 2> rejected{{{.Which = stream}, invalid}};
+      std::array<GeometryResidency::Crossing, 2> rejected{
+          {{.Which = stream, .Usage = {}}, invalid}};
       const auto allocations = fault.DeviceBufferRequests;
       CHECK(!Accepted(residency.Cross(rejected, false), error),
             "invalid upload is rejected before mutation");
@@ -360,11 +361,11 @@ struct TableRetry {
 
 void Tables(Native::Device *device) {
   GeometryRenderer draw;
-  outshine::Render::Gpu gpu{.Device = device,
-                            .HdrFormat = Native::Format::Rgba16Float,
-                            .SurfaceFormat = Native::Format::Rgba8Unorm,
-                            .Width = 32,
-                            .Height = 32};
+  outshine::Render::Gpu gpu;
+  gpu.Device = device;
+  gpu.HdrFormat = Native::Format::Rgba16Float;
+  gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
+  gpu.Width = gpu.Height = 32;
   CHECK(gpu.SceneColours.Add(Resource::SceneHdr), "one scene attachment is declared");
   std::string error;
   const bool configured = Accepted(draw.Configure(gpu), error);
@@ -405,14 +406,17 @@ void Tables(Native::Device *device) {
                                              StoredVertex::Of({{0, 1, 0}}, {}, {{0, 0, 1}})};
   const std::array<uint32_t, 3> indices{0, 1, 2};
   const std::array<DagCluster, 1> clusters{{{.SelfRadius = 2, .ParentRadius = 2, .Count = 3}}};
-  const PieceMesh piece{.Verts = vertices, .Indices = indices, .Clusters = clusters};
-  const auto id = draw.PlacePiece(piece, error);
-  CHECK(id != kNoPiece && draw.HandTables(error) &&
+  PieceMesh piece;
+  piece.Verts = vertices;
+  piece.Indices = indices;
+  piece.Clusters = clusters;
+  const auto id = draw.PlacePiece(piece);
+  CHECK(id.has_value() && draw.HandTables(error) &&
             Accepted(draw.Owned().SubmitPendingUploads(), error),
         "initial clustered piece publishes tables");
-  if (id == kNoPiece) { return; }
+  if (!id) { return; }
   CHECK(draw.ClusterJobs() == 1, "fixture starts with one actual clustered job");
-  TableRetry retry{.Draw = draw, .Device = device, .Piece = id, .Row = piece.Row, .Error = error};
+  TableRetry retry{.Draw = draw, .Device = device, .Piece = *id, .Row = piece.Row, .Error = error};
   for (const Failure point : {Failure::Map, Failure::Unmap}) {
     for (const unsigned after : {0u, 1u}) { retry.Check(point, after, TablePhase::Staging); }
   }

@@ -31,7 +31,7 @@ struct Context {
   PFN_vkReleaseSwapchainImagesEXT ReleaseImages = nullptr;
   uint32_t QueueFamily = 0;
   uint32_t TimestampValidBits = 0;
-  bool GpuTiming = false;
+  GpuTimingMode GpuTiming = GpuTimingMode::None;
   uint64_t Cookie = 0;
   bool DebugMarkers = false;
   bool StorageImageExtendedFormats = false;
@@ -43,6 +43,7 @@ struct Context {
   const std::thread::id OwnerThread = std::this_thread::get_id();
   uint32_t Recordings = 0;
   uint32_t OpenRecordings = 0;
+  uint64_t LastRecordingIdentity = 0;
   VkPhysicalDeviceProperties Properties{};
   VkPhysicalDeviceMemoryProperties MemoryProperties{};
   Capabilities Limits;

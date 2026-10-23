@@ -20,6 +20,10 @@ AssetCache::State::~State() {
 
 void AssetCache::State::Observe(std::string_view key, uint64_t storedBytes, bool published) {
   if (Usage && Usage->Record(key, storedBytes, published)) { return; }
+  WarnUsage();
+}
+
+void AssetCache::State::WarnUsage() {
   if (!UsageWarning) {
     std::fputs("asset cache: usage metadata could not be fully recorded\n", stderr);
     UsageWarning = true;

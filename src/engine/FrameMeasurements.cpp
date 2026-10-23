@@ -380,6 +380,7 @@ void Engine::State::PublishFrameMeasurements() {
     }
   }
   PublishAdvanceMeasurements();
+  PublishUrbanMeasurements();
   if (Picture.Standing) { PublishStageMeasurements(Published, Picture.Device); }
 
   if (Cost.Render.Taken() > 0) {
