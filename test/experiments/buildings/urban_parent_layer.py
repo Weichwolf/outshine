@@ -33,7 +33,8 @@ def render_layer(
     camera_miss_witness additionally certifies that the queried primary free
     prefix in Camera-Ready cells uses the same canonical prism footprint. Only
     intersected prefixes condition those shadow hypotheses; no caster domain is
-    inferred from camera readiness alone.
+    inferred from camera readiness alone. The caller must establish the same
+    parent world class/source; matching geometry metadata does not prove that.
     """
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     colour = np.zeros_like(origins)

@@ -27,7 +27,8 @@ def has_camera_miss_witness(parent_grid, resolved, regions):
     """Match a constructor-guaranteed prism field and queried camera domain.
 
     The geometry tag proves representation form, not domain completeness. The
-    caller separately declares complete, actually traced camera regions.
+    caller separately declares complete, actually traced camera regions of the
+    same parent world class/source. This predicate cannot establish source identity.
     """
     if (
         resolved is None
