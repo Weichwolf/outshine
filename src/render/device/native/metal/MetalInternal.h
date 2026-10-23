@@ -12,6 +12,7 @@
 #include <deque>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <thread>
 #include <string>
 #include <unordered_map>
@@ -115,21 +116,38 @@ struct ShaderArgument {
   id<MTLResource> Resource = nil;
 };
 
+class ArgumentScope {
+public:
+  explicit ArgumentScope(std::span<std::vector<ShaderArgument>> buffers) noexcept;
+  ~ArgumentScope() noexcept;
+  ArgumentScope(const ArgumentScope &) = delete;
+  ArgumentScope &operator=(const ArgumentScope &) = delete;
+
+private:
+  std::span<std::vector<ShaderArgument>> Buffers_;
+};
+
 struct RenderState;
 
-[[nodiscard]] Result<std::vector<ShaderArgument>>
-Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint64_t device);
-[[nodiscard]] Result<std::vector<ShaderArgument>>
-Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t device);
+[[nodiscard]] Result<std::span<const ShaderArgument>>
+Arguments(const PipelineState &pipeline,
+          std::span<const Binding> bindings,
+          uint64_t device,
+          std::vector<ShaderArgument> &storage);
+[[nodiscard]] Result<std::span<const ShaderArgument>>
+Arguments(const Shader &shader,
+          std::span<const Binding> bindings,
+          uint64_t device,
+          std::vector<ShaderArgument> &storage);
 [[nodiscard]] Result<void> CheckImageAliases(std::span<const ShaderArgument> first,
                                              std::span<const ShaderArgument> second);
 [[nodiscard]] Result<void> Bind(id<MTLComputeCommandEncoder> encoder,
                                 const Shader &shader,
-                                const std::vector<ShaderArgument> &arguments);
+                                std::span<const ShaderArgument> arguments);
 [[nodiscard]] Result<void> Bind(RenderState &pass,
                                 ShaderStage stage,
                                 const Shader &shader,
-                                const std::vector<ShaderArgument> &arguments);
+                                std::span<const ShaderArgument> arguments);
 
 class MetalPipeline final : public ComputePipeline {
 public:
@@ -273,6 +291,7 @@ private:
   id<MTLComputeCommandEncoder> Compute = nil;
   std::optional<RenderState> Render;
   std::vector<TrackedResource> Accesses;
+  std::array<std::vector<ShaderArgument>, 2> ArgumentBuffers;
 
   void UpdateAccesses(std::span<const ShaderArgument> arguments);
   void UpdateAccess(id<MTLResource> resource, Access usage);

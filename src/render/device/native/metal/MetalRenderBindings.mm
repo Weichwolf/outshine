@@ -60,7 +60,7 @@ void BindTexture(RenderState &pass, ShaderStage stage, const ShaderArgument &arg
 Result<void> Bind(RenderState &pass,
                   ShaderStage stage,
                   const Shader &shader,
-                  const std::vector<ShaderArgument> &arguments) {
+                  std::span<const ShaderArgument> arguments) {
   std::array<uint32_t, kBufferSizesSlot> sizes{};
   for (const auto &argument : arguments) {
     const auto slot = argument.Layout->Buffer;

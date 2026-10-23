@@ -166,11 +166,13 @@ Result<void> MetalCommands::PrepareDraw(const DrawState &state,
     const auto &graphics = *pipeline->State;
     const auto vertices = VertexArguments(graphics, state, range, kind, Device);
     if (!vertices) { return std::unexpected(vertices.error()); }
-    auto vertex = Arguments(graphics.Vertex, state.Bindings, Device);
+    const ArgumentScope argumentScope(ArgumentBuffers);
+    auto vertex = Arguments(graphics.Vertex, state.Bindings, Device, ArgumentBuffers[0]);
     if (!vertex) { return std::unexpected(vertex.error()); }
-    auto fragment = graphics.Fragment
-                        ? Arguments(*graphics.Fragment, state.Bindings, Device)
-                        : Result<std::vector<ShaderArgument>>(std::vector<ShaderArgument>{});
+    auto fragment =
+        graphics.Fragment
+            ? Arguments(*graphics.Fragment, state.Bindings, Device, ArgumentBuffers[1])
+            : Result<std::span<const ShaderArgument>>(std::span<const ShaderArgument>{});
     if (!fragment) { return std::unexpected(fragment.error()); }
     const auto aliases = CheckImageAliases(*vertex, *fragment);
     if (!aliases) { return aliases; }
