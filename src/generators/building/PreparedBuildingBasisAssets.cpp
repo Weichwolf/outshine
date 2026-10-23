@@ -71,7 +71,19 @@ PreparedBuildingAssets::LoadBasis(const std::string &key, const std::string &req
         }
         ++BasisHits_;
         BasisReadBytes_ += (**loaded).Bytes().size();
-        return std::make_shared<const PreparedBuildingBasis>(std::move(*basis));
+        auto product = std::make_shared<const PreparedBuildingBasis>(std::move(*basis));
+        if (ResidentBases_.size() >= kResidentBasisEntriesMost) {
+          std::erase_if(ResidentBases_,
+                        [](const auto &entry) { return entry.second.Product.expired(); });
+        }
+        if (ResidentBases_.size() < kResidentBasisEntriesMost ||
+            ResidentBases_.contains(record.Key)) {
+          auto residentRecord = record;
+          if (!requestKey.empty()) { residentRecord.RequestKey = requestKey; }
+          ResidentBases_.insert_or_assign(
+              record.Key, ResidentBasis{.Record = std::move(residentRecord), .Product = product});
+        }
+        return product;
       }
       if (!Cache_->Remove(BasisKey(key))) {
         return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
@@ -118,17 +130,6 @@ PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
   auto basis = LoadBasis(record.Parent, requestKey);
   if (!basis) { return std::unexpected(basis.error()); }
   if (!*basis) { return std::optional<RequestedBasis>{}; }
-  {
-    const std::scoped_lock lock(Lock_);
-    if (ResidentBases_.size() >= kResidentBasisEntriesMost) {
-      std::erase_if(ResidentBases_,
-                    [](const auto &entry) { return entry.second.Product.expired(); });
-    }
-    if (ResidentBases_.size() < kResidentBasisEntriesMost || ResidentBases_.contains(record.Key)) {
-      ResidentBases_.insert_or_assign(record.Key,
-                                      ResidentBasis{.Record = record, .Product = *basis});
-    }
-  }
   return RequestedBasis{.BaseKey = record.Parent, .Product = std::move(*basis)};
 }
 }
