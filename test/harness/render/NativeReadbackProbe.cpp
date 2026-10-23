@@ -1,6 +1,7 @@
 #include "src/render/device/ReadbackTransfer.h"
 #include "NativeGpuCheck.h"
 #include "Check.h"
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -62,6 +63,67 @@ void BufferRanges(Device &device) {
   });
   other.join();
   CHECK(wrongThread, "a cached readback preserves render owner access");
+}
+
+void BufferOrdering(Device &device) {
+  constexpr std::array<uint32_t, 4> before{11, 22, 33, 44};
+  constexpr std::array<uint32_t, 4> after{91, 92, 93, 94};
+  auto first = BufferOf(device, before);
+  auto second = BufferOf(device, after);
+  auto shared = Require(device.CreateBuffer(
+      {.Bytes = sizeof(before), .Use = BufferUse::CopySource | BufferUse::CopyDestination}));
+  auto readback = Require(device.CreateBuffer({.Bytes = 5 * sizeof(before),
+                                               .Use = BufferUse::CopyDestination,
+                                               .Placement = Memory::Readback}));
+  auto commands = Require(device.Begin());
+  Require(commands->Copy(*first, *shared, {.Bytes = sizeof(before)}));
+  const auto snapshot = [&](size_t slot) {
+    Require(commands->Copy(
+        *shared, *readback, {.DestinationOffset = slot * sizeof(before), .Bytes = sizeof(before)}));
+  };
+  snapshot(0);
+  snapshot(1);
+  Require(commands->Copy(*second,
+                         *shared,
+                         {.SourceOffset = sizeof(uint32_t),
+                          .DestinationOffset = sizeof(uint32_t),
+                          .Bytes = 2 * sizeof(uint32_t)}));
+  snapshot(2);
+  Require(commands->Copy(*shared,
+                         *readback,
+                         {.SourceOffset = sizeof(uint32_t),
+                          .DestinationOffset = 3 * sizeof(before),
+                          .Bytes = 2 * sizeof(uint32_t)}));
+  Require(commands->Copy(*first, *shared, {.Bytes = sizeof(before)}));
+  auto later = Require(device.Begin());
+  Require(later->Copy(*second, *shared, {.Bytes = sizeof(after)}));
+  snapshot(4);
+  Complete(device, Require(device.Submit(std::move(commands))));
+  auto mapped = Require(device.MapRead(*readback, {.Bytes = 5 * sizeof(before)}));
+  std::array<uint32_t, 20> actual{};
+  std::memcpy(actual.data(), mapped.data(), sizeof(actual));
+  CHECK(std::equal(before.begin(), before.end(), actual.begin()) &&
+            std::equal(before.begin(), before.end(), actual.begin() + 4),
+        "repeated reads finish before a following write changes their source");
+  CHECK((std::array{actual[8], actual[9], actual[10], actual[11]} ==
+         std::array<uint32_t, 4>{11, 92, 93, 44}),
+        "a partial write invalidates an earlier complete-range read dependency");
+  CHECK(actual[12] == 92 && actual[13] == 93,
+        "a different read range observes the updated source bytes");
+  CHECK(std::equal(before.begin(), before.end(), actual.begin() + 16),
+        "a second write is ordered after all earlier reads and before a new snapshot");
+  Require(device.Unmap(*readback));
+
+  commands = std::move(later);
+  snapshot(0);
+  snapshot(1);
+  Complete(device, Require(device.Submit(std::move(commands))));
+  mapped = Require(device.MapRead(*readback, {.Bytes = 2 * sizeof(after)}));
+  std::memcpy(actual.data(), mapped.data(), 2 * sizeof(after));
+  CHECK(std::equal(after.begin(), after.end(), actual.begin()) &&
+            std::equal(after.begin(), after.end(), actual.begin() + 4),
+        "interleaved recordings synchronize the same buffer ranges in submission order");
+  Require(device.Unmap(*readback));
 }
 
 void ImageRegion(Device &device) {
@@ -194,6 +256,7 @@ int main(int argc, char **argv) {
   if (argc != 2) { return 2; }
   auto device = Require(CreateDevice({.Validation = true}));
   BufferRanges(*device);
+  BufferOrdering(*device);
   ImageRegion(*device);
   InvalidRegions(*device);
   PendingAndCancel(*device, argv[1]);

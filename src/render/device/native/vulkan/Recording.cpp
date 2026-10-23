@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <limits>
 #include <string>
 
 namespace outshine::Render::Native::Vulkan {
@@ -33,6 +34,11 @@ void Recording::CommitSubmission() noexcept {
 }
 
 Result<void> Recording::Initialize() {
+  if (Context_->LastRecordingIdentity == std::numeric_limits<uint64_t>::max()) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Busy, .Message = "Vulkan recording identity space exhausted"});
+  }
+  Identity_ = ++Context_->LastRecordingIdentity;
   VkCommandPoolCreateInfo create{};
   create.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   create.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
@@ -80,7 +86,31 @@ Result<void> Recording::Hold(const std::shared_ptr<BufferState> &buffer) {
   return {};
 }
 
-void Recording::Use(const BufferState &buffer, ByteRange range, BufferAccess access) {
+bool Recording::RepeatsRead(BufferState &buffer, ByteRange range, BufferAccess access) {
+  constexpr VkAccessFlags2 reads =
+      VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT |
+      VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_UNIFORM_READ_BIT |
+      VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_HOST_READ_BIT;
+  if (buffer.ReadRecording != Identity_) {
+    buffer.ReadRecording = Identity_;
+    buffer.ReadScopes.clear();
+  }
+  auto &known = buffer.ReadScopes;
+  if (access.Stage == 0 || access.Access == 0 || (access.Access & ~reads) != 0) {
+    known.clear();
+    return false;
+  }
+  const auto matches = [range, access](const BufferReadScope &read) {
+    return read.Range.Offset == range.Offset && read.Range.Bytes == range.Bytes &&
+           read.Stage == access.Stage && read.Access == access.Access;
+  };
+  if (std::ranges::any_of(known, matches)) { return true; }
+  known.push_back({.Range = range, .Stage = access.Stage, .Access = access.Access});
+  return false;
+}
+
+void Recording::Use(BufferState &buffer, ByteRange range, BufferAccess access) {
+  if (RepeatsRead(buffer, range, access)) { return; }
   VkBufferMemoryBarrier2 barrier{};
   barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
   barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_2_HOST_BIT;
