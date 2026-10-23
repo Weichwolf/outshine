@@ -111,8 +111,13 @@ class FootprintMeasureTest(unittest.TestCase):
         for pitch in [0, -1, np.nan]:
             with self.assertRaises(ValueError):
                 coverage_groups(shapely.box(0, 0, 1, 1), pitch)
-        with self.assertRaises(ValueError):
-            coverage_groups(shapely.box(0, 0, 2**25, 2**25), 1)
+        with patch(
+            "source_footprint_groups.np.arange",
+            side_effect=AssertionError("oversized grid must reject before allocation"),
+        ):
+            for extent in [2**25, 2**32]:
+                with self.assertRaises(ValueError):
+                    coverage_groups(shapely.box(0, 0, extent, extent), 1)
 
 
 class OriginalFootprintTest(unittest.TestCase):

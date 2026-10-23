@@ -110,7 +110,7 @@ def coverage_groups(geometry, pitch_m):
     low = np.floor(bounds[0] / pitch_m).astype(np.int64)
     high = np.ceil(bounds[1] / pitch_m).astype(np.int64)
     shape = high - low
-    if np.prod(shape) > 1048576 or np.any(shape <= 0):
+    if int(shape[0]) * int(shape[1]) > 1048576 or np.any(shape <= 0):
         raise ValueError("bounded source-footprint group grid required")
     x = np.arange(low[0], high[0] + 1) * pitch_m
     y = np.arange(low[1], high[1] + 1) * pitch_m
