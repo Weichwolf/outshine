@@ -6,7 +6,7 @@ import time
 import numpy as np
 from mvt_t_profile_contacts import add_contacts, contact_residuals, prepare_contacts
 from mvt_t_profile_layout import prior_values
-from mvt_t_stair_loft import add_loft_equalities, height_projection
+from mvt_t_stair_loft import add_loft_equalities, height_projection, require_owned_lofts
 from scipy import sparse
 from scipy.optimize import linprog
 from stair_junction_solve import (
@@ -101,6 +101,7 @@ def solve_profiles(
         height_formulation,
         gradient_model,
     )
+    require_owned_lofts(plan)
     began = time.perf_counter()
     count, planes = len(plan["xy"]), 3 * len(plan["nodes"])
     if count > 4096 or sum(map(len, plan["parts"])) > 8192:
