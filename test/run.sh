@@ -612,7 +612,7 @@ LayerGroups() {
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
     profile/ground-patch) printf '%s' 'src/render/terrain/TerrainPatchMesh.cpp src/render/terrain/TerrainPatchError.cpp' ;;
     profile/instance-demand) printf '%s' 'src/render/draw/InstanceDemand.cpp' ;;
-    profile/prism-grid) printf '%s' 'src/content/scene/PrismGrid.cpp' ;;
+    profile/prism-grid) printf '%s' 'src/content/scene/PrismGrid.cpp src/content/scene/PrismGridViews.cpp' ;;
     profile/urban-prisms) printf '%s' 'src/generators/osm/urban/UrbanAreaPlacement.cpp src/generators/osm/urban/UrbanAreaPrisms.cpp src/generators/osm/urban/UrbanAreaGroups.cpp' ;;
     profile/urban-prism-codec) printf '%s' 'src/generators/osm/urban/UrbanPrismCodec.cpp src/content/scene/PrismGrid.cpp' ;;
     profile/urban-prism-asset) LayerGroups profile/urban-prism-codec; printf '%s' ' src/generators/osm/urban/UrbanPrismAsset.cpp src/base/format/Sha256.cpp src/content/assets/AssetCache.cpp src/content/assets/AssetCacheLoading.cpp src/content/assets/AssetCachePublication.cpp src/content/assets/AssetCacheSelection.cpp src/content/assets/AssetGeneration.cpp src/content/assets/AssetPackageCodec.cpp src/content/cache' ;;
