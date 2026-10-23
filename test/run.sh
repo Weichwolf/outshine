@@ -310,6 +310,7 @@ TestProfile() {
     outshine/src/engine/streaming/UrbanAreaInstances) printf '%s' 'profile/urban-instances' ;;
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
+    outshine/src/base/spatial/HeightSolid) printf '%s' 'profile/height-solid' ;;
     outshine/src/base/spatial/PlanarStationMesh) printf '%s' 'profile/planar-stations' ;;
     outshine/integration/transport/SurfaceFlightPreparation) printf '%s' 'profile/road-flight-preparation' ;;
     outshine/src/generators/road/SurfaceFlightPlan) printf '%s' 'profile/road-flight-plan' ;;
@@ -385,6 +386,7 @@ LayerIncludes() {
     profile/render-viewing) GroupIncludes src/render ;;
     profile/stage-pipelines) GroupIncludes src/render/stages ;;
     profile/client-boundary) printf '%s' '-I.' ;;
+    profile/height-solid) GroupIncludes src/base/spatial ;;
     profile/planar-stations) GroupIncludes src/base/spatial ;;
     profile/road-flight-preparation) GroupIncludes src/generators/road/surface ;;
     profile/road-flight-plan) GroupIncludes src/generators/road/surface ;;
@@ -521,6 +523,7 @@ LayerLibraryLink() {
   case "$(TestProfile "$1")" in
     profile/calibration|profile/stage-pipelines|profile/prism-native) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
+    profile/height-solid) return 0 ;;
     profile/planar-stations) return 0 ;;
     profile/road-height-program) pkg-config --libs geos; HighsFlags --libs ;;
     profile/road-flight-preparation) pkg-config --libs geos ;;
@@ -608,6 +611,7 @@ LayerGroups() {
     profile/building-field) SubtreeGroups src/base src/content src/world src/generators/base src/generators/building src/generators/osm ;;
     profile/building-stamps) printf '%s' 'src/generators/osm/fields/BuildingField.cpp src/generators/osm/fields/BuildingFieldProducts.cpp src/generators/terrain/BuildingStampJob.cpp' ;;
     profile/building-measurements) printf '%s' 'src/generators/osm/fields/BuildingField.cpp src/generators/osm/fields/BuildingFieldProducts.cpp src/engine/BuildingFootprintMeasurements.cpp' ;;
+    profile/height-solid) printf '%s' 'src/base/spatial/HeightSolid.cpp src/base/spatial/HeightSolidWalls.cpp src/base/spatial/HeightSolidValidation.cpp' ;;
     profile/planar-stations) printf '%s' 'src/base/spatial/PlanarStationMesh.cpp src/base/spatial/PlanarStationCuts.cpp' ;;
     profile/sparse-matrix) return 0 ;;
     profile/road-flight-preparation) printf '%s' 'src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanHierarchy.cpp src/base/spatial/PlanarStationMesh.cpp src/base/spatial/PlanarStationCuts.cpp src/generators/road/surface/SurfaceHeightTopology.cpp src/generators/road/surface/SurfaceHeightPorts.cpp src/generators/road/surface/SurfaceFlightPlan.cpp src/generators/road/surface/SurfaceFlightPreparation.cpp' ;;
