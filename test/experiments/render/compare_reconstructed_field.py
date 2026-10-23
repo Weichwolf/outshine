@@ -110,7 +110,7 @@ def save_images(original, candidate_rgb, unresolved, view, box, width, height, o
     candidate_pixel = display(
         average_samples(np.nan_to_num(candidate_rgb), width, height, 2)
     )
-    missing = average_samples(unresolved.astype(float), width, height, 2) > 0
+    missing = average_samples(unresolved.astype(float), width, height, 2)[..., 0] > 0
     candidate_pixel[missing] = [255, 0, 255]
     error = np.abs(original_pixel.astype(int) - candidate_pixel.astype(int))
     error_image = np.clip(error * 4, 0, 255).astype(np.uint8)

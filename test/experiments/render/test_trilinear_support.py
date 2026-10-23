@@ -47,10 +47,21 @@ class TrilinearSupportTest(unittest.TestCase):
         np.testing.assert_allclose(normal, [[0, 0, 1]], atol=1e-12)
         self.assertFalse(unknown.any())
 
-    def test_double_root_is_not_missed_without_a_sign_change(self):
+    def test_double_root_is_detected_without_inventing_an_opaque_entry(self):
         values = (CORNERS[:, 0] - 0.5) * (CORNERS[:, 1] - 0.5)
-        depth, _, _, _ = self.trace(values, [[-1, -1, 0.5]], [[1, 1, 0]])
-        np.testing.assert_allclose(depth, [1.5], atol=1e-7)
+        depth, _, _, work = self.trace(values, [[-1, -1, 0.5]], [[1, 1, 0]])
+        self.assertTrue(np.isinf(depth[0]))
+        self.assertGreater(work["nonentry_roots"], 0)
+
+    def test_triple_root_has_an_entry_but_no_stable_pbr_normal(self):
+        values = -np.prod(CORNERS - 0.5, axis=1)
+        depth, normal, _, _ = self.trace(values, [[-1, -1, -1]], [[1, 1, 1]])
+        np.testing.assert_allclose(depth, [1.5], atol=1e-5)
+        np.testing.assert_array_equal(normal, [[0, 0, 0]])
+
+    def test_ray_in_a_zero_plane_is_not_automatically_opaque(self):
+        depth, _, _, _ = self.trace(CORNERS[:, 2] - 0.5, [[-1, 0.3, 0.5]], [[1, 0, 0]])
+        self.assertTrue(np.isinf(depth[0]))
 
     def test_clipped_negative_field_has_a_real_box_entry_cap(self):
         depth, normal, unknown, work = self.trace(

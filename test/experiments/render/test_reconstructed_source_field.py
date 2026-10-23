@@ -3,17 +3,16 @@
 import unittest
 
 import numpy as np
-from reconstructed_source_field import LEAF, UNKNOWN, FieldBuilder
+from reconstructed_source_field import SOLID, UNKNOWN, FieldBuilder
 from test_source_support_function import compile_surfaces, shape, surface
 
 
 class ReconstructedFieldTest(unittest.TestCase):
-    def test_clipped_zero_field_can_represent_an_exact_cube(self):
+    def test_zero_corners_require_source_containment_before_a_solid_cube(self):
         support = compile_surfaces([surface([shape()])])[0]
         field, _ = FieldBuilder(support, max_nodes=1).run()
-        self.assertTrue(int(field["tags"][0]) & LEAF)
-        self.assertEqual(field["values"].shape, (1, 8))
-        np.testing.assert_allclose(field["values"], 0, atol=1e-12)
+        self.assertEqual(int(field["tags"][0]), SOLID)
+        self.assertEqual(field["values"].shape, (0, 8))
 
     def test_contained_building_keeps_a_source_need_when_corners_miss(self):
         small = shape(

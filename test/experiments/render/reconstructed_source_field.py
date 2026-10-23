@@ -3,6 +3,7 @@
 import itertools
 
 import numpy as np
+import shapely
 from source_field_probes import geometry_probes, sample_packets
 from source_support_function import sample_support
 from trilinear_support import CORNERS, EMPTY, LEAF, SOLID, UNKNOWN, evaluate
@@ -25,6 +26,9 @@ class FieldBuilder:
             )
         self.support = support
         self.boxes, self.owners, probes = geometry_probes(support, offset=probe_offset)
+        self.domain_slots = np.repeat(
+            np.arange(len(support.source_ids)), np.diff(support.offsets)
+        )
         low, high = self.boxes[:, 0].min(0), self.boxes[:, 1].max(0)
         self.side = float(2 ** np.ceil(np.log2(max(float((high - low).max()), 1e-6))))
         self.low = (low + high) / 2 - self.side / 2
@@ -66,6 +70,24 @@ class FieldBuilder:
         sources = np.unique(self.owners[candidates])
         self.unknown_sources.extend(sources.tolist())
         self.unknown_offsets.append(len(self.unknown_sources))
+
+    def contained(self, low, side, candidates):
+        points = low + CORNERS * side
+        for domain in candidates:
+            source = self.domain_slots[domain]
+            local = (points - self.support.origins[source]) @ self.support.inverses[
+                source
+            ]
+            plane = self.support.planes[domain]
+            if (
+                local[:, 2].min() < self.support.bottoms[domain]
+                or np.max(local[:, 2] - local[:, :2] @ plane[:2] - plane[2]) > 0
+            ):
+                continue
+            projection = shapely.MultiPoint(local[:, :2]).convex_hull
+            if shapely.covers(self.support.domains[domain], projection):
+                return True
+        return False
 
     def split(self, record, pending):
         node, coordinate, width, level, candidates, probes = record
@@ -115,6 +137,10 @@ class FieldBuilder:
                 continue
             low = self.low + coordinate * self.unit
             values = sampled[CORNER_IDS].astype(np.float32)
+            zero = np.all(values == 0)
+            if zero and self.contained(low, side, candidates):
+                self.tags[node] = SOLID
+                continue
             grid_value = evaluate(values, low, low + side, low + GRID * side)[0]
             exterior = (sampled > 0) | (grid_value > 0)
             error = float(
@@ -125,7 +151,10 @@ class FieldBuilder:
             certain = abs(truth) > 1e-8
             signs_match = np.all((probe_value[certain] <= 0) == (truth[certain] <= 0))
             reconstructed = (
-                values.min() <= 0 and error <= max(1e-4, side * 0.05) and signs_match
+                not zero
+                and values.min() <= 0
+                and error <= max(1e-4, side * 0.05)
+                and signs_match
             )
             if reconstructed:
                 self.tags[node] = LEAF | len(self.values)

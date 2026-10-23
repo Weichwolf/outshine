@@ -68,7 +68,7 @@ def run(args):
         process_peak_rss_bytes=peak_rss_bytes(),
         total_allocation_count=None,
         total_physical_copied_bytes=None,
-        scope="One source-aware finite-probe reconstruction profile. Unknown leaves retain local source/finer needs; complete missing sources remain original needs. Cell-clipped trilinear I<=0 is the candidate model, not a unit SDF, global continuity/error certificate, material contract or qualified World replacement. No original Shell/triangle interpretation in construction. Bytes include unknown-source metadata but not the still-required unresolved finer products.",
+        scope="One source-aware finite-probe reconstruction profile. Unknown leaves retain local source/finer needs; complete missing sources remain original needs. Cell-clipped negative trilinear interiors plus explicit source-contained solids form the candidate model, not a unit SDF, global continuity/error certificate, material contract or qualified World replacement. No original Shell/triangle interpretation in construction. Bytes include unknown-source metadata but not the still-required unresolved finer products.",
     )
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)

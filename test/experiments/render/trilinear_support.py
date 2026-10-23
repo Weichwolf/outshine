@@ -1,4 +1,4 @@
-"""Cell-local scalar reconstruction; clipped I<=0 solids, not unit-distance data."""
+"""Cell-local negative interiors and explicit solid cells, not unit-distance data."""
 
 import itertools
 
@@ -47,8 +47,21 @@ def intervals(low, high, origins, directions, stop, minimum):
     outside = np.any(parallel & ((origins < low) | (origins > high)), axis=1)
     near = np.maximum(minimum, entry.max(1))
     far = np.minimum(stop, leave)
-    hit = ~outside & (near <= far)
+    hit = ~outside & (near < far)
     return hit, near, far, entry.argmax(1), entry.max(1)
+
+
+def negative_entry(coefficients, tolerance):
+    coefficient = np.polynomial.polynomial.polytrim(coefficients, tol=tolerance)
+    roots = np.polynomial.polynomial.polyroots(coefficient)
+    real = roots.real[
+        (abs(roots.imag) <= 1e-8) & (roots.real >= -1e-10) & (roots.real <= 1 + 1e-10)
+    ]
+    limits = np.unique(np.r_[0, np.clip(real, 0, 1), 1])
+    middle = (limits[:-1] + limits[1:]) / 2
+    negative = np.polynomial.polynomial.polyval(middle, coefficient) < -tolerance
+    entry = float(limits[np.flatnonzero(negative)[0]]) if negative.any() else None
+    return entry, len(roots), len(real) if entry is None else 0
 
 
 def first_surface(values, low, high, origins, directions, near, far, axes, box_near):
@@ -57,34 +70,35 @@ def first_surface(values, low, high, origins, directions, near, far, axes, box_n
     scalar = evaluate(values, low, high, points.reshape(-1, 3))[0].reshape(-1, 4)
     coefficients = scalar @ POWER_INVERSE.T
     depth = np.full(len(origins), np.inf)
-    cap = scalar[:, 0] <= 0
+    tolerance = (
+        64 * np.finfo(float).eps * max(float(np.max(abs(values))), np.finfo(float).tiny)
+    )
+    cap = scalar[:, 0] < -tolerance
     interior = cap & (box_near < near)
+    if np.all(values == 0):
+        interior[:] = True
     depth[cap & ~interior] = near[cap & ~interior]
-    roots_tested = 0
-    for ray in np.flatnonzero(~cap):
-        coef = coefficients[ray]
-        tolerance = 64 * np.finfo(float).eps * max(np.max(abs(coef)), 1)
-        coef = np.polynomial.polynomial.polytrim(coef, tol=tolerance)
-        roots = np.polynomial.polynomial.polyroots(coef)
-        roots_tested += len(roots)
-        valid = roots.real[
-            (abs(roots.imag) <= 1e-8)
-            & (roots.real >= -1e-10)
-            & (roots.real <= 1 + 1e-10)
-        ]
-        if len(valid):
-            depth[ray] = near[ray] + np.clip(valid.min(), 0, 1) * (far[ray] - near[ray])
+    roots_tested, nonentries = 0, 0
+    for ray in np.flatnonzero(~cap & ~interior):
+        entry, count, contact = negative_entry(coefficients[ray], tolerance)
+        roots_tested += count
+        nonentries += contact
+        if entry is not None:
+            depth[ray] = near[ray] + entry * (far[ray] - near[ray])
     normal = np.zeros_like(origins)
     hit = np.isfinite(depth)
     if hit.any():
         points = origins[hit] + depth[hit, None] * directions[hit]
         gradient = evaluate(values, low, high, points)[1]
         magnitude = np.linalg.norm(gradient, axis=1)
+        stable = magnitude > np.sqrt(np.finfo(float).eps) * max(
+            lipschitz_bound(values, high - low), np.finfo(float).tiny
+        )
         normal[hit] = np.divide(
             gradient,
             magnitude[:, None],
             out=np.zeros_like(gradient),
-            where=magnitude[:, None] > 0,
+            where=stable[:, None],
         )
     strict_cap = (scalar[:, 0] < -1e-10) | (np.linalg.norm(normal, axis=1) == 0)
     capped = np.flatnonzero(cap & ~interior & strict_cap)
@@ -95,8 +109,9 @@ def first_surface(values, low, high, origins, directions, near, far, axes, box_n
         normal,
         interior,
         {
-            "polynomial_ray_queries": int((~cap).sum()),
+            "polynomial_ray_queries": int((~cap & ~interior).sum()),
             "polynomial_roots": roots_tested,
+            "nonentry_roots": nonentries,
             "box_cap_hits": len(capped),
         },
     )

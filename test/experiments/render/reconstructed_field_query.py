@@ -75,6 +75,7 @@ def packet(arrays, origins, directions, stop, minimum):
         "leaf_ray_queries": 0,
         "polynomial_ray_queries": 0,
         "polynomial_roots": 0,
+        "nonentry_roots": 0,
         "box_cap_hits": 0,
         "unknown_ray_box_visits": 0,
         "max_pending_ray_indices": 0,
