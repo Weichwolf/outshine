@@ -388,7 +388,9 @@ public:
 
   [[nodiscard]] const Mat4 &ModelM() const { return Model; }
 
-  [[nodiscard]] uint64_t HeldBytes() const { return At_ != nullptr ? 0u : Own_.HeldBytes(); }
+  [[nodiscard]] uint64_t HeldBytes() const {
+    return (At_ != nullptr ? 0u : Own_.HeldBytes()) + Prisms_.HeldBytes();
+  }
 
   [[nodiscard]] uint32_t StagedBytes() const { return Bound().StagedBytes(); }
 
