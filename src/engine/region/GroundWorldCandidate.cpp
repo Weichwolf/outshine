@@ -22,7 +22,8 @@ namespace outshine {
       alignmentBytes += sizeof(Generators::RoadSurface) + route.Surface->OwnedHeapBytes();
     }
   }
-  return Sheets.HeapBytes(TerrainHeapScope::Additional) + Footprints.HeapBytes() +
+  return Sheets.HeapBytes(TerrainHeapScope::Additional) +
+         Footprints.HeapBytes(::outshine::Generators::Osm::BuildingField::HeapScope::Additional) +
          Pieces.HeapBytes() + alignmentBytes + Ground.storageBytes() +
          PositionsM.capacity() * sizeof(float) + Indices.capacity() * sizeof(uint32_t) +
          ClassPalette.capacity() * sizeof(float);

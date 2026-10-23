@@ -96,16 +96,6 @@ void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &ra
   }
 }
 
-::outshine::Generators::Osm::BuildingField::AcceptanceCapacity
-SourceContactCapacity(const Generators::BakedTile &metadata,
-                      const std::optional<StructureCellAssembly> &cells) {
-  if (cells && cells->Remaining() != 0) { return {}; }
-  return {.Prints = metadata.Prints.size(),
-          .Spread = metadata.SeatSpreadM.size(),
-          .Across = metadata.AcrossM.size(),
-          .Tiles = 0};
-}
-
 bool Gathers(Ground::TileSpot spot,
              bool fineField,
              const StructureBuildQueue::HeightSource &heightAt,
@@ -1500,9 +1490,6 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
   DiscardStale(vectors, prints, eye, heightAt.Revision, heights, detail, purpose);
   ResumeCompletedTasks();
   size_t count = 0;
-  size_t printCount = 0;
-  size_t spreadCount = 0;
-  size_t acrossCount = 0;
   while (count < std::min(most, Queue_.size())) {
     QueuedBuild &bake = Queue_[count];
     if (!bake.Finished || bake.ReservationOwner != prints.ReservationOwner() ||
@@ -1529,27 +1516,22 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
       DiscardFront(prints);
       continue;
     }
-    const Generators::BakedTile &baked = CollectInitialCell(bake);
-    const auto capacity = SourceContactCapacity(baked, bake.InitialCells);
-    printCount += capacity.Prints;
-    spreadCount += capacity.Spread;
-    acrossCount += capacity.Across;
+    CollectInitialCell(bake);
+
     ++count;
     if (bake.InitialCells) { break; }
   }
-  return PrepareLandings(prints, vectors, count, printCount, spreadCount, acrossCount);
+  return PrepareLandings(prints, vectors, count);
 }
 
-const Generators::BakedTile &StructureBuildQueue::CollectInitialCell(QueuedBuild &bake) {
+void StructureBuildQueue::CollectInitialCell(QueuedBuild &bake) {
   auto &completed = bake.Task.Result().Tile;
   assert(completed);
   if (const uint64_t cells = bake.Task.InitialCells(); cells != 0) {
     if (!bake.InitialCells) { bake.InitialCells.emplace(cells); }
     PrepareGeometry(*completed, bake.Task.Raw());
     bake.InitialCells->Collect(*completed);
-    return bake.InitialCells->Metadata();
   }
-  return *completed;
 }
 
 ::outshine::Generators::Osm::BuildingField::Baked
@@ -1576,17 +1558,13 @@ StructureBuildQueue::ContactMetadata(const QueuedBuild &bake) noexcept {
 std::vector<StructureBuildQueue::Landing>
 StructureBuildQueue::PrepareLandings(::outshine::Generators::Osm::BuildingField &prints,
                                      const ::outshine::Generators::Osm::OsmField *vectors,
-                                     size_t count,
-                                     size_t printCount,
-                                     size_t spreadCount,
-                                     size_t acrossCount) {
+                                     size_t count) {
   std::vector<Landing> landings;
   if (count == 0) { return landings; }
   IdleRaw_.reserve(IdleRaw_.size() + count);
   IdleOut_.reserve(IdleOut_.size() + count);
   IdleScratch_.reserve(IdleScratch_.size() + count);
-  prints.PreparesAcceptances(
-      {.Prints = printCount, .Spread = spreadCount, .Across = acrossCount, .Tiles = count});
+  prints.PreparesAcceptances(count);
   landings.reserve(count);
   for (size_t at = 0; at < count; ++at) {
     landings.push_back(PrepareLanding(Queue_[at], prints, vectors));
@@ -1830,7 +1808,7 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
     Log::Info(LogTag::World,
               "buildings",
               {{"added", static_cast<int>(baked.Prints.size())},
-               {"total", static_cast<int>(footprints.Footprints().size())},
+               {"total", static_cast<int>(footprints.FootprintCount())},
                {"osmHeight", footprints.OsmHeights()},
                {"defaultHeight", footprints.DefaultHeights()},
                {"vertsMB",

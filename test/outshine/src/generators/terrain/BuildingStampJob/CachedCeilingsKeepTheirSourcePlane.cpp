@@ -3,8 +3,16 @@
 #include "Geodesy.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <utility>
+
+namespace {
+constexpr double kCeilingAslM = 125;
+constexpr auto kShiftDeg = 0.01;
+constexpr auto kRevision = 17;
+constexpr auto kToleranceM = 1e-6;
+}
 
 int main() {
   using namespace outshine;
@@ -15,22 +23,24 @@ int main() {
       .PointCount = 4,
       .SeatM = 20,
       .Street = {},
-      .TerrainCeiling = Ground::BuildingTerrainCeiling{.OriginPoint = 4, .HeightAslM = 125}};
+      .TerrainCeiling =
+          Ground::BuildingTerrainCeiling{.OriginPoint = 4, .HeightAslM = kCeilingAslM},
+      .TerrainContacts = {}};
   const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 8, .LatitudeDeg = 48});
   const std::array footprints{print};
-  BuildingStampJob job(frame, 17);
+  BuildingStampJob job(frame, kRevision);
   bool done = false;
   for (size_t step = 0; step < 32 && !done; ++step) {
     const auto advance = job.Advance({.Footprints = footprints,
                                       .Points = points,
                                       .Rings = {},
-                                      .VectorGeneration = 17,
+                                      .VectorGeneration = kRevision,
                                       .UnitsMost = 1});
     CHECK(advance.has_value(), "bounded stamp work accepts cached contact metadata");
     if (!advance) { return Report(); }
     done = *advance;
   }
-  const auto stamps = std::move(job).Take();
+  const auto stamps = job.Take();
   CHECK(done && stamps && stamps->size() == 1, "interrupted work publishes one valid contact");
   if (!stamps || stamps->size() != 1) { return Report(); }
   const auto &stamp = stamps->front();
@@ -44,22 +54,23 @@ int main() {
                        .NorthM = stamp.RingEastNorthM[point * 2 + 1]};
     const Vec3 target =
         frame.ToEcefPosition({.EastM = at.EastM, .NorthM = at.NorthM, .UpM = stamp.WantsAt(at)});
-    CHECK(std::abs(Dot(target - origin, normal)) < 1e-6,
+    CHECK(std::abs(Dot(target - origin, normal)) < kToleranceM,
           "every contact target lies on the stored physical source plane");
   }
-  CHECK(std::abs(stamp.SlopeN) > 0.01,
+  CHECK(std::abs(stamp.SlopeN) > kShiftDeg,
         "a distant tangent frame cannot flatten the source plane into a local horizontal pad");
   const auto first = frame.ToLocalPosition(
       {.LongitudeDeg = points[1], .LatitudeDeg = points[0], .HeightM = print.SeatM});
   CHECK(std::abs(stamp.WantsAt({.EastM = first.EastM, .NorthM = first.NorthM}) - first.UpM) > 100,
         "the cached plane replaces the independent mean height");
   auto invalid = footprints;
-  invalid[0].TerrainCeiling->OriginPoint = UINT32_MAX;
-  BuildingStampJob bad(frame, 17);
+  invalid[0].TerrainCeiling =
+      Ground::BuildingTerrainCeiling{.OriginPoint = UINT32_MAX, .HeightAslM = kCeilingAslM};
+  BuildingStampJob bad(frame, kRevision);
   CHECK(!bad.Advance({.Footprints = invalid,
                       .Points = points,
                       .Rings = {},
-                      .VectorGeneration = 17,
+                      .VectorGeneration = kRevision,
                       .UnitsMost = 32}),
         "invalid cached origin references fail before coordinate access");
   return Report();

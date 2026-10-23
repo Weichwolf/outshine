@@ -311,6 +311,9 @@ TestProfile() {
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
     outshine/include/*) printf '%s' 'profile/internal' ;;
+    outshine/src/generators/osm/BuildingField) printf '%s' 'profile/building-field' ;;
+    outshine/src/generators/terrain/BuildingStampJob) printf '%s' 'profile/building-stamps' ;;
+    outshine/src/engine/BuildingFootprintMeasurements) printf '%s' 'profile/building-measurements' ;;
     outshine/src/generators/osm/MvtLayer | outshine/src/generators/osm/OsmStorageUsage)
       printf '%s' 'profile/vector' ;;
     outshine/src/generators/osm/OsmXmlReader) printf '%s' 'profile/osm-xml' ;;
@@ -373,6 +376,9 @@ LayerIncludes() {
     profile/road-profile) GroupIncludes src/generators/road/profile ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
+    profile/building-field) GroupIncludes src/generators/osm ;;
+    profile/building-stamps) GroupIncludes src/generators/terrain ;;
+    profile/building-measurements) GroupIncludes src/engine ;;
     profile/water-mesh | profile/water-asset) GroupIncludes src/generators/base ;;
     profile/water-geometry | profile/water-preparation) GroupIncludes src/generators/water ;;
     profile/water-targets) GroupIncludes src/generators/water ;;
@@ -498,6 +504,8 @@ LayerLibraryLink() {
     profile/benchmark-report) pkg-config --libs sdl3 ;;
     profile/footpath-plan) return 0 ;;
     profile/road-profile) HighsFlags --libs ;;
+    profile/building-field) LayerLibraryLink profile/world; printf ' %s' "$(OsqpFlags --libs) $(HighsFlags --libs)" ;;
+    profile/building-stamps | profile/building-measurements) return 0 ;;
     profile/water-targets) printf '%s' '' ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
     profile/client-roundtrip | profile/client-preparation) LayerLibraryLink profile/internal ;;
@@ -572,6 +580,9 @@ LayerGroups() {
     profile/scenario-views) printf '%s' 'src/scenario/Views.cpp src/base/math/Camera.cpp' ;;
     profile/render-viewing) printf '%s' 'src/base/math/Camera.cpp src/base/math/Rotation.cpp' ;;
     profile/client-boundary) return 0 ;;
+    profile/building-field) SubtreeGroups src/base src/content src/world src/generators/base src/generators/building src/generators/osm ;;
+    profile/building-stamps) printf '%s' 'src/generators/osm/fields/BuildingField.cpp src/generators/osm/fields/BuildingFieldProducts.cpp src/generators/terrain/BuildingStampJob.cpp' ;;
+    profile/building-measurements) printf '%s' 'src/generators/osm/fields/BuildingField.cpp src/generators/osm/fields/BuildingFieldProducts.cpp src/engine/BuildingFootprintMeasurements.cpp' ;;
     profile/footpath-plan) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/road/plan' ;;
     profile/road-profile) printf '%s' 'src/generators/road/profile' ;;
     profile/client-shots) printf '%s' '' ;;

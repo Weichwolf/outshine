@@ -1,5 +1,6 @@
 #include "BuildingMesh.h"
 #include "Check.h"
+#include "DeclaredBuildingFixture.h"
 #include "Digest.h"
 #include "SurfacePreparation.h"
 #include "OfflineTransport.h"
@@ -10,6 +11,7 @@
 #include "TangentFrame.h"
 #include "TileGeodesy.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdlib>
@@ -25,18 +27,27 @@
 #include <vector>
 
 namespace {
+constexpr auto kTileSpanM = 1000;
+constexpr auto kChangedSurfaceM = 101.0f;
+constexpr auto kBuildingHeightM = 12.0f;
+constexpr auto kChangedTileSpanM = 2000;
+constexpr auto kFocalPx = 720;
 thread_local bool measureAllocations = false;
 thread_local size_t allocations = 0;
 
 class SilentSink final : public outshine::Sink {
 public:
-  void Number(const char *, double, const char *) override {}
+  void Number(const char * /*what*/, double /*value*/, const char * /*unit*/) override {}
 
-  void Claim(bool, const char *) override {}
+  void Claim(bool /*held*/, const char * /*why*/) override {}
 
-  void Near(double, double, double, const char *, const char *) override {}
+  void Near(double /*got*/,
+            double /*want*/,
+            double /*within*/,
+            const char * /*unit*/,
+            const char * /*why*/) override {}
 
-  void Say(const std::string &) override {}
+  void Say(const std::string & /*line*/) override {}
 };
 
 struct TemporaryCache {
@@ -51,6 +62,90 @@ struct TemporaryCache {
   }
 };
 
+void CheckVersionedInputs(outshine::Ground::SurfacePreparation &stack,
+                          outshine::Generators::Osm::BuildingField &prints,
+                          outshine::StructureBuildQueue::HeightSource &heights,
+                          outshine::Data::TileId demTile,
+                          const auto &revisions,
+                          uint64_t terrainScope,
+                          const auto &inspect,
+                          uint64_t sourceKey,
+                          const auto &valid,
+                          const size_t &forbiddenCalls) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  using State = StructureBuildQueue::CellSourceState;
+  auto unrelated = demTile;
+  unrelated.X ^= 1u;
+  CHECK((**revisions).IssueDeliveryStamp(unrelated).has_value(), "unrelated delivery arrives");
+  CHECK(valid(), "unrelated delivery does not change accepted immutable inputs");
+  CHECK((**revisions).IssueDeliveryStamp(demTile).has_value(), "cached data is delivered again");
+  CHECK(valid(), "redelivery alone does not invalidate immutable source data");
+  ++heights.Revision.Value;
+  CHECK(inspect() == State::ScopeChanged && !valid() && forbiddenCalls == 0,
+        "explicit input change rejects old products even when the raster digest is unchanged");
+  heights.Revision.Value = terrainScope;
+  prints.TilesSpan(kChangedTileSpanM);
+  CHECK(inspect() == State::Stale && !valid(), "changed tile span rejects accepted products");
+  prints.TilesSpan(kTileSpanM);
+  CHECK(StructureBuildQueue::InspectCellSource(stack, prints, heights, 0, sourceKey ^ 1u) ==
+            State::Stale,
+        "wrong source key cannot inherit the current revision");
+  CHECK(StructureBuildQueue::InspectCellSource(stack, prints, heights, 1, sourceKey) ==
+            State::Unknown,
+        "missing tile has no accepted input");
+}
+
+outshine::Generators::Osm::BuildingField::Baked
+AcceptBuilding(outshine::Generators::Osm::BuildingField &prints,
+               const outshine::Generators::StructureCell &cell,
+               const std::shared_ptr<const outshine::Ground::HeightField> &pinned,
+               const outshine::Data::TileSourceIdentity &source,
+               outshine::LongitudeLatitude eye,
+               uint64_t terrainScope) {
+  using namespace outshine;
+  ::outshine::Generators::Osm::BuildingField::Baked accepted{.Coordinates = {},
+                                                             .Prints = {},
+                                                             .SeatSpreadM = {},
+                                                             .AcrossM = {},
+                                                             .OccupiedCells = uint64_t{1}
+                                                                              << (cell.Index - 1u)};
+  accepted.CellBounds[cell.Index - 1u] = cell.Footprint;
+  accepted.CellMaxHeightM[cell.Index - 1u] = kBuildingHeightM;
+  prints.PreparesAcceptances(1);
+  prints.Take(0);
+  auto pending = prints.PrepareAcceptance(0,
+                                          accepted,
+                                          pinned->Sources(),
+                                          true,
+                                          source,
+                                          {.HeightRasterDigest = pinned->RasterDigest(),
+                                           .StreetDigest = kDigestBasis,
+                                           .Projection = {.FocalPx = kFocalPx},
+                                           .TileSpanM = kTileSpanM,
+                                           .Eye = eye,
+                                           .EyeEcef = {}},
+                                          terrainScope);
+  prints.CommitAcceptance(std::move(pending), accepted);
+  return accepted;
+}
+
+outshine::Generators::Osm::StreetField
+ReplaceStreetInputs(outshine::Ground::SurfacePreparation &stack, outshine::LongitudeLatitude eye) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const std::array<std::string, 1> foreignLayers{"buildings"};
+  ::outshine::Generators::Osm::OsmField foreign(14, foreignLayers);
+  outshine::Ground::VegetationTemplates streetRules;
+  CHECK(streetRules.Load("src/assets/world/vegetation.json", stack.Materials()) &&
+            foreign.Declare(DeclaredBuildings(), eye).has_value(),
+        "foreign street context prepares");
+  auto &streets = const_cast<::outshine::Generators::Osm::StreetField &>(stack.Ways());
+  const auto originalStreets = streets;
+  (void)streets.Ingest(foreign, streetRules);
+  return originalStreets;
+}
+
 }
 
 void *operator new(size_t bytes) {
@@ -63,7 +158,7 @@ void operator delete(void *memory) noexcept {
   std::free(memory);
 }
 
-void operator delete(void *memory, size_t) noexcept {
+void operator delete(void *memory, size_t /*unused*/) noexcept {
   std::free(memory);
 }
 
@@ -71,50 +166,28 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  TemporaryCache cache;
+  const TemporaryCache cache;
   SilentSink sink;
   Data::OfflineTransport wire;
   Tasks sourceCompute(1);
   SurfacePreparation stack;
   const LongitudeLatitude eye{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
-  const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string()},
-                   providers,
-                   eye,
-                   wire,
-                   sourceCompute,
-                   sink,
-                   nullptr,
-                   1.0),
-        "offline stack opens");
-  if (!stack.Opened()) { return Report(); }
-  const std::array<::outshine::Generators::Osm::OsmField::Declared, 1> buildings{{
-      {.Layer = "buildings",
-       .Key = "kind",
-       .Value = "building",
-       .HeightM = 12,
-       .Area = true,
-       .LatLon = {49.32739, 8.56589, 49.32739, 8.56591, 49.32741, 8.56591, 49.32741, 8.56589}},
-  }};
-  CHECK(stack.Declares(buildings), "declared source snapshot is accepted");
-  CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
-        "declared building enters the vector snapshot");
-  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
-  CHECK(vectors && vectors->Tiles().size() == 1 && !vectors->Rings().empty(),
-        "one building tile is available");
-  if (!vectors || vectors->Tiles().size() != 1 || vectors->Rings().empty()) { return Report(); }
+  if (!OpenDeclaredBuilding(stack, cache.Path.string(), eye, wire, sourceCompute, sink)) {
+    return Report();
+  }
+  const auto *vectors = stack.Vectors();
   const auto &tile = vectors->Tiles().front();
   const auto &ring = vectors->Rings().front();
   const auto cell = Generators::StructureCellOf(
       TileBounds(
           {.Zoom = tile.Z, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)}),
-      std::span(vectors->Points().data() + 2u * ring.First, 2u * ring.Count));
-  CHECK(cell && cell->Index != 0, "declared footprint has a stable spatial cell");
+      std::span(vectors->Points().data() + size_t{2} * ring.First, size_t{2} * ring.Count));
+  CHECK(cell.has_value() && cell->Index != 0, "declared footprint has a stable spatial cell");
   if (!cell) { return Report(); }
   ::outshine::Generators::Osm::BuildingField &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
-  prints.TilesSpan(1000);
-  prints.SeenWith({.FocalPx = 720});
+  prints.TilesSpan(kTileSpanM);
+  prints.SeenWith({.FocalPx = kFocalPx});
   const int zoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   std::string demRevision = "one";
   auto revisions = TerrainRevisionIndex::Create(32);
@@ -143,29 +216,13 @@ int main() {
   auto pinned = HeightField::Of(zoom, {block(demTile)});
   CHECK(pinned && pinned->Qualified() && pinned->Sources().size() == 1,
         "synthetic DEM is a qualified pinned source");
-  ::outshine::Generators::Osm::BuildingField::Baked accepted{.OccupiedCells =
-                                                                 uint64_t{1} << (cell->Index - 1u)};
-  accepted.CellBounds[cell->Index - 1u] = cell->Footprint;
-  accepted.CellMaxHeightM[cell->Index - 1u] = 12.0f;
-  prints.PreparesAcceptances({.Tiles = 1});
-  prints.Take(0);
-  auto pending = prints.PrepareAcceptance(0,
-                                          accepted,
-                                          pinned->Sources(),
-                                          true,
-                                          tile.Source,
-                                          {.HeightRasterDigest = pinned->RasterDigest(),
-                                           .StreetDigest = kDigestBasis,
-                                           .Projection = {.FocalPx = 720},
-                                           .TileSpanM = 1000,
-                                           .Eye = eye},
-                                          terrainScope);
-  prints.CommitAcceptance(std::move(pending), accepted);
+  auto accepted = AcceptBuilding(prints, *cell, pinned, tile.Source, eye, terrainScope);
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
   CHECK(sourceKey && *sourceKey != 0, "accepted tile exposes its qualified source key");
   if (!sourceKey) { return Report(); }
   size_t forbiddenCalls = 0;
   StructureBuildQueue::HeightSource heights{
+      .Sample = {},
       .PinField =
           [&forbiddenCalls](Data::TileId, HeightField::Block &) {
             ++forbiddenCalls;
@@ -188,34 +245,18 @@ int main() {
   measureAllocations = false;
   CHECK(current && allocations == 0 && forbiddenCalls == 0,
         "accepted immutable inputs survive raster eviction without allocation or resolution");
-  auto unrelated = demTile;
-  unrelated.X ^= 1u;
-  CHECK((**revisions).IssueDeliveryStamp(unrelated).has_value(), "unrelated delivery arrives");
-  CHECK(valid(), "unrelated delivery does not change accepted immutable inputs");
-  CHECK((**revisions).IssueDeliveryStamp(demTile).has_value(), "cached data is delivered again");
-  CHECK(valid(), "redelivery alone does not invalidate immutable source data");
-  ++heights.Revision.Value;
-  CHECK(inspect() == State::ScopeChanged && !valid() && forbiddenCalls == 0,
-        "explicit input change rejects old products even when the raster digest is unchanged");
-  heights.Revision.Value = terrainScope;
-  prints.TilesSpan(2000);
-  CHECK(inspect() == State::Stale && !valid(), "changed tile span rejects accepted products");
-  prints.TilesSpan(1000);
-  CHECK(StructureBuildQueue::InspectCellSource(stack, prints, heights, 0, *sourceKey ^ 1u) ==
-            State::Stale,
-        "wrong source key cannot inherit the current revision");
-  CHECK(StructureBuildQueue::InspectCellSource(stack, prints, heights, 1, *sourceKey) ==
-            State::Unknown,
-        "missing tile has no accepted input");
-  const std::array<std::string, 1> foreignLayers{"buildings"};
-  ::outshine::Generators::Osm::OsmField foreign(14, foreignLayers);
-  VegetationTemplates streetRules;
-  CHECK(streetRules.Load("src/assets/world/vegetation.json", stack.Materials()) &&
-            foreign.Declare(buildings, eye).has_value(),
-        "foreign street context prepares");
+  CheckVersionedInputs(stack,
+                       prints,
+                       heights,
+                       demTile,
+                       revisions,
+                       terrainScope,
+                       inspect,
+                       *sourceKey,
+                       valid,
+                       forbiddenCalls);
+  auto originalStreets = ReplaceStreetInputs(stack, eye);
   auto &streets = const_cast<::outshine::Generators::Osm::StreetField &>(stack.Ways());
-  const auto originalStreets = streets;
-  (void)streets.Ingest(foreign, streetRules);
   CHECK(inspect() == State::Unknown && !valid() && forbiddenCalls == 0,
         "foreign street inputs cannot inherit accepted terrain validity");
   streets = originalStreets;
@@ -235,7 +276,7 @@ int main() {
   CHECK(valid() && residentPins > 0 && forbiddenCalls == 0,
         "unversioned input requires a matching resident raster without IO");
   auto changed = std::make_shared<TerrainField>(*residentField);
-  std::fill_n(changed->Data(), 9, 101.0f);
+  std::fill_n(changed->Data(), 9, kChangedSurfaceM);
   residentField = changed;
   CHECK(!valid(), "different raster bytes with the same source tags reject the accepted product");
   heights.PinResidentField = [](Data::TileId, HeightField::Block &) { return false; };

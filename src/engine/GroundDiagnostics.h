@@ -25,7 +25,8 @@ struct GroundRelief {
 void ReportBuildingFootprints(DiagnosticLedger &report,
                               const ::outshine::Generators::Osm::BuildingField &footprints,
                               const ::outshine::Generators::Osm::OsmField *vectors,
-                              const TangentFrame &frame);
+                              const TangentFrame &frame,
+                              bool quantiles);
 
 void ReportGroundRelief(DiagnosticLedger &report, GroundRelief relief);
 
