@@ -50,30 +50,34 @@ def compile_parent(
     divisions=16,
     projected_pitch_m=DEFAULT_PROJECTED_PITCH_M,
     footprint=DEFAULT_FOOTPRINT,
+    area_method="direct",
 ):
     """Continuous area estimates; fixed lattice/hash and GEOS error stay unqualified."""
     import shapely
     from coarse_city_domains import domains
+    from urban_parent_areas import region_areas
 
     if type(divisions) is not int or not 1 <= divisions <= 64:
         raise ValueError("bounded parent subdivision required")
     if not 8 <= projected_pitch_m <= 512 or not 0 < footprint < 1:
         raise ValueError("bounded child recipe parameters required")
+    if area_method not in ("direct", "hierarchical"):
+        raise ValueError("direct or hierarchical source-area method required")
     data = domains(document)
     left, bottom, right, top = data["tile_bounds"]
     x = np.linspace(left, right, divisions + 1)
     y = np.linspace(bottom, top, divisions + 1)
-    lo_x, lo_y = np.meshgrid(x[:-1], y[:-1])
-    hi_x, hi_y = np.meshgrid(x[1:], y[1:])
-    regions = shapely.box(lo_x, lo_y, hi_x, hi_y)
     half = projected_pitch_m * footprint / 2
     fractions = []
     geometry_vertices = []
+    area_work = []
     for radius in [0, half, half * math.sqrt(2)]:
         geometry = data["allowed"]
         if radius:
             geometry = shapely.buffer(geometry, -radius, quad_segs=32)
-        fractions.append(shapely.area(shapely.intersection(regions, geometry)))
+        areas, work = region_areas(geometry, x, y, area_method)
+        fractions.append(areas)
+        area_work.append(work)
         geometry_vertices.append(int(shapely.get_num_coordinates(geometry)))
     fractions = np.stack(fractions, axis=-1) / (
         (right - left) * (top - bottom) / divisions**2
@@ -101,7 +105,10 @@ def compile_parent(
         "source_records": data["records"],
         "source_geometry_vertices_after_offsets": geometry_vertices,
         "parent_regions": divisions**2,
-        "area_intersections": divisions**2 * 3,
+        "area_cells": divisions**2 * 3,
+        "area_intersections": sum(w["intersection_tests"] for w in area_work),
+        "area_method": area_method,
+        "area_work": area_work,
         "child_cells_generated": 0,
         "normals": [
             [-1, 0, 0],
@@ -117,3 +124,72 @@ def compile_parent(
         "status": "inferred_statistics_not_world_empty",
     }
     return product, metadata
+
+
+def main():
+    import argparse
+    import hashlib
+    import json
+    import resource
+    import subprocess
+    import sys
+    import tempfile
+    import time
+    from pathlib import Path
+
+    from coarse_city_domains import load_snapshot
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--divisions", type=int, choices=range(1, 65), default=16)
+    parser.add_argument(
+        "--area-method", choices=("direct", "hierarchical"), default="direct"
+    )
+    args = parser.parse_args()
+    if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
+        raise ValueError("private system-temp output required")
+    args.output.mkdir(parents=True, exist_ok=False)
+    started = time.perf_counter()
+    document = load_snapshot(args.input)
+    input_seconds = time.perf_counter() - started
+    started = time.perf_counter()
+    parent, metadata = compile_parent(
+        document, divisions=args.divisions, area_method=args.area_method
+    )
+    elapsed = time.perf_counter() - started
+    metadata.update(
+        head=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+        working_tree_dirty=bool(
+            subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()
+        ),
+        input_snapshot_sha256=hashlib.sha256(args.input.read_bytes()).hexdigest(),
+        divisions=args.divisions,
+        input_load_s=input_seconds,
+        compile_s=elapsed,
+        parent_array_B=sum(a.nbytes for a in parent.arrays().values()),
+        process_peak_RSS_B=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        * (1 if sys.platform == "darwin" else 1024),
+        memory_scope="Fresh-process peak includes inputs, imports, GEOS/native allocations and result; not allocator traffic, isolated phase peak or app/device budget.",
+    )
+    np.savez_compressed(args.output / "parent.npz", **parent.arrays())
+    (args.output / "parent.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    print(
+        json.dumps(
+            {
+                k: metadata[k]
+                for k in (
+                    "head",
+                    "divisions",
+                    "area_method",
+                    "compile_s",
+                    "parent_array_B",
+                    "process_peak_RSS_B",
+                )
+            }
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
