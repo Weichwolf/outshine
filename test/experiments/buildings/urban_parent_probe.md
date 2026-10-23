@@ -30,132 +30,132 @@ child cells. The filtered signed correction to a preserved opaque baseline is
 C/T/S. Full readiness gives D=0 and bypasses parent traversal. Native World bounds,
 terrain/curvature, original-height evidence and readiness remain #1102.
 
-## Current step: coordinate surface strata within a pixel
+## Current step: absolute screen addresses across cropped queries
 
-`urban_pixel_samples.py` changes only the CDF uniforms consumed by the optional
-sampled layer. Existing spatial rays, geometric hypotheses, lighting, opaque stops,
-C/T/S composition and independently declared ready domains stay the same. No
-neighbouring-pixel smoothing or averaged geometry/material/normal is introduced.
-The default still uses the previous independent per-ray uniforms.
+The existing pixel-coupled path used a crop-relative row stream. Changing only
+its ROI changed CDF uniforms for otherwise identical rays, causing artificial
+image changes. The new optional `pixel_origin=(x,y)` on `pixel_surface_packets`
+anchors uniforms to uint32 screen coordinates. The query's width, height and ray
+packet boundaries no longer choose a pixel's stream. Unchanged independent and
+crop-relative controls remain available; the default has not changed.
 
-For P spatial rays and M surface draws, draw j already has its own interval.
-Independently for each pixel and j, a random permutation assigns its P rays to P
-subintervals. With rank r and independent jitter v, `u=(j+(r+v)/P)/M`.
-For any fixed ray, r is uniform over 0..P-1, so its marginal remains uniform in
-its original stratum. Thus its real-arithmetic expectation is unchanged. Covariance
-between rays changes: this is not a universal variance or floating-unbiasedness
-bound. A finite independent counterexample has variance1/12 versus1/16 before
-coupling; dissimilar ray integrands can be worse.
+For spatial axis count s and M draws, let D=M*s² and B=ceil(2D/4). Existing NumPy
+Philox is seeded in namespace3 and addressed by counter `(x*B,y,s,M)`. Each pixel
+uses exactly B four-uint64 blocks, including padding. Its first D words supply
+random-key permutations within each draw's spatial rays; its next D words supply
+independent53-bit jitter. The same original P/M strata and real-arithmetic target
+remain. This replaces variable-consumption shuffles, without generating skipped
+pixels or a full-image table. Equal uint64 keys use stable index order; finite
+PRNG/tie/rounding bias is not certified. Earlier variance gains from a different
+random sequence do not transfer automatically to this stream.
 
-`pixel_surface_packets` generates one pixel-row band and reuses a ray packet.
-Its storage follows `O(width*P*M + batch*M)`, independently of image height; it
-needs no per-world table or fine-child construction. Each row has its own seeded
-stream, so packet boundaries do not alter pixels. Yielded storage is valid only
-until next iteration. `render_sampled_layer(..., surface_packets=...)` checks each
-used packet's ray-by-draw shape and finite [0,1) domain; short/extra streams fail.
-Completely ready camera+caster domains return before requesting any packet.
-This does not define world random state or reproject history; crop/seed changes and
-continuous camera motion still require temporal qualification.
+Storage remains `O(width*P*M + batch*M)` with one row band and a reusable packet;
+Philox raw words, sorting and jitter copies add cost. No child/geometry, shading,
+T/S or independent camera/caster readiness rule changes. A completely ready parent
+still requests no samples. Caller contracts are absolute pixel origin, raster
+subray order, seed, s and M; changing seed is an explicit stream change. These
+addresses do not reproject geometry, accumulate history or reconstruct temporal
+transitions, and they do not define a persistent random world.
 
-Measured freeze `e00d0033e` passes158 focused tests in28.253s. Seven new tests cover
-per-ray/per-pixel strata, raster order, non-square layouts, seed repeatability,
-packet widths1/7/19/71/2048, lazy enormous image height, invalid/short/extra streams,
-unchanged default arrays, full-ready bypass, the variance counterexample and an
-independent81-box-world pixel mean with one surface draw per spatial ray.
-All previous conditional transport, finite-stop, opaque/ready and source controls
-remain. The earlier composition/inside-occlusion contract and its87 checked PNGs
-are pinned in [004983530](https://github.com/Weichwolf/outshine/blob/004983530/test/experiments/buildings/urban_parent_probe.md).
+`compare_urban_layers.py --pixel-strata --screen-strata` selects this mode.
+Omit `--screen-strata` for the earlier crop-relative pixel control; omit both for
+the independent default. Shared `layer_states` retains the previous six ready/
+opaque cases and child vacancies. `compare_urban_sample_windows.py` tests six
+changing windows containing the complete union of all required support, using
+identical overlapping rays selected from a canonical ray grid. It also runs six
+camera poses with independent camera-ready, caster-ready, foreground and all-ready
+states; camera motion parameters are -4096,-2048,0,2048,4096,6144m on the existing
+240km-distance orbit. Window changes never remove required support.
 
-There are18 terminal-zero original-field runs: four night seeds1113/1729/2111/4093,
-two day/backlight seeds1113/1729, and one moved grazing-view seed1113, each with
-both methods. Each retains247,731 original masses in616×624,4×4 spatial rays and
-M=4. All six states below are recomposed, including independent camera/caster
-readiness and an opaque foreground at75% field width. Complete expectations are
-freshly checked once per case and reused across that case's other seeds. Every
-old seed1113 array/control is bit-identical to the previous frozen delivery.
-All-ready output preserves the supplied child baseline in every run.
+Measured freeze `23d655c63`:162 focused tests pass in23.001s. Four added tests cover
+absolute-window/tile identity, packet changes, odd sample/block padding, uint32
+bounds, retained strata and actual parent C/T/S identity for identical cropped
+rays. All previous81-world, default, conditional shadow, finite-stop, opaque/ready
+and source controls remain. Four full original-field layer runs and four six-frame
+sequence runs terminate0. All retain the original247,731 masses in616×624; only
+projected ROIs in1280×720 are traced. Source inputs were not refreshed.
 
-RMSE below is `sqrt(mean(seed,pixel,RGB squared error))` against the complete
-categorical expectation at the same spatial rays. Timings are median query/
-composition seconds over those seeds; pattern generation is inside the timed call.
-These are not equal-error renderers, convergence bounds or statistical speed claims.
-Methods alternate order by seed on shared Linux/i5-1135G7 CPU; small array/report
-readbacks and other host activity overlapped some timings. Own tests and memory
-instrumentation ran outside normal comparisons. Only projected ROIs inside1280×720
-are traced; flat elevated240km/75,894.663844m and grazing50km/2,000m controls do not
-prove curved-Earth visibility or native whole-frame/p99 performance.
+The old crop-relative night's arrays are bit-identical to the preceding delivery;
+all three fresh complete-expectation controls match their previous arrays. All-
+ready images remain bit-identical to the supplied child baseline.124 diagnostic
+PNGs are represented in seven optically inspected original/sequence sheets,
+including byte-identical legacy contents. Known children and foreground survive;
+noise, coarse-model mismatch and hard model/ready transitions remain visible.
 
-| Case / seeds | State | Independent RMSE | Pixel RMSE | Independent s | Pixel s |
-| --- | --- | ---: | ---: | ---: | ---: |
-| night/4 | pending | 0.088139 | 0.072160 | 3.002 | 3.144 |
-| night/4 | half_view | 0.062716 | 0.057913 | 2.071 | 2.223 |
-| night/4 | half_caster | 0.090338 | 0.074975 | 3.165 | 3.655 |
-| night/4 | half_ready | 0.062716 | 0.057913 | 2.161 | 2.610 |
-| night/4 | all_ready | 0.000000 | 0.000000 | 0.005 | 0.005 |
-| night/4 | foreground | 0.001958 | 0.001836 | 1.347 | 1.572 |
-| day/2 | pending | 0.003360 | 0.002879 | 1.315 | 1.259 |
-| day/2 | half_view | 0.002363 | 0.002094 | 1.000 | 0.927 |
-| day/2 | half_caster | 0.003976 | 0.003775 | 1.469 | 1.427 |
-| day/2 | half_ready | 0.002363 | 0.002094 | 1.057 | 1.009 |
-| day/2 | all_ready | 0.000000 | 0.000000 | 0.004 | 0.004 |
-| day/2 | foreground | 0.001622 | 0.001558 | 0.590 | 0.580 |
-| back/2 | pending | 0.011820 | 0.009899 | 1.030 | 1.079 |
-| back/2 | half_view | 0.008094 | 0.006889 | 0.800 | 0.797 |
-| back/2 | half_caster | 0.011399 | 0.009843 | 1.254 | 1.208 |
-| back/2 | half_ready | 0.008094 | 0.006889 | 0.876 | 0.872 |
-| back/2 | all_ready | 0.000000 | 0.000000 | 0.004 | 0.004 |
-| back/2 | foreground | 0.005317 | 0.004971 | 0.515 | 0.508 |
-| motion/1 | pending | 0.003053 | 0.002695 | 16.364 | 17.953 |
-| motion/1 | half_view | 0.002161 | 0.001920 | 12.005 | 12.546 |
-| motion/1 | half_caster | 0.004325 | 0.004051 | 19.863 | 17.587 |
-| motion/1 | half_ready | 0.002161 | 0.001920 | 12.223 | 12.906 |
-| motion/1 | all_ready | 0.000000 | 0.000000 | 0.015 | 0.016 |
-| motion/1 | foreground | 0.001509 | 0.001404 | 6.950 | 6.772 |
+For each frame, e is pixel-averaged sampled RGB minus that frame's complete
+categorical expectation. Error-increment RMSE measures `e[t]-e[t-1]` at fixed screen
+pixels; it does not reproject history or count the target's actual image change.
+Medians below are query/composition seconds across six frames; preparation and
+image output are outside, sample generation inside. One fixed seed1113,4×4 spatial
+rays and M4 are used throughout; all24 frame pairs keep identical surface counts
+and prefix/receiver-shadow counters. Methods run in fixed order on a shared
+Linux/i5-1135G7 CPU; no own tests/instrumentation overlap normal runs. These are
+not isolated/statistical latency or equal-error performance claims.
 
-Aggregated nonzero RMSE reductions span3.9-18.1% in these cases. Individual seeds
-remain negative: night pending seed1113 grows0.075841->0.088481. Night half-ready
-median costs2.161->2.610s while error falls0.062716->0.057913. Visible grain and
-underlying source/height/model/silhouette/aliasing errors remain. This does not
-establish an equal-time win; moved-pose images are not a temporal sequence.
-All150 generated PNGs were checked through nine full-frame/ROI comparison sheets;
-known children and foreground survive. Diagnostic images stay local.
+| Sequence | Crop increment RMSE | Screen increment RMSE | Crop median s | Screen median s |
+| --- | ---: | ---: | ---: | ---: |
+| static-night | 0.095024 | 0.000000 | 2.463 | 2.426 |
+| moving-night | 0.077599 | 0.054741 | 1.945 | 1.941 |
+| moving-day | 0.003435 | 0.003369 | 0.968 | 0.941 |
+| moving-back | 0.010144 | 0.009986 | 0.853 | 0.897 |
 
-All54 paired seed/state queries have identical surface-draw counts and identical
-prefix/receiver-shadow work counters. Pending night seed1113 draws57,524 surfaces;
-view-cell visits86,986->86,957, unique shaders44,400->44,300, surface-shadow visits
-373,193->371,811. Day unique shaders44,279->44,396 and shadow visits131,453->131,953
-instead increase. Permutation/layout work and an extra band-to-packet copy of
-`8*N*M` bytes are added for N emitted sampling rays. Sharing inputs is not a claim that
-every operation shrinks; work and timing details remain in the raw reports.
+The static-night increment is exactly zero with screen addresses; prior crop
+addressing gives0.095024. This qualifies window invariance in that controlled
+case, not general temporal stability. Moving ready cases still change strongly;
+night improves, day/backlight only slightly. The three ordinary original-field
+comparisons retain negative spatial-quality cases:
 
-Separate warm sampler-only tracemalloc at width1280/spatial4/batch2048, consuming
-packets without retaining a full table: M4 peaks1,445,496/1,445,800B for heights1/720;
-M16 peaks5,574,344/5,574,664B. Existing independent generation at height720 peaks
-265,960/855,880B respectively. Whole-image tables would require471,859,200/
-1,887,436,800B; none was allocated. This proves bounded extra sampler storage for
-these inputs, not a memory improvement over the existing independent sampler.
+| Lighting | State | Old crop pixel RMSE | Screen pixel RMSE |
+| --- | --- | ---: | ---: |
+| day | pending | 0.002787 | 0.002940 |
+| day | half_view | 0.001968 | 0.002134 |
+| day | half_caster | 0.003710 | 0.003841 |
+| day | half_ready | 0.001968 | 0.002134 |
+| day | all_ready | 0.000000 | 0.000000 |
+| day | foreground | 0.001426 | 0.001547 |
+| back | pending | 0.009651 | 0.010017 |
+| back | half_view | 0.006551 | 0.006911 |
+| back | half_caster | 0.009527 | 0.009800 |
+| back | half_ready | 0.006551 | 0.006911 |
+| back | all_ready | 0.000000 | 0.000000 |
+| back | foreground | 0.004625 | 0.004780 |
+| night | pending | 0.088481 | 0.055823 |
+| night | half_view | 0.068729 | 0.034159 |
+| night | half_caster | 0.096921 | 0.052914 |
+| night | half_ready | 0.068729 | 0.034159 |
+| night | all_ready | 0.000000 | 0.000000 |
+| night | foreground | 0.001759 | 0.001909 |
 
-| Mixed-query state | Independent2048 peak B | Pixel2048 peak B | Pixel512 peak B |
+Each is against the same complete categorical expectation at the same spatial
+rays. One seed is not a variance/convergence result: day and backlight errors
+increase here, night foreground also worsens. No general spatial-quality or
+speed recommendation follows from the eliminated window artifact.
+
+Separate warm sampler-only tracemalloc, consuming packets without retaining a full
+image, width1280/spatial4/batch2048:
+
+| Draws | Height | Crop peak B | Screen peak B |
 | --- | ---: | ---: | ---: |
-| pending | 1,934,769 | 2,096,626 | 1,795,944 |
-| half_ready | 2,155,272 | 2,293,297 | 2,155,592 |
-| all_ready | 2,155,272 | 2,155,592 | 2,155,592 |
+| 4 | 1 | 1,445,528 | 2,689,568 |
+| 4 | 720 | 1,445,792 | 2,699,168 |
+| 16 | 1 | 5,574,368 | 10,750,496 |
+| 16 | 720 | 5,574,656 | 10,760,096 |
 
-The mixed probe spans one complete pixel-row band of5,312 actual moved/grazing
-rays. It includes parent/child query allocations, excludes original source/asset
-preparation and retains outputs. Smaller batches change packet work; instrumented
-times are not normal comparisons. These observed Python/NumPy peaks exclude
-renderer/app/GPU/device memory; they do not establish the A18's available budget.
+This is bounded extra sampler storage, not a smaller footprint than crop sampling.
+For M4/P16 the addressed path produces128 uint64 words per emitted pixel; for other
+counts padding rounds2D up to a four-word block. It adds key ordering and jitter/
+layout copies. Original mixed-query counters, normal times and exact commands
+remain in reports; instrumented times are not normal timing evidence. These peaks
+exclude renderer/app/GPU/device budgets and establish no A18 memory admission.
 
-Decision: keep pixel stratification opt-in (`--pixel-strata`) as a small verified
-sampling alternative. Default independent sampling and the complete expectation
-remain controls; neither universal nor equal-time superiority is proven. The
-largest gaps remain original-height/source/model evidence, spatial aliasing,
-continuous temporal/ready transitions and World/device integration (#1102/#1127).
-No native implementation, learned model, material/night side technique, dependency
-or cache/export framework is added. Full commands/hashes, terminal states, per-seed
-errors/work, memory and byte-identical redirects:
-`/tmp/outshine-research-pixel-strata-e00d0033e/receipt.json`.
+Decision: retain `--screen-strata` opt-in to avoid crop-induced resampling. Keep the
+old streams as quality/cost controls. No native implementation, extra dependency,
+learned model, cache/export framework or new material/night technique is added.
+Flat ENU240km controls are not curved-Earth/native/frame/p99 evidence. Original
+height/source/model errors, spatial aliasing and continuous physical/ready temporal
+transitions remain open under #1113/#1102; native residual work stays #1127.
+Full input hashes, commands, terminal results, work/error/memory, optical checks
+and duplicate redirects: `/tmp/outshine-research-screen-samples-23d655c63/receipt.json`.
 
 ## Earlier controlled alternatives
 
@@ -164,6 +164,7 @@ versions; original inputs and referenced raw artifacts have not been removed.
 
 | Alternative | Result/limit | Detailed method |
 | --- | --- | --- |
+| Pixel-wise CDF coupling | Lower mean error in fixed-seed sets, negative seeds/time/memory cases; crop-relative streams | [05ea51345](https://github.com/Weichwolf/outshine/blob/05ea51345/test/experiments/buildings/urban_parent_probe.md) |
 | Sampled finite-stop/ready composition | Joint C/T/S, exact full-ready unions and explicit contained-shadow query; night noise/peak costs remain | [004983530](https://github.com/Weichwolf/outshine/blob/004983530/test/experiments/buildings/urban_parent_probe.md) |
 | Shared first-hit geometry | Same pixels with1.12-1.78x CPU-query gain; geometry memory lower, extra threshold comparisons | [0f5f2e2ef](https://github.com/Weichwolf/outshine/blob/0f5f2e2ef/test/experiments/buildings/urban_parent_probe.md) |
 | Independent sampled first-hit RGB | Deterministic T/background, finite surface sampling; ground gain and night variance, elevated regressions | [efe416498](https://github.com/Weichwolf/outshine/blob/efe416498/test/experiments/buildings/urban_parent_probe.md) |
@@ -199,7 +200,7 @@ python -B -W error test/experiments/buildings/compare_urban_horizon.py \
   --output /tmp/outshine-urban-first-hit --distance 50000 --altitude 2
 python -B -W error test/experiments/buildings/compare_urban_layers.py \
   --parent "$PARENT_NPZ" --resolved "$RESOLVED_NPZ" --surface-samples 4 \
-  --paired-sampled --pixel-strata --foreground-fraction 0.75 --distance 50000 --altitude 2000 \
+  --paired-sampled --pixel-strata --screen-strata --foreground-fraction 0.75 --distance 50000 --altitude 2000 \
   --output /tmp/outshine-urban-sampled-layers
 ```
 
@@ -211,6 +212,8 @@ Other retained drivers: `compare_urban_horizon.py`, `compare_urban_response.py`,
 versions document sampling, independent controls and qualification limits.
 
 ## Primary sources read and visually inspected
+
+- [NumPy Philox reference](https://numpy.org/doc/stable/reference/random/bit_generators/philox.html), counter/state and four uint64 words per block; checked against installed docstrings. We use the existing library generator, not a new RNG implementation.
 
 - [Cook/Porter/Carpenter1984, SIGGRAPH](https://people.computing.clemson.edu/~ekp/courses/dpa8090/assets/papers/Cook1984DistributedRayTracing.pdf), pages137/141, section6/Figure2: distribute existing samples across integration dimensions. Both pages optically inspected. The pixel CDF coupling/proof here is separate.
 - [PBRT4 section8.5](https://www.pbr-book.org/4ed/Sampling_and_Reconstruction/Stratified_Sampler), padding and random association of stratified dimensions; independent implementation using existing NumPy, no PBRT code bundled.
