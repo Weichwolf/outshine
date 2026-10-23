@@ -1,10 +1,11 @@
 """Optional radial-recipe experiment; ordinary/provider classification paths stay intact."""
 
 import numpy as np
+from cooling_service_mesh import components as service_components
+from cooling_service_mesh import world_points
+from cooling_service_plan import plan as service_plan
 from cooling_tower_mesh import components, draw_parts
 from cooling_tower_plan import plan
-from cooling_service_plan import plan as service_plan
-from cooling_service_mesh import components as service_components, world_points
 from facade_parts import append
 
 
