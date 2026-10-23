@@ -165,6 +165,8 @@ def walk_cells(
     product, origin, direction, work, *, minimum=0.1, maximum=None, ray_bounds=None
 ):
     """Yield ordered XY packets; consumers can clear keep to stop a ray."""
+    if 0 in product["shape"]:
+        return
     pitch = product["header"]["pitch_m"]
     low, shape = product["low"], product["shape"]
     bounds = np.array([low, low + shape]) * pitch
