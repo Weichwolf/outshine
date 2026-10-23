@@ -179,6 +179,7 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
           .BasisMisses = BasisMisses_.load(std::memory_order_relaxed),
           .BasisWrites = BasisWrites_.load(std::memory_order_relaxed),
           .BasisReadBytes = BasisReadBytes_.load(std::memory_order_relaxed),
+          .BasisResidentHits = BasisResidentHits_.load(std::memory_order_relaxed),
           .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
           .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
           .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),
