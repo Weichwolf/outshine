@@ -54,42 +54,43 @@ PreparedBuildingAssets::InvalidateBasis(const std::string &key) {
 }
 
 std::expected<PreparedBuildingAssets::Basis, StructureBakeError>
-PreparedBuildingAssets::LoadBasis(const std::string &key, const std::string &requestKey) {
-  {
-    const std::scoped_lock lock(Lock_);
-    auto loaded = Cache_->Load(BasisKey(key), kPackageBytesMost);
-    if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
-    if (*loaded) {
-      const auto &record = (**loaded).Record();
-      auto basis = DecodePreparedBuildingBasis((**loaded).Bytes(), kResidentBytesMost);
-      if (record.Kind == "building-basis" && record.Parent == key && basis) {
-        if (!requestKey.empty() && record.RequestKey != requestKey) {
-          const auto bound = Cache_->BindRequest(BasisKey(key), requestKey);
-          if (!bound || !*bound) {
-            return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
-          }
-        }
-        ++BasisHits_;
-        BasisReadBytes_ += (**loaded).Bytes().size();
-        auto product = std::make_shared<const PreparedBuildingBasis>(std::move(*basis));
-        if (ResidentBases_.size() >= kResidentBasisEntriesMost) {
-          std::erase_if(ResidentBases_,
-                        [](const auto &entry) { return entry.second.Product.expired(); });
-        }
-        if (ResidentBases_.size() < kResidentBasisEntriesMost ||
-            ResidentBases_.contains(record.Key)) {
-          auto residentRecord = record;
-          if (!requestKey.empty()) { residentRecord.RequestKey = requestKey; }
-          ResidentBases_.insert_or_assign(
-              record.Key, ResidentBasis{.Record = std::move(residentRecord), .Product = product});
-        }
-        return product;
-      }
-      if (!Cache_->Remove(BasisKey(key))) {
-        return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
-      }
+PreparedBuildingAssets::LoadCachedBasis(const std::string &key, const std::string &requestKey) {
+  const std::scoped_lock lock(Lock_);
+  auto loaded = Cache_->Load(BasisKey(key), kPackageBytesMost);
+  if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
+  if (!*loaded) { return Basis{}; }
+  const auto &record = (**loaded).Record();
+  auto basis = DecodePreparedBuildingBasis((**loaded).Bytes(), kResidentBytesMost);
+  if (record.Kind != "building-basis" || record.Parent != key || !basis) {
+    if (!Cache_->Remove(BasisKey(key))) {
+      return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
     }
+    return Basis{};
   }
+  if (!requestKey.empty() && record.RequestKey != requestKey) {
+    const auto bound = Cache_->BindRequest(BasisKey(key), requestKey);
+    if (!bound || !*bound) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
+  }
+  ++BasisHits_;
+  BasisReadBytes_ += (**loaded).Bytes().size();
+  auto product = std::make_shared<const PreparedBuildingBasis>(std::move(*basis));
+  if (ResidentBases_.size() >= kResidentBasisEntriesMost) {
+    std::erase_if(ResidentBases_, [](const auto &entry) { return entry.second.Product.expired(); });
+  }
+  if (ResidentBases_.size() < kResidentBasisEntriesMost || ResidentBases_.contains(record.Key)) {
+    auto residentRecord = record;
+    if (!requestKey.empty()) { residentRecord.RequestKey = requestKey; }
+    ResidentBases_.insert_or_assign(
+        record.Key, ResidentBasis{.Record = std::move(residentRecord), .Product = product});
+  }
+  return product;
+}
+
+std::expected<PreparedBuildingAssets::Basis, StructureBakeError>
+PreparedBuildingAssets::LoadBasis(const std::string &key, const std::string &requestKey) {
+  auto cached = LoadCachedBasis(key, requestKey);
+  if (!cached) { return std::unexpected(cached.error()); }
+  if (*cached) { return cached; }
   ++BasisMisses_;
   const auto base = Load(key);
   if (!base) { return std::unexpected(base.error()); }

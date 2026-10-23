@@ -80,6 +80,8 @@ private:
              const Box &bounds,
              const PreparedBuildingBasis &basis,
              const std::string &requestKey = {});
+  [[nodiscard]] std::expected<Basis, StructureBakeError>
+  LoadCachedBasis(const std::string &key, const std::string &requestKey);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometryArtifact(const std::string &baseKey, const RawTile &view, size_t coordinatePoints);
 
