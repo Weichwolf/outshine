@@ -687,6 +687,7 @@ NotTheHarnesses() {
   case "$1" in
     scripts) printf '%s' "standalone build and diagnostic tools compiled by the Makefile" ;;
     harness/render) printf '%s' "internal GPU probes compiled and judged by paired render experiments" ;;
+    harness/spatial) printf '%s' "internal topology probes compiled and judged by paired spatial experiments" ;;
     experiments/*) printf '%s' "standalone experiment tools compiled and judged by paired scripts" ;;
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/graph) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
