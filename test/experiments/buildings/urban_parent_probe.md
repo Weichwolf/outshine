@@ -30,132 +30,130 @@ child cells. The filtered signed correction to a preserved opaque baseline is
 C/T/S. Full readiness gives D=0 and bypasses parent traversal. Native World bounds,
 terrain/curvature, original-height evidence and readiness remain #1102.
 
-## Current step: absolute screen addresses across cropped queries
+## Current step: cheaper source areas and a bounded resolution comparison
 
-The existing pixel-coupled path used a crop-relative row stream. Changing only
-its ROI changed CDF uniforms for otherwise identical rays, causing artificial
-image changes. The new optional `pixel_origin=(x,y)` on `pixel_surface_packets`
-anchors uniforms to uint32 screen coordinates. The query's width, height and ray
-packet boundaries no longer choose a pixel's stream. Unchanged independent and
-crop-relative controls remain available; the default has not changed.
+Fixed-camera attribution separates the complete categorical model from additional
+surface sampling: day pending model RMSE0.025980 versus sampling0.002940; the
+half-view->half-ready expected-image jump is0.024339 with exactly zero sampling
+change. Squared model/sampling errors include a cross term, so they must not be
+reported as independent percentages. More sample coupling cannot remove that
+model jump. Attribution uses the original4×4 rays and does not certify pixel
+integration or original-height evidence.
 
-For spatial axis count s and M draws, let D=M*s² and B=ceil(2D/4). Existing NumPy
-Philox is seeded in namespace3 and addressed by counter `(x*B,y,s,M)`. Each pixel
-uses exactly B four-uint64 blocks, including padding. Its first D words supply
-random-key permutations within each draw's spatial rays; its next D words supply
-independent53-bit jitter. The same original P/M strata and real-arithmetic target
-remain. This replaces variable-consumption shuffles, without generating skipped
-pixels or a full-image table. Equal uint64 keys use stable index order; finite
-PRNG/tie/rounding bias is not certified. Earlier variance gains from a different
-random sequence do not transfer automatically to this stream.
+The existing source compiler was compared at16²/32²/64² regions, using exactly the
+same395 pinned records, setbacks, heights and vacancy recipe before any child
+build. Global area means and provenance remain unchanged to floating precision.
+Finer regions reduce smoothing of geographic evidence, with larger parent arrays.
+No statistics were fitted to the resolved render or to a place.
 
-Storage remains `O(width*P*M + batch*M)` with one row band and a reusable packet;
-Philox raw words, sorting and jitter copies add cost. No child/geometry, shading,
-T/S or independent camera/caster readiness rule changes. A completely ready parent
-still requests no samples. Caller contracts are absolute pixel origin, raster
-subray order, seed, s and M; changing seed is an explicit stream change. These
-addresses do not reproject geometry, accumulate history or reconstruct temporal
-transitions, and they do not define a persistent random world.
+Direct GEOS clipping repeats the whole offset source geometry for every region.
+`urban_parent_areas.py` adds explicit `hierarchical` clipping: for a child rectangle
+C inside parent P, `(G∩P)∩C = G∩C`. Split integer cell ranges recursively; intersect
+children with already clipped local geometry. Empty subtrees fill zero; fully
+covered subtrees use exact rectangle areas, retaining holes and disconnected parts.
+Odd/non-square ranges are supported. Repeated double-precision intersections have
+small numerical differences; no formal floating/topological error bound is claimed.
+Source-area zero/full values are never World empty/ready certificates.
 
-`compare_urban_layers.py --pixel-strata --screen-strata` selects this mode.
-Omit `--screen-strata` for the earlier crop-relative pixel control; omit both for
-the independent default. Shared `layer_states` retains the previous six ready/
-opaque cases and child vacancies. `compare_urban_sample_windows.py` tests six
-changing windows containing the complete union of all required support, using
-identical overlapping rays selected from a canonical ray grid. It also runs six
-camera poses with independent camera-ready, caster-ready, foreground and all-ready
-states; camera motion parameters are -4096,-2048,0,2048,4096,6144m on the existing
-240km-distance orbit. Window changes never remove required support.
+`compile_parent(..., area_method="hierarchical")` selects this alternative; the
+existing direct16 default stays unchanged. `area_cells` counts requested outputs;
+`area_intersections` now records actual geometric pairs, with covers/area queries,
+nodes, rectangles, stack and input-coordinate multiplicities in `area_work`.
+Coordinate multiplicity counts inputs supplied to GEOS, not internal vertex tests,
+allocator traffic or copied/read bytes. The source-only CLI serializes the same
+four parent arrays; consumer/import paths still require no source/GEOS/fine build.
 
-Measured freeze `23d655c63`:162 focused tests pass in23.001s. Four added tests cover
-absolute-window/tile identity, packet changes, odd sample/block padding, uint32
-bounds, retained strata and actual parent C/T/S identity for identical cropped
-rays. All previous81-world, default, conditional shadow, finite-stop, opaque/ready
-and source controls remain. Four full original-field layer runs and four six-frame
-sequence runs terminate0. All retain the original247,731 masses in616×624; only
-projected ROIs in1280×720 are traced. Source inputs were not refreshed.
+Measured freeze `c431da988`:166 focused tests pass in26.670s. Four new tests compare
+against direct GEOS intersections and analytic areas with holes, disconnected
+parts, boundary contacts, odd rectangles, covered/empty pruning, large projected
+coordinates, compiler provenance/recipe and invalid-method input. Existing source,
+81-world, transport, ready/opaque and sampling controls remain. Five fresh-process
+builds and nine full-original-field layer runs terminate0; no own tests/profiling
+or image processing overlap their normal timing. Shared Linux/i5-1135G7 CPU,
+one call per configuration: these are measured cases, not statistical or native
+hardware speed guarantees. Input parsing and serialization are outside compile
+seconds; domain preparation, offsets and statistics are inside.
 
-The old crop-relative night's arrays are bit-identical to the preceding delivery;
-all three fresh complete-expectation controls match their previous arrays. All-
-ready images remain bit-identical to the supplied child baseline.124 diagnostic
-PNGs are represented in seven optically inspected original/sequence sheets,
-including byte-identical legacy contents. Known children and foreground survive;
-noise, coarse-model mismatch and hard model/ready transitions remain visible.
+| Source regions | Area method | Compile s | Parent array B | Process peak RSS B |
+| --- | --- | ---: | ---: | ---: |
+| 16×16 | direct | 7.206 | 6,264 | 142,848,000 |
+| 16×16 | hierarchical | 10.684 | 6,264 | 143,347,712 |
+| 32×32 | direct | 15.828 | 24,696 | 143,024,128 |
+| 64×64 | direct | 50.492 | 98,424 | 143,634,432 |
+| 64×64 | hierarchical | 13.892 | 98,424 | 143,380,480 |
 
-For each frame, e is pixel-averaged sampled RGB minus that frame's complete
-categorical expectation. Error-increment RMSE measures `e[t]-e[t-1]` at fixed screen
-pixels; it does not reproject history or count the target's actual image change.
-Medians below are query/composition seconds across six frames; preparation and
-image output are outside, sample generation inside. One fixed seed1113,4×4 spatial
-rays and M4 are used throughout; all24 frame pairs keep identical surface counts
-and prefix/receiver-shadow counters. Methods run in fixed order on a shared
-Linux/i5-1135G7 CPU; no own tests/instrumentation overlap normal runs. These are
-not isolated/statistical latency or equal-error performance claims.
+At64², hierarchical compilation is3.63× faster than the same-quality direct
+control. At16² it is slower, so no unconditional/default replacement is made.
+Process peaks include imports, inputs, GEOS/native allocations and outputs; they
+are not isolated clipping peaks, total allocations or app/device budgets. Peaks
+remain around143MB; no memory reduction is established. Parent payload at64² is
+98,424B versus6,264B at16²; metadata/provenance is additional.
 
-| Sequence | Crop increment RMSE | Screen increment RMSE | Crop median s | Screen median s |
-| --- | ---: | ---: | ---: | ---: |
-| static-night | 0.095024 | 0.000000 | 2.463 | 2.426 |
-| moving-night | 0.077599 | 0.054741 | 1.945 | 1.941 |
-| moving-day | 0.003435 | 0.003369 | 0.968 | 0.941 |
-| moving-back | 0.010144 | 0.009986 | 0.853 | 0.897 |
+At64², geometric intersections increase12,288->16,271 plus4,095 covers tests;
+input-coordinate multiplicity falls1,392,918,528->7,411,288. This explains neither
+an equivalent hardware traffic reduction nor global optimality. Original source,
+height recipe and zero generated fine cells are checked for every build. Direct16
+arrays remain bit-identical to the protected original. Maximum area-fraction
+difference between direct/hierarchical is1.97e-13 at16² and6.10e-12 at64². For64²,
+all21 direct/hierarchical PNGs are byte-identical, maximum per-ray RGB differences
+are7.63e-12, and parent query-work counters match in every state/profile.
 
-The static-night increment is exactly zero with screen addresses; prior crop
-addressing gives0.095024. This qualifies window invariance in that controlled
-case, not general temporal stability. Moving ready cases still change strongly;
-night improves, day/backlight only slightly. The three ordinary original-field
-comparisons retain negative spatial-quality cases:
+All63 generated PNGs are represented in three optically checked original/32²/64²
+comparison sheets, including identical direct/hierarchical contents. Every run
+retains247,731 original masses in616×624 and the same six camera/caster/foreground
+states; all-ready images remain bit-identical to the supplied child baseline.
+Only projected ROIs in1280×720 are traced. The images are flat240km/75,894.663844m
+controls, not curved-Earth/world/native/frame/p99 evidence. No images are published.
 
-| Lighting | State | Old crop pixel RMSE | Screen pixel RMSE |
-| --- | --- | ---: | ---: |
-| day | pending | 0.002787 | 0.002940 |
-| day | half_view | 0.001968 | 0.002134 |
-| day | half_caster | 0.003710 | 0.003841 |
-| day | half_ready | 0.001968 | 0.002134 |
-| day | all_ready | 0.000000 | 0.000000 |
-| day | foreground | 0.001426 | 0.001547 |
-| back | pending | 0.009651 | 0.010017 |
-| back | half_view | 0.006551 | 0.006911 |
-| back | half_caster | 0.009527 | 0.009800 |
-| back | half_ready | 0.006551 | 0.006911 |
-| back | all_ready | 0.000000 | 0.000000 |
-| back | foreground | 0.004625 | 0.004780 |
-| night | pending | 0.088481 | 0.055823 |
-| night | half_view | 0.068729 | 0.034159 |
-| night | half_caster | 0.096921 | 0.052914 |
-| night | half_ready | 0.068729 | 0.034159 |
-| night | all_ready | 0.000000 | 0.000000 |
-| night | foreground | 0.001759 | 0.001909 |
+The following pixel RGB RMSE uses complete expectations at the same4×4 spatial
+rays against the supplied resolved field. There is no added surface-MC error in
+these new comparisons. Foreground is excluded from this table because its plane
+changes the physical scene relative to the bare resolved baseline; its geometry,
+composition and method equivalence are still checked.
 
-Each is against the same complete categorical expectation at the same spatial
-rays. One seed is not a variance/convergence result: day and backlight errors
-increase here, night foreground also worsens. No general spatial-quality or
-speed recommendation follows from the eliminated window artifact.
+| Light | State | Regions16 | Regions32 | Regions64 |
+| --- | --- | ---: | ---: | ---: |
+| day | pending | 0.025980 | 0.024733 | 0.023490 |
+| day | half_view | 0.031117 | 0.030589 | 0.029806 |
+| day | half_caster | 0.034492 | 0.032486 | 0.031202 |
+| day | half_ready | 0.019388 | 0.018397 | 0.017102 |
+| day | all_ready | 0.000000 | 0.000000 | 0.000000 |
+| back | pending | 0.035037 | 0.034910 | 0.034646 |
+| back | half_view | 0.032784 | 0.032668 | 0.032378 |
+| back | half_caster | 0.038643 | 0.037990 | 0.037451 |
+| back | half_ready | 0.024792 | 0.024643 | 0.024326 |
+| back | all_ready | 0.000000 | 0.000000 | 0.000000 |
+| night | pending | 0.247537 | 0.244669 | 0.242365 |
+| night | half_view | 0.254237 | 0.251465 | 0.247792 |
+| night | half_caster | 0.267831 | 0.265227 | 0.260610 |
+| night | half_ready | 0.173802 | 0.171366 | 0.168638 |
+| night | all_ready | 0.000000 | 0.000000 | 0.000000 |
 
-Separate warm sampler-only tracemalloc, consuming packets without retaining a full
-image, width1280/spatial4/batch2048:
+Day pending improves about9.6%; night/backlight improve little on this fixed-ray
+control. This is not a generally qualified higher-quality representation. Reusing
+the existing jittered16×16 resolved references on their common ROI gives:
 
-| Draws | Height | Crop peak B | Screen peak B |
-| --- | ---: | ---: | ---: |
-| 4 | 1 | 1,445,528 | 2,689,568 |
-| 4 | 720 | 1,445,792 | 2,699,168 |
-| 16 | 1 | 5,574,368 | 10,750,496 |
-| 16 | 720 | 5,574,656 | 10,760,096 |
+| Light / overlap only | Regions16 RMSE | Regions64 RMSE |
+| --- | ---: | ---: |
+| day | 0.024049 | 0.021674 |
+| back | 0.019064 | 0.019123 |
+| night | 0.154318 | 0.163487 |
 
-This is bounded extra sampler storage, not a smaller footprint than crop sampling.
-For M4/P16 the addressed path produces128 uint64 words per emitted pixel; for other
-counts padding rounds2D up to a four-word block. It adds key ordering and jitter/
-layout copies. Original mixed-query counters, normal times and exact commands
-remain in reports; instrumented times are not normal timing evidence. These peaks
-exclude renderer/app/GPU/device budgets and establish no A18 memory admission.
+That check supports the day gain, but reverses the night/backlight conclusion.
+The parent still uses4×4 rays, the older reference covers only the intersection,
+and the existing night16/32 reference discrepancy is0.053445. No convergence,
+certified image-error bound or general resolution increase follows. Original pins
+are retained. Known model/height/correlation errors, aliasing and hard ready
+transitions remain; known children were never blended out or omitted.
 
-Decision: retain `--screen-strata` opt-in to avoid crop-induced resampling. Keep the
-old streams as quality/cost controls. No native implementation, extra dependency,
-learned model, cache/export framework or new material/night technique is added.
-Flat ENU240km controls are not curved-Earth/native/frame/p99 evidence. Original
-height/source/model errors, spatial aliasing and continuous physical/ready temporal
-transitions remain open under #1113/#1102; native residual work stays #1127.
-Full input hashes, commands, terminal results, work/error/memory, optical checks
-and duplicate redirects: `/tmp/outshine-research-screen-samples-23d655c63/receipt.json`.
+Decision: deliver the source-clipping alternative and reproducible source-only
+builder, retaining the direct16 default. Use hierarchical64 only as the measured
+high-resolution alternative/control; no World representation/profile or native
+port is selected. Global source preparation and parent-array budgets still matter.
+No new dependency, source/asset cache, export framework, native implementation,
+learned model or material/night technique is introduced. Complete commands/input
+hashes, attribution, quality/cost negatives, dense-reference checks, pixels and
+byte-identical redirects: `/tmp/outshine-research-source-areas-c431da988/receipt.json`.
 
 ## Earlier controlled alternatives
 
@@ -164,6 +162,7 @@ versions; original inputs and referenced raw artifacts have not been removed.
 
 | Alternative | Result/limit | Detailed method |
 | --- | --- | --- |
+| Absolute screen CDF addresses | Cropped/tiled queries share samples; static window artifact removed, higher memory and remaining temporal/model errors | [06bcac0e3](https://github.com/Weichwolf/outshine/blob/06bcac0e3/test/experiments/buildings/urban_parent_probe.md) |
 | Pixel-wise CDF coupling | Lower mean error in fixed-seed sets, negative seeds/time/memory cases; crop-relative streams | [05ea51345](https://github.com/Weichwolf/outshine/blob/05ea51345/test/experiments/buildings/urban_parent_probe.md) |
 | Sampled finite-stop/ready composition | Joint C/T/S, exact full-ready unions and explicit contained-shadow query; night noise/peak costs remain | [004983530](https://github.com/Weichwolf/outshine/blob/004983530/test/experiments/buildings/urban_parent_probe.md) |
 | Shared first-hit geometry | Same pixels with1.12-1.78x CPU-query gain; geometry memory lower, extra threshold comparisons | [0f5f2e2ef](https://github.com/Weichwolf/outshine/blob/0f5f2e2ef/test/experiments/buildings/urban_parent_probe.md) |
@@ -191,6 +190,9 @@ The source compiler runs before the independent resolved bake; subsequent probes
 consume only the saved parent. Choose fresh system-temp output directories.
 
 ```sh
+python -B -W error test/experiments/buildings/urban_parent_stats.py \
+  --input test/experiments/buildings/fixtures/coarse_city_source.json.gz \
+  --divisions 64 --area-method hierarchical --output /tmp/outshine-parent-areas
 python -B -W error test/experiments/buildings/compare_urban_parents.py \
   --input test/experiments/buildings/fixtures/coarse_city_source.json.gz \
   --output /tmp/outshine-urban-control --samples 16 --jitter-seed 1113
@@ -212,6 +214,8 @@ Other retained drivers: `compare_urban_horizon.py`, `compare_urban_response.py`,
 versions document sampling, independent controls and qualification limits.
 
 ## Primary sources read and visually inspected
+
+- [Shapely intersection](https://shapely.readthedocs.io/en/stable/reference/shapely.intersection.html) and [covers](https://shapely.readthedocs.io/en/stable/reference/shapely.covers.html): existing GEOS-backed set/predicate semantics. The recursive partition and counter model are independently implemented; no vendor code is bundled.
 
 - [NumPy Philox reference](https://numpy.org/doc/stable/reference/random/bit_generators/philox.html), counter/state and four uint64 words per block; checked against installed docstrings. We use the existing library generator, not a new RNG implementation.
 
