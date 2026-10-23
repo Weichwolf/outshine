@@ -43,6 +43,7 @@ struct Context {
   const std::thread::id OwnerThread = std::this_thread::get_id();
   uint32_t Recordings = 0;
   uint32_t OpenRecordings = 0;
+  uint64_t LastRecordingIdentity = 0;
   VkPhysicalDeviceProperties Properties{};
   VkPhysicalDeviceMemoryProperties MemoryProperties{};
   Capabilities Limits;
