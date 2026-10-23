@@ -90,3 +90,10 @@ class TrilinearSupportTest(unittest.TestCase):
         np.testing.assert_allclose(
             normal, np.array([[-1, 0, 1]]) / np.sqrt(2), atol=1e-12
         )
+
+    def test_a_small_negative_entry_uses_the_actual_box_cap_normal(self):
+        values = CORNERS[:, 0] - 1e-12
+        depth, normal, _, work = self.trace(values, [[-1, 0.5, 0.5]], [[1, 0, 0]])
+        np.testing.assert_array_equal(depth, [1])
+        np.testing.assert_array_equal(normal, [[-1, 0, 0]])
+        self.assertEqual(work["box_cap_hits"], 1)

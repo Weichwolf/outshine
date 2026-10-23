@@ -100,8 +100,7 @@ def first_surface(values, low, high, origins, directions, near, far, axes, box_n
             out=np.zeros_like(gradient),
             where=stable[:, None],
         )
-    strict_cap = (scalar[:, 0] < -1e-10) | (np.linalg.norm(normal, axis=1) == 0)
-    capped = np.flatnonzero(cap & ~interior & strict_cap)
+    capped = np.flatnonzero(cap & ~interior)
     normal[capped] = 0
     normal[capped, axes[capped]] = -np.sign(directions[capped, axes[capped]])
     return (
