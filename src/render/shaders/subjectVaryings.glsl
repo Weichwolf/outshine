@@ -1,28 +1,33 @@
+#if PRISM_GRID && !defined(SUBJECT_VERTEX_STAGE)
+#define SUBJECT_VARYING(at)
+#else
+#define SUBJECT_VARYING(at) layout(location = at) VARYING
+#endif
 #if SUBJECT_CONSTANT_UV
 vec2 uv = vec2(0.0);
 vec2 uv1 = vec2(0.0);
 #else
-layout(location = 0) VARYING vec4 textureCoordinates;
+SUBJECT_VARYING(0) vec4 textureCoordinates;
 vec2 uv;
 vec2 uv1;
 #endif
-layout(location = 2) VARYING vec4 colour;
-layout(location = 3) VARYING vec4 normalMetric;
+SUBJECT_VARYING(2) vec4 colour;
+SUBJECT_VARYING(3) vec4 normalMetric;
 vec3 normal;
-layout(location = 4) VARYING vec4 positionMetric;
+SUBJECT_VARYING(4) vec4 positionMetric;
 vec3 position;
-layout(location = 5) VARYING vec4 localPositionMetric;
+SUBJECT_VARYING(5) vec4 localPositionMetric;
 vec3 localPosition;
-layout(location = 6) VARYING vec4 lightSpace;
+SUBJECT_VARYING(6) vec4 lightSpace;
 vec3 groundWorldM;
 #if SUBJECT_WRITES_VELOCITY
-layout(location = 7) VARYING vec4 curClip;
-layout(location = 8) VARYING vec4 prevClip;
+SUBJECT_VARYING(7) vec4 curClip;
+SUBJECT_VARYING(8) vec4 prevClip;
 #endif
 
 #if GROUND_PATCHES
 layout(location = 11) flat VARYING uint groundSampleCode;
-layout(location = 12) VARYING vec2 groundSampleUV;
+SUBJECT_VARYING(12) vec2 groundSampleUV;
 #endif
 
 #if defined(SUBJECT_VERTEX_STAGE)

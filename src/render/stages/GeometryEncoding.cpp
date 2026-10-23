@@ -64,8 +64,11 @@ void GeometryRenderer::BindVertexStreams(DrawResources &into,
 void GeometryRenderer::BindSlot(DrawResources &into,
                                 size_t slot,
                                 VertexLayout layout,
-                                const FrameUniforms &uniforms) const {
-  into.BindingCount = 2u + (CarriesColour(layout) ? 1u : 0u) + (CarriesTangent(layout) ? 1u : 0u);
+                                const FrameUniforms &uniforms,
+                                uint32_t prefixBindings) const {
+  into.BindingCount = prefixBindings != 0 ? prefixBindings
+                                          : 2u + (CarriesColour(layout) ? 1u : 0u) +
+                                                (CarriesTangent(layout) ? 1u : 0u);
   const auto &surface = Slots[slot];
   auto images =
       std::array<Native::SampledTexture, kSubjectImages>{Image(surface.Colour),
@@ -209,7 +212,10 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
   EncodedWork_ = {};
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
                             Bound().Buffer(GeometryResidency::Stream::Index);
-  if (!drawsBatches && (Binding().Behind != nullptr || Ground_.Drawn() == 0)) { return {}; }
+  if (!drawsBatches &&
+      (Binding().Behind != nullptr || (Ground_.Drawn() == 0 && Prisms_.Products().empty()))) {
+    return {};
+  }
   const auto uniforms = FrameUniformsOf(ctx);
   const bool cut = Bound().Buffer(GeometryResidency::Stream::DrawIndex) &&
                    Bound().Buffer(GeometryResidency::Stream::DrawArguments) && !Args_.empty();
@@ -246,7 +252,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
     if (!recorded) { return recorded; }
     at = end - 1;
   }
-  return {};
+  return EncodePrisms(into, uniforms);
 }
 
 Native::Result<void> GeometryRenderer::EncodeGround(const FrameContext &ctx,

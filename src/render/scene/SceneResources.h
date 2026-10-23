@@ -5,6 +5,8 @@
 #include "HeightPageBatch.h"
 #include "SubjectTypes.h"
 #include "TerrainTile.h"
+#include "PrismInstance.h"
+#include <scene/PrismGrid.h>
 #include "device/native/Commands.h"
 #include "scene/Geometry.h"
 
@@ -72,6 +74,21 @@ public:
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
   [[nodiscard]] size_t PieceSourceCount() const noexcept;
   [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
+
+  [[nodiscard]] Native::Result<PrismGridHandle>
+  PlacePrismGrid(GeometryRenderer &subjects,
+                 std::shared_ptr<const PrismGrid> source,
+                 std::span<const PrismInstance> instances,
+                 uint32_t material);
+  [[nodiscard]] Native::Result<void> ReplacePrismGrid(GeometryRenderer &subjects,
+                                                      PrismGridHandle which,
+                                                      std::shared_ptr<const PrismGrid> source,
+                                                      std::span<const PrismInstance> instances,
+                                                      uint32_t material);
+  [[nodiscard]] Native::Result<void> SetPrismGridInstances(
+      GeometryRenderer &subjects, PrismGridHandle which, std::span<const PrismInstance> instances);
+  void ReleasePrismGrid(GeometryRenderer &subjects, PrismGridHandle which);
+  [[nodiscard]] bool HasPrismGrid(PrismGridHandle which) const noexcept;
 
   [[nodiscard]] size_t PieceSlots() const noexcept { return Pieces_.size(); }
 
@@ -155,6 +172,18 @@ private:
     PageId Resident = kNoPage;
   };
 
+  struct PrismSource {
+    ResourceSlotState State{};
+    std::shared_ptr<const PrismGrid> Source;
+    std::vector<PrismInstance> Instances;
+    uint32_t Material = 0;
+    uint64_t Resident = 0;
+  };
+
+  void CopyPrismSourcesFrom(const SceneResources &source, PieceSources pieces);
+  [[nodiscard]] std::expected<bool, std::string>
+  AdvancePrismRestore(GeometryRenderer &subjects, size_t &nextGrid, size_t gridsMost);
+
   [[nodiscard]] Native::Result<size_t>
   RestoreHeightPageBatch(GeometryRenderer &subjects, size_t first, size_t pagesMost);
 
@@ -164,6 +193,8 @@ private:
   std::vector<uint32_t> RegisteredPieceSlots_;
   std::vector<HeightPage> HeightPages_;
   uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
+  std::vector<PrismSource> PrismGrids_;
+  uint32_t FirstFreePrismGrid_ = kNoResourceSlot;
   std::vector<float> GroundGrid_;
   std::vector<TerrainTile> GroundReal_;
   std::vector<TerrainTile> GroundVirtual_;

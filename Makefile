@@ -55,7 +55,8 @@ LIT_LAYOUTS := 000 010 100 110 200 210 101 111 201 211
 LIT_VERTICES := $(foreach layout,$(LIT_LAYOUTS),$(foreach v,0 1,build/shaders/lit-$(layout)-$(v).vert.spv))
 LIT_FRAGMENTS := $(foreach kind,0 1 2 3,$(foreach layout,00 10 11,$(foreach output,$(GROUND_OUTPUTS),build/shaders/lit-$(kind)$(layout)-$(output).frag.spv)))
 SHADOW_MASK_SHADERS := $(foreach u,0 1 2,$(foreach c,0 1,build/shaders/subjectShadow-$(u)$(c).vert.spv)) $(foreach u,0 1 2,build/shaders/subjectShadow-$(u).frag.spv)
-SHADER_ARTIFACTS := $(sort $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS) $(SHADOW_MASK_SHADERS))
+PRISM_SHADERS := build/shaders/prism-colour.vert.spv build/shaders/prism-depth.vert.spv $(foreach output,$(GROUND_OUTPUTS),build/shaders/prismLit-$(output).frag.spv)
+SHADER_ARTIFACTS := $(sort $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS) $(SHADOW_MASK_SHADERS) $(PRISM_SHADERS))
 SHADER_DEPFILES := $(addsuffix .d,$(SHADER_ARTIFACTS))
 SHADERS_WITHOUT_DEPS := $(filter-out $(patsubst %.d,%,$(wildcard $(SHADER_DEPFILES))),$(SHADER_ARTIFACTS))
 .PHONY: shader-dependencies-missing
@@ -127,6 +128,13 @@ build/shaders/groundPatchLit-%.frag.spv: src/render/shaders/groundLit.glsl build
 
 shader-tools:    ## build pinned glslang (requires CMake and Ninja)
 	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py
+
+build/shaders/prism-%.vert.spv: src/render/shaders/prismVertex.glsl
+	@mkdir -p $(@D)
+	@depth=0; if [ '$*' = depth ]; then depth=1; fi; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S vert -DPRISM_DEPTH=$$depth $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
+
+build/shaders/prismLit-%.frag.spv: src/render/shaders/litFragment.glsl build/shaders/brdfTables.glsl
+	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DPRISM_GRID=1 -DLIT_KIND=0 -DLIT_TEXTURED=1 -DLIT_MAPPED=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
 build/shaders/%.spv: src/render/shaders/%
 	@mkdir -p $(@D)
