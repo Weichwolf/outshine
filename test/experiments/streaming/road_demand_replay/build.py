@@ -48,6 +48,8 @@ def main():
     if not output.is_relative_to(temporary) or output == temporary:
         parser.error("--out must be a dedicated system-temp directory")
     output.mkdir(parents=True, exist_ok=True)
+    if any(output.iterdir()):
+        parser.error("--out must be empty; existing evidence is preserved")
     link = json.loads(args.client_link.read_text())
     if link.get("returncode") != 0:
         parser.error("--client-link requires a successful frozen native link receipt")

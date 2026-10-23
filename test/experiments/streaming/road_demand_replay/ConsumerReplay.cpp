@@ -37,7 +37,7 @@ std::mutex DemandMutex;
 std::atomic<size_t> PayloadReads{0};
 std::atomic<size_t> FineAssetLoads{0};
 std::atomic<size_t> NativeBytes{0};
-std::atomic<size_t> EncodedBytes{0};
+std::atomic<size_t> DeclaredSliceBytes{0};
 std::atomic<size_t> ForbiddenReads{0};
 std::atomic<size_t> Resolves{0};
 size_t Frames = 0;
@@ -69,6 +69,16 @@ bool IsAllowed(std::string_view key) {
   return Allowed.contains(std::string(key));
 }
 
+void RecordManifest(const outshine::Generators::RoadPageManifest &manifest,
+                    const std::string &key) {
+  auto pages = ProbeJson::array();
+  for (size_t index = 0; index < manifest.Pages.size(); ++index) {
+    pages.push_back({{"index", index}, {"key", manifest.Pages[index].Key}});
+  }
+  Record(Directory() / "consumer-manifest.json",
+         ProbeJson{{"manifest_key", key}, {"pages", pages}});
+}
+
 struct Summary {
   ~Summary() {
     Record(Directory() / "consumer-summary.json",
@@ -79,11 +89,12 @@ struct Summary {
                {"road_resolve_calls", Resolves.load()},
                {"road_asset_load_calls", FineAssetLoads.load()},
                {"native_bytes", NativeBytes.load()},
-               {"encoded_slice_bytes", EncodedBytes.load()},
+               {"declared_asset_slice_bytes", DeclaredSliceBytes.load()},
                {"forbidden_reads", ForbiddenReads.load()},
                {"capture_ms", CaptureMs},
                {"frame_rows", FrameRows},
                {"demands", DemandRows},
+               {"qualified_for_page_suppression", false},
                {"scope",
                 "Fixed-pose diagnostic candidate playback; functional, reflection and changed-root "
                 "contracts remain unresolved. Readback times are not budget evidence."}});
@@ -130,10 +141,11 @@ BeginResult ProbeBegin(outshine::Tasks &pool,
                        std::string key,
                        Restore::Limits limits) {
   const std::scoped_lock lock(DemandMutex);
+  if (!manifest) { return std::unexpected("consumer manifest is missing"); }
+  if (ManifestCount != 0) { return std::unexpected("consumer requires one native manifest"); }
+  RecordManifest(*manifest, key);
   const char *const path = SDL_getenv("OUTSHINE_CONSUMER_SELECTION");
-  if (path == nullptr || ManifestCount != 0) {
-    return std::unexpected("consumer requires one explicit selection");
-  }
+  if (path == nullptr) { return std::unexpected("consumer requires one explicit selection"); }
   std::ifstream file(path);
   const auto selection = ProbeJson::parse(file, nullptr, false);
   if (selection.is_discarded() || !selection.is_object() || !selection.contains("manifest_key") ||
@@ -142,6 +154,7 @@ BeginResult ProbeBegin(outshine::Tasks &pool,
     return std::unexpected("consumer manifest or selection schema differs");
   }
   std::vector<uint32_t> indices;
+  std::unordered_set<std::string> allowed;
   indices.reserve(selection["candidate_indices"].size());
   for (const auto &value : selection["candidate_indices"]) {
     if (!value.is_number_unsigned() ||
@@ -149,22 +162,26 @@ BeginResult ProbeBegin(outshine::Tasks &pool,
       return std::unexpected("consumer selection requires unsigned 32-bit indices");
     }
     const auto index = value.get<uint32_t>();
-    if (index >= manifest->Pages.size() || !Allowed.insert(manifest->Pages[index].Key).second) {
+    if (index >= manifest->Pages.size() || !allowed.insert(manifest->Pages[index].Key).second) {
       return std::unexpected("consumer selection index invalid or repeated");
     }
     indices.push_back(index);
   }
-  DemandRows.push_back(ProbeJson{{"manifest_key", key},
-                                 {"all_pages", manifest->Pages.size()},
-                                 {"selected_indices", indices},
-                                 {"prior_selection_explicit", selected.has_value()}});
+  auto demand = ProbeJson{{"manifest_key", key},
+                          {"all_pages", manifest->Pages.size()},
+                          {"selected_indices", indices},
+                          {"prior_selection_explicit", selected.has_value()}};
+  auto begun = RealBegin(pool,
+                         std::move(pages),
+                         std::move(manifest),
+                         std::span<const uint32_t>(indices),
+                         std::move(key),
+                         limits);
+  if (!begun) { return begun; }
+  Allowed = std::move(allowed);
+  DemandRows.push_back(std::move(demand));
   ++ManifestCount;
-  return RealBegin(pool,
-                   std::move(pages),
-                   std::move(manifest),
-                   std::span<const uint32_t>(indices),
-                   std::move(key),
-                   limits);
+  return begun;
 }
 
 LoadResult
@@ -205,7 +222,7 @@ CacheResult ProbeCacheLoad(const outshine::AssetCache *cache, std::string_view k
       return std::unexpected(outshine::AssetCacheError::InvalidInput);
     }
     ++FineAssetLoads;
-    EncodedBytes += (**metadata).ByteCount;
+    DeclaredSliceBytes += (**metadata).ByteCount;
   }
   return RealCacheLoad(cache, key, limit);
 }
