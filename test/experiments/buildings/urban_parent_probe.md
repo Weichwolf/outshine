@@ -30,130 +30,94 @@ child cells. The filtered signed correction to a preserved opaque baseline is
 C/T/S. Full readiness gives D=0 and bypasses parent traversal. Native World bounds,
 terrain/curvature, original-height evidence and readiness remain #1102.
 
-## Current step: cheaper source areas and a bounded resolution comparison
+## Current step: bounded dense pixel references
 
-Fixed-camera attribution separates the complete categorical model from additional
-surface sampling: day pending model RMSE0.025980 versus sampling0.002940; the
-half-view->half-ready expected-image jump is0.024339 with exactly zero sampling
-change. Squared model/sampling errors include a cross term, so they must not be
-reported as independent percentages. More sample coupling cannot remove that
-model jump. Attribution uses the original4×4 rays and does not certify pixel
-integration or original-height evidence.
+The source-resolution comparison changed sign between fixed4x4 and the earlier
+jittered16x16 reference at night/backlight. The earlier night16/32 discrepancy was
+0.053445. That uncertainty must be measured before choosing finer source products.
+Original pins, geometry, lighting and the default direct16 source compiler remain.
 
-The existing source compiler was compared at16²/32²/64² regions, using exactly the
-same395 pinned records, setbacks, heights and vacancy recipe before any child
-build. Global area means and provenance remain unchanged to floating precision.
-Finer regions reduce smoothing of geographic evidence, with larger parent arrays.
-No statistics were fitted to the resolved render or to a place.
+`render/pixel_reference.py` integrates complete linear RGB and coverage from camera
+and scene callbacks. It uses existing camera rays and opaque GGX/shadow evaluation,
+without averaging C/T/S separately or clamping signed RGB. Fixed strata use pixel
+centres within each subcell; optional jitter uses NumPy SeedSequence namespace4,
+absolute pixel(x,y) and the requested seed. Crop/packet changes preserve addresses.
+The two replicate seeds are independent; equal seed labels at different densities
+are not asserted independent. Pixel-box integration is an offline control, not a
+new reconstruction filter or exact geometric oracle.
 
-Direct GEOS clipping repeats the whole offset source geometry for every region.
-`urban_parent_areas.py` adds explicit `hierarchical` clipping: for a child rectangle
-C inside parent P, `(G∩P)∩C = G∩C`. Split integer cell ranges recursively; intersect
-children with already clipped local geometry. Empty subtrees fill zero; fully
-covered subtrees use exact rectangle areas, retaining holes and disconnected parts.
-Odd/non-square ranges are supported. Repeated double-precision intersections have
-small numerical differences; no formal floating/topological error bound is claimed.
-Source-area zero/full values are never World empty/ready certificates.
+Only one pixel's S² camera rays and one bounded packet are live. S is1..128 per
+axis and packet capacity1..8192; the CLI default is2048. The measured runs use8192.
+Reported logical storage is32P output bytes,56B packet bytes and48S² camera-output
+bytes; normalization/validation and scene temporaries are additional. A broadcast
+camera origin's logical size is not its allocated backing size. Packet copies are
+48 bytes/ray plus8 owner-index bytes/ray; these are explicit writes, not complete
+allocator traffic or physical memory-bandwidth measurements. Scene counters retain
+visits/tests and per-packet loop steps, whose sum depends on packet partitioning.
+The integrator itself requires only NumPy; this scene driver retains its existing
+render/import dependencies and loads the prepared original field outside queries.
 
-`compile_parent(..., area_method="hierarchical")` selects this alternative; the
-existing direct16 default stays unchanged. `area_cells` counts requested outputs;
-`area_intersections` now records actual geometric pairs, with covers/area queries,
-nodes, rectangles, stack and input-coordinate multiplicities in `area_work`.
-Coordinate multiplicity counts inputs supplied to GEOS, not internal vertex tests,
-allocator traffic or copied/read bytes. The source-only CLI serializes the same
-four parent arrays; consumer/import paths still require no source/GEOS/fine build.
+Freeze `893160bf5`:174 focused tests pass in26.649s, including eight new analytic
+area/moment, signed-RGB, fixed-camera, crop/packet, bounded-query, empty/invalid and
+import-isolation controls. Full original-field fixed4 matches the previous stored
+RGB to2.67e-15. Fixed16 packet/whole-image RGB differs at most2.49e-14 and coverage
+is identical; trace instrumentation preserves both outputs.
 
-Measured freeze `c431da988`:166 focused tests pass in26.670s. Four new tests compare
-against direct GEOS intersections and analytic areas with holes, disconnected
-parts, boundary contacts, odd rectangles, covered/empty pruning, large projected
-coordinates, compiler provenance/recipe and invalid-method input. Existing source,
-81-world, transport, ready/opaque and sampling controls remain. Five fresh-process
-builds and nine full-original-field layer runs terminate0; no own tests/profiling
-or image processing overlap their normal timing. Shared Linux/i5-1135G7 CPU,
-one call per configuration: these are measured cases, not statistical or native
-hardware speed guarantees. Input parsing and serialization are outside compile
-seconds; domain preparation, offsets and statistics are inside.
-
-| Source regions | Area method | Compile s | Parent array B | Process peak RSS B |
-| --- | --- | ---: | ---: | ---: |
-| 16×16 | direct | 7.206 | 6,264 | 142,848,000 |
-| 16×16 | hierarchical | 10.684 | 6,264 | 143,347,712 |
-| 32×32 | direct | 15.828 | 24,696 | 143,024,128 |
-| 64×64 | direct | 50.492 | 98,424 | 143,634,432 |
-| 64×64 | hierarchical | 13.892 | 98,424 | 143,380,480 |
-
-At64², hierarchical compilation is3.63× faster than the same-quality direct
-control. At16² it is slower, so no unconditional/default replacement is made.
-Process peaks include imports, inputs, GEOS/native allocations and outputs; they
-are not isolated clipping peaks, total allocations or app/device budgets. Peaks
-remain around143MB; no memory reduction is established. Parent payload at64² is
-98,424B versus6,264B at16²; metadata/provenance is additional.
-
-At64², geometric intersections increase12,288->16,271 plus4,095 covers tests;
-input-coordinate multiplicity falls1,392,918,528->7,411,288. This explains neither
-an equivalent hardware traffic reduction nor global optimality. Original source,
-height recipe and zero generated fine cells are checked for every build. Direct16
-arrays remain bit-identical to the protected original. Maximum area-fraction
-difference between direct/hierarchical is1.97e-13 at16² and6.10e-12 at64². For64²,
-all21 direct/hierarchical PNGs are byte-identical, maximum per-ray RGB differences
-are7.63e-12, and parent query-work counters match in every state/profile.
-
-All63 generated PNGs are represented in three optically checked original/32²/64²
-comparison sheets, including identical direct/hierarchical contents. Every run
-retains247,731 original masses in616×624 and the same six camera/caster/foreground
-states; all-ready images remain bit-identical to the supplied child baseline.
-Only projected ROIs in1280×720 are traced. The images are flat240km/75,894.663844m
-controls, not curved-Earth/world/native/frame/p99 evidence. No images are published.
-
-The following pixel RGB RMSE uses complete expectations at the same4×4 spatial
-rays against the supplied resolved field. There is no added surface-MC error in
-these new comparisons. Foreground is excluded from this table because its plane
-changes the physical scene relative to the bare resolved baseline; its geometry,
-composition and method equivalence are still checked.
-
-| Light | State | Regions16 | Regions32 | Regions64 |
-| --- | --- | ---: | ---: | ---: |
-| day | pending | 0.025980 | 0.024733 | 0.023490 |
-| day | half_view | 0.031117 | 0.030589 | 0.029806 |
-| day | half_caster | 0.034492 | 0.032486 | 0.031202 |
-| day | half_ready | 0.019388 | 0.018397 | 0.017102 |
-| day | all_ready | 0.000000 | 0.000000 | 0.000000 |
-| back | pending | 0.035037 | 0.034910 | 0.034646 |
-| back | half_view | 0.032784 | 0.032668 | 0.032378 |
-| back | half_caster | 0.038643 | 0.037990 | 0.037451 |
-| back | half_ready | 0.024792 | 0.024643 | 0.024326 |
-| back | all_ready | 0.000000 | 0.000000 | 0.000000 |
-| night | pending | 0.247537 | 0.244669 | 0.242365 |
-| night | half_view | 0.254237 | 0.251465 | 0.247792 |
-| night | half_caster | 0.267831 | 0.265227 | 0.260610 |
-| night | half_ready | 0.173802 | 0.171366 | 0.168638 |
-| night | all_ready | 0.000000 | 0.000000 | 0.000000 |
-
-Day pending improves about9.6%; night/backlight improve little on this fixed-ray
-control. This is not a generally qualified higher-quality representation. Reusing
-the existing jittered16×16 resolved references on their common ROI gives:
-
-| Light / overlap only | Regions16 RMSE | Regions64 RMSE |
+| Fixed16 night, same rays | Whole-image arrays | Packet8192 |
 | --- | ---: | ---: |
-| day | 0.024049 | 0.021674 |
-| back | 0.019064 | 0.019123 |
-| night | 0.154318 | 0.163487 |
+| Uninstrumented integration s | 4.793 | 5.272 |
+| Separately traced temporary peak B | 190,150,816 | 5,502,867 |
+| Uninstrumented fresh-process peak RSS B | 372,822,016 | 132,636,672 |
 
-That check supports the day gain, but reverses the night/backlight conclusion.
-The parent still uses4×4 rays, the older reference covers only the intersection,
-and the existing night16/32 reference discrepancy is0.053445. No convergence,
-certified image-error bound or general resolution increase follows. Original pins
-are retained. Known model/height/correlation errors, aliasing and hard ready
-transitions remain; known children were never blended out or omitted.
+Traced peaks cover integration including scene temporaries, excluding imports and
+prepared input. Fresh-process RSS includes both; it is not an app/device budget.
+Uninstrumented times and separately instrumented peaks must not be conflated.
+One paired timing is descriptive, under shared-host load, not a speed guarantee.
+The packet path pays query/accumulation overhead; its benefit here is bounded
+memory for denser references, not fewer rays or a native/frame speedup.
 
-Decision: deliver the source-clipping alternative and reproducible source-only
-builder, retaining the direct16 default. Use hierarchical64 only as the measured
-high-resolution alternative/control; no World representation/profile or native
-port is selected. Global source preparation and parent-array budgets still matter.
-No new dependency, source/asset cache, export framework, native implementation,
-learned model or material/night technique is introduced. Complete commands/input
-hashes, attribution, quality/cost negatives, dense-reference checks, pixels and
-byte-identical redirects: `/tmp/outshine-research-source-areas-c431da988/receipt.json`.
+| Light | Seed RMSE16 | Seed RMSE32 | Seed RMSE64 | Old fixed4 vs64 seed mean |
+| --- | ---: | ---: | ---: | ---: |
+| day | 0.009585 | 0.004007 | 0.001557 | 0.028208 |
+| back | 0.011822 | 0.005694 | 0.002117 | 0.038833 |
+| night | 0.087215 | 0.036327 | 0.014662 | 0.263506 |
+
+At64, day/back query6,389,760 rays and night6,963,200. Camera-to-packet writes
+are306,708,480/334,233,600B plus51,118,080/55,705,600B owner indices. Query times
+are47.874..80.884s and fresh-process RSS133,677,056..136,007,680B. This includes
+per-pixel camera requests and complete shading; preparation and serialization are
+outside. Two output arrays and three packet buffers are allocated per integration;
+one normalized direction array is allocated per pixel. Camera/scene internals and
+total allocator counts are not captured by these structural counts.
+
+Each density/light has two independent seeds1113/1729 over the same complete ROI.
+Seed difference is observed disagreement, not a confidence interval or certified
+error bound; agreement of two seeds cannot exclude bias or rare bright features.
+There are18 terminal successful density runs and36 optically inspected RGB/coverage
+PNGs in three local sheets. Original247,731 masses in616x624 are preserved. These
+are projected ROIs inside1280x720 at240km/75,894.663844m, flat ENU, not curved-Earth
+World/native/Metal/Iris/p99 evidence. PNGs contain only the measured ROI.
+
+| Light, dense64 resolved seed mean | Model regions16 | Regions32 | Regions64 |
+| --- | ---: | ---: | ---: |
+| day | 0.022896 | 0.021514 | 0.020331 |
+| back | 0.016896 | 0.016840 | 0.016961 |
+| night | 0.133905 | 0.136133 | 0.139265 |
+
+The table re-evaluates existing complete categorical expectations at fixed4x4
+model rays against the mean of the two new64x64 resolved references. The model is
+not densely integrated here: remaining model spatial aliasing and height/recipe,
+correlation and readiness errors remain. No general source-resolution promotion,
+new learned model, material/night method, pin update or native port follows.
+
+Previous source-area delivery `c431da988` / method pin
+[4c022df0b](https://github.com/Weichwolf/outshine/blob/4c022df0b/test/experiments/buildings/urban_parent_probe.md)
+retains all detailed attribution, costs and negatives: recursive GEOS clipping
+preserves source/provenance/recipe and64er images, with3.63x faster64er compilation;
+at16er it is slower. Direct16 remains default. Original inputs and raw evidence
+remain protected; source-only reproducibility and dense-reference uncertainty are
+separate concerns. Complete commands, hashes, timings, counters, comparisons and
+optical review: `/tmp/outshine-research-pixel-reference-893160bf5/receipt.json`.
 
 ## Earlier controlled alternatives
 
@@ -162,6 +126,7 @@ versions; original inputs and referenced raw artifacts have not been removed.
 
 | Alternative | Result/limit | Detailed method |
 | --- | --- | --- |
+| Recursive source areas | Same64er images,3.63x faster compilation;16er slower, no general resolution promotion | [4c022df0b](https://github.com/Weichwolf/outshine/blob/4c022df0b/test/experiments/buildings/urban_parent_probe.md) |
 | Absolute screen CDF addresses | Cropped/tiled queries share samples; static window artifact removed, higher memory and remaining temporal/model errors | [06bcac0e3](https://github.com/Weichwolf/outshine/blob/06bcac0e3/test/experiments/buildings/urban_parent_probe.md) |
 | Pixel-wise CDF coupling | Lower mean error in fixed-seed sets, negative seeds/time/memory cases; crop-relative streams | [05ea51345](https://github.com/Weichwolf/outshine/blob/05ea51345/test/experiments/buildings/urban_parent_probe.md) |
 | Sampled finite-stop/ready composition | Joint C/T/S, exact full-ready unions and explicit contained-shadow query; night noise/peak costs remain | [004983530](https://github.com/Weichwolf/outshine/blob/004983530/test/experiments/buildings/urban_parent_probe.md) |
@@ -190,6 +155,9 @@ The source compiler runs before the independent resolved bake; subsequent probes
 consume only the saved parent. Choose fresh system-temp output directories.
 
 ```sh
+python -B -W error test/experiments/buildings/compare_urban_pixel_reference.py \
+  --parent "$PARENT_NPZ" --resolved "$RESOLVED_NPZ" --lighting night \
+  --samples 64 --seed 1113 --batch 8192 --output /tmp/outshine-dense-reference
 python -B -W error test/experiments/buildings/urban_parent_stats.py \
   --input test/experiments/buildings/fixtures/coarse_city_source.json.gz \
   --divisions 64 --area-method hierarchical --output /tmp/outshine-parent-areas
