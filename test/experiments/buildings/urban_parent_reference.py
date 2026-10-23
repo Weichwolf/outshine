@@ -1,5 +1,7 @@
 """Adapt existing resolved fields to the shared DDA; only an offline control."""
 
+import itertools
+
 import numpy as np
 from column_field_query import trace
 
@@ -59,4 +61,48 @@ def trace_resolved(product, origins, directions, *, minimum=0.1, inside_is_hit=F
         directions,
         minimum=minimum,
         inside_is_hit=inside_is_hit,
+    )
+
+
+def support_points(product, height, profile):
+    low = product["reference_origin_m"][:2]
+    high = low + product["shape"] * product["header"]["pitch_m"]
+    corners = np.array(list(itertools.product(*zip(low, high, strict=True))))
+    if profile["kind"] == "point":
+        light = np.asarray(profile["position"], float)
+        if light[2] <= height:
+            raise ValueError("finite flat-base support requires light above model")
+        shadows = corners + (corners - light[:2]) * height / (light[2] - height)
+    else:
+        light = np.asarray(profile["direction"], float)
+        if light[2] <= 0:
+            raise ValueError("finite flat-base support requires positive light z")
+        shadows = corners - height * light[:2] / light[2]
+    return np.vstack(
+        (
+            np.c_[corners, np.zeros(4)],
+            np.c_[corners, np.full(4, height)],
+            np.c_[shadows, np.zeros(4)],
+        )
+    )
+
+
+def projected_region(parent, resolved, view, profile):
+    """Diagnostic support of this flat inferred model, never World visibility."""
+    from triangle_image_reference import projected_bounds
+    from urban_parent_conditional import grid
+
+    products = [grid(parent), resolved]
+    points = [
+        support_points(p, parent.heights[-1], profile)
+        for p in products
+        if np.all(p["shape"] > 0)
+    ]
+    box = projected_bounds(np.vstack(points), view)
+    return np.array(
+        [
+            np.maximum(np.floor(box[0]), [0, 0]),
+            np.minimum(np.ceil(box[1]), [view[3], view[4]]),
+        ],
+        int,
     )
