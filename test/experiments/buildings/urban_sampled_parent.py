@@ -36,6 +36,7 @@ def receiver_visibility(
     profile,
     query,
     receiver_normals=None,
+    receiver_cells=None,
 ):
     product = model.product
     local = origins - product["reference_origin_m"]
@@ -59,7 +60,7 @@ def receiver_visibility(
         points,
         normals,
         (local[rays], directions[rays], np.maximum(end[rays], 0.1)),
-        np.full((len(rays), 2), -1),
+        np.full((len(rays), 2), -1) if receiver_cells is None else receiver_cells[rays],
         np.zeros(len(rays), int),
         np.arange(len(rays)),
         profile,

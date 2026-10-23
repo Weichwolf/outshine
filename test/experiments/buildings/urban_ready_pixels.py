@@ -46,7 +46,14 @@ def opaque_background(parent, origins, directions, profile, stop, **kwargs):
 
 
 def composed_scene(
-    parent, resolved, profile, state, foreground_fraction, *, component="complete"
+    parent,
+    resolved,
+    profile,
+    state,
+    foreground_fraction,
+    *,
+    component="complete",
+    receiver_ownership=False,
 ):
     if component not in {"complete", "correction", "background", "moments"}:
         raise ValueError("complete, correction, background or moments required")
@@ -80,6 +87,7 @@ def composed_scene(
             caster_region,
             foreground,
             foreground_fraction=foreground_fraction,
+            receiver_ownership=receiver_ownership,
             **options,
         )
         # Complete RGB includes the opaque ground/environment. This channel is

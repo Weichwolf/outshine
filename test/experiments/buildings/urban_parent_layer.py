@@ -16,6 +16,7 @@ def render_layer(
     primary_covered=None,
     caster_covered=None,
     external_visibility=None,
+    receiver_cells=None,
     batch=2048,
     transmission_tolerance=0.0,
 ):
@@ -25,6 +26,9 @@ def render_layer(
     Camera and caster replacement are independent caller declarations. The parent
     product alone never supplies either declaration. External visibility, when
     present, is deterministic visibility of additional opaque casters.
+    Optional receiver_cells certifies the sole matching convex cell body at an
+    actual outward-face receiver hit; -1 means unproven. It excludes only that
+    body's own shadow hypothesis and does not declare its neighbors Caster-Ready.
     """
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     colour = np.zeros_like(origins)
@@ -61,6 +65,7 @@ def render_layer(
         primary_covered=primary_covered,
         caster_covered=caster_covered,
         transmission_tolerance=transmission_tolerance,
+        receiver_cells=receiver_cells,
     )
     return colour, 1 - coverage, receiver_visibility, work
 

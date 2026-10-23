@@ -14,6 +14,7 @@ from compare_urban_horizon import region
 from compare_urban_parents import background_image, camera, lighting, opaque_image
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays
+from urban_opaque_receivers import opaque_receivers
 from urban_parent_conditional import grid
 from urban_parent_layer import compose, correction, render_layer
 from urban_parent_light import display, light_at, shade
@@ -78,27 +79,22 @@ def mixed(
     foreground_fraction=0.5,
     correction_only=False,
     return_moments=False,
+    receiver_ownership=False,
     layer_query=render_layer,
 ):
     if correction_only and return_moments:
         raise ValueError("choose signed correction or joint moments")
     total_started = time.perf_counter()
-    stop = -o[:, 2] / d[:, 2]
-    normals = np.tile([0.0, 0.0, 1.0], (len(o), 1))
-    albedo = np.full(len(o), 0.2)
-    primary_work = {}
+    stop, normals, albedo, receiver_cells, primary_work = opaque_receivers(
+        parent,
+        o,
+        d,
+        camera_child,
+        foreground,
+        foreground_fraction,
+        ownership=receiver_ownership,
+    )
     shadow_work = {}
-    if camera_child is not None:
-        depth, n, _, primary_work = trace_resolved(camera_child, o, d)
-        hit = depth < stop
-        stop[hit], normals[hit], albedo[hit] = depth[hit], n[hit], 0.6
-    if foreground:
-        plane = (120 - o[:, 2]) / d[:, 2]
-        points = o + plane[:, None] * d
-        width = parent.frame[2] * parent.frame[3]
-        foreground_mask = (points[:, 0] < width * foreground_fraction) & (plane < stop)
-        stop[foreground_mask] = plane[foreground_mask]
-        normals[foreground_mask], albedo[foreground_mask] = [0, 0, 1], 0.35
     points = o + stop[:, None] * d
     external = None
     visibility = np.ones(len(o))
@@ -136,6 +132,9 @@ def mixed(
             profile | {"ambient": 0},
         )
     started = time.perf_counter()
+    receiver_options = (
+        {} if receiver_cells is None else {"receiver_cells": receiver_cells}
+    )
     c, t, s, work = layer_query(
         parent,
         o,
@@ -146,6 +145,7 @@ def mixed(
         primary_covered=view_region,
         caster_covered=caster_region,
         external_visibility=external,
+        **receiver_options,
     )
     if return_moments:
         from urban_transport_moments import pack_moments

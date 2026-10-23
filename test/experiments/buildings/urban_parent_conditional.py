@@ -252,6 +252,7 @@ def integrate_packet(
     receiver_normals=None,
     transmission_tolerance=0.0,
     shadow_query=None,
+    receiver_cells=None,
 ):
     origin = origins - product["reference_origin_m"]
     transmission = np.ones(len(origin))
@@ -340,7 +341,9 @@ def integrate_packet(
         points,
         normals,
         (origin[rays], directions[rays], traversed[rays]),
-        np.full((len(points), 2), -1),
+        np.full((len(points), 2), -1)
+        if receiver_cells is None
+        else receiver_cells[rays],
         slots,
         np.arange(len(rays)),
         profile,
@@ -420,6 +423,36 @@ def transport_inputs(
     return origins, directions, product, stop, receiver_normals
 
 
+def validate_receiver_cells(cells, product, origins, stop, normals):
+    """Explicit owner proof requires a finite stop in a complete camera cell.
+
+    The caller certifies an outward face of the sole matching convex cell body;
+    arbitrary opaque/foreground stops carry no such proof. No Caster-Ready domain
+    is inferred. Only that receiver body's own shadow hypothesis is excluded.
+    """
+    if cells is None:
+        return None
+    cells = np.asarray(cells)
+    if cells.shape != (len(origins), 2) or not np.issubdtype(cells.dtype, np.integer):
+        raise ValueError("one integer receiver-owner cell per ray required")
+    known = np.all(cells >= 0, axis=1)
+    unknown = np.all(cells == -1, axis=1)
+    if (
+        np.any(~(known | unknown))
+        or np.any(cells[known] >= product["shape"])
+        or (np.any(known) and (stop is None or normals is None))
+    ):
+        raise ValueError(
+            "bounded owner cells and explicit opaque stops/normals required"
+        )
+    if np.any(known) and (
+        not np.isfinite(stop[known]).all()
+        or not covered_cells(cells[known], product["primary_covered"]).all()
+    ):
+        raise ValueError("known receiver must have a finite stop in camera-ready cells")
+    return cells
+
+
 def trace_transport(
     parent,
     origins,
@@ -435,6 +468,7 @@ def trace_transport(
     caster_covered=None,
     transmission_tolerance=0.0,
     shadow_query=None,
+    receiver_cells=None,
 ):
     origins, directions, product, stop, receiver_normals = transport_inputs(
         parent,
@@ -446,6 +480,9 @@ def trace_transport(
         primary_covered,
         caster_covered,
         transmission_tolerance,
+    )
+    receiver_cells = validate_receiver_cells(
+        receiver_cells, product, origins, stop, receiver_normals
     )
     work = dict.fromkeys(
         [
@@ -462,6 +499,9 @@ def trace_transport(
         ],
         0,
     )
+    if receiver_cells is not None:
+        work["receiver_owner_rays"] = int(np.all(receiver_cells >= 0, axis=1).sum())
+        work["receiver_owner_input_peak_bytes"] = receiver_cells.nbytes
     transmission = np.empty(len(origins))
     for first in range(0, len(origins), batch):
 
@@ -485,6 +525,7 @@ def trace_transport(
             None if receiver_normals is None else receiver_normals[part],
             transmission_tolerance,
             shadow_query,
+            None if receiver_cells is None else receiver_cells[part],
         )
     return 1 - transmission, work
 
