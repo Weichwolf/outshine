@@ -384,6 +384,7 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
        published && (!refined || RefinedGroundClassified(*ground)) ? ""
                                                                    : Says::kPendingClassification,
        vectorBlocker,
+       UrbanWorldBlocker(),
        !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
                (World.Vegetation && World.Vegetation->Ready())
            ? ""
@@ -662,6 +663,18 @@ Result Engine::State::CompletePreloadResources(std::chrono::steady_clock::time_p
     }
     if (Picture.Device.WorldResourcesComplete(*uploads)) {
       PublishGroundMemoryMeasurements();
+      if (World.UrbanAreas) {
+        const auto urban = World.UrbanAreas->Costs();
+        Published.RecordMetric("urban sources", static_cast<double>(urban.Sources), "areas");
+        Published.RecordMetric(
+            "urban requested groups", static_cast<double>(urban.Groups), "groups");
+        Published.RecordMetric(
+            "urban resident groups", static_cast<double>(urban.Resident), "groups");
+        Published.RecordMetric(
+            "urban terrain captures", static_cast<double>(urban.Captures), "captures");
+        Published.RecordMetric(
+            "urban scene publications", static_cast<double>(urban.Publications), "publications");
+      }
       return {};
     }
     std::this_thread::sleep_for(
@@ -729,6 +742,7 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
   }
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   if (!AdvanceStructureBuilds(kBakesLandedInPreload)) { return std::unexpected(Error); }
+  if (!AdvanceUrbanAreas()) { return std::unexpected(Error); }
   const auto growthBegan = std::chrono::steady_clock::now();
   (void)GenerateInitialInstances(atLat, atLon);
   Published.RecordMetric(
@@ -785,7 +799,17 @@ bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
     return World.OsmSource->AwaitSlice(seconds);
   }
   if (GroundDeformationPending()) { return AwaitGroundDeformation(seconds); }
+  if (World.UrbanAreas && !World.UrbanAreas->Ready()) {
+    return World.UrbanAreas->AwaitProgress(seconds);
+  }
   return World.Pool->AwaitCompletion(seconds);
+}
+
+bool Engine::State::WorldPreparationPending() const {
+  return WeatherRunning() || GroundDeformationPending() || World.RoadAlignmentBuilds.Busy() ||
+         (World.OsmSource && World.OsmSource->PendingCount() > 0) ||
+         (World.UrbanAreas && !World.UrbanAreas->Ready()) ||
+         (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
 }
 
 void Engine::State::AwaitPreloadProgress(double seconds) {
@@ -843,11 +867,7 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
         signalled);
     if (signalled || remaining() <= 0.0) { return; }
   }
-  const bool sourceWorker = World.OsmSource && World.OsmSource->PendingCount() > 0;
-  const bool worldWorker = WeatherRunning() || GroundDeformationPending() ||
-                           World.RoadAlignmentBuilds.Busy() || sourceWorker ||
-                           (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
-  if (worldWorker && World.Pool) {
+  if (WorldPreparationPending() && World.Pool) {
     const auto began = std::chrono::steady_clock::now();
     const bool signalled = AwaitWorldWorkerProgress(remaining());
     record({.Milliseconds = waited.WorldWorkerMs,

@@ -148,6 +148,10 @@ public:
     return Framed_ ? Residency_.AslBoundsM() : std::nullopt;
   }
 
+  [[nodiscard]] const TerrainResidency *PublishedSurface() const noexcept {
+    return Framed_ && Residency_.HasPublishedSurface() ? &Residency_ : nullptr;
+  }
+
   [[nodiscard]] uint64_t Digest() const;
 
   [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }

@@ -1,0 +1,129 @@
+#include "Check.h"
+#include "UrbanAreaStreaming.h"
+#include "TerrainResidency.h"
+#include "TerrainRenderer.h"
+#include "RuntimeScene.h"
+#include "SceneRenderer.h"
+#include "Geodesy.h"
+#include "test/outshine/src/generators/osm/PreparedUrbanAreas/UrbanAssetFixture.h"
+#include <SDL3/SDL.h>
+#include <array>
+#include <chrono>
+#include <filesystem>
+#include <memory>
+#include <span>
+#include <string>
+#include <system_error>
+#include <vector>
+
+namespace {
+using namespace outshine;
+using namespace outshine::Test;
+
+bool Pump(UrbanAreaStreaming &stream,
+          const UrbanAreaStreaming::View &view,
+          const TerrainResidency &terrain,
+          std::span<const Ground::GeoBounds> children = {},
+          uint64_t childrenRevision = 0) {
+  const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  do {
+    const auto before = stream.Costs();
+    const auto advanced = stream.Advance(view, terrain, 1, children, childrenRevision);
+    CHECK(advanced, "the actual source/cache/terrain/scene consumer advances");
+    if (!advanced) { return false; }
+    const auto after = stream.Costs();
+    CHECK(after.InFlight <= 2 && after.Captures - before.Captures <= 1 &&
+              after.Publications - before.Publications <= 1,
+          "all groups share bounded jobs, captures and scene publications");
+    if (stream.Ready()) { return true; }
+    (void)stream.AwaitProgress(.05);
+  } while (std::chrono::steady_clock::now() < until);
+  return false;
+}
+
+void Probe(Render::SceneRenderer &renderer, const std::filesystem::path &directory) {
+  using namespace UrbanAssetFixture;
+  const auto at = Ground::TileFracToGeo({.X = kOwner.X + .5, .Y = kOwner.Y + .5}, kOwner.Zoom);
+  const LongitudeLatitude focus{.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg};
+  const auto frame = TangentFrame::At(focus);
+  Vec3 eye;
+  GeoToEcef({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = 70}, eye);
+  const UrbanAreaStreaming::View view{
+      .Focus = focus, .EyeEcef = eye, .FocalPx = 1, .RadiusM = 240000, .Frame = frame};
+  Patchwork patch;
+  patch.Sheets.push_back({.Tile = kOwner,
+                          .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, 42),
+                          .Side = Render::TerrainRenderer::kSide,
+                          .Postings = Render::TerrainRenderer::kSide});
+  TerrainResidency terrain;
+  terrain.Into(&renderer);
+  std::string error;
+  CHECK(terrain.Publish(patch, frame, error), "the consumer uses a published terrain surface");
+  const auto database = (directory / "assets.sqlite").string();
+  {
+    Fixture fixture(directory, Availability::Ready);
+    UrbanAreaStreaming stream(
+        fixture.Compute, fixture.Urban, *fixture.Pool, MvtSchema::OpenMapTiles, database);
+    stream.Into(renderer);
+    CHECK(Pump(stream, view, terrain), "cold source demand reaches resident native scene assets");
+    const auto cold = stream.Costs();
+    CHECK(cold.Sources == 1 && cold.Groups > 0 && cold.Resident == cold.Groups &&
+              cold.Captures == cold.Groups && cold.Missing == 0,
+          "cold groups generate once and all become visible scene resources");
+    CHECK(Pump(stream, view, terrain) && stream.Costs().Captures == cold.Captures &&
+              stream.Costs().Publications == cold.Publications,
+          "an unchanged camera position does no generation or scene publication");
+    auto moved = view;
+    moved.EyeEcef = moved.EyeEcef + frame.EastEcef() * .25;
+    const auto geographic = GeoFromEcef(moved.EyeEcef);
+    CHECK(geographic, "the moved eye remains a valid geographic position");
+    if (geographic) {
+      moved.Focus = {.LongitudeDeg = geographic->LongitudeDeg,
+                     .LatitudeDeg = geographic->LatitudeDeg};
+      CHECK(Pump(stream, moved, terrain) && stream.Costs().Captures == cold.Captures &&
+                stream.Costs().Publications == cold.Publications,
+            "movement within the same intrinsic groups does not create camera-specific assets");
+    }
+    const std::array children{Ground::TileBounds(kOwner)};
+    CHECK(Pump(stream, view, terrain, children, 1) && stream.Costs().Resident == 0 &&
+              stream.Costs().Captures == cold.Captures,
+          "published children suppress parent cells without recooking cached assets");
+    CHECK(Pump(stream, view, terrain, {}, 2) && stream.Costs().Resident == cold.Resident &&
+              stream.Costs().Captures == cold.Captures,
+          "removing children restores the same cached product without terrain capture");
+  }
+  {
+    Fixture fixture(directory, Availability::Unavailable);
+    UrbanAreaStreaming stream(
+        fixture.Compute, fixture.Urban, *fixture.Pool, MvtSchema::OpenMapTiles, database);
+    stream.Into(renderer);
+    CHECK(Pump(stream, view, terrain), "a fresh consumer restores scene products from SSD");
+    CHECK(stream.Costs().Resident == stream.Costs().Groups && stream.Costs().Captures == 0 &&
+              fixture.Calls == 0 && fixture.Urban->Costs().Hits == 1,
+          "warm source and geometry hits need neither network, source cook nor terrain capture");
+  }
+  terrain.Clear();
+}
+}
+
+int main() {
+  CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
+  const auto directory =
+      std::filesystem::temp_directory_path() /
+      ("outshine-urban-world-" +
+       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  {
+    Core::Declaration declaration;
+    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
+    declaration.Outputs = {"surface"};
+    Render::SceneRenderer renderer;
+    std::unique_ptr<Core::RuntimeScene> scene;
+    std::string error;
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), "world opens");
+    if (scene) { Probe(renderer, directory); }
+  }
+  std::error_code error;
+  std::filesystem::remove_all(directory, error);
+  SDL_Quit();
+  return Report();
+}

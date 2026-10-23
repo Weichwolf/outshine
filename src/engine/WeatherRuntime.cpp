@@ -21,6 +21,7 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
   if (providers.empty()) {
     World.Weather.reset();
     World.WeatherUtcS.reset();
+    World.UrbanAreas.reset();
     World.Stack.Close();
     World.Sources.reset();
     World.SourceDeclarations.clear();
@@ -35,6 +36,7 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     }
     World.Weather.reset();
     World.WeatherUtcS.reset();
+    World.UrbanAreas.reset();
     World.Stack.Close();
     World.Sources = std::move(*sources);
     World.SourceDeclarations = providers;

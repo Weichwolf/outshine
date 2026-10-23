@@ -658,6 +658,9 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.StructureBuilds.Clear();
   S_->World.Stack.Footprints().ResetDerived();
   S_->World.Pieces.Clear();
+  S_->World.UrbanAreas.reset();
+  S_->World.UrbanChildrenRevision.reset();
+  S_->World.UrbanChildren.clear();
   S_->World.Sheets.Clear();
   S_->World.PiecesFramed = false;
   S_->World.GroundPublished.Reset();
