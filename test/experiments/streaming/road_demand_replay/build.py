@@ -68,6 +68,13 @@ def main():
     ]:
         if flag in command:
             command[command.index(flag) + 1] = str(target)
+    command.extend(
+        shlex.split(
+            subprocess.check_output(
+                ["pkg-config", "--cflags", "libxxhash", "libzstd"], text=True
+            )
+        )
+    )
     cdb = [{"directory": row["directory"], "file": str(source), "arguments": command}]
     (output / "compile_commands.json").write_text(json.dumps(cdb, indent=2) + "\n")
     receipts = []
@@ -94,6 +101,13 @@ def main():
     compiler = next(i for i, value in enumerate(command) if "clang++" in value)
     command[compiler + 1 : compiler + 1] = ["-Wl,--wrap=" + value for value in symbols]
     command[command.index("-o") + 1] = str(output / "ConsumerReplay")
+    command.extend(
+        shlex.split(
+            subprocess.check_output(
+                ["pkg-config", "--libs", "libxxhash", "libzstd"], text=True
+            )
+        )
+    )
     run_stage(command, "link", output, row["directory"], receipts)
 
 
