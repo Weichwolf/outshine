@@ -182,6 +182,29 @@ class CasterProxyTest(unittest.TestCase):
             with self.subTest(proxy=proxy), self.assertRaises(ValueError):
                 q(o, d)
 
+        taller = field | {
+            "spans": np.array([[0.0, 24.0]]),
+            "height_bounds": np.array([0.0, 24.0]),
+        }
+        o[:, 2] = 16
+        q = composed_scene(
+            parent, taller, profile, "half_caster", 0.75, caster_primary_proxy=True
+        )
+        with self.assertRaises(ValueError):
+            q(o, d)
+        empty_parent, empty_field, o, d, profile = proxy_fixture(True)
+        o[:, 2] = 3
+        q = composed_scene(
+            empty_parent,
+            empty_field,
+            profile,
+            "half_caster",
+            0.75,
+            caster_primary_proxy=True,
+        )
+        with self.assertRaises(ValueError):
+            q(o, d)
+
     def test_unproved_layout_or_field_does_not_create_a_primary_proxy(self):
         parent, field, o, d, profile = proxy_fixture()
         for source in [
