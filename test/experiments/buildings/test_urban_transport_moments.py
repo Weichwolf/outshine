@@ -171,6 +171,16 @@ class TransportMomentsTest(unittest.TestCase):
         np.testing.assert_array_equal(rgb, 0.75)
         self.assertGreater(abs(float(rgb[0]) - 5 / 6), 0.08)
 
+        # B(x)=1+x², R(x)=x, T=x/(1+x²). Midpoint R already integrates
+        # exactly to1/2; replacing midpoint B=5/4 by exact mean4/3 introduces
+        # a normalization error: (1/2)/(5/4)*(4/3)=8/15 instead of1/2.
+        m = pack_moments(
+            np.zeros((1, 3)), np.array([0.4]), np.ones(1), np.full((1, 3), 1.25), 0
+        )[0]
+        rgb, _, _ = compose_moments(m, np.full(3, 4 / 3))
+        np.testing.assert_allclose(rgb, 8 / 15, rtol=0, atol=1e-16)
+        self.assertGreater(abs(float(rgb[0]) - 0.5), 0.03)
+
 
 if __name__ == "__main__":
     unittest.main()
