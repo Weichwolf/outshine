@@ -4,28 +4,59 @@
 #include "Check.h"
 #include <array>
 #include <cfenv>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <span>
 #include <limits>
 
 namespace {
 class NoTransport final : public outshine::Data::Transport {
 public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*location*/) override {
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Never();
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
+
+void CheckZoomBounds(outshine::Ground::TilePool &pool,
+                     std::span<const std::string> layers,
+                     std::span<const outshine::Generators::Osm::OsmField::Declared> input) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  for (const int zoom : {-1, 32, std::numeric_limits<int>::max()}) {
+    ::outshine::Generators::Osm::OsmField invalid(zoom, layers);
+    const auto before = invalid.PendingTiles();
+    CHECK(!invalid.Declare(input, LongitudeLatitude{}) && !invalid.Build(pool, {}, 1, 9),
+          "unsupported signed tile zoom is refused by both entry points");
+    CHECK(invalid.Generation() == 0 && invalid.Features().empty() &&
+              invalid.PendingTiles() == before,
+          "invalid zoom leaves field untouched");
+  }
+  for (const int zoom : {0, 14, std::numeric_limits<int>::digits}) {
+    ::outshine::Generators::Osm::OsmField edge(zoom, layers);
+    CHECK(edge.Declare(input, LongitudeLatitude{.LongitudeDeg = 180}).has_value(),
+          "east dateline accepted");
+    const auto last = (int64_t{1} << zoom) - 1;
+    CHECK(edge.CentreX() == last, "east dateline selects last valid signed column");
+    CHECK(edge.Declare(input, LongitudeLatitude{.LongitudeDeg = -180}).has_value() &&
+              edge.CentreX() == 0,
+          "west dateline selects first column");
+  }
+}
+
 }
 
 int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::ContentStore store({.Directory = {}, .Using = Data::ContentStore::Use::Off});
   Data::SourceSet sources(store);
   NoTransport transport;
   TilePool pool({}, sources, transport);
@@ -44,16 +75,18 @@ int main() {
   const int pending = field.PendingTiles();
   const double nan = std::numeric_limits<double>::quiet_NaN();
   const double inf = std::numeric_limits<double>::infinity();
-  for (const LongitudeLatitude at : std::array<LongitudeLatitude, 10>{{{nan, 0},
-                                                                       {0, nan},
-                                                                       {inf, 0},
-                                                                       {0, inf},
-                                                                       {181, 0},
-                                                                       {-181, 0},
-                                                                       {0, 91},
-                                                                       {0, -91},
-                                                                       {0, 90},
-                                                                       {0, -90}}}) {
+  const std::array<LongitudeLatitude, 10> invalidPositions{
+      {{.LongitudeDeg = nan, .LatitudeDeg = 0},
+       {.LongitudeDeg = 0, .LatitudeDeg = nan},
+       {.LongitudeDeg = inf, .LatitudeDeg = 0},
+       {.LongitudeDeg = 0, .LatitudeDeg = inf},
+       {.LongitudeDeg = 181, .LatitudeDeg = 0},
+       {.LongitudeDeg = -181, .LatitudeDeg = 0},
+       {.LongitudeDeg = 0, .LatitudeDeg = 91},
+       {.LongitudeDeg = 0, .LatitudeDeg = -91},
+       {.LongitudeDeg = 0, .LatitudeDeg = 90},
+       {.LongitudeDeg = 0, .LatitudeDeg = -90}}};
+  for (const LongitudeLatitude at : invalidPositions) {
     std::feclearexcept(FE_ALL_EXCEPT);
     const auto declared = field.Declare({}, at);
     CHECK(!declared && !declared.error().empty(), "invalid declaration returns a diagnostic");
@@ -76,25 +109,7 @@ int main() {
   }
   CHECK(field.Declare(input, LongitudeLatitude{}).has_value() && field.Generation() == generation,
         "valid repeat after failures retains exact identity");
-  for (const int zoom : {-1, 32, std::numeric_limits<int>::max()}) {
-    ::outshine::Generators::Osm::OsmField invalid(zoom, layers);
-    const auto before = invalid.PendingTiles();
-    CHECK(!invalid.Declare(input, LongitudeLatitude{}) && !invalid.Build(pool, {}, 1, 9),
-          "unsupported signed tile zoom is refused by both entry points");
-    CHECK(invalid.Generation() == 0 && invalid.Features().empty() &&
-              invalid.PendingTiles() == before,
-          "invalid zoom leaves field untouched");
-  }
-  for (const int zoom : {0, 14, std::numeric_limits<int>::digits}) {
-    ::outshine::Generators::Osm::OsmField edge(zoom, layers);
-    CHECK(edge.Declare(input, LongitudeLatitude{.LongitudeDeg = 180}).has_value(),
-          "east dateline accepted");
-    const auto last = (int64_t{1} << zoom) - 1;
-    CHECK(edge.CentreX() == last, "east dateline selects last valid signed column");
-    CHECK(edge.Declare(input, LongitudeLatitude{.LongitudeDeg = -180}).has_value() &&
-              edge.CentreX() == 0,
-          "west dateline selects first column");
-  }
+  CheckZoomBounds(pool, layers, input);
   for (const int radius : {-1, std::numeric_limits<int>::min()}) {
     CHECK(!field.Build(pool, {}, radius, 9), "negative radius is refused");
     CHECK(field.Generation() == generation && field.Points().data() == points &&
@@ -119,9 +134,12 @@ int main() {
         "one cell receives exactly one disposition");
   ::outshine::Generators::Osm::OsmField exact(14, layers);
   CHECK(exact.Build(pool, {}, 1, 9).has_value(), "exact nine-cell budget is accepted");
+  constexpr int centreTile = 8192;
   int settled = 0;
-  for (int y = 8191; y <= 8193; ++y) {
-    for (int x = 8191; x <= 8193; ++x) { settled += exact.Settled(x, y); }
+  for (int y = centreTile - 1; y <= centreTile + 1; ++y) {
+    for (int x = centreTile - 1; x <= centreTile + 1; ++x) {
+      settled += exact.Settled(x, y) ? 1 : 0;
+    }
   }
   CHECK(exact.PendingTiles() + exact.RefusedTiles() + settled == 9,
         "all nine cells receive one disposition");
@@ -135,7 +153,8 @@ int main() {
               pool, LongitudeLatitude{.LongitudeDeg = 180, .LatitudeDeg = kMercatorLatMaxDeg}, 1, 4)
           .has_value(),
       "corner clips three by three window to two by two before budget check");
-  ::outshine::Generators::Osm::OsmField huge(31, layers);
+  constexpr int overflowingZoom = 31;
+  ::outshine::Generators::Osm::OsmField huge(overflowingZoom, layers);
   CHECK(!huge.Build(pool, {}, std::numeric_limits<int>::max(), std::numeric_limits<size_t>::max()),
         "count capacity prevents overflow even with unlimited caller budget");
   return Report();
