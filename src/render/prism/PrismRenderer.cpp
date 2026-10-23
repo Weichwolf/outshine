@@ -59,6 +59,7 @@ Native::Result<void> PrismRenderer::ReplaceInstances(PrismProduct &product,
   if (records->empty()) {
     product.Records.clear();
     product.Buffers[1].reset();
+    ++Generation_;
     return {};
   }
   const auto samples = product.Buffers[0] ? std::span<const std::byte>{}
@@ -72,6 +73,7 @@ Native::Result<void> PrismRenderer::ReplaceInstances(PrismProduct &product,
   Costs_.SampleBytes += samples.size();
   Costs_.PatchBytes += patches.size();
   ++Costs_.Submissions;
+  ++Generation_;
   return {};
 }
 
@@ -88,6 +90,7 @@ Native::Result<void> PrismRenderer::SetInstances(uint64_t id,
 bool PrismRenderer::Release(uint64_t id) {
   const auto found = std::ranges::find(Products_, id, &PrismProduct::Id);
   if (found == Products_.end()) { return false; }
+  if (!found->Records.empty()) { ++Generation_; }
   Products_.erase(found);
   return true;
 }

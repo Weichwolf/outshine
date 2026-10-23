@@ -14,6 +14,18 @@ Native::Binding Storage(uint32_t set, uint32_t slot, const Native::Buffer &buffe
 }
 }
 
+Boxf PrismRenderer::Bounds() const noexcept {
+  Boxf bounds;
+  for (const auto &product : Products_) {
+    for (const auto &record : product.Records) {
+      const Boxf local{.Min = {{0, record.Shape[3], 0}},
+                       .Max = {{record.Bounds[1], record.Bounds[0], record.Bounds[2]}}};
+      bounds.Cover(local.Through(record.Current));
+    }
+  }
+  return bounds;
+}
+
 Native::Result<void> PrismRenderer::Encode(const PrismProduct &product,
                                            Native::Commands &commands,
                                            const Native::GraphicsPipeline &pipeline,

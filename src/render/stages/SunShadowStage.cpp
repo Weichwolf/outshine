@@ -4,6 +4,7 @@
 #include "math/Mat4.h"
 #include "SunShadowStage.h"
 #include "math/Vec3.h"
+#include "math/Box.h"
 
 #include <algorithm>
 #include <array>
@@ -86,29 +87,25 @@ void SunShadowStage::Declare(Overhead sky, double radiusM, bool cameraCentred) {
 
 Vec3 SunShadowStage::CasterCentre() const {
   const Vec3 anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : Vec3{};
-  Vec3 centre = anchor;
-  Vec3 least = {{kBeyondAnyCoordinate, kBeyondAnyCoordinate, kBeyondAnyCoordinate}};
-  Vec3 most = {{-kBeyondAnyCoordinate, -kBeyondAnyCoordinate, -kBeyondAnyCoordinate}};
-  size_t counted = 0;
+  Box bounds;
   if (Subjects_ != nullptr) {
     const std::vector<double> &placed = Subjects_->Placements();
     const size_t slots = placed.size() / 16u;
     for (size_t slot = 0; slot < slots && slot < CastsBelow_; ++slot) {
       const double *const model = placed.data() + slot * 16u;
-      for (int axis = 0; axis < 3; ++axis) {
-        const double at = model[12 + static_cast<size_t>(axis)];
-        least[axis] = at < least[axis] ? at : least[axis];
-        most[axis] = at > most[axis] ? at : most[axis];
-      }
-      ++counted;
+      bounds.Cover(Vec3{{model[12], model[13], model[14]}});
+    }
+    const auto prisms = Subjects_->Prisms().Bounds();
+    if (!prisms.Empty()) {
+      bounds.Cover(Vec3{{static_cast<double>(prisms.Min[0]),
+                         static_cast<double>(prisms.Min[1]),
+                         static_cast<double>(prisms.Min[2])}});
+      bounds.Cover(Vec3{{static_cast<double>(prisms.Max[0]),
+                         static_cast<double>(prisms.Max[1]),
+                         static_cast<double>(prisms.Max[2])}});
     }
   }
-  if (counted > 0) {
-    for (int axis = 0; axis < 3; ++axis) {
-      centre[axis] = 0.5 * (least[axis] + most[axis]) + anchor[axis];
-    }
-  }
-  return centre;
+  return bounds.Empty() ? anchor : bounds.Middle() + anchor;
 }
 
 void SunShadowStage::Build(const Vec3 &preView) {
@@ -311,6 +308,9 @@ Native::Result<void> SunShadowStage::Cast(size_t region, const PassRecording &in
     if (!ground) { return ground; }
     const auto subjects = CastSubjects(recording, bytes, selection);
     if (!subjects) { return subjects; }
+    const auto prisms = Subjects_->EncodePrismShadow(
+        recording, {.ClipFromWorld = uniform.Light, .Shift = uniform.Shift.Axis});
+    if (!prisms) { return prisms; }
   }
   return {};
 }

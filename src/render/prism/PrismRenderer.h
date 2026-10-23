@@ -5,6 +5,7 @@
 #include <scene/PrismGrid.h>
 #include "PrismInstance.h"
 #include "PrismUpload.h"
+#include "math/Box.h"
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -53,6 +54,10 @@ public:
 
   [[nodiscard]] const PrismUploadCosts &Uploads() const noexcept { return Costs_; }
 
+  [[nodiscard]] uint64_t Generation() const noexcept { return Generation_; }
+
+  [[nodiscard]] Boxf Bounds() const noexcept;
+
 private:
   [[nodiscard]] Native::Result<void> ReplaceInstances(PrismProduct &product,
                                                       std::span<const PrismInstance> instances);
@@ -62,6 +67,7 @@ private:
   std::vector<PrismProduct> Products_;
   PrismUploadCosts Costs_;
   uint64_t Next_ = 1;
+  uint64_t Generation_ = 0;
 };
 }
 #endif
