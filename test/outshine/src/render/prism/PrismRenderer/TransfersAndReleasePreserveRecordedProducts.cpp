@@ -78,6 +78,7 @@ void FailedChanges(Observed &device,
                    uint64_t id,
                    std::span<const PrismInstance> moved) {
   const auto oldRecords = renderer.Products()[0].Records;
+  const auto oldBytes = renderer.HeldBytes();
   const auto submits = device.Submits;
   const auto begins = device.Begins;
   const auto waits = device.Waits;
@@ -92,7 +93,8 @@ void FailedChanges(Observed &device,
   device.Busy = false;
   device.RejectSubmit = true;
   CHECK(!renderer.SetInstances(id, moved), "a rejected upload preserves the previous product");
-  CHECK(renderer.Products()[0].Records == oldRecords && renderer.Uploads().Submissions == 1,
+  CHECK(renderer.Products()[0].Records == oldRecords && renderer.Uploads().Submissions == 1 &&
+            renderer.HeldBytes() == oldBytes,
         "failed attempts cannot replace CPU records or count accepted uploads");
   Require(renderer.SetInstances(id, moved));
   CHECK(renderer.Uploads().SampleBytes == 2 * sizeof(PrismSpan) &&
@@ -103,6 +105,33 @@ void FailedChanges(Observed &device,
   Require(renderer.SetInstances(id, moved));
   CHECK(device.Submits == after, "unchanged instances submit no GPU work");
   CHECK(&queue.Device() == &device, "the tested uploads use the owner's bounded queue");
+}
+
+void MemoryChanges(Observed &device,
+                   PrismRenderer &renderer,
+                   std::span<const PrismInstance> moved) {
+  const auto before = renderer.HeldBytes();
+  constexpr uint64_t sampleBytes = 2 * sizeof(PrismSpan);
+  CHECK(before == sampleBytes + moved.size() * sizeof(GpuPrismPatch),
+        "the live footprint includes both the sample buffer and every placed patch record");
+  const auto id = Require(renderer.Place(renderer.Products()[0].Source, moved, 0));
+  CHECK(renderer.HeldBytes() == 2 * before,
+        "distinct products count their distinct buffers even when CPU samples are shared");
+  Require(renderer.SetInstances(id, {}));
+  CHECK(renderer.HeldBytes() == before + sampleBytes,
+        "an empty placement retains and counts its reusable GPU sample buffer");
+  Require(renderer.SetInstances(id, moved.first(1)));
+  const auto partial = before + sampleBytes + sizeof(GpuPrismPatch);
+  CHECK(renderer.HeldBytes() == partial, "the payload follows the actual resized record buffer");
+  const auto submits = device.Submits;
+  Require(renderer.SetInstances(id, moved.first(1)));
+  CHECK(renderer.HeldBytes() == partial && device.Submits == submits,
+        "unchanged placement neither uploads nor changes the reported payload");
+  device.RejectSubmit = true;
+  CHECK(!renderer.SetInstances(id, moved) && renderer.HeldBytes() == partial,
+        "a rejected replacement preserves the previously published footprint");
+  CHECK(renderer.Release(id) && renderer.HeldBytes() == before,
+        "releasing one product leaves the other product's payload intact");
 }
 
 void Probe(Observed &device) {
@@ -127,8 +156,10 @@ void Probe(Observed &device) {
   instances[0].Current[12] = 3;
   instances[1].Current[14] = -2;
   FailedChanges(device, queue, budget, renderer, id, instances);
+  MemoryChanges(device, renderer, instances);
   CHECK(renderer.Release(id) && !renderer.Release(id), "a released resident cannot be reused");
-  CHECK(renderer.Products().empty() && !renderer.SetInstances(id, instances),
+  CHECK(renderer.Products().empty() && renderer.HeldBytes() == 0 &&
+            !renderer.SetInstances(id, instances),
         "release removes the product and rejects subsequent mutation");
   const auto completion = Require(SubmitUpload(device, &queue, std::move(commands)));
   CHECK(Require(device.Wait(completion, std::chrono::seconds(5))) == CompletionStatus::Ready,

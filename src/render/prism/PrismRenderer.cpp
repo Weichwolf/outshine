@@ -22,6 +22,16 @@ Native::Result<void> PrismRenderer::Uses(Native::Device &device, UploadQueue *qu
   return {};
 }
 
+uint64_t PrismRenderer::HeldBytes() const noexcept {
+  uint64_t bytes = 0;
+  for (const auto &product : Products_) {
+    for (const auto &buffer : product.Buffers) {
+      if (buffer) { bytes += buffer->Description().Bytes; }
+    }
+  }
+  return bytes;
+}
+
 Native::Result<uint64_t> PrismRenderer::Place(std::shared_ptr<const PrismGrid> source,
                                               std::span<const PrismInstance> instances,
                                               uint32_t material) {

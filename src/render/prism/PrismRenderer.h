@@ -58,6 +58,8 @@ public:
 
   [[nodiscard]] Boxf Bounds() const noexcept;
 
+  [[nodiscard]] uint64_t HeldBytes() const noexcept;
+
 private:
   [[nodiscard]] Native::Result<void> ReplaceInstances(PrismProduct &product,
                                                       std::span<const PrismInstance> instances);
