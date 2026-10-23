@@ -67,6 +67,7 @@ Native::Result<void> PrismRenderer::ReplaceInstances(PrismProduct &product,
   }
   if (*records == product.Records) { return {}; }
   if (records->empty()) {
+    RecordShadowChanges(product, *records);
     product.Records.clear();
     product.Buffers[1].reset();
     ++Generation_;
@@ -79,6 +80,7 @@ Native::Result<void> PrismRenderer::ReplaceInstances(PrismProduct &product,
   if (!uploaded) { return std::unexpected(uploaded.error()); }
   if ((*uploaded)[0]) { product.Buffers[0] = std::move((*uploaded)[0]); }
   product.Buffers[1] = std::move((*uploaded)[1]);
+  RecordShadowChanges(product, *records);
   product.Records = std::move(*records);
   Costs_.SampleBytes += samples.size();
   Costs_.PatchBytes += patches.size();
@@ -100,6 +102,7 @@ Native::Result<void> PrismRenderer::SetInstances(uint64_t id,
 bool PrismRenderer::Release(uint64_t id) {
   const auto found = std::ranges::find(Products_, id, &PrismProduct::Id);
   if (found == Products_.end()) { return false; }
+  RecordShadowChanges(*found, {});
   if (!found->Records.empty()) { ++Generation_; }
   Products_.erase(found);
   return true;

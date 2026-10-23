@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 namespace outshine::Render {
 namespace {
@@ -84,6 +85,106 @@ Window Bounds(const ShadowRaster &raster) noexcept {
           .Y1 = raster.Side - raster.Offset[1]};
 }
 
+bool ProjectChange(const ShadowRaster &raster, const Boxf &bounds, Window &rect) noexcept {
+  std::array<double, 4> lower{};
+  std::array<double, 4> upper{};
+  lower.fill(std::numeric_limits<double>::infinity());
+  upper.fill(-std::numeric_limits<double>::infinity());
+  constexpr double guard = 8.0 * std::numeric_limits<float>::epsilon();
+  for (unsigned corner = 0; corner < 8; ++corner) {
+    const auto point = bounds.Corner(corner);
+    for (size_t row = 0; row < 4; ++row) {
+      double value = raster.Packed[12 + row];
+      double magnitude = std::abs(value);
+      for (size_t axis = 0; axis < 3; ++axis) {
+        const double term = static_cast<double>(raster.Packed[4 * axis + row]) * point[axis];
+        value += term;
+        magnitude += std::abs(term);
+      }
+      lower[row] = std::min(lower[row], value - guard * magnitude);
+      upper[row] = std::max(upper[row], value + guard * magnitude);
+    }
+  }
+  for (size_t row = 0; row < 4; ++row) {
+    if (!std::isfinite(lower[row]) || !std::isfinite(upper[row])) { return false; }
+  }
+  if (!(lower[3] > 0)) { return false; }
+  std::array<double, 2> low{};
+  std::array<double, 2> high{};
+  for (size_t axis = 0; axis < 2; ++axis) {
+    const std::array values{lower[axis] / lower[3],
+                            lower[axis] / upper[3],
+                            upper[axis] / lower[3],
+                            upper[axis] / upper[3]};
+    const auto extrema = std::ranges::minmax(values);
+    low[axis] = extrema.min;
+    high[axis] = extrema.max;
+  }
+  const double side = raster.Side;
+  const Window current = Bounds(raster);
+  const double x0 = (low[0] + 1) * side / 2;
+  const double x1 = (high[0] + 1) * side / 2;
+  const double y0 = (1 - high[1]) * side / 2;
+  const double y1 = (1 - low[1]) * side / 2;
+  if (!std::isfinite(x0) || !std::isfinite(x1) || !std::isfinite(y0) || !std::isfinite(y1)) {
+    return false;
+  }
+  if (x0 >= static_cast<double>(current.X1) || x1 <= static_cast<double>(current.X0) ||
+      y0 >= static_cast<double>(current.Y1) || y1 <= static_cast<double>(current.Y0)) {
+    rect = {};
+    return true;
+  }
+  rect = {.X0 = std::max(
+              current.X0,
+              static_cast<int64_t>(std::floor(std::max(x0, static_cast<double>(current.X0)))) - 1),
+          .Y0 = std::max(
+              current.Y0,
+              static_cast<int64_t>(std::floor(std::max(y0, static_cast<double>(current.Y0)))) - 1),
+          .X1 = std::min(
+              current.X1,
+              static_cast<int64_t>(std::ceil(std::min(x1, static_cast<double>(current.X1)))) + 1),
+          .Y1 = std::min(
+              current.Y1,
+              static_cast<int64_t>(std::ceil(std::min(y1, static_cast<double>(current.Y1)))) + 1)};
+  return true;
+}
+
+}
+
+bool IncludeShadowChange(ShadowRasterUpdate &update, const Boxf &bounds) noexcept {
+  bool empty = true;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    empty = empty && bounds.Min[axis] == std::numeric_limits<float>::infinity() &&
+            bounds.Max[axis] == -std::numeric_limits<float>::infinity();
+  }
+  if (empty) { return true; }
+  if (update.Next.Side == 0) { return false; }
+  for (size_t axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(bounds.Min[axis]) || !std::isfinite(bounds.Max[axis]) ||
+        bounds.Min[axis] > bounds.Max[axis]) {
+      return false;
+    }
+  }
+  Window rect{};
+  if (!ProjectChange(update.Next, bounds, rect)) { return false; }
+  if (rect.X0 >= rect.X1 || rect.Y0 >= rect.Y1) { return true; }
+  const Window current = Bounds(update.Next);
+  if (rect.X0 == current.X0 && rect.Y0 == current.Y0 && rect.X1 == current.X1 &&
+      rect.Y1 == current.Y1) {
+    update.Count = 0;
+    update.Texels = 0;
+    Add(update, rect);
+    return true;
+  }
+  ShadowRasterUpdate additional;
+  additional.Next = update.Next;
+  Add(additional, rect);
+  if (additional.Count > update.Patches.size() - update.Count) { return false; }
+  for (size_t at = 0; at < additional.Count; ++at) {
+    update.Patches[update.Count++] = additional.Patches[at];
+  }
+  update.Texels += additional.Texels;
+  return true;
 }
 
 ShadowRasterUpdate PrepareShadowRaster(const ShadowRaster &accepted,

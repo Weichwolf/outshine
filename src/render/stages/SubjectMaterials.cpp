@@ -166,6 +166,7 @@ bool GeometryRenderer::AppendMaterials(std::span<const SubjectMaterial> material
 
 void GeometryRenderer::TruncateMaterials(size_t count) noexcept {
   if (count >= Slots.size()) { return; }
+  if (TruncatesShadowMaterials(count)) { ShadowChanges_.Unknown(); }
   Slots.resize(count);
   TablesStale_ = true;
 }
@@ -173,6 +174,7 @@ void GeometryRenderer::TruncateMaterials(size_t count) noexcept {
 bool GeometryRenderer::SetMaterials(std::span<const SubjectMaterial> materials,
                                     std::string &error) {
   if (!ValidateMaterials(materials, error)) { return false; }
+  ShadowChanges_.Unknown();
   auto previousSlots = std::move(Slots);
   auto previousBatches = std::move(Batches);
   auto previousLayouts = std::move(BatchLayout);

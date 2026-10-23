@@ -235,14 +235,25 @@ void SunShadowStage::Prepare(const FrameContext &ctx) {
     }
   }
   Build(ctx.PreViewTranslation);
-  const uint64_t stands = Subjects_->Generation();
+  const auto geometry = Subjects_->ShadowChangesSince(PreparedGeometryRevision_);
+  const auto prisms = Subjects_->Prisms().ShadowChangesSince(PreparedPrismRevision_);
   const uint64_t ground = Subjects_->Ground().Generation();
-  const bool reusable =
-      Cache_.Submitted() && stands == PreparedGeneration_ && ground == PreparedGroundGeneration_;
+  const bool reusable = Cache_.Submitted() && ground == PreparedGroundGeneration_;
+  const bool full = !reusable || !geometry.Complete || !prisms.Complete;
+  Boxf bounds = geometry.Bounds;
+  bounds.Cover(prisms.Bounds);
+  bool allFull = true;
   size_t changed = 0;
   for (size_t region = 0; region < RegionCount(); ++region) {
     RasterUpdates_[region] = PrepareShadowRaster(
-        AcceptedRaster_[region], Static_[region], Subjects_->AnchorM(), kShadowTilePx, !reusable);
+        AcceptedRaster_[region], Static_[region], Subjects_->AnchorM(), kShadowTilePx, full);
+    bool regionFull = RasterUpdates_[region].Texels == uint64_t{kShadowTilePx} * kShadowTilePx;
+    if (!full && !regionFull && !IncludeShadowChange(RasterUpdates_[region], bounds)) {
+      RasterUpdates_[region] = PrepareShadowRaster(
+          AcceptedRaster_[region], Static_[region], Subjects_->AnchorM(), kShadowTilePx, true);
+      regionFull = true;
+    }
+    allFull = allFull && regionFull;
     for (size_t axis = 0; axis < 2; ++axis) {
       RegionUniforms_[region].Depth[2 + axis] =
           static_cast<float>(RasterUpdates_[region].Origin[axis]);
@@ -250,12 +261,16 @@ void SunShadowStage::Prepare(const FrameContext &ctx) {
     DirtyRegions_[region] = RasterUpdates_[region].Count > 0;
     changed += DirtyRegions_[region] ? 1u : 0u;
   }
-  if (changed == 0) { return; }
-  PreservesAtlas_ = reusable;
-  Cache_.Invalidate();
-  Casting_ = true;
-  PreparedGeneration_ = stands;
+  if (changed != 0) {
+    PreservesAtlas_ = reusable && !allFull;
+    Cache_.Invalidate();
+    Casting_ = true;
+  }
+  PreparedGeometryRevision_ = geometry.Revision;
+  PreparedPrismRevision_ = prisms.Revision;
   PreparedGroundGeneration_ = ground;
+  Subjects_->AcknowledgeShadowChanges(geometry.Revision);
+  Subjects_->AcknowledgePrismShadowChanges(prisms.Revision);
 }
 
 Native::Result<void> SunShadowStage::Encode([[maybe_unused]] const FrameContext &ctx,

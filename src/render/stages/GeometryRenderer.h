@@ -30,6 +30,7 @@
 #include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
 #include "ShadowCasterSelection.h"
+#include "CasterChanges.h"
 #include "SubjectLightingUniform.h"
 
 namespace outshine::Render {
@@ -140,6 +141,18 @@ public:
 
   [[nodiscard]] const PrismRenderer &Prisms() const noexcept { return Prisms_; }
 
+  [[nodiscard]] CasterChanges::Snapshot ShadowChangesSince(uint64_t revision) const noexcept {
+    return ShadowChanges_.Since(revision);
+  }
+
+  void AcknowledgeShadowChanges(uint64_t revision) noexcept {
+    ShadowChanges_.Acknowledge(revision);
+  }
+
+  void AcknowledgePrismShadowChanges(uint64_t revision) noexcept {
+    Prisms_.AcknowledgeShadowChanges(revision);
+  }
+
   [[nodiscard]] Native::Result<uint64_t> PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
                                                         std::span<const PrismInstance> instances,
                                                         uint32_t material);
@@ -173,6 +186,7 @@ public:
 
   [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
     if (rows == 0) {
+      if (!Placed_.empty()) { ShadowChanges_.Unknown(); }
       Placed_.clear();
       Before_.clear();
       Stamped_.clear();
@@ -185,10 +199,12 @@ public:
       error = "a draw names placement slot " + std::to_string(batch.ModelSlot) + " and " +
               std::to_string(batch.Instances) + " instance(s) over a table of " +
               std::to_string(rows) + " placements";
+      ShadowChanges_.Unknown();
       Placed_.clear();
       return false;
     }
     if (Placed_.size() == rows * 16u) { return true; }
+    ShadowChanges_.Unknown();
     Placed_.resize(rows * 16u, 0.0);
     Before_.assign(rows * 16u, 0.0);
     Stamped_.assign(rows, 0u);
@@ -206,6 +222,7 @@ public:
     }
     for (size_t at = 0; at < 16u; ++at) { Placed_[slot * 16u + at] = model[at]; }
     ++Moved_;
+    ShadowChanges_.Unknown();
     RowsStale_ = true;
   }
 
@@ -216,6 +233,8 @@ public:
   [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_ + Prisms_.Generation(); }
 
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
+    ShadowChanges_.Unknown();
+    RowsStale_ = true;
     if (models == nullptr && rows > 0) {
       Placed_.clear();
       error = "a placement table of " + std::to_string(rows) +
@@ -362,7 +381,10 @@ public:
 
   [[nodiscard]] const GeometryResidency &Resident() const { return Bound(); }
 
-  void Shares(GeometryResidency &other) { At_ = &other; }
+  void Shares(GeometryResidency &other) {
+    if (At_ != &other) { ShadowChanges_.Unknown(); }
+    At_ = &other;
+  }
 
   [[nodiscard]] GeometryResidency &Owned() { return Own_; }
 
@@ -446,6 +468,16 @@ private:
 
   TerrainRenderer Ground_;
   PrismRenderer Prisms_;
+  CasterChanges ShadowChanges_;
+
+  void RecordPieceShadowChange(const std::optional<std::array<float, 4>> &before,
+                               size_t beforeRows,
+                               const std::optional<std::array<float, 4>> &after,
+                               size_t afterRows) noexcept;
+  [[nodiscard]] bool ChangesShadowSurfaces(std::span<const uint32_t> before,
+                                           std::span<const uint32_t> after,
+                                           PieceSurface::Source source) const noexcept;
+  [[nodiscard]] bool TruncatesShadowMaterials(size_t count) const noexcept;
 
   [[nodiscard]] bool BindSurface(const SubjectMaterial &material,
                                  std::string &error,

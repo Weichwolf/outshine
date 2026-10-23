@@ -5,6 +5,7 @@
 #include <scene/PrismGrid.h>
 #include "PrismInstance.h"
 #include "PrismUpload.h"
+#include "CasterChanges.h"
 #include "math/Box.h"
 #include <cstdint>
 #include <memory>
@@ -56,6 +57,14 @@ public:
 
   [[nodiscard]] uint64_t Generation() const noexcept { return Generation_; }
 
+  [[nodiscard]] CasterChanges::Snapshot ShadowChangesSince(uint64_t revision) const noexcept {
+    return ShadowChanges_.Since(revision);
+  }
+
+  void AcknowledgeShadowChanges(uint64_t revision) noexcept {
+    ShadowChanges_.Acknowledge(revision);
+  }
+
   [[nodiscard]] Boxf Bounds() const noexcept;
 
   [[nodiscard]] uint64_t HeldBytes() const noexcept;
@@ -63,6 +72,8 @@ public:
 private:
   [[nodiscard]] Native::Result<void> ReplaceInstances(PrismProduct &product,
                                                       std::span<const PrismInstance> instances);
+  void RecordShadowChanges(const PrismProduct &product,
+                           std::span<const GpuPrismPatch> records) noexcept;
 
   Native::Device *Device_ = nullptr;
   UploadQueue *Queue_ = nullptr;
@@ -70,6 +81,7 @@ private:
   PrismUploadCosts Costs_;
   uint64_t Next_ = 1;
   uint64_t Generation_ = 0;
+  CasterChanges ShadowChanges_;
 };
 }
 #endif
