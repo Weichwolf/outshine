@@ -12,6 +12,7 @@
 #include <deque>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <thread>
 #include <string>
 #include <unordered_map>
@@ -115,19 +116,38 @@ struct ShaderArgument {
   id<MTLResource> Resource = nil;
 };
 
-[[nodiscard]] Result<std::vector<ShaderArgument>>
-Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint64_t device);
-[[nodiscard]] Result<std::vector<ShaderArgument>>
-Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t device);
+class ArgumentScope {
+public:
+  explicit ArgumentScope(std::span<std::vector<ShaderArgument>> buffers) noexcept;
+  ~ArgumentScope() noexcept;
+  ArgumentScope(const ArgumentScope &) = delete;
+  ArgumentScope &operator=(const ArgumentScope &) = delete;
+
+private:
+  std::span<std::vector<ShaderArgument>> Buffers_;
+};
+
+struct RenderState;
+
+[[nodiscard]] Result<std::span<const ShaderArgument>>
+Arguments(const PipelineState &pipeline,
+          std::span<const Binding> bindings,
+          uint64_t device,
+          std::vector<ShaderArgument> &storage);
+[[nodiscard]] Result<std::span<const ShaderArgument>>
+Arguments(const Shader &shader,
+          std::span<const Binding> bindings,
+          uint64_t device,
+          std::vector<ShaderArgument> &storage);
 [[nodiscard]] Result<void> CheckImageAliases(std::span<const ShaderArgument> first,
                                              std::span<const ShaderArgument> second);
 [[nodiscard]] Result<void> Bind(id<MTLComputeCommandEncoder> encoder,
                                 const Shader &shader,
-                                const std::vector<ShaderArgument> &arguments);
-[[nodiscard]] Result<void> Bind(id<MTLRenderCommandEncoder> encoder,
+                                std::span<const ShaderArgument> arguments);
+[[nodiscard]] Result<void> Bind(RenderState &pass,
                                 ShaderStage stage,
                                 const Shader &shader,
-                                const std::vector<ShaderArgument> &arguments);
+                                std::span<const ShaderArgument> arguments);
 
 class MetalPipeline final : public ComputePipeline {
 public:
@@ -198,9 +218,16 @@ struct AttachmentState {
 };
 
 struct RenderState {
-  struct VertexBinding {
+  struct BufferBinding {
     id<MTLBuffer> Buffer = nil;
     uint64_t Offset = 0;
+  };
+
+  struct ShaderBindings {
+    std::array<BufferBinding, kBufferSizesSlot> Buffers;
+    std::optional<std::array<uint32_t, kBufferSizesSlot>> Sizes;
+    std::array<id<MTLTexture>, 16> Textures{};
+    std::array<id<MTLSamplerState>, 16> Samplers{};
   };
 
   id<MTLRenderCommandEncoder> Encoder;
@@ -210,7 +237,8 @@ struct RenderState {
   std::shared_ptr<GraphicsState> Pipeline;
   std::optional<std::array<float, 6>> ViewportValues;
   std::optional<std::array<uint32_t, 4>> ScissorValues;
-  std::array<VertexBinding, kVertexBufferSlots> Vertices;
+  std::array<BufferBinding, kVertexBufferSlots> Vertices;
+  std::array<ShaderBindings, 2> Bindings;
 };
 
 enum class DrawKind { Direct, Indexed, Indirect };
@@ -263,6 +291,7 @@ private:
   id<MTLComputeCommandEncoder> Compute = nil;
   std::optional<RenderState> Render;
   std::vector<TrackedResource> Accesses;
+  std::array<std::vector<ShaderArgument>, 2> ArgumentBuffers;
 
   void UpdateAccesses(std::span<const ShaderArgument> arguments);
   void UpdateAccess(id<MTLResource> resource, Access usage);
@@ -284,7 +313,10 @@ private:
 
 class MetalDevice final : public Device {
 public:
-  MetalDevice(uint64_t identity, id<MTLDevice> device, id<MTLCommandQueue> queue, bool gpuTiming);
+  MetalDevice(uint64_t identity,
+              id<MTLDevice> device,
+              id<MTLCommandQueue> queue,
+              GpuTimingMode gpuTiming);
   ~MetalDevice() override;
 
   [[nodiscard]] const Capabilities &Limits() const noexcept override { return Limits_; }
@@ -337,7 +369,7 @@ private:
   std::deque<std::shared_ptr<Submission>> Pending_;
   static constexpr size_t kRetainedTimings = 8;
   std::array<SubmissionTiming, kRetainedTimings> Timings_{};
-  bool GpuTiming_ = false;
+  GpuTimingMode GpuTiming_ = GpuTimingMode::None;
   std::shared_ptr<EncoderProfileSession> EncoderProfiling_;
   std::optional<Error> Failed_;
   std::shared_ptr<CommandCounts> Counts_ = std::make_shared<CommandCounts>();

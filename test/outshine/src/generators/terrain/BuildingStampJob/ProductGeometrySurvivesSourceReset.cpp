@@ -2,30 +2,44 @@
 #include "Check.h"
 
 #include <array>
+#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <span>
 #include <utility>
+
+namespace {
+constexpr auto kBuildingWidthDeg = 0.001;
+constexpr auto kStepBudget = 100;
+}
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
   using Field = ::outshine::Generators::Osm::BuildingField;
   Field field;
-  ::outshine::Generators::Osm::OsmField vectors(14, {});
   field.AnchorAt({{1, 2, 3}});
   std::array<std::weak_ptr<const Ground::BuildingGeometry>, 2> owners;
   for (uint32_t tile = 0; tile < 2; ++tile) {
     auto geometry = std::make_shared<Ground::BuildingGeometry>();
     const double longitude = static_cast<double>(tile) * 0.01;
-    geometry->OwnCoordinates(
-        {0, longitude, 0, longitude + 0.001, 0.001, longitude + 0.001, 0.001, longitude}, {});
+    geometry->OwnCoordinates({0,
+                              longitude,
+                              0,
+                              longitude + kBuildingWidthDeg,
+                              kBuildingWidthDeg,
+                              longitude + kBuildingWidthDeg,
+                              kBuildingWidthDeg,
+                              longitude},
+                             {});
     owners[tile] = geometry;
-    const Ground::BuildingFootprint footprint{.PointCount = 4, .SeatM = 12, .Street = {}};
+    const Ground::BuildingFootprint footprint{
+        .PointCount = 4, .SeatM = 12, .Street = {}, .TerrainCeiling = {}, .TerrainContacts = {}};
     const Field::Baked product{.Coordinates = geometry,
                                .Prints = std::span(&footprint, 1),
                                .SeatSpreadM = {},
                                .AcrossM = {}};
-    field.PreparesAcceptances({.Prints = 1, .Tiles = 1});
+    field.PreparesAcceptances(1);
     field.Take(tile);
     auto pending = field.PrepareAcceptance(tile, product);
     field.CommitAcceptance(std::move(pending), product);
@@ -37,9 +51,9 @@ int main() {
   const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
   Generators::BuildingStampJob job(frame, snapshot.Revision());
   bool done = false;
-  for (size_t step = 0; step < 100 && !done; ++step) {
+  for (size_t step = 0; step < kStepBudget && !done; ++step) {
     const auto advanced = job.Advance({.Products = &snapshot,
-                                       .Footprints = snapshot.Footprints(),
+                                       .Footprints = {},
                                        .Points = {},
                                        .Rings = {},
                                        .VectorGeneration = snapshot.Revision(),
@@ -49,7 +63,7 @@ int main() {
     done = *advanced;
   }
   CHECK(done, "interrupted work completes both products");
-  auto stamps = std::move(job).Take();
+  auto stamps = job.Take();
   CHECK(stamps && stamps->size() == 2, "each product contributes its own grounded polygon");
   if (stamps && stamps->size() == 2) {
     const auto second =

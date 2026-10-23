@@ -29,11 +29,15 @@ void Exercise(const std::string &path) {
   std::array<AssetRecord, 2> records{{{.Key = first,
                                        .Kind = "native",
                                        .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                                       .ByteCount = payload.size()},
+                                       .Package = {},
+                                       .ByteCount = payload.size(),
+                                       .Parent = {}},
                                       {.Key = second,
                                        .Kind = "native",
                                        .Bounds = {.Min = {{2, 2, 2}}, .Max = {{3, 3, 3}}},
-                                       .ByteCount = payload.size()}}};
+                                       .Package = {},
+                                       .ByteCount = payload.size(),
+                                       .Parent = {}}}};
   CHECK(cache.Publish(records, payload), "both products share one immutable package");
   sqlite3 *database = nullptr;
   CHECK(sqlite3_open(path.c_str(), &database) == SQLITE_OK, "failure injector opens the store");

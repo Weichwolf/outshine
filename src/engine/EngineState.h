@@ -13,6 +13,7 @@
 #include "HeapProbe.h"
 #include "Shipped.h"
 #include "VegetationStreaming.h"
+#include "UrbanAreaStreaming.h"
 #include "WorldReadiness.h"
 #include "GroundPublication.h"
 #include "GroundRegionPreparation.h"
@@ -232,6 +233,7 @@ struct WorldRegionState {
     Pieces.Into(&renderer);
     Sheets.Into(&renderer);
     if (Vegetation) { Vegetation->Into(renderer); }
+    if (UrbanAreas) { UrbanAreas->Into(renderer); }
   }
 
   std::unique_ptr<Data::Transport> Wire;
@@ -251,6 +253,9 @@ struct WorldRegionState {
 
   std::vector<Standing> Instances;
   std::unique_ptr<VegetationStreaming> Vegetation;
+  std::unique_ptr<UrbanAreaStreaming> UrbanAreas;
+  std::optional<uint64_t> UrbanChildrenRevision;
+  std::vector<Ground::GeoBounds> UrbanChildren;
   size_t Pending = 0;
   size_t Bare = 0;
   size_t Wanted = 0;
@@ -583,7 +588,6 @@ struct Engine::State {
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;
-  [[nodiscard]] ::outshine::Generators::Osm::BuildingField *CandidateFootprints() const noexcept;
   [[nodiscard]] bool StagesGroundBakes(size_t landsMost);
 
   [[nodiscard]] Laid Focuses(GroundRequest &request,
@@ -655,6 +659,9 @@ struct Engine::State {
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateVegetation(bool prepare);
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
+  [[nodiscard]] bool AdvanceUrbanAreas();
+  [[nodiscard]] std::string_view UrbanWorldBlocker() const noexcept;
+  [[nodiscard]] bool WorldPreparationPending() const;
   [[nodiscard]] bool StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const;
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates(bool simulate);
@@ -662,6 +669,7 @@ struct Engine::State {
   void PublishGroundPreparationMeasurements();
   void PublishAdvanceMeasurements();
   void PublishGroundMemoryMeasurements();
+  void PublishUrbanMeasurements();
   void PublishEarthworkMeasurements(const Generators::TerrainDeformationMetrics &pressed,
                                     double longestSliceMs);
   [[nodiscard]] StructureBuildQueue::HeightSource StructureHeightSource();

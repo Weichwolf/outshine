@@ -94,9 +94,14 @@ def main():
                 FIXED / "IntegerUncertainty.cpp",
                 SOURCE.parent / "vertex_projection/Envelope.cpp",
             ),
-            cflags=shlex.split(
-                subprocess.check_output(["pkg-config", "--cflags", "gmp"], text=True)
-            ),
+            cflags=[
+                "-I" + str(SOURCE.parent),
+                *shlex.split(
+                    subprocess.check_output(
+                        ["pkg-config", "--cflags", "gmp"], text=True
+                    )
+                ),
+            ],
             libraries=shlex.split(
                 subprocess.check_output(["pkg-config", "--libs", "gmp"], text=True)
             ),

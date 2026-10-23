@@ -8,9 +8,19 @@ FIXTURE = Path(__file__).with_name("fixtures") / "mvt_stair_t_junction.json"
 
 def inputs(path=FIXTURE):
     case = json.loads(path.read_text())
+    return case, source_rows(case["ways"])
+
+
+def source_rows(ways):
     rows = []
-    for way in case["ways"]:
+    for way in ways:
         tags = way["tags"]
+        assumptions = []
+        if "brunnel" not in tags:
+            assumptions.append("ground_tunnel_absence")
+        if "foot" not in tags and "access" not in tags:
+            assumptions.append("public_foot_access_from_path_class")
+        assumptions.append("connectable_stair_endpoints")
         rows.append(
             {
                 "source_id": f"native-part:{way['native_way']}",
@@ -22,18 +32,15 @@ def inputs(path=FIXTURE):
                 "half_width_m": way["half_width_m"],
                 "layer": way["derived_layer"],
                 "bridge": way["derived_bridge"],
-                "tunnel": False,
-                "foot": tags.get("foot") != "no" and tags.get("access") != "no",
+                "tunnel": tags.get("brunnel") == "tunnel",
+                "foot": tags.get("foot") != "no"
+                and tags.get("access") not in ("no", "private"),
                 "endpoint_roles": ["connectable", "connectable"],
                 "position_error_bound_m": None,
-                "recipe_assumptions": [
-                    "ground_tunnel_absence",
-                    "public_foot_access_from_path_class",
-                    "connectable_stair_endpoints",
-                ],
+                "recipe_assumptions": assumptions,
             }
         )
-    return case, rows
+    return rows
 
 
 def vienna_inputs():

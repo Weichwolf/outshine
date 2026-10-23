@@ -64,8 +64,11 @@ void GeometryRenderer::BindVertexStreams(DrawResources &into,
 void GeometryRenderer::BindSlot(DrawResources &into,
                                 size_t slot,
                                 VertexLayout layout,
-                                const FrameUniforms &uniforms) const {
-  into.BindingCount = 2u + (CarriesColour(layout) ? 1u : 0u) + (CarriesTangent(layout) ? 1u : 0u);
+                                const FrameUniforms &uniforms,
+                                uint32_t prefixBindings) const {
+  into.BindingCount = prefixBindings != 0 ? prefixBindings
+                                          : 2u + (CarriesColour(layout) ? 1u : 0u) +
+                                                (CarriesTangent(layout) ? 1u : 0u);
   const auto &surface = Slots[slot];
   auto images =
       std::array<Native::SampledTexture, kSubjectImages>{Image(surface.Colour),
@@ -209,7 +212,10 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
   EncodedWork_ = {};
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
                             Bound().Buffer(GeometryResidency::Stream::Index);
-  if (!drawsBatches && (Binding().Behind != nullptr || Ground_.Drawn() == 0)) { return {}; }
+  if (!drawsBatches &&
+      (Binding().Behind != nullptr || (Ground_.Drawn() == 0 && Prisms_.Products().empty()))) {
+    return {};
+  }
   const auto uniforms = FrameUniformsOf(ctx);
   const bool cut = Bound().Buffer(GeometryResidency::Stream::DrawIndex) &&
                    Bound().Buffer(GeometryResidency::Stream::DrawArguments) && !Args_.empty();
@@ -246,7 +252,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
     if (!recorded) { return recorded; }
     at = end - 1;
   }
-  return {};
+  return EncodePrisms(into, uniforms);
 }
 
 Native::Result<void> GeometryRenderer::EncodeGround(const FrameContext &ctx,
@@ -291,19 +297,10 @@ Native::Result<void> GeometryRenderer::EncodeGround(const PassRecording &into,
   return {};
 }
 
-Native::Result<void> GeometryRenderer::EncodeShadow(const PassRecording &into,
-                                                    const Native::GraphicsPipeline &pipeline,
-                                                    const DrawBatch &batch,
-                                                    uint32_t instances,
-                                                    std::span<const std::byte> view) const {
-  if (instances == 0) { return {}; }
-  if (into.Commands == nullptr || !Bound().Buffer(GeometryResidency::Stream::Index)) {
-    return std::unexpected(
-        Native::Error{.Kind = Native::ErrorKind::Invalid,
-                      .Message = "subject shadow draw is missing native resources"});
-  }
+void GeometryRenderer::BindShadowResources(DrawResources &resources,
+                                           const DrawBatch &batch,
+                                           std::span<const std::byte> view) const {
   using S = GeometryResidency::Stream;
-  DrawResources resources;
   resources.Vertices[resources.VertexCount++] = Vertex(0, Bound().Buffer(S::Vertex).get());
   resources.Bindings[resources.BindingCount++] = Storage(0, 0, Bound().Buffer(S::Placements).get());
   resources.Bindings[resources.BindingCount++] = {
@@ -326,17 +323,68 @@ Native::Result<void> GeometryRenderer::EncodeShadow(const PassRecording &into,
         .Slot = 0,
         .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(surface.Row))}};
   }
+}
+
+Native::Result<uint32_t> GeometryRenderer::EncodeShadow(const PassRecording &into,
+                                                        const Native::GraphicsPipeline &pipeline,
+                                                        size_t batchIndex,
+                                                        const BatchFrustum &visible,
+                                                        uint32_t instances,
+                                                        std::span<const std::byte> view) const {
+  if (instances == 0) { return 0u; }
+  if (batchIndex >= Batches.size()) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "shadow draw names no resident batch"});
+  }
+  const auto &batch = Batches[batchIndex];
+  if (into.Commands == nullptr || !Bound().Buffer(GeometryResidency::Stream::Index)) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "subject shadow draw is missing native resources"});
+  }
+  using S = GeometryResidency::Stream;
+  DrawResources resources;
+  BindShadowResources(resources, batch, view);
   const auto &index = Bound().Buffer(S::Index);
-  return into.Commands->DrawIndexed(
-      {.State = {.Pipeline = &pipeline,
-                 .Bindings = std::span(resources.Bindings).first(resources.BindingCount),
-                 .Vertices = std::span(resources.Vertices).first(resources.VertexCount),
-                 .Area = into.Area,
-                 .Clip = into.Clip},
-       .Indices = {.Data = index.get(), .Range = {.Bytes = index->Description().Bytes}},
-       .Range = {.First = batch.FirstIndex,
-                 .Count = batch.IndexCount,
-                 .Instances = instances,
-                 .FirstInstance = batch.ModelSlot}});
+  const auto draw = [&](uint32_t first, uint32_t count) {
+    return into.Commands->DrawIndexed(
+        {.State = {.Pipeline = &pipeline,
+                   .Bindings = std::span(resources.Bindings).first(resources.BindingCount),
+                   .Vertices = std::span(resources.Vertices).first(resources.VertexCount),
+                   .Area = into.Area,
+                   .Clip = into.Clip},
+         .Indices = {.Data = index.get(), .Range = {.Bytes = index->Description().Bytes}},
+         .Range = {.First = first,
+                   .Count = count,
+                   .Instances = instances,
+                   .FirstInstance = batch.ModelSlot}});
+  };
+  const auto ranges = ShadowCasters_.Ranges(batchIndex);
+  if (ranges.empty()) {
+    const auto sent = draw(batch.FirstIndex, batch.IndexCount);
+    if (!sent) { return std::unexpected(sent.error()); }
+    return 1u;
+  }
+  uint32_t packets = 0;
+  uint32_t first = 0;
+  uint32_t count = 0;
+  for (const auto &range : ranges) {
+    if (visible.Outside(range.Bounds)) { continue; }
+    if (count != 0 && range.First > uint64_t{first} + count) {
+      auto sent = draw(first, count);
+      if (!sent) { return std::unexpected(sent.error()); }
+      ++packets;
+      count = 0;
+    }
+    if (count == 0) { first = range.First; }
+    const uint64_t end = std::max(uint64_t{first} + count, uint64_t{range.First} + range.Count);
+    count = static_cast<uint32_t>(end - first);
+  }
+  if (count != 0) {
+    const auto sent = draw(first, count);
+    if (!sent) { return std::unexpected(sent.error()); }
+    ++packets;
+  }
+  return packets;
 }
 }

@@ -99,7 +99,11 @@ int main() {
                                        .Revision = "one",
                                        .Missing = Data::MissingDataPolicy::Fail,
                                        .Dataset = "original",
-                                       .Endpoint = std::string(Data::kOfficialOsmApi)};
+                                       .Location = {},
+                                       .Endpoint = std::string(Data::kOfficialOsmApi),
+                                       .Coverage = {},
+                                       .PayloadSha256 = {},
+                                       .Schema = {}};
   const std::array<Data::GeoCellId, 4> cells{
       {{9, 256, 256}, {9, 257, 256}, {9, 258, 256}, {9, 259, 256}}};
   CHECK(

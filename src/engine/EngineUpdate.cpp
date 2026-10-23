@@ -534,6 +534,7 @@ bool Engine::State::Updates(bool simulate) {
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bakesAt)
                 .count());
         if (!baked) { return false; }
+        if (!AdvanceUrbanAreas()) { return false; }
         {
           static const Heap::Tag kGrowingTag("world-grow");
           const Heap::Tagged growing(kGrowingTag);
@@ -670,7 +671,7 @@ void Engine::State::Drew() {
                          static_cast<double>(World.Stack.WaterBodies().Surfaces().size()),
                          "surfaces");
   Published.RecordMetric("building footprints it holds",
-                         static_cast<double>(World.Stack.Footprints().Footprints().size()),
+                         static_cast<double>(World.Stack.Footprints().FootprintCount()),
                          "footprints");
   Published.RecordMetric("batches the picture draws",
                          static_cast<double>(Picture.Device.GeometryBatchCount()),

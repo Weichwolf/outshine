@@ -46,6 +46,7 @@ Result<id<MTLFunction>> MetalDevice::Function(CompiledShader &shader, MTLFunctio
     const auto function = CompileFunction(Native_, shader.Translated, type);
     if (!function) { return std::unexpected(function.error()); }
     shader.Function = *function;
+    std::string{}.swap(shader.Translated.Source);
   }
   if (shader.Function.functionType != type) {
     return Failure(ErrorKind::Invalid, "SPIR-V entry has the wrong Metal execution stage");

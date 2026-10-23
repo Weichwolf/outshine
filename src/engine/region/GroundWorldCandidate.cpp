@@ -22,9 +22,11 @@ namespace outshine {
       alignmentBytes += sizeof(Generators::RoadSurface) + route.Surface->OwnedHeapBytes();
     }
   }
-  return Sheets.HeapBytes() + Footprints.HeapBytes() + Pieces.HeapBytes() + alignmentBytes +
-         Ground.storageBytes() + PositionsM.capacity() * sizeof(float) +
-         Indices.capacity() * sizeof(uint32_t) + ClassPalette.capacity() * sizeof(float);
+  return Sheets.HeapBytes(TerrainHeapScope::Additional) +
+         Footprints.HeapBytes(::outshine::Generators::Osm::BuildingField::HeapScope::Additional) +
+         Pieces.HeapBytes() + alignmentBytes + Ground.storageBytes() +
+         PositionsM.capacity() * sizeof(float) + Indices.capacity() * sizeof(uint32_t) +
+         ClassPalette.capacity() * sizeof(float);
 }
 
 GroundWorldCandidate::GroundWorldCandidate(
@@ -50,7 +52,11 @@ GroundWorldCandidate::GroundWorldCandidate(
                 .Surfaces = world.StructureSurfaces},
       World_(renderer),
       Sources_(::outshine::Generators::Osm::RegionSources::Snapshot(
-          world.Stack.Vectors(), world.Stack.Ways(), world.Stack.WaterBodies())),
+          world.Stack.Vectors(),
+          world.Stack.Ways(),
+          world.Stack.WaterBodies(),
+          world.Region ? world.Region->VectorSnapshot() : nullptr)),
+      SharedVectors_(world.Region ? world.Region->Vectors() : nullptr),
       PieceSources_(pieces) {
   Products_.Sheets.ForgetsFields();
 }

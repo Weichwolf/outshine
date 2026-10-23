@@ -318,7 +318,8 @@ int main(int argc, char *const *argv) {
   const std::string folder = argv[1];
   const std::string original = argv[2];
   const std::string shaders = argv[4];
-  auto device = Require(Native::CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device = Require(Native::CreateDevice(
+      {.Validation = true, .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission}));
   Pipelines p;
   for (const auto &pair : {std::pair{&p.Cull, std::string(argv[3])},
                            std::pair{&p.Pack, shaders + "/pack.spv"},

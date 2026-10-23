@@ -234,7 +234,12 @@ public:
   }
 
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error) {
-    return ActiveState().Content.Geometry.PlacePiece(piece, error);
+    auto placed = ActiveState().Content.Geometry.PlacePiece(piece);
+    if (!placed) {
+      error = std::move(placed.error().Message);
+      return kNoPiece;
+    }
+    return *placed;
   }
 
   void ReleasePiece(PieceHandle which) {
@@ -329,6 +334,39 @@ public:
   [[nodiscard]] bool SetPieceInstances(std::span<const PieceRows> pieces, std::string &error) {
     return ActiveState().Content.Resources.SetPieceInstances(
         ActiveState().Content.Geometry, pieces, error);
+  }
+
+  [[nodiscard]] Native::Result<PrismGridHandle>
+  PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
+                 std::span<const PrismInstance> instances,
+                 uint32_t material) {
+    auto &content = ActiveState().Content;
+    return content.Resources.PlacePrismGrid(
+        content.Geometry, std::move(source), instances, material);
+  }
+
+  [[nodiscard]] Native::Result<void> ReplacePrismGrid(PrismGridHandle which,
+                                                      std::shared_ptr<const PrismGrid> source,
+                                                      std::span<const PrismInstance> instances,
+                                                      uint32_t material) {
+    auto &content = ActiveState().Content;
+    return content.Resources.ReplacePrismGrid(
+        content.Geometry, which, std::move(source), instances, material);
+  }
+
+  [[nodiscard]] Native::Result<void>
+  SetPrismGridInstances(PrismGridHandle which, std::span<const PrismInstance> instances) {
+    auto &content = ActiveState().Content;
+    return content.Resources.SetPrismGridInstances(content.Geometry, which, instances);
+  }
+
+  void ReleasePrismGrid(PrismGridHandle which) {
+    auto &content = ActiveState().Content;
+    content.Resources.ReleasePrismGrid(content.Geometry, which);
+  }
+
+  [[nodiscard]] bool HasPrismGrid(PrismGridHandle which) const noexcept {
+    return ActiveState().Content.Resources.HasPrismGrid(which);
   }
 
   [[nodiscard]] bool RestorePieces(std::string &error) {
@@ -972,7 +1010,6 @@ private:
   void BindFrameResources();
   void ApplyWorldDeclarations();
 
-  [[nodiscard]] Native::Buffer *BufferFor(Resource resource) const;
   [[nodiscard]] DisplayOptions Display() const;
 
   [[nodiscard]] Native::Texture *LinearSource() const;

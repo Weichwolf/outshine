@@ -164,7 +164,8 @@ void DrawCase(Device &device,
 int main(int argc, char **argv) {
   if (argc != 5) { return 2; }
   const auto parameters = Read(argv[3]);
-  auto device = Require(CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device = Require(CreateDevice(
+      {.Validation = true, .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission}));
   const auto pipeline = Pipeline(*device, argv[1], argv[2]);
   std::println("device={} width={} height={}", device->Limits().Name, kWidth, kHeight);
   DrawCase(*device, *pipeline, parameters, argv[4]);

@@ -124,7 +124,7 @@ private:
   std::array<bool, kSunShadowRegions> DirtyRegions_{};
   std::array<ShadowRegionUniform, kSunShadowRegions> RegionUniforms_{};
   bool CameraCentred_ = false;
-  uint64_t PreparedGeneration_ = 0;
+  uint64_t PreparedGeometryRevision_ = 0, PreparedPrismRevision_ = 0;
   uint64_t PreparedGroundGeneration_ = 0;
   StageCache Cache_;
   bool Casting_ = true;

@@ -100,17 +100,16 @@ def main():
             raise RuntimeError(
                 f"regular archive must contain exactly one {prefix} object"
             )
-    flags = dict(
-        line.split("=", 1)
-        for line in (ROOT / "test/run.sh").read_text().splitlines()
-        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
+    toolchain = shlex.split(
+        run(
+            ["sh", "test/run.sh", "--native-compile-flags"],
+            "compile-flags",
+            archive_root,
+        )
     )
-    toolchain = [
-        flag
-        for key in ("CXXSTD", "WARN", "OPT")
-        for flag in shlex.split(flags[key].strip('"'))
-    ]
-    link = shlex.split(run(["sh", "test/run.sh", "--native-link-flags"], "native-link"))
+    link = shlex.split(
+        run(["sh", "test/run.sh", "--native-link-flags"], "native-link", archive_root)
+    )
     binary = output / "cloud-view-native"
     run(
         [

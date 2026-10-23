@@ -36,7 +36,7 @@
 #include <vector>
 
 #include "SceneTargets.h"
-#include "VertexArms.h"
+#include "DrawList.h"
 #include "SurfaceState.h"
 
 namespace outshine::Render {
@@ -131,10 +131,8 @@ struct PieceAllocation {
   GeometryResidency::Range Vertices, Indices, Colours, Tangents;
 };
 
-bool UploadPieceRuns(GeometryResidency &res,
-                     const PieceMesh &piece,
-                     const PieceAllocation &allocation,
-                     std::string &error) {
+Native::Result<void>
+UploadPieceRuns(GeometryResidency &res, const PieceMesh &piece, const PieceAllocation &allocation) {
   const auto verts = static_cast<uint32_t>(piece.Verts.size());
   const auto indices = static_cast<uint32_t>(piece.Indices.size());
   const auto &v = allocation.Vertices;
@@ -193,13 +191,12 @@ bool UploadPieceRuns(GeometryResidency &res,
   for (const GeometryResidency::Crossing &one : crossings) {
     if (one.Bytes > 0 && one.Stands()) { crossings[count++] = one; }
   }
-  return Uploaded(res.Cross(std::span<GeometryResidency::Crossing>(crossings.data(), count), true),
-                  error);
+  return res.Cross(std::span<GeometryResidency::Crossing>(crossings.data(), count), true);
 }
 
 }
 
-bool GeometryRenderer::RoomForStreams(std::string &error) {
+Native::Result<void> GeometryRenderer::RoomForStreams() {
   GeometryResidency &res = Bound();
   const uint32_t verts = res.VertexRoom();
   const uint32_t subject = res.SubjectVertices().First + res.SubjectVertices().Count;
@@ -208,66 +205,52 @@ bool GeometryRenderer::RoomForStreams(std::string &error) {
   };
   const auto vertex = Native::BufferUse::Vertex;
   using S = GeometryResidency::Stream;
-  return Uploaded(
-             res.Grow(S::Vertex,
-                      {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats), .Deferred = true}),
-             error) &&
-         Uploaded(
-             res.Grow(S::Normal, {.Usage = vertex, .Bytes = bytes(verts, 1u), .Deferred = true}),
-             error) &&
-         (!res.Shape().HasPrevious || subject == 0 ||
-          Uploaded(
-              res.Grow(
-                  S::Previous,
-                  {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats), .Deferred = true}),
-              error)) &&
-         (subject == 0 ||
-          ((!res.Shape().HasEmitted || Uploaded(res.Grow(S::Emitted,
-                                                         {.Usage = vertex,
-                                                          .Bytes = bytes(subject, kPositionFloats),
-                                                          .Deferred = true}),
-                                                error)) &&
-           RoomForOptionalStreams(
-               {.VertexEnd = res.SubjectVertices().First + res.Shape().Vertices,
-                .ColourEnd = res.SubjectColours().First + res.Shape().Vertices,
-                .TangentEnd = res.SubjectTangents().First + res.Shape().Vertices},
-               {.Uv = res.Shape().HasUv,
-                .Uv1 = res.Shape().HasUv1,
-                .Tangent = res.Shape().HasTangent,
-                .Colour = res.Shape().HasColour},
-               error))) &&
-         Uploaded(res.Grow(S::Index,
-                           {.Usage = kIndexUse,
-                            .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t)),
-                            .Deferred = true}),
-                  error);
+  const std::array streams = {
+      std::pair{S::Vertex, bytes(verts, kPositionFloats)},
+      std::pair{S::Normal, bytes(verts, 1u)},
+      std::pair{S::Previous, res.Shape().HasPrevious ? bytes(subject, kPositionFloats) : 0u},
+      std::pair{S::Emitted, res.Shape().HasEmitted ? bytes(subject, kPositionFloats) : 0u}};
+  for (const auto &[stream, size] : streams) {
+    if (size == 0) { continue; }
+    auto grown = res.Grow(stream, {.Usage = vertex, .Bytes = size, .Deferred = true});
+    if (!grown) { return grown; }
+  }
+  if (subject != 0) {
+    auto optional =
+        RoomForOptionalStreams({.VertexEnd = res.SubjectVertices().First + res.Shape().Vertices,
+                                .ColourEnd = res.SubjectColours().First + res.Shape().Vertices,
+                                .TangentEnd = res.SubjectTangents().First + res.Shape().Vertices},
+                               {.Uv = res.Shape().HasUv,
+                                .Uv1 = res.Shape().HasUv1,
+                                .Tangent = res.Shape().HasTangent,
+                                .Colour = res.Shape().HasColour});
+    if (!optional) { return optional; }
+  }
+  return res.Grow(S::Index,
+                  {.Usage = kIndexUse,
+                   .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t)),
+                   .Deferred = true});
 }
 
-bool GeometryRenderer::RoomForOptionalStreams(OptionalStreamEnds ends,
-                                              VertexRunsCarried carried,
-                                              std::string &error) {
+Native::Result<void> GeometryRenderer::RoomForOptionalStreams(OptionalStreamEnds ends,
+                                                              VertexRunsCarried carried) {
   using S = GeometryResidency::Stream;
-  const auto grow = [&](S stream, bool present, uint32_t components) {
-    return !present || Uploaded(Bound().Grow(stream,
-                                             {.Usage = Native::BufferUse::Vertex,
-                                              .Bytes = ends.VertexEnd * components *
-                                                       static_cast<uint32_t>(sizeof(float)),
-                                              .Deferred = true}),
-                                error);
+  const auto bytes = [](bool present, uint32_t end, uint32_t components) {
+    return present ? end * components * static_cast<uint32_t>(sizeof(float)) : 0u;
   };
-  return grow(S::Uv, carried.Uv, kPairFloats) && grow(S::Uv1, carried.Uv1, kPairFloats) &&
-         (!carried.Tangent || Uploaded(Bound().Grow(S::Tangent,
-                                                    {.Usage = Native::BufferUse::Storage,
-                                                     .Bytes = ends.TangentEnd * kQuadFloats *
-                                                              static_cast<uint32_t>(sizeof(float)),
-                                                     .Deferred = true}),
-                                       error)) &&
-         (!carried.Colour || Uploaded(Bound().Grow(S::Colour,
-                                                   {.Usage = Native::BufferUse::Storage,
-                                                    .Bytes = ends.ColourEnd * kQuadFloats *
-                                                             static_cast<uint32_t>(sizeof(float)),
-                                                    .Deferred = true}),
-                                      error));
+  const std::array streams = {
+      std::pair{S::Uv, bytes(carried.Uv, ends.VertexEnd, kPairFloats)},
+      std::pair{S::Uv1, bytes(carried.Uv1, ends.VertexEnd, kPairFloats)},
+      std::pair{S::Tangent, bytes(carried.Tangent, ends.TangentEnd, kQuadFloats)},
+      std::pair{S::Colour, bytes(carried.Colour, ends.ColourEnd, kQuadFloats)}};
+  for (const auto &[stream, size] : streams) {
+    if (size == 0) { continue; }
+    const auto use = stream == S::Tangent || stream == S::Colour ? Native::BufferUse::Storage
+                                                                 : Native::BufferUse::Vertex;
+    auto grown = Bound().Grow(stream, {.Usage = use, .Bytes = size, .Deferred = true});
+    if (!grown) { return grown; }
+  }
+  return {};
 }
 
 bool GeometryRenderer::ValidateBatch(const SubjectMesh &mesh,
@@ -369,6 +352,7 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
     return std::unexpected(std::move(error));
   }
   ++Reshaped_;
+  ShadowChanges_.Unknown();
   PendingMesh_ = {};
   PendingDraws_ = nullptr;
   PendingIndices_ = nullptr;
@@ -386,6 +370,8 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
                           [](const DrawBatch &batch) { return !CarriesNormal(batch.Layout); });
   Bound().Shape().HasPrevious = Binding().WritesVelocity && mesh.Draws != nullptr &&
                                 UsesPrevious(mesh, mesh.Draws->Batches());
+  SubjectBoundsCurrent_ = false;
+  ShadowCasters_.Invalidate();
   SubjectBatches_.clear();
   SubjectJobs_.clear();
   SubjectSpheres_.clear();
@@ -438,7 +424,7 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
     const auto t = mesh.Tangents.Stands() ? Bound().TakeTangents(mesh.VertexCount)
                                           : GeometryResidency::Range{};
     Bound().SubjectStands(v, i, c, t);
-    if (!RoomForStreams(error)) {
+    if (!Uploaded(RoomForStreams(), error)) {
       Bound().Shape().Indices = 0;
       return std::unexpected(std::move(error));
     }
@@ -502,6 +488,7 @@ bool GeometryRenderer::FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, st
     SubjectJobs_ = jobs;
     SubjectSpheres_.assign(mesh.ClusterSpheres.begin(), mesh.ClusterSpheres.end());
   }
+  SubjectBoundsCurrent_ = true;
   const bool handed = HandTables(error);
   LastMeshUpload_.TablesMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tablesAt)
@@ -632,8 +619,12 @@ bool GeometryRenderer::ValidatePiece(const PieceMesh &piece, std::string &error)
   return true;
 }
 
-PieceId GeometryRenderer::PlacePiece(const PieceMesh &piece, std::string &error) {
-  if (!ValidatePiece(piece, error)) { return kNoPiece; }
+Native::Result<PieceId> GeometryRenderer::PlacePiece(const PieceMesh &piece) {
+  std::string error;
+  if (!ValidatePiece(piece, error)) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(error)});
+  }
   static const Heap::Tag kUploadingTag("mesh-upload");
   const Heap::Tagged uploading(kUploadingTag);
   const auto verts = static_cast<uint32_t>(piece.Verts.size());
@@ -649,21 +640,22 @@ PieceId GeometryRenderer::PlacePiece(const PieceMesh &piece, std::string &error)
     res.GiveColours(c);
     res.GiveTangents(t);
   };
-  if (!RoomForStreams(error) || !RoomForOptionalStreams({.VertexEnd = v.First + verts,
-                                                         .ColourEnd = c.First + verts,
-                                                         .TangentEnd = t.First + verts},
-                                                        {.Uv = piece.Textured,
-                                                         .Uv1 = !piece.Uv1.empty(),
-                                                         .Tangent = !piece.Tangents.empty(),
-                                                         .Colour = !piece.Colours.empty()},
-                                                        error)) {
-    giveBack();
-    return kNoPiece;
+  auto uploaded = RoomForStreams();
+  if (uploaded) {
+    uploaded = RoomForOptionalStreams(
+        {.VertexEnd = v.First + verts, .ColourEnd = c.First + verts, .TangentEnd = t.First + verts},
+        {.Uv = piece.Textured,
+         .Uv1 = !piece.Uv1.empty(),
+         .Tangent = !piece.Tangents.empty(),
+         .Colour = !piece.Colours.empty()});
   }
-  if (!UploadPieceRuns(
-          res, piece, {.Vertices = v, .Indices = i, .Colours = c, .Tangents = t}, error)) {
+  if (uploaded) {
+    uploaded =
+        UploadPieceRuns(res, piece, {.Vertices = v, .Indices = i, .Colours = c, .Tangents = t});
+  }
+  if (!uploaded) {
     giveBack();
-    return kNoPiece;
+    return std::unexpected(std::move(uploaded.error()));
   }
 
   PieceId id = kNoPiece;
@@ -706,6 +698,7 @@ PieceId GeometryRenderer::PlacePiece(const PieceMesh &piece, std::string &error)
   TablesStale_ = true;
   RowsStale_ = true;
   ++Reshaped_;
+  RecordPieceShadowChange(std::nullopt, 0, held.WorldSphere, held.Rows.size());
   return id;
 }
 
@@ -722,8 +715,11 @@ bool GeometryRenderer::SetPieceInstances(PieceId which,
     return false;
   }
   if (std::ranges::equal(piece.Rows, rows)) { return true; }
+  const auto previousSphere = piece.WorldSphere;
+  const size_t previousRows = piece.Rows.size();
   piece.Rows.assign(rows.begin(), rows.end());
   piece.WorldSphere = WorldSphereOf(piece.LocalSphere, piece.Rows);
+  RecordPieceShadowChange(previousSphere, previousRows, piece.WorldSphere, piece.Rows.size());
   RowsStale_ = TablesStale_ = true;
   ++Reshaped_;
   return true;
@@ -732,6 +728,7 @@ bool GeometryRenderer::SetPieceInstances(PieceId which,
 void GeometryRenderer::ReleasePiece(PieceId which) {
   if (which >= Pieces_.size() || !Pieces_[which].Live) { return; }
   Piece &held = Pieces_[which];
+  RecordPieceShadowChange(held.WorldSphere, held.Rows.size(), std::nullopt, 0);
   Bound().GiveVertices(held.V);
   Bound().GiveIndices(held.I);
   Bound().GiveColours(held.C);
@@ -749,6 +746,7 @@ void GeometryRenderer::ReleasePiece(PieceId which) {
 
 void GeometryRenderer::SetPiecesVisible(bool visible) {
   if (PiecesVisible_ == visible) { return; }
+  ShadowChanges_.Unknown();
   PiecesVisible_ = visible;
   TablesStale_ = true;
   ++Reshaped_;
@@ -756,12 +754,18 @@ void GeometryRenderer::SetPiecesVisible(bool visible) {
 
 void GeometryRenderer::SetNativePieceSurfaces(std::span<const uint32_t> slots) {
   if (std::ranges::equal(SlotOf_, slots)) { return; }
+  if (ChangesShadowSurfaces(SlotOf_, slots, PieceSurface::Source::Geometry)) {
+    ShadowChanges_.Unknown();
+  }
   SlotOf_.assign(slots.begin(), slots.end());
   TablesStale_ = true;
 }
 
 void GeometryRenderer::SetRegisteredPieceSurfaces(std::span<const uint32_t> slots) {
   if (std::ranges::equal(RegisteredSlotOf_, slots)) { return; }
+  if (ChangesShadowSurfaces(RegisteredSlotOf_, slots, PieceSurface::Source::Registered)) {
+    ShadowChanges_.Unknown();
+  }
   RegisteredSlotOf_.assign(slots.begin(), slots.end());
   TablesStale_ = true;
 }
@@ -779,6 +783,7 @@ bool GeometryRenderer::HandTables(std::string &error) {
 }
 
 bool GeometryRenderer::Retable(std::string &error) {
+  ShadowCasters_.Invalidate();
   static const Heap::Tag kUploadingTag("mesh-cull");
   const Heap::Tagged uploading(kUploadingTag);
   Batches.clear();
@@ -1047,6 +1052,9 @@ bool GeometryRenderer::HandDrawArguments(bool deferred, std::string &error) {
 }
 
 bool GeometryRenderer::SetPose(const SubjectPose &pose, std::string &error) {
+  SubjectBoundsCurrent_ = false;
+  ShadowCasters_.Invalidate();
+  ShadowChanges_.Unknown();
   ++Reshaped_;
   if (Borrows()) { return true; }
   if (Bound().Shape().Indices == 0) {

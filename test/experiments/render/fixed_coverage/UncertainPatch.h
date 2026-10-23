@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_EXPERIMENT_UNCERTAIN_PATCH_H
 #define OUTSHINE_EXPERIMENT_UNCERTAIN_PATCH_H
 #include "FixedPatch.h"
-#include "../vertex_projection/Envelope.h"
+#include "vertex_projection/Envelope.h"
 #include <array>
 #include <cstdint>
 #include <expected>

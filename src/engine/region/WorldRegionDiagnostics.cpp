@@ -47,6 +47,8 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   diagnostic += ", structure accepted/taken=" + std::to_string(footprints.AcceptedTiles().size()) +
                 "/" + std::to_string(footprints.IngestedTiles());
   diagnostic += ", source refinement complete=" +
+                std::to_string(static_cast<int>(footprints.SourceRefinementComplete()));
+  diagnostic += ", view refinement complete=" +
                 std::to_string(static_cast<int>(footprints.RefinementComplete()));
   diagnostic +=
       ", unqualified structure tiles=" +

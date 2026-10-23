@@ -273,8 +273,8 @@ int main(int argc, char **argv) {
   const auto input = MakeInputs();
   auto scan = Take(device->CreateComputePipeline(ReadShader(argv[1])));
   auto compact = Take(device->CreateComputePipeline(ReadShader(argv[2])));
-  Check(scan->Layout().LocalSize[0] == 256, "scan workgroup reflected exactly");
-  Check(compact->Layout().LocalSize[0] == 128, "compact workgroup reflected exactly");
+  Check(scan->Layout().LocalSize[0] == 32, "scan workgroup reflected exactly");
+  Check(compact->Layout().LocalSize[0] == 64, "compact workgroup reflected exactly");
   auto commands = Take(device->Begin());
   const auto frame = device->AcquirePresentFrame();
   Check(!frame && frame.error().Kind == ErrorKind::Unsupported,

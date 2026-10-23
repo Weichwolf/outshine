@@ -33,10 +33,8 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     here = Path(__file__).resolve().parent
     source = here.parents[1] / 'harness/render/NativeDrawPacketProbe.cpp'
-    declarations = dict(line.split('=', 1) for line in (root / 'test/run.sh').read_text().splitlines()
-                        if line.startswith(('CXXSTD=', 'WARN=', 'OPT=')))
-    flags = [flag for key in ('CXXSTD', 'WARN', 'OPT')
-             for flag in shlex.split(declarations[key].strip('"'))]
+    flags = shlex.split(subprocess.check_output(
+        ["sh", "test/run.sh", "--native-compile-flags"], cwd=root, text=True))
     database = json.loads((root / 'compile_commands.json').read_text())
     entry = next(row for row in database if Path(row['file']).name == 'StagePipelines.cpp')
     includes = [flag for flag in entry.get('arguments', shlex.split(entry.get('command', '')))

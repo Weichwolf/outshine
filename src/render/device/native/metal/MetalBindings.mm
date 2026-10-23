@@ -51,18 +51,29 @@ TextureArgument(const ResourceBinding &layout, const Binding &binding, uint64_t 
 
 }
 
-Result<std::vector<ShaderArgument>>
-Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint64_t device) {
+ArgumentScope::ArgumentScope(std::span<std::vector<ShaderArgument>> buffers) noexcept
+    : Buffers_(buffers) {}
+
+ArgumentScope::~ArgumentScope() noexcept {
+  for (auto &buffer : Buffers_) { buffer.clear(); }
+}
+
+Result<std::span<const ShaderArgument>> Arguments(const PipelineState &pipeline,
+                                                  std::span<const Binding> bindings,
+                                                  uint64_t device,
+                                                  std::vector<ShaderArgument> &storage) {
   if (bindings.size() != pipeline.Translated.Resources.size()) {
     return Failure(ErrorKind::Invalid, "Metal dispatch bindings differ from reflection");
   }
-  return Arguments(pipeline.Translated, bindings, device);
+  return Arguments(pipeline.Translated, bindings, device, storage);
 }
 
-Result<std::vector<ShaderArgument>>
-Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t device) {
-  std::vector<ShaderArgument> result;
-  result.reserve(shader.Resources.size());
+Result<std::span<const ShaderArgument>> Arguments(const Shader &shader,
+                                                  std::span<const Binding> bindings,
+                                                  uint64_t device,
+                                                  std::vector<ShaderArgument> &storage) {
+  storage.clear();
+  storage.reserve(shader.Resources.size());
   for (const auto &layout : shader.Resources) {
     const auto matches = [&](const Binding &value) {
       return value.Set == layout.Source.Set && value.Slot == layout.Source.Slot;
@@ -100,11 +111,11 @@ Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t devi
       if (!texture) { return std::unexpected(texture.error()); }
       argument = *texture;
     }
-    result.push_back(std::move(argument));
+    storage.push_back(std::move(argument));
   }
-  const auto aliases = CheckImageAliases(result, result);
+  const auto aliases = CheckImageAliases(storage, storage);
   if (!aliases) { return std::unexpected(aliases.error()); }
-  return result;
+  return std::span<const ShaderArgument>(storage);
 }
 
 Result<void> CheckImageAliases(std::span<const ShaderArgument> first,
@@ -129,7 +140,7 @@ Result<void> CheckImageAliases(std::span<const ShaderArgument> first,
 
 Result<void> Bind(id<MTLComputeCommandEncoder> encoder,
                   const Shader &shader,
-                  const std::vector<ShaderArgument> &arguments) {
+                  std::span<const ShaderArgument> arguments) {
   std::array<uint32_t, kBufferSizesSlot> sizes{};
   for (const auto &argument : arguments) {
     const auto slot = argument.Layout->Buffer;

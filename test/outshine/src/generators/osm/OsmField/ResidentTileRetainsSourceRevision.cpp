@@ -4,6 +4,7 @@
 #include "MvtWireFixture.h"
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -16,11 +17,11 @@ using namespace outshine::Data;
 
 class NoTransport final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*location*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class VectorSource final : public Source {
@@ -28,20 +29,31 @@ public:
   explicit VectorSource(std::string revision, std::vector<uint8_t> bytes)
       : Decl{.Id = "fixture-vector",
              .Revision = std::move(revision),
+             .Endpoint = {},
              .Kind = DataKind::VectorMap,
              .Wire = WireFormat::MapboxVectorTile,
-             .Keeps = Cacheability::Never},
+             .Keeps = Cacheability::Never,
+             .PayloadSha256 = {},
+             .Schema = {}},
         Bytes(std::move(bytes)) {}
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Coverage Covers(const Fetch & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*address*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  Fetched Collect(const Address & /*address*/,
+                  Ticket /*ticket*/,
+                  Transport & /*transport*/) const override {
     return Fetched::Delivered(Bytes);
   }
 
@@ -53,15 +65,19 @@ private:
 std::vector<uint8_t> TileBytes() {
   using outshine::Test::Mvt::Append;
   using outshine::Test::Mvt::Bytes;
-  Bytes layer{0x0a, 1, 'x', 0x78, 2, 0x28, 64};
-  Append(layer, 0x12, Bytes{0x18, 2, 0x22, 6, 9, 0, 0, 10, 2, 2});
+  constexpr std::array<uint8_t, 7> header{0x0a, 1, 'x', 0x78, 2, 0x28, 64};
+  constexpr std::array<uint8_t, 10> feature{0x18, 2, 0x22, 6, 9, 0, 0, 10, 2, 2};
+  constexpr uint8_t featureTag = 0x12;
+  constexpr uint8_t layerTag = 0x1a;
+  Bytes layer(header.begin(), header.end());
+  Append(layer, featureTag, feature);
   Bytes tile;
-  Append(tile, 0x1a, layer);
+  Append(tile, layerTag, layer);
   return tile;
 }
 
 TileSourceIdentity Resident(std::string revision, const std::vector<uint8_t> &bytes) {
-  ContentStore store({.Using = ContentStore::Use::Off});
+  ContentStore store({.Directory = {}, .Using = ContentStore::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   const auto registration = sources.Add(std::make_unique<VectorSource>(std::move(revision), bytes));

@@ -72,8 +72,9 @@ void Build(ContentStore &cache, Transport &transport, ProviderRegistry &registry
     CHECK(field->Sources().size() == 9 && field->Certificate().IsComplete(),
           "native terrain retains every neighbouring source and delivery stamp");
   }
-  const auto bytes = cache.Read(ContentKey(sources.At(0).Declaration(), Address::At(at)));
-  CHECK(bytes && bytes->size() >= 12 && (*bytes)[0] == 'R' && (*bytes)[8] == 'W',
+  const auto bytes = cache.Lookup(ContentKey(sources.At(0).Declaration(), Address::At(at)));
+  CHECK(bytes.Where == ContentStore::Presence::Bytes && bytes.Bytes.size() >= 12 &&
+            bytes.Bytes[0] == 'R' && bytes.Bytes[8] == 'W',
         "persistent cache retains original WebP, never generated float geometry");
   CHECK((sources.Counters().RemoteStarts == 0) == warm,
         "fresh offline world rebuild consumes cached bytes without network acquisition");

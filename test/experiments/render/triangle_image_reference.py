@@ -6,23 +6,23 @@ from PIL import Image, ImageDraw
 from trimesh.ray.ray_triangle import RayMeshIntersector
 
 
-def bilinear(image, uv):
-    """Filter with zero exterior samples; caller supplies premultiplied fields."""
-    height, width = image.shape[:2]
-    p = uv * [width, height] - 0.5
-    first = np.floor(p).astype(int)
-    fraction = p - first
-    result = np.zeros((len(uv), image.shape[2]))
-    for x, y in ((0, 0), (1, 0), (0, 1), (1, 1)):
-        index = first + [x, y]
-        weight = (fraction[:, 0] if x else 1 - fraction[:, 0]) * (
-            fraction[:, 1] if y else 1 - fraction[:, 1]
-        )
-        inside = ((index >= 0) & (index < [width, height])).all(1)
-        result[inside] += (
-            image[index[inside, 1], index[inside, 0]] * weight[inside, None]
-        )
-    return result
+def box_grid_source(heights, pitch, fill):
+    """Independent triangle boxes for a finished flat-base height lattice."""
+    y, x = np.nonzero(heights)
+    h = heights[y, x]
+    unit = trimesh.creation.box()
+    extent = np.column_stack(
+        (np.full(len(h), pitch * fill), np.full(len(h), pitch * fill), h)
+    )
+    centre = np.column_stack(((x + 0.5) * pitch, (y + 0.5) * pitch, h / 2))
+    return {
+        "positions": (unit.vertices[None] * extent[:, None] + centre[:, None]).reshape(
+            -1, 3
+        ),
+        "indices": (
+            unit.faces[None] + np.arange(len(h))[:, None, None] * len(unit.vertices)
+        ).reshape(-1, 3),
+    }
 
 
 def prepare_source(source):
@@ -80,7 +80,7 @@ def projected_bounds(positions, view):
     return np.stack((xy.min(0) - 2, xy.max(0) + 2))
 
 
-def image_rays(view, box, width, height, supersample=2):
+def image_rays(view, box, width, height, supersample=2, *, jitter_seed=None):
     eye, basis, focal, screen_width, screen_height = view
     x = box[0, 0] + (np.arange(width * supersample) + 0.5) / (
         width * supersample
@@ -89,6 +89,18 @@ def image_rays(view, box, width, height, supersample=2):
         height * supersample
     ) * np.ptp(box[:, 1])
     xx, yy = np.meshgrid(x, y)
+    if jitter_seed is not None:
+        generator = np.random.default_rng(jitter_seed)
+        xx += (
+            generator.uniform(-0.5, 0.5, xx.shape)
+            * np.ptp(box[:, 0])
+            / (width * supersample)
+        )
+        yy += (
+            generator.uniform(-0.5, 0.5, yy.shape)
+            * np.ptp(box[:, 1])
+            / (height * supersample)
+        )
     direction = (
         np.column_stack(
             (

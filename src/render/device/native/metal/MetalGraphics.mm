@@ -199,9 +199,9 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
     pipeline.vertexDescriptor = *vertices;
     const auto vertex = ShaderProgram(description.Vertex.Spirv, description.Vertex.Entry);
     if (!vertex) { return std::unexpected(vertex.error()); }
-    state->Vertex = (*vertex)->Translated;
     const auto vertexFunction = Function(**vertex, MTLFunctionTypeVertex);
     if (!vertexFunction) { return std::unexpected(vertexFunction.error()); }
+    state->Vertex = (*vertex)->Translated;
     pipeline.vertexFunction = *vertexFunction;
     GraphicsLayout layout;
     if (auto valid = StageBindings(layout, state->Vertex, ShaderStage::Vertex); !valid) {
@@ -210,12 +210,12 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
     if (description.Fragment) {
       const auto fragment = ShaderProgram(description.Fragment->Spirv, description.Fragment->Entry);
       if (!fragment) { return std::unexpected(fragment.error()); }
-      state->Fragment = (*fragment)->Translated;
-      if (auto valid = CompatibleImages(state->Vertex, *state->Fragment); !valid) {
+      if (auto valid = CompatibleImages(state->Vertex, (*fragment)->Translated); !valid) {
         return std::unexpected(valid.error());
       }
       const auto fragmentFunction = Function(**fragment, MTLFunctionTypeFragment);
       if (!fragmentFunction) { return std::unexpected(fragmentFunction.error()); }
+      state->Fragment = (*fragment)->Translated;
       pipeline.fragmentFunction = *fragmentFunction;
       if (auto valid = StageBindings(layout, *state->Fragment, ShaderStage::Fragment); !valid) {
         return std::unexpected(valid.error());
@@ -238,8 +238,6 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
     if (state->Depth == nil) {
       return Failure(ErrorKind::Driver, "Metal depth state creation failed");
     }
-    std::string{}.swap(state->Vertex.Source);
-    if (state->Fragment) { std::string{}.swap(state->Fragment->Source); }
     std::ranges::sort(layout.Bindings, [](const GraphicsBinding &a, const GraphicsBinding &b) {
       return std::tie(a.Resource.Set, a.Resource.Slot) < std::tie(b.Resource.Set, b.Resource.Slot);
     });

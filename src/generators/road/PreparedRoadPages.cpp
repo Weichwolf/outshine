@@ -71,7 +71,7 @@ PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::str
     if (!bound || !*bound) { return std::unexpected("could not bind the existing road page"); }
     record.RequestKey = requestKey;
   }
-  return Loaded{.Page = std::make_shared<const RoadPageAsset>(std::move(*page)),
+  return Loaded{.Page = std::make_unique<RoadPageAsset>(std::move(*page)),
                 .Record = std::move(record),
                 .NativeBytes = (**cached).Bytes().size()};
 }
@@ -194,7 +194,7 @@ PreparedRoadPages::Resolve(const RoadPageAddress &address,
   if (!loaded || RoadPageKey(loaded->Address) != key) {
     return std::unexpected("published road page failed native validation");
   }
-  return Loaded{.Page = std::make_shared<const RoadPageAsset>(std::move(*loaded)),
+  return Loaded{.Page = std::make_unique<RoadPageAsset>(std::move(*loaded)),
                 .Record = generated->Record(),
                 .NativeBytes = generated->Bytes().size()};
 }

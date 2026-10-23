@@ -1,3 +1,6 @@
+#ifndef SUBJECT_FRONT_FACING
+#define SUBJECT_FRONT_FACING gl_FrontFacing
+#endif
 #ifndef SUBJECT_BASE_LOCATION
 #define SUBJECT_BASE_LOCATION 0
 #endif
@@ -30,7 +33,7 @@ void outputSurface(vec4 shaded, vec3 n, float identity) {
   outVelocity = curClip.xy / curClip.w - prevClip.xy / prevClip.w;
 #endif
 #if SUBJECT_NORMAL_LOCATION > 0
-  outNormal = vec4(n, gl_FrontFacing ? 1.0 : -1.0);
+  outNormal = vec4(n, SUBJECT_FRONT_FACING ? 1.0 : -1.0);
 #endif
 #if SUBJECT_IDENTITY_LOCATION > 0
   outIdentity = vec4(identity, 0.0, 0.0, 1.0);

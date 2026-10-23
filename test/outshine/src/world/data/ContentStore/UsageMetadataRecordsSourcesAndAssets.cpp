@@ -38,9 +38,12 @@ void Sources(const std::filesystem::path &root) {
   {
     Data::ContentStore store({.Directory = root.string()});
     CHECK(store.Keep(fresh, bytes.data(), bytes.size()), "new source is cached normally");
-    CHECK(store.Read(fresh), "new source cache hit succeeds");
-    CHECK(store.Read(legacy), "legacy source cache hit succeeds");
-    CHECK(!store.Read(std::string(64, 'c')), "source miss remains a miss");
+    CHECK(store.Lookup(fresh).Where == Data::ContentStore::Presence::Bytes,
+          "new source cache hit succeeds");
+    CHECK(store.Lookup(legacy).Where == Data::ContentStore::Presence::Bytes,
+          "legacy source cache hit succeeds");
+    CHECK(store.Lookup(std::string(64, 'c')).Where == Data::ContentStore::Presence::Unknown,
+          "source miss remains a miss");
   }
   const auto index = root / ".usage.sqlite";
   CHECK(Scalar(index, "SELECT count(*) FROM cache_usage_v1") == 2,

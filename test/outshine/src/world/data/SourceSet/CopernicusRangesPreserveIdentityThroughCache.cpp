@@ -113,11 +113,12 @@ int main() {
     Add(sources);
     const auto key =
         ContentKey(sources.At(0).Declaration(), at, request.Range(), request.EntityTag());
-    auto damaged = store.Read(key);
-    CHECK(damaged.has_value(), "received raw record exists");
-    if (!damaged) { return Report(); }
-    damaged->back() ^= 1;
-    CHECK(store.Keep(key, damaged->data(), damaged->size()), "cache damage injected independently");
+    auto damaged = store.Lookup(key);
+    CHECK(damaged.Where == ContentStore::Presence::Bytes, "received raw record exists");
+    if (damaged.Where != ContentStore::Presence::Bytes) { return Report(); }
+    damaged.Bytes.back() ^= 1;
+    CHECK(store.Keep(key, damaged.Bytes.data(), damaged.Bytes.size()),
+          "cache damage injected independently");
     Http http;
     auto query = sources.Ask(request);
     const auto recovered = sources.Collect(query, http).Take();

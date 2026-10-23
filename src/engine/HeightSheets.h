@@ -144,11 +144,20 @@ public:
     return Framed_ ? Residency_.HeightMAt(at) : std::nullopt;
   }
 
+  [[nodiscard]] std::optional<std::array<double, 2>> AslBoundsM() const noexcept {
+    return Framed_ ? Residency_.AslBoundsM() : std::nullopt;
+  }
+
+  [[nodiscard]] const TerrainResidency *PublishedSurface() const noexcept {
+    return Framed_ && Residency_.HasPublishedSurface() ? &Residency_ : nullptr;
+  }
+
   [[nodiscard]] uint64_t Digest() const;
 
   [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }
 
-  [[nodiscard]] size_t HeapBytes() const noexcept;
+  [[nodiscard]] size_t
+  HeapBytes(TerrainHeapScope scope = TerrainHeapScope::Retained) const noexcept;
 
   [[nodiscard]] bool Occludes(const Ray &ray, float nearM, float distanceM) const noexcept {
     return Framed_ && Residency_.Occludes(ray, nearM, distanceM, Frame_);

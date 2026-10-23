@@ -48,8 +48,6 @@ public:
   [[nodiscard]] Native::Result<void>
   Replace(const Gpu &gpu, const OverlayQuad *quads, size_t count, const AtlasPixels *atlas);
 
-  [[nodiscard]] Native::Result<void> EnsureAtlas(const Gpu &gpu);
-
   [[nodiscard]] uint32_t Held() const { return Count; }
 
   [[nodiscard]] Native::Buffer *Vertices() const { return Verts.get(); }

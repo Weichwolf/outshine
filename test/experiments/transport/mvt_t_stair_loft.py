@@ -3,6 +3,8 @@
 import numpy as np
 import shapely
 from scipy import sparse
+from stair_planar_lineage import prepared_faces, refined_face_ids
+from stair_station_cuts import _frame, _split
 
 
 def _clear_cut(stations, required, direction):
@@ -66,97 +68,51 @@ def _flight(plan, owner):
     }
 
 
-def _split(vertices, flights, faces, masks, flight, cut, max_vertices, max_faces):
-    station = flights[flight]["stations_m"]
-    cache, output, owners = {}, [], []
-
-    def crossing(a, b):
-        if station[a] == cut:
-            return a
-        if station[b] == cut:
-            return b
-        a, b = sorted((a, b))
-        if (a, b) in cache:
-            return cache[a, b]
-        if len(vertices) >= max_vertices:
-            raise ValueError("straight-flight vertex budget exhausted")
-        fraction = (cut - station[a]) / (station[b] - station[a])
-        point = vertices[a] + fraction * (vertices[b] - vertices[a])
-        index = len(vertices)
-        vertices.append(point)
-        for current in flights:
-            values = current["stations_m"]
-            values.append(values[a] + fraction * (values[b] - values[a]))
-        station[index] = cut
-        cache[a, b] = index
-        return index
-
-    for face, mask in zip(faces, masks, strict=True):
-        values = [station[i] for i in face]
-        if max(values) <= cut or min(values) >= cut:
-            polygons = [face]
-        else:
-            polygons = []
-            for above in (False, True):
-                polygon = []
-                for a, b in zip(face, np.roll(face, -1), strict=True):
-                    inside_a = station[a] >= cut if above else station[a] <= cut
-                    inside_b = station[b] >= cut if above else station[b] <= cut
-                    if inside_a and (not polygon or polygon[-1] != a):
-                        polygon.append(a)
-                    if inside_a != inside_b:
-                        node = crossing(a, b)
-                        if not polygon or polygon[-1] != node:
-                            polygon.append(node)
-                if polygon and polygon[0] == polygon[-1]:
-                    polygon.pop()
-                polygons.append(polygon)
-        for polygon in polygons:
-            for i in range(1, len(polygon) - 1):
-                tri = [polygon[0], polygon[i], polygon[i + 1]]
-                a, b, c = [vertices[v] for v in tri]
-                area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
-                if area == 0:
-                    continue
-                if area < 0:
-                    tri.reverse()
-                if len(output) >= max_faces:
-                    raise ValueError("straight-flight face budget exhausted")
-                output.append(tri)
-                owners.append(mask)
-    return output, owners, len(cache)
-
-
 def prepare_stair_lofts(plan, *, max_vertices=4096, max_faces=8192):
+    scope = plan.get("station_cut_scope", "global")
+    if scope not in ("global", "flight_footprint"):
+        raise ValueError("known declared station cut scope required")
     if len(plan["xy"]) > max_vertices or sum(map(len, plan["parts"])) > max_faces:
         raise ValueError("initial straight-flight geometry exceeds budget")
     flights = [_flight(plan, owner) for owner, _low, _high in plan["stairs"]]
     if not 1 <= len(flights) <= 16:
         raise ValueError("bounded nonempty straight-flight set required")
-    canonical = {}
-    for owner, faces in enumerate(plan["parts"]):
-        for face in faces:
-            key = tuple(sorted(map(int, face)))
-            old = canonical.get(key, (list(map(int, face)), 0))
-            canonical[key] = old[0], old[1] | (1 << owner)
-    faces, masks = map(list, zip(*canonical.values(), strict=True))
+    faces, masks, parents, planar = prepared_faces(plan)
     before = len(faces)
     vertices = [point.copy() for point in plan["xy"]]
-    intersections, face_visits = 0, 0
+    intersections, geometric_points, face_visits = 0, 0, 0
+    initial_vertices = len(vertices)
+    cuts = {}
     for i, flight in enumerate(flights):
         for cut in (flight["start_cut_m"], flight["end_cut_m"]):
-            face_visits += len(faces)
-            faces, masks, count = _split(
-                vertices, flights, faces, masks, i, cut, max_vertices, max_faces
-            )
-            intersections += count
+            key = _frame(flight), cut
+            first, owners = cuts.get(key, (i, 0))
+            cuts[key] = first, owners | (1 << flight["owner"])
+    for (_frame_key, cut), (i, owners) in cuts.items():
+        face_visits += len(faces)
+        faces, masks, parents, count, points = _split(
+            vertices,
+            flights,
+            faces,
+            masks,
+            parents,
+            planar,
+            i,
+            cut,
+            max_vertices,
+            max_faces,
+            owners if scope == "flight_footprint" else None,
+        )
+        intersections += count
+        geometric_points += points
     xy, faces = np.array(vertices), np.array(faces, dtype=int)
+    face_ids = refined_face_ids(faces, parents, planar)
     parts, globals_ = [], []
     for owner in range(len(plan["rows"])):
         indices = np.array(
             [i for i, mask in enumerate(masks) if mask & (1 << owner)], dtype=int
         )
-        globals_.append(indices)
+        globals_.append(face_ids[indices])
         parts.append(faces[indices])
     errors = []
     for part, domain in zip(parts, plan["prepared_domains"], strict=True):
@@ -171,7 +127,17 @@ def prepare_stair_lofts(plan, *, max_vertices=4096, max_faces=8192):
         "input_faces": before,
         "output_faces": len(faces),
         "edge_intersections": intersections,
+        "new_planar_edge_points": geometric_points,
+        "xy_vertex_copy_count": initial_vertices + intersections - geometric_points,
+        "xy_vertex_copy_bytes": (initial_vertices + intersections - geometric_points)
+        * plan["xy"].dtype.itemsize
+        * 2,
         "face_visits": face_visits,
+        "unique_station_cuts": len(cuts),
+        "cut_scope": scope,
+        "planar_faces": len(np.unique(face_ids)),
+        "lineage_vertex_entries": len(planar),
+        "lineage_parent_entries": len(parents),
         "maximum_extra_flat_m": max(max(f["extra_flat_m"]) for f in flights),
         "source_coverage_errors_m2": errors,
     }
@@ -196,6 +162,40 @@ def _expressions(plan):
                 )
             expressions[int(vertex)] = expression
     return expressions
+
+
+def require_owned_lofts(plan):
+    if plan.get("stair_recipe") != "station_loft":
+        return
+    expected = {
+        owner
+        for owner, row in enumerate(plan["rows"])
+        if row["original"]["source"]["feature"]["properties"].get("subclass") == "steps"
+    }
+    declared = {owner: (low, high) for owner, low, high in plan["stairs"]}
+    flights = plan.get("stair_lofts", [])
+    if (
+        set(declared) != expected
+        or len(declared) != len(plan["stairs"])
+        or {f["owner"] for f in flights} != expected
+        or len(flights) != len(expected)
+    ):
+        raise ValueError(
+            "every declared stair needs its own complete loft and port ownership"
+        )
+    for flight in flights:
+        owner = flight["owner"]
+        if flight["source_id"] != plan["rows"][owner]["source_id"]:
+            raise ValueError("flight source identity differs from its declared owner")
+        ends = flight["start_node"], flight["end_node"]
+        if set(ends) != set(declared[owner]) or len(set(ends)) != 2:
+            raise ValueError("flight ports differ from its declared landing pair")
+        for node in ends:
+            if (
+                not 0 <= node < len(plan["nodes"])
+                or owner not in plan["incident"][node]
+            ):
+                raise ValueError("flight port lacks its declared source owner")
 
 
 def add_loft_equalities(plan, system):

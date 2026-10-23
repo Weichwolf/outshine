@@ -225,7 +225,7 @@ public:
 
   [[nodiscard]] Result<GpuTimingResults> GpuTimings(Completion completion) override {
     if (auto valid = Validate(completion); !valid) { return std::unexpected(valid.error()); }
-    if (!Context_->GpuTiming) {
+    if (Context_->GpuTiming != GpuTimingMode::Dispatches) {
       return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
                                    .Message = "dispatch timing is disabled or unavailable"});
     }
@@ -244,7 +244,7 @@ public:
   [[nodiscard]] Result<SubmissionGpuTiming> SubmissionGpuTime(Completion completion) override {
     const auto status = Poll(completion);
     if (!status) { return std::unexpected(status.error()); }
-    if (!Context_->GpuTiming) {
+    if (Context_->GpuTiming == GpuTimingMode::None) {
       return std::unexpected(
           Error{.Kind = ErrorKind::Unsupported,
                 .Message = "Vulkan submission timing is disabled or unavailable"});
@@ -286,7 +286,7 @@ private:
         return std::unexpected(*Failed_);
       }
       Completed_ = Pending_.front().Serial;
-      if (Context_->GpuTiming) {
+      if (Context_->GpuTiming != GpuTimingMode::None) {
         if (Timings_.size() == kRetainedTimings) { Timings_.erase(Timings_.begin()); }
         Timings_.push_back({.Serial = Completed_,
                             .Results = Pending_.front().Recorded->Timings(),
