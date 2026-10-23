@@ -6,6 +6,7 @@
 #include <array>
 #include <cstddef>
 #include <expected>
+#include <memory>
 #include <span>
 #include <utility>
 #include <vector>
@@ -27,13 +28,15 @@ TerrainResidency::PageBatch TerrainResidency::PlanPages(const Patchwork &patchwo
     const auto *const found = PageIndex_.Find(sheet.Tile);
     const size_t slot = found != nullptr ? *found : Held_.size() + batch.Appended;
     const bool unchanged = found != nullptr && Renderer_->HasHeightPage(Held_[slot].Page) &&
-                           std::ranges::equal(Held_[slot].Nodes, sheet.Nodes);
+                           std::ranges::equal(Held_[slot].Samples(), sheet.Nodes);
     if (!unchanged) {
       auto &pending = batch.Pages[batch.PageCount++];
       pending.Slot = slot;
       pending.Appended = found == nullptr;
       pending.Value = {.Tile = sheet.Tile,
-                       .Nodes = std::vector<float>(sheet.Nodes.begin(), sheet.Nodes.end()),
+                       .Nodes = std::make_shared<const std::vector<float>>(sheet.Nodes.begin(),
+                                                                           sheet.Nodes.end()),
+                       .SharedNodes = nullptr,
                        .SamplesDigest = SamplesIdentity(sheet.Nodes),
                        .SampleBounds = samples,
                        .Postings = sheet.Postings,
@@ -106,7 +109,7 @@ TerrainResidency::UploadPages(const Patchwork &patchwork, const TangentFrame &fr
   GrowCapacity(Instances_, Instances_.size() + batch.SheetCount - virtualCount);
   GrowCapacity(Virtual_, Virtual_.size() + virtualCount);
   std::array<Render::HeightPageView, Render::kHeightPageBatchMost> nodes{};
-  for (size_t at = 0; at < batch.PageCount; ++at) { nodes[at] = batch.Pages[at].Value.Nodes; }
+  for (size_t at = 0; at < batch.PageCount; ++at) { nodes[at] = batch.Pages[at].Value.Samples(); }
   const auto placed = Renderer_->PlaceHeightPages(std::span(nodes).first(batch.PageCount));
   if (!placed) { return std::unexpected(placed.error()); }
   return CommitPages(batch, *placed);

@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <expected>
 #include <optional>
+#include <memory>
 #include <span>
 #include <string>
 #include <vector>
@@ -25,6 +26,8 @@ class SceneRenderer;
 }
 
 enum class TerrainIdentityError { InvalidRequest, Unpublished, NoSource, OverBudget };
+
+enum class TerrainHeapScope { Retained, Additional };
 
 class TerrainResidency {
 public:
@@ -61,7 +64,8 @@ public:
   [[nodiscard]] uint64_t Digest() const noexcept;
   [[nodiscard]] std::expected<std::array<uint8_t, 32>, TerrainIdentityError>
   SurfaceIdentity(Data::TileId region, size_t pagesMost) const;
-  [[nodiscard]] size_t HeapBytes() const noexcept;
+  [[nodiscard]] size_t
+  HeapBytes(TerrainHeapScope scope = TerrainHeapScope::Retained) const noexcept;
   [[nodiscard]] std::optional<double> HeightMAt(LongitudeLatitude at) const noexcept;
   [[nodiscard]] std::optional<std::array<double, 2>> AslBoundsM() const noexcept;
   [[nodiscard]] std::optional<std::array<double, 2>> SampleAslBoundsM() const noexcept;
@@ -76,11 +80,16 @@ private:
   struct Held {
     Data::TileId Tile;
     Render::HeightPageHandle Page{};
-    std::vector<float> Nodes;
+    std::shared_ptr<const std::vector<float>> Nodes;
+    const std::vector<float> *SharedNodes = nullptr;
     std::array<uint8_t, 32> SamplesDigest{};
     std::array<float, 2> SampleBounds{};
     uint32_t Postings = 0;
     bool Virtual = false;
+
+    [[nodiscard]] std::span<const float> Samples() const noexcept {
+      return Nodes ? std::span<const float>(*Nodes) : std::span<const float>{};
+    }
   };
 
   struct PendingPage {

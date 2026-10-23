@@ -22,9 +22,10 @@ namespace outshine {
       alignmentBytes += sizeof(Generators::RoadSurface) + route.Surface->OwnedHeapBytes();
     }
   }
-  return Sheets.HeapBytes() + Footprints.HeapBytes() + Pieces.HeapBytes() + alignmentBytes +
-         Ground.storageBytes() + PositionsM.capacity() * sizeof(float) +
-         Indices.capacity() * sizeof(uint32_t) + ClassPalette.capacity() * sizeof(float);
+  return Sheets.HeapBytes(TerrainHeapScope::Additional) + Footprints.HeapBytes() +
+         Pieces.HeapBytes() + alignmentBytes + Ground.storageBytes() +
+         PositionsM.capacity() * sizeof(float) + Indices.capacity() * sizeof(uint32_t) +
+         ClassPalette.capacity() * sizeof(float);
 }
 
 GroundWorldCandidate::GroundWorldCandidate(

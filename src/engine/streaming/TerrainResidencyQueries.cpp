@@ -77,10 +77,11 @@ std::optional<double> TerrainResidency::HeightMAt(LongitudeLatitude at) const no
     const CellCoordinate row = CellAt(y - tile.Y, page.Postings, page.Virtual);
     const size_t first =
         (static_cast<size_t>(row.Node) + 1) * kPageSide + static_cast<size_t>(col.Node) + 1;
-    const double nw = page.Nodes[first];
-    const double ne = page.Nodes[first + 1];
-    const double sw = page.Nodes[first + kPageSide];
-    const double se = page.Nodes[first + kPageSide + 1];
+    const auto samples = page.Samples();
+    const double nw = samples[first];
+    const double ne = samples[first + 1];
+    const double sw = samples[first + kPageSide];
+    const double se = samples[first + kPageSide + 1];
     if (col.Fraction >= row.Fraction) {
       return nw + col.Fraction * (ne - nw) + row.Fraction * (se - ne);
     }
