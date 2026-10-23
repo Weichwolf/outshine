@@ -114,6 +114,15 @@ class ColumnTests(unittest.TestCase):
             self.assertEqual(depth[0], 1)
             self.assertEqual(owner[0], -2)
             np.testing.assert_array_equal(normal[0], [0, 0, 1])
+            empty = ready | {
+                "shape": np.zeros(2, np.int64),
+                "lookup": np.empty((0, 0), np.int32),
+            }
+            depth, normal, owner, work = trace(empty, [[0.5, 0.5, 5]], [[0, 0, -1]])
+            self.assertEqual(work["cell_ray_visits"], 0)
+            self.assertEqual(depth[0], 1)
+            self.assertEqual(owner[0], -2)
+            np.testing.assert_array_equal(normal[0], [0, 0, 1])
 
     def test_overlap_union_retains_gap_and_anonymous_sources(self):
         a = merge_columns({(0, 0): [(0, 2, 0, 0), (1, 3, 1, 0), (5, 6, 2, 1)]}, 3)

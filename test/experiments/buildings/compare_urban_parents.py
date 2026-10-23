@@ -5,7 +5,9 @@ import hashlib
 import json
 import math
 import os
+import resource
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -248,8 +250,12 @@ def run(args):
         "jitter_seed": args.jitter_seed,
         "roi": box.tolist(),
         "rays": len(origins),
-        "parent_compile_s": compile_seconds,
+        "parent_prepare_s": compile_seconds,
+        "parent_prepare_kind": "cache_read" if args.parent else "source_compile",
         "reference_prepare_s": prepare_seconds,
+        "reference_prepare_kind": "cache_read" if args.resolved else "source_bake",
+        "ray_arrays_B": origins.nbytes + directions.nbytes,
+        "full_background_B": background.nbytes,
         "parent_array_bytes": sum(a.nbytes for a in parent.arrays().values()),
         "reference_array_bytes": resolved["array_bytes"],
         "paths": {},
@@ -309,6 +315,8 @@ def run(args):
     np.savez_compressed(args.output / "coverage.npz", **coverage)
     report["load_state"] = {
         "pid": os.getpid(),
+        "process_peak_RSS_B": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        * (1 if sys.platform == "darwin" else 1024),
         "note": "Shared development load; times are Python work controls, not device/frame performance.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
