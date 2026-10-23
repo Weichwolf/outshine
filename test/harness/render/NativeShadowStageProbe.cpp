@@ -189,6 +189,15 @@ struct WorldPoint {
   double X, Y;
 };
 
+WorldPoint TexelWorld(const Scene &scene, int x, int y) {
+  const auto &origin = scene.Shadow.Regions()[0].Depth;
+  const int column = (x + kShadowTilePx - static_cast<int>(origin[2])) % kShadowTilePx;
+  const int row = (y + kShadowTilePx - static_cast<int>(origin[3])) % kShadowTilePx;
+  const auto &matrix = scene.Shadow.RegionProjection(0);
+  return {.X = ((2 * (column + 0.5) / kShadowTilePx - 1) - matrix[12]) / matrix[0],
+          .Y = ((1 - 2 * (row + 0.5) / kShadowTilePx) - matrix[13]) / matrix[5]};
+}
+
 bool CastsAt(WorldPoint point, MaskCase mask) {
   if ((mask.Tinted && mask.Thin) || std::abs(point.Y) >= kHalfM) { return false; }
   const uint32_t instances = mask.Tinted ? 2u : 1u;
@@ -210,9 +219,7 @@ void Coverage(Scene &scene, std::span<const float> pixels, MaskCase mask) {
   size_t occupied = 0;
   for (int y = 0; y < kShadowTilePx; ++y) {
     for (int x = 0; x < kShadowTilePx; ++x) {
-      const double worldX = ((2 * (x + 0.5) / kShadowTilePx - 1) - matrix[12]) / matrix[0];
-      const double worldY = ((1 - 2 * (y + 0.5) / kShadowTilePx) - matrix[13]) / matrix[5];
-      const bool casts = CastsAt({.X = worldX, .Y = worldY}, mask);
+      const bool casts = CastsAt(TexelWorld(scene, x, y), mask);
       const auto value =
           pixels[size_t{static_cast<uint32_t>(y)} * kShadowTilePx + static_cast<uint32_t>(x)];
       const float expected = casts ? static_cast<float>(matrix[14]) : 0;
@@ -236,8 +243,9 @@ void Masks(Device &device, Scene &scene) {
           SetMask(scene, mask);
           const FrameContext frame;
           Record(device, scene, frame, true);
-          CHECK(scene.Shadow.HasSubmittedData() && scene.Shadow.CastBatches() == 1,
-                "one actual masked batch casts every declared instance");
+          CHECK(scene.Shadow.HasSubmittedData() && scene.Shadow.CastBatches() >= 1 &&
+                    scene.Shadow.CastBatches() <= 4,
+                "one masked surface spans at most two physical tile periods on each axis");
           const auto pixels = Read(device, scene);
           Coverage(scene, pixels, mask);
           scene.Shadow.Prepare(frame);
@@ -412,9 +420,8 @@ void GroundOnly(Device &device, Scene &scene) {
   size_t occupied = 0;
   for (int y = 0; y < kShadowTilePx; ++y) {
     for (int x = 0; x < kShadowTilePx; ++x) {
-      const double worldX = ((2 * (x + 0.5) / kShadowTilePx - 1) - matrix[12]) / matrix[0];
-      const double worldY = ((1 - 2 * (y + 0.5) / kShadowTilePx) - matrix[13]) / matrix[5];
-      const bool inside = std::abs(worldX) < 64 && std::abs(worldY) < 64;
+      const auto world = TexelWorld(scene, x, y);
+      const bool inside = std::abs(world.X) < 64 && std::abs(world.Y) < 64;
       const float expected = inside ? static_cast<float>(matrix[10] * 3 + matrix[14]) : 0;
       const float value =
           pixels[size_t{static_cast<uint32_t>(y)} * kShadowTilePx + static_cast<uint32_t>(x)];
