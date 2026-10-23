@@ -304,6 +304,9 @@ def run(args):
             ).values()
         ),
         "required_original_rest_triangles": len(retained["indices"]),
+        "required_original_rest_diagnostic_array_bytes": sum(
+            v.nbytes for v in retained_subset(original, a["needs_sources"]).values()
+        ),
         "nominal_three_metre_projection_bound_px": displacement_bound(
             a["source_bounds"], view, 3
         ),
