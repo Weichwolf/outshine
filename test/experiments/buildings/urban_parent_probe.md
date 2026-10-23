@@ -30,103 +30,140 @@ child cells. The filtered signed correction to a preserved opaque baseline is
 C/T/S. Full readiness gives D=0 and bypasses parent traversal. Native World bounds,
 terrain/curvature, original-height evidence and readiness remain #1102.
 
-## Current step: share first-hit geometry across surface draws
+## Current step: sampled transport at opaque stops and ready children
 
-`urban_grouped_first_hit.py` walks each view ray once for all its inverse-CDF
-surface draws. It evaluates density, intersections, height ordering and pre-cell
-transmission once per visited cell, then finds the first crossed height for each
-still-pending uniform. Labels in one cell remain mutually exclusive: all use the
-same pre-cell T; T changes only after the cell. Closed roof/wall ties, open stops,
-source corridors and primary replacement masks retain the original predicates.
-Unsorted and duplicate uniforms work; output keeps the original ray-major order.
+`urban_sampled_layer.py` returns parent-only premultiplied C, transmission T and
+miss-conditioned receiver shadow S for unit pixel rays. Finite stops are open;
+infinity means sky. Receiver normals may be supplied. Camera and caster coverage
+are independent caller declarations of complete ready cells, including vacancies;
+source/asset presence alone grants neither declaration. The caller retains its
+known opaque surface and non-parent direct-light visibility.
 
-This shares only identical geometric rays, not neighboring pixels or shadow rays.
-The original independent draw kernel remains the correctness/cost control. M=1
-reuses it directly. The common saved parent and `ordered_events`/DDA definitions
-remain single implementations; no fine children, per-cell table, cache, learned
-model, new dependency or native interface is added.
+The existing grouped first-hit estimator supplies only C. Complete-prefix T and
+receiver S remain deterministic, conditioned on the same missed view prefix.
+Additional deterministic caster visibility modulates direct parent lighting while
+ambient stays unchanged. Compose per ray as `C+T*(S*B_direct+B_other)` or filter the
+existing signed correction jointly. Do not clamp negative corrections or average
+T and S independently. Coincident shading keeps the existing single urban material
+assumption; this is the control's single direct-light profile, not general GI.
 
-`urban_sampled_parent.py` retains the estimator `T*B+(1-T)/M*sum(R_i)`, the separate
-CDF RNG stream, full-prefix T, miss-conditioned background, source heights, GGX
-material and exact conditional shadows. Sharing changes neither sample values nor
-the model/variance target. Coincident shading retains the control's single urban
-material assumption. Gamma/rounding and finite-sample limits remain separate;
-this is no complete numeric unbiasedness, culling or temporal-stability certificate.
+Shared `transport_inputs` validates the old/new layer domains. Masked transmission
+uses the existing exact categorical DDA; affine runs are not applied through ready
+masks. Unmasked queries retain the previous selector. Known child cells are removed
+only from their declared camera/caster role. Both fully ready domains return0/1/1
+before sampling/model/traversal. Complete unions now work as well as one whole-grid
+rectangle: a clipped boundary sweep uses O(R) memory and O(R^2 log R) worst-case work
+in rectangle count R, not a world-sized cell table. Holes/overlaps/outside portions
+are checked against200 independent small cell masks and huge symbolic grids.
+Partial multi-rectangle costs are not qualified by the one-rectangle timings below.
 
-The Python sampled consumer selects sharing for M>=4 and repeated draws for M<4;
-this is a measured research choice, not global optimality. `--repeat-first-hits`
-selects the independent control; `--group-first-hits` forces sharing. The separate
-`--first-hit-prefix` study disables automatic sharing; explicit combination is
-rejected. Native rendering and the categorical non-sampled control are unchanged.
-Extremely sparse/long paths still visit cells: sharing removes repeated work,
-not the underlying per-ray far-work dependence. The prefix alternative and all
-its slower dense/numerically ambiguous cases remain pinned below.
+The new caster-only case exposed a reference crash: a camera-unknown background
+point may lie inside a known closed caster. `column_field_query.trace` now has an
+explicit `inside_is_hit` mode, used only by child visibility. Initial containment
+counts as a hit at minimum; no surface normal is promised for that hit. Default
+camera queries retain their occupied-start rejection; standard-column mode only.
+This does not imply any native raster/near-clip shader change (master #1113/6353898353).
 
-Frozen `7e26abdc1` includes feature `8a7c2ba9b` and master `7a8000922`.
-Later reporting removes only an unused packet-width field; numerical code is unchanged.
-138 focused tests pass in19.212s:81 independent box-world PMFs, reversed/duplicate
-uniforms,60 nonuniform rays with arbitrary directions/stops and M=1/2/4/16/512,
-roof/wall/CDF ties, replacement masks, exact RGB/batch equality and prior controls.
-Nine clean frozen runs retain247,731 original masses/616x624, including day/back/
-night/motion/elevated/dawn, M=16, a second night stream and the old default control.
-Every array and27 actual PNGs are bit-identical to the previous first-hit delivery;
-27 PNGs rechecked optically. Original source/model/silhouette/aliasing errors and
-visible Monte Carlo grain therefore remain. Earlier night M=4/M=16 sampling errors
-.017211/.006802 are preserved, not a new equal-time or convergence guarantee.
+Measured `beaba3860` includes feature `0271372c9` and master `54fa7db0e`.
+The later `334bfcff1` extends only ready-union detection/docs/tests; all timed masks
+contain0/1 rectangles. Final151 focused tests pass in25.238s;148 passed on the
+measurement freeze. They include81 independently enumerated box worlds across
+finite stops/height mixtures/sun/point lights/independent replacements, nonuniform
+conditional T/S controls, ready-union/hole/scale cases, contained caster/camera
+separation, external direct-only shadows and original first-hit/layer/field tests.
 
-| Case / M | Repeated s | Shared s | Speedup |
+Six clean paired image runs retain247,731 original masses/616x624: elevated day,
+backlight, night, grazing day and8km motion, plus night with16 surface draws. Each
+checks pending, view-only, caster-only, half-ready, full-ready and a foreground
+plane covering75% of the field width. Spatial samples stay4x4 in1280x720; only the
+projected ROI is evaluated. Altitudes/distances:75,894.663844m/240km elevated,
+2,000m/50km grazing. Flat ENU controls do not prove curved-Earth visibility or a
+complete native frame. All full-ready composites are bit-identical to their supplied
+child baseline.87 actual PNGs (78 layer/control plus9 legacy) were optically checked;
+the3 legacy image/array sets remain bit-identical to `de291413a`.
+
+| Case / draws | State | Expectation s | Sampled s | Added pixel RGB RMSE |
+| --- | --- | ---: | ---: | ---: |
+| elevated-day/4 | pending | 1.955 | 1.459 | 0.003322 |
+| elevated-day/4 | half_view | 1.276 | 1.045 | 0.002378 |
+| elevated-day/4 | half_caster | 2.594 | 1.540 | 0.004019 |
+| elevated-day/4 | half_ready | 1.617 | 1.080 | 0.002378 |
+| elevated-day/4 | all_ready | 0.040 | 0.004 | 0.000000 |
+| elevated-day/4 | foreground | 1.118 | 0.600 | 0.001629 |
+| elevated-back/4 | pending | 1.449 | 1.217 | 0.011649 |
+| elevated-back/4 | half_view | 0.854 | 0.891 | 0.008149 |
+| elevated-back/4 | half_caster | 2.115 | 1.324 | 0.011344 |
+| elevated-back/4 | half_ready | 1.215 | 0.998 | 0.008149 |
+| elevated-back/4 | all_ready | 0.056 | 0.004 | 0.000000 |
+| elevated-back/4 | foreground | 0.866 | 0.582 | 0.005315 |
+| elevated-night/4 | pending | 4.401 | 2.689 | 0.075841 |
+| elevated-night/4 | half_view | 3.432 | 2.120 | 0.041518 |
+| elevated-night/4 | half_caster | 7.486 | 2.958 | 0.088138 |
+| elevated-night/4 | half_ready | 4.286 | 2.210 | 0.041518 |
+| elevated-night/4 | all_ready | 0.044 | 0.004 | 0.000000 |
+| elevated-night/4 | foreground | 2.985 | 1.244 | 0.002023 |
+| grazing-day/4 | pending | 28.150 | 13.806 | 0.006018 |
+| grazing-day/4 | half_view | 18.619 | 11.548 | 0.005583 |
+| grazing-day/4 | half_caster | 48.416 | 14.645 | 0.006918 |
+| grazing-day/4 | half_ready | 34.889 | 16.047 | 0.005583 |
+| grazing-day/4 | all_ready | 0.238 | 0.018 | 0.000000 |
+| grazing-day/4 | foreground | 19.017 | 9.304 | 0.004618 |
+| grazing-motion/4 | pending | 33.815 | 16.278 | 0.003053 |
+| grazing-motion/4 | half_view | 29.803 | 13.057 | 0.002161 |
+| grazing-motion/4 | half_caster | 51.377 | 20.603 | 0.004325 |
+| grazing-motion/4 | half_ready | 27.138 | 12.273 | 0.002161 |
+| grazing-motion/4 | all_ready | 0.156 | 0.016 | 0.000000 |
+| grazing-motion/4 | foreground | 17.564 | 6.811 | 0.001509 |
+| elevated-night16/16 | pending | 6.497 | 5.559 | 0.015646 |
+| elevated-night16/16 | half_view | 5.513 | 3.969 | 0.009462 |
+| elevated-night16/16 | half_caster | 9.778 | 5.802 | 0.013238 |
+| elevated-night16/16 | half_ready | 6.005 | 3.152 | 0.009462 |
+| elevated-night16/16 | all_ready | 0.058 | 0.006 | 0.000000 |
+| elevated-night16/16 | foreground | 4.176 | 2.028 | 0.000615 |
+
+These times compare finite MC radiance with the complete categorical expectation,
+not equal-quality renderers. They are single sequential calls on shared Linux/
+i5-1135G7 CPU, batch2048, with original asset preparation outside query timings.
+No own profiling/tests overlap normal timing; other host Python activity was seen.
+Negative cases remain: backlight view-only is slightly slower; night MC4 grain is
+visible and large. Night pending error.075841->.015646 at2.689->5.559s for4->16 draws;
+this is neither convergence nor equal-time superiority. The underlying source,
+height/model, silhouette, spatial aliasing and transition errors remain.
+
+In the full elevated-night transport check, maximum T difference is5.55e-17 and
+contributing receiver S differences are zero in all six states. Raw unlit S may
+be0 in the old shortcut and1 in the full-ready identity; direct light is zero there.
+The returned transport is consumed with the same receiver normals/light. Small
+numeric agreement is not a native culling or full floating unbiasedness certificate.
+
+| State | Complete2048 peak B | Sampled2048 peak B | Sampled512 peak B |
 | --- | ---: | ---: | ---: |
-| ground-day | 8.392 | 7.049 | 1.19x |
-| ground-night | 8.789 | 7.846 | 1.12x |
-| ground-night16 | 17.256 | 9.676 | 1.78x |
-| elevated-day | 2.300 | 1.833 | 1.25x |
-| dawn-north | 4.301 | 3.805 | 1.13x |
+| pending | 898,897 | 2,548,845 | 1,523,589 |
+| half_ready | 926,183 | 1,374,053 | 877,866 |
+| all_ready | 644,588 | 644,708 | 644,588 |
 
-Each pair uses the same complete stored field, prepared spatial rays/light and
-uniforms on Linux/i5-1135G7 CPU. Two rounds reverse method order; report medians of
-two calls, not a statistical/device qualification. No own tests/profiling overlap
-normal timings; interactive load and thermal/frequency changes remain possible.
-Only projected ROIs inside1280x720 are traced, not complete native frames. Ground
-uses50km/2m; elevated/dawn240km/75,894.663844m in flat ENU, no curvature visibility.
+This separate tracemalloc pass spans1,024 actual grazing rays. It includes mixed
+parent/child query allocations; source/asset preparation is outside and outputs
+remain retained. These are observed Python/NumPy peaks, not total allocations or
+renderer/app/GPU budgets. Sampled2048 can consume more transient memory than the
+complete expectation; batch512 lowers the peak with additional packet work.
+Instrumented times are excluded from normal comparisons. Original C/T/S output
+arrays have the same size; frame RSS also includes both controls and resolved data.
 
-| Case | Repeated height tests | Shared height tests | Shared threshold comparisons |
-| --- | ---: | ---: | ---: |
-| ground-day | 4,294,448 | 2,327,528 | 9,310,112 |
-| ground-night | 4,338,716 | 2,348,600 | 9,394,400 |
-| ground-night16 | 17,263,664 | 3,384,848 | 54,157,568 |
-| elevated-day | 1,196,132 | 343,340 | 1,373,360 |
-| dawn-north | 1,201,740 | 344,852 | 1,379,408 |
+Post-union all-ready probes with2/4/16/64 rectangles keep the original child frame
+bit-identical and record zero parent packets for24,960 rays. That proves neither
+partial-mask cost nor automatically certified readiness. The original sources,
+full original input archives and prior controls remain protected. No images are
+published. Raw commands/hashes/terminal results, pixels, work/memory/union records
+and duplicate redirects: `/tmp/outshine-research-sampled-layer-beaba3860/receipt.json`.
 
-M4 day geometric visits1,073,612->581,882 and known geometry-input copies
-1,170,176->292,544B. These are selected input-array copies, not all copied bytes.
-The grouped implementation also performs9,310,112 threshold comparisons versus
-4,294,448 in the repeated event matrices. Cheap comparison work grows while
-expensive density/geometry work shrinks; do not treat cell visits as total work.
-Shadow work, shaded surface draws and the full-prefix stage remain unchanged.
-All finite work/copy counters stay in the reports; no hardware speedup is inferred
-solely from Python vectorization or this operation mix.
-
-| Surface draws / ray | Repeated peak B | Shared peak B | Repeated/shared live blocks |
-| --- | ---: | ---: | ---: |
-| 4 | 2,513,188 | 878,614 | 118/78 |
-| 16 | 9,426,765 | 1,368,854 | 46/51 |
-
-The separate traced queries use512 actual positive city rays spread across the
-full original ray set. Geometry-input copies are inside the trace; model/T/light
-preparation is outside and outputs stay retained. Peaks/live blocks are observed
-Python/NumPy measurements, not all allocations, total renderer/app memory, GPU
-storage or device budgets. The grouped boolean temporary scales as ray packet x
-M x height labels; M is bounded at512 and renderer packets at2048. Normal timings
-exclude these instrumentation runs. Full-process RSS also includes both controls,
-resolved oracle and image storage; it is not a sampler allocation bound.
-
-Decision: use shared traversal in the Python M>=4 sampled reference, retain explicit
-independent and prefix controls, and pass the work/quality evidence onward. This
-improves an existing full-city consumer without a new material/night technique.
-Spatial/temporal filtering, broadly bounded far work, ready/opaque composition,
-original heights, terrain/curvature and native A18/Iris/p99 remain unqualified.
-Commands, source hashes, terminal logs, paired/memory data, image checks and bit-
-identical duplicate redirects: `/tmp/outshine-research-grouped-hit-7e26abdc1/receipt.json`.
+Decision: retain this optional composed consumer and the unchanged complete
+expectation as its quality control. It closes the Python finite-stop/ready/external-
+caster contract, not world/native admission or a seamless filtered transition.
+Next need remains pixel/temporal filtering and native interface/integration/geometry
+qualification with original-height/terrain/curvature evidence. Renderer #1129/#1131
+stays with Engine; World/cache #1102 with master. No native parallel implementation,
+material/night side technique or new cache/export framework was introduced.
 
 ## Earlier controlled alternatives
 
@@ -135,6 +172,7 @@ versions; original inputs and referenced raw artifacts have not been removed.
 
 | Alternative | Result/limit | Detailed method |
 | --- | --- | --- |
+| Shared first-hit geometry | Same pixels with1.12-1.78x CPU-query gain; geometry memory lower, extra threshold comparisons | [0f5f2e2ef](https://github.com/Weichwolf/outshine/blob/0f5f2e2ef/test/experiments/buildings/urban_parent_probe.md) |
 | Independent sampled first-hit RGB | Deterministic T/background, finite surface sampling; ground gain and night variance, elevated regressions | [efe416498](https://github.com/Weichwolf/outshine/blob/efe416498/test/experiments/buildings/urban_parent_probe.md) |
 | Sparse prefix inversion/scout | Equal events,7.1x sparse subcase gain; full-city and allocation regressions, wide/numeric fallbacks linear | [a191eac03](https://github.com/Weichwolf/outshine/blob/a191eac03/test/experiments/buildings/urban_parent_probe.md) |
 | Affine primary prefixes |11.2x/7.2x/2.6x scalar-query gain with unchanged Coverage; higher transient memory, no RGB alone | [932ae177e](https://github.com/Weichwolf/outshine/blob/932ae177e/test/experiments/buildings/urban_parent_probe.md) |
@@ -166,6 +204,10 @@ python -B -W error test/experiments/buildings/compare_urban_horizon.py \
   --parent "$PARENT_NPZ" --resolved "$RESOLVED_NPZ" --shadow-runs --paired-exact \
   --surface-samples 4 --sparse-probe --lighting day \
   --output /tmp/outshine-urban-first-hit --distance 50000 --altitude 2
+python -B -W error test/experiments/buildings/compare_urban_layers.py \
+  --parent "$PARENT_NPZ" --resolved "$RESOLVED_NPZ" --surface-samples 4 \
+  --paired-sampled --foreground-fraction 0.75 --distance 50000 --altitude 2000 \
+  --output /tmp/outshine-urban-sampled-layers
 ```
 
 Set PARENT_NPZ/RESOLVED_NPZ to the saved original inputs pinned in the reports;
