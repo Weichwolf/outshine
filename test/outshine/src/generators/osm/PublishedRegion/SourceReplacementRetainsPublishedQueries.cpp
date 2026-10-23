@@ -3,6 +3,7 @@
 #include "Check.h"
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
@@ -12,14 +13,16 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
+  constexpr TileAt firstTile{.X = 8581, .Y = 5603};
+  constexpr TileAt replacementTile{.X = 8582, .Y = 5603};
 
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> old;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> next;
   {
     const std::array<std::string, 1> layers{"building"};
     ::outshine::Generators::Osm::OsmField ingest(14, layers);
-    ::outshine::Generators::Osm::StreetField ways;
-    ::outshine::Generators::Osm::WaterField water;
+    const ::outshine::Generators::Osm::StreetField ways;
+    const ::outshine::Generators::Osm::WaterField water;
     ::outshine::Generators::Osm::BuildingField footprints;
     footprints.AnchorAt({{1, 2, 3}});
     const std::array<::outshine::Generators::Osm::OsmField::Declared, 1> structure{
@@ -29,7 +32,7 @@ int main() {
           .HeightM = 9,
           .Area = true,
           .LatLon = {47.0, 9.0, 47.0, 9.001, 47.001, 9.001, 47.001, 9.0}}}};
-    ingest.Declare(structure, TileAt{.X = 8581, .Y = 5603});
+    ingest.Declare(structure, firstTile);
     const uint64_t oldGeneration = ingest.Generation();
     const Data::TileSourceIdentity heightSource{.Kind = Data::DataKind::Elevation,
                                                 .Tile = {.Zoom = 14, .X = 8581, .Y = 5603},
@@ -38,17 +41,15 @@ int main() {
     const ::outshine::Generators::Osm::BuildingField::Baked emptyBake;
     footprints.PreparesAcceptances({.Tiles = 1});
     footprints.Take(0);
-    auto acceptance = footprints.PrepareAcceptance(0,
-                                                   emptyBake,
-                                                   std::span(&heightSource, 1),
-                                                   true,
-                                                   ingest.Tiles().front().Source,
-                                                   {.HeightRasterDigest = 17,
-                                                    .StreetDigest = 19,
-                                                    .Projection = {.FocalPx = 90},
-                                                    .TileSpanM = 100,
-                                                    .Eye = {},
-                                                    .EyeEcef = {}});
+    const ::outshine::Generators::Osm::BuildingField::BakeInputs bakeInputs{
+        .HeightRasterDigest = 17,
+        .StreetDigest = 19,
+        .Projection = {.FocalPx = 90},
+        .TileSpanM = 100,
+        .Eye = {},
+        .EyeEcef = {}};
+    auto acceptance = footprints.PrepareAcceptance(
+        0, emptyBake, std::span(&heightSource, 1), true, ingest.Tiles().front().Source, bakeInputs);
     footprints.CommitAcceptance(std::move(acceptance), emptyBake);
     old = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
         ::outshine::Generators::Osm::RegionSources::Snapshot(&ingest, ways, water.Asset(ingest)),
@@ -69,7 +70,7 @@ int main() {
     ::outshine::Generators::Osm::OsmField otherIngest(14, layers);
     auto changedStructure = structure;
     changedStructure[0].HeightM = 15;
-    otherIngest.Declare(changedStructure, TileAt{.X = 8581, .Y = 5603});
+    otherIngest.Declare(changedStructure, firstTile);
     CHECK(otherIngest.Generation() == ingest.Generation() &&
               otherIngest.Tiles().front().Source == ingest.Tiles().front().Source &&
               otherIngest.Tiles().front().FeatureCount == ingest.Tiles().front().FeatureCount &&
@@ -84,7 +85,7 @@ int main() {
           "the published region pins native features, tags and accepted source identity");
 
     ingest.Declare(std::span<const ::outshine::Generators::Osm::OsmField::Declared>{},
-                   TileAt{.X = 8582, .Y = 5603});
+                   replacementTile);
     CHECK(!old->MatchesLiveSources(&ingest, footprints),
           "changed vector generation cannot publish live detail into the older region");
     footprints.ResetDerived();
