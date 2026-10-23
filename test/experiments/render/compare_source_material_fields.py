@@ -11,6 +11,7 @@ from compare_directed_groups import retained_subset, transformed
 from compare_vertex_cluster_meshes import ready_source, setup_view
 from full_view_reference import load
 from native_capture_meshes import fields_at
+from packed_normals import unpack
 from PIL import Image, ImageDraw
 from process_memory import peak_rss_bytes
 from source_material_mesh import carry_fields
@@ -50,15 +51,33 @@ def field_errors(reference, candidate):
     result["shader_cast_program_mismatch_rays"] = int(
         (code(reference["uv"][common]) != code(candidate["uv"][common])).sum()
     )
+    qualified = common & reference["shading_valid"] & candidate["shading_valid"]
+    a, b = reference["normal"][qualified], candidate["normal"][qualified]
+    angle = np.degrees(
+        np.arctan2(np.linalg.norm(np.cross(a, b), axis=1), np.einsum("ij,ij->i", a, b))
+    )
+    result.update(
+        qualified_normal_rays=int(qualified.sum()),
+        maximum_normal_angle_degrees=float(angle.max(initial=0)),
+        normal_angle_percentiles_degrees=np.quantile(angle, [0.5, 0.95, 0.99]).tolist()
+        if len(angle)
+        else None,
+        normal_rays_over_one_degree=int((angle > 1).sum()),
+    )
     return result
 
 
-def sample_fields(source, origins, directions):
+def sample_fields(source, origins, directions, *, qualified_faces=None):
     start = time.perf_counter()
     prepared = prepare_source(source)
     prepared_at = time.perf_counter()
     depth, faces = intersect_source(source, origins, directions, prepared=prepared)
     fields = fields_at(source, origins, directions, depth, faces)
+    qualified = faces >= 0
+    if qualified_faces is not None:
+        qualified[qualified] = qualified_faces[faces[qualified]]
+    fields["normal"][~qualified] = 0
+    fields["shading_valid"] = qualified
     return fields | {"depth": depth, "face": faces}, {
         "prepare_seconds": prepared_at - start,
         "intersection_and_fields_seconds": time.perf_counter() - prepared_at,
@@ -67,7 +86,13 @@ def sample_fields(source, origins, directions):
 
 
 def diagnostic_pixels(fields, kind, width, height):
-    values = coordinate_colour(fields["uv"], fields["metres"], kind)
+    if kind == "normal":
+        values = (fields["normal"].astype(np.float32) + np.float32(1)) / np.float32(2)
+        values[~fields["shading_valid"]] = [1, 0, 1]
+    elif kind == "colour":
+        values = np.clip(fields["colour"].astype(np.float32), 0, 1)
+    else:
+        values = coordinate_colour(fields["uv"], fields["metres"], kind)
     values[fields["face"] < 0] = 0
     return np.rint(255 * average_samples(values, width, height, 2)).astype(np.uint8)
 
@@ -79,9 +104,24 @@ def run(args):
         with np.load(args.product / f"{name}.npz", allow_pickle=False) as archive:
             arrays[name] = {k: archive[k] for k in archive.files}
     a, b = arrays["control"], arrays["centre"]
+    for key in (
+        "basis",
+        "anchor",
+        "face_shading_valid",
+        "face_native_stream",
+        "uniform_colour",
+    ):
+        if (key in a) != (key in b) or (
+            key in a and not np.array_equal(a[key], b[key])
+        ):
+            raise ValueError(
+                "original shading frame, validity and defaults must survive placement"
+            )
     restored = carry_fields(b, b["corner_swap"])
-    for key in ("corner_uv", "corner_metres"):
-        if not np.array_equal(restored[key].view(np.uint32), a[key].view(np.uint32)):
+    for key in ("corner_uv", "corner_metres", "corner_shading_words", "corner_colour"):
+        if key in a and not np.array_equal(
+            restored[key].view(np.uint32), a[key].view(np.uint32)
+        ):
             raise ValueError(
                 "exact corner fields must survive clustering and winding changes"
             )
@@ -98,12 +138,30 @@ def run(args):
     ):
         raise ValueError("all original sources must remain accounted for")
     sources = {"original": original}
+    qualified_faces = {"original": np.ones(len(original["indices"]), bool)}
     for name, value in arrays.items():
         source = ready_source(value, retained)
         for field in ("uv", "metres"):
             source[field] = np.concatenate(
                 (value["corner_" + field].reshape(-1, 2), retained[field])
             )
+        validity = value.get("face_shading_valid", np.ones(len(value["indices"]), bool))
+        qualified_faces[name] = np.r_[validity, np.ones(len(retained["indices"]), bool)]
+        if "corner_shading_words" in value:
+            normal = source["vertex_normal"][: len(validity) * 3].reshape(-1, 3, 3)
+            # Invalid faces keep only a reader placeholder, then expose zero plus
+            # an explicit false flag. Their normal diagnostic is magenta.
+            normal[validity] = (
+                unpack(value["corner_shading_words"][validity].reshape(-1))
+                @ value["basis"].T
+            ).reshape(-1, 3, 3)
+            source["vertex_normal"][: len(validity) * 3] = normal.reshape(-1, 3)
+        if "corner_colour" in value:
+            source["colour"][: len(validity) * 3] = value["corner_colour"].reshape(
+                -1, 4
+            )
+        elif "uniform_colour" in value:
+            source["colour"][: len(validity) * 3] = value["uniform_colour"]
         sources[name] = source
     support = {"positions": np.concatenate([s["positions"] for s in sources.values()])}
     view, _, box, origins, directions = setup_view(
@@ -112,12 +170,19 @@ def run(args):
     width, height = box[1] - box[0]
     raw, costs = {}, {}
     for name, source in sources.items():
-        raw[name], costs[name] = sample_fields(source, origins, directions)
+        raw[name], costs[name] = sample_fields(
+            source, origins, directions, qualified_faces=qualified_faces[name]
+        )
+        costs[name]["unqualified_shading_hit_rays"] = int(
+            ((raw[name]["face"] >= 0) & ~raw[name]["shading_valid"]).sum()
+        )
     kinds = ("program", "uv", "metres")
+    if "corner_shading_words" in a:
+        kinds += ("normal", "colour")
     names = ("original", "control", "centre")
     zoom = 8
     pw, ph = int(width * zoom + 16), int(height * zoom + 36)
-    contact = Image.new("RGB", (pw * 3, ph * 4), (28, 28, 28))
+    contact = Image.new("RGB", (pw * len(kinds), ph * 4), (28, 28, 28))
     draw = ImageDraw.Draw(contact)
     comparisons = {}
     for column, kind in enumerate(kinds):
@@ -183,7 +248,7 @@ def run(args):
             for name, source in sources.items()
         },
         "process_peak_rss_bytes": peak_rss_bytes(),
-        "scope": "Actual projected first-hit program/UV/metres false-colour diagnostics against the stored native fields. No PBR, filtered material, colour-factor, native-normal, C/T/S or device approval. Native/source support and triangulation differences remain visible, not normalized away. Per-corner transport is bitwise; screen interpolation can change when geometry moves.",
+        "scope": "Actual projected first-hit program/UV/metres and optional source-rule normal/colour diagnostics against stored native fields. Source-rule words use the original source frame before deformation; invalid weld faces expose a false validity flag and zero normal, magenta in diagnostics. No PBR, filtered material, cached-native triangulation/normal equivalence, C/T/S or device approval. Native/source support and triangulation differences remain visible, not normalized away. Per-corner transport is bitwise; screen interpolation can change when geometry moves.",
     }
     (args.output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2), flush=True)
