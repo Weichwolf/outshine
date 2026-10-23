@@ -20,14 +20,6 @@ static_assert(std::is_nothrow_move_assignable_v<BuildingFootprint>);
 static_assert(std::is_nothrow_move_constructible_v<BuildingField::AcceptedInput>);
 static_assert(std::is_nothrow_move_assignable_v<BuildingField::AcceptedInput>);
 
-namespace {
-size_t ContactBytes(std::span<const BuildingFootprint> prints) noexcept {
-  size_t bytes = 0;
-  for (const auto &print : prints) { bytes += print.HeapBytes(); }
-  return bytes;
-}
-}
-
 BuildingField BuildingField::SnapshotAccepted() const {
   BuildingField copy = *this;
   const size_t released = copy.Admission_.ReleaseUnaccepted(copy.AcceptedTiles_);
@@ -39,7 +31,6 @@ BuildingField BuildingField::SnapshotAccepted() const {
 void BuildingField::ResetDerived() {
   ReservationOwner_ = ReservationDomain{};
   ++Revision_;
-  Prints_.clear();
   ContactBytes_ = 0;
   AcceptedTiles_.clear();
   AcceptedInputs_.clear();
@@ -50,12 +41,10 @@ void BuildingField::ResetDerived() {
   RefinementActive_ = false;
   Admission_ = {};
   OsmHeights_ = DefaultHeights_ = Fronted_ = 0;
-  SeatSpread_.clear();
-  Across_.clear();
 }
 
 void BuildingField::AnchorAt(const Vec3 &ecef) {
-  assert(Prints_.empty());
+  assert(FootprintCount() == 0);
   for (int c = 0; c < 3; c++) { Anchor_[c] = ecef[c]; }
   Anchored_ = true;
 }
@@ -77,13 +66,10 @@ BuildingField::Next(const OsmField &field,
   return next;
 }
 
-void BuildingField::PreparesAcceptances(AcceptanceCapacity capacity) {
-  Prints_.reserve(Prints_.size() + capacity.Prints);
-  SeatSpread_.reserve(SeatSpread_.size() + capacity.Spread);
-  Across_.reserve(Across_.size() + capacity.Across);
-  AcceptedTiles_.reserve(AcceptedTiles_.size() + capacity.Tiles);
-  AcceptedInputs_.reserve(AcceptedInputs_.size() + capacity.Tiles);
-  Products_.reserve(Products_.size() + capacity.Tiles);
+void BuildingField::PreparesAcceptances(size_t tiles) {
+  AcceptedTiles_.reserve(AcceptedTiles_.size() + tiles);
+  AcceptedInputs_.reserve(AcceptedInputs_.size() + tiles);
+  Products_.reserve(Products_.size() + tiles);
 }
 
 BuildingField::PendingAcceptance
@@ -104,6 +90,7 @@ BuildingField::PrepareAcceptance(uint32_t tile,
                                  BakeInputs bake,
                                  uint64_t heightRevision,
                                  HeightField::Request heights) {
+  PreparesAcceptances(std::ranges::binary_search(AcceptedTiles_, tile) ? 0 : 1);
   return {this,
           tile,
           baked,
@@ -116,120 +103,73 @@ BuildingField::PrepareAcceptance(uint32_t tile,
 }
 
 void BuildingField::CommitAcceptance(PendingAcceptance pending, const Baked &baked) noexcept {
-  const size_t contactBytes = ContactBytes(baked.Prints);
   assert(pending.Owner_ == this && pending.Prints_ == baked.Prints.size() &&
          pending.Spread_ == baked.SeatSpreadM.size() && pending.Across_ == baked.AcrossM.size());
-  assert(Prints_.capacity() - Prints_.size() >= baked.Prints.size() &&
-         SeatSpread_.capacity() - SeatSpread_.size() >= baked.SeatSpreadM.size() &&
-         Across_.capacity() - Across_.size() >= baked.AcrossM.size() &&
-         AcceptedTiles_.size() < AcceptedTiles_.capacity() &&
+  assert(AcceptedTiles_.size() < AcceptedTiles_.capacity() &&
          AcceptedInputs_.size() < AcceptedInputs_.capacity() &&
          Products_.size() < Products_.capacity());
   const auto nextTile = std::ranges::lower_bound(AcceptedTiles_, pending.Tile_);
   assert(nextTile == AcceptedTiles_.end() || *nextTile != pending.Tile_);
   const size_t at = static_cast<size_t>(nextTile - AcceptedTiles_.begin());
-  const size_t firstPrint = at == Products_.size() ? Prints_.size() : Products_[at].Prints.First;
-  const size_t firstSpread =
-      at == Products_.size() ? SeatSpread_.size() : Products_[at].Spread.First;
-  const size_t firstAcross = at == Products_.size() ? Across_.size() : Products_[at].Across.First;
-  Prints_.insert(Prints_.begin() + static_cast<ptrdiff_t>(firstPrint),
-                 baked.Prints.begin(),
-                 baked.Prints.end());
-  SeatSpread_.insert(SeatSpread_.begin() + static_cast<ptrdiff_t>(firstSpread),
-                     baked.SeatSpreadM.begin(),
-                     baked.SeatSpreadM.end());
-  Across_.insert(Across_.begin() + static_cast<ptrdiff_t>(firstAcross),
-                 baked.AcrossM.begin(),
-                 baked.AcrossM.end());
+  const size_t firstPrint = at == Products_.size() ? FootprintCount() : Products_[at].Prints.First;
+  const size_t contactBytes = pending.Physical_->ContactBytes;
   for (size_t later = at; later < Products_.size(); ++later) {
-    Products_[later].Prints.First += baked.Prints.size();
-    Products_[later].Spread.First += baked.SeatSpreadM.size();
-    Products_[later].Across.First += baked.AcrossM.size();
+    Products_[later].Prints.First += pending.Prints_;
   }
+  Products_.insert(Products_.begin() + static_cast<ptrdiff_t>(at),
+                   {.Prints = {.First = firstPrint, .Count = pending.Prints_},
+                    .Physical = std::move(pending.Physical_),
+                    .Triangles = baked.Triangles,
+                    .OsmHeights = baked.OsmHeights,
+                    .DefaultHeights = baked.DefaultHeights,
+                    .Fronted = baked.Fronted});
+  AcceptedInputs_.insert(AcceptedInputs_.begin() + static_cast<ptrdiff_t>(at),
+                         std::move(pending.Input_));
+  AcceptedTiles_.insert(nextTile, pending.Tile_);
   OsmHeights_ += baked.OsmHeights;
   DefaultHeights_ += baked.DefaultHeights;
   Fronted_ += baked.Fronted;
   TrianglesHanded_ += baked.Triangles;
   ContactBytes_ += contactBytes;
-  Products_.insert(Products_.begin() + static_cast<ptrdiff_t>(at),
-                   {.Prints = {.First = firstPrint, .Count = baked.Prints.size()},
-                    .Spread = {.First = firstSpread, .Count = baked.SeatSpreadM.size()},
-                    .Across = {.First = firstAcross, .Count = baked.AcrossM.size()},
-                    .Triangles = baked.Triangles,
-                    .OsmHeights = baked.OsmHeights,
-                    .DefaultHeights = baked.DefaultHeights,
-                    .Fronted = baked.Fronted,
-                    .ContactBytes = contactBytes});
-  AcceptedInputs_.insert(AcceptedInputs_.begin() + static_cast<ptrdiff_t>(at),
-                         std::move(pending.Input_));
-  AcceptedTiles_.insert(nextTile, pending.Tile_);
   ++Accepted_;
   ++Revision_;
 }
 
 void BuildingField::ReplaceAcceptance(PendingAcceptance pending, const Baked &baked) noexcept {
-  const size_t contactBytes = ContactBytes(baked.Prints);
   assert(pending.Owner_ == this && pending.Prints_ == baked.Prints.size() &&
          pending.Spread_ == baked.SeatSpreadM.size() && pending.Across_ == baked.AcrossM.size());
   const auto tile = std::ranges::lower_bound(AcceptedTiles_, pending.Tile_);
   assert(tile != AcceptedTiles_.end() && *tile == pending.Tile_);
   const size_t at = static_cast<size_t>(tile - AcceptedTiles_.begin());
-  const TileProduct old = Products_[at];
-  assert(Prints_.capacity() - Prints_.size() + old.Prints.Count >= baked.Prints.size() &&
-         SeatSpread_.capacity() - SeatSpread_.size() + old.Spread.Count >=
-             baked.SeatSpreadM.size() &&
-         Across_.capacity() - Across_.size() + old.Across.Count >= baked.AcrossM.size());
-  const auto same = [](const auto &values, Range range, auto incoming) {
-    if (range.Count != incoming.size()) { return false; }
-    const auto first = values.begin() + static_cast<ptrdiff_t>(range.First);
-    return std::equal(
-        first, first + static_cast<ptrdiff_t>(range.Count), incoming.begin(), incoming.end());
-  };
+  const TileProduct &old = Products_[at];
   const AcceptedInput &before = AcceptedInputs_[at];
   const AcceptedInput &after = pending.Input_;
   const bool semanticChanged =
-      !same(Prints_, old.Prints, baked.Prints) ||
-      !same(SeatSpread_, old.Spread, baked.SeatSpreadM) ||
-      !same(Across_, old.Across, baked.AcrossM) || before.Vector != after.Vector ||
+      old.Physical != pending.Physical_ || before.Vector != after.Vector ||
       before.Sources != after.Sources || before.OccupiedCells != after.OccupiedCells ||
       before.CellBounds != after.CellBounds || before.CellMaxHeightM != after.CellMaxHeightM ||
       before.Qualified != after.Qualified || before.SourceKey != after.SourceKey ||
       before.Bake.HeightRasterDigest != after.Bake.HeightRasterDigest ||
       before.Bake.StreetDigest != after.Bake.StreetDigest ||
       before.Bake.TileSpanM != after.Bake.TileSpanM;
-  const auto replace = [](auto &values, Range range, auto incoming) {
-    auto first = values.begin() + static_cast<ptrdiff_t>(range.First);
-    first = values.erase(first, first + static_cast<ptrdiff_t>(range.Count));
-    values.insert(first, incoming.begin(), incoming.end());
-  };
-  replace(Prints_, old.Prints, baked.Prints);
-  replace(SeatSpread_, old.Spread, baked.SeatSpreadM);
-  replace(Across_, old.Across, baked.AcrossM);
-  const auto shifted = [](size_t first, size_t oldCount, size_t newCount) {
-    return newCount >= oldCount ? first + newCount - oldCount : first - (oldCount - newCount);
-  };
+  const size_t newCount = pending.Prints_;
+  const size_t oldCount = old.Prints.Count;
   for (size_t later = at + 1; later < Products_.size(); ++later) {
-    Products_[later].Prints.First =
-        shifted(Products_[later].Prints.First, old.Prints.Count, baked.Prints.size());
-    Products_[later].Spread.First =
-        shifted(Products_[later].Spread.First, old.Spread.Count, baked.SeatSpreadM.size());
-    Products_[later].Across.First =
-        shifted(Products_[later].Across.First, old.Across.Count, baked.AcrossM.size());
+    auto &first = Products_[later].Prints.First;
+    first = newCount >= oldCount ? first + newCount - oldCount : first - (oldCount - newCount);
   }
-  Products_[at] = {.Prints = {.First = old.Prints.First, .Count = baked.Prints.size()},
-                   .Spread = {.First = old.Spread.First, .Count = baked.SeatSpreadM.size()},
-                   .Across = {.First = old.Across.First, .Count = baked.AcrossM.size()},
-                   .Triangles = baked.Triangles,
-                   .OsmHeights = baked.OsmHeights,
-                   .DefaultHeights = baked.DefaultHeights,
-                   .Fronted = baked.Fronted,
-                   .ContactBytes = contactBytes};
-  AcceptedInputs_[at] = std::move(pending.Input_);
   TrianglesHanded_ = TrianglesHanded_ - old.Triangles + baked.Triangles;
-  ContactBytes_ = ContactBytes_ - old.ContactBytes + contactBytes;
+  ContactBytes_ = ContactBytes_ - old.Physical->ContactBytes + pending.Physical_->ContactBytes;
   OsmHeights_ += baked.OsmHeights - old.OsmHeights;
   DefaultHeights_ += baked.DefaultHeights - old.DefaultHeights;
   Fronted_ += baked.Fronted - old.Fronted;
+  Products_[at] = {.Prints = {.First = old.Prints.First, .Count = newCount},
+                   .Physical = std::move(pending.Physical_),
+                   .Triangles = baked.Triangles,
+                   .OsmHeights = baked.OsmHeights,
+                   .DefaultHeights = baked.DefaultHeights,
+                   .Fronted = baked.Fronted};
+  AcceptedInputs_[at] = std::move(pending.Input_);
   if (semanticChanged) { ++Revision_; }
 }
 

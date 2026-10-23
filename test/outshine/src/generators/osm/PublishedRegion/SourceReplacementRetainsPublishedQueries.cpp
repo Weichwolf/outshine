@@ -39,7 +39,7 @@ int main() {
                                                 .SourceId = "dem",
                                                 .Revision = "height-a"};
     const ::outshine::Generators::Osm::BuildingField::Baked emptyBake;
-    footprints.PreparesAcceptances({.Tiles = 1});
+    footprints.PreparesAcceptances(1);
     footprints.Take(0);
     const ::outshine::Generators::Osm::BuildingField::BakeInputs bakeInputs{
         .HeightRasterDigest = 17,

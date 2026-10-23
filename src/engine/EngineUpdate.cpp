@@ -671,7 +671,7 @@ void Engine::State::Drew() {
                          static_cast<double>(World.Stack.WaterBodies().Surfaces().size()),
                          "surfaces");
   Published.RecordMetric("building footprints it holds",
-                         static_cast<double>(World.Stack.Footprints().Footprints().size()),
+                         static_cast<double>(World.Stack.Footprints().FootprintCount()),
                          "footprints");
   Published.RecordMetric("batches the picture draws",
                          static_cast<double>(Picture.Device.GeometryBatchCount()),
