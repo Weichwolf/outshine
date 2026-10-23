@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
+from compare_directed_groups import kept_visibility
 from directed_group_transport import densities, prepare_view, render_groups
 from directed_surface_groups import compile_groups
 from packed_normals import pack
@@ -239,6 +240,33 @@ class GroupTransportTest(unittest.TestCase):
                     self.profile,
                     lambda _, value=value: value,
                 )
+
+    def test_retained_shadow_query_with_no_hits_keeps_the_light(self):
+        ray = SimpleNamespace(
+            intersects_location=lambda *_args, **_kwargs: (
+                np.array([]),
+                np.array([], int),
+                np.array([], int),
+            )
+        )
+        value = kept_visibility(
+            None, {"ray": ray}, self.origins, np.zeros((1, 3)), self.profile
+        )
+        np.testing.assert_array_equal(value, [1])
+
+    def test_retained_shadow_beyond_point_emitter_is_not_a_caster(self):
+        ray = SimpleNamespace(
+            intersects_location=lambda *_args, **_kwargs: (
+                np.array([[1, 1, 20]]),
+                np.array([0]),
+                np.array([0]),
+            )
+        )
+        light = {"kind": "point", "position": [1, 1, 10], "intensity": 1}
+        value = kept_visibility(
+            None, {"ray": ray}, self.origins, np.zeros((1, 3)), light
+        )
+        np.testing.assert_array_equal(value, [1])
 
     def test_retained_stop_before_group_keeps_the_background(self):
         c, t, s, _ = render_groups(

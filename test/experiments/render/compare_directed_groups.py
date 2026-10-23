@@ -75,10 +75,11 @@ def kept_visibility(source, prepared, points, normals, profile):
         locations, rays, _ = prepared["ray"].intersects_location(
             points + normals * 0.001, light, multiple_hits=False
         )
-        distance = np.linalg.norm(
-            locations - (points[rays] + normals[rays] * 0.001), axis=1
-        )
-        visibility[rays[distance < limit[rays]]] = 0
+        if len(rays):
+            distance = np.linalg.norm(
+                locations - (points[rays] + normals[rays] * 0.001), axis=1
+            )
+            visibility[rays[distance < limit[rays]]] = 0
     return visibility
 
 
