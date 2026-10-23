@@ -9,22 +9,24 @@ import numpy as np
 from urban_first_hit import merge_work, sample_first_hits
 from urban_grouped_first_hit import sample_grouped_first_hits
 from urban_parent_conditional import ground_stops, surface_slots, surface_visibility
+from urban_parent_conditional import new_shadow_work as shadow_work
 from urban_parent_light import shade
 from urban_prefix_first_hit import PrefixFirstHits
 from urban_prefix_runs import PrefixRuns, clipped_span
 
 
-def shadow_work():
-    return dict.fromkeys(
-        [
-            "steps",
-            "cell_ray_visits",
-            "primary_condition_tests",
-            "conditioning_peak_bytes",
-            "shared_wall_visibilities",
-        ],
-        0,
-    )
+def surface_uniforms(generator, supplied, ray_count, sample_count):
+    """Consume one validated packet or draw the unchanged stratified uniforms."""
+    if supplied is None:
+        return (
+            np.arange(sample_count)[None] + generator.random((ray_count, sample_count))
+        ) / sample_count
+    uniform = np.asarray(next(supplied, []), float)
+    if uniform.shape != (ray_count, sample_count) or not np.all(
+        np.isfinite(uniform) & (uniform >= 0) & (uniform < 1)
+    ):
+        raise ValueError("one [0,1) uniform per packet ray and draw required")
+    return uniform
 
 
 def receiver_visibility(
@@ -41,6 +43,8 @@ def receiver_visibility(
     product = model.product
     local = origins - product["reference_origin_m"]
     _, end, _ = clipped_span(product, local, directions, stops)
+    if product.get("camera_miss_witness", False):
+        end = stops
     rays = np.flatnonzero(np.isfinite(stops) & (transmission > 0))
     visibility = np.ones(len(origins))
     work = shadow_work()

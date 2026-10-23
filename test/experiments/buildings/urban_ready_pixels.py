@@ -54,6 +54,7 @@ def composed_scene(
     *,
     component="complete",
     receiver_ownership=False,
+    camera_miss_witness=False,
 ):
     if component not in {"complete", "correction", "background", "moments"}:
         raise ValueError("complete, correction, background or moments required")
@@ -88,6 +89,7 @@ def composed_scene(
             foreground,
             foreground_fraction=foreground_fraction,
             receiver_ownership=receiver_ownership,
+            camera_miss_witness=camera_miss_witness,
             **options,
         )
         # Complete RGB includes the opaque ground/environment. This channel is

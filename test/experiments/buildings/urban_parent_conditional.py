@@ -78,12 +78,35 @@ def blocker_probability(parent, q, height, cap):
     return numerator / np.maximum(denominator, 1e-15)
 
 
+def new_shadow_work(*, history=False):
+    work = dict.fromkeys(
+        [
+            "steps",
+            "cell_ray_visits",
+            "primary_condition_tests",
+            "conditioning_peak_bytes",
+            "shared_wall_visibilities",
+        ],
+        0,
+    )
+    if history:
+        work["history_cell_comparisons"] = 0
+    return work
+
+
 def primary_cap(product, primary, ids, cell, work):
     """Intersect one caster footprint with the known-missed primary prefix."""
     origin, direction, limit = primary
     near, far, _ = xy_interval(product, origin, direction, ids, cell)
     entry, exit = np.maximum(near, 0.1), np.minimum(far, limit[ids])
-    valid = (entry < exit) & ~covered_cells(cell, product.get("primary_covered", ()))
+    valid = entry < exit
+    covered = covered_cells(cell, product.get("primary_covered", ()))
+    if product.get("camera_miss_witness", False):
+        work["camera_miss_conditioned_cells"] = work.get(
+            "camera_miss_conditioned_cells", 0
+        ) + int(np.count_nonzero(valid & covered))
+    else:
+        valid &= ~covered
     cap = np.full(len(ids), np.inf)
     rays = ids[valid]
     first_z = origin[rays, 2] + entry[valid] * direction[rays, 2]
@@ -257,14 +280,7 @@ def integrate_packet(
     origin = origins - product["reference_origin_m"]
     transmission = np.ones(len(origin))
     traversed = np.full(len(origin), 0.1)
-    shadow_work = {
-        "steps": 0,
-        "cell_ray_visits": 0,
-        "history_cell_comparisons": 0,
-        "primary_condition_tests": 0,
-        "conditioning_peak_bytes": 0,
-        "shared_wall_visibilities": 0,
-    }
+    shadow_work = new_shadow_work(history=True)
     maximum = stop if stop is not None else None
     if covered_grid(product, product.get("primary_covered", ())):
         maximum = np.zeros(len(origin))
@@ -327,6 +343,7 @@ def integrate_packet(
         )
         keep[:] = transmission[all_ids] > transmission_tolerance
     times = ground_stops(origins, directions) if stop is None else stop
+    primary_limit = times if product.get("camera_miss_witness", False) else traversed
     rays = np.flatnonzero(np.isfinite(times))
     points = origins[rays] + times[rays, None] * directions[rays]
     slots = np.full(len(rays), len(parent.heights) * 5, int)
@@ -340,7 +357,7 @@ def integrate_packet(
         product,
         points,
         normals,
-        (origin[rays], directions[rays], traversed[rays]),
+        (origin[rays], directions[rays], primary_limit[rays]),
         np.full((len(points), 2), -1)
         if receiver_cells is None
         else receiver_cells[rays],
@@ -371,6 +388,7 @@ def transport_inputs(
     primary_covered=None,
     caster_covered=None,
     transmission_tolerance=0.0,
+    camera_miss_witness=False,
 ):
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     if (
@@ -420,6 +438,14 @@ def transport_inputs(
             )
         ):
             raise ValueError("finite unit receiver normals required")
+    if type(camera_miss_witness) is not bool:
+        raise ValueError("camera miss witness must be an explicit boolean")
+    if camera_miss_witness:
+        if stop is None or not len(product["primary_covered"]):
+            raise ValueError(
+                "camera miss witness requires queried stops and complete camera regions"
+            )
+        product["camera_miss_witness"] = True
     return origins, directions, product, stop, receiver_normals
 
 
@@ -469,6 +495,7 @@ def trace_transport(
     transmission_tolerance=0.0,
     shadow_query=None,
     receiver_cells=None,
+    camera_miss_witness=False,
 ):
     origins, directions, product, stop, receiver_normals = transport_inputs(
         parent,
@@ -480,6 +507,7 @@ def trace_transport(
         primary_covered,
         caster_covered,
         transmission_tolerance,
+        camera_miss_witness,
     )
     receiver_cells = validate_receiver_cells(
         receiver_cells, product, origins, stop, receiver_normals
@@ -502,6 +530,8 @@ def trace_transport(
     if receiver_cells is not None:
         work["receiver_owner_rays"] = int(np.all(receiver_cells >= 0, axis=1).sum())
         work["receiver_owner_input_peak_bytes"] = receiver_cells.nbytes
+    if camera_miss_witness:
+        work["camera_miss_witness_rays"] = len(origins)
     transmission = np.empty(len(origins))
     for first in range(0, len(origins), batch):
 

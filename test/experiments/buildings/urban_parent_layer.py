@@ -17,6 +17,7 @@ def render_layer(
     caster_covered=None,
     external_visibility=None,
     receiver_cells=None,
+    camera_miss_witness=False,
     batch=2048,
     transmission_tolerance=0.0,
 ):
@@ -29,6 +30,10 @@ def render_layer(
     Optional receiver_cells certifies the sole matching convex cell body at an
     actual outward-face receiver hit; -1 means unproven. It excludes only that
     body's own shadow hypothesis and does not declare its neighbors Caster-Ready.
+    camera_miss_witness additionally certifies that the queried primary free
+    prefix in Camera-Ready cells uses the same canonical prism footprint. Only
+    intersected prefixes condition those shadow hypotheses; no caster domain is
+    inferred from camera readiness alone.
     """
     origins, directions = np.asarray(origins, float), np.asarray(directions, float)
     colour = np.zeros_like(origins)
@@ -66,6 +71,7 @@ def render_layer(
         caster_covered=caster_covered,
         transmission_tolerance=transmission_tolerance,
         receiver_cells=receiver_cells,
+        camera_miss_witness=camera_miss_witness,
     )
     return colour, 1 - coverage, receiver_visibility, work
 

@@ -14,7 +14,7 @@ from compare_urban_horizon import region
 from compare_urban_parents import background_image, camera, lighting, opaque_image
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays
-from urban_opaque_receivers import opaque_receivers
+from urban_opaque_receivers import has_camera_miss_witness, opaque_receivers
 from urban_parent_conditional import grid
 from urban_parent_layer import compose, correction, render_layer
 from urban_parent_light import display, light_at, shade
@@ -80,6 +80,7 @@ def mixed(
     correction_only=False,
     return_moments=False,
     receiver_ownership=False,
+    camera_miss_witness=False,
     layer_query=render_layer,
 ):
     if correction_only and return_moments:
@@ -135,6 +136,10 @@ def mixed(
     receiver_options = (
         {} if receiver_cells is None else {"receiver_cells": receiver_cells}
     )
+    if camera_miss_witness and has_camera_miss_witness(
+        grid(parent), camera_child, view_region
+    ):
+        receiver_options["camera_miss_witness"] = True
     c, t, s, work = layer_query(
         parent,
         o,

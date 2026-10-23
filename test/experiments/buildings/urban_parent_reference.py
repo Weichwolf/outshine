@@ -5,6 +5,11 @@ from column_field_query import trace
 
 
 def prepare_resolved(product):
+    """The adapter constructs at most one bottom-zero prism per indexed cell.
+
+    column_geometry records that construction contract, not World readiness or
+    completeness outside the camera domain explicitly declared by a consumer.
+    """
     first = product.chunks.min(axis=0).astype(np.int64) * product.side
     size = (product.chunks.max(axis=0).astype(np.int64) + 1) * product.side - first
     if np.prod(size) > 4194304:
@@ -27,6 +32,7 @@ def prepare_resolved(product):
         "low": np.zeros(2, np.int64),
         "shape": size,
         "basis": np.eye(3),
+        "column_geometry": "single_grounded_prism",
         "height_bounds": np.array([0, product.heights.max()]),
         "header": {
             "pitch_m": product.pitch,

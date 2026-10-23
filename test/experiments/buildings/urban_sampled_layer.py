@@ -9,7 +9,7 @@ from urban_parent_conditional import (
     validate_receiver_cells,
 )
 from urban_prefix_runs import PrefixRuns
-from urban_sampled_parent import receiver_visibility, sampled_surfaces
+from urban_sampled_parent import receiver_visibility, sampled_surfaces, surface_uniforms
 
 
 def render_sampled_layer(
@@ -24,6 +24,7 @@ def render_sampled_layer(
     caster_covered=None,
     external_visibility=None,
     receiver_cells=None,
+    camera_miss_witness=False,
     samples=4,
     seed=1113,
     batch=2048,
@@ -36,6 +37,7 @@ def render_sampled_layer(
     declares complete camera/caster ready cells, including vacancies, separately.
     Optional receiver_cells carries the same explicit convex owner proof as the
     deterministic layer; unproven opaque stops retain their shadow hypotheses.
+    camera_miss_witness uses the same explicit queried-prefix contract.
     Deterministic external visibility affects direct parent light; the caller
     already includes non-parent shadows in its opaque direct term. Compose
     C+T*(S*direct+other) jointly before filtering; signed corrections stay signed.
@@ -58,6 +60,7 @@ def render_sampled_layer(
         receiver_normals,
         primary_covered,
         caster_covered,
+        camera_miss_witness=camera_miss_witness,
     )
     receiver_cells = validate_receiver_cells(
         receiver_cells, product, origins, stop, receiver_normals
@@ -68,6 +71,8 @@ def render_sampled_layer(
     colour = np.zeros_like(origins)
     transmission, visibility = np.ones(len(origins)), np.ones(len(origins))
     work = {"surface_samples_per_ray": samples, "packets": 0}
+    if camera_miss_witness:
+        work["camera_miss_witness_rays"] = len(origins)
     if receiver_cells is not None:
         work["receiver_owner_rays"] = int(np.all(receiver_cells >= 0, axis=1).sum())
         work["receiver_owner_input_peak_bytes"] = receiver_cells.nbytes
@@ -97,16 +102,7 @@ def render_sampled_layer(
             None if receiver_normals is None else receiver_normals[part],
             None if receiver_cells is None else receiver_cells[part],
         )
-        if surface_packets is None:
-            uniform = (
-                np.arange(samples)[None] + generator.random((len(o), samples))
-            ) / samples
-        else:
-            uniform = np.asarray(next(surface_packets, []), float)
-            if uniform.shape != (len(o), samples) or not np.all(
-                np.isfinite(uniform) & (uniform >= 0) & (uniform < 1)
-            ):
-                raise ValueError("one [0,1) uniform per packet ray and draw required")
+        uniform = surface_uniforms(generator, surface_packets, len(o), samples)
         c, counts = sampled_surfaces(
             model,
             o,

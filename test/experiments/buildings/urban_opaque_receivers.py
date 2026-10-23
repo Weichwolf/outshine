@@ -5,8 +5,8 @@ from urban_parent_conditional import grid
 from urban_parent_reference import trace_resolved
 
 
-def known_receiver_cells(parent_grid, resolved, owners, hits, work=None):
-    """Certify only matching, bottom-zero single convex prisms from actual hits."""
+def prism_grid_offset(parent_grid, resolved):
+    """Match canonical XY footprint/frames without scanning child geometry."""
     pitch = parent_grid["header"]["pitch_m"]
     offset = (resolved["reference_origin_m"] - parent_grid["reference_origin_m"])[
         :2
@@ -19,6 +19,39 @@ def known_receiver_cells(parent_grid, resolved, owners, hits, work=None):
         or resolved["reference_origin_m"][2] != parent_grid["reference_origin_m"][2]
         or not np.array_equal(resolved.get("basis", np.eye(3)), np.eye(3))
     ):
+        return None
+    return np.rint(offset).astype(np.int64)
+
+
+def has_camera_miss_witness(parent_grid, resolved, regions):
+    """Match a constructor-guaranteed prism field and queried camera domain.
+
+    The geometry tag proves representation form, not domain completeness. The
+    caller separately declares complete, actually traced camera regions.
+    """
+    if (
+        resolved is None
+        or regions is None
+        or not len(regions)
+        or resolved.get("column_geometry") != "single_grounded_prism"
+        or "fallback" in resolved
+    ):
+        return False
+    offset = prism_grid_offset(parent_grid, resolved)
+    if offset is None:
+        return False
+    low = resolved["low"] + offset
+    high = low + resolved["shape"]
+    return bool(
+        np.all(np.asarray(regions)[:, 0] >= low)
+        and np.all(np.asarray(regions)[:, 1] <= high)
+    )
+
+
+def known_receiver_cells(parent_grid, resolved, owners, hits, work=None):
+    """Certify only matching, bottom-zero single convex prisms from actual hits."""
+    offset = prism_grid_offset(parent_grid, resolved)
+    if offset is None:
         return None
     rows = np.flatnonzero(hits & (owners >= 0) & (owners < len(resolved["spans"])))
     if not len(rows):
@@ -36,7 +69,7 @@ def known_receiver_cells(parent_grid, resolved, owners, hits, work=None):
     columns = np.searchsorted(resolved["offsets"], spans, side="right") - 1
     single = resolved["offsets"][columns + 1] - resolved["offsets"][columns] == 1
     bounds = resolved["spans"][spans]
-    cell = resolved["columns"][columns] + np.rint(offset).astype(np.int64)
+    cell = resolved["columns"][columns] + offset
     valid = single & (bounds[:, 0] == 0) & (bounds[:, 1] > 0)
     valid &= np.all((cell >= 0) & (cell < parent_grid["shape"]), axis=1)
     if not np.any(valid):
