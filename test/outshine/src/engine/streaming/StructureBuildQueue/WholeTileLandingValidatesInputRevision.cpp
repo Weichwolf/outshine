@@ -60,8 +60,10 @@ int main() {
   Tasks sourceCompute(1);
   SurfacePreparation stack;
   const LongitudeLatitude eye{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
-  const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string()},
+  Data::SourceProvider terrainProvider;
+  terrainProvider.Kind = "terrain";
+  const std::array providers{terrainProvider};
+  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
                    providers,
                    eye,
                    wire,

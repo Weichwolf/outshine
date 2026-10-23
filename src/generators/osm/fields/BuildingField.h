@@ -171,7 +171,11 @@ public:
 
   [[nodiscard]] BuildingField SnapshotAccepted() const;
 
-  void BeginRefinement() noexcept {
+  enum class RefinementPurpose : uint8_t { Sources, View };
+
+  void BeginRefinement(RefinementPurpose purpose = RefinementPurpose::Sources) noexcept {
+    assert(purpose != RefinementPurpose::View || RefinementComplete());
+    RefinementPurpose_ = purpose;
     RefinementAt_ = 0;
     RefinementEnd_ = AcceptedTiles_.size();
     RefinementActive_ = true;
@@ -193,7 +197,9 @@ public:
     ++RefinementAt_;
   }
 
-  void RetryRefinement(uint32_t tile) noexcept {
+  void RetryRefinement(uint32_t tile,
+                       RefinementPurpose purpose = RefinementPurpose::Sources) noexcept {
+    if (purpose == RefinementPurpose::Sources) { RefinementPurpose_ = purpose; }
     const auto at = std::ranges::lower_bound(AcceptedTiles_, tile);
     assert(RefinementActive_ && at != AcceptedTiles_.end() && *at == tile);
     RefinementAt_ = std::min(RefinementAt_, static_cast<size_t>(at - AcceptedTiles_.begin()));
@@ -201,6 +207,10 @@ public:
 
   [[nodiscard]] bool RefinementComplete() const noexcept {
     return RefinementActive_ && RefinementAt_ == RefinementEnd_;
+  }
+
+  [[nodiscard]] bool SourceRefinementComplete() const noexcept {
+    return RefinementPurpose_ == RefinementPurpose::View || RefinementComplete();
   }
 
   [[nodiscard]] size_t RefinementRemaining() const noexcept {
@@ -341,6 +351,7 @@ private:
   size_t Taken_ = 0, Accepted_ = 0;
   size_t RefinementAt_ = 0, RefinementEnd_ = 0;
   bool RefinementActive_ = false;
+  RefinementPurpose RefinementPurpose_ = RefinementPurpose::Sources;
   TileAdmission Admission_;
   ProjectedErrorBudget Projection_{};
   std::optional<Vec3> EyeEcef_;

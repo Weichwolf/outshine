@@ -19,9 +19,12 @@ int main() {
   footprints.SeenWith({.FocalPx = 720.0});
   footprints.TilesSpan(2400.0);
   const StructureBuildQueue::BakeRevision revision{.Vectors = vectors.Generation(),
+                                                   .HeightSource = {},
                                                    .Projection = footprints.Projection(),
                                                    .TileSpanM = footprints.TileSpanM(),
-                                                   .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
+                                                   .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                                   .EyeEcef = {},
+                                                   .RequestedDetail = {}};
   CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "posted bake inputs still match");
   CHECK(revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
@@ -34,9 +37,12 @@ int main() {
         "another candidate cannot release the stale bake's footprint reservation");
   const StructureBuildQueue::BakeRevision fallbackRevision{
       .Vectors = vectors.Generation(),
+      .HeightSource = {},
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .EyeEcef = {},
+      .RequestedDetail = {},
       .FallbackHeights = true};
   CHECK(fallbackRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "playable accepts fallback heights");
@@ -73,9 +79,12 @@ int main() {
       "camera movement cannot strand a discarded bake's footprint reservation");
   const StructureBuildQueue::BakeRevision sourceRevision{
       .Vectors = vectors.Generation(),
+      .HeightSource = {},
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .EyeEcef = {},
+      .RequestedDetail = {},
       .Purpose = StructureBuildQueue::BuildPurpose::SourceGeometry};
   CHECK(sourceRevision.Matches(vectors,
                                footprints,
@@ -101,9 +110,11 @@ int main() {
         "source qualification still rejects a changed height snapshot");
   const StructureBuildQueue::BakeRevision explicitRevision{
       .Vectors = vectors.Generation(),
+      .HeightSource = {},
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .EyeEcef = {},
       .RequestedDetail = LevelOfDetail::Shell};
   CHECK(explicitRevision.Matches(vectors,
                                  footprints,
@@ -154,9 +165,12 @@ int main() {
   footprints.TilesSpan(2400.0);
   const StructureBuildQueue::BakeRevision vectorRevision{
       .Vectors = vectors.Generation(),
+      .HeightSource = {},
       .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
-      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
+      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .EyeEcef = {},
+      .RequestedDetail = {}};
   CHECK(vectorRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "declared vector source still matches");
   vectors.Declare(noFeatures, {.X = 19, .Y = 27});
