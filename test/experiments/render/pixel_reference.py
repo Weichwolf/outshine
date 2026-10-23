@@ -47,11 +47,21 @@ def pixel_packets(box, ray_query, samples, seed, batch):
 
 
 def integrate_pixels(box, ray_query, scene, *, samples=16, seed=None, batch=2048):
-    """Average complete linear RGB and coverage, without clamping signed values.
+    """Average complete linear RGB and coverage, without clamping signed values."""
+    return integrate_fields(
+        box, ray_query, scene, channels=3, samples=samples, seed=seed, batch=batch
+    )
+
+
+def integrate_fields(
+    box, ray_query, scene, *, channels, samples=16, seed=None, batch=2048
+):
+    """Average bounded pointwise fields; physical products belong in the callback.
 
     Camera receives (absolute pixel, samples per axis, per-pixel SeedSequence).
     None seed selects fixed strata, otherwise the camera jitters each stratum.
-    Scene receives unit rays and returns RGB and coverage, never separate C/T/S.
+    Scene receives unit rays and returns complete fields plus coverage. Joint
+    transport fields must already contain their T*S/background products.
     Memory follows output pixels, one pixel's rays and one bounded scene packet.
     """
     raw = np.asarray(box)
@@ -66,6 +76,8 @@ def integrate_pixels(box, ray_query, scene, *, samples=16, seed=None, batch=2048
     if np.any(box[1] < box[0]) or not (
         type(samples) is int
         and 1 <= samples <= 128
+        and type(channels) is int
+        and 1 <= channels <= 32
         and type(batch) is int
         and 1 <= batch <= 8192
         and (seed is None or type(seed) is int and seed >= 0)
@@ -74,7 +86,7 @@ def integrate_pixels(box, ray_query, scene, *, samples=16, seed=None, batch=2048
             "ordered pixel rectangle, bounded samples/packet and optional seed required"
         )
     width, height = map(int, box[1] - box[0])
-    rgb = np.zeros((width * height, 3))
+    rgb = np.zeros((width * height, channels))
     coverage = np.zeros(width * height)
     work = {
         "rays": 0,
@@ -85,6 +97,8 @@ def integrate_pixels(box, ray_query, scene, *, samples=16, seed=None, batch=2048
         "per_pixel_camera_output_logical_B": samples**2 * 48 if width * height else 0,
         "camera_to_packet_copy_B": 0,
         "owner_index_write_B": 0,
+        "value_channels": channels,
+        "scene_value_logical_B": 0,
     }
     if width * height:
         for origins, directions, owners in pixel_packets(
@@ -93,15 +107,17 @@ def integrate_pixels(box, ray_query, scene, *, samples=16, seed=None, batch=2048
             colours, alpha = scene(origins, directions)
             colours, alpha = np.asarray(colours, float), np.asarray(alpha, float)
             if (
-                colours.shape != origins.shape
+                colours.shape != (len(owners), channels)
                 or alpha.shape != owners.shape
                 or not (
                     np.isfinite(colours).all()
                     and np.all(np.isfinite(alpha) & (alpha >= 0) & (alpha <= 1))
                 )
             ):
-                raise ValueError("finite complete RGB and coverage in [0,1] required")
-            for channel in range(3):
+                raise ValueError(
+                    "finite pointwise fields and coverage in [0,1] required"
+                )
+            for channel in range(channels):
                 np.add.at(rgb[:, channel], owners, colours[:, channel])
             np.add.at(coverage, owners, alpha)
             work["rays"] += len(owners)
@@ -109,6 +125,7 @@ def integrate_pixels(box, ray_query, scene, *, samples=16, seed=None, batch=2048
             work["max_packet_rays"] = max(work["max_packet_rays"], len(owners))
             work["camera_to_packet_copy_B"] += len(owners) * 48
             work["owner_index_write_B"] += len(owners) * 8
+            work["scene_value_logical_B"] += colours.nbytes
     rgb /= samples**2
     coverage /= samples**2
-    return rgb.reshape(height, width, 3), coverage.reshape(height, width), work
+    return rgb.reshape(height, width, channels), coverage.reshape(height, width), work

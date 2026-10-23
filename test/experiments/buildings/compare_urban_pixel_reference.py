@@ -3,209 +3,26 @@
 import argparse
 import hashlib
 import json
-import resource
 import subprocess
-import sys
 import tempfile
 import time
-import tracemalloc
 from pathlib import Path
 
 import numpy as np
 from compare_urban_horizon import region
-from compare_urban_parents import camera, lighting, opaque_image
+from compare_urban_parents import camera, lighting
 from PIL import Image
-from pixel_reference import integrate_pixels
-from triangle_image_reference import image_rays
 from urban_parent_light import display
 from urban_parent_reference import prepare_resolved
 from urban_parent_stats import UrbanParent
 from urban_patches import load
-
-STATES = (
-    "resolved",
-    "pending",
-    "half_view",
-    "half_caster",
-    "half_ready",
-    "all_ready",
-    "foreground",
+from urban_ready_pixels import (
+    STATES,
+    composed_scene,
+    integrate,
+    integrate_control,
+    rss_bytes,
 )
-
-
-def accumulate_work(total, counts):
-    for key, value in counts.items():
-        if isinstance(value, dict):
-            accumulate_work(total.setdefault(key, {}), value)
-        elif key.endswith("peak_bytes") or key in {
-            "parent_array_bytes",
-            "background_ray_arrays_bytes",
-        }:
-            total[key] = max(total.get(key, 0), value)
-        else:
-            total[key] = total.get(key, 0) + value
-
-
-def opaque_background(parent, origins, directions, profile, stop, **kwargs):
-    """Zero unknown-parent contribution; keep mixed()'s actual opaque receiver."""
-    return (
-        np.zeros_like(origins),
-        np.ones(len(origins)),
-        np.ones(len(origins)),
-        {"opaque_background_rays": len(origins)},
-    )
-
-
-def composed_scene(
-    parent, resolved, profile, state, foreground_fraction, *, component="complete"
-):
-    if component not in {"complete", "correction", "background"}:
-        raise ValueError("complete, correction or background component required")
-    if state == "resolved":
-        if component != "complete":
-            raise ValueError("Ready state required for background/correction")
-        return None
-    from compare_urban_layers import layer_states, mixed
-
-    matches = [value for value in layer_states(parent, resolved) if value[0] == state]
-    if len(matches) != 1 or not 0 <= foreground_fraction <= 1:
-        raise ValueError(
-            "existing Ready state and bounded foreground fraction required"
-        )
-    _, child, caster, view_region, caster_region, foreground = matches[0]
-
-    def query(origins, directions):
-        options = {"correction_only": component == "correction"}
-        if component == "background":
-            options["layer_query"] = opaque_background
-        rgb, work = mixed(
-            parent,
-            origins,
-            directions,
-            profile,
-            child,
-            caster,
-            view_region,
-            caster_region,
-            foreground,
-            foreground_fraction=foreground_fraction,
-            **options,
-        )
-        # Complete RGB includes the opaque ground/environment. This channel is
-        # unused; it is not the resolved-only child-hit coverage diagnostic.
-        return rgb, np.ones(len(origins)), work
-
-    return query
-
-
-def rss_bytes():
-    scale = 1 if sys.platform == "darwin" else 1024
-    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * scale
-
-
-def integrate(resolved, view, box, profile, args, *, scene_query=None):
-    work = {}
-    scene_seconds = 0.0
-
-    def rays(pixel, samples, stream):
-        low = np.asarray(pixel)
-        return image_rays(
-            view, np.array([low, low + 1]), 1, 1, samples, jitter_seed=stream
-        )
-
-    def scene(origins, directions):
-        nonlocal scene_seconds
-        started = time.perf_counter()
-        rgb, alpha, counts = (
-            opaque_image(resolved, origins, directions, profile)
-            if scene_query is None
-            else scene_query(origins, directions)
-        )
-        scene_seconds += time.perf_counter() - started
-        accumulate_work(work, counts)
-        return rgb, alpha
-
-    if args.trace_memory:
-        tracemalloc.start()
-    started = time.perf_counter()
-    rgb, alpha, pixels = integrate_pixels(
-        box, rays, scene, samples=args.samples, seed=args.seed, batch=args.batch
-    )
-    seconds = time.perf_counter() - started
-    peak = tracemalloc.get_traced_memory()[1] if args.trace_memory else None
-    if args.trace_memory:
-        tracemalloc.stop()
-    return (
-        rgb,
-        alpha,
-        {
-            "integration_seconds": seconds,
-            "scene_seconds": scene_seconds,
-            "integration_traced_peak_B": peak,
-            "process_peak_after_integration_B": rss_bytes(),
-            "pixel_work": pixels,
-            "scene_work": work,
-        },
-    )
-
-
-def integrate_control(
-    resolved, view, box, profile, args, correction_query, background_query
-):
-    if not (
-        type(args.samples) is int
-        and type(args.background_samples) is int
-        and 1 <= args.samples <= args.background_samples <= 128
-        and args.state in STATES[1:]
-    ):
-        raise ValueError(
-            "bounded background density at least correction density required"
-        )
-    phase_args = argparse.Namespace(**(vars(args) | {"trace_memory": False}))
-    if args.trace_memory:
-        tracemalloc.start()
-    started = time.perf_counter()
-    peak = None
-    try:
-        if args.state == "all_ready":
-            width, height = np.asarray(box)[1] - np.asarray(box)[0]
-            delta = np.zeros((height, width, 3))
-            correction_work = {
-                "integration_seconds": 0.0,
-                "scene_seconds": 0.0,
-                "pixel_work": {"rays": 0},
-                "explicit_full_ready_zero_correction_pixels": int(width * height),
-            }
-        else:
-            delta, _, correction_work = integrate(
-                resolved, view, box, profile, phase_args, scene_query=correction_query
-            )
-        phase_args.samples = args.background_samples
-        background, _, background_work = integrate(
-            resolved, view, box, profile, phase_args, scene_query=background_query
-        )
-        rgb = background + delta
-    finally:
-        if args.trace_memory:
-            peak = tracemalloc.get_traced_memory()[1]
-            tracemalloc.stop()
-    seconds = time.perf_counter() - started
-    if not np.isfinite(rgb).all():
-        raise ValueError("finite composed control image required")
-    return (
-        rgb,
-        {"background": background, "correction": delta},
-        {
-            "integration_seconds": seconds,
-            "scene_seconds": correction_work["scene_seconds"]
-            + background_work["scene_seconds"],
-            "integration_traced_peak_B": peak,
-            "process_peak_after_integration_B": rss_bytes(),
-            "correction_phase": correction_work,
-            "background_phase": background_work,
-            "method": "dense background plus signed coarse correction",
-        },
-    )
 
 
 def arguments():
@@ -225,6 +42,7 @@ def arguments():
     parser.add_argument("--state", choices=STATES, default="resolved")
     parser.add_argument("--foreground-fraction", type=float, default=0.75)
     parser.add_argument("--background-samples", type=int)
+    parser.add_argument("--weighted-transport", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -238,6 +56,8 @@ def arguments():
         or not 1 <= args.samples <= args.background_samples <= 128
     ):
         parser.error("Ready state and 1 <= correction <= background <= 128 required")
+    if args.weighted_transport and args.background_samples is None:
+        parser.error("weighted transport requires --background-samples")
     args.output = output
     return args
 
@@ -268,7 +88,13 @@ def main():
         profile,
         args.state,
         args.foreground_fraction,
-        component="complete" if args.background_samples is None else "correction",
+        component=(
+            "complete"
+            if args.background_samples is None
+            else "moments"
+            if args.weighted_transport
+            else "correction"
+        ),
     )
     background_query = (
         composed_scene(
@@ -320,6 +146,7 @@ def main():
         "state": args.state,
         "foreground_fraction": args.foreground_fraction,
         "background_samples_per_axis": args.background_samples,
+        "weighted_transport": args.weighted_transport,
         "linear_rgb_min": float(rgb.min()),
         "negative_linear_rgb_channels": int(np.count_nonzero(rgb < 0)),
         "coverage_semantics": "resolved child hits" if query is None else None,

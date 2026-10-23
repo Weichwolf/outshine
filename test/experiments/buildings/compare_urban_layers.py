@@ -77,8 +77,11 @@ def mixed(
     *,
     foreground_fraction=0.5,
     correction_only=False,
+    return_moments=False,
     layer_query=render_layer,
 ):
+    if correction_only and return_moments:
+        raise ValueError("choose signed correction or joint moments")
     total_started = time.perf_counter()
     stop = -o[:, 2] / d[:, 2]
     normals = np.tile([0.0, 0.0, 1.0], (len(o), 1))
@@ -144,8 +147,13 @@ def mixed(
         caster_covered=caster_region,
         external_visibility=external,
     )
-    composite = correction if correction_only else compose
-    rgb = composite(c, t, s, direct, profile["ambient"] * albedo[:, None])
+    if return_moments:
+        from urban_transport_moments import pack_moments
+
+        rgb = pack_moments(c, t, s, direct, profile["ambient"] * albedo[:, None])
+    else:
+        composite = correction if correction_only else compose
+        rgb = composite(c, t, s, direct, profile["ambient"] * albedo[:, None])
     return rgb, {
         "layer_and_compose_seconds": time.perf_counter() - started,
         "total_mixed_seconds": time.perf_counter() - total_started,
@@ -153,6 +161,7 @@ def mixed(
         "child_primary_work": primary_work,
         "child_shadow_work": shadow_work,
         "parent_array_bytes": c.nbytes + t.nbytes + s.nbytes,
+        "moment_output_peak_bytes": rgb.nbytes if return_moments else 0,
         "background_ray_arrays_bytes": sum(
             a.nbytes for a in (stop, normals, albedo, points, visibility, direct)
         ),
