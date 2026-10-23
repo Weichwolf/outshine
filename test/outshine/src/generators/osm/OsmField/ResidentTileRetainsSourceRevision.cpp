@@ -28,9 +28,12 @@ public:
   explicit VectorSource(std::string revision, std::vector<uint8_t> bytes)
       : Decl{.Id = "fixture-vector",
              .Revision = std::move(revision),
+             .Endpoint = {},
              .Kind = DataKind::VectorMap,
              .Wire = WireFormat::MapboxVectorTile,
-             .Keeps = Cacheability::Never},
+             .Keeps = Cacheability::Never,
+             .PayloadSha256 = {},
+             .Schema = {}},
         Bytes(std::move(bytes)) {}
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
@@ -61,7 +64,7 @@ std::vector<uint8_t> TileBytes() {
 }
 
 TileSourceIdentity Resident(std::string revision, const std::vector<uint8_t> &bytes) {
-  ContentStore store({.Using = ContentStore::Use::Off});
+  ContentStore store({.Directory = {}, .Using = ContentStore::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   const auto registration = sources.Add(std::make_unique<VectorSource>(std::move(revision), bytes));

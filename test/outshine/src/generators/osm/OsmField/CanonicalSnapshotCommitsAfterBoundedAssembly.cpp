@@ -43,9 +43,12 @@ public:
 private:
   SourceDecl Decl{.Id = "vector-assembly",
                   .Revision = "r1",
+                  .Endpoint = {},
                   .Kind = DataKind::VectorMap,
                   .Wire = WireFormat::MapboxVectorTile,
-                  .Keeps = Cacheability::Never};
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   std::vector<uint8_t> Bytes;
 };
 
@@ -82,12 +85,12 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
   const auto bytes = TileBytes();
-  ContentStore store({.Using = ContentStore::Use::Off});
+  ContentStore store({.Directory = {}, .Using = ContentStore::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<VectorSource>(bytes)) == SourceSet::Registration::Accepted,
         "resident vector source registers");
   NoTransport transport;
-  Ground::TilePool pool({.ByteBudget = 1u << 20u}, sources, transport);
+  Ground::TilePool pool({.ByteBudget = 1u << 20u, .PreparedFields = {}}, sources, transport);
   for (uint32_t y = 7; y <= 9; ++y) {
     for (uint32_t x = 7; x <= 9; ++x) {
       Ground::TilePool::Landing landed;

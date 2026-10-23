@@ -46,7 +46,9 @@ int main() {
                                                    {.HeightRasterDigest = 17,
                                                     .StreetDigest = 19,
                                                     .Projection = {.FocalPx = 90},
-                                                    .TileSpanM = 100});
+                                                    .TileSpanM = 100,
+                                                    .Eye = {},
+                                                    .EyeEcef = {}});
     footprints.CommitAcceptance(std::move(acceptance), emptyBake);
     old = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
         ::outshine::Generators::Osm::RegionSources::Snapshot(&ingest, ways, water.Asset(ingest)),

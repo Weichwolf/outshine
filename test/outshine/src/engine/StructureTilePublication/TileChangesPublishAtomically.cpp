@@ -39,7 +39,7 @@ int main() {
             "ground candidate prepares from an empty world");
       CHECK(ground.SetGroundGeometry(base.clone(), 0, error),
             "ground candidate carries every streamed piece material slot");
-      CHECK(ground.Publish(world, footprints, scene, {.Region = 1}).has_value(),
+      CHECK(ground.Publish(world, footprints, scene, {.Region = 1, .Coverage = {}}).has_value(),
             "ground candidate publishes its native material table");
       world.Pieces.SetSurfaces(
           {.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
@@ -52,7 +52,8 @@ int main() {
       built.Built.RoofCorners = built.Built.WallCorners;
       built.Built.RoofRun = {0, 1, 2};
       built.Digest = 19;
-      StructureBuildQueue::Landing landing{.Tile = 7, .Baked = &built, .AnchorEcef = {}};
+      StructureBuildQueue::Landing landing{
+          .Tile = 7, .Baked = &built, .AnchorEcef = {}, .Footprints = {}};
       const auto original = scene.get();
       const auto first = PublishStructureTile(world, renderer, landing);
       CHECK(first.has_value(), first ? "first tile publishes" : first.error().c_str());
@@ -93,8 +94,8 @@ int main() {
                 renderer.PiecesStanding() == 2 && world.Pieces.Handed() == 3,
             "buildings can return after an empty revision");
       std::array<StructureBuildQueue::Landing, 2> batch{
-          {{.Tile = 8, .Baked = &built, .AnchorEcef = {}},
-           {.Tile = 9, .Baked = &built, .AnchorEcef = {}}}};
+          {{.Tile = 8, .Baked = &built, .AnchorEcef = {}, .Footprints = {}},
+           {.Tile = 9, .Baked = &built, .AnchorEcef = {}, .Footprints = {}}}};
       CHECK(PublishStructureTile(world, renderer, batch[0]).has_value() &&
                 PublishStructureTile(world, renderer, batch[1]).has_value() &&
                 renderer.PiecesStanding() == 6 && world.Pieces.Handed() == 5,
@@ -169,7 +170,8 @@ int main() {
       StructureBuildQueue::Landing cellLanding{.Tile = landing.Tile,
                                                .Baked = &cellOne,
                                                .AnchorEcef = landing.AnchorEcef,
-                                               .SourceKey = landing.SourceKey};
+                                               .SourceKey = landing.SourceKey,
+                                               .Footprints = {}};
       CHECK(StageStructureCell(world, renderer, cellLanding).has_value() &&
                 renderer.PiecesStanding() == 10 && world.Pieces.Digest() == legacyDigest,
             "first cell lands without changing the published image");
