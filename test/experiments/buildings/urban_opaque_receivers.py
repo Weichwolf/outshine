@@ -32,7 +32,7 @@ def known_receiver_cells(parent_grid, resolved, owners, hits, work=None):
                 resolved[key].dtype.itemsize for key in ("columns", "spans", "offsets")
             )
         )
-    spans = owners[rows]
+    spans = owners[rows].astype(resolved["offsets"].dtype, copy=False)
     columns = np.searchsorted(resolved["offsets"], spans, side="right") - 1
     single = resolved["offsets"][columns + 1] - resolved["offsets"][columns] == 1
     bounds = resolved["spans"][spans]

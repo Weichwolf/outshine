@@ -1,5 +1,6 @@
 """Independent convex-box shadows and conservative actual-hit owner proofs."""
 
+import tracemalloc
 import unittest
 
 import numpy as np
@@ -174,6 +175,32 @@ class ReceiverOwnershipTest(unittest.TestCase):
         np.testing.assert_array_equal(
             known_receiver_cells(matched, raised, owners, hits), [[0, 0]]
         )
+
+    def test_owner_preparation_does_not_copy_unqueried_columns(self):
+        parent, resolved, _, _, _ = one_box()
+
+        def measured_peak(count):
+            product = grid(parent) | {"shape": np.array([count, 1])}
+            source = resolved | {
+                "columns": np.column_stack((np.arange(count), np.zeros(count))).astype(
+                    np.int32
+                ),
+                "spans": np.tile([[0.0, 6.0]], (count, 1)),
+                "offsets": np.arange(count + 1, dtype=np.uint32),
+            }
+            tracemalloc.start()
+            try:
+                cells = known_receiver_cells(
+                    product, source, np.array([17], np.int32), np.array([True])
+                )
+                peak = tracemalloc.get_traced_memory()[1]
+            finally:
+                tracemalloc.stop()
+            np.testing.assert_array_equal(cells, [[17, 0]])
+            return peak
+
+        small, large = measured_peak(128), measured_peak(32768)
+        self.assertLessEqual(large, small + 32768)
 
     def test_explicit_invalid_owner_contracts_fail(self):
         parent, _, o, d, profile = one_box()
