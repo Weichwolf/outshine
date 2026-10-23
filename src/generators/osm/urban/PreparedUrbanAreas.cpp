@@ -208,4 +208,10 @@ PreparedUrbanAreas::Counters PreparedUrbanAreas::Costs() const noexcept {
           .GeneratedCells = GeneratedCells_.load(),
           .Deferred = Deferred_.load()};
 }
+
+bool PreparedUrbanAreas::AwaitProgress(double seconds) const {
+  const bool running = std::ranges::any_of(
+      Pending_, [](const auto &entry) { return entry.second->Task != Tasks::kNoTask; });
+  return !running || Compute_.AwaitCompletion(seconds);
+}
 }

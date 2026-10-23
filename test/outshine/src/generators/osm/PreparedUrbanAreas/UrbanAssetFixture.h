@@ -134,7 +134,7 @@ Await(Fixture &fixture, const PreparedUrbanAreas::Request &request) {
   do {
     auto result = fixture.Urban->Acquire(*fixture.Pool, request);
     if (!result || result->Status != PreparedUrbanAreas::State::Pending) { return result; }
-    (void)fixture.Compute.AwaitCompletion(
+    (void)fixture.Urban->AwaitProgress(
         std::chrono::duration<double>(std::chrono::milliseconds(1)).count());
   } while (std::chrono::steady_clock::now() < deadline);
   return std::unexpected("fixture urban preparation timed out");
