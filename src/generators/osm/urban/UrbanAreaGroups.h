@@ -26,6 +26,8 @@ public:
                                                                              Layout layout);
   [[nodiscard]] size_t Size() const noexcept;
   [[nodiscard]] std::optional<UrbanPatchRange> At(size_t index) const noexcept;
+  [[nodiscard]] std::expected<std::vector<size_t>, std::string_view>
+  Occupied(const UrbanArea &area) const;
   [[nodiscard]] std::expected<std::vector<UrbanPatchRange>, std::string_view>
   Patches(Selection selection) const;
 

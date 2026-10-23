@@ -5,6 +5,7 @@
 #include <expected>
 #include <limits>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -41,6 +42,28 @@ std::optional<UrbanPatchRange> UrbanAreaGroups::At(size_t index) const noexcept 
                          .Row = row,
                          .Columns = std::min(GroupSide_, Columns_ - column),
                          .Rows = std::min(GroupSide_, Rows_ - row)};
+}
+
+std::expected<std::vector<size_t>, std::string_view>
+UrbanAreaGroups::Occupied(const UrbanArea &area) const {
+  if (!area.Recipe.Valid() || area.Columns != Columns_ || area.Rows != Rows_ ||
+      area.Recipe.PatchSide != PatchSide_ || area.Tiers.size() != uint64_t{Columns_} * Rows_) {
+    return std::unexpected("urban occupancy requires its complete matching field");
+  }
+  std::vector<size_t> occupied;
+  const std::span tiers{area.Tiers};
+  for (size_t index = 0; index < Size(); ++index) {
+    const auto range = At(index);
+    if (!range) { return std::unexpected("urban group has no intrinsic range"); }
+    for (size_t row = range->Row; row < range->Row + range->Rows; ++row) {
+      const auto cells = tiers.subspan(row * Columns_ + range->Column, range->Columns);
+      if (std::ranges::any_of(cells, [](uint8_t tier) { return tier != 0; })) {
+        occupied.push_back(index);
+        break;
+      }
+    }
+  }
+  return occupied;
 }
 
 std::expected<std::vector<UrbanPatchRange>, std::string_view>

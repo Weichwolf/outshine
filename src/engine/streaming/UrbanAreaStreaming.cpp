@@ -29,14 +29,6 @@ double ResolvedRadius(const UrbanAreaStreaming::View &view) {
                       view.FocalPx);
 }
 
-bool HasLots(const Generators::Osm::UrbanArea &area, Generators::Osm::UrbanPatchRange range) {
-  const std::span tiers{area.Tiers};
-  for (size_t row = range.Row; row < range.Row + range.Rows; ++row) {
-    const auto cells = tiers.subspan(row * area.Columns + range.Column, range.Columns);
-    if (std::ranges::any_of(cells, [](uint8_t tier) { return tier != 0; })) { return true; }
-  }
-  return false;
-}
 }
 
 UrbanAreaStreaming::UrbanAreaStreaming(Tasks &pool,
@@ -102,8 +94,10 @@ std::expected<void, std::string> UrbanAreaStreaming::PlanSources(const View &vie
       if (held != Areas_.end()) {
         wanted.push_back(std::move(*held));
       } else {
-        wanted.push_back(
-            {.Owner = tile, .Request = {tile, Schema_, {.PatchSide = 32}}, .Delivery = {}});
+        wanted.push_back({.Owner = tile,
+                          .Request = {tile, Schema_, {.PatchSide = 32}},
+                          .Delivery = {},
+                          .OccupiedGroups = {}});
       }
     }
   }
@@ -125,7 +119,16 @@ std::expected<bool, std::string> UrbanAreaStreaming::PollSource() {
                              "/" + std::to_string(area.Owner.X) + "/" +
                              std::to_string(area.Owner.Y));
     }
-    return area.Delivery.Status == State::Ready;
+    if (area.Delivery.Status != State::Ready) { return false; }
+    if (!area.Delivery.Product) { return std::unexpected("ready urban source has no product"); }
+    if (area.Delivery.Product->Occupied == 0) { return true; }
+    const auto groups = Generators::Osm::UrbanAreaGroups::Make(
+        *area.Delivery.Product, {.PatchesPerSide = kPatchesPerGroupSide, .GroupsMost = 1024});
+    if (!groups) { return std::unexpected(std::string(groups.error())); }
+    auto occupied = groups->Occupied(*area.Delivery.Product);
+    if (!occupied) { return std::unexpected(std::string(occupied.error())); }
+    area.OccupiedGroups = std::move(*occupied);
+    return true;
   }
   return false;
 }
@@ -141,13 +144,13 @@ UrbanAreaStreaming::SelectGroups(const View &view, const TerrainResidency &terra
     auto groups = Generators::Osm::UrbanAreaGroups::Make(
         *area, {.PatchesPerSide = kPatchesPerGroupSide, .GroupsMost = 1024});
     if (!groups) { return std::unexpected(std::string(groups.error())); }
-    for (size_t group = 0; group < groups->Size(); ++group) {
+    for (const size_t group : Areas_[source].OccupiedGroups) {
       const auto range = groups->At(group);
       if (!range) { return std::unexpected("urban group has no intrinsic range"); }
       const auto bounds = area->BoundPatch(*range, *heights);
       if (!bounds) { return std::unexpected(std::string(bounds.error())); }
       const double distance = Length(bounds->CentreEcef - view.EyeEcef) - bounds->RadiusM;
-      if (distance <= ResolvedRadius(view) && HasLots(*area, *range)) {
+      if (distance <= ResolvedRadius(view)) {
         candidates.push_back({.Source = source, .Group = group, .DistanceM = distance});
       }
     }

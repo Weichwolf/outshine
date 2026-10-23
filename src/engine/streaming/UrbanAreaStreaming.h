@@ -61,6 +61,7 @@ private:
     Data::TileId Owner;
     Generators::Osm::PreparedUrbanAreas::Request Request;
     Generators::Osm::PreparedUrbanAreas::Delivery Delivery;
+    std::vector<size_t> OccupiedGroups;
   };
 
   struct Group {
