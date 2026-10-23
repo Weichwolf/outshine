@@ -13,6 +13,11 @@ bool UrbanPrismSlot::InFlight() const noexcept {
   return (Job_ && Job_->InFlight()) || (Retiring_ && Retiring_->InFlight());
 }
 
+bool UrbanPrismSlot::AwaitProgress(double seconds) const {
+  if (Retiring_ && Retiring_->InFlight()) { return Retiring_->AwaitProgress(seconds); }
+  return !Job_ || Job_->AwaitProgress(seconds);
+}
+
 void UrbanPrismSlot::Retire() {
   if (!Job_) { return; }
   Job_->Cancel();
