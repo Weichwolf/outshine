@@ -554,7 +554,8 @@ bool StructureBuildQueue::Complete(const Ground::SurfacePreparation &stack,
                                    LongitudeLatitude eye,
                                    const std::function<bool(uint32_t)> &cellReady) const {
   if (HasOriginal()) {
-    return SourcesComplete(stack, footprints) && AcceptedViewCurrent(footprints, eye, cellReady);
+    return Queue_.empty() && SourcesComplete(stack, footprints) &&
+           AcceptedViewCurrent(footprints, eye, cellReady);
   }
   const ::outshine::Generators::Osm::OsmField *const vectors = stack.Vectors();
   return vectors == nullptr ||
@@ -566,7 +567,10 @@ bool StructureBuildQueue::SourcesComplete(
     const Ground::SurfacePreparation &stack,
     const ::outshine::Generators::Osm::BuildingField &footprints) const {
   if (HasOriginal()) {
-    if (!Queue_.empty() || footprints.AcceptedTiles().size() != Originals_.size()) { return false; }
+    if (HasPendingSourceChanges(footprints) ||
+        footprints.AcceptedTiles().size() != Originals_.size()) {
+      return false;
+    }
     for (size_t tile = 0; tile < Originals_.size(); ++tile) {
       const auto *input = footprints.InputOfTile(static_cast<uint32_t>(tile));
       if (input == nullptr || !input->Qualified || !input->Coordinates ||
@@ -579,7 +583,19 @@ bool StructureBuildQueue::SourcesComplete(
     }
     return true;
   }
-  return Queue_.empty() && QualifiedSources(stack, footprints);
+  return !HasPendingSourceChanges(footprints) && QualifiedSources(stack, footprints);
+}
+
+bool StructureBuildQueue::HasPendingSourceChanges(
+    const ::outshine::Generators::Osm::BuildingField &footprints) const {
+  return std::ranges::any_of(Queue_, [&](const QueuedBuild &build) {
+    if (build.Revision.Purpose != BuildPurpose::ViewDetail ||
+        build.ReservationOwner != footprints.ReservationOwner()) {
+      return true;
+    }
+    const auto accepted = QualifiedSourceKey(footprints, build.Task.Tile());
+    return !accepted || *accepted != build.SourceKey;
+  });
 }
 
 bool StructureBuildQueue::QualifiedSources(
@@ -587,7 +603,7 @@ bool StructureBuildQueue::QualifiedSources(
     const ::outshine::Generators::Osm::BuildingField &footprints) {
   const ::outshine::Generators::Osm::OsmField *const vectors = stack.Vectors();
   return vectors == nullptr ||
-         (footprints.RefinementComplete() && footprints.Ingested(*vectors) &&
+         (footprints.SourceRefinementComplete() && footprints.Ingested(*vectors) &&
           std::ranges::all_of(footprints.AcceptedInputs(),
                               [](const auto &input) { return input.Qualified; }));
 }
@@ -634,7 +650,13 @@ void StructureBuildQueue::DiscardFront(::outshine::Generators::Osm::BuildingFiel
   IdleScratch_.reserve(IdleScratch_.size() + 1u);
   if (stale.ReservationOwner == prints.ReservationOwner()) {
     if (stale.Replacement) {
-      if (!stale.Task.Raw().SourceInputs.Objects) { prints.RetryRefinement(stale.Task.Tile()); }
+      if (!stale.Task.Raw().SourceInputs.Objects) {
+        using Purpose = Generators::Osm::BuildingField::RefinementPurpose;
+        const auto source = QualifiedSourceKey(prints, stale.Task.Tile());
+        const bool view = stale.Revision.Purpose == BuildPurpose::ViewDetail && source &&
+                          *source == stale.SourceKey;
+        prints.RetryRefinement(stale.Task.Tile(), view ? Purpose::View : Purpose::Sources);
+      }
     } else {
       prints.Release(stale.Task.Tile());
     }
@@ -1033,7 +1055,7 @@ void StructureBuildQueue::PrepareViewRefinement(::outshine::Generators::Osm::Bui
   if (requirement == HeightRequirement::FineOnly && purpose == BuildPurpose::ViewDetail &&
       prints.RefinementComplete() && Queue_.empty() &&
       !AcceptedViewCurrent(prints, eye, cellReady)) {
-    prints.BeginRefinement();
+    prints.BeginRefinement(Generators::Osm::BuildingField::RefinementPurpose::View);
   }
 }
 
