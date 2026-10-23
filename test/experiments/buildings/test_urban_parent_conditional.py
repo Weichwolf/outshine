@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+from test_urban_parent_volume import assert_source_free_imports
 from urban_parent_conditional import (
     blocker_probability,
     grid,
@@ -87,6 +88,9 @@ def brute_image(heights, origins, directions, profile):
 
 
 class ConditionalParentTest(unittest.TestCase):
+    def test_runtime_conditional_import_does_not_load_geometry_or_source(self):
+        assert_source_free_imports(["urban_parent_conditional"])
+
     def test_equal_wall_lighting_is_shared_without_merging_height_labels(self):
         parent = UrbanParent(
             np.ones((1, 1, 3)),
