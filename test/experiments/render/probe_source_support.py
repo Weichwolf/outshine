@@ -168,6 +168,24 @@ def diagnostic(points, values, bounds, support, needs, output):
     image.save(output)
 
 
+def check_frontier_slice(points, values, output):
+    with np.load(output / "support-frontier.npz", allow_pickle=False) as data:
+        classes = np.full(len(points), 2, np.int8)
+        for box, state in zip(data["bounds"], data["states"], strict=True):
+            covered = ((points >= box[0]) & (points <= box[1])).all(axis=1)
+            classes[covered] = np.minimum(classes[covered], state)
+    if np.any(classes == 2):
+        raise ValueError("support frontier leaves a hole in its root volume")
+    if np.any((classes > 0) & (values <= 0)) or np.any((classes < 0) & (values > 0)):
+        raise ValueError("frontier classification conflicts with source slice")
+    np.save(output / "frontier-slice-classes.npy", classes, allow_pickle=False)
+    return {
+        "resolved_points": int((classes != 0).sum()),
+        "unresolved_points": int((classes == 0).sum()),
+        "membership_conflicts": 0,
+    }
+
+
 def run(args):
     args.output.mkdir(parents=True, exist_ok=False)
     started = time.perf_counter()
@@ -222,7 +240,6 @@ def run(args):
             if isinstance(getattr(support, field.name), np.ndarray)
         },
         domain_wkb_bytes=sum(len(domain.wkb) for domain in support.domains),
-        source_only_process_peak_rss_bytes=peak_rss_bytes(),
         total_allocation_count=None,
         total_physical_copied_bytes=None,
         geos_and_python_retained_bytes=None,
@@ -232,6 +249,10 @@ def run(args):
         support, bounds, args.output
     )
     report["adaptive_support_frontier"]["seconds"] = time.perf_counter() - started
+    report["adaptive_support_frontier"]["slice_check"] = check_frontier_slice(
+        points, values, args.output
+    )
+    report["source_only_process_peak_rss_bytes"] = peak_rss_bytes()
     if args.reference is not None:
         report["original_controls"] = original_controls(
             args.reference, support, basis, anchor, args.output
