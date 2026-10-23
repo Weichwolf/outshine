@@ -112,7 +112,7 @@ Result<void> MetalCommands::BeginRenderPass(const RenderPassDescription &descrip
     if (state.Encoder == nil) {
       return Failure(ErrorKind::Driver, "Metal render encoder creation failed");
     }
-    if (!description.Label.empty()) { state.Encoder.label = Text(description.Label); }
+    state.Encoder.label = Text(description.Label);
     Render = std::move(state);
     return {};
   }
