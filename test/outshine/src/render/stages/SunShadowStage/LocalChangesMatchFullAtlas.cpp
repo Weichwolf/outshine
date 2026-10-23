@@ -3,6 +3,7 @@
 #include "ReadbackTransfer.h"
 #include "SunShadowStage.h"
 #include "test/harness/render/NativeCommandsProxy.h"
+#include "test/harness/render/NativeDeviceProxy.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeOfflineDevice.h"
 #include <array>
@@ -52,6 +53,15 @@ struct RejectDraw final : NativeCommandsProxy {
   }
 };
 
+struct RejectSubmit final : NativeDeviceProxy {
+  using NativeDeviceProxy::NativeDeviceProxy;
+
+  Result<Completion> Submit(std::unique_ptr<Commands>) override {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Driver, .Message = "rejected local submission"});
+  }
+};
+
 void Draw(Device &device,
           GeometryRenderer &geometry,
           Atlas &atlas,
@@ -88,7 +98,12 @@ void Draw(Device &device,
   Require(result);
   Require(target->EndRenderPass());
   if (accept) {
-    Require(device.Submit(fault.Take()));
+    const auto submitted = device.Submit(fault.Take());
+    if (!submitted) {
+      CHECK(submitted.error().Message == "rejected local submission",
+            "the injected device submission failure reaches the native caller");
+      return;
+    }
     geometry.CommitCrossings();
     submission.Commit();
   }
@@ -235,6 +250,30 @@ void Prisms(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &f
   Compare(device, geometry, partial, full, frame);
   CHECK(!partial.Shadow.Casting(), "retiring already empty prisms preserves the atlas");
 }
+
+void SubmissionAndReaders(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &full) {
+  FrameContext frame;
+  for (size_t axis = 0; axis < 3; ++axis) { frame.PreViewTranslation[axis] = -kAnchor[axis]; }
+  const auto piece = Place(geometry, 5);
+  Compare(device, geometry, partial, full, frame);
+  Mat4 row;
+  row[12] = 90;
+  std::string error;
+  CheckSceneUpload(geometry.SetPieceInstances(piece, std::span(&row, 1), error), error);
+  const auto before = Read(device, partial);
+  RejectSubmit fault(device);
+  Draw(fault, geometry, partial, frame);
+  CHECK(!partial.Shadow.HasSubmittedData() && Read(device, partial) == before,
+        "rejected device submission retains accepted GPU pixels and cannot commit the atlas");
+  Compare(device, geometry, partial, full, frame);
+  CHECK(!partial.Shadow.PreservesAtlas(), "rejected submission retries all atlas regions");
+  row[12] = -90;
+  CheckSceneUpload(geometry.SetPieceInstances(piece, std::span(&row, 1), error), error);
+  Draw(device, geometry, full, frame);
+  Compare(device, geometry, partial, full, frame);
+  CHECK(!partial.Shadow.PreservesAtlas(),
+        "a second consumer retiring the retained interval requires the older reader to rebuild");
+}
 }
 
 int main() {
@@ -262,5 +301,6 @@ int main() {
   Changes(device, geometry, partial, full);
   Materials(device, geometry, partial, full);
   Prisms(device, geometry, partial, full);
+  SubmissionAndReaders(device, geometry, partial, full);
   return Report();
 }
