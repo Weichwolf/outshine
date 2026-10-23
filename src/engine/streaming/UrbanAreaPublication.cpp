@@ -3,6 +3,7 @@
 #include "PrismInstance.h"
 #include "SceneRenderer.h"
 #include "BuildingMaterials.h"
+#include "RenderFrame.h"
 #include <scene/Geometry.h>
 #include <algorithm>
 #include <cmath>
@@ -70,7 +71,7 @@ Mat4f RelativePlacement(const Mat4 &ecef,
     const auto local = frame.ToLocalDirection(direction);
     matrix[axis * 4] = static_cast<float>(local.EastM);
     matrix[axis * 4 + 1] = static_cast<float>(local.UpM);
-    matrix[axis * 4 + 2] = static_cast<float>(-local.NorthM);
+    matrix[axis * 4 + 2] = static_cast<float>(RenderFrame::ZOfNorth(local.NorthM));
     matrix[axis * 4 + 3] = 0;
     if (axis == 0) { origin = origin + direction * (view.Column * double{patch.PitchX}); }
     if (axis == 2) { origin = origin + direction * (view.Row * double{patch.PitchZ}); }
@@ -78,7 +79,7 @@ Mat4f RelativePlacement(const Mat4 &ecef,
   const auto local = frame.ToLocalPosition(origin);
   matrix[12] = static_cast<float>(local.EastM);
   matrix[13] = static_cast<float>(local.UpM);
-  matrix[14] = static_cast<float>(-local.NorthM);
+  matrix[14] = static_cast<float>(RenderFrame::ZOfNorth(local.NorthM));
   matrix[15] = 1;
   return matrix;
 }
