@@ -7,7 +7,7 @@ import numpy as np
 from compare_urban_layers import mixed
 from test_urban_parent_conditional import brute_hit
 from test_urban_receiver_ownership import one_box
-from urban_opaque_receivers import has_camera_miss_witness
+from urban_opaque_receivers import has_prism_domain
 from urban_parent_conditional import grid, primary_cap
 from urban_parent_layer import render_layer
 from urban_parent_light import light_at
@@ -181,31 +181,29 @@ class CameraMissTest(unittest.TestCase):
     def test_complete_matching_geometry_is_required_not_readiness_alone(self):
         parent, resolved, _, _, _ = empty_field()
         product, whole = grid(parent), np.array([[[0, 0], [1, 1]]])
-        self.assertTrue(has_camera_miss_witness(product, resolved, whole))
+        self.assertTrue(has_prism_domain(product, resolved, whole))
         self.assertFalse(
-            has_camera_miss_witness(product, resolved, np.array([[[0, 0], [2, 1]]]))
+            has_prism_domain(product, resolved, np.array([[[0, 0], [2, 1]]]))
         )
         self.assertFalse(
-            has_camera_miss_witness(
+            has_prism_domain(
                 product, resolved | {"column_geometry": "arbitrary"}, whole
             )
         )
         self.assertFalse(
-            has_camera_miss_witness(
+            has_prism_domain(
                 product, resolved | {"reference_origin_m": np.array([0.0, 0, 4])}, whole
             )
         )
+        self.assertFalse(has_prism_domain(product, resolved | {"fallback": {}}, whole))
         self.assertFalse(
-            has_camera_miss_witness(product, resolved | {"fallback": {}}, whole)
-        )
-        self.assertFalse(
-            has_camera_miss_witness(
+            has_prism_domain(
                 product,
                 resolved | {"header": resolved["header"] | {"footprint_fraction": 0.5}},
                 whole,
             )
         )
-        self.assertFalse(has_camera_miss_witness(product, resolved, None))
+        self.assertFalse(has_prism_domain(product, resolved, None))
 
     def test_explicit_witness_rejects_unqueried_or_undeclared_prefixes(self):
         parent, _, o, d, profile = empty_field()

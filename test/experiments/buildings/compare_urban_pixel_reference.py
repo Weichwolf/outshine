@@ -45,6 +45,7 @@ def arguments():
     parser.add_argument("--weighted-transport", action="store_true")
     parser.add_argument("--receiver-ownership", action="store_true")
     parser.add_argument("--camera-miss-witness", action="store_true")
+    parser.add_argument("--caster-primary-proxy", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -59,7 +60,7 @@ def arguments():
     ):
         parser.error("Ready state and 1 <= correction <= background <= 128 required")
     if (
-        args.receiver_ownership or args.camera_miss_witness
+        args.receiver_ownership or args.camera_miss_witness or args.caster_primary_proxy
     ) and args.state == "resolved":
         parser.error("visibility witnesses require an explicit Ready state")
     if args.weighted_transport and args.background_samples is None:
@@ -96,6 +97,7 @@ def main():
         args.foreground_fraction,
         receiver_ownership=args.receiver_ownership,
         camera_miss_witness=args.camera_miss_witness,
+        caster_primary_proxy=args.caster_primary_proxy,
         component=(
             "complete"
             if args.background_samples is None
@@ -112,6 +114,7 @@ def main():
             args.state,
             args.foreground_fraction,
             component="background",
+            caster_primary_proxy=args.caster_primary_proxy,
         )
         if args.background_samples is not None
         else None
@@ -157,6 +160,7 @@ def main():
         "weighted_transport": args.weighted_transport,
         "receiver_ownership": args.receiver_ownership,
         "camera_miss_witness": args.camera_miss_witness,
+        "caster_primary_proxy": args.caster_primary_proxy,
         "linear_rgb_min": float(rgb.min()),
         "negative_linear_rgb_channels": int(np.count_nonzero(rgb < 0)),
         "coverage_semantics": "resolved child hits" if query is None else None,

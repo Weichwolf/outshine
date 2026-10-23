@@ -23,7 +23,7 @@ def prism_grid_offset(parent_grid, resolved):
     return np.rint(offset).astype(np.int64)
 
 
-def has_camera_miss_witness(parent_grid, resolved, regions):
+def has_prism_domain(parent_grid, resolved, regions):
     """Match a constructor-guaranteed prism field and queried camera domain.
 
     The geometry tag proves representation form, not domain completeness. The
@@ -36,6 +36,14 @@ def has_camera_miss_witness(parent_grid, resolved, regions):
         or not len(regions)
         or resolved.get("column_geometry") != "single_grounded_prism"
         or "fallback" in resolved
+    ):
+        return False
+    regions = np.asarray(regions)
+    if (
+        regions.ndim != 3
+        or regions.shape[1:] != (2, 2)
+        or not np.issubdtype(regions.dtype, np.integer)
+        or np.any(regions[:, 0] >= regions[:, 1])
     ):
         return False
     offset = prism_grid_offset(parent_grid, resolved)

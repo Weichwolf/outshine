@@ -55,6 +55,7 @@ def composed_scene(
     component="complete",
     receiver_ownership=False,
     camera_miss_witness=False,
+    caster_primary_proxy=False,
 ):
     if component not in {"complete", "correction", "background", "moments"}:
         raise ValueError("complete, correction, background or moments required")
@@ -70,8 +71,16 @@ def composed_scene(
             "existing Ready state and bounded foreground fraction required"
         )
     _, child, caster, view_region, caster_region, foreground = matches[0]
+    from urban_caster_proxy import select_caster_proxy
+    from urban_parent_conditional import validate_eye
+
+    child, view_region, proxy_guard = select_caster_proxy(
+        parent, child, caster, view_region, caster_region, caster_primary_proxy
+    )
 
     def query(origins, directions):
+        if proxy_guard is not None:
+            validate_eye(parent, proxy_guard, origins, directions)
         options = {"correction_only": component == "correction"}
         if component == "background":
             options["layer_query"] = opaque_background
@@ -92,6 +101,12 @@ def composed_scene(
             camera_miss_witness=camera_miss_witness,
             **options,
         )
+        if proxy_guard is not None:
+            work["caster_proxy_queries"] = 1
+            work["caster_proxy_rays"] = len(origins)
+            work["caster_proxy_guard_rays"] = len(origins)
+            work["caster_proxy_primary_work"] = work["child_primary_work"]
+            work["child_primary_work"] = {}
         # Complete RGB includes the opaque ground/environment. This channel is
         # unused; it is not the resolved-only child-hit coverage diagnostic.
         return rgb, np.ones(len(origins)), work
