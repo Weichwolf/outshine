@@ -1,5 +1,7 @@
 """Categorical height expectation with view-conditioned shadows, a cost control."""
 
+from itertools import pairwise
+
 import numpy as np
 from column_field_query import walk_cells, xy_interval
 from urban_parent_light import light_at, shade
@@ -27,9 +29,31 @@ def covered_cells(cell, regions):
 
 
 def covered_grid(product, regions):
-    return any(
+    """Test declared rectangle union using only its boundary coordinates."""
+    if any(
         np.all(low <= 0) and np.all(high >= product["shape"]) for low, high in regions
-    )
+    ):
+        return True
+    if len(regions) < 2:
+        return False
+    regions = np.asarray(regions, np.int64)
+    low = np.maximum(regions[:, 0], 0)
+    high = np.minimum(regions[:, 1], product["shape"])
+    valid = np.all(low < high, axis=1)
+    low, high = low[valid], high[valid]
+    cuts = np.unique(np.r_[0, product["shape"][0], low[:, 0], high[:, 0]])
+    for left, right in pairwise(cuts):
+        active = (low[:, 0] <= left) & (high[:, 0] >= right)
+        intervals = np.c_[low[active, 1], high[active, 1]]
+        intervals = intervals[np.argsort(intervals[:, 0], kind="stable")]
+        covered = 0
+        for first, last in intervals:
+            if first > covered:
+                return False
+            covered = max(covered, last)
+        if covered < product["shape"][1]:
+            return False
+    return True
 
 
 def density(parent, product, cell, *, caster=False):

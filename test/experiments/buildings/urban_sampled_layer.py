@@ -23,6 +23,14 @@ def render_sampled_layer(
     batch=2048,
     shadow_query=None,
 ):
+    """Return parent C, miss T and miss-conditioned receiver-shadow S.
+
+    Unit pixel rays use open finite stops; infinity means sky. The caller
+    declares complete camera/caster ready cells, including vacancies, separately.
+    Deterministic external visibility affects direct parent light; the caller
+    already includes non-parent shadows in its opaque direct term. Compose
+    C+T*(S*direct+other) jointly before filtering; signed corrections stay signed.
+    """
     if (
         type(samples) is not int
         or not 1 <= samples <= 512
