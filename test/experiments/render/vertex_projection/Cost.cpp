@@ -186,7 +186,8 @@ int main(int argc, char **argv) {
   }
   constexpr uint32_t MaximumModes = 6;
   const uint32_t modes = argc == 5 ? MaximumModes : 4;
-  auto device = Take(N::CreateDevice({.Validation = true, .GpuTiming = true}));
+  auto device =
+      Take(N::CreateDevice({.Validation = true, .GpuTiming = N::GpuTimingMode::Submission}));
   auto meshes = Meshes(*device, argv[2]);
   auto target = Take(
       device->CreateTexture({.Width = TargetWidth,

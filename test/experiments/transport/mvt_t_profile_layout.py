@@ -19,15 +19,19 @@ def prior_values(row, xy):
     )
 
 
-def freeze_regions(plan):
+def freeze_regions(plan, source_domains=None):
     """Freeze XY output domains and landing patches before any height solution."""
     domains = [
         shapely.union_all(shapely.polygons(plan["xy"][f])) for f in plan["parts"]
     ]
     footprint_checks = []
-    for row, domain in zip(plan["rows"], domains, strict=True):
-        raw = corridor({k: v for k, v in row.items() if k != "source_grid_m"})
-        if plan["mesh_recipe"] == "outward_binary_grid":
+    for index, (row, domain) in enumerate(zip(plan["rows"], domains, strict=True)):
+        raw = (
+            corridor({k: v for k, v in row.items() if k != "source_grid_m"})
+            if source_domains is None
+            else source_domains[index]
+        )
+        if source_domains is None and plan["mesh_recipe"] == "outward_binary_grid":
             footprint_checks.append(outward_contract(domain, raw, 6 * GRID_M))
         elif domain.symmetric_difference(raw).area > 1e-7:
             raise ValueError("source mesh changed its unrounded source corridor")
@@ -57,6 +61,39 @@ def freeze_regions(plan):
     plan["landing_displacement_m"] = errors
 
 
+def _check_recipes(mesh_recipe, stair_recipe, source_domains):
+    if mesh_recipe not in ("source", "outward_binary_grid", "native_interfaces"):
+        raise ValueError("known declared surface mesh recipe required")
+    if mesh_recipe == "native_interfaces" and source_domains is None:
+        raise ValueError("native interfaces require explicitly planned source domains")
+    if stair_recipe not in ("station_loft", "legacy_sections"):
+        raise ValueError("known constructed flight recipe required")
+
+
+def _profile_row(way, source, proposal, mesh_recipe):
+    row = {
+        "source_id": source["source_id"],
+        "xy": np.array(proposal["axes_xy_m"][source["source_id"]]),
+        "height_prior_xyz_m": np.array(way["sampled_design_xyz_m"]),
+        "width_m": proposal.get("surface_widths_m", {}).get(
+            source["source_id"], 2 * source["half_width_m"]
+        ),
+        "gradient": way["max_gradient"],
+        "original": {
+            "source": {"feature": {"properties": way["tags"]}},
+            "bridge": way["derived_bridge"],
+        },
+    }
+    row["prior"] = prior_values(row, row["xy"])
+    if "surface_axis_constraints" in proposal:
+        if type(proposal["surface_axis_constraints"]) is not bool:
+            raise ValueError("explicit axis constraint choice required")
+        row["surface_axis_constraints"] = proposal["surface_axis_constraints"]
+    if mesh_recipe == "outward_binary_grid":
+        row["source_grid_m"] = GRID_M
+    return row
+
+
 def prepare_profiles(
     case,
     sources,
@@ -65,30 +102,16 @@ def prepare_profiles(
     landing_reach_m=0.75,
     mesh_recipe="source",
     stair_recipe="station_loft",
+    source_domains=None,
+    section_provider=None,
 ):
     if not 1 <= len(sources) <= 64 or not 0 <= landing_reach_m <= 2:
         raise ValueError("bounded sources and declared landing reach required")
-    if mesh_recipe not in ("source", "outward_binary_grid"):
-        raise ValueError("known declared surface mesh recipe required")
-    if stair_recipe not in ("station_loft", "legacy_sections"):
-        raise ValueError("known constructed flight recipe required")
-    rows = []
-    for way, source in zip(case["ways"], sources, strict=True):
-        row = {
-            "source_id": source["source_id"],
-            "xy": np.array(proposal["axes_xy_m"][source["source_id"]]),
-            "height_prior_xyz_m": np.array(way["sampled_design_xyz_m"]),
-            "width_m": 2 * source["half_width_m"],
-            "gradient": way["max_gradient"],
-            "original": {
-                "source": {"feature": {"properties": way["tags"]}},
-                "bridge": way["derived_bridge"],
-            },
-        }
-        row["prior"] = prior_values(row, row["xy"])
-        if mesh_recipe == "outward_binary_grid":
-            row["source_grid_m"] = GRID_M
-        rows.append(row)
+    _check_recipes(mesh_recipe, stair_recipe, source_domains)
+    rows = [
+        _profile_row(way, source, proposal, mesh_recipe)
+        for way, source in zip(case["ways"], sources, strict=True)
+    ]
     indices = {r["source_id"]: i for i, r in enumerate(rows)}
     contacts = proposal["connections"]
     nodes = [
@@ -123,7 +146,13 @@ def prepare_profiles(
     if not stairs:
         raise ValueError("a retained stair recipe is required")
     plan = layout(
-        rows, "width", width_reach_m=landing_reach_m, junctions=nodes, stairs=stairs
+        rows,
+        "width",
+        width_reach_m=landing_reach_m,
+        junctions=nodes,
+        stairs=stairs,
+        source_domains=source_domains,
+        section_provider=section_provider,
     )
     plan["stair_directions"] = directions
     plan["construction_contacts"] = contacts
@@ -135,8 +164,9 @@ def prepare_profiles(
     plan["coordinate_frame"] = {
         k: case["provenance"][k] for k in ("frame_longitude_latitude_deg", "units")
     }
-    freeze_regions(plan)
+    freeze_regions(plan, source_domains)
     plan["stair_recipe"] = stair_recipe
+    plan["station_cut_scope"] = proposal.get("station_cut_scope", "global")
     if stair_recipe == "station_loft":
         prepare_stair_lofts(plan)
     return plan

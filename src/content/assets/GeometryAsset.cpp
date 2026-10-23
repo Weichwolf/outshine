@@ -17,6 +17,7 @@ namespace outshine {
 namespace {
 constexpr uint64_t kGeometryAssetFormat = 0x0005314f45474fULL;
 constexpr uint64_t kPreparedGeometryAssetFormat = 0x0006314f45474fULL;
+constexpr uint64_t kTypedGeometryAssetFormat = 0x0007314f45474fULL;
 static_assert(sizeof(float) == 4 && sizeof(double) == 8 && std::numeric_limits<float>::is_iec559 &&
               std::numeric_limits<double>::is_iec559);
 
@@ -48,11 +49,19 @@ bool Complete(const Geometry &geometry) {
   return true;
 }
 
-bool WriteImages(BinaryValueWriter &out, const Geometry &geometry, bool preparedImages) {
+struct ImageStorage {
+  bool Prepared = false;
+  bool Typed = false;
+};
+
+bool WriteImages(BinaryValueWriter &out, const Geometry &geometry, ImageStorage storage) {
   for (int index = 0; index < geometry.images(); ++index) {
     const ImageView image = geometry.imageAt(index);
-    if (!out(image.WidthPx, image.HeightPx) || !out.Array(image.Rgba)) { return false; }
-    if (preparedImages) {
+    if (!out(image.WidthPx, image.HeightPx) ||
+        (storage.Typed && !out(static_cast<uint8_t>(image.Format))) || !out.Array(image.Rgba)) {
+      return false;
+    }
+    if (storage.Prepared) {
       uint8_t present = 0;
       for (size_t kind = 0; kind < image.LowerMips.size(); ++kind) {
         if (image.LowerMips[kind]) { present |= static_cast<uint8_t>(1u << kind); }
@@ -98,14 +107,18 @@ bool WriteParts(BinaryValueWriter &out, const Geometry &geometry) {
   return true;
 }
 
-bool ReadImages(BinaryValueReader &in, Geometry &geometry, int count, bool preparedImages) {
+bool ReadImages(BinaryValueReader &in, Geometry &geometry, int count, ImageStorage storage) {
   for (int index = 0; index < count; ++index) {
     int width = 0;
     int height = 0;
+    uint8_t format = 0;
     std::vector<uint8_t> pixels;
-    if (!in(width, height) || !in.Array(pixels)) { return false; }
+    if (!in(width, height) || (storage.Typed && !in(format)) ||
+        ImagePixelBytes(static_cast<ImagePixelFormat>(format)) == 0 || !in.Array(pixels)) {
+      return false;
+    }
     ImageMipData mips;
-    if (preparedImages) {
+    if (storage.Prepared) {
       uint8_t present = 0;
       if (!in(present) || present >= (1u << mips.size())) { return false; }
       for (size_t kind = 0; kind < mips.size(); ++kind) {
@@ -117,6 +130,7 @@ bool ReadImages(BinaryValueReader &in, Geometry &geometry, int count, bool prepa
     }
     if (!geometry.addImage({.WidthPx = width,
                             .HeightPx = height,
+                            .Format = static_cast<ImagePixelFormat>(format),
                             .Rgba = pixels,
                             .LowerMips = ViewImageMips(mips)})) {
       return false;
@@ -169,19 +183,19 @@ std::optional<std::vector<uint8_t>> EncodeGeometryAsset(const Geometry &geometry
   if (!Complete(geometry)) { return std::nullopt; }
   BinaryValueWriter out(bytesMost);
   out.Out.Reserve(geometry.storageBytes());
-  bool preparedImages = false;
+  ImageStorage storage;
   for (int index = 0; index < geometry.images(); ++index) {
     const auto image = geometry.imageAt(index);
-    preparedImages = preparedImages || std::ranges::any_of(image.LowerMips, [](const auto &levels) {
-                       return levels.has_value();
-                     });
+    storage.Typed = storage.Typed || image.Format != ImagePixelFormat::Rgba8Unorm;
+    storage.Prepared =
+        storage.Prepared ||
+        std::ranges::any_of(image.LowerMips, [](const auto &levels) { return levels.has_value(); });
   }
-  if (!out(preparedImages ? kPreparedGeometryAssetFormat : kGeometryAssetFormat,
-           geometry.images(),
-           geometry.surfaces(),
-           geometry.lamps(),
-           geometry.parts()) ||
-      !WriteImages(out, geometry, preparedImages) || !WriteTables(out, geometry) ||
+  storage.Prepared = storage.Prepared || storage.Typed;
+  auto format = storage.Prepared ? kPreparedGeometryAssetFormat : kGeometryAssetFormat;
+  if (storage.Typed) { format = kTypedGeometryAssetFormat; }
+  if (!out(format, geometry.images(), geometry.surfaces(), geometry.lamps(), geometry.parts()) ||
+      !WriteImages(out, geometry, storage) || !WriteTables(out, geometry) ||
       !WriteParts(out, geometry)) {
     return std::nullopt;
   }
@@ -194,12 +208,17 @@ std::optional<Geometry> DecodeGeometryAsset(std::span<const uint8_t> bytes, size
   uint64_t format = 0;
   TableCounts tables;
   if (!in(format, tables.Images, tables.Surfaces, tables.Lamps, tables.Parts) ||
-      (format != kGeometryAssetFormat && format != kPreparedGeometryAssetFormat) ||
+      (format != kGeometryAssetFormat && format != kPreparedGeometryAssetFormat &&
+       format != kTypedGeometryAssetFormat) ||
       !tables.Fits(in.In.Remaining())) {
     return std::nullopt;
   }
   Geometry geometry;
-  if (!ReadImages(in, geometry, tables.Images, format == kPreparedGeometryAssetFormat) ||
+  if (!ReadImages(in,
+                  geometry,
+                  tables.Images,
+                  {.Prepared = format != kGeometryAssetFormat,
+                   .Typed = format == kTypedGeometryAssetFormat}) ||
       !ReadTables(in, geometry, tables) || !ReadParts(in, geometry, tables.Parts) ||
       in.In.Remaining() != 0 || !Complete(geometry)) {
     return std::nullopt;

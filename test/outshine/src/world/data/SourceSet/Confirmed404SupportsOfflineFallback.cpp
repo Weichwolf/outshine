@@ -2,7 +2,7 @@
 #include "ContentStore.h"
 #include "OfflineTransport.h"
 #include "SourceSet.h"
-#include "TerrariumDem.h"
+#include "WebTileFixture.h"
 #include <world/data/Transport.h>
 
 #include <cstdlib>
@@ -67,16 +67,16 @@ void Add(SourceSet &sources,
          std::string revision = {},
          AbsencePolicy policy = AbsencePolicy::Continue) {
   using namespace outshine::Test;
-  CHECK(sources.Add(std::make_unique<TerrariumDem>(
+  CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
             revision, Rank{0}, policy, "primary", "https://primary.example/{z}/{x}/{y}.png")) ==
             SourceSet::Registration::Accepted,
         "primary registered");
-  CHECK(sources.Add(std::make_unique<TerrariumDem>("",
-                                                   Rank{1},
-                                                   AbsencePolicy::Continue,
-                                                   "fallback",
-                                                   "https://fallback.example/{z}/{x}/{y}.png")) ==
-            SourceSet::Registration::Accepted,
+  CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
+            "",
+            Rank{1},
+            AbsencePolicy::Continue,
+            "fallback",
+            "https://fallback.example/{z}/{x}/{y}.png")) == SourceSet::Registration::Accepted,
         "fallback registered");
 }
 }

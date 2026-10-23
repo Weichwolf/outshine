@@ -111,7 +111,8 @@ Result<void> MetalCommands::Dispatch(const ComputePipeline &pipeline,
         return Failure(ErrorKind::Invalid, "Metal dispatch exceeds 32-bit shader coordinates");
       }
     }
-    const auto arguments = Arguments(*metal->State, bindings, Device);
+    const ArgumentScope argumentScope(ArgumentBuffers);
+    const auto arguments = Arguments(*metal->State, bindings, Device, ArgumentBuffers[0]);
     if (!arguments) { return std::unexpected(arguments.error()); }
     std::vector<id<MTLResource>> hazards;
     const auto prepared = PrepareResources(*arguments, hazards);

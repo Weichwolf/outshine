@@ -139,16 +139,9 @@ def build_probe(api, output, run):
         raise RuntimeError(
             "consumer native implementation/public headers differ from the archive API producer"
         )
-    declaration = dict(
-        line.split("=", 1)
-        for line in (ROOT / "test/run.sh").read_text().splitlines()
-        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
+    flags = shlex.split(
+        run(["sh", api / "test/run.sh", "--native-compile-flags"], "compile-flags", api)
     )
-    flags = [
-        flag
-        for key in ("CXXSTD", "WARN", "OPT")
-        for flag in shlex.split(declaration[key].strip('"'))
-    ]
     linkage = shlex.split(
         run(["sh", api / "test/run.sh", "--native-link-flags"], "link-flags", api)
     )

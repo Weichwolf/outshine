@@ -48,11 +48,21 @@ public:
     int Fronted = 0;
   };
 
-  struct AcceptanceCapacity {
-    size_t Prints = 0;
-    size_t Spread = 0;
-    size_t Across = 0;
-    size_t Tiles = 0;
+  enum class HeapScope : uint8_t { Reachable, Additional };
+
+  struct PhysicalProduct {
+    std::vector<BuildingFootprint> Prints;
+    std::vector<double> SeatSpreadM;
+    std::vector<double> AcrossM;
+    size_t ContactBytes = 0;
+
+    [[nodiscard]] size_t HeapBytes() const noexcept;
+  };
+
+  struct PinnedProduct {
+    std::shared_ptr<const PhysicalProduct> Physical;
+    std::shared_ptr<const BuildingGeometry> Coordinates;
+    size_t FirstFootprint = 0;
   };
 
   struct BakeInputs {
@@ -104,6 +114,7 @@ public:
           Prints_(baked.Prints.size()),
           Spread_(baked.SeatSpreadM.size()),
           Across_(baked.AcrossM.size()),
+          Physical_(owner->PrepareProduct(tile, baked)),
           Input_{.Coordinates = baked.Coordinates,
                  .Vector = std::move(vector),
                  .Sources = std::vector<Data::TileSourceIdentity>(sources.begin(), sources.end()),
@@ -137,6 +148,7 @@ public:
     size_t Prints_ = 0;
     size_t Spread_ = 0;
     size_t Across_ = 0;
+    std::shared_ptr<const PhysicalProduct> Physical_;
     AcceptedInput Input_;
   };
 
@@ -159,7 +171,11 @@ public:
 
   [[nodiscard]] BuildingField SnapshotAccepted() const;
 
-  void BeginRefinement() noexcept {
+  enum class RefinementPurpose : uint8_t { Sources, View };
+
+  void BeginRefinement(RefinementPurpose purpose = RefinementPurpose::Sources) noexcept {
+    assert(purpose != RefinementPurpose::View || RefinementComplete());
+    RefinementPurpose_ = purpose;
     RefinementAt_ = 0;
     RefinementEnd_ = AcceptedTiles_.size();
     RefinementActive_ = true;
@@ -181,7 +197,9 @@ public:
     ++RefinementAt_;
   }
 
-  void RetryRefinement(uint32_t tile) noexcept {
+  void RetryRefinement(uint32_t tile,
+                       RefinementPurpose purpose = RefinementPurpose::Sources) noexcept {
+    if (purpose == RefinementPurpose::Sources) { RefinementPurpose_ = purpose; }
     const auto at = std::ranges::lower_bound(AcceptedTiles_, tile);
     assert(RefinementActive_ && at != AcceptedTiles_.end() && *at == tile);
     RefinementAt_ = std::min(RefinementAt_, static_cast<size_t>(at - AcceptedTiles_.begin()));
@@ -189,6 +207,10 @@ public:
 
   [[nodiscard]] bool RefinementComplete() const noexcept {
     return RefinementActive_ && RefinementAt_ == RefinementEnd_;
+  }
+
+  [[nodiscard]] bool SourceRefinementComplete() const noexcept {
+    return RefinementPurpose_ == RefinementPurpose::View || RefinementComplete();
   }
 
   [[nodiscard]] size_t RefinementRemaining() const noexcept {
@@ -231,7 +253,7 @@ public:
                     BakeInputs bake,
                     uint64_t heightRevision = 0,
                     HeightField::Request heights = {});
-  void PreparesAcceptances(AcceptanceCapacity capacity);
+  void PreparesAcceptances(size_t tiles);
   void CommitAcceptance(PendingAcceptance pending, const Baked &baked) noexcept;
   void ReplaceAcceptance(PendingAcceptance pending, const Baked &baked) noexcept;
 
@@ -241,24 +263,17 @@ public:
 
   [[nodiscard]] bool Anchored() const noexcept { return Anchored_; }
 
-  [[nodiscard]] const std::vector<BuildingFootprint> &Footprints() const { return Prints_; }
-
-  [[nodiscard]] std::span<const BuildingFootprint> OfTile(int tile) const {
-    if (tile < 0) { return {}; }
-    const auto at = std::ranges::lower_bound(AcceptedTiles_, static_cast<uint32_t>(tile));
-    if (at == AcceptedTiles_.end() || std::cmp_not_equal(*at, tile)) { return {}; }
-    const Range r = Products_[static_cast<size_t>(at - AcceptedTiles_.begin())].Prints;
-    return r.Count == 0 ? std::span<const BuildingFootprint>{}
-                        : std::span<const BuildingFootprint>{Prints_.data() + r.First, r.Count};
+  [[nodiscard]] size_t FootprintCount() const noexcept {
+    return Products_.empty() ? 0 : Products_.back().Prints.First + Products_.back().Prints.Count;
   }
 
-  [[nodiscard]] const BuildingGeometry *GeometryOfFootprint(size_t index) const noexcept {
-    const auto at = std::ranges::upper_bound(
-        Products_, index, {}, [](const TileProduct &product) { return product.Prints.First; });
-    if (at == Products_.begin()) { return nullptr; }
-    const size_t product = static_cast<size_t>(at - Products_.begin() - 1);
-    const Range range = Products_[product].Prints;
-    return index < range.First + range.Count ? AcceptedInputs_[product].Coordinates.get() : nullptr;
+  [[nodiscard]] std::span<const BuildingFootprint> OfTile(int tile) const noexcept;
+  [[nodiscard]] const BuildingGeometry *GeometryOfFootprint(size_t index) const noexcept;
+  [[nodiscard]] std::vector<PinnedProduct> PinProducts() const;
+
+  [[nodiscard]] const PhysicalProduct &ProductAt(size_t tileIndex) const noexcept {
+    assert(tileIndex < Products_.size());
+    return *Products_[tileIndex].Physical;
   }
 
   [[nodiscard]] const AcceptedInput *InputOfTile(uint32_t tile) const noexcept {
@@ -271,14 +286,9 @@ public:
 
   [[nodiscard]] int DefaultHeights() const { return DefaultHeights_; }
 
-  [[nodiscard]] const std::vector<double> &SeatSpreadM() const { return SeatSpread_; }
-
-  [[nodiscard]] const std::vector<double> &FootprintAcrossM() const { return Across_; }
-
   [[nodiscard]] int Deferrals() const { return Admission_.Deferrals(); }
 
   void Settle() {
-    Prints_.shrink_to_fit();
     AcceptedTiles_.shrink_to_fit();
     AcceptedInputs_.shrink_to_fit();
     Products_.shrink_to_fit();
@@ -286,28 +296,9 @@ public:
 
   [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const noexcept;
 
-  [[nodiscard]] size_t PrintBytes() const { return CapacityBytes(Prints_) + ContactBytes_; }
-
-  [[nodiscard]] size_t MeasurementBytes() const {
-    return CapacityBytes(SeatSpread_) + CapacityBytes(Across_);
-  }
-
-  [[nodiscard]] size_t HeapBytes() const {
-    size_t bytes = PrintBytes() + CapacityBytes(AcceptedTiles_) + CapacityBytes(AcceptedInputs_) +
-                   CapacityBytes(Products_) + Admission_.HeapBytes() + MeasurementBytes();
-    for (const AcceptedInput &input : AcceptedInputs_) {
-      if (input.Bake.PreparedAssetKey) { bytes += input.Bake.PreparedAssetKey->capacity() + 1u; }
-      if (input.Coordinates) { bytes += input.Coordinates->HeapBytes(); }
-      if (input.Vector) {
-        bytes += input.Vector->SourceId.capacity() + input.Vector->Revision.capacity();
-      }
-      bytes += CapacityBytes(input.Sources) + CapacityBytes(input.Heights.Tiles);
-      for (const auto &source : input.Sources) {
-        bytes += source.SourceId.capacity() + source.Revision.capacity();
-      }
-    }
-    return bytes;
-  }
+  [[nodiscard]] size_t PrintBytes() const noexcept;
+  [[nodiscard]] size_t MeasurementBytes() const noexcept;
+  [[nodiscard]] size_t HeapBytes(HeapScope scope = HeapScope::Reachable) const noexcept;
 
   [[nodiscard]] bool Ingested(const OsmField &field) const {
     return Admission_.Done(field.Tiles()) && Taken_ == Accepted_;
@@ -340,17 +331,18 @@ private:
 
   struct TileProduct {
     Range Prints;
-    Range Spread;
-    Range Across;
+    std::shared_ptr<const PhysicalProduct> Physical;
     size_t Triangles = 0;
     int OsmHeights = 0;
     int DefaultHeights = 0;
     int Fronted = 0;
-    size_t ContactBytes = 0;
   };
 
+  [[nodiscard]] const TileProduct *ProductForFootprint(size_t index) const noexcept;
+  [[nodiscard]] std::shared_ptr<const PhysicalProduct> PrepareProduct(uint32_t tile,
+                                                                      const Baked &baked) const;
+
   uint64_t Revision_ = 0;
-  std::vector<BuildingFootprint> Prints_;
   std::vector<uint32_t> AcceptedTiles_;
   std::vector<AcceptedInput> AcceptedInputs_;
   std::vector<TileProduct> Products_;
@@ -359,6 +351,7 @@ private:
   size_t Taken_ = 0, Accepted_ = 0;
   size_t RefinementAt_ = 0, RefinementEnd_ = 0;
   bool RefinementActive_ = false;
+  RefinementPurpose RefinementPurpose_ = RefinementPurpose::Sources;
   TileAdmission Admission_;
   ProjectedErrorBudget Projection_{};
   std::optional<Vec3> EyeEcef_;
@@ -366,8 +359,6 @@ private:
   Vec3 Anchor_;
   bool Anchored_ = false;
   int OsmHeights_ = 0, DefaultHeights_ = 0, Fronted_ = 0;
-  std::vector<double> SeatSpread_;
-  std::vector<double> Across_;
 };
 
 }

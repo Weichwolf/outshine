@@ -17,7 +17,7 @@ namespace outshine::Generators {
 class PreparedRoadPages {
 public:
   struct Loaded {
-    std::shared_ptr<const RoadPageAsset> Page;
+    std::unique_ptr<RoadPageAsset> Page;
     AssetRecord Record;
     size_t NativeBytes = 0;
   };

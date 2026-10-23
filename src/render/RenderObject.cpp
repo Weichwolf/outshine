@@ -407,15 +407,6 @@ bool Surface(SceneRenderer &renderer,
   return BindIllumination(renderer, proxy, scratch, error);
 }
 
-bool Show(SceneRenderer &renderer,
-          const RenderObject &proxy,
-          const SubjectView &view,
-          RenderObjectPreparation &scratch,
-          std::string &error) {
-  return Surface(renderer, proxy, view, scratch, error) &&
-         Place(renderer, proxy, view, scratch, error);
-}
-
 namespace {
 
 size_t

@@ -1,4 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define SCAN_ARGUMENT_STRIDE 5u
+#define SCAN_LANES 32
+#define SCAN_LIVE_PREFIX
 #include "prefixScan.glsl"

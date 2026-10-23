@@ -6,7 +6,7 @@ import time
 import numpy as np
 from mvt_t_profile_contacts import add_contacts, contact_residuals, prepare_contacts
 from mvt_t_profile_layout import prior_values
-from mvt_t_stair_loft import add_loft_equalities, height_projection
+from mvt_t_stair_loft import add_loft_equalities, height_projection, require_owned_lofts
 from scipy import sparse
 from scipy.optimize import linprog
 from stair_junction_solve import (
@@ -30,6 +30,54 @@ def _prior_conditions(plan, system, datum, delta):
     return targets
 
 
+def _check_options(
+    solver,
+    max_prior_change_m,
+    seconds,
+    contact_presolve,
+    height_formulation,
+    gradient_model,
+):
+    if solver not in ("highs-ds", "highs-ipm"):
+        raise ValueError("known HiGHS method required")
+    if not math.isfinite(max_prior_change_m) or not 0 <= max_prior_change_m <= 5:
+        raise ValueError("bounded nonnegative prior-change recipe required")
+    if not math.isfinite(seconds) or not 0 <= seconds <= 60:
+        raise ValueError("bounded nonnegative cooperative solver time required")
+    if type(contact_presolve) is not bool:
+        raise ValueError("explicit contact presolve choice required")
+    if height_formulation not in ("projected", "equalities"):
+        raise ValueError("known height formulation required")
+    if gradient_model not in ("whole_norm", "axis_crossfall"):
+        raise ValueError("known declared profile gradient model required")
+
+
+def _gradient_conditions(
+    plan, system, normals, reserve, height_bound, gradient_model, crossfall_limit
+):
+    directional_work = {}
+    if gradient_model == "axis_crossfall":
+        from mvt_t_directional_facets import directional_facets
+
+        directional_work = directional_facets(
+            plan,
+            system,
+            normals,
+            reserve,
+            True,
+            True,
+            height_bound_m=height_bound,
+            crossfall_limit=crossfall_limit,
+        )
+    else:
+        facets(plan, system, normals, reserve, True, True, height_bound_m=height_bound)
+    return directional_work
+
+
+def _sparse_bytes(matrix):
+    return sum(a.nbytes for a in (matrix.data, matrix.indices, matrix.indptr))
+
+
 def solve_profiles(
     plan,
     *,
@@ -42,17 +90,18 @@ def solve_profiles(
     contact_row_scale=1024.0,
     contact_presolve=False,
     height_formulation="projected",
+    gradient_model="whole_norm",
+    crossfall_limit=0.2,
 ):
-    if solver not in ("highs-ds", "highs-ipm"):
-        raise ValueError("known HiGHS method required")
-    if not math.isfinite(max_prior_change_m) or not 0 <= max_prior_change_m <= 5:
-        raise ValueError("bounded nonnegative prior-change recipe required")
-    if not math.isfinite(seconds) or not 0 <= seconds <= 60:
-        raise ValueError("bounded nonnegative cooperative solver time required")
-    if type(contact_presolve) is not bool:
-        raise ValueError("explicit contact presolve choice required")
-    if height_formulation not in ("projected", "equalities"):
-        raise ValueError("known height formulation required")
+    _check_options(
+        solver,
+        max_prior_change_m,
+        seconds,
+        contact_presolve,
+        height_formulation,
+        gradient_model,
+    )
+    require_owned_lofts(plan)
     began = time.perf_counter()
     count, planes = len(plan["xy"]), 3 * len(plan["nodes"])
     if count > 4096 or sum(map(len, plan["parts"])) > 8192:
@@ -70,7 +119,9 @@ def solve_profiles(
     angles = np.arange(16) * 2 * np.pi / 16
     normals, reserve = np.c_[np.cos(angles), np.sin(angles)], float(np.cos(np.pi / 16))
     height_bound = max(abs(p).max() for _v, p in targets) + max_prior_change_m
-    facets(plan, system, normals, reserve, True, True, height_bound_m=height_bound)
+    directional_work = _gradient_conditions(
+        plan, system, normals, reserve, height_bound, gradient_model, crossfall_limit
+    )
     junctions(plan, system, normals, reserve, True, plane_offset=count)
     for stair in plan["stairs"]:
         stair_condition(
@@ -112,9 +163,13 @@ def solve_profiles(
         "variables": matrix.shape[1],
         "unreduced_variables": delta + 1,
         "height_formulation": height_formulation,
-        "projection_array_bytes": projection.data.nbytes
-        + projection.indices.nbytes
-        + projection.indptr.nbytes,
+        "gradient_model": gradient_model,
+        **(
+            {"crossfall_limit": crossfall_limit, "directional_work": directional_work}
+            if directional_work
+            else {}
+        ),
+        "projection_array_bytes": _sparse_bytes(projection),
         "constraints": matrix.shape[0],
         "nonzeros": matrix.nnz,
         "preparation_s": prepared - began,
@@ -125,9 +180,7 @@ def solve_profiles(
         "contact_row_scale": contact_row_scale,
         "presolve": contact_presolve if contacts else True,
         "overlap_vertex_constraints": overlaps,
-        "sparse_array_bytes": matrix.data.nbytes
-        + matrix.indices.nbytes
-        + matrix.indptr.nbytes,
+        "sparse_array_bytes": _sparse_bytes(matrix),
         "scope": "local finite profile proposal; only explicitly supplied fixed contacts are bound",
     }
     if not answer.success:

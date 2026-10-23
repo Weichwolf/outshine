@@ -5,8 +5,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <ranges>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -14,50 +17,121 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Data;
+constexpr double kTravelLongitudeDeg = 90.0;
+constexpr size_t kSourceByteBudget = 1u << 20u;
 
 class NoTransport final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*location*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class VectorSource final : public Source {
 public:
   explicit VectorSource(std::vector<uint8_t> bytes) : Bytes(std::move(bytes)) {}
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Coverage Covers(const Fetch & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*address*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  Fetched Collect(const Address & /*address*/,
+                  Ticket /*ticket*/,
+                  Transport & /*transport*/) const override {
     return Fetched::Delivered(Bytes);
   }
 
 private:
   SourceDecl Decl{.Id = "vector-assembly",
                   .Revision = "r1",
+                  .Endpoint = {},
                   .Kind = DataKind::VectorMap,
                   .Wire = WireFormat::MapboxVectorTile,
-                  .Keeps = Cacheability::Never};
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   std::vector<uint8_t> Bytes;
 };
 
 std::vector<uint8_t> TileBytes() {
   using outshine::Test::Mvt::Append;
   using outshine::Test::Mvt::Bytes;
-  Bytes layer{0x0a, 1, 'x', 0x78, 2, 0x28, 64};
-  Append(layer, 0x12, Bytes{0x18, 2, 0x22, 6, 9, 0, 0, 10, 2, 2});
+  constexpr std::array<uint8_t, 7> header{0x0a, 1, 'x', 0x78, 2, 0x28, 64};
+  constexpr std::array<uint8_t, 10> feature{0x18, 2, 0x22, 6, 9, 0, 0, 10, 2, 2};
+  constexpr uint8_t featureTag = 0x12;
+  constexpr uint8_t layerTag = 0x1a;
+  Bytes layer(header.begin(), header.end());
+  Append(layer, featureTag, feature);
   Bytes tile;
-  Append(tile, 0x1a, layer);
+  Append(tile, layerTag, layer);
   return tile;
 }
+
+void CheckPendingTravel(::outshine::Generators::Osm::OsmField &staged,
+                        Ground::TilePool &pool,
+                        const double *originalPublication) {
+  using namespace outshine::Test;
+  const auto pinnedBeforeTravel = staged.SnapshotQueries();
+  CHECK(staged.Build(pool, {.LongitudeDeg = kTravelLongitudeDeg}, 1, 9).has_value() &&
+            staged.Points().data() == originalPublication,
+        "a pending distant contact preserves the previously published snapshot");
+  const auto pendingTravel = staged.SnapshotQueries(pinnedBeforeTravel);
+  CHECK(staged.Generation() == pinnedBeforeTravel->Generation() &&
+            pendingTravel != pinnedBeforeTravel && pendingTravel->CentreX() == staged.CentreX() &&
+            pendingTravel->PendingTiles() == staged.PendingTiles() &&
+            !pendingTravel->SettledWithin(1),
+        "changed focus and pending query state invalidate reuse before geometry publication");
+}
+
+void CheckBoundedParsing(Ground::TilePool &pool,
+                         std::span<const std::string> layers,
+                         const ::outshine::Generators::Osm::OsmField &staged) {
+  using namespace outshine::Test;
+  ::outshine::Generators::Osm::OsmField bounded(4, layers);
+  const auto settledCount = [&bounded] {
+    size_t count = 0;
+    for (int y = 7; y <= 9; ++y) {
+      for (int x = 7; x <= 9; ++x) { count += bounded.Settled(x, y) ? 1u : 0u; }
+    }
+    return count;
+  };
+  bool sawContact = false;
+  for (int slice = 0; slice < 12 && !bounded.SettledWithin(1); ++slice) {
+    const size_t before = settledCount();
+    CHECK(bounded.Build(pool, {}, 1, 9, {.TilesMost = 2}).has_value(),
+          "bounded parsing accepts the resident source window");
+    const size_t after = settledCount();
+    CHECK(after >= before && after - before <= 2,
+          "each interrupted update parses at most two vector tiles");
+    if (bounded.Generation() == 1) {
+      sawContact = true;
+      CHECK(bounded.Tiles().size() == 1 && !bounded.SettledWithin(1),
+            "partial parsing retains only the contact publication");
+    }
+    CHECK(bounded.Generation() != 2 || after == 9,
+          "full geometry cannot publish before the last source tile is parsed");
+  }
+  CHECK(sawContact && bounded.SettledWithin(1) && bounded.Generation() == 2 &&
+            bounded.Tiles().size() == staged.Tiles().size() &&
+            bounded.Features().size() == staged.Features().size() &&
+            std::ranges::equal(bounded.Points(), staged.Points()),
+        "bounded and unbounded parsing publish the same canonical world");
+  CHECK(!bounded.Build(pool, {}, 1, 9, {.TilesMost = 0}).has_value() && bounded.Generation() == 2,
+        "an empty parse budget cannot mutate the published world");
+}
+
 }
 
 int main() {
@@ -65,12 +139,13 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
   const auto bytes = TileBytes();
-  ContentStore store({.Using = ContentStore::Use::Off});
+  ContentStore store({.Directory = {}, .Using = ContentStore::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<VectorSource>(bytes)) == SourceSet::Registration::Accepted,
         "resident vector source registers");
   NoTransport transport;
-  Ground::TilePool pool({.ByteBudget = 1u << 20u}, sources, transport);
+  Ground::TilePool pool(
+      {.ByteBudget = kSourceByteBudget, .PreparedFields = {}}, sources, transport);
   for (uint32_t y = 7; y <= 9; ++y) {
     for (uint32_t x = 7; x <= 9; ++x) {
       Ground::TilePool::Landing landed;
@@ -113,43 +188,11 @@ int main() {
                   left.FeatureCount == right.FeatureCount;
   }
   CHECK(sameIndices, "tile keys and feature offsets match the one-shot oracle");
-  ::outshine::Generators::Osm::OsmField bounded(4, layers);
-  const auto settledCount = [&bounded] {
-    size_t count = 0;
-    for (int y = 7; y <= 9; ++y) {
-      for (int x = 7; x <= 9; ++x) { count += bounded.Settled(x, y) ? 1u : 0u; }
-    }
-    return count;
-  };
-  bool sawContact = false;
-  for (int slice = 0; slice < 12 && !bounded.SettledWithin(1); ++slice) {
-    const size_t before = settledCount();
-    CHECK(bounded.Build(pool, {}, 1, 9, {.TilesMost = 2}).has_value(),
-          "bounded parsing accepts the resident source window");
-    const size_t after = settledCount();
-    CHECK(after >= before && after - before <= 2,
-          "each interrupted update parses at most two vector tiles");
-    if (bounded.Generation() == 1) {
-      sawContact = true;
-      CHECK(bounded.Tiles().size() == 1 && !bounded.SettledWithin(1),
-            "partial parsing retains only the contact publication");
-    }
-    CHECK(bounded.Generation() != 2 || after == 9,
-          "full geometry cannot publish before the last source tile is parsed");
-  }
-  CHECK(sawContact && bounded.SettledWithin(1) && bounded.Generation() == 2 &&
-            bounded.Tiles().size() == staged.Tiles().size() &&
-            bounded.Features().size() == staged.Features().size() &&
-            std::ranges::equal(bounded.Points(), staged.Points()),
-        "bounded and unbounded parsing publish the same canonical world");
-  CHECK(!bounded.Build(pool, {}, 1, 9, {.TilesMost = 0}).has_value() && bounded.Generation() == 2,
-        "an empty parse budget cannot mutate the published world");
+  CheckBoundedParsing(pool, layers, staged);
   const std::vector<double> originalPoints(staged.Points().begin(), staged.Points().end());
   const size_t originalBytes = staged.HeapBytes();
   const auto *originalPublication = staged.Points().data();
-  CHECK(staged.Build(pool, {.LongitudeDeg = 90.0}, 1, 9).has_value() &&
-            staged.Points().data() == originalPublication,
-        "a pending distant contact preserves the previously published snapshot");
+  CheckPendingTravel(staged, pool, originalPublication);
   for (uint32_t y = 7; y <= 9; ++y) {
     for (uint32_t x = 11; x <= 13; ++x) {
       Ground::TilePool::Landing landed;
@@ -159,7 +202,7 @@ int main() {
     }
   }
   for (int slice = 0; slice < 4; ++slice) {
-    CHECK(staged.Build(pool, {.LongitudeDeg = 90.0}, 1, 9).has_value(),
+    CHECK(staged.Build(pool, {.LongitudeDeg = kTravelLongitudeDeg}, 1, 9).has_value(),
           "distant window assembles without source errors");
   }
   CHECK(staged.SettledWithin(1) && staged.Tiles().size() == 9 &&

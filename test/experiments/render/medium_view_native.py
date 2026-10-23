@@ -54,16 +54,8 @@ def main():
     receipt.unlink(missing_ok=True)
     record = {"commands": [], "cases": {}}
     compiler = shlex.split(os.environ.get("CXX", "c++"))
-    declarations = dict(
-        line.split("=", 1)
-        for line in (ROOT / "test/run.sh").read_text().splitlines()
-        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
-    )
-    toolchain = [
-        flag
-        for key in ("CXXSTD", "WARN", "OPT")
-        for flag in shlex.split(declarations[key].strip('"'))
-    ]
+    toolchain = shlex.split(subprocess.check_output(
+        ["sh", "test/run.sh", "--native-compile-flags"], cwd=ROOT, text=True))
     glslang = shlex.split(os.environ.get("GLSLANG", "glslangValidator"))
 
     def run(argv, name, expected=0):

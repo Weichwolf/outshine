@@ -1,6 +1,7 @@
 """One indexed body including flat treads, vertical risers and continuous undersides."""
 
 import numpy as np
+from mvt_t_stair_loft import require_owned_lofts
 from outshine_ref.contracts import Mesh
 from stair_junction_treads import partition
 from surface_solid_checks import audit_closed
@@ -90,7 +91,30 @@ def close(points, faces, step, levels):
 
 
 def build(plan, heights):
-    points, faces, owners, steps, levels, note = partition(plan, heights)
+    require_owned_lofts(plan)
+    recipe = plan.get("tread_partition_recipe", "legacy_levels")
+    envelope = None
+    if recipe == "envelope_indexed_band_remesh":
+        from stair_envelope_remesh import coarsen_envelope
+
+        plan, envelope = coarsen_envelope(plan, heights)
+    if recipe in ("indexed_band_remesh", "envelope_indexed_band_remesh"):
+        from stair_band_remesh import remesh
+        from stair_indexed_levels import partition as indexed_partition
+
+        points, faces, owners, steps, levels, note = remesh(
+            *indexed_partition(plan, heights), plan
+        )
+    elif recipe == "indexed_levels":
+        from stair_indexed_levels import partition as indexed_partition
+
+        points, faces, owners, steps, levels, note = indexed_partition(plan, heights)
+    elif recipe == "legacy_levels":
+        points, faces, owners, steps, levels, note = partition(plan, heights)
+    else:
+        raise ValueError("known declared tread partition recipe required")
+    if envelope is not None:
+        note["envelope_remesh"] = envelope
     body, top, bottom, walls, families, volume = close(points, faces, steps, levels)
     extra = {}
     if "stairs" in note:

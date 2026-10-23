@@ -1,4 +1,12 @@
-layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+#ifndef SCAN_LANES
+#define SCAN_LANES 256
+#endif
+#ifdef SCAN_LIVE_PREFIX
+#define SCAN_LIMIT live
+#else
+#define SCAN_LIMIT kScanLanes
+#endif
+layout(local_size_x = SCAN_LANES, local_size_y = 1, local_size_z = 1) in;
 layout(std430, set = 0, binding = 0) readonly buffer Buffer_kept { uint kept[]; };
 layout(std430, set = 0, binding = 1) readonly buffer Buffer_batches { uint batches[]; };
 layout(std430, set = 1, binding = 0) buffer Buffer_slot { uint slot[]; };
@@ -18,11 +26,14 @@ void main() {
   barrier();
 
   for (uint from = 0u; from < count; from += kScanLanes) {
+#ifdef SCAN_LIVE_PREFIX
+    const uint live = min(count - from, kScanLanes);
+#endif
     const uint at = from + lane;
     const uint mine = at < count ? kept[first + at] : 0u;
     block[lane] = mine;
     barrier();
-    for (uint step = 1u; step < kScanLanes; step <<= 1u) {
+    for (uint step = 1u; step < SCAN_LIMIT; step <<= 1u) {
       const uint taken = lane >= step ? block[lane - step] : 0u;
       barrier();
       block[lane] += taken;
@@ -32,7 +43,7 @@ void main() {
       slot[first + at] = mine == 0u ? kCullRejected : carried + block[lane] - mine;
     }
     barrier();
-    if (lane == kScanLanes - 1u) { carried += block[kScanLanes - 1u]; }
+    if (lane == SCAN_LIMIT - 1u) { carried += block[SCAN_LIMIT - 1u]; }
     barrier();
   }
   if (lane == 0u) { args[SCAN_ARGUMENT_STRIDE * batch] = carried; }

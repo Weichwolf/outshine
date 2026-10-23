@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_SHADOW_SHADOWRASTER_H
 
 #include "math/Mat4.h"
+#include "math/Box.h"
 #include "math/Vec3.h"
 #include <array>
 #include <cstddef>
@@ -41,6 +42,8 @@ struct ShadowRasterUpdate {
 
 [[nodiscard]] Mat4f ShadowPatchProjection(const ShadowRaster &raster,
                                           const ShadowRasterPatch &patch) noexcept;
+
+[[nodiscard]] bool IncludeShadowChange(ShadowRasterUpdate &update, const Boxf &bounds) noexcept;
 
 [[nodiscard]] Mat4f ShadowPatchCullProjection(const Mat4f &projection,
                                               const ShadowRasterPatch &patch,

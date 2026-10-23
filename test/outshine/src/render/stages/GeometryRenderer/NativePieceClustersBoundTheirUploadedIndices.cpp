@@ -143,10 +143,11 @@ int main() {
       piece.Clusters = clustered->Clusters;
       piece.Colours = colours;
       piece.Textured = true;
-      const PieceId placed = draw.PlacePiece(piece, error);
-      CHECK(placed != kNoPiece, "distinct native pieces survive vertex and index buffer growth");
+      const auto placed = draw.PlacePiece(piece);
+      CHECK(placed.has_value(), "distinct native pieces survive vertex and index buffer growth");
       if (at % 2 == 1) { draw.ReleasePiece(previous); }
-      previous = placed;
+      if (!placed) { return Report(); }
+      previous = *placed;
     }
     CHECK(draw.HandTables(error), "cluster job tables publish");
     CHECK(draw.ClusterJobs() == 256, "both clusters of every remaining native piece survive");

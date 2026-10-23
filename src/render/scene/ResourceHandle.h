@@ -29,6 +29,17 @@ struct HeightPageHandle {
   [[nodiscard]] constexpr bool operator==(const HeightPageHandle &) const noexcept = default;
 };
 
+struct PrismGridHandle {
+  uint32_t Slot = kNoResourceSlot;
+  uint64_t Generation = 0;
+
+  [[nodiscard]] explicit constexpr operator bool() const noexcept {
+    return Slot != kNoResourceSlot && Generation != 0;
+  }
+
+  [[nodiscard]] constexpr bool operator==(const PrismGridHandle &) const noexcept = default;
+};
+
 struct ResourceSlotState {
   uint64_t Generation = 1;
   uint32_t NextFree = kNoResourceSlot;

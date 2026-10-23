@@ -41,12 +41,64 @@ def load_product(path):
     return product
 
 
+def xy_interval(product, origin, direction, rays, cell):
+    """Optional centred lots retain XY gaps while sharing the packet traversal."""
+    pitch = product["header"]["pitch_m"]
+    fraction = product["header"].get("footprint_fraction", 1.0)
+    if not 0 < fraction <= 1:
+        raise ValueError("bounded column footprint fraction required")
+    low = (cell + product["low"] + (1 - fraction) / 2) * pitch
+    high = low + pitch * fraction
+    dxy = direction[rays, :2]
+    parallel = dxy == 0
+    times = np.divide(
+        np.stack((low, high), axis=1) - origin[rays, None, :2],
+        dxy[:, None],
+        out=np.zeros((len(rays), 2, 2)),
+        where=~parallel[:, None],
+    )
+    near = np.where(parallel, -np.inf, times.min(axis=1))
+    far = np.where(parallel, np.inf, times.max(axis=1)).min(axis=1)
+    missed = np.any(
+        parallel & ((origin[rays, :2] < low) | (origin[rays, :2] > high)), axis=1
+    )
+    return near.max(axis=1), np.where(missed, -np.inf, far), near.argmax(axis=1)
+
+
+def clip_height(product, origin, direction, begin, end):
+    if "height_bounds" not in product:
+        return begin, end
+    bounds = np.asarray(product["height_bounds"], float)
+    dz = direction[:, 2]
+    t = np.divide(
+        bounds[None] - origin[:, 2, None],
+        dz[:, None],
+        out=np.zeros((len(origin), 2)),
+        where=dz[:, None] != 0,
+    )
+    near = np.where(dz == 0, -np.inf, t.min(axis=1))
+    far = np.where(dz == 0, np.inf, t.max(axis=1))
+    missed = (dz == 0) & ((origin[:, 2] < bounds[0]) | (origin[:, 2] > bounds[1]))
+    return np.maximum(begin, near), np.where(missed, -np.inf, np.minimum(end, far))
+
+
 def test_columns(
-    product, origin, direction, ids, cell, begin, leave, depth, normal, owner
+    product,
+    origin,
+    direction,
+    ids,
+    cell,
+    begin,
+    leave,
+    depth,
+    normal,
+    owner,
+    minimum,
+    *,
+    inside_is_hit=False,
 ):
     """Update nearest surface hits for the current packet of XY cells."""
     columns = product["lookup"][cell[:, 1], cell[:, 0]]
-    low, pitch = product["low"], product["header"]["pitch_m"]
     tests = 0
     occupied = np.flatnonzero(columns >= 0)
     if len(occupied):
@@ -67,10 +119,22 @@ def test_columns(
             )
             zn = np.where(dz == 0, -np.inf, zt.min(1))
             zf = np.where(dz == 0, np.inf, zt.max(1))
-            entry = np.maximum(begin[rays], zn)
-            exit = np.minimum(leave[at], zf)
-            inside_z = (z + 0.1 * dz >= spans[:, 0]) & (z + 0.1 * dz <= spans[:, 1])
-            if np.any((begin[rays] == 0.1) & inside_z):
+            xy_near, xy_far, xy_axis = begin[rays], leave[at], None
+            if product["header"].get("footprint_fraction", 1.0) != 1:
+                xy_near, xy_far, xy_axis = xy_interval(
+                    product, origin, direction, rays, cell[at]
+                )
+            entry = np.maximum(np.maximum(begin[rays], zn), xy_near)
+            exit = np.minimum(np.minimum(leave[at], zf), xy_far)
+            inside_z = (z + minimum * dz >= spans[:, 0]) & (
+                z + minimum * dz <= spans[:, 1]
+            )
+            if not inside_is_hit and np.any(
+                (begin[rays] == minimum)
+                & inside_z
+                & (xy_near <= minimum)
+                & (xy_far >= minimum)
+            ):
                 raise ValueError(
                     "eye inside occupied column requires an original/finer product"
                 )
@@ -82,40 +146,27 @@ def test_columns(
             tests += len(rays)
             rr = rays[hit]
             depth[rr], owner[rr] = entry[hit], spans_at[hit]
-            roof_hit = zn[hit] >= begin[rr]
+            roof_hit = zn[hit] >= np.maximum(begin[rr], xy_near[hit])
             n = np.zeros((len(rr), 3))
             n[roof_hit, 2] = -np.sign(direction[rr[roof_hit], 2])
             other = ~roof_hit
-            # The XY entry axis is recomputed from the current cell's slab.
-            ray_cell = cell[at[hit]] + low
-            p = (ray_cell + (direction[rr, :2] < 0)) * pitch
-            near_xy = np.divide(
-                p - origin[rr, :2],
-                direction[rr, :2],
-                out=np.full((len(rr), 2), -np.inf),
-                where=direction[rr, :2] != 0,
+            axis = (
+                xy_interval(product, origin, direction, rr, cell[at[hit]])[2]
+                if xy_axis is None
+                else xy_axis[hit]
             )
-            axis = near_xy.argmax(1)
             rows = np.flatnonzero(other)
             n[rows, axis[rows]] = -np.sign(direction[rr[rows], axis[rows]])
             normal[rr] = n
     return tests
 
 
-def trace(product, origins, directions):
-    origins, directions = np.asarray(origins, float), np.asarray(directions, float)
-    if (
-        origins.shape != directions.shape
-        or origins.ndim != 2
-        or origins.shape[1] != 3
-        or len(origins) > 4194304
-        or not np.isfinite(origins).all()
-        or not np.isfinite(directions).all()
-        or np.any(np.linalg.norm(directions, axis=1) == 0)
-    ):
-        raise ValueError("bounded finite nonzero ray packet required")
-    basis = product["basis"]
-    origin, direction = origins @ basis.T, directions @ basis.T
+def walk_cells(
+    product, origin, direction, work, *, minimum=0.1, maximum=None, ray_bounds=None
+):
+    """Yield ordered XY packets; consumers can clear keep to stop a ray."""
+    if 0 in product["shape"]:
+        return
     pitch = product["header"]["pitch_m"]
     low, shape = product["low"], product["shape"]
     bounds = np.array([low, low + shape]) * pitch
@@ -129,10 +180,25 @@ def trace(product, origins, directions):
     )
     near = np.where(parallel, -np.inf, t.min(1))
     far = np.where(parallel, np.inf, t.max(1))
-    begin, end = np.maximum(0.1, near.max(1)), far.min(1)
+    begin, end = np.maximum(minimum, near.max(1)), far.min(1)
+    begin, end = clip_height(product, origin, direction, begin, end)
+    if maximum is not None:
+        end = np.minimum(end, maximum)
+    if ray_bounds is not None:
+        begin = np.maximum(begin, ray_bounds[:, 0])
+        end = np.minimum(end, ray_bounds[:, 1])
     missed = np.any(
         parallel & ((origin[:, :2] < bounds[0]) | (origin[:, :2] >= bounds[1])), axis=1
     )
+    fraction = product["header"].get("footprint_fraction", 1.0)
+    if not 0 < fraction <= 1:
+        raise ValueError("bounded column footprint fraction required")
+    if fraction < 1:
+        phase = origin[:, :2] - np.floor(origin[:, :2] / pitch) * pitch
+        guard = 8 * np.finfo(float).eps * (np.abs(origin[:, :2]) + pitch)
+        edge = (1 - fraction) * pitch / 2
+        gap = (phase < edge - guard) | (phase > pitch - edge + guard)
+        missed |= np.any(parallel & gap, axis=1)
     ids = np.flatnonzero(~missed & (begin <= end))
     point = origin[ids, :2] + begin[ids, None] * dxy[ids]
     # Select the cell entered in the ray direction, including exact grid ties.
@@ -149,19 +215,15 @@ def trace(product, origins, directions):
     delta = np.divide(
         pitch, np.abs(dxy[ids]), out=np.full((len(ids), 2), np.inf), where=dxy[ids] != 0
     )
-    depth, owner = np.full(len(origin), np.inf), np.full(len(origin), -1, np.int32)
-    normal = np.zeros((len(origin), 3))
-    work = {"cell_ray_visits": 0, "interval_ray_tests": 0, "steps": 0}
     for _ in range(int(shape.sum()) + 1):
         if not len(ids):
             break
         work["steps"] += 1
         work["cell_ray_visits"] += len(ids)
         leave = np.minimum(crossing.min(1), end[ids])
-        work["interval_ray_tests"] += test_columns(
-            product, origin, direction, ids, cell, begin, leave, depth, normal, owner
-        )
-        keep = (depth[ids] > leave) & (leave < end[ids])
+        keep = np.ones(len(ids), bool)
+        yield ids, cell, begin, leave, keep
+        keep &= leave < end[ids]
         ids, cell, step, crossing, delta = (
             ids[keep],
             cell[keep],
@@ -186,6 +248,68 @@ def trace(product, origins, directions):
         )
     if len(ids):
         raise RuntimeError("DDA exceeded the finite grid traversal bound")
+
+
+def trace(
+    product,
+    origins,
+    directions,
+    *,
+    minimum=0.1,
+    intersect_columns=None,
+    ray_bounds=None,
+    inside_is_hit=False,
+):
+    """Trace surfaces, or count initial containment as a column occlusion hit.
+
+    The explicit occlusion mode gives no surface-normal guarantee for a hit at
+    the near limit. Default camera queries still reject occupied initial points.
+    """
+    origins, directions = np.asarray(origins, float), np.asarray(directions, float)
+    if (
+        origins.shape != directions.shape
+        or origins.ndim != 2
+        or origins.shape[1] != 3
+        or len(origins) > 4194304
+        or not np.isfinite(origins).all()
+        or not np.isfinite(directions).all()
+        or np.any(np.linalg.norm(directions, axis=1) == 0)
+        or not np.isfinite(minimum)
+        or minimum < 0
+    ):
+        raise ValueError("bounded finite nonzero ray packet required")
+    if ray_bounds is not None:
+        ray_bounds = np.asarray(ray_bounds, float)
+        if ray_bounds.shape != (len(origins), 2) or np.isnan(ray_bounds).any():
+            raise ValueError("one non-NaN traversal interval per ray required")
+    if inside_is_hit and intersect_columns is not None:
+        raise ValueError("inside-hit mode requires the standard column intersection")
+    basis = product["basis"]
+    origin, direction = origins @ basis.T, directions @ basis.T
+    depth, owner = np.full(len(origin), np.inf), np.full(len(origin), -1, np.int32)
+    normal = np.zeros((len(origin), 3))
+    work = {"cell_ray_visits": 0, "interval_ray_tests": 0, "steps": 0}
+    for ids, cell, begin, leave, keep in walk_cells(
+        product, origin, direction, work, minimum=minimum, ray_bounds=ray_bounds
+    ):
+        args = (
+            product,
+            origin,
+            direction,
+            ids,
+            cell,
+            begin,
+            leave,
+            depth,
+            normal,
+            owner,
+        )
+        work["interval_ray_tests"] += (
+            test_columns(*args, minimum, inside_is_hit=inside_is_hit)
+            if intersect_columns is None
+            else intersect_columns(*args)
+        )
+        keep[:] = depth[ids] > leave
     normal = normal @ basis
     if "fallback" in product:
         from triangle_image_reference import intersect_source
@@ -200,4 +324,6 @@ def trace(product, origins, directions):
         owner[take] = -2 - f[take]
         work["fallback_query_rays"] = len(origins)
         work["fallback_original_triangles"] = len(fallback["indices"])
+    if inside_is_hit:
+        work["near_limit_hits"] = int(np.count_nonzero(depth == minimum))
     return depth, normal, owner, work

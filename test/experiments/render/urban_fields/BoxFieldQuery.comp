@@ -1,0 +1,86 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x=64) in;
+layout(std430,set=0,binding=0) readonly buffer Field { uint data[]; };
+layout(std430,set=0,binding=1) readonly buffer Rays { vec4 rays[]; };
+layout(std430,set=1,binding=0) writeonly buffer Results { vec4 hits[]; };
+layout(std140,set=2,binding=0) uniform Parameters {
+  uvec4 shape;
+  vec4 metric;
+  uvec4 view;
+  uvec4 levels[16];
+};
+#include "BoxFieldQuery.glsl"
+vec4 Query(vec3 origin,vec3 direction) {
+  vec3 inverse=1.0/direction;
+  uint evaluations=0u;
+#ifdef BOX_QUERY_HIERARCHY
+  uint stack[48];uint size=1u,face=0u,visited=0u,overflow=0u;
+  stack[0]=Packed(shape.z,0u,0u);
+  float closest=Infinite();
+  while(size>0u && visited<65536u) {
+    uint node=stack[--size];++visited;
+    uint level=node>>28u,x=node&16383u,y=(node>>14u)&16383u;
+    float entry,leave;uint entering,exiting;
+    if(!NodeHit(level,x,y,origin,inverse,entry,leave,entering,exiting,evaluations) || entry>closest) continue;
+    if(level==0u) {
+      float distance=entry>metric.w?entry:leave;
+      if(distance<closest) { closest=distance;face=entry>metric.w?entering:exiting; }
+      continue;
+    }
+    uint farX=inverse.x>=0.0?1u:0u,farY=inverse.y>=0.0?1u:0u;
+    for(uint child=0u;child<4u;++child) {
+      uint cx=x*2u+((child%2u)^farX),cy=y*2u+((child/2u)^farY);
+      if(NodeHit(level-1u,cx,cy,origin,inverse,entry,leave,entering,exiting,evaluations) && entry<=closest) {
+        if(size==48u) { overflow=1u;break; }
+        stack[size++]=Packed(level-1u,cx,cy);
+      }
+    }
+  }
+  if(size>0u) overflow=1u;
+  return vec4(closest,uintBitsToFloat(face),uintBitsToFloat(evaluations),uintBitsToFloat(overflow));
+#else
+  float entry,leave;uint entering,exiting;
+  if(!NodeHit(shape.z,0u,0u,origin,inverse,entry,leave,entering,exiting,evaluations)) {
+    return vec4(Infinite(),0.0,uintBitsToFloat(evaluations),0.0);
+  }
+  vec2 at=origin.xy+max(entry,metric.w)*direction.xy;
+  vec2 scaled=at/metric.x;
+  ivec2 cell=ivec2(floor(scaled));
+  if(direction.x<0.0 && scaled.x==floor(scaled.x)) --cell.x;
+  if(direction.y<0.0 && scaled.y==floor(scaled.y)) --cell.y;
+  cell=clamp(cell,ivec2(0),ivec2(shape.xy)-1);
+  ivec2 step=ivec2(direction.x>=0.0?1:-1,direction.y>=0.0?1:-1);
+  vec2 edge=(vec2(cell)+vec2(step.x>0?1.0:0.0,step.y>0?1.0:0.0))*metric.x;
+  vec2 next=(edge-origin.xy)*inverse.xy;
+  vec2 delta=abs(metric.x*inverse.xy);
+  if(isinf(inverse.x)) next.x=Infinite();
+  if(isinf(inverse.y)) next.y=Infinite();
+  float closest=Infinite();uint face=0u,visited=0u;
+  uint most=shape.x+shape.y+2u;
+  for(uint iteration=0u;iteration<most;++iteration) {
+    ++visited;
+    float begin,end;uint first,last;
+    if(NodeHit(0u,uint(cell.x),uint(cell.y),origin,inverse,begin,end,first,last,evaluations)) {
+      closest=begin>metric.w?begin:end;face=begin>metric.w?first:last;break;
+    }
+    float crossing=min(next.x,next.y);
+    if(crossing>leave || isinf(crossing)) break;
+    if(next.x<=crossing) { cell.x+=step.x;next.x+=delta.x; }
+    if(next.y<=crossing) { cell.y+=step.y;next.y+=delta.y; }
+    if(any(lessThan(cell,ivec2(0))) || any(greaterThanEqual(cell,ivec2(shape.xy)))) break;
+  }
+  return vec4(closest,uintBitsToFloat(face),uintBitsToFloat(evaluations),uintBitsToFloat(visited==most?1u:0u));
+#endif
+}
+void main() {
+  uint ray=gl_GlobalInvocationID.x;
+  if(ray>=shape.w) return;
+  vec3 origin,direction;
+  if(view.z==1u) {
+    float x=(float(ray%view.x)+0.5-float(view.x)*0.5)/float(view.x);
+    float y=(float(view.y)*0.5-float(ray/view.x)-0.5)/float(view.x);
+    origin=rays[0].xyz;direction=normalize(rays[1].xyz+x*rays[2].xyz+y*rays[3].xyz);
+  } else { origin=rays[2u*ray].xyz;direction=rays[2u*ray+1u].xyz; }
+  hits[ray]=Query(origin,direction);
+}

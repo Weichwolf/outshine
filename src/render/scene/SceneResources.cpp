@@ -19,7 +19,6 @@ namespace outshine::Render {
 namespace Says {
 constexpr auto MissingPiece = "the piece handle names no live resource in this world";
 constexpr auto RepeatedPiece = "an instance update names one piece more than once";
-constexpr auto PieceUploadFailed = "piece geometry upload failed";
 constexpr auto PieceSlotLimit = "piece storage exceeds the native slot index range";
 constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
 constexpr auto NoPieceMaterials = "piece material registration requires native materials";
@@ -62,11 +61,9 @@ SceneResources::PlacePiece(GeometryRenderer &subjects, const PieceMesh &piece, P
              .Owner = owner,
              .Textured = piece.Textured};
   if (held.Rows.empty()) { held.Rows.push_back(piece.Row); }
-  std::string error;
-  held.Resident = subjects.PlacePiece(held.Mesh(), error);
-  if (held.Resident == kNoPiece) {
-    return std::unexpected(error.empty() ? std::string(Says::PieceUploadFailed) : std::move(error));
-  }
+  auto placed = subjects.PlacePiece(held.Mesh());
+  if (!placed) { return std::unexpected(std::move(placed.error().Message)); }
+  held.Resident = *placed;
   held.State.Occupied = true;
   uint32_t slot = FirstFreePiece_;
   if (slot != kNoResourceSlot) {
@@ -180,6 +177,7 @@ void SceneResources::ReleasePiece(GeometryRenderer &subjects, PieceHandle which)
 }
 
 void SceneResources::CopySourcesFrom(const SceneResources &source, PieceSources pieces) {
+  CopyPrismSourcesFrom(source, pieces);
   if (pieces == PieceSources::Copy) {
     Pieces_ = source.Pieces_;
     FirstFreePiece_ = source.FirstFreePiece_;
@@ -295,6 +293,7 @@ bool SceneResources::RestorePieces(GeometryRenderer &subjects, std::string &erro
     error = std::move(restored.error());
     return false;
   }
+  if (!*restored) { error = "piece restoration is waiting for GPU upload capacity"; }
   return *restored;
 }
 
@@ -304,22 +303,32 @@ std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRen
   if (piecesMost == 0) { return std::unexpected("piece restore budget is zero"); }
   size_t visited = 0;
   while (nextPiece < Pieces_.size() && visited < piecesMost) {
-    Piece &piece = Pieces_[nextPiece++];
-    ++visited;
-    if (!piece.State.Occupied || piece.Resident != kNoPiece) { continue; }
-    std::string error;
-    piece.Resident = subjects.PlacePiece(piece.Mesh(), error);
-    if (piece.Resident == kNoPiece) {
-      return std::unexpected(error.empty() ? std::string(Says::PieceUploadFailed)
-                                           : std::move(error));
+    Piece &piece = Pieces_[nextPiece];
+    if (!piece.State.Occupied || piece.Resident != kNoPiece) {
+      ++nextPiece;
+      ++visited;
+      continue;
     }
+    auto placed = subjects.PlacePiece(piece.Mesh());
+    if (!placed) {
+      if (placed.error().Kind == Native::ErrorKind::Busy) { return false; }
+      return std::unexpected(std::move(placed.error().Message));
+    }
+    piece.Resident = *placed;
+    std::string error;
     if (piece.Rows.empty() && !subjects.SetPieceInstances(piece.Resident, {}, error)) {
       subjects.ReleasePiece(piece.Resident);
       piece.Resident = kNoPiece;
       return std::unexpected(std::move(error));
     }
+    ++nextPiece;
+    ++visited;
   }
-  return nextPiece == Pieces_.size();
+  if (nextPiece < Pieces_.size()) { return false; }
+  size_t nextGrid = nextPiece - Pieces_.size();
+  auto restored = AdvancePrismRestore(subjects, nextGrid, piecesMost - visited);
+  nextPiece = Pieces_.size() + nextGrid;
+  return restored;
 }
 
 size_t SceneResources::PieceSourceBytes() const noexcept {

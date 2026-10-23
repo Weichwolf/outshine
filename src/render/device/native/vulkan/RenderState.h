@@ -39,6 +39,7 @@ struct DrawPacket {
 struct RenderState {
   uint32_t Width = 0;
   uint32_t Height = 0;
+  bool Labelled = false;
   std::vector<RenderAttachment> Colours;
   std::optional<RenderAttachment> Depth;
   std::vector<DrawPacket> Draws;

@@ -1,0 +1,657 @@
+diff --git a/src/render/field/FieldPipelines.cpp b/src/render/field/FieldPipelines.cpp
+index 54c31b042..a0c75b5ad 100644
+--- a/src/render/field/FieldPipelines.cpp
++++ b/src/render/field/FieldPipelines.cpp
+@@ -83 +83 @@ ConfigureFieldColour(Native::Device &device,
+-      Native::Cull::Back);
++      Native::Cull::Front);
+diff --git a/src/render/field/FieldRenderer.cpp b/src/render/field/FieldRenderer.cpp
+index b70ea749d..a17c9082d 100644
+--- a/src/render/field/FieldRenderer.cpp
++++ b/src/render/field/FieldRenderer.cpp
+@@ -114,0 +115 @@ Native::Result<uint64_t> FieldRenderer::Place(Native::Device &device,
++  draw.TracePlacement = placement;
+diff --git a/src/render/field/FieldRenderer.h b/src/render/field/FieldRenderer.h
+index 7cec29fb2..2dcffb3e6 100644
+--- a/src/render/field/FieldRenderer.h
++++ b/src/render/field/FieldRenderer.h
+@@ -20,0 +21 @@ struct FieldDraw {
++  GpuPlacement TracePlacement;
+diff --git a/src/render/field/FieldSurface.cpp b/src/render/field/FieldSurface.cpp
+index 091df6bc1..e05310c39 100644
+--- a/src/render/field/FieldSurface.cpp
++++ b/src/render/field/FieldSurface.cpp
+@@ -13,2 +13 @@ namespace {
+-constexpr uint32_t kMaximumSide = 256;
+-constexpr uint32_t kVerticesPerQuad = 4;
++constexpr uint32_t kMaximumSide = 1024;
+@@ -17,19 +15,0 @@ constexpr std::array<uint32_t, 6> kQuadIndices{0, 1, 2, 0, 2, 3};
+-struct Roof {
+-  float Height = 0;
+-  uint32_t Left = 0, Top = 0, Right = 0, Bottom = 0;
+-};
+-
+-struct Patch {
+-  uint32_t Column = 0, Row = 0, Columns = 0, Rows = 0;
+-  float HighestM = 0;
+-  std::vector<Roof> Levels;
+-  std::vector<float> ColumnTops, RowTops;
+-};
+-
+-struct FacePlane {
+-  FieldFace Kind = FieldFace::Floor;
+-  uint32_t FixedCell = 0;
+-  float Level = 0;
+-  std::array<float, 3> Centre{}, Across{}, Up{}, Normal{};
+-};
+-
+@@ -48,42 +28,26 @@ bool Metric(const FieldMaskGpu &p) {
+-void Quad(FieldSurface &out, const Patch &patch, const FacePlane &plane) {
+-  constexpr std::array<std::array<float, 2>, kVerticesPerQuad> corners{
+-      {{{-1, -1}}, {{1, -1}}, {{1, 1}}, {{-1, 1}}}};
+-  const auto first = static_cast<uint32_t>(out.Vertices.size());
+-  for (const auto &corner : corners) {
+-    FieldVertex vertex;
+-    vertex.Kind = plane.Kind;
+-    vertex.FixedCell = plane.FixedCell;
+-    vertex.PatchCell = {patch.Column, patch.Row};
+-    vertex.Normal = plane.Normal;
+-    vertex.LevelReserved = {plane.Level, 0};
+-    for (size_t axis = 0; axis < vertex.Position.size(); ++axis) {
+-      vertex.Position[axis] =
+-          plane.Centre[axis] + plane.Across[axis] * corner[0] + plane.Up[axis] * corner[1];
+-    }
+-    out.Vertices.push_back(vertex);
+-  }
+-  for (const auto index : kQuadIndices) { out.Indices.push_back(first + index); }
+-}
+-
+-Patch ReadPatch(const FieldMaskGpu &p,
+-                std::span<const float> heights,
+-                uint32_t column,
+-                uint32_t row) {
+-  Patch patch{.Column = column,
+-              .Row = row,
+-              .Columns = std::min(p.Shape[2], p.Shape[0] - column),
+-              .Rows = std::min(p.Shape[2], p.Shape[1] - row),
+-              .Levels = {},
+-              .ColumnTops = {},
+-              .RowTops = {}};
+-  patch.ColumnTops.resize(patch.Columns);
+-  patch.RowTops.resize(patch.Rows);
+-  patch.Levels.reserve(static_cast<size_t>(patch.Columns) * patch.Rows);
+-  for (uint32_t z = 0; z < patch.Rows; ++z) {
+-    for (uint32_t x = 0; x < patch.Columns; ++x) {
+-      const float height = heights[static_cast<size_t>(row + z) * p.Shape[0] + column + x];
+-      if (height > 0) {
+-        patch.Levels.push_back(
+-            {.Height = height, .Left = x, .Top = z, .Right = x + 1, .Bottom = z + 1});
+-        patch.ColumnTops[x] = std::max(patch.ColumnTops[x], height);
+-        patch.RowTops[z] = std::max(patch.RowTops[z], height);
++void Box(FieldSurface &out, float height) {
++  const auto &p = out.Parameters;
++  const std::array<float, 3> extent{static_cast<float>(p.Shape[0]) * p.OriginPitch[3],
++                                    height,
++                                    static_cast<float>(p.Shape[1]) * p.OriginPitch[3]};
++  for (uint32_t axis = 0; axis < 3; ++axis) {
++    const uint32_t u = (axis + 1) % 3;
++    const uint32_t v = (axis + 2) % 3;
++    for (uint32_t side = 0; side < 2; ++side) {
++      const auto first = static_cast<uint32_t>(out.Vertices.size());
++      for (uint32_t corner = 0; corner < 4; ++corner) {
++        constexpr std::array<float, 4> us{0, 1, 1, 0};
++        constexpr std::array<float, 4> vs{0, 0, 1, 1};
++        FieldVertex vertex;
++        vertex.Position = {p.OriginPitch[0], p.OriginPitch[1], p.OriginPitch[2]};
++        vertex.Position[axis] += static_cast<float>(side) * extent[axis];
++        vertex.Position[u] += us[corner] * extent[u];
++        vertex.Position[v] += vs[corner] * extent[v];
++        vertex.LevelReserved[0] = height;
++        vertex.Normal[axis] = side == 0 ? -1.f : 1.f;
++        out.Vertices.push_back(vertex);
++      }
++      for (size_t at = 0; at < kQuadIndices.size(); at += 3) {
++        out.Indices.push_back(first + kQuadIndices[at]);
++        out.Indices.push_back(first + kQuadIndices[at + (side == 0 ? 2 : 1)]);
++        out.Indices.push_back(first + kQuadIndices[at + (side == 0 ? 1 : 2)]);
+@@ -93,106 +56,0 @@ Patch ReadPatch(const FieldMaskGpu &p,
+-  std::ranges::sort(patch.Levels, {}, &Roof::Height);
+-  size_t kept = 0;
+-  for (size_t at = 0; at < patch.Levels.size(); ++at) {
+-    const auto cell = patch.Levels[at];
+-    if (kept == 0 || patch.Levels[kept - 1].Height != cell.Height) {
+-      patch.Levels[kept++] = cell;
+-    } else {
+-      auto &roof = patch.Levels[kept - 1];
+-      roof.Left = std::min(roof.Left, cell.Left);
+-      roof.Top = std::min(roof.Top, cell.Top);
+-      roof.Right = std::max(roof.Right, cell.Right);
+-      roof.Bottom = std::max(roof.Bottom, cell.Bottom);
+-    }
+-  }
+-  patch.Levels.resize(kept);
+-  if (!patch.Levels.empty()) { patch.HighestM = patch.Levels.back().Height; }
+-  return patch;
+-}
+-
+-void Walls(FieldSurface &out, const Patch &patch) {
+-  const auto &p = out.Parameters;
+-  const float pitch = p.OriginPitch[3];
+-  const float inset = (1 - p.Coverage[0]) * .5f;
+-  const auto columns = static_cast<float>(patch.Columns);
+-  const auto rows = static_cast<float>(patch.Rows);
+-  const float x = p.OriginPitch[0] + (static_cast<float>(patch.Column) + .5f * columns) * pitch;
+-  const float z = p.OriginPitch[2] + (static_cast<float>(patch.Row) + .5f * rows) * pitch;
+-  for (uint32_t column = 0; column < patch.Columns; ++column) {
+-    const float halfHeight = .5f * patch.ColumnTops[column];
+-    if (halfHeight == 0) { continue; }
+-    const float y = p.OriginPitch[1] + halfHeight;
+-    const float start = p.OriginPitch[0] + static_cast<float>(patch.Column + column) * pitch;
+-    Quad(out,
+-         patch,
+-         {.Kind = FieldFace::XWall,
+-          .FixedCell = column,
+-          .Centre = {start + inset * pitch, y, z},
+-          .Across = {0, 0, .5f * rows * pitch},
+-          .Up = {0, halfHeight, 0},
+-          .Normal = {-1, 0, 0}});
+-    Quad(out,
+-         patch,
+-         {.Kind = FieldFace::XWall,
+-          .FixedCell = column,
+-          .Centre = {start + (1 - inset) * pitch, y, z},
+-          .Across = {0, 0, -.5f * rows * pitch},
+-          .Up = {0, halfHeight, 0},
+-          .Normal = {1, 0, 0}});
+-  }
+-  for (uint32_t row = 0; row < patch.Rows; ++row) {
+-    const float halfHeight = .5f * patch.RowTops[row];
+-    if (halfHeight == 0) { continue; }
+-    const float y = p.OriginPitch[1] + halfHeight;
+-    const float start = p.OriginPitch[2] + static_cast<float>(patch.Row + row) * pitch;
+-    Quad(out,
+-         patch,
+-         {.Kind = FieldFace::ZWall,
+-          .FixedCell = row,
+-          .Centre = {x, y, start + inset * pitch},
+-          .Across = {-.5f * columns * pitch, 0, 0},
+-          .Up = {0, halfHeight, 0},
+-          .Normal = {0, 0, -1}});
+-    Quad(out,
+-         patch,
+-         {.Kind = FieldFace::ZWall,
+-          .FixedCell = row,
+-          .Centre = {x, y, start + (1 - inset) * pitch},
+-          .Across = {.5f * columns * pitch, 0, 0},
+-          .Up = {0, halfHeight, 0},
+-          .Normal = {0, 0, 1}});
+-  }
+-}
+-
+-void Horizontal(FieldSurface &out, const Patch &patch) {
+-  const auto &p = out.Parameters;
+-  const float width = static_cast<float>(patch.Columns) * p.OriginPitch[3];
+-  const float depth = static_cast<float>(patch.Rows) * p.OriginPitch[3];
+-  const float x =
+-      p.OriginPitch[0] + static_cast<float>(patch.Column) * p.OriginPitch[3] + .5f * width;
+-  const float z = p.OriginPitch[2] + static_cast<float>(patch.Row) * p.OriginPitch[3] + .5f * depth;
+-  const float inset = .5f * (1 - p.Coverage[0]);
+-  for (const auto &level : patch.Levels) {
+-    const float left = static_cast<float>(patch.Column + level.Left) + inset;
+-    const float top = static_cast<float>(patch.Row + level.Top) + inset;
+-    const float roofWidth =
+-        (static_cast<float>(level.Right - level.Left) - 2 * inset) * p.OriginPitch[3];
+-    const float roofDepth =
+-        (static_cast<float>(level.Bottom - level.Top) - 2 * inset) * p.OriginPitch[3];
+-    Quad(out,
+-         patch,
+-         {.Kind = FieldFace::Roof,
+-          .Level = level.Height,
+-          .Centre = {p.OriginPitch[0] + left * p.OriginPitch[3] + .5f * roofWidth,
+-                     p.OriginPitch[1] + level.Height,
+-                     p.OriginPitch[2] + top * p.OriginPitch[3] + .5f * roofDepth},
+-          .Across = {.5f * roofWidth, 0, 0},
+-          .Up = {0, 0, -.5f * roofDepth},
+-          .Normal = {0, 1, 0}});
+-  }
+-  Quad(out,
+-       patch,
+-       {.Kind = FieldFace::Floor,
+-        .Centre = {x, p.OriginPitch[1], z},
+-        .Across = {.5f * width, 0, 0},
+-        .Up = {0, 0, .5f * depth},
+-        .Normal = {0, -1, 0}});
+@@ -210,13 +68,2 @@ std::expected<FieldSurface, FieldSurfaceError> BuildFieldSurface(const FieldMask
+-  for (uint32_t row = 0; row < parameters.Shape[1]; row += parameters.Shape[2]) {
+-    for (uint32_t column = 0; column < parameters.Shape[0]; column += parameters.Shape[2]) {
+-      const auto patch = ReadPatch(parameters, heights, column, row);
+-      if (patch.HighestM == 0) { continue; }
+-      Walls(out, patch);
+-      Horizontal(out, patch);
+-    }
+-  }
+-  if (!std::ranges::all_of(out.Vertices, [](const FieldVertex &v) {
+-        return std::ranges::all_of(v.Position, [](float p) { return std::isfinite(p); });
+-      })) {
+-    return std::unexpected(FieldSurfaceError::InvalidMetric);
+-  }
++  const float maximum = *std::ranges::max_element(heights);
++  if (maximum > 0) { Box(out, maximum); }
+diff --git a/src/render/shaders/fieldDepth.frag b/src/render/shaders/fieldDepth.frag
+index d08528e7d..eb896c647 100644
+--- a/src/render/shaders/fieldDepth.frag
++++ b/src/render/shaders/fieldDepth.frag
+@@ -3,5 +3,3 @@
+-#include "fieldMask.glsl"
+-layout(location = 0) in vec3 fieldLocalPosition;
+-layout(location = 1) flat in uvec4 fieldFace;
+-layout(location = 2) flat in float fieldRoofLevel;
+-
++#define FIELD_DEPTH 1
++#include "fieldTrace.glsl"
++layout(location=2) flat in float fieldRoofLevel;
+@@ -9 +7,5 @@ void main() {
+-  if (!fieldOccupied(fieldLocalPosition, fieldFace, fieldRoofLevel)) { discard; }
++  vec3 hitLocal, hitNormal;
++  if (!traceField(fieldRoofLevel, false, hitLocal, hitNormal)) { discard; }
++  vec4 world = fieldPlacement.current * vec4(hitLocal, 1.0) + vec4(fieldView.shift.xyz, 0.0);
++  vec4 clip = fieldView.lightFromWorld * world;
++  gl_FragDepth = clip.z / clip.w;
+diff --git a/src/render/shaders/fieldDepth.vert b/src/render/shaders/fieldDepth.vert
+index 094e4fbf0..d7174726d 100644
+--- a/src/render/shaders/fieldDepth.vert
++++ b/src/render/shaders/fieldDepth.vert
+@@ -10,0 +11,3 @@ layout(location = 2) flat out float fieldRoofLevel;
++layout(location=13) noperspective out vec3 fieldRayNear;
++layout(location=14) noperspective out vec4 fieldRayFar;
++#include "fieldRayVertex.glsl"
+@@ -14,0 +18 @@ void main() {
++  fieldRay(s.lightFromWorld * model, gl_Position, fieldRayNear, fieldRayFar);
+diff --git a/src/render/shaders/fieldRayVertex.glsl b/src/render/shaders/fieldRayVertex.glsl
+new file mode 100644
+index 000000000..7f0744735
+--- /dev/null
++++ b/src/render/shaders/fieldRayVertex.glsl
+@@ -0,0 +1,7 @@
++void fieldRay(mat4 clipFromLocal, vec4 clip, out vec3 nearPoint, out vec4 farPoint) {
++  mat4 localFromClip = inverse(clipFromLocal);
++  vec2 ndc = clip.xy / clip.w;
++  vec4 start = localFromClip * vec4(ndc, 1.0, 1.0);
++  nearPoint = start.xyz / start.w;
++  farPoint = localFromClip * vec4(ndc, 0.0, 1.0);
++}
+diff --git a/src/render/shaders/fieldTrace.glsl b/src/render/shaders/fieldTrace.glsl
+new file mode 100644
+index 000000000..6751c13e2
+--- /dev/null
++++ b/src/render/shaders/fieldTrace.glsl
+@@ -0,0 +1,71 @@
++#include "fieldMask.glsl"
++#include "fieldTraceView.glsl"
++layout(location=13) noperspective in vec3 fieldRayNear;
++layout(location=14) noperspective in vec4 fieldRayFar;
++float Infinite() { return uintBitsToFloat(0x7f800000u); }
++bool Interval(vec3 origin,vec3 inverse,vec3 low,vec3 high,
++              out float entry,out float leave,out uint entering,out uint exiting) {
++  vec3 a=(low-origin)*inverse,b=(high-origin)*inverse;
++  vec3 near=min(a,b),far=max(a,b);
++  bvec3 parallel=isinf(inverse);
++  if(any(parallel)) {
++    if(((parallel.x && (origin.x<low.x || origin.x>high.x)) || (parallel.y && (origin.y<low.y || origin.y>high.y)) || (parallel.z && (origin.z<low.z || origin.z>high.z)))) return false;
++    near=mix(near,vec3(-Infinite()),parallel);far=mix(far,vec3(Infinite()),parallel);
++  }
++  entry=max(near.x,max(near.y,near.z));
++  leave=min(far.x,min(far.y,far.z));
++  uint first=near.x==entry?0u:(near.y==entry?1u:2u);
++  uint last=far.x==leave?0u:(far.y==leave?1u:2u);
++  entering=2u*first+(inverse[first]>0.0?1u:2u);
++  exiting=2u*last+(inverse[last]>0.0?2u:1u);
++  return entry<=leave && leave>0.0;
++}
++
++vec2 fieldReceiverSlope;
++bool traceField(float maximumHeight, bool backSurface, out vec3 point, out vec3 normal) {
++  vec3 origin=(fieldRayNear-fieldMask.originPitch.xyz).xzy;
++  vec3 direction=normalize(fieldRayFar.xyz-fieldRayNear*fieldRayFar.w).xzy;
++  vec3 inverseDirection=1.0/direction;
++  float pitch=fieldMask.originPitch.w;
++  float inset=(1.0-fieldMask.coverage.x)*pitch*0.5;
++  vec3 low=vec3(inset,inset,0.0);
++  vec3 high=vec3(vec2(fieldMask.shape.xy)*pitch-inset,maximumHeight);
++  float begin,end; uint first,last;
++  if(!Interval(origin,inverseDirection,low,high,begin,end,first,last)) return false;
++  vec2 grid=(origin.xy+max(begin,0.0)*direction.xy)/pitch;
++  ivec2 cell=ivec2(floor(grid));
++  if(direction.x<0.0 && grid.x==floor(grid.x)) --cell.x;
++  if(direction.y<0.0 && grid.y==floor(grid.y)) --cell.y;
++  cell=clamp(cell,ivec2(0),ivec2(fieldMask.shape.xy)-1);
++  ivec2 step=ivec2(direction.x>=0.0?1:-1,direction.y>=0.0?1:-1);
++  vec2 edge=(vec2(cell)+vec2(step.x>0?1.0:0.0,step.y>0?1.0:0.0))*pitch;
++  vec2 next=(edge-origin.xy)*inverseDirection.xy;
++  vec2 delta=abs(pitch*inverseDirection.xy);
++  if(isinf(inverseDirection.x)) next.x=Infinite();
++  if(isinf(inverseDirection.y)) next.y=Infinite();
++  uint most=fieldMask.shape.x+fieldMask.shape.y+2u;
++  for(uint iteration=0u;iteration<most;++iteration) {
++    float height=texelFetch(fieldHeights,cell,0).r;
++    if(height>0.0) {
++      vec3 cellLow=vec3(vec2(cell)*pitch+inset,0.0);
++      vec3 cellHigh=vec3(vec2(cell+1)*pitch-inset,height);
++      float entry,leave; uint entering,exiting;
++      if(Interval(origin,inverseDirection,cellLow,cellHigh,entry,leave,entering,exiting)
++         && (backSurface || entry>=0.0)) {
++        float distance=backSurface?leave:entry;
++        uint face=backSurface?exiting:entering;
++        point=(origin+direction*distance).xzy+fieldMask.originPitch.xyz;
++        vec3 axis=vec3(0.0);
++        axis[(face-1u)/2u]=(face%2u)==1u?-1.0:1.0;
++        normal=axis.xzy;
++        return true;
++      }
++    }
++    float crossing=min(next.x,next.y);
++    if(crossing>end || isinf(crossing)) break;
++    if(next.x<=crossing) { cell.x+=step.x;next.x+=delta.x; }
++    if(next.y<=crossing) { cell.y+=step.y;next.y+=delta.y; }
++    if(any(lessThan(cell,ivec2(0))) || any(greaterThanEqual(cell,ivec2(fieldMask.shape.xy)))) break;
++  }
++  return false;
++}
+diff --git a/src/render/shaders/fieldTraceView.glsl b/src/render/shaders/fieldTraceView.glsl
+new file mode 100644
+index 000000000..3534b686e
+--- /dev/null
++++ b/src/render/shaders/fieldTraceView.glsl
+@@ -0,0 +1,10 @@
++layout(std140, set=3, binding=3) uniform FieldView {
++#if FIELD_DEPTH
++  mat4 lightFromWorld; vec4 shift;
++#else
++  mat4 viewProj; mat4 prevViewProj; mat4 lightFromWorld; vec4 shift; vec4 prevShift;
++#endif
++} fieldView;
++layout(std140, set=3, binding=4) uniform FieldPlacement {
++  mat4 current; mat4 previous; uvec4 offsets;
++} fieldPlacement;
+diff --git a/src/render/shaders/fieldVertex.glsl b/src/render/shaders/fieldVertex.glsl
+index cfc9e9c76..9ea23b02a 100644
+--- a/src/render/shaders/fieldVertex.glsl
++++ b/src/render/shaders/fieldVertex.glsl
+@@ -12,0 +13,3 @@ layout(location = 12) flat out float fieldRoofLevel;
++layout(location=13) noperspective out vec3 fieldRayNear;
++layout(location=14) noperspective out vec4 fieldRayFar;
++#include "fieldRayVertex.glsl"
+@@ -18,0 +22,3 @@ void main() {
++  mat4 shifted = model;
++  shifted[3] += vec4(s.shift.xyz, 0.0);
++  fieldRay(s.viewProj * shifted, gl_Position, fieldRayNear, fieldRayFar);
+diff --git a/src/render/shaders/litFragment.glsl b/src/render/shaders/litFragment.glsl
+index f560656ed..ea13fda76 100644
+--- a/src/render/shaders/litFragment.glsl
++++ b/src/render/shaders/litFragment.glsl
+@@ -9 +9 @@
+-#include "fieldMask.glsl"
++#include "fieldTrace.glsl"
+@@ -42,0 +43,5 @@ vec2 coordinate(vec3 u, vec3 v, float second) {
++#if LIT_FIELD
++#define FIELD_FRONT_FACING true
++#else
++#define FIELD_FRONT_FACING gl_FrontFacing
++#endif
+@@ -46 +51,21 @@ void main() {
+-  if (!fieldOccupied(localPosition, fieldFace, fieldRoofLevel)) { discard; }
++  vec3 hitLocal, hitNormal;
++  if (!traceField(fieldRoofLevel, false, hitLocal, hitNormal)) { discard; }
++  localPosition = hitLocal;
++  vec4 stable = fieldPlacement.current * vec4(hitLocal, 1.0);
++  vec4 hitWorld = stable + vec4(fieldView.shift.xyz, 0.0);
++  position = hitWorld.xyz;
++  groundWorldM = vec3(stable.x, stable.y, -stable.z);
++  normal = normalize(mat3(fieldPlacement.current) * hitNormal);
++  lightSpace = fieldView.lightFromWorld * hitWorld;
++  vec3 tangentA = hitNormal.x == 0.0 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
++  vec3 tangentB = cross(hitNormal, tangentA);
++  mat3 lightFromLocal = mat3(fieldView.lightFromWorld * fieldPlacement.current);
++  vec3 receiverPlane = cross(lightFromLocal * tangentA, lightFromLocal * tangentB);
++  fieldReceiverSlope = receiverPlane.z == 0.0 ? vec2(0.0) :
++      vec2(-2.0 * receiverPlane.x, 2.0 * receiverPlane.y) / receiverPlane.z;
++  vec4 hitClip = fieldView.viewProj * hitWorld;
++  gl_FragDepth = hitClip.z / hitClip.w;
++#if SUBJECT_WRITES_VELOCITY
++  curClip = hitClip;
++  prevClip = fieldView.prevViewProj * (fieldPlacement.previous * vec4(hitLocal, 1.0) + vec4(fieldView.prevShift.xyz, 0.0));
++#endif
+@@ -56 +81 @@ void main() {
+-  vec3 shadingNormal = facing(normal, gl_FrontFacing);
++  vec3 shadingNormal = facing(normal, FIELD_FRONT_FACING);
+@@ -79 +104 @@ void main() {
+-  shadingNormal = normalFromMap(normal, tangent, mapped.xyz * 2.0 - 1.0, surface.normalScale, gl_FrontFacing);
++  shadingNormal = normalFromMap(normal, tangent, mapped.xyz * 2.0 - 1.0, surface.normalScale, FIELD_FRONT_FACING);
+@@ -87,2 +112,2 @@ void main() {
+-    applyFacade(int(facadeCode), vec2(facadeBay, uv.y), colour.rgb, position, localPosition, groundWorldM, facing(normal, gl_FrontFacing), surface.pattern > 1.5, uv1, albedo, roughness, heightChange);
+-    shadingNormal = bumpNormal(facing(normal, gl_FrontFacing), shadingNormal, dFdx(position), dFdy(position), heightChange.x, heightChange.y);
++    applyFacade(int(facadeCode), vec2(facadeBay, uv.y), colour.rgb, position, localPosition, groundWorldM, facing(normal, FIELD_FRONT_FACING), surface.pattern > 1.5, uv1, albedo, roughness, heightChange);
++    shadingNormal = bumpNormal(facing(normal, FIELD_FRONT_FACING), shadingNormal, dFdx(position), dFdy(position), heightChange.x, heightChange.y);
+diff --git a/src/render/shaders/subjectLighting.glsl b/src/render/shaders/subjectLighting.glsl
+index bb8c3cd18..1b7546b3d 100644
+--- a/src/render/shaders/subjectLighting.glsl
++++ b/src/render/shaders/subjectLighting.glsl
+@@ -102,0 +103,3 @@ vec3 shadeRow(M surface,
++#if LIT_FIELD
++  vec2 receiverSlope = fieldReceiverSlope;
++#else
+@@ -103,0 +107 @@ vec3 shadeRow(M surface,
++#endif
+diff --git a/src/render/shaders/subjectVaryings.glsl b/src/render/shaders/subjectVaryings.glsl
+index 5b870816f..4201b2a86 100644
+--- a/src/render/shaders/subjectVaryings.glsl
++++ b/src/render/shaders/subjectVaryings.glsl
+@@ -15,0 +16,4 @@ vec3 localPosition;
++#if LIT_FIELD && !defined(SUBJECT_VERTEX_STAGE)
++layout(location = 6) in vec4 proxyLightSpace;
++vec4 lightSpace;
++#else
+@@ -16,0 +21 @@ layout(location = 6) VARYING vec4 lightSpace;
++#endif
+@@ -18,0 +24,5 @@ vec3 groundWorldM;
++#if LIT_FIELD && !defined(SUBJECT_VERTEX_STAGE)
++layout(location = 7) in vec4 proxyCurClip;
++layout(location = 8) in vec4 proxyPrevClip;
++vec4 curClip, prevClip;
++#else
+@@ -21,0 +32 @@ layout(location = 8) VARYING vec4 prevClip;
++#endif
+diff --git a/src/render/stages/GeometryFields.cpp b/src/render/stages/GeometryFields.cpp
+index cac41bcbd..17802de08 100644
+--- a/src/render/stages/GeometryFields.cpp
++++ b/src/render/stages/GeometryFields.cpp
+@@ -51,0 +52,8 @@ Native::Result<void> GeometryRenderer::EncodeFields(const PassRecording &into,
++    resources.Bindings[resources.BindingCount++] = {
++        .Set = 3,
++        .Slot = 3,
++        .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(uniforms.View))}};
++    resources.Bindings[resources.BindingCount++] = {
++        .Set = 3,
++        .Slot = 4,
++        .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&field.TracePlacement, 1))}};
+@@ -81 +89,6 @@ GeometryRenderer::EncodeFieldShadow(const PassRecording &into,
+-        Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = view}}};
++        Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = view}},
++        Native::Binding{.Set = 3, .Slot = 3, .Value = Native::Uniform{.Bytes = view}},
++        Native::Binding{
++            .Set = 3,
++            .Slot = 4,
++            .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&field.TracePlacement, 1))}}};
+diff --git a/src/render/stages/GeometryRenderer.h b/src/render/stages/GeometryRenderer.h
+index 1d5cdcac9..83604cc8e 100644
+--- a/src/render/stages/GeometryRenderer.h
++++ b/src/render/stages/GeometryRenderer.h
+@@ -273 +273 @@ private:
+-    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 1;
++    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 3;
+diff --git a/test/experiments/render/native_urban_field.py b/test/experiments/render/native_urban_field.py
+index 35c25392a..5de2bd051 100644
+--- a/test/experiments/render/native_urban_field.py
++++ b/test/experiments/render/native_urban_field.py
+@@ -52 +52 @@ def run(binary, native, directory, key, source, label, args):
+-    if args.radius is not None or args.validation or args.representation == "field":
++    if args.radius is not None or args.validation or args.representation == "field" or args.altitude is not None:
+@@ -54 +54 @@ def run(binary, native, directory, key, source, label, args):
+-    if args.validation or args.representation == "field":
++    if args.validation or args.representation == "field" or args.altitude is not None:
+@@ -56,2 +56,4 @@ def run(binary, native, directory, key, source, label, args):
+-    if args.representation == "field":
+-        command.append("field")
++    if args.representation == "field" or args.altitude is not None:
++        command.append(args.representation)
++    if args.altitude is not None:
++        command.append(str(args.altitude))
+@@ -65,0 +68 @@ def run(binary, native, directory, key, source, label, args):
++        environment["MTL_SHADER_VALIDATION"] = "1"
+diff --git a/test/experiments/render/urban_fields/NativeUrbanField.h b/test/experiments/render/urban_fields/NativeUrbanField.h
+index 7f47b8f47..4be56d10d 100644
+--- a/test/experiments/render/urban_fields/NativeUrbanField.h
++++ b/test/experiments/render/urban_fields/NativeUrbanField.h
+@@ -21,0 +22,6 @@ constexpr uint64_t kFormat = 0x3144495247425255ULL;
++constexpr size_t kHeaderBytes = sizeof(uint64_t) + 3 * sizeof(uint32_t) + 2 * sizeof(double);
++constexpr size_t kCellsMost = (kBytes - kHeaderBytes) / sizeof(float);
++
++inline bool DimensionsFit(uint32_t columns, uint32_t rows) {
++  return columns > 0 && rows > 0 && columns <= kCellsMost / rows;
++}
+@@ -33,3 +39,3 @@ struct HeightGrid {
+-    return Columns > 0 && Columns <= 256 && Rows > 0 && Rows <= 256 && std::isfinite(CellM) &&
+-           CellM > 0 && CellM <= 1024 && std::isfinite(FillFraction) && FillFraction > 0 &&
+-           FillFraction <= 1 && HeightsM.size() == static_cast<size_t>(Columns) * Rows &&
++    return DimensionsFit(Columns, Rows) && std::isfinite(CellM) && CellM > 0 && CellM <= 1024 &&
++           std::isfinite(FillFraction) && FillFraction > 0 && FillFraction <= 1 &&
++           HeightsM.size() == static_cast<size_t>(Columns) * Rows &&
+@@ -56 +62 @@ inline std::expected<std::vector<uint8_t>, std::string> EncodeInput(const Reques
+-      field.Columns == 0 || field.Rows == 0 || field.Columns > 256 || field.Rows > 256) {
++      !DimensionsFit(field.Columns, field.Rows)) {
+diff --git a/test/experiments/render/urban_fields/NativeUrbanFieldControl.cpp b/test/experiments/render/urban_fields/NativeUrbanFieldControl.cpp
+index 0fcb6e4b9..d2503acaf 100644
+--- a/test/experiments/render/urban_fields/NativeUrbanFieldControl.cpp
++++ b/test/experiments/render/urban_fields/NativeUrbanFieldControl.cpp
+@@ -4,0 +5,2 @@
++#include "SunShadowStage.h"
++#include "ShadowRaster.h"
+@@ -45,0 +48 @@ struct ViewControl {
++  std::optional<double> AltitudeM;
+@@ -65 +68,2 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
+-      .View = {.RadiusM = std::max(field.Columns, field.Rows) * field.CellM * kOrbitScale},
++      .View = {.RadiusM = std::max(field.Columns, field.Rows) * field.CellM * kOrbitScale,
++               .AltitudeM = std::nullopt},
+@@ -80 +84 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
+-    } else if (argc != 8 || validation != "normal") {
++    } else if (validation != "normal") {
+@@ -84 +88 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
+-  if (argc == 8) {
++  if (argc >= 8) {
+@@ -91,0 +96,10 @@ std::optional<RunOptions> ParseOptions(const HeightGrid &field, int argc, const
++  if (argc == 9) {
++    const std::string_view value(argv[8]);
++    double altitude = 0;
++    const auto parsed = std::from_chars(value.data(), value.data() + value.size(), altitude);
++    if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() ||
++        !std::isfinite(altitude) || altitude <= 0) {
++      return std::nullopt;
++    }
++    options.View.AltitudeM = altitude;
++  }
+@@ -101 +115 @@ Camera CameraAt(const HeightGrid &field, double angle, const ViewControl &view)
+-                     radius * kAltitudeScale,
++                     view.AltitudeM.value_or(radius * kAltitudeScale),
+@@ -266,0 +281,50 @@ void DeclareShadows(Engine &engine, const HeightGrid &field) {
++bool WriteTimings(Engine &engine, std::span<const double> hostTimes, const std::string &output) {
++  const auto renderer = engine.renderer();
++  TestEngine::StateOf(engine).Picture.Device.WaitForGpu();
++  std::vector<Render::GpuFrameSample> samples;
++  if (!Accepted(renderer.gpuSamples(samples)) || samples.size() != hostTimes.size()) {
++    return false;
++  }
++  std::ranges::sort(samples, {}, &Render::GpuFrameSample::Submission);
++  std::ofstream times(output + ".times");
++  times << std::setprecision(std::numeric_limits<double>::max_digits10);
++  for (size_t sample = 0; sample < samples.size(); ++sample) {
++    times << samples[sample].Submission << ' ' << samples[sample].ElapsedMs << ' '
++          << hostTimes[sample] << '\n';
++  }
++  return times.good();
++}
++
++bool WriteShadowFrame(Engine &engine, const HeightGrid &field, const std::string &output) {
++  const auto direction =
++      EastUpSouthDirection(kSunBearingDeg * kDeg2Rad, kSunElevationDeg * kDeg2Rad);
++  const Vec3f toSun{{static_cast<float>(direction[0]),
++                     static_cast<float>(direction[1]),
++                     static_cast<float>(direction[2])}};
++  const double radius = std::hypot(field.Columns * field.CellM, field.Rows * field.CellM) +
++                        std::ranges::max(field.HeightsM);
++  Render::SunShadowStage projection;
++  projection.Declare({.ToSun = toSun, .Up = {{0, 1, 0}}}, radius, false);
++  projection.Build({});
++  const auto centre = TestEngine::StateOf(engine).Picture.Device.ShadowCentreM();
++  Mat4 anchored = projection.RegionProjection(0);
++  for (size_t row = 0; row < 3; ++row) {
++    double offset = 0;
++    for (size_t axis = 0; axis < 3; ++axis) { offset += anchored[axis * 4 + row] * centre[axis]; }
++    anchored[12 + row] =
++        row < 2 ? -std::floor(offset * Render::kShadowTilePx * .5) * 2 / Render::kShadowTilePx
++                : .5 - offset;
++  }
++  const auto update =
++      Render::PrepareShadowRaster({}, anchored, centre, Render::kShadowTilePx, true);
++  const auto matrix = Render::ShadowPatchProjection(update.Next, update.Patches[0]);
++  std::ofstream frame(output + ".shadow-frame");
++  frame << std::setprecision(std::numeric_limits<float>::max_digits10);
++  frame << Render::kShadowTilePx << ' ' << Render::kShadowAtlasPx << '\n';
++  for (const double axis : centre) { frame << axis << ' '; }
++  frame << '\n';
++  for (const float component : matrix) { frame << component << ' '; }
++  frame << '\n';
++  return frame.good();
++}
++
+@@ -273 +337,6 @@ bool RenderOrbit(Engine &engine,
+-  for (size_t warm = 0; warm < 3; ++warm) {
++  constexpr size_t kSettling = 3;
++  if (!Accepted(renderer.resetMeasurements(kSettling))) { return false; }
++  std::vector<double> settling;
++  settling.reserve(kSettling);
++  for (size_t warm = 0; warm < kSettling; ++warm) {
++    const auto began = Clock::now();
+@@ -274,0 +344 @@ bool RenderOrbit(Engine &engine,
++    settling.push_back(std::chrono::duration<double, std::milli>(Clock::now() - began).count());
+@@ -275,0 +346 @@ bool RenderOrbit(Engine &engine,
++  if (!WriteTimings(engine, settling, output + ".settling")) { return false; }
+@@ -290,9 +361,3 @@ bool RenderOrbit(Engine &engine,
+-  TestEngine::StateOf(engine).Picture.Device.WaitForGpu();
+-  std::vector<Render::GpuFrameSample> samples;
+-  if (!Accepted(renderer.gpuSamples(samples)) || samples.size() != kFrames) { return false; }
+-  std::ranges::sort(samples, {}, &Render::GpuFrameSample::Submission);
+-  std::ofstream times(output + ".times");
+-  times << std::setprecision(std::numeric_limits<double>::max_digits10);
+-  for (size_t sample = 0; sample < samples.size(); ++sample) {
+-    times << samples[sample].Submission << ' ' << samples[sample].ElapsedMs << ' '
+-          << hostTimes[sample] << '\n';
++  if (!WriteTimings(engine, hostTimes, output) || !WriteShadowFrame(engine, field, output) ||
++      !Accepted(renderer.saveScreenshot(output + ".png"))) {
++    return false;
+@@ -300 +364,0 @@ bool RenderOrbit(Engine &engine,
+-  if (!times.good() || !Accepted(renderer.saveScreenshot(output + ".png"))) { return false; }
+@@ -306 +370,10 @@ bool RenderOrbit(Engine &engine,
+-  return depthFile.good();
++  if (!depthFile.good()) { return false; }
++  std::vector<float> shadowValues;
++  if (TestEngine::StateOf(engine).Picture.Device.ReadShadowAtlas(shadowValues) !=
++      Render::ReadState::Ready) {
++    return false;
++  }
++  std::ofstream shadowFile(output + ".shadow", std::ios::binary);
++  shadowFile.write(reinterpret_cast<const char *>(shadowValues.data()),
++                   static_cast<std::streamsize>(shadowValues.size() * sizeof(float)));
++  return shadowFile.good();
+@@ -312 +385 @@ int main(int argc, const char *const *argv) {
+-  if ((argc < 5 || argc > 8) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }
++  if ((argc < 5 || argc > 9) || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }

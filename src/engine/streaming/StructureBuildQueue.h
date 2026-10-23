@@ -286,6 +286,8 @@ public:
   }
 
 private:
+  [[nodiscard]] bool
+  HasPendingSourceChanges(const ::outshine::Generators::Osm::BuildingField &footprints) const;
   [[nodiscard]] size_t PostsVectors(Ground::SurfacePreparation &stack,
                                     ::outshine::Generators::Osm::BuildingField &prints,
                                     LongitudeLatitude eye,
@@ -361,14 +363,11 @@ private:
   [[nodiscard]] std::vector<Landing>
   PrepareLandings(::outshine::Generators::Osm::BuildingField &prints,
                   const ::outshine::Generators::Osm::OsmField *vectors,
-                  size_t count,
-                  size_t printCount,
-                  size_t spreadCount,
-                  size_t acrossCount);
+                  size_t count);
   [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
                                               ::outshine::Generators::Osm::BuildingField &prints,
                                               const ::outshine::Generators::Osm::OsmField *vectors);
-  [[nodiscard]] static const Generators::BakedTile &CollectInitialCell(QueuedBuild &bake);
+  static void CollectInitialCell(QueuedBuild &bake);
   [[nodiscard]] static ::outshine::Generators::Osm::BuildingField::Baked
   ContactMetadata(const QueuedBuild &bake) noexcept;
   static void CommitFootprints(QueuedBuild &bake,

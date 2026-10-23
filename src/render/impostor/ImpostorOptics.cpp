@@ -1,5 +1,6 @@
 #include "ImpostorOptics.h"
 #include "shade/TexelChain.h"
+#include "shade/HalfTexels.h"
 #include "math/Srgb.h"
 
 #include <algorithm>
@@ -7,12 +8,14 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <vector>
 #include <utility>
 
 namespace outshine::Render {
 namespace {
 constexpr size_t kOpticalImages = 5;
+constexpr size_t kMaterialMomentImage = 2;
 constexpr float kByteSteps = 255;
 using OpticalFields = std::array<std::vector<float>, kOpticalImages>;
 using OpticalImages = std::array<std::vector<uint8_t>, kOpticalImages>;
@@ -81,12 +84,19 @@ std::array<float, 4> NormalTexel(const std::vector<float> &field, size_t offset)
   return result;
 }
 
-OpticalImages Encoded(const OpticalFields &fields) {
+std::expected<OpticalImages, Core::HalfTexelError> Encoded(const OpticalFields &fields,
+                                                           Core::Texels extent) {
   OpticalImages images;
-  for (auto &image : images) { image.resize(fields[0].size()); }
+  auto moments = Core::PackHalfTexels(extent, fields[kMaterialMomentImage]);
+  if (!moments) { return std::unexpected(moments.error()); }
+  images[kMaterialMomentImage] = std::move(*moments);
+  for (size_t at = 0; at < images.size(); ++at) {
+    if (at != kMaterialMomentImage) { images[at].resize(fields[0].size()); }
+  }
   for (size_t offset = 0; offset < fields[0].size(); offset += 4) {
     const auto normal = NormalTexel(fields[1], offset);
     for (size_t image = 0; image < images.size(); ++image) {
+      if (image == kMaterialMomentImage) { continue; }
       for (size_t channel = 0; channel < 4; ++channel) {
         float value = image == 1 ? normal[channel] : fields[image][offset + channel];
         if (image == 0 && channel < 3) { value = ColourSpace::SrgbFromLinear(value); }
@@ -107,10 +117,11 @@ bool AddOpticalCardImages(Geometry &geometry,
   }
   auto fields = FieldsOf(atlas, source);
   if (fields[0].empty()) { return false; }
-  const auto base = Encoded(fields);
-  OpticalImages lower;
   Core::Texels extent{.WidthPx = static_cast<uint32_t>(atlas.Pixels()),
                       .HeightPx = static_cast<uint32_t>(atlas.Pixels())};
+  const auto base = Encoded(fields, extent);
+  if (!base) { return false; }
+  OpticalImages lower;
   while (extent.WidthPx > 1 || extent.HeightPx > 1) {
     Core::Texels smaller;
     for (auto &field : fields) {
@@ -119,9 +130,10 @@ bool AddOpticalCardImages(Geometry &geometry,
       field = std::move(filtered);
     }
     extent = smaller;
-    const auto level = Encoded(fields);
+    const auto level = Encoded(fields, extent);
+    if (!level) { return false; }
     for (size_t at = 0; at < lower.size(); ++at) {
-      lower[at].insert(lower[at].end(), level[at].begin(), level[at].end());
+      lower[at].insert(lower[at].end(), (*level)[at].begin(), (*level)[at].end());
     }
   }
   material.Scattering = ScatteringModel::AreaMixture;
@@ -138,10 +150,13 @@ bool AddOpticalCardImages(Geometry &geometry,
     const auto [map, kind] = bindings[at];
     ImageMipData mips;
     mips[static_cast<size_t>(kind)] = std::move(lower[at]);
-    const auto image = geometry.addImage({.WidthPx = atlas.Pixels(),
-                                          .HeightPx = atlas.Pixels(),
-                                          .Rgba = base[at],
-                                          .LowerMips = ViewImageMips(mips)});
+    const auto image =
+        geometry.addImage({.WidthPx = atlas.Pixels(),
+                           .HeightPx = atlas.Pixels(),
+                           .Format = at == kMaterialMomentImage ? ImagePixelFormat::Rgba16Float
+                                                                : ImagePixelFormat::Rgba8Unorm,
+                           .Rgba = (*base)[at],
+                           .LowerMips = ViewImageMips(mips)});
     if (!image) { return false; }
     map->Image = *image;
     map->Sampler.WrapU = map->Sampler.WrapV = Wrap::ClampToEdge;

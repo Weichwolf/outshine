@@ -82,7 +82,7 @@ int main() {
       PieceMesh piece{};
       piece.Verts = vertices;
       piece.Indices = indices;
-      CHECK(draw.PlacePiece(piece, error) != kNoPiece, "independent piece upload is accepted");
+      CHECK(draw.PlacePiece(piece).has_value(), "independent piece upload is accepted");
       const auto &resident = draw.Resident();
       auto *positions = resident.Buffer(GeometryResidency::Stream::Vertex).get();
       auto *triangles = resident.Buffer(GeometryResidency::Stream::Index).get();

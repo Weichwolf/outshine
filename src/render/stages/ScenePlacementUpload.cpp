@@ -15,7 +15,11 @@ bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
   const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_));
   size_t all = needed;
   for (const Piece &piece : Pieces_) { all += piece.Rows.size(); }
-  if (!RowsStale_ && Rows_.size() == all) { return true; }
+  if (!RowsStale_ && Rows_.size() == all) {
+    PrepareShadowCasters();
+    return true;
+  }
+  ShadowCasters_.Invalidate();
   if (all == 0) { return true; }
   Rows_.assign(all, {});
   size_t offset = needed;
@@ -55,7 +59,14 @@ bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
     return false;
   }
   RowsStale_ = false;
+  PrepareShadowCasters();
   return true;
+}
+
+void GeometryRenderer::PrepareShadowCasters() {
+  if (ShadowCasters_.Ready()) { return; }
+  ShadowCasters_.Prepare(
+      Batches, TableJobs_, TableSpheres_, Rows_, SubjectRows_, SubjectBoundsCurrent_);
 }
 
 }

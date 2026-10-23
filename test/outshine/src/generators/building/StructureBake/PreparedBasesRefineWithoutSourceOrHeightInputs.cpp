@@ -3,6 +3,7 @@
 #include "ContentStore.h"
 #include "SourceSet.h"
 #include "StructureBuildTask.h"
+#include "StructureArtifact.h"
 #include "Tasks.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
@@ -22,8 +23,10 @@
 #include <chrono>
 #include <string>
 #include <memory>
+#include <optional>
 #include <vector>
 #include <variant>
+#include <sqlite3.h>
 
 namespace {
 using namespace outshine;
@@ -102,6 +105,19 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
         "a cached LOD and its owned contacts load with no full plan product or source inputs");
   RawTile moved = view;
   moved.Eye.LongitudeDeg += 0.01;
+  StructureBuildTask replay(0,
+                            *basis,
+                            std::make_unique<RawTile>(moved),
+                            std::make_unique<StructureBuildTask::Output>(),
+                            mesher.Scratch());
+  replay.UseNativeAssets(cache, key);
+  replay.Start(pool, mesher);
+  replay.Join(pool);
+  CHECK(replay.Result().Status && replay.Result().Tile && replay.Result().CacheHit &&
+            replay.Result().Tile->Digest == reference.Digest && replay.PreparedBase() == nullptr &&
+            cache->Costs().ReadBytes == before.ReadBytes,
+        "moved camera loads an existing intrinsic LOD without reopening plans or source inputs");
+  moved.ClusterTriangles = 64;
   StructureBuildTask miss(0,
                           *basis,
                           std::make_unique<RawTile>(moved),
@@ -121,6 +137,90 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   const auto generated = cache->Generate(key, Inputs(), *Heights(), stopping);
   CHECK(generated && *generated && cache->LoadBasis(key),
         "the same miss can regenerate complete inputs and restore native delivery");
+}
+
+void IntrinsicLODs(const std::filesystem::path &root,
+                   PreparedBuildingAssets &cache,
+                   const std::string &key,
+                   const PreparedStructureTile &base) {
+  BuildingMesh mesher;
+  auto scratch = mesher.Scratch();
+  std::optional<Vec3> remotePoint;
+  for (const bool cell : {false, true}) {
+    for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
+      RawTile near;
+      near.RequestedDetail = detail;
+      if (cell) { near.RequestedCell = base.Structures.front().Layout.Cell.Index; }
+      near.Eye = {.LongitudeDeg = 9.001, .LatitudeDeg = 47.001};
+      Vec3 eye;
+      GeoToEcef({.LongitudeDeg = near.Eye.LongitudeDeg, .LatitudeDeg = near.Eye.LatitudeDeg}, eye);
+      near.EyeEcef = eye;
+      near.Projection = {.FocalPx = 720, .AllowedErrorPx = 1};
+      near.ClusterTriangles = 128;
+      auto far = near;
+      far.Eye.LongitudeDeg += 2;
+      GeoToEcef({.LongitudeDeg = far.Eye.LongitudeDeg, .LatitudeDeg = far.Eye.LatitudeDeg}, eye);
+      far.EyeEcef = eye;
+      far.Projection = {.FocalPx = 1080, .AllowedErrorPx = 0.25};
+      const auto original = BakePreparedStructures(base, near, mesher, *scratch);
+      const auto remote = BakePreparedStructures(base, far, mesher, *scratch);
+      CHECK(original && remote, "each explicit whole/cell LOD is constructible at both views");
+      if (!original || !remote) { continue; }
+      if (!cell && detail == LevelOfDetail::Fine) {
+        double most = -1;
+        const auto farthest = [&](const auto &vertices) {
+          for (const auto &vertex : vertices) {
+            const Vec3 local{{vertex.pos[0], vertex.pos[1], vertex.pos[2]}};
+            if (Dot(local, local) > most) {
+              most = Dot(local, local);
+              remotePoint = base.AnchorEcef + local;
+            }
+          }
+        };
+        farthest(original->Built.WallCorners);
+        farthest(original->Built.RoofCorners);
+      }
+      const std::string identity(64, 'a');
+      const auto a = EncodeStructureArtifact(*original, identity);
+      const auto b = EncodeStructureArtifact(*remote, identity);
+      CHECK(a && b && *a == *b && !original->SelectedView && !remote->SelectedView,
+            "explicit LOD payload and contacts are independent of eye and pixel projection");
+      const auto writes = cache.Costs().GeometryWrites;
+      CHECK(cache.StoreGeometry(key, base, near, *original).has_value(),
+            "one intrinsic LOD is published for its source, cell and layout");
+      const auto loaded = cache.LoadGeometry(key, base, far);
+      const auto bytes = loaded && *loaded
+                             ? EncodeStructureArtifact(**loaded, identity)
+                             : decltype(a)(std::unexpected(StructureArtifactError::InvalidProduct));
+      CHECK(bytes && a && *bytes == *a && cache.Costs().GeometryWrites == writes + 1,
+            "another camera loads the exact intrinsic LOD without another product write");
+      auto layout = far;
+      layout.ClusterTriangles = 64;
+      const auto distinct = cache.LoadGeometry(key, base, layout);
+      CHECK(distinct && !*distinct, "cluster layout remains a distinct prepared product");
+    }
+  }
+  auto index = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(index && remotePoint, "static LODs have indexed geometry in the source world frame");
+  if (index && remotePoint) {
+    const auto selected = (*index)->Select({.Bounds = {.Min = *remotePoint, .Max = *remotePoint},
+                                            .Kind = "building-static-lod",
+                                            .Level = static_cast<uint32_t>(LevelOfDetail::Fine),
+                                            .Radius = {},
+                                            .Planes = {}});
+    CHECK(selected && selected->size() == 1 && selected->front().Parent == key,
+          "a remote visible point selects whole Fine and excludes the unrelated Fine cell");
+  }
+  RawTile adaptive;
+  adaptive.Eye = {.LongitudeDeg = 9.001, .LatitudeDeg = 47.001};
+  adaptive.Projection = {.FocalPx = 720, .AllowedErrorPx = 1};
+  const auto selected = BakePreparedStructures(base, adaptive, mesher, *scratch);
+  CHECK(selected && selected->SelectedView &&
+            cache.StoreGeometry(key, base, adaptive, *selected).has_value(),
+        "automatic view selection remains an explicitly scoped product");
+  adaptive.Eye.LongitudeDeg += 0.01;
+  const auto moved = cache.LoadGeometry(key, base, adaptive);
+  CHECK(moved && !*moved, "automatic view-dependent snapshots cannot alias intrinsic LODs");
 }
 
 void NativeCache(const std::filesystem::path &root) {
@@ -177,8 +277,9 @@ void NativeCache(const std::filesystem::path &root) {
         "restart loads render geometry and owned contacts without meshing or source inputs");
   auto moved = view;
   moved.Eye.LongitudeDeg += 0.01;
-  const auto absent = (*restarted)->LoadGeometry(key, **hit, moved);
-  CHECK(absent && !*absent, "changed position never reuses a view-dependent LOD snapshot");
+  const auto movedGeometry = (*restarted)->LoadGeometry(key, **hit, moved);
+  CHECK(movedGeometry && *movedGeometry && (**movedGeometry).Digest == geometry->Digest,
+        "explicit Shell is the same intrinsic asset after camera movement");
   auto changed = shape;
   changed.Gradient = 0.1;
   CHECK((*restarted)->Key(tile, 17, changed, 1000) != key &&
@@ -191,6 +292,7 @@ void NativeCache(const std::filesystem::path &root) {
             !(*restarted)->LoadBasisRequest(changedRequest)->has_value() &&
             (*restarted)->RequestKey({.Zoom = -1, .X = 0, .Y = 0}, shape, 1000).empty(),
         "native demand separates configuration and rejects invalid cells before any inputs");
+  if (hit && *hit) { IntrinsicLODs(root, **restarted, key, **hit); }
   NativeLODWithoutPlans(root, key, *restarted, view, *geometry);
 }
 
@@ -209,12 +311,41 @@ void RequestMigration(const std::filesystem::path &root) {
         "legacy producer stores an unbound complete base");
   const auto unbound = (*cache)->LoadBasisRequest(request);
   CHECK(unbound && !*unbound, "unbound products do not claim a request hit");
+  sqlite3 *raw = nullptr;
+  const int opened = sqlite3_open((root / "assets.sqlite").string().c_str(), &raw);
+  const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> database(raw, &sqlite3_close);
+  CHECK(opened == SQLITE_OK, "request binding write guard opens the existing cache");
+  if (opened != SQLITE_OK) { return; }
+  constexpr const char *protect =
+      "CREATE TRIGGER binding_no_insert BEFORE INSERT ON packages "
+      "BEGIN SELECT RAISE(ABORT,'package insert during metadata binding'); END;"
+      "CREATE TRIGGER binding_no_update BEFORE UPDATE ON packages "
+      "BEGIN SELECT RAISE(ABORT,'package update during metadata binding'); END;"
+      "CREATE TRIGGER binding_no_delete BEFORE DELETE ON packages "
+      "BEGIN SELECT RAISE(ABORT,'package delete during metadata binding'); END;";
+  const int protectedPackages = sqlite3_exec(database.get(), protect, nullptr, nullptr, nullptr);
+  CHECK(protectedPackages == SQLITE_OK, "request migration forbids all native package writes");
+  if (protectedPackages != SQLITE_OK) { return; }
+  const auto original = (*cache)->LoadBasis(key);
   const auto before = (*cache)->Costs();
   const auto migrated = (*cache)->LoadBasis(key, request);
   const auto bound = (*cache)->LoadBasisRequest(request);
   CHECK(migrated && *migrated && bound && *bound && (**bound).BaseKey == key &&
             (*cache)->Costs().ReadBytes == before.ReadBytes,
         "migration binds the existing native basis without opening full plans");
+  CHECK(original && *original && migrated && *migrated &&
+            EncodePreparedBuildingBasis(**original) == EncodePreparedBuildingBasis(**migrated) &&
+            (*cache)->Costs().BasisWrites == before.BasisWrites &&
+            (*cache)->Costs().Writes == before.Writes &&
+            (*cache)->Costs().SurfaceWrites == before.SurfaceWrites &&
+            (*cache)->Costs().GeometryWrites == before.GeometryWrites,
+        "binding preserves the complete basis and never counts a native product write");
+  constexpr const char *unprotect = "DROP TRIGGER binding_no_insert;"
+                                    "DROP TRIGGER binding_no_update;"
+                                    "DROP TRIGGER binding_no_delete;";
+  const int writable = sqlite3_exec(database.get(), unprotect, nullptr, nullptr, nullptr);
+  CHECK(writable == SQLITE_OK, "later replacement and repair retain normal package publication");
+  if (writable != SQLITE_OK) { return; }
   const auto replacement = (*cache)->Key(tile, 18, shape, 1000);
   CHECK((*cache)->Generate(replacement, Inputs(), *Heights(), stopping, request).has_value(),
         "explicit changed input publishes a complete replacement binding");
@@ -242,6 +373,196 @@ void RequestMigration(const std::filesystem::path &root) {
   CHECK((*cache)->InvalidateBasis(replacement).has_value() &&
             !(*cache)->LoadBasisRequest(request)->has_value(),
         "invalidated basis cannot leave a false native request hit");
+}
+
+void ResidentRequests(const std::filesystem::path &root) {
+  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::SourceSet sources(store);
+  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  CHECK(cache.has_value(), "resident basis fixture opens");
+  if (!cache) { return; }
+  const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
+  const Ground::ShapedGround shape;
+  const auto request = (*cache)->RequestKey(tile, shape, 1000);
+  const auto key = (*cache)->Key(tile, 17, shape, 1000);
+  const std::atomic_bool stopping{false};
+  const auto generated = (*cache)->Generate(key, Inputs(), *Heights(), stopping, request);
+  CHECK(generated && *generated, "resident fixture publishes real complete building inputs");
+  if (!generated || !*generated) { return; }
+  BuildingMesh mesher;
+  auto scratch = mesher.Scratch();
+  RawTile view;
+  view.RequestedDetail = LevelOfDetail::Shell;
+  view.Eye = {.LongitudeDeg = 10, .LatitudeDeg = 47};
+  const auto built = BakePreparedStructures(**generated, view, mesher, *scratch);
+  CHECK(built && (*cache)->StoreGeometry(key, **generated, view, *built).has_value(),
+        "resident fixture stores the actual intrinsic geometry consumer");
+  if (!built) { return; }
+  auto first = (*cache)->LoadBasisRequest(request);
+  CHECK(first && *first, "initial request decodes a complete native basis");
+  if (!first || !*first) { return; }
+  const auto *identity = (**first).Product.get();
+  const std::weak_ptr<const PreparedBuildingBasis> weak = (**first).Product;
+  const auto encoded = EncodePreparedBuildingBasis(*(**first).Product);
+  auto geometry = (*cache)->LoadGeometry(key, (**first).Product, view);
+  CHECK(encoded && geometry && *geometry && (**geometry).Coordinates,
+        "the native geometry consumer retains the basis coordinates");
+  if (!encoded || !geometry || !*geometry) { return; }
+  first->reset();
+  CHECK(!weak.expired(), "live geometry keeps its backing basis alive");
+  if (weak.expired()) { return; }
+  const auto before = (*cache)->Costs();
+  for (size_t repeat = 0; repeat < 8; ++repeat) {
+    const auto again = (*cache)->LoadBasisRequest(request);
+    CHECK(again && *again && (**again).Product.get() == identity &&
+              EncodePreparedBuildingBasis(*(**again).Product) == encoded,
+          "repeated requests share the exact verified native basis and byte content");
+  }
+  const auto reused = (*cache)->Costs();
+  CHECK(reused.BasisResidentHits == before.BasisResidentHits + 8 &&
+            reused.BasisHits == before.BasisHits &&
+            reused.BasisReadBytes == before.BasisReadBytes && reused.ReadBytes == before.ReadBytes,
+        "resident reuse performs no native payload or complete-plan reads");
+  auto records = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(records.has_value(), "resident fixture opens current request metadata");
+  if (!records) { return; }
+  const auto record = (*records)->FindRequest(request);
+  CHECK(record && *record, "live basis has a current native asset record");
+  if (!record || !*record) { return; }
+  const auto payload = (*records)->Load((**record).Key, size_t{64} * 1024 * 1024);
+  CHECK(payload && *payload, "resident metadata fixture retains the original native packet");
+  if (!payload || !*payload) { return; }
+  auto corrupt = **record;
+  corrupt.Kind = "wrong-native-kind";
+  CHECK((*records)->Publish(std::span(&corrupt, 1), (**payload).Bytes()).has_value(),
+        "resident fixture changes only current metadata");
+  const auto rejected = (*cache)->LoadBasisRequest(request);
+  CHECK(rejected && !*rejected && !weak.expired(),
+        "a live old product cannot mask the wrong current record kind");
+  CHECK((*records)->Publish(std::span(&**record, 1), (**payload).Bytes()).has_value(),
+        "resident fixture restores the original verified record");
+  {
+    const auto restored = (*cache)->LoadBasisRequest(request);
+    CHECK(restored && *restored && (**restored).Product.get() == identity,
+          "restored identical metadata permits the still-live verified product");
+  }
+  auto changed = *weak.lock();
+  changed.HeightRasterDigest = changed.HeightRasterDigest == 1 ? 2 : 1;
+  const auto changedBytes = EncodePreparedBuildingBasis(changed);
+  CHECK(changedBytes.has_value(), "replacement packet retains the native basis contract");
+  if (!changedBytes) { return; }
+  auto changedRecord = **record;
+  changedRecord.Package.clear();
+  changedRecord.ByteCount = changedBytes->size();
+  CHECK((*records)->Publish(std::span(&changedRecord, 1), *changedBytes).has_value(),
+        "a repaired packet replaces the same indexed product identity");
+  {
+    const auto repaired = (*cache)->LoadBasisRequest(request);
+    CHECK(repaired && *repaired && (**repaired).Product.get() != identity &&
+              (**repaired).Product->HeightRasterDigest == changed.HeightRasterDigest,
+          "a changed package cannot reuse a live previous packet under the same asset key");
+  }
+  CHECK((*records)->Publish(std::span(&**record, 1), (**payload).Bytes()).has_value(),
+        "the fixture restores original bytes before explicit invalidation");
+  CHECK((*cache)->InvalidateBasis(key).has_value(), "explicit native invalidation succeeds");
+  const auto invalidated = (*cache)->LoadBasisRequest(request);
+  CHECK(invalidated && !*invalidated && !weak.expired(),
+        "explicit invalidation remains a miss while old geometry still owns its basis");
+  const auto replacementKey = (*cache)->Key(tile, 18, shape, 1000);
+  CHECK((*cache)->Generate(replacementKey, Inputs(), *Heights(), stopping, request).has_value(),
+        "changed physical input publishes a complete replacement binding");
+  auto replacement = (*cache)->LoadBasisRequest(request);
+  CHECK(replacement && *replacement && (**replacement).BaseKey == replacementKey &&
+            (**replacement).Product.get() != identity,
+        "current request replacement cannot reuse a previous live content identity");
+  if (!replacement || !*replacement) { return; }
+  const std::weak_ptr<const PreparedBuildingBasis> replacementWeak = (**replacement).Product;
+  replacement->reset();
+  geometry->reset();
+  CHECK(weak.expired() && replacementWeak.expired(),
+        "the resident index retains no basis payload after its real consumers disappear");
+  const auto expired = (*cache)->Costs();
+  const auto reloaded = (*cache)->LoadBasisRequest(request);
+  CHECK(reloaded && *reloaded && (*cache)->Costs().BasisHits == expired.BasisHits + 1 &&
+            (*cache)->Costs().BasisResidentHits == expired.BasisResidentHits,
+        "expired weak products follow the real payload-read path again");
+}
+
+void ResidentRequestLimit(const std::filesystem::path &root) {
+  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::SourceSet sources(store);
+  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  CHECK(cache.has_value(), "bounded resident fixture opens");
+  if (!cache) { return; }
+  const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
+  const Ground::ShapedGround shape;
+  const auto request = (*cache)->RequestKey(tile, shape, 1000);
+  const auto key = (*cache)->Key(tile, 17, shape, 1000);
+  const std::atomic_bool stopping{false};
+  CHECK((*cache)->Generate(key, Inputs(), *Heights(), stopping, request).has_value(),
+        "bounded fixture publishes one real native basis");
+  auto first = (*cache)->LoadBasisRequest(request);
+  auto records = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(first && *first && records, "bounded fixture opens its current product and metadata");
+  if (!first || !*first || !records) { return; }
+  const auto encoded = EncodePreparedBuildingBasis(*(**first).Product);
+  const auto record = (*records)->FindRequest(request);
+  CHECK(encoded && record && *record, "bounded fixture has one complete verified packet");
+  if (!encoded || !record || !*record) { return; }
+  std::vector<AssetRecord> declarations;
+  std::vector<std::string> requests{request};
+  for (size_t index = 0; index < 256; ++index) {
+    auto sibling = **record;
+    sibling.Parent = Sha256Hex("resident-parent-" + std::to_string(index));
+    sibling.Key = Sha256Hex("prepared-building-basis-2/" + sibling.Parent);
+    sibling.RequestKey = Sha256Hex("resident-request-" + std::to_string(index));
+    sibling.Package.clear();
+    sibling.OffsetBytes = 0;
+    sibling.ByteCount = encoded->size();
+    requests.push_back(*sibling.RequestKey);
+    declarations.push_back(std::move(sibling));
+  }
+  CHECK((*records)->Publish(declarations, *encoded).has_value(),
+        "bounded fixture publishes independent identities sharing one valid packet");
+  std::vector<PreparedBuildingAssets::Basis> held{(**first).Product};
+  first->reset();
+  for (size_t index = 1; index < requests.size(); ++index) {
+    const auto loaded = (*cache)->LoadBasisRequest(requests[index]);
+    CHECK(loaded && *loaded, "each independently requested basis remains loadable");
+    if (!loaded || !*loaded) { return; }
+    held.push_back((**loaded).Product);
+  }
+  const auto full = (*cache)->Costs();
+  for (size_t index = 0; index < 256; ++index) {
+    const auto reused = (*cache)->LoadBasisRequest(requests[index]);
+    CHECK(reused && *reused && (**reused).Product == held[index],
+          "the bounded index preserves each remembered live product");
+  }
+  CHECK((*cache)->Costs().BasisResidentHits == full.BasisResidentHits + 256 &&
+            (*cache)->Costs().BasisHits == full.BasisHits,
+        "all remembered products reuse their payloads without additional reads");
+  const auto beforeOverflow = (*cache)->Costs();
+  {
+    const auto overflow = (*cache)->LoadBasisRequest(requests.back());
+    CHECK(overflow && *overflow && (*cache)->Costs().BasisHits == beforeOverflow.BasisHits + 1 &&
+              (*cache)->Costs().BasisResidentHits == beforeOverflow.BasisResidentHits,
+          "a full index does not grow to retain another simultaneously live identity");
+  }
+  const auto survivor = held.front();
+  const std::weak_ptr<const PreparedBuildingBasis> expired = held[1];
+  held.clear();
+  CHECK(expired.expired(), "expired slots retain no native payloads");
+  const auto recovered = (*cache)->LoadBasisRequest(requests.back());
+  const auto beforeReuse = (*cache)->Costs();
+  const auto reused = (*cache)->LoadBasisRequest(requests.back());
+  CHECK(recovered && *recovered && reused && *reused &&
+            (**reused).Product == (**recovered).Product &&
+            (*cache)->Costs().BasisResidentHits == beforeReuse.BasisResidentHits + 1 &&
+            (*cache)->Costs().BasisHits == beforeReuse.BasisHits,
+        "expired metadata slots admit and reuse a previously unremembered product");
+  const auto preserved = (*cache)->LoadBasisRequest(requests.front());
+  CHECK(preserved && *preserved && (**preserved).Product == survivor,
+        "removing expired entries preserves the remaining live consumer");
 }
 
 std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &base) {
@@ -306,6 +627,8 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
   (*restarted).reset();
   NativeCache(root);
   RequestMigration(root / "request-migration");
+  ResidentRequests(root / "resident-requests");
+  ResidentRequestLimit(root / "resident-limit");
   std::filesystem::remove_all(root);
   return decoded;
 }

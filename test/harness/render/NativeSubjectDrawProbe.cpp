@@ -231,16 +231,16 @@ void PieceUv1(Device &device, GeometryRenderer &subject, Targets &targets, const
   piece.Textured = true;
   PieceMesh missing = piece;
   missing.Uv1 = {};
-  CHECK(subject.PlacePiece(missing, error) == kNoPiece &&
-            error == "piece surface requires a complete second UV run",
+  const auto absent = subject.PlacePiece(missing);
+  CHECK(!absent && absent.error().Message == "piece surface requires a complete second UV run",
         "the integrated material contract rejects a missing second UV run before allocation");
-  const auto id = subject.PlacePiece(piece, error);
-  CHECK(id != kNoPiece, "the actual piece allocator carries authored second UVs");
-  if (id == kNoPiece) { Failed(); }
+  const auto id = subject.PlacePiece(piece);
+  CHECK(id.has_value(), "the actual piece allocator carries authored second UVs");
+  if (!id) { Failed(); }
   CheckSceneUpload(subject.HandTables(error), error);
   constexpr std::array<uint16_t, 4> blue{0, 0, 0x3a00, 0x3c00};
   Draw(device, subject, targets, nullptr, blue);
-  subject.ReleasePiece(id);
+  subject.ReleasePiece(*id);
 }
 
 void PreparedMipChain(Device &device, GeometryRenderer &subject, Targets &targets) {
