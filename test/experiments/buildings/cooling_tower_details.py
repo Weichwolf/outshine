@@ -3,10 +3,12 @@
 import numpy as np
 from cooling_tower_mesh import components, draw_parts
 from cooling_tower_plan import plan
+from cooling_service_plan import plan as service_plan
+from cooling_service_mesh import components as service_components, world_points
 from facade_parts import append
 
 
-def refine(row, source, info, error_m):
+def refine(row, source, info, error_m, *, service_access=False, service_bay=0):
     if info["source_kind"] != "cooling_tower":
         return None
     try:
@@ -15,12 +17,30 @@ def refine(row, source, info, error_m):
         info["cooling_intake_declined"] = str(error)
         return None
     physical = components(programme, error_m=error_m)
+    access_info = {}
+    if service_access:
+        try:
+            access = service_plan(programme, bay=service_bay)
+        except ValueError as error:
+            access_info["service_access_declined"] = str(error)
+        else:
+            physical.update(service_components(access))
+            access_info["service_access"] = {
+                "source_id": row["id"],
+                "origin": "procedural lower service construction, not a measured blueprint",
+                "bay": access.bay,
+                "floor_m": access.floor_m,
+                "ground_m": access.ground_m,
+                "components": len(access.parts),
+                "foot_route_xyz_m": world_points(access, access.route).tolist(),
+                "limits": "Geometric climb/step-off clearance only; no controller, complete tower access, structural load or native/device admission",
+            }
     chunks = [
         dict(mesh, facade_extent=np.zeros((len(mesh["vertices"]), 3)))
         for mesh in draw_parts(programme, physical).values()
     ]
     mesh = append(chunks[0], chunks[1:])
-    return mesh, info | {
+    return mesh, info | access_info | {
         "cooling_intake": {
             "origin": "procedural construction, not delivered structural engineering",
             "source_id": row["id"],
