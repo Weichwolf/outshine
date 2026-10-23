@@ -94,6 +94,8 @@ def unshifted_mesh(patches):
 
 
 def factorized_positions(mesh):
+    if mesh["positions"].dtype != np.float32 or mesh["positions"].shape[1:] != (3,):
+        raise ValueError("position control requires actual Float32 XYZ input words")
     words, mapping = np.unique(
         mesh["positions"].view(np.uint32), axis=0, return_inverse=True
     )
