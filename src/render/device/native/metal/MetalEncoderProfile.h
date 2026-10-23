@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace outshine::Render::Native::Metal {
@@ -36,7 +37,9 @@ struct EncoderProfile {
 CreateEncoderProfileSession(id<MTLDevice> device, uint64_t identity);
 [[nodiscard]] std::shared_ptr<EncoderProfile>
 CreateEncoderProfile(const std::shared_ptr<EncoderProfileSession> &session);
-void ProfileRenderEncoder(EncoderProfile *profile, MTLRenderPassDescriptor *description);
+void ProfileRenderEncoder(EncoderProfile *profile,
+                          MTLRenderPassDescriptor *description,
+                          std::string_view label);
 void ProfileComputeEncoder(EncoderProfile &profile,
                            MTLComputePassDescriptor *description,
                            NSString *label);
