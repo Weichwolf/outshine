@@ -13,18 +13,118 @@ from urban_pixel_samples import pixel_surface_packets
 from urban_sampled_layer import render_sampled_layer
 
 
-def pixel_surface_uniforms(width, height, spatial, draws, seed, batch=2048):
+def pixel_surface_uniforms(
+    width, height, spatial, draws, seed, batch=2048, pixel_origin=None
+):
     return np.vstack(
         [
             p.copy()
             for p in pixel_surface_packets(
-                width, height, spatial, draws, seed, batch=batch
+                width,
+                height,
+                spatial,
+                draws,
+                seed,
+                batch=batch,
+                pixel_origin=pixel_origin,
             )
         ]
     )
 
 
 class PixelSurfaceSamplesTest(unittest.TestCase):
+    def test_screen_windows_and_packet_splits_keep_identical_overlapping_pixels(self):
+        for spatial, draws in ((1, 1), (2, 4), (3, 13), (4, 4)):
+            full = pixel_surface_uniforms(
+                9, 5, spatial, draws, 1113, pixel_origin=(201, 309)
+            )
+            full = full.reshape(5 * spatial, 9 * spatial, draws)
+            expected = full[spatial : 4 * spatial, 2 * spatial : 7 * spatial]
+            for batch in (1, 19, 2048):
+                crop = pixel_surface_uniforms(
+                    5, 3, spatial, draws, 1113, batch, pixel_origin=(203, 310)
+                ).reshape(3 * spatial, 5 * spatial, draws)
+                np.testing.assert_array_equal(crop, expected)
+                np.testing.assert_array_equal(
+                    np.floor(crop * draws),
+                    np.broadcast_to(np.arange(draws), crop.shape),
+                )
+            bins = draws * spatial**2
+            for y, x in itertools.product(range(5), range(9)):
+                pixel = full[
+                    y * spatial : (y + 1) * spatial, x * spatial : (x + 1) * spatial
+                ]
+                np.testing.assert_array_equal(
+                    np.sort(np.floor(pixel.ravel() * bins)), np.arange(bins)
+                )
+
+    def test_screen_tiles_join_without_duplicate_or_shifted_streams(self):
+        width, height, spatial, draws = 7, 3, 3, 13
+        whole = pixel_surface_uniforms(
+            width, height, spatial, draws, 1113, pixel_origin=(41, 53)
+        ).reshape(height * spatial, width * spatial, draws)
+        left = pixel_surface_uniforms(
+            2, height, spatial, draws, 1113, pixel_origin=(41, 53)
+        ).reshape(height * spatial, 2 * spatial, draws)
+        right = pixel_surface_uniforms(
+            5, height, spatial, draws, 1113, pixel_origin=(43, 53)
+        ).reshape(height * spatial, 5 * spatial, draws)
+        np.testing.assert_array_equal(np.concatenate((left, right), axis=1), whole)
+        moved = pixel_surface_uniforms(
+            width, height, spatial, draws, 1113, pixel_origin=(42, 53)
+        )
+        self.assertTrue(np.any(moved != whole.reshape(-1, draws)))
+
+    def test_screen_origin_validation(self):
+        for origin in ((-1, 0), (0, -1), (2**32, 0), (0, 2**32), (0.5, 0), (0,), 0):
+            with self.assertRaises(ValueError):
+                list(pixel_surface_packets(2, 2, 2, 4, 1113, pixel_origin=origin))
+        for origin in ((2**32 - 1, 0), (0, 2**32 - 1)):
+            with self.assertRaises(ValueError):
+                list(pixel_surface_packets(2, 2, 2, 4, 1113, pixel_origin=origin))
+
+    def test_screen_crop_preserves_actual_parent_C_T_S_for_identical_rays(self):
+        parent = small_parent()
+        yy, xx = np.meshgrid(
+            np.linspace(3, 29, 6), np.linspace(3, 29, 6), indexing="ij"
+        )
+        o = np.c_[xx.ravel(), yy.ravel(), np.full(36, 50)]
+        d = np.tile([0.0, 0, -1], (36, 1))
+        stop = np.full(36, 50.0)
+        p = {
+            "kind": "point",
+            "position": [20, 20, 30],
+            "intensity": 3000,
+            "ambient": 0.01,
+        }
+        whole = render_sampled_layer(
+            parent,
+            o,
+            d,
+            p,
+            stop,
+            samples=1,
+            batch=11,
+            surface_packets=pixel_surface_packets(
+                3, 3, 2, 1, 1113, batch=11, pixel_origin=(401, 301)
+            ),
+        )
+        ids = np.arange(36).reshape(6, 6)[2:, 2:].ravel()
+        crop = render_sampled_layer(
+            parent,
+            o[ids],
+            d[ids],
+            p,
+            stop[ids],
+            samples=1,
+            batch=7,
+            surface_packets=pixel_surface_packets(
+                2, 2, 2, 1, 1113, batch=7, pixel_origin=(402, 302)
+            ),
+        )
+        for a, b in zip(whole[:3], crop[:3], strict=True):
+            np.testing.assert_array_equal(a[ids], b)
+
     def test_packet_boundaries_do_not_change_pixels_and_height_is_lazy(self):
         reference = pixel_surface_uniforms(7, 3, 4, 4, 1113)
         for batch in (1, 7, 19, 71, 2048):

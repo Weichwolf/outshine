@@ -38,6 +38,21 @@ def ready_subset(resolved, parent_grid, region):
     return result
 
 
+def layer_states(parent, resolved):
+    pg = grid(parent)
+    whole = np.array([[[0, 0], pg["shape"]]])
+    half = np.array([[[0, 0], [pg["shape"][0] // 2, pg["shape"][1]]]])
+    subset = ready_subset(resolved, pg, half[0])
+    return [
+        ("pending", None, None, None, None, False),
+        ("half_view", subset, None, half, None, False),
+        ("half_caster", None, subset, None, half, False),
+        ("half_ready", subset, subset, half, half, False),
+        ("all_ready", resolved, resolved, whole, whole, False),
+        ("foreground", subset, subset, half, half, True),
+    ]
+
+
 def child_visibility(product, points, normals, profile, work=None):
     light, _, limit = light_at(points, profile)
     depth, _, _, counts = trace_resolved(
@@ -161,6 +176,7 @@ def layer_state(parent, o, d, profile, state, args, arrays):
                     args.surface_samples,
                     args.surface_seed,
                     batch=args.layer_batch,
+                    pixel_origin=args.pixel_origin,
                 )
                 if args.pixel_strata
                 else None
@@ -195,6 +211,8 @@ def run(args):
         raise ValueError("paired sampling requires --surface-samples")
     if args.pixel_strata and args.surface_samples is None:
         raise ValueError("pixel stratification requires --surface-samples")
+    if args.screen_strata and not args.pixel_strata:
+        raise ValueError("screen anchoring requires --pixel-strata")
     if not 0 <= args.foreground_fraction <= 1:
         raise ValueError("foreground fraction must lie in [0,1]")
     if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -203,10 +221,6 @@ def run(args):
     with np.load(args.parent, allow_pickle=False) as a:
         parent = UrbanParent(**{k: a[k] for k in UrbanParent.__annotations__})
     resolved = prepare_resolved(load(args.resolved))
-    pg = grid(parent)
-    whole = np.array([[[0, 0], pg["shape"]]])
-    half = np.array([[[0, 0], [pg["shape"][0] // 2, pg["shape"][1]]]])
-    subset = ready_subset(resolved, pg, half[0])
     view = camera(
         parent.frame[2] * parent.frame[3], args.distance, args.motion, args.altitude
     )
@@ -214,19 +228,13 @@ def run(args):
     box = region(parent, resolved, view, profile)
     width, height = box[1] - box[0]
     args.pixel_shape = (width, height)
+    args.pixel_origin = tuple(map(int, box[0])) if args.screen_strata else None
     o, d = image_rays(view, box, width, height, args.samples)
     d /= np.linalg.norm(d, axis=1)[:, None]
     backdrop = background_image(view, profile)
     control, _, control_work = opaque_image(resolved, o, d, profile)
     results, arrays = {}, {"resolved": control}
-    states = [
-        ("pending", None, None, None, None, False),
-        ("half_view", subset, None, half, None, False),
-        ("half_caster", None, subset, None, half, False),
-        ("half_ready", subset, subset, half, half, False),
-        ("all_ready", resolved, resolved, whole, whole, False),
-        ("foreground", subset, subset, half, half, True),
-    ]
+    states = layer_states(parent, resolved)
     for state in states:
         name = state[0]
         rgb, report = layer_state(parent, o, d, profile, state, args, arrays)
@@ -267,6 +275,8 @@ def run(args):
         "surface_samples_per_ray": args.surface_samples,
         "surface_seed": args.surface_seed,
         "pixel_strata": args.pixel_strata,
+        "screen_strata": args.screen_strata,
+        "pixel_origin": args.pixel_origin,
         "surface_sampling_scope": "One pixel-row band plus ray packet; generation inside layer timings.",
         "resolved_control_shape": resolved["shape"].tolist(),
         "resolved_control_masses": len(resolved["columns"]),
@@ -290,6 +300,7 @@ if __name__ == "__main__":
     parser.add_argument("--surface-seed", type=int, default=1113)
     parser.add_argument("--paired-sampled", action="store_true")
     parser.add_argument("--pixel-strata", action="store_true")
+    parser.add_argument("--screen-strata", action="store_true")
     parser.add_argument("--layer-batch", type=int, choices=range(1, 2049), default=2048)
     parser.add_argument("--foreground-fraction", type=float, default=0.5)
     parser.add_argument("--distance", type=float, default=240000.0)
