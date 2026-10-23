@@ -151,6 +151,13 @@ images; it is not implemented or admitted here. No new sampler-density/CDF sweep
 
 Projected ROIs inside1280x720 at flat ENU240km/75,894.663844m do not prove complete
 World frames, curvature, native/Metal/Iris/p99 or source-height/occlusion correctness.
+Movement design remains #5/#12: walking through many hundreds of m/s, acceleration,
+turns and height changes with complete content and1280x720/60 including p99. These
+static probes do not qualify that contract. Source parents remain camera-independent
+assets; pixel moments/Ready background are current-view/light results, not assets
+reused after arbitrary movement. No whole-world rebuild or enlarged validity radius
+is justified by these images.
+
 All previous methods/cost negatives remain pinned. Complete commands, raw inputs,
 terminal logs, unclamped arrays, phase counters/costs, validation and optical review:
 `/tmp/outshine-research-control-pixels-eb575b678/receipt.json`.
