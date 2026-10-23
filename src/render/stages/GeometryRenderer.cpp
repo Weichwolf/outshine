@@ -352,6 +352,7 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
     return std::unexpected(std::move(error));
   }
   ++Reshaped_;
+  ShadowChanges_.Unknown();
   PendingMesh_ = {};
   PendingDraws_ = nullptr;
   PendingIndices_ = nullptr;
@@ -697,6 +698,7 @@ Native::Result<PieceId> GeometryRenderer::PlacePiece(const PieceMesh &piece) {
   TablesStale_ = true;
   RowsStale_ = true;
   ++Reshaped_;
+  RecordPieceShadowChange(std::nullopt, 0, held.WorldSphere, held.Rows.size());
   return id;
 }
 
@@ -713,8 +715,11 @@ bool GeometryRenderer::SetPieceInstances(PieceId which,
     return false;
   }
   if (std::ranges::equal(piece.Rows, rows)) { return true; }
+  const auto previousSphere = piece.WorldSphere;
+  const size_t previousRows = piece.Rows.size();
   piece.Rows.assign(rows.begin(), rows.end());
   piece.WorldSphere = WorldSphereOf(piece.LocalSphere, piece.Rows);
+  RecordPieceShadowChange(previousSphere, previousRows, piece.WorldSphere, piece.Rows.size());
   RowsStale_ = TablesStale_ = true;
   ++Reshaped_;
   return true;
@@ -723,6 +728,7 @@ bool GeometryRenderer::SetPieceInstances(PieceId which,
 void GeometryRenderer::ReleasePiece(PieceId which) {
   if (which >= Pieces_.size() || !Pieces_[which].Live) { return; }
   Piece &held = Pieces_[which];
+  RecordPieceShadowChange(held.WorldSphere, held.Rows.size(), std::nullopt, 0);
   Bound().GiveVertices(held.V);
   Bound().GiveIndices(held.I);
   Bound().GiveColours(held.C);
@@ -740,6 +746,7 @@ void GeometryRenderer::ReleasePiece(PieceId which) {
 
 void GeometryRenderer::SetPiecesVisible(bool visible) {
   if (PiecesVisible_ == visible) { return; }
+  ShadowChanges_.Unknown();
   PiecesVisible_ = visible;
   TablesStale_ = true;
   ++Reshaped_;
@@ -747,12 +754,18 @@ void GeometryRenderer::SetPiecesVisible(bool visible) {
 
 void GeometryRenderer::SetNativePieceSurfaces(std::span<const uint32_t> slots) {
   if (std::ranges::equal(SlotOf_, slots)) { return; }
+  if (ChangesShadowSurfaces(SlotOf_, slots, PieceSurface::Source::Geometry)) {
+    ShadowChanges_.Unknown();
+  }
   SlotOf_.assign(slots.begin(), slots.end());
   TablesStale_ = true;
 }
 
 void GeometryRenderer::SetRegisteredPieceSurfaces(std::span<const uint32_t> slots) {
   if (std::ranges::equal(RegisteredSlotOf_, slots)) { return; }
+  if (ChangesShadowSurfaces(RegisteredSlotOf_, slots, PieceSurface::Source::Registered)) {
+    ShadowChanges_.Unknown();
+  }
   RegisteredSlotOf_.assign(slots.begin(), slots.end());
   TablesStale_ = true;
 }
@@ -1041,6 +1054,7 @@ bool GeometryRenderer::HandDrawArguments(bool deferred, std::string &error) {
 bool GeometryRenderer::SetPose(const SubjectPose &pose, std::string &error) {
   SubjectBoundsCurrent_ = false;
   ShadowCasters_.Invalidate();
+  ShadowChanges_.Unknown();
   ++Reshaped_;
   if (Borrows()) { return true; }
   if (Bound().Shape().Indices == 0) {
