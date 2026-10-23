@@ -97,6 +97,31 @@ def diagnostic_pixels(fields, kind, width, height):
     return np.rint(255 * average_samples(values, width, height, 2)).astype(np.uint8)
 
 
+def ready_attributed_source(value, retained):
+    """Expand kept corner fields for the diagnostic reader, without GPU-layout claims."""
+    source = ready_source(value, retained)
+    for field in ("uv", "metres"):
+        key = "corner_" + field
+        if key in value:
+            source[field] = np.concatenate((value[key].reshape(-1, 2), retained[field]))
+    validity = value.get("face_shading_valid", np.ones(len(value["indices"]), bool))
+    qualified = np.r_[validity, np.ones(len(retained["indices"]), bool)]
+    count = len(validity) * 3
+    if "corner_shading_words" in value:
+        normal = source["vertex_normal"][:count].reshape(-1, 3, 3)
+        # Unknown faces retain a reader placeholder, never a qualified normal.
+        normal[validity] = (
+            unpack(value["corner_shading_words"][validity].reshape(-1))
+            @ value["basis"].T
+        ).reshape(-1, 3, 3)
+        source["vertex_normal"][:count] = normal.reshape(-1, 3)
+    if "corner_colour" in value:
+        source["colour"][:count] = value["corner_colour"].reshape(-1, 4)
+    elif "uniform_colour" in value:
+        source["colour"][:count] = value["uniform_colour"]
+    return source, qualified
+
+
 def run(args):
     args.output.mkdir(parents=True, exist_ok=False)
     arrays = {}
@@ -140,29 +165,7 @@ def run(args):
     sources = {"original": original}
     qualified_faces = {"original": np.ones(len(original["indices"]), bool)}
     for name, value in arrays.items():
-        source = ready_source(value, retained)
-        for field in ("uv", "metres"):
-            source[field] = np.concatenate(
-                (value["corner_" + field].reshape(-1, 2), retained[field])
-            )
-        validity = value.get("face_shading_valid", np.ones(len(value["indices"]), bool))
-        qualified_faces[name] = np.r_[validity, np.ones(len(retained["indices"]), bool)]
-        if "corner_shading_words" in value:
-            normal = source["vertex_normal"][: len(validity) * 3].reshape(-1, 3, 3)
-            # Invalid faces keep only a reader placeholder, then expose zero plus
-            # an explicit false flag. Their normal diagnostic is magenta.
-            normal[validity] = (
-                unpack(value["corner_shading_words"][validity].reshape(-1))
-                @ value["basis"].T
-            ).reshape(-1, 3, 3)
-            source["vertex_normal"][: len(validity) * 3] = normal.reshape(-1, 3)
-        if "corner_colour" in value:
-            source["colour"][: len(validity) * 3] = value["corner_colour"].reshape(
-                -1, 4
-            )
-        elif "uniform_colour" in value:
-            source["colour"][: len(validity) * 3] = value["uniform_colour"]
-        sources[name] = source
+        sources[name], qualified_faces[name] = ready_attributed_source(value, retained)
     support = {"positions": np.concatenate([s["positions"] for s in sources.values()])}
     view, _, box, origins, directions = setup_view(
         support, a, document, context, {"direction": [0.45, -0.5, 0.7]}
