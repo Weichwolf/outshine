@@ -190,6 +190,7 @@ std::expected<void, std::string> UrbanAreaStreaming::PlanGroups(const View &view
                       .PublishedKey = {},
                       .Slot = std::make_unique<UrbanPrismSlot>(Pool_, Database_, kAssetBytesMost),
                       .Handle = {},
+                      .Exclusions = {},
                       .ChildrenRevision = 0});
   }
   for (auto &group : Groups_) {

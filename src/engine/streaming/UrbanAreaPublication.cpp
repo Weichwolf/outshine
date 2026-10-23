@@ -99,6 +99,11 @@ UrbanAreaStreaming::Publish(Group &group,
     return std::unexpected("urban asset patch layout differs from its intrinsic request");
   }
   auto cuts = Exclusions(*group.Area, group.Patches, children);
+  if (group.PublishedKey == key && group.Exclusions == cuts &&
+      (!group.Handle || Renderer_->HasPrismGrid(group.Handle))) {
+    group.ChildrenRevision = childrenRevision;
+    return false;
+  }
   auto views = ExcludePrismCells(
       product.Geometry,
       cuts,
@@ -127,6 +132,7 @@ UrbanAreaStreaming::Publish(Group &group,
   }
 
   group.PublishedKey = key;
+  group.Exclusions = std::move(cuts);
   group.ChildrenRevision = childrenRevision;
   ++Publications_;
   return true;

@@ -12,6 +12,7 @@ namespace outshine {
 struct PrismCellRect {
   uint32_t Patch = 0;
   uint32_t Left = 0, Top = 0, Right = 0, Bottom = 0;
+  bool operator==(const PrismCellRect &) const noexcept = default;
 };
 
 struct PrismViewPlacement {

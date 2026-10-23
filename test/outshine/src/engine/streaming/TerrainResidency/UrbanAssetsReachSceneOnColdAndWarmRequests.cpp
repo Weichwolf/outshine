@@ -84,11 +84,22 @@ void Probe(Render::SceneRenderer &renderer, const std::filesystem::path &directo
                 stream.Costs().Publications == cold.Publications,
             "movement within the same intrinsic groups does not create camera-specific assets");
     }
+    auto unrelated = kOwner;
+    unrelated.X += 5;
+    const std::array distantChildren{Ground::TileBounds(unrelated)};
+    CHECK(Pump(stream, view, terrain, distantChildren, 1) &&
+              stream.Costs().Publications == cold.Publications &&
+              stream.Costs().Captures == cold.Captures,
+          "a distant child's publication retains unchanged local scene resources");
     const std::array children{Ground::TileBounds(kOwner)};
-    CHECK(Pump(stream, view, terrain, children, 1) && stream.Costs().Resident == 0 &&
+    CHECK(Pump(stream, view, terrain, children, 2) && stream.Costs().Resident == 0 &&
               stream.Costs().Captures == cold.Captures,
           "published children suppress parent cells without recooking cached assets");
-    CHECK(Pump(stream, view, terrain, {}, 2) && stream.Costs().Resident == cold.Resident &&
+    const auto covered = stream.Costs();
+    CHECK(Pump(stream, view, terrain, children, 3) &&
+              stream.Costs().Publications == covered.Publications,
+          "unchanged covered groups acknowledge new revisions without republishing");
+    CHECK(Pump(stream, view, terrain, {}, 4) && stream.Costs().Resident == cold.Resident &&
               stream.Costs().Captures == cold.Captures,
           "removing children restores the same cached product without terrain capture");
   }

@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_URBANAREASTREAMING_H
 
 #include "PreparedUrbanAreas.h"
+#include "PrismGridViews.h"
 #include "ResourceHandle.h"
 #include "TangentFrame.h"
 #include "UrbanAreaGroups.h"
@@ -70,6 +71,7 @@ private:
     std::string SourceKey, Request, PublishedKey;
     std::unique_ptr<UrbanPrismSlot> Slot;
     Render::PrismGridHandle Handle;
+    std::vector<PrismCellRect> Exclusions;
     uint64_t ChildrenRevision = 0;
   };
 
