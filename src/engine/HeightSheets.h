@@ -156,7 +156,8 @@ public:
 
   [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }
 
-  [[nodiscard]] size_t HeapBytes() const noexcept;
+  [[nodiscard]] size_t
+  HeapBytes(TerrainHeapScope scope = TerrainHeapScope::Retained) const noexcept;
 
   [[nodiscard]] bool Occludes(const Ray &ray, float nearM, float distanceM) const noexcept {
     return Framed_ && Residency_.Occludes(ray, nearM, distanceM, Frame_);

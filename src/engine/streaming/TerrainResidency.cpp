@@ -96,6 +96,7 @@ TerrainResidency::TerrainResidency(const TerrainResidency &other)
       Renderer_(other.Renderer_),
       Publishing_(other.Publishing_) {
   for (size_t at = 0; at < Held_.size(); ++at) {
+    Held_[at].SharedNodes = Held_[at].Nodes.get();
     if (!PageIndex_.Emplace(Held_[at].Tile, at)) { Heap::Exhausted("height page index"); }
   }
 }
@@ -340,7 +341,7 @@ uint64_t TerrainResidency::Digest() const noexcept {
     fold(static_cast<uint32_t>(held.Tile.Zoom));
     fold(held.Tile.X);
     fold(held.Tile.Y);
-    for (const float value : held.Nodes) { foldFloat(value); }
+    for (const float value : held.Samples()) { foldFloat(value); }
   }
   return digest;
 }
@@ -351,12 +352,17 @@ uint64_t TerrainResidency::TileHash::operator()(const Data::TileId &tile) const 
   return (hash ^ tile.Y) * kTileHashMix;
 }
 
-size_t TerrainResidency::HeapBytes() const noexcept {
+size_t TerrainResidency::HeapBytes(TerrainHeapScope scope) const noexcept {
   size_t bytes = Held_.capacity() * sizeof(Held) + Retiring_.capacity() * sizeof(size_t) +
                  Replaced_.capacity() * sizeof(Render::HeightPageHandle) + PageIndex_.HeapBytes() +
                  Instances_.capacity() * sizeof(Render::TerrainTile) +
                  Virtual_.capacity() * sizeof(Render::TerrainTile);
-  for (const Held &held : Held_) { bytes += held.Nodes.capacity() * sizeof(float); }
+  for (const Held &held : Held_) {
+    if (held.Nodes &&
+        (scope == TerrainHeapScope::Retained || held.Nodes.get() != held.SharedNodes)) {
+      bytes += sizeof(std::vector<float>) + held.Nodes->capacity() * sizeof(float);
+    }
+  }
   return bytes;
 }
 
