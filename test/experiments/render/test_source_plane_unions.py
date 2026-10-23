@@ -4,7 +4,12 @@ import unittest
 
 import numpy as np
 import shapely
-from source_plane_mesh import triangulate, union_mesh
+from source_plane_mesh import (
+    factorized_positions,
+    triangulate,
+    union_mesh,
+    unshifted_mesh,
+)
 from source_plane_union import compile_unions, weighted_offset
 from source_surface_patches import SurfacePatch
 
@@ -85,6 +90,31 @@ class PlaneUnionTest(unittest.TestCase):
         self.assertTrue((normal[:, 2] > 0).all())
         self.assertEqual(arrays["positions"].dtype, np.float32)
         self.assertEqual(report["float32_degenerate_triangles"], 0)
+
+    def test_singleton_keeps_original_position_bits_without_projection(self):
+        original = plate(shapely.box(0, 0, 2, 2), z=0.123456789)
+        groups, _, work = compile_unions([original])
+        self.assertTrue(groups[0].fallback)
+        self.assertEqual(work["retained_singleton_patches"], 1)
+        mesh, _ = union_mesh(groups)
+        control, _ = unshifted_mesh([original])
+        np.testing.assert_array_equal(
+            mesh["positions"].view(np.uint32), control["positions"].view(np.uint32)
+        )
+        np.testing.assert_array_equal(mesh["indices"], control["indices"])
+
+    def test_position_only_control_shares_exact_corners_across_normal_seams(self):
+        a = plate(shapely.box(0, 0, 2, 2))
+        b = plate(shapely.box(0, 0, 2, 2), normal=(0, 0, -1))
+        groups, _, _ = compile_unions([a, b])
+        mesh, _ = union_mesh(groups)
+        factored = factorized_positions(mesh)
+        self.assertEqual(len(mesh["positions"]), 8)
+        self.assertEqual(len(factored["positions"]), 4)
+        np.testing.assert_array_equal(
+            factored["positions"][factored["indices"]].view(np.uint32),
+            mesh["positions"][mesh["indices"]].view(np.uint32),
+        )
 
     def test_invalid_projection_parameters_fail(self):
         for epsilon in (0, -1, np.inf):

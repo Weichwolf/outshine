@@ -15,6 +15,7 @@ class PlaneUnion:
     domain: object
     patches: np.ndarray
     fallback: bool
+    original: object | None
 
 
 def weighted_offset(low, high, weights):
@@ -63,7 +64,33 @@ def make_union(patches, ids, normal, offset, fallback):
     domain = shapely.union_all(polygons)
     if not domain.is_valid or domain.is_empty or domain.area <= 0:
         raise ValueError("valid positive-area projected source union required")
-    return PlaneUnion(normal, offset, axes, domain, np.asarray(ids), fallback)
+    return PlaneUnion(
+        normal,
+        offset,
+        axes,
+        domain,
+        np.asarray(ids),
+        fallback,
+        patches[ids[0]] if fallback else None,
+    )
+
+
+def assess_boundaries(groups, vertices, normals, work):
+    work["projection_validation_vertex_dots"] = 0
+    for group in groups:
+        for identity in group.patches:
+            values = vertices[identity] @ group.normal - group.offset
+            error = float(abs(values).max())
+            work["projection_validation_vertex_dots"] += len(values)
+            work["maximum_vertex_projection_m"] = max(
+                work["maximum_vertex_projection_m"], error
+            )
+        angle = np.degrees(
+            np.arccos(np.clip(normals[group.patches] @ group.normal, -1, 1))
+        ).max()
+        work["maximum_normal_deviation_degrees"] = max(
+            work["maximum_normal_deviation_degrees"], float(angle)
+        )
 
 
 def compile_unions(patches, *, epsilon=3.0, angle_degrees=0.5):
@@ -98,6 +125,7 @@ def compile_unions(patches, *, epsilon=3.0, angle_degrees=0.5):
         "weighted_interval_events": 0,
         "input_contour_coordinates": sum(map(len, vertices)),
         "fallback_patches": 0,
+        "retained_singleton_patches": 0,
         "normal_families": 0,
         "maximum_vertex_projection_m": 0.0,
         "maximum_normal_deviation_degrees": 0.0,
@@ -145,22 +173,37 @@ def compile_unions(patches, *, epsilon=3.0, angle_degrees=0.5):
                 raise ValueError("interval selection must consume source patches")
             members = ids[selected]
             membership[members] = len(groups)
-            groups.append(make_union(patches, members, normal, offset, False))
+            if len(members) == 1:
+                patch = patches[int(members[0])]
+                group = make_union(
+                    patches,
+                    members,
+                    patch.normal,
+                    float(patch.origin @ patch.normal),
+                    True,
+                )
+                work["retained_singleton_patches"] += 1
+                work["fallback_patches"] += 1
+            else:
+                representative = selected[np.argmax(area[members])]
+                point = projections[representative]
+                offset = float(
+                    np.clip(
+                        (point.min() + point.max()) / 2,
+                        low[selected].max(),
+                        high[selected].min(),
+                    )
+                )
+                group = make_union(patches, members, normal, offset, False)
+            groups.append(group)
             pending[selected] = False
-            error = max(float(abs(projections[i] - offset).max()) for i in selected)
-            angle = np.degrees(
-                np.arccos(np.clip(normals[members] @ normal, -1, 1))
-            ).max()
-            work["maximum_vertex_projection_m"] = max(
-                work["maximum_vertex_projection_m"], error
-            )
-            work["maximum_normal_deviation_degrees"] = max(
-                work["maximum_normal_deviation_degrees"], float(angle)
-            )
     if np.any(membership < 0):
         raise ValueError("every patch must remain represented")
     work["plane_unions"] = len(groups)
     work["union_contour_coordinates"] = sum(
         len(shapely.get_coordinates(g.domain)) for g in groups
     )
+    assess_boundaries(groups, vertices, normals, work)
+    if work["maximum_vertex_projection_m"] > epsilon + 1e-8:
+        raise ValueError("actual source boundary projection exceeds declared profile")
     return groups, membership, work

@@ -10,7 +10,7 @@ import numpy as np
 import shapely
 from parent_surface_inputs import open_parent
 from process_memory import peak_rss_bytes
-from source_plane_mesh import union_mesh, unshifted_mesh
+from source_plane_mesh import factorized_positions, union_mesh, unshifted_mesh
 from source_plane_union import compile_unions
 from source_surface_patches import original_patches
 
@@ -67,10 +67,21 @@ def run(args):
         }
     np.savez_compressed(args.output / "mesh.npz", **mesh)
     np.savez_compressed(args.output / "unshifted.npz", **control)
+    factored = factorized_positions(mesh)
+    unshifted = factorized_positions(control)
+    np.savez_compressed(
+        args.output / "geometry-only.npz",
+        **{"union_" + k: v for k, v in factored.items()},
+        **{"unshifted_" + k: v for k, v in unshifted.items()},
+    )
     report.update(
         array_bytes={key: value.nbytes for key, value in mesh.items()},
         all_mesh_array_bytes=sum(a.nbytes for a in mesh.values()),
         position_index_bytes=mesh["positions"].nbytes + mesh["indices"].nbytes,
+        bit_factored_position_index_bytes=sum(a.nbytes for a in factored.values()),
+        bit_factored_unshifted_position_index_bytes=sum(
+            a.nbytes for a in unshifted.values()
+        ),
         mesh_file_bytes=(args.output / "mesh.npz").stat().st_size,
         unshifted_control_array_bytes=sum(a.nbytes for a in control.values()),
         process_peak_rss_bytes=peak_rss_bytes(),
