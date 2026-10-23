@@ -58,7 +58,7 @@ def run(args):
         opened = time.perf_counter()
         patches, basis, anchor, sources, needs = source_patches(parent, set(args.cells))
         patched = time.perf_counter()
-        control, fields, work = material_mesh(patches)
+        control, fields, work = material_mesh(patches, with_shading=args.shading_fields)
         meshed = time.perf_counter()
         centre, placement = cluster_mesh(
             control["positions"], control["indices"], method="centre"
@@ -73,6 +73,12 @@ def run(args):
             "accepted_sources": sources,
             "needs_sources": np.array([n["source"] for n in needs], np.uint32),
         }
+        if args.shading_fields:
+            common["unqualified_shading_sources"] = np.unique(
+                fields["patch_sources"][
+                    fields["face_patches"][~fields["face_shading_valid"]]
+                ]
+            )
         products = {
             "control": control | fields | common,
             "centre": centre | carry_fields(fields, centre["corner_swap"]) | common,
@@ -106,12 +112,13 @@ def run(args):
             "control_mesh_seconds": meshed - patched,
             "centre_placement_seconds": clustered - meshed,
             "mesh": work,
+            "with_shading_fields": args.shading_fields,
             "placement": placement,
             "products": accounting,
             "process_peak_rss_bytes": peak_rss_bytes(),
             "total_allocation_count": None,
             "total_physical_copied_bytes": None,
-            "scope": "Source-side roof/wall fields, deck-separated gables, pre-weld UV and post-weld masonry metres carried unchanged through centre placement and corner swaps. Unknown native floor/overhang/recess support, colour factors and native shading normals are absent, not zero-cost. All degenerate triangles retained. No complete native PBR, device cost or whole-world residency admission; retained original needs excluded from these arrays.",
+            "scope": "Source-side roof/wall fields, deck-separated gables, pre-weld UV and post-weld masonry metres carried unchanged through centre placement and corner swaps. Optional shading fields reproduce source-triangle post-weld normal, curved-shaft, world-Float32/Oct16x2 and colour rules before displacement; zero normal words on invalid weld faces are guarded by face_shading_valid, never usable normals. This is not the cached native triangulation or its support. All degenerate triangles retained. No complete native PBR, device cost or whole-world residency admission; retained original needs excluded from these arrays.",
         }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)
@@ -122,4 +129,9 @@ if __name__ == "__main__":
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--cells", type=int, nargs="+", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--shading-fields",
+        action="store_true",
+        help="retain pre-displacement source-rule shading words/colour and explicit invalid-weld flags",
+    )
     run(parser.parse_args())
