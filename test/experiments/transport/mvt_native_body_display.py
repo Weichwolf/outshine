@@ -59,7 +59,7 @@ def display(plan, data, output):
         axes.zaxis.set_major_locator(MaxNLocator(5))
         axes.view_init(elev=32, azim=-60)
     figure.suptitle(
-        "Local Python body at Float32 coordinates; native outside integration remains open"
+        "Local body at Float32 coordinates; native outside integration remains open"
     )
     figure.tight_layout()
     figure.savefig(output / "native-body.png", dpi=170, bbox_inches="tight")
