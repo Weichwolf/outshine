@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from compact_draw import canonical_faces, compact, verify
+from compact_draw import FACE_ARRAYS, canonical_faces, compact, verify
 
 
 def source():
@@ -99,6 +99,20 @@ class CompactDrawTest(unittest.TestCase):
         draw["corner_uv"][0, 0, 0] += 1
         with self.assertRaisesRegex(ValueError, "field words"):
             verify(original, draw)
+
+    def test_deleting_a_distinct_index_collinear_face_fails_even_with_valid_field_rows(
+        self,
+    ):
+        original = source()
+        draw, _ = compact(original)
+        reduced = {
+            key: value[1:]
+            if key in FACE_ARRAYS or key == "draw_to_reference"
+            else value
+            for key, value in draw.items()
+        }
+        with self.assertRaisesRegex(ValueError, "exactly the repeated-index"):
+            verify(original, reduced)
 
 
 if __name__ == "__main__":
