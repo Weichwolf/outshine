@@ -669,6 +669,7 @@ struct Engine::State {
   void PublishGroundPreparationMeasurements();
   void PublishAdvanceMeasurements();
   void PublishGroundMemoryMeasurements();
+  void PublishUrbanMeasurements();
   void PublishEarthworkMeasurements(const Generators::TerrainDeformationMetrics &pressed,
                                     double longestSliceMs);
   [[nodiscard]] StructureBuildQueue::HeightSource StructureHeightSource();

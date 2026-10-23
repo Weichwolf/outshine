@@ -7,6 +7,17 @@
 #include <utility>
 
 namespace outshine {
+void Engine::State::PublishUrbanMeasurements() {
+  if (!World.UrbanAreas) { return; }
+  const auto urban = World.UrbanAreas->Costs();
+  Published.RecordMetric("urban sources", static_cast<double>(urban.Sources), "areas");
+  Published.RecordMetric("urban requested groups", static_cast<double>(urban.Groups), "groups");
+  Published.RecordMetric("urban resident groups", static_cast<double>(urban.Resident), "groups");
+  Published.RecordMetric("urban terrain captures", static_cast<double>(urban.Captures), "captures");
+  Published.RecordMetric(
+      "urban scene publications", static_cast<double>(urban.Publications), "publications");
+}
+
 namespace {
 std::vector<Ground::GeoBounds>
 PublishedBuildingTiles(const TilePieces &pieces, const Generators::Osm::BuildingField &footprints) {
