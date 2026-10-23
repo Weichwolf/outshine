@@ -16,6 +16,7 @@ def known_receiver_cells(parent_grid, resolved, owners, hits, work=None):
         or resolved["header"].get("footprint_fraction", 1)
         != parent_grid["header"]["footprint_fraction"]
         or not np.allclose(offset, np.rint(offset), rtol=0, atol=1e-9)
+        or resolved["reference_origin_m"][2] != parent_grid["reference_origin_m"][2]
         or not np.array_equal(resolved.get("basis", np.eye(3)), np.eye(3))
     ):
         return None

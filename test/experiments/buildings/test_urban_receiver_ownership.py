@@ -159,6 +159,22 @@ class ReceiverOwnershipTest(unittest.TestCase):
             )
         )
 
+    def test_vertical_origin_and_basis_are_part_of_the_owner_proof(self):
+        parent, resolved, _, _, _ = one_box()
+        product = grid(parent)
+        owners, hits = np.array([0]), np.array([True])
+        raised = resolved | {"reference_origin_m": np.array([0.0, 0, 4])}
+        self.assertIsNone(known_receiver_cells(product, raised, owners, hits))
+        self.assertIsNone(
+            known_receiver_cells(
+                product, resolved | {"basis": np.diag([-1.0, -1, 1])}, owners, hits
+            )
+        )
+        matched = product | {"reference_origin_m": np.array([0.0, 0, 4])}
+        np.testing.assert_array_equal(
+            known_receiver_cells(matched, raised, owners, hits), [[0, 0]]
+        )
+
     def test_explicit_invalid_owner_contracts_fail(self):
         parent, _, o, d, profile = one_box()
         whole = np.array([[[0, 0], [1, 1]]])
