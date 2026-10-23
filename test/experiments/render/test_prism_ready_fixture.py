@@ -7,8 +7,12 @@ from pathlib import Path
 
 import numpy as np
 from attributed_prisms import native_inputs
-from full_view_reference import load
+from full_view_reference import load, views
+from packed_normals import pack
 from prepared_surface_recipes import load_recipes
+from primitive_bvh import Hierarchy, trace
+from roof_prisms import Prisms
+from triangle_image_reference import image_rays
 
 
 class ReadyFixtureTest(unittest.TestCase):
@@ -20,7 +24,7 @@ class ReadyFixtureTest(unittest.TestCase):
         )
         cls.ready = cls.root / "prism-ready"
         cls.manifest = json.loads((cls.ready / "manifest.json").read_text())
-        cls.source, cls.document, _, _ = load(cls.root / "cell.json.gz")
+        cls.source, cls.document, cls.context, _ = load(cls.root / "cell.json.gz")
 
     def test_manifest_binds_unchanged_ready_arrays_to_original_input(self):
         manifest = self.manifest
@@ -94,3 +98,64 @@ class ReadyFixtureTest(unittest.TestCase):
             owner = np.repeat(arrays["source_ids"], np.diff(arrays["source_offsets"]))
             np.testing.assert_array_equal(owner, source["binding"][:, 1])
             self.assertEqual(len(owner), 14169)
+
+    def test_fit_preserves_identity_material_and_fallback_arrays(self):
+        changed = {"prism_planes", "node_bounds", "node_children"}
+        with (
+            np.load(self.ready / "product.npz", allow_pickle=False) as baseline,
+            np.load(self.ready / "plane-fit.npz", allow_pickle=False) as fitted,
+        ):
+            self.assertEqual(
+                set(fitted.files), set(baseline.files) | {"fit_normal_words"}
+            )
+            for key in baseline.files:
+                self.assertEqual(fitted[key].dtype, baseline[key].dtype)
+                self.assertEqual(fitted[key].shape, baseline[key].shape)
+                if key not in changed:
+                    self.assertEqual(
+                        fitted[key].tobytes(), baseline[key].tobytes(), key
+                    )
+            np.testing.assert_array_equal(
+                fitted["fit_normal_words"], pack(baseline["prism_planes"][:, :3])
+            )
+            self.assertFalse(
+                np.array_equal(fitted["prism_planes"], baseline["prism_planes"])
+            )
+
+    def test_fixed_fitted_input_selects_both_known_original_materials(self):
+        poses = views(self.document, self.context)
+        cases = [
+            ("moving-023", [[346, 285], [401, 303]], 2553, 3024, 133),
+            ("static-025", [[155, 285], [223, 304]], 2678, 2472, -994),
+        ]
+        with np.load(self.ready / "plane-fit.npz", allow_pickle=False) as arrays:
+            prism = Prisms(
+                **{
+                    k.removeprefix("prism_"): arrays[k]
+                    for k in arrays.files
+                    if k.startswith("prism_")
+                }
+            )
+            hierarchy = Hierarchy(arrays["node_bounds"], arrays["node_children"])
+            for name, region, index, identity, expected_code in cases:
+                with self.subTest(pose=name):
+                    size = np.diff(region, axis=0)[0]
+                    origins, directions = image_rays(
+                        poses[name], np.array(region), *size, 2
+                    )
+                    origin, direction = (
+                        origins[index : index + 1],
+                        directions[index : index + 1],
+                    )
+                    depth, owner, plane, _ = trace(prism, hierarchy, origin, direction)
+                    self.assertTrue(np.isfinite(depth[0]))
+                    self.assertEqual(prism.binding[owner[0], 0], identity)
+                    frame = arrays["material_frames"][owner[0]]
+                    point = origin[0] + depth[0] * direction[0]
+                    gable = (point - frame[0]) @ frame[3] > arrays["material_heights"][
+                        owner[0], 3
+                    ]
+                    pair = arrays["material_codes"][
+                        arrays["material_code_index"][plane[0]]
+                    ]
+                    self.assertEqual(pair[int(gable)], expected_code)

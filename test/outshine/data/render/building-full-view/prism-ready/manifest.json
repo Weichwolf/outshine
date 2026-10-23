@@ -11,6 +11,10 @@
     "exact-control.npz": {
       "bytes": 239239,
       "sha256": "a8e2d01a630295772aca7de6efef373551b050b2f42919fe48e05503fd57c274"
+    },
+    "plane-fit.npz": {
+      "bytes": 284459,
+      "sha256": "60ac1e5ca96bc42e7d4fc77a6c3fddb6010bb7406ae61927d15194b08feaec6f"
     }
   },
   "original_fixture": "../cell.json.gz",
@@ -27,7 +31,8 @@
   },
   "array_payload_bytes": {
     "product.npz": 428888,
-    "exact-control.npz": 450372
+    "exact-control.npz": 450372,
+    "plane-fit.npz": 446196
   },
   "poses": {
     "input": "../context.json",
@@ -65,9 +70,21 @@
     "source_runs": "source_ids with source_offsets retain original triangle-order source membership. No required native part/face tags are invented."
   },
   "limits": [
-    "Existing unchanged baseline, not the new plane-fit correction.",
-    "Known moving-023 material/normal switch and static-025 coverage loss remain failures.",
+    "product.npz/exact-control.npz remain the unchanged baseline/control. plane-fit.npz is a separately named opt-in candidate.",
+    "Known moving-023 material/normal switch and static-025 coverage loss remain failures of product.npz; the finite correction and its limits belong to #1164.",
     "One complete original native cell; not all 3054 Shell cells, world, device/p99 or native material/transition admission.",
     "Asset/reference input only; no images, new export format, source acquisition or scene rebuilding."
-  ]
+  ],
+  "variants": {
+    "plane-fit.npz": {
+      "producer": "50c620e44544d4ca60990f8bd0c2df27f0e0cdf4",
+      "method_pr": 1164,
+      "baseline": "product.npz",
+      "geometry": "Same source/part/plane ordering and complete original fallback; fitted plane coefficients and rebuilt BVH bounds/child order. All unchanged material/identity/fallback arrays retained.",
+      "shading": "fit_normal_words stores one source-owned Oct16x2 word per plane. Fitted plane normals are geometric intersection normals, not source shading normals. Python render_source_shading applies words only to analytic hits; fallback stays native.",
+      "field_scope": "Extra fit_normal_words is experimental reference data, no native GPU binding or product/cache format change. Existing native first-surface probe may compare fitted geometry independently of shading.",
+      "finite_result": "120 poses / 120676 rays: old one missing sample and one different material code removed; no added samples or changed source IDs. Fresh matched PBR has local gains and a day negative case; no general containment/image/device admission.",
+      "cold_input": "Existing original post-vertex triangles required for fitting; no avoided cold Shell expansion/IO claim."
+    }
+  }
 }
