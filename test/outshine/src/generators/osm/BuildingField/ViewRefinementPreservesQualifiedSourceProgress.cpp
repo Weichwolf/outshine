@@ -34,6 +34,9 @@ int main() {
   field.BeginRefinement(Purpose::View);
   field.BeginRefinement();
   CHECK(!field.SourceRefinementComplete(), "new physical demand supersedes a pending view");
+  field.RetryRefinement(tile, Purpose::View);
+  CHECK(!field.SourceRefinementComplete(),
+        "a stale view retry cannot reclassify pending physical source work");
   snapshot.ResetDerived();
   CHECK(!snapshot.RefinementComplete() && !snapshot.SourceRefinementComplete(),
         "reset cannot retain source completion from an earlier ownership domain");

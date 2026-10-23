@@ -175,7 +175,7 @@ public:
 
   void BeginRefinement(RefinementPurpose purpose = RefinementPurpose::Sources) noexcept {
     assert(purpose != RefinementPurpose::View || RefinementComplete());
-    RefiningView_ = purpose == RefinementPurpose::View;
+    RefinementPurpose_ = purpose;
     RefinementAt_ = 0;
     RefinementEnd_ = AcceptedTiles_.size();
     RefinementActive_ = true;
@@ -199,7 +199,7 @@ public:
 
   void RetryRefinement(uint32_t tile,
                        RefinementPurpose purpose = RefinementPurpose::Sources) noexcept {
-    if (purpose == RefinementPurpose::Sources) { RefiningView_ = false; }
+    if (purpose == RefinementPurpose::Sources) { RefinementPurpose_ = purpose; }
     const auto at = std::ranges::lower_bound(AcceptedTiles_, tile);
     assert(RefinementActive_ && at != AcceptedTiles_.end() && *at == tile);
     RefinementAt_ = std::min(RefinementAt_, static_cast<size_t>(at - AcceptedTiles_.begin()));
@@ -210,7 +210,7 @@ public:
   }
 
   [[nodiscard]] bool SourceRefinementComplete() const noexcept {
-    return RefiningView_ || RefinementComplete();
+    return RefinementPurpose_ == RefinementPurpose::View || RefinementComplete();
   }
 
   [[nodiscard]] size_t RefinementRemaining() const noexcept {
@@ -351,7 +351,7 @@ private:
   size_t Taken_ = 0, Accepted_ = 0;
   size_t RefinementAt_ = 0, RefinementEnd_ = 0;
   bool RefinementActive_ = false;
-  bool RefiningView_ = false;
+  RefinementPurpose RefinementPurpose_ = RefinementPurpose::Sources;
   TileAdmission Admission_;
   ProjectedErrorBudget Projection_{};
   std::optional<Vec3> EyeEcef_;

@@ -39,7 +39,7 @@ void BuildingField::ResetDerived() {
   Taken_ = Accepted_ = 0;
   RefinementAt_ = RefinementEnd_ = 0;
   RefinementActive_ = false;
-  RefiningView_ = false;
+  RefinementPurpose_ = RefinementPurpose::Sources;
   Admission_ = {};
   OsmHeights_ = DefaultHeights_ = Fronted_ = 0;
 }
