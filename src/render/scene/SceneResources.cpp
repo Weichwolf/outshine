@@ -177,6 +177,7 @@ void SceneResources::ReleasePiece(GeometryRenderer &subjects, PieceHandle which)
 }
 
 void SceneResources::CopySourcesFrom(const SceneResources &source, PieceSources pieces) {
+  CopyPrismSourcesFrom(source, pieces);
   if (pieces == PieceSources::Copy) {
     Pieces_ = source.Pieces_;
     FirstFreePiece_ = source.FirstFreePiece_;
@@ -323,7 +324,11 @@ std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRen
     ++nextPiece;
     ++visited;
   }
-  return nextPiece == Pieces_.size();
+  if (nextPiece < Pieces_.size()) { return false; }
+  size_t nextGrid = nextPiece - Pieces_.size();
+  auto restored = AdvancePrismRestore(subjects, nextGrid, piecesMost - visited);
+  nextPiece = Pieces_.size() + nextGrid;
+  return restored;
 }
 
 size_t SceneResources::PieceSourceBytes() const noexcept {
