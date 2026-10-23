@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import itertools
 import json
-import resource
 import subprocess
 import time
 from pathlib import Path
@@ -23,6 +22,7 @@ from fit_prism_planes import fit_product, geometry_arrays, render_source_shading
 from full_view_reference import load, views
 from packed_normals import pack
 from prepared_surface_recipes import load_recipes
+from process_memory import peak_rss_bytes
 from triangle_image_reference import image_rays, intersect_source, prepare_source
 
 
@@ -140,8 +140,7 @@ def run(args):
         poses=compare_views(
             source, document, context, baseline, reloaded, normal_words, args.output
         ),
-        process_peak_rss_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        * 1024,
+        process_peak_rss_bytes=peak_rss_bytes(),
         allocations=None,
         total_physical_copied_bytes=None,
     )

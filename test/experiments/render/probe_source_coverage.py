@@ -3,7 +3,6 @@
 import argparse
 import hashlib
 import json
-import resource
 import subprocess
 import time
 from pathlib import Path
@@ -12,6 +11,7 @@ import numpy as np
 import shapely
 from parent_surface_inputs import open_parent
 from PIL import Image, ImageDraw
+from process_memory import peak_rss_bytes
 from source_footprint_groups import coverage_groups, read_footprints, union_inventory
 
 
@@ -93,10 +93,7 @@ def run(args):
             union_seconds=united - projected,
             coverage_seconds=filtered - united,
             stored_array_bytes={key: value.nbytes for key, value in arrays.items()},
-            builder_process_peak_rss_bytes=resource.getrusage(
-                resource.RUSAGE_SELF
-            ).ru_maxrss
-            * 1024,
+            builder_process_peak_rss_bytes=peak_rss_bytes(),
         )
     report["diagnostic"] = diagnostic(
         geometry, groups, report, args.output / "diagnostic.png"
@@ -106,8 +103,7 @@ def run(args):
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         input_sha256=hashlib.sha256(args.input.read_bytes()).hexdigest(),
-        process_peak_rss_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        * 1024,
+        process_peak_rss_bytes=peak_rss_bytes(),
         total_allocation_count=None,
         total_physical_copied_bytes=None,
         scope="Actual source bottom-plane footprint measures only; PSB1/BSC3, no native-view/triangle interpretation. Archive validation still reads the compressed source. No height/normal/material/visibility model, opaque replacement, World-empty certificate or device/world gain.",
