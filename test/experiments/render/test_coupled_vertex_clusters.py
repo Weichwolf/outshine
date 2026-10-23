@@ -1,6 +1,7 @@
 """Independent positional, rank and labelled-triangle controls."""
 
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 from coupled_vertex_clusters import cluster_mesh, feasible_segment, qef_direction
@@ -116,3 +117,19 @@ class CoupledClustersTest(unittest.TestCase):
         p[0, 0] = np.nan
         with self.assertRaises(ValueError):
             cluster_mesh(p, np.array([[0, 1, 2]]), method="qef")
+
+    def test_solver_failure_keeps_the_valid_centre_instead_of_loosening_radius(self):
+        p = np.array([[0.01, 0, 0], [0.02, 0, 0], [0.01, 0.01, 0]], np.float32)
+        indices = np.array([[0, 1, 2]], np.uint16)
+        centre, _ = cluster_mesh(p, indices, method="centre")
+        with patch(
+            "coupled_vertex_clusters.np.linalg.eigh",
+            side_effect=np.linalg.LinAlgError("injected convergence failure"),
+        ):
+            result, report = cluster_mesh(p, indices, method="qef")
+        np.testing.assert_array_equal(
+            result["positions"].view(np.uint32), centre["positions"].view(np.uint32)
+        )
+        self.assertTrue(report["qef_solver_failure"])
+        self.assertEqual(report["numerical_centre_fallback_clusters"], 1)
+        self.assertLessEqual(report["maximum_prepack_vertex_shift_m"], 3)

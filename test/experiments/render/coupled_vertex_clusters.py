@@ -22,7 +22,7 @@ def partition(positions, indices, radius):
         or radius <= 0
     ):
         raise ValueError("bounded finite Float32 mesh and positive radius required")
-    step = 2 * radius / np.sqrt(3)
+    step = np.nextafter(2 * radius / np.sqrt(3), 0)
     rounded = np.rint(positions.astype(float) / step)
     if not np.isfinite(rounded).all() or np.max(abs(rounded)) > np.iinfo(np.int32).max:
         raise ValueError("bounded integer vertex cluster coordinates required")
@@ -92,17 +92,38 @@ def cluster_mesh(positions, indices, *, method, radius=3.0):
     cells, first, mapping, counts, centres = partition(positions, indices, radius)
     active = counts > 1
     work = {"qef_corner_cluster_relations": 0, "qef_eigendecompositions": 0}
+    centre_error = np.linalg.norm(centres[mapping] - positions.astype(float), axis=1)
+    if centre_error.max() > radius:
+        raise ValueError("centre candidate lacks the declared floating-point radius")
+    solver_failure = False
     if method == "qef":
-        direction, fit_work = qef_direction(
-            positions, indices, mapping, centres, active
-        )
-        placed, alpha = feasible_segment(positions, mapping, centres, direction, radius)
-        work.update(fit_work)
+        try:
+            direction, fit_work = qef_direction(
+                positions, indices, mapping, centres, active
+            )
+            placed, alpha = feasible_segment(
+                positions, mapping, centres, direction, radius
+            )
+            work.update(fit_work)
+        except np.linalg.LinAlgError:
+            solver_failure = True
+            placed, alpha = centres.copy(), np.ones(len(centres))
+            work.update(
+                qef_eigendecompositions=int(active.sum()),
+                qef_corner_cluster_relations=int(active[mapping[indices]].sum()),
+                qef_rank_counts=None,
+            )
     else:
         placed, alpha = centres.copy(), np.ones(len(centres))
     placed[~active] = positions[first[~active]]
     floating_error = np.linalg.norm(placed[mapping] - positions.astype(float), axis=1)
-    if floating_error.max() > radius + 1e-8:
+    bad = (floating_error > radius) | ~np.isfinite(floating_error)
+    fallback = np.unique(mapping[bad])
+    if solver_failure:
+        fallback = np.flatnonzero(active)
+    placed[fallback] = centres[fallback]
+    floating_error = np.linalg.norm(placed[mapping] - positions.astype(float), axis=1)
+    if floating_error.max() > radius or not np.isfinite(floating_error).all():
         raise ValueError("actual original-vertex placement exceeds declared radius")
     packed = placed.astype(np.float32)
     words, remap = np.unique(packed.view(np.uint32), axis=0, return_inverse=True)
@@ -120,7 +141,7 @@ def cluster_mesh(positions, indices, *, method, radius=3.0):
     actual = np.linalg.norm(
         final[vertex_map].astype(float) - positions.astype(float), axis=1
     )
-    if actual.max() > radius + rounding + 1e-8:
+    if actual.max() > radius + rounding:
         raise ValueError("packed vertex shift exceeds placement plus measured rounding")
     return {
         "positions": final,
@@ -130,7 +151,7 @@ def cluster_mesh(positions, indices, *, method, radius=3.0):
     }, {
         "method": method,
         "radius_m": radius,
-        "cluster_step_m": 2 * radius / np.sqrt(3),
+        "cluster_step_m": float(np.nextafter(2 * radius / np.sqrt(3), 0)),
         "clusters": len(cells),
         "unchanged_singleton_clusters": int((~active).sum()),
         "vertices": len(final),
@@ -139,7 +160,9 @@ def cluster_mesh(positions, indices, *, method, radius=3.0):
         "maximum_prepack_vertex_shift_m": float(floating_error.max()),
         "maximum_float32_rounding_m": rounding,
         "maximum_stored_vertex_shift_m": float(actual.max()),
-        "geometric_model_displacement_bound_m": radius + rounding + 1e-8,
+        "geometric_model_displacement_bound_m": radius + rounding,
+        "numerical_centre_fallback_clusters": len(fallback),
+        "qef_solver_failure": solver_failure,
         "clipped_qef_clusters": int(((alpha < 1) & active).sum())
         if method == "qef"
         else 0,
