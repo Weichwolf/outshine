@@ -43,6 +43,8 @@ public:
 
   [[nodiscard]] Result Advance(const Capture &capture = {});
 
+  [[nodiscard]] bool InFlight() const noexcept;
+
   void Cancel() noexcept { Stop_.request_stop(); }
 
 private:

@@ -51,20 +51,20 @@ bool PreparedUrbanAreas::Matches(const UrbanArea &area, const Definition &input)
                         area.Inputs[1].Identity.Tile == parent);
 }
 
-std::expected<PreparedUrbanAreas::Product, std::string>
+std::expected<PreparedUrbanAreas::Loaded, std::string>
 PreparedUrbanAreas::Load(const std::string &request, const Definition &input) {
   const std::scoped_lock lock(CacheMutex_);
   auto record = Cache_->FindRequest(request);
   if (!record) { return std::unexpected("could not find native urban-area asset"); }
   if (!*record) {
     ++Misses_;
-    return Product{};
+    return Loaded{};
   }
   auto loaded = Cache_->Load((**record).Key, kUrbanAreaBytesMost);
   if (!loaded) { return std::unexpected("could not load native urban-area asset"); }
   if (!*loaded) {
     ++Misses_;
-    return Product{};
+    return Loaded{};
   }
   ReadBytes_ += (**loaded).Bytes().size();
   auto area = DecodeUrbanArea((**loaded).Bytes());
@@ -72,10 +72,11 @@ PreparedUrbanAreas::Load(const std::string &request, const Definition &input) {
     return std::unexpected("native urban-area asset does not match its request or budget");
   }
   ++Hits_;
-  return Product(std::make_shared<UrbanArea>(std::move(*area)));
+  return Loaded{.Area = std::make_shared<UrbanArea>(std::move(*area)),
+                .Key = (**loaded).Record().Key};
 }
 
-std::expected<PreparedUrbanAreas::Product, std::string>
+std::expected<PreparedUrbanAreas::Loaded, std::string>
 PreparedUrbanAreas::Generate(const std::string &request, const Work &work) {
   if (Stop_.stop_requested()) { return std::unexpected("urban-area preparation cancelled"); }
   const UrbanAreaLimits limits{.CellsMost = Budget_.CellsMost,
@@ -124,6 +125,7 @@ PreparedUrbanAreas::Generate(const std::string &request, const Work &work) {
   if (published->Record().Kind != "urban-area" || !complete || !Matches(*complete, work.Input)) {
     return std::unexpected("published native urban-area asset failed validation");
   }
-  return Product(std::make_shared<UrbanArea>(std::move(*complete)));
+  return Loaded{.Area = std::make_shared<UrbanArea>(std::move(*complete)),
+                .Key = published->Record().Key};
 }
 }

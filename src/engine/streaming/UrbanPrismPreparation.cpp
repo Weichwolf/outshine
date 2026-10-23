@@ -82,19 +82,23 @@ UrbanPrismPreparation::UrbanPrismPreparation(Tasks &pool,
   Post(Operation::Read);
 }
 
+bool UrbanPrismPreparation::InFlight() const noexcept {
+  return Work_ && !Work_->Complete.load(std::memory_order_acquire);
+}
+
 UrbanPrismPreparation::~UrbanPrismPreparation() {
   Cancel();
 }
 
 void UrbanPrismPreparation::Post(Operation operation, AssetFactory factory) {
   Work_ = std::make_shared<Work>();
-  const auto run = [work = Work_,
-                    stop = Stop_.get_token(),
-                    database = Database_,
-                    request = Request_,
-                    bytesMost = BytesMost_,
-                    operation,
-                    factory = std::move(factory)] {
+  auto run = [work = Work_,
+              stop = Stop_.get_token(),
+              database = Database_,
+              request = Request_,
+              bytesMost = BytesMost_,
+              operation,
+              factory = std::move(factory)] mutable {
     const auto began = std::chrono::steady_clock::now();
     if (stop.stop_requested()) {
       work->Value = std::unexpected("prism preparation canceled");
@@ -109,6 +113,7 @@ void UrbanPrismPreparation::Post(Operation operation, AssetFactory factory) {
                 : BuildProduct(**cache, request, bytesMost, factory, stop, work->Measured);
       }
     }
+    factory = {};
     const double elapsed =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     if (operation == Operation::Read) {
@@ -118,7 +123,7 @@ void UrbanPrismPreparation::Post(Operation operation, AssetFactory factory) {
     }
     work->Complete.store(true, std::memory_order_release);
   };
-  if (Pool_.PostDetached(run)) { return; }
+  if (Pool_.PostDetached(std::move(run))) { return; }
   Work_->Value = std::unexpected("prism preparation compute queue is closed");
   Work_->Complete.store(true, std::memory_order_release);
 }

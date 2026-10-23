@@ -139,8 +139,10 @@ std::expected<PreparedUrbanAreas::Delivery, std::string> PreparedUrbanAreas::Adv
     if (!Compute_.TakeCompletion(work->Task)) { return Delivery{}; }
     work->Task = Tasks::kNoTask;
     if (!work->Result) { return std::unexpected(work->Result.error()); }
-    if (*work->Result) {
-      return Delivery{.Status = State::Ready, .Product = std::move(*work->Result)};
+    if (work->Result->Area) {
+      return Delivery{.Status = State::Ready,
+                      .Product = std::move(work->Result->Area),
+                      .AssetKey = std::move(work->Result->Key)};
     }
     if (work->Stage == Work::Phase::Generate) {
       return std::unexpected("urban-area generation returned no complete asset");
@@ -181,7 +183,7 @@ PreparedUrbanAreas::GatherSources(TilePool &tiles, Work &work) {
       if (!source) { return std::unexpected(std::string(source.error())); }
       switch (source->Status) {
         case PreparedOsmTiles::State::Absent:
-          return Delivery{.Status = State::Absent, .Product = {}};
+          return Delivery{.Status = State::Absent, .Product = {}, .AssetKey = {}};
         case PreparedOsmTiles::State::Refused: refused = true; break;
         case PreparedOsmTiles::State::Pending: pending = true; break;
         case PreparedOsmTiles::State::Ready:
@@ -191,9 +193,9 @@ PreparedUrbanAreas::GatherSources(TilePool &tiles, Work &work) {
       }
     }
   }
-  if (refused) { return Delivery{.Status = State::Refused, .Product = {}}; }
+  if (refused) { return Delivery{.Status = State::Refused, .Product = {}, .AssetKey = {}}; }
   if (pending) { return Delivery{}; }
-  return Delivery{.Status = State::Ready, .Product = {}};
+  return Delivery{.Status = State::Ready, .Product = {}, .AssetKey = {}};
 }
 
 PreparedUrbanAreas::Counters PreparedUrbanAreas::Costs() const noexcept {

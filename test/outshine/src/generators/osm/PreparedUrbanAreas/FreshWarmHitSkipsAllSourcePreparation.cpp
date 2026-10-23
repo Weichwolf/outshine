@@ -30,6 +30,11 @@ int FreshProcess(const std::filesystem::path &directory) {
   const auto bytes = EncodeUrbanArea(*result->Product);
   CHECK(bytes && !expected.empty() && *bytes == expected,
         "fresh process preserves every encoded field and provenance byte");
+  std::ifstream keyInput(directory / "expected.key");
+  std::string expectedKey;
+  keyInput >> expectedKey;
+  CHECK(!expectedKey.empty() && result->AssetKey == expectedKey,
+        "fresh OS process delivers the persisted content key without recooking");
   const auto costs = fixture.Urban->Costs();
   CHECK(costs.Hits == 1 && costs.Generations == 0 && costs.SourcePolls == 0 && fixture.Calls == 0 &&
             fixture.Tiles->Costs().Hits == 0,
@@ -49,6 +54,7 @@ int main(int argc, char **argv) {
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const PreparedUrbanAreas::Request request(kOwner, MvtSchema::OpenMapTiles);
   std::vector<uint8_t> original;
+  std::string originalKey;
   {
     Fixture fixture(directory, Availability::Ready);
     if (!fixture.Urban) { return Report(); }
@@ -56,6 +62,10 @@ int main(int argc, char **argv) {
     CHECK(result && result->Status == PreparedUrbanAreas::State::Ready && result->Product,
           "miss obtains known owner and parent products then publishes a complete urban asset");
     if (!result || !result->Product) { return Report(); }
+    originalKey = result->AssetKey;
+    CHECK(originalKey.size() == 64 &&
+              originalKey.find_first_not_of("0123456789abcdef") == std::string::npos,
+          "cold generation exposes the persisted native content identity");
     const auto &area = *result->Product;
     CHECK(area.HasUrbanEvidence && area.Occupied > 0 && area.Inputs.size() == 2,
           "owner and coarse evidence both retain their provenance and nonempty native content");
@@ -78,6 +88,8 @@ int main(int argc, char **argv) {
     CHECK(result && result->Status == PreparedUrbanAreas::State::Ready && result->Product,
           "fresh producer loads the finished asset with unavailable source bytes");
     if (!result || !result->Product) { return Report(); }
+    CHECK(result->AssetKey == originalKey,
+          "warm hit delivers the same content key as cold publication");
     const auto bytes = EncodeUrbanArea(*result->Product);
     CHECK(bytes && *bytes == original,
           "fresh native hit preserves every field and provenance byte");
@@ -95,6 +107,9 @@ int main(int argc, char **argv) {
     out.write(reinterpret_cast<const char *>(original.data()),
               static_cast<std::streamsize>(original.size()));
     CHECK(out.good(), "cold snapshot is available to the independent child");
+    std::ofstream keyOutput(directory / "expected.key");
+    keyOutput << originalKey;
+    CHECK(keyOutput.good(), "content identity is available to the independent child");
   }
   const auto child = fork();
   CHECK(child >= 0, "fresh-process check starts without carrying fixture threads");
