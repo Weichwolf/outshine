@@ -9,6 +9,7 @@ from scipy import sparse
 from scipy.optimize import linprog
 from stair_crossing_order import crossing_order
 from stair_junction_layout import cross_sections
+from stair_planar_lineage import overlap_faces
 
 
 def gradient_rows(xy, face):
@@ -97,10 +98,7 @@ def junctions(plan, system, directions, reserve, flat, *, plane_offset=None):
 
 
 def overlap_conditions(plan, system, gap, gap_variable=None):
-    mapped = [
-        {int(k): f for k, f in zip(keys, faces, strict=True)}
-        for keys, faces in zip(plan["part_global_faces"], plan["parts"], strict=True)
-    ]
+    mapped = overlap_faces(plan)
     checks = 0
     for i, j in itertools.combinations(range(len(plan["rows"])), 2):
         for key in mapped[i].keys() & mapped[j].keys():
