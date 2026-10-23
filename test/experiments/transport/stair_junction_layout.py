@@ -129,6 +129,11 @@ def arrangement(rows, domains, masks, *, constraints=(), section_provider=None):
         section_counts.append(len(sections))
     from stair_seed_precision import node_lines
 
+    input_line_count = len(lines)
+    unique_lines = {}
+    for line in lines:
+        unique_lines.setdefault(line.wkb, line)
+    lines = list(unique_lines.values())
     noded = shapely.get_parts(node_lines(lines, rows))
     if len(noded) > 8192:
         raise ValueError("local stair arrangement segment budget")
@@ -189,7 +194,8 @@ def arrangement(rows, domains, masks, *, constraints=(), section_provider=None):
             "segments": len(noded),
             "weld_m": float(drift),
             "source_section_counts": section_counts,
-            "input_lines": len(lines),
+            "input_lines": input_line_count,
+            "unique_input_lines": len(lines),
             **weld_note,
         },
     )

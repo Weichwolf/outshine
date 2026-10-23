@@ -166,6 +166,7 @@ def prepare_profiles(
     }
     freeze_regions(plan, source_domains)
     plan["stair_recipe"] = stair_recipe
+    plan["station_cut_scope"] = proposal.get("station_cut_scope", "global")
     if stair_recipe == "station_loft":
         prepare_stair_lofts(plan)
     return plan
