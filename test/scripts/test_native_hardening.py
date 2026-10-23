@@ -66,6 +66,37 @@ class NativeHardening(unittest.TestCase):
             "hardening did not terminate through a guard trap",
         )
 
+    def test_runner_exports_compilable_native_flags(self):
+        flags = shlex.split(
+            subprocess.check_output(
+                ["sh", "test/run.sh", "--native-compile-flags"], cwd=ROOT, text=True
+            )
+        )
+        for flag in self.compile_flags + [STANDARD, "-O2", "-ffp-contract=off"]:
+            self.assertIn(flag, flags)
+        self.assertFalse(any("$" in flag for flag in flags))
+        source = self.root / "export.cpp"
+        source.write_text("int main() { return 0; }\n")
+        binary = self.root / "export"
+        result = subprocess.run(
+            self.compiler + flags + [str(source), *self.link_flags, "-o", str(binary)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(subprocess.run([str(binary)], check=False).returncode, 0)
+        failed = subprocess.run(
+            ["sh", "test/run.sh", "--native-compile-flags"],
+            cwd=ROOT,
+            env=dict(os.environ, CXX=str(self.root / "missing-compiler")),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(failed.returncode, 2)
+        self.assertEqual(failed.stdout, "")
+
     def test_docs_resolve_shared_compile_and_link_hardening(self):
         compiler = self.root / "compiler"
         captured = self.root / "compiler.jsonl"

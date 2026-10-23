@@ -104,6 +104,14 @@ CXX=${CXX:-c++}
 . "$ROOT/test/scripts/native_hardening.sh"
 ConfigureNativeHardening "$CXXSTD" || { printf '%s\n' 'run.sh: cannot determine native hardening target' >&2; exit 2; }
 
+WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"
+OPT="-O2 -ffp-contract=off $NATIVE_COMPILE_FLAGS"
+
+if [ "$#" -eq 1 ] && [ "$1" = --native-compile-flags ]; then
+  printf '%s\n' "$CXXSTD $WARN $OPT"
+  exit 0
+fi
+
 if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
   printf '%s ' "$NATIVE_LINK_FLAGS"
   pkg-config --libs sdl3 | tr '\n' ' '
@@ -131,8 +139,6 @@ export OUTSHINE_CORPUS_OWNER="$NEST"
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 PREPARED=${OUTSHINE_PREPARED:-$PREPARED}
-WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"
-OPT="-O2 -ffp-contract=off $NATIVE_COMPILE_FLAGS"
 
 TIMEOUT_S=120
 ALLOWED_SKIPS=""

@@ -189,10 +189,7 @@ def main():
         run([glslang, "-V", "--target-env", "vulkan1.0",
              "-I" + str(ROOT / "src/render/shaders"), str(source), "-o", str(destination)])
         shaders.append(str(destination))
-    declarations = dict(line.split("=", 1) for line in (ROOT / "test/run.sh").read_text().splitlines()
-                        if line.startswith(("CXXSTD=", "WARN=", "OPT=")))
-    toolchain = [flag for key in ("CXXSTD", "WARN", "OPT")
-                 for flag in shlex.split(declarations[key].strip('"'))]
+    toolchain = shlex.split(run(["sh", "test/run.sh", "--native-compile-flags"]))
     link_flags = shlex.split(run(["sh", "test/run.sh", "--native-link-flags"]))
     binary = output / "native-metal-probe"
     run(["nice", "-n", "10", *shlex.split(os.environ.get("CXX", "c++")), *toolchain, "-fno-exceptions",

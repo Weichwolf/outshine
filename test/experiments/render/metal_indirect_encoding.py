@@ -29,16 +29,8 @@ def run(output, validation):
     source = Path(__file__).with_suffix(".mm").resolve()
     compiler = shlex.split(os.environ.get("CXX", "c++"))
     root = source.parents[3]
-    declarations = dict(
-        line.split("=", 1)
-        for line in (root / "test/run.sh").read_text().splitlines()
-        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
-    )
-    toolchain = [
-        flag
-        for key in ("CXXSTD", "WARN", "OPT")
-        for flag in shlex.split(declarations[key].strip('"'))
-    ]
+    toolchain = shlex.split(subprocess.check_output(
+        ["sh", "test/run.sh", "--native-compile-flags"], cwd=root, text=True))
     build = [
         "nice",
         "-n",
