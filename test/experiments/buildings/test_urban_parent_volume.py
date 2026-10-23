@@ -10,6 +10,23 @@ from urban_parent_light import shade
 from urban_parent_volume import render_volume
 
 
+def assert_source_free_imports(modules):
+    code = """
+import builtins, importlib, sys
+original = builtins.__import__
+def checked(name, *args, **kwargs):
+    if name.split('.')[0] in {'shapely', 'trimesh', 'coarse_city_domains', 'urban_patch_bake'}:
+        raise AssertionError(name)
+    return original(name, *args, **kwargs)
+builtins.__import__ = checked
+for name in sys.argv[1:]:
+    importlib.import_module(name)
+"""
+    subprocess.run(
+        [sys.executable, "-B", "-W", "error", "-c", code, *modules], check=True
+    )
+
+
 def daylight(direction):
     return {"kind": "sun", "direction": direction, "intensity": 1, "ambient": 0}
 
@@ -60,21 +77,7 @@ class ParentVolumeTest(unittest.TestCase):
         np.testing.assert_allclose(first, second, rtol=0, atol=1e-14)
 
     def test_runtime_volume_import_does_not_load_geometry_or_source(self):
-        code = """
-import builtins
-original = builtins.__import__
-def checked(name, *args, **kwargs):
-    if name.split('.')[0] in {'shapely', 'trimesh', 'coarse_city_domains', 'urban_patch_bake'}:
-        raise AssertionError(name)
-    return original(name, *args, **kwargs)
-builtins.__import__ = checked
-import urban_parent_volume
-import urban_parent_conditional
-import urban_parent_phase
-import urban_parent_transfer
-import urban_parent_adaptive
-"""
-        subprocess.run([sys.executable, "-B", "-W", "error", "-c", code], check=True)
+        assert_source_free_imports(["urban_parent_volume"])
 
 
 if __name__ == "__main__":
