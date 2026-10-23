@@ -87,6 +87,7 @@ def candidate(field, retained, prepared, origins, directions, ground, profile):
         {
             "seconds": time.perf_counter() - started,
             "primary_unresolved_rays": int(primary_bad.sum()),
+            "reconstructed_primary_hits": int(hit.sum()),
             "all_unresolved_rays": int(bad.sum()),
             "work": work,
         },
