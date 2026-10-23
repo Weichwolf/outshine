@@ -80,6 +80,33 @@ public:
 
   [[nodiscard]] size_t HeapBytes() const noexcept { return Capacity_ * sizeof(Slot); }
 
+  [[nodiscard]] std::expected<FlatMap, FlatMapError> Clone() const noexcept
+    requires std::is_nothrow_copy_constructible_v<Value>
+  {
+    FlatMap copy;
+    if (Held_ == 0) { return copy; }
+    if (Capacity_ > kInitialCapacity && Held_ <= LoadLimit(Capacity_ / 2u)) {
+      for (size_t at = 0; at < Capacity_; ++at) {
+        const Slot &slot = Slots_.get()[at];
+        if (slot.Epoch != Epoch_) { continue; }
+        if (const auto inserted = copy.Emplace(slot.StoredKey, slot.ValueOf()); !inserted) {
+          return std::unexpected(inserted.error());
+        }
+      }
+      return copy;
+    }
+    SlotStorage slots(static_cast<Slot *>(::operator new(
+                          Capacity_ * sizeof(Slot), std::align_val_t{alignof(Slot)}, std::nothrow)),
+                      ReleaseSlots{Capacity_});
+    if (!slots) { return std::unexpected(FlatMapError::AllocationFailed); }
+    std::uninitialized_copy_n(Slots_.get(), Capacity_, slots.get());
+    copy.Slots_ = std::move(slots);
+    copy.Capacity_ = Capacity_;
+    copy.Epoch_ = Epoch_;
+    copy.Held_ = Held_;
+    return copy;
+  }
+
   [[nodiscard]] Value *Find(const Key &key) noexcept {
     if (!Slots_) { return nullptr; }
     for (size_t at = Where(key, Capacity_ - 1);; at = (at + 1u) & (Capacity_ - 1)) {
@@ -132,8 +159,7 @@ public:
 
   [[nodiscard]] std::expected<std::pair<Value *, bool>, FlatMapError>
   Emplace(Key key, Value value) noexcept {
-    const size_t threshold = (Capacity_ / 10u) * 7u + (Capacity_ % 10u * 7u + 9u) / 10u;
-    if (Held_ >= threshold) {
+    if (Held_ >= LoadLimit(Capacity_)) {
       if (Value *existing = Find(key)) { return std::pair{existing, false}; }
       if (const auto grown = Widen(); !grown) { return std::unexpected(grown.error()); }
     }
@@ -143,6 +169,12 @@ public:
   }
 
 private:
+  static constexpr size_t kInitialCapacity = 64u;
+
+  [[nodiscard]] static constexpr size_t LoadLimit(size_t capacity) noexcept {
+    return (capacity / 10u) * 7u + (capacity % 10u * 7u + 9u) / 10u;
+  }
+
   struct Slot {
     Key StoredKey{};
     uint32_t Epoch = 0;
@@ -196,7 +228,7 @@ private:
   [[nodiscard]] std::expected<void, FlatMapError> Widen() noexcept {
     constexpr size_t limit = std::numeric_limits<size_t>::max() / sizeof(Slot);
     if (Capacity_ > limit / 2u) { return std::unexpected(FlatMapError::CapacityExceeded); }
-    const size_t wanted = Capacity_ == 0 ? 64u : Capacity_ * 2u;
+    const size_t wanted = Capacity_ == 0 ? kInitialCapacity : Capacity_ * 2u;
     if (wanted > limit) { return std::unexpected(FlatMapError::CapacityExceeded); }
     SlotStorage next(static_cast<Slot *>(::operator new(
                          wanted * sizeof(Slot), std::align_val_t{alignof(Slot)}, std::nothrow)),

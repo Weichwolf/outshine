@@ -5,6 +5,7 @@
 #include "Check.h"
 
 #include <SDL3/SDL.h>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -43,6 +44,15 @@ int main() {
             "incremental snapshot accounting excludes the shared sample payload");
       CHECK(snapshot.SurfaceIdentity(tile, 1) == initial && snapshot.HeightMAt(point) == height,
             "a snapshot preserves exact content and interpolated height");
+      {
+        TerrainResidency pending(terrain);
+        CHECK(pending.BeginPublish(patch, error), "a copied terrain begins a new publication");
+        const TerrainResidency pendingSnapshot(pending);
+        CHECK(pendingSnapshot.Standing() == pending.Standing() &&
+                  pendingSnapshot.HeightMAt(point) == height &&
+                  !pendingSnapshot.HasPublishedSurface(),
+              "copying a pending publication preserves old queries and pending visibility");
+      }
       patch.Sheets.front().Nodes.assign(Render::TerrainRenderer::kPageNodes, 9);
       CHECK(terrain.Publish(patch, frame, error), error.c_str());
       CHECK(terrain.SurfaceIdentity(tile, 1) != initial && terrain.HeightMAt(point) != height,
@@ -50,14 +60,22 @@ int main() {
       CHECK(snapshot.SurfaceIdentity(tile, 1) == initial && snapshot.HeightMAt(point) == height,
             "replacement cannot mutate the older immutable snapshot");
       terrain.Clear();
+      const TerrainResidency emptySnapshot(terrain);
+      CHECK(emptySnapshot.Standing() == 0 && !emptySnapshot.HeightMAt(point) &&
+                emptySnapshot.HeapBytes() == 0,
+            "copying cleared terrain does not retain obsolete index capacity");
       CHECK(snapshot.SurfaceIdentity(tile, 1) == initial && snapshot.HeightMAt(point) == height,
             "retiring the original publication leaves retained samples queryable");
-      const TerrainResidency nextSnapshot(snapshot);
+      TerrainResidency nextSnapshot(snapshot);
       CHECK(nextSnapshot.SurfaceIdentity(tile, 1) == initial &&
                 nextSnapshot.HeightMAt(point) == height &&
                 nextSnapshot.HeapBytes() >=
                     nextSnapshot.HeapBytes(TerrainHeapScope::Additional) + payload,
             "a retained snapshot can supply another snapshot without copying sample data");
+      nextSnapshot = TerrainResidency{};
+      CHECK(nextSnapshot.Standing() == 0 && snapshot.SurfaceIdentity(tile, 1) == initial &&
+                snapshot.HeightMAt(point) == height,
+            "resetting the copied snapshot cannot change its retained source");
     }
   }
   SDL_Quit();

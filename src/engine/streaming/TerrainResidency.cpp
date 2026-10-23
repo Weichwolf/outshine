@@ -95,9 +95,16 @@ TerrainResidency::TerrainResidency(const TerrainResidency &other)
       GridPostings_(other.GridPostings_),
       Renderer_(other.Renderer_),
       Publishing_(other.Publishing_) {
+  if (!Publishing_) {
+    auto index = other.PageIndex_.Clone();
+    if (!index) { Heap::Exhausted("height page index"); }
+    PageIndex_ = std::move(*index);
+  }
   for (size_t at = 0; at < Held_.size(); ++at) {
     Held_[at].SharedNodes = Held_[at].Nodes.get();
-    if (!PageIndex_.Emplace(Held_[at].Tile, at)) { Heap::Exhausted("height page index"); }
+    if (Publishing_ && !PageIndex_.Emplace(Held_[at].Tile, at)) {
+      Heap::Exhausted("height page index");
+    }
   }
 }
 
