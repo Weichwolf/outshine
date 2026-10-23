@@ -18,6 +18,8 @@ class MaterialPatch:
     gable: bool
     local_origin: np.ndarray
     local_axes: np.ndarray
+    surface: dict
+    orientation: int
 
 
 def shape_material_patches(surface, shape, source, part, basis, anchor):
@@ -43,7 +45,15 @@ def shape_material_patches(surface, shape, source, part, basis, anchor):
         normal /= np.linalg.norm(normal)
         geometry = SurfacePatch(domain, offset, axes, normal, source)
         return MaterialPatch(
-            geometry, shape, part, side, gable, local_origin, local_axes
+            geometry,
+            shape,
+            part,
+            side,
+            gable,
+            local_origin,
+            local_axes,
+            surface,
+            orientation,
         )
 
     patches = []
