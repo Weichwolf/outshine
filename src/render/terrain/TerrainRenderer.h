@@ -89,6 +89,7 @@ public:
     auto shape = LitShape;
     shape.VertexStorageBuffers = 2;
     shape.FragmentSamplers += 1;
+    shape.FragmentUniformBuffers += 1;
     shape.FragmentStorageBuffers += 1;
     return shape;
   }();
