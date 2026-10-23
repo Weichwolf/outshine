@@ -21,14 +21,16 @@ UNITS = (
 )
 
 
-def build_probe(output):
+def build_probe(output, *, units=UNITS, probe_source=None, libraries=()):
     database = json.loads((ROOT / "compile_commands.json").read_text())
-    entries = [row for row in database if Path(row["file"]).name in UNITS]
-    if len(entries) != len(UNITS):
+    entries = [row for row in database if Path(row["file"]).name in units]
+    if len(entries) != len(units):
         raise ValueError("current complete compilation database required; run make db")
-    template = next(row for row in entries if Path(row["file"]).name == UNITS[0])
+    template = next(row for row in entries if Path(row["file"]).name == units[0])
     sources = [(row, Path(row["file"])) for row in entries]
-    sources.append((template, ROOT / "test/harness/spatial/PlanarMeshProbe.cpp"))
+    sources.append(
+        (template, probe_source or ROOT / "test/harness/spatial/PlanarMeshProbe.cpp")
+    )
     commands, objects, hashes = [], [], {}
     for row, source in sources:
         hashes[str(source)] = hashlib.sha256(source.read_bytes()).hexdigest()
@@ -50,7 +52,7 @@ def build_probe(output):
     (output / "compile_commands.json").write_text(json.dumps(commands, indent=2) + "\n")
     (output / "source-hashes.json").write_text(json.dumps(hashes, indent=2) + "\n")
     binary = output / "planar-mesh-probe"
-    link = [commands[0]["arguments"][0], *objects, "-o", str(binary)]
+    link = [commands[0]["arguments"][0], *objects, *libraries, "-o", str(binary)]
     with (output / "link.log").open("w") as log:
         subprocess.run(["nice", "-n", "10", *link], stdout=log, stderr=log, check=True)
     (output / "link.json").write_text(json.dumps(link) + "\n")
