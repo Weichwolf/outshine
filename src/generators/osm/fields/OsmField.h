@@ -166,7 +166,8 @@ public:
     return OriginToken_;
   }
 
-  [[nodiscard]] std::shared_ptr<const OsmField> SnapshotQueries() const;
+  [[nodiscard]] std::shared_ptr<const OsmField>
+  SnapshotQueries(std::shared_ptr<const OsmField> previous = {}) const;
 
   [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeNativeTile(size_t bytesMost) const;
   [[nodiscard]] static std::unique_ptr<OsmField> DecodeNativeTile(std::span<const uint8_t> bytes,
@@ -199,6 +200,8 @@ public:
 
 private:
   friend class PreparedOsmTiles;
+  enum class StorageRole : uint8_t { Source, QuerySnapshot };
+  StorageRole Role_ = StorageRole::Source;
   struct NativeCodec;
   enum class TagKind : uint8_t { Any, Number, String };
 

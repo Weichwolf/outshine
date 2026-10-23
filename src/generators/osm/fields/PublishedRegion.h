@@ -20,8 +20,12 @@ struct RegionSources {
   WaterAsset WaterBodies;
 
   [[nodiscard]] static RegionSources
-  Snapshot(const OsmField *vectors, const StreetField &ways, const WaterAsset &water) {
-    return {.Vectors = vectors != nullptr ? vectors->SnapshotQueries() : nullptr,
+  Snapshot(const OsmField *vectors,
+           const StreetField &ways,
+           const WaterAsset &water,
+           std::shared_ptr<const OsmField> previousVectors = {}) {
+    return {.Vectors =
+                vectors != nullptr ? vectors->SnapshotQueries(std::move(previousVectors)) : nullptr,
             .Ways = ways,
             .WaterBodies = water};
   }
@@ -37,6 +41,10 @@ public:
       : Sources_(std::move(sources)), Footprints_(std::move(footprints)) {}
 
   [[nodiscard]] const OsmField *Vectors() const noexcept { return Sources_.Vectors.get(); }
+
+  [[nodiscard]] const std::shared_ptr<const OsmField> &VectorSnapshot() const noexcept {
+    return Sources_.Vectors;
+  }
 
   [[nodiscard]] const StreetField &Ways() const noexcept { return Sources_.Ways; }
 

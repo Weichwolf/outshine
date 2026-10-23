@@ -89,8 +89,20 @@ OsmField::OsmField(int zoom,
 
 OsmField::~OsmField() = default;
 
-std::shared_ptr<const OsmField> OsmField::SnapshotQueries() const {
+std::shared_ptr<const OsmField>
+OsmField::SnapshotQueries(std::shared_ptr<const OsmField> previous) const {
+  if (previous && previous->Role_ == StorageRole::QuerySnapshot &&
+      previous->OriginToken_ == OriginToken_ && previous->Generation_ == Generation_ &&
+      previous->Extent_ == Extent_ && previous->CentreX_ == CentreX_ &&
+      previous->CentreY_ == CentreY_ && previous->Stage_ == Stage_ &&
+      previous->PublishedSettledTiles_ == PublishedSettledTiles_ &&
+      previous->Settled_ == Settled_ && previous->RequestedRing_ == RequestedRing_ &&
+      previous->Pending_ == PendingTiles() && previous->Refused_ == Refused_ &&
+      previous->Missing_ == Missing_ && previous->Bad_ == Bad_) {
+    return previous;
+  }
   auto snapshot = std::make_shared<OsmField>(Zoom_, Layers_, Schema_);
+  snapshot->Role_ = StorageRole::QuerySnapshot;
   snapshot->Extent_ = Extent_;
   snapshot->CentreX_ = CentreX_;
   snapshot->CentreY_ = CentreY_;

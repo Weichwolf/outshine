@@ -76,7 +76,10 @@ public:
   void RestoreWater(Generators::WaterAsset water) { Sources_.WaterBodies = std::move(water); }
 
   [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
-    return Products_.OwnedHeapBytes() + Sources_.HeapBytes();
+    const size_t sharedVectors = Sources_.Vectors && Sources_.Vectors.get() == SharedVectors_
+                                     ? Sources_.Vectors->HeapBytes()
+                                     : 0;
+    return Products_.OwnedHeapBytes() + Sources_.HeapBytes() - sharedVectors;
   }
 
   void Grounding(const Vec3 &albedo) { World_.Grounding(albedo); }
@@ -146,6 +149,7 @@ private:
   GroundBuildProducts Products_;
   Core::WorldCandidate World_;
   ::outshine::Generators::Osm::RegionSources Sources_;
+  const ::outshine::Generators::Osm::OsmField *SharedVectors_ = nullptr;
   Render::SceneResources::PieceSources PieceSources_ = Render::SceneResources::PieceSources::Copy;
   size_t NextPiece_ = 0;
   size_t NextHeightPage_ = 0;
