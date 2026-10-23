@@ -65,8 +65,9 @@ def trace_resolved(product, origins, directions, *, minimum=0.1, inside_is_hit=F
 
 
 def support_points(product, height, profile):
-    low = product["reference_origin_m"][:2]
-    high = low + product["shape"] * product["header"]["pitch_m"]
+    pitch = product["header"]["pitch_m"]
+    low = product["reference_origin_m"][:2] + np.asarray(product.get("low", 0)) * pitch
+    high = low + product["shape"] * pitch
     corners = np.array(list(itertools.product(*zip(low, high, strict=True))))
     if profile["kind"] == "point":
         light = np.asarray(profile["position"], float)

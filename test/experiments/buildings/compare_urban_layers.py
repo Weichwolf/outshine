@@ -136,6 +136,17 @@ def mixed(
     }
 
 
+def rgb_errors(value, reference, width, height, samples):
+    """Separate sample disagreement from the image produced by pixel filtering."""
+    filtered = average_samples(value, width, height, samples) - average_samples(
+        reference, width, height, samples
+    )
+    return {
+        "sample_rgb_rmse": float(np.sqrt(np.mean((value - reference) ** 2))),
+        "pixel_rgb_rmse": float(np.sqrt(np.mean(filtered**2))),
+    }
+
+
 def run(args):
     if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
         raise ValueError("private system-temp output required")
@@ -180,12 +191,12 @@ def run(args):
         )
         arrays[name] = rgb
         if name != "foreground":
-            report["linear_rgb_vs_resolved_rmse"] = float(
-                np.sqrt(np.mean((rgb - control) ** 2))
+            report["bare_scene_errors"] = rgb_errors(
+                rgb, control, width, height, args.samples
             )
         if name != "pending":
-            report["linear_rgb_vs_pending_rmse"] = float(
-                np.sqrt(np.mean((rgb - arrays["pending"]) ** 2))
+            report["pending_image_delta"] = rgb_errors(
+                rgb, arrays["pending"], width, height, args.samples
             )
         results[name] = report
     np.testing.assert_allclose(arrays["all_ready"], control, rtol=0, atol=2e-14)

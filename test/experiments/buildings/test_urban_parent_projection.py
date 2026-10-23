@@ -53,6 +53,12 @@ class ParentProjectionTest(unittest.TestCase):
         self.assertTrue(np.all(first >= 0))
         self.assertTrue(np.all(first[1] <= [1280, 720]))
 
+    def test_nonzero_field_indices_move_the_bounds_to_the_actual_columns(self):
+        field = product() | {"low": np.array([4, 7])}
+        points = support_points(field, 48, {"kind": "sun", "direction": [0, 0, 1]})
+        np.testing.assert_array_equal(points[:4, :2].min(axis=0), [48, 112])
+        np.testing.assert_array_equal(points[:4, :2].max(axis=0), [688, 624])
+
     def test_unbounded_flat_shadow_inputs_are_rejected(self):
         for profile in [
             {"kind": "sun", "direction": [1, 1, 0]},
