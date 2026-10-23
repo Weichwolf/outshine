@@ -5,8 +5,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <span>
 #include <string_view>
+#include <utility>
 
 namespace {
 using namespace outshine::Render::Native;
@@ -14,10 +16,17 @@ using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
 using Pixel = std::array<float, 4>;
 static_assert(sizeof(Pixel) == 16);
-constexpr uint32_t kWidth = 8, kHeight = 2, kRowBytes = 256;
-constexpr uint64_t kOffset = 256, kBytes = kRowBytes * kHeight;
-constexpr Pixel kRed{1, 0, 0, 2}, kBlue{0, 0, 1, 2}, kGreen{0, 1, 0, 1};
-constexpr Pixel kFirst{.25f, .5f, .75f, 1}, kSecond{.75f, .5f, .25f, 1};
+constexpr uint32_t kWidth = 8;
+constexpr uint32_t kHeight = 2;
+constexpr uint32_t kRowBytes = 256;
+constexpr uint64_t kOffset = 256;
+constexpr uint64_t kBytes = uint64_t{kRowBytes} * kHeight;
+constexpr uint8_t kChannelOne = 255;
+constexpr Pixel kRed{1, 0, 0, 2};
+constexpr Pixel kBlue{0, 0, 1, 2};
+constexpr Pixel kGreen{0, 1, 0, 1};
+constexpr Pixel kFirst{.25f, .5f, .75f, 1};
+constexpr Pixel kSecond{.75f, .5f, .25f, 1};
 
 std::unique_ptr<Texture> Target(Device &device) {
   return Require(
@@ -42,7 +51,8 @@ void CheckColumns(Device &device,
   for (uint32_t y = 0; y < kHeight; ++y) {
     for (uint32_t x = 0; x < kWidth; ++x) {
       Pixel pixel{};
-      std::memcpy(pixel.data(), bytes.data() + y * kRowBytes + x * sizeof(Pixel), sizeof(pixel));
+      std::memcpy(
+          pixel.data(), bytes.data() + size_t{y} * kRowBytes + x * sizeof(Pixel), sizeof(pixel));
       CHECK(pixel == expected[x], "resource, range, sampler and uniform changes reach the GPU");
     }
   }
@@ -63,12 +73,17 @@ std::unique_ptr<Buffer> Input(Device &device, Pixel first, Pixel second) {
 
 std::unique_ptr<GraphicsPipeline>
 Pipeline(Device &device, const char *vertexPath, const char *fragmentPath) {
-  const auto vertex = Spirv(vertexPath), fragment = Spirv(fragmentPath);
-  const std::array targets{ColourTarget{.Texels = Format::Rgba32Float}};
+  const auto vertex = Spirv(vertexPath);
+  const auto fragment = Spirv(fragmentPath);
+  const std::array targets{ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}}};
   return Require(device.CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
                                                 .Fragment = ShaderCode{.Spirv = fragment},
+                                                .Streams = {},
+                                                .Attributes = {},
                                                 .Colours = targets,
-                                                .Culling = Cull::None}));
+                                                .Depth = {},
+                                                .Culling = Cull::None,
+                                                .Label = {}}));
 }
 
 void DrawColumn(Commands &commands,
@@ -78,6 +93,7 @@ void DrawColumn(Commands &commands,
   const std::array bindings{binding};
   Require(commands.Draw({.State = {.Pipeline = &pipeline,
                                    .Bindings = bindings,
+                                   .Vertices = {},
                                    .Area = {.Width = kWidth, .Height = kHeight},
                                    .Clip = {.X = column, .Width = 1, .Height = kHeight}},
                          .Range = {.Count = 3}}));
@@ -89,7 +105,7 @@ void Case(Device &device, GraphicsPipeline &storage, GraphicsPipeline &uniform) 
   auto image = Target(device);
   auto commands = Require(device.Begin());
   std::array targets{ColourAttachment{.Image = {.Image = image.get()}, .Begin = Load::Clear}};
-  Require(commands->BeginRenderPass({.Colours = targets}));
+  Require(commands->BeginRenderPass({.Colours = targets, .Depth = {}}));
   Binding bound{.Set = 0,
                 .Slot = 0,
                 .Value = StorageBuffer{.Data = a.get(), .Range = {.Bytes = 2 * sizeof(Pixel)}}};
@@ -108,7 +124,7 @@ void Case(Device &device, GraphicsPipeline &storage, GraphicsPipeline &uniform) 
   DrawColumn(*commands, storage, bound, 6);
   Require(commands->EndRenderPass());
   targets[0].Begin = Load::Load;
-  Require(commands->BeginRenderPass({.Colours = targets}));
+  Require(commands->BeginRenderPass({.Colours = targets, .Depth = {}}));
   DrawColumn(*commands, storage, bound, 7);
   Require(commands->EndRenderPass());
   constexpr std::array expected{kRed, kRed, kBlue, kGreen, kFirst, kSecond, kGreen, kGreen};
@@ -133,15 +149,16 @@ TextureInput(Device &device, Commands &commands, const std::array<uint8_t, 8> &r
 
 void TextureCase(Device &device, GraphicsPipeline &sampled) {
   auto commands = Require(device.Begin());
-  auto a = TextureInput(device, *commands, {255, 0, 0, 255, 0, 0, 255, 255});
-  auto b = TextureInput(device, *commands, {0, 0, 0, 255, 0, 255, 0, 255});
+  auto a = TextureInput(
+      device, *commands, {kChannelOne, 0, 0, kChannelOne, 0, 0, kChannelOne, kChannelOne});
+  auto b = TextureInput(device, *commands, {0, 0, 0, kChannelOne, 0, kChannelOne, 0, kChannelOne});
   auto nearest = Require(device.CreateSampler(
       {.Min = Filter::Nearest, .Mag = Filter::Nearest, .Mip = Filter::Nearest}));
   auto linear = Require(
       device.CreateSampler({.Min = Filter::Linear, .Mag = Filter::Linear, .Mip = Filter::Nearest}));
   auto image = Target(device);
   std::array targets{ColourAttachment{.Image = {.Image = image.get()}, .Begin = Load::Clear}};
-  Require(commands->BeginRenderPass({.Colours = targets}));
+  Require(commands->BeginRenderPass({.Colours = targets, .Depth = {}}));
   Binding bound{.Set = 0,
                 .Slot = 0,
                 .Value = SampledTexture{.Image = {.Image = a.get()}, .Sampling = nearest.get()}};
@@ -159,11 +176,13 @@ void TextureCase(Device &device, GraphicsPipeline &sampled) {
   DrawColumn(*commands, sampled, bound, 6);
   Require(commands->EndRenderPass());
   targets[0].Begin = Load::Load;
-  Require(commands->BeginRenderPass({.Colours = targets}));
+  Require(commands->BeginRenderPass({.Colours = targets, .Depth = {}}));
   DrawColumn(*commands, sampled, bound, 7);
   Require(commands->EndRenderPass());
-  constexpr Pixel blue{0, 0, 1, 1}, green{0, 1, 0, 1}, halfGreen{0, .5f, 0, 1},
-      purple{.5f, 0, .5f, 1};
+  constexpr Pixel blue{0, 0, 1, 1};
+  constexpr Pixel green{0, 1, 0, 1};
+  constexpr Pixel halfGreen{0, .5f, 0, 1};
+  constexpr Pixel purple{.5f, 0, .5f, 1};
   constexpr std::array expected{blue, blue, green, halfGreen, purple, blue, blue, blue};
   CheckColumns(device, std::move(commands), *image, expected);
 }
