@@ -121,6 +121,14 @@ class PlaneUnionTest(unittest.TestCase):
             with self.subTest(epsilon=epsilon), self.assertRaises(ValueError):
                 compile_unions([plate(shapely.box(0, 0, 1, 1))], epsilon=epsilon)
 
+    def test_position_byte_control_refuses_double_diagnostic_coordinates(self):
+        mesh = {
+            "positions": np.zeros((3, 3), np.float64),
+            "indices": np.array([[0, 1, 2]], np.uint16),
+        }
+        with self.assertRaisesRegex(ValueError, "Float32 XYZ"):
+            factorized_positions(mesh)
+
     def test_whole_tilted_patch_survives_when_family_slab_is_too_thin(self):
         angle = np.radians(0.4)
         axes = np.array([[np.cos(angle), 0, np.sin(angle)], [0, 1, 0]])

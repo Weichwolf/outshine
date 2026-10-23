@@ -292,7 +292,10 @@ def run(args):
         },
         "original_geometry_bytes": sum(x.nbytes for x in original_control.values()),
         "required_original_rest_geometry_bytes": sum(
-            x.nbytes for x in factorized_positions(retained).values()
+            x.nbytes
+            for x in factorized_positions(
+                retained_subset(original, a["needs_sources"])
+            ).values()
         ),
         "required_original_rest_triangles": len(retained["indices"]),
         "nominal_three_metre_projection_bound_px": displacement_bound(
