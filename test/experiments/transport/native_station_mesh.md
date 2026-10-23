@@ -8,7 +8,9 @@ identity does not depend on those height variables. This order avoids the lost
 overlap constraints demonstrated in #1200; the separate corrected Python lineage
 remains an independent reference.
 
-The operator ports the existing `mvt_t_stair_loft._split` half-plane clipping.
+The operator ports the existing `stair_station_cuts._split` half-plane clipping
+(extracted from `mvt_t_stair_loft`). This native comparison explicitly keeps the
+global cut scope; the independent-flight recipe's local scope is separate.
 A per-cut undirected edge map shares every edge intersection. Fixed original
 points never move. Each axis has one station array; new vertices interpolate all
 arrays and retain the exact active cut station. Triangle fans preserve positive
@@ -48,5 +50,10 @@ identical words/indices. Exact GEOS canonical/source coverages are valid; a real
 T-junction control is invalid. The shared scale-based `hanging_pairs` diagnostic
 is reported, not redefined or used to weld these points. No tolerance is enlarged.
 
-Flight selection, LP assembly and final body products still use Python. No native
-runtime/cache/Places fix or frame-budget admission follows from this operator.
+This station experiment still uses Python for flight selection, LP assembly and
+final body products. The separate native `BuildSurfaceHeightProgram` operator
+assembles the height model from prepared topology/recipes/junctions/flights and
+whole profiles (#1189). `native_flight_plan.py` separately exercises native port/flight
+selection and the complete native cut/rebinding chain. Native 2D construction planning
+and body/runtime integration remain open.
+No runtime/cache/Places fix or frame-budget admission follows from either operator.

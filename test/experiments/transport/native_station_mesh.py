@@ -15,12 +15,13 @@ import stair_junction_layout as layout
 from mvt_native_body_layout import prepare_native_body_plan
 from mvt_t_connection_inputs import FIXTURE, inputs
 from mvt_t_connections import plan_connections
-from mvt_t_stair_loft import _flight, _split
+from mvt_t_stair_loft import _flight
 from native_planar_arrangement import read_output, validate_native_profiles
 from native_planar_mesh import ROOT, build_probe
 from native_profile_fit import body
 from native_surface_height_topology import read_topology, write_ports
 from planar_layout_reference import hanging_pairs, original_layout
+from stair_station_cuts import _split
 from stair_test_transform import rigid_coordinates
 
 
@@ -111,7 +112,13 @@ def compare_reference(before, after, axes_path, stations, parents):
             raise ValueError(
                 "native station projection differs from independent input axes"
             )
-        flights.append({"stations_m": values.tolist()})
+        flights.append(
+            {
+                "origin_xy_m": origin,
+                "tangent": direction,
+                "stations_m": values.tolist(),
+            }
+        )
     vertices, triangles, lineage = (
         list(xy.copy()),
         faces.tolist(),
@@ -120,7 +127,7 @@ def compare_reference(before, after, axes_path, stations, parents):
     masks, planar = lineage.copy(), list(range(len(xy)))
     for axis, row in enumerate(rows):
         for cut in row[5:]:
-            triangles, masks, lineage, _ = _split(
+            triangles, masks, lineage, _intersections, _points = _split(
                 vertices,
                 flights,
                 triangles,
@@ -131,6 +138,7 @@ def compare_reference(before, after, axes_path, stations, parents):
                 cut,
                 4096,
                 8192,
+                None,
             )
     same = {
         "position_words_equal": np.array_equal(
@@ -254,6 +262,7 @@ def run(args):
         units=(
             "SurfaceHeightTopology.cpp",
             "SurfaceHeightPorts.cpp",
+            "SurfaceFlightPlan.cpp",
             "GeosPolygon.cpp",
             "PlanHierarchy.cpp",
         ),

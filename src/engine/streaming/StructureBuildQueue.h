@@ -286,6 +286,8 @@ public:
   }
 
 private:
+  [[nodiscard]] bool
+  HasPendingSourceChanges(const ::outshine::Generators::Osm::BuildingField &footprints) const;
   [[nodiscard]] size_t PostsVectors(Ground::SurfacePreparation &stack,
                                     ::outshine::Generators::Osm::BuildingField &prints,
                                     LongitudeLatitude eye,

@@ -14,11 +14,13 @@ def display(plan, data, output):
 
     vertices = data["body_vertices"].astype(np.float32).astype(float)
     triangles = vertices[np.vstack([data["top_faces"], data["wall_faces"]])]
-    stair = plan["stairs"][0][0]
-    top = data["top_faces"][(data["face_sources"] & (1 << stair)) != 0]
+    stair_mask = sum(1 << owner for owner, _low, _high in plan["stairs"])
+    top = data["top_faces"][(data["face_sources"] & stair_mask) != 0]
     walls = data["wall_faces"]
     inside = shapely.covers(
-        plan["prepared_domains"][stair].buffer(1e-10),
+        shapely.union_all(
+            [plan["prepared_domains"][owner] for owner, _low, _high in plan["stairs"]]
+        ).buffer(1e-10),
         shapely.points(data["body_vertices"][walls, :2]),
     ).all(axis=1)
     detail = vertices[np.vstack([top, walls[inside]])]
@@ -49,7 +51,7 @@ def display(plan, data, output):
             xlabel="east / m",
             ylabel="north / m",
             zlabel="height / m",
-            title="Four complete native frontiers"
+            title="Complete retained exterior profiles"
             if index == 0
             else "Actual stair-owned treads, landings and risers",
         )

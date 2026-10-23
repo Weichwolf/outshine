@@ -68,6 +68,51 @@ template <std::signed_integral Index> struct SparseMatrix {
     return result;
   }
 
+  [[nodiscard]] SparseMatrix Multiply(const SparseMatrix &right) const {
+    assert(Rows >= 0 && Columns >= 0 && Columns == right.Rows && right.Columns >= 0);
+    SparseMatrix result{.Rows = Rows,
+                        .Columns = right.Columns,
+                        .ColumnOffsets = {0},
+                        .RowIndices = {},
+                        .Values = {}};
+    std::vector<double> sums(static_cast<size_t>(Rows));
+    std::vector<Index> marks(sums.size(), -1);
+    std::vector<Index> touched;
+    for (Index column = 0; column < right.Columns; ++column) {
+      touched.clear();
+      const auto atColumn = static_cast<size_t>(column);
+      for (Index item = right.ColumnOffsets[atColumn]; item < right.ColumnOffsets[atColumn + 1];
+           ++item) {
+        const auto entry = static_cast<size_t>(item);
+        const auto source = static_cast<size_t>(right.RowIndices[entry]);
+        for (Index at = ColumnOffsets[source]; at < ColumnOffsets[source + 1]; ++at) {
+          const auto index = static_cast<size_t>(at);
+          const Index row = RowIndices[index];
+          const auto target = static_cast<size_t>(row);
+          const double value = Values[index] * right.Values[entry];
+          if (marks[target] != column) {
+            marks[target] = column;
+            sums[target] = value;
+            touched.push_back(row);
+          } else {
+            sums[target] += value;
+          }
+        }
+      }
+      std::ranges::sort(touched);
+      for (const Index row : touched) {
+        const double value = sums[static_cast<size_t>(row)];
+        if (value != 0) {
+          result.RowIndices.push_back(row);
+          result.Values.push_back(value);
+        }
+      }
+      assert(result.Values.size() <= static_cast<size_t>(std::numeric_limits<Index>::max()));
+      result.ColumnOffsets.push_back(static_cast<Index>(result.Values.size()));
+    }
+    return result;
+  }
+
   [[nodiscard]] std::vector<double> TransposeMultiply(std::span<const double> vector) const {
     assert(vector.size() == static_cast<size_t>(Rows));
     std::vector<double> result(static_cast<size_t>(Columns), 0);

@@ -114,6 +114,14 @@ SurfaceHeightTopology Pack(const PlanarArrangement &arrangement, JoinState &stat
   for (uint32_t at = 0; at < state.Keys.size(); ++at) {
     variables[at] = variables[Root(state.Parents, at)];
   }
+  output.PortVertices.reserve(state.PortKeys.size());
+  for (const auto &keys : state.PortKeys) {
+    auto &members = output.PortVertices.emplace_back();
+    members.reserve(keys.size());
+    for (const auto key : keys) { members.push_back(variables[Root(state.Parents, key)]); }
+    std::ranges::sort(members);
+    members.erase(std::ranges::unique(members).begin(), members.end());
+  }
   for (size_t source = 0; source < output.Sources.size(); ++source) {
     auto &part = output.Sources[source];
     part.Faces.reserve(state.FaceCounts[source]);

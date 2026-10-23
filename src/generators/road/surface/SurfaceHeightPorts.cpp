@@ -72,7 +72,8 @@ Checked<Box> PortBox(const SurfaceHeightPort &port,
   return box;
 }
 
-void JoinVertex(uint32_t vertex, std::span<const uint32_t> domains, JoinState &state) {
+std::optional<uint32_t>
+JoinVertex(uint32_t vertex, std::span<const uint32_t> domains, JoinState &state) {
   std::optional<uint32_t> first;
   for (const auto domain : domains) {
     if ((state.PointDomains[vertex] & (uint64_t{1} << domain)) == 0) { continue; }
@@ -84,6 +85,7 @@ void JoinVertex(uint32_t vertex, std::span<const uint32_t> domains, JoinState &s
       ++state.Work.Joins;
     }
   }
+  return first;
 }
 
 Checked<void> JoinRegion(const Context &context,
@@ -93,6 +95,7 @@ Checked<void> JoinRegion(const Context &context,
                          Box box,
                          double distance,
                          JoinState &state,
+                         std::vector<uint32_t> &keys,
                          SurfaceHeightTopologyBudget budget,
                          const std::stop_token &stop) {
   const auto polygon = Spatial::MakeGeosPolygon(context.Handle, port.Region.Rings);
@@ -124,7 +127,9 @@ Checked<void> JoinRegion(const Context &context,
       failed = Error::LibraryFailure;
       return false;
     }
-    if (separation <= distance) { JoinVertex(vertex, port.Domains, state); }
+    if (separation <= distance) {
+      if (const auto key = JoinVertex(vertex, port.Domains, state)) { keys.push_back(*key); }
+    }
     return true;
   };
   if (!index.Query(box, emit)) { return std::unexpected(failed.value_or(Error::LibraryFailure)); }
@@ -152,8 +157,9 @@ Checked<void> JoinPorts(const PlanarArrangement &arrangement,
     if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
     const auto box = PortBox(port, distanceM, state, points, budget);
     if (!box) { return std::unexpected(box.error()); }
-    if (auto result =
-            JoinRegion(context, arrangement, port, *index, *box, distanceM, state, budget, stop);
+    auto &keys = state.PortKeys.emplace_back();
+    if (auto result = JoinRegion(
+            context, arrangement, port, *index, *box, distanceM, state, keys, budget, stop);
         !result) {
       return result;
     }

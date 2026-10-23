@@ -1,6 +1,7 @@
 """One indexed body including flat treads, vertical risers and continuous undersides."""
 
 import numpy as np
+from mvt_t_stair_loft import require_owned_lofts
 from outshine_ref.contracts import Mesh
 from stair_junction_treads import partition
 from surface_solid_checks import audit_closed
@@ -90,6 +91,7 @@ def close(points, faces, step, levels):
 
 
 def build(plan, heights):
+    require_owned_lofts(plan)
     recipe = plan.get("tread_partition_recipe", "legacy_levels")
     envelope = None
     if recipe == "envelope_indexed_band_remesh":

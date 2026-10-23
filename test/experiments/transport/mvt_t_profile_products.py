@@ -5,6 +5,7 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
+from mvt_t_stair_loft import require_owned_lofts
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
 
@@ -160,8 +161,49 @@ def _consumer_samplers(plan, heights):
     return samplers, tolerance
 
 
+def _navigation_roots(plan):
+    parents = {}
+
+    def root(key):
+        parents.setdefault(key, key)
+        while parents[key] != key:
+            parents[key] = parents[parents[key]]
+            key = parents[key]
+        return key
+
+    for point, owners in zip(plan["nodes"], plan["incident"], strict=True):
+        keys = [(owner, tuple(point)) for owner in owners]
+        for key in keys[1:]:
+            parents[root(key)] = root(keys[0])
+
+    return lambda owner, point: root((owner, tuple(point[:2])))
+
+
+def _source_stair_levels(plan, body_data):
+    if "stair_owners" not in body_data:
+        if len(plan["stairs"]) != 1:
+            raise ValueError(
+                "multiple body flights require explicit stair-level ownership"
+            )
+        owner = plan["stairs"][0][0]
+        return {plan["rows"][owner]["source_id"]: body_data["levels_m"].tolist()}
+    owners = body_data["stair_owners"]
+    offsets = body_data["stair_level_offsets"]
+    if set(map(int, owners)) != {s[0] for s in plan["stairs"]} or len(
+        set(owners)
+    ) != len(owners):
+        raise ValueError("body stair levels differ from declared flight owners")
+    return {
+        plan["rows"][int(owner)]["source_id"]: body_data["levels_m"][start:end].tolist()
+        for owner, start, end in zip(owners, offsets[:-1], offsets[1:], strict=True)
+    }
+
+
 def shared_products(plan, heights, body_data):
+    require_owned_lofts(plan)
     samplers, tolerance = _consumer_samplers(plan, heights)
+    navigation_root = _navigation_roots(plan)
+    source_levels = _source_stair_levels(plan, body_data)
     axes, profiles, graph_nodes, graph_edges = {}, {}, {}, []
     for owner, row in enumerate(plan["rows"]):
         axis = row.get("navigation_axis_xy_m", row["xy"])
@@ -181,7 +223,7 @@ def shared_products(plan, heights, body_data):
         for a, b in pairwise(xyz):
             keys = []
             for point in (a, b):
-                key = tuple(point[:2])
+                key = navigation_root(owner, point)
                 if key in graph_nodes and abs(graph_nodes[key][2] - point[2]) > 1e-7:
                     raise ValueError(
                         "navigation contact has conflicting shared heights"
@@ -189,7 +231,7 @@ def shared_products(plan, heights, body_data):
                 graph_nodes.setdefault(key, point.tolist())
                 keys.append(key)
             graph_edges.append((keys, row["source_id"]))
-    ordered = sorted(graph_nodes)
+    ordered = sorted(graph_nodes, key=lambda key: (tuple(graph_nodes[key][:2]), key))
     indices = {key: i for i, key in enumerate(ordered)}
     landings = []
     for index, (xy, owners, patch) in enumerate(
@@ -240,6 +282,7 @@ def shared_products(plan, heights, body_data):
         "landings": landings,
         "interface_ports": interface_ports(plan, heights),
         "navigation": {
+            "node_identity": "source height owner, joined only through declared construction ports",
             "nodes_xyz_m": [graph_nodes[k] for k in ordered],
             "edges": [
                 {"nodes": [indices[k] for k in keys], "source_id": source}
@@ -248,6 +291,7 @@ def shared_products(plan, heights, body_data):
             "axes_xyz_m": axes,
             "axis_profiles_xyz_m": profiles,
             "stair_levels_m": body_data["levels_m"].tolist(),
+            "stair_levels_by_source_m": source_levels,
             "scope": "height-envelope graph with explicit stair levels; no full swept walking route",
         },
         "terrain_reservations": [
@@ -255,6 +299,7 @@ def shared_products(plan, heights, body_data):
                 "source_id": r["source_id"],
                 "footprint_parts": polygon_parts(domain),
                 "surface_face_ids": f.tolist(),
+                "height_surface_array": "reference_vertices",
             }
             for r, domain, f in zip(
                 plan["rows"], plan["prepared_domains"], plan["parts"], strict=True
