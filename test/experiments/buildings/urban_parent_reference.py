@@ -10,8 +10,11 @@ def prepare_resolved(product):
     column_geometry records that construction contract, not World readiness or
     completeness outside the camera domain explicitly declared by a consumer.
     """
-    first = product.chunks.min(axis=0).astype(np.int64) * product.side
-    size = (product.chunks.max(axis=0).astype(np.int64) + 1) * product.side - first
+    first = np.zeros(2, np.int64)
+    size = np.zeros(2, np.int64)
+    if len(product.chunks):
+        first = product.chunks.min(axis=0).astype(np.int64) * product.side
+        size = (product.chunks.max(axis=0).astype(np.int64) + 1) * product.side - first
     if np.prod(size) > 4194304:
         raise ValueError("bounded offline resolved field required")
     grid = np.zeros(tuple(size[::-1]), float)

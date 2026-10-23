@@ -3,14 +3,33 @@
 import unittest
 
 import numpy as np
-from compare_urban_parents import camera
-from test_urban_patches import example
+from compare_urban_parents import camera, ground, opaque_image
+from test_urban_patches import example, source_document
 from triangle_image_reference import image_rays
 from urban_parent_reference import prepare_resolved, trace_resolved
+from urban_patch_bake import bake
 from urban_patch_trace import trace
 
 
 class ParentReferenceTest(unittest.TestCase):
+    def test_empty_generated_product_is_a_miss_and_leaves_ground_unchanged(self):
+        document = source_document()
+        document["layers"]["landuse"]["features"][0]["properties"]["class"] = "unknown"
+        product, _ = bake(document)
+        self.assertEqual(len(product.chunks), 0)
+        field = prepare_resolved(product)
+        np.testing.assert_array_equal(field["shape"], [0, 0])
+        origins = np.array([[8.0, 8, 50], [32, 32, 100]])
+        directions = np.array([[0.0, 0, -1], [0, 0, -1]])
+        depth, _, owner, work = trace_resolved(field, origins, directions)
+        np.testing.assert_array_equal(depth, [np.inf, np.inf])
+        np.testing.assert_array_equal(owner, [-1, -1])
+        self.assertEqual(work["cell_ray_visits"], 0)
+        profile = {"kind": "sun", "direction": [0, 0, 1], "intensity": 1, "ambient": 0}
+        colour, alpha, _ = opaque_image(field, origins, directions, profile)
+        np.testing.assert_array_equal(colour, ground(origins, directions, profile)[0])
+        np.testing.assert_array_equal(alpha, [0, 0])
+
     def test_jittered_reference_samples_stay_in_their_pixel_strata(self):
         view = camera(16000, 240000, 0)
         box = np.array([[640, 360], [642, 362]])
