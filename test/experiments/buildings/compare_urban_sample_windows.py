@@ -9,14 +9,13 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from compare_urban_horizon import region
 from compare_urban_layers import layer_states, mixed
 from compare_urban_parents import background_image, camera, lighting
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays
 from urban_parent_layer import render_layer
 from urban_parent_light import display
-from urban_parent_reference import prepare_resolved
+from urban_parent_reference import prepare_resolved, projected_region
 from urban_parent_stats import UrbanParent
 from urban_patches import load
 from urban_pixel_samples import pixel_surface_packets
@@ -31,7 +30,9 @@ def frame_context(parent, resolved, args):
         for i in range(6)
     ]
     profile = lighting(extent, args.lighting)
-    boxes = np.asarray([region(parent, resolved, view, profile) for view in views])
+    boxes = np.asarray(
+        [projected_region(parent, resolved, view, profile) for view in views]
+    )
     base = np.array([boxes[:, 0].min(0), boxes[:, 1].max(0)])
     full = np.clip(base + [[-2, -2], [2, 2]], [0, 0], [1280, 720])
     return views, profile, base, full

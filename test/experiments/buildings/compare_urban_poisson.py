@@ -15,7 +15,6 @@ import time
 from pathlib import Path
 
 import numpy as np
-from compare_urban_horizon import region
 from compare_urban_parents import (
     background_image,
     camera,
@@ -27,7 +26,7 @@ from PIL import Image
 from triangle_image_reference import average_samples, image_rays
 from urban_parent_light import display, light_at, shade
 from urban_parent_poisson import PoissonParent
-from urban_parent_reference import prepare_resolved
+from urban_parent_reference import prepare_resolved, projected_region
 from urban_parent_stats import UrbanParent
 from urban_parent_volume import render_volume
 from urban_patches import load
@@ -88,7 +87,7 @@ def compare(parent, resolved, args):
     extent = parent.frame[2] * parent.frame[3]
     view = camera(extent, args.distance, args.motion, altitude=args.altitude)
     profile = lighting(extent, args.lighting)
-    box = region(parent, resolved, view, profile)
+    box = projected_region(parent, resolved, view, profile)
     width, height = box[1] - box[0]
     o, d = image_rays(view, box, width, height, args.samples, jitter_seed=args.seed)
     d /= np.linalg.norm(d, axis=1)[:, None]

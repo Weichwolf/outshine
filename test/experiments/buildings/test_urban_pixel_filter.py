@@ -5,10 +5,10 @@ import unittest
 import numpy as np
 from compare_urban_parents import camera
 from shapely.geometry import Point, Polygon
+from urban_parent_reference import support_points
 from urban_pixel_filter import (
     filter_correction,
     screen_rays,
-    support_points,
     support_polygon,
 )
 

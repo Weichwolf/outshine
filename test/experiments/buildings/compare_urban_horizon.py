@@ -19,16 +19,16 @@ from compare_urban_parents import (
     opaque_image,
 )
 from PIL import Image
-from triangle_image_reference import average_samples, image_rays, projected_bounds
+from triangle_image_reference import average_samples, image_rays
 from urban_first_hit import sample_first_hits
 from urban_grouped_first_hit import sample_grouped_first_hits
 from urban_parent_conditional import grid, ground_stops, render_conditional
 from urban_parent_layer import render_layer
 from urban_parent_light import display, surface_radiance_upper
-from urban_parent_reference import prepare_resolved
+from urban_parent_reference import prepare_resolved, projected_region, support_points
 from urban_parent_stats import UrbanParent
 from urban_patches import load
-from urban_pixel_filter import filter_correction, support_points, support_polygon
+from urban_pixel_filter import filter_correction, support_polygon
 from urban_prefix_first_hit import PrefixFirstHits
 from urban_prefix_runs import PrefixRuns
 from urban_sampled_parent import render_sampled
@@ -67,19 +67,6 @@ def probe(parent, profile, tolerance):
         directions=d.tolist(),
     )
     return results, arrays
-
-
-def region(parent, resolved, view, profile):
-    products = [grid(parent), resolved]
-    points = [support_points(p, parent.heights[-1], profile) for p in products]
-    box = projected_bounds(np.vstack(points), view)
-    return np.array(
-        [
-            np.maximum(np.floor(box[0]), [0, 0]),
-            np.minimum(np.ceil(box[1]), [1280, 720]),
-        ],
-        int,
-    )
 
 
 def parent_sample(
@@ -130,7 +117,7 @@ def compare(parent, resolved, args):
     extent = parent.frame[2] * parent.frame[3]
     view = camera(extent, args.distance, args.motion, altitude=args.altitude)
     profile = lighting(extent, args.lighting)
-    box = region(parent, resolved, view, profile)
+    box = projected_region(parent, resolved, view, profile)
     width, height = box[1] - box[0]
     if min(width, height) <= 0:
         raise ValueError("nonempty projected diagnostic required")
@@ -248,7 +235,7 @@ def compare_pixel(parent, resolved, args):
     extent = parent.frame[2] * parent.frame[3]
     view = camera(extent, args.distance, args.motion, altitude=args.altitude)
     profile = lighting(extent, args.lighting)
-    box = region(parent, resolved, view, profile)
+    box = projected_region(parent, resolved, view, profile)
     width, height = box[1] - box[0]
     polygon = support_polygon(
         support_points(grid(parent), parent.heights[-1], profile), view

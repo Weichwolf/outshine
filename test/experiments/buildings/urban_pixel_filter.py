@@ -1,33 +1,9 @@
 """Area-weighted signed scene corrections within projected coarse support."""
 
-import itertools
 import time
 
 import numpy as np
 from pixel_polygon_quadrature import convex_hull, pixel_quadrature
-
-
-def support_points(product, height, profile):
-    low = product["reference_origin_m"][:2]
-    high = low + product["shape"] * product["header"]["pitch_m"]
-    corners = np.array(list(itertools.product(*zip(low, high, strict=True))))
-    if profile["kind"] == "point":
-        light = np.asarray(profile["position"], float)
-        if light[2] <= height:
-            raise ValueError("finite flat-base support requires light above model")
-        shadows = corners + (corners - light[:2]) * height / (light[2] - height)
-    else:
-        light = np.asarray(profile["direction"], float)
-        if light[2] <= 0:
-            raise ValueError("finite flat-base support requires positive light z")
-        shadows = corners - height * light[:2] / light[2]
-    return np.vstack(
-        (
-            np.c_[corners, np.zeros(4)],
-            np.c_[corners, np.full(4, height)],
-            np.c_[shadows, np.zeros(4)],
-        )
-    )
 
 
 def support_polygon(points, view):

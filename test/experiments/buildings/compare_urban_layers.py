@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 
 import numpy as np
-from compare_urban_horizon import region
 from compare_urban_parents import background_image, camera, lighting, opaque_image
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays
@@ -18,7 +17,7 @@ from urban_opaque_receivers import has_prism_domain, opaque_receivers
 from urban_parent_conditional import grid
 from urban_parent_layer import compose, correction, render_layer
 from urban_parent_light import display, light_at, shade
-from urban_parent_reference import prepare_resolved, trace_resolved
+from urban_parent_reference import prepare_resolved, projected_region, trace_resolved
 from urban_parent_stats import UrbanParent
 from urban_patches import load
 from urban_pixel_samples import pixel_surface_packets
@@ -220,6 +219,17 @@ def layer_state(parent, o, d, profile, state, args, arrays):
     return rgb, report
 
 
+def rgb_errors(value, reference, width, height, samples):
+    """Separate sample disagreement from the image produced by pixel filtering."""
+    filtered = average_samples(value, width, height, samples) - average_samples(
+        reference, width, height, samples
+    )
+    return {
+        "sample_rgb_rmse": float(np.sqrt(np.mean((value - reference) ** 2))),
+        "pixel_rgb_rmse": float(np.sqrt(np.mean(filtered**2))),
+    }
+
+
 def run(args):
     if args.paired_sampled and args.surface_samples is None:
         raise ValueError("paired sampling requires --surface-samples")
@@ -239,7 +249,7 @@ def run(args):
         parent.frame[2] * parent.frame[3], args.distance, args.motion, args.altitude
     )
     profile = lighting(parent.frame[2] * parent.frame[3], args.lighting)
-    box = region(parent, resolved, view, profile)
+    box = projected_region(parent, resolved, view, profile)
     width, height = box[1] - box[0]
     args.pixel_shape = (width, height)
     args.pixel_origin = tuple(map(int, box[0])) if args.screen_strata else None
@@ -253,12 +263,13 @@ def run(args):
         name = state[0]
         rgb, report = layer_state(parent, o, d, profile, state, args, arrays)
         arrays[name] = rgb
-        report["linear_rgb_vs_resolved_rmse"] = float(
-            np.sqrt(np.mean((rgb - control) ** 2))
-        )
+        if name != "foreground":
+            report["bare_scene_errors"] = rgb_errors(
+                rgb, control, width, height, args.samples
+            )
         if name != "pending":
-            report["linear_rgb_vs_pending_rmse"] = float(
-                np.sqrt(np.mean((rgb - arrays["pending"]) ** 2))
+            report["pending_image_delta"] = rgb_errors(
+                rgb, arrays["pending"], width, height, args.samples
             )
         results[name] = report
     np.testing.assert_allclose(arrays["all_ready"], control, rtol=0, atol=2e-14)

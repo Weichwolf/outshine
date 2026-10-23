@@ -9,11 +9,10 @@ import time
 from pathlib import Path
 
 import numpy as np
-from compare_urban_horizon import region
 from compare_urban_parents import camera, lighting
 from PIL import Image
 from urban_parent_light import display
-from urban_parent_reference import prepare_resolved
+from urban_parent_reference import prepare_resolved, projected_region
 from urban_parent_stats import UrbanParent
 from urban_patches import load
 from urban_ready_pixels import (
@@ -85,7 +84,7 @@ def main():
     box = (
         np.asarray(args.roi).reshape(2, 2)
         if args.roi is not None
-        else region(parent, resolved, view, profile)
+        else projected_region(parent, resolved, view, profile)
     )
     if np.any(box < 0) or np.any(box > [1280, 720]) or np.any(box[1] <= box[0]):
         raise ValueError("nonempty pixel ROI inside 1280x720 required")
