@@ -1,4 +1,4 @@
-"""Bounded pixel integration of the unchanged resolved urban scene, offline only."""
+"""Bounded pixel integration of complete urban RGB/Ready states, offline only."""
 
 import argparse
 import hashlib
@@ -22,13 +22,68 @@ from urban_parent_reference import prepare_resolved
 from urban_parent_stats import UrbanParent
 from urban_patches import load
 
+STATES = (
+    "resolved",
+    "pending",
+    "half_view",
+    "half_caster",
+    "half_ready",
+    "all_ready",
+    "foreground",
+)
+
+
+def accumulate_work(total, counts):
+    for key, value in counts.items():
+        if isinstance(value, dict):
+            accumulate_work(total.setdefault(key, {}), value)
+        elif key.endswith("peak_bytes") or key in {
+            "parent_array_bytes",
+            "background_ray_arrays_bytes",
+        }:
+            total[key] = max(total.get(key, 0), value)
+        else:
+            total[key] = total.get(key, 0) + value
+
+
+def composed_scene(parent, resolved, profile, state, foreground_fraction):
+    if state == "resolved":
+        return None
+    from compare_urban_layers import layer_states, mixed
+
+    matches = [value for value in layer_states(parent, resolved) if value[0] == state]
+    if len(matches) != 1 or not 0 <= foreground_fraction <= 1:
+        raise ValueError(
+            "existing Ready state and bounded foreground fraction required"
+        )
+    _, child, caster, view_region, caster_region, foreground = matches[0]
+
+    def query(origins, directions):
+        rgb, work = mixed(
+            parent,
+            origins,
+            directions,
+            profile,
+            child,
+            caster,
+            view_region,
+            caster_region,
+            foreground,
+            foreground_fraction=foreground_fraction,
+        )
+        # Complete RGB includes the opaque ground/environment. This channel is
+        # unused; it is not the resolved-only child-hit coverage diagnostic.
+        return rgb, np.ones(len(origins)), work
+
+    return query
+
 
 def rss_bytes():
     scale = 1 if sys.platform == "darwin" else 1024
     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * scale
 
 
-def integrate(resolved, view, box, profile, args):
+def integrate(resolved, view, box, profile, args, *, scene_query=None):
     work = {}
     scene_seconds = 0.0
 
@@ -41,12 +96,13 @@ def integrate(resolved, view, box, profile, args):
     def scene(origins, directions):
         nonlocal scene_seconds
         started = time.perf_counter()
-        rgb, alpha, counts = opaque_image(resolved, origins, directions, profile)
+        rgb, alpha, counts = (
+            opaque_image(resolved, origins, directions, profile)
+            if scene_query is None
+            else scene_query(origins, directions)
+        )
         scene_seconds += time.perf_counter() - started
-        for group, values in counts.items():
-            target = work.setdefault(group, {})
-            for key, value in values.items():
-                target[key] = target.get(key, 0) + value
+        accumulate_work(work, counts)
         return rgb, alpha
 
     if args.trace_memory:
@@ -87,12 +143,16 @@ def arguments():
     parser.add_argument("--seed", type=int)
     parser.add_argument("--batch", type=int, default=2048)
     parser.add_argument("--trace-memory", action="store_true")
+    parser.add_argument("--state", choices=STATES, default="resolved")
+    parser.add_argument("--foreground-fraction", type=float, default=0.75)
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         parser.error("diagnostics require an explicit system-temp output")
     if output.exists() and any(output.iterdir()):
         parser.error("fresh output directory required")
+    if not 0 <= args.foreground_fraction <= 1:
+        parser.error("foreground fraction must be in [0,1]")
     args.output = output
     return args
 
@@ -117,13 +177,23 @@ def main():
     )
     if np.any(box < 0) or np.any(box > [1280, 720]) or np.any(box[1] <= box[0]):
         raise ValueError("nonempty pixel ROI inside 1280x720 required")
+    query = composed_scene(
+        parent, resolved, profile, args.state, args.foreground_fraction
+    )
     preparation_seconds = time.perf_counter() - started
     prepared_peak = rss_bytes()
-    rgb, alpha, measured = integrate(resolved, view, box, profile, args)
+    rgb, alpha, measured = integrate(
+        resolved, view, box, profile, args, scene_query=query
+    )
     args.output.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(args.output / "linear.npz", resolved=rgb, coverage=alpha)
-    Image.fromarray(display(rgb)).save(args.output / "resolved.png")
-    Image.fromarray(np.uint8(np.rint(alpha * 255))).save(args.output / "coverage.png")
+    arrays = {args.state: rgb}
+    if args.state == "resolved":
+        arrays["coverage"] = alpha
+        Image.fromarray(np.uint8(np.rint(alpha * 255))).save(
+            args.output / "coverage.png"
+        )
+    np.savez_compressed(args.output / "linear.npz", **arrays)
+    Image.fromarray(display(rgb)).save(args.output / (args.state + ".png"))
     report = {
         "head": head,
         "working_tree_dirty": dirty,
@@ -139,6 +209,9 @@ def main():
         "seed": args.seed,
         "batch": args.batch,
         "trace_memory": args.trace_memory,
+        "state": args.state,
+        "foreground_fraction": args.foreground_fraction,
+        "coverage_semantics": "resolved child hits" if query is None else None,
         "preparation_seconds": preparation_seconds,
         "process_peak_after_preparation_B": prepared_peak,
         "resolved_control_shape": resolved["shape"].tolist(),
@@ -146,7 +219,9 @@ def main():
         "resolved_array_B": resolved["array_bytes"],
         **measured,
         "scope": (
-            "Unchanged complete opaque RGB/coverage per ray, pixel box average; "
+            "Complete composed RGB per ray, pixel box average; resolved-only "
+            "state also records child-hit coverage. Mixed states requery all "
+            "stops/normals/casters per ray and compose before averaging. "
             "flat ENU original field, offline ROI of 1280x720. Seed/density "
             "differences are observed uncertainty, not certified error bounds. "
             "Preparation/storage/PNG outside integration; traced peak excludes "
