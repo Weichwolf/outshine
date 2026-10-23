@@ -29,7 +29,9 @@ void UrbanPrismSlot::Clear() {
 }
 
 std::expected<bool, std::string>
-UrbanPrismSlot::Advance(const std::string &request, const UrbanPrismPreparation::Capture &capture) {
+UrbanPrismSlot::Advance(const std::string &request,
+                        const UrbanPrismPreparation::Capture &capture,
+                        Admission admission) {
   if (request.size() != 64 || request.find_first_not_of("0123456789abcdef") != std::string::npos) {
     return std::unexpected("invalid prism slot request identity");
   }
@@ -43,10 +45,12 @@ UrbanPrismSlot::Advance(const std::string &request, const UrbanPrismPreparation:
   }
   if (ReadyKey_ == Wanted_) { return false; }
   if (!Job_) {
+    if (admission == Admission::CollectOnly) { return false; }
     Job_ = std::make_unique<UrbanPrismPreparation>(Pool_, Database_, Wanted_, BytesMost_);
     ++Costs_.Started;
   }
-  auto result = Job_->Advance(capture);
+  const UrbanPrismPreparation::Capture noCapture;
+  auto result = Job_->Advance(admission == Admission::AllowWork ? capture : noCapture);
   if (!result) { return std::unexpected(result.error()); }
   if (!*result) { return false; }
   Ready_ = std::move(*result);
