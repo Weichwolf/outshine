@@ -30,110 +30,117 @@ child cells. The filtered signed correction to a preserved opaque baseline is
 C/T/S. Full readiness gives D=0 and bypasses parent traversal. Native World bounds,
 terrain/curvature, original-height evidence and readiness remain #1102.
 
-## Current step: finer geographic evidence at fixed M8/B16
+## Current step: proven receiver ownership during caster pending
 
-The existing direct16/direct64 source parents were compared without rebuilding
-sources or children. Both retain395 pinned records, identical frame/heights/
-probabilities and the same global area means (difference below2e-12). Only the
-geographic distribution read by bilinear density lookup changes. This isolates
-source geography from camera sample density, the transport algebra and known
-geometry. No lookup preparation, new dependency or runtime change was introduced.
+The remaining Camera-/Caster-Ready jump contains a concrete missing geometric
+fact. A known 6 m roof in a 16 m cell, with heights 6/12 m at probabilities 0.7/0.3 and
+vacancy 0.15, gets S=0.745 while its caster product is pending: the model can shadow
+it with its own taller prior. The independent one-box ray reference gives S=1.
+Caster readiness changes S to 1. No source or physical geometry changed.
 
-At runtime freeze `01030019b`,36 fresh cases cover both parents, six Ready/
-foreground states and day/back/night, with the same full247,731-mass resolved
-control and per-profile ROIs inside1280x720,240km/75,894.663844m camera. Every run
-exits0. All16er raw arrays match the preceding M8/B16 freeze bit-for-bit; both
-parents preserve B16 and full-Ready child RGB exactly. Raw composites remain
-nonnegative with weights in[0,1]. No input/source/recipe/profile/default changed.
-All36 actual PNG contents are decoded/verified and optically reviewed in three
-local sheets, alongside dense references and common-scale error maps. Day detail
-is less uniformly blurred; the half-Ready split and remaining night errors persist.
+The optional `--receiver-ownership` candidate carries actual receiver ownership
+into deterministic and sampled shadow consumers. It excludes only the known
+convex receiver body from its own shadow hypotheses, using the existing own-cell
+argument. For an outward face with positive normal/light dot product, the light
+ray leaves the supporting halfspace and cannot re-enter that convex body. Neighbor
+cells, external casters and primary parent contributions keep their paths. This
+is a geometric fact from the actual hit, not a Caster-Ready/Empty certificate for
+an entire camera domain. Generic opaque stops do not grant this fact.
 
-| Light / state |16er RGB RMSE |64er RGB RMSE |16er total s |64er total s |
-| --- | ---: | ---: | ---: | ---: |
-| day / pending | 0.018849 | 0.015883 | 6.951 | 7.208 |
-| day / half_view | 0.025077 | 0.023978 | 7.051 | 7.047 |
-| day / half_caster | 0.027651 | 0.023903 | 10.727 | 11.254 |
-| day / half_ready | 0.015807 | 0.013640 | 9.225 | 9.503 |
-| back / pending | 0.011499 | 0.011317 | 4.954 | 5.142 |
-| back / half_view | 0.020120 | 0.020033 | 5.283 | 5.455 |
-| back / half_caster | 0.022282 | 0.020652 | 8.566 | 8.575 |
-| back / half_ready | 0.011394 | 0.011270 | 7.465 | 7.447 |
-| night / pending | 0.105892 | 0.115359 | 15.450 | 16.143 |
-| night / half_view | 0.168109 | 0.167233 | 12.596 | 13.398 |
-| night / half_caster | 0.186547 | 0.187881 | 25.138 | 26.450 |
-| night / half_ready | 0.095858 | 0.099447 | 18.384 | 19.178 |
+`urban_opaque_receivers.py` owns opaque hits/foreground override and the conservative
+producer: actual entry-face hit, matching pitch/footprint/XY lattice, equal vertical
+origin, identity basis and exactly one bottom-zero positive-height prism in the
+owning column. Fallback hits, multiple/raised spans, misaligned products, ground,
+unknown and winning foreground hits yield no ownership. The common shadow inputs
+validate integer cells, bounds, finite stops/normals and explicit Camera-Ready
+coverage. An explicitly supplied owner is a caller proof of that geometry.
+No inference from source-area means, arbitrary XY overlap or data existence occurs.
 
-Errors are whole ROI pixel linear-RGB RMSE against the same mean of two64x64
-opaque reference seeds; foreground is a different physical scene and has no bare
-reference error. Reference seed disagreements day/back/night remain
-0.001557/0.002117/0.014662, observed uncertainty rather than certified error bars.
-Per-seed errors and exact current controls are retained. Small gains do not prove
-convergence or an equal-quality speedup. Full-Ready errors are unchanged.
+Before the frozen matrix, 195 targeted Python tests pass, including seven new
+independent-box/proof/contract tests: false own-roof shadow removed, real neighbor
+shadow retained, complete one-box Ready composition recovered, actual trace and
+foreground clearing, unproven layouts/fallbacks, invalid input rejection, sampled
+consumer parity, packet invariance and immutable child arrays. Earlier81-world/
+source/Ready controls remain. A later guard rejects vertical-origin/basis mismatches. The final typed-query
+lookup fix passes all 197 focused tests (25.046s), including a ninth test that
+keeps preparation peak bounded when unqueried known columns grow128->32768.
+No native/GPU contract, source/Fine build, dependency, default/profile change or
+new camera sampling/normalization method is bundled.
 
-Half-view->half-Ready jump RMSE16er/64er is day0.021994/0.022222,
-back0.018881/0.018845 and night0.135923/0.134627. Other Ready edges remain
-mixed: night pending->half-view0.159240->0.164068 and half-Ready->full-Ready
-0.075545->0.077905 get worse. Eight day/back non-full-Ready errors improve;
-three of four night errors get worse. Every direction also holds against each
-reference seed separately, without establishing a general error bound.
+At runtime freeze `1bb200c95`,36 fresh matrix jobs terminate0: source16,
+M8/B16, three lights and six Ready/foreground states, same247,731-mass reference,
+per-profile ROIs inside1280x720 at240km/75,894.663844m. All18 unflagged raw arrays
+are bit-identical to the preceding freeze. All36 actual PNG contents were decoded
+and optically reviewed with dense references/common-scale error maps. The source,
+geometry, sampler, transport normalization and known caster/background inputs stay.
+After vertical guarding (`35c620f20`) and the lookup copy fix (`ee442f9eb`), each
+three original-field half-view runs terminates0 with every array/decoded PNG exact
+to the matrix. The six additional exports do not constitute independent quality samples.
+Only the conservative guard and dtype of selected lookup keys change afterward.
 
-A signed algebraic diagnostic separates each half-view->half-Ready jump:
-`delta F = delta C + mean(a)*delta B + mean(B)*delta a`.
-Here delta C is exactly zero. The two remaining terms are correlated and partially
-cancel; their RMS values must not be added or interpreted as independent errors.
-For night16er, background/weight term RMS is0.092042/0.214408,
-while total jump RMS is0.135923. The identity residual is below8.9e-16 across
-both parents/all three lights. This locates a transport/readiness discrepancy,
-not a geometry repair or proof of its general cause.
-Existing moment arrays also recover the same-node complete8 image as mean(C+R),
-without another query. Its16er RGB agrees with the original direct8 control within
-floating precision; this distinguishes source-model and normalization changes.
-Night pending source16->64 already worsens complete8 error
-0.105889->0.115349; the transfer change is only about9e-5 RMS. Half-Ready
-complete8 also worsens0.150429->0.152736, although dense-background transfer
-reduces both errors. Finer geography is therefore not rejected merely because
-of an isolated normalization artifact; neither effect fixes the Ready mismatch.
+| Camera-Ready / Caster-Pending | Baseline RGB RMSE | Owner RGB RMSE |
+| --- | ---: | ---: |
+| day | 0.025077 | 0.017909 |
+| back | 0.020120 | 0.013046 |
+| night | 0.168109 | 0.132614 |
 
-Source construction costs are reused from the pinned `c431da988` study, not freshly
-measured: direct16/direct64 use6,264/98,424 array bytes and6,637/83,366 compressed
-file bytes; direct compilation7.206/50.492s. The already verified recursive64
-compiler produces equivalent imagery in13.892s, but does not qualify64er quality.
-Both source variants generate zero child cells. No GEOS/source preparation occurs
-in the current pixel queries. Actual traversal work, logical query/packet copy
-bytes, output arrays, preparation and RSS are retained per phase. Finer q can
-change zero-density shadow work; geometry-work dictionaries need not be identical.
-Fresh-process RSS spans144,310,272..148,123,648B including imports and
-prepared arrays, not an app/device budget. Pixel rays, ten-field/output capacity
-and logical packet/camera-copy counts stay identical between source resolutions;
-source64 does not reduce parent ray demand. Shared interactive Linux/i5 CPU host,
-fixed16-then64 order and one call per case; brief nice10 numeric summaries and
-small review-sheet assembly overlap some cases. The separate profiler runs before
-the matrix. These costs are observational, not isolated/statistical/native gains.
-Even identical full-Ready images show timing variation, with no parent queries.
+Errors use the same two dense64 opaque-field reference seeds; their disagreement
+remains day/back/night 0.001557/0.002117/0.014662, observed uncertainty rather than
+certified bounds. Each seed has the same improvement direction. Foreground is a
+different physical scene and is excluded from bare-reference errors.
+Half-view->half-Ready jump RMS drops day 0.021994->0.011198,
+back 0.018881->0.008644, night 0.135923->0.074266. Pending->half-view drops
+0.026433->0.017579,0.018842->0.010904,0.159240->0.099117 respectively.
+Other Ready edges remain exactly unchanged; transitions are not eliminated.
 
-A separate preflight profile of1,700 night half-Ready rays observes317 whole-plane
-midpoint reductions per scene query. For16/64, centre_fraction consumes
-0.0093/0.0411s of instrumented0.4546/0.5135s (about2/8%). The mean output alone
-allocates317*256*8/317*4096*8 logical bytes (649,216/10,387,456B); this excludes
-other arrays and is not physical traffic, process peak or native time. Lookup is
-measurable but not the dominant cost. No caching/preparation rewrite is justified
-as a solution to these image/Ready errors by this profile alone.
+Only half-view RGB/transport weights change. Its parent C/T and B moments are
+bit-identical; B16 is exact everywhere. All other five states retain every raw
+field bit-for-bit, including known foreground and full-Ready children. No extra
+parent/background rays or pixel fields are requested. The old control remains
+reproducible without the explicit flag. Default/source16 stays unchanged.
 
-Keep direct16 as the source default;64 remains an optional measured alternative.
-Further source-resolution or camera/CDF sweeps are not the next action. The next
-bounded model investigation targets the camera/caster Ready transport mismatch,
-with identical physical inputs and all existing child/foreground identities. No
-smoothing/clamping may erase known geometry or hide unresolved failure cases.
-The native world, fast movement/streaming, curvature, full contents and device/
-p99 contracts remain unproved by static flat-ENU ROIs. No source-height/occluder,
-Empty/Ready certificate or new persistent view-moment asset follows.
+At the original paired matrix freeze, half-view total CPU integration seconds
+(base/owner) are day7.176/7.209, back6.164/6.708, night13.768/13.905; no speedup
+is claimed. This includes both moment/background phases, before the metadata-copy
+fix. Each light has21,128 proven owner hits/column searches and676,096 selected
+metadata logical bytes; max owner input array131,072B (16B/requested ray).
+The current int32 trace-index gather plus uint32 key conversion copies8B/selected
+hit,169,024B cumulatively here, excluding other temporaries/search probes.
 
-Complete commands, immutable inputs, phase costs/work, unclamped arrays, per-seed
-errors, jump decomposition, negative controls and actual optical review:
-`/tmp/outshine-research-geographic-parent-01030019b/receipt.json`.
-The preceding joint-moment derivation, tests, sources, all cost/error/bias cases and
-reproduction remain pinned in [01030019b](https://github.com/Weichwolf/outshine/blob/01030019b/test/experiments/buildings/urban_parent_probe.md).
+A separate512-key lookup counterexample exposes NumPy promotion of the whole
+247,732-element uint32 offset table when given int32 keys: traced peak1,990,560B.
+Converting only selected nonnegative validated keys to the table dtype gives the
+same owners with8,608B peak. The final callback trace (same1,700 night rays) changes
+peak from1,502,891B baseline/2,128,184B pre-fix owner to1,502,891B/1,521,300B after
+the fix. This is prepared-input-excluded traced memory, not total allocation or
+normal runtime. Fresh-process matrix/postguard RSS144,023,552..148,193,280B.
+
+The source parent remains6,264B and the247,731-mass offline control is unchanged.
+Ownership consumes existing ready geometry only; it does not build unknown fine
+cells. Metadata search count, selected metadata logical bytes, owner-array peak,
+phase/total times and whole-process RSS are recorded. Selected metadata bytes
+exclude search probes, allocator traffic and physical bandwidth. Owning cells are
+passed by view across batches; the same owner array must not be counted twice.
+Separate traced callback checks cover temporary peaks; RSS includes imports and
+prepared fields, not an app budget. Shared interactive Linux/i5 CPU, fixed base-
+then-owner order, one pair per case, brief nice10 summaries/review-sheet work and
+foreign CPU jobs. Python times are not native/device or equal-quality speedups.
+
+This fixes a demonstrated own-body inconsistency and improves these images/one
+Ready edge; it does not eliminate remaining prior/known-geometry correlations,
+source-height uncertainty, aliasing or physical/Ready transitions. No generic
+convex-owner evidence exists yet for arbitrary native building/fallback meshes.
+Full World, curved terrain, streaming/motion and1280x720/60/p99 with full contents
+on both devices remain unproved. The next model step must retain this fact and
+address remaining same-source Camera-/Caster-Ready correlation; no density/CDF
+sweep or World/renderer rewrite follows.
+
+The prior SIGGRAPH/EG forest joint visible/lit model is context, re-read optically
+on PDF pages2-3/Figure2; the convex supporting-halfspace argument here is separate.
+Full commands/hashes, terminal jobs, unclamped arrays, costs/counterexamples and
+actual optical review: `/tmp/outshine-research-receiver-owner-1bb200c95/receipt.json`.
+The preceding geographic alternatives, all negatives and references remain pinned
+in [19594adc0](https://github.com/Weichwolf/outshine/blob/19594adc0/test/experiments/buildings/urban_parent_probe.md).
 
 ## Earlier controlled alternatives
 
@@ -142,6 +149,7 @@ versions; original inputs and referenced raw artifacts have not been removed.
 
 | Alternative | Result/limit | Detailed method |
 | --- | --- | --- |
+| Finer geographic source evidence | Eight day/back errors improve, three night errors worsen; Ready jumps remain, direct16 retained | [19594adc0](https://github.com/Weichwolf/outshine/blob/19594adc0/test/experiments/buildings/urban_parent_probe.md) |
 | Joint weighted Ready moments | Nonnegative composites and exact equal-grid/full-Ready identities; ratio bias, cost and Ready jumps remain | [01030019b](https://github.com/Weichwolf/outshine/blob/01030019b/test/experiments/buildings/urban_parent_probe.md) |
 | Dense Ready baseline plus raw D | Same-grid/Ready identities and favorable cases, but negative composite pixels; general use rejected | [e198a046d](https://github.com/Weichwolf/outshine/blob/e198a046d/test/experiments/buildings/urban_parent_probe.md) |
 | Joint deterministic Ready pixel integration | Lower aliasing/error, child baseline preserved; costly finer grids and remaining Ready jumps | [d6f037c33](https://github.com/Weichwolf/outshine/blob/d6f037c33/test/experiments/buildings/urban_parent_probe.md) |
@@ -173,6 +181,8 @@ Use the existing .venv with
 `PYTHONPATH=lib/src:test/experiments/render:test/experiments/buildings`.
 The source compiler runs before the independent resolved bake; subsequent probes
 consume only the saved parent. Choose fresh system-temp output directories.
+Add `--receiver-ownership` to the weighted pixel command for the proven-owner
+variant; omit it for the retained baseline. The dense background is unchanged.
 
 ```sh
 python -B -W error test/experiments/buildings/compare_urban_pixel_reference.py \
