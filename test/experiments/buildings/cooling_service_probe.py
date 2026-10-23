@@ -44,7 +44,7 @@ def exact_insertion(before, after, accesses):
                 after[k][start : start + size].dtype == v.dtype
                 and after[k][start : start + size].tobytes() == v.tobytes()
                 for k, v in extra.items()
-                if k != "faces"
+                if k not in ("faces", "materials")
             ):
                 matches.append(int(start))
         if len(matches) != 1:
@@ -60,6 +60,11 @@ def exact_insertion(before, after, accesses):
         )
         if not np.array_equal(after["faces"][selected] - start, extra["faces"]):
             raise ValueError("whole product changed service triangle topology")
+        if (
+            after["materials"][selected].dtype != extra["materials"].dtype
+            or after["materials"][selected].tobytes() != extra["materials"].tobytes()
+        ):
+            raise ValueError("whole product changed service face material words")
         faces_removed |= selected
         entries.append(
             {
@@ -71,7 +76,7 @@ def exact_insertion(before, after, accesses):
     if not np.array_equal(remove[after["faces"]].any(axis=1), faces_removed):
         raise ValueError("service insertion connected to an unrelated source triangle")
     for key in before.keys() - {"faces"}:
-        kept = after[key][~remove]
+        kept = after[key][~faces_removed if key == "materials" else ~remove]
         if (
             kept.dtype != before[key].dtype
             or kept.shape != before[key].shape
