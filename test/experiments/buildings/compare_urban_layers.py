@@ -233,7 +233,7 @@ def run(args):
         "scope": "Flat ENU controlled direct lighting; exact finite-ray composition, not a filtered LOD transition, terrain/curvature or native admission.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps(report))
+    print(json.dumps({"report": str(args.output / "report.json")}))
 
 
 if __name__ == "__main__":
