@@ -17,6 +17,7 @@
 #include <cmath>
 #include <string>
 #include <optional>
+#include <string_view>
 namespace N = outshine::Render::Native;
 namespace C = outshine::Diagnostics::Calibration;
 using Json = nlohmann::json;
@@ -180,7 +181,11 @@ Json Snapshot(N::Device &device, N::Texture &target, const std::filesystem::path
 }
 
 int main(int argc, char **argv) {
-  if (argc != 4) { return 2; }
+  if (argc != 4 && (argc != 5 || std::string_view(argv[4]) != "--projection-contract")) {
+    return 2;
+  }
+  constexpr uint32_t MaximumModes = 6;
+  const uint32_t modes = argc == 5 ? MaximumModes : 4;
   auto device =
       Take(N::CreateDevice({.Validation = true, .GpuTiming = N::GpuTimingMode::Submission}));
   auto meshes = Meshes(*device, argv[2]);
@@ -189,8 +194,8 @@ int main(int argc, char **argv) {
                              .Height = TargetHeight,
                              .Texels = N::Format::Depth32Float,
                              .Use = N::TextureUse::DepthAttachment | N::TextureUse::CopySource}));
-  std::array<std::unique_ptr<N::GraphicsPipeline>, 4> pipelines;
-  for (size_t mode = 0; mode < pipelines.size(); ++mode) {
+  std::array<std::unique_ptr<N::GraphicsPipeline>, MaximumModes> pipelines;
+  for (size_t mode = 0; mode < modes; ++mode) {
     pipelines[mode] = Pipeline(
         *device, std::filesystem::path(argv[1]) / ("cost-" + std::to_string(mode) + ".vert.spv"));
   }
@@ -199,8 +204,8 @@ int main(int argc, char **argv) {
   uint64_t missing = 0;
   for (uint32_t instances : {1u, 64u}) {
     for (uint32_t round = 0; round < 13; ++round) {
-      for (uint32_t step = 0; step < 4; ++step) {
-        const auto mode = (step + round) % 4;
+      for (uint32_t step = 0; step < modes; ++step) {
+        const auto mode = (step + round) % modes;
         const auto sample = Render(*device, *target, *pipelines[mode], meshes, instances);
         if (round == 0 && instances == 1) {
           snapshots.push_back(Snapshot(*device,
@@ -230,7 +235,8 @@ int main(int argc, char **argv) {
               {"indices_per_instance", indices},
               {"geometry_buffer_bytes", bytes},
               {"depth_attachment_bytes", DepthBytes},
-              {"readback_bytes", 4 * DepthBytes},
+              {"mode_count", modes},
+              {"readback_bytes", modes * DepthBytes},
               {"uniform_bytes_per_pass", meshes.size() * sizeof(Input)},
               {"snapshots", snapshots},
               {"missing_gpu_samples", missing},

@@ -7,6 +7,11 @@ samples nor the derivation below establish that every permitted compiler rewrite
 belongs to this family. That qualification remains required before a world consumer
 can use the bounds. `qualified_for_page_suppression` remains false.
 
+[CONTRACT.md](CONTRACT.md) proposes a scoped NoContraction contract for the
+existing typed Lit/Flat operations and derives how it fits this envelope. The
+experiment compiles temporary variants; production shaders remain unqualified
+and Metal translation still requires its own review.
+
 ## Expression family and domain
 
 Let M and V be the supplied binary32 model/view matrices, P=(px,py,pz,1), and

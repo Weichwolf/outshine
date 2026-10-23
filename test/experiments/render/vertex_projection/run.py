@@ -56,7 +56,7 @@ def float32_controls(shared, checkout, output, steps):
     )
 
 
-def vertex_source(checkout):
+def vertex_source(checkout, precise_projection=False):
     vertex = (SOURCE / "projection.vert.in").read_text()
     vertex = vertex.replace(
         "@LIT_POSITION@",
@@ -74,6 +74,8 @@ def vertex_source(checkout):
             "  uv = vec2(0.0);",
         ),
     )
+    if precise_projection:
+        vertex = vertex.replace("void main() {", "precise gl_Position;\nvoid main() {")
     return vertex
 
 
@@ -92,6 +94,11 @@ def main():
         type=Path,
         default=SOURCE.parents[3]
         / "test/outshine/data/render/patch_selection/native-mesh-subset.json",
+    )
+    parser.add_argument(
+        "--precise-projection",
+        action="store_true",
+        help="diagnostic precise position output; no product shader change",
     )
     args = parser.parse_args()
     if args.spirv_float32_controls and sys.platform != "linux":
@@ -129,6 +136,11 @@ def main():
         "source_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=SOURCE, text=True
         ).strip(),
+        "source_worktree_dirty": bool(
+            subprocess.check_output(
+                ["git", "status", "--porcelain"], cwd=SOURCE, text=True
+            )
+        ),
         "native_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=checkout, text=True
         ).strip(),
@@ -137,11 +149,12 @@ def main():
         "archive_sha256": shared.digest(checkout / "build/liboutshine.a"),
         "compile_database_sha256": shared.digest(args.compile_database.resolve()),
         "spirv_float32_controls": args.spirv_float32_controls,
+        "precise_projection": args.precise_projection,
         "steps": steps,
         "success": False,
     }
     try:
-        vertex = vertex_source(checkout)
+        vertex = vertex_source(checkout, args.precise_projection)
         (output / "projection.vert").write_text(vertex)
         for name, source in [
             ("projection.vert", output / "projection.vert"),
