@@ -3,6 +3,7 @@
 import numpy as np
 import shapely
 from scipy import sparse
+from stair_planar_lineage import prepared_faces, refined_face_ids
 
 
 def _clear_cut(stations, required, direction):
@@ -66,32 +67,52 @@ def _flight(plan, owner):
     }
 
 
-def _split(vertices, flights, faces, masks, flight, cut, max_vertices, max_faces):
+def _split(
+    vertices,
+    flights,
+    faces,
+    masks,
+    parents,
+    planar,
+    flight,
+    cut,
+    max_vertices,
+    max_faces,
+):
     station = flights[flight]["stations_m"]
-    cache, output, owners = {}, [], []
+    cache, planar_cache, output, owners, lineage = {}, {}, [], [], []
 
     def crossing(a, b):
         if station[a] == cut:
             return a
         if station[b] == cut:
             return b
-        a, b = sorted((a, b))
+        a, b = sorted((a, b), key=planar.__getitem__)
         if (a, b) in cache:
             return cache[a, b]
         if len(vertices) >= max_vertices:
             raise ValueError("straight-flight vertex budget exhausted")
-        fraction = (cut - station[a]) / (station[b] - station[a])
-        point = vertices[a] + fraction * (vertices[b] - vertices[a])
+        edge = planar[a], planar[b]
+        shared = planar_cache.get(edge)
         index = len(vertices)
-        vertices.append(point)
-        for current in flights:
-            values = current["stations_m"]
-            values.append(values[a] + fraction * (values[b] - values[a]))
-        station[index] = cut
+        if shared is None:
+            fraction = (cut - station[a]) / (station[b] - station[a])
+            vertices.append(vertices[a] + fraction * (vertices[b] - vertices[a]))
+            for current in flights:
+                values = current["stations_m"]
+                values.append(values[a] + fraction * (values[b] - values[a]))
+            station[index] = cut
+            planar.append(index)
+            planar_cache[edge] = index
+        else:
+            vertices.append(vertices[shared].copy())
+            for current in flights:
+                current["stations_m"].append(current["stations_m"][shared])
+            planar.append(planar[shared])
         cache[a, b] = index
         return index
 
-    for face, mask in zip(faces, masks, strict=True):
+    for face, mask, parent in zip(faces, masks, parents, strict=True):
         values = [station[i] for i in face]
         if max(values) <= cut or min(values) >= cut:
             polygons = [face]
@@ -124,7 +145,8 @@ def _split(vertices, flights, faces, masks, flight, cut, max_vertices, max_faces
                     raise ValueError("straight-flight face budget exhausted")
                 output.append(tri)
                 owners.append(mask)
-    return output, owners, len(cache)
+                lineage.append(parent)
+    return output, owners, lineage, len(cache)
 
 
 def prepare_stair_lofts(plan, *, max_vertices=4096, max_faces=8192):
@@ -133,30 +155,34 @@ def prepare_stair_lofts(plan, *, max_vertices=4096, max_faces=8192):
     flights = [_flight(plan, owner) for owner, _low, _high in plan["stairs"]]
     if not 1 <= len(flights) <= 16:
         raise ValueError("bounded nonempty straight-flight set required")
-    canonical = {}
-    for owner, faces in enumerate(plan["parts"]):
-        for face in faces:
-            key = tuple(sorted(map(int, face)))
-            old = canonical.get(key, (list(map(int, face)), 0))
-            canonical[key] = old[0], old[1] | (1 << owner)
-    faces, masks = map(list, zip(*canonical.values(), strict=True))
+    faces, masks, parents, planar = prepared_faces(plan)
     before = len(faces)
     vertices = [point.copy() for point in plan["xy"]]
     intersections, face_visits = 0, 0
     for i, flight in enumerate(flights):
         for cut in (flight["start_cut_m"], flight["end_cut_m"]):
             face_visits += len(faces)
-            faces, masks, count = _split(
-                vertices, flights, faces, masks, i, cut, max_vertices, max_faces
+            faces, masks, parents, count = _split(
+                vertices,
+                flights,
+                faces,
+                masks,
+                parents,
+                planar,
+                i,
+                cut,
+                max_vertices,
+                max_faces,
             )
             intersections += count
     xy, faces = np.array(vertices), np.array(faces, dtype=int)
+    face_ids = refined_face_ids(faces, parents, planar)
     parts, globals_ = [], []
     for owner in range(len(plan["rows"])):
         indices = np.array(
             [i for i, mask in enumerate(masks) if mask & (1 << owner)], dtype=int
         )
-        globals_.append(indices)
+        globals_.append(face_ids[indices])
         parts.append(faces[indices])
     errors = []
     for part, domain in zip(parts, plan["prepared_domains"], strict=True):
@@ -172,6 +198,9 @@ def prepare_stair_lofts(plan, *, max_vertices=4096, max_faces=8192):
         "output_faces": len(faces),
         "edge_intersections": intersections,
         "face_visits": face_visits,
+        "planar_faces": len(np.unique(face_ids)),
+        "lineage_vertex_entries": len(planar),
+        "lineage_parent_entries": len(parents),
         "maximum_extra_flat_m": max(max(f["extra_flat_m"]) for f in flights),
         "source_coverage_errors_m2": errors,
     }
