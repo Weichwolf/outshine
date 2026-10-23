@@ -124,6 +124,9 @@ void CheckScene() {
   std::array<PrismInstance, 1> instances{};
   instances[0].Current[12] = instances[0].Current[14] = -1;
   instances[0].Previous = instances[0].Current;
+  (void)Draw(*scene, renderer);
+  const auto nativeBytes = renderer.Spent(Stage::Geometry).DeviceBytes;
+  constexpr uint64_t prismBytes = sizeof(PrismSpan) + sizeof(GpuPrismPatch);
   const auto handle = renderer.PlacePrismGrid(Source(1), instances, *slot);
   CHECK(handle.has_value(), "one prism becomes resident through the scene handle API");
   if (!handle) { return; }
@@ -133,6 +136,8 @@ void CheckScene() {
   CHECK(renderer.SetGeometryLights(std::span(&light, 1), error),
         "a frontal key illuminates the independently chosen front face");
   const auto first = Draw(*scene, renderer);
+  CHECK(renderer.Spent(Stage::Geometry).DeviceBytes == nativeBytes + prismBytes,
+        "geometry diagnostics include the live prism sample and record buffer payload");
   if (first.Depth.size() <= kCentre || first.Colour.size() <= kCentre * 4 + 2 ||
       first.Velocity.size() <= kCentre * 2 + 1) {
     return;
@@ -168,6 +173,8 @@ void CheckScene() {
   CheckMappedNormal(*scene, renderer, *handle, instances);
   renderer.ReleasePrismGrid(*handle);
   const auto released = Draw(*scene, renderer);
+  CHECK(renderer.Spent(Stage::Geometry).DeviceBytes == nativeBytes,
+        "release removes prism payload from the geometry memory diagnostic");
   CHECK(released.Depth.size() > kCentre && released.Depth[kCentre] == 0 &&
             std::ranges::none_of(released.Shadow, [](float depth) { return depth > 0; }),
         "release removes colour depth and cached caster depth without ghost geometry");
