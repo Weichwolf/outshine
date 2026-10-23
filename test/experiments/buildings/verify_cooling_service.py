@@ -83,6 +83,30 @@ class CoolingService(unittest.TestCase):
             for bay in range(access.tower.bays):
                 self.assertEqual((solid ^ passage(access.tower, bay)).volume(), 0)
 
+    def test_draw_deck_has_no_coplanar_overlap_with_the_retained_collector(self):
+        for access in self.access:
+            floor = components(access)[
+                access.tower.source.identifier + ":service:floor"
+            ]
+            collector = tower_components(access.tower)[
+                access.tower.collector.identifier
+            ]
+            a = floor["vertices"].astype(np.float32)[floor["faces"]]
+            b = collector["vertices"].astype(np.float32)[collector["faces"]]
+            area = 0.0
+            for first in a[np.all(a[:, :, 2] == a[:, :1, 2], axis=1)]:
+                same_plane = np.all(b[:, :, 2] == first[0, 2], axis=1)
+                overlaps = shapely.intersection(
+                    shapely.polygons(first[:, :2]),
+                    shapely.polygons(b[same_plane, :, :2]),
+                )
+                area += float(shapely.area(overlaps).sum())
+            self.assertEqual(
+                area,
+                0.0,
+                "different material surfaces overlap in one Float32 depth plane",
+            )
+
     def test_different_bay_and_coarse_product_preserve_connection_and_clearance(self):
         tower = self.cases[0][1]
         for bay, error in ((1, 0.05), (tower.bays // 3, 1.0)):
