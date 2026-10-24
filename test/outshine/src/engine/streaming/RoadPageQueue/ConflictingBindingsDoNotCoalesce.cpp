@@ -4,6 +4,7 @@
 #include "Earth.h"
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <semaphore>
