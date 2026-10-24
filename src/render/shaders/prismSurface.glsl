@@ -27,6 +27,10 @@ bool readPrismSurface() {
     u = vec3(localNormal.z, 0.0, 0.0);
     v = vec3(0.0, 1.0, 0.0);
   }
+#if SUBJECT_BASE_LOCATION == 0
+  prismShadowReceiver = prismReceiverPlane(mat3(prismView.lightFromWorld),
+                                          mat3(gridPatch.current), localNormal);
+#endif
   uv = vec2(dot(point, u), dot(point, v));
   uv1 = uv;
   facadeBay = uv.x;

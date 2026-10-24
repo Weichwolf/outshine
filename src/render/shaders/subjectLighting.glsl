@@ -1,7 +1,14 @@
+#if PRISM_GRID
+#define SUBJECT_SHADOW_RECEIVER vec4
+#define REGIONAL_RECEIVER(p, a) vec4((p).xy * (a).depth.x / (a).transform.xy, (p).zw)
+#else
+#define SUBJECT_SHADOW_RECEIVER vec2
+#define REGIONAL_RECEIVER(p, a) ((p) * (a).depth.x / (a).transform.xy)
+#endif
 #include "shadowFilter.glsl"
 #include "thinSheet.glsl"
 
-float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, vec2 receiverSlope,
+float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, SUBJECT_SHADOW_RECEIVER receiverSlope,
                           vec4 atlas, vec2 origin) {
   ivec2 extent = textureSize(map, 0);
   vec2 texel = (atlas.xy + uv * atlas.z) * vec2(extent) - 0.5;
@@ -21,12 +28,18 @@ float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, vec2 rece
                      texelFetch(map, ivec2(physicalHigh.x, physicalLow.y), 0).r,
                      texelFetch(map, ivec2(physicalLow.x, physicalHigh.y), 0).r,
                      texelFetch(map, physicalHigh, 0).r);
+#if PRISM_GRID
+  vec4 plane = vec4(receiverSlope.xy / (atlas.z * vec2(extent)), receiverSlope.zw);
+  return prismPlaneShadowVisibility(depths, fract(texel), receiverDepth, plane,
+                                    vec2(low) - texel, vec2(high - low));
+#else
   vec4 receivers = shadowReceiverDepths(receiverDepth, receiverSlope / (atlas.z * vec2(extent)),
                                          vec2(low) - texel, vec2(high - low));
   return bilinearShadowVisibility(depths, fract(texel), receivers);
+#endif
 }
 
-float regionShadowVisibility(sampler2D map, vec3 lightCoordinate, vec2 receiverSlope,
+float regionShadowVisibility(sampler2D map, vec3 lightCoordinate, SUBJECT_SHADOW_RECEIVER receiverSlope,
                              int region) {
   ShadowRegion area = lights.shadowRegions[region];
   vec2 local = lightCoordinate.xy * area.transform.xy + area.transform.zw;
@@ -34,10 +47,10 @@ float regionShadowVisibility(sampler2D map, vec3 lightCoordinate, vec2 receiverS
   float depth = lightCoordinate.z * area.depth.x + area.depth.y;
   if (depth < 0.0 || depth > 1.0) { return 1.0; }
   return sunShadowVisibility(map, uv, depth + area.atlas.w,
-                             receiverSlope * area.depth.x / area.transform.xy, area.atlas, area.depth.zw);
+                             REGIONAL_RECEIVER(receiverSlope, area), area.atlas, area.depth.zw);
 }
 
-float worldSunShadowVisibility(sampler2D map, vec3 coordinate, vec2 receiverSlope) {
+float worldSunShadowVisibility(sampler2D map, vec3 coordinate, SUBJECT_SHADOW_RECEIVER receiverSlope) {
   int count = int(lights.count.w);
   for (int region = 0; region < count; ++region) {
     ShadowRegion area = lights.shadowRegions[region];
@@ -100,7 +113,11 @@ vec3 shadeRow(M surface,
   vec3 originM = localM + n * lights.count.y;
   vec3 shadowCoordinate = lightSpace.xyz / max(1.0e-6, lightSpace.w);
   vec3 shadowUvDepth = shadowReceiverVector(shadowCoordinate);
-  vec2 receiverSlope = shadowReceiverSlope(dFdx(shadowUvDepth), dFdy(shadowUvDepth));
+#if PRISM_GRID
+  SUBJECT_SHADOW_RECEIVER receiverSlope = prismShadowReceiver;
+#else
+  SUBJECT_SHADOW_RECEIVER receiverSlope = shadowReceiverSlope(dFdx(shadowUvDepth), dFdy(shadowUvDepth));
+#endif
   vec3 sum = vec3(0.0);
   int count = int(lights.count.x);
   for (int at = 0; at < count; at = at + 1) {

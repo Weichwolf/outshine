@@ -2067,7 +2067,7 @@ fi
 for selectedTest in $TESTS; do
   case "$(TestProfile "$(dirname "${selectedTest#test/}")")" in
     profile/prism-native)
-      make build/shaders/prism-colour.vert.spv build/shaders/prism-depth.vert.spv build/shaders/prismDepth.frag.spv build/shaders/prismLit-000.frag.spv || Die "prism tests require prepared shaders"
+      make build/shaders/prism-colour.vert.spv build/shaders/prism-depth.vert.spv build/shaders/prismDepth.frag.spv build/shaders/prismLit-000.frag.spv build/test/shaders/prism-receiver.comp.spv || Die "prism tests require prepared shaders"
       break
       ;;
     profile/engine|profile/internal|profile/device|profile/calibration|profile/stage-pipelines|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
