@@ -21,7 +21,9 @@ int main() {
                           .Kind = DataKind::OriginalOsm,
                           .How = Scheme::GeodeticGrid,
                           .Wire = WireFormat::OsmXml,
-                          .MaximumPayloadBytes = 64};
+                          .MaximumPayloadBytes = 64,
+                          .PayloadSha256 = {},
+                          .Schema = {}};
   const GeoCellId root{.Level = 1, .X = 1, .Y = 0};
   const std::array children{GeoCellId{.Level = 2, .X = 2, .Y = 0},
                             GeoCellId{.Level = 2, .X = 2, .Y = 1},
