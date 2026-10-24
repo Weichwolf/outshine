@@ -10,7 +10,7 @@
 #include <vector>
 
 #include <Engine.h>
-#include "ShotOptions.h"
+#include "ScenarioArguments.h"
 #include "FrameTiming.h"
 
 namespace outshine {
