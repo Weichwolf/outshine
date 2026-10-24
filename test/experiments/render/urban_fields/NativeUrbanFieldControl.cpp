@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include <Engine.h>
 #include "TestEngine.h"
 #include "NativeUrbanField.h"
@@ -360,7 +361,9 @@ bool RenderOrbit(Engine &engine,
     times << samples[sample].Submission << ' ' << samples[sample].ElapsedMs << ' '
           << hostTimes[sample] << '\n';
   }
-  if (!times.good() || !Accepted(renderer.saveScreenshot(output + ".png"))) { return false; }
+  if (!times.good() || !Accepted(outshine::App::SaveImage(engine, output + ".png"))) {
+    return false;
+  }
   std::vector<float> depthValues;
   if (!Accepted(renderer.readPixels(Buffer::Depth, depthValues))) { return false; }
   std::ofstream depthFile(output + ".depth", std::ios::binary);

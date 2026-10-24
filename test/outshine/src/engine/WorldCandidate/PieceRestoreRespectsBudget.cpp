@@ -1,5 +1,5 @@
 #include "WorldCandidate.h"
-#include "FrameCapture.h"
+#include "FrameReadback.h"
 
 #include "Check.h"
 #include <cstddef>
@@ -36,7 +36,7 @@ int main() {
           "published world opens");
     if (scene) {
       std::vector<uint8_t> baseline;
-      CHECK(scene->Draw(error) && Core::ReadFrame(renderer, baseline, error) &&
+      CHECK(scene->Draw(error) && Render::ReadFrame(renderer, baseline, error) &&
                 baseline.size() == size_t{32} * 32u * 4u,
             "the initial published frame has a readable offscreen image");
       const std::array<StoredVertex, 3> vertices{
@@ -67,7 +67,7 @@ int main() {
         CHECK(prepared.has_value(), "candidate copies immutable piece sources");
         if (prepared) {
           std::vector<uint8_t> duringCandidate;
-          CHECK(scene->Draw(error) && Core::ReadFrame(renderer, duringCandidate, error) &&
+          CHECK(scene->Draw(error) && Render::ReadFrame(renderer, duringCandidate, error) &&
                     duringCandidate == baseline,
                 "readback uses the published frame while a candidate editor is active");
           CHECK(renderer.HasWorldCandidate() && renderer.PieceSlots() == handles.size(),

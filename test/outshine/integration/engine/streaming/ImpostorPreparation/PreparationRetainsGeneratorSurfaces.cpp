@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include "Check.h"
 #include "ImpostorPreparation.h"
 #include "ImpostorSurface.h"
@@ -32,7 +33,7 @@
 #include "shade/HalfTexels.h"
 #include "ImpostorInstances.h"
 #include "VegetationStreaming.h"
-#include "FrameCapture.h"
+#include "FrameReadback.h"
 #include "RuntimeScene.h"
 #include "Units.h"
 #include <limits>
@@ -187,8 +188,8 @@ CaptureAtlas(const TreePrototype &tree, Tasks &worker, Foreground &foreground) {
                !finished);
   PrintForegroundTimes(foreground);
   std::filesystem::create_directories(OutputDirectory());
-  CHECK(foreground.Renderer.renderer()
-            .saveScreenshot(OutputDirectory() + "/concurrent-foreground.png")
+  CHECK(outshine::App::SaveImage(foreground.Renderer,
+                                 OutputDirectory() + "/concurrent-foreground.png")
             .has_value(),
         "concurrent foreground PNG is written");
   CHECK(atlas.has_value(), "the native renderer captures crown surface data");
@@ -635,8 +636,8 @@ void CheckFine(const Geometry &fine,
                  light,
                  energy > 0 ? difference / energy : 0);
   }
-  CHECK(reference.renderer()
-            .saveScreenshot(OutputDirectory() + "/fine-0-light-" + std::to_string(light) + ".png")
+  CHECK(outshine::App::SaveImage(
+            reference, OutputDirectory() + "/fine-0-light-" + std::to_string(light) + ".png")
             .has_value(),
         "fine comparison PNG is written");
 }
@@ -666,9 +667,9 @@ void CheckLighting(const Content::ImpostorAtlas &atlas,
       continue;
     }
     CheckCardAttachments(atlas.Views()[view], {.Depth = depth, .Normals = normals}, view, light);
-    CHECK(engine.renderer()
-              .saveScreenshot(OutputDirectory() + "/card-" + std::to_string(view) + "-light-" +
-                              std::to_string(light) + ".png")
+    CHECK(outshine::App::SaveImage(engine,
+                                   OutputDirectory() + "/card-" + std::to_string(view) + "-light-" +
+                                       std::to_string(light) + ".png")
               .has_value(),
           "lit crown card PNG is written");
     if (view == 0 && fine) { CheckFine(*fine, scene, frames[light], light); }
@@ -733,10 +734,9 @@ bool OpenInstances(InstanceScene &scene, const Content::ImpostorAtlas &atlas) {
 }
 
 bool Screenshot(InstanceScene &scene, const std::string &path) {
-  return Core::SaveFrame(scene.Renderer,
-                         {.WidthPx = kInstanceExtent.WidthPx, .HeightPx = kInstanceExtent.HeightPx},
-                         path,
-                         scene.Error);
+  const auto saved = App::SaveImage(scene.Renderer, kInstanceExtent, path);
+  if (!saved) { scene.Error = saved.error(); }
+  return saved.has_value();
 }
 
 std::array<Mat4, 2> Models(const Content::ImpostorAtlas &atlas, Vec3 toward) {

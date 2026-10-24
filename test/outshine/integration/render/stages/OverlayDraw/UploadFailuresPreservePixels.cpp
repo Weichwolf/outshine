@@ -1,5 +1,5 @@
 #include "RuntimeScene.h"
-#include "FrameCapture.h"
+#include "FrameReadback.h"
 #include "SceneRenderer.h"
 #include "Check.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"
@@ -71,7 +71,7 @@ struct OverlayFixture {
   std::vector<uint8_t> Read() {
     std::vector<uint8_t> pixels;
     CHECK(Scene->Draw(Error), Error.c_str());
-    CHECK(Core::ReadFrame(Renderer, pixels, Error), Error.c_str());
+    CHECK(Render::ReadFrame(Renderer, pixels, Error), Error.c_str());
     return pixels;
   }
 

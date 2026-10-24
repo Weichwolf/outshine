@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include <Engine.h>
 #include "NativeTriangle.h"
 #include <SDL3/SDL.h>
@@ -59,10 +60,10 @@ int main() {
     };
     checkEye(4);
     CHECK(engine.renderer().render({}).has_value(), "render right camera");
-    CHECK(engine.renderer()
-              .saveScreenshot((directory / "outshine-follow-camera-right.png").string())
-              .has_value(),
-          "capture right target");
+    CHECK(
+        outshine::App::SaveImage(engine, (directory / "outshine-follow-camera-right.png").string())
+            .has_value(),
+        "capture right target");
     std::vector<float> beforeReplacement;
     CHECK(engine.renderer().readPixels(Buffer::Linear, beforeReplacement).has_value(),
           "the accepted generated asset has a readable frame");
@@ -84,8 +85,7 @@ int main() {
     CHECK(engine.setView("left-view").has_value(), "switch active target");
     checkEye(-4);
     CHECK(engine.renderer().render({}).has_value(), "render left camera");
-    CHECK(engine.renderer()
-              .saveScreenshot((directory / "outshine-follow-camera-left.png").string())
+    CHECK(outshine::App::SaveImage(engine, (directory / "outshine-follow-camera-left.png").string())
               .has_value(),
           "capture left target");
     std::swap(scene.Bodies[1], scene.Bodies[2]);

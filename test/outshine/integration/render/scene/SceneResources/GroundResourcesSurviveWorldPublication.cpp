@@ -2,7 +2,7 @@
 #include "WorldCandidate.h"
 #include "EngineState.h"
 #include "SceneRenderer.h"
-#include "FrameCapture.h"
+#include "FrameReadback.h"
 #include "Check.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
@@ -85,7 +85,7 @@ int main() {
       CHECK(renderer.TerrainRendererTriangles() > 0,
             "the ground-only draw actually culls the test tile into the frame");
       std::vector<uint8_t> pixels;
-      CHECK(Core::ReadFrame(renderer, pixels, error) && pixels.size() == size_t{32} * 32u * 4u,
+      CHECK(Render::ReadFrame(renderer, pixels, error) && pixels.size() == size_t{32} * 32u * 4u,
             "the ground-only frame is readable at the declared size");
       std::unique_ptr<Core::RuntimeScene> candidate;
       const auto pipelines = failure.ComputePipelineRequests;

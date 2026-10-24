@@ -493,10 +493,6 @@ std::string_view Renderer::gpuName() const {
   return Of_->S_->Picture.Device.GpuName();
 }
 
-Result Renderer::saveScreenshot(std::string_view path) {
-  return Of_->saveScreenshot(path);
-}
-
 int Renderer::settleFrames() const {
   return Of_->S_->Picture.Device.SettleFrames();
 }

@@ -5,6 +5,17 @@ file(GLOB_RECURSE cases CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/s
 add_custom_target(outshine_tests)
 add_custom_target(outshine_gate)
 add_dependencies(outshine_gate outshine)
+set(capture_cases
+  outshine/integration/engine/streaming/ImpostorPreparation/PreparationRetainsGeneratorSurfaces
+  outshine/integration/generators/flora/TreePrototype/TreeGeometryUsesNativeMaterials
+  outshine/integration/render/Surfacing/NativeImagesReachTheRenderer
+  outshine/integration/render/device/GpuSubmission/WindowFramesCloseAfterDrawing
+  outshine/src/engine/Engine/CameraFollowsItsNamedEntity
+  outshine/src/engine/Engine/NativeMipImagesReachTheRenderer
+  outshine/src/engine/Engine/PerspectiveNativeMipImagesRepeatLinearPixels
+  outshine/src/engine/Engine/ScenarioViewsPreserveProjection
+  outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
+)
 foreach(source IN LISTS cases)
   file(RELATIVE_PATH name "${PROJECT_SOURCE_DIR}/test" "${source}")
   string(REGEX REPLACE "\\.cpp$" "" name "${name}")
@@ -37,6 +48,9 @@ foreach(source IN LISTS cases)
     endif()
   endif()
   string(REPLACE "/" "_" component "outshine_${owner}")
+  if(name IN_LIST capture_cases)
+    target_link_libraries(${target} PRIVATE outshine_app_capture)
+  endif()
   target_link_libraries(${target} PRIVATE ${component})
   if(name MATCHES "^outshine/integration/places")
     add_dependencies(${target} outshine)
