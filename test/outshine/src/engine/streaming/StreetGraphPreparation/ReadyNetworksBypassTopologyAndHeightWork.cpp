@@ -124,7 +124,7 @@ int main() {
             "native geometry, topology and profiles survive without replaying old timings");
     }
   }
-  auto bridge = Input(true);
+  const auto bridge = Input(true);
   Generators::Osm::StreetField bridgeWays;
   CHECK(bridgeWays.Ingest(*bridge, templates) == 2, "bridge input is normalized");
   CHECK(cache->Key(*bridge, bridgeWays, {}, 14, terrainBinding) != key,
