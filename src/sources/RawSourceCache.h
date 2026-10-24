@@ -45,7 +45,7 @@ public:
   static constexpr size_t MaximumCoverageProbes = 65536;
 
   struct Config {
-    std::string Directory;
+    std::string Directory{};
     Use Using = Use::On;
 
     size_t CapBytes = 0;
