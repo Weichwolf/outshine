@@ -25,7 +25,9 @@ public:
                   .Endpoint = "https://native.example/cells",
                   .Kind = DataKind::Elevation,
                   .How = Scheme::GeodeticGrid,
-                  .MaximumPayloadBytes = 64};
+                  .MaximumPayloadBytes = 64,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 

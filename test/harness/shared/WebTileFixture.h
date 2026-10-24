@@ -28,7 +28,9 @@ public:
                                        .Keeps = Data::Cacheability::Forever,
                                        .Need = Data::Necessity::Required,
                                        .Latency = Data::LatencyClass::Distant,
-                                       .RetryBudget = 4},
+                                       .RetryBudget = 4,
+                                       .PayloadSha256 = {},
+                                       .Schema = {}},
                       endpoint) {}
 };
 

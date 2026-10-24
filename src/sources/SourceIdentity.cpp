@@ -11,6 +11,7 @@
 namespace outshine::Data {
 namespace {
 constexpr size_t kEncodingBytesMost = std::numeric_limits<size_t>::max();
+constexpr std::string_view kSourceDomain = "source-declaration-2";
 
 bool SourceFields(BinaryValueWriter &out, const SourceDecl &decl) {
   return out.Text(decl.Id) && out(decl.Version) && out.Text(decl.Revision) &&
@@ -55,8 +56,15 @@ std::string ContentKey(const SourceDecl &decl,
 
 std::string SourceKey(const SourceDecl &decl) {
   if (!SourceIdentityEncodable(decl)) { return {}; }
+  const std::string_view kind(Name(decl.Kind));
+  const std::string_view wire(Name(decl.Wire));
+  const uint64_t bytes = uint64_t{8} * sizeof(uint32_t) + kSourceDomain.size() + decl.Id.size() +
+                         decl.Revision.size() + kind.size() + wire.size() + decl.Endpoint.size() +
+                         decl.PayloadSha256.size();
+  if (bytes > kEncodingBytesMost) { return {}; }
   BinaryValueWriter out(kEncodingBytesMost);
-  if (!out.Text("source-declaration-2") || !SourceFields(out, decl) || !out.Text(Name(decl.Wire)) ||
+  out.Out.Reserve(static_cast<size_t>(bytes));
+  if (!out.Text(kSourceDomain) || !SourceFields(out, decl) || !out.Text(wire) ||
       !out.Text(decl.Endpoint) || !out.Text(decl.PayloadSha256)) {
     return {};
   }

@@ -20,7 +20,9 @@ int main() {
                         .Endpoint = "https://example.test/cells",
                         .Kind = DataKind::Elevation,
                         .How = Scheme::GeodeticGrid,
-                        .MaximumPayloadBytes = 64};
+                        .MaximumPayloadBytes = 64,
+                        .PayloadSha256 = {},
+                        .Schema = {}};
   const GeoCellId root{.Level = 1, .X = 1, .Y = 0};
   const GeoCellId leaf{.Level = 3, .X = 4, .Y = 0};
   const std::array<uint8_t, 4> bytes{1, 2, 3, 4};

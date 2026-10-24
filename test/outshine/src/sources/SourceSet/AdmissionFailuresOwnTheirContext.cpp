@@ -41,7 +41,7 @@ int main() {
                             SourceFailureReason::InvalidRequest,
                             SourceFailureReason::OfflineMiss}) {
     for (const bool fallback : {false, true}) {
-      RawSourceCache store({.Using = RawSourceCache::Use::Off});
+      RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
       SourceSet sources(store);
       CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
                 "primary-pin",
@@ -80,7 +80,7 @@ int main() {
     }
   }
   {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
               "pin", Rank{0}, AbsencePolicy::Fail)) == SourceSet::Registration::Accepted,

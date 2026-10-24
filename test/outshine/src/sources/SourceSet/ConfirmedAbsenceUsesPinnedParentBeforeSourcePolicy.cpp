@@ -23,6 +23,8 @@ public:
                        .MinZoom = 1,
                        .MaxZoom = 3,
                        .AncestorFill = true,
+                       .PayloadSha256 = {},
+                       .Schema = {},
                        .TileAbsence = TileAbsencePolicy::Parent},
                       "https://tiles.example/{z}/{x}/{y}") {}
 };
@@ -83,7 +85,7 @@ int main() {
           "cached absence chain reaches parent bytes without network or changed pins");
   }
   {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<Tiles>()) == SourceSet::Registration::Accepted,
           "failure source configured");

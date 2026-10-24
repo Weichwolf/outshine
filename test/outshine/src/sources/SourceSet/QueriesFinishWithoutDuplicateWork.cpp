@@ -28,7 +28,12 @@ public:
 
 class ProbeSource final : public Source {
 public:
-  SourceDecl Decl{.Id = "probe", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "probe",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   Meaning Result = Meaning::Bytes;
   bool Working = false;
   mutable int Calls = 0;
@@ -54,7 +59,7 @@ public:
 
 int main() {
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   const SourceRequest request(DataKind::Elevation, Address::Whole(0));
   CHECK(!std::is_move_assignable_v<SourceSet::Query>,
         "assignment cannot overwrite an active ticket");

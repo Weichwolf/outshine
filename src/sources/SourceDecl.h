@@ -42,11 +42,11 @@ enum class Necessity : uint8_t { Cosmetic, Required };
 enum class TileAbsencePolicy : uint8_t { SourcePolicy, Parent };
 
 struct SourceDecl {
-  std::string Id{};
+  std::string Id;
 
   uint32_t Version = 1;
-  std::string Revision{};
-  std::string Endpoint{};
+  std::string Revision;
+  std::string Endpoint;
 
   DataKind Kind = DataKind::Elevation;
   Scheme How = Scheme::TileZxy;
@@ -68,8 +68,8 @@ struct SourceDecl {
 
   int RetryBudget = 0;
   size_t MaximumPayloadBytes = 0;
-  std::string PayloadSha256{};
-  std::string Schema{};
+  std::string PayloadSha256;
+  std::string Schema;
   TileAbsencePolicy TileAbsence = TileAbsencePolicy::SourcePolicy;
 };
 
