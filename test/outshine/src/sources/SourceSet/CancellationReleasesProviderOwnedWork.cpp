@@ -50,7 +50,6 @@ struct OwnedWork final : Source {
     Last = ticket;
   }
 
-private:
   SourceDecl Decl_;
 };
 }
