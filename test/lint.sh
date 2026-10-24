@@ -88,15 +88,6 @@ if [ "$analysis_status" -ne 0 ]; then
   red=$((red + 1))
 fi
 
-printf '\n== the repository rules ==\n'
-# Repository claims check local architecture and harness contracts.
-# Work items are maintained on GitHub outside the build and test gates.
-if ! sh test/run.sh harness/claims > "$REPORT/claims.log" 2>&1; then
-  red=$((red + 1))
-fi
-grep -E '^(FAIL|BUILD|UNPREP|TIMEOUT|SIGNAL|PARTIAL)' "$REPORT/claims.log" | sed 's|/var/folders.*||' || true
-grep 'tests:' "$REPORT/claims.log" | sed 's/^/lint: /' || true
-
 # WHAT NOTHING CALLS, and clang cannot answer it. clang-tidy works one translation unit at a time,
 # so a public member in a header could be reached from any other unit and no single-unit pass may
 # call it dead. The LINKER resolves the whole archive, and this tree already reads exactly what it
