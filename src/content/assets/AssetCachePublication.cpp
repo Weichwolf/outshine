@@ -15,6 +15,10 @@
 namespace outshine {
 namespace {
 
+constexpr auto kBindRequest = "INSERT INTO asset_requests(request_key,asset_key) VALUES(?,?) "
+                              "ON CONFLICT(request_key) DO UPDATE SET asset_key=excluded.asset_key "
+                              "WHERE asset_requests.asset_key<>excluded.asset_key";
+
 class Transaction {
 public:
   explicit Transaction(sqlite3 *database) : Database_(database) {}
@@ -39,11 +43,7 @@ private:
 bool Bind(sqlite3_stmt *statement, const AssetRecord &record) {
   bool bound =
       AssetSql::Text(statement, 1, record.Key) && AssetSql::Text(statement, 2, record.Kind) &&
-      AssetSql::Text(statement, 9, record.Package) &&
-      AssetSql::Text(statement, 13, record.Parent) &&
-      AssetSql::Text(statement,
-                     14,
-                     record.RequestKey ? std::string_view(*record.RequestKey) : std::string_view{});
+      AssetSql::Text(statement, 9, record.Package) && AssetSql::Text(statement, 13, record.Parent);
   for (int axis = 0; axis < 3; ++axis) {
     const auto index = static_cast<size_t>(axis);
     bound = sqlite3_bind_double(statement, 3 + axis, record.Bounds.Min[index]) == SQLITE_OK &&
@@ -146,13 +146,13 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
   auto prepared = AssetSql::Prepare(
       State_->Database,
       "INSERT INTO "
-      "assets(key,kind,minx,miny,minz,maxx,maxy,maxz,package,offset,bytes,level,parent,request_key)"
+      "assets(key,kind,minx,miny,minz,maxx,maxy,maxz,package,offset,bytes,level,parent)"
       " "
-      "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET kind=excluded.kind,"
+      "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET kind=excluded.kind,"
       "minx=excluded.minx,miny=excluded.miny,minz=excluded.minz,maxx=excluded.maxx,maxy=excluded."
       "maxy,"
       "maxz=excluded.maxz,package=excluded.package,offset=excluded.offset,bytes=excluded.bytes,"
-      "level=excluded.level,parent=excluded.parent,request_key=excluded.request_key",
+      "level=excluded.level,parent=excluded.parent",
       asset);
   if (!prepared) { return prepared; }
   prepared =
@@ -161,12 +161,9 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
                         "FROM assets WHERE key=?",
                         bounds);
   if (!prepared) { return prepared; }
-  prepared = AssetSql::Prepare(
-      State_->Database, "UPDATE assets SET request_key='' WHERE request_key=? AND key<>?", request);
+  prepared = AssetSql::Prepare(State_->Database, kBindRequest, request);
   if (!prepared) { return prepared; }
   for (const auto &record : *publishing) {
-    const auto rebound = RebindRequest(request.Value, record);
-    if (!rebound) { return rebound; }
     sqlite3_reset(asset.Value);
     sqlite3_reset(bounds.Value);
     if (!Bind(asset.Value, record) || !AssetSql::Text(bounds.Value, 1, record.Key)) {
@@ -176,6 +173,8 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
     if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
     code = sqlite3_step(bounds.Value);
     if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
+    const auto rebound = RebindRequest(request.Value, record);
+    if (!rebound) { return rebound; }
   }
   auto committed = transaction.Commit();
   if (committed) { State_->Observe(key, bytes.size(), true); }
@@ -187,7 +186,8 @@ std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
   Transaction transaction(State_->Database);
-  for (const auto *sql : {"DELETE FROM bounds WHERE id IN (SELECT id FROM assets WHERE key=?)",
+  for (const auto *sql : {"DELETE FROM asset_requests WHERE asset_key=?",
+                          "DELETE FROM bounds WHERE id IN (SELECT id FROM assets WHERE key=?)",
                           "DELETE FROM assets WHERE key=?"}) {
     AssetSql::Statement statement;
     auto prepared = AssetSql::Prepare(State_->Database, sql, statement);
@@ -206,6 +206,9 @@ std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view ke
   if (!AssetSql::ValidKey(key) || !AssetSql::ValidKey(requestKey)) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
+  const auto previous = FindRequest(requestKey);
+  if (!previous) { return std::unexpected(previous.error()); }
+  if (*previous && (**previous).Key == key) { return true; }
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return std::unexpected(began.error()); }
   Transaction transaction(State_->Database);
@@ -214,19 +217,10 @@ std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view ke
   if (!*found) { return false; }
   auto record = std::move(**found);
   record.RequestKey = std::string(requestKey);
-  AssetSql::Statement previous;
-  auto prepared =
-      AssetSql::Prepare(State_->Database,
-                        "UPDATE assets SET request_key='' WHERE request_key=? AND key<>?",
-                        previous);
-  if (!prepared) { return std::unexpected(prepared.error()); }
-  auto rebound = RebindRequest(previous.Value, record);
-  if (!rebound) { return std::unexpected(rebound.error()); }
   AssetSql::Statement target;
-  prepared =
-      AssetSql::Prepare(State_->Database, "UPDATE assets SET request_key=? WHERE key=?", target);
+  auto prepared = AssetSql::Prepare(State_->Database, kBindRequest, target);
   if (!prepared) { return std::unexpected(prepared.error()); }
-  rebound = RebindRequest(target.Value, record);
+  const auto rebound = RebindRequest(target.Value, record);
   if (!rebound) { return std::unexpected(rebound.error()); }
   auto committed = transaction.Commit();
   if (!committed) { return std::unexpected(committed.error()); }

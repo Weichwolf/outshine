@@ -66,7 +66,7 @@ PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::str
     if (!Cache_->Remove(key)) { return std::unexpected("could not remove an invalid road page"); }
     return std::optional<Loaded>{};
   }
-  if (!requestKey.empty() && record.RequestKey != requestKey) {
+  if (!requestKey.empty()) {
     const auto bound = Cache_->BindRequest(key, requestKey);
     if (!bound || !*bound) { return std::unexpected("could not bind the existing road page"); }
     record.RequestKey = requestKey;
@@ -139,7 +139,7 @@ PreparedRoadPages::LoadRequest(const std::string &requestKey, size_t bytesMost) 
   auto found = Cache_->FindRequest(requestKey);
   if (!found) { return std::unexpected("could not find the native road page demand"); }
   if (!*found) { return std::optional<Loaded>{}; }
-  return Read((**found).Key, bytesMost);
+  return Read((**found).Key, bytesMost, requestKey);
 }
 
 std::expected<PreparedRoadPages::Loaded, std::string>

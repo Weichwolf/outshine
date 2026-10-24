@@ -61,10 +61,10 @@ void Exercise(const std::string &path) {
   auto found = cache.FindRequest(request);
   CHECK(found && *found && (**found).Key == second, "demand resolves the replacement");
   const std::string trigger =
-      "CREATE TRIGGER reject_binding BEFORE UPDATE OF request_key ON assets WHEN NEW.key='" +
-      first + "' BEGIN SELECT RAISE(ABORT,'binding refused'); END;";
+      "CREATE TRIGGER reject_binding BEFORE INSERT ON asset_requests WHEN NEW.asset_key='" + first +
+      "' BEGIN SELECT RAISE(ABORT,'binding refused'); END;";
   CHECK(sqlite3_exec(database, trigger.c_str(), nullptr, nullptr, nullptr) == SQLITE_OK,
-        "test rejects the replacement after the previous binding is cleared");
+        "test rejects replacement at the normalized binding write");
   CHECK(!cache.BindRequest(first, request), "refused replacement returns an error");
   found = cache.FindRequest(request);
   CHECK(found && *found && (**found).Key == second, "rollback restores the previous binding");
@@ -72,9 +72,29 @@ void Exercise(const std::string &path) {
             SQLITE_OK,
         "failure injector is removed");
   const auto renamed = cache.BindRequest(second, otherRequest);
-  CHECK(renamed && *renamed, "product can move to another demand");
+  CHECK(renamed && *renamed, "product can retain another demand");
   found = cache.FindRequest(request);
-  CHECK(found && !*found, "one product retains at most one demand identity");
+  CHECK(found && *found && (**found).Key == second, "one product retains both demand identities");
+  CHECK(sqlite3_exec(database, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "independent writer holds the mutation boundary");
+  const auto unchanged = cache.BindRequest(second, otherRequest);
+  CHECK(unchanged && *unchanged, "idempotent binding needs no write transaction under contention");
+  const auto busy = cache.BindRequest(first, otherRequest);
+  CHECK(!busy && busy.error() == AssetCacheError::Busy,
+        "a real binding change still respects writer contention");
+  CHECK(sqlite3_exec(database, "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "independent writer releases its transaction");
+  CHECK(sqlite3_exec(database,
+                     "CREATE TRIGGER forbid_request_insert BEFORE INSERT ON asset_requests "
+                     "BEGIN SELECT RAISE(ABORT,'request rewritten'); END;"
+                     "CREATE TRIGGER forbid_request_update BEFORE UPDATE ON asset_requests "
+                     "BEGIN SELECT RAISE(ABORT,'request rewritten'); END;",
+                     nullptr,
+                     nullptr,
+                     nullptr) == SQLITE_OK,
+        "all request-index writes are forbidden during repeated hits");
+  const auto repeated = cache.BindRequest(second, otherRequest);
+  CHECK(repeated && *repeated, "repeated binding performs no request-index write");
   size_t generated = 0;
   auto loaded = ResolveAssetRequest(cache, otherRequest, 64, [&](size_t) {
     ++generated;

@@ -100,7 +100,7 @@ void MigratesVersionTwo(const std::string &path) {
   CHECK(sqlite3_open(path.c_str(), &database) == SQLITE_OK, "migration fixture opens");
   if (database == nullptr) { return; }
   CHECK(sqlite3_exec(database,
-                     "DROP INDEX asset_requests; ALTER TABLE assets DROP COLUMN request_key;"
+                     "DROP TABLE asset_requests;"
                      "PRAGMA user_version=2;",
                      nullptr,
                      nullptr,
