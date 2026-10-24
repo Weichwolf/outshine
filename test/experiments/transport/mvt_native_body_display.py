@@ -4,7 +4,7 @@ import numpy as np
 import shapely
 
 
-def display(plan, data, output):
+def display(plan, data, output, *, title=None):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -59,7 +59,8 @@ def display(plan, data, output):
         axes.zaxis.set_major_locator(MaxNLocator(5))
         axes.view_init(elev=32, azim=-60)
     figure.suptitle(
-        "Local body at Float32 coordinates; native outside integration remains open"
+        title
+        or "Local body at Float32 coordinates; native outside integration remains open"
     )
     figure.tight_layout()
     figure.savefig(output / "native-body.png", dpi=170, bbox_inches="tight")
