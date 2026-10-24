@@ -8,7 +8,7 @@
 #include "ContentStore.h"
 #include "CopernicusDem.h"
 #include "CopernicusRaster.h"
-#include "Fetching.h"
+#include "HttpTransport.h"
 #include "Check.h"
 
 #include <arpa/inet.h>
@@ -125,7 +125,7 @@ public:
   }
 };
 
-Wire Await(outshine::Fetching &transport,
+Wire Await(outshine::HttpTransport &transport,
            outshine::Data::Ticket ticket,
            std::chrono::seconds budget = 3s) {
   const auto deadline = Clock::now() + budget;
@@ -163,7 +163,7 @@ Acquire(SourceSet &sources, Transport &wire, const Fetch &request) {
 }
 
 void RealOriginal(const char *url) {
-  Fetching wire({});
+  HttpTransport wire({});
   auto directory = (std::filesystem::temp_directory_path() / "outshine-cog-live-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original-network cache");
   const ContentStore::Config config{.Directory = directory};
@@ -249,7 +249,7 @@ int main() {
   CHECK(server.Port != 0, "local byte-range fixture listens");
   if (server.Port == 0) { return Report(); }
   const std::string url = "http://127.0.0.1:" + std::to_string(server.Port);
-  Fetching transport({.ConcurrentTransfers = 1, .MaxRequests = 32, .MaxBodyBytes = 8});
+  HttpTransport transport({.ConcurrentTransfers = 1, .MaxRequests = 32, .MaxBodyBytes = 8});
   const ByteRange range{.First = 4, .Length = 4};
   for (const std::string_view path : {"/valid", "/redirect", "/continue"}) {
     const auto started = transport.Begin(url + std::string(path), range, "\"v1\"");
@@ -323,7 +323,7 @@ int main() {
           "actual HTTP request pins the unencoded byte interval and object revision");
   }
   if (const char *probe = std::getenv("OUTSHINE_COG_RANGE_PROBE")) {
-    Fetching remote({.ConcurrentTransfers = 1, .TimeoutS = 25, .MaxBodyBytes = 16384});
+    HttpTransport remote({.ConcurrentTransfers = 1, .TimeoutS = 25, .MaxBodyBytes = 16384});
     const auto started = remote.Begin(probe, ByteRange{.First = 0, .Length = 16384});
     CHECK(started.has_value(), "explicit real COG probe starts");
     if (started) {

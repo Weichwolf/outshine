@@ -1,4 +1,4 @@
-#include "Fetching.h"
+#include "HttpTransport.h"
 #include "Check.h"
 
 #include <chrono>
@@ -6,7 +6,7 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Fetching transport({});
+  HttpTransport transport({});
   const auto began = std::chrono::steady_clock::now();
   const bool progressed = transport.Await(50.0);
   const auto seconds =

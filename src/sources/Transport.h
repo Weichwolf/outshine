@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_TRANSPORT_H
-#define OUTSHINE_WORLD_DATA_TRANSPORT_H
+#ifndef OUTSHINE_SOURCES_TRANSPORT_H
+#define OUTSHINE_SOURCES_TRANSPORT_H
 
 #include <chrono>
 #include <thread>
@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include "FetchFailure.h"
+#include "FetchFailureReason.h"
 #include <expected>
 
 namespace outshine::Data {

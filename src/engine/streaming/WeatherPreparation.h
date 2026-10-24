@@ -14,7 +14,7 @@
 namespace outshine {
 class WeatherPreparation {
 public:
-  enum class Phase : uint8_t { Fetching, Decoding, Ready, Missing, Failed, Cancelled };
+  enum class Phase : uint8_t { HttpTransport, Decoding, Ready, Missing, Failed, Cancelled };
 
   struct Workers {
     Tasks &Io;
@@ -54,7 +54,7 @@ private:
     std::optional<Data::Delivery::Answer> Answer;
     std::shared_ptr<const WeatherSnapshot> Snapshot;
     std::string Error;
-    Phase Outcome = Phase::Fetching;
+    Phase Outcome = Phase::HttpTransport;
     bool Abandoned = false;
   };
 
@@ -67,7 +67,7 @@ private:
   Tasks *ActivePool_ = nullptr;
   Tasks::Handle Handle_ = Tasks::kNoTask;
   std::unique_ptr<Work> Work_;
-  Phase Phase_ = Phase::Fetching;
+  Phase Phase_ = Phase::HttpTransport;
   std::shared_ptr<const WeatherSnapshot> Snapshot_;
   std::string Error_;
 };

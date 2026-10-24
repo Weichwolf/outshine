@@ -1,5 +1,5 @@
 #include <expected>
-#include "Fetching.h"
+#include "HttpTransport.h"
 
 #include <algorithm>
 #include <atomic>
@@ -119,11 +119,11 @@ private:
 
 }
 
-Fetching::Transfer::~Transfer() {
+HttpTransport::Transfer::~Transfer() {
   curl_slist_free_all(static_cast<curl_slist *>(Headers));
 }
 
-void Fetching::Transfer::ReadHeader(std::string_view line) {
+void HttpTransport::Transfer::ReadHeader(std::string_view line) {
   if (!Range) { return; }
   if (line.starts_with("HTTP/")) {
     Partial.reset();
@@ -151,7 +151,7 @@ void Fetching::Transfer::ReadHeader(std::string_view line) {
   }
 }
 
-Fetching::Fetching(Config config) : Config_(std::move(config)) {
+HttpTransport::HttpTransport(Config config) : Config_(std::move(config)) {
   Config_.ConcurrentTransfers = std::max(Config_.ConcurrentTransfers, 1);
   Config_.ConnectionsPerHost = std::max(Config_.ConnectionsPerHost, 1);
   Config_.TimeoutS = std::max(Config_.TimeoutS, 1L);
@@ -178,7 +178,7 @@ Fetching::Fetching(Config config) : Config_(std::move(config)) {
   Worker_ = std::thread([this] { Work(); });
 }
 
-Fetching::~Fetching() {
+HttpTransport::~HttpTransport() {
   {
     const std::scoped_lock lock(Mutex_);
     State_ = State::Stopping;
@@ -195,12 +195,12 @@ Fetching::~Fetching() {
   }
 }
 
-Data::FetchStart Fetching::Begin(const std::string &url) {
+Data::FetchStart HttpTransport::Begin(const std::string &url) {
   return Start(url, std::nullopt, {});
 }
 
 Data::FetchStart
-Fetching::Begin(const std::string &url, Data::ByteRange range, std::string_view entityTag) {
+HttpTransport::Begin(const std::string &url, Data::ByteRange range, std::string_view entityTag) {
   if (!range.Valid() || (!entityTag.empty() && !StrongEntityTag(entityTag))) {
     return std::unexpected(Data::FetchFailureReason::InvalidRequest);
   }
@@ -210,9 +210,9 @@ Fetching::Begin(const std::string &url, Data::ByteRange range, std::string_view 
   return Start(url, range, entityTag);
 }
 
-Data::FetchStart Fetching::Start(const std::string &url,
-                                 std::optional<Data::ByteRange> range,
-                                 std::string_view entityTag) {
+Data::FetchStart HttpTransport::Start(const std::string &url,
+                                      std::optional<Data::ByteRange> range,
+                                      std::string_view entityTag) {
   if (url.empty() || url.contains('\0')) {
     return std::unexpected(Data::FetchFailureReason::InvalidRequest);
   }
@@ -248,7 +248,7 @@ Data::FetchStart Fetching::Start(const std::string &url,
   return static_cast<Data::Ticket>(ticket);
 }
 
-Data::Wire Fetching::Collect(Data::Ticket ticket) {
+Data::Wire HttpTransport::Collect(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) { return Data::Wire::Unreachable(); }
   const std::scoped_lock lock(Mutex_);
   const auto found = Transfers_.find(static_cast<uint64_t>(ticket));
@@ -274,7 +274,7 @@ Data::Wire Fetching::Collect(Data::Ticket ticket) {
   return Data::Wire::Answered(status, std::move(body), retryAfterS);
 }
 
-void Fetching::RememberCancellation(uint64_t ticket) {
+void HttpTransport::RememberCancellation(uint64_t ticket) {
   if (std::ranges::find(CancelledTickets_, ticket) != CancelledTickets_.end()) { return; }
   if (CancelledTickets_.size() == Config_.MaxRequests) {
     CancelledTickets_.erase(CancelledTickets_.begin());
@@ -282,7 +282,7 @@ void Fetching::RememberCancellation(uint64_t ticket) {
   CancelledTickets_.push_back(ticket);
 }
 
-void Fetching::Cancel(Data::Ticket ticket) {
+void HttpTransport::Cancel(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) { return; }
   {
     const std::scoped_lock lock(Mutex_);
@@ -308,7 +308,7 @@ void Fetching::Cancel(Data::Ticket ticket) {
   WakeWorker();
 }
 
-bool Fetching::Await(double forMs) {
+bool HttpTransport::Await(double forMs) {
   if (!std::isfinite(forMs) || forMs <= 0.0) { return false; }
   std::unique_lock<std::mutex> lock(Mutex_);
   const uint64_t stood = Completions_;
@@ -319,11 +319,11 @@ bool Fetching::Await(double forMs) {
          Completions_ != stood;
 }
 
-void Fetching::WakeWorker() noexcept {
+void HttpTransport::WakeWorker() noexcept {
   if (Multi_ != nullptr) { (void)curl_multi_wakeup(static_cast<CURLM *>(Multi_)); }
 }
 
-bool Fetching::ConfigureTransfer(void *handle, Transfer &transfer) const {
+bool HttpTransport::ConfigureTransfer(void *handle, Transfer &transfer) const {
   auto *const easy = static_cast<CURL *>(handle);
   if (transfer.Range) { transfer.Body.reserve(transfer.MaxBodyBytes); }
   if (!transfer.IfMatch.empty()) {
@@ -374,14 +374,14 @@ bool Fetching::ConfigureTransfer(void *handle, Transfer &transfer) const {
          curl_easy_setopt(easy, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS) == CURLE_OK;
 }
 
-bool Fetching::CanStart(const Transfer &transfer, double nowMs) const {
+bool HttpTransport::CanStart(const Transfer &transfer, double nowMs) const {
   const auto cooldown = Cooldowns_.find(transfer.Origin);
   return cooldown == Cooldowns_.end() || nowMs >= cooldown->second;
 }
 
-void Fetching::DeferOrigin(const Transfer &transfer,
-                           const std::string &responseOrigin,
-                           double retryAfterS) {
+void HttpTransport::DeferOrigin(const Transfer &transfer,
+                                const std::string &responseOrigin,
+                                double retryAfterS) {
   if (responseOrigin.empty()) { return; }
   const double deadlineMs = NowMs() + retryAfterS * 1000.0;
   if (!std::isfinite(deadlineMs)) { return; }
@@ -391,7 +391,7 @@ void Fetching::DeferOrigin(const Transfer &transfer,
   }
 }
 
-size_t Fetching::AddQueuedTransfers(void *multiHandle, size_t active) {
+size_t HttpTransport::AddQueuedTransfers(void *multiHandle, size_t active) {
   auto *const multi = static_cast<CURLM *>(multiHandle);
   const auto capacity = static_cast<size_t>(Config_.ConcurrentTransfers);
   const std::scoped_lock lock(Mutex_);
@@ -423,7 +423,7 @@ size_t Fetching::AddQueuedTransfers(void *multiHandle, size_t active) {
   return active;
 }
 
-void Fetching::CollectCompletions(void *multiHandle, size_t &active) {
+void HttpTransport::CollectCompletions(void *multiHandle, size_t &active) {
   auto *const multi = static_cast<CURLM *>(multiHandle);
   int messages = 0;
   while (const CURLMsg *message = curl_multi_info_read(multi, &messages)) {
@@ -473,7 +473,7 @@ void Fetching::CollectCompletions(void *multiHandle, size_t &active) {
   }
 }
 
-void Fetching::FinishTransfers(void *multiHandle, bool failed) {
+void HttpTransport::FinishTransfers(void *multiHandle, bool failed) {
   auto *const multi = static_cast<CURLM *>(multiHandle);
   const std::scoped_lock lock(Mutex_);
   for (auto &[ticket, transfer] : Transfers_) {
@@ -497,7 +497,7 @@ void Fetching::FinishTransfers(void *multiHandle, bool failed) {
   }
 }
 
-void Fetching::Work() {
+void HttpTransport::Work() {
   auto *const multi = static_cast<CURLM *>(Multi_);
   const auto capacity = static_cast<size_t>(Config_.ConcurrentTransfers);
   size_t active = 0;

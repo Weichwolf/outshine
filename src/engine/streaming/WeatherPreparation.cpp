@@ -108,7 +108,7 @@ WeatherPreparation::Phase WeatherPreparation::Advance() {
     Publish();
     return Phase_;
   }
-  if (Phase_ != Phase::Fetching) { return Phase_; }
+  if (Phase_ != Phase::HttpTransport) { return Phase_; }
   if (Work_->Delivery.Where() == Data::Delivery::State::Delivered) {
     Work_->Answer = Work_->Delivery.Take();
     Phase_ = Phase::Decoding;

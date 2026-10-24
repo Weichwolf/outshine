@@ -1,4 +1,4 @@
-#include "Fetching.h"
+#include "HttpTransport.h"
 #include "Check.h"
 #include <arpa/inet.h>
 #include <atomic>
@@ -73,7 +73,7 @@ public:
   }
 };
 
-std::optional<outshine::Data::FetchFailureReason> AwaitFailure(outshine::Fetching &transport,
+std::optional<outshine::Data::FetchFailureReason> AwaitFailure(outshine::HttpTransport &transport,
                                                                outshine::Data::Ticket ticket) {
   const auto deadline = Clock::now() + 3s;
   while (Clock::now() < deadline) {
@@ -95,7 +95,7 @@ int main() {
   if (server.Port == 0) { return Report(); }
   const auto url = "http://127.0.0.1:" + std::to_string(server.Port) + "/tile";
   {
-    Fetching transport({.ConcurrentTransfers = 1, .MaxRequests = 2, .TimeoutS = 10});
+    HttpTransport transport({.ConcurrentTransfers = 1, .MaxRequests = 2, .TimeoutS = 10});
     CHECK(transport.WorkerCount() == 1, "one multi worker owns every transfer");
     const auto slow = transport.Begin(url);
     CHECK(slow.has_value(), "slow native transfer is admitted");
@@ -128,14 +128,14 @@ int main() {
   }
   const auto started = Clock::now();
   {
-    Fetching transport({.ConcurrentTransfers = 1, .TimeoutS = 10});
+    HttpTransport transport({.ConcurrentTransfers = 1, .TimeoutS = 10});
     (void)transport.Begin(url);
     CHECK(server.AwaitConnections(3), "shutdown fixture has a running transfer");
   }
   CHECK(Clock::now() - started < 3s,
         "shutdown aborts active transfer without waiting for HTTP timeout");
   {
-    Fetching transport({.ConcurrentTransfers = 1, .TimeoutS = 1});
+    HttpTransport transport({.ConcurrentTransfers = 1, .TimeoutS = 1});
     const auto timed = transport.Begin(url);
     CHECK(server.AwaitConnections(4), "real stalled HTTP transfer starts");
     CHECK(timed.has_value(), "timeout transfer is admitted");
@@ -144,7 +144,7 @@ int main() {
           "native libcurl timeout is distinct from unreachable transport");
   }
   {
-    Fetching transport({.ConcurrentTransfers = 1, .MaxRequests = 2, .TimeoutS = 10});
+    HttpTransport transport({.ConcurrentTransfers = 1, .MaxRequests = 2, .TimeoutS = 10});
     (void)transport.Begin(url);
     CHECK(server.AwaitConnections(5), "sole active slot prevents queued requests from starting");
     std::vector<Data::Ticket> cancelled;
@@ -166,7 +166,7 @@ int main() {
   {
     Server response(Server::ResponseMode::Always);
     CHECK(response.Port != 0, "body-budget fixture listens");
-    Fetching transport({.TimeoutS = 2, .MaxBodyBytes = 1});
+    HttpTransport transport({.TimeoutS = 2, .MaxBodyBytes = 1});
     const auto ticket =
         transport.Begin("http://127.0.0.1:" + std::to_string(response.Port) + "/tile");
     CHECK(ticket.has_value(), "body limit transfer is admitted");
@@ -175,7 +175,7 @@ int main() {
           "native body budget refusal is retained through curl write failure");
   }
   {
-    Fetching transport({});
+    HttpTransport transport({});
     const auto empty = transport.Begin("");
     const auto embedded = transport.Begin(std::string("http://127.0.0.1/") + '\0' + "hidden");
     CHECK(!empty && empty.error() == Data::FetchFailureReason::InvalidRequest && !embedded &&

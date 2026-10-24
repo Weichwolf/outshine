@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_HOST_FETCHING_H
-#define OUTSHINE_HOST_FETCHING_H
+#ifndef OUTSHINE_SOURCES_HTTPTRANSPORT_H
+#define OUTSHINE_SOURCES_HTTPTRANSPORT_H
 
 #include <atomic>
 #include <condition_variable>
@@ -17,11 +17,11 @@
 
 namespace outshine {
 
-constexpr long kTimeoutUnsaidS = 20;
-constexpr size_t kBodyMostMegabytes = 64u;
-constexpr unsigned kMegabyteShift = 20u;
+constexpr long kDefaultHttpTimeoutS = 20;
+constexpr size_t kDefaultHttpBodyMiB = 64u;
+constexpr unsigned kHttpMiBShift = 20u;
 
-class Fetching : public Data::Transport {
+class HttpTransport : public Data::Transport {
 public:
   struct Config {
     int ConcurrentTransfers = 8;
@@ -30,17 +30,17 @@ public:
 
     size_t MaxRequests = 1024;
 
-    long TimeoutS = kTimeoutUnsaidS;
+    long TimeoutS = kDefaultHttpTimeoutS;
 
     std::string UserAgent = "outshine/1 (game engine; non-commercial research)";
 
-    size_t MaxBodyBytes = kBodyMostMegabytes << kMegabyteShift;
+    size_t MaxBodyBytes = kDefaultHttpBodyMiB << kHttpMiBShift;
   };
 
-  explicit Fetching(Config config);
-  ~Fetching() override;
-  Fetching(const Fetching &) = delete;
-  Fetching &operator=(const Fetching &) = delete;
+  explicit HttpTransport(Config config);
+  ~HttpTransport() override;
+  HttpTransport(const HttpTransport &) = delete;
+  HttpTransport &operator=(const HttpTransport &) = delete;
 
   [[nodiscard]] Data::FetchStart Begin(const std::string &url) override;
   [[nodiscard]] Data::FetchStart

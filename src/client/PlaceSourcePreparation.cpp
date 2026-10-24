@@ -1,7 +1,7 @@
 #include "PlaceSourcePreparation.h"
 #include "OsmSourceDemand.h"
 #include "ShippedProviders.h"
-#include "Fetching.h"
+#include "HttpTransport.h"
 #include "OfflineTransport.h"
 #include "Tasks.h"
 #include "GeodeticCamera.h"
@@ -55,8 +55,8 @@ PreparePlaceSources(const Scenario::Document &declared,
   if (roots.Offline) {
     wire = std::make_unique<Data::OfflineTransport>();
   } else {
-    wire = std::make_unique<Fetching>(
-        Fetching::Config{.MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
+    wire = std::make_unique<HttpTransport>(
+        HttpTransport::Config{.MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
   }
   Data::ProviderRegistry registry;
   Generators::RegisterShippedProviders(registry);
