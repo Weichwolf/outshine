@@ -1,0 +1,27 @@
+{
+  "row": {
+    "page": "238",
+    "zoom": 20,
+    "x": 572088,
+    "y": 363482,
+    "side": 33,
+    "postings": 33,
+    "virtual": 1,
+    "source_zoom": 17,
+    "halo": 1,
+    "nodes": 1225
+  },
+  "asset_key": "31ab1401cc983c9925f6145846285a3b3f6b9bcd21a30e2010019e48767e6625",
+  "stored_bytes": 13635297,
+  "native_bytes": 28123785,
+  "stored_sha256": "79912026be8b9f00452625858c16bc8756c14dee31780004312d656d2ee914d2",
+  "native_sha256": "e3aa828c78a92275f3a3d0ca83a9d0d1d4f4614ea5eca47b40462088a5008c09",
+  "anchor_lon_lat": [
+    16.411041,
+    48.233362
+  ],
+  "pages_in_prefix": 3643,
+  "selection": "maximum zoom, then nearest tile centre to existing region anchor, then original page index",
+  "scope": "Read-only extraction of versioned page prefix; trailing classes/network/geometry are not independently revalidated.",
+  "height_sha256": "29c1a14a4739d21293a027bc46b8f09650a52b98daf1baa7f2a50909e987ee4d"
+}
