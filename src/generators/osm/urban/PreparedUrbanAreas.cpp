@@ -57,6 +57,7 @@ PreparedUrbanAreas::Open(const std::string &directory,
   if (!cache) { return std::unexpected("could not open native urban-area cache"); }
   auto recipe = Generators::AssetSourceRecipe(
       "prepared-urban-area-1-parent5", sources, std::array{Data::DataKind::VectorMap});
+  if (recipe.empty()) { return std::unexpected("urban source metadata cannot be encoded"); }
   return std::shared_ptr<PreparedUrbanAreas>(new PreparedUrbanAreas(
       std::move(*cache), std::move(recipe), compute, std::move(prepared), budget));
 }

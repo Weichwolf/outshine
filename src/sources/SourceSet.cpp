@@ -90,6 +90,7 @@ SourceSet::Registration SourceSet::AddAll(std::vector<std::unique_ptr<Source>> s
   for (size_t at = 0; at < sources.size(); ++at) {
     if (!sources[at] || sources[at]->Declaration().Id.empty()) { return Registration::Unnamed; }
     const SourceDecl &decl = sources[at]->Declaration();
+    if (!SourceIdentityEncodable(decl)) { return Registration::InvalidDefinition; }
     for (const std::unique_ptr<Source> &held : Sources_) {
       const SourceDecl &other = held->Declaration();
       if (other.Kind == decl.Kind && other.Order == decl.Order) {

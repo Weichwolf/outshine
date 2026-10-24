@@ -20,7 +20,7 @@ namespace outshine::Data {
 
 class SourceSet {
 public:
-  enum class Registration { Accepted, DuplicateRank, Unnamed, Sealed };
+  enum class Registration { Accepted, DuplicateRank, Unnamed, Sealed, InvalidDefinition };
 
   explicit SourceSet(RawSourceCache &store) : Store_(store) {}
 
