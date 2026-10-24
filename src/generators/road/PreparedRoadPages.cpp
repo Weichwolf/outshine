@@ -45,7 +45,7 @@ PreparedRoadPages::Open(const std::string &directory) {
   return std::unique_ptr<PreparedRoadPages>(new PreparedRoadPages(std::move(*cache)));
 }
 
-std::expected<std::optional<PreparedRoadPages::Loaded>, std::string>
+std::expected<std::optional<RoadPageLease>, std::string>
 PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::string &requestKey) {
   auto cached = Cache_->Load(key, bytesMost);
   if (!cached) { return std::unexpected("could not load the native road page package"); }
@@ -55,7 +55,7 @@ PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::str
     if (*stale && (**stale).Kind == "road-render-page" && !Cache_->Remove(key)) {
       return std::unexpected("could not remove the missing road page metadata");
     }
-    return std::optional<Loaded>{};
+    return std::optional<RoadPageLease>{};
   }
   auto record = (**cached).Record();
   if (record.Kind != "road-render-page") {
@@ -64,16 +64,16 @@ PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::str
   auto page = DecodeRoadPageAsset((**cached).Bytes(), bytesMost);
   if (!page || RoadPageKey(page->Address) != key || page->Address.Level != record.Level) {
     if (!Cache_->Remove(key)) { return std::unexpected("could not remove an invalid road page"); }
-    return std::optional<Loaded>{};
+    return std::optional<RoadPageLease>{};
   }
   if (!requestKey.empty() && record.RequestKey != requestKey) {
     const auto bound = Cache_->BindRequest(key, requestKey);
     if (!bound || !*bound) { return std::unexpected("could not bind the existing road page"); }
     record.RequestKey = requestKey;
   }
-  return Loaded{.Page = std::make_unique<RoadPageAsset>(std::move(*page)),
-                .Record = std::move(record),
-                .NativeBytes = (**cached).Bytes().size()};
+  return RoadPageLease{.Page = std::make_unique<RoadPageAsset>(std::move(*page)),
+                       .Record = std::move(record),
+                       .NativeBytes = (**cached).Bytes().size()};
 }
 
 std::shared_ptr<std::mutex> PreparedRoadPages::GenerationGate(const std::string &key) {
@@ -88,7 +88,7 @@ std::shared_ptr<std::mutex> PreparedRoadPages::GenerationGate(const std::string 
   return gate;
 }
 
-std::expected<std::optional<PreparedRoadPages::Loaded>, std::string>
+std::expected<std::optional<RoadPageLease>, std::string>
 PreparedRoadPages::Load(const RoadPageAddress &address, size_t bytesMost) {
   const auto key = RoadPageKey(address);
   if (key.empty()) { return std::unexpected("invalid road page address"); }
@@ -124,7 +124,7 @@ PreparedRoadPages::Inspect(const RoadPageAddress &address, size_t bytesMost) {
   return std::move(*record);
 }
 
-std::expected<std::optional<PreparedRoadPages::Loaded>, std::string>
+std::expected<std::optional<RoadPageLease>, std::string>
 PreparedRoadPages::LoadKey(const std::string &key, size_t bytesMost) {
   if (key.empty() || !OptionalKey(key)) {
     return std::unexpected("invalid road page product identity");
@@ -133,21 +133,21 @@ PreparedRoadPages::LoadKey(const std::string &key, size_t bytesMost) {
   return Read(key, bytesMost);
 }
 
-std::expected<std::optional<PreparedRoadPages::Loaded>, std::string>
+std::expected<std::optional<RoadPageLease>, std::string>
 PreparedRoadPages::LoadRequest(const std::string &requestKey, size_t bytesMost) {
   const std::scoped_lock lock(Lock_);
   auto found = Cache_->FindRequest(requestKey);
   if (!found) { return std::unexpected("could not find the native road page demand"); }
-  if (!*found) { return std::optional<Loaded>{}; }
+  if (!*found) { return std::optional<RoadPageLease>{}; }
   return Read((**found).Key, bytesMost);
 }
 
-std::expected<PreparedRoadPages::Loaded, std::string>
-PreparedRoadPages::Resolve(const RoadPageAddress &address,
-                           const std::string &parent,
-                           const std::string &requestKey,
-                           size_t bytesMost,
-                           const Factory &factory) {
+std::expected<RoadPageLease, std::string> PreparedRoadPages::Resolve(
+    const RoadPageRequest &request, const RoadPageProducer *producer, std::stop_token stop) {
+  const auto &address = request.Address;
+  const auto &parent = request.Parent;
+  const auto &requestKey = request.RequestKey;
+  const auto bytesMost = request.NativeBytesMost;
   const auto key = RoadPageKey(address);
   if (key.empty()) { return std::unexpected("invalid road page address"); }
   if (!OptionalKey(parent) || !OptionalKey(requestKey)) {
@@ -162,7 +162,7 @@ PreparedRoadPages::Resolve(const RoadPageAddress &address,
     if (!existing) { return std::unexpected(std::move(existing.error())); }
     if (*existing) { return std::move(**existing); }
   }
-  if (!factory) { return std::unexpected("road page miss has no generator"); }
+  if (producer == nullptr) { return std::unexpected("road page miss has no producer"); }
   const auto gate = GenerationGate(key);
   const std::scoped_lock generating(*gate);
   {
@@ -172,7 +172,9 @@ PreparedRoadPages::Resolve(const RoadPageAddress &address,
     if (*existing) { return std::move(**existing); }
   }
   auto generated = [&] -> std::expected<CachedAsset, std::string> {
-    auto geometry = factory(bytesMost);
+    if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
+    auto geometry = producer->Produce(request, stop);
+    if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
     if (!geometry) { return std::unexpected(std::move(geometry.error())); }
     auto package =
         EncodePackage({.Address = address, .Geometry = std::move(*geometry)},
@@ -194,8 +196,8 @@ PreparedRoadPages::Resolve(const RoadPageAddress &address,
   if (!loaded || RoadPageKey(loaded->Address) != key) {
     return std::unexpected("published road page failed native validation");
   }
-  return Loaded{.Page = std::make_unique<RoadPageAsset>(std::move(*loaded)),
-                .Record = generated->Record(),
-                .NativeBytes = generated->Bytes().size()};
+  return RoadPageLease{.Page = std::make_unique<RoadPageAsset>(std::move(*loaded)),
+                       .Record = generated->Record(),
+                       .NativeBytes = generated->Bytes().size()};
 }
 }

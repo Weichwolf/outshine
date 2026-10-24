@@ -1,5 +1,5 @@
 #include "RoadPageConstruction.h"
-#include "ProfiledRoadMesher.h"
+#include "RoadPageProducer.h"
 #include "Sha256.h"
 #include <GeometryAsset.h>
 #include <algorithm>
@@ -67,17 +67,11 @@ RoadPageConstruction::Advance(const Generators::Corridors::Job &plan,
   }
   auto recipe = Generators::Corridors::PageRecipe(plan, site, requested);
   if (!recipe) { return std::unexpected(std::string(recipe.error())); }
-  const bool admitted =
-      Queue_.Request(Address_,
-                     {},
-                     {},
-                     [input = std::move(*recipe)](size_t, const std::stop_token &stop)
-                         -> std::expected<Generators::RoadPageGeometry, std::string> {
-                       const Generators::ProfiledRoadMesher mesher;
-                       auto made = Generators::MeshRoadPage(mesher, input, stop);
-                       if (!made) { return std::unexpected(std::string(made.error())); }
-                       return std::move(*made);
-                     });
+  auto producer =
+      std::make_shared<const Generators::RoadPageMeshProducer>(PendingKey_, std::move(*recipe));
+  const bool admitted = Queue_.Request(
+      {.Address = Address_, .Parent = {}, .RequestKey = {}, .NativeBytesMost = PageBytesMost},
+      std::move(producer));
   if (!admitted) { return std::unexpected("road page worker admission failed"); }
   ++MissRequests_;
   Stage_ = Stage::Generating;
@@ -103,7 +97,7 @@ std::expected<bool, std::string> RoadPageConstruction::Collect() {
   if (Stage_ == Stage::Lookup) {
     record = std::get_if<AssetRecord>(&**one.Result);
   } else {
-    const auto *loaded = std::get_if<Generators::PreparedRoadPages::Loaded>(&**one.Result);
+    const auto *loaded = std::get_if<Generators::RoadPageLease>(&**one.Result);
     if (loaded == nullptr || !loaded->Page ||
         Generators::RoadPageKey(loaded->Page->Address) != PendingKey_) {
       return std::unexpected("road page references an unavailable material or different plan");

@@ -137,7 +137,7 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
     for (const auto &pending : Window_) { Queue_.Cancel(Manifest_->Pages[pending.Index].Key); }
     return false;
   }
-  auto *loaded = std::get_if<Generators::PreparedRoadPages::Loaded>(&**one);
+  auto *loaded = std::get_if<Generators::RoadPageLease>(&**one);
   if (loaded == nullptr) {
     return std::unexpected("road restoration received metadata instead of payload");
   }

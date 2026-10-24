@@ -1,3 +1,4 @@
+#include "ControlledRoadPageProducer.h"
 #include "RoadPageQueue.h"
 #include "ProfiledRoadMesher.h"
 #include "TangentFrame.h"
@@ -72,8 +73,8 @@ RoadPageQueue::Product *ReadyProduct(std::vector<RoadPageQueue::Completed> &done
   return product ? std::addressof(*product) : nullptr;
 }
 
-PreparedRoadPages::Loaded *Payload(std::vector<RoadPageQueue::Completed> &done) {
-  return std::get_if<PreparedRoadPages::Loaded>(ReadyProduct(done));
+RoadPageLease *Payload(std::vector<RoadPageQueue::Completed> &done) {
+  return std::get_if<RoadPageLease>(ReadyProduct(done));
 }
 
 void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
@@ -89,37 +90,57 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   const auto control = std::make_shared<Control>();
   const auto first = Address(7);
   const auto other = Address(8);
-  const RoadPageQueue::Factory blocked =
-      [control](size_t,
+  CHECK(!queue.Request({.Address = first,
+                        .Parent = {},
+                        .RequestKey = {},
+                        .NativeBytesMost = kPageBytesMost - 1}) &&
+            queue.Pending() == 0,
+        "a different request ceiling cannot silently share this queue's admitted contract");
+  const auto blocked = outshine::Test::RoadProducer(
+      [control](const RoadPageRequest &,
                 const std::stop_token &stop) -> std::expected<RoadPageGeometry, std::string> {
-    ++control->Factories;
-    control->Entered.release();
-    control->Finish.acquire();
-    if (stop.stop_requested()) { return std::unexpected("canceled fixture producer"); }
-    return Produce();
-  };
-  CHECK(queue.Request(first, {}, {}, blocked), "the first native request occupies one worker slot");
+        ++control->Factories;
+        control->Entered.release();
+        control->Finish.acquire();
+        if (stop.stop_requested()) { return std::unexpected("canceled fixture producer"); }
+        return Produce();
+      });
+  CHECK(queue.Request(
+            {.Address = first, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost},
+            blocked),
+        "the first native request occupies one worker slot");
   const bool running = control->Entered.try_acquire_for(std::chrono::seconds(5));
   CHECK(running, "the bounded page producer is running on the actual task pool");
   if (!running) {
     control->Finish.release();
     return;
   }
-  CHECK(queue.Request(first, {}, {}, blocked) && control->Factories.load() == 1 &&
-            queue.Pending() == 1,
+  CHECK(queue.Request(
+            {.Address = first, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost},
+            blocked) &&
+            control->Factories.load() == 1 && queue.Pending() == 1,
         "identical pending requests are coalesced before IO or generation");
   CHECK(queue.RequestCached(RoadPageKey(first)) && queue.Pending() == 1 &&
             control->Factories.load() == 1,
         "a metadata demand shares an already running producer for the same product");
   CHECK(!queue.RequestMetadata(first) && queue.Pending() == 1,
         "an index probe cannot silently coalesce with a different payload result type");
-  CHECK(!queue.RequestCached(RoadPageKey(other)) && !queue.Request(other, {}, {}, {}) &&
+  CHECK(!queue.RequestCached(RoadPageKey(other)) &&
+            !queue.Request({.Address = other,
+                            .Parent = {},
+                            .RequestKey = {},
+                            .NativeBytesMost = kPageBytesMost}) &&
             queue.Collect().empty(),
         "the frame cannot enqueue beyond its bound or wait for a blocked producer");
   queue.Cancel(RoadPageKey(first));
-  CHECK(!queue.Request(other, {}, {}, {}) && !queue.Request(first, {}, {}, blocked) &&
-            queue.Pending() == 1,
-        "canceled running work retains its slot until actual completion");
+  CHECK(
+      !queue.Request(
+          {.Address = other, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost}) &&
+          !queue.Request(
+              {.Address = first, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost},
+              blocked) &&
+          queue.Pending() == 1,
+      "canceled running work retains its slot until actual completion");
   control->Finish.release();
   auto canceled = Wait(queue);
   CHECK(canceled.size() == 1 && !canceled[0].Result && queue.Pending() == 0,
@@ -128,12 +149,12 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   CHECK(missing && !*missing, "cancellation before encoding publishes no partial cached page");
   auto source = std::make_shared<uint32_t>(8);
   const std::weak_ptr<uint32_t> retainedSource = source;
-  CHECK(queue.Request(other,
-                      {},
-                      {},
-                      [source = std::move(source)](size_t, const std::stop_token &) {
-                        return Produce(*source);
-                      }),
+  CHECK(queue.Request(
+            {.Address = other, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost},
+            outshine::Test::RoadProducer(
+                [source = std::move(source)](const RoadPageRequest &, const std::stop_token &) {
+                  return Produce(*source);
+                })),
         "completed cancellation releases capacity for the next needed page");
   const auto generated = pool.Post([] {});
   CHECK(generated != Tasks::kNoTask, "a worker barrier observes completed native generation");
@@ -145,7 +166,9 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
         "completed work exposes an independently owned native page");
   const auto retained =
       Payload(done) != nullptr ? std::move(Payload(done)->Page) : std::unique_ptr<RoadPageAsset>{};
-  CHECK(queue.Request(other, {}, {}, {}), "a cached page can be requested without any generator");
+  CHECK(queue.Request(
+            {.Address = other, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost}),
+        "a cached page can be requested without any generator");
   auto hit = Wait(queue);
   CHECK(Payload(hit) && retained && Payload(hit)->Record.Key == RoadPageKey(other) &&
             control->Factories.load() == 1,
@@ -228,7 +251,14 @@ int main() {
     CheckQueue(pool, pages);
     auto distant = Address(9);
     distant.Anchor.LongitudeDeg = 9;
-    CHECK(pages->Resolve(distant, {}, {}, kPageBytesMost, [](size_t) { return Produce(9); })
+    CHECK(pages
+              ->Resolve({.Address = distant,
+                         .Parent = {},
+                         .RequestKey = {},
+                         .NativeBytesMost = kPageBytesMost},
+                        outshine::Test::RoadProducer([](const RoadPageRequest &, std::stop_token) {
+                          return Produce(9);
+                        }).get())
               .has_value(),
           "a second complete native package lies outside the metadata query");
     CheckMetadata(pool, root);

@@ -28,37 +28,22 @@ RoadPageQueue::~RoadPageQueue() {
   for (const auto &[key, work] : Work_) { (void)work->Stop.request_stop(); }
 }
 
-bool RoadPageQueue::Request(Generators::RoadPageAddress address,
-                            std::string parent,
-                            std::string requestKey,
-                            Factory factory) {
-  const auto key = Generators::RoadPageKey(address);
+bool RoadPageQueue::Request(Generators::RoadPageRequest request,
+                            std::shared_ptr<const Generators::RoadPageProducer> producer) {
+  if (request.NativeBytesMost == 0 || request.NativeBytesMost != Limits_.PageBytesMost) {
+    return false;
+  }
+  const auto key = Generators::RoadPageKey(request.Address);
   const auto admission = RequestState(key, Kind::Payload);
   if (admission != Admission::Available) { return admission == Admission::Pending; }
-  return Enqueue(
-      key,
-      Kind::Payload,
-      [pages = Pages_,
-       address = std::move(address),
-       parent = std::move(parent),
-       requestKey = std::move(requestKey),
-       factory = std::move(factory),
-       bytesMost = Limits_.PageBytesMost](const std::stop_token &stop) -> Result {
-        auto result = pages->Resolve(
-            address,
-            parent,
-            requestKey,
-            bytesMost,
-            [&](size_t limit) -> std::expected<Generators::RoadPageGeometry, std::string> {
-              if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
-              if (!factory) { return std::unexpected("road page miss has no producer"); }
-              auto generated = factory(limit, stop);
-              if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
-              return generated;
-            });
-        if (!result) { return std::unexpected(std::move(result.error())); }
-        return std::optional<Product>(std::move(*result));
-      });
+  return Enqueue(key,
+                 Kind::Payload,
+                 [pages = Pages_, request = std::move(request), producer = std::move(producer)](
+                     const std::stop_token &stop) -> Result {
+                   auto result = pages->Resolve(request, producer.get(), stop);
+                   if (!result) { return std::unexpected(std::move(result.error())); }
+                   return std::optional<Product>(std::move(*result));
+                 });
 }
 
 bool RoadPageQueue::RequestCached(const std::string &key, Manifest dependency) {

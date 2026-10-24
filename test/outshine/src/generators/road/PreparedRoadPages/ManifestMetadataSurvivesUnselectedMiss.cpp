@@ -1,3 +1,4 @@
+#include "ControlledRoadPageProducer.h"
 #include "PreparedRoadPages.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -33,16 +34,18 @@ std::optional<RoadPageManifest> Prepare(PreparedRoadPages &pages) {
                             .Anchor = manifest.Anchor,
                             .Level = 0,
                             .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}}};
-    auto result = pages.Resolve(address, {}, {}, kLimit, [index](size_t) {
-      const auto x = static_cast<float>(index);
-      RoadPageGeometry page;
-      page.Mesh.PositionM = {x, 0, 0, x + 1, 0, 0, x, 1, 0};
-      page.Mesh.NormalM = {0, 0, 1, 0, 0, 1, 0, 0, 1};
-      page.Mesh.ColourRgba = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-      page.Mesh.Index = {0, 1, 2};
-      page.Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}};
-      return std::expected<RoadPageGeometry, std::string>(std::move(page));
-    });
+    auto result = pages.Resolve(
+        {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
+        outshine::Test::RoadProducer([index](const RoadPageRequest &, std::stop_token) {
+          const auto x = static_cast<float>(index);
+          RoadPageGeometry page;
+          page.Mesh.PositionM = {x, 0, 0, x + 1, 0, 0, x, 1, 0};
+          page.Mesh.NormalM = {0, 0, 1, 0, 0, 1, 0, 0, 1};
+          page.Mesh.ColourRgba = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+          page.Mesh.Index = {0, 1, 2};
+          page.Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}};
+          return std::expected<RoadPageGeometry, std::string>(std::move(page));
+        }).get());
     if (!result) { return std::nullopt; }
     manifest.Pages.push_back({.Key = result->Record.Key,
                               .Bounds = result->Record.Bounds,

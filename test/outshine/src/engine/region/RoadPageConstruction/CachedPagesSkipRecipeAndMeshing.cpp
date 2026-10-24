@@ -1,3 +1,4 @@
+#include "ControlledRoadPageProducer.h"
 #include "RoadPageConstruction.h"
 #include "RoadPageRestoration.h"
 #include "GroundRegionPreparation.h"
@@ -184,10 +185,15 @@ void CheckSelection(Tasks &pool,
   CHECK(removed && !*removed,
         "the failed payload loses its index row so metadata hits cannot cause a rebuild loop");
   size_t repairs = 0;
-  const auto repaired = pages->Resolve(address, {}, {}, size_t{64} * 1024u * 1024u, [&](size_t) {
-    ++repairs;
-    return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
-  });
+  const auto repaired = pages->Resolve(
+      {.Address = address,
+       .Parent = {},
+       .RequestKey = {},
+       .NativeBytesMost = size_t{64} * 1024u * 1024u},
+      outshine::Test::RoadProducer([&](const RoadPageRequest &, std::stop_token) {
+        ++repairs;
+        return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
+      }).get());
   CHECK(repaired && repairs == 1, "exactly one generation repairs the corrupt native package");
   const auto published = pages->StoreManifest(*manifest);
   auto complete = RoadPageRestoration::Begin(pool, pages, manifest, std::nullopt, key);
@@ -201,10 +207,15 @@ void CheckSelection(Tasks &pool,
   const auto wrongLevel = pages->Inspect(address, size_t{64} * 1024u * 1024u);
   CHECK(wrongLevel && !*wrongLevel,
         "inconsistent index metadata becomes a regenerable miss before any fine read");
-  const auto corrected = pages->Resolve(address, {}, {}, size_t{64} * 1024u * 1024u, [&](size_t) {
-    ++repairs;
-    return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
-  });
+  const auto corrected = pages->Resolve(
+      {.Address = address,
+       .Parent = {},
+       .RequestKey = {},
+       .NativeBytesMost = size_t{64} * 1024u * 1024u},
+      outshine::Test::RoadProducer([&](const RoadPageRequest &, std::stop_token) {
+        ++repairs;
+        return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
+      }).get());
   CHECK(corrected && repairs == 2 && pages->StoreManifest(*manifest),
         "the next generation repairs the invalid level and restores complete dependencies");
 }
