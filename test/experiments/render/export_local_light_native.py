@@ -51,8 +51,7 @@ def inputs(name, mixed, camera_name):
     return lights, frame, packed, sun, receipt
 
 
-def export(output, name, mixed, camera_name, index_budget):
-    lights, frame, packed, sun, receipt = inputs(name, mixed, camera_name)
+def export_control(output, packed, frame, sun):
     output.mkdir(parents=True, exist_ok=True)
     packed.tofile(output / "lights.bin")
     lighting = np.zeros(336, dtype="<f4")
@@ -70,6 +69,11 @@ def export(output, name, mixed, camera_name, index_budget):
     probe[3, :3] = frame.eye
     probe[4] = [*frame.half, 25, int(frame.perspective)]
     probe.tofile(output / "probe.bin")
+
+
+def export(output, name, mixed, camera_name, index_budget):
+    lights, frame, packed, sun, receipt = inputs(name, mixed, camera_name)
+    export_control(output, packed, frame, sun)
     for mode in ("tiles", "log"):
         grid = build_grid(
             lights,

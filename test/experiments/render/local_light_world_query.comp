@@ -1,0 +1,65 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "local_light_world_position.glsl"
+#include "local_light_world_query.glsl"
+layout(local_size_x = 64) in;
+struct Query { ivec4 lightCell; vec4 lightLocal; ivec4 eyeCell; vec4 eyeLocal; vec4 receiver; ivec4 lookupCell; };
+layout(std430, set = 0, binding = 0) readonly buffer Queries { Query cases[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Index { uint words[]; };
+layout(std430, set = 1, binding = 0) writeonly buffer Answers { uvec4 answers[]; };
+
+bool contains(uint base, ivec3 cell, bool sorted) {
+  uvec3 key = uvec3(cell) ^ uvec3(0x80000000u);
+  uint last = words[base + 3];
+  if (sorted) {
+    for (uint slot = 0; slot < last; ++slot) {
+      uint at = base + words[base + 2] + 5 * slot;
+      if (all(equal(key, uvec3(words[at], words[at + 1], words[at + 2])))) { return words[at + 4] != 0u; }
+    }
+    return false;
+  }
+  uint hash = (key.x * 0x9e3779b1u) ^ (key.y * 0x85ebca77u) ^ (key.z * 0xc2b2ae3du);
+  for (uint probe = 0; probe <= last; ++probe) {
+    uint at = base + words[base + 2] + 5 * ((hash + probe) & last);
+    if (words[at + 4] == 0u) { return false; }
+    if (all(equal(key, uvec3(words[at], words[at + 1], words[at + 2])))) { return true; }
+  }
+  return false;
+}
+
+void main() {
+  uint at = gl_GlobalInvocationID.x;
+  if (at >= cases.length()) { return; }
+  Query q = cases[at];
+  vec3 light = worldRelativePosition(q.lightCell.xyz, q.lightLocal.xyz,
+                                      q.eyeCell.xyz, q.eyeLocal.xyz, 128.0);
+  vec3 offset = light - q.receiver.xyz;
+  float square = dot(offset, offset);
+  float reach = square * q.lightLocal.w * q.lightLocal.w;
+  bool support = square > 0.0 && clamp(1.0 - reach * reach, 0.0, 1.0) > 0.0;
+  float width = float(q.eyeCell.w);
+  ivec3 oldKey = ivec3(0);
+  if (q.receiver.w == 0.0) {
+    oldKey = q.eyeCell.xyz * int(128.0 / width) +
+             ivec3(floor((q.receiver.xyz + q.eyeLocal.xyz) / width));
+  }
+  ivec3 first, last;
+  bool certain = worldQueryBounds(q.lookupCell.xyz, q.eyeLocal.xyz, width,
+                                   q.receiver.xyz, q.eyeLocal.w, first, last);
+  uint base = uint(q.lightCell.w);
+  bool sorted = q.lookupCell.w != 0;
+  bool oldHit = q.receiver.w == 0.0 && contains(base, oldKey, sorted);
+  bool newHit = !certain;
+  uint cells = 0u;
+  if (certain) {
+    for (int x = 0; x <= last.x - first.x; ++x) {
+      for (int y = 0; y <= last.y - first.y; ++y) {
+        for (int z = 0; z <= last.z - first.z; ++z) {
+          newHit = contains(base, first + ivec3(x, y, z), sorted) || newHit;
+          ++cells;
+        }
+      }
+    }
+  }
+  answers[at] = uvec4(uint(support), uint(oldHit), cells, uint(newHit));
+}

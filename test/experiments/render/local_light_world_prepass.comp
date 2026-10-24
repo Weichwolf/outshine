@@ -1,0 +1,31 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64) in;
+#include "lighting.glsl"
+layout(set = 2, binding = 24, std430) readonly buffer Emitters { Light emitters[]; };
+layout(set = 2, binding = 25, std430) buffer Lists { uint words[]; };
+layout(set = 3, binding = 4, std140) uniform ClusterFrame {
+  uvec4 grid;
+  vec4 depth;
+  vec4 viewZ;
+  vec4 viewport;
+} clusters;
+layout(set = 3, binding = 5, std140) uniform ProbeFrame {
+  vec4 right;
+  vec4 up;
+  vec4 forward;
+  vec4 eye;
+  vec4 control;
+} probe;
+#include "local_light_world.glsl"
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= emitters.length()) { return; }
+  worldView();
+  Light light = worldLightAt(index);
+  uvec3 position = floatBitsToUint(light.place.xyz);
+  uint at = (clusters.grid.w >> 1) + index * 3;
+  words[at] = position.x;
+  words[at + 1] = position.y;
+  words[at + 2] = position.z;
+}
