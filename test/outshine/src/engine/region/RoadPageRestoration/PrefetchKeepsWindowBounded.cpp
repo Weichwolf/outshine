@@ -1,3 +1,5 @@
+#include "ControlledRoadPageProducer.h"
+#include <stop_token>
 #include "RoadPageRestoration.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -6,7 +8,8 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
+#include <print>
+#include <ratio>
 #include <expected>
 #include <filesystem>
 #include <memory>
@@ -21,6 +24,8 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Generators;
+
+constexpr LongitudeLatitude kAnchor{.LongitudeDeg = 8, .LatitudeDeg = 49};
 
 struct Fixture {
   std::shared_ptr<PreparedRoadPages> Pages;
@@ -37,28 +42,30 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
   std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);
   auto manifest = std::make_shared<RoadPageManifest>();
   manifest->PlanKey.assign(64, 'a');
-  manifest->Anchor = {.LongitudeDeg = 8, .LatitudeDeg = 49};
+  manifest->Anchor = kAnchor;
   if (!manifest->Materials.addSurface("streets", Material{})) { return std::nullopt; }
   const auto material = EncodeGeometryAsset(manifest->Materials, 4096);
   if (!material) { return std::nullopt; }
   manifest->MaterialKey = Sha256Hex(material->data(), material->size());
   for (uint32_t index = 0; index < 32; ++index) {
-    RoadPageAddress address{.PlanKey = manifest->PlanKey,
-                            .MaterialKey = manifest->MaterialKey,
-                            .MaterialIndex = 0,
-                            .Anchor = manifest->Anchor,
-                            .Level = 0,
-                            .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}}};
-    const auto result = pages->Resolve(address, {}, {}, 4096, [index](size_t) {
-      const auto x = static_cast<float>(index);
-      RoadPageGeometry page;
-      page.Mesh.PositionM = {x, 0, 0, x + 1, 0, 0, x, 1, 0};
-      page.Mesh.NormalM = {0, 0, 1, 0, 0, 1, 0, 0, 1};
-      page.Mesh.ColourRgba = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-      page.Mesh.Index = {0, 1, 2};
-      page.Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}};
-      return std::expected<RoadPageGeometry, std::string>(std::move(page));
-    });
+    const RoadPageAddress address{.PlanKey = manifest->PlanKey,
+                                  .MaterialKey = manifest->MaterialKey,
+                                  .MaterialIndex = 0,
+                                  .Anchor = manifest->Anchor,
+                                  .Level = 0,
+                                  .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}}};
+    const auto result = pages->Resolve(
+        {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = 4096},
+        outshine::Test::RoadProducer([index](const RoadPageRequest &, const std::stop_token &) {
+          const auto x = static_cast<float>(index);
+          RoadPageGeometry page;
+          page.Mesh.PositionM = {x, 0, 0, x + 1, 0, 0, x, 1, 0};
+          page.Mesh.NormalM = {0, 0, 1, 0, 0, 1, 0, 0, 1};
+          page.Mesh.ColourRgba = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+          page.Mesh.Index = {0, 1, 2};
+          page.Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}};
+          return std::expected<RoadPageGeometry, std::string>(std::move(page));
+        }).get());
     if (!result) { return std::nullopt; }
     manifest->Pages.push_back({.Key = result->Record.Key,
                                .Bounds = result->Record.Bounds,
@@ -122,12 +129,12 @@ void CheckPacing(Tasks &pool, const Fixture &fixture) {
         "paced worker-ready polling restores every selected page");
   CHECK(Ordered(geometry, fixture.Manifest->Pages.size()),
         "prefetched results retain manifest order and original local triangle indices");
-  std::printf("ROAD_PACING pages=%zu calls=%zu native_bytes=%zu wall_ms=%.3f max_advance_us=%.3f\n",
-              (*restore)->Pages(),
-              calls,
-              (*restore)->NativeBytes(),
-              elapsedMs,
-              longestUs);
+  std::println("ROAD_PACING pages={} calls={} native_bytes={} wall_ms={:.3f} max_advance_us={:.3f}",
+               (*restore)->Pages(),
+               calls,
+               (*restore)->NativeBytes(),
+               elapsedMs,
+               longestUs);
 }
 
 bool ChangeCrc(const std::filesystem::path &directory, const std::string &key, int delta) {
@@ -200,9 +207,9 @@ void CheckWindow(Tasks &pool,
 void CheckWindows(Tasks &pool, const Fixture &fixture, const std::filesystem::path &directory) {
   using namespace outshine::Test;
   CheckWindow(
-      pool, fixture, directory, 4, {.PendingMost = 4, .NativeBytesMost = 8u * 1024u * 1024u});
+      pool, fixture, directory, 4, {.PendingMost = 4, .NativeBytesMost = size_t{8} * 1024 * 1024});
   CheckWindow(
-      pool, fixture, directory, 2, {.PendingMost = 2, .NativeBytesMost = 8u * 1024u * 1024u});
+      pool, fixture, directory, 2, {.PendingMost = 2, .NativeBytesMost = size_t{8} * 1024 * 1024});
   const auto bytes = fixture.Manifest->Pages[0].ByteCount + fixture.Manifest->Pages[1].ByteCount;
   CheckWindow(pool,
               fixture,

@@ -197,20 +197,18 @@ ProbeLoad(outshine::Generators::PreparedRoadPages *pages, const std::string &key
 }
 
 ResolveResult ProbeResolve(outshine::Generators::PreparedRoadPages *pages,
-                           const outshine::Generators::RoadPageAddress &address,
-                           const std::string &parent,
-                           const std::string &requestKey,
-                           size_t limit,
-                           const outshine::Generators::PreparedRoadPages::Factory &factory) {
+                           const outshine::Generators::RoadPageRequest &request,
+                           const outshine::Generators::RoadPageProducer *producer,
+                           [[maybe_unused]] std::stop_token stop) {
   ++Resolves;
   return std::unexpected(std::format(
-      "consumer forbids resolution: cache={} level={} parent={} request={} limit={} factory={}",
+      "consumer forbids resolution: cache={} level={} parent={} request={} limit={} producer={}",
       pages != nullptr,
-      address.Level,
-      parent,
-      requestKey,
-      limit,
-      static_cast<bool>(factory)));
+      request.Address.Level,
+      request.Parent,
+      request.RequestKey,
+      request.NativeBytesMost,
+      producer != nullptr));
 }
 
 CacheResult ProbeCacheLoad(const outshine::AssetCache *cache, std::string_view key, size_t limit) {

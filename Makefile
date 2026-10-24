@@ -178,8 +178,8 @@ lint-all: ## full integration format, static analysis and repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 
 .PHONY: lint-docs
-lint-docs: ## AGENTS contracts only; offline, no GitHub or engine build
-	@cd $(SELF_DIR) && sh test/lint-docs.sh
+lint-docs: ## whitespace check for changed documentation
+	@cd $(SELF_DIR) && git diff --check -- '*.md'
 
 .PHONY: test-sanitizers test-races
 test-sanitizers: ## native ASan/UBSan and container checks (SUITE=...)

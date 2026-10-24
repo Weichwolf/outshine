@@ -1,0 +1,30 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "native",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "lint",
+      "inherits": "native",
+      "binaryDir": "${sourceDir}/build/lint",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF",
+        "OUTSHINE_CLANG_TIDY": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {"name": "native", "configurePreset": "native", "jobs": 0},
+    {"name": "lint", "configurePreset": "lint", "jobs": 0}
+  ],
+  "testPresets": [
+    {"name": "native", "configurePreset": "native", "output": {"outputOnFailure": true}}
+  ]
+}

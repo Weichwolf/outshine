@@ -1,3 +1,4 @@
+#include "ControlledRoadPageProducer.h"
 #include "RoadPageConstruction.h"
 #include "RoadPageRestoration.h"
 #include "GroundRegionPreparation.h"
@@ -13,7 +14,9 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
+#include <print>
+#include <utility>
+#include "Vec3.h"
 #include <expected>
 #include <filesystem>
 #include <memory>
@@ -58,7 +61,7 @@ LoadRegion(Tasks &pool,
       pool,
       [&bytes](const std::stop_token &)
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
-        auto region = DecodeGroundRegionAsset(bytes, 1024u * 1024u);
+        auto region = DecodeGroundRegionAsset(bytes, size_t{1024} * 1024);
         if (!region) { return std::unexpected("invalid native region fixture"); }
         return GroundRegionPreparation::Completed{
             .Key = std::string(64, 'a'),
@@ -142,7 +145,7 @@ void CheckSelection(Tasks &pool,
   CHECK(manifest->Pages.size() >= 2,
         "the selection fixture has multiple spatial native page packages");
   if (manifest->Pages.size() < 2) { return; }
-  const auto retained = pages->LoadKey(manifest->Pages[1].Key, size_t{64} * 1024u * 1024u);
+  const auto retained = pages->LoadKey(manifest->Pages[1].Key, size_t{64} * size_t{1024} * 1024);
   CHECK(retained && *retained, "the original page is retained for exact repair after corruption");
   if (!retained || !*retained) { return; }
   const auto address = (**retained).Page->Address;
@@ -154,7 +157,7 @@ void CheckSelection(Tasks &pool,
   const auto freshMetadata = pages->LoadManifest(key);
   CHECK(freshMetadata && *freshMetadata,
         "manifest restoration never reads an excluded fine payload");
-  const auto unverified = pages->Inspect(address, size_t{64} * 1024u * 1024u);
+  const auto unverified = pages->Inspect(address, size_t{64} * size_t{1024} * 1024);
   CHECK(unverified && *unverified,
         "an index probe defers payload integrity until that fine page is actually required");
   const std::array<uint32_t, 1> selected{0};
@@ -180,14 +183,19 @@ void CheckSelection(Tasks &pool,
   const auto retry = LoadRegion(pool, pages, region);
   CHECK(retry && !retry->Loaded && !retry->SurfacePages,
         "the regular region worker returns a normal miss for bounded regeneration");
-  const auto removed = pages->Inspect(address, size_t{64} * 1024u * 1024u);
+  const auto removed = pages->Inspect(address, size_t{64} * size_t{1024} * 1024);
   CHECK(removed && !*removed,
         "the failed payload loses its index row so metadata hits cannot cause a rebuild loop");
   size_t repairs = 0;
-  const auto repaired = pages->Resolve(address, {}, {}, size_t{64} * 1024u * 1024u, [&](size_t) {
-    ++repairs;
-    return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
-  });
+  const auto repaired = pages->Resolve(
+      {.Address = address,
+       .Parent = {},
+       .RequestKey = {},
+       .NativeBytesMost = size_t{64} * size_t{1024} * 1024},
+      outshine::Test::RoadProducer([&](const RoadPageRequest &, const std::stop_token &) {
+        ++repairs;
+        return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
+      }).get());
   CHECK(repaired && repairs == 1, "exactly one generation repairs the corrupt native package");
   const auto published = pages->StoreManifest(*manifest);
   auto complete = RoadPageRestoration::Begin(pool, pages, manifest, std::nullopt, key);
@@ -198,13 +206,18 @@ void CheckSelection(Tasks &pool,
   CHECK(ChangeRecord(
             directory, manifest->Pages[1].Key, "UPDATE assets SET level=level+1 WHERE key=?1"),
         "the indexed level is deliberately changed while the original payload stays valid");
-  const auto wrongLevel = pages->Inspect(address, size_t{64} * 1024u * 1024u);
+  const auto wrongLevel = pages->Inspect(address, size_t{64} * size_t{1024} * 1024);
   CHECK(wrongLevel && !*wrongLevel,
         "inconsistent index metadata becomes a regenerable miss before any fine read");
-  const auto corrected = pages->Resolve(address, {}, {}, size_t{64} * 1024u * 1024u, [&](size_t) {
-    ++repairs;
-    return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
-  });
+  const auto corrected = pages->Resolve(
+      {.Address = address,
+       .Parent = {},
+       .RequestKey = {},
+       .NativeBytesMost = size_t{64} * size_t{1024} * 1024},
+      outshine::Test::RoadProducer([&](const RoadPageRequest &, const std::stop_token &) {
+        ++repairs;
+        return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
+      }).get());
   CHECK(corrected && repairs == 2 && pages->StoreManifest(*manifest),
         "the next generation repairs the invalid level and restores complete dependencies");
 }
@@ -311,20 +324,21 @@ void CheckBuild(const std::filesystem::path &directory,
   CHECK(ground.has_value(), "the base region retains its own material independently of roads");
   if (!ground) { return; }
   root.GroundSurface = ground->index();
-  root.GroundAlbedo = {{0.2, 0.3, 0.4}};
-  const auto encoded = EncodeGroundRegionAsset(root, 1024u * 1024u);
+  constexpr Vec3 kGroundAlbedo{{0.2, 0.3, 0.4}};
+  root.GroundAlbedo = kGroundAlbedo;
+  const auto encoded = EncodeGroundRegionAsset(root, size_t{1024} * 1024);
   CHECK(encoded && encoded->size() < 4096 && root.Surfaces.parts() == 0,
         "the regular region package excludes all fine road vertices and indices");
   if (!encoded) { return; }
   const auto metadata = EncodeRoadPageManifest(*manifest, PreparedRoadPages::ManifestBytesMost);
   size_t fineBytes = 0;
   for (const auto &page : manifest->Pages) { fineBytes += static_cast<size_t>(page.ByteCount); }
-  std::printf("ROAD_MANIFEST region_native_bytes=%zu manifest_native_bytes=%zu "
-              "fine_native_bytes=%zu pages=%zu\n",
-              encoded->size(),
-              metadata ? metadata->size() : 0,
-              fineBytes,
-              manifest->Pages.size());
+  std::println(
+      "ROAD_MANIFEST region_native_bytes={} manifest_native_bytes={} fine_native_bytes={} pages={}",
+      encoded->size(),
+      metadata ? metadata->size() : 0,
+      fineBytes,
+      manifest->Pages.size());
   cold = std::unexpected("released");
   plan.reset();
   pages.reset();
@@ -333,7 +347,8 @@ void CheckBuild(const std::filesystem::path &directory,
   if (!opened) { return; }
   pages = std::move(*opened);
   auto changed = roads;
-  changed[0].LatLon.back() += 0.0001;
+  constexpr double kChangedEndpointDeltaDeg = 0.0001;
+  changed[0].LatLon.back() += kChangedEndpointDeltaDeg;
   CHECK(vectors.Declare(changed, site.Standing.Anchor()).has_value(),
         "original sources change after their plan is destroyed");
   auto restored = LoadRegion(pool, pages, *encoded);
@@ -360,12 +375,14 @@ int main() {
   const std::vector<std::string> layers{"streets"};
   Osm::OsmField vectors(14, layers);
   std::vector<Osm::OsmField::Declared> roads;
-  for (size_t at = 0; at < 66; ++at) {
+  constexpr size_t kRoadCount = 66;
+  constexpr double kEndLatitudeDeg = 49.001;
+  for (size_t at = 0; at < kRoadCount; ++at) {
     const double longitude = 8 + static_cast<double>(at) * 0.00016;
     roads.push_back({.Layer = "streets",
                      .Key = "kind",
                      .Value = "residential",
-                     .LatLon = {49, longitude, 49.001, longitude}});
+                     .LatLon = {origin.LatitudeDeg, longitude, kEndLatitudeDeg, longitude}});
   }
   CHECK(vectors.Declare(roads, origin).has_value(),
         "fixed independent road intervals are declared");

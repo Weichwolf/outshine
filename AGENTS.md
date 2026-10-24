@@ -248,7 +248,10 @@
   RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
-  Typ-/Binärverträge erlaubt. `reaches` und die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
+  Typ-/Binärverträge erlaubt. CMake-Targets besitzen Modulabhängigkeiten und Include-Sichtbarkeit; CTest besitzt
+  Testauswahl/-ausführung. Standardwerkzeuge statt eigener Build-/Layersteuerung;
+  kein separater Claims-Block. Funktionstests gehören zu ihren Komponenten.
+  Die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
   Header liegen bei ihren besitzenden Komponenten unter `src/`; kein separater öffentlicher Headerbaum.
   Kein Doxygen oder SDK-Gate. Kommentare in `.cpp`/`.mm` unter `src/` werden gestripped.
   `.h`/`.hpp` dürfen knappe nötige Vertrags-/Warum-Kommentare tragen; keine Pflichtblöcke.
@@ -287,14 +290,14 @@
 - Modultests bauen nur die deklarierten Modulabhängigkeiten. Unerwartete Abhängigkeiten
   prüfe ich als Architekturfehler; gemischte Integrationsprüfungen erhalten einen eigenen Ort.
 - Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und
-  betroffene Places prüfen. Bei geänderten C++-Includes oder Modulpfaden zusätzlich
-  `python3 test/scripts/layer-contract.py` gegen die aktuelle Kompilationsdatenbank prüfen.
+  betroffene Places prüfen. Bei geänderten C++-Includes oder Modulpfaden die betroffenen CMake-Targets bauen.
   `make lint` prüft Änderungen gegenüber HEAD samt Header-Verbrauchern; `LINT_BASE` setzt einen anderen Vergleichsstand.
   `make lint-all` prüft die vollständige Integration am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
   nicht je Kleincommit. Build-/Prüfregeln lösen auch bei `make lint` den vollständigen Lauf aus.
   Fokussiertes clang-tidy nutzt die vollständigen Flags aus der aktuellen
   Kompilationsdatenbank; handgekürzte Aufrufe sind kein gleichwertiger Nachweis.
-  Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
+  Nur Docs: `make lint-docs` prüft geänderte Markdown-Dateien auf Whitespacefehler;
+  das schließt keine offenen Engine-Gates.
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
   Lokale Tests bauen nur ihre benötigten Komponenten. Modul-, Speicher-, Nebenläufigkeits- und
   Render-/Places-Prüfungen bleiben gezielt aufrufbar; Vollsuite und Instrumentierung sind getrennte Aufträge.
@@ -314,7 +317,9 @@
   keine globale Ein-Lauf-Sperre je Host. Ein unter Last bestandener Budgettest zählt für den gemessenen
   Lastfall; Vergleichsläufe nennen ihren Lastzustand. CPU-lastige Builds, Lint und Gates laufen
   neben interaktiver Arbeit oder Messungen mit `nice -n 10`; Messprozesse behalten normale Priorität.
-  Nice begrenzt weder RAM-/Speicherbandbreite noch GPU-Konkurrenz; Jobzahl nach Ressourcen wählen.
+  Builds nutzen standardmäßig alle verfügbaren CPU-Kerne (CMake-Buildpreset mit nativer Parallelität).
+  Nice begrenzt weder RAM-/Speicherbandbreite noch GPU-Konkurrenz; Tests und Instrumentierung
+  wählen ihre Parallelität nach den verfügbaren Ressourcen.
   Im Entwicklungsloop entscheiden Trends vergleichbarer Szenarien; einzelne verrauschte Läufe
   nicht ausermitteln. Wiederholungen/isolierte Gegenmessungen für größere Entscheidungen,
   vermutete Regressionen und Geräteabnahme bündeln. Breite Prüfungen und aufwendige Renderexperimente

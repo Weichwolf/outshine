@@ -15,9 +15,8 @@
 
 using Restore = outshine::RoadPageRestoration;
 using BeginResult = std::expected<std::unique_ptr<Restore>, std::string>;
-using LoadResult =
-    std::expected<std::optional<outshine::Generators::PreparedRoadPages::Loaded>, std::string>;
-using ResolveResult = std::expected<outshine::Generators::PreparedRoadPages::Loaded, std::string>;
+using LoadResult = std::expected<std::optional<outshine::Generators::RoadPageLease>, std::string>;
+using ResolveResult = std::expected<outshine::Generators::RoadPageLease, std::string>;
 using CacheResult = std::expected<std::optional<outshine::CachedAsset>, outshine::AssetCacheError>;
 BeginResult RealBegin(
     outshine::Tasks &pool,
@@ -45,17 +44,12 @@ LoadResult
 ProbeLoad(outshine::Generators::PreparedRoadPages *pages, const std::string &key, size_t limit) asm(
     "__wrap__ZN8outshine10Generators17PreparedRoadPages7LoadKeyERKNSt3__112basic_stringIcNS2_"
     "11char_traitsIcEENS2_9allocatorIcEEEEm");
-ResolveResult
-ProbeResolve(outshine::Generators::PreparedRoadPages *pages,
-             const outshine::Generators::RoadPageAddress &address,
-             const std::string &parent,
-             const std::string &requestKey,
-             size_t limit,
-             const outshine::Generators::PreparedRoadPages::Factory &
-                 factory) asm("__wrap__ZN8outshine10Generators17PreparedRoadPages7ResolveERKNS0_"
-                              "15RoadPageAddressERKNSt3__112basic_stringIcNS5_11char_traitsIcEENS5_"
-                              "9allocatorIcEEEESD_mRKNS5_8functionIFNS5_8expectedINS0_"
-                              "16RoadPageGeometryESB_EEmEEE");
+ResolveResult ProbeResolve(
+    outshine::Generators::PreparedRoadPages *pages,
+    const outshine::Generators::RoadPageRequest &request,
+    const outshine::Generators::RoadPageProducer *producer,
+    std::stop_token stop) asm("__wrap__ZN8outshine10Generators17PreparedRoadPages7ResolveERKNS0_"
+                              "15RoadPageRequestEPKNS0_16RoadPageProducerENSt3__110stop_tokenE");
 outshine::Result
 RealRender(outshine::Engine *engine,
            outshine::Extent extent) asm("__real__ZN8outshine6Engine6renderENS_6ExtentE");
