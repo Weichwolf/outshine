@@ -1,0 +1,16 @@
+{
+  "url": "https://projects.tevs.eu/www.tevs.eu/files/i3d08_lowres.pdf",
+  "doi": "10.1145/1342250.1342279",
+  "title": "Maximum Mipmaps for Fast, Accurate, and Scalable Dynamic Height Field Rendering",
+  "authors": [
+    "Art Tevs",
+    "Ivo Ihrke",
+    "Hans-Peter Seidel"
+  ],
+  "venue": "I3D 2008",
+  "sha256": "38bcc369caf4a7c050cd4f16ef29d73156a45376d50697d9550bbaf508d87568",
+  "inspected_pages": [
+    3,
+    5
+  ]
+}
