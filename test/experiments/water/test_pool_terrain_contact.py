@@ -23,6 +23,61 @@ class PoolTerrainContact(unittest.TestCase):
         )
         cls.faces = np.array([[0, 2, 3], [0, 3, 1]])
 
+    def independent_halves(self):
+        result = []
+        for source_ids in (np.array([3, 0, 2]), np.array([0, 3, 1])):
+            result.append(
+                (
+                    source_ids,
+                    contact_patch(
+                        self.body, self.terrain[source_ids], np.array([[1, 2, 0]])
+                    ),
+                )
+            )
+        return result
+
+    def test_independent_remapped_halves_share_exact_source_edge_parameters(self):
+        profiles = []
+        for source_ids, (vertices, _, _, report) in self.independent_halves():
+            profile = {}
+            for port in report["work"]["exact_boundary_parameters"]:
+                a, b = map(int, source_ids[port["input_edge"]])
+                t = Fraction(port["parameter"])
+                if a > b:
+                    a, b, t = b, a, 1 - t
+                if (a, b) == (0, 3):
+                    profile[t] = vertices[port["output_vertex"]]
+            self.assertEqual(report["admission"], "candidate_pending_neighbor_updates")
+            profiles.append(profile)
+        self.assertEqual(profiles[0].keys(), profiles[1].keys())
+        self.assertGreater(len(profiles[0]), 2)
+        for parameter in profiles[0]:
+            a, b = profiles[0][parameter], profiles[1][parameter]
+            self.assertEqual(a[:2].tobytes(), b[:2].tobytes())
+            self.assertLessEqual(float(abs(a[2] - b[2])), 1e-7)
+            self.assertEqual(
+                a.astype(np.float32).tobytes(), b.astype(np.float32).tobytes()
+            )
+
+    def test_separate_halves_rejoin_the_whole_cell_without_epsilon_welding(self):
+        vertices, faces, _, _ = contact_patch(self.body, self.terrain, self.faces)
+        arrays, indices, offset = [], [], 0
+        for _, (points, triangles, _, _) in self.independent_halves():
+            arrays.append(points)
+            indices.append(triangles + offset)
+            offset += len(points)
+        joined = np.vstack(arrays)
+        xy, inverse = np.unique(joined[:, :2], axis=0, return_inverse=True)
+        self.assertEqual(xy.tobytes(), vertices[:, :2].tobytes())
+        joined_faces = inverse[np.vstack(indices)]
+        expected = sorted(map(tuple, np.sort(faces, axis=1)))
+        actual = sorted(map(tuple, np.sort(joined_faces, axis=1)))
+        self.assertEqual(actual, expected)
+        self.assertEqual(
+            joined.astype(np.float32).tobytes(),
+            vertices[inverse].astype(np.float32).tobytes(),
+        )
+
     def test_exact_partition_area_and_shared_edge_incidence(self):
         xy, faces, points, work = partition(self.body, self.terrain, self.faces)
         generated = sum(_area([points[i] for i in f]) for f in faces)

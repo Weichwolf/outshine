@@ -84,6 +84,18 @@ represents only the supplied cell. Boundary heights change by up to1.0652m;
 output admission is `candidate_pending_neighbor_updates`, with explicit old/new
 heights and edge parameters. No closed neighboring/world contact is claimed.
 
+The same known cell can be split into its two original triangles and generated
+independently with different local vertex slots and cyclic face order. The
+follow-up check maps slots back to the four original input-corner IDs and
+canonicalizes edge direction/parameters. Both cuts contain the same five points
+on their common diagonal. Exact XY words and reference Float32 XYZ words agree;
+rejoining the independent pieces gives the original21vertices/30triangles and
+the same unordered index connectivity without epsilon welding. Float64 height
+queries retain the existing1e-7m contract; the observed Linux case is word-equal
+there too. This is a two-consumer check inside one known cell/frame. It does not
+qualify adjacent native pages, differing frames, shader transforms or the missing
+outer terrain. No new border cache, resolver or native product format is added.
+
 ## Checks, cost and limits
 
 Tests preserve original water words and source permutation, closed body winding,
