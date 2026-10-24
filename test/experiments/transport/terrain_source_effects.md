@@ -48,11 +48,18 @@ PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 \
   --output /tmp/outshine-terrain-effects-crossed
 ```
 
-Existing original/stacked/crossed bodies are the only inputs. The driver declares
+Existing original/stacked/crossed bodies and the fixed World reference from #1219
+are the only inputs. The driver declares
 controlled lower support and upper clearance recipes; these are not new provider
 facts or generally approved source-role inference. It exports existing body arrays,
 selected effect arrays, declarations/products and scoped costs. Optional plots
 show actual Float32 underside geometry and offset targets, not a deformed DEM.
+`--case world` consumes the body-kernel reference directly, retaining its three
+parts, common captured parent and exact World-node/port bindings. Its three
+GroundContact declarations are controlled requests, never inferred placement
+facts. It exports source bindings and effects separately; it does not label that
+body-kernel input as a shared height-solver/Nav plan. Missing part declarations
+remain errors even when all parts share the same captured parent.
 The reported work counts logical owner incidences and actually resolved bits.
 Selected array bytes/zero position-copy bytes exclude Python list/dict storage,
 JSON expansion and total allocations. Separate tracing includes role-only Python

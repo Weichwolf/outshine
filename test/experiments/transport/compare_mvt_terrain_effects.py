@@ -1,4 +1,4 @@
-"""Compare explicit source effects on the existing original and two-flight bodies."""
+"""Compare explicit effects on existing original, two-flight and World bodies."""
 
 import argparse
 import gc
@@ -20,6 +20,11 @@ def controlled_roles(case):
     upper = set(
         case["plan"].get("controlled_derivation", {}).get("upper_source_mapping", {})
     )
+    recipe = (
+        "Controlled support of captured World body parts; no placement inference."
+        if "capture" in case
+        else "Controlled lower support / upper clearance; no provider-role claim."
+    )
     return {
         row["source_id"]: {
             "effect": "OverheadClearance"
@@ -28,13 +33,17 @@ def controlled_roles(case):
             "contact_key": 0 if row["source_id"] in upper else 1,
             "clearance_m": 2.0 if row["source_id"] in upper else 0.0,
             "relief_m": 0.0,
-            "recipe": "Controlled lower support / upper clearance; no provider-role claim.",
+            "recipe": recipe,
         }
         for row in case["plan"]["rows"]
     }
 
 
 def prepare(name):
+    if name == "world":
+        from world_stair_reference import FIXTURE, construct
+
+        return construct(json.loads(FIXTURE.read_text()))
     if name != "original":
         from mvt_independent_flight_body import construct
 
@@ -76,6 +85,36 @@ def measure(case, declarations, reuse_masks, repeats):
         "python_traced_live_blocks": blocks,
         "work": result["work"],
     }
+
+
+def export_products(case, declarations, effects, output):
+    if "capture" in case:
+        records = {
+            "terrain-effects": {
+                k: v.tolist() if isinstance(v, np.ndarray) else v
+                for k, v in effects.items()
+            },
+            "source-bindings": {
+                "captured_source": case["capture"],
+                "source_instances_in_mask_bit_order": case["plan"]["rows"],
+                "ports": case["ports"],
+                "scope": "Body-kernel reference input and explicit part/port bindings; not a shared solver plan, Nav route, terrain-role inference or new product format.",
+            },
+        }
+    else:
+        product = shared_products(
+            case["plan"],
+            case["heights"],
+            case["data"],
+            terrain_declarations=declarations,
+        )
+        qualified = product.pop("terrain_effects")
+        if product != case["products"]:
+            raise ValueError("qualified effects changed an existing consumer")
+        product["terrain_effects"] = qualified
+        records = {"shared-plan": product}
+    for name, value in {"declarations": declarations, **records}.items():
+        (output / (name + ".json")).write_text(json.dumps(value, indent=2) + "\n")
 
 
 def display(case, result, output):
@@ -135,7 +174,7 @@ def display(case, result, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--case", choices=("original", "stacked", "crossed"), required=True
+        "--case", choices=("original", "stacked", "crossed", "world"), required=True
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--repeats", type=int, default=21)
@@ -156,22 +195,17 @@ def main():
             np.testing.assert_array_equal(factored[key], direct[key])
         elif key != "work" and factored[key] != direct[key]:
             raise ValueError(f"factoring changed terrain field {key}")
-    product = shared_products(
-        case["plan"], case["heights"], case["data"], terrain_declarations=declarations
-    )
-    effects = product.pop("terrain_effects")
-    if product != case["products"]:
-        raise ValueError("qualified effects changed an existing consumer")
-    product["terrain_effects"] = effects
+    export_products(case, declarations, factored, args.output)
     np.savez(args.output / "body.npz", **case["data"])
     np.savez(
         args.output / "terrain-effects.npz",
         **{k: v for k, v in factored.items() if isinstance(v, np.ndarray)},
     )
-    for name, value in (("declarations", declarations), ("shared-plan", product)):
-        (args.output / (name + ".json")).write_text(json.dumps(value, indent=2) + "\n")
     report = {
         "case": args.case,
+        "consumer": "world_body_kernel"
+        if "capture" in case
+        else "shared_profile_products",
         "body_preparation_s": preparation,
         "factored": candidate,
         "direct": baseline,

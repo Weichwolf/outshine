@@ -79,6 +79,31 @@ class TerrainSourceEffectTests(unittest.TestCase):
             case["original_report"]["orientation"]["invalid_float32_faces"], 0
         )
 
+    def test_captured_world_parts_keep_their_own_body_undersides_and_parent_facts(self):
+        case = prepare("world")
+        declarations = controlled_roles(case)
+        before_capture = json.dumps(case["capture"], sort_keys=True)
+        before_arrays = {k: a.tobytes() for k, a in case["data"].items()}
+        result = qualify_effects(case["plan"], case["data"], declarations)
+        self.assertEqual(len(result["sources"]), 3)
+        self.assertEqual(len({r["parent_source_id"] for r in case["plan"]["rows"]}), 1)
+        np.testing.assert_array_equal(
+            result["body_cap_face_ids"], np.arange(len(case["data"]["bottom_faces"]))
+        )
+        np.testing.assert_array_equal(result["effects"], 1)
+        np.testing.assert_array_equal(result["contact_keys"], 1)
+        np.testing.assert_array_equal(result["height_offsets_m"], 0)
+        self.assertEqual(result["face_array"], "bottom_faces")
+        collapsed = {
+            r["parent_source_id"]: declarations[r["source_id"]]
+            for r in case["plan"]["rows"]
+        }
+        with self.assertRaisesRegex(ValueError, "terrain role instance mismatch"):
+            qualify_effects(case["plan"], case["data"], collapsed)
+        self.assertEqual(json.dumps(case["capture"], sort_keys=True), before_capture)
+        for key, words in before_arrays.items():
+            self.assertEqual(case["data"][key].tobytes(), words)
+
     def test_ceiling_targets_never_require_raising_lower_terrain(self):
         for case in self.cases.values():
             data = case["data"]
