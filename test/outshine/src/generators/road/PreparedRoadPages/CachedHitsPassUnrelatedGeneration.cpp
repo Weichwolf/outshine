@@ -1,3 +1,6 @@
+#include "Earth.h"
+#include "ControlledRoadPageProducer.h"
+#include <stop_token>
 #include "PreparedRoadPages.h"
 #include "Check.h"
 #include <atomic>
@@ -17,13 +20,14 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Generators;
-constexpr size_t kLimit = 1024u * 1024u;
+constexpr size_t kLimit = size_t{1024} * 1024;
+constexpr LongitudeLatitude kAnchor{.LongitudeDeg = 8, .LatitudeDeg = 49};
 
 RoadPageAddress Address(uint32_t part) {
   return {.PlanKey = std::string(64, 'a'),
           .MaterialKey = std::string(64, 'b'),
           .MaterialIndex = 0,
-          .Anchor = {.LongitudeDeg = 8, .LatitudeDeg = 49},
+          .Anchor = kAnchor,
           .Level = 0,
           .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = part}}};
 }
@@ -40,11 +44,15 @@ RoadPageGeometry Triangle(uint32_t part) {
 
 void CheckConcurrent(const std::shared_ptr<PreparedRoadPages> &pages) {
   using namespace outshine::Test;
-  const auto warm = pages->Resolve(Address(8), {}, {}, kLimit, [](size_t) { return Triangle(8); });
+  const auto warm = pages->Resolve(
+      {.Address = Address(8), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
+      outshine::Test::RoadProducer([](const RoadPageRequest &, const std::stop_token &) {
+        return Triangle(8);
+      }).get());
   CHECK(warm.has_value(), "an independent complete native page is prepared");
   if (!warm) { return; }
-  using Built = std::expected<PreparedRoadPages::Loaded, std::string>;
-  using Read = std::expected<std::optional<PreparedRoadPages::Loaded>, std::string>;
+  using Built = std::expected<RoadPageLease, std::string>;
+  using Read = std::expected<std::optional<RoadPageLease>, std::string>;
 
   struct State {
     std::binary_semaphore Entered{0};
@@ -59,12 +67,14 @@ void CheckConcurrent(const std::shared_ptr<PreparedRoadPages> &pages) {
 
   const auto state = std::make_shared<State>();
   std::jthread first([state, pages] {
-    state->First = pages->Resolve(Address(7), {}, {}, kLimit, [state](size_t) {
-      ++state->Factories;
-      state->Entered.release();
-      state->Release.acquire();
-      return Triangle(7);
-    });
+    state->First = pages->Resolve(
+        {.Address = Address(7), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
+        outshine::Test::RoadProducer([state](const RoadPageRequest &, const std::stop_token &) {
+          ++state->Factories;
+          state->Entered.release();
+          state->Release.acquire();
+          return Triangle(7);
+        }).get());
   });
   const bool entered = state->Entered.try_acquire_for(std::chrono::seconds(5));
   CHECK(entered, "the slow producer has started without publishing a partial page");
@@ -74,10 +84,12 @@ void CheckConcurrent(const std::shared_ptr<PreparedRoadPages> &pages) {
   }
   std::jthread rival([state, pages] {
     state->RivalStarted.release();
-    state->Rival = pages->Resolve(Address(7), {}, {}, kLimit, [state](size_t) {
-      ++state->Factories;
-      return Triangle(7);
-    });
+    state->Rival = pages->Resolve(
+        {.Address = Address(7), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
+        outshine::Test::RoadProducer([state](const RoadPageRequest &, const std::stop_token &) {
+          ++state->Factories;
+          return Triangle(7);
+        }).get());
   });
   const bool competing = state->RivalStarted.try_acquire_for(std::chrono::seconds(5));
   std::jthread hit([state, pages, key = warm->Record.Key] {
@@ -103,15 +115,19 @@ void CheckRetry(PreparedRoadPages &pages) {
   using namespace outshine::Test;
   size_t attempts = 0;
   const auto failed = pages.Resolve(
-      Address(9), {}, {}, kLimit, [&](size_t) -> std::expected<RoadPageGeometry, std::string> {
+      {.Address = Address(9), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
+      outshine::Test::RoadProducer([&](const RoadPageRequest &, const std::stop_token &)
+                                       -> std::expected<RoadPageGeometry, std::string> {
         ++attempts;
         return std::unexpected("controlled producer failure");
-      });
+      }).get());
   CHECK(!failed, "a failed build does not publish a complete page");
-  const auto retry = pages.Resolve(Address(9), {}, {}, kLimit, [&](size_t) {
-    ++attempts;
-    return Triangle(9);
-  });
+  const auto retry = pages.Resolve(
+      {.Address = Address(9), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
+      outshine::Test::RoadProducer([&](const RoadPageRequest &, const std::stop_token &) {
+        ++attempts;
+        return Triangle(9);
+      }).get());
   CHECK(retry && attempts == 2, "a later demand can retry after the failed producer is released");
 }
 }

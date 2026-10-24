@@ -58,19 +58,15 @@ int main(int argc, char *const *argv) {
   if (!Check(missing && !*missing, "unwrapped missing page is an ordinary miss")) { return 1; }
   const auto excludedPage = (*pages)->LoadKey(absent, 1024);
   if (!Check(!excludedPage, "wrapped page lookup is rejected")) { return 1; }
-  size_t factoryCalls = 0;
-  const outshine::Generators::PreparedRoadPages::Factory factory =
-      [&factoryCalls](
-          size_t) -> std::expected<outshine::Generators::RoadPageGeometry, std::string> {
-    ++factoryCalls;
-    return std::unexpected("guard check factory must remain idle");
-  };
-  const outshine::Generators::RoadPageAddress address{};
-  const auto resolved =
-      (*pages)->Resolve(address, std::string(64, 'c'), std::string(64, 'd'), 1024, factory);
-  if (!Check(!resolved && factoryCalls == 0, "resolution is intercepted before the factory")) {
+  const outshine::Generators::RoadPageRequest request{.Address = {},
+                                                      .Parent = std::string(64, 'c'),
+                                                      .RequestKey = std::string(64, 'd'),
+                                                      .NativeBytesMost = 1024};
+  const auto resolved = (*pages)->Resolve(request);
+  if (!Check(!resolved && resolved.error().starts_with("consumer forbids resolution:"),
+             "resolution reaches the interception before any producer")) {
     return 1;
   }
-  std::println("3 intercepted guards; 2 native positive controls; 0 factory calls");
+  std::println("3 intercepted guards; 2 native positive controls; 0 producers");
   return 0;
 }

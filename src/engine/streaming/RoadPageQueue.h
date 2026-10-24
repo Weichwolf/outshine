@@ -18,9 +18,7 @@
 namespace outshine {
 class RoadPageQueue {
 public:
-  using Factory = std::function<std::expected<Generators::RoadPageGeometry, std::string>(
-      size_t, const std::stop_token &)>;
-  using Product = std::variant<Generators::PreparedRoadPages::Loaded, AssetRecord>;
+  using Product = std::variant<Generators::RoadPageLease, AssetRecord>;
   using Result = std::expected<std::optional<Product>, std::string>;
 
   struct Completed {
@@ -42,10 +40,8 @@ public:
   RoadPageQueue(const RoadPageQueue &) = delete;
   RoadPageQueue &operator=(const RoadPageQueue &) = delete;
 
-  [[nodiscard]] bool Request(Generators::RoadPageAddress address,
-                             std::string parent,
-                             std::string requestKey,
-                             Factory factory);
+  [[nodiscard]] bool Request(Generators::RoadPageRequest request,
+                             std::shared_ptr<const Generators::RoadPageProducer> producer = {});
   [[nodiscard]] bool RequestCached(const std::string &key, Manifest dependency = {});
   [[nodiscard]] bool RequestMetadata(Generators::RoadPageAddress address);
   void Cancel(const std::string &key);
