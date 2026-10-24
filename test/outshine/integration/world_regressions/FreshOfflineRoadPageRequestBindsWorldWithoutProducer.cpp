@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <print>
 #include <unistd.h>
 #ifdef __APPLE__
@@ -148,9 +149,9 @@ bool Spawn(const std::string &executable, const std::string &directory, const Fi
   std::array<char *, 7> argv{};
   std::ranges::transform(arguments, argv.begin(), [](std::string &value) { return value.data(); });
 #ifdef __APPLE__
-  char **const environment = *_NSGetEnviron();
+  char *const *const environment = *_NSGetEnviron();
 #else
-  char **const environment = environ;
+  char *const *const environment = environ;
 #endif
   pid_t child = 0;
   if (posix_spawn(&child, executable.c_str(), nullptr, nullptr, argv.data(), environment) != 0) {

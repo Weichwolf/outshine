@@ -160,8 +160,9 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   CHECK(opened.has_value(), "road pages use the existing assets.sqlite schema");
   if (!opened) { return; }
   size_t factories = 0;
-  const auto factory = [&](const RoadPageRequest &request,
-                           std::stop_token) -> std::expected<RoadPageGeometry, std::string> {
+  const auto factory =
+      [&](const RoadPageRequest &request,
+          const std::stop_token &) -> std::expected<RoadPageGeometry, std::string> {
     ++factories;
     CHECK(request.NativeBytesMost == kLimit,
           "the native producer receives the unchanged page budget");
