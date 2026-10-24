@@ -25,6 +25,7 @@ constexpr uint32_t kWarmPart = 8;
 constexpr uint32_t kWaitingPart = 7;
 constexpr uint32_t kCancelledPart = 9;
 constexpr auto kStartupLimit = std::chrono::seconds(5);
+constexpr auto kRivalStartup = std::chrono::milliseconds(25);
 constexpr auto kCancellationLimit = std::chrono::seconds(1);
 using Result = std::expected<RoadPageLease, std::string>;
 
@@ -109,6 +110,7 @@ void CheckCancelledRival(const std::shared_ptr<PreparedRoadPages> &pages, bool c
     work->RivalDone.release();
   });
   const bool competing = work->RivalStarted.try_acquire_for(kStartupLimit);
+  if (!cancelledAtEntry) { std::this_thread::sleep_for(kRivalStartup); }
   const auto began = std::chrono::steady_clock::now();
   (void)stop.request_stop();
   const bool cancelled = work->RivalDone.try_acquire_for(kCancellationLimit);
