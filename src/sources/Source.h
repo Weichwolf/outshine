@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_SOURCE_H
-#define OUTSHINE_WORLD_DATA_SOURCE_H
+#ifndef OUTSHINE_SOURCES_SOURCE_H
+#define OUTSHINE_SOURCES_SOURCE_H
 
 #include <cstdint>
 #include <expected>
