@@ -321,6 +321,7 @@ TestProfile() {
     outshine/src/generators/road/SurfaceProfile) printf '%s' 'profile/road-surface-profile' ;;
     outshine/src/generators/road/SurfaceLayout) printf '%s' 'profile/road-surface-layout' ;;
     outshine/integration/transport/SurfaceBody) printf '%s' 'profile/road-surface-body' ;;
+    outshine/integration/transport/RoadStepBody) printf '%s' 'profile/road-step-body' ;;
     outshine/integration/transport/SurfaceHeightProgram) printf '%s' 'profile/road-height-program' ;;
     outshine/src/base/math/SparseMatrix) printf '%s' 'profile/sparse-matrix' ;;
     outshine/integration/transport/StationHeightTopology) printf '%s' 'profile/station-heights' ;;
@@ -401,6 +402,7 @@ LayerIncludes() {
     profile/road-flight-plan) GroupIncludes src/generators/road/surface ;;
     profile/road-surface-earthworks) GroupIncludes src/generators/road/surface; GroupIncludes src/generators/terrain ;;
     profile/road-surface-body) GroupIncludes src/generators/road/surface ;;
+    profile/road-step-body) GroupIncludes src/generators/road ;;
     profile/road-surface-ribbon) GroupIncludes src/generators/road/surface ;;
     profile/road-surface-profile) GroupIncludes src/generators/road/surface ;;
     profile/road-surface-layout) GroupIncludes src/generators/road/surface ;;
@@ -545,7 +547,7 @@ LayerLibraryLink() {
     profile/road-surface-ribbon) pkg-config --libs geos ;;
     profile/road-surface-profile) return 0 ;;
     profile/road-surface-layout) pkg-config --libs geos ;;
-    profile/road-surface-body) pkg-config --libs geos ;;
+    profile/road-surface-body|profile/road-step-body) pkg-config --libs geos ;;
     profile/road-height-program) pkg-config --libs geos; HighsFlags --libs ;;
     profile/road-flight-preparation) pkg-config --libs geos ;;
     profile/road-flight-plan) return 0 ;;
@@ -644,6 +646,7 @@ LayerGroups() {
     profile/road-flight-plan) printf '%s' 'src/generators/road/surface/SurfaceFlightPlan.cpp' ;;
     profile/road-surface-earthworks) LayerGroups profile/road-surface-body; printf ' %s' 'src/generators/road/surface/SurfaceEarthworks.cpp src/generators/terrain/EarthworkDeformation.cpp src/generators/terrain/CorridorApronBlend.cpp src/generators/terrain/ProfiledCorridorPress.cpp src/generators/terrain/TerrainDeformation.cpp src/generators/terrain/TerrainDeformationJob.cpp src/generators/terrain/TerrainPage.cpp src/generators/terrain/TerrainMesh.cpp src/world/ground/tiles/TileGeodesy.cpp src/base/spatial/TriangleBvh.cpp' ;;
     profile/road-surface-body) LayerGroups profile/height-solid; printf ' '; LayerGroups profile/height-bands; printf ' '; LayerGroups profile/planar-regions; printf ' %s' 'src/generators/road/surface/SurfaceBody.cpp src/generators/road/surface/SurfaceBodyValidation.cpp src/generators/road/surface/SurfaceBodyPlanning.cpp src/generators/road/surface/SurfaceBodyGroups.cpp src/generators/road/surface/SurfaceBodyRemesh.cpp' ;;
+    profile/road-step-body) LayerGroups profile/road-surface-body; printf ' %s' 'src/generators/road/RoadStepBody.cpp src/generators/road/RoadStepMesh.cpp src/generators/road/RoadCrossSection.cpp src/generators/road/surface/SurfaceEarthworks.cpp src/base/format/Json.cpp' ;;
     profile/road-height-program) printf '%s' 'src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanHierarchy.cpp src/generators/road/surface/SurfaceHeightProgram.cpp src/generators/road/surface/SurfaceHeightInput.cpp src/generators/road/surface/SurfaceHeightGeometry.cpp src/generators/road/surface/SurfaceHeightContacts.cpp src/generators/road/surface/SurfaceHeightGrades.cpp src/generators/road/surface/SurfaceHeightJunctions.cpp src/generators/road/surface/SurfaceHeightProjection.cpp src/generators/road/surface/SurfaceHeightOrder.cpp src/generators/road/profile' ;;
     profile/road-surface) printf '%s' 'src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanHierarchy.cpp src/generators/road/surface/SurfaceHeightTopology.cpp src/generators/road/surface/SurfaceHeightPorts.cpp' ;;
     profile/station-heights) printf '%s' 'src/base/spatial/PlanarStationMesh.cpp src/base/spatial/PlanarStationCuts.cpp src/base/spatial/PlanarStationConformance.cpp src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanHierarchy.cpp src/generators/road/surface/SurfaceHeightTopology.cpp src/generators/road/surface/SurfaceHeightPorts.cpp' ;;
