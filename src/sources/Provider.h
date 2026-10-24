@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_PROVIDER_H
-#define OUTSHINE_WORLD_DATA_PROVIDER_H
+#ifndef OUTSHINE_SOURCES_PROVIDER_H
+#define OUTSHINE_SOURCES_PROVIDER_H
 
 #include <cstddef>
 #include <expected>
