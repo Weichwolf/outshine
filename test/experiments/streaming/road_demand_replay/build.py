@@ -108,8 +108,7 @@ def main():
         i for i, value in enumerate(command) if value.endswith("/liboutshine.a")
     )
     command.insert(archive, str(obj))
-    compiler = next(i for i, value in enumerate(command) if "clang++" in value)
-    command[compiler + 1 : compiler + 1] = ["-Wl,--wrap=" + value for value in symbols]
+    command.extend("-Wl,--wrap=" + value for value in symbols)
     command[command.index("-o") + 1] = str(output / "ConsumerReplay")
     command.extend(
         shlex.split(
