@@ -67,7 +67,7 @@ PreparedBuildingAssets::LoadCachedBasis(const std::string &key, const std::strin
     }
     return Basis{};
   }
-  if (!requestKey.empty() && record.RequestKey != requestKey) {
+  if (!requestKey.empty()) {
     const auto bound = Cache_->BindRequest(BasisKey(key), requestKey);
     if (!bound || !*bound) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
   }
@@ -78,10 +78,8 @@ PreparedBuildingAssets::LoadCachedBasis(const std::string &key, const std::strin
     std::erase_if(ResidentBases_, [](const auto &entry) { return entry.second.Product.expired(); });
   }
   if (ResidentBases_.size() < kResidentBasisEntriesMost || ResidentBases_.contains(record.Key)) {
-    auto residentRecord = record;
-    if (!requestKey.empty()) { residentRecord.RequestKey = requestKey; }
-    ResidentBases_.insert_or_assign(
-        record.Key, ResidentBasis{.Record = std::move(residentRecord), .Product = product});
+    ResidentBases_.insert_or_assign(record.Key,
+                                    ResidentBasis{.Record = record, .Product = product});
   }
   return product;
 }
@@ -109,7 +107,8 @@ PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
   }();
   if (!found) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
   if (!*found) { return std::optional<RequestedBasis>{}; }
-  const auto &record = **found;
+  auto record = std::move(**found);
+  record.RequestKey.reset();
   if (record.Kind != "building-basis" || record.Key != BasisKey(record.Parent)) {
     ++BasisMisses_;
     return std::optional<RequestedBasis>{};

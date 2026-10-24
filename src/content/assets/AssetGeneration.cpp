@@ -26,10 +26,7 @@ enum class Address { Product, Request };
 std::expected<std::optional<CachedAsset>, AssetCacheError>
 Load(const AssetCache &cache, std::string_view identity, size_t packageBytesMost, Address address) {
   if (address == Address::Product) { return cache.Load(identity, packageBytesMost); }
-  auto found = cache.FindRequest(identity);
-  if (!found) { return std::unexpected(found.error()); }
-  if (!*found) { return std::optional<CachedAsset>{}; }
-  return cache.Load((**found).Key, packageBytesMost);
+  return cache.LoadRequest(identity, packageBytesMost);
 }
 
 std::string_view Identity(const AssetRecord &record, Address address) {

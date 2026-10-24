@@ -6,12 +6,23 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 #include <zlib.h>
 
 namespace outshine {
+
+std::expected<std::optional<CachedAsset>, AssetCacheError>
+AssetCache::LoadRequest(std::string_view requestKey, size_t packageBytesMost) const {
+  auto found = FindRequest(requestKey);
+  if (!found) { return std::unexpected(found.error()); }
+  if (!*found) { return std::optional<CachedAsset>{}; }
+  auto loaded = Load((**found).Key, packageBytesMost);
+  if (loaded && *loaded) { (**loaded).Record_.RequestKey = std::string(requestKey); }
+  return loaded;
+}
 
 void AssetCache::UsePackage(std::string_view packageKey) const {
   AssetSql::Statement statement;

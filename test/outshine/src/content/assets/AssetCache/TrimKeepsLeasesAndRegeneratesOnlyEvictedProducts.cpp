@@ -40,6 +40,12 @@ void Exercise(const std::filesystem::path &path) {
   const std::array newRecords{Record('b')};
   CHECK((*opened)->Publish(oldRecords, kOld), "first immutable package publishes");
   CHECK((*opened)->Publish(newRecords, kNew), "second immutable package publishes");
+  const std::string firstRequest(64, 'c');
+  const std::string secondRequest(64, 'd');
+  const auto firstBound = (*opened)->BindRequest(oldRecords[0].Key, firstRequest);
+  const auto secondBound = (*opened)->BindRequest(oldRecords[0].Key, secondRequest);
+  CHECK(firstBound && *firstBound && secondBound && *secondBound,
+        "two aliases bind the package selected for eviction");
   auto loaded = (*opened)->Load(oldRecords[0].Key, 1024);
   CHECK(loaded && *loaded, "a live lease holds the first package");
   if (!loaded || !*loaded) { return; }
@@ -71,6 +77,9 @@ void Exercise(const std::filesystem::path &path) {
   auto old = (*opened)->Find(oldRecords[0].Key);
   auto recent = (*opened)->Load(newRecords[0].Key, 1024);
   CHECK(old && !*old, "evicted demand is a normal cache miss");
+  CHECK(!(*opened)->FindRequest(firstRequest)->has_value() &&
+            !(*opened)->FindRequest(secondRequest)->has_value(),
+        "package eviction atomically removes every alias of removed products");
   CHECK(recent && *recent && std::ranges::equal((**recent).Bytes(), kNew),
         "retained demand still loads its complete original bytes");
   size_t generated = 0;

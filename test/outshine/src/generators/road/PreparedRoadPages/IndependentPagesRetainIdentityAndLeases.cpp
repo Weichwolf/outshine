@@ -245,6 +245,14 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   CHECK(rebound && rebound->Record.RequestKey == reboundRequest && reboundMetadata &&
             *reboundMetadata && (**reboundMetadata).Key == rebound->Record.Key,
         "a rebound cache hit returns the metadata snapshot actually published for this demand");
+  const auto original = (*fresh)->LoadRequest(request, kLimit);
+  const auto alias = (*fresh)->LoadRequest(reboundRequest, kLimit);
+  CHECK(original && *original && (**original).Record.RequestKey == request && alias && *alias &&
+            (**alias).Record.RequestKey == reboundRequest &&
+            (**original).Record.Key == (**alias).Record.Key,
+        "fresh road-page reads retain both request contexts for one immutable payload");
+  CHECK(direct && *direct && !(**direct).Record.RequestKey,
+        "a road-page content-key read does not invent a request context");
   auto retained = std::move(cold->Page);
   const auto removed = (*cache)->Remove(cold->Record.Key);
   const auto afterRemoval = (*cache)->Find(cold->Record.Key);

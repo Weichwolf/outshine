@@ -79,6 +79,8 @@ public:
 
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   Load(std::string_view key, size_t packageBytesMost) const;
+  [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
+  LoadRequest(std::string_view requestKey, size_t packageBytesMost) const;
   void UsePackage(std::string_view packageKey) const;
 
   [[nodiscard]] std::expected<std::vector<AssetRecord>, AssetCacheError>

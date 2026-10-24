@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -15,11 +17,14 @@ namespace {
 using namespace outshine;
 using namespace outshine::Test;
 namespace Osm = Generators::Osm;
+constexpr float kGeometryTopM = 20.0F;
+constexpr double kFixtureEcefX = 6378137.0;
+constexpr std::string_view kPublishedSurface = "published surface";
 
 Osm::UrbanPrisms Product() {
   Osm::UrbanPrisms product;
   product.Geometry.Samples = std::make_shared<const std::vector<PrismSpan>>(
-      std::vector<PrismSpan>{{.Lower = -10, .Upper = 20}, {.Lower = 5, .Upper = 5}});
+      std::vector<PrismSpan>{{.Lower = -10, .Upper = kGeometryTopM}, {.Lower = 5, .Upper = 5}});
   product.Geometry.Patches = {{.Columns = 2, .Rows = 1, .PitchX = 4, .PitchZ = 6}};
   product.Placements.resize(1);
   auto &frame = product.Placements.front().EcefFromLocal;
@@ -28,7 +33,7 @@ Osm::UrbanPrisms Product() {
   frame.At(0, 1) = 1;
   frame.At(1, 1) = 0;
   frame.At(2, 2) = -1;
-  frame.At(0, 3) = 6378137;
+  frame.At(0, 3) = kFixtureEcefX;
   return product;
 }
 }
@@ -43,7 +48,7 @@ int main() {
   const auto path = (root / "assets.sqlite").string();
   const std::array<Osm::UrbanPatchRange, 1> patches{{{.Columns = 2, .Rows = 1}}};
   const auto source = Sha256Hex("native area source content");
-  auto terrain = Sha256Digest("published surface", 17);
+  auto terrain = Sha256Digest(kPublishedSurface.data(), kPublishedSurface.size());
   const auto identity = Osm::UrbanPrismRequestKey(source, terrain, patches, 3);
   CHECK(identity, "the ready asset request binds source, surface, selection and level");
   if (!identity) { return Report(); }
@@ -69,17 +74,20 @@ int main() {
           "a source-free cache hit never calls a factory or height sampler");
     if (hit) {
       const auto restored = Osm::DecodeUrbanPrisms(hit->Bytes());
-      CHECK(restored && restored->Placements.front().EcefFromLocal.At(0, 3) == 6378137 &&
+      CHECK(restored && restored->Placements.front().EcefFromLocal.At(0, 3) == kFixtureEcefX &&
                 restored->Geometry.Samples->front().Lower == -10 &&
-                restored->Geometry.Samples->front().Upper == 20,
+                restored->Geometry.Samples->front().Upper == kGeometryTopM,
             "the fresh cached product already contains placed native geometry");
     }
     const auto selected =
         (*cache)->Select({.Bounds = {.Min = {{6378127, 0, -6}}, .Max = {{6378157, 4, 0}}},
                           .Kind = "urban-prisms",
-                          .Level = 3});
-    CHECK(selected && selected->size() == 1 && selected->front().RequestKey == request,
-          "ready geometry participates in the existing spatial and LOD index");
+                          .Level = 3,
+                          .Radius = std::nullopt,
+                          .Planes = {}});
+    CHECK(selected && selected->size() == 1 && !selected->front().RequestKey && hit &&
+              selected->front().Key == hit->Record().Key && hit->Record().RequestKey == request,
+          "ready geometry has content-only spatial metadata and request-specific lookup context");
     terrain[0] ^= 1;
     const auto changed = Osm::UrbanPrismRequestKey(source, terrain, patches, 3);
     CHECK(changed && !ResolveAssetRequest(**cache, *changed, Osm::kUrbanPrismBytesMost, {}),

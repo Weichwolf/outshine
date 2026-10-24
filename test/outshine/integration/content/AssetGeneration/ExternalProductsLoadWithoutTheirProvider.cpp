@@ -116,9 +116,11 @@ int main() {
                                          .Level = std::nullopt,
                                          .Radius = std::nullopt,
                                          .Planes = {}});
-    CHECK(found && found->size() == 1 && found->front().Key != found->front().RequestKey &&
-              found->front().RequestKey == std::string(64, 'a'),
-          "external native products participate in the common spatial index");
+    const auto requested = (*cache)->FindRequest(std::string(64, 'a'));
+    CHECK(found && found->size() == 1 && !found->front().RequestKey && requested && *requested &&
+              (**requested).Key == found->front().Key &&
+              (**requested).RequestKey == std::string(64, 'a'),
+          "content selection omits request context while direct lookup retains its address");
     const auto refused = generator.make({.Parameters = {}, .Seed = 1, .Projection = {}});
     const auto absent = (*cache)->FindRequest(std::string(64, 'b'));
     CHECK(!refused && absent && !absent->has_value(),
