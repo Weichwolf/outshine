@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import resource
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -257,7 +258,7 @@ def main():
         },
         "seconds": time.monotonic() - began,
         "peak_process_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        * 1024,
+        * (1 if sys.platform == "darwin" else 1024),
         "source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "scope": "CPU study only; no native GPU/BRDF/world/frame claim",
     }

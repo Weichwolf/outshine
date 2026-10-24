@@ -219,6 +219,10 @@ def main():
             for p in Path("test/experiments/render").glob("masonry_relief*")
             if p.suffix in (".py", ".glsl", ".comp")
         },
+        "production_source_hashes": {
+            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in Path("src/render/shaders").glob("facadeMasonry*.glsl")
+        },
         "binary_sha256": hashlib.sha256(args.binary.resolve().read_bytes()).hexdigest(),
         "source_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True

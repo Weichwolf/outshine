@@ -1,3 +1,5 @@
+#include "facadeMasonryRelief.glsl"
+
 float facadeMasonryBand(float at, float low, float high, float width) {
   vec2 ends = fract(at) + vec2(-0.5, 0.5) * max(width, 0.0001);
   if (ends.x >= low && ends.y <= high) { return 1.0; }
@@ -18,7 +20,7 @@ float facadeMasonryWall(vec3 coverage) {
 }
 
 float facadeMasonryField(vec2 fractions, vec2 at, vec2 dx, vec2 dy, float storeysPerM,
-                         vec2 atM, vec2 dxM, vec2 dyM, vec3 regions) {
+                         vec2 atM, vec2 dxM, vec2 dyM, vec3 regions, out vec2 heightChange) {
   at = fract(at);
   const vec2 repeatsPerM = vec2(4.0, 6.25);
   vec2 brickAt = fract(fma(atM, repeatsPerM, -floor(atM * repeatsPerM)));
@@ -27,6 +29,7 @@ float facadeMasonryField(vec2 fractions, vec2 at, vec2 dx, vec2 dy, float storey
   vec2 brickWidth = (abs(brickDx) + abs(brickDy)) / 4.0;
   vec2 width = (abs(dx) + abs(dy)) / 4.0;
   float field = 0.0;
+  vec2 relief = vec2(0.0);
   for (int y = 0; y < 4; ++y) {
     for (int x = 0; x < 4; ++x) {
       vec2 offset = (vec2(x, y) + 0.5) / 4.0 - 0.5;
@@ -34,9 +37,12 @@ float facadeMasonryField(vec2 fractions, vec2 at, vec2 dx, vec2 dy, float storey
       float wall = facadeMasonryWall(facadeBoxCoverage(fractions, point, width, storeysPerM));
       vec2 brick = brickAt + offset.x * brickDx + offset.y * brickDy;
       field += (0.84 - facadeMasonryBrickBox(brick, brickWidth)) * wall;
+      if (wall > 0.0) { relief += facadeJointGradient(brick, brickWidth) * wall; }
     }
   }
   float wall = facadeMasonryWall(regions);
+  heightChange = wall == 0.0 ? vec2(0.0) :
+      (0.002 / 16.0) * vec2(dot(relief, dxM), dot(relief, dyM));
   return clamp(field / 16.0, -0.16 * wall, 0.84 * wall);
 }
 

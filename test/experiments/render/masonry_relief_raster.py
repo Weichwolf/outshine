@@ -1,4 +1,4 @@
-"""Exercise a private fused relief hookup in the actual lit fragment shader."""
+"""Compare the production relief shader with its disabled contribution."""
 
 import argparse
 import hashlib
@@ -26,42 +26,19 @@ def sources(directory, enabled, normal_export=True):
             old,
             "outputSurface(vec4(shadingNormal, 1.0), shadingNormal, surface.identity);",
         )
-    facade = (shader / "facadePattern.glsl").read_text()
-    old = "materialM, materialDx, materialDy, filtered.xyz);"
-    assert facade.count(old) == 1
-    facade = facade.replace(
-        old, "materialM, materialDx, materialDy, filtered.xyz, heightChange);"
-    )
     masonry = (shader / "facadeMasonry.glsl").read_text()
-    masonry = masonry.replace(
-        "vec3 regions) {", "vec3 regions, out vec2 heightChange) {"
+    contribution = (
+        "if (wall > 0.0) { relief += facadeJointGradient(brick, brickWidth) * wall; }"
     )
-    old = "float field = 0.0;"
-    assert masonry.count(old) == 1
-    masonry = masonry.replace(old, old + "\n  vec2 relief = vec2(0.0);")
-    old = "field += (0.84 - facadeMasonryBrickBox(brick, brickWidth)) * wall;"
-    assert masonry.count(old) == 1
-    masonry = masonry.replace(
-        old,
-        old + "\n#if RELIEF_ENABLE\n"
-        "      if (wall > 0.0) { relief += masonryReliefGradient(brick, brickWidth) * wall; }\n#endif",
-    )
-    old = "float wall = facadeMasonryWall(regions);"
-    assert masonry.count(old) == 1
-    masonry = masonry.replace(
-        old,
-        old + "\n  heightChange = wall == 0.0 ? vec2(0.0) :\n"
-        "      (0.002 / 16.0) * vec2(dot(relief, dxM), dot(relief, dyM));",
-    )
-    masonry = '#include "masonry_relief.glsl"\n' + masonry
-    (directory / "masonry_relief.glsl").write_bytes(
-        (ROOT / "test/experiments/render/masonry_relief.glsl").read_bytes()
-    )
-    (directory / "facadePattern.glsl").write_text(facade)
+    assert masonry.count(contribution) == 1
+    if not enabled:
+        masonry = masonry.replace(contribution, "")
     (directory / "facadeMasonry.glsl").write_text(masonry)
-    fragment = fragment.replace(
-        "#version 450",
-        f"#version 450\n#define RELIEF_ENABLE {int(enabled)}\n#define RELIEF_COUNT_WORK 0",
+    (directory / "facadeMasonryRelief.glsl").write_bytes(
+        (shader / "facadeMasonryRelief.glsl").read_bytes()
+    )
+    (directory / "facadePattern.glsl").write_bytes(
+        (shader / "facadePattern.glsl").read_bytes()
     )
     target = directory / "litFragment.glsl"
     target.write_text(fragment)
@@ -170,7 +147,7 @@ def chart(output, panels):
         for col, image in enumerate((before, after)):
             axes[row, col].imshow(image * 0.5 + 0.5)
             axes[row, col].set_title(
-                name + (" / before" if col == 0 else " / actual fused prototype")
+                name + (" / before" if col == 0 else " / production relief")
             )
             axes[row, col].axis("off")
     figure.suptitle(
@@ -196,9 +173,15 @@ def main():
     default = output / "default"
     default.mkdir(exist_ok=True)
     compile_pair(default)
-    for stage in ("vert", "frag"):
+    for stage in ("vert",):
         name = "masonry." + stage + ".spv"
         assert (default / name).read_bytes() == (args.input / name).read_bytes(), name
+    production = output / "production"
+    production.mkdir(exist_ok=True)
+    compile_pair(production, sources(production / "source", True, normal_export=False))
+    for stage in ("vert", "frag"):
+        name = "masonry." + stage + ".spv"
+        assert (default / name).read_bytes() == (production / name).read_bytes(), name
     prepare(output)
     description = json.loads((args.input / "comparison.json").read_text())
     names = [x["case"] for x in description["cases"]] + description["excluded_equal"]
