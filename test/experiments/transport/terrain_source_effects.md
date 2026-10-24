@@ -64,6 +64,10 @@ The reported work counts logical owner incidences and actually resolved bits.
 Selected array bytes/zero position-copy bytes exclude Python list/dict storage,
 JSON expansion and total allocations. Separate tracing includes role-only Python
 allocations; process RSS also includes imports and the prepared body.
+Timed direct/factored calls alternate order each repetition; raw wall and process
+CPU plus empty timer-pair overhead are recorded. Tracing is separate after GC per
+strategy. No forced GC runs inside the timed-call series. These paired calls reduce
+ordering bias without creating an isolated host or a universal speedup claim.
 
 This is a small existing-consumer contract, with no new geometric algorithm or
 additional research-paper claim. Parent geometry sources remain in #1003/#1189

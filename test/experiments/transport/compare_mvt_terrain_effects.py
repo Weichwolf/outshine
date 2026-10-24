@@ -60,31 +60,56 @@ def prepare(name):
     }
 
 
-def measure(case, declarations, reuse_masks, repeats):
-    timings = []
-    for _ in range(repeats + 1):
-        began = time.perf_counter()
+def compare(case, declarations, repeats):
+    timings = {True: [], False: []}
+    for i in range(repeats + 1):
+        for reuse_masks in (True, False) if i % 2 == 0 else (False, True):
+            began, cpu = time.perf_counter(), time.process_time()
+            result = qualify_effects(
+                case["plan"], case["data"], declarations, reuse_masks=reuse_masks
+            )
+            elapsed_cpu = time.process_time() - cpu
+            timings[reuse_masks].append((time.perf_counter() - began, elapsed_cpu))
+            del result
+    results, reports = {}, {}
+    for reuse_masks, samples in timings.items():
+        gc.collect()
+        tracemalloc.start()
         result = qualify_effects(
             case["plan"], case["data"], declarations, reuse_masks=reuse_masks
         )
-        timings.append(time.perf_counter() - began)
-        del result
-    gc.collect()
-    tracemalloc.start()
-    result = qualify_effects(
-        case["plan"], case["data"], declarations, reuse_masks=reuse_masks
+        _current, peak = tracemalloc.get_traced_memory()
+        blocks = sum(
+            s.count for s in tracemalloc.take_snapshot().statistics("filename")
+        )
+        tracemalloc.stop()
+        wall, cpu = np.asarray(samples).T
+        results[reuse_masks] = result
+        reports[reuse_masks] = {
+            "first_s": float(wall[0]),
+            "following_s": wall[1:].tolist(),
+            "median_s": float(np.median(wall[1:])),
+            "first_cpu_s": float(cpu[0]),
+            "following_cpu_s": cpu[1:].tolist(),
+            "median_cpu_s": float(np.median(cpu[1:])),
+            "python_traced_peak_bytes": peak,
+            "python_traced_live_blocks": blocks,
+            "work": result["work"],
+        }
+    overhead = []
+    for _ in range(101):
+        began, cpu = time.perf_counter(), time.process_time()
+        elapsed_cpu = time.process_time() - cpu
+        overhead.append((time.perf_counter() - began, elapsed_cpu))
+    return (
+        results,
+        reports,
+        {
+            "order": "paired; factor/direct order alternates each repetition",
+            "timer_pair_median_wall_cpu_s": np.median(overhead, axis=0).tolist(),
+            "scope": "Raw wall/process CPU; overhead not subtracted, timed calls without forced GC. Memory tracing is separate after GC per strategy, host not isolated.",
+        },
     )
-    _current, peak = tracemalloc.get_traced_memory()
-    blocks = sum(s.count for s in tracemalloc.take_snapshot().statistics("filename"))
-    tracemalloc.stop()
-    return result, {
-        "first_s": timings[0],
-        "following_s": timings[1:],
-        "median_s": float(np.median(timings[1:])),
-        "python_traced_peak_bytes": peak,
-        "python_traced_live_blocks": blocks,
-        "work": result["work"],
-    }
 
 
 def export_products(case, declarations, effects, output):
@@ -188,8 +213,8 @@ def main():
     case = prepare(args.case)
     preparation = time.perf_counter() - began
     declarations = controlled_roles(case)
-    factored, candidate = measure(case, declarations, True, args.repeats)
-    direct, baseline = measure(case, declarations, False, args.repeats)
+    results, reports, timing = compare(case, declarations, args.repeats)
+    factored, direct = results[True], results[False]
     for key in factored:
         if isinstance(factored[key], np.ndarray):
             np.testing.assert_array_equal(factored[key], direct[key])
@@ -207,8 +232,9 @@ def main():
         if "capture" in case
         else "shared_profile_products",
         "body_preparation_s": preparation,
-        "factored": candidate,
-        "direct": baseline,
+        "factored": reports[True],
+        "direct": reports[False],
+        "timing": timing,
         "start_load": start_load,
         "process_peak_rss_bytes_before_plot": resource.getrusage(
             resource.RUSAGE_SELF
