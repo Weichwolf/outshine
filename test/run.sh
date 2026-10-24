@@ -2064,18 +2064,26 @@ if [ -n "$SUITES" ]; then
   fi
 fi
 
+prismShaders=no
+sceneShaders=no
 for selectedTest in $TESTS; do
   case "$(TestProfile "$(dirname "${selectedTest#test/}")")" in
     profile/prism-native)
-      make build/shaders/prism-colour.vert.spv build/shaders/prism-depth.vert.spv build/shaders/prismDepth.frag.spv build/shaders/prismLit-000.frag.spv || Die "prism tests require prepared shaders"
-      break
+      prismShaders=yes
       ;;
     profile/engine|profile/internal|profile/device|profile/calibration|profile/stage-pipelines|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
-      make shaders || Die "selected tests require prepared shaders"
-      break
+      sceneShaders=yes
       ;;
   esac
 done
+if [ "$sceneShaders" = yes ]; then
+  make shaders || Die "selected tests require prepared shaders"
+elif [ "$prismShaders" = yes ]; then
+  make build/shaders/prism-colour.vert.spv build/shaders/prism-depth.vert.spv build/shaders/prismDepth.frag.spv build/shaders/prismLit-000.frag.spv || Die "prism tests require prepared shaders"
+fi
+if [ "$prismShaders" = yes ]; then
+  make build/test/shaders/prism-receiver.comp.spv || Die "prism tests require the receiver fixture"
+fi
 
 started=$(Now)
 builtSpentMs=0

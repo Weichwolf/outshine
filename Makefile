@@ -135,6 +135,10 @@ build/shaders/prism-%.vert.spv: src/render/shaders/prismVertex.glsl
 build/shaders/prismLit-%.frag.spv: src/render/shaders/litFragment.glsl build/shaders/brdfTables.glsl
 	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp -S frag -DPRISM_GRID=1 -DLIT_KIND=0 -DLIT_TEXTURED=1 -DLIT_MAPPED=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"
 
+build/test/shaders/prism-receiver.comp.spv: test/outshine/data/render/prism-receiver.comp src/render/shaders/prismReceiver.glsl
+	@mkdir -p $(@D)
+	@$(GLSLANG) $(GLSLANG_FLAGS) -S comp $< -o $@
+
 build/shaders/%.spv: src/render/shaders/%
 	@mkdir -p $(@D)
 	@$(GLSLANG) $(GLSLANG_FLAGS) --depfile $@.d.tmp $< -o $@ && python3 "$(SELF_DIR)/test/scripts/shader_dependencies.py" "$@.d.tmp" "$@.d"

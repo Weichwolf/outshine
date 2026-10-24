@@ -25,6 +25,10 @@ const float kPi = acos(-1.0);
 #include "sheenLobe.glsl"
 #include "iridescenceLobe.glsl"
 #include "microfacetEnergy.glsl"
+#if PRISM_GRID && SUBJECT_BASE_LOCATION == 0
+#include "prismReceiver.glsl"
+vec4 prismShadowReceiver;
+#endif
 #if SUBJECT_BASE_LOCATION == 0
 #include "subjectLighting.glsl"
 #endif
