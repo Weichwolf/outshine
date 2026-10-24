@@ -87,6 +87,24 @@ Geometry NativeMaterialOwner() {
   return geometry;
 }
 
+void CheckNativeMaterialRemap(Core::RuntimeScene &scene,
+                              SceneRenderer &renderer,
+                              const SubjectLight &light) {
+  std::array<SubjectMaterial, 2> materials;
+  materials[1].Row.Unlit = true;
+  std::string error;
+  CHECK(renderer.SetGeometryMaterials(materials, error) && renderer.RestorePieceMaterials(error),
+        error.empty() ? "native material slots move while geometry and prisms remain resident"
+                      : error.c_str());
+  CHECK(renderer.SetGeometryLights(std::span(&light, 1), error),
+        "the same frontal light reaches the rebound scene");
+  const auto rebound = Draw(scene, renderer);
+  CHECK(rebound.Depth.size() > kCentre && rebound.Depth[kCentre] > 0 &&
+            rebound.Colour.size() > kCentre * 4 + 2 &&
+            rebound.Colour[kCentre * 4] > rebound.Colour[kCentre * 4 + 1],
+        "a retained prism still draws its own red PBR material after physical slots move");
+}
+
 void CheckScene() {
   SceneRenderer renderer;
   const auto native = NativeMaterialOwner();
@@ -155,6 +173,7 @@ void CheckScene() {
         "a stationary prism and camera have zero motion");
   CHECK(std::ranges::any_of(first.Shadow, [](float depth) { return depth > 0; }),
         "the native prism enters the shared sun caster pass");
+  CheckNativeMaterialRemap(*scene, renderer, light);
   instances[0].Previous = instances[0].Current;
   instances[0].Current[12] += .5f;
   CHECK(renderer.SetPrismGridInstances(*handle, instances).has_value(),

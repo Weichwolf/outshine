@@ -33,7 +33,7 @@ Native::Result<uint64_t> GeometryRenderer::PlacePrismGrid(std::shared_ptr<const 
         Native::Error{.Kind = Native::ErrorKind::Unsupported,
                       .Message = "prism grids require an opaque metallic-roughness material"});
   }
-  return Prisms_.Place(std::move(source), instances, slot);
+  return Prisms_.Place(std::move(source), instances, material);
 }
 
 Native::Result<void>
@@ -51,11 +51,13 @@ Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
   for (const auto &product : Prisms_.Products()) {
     if (product.Records.empty()) { continue; }
     if (into.Commands == nullptr || Binding().Prisms.Colour() == nullptr ||
-        product.Material >= Slots.size()) {
+        product.Material >= RegisteredSlotOf_.size() ||
+        RegisteredSlotOf_[product.Material] >= Slots.size()) {
       return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                            .Message = "prism colour resources are unavailable"});
     }
-    const auto &surface = Slots[product.Material];
+    const uint32_t slot = RegisteredSlotOf_[product.Material];
+    const auto &surface = Slots[slot];
     if (surface.Kind != SurfaceKind::Opaque || surface.Domain != SurfaceDomain::Subject ||
         surface.Unlit.has_value()) {
       return std::unexpected(
@@ -70,7 +72,7 @@ Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
     resources.Bindings[2] = {.Set = 3, .Slot = 2, .Value = Native::Uniform{.Bytes = view}};
     resources.Bindings[3] = {
         .Set = 3, .Slot = 3, .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(area))}};
-    BindSlot(resources, product.Material, VertexLayout::PositionNormalUvTangent, uniforms, 4);
+    BindSlot(resources, slot, VertexLayout::PositionNormalUvTangent, uniforms, 4);
     resources.Bindings[resources.BindingCount++] = PrismStorage(4, 3, *product.Buffers[0]);
     resources.Bindings[resources.BindingCount++] = PrismStorage(4, 4, *product.Buffers[1]);
     auto drawn = PrismRenderer::Encode(product,
@@ -83,7 +85,7 @@ Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
     ++EncodedWork_.DrawRequests;
     constexpr uint32_t proxyTriangles = 12;
     EncodedWork_.DirectTriangles += product.Records.size() * proxyTriangles;
-    EncodedWork_.SurfaceSlotLimit = std::max(EncodedWork_.SurfaceSlotLimit, product.Material + 1);
+    EncodedWork_.SurfaceSlotLimit = std::max(EncodedWork_.SurfaceSlotLimit, slot + 1);
   }
   return {};
 }
