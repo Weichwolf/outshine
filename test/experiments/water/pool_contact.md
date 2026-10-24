@@ -98,6 +98,18 @@ outer terrain. No new border cache, resolver or native product format is added.
 
 ## Checks, cost and limits
 
+Exact edge noding first checks rational coordinate intervals. An interior point
+on a nondegenerate edge must lie strictly between its endpoints on the selected
+nonconstant axis and inside the closed interval on the other axis. Only surviving
+candidates need the rational collinearity determinant. Endpoints remain explicit
+polygon vertices. Vertical, horizontal, reversed and sheared shared edges retain
+their exact third-point subdivision and indexed incidence. There is no floating
+bounding approximation or changed intersection/rounding rule.
+`edge_node_tests` still counts every candidate and owns the unchanged work bound;
+`edge_node_determinants` counts the surviving noding determinants, excluding the
+separate exact clipping calculations. Raw same-input cost comparisons live in
+the PR; the additional counter does not imply new resident geometry.
+
 Tests preserve original water words and source permutation, closed body winding,
 contact roles, internal-subdivision wall invariance, negative role/hole/dimension
 cases, exact partition/positive areas, indexed topology, shared rounding and
