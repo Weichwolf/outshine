@@ -13,8 +13,8 @@ There is no height union, XY proximity lookup, new grid or geometric epsilon.
 The existing `stair_station_cuts._split` remains the shared clipping operation.
 
 The native `PlanarStationAxis.InitialFaces` and `PlanarStationBudget` contract
-under #1189 is the boundary: defaults4096 vertices,8192 faces,16 axes,32 declared
-cuts and262144 face visits. Limits/cancellation reject before publishing a result;
+under #1189 is the boundary: defaults 4096 vertices, 8192 faces, 16 axes, 32 declared
+cuts and 262144 face visits. Limits/cancellation reject before publishing a result;
 inputs are not modified. Work reports visited faces and created intersections,
 not a global optimality claim. The native implementation is owned by master.
 
@@ -48,6 +48,8 @@ traced Python peak and whole-process RSS have their own scope in the report.
 
 Controls reuse the original case, both #1205 complete independent networks, their
 rigid transforms and #1189's fixed `data/station-profile-boundaries.json` input.
+That fixed geometry also drives the complete original Python consumer, with
+unchanged supplied frame/cut words.
 The global profile-loss control remains negative. Whole profiles, independent
 heights, closed positive Float32 bodies, qualified Nav, shared terrain and local
 failure are checked. No native, World, swept walking-route or device admission.

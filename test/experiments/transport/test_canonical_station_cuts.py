@@ -3,11 +3,13 @@
 import copy
 import json
 import unittest
+from contextlib import nullcontext
 from unittest.mock import patch
 
 import compare_mvt_native_body
 import numpy as np
 import shapely
+import stair_junction_layout
 import test_independent_flights
 from canonical_station_cuts import refine
 from native_local_station_cuts import FIXTURE, transformed
@@ -170,7 +172,7 @@ class CanonicalFlightTests(test_independent_flights.IndependentFlightTests):
 
 
 class CanonicalOriginalTests(unittest.TestCase):
-    def test_complete_original_consumes_local_canonical_cuts(self):
+    def original_case(self, fixed=None):
         prepare = compare_mvt_native_body.prepare_native_body_plan
 
         def canonical(case, sources, proposal, native, **kwargs):
@@ -181,12 +183,30 @@ class CanonicalOriginalTests(unittest.TestCase):
             )
             return prepare(case, sources, proposal, native, **kwargs)
 
-        with patch.object(
-            compare_mvt_native_body, "prepare_native_body_plan", canonical
-        ):
-            plan, _data, _baseline, products, report = compare_mvt_native_body.run(
-                "highs-ds"
+        geometry = nullcontext()
+        if fixed is not None:
+            faces = np.asarray(fixed["triangles"])
+            masks = np.asarray(fixed["source_masks"])
+            owners = (masks[:, None] & (1 << np.arange(3))) != 0
+            mesh = (
+                np.asarray(fixed["xy_m"]),
+                faces,
+                owners,
+                {"provenance": fixed["provenance"]},
             )
+            geometry = patch.object(
+                stair_junction_layout, "arrangement", return_value=mesh
+            )
+        with (
+            patch.object(
+                compare_mvt_native_body, "prepare_native_body_plan", canonical
+            ),
+            geometry,
+        ):
+            return compare_mvt_native_body.run("highs-ds")
+
+    def test_complete_original_consumes_local_canonical_cuts(self):
+        plan, _data, _baseline, products, report = self.original_case()
         self.assertEqual(report["orientation"]["invalid_float32_faces"], 0)
         self.assertLess(
             max(report["rendered_native_contacts"]["height_errors_m"].values()), 1e-10
@@ -194,6 +214,27 @@ class CanonicalOriginalTests(unittest.TestCase):
         self.assertEqual(len(products["external_contacts"]), 4)
         self.assertEqual(len(products["terrain_reservations"]), 3)
         self.assertEqual(plan["station_refinement"]["cut_stage"], "canonical")
+
+    def test_fixed_native_original_keeps_the_declared_frames_and_full_consumers(self):
+        data = json.loads(FIXTURE.read_text())
+        plan, _body, _baseline, products, report = self.original_case(data)
+        for actual, supplied in zip(
+            plan["canonical_station_mesh"]["axes"], data["axes"], strict=True
+        ):
+            np.testing.assert_array_equal(
+                actual["initial_faces"], supplied["initial_faces"]
+            )
+            for key in ("origin_xy_m", "tangent", "cuts_m"):
+                np.testing.assert_array_equal(
+                    np.asarray(actual[key]).view(np.uint64),
+                    np.asarray(supplied[key]).view(np.uint64),
+                )
+        self.assertEqual(report["orientation"]["invalid_float32_faces"], 0)
+        self.assertLess(
+            max(report["rendered_native_contacts"]["height_errors_m"].values()), 1e-10
+        )
+        self.assertEqual(len(products["external_contacts"]), 4)
+        self.assertEqual(len(products["terrain_reservations"]), 3)
 
 
 if __name__ == "__main__":
