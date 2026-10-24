@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_PROVIDERS_MVTSCHEMA_H
 
 #include "MvtLayer.h"
+#include <array>
 #include <optional>
 #include <string_view>
 
@@ -39,24 +40,51 @@ enum class MvtSchema : uint8_t { Shortbread, OpenMapTiles };
   return kind;
 }
 
+struct MvtTagKeyAlias {
+  std::string_view Layer;
+  std::string_view Source;
+  std::string_view Canonical;
+};
+
+inline constexpr std::array kMvtTagKeyAliases{
+    MvtTagKeyAlias{.Layer = "buildings", .Source = "render_height", .Canonical = "height"},
+    MvtTagKeyAlias{.Layer = "buildings", .Source = "render_min_height", .Canonical = "min_height"},
+    MvtTagKeyAlias{.Layer = "buildings", .Source = "colour", .Canonical = "building:colour"},
+    MvtTagKeyAlias{.Layer = "", .Source = "class", .Canonical = "kind"}};
+
+[[nodiscard]] inline bool MvtBrunnelValue(std::string_view value) noexcept {
+  return value == "bridge" || value == "tunnel";
+}
+
+[[nodiscard]] inline std::string_view
+MvtAliasSourceKey(MvtSchema schema, std::string_view canonical, std::string_view key) noexcept {
+  if (schema == MvtSchema::Shortbread) { return {}; }
+  for (const auto &alias : kMvtTagKeyAliases) {
+    if (alias.Canonical == key && (alias.Layer.empty() || alias.Layer == canonical)) {
+      return alias.Source;
+    }
+  }
+  if (canonical == "streets" && MvtBrunnelValue(key)) { return "brunnel"; }
+  return {};
+}
+
 [[nodiscard]] inline MvtLayer::Tag NormalizeMvtTag(MvtSchema schema,
                                                    std::string_view canonical,
                                                    MvtLayer::Tag tag,
                                                    std::string_view subclass = {}) noexcept {
   if (schema == MvtSchema::Shortbread) { return tag; }
-  if (canonical == "buildings") {
-    if (tag.Key == "render_height") { tag.Key = "height"; }
-    if (tag.Key == "render_min_height") { tag.Key = "min_height"; }
-    if (tag.Key == "colour") { tag.Key = "building:colour"; }
-  }
-  if (tag.Key == "class") {
-    tag.Key = "kind";
-    if (canonical == "streets" && !tag.IsNumber) {
-      tag.String = NormalizeMvtStreetKind(tag.String, subclass);
+  const auto sourceKey = tag.Key;
+  for (const auto &alias : kMvtTagKeyAliases) {
+    if (alias.Source == sourceKey && (alias.Layer.empty() || alias.Layer == canonical)) {
+      tag.Key = alias.Canonical;
+      break;
     }
   }
+  if (sourceKey == "class" && canonical == "streets" && !tag.IsNumber) {
+    tag.String = NormalizeMvtStreetKind(tag.String, subclass);
+  }
   if (canonical == "streets" && tag.Key == "brunnel" && !tag.IsNumber &&
-      (tag.String == "bridge" || tag.String == "tunnel")) {
+      MvtBrunnelValue(tag.String)) {
     tag.Key = tag.String;
     tag.String = {};
     tag.Number = 1.0;
