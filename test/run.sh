@@ -311,6 +311,7 @@ TestProfile() {
     outshine/src/client/ProcessBoundary) printf '%s' 'profile/client-boundary' ;;
     outshine/integration/places/client|outshine/integration/places60) printf '%s' 'profile/client-shots' ;;
     outshine/src/base/spatial/HeightSolid) printf '%s' 'profile/height-solid' ;;
+    outshine/src/base/spatial/HeightBandMesh) printf '%s' 'profile/height-bands' ;;
     outshine/src/base/spatial/PlanarRegionRemesh) printf '%s' 'profile/planar-regions' ;;
     outshine/src/base/spatial/PlanarStationMesh) printf '%s' 'profile/planar-stations' ;;
     outshine/integration/transport/SurfaceFlightPreparation) printf '%s' 'profile/road-flight-preparation' ;;
@@ -388,6 +389,7 @@ LayerIncludes() {
     profile/stage-pipelines) GroupIncludes src/render/stages ;;
     profile/client-boundary) printf '%s' '-I.' ;;
     profile/height-solid) GroupIncludes src/base/spatial ;;
+    profile/height-bands) GroupIncludes src/base/spatial ;;
     profile/planar-regions) GroupIncludes src/base/spatial ;;
     profile/planar-stations) GroupIncludes src/base/spatial ;;
     profile/road-flight-preparation) GroupIncludes src/generators/road/surface ;;
@@ -526,6 +528,7 @@ LayerLibraryLink() {
     profile/calibration|profile/stage-pipelines|profile/prism-native) pkg-config --libs sdl3; NativeLink ;;
     profile/benchmark-report) pkg-config --libs sdl3 ;;
     profile/height-solid) return 0 ;;
+    profile/height-bands) return 0 ;;
     profile/planar-regions) pkg-config --libs geos ;;
     profile/planar-stations) return 0 ;;
     profile/road-height-program) pkg-config --libs geos; HighsFlags --libs ;;
@@ -615,6 +618,7 @@ LayerGroups() {
     profile/building-stamps) printf '%s' 'src/generators/osm/fields/BuildingField.cpp src/generators/osm/fields/BuildingFieldProducts.cpp src/generators/terrain/BuildingStampJob.cpp' ;;
     profile/building-measurements) printf '%s' 'src/generators/osm/fields/BuildingField.cpp src/generators/osm/fields/BuildingFieldProducts.cpp src/engine/BuildingFootprintMeasurements.cpp' ;;
     profile/height-solid) printf '%s' 'src/base/spatial/HeightSolid.cpp src/base/spatial/HeightSolidWalls.cpp src/base/spatial/HeightSolidValidation.cpp' ;;
+    profile/height-bands) printf '%s' 'src/base/spatial/HeightBandMesh.cpp src/base/spatial/HeightBandClipping.cpp src/base/spatial/HeightBandEdges.cpp src/base/spatial/HeightBandValidation.cpp' ;;
     profile/planar-regions) printf '%s' 'src/base/spatial/GeosPolygon.cpp src/base/spatial/PlanarRegionRemesh.cpp src/base/spatial/PlanarRegionRings.cpp src/base/spatial/PlanarRegionTriangulation.cpp' ;;
     profile/planar-stations) printf '%s' 'src/base/spatial/PlanarStationMesh.cpp src/base/spatial/PlanarStationCuts.cpp' ;;
     profile/sparse-matrix) return 0 ;;
