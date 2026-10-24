@@ -26,6 +26,11 @@ namespace Osm = Generators::Osm;
 constexpr int kZoom = 14;
 constexpr float kChangedHeightM = 40;
 
+struct Counts {
+  size_t Factories = 0;
+  size_t Samples = 0;
+};
+
 Ground::TerrainField Flat(float heightM) {
   Ground::TerrainField field(2, 2);
   for (uint32_t row = 0; row < 2; ++row) {
@@ -38,12 +43,11 @@ std::expected<Osm::StreetGraphBuilder::Built, std::string>
 Generate(const Osm::OsmField &vectors,
          const Osm::StreetField &ways,
          const Ground::TerrainField &terrain,
-         size_t &factories,
-         size_t &samples) {
-  ++factories;
+         Counts &counts) {
+  ++counts.Factories;
   auto result = Osm::StreetGraphBuilder::BuildOneShot(
       ways, vectors.Points(), [&]([[maybe_unused]] LongitudeLatitude at) -> std::optional<double> {
-        ++samples;
+        ++counts.Samples;
         return terrain.PostingM({.Col = 0.5, .Row = 0.5});
       });
   if (!result.Graph || result.Elevated.Refused != 0) {
@@ -54,7 +58,7 @@ Generate(const Osm::OsmField &vectors,
 
 void CheckTerrainBinding(const std::filesystem::path &root) {
   Data::ContentStore store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   Ground::GroundMaterials materials;
   Ground::VegetationTemplates templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
@@ -81,27 +85,27 @@ void CheckTerrainBinding(const std::filesystem::path &root) {
   const auto changedKey = cache->Key(vectors, ways, {}, kZoom, changedBinding);
   CHECK(originalKey && changedKey, "both captured terrain inputs can be identified");
   if (!originalKey || !changedKey) { return; }
-  size_t factories = 0, samples = 0;
+  Counts counts;
   const auto cold = cache->Resolve(
-      *originalKey, [&] { return Generate(vectors, ways, originalTerrain, factories, samples); });
-  CHECK(cold && !cold->Hit && factories == 1, "the initial native graph is generated once");
-  const auto changed = cache->Resolve(
-      *changedKey, [&] { return Generate(vectors, ways, changedTerrain, factories, samples); });
+      *originalKey, [&] { return Generate(vectors, ways, originalTerrain, counts); });
+  CHECK(cold && !cold->Hit && counts.Factories == 1, "the initial native graph is generated once");
+  const auto changed =
+      cache->Resolve(*changedKey, [&] { return Generate(vectors, ways, changedTerrain, counts); });
   const auto profile = changed ? changed->Graph.Graph->Profile({.Way = 0, .StationM = 0})
                                : std::optional<Path::Network::Station>{};
   std::cout << "STREET_TERRAIN_BINDING keys_equal=" << (*originalKey == *changedKey)
-            << " factories=" << factories << " samples=" << samples
+            << " factories=" << counts.Factories << " samples=" << counts.Samples
             << " changed_hit=" << (changed && changed->Hit)
             << " returned_height_m=" << (profile ? profile->HeightM : -1) << '\n';
   CHECK(*originalKey != *changedKey, "different captured terrain cannot share content identity");
-  CHECK(changed && !changed->Hit && factories == 2,
+  CHECK(changed && !changed->Hit && counts.Factories == 2,
         "changed terrain must run elevation rather than reuse the previous graph");
   CHECK(profile && profile->HeightM == kChangedHeightM,
         "the native road profile follows the terrain actually supplied to production");
   const auto reopened = Osm::PreparedStreetGraph::Open((root / "assets").string(), sources);
   CHECK(reopened, "a new cache owner opens both persisted terrain variants");
   if (!reopened) { return; }
-  const auto samplesBefore = samples;
+  const auto samplesBefore = counts.Samples;
   const auto warm = (*reopened)->Resolve(*changedKey, {});
   const auto old = (*reopened)->Resolve(*originalKey, {});
   const auto warmProfile = warm ? warm->Graph.Graph->Profile({.Way = 0, .StationM = 0})
@@ -109,8 +113,8 @@ void CheckTerrainBinding(const std::filesystem::path &root) {
   const auto oldProfile = old ? old->Graph.Graph->Profile({.Way = 0, .StationM = 0})
                               : std::optional<Path::Network::Station>{};
   CHECK(warm && warm->Hit && warmProfile && warmProfile->HeightM == kChangedHeightM && old &&
-            old->Hit && oldProfile && oldProfile->HeightM == 0 && factories == 2 &&
-            samples == samplesBefore,
+            old->Hit && oldProfile && oldProfile->HeightM == 0 && counts.Factories == 2 &&
+            counts.Samples == samplesBefore,
         "fresh owner hits preserve both independent profiles without a factory or elevation");
 }
 }

@@ -4,6 +4,9 @@
 #include "TerrainCertificate.h"
 #include "TerrainGrid.h"
 #include "TileGeodesy.h"
+#include "TileSourceIdentity.h"
+#include <algorithm>
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -19,6 +22,9 @@ constexpr Data::TileId kWest{.Zoom = 1, .X = 0, .Y = 0};
 constexpr Data::TileId kEast{.Zoom = 1, .X = 1, .Y = 0};
 constexpr Data::TileId kChild{.Zoom = 2, .X = 0, .Y = 0};
 constexpr float kRaisedM = 40;
+constexpr std::array<uint8_t, 32> kExpectedBinding{
+    214, 33,  51,  61, 82,  112, 50,  166, 138, 49, 187, 240, 128, 255, 87,  105,
+    121, 202, 245, 74, 244, 220, 175, 120, 29,  76, 115, 223, 67,  221, 166, 183};
 
 std::shared_ptr<Ground::TerrainField>
 Field(Data::TileId tile, float heightM, std::string revision = "r1") {
@@ -44,7 +50,9 @@ void CheckStableBindings() {
   CHECK(binding && same && binding->Key == same->Key,
         "field order and ownership addresses cannot change the same captured input binding");
   if (!binding) { return; }
-  constexpr size_t kRasterBytes = 2 * 4 * sizeof(float);
+  CHECK(binding->Key == kExpectedBinding && binding->MetadataBytes == 252,
+        "canonical little endian fields match the independently encoded reference vector");
+  constexpr size_t kRasterBytes = size_t{2} * 4u * sizeof(float);
   const size_t copied = std::endian::native == std::endian::little ? 0 : kRasterBytes;
   CHECK(binding->Fields == 2 && binding->RasterBytes == kRasterBytes &&
             binding->CopiedRasterBytes == copied && binding->MetadataBytes > 0,
@@ -86,6 +94,14 @@ void CheckSamplingDetail() {
   CHECK(ancestor && local && ancestor->Key != local->Key && coarse.AslMAt(2, point) == 0 &&
             refined.AslMAt(2, point) == kRaisedM,
         "a child replacing its sampled ancestor changes both binding and actual elevation");
+  auto unsourced = std::make_shared<Ground::TerrainField>(2, 2);
+  std::fill_n(unsourced->Data(), 4, kRaisedM);
+  const SourcedTerrainFields sampled({{kChild, unsourced}, {kWest, parent}});
+  const auto withoutProvenance = sampled.BindingAt(2);
+  CHECK(
+      withoutProvenance && ancestor && withoutProvenance->Key != ancestor->Key &&
+          sampled.AslMAt(2, point) == kRaisedM && unsourced->Sources().empty(),
+      "sampling binds unsourced finer data instead of silently substituting its sourced ancestor");
   const SourcedTerrainFields masked({{kChild, nullptr}, {kChild, child}, {kWest, parent}});
   const auto firstMatch = masked.BindingAt(2);
   CHECK(firstMatch && ancestor && firstMatch->Key == ancestor->Key && masked.AslMAt(2, point) == 0,
