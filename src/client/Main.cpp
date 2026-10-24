@@ -4,6 +4,7 @@
 #include "BenchmarkCommand.h"
 #include "CostReport.h"
 #include "ProcessBoundary.h"
+#include "ScenarioArguments.h"
 #include "ShotOptions.h"
 #include "SourceCache.h"
 #include "WorldSourcePolicy.h"

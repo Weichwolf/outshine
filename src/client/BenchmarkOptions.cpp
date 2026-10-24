@@ -1,7 +1,7 @@
 #include "BenchmarkCommand.h"
 #include "BenchmarkMotion.h"
 #include "BenchmarkOptions.h"
-#include "ShotOptions.h"
+#include "ScenarioArguments.h"
 #include "format/Number.h"
 #include "Vec3.h"
 
