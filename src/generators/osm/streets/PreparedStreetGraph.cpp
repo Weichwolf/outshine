@@ -85,7 +85,7 @@ PreparedStreetGraph::Open(const std::string &directory, const Data::SourceSet &s
   return std::shared_ptr<PreparedStreetGraph>(new PreparedStreetGraph(
       std::move(*cache),
       Generators::AssetSourceRecipe(
-          "prepared-street-graph-1",
+          "prepared-street-graph-2",
           sources,
           std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap})));
 }

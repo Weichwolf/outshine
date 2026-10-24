@@ -1176,7 +1176,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
         std::make_shared<const SourcedTerrainFields>(build.Sheets.SnapshotSourcedFields());
     const auto ways = std::make_shared<const Generators::Osm::StreetField>(sources.Ways);
     StreetGraphPreparation::JobFactory begin =
-        [vectors = sources.Vectors, ways, fields = std::move(fields), sourceZoom] {
+        [vectors = sources.Vectors, ways, fields, sourceZoom] {
           return outshine::Generators::Osm::StreetGraphBuildJob::Begin(
               *vectors, *ways, [fields, sourceZoom](LongitudeLatitude at) {
                 return fields->AslMAt(sourceZoom, at);
@@ -1187,10 +1187,15 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       resolve = [assets = std::move(assets),
                  vectors = sources.Vectors,
                  ways,
+                 fields,
                  shape = World.Stack.Pool().Shaped(),
                  sourceZoom](const Generators::Osm::PreparedStreetGraph::Factory &factory)
           -> std::expected<Generators::Osm::PreparedStreetGraph::Loaded, std::string> {
-        auto key = assets->Key(*vectors, *ways, shape, sourceZoom);
+        const auto binding = fields->BindingAt(sourceZoom);
+        if (!binding) {
+          return std::unexpected("street graph terrain binding is invalid or over budget");
+        }
+        auto key = assets->Key(*vectors, *ways, shape, sourceZoom, binding->Key);
         if (!key) { return std::unexpected(std::move(key.error())); }
         return assets->Resolve(*key, factory);
       };
