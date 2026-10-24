@@ -5,7 +5,7 @@
 #include <array>
 #include "SourceSet.h"
 #include "OfflineTransport.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "CopernicusDem.h"
 #include "CopernicusRaster.h"
 #include "HttpTransport.h"
@@ -166,8 +166,8 @@ void RealOriginal(const char *url) {
   HttpTransport wire({});
   auto directory = (std::filesystem::temp_directory_path() / "outshine-cog-live-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original-network cache");
-  const ContentStore::Config config{.Directory = directory};
-  ContentStore store(config);
+  const RawSourceCache::Config config{.Directory = directory};
+  RawSourceCache store(config);
   SourceSet sources(store);
   const auto at = Address::AtCell({54, 9});
   auto provider = std::make_unique<CopernicusDem>();
@@ -215,7 +215,7 @@ void RealOriginal(const char *url) {
       header->Range->EntityTag.c_str(),
       height.value_or(std::numeric_limits<float>::quiet_NaN()),
       decodeMs);
-  ContentStore reopened(config);
+  RawSourceCache reopened(config);
   SourceSet warm(reopened);
   CHECK(warm.Add(std::make_unique<CopernicusDem>()) == SourceSet::Registration::Accepted,
         "warm source starts with a newly opened cache and registry");

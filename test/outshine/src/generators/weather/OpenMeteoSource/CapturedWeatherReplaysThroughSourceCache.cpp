@@ -32,10 +32,10 @@ int main() {
   const bool created = mkdtemp(directory.data()) != nullptr;
   CHECK(created, "isolated existing source-cache storage created");
   if (!created) { return Report(); }
-  const ContentStore::Config config{.Directory = directory};
+  const RawSourceCache::Config config{.Directory = directory};
   const Fetch request(DataKind::Weather, Address::Whole(0));
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     std::string error;
     CHECK(RegisterSources(sources, declarations, {}, error, registry), error.c_str());
@@ -60,7 +60,7 @@ int main() {
     CHECK(transport.Cancels() == 0, "unstarted queries own no transport ticket");
   }
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     std::string error;
     CHECK(RegisterSources(sources, declarations, {}, error, registry), error.c_str());

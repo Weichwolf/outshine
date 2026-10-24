@@ -1,4 +1,4 @@
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "AssetCache.h"
 #include "Check.h"
 #include <array>
@@ -36,13 +36,13 @@ void Sources(const std::filesystem::path &root) {
   { std::ofstream(root / legacy) << "old"; }
   const std::array<uint8_t, 3> bytes{1, 2, 3};
   {
-    Data::ContentStore store({.Directory = root.string()});
+    Data::RawSourceCache store({.Directory = root.string()});
     CHECK(store.Keep(fresh, bytes.data(), bytes.size()), "new source is cached normally");
-    CHECK(store.Lookup(fresh).Where == Data::ContentStore::Presence::Bytes,
+    CHECK(store.Lookup(fresh).Where == Data::RawSourceCache::Presence::Bytes,
           "new source cache hit succeeds");
-    CHECK(store.Lookup(legacy).Where == Data::ContentStore::Presence::Bytes,
+    CHECK(store.Lookup(legacy).Where == Data::RawSourceCache::Presence::Bytes,
           "legacy source cache hit succeeds");
-    CHECK(store.Lookup(std::string(64, 'c')).Where == Data::ContentStore::Presence::Unknown,
+    CHECK(store.Lookup(std::string(64, 'c')).Where == Data::RawSourceCache::Presence::Unknown,
           "source miss remains a miss");
   }
   const auto index = root / ".usage.sqlite";

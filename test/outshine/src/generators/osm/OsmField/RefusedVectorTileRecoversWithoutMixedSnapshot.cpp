@@ -83,9 +83,9 @@ int main() {
   using namespace outshine;
   using namespace outshine::Data;
   using namespace outshine::Test;
-  ContentStore::Config cache;
-  cache.Using = ContentStore::Use::Off;
-  ContentStore store(cache);
+  RawSourceCache::Config cache;
+  cache.Using = RawSourceCache::Use::Off;
+  RawSourceCache store(cache);
   SourceSet sources(store);
   ClockTransport transport;
   const auto bytes = TileBytes();

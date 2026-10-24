@@ -53,7 +53,7 @@ int main() {
       .Endpoint = "https://api.openstreetmap.org/api/0.6",
       .Coverage = GeographicBounds{
           .WestDeg = 9.433, .SouthDeg = 54.785, .EastDeg = 9.445, .NorthDeg = 54.8}};
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
   for (const int status : std::array{429, 503}) {
     RetryWire wire;
     wire.Status = status;

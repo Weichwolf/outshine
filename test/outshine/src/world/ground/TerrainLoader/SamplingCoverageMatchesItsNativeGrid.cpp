@@ -3,7 +3,7 @@
 #include "SourceSet.h"
 #include "Check.h"
 #include <Address.h>
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "TilePool.h"
 #include <Transport.h>
 
@@ -63,7 +63,7 @@ int main() {
           "invalid native grids are refused before shifting coordinates");
   }
 
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork network;
   Ground::TilePool pool({}, sources, network);

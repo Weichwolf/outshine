@@ -1,4 +1,4 @@
-#include "src/content/cache/CacheUsageIndex.h"
+#include "CacheUsageIndex.h"
 #include "Check.h"
 #include <chrono>
 #include <filesystem>

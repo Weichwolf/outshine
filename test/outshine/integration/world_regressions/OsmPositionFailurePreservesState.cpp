@@ -56,7 +56,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  Data::ContentStore store({.Directory = {}, .Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoTransport transport;
   TilePool pool({}, sources, transport);

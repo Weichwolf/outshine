@@ -54,7 +54,7 @@ int main() {
   CHECK(mkdtemp(path.data()) != nullptr, "isolated source-byte cache created");
   const Fetch request(DataKind::Elevation, Address::At({.Zoom = 3, .X = 6, .Y = 4}));
   {
-    ContentStore store({.Directory = path});
+    RawSourceCache store({.Directory = path});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<Tiles>()) == SourceSet::Registration::Accepted,
           "one provider registered");
@@ -71,7 +71,7 @@ int main() {
           "confirmed misses traverse exactly one parent per request before Fail");
   }
   {
-    ContentStore store({.Directory = path});
+    RawSourceCache store({.Directory = path});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<Tiles>()) == SourceSet::Registration::Accepted,
           "fresh process source state configured");
@@ -83,7 +83,7 @@ int main() {
           "cached absence chain reaches parent bytes without network or changed pins");
   }
   {
-    ContentStore store({.Using = ContentStore::Use::Off});
+    RawSourceCache store({.Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<Tiles>()) == SourceSet::Registration::Accepted,
           "failure source configured");

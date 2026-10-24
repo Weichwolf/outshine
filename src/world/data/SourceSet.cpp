@@ -232,8 +232,8 @@ std::optional<Delivery> SourceSet::ReadStored(Query &query, Transport &transport
   const auto cell = query.At_.GeoCell();
   auto kept =
       !range && cell ? Store_.LookupCell(decl, *cell) : Store_.Lookup(query.CacheKey(), maximum);
-  if (kept.Where == ContentStore::Presence::Unknown) { return std::nullopt; }
-  if (kept.Where == ContentStore::Presence::Absent) {
+  if (kept.Where == RawSourceCache::Presence::Unknown) { return std::nullopt; }
+  if (kept.Where == RawSourceCache::Presence::Absent) {
     {
       const std::scoped_lock lock(LedgerMutex_);
       ++Ledger_.Asked;

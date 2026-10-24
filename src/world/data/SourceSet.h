@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "Delivery.h"
 #include <DataKind.h>
 #include <Source.h>
@@ -22,7 +22,7 @@ class SourceSet {
 public:
   enum class Registration { Accepted, DuplicateRank, Unnamed, Sealed };
 
-  explicit SourceSet(ContentStore &store) : Store_(store) {}
+  explicit SourceSet(RawSourceCache &store) : Store_(store) {}
 
   SourceSet(const SourceSet &) = delete;
   SourceSet &operator=(const SourceSet &) = delete;
@@ -125,7 +125,7 @@ private:
                                                         double retryAfterS,
                                                         Transport &transport);
 
-  ContentStore &Store_;
+  RawSourceCache &Store_;
   mutable std::mutex RegistryMutex_;
   bool Sealed_ = false;
   std::vector<std::unique_ptr<Source>> Sources_;

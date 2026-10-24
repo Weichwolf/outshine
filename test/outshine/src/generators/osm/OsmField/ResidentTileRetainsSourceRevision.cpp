@@ -77,7 +77,7 @@ std::vector<uint8_t> TileBytes() {
 }
 
 TileSourceIdentity Resident(std::string revision, const std::vector<uint8_t> &bytes) {
-  ContentStore store({.Directory = {}, .Using = ContentStore::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   const auto registration = sources.Add(std::make_unique<VectorSource>(std::move(revision), bytes));

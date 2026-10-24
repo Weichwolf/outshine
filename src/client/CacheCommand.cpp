@@ -1,5 +1,6 @@
 #include "CacheCommand.h"
-#include "CacheTrim.h"
+#include "AssetCacheTrim.h"
+#include "SourceCacheTrim.h"
 #include <algorithm>
 #include <array>
 #include <charconv>

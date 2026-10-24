@@ -1,6 +1,6 @@
 #include "AssetCache.h"
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "PreparedTerrainAssets.h"
 #include "SourceSet.h"
 #include "TerrainDeformationParts.h"
@@ -17,7 +17,7 @@ int main() {
                     ("outshine-terrain-parts-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const auto directory = (path / "assets").string();
-  Data::ContentStore store({.Directory = (path / "sources").string()});
+  Data::RawSourceCache store({.Directory = (path / "sources").string()});
   Data::SourceSet sources(store);
   PreparedTerrainDeformation product;
   for (uint32_t index = 0; index < 18; ++index) {

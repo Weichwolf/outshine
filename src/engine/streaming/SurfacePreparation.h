@@ -10,7 +10,7 @@
 #include <string_view>
 #include <utility>
 
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceConfiguration.h"
 #include "SourceSet.h"
 #include "SourceSession.h"
@@ -113,8 +113,8 @@ public:
     return Sources_ ? Sources_->Counters() : SourceCounters{};
   }
 
-  [[nodiscard]] Data::ContentStore::Ledger StoreCosts() const {
-    return Sources_ ? Sources_->Store().Counters() : Data::ContentStore::Ledger{};
+  [[nodiscard]] Data::RawSourceCache::Ledger StoreCosts() const {
+    return Sources_ ? Sources_->Store().Counters() : Data::RawSourceCache::Ledger{};
   }
 
   [[nodiscard]] auto ProviderCosts() const {

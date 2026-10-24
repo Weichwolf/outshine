@@ -25,7 +25,7 @@ ConfiguredSource(const Data::SourceProvider &provider,
 }
 }
 
-ApiRegion::ApiRegion(Data::ContentStore &store, Data::Transport &wire, Data::Address at)
+ApiRegion::ApiRegion(Data::RawSourceCache &store, Data::Transport &wire, Data::Address at)
     : Sources_(store), Wire_(wire), Address_(at) {}
 
 ApiRegion::~ApiRegion() {
@@ -34,7 +34,7 @@ ApiRegion::~ApiRegion() {
 
 std::expected<std::unique_ptr<ApiRegion>, std::string>
 ApiRegion::Create(const Data::SourceProvider &provider,
-                  Data::ContentStore &store,
+                  Data::RawSourceCache &store,
                   Data::Transport &wire,
                   const Data::ProviderRegistry *registry,
                   std::string_view shippedRoot,
@@ -104,15 +104,15 @@ std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(SourceChunk 
                          "' failed: " + std::string(Data::Name(reason)) + context);
 }
 
-bool ApiRegion::HasCachedCoverage(Data::ContentStore &store) const {
+bool ApiRegion::HasCachedCoverage(Data::RawSourceCache &store) const {
   const auto cell = Address_.GeoCell();
   if (!cell) { return false; }
   const auto &declaration = Sources_.At(0).Declaration();
-  return store.LookupCell(declaration, *cell).Where == Data::ContentStore::Presence::Bytes ||
+  return store.LookupCell(declaration, *cell).Where == Data::RawSourceCache::Presence::Bytes ||
          store.HasCompleteChildCoverage(declaration, *cell);
 }
 
-bool ApiRegion::Begin(const Data::ContentStore &store, std::vector<GeoCellId> &refine) {
+bool ApiRegion::Begin(const Data::RawSourceCache &store, std::vector<GeoCellId> &refine) {
   const auto cell = Address_.GeoCell();
   if (cell && store.CanResumeFromChildren(Sources_.At(0).Declaration(), *cell)) {
     refine.push_back(*cell);

@@ -19,6 +19,8 @@ outshine/src/world
 outshine/src/render
 outshine/src/engine
 outshine/src/scenario
+outshine/src/sources
+outshine/src/storage
 outshine/src/client
 outshine/integration/places/client/RenderWien
 outshine/integration/places/client/RenderTokyo
@@ -28,4 +30,6 @@ outshine/integration/content
 outshine/integration/engine
 outshine/integration/generators
 outshine/integration/render
+outshine/integration/sources
+outshine/integration/storage
 outshine/integration/world

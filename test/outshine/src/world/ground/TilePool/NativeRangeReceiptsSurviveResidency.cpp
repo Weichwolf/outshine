@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "CopernicusDem.h"
 #include "SourceSet.h"
 #include "TilePool.h"
@@ -35,7 +35,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<CopernicusDem>()) == SourceSet::Registration::Accepted,
         "native source uses normal provider dispatch");

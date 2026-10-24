@@ -53,7 +53,7 @@ public:
 
 int main() {
   using namespace outshine::Test;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   const Fetch request(DataKind::Elevation, Address::Whole(0));
   CHECK(!std::is_move_assignable_v<SourceSet::Query>,
         "assignment cannot overwrite an active ticket");
@@ -129,7 +129,7 @@ int main() {
         (std::filesystem::temp_directory_path() / "outshine-query-cache-XXXXXX").string();
     CHECK(mkdtemp(directory.data()) != nullptr, "cache directory created");
     if (!std::filesystem::is_directory(directory)) { return Report(); }
-    ContentStore cache({.Directory = directory});
+    RawSourceCache cache({.Directory = directory});
     SourceSet sources(cache);
     OfflineTransport transport;
     auto source = std::make_unique<ProbeSource>();
@@ -152,7 +152,7 @@ int main() {
     CHECK(!error, "cache directory removed");
   }
   {
-    ContentStore cache({.Using = ContentStore::Use::Off});
+    RawSourceCache cache({.Using = RawSourceCache::Use::Off});
     SourceSet sources(cache);
     OfflineTransport transport;
     CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(

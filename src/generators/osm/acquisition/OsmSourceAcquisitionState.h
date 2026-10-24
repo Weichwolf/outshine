@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_ACQUISITION_OSMSOURCEACQUISITIONSTATE_H
 
 #include "OsmSourceAcquisition.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "OsmApiReader.h"
 #include <condition_variable>
 #include <deque>
@@ -16,7 +16,7 @@ class CellAcquisition;
 struct SourceAcquisition::Access {
   Data::Transport *Wire = nullptr;
   std::string Directory;
-  std::unique_ptr<Data::ContentStore> Store;
+  std::unique_ptr<Data::RawSourceCache> Store;
   const Data::ProviderRegistry *Registry = nullptr;
   uint64_t AcquisitionRevision = 0;
   uint64_t AppliedBudgetRevision = 0;

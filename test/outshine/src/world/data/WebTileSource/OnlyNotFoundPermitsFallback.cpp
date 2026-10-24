@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "WebTileFixture.h"
 #include <Transport.h>
@@ -35,7 +35,7 @@ public:
 
 void CheckResponse(int status) {
   using namespace outshine::Test;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
             "pin",

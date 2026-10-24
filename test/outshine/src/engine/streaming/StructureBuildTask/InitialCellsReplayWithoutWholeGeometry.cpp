@@ -94,7 +94,7 @@ void CheckCosts(const PreparedBuildingAssets &cache, const CountingMesh &mesher,
 }
 
 void Replay(const std::filesystem::path &root, bool warm) {
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
   auto opened = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(opened, "the native asset store opens");
@@ -168,7 +168,7 @@ void Replay(const std::filesystem::path &root, bool warm) {
 }
 
 void ReuseWholeProduct(const std::filesystem::path &root) {
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache, "a separate cache opens for an existing whole product");

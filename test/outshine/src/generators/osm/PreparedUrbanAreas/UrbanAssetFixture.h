@@ -102,7 +102,7 @@ private:
 
 struct Fixture {
   std::atomic_uint Calls{0};
-  ContentStore Store{{.Directory = {}, .Using = ContentStore::Use::Off}};
+  RawSourceCache Store{{.Directory = {}, .Using = RawSourceCache::Use::Off}};
   SourceSet Sources{Store};
   NoTransport Transport;
   Tasks Compute{1};

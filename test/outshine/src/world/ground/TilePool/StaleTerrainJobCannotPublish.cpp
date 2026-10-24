@@ -1,6 +1,6 @@
 #include "TilePool.h"
 #include "tiles/TerrainTiles.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <Transport.h>
 #include "Check.h"
@@ -90,7 +90,7 @@ int main() {
     const bool cancelled = mode == Mode::MeshCancelled;
     const float expectedHeight = cancelled ? 0.0f : 9.0f;
     auto gate = std::make_shared<Gate>();
-    Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+    Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet sources(store);
     NoNetwork transport;
     CHECK(sources.Add(std::make_unique<Provider>(gate)) == Data::SourceSet::Registration::Accepted,

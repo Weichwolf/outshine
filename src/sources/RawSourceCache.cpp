@@ -1,4 +1,4 @@
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "CacheUsageIndex.h"
 
 #include <algorithm>
@@ -39,7 +39,7 @@ constexpr size_t kKeyCharacters = 64;
 
 }
 
-[[nodiscard]] bool ContentStore::ValidKey(std::string_view key) {
+[[nodiscard]] bool RawSourceCache::ValidKey(std::string_view key) {
   return key.size() == kKeyCharacters && std::ranges::all_of(key, [](char c) {
            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
          });
@@ -73,8 +73,8 @@ namespace {
 
 }
 
-std::optional<std::vector<uint8_t>> ContentStore::ReadEntry(const std::string &path,
-                                                            size_t limit) const {
+std::optional<std::vector<uint8_t>> RawSourceCache::ReadEntry(const std::string &path,
+                                                              size_t limit) const {
   const auto began = std::chrono::steady_clock::now();
   auto bytes = ReadCacheFile(path, limit);
   const auto ns =
@@ -138,7 +138,7 @@ std::string SourceKey(const SourceDecl &decl) {
   return Sha256Hex(subject);
 }
 
-ContentStore::ContentStore(const Config &config)
+RawSourceCache::RawSourceCache(const Config &config)
     : Directory_(config.Directory.empty() ? DefaultDirectory() : config.Directory),
       Using_(config.Using),
       CapBytes_(config.CapBytes > 0 ? config.CapBytes : kDefaultCapBytes) {
@@ -156,17 +156,17 @@ ContentStore::ContentStore(const Config &config)
   }
 }
 
-ContentStore::~ContentStore() = default;
+RawSourceCache::~RawSourceCache() = default;
 
-void ContentStore::ObserveUsage(std::string_view key, size_t bytes, bool published) const {
+void RawSourceCache::ObserveUsage(std::string_view key, size_t bytes, bool published) const {
   if (Usage_ && Usage_->Record(key, bytes, published)) { return; }
   if (!UsageWarning_.exchange(true, std::memory_order_relaxed)) {
     std::fputs("source cache: usage metadata could not be fully recorded\n", stderr);
   }
 }
 
-std::optional<std::vector<uint8_t>> ContentStore::ReadBytes(std::string_view key,
-                                                            size_t mostBytes) const {
+std::optional<std::vector<uint8_t>> RawSourceCache::ReadBytes(std::string_view key,
+                                                              size_t mostBytes) const {
   const size_t limit = mostBytes == 0 ? CapBytes_ : std::min(mostBytes, CapBytes_);
   if (!ValidKey(key)) { return std::nullopt; }
   auto bytes = ReadEntry(Directory_ + "/" + std::string(key), limit);
@@ -174,7 +174,7 @@ std::optional<std::vector<uint8_t>> ContentStore::ReadBytes(std::string_view key
   return bytes;
 }
 
-ContentStore::Entry ContentStore::Lookup(std::string_view key, size_t mostBytes) const {
+RawSourceCache::Entry RawSourceCache::Lookup(std::string_view key, size_t mostBytes) const {
   if (Using_ != Use::On) { return {}; }
   if (auto bytes = ReadBytes(key, mostBytes)) {
     Hits_.fetch_add(1, std::memory_order_relaxed);
@@ -188,7 +188,7 @@ ContentStore::Entry ContentStore::Lookup(std::string_view key, size_t mostBytes)
   return {};
 }
 
-bool ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes) {
+bool RawSourceCache::Keep(std::string_view key, const uint8_t *data, size_t bytes) {
   if (Using_ != Use::On) { return false; }
   if (!ValidKey(key) || data == nullptr || bytes == 0 || bytes > CapBytes_) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
@@ -206,7 +206,7 @@ bool ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes)
   return true;
 }
 
-bool ContentStore::WriteEntry(const std::string &path, std::span<const std::byte> bytes) {
+bool RawSourceCache::WriteEntry(const std::string &path, std::span<const std::byte> bytes) {
   const auto began = std::chrono::steady_clock::now();
   const auto written = WriteFileAtomically(path, bytes);
   const auto ns =
@@ -217,7 +217,7 @@ bool ContentStore::WriteEntry(const std::string &path, std::span<const std::byte
   return written.has_value();
 }
 
-ContentStore::Ledger ContentStore::Counters() const {
+RawSourceCache::Ledger RawSourceCache::Counters() const {
   Ledger out;
   out.Hits = Hits_.load(std::memory_order_relaxed);
   out.Misses = Misses_.load(std::memory_order_relaxed);

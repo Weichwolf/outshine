@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "TerrainDeformationTask.h"
 #include "PreparedTerrainAssets.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <chrono>
 #include <filesystem>
@@ -63,7 +63,7 @@ int main() {
                     ("outshine-terrain-deformation-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(path);
-  Data::ContentStore store({.Directory = (path / "sources").string()});
+  Data::RawSourceCache store({.Directory = (path / "sources").string()});
   Data::SourceSet sources(store);
   const auto frame = TangentFrame::At({});
   Tasks pool(1);

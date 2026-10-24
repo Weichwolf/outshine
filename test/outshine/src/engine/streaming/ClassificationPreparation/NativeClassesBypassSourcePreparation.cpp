@@ -1,5 +1,5 @@
 #include "ClassificationPreparation.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "VegetationTemplates.h"
 #include "Check.h"
@@ -44,7 +44,7 @@ int main() {
   VegetationTemplates templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "materials load");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "classification rules load");
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoTransport transport;
   TilePool pool({}, sources, transport);

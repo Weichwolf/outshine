@@ -1,7 +1,7 @@
 #include "PreparedGroundRegions.h"
 #include "OsmField.h"
 #include "WaterField.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "TilePool.h"
 #include "TerrainLoader.h"
@@ -76,7 +76,7 @@ int main() {
                     ("outshine-region-binding-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root);
-  Data::ContentStore store({.Directory = {}, .Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   const auto opened = PreparedGroundRegions::Open(root.string(), sources, "fixture-rules");
   CHECK(opened, "native regions open before any source or street preparation");

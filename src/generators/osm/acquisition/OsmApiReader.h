@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_OSM_ACQUISITION_OSMAPIREADER_H
 #define OUTSHINE_GENERATORS_OSM_ACQUISITION_OSMAPIREADER_H
 
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "OsmChunkSetLoader.h"
 #include <Transport.h>
 #include <Provider.h>
@@ -25,7 +25,7 @@ struct SourceRead {
 [[nodiscard]] std::expected<SourceRead, std::string>
 ReadCells(const Data::SourceProvider &catalogue,
           std::span<const GeoCellId> cells,
-          Data::ContentStore &store,
+          Data::RawSourceCache &store,
           Data::Transport &wire,
           double deadlineMs,
           const std::stop_token &stop,
@@ -35,7 +35,7 @@ ReadCells(const Data::SourceProvider &catalogue,
 
 [[nodiscard]] std::expected<SourceRead, std::string>
 ReadRegions(std::span<const Data::SourceProvider> providers,
-            Data::ContentStore &store,
+            Data::RawSourceCache &store,
             Data::Transport &wire,
             double deadlineMs,
             const std::stop_token &stop,
@@ -45,7 +45,7 @@ ReadRegions(std::span<const Data::SourceProvider> providers,
 
 [[nodiscard]] std::expected<SourceChunk, std::string>
 ReadRegion(const Data::SourceProvider &provider,
-           Data::ContentStore &store,
+           Data::RawSourceCache &store,
            Data::Transport &wire,
            double deadlineMs,
            const std::stop_token &stop,

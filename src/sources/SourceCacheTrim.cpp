@@ -1,3 +1,4 @@
+#include "SourceCacheTrim.h"
 #include "CacheTrim.h"
 #include "CacheTrimSql.h"
 #include <algorithm>

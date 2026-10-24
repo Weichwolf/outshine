@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 
 #include <array>
 #include <cstdlib>
@@ -24,7 +24,7 @@ int main() {
   const GeoCellId root{.Level = 1, .X = 1, .Y = 0};
   const GeoCellId leaf{.Level = 3, .X = 4, .Y = 0};
   const std::array<uint8_t, 4> bytes{1, 2, 3, 4};
-  ContentStore store({.Directory = path});
+  RawSourceCache store({.Directory = path});
   CHECK(!store.CanResumeFromChildren(decl, root), "empty cache cannot select a partition");
   CHECK(store.KeepCell(decl, leaf, bytes) && store.CanResumeFromChildren(decl, root) &&
             !store.HasCompleteChildCoverage(decl, root),
@@ -38,7 +38,7 @@ int main() {
   changed.Endpoint += "/different";
   CHECK(!store.CanResumeFromChildren(changed, root), "endpoint qualifies source descendants");
   {
-    ContentStore fresh({.Directory = path});
+    RawSourceCache fresh({.Directory = path});
     CHECK(fresh.CanResumeFromChildren(decl, root), "fresh process reuses verified source bytes");
   }
   const auto leafKey = ContentKey(decl, Address::AtGeoCell(leaf));
@@ -56,7 +56,7 @@ int main() {
   CHECK(!store.CanResumeFromChildren(decl, root),
         "receipt without payload cannot select a partition");
   CHECK(store.KeepCell(decl, leaf, bytes), "leaf restored for disabled-cache verification");
-  ContentStore disabled({.Directory = path, .Using = ContentStore::Use::Off});
+  RawSourceCache disabled({.Directory = path, .Using = RawSourceCache::Use::Off});
   CHECK(!disabled.CanResumeFromChildren(decl, root), "disabled cache supplies no source partition");
   std::error_code error;
   std::filesystem::remove_all(path, error);

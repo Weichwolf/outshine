@@ -77,7 +77,7 @@ int main() {
                                                   .NorthDeg = 0.01},
                      .PayloadSha256 = outshine::Sha256Hex(Xml(at + 1))};
   }
-  ContentStore store({.Directory = directory});
+  RawSourceCache store({.Directory = directory});
   ApiWire wire;
   const auto cold = outshine::Generators::Osm::ReadRegions(providers, store, wire, 100, {});
   CHECK(cold && cold->Chunks.size() == 4 && wire.Starts == 4 && wire.Peak == 2 &&
@@ -103,7 +103,7 @@ int main() {
             std::ranges::all_of(warm->Chunks, [](const auto &chunk) { return chunk.FromStore; }),
         "all regions reload offline from original-response bytes");
 
-  ContentStore noCache({.Using = ContentStore::Use::Off});
+  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
   CHECK(!outshine::Generators::Osm::ReadRegions(providers, noCache, stalled, 7, {}) &&

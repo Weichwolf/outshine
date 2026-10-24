@@ -139,7 +139,7 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
   const auto bytes = TileBytes();
-  ContentStore store({.Directory = {}, .Using = ContentStore::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<VectorSource>(bytes)) == SourceSet::Registration::Accepted,
         "resident vector source registers");

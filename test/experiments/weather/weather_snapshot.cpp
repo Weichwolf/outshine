@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
   const outshine::Generators::Weather::OpenMeteoProvider provider(capture->Request);
   outshine::Data::ProviderRegistry registry;
   if (!registry.registerProvider(provider)) { return 2; }
-  outshine::Data::ContentStore store({.Directory = argv[1]});
+  outshine::Data::RawSourceCache store({.Directory = argv[1]});
   outshine::Data::SourceSet sources(store);
   std::string error;
   const std::array declarations{capture->Declaration};

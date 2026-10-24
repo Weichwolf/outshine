@@ -112,7 +112,7 @@ int main() {
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;
   outshine::Generators::RegisterShippedProviders(registry);
-  ContentStore store({.Directory = directory});
+  RawSourceCache store({.Directory = directory});
   ApiWire wire;
   const auto cold =
       outshine::Generators::Osm::ReadCells(provider, cells, store, wire, 100, {}, &registry);
@@ -126,7 +126,7 @@ int main() {
   CHECK(warm && warm->Chunks.size() == 2, "received cell bytes reload offline");
   if (warm && warm->Chunks.size() == 2) { CheckSnapshots(*warm, cells, true); }
 
-  ContentStore uncached({.Using = ContentStore::Use::Off});
+  RawSourceCache uncached({.Using = RawSourceCache::Use::Off});
   const std::array excessive{cells[0], cells[1], GeoCellId{.Level = 9, .X = 271, .Y = 411}};
   const std::array duplicate{cells[0], cells[0]};
   const std::array invalid{cells[0], GeoCellId{.Level = 8}};

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "WebTileFixture.h"
 #include "TilePool.h"
@@ -71,7 +71,7 @@ int main() {
   using namespace outshine::Test;
   const Fetch request(DataKind::Elevation, Address::At({.Zoom = 17, .X = 69, .Y = 45}));
   const auto owned = [&] {
-    ContentStore store({.Using = ContentStore::Use::Off});
+    RawSourceCache store({.Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     AddSources(sources);
     MissingTransport transport;
@@ -84,7 +84,7 @@ int main() {
   CHECK(!Delivery::Waiting().Failure() &&
             !Delivery::From("ok", "pin", request.Where(), {1}).Failure(),
         "success and pending do not carry diagnostic payloads");
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   AddSources(sources);
   MissingTransport transport;
@@ -114,7 +114,7 @@ int main() {
   for (const auto reason : {FetchFailureReason::TimedOut,
                             FetchFailureReason::Cancelled,
                             FetchFailureReason::Unavailable}) {
-    ContentStore empty({.Using = ContentStore::Use::Off});
+    RawSourceCache empty({.Using = RawSourceCache::Use::Off});
     SourceSet isolated(empty);
     AddSources(isolated);
     MissingTransport failed;

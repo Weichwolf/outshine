@@ -56,7 +56,7 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;
   CHECK(sources.Add(std::make_unique<SingleTileSource>()) ==

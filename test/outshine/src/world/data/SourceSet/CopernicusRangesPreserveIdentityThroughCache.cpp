@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "CopernicusDem.h"
 #include "OfflineTransport.h"
 #include "SourceSet.h"
@@ -60,14 +60,14 @@ int main() {
   using namespace outshine::Test;
   auto directory = (std::filesystem::temp_directory_path() / "outshine-cog-source-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original-source cache");
-  const ContentStore::Config config{.Directory = directory};
+  const RawSourceCache::Config config{.Directory = directory};
   const auto at = Address::AtCell({54, 9});
   const Fetch request(DataKind::Elevation, at, ByteRange{.First = 100, .Length = 3}, "\"rev-1\"");
   const std::string url =
       "https://copernicus-dem-30m.s3.amazonaws.com/"
       "Copernicus_DSM_COG_10_N54_00_E009_00_DEM/Copernicus_DSM_COG_10_N54_00_E009_00_DEM.tif";
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources);
     Http http;
@@ -90,7 +90,7 @@ int main() {
           "delivery counts original bytes and persists the body with its receipt once");
   }
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources);
     OfflineTransport offline;
@@ -108,14 +108,14 @@ int main() {
           "a different revision cannot silently consume previously cached bytes");
   }
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources);
     const auto key =
         ContentKey(sources.At(0).Declaration(), at, request.Range(), request.EntityTag());
     auto damaged = store.Lookup(key);
-    CHECK(damaged.Where == ContentStore::Presence::Bytes, "received raw record exists");
-    if (damaged.Where != ContentStore::Presence::Bytes) { return Report(); }
+    CHECK(damaged.Where == RawSourceCache::Presence::Bytes, "received raw record exists");
+    if (damaged.Where != RawSourceCache::Presence::Bytes) { return Report(); }
     damaged.Bytes.back() ^= 1;
     CHECK(store.Keep(key, damaged.Bytes.data(), damaged.Bytes.size()),
           "cache damage injected independently");
@@ -126,7 +126,7 @@ int main() {
           "damaged raw cache cannot impersonate a receipt; valid network delivery replaces it");
   }
   for (int bad = 0; bad < 6; ++bad) {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources);
     Http http;
@@ -159,7 +159,7 @@ int main() {
             ByteRange{.First = 0, .Length = source.Declaration().MaximumPayloadBytes + 1}),
       Fetch(DataKind::Elevation, at, *request.Range(), "W/\"rev-1\"")};
   for (size_t i = 0; i < invalid.size(); ++i) {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources);
     Http http;

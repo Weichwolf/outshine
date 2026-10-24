@@ -56,7 +56,7 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-ground-patch-job-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   const auto region = Tile::Of(14, {.LongitudeDeg = 16.3738, .LatitudeDeg = 48.2082});
   const Data::TileId at{.Zoom = region.Zoom(),

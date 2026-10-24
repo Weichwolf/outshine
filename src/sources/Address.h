@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_ADDRESS_H
-#define OUTSHINE_WORLD_DATA_ADDRESS_H
+#ifndef OUTSHINE_SOURCES_ADDRESS_H
+#define OUTSHINE_SOURCES_ADDRESS_H
 
 #include "GeoCellId.h"
 #include <cstdint>

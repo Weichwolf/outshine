@@ -1,4 +1,4 @@
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 
 #include "Sha256.h"
 
@@ -23,7 +23,7 @@ constexpr size_t kSha256HexChars = 64;
 constexpr size_t kReceiptMost = kCellReceipt.size() + 2 * (kSha256HexChars + 1);
 
 std::string
-CellReceiptDirectory(const ContentStore &store, const SourceDecl &decl, GeoCellId cell) {
+CellReceiptDirectory(const RawSourceCache &store, const SourceDecl &decl, GeoCellId cell) {
   std::string path = store.Directory() + "/cells/" + SourceKey(decl);
   for (int level = cell.Level - 1; level >= 0; --level) {
     const auto bit = static_cast<unsigned>(level);
@@ -44,7 +44,7 @@ bool CacheableCell(const SourceDecl &decl, GeoCellId cell) {
   return cell.Valid() && decl.How == Scheme::GeodeticGrid && decl.Keeps == Cacheability::Forever;
 }
 
-bool EnsureCellDirectory(const ContentStore &store, const std::string &path, bool create) {
+bool EnsureCellDirectory(const RawSourceCache &store, const std::string &path, bool create) {
   auto current = std::filesystem::path(store.Directory());
   const auto relative = std::filesystem::path(path).lexically_relative(current);
   for (const auto &part : relative) {
@@ -60,9 +60,9 @@ bool EnsureCellDirectory(const ContentStore &store, const std::string &path, boo
 }
 }
 
-bool ContentStore::WriteCellReceipt(const SourceDecl &decl,
-                                    GeoCellId cell,
-                                    std::span<const uint8_t> bytes) {
+bool RawSourceCache::WriteCellReceipt(const SourceDecl &decl,
+                                      GeoCellId cell,
+                                      std::span<const uint8_t> bytes) {
   const std::string path = CellReceiptDirectory(*this, decl, cell);
   if (!EnsureCellDirectory(*this, path, true)) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
@@ -78,16 +78,16 @@ bool ContentStore::WriteCellReceipt(const SourceDecl &decl,
   return true;
 }
 
-bool ContentStore::KeepCell(const SourceDecl &decl,
-                            GeoCellId cell,
-                            std::span<const uint8_t> bytes) {
+bool RawSourceCache::KeepCell(const SourceDecl &decl,
+                              GeoCellId cell,
+                              std::span<const uint8_t> bytes) {
   if (!CacheableCell(decl, cell) || !Enabled()) { return false; }
   return Keep(ContentKey(decl, Address::AtGeoCell(cell)), bytes.data(), bytes.size()) &&
          WriteCellReceipt(decl, cell, bytes);
 }
 
-std::optional<std::vector<uint8_t>> ContentStore::ReadVerifiedCellBytes(const SourceDecl &decl,
-                                                                        GeoCellId cell) const {
+std::optional<std::vector<uint8_t>> RawSourceCache::ReadVerifiedCellBytes(const SourceDecl &decl,
+                                                                          GeoCellId cell) const {
   const auto path = CellReceiptDirectory(*this, decl, cell);
   if (!EnsureCellDirectory(*this, path, false)) { return std::nullopt; }
   const auto receipt = ReadEntry(path + "/receipt", kReceiptMost);
@@ -106,7 +106,7 @@ std::optional<std::vector<uint8_t>> ContentStore::ReadVerifiedCellBytes(const So
   return bytes;
 }
 
-ContentStore::Entry ContentStore::LookupCell(const SourceDecl &decl, GeoCellId cell) {
+RawSourceCache::Entry RawSourceCache::LookupCell(const SourceDecl &decl, GeoCellId cell) {
   if (!CacheableCell(decl, cell) || !Enabled()) { return {}; }
   if (auto bytes = ReadVerifiedCellBytes(decl, cell)) {
     Hits_.fetch_add(1, std::memory_order_relaxed);
@@ -124,22 +124,22 @@ ContentStore::Entry ContentStore::LookupCell(const SourceDecl &decl, GeoCellId c
   return kept;
 }
 
-bool ContentStore::HasCompleteChildCoverage(const SourceDecl &decl,
-                                            GeoCellId cell,
-                                            size_t probesMost) const {
+bool RawSourceCache::HasCompleteChildCoverage(const SourceDecl &decl,
+                                              GeoCellId cell,
+                                              size_t probesMost) const {
   return HasChildCoverage(decl, cell, probesMost, ChildCoverage::Complete);
 }
 
-bool ContentStore::CanResumeFromChildren(const SourceDecl &decl,
-                                         GeoCellId cell,
-                                         size_t probesMost) const {
+bool RawSourceCache::CanResumeFromChildren(const SourceDecl &decl,
+                                           GeoCellId cell,
+                                           size_t probesMost) const {
   return HasChildCoverage(decl, cell, probesMost, ChildCoverage::Any);
 }
 
-bool ContentStore::HasChildCoverage(const SourceDecl &decl,
-                                    GeoCellId cell,
-                                    size_t probesMost,
-                                    ChildCoverage required) const {
+bool RawSourceCache::HasChildCoverage(const SourceDecl &decl,
+                                      GeoCellId cell,
+                                      size_t probesMost,
+                                      ChildCoverage required) const {
   if (!CacheableCell(decl, cell) || !Enabled() || cell.Level == GeoCellId::MaximumLevel) {
     return false;
   }

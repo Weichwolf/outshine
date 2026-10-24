@@ -59,9 +59,9 @@ public:
 int main() {
   using namespace outshine::Test;
   using outshine::Ground::TilePool;
-  ContentStore::Config cache;
-  cache.Using = ContentStore::Use::Off;
-  ContentStore store(cache);
+  RawSourceCache::Config cache;
+  cache.Using = RawSourceCache::Use::Off;
+  RawSourceCache store(cache);
   SourceSet sources(store);
   ClockTransport transport;
   auto source = std::make_unique<ControlledSource>();

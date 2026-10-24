@@ -102,7 +102,7 @@ struct Snapshot {
 Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string revision = "r1") {
   using namespace outshine::Test;
   std::atomic_uint calls{0};
-  ContentStore store({.Directory = {}, .Using = ContentStore::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   Tasks compute(1);
@@ -150,7 +150,7 @@ Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string r
 
 void AbandonedRequestsDoNotBlock(const std::filesystem::path &directory) {
   std::atomic_uint calls{0};
-  ContentStore store({.Directory = {}, .Using = ContentStore::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   Tasks compute(1);

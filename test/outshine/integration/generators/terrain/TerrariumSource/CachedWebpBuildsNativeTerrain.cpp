@@ -40,7 +40,7 @@ private:
   std::vector<uint8_t> Bytes_;
 };
 
-void Build(ContentStore &cache, Transport &transport, ProviderRegistry &registry, bool warm) {
+void Build(RawSourceCache &cache, Transport &transport, ProviderRegistry &registry, bool warm) {
   const SourceProvider config{.Kind = "terrain",
                               .Revision = "fixture-2026",
                               .Missing = MissingDataPolicy::Fail,
@@ -73,7 +73,7 @@ void Build(ContentStore &cache, Transport &transport, ProviderRegistry &registry
           "native terrain retains every neighbouring source and delivery stamp");
   }
   const auto bytes = cache.Lookup(ContentKey(sources.At(0).Declaration(), Address::At(at)));
-  CHECK(bytes.Where == ContentStore::Presence::Bytes && bytes.Bytes.size() >= 12 &&
+  CHECK(bytes.Where == RawSourceCache::Presence::Bytes && bytes.Bytes.size() >= 12 &&
             bytes.Bytes[0] == 'R' && bytes.Bytes[8] == 'W',
         "persistent cache retains original WebP, never generated float geometry");
   CHECK((sources.Counters().RemoteStarts == 0) == warm,
@@ -99,7 +99,7 @@ int main() {
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated network cache created");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   {
-    ContentStore cache({.Directory = directory});
+    RawSourceCache cache({.Directory = directory});
     ProviderRegistry registry;
     Generators::RegisterShippedProviders(registry);
     Tiles online({owned.get(), owned.get() + count});

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "Tasks.h"
 #include "TilePool.h"
@@ -81,7 +81,7 @@ int main() {
         "default parallel IO is independent of the single compute budget");
   Tasks compute(1);
   {
-    Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+    Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet sources(store);
     SlowWire wire;
     TilePool first({.Threads = 4, .Compute = &compute}, sources, wire);
@@ -124,7 +124,7 @@ int main() {
           "the same shared terrain path produces real mesh output");
   }
   {
-    Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+    Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<SlowElevation>()) == Data::SourceSet::Registration::Accepted,
           "slow raster source registers");

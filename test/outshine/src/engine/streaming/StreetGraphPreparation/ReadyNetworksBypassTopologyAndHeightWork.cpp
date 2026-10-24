@@ -61,7 +61,7 @@ int main() {
       std::filesystem::temp_directory_path() /
       ("outshine-native-network-" + std::to_string(Clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root / "assets");
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   Ground::GroundMaterials materials;
   Ground::VegetationTemplates templates;

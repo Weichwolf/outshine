@@ -11,7 +11,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Data;
   using namespace outshine::Test;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   const std::array<SourceProvider, 3> declared = {{
       {.Kind = "terrain", .Revision = "dem-older", .Priority = 8},

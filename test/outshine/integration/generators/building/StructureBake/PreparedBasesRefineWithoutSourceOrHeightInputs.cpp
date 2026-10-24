@@ -1,6 +1,6 @@
 #include "PreparedStructureTile.h"
 #include "PreparedBuildingAssets.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "StructureBuildTask.h"
 #include "StructureArtifact.h"
@@ -224,7 +224,7 @@ void IntrinsicLODs(const std::filesystem::path &root,
 }
 
 void NativeCache(const std::filesystem::path &root) {
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   const auto directory = root.string();
   auto opened = PreparedBuildingAssets::Open(directory, sources);
@@ -297,7 +297,7 @@ void NativeCache(const std::filesystem::path &root) {
 }
 
 void RequestMigration(const std::filesystem::path &root) {
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "request migration opens");
@@ -376,7 +376,7 @@ void RequestMigration(const std::filesystem::path &root) {
 }
 
 void ResidentRequests(const std::filesystem::path &root) {
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "resident basis fixture opens");
@@ -489,7 +489,7 @@ void ResidentRequests(const std::filesystem::path &root) {
 }
 
 void ResidentRequestLimit(const std::filesystem::path &root) {
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "bounded resident fixture opens");

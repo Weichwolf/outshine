@@ -50,7 +50,7 @@ private:
 
 int main() {
   using namespace outshine::Test;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   auto source = std::make_unique<OwnedWork>();
   const auto *observed = source.get();
