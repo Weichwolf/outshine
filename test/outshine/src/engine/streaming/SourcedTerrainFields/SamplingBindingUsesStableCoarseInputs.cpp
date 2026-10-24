@@ -22,6 +22,7 @@ constexpr Data::TileId kWest{.Zoom = 1, .X = 0, .Y = 0};
 constexpr Data::TileId kEast{.Zoom = 1, .X = 1, .Y = 0};
 constexpr Data::TileId kChild{.Zoom = 2, .X = 0, .Y = 0};
 constexpr float kRaisedM = 40;
+constexpr size_t kExpectedMetadataBytes = 252;
 constexpr std::array<uint8_t, 32> kExpectedBinding{
     214, 33,  51,  61, 82,  112, 50,  166, 138, 49, 187, 240, 128, 255, 87,  105,
     121, 202, 245, 74, 244, 220, 175, 120, 29,  76, 115, 223, 67,  221, 166, 183};
@@ -50,7 +51,7 @@ void CheckStableBindings() {
   CHECK(binding && same && binding->Key == same->Key,
         "field order and ownership addresses cannot change the same captured input binding");
   if (!binding) { return; }
-  CHECK(binding->Key == kExpectedBinding && binding->MetadataBytes == 252,
+  CHECK(binding->Key == kExpectedBinding && binding->MetadataBytes == kExpectedMetadataBytes,
         "canonical little endian fields match the independently encoded reference vector");
   constexpr size_t kRasterBytes = size_t{2} * 4u * sizeof(float);
   const size_t copied = std::endian::native == std::endian::little ? 0 : kRasterBytes;
