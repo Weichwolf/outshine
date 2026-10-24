@@ -1,6 +1,6 @@
 #include "WeatherPreparation.h"
-#include <world/data/DataKind.h>
-#include <world/data/Fetch.h>
+#include <DataKind.h>
+#include <Fetch.h>
 #include <utility>
 #include <atomic>
 #include <cstddef>

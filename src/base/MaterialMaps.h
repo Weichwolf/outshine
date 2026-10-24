@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_BASE_MATERIALMAPS_H
 #define OUTSHINE_BASE_MATERIALMAPS_H
 
-#include "scene/Material.h"
+#include "Material.h"
 #include <array>
 
 namespace outshine {

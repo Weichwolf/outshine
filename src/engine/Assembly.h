@@ -7,10 +7,10 @@
 
 #include "Assembled.h"
 #include "Traits.h"
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 
 #include "Column.h"
-#include <world/EntityRegistry.h>
+#include <EntityRegistry.h>
 
 namespace outshine {
 

@@ -1,7 +1,7 @@
 #include "WaterSurfaceMesh.h"
 #include "Check.h"
 #include "PlanHierarchy.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <limits>
 #include <utility>
 #include <vector>

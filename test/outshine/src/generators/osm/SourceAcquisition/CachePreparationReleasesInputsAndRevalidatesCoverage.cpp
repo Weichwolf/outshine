@@ -56,7 +56,7 @@ int main() {
                                     .Missing = Data::MissingDataPolicy::Fail,
                                     .Dataset = "openstreetmap.original",
                                     .Endpoint = std::string(Data::kOfficialOsmApi)};
-  std::vector<Data::GeoCellId> cells;
+  std::vector<GeoCellId> cells;
   for (uint32_t x = 256; x < 276; ++x) { cells.push_back({.Level = 9, .X = x, .Y = 256}); }
   Tasks compute(1);
   Tasks io(1);

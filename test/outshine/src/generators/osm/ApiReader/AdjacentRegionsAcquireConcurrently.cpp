@@ -68,10 +68,10 @@ int main() {
                      .Missing = MissingDataPolicy::Fail,
                      .Dataset = "openstreetmap.original",
                      .Endpoint = std::string(kOfficialOsmApi),
-                     .Coverage = SourceCoverage{.WestDeg = static_cast<double>(at) * 0.01,
-                                                .SouthDeg = 0,
-                                                .EastDeg = static_cast<double>(at + 1) * 0.01,
-                                                .NorthDeg = 0.01},
+                     .Coverage = GeographicBounds{.WestDeg = static_cast<double>(at) * 0.01,
+                                                  .SouthDeg = 0,
+                                                  .EastDeg = static_cast<double>(at + 1) * 0.01,
+                                                  .NorthDeg = 0.01},
                      .PayloadSha256 = outshine::Sha256Hex(Xml(at + 1))};
   }
   ContentStore store({.Directory = directory});

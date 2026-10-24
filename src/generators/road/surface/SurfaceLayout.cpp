@@ -105,12 +105,12 @@ InputSource(const SurfaceLayoutSource &source, SurfaceLayoutBudget budget, Surfa
   return {};
 }
 
-struct SourceCoverage {
+struct GeographicBounds {
   const GEOSGeometry *Domain;
   const GEOSGeometry *Axis;
 };
 
-Checked<void> ValidateCoverage(const Context &context, SourceCoverage source) {
+Checked<void> ValidateCoverage(const Context &context, GeographicBounds source) {
   const char valid = GEOSisValid_r(context.Handle, source.Domain);
   if (valid == 2) { return std::unexpected(context.Failure()); }
   if (valid != 1) { return std::unexpected(Error::InvalidInput); }

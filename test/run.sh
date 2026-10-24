@@ -332,7 +332,7 @@ TestProfile() {
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
-    outshine/include/*) printf '%s' 'profile/internal' ;;
+    outshine/src/render/RenderConfiguration) printf '%s' 'profile/render-configuration' ;;
     outshine/src/generators/osm/BuildingField | outshine/src/generators/osm/WaterField) printf '%s' 'profile/osm-fields' ;;
     outshine/src/generators/terrain/BuildingStampJob) printf '%s' 'profile/building-stamps' ;;
     outshine/src/engine/BuildingFootprintMeasurements) printf '%s' 'profile/building-measurements' ;;
@@ -412,7 +412,8 @@ LayerIncludes() {
     profile/road-surface|profile/station-heights) GroupIncludes src/generators/road/surface ;;
     profile/footpath-plan) GroupIncludes src/generators/road/plan ;;
     profile/road-profile) GroupIncludes src/generators/road/profile ;;
-    profile/client-shots) printf '%s' '-I. -Iinclude' ;;
+    profile/client-shots) printf '%s' '-I. -Isrc/base/scene -Isrc/base/math -Isrc/base/geo' ;;
+    profile/render-configuration) GroupIncludes src/render ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
     profile/osm-fields) GroupIncludes src/generators/osm ;;
     profile/water-source-pipeline) GroupIncludes src/generators ;;
@@ -424,10 +425,10 @@ LayerIncludes() {
     profile/water-worker) GroupIncludes src/engine ;;
     profile/water-bed) GroupIncludes src/generators/water; GroupIncludes src/generators/terrain ;;
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
-    profile/medium-view) printf '%s' "-Iinclude -Isrc/base/math -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
+    profile/medium-view) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/base/math -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
     profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
     profile/osm-xml) GroupIncludes src/generators/osm/import ;;
-    profile/transport-native) printf '%s' "-Iinclude -Isrc/world/navigation -Isrc/world/products" ;;
+    profile/transport-native) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/world/navigation -Isrc/world/products" ;;
     profile/transport-topology) GroupIncludes src/generators/osm/transport ;;
     profile/diagnostics) LayerIncludes profile/internal ;;
     profile/internal|profile/device) printf '%s ' "-I. -Isrc/base -Isrc/actor/body -Isrc/world/ground/tiles"; LayerIncludes profile/engine ;;
@@ -435,9 +436,9 @@ LayerIncludes() {
     # carried its own hand-written list beside the build line, which is the second spelling of the
     # layering this file exists to prevent -- and it went stale the day `Json.h` moved into the
     # door, breaking `make` while every suite stayed green.
-    tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io" ;;
-    harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
-    harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
+    tool/prune) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io" ;;
+    harness/claims) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
+    harness/geographiclib/geodesic) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
     profile/tasks) printf '%s' '-Isrc/base/io' ;;
     profile/base) GroupIncludes src/base ;;
     profile/content) GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sdl3-image sqlite3 libzstd)" ;;
@@ -458,7 +459,7 @@ LayerIncludes() {
     profile/urban-demand) LayerIncludes profile/instance-demand; printf ' %s' '-Isrc/generators/osm/urban' ;;
     profile/urban-instances) GroupIncludes src/engine/streaming ;;
     profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/terrain' ;;
-    profile/shadow-raster) printf '%s' '-Iinclude -Isrc/render/shadow' ;;
+    profile/shadow-raster) printf '%s' '-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/render/shadow' ;;
     profile/plant-build) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
     profile/plant-recipe-json) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
     profile/plant-crown-asset) LayerIncludes profile/plant-crown; GroupIncludes src/base ;;
@@ -469,10 +470,10 @@ LayerIncludes() {
     profile/plant-plan | profile/plant-random | profile/plant-recipe | profile/plant-axis-detail | profile/plant-growth | profile/plant-crown) GroupIncludes src/generators/flora ;;
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
     profile/species) GroupIncludes src/generators/flora ;;
-    profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
+    profile/audio) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/audio -Isrc/base -Isrc/base/math" ;;
     profile/engine) printf '%s ' "-Itest/harness/shared"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags libtiff-4 sqlite3 libzstd)" ;;
-    harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
-    harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
+    harness/wpt/css) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
+    harness/test262/js) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Itest/harness/shared" ;;
     *) return 1 ;;
   esac
 }
@@ -657,6 +658,7 @@ LayerGroups() {
     profile/footpath-plan) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/road/plan' ;;
     profile/road-profile) printf '%s' 'src/generators/road/profile' ;;
     profile/client-shots) printf '%s' '' ;;
+    profile/render-configuration) printf '%s' '' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/water-targets) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/water/WaterCourseProfile.cpp' ;;
     profile/water-mesh) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/base/water/WaterSurfaceMesh.cpp src/generators/base/water/WaterSurfaceMeshQueries.cpp src/generators/base/water/WaterSurfaceMeshCodec.cpp' ;;
@@ -815,7 +817,7 @@ EveryTier() {
 
 
 # THE INCLUDE SET IS THE TIER TABLE, DERIVED -- one spelling and not two. `LayerReaches` above
-# states what each tier may reach; a source compiles with `include/`, its OWN tier's directories and
+# states what each tier may reach; a source compiles with its OWN tier's directories and
 # the directories of the tiers its row names, and NOTHING else. So a cross-tier include fails at the
 # `#include` with a file and a line, rather than compiling and being reported afterwards by
 # `--audit-layers`. That is what Unreal spends `Build.cs` on: a module that did not declare a
@@ -830,14 +832,14 @@ EveryTier() {
 # carries `png.h` shadows `src/base/io/Png.h` on a case-insensitive filesystem -- which is what the
 # first version of this derivation did, and the compiler said so by name.
 #
-# SDL3 is on EVERY path because the door requires it: `include/Outshine.h` includes SDL3, so any
+# SDL3 is on EVERY path because the door requires it: `src/engine/Engine.h` includes SDL3, so any
 # translation unit that reaches the door reaches SDL3, and a per-group SDL arm was a third hand-kept
 # map beside the two this replaced. `src/render/shaders` holds no headers and is left off every path.
 GroupIncludes() {
   case "$1" in src/*) ;; *) return 1 ;; esac
   includeTier=$(TierOf "$1") || return 1
   includeReaches=$(LayerReaches "$includeTier") || return 1
-  includeSet="-Iinclude"
+  includeSet=""
   case "$includeTier" in
     base) includeSet="$includeSet $(pkg-config --cflags geos)" ;;
   esac
@@ -1373,8 +1375,8 @@ StateDoor() {
   printf '\n## Component headers\n\n'
   printf 'Internal contracts live beside their owning components.\n\n'
   printf '| module | header |\n|---|---|\n'
-  find include -type f -name '*.h' | LC_ALL=C sort | while IFS= read -r header; do
-    relative=${header#include/}
+  find src -type f -name '*.h' | LC_ALL=C sort | while IFS= read -r header; do
+    relative=${header#src/}
     case "$relative" in
       */*) module=${relative%/*} ;;
       *) module=root ;;

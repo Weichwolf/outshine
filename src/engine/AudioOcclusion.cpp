@@ -1,7 +1,7 @@
 #include "AudioOcclusion.h"
-#include "scene/Geometry.h"
-#include "math/Mat4.h"
-#include "math/Vec3.h"
+#include "Geometry.h"
+#include "Mat4.h"
+#include "Vec3.h"
 
 #include <cmath>
 #include <cstddef>

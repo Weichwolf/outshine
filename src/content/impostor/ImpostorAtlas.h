@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORATLAS_H
 #define OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORATLAS_H
 
-#include "math/Vec3.h"
-#include "scene/Material.h"
+#include "Vec3.h"
+#include "Material.h"
 #include "ImpostorAtlasShape.h"
 
 #include <cstdint>

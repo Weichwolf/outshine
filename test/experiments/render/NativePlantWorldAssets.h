@@ -3,8 +3,8 @@
 
 #include "PlantCrownAsset.h"
 #include "PlantLimbAsset.h"
-#include "content/AssetGeneration.h"
-#include "content/GeometryAsset.h"
+#include "AssetGeneration.h"
+#include "GeometryAsset.h"
 #include "Sha256.h"
 #include <cstddef>
 #include <expected>

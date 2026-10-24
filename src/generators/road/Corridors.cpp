@@ -3,7 +3,7 @@
 #include "JunctionFootprint.h"
 #include "RoadCrossSection.h"
 
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 
 #include <algorithm>
 #include <expected>
@@ -35,10 +35,10 @@
 #include "Log.h"
 #include "ReferenceLine.h"
 #include "TangentFrame.h"
-#include "math/Quantile.h"
-#include "math/Units.h"
-#include "math/Vec2.h"
-#include "math/Vec3.h"
+#include "Quantile.h"
+#include "Units.h"
+#include "Vec2.h"
+#include "Vec3.h"
 #include "spatial/Census.h"
 #include "spatial/Drape.h"
 #include "spatial/Refine.h"

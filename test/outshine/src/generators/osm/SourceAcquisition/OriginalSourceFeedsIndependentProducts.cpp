@@ -46,7 +46,7 @@ int main() {
       .Missing = Data::MissingDataPolicy::Fail,
       .Dataset = "original",
       .Location = path.string(),
-      .Coverage = Data::SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
+      .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
   Tasks tasks(1);
   Tasks io(1);
   outshine::Generators::Osm::SourceAcquisition loader({.Compute = tasks, .Io = io});

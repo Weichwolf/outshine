@@ -1,5 +1,5 @@
-#include "math/Units.h"
-#include "math/Vec2.h"
+#include "Units.h"
+#include "Vec2.h"
 #include "ClassificationRasterizer.h"
 #include "ClassSeed.h"
 #include <array>

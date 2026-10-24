@@ -6,8 +6,8 @@
 #include <memory>
 #include <vector>
 
-#include "math/Units.h"
-#include "math/Vec2.h"
+#include "Units.h"
+#include "Vec2.h"
 #include "TangentFrame.h"
 
 namespace outshine {

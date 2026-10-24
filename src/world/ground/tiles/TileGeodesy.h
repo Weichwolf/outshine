@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <optional>
 
-#include <world/data/Address.h>
+#include <Address.h>
 #include "Earth.h"
-#include "math/Units.h"
+#include "Units.h"
 #include "TileMath.h"
 #include "Wgs84.h"
 

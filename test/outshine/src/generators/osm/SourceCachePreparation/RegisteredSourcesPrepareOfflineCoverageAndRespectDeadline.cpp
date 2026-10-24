@@ -59,7 +59,7 @@ int main() {
                                          .Missing = Data::MissingDataPolicy::Fail,
                                          .Dataset = "openstreetmap.original",
                                          .Endpoint = std::string(Data::kOfficialOsmApi)};
-  const std::array cells{Data::GeoCellId{.Level = 9, .X = 256, .Y = 256}};
+  const std::array cells{GeoCellId{.Level = 9, .X = 256, .Y = 256}};
   Generators::Osm::SourceCacheRequest request{
       .Catalogue = declaration,
       .Cells = cells,

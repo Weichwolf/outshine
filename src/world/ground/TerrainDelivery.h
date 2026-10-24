@@ -3,7 +3,7 @@
 
 #include "TilePool.h"
 #include "tiles/TerrainTiles.h"
-#include <world/data/Source.h>
+#include <Source.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>

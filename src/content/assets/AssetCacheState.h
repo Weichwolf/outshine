@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_ASSETCACHESTATE_H
 #define OUTSHINE_CONTENT_ASSETS_ASSETCACHESTATE_H
 
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "CacheUsageIndex.h"
 #include <sqlite3.h>
 

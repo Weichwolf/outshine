@@ -1,8 +1,8 @@
 #include "Check.h"
 #include "ImpostorPreparation.h"
 #include "ImpostorSurface.h"
-#include <Outshine.h>
-#include <scenario/Scenario.h>
+#include <Engine.h>
+#include <Scenario.h>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -34,7 +34,7 @@
 #include "VegetationStreaming.h"
 #include "FrameCapture.h"
 #include "RuntimeScene.h"
-#include "math/Units.h"
+#include "Units.h"
 #include <limits>
 #include <memory>
 #include <SDL3/SDL.h>

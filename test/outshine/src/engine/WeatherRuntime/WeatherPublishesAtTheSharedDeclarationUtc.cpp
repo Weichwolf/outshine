@@ -1,6 +1,6 @@
-#include <Outshine.h>
-#include <generation/weather/OpenMeteoProvider.h>
-#include <world/weather/WeatherSnapshot.h>
+#include <Engine.h>
+#include <OpenMeteoProvider.h>
+#include <WeatherSnapshot.h>
 #include "WeatherCapture.h"
 #include "SourceSession.h"
 #include "LowCloud.h"

@@ -8,7 +8,7 @@
 #include <deque>
 #include <mutex>
 #include <atomic>
-#include <math/Units.h>
+#include <Units.h>
 
 namespace outshine::Generators::Osm {
 class CellAcquisition;
@@ -43,9 +43,9 @@ struct SourceAcquisition::Cells {
 
   CellLimits Limits;
   Target Destination = Target::Inputs;
-  std::vector<Data::GeoCellId> Roots;
-  std::vector<Data::GeoCellId> PublishedRoots;
-  std::vector<Data::GeoCellId> Wanted;
+  std::vector<GeoCellId> Roots;
+  std::vector<GeoCellId> PublishedRoots;
+  std::vector<GeoCellId> Wanted;
   std::vector<CellSource> Preparing;
   std::vector<CellSource> Published;
   std::vector<Retained> Tracked;
@@ -54,13 +54,13 @@ struct SourceAcquisition::Cells {
   const Data::ProviderRegistry *PublishedRegistry = nullptr;
 
   [[nodiscard]] size_t ChargedBytes() const noexcept;
-  [[nodiscard]] std::vector<Data::GeoCellId>
-  NextAcquisitionBatch(std::span<const Data::GeoCellId> assigned = {}) const;
+  [[nodiscard]] std::vector<GeoCellId>
+  NextAcquisitionBatch(std::span<const GeoCellId> assigned = {}) const;
   [[nodiscard]] std::vector<CellSource>
-  Reuse(std::span<const Data::GeoCellId> wanted, bool published, bool pending) const;
-  [[nodiscard]] std::vector<Data::GeoCellId>
-  SelectLeaves(std::span<const Data::GeoCellId> roots, bool published, bool pending) const;
-  [[nodiscard]] std::expected<void, std::string> Refine(std::span<const Data::GeoCellId> cells);
+  Reuse(std::span<const GeoCellId> wanted, bool published, bool pending) const;
+  [[nodiscard]] std::vector<GeoCellId>
+  SelectLeaves(std::span<const GeoCellId> roots, bool published, bool pending) const;
+  [[nodiscard]] std::expected<void, std::string> Refine(std::span<const GeoCellId> cells);
   [[nodiscard]] bool Ready() const noexcept;
   [[nodiscard]] std::expected<void, std::string> Stage(std::vector<CellSource> ready);
 };
@@ -69,14 +69,14 @@ struct SourceAcquisition::CellPipeline {
   struct Exchange {
     std::mutex Mutex;
     std::condition_variable Changed;
-    std::deque<Data::GeoCellId> Requests;
+    std::deque<GeoCellId> Requests;
     std::deque<SourceRead> Ready;
     std::string Error;
   };
 
   std::shared_ptr<Exchange> Shared = std::make_shared<Exchange>();
   std::shared_ptr<CellAcquisition> Reader;
-  std::vector<Data::GeoCellId> Assigned;
+  std::vector<GeoCellId> Assigned;
   Tasks::Handle Handle = Tasks::kNoTask;
   std::stop_source Stop;
   uint64_t Revision = 0;

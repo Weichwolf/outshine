@@ -3,8 +3,8 @@
 
 #include "Earth.h"
 #include "RoadPageAsset.h"
-#include "math/Box.h"
-#include "scene/Geometry.h"
+#include "Box.h"
+#include "Geometry.h"
 #include <cstddef>
 #include <cstdint>
 #include <optional>

@@ -1,5 +1,5 @@
-#include <Outshine.h>
-#include <generation/Generate.h>
+#include <Engine.h>
+#include <Generator.h>
 #include "ScenarioRead.h"
 #include "ScenarioWrite.h"
 #include "Structures.h"

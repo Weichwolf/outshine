@@ -2,9 +2,9 @@
 #define OUTSHINE_RENDER_DEVICE_FRAMECONTEXT_H
 
 #include <array>
-#include "math/Mat4.h"
-#include "math/Vec3.h"
-#include "math/Vec4.h"
+#include "Mat4.h"
+#include "Vec3.h"
+#include "Vec4.h"
 
 namespace outshine::Render {
 

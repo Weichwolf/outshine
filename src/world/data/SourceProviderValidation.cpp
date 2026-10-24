@@ -26,7 +26,7 @@ constexpr size_t kSha256HexDigits = 64;
          });
 }
 
-[[nodiscard]] bool ValidCoverage(const SourceCoverage &bounds) noexcept {
+[[nodiscard]] bool ValidCoverage(const GeographicBounds &bounds) noexcept {
   return std::isfinite(bounds.WestDeg) && std::isfinite(bounds.SouthDeg) &&
          std::isfinite(bounds.EastDeg) && std::isfinite(bounds.NorthDeg) &&
          bounds.WestDeg >= -kLongitudeLimitDeg && bounds.EastDeg <= kLongitudeLimitDeg &&
@@ -64,7 +64,7 @@ constexpr size_t kSha256HexDigits = 64;
 }
 
 [[nodiscard]] std::expected<void, std::string> ValidateOsmLocation(const SourceProvider &provider,
-                                                                   const SourceCoverage &bounds) {
+                                                                   const GeographicBounds &bounds) {
   if (provider.Location.empty() == provider.Endpoint.empty()) {
     return std::unexpected(
         "an osm provider requires exactly one local location or official API endpoint");

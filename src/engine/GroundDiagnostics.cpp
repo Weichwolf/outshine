@@ -7,7 +7,7 @@
 #include "OsmField.h"
 #include "RuntimeScene.h"
 
-#include "math/Quantile.h"
+#include "Quantile.h"
 #include "TangentFrame.h"
 
 #include <algorithm>

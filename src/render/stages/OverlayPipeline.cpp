@@ -1,6 +1,6 @@
 #include "OverlayDraw.h"
 #include "SpirvFile.h"
-#include "math/Vec2.h"
+#include "Vec2.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

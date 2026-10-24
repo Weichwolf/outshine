@@ -2,8 +2,8 @@
 #include "UrbanAreaInstances.h"
 #include "Geodesy.h"
 #include "math/RenderFrame.h"
-#include "math/Units.h"
-#include "math/Vec3.h"
+#include "Units.h"
+#include "Vec3.h"
 #include <array>
 #include <cmath>
 #include <cstddef>

@@ -7,9 +7,9 @@
 #include "Earth.h"
 #include "StructureBake.h"
 #include "TileGeodesy.h"
-#include "scene/ProjectedErrorBudget.h"
-#include "math/Units.h"
-#include "scene/LevelOfDetail.h"
+#include "ProjectedErrorBudget.h"
+#include "Units.h"
+#include "LevelOfDetail.h"
 
 namespace outshine {
 

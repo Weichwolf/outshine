@@ -1,6 +1,6 @@
 #include <array>
 #include <cmath>
-#include <scene/Geometry.h>
+#include <Geometry.h>
 #include "Carriageway.h"
 #include "Ribbon.h"
 #include "Check.h"

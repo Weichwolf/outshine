@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_BASE_SPATIAL_PLANHIERARCHY_H
 #define OUTSHINE_BASE_SPATIAL_PLANHIERARCHY_H
 
-#include "math/Box.h"
-#include "math/Vec3.h"
+#include "Box.h"
+#include "Vec3.h"
 
 #include <cstdint>
 #include <array>

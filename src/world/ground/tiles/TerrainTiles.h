@@ -13,7 +13,7 @@
 #include <vector>
 #include <variant>
 
-#include <world/data/Address.h>
+#include <Address.h>
 #include "TerrainRevisionIndex.h"
 #include "TerrainGrid.h"
 #include "TileSourceIdentity.h"

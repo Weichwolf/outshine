@@ -2,9 +2,9 @@
 #include "FramePacer.h"
 #include "CaptureCameraBasis.h"
 
-#include <Outshine.h>
+#include <Engine.h>
 #include "io/HeapProbe.h"
-#include "math/Quantile.h"
+#include "Quantile.h"
 
 #include <algorithm>
 #include <array>

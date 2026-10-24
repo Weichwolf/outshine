@@ -1,4 +1,4 @@
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <algorithm>
 #include <cstddef>
 #include <expected>

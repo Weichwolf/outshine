@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CLIENT_FRAMETIMING_H
 #define OUTSHINE_CLIENT_FRAMETIMING_H
 
-#include <render/RenderConfiguration.h>
+#include <RenderConfiguration.h>
 #include <chrono>
 #include <cmath>
 #include <cstddef>

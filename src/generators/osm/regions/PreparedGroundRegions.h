@@ -4,7 +4,7 @@
 #include "GroundRegionAsset.h"
 #include "Sha256.h"
 #include "WaterAsset.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include <cstdint>
 #include <expected>
 #include <memory>

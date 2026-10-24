@@ -3,7 +3,7 @@
 
 #include "StreetGraphBuilder.h"
 #include "TilePool.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include <expected>
 #include <functional>
 #include <memory>

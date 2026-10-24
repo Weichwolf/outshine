@@ -3,7 +3,7 @@
 
 #include "StructureMesher.h"
 #include "BuildingSurface.h"
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 #include <cstdint>
 #include <vector>
 

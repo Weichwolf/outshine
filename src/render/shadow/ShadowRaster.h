@@ -1,9 +1,9 @@
 #ifndef OUTSHINE_RENDER_SHADOW_SHADOWRASTER_H
 #define OUTSHINE_RENDER_SHADOW_SHADOWRASTER_H
 
-#include "math/Mat4.h"
-#include "math/Box.h"
-#include "math/Vec3.h"
+#include "Mat4.h"
+#include "Box.h"
+#include "Vec3.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

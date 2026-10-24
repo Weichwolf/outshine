@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <world/data/Address.h>
+#include <Address.h>
 #include "TileSourceIdentity.h"
 #include <array>
 #include <cstddef>

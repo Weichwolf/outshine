@@ -3,7 +3,7 @@
 
 #include "Earth.h"
 #include "RoadPageRecipe.h"
-#include "math/Box.h"
+#include "Box.h"
 #include <cstddef>
 #include <cstdint>
 #include <optional>

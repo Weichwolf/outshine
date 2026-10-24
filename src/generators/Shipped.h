@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-#include <generation/Generate.h>
+#include <Generator.h>
 
 #include "DrawSet.h"
 #include "TreeSpecies.h"

@@ -1,7 +1,7 @@
 #include "UrbanAreaPrisms.h"
 #include "Geodesy.h"
-#include "math/Units.h"
-#include "math/Vec3.h"
+#include "Units.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

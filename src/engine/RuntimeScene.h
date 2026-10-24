@@ -6,16 +6,16 @@
 #include <span>
 #include <optional>
 #include <array>
-#include "math/Box.h"
-#include "math/Mat4.h"
+#include "Box.h"
+#include "Mat4.h"
 #include "Shape.h"
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <Outshine.h>
-#include <render/RenderConfiguration.h>
+#include <Engine.h>
+#include <RenderConfiguration.h>
 #include "SceneGeometry.h"
 #include "CameraState.h"
 #include "RenderObject.h"
@@ -28,7 +28,7 @@
 #include "Pointer.h"
 #include "SceneRenderer.h"
 #include "Style.h"
-#include "scene/Material.h"
+#include "Material.h"
 #include "GroundAtmosphere.h"
 #include "Surfacing.h"
 

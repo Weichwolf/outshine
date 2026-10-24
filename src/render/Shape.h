@@ -5,16 +5,16 @@
 #include <cstddef>
 #include <optional>
 #include <memory>
-#include "math/Box.h"
-#include "math/Vec3.h"
+#include "Box.h"
+#include "Vec3.h"
 #include "ClusterCook.h"
 #include "SurfaceState.h"
 #include <cstdint>
 #include <span>
 #include <vector>
 
-#include <scene/Material.h>
-#include <scene/PunctualLight.h>
+#include <Material.h>
+#include <PunctualLight.h>
 #include <string>
 
 namespace outshine {

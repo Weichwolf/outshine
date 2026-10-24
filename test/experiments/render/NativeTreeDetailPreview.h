@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_TEST_NATIVE_TREE_DETAIL_PREVIEW_H
 #define OUTSHINE_TEST_NATIVE_TREE_DETAIL_PREVIEW_H
 
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "ImpostorInstances.h"
 #include "ImpostorSurface.h"
 #include "SceneRenderer.h"

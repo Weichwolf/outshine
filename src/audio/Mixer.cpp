@@ -3,7 +3,7 @@
 
 #include <utility>
 #include <expected>
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <array>
 #include <algorithm>
@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "math/Units.h"
+#include "Units.h"
 #include "format/Number.h"
 
 namespace outshine::Audio {

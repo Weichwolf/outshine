@@ -1,7 +1,7 @@
 #include "PlantAxisSurface.h"
 #include "PlantArc.h"
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <vector>
 #include <cmath>

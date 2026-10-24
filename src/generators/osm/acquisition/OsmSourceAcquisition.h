@@ -4,10 +4,10 @@
 #include "OsmSourceSnapshot.h"
 #include "OsmCellProduct.h"
 #include "OsmChunkSetLoader.h"
-#include <world/data/Transport.h>
+#include <Transport.h>
 #include "Tasks.h"
-#include <world/SourceProvider.h>
-#include <world/Provider.h>
+#include <SourceProvider.h>
+#include <Provider.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -34,7 +34,7 @@ public:
   struct CellLimits {
     size_t CellsMost = 0;
     size_t SnapshotBytesMost = 0;
-    int LevelMost = Data::GeoCellId::MaximumLevel;
+    int LevelMost = GeoCellId::MaximumLevel;
 
     [[nodiscard]] bool operator==(const CellLimits &) const = default;
   };
@@ -43,7 +43,7 @@ public:
     std::shared_ptr<const SourceSnapshot> Snapshot;
     std::shared_ptr<const CellProduct> Product = nullptr;
     size_t ChargedBytes = 0;
-    Data::GeoCellId Address{};
+    GeoCellId Address{};
     CellState State = CellState::Missing;
   };
 
@@ -69,7 +69,7 @@ public:
 
   [[nodiscard]] std::expected<void, std::string>
   RequestCells(const Data::SourceProvider &provider,
-               std::span<const Data::GeoCellId> cells,
+               std::span<const GeoCellId> cells,
                CellLimits limits,
                std::string_view root,
                const Data::ProviderRegistry *registry = nullptr);

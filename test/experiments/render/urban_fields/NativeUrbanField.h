@@ -2,7 +2,7 @@
 #define OUTSHINE_TEST_RENDER_NATIVEURBANFIELD_H
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>

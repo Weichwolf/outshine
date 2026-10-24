@@ -9,10 +9,10 @@
 #include <vector>
 #include <unordered_map>
 #include <string_view>
-#include <world/EntityRegistry.h>
-#include <scenario/Scenario.h>
+#include <EntityRegistry.h>
+#include <Scenario.h>
 #include "Rigid.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine {
 

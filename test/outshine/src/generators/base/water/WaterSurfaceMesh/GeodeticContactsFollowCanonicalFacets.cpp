@@ -2,7 +2,7 @@
 #include "Check.h"
 #include "Geodesy.h"
 #include "TangentFrame.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <array>
 #include <cmath>
 #include <cstdint>

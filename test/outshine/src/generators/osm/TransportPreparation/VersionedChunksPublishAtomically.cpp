@@ -22,7 +22,7 @@ bool WaitFor(outshine::Generators::Osm::TransportPreparation &source, outshine::
 }
 
 outshine::Data::SourceProvider
-Region(std::string location, std::string revision, outshine::Data::SourceCoverage coverage) {
+Region(std::string location, std::string revision, outshine::GeographicBounds coverage) {
   return {.Kind = "osm",
           .Revision = std::move(revision),
           .Missing = outshine::Data::MissingDataPolicy::Fail,

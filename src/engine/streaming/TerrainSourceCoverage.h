@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <world/data/Address.h>
+#include <Address.h>
 
 namespace outshine::Generators::Osm {
 class OsmField;

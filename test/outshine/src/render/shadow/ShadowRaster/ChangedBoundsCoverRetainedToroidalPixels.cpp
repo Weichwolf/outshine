@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "ShadowRaster.h"
-#include "math/Box.h"
-#include "math/Mat4.h"
+#include "Box.h"
+#include "Mat4.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

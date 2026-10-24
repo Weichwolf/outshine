@@ -4,7 +4,7 @@
 #include "UrbanArea.h"
 #include "PreparedOsmTiles.h"
 #include "Tasks.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include <array>
 #include <atomic>
 #include <chrono>

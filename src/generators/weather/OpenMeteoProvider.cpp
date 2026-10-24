@@ -1,4 +1,4 @@
-#include <generation/weather/OpenMeteoProvider.h>
+#include <OpenMeteoProvider.h>
 #include "OpenMeteoSource.h"
 
 #include <algorithm>

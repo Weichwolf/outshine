@@ -4,7 +4,7 @@
 #include "FrameTiming.h"
 #include "TangentFrame.h"
 #include "math/RenderFrame.h"
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include <cmath>
 #include <cstddef>
 #include <string>

@@ -43,11 +43,11 @@ PreparePlaceSources(const Scenario::Document &declared,
   if (eye && *eye) { focus = GeographicFocusFor(**eye, origin); }
   const double radiusM =
       declared.Ground.SightM > 0 ? declared.Ground.SightM : Scenario::kSightUnsaidM;
-  auto cells = Data::CellsAround(focus.LatitudeDeg,
-                                 focus.LongitudeDeg,
-                                 radiusM,
-                                 Generators::Osm::kCatalogueCellLevel,
-                                 Generators::Osm::kDefaultCellLimits.CellsMost);
+  auto cells = CellsAround(focus.LatitudeDeg,
+                           focus.LongitudeDeg,
+                           radiusM,
+                           Generators::Osm::kCatalogueCellLevel,
+                           Generators::Osm::kDefaultCellLimits.CellsMost);
   if (!cells) { return std::unexpected(std::move(cells.error())); }
   Tasks compute(1);
   Tasks io(1);

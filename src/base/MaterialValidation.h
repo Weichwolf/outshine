@@ -1,6 +1,6 @@
 #ifndef OUTSHINE_BASE_MATERIALVALIDATION_H
 #define OUTSHINE_BASE_MATERIALVALIDATION_H
-#include <scene/Material.h>
+#include <Material.h>
 #include "MaterialMaps.h"
 #include <cmath>
 #include <algorithm>

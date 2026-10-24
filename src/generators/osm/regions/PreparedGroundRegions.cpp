@@ -5,7 +5,7 @@
 #include "SourceSet.h"
 #include "OsmField.h"
 #include "TilePool.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>

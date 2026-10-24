@@ -1,8 +1,8 @@
 #include "PrismRenderer.h"
 #include "CasterChanges.h"
 #include "BatchVisibility.h"
-#include "math/Box.h"
-#include "math/Mat4.h"
+#include "Box.h"
+#include "Mat4.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

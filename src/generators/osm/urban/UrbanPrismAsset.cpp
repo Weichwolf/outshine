@@ -1,7 +1,7 @@
 #include "UrbanPrismAsset.h"
 #include "Sha256.h"
 #include "BinaryValueArchive.h"
-#include "math/Box.h"
+#include "Box.h"
 #include <scene/PrismGrid.h>
 #include <algorithm>
 #include <array>

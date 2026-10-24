@@ -3,7 +3,7 @@
 #include "BuildingField.h"
 #include "DiagnosticLedger.h"
 #include "GroundMesher.h"
-#include "math/Quantile.h"
+#include "Quantile.h"
 
 #include <algorithm>
 #include <bit>

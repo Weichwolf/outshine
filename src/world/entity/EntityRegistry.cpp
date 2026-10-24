@@ -1,5 +1,5 @@
 #include <span>
-#include <world/EntityRegistry.h>
+#include <EntityRegistry.h>
 #include "RelationRules.h"
 
 #include <cstddef>

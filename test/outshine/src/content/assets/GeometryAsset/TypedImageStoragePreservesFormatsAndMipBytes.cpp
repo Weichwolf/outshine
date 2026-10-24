@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "content/GeometryAsset.h"
+#include "GeometryAsset.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>

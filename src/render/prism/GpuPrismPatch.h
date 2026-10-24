@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_PRISM_GPUPRISMPATCH_H
 #define OUTSHINE_RENDER_PRISM_GPUPRISMPATCH_H
 
-#include "math/Mat4.h"
+#include "Mat4.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

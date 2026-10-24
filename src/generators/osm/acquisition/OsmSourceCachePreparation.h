@@ -12,7 +12,7 @@
 namespace outshine::Generators::Osm {
 struct SourceCacheRequest {
   const Data::SourceProvider &Catalogue;
-  std::span<const Data::GeoCellId> Cells;
+  std::span<const GeoCellId> Cells;
   SourceAcquisition::CellLimits Limits;
   std::string_view ShippedRoot;
   std::string CacheDirectory;

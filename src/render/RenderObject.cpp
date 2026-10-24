@@ -1,12 +1,12 @@
 #include "Digest.h"
-#include "math/Units.h"
-#include "math/Mat4.h"
+#include "Units.h"
+#include "Mat4.h"
 #include "Shape.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include "RenderObject.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -63,7 +63,7 @@ public:
 };
 
 void CheckSnapshots(const outshine::Generators::Osm::SourceRead &read,
-                    std::span<const outshine::Data::GeoCellId> cells,
+                    std::span<const outshine::GeoCellId> cells,
                     bool stored) {
   using namespace outshine::Data;
   using namespace outshine::Test;

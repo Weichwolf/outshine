@@ -1,5 +1,5 @@
 #include "WaterCourseProfile.h"
-#include "math/Box.h"
+#include "Box.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

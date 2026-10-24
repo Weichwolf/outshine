@@ -1,8 +1,8 @@
 #include "UrbanAreaCodec.h"
 #include "BinaryValueArchive.h"
-#include <world/data/DataKind.h>
+#include <DataKind.h>
 #include "TileSourceIdentity.h"
-#include <world/data/Address.h>
+#include <Address.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

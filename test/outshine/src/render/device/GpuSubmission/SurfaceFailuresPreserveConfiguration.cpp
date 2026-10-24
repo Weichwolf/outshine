@@ -1,4 +1,4 @@
-#include <Outshine.h>
+#include <Engine.h>
 #include "Check.h"
 #include "TestEngine.h"
 #include "test/harness/render/NativeDeviceProxy.h"

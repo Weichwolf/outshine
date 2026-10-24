@@ -12,7 +12,7 @@
 
 #include "Earth.h"
 #include "PlanHierarchy.h"
-#include "math/Box.h"
+#include "Box.h"
 
 namespace outshine::Generators::FootpathConnections {
 namespace {

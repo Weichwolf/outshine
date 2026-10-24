@@ -7,7 +7,7 @@
 #include <span>
 #include <vector>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "Ribbon.h"
 
 namespace outshine {

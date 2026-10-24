@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include <diagnostics/DiagnosticSample.h>
+#include <DiagnosticSample.h>
 
 namespace outshine::Core {
 

@@ -18,19 +18,19 @@
 
 namespace outshine::Generators::Osm {
 namespace {
-bool Before(Data::GeoCellId left, Data::GeoCellId right) noexcept {
+bool Before(GeoCellId left, GeoCellId right) noexcept {
   return std::tie(left.Level, left.X, left.Y) < std::tie(right.Level, right.X, right.Y);
 }
 
-bool ValidCell(Data::GeoCellId cell) noexcept {
+bool ValidCell(GeoCellId cell) noexcept {
   const auto bounds = cell.Bounds();
   return bounds && (bounds->EastDeg - bounds->WestDeg) * (bounds->NorthDeg - bounds->SouthDeg) <=
                        Data::kOsmApiMaximumAreaDeg2;
 }
 
-std::expected<std::vector<Data::GeoCellId>, std::string>
+std::expected<std::vector<GeoCellId>, std::string>
 ValidatedCellDemand(const Data::SourceProvider &provider,
-                    std::span<const Data::GeoCellId> cells,
+                    std::span<const GeoCellId> cells,
                     SourceAcquisition::CellLimits limits) {
   if (auto valid = Data::ValidateSourceProviders(std::span(&provider, 1)); !valid) {
     return std::unexpected(std::move(valid.error()));
@@ -38,12 +38,12 @@ ValidatedCellDemand(const Data::SourceProvider &provider,
   if (provider.Kind != "osm" || provider.Coverage || !provider.Location.empty() ||
       limits.CellsMost == 0 || limits.CellsMost > std::numeric_limits<size_t>::max() / 2 ||
       limits.SnapshotBytesMost == 0 || limits.LevelMost < 9 ||
-      limits.LevelMost > Data::GeoCellId::MaximumLevel || cells.size() > limits.CellsMost ||
+      limits.LevelMost > GeoCellId::MaximumLevel || cells.size() > limits.CellsMost ||
       std::ranges::any_of(cells, [limits](auto cell) { return cell.Level > limits.LevelMost; }) ||
       !std::ranges::all_of(cells, ValidCell)) {
     return std::unexpected("original OSM cell demand requires a catalogue and bounded valid cells");
   }
-  std::vector<Data::GeoCellId> wanted(cells.begin(), cells.end());
+  std::vector<GeoCellId> wanted(cells.begin(), cells.end());
   std::ranges::sort(wanted, Before);
   if (std::ranges::adjacent_find(wanted) != wanted.end()) {
     return std::unexpected("original OSM cell demand contains duplicate addresses");
@@ -70,11 +70,11 @@ size_t SourceAcquisition::Cells::ChargedBytes() const noexcept {
   return bytes;
 }
 
-std::vector<Data::GeoCellId>
-SourceAcquisition::Cells::NextAcquisitionBatch(std::span<const Data::GeoCellId> assigned) const {
-  std::vector<Data::GeoCellId> batch;
+std::vector<GeoCellId>
+SourceAcquisition::Cells::NextAcquisitionBatch(std::span<const GeoCellId> assigned) const {
+  std::vector<GeoCellId> batch;
   batch.reserve(3);
-  const auto acquisitionOrder = [](Data::GeoCellId left, Data::GeoCellId right) {
+  const auto acquisitionOrder = [](GeoCellId left, GeoCellId right) {
     return left.Level != right.Level ? left.Level > right.Level : Before(left, right);
   };
   for (size_t at = 0; at < Wanted.size(); ++at) {
@@ -96,7 +96,7 @@ bool SourceAcquisition::Cells::Ready() const noexcept {
 }
 
 std::vector<SourceAcquisition::CellSource> SourceAcquisition::Cells::Reuse(
-    std::span<const Data::GeoCellId> wanted, bool published, bool pending) const {
+    std::span<const GeoCellId> wanted, bool published, bool pending) const {
   std::vector<CellSource> preparing(wanted.size());
   for (size_t at = 0; at < wanted.size(); ++at) {
     if (published) {
@@ -178,7 +178,7 @@ size_t SourceAcquisition::PreparedCellCount() const noexcept {
 
 std::expected<void, std::string>
 SourceAcquisition::RequestCells(const Data::SourceProvider &provider,
-                                std::span<const Data::GeoCellId> cells,
+                                std::span<const GeoCellId> cells,
                                 CellLimits limits,
                                 std::string_view root,
                                 const Data::ProviderRegistry *registry) {

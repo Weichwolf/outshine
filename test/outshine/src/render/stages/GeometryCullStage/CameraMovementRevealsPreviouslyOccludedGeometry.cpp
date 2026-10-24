@@ -7,8 +7,8 @@
 #include "SubjectTypes.h"
 #include "GpuSubmission.h"
 #include "Viewing.h"
-#include <scene/Geometry.h>
-#include <scene/Material.h>
+#include <Geometry.h>
+#include <Material.h>
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>

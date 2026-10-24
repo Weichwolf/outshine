@@ -69,7 +69,7 @@ int main() {
         .Dataset = "openstreetmap.original",
         .Endpoint = std::string(Data::kOfficialOsmApi),
         .Coverage =
-            Data::SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 0.01, .NorthDeg = 0.01}}};
+            GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 0.01, .NorthDeg = 0.01}}};
     CHECK(loader.Request(providers, ".") && WaitFor(loader) && loader.Current(),
           "official source acquisition and native compute publication complete asynchronously");
     const auto source = loader.Current();

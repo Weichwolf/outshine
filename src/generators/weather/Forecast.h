@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 #include <vector>
-#include <world/weather/WeatherSnapshot.h>
+#include <WeatherSnapshot.h>
 
 namespace outshine::Generators::Weather {
 

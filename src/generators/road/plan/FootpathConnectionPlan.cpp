@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "Earth.h"
-#include "math/Box.h"
+#include "Box.h"
 
 namespace outshine::Generators {
 namespace {

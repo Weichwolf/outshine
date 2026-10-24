@@ -5,7 +5,7 @@
 #include "GeodeticCamera.h"
 #include "Geodesy.h"
 #include "TangentFrame.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine {
 

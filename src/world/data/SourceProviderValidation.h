@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-#include <world/SourceProvider.h>
+#include <SourceProvider.h>
 
 namespace outshine::Data {
 

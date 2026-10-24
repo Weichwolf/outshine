@@ -1,11 +1,11 @@
 #ifndef OUTSHINE_GENERATORS_OSM_FIELDS_BUILDINGFIELD_H
 #define OUTSHINE_GENERATORS_OSM_FIELDS_BUILDINGFIELD_H
 
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 #include <algorithm>
 #include <array>
 #include <span>
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "OsmField.h"
 #include "HeightField.h"
 #include "StructureSourceKey.h"

@@ -1,6 +1,6 @@
 #include "Triggers.h"
-#include <world/Entity.h>
-#include "math/Vec3.h"
+#include <Entity.h>
+#include "Vec3.h"
 
 #include <algorithm>
 #include <cmath>

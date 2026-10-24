@@ -1,4 +1,4 @@
-#include <scene/Material.h>
+#include <Material.h>
 #include "MaterialValidation.h"
 #include "SubjectMaterialPacking.h"
 #include "Check.h"

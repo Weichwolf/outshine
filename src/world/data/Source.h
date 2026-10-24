@@ -1,0 +1,57 @@
+#ifndef OUTSHINE_WORLD_DATA_SOURCE_H
+#define OUTSHINE_WORLD_DATA_SOURCE_H
+
+#include <cstdint>
+#include <expected>
+#include <optional>
+#include <span>
+#include <HeightRaster.h>
+#include <WeatherSnapshot.h>
+
+#include "Fetched.h"
+#include "Fetch.h"
+#include "SourceDecl.h"
+#include "Transport.h"
+
+namespace outshine::Data {
+
+enum class Coverage : uint8_t { Inside, Outside };
+
+enum class DecodeFailure : uint8_t { Unsupported, CorruptPayload };
+
+class Source {
+public:
+  virtual ~Source() = default;
+
+  [[nodiscard]] virtual const SourceDecl &Declaration() const noexcept = 0;
+
+  [[nodiscard]] virtual Coverage Covers(const Fetch &request) const noexcept = 0;
+
+  [[nodiscard]] virtual Address Serves(const Fetch &request) const noexcept = 0;
+
+  [[nodiscard]] virtual FetchStart Begin(const Address &at, Transport &transport) const = 0;
+
+  [[nodiscard]] virtual FetchStart Begin(const Fetch &request, Transport &transport) const {
+    if (request.Range()) { return std::unexpected(FetchFailureReason::ProviderRefused); }
+    return Begin(request.Where(), transport);
+  }
+
+  [[nodiscard]] virtual Fetched
+  Collect(const Address &at, Ticket ticket, Transport &transport) const = 0;
+
+  [[nodiscard]] virtual std::expected<HeightRaster, DecodeFailure>
+  DecodeElevation([[maybe_unused]] std::span<const uint8_t> bytes) const {
+    return std::unexpected(DecodeFailure::Unsupported);
+  }
+
+  [[nodiscard]] virtual std::expected<std::optional<WeatherSnapshot>, DecodeFailure>
+  DecodeWeather([[maybe_unused]] std::span<const uint8_t> bytes,
+                [[maybe_unused]] int64_t utcS) const {
+    return std::unexpected(DecodeFailure::Unsupported);
+  }
+
+  virtual void Cancel(Ticket ticket, Transport &transport) const { transport.Cancel(ticket); }
+};
+
+}
+#endif

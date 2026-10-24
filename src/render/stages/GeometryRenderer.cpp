@@ -1,5 +1,5 @@
 #include "SubjectLightingUniform.h"
-#include "math/Vec4.h"
+#include "Vec4.h"
 #include "SurfaceBindings.h"
 #include "VertexUpload.h"
 #include "NormalUpload.h"
@@ -8,7 +8,7 @@
 #include "TerrainRenderer.h"
 #include "GeometryRenderer.h"
 #include "BatchVisibility.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include "FragmentArms.h"
 

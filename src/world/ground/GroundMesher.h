@@ -12,7 +12,7 @@
 
 #include <Earth.h>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include "TileMeshes.h"
 

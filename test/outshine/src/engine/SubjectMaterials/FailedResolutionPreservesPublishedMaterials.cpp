@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include <scene/Geometry.h>
+#include <Geometry.h>
 
 #include "Check.h"
 #include "Shape.h"

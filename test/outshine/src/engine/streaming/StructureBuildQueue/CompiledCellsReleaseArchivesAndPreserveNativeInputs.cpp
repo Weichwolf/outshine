@@ -104,7 +104,7 @@ int main() {
                                        .Coverage = {},
                                        .PayloadSha256 = {},
                                        .Schema = {}};
-  const std::array<Data::GeoCellId, 4> cells{
+  const std::array<GeoCellId, 4> cells{
       {{9, 256, 256}, {9, 257, 256}, {9, 258, 256}, {9, 259, 256}}};
   CHECK(
       source.RequestCells(catalogue, std::span(cells).first(1), {4, 1024 * 1024}, ".", &registry) &&

@@ -1,8 +1,8 @@
 #include "RiverBodyHeight.h"
 #include "WaterCourseProfile.h"
 #include "WaterPhysicalFrame.h"
-#include "math/Box.h"
-#include "math/Vec3.h"
+#include "Box.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

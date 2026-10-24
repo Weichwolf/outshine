@@ -13,10 +13,10 @@ BATCH_FILES = 64
 def sources(root):
     listed = subprocess.check_output(
         ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard',
-         '--', 'src', 'include', 'test'], cwd=root)
+         '--', 'src', 'test'], cwd=root)
     paths = {Path(os.fsdecode(name)) for name in listed.split(b'\0') if name}
     return sorted(path for path in paths
-                  if path.suffix in ('.cpp', '.h', '.mm')
+                  if path.suffix in ('.cpp', '.h', '.hpp', '.mm')
                   and path.parts[:3] != ('src', 'render', 'shaders')
                   and (root / path).is_file())
 

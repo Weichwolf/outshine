@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_TEST_NATIVE_PLANT_LEAF_CARRIER_H
 #define OUTSHINE_TEST_NATIVE_PLANT_LEAF_CARRIER_H
 
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include "BinaryValueArchive.h"
 #include "ImageMips.h"
 #include "LeafOpticsDefaults.h"

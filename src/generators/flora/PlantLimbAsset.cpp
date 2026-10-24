@@ -1,7 +1,7 @@
 #include "PlantLimbAsset.h"
 #include "PlantLimbPlan.h"
 #include "BinaryValueArchive.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

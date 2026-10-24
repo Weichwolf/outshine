@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <scenario/Event.h>
+#include <Event.h>
 #include "Script.h"
 
 namespace outshine {

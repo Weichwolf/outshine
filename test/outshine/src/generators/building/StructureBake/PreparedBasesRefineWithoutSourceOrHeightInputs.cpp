@@ -7,13 +7,13 @@
 #include "Tasks.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include "Sha256.h"
 #include "BuildingScratch.h"
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "Geodesy.h"
-#include "math/Units.h"
+#include "Units.h"
 #include <array>
 #include <algorithm>
 #include <atomic>

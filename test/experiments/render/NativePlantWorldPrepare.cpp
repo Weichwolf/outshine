@@ -2,7 +2,7 @@
 #include "NativePlantLeafCarrier.h"
 #include "PlantBladeSurface.h"
 #include "PlantRecipeJson.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

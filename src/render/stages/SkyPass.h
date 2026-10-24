@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_SKYPASS_H
 #define OUTSHINE_RENDER_STAGES_SKYPASS_H
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine::Render {
 

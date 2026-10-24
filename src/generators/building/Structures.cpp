@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>

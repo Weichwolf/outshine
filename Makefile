@@ -102,7 +102,7 @@ build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl
 
 build/shader-tables: test/scripts/shader-tables.cpp Makefile test/scripts/native_hardening.sh
 	@mkdir -p $(@D)
-	@$(CXX) $(NATIVE_HARDEN_COMPILE) $(NATIVE_HARDEN_LINK) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -MMD -MP -MF $@.d -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
+	@$(CXX) $(NATIVE_HARDEN_COMPILE) $(NATIVE_HARDEN_LINK) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -MMD -MP -MF $@.d -Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
 
 -include build/shader-tables.d
 

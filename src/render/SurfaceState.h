@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_SURFACESTATE_H
 #define OUTSHINE_RENDER_SURFACESTATE_H
 
-#include "scene/Material.h"
+#include "Material.h"
 
 namespace outshine {
 

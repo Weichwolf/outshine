@@ -1,9 +1,9 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_GEOMETRYASSETVALUES_H
 #define OUTSHINE_CONTENT_ASSETS_GEOMETRYASSETVALUES_H
 
-#include "scene/Material.h"
+#include "Material.h"
 #include "MaterialMaps.h"
-#include "scene/PunctualLight.h"
+#include "PunctualLight.h"
 
 namespace outshine::Content {
 template <class Archive> bool GeometryAssetMap(Archive &archive, SurfaceMap &map) {

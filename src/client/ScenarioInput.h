@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CLIENT_SCENARIOINPUT_H
 #define OUTSHINE_CLIENT_SCENARIOINPUT_H
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include <expected>
 #include <string>
 #include <string_view>

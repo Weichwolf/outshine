@@ -1,8 +1,8 @@
 #include "TreeGrower.h"
 #include "TreeMesher.h"
 #include "ModelLadder.h"
-#include <scene/Geometry.h>
-#include <scene/Material.h>
+#include <Geometry.h>
+#include <Material.h>
 #include "Check.h"
 #include <algorithm>
 #include <cmath>

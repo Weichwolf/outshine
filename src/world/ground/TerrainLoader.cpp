@@ -1,10 +1,10 @@
-#include "math/Units.h"
+#include "Units.h"
 #include "TerrainLoader.h"
 #include "TerrainDelivery.h"
 #include "TerrainCertificate.h"
 #include "TerrainSamplingCoverage.h"
 #include "GroundPollBudget.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <array>
 #include <cstddef>

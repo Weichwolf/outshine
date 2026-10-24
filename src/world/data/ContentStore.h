@@ -12,10 +12,10 @@
 #include <string_view>
 #include <vector>
 
-#include <world/data/Address.h>
-#include <world/data/GeoCellId.h>
-#include <world/data/SourceDecl.h>
-#include <world/data/Transport.h>
+#include <Address.h>
+#include <GeoCellId.h>
+#include <SourceDecl.h>
+#include <Transport.h>
 
 namespace outshine {
 class CacheUsageIndex;

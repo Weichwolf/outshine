@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
-#include <math/Units.h>
+#include <Units.h>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -59,7 +59,7 @@ bool SourceAcquisition::CellPipeline::DeadlineExceeded(Access &access, uint64_t 
 std::expected<void, std::string>
 SourceAcquisition::CellPipeline::StartQueued(CellAcquisition &reader) const {
   while (reader.PendingCount() < CellAcquisition::MaximumPendingCells) {
-    std::optional<Data::GeoCellId> cell;
+    std::optional<GeoCellId> cell;
     {
       const std::scoped_lock lock(Shared->Mutex);
       if (!Shared->Requests.empty()) {

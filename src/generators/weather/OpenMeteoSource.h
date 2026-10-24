@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_WEATHER_OPENMETEOSOURCE_H
 
 #include "Forecast.h"
-#include <generation/weather/OpenMeteoProvider.h>
+#include <OpenMeteoProvider.h>
 
 namespace outshine::Generators::Weather {
 

@@ -2,7 +2,7 @@
 #include "ImpostorSurface.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "content/GeometryAsset.h"
+#include "GeometryAsset.h"
 #include <cmath>
 
 #include <SDL3/SDL.h>

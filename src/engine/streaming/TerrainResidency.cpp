@@ -9,7 +9,7 @@
 #include "TerrainGrid.h"
 #include "TileGeodesy.h"
 #include "math/RenderFrame.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <array>
 #include <bit>

@@ -1,9 +1,9 @@
 #ifndef OUTSHINE_BASE_SPATIAL_POLYGONPRISM_H
 #define OUTSHINE_BASE_SPATIAL_POLYGONPRISM_H
 
-#include "math/Box.h"
-#include "math/Vec2.h"
-#include "math/Vec3.h"
+#include "Box.h"
+#include "Vec2.h"
+#include "Vec3.h"
 
 #include <cstddef>
 #include <optional>

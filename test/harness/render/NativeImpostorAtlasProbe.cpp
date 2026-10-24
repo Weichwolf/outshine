@@ -1,10 +1,10 @@
 #include "Check.h"
 #include "ImpostorAtlas.h"
 #include "ImpostorSurface.h"
-#include "content/GeometryAsset.h"
-#include "math/Vec3.h"
-#include <Outshine.h>
-#include <scenario/Scenario.h>
+#include "GeometryAsset.h"
+#include "Vec3.h"
+#include <Engine.h>
+#include <Scenario.h>
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>

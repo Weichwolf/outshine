@@ -3,7 +3,7 @@
 
 #include "Tasks.h"
 #include "UrbanPrismCodec.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>

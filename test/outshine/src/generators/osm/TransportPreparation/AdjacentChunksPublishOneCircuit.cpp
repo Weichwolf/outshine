@@ -25,7 +25,7 @@ bool WaitFor(outshine::Generators::Osm::TransportPreparation &source, outshine::
 }
 
 outshine::Data::SourceProvider
-Chunk(std::string path, int rank, std::string revision, outshine::Data::SourceCoverage coverage) {
+Chunk(std::string path, int rank, std::string revision, outshine::GeographicBounds coverage) {
   return {.Kind = "osm",
           .Revision = std::move(revision),
           .Priority = rank,

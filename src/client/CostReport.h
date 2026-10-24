@@ -3,7 +3,7 @@
 
 #include <span>
 #include <string_view>
-#include <diagnostics/DiagnosticSample.h>
+#include <DiagnosticSample.h>
 
 namespace outshine::Client {
 void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> samples);

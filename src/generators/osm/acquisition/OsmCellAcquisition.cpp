@@ -46,7 +46,7 @@ size_t CellAcquisition::PendingCount() const noexcept {
   return Impl_->Queries.size();
 }
 
-std::expected<void, std::string> CellAcquisition::Start(Data::GeoCellId cell) {
+std::expected<void, std::string> CellAcquisition::Start(GeoCellId cell) {
   auto &state = *Impl_;
   if (!cell.Valid() || state.Queries.size() == MaximumPendingCells ||
       std::ranges::any_of(state.Queries,
@@ -58,7 +58,7 @@ std::expected<void, std::string> CellAcquisition::Start(Data::GeoCellId cell) {
       state.Catalogue, state.Store, state.Wire, state.Registry, state.ShippedRoot, cell);
   if (!region) { return std::unexpected(std::move(region.error())); }
   auto chunk = (*region)->Chunk(state.Catalogue, cell);
-  std::vector<Data::GeoCellId> refine;
+  std::vector<GeoCellId> refine;
   const auto began = state.Wire.NowMs();
   const bool cachedChildren = (*region)->Begin(state.Store, refine);
   auto outcome =

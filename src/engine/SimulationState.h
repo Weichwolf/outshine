@@ -8,12 +8,12 @@
 #include <string_view>
 #include <cstdint>
 #include <vector>
-#include <world/EntityRegistry.h>
-#include <scenario/Scenario.h>
+#include <EntityRegistry.h>
+#include <Scenario.h>
 #include "Assembled.h"
 #include "Column.h"
 #include "Rigid.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "Tables.h"
 #include "Traits.h"
 #include "Triggers.h"

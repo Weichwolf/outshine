@@ -1,6 +1,6 @@
 #include "PlanHierarchy.h"
 #include "Check.h"
-#include "scene/ProjectedErrorBudget.h"
+#include "ProjectedErrorBudget.h"
 
 #include <cmath>
 #include <limits>

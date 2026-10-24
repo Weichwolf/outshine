@@ -1,4 +1,4 @@
-#include "math/Mat4.h"
+#include "Mat4.h"
 #include "MaterialValidation.h"
 #include "GeometryCapacity.h"
 #include <array>
@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-#include <scene/Geometry.h>
+#include <Geometry.h>
 
 namespace outshine {
 

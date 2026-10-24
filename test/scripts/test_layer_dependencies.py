@@ -100,6 +100,11 @@ class HeaderTraversal(unittest.TestCase):
         next_run = CONTRACT.HeaderDependencies(self.root)
         self.assertEqual(next_run.read(source, []), {source, later})
 
+    def test_objective_cpp_uses_the_same_header_contract(self):
+        header = self.write('src/MetalBinding.h')
+        source = self.write('src/Device.mm', '#include "MetalBinding.h"\n')
+        self.assertEqual(self.reader.read(source, []), {source, header})
+
 
 class NativeStageDependencies(unittest.TestCase):
     root = SCRIPT.parents[2]

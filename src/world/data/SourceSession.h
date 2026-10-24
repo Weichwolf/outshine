@@ -3,8 +3,8 @@
 
 #include "ContentStore.h"
 #include "SourceSet.h"
-#include <world/Provider.h>
-#include <world/SourceProvider.h>
+#include <Provider.h>
+#include <SourceProvider.h>
 #include <expected>
 #include <memory>
 #include <span>

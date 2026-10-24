@@ -6,8 +6,8 @@
 #include "NativeGpuCheck.h"
 #include "NativeOfflineDevice.h"
 #include "DrawList.h"
-#include "scene/Geometry.h"
-#include "scene/Material.h"
+#include "Geometry.h"
+#include "Material.h"
 #include <SDL3/SDL.h>
 
 #include <array>

@@ -2,7 +2,7 @@
 #include "EngineState.h"
 #include "Heap.h"
 #include "OfflineTransport.h"
-#include "math/Units.h"
+#include "Units.h"
 #include "OsmXmlReader.h"
 #include "OsmSourceDemand.h"
 #include "OsmStructureCell.h"
@@ -121,11 +121,11 @@ bool Engine::State::RequestOriginalCells() {
   const auto focus = CurrentGeographicFocus();
   const std::array demand{focus.LatitudeDeg, focus.LongitudeDeg, TerrainSightM()};
   if (World.OriginalSourceDemand == demand) { return true; }
-  auto cells = Data::CellsAround(demand[0],
-                                 demand[1],
-                                 demand[2],
-                                 Generators::Osm::kCatalogueCellLevel,
-                                 Generators::Osm::kDefaultCellLimits.CellsMost);
+  auto cells = CellsAround(demand[0],
+                           demand[1],
+                           demand[2],
+                           Generators::Osm::kCatalogueCellLevel,
+                           Generators::Osm::kDefaultCellLimits.CellsMost);
   if (!cells) {
     Error = std::move(cells.error());
     return false;

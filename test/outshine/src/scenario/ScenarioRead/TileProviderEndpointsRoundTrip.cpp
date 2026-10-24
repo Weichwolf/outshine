@@ -2,7 +2,7 @@
 #include "ScenarioRead.h"
 #include "ScenarioWrite.h"
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 
 #include <string>
 #include <string_view>

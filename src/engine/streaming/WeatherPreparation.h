@@ -3,7 +3,7 @@
 
 #include "SourceSession.h"
 #include "Tasks.h"
-#include <world/weather/WeatherSnapshot.h>
+#include <WeatherSnapshot.h>
 #include <atomic>
 #include <cstdint>
 #include <memory>

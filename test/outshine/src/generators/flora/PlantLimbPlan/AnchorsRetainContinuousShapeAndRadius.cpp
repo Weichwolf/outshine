@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "PlantLimbPlan.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <array>
 #include <cmath>
 #include <cstddef>

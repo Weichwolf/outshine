@@ -1,5 +1,5 @@
 #include "EngineState.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <atomic>
 #include <cmath>

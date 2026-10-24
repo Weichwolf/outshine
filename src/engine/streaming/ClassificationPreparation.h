@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "math/Vec2.h"
+#include "Vec2.h"
 #include "ClassificationBuild.h"
 #include "OsmField.h"
 #include "TilePool.h"

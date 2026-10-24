@@ -5,8 +5,8 @@
 #include "TilePool.h"
 #include "TerrainLoader.h"
 
-#include <world/data/Source.h>
-#include <world/data/Transport.h>
+#include <Source.h>
+#include <Transport.h>
 
 #include <atomic>
 #include <chrono>

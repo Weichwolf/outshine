@@ -8,7 +8,7 @@
 #include "BuildingMesh.h"
 #include "ContentStore.h"
 #include "SourceSet.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "Geodesy.h"
 #include <array>
 #include <algorithm>

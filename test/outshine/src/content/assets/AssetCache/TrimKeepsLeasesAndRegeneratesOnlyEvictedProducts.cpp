@@ -1,4 +1,4 @@
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include "CacheTrim.h"
 #include "Check.h"
 #include <algorithm>

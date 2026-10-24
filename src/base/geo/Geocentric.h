@@ -2,8 +2,8 @@
 #define OUTSHINE_BASE_GEO_GEOCENTRIC_H
 
 #include "Earth.h"
-#include "math/Units.h"
-#include "math/Vec3.h"
+#include "Units.h"
+#include "Vec3.h"
 #include <cmath>
 #include <limits>
 #include <optional>

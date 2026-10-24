@@ -3,7 +3,7 @@
 #include "SourceSet.h"
 #include "WebTileFixture.h"
 #include "TilePool.h"
-#include <world/data/Transport.h>
+#include <Transport.h>
 
 #include <memory>
 #include <string>

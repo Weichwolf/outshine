@@ -7,7 +7,7 @@
 #include "StoredVertex.h"
 #include "Geodesy.h"
 
-#include <scene/Geometry.h>
+#include <Geometry.h>
 
 namespace outshine::Generators {
 

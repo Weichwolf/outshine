@@ -1,7 +1,7 @@
 #include "TerrainLoader.h"
 #include "SourceSet.h"
 #include "ContentStore.h"
-#include <world/data/Transport.h>
+#include <Transport.h>
 #include "Check.h"
 
 #include <array>

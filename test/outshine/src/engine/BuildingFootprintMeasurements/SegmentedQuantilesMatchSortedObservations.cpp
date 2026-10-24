@@ -2,7 +2,7 @@
 #include "BuildingFootprintMeasurements.h"
 #include "DiagnosticLedger.h"
 #include "Check.h"
-#include "math/Quantile.h"
+#include "Quantile.h"
 
 #include <algorithm>
 #include <array>

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREMESHER_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREMESHER_H
 
-#include "math/Box.h"
+#include "Box.h"
 
 #include <cstddef>
 #include <expected>
@@ -12,10 +12,10 @@
 #include <span>
 #include <vector>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
-#include <scene/LevelOfDetail.h>
-#include <scene/ProjectedErrorBudget.h>
+#include <LevelOfDetail.h>
+#include <ProjectedErrorBudget.h>
 
 #include "StoredVertex.h"
 #include "BuildingFrontage.h"

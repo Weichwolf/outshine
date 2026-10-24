@@ -1,4 +1,4 @@
-#include "content/GeometryAsset.h"
+#include "GeometryAsset.h"
 #include "Check.h"
 #include <array>
 #include <cstddef>

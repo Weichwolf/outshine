@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CLIENT_WORLDSOURCEPOLICY_H
 #define OUTSHINE_CLIENT_WORLDSOURCEPOLICY_H
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include <algorithm>
 #include <expected>
 #include <string>

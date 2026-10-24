@@ -20,11 +20,11 @@
 #include <span>
 #include <vector>
 
-#include "math/Units.h"
+#include "Units.h"
 #include "StructureMassing.h"
 #include "StructurePlanSelection.h"
 #include "Geodesy.h"
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 
 namespace outshine::Generators {
 

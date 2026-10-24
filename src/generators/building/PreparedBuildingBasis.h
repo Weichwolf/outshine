@@ -5,7 +5,7 @@
 #include "GeographicRing.h"
 #include "SourceProvenance.h"
 #include "Capacity.h"
-#include <math/Vec3.h>
+#include <Vec3.h>
 #include <cstddef>
 #include <cstdint>
 #include <vector>

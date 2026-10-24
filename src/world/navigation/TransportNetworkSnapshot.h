@@ -2,7 +2,7 @@
 #define OUTSHINE_WORLD_NAVIGATION_TRANSPORTNETWORKSNAPSHOT_H
 
 #include "TransportTopology.h"
-#include <world/SourceProvider.h>
+#include "GeographicBounds.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -33,12 +33,12 @@ struct ResolvedTransport {
 
 class TransportNetworkSnapshot {
   ResolvedTransport Transport_;
-  std::vector<Data::SourceCoverage> Coverage_;
+  std::vector<GeographicBounds> Coverage_;
   TransportLoadMetrics Metrics_;
 
 public:
   TransportNetworkSnapshot(ResolvedTransport transport,
-                           std::vector<Data::SourceCoverage> coverage,
+                           std::vector<GeographicBounds> coverage,
                            TransportLoadMetrics metrics)
       : Transport_(std::move(transport)), Coverage_(std::move(coverage)), Metrics_(metrics) {
     assert(std::ranges::all_of(Transport_.Routes, [this](const NamedCircuitRoute &route) {
@@ -73,9 +73,7 @@ public:
     return edges;
   }
 
-  [[nodiscard]] std::span<const Data::SourceCoverage> Coverage() const noexcept {
-    return Coverage_;
-  }
+  [[nodiscard]] std::span<const GeographicBounds> Coverage() const noexcept { return Coverage_; }
 
   [[nodiscard]] const TransportLoadMetrics &Metrics() const noexcept { return Metrics_; }
 };

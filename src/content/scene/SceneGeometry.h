@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <memory>
-#include <scene/Geometry.h>
+#include <Geometry.h>
 
 namespace outshine {
 

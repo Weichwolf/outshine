@@ -1,11 +1,11 @@
 #include <chrono>
 #include <cstdio>
 #include "FlatMap.h"
-#include "math/Units.h"
+#include "Units.h"
 #include "EarthworkDeformation.h"
 #include "CorridorApronBlend.h"
 #include "ProfiledCorridorPress.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <array>
 #include <algorithm>

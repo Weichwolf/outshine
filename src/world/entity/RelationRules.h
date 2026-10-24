@@ -3,7 +3,7 @@
 
 #include <algorithm>
 #include <array>
-#include "world/EntityRegistry.h"
+#include "EntityRegistry.h"
 
 namespace outshine {
 inline constexpr size_t kRoles = 4;

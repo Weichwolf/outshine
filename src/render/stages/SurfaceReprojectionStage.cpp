@@ -3,7 +3,7 @@
 #include "StagePipelines.h"
 #include <span>
 #include "TransformMatrix.h"
-#include "math/Vec4.h"
+#include "Vec4.h"
 
 #include <algorithm>
 #include <array>

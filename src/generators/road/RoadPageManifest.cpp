@@ -2,8 +2,8 @@
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
 #include "TangentFrame.h"
-#include "math/Units.h"
-#include <content/GeometryAsset.h>
+#include "Units.h"
+#include <GeometryAsset.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

@@ -2,8 +2,8 @@
 #include <span>
 #include <array>
 #include <chrono>
-#include "math/Units.h"
-#include "math/Mat4.h"
+#include "Units.h"
+#include "Mat4.h"
 #include "RuntimeScene.h"
 #include "AzimuthElevation.h"
 

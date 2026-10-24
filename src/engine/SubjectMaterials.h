@@ -10,8 +10,8 @@
 
 #include "Shape.h"
 #include "Surfacing.h"
-#include "scene/Geometry.h"
-#include "scene/Material.h"
+#include "Geometry.h"
+#include "Material.h"
 
 namespace outshine::Core {
 

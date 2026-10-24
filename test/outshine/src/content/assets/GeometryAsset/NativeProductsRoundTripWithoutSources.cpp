@@ -1,5 +1,5 @@
-#include "content/GeometryAsset.h"
-#include "content/AssetGeneration.h"
+#include "GeometryAsset.h"
+#include "AssetGeneration.h"
 #include "Check.h"
 #include "Sha256.h"
 #include <algorithm>

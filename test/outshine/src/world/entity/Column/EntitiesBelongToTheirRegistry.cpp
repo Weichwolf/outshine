@@ -1,4 +1,4 @@
-#include <world/EntityRegistry.h>
+#include <EntityRegistry.h>
 #include "Column.h"
 #include "Check.h"
 #include <type_traits>

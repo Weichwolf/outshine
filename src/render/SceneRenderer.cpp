@@ -1,8 +1,8 @@
 #include "MediumView.h"
 #include "EnvironmentSpecularLayout.h"
-#include "math/Units.h"
-#include "math/Mat4.h"
-#include "math/Vec2.h"
+#include "Units.h"
+#include "Mat4.h"
+#include "Vec2.h"
 #include "Heap.h"
 #include <algorithm>
 #include <cassert>
@@ -11,7 +11,7 @@
 #include <chrono>
 
 #include "SceneRenderer.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <cstdint>
 #include <expected>

@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include <world/Entity.h>
+#include <Entity.h>
 
 namespace outshine {
 

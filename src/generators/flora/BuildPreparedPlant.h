@@ -4,7 +4,7 @@
 #include "PlantPlan.h"
 #include "PlantBladeSurface.h"
 #include "PreparedPlant.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

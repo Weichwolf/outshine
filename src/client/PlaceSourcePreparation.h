@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CLIENT_PLACESOURCEPREPARATION_H
 #define OUTSHINE_CLIENT_PLACESOURCEPREPARATION_H
 
-#include <Outshine.h>
+#include <Engine.h>
 #include "OsmSourceCachePreparation.h"
 #include <functional>
 

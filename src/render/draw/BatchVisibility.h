@@ -4,8 +4,8 @@
 #include "FrameContext.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
-#include "math/Mat4.h"
-#include "math/Vec3.h"
+#include "Mat4.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

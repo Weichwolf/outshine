@@ -21,7 +21,7 @@
 #include "GpuPlacement.h"
 #include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
-#include "scene/Material.h"
+#include "Material.h"
 #include "GeometryResidency.h"
 #include "TexelChain.h"
 

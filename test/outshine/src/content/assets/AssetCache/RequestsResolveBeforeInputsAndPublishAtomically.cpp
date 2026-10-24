@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include "Sha256.h"
 #include <array>
 #include <chrono>

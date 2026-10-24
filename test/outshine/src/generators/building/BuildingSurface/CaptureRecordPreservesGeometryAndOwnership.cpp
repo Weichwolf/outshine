@@ -3,8 +3,8 @@
 #include "Check.h"
 #include "Geodesy.h"
 #include "StructureMesher.h"
-#include <math/Vec3.h>
-#include <scene/ProjectedErrorBudget.h>
+#include <Vec3.h>
+#include <ProjectedErrorBudget.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

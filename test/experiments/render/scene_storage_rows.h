@@ -2,7 +2,7 @@
 #define OUTSHINE_EXPERIMENT_SCENE_STORAGE_ROWS_H
 
 #include "Shape.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 
 #include <cstddef>
 #include <cstdio>

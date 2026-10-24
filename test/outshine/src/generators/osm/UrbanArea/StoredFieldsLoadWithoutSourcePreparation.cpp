@@ -1,8 +1,8 @@
 #include "UrbanAreaCodec.h"
 #include "Check.h"
 #include "Sha256.h"
-#include "content/AssetGeneration.h"
-#include <world/data/DataKind.h>
+#include "AssetGeneration.h"
+#include <DataKind.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>

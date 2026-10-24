@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 #include "GeographicRing.h"
 #include "BuildingHeightInterval.h"
 #include "StructureSourceInputs.h"
@@ -16,14 +16,14 @@
 #include <span>
 #include <vector>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "BuildingFootprint.h"
 #include "BuildingGeometry.h"
 #include "HeightField.h"
 #include "StructureMesher.h"
 #include "spatial/Capacity.h"
 #include "spatial/ClusterCook.h"
-#include "scene/LevelOfDetail.h"
+#include "LevelOfDetail.h"
 #include "StructureCell.h"
 #include "StructureSurfaceRefinement.h"
 

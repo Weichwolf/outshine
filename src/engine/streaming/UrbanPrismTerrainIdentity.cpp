@@ -2,8 +2,8 @@
 #include "TerrainResidency.h"
 #include "BlockedDigest.h"
 #include "TileGeodesy.h"
-#include "math/Units.h"
-#include <world/data/Address.h>
+#include "Units.h"
+#include <Address.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

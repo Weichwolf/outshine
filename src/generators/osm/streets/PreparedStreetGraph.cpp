@@ -2,7 +2,7 @@
 #include "AssetSourceRecipe.h"
 #include "BinaryValueArchive.h"
 #include "SourceSet.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <array>
 #include <cmath>
 #include <cstddef>

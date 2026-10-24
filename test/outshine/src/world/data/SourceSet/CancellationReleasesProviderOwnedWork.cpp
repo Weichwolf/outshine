@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "SourceSet.h"
-#include <world/data/Source.h>
+#include <Source.h>
 
 #include <memory>
 #include <string>

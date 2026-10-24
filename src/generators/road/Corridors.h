@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_ROAD_CORRIDORS_H
 #define OUTSHINE_GENERATORS_ROAD_CORRIDORS_H
 
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 #include <array>
 #include <expected>
 #include <chrono>
@@ -17,7 +17,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include <diagnostics/DiagnosticSample.h>
+#include <DiagnosticSample.h>
 
 #include "Earth.h"
 #include "curve/Fit.h"
@@ -31,7 +31,7 @@
 #include "TerrainLoader.h"
 #include "TangentFrame.h"
 #include "Wayfinding.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include "spatial/Drape.h"
 
 namespace outshine::Generators {

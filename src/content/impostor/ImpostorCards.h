@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORCARDS_H
 #define OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORCARDS_H
 
-#include "math/Vec3.h"
-#include "scene/Geometry.h"
+#include "Vec3.h"
+#include "Geometry.h"
 #include <cstddef>
 #include <cstdint>
 #include <optional>

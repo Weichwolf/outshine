@@ -3,7 +3,7 @@
 #include "WaterSurfaceMesh.h"
 #include "TangentFrame.h"
 #include "Check.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include <cmath>
 #include <utility>
 

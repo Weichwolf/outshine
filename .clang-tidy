@@ -37,7 +37,7 @@ CheckOptions:
   # claimed `Sha256.h` was unused while `Sha256Hex` is called on the next screen. It also asks for
   # `SDL3/SDL_init.h` where SDL documents `SDL3/SDL.h` as the entry point. A finding that has to be
   # ignored teaches a reader to ignore findings, so the check keeps the half it is right about.
-  misc-include-cleaner.IgnoreHeaders: 'SDL3/.*;.*/src/.*;include/.*'
+  misc-include-cleaner.IgnoreHeaders: 'SDL3/.*;.*/src/.*'
 
   # `readability-identifier-length` was SWITCHED OFF where it should have been SET. Its default
   # asks for three characters, which is wrong in a maths kernel -- `e` and `n` are the clearest
@@ -52,7 +52,7 @@ CheckOptions:
   # `misc-non-private-member-variables-in-classes` enforces CLAUDE.md's own sentence -- a public data
   # member is an invariant nobody can hold -- and the hazard it names is a class that hides SOME
   # state and exposes the rest. A type whose members are ALL public is a record and has no invariant
-  # to break: include/Scenario.h holds fifty of them and not one `private:`. The check keeps the half
+  # to break: src/scenario/Scenario.h holds fifty of them and not one `private:`. The check keeps the half
   # that is about mixed classes.
   misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: 'true'
 

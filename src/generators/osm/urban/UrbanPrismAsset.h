@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_URBAN_URBANPRISMASSET_H
 
 #include "UrbanPrismCodec.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <array>
 #include <span>
 #include <cstddef>

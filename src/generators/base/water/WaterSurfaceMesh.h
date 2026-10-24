@@ -4,7 +4,7 @@
 #include "Earth.h"
 #include "PlanHierarchy.h"
 #include "TangentFrame.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

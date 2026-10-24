@@ -38,7 +38,7 @@ ApiRegion::Create(const Data::SourceProvider &provider,
                   Data::Transport &wire,
                   const Data::ProviderRegistry *registry,
                   std::string_view shippedRoot,
-                  std::optional<Data::GeoCellId> cell) {
+                  std::optional<GeoCellId> cell) {
   auto source = ConfiguredSource(provider, shippedRoot, registry);
   if (!source) { return std::unexpected(std::move(source.error())); }
   if ((*source)->Declaration().Kind != Data::DataKind::OriginalOsm ||
@@ -64,7 +64,7 @@ ApiRegion::Create(const Data::SourceProvider &provider,
 }
 
 SourceChunk ApiRegion::Chunk(const Data::SourceProvider &provider,
-                             std::optional<Data::GeoCellId> cell) const {
+                             std::optional<GeoCellId> cell) const {
   const auto &declaration = Sources_.At(0).Declaration();
   SourceChunk chunk{.Provider = provider, .Xml = {}, .Origin = declaration.Endpoint, .Cell = cell};
   if (cell) {
@@ -112,7 +112,7 @@ bool ApiRegion::HasCachedCoverage(Data::ContentStore &store) const {
          store.HasCompleteChildCoverage(declaration, *cell);
 }
 
-bool ApiRegion::Begin(const Data::ContentStore &store, std::vector<Data::GeoCellId> &refine) {
+bool ApiRegion::Begin(const Data::ContentStore &store, std::vector<GeoCellId> &refine) {
   const auto cell = Address_.GeoCell();
   if (cell && store.CanResumeFromChildren(Sources_.At(0).Declaration(), *cell)) {
     refine.push_back(*cell);

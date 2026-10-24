@@ -5,27 +5,6 @@ import pathlib
 import re
 import shlex
 
-PUBLIC_TIERS = {
-    'Earth.h': 'base',
-    'Extent.h': 'base',
-    'Logging.h': 'base',
-    'Outshine.h': 'engine',
-    'audio': 'audio',
-    'content': 'content',
-    'diagnostics': 'diagnostics',
-    'export': 'import',
-    'generation': 'generators',
-    'import': 'import',
-    'math': 'base',
-    'physics': 'actor',
-    'render': 'render',
-    'scenario': 'scenario',
-    'scene': 'base',
-    'world': 'world',
-}
-
-KNOWN_PUBLIC_FINDINGS = {}
-
 
 def physical_build_includes(text):
     expression = r'^\s*#\s*include\s*[<"]([^>"]+)[>"]'
@@ -46,10 +25,11 @@ def absolute_includes(text):
 
 
 def allowed(graph, owner, target):
-    return target == owner or owner.startswith(target + '/') or target in graph[owner]
+    return (target == owner or target.startswith(owner + '/') or owner.startswith(target + '/') or
+            any(target == tier or target.startswith(tier + '/') for tier in graph[owner]))
 
 
-def errors(graph, commands, public_edges=()):
+def errors(graph, commands, header_edges=()):
     found = []
     visiting, visited = set(), set()
 
@@ -81,16 +61,16 @@ def errors(graph, commands, public_edges=()):
             if not any(directory == tier or directory.startswith(tier + '/')
                        for tier in accessible):
                 found.append(f"{source}: undeclared include access {directory}")
-    for source, target in public_edges:
+    for source, target in header_edges:
         owners = [tier for tier in graph if source.startswith(tier + '/')]
         if not owners:
             found.append(f"no tier for {source}")
             continue
         owner = max(owners, key=len)
         if target not in graph:
-            found.append(f"{source}: public header belongs to unknown tier {target}")
+            found.append(f"{source}: header belongs to unknown tier {target}")
         elif not allowed(graph, owner, target):
-            found.append(f"{source}: undeclared public-header dependency {target}")
+            found.append(f"{source}: undeclared header dependency {target}")
     return found
 
 
@@ -108,12 +88,12 @@ def include_directories(entry):
     return directories
 
 
-def public_owner(header, include):
-    relative = header.relative_to(include)
-    key = relative.parts[0]
-    if key not in PUBLIC_TIERS:
-        raise RuntimeError(f'unclassified public header {relative}')
-    return PUBLIC_TIERS[key]
+def header_owner(header, src, graph):
+    relative = str(header.relative_to(src))
+    owners = [tier for tier in graph if relative.startswith(tier + '/')]
+    if not owners:
+        raise RuntimeError(f'unclassified component header {relative}')
+    return max(owners, key=len)
 
 
 class HeaderDependencies:
@@ -157,7 +137,7 @@ class HeaderDependencies:
             if current in visited:
                 continue
             visited.add(current)
-            if not current.is_relative_to(self.root) or current.suffix not in {'.h', '.hpp', '.cpp'}:
+            if not current.is_relative_to(self.root) or current.suffix not in {'.h', '.hpp', '.cpp', '.mm'}:
                 continue
             pending.extend(self.direct(current, directories))
         return visited
@@ -215,12 +195,11 @@ def main():
         raise RuntimeError('layer oracle positive/negative controls failed')
     root = pathlib.Path.cwd()
     src = root / 'src'
-    include = root / 'include'
     graph = {str(p.parent.relative_to(src)): p.read_text().split()
              for p in src.rglob('reaches')}
     reader = HeaderDependencies(root)
     commands = []
-    public_edges = set()
+    header_edges = set()
     generator_violations = []
     for entry in json.loads((root / 'compile_commands.json').read_text()):
         source = pathlib.Path(entry['file']).resolve()
@@ -233,16 +212,16 @@ def main():
                 includes.append(str(directory.relative_to(src)))
         commands.append((str(source.relative_to(src)), includes))
         dependencies = reader.read(source, directories)
-        for target in {public_owner(header, include)
-                       for header in dependencies if header.is_relative_to(include)}:
-            public_edges.add((str(source.relative_to(src)), target))
+        for target in {header_owner(header, src, graph)
+                       for header in dependencies if header.is_relative_to(src) and header.suffix in {'.h', '.hpp'}}:
+            header_edges.add((str(source.relative_to(src)), target))
         if source.is_relative_to(src / 'generators'):
             generator_violations.extend(generator_product_boundary(
                 {str(header.relative_to(root)) for header in dependencies
                  if header.is_relative_to(root)}))
     if not graph or not commands:
         raise RuntimeError('missing tier graph or compilation commands')
-    violations = errors(graph, commands, public_edges) + generator_violations
+    violations = errors(graph, commands, header_edges) + generator_violations
     if native_product_boundary({'src/world/products/BuildingGeometry.h', 'src/base/math/Capacity.h'}):
         raise RuntimeError('native product positive control failed')
     if not native_product_boundary({'src/generators/osm/import/OsmElementSet.h'}):
@@ -286,7 +265,7 @@ def main():
         dependencies = reader.read(source, directories)
         violations.extend(world_state_boundary(
             {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
-    for tree in (src, include, root / 'test'):
+    for tree in (src, root / 'test'):
         for source in tree.rglob('*'):
             if source.suffix not in {'.h', '.hpp', '.cpp', '.inc', '.glsl', '.vert', '.frag', '.comp'}:
                 continue
@@ -297,20 +276,11 @@ def main():
                 violations.append(f'{source.relative_to(root)}: parent-directory include {name}')
             for name in absolute_includes(text):
                 violations.append(f'{source.relative_to(root)}: absolute include {name}')
-    known = {
-        f'{source}: undeclared public-header dependency {target}': wi
-        for (source, target), wi in KNOWN_PUBLIC_FINDINGS.items()
-    }
-    failures = [failure for failure in violations if failure not in known]
-    stale = sorted(set(known) - set(violations))
-    failures.extend(f'stale known finding: {finding}' for finding in stale)
-    present_known = set(violations) & set(known)
-    for finding in sorted(present_known):
-        print(f'KNOWN WI {known[finding]}: {finding}')
+    failures = sorted(set(violations))
     for failure in failures:
         print(failure)
     print(f'{len(graph)} tiers, {len(commands)} compile commands, '
-          f'{len(public_edges)} public edges, {len(present_known)} known findings, '
+          f'{len(header_edges)} component header edges, '
           f'{len(failures)} violations')
     print('NOT COVERED: preprocessor conditionals, runtime coupling')
     return int(bool(failures))

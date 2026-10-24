@@ -1,4 +1,4 @@
-#include "generation/Generate.h"
+#include "Generator.h"
 
 #include <expected>
 #include <memory>

@@ -2,8 +2,8 @@
 #define OUTSHINE_RENDER_DRAW_INSTANCEDEMAND_H
 
 #include "BatchVisibility.h"
-#include "math/Vec3.h"
-#include "scene/ProjectedErrorBudget.h"
+#include "Vec3.h"
+#include "ProjectedErrorBudget.h"
 #include <cstdint>
 #include <expected>
 #include <span>

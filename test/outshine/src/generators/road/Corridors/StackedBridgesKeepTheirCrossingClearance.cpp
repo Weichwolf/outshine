@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "Corridors.h"
 #include "ProfiledRoadMesher.h"
-#include <scene/SurfaceClearance.h>
+#include <SurfaceClearance.h>
 
 #include <algorithm>
 #include <array>

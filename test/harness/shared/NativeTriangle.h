@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_TEST_NATIVETRIANGLE_H
 #define OUTSHINE_TEST_NATIVETRIANGLE_H
 
-#include <Outshine.h>
+#include <Engine.h>
 #include <array>
 #include <cstdint>
 #include <string_view>

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CLIENT_BENCHMARKMOTION_H
 #define OUTSHINE_CLIENT_BENCHMARKMOTION_H
 
-#include <scene/Camera.h>
+#include <Camera.h>
 #include <cstddef>
 #include <expected>
 #include <string_view>

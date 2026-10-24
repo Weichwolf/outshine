@@ -48,7 +48,7 @@ int main() {
        .Dataset = "openstreetmap.original",
        .Endpoint = std::string(kOfficialOsmApi),
        .Coverage =
-           SourceCoverage{.WestDeg = -0.1, .SouthDeg = -0.1, .EastDeg = 0.1, .NorthDeg = 0.1}}};
+           GeographicBounds{.WestDeg = -0.1, .SouthDeg = -0.1, .EastDeg = 0.1, .NorthDeg = 0.1}}};
   ContentStore store({.Using = ContentStore::Use::Off});
   DelayedWire fixed;
   CHECK(!outshine::Generators::Osm::ReadRegions(providers, store, fixed, 10, {}) &&

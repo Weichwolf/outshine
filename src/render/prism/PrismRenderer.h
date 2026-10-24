@@ -6,7 +6,7 @@
 #include "PrismInstance.h"
 #include "PrismUpload.h"
 #include "CasterChanges.h"
-#include "math/Box.h"
+#include "Box.h"
 #include <cstdint>
 #include <memory>
 #include <span>

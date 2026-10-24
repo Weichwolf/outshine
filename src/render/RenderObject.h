@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_RENDER_RENDEROBJECT_H
 #define OUTSHINE_RENDER_RENDEROBJECT_H
 
-#include "math/Mat4.h"
-#include "math/Vec3.h"
+#include "Mat4.h"
+#include "Vec3.h"
 #include "Shape.h"
 #include "Viewing.h"
 #include <array>

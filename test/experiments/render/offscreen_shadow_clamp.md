@@ -19,7 +19,7 @@ auf 8×8×3 zentralen Werten mit explizitem Reflexionsgrad 0,5 unabhängig gepr�
 Bilder erfüllen den Lichtentzug nicht.
 
 ```sh
-sh test/run.sh outshine/include/Outshine/OffscreenCastersPreserveDirectionalShadows
+sh test/run.sh outshine/src/engine/Engine/OffscreenCastersPreserveDirectionalShadows
 ```
 
 Normale Tests schreiben keine Bilder. Ein optionales einzelnes CLI-Ausgabepräfix

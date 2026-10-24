@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_SCENE_PRISMINSTANCE_H
 #define OUTSHINE_RENDER_SCENE_PRISMINSTANCE_H
 
-#include "math/Mat4.h"
+#include "Mat4.h"
 #include <cstdint>
 
 namespace outshine::Render {

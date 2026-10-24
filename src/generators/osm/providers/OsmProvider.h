@@ -1,9 +1,9 @@
 #ifndef OUTSHINE_GENERATORS_OSM_PROVIDERS_OSMPROVIDER_H
 #define OUTSHINE_GENERATORS_OSM_PROVIDERS_OSMPROVIDER_H
 
-#include <world/Provider.h>
-#include <world/SourceProvider.h>
-#include <world/data/Source.h>
+#include <Provider.h>
+#include <SourceProvider.h>
+#include <Source.h>
 #include <expected>
 #include <memory>
 #include <string>

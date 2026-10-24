@@ -6,7 +6,7 @@
 #include "OfflineTransport.h"
 #include "Sink.h"
 #include "Tasks.h"
-#include <world/SourceProvider.h>
+#include <SourceProvider.h>
 #include "OsmField.h"
 
 #include <array>

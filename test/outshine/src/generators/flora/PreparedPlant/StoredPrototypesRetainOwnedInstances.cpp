@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <expected>
 #include <system_error>
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <filesystem>

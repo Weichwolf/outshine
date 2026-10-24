@@ -3,7 +3,7 @@
 
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 
 #include <cstddef>
 #include <optional>

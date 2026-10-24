@@ -3,7 +3,7 @@
 #include "WaterAsset.h"
 #include "TangentFrame.h"
 #include "Check.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 
 int main() {
   using namespace outshine;

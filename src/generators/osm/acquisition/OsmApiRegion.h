@@ -3,7 +3,7 @@
 
 #include "OsmChunkSetLoader.h"
 #include "SourceSet.h"
-#include <world/Provider.h>
+#include <Provider.h>
 #include <memory>
 #include <expected>
 #include <optional>
@@ -21,11 +21,11 @@ public:
          Data::Transport &wire,
          const Data::ProviderRegistry *registry,
          std::string_view shippedRoot,
-         std::optional<Data::GeoCellId> cell);
+         std::optional<GeoCellId> cell);
   ~ApiRegion();
   [[nodiscard]] SourceChunk Chunk(const Data::SourceProvider &provider,
-                                  std::optional<Data::GeoCellId> cell) const;
-  [[nodiscard]] bool Begin(const Data::ContentStore &store, std::vector<Data::GeoCellId> &refine);
+                                  std::optional<GeoCellId> cell) const;
+  [[nodiscard]] bool Begin(const Data::ContentStore &store, std::vector<GeoCellId> &refine);
   [[nodiscard]] bool HasCachedCoverage(Data::ContentStore &store) const;
   [[nodiscard]] std::expected<Collected, std::string> Collect(SourceChunk &chunk, double beganMs);
 

@@ -6,7 +6,7 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <diagnostics/DiagnosticSample.h>
+#include <DiagnosticSample.h>
 
 namespace outshine::Client {
 

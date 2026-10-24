@@ -1,5 +1,5 @@
 #include "SurfaceState.h"
-#include <scene/Material.h>
+#include <Material.h>
 #include "Check.h"
 
 #if __has_include(<scene/SurfaceState.h>)

@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_WATER_WATERPHYSICALFRAME_H
 
 #include "TangentFrame.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <array>
 #include <expected>
 

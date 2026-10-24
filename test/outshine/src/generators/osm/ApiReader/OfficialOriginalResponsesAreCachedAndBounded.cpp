@@ -59,15 +59,16 @@ int main() {
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   ContentStore store({.Directory = directory});
   ApiWire wire;
-  SourceProvider provider{
-      .Kind = "osm",
-      .Revision = "r1",
-      .Missing = MissingDataPolicy::Fail,
-      .Dataset = "openstreetmap.original",
-      .Endpoint = std::string(kOfficialOsmApi),
-      .Coverage =
-          SourceCoverage{.WestDeg = 9.433, .SouthDeg = 54.785, .EastDeg = 9.445, .NorthDeg = 54.8},
-      .PayloadSha256 = Sha256Hex(wire.Xml)};
+  SourceProvider provider{.Kind = "osm",
+                          .Revision = "r1",
+                          .Missing = MissingDataPolicy::Fail,
+                          .Dataset = "openstreetmap.original",
+                          .Endpoint = std::string(kOfficialOsmApi),
+                          .Coverage = GeographicBounds{.WestDeg = 9.433,
+                                                       .SouthDeg = 54.785,
+                                                       .EastDeg = 9.445,
+                                                       .NorthDeg = 54.8},
+                          .PayloadSha256 = Sha256Hex(wire.Xml)};
   const auto cold = outshine::Generators::Osm::ReadRegion(provider, store, wire, 1100, {});
   CHECK(cold && cold->Xml == wire.Xml && !cold->FromStore &&
             wire.Urls ==
@@ -101,7 +102,7 @@ int main() {
           "unofficial or insecure endpoints fail before IO");
   }
   changed = provider;
-  changed.Coverage = SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1};
+  changed.Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1};
   CHECK(!outshine::Generators::Osm::ApiSource::Create(changed, 0),
         "API requests above the declared service area limit fail");
   ContentStore noCache({.Using = ContentStore::Use::Off});

@@ -3,8 +3,8 @@
 
 #include "ContentStore.h"
 #include "OsmChunkSetLoader.h"
-#include <world/data/Transport.h>
-#include <world/Provider.h>
+#include <Transport.h>
+#include <Provider.h>
 #include <functional>
 #include <expected>
 #include <span>
@@ -12,19 +12,19 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <world/data/GeoCellId.h>
+#include <GeoCellId.h>
 
 namespace outshine::Generators::Osm {
 
 struct SourceRead {
   std::vector<SourceChunk> Chunks;
-  std::vector<Data::GeoCellId> Refine;
+  std::vector<GeoCellId> Refine;
   double ElapsedMs = 0.0;
 };
 
 [[nodiscard]] std::expected<SourceRead, std::string>
 ReadCells(const Data::SourceProvider &catalogue,
-          std::span<const Data::GeoCellId> cells,
+          std::span<const GeoCellId> cells,
           Data::ContentStore &store,
           Data::Transport &wire,
           double deadlineMs,

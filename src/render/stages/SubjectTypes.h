@@ -6,18 +6,18 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include "math/Mat4.h"
+#include "Mat4.h"
 #include "TerrainInstance.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
 #include <span>
 
-#include "scene/PunctualLight.h"
-#include "scene/UvTransform.h"
-#include "scene/Texture.h"
+#include "PunctualLight.h"
+#include "UvTransform.h"
+#include "Texture.h"
 
 #include "DrawList.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine::Render {
 

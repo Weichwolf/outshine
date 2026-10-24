@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <vector>
-#include "scene/Texture.h"
+#include "Texture.h"
 
 namespace outshine::Core {
 

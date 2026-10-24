@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CONTENT_IMPOSTOR_PREPAREDIMPOSTORASSETS_H
 #define OUTSHINE_CONTENT_IMPOSTOR_PREPAREDIMPOSTORASSETS_H
 
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
 #include "Tasks.h"

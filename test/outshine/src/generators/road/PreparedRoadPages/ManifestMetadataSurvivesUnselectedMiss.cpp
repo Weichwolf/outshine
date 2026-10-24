@@ -1,8 +1,8 @@
 #include "PreparedRoadPages.h"
 #include "Sha256.h"
 #include "Check.h"
-#include <content/AssetCache.h>
-#include <content/GeometryAsset.h>
+#include <AssetCache.h>
+#include <GeometryAsset.h>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>

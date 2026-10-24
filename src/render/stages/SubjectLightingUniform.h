@@ -3,7 +3,7 @@
 
 #include "SubjectTypes.h"
 #include "ShadowRegionUniform.h"
-#include "math/Vec4.h"
+#include "Vec4.h"
 #include <array>
 #include <cstddef>
 

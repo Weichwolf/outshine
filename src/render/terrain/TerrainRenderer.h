@@ -12,7 +12,7 @@
 #include "Gpu.h"
 #include "FrameContext.h"
 #include "KernelShape.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "SubjectTypes.h"
 #include "TerrainPatchSelection.h"
 #include "scene/HeightPageBatch.h"

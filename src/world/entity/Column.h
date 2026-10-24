@@ -8,7 +8,7 @@
 #include <span>
 #include <type_traits>
 
-#include <world/EntityRegistry.h>
+#include <EntityRegistry.h>
 
 namespace outshine {
 

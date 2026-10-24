@@ -2,7 +2,7 @@
 #include "ContentStore.h"
 #include "SourceSet.h"
 #include "WebTileFixture.h"
-#include <world/data/Transport.h>
+#include <Transport.h>
 
 #include <memory>
 #include <string>

@@ -1,5 +1,5 @@
-#include <Outshine.h>
-#include <scenario/Scenario.h>
+#include <Engine.h>
+#include <Scenario.h>
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <algorithm>

@@ -3,7 +3,7 @@
 #include "UrbanAreaAsset.h"
 #include "OsmField.h"
 #include "Check.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <array>
 #include <algorithm>
 #include <charconv>

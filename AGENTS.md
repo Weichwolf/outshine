@@ -249,7 +249,7 @@
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
   Typ-/Binärverträge erlaubt. `reaches` und die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
-  Header liegen bei ihren besitzenden Komponenten unter `src/`; kein öffentlicher `include/`-Baum.
+  Header liegen bei ihren besitzenden Komponenten unter `src/`; kein separater öffentlicher Headerbaum.
   Kein Doxygen oder SDK-Gate. Kommentare in `.cpp`/`.mm` unter `src/` werden gestripped.
   `.h`/`.hpp` dürfen knappe nötige Vertrags-/Warum-Kommentare tragen; keine Pflichtblöcke.
   Tests dürfen Kommentare haben.

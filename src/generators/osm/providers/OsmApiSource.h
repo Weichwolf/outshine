@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_OSM_PROVIDERS_OSMAPISOURCE_H
 #define OUTSHINE_GENERATORS_OSM_PROVIDERS_OSMAPISOURCE_H
 
-#include <world/data/Source.h>
-#include <world/SourceProvider.h>
+#include <Source.h>
+#include <SourceProvider.h>
 
 #include <cstdint>
 #include <expected>

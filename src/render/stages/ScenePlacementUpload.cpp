@@ -1,7 +1,7 @@
 #include "GeometryRenderer.h"
 #include "GpuPlacement.h"
 #include "GeometryResidency.h"
-#include "math/Mat4.h"
+#include "Mat4.h"
 
 #include <algorithm>
 #include <array>

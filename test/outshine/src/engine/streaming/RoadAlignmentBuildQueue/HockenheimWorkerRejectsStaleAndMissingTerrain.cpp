@@ -36,7 +36,7 @@ int main() {
   ResolvedTransport transport{.Graph = std::move(*topology),
                               .Routes = {{.Id = "grand-prix", .Circuit = std::move(*circuit)}}};
   auto source = std::make_shared<const TransportNetworkSnapshot>(
-      std::move(transport), std::vector<SourceCoverage>{}, TransportLoadMetrics{});
+      std::move(transport), std::vector<GeographicBounds>{}, TransportLoadMetrics{});
   const auto coverage =
       RoadHeightCoverage::Select(*source, {.Zoom = 15, .MaximumEdges = 512, .MaximumTiles = 256});
   CHECK(coverage && coverage->SelectedRouteIndices == std::vector<size_t>{0} &&

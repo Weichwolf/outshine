@@ -1,4 +1,4 @@
-#include "content/GeometryAsset.h"
+#include "GeometryAsset.h"
 #include "BinaryValueArchive.h"
 #include "GeometryAssetValues.h"
 #include "MaterialValidation.h"

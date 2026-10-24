@@ -1,7 +1,7 @@
 #include "ImpostorCards.h"
 #include "Sha256.h"
 #include "BinaryValueArchive.h"
-#include "content/GeometryAsset.h"
+#include "GeometryAsset.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

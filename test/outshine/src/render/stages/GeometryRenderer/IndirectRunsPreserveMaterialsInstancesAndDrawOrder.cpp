@@ -1,6 +1,6 @@
 #include "Check.h"
-#include "scene/Geometry.h"
-#include "scene/Material.h"
+#include "Geometry.h"
+#include "Material.h"
 #include "RuntimeScene.h"
 #include "WorldCandidate.h"
 #include "SceneRenderer.h"

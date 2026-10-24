@@ -6,8 +6,8 @@
 #include "PreparedImpostorAssets.h"
 #include "Sha256.h"
 #include "Tasks.h"
-#include "content/AssetCache.h"
-#include "content/GeometryAsset.h"
+#include "AssetCache.h"
+#include "GeometryAsset.h"
 #include <array>
 #include <atomic>
 #include <chrono>

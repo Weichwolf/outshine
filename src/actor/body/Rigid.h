@@ -4,8 +4,8 @@
 #include <array>
 #include <span>
 
-#include "math/Quat.h"
-#include "math/Vec3.h"
+#include "Quat.h"
+#include "Vec3.h"
 
 namespace outshine::Physics {
 

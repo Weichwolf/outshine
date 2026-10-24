@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BASE_ASSETSOURCERECIPE_H
 #define OUTSHINE_GENERATORS_BASE_ASSETSOURCERECIPE_H
 
-#include <world/data/DataKind.h>
+#include <DataKind.h>
 #include <span>
 #include <string>
 #include <string_view>

@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_URBAN_URBANAREAPRISMS_H
 
 #include "UrbanArea.h"
-#include "math/Mat4.h"
+#include "Mat4.h"
 #include <scene/PrismGrid.h>
 #include <cstddef>
 #include <expected>

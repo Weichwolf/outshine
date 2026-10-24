@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CLIENT_CAPTURECAMERABASIS_H
 #define OUTSHINE_CLIENT_CAPTURECAMERABASIS_H
 
-#include <scene/Camera.h>
+#include <Camera.h>
 #include <expected>
 
 namespace outshine::Client {

@@ -3,7 +3,7 @@
 
 #include "TileSourceIdentity.h"
 #include "Earth.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <array>
 #include <chrono>
 #include <cmath>

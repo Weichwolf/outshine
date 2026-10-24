@@ -1,6 +1,6 @@
 #include "Rotation.h"
-#include "math/Mat4.h"
-#include "math/Quat.h"
+#include "Mat4.h"
+#include "Quat.h"
 #include <array>
 #include <cmath>
 #include <cstddef>

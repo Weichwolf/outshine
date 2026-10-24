@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_TEST_WEATHERCAPTURE_H
 #define OUTSHINE_TEST_WEATHERCAPTURE_H
 
-#include <generation/weather/OpenMeteoProvider.h>
+#include <OpenMeteoProvider.h>
 #include "format/Json.h"
 #include "io/ReadTextFile.h"
 

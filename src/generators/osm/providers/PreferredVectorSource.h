@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_OSM_PROVIDERS_PREFERREDVECTORSOURCE_H
 #define OUTSHINE_GENERATORS_OSM_PROVIDERS_PREFERREDVECTORSOURCE_H
 
-#include <world/SourceProvider.h>
+#include <SourceProvider.h>
 
 namespace outshine::Generators::Osm {
 

@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <world/data/Fetch.h>
+#include <Fetch.h>
 #include "TerrainTiles.h"
 
 namespace outshine::Ground {

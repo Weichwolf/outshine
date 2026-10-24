@@ -2,9 +2,9 @@
 #define OUTSHINE_TEST_PREPAREDPLANTFIXTURE_H
 #include "PreparedPlant.h"
 #include "Check.h"
-#include "scene/Geometry.h"
-#include "scene/Material.h"
-#include "math/Mat4.h"
+#include "Geometry.h"
+#include "Material.h"
+#include "Mat4.h"
 #include <cstdint>
 
 namespace outshine::Test {

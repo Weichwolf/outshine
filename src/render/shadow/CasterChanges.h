@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_SHADOW_CASTERCHANGES_H
 #define OUTSHINE_RENDER_SHADOW_CASTERCHANGES_H
 
-#include "math/Box.h"
+#include "Box.h"
 #include <array>
 #include <cmath>
 #include <cstddef>

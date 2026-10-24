@@ -55,11 +55,11 @@ int main() {
   Tasks compute(1);
   Tasks io(1);
   Wire wire;
-  const auto cells = Data::CellsAround(0.1,
-                                       0.1,
-                                       100,
-                                       Generators::Osm::kCatalogueCellLevel,
-                                       Generators::Osm::kDefaultCellLimits.CellsMost);
+  const auto cells = CellsAround(0.1,
+                                 0.1,
+                                 100,
+                                 Generators::Osm::kCatalogueCellLevel,
+                                 Generators::Osm::kDefaultCellLimits.CellsMost);
   CHECK(cells && cells->size() == 1, "the analytic station lies inside one source cell");
   if (!cells) { return Report(); }
   CHECK(Generators::Osm::PrepareSourceCache({.Catalogue = declared.Providers.front(),

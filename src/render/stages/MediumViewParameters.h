@@ -2,8 +2,8 @@
 #define OUTSHINE_RENDER_STAGES_MEDIUMVIEWPARAMETERS_H
 
 #include "Atmosphere.h"
-#include "math/Vec2.h"
-#include "math/Vec4.h"
+#include "Vec2.h"
+#include "Vec4.h"
 #include <cstddef>
 
 namespace outshine::Render {

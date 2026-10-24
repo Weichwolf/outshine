@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_GROUNDMATERIALS_H
 #define OUTSHINE_WORLD_GROUND_GROUNDMATERIALS_H
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <string_view>
 #include <cstddef>
 #include <string>

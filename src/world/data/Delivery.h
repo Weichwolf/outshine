@@ -6,9 +6,9 @@
 #include <optional>
 #include <vector>
 
-#include <world/data/Address.h>
-#include <world/data/FetchFailure.h>
-#include <world/data/Transport.h>
+#include <Address.h>
+#include <FetchFailure.h>
+#include <Transport.h>
 
 namespace outshine::Data {
 

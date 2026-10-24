@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "SubjectTypes.h"
 #include "ResourceHandle.h"
 #include "StructureBake.h"

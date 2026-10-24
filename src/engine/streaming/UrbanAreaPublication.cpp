@@ -4,7 +4,7 @@
 #include "SceneRenderer.h"
 #include "BuildingMaterials.h"
 #include "RenderFrame.h"
-#include <scene/Geometry.h>
+#include <Geometry.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

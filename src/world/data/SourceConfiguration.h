@@ -4,8 +4,8 @@
 #include <span>
 #include <string>
 
-#include <world/SourceProvider.h>
-#include <world/Provider.h>
+#include <SourceProvider.h>
+#include <Provider.h>
 
 #include "SourceSet.h"
 

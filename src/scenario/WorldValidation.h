@@ -1,6 +1,6 @@
 #ifndef OUTSHINE_SCENARIO_WORLDVALIDATION_H
 #define OUTSHINE_SCENARIO_WORLDVALIDATION_H
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include "GroundPollBudget.h"
 #include <array>
 #include <cmath>

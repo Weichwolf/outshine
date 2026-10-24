@@ -4,8 +4,8 @@
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
 #include "ResourceHandle.h"
-#include "math/Mat4.h"
-#include "math/Vec3.h"
+#include "Mat4.h"
+#include "Vec3.h"
 
 #include <cstdint>
 #include <memory>

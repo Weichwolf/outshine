@@ -26,8 +26,8 @@
 #include <SDL3/SDL.h>
 
 #include <Logging.h>
-#include <Outshine.h>
-#include <scenario/Scenario.h>
+#include <Engine.h>
+#include <Scenario.h>
 
 #include "PlaceCamera.h"
 #include "PixelProbe.h"

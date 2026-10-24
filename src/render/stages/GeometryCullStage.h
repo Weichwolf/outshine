@@ -7,8 +7,8 @@
 #include "ComputeShaders.h"
 #include "StageSubmission.h"
 #include "GeometryResidency.h"
-#include "math/Vec4.h"
-#include "math/Vec2.h"
+#include "Vec4.h"
+#include "Vec2.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

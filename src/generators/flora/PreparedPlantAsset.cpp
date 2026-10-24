@@ -1,6 +1,6 @@
 #include "PreparedPlant.h"
 #include "BinaryValueArchive.h"
-#include "content/GeometryAsset.h"
+#include "GeometryAsset.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>

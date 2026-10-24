@@ -1,5 +1,5 @@
 #include "UrbanPrismPreparation.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>

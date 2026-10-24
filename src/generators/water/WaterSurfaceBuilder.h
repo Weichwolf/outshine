@@ -3,8 +3,8 @@
 
 #include "WaterAsset.h"
 #include "Earth.h"
-#include "scene/Geometry.h"
-#include "scene/Material.h"
+#include "Geometry.h"
+#include "Material.h"
 
 #include <cstddef>
 #include <expected>

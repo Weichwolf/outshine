@@ -1,4 +1,4 @@
-#include <Outshine.h>
+#include <Engine.h>
 #include <SDL3/SDL.h>
 
 #include "Check.h"
@@ -33,7 +33,7 @@ int main() {
          .Missing = Data::MissingDataPolicy::Fail,
          .Dataset = "openstreetmap",
          .Location = "src/assets/world/osm/HockenheimringGrandPrix.osm",
-         .Coverage = Data::SourceCoverage{
+         .Coverage = GeographicBounds{
              .WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34}});
     scene.Routes.push_back({.Id = "circuit", .OsmRelationId = 284588});
     Scenario::View view;

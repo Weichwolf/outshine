@@ -2,7 +2,7 @@
 #define OUTSHINE_TEST_NATIVECOG_H
 
 #include "Check.h"
-#include <world/data/Address.h>
+#include <Address.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

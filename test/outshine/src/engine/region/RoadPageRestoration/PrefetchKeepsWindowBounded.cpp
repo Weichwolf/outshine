@@ -1,7 +1,7 @@
 #include "RoadPageRestoration.h"
 #include "Sha256.h"
 #include "Check.h"
-#include <content/GeometryAsset.h>
+#include <GeometryAsset.h>
 #include <algorithm>
 #include <chrono>
 #include <cstddef>

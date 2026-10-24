@@ -2,9 +2,9 @@
 #include "FrameCapture.h"
 #include "Image.h"
 #include "SceneRenderer.h"
-#include "math/Units.h"
-#include "math/Vec2.h"
-#include "math/Vec3.h"
+#include "Units.h"
+#include "Vec2.h"
+#include "Vec3.h"
 #include "Log.h"
 #include <algorithm>
 #include <atomic>

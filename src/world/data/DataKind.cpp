@@ -1,4 +1,4 @@
-#include <world/data/DataKind.h>
+#include <DataKind.h>
 
 namespace outshine::Data {
 

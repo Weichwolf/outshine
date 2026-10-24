@@ -1,4 +1,4 @@
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "Check.h"
 #include "ContentStore.h"
 #include "PreparedTerrainAssets.h"

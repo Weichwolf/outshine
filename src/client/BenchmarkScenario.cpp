@@ -12,9 +12,9 @@
 #include "SourceCache.h"
 #include "WriteFileAtomically.h"
 #include "format/Sha256.h"
-#include <Outshine.h>
+#include <Engine.h>
 #include <SDL3/SDL.h>
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 
 #include <array>
 #include <chrono>

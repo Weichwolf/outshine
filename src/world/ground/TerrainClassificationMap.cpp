@@ -1,4 +1,4 @@
-#include "math/Vec2.h"
+#include "Vec2.h"
 #include "TerrainClassificationMap.h"
 #include "ClassSeed.h"
 

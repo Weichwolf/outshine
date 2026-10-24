@@ -22,7 +22,7 @@
 #include "PreparedUrbanAreas.h"
 #include "PreparedStreetGraph.h"
 #include "TerrainLoader.h"
-#include <world/data/SourceDecl.h>
+#include <SourceDecl.h>
 #include "BuildingField.h"
 #include "ClassificationPreparation.h"
 #include "GroundMaterials.h"
@@ -32,7 +32,7 @@
 #include "VegetationTemplates.h"
 #include "WaterField.h"
 
-#include <world/WorldStorage.h>
+#include <WorldStorage.h>
 
 namespace outshine {
 class LogSink;

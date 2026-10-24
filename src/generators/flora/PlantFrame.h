@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_FLORA_PLANTFRAME_H
 #define OUTSHINE_GENERATORS_FLORA_PLANTFRAME_H
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <array>
 #include <optional>
 

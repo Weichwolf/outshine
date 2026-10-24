@@ -10,8 +10,8 @@
 #include <vector>
 #include <variant>
 #include <span>
-#include "math/Units.h"
-#include "math/Vec4.h"
+#include "Units.h"
+#include "Vec4.h"
 #include "TerrainTiles.h"
 #include "ChunkSurface.h"
 

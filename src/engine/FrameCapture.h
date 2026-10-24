@@ -2,7 +2,7 @@
 #define OUTSHINE_ENGINE_FRAMECAPTURE_H
 
 #include "Extent.h"
-#include "Outshine.h"
+#include "Engine.h"
 
 #include <string>
 #include <string_view>

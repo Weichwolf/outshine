@@ -6,7 +6,7 @@
 #include <span>
 #include <string>
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 
 namespace outshine {
 

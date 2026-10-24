@@ -1,11 +1,11 @@
 #include "Digest.h"
 #include "Sha256.h"
-#include "math/Units.h"
+#include "Units.h"
 #include "TilePool.h"
 #include "TerrainDelivery.h"
 #include "TileGeodesy.h"
 #include "CopernicusTerrain.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <algorithm>
 #include <expected>
@@ -38,7 +38,7 @@
 #include "StackProbe.h"
 #include "TerrainTiles.h"
 #include <limits>
-#include <world/data/Transport.h>
+#include <Transport.h>
 
 namespace outshine::Ground {
 

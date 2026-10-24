@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_BASE_SPATIAL_PLANESURFACEPATCHES_H
 #define OUTSHINE_BASE_SPATIAL_PLANESURFACEPATCHES_H
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <cstddef>
 #include <array>

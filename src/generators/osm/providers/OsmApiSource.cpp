@@ -2,7 +2,7 @@
 
 #include "OsmXmlReader.h"
 #include "SourceProviderValidation.h"
-#include <world/SourceProvider.h>
+#include <SourceProvider.h>
 
 #include <format>
 #include <cmath>
@@ -14,7 +14,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <world/data/GeoCellId.h>
+#include <GeoCellId.h>
 
 namespace outshine::Generators::Osm {
 namespace {
@@ -26,7 +26,7 @@ constexpr int kHttpTooManyRequests = 429;
 constexpr int kHttpServerError = 500;
 constexpr int kHttpBandwidthLimitExceeded = 509;
 
-std::string MapEndpoint(std::string_view endpoint, const Data::SourceCoverage &bounds) {
+std::string MapEndpoint(std::string_view endpoint, const GeographicBounds &bounds) {
   return std::format("{}/map?bbox={},{},{},{}",
                      endpoint,
                      bounds.WestDeg,
@@ -35,7 +35,7 @@ std::string MapEndpoint(std::string_view endpoint, const Data::SourceCoverage &b
                      bounds.NorthDeg);
 }
 
-std::optional<Data::SourceCoverage> ApiCellBounds(const Data::Address &at) noexcept {
+std::optional<GeographicBounds> ApiCellBounds(const Data::Address &at) noexcept {
   const auto cell = at.GeoCell();
   if (!cell) { return std::nullopt; }
   const auto bounds = cell->Bounds();

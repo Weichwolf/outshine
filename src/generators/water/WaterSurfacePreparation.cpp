@@ -4,7 +4,7 @@
 
 #include "TangentFrame.h"
 #include "Earth.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include "PolygonTriangulation.h"
 

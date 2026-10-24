@@ -7,7 +7,7 @@
 #include "WaterField.h"
 #include "WaterSurfaceBuilder.h"
 #include "WaterSurfacePreparation.h"
-#include "math/Vec4.h"
+#include "Vec4.h"
 
 #include <algorithm>
 #include <array>

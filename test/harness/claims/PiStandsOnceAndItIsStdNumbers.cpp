@@ -78,8 +78,8 @@ int main(void) {
         "for pi (board:1630)");
 
   CHECK(
-      alias.size() == 1 && alias[0] == std::filesystem::path("include/math/Units.h").string(),
-      "the kPi alias stands ONCE, in include/math/Units.h -- a second alias is the duplicate this "
+      alias.size() == 1 && alias[0] == std::filesystem::path("src/base/math/Units.h").string(),
+      "the kPi alias stands ONCE, in src/base/math/Units.h -- a second alias is the duplicate this "
       "item removed from TileMath.h, and the header is in the DOOR because a client computing "
       "against the engine reads the same pi the engine does");
 

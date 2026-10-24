@@ -3,7 +3,7 @@
 
 #include "OsmField.h"
 #include "Tasks.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include <atomic>
 #include <expected>
 #include <memory>

@@ -3,7 +3,7 @@
 
 #include "Corridors.h"
 #include "RoadPageQueue.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include <cstddef>
 #include <expected>
 #include <memory>

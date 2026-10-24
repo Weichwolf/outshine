@@ -1,7 +1,7 @@
 #include "RoadPageConstruction.h"
 #include "ProfiledRoadMesher.h"
 #include "Sha256.h"
-#include <content/GeometryAsset.h>
+#include <GeometryAsset.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>

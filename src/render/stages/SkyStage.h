@@ -1,9 +1,9 @@
 #ifndef OUTSHINE_RENDER_STAGES_SKYSTAGE_H
 #define OUTSHINE_RENDER_STAGES_SKYSTAGE_H
 
-#include "math/Vec4.h"
-#include "math/Vec2.h"
-#include "math/Vec3.h"
+#include "Vec4.h"
+#include "Vec2.h"
+#include "Vec3.h"
 #include <string>
 
 #include "KernelShape.h"

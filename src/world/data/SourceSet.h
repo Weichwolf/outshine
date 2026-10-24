@@ -13,8 +13,8 @@
 
 #include "ContentStore.h"
 #include "Delivery.h"
-#include <world/data/DataKind.h>
-#include <world/data/Source.h>
+#include <DataKind.h>
+#include <Source.h>
 
 namespace outshine::Data {
 

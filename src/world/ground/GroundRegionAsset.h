@@ -4,7 +4,7 @@
 #include "TerrainClassificationMap.h"
 #include "GroundMesher.h"
 #include "Wayfinding.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>

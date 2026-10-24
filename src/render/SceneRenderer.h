@@ -2,11 +2,11 @@
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
-#include "math/Mat4.h"
-#include "math/Vec2.h"
-#include "math/Vec3.h"
+#include "Mat4.h"
+#include "Vec2.h"
+#include "Vec3.h"
 #include "Extent.h"
-#include <render/RenderConfiguration.h>
+#include <RenderConfiguration.h>
 #include "Heap.h"
 #include <array>
 #include <cassert>

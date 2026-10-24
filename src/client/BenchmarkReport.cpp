@@ -3,10 +3,10 @@
 #include "ClientBuild.h"
 #include "GpuFrameSample.h"
 #include "GpuFrameTiming.h"
-#include "math/Quantile.h"
-#include "math/Mat4.h"
-#include "math/Vec3.h"
-#include <Outshine.h>
+#include "Quantile.h"
+#include "Mat4.h"
+#include "Vec3.h"
+#include <Engine.h>
 #include <SDL3/SDL_cpuinfo.h>
 #include <nlohmann/json.hpp>
 

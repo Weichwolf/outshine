@@ -42,7 +42,7 @@ int main() {
             .SourceBytes = xml.size(),
             .Chunks = {{.Location = "official-original-cell",
                         .PayloadSha256 = std::string(64, 'a')}},
-            .Cell = Data::GeoCellId{.Level = 9, .X = 256, .Y = 256}});
+            .Cell = GeoCellId{.Level = 9, .X = 256, .Y = 256}});
     archive = source;
     archiveBytes = source->StorageChargeBytes();
     const auto footprints = outshine::Generators::Osm::BuildingFootprints::Build(source, 4);

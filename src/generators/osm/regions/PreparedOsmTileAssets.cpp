@@ -2,8 +2,8 @@
 #include "Geodesy.h"
 #include "Sha256.h"
 #include "TileGeodesy.h"
-#include "math/Units.h"
-#include "content/AssetGeneration.h"
+#include "Units.h"
+#include "AssetGeneration.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

@@ -1,6 +1,6 @@
 #include "GeometryRenderer.h"
 #include "CasterChanges.h"
-#include "math/Box.h"
+#include "Box.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>

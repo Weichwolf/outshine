@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 #define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 #include <array>
 #include <expected>
 #include <functional>
@@ -14,7 +14,7 @@
 #include <vector>
 #include <unordered_map>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include "HeightField.h"
 #include "OsmStructurePreparation.h"

@@ -2,7 +2,7 @@
 #include "UrbanAreaAsset.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <array>
 #include <chrono>
 #include <cstddef>

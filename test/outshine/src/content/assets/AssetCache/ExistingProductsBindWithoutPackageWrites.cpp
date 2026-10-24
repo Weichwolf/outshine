@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "Sha256.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <algorithm>
 #include <array>
 #include <chrono>

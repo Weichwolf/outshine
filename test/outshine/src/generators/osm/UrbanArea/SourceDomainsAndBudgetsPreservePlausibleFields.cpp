@@ -2,7 +2,7 @@
 #include "OsmField.h"
 #include "Check.h"
 #include "TileGeodesy.h"
-#include "math/Vec2.h"
+#include "Vec2.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

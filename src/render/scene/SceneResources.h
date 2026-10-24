@@ -8,7 +8,7 @@
 #include "PrismInstance.h"
 #include <scene/PrismGrid.h>
 #include "device/native/Commands.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 
 #include <cstddef>
 #include <expected>

@@ -2,9 +2,9 @@
 #include "Geodesy.h"
 #include "Sha256.h"
 #include "Wgs84.h"
-#include "math/Box.h"
-#include "math/Vec3.h"
-#include "math/Units.h"
+#include "Box.h"
+#include "Vec3.h"
+#include "Units.h"
 #include <array>
 #include <cmath>
 #include <cstddef>

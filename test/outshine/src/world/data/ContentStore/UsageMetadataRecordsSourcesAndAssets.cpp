@@ -1,5 +1,5 @@
 #include "ContentStore.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "Check.h"
 #include <array>
 #include <chrono>

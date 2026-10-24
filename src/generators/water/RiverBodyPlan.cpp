@@ -1,8 +1,8 @@
 #include "RiverBodyPlan.h"
 #include "TileSourceIdentity.h"
-#include "math/Box.h"
-#include "math/Vec3.h"
-#include "math/Units.h"
+#include "Box.h"
+#include "Vec3.h"
+#include "Units.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

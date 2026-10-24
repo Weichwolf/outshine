@@ -1,6 +1,6 @@
 #include "SurfaceLayoutInternal.h"
 #include "PlanHierarchy.h"
-#include "math/Box.h"
+#include "Box.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

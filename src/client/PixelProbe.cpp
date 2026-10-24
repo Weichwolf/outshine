@@ -1,7 +1,7 @@
 #include "PixelProbe.h"
 
-#include <Outshine.h>
-#include <scenario/Scenario.h>
+#include <Engine.h>
+#include <Scenario.h>
 
 #include <algorithm>
 #include <array>

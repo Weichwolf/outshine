@@ -5,8 +5,8 @@
 #include <limits>
 #include "Earth.h"
 #include "Geocentric.h"
-#include "math/Vec3.h"
-#include "math/Units.h"
+#include "Vec3.h"
+#include "Units.h"
 
 namespace outshine {
 
