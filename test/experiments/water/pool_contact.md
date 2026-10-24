@@ -65,12 +65,16 @@ area, but5.61e-15 m² rounded extra boundary area. Its exact-domain check is not
 weakened. The declining GEOS candidate remains an explicit comparison, not a
 silently accepted fallback.
 
-For this one-cell case only one true outer wall segment crosses the patch.
 `pool_cell_partition` clips the existing triangles with exact rational planar
 predicates/constructions, joins all exact shared edge nodes, and fans each convex
-piece around an interior point. It verifies exact local interior and full area
-before Float64 output. Multiple crossing wall segments refuse this bounded
-method. Fractions describe the input doubles exactly, not the Earth exactly.
+piece around an interior point. Entirely interior/exterior triangles are
+qualified by exact clipped cap area. Partial contact uses at most64outer-edge
+half-planes: contact pieces must be contained in their intersection and cover
+its exact area. Sequential clips partition the remaining exterior without
+overlap. A concave partial contact that cannot satisfy this proof is refused.
+It verifies exact local interior and full area before Float64 output. Fractions
+describe the input doubles exactly, not the Earth exactly.
+The saved one-cell case crosses one true outer wall segment and remains unchanged.
 The original case has6candidate pairs,8pieces,21vertices/30triangles and390edge-node
 tests. Unique output vertices are rounded once; distinct exact nodes may not
 collapse. Rounding is measured explicitly; original-edge parameters accompany
@@ -83,6 +87,11 @@ It covers the whole0.218114m² body/patch overlap, not just point samples. This
 represents only the supplied cell. Boundary heights change by up to1.0652m;
 output admission is `candidate_pending_neighbor_updates`, with explicit old/new
 heights and edge parameters. No closed neighboring/world contact is claimed.
+New boundary vertices also require neighbor updates when heights do not change;
+`new_outer_boundary_vertices` counts these subdivisions. A flat-floor control
+with two independently generated triangles retains the same shared midpoint and
+position words in both exact and GEOS paths. It exposes the former height-only
+update decision without claiming a native raster defect.
 
 The same known cell can be split into its two original triangles and generated
 independently with different local vertex slots and cyclic face order. The
@@ -95,6 +104,12 @@ queries retain the existing1e-7m contract; the observed Linux case is word-equal
 there too. This is a two-consumer check inside one known cell/frame. It does not
 qualify adjacent native pages, differing frames, shader transforms or the missing
 outer terrain. No new border cache, resolver or native product format is added.
+
+Additional planar controls use all21original water facets as an interior domain,
+the actual23-edge outline inside a padded rectangle, and an analytic convex
+corner with exactly one sixth of the input area inside. They check complete
+coverage, positive faces and indexed topology. These are geometric controls;
+they do not supply or reconstruct the missing native neighborhood heights.
 
 ## Checks, cost and limits
 
@@ -132,7 +147,7 @@ demands exclude Python/Fraction/string/GEOS/native packing costs. These are extr
 products, not a memory-saving or equal-quality speed claim.
 
 Limits:2048source water facets,16384plan vertices; exact cell≤64input triangles,
-≤2048contact facets,32768potential pairs,128pieces,1024nodes and262144edge-node
+≤2048contact facets,32768potential pairs,64outer edges,128pieces,1024nodes and262144edge-node
 checks. Cancel is checked between exact clipping stages; individual GEOS calls
 are not preemptible. These are admission/work bounds, not hard scratch/RSS caps.
 Everything is asynchronous generation; a cache hit must not redo it. Native
@@ -153,4 +168,5 @@ Existing NumPy, Shapely/GEOS, pyproj and Python Fraction are used; no new packag
 PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport .venv/bin/python -B -W error -m unittest test_pool_terrain_contact test_pool_body test_native_bank_slice test_conforming_body_contact test_body_ground_support
 PYTHONPATH=lib/src:test/experiments/water:test/experiments/render .venv/bin/python -B -W error test/experiments/water/pool_body_experiment.py --render --output /tmp/outshine-pool-body
 PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/water/pool_contact_experiment.py --repeats 7 --render --output /tmp/outshine-pool-contact
+PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/water/pool_region_experiment.py --repeats 7 --render --output /tmp/outshine-pool-planar-controls
 ```

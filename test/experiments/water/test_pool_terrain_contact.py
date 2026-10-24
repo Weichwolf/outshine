@@ -138,7 +138,7 @@ class PoolTerrainContact(unittest.TestCase):
             ]
             np.testing.assert_array_equal(vertices[port["output_vertex"], :2], expected)
 
-    def test_cancellation_and_multiple_outer_edges_are_not_unqualified_successes(self):
+    def test_cancellation_and_outer_edge_budget_are_not_unqualified_successes(self):
         saved = self.terrain.copy()
         with self.assertRaisesRegex(ValueError, "cancelled"):
             partition(self.body, self.terrain, self.faces, cancelled=lambda: True)
@@ -147,8 +147,9 @@ class PoolTerrainContact(unittest.TestCase):
         xy = np.array(
             [[low[0], high[1]], [high[0], high[1]], [low[0], low[1]], [high[0], low[1]]]
         )
-        with self.assertRaisesRegex(ValueError, "exactly one crossing"):
-            partition(self.body, np.column_stack((xy, np.ones(4))), self.faces)
+        repeated = {**self.body, "outer_ring": np.tile(self.body["outer_ring"], 3)}
+        with self.assertRaisesRegex(ValueError, "outer-edge work"):
+            partition(repeated, np.column_stack((xy, np.ones(4))), self.faces)
         np.testing.assert_array_equal(saved, self.terrain)
 
 
