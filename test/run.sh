@@ -333,7 +333,8 @@ TestProfile() {
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
     outshine/src/render/RenderConfiguration) printf '%s' 'profile/render-configuration' ;;
-    outshine/src/generators/osm/BuildingField | outshine/src/generators/osm/WaterField) printf '%s' 'profile/osm-fields' ;;
+    outshine/src/generators/osm/BuildingField | outshine/src/generators/osm/WaterField | outshine/src/generators/osm/OsmField)
+      printf '%s' 'profile/osm-fields' ;;
     outshine/src/generators/terrain/BuildingStampJob) printf '%s' 'profile/building-stamps' ;;
     outshine/src/engine/BuildingFootprintMeasurements) printf '%s' 'profile/building-measurements' ;;
     outshine/src/generators/osm/MvtLayer | outshine/src/generators/osm/OsmStorageUsage)

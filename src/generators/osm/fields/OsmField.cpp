@@ -875,31 +875,38 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over, std::string
 
 std::optional<MvtLayer::Tag>
 OsmField::FindTag(const Feature &feature, std::string_view key, TagKind kind) const {
+  if (feature.TagCount < 2) { return std::nullopt; }
+  const std::string_view layer =
+      Schema_ == MvtSchema::Shortbread ? std::string_view{} : Layers_[feature.Layer];
+  const auto sourceKey = MvtAliasSourceKey(Schema_, layer, key);
   std::optional<MvtLayer::Tag> alias;
   bool explicitKey = false;
   const auto matches = [kind](const MvtLayer::Tag &tag) {
     return kind == TagKind::Any || tag.IsNumber == (kind == TagKind::Number);
   };
   for (uint32_t at = 0; at + 1 < feature.TagCount; at += 2) {
+    const std::string_view given = Keys_[Tags_[feature.FirstTag + at]];
+    if (given != key && (explicitKey || alias || sourceKey.empty() || given != sourceKey)) {
+      continue;
+    }
     const auto &value = Values_[Tags_[feature.FirstTag + at + 1]];
-    const MvtLayer::Tag tag{.Key = Keys_[Tags_[feature.FirstTag + at]],
+    const MvtLayer::Tag tag{.Key = given,
                             .String = value.IsNum ? std::string_view{} : Strings_[value.Str],
                             .Number = value.Num,
                             .IsNumber = value.IsNum};
     if (tag.Key == key) {
       explicitKey = true;
       if (matches(tag)) { return tag; }
-    } else if (!alias) {
-      const auto subclass = Schema_ == MvtSchema::OpenMapTiles &&
-                                    Layers_[feature.Layer] == "streets" && key == "kind" &&
-                                    tag.Key == "class" && !tag.IsNumber &&
-                                    (tag.String == "transit" || tag.String == "path")
-                                ? FindTag(feature, "subclass", TagKind::String)
-                                : std::nullopt;
-      const auto normalized = NormalizeMvtTag(
-          Schema_, Layers_[feature.Layer], tag, subclass ? subclass->String : std::string_view{});
-      if (normalized.Key == key) { alias = normalized; }
+      continue;
     }
+    const auto subclass = Schema_ == MvtSchema::OpenMapTiles && layer == "streets" &&
+                                  key == "kind" && tag.Key == "class" && !tag.IsNumber &&
+                                  (tag.String == "transit" || tag.String == "path")
+                              ? FindTag(feature, "subclass", TagKind::String)
+                              : std::nullopt;
+    const auto normalized =
+        NormalizeMvtTag(Schema_, layer, tag, subclass ? subclass->String : std::string_view{});
+    if (normalized.Key == key) { alias = normalized; }
   }
   return !explicitKey && alias && matches(*alias) ? alias : std::nullopt;
 }
