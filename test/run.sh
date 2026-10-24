@@ -652,7 +652,7 @@ LayerGroups() {
     profile/vector) printf '%s' "src/generators/osm/providers/MvtLayer.cpp" ;;
     profile/osm-xml) printf '%s' "src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/transport-native) printf '%s' "src/world/navigation/TransportTopology.cpp" ;;
-    profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/generators/osm/transport src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
+    profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/generators/osm/transport/OsmTransportBuilder.cpp src/generators/osm/transport/OsmWaySemantics.cpp src/generators/osm/transport/CircuitRoute.cpp src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/diagnostics) LayerGroups profile/internal; printf ' %s' "src/diagnostics" ;;
     profile/internal|profile/device) LayerGroups profile/engine ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/base/format/CssColour.cpp src/ui" ;;

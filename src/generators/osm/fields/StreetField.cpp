@@ -1,4 +1,5 @@
 #include "StreetField.h"
+#include "OsmSurfacePlacement.h"
 #include <cstdint>
 #include <span>
 #include <string_view>
@@ -98,7 +99,8 @@ uint32_t StreetField::Ingest(const OsmField &field,
     const bool area = f.Type == 3 && std::cmp_equal(f.Layer, areas);
     if (!ribbon && !area) { continue; }
 
-    if (field.Num(f, "tunnel", 0.0) > 0.5) {
+    const auto placement = ReadSurfacePlacement(field, static_cast<uint32_t>(c));
+    if (placement && placement->Tunnel == true) {
       Tunnels_++;
       continue;
     }
@@ -114,7 +116,12 @@ uint32_t StreetField::Ingest(const OsmField &field,
       continue;
     }
 
-    AppendFeature(field, static_cast<uint32_t>(c), *rule, ribbon ? Shape::Ribbon : Shape::Area);
+    if (!placement) {
+      RecordInvalidPlacement(placement.error());
+      continue;
+    }
+    AppendFeature(
+        field, static_cast<uint32_t>(c), *rule, ribbon ? Shape::Ribbon : Shape::Area, *placement);
   }
 
   ByTile_.Set(next.Tile, firstWay, static_cast<uint32_t>(Ways_.size()));
@@ -123,6 +130,11 @@ uint32_t StreetField::Ingest(const OsmField &field,
   }
   SourceDigests_[next.Tile] = DigestOfWays(field, OfTile(static_cast<int>(next.Tile)));
   return static_cast<uint32_t>(Ways_.size());
+}
+
+void StreetField::RecordInvalidPlacement(SurfacePlacementError error) {
+  ++InvalidPlacements_;
+  if (error == SurfacePlacementError::InvalidLayer) { ++InvalidLayers_; }
 }
 
 std::optional<uint64_t> StreetField::SourceDigest(const OsmField &field,
@@ -146,13 +158,9 @@ std::optional<StreetField::SourceReference> StreetField::SourceOf(const OsmField
 void StreetField::AppendFeature(const OsmField &field,
                                 uint32_t featureAt,
                                 const VegetationTemplates::Rule &rule,
-                                Shape shape) {
+                                Shape shape,
+                                const SurfacePlacement &placement) {
   const auto &feature = field.Features()[featureAt];
-  const auto layer = field.Integer(feature, "layer");
-  if (!layer) {
-    ++InvalidLayers_;
-    return;
-  }
   const bool ribbon = shape == Shape::Ribbon;
   const bool area = shape == Shape::Area;
   for (uint32_t r = 0; r < feature.RingCount; r++) {
@@ -173,11 +181,11 @@ void StreetField::AppendFeature(const OsmField &field,
                     OwnsEnd(field, feature, static_cast<size_t>(ring.First) + ring.Count - 1u)};
     }
     w.Lanes = rule.Lanes;
-    w.Bridge = field.Num(feature, "bridge", 0.0) > 0.5;
+    w.Bridge = placement.Bridge.value_or(false);
     w.Ramp = field.Num(feature, "ramp", 0.0) > 0.5 ||
              field.Str(feature, "kind").ends_with("_link") ||
              field.Str(feature, "subclass").ends_with("_link");
-    w.Layer = layer->value_or(0);
+    w.Layer = placement.Layer.value_or(0);
     w.ClearanceM = rule.ClearanceM;
     w.MaxGradient = rule.MaxGradient;
     w.SpeedMps = rule.SpeedMps;
@@ -187,7 +195,7 @@ void StreetField::AppendFeature(const OsmField &field,
     w.Source = SourceReference{.Feature = featureAt, .Ring = feature.FirstRing + r};
     Bridges_ += w.Bridge ? 1 : 0;
     Layered_ += w.Layer != 0 ? 1 : 0;
-    LayerSaid_ += layer->has_value() ? 1 : 0;
+    LayerSaid_ += placement.Layer.has_value() ? 1 : 0;
     Ways_.push_back(w);
   }
 }

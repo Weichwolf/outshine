@@ -2168,12 +2168,16 @@ std::expected<bool, std::string_view> Corridors::AdvanceFinish(Job &job, const J
           "streets: features that are tunnels",
           static_cast<double>(ways.TunnelCount()),
           "features");
+    Notes(into,
+          "streets: invalid source placement",
+          static_cast<double>(ways.InvalidPlacementCount()),
+          "features");
     Notes(
         into, "streets: ways OSM calls a bridge", static_cast<double>(ways.BridgeCount()), "ways");
     Notes(
-        into, "streets: ways that state a layer", static_cast<double>(ways.LayeredCount()), "ways");
+        into, "streets: ways on nonzero layers", static_cast<double>(ways.LayeredCount()), "ways");
     Notes(into,
-          "streets: ways whose layer is a STRING",
+          "streets: ways with an explicit layer",
           static_cast<double>(ways.LayerSaidCount()),
           "ways");
     Notes(into, "streets: ways it refused", static_cast<double>(into.RefusedWays), "ways");

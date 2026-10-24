@@ -16,6 +16,8 @@
 #include "VegetationTemplates.h"
 
 namespace outshine::Generators::Osm {
+struct SurfacePlacement;
+enum class SurfacePlacementError : uint8_t;
 
 using namespace outshine::Ground;
 
@@ -83,6 +85,8 @@ public:
 
   [[nodiscard]] long InvalidLayerCount() const { return InvalidLayers_; }
 
+  [[nodiscard]] long InvalidPlacementCount() const { return InvalidPlacements_; }
+
   [[nodiscard]] long TunnelCount() const { return Tunnels_; }
 
   [[nodiscard]] long BridgeCount() const { return Bridges_; }
@@ -112,11 +116,14 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Admission_.Takes(); }
 
 private:
+  void RecordInvalidPlacement(SurfacePlacementError error);
   void AppendFeature(const OsmField &field,
                      uint32_t featureAt,
                      const VegetationTemplates::Rule &rule,
-                     Shape shape);
+                     Shape shape,
+                     const SurfacePlacement &placement);
   long InvalidLayers_ = 0;
+  long InvalidPlacements_ = 0;
   std::vector<Way> Ways_;
   std::vector<uint64_t> SourceDigests_;
   std::shared_ptr<const void> SourceOrigin_;

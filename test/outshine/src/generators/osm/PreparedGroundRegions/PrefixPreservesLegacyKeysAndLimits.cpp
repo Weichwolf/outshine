@@ -10,6 +10,7 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <span>
 #include <string>
@@ -84,9 +85,10 @@ void CheckKeys(const PreparedGroundRegions &cache, std::string_view recipe) {
   std::array<std::string, 4> concurrent{};
   {
     std::vector<std::jthread> workers;
-    for (size_t at = 0; at < concurrent.size(); ++at) {
-      workers.emplace_back([&, at] {
-        concurrent[at] = cache.RequestKey(4, MvtSchema::Shortbread, shape, parameters, tiles);
+    workers.reserve(concurrent.size());
+    for (auto &key : concurrent) {
+      workers.emplace_back([&, output = &key] {
+        *output = cache.RequestKey(4, MvtSchema::Shortbread, shape, parameters, tiles);
       });
     }
   }
@@ -106,10 +108,11 @@ int main() {
   CHECK(!error, "isolated request-key cache directories are created");
   if (error) { return Report(); }
   Data::ContentStore store({.Directory = {}, .Using = Data::ContentStore::Use::Off});
-  Data::SourceSet sources(store);
-  std::string rules(160u * 1024u, 'r');
+  const Data::SourceSet sources(store);
+  constexpr size_t kLargeRecipeBytes = size_t{160} * 1024;
+  std::string rules(kLargeRecipeBytes, 'r');
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-91",
+      "prepared-ground-region-92",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   recipe.append(rules);

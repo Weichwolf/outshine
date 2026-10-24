@@ -40,3 +40,12 @@ These are controlled synthetic DEM sheets, not a real-provider or runtime admiss
 geometry consumer; a height field cannot represent an enclosed tunnel. Source-role
 production, native navigation, cache/runtime integration and actual world rendering
 remain separate pending work in #1189.
+
+`Osm::ReadSurfacePlacement` reads layer/bridge/tunnel facts from a raw `OsmField`
+feature before display filtering. Missing flags stay optional; they are not supplied
+negative facts. Invalid/contradictory flags are refused with a typed reason. The live
+street producer uses the same reader; text and numeric declarations are supported.
+A native planner can inspect tunnel facts even when the legacy display excludes it.
+Ground/clearance recipes still need explicit source-role production; a nonzero OSM
+layer alone establishes neither a bridge nor a ground contact. Prepared ground region
+recipe92 invalidates products built with the earlier placement interpretation.
