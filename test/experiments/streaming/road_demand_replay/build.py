@@ -23,7 +23,7 @@ def run_stage(command, name, output, directory, receipts):
     receipts.append(
         {
             "stage": name,
-            "command": command,
+            "command": list(command),
             "directory": directory,
             "priority": 10,
             "returncode": result.returncode,
@@ -120,7 +120,9 @@ def main():
     )
     run_stage(command, "link", output, row["directory"], receipts)
     main = next(
-        entry for entry in rows if Path(entry["file"]).parts[-2:] == ("client", "Main.cpp")
+        entry
+        for entry in rows
+        if Path(entry["file"]).parts[-2:] == ("client", "Main.cpp")
     )
     arguments = main.get("arguments") or shlex.split(main["command"])
     main_object = arguments[arguments.index("-o") + 1]
