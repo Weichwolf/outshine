@@ -29,3 +29,4 @@ outshine/src/client
 outshine/integration/places/client/RenderWien
 outshine/integration/places/client/RenderTokyo
 outshine/integration/places/client/RenderCentralPark
+outshine/integration/water/SourcePipeline
