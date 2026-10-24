@@ -1,0 +1,115 @@
+{
+  "source_comment": "https://github.com/Weichwolf/outshine/issues/826#issuecomment-6386000596",
+  "packed_sha256": "c56ad9b25410dbb91fb62f59a76f8cb6fb1de3ab4ba6d33e1b32777037249556",
+  "scope": "Full native index-edge-connected component containing face5317, not asserted geographically complete beyond original source coverage",
+  "source": {
+    "levelM": 4.717506408691406,
+    "input": 414,
+    "sourceIndex": 24,
+    "featureIndex": 241,
+    "featureId": 13808816262,
+    "hasFeatureId": true,
+    "layer": "water_polygons",
+    "kind": "swimming_pool",
+    "sourceId": "openfreemap.openmaptiles",
+    "sourceDigest": "8c6a8b2cdc5ff449ecc04541309d9d8bde151ba41cde992428d4fc1072e307a2",
+    "sourceTile": [
+      14,
+      4826,
+      6155
+    ]
+  },
+  "meshAnchor": [
+    -73.952,
+    40.7968
+  ],
+  "face_ids": [
+    5301,
+    5302,
+    5303,
+    5304,
+    5305,
+    5306,
+    5307,
+    5308,
+    5309,
+    5310,
+    5311,
+    5312,
+    5313,
+    5314,
+    5315,
+    5316,
+    5317,
+    5318,
+    5319,
+    5320,
+    5321
+  ],
+  "memberships": [
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ],
+    [
+      344
+    ]
+  ],
+  "bound_input_sha256": "d8e066eb7de39e061d733e428bf44b8982d3f0ea8db2e1b0bb4c85057b86d790"
+}
