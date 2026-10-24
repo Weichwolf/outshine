@@ -1007,6 +1007,7 @@ BuildGroup() {
       printf '{"directory":"%s","file":"%s","output":"%s","command":"%s %s %s %s %s %s %s %s -c -o %s"},\n' \
         "$PWD" "$PWD/$unit" "$unitObject" "$CXX" "$PWD/$unit" "$unitStd" "$OPT" "$WARN" \
         "$SAN" "$EXTRA_DEFINES" "$groupIncludes" "$unitObject" >> "$BUILD/compile_commands.part"
+      continue
     fi
     read -r _poolToken <&9
     {
@@ -1175,31 +1176,33 @@ BuildLibrary() {
     libraryGroups="$libraryGroups$libraryGroup "
     BuildGroup "$libraryGroup" || Die "the library group $libraryGroup did not build"
   done
-  mkdir -p build
-  if ! ArchiveFresh build/liboutshine.a $OBJECTS; then
-    rm -f build/liboutshine.a
-    ar rcs build/liboutshine.a $OBJECTS || Die "the archive did not write"
-  fi
-  printf -- '-> build/liboutshine.a (%s objects)\n' "$(echo $OBJECTS | wc -w | tr -d ' ')"
+  if [ -z "${COMPILEDB:-}" ]; then
+    mkdir -p build
+    if ! ArchiveFresh build/liboutshine.a $OBJECTS; then
+      rm -f build/liboutshine.a
+      ar rcs build/liboutshine.a $OBJECTS || Die "the archive did not write"
+    fi
+    printf -- '-> build/liboutshine.a (%s objects)\n' "$(echo $OBJECTS | wc -w | tr -d ' ')"
 
-  # THE GENERATORS AS THEIR OWN ARCHIVE, and the member list is DERIVED. Owner's target: another
-  # project uses the generators alone. A claim that they WOULD link is weaker than an archive that
-  # does, so `linkreach.sh` computes the closure the linker computes -- every object the generator
-  # objects reach by undefined symbol -- and those members, and only those, are archived again.
-  # A second hand-kept list would drift from the first the day somebody adds an include.
-  reachedGenerators=$(sh test/harness/shared/graph/linkreach.sh build/liboutshine.a \
-                        build/genwalk src-generators 2>/dev/null | sed 's|:$||')
-  generatorObjects=""
-  for reached in $reachedGenerators; do
-    for candidate in $OBJECTS; do
-      case "$candidate" in */"$reached") generatorObjects="$generatorObjects $candidate" ;; esac
+    # THE GENERATORS AS THEIR OWN ARCHIVE, and the member list is DERIVED. Owner's target: another
+    # project uses the generators alone. A claim that they WOULD link is weaker than an archive that
+    # does, so `linkreach.sh` computes the closure the linker computes -- every object the generator
+    # objects reach by undefined symbol -- and those members, and only those, are archived again.
+    # A second hand-kept list would drift from the first the day somebody adds an include.
+    reachedGenerators=$(sh test/harness/shared/graph/linkreach.sh build/liboutshine.a \
+                          build/genwalk src-generators 2>/dev/null | sed 's|:$||')
+    generatorObjects=""
+    for reached in $reachedGenerators; do
+      for candidate in $OBJECTS; do
+        case "$candidate" in */"$reached") generatorObjects="$generatorObjects $candidate" ;; esac
+      done
     done
-  done
-  if [ -n "$generatorObjects" ]; then
-    rm -f build/libgenerators.a
-    ar rcs build/libgenerators.a $generatorObjects || Die "the generator archive did not write"
-    printf -- '-> build/libgenerators.a (%s objects, closed over the linker'"'"'s own walk)\n' \
-      "$(echo $generatorObjects | wc -w | tr -d ' ')"
+    if [ -n "$generatorObjects" ]; then
+      rm -f build/libgenerators.a
+      ar rcs build/libgenerators.a $generatorObjects || Die "the generator archive did not write"
+      printf -- '-> build/libgenerators.a (%s objects, closed over the linker'"'"'s own walk)\n' \
+        "$(echo $generatorObjects | wc -w | tr -d ' ')"
+    fi
   fi
   # THE TOOLS THAT SHIP WITH THE LIBRARY, beside it in build/. A `src/<tier>/Main.cpp` is a tool:
   # the tier is part of the archive and its entry point is linked against it, so the tool cannot
@@ -1219,13 +1222,14 @@ BuildLibrary() {
     groupIncludes=$toolIncludes
     SetGroupCompileFlags
     toolObject=$OBJDIR/entry-$(printf '%s' "$tool" | tr / -).$setId.o
-    CompileCachedObject "$tool" "$toolObject" $toolStd $OPT $WARN $toolIncludes ||
-      Die "$tool entry point did not compile"
     if [ -n "${COMPILEDB:-}" ]; then
       printf '{"directory":"%s","file":"%s","output":"%s","command":"%s %s %s %s %s %s -c -o %s"},\n' \
         "$PWD" "$PWD/$tool" "$toolObject" "$CXX" "$PWD/$tool" "$toolStd" "$OPT" "$WARN" \
         "$toolIncludes" "$toolObject" >> "$BUILD/compile_commands.part"
+      continue
     fi
+    CompileCachedObject "$tool" "$toolObject" $toolStd $OPT $WARN $toolIncludes ||
+      Die "$tool entry point did not compile"
     if FreshAgainst "$toolNamed" build/liboutshine.a "$toolObject" $diagnosticObjects; then
       continue
     fi

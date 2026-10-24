@@ -111,6 +111,49 @@ class NativeStageDependencies(unittest.TestCase):
     required = frozenset({'src/render/stages/StagePipelines.cpp',
                           'src/render/device/SpirvFile.cpp', 'src/base/io/ReadTextFile.cpp'})
 
+    def test_database_emission_never_compiles_archives_or_links(self):
+        import json
+        with tempfile.TemporaryDirectory(prefix='outshine-compile-db-') as temp:
+            root = Path(temp).resolve()
+            for source in ('src/base/Value.cpp', 'src/client/Main.cpp'):
+                path = root / source
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+            (root / 'obj').mkdir()
+            functions = shell_functions((self.root / 'test/run.sh').read_text(),
+                                        {'BuildGroup', 'BuildLibrary'})
+            stubs = r'''
+COMPILEDB=1 BUILD=. OBJDIR=obj JOBS=2 CXX=forbidden-compiler
+CXXSTD=-std=c++23 OPT=-O2 WARN=-Werror SAN= EXTRA_DEFINES=-DREAL_FLAGS=1
+PrepareCompilerCache() { :; }
+GroupIncludes() { printf '%s' '-Isrc/base'; }
+GroupToolchain() { printf '%s' '-std=c++23'; }
+SetGroupCompileFlags() { setId=exact; arcSetId=exact; arcStd=$groupStd; }
+SourceUnits() {
+  case "${1:-all}" in
+    all) printf '%s\n' src/base/Value.cpp src/client/Main.cpp ;;
+    src/base) printf '%s\n' src/base/Value.cpp ;;
+    src/client) printf '%s\n' src/client/Main.cpp ;;
+  esac
+}
+python3() { :; }
+CompileCachedObject() { printf 'unexpected compiler\n' >&2; exit 99; }
+ArchiveFresh() { printf 'unexpected archive\n' >&2; exit 99; }
+FreshAgainst() { printf 'unexpected linker\n' >&2; exit 99; }
+Die() { printf '%s\n' "$*" >&2; exit 99; }
+BuildLibrary
+'''
+            result = subprocess.run(['sh', '-eu', '-c', functions + stubs], cwd=root,
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entries = json.loads('[' + (root / 'compile_commands.part').read_text().rstrip(',\n') + ']')
+            self.assertEqual({Path(entry['file']).relative_to(root).as_posix() for entry in entries},
+                             {'src/base/Value.cpp', 'src/client/Main.cpp'})
+            self.assertTrue(all('-std=c++23 -O2 -Werror' in row['command'] for row in entries))
+            self.assertIn('-DREAL_FLAGS=1', entries[0]['command'])
+            self.assertEqual(list((root / 'obj').iterdir()), [])
+            self.assertFalse((root / 'build').exists())
+
     def sources(self, declaration):
         names = {'SourceUnits', 'NativeGroups', 'GeneratorGroups', 'EngineRootGroups',
                  'SubtreeGroups', 'TestProfile', 'LayerGroups'}

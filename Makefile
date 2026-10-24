@@ -147,7 +147,7 @@ test-strip-comments: ## verify comment policy and lexical preservation
 strip: test-strip-comments ## remove src implementation comments; preserve header/test comments
 	@cd $(SELF_DIR) && CLANG_FORMAT=$(LLVM_BIN)/clang-format python3 test/strip-comments.py
 
-db: strip shaders ## compile_commands.json for clangd, clang-tidy and clang-format
+db: ## emit compiler commands without compiling, linking or building shaders
 	@$(RUN) --compile-db
 
 .PHONY: experiment-tree-cost
