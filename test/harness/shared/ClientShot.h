@@ -98,11 +98,11 @@ ScorePlace(const char *place, const char *catalog = "src/assets/places", unsigne
   std::string command = ClientCommand() + " --places " + ShellArgument(catalog) +
                         " shots --rows --offline --preload-seconds 600 --scenario-overrides "
                         "'{\"render\":{\"widthPx\":1280,\"heightPx\":720,\"fps\":" +
-                        std::to_string(rateHz) + "}}' " + ShellArgument(place);
+                        std::to_string(rateHz) + "}}'";
   if (const char *cache = std::getenv("OUTSHINE_CACHE_DIR")) {
     command += " --cache-dir " + ShellArgument(cache);
   }
-  command += " 2>&1";
+  command += " " + ShellArgument(place) + " 2>&1";
   std::FILE *const running = popen(command.c_str(), "r");
   if (running == nullptr) {
     Unprepared("the client did not start");
