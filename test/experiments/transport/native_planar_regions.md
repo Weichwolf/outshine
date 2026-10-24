@@ -24,8 +24,8 @@ PYTHONPATH=lib/src:test/experiments/transport python3 -B -W error \
 make suite SUITE=outshine/src/base/spatial/PlanarRegionRemesh JOBS=2
 ```
 
-The experiment builds both native probes with complete current CDB flags, then
-consumes native envelope/band faces and the native height-solid closure in the
+The experiment builds the native probes with complete current CDB flags, then
+consumes native envelope faces, indexed height cuts, band faces and solid closure in the
 stacked/crossed reference pipelines. Existing full-profile, manifold Float32 body,
 independent-level, navigation and terrain checks remain in force.
 
@@ -36,6 +36,7 @@ are checked separately. No winding reversal, seam loss or new approximation is
 accepted. The closure itself must match every Python geometry word, triangle and
 wall family for its actual input. Reports distinguish these two contracts.
 
-Height-band clipping, recipe/group selection and consumer assembly still run in
-Python. This is a native operator-consumption proof, not the complete C++ transport
-pipeline, cache integration, world rendering or a device-frame admission.
+Recipe/group selection, fixture fitting and consumer assembly still run in Python.
+Terrain checks verify reservation data, not a generated deformed DEM. This is a
+native operator-consumption proof, not the complete C++ transport pipeline, cache
+integration, world rendering or a device-frame admission.

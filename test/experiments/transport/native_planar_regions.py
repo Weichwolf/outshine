@@ -11,8 +11,11 @@ import numpy as np
 import shapely
 import stair_band_remesh
 import stair_envelope_remesh
+import stair_indexed_levels
 import stair_junction_body
 from mvt_independent_flight_body import construct
+from native_height_bands import UNITS as CUT_UNITS
+from native_height_bands import consume as consume_cuts
 from native_height_solid import UNITS as SOLID_UNITS
 from native_height_solid import compare as compare_solid
 from native_height_solid import read_output as read_solid
@@ -145,6 +148,13 @@ def run(args):
         units=SOLID_UNITS,
         probe_source=ROOT / "test/harness/spatial/HeightSolidProbe.cpp",
     )
+    cut_directory = args.output / "height-cuts"
+    cut_directory.mkdir()
+    cut_binary = build_probe(
+        cut_directory,
+        units=CUT_UNITS,
+        probe_source=ROOT / "test/harness/spatial/HeightBandProbe.cpp",
+    )
     reports = []
     baselines = {name: construct(name) for name in ("stacked", "crossed")}
     original_envelope, original_bands = (
@@ -196,6 +206,13 @@ def run(args):
         reports.append(dict(stage="bands", **work))
         return selected_points, rebuilt, masks, band, *reference[4:]
 
+    def height_cuts(plan, heights):
+        result, work = consume_cuts(
+            cut_binary, args.output / f"stage-{len(reports)}", plan, heights
+        )
+        reports.append(dict(stage="height_cuts", **work))
+        return result
+
     def solid(points, faces, steps, levels):
         directory = args.output / f"stage-{len(reports)}"
         directory.mkdir()
@@ -219,6 +236,7 @@ def run(args):
         patch.object(stair_envelope_remesh, "coarsen_envelope", side_effect=envelope),
         patch.object(stair_band_remesh, "remesh", side_effect=bands),
         patch.object(stair_junction_body, "close", side_effect=solid),
+        patch.object(stair_indexed_levels, "partition", side_effect=height_cuts),
     ):
         for name in ("stacked", "crossed"):
             result = construct(name)
