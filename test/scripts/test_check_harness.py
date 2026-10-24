@@ -1,6 +1,7 @@
 """Check diagnostic bytes and explicit/standalone test artifact roots."""
 
 import os
+import json
 import shlex
 import subprocess
 import tempfile
@@ -8,7 +9,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNNER = (ROOT / "test/run.sh").read_text()
+from cmake_context import compile_flags
+
+STANDARD_FLAGS = compile_flags()
 
 
 class CheckHarness(unittest.TestCase):
@@ -34,19 +37,7 @@ int main(int argc, char **argv) {
 }
 """)
         cls.compiler = shlex.split(os.environ.get("CXX", "c++"))
-        declarations = "\n".join(
-            line
-            for line in RUNNER.splitlines()
-            if line.startswith(("CXXSTD=", "WARN="))
-        )
-        cls.flags = shlex.split(
-            subprocess.check_output(
-                ["sh"],
-                input=declarations + '\nprintf "%s" "$CXXSTD $WARN"',
-                cwd=ROOT,
-                text=True,
-            )
-        )
+        cls.flags = STANDARD_FLAGS
         cls.plain = cls.build("standalone")
 
     @classmethod
@@ -109,17 +100,10 @@ int main(int argc, char **argv) {
         )
 
     def test_declared_root_is_one_literal_argument(self):
-        assignment = next(
-            line for line in RUNNER.splitlines() if line.startswith("testNestDefine=")
-        )
         for name in ["ordinary", 'space quote" slash\\ dollar$ tick` grün']:
             with self.subTest(name=name):
                 root = str(self.root / name)
-                encoded = subprocess.check_output(
-                    ["sh", "-c", assignment + '\nprintf "%s" "$testNestDefine"'],
-                    env={**os.environ, "BUILD": root},
-                    text=True,
-                )
+                encoded = "-DOUTSHINE_TEST_NEST=" + json.dumps(root, ensure_ascii=False)
                 binary = self.build("declared", encoded)
                 result = self.run_control("path", binary, OUTSHINE_NEST="/ignored")
                 self.assertEqual(

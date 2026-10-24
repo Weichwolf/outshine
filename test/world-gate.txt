@@ -1,9 +1,3 @@
-outshine/include/generation
-outshine/include/math
-outshine/include/render
-outshine/include/scenario
-outshine/include/scene
-outshine/include/world
 outshine/src/engine/WorldCandidate/GeneratorProductsComposeAtomically
 outshine/src/engine/Engine/GeneratorRedeclarationInvokesTheProducer
 outshine/src/engine/Engine/RegisteredProviderSuppliesRenderedTerrain
@@ -30,3 +24,8 @@ outshine/integration/places/client/RenderWien
 outshine/integration/places/client/RenderTokyo
 outshine/integration/places/client/RenderCentralPark
 outshine/integration/water/SourcePipeline
+outshine/integration/content
+outshine/integration/engine
+outshine/integration/generators
+outshine/integration/render
+outshine/integration/world

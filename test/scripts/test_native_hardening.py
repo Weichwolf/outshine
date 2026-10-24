@@ -1,10 +1,7 @@
 """Exercise native hardening with the selected compiler and real executables."""
 
-import json
-import os
 import platform
 import resource
-import shlex
 import signal
 import subprocess
 import tempfile
@@ -12,12 +9,6 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-HELPER = ROOT / "test/scripts/native_hardening.sh"
-STANDARD = next(
-    line.partition("=")[2]
-    for line in (ROOT / "test/run.sh").read_text().splitlines()
-    if line.startswith("CXXSTD=")
-)
 
 
 class NativeHardening(unittest.TestCase):
@@ -25,38 +16,33 @@ class NativeHardening(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="outshine-native-hardening-")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.compiler = shlex.split(os.environ.get("CXX", "c++"))
-        self.compile_flags = self.flags("--compile")
-        self.link_flags = self.flags("--link")
 
-    def flags(self, mode):
-        return shlex.split(
-            subprocess.check_output(["sh", str(HELPER), mode], text=True)
-        )
-
-    def compile(self, source, name="probe", success=True, extra_flags=()):
+    def compile(self, source, name="probe", success=True, sanitizer=""):
         path = self.root / (name + ".cpp")
         path.write_text(source)
-        binary = self.root / name
+        binary = self.root / "build" / name
+        (self.root / "CMakeLists.txt").write_text(f'''cmake_minimum_required(VERSION 3.28)
+project(hardening_probe LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(OUTSHINE_SANITIZER "{sanitizer}")
+include("{ROOT}/cmake/Compiler.cmake")
+add_executable({name} "{path}")
+target_link_libraries({name} PRIVATE outshine_compiler)
+''')
+        configured = subprocess.run(
+            ["cmake", "-S", str(self.root), "-B", str(binary.parent), "-G", "Ninja",
+             "-DCMAKE_BUILD_TYPE=Release"], capture_output=True, text=True, check=False)
+        self.assertEqual(configured.returncode, 0, configured.stdout + configured.stderr)
         result = subprocess.run(
-            self.compiler
-            + [STANDARD, "-O2", "-Werror"]
-            + self.compile_flags
-            + list(extra_flags)
-            + [str(path)]
-            + self.link_flags
-            + ["-o", str(binary)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+            ["cmake", "--build", str(binary.parent), "--parallel"],
+            capture_output=True, text=True, check=False)
         if success:
-            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         else:
-            self.assertNotEqual(
-                result.returncode, 0, "unsafe format unexpectedly compiled"
-            )
-            self.assertIn("format-security", result.stderr)
+            self.assertNotEqual(result.returncode, 0, "unsafe format unexpectedly compiled")
+            self.assertIn("format-security", result.stdout + result.stderr)
         return binary
 
     def check_guard_trap(self, result):
@@ -65,38 +51,6 @@ class NativeHardening(unittest.TestCase):
             (signal.SIGABRT, signal.SIGILL, signal.SIGTRAP),
             "hardening did not terminate through a guard trap",
         )
-
-    def test_runner_exports_compilable_native_flags(self):
-        flags = shlex.split(
-            subprocess.check_output(
-                ["sh", "test/run.sh", "--native-compile-flags"], cwd=ROOT, text=True
-            )
-        )
-        for flag in self.compile_flags + [STANDARD, "-O2", "-ffp-contract=off"]:
-            self.assertIn(flag, flags)
-        self.assertFalse(any("$" in flag for flag in flags))
-        source = self.root / "export.cpp"
-        source.write_text("int main() { return 0; }\n")
-        binary = self.root / "export"
-        result = subprocess.run(
-            self.compiler + flags + [str(source), *self.link_flags, "-o", str(binary)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(subprocess.run([str(binary)], check=False).returncode, 0)
-        failed = subprocess.run(
-            ["sh", "test/run.sh", "--native-compile-flags"],
-            cwd=ROOT,
-            env=dict(os.environ, CXX=str(self.root / "missing-compiler")),
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(failed.returncode, 2)
-        self.assertEqual(failed.stdout, "")
-
 
     def test_library_selection_and_runtime_bounds(self):
         binary = self.compile("""
@@ -147,10 +101,7 @@ int main(int argc, char**) {
 }
 """,
             name="asan-probe",
-            extra_flags=[
-                *self.flags("--address-sanitizer"),
-                "-fsanitize=address,undefined",
-            ],
+            sanitizer="address",
         )
         self.assertEqual(
             subprocess.run([str(binary)], capture_output=True, check=False).returncode,
@@ -219,12 +170,6 @@ int main(int argc, char** argv) {
         self.assertIn("__stack_chk_fail", symbols)
         self.check_overflow_traps(binary)
 
-    def test_unusable_compiler_is_an_error(self):
-        env = dict(os.environ, CXX="/nonexistent/outshine-compiler")
-        result = subprocess.run(
-            ["sh", str(HELPER), "--compile"], env=env, capture_output=True, check=False
-        )
-        self.assertNotEqual(result.returncode, 0)
 
 
 if __name__ == "__main__":

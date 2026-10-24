@@ -12,6 +12,9 @@
 #include <string>
 #include <system_error>
 
+using outshine::GeoCellId;
+using outshine::GeographicBounds;
+
 namespace {
 std::string Xml(size_t id) {
   return "<osm version='0.6'><node id='" + std::to_string(id) +

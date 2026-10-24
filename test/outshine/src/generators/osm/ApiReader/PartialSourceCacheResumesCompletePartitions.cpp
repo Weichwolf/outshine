@@ -12,6 +12,8 @@
 #include <system_error>
 #include <vector>
 
+using outshine::GeoCellId;
+
 namespace {
 using namespace outshine::Data;
 const std::string kXml = "<osm version='0.6'><node id='1' lat='48' lon='16'/></osm>";

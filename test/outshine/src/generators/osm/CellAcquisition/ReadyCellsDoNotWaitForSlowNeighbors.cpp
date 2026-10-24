@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <system_error>
 
+using outshine::GeoCellId;
+
 namespace {
 class DelayedOsmTransport final : public outshine::Data::Transport {
 public:
