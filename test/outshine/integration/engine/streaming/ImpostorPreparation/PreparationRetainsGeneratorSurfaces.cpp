@@ -21,7 +21,7 @@
 #include <print>
 #include <ratio>
 #include "PreparedImpostorAssets.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "Digest.h"
 #include "Sha256.h"
 #include <iterator>
@@ -294,8 +294,8 @@ std::optional<std::vector<uint8_t>> CheckStorage(const Content::ImpostorAtlas &a
   return encoded;
 }
 
-void CheckPublicationCollision(Data::ContentStore &raw,
-                               const Data::ContentStore::Config &config,
+void CheckPublicationCollision(Data::RawSourceCache &raw,
+                               const Data::RawSourceCache::Config &config,
                                const std::vector<uint8_t> &bytes,
                                const std::string &provenance) {
   const auto key = Sha256Hex(provenance);
@@ -312,14 +312,14 @@ void CheckPublicationCollision(Data::ContentStore &raw,
         "exclusive publication never truncates another writer's temporary file");
 }
 
-void CheckRawStore(Data::ContentStore &raw,
-                   const Data::ContentStore::Config &config,
+void CheckRawStore(Data::RawSourceCache &raw,
+                   const Data::RawSourceCache::Config &config,
                    const std::vector<uint8_t> &bytes,
                    const std::string &provenance) {
   const auto key = Sha256Hex(provenance);
   CHECK(raw.Keep(key, bytes.data(), bytes.size()),
         "a second store can publish the same key independently");
-  CHECK(raw.Lookup(key, bytes.size() - 1).Where == Data::ContentStore::Presence::Unknown,
+  CHECK(raw.Lookup(key, bytes.size() - 1).Where == Data::RawSourceCache::Presence::Unknown,
         "the byte budget rejects a large file before returning its payload");
   const auto read = raw.Lookup(key, bytes.size());
   CHECK(read.Bytes == bytes, "the complete payload is readable at its exact byte budget");
@@ -410,8 +410,8 @@ bool CheckCache(std::optional<Content::ImpostorAtlas> &atlas,
   if (!atlas) { return false; }
   const std::string directory = OutputDirectory() + "/cache";
   std::filesystem::remove_all(directory);
-  const Data::ContentStore::Config config{.Directory = directory + "/sources"};
-  Data::ContentStore raw(config);
+  const Data::RawSourceCache::Config config{.Directory = directory + "/sources"};
+  Data::RawSourceCache raw(config);
   Content::PreparedImpostorAssets cache(worker, {.Directory = directory});
   CheckPublicationCollision(raw, config, bytes, provenance);
   std::string error;

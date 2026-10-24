@@ -17,7 +17,7 @@ Each call decodes the bounded payload; no implicit decoded-state cache is added.
 
 ## Provider and source ownership
 
-`generation/weather/OpenMeteoProvider.h` is the concrete extension factory.
+`generators/weather/OpenMeteoProvider.h` is the concrete extension factory.
 The caller supplies typed original request coordinates and optional recorded
 acquisition/model metadata. This trusted context must match the actual request;
 it is not reconstructed from URI parameters. Registration uses the ordinary
@@ -30,7 +30,7 @@ coverage chunk or alternative schema is accepted. This pinned point/capture
 occupies `DataKind::Weather`, `WireFormat::ProviderDefined`, `Address::Whole(0)`.
 It makes no claim about another position/address and performs no automatic refresh.
 
-The source uses existing `SourceSet`, `Transport` and `ContentStore` ownership,
+The source uses existing `SourceSet`, `Transport` and `RawSourceCache` ownership,
 cache identity, payload cap and cancellation. A changed revision/endpoint/digest
 has a different existing cache key. HTTP absence/failure remains explicit;
 invalid original bytes cannot publish a snapshot. Partial byte ranges are refused.

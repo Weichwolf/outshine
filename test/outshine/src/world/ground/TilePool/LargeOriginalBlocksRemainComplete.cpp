@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "NativeCog.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "CopernicusDem.h"
 #include "SourceSet.h"
 #include "TilePool.h"
@@ -88,7 +88,7 @@ int main() {
   using namespace outshine::Test;
   for (const auto profile :
        {NativeCogProfile::LargeBlock, NativeCogProfile::LargeBlockOverlapsHeader}) {
-    ContentStore store({.Using = ContentStore::Use::Off});
+    RawSourceCache store({.Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<CopernicusDem>()) == SourceSet::Registration::Accepted,
           "large original native fixture registers through the public provider contract");

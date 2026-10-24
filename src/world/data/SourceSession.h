@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_DATA_SOURCESESSION_H
 #define OUTSHINE_WORLD_DATA_SOURCESESSION_H
 
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <Provider.h>
 #include <SourceProvider.h>
@@ -15,14 +15,14 @@ namespace outshine::Data {
 class SourceSession {
 public:
   [[nodiscard]] static std::expected<std::shared_ptr<SourceSession>, std::string>
-  Open(const ContentStore::Config &config,
+  Open(const RawSourceCache::Config &config,
        std::span<const SourceProvider> providers,
        std::string_view shippedRoot,
        const ProviderRegistry &registry);
 
   struct Ledger {
     SourceSet::Ledger Sources;
-    ContentStore::Ledger Store;
+    RawSourceCache::Ledger Store;
   };
 
   [[nodiscard]] Ledger Counters() const {
@@ -33,14 +33,14 @@ public:
 
   [[nodiscard]] const SourceSet &Sources() const noexcept { return Sources_; }
 
-  [[nodiscard]] ContentStore &Store() noexcept { return Store_; }
+  [[nodiscard]] RawSourceCache &Store() noexcept { return Store_; }
 
-  [[nodiscard]] const ContentStore &Store() const noexcept { return Store_; }
+  [[nodiscard]] const RawSourceCache &Store() const noexcept { return Store_; }
 
 private:
-  explicit SourceSession(const ContentStore::Config &config) : Store_(config), Sources_(Store_) {}
+  explicit SourceSession(const RawSourceCache::Config &config) : Store_(config), Sources_(Store_) {}
 
-  ContentStore Store_;
+  RawSourceCache Store_;
   SourceSet Sources_;
 };
 }

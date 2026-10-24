@@ -62,7 +62,7 @@ int main() {
   ApiWire network;
   OfflineTransport offline;
   for (int pass = 0; pass < 2; ++pass) {
-    ContentStore store({.Directory = directory});
+    RawSourceCache store({.Directory = directory});
     SourceSet sources(store);
     auto made = ConfigureSource(provider, ".", registry);
     CHECK(made && (*made)->Declaration().How == Scheme::GeodeticGrid &&
@@ -114,7 +114,7 @@ int main() {
       "https://api.openstreetmap.org/api/0.6/map?bbox=9.84375,54.4921875,10.546875,54.84375"};
   CHECK(keys[0] != keys[1] && network.Urls == expectedUrls,
         "adjacent original cells use separate bounded official queries and cache identities");
-  ContentStore noCache({.Using = ContentStore::Use::Off});
+  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
   const auto global =
       outshine::Generators::Osm::ReadRegion(provider, noCache, network, network.NowMs() + 1000, {});
   CHECK(!global && global.error().find("geographic cell demand") != std::string::npos &&

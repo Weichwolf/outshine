@@ -1,7 +1,7 @@
 #include "ShippedProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "OsmSourceAcquisition.h"
 #include "SourceProviderValidation.h"
 
@@ -185,7 +185,7 @@ int main() {
                             GeoCellId{.Level = 9, .X = 272, .Y = 411}};
     interrupted.BlockFromWest = demand.back().Bounds()->WestDeg;
     revision.Revision = "adaptive-interrupted";
-    ContentStore acquired({.Directory = directory});
+    RawSourceCache acquired({.Directory = directory});
     ProviderRegistry registry;
     outshine::Generators::RegisterShippedProviders(registry);
     auto catalogue = ConfigureSource(revision, ".", registry);

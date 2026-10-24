@@ -1,6 +1,6 @@
 #include "TilePool.h"
 #include "TerrainDelivery.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <Transport.h>
 #include "Check.h"
@@ -90,7 +90,7 @@ int main() {
   const Fetch askA(DataKind::Elevation, Address::At(a));
   const Fetch askB(DataKind::Elevation, Address::At(b));
   for (const bool evictMetadata : {false, true}) {
-    ContentStore store({.Using = ContentStore::Use::Off});
+    RawSourceCache store({.Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     NoNetwork transport;
     auto provider = std::make_unique<Provider>();
@@ -137,7 +137,7 @@ int main() {
     }
   }
   {
-    ContentStore store({.Using = ContentStore::Use::Off});
+    RawSourceCache store({.Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     NoNetwork transport;
     auto provider = std::make_unique<Provider>();
@@ -166,7 +166,7 @@ int main() {
           "latest published bytes retain their exact stamp");
   }
   {
-    ContentStore store({.Using = ContentStore::Use::Off});
+    RawSourceCache store({.Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     NoNetwork transport;
     auto provider = std::make_unique<Provider>();

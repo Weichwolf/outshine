@@ -6,7 +6,7 @@
 #include "BuildingSurfaceBlock.h"
 #include "BuildingScratch.h"
 #include "BuildingMesh.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "AssetCache.h"
 #include "Geodesy.h"
@@ -132,7 +132,7 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-building-cells-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "native building cache opens");

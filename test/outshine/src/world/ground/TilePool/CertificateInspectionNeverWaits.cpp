@@ -1,5 +1,5 @@
 #include "TilePool.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <Transport.h>
 #include "Check.h"
@@ -94,7 +94,7 @@ int main() {
   const Data::TileId a{.Zoom = 2, .X = 0, .Y = 1};
   const Data::TileId b{.Zoom = 2, .X = 1, .Y = 1};
   const Data::TileId c{.Zoom = 2, .X = 2, .Y = 1};
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoNetwork transport;
   auto provider = std::make_unique<Provider>();

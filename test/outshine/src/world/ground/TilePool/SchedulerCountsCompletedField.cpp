@@ -23,12 +23,12 @@ public:
 
 int main() {
   using namespace outshine::Test;
-  using outshine::Data::ContentStore;
+  using outshine::Data::RawSourceCache;
   using outshine::Data::SourceSet;
   using outshine::Ground::TerrainField;
   using outshine::Ground::TilePool;
 
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   TilePool pool({}, sources, transport);

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "Sha256.h"
 #include "SourceRange.h"
 
@@ -72,18 +72,18 @@ int main() {
         "object, cell, interval and revision each contribute to cache identity");
   auto directory = (std::filesystem::temp_directory_path() / "outshine-ranges-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated raw cache");
-  const ContentStore::Config config{.Directory = directory};
+  const RawSourceCache::Config config{.Directory = directory};
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     CHECK(store.Keep(key, packed->data(), packed->size()),
           "receipt and raw body written atomically");
   }
-  ContentStore reopened(config);
+  RawSourceCache reopened(config);
   auto stored = reopened.Lookup(key, bytes.size() + MaximumRangeRecordOverhead);
-  CHECK(stored.Where == ContentStore::Presence::Bytes && UnpackSourceRange(stored.Bytes) &&
+  CHECK(stored.Where == RawSourceCache::Presence::Bytes && UnpackSourceRange(stored.Bytes) &&
             stored.Bytes == std::vector<uint8_t>({4, 5, 6}),
         "reopened existing content store delivers unchanged original bytes and a usable receipt");
-  CHECK(reopened.Lookup(ContentKey(decl, at)).Where == ContentStore::Presence::Unknown,
+  CHECK(reopened.Lookup(ContentKey(decl, at)).Where == RawSourceCache::Presence::Unknown,
         "partial cache record cannot be mistaken for a whole object");
   std::error_code error;
   std::filesystem::remove_all(directory, error);

@@ -73,7 +73,7 @@ int main() {
   if (!materialRules || !vegetationRules) { return Report(); }
   materialRules->push_back('\0');
   materialRules->append(*vegetationRules);
-  Data::ContentStore store({.Directory = {}, .Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   const Data::SourceSet sources(store);
   auto legacy = Generators::Osm::PreparedGroundRegions::Open(
       (cache.Path / "assets").string(), sources, *materialRules);

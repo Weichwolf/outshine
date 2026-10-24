@@ -17,7 +17,7 @@ public:
   enum class Collected { Pending, Ready, Refine };
   [[nodiscard]] static std::expected<std::unique_ptr<ApiRegion>, std::string>
   Create(const Data::SourceProvider &provider,
-         Data::ContentStore &store,
+         Data::RawSourceCache &store,
          Data::Transport &wire,
          const Data::ProviderRegistry *registry,
          std::string_view shippedRoot,
@@ -25,12 +25,12 @@ public:
   ~ApiRegion();
   [[nodiscard]] SourceChunk Chunk(const Data::SourceProvider &provider,
                                   std::optional<GeoCellId> cell) const;
-  [[nodiscard]] bool Begin(const Data::ContentStore &store, std::vector<GeoCellId> &refine);
-  [[nodiscard]] bool HasCachedCoverage(Data::ContentStore &store) const;
+  [[nodiscard]] bool Begin(const Data::RawSourceCache &store, std::vector<GeoCellId> &refine);
+  [[nodiscard]] bool HasCachedCoverage(Data::RawSourceCache &store) const;
   [[nodiscard]] std::expected<Collected, std::string> Collect(SourceChunk &chunk, double beganMs);
 
 private:
-  ApiRegion(Data::ContentStore &store, Data::Transport &wire, Data::Address at);
+  ApiRegion(Data::RawSourceCache &store, Data::Transport &wire, Data::Address at);
   Data::SourceSet Sources_;
   Data::Transport &Wire_;
   Data::Address Address_;

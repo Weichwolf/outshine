@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_CONTENTSTORE_H
-#define OUTSHINE_WORLD_DATA_CONTENTSTORE_H
+#ifndef OUTSHINE_SOURCES_RAWSOURCECACHE_H
+#define OUTSHINE_SOURCES_RAWSOURCECACHE_H
 
 #include <atomic>
 #include <cstddef>
@@ -30,7 +30,7 @@ namespace outshine::Data {
                                      std::string_view entityTag);
 [[nodiscard]] std::string SourceKey(const SourceDecl &decl);
 
-class ContentStore {
+class RawSourceCache {
 public:
   enum class Use { Off, On };
   enum class Presence { Unknown, Bytes, Absent };
@@ -49,11 +49,11 @@ public:
     size_t CapBytes = 0;
   };
 
-  explicit ContentStore(const Config &config);
-  ~ContentStore();
+  explicit RawSourceCache(const Config &config);
+  ~RawSourceCache();
 
-  ContentStore(const ContentStore &) = delete;
-  ContentStore &operator=(const ContentStore &) = delete;
+  RawSourceCache(const RawSourceCache &) = delete;
+  RawSourceCache &operator=(const RawSourceCache &) = delete;
 
   [[nodiscard]] bool Keep(std::string_view key, const uint8_t *data, size_t bytes);
   [[nodiscard]] Entry Lookup(std::string_view key, size_t mostBytes = 0) const;

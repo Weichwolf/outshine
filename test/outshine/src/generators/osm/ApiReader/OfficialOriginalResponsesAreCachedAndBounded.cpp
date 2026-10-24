@@ -57,7 +57,7 @@ int main() {
       (std::filesystem::temp_directory_path() / "outshine-original-api-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original-response cache created");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
-  ContentStore store({.Directory = directory});
+  RawSourceCache store({.Directory = directory});
   ApiWire wire;
   SourceProvider provider{.Kind = "osm",
                           .Revision = "r1",
@@ -105,7 +105,7 @@ int main() {
   changed.Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1};
   CHECK(!outshine::Generators::Osm::ApiSource::Create(changed, 0),
         "API requests above the declared service area limit fail");
-  ContentStore noCache({.Using = ContentStore::Use::Off});
+  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
   CHECK(!outshine::Generators::Osm::ReadRegion(provider, noCache, stalled, 110, {}) &&

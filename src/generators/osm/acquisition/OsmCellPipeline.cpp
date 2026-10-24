@@ -95,8 +95,8 @@ Tasks::StepResult SourceAcquisition::CellPipeline::Acquire(const std::shared_ptr
     return Fail("original OSM source acquisition deadline exceeded");
   }
   if (!access->Store) {
-    access->Store = std::make_unique<Data::ContentStore>(
-        Data::ContentStore::Config{.Directory = access->Directory});
+    access->Store = std::make_unique<Data::RawSourceCache>(
+        Data::RawSourceCache::Config{.Directory = access->Directory});
   }
   if (!Reader) {
     Reader = std::make_shared<CellAcquisition>(

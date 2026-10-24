@@ -2,7 +2,7 @@
 #include "PreparedBuildingBasis.h"
 #include "PreparedStructureTile.h"
 #include "PreparedStructurePlan.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "AssetCache.h"
 #include "Geodesy.h"
@@ -68,7 +68,7 @@ std::shared_ptr<const Ground::HeightField> Heights() {
 }
 
 void Exercise(const std::filesystem::path &directory) {
-  Data::ContentStore store({.Directory = {}, .Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   const Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(directory.string(), sources);
   CHECK(cache, "the native building cache opens without network sources");

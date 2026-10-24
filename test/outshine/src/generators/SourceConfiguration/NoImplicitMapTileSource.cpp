@@ -10,7 +10,7 @@ int main() {
   outshine::Generators::RegisterShippedProviders(registry);
   using namespace outshine::Data;
   using namespace outshine::Test;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   std::string error;
   CHECK(RegisterSources(sources, outshine::Generators::ShippedProviders(), {}, error, registry),

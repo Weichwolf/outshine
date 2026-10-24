@@ -1,3 +1,4 @@
+#include "AssetCacheTrim.h"
 #include "CacheTrim.h"
 #include "CacheTrimSql.h"
 #include <algorithm>

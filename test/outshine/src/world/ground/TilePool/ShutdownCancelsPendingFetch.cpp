@@ -52,7 +52,7 @@ public:
 int main() {
   using namespace outshine::Test;
   using outshine::Ground::TilePool;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   PendingTransport transport;
   auto source = std::make_unique<PendingSource>();

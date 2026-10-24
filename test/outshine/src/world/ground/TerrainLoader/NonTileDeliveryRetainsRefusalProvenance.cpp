@@ -47,7 +47,7 @@ int main() {
     std::optional<Data::FetchFailure> failure;
     std::string expectedKey;
     {
-      Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+      Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
       Data::SourceSet sources(store);
       NoNetwork transport;
       auto source = std::make_unique<WholeSource>();

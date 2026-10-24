@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "OfflineTransport.h"
 #include "SourceSet.h"
 
@@ -55,12 +55,12 @@ int main() {
   using namespace outshine::Test;
   auto directory = (std::filesystem::temp_directory_path() / "outshine-cells-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original-payload cache");
-  const ContentStore::Config config{.Directory = directory};
+  const RawSourceCache::Config config{.Directory = directory};
   const std::array cells{CellId{54, 9}, CellId{-34, 18}, CellId{-90, -180}, CellId{89, 179}};
   const std::array<std::string, 4> names{"g/54/9", "g/-34/18", "g/-90/-180", "g/89/179"};
   std::vector<std::string> keys;
   for (int pass = 0; pass < 2; ++pass) {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     auto native = std::make_unique<Native>();
     const Native *provider = native.get();

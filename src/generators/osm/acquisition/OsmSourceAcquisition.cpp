@@ -3,7 +3,7 @@
 
 #include "OsmChunkSetLoader.h"
 #include "OsmApiReader.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceProviderValidation.h"
 
 #include <algorithm>
@@ -194,8 +194,8 @@ void SourceAcquisition::StartRegionAcquisition() {
     }
     if (remote) {
       if (!access->Store) {
-        access->Store = std::make_unique<Data::ContentStore>(
-            Data::ContentStore::Config{.Directory = access->Directory});
+        access->Store = std::make_unique<Data::RawSourceCache>(
+            Data::RawSourceCache::Config{.Directory = access->Directory});
       }
       const auto deadline = [access, revision] { return access->CurrentDeadline(revision); };
       auto read = ReadRegions(

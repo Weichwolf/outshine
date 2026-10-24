@@ -10,7 +10,7 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-ground-patch-cancel-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   auto opened = Generators::PreparedTerrainAssets::Open((root / "assets").string(), sources);
   CHECK(opened.has_value(), "native sampling cache opens");

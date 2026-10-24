@@ -9,7 +9,7 @@
 
 namespace outshine::Data {
 std::expected<std::shared_ptr<SourceSession>, std::string>
-SourceSession::Open(const ContentStore::Config &config,
+SourceSession::Open(const RawSourceCache::Config &config,
                     std::span<const SourceProvider> providers,
                     std::string_view shippedRoot,
                     const ProviderRegistry &registry) {

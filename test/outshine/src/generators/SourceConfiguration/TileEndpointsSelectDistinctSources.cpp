@@ -1,6 +1,6 @@
 #include "ShippedProviders.h"
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceConfiguration.h"
 #include "OfflineTransport.h"
 #include "SourceSet.h"
@@ -58,7 +58,7 @@ int main() {
        .Endpoint = "https://second.example/map/{z}/{x}/{y}.png"},
   }};
   CHECK(ValidateSourceProviders(providers).has_value(), "distinct tile declarations validate");
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   std::string error;
   CHECK(RegisterSources(sources, providers, {}, error, registry), error.c_str());
@@ -113,7 +113,7 @@ int main() {
       (std::filesystem::temp_directory_path() / "outshine-tile-endpoint-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated source cache created");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
-  ContentStore cache({.Directory = directory});
+  RawSourceCache cache({.Directory = directory});
   SourceSet cached(cache);
   error.clear();
   CHECK(RegisterSources(cached, failing, {}, error, registry), error.c_str());

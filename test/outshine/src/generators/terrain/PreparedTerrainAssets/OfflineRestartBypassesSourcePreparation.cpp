@@ -69,7 +69,7 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-native-terrain-test-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   constexpr Data::TileId at{.Zoom = 3, .X = 3, .Y = 3};
   Fields original;

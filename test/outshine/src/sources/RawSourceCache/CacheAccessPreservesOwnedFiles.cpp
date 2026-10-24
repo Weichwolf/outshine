@@ -1,5 +1,5 @@
-#include "ContentStore.h"
-#include "CacheTrim.h"
+#include "RawSourceCache.h"
+#include "SourceCacheTrim.h"
 #include "Check.h"
 #include <array>
 #include <cstdlib>
@@ -22,7 +22,7 @@ int main() {
   const std::string key(64, 'a');
   const std::array<uint8_t, 4> bytes{1, 2, 3, 4};
   {
-    ContentStore store({.Directory = cache.string(), .CapBytes = 4});
+    RawSourceCache store({.Directory = cache.string(), .CapBytes = 4});
     CHECK(store.Keep(key, bytes.data(), bytes.size()), "exact cap published");
     CHECK(store.Lookup(key).Bytes == std::vector<uint8_t>(bytes.begin(), bytes.end()),
           "exact cap read");
@@ -30,11 +30,12 @@ int main() {
     CHECK(cost.ReadCalls == 1 && cost.ReadBytes == bytes.size() && cost.WriteBytes == bytes.size(),
           "cache counts the bytes actually read and written");
     CHECK(cost.ReadMs >= 0.0 && cost.WriteMs >= 0.0, "cache IO durations are nonnegative");
-    CHECK(store.Lookup(key, 3).Where == ContentStore::Presence::Unknown, "caller can tighten cap");
+    CHECK(store.Lookup(key, 3).Where == RawSourceCache::Presence::Unknown,
+          "caller can tighten cap");
     for (const std::string &invalid : std::vector<std::string>{
              "../outside", "", "plain", std::string(64, 'A'), key + std::string(1, '\0')}) {
       CHECK(!store.Keep(invalid, bytes.data(), bytes.size()), "invalid key rejected");
-      CHECK(store.Lookup(invalid).Where == ContentStore::Presence::Unknown,
+      CHECK(store.Lookup(invalid).Where == RawSourceCache::Presence::Unknown,
             "invalid key cannot be read");
     }
     CHECK(!std::filesystem::exists(root / "outside"), "no file escaped cache");
@@ -43,8 +44,8 @@ int main() {
     CHECK(store.Lookup(key).Bytes == std::vector<uint8_t>(bytes.begin(), bytes.end()),
           "rejected replacement preserves bytes");
     std::ofstream(cache / key, std::ios::binary).write("12345", 5);
-    CHECK(store.Lookup(key).Where == ContentStore::Presence::Unknown &&
-              store.Lookup(key, 100).Where == ContentStore::Presence::Unknown,
+    CHECK(store.Lookup(key).Where == RawSourceCache::Presence::Unknown &&
+              store.Lookup(key, 100).Where == RawSourceCache::Presence::Unknown,
           "caller cannot enlarge store cap");
   }
   std::filesystem::remove(cache / key);
@@ -53,20 +54,20 @@ int main() {
   std::ofstream(root / "target") << "ok";
   std::filesystem::create_symlink(root / "target", cache / key);
   {
-    ContentStore store({.Directory = cache.string(), .CapBytes = 4});
+    RawSourceCache store({.Directory = cache.string(), .CapBytes = 4});
     CHECK(outshine::TrimSourceCache(cache, {.BudgetBytes = 4, .Apply = true}),
           "maintenance ignores foreign files and unsupported entry types");
     CHECK(std::filesystem::exists(cache / "unrelated"), "eviction preserves foreign files");
     CHECK(std::filesystem::exists(cache / (key + ".outshine-0.tmp")),
           "eviction preserves temporary files");
     CHECK(std::filesystem::is_symlink(cache / key), "eviction leaves symlinks alone");
-    CHECK(store.Lookup(key).Where == ContentStore::Presence::Unknown,
+    CHECK(store.Lookup(key).Where == RawSourceCache::Presence::Unknown,
           "symlink is not a cache entry");
   }
   std::filesystem::remove(cache / key);
   std::filesystem::create_directory(cache / key);
   {
-    ContentStore store({.Directory = cache.string(), .CapBytes = 4});
+    RawSourceCache store({.Directory = cache.string(), .CapBytes = 4});
     CHECK(!store.Keep(key, bytes.data(), bytes.size()), "directory replacement fails");
     CHECK(std::filesystem::is_directory(cache / key), "failed publication preserves destination");
   }
@@ -78,9 +79,9 @@ int main() {
   std::filesystem::last_write_time(cache / key, now - std::chrono::seconds(1));
   std::filesystem::last_write_time(cache / newerKey, now);
   {
-    ContentStore store({.Directory = cache.string(), .CapBytes = 4});
-    CHECK(store.Lookup(key).Where == ContentStore::Presence::Bytes &&
-              store.Lookup(newerKey).Where == ContentStore::Presence::Bytes,
+    RawSourceCache store({.Directory = cache.string(), .CapBytes = 4});
+    CHECK(store.Lookup(key).Where == RawSourceCache::Presence::Bytes &&
+              store.Lookup(newerKey).Where == RawSourceCache::Presence::Bytes,
           "opening preserves existing source bytes even above the maintenance budget");
   }
   const auto trimmed = outshine::TrimSourceCache(cache, {.BudgetBytes = 4, .Apply = true});
@@ -95,9 +96,9 @@ int main() {
   CHECK(!outshine::TrimSourceCache(root / "target", {.BudgetBytes = 4, .Apply = true}),
         "unavailable maintenance directory is an explicit failure");
   {
-    ContentStore disabled(
-        {.Directory = (root / "target").string(), .Using = ContentStore::Use::Off});
-    CHECK(disabled.Lookup(key).Where == ContentStore::Presence::Unknown &&
+    RawSourceCache disabled(
+        {.Directory = (root / "target").string(), .Using = RawSourceCache::Use::Off});
+    CHECK(disabled.Lookup(key).Where == RawSourceCache::Presence::Unknown &&
               !disabled.Keep(key, bytes.data(), bytes.size()),
           "disabled stores perform no cache IO");
     CHECK(std::filesystem::file_size(root / "target") == 2,

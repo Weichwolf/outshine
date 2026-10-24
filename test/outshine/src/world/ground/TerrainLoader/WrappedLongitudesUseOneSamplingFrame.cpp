@@ -1,6 +1,6 @@
 #include "TerrainLoader.h"
 #include "SourceSet.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include <Transport.h>
 #include "Check.h"
 
@@ -63,7 +63,7 @@ bool HasHeight(const GroundSample &sample, double expected) {
 
 int main() {
   using namespace outshine::Test;
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<GradientSource>()) == Data::SourceSet::Registration::Accepted,
         "the independently encoded four-column DEM is registered");

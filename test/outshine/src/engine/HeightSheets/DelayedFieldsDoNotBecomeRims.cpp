@@ -74,7 +74,7 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;
   auto source = std::make_unique<DelayedSource>();
@@ -276,7 +276,7 @@ int main() {
   probe->Released = true;
   for (DelayedSource::Answer answer :
        {DelayedSource::Answer::Absent, DelayedSource::Answer::Refused}) {
-    Data::ContentStore otherStore({.Using = Data::ContentStore::Use::Off});
+    Data::RawSourceCache otherStore({.Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet otherSources(otherStore);
     NoNetwork otherTransport;
     auto otherSource = std::make_unique<DelayedSource>();

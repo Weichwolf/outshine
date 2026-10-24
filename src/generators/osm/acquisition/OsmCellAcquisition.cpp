@@ -19,7 +19,7 @@ struct CellAcquisition::Impl {
   };
 
   Data::SourceProvider Catalogue;
-  Data::ContentStore &Store;
+  Data::RawSourceCache &Store;
   Data::Transport &Wire;
   const Data::ProviderRegistry *Registry;
   std::string ShippedRoot;
@@ -27,7 +27,7 @@ struct CellAcquisition::Impl {
 };
 
 CellAcquisition::CellAcquisition(Data::SourceProvider catalogue,
-                                 Data::ContentStore &store,
+                                 Data::RawSourceCache &store,
                                  Data::Transport &wire,
                                  const Data::ProviderRegistry *registry,
                                  std::string shippedRoot)

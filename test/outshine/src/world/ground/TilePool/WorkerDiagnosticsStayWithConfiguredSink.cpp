@@ -92,7 +92,7 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<RefusingSource>()) == SourceSet::Registration::Accepted,
         "the refusing worker source registers");

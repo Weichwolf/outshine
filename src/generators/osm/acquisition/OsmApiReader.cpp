@@ -41,7 +41,7 @@ std::expected<size_t, std::string> PollStarted(std::span<const std::unique_ptr<A
 std::expected<SourceRead, std::string>
 ReadRequests(std::span<const Data::SourceProvider> providers,
              std::span<const GeoCellId> cells,
-             Data::ContentStore &store,
+             Data::RawSourceCache &store,
              Data::Transport &wire,
              double deadlineMs,
              const std::stop_token &stop,
@@ -94,7 +94,7 @@ ReadRequests(std::span<const Data::SourceProvider> providers,
 
 std::expected<SourceRead, std::string> ReadCells(const Data::SourceProvider &catalogue,
                                                  std::span<const GeoCellId> cells,
-                                                 Data::ContentStore &store,
+                                                 Data::RawSourceCache &store,
                                                  Data::Transport &wire,
                                                  double deadlineMs,
                                                  const std::stop_token &stop,
@@ -113,7 +113,7 @@ std::expected<SourceRead, std::string> ReadCells(const Data::SourceProvider &cat
 }
 
 std::expected<SourceRead, std::string> ReadRegions(std::span<const Data::SourceProvider> providers,
-                                                   Data::ContentStore &store,
+                                                   Data::RawSourceCache &store,
                                                    Data::Transport &wire,
                                                    double deadlineMs,
                                                    const std::stop_token &stop,
@@ -125,7 +125,7 @@ std::expected<SourceRead, std::string> ReadRegions(std::span<const Data::SourceP
 }
 
 std::expected<SourceChunk, std::string> ReadRegion(const Data::SourceProvider &provider,
-                                                   Data::ContentStore &store,
+                                                   Data::RawSourceCache &store,
                                                    Data::Transport &wire,
                                                    double deadlineMs,
                                                    const std::stop_token &stop,

@@ -1,5 +1,5 @@
 #include "AssetGeneration.h"
-#include "CacheTrim.h"
+#include "AssetCacheTrim.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>

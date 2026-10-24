@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "GroundMaterials.h"
 #include "OsmField.h"
 #include "PreparedStreetGraph.h"
@@ -57,7 +57,7 @@ Generate(const Osm::OsmField &vectors,
 }
 
 void CheckTerrainBinding(const std::filesystem::path &root) {
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
   Ground::GroundMaterials materials;
   Ground::VegetationTemplates templates;

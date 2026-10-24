@@ -1,7 +1,7 @@
 #include "TilePool.h"
 #include "TerrainLoader.h"
 #include "tiles/TerrainTiles.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <Transport.h>
 #include "Check.h"
@@ -53,7 +53,7 @@ int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
   for (const bool querySide : {false, true}) {
-    Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+    Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet sources(store);
     NoNetwork transport;
     CHECK(sources.Add(std::make_unique<Provider>()) == Data::SourceSet::Registration::Accepted,

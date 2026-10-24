@@ -20,6 +20,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   render
   scenario
   sources
+  storage
   ui
   world
   world/entity
@@ -63,7 +64,7 @@ target_link_libraries(outshine_actor PUBLIC outshine_base)
 target_link_libraries(outshine_audio PUBLIC outshine_base)
 target_link_libraries(outshine_app_capture PUBLIC outshine_base outshine_content outshine_render outshine_engine)
 target_link_libraries(outshine_client PUBLIC outshine_app_capture outshine_actor outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_sources outshine_render outshine_scenario outshine_world)
-target_link_libraries(outshine_content PUBLIC outshine_base)
+target_link_libraries(outshine_content PUBLIC outshine_base outshine_storage)
 target_link_libraries(outshine_diagnostics PUBLIC outshine_base)
 target_link_libraries(outshine_diagnostics_calibration PUBLIC outshine_base outshine_render)
 target_link_libraries(outshine_engine PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_actor outshine_render outshine_scenario outshine_ui outshine_audio outshine_diagnostics outshine_sources outshine_engine_streaming)
@@ -76,7 +77,8 @@ target_link_libraries(outshine_generators_osm PUBLIC outshine_base outshine_cont
 target_link_libraries(outshine_generators_road PUBLIC outshine_base outshine_content outshine_diagnostics outshine_generators_base outshine_generators_osm outshine_world)
 target_link_libraries(outshine_generators_terrain PUBLIC outshine_base outshine_content outshine_generators_base outshine_generators_osm outshine_world)
 target_link_libraries(outshine_generators_water PUBLIC outshine_base outshine_content outshine_generators_base outshine_world)
-target_link_libraries(outshine_sources PUBLIC outshine_base CURL::libcurl)
+target_link_libraries(outshine_sources PUBLIC outshine_base outshine_storage CURL::libcurl)
+target_link_libraries(outshine_storage PUBLIC outshine_base PkgConfig::sqlite3)
 target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_scenario PUBLIC outshine_actor outshine_audio outshine_base outshine_content outshine_render outshine_world)
 target_link_libraries(outshine_ui PUBLIC outshine_base outshine_content)

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "OfflineTransport.h"
 #include "SourceSet.h"
 
@@ -75,7 +75,7 @@ int main() {
   OfflineTransport offline;
   const Cells provider;
   for (int pass = 0; pass < 2; ++pass) {
-    ContentStore store({.Directory = path});
+    RawSourceCache store({.Directory = path});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<Cells>()) == SourceSet::Registration::Accepted,
           "external geodetic source uses the same public source contract");
@@ -95,7 +95,7 @@ int main() {
   const auto key = ContentKey(provider.Decl, Address::AtGeoCell(children[0]));
   const std::array<char, 4> changed{1, 2, 3, 5};
   std::ofstream(path + "/" + key, std::ios::binary).write(changed.data(), changed.size());
-  ContentStore fresh({.Directory = path});
+  RawSourceCache fresh({.Directory = path});
   SourceSet sources(fresh);
   CHECK(sources.Add(std::make_unique<Cells>()) == SourceSet::Registration::Accepted,
         "fresh provider registered for corrupted-source replay");

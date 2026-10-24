@@ -1,5 +1,5 @@
 #include "TerrainPathPreparation.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <Transport.h>
 #include "Check.h"
@@ -57,7 +57,7 @@ Around Point(double column) {
 
 int main() {
   using namespace outshine::Test;
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;
   Ground::TilePool pool({}, sources, transport);

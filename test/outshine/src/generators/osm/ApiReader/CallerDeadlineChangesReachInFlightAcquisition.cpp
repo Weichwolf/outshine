@@ -52,7 +52,7 @@ int main() {
        .Endpoint = std::string(kOfficialOsmApi),
        .Coverage =
            GeographicBounds{.WestDeg = -0.1, .SouthDeg = -0.1, .EastDeg = 0.1, .NorthDeg = 0.1}}};
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   DelayedWire fixed;
   CHECK(!outshine::Generators::Osm::ReadRegions(providers, store, fixed, 10, {}) &&
             fixed.ClockMs == 10 && fixed.Canceled == 1,

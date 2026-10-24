@@ -58,7 +58,7 @@ void operator delete(void *block, std::align_val_t) noexcept {
 int main() {
   using namespace outshine::Test;
   using outshine::Ground::TilePool;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   CHECK(sources.Add(std::make_unique<PendingSource>()) == SourceSet::Registration::Accepted,

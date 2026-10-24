@@ -1,4 +1,4 @@
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 
 #include <atomic>
 #include <charconv>
@@ -44,7 +44,7 @@ bool ValidAbsenceRecord(std::string_view record) {
 }
 }
 
-bool ContentStore::AbsenceDirectory(bool create) const {
+bool RawSourceCache::AbsenceDirectory(bool create) const {
   const std::filesystem::path path = Directory_ + "/" + std::string(kDirectory);
   std::error_code error;
   auto status = std::filesystem::symlink_status(path, error);
@@ -57,7 +57,7 @@ bool ContentStore::AbsenceDirectory(bool create) const {
   return !error && std::filesystem::is_directory(status);
 }
 
-bool ContentStore::RemoveAbsence(std::string_view key) const {
+bool RawSourceCache::RemoveAbsence(std::string_view key) const {
   if (!AbsenceDirectory(false)) { return false; }
   const auto path = MarkerPath(Directory_, key);
   std::error_code error;
@@ -67,7 +67,7 @@ bool ContentStore::RemoveAbsence(std::string_view key) const {
   return std::filesystem::remove(path, error) && !error;
 }
 
-bool ContentStore::HasAbsence(std::string_view key) const {
+bool RawSourceCache::HasAbsence(std::string_view key) const {
   const std::scoped_lock lock(AbsenceMutex_);
   if (!AbsenceDirectory(false)) { return false; }
   const auto bytes = ReadEntry(MarkerPath(Directory_, key), kRecordBytes);
@@ -75,12 +75,12 @@ bool ContentStore::HasAbsence(std::string_view key) const {
          ValidAbsenceRecord({reinterpret_cast<const char *>(bytes->data()), bytes->size()});
 }
 
-void ContentStore::ForgetAbsence(std::string_view key) {
+void RawSourceCache::ForgetAbsence(std::string_view key) {
   const std::scoped_lock lock(AbsenceMutex_);
   (void)RemoveAbsence(key);
 }
 
-bool ContentStore::KeepAbsent(std::string_view key) {
+bool RawSourceCache::KeepAbsent(std::string_view key) {
   if (Using_ != Use::On || !ValidKey(key)) { return false; }
   const std::scoped_lock lock(AbsenceMutex_);
   if (!AbsenceDirectory(true)) { return false; }

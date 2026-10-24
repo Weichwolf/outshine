@@ -4,7 +4,7 @@
 #include "Sha256.h"
 #include "OsmField.h"
 #include "TilePool.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "Check.h"
 
@@ -107,7 +107,7 @@ int main() {
   std::filesystem::create_directories(root / "oversized", error);
   CHECK(!error, "isolated request-key cache directories are created");
   if (error) { return Report(); }
-  Data::ContentStore store({.Directory = {}, .Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   const Data::SourceSet sources(store);
   constexpr size_t kLargeRecipeBytes = size_t{160} * 1024;
   std::string rules(kLargeRecipeBytes, 'r');

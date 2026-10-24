@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "NativeCog.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "TilePool.h"
 #include "TileGeodesy.h"
@@ -125,7 +125,7 @@ TilePool::Reply Field(TilePool &pool,
 
 int main() {
   using namespace outshine::Test;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<Native>()) == SourceSet::Registration::Accepted,
         "external native provider registers through the common interface");

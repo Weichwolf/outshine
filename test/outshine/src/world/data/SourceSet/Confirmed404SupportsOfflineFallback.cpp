@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "OfflineTransport.h"
 #include "SourceSet.h"
 #include "WebTileFixture.h"
@@ -85,10 +85,10 @@ int main() {
   using namespace outshine::Test;
   auto directory = (std::filesystem::temp_directory_path() / "outshine-404-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated cache created");
-  const ContentStore::Config config{.Directory = directory};
+  const RawSourceCache::Config config{.Directory = directory};
   const Fetch request(DataKind::Elevation, Address::At({.Zoom = 17, .X = 69, .Y = 45}));
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources);
     Http online;
@@ -98,7 +98,7 @@ int main() {
           "real not-found evidence and fallback bytes obtained online");
   }
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources);
     OfflineTransport offline;
@@ -111,7 +111,7 @@ int main() {
           "known absence and bytes are cache hits without any provider start");
   }
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources, {}, AbsencePolicy::Fail);
     OfflineTransport offline;
@@ -122,7 +122,7 @@ int main() {
           "fail policy applies identically to cached not-found evidence");
   }
   for (const bool changedRevision : {true, false}) {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources, changedRevision ? "different-pin" : "");
     OfflineTransport offline;
@@ -138,7 +138,7 @@ int main() {
     }
   }
   for (const int status : {403, 408, 500}) {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources, std::to_string(status));
     Http failed;
@@ -154,11 +154,11 @@ int main() {
                                                         : FetchFailureReason::ProviderRefused),
           "HTTP timeout remains distinct from provider refusal after retry exhaustion");
     CHECK(store.Lookup(ContentKey(sources.At(0).Declaration(), sources.At(0).Serves(request)))
-                  .Where == ContentStore::Presence::Unknown,
+                  .Where == RawSourceCache::Presence::Unknown,
           "forbidden, timeout and server errors never create absence evidence");
   }
   for (const auto reason : {FetchFailureReason::Cancelled, FetchFailureReason::CapacityRefused}) {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources, std::string(Name(reason)));
     Http failed;
@@ -170,11 +170,11 @@ int main() {
               failed.Begins == 1,
           "cancellation and body-budget refusals never restart a transfer");
     CHECK(store.Lookup(ContentKey(sources.At(0).Declaration(), sources.At(0).Serves(request)))
-                  .Where == ContentStore::Presence::Unknown,
+                  .Where == RawSourceCache::Presence::Unknown,
           "terminal transport errors cannot create absence evidence");
   }
   {
-    ContentStore store(config);
+    RawSourceCache store(config);
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<UnprovenAbsence>()) == SourceSet::Registration::Accepted,
           "unproven source registered");
@@ -183,7 +183,7 @@ int main() {
     CHECK(sources.Collect(query, offline).Where() == Delivery::State::Vacant,
           "generic absence can finish its current request");
     CHECK(store.Lookup(ContentKey(sources.At(0).Declaration(), request.Where())).Where ==
-              ContentStore::Presence::Unknown,
+              RawSourceCache::Presence::Unknown,
           "generic absence without explicit HTTP evidence cannot become a persistent fact");
   }
   std::error_code error;

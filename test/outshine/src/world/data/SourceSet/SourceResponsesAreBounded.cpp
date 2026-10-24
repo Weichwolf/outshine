@@ -60,7 +60,7 @@ template <class... Answers> auto SourceWith(std::string name, Rank order, Answer
 int main() {
   using namespace outshine::Test;
   const Fetch request(DataKind::Elevation, Address::Whole(0));
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   ClockTransport transport;
   {
     SourceSet sources(store);
