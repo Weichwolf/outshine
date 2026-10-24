@@ -1598,6 +1598,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceStage(Job &job,
     case Stage::Design:
     case Stage::Edges:
     case Stage::Legs: return AdvanceRoadDesign(job, slice);
+    case Stage::FootpathConnections: return AdvanceFootpathConnections(job, slice);
     case Stage::Junctions:
     case Stage::EndCuts:
     case Stage::JunctionGates:
@@ -1853,6 +1854,16 @@ std::expected<bool, std::string_view> Corridors::AdvanceBridgeGrades(Job &job,
   }
 }
 
+std::expected<bool, std::string_view> Corridors::AdvanceFootpathConnections(Job &job,
+                                                                            const JobSlice &slice) {
+  if (slice.paving != nullptr) { ConnectFootpaths(*slice.paving, job.Work); }
+  const double took = slice.Elapsed();
+  job.TotalMs += took;
+  Notes(job.Work, "footpaths: connection planning", took, "ms");
+  job.Phase = Job::Stage::BridgeTopology;
+  return false;
+}
+
 std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
                                                                    const JobSlice &slice) const {
   const auto *paving = slice.paving;
@@ -1884,7 +1895,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
       into.FitMs = into.WaterMs = into.SweepMs = 0.0;
       job.NextLane = 0;
       job.StageMs = 0.0;
-      job.Phase = Job::Stage::BridgeTopology;
+      job.Phase = Job::Stage::FootpathConnections;
       return false;
     }
     case Job::Stage::Edges:

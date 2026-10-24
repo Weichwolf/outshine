@@ -196,6 +196,9 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
     return true;
   }
   if (planning) {
+    for (const auto &one : Generators::Corridors::PlanMeasures(*state.CorridorJob())) {
+      Published.RecordMetric(one.Name, one.Value, one.Unit.c_str());
+    }
     const auto accepted = AcceptRoadPlan(state, site, World.Pool.get(), World.Stack.RoadAssets());
     if (!accepted) {
       Error = accepted.error();

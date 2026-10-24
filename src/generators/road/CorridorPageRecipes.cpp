@@ -82,6 +82,10 @@ std::expected<std::vector<RoadPagePart>, std::string_view> Corridors::PlannedPar
   return parts;
 }
 
+std::span<const DiagnosticSample> Corridors::PlanMeasures(const Job &job) noexcept {
+  return job.Work.Notes;
+}
+
 std::expected<RoadPageRecipe, std::string_view>
 Corridors::PageRecipe(const Job &job, const Site &site, std::span<const RoadPagePart> parts) {
   if (job.Retirement != Job::RetireStage::Active || job.Phase < Job::Stage::Pave ||

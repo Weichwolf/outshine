@@ -2,6 +2,7 @@
 #include "GroundMaterials.h"
 #include "MvtWireFixture.h"
 #include "OsmSurfacePlacement.h"
+#include "OsmFootpathSource.h"
 #include "StreetField.h"
 #include <array>
 #include <bit>
@@ -52,6 +53,10 @@ Bytes Number(double value) {
 
 struct Case {
   MvtSchema Schema = MvtSchema::Shortbread;
+  std::string Kind = "path";
+  std::optional<std::string> Subclass = std::nullopt;
+  std::optional<Bytes> Foot = std::nullopt;
+  std::optional<Bytes> Access = std::nullopt;
   std::optional<Bytes> Layer = std::nullopt;
   std::optional<Bytes> Bridge = std::nullopt;
   std::optional<Bytes> Tunnel = std::nullopt;
@@ -75,7 +80,10 @@ Bytes Tile(const Case &input) {
     tags.insert(tags.end(), {next, next});
     ++next;
   };
-  add(input.Schema == MvtSchema::Shortbread ? "kind" : "class", Text("path"));
+  add(input.Schema == MvtSchema::Shortbread ? "kind" : "class", Text(input.Kind));
+  if (input.Subclass) { add("subclass", Text(*input.Subclass)); }
+  add("foot", input.Foot);
+  add("access", input.Access);
   add("layer", input.Layer);
   add("bridge", input.Bridge);
   add("tunnel", input.Tunnel);
@@ -126,6 +134,34 @@ void CheckCase(const Case &input, const VegetationTemplates &templates) {
   CHECK(after && after->Tunnel == placement->Tunnel && field.Features().size() == 1,
         "display filtering leaves tunnel facts available to the native source planner");
 }
+
+void CheckFootpathAccess(const Case &input,
+                         std::optional<bool> expected,
+                         const VegetationTemplates &templates,
+                         bool invalid = false) {
+  const std::array<std::string, 1> layers{"streets"};
+  OsmField field(1, layers, input.Schema);
+  CHECK(field.Accept(0, 0, Tile(input)).has_value(), "foot access comes from actual provider tags");
+  StreetField streets;
+  CHECK(streets.Ingest(field, templates) == 1, "the tagged path reaches the live source reader");
+  const auto source = ReadFootpathSource(field, streets, 0);
+  if (invalid) {
+    CHECK(!source && source.error() == FootpathSourceError::InvalidAccess,
+          "malformed supplied access is rejected rather than replaced by an assumption");
+    return;
+  }
+  CHECK(source && source->FootAccess == expected,
+        "supplied foot overrides access; absent stays absent");
+  if (!source) { return; }
+  CHECK(source->Kind == "steps", "the actual source classification reaches the native planner");
+  CHECK(!source->Placement.Layer && !source->Placement.Bridge && !source->Placement.Tunnel,
+        "the source reader does not invent placement facts");
+  CHECK(!source->OwnsEnds[0] && source->OwnsEnds[1],
+        "a tile-boundary end stays a fragment while the interior end belongs to the source");
+  OsmField unrelated(1, layers, input.Schema);
+  CHECK(!ReadFootpathSource(unrelated, streets, 0), "an index cannot read another field's tags");
+}
+
 }
 
 int main() {
@@ -162,5 +198,21 @@ int main() {
       {.Bridge = Number(std::numeric_limits<double>::infinity()),
        .Error = SurfacePlacementError::InvalidBridge}};
   for (const auto &input : cases) { CheckCase(input, templates); }
+  CheckFootpathAccess({.Kind = "steps"}, std::nullopt, templates);
+  CheckFootpathAccess({.Schema = MvtSchema::OpenMapTiles,
+                       .Kind = "path",
+                       .Subclass = "steps",
+                       .Foot = Text("designated")},
+                      true,
+                      templates);
+  CheckFootpathAccess({.Kind = "steps", .Access = Text("no")}, false, templates);
+  CheckFootpathAccess(
+      {.Kind = "steps", .Foot = Text("designated"), .Access = Text("no")}, true, templates);
+  CheckFootpathAccess(
+      {.Kind = "steps", .Foot = Number(0), .Access = Text("yes")}, false, templates);
+  CheckFootpathAccess({.Kind = "steps", .Foot = Text("unknown"), .Access = Text("yes")},
+                      std::nullopt,
+                      templates,
+                      true);
   return Report();
 }

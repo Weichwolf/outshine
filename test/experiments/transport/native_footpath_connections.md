@@ -6,7 +6,9 @@ admission. Source indices refer to immutable caller-owned axes; original knots
 remain in order. A derived intersection is shared by the target cut and branch
 extension. Coincident coordinates do not claim original provider-node identity.
 Unknown ends, tile fragments, terminals and ambiguous targets stay unconnected.
-Known positional bounds further restrict the existing width/reach recipe.
+Native axes also retain original-knot and connection IDs for height/node binding;
+fixed existing connections remain protected. Known positional bounds further
+restrict the existing width/reach recipe.
 
 The existing `PlanHierarchy` indexes eligible target segments. Its closed box
 query uses bounded stack traversal and supports consumer interruption. If a
@@ -45,8 +47,15 @@ containers, not complete allocator or process peaks. Actual device receipts and
 the combined native 2D/native LP/Python body checks belong to
 [#1003](https://github.com/Weichwolf/outshine/issues/1003).
 
+`Corridors` consumes the bounded plan before its height/profile construction and
+road-page meshing. The OSM reader preserves optional placement/access and tile-end
+ownership; construction defaults belong to the native generator. New joins share
+the target height and node, while original knots and existing bindings remain.
+The live-page test covers a nearby gap, an out-of-reach gap and an existing join.
+
 This plan is a 2D construction proposal. The shared native surface arrangement,
 profile program, indexed body and outer mesh/navigation/terrain consumers still
-need integration; no world repair or frame-budget admission follows. Generation
+need integration; this connection stage does not establish complete stair bodies,
+navigation/terrain coupling or frame-budget admission. Generation
 belongs to bounded asynchronous asset-miss work; frames consume finished products
 under [#10](https://github.com/Weichwolf/outshine/issues/10).
