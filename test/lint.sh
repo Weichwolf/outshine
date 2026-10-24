@@ -94,7 +94,7 @@ printf '\n== the repository rules ==\n'
 if ! sh test/run.sh harness/claims > "$REPORT/claims.log" 2>&1; then
   red=$((red + 1))
 fi
-grep -E '^(FAIL|BUILD|UNPREP|PASS)' "$REPORT/claims.log" | grep -v '^PASS' | sed 's|/var/folders.*||' || true
+grep -E '^(FAIL|BUILD|UNPREP|TIMEOUT|SIGNAL|PARTIAL)' "$REPORT/claims.log" | sed 's|/var/folders.*||' || true
 grep 'tests:' "$REPORT/claims.log" | sed 's/^/lint: /' || true
 
 # WHAT NOTHING CALLS, and clang cannot answer it. clang-tidy works one translation unit at a time,
