@@ -333,7 +333,7 @@ TestProfile() {
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
     outshine/include/*) printf '%s' 'profile/internal' ;;
-    outshine/src/generators/osm/BuildingField) printf '%s' 'profile/building-field' ;;
+    outshine/src/generators/osm/BuildingField | outshine/src/generators/osm/WaterField) printf '%s' 'profile/osm-fields' ;;
     outshine/src/generators/terrain/BuildingStampJob) printf '%s' 'profile/building-stamps' ;;
     outshine/src/engine/BuildingFootprintMeasurements) printf '%s' 'profile/building-measurements' ;;
     outshine/src/generators/osm/MvtLayer | outshine/src/generators/osm/OsmStorageUsage)
@@ -353,6 +353,7 @@ TestProfile() {
     outshine/src/generators/water/RiverBodyPlan) printf '%s' 'profile/water-preparation' ;;
     outshine/src/generators/water/WaterCourseProfile) printf '%s' 'profile/water-targets' ;;
     outshine/src/engine/streaming/WaterGeometryPreparation) printf '%s' 'profile/water-worker' ;;
+    outshine/integration/water/SourcePipeline) printf '%s' 'profile/water-source-pipeline' ;;
     outshine/integration/water/BasinFacets) printf '%s' 'profile/water-bed' ;;
     outshine/src/generators/flora/PreparedPlantBuild) printf '%s' 'profile/plant-build' ;;
     outshine/src/generators/flora/PreparedPlant) printf '%s' 'profile/plant-asset' ;;
@@ -413,7 +414,8 @@ LayerIncludes() {
     profile/road-profile) GroupIncludes src/generators/road/profile ;;
     profile/client-shots) printf '%s' '-I. -Iinclude' ;;
     profile/cache-usage) printf '%s' "-I. -Itest/harness/shared $(pkg-config --cflags sqlite3)" ;;
-    profile/building-field) GroupIncludes src/generators/osm ;;
+    profile/osm-fields) GroupIncludes src/generators/osm ;;
+    profile/water-source-pipeline) GroupIncludes src/generators ;;
     profile/building-stamps) GroupIncludes src/generators/terrain ;;
     profile/building-measurements) GroupIncludes src/engine ;;
     profile/water-mesh | profile/water-asset) GroupIncludes src/generators/base ;;
@@ -555,7 +557,8 @@ LayerLibraryLink() {
     profile/road-surface|profile/station-heights) pkg-config --libs geos ;;
     profile/footpath-plan) return 0 ;;
     profile/road-profile) HighsFlags --libs ;;
-    profile/building-field) LayerLibraryLink profile/world; printf ' %s' "$(OsqpFlags --libs) $(HighsFlags --libs)" ;;
+    profile/osm-fields) LayerLibraryLink profile/world; printf ' %s' "$(OsqpFlags --libs) $(HighsFlags --libs)" ;;
+    profile/water-source-pipeline) LayerLibraryLink profile/osm-fields ;;
     profile/building-stamps | profile/building-measurements) return 0 ;;
     profile/water-targets) printf '%s' '' ;;
     profile/cache-usage) pkg-config --libs sqlite3 ;;
@@ -631,7 +634,8 @@ LayerGroups() {
     profile/scenario-views) printf '%s' 'src/scenario/Views.cpp src/base/math/Camera.cpp' ;;
     profile/render-viewing) printf '%s' 'src/base/math/Camera.cpp src/base/math/Rotation.cpp' ;;
     profile/client-boundary) return 0 ;;
-    profile/building-field) SubtreeGroups src/base src/content src/world src/generators/base src/generators/building src/generators/osm ;;
+    profile/osm-fields) SubtreeGroups src/base src/content src/world src/generators/base src/generators/building src/generators/osm ;;
+    profile/water-source-pipeline) LayerGroups profile/osm-fields; printf ' src/generators/GroundSnapshot.cpp '; SubtreeGroups src/generators/water ;;
     profile/building-stamps) printf '%s' 'src/generators/osm/fields/BuildingField.cpp src/generators/osm/fields/BuildingFieldProducts.cpp src/generators/terrain/BuildingStampJob.cpp' ;;
     profile/building-measurements) printf '%s' 'src/generators/osm/fields/BuildingField.cpp src/generators/osm/fields/BuildingFieldProducts.cpp src/engine/BuildingFootprintMeasurements.cpp' ;;
     profile/height-solid) printf '%s' 'src/base/spatial/HeightSolid.cpp src/base/spatial/HeightSolidWalls.cpp src/base/spatial/HeightSolidValidation.cpp' ;;
