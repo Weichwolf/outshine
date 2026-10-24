@@ -33,7 +33,7 @@ struct PreparedRoadPages::Generation {
     Generation &Gate_;
   };
 
-  [[nodiscard]] bool Acquire(std::stop_token stop) {
+  [[nodiscard]] bool Acquire(const std::stop_token &stop) {
     std::unique_lock held(Lock);
     if (!Available.wait(held, stop, [this] { return !Busy; }) || stop.stop_requested()) {
       return false;

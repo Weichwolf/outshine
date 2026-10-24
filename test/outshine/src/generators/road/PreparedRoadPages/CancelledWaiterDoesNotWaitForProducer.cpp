@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <ratio>
 #include <semaphore>
 #include <stop_token>
 #include <string>
@@ -20,6 +21,7 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Generators;
+constexpr double kAnchorLatitudeDeg = 49;
 constexpr size_t kLimit = size_t{1024} * 1024;
 constexpr uint32_t kWarmPart = 8;
 constexpr uint32_t kWaitingPart = 7;
@@ -33,7 +35,7 @@ RoadPageRequest Request(uint32_t part) {
   return {.Address = {.PlanKey = std::string(64, 'a'),
                       .MaterialKey = std::string(64, 'b'),
                       .MaterialIndex = 0,
-                      .Anchor = {.LongitudeDeg = 8, .LatitudeDeg = 49},
+                      .Anchor = {.LongitudeDeg = 8, .LatitudeDeg = kAnchorLatitudeDeg},
                       .Level = 0,
                       .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = part}}},
           .Parent = {},
@@ -55,7 +57,7 @@ void CheckCancelledHit(PreparedRoadPages &pages) {
   using namespace outshine::Test;
   size_t builds = 0;
   const auto producer = RoadProducer([&builds]([[maybe_unused]] const RoadPageRequest &request,
-                                               [[maybe_unused]] std::stop_token stop) {
+                                               [[maybe_unused]] const std::stop_token &stop) {
     ++builds;
     return Triangle(kWarmPart);
   });
@@ -87,7 +89,7 @@ void CheckCancelledRival(const std::shared_ptr<PreparedRoadPages> &pages, bool c
   const uint32_t part = cancelledAtEntry ? kCancelledPart : kWaitingPart;
   const auto work = std::make_shared<ControlledWork>();
   const auto producer = RoadProducer([work, part]([[maybe_unused]] const RoadPageRequest &request,
-                                                  [[maybe_unused]] std::stop_token stop) {
+                                                  [[maybe_unused]] const std::stop_token &stop) {
     ++work->Builds;
     work->Started.release();
     work->Release.acquire();
