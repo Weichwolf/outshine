@@ -150,6 +150,21 @@ def occluded(
     return hidden
 
 
+def covered_edges(q, x, y):
+    """Clockwise triangles share one canonical edge equation with opposite signs."""
+    covered = np.ones(np.broadcast_shapes(x.shape, y.shape), dtype=bool)
+    for i, j in ((1, 2), (2, 0), (0, 1)):
+        a, b = q[:, i, :2], q[:, j, :2]
+        forward = (a[:, 0] < b[:, 0]) | ((a[:, 0] == b[:, 0]) & (a[:, 1] <= b[:, 1]))
+        start = np.where(forward[:, None], a, b)
+        delta = np.where(forward[:, None], b - a, a - b)
+        edge = delta[:, 0, None] * (y + 0.5 - start[:, 1, None]) - delta[:, 1, None] * (
+            x + 0.5 - start[:, 0, None]
+        )
+        covered &= np.where(forward[:, None], edge <= 0, edge >= 0)
+    return covered
+
+
 def raster(
     projected, forward_z, triangles, width, height, *, with_faces=False, counters=None
 ):
@@ -208,9 +223,7 @@ def raster(
             ) / den[ids, None]
             w2 = 1 - w0 - w1
             covered = (
-                (w0 >= 0)
-                & (w1 >= 0)
-                & (w2 >= 0)
+                covered_edges(q, x, y)
                 & (x <= high[ids, 0, None])
                 & (y <= high[ids, 1, None])
             )
