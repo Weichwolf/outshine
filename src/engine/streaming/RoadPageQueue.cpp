@@ -56,7 +56,7 @@ bool RoadPageQueue::Request(Generators::RoadPageRequest request,
                 return std::optional<Product>(std::move(*result));
               });
   if (admitted) {
-    auto &work = Work_.find(key)->second;
+    const auto &work = Work_.find(key)->second;
     work->Parent = std::move(parent);
     work->RequestKey = std::move(requestKey);
   }
