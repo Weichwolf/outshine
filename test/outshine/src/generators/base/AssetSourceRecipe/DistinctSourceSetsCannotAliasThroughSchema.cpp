@@ -3,6 +3,8 @@
 #include "SourceMetadataFixture.h"
 #include <array>
 #include <iostream>
+#include <memory>
+#include <utility>
 
 int main() {
   using namespace outshine;
@@ -37,6 +39,12 @@ int main() {
         "ignored kinds cannot invalidate a recipe");
   CHECK(Generators::AssetSourceRecipe("another-product-version", pair, kinds) != two,
         "the explicit product version remains part of persistent identity");
+  auto invalid = Fixture::Declaration("invalid-definition", 2);
+  invalid.Wire = static_cast<Data::WireFormat>(255);
+  CHECK(pair.Add(std::make_unique<Fixture::MetadataOnlySource>(std::move(invalid))) ==
+                Data::SourceSet::Registration::InvalidDefinition &&
+            pair.Count() == 2 && Generators::AssetSourceRecipe(version, pair, kinds) == two,
+        "unencodable definitions are rejected without changing an existing source set");
   std::cout << "SOURCE_RECIPE keys_equal=" << (one == two) << " single=" << one << " pair=" << two
             << '\n';
   return Report();

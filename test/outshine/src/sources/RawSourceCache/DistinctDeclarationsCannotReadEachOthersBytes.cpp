@@ -79,6 +79,15 @@ void CheckEndpointPayloadAndRanges() {
   CHECK(Data::SourceKey(wire) != Data::SourceKey(first) &&
             Data::ContentKey(wire, at) == Data::ContentKey(first, at),
         "decode format changes source identity while preserving the same raw object's field set");
+  auto invalid = first;
+  invalid.Kind = static_cast<Data::DataKind>(255);
+  CHECK(!Data::SourceIdentityEncodable(invalid) && Data::SourceKey(invalid).empty() &&
+            Data::ContentKey(invalid, at).empty(),
+        "unknown data kinds cannot collapse into one usable empty-name identity");
+  invalid = first;
+  invalid.Wire = static_cast<Data::WireFormat>(255);
+  CHECK(!Data::SourceIdentityEncodable(invalid) && Data::SourceKey(invalid).empty(),
+        "unknown source formats fail before publishing a persistent identity");
 }
 }
 

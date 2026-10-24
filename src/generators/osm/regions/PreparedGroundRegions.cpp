@@ -96,6 +96,7 @@ std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroun
       "prepared-ground-region-97",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
+  if (recipe.empty()) { return std::unexpected("ground source metadata cannot be encoded"); }
   recipe.append(rules);
   return std::shared_ptr<PreparedGroundRegions>(
       new PreparedGroundRegions(std::move(*cache), std::move(recipe)));
