@@ -17,7 +17,7 @@ candidate counts remaining consumers per port, pins requested exports, discards
 unused product references after their last consumer and drops loop-local argument/
 emission references before the next callback. It never changes a payload. The exact
 28-line candidate patch against baseline `6afe45b0a` is retained in the #1229
-discussion, not adopted in the kernel or maintained as another runtime path.
+[candidate comment](https://github.com/Weichwolf/outshine/issues/1229#issuecomment-6383422583), not adopted in the kernel or maintained as another runtime path.
 
 The initial two real consumers saved only approximately 0.1% of traced peak.
 The extra bookkeeping is therefore rejected for this pilot. This does not reject
