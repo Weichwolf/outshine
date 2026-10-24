@@ -1,6 +1,7 @@
 """Emit native constants from the owned reference table, preserving its raw gamut values."""
 import json
 import math
+import sys
 from pathlib import Path
 
 
@@ -16,7 +17,7 @@ def main():
     if any(len(row) != 6 or not all(math.isfinite(value) for value in row) for row in rows):
         raise ValueError("six finite raw optical channels required")
     text = "\n".join("{" + ", ".join(format(value, ".17g") for value in row) + "}," for row in rows)
-    destination = Path("build/generated/LeafOpticsData.inc")
+    destination = Path(sys.argv[1] if len(sys.argv) > 1 else "build/generated/LeafOpticsData.inc")
     destination.parent.mkdir(parents=True, exist_ok=True)
     text += "\n"
     if not destination.exists() or destination.read_text() != text:
