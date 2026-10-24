@@ -29,6 +29,24 @@ class Conditions:
         self.values.extend(values)
         self.bounds.append(bound)
 
+    def add_rows(self, columns, values, bounds):
+        columns, values, bounds = map(np.asarray, (columns, values, bounds))
+        if (
+            columns.ndim != 2
+            or values.shape != columns.shape
+            or bounds.shape != (len(columns),)
+        ):
+            raise ValueError(
+                "matching sparse row columns, values and scalar bounds required"
+            )
+        first = len(self.bounds)
+        self.rows.extend(
+            np.repeat(np.arange(first, first + len(bounds)), columns.shape[1]).tolist()
+        )
+        self.columns.extend(columns.ravel().tolist())
+        self.values.extend(values.ravel().tolist())
+        self.bounds.extend(bounds.tolist())
+
     def equal(self, columns, values, bound=0):
         self.add(columns, values, bound)
         self.add(columns, -np.array(values), -bound)

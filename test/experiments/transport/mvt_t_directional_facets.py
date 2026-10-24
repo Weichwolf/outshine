@@ -5,12 +5,39 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
-from stair_junction_solve import facets, gradient_rows
+from stair_junction_solve import facets
 
 
 def checked_crossfall(value):
     if not math.isfinite(value) or not 0.002 < value <= 0.2:
         raise ValueError("bounded explicit procedural crossfall limit required")
+
+
+def _gradients(xy, faces):
+    points = xy[faces]
+    return np.linalg.inv(points[:, 1:] - points[:, :1]) @ np.array(
+        [[-1, 1, 0], [-1, 0, 1]]
+    )
+
+
+def _append_directional_rows(
+    system, faces, coefficients, limits, epsilon, cast_coefficients
+):
+    bounds = np.broadcast_to(
+        limits - np.where(limits > 0.1, 0.002, 0.0002), coefficients.shape[:2]
+    )
+    if cast_coefficients is not None:
+        cast_bounds = limits - epsilon * abs(cast_coefficients).sum(axis=2)
+        if (cast_bounds < 0).any():
+            raise ValueError(
+                "directional path face requires a better conditioned precision mesh"
+            )
+        coefficients = np.concatenate((coefficients, cast_coefficients), axis=1)
+        bounds = np.concatenate((bounds, cast_bounds), axis=1)
+    rows = coefficients.shape[1]
+    columns = np.broadcast_to(faces[:, None, :], (len(faces), rows, 3))
+    system.add_rows(columns.reshape(-1, 3), coefficients.reshape(-1, 3), bounds.ravel())
+    return len(faces) * rows
 
 
 def directional_facets(
@@ -50,6 +77,8 @@ def directional_facets(
             continue
         shapes = shapely.polygons(plan["xy"][faces])
         covered = np.zeros(len(faces), bool)
+        gradients = _gradients(plan["xy"], faces)
+        cast_gradients = _gradients(cast, faces) if precision else None
         for a, b in pairwise(row["xy"]):
             tangent = (b - a) / np.linalg.norm(b - a)
             normal = np.array([-tangent[1], tangent[0]])
@@ -63,28 +92,12 @@ def directional_facets(
             limits = np.array(
                 [row["gradient"], row["gradient"], crossfall_limit, crossfall_limit]
             )
-            margin = np.where(limits > 0.1, 0.002, 0.0002)
-            for index in hit:
-                face = faces[index]
-                work["directional_faces"] += 1
-                for values, bound in zip(
-                    vectors @ gradient_rows(plan["xy"], face),
-                    limits - margin,
-                    strict=True,
-                ):
-                    system.add(face, values, bound)
-                    work["directional_rows"] += 1
-                if precision:
-                    for values, limit in zip(
-                        vectors @ gradient_rows(cast, face), limits, strict=True
-                    ):
-                        bound = limit - epsilon * float(abs(values).sum())
-                        if bound < 0:
-                            raise ValueError(
-                                "directional path face requires a better conditioned precision mesh"
-                            )
-                        system.add(face, values, bound)
-                        work["directional_rows"] += 1
+            coefficients = vectors @ gradients[hit]
+            cast_coefficients = vectors @ cast_gradients[hit] if precision else None
+            work["directional_faces"] += len(hit)
+            work["directional_rows"] += _append_directional_rows(
+                system, faces[hit], coefficients, limits, epsilon, cast_coefficients
+            )
         if not covered.all():
             raise ValueError(
                 "directional grade leaves a source face without an axis segment"
