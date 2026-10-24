@@ -129,7 +129,12 @@ def main():
         (args.output / (name + ".json")).write_text(json.dumps(value, indent=2) + "\n")
     if args.render:
         display_capture(capture, args.output)
-        display(case["plan"], data, args.output)
+        display(
+            case["plan"],
+            data,
+            args.output,
+            title="Python reference at captured World ports; native World delivery: #1189",
+        )
     print(json.dumps(report))
 
 
