@@ -7,7 +7,10 @@
 #include <vector>
 #include <SDL3/SDL.h>
 #include "RuntimeScene.h"
-#include "FrameCapture.h"
+#include "SceneRenderer.h"
+#include <string>
+#include <string_view>
+#include "ImageCapture.h"
 #include "Check.h"
 
 static_assert(!std::is_convertible_v<uint32_t, outshine::Render::PieceSurface>);
@@ -16,6 +19,17 @@ static_assert(outshine::Render::PieceSurface(7).From ==
 static_assert(outshine::Render::PieceSurface::Registered(7).From ==
               outshine::Render::PieceSurface::Source::Registered);
 static_assert(outshine::Render::PieceSurface::Registered(7).Index == 7);
+
+namespace {
+bool CaptureImage(outshine::Render::SceneRenderer &renderer,
+                  std::string_view path,
+                  std::string &error) {
+  constexpr outshine::Extent frame{.WidthPx = 320, .HeightPx = 320};
+  const auto saved = outshine::App::SaveImage(renderer, frame, path);
+  if (!saved) { error = saved.error(); }
+  return saved.has_value();
+}
+}
 
 int main() {
   using namespace outshine;
@@ -84,7 +98,7 @@ int main() {
     return Report();
   }
   const auto screenshot = [&](std::string_view path, std::string &why) {
-    return Core::SaveFrame(renderer, {.WidthPx = 320, .HeightPx = 320}, path, why);
+    return CaptureImage(renderer, path, why);
   };
   Render::Viewpoint eye;
   eye.EyeM = {{0, 0, 4}};

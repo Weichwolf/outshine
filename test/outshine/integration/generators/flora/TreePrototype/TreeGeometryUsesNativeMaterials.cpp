@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include <fstream>
 #include <iterator>
 #include <filesystem>
@@ -281,7 +282,7 @@ int main() {
       const char *path = close       ? "build/tree-native/birch-fine-close.png"
                          : rank == 0 ? "build/tree-native/birch-fine.png"
                                      : "build/tree-native/birch.png";
-      CHECK(engine.renderer().saveScreenshot(path).has_value(),
+      CHECK(outshine::App::SaveImage(engine, path).has_value(),
             "the native renderer writes the tree image");
     }
   }

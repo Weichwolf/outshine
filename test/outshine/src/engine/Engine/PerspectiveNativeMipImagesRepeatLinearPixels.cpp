@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include <array>
 #include <algorithm>
 #include <filesystem>
@@ -84,7 +85,7 @@ int main() {
         "repeat renders");
   CHECK(frame == repeat, "perspective resident minified image repeats exactly");
   std::filesystem::create_directories("build/native-materials");
-  CHECK(engine.renderer().saveScreenshot("build/native-materials/minified.png").has_value(),
+  CHECK(outshine::App::SaveImage(engine, "build/native-materials/minified.png").has_value(),
         "native map PNG is written");
   return Report();
 }

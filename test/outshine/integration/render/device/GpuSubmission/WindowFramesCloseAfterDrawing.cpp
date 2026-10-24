@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include <Engine.h>
 #include "Check.h"
 #include "TestEngine.h"
@@ -133,7 +134,7 @@ void CheckReadbackFailures(outshine::Engine &engine) {
     CHECK(file.good(), "file failure fixture exists");
   }
   CHECK(renderer.beginFrame(target).has_value(), "file failure scope begins");
-  CHECK(!renderer.saveScreenshot((blocked / "image.png").string()),
+  CHECK(!outshine::App::SaveImage(engine, (blocked / "image.png").string()),
         "screenshot reports a directory error");
   before = swapchainCalls;
   CHECK(renderer.endFrame().has_value() && swapchainCalls == before + 1,
@@ -144,7 +145,6 @@ void CheckReadbackFailures(outshine::Engine &engine) {
 void CheckOffscreenCapture(outshine::Engine &engine, const std::vector<uint8_t> &windowPixels) {
   using namespace outshine;
   using namespace outshine::Test;
-  auto renderer = engine.renderer();
   auto offscreen = TestEngine::WithGpu({.Create = FrameDevice::Create});
   CHECK(offscreen.setRenderTarget({64, 64}).has_value() && Prepare(offscreen),
         "offscreen scene is ready");
@@ -170,12 +170,12 @@ void CheckOffscreenCapture(outshine::Engine &engine, const std::vector<uint8_t> 
   CHECK(forbiddenReads == 0, "every download used an owned texture");
   if (forbiddenReads == 0) {
     const auto directory = std::filesystem::temp_directory_path();
-    CHECK(renderer.saveScreenshot((directory / "outshine-frame-window.png").string()).has_value(),
-          "window screenshot is written through the public API");
-    CHECK(offscreen.renderer()
-              .saveScreenshot((directory / "outshine-frame-offscreen.png").string())
+    CHECK(outshine::App::SaveImage(engine, (directory / "outshine-frame-window.png").string())
               .has_value(),
-          "offscreen screenshot is written through the public API");
+          "window screenshot is written through application image capture");
+    CHECK(outshine::App::SaveImage(offscreen, (directory / "outshine-frame-offscreen.png").string())
+              .has_value(),
+          "offscreen screenshot is written through application image capture");
   }
   CHECK(Prepare(offscreen, false), "the same target adds linear output and changes its material");
   CHECK(offscreenRenderer.render({}).has_value(), "render replacement scene explicitly");

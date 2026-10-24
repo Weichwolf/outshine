@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include <Engine.h>
 #include "NativeTriangle.h"
 #include <SDL3/SDL.h>
@@ -169,7 +170,7 @@ std::vector<float> Exercise(bool carried, const std::string &path) {
   if (!io) {
     const auto png =
         directory / (carried ? "outshine-camera-carried.png" : "outshine-camera-standing.png");
-    CHECK(engine.renderer().saveScreenshot(png.string()).has_value(),
+    CHECK(outshine::App::SaveImage(engine, png.string()).has_value(),
           "save the actual orthographic image for visual inspection");
   }
   CHECK(engine.setView("defaults") && engine.advance(),

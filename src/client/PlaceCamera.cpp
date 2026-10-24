@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include "Units.h"
 #include "Quantile.h"
 #include "PlaceCamera.h"
@@ -446,7 +447,7 @@ void SavePlaceShot(Engine &engine, std::string_view name, Shot &shot, std::strin
   const std::string into = (std::filesystem::path("build/shots") / under).string();
   std::filesystem::create_directories(into, failed);
   const std::string writing = into + "/" + std::string(name) + ".writing";
-  if (engine.renderer().saveScreenshot(writing)) {
+  if (outshine::App::SaveImage(engine, writing)) {
     const auto bytes = ReadTextFile(writing, std::numeric_limits<size_t>::max());
     if (!bytes) {
       std::println(stderr, "WARN shot: {}", bytes.error());

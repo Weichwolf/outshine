@@ -6,11 +6,10 @@
 #include "FrameTiming.h"
 #include "GpuFrameTiming.h"
 #include "HostProcessor.h"
-#include "Image.h"
+#include "ImageCapture.h"
 #include "ScenarioInput.h"
 #include "ScenarioWrite.h"
 #include "SourceCache.h"
-#include "WriteFileAtomically.h"
 #include "format/Sha256.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
@@ -108,17 +107,7 @@ Result FinishMeasurement(Engine &engine,
     const auto imageAt = Clock::now();
     std::vector<uint8_t> rgba;
     if (const auto read = renderer.readPixels(rgba); !read) { return read; }
-    const size_t wanted =
-        static_cast<size_t>(report.Frame.WidthPx) * static_cast<size_t>(report.Frame.HeightPx) * 4;
-    if (rgba.size() != wanted) {
-      return std::unexpected("final benchmark image has the wrong size");
-    }
-    std::vector<uint8_t> png;
-    if (!Core::EncodePng(rgba.data(), report.Frame.WidthPx, report.Frame.HeightPx, png)) {
-      return std::unexpected("final benchmark PNG encoding failed");
-    }
-    if (const auto written = WriteFileAtomically(options.Image, std::as_bytes(std::span(png)));
-        !written) {
+    if (const auto written = App::SaveImage(rgba, report.Frame, options.Image); !written) {
       return written;
     }
     report.ImageMs = ElapsedMs(imageAt);

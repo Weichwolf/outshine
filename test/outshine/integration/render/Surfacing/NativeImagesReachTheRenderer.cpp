@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include <array>
 #include <numbers>
 #include <algorithm>
@@ -132,7 +133,7 @@ int main() {
     }
   }
   std::filesystem::create_directories("build/native-materials");
-  CHECK(engine.renderer().saveScreenshot("build/native-materials/colour.png").has_value(),
+  CHECK(outshine::App::SaveImage(engine, "build/native-materials/colour.png").has_value(),
         "native map PNG is written");
   material.BaseColourMap.Uv = {.OffsetUv = {{1, 0}}, .RotationRad = std::numbers::pi / 2};
   CHECK(rotated.setSurface(rotated.materialOf(0), material).has_value(),
@@ -152,7 +153,7 @@ int main() {
             "positive UV rotation samples the independently derived four image quadrants");
     }
   }
-  CHECK(engine.renderer().saveScreenshot("build/native-materials/rotated.png").has_value(),
+  CHECK(outshine::App::SaveImage(engine, "build/native-materials/rotated.png").has_value(),
         "rotated native map PNG is written");
   return Report();
 }

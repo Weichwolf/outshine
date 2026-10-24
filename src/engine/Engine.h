@@ -13,6 +13,7 @@
 #include <SDL3/SDL.h>
 
 #include "Earth.h"
+#include "FrameBuffer.h"
 #include "Logging.h"
 #include "Generator.h"
 #include "DiagnosticSample.h"
@@ -133,16 +134,6 @@ private:
   Engine *Engine_ = nullptr;
 };
 
-enum class Buffer {
-  Colour,
-  Linear,
-  Depth,
-  ShadingNormal,
-  SurfaceIdentity,
-
-  Velocity
-};
-
 class SwapChain {
 public:
   [[nodiscard]] Extent extent() const;
@@ -177,8 +168,6 @@ public:
   [[nodiscard]] bool camera(Camera &out) const;
 
   [[nodiscard]] std::string_view gpuName() const;
-
-  [[nodiscard]] Result saveScreenshot(std::string_view path);
 
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
 
@@ -311,7 +300,6 @@ private:
                                           WorldQuality required,
                                           const std::function<void(const Loading &)> &tell);
   [[nodiscard]] Result render(Extent frame);
-  [[nodiscard]] Result saveScreenshot(std::string_view path);
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
   [[nodiscard]] Result readPixels(Buffer which, std::vector<float> &out);
   [[nodiscard]] Result beginFrame();

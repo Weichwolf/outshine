@@ -1,3 +1,4 @@
+#include "ImageCapture.h"
 #include "ScenarioCapture.h"
 #include "FramePacer.h"
 #include "CaptureCameraBasis.h"
@@ -242,7 +243,7 @@ void RecordRoadContact(ScenarioCaptureResult &result, const MotionContact &conta
                                                         static_cast<double>(nextMark) /
                                                         static_cast<double>(kRouteMarkCount)) {
     const auto path = folder / (std::string(stem) + "-mark" + std::to_string(nextMark) + ".png");
-    if (const auto saved = engine.renderer().saveScreenshot(path.string()); !saved) {
+    if (const auto saved = outshine::App::SaveImage(engine, path.string()); !saved) {
       return std::unexpected(Refusal("route sample", saved.error()));
     }
     ++nextMark;
@@ -461,7 +462,7 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
   const std::string file = std::string(options.Name) + "-" + std::string(options.View) + "-tick" +
                            std::to_string(ticks) + ".png";
   result.Path = (folder / file).string();
-  if (const auto saved = engine.renderer().saveScreenshot(result.Path); !saved) {
+  if (const auto saved = outshine::App::SaveImage(engine, result.Path); !saved) {
     return std::unexpected(Refusal("capture screenshot", saved.error()));
   }
   return result;

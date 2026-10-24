@@ -1,4 +1,5 @@
 set(OUTSHINE_COMPONENT_ROOTS
+  app/capture
   actor
   audio
   base
@@ -60,7 +61,8 @@ foreach(root IN LISTS OUTSHINE_COMPONENT_ROOTS)
 endforeach()
 target_link_libraries(outshine_actor PUBLIC outshine_base)
 target_link_libraries(outshine_audio PUBLIC outshine_base)
-target_link_libraries(outshine_client PUBLIC outshine_actor outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_host outshine_render outshine_scenario outshine_world)
+target_link_libraries(outshine_app_capture PUBLIC outshine_base outshine_content outshine_render outshine_engine)
+target_link_libraries(outshine_client PUBLIC outshine_app_capture outshine_actor outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_host outshine_render outshine_scenario outshine_world)
 target_link_libraries(outshine_content PUBLIC outshine_base)
 target_link_libraries(outshine_diagnostics PUBLIC outshine_base)
 target_link_libraries(outshine_diagnostics_calibration PUBLIC outshine_base outshine_render)
