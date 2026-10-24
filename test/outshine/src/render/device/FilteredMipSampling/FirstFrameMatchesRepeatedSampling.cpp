@@ -228,16 +228,16 @@ bool Configure(Fixture &fixture,
        .U = N::Address::Repeat,
        .V = N::Address::Repeat,
        .MaxLod = static_cast<float>(Levels(mode) - 1u)}));
-  const char *vertexPath = derivatives ? "build/shaders/filteredMipDerivativeSample.vert.spv"
-                                       : "build/shaders/fullscreen.vert.spv";
-  const char *fragmentPath = "build/shaders/filteredMipSample.frag.spv";
+  const char *vertexPath =
+      derivatives ? "filteredMipDerivativeSample.vert.spv" : "fullscreen.vert.spv";
+  const char *fragmentPath = "filteredMipSample.frag.spv";
   if (descriptorTable) {
-    fragmentPath = "build/shaders/filteredMipDescriptorSample.frag.spv";
+    fragmentPath = "filteredMipDescriptorSample.frag.spv";
   } else if (derivatives) {
-    fragmentPath = "build/shaders/filteredMipDerivativeSample.frag.spv";
+    fragmentPath = "filteredMipDerivativeSample.frag.spv";
   }
-  const auto vertex = Gpu::Spirv(vertexPath);
-  const auto fragment = Gpu::Spirv(fragmentPath);
+  const auto vertex = Gpu::Shader(vertexPath);
+  const auto fragment = Gpu::Shader(fragmentPath);
   const std::array target{
       N::ColourTarget{.Texels = N::Format::Rgba16Float, .Rgb = {}, .Alpha = {}}};
   const std::array streams{N::VertexStream{.Slot = 0, .Stride = 4u * sizeof(float)},
@@ -389,8 +389,8 @@ bool ConfigureNative(Fixture &fixture, TextureUploadCounts &counts) {
   fixture.Source = std::move(bound->Image);
   fixture.Sampler = std::move(bound->Sample);
 
-  const auto vertex = Gpu::Spirv("build/shaders/flat-10-0.vert.spv");
-  const auto fragment = Gpu::Spirv("build/shaders/flat-01-000.frag.spv");
+  const auto vertex = Gpu::Shader("flat-10-0.vert.spv");
+  const auto fragment = Gpu::Shader("flat-01-000.frag.spv");
   const std::array target{
       N::ColourTarget{.Texels = N::Format::Rgba16Float, .Rgb = {}, .Alpha = {}}};
   const std::array streams{N::VertexStream{.Slot = 0, .Stride = 3u * sizeof(float)},

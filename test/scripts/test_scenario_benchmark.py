@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-CLIENT = ROOT / 'build/outshine'
+CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolve()
 SCENE = {
     'name': 'generic benchmark "input"',
     'render': {'widthPx': 32, 'heightPx': 32, 'fps': 120},
@@ -34,7 +34,7 @@ class ScenarioBenchmark(unittest.TestCase):
                                  '--linear-velocity', '1,-2,3',
                                  '--angular-velocity', '0,-90,0',
                                  '--view', 'start', '--offline',
-                                 '--output', str(output), '--image', str(image))
+                                 '--output', str(output), '--image', str(image), cwd=folder)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, '')
             report = json.loads(output.read_text())
@@ -147,7 +147,8 @@ class ScenarioBenchmark(unittest.TestCase):
             output.write_text('previous JSON')
             image.write_bytes(b'previous PNG')
             result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '1',
-                                 '--output', str(output), '--image', str(image), cwd=folder)
+                                 '--output', str(output), '--image', str(image), cwd=folder,
+                                 env=dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable'))
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
             self.assertEqual(result.stdout, '')
             self.assertEqual(output.read_text(), 'previous JSON')

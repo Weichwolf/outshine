@@ -75,8 +75,7 @@ TonemapStage::Configure(const Gpu &gpu, const Feeds &from, const DisplayOptions 
       Native::ColourTarget{.Texels = gpu.SurfaceFormat, .Rgb = {}, .Alpha = {}}};
   auto pipeline =
       CreateFullscreenPipeline(*gpu.Device,
-                               options.Temporal ? "build/shaders/temporalResolve.frag.spv"
-                                                : "build/shaders/tonemap.frag.spv",
+                               options.Temporal ? "temporalResolve.frag.spv" : "tonemap.frag.spv",
                                std::span(targets.data(), options.Temporal ? 2u : 1u));
   if (!pipeline) { return std::unexpected(pipeline.error()); }
   Pipe = std::move(*pipeline);

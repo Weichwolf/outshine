@@ -20,8 +20,7 @@ AerialPerspectiveStage::Configure(const Gpu &gpu, Tables from, Native::Format ta
                       .Message = "aerial perspective requires complete native inputs"});
   }
   const std::array colours{Native::ColourTarget{.Texels = targetFormat, .Rgb = {}, .Alpha = {}}};
-  auto made =
-      CreateFullscreenNdcPipeline(*gpu.Device, "build/shaders/aerialPerspective.frag.spv", colours);
+  auto made = CreateFullscreenNdcPipeline(*gpu.Device, "aerialPerspective.frag.spv", colours);
   if (!made) { return std::unexpected(made.error()); }
   Pipe = std::move(*made);
   Scene = from.Scene;

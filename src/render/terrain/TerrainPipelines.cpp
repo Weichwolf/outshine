@@ -40,12 +40,12 @@ Pipeline(Native::Device &device,
          std::span<const Native::ColourTarget> targets,
          Native::Cull culling,
          bool patched = false) {
-  auto vertex = ReadSpirv(paths.Vertex);
+  auto vertex = ReadShaderSpirv(paths.Vertex);
   if (!vertex) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = vertex.error()});
   }
-  auto fragment = ReadSpirv(paths.Fragment);
+  auto fragment = ReadShaderSpirv(paths.Fragment);
   if (!fragment) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = fragment.error()});
@@ -95,8 +95,7 @@ Native::Result<void> TerrainPipelines::ConfigureLit(Native::Device &device,
 
 Native::Result<void> TerrainPipelines::ConfigureDepth(Native::Device &device) {
   auto made = Pipeline(device,
-                       {.Vertex = "build/shaders/groundLatticeDepth.vert.spv",
-                        .Fragment = "build/shaders/depth.frag.spv"},
+                       {.Vertex = "groundLatticeDepth.vert.spv", .Fragment = "depth.frag.spv"},
                        {},
                        Native::Cull::Front);
   if (!made) { return std::unexpected(made.error()); }

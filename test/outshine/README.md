@@ -10,6 +10,8 @@ cmake --preset native
 cmake --build --preset native --target outshine
 make suite SUITE=outshine/src/base/curve
 make suite SUITE=outshine/integration/content/AssetGeneration
+make suite SUITE=tools
+make suite SUITE=render/shader-artifacts
 ctest --test-dir build --show-only
 ```
 
@@ -40,3 +42,9 @@ Places are diagnostic profiles, not worldwide acceptance. Target conditions rema
 1280×720/60 including p99; lower-rate profiles are explicitly separate comparisons.
 Image correctness, shader layouts, persistence and device timing need their own
 checks. Tests succeeding at one boundary do not establish the others.
+
+Built shaders resolve through their owning CMake build, independently of the working
+directory. Tests invoke that build's client through `OUTSHINE_CLIENT`. The optional
+`OUTSHINE_CACHE_DIR` selects prepared source/asset storage for native Place checks.
+The profile test requires a prepared Place asset cache; CTest supplies its offline
+preparation fixture before the unchanged warm-load and 25/30/60-Hz checks.

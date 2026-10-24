@@ -10,6 +10,8 @@
 namespace outshine::Render {
 
 [[nodiscard]] std::expected<std::vector<uint32_t>, std::string> ReadSpirv(std::string_view path);
+[[nodiscard]] std::expected<std::vector<uint32_t>, std::string>
+ReadShaderSpirv(std::string_view name);
 
 }
 #endif

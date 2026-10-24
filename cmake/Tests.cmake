@@ -33,10 +33,13 @@ foreach(source IN LISTS cases)
   endif()
   string(REPLACE "/" "_" component "outshine_${owner}")
   target_link_libraries(${target} PRIVATE ${component})
+  if(name MATCHES "^outshine/integration/places")
+    add_dependencies(${target} outshine)
+  endif()
   add_test(NAME "${name}" COMMAND ${target})
   set_tests_properties("${name}" PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "${owner}"
-    ENVIRONMENT "OUTSHINE_TIMEOUT_S=${OUTSHINE_TEST_TIMEOUT}"
+    ENVIRONMENT "OUTSHINE_TIMEOUT_S=${OUTSHINE_TEST_TIMEOUT};OUTSHINE_CLIENT=$<TARGET_FILE:outshine>"
     FAIL_REGULAR_EXPRESSION "SKIPPED [1-9];UNPREPARED [1-9];PARTIAL [1-9]")
   add_dependencies(outshine_tests ${target})
   foreach(scope IN LISTS gate_scopes)
@@ -90,3 +93,42 @@ endfunction()
 outshine_corpus(wpt/css outshine_ui ScoreEveryWptCase)
 outshine_corpus(test262/js outshine_ui ScoreEveryScriptCase)
 outshine_corpus(geographiclib/geodesic outshine_world ScoreEveryGeodesic)
+
+set_tests_properties(outshine/src/render/stages/StagePipelines/NativePipelinesKeepDeclaredBindings
+  PROPERTIES WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
+add_test(NAME render/shader-artifacts COMMAND Python3::Interpreter
+  "${PROJECT_SOURCE_DIR}/test/scripts/shader_artifacts.py"
+  --manifest "${PROJECT_BINARY_DIR}/shader-artifacts.txt"
+  --compute-contracts "${PROJECT_BINARY_DIR}/compute-shaders.json")
+set_tests_properties(render/shader-artifacts PROPERTIES LABELS "render;world-gate"
+  TIMEOUT "${OUTSHINE_TEST_TIMEOUT}")
+add_custom_target(test_render_shader_artifacts)
+add_dependencies(test_render_shader_artifacts outshine_shaders)
+
+find_program(OUTSHINE_CLANG_FORMAT NAMES clang-format clang-format-22 clang-format-21
+  HINTS /opt/homebrew/opt/llvm/bin)
+file(GLOB script_tests CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/scripts/test_*.py")
+add_custom_target(test_tools)
+foreach(script IN LISTS script_tests)
+  get_filename_component(name "${script}" NAME_WE)
+  string(REGEX REPLACE "^test_" "" name "${name}")
+  set(target "test_tools_${name}")
+  add_custom_target(${target})
+  if(name MATCHES "^(cache_command|client_arguments|declared_place_assets|motion_profiles|place_catalog|place_profiles|scenario_benchmark)$")
+    add_dependencies(${target} outshine)
+  endif()
+  add_dependencies(test_tools ${target})
+  add_dependencies(outshine_tests ${target})
+  add_test(NAME "tools/${name}" COMMAND Python3::Interpreter -B "${script}")
+  set_tests_properties("tools/${name}" PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+    LABELS tools TIMEOUT "${OUTSHINE_TEST_TIMEOUT}"
+    ENVIRONMENT "OUTSHINE_BUILD_DIR=${PROJECT_BINARY_DIR};OUTSHINE_CLIENT=$<TARGET_FILE:outshine>;CXX=${CMAKE_CXX_COMPILER};GLSLANG=${OUTSHINE_GLSLANG};CLANG_FORMAT=${OUTSHINE_CLANG_FORMAT}")
+endforeach()
+
+add_test(NAME tools/prepare_place_profiles COMMAND Python3::Interpreter -B
+  "${PROJECT_SOURCE_DIR}/test/scripts/test_place_profiles.py" --prepare)
+get_test_property(tools/place_profiles ENVIRONMENT profile_environment)
+set_tests_properties(tools/prepare_place_profiles PROPERTIES
+  WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" TIMEOUT 650 LABELS preparation
+  ENVIRONMENT "${profile_environment}" FIXTURES_SETUP place_profiles)
+set_tests_properties(tools/place_profiles PROPERTIES FIXTURES_REQUIRED place_profiles)

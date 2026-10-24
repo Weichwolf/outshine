@@ -43,7 +43,7 @@ bool Matches(const Native::ComputeLayout &layout, const ComputeShape &shape) {
 
 Native::Result<std::unique_ptr<Native::ComputePipeline>>
 CompileComputePipeline(Native::Device &device, const ComputeShaderDescriptor &shader) {
-  const auto words = ReadSpirv(shader.Path);
+  const auto words = ReadShaderSpirv(shader.Path);
   if (!words) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = words.error()});
@@ -74,9 +74,9 @@ CreatePresentPipeline(Native::Device &device, Native::Format target) {
   const char *fragmentPath = nullptr;
   switch (target) {
     case Native::Format::Bgra8Srgb:
-    case Native::Format::Rgba8Srgb: fragmentPath = "build/shaders/present.frag.spv"; break;
+    case Native::Format::Rgba8Srgb: fragmentPath = "present.frag.spv"; break;
     case Native::Format::Bgra8Unorm:
-    case Native::Format::Rgba8Unorm: fragmentPath = "build/shaders/presentUnorm.frag.spv"; break;
+    case Native::Format::Rgba8Unorm: fragmentPath = "presentUnorm.frag.spv"; break;
     default:
       return std::unexpected(
           Native::Error{.Kind = Native::ErrorKind::Unsupported,
@@ -96,12 +96,12 @@ CompileFullscreen(Native::Device &device,
                   ShaderFiles files,
                   std::span<const Native::ColourTarget> colours,
                   std::optional<Native::DepthTarget> depth) {
-  const auto vertex = ReadSpirv(files.Vertex);
+  const auto vertex = ReadShaderSpirv(files.Vertex);
   if (!vertex) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = vertex.error()});
   }
-  const auto fragment = ReadSpirv(files.Fragment);
+  const auto fragment = ReadShaderSpirv(files.Fragment);
   if (!fragment) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = fragment.error()});
@@ -124,10 +124,7 @@ CreateFullscreenPipeline(Native::Device &device,
                          std::span<const Native::ColourTarget> colours,
                          std::optional<Native::DepthTarget> depth) {
   return CompileFullscreen(
-      device,
-      {.Vertex = "build/shaders/fullscreen.vert.spv", .Fragment = fragmentPath},
-      colours,
-      depth);
+      device, {.Vertex = "fullscreen.vert.spv", .Fragment = fragmentPath}, colours, depth);
 }
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
@@ -136,9 +133,6 @@ CreateFullscreenNdcPipeline(Native::Device &device,
                             std::span<const Native::ColourTarget> colours,
                             std::optional<Native::DepthTarget> depth) {
   return CompileFullscreen(
-      device,
-      {.Vertex = "build/shaders/fullscreenNdc.vert.spv", .Fragment = fragmentPath},
-      colours,
-      depth);
+      device, {.Vertex = "fullscreenNdc.vert.spv", .Fragment = fragmentPath}, colours, depth);
 }
 }

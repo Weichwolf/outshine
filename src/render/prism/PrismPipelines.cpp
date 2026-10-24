@@ -17,12 +17,12 @@ Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
 CreatePrismPipeline(Native::Device &device,
                     PipelineSources sources,
                     std::span<const Native::ColourTarget> targets) {
-  auto vertex = ReadSpirv(sources.Vertex);
+  auto vertex = ReadShaderSpirv(sources.Vertex);
   if (!vertex) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(vertex.error())});
   }
-  auto fragment = ReadSpirv(sources.Fragment);
+  auto fragment = ReadShaderSpirv(sources.Fragment);
   if (!fragment) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(fragment.error())});
@@ -43,20 +43,18 @@ Native::Result<void>
 PrismPipelines::ConfigureColour(Native::Device &device,
                                 const SurfaceOutputs &outputs,
                                 std::span<const Native::ColourTarget> targets) {
-  auto pipeline = CreatePrismPipeline(device,
-                                      {.Vertex = "build/shaders/prism-colour.vert.spv",
-                                       .Fragment = outputs.FragmentPath("prismLit")},
-                                      targets);
+  auto pipeline = CreatePrismPipeline(
+      device,
+      {.Vertex = "prism-colour.vert.spv", .Fragment = outputs.FragmentPath("prismLit")},
+      targets);
   if (!pipeline) { return std::unexpected(pipeline.error()); }
   Colour_ = std::move(*pipeline);
   return {};
 }
 
 Native::Result<void> PrismPipelines::ConfigureDepth(Native::Device &device) {
-  auto pipeline = CreatePrismPipeline(device,
-                                      {.Vertex = "build/shaders/prism-depth.vert.spv",
-                                       .Fragment = "build/shaders/prismDepth.frag.spv"},
-                                      {});
+  auto pipeline = CreatePrismPipeline(
+      device, {.Vertex = "prism-depth.vert.spv", .Fragment = "prismDepth.frag.spv"}, {});
   if (!pipeline) { return std::unexpected(pipeline.error()); }
   Depth_ = std::move(*pipeline);
   return {};

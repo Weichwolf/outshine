@@ -68,11 +68,11 @@ test-cleanup-temp: ## check owned temporary artifact cleanup
 	@cd "$(ROOT)" && python3 -B test/scripts/test_cleanup_temp.py
 
 shots: all ## run the external Places driver (PLACE=...)
-	@cd "$(ROOT)" && build/outshine shots $(if $(PLACE),$(PLACE),--all)
+	@cd "$(ROOT)" && "$(BUILD_DIR)/outshine" shots $(if $(PLACE),$(PLACE),--all)
 
 prepare-place: all ## prepare an external Place scene (PLACE=...)
 	@test -n "$(PLACE)" || { echo 'set PLACE'; exit 2; }
-	@cd "$(ROOT)" && build/outshine prepare $(PLACE) $(PREPARE_SECONDS)
+	@cd "$(ROOT)" && "$(BUILD_DIR)/outshine" prepare $(PLACE) $(PREPARE_SECONDS)
 
 corpus-prepare corpus-fetch: ## prepare or fetch pinned comparison inputs (MANIFEST=...)
 	@test -n "$(MANIFEST)" || { echo 'set MANIFEST'; exit 2; }

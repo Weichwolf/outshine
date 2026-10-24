@@ -35,7 +35,6 @@ class DeclaredPlaceAssets(unittest.TestCase):
         self.work = Path(self.directory.name)
         (self.work / 'src').symlink_to(ROOT / 'src', target_is_directory=True)
         (self.work / 'build').mkdir()
-        (self.work / 'build/shaders').symlink_to(ROOT / 'build/shaders', target_is_directory=True)
         (self.work / 'places').mkdir()
 
     def scenario(self, features='', providers=''):

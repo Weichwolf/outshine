@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Format or check the repository-owned C++ population; never walk vendor environments."""
 import argparse
-import json
 from pathlib import Path
 import os
 import subprocess
@@ -22,16 +21,11 @@ def sources(root):
                   and (root / path).is_file())
 
 
-def format_sources(root, tool, check, selected=None):
+def format_sources(root, tool, check):
     try:
         paths = sources(root)
         if not paths:
             raise ValueError('no repository-owned C++ files; formatting coverage is empty')
-        if selected is not None:
-            selected = {Path(path) for path in selected}
-            if selected - set(paths):
-                raise ValueError('format selection contains files outside the owned population')
-            paths = [path for path in paths if path in selected]
         flags = ['--dry-run', '--Werror'] if check else ['-i']
 
         def run_batch(batch):
@@ -57,10 +51,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tool', required=True)
     parser.add_argument('--check', action='store_true')
-    parser.add_argument('--scope', type=Path)
     args = parser.parse_args()
-    selected = json.loads(args.scope.read_text())['format'] if args.scope else None
-    return format_sources(ROOT, args.tool, args.check, selected)
+    return format_sources(ROOT, args.tool, args.check)
 
 
 if __name__ == '__main__':

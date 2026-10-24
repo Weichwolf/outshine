@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "Check.h"
+#include "ClientCommand.h"
 #include "src/client/GpuFrameTiming.h"
 
 // THE CASE DRIVES THE SAME COMMAND A PERSON DOES. `build/outshine shots
@@ -94,10 +95,14 @@ inline void ReadClientOutput(std::FILE *running, double &control, ClientRow &row
 inline int
 ScorePlace(const char *place, const char *catalog = "src/assets/places", unsigned rateHz = 30) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string command = std::string("build/outshine --places ") + catalog +
-                              " shots --rows --offline --preload-seconds 600 --scenario-overrides "
-                              "'{\"render\":{\"widthPx\":1280,\"heightPx\":720,\"fps\":" +
-                              std::to_string(rateHz) + "}}' " + place + " 2>&1";
+  std::string command = ClientCommand() + " --places " + ShellArgument(catalog) +
+                        " shots --rows --offline --preload-seconds 600 --scenario-overrides "
+                        "'{\"render\":{\"widthPx\":1280,\"heightPx\":720,\"fps\":" +
+                        std::to_string(rateHz) + "}}' " + ShellArgument(place);
+  if (const char *cache = std::getenv("OUTSHINE_CACHE_DIR")) {
+    command += " --cache-dir " + ShellArgument(cache);
+  }
+  command += " 2>&1";
   std::FILE *const running = popen(command.c_str(), "r");
   if (running == nullptr) {
     Unprepared("the client did not start");

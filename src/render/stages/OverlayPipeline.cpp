@@ -16,12 +16,12 @@ OverlayPipeline::Configure(const Gpu &gpu, Native::Sampler *smooth, Native::Form
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "overlay pipeline requires native device and sampler"});
   }
-  auto vertex = ReadSpirv("build/shaders/overlay.vert.spv");
+  auto vertex = ReadShaderSpirv("overlay.vert.spv");
   if (!vertex) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = vertex.error()});
   }
-  auto fragment = ReadSpirv("build/shaders/overlay.frag.spv");
+  auto fragment = ReadShaderSpirv("overlay.frag.spv");
   if (!fragment) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = fragment.error()});
