@@ -46,7 +46,7 @@ def _triangulate(pieces, cancelled):
     nodes = {p for poly in pieces for p in poly}
     if len(nodes) > 1024:
         raise ValueError("exact pool-cell node budget exhausted")
-    faces, work = [], 0
+    faces, work, determinants = [], 0, 0
     for poly in pieces:
         if cancelled is not None and cancelled():
             raise ValueError("exact pool-cell partition cancelled")
@@ -57,8 +57,14 @@ def _triangulate(pieces, cancelled):
             if work > 262144:
                 raise ValueError("exact pool-cell edge-node work budget exhausted")
             axis = 0 if a[0] != b[0] else 1
+            other = 1 - axis
+            low, high = min(a[axis], b[axis]), max(a[axis], b[axis])
+            other_low, other_high = min(a[other], b[other]), max(a[other], b[other])
             candidates = [(Fraction(0), a)]
             for p in nodes:
+                if not (low < p[axis] < high and other_low <= p[other] <= other_high):
+                    continue
+                determinants += 1
                 if _cross(a, b, p) == 0:
                     t = (p[axis] - a[axis]) / (b[axis] - a[axis])
                     if 0 < t < 1:
@@ -77,7 +83,7 @@ def _triangulate(pieces, cancelled):
         max(abs(Fraction.from_float(float(p[i])) - p[i]) for p in points)
         for i in (0, 1)
     ]
-    return xy, indices, points, work, [str(v) for v in error]
+    return xy, indices, points, work, [str(v) for v in error], determinants
 
 
 def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
@@ -144,7 +150,7 @@ def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
             )
         if len(pieces) > 128:
             raise ValueError("exact pool-cell piece budget exhausted")
-    xy, indices, points, work, rounding = _triangulate(pieces, cancelled)
+    xy, indices, points, work, rounding, determinants = _triangulate(pieces, cancelled)
     expected = sum(_area([exact(p) for p in source[f]]) for f in faces)
     if sum(_area(poly) for poly in pieces) != expected:
         raise ValueError("exact pool-cell partition changed the supplied area")
@@ -157,6 +163,7 @@ def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
             "candidate_pairs": pairs,
             "pieces": len(pieces),
             "edge_node_tests": work,
+            "edge_node_determinants": determinants,
             "vertices": len(xy),
             "triangles": len(indices),
             "exact_doubled_area": str(expected),

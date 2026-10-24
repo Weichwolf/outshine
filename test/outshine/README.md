@@ -20,7 +20,9 @@ cores. Each test source becomes `test_<path with slashes replaced by underscores
 For example, `test_outshine_src_base_curve` builds that subtree; CTest names preserve
 slashes. `OUTSHINE_BUILD_DIR` selects a separate build for `test/run.sh`;
 `BUILD_DIR` does the same for Make. Product and test objects share the configured
-compiler/options; CMake maintains distinct builds for instrumentation.
+compiler/options; CMake maintains distinct builds for instrumentation. Native tests
+use the runtime's exception-free model. The intentional process-boundary exception
+test explicitly enables exceptions; its failure and unwinding assertions stay intact.
 
 | Command | Scope |
 |---|---|
