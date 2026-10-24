@@ -57,6 +57,7 @@ FootpathEndDisposition Disposition(const FootpathSource &source, size_t end) {
     case FootpathEndRole::Unknown: return FootpathEndDisposition::UnknownEnd;
     case FootpathEndRole::Terminal: return FootpathEndDisposition::Terminal;
     case FootpathEndRole::Fragment: return FootpathEndDisposition::Fragment;
+    case FootpathEndRole::Fixed: return FootpathEndDisposition::FixedBoundary;
     case FootpathEndRole::Connectable: return FootpathEndDisposition::NoTarget;
   }
   return FootpathEndDisposition::UnknownEnd;

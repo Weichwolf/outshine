@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <optional>
 #include <span>
 #include <stop_token>
@@ -20,7 +21,7 @@ struct Index;
 }
 
 enum class FootpathKind : uint8_t { Other, Path, Steps };
-enum class FootpathEndRole : uint8_t { Unknown, Connectable, Terminal, Fragment };
+enum class FootpathEndRole : uint8_t { Unknown, Connectable, Terminal, Fragment, Fixed };
 
 struct FootpathSource {
   std::span<const EastNorth> Axis;
@@ -53,7 +54,8 @@ enum class FootpathEndDisposition : uint8_t {
   UnknownGroundAccess,
   NoTarget,
   AmbiguousTargets,
-  CandidateBudgetExceeded
+  CandidateBudgetExceeded,
+  FixedBoundary
 };
 
 struct FootpathEndResult {
@@ -96,6 +98,13 @@ struct FootpathAxisEdit {
   uint32_t Connection = 0;
 };
 
+struct FootpathAxisVertex {
+  static constexpr uint32_t kNoIndex = std::numeric_limits<uint32_t>::max();
+  EastNorth At;
+  uint32_t Original = kNoIndex;
+  uint32_t Connection = kNoIndex;
+};
+
 class FootpathConnectionPlan {
 public:
   [[nodiscard]] static std::expected<FootpathConnectionPlan, FootpathConnectionError>
@@ -114,8 +123,8 @@ public:
 
   [[nodiscard]] std::span<const FootpathAxisEdit> EditsOf(uint32_t source) const;
 
-  [[nodiscard]] std::vector<EastNorth> Axis(uint32_t source,
-                                            std::span<const EastNorth> original) const;
+  [[nodiscard]] std::vector<FootpathAxisVertex> Axis(uint32_t source,
+                                                     std::span<const EastNorth> original) const;
 
 private:
   [[nodiscard]] std::expected<void, FootpathConnectionError>

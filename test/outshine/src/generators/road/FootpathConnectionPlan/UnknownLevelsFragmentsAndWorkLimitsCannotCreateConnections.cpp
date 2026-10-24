@@ -2,15 +2,21 @@
 #include "Check.h"
 
 #include <array>
+#include <cstddef>
 #include <stop_token>
+#include <optional>
 #include <vector>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  const std::array steps{EastNorth{0, -4}, EastNorth{0, -.282}};
-  const std::array path{EastNorth{-4, 0}, EastNorth{4, 0}};
+  constexpr double kGapM = .282;
+  constexpr double kPositionBoundM = .05;
+  constexpr size_t kDenseSources = 101;
+  const std::array steps{EastNorth{.EastM = 0, .NorthM = -4},
+                         EastNorth{.EastM = 0, .NorthM = -kGapM}};
+  const std::array path{EastNorth{.EastM = -4, .NorthM = 0}, EastNorth{.EastM = 4, .NorthM = 0}};
   const FootpathSource branch{.Axis = steps,
                               .HalfWidthM = .75,
                               .Kind = FootpathKind::Steps,
@@ -18,14 +24,16 @@ int main() {
                               .Bridge = false,
                               .Tunnel = false,
                               .FootAccess = true,
-                              .Ends = {FootpathEndRole::Connectable, FootpathEndRole::Connectable}};
+                              .Ends = {FootpathEndRole::Connectable, FootpathEndRole::Connectable},
+                              .PositionErrorBoundM = std::nullopt};
   const FootpathSource target{.Axis = path,
                               .HalfWidthM = .75,
                               .Kind = FootpathKind::Path,
                               .Layer = 0,
                               .Bridge = false,
                               .Tunnel = false,
-                              .FootAccess = true};
+                              .FootAccess = true,
+                              .PositionErrorBoundM = std::nullopt};
   std::array sources{branch, target};
   for (const auto role :
        {FootpathEndRole::Unknown, FootpathEndRole::Terminal, FootpathEndRole::Fragment}) {
@@ -44,8 +52,8 @@ int main() {
   CHECK(plan && plan->Connections().empty(), "unknown bridge state is not a known ground path");
   if (plan) { CHECK(plan->Work().IndexedSegments == 0, "no eligible ends build no spatial index"); }
   sources = {branch, target};
-  sources[0].PositionErrorBoundM = .05;
-  sources[1].PositionErrorBoundM = .05;
+  sources[0].PositionErrorBoundM = kPositionBoundM;
+  sources[1].PositionErrorBoundM = kPositionBoundM;
   plan = FootpathConnectionPlan::Prepare(sources);
   CHECK(plan && plan->Connections().empty(),
         "known positional bounds further limit the extension recipe");
@@ -57,7 +65,7 @@ int main() {
     CHECK(plan->Work().CandidateTests == 0 && plan->Work().BudgetRefusals == 1,
           "the spatial query stops before testing an over-budget candidate list");
   }
-  std::vector<FootpathSource> dense(101, target);
+  std::vector<FootpathSource> dense(kDenseSources, target);
   dense.front() = branch;
   plan = FootpathConnectionPlan::Prepare(dense, {}, {.Candidates = 5});
   CHECK(plan && plan->Connections().empty(),

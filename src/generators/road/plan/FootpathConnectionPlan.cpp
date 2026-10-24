@@ -37,6 +37,7 @@ struct AxisCut {
   uint32_t Segment = 0;
   double Fraction = 0;
   EastNorth At;
+  uint32_t Connection = 0;
 };
 
 }
@@ -136,39 +137,47 @@ std::span<const FootpathAxisEdit> FootpathConnectionPlan::EditsOf(uint32_t sourc
   return {range.begin(), range.end()};
 }
 
-std::vector<EastNorth> FootpathConnectionPlan::Axis(uint32_t source,
-                                                    std::span<const EastNorth> original) const {
-  std::array<std::optional<EastNorth>, 2> ends{};
+std::vector<FootpathAxisVertex>
+FootpathConnectionPlan::Axis(uint32_t source, std::span<const EastNorth> original) const {
+  std::array<std::optional<uint32_t>, 2> ends{};
   std::vector<AxisCut> cuts;
   for (const auto &edit : EditsOf(source)) {
     const auto &connection = Connections_[edit.Connection];
-    if (connection.Branch == source && connection.AdvanceM > 0) {
-      ends[connection.End] = connection.JoinedAt;
-    }
-    if (connection.Target == source && connection.TargetFraction > 0 &&
-        connection.TargetFraction < 1) {
+    if (connection.Branch == source) { ends[connection.End] = edit.Connection; }
+    if (connection.Target == source) {
       cuts.push_back({.Segment = connection.Segment,
                       .Fraction = connection.TargetFraction,
-                      .At = connection.JoinedAt});
+                      .At = connection.JoinedAt,
+                      .Connection = edit.Connection});
     }
   }
   std::ranges::sort(cuts, [](const AxisCut &a, const AxisCut &b) {
     return a.Segment == b.Segment ? a.Fraction < b.Fraction : a.Segment < b.Segment;
   });
-  std::vector<EastNorth> axis;
+  std::vector<FootpathAxisVertex> axis;
   axis.reserve(original.size() + cuts.size() + 2);
+  const auto append = [&](FootpathAxisVertex vertex) {
+    if (axis.empty() || axis.back().At != vertex.At) {
+      axis.push_back(vertex);
+      return;
+    }
+    if (vertex.Original != FootpathAxisVertex::kNoIndex) { axis.back().Original = vertex.Original; }
+    if (axis.back().Connection == FootpathAxisVertex::kNoIndex) {
+      axis.back().Connection = vertex.Connection;
+    }
+  };
   const auto &first = ends.front();
-  if (first) { axis.push_back(*first); }
+  if (first) { append({.At = Connections_[*first].JoinedAt, .Connection = *first}); }
   size_t cut = 0;
   for (size_t at = 0; at < original.size(); ++at) {
-    axis.push_back(original[at]);
+    append({.At = original[at], .Original = static_cast<uint32_t>(at)});
     while (cut < cuts.size() && cuts[cut].Segment == at) {
-      if (axis.back() != cuts[cut].At) { axis.push_back(cuts[cut].At); }
+      append({.At = cuts[cut].At, .Connection = cuts[cut].Connection});
       ++cut;
     }
   }
   const auto &last = ends.back();
-  if (last) { axis.push_back(*last); }
+  if (last) { append({.At = Connections_[*last].JoinedAt, .Connection = *last}); }
   return axis;
 }
 

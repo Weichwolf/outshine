@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <print>
@@ -13,13 +14,20 @@ using namespace outshine;
 using namespace outshine::Generators;
 
 bool Read(FootpathSource &source, std::vector<EastNorth> &points) {
-  unsigned kind = 0, first = 0, last = 0;
-  int layerKnown = 0, layer = 0, bridge = 0, tunnel = 0, foot = 0, boundKnown = 0;
+  unsigned kind = 0;
+  unsigned first = 0;
+  unsigned last = 0;
+  int layerKnown = 0;
+  int layer = 0;
+  int bridge = 0;
+  int tunnel = 0;
+  int foot = 0;
+  int boundKnown = 0;
   double bound = 0;
   size_t count = 0;
   if (!(std::cin >> kind >> layerKnown >> layer >> bridge >> tunnel >> foot >> first >> last >>
         source.HalfWidthM >> boundKnown >> bound >> count) ||
-      kind > 2 || first > 3 || last > 3 || count < 2 || count > 4096 || bridge < -1 || bridge > 1 ||
+      kind > 2 || first > 4 || last > 4 || count < 2 || count > 4096 || bridge < -1 || bridge > 1 ||
       tunnel < -1 || tunnel > 1 || foot < -1 || foot > 1) {
     return false;
   }
@@ -43,12 +51,13 @@ int main() {
   using Clock = std::chrono::steady_clock;
   std::ios::sync_with_stdio(false);
   std::cin.tie(nullptr);
+  constexpr size_t kMaximumSources = 200000;
   size_t count = 0;
   FootpathConnectionRecipe recipe;
   FootpathConnectionBudget budget;
   if (!(std::cin >> count >> recipe.ReachM >> recipe.MinimumCrossingSine >> budget.Segments >>
         budget.Endpoints >> budget.Candidates) ||
-      count > 200000) {
+      count > kMaximumSources) {
     return 2;
   }
   std::vector<FootpathSource> sources(count);
@@ -63,7 +72,7 @@ int main() {
     std::println("error {}", static_cast<unsigned>(plan.error()));
     return 1;
   }
-  std::vector<std::vector<EastNorth>> axes;
+  std::vector<std::vector<FootpathAxisVertex>> axes;
   axes.reserve(count);
   for (size_t source = 0; source < count; ++source) {
     axes.push_back(plan->Axis(static_cast<uint32_t>(source), points[source]));
@@ -107,7 +116,7 @@ int main() {
   for (size_t source = 0; source < axes.size(); ++source) {
     std::println("axis {} {}", source, axes[source].size());
     for (const auto point : axes[source]) {
-      std::println("{:.17g} {:.17g}", point.EastM, point.NorthM);
+      std::println("{:.17g} {:.17g}", point.At.EastM, point.At.NorthM);
     }
   }
 }
