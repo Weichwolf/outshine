@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Exercise the built client with new and changing content, without recompilation."""
+import os
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-CLIENT = ROOT / 'build/outshine'
+CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolve()
 
 
 def scenario(lat=12.5, fov=42, width=321):

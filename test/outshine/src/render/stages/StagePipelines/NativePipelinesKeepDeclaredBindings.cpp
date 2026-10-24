@@ -53,11 +53,11 @@ int main() {
   CHECK(!stale && stale.error().Kind == Native::ErrorKind::Invalid,
         "the native subject scan rejects the previous workgroup size");
   auto missing = depth;
-  missing.Path = "build/shaders/no-such-stage.comp.spv";
+  missing.Path = "no-such-stage.comp.spv";
   const auto absent = CompileComputePipeline(**device, missing);
   CHECK(!absent && absent.error().Kind == Native::ErrorKind::Invalid,
         "a missing shader artifact is an explicit error");
-  const auto words = ReadSpirv(depth.Path);
+  const auto words = ReadShaderSpirv(depth.Path);
   CHECK(words && words->size() >= 5 && words->front() == 0x07230203u,
         "both stage paths read a complete SPIR-V word stream");
   return Report();

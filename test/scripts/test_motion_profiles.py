@@ -19,7 +19,6 @@ class MotionProfiles(unittest.TestCase):
             work = Path(directory)
             (work / 'src').symlink_to(ROOT / 'src', target_is_directory=True)
             (work / 'build').mkdir()
-            (work / 'build/shaders').symlink_to(ROOT / 'build/shaders', target_is_directory=True)
             source = ET.parse(ROOT / 'src/assets/diagnostic-places/Hockenheimring.scenario')
             ET.SubElement(source.getroot().find('world'), 'relief',
                           {'kind': 'sineGrid', 'amplitudeM': '0'})

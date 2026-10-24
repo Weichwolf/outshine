@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -18,7 +19,6 @@ class PlaceProfiles(unittest.TestCase):
             work = Path(directory)
             (work / 'src').symlink_to(ROOT / 'src', target_is_directory=True)
             (work / 'build').mkdir()
-            (work / 'build/shaders').symlink_to(ROOT / 'build/shaders', target_is_directory=True)
             for rate in (25, 30, 60):
                 with self.subTest(rate=rate):
                     result = subprocess.run(
@@ -45,4 +45,14 @@ class PlaceProfiles(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    if sys.argv[1:] == ['--prepare']:
+        with tempfile.TemporaryDirectory(prefix='outshine-place-profile-prepare-') as directory:
+            work = Path(directory)
+            (work / 'src').symlink_to(ROOT / 'src', target_is_directory=True)
+            subprocess.run(
+                [str(CLIENT), '--places', str(ROOT / 'src/assets/places'), 'shots',
+                 '--offline', '--rows', '--preload-seconds', '600', '--scenario-overrides',
+                 json.dumps({'render': {'fps': 60}}), PLACE],
+                cwd=work, check=True, timeout=630)
+    else:
+        unittest.main()

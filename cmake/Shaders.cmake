@@ -2,6 +2,8 @@ find_program(OUTSHINE_GLSLANG NAMES glslang glslangValidator
   HINTS "${PROJECT_SOURCE_DIR}/build/deps/install/bin" REQUIRED)
 set(shader_directory "${PROJECT_BINARY_DIR}/shaders")
 file(MAKE_DIRECTORY "${shader_directory}")
+set_property(SOURCE "${PROJECT_SOURCE_DIR}/src/render/device/SpirvFile.cpp" APPEND PROPERTY
+  COMPILE_DEFINITIONS "OUTSHINE_SHADER_DIRECTORY=\"${shader_directory}\"")
 add_executable(shader-tables EXCLUDE_FROM_ALL "${PROJECT_SOURCE_DIR}/test/scripts/shader-tables.cpp")
 target_link_libraries(shader-tables PRIVATE outshine_compiler PkgConfig::sdl3)
 target_include_directories(shader-tables PRIVATE "${PROJECT_SOURCE_DIR}/src/base/scene"
@@ -98,8 +100,10 @@ endforeach()
 outshine_shader(prism-colour.vert prismVertex.glsl vert -DPRISM_DEPTH=0)
 outshine_shader(prism-depth.vert prismVertex.glsl vert -DPRISM_DEPTH=1)
 add_custom_target(outshine_shaders DEPENDS ${OUTSHINE_SHADER_ARTIFACTS})
+set(shader_names ${OUTSHINE_SHADER_ARTIFACTS})
+list(TRANSFORM shader_names REPLACE "^.*/" "")
 file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/shader-artifacts.txt"
-  CONTENT "$<JOIN:${OUTSHINE_SHADER_ARTIFACTS},\n>\n")
+  CONTENT "$<JOIN:${shader_names},\n>\n")
 add_executable(compute-shader-contracts EXCLUDE_FROM_ALL "${PROJECT_SOURCE_DIR}/test/scripts/compute-shader-contracts.cpp")
 target_link_libraries(compute-shader-contracts PRIVATE outshine_compiler)
 target_include_directories(compute-shader-contracts PRIVATE "${PROJECT_SOURCE_DIR}/src/render/stages")
@@ -108,3 +112,5 @@ add_custom_command(OUTPUT "${PROJECT_BINARY_DIR}/compute-shaders.json"
   DEPENDS compute-shader-contracts VERBATIM)
 add_custom_target(compute_contracts DEPENDS "${PROJECT_BINARY_DIR}/compute-shaders.json")
 add_dependencies(outshine_shaders compute_contracts)
+
+add_dependencies(outshine_render outshine_shaders)

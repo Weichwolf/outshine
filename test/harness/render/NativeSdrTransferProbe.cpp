@@ -148,8 +148,8 @@ void CachedVariants(Device &device, Texture &image, Sampler &sampler) {
 }
 
 std::unique_ptr<GraphicsPipeline> MissingOetf(Device &device) {
-  auto vertex = ReadSpirv("build/shaders/fullscreen.vert.spv");
-  auto fragment = ReadSpirv("build/shaders/present.frag.spv");
+  auto vertex = ReadShaderSpirv("fullscreen.vert.spv");
+  auto fragment = ReadShaderSpirv("present.frag.spv");
   CHECK(vertex && fragment,
         "the original unencoded present shader is available for the negative control");
   if (!vertex || !fragment) { Failed(); }

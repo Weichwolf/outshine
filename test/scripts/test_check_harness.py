@@ -22,10 +22,12 @@ class CheckHarness(unittest.TestCase):
         cls.root = Path(cls.temporary.name)
         cls.source = cls.root / "control.cpp"
         cls.source.write_text("""#include "Check.h"
+#include "Shell.h"
 #include <string_view>
 int main(int argc, char **argv) {
   using namespace outshine::Test;
   const std::string_view mode = argc > 1 ? argv[1] : "pass";
+  if (mode == "shell") { std::println("{}", ShellArgument(argc > 2 ? argv[2] : "")); return 0; }
   if (mode == "path") { std::println("{}", PlantedPath("asset.sqlite")); return 0; }
   if (mode == "pass") { Checked(true, "true", "claim", "control", 7); }
   if (mode == "fail") { Checked(false, "false", "claim", "control", 7); }
@@ -98,6 +100,17 @@ int main(int argc, char **argv) {
         self.assertTrue(
             missing.stdout.endswith("FAILURES 2 SKIPPED 0 UNPREPARED 0 PARTIAL 0\n")
         )
+
+    def test_shell_arguments_preserve_literal_bytes(self):
+        values = ["", "space quote' slash\\ dollar$ tick` grün", "line\nbreak",
+                  "$(printf injected); `printf injected` $OUTSHINE_FLAG"]
+        for value in values:
+            with self.subTest(value=value):
+                quoted = subprocess.check_output(
+                    [str(self.plain), "shell", value], text=True).removesuffix("\n")
+                result = subprocess.run(["sh", "-c", "printf '%s' " + quoted],
+                                        capture_output=True, text=True, check=False)
+                self.assertEqual((result.returncode, result.stdout), (0, value))
 
     def test_declared_root_is_one_literal_argument(self):
         for name in ["ordinary", 'space quote" slash\\ dollar$ tick` grün']:

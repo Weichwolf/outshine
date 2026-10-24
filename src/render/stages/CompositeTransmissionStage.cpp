@@ -14,8 +14,7 @@ Native::Result<void> CompositeTransmissionStage::Configure(const Gpu &gpu, const
                       .Message = "transmission composite requires native images and sampler"});
   }
   const std::array colours{Native::ColourTarget{.Texels = from.Target, .Rgb = {}, .Alpha = {}}};
-  auto made = CreateFullscreenPipeline(
-      *gpu.Device, "build/shaders/compositeTransmission.frag.spv", colours);
+  auto made = CreateFullscreenPipeline(*gpu.Device, "compositeTransmission.frag.spv", colours);
   if (!made) { return std::unexpected(made.error()); }
   Pipe = std::move(*made);
   Opaque = from.Opaque;

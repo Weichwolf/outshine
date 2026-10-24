@@ -38,12 +38,12 @@ struct ShaderFiles {
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
 Pipeline(Native::Device &device, ShaderFiles files, uint32_t uv, Native::Cull culling) {
-  const auto vertex = ReadSpirv(files.Vertex);
+  const auto vertex = ReadShaderSpirv(files.Vertex);
   if (!vertex) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = vertex.error()});
   }
-  const auto fragment = ReadSpirv(files.Fragment);
+  const auto fragment = ReadShaderSpirv(files.Fragment);
   if (!fragment) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = fragment.error()});
@@ -69,19 +69,16 @@ Native::GraphicsPipeline *SunShadowStage::MaskedPipeline(VertexLayout layout) co
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
 SunShadowStage::ConfigureTileClear(Native::Device &device) {
-  return CreateFullscreenPipeline(device,
-                                  "build/shaders/depth.frag.spv",
-                                  {},
-                                  Native::DepthTarget{.Test = false, .Write = true});
+  return CreateFullscreenPipeline(
+      device, "depth.frag.spv", {}, Native::DepthTarget{.Test = false, .Write = true});
 }
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
 SunShadowStage::ConfigureDepthOnly(Native::Device &device) {
-  return Pipeline(
-      device,
-      {.Vertex = "build/shaders/subjectDepth.vert.spv", .Fragment = "build/shaders/depth.frag.spv"},
-      0,
-      Native::Cull::Front);
+  return Pipeline(device,
+                  {.Vertex = "subjectDepth.vert.spv", .Fragment = "depth.frag.spv"},
+                  0,
+                  Native::Cull::Front);
 }
 
 Native::Result<SunShadowStage::MaskedPipelines>
@@ -91,12 +88,11 @@ SunShadowStage::ConfigureMasked(Native::Device &device) {
   for (uint32_t at = 0; at < pipelines.size(); ++at) {
     const auto uv = at % uvLayouts;
     const auto tinted = at / uvLayouts;
-    auto made =
-        Pipeline(device,
-                 {.Vertex = std::format("build/shaders/subjectShadow-{}{}.vert.spv", uv, tinted),
-                  .Fragment = std::format("build/shaders/subjectShadow-{}.frag.spv", uv)},
-                 uv,
-                 Native::Cull::None);
+    auto made = Pipeline(device,
+                         {.Vertex = std::format("subjectShadow-{}{}.vert.spv", uv, tinted),
+                          .Fragment = std::format("subjectShadow-{}.frag.spv", uv)},
+                         uv,
+                         Native::Cull::None);
     if (!made) { return std::unexpected(made.error()); }
     pipelines[at] = std::move(*made);
   }

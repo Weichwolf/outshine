@@ -119,7 +119,7 @@ public:
     for (const auto &entry : Entries_) {
       if (entry.Path == path) { return entry.Words; }
     }
-    auto words = ReadSpirv(path);
+    auto words = ReadShaderSpirv(path);
     if (!words) {
       return std::unexpected(
           Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = words.error()});

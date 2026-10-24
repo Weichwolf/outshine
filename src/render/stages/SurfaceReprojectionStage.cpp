@@ -114,7 +114,7 @@ SurfaceReprojectionStage::Configure(const Gpu &gpu, Capture source, Native::Samp
   targets[0].Write = {};
   auto made =
       CreateFullscreenPipeline(*gpu.Device,
-                               "build/shaders/surfaceReprojection.frag.spv",
+                               "surfaceReprojection.frag.spv",
                                targets,
                                Native::DepthTarget{.Compare = Native::DepthCompare::GreaterEqual});
   if (!made) { return std::unexpected(made.error()); }

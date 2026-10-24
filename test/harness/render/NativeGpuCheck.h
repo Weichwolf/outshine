@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_TEST_RENDER_NATIVEGPUCHECK_H
 #define OUTSHINE_TEST_RENDER_NATIVEGPUCHECK_H
 #include "Device.h"
+#include "SpirvFile.h"
 #include "Check.h"
 #include <cstdlib>
 #include <cstdio>
@@ -57,6 +58,16 @@ inline std::vector<uint32_t> Spirv(const char *path) {
   file.read(reinterpret_cast<char *>(words.data()), bytes);
   CHECK(file, "the complete shader is readable");
   return words;
+}
+
+inline std::vector<uint32_t> Shader(const char *name) {
+  auto words = outshine::Render::ReadShaderSpirv(name);
+  CHECK(words, "the built shader is a complete SPIR-V module");
+  if (!words) {
+    std::println(stderr, "{}", words.error());
+    Failed();
+  }
+  return std::move(*words);
 }
 
 inline std::unique_ptr<Buffer> Upload(Device &device,

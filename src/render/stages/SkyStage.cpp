@@ -58,8 +58,7 @@ Native::Result<void> SkyStage::Configure(const Gpu &gpu, Tables from) {
     }
   }
   auto made = CreateFullscreenNdcPipeline(*gpu.Device,
-                                          writesVelocity ? "build/shaders/sky.frag.spv"
-                                                         : "build/shaders/skyHdr.frag.spv",
+                                          writesVelocity ? "sky.frag.spv" : "skyHdr.frag.spv",
                                           std::span(targets).first(gpu.SceneColours.Size()),
                                           Native::DepthTarget{.Test = false, .Write = false});
   if (!made) { return std::unexpected(made.error()); }

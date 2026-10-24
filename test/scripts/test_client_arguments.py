@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-CLIENT = ROOT / 'build/outshine'
+CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolve()
 
 
 class Coordinates(unittest.TestCase):
@@ -81,7 +81,7 @@ class Coordinates(unittest.TestCase):
                               capture_output=True, text=True, timeout=10)
 
     def test_ignored_number_result_is_a_compile_error(self):
-        database = json.loads((ROOT / 'compile_commands.json').read_text())
+        database = json.loads((Path(os.environ.get('OUTSHINE_BUILD_DIR', ROOT / 'build')) / 'compile_commands.json').read_text())
         command = next(entry for entry in database
                        if (Path(entry['directory']) / entry['file']).resolve() ==
                        (ROOT / 'src/client/Main.cpp').resolve())
