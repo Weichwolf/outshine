@@ -1,4 +1,4 @@
-"""Read one existing native ground page without fetching, generating or mutating assets."""
+"""Read existing native ground pages without fetching, generating or mutating assets."""
 
 import argparse
 import ctypes
@@ -90,7 +90,7 @@ class PrefixReader:
         return self.bytes(self.read("I")[0] * width)
 
 
-def select_page(data):
+def page_prefix(data):
     outer = PrefixReader(data)
     version, ground_size = outer.read("QQ")
     if version != 0x35524E474F:
@@ -106,19 +106,68 @@ def select_page(data):
     pages = reader.read("I")[0]
     if not 0 < pages <= 65536:
         raise ValueError("bounded nonempty native page sequence required")
+    return reader, anchor, pages
+
+
+def page_records(reader, pages):
+    for index in range(pages):
+        zoom, x, y, side, postings, virtual, source_zoom = reader.read("iIIiIBi")
+        nodes = reader.array(4)
+        if not 0 <= zoom <= 23 or x >= 2**zoom or y >= 2**zoom:
+            raise ValueError("valid native tile identity required")
+        yield (
+            {
+                "page": str(index),
+                "zoom": zoom,
+                "x": x,
+                "y": y,
+                "side": side,
+                "postings": postings,
+                "virtual": virtual,
+                "source_zoom": source_zoom,
+                "halo": 1,
+                "nodes": len(nodes) // 4,
+            },
+            nodes,
+        )
+
+
+def eligible(row):
+    return (
+        row["side"] == 33
+        and row["postings"] >= 33
+        and row["source_zoom"] >= -1
+        and row["nodes"] == 35 * 35
+    )
+
+
+def checked_heights(nodes):
+    if not np.isfinite(np.frombuffer(nodes, dtype="<f4")).all():
+        raise ValueError("finite native height words required")
+    return bytes(nodes)
+
+
+def scope(anchor, pages, selection):
+    return {
+        "anchor_lon_lat": anchor,
+        "pages_in_prefix": pages,
+        "selection": selection,
+        "scope": "Read-only extraction of versioned page prefix; trailing classes/network/geometry are not independently revalidated.",
+    }
+
+
+def select_page(data):
+    reader, anchor, pages = page_prefix(data)
     lon, lat = anchor
     anchor_xy = (
         (lon + 180) / 360,
         (1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2,
     )
     selected, best = None, None
-    for index in range(pages):
-        zoom, x, y, side, postings, virtual, source_zoom = reader.read("iIIiIBi")
-        nodes = reader.array(4)
-        if not 0 <= zoom <= 23 or x >= 2**zoom or y >= 2**zoom:
-            raise ValueError("valid native tile identity required")
-        if side != 33 or postings < 33 or source_zoom < -1 or len(nodes) != 35 * 35 * 4:
+    for row, nodes in page_records(reader, pages):
+        if not eligible(row):
             continue
+        zoom, x, y, index = row["zoom"], row["x"], row["y"], int(row["page"])
         distance = sum(
             (a - b) ** 2
             for a, b in zip(anchor_xy, ((x + 0.5) / 2**zoom, (y + 0.5) / 2**zoom))
@@ -126,36 +175,59 @@ def select_page(data):
         rank = (-zoom, distance, index)
         if best is None or rank < best:
             best = rank
-            selected = (
-                {
-                    "page": str(index),
-                    "zoom": zoom,
-                    "x": x,
-                    "y": y,
-                    "side": side,
-                    "postings": postings,
-                    "virtual": virtual,
-                    "source_zoom": source_zoom,
-                    "halo": 1,
-                    "nodes": 35 * 35,
-                },
-                bytes(nodes),
-            )
+            selected = row, nodes
     if selected is None:
         raise ValueError("existing 33-node page required")
     row, heights = selected
-    if not np.isfinite(np.frombuffer(heights, dtype="<f4")).all():
-        raise ValueError("finite native height words required")
     return (
         row,
-        heights,
-        {
-            "anchor_lon_lat": anchor,
-            "pages_in_prefix": pages,
-            "selection": "maximum zoom, then nearest tile centre to existing region anchor, then original page index",
-            "scope": "Read-only extraction of versioned page prefix; trailing classes/network/geometry are not independently revalidated.",
-        },
+        checked_heights(heights),
+        scope(
+            anchor,
+            pages,
+            "maximum zoom, then nearest tile centre to existing region anchor, then original page index",
+        ),
     )
+
+
+def select_window(data, zoom, low_x, high_x, low_y, high_y):
+    if (
+        not 0 <= zoom <= 23
+        or not 0 <= low_x <= high_x < 2**zoom
+        or not 0 <= low_y <= high_y < 2**zoom
+    ):
+        raise ValueError("valid explicit native tile window required")
+    if (high_x - low_x + 1) * (high_y - low_y + 1) > 16:
+        raise ValueError("at most sixteen requested native pages required")
+    requested = {
+        (zoom, x, y) for x in range(low_x, high_x + 1) for y in range(low_y, high_y + 1)
+    }
+    reader, anchor, pages = page_prefix(data)
+    selected = {}
+    for row, nodes in page_records(reader, pages):
+        tile = (row["zoom"], row["x"], row["y"])
+        if tile not in requested:
+            continue
+        if tile in selected:
+            raise ValueError("requested native tile has multiple page records")
+        if not eligible(row):
+            raise ValueError("requested native page layout is unsupported")
+        selected[tile] = row, checked_heights(nodes)
+    missing = requested - selected.keys()
+    if missing:
+        raise ValueError(f"requested native tiles missing: {sorted(missing)}")
+    return [selected[tile] for tile in sorted(requested)], scope(
+        anchor,
+        pages,
+        "explicit complete native tile window; no generation or ancestor substitution",
+    )
+
+
+def page_fractions(row):
+    if not row["virtual"] and row["source_zoom"] < 0:
+        postings = row["postings"]
+        return (np.arange(33, dtype=np.int64) * (postings - 1) // 32) / (postings - 1)
+    return np.arange(33, dtype=np.float64) / 32
 
 
 def main():
@@ -168,13 +240,9 @@ def main():
     row, heights, scope = select_page(data)
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / (row["page"] + ".f32")).write_bytes(heights)
-    fractions = np.arange(33, dtype=np.float64) / 32
-    if not row["virtual"] and row["source_zoom"] < 0:
-        postings = row["postings"]
-        fractions = (np.arange(33, dtype=np.int64) * (postings - 1) // 32) / (
-            postings - 1
-        )
-    np.savetxt(args.output / (row["page"] + ".fractions"), fractions, fmt="%.17g")
+    np.savetxt(
+        args.output / (row["page"] + ".fractions"), page_fractions(row), fmt="%.17g"
+    )
     record = {
         "row": row,
         **provenance,
