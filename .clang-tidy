@@ -37,7 +37,7 @@ CheckOptions:
   # claimed `Sha256.h` was unused while `Sha256Hex` is called on the next screen. It also asks for
   # `SDL3/SDL_init.h` where SDL documents `SDL3/SDL.h` as the entry point. A finding that has to be
   # ignored teaches a reader to ignore findings, so the check keeps the half it is right about.
-  misc-include-cleaner.IgnoreHeaders: 'SDL3/.*;.*/src/.*'
+  misc-include-cleaner.IgnoreHeaders: 'SDL3/.*;.*/src/.*;.*/include/.*'
 
   # `readability-identifier-length` was SWITCHED OFF where it should have been SET. Its default
   # asks for three characters, which is wrong in a maths kernel -- `e` and `n` are the clearest
