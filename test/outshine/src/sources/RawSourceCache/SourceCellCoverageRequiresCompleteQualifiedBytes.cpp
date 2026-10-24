@@ -2,10 +2,13 @@
 #include "RawSourceCache.h"
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <system_error>
+#include <vector>
 
 using outshine::GeoCellId;
 

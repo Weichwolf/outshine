@@ -35,7 +35,7 @@ public:
 
 void CheckResponse(int status) {
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
             "pin",

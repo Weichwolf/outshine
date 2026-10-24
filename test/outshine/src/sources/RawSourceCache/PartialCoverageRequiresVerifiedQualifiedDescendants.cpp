@@ -2,9 +2,11 @@
 #include "RawSourceCache.h"
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <system_error>
 
 using outshine::GeoCellId;
@@ -40,7 +42,7 @@ int main() {
   changed.Endpoint += "/different";
   CHECK(!store.CanResumeFromChildren(changed, root), "endpoint qualifies source descendants");
   {
-    RawSourceCache fresh({.Directory = path});
+    const RawSourceCache fresh({.Directory = path});
     CHECK(fresh.CanResumeFromChildren(decl, root), "fresh process reuses verified source bytes");
   }
   const auto leafKey = ContentKey(decl, Address::AtGeoCell(leaf));
@@ -58,7 +60,7 @@ int main() {
   CHECK(!store.CanResumeFromChildren(decl, root),
         "receipt without payload cannot select a partition");
   CHECK(store.KeepCell(decl, leaf, bytes), "leaf restored for disabled-cache verification");
-  RawSourceCache disabled({.Directory = path, .Using = RawSourceCache::Use::Off});
+  const RawSourceCache disabled({.Directory = path, .Using = RawSourceCache::Use::Off});
   CHECK(!disabled.CanResumeFromChildren(decl, root), "disabled cache supplies no source partition");
   std::error_code error;
   std::filesystem::remove_all(path, error);

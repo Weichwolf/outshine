@@ -2,6 +2,7 @@
 #include "WebTileSource.h"
 #include "OfflineTransport.h"
 #include "Check.h"
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
@@ -11,6 +12,9 @@
 
 namespace {
 using namespace outshine::Data;
+constexpr int kOk = 200;
+constexpr int kForbidden = 403;
+constexpr uint8_t kSecondByte = 22;
 
 class Tiles final : public WebTileSource {
 public:
@@ -41,10 +45,11 @@ public:
 
   Wire Collect(Ticket ticket) override {
     const auto &url = Requested[static_cast<size_t>(ticket) - 1];
-    return url.ends_with("/1/1/1") ? Wire::Answered(200, {11, 22}) : Wire::Answered(Status, {});
+    return url.ends_with("/1/1/1") ? Wire::Answered(kOk, {11, kSecondByte})
+                                   : Wire::Answered(Status, {});
   }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 
   double NowMs() override { return 0; }
 };
@@ -90,7 +95,7 @@ int main() {
     CHECK(sources.Add(std::make_unique<Tiles>()) == SourceSet::Registration::Accepted,
           "failure source configured");
     Http wire;
-    wire.Status = 403;
+    wire.Status = kForbidden;
     auto query = sources.Ask(request);
     const auto answer = sources.Collect(query, wire);
     CHECK(answer.Where() == SourceDelivery::State::Refused && wire.Requested.size() == 1,

@@ -2,11 +2,15 @@
 #include "OfflineTransport.h"
 #include "SourceSet.h"
 #include "WebTileFixture.h"
+#include <expected>
 #include <memory>
 #include <string>
 
 namespace {
 using namespace outshine::Data;
+constexpr int kNotFound = 404;
+constexpr int kUnavailable = 503;
+constexpr double kAfterRetryMs = 100000;
 
 class AdmissionTransport final : public Transport {
 public:
@@ -15,18 +19,18 @@ public:
   bool FirstNotFound = false, FirstRetry = false;
   double Now = 0;
 
-  FetchStart Begin(const std::string &) override {
+  FetchStart Begin(const std::string & /*url*/) override {
     ++Begins;
     if ((FirstNotFound || FirstRetry) && Begins == 1) { return Ticket{1}; }
     return std::unexpected(Reason);
   }
 
-  Wire Collect(Ticket) override {
+  Wire Collect(Ticket /*ticket*/) override {
     ++Collects;
-    return Wire::Answered(FirstNotFound ? 404 : 503, {});
+    return Wire::Answered(FirstNotFound ? kNotFound : kUnavailable, {});
   }
 
-  void Cancel(Ticket) override { ++Cancels; }
+  void Cancel(Ticket /*ticket*/) override { ++Cancels; }
 
   double NowMs() override { return Now; }
 };
@@ -66,7 +70,7 @@ int main() {
       auto response = sources.Collect(query, transport);
       CHECK(response.Where() == SourceDelivery::State::Refused && response.Failure(),
             "refused admission settles directly without collecting a nonexistent ticket");
-      const auto failure = response.Failure();
+      const auto &failure = response.Failure();
       CHECK(failure && failure->Reason == reason && failure->SourceId == decl.Id &&
                 failure->SourceRevision == decl.Revision && failure->SourceKey == key &&
                 failure->Requested == request.Where() &&
@@ -90,7 +94,7 @@ int main() {
     auto query = sources.Ask(request);
     CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending,
           "first HTTP refusal schedules retry");
-    transport.Now = 100000;
+    transport.Now = kAfterRetryMs;
     const auto refused = sources.Collect(query, transport);
     CHECK(refused.Where() == SourceDelivery::State::Refused && refused.Failure() &&
               refused.Failure()->Reason == SourceFailureReason::CapacityRefused &&
