@@ -2,9 +2,10 @@
 
 Research [#1081](https://github.com/Weichwolf/outshine/issues/1081), under
 [#1078](https://github.com/Weichwolf/outshine/issues/1078). This is a bounded Python
-reference and input diagnosis. The complete native current-occluder comparison is
-still open: native point depth and cluster spheres do not provide opaque surface
-coverage. Engine is supplying the additional original-geometry/material contract.
+reference and input diagnosis. Native point depth and cluster spheres do not
+provide opaque surface coverage. The additional native geometry/material contract
+and paid current-depth comparisons are owned by #1078; their later results do not
+expand the geometric or performance admission of this frozen Python reference.
 No product renderer, GPU pass, cache format or LOD bound changes here.
 
 ## Actual native depth pairs
@@ -140,9 +141,15 @@ Decision: point splats are not admitted as conservative occluders. Geometry-back
 support is valid in the tested opaque controls but costs more primitives and stores
 more than these original triangles. Original geometry/current seeds are a simple
 native candidate; **no overall/native winner is selected** from these CPU timings.
-Next: the supplied native opaque geometry/material/placement/validity contract,
-then the real new-frame case and device acquisition/query/draw cost. The broader
-#1078/#1081 comparison remains open.
+Native follow-up remains with [#1078](https://github.com/Weichwolf/outshine/issues/1078):
+its [573-triangle geometry contract](https://github.com/Weichwolf/outshine/issues/1078#issuecomment-6328915744)
+was delivered, and its [paid current-depth comparison](https://github.com/Weichwolf/outshine/issues/1078#issuecomment-6333338626)
+rejected that tested extra pass because it added work without reducing existing
+primitive/vertex work. Those native results do not select a general winner or
+qualify these Python supports. Further work needs effective occluder coverage or
+reuse of already-paid opaque raster work; this delivery requests no repeated
+export, additional pass or removal of the current depth-validity guard. The broader
+moving-occlusion objective remains open in #1078.
 
 ## Verification and reproduction
 
