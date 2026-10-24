@@ -137,7 +137,15 @@ def overlap_conditions(plan, system, gap, gap_variable=None):
 
 
 def stair_condition(
-    plan, system, owner, low_node, high_node, *, plane_offset=None, direction=1
+    plan,
+    system,
+    owner,
+    low_node,
+    high_node,
+    *,
+    plane_offset=None,
+    direction=1,
+    height_lofts=(),
 ):
     count = len(plan["xy"])
     offset = 2 * count if plane_offset is None else plane_offset
@@ -148,12 +156,23 @@ def stair_condition(
         system.add([i, high], [1, -1], 0)
     row = plan["rows"][owner]
     shapes = shapely.polygons(plan["xy"][face])
+    constant = np.zeros(len(face), dtype=bool)
+    for loft in height_lofts:
+        if loft["owner"] == owner:
+            stations = np.asarray(loft["stations_m"])[face]
+            constant |= (stations <= loft["start_cut_m"]).all(axis=1) | (
+                stations >= loft["end_cut_m"]
+            ).all(axis=1)
+    skipped = 0
     for a, b in itertools.pairwise(row["xy"]):
         tangent = (b - a) / np.linalg.norm(b - a)
         influence = shapely.LineString([a, b]).buffer(row["width_m"])
         for index in np.flatnonzero(
             shapely.area(shapely.intersection(shapes, influence)) > 1e-10
         ):
+            if constant[index]:
+                skipped += 1
+                continue
             f = face[index]
             system.add(f, -direction * tangent @ gradient_rows(plan["xy"], f), 0)
     indices = np.unique(face)
@@ -163,6 +182,7 @@ def stair_condition(
         ]
         for i in selected[1:]:
             system.equal([int(selected[0]), int(i)], [1, -1])
+    return skipped
 
 
 def solve(
