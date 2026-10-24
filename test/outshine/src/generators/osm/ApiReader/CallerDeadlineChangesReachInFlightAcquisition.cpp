@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+using outshine::GeoCellId;
+using outshine::GeographicBounds;
+
 namespace {
 class DelayedWire final : public outshine::Data::Transport {
 public:

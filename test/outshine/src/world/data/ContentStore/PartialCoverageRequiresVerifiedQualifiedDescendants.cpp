@@ -7,6 +7,8 @@
 #include <fstream>
 #include <system_error>
 
+using outshine::GeoCellId;
+
 int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;

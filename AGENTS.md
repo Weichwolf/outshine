@@ -291,9 +291,9 @@
   prüfe ich als Architekturfehler; gemischte Integrationsprüfungen erhalten einen eigenen Ort.
 - Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und
   betroffene Places prüfen. Bei geänderten C++-Includes oder Modulpfaden die betroffenen CMake-Targets bauen.
-  `make lint` prüft Änderungen gegenüber HEAD samt Header-Verbrauchern; `LINT_BASE` setzt einen anderen Vergleichsstand.
-  `make lint-all` prüft die vollständige Integration am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
-  nicht je Kleincommit. Build-/Prüfregeln lösen auch bei `make lint` den vollständigen Lauf aus.
+  `make lint` verwendet CMake-integriertes clang-tidy; Ninja bestimmt geänderte Units samt
+  Header-Verbrauchern. `make lint-all` verwendet einen frischen Analyse-Build für den
+  vollständigen Integrationsstand; kein eigener Scope-/Layer-/Buildplaner und keine Claims.
   Fokussiertes clang-tidy nutzt die vollständigen Flags aus der aktuellen
   Kompilationsdatenbank; handgekürzte Aufrufe sind kein gleichwertiger Nachweis.
   Nur Docs: `make lint-docs` prüft geänderte Markdown-Dateien auf Whitespacefehler;

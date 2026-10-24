@@ -2,6 +2,7 @@
 #include "Check.h"
 #include "DeclaredBuildingFixture.h"
 #include "Digest.h"
+#include "Heap.h"
 #include "SurfacePreparation.h"
 #include "OfflineTransport.h"
 #include "Sink.h"
@@ -32,8 +33,6 @@ constexpr auto kChangedSurfaceM = 101.0f;
 constexpr auto kBuildingHeightM = 12.0f;
 constexpr auto kChangedTileSpanM = 2000;
 constexpr auto kFocalPx = 720;
-thread_local bool measureAllocations = false;
-thread_local size_t allocations = 0;
 
 class SilentSink final : public outshine::Sink {
 public:
@@ -148,20 +147,6 @@ ReplaceStreetInputs(outshine::Ground::SurfacePreparation &stack, outshine::Longi
 
 }
 
-void *operator new(size_t bytes) {
-  if (measureAllocations) { ++allocations; }
-  if (void *memory = std::malloc(bytes == 0 ? 1 : bytes)) { return memory; }
-  std::abort();
-}
-
-void operator delete(void *memory) noexcept {
-  std::free(memory);
-}
-
-void operator delete(void *memory, size_t /*unused*/) noexcept {
-  std::free(memory);
-}
-
 int main() {
   using namespace outshine;
   using namespace outshine::Ground;
@@ -239,11 +224,15 @@ int main() {
   };
   residentField.reset();
   pinned.reset();
-  allocations = 0;
-  measureAllocations = true;
-  const bool current = inspect() == State::Current && valid();
-  measureAllocations = false;
-  CHECK(current && allocations == 0 && forbiddenCalls == 0,
+  CHECK(Heap::ProcessInstrumentationEnabled(), "allocation instrumentation is active");
+  constexpr const char *allocationTag = "resident validation";
+  const auto allocatedBefore = Heap::TakenUnder(allocationTag);
+  bool current = false;
+  {
+    Heap::Tagged measurement(allocationTag);
+    current = inspect() == State::Current && valid();
+  }
+  CHECK(current && Heap::TakenUnder(allocationTag) == allocatedBefore && forbiddenCalls == 0,
         "accepted immutable inputs survive raster eviction without allocation or resolution");
   CheckVersionedInputs(stack,
                        prints,

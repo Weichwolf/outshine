@@ -1,18 +1,44 @@
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles("#include <version>
+#ifndef _LIBCPP_VERSION
+#error libc++ required
+#endif
+int main() {}" OUTSHINE_USES_LIBCPP)
 set(OUTSHINE_COMPILE_OPTIONS -Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter
   -ffp-contract=off -fstack-protector-strong -Wformat=2 -Werror=format-security -fPIE)
 if(APPLE)
-  set(OUTSHINE_COMPILE_DEFINITIONS _FORTIFY_SOURCE=2
-    _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST)
+  set(OUTSHINE_COMPILE_DEFINITIONS _FORTIFY_SOURCE=2)
   set(OUTSHINE_LINK_OPTIONS -Wl,-pie)
 else()
-  set(OUTSHINE_COMPILE_DEFINITIONS _FORTIFY_SOURCE=3 _GLIBCXX_ASSERTIONS
-    _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST)
+  set(OUTSHINE_COMPILE_DEFINITIONS _FORTIFY_SOURCE=3)
   list(APPEND OUTSHINE_COMPILE_OPTIONS -fstack-clash-protection)
   set(OUTSHINE_LINK_OPTIONS -pie -Wl,-z,relro,-z,now,-z,noexecstack)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i.86)$")
     list(APPEND OUTSHINE_COMPILE_OPTIONS -fcf-protection=full)
   endif()
 endif()
+if(OUTSHINE_USES_LIBCPP)
+  list(APPEND OUTSHINE_COMPILE_DEFINITIONS _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST)
+else()
+  list(APPEND OUTSHINE_COMPILE_DEFINITIONS _GLIBCXX_ASSERTIONS)
+endif()
+if(OUTSHINE_HARDENED AND OUTSHINE_USES_LIBCPP)
+  list(FILTER OUTSHINE_COMPILE_DEFINITIONS EXCLUDE REGEX "^_LIBCPP_HARDENING_MODE=")
+  list(APPEND OUTSHINE_COMPILE_DEFINITIONS _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG)
+endif()
+if(OUTSHINE_SANITIZER STREQUAL "address")
+  set(sanitizer_options -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer)
+  if(APPLE)
+    list(FILTER OUTSHINE_COMPILE_DEFINITIONS EXCLUDE REGEX "^_FORTIFY_SOURCE=")
+    list(APPEND OUTSHINE_COMPILE_DEFINITIONS _FORTIFY_SOURCE=0)
+  endif()
+elseif(OUTSHINE_SANITIZER STREQUAL "thread")
+  set(sanitizer_options -fsanitize=thread -fno-omit-frame-pointer)
+elseif(NOT OUTSHINE_SANITIZER STREQUAL "")
+  message(FATAL_ERROR "OUTSHINE_SANITIZER must be empty, address or thread")
+endif()
+list(APPEND OUTSHINE_COMPILE_OPTIONS ${sanitizer_options})
+list(APPEND OUTSHINE_LINK_OPTIONS ${sanitizer_options})
 add_library(outshine_compiler INTERFACE)
 target_compile_features(outshine_compiler INTERFACE cxx_std_23)
 target_compile_options(outshine_compiler INTERFACE ${OUTSHINE_COMPILE_OPTIONS}

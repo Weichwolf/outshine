@@ -13,6 +13,8 @@
 #include <utility>
 #include <vector>
 
+using outshine::GeoCellId;
+
 namespace {
 using namespace outshine::Data;
 

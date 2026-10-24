@@ -8,6 +8,8 @@
 #include <string>
 #include <system_error>
 
+using outshine::GeographicBounds;
+
 int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
