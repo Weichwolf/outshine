@@ -14,7 +14,7 @@ inline constexpr std::string_view kMissingPlaceCommand =
 }
 
 struct CommandLine {
-  std::string_view Directory = "src/assets/places";
+  std::string_view Directory;
   std::string_view Verb = "help";
   std::span<const char *const> Arguments;
 };

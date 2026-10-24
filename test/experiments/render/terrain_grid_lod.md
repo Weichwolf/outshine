@@ -10,7 +10,7 @@ triangle interpolator. Outputs belong in system temp.
 python3 test/experiments/render/verify_terrain_grid_lod.py
 python3 test/experiments/render/terrain_grid_lod.py \
   --pages /tmp/outshine-terrain-pages \
-  --scenario src/assets/places/Tokyo.scenario \
+  --scenario test/outshine/data/places/Tokyo.scenario \
   --output /tmp/outshine-terrain-lod.json
 ```
 

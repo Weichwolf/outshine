@@ -20,7 +20,7 @@ def main():
         parser.error("fresh external receipt file required")
     cases = {}
     for name, _source in PLACES:
-        camera = read_camera(ROOT / "src/assets/places" / (name + ".scenario"))
+        camera = read_camera(ROOT / "test/outshine/data/places" / (name + ".scenario"))
         receipts = []
         if camera.samples_height:
             for zoom in (16, 15, 14):

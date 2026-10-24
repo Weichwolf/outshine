@@ -98,7 +98,7 @@ def choose(mixtures, values, height, uniforms, forest, method):
 def run(sites_path, scene_path, geography_path, model_path, output):
     start = time.perf_counter()
     scene = json.loads(scene_path.read_text())
-    camera = read_camera(ROOT / "src/assets/places" / f"{scene['place']}.scenario")
+    camera = read_camera(ROOT / "test/outshine/data/places" / f"{scene['place']}.scenario")
     if camera.scenario_sha256 != scene["scenario_sha256"]:
         raise ValueError("cached stand and actual Place scenario differ")
     sites = np.load(sites_path, allow_pickle=False)

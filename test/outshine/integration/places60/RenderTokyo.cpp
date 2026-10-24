@@ -1,5 +1,6 @@
 #include "ClientShot.h"
 
 int main() {
-  return outshine::Test::ScorePlace("Tokyo", "src/assets/places", 60);
+  return outshine::Test::ScorePlace(
+      "Tokyo", "test/outshine/data/places", outshine::Test::kPlaceRateHz);
 }

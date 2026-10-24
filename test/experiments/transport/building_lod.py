@@ -236,7 +236,7 @@ def replay(field, eye, basis, target_eye, target_basis, focal, layers):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', type=Path, required=True)
-    parser.add_argument('--scenario', type=Path, default=Path('src/assets/places/Tokyo.scenario'))
+    parser.add_argument('--scenario', type=Path, default=Path('test/outshine/data/places/Tokyo.scenario'))
     parser.add_argument('--output', type=Path, default=Path('build/experiments/building-lod'))
     parser.add_argument('--width', type=int, default=640)
     args = parser.parse_args()

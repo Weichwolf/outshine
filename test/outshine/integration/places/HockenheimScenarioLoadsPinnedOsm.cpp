@@ -8,17 +8,22 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
 
+  constexpr int kMostPolls = 200;
+  constexpr double kSourceBytes = 33557.0;
+  constexpr double kRouteEdges = 267.0;
   Engine engine;
-  CHECK(engine.setRoots({.Shipped = "src/assets", .Offline = true}),
-        "scenario sources resolve inside the shipped asset root");
-  CHECK(engine.readScenario("src/assets/diagnostic-places/Hockenheimring.scenario"),
+  CHECK(
+      engine.setRoots(
+          {.Assets = {}, .Shipped = "src/assets", .Cache = {}, .Offline = true, .AssetCache = {}}),
+      "scenario sources resolve inside the shipped asset root");
+  CHECK(engine.readScenario("test/outshine/data/diagnostic-places/Hockenheimring.scenario"),
         "the authored Hockenheim scenario declares a pinned semantic OSM source");
   CHECK(engine.assemble(), "the pinned source queues without a renderer or terrain fetch");
 
   double sourceBytes = -1.0;
   double namedRoutes = -1.0;
   double routeEdges = -1.0;
-  for (int attempt = 0; attempt < 200 && sourceBytes < 0.0; ++attempt) {
+  for (int attempt = 0; attempt < kMostPolls && sourceBytes < 0.0; ++attempt) {
     const auto advanced = engine.advance();
     CHECK(advanced, advanced ? "headless scenario advances" : advanced.error().c_str());
     for (const DiagnosticSample &sample : engine.measures()) {
@@ -28,9 +33,8 @@ int main() {
     }
     if (sourceBytes < 0.0) { SDL_Delay(10); }
   }
-  CHECK(sourceBytes == 33557.0 && namedRoutes == 1.0 && routeEdges == 267.0 &&
-            engine.unsettledReasons(WorldQuality::Playable).find("semantic OSM") ==
-                std::string::npos,
+  CHECK(sourceBytes == kSourceBytes && namedRoutes == 1.0 && routeEdges == kRouteEdges &&
+            !engine.unsettledReasons(WorldQuality::Playable).contains("semantic OSM"),
         "the authored source is verified and published independently of visual tiles");
   return Report();
 }

@@ -10,8 +10,7 @@ int main() {
   using namespace outshine::Client;
   using namespace outshine::Test;
   const auto empty = ReadCommandLine({});
-  CHECK(empty && empty->Verb == "help" && empty->Directory == "src/assets/places" &&
-            empty->Arguments.empty(),
+  CHECK(empty && empty->Verb == "help" && empty->Directory.empty() && empty->Arguments.empty(),
         "empty input selects help");
   const std::array<const char *, 1> program{"client"};
   const auto help = ReadCommandLine(program);
@@ -31,9 +30,9 @@ int main() {
         "incomplete override is rejected");
   const std::array<const char *, 3> nullArg{"client", "help", nullptr};
   CHECK(!ReadCommandLine(nullArg), "null trailing argument is rejected");
-  const std::array<const char *, 3> plain{"client", "render", "asset.glb"};
+  const std::array<const char *, 3> plain{"client", "run", "asset.scenario"};
   const auto render = ReadCommandLine(plain);
-  CHECK(render && render->Verb == "render" && render->Arguments.size() == 1 &&
+  CHECK(render && render->Verb == "run" && render->Arguments.size() == 1 &&
             render->Arguments[0] == plain[2],
         "ordinary command preserves its argument");
   return Report();

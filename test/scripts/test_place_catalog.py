@@ -80,19 +80,19 @@ class Catalog(unittest.TestCase):
         self.assertIn('exactly one geodetic view',
                       self.run_client('places', success=False).stderr)
 
-        source = (ROOT / 'src/assets/diagnostic-places/Hockenheimring.scenario').read_text()
+        source = (ROOT / 'test/outshine/data/diagnostic-places/Hockenheimring.scenario').read_text()
         first = source.index('<view id="overview"')
         last = source.index('</view>', first) + len('</view>')
         path.write_text(source[:first] + source[last:])
         self.run_client('places', success=False)
 
     def test_current_catalog_is_a_twelve_view_sample(self):
-        rows = self.run_client('places', directory=ROOT / 'src/assets/places').stdout.splitlines()
+        rows = self.run_client('places', directory=ROOT / 'test/outshine/data/places').stdout.splitlines()
         self.assertEqual(len(rows), 12)
         for row in rows:
             fields = row.split('\t')
             self.assertEqual(len(fields), 10)
-            source = (ROOT / 'src/assets/places' / (fields[0] + '.scenario')).read_text()
+            source = (ROOT / 'test/outshine/data/places' / (fields[0] + '.scenario')).read_text()
             self.assertIn('vegetation="', source)
             self.assertIn('antialiasing="temporal"', source)
 
@@ -102,13 +102,13 @@ class Catalog(unittest.TestCase):
             'CentralPark': ('40.7968', '-73.952', '218.32', '16:56'),
             'Shibuya': ('35.6595', '139.7005', '40', '02:41'),
         }
-        rows = self.run_client('places', directory=ROOT / 'src/assets/diagnostic-places').stdout.splitlines()
+        rows = self.run_client('places', directory=ROOT / 'test/outshine/data/diagnostic-places').stdout.splitlines()
         actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}
         for name, (lat, lon, bearing, time) in expected.items():
             with self.subTest(place=name):
                 self.assertEqual(actual[name], [lat, lon, '60', bearing, '-6', '55',
                                                 '1280', '720', f'2026-06-21T{time}:00Z'])
-                source = (ROOT / f'src/assets/diagnostic-places/{name}.scenario').read_text()
+                source = (ROOT / f'test/outshine/data/diagnostic-places/{name}.scenario').read_text()
                 self.assertIn('samplesHeight="yes"', source)
 
     def test_empty_offline_cache_does_not_fall_back_to_global_cache(self):
@@ -116,7 +116,7 @@ class Catalog(unittest.TestCase):
         cache.mkdir()
         result = self.run_client('shots', '--rows', '--stats', '--offline', '--cache-dir', str(cache),
                                  '--preload-seconds', '0.2', 'Hockenheimring', success=False,
-                                 directory=ROOT / 'src/assets/diagnostic-places')
+                                 directory=ROOT / 'test/outshine/data/diagnostic-places')
         stats = {fields[2]: fields[3] for fields in
                  (row.split('\t') for row in result.stdout.splitlines())
                  if len(fields) == 5 and fields[0] == 'STAT'}

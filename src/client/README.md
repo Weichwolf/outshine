@@ -8,13 +8,11 @@ Objekte Sektionen, Objektarrays wiederholten Kindern. Skalare Arrays ergeben Vek
 Boolesche Werte sind `true`/`false`; Feldnamen und Validierung bleiben identisch zu XML.
 
 ```sh
-build/outshine run --offline '{"world":{"lat":47.232575,"lon":9.598371,"sightM":240000},"render":{"widthPx":1280,"heightPx":720},"clock":{"start":"2026-09-07T10:40:00Z","live":false},"views":{"view":{"id":"station","at":{"lat":47.232575,"lon":9.598371,"heightM":614,"samplesHeight":false,"bearingDeg":1,"pitchDeg":-11.5}}}}'
-
-build/outshine shots --offline \
-  --scenario-overrides '{"world":{"vegetation":false}}' Feldkirch
+build/outshine run --offline --view station /path/to/world.scenario
+build/outshine run --scenario-overrides '{"world":{"vegetation":false}}' /path/to/world.scenario
 ```
 
-`--scenario-overrides <JSON object>` gilt für `run`, `measures` und `shots`.
+`--scenario-overrides <JSON object>` gilt für `run`, `measures` und `benchmark`.
 Objekte ergänzen vorhandene Felder, Arrays ersetzen Sammlungen, `null` entfernt Felder.
 Overrides bestimmen zuerst die Layerwahl und gewinnen anschließend gegenüber geladenen
 Layern. Relative Layerpfade beziehen sich bei Dateien auf deren Verzeichnis, bei Inline-JSON
@@ -22,25 +20,8 @@ auf das Shipped-Verzeichnis. Eingabe, Overrides und geladene Layer zusammen: max
 Unbekannte Felder, doppelte Schlüssel und ungültige Werte werden abgewiesen.
 Szenarioinhalte bekommen keine einzelnen CLI-Schalter.
 
-Places planen die Frame-Anfänge auf absoluten Terminen. Die Messung endet nach
-der GPU-Fertigstellung des letzten Frames; sie wartet danach kein leeres Restintervall.
-Framezahl und 360°-Kamerafahrt bleiben gleich. PNG-Kodierung liegt außerhalb der Messzeit.
-
-Das Place-Pflichtgate überschreibt das Profil ausdrücklich mit 1280×720/30.
-`make suite SUITE=outshine/integration/places60` prüft separat den Vergleich bei 1280×720/60.
-Beide erhalten Inhalt/Sichtweite und das CPU-p99-Ziel unter 10 ms. Jede Messung benötigt
-GPU-Zeitstempel für sämtliche Frames und ein GPU-Maximum innerhalb von `1000/fps` ms.
-Bei 30 bzw. 60 Frames entspricht das Maximum auch dem Nearest-Rank-p99.
-
-`shots --rows` ergänzt `PROFILE` und die unveränderte `ROW` um eine `GPUROW`:
-`Name`, gerenderte Frames, GPU-Zeitstempel, GPU-Gesamtzeit ms, GPU-Maximum ms,
-Frames ohne Zeitstempel, CPU-Abfragezeit ms; Felder durch Tabs getrennt.
-Die Werte stammen ausschließlich aus dem abgeschlossenen Messintervall vor dem Screenshot.
-Fehlende Messwerte sind `nan`; Preload-/Lifetime-Zeiten ersetzen sie nicht.
-Vor jeder Place-Messung startet `renderer().resetMeasurements()` ein neues CPU-/GPU-Fenster.
-Es wartet und rendert nicht. Später eintreffende Ergebnisse älterer Einreichungen zählen
-weiterhin nicht zum neuen Fenster. Auch mehrere Aufnahmen desselben Engine-Prozesses
-melden ausschließlich ihre eigenen Frames; Quelle-/Assetzähler bleiben davon unabhängig.
+Benannte Bildprüfungen und ihre Kamerakataloge gehören zum
+[Testtreiber](../../test/outshine/data/places/README.md), nicht zur Anwendung.
 
 # Hardwaremessung
 

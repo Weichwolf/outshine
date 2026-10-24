@@ -6,6 +6,8 @@ LLVM_BIN ?= /opt/homebrew/opt/llvm/bin
 CLANG_FORMAT ?= $(LLVM_BIN)/clang-format
 GLSLANG ?= $(ROOT)/build/deps/install/bin/glslang
 CMAKE_ARGS ?=
+PLACES_CATALOG ?= $(ROOT)/test/outshine/data/places
+PREPARE_SECONDS ?= 1800
 CMAKE_BUILD := cmake --build "$(BUILD_DIR)" --parallel
 .PHONY: all configure db shaders strip format lint lint-all lint-docs test test-all suite clean spotless help
 
@@ -68,11 +70,11 @@ test-cleanup-temp: ## check owned temporary artifact cleanup
 	@cd "$(ROOT)" && python3 -B test/scripts/test_cleanup_temp.py
 
 shots: all ## run the external Places driver (PLACE=...)
-	@cd "$(ROOT)" && "$(BUILD_DIR)/outshine" shots $(if $(PLACE),$(PLACE),--all)
+	@cd "$(ROOT)" && python3 -B test/scripts/places.py --client "$(BUILD_DIR)/outshine" --catalog "$(PLACES_CATALOG)" $(SHOTS_ARGS) $(PLACE)
 
 prepare-place: all ## prepare an external Place scene (PLACE=...)
 	@test -n "$(PLACE)" || { echo 'set PLACE'; exit 2; }
-	@cd "$(ROOT)" && "$(BUILD_DIR)/outshine" prepare $(PLACE) $(PREPARE_SECONDS)
+	@cd "$(ROOT)" && python3 -B test/scripts/places.py --client "$(BUILD_DIR)/outshine" --catalog "$(PLACES_CATALOG)" --online --preload-seconds "$(PREPARE_SECONDS)" $(PLACE)
 
 corpus-prepare corpus-fetch: ## prepare or fetch pinned comparison inputs (MANIFEST=...)
 	@test -n "$(MANIFEST)" || { echo 'set MANIFEST'; exit 2; }

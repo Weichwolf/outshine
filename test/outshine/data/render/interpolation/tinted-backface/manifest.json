@@ -5,7 +5,7 @@
     "issue": "https://github.com/Weichwolf/outshine/issues/900",
     "evidence": "https://github.com/Weichwolf/outshine/issues/900#issuecomment-6283130877",
     "commit": "e34537d3b9c64748576633f5f19f0180378d94a6",
-    "scenario": "src/assets/places/Tokyo.scenario",
+    "scenario": "test/outshine/data/places/Tokyo.scenario",
     "frame": 56,
     "renderdoc_event": 6032,
     "original_first_index": 15503628,

@@ -23,7 +23,7 @@ def capture(work, rate, preload=120):
             "--client",
             str(CLIENT),
             "--catalog",
-            str(ROOT / "src/assets/places"),
+            str(ROOT / "test/outshine/data/places"),
             "--fps",
             str(rate),
             "--preload-seconds",

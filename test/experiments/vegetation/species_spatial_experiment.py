@@ -55,7 +55,7 @@ def run(sites_path, scene_path, baseline, output, length_m, count, strength):
     before = np.load(baseline / "choices.npz", allow_pickle=False)
     sites = np.load(sites_path, allow_pickle=False)
     np.testing.assert_array_equal(before["ids"], sites["ids"])
-    camera = read_camera(ROOT / "src/assets/places" / f"{source['place']}.scenario")
+    camera = read_camera(ROOT / "test/outshine/data/places" / f"{source['place']}.scenario")
     if camera.scenario_sha256 != source["scenario_sha256"]:
         raise ValueError("cached stand and scenario camera differ")
     world = sites["positions"] @ axes(

@@ -159,7 +159,7 @@ void Usage(std::string_view verb = {}) {
                  "  roundtrip   check scenario serialization\n"
                  "  height      query terrain elevation\n"
                  "  cache       inspect and trim source/asset storage\n\n"
-                 "Use <command> --help for options. --places defaults to src/assets/places.\n"
+                 "Use <command> --help for options. Legacy place commands require --places.\n"
                  "--stats on run, shots or measures prints "
                  "STAT<TAB>name<TAB>key<TAB>value<TAB>unit rows.");
     return;
@@ -919,6 +919,9 @@ std::expected<std::vector<Place>, std::string>
 LoadCommandPlaces(const outshine::Client::CommandLine &command, std::string_view overrides) {
   if (command.Verb == "shots" || command.Verb == "prepare" || command.Verb == "places" ||
       command.Verb == "roundtrip") {
+    if (command.Directory.empty()) {
+      return std::unexpected("legacy place commands require an explicit --places directory");
+    }
     return outshine::Shots::LoadPlaces(command.Directory, overrides);
   }
   return std::vector<Place>{};

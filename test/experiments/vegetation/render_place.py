@@ -127,7 +127,7 @@ def compose(name, sources, products, output):
     paths = [
         sources,
         products,
-        ROOT / "src/assets/places" / f"{name}.scenario",
+        ROOT / "test/outshine/data/places" / f"{name}.scenario",
         *plant_inputs,
         *(Path(r["path"]) for r in receipts if not r.get("missing")),
     ]

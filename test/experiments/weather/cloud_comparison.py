@@ -48,7 +48,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     controls()
-    scenario = ET.parse(ROOT / "src/assets/places/Koerbersee.scenario").getroot()
+    scenario = ET.parse(ROOT / "test/outshine/data/places/Koerbersee.scenario").getroot()
     at, view = scenario.find("views/view/at"), scenario.find("views/view")
     origin = np.array([0.0, float(at.get("heightM")), 0.0])
     width, height = args.width, args.width * 9 // 16
@@ -61,7 +61,7 @@ def main():
     )
     layer = Layer()
     report = {
-        "source": "src/assets/places/Koerbersee.scenario",
+        "source": "test/outshine/data/places/Koerbersee.scenario",
         "utc": scenario.find("clock").get("start"),
         "resolution": [width, height],
         "weather_origin": "Declared procedural cases; no weather observation is asserted.",
