@@ -25,6 +25,16 @@ Counters cover projections, inspected entries, gap candidates, station bindings,
 cut visits/intersections and initial/final port queries. This is asset construction,
 not frame work, IO or a GPU performance claim.
 
+The height field uses `h(s)=(1-f)h_start+f*h_end`, with
+`f=clamp((s-cut_start)/(cut_end-cut_start),0,1)`. If all three face stations are
+at/before the start cut or at/after the end cut, their heights are exactly equal.
+Their monotonic gradient is therefore identically zero. Such faces generate no
+monotonic-gradient row: computing an absolute-height gradient on thin triangles
+and then projecting it can introduce a false constraint through cancellation.
+The ascending/descending, translated/rotated thin-landing regression checks the
+analytic flat/run/flat field with unchanged original-matrix verification. Grade,
+contact, port and non-flat monotonic constraints remain active.
+
 ```sh
 make all db
 make suite SUITE=outshine/src/generators/road/SurfaceFlightPlan
@@ -47,6 +57,8 @@ The native cutter currently retains the global station scope. The new Python
 `flight_footprint` scope and independent multi-flight body qualification (#1205)
 have not been ported; this experiment does not admit those native body cases.
 
-The 2D construction declarations/domains/sections still come from the prepared
-Python recipe. Native height assembly is a separate product operator; native final
-body/navigation/terrain generation and runtime/cache/Places integration remain open.
+The experiment's declarations/domains/sections still come from its prepared Python
+recipe. The newer native producer is documented in `native_surface_layout.md`;
+whole-profile extraction/ribbons and native body/earthwork operators have their
+own experiments. Their presence does not establish runtime/cache/Places admission
+or actual navigation/DEM-contact integration.

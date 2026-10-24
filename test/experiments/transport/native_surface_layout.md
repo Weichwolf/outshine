@@ -43,9 +43,9 @@ outer-profile XY vertices. Rotation is a regression for silently lost sections.
 Module tests cover analytic area, split sections around holes, incidence, invalid
 inputs, capacity and cancellation. No oracle is regenerated.
 
-This is a 2D producer, not world admission. A subsequent private composition with
-flight preparation currently fails the native height solve; its constraints and
-numerical conditioning need diagnosis before claiming an end-to-end replacement.
-Navigation, real DEM contacts, cache/runtime use and visible street repair remain
-open in #1189. Prepared CPU evidence proves neither device budgets nor a smaller
-render-LOD error bound.
+This is a 2D producer, not world admission. The subsequent height program must
+respect its exact clamped-affine flight parameterization: flat landing facets
+have identically zero monotonic derivatives, so they generate no redundant
+gradient rows. See `native_flight_plan.md`. Navigation, real DEM contacts,
+cache/runtime use and visible street repair remain open in #1189. Prepared CPU
+evidence proves neither device budgets nor a smaller render-LOD error bound.

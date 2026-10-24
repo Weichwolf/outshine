@@ -61,6 +61,13 @@ bool Planes(const Input &input, System &system) {
 }
 
 namespace {
+bool FlatLanding(PlanarFace face, const SurfaceHeightFlight &flight) {
+  return std::ranges::all_of(
+             face, [&](uint32_t vertex) { return flight.Stations[vertex] <= flight.CutStart; }) ||
+         std::ranges::all_of(
+             face, [&](uint32_t vertex) { return flight.Stations[vertex] >= flight.CutEnd; });
+}
+
 bool FlightSections(const Input &input, const Source &source, System &system) {
   for (const auto &section : source.Sections) {
     std::optional<uint32_t> first;
@@ -75,6 +82,36 @@ bool FlightSections(const Input &input, const Source &source, System &system) {
           system.Equal(columns, values, 0);
         }
       }
+    }
+  }
+  return system.Check();
+}
+
+bool MonotonicFacets(const Input &input,
+                     Workspace &workspace,
+                     const Source &source,
+                     const SurfaceHeightFlight &flight,
+                     System &system) {
+  std::vector<uint32_t> candidates;
+  for (size_t segment = 1; segment < source.Axis.size(); ++segment) {
+    auto tangent = Difference(source.Axis[segment], source.Axis[segment - 1]);
+    const double length = std::hypot(tangent[0], tangent[1]);
+    for (auto &v : tangent) { v *= -static_cast<double>(flight.Direction) / length; }
+    if (!Influence(input,
+                   workspace,
+                   flight.Source,
+                   source.Axis[segment - 1],
+                   source.Axis[segment],
+                   kFlightAreaThreshold,
+                   candidates,
+                   system)) {
+      return false;
+    }
+    for (const auto at : candidates) {
+      const auto face = source.Faces[at];
+      if (FlatLanding(face, flight)) { continue; }
+      system.Add(face, Along(Gradients(input.Points, face, false), tangent), 0);
+      if (!system.Check()) { return false; }
     }
   }
   return system.Check();
@@ -97,28 +134,10 @@ bool Flights(const Input &input, Workspace &workspace, System &system) {
       system.Add(a, values, 0);
       system.Add(b, values, 0);
     }
-    std::vector<uint32_t> candidates;
-    for (size_t segment = 1; segment < source.Axis.size(); ++segment) {
-      auto tangent = Difference(source.Axis[segment], source.Axis[segment - 1]);
-      const double length = std::hypot(tangent[0], tangent[1]);
-      for (auto &v : tangent) { v *= -static_cast<double>(flight.Direction) / length; }
-      if (!Influence(input,
-                     workspace,
-                     flight.Source,
-                     source.Axis[segment - 1],
-                     source.Axis[segment],
-                     kFlightAreaThreshold,
-                     candidates,
-                     system)) {
-        return false;
-      }
-      for (const auto at : candidates) {
-        const auto face = source.Faces[at];
-        system.Add(face, Along(Gradients(input.Points, face, false), tangent), 0);
-        if (!system.Check()) { return false; }
-      }
+    if (!MonotonicFacets(input, workspace, source, flight, system) ||
+        !FlightSections(input, source, system)) {
+      return false;
     }
-    if (!FlightSections(input, source, system)) { return false; }
   }
   return system.Check();
 }
