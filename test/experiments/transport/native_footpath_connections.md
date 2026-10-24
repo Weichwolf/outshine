@@ -59,3 +59,16 @@ need integration; this connection stage does not establish complete stair bodies
 navigation/terrain coupling or frame-budget admission. Generation
 belongs to bounded asynchronous asset-miss work; frames consume finished products
 under [#10](https://github.com/Weichwolf/outshine/issues/10).
+
+## Captured world ports
+
+`data/world-stair-ports.json` freezes one actual world interval, both bound ports,
+their generated world-node owners and the emitted surface mesh on `805572531`.
+Provider identity, tile/input digest, normalized ownership and missing source
+facts remain separate from the constructed width, grades and profiles.
+`reference_boundary_vertex_indices` selects every knot at both interfaces.
+`RoadPortPositions` already supplies this shared complete profile: it rounds east/north
+before evaluating plane height; the second mesh boundary reverses port order.
+Both four-knot profiles reproduce the emitted Float32 words independently.
+The reference ribbon is a ramp input, not an expected stair body or closed solid.
+The next native body must preserve these interfaces and their height ownership.
