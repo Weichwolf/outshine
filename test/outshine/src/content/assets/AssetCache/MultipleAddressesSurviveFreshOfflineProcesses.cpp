@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <filesystem>
 #include <print>
+#include <optional>
+#include <utility>
 #include <spawn.h>
 #include <span>
 #include <sqlite3.h>
@@ -26,14 +28,16 @@ const std::string kOther(64, 'd');
 const std::string kThird(64, 'e');
 constexpr std::array<uint8_t, 4> kPayload{17, 23, 31, 47};
 
-bool Publish(AssetCache &cache, const std::string &key, const std::string &request = {}) {
-  AssetRecord record{.Key = key,
-                     .Kind = "native",
-                     .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                     .Package = {},
-                     .ByteCount = kPayload.size(),
-                     .Parent = {}};
-  if (!request.empty()) { record.RequestKey = request; }
+bool Publish(AssetCache &cache,
+             const std::string &key,
+             std::optional<std::string> request = std::nullopt) {
+  const AssetRecord record{.Key = key,
+                           .Kind = "native",
+                           .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
+                           .Package = {},
+                           .ByteCount = kPayload.size(),
+                           .Parent = {},
+                           .RequestKey = std::move(request)};
   return cache.Publish(std::span(&record, 1), kPayload).has_value();
 }
 

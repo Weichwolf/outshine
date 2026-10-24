@@ -62,7 +62,7 @@ void Exercise(const std::string &path) {
   CHECK(Execute(path,
                 "ALTER TABLE assets ADD COLUMN request_key TEXT NOT NULL DEFAULT '';"
                 "UPDATE assets SET request_key=COALESCE("
-                "(SELECT request_key FROM asset_requests WHERE asset_key=assets.key),'');"
+                "(SELECT request_key FROM asset_requests WHERE asset_id=assets.id),'');"
                 "DROP TABLE asset_requests;"
                 "CREATE UNIQUE INDEX asset_requests ON assets(request_key) WHERE request_key<>'';"
                 "PRAGMA user_version=3;"

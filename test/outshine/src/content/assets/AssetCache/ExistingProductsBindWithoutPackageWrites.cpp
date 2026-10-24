@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <filesystem>
 #include <sqlite3.h>
 #include <string>
@@ -61,8 +64,9 @@ void Exercise(const std::string &path) {
   auto found = cache.FindRequest(request);
   CHECK(found && *found && (**found).Key == second, "demand resolves the replacement");
   const std::string trigger =
-      "CREATE TRIGGER reject_binding BEFORE INSERT ON asset_requests WHEN NEW.asset_key='" + first +
-      "' BEGIN SELECT RAISE(ABORT,'binding refused'); END;";
+      "CREATE TRIGGER reject_binding BEFORE INSERT ON asset_requests WHEN NEW.asset_id="
+      "(SELECT id FROM assets WHERE key='" +
+      first + "') BEGIN SELECT RAISE(ABORT,'binding refused'); END;";
   CHECK(sqlite3_exec(database, trigger.c_str(), nullptr, nullptr, nullptr) == SQLITE_OK,
         "test rejects replacement at the normalized binding write");
   CHECK(!cache.BindRequest(first, request), "refused replacement returns an error");

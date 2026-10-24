@@ -35,8 +35,7 @@ struct Package {
   size_t StoreIndex = 0;
 };
 
-std::expected<void, std::string>
-Read(Store &store, size_t index, std::vector<Package> &packages, CacheTrimResult &result) {
+std::expected<void, std::string> ReadSchema(Store &store) {
   sqlite3 *const database = store.Database->Handle;
   Sql::Statement version;
   if (auto prepared = Sql::Prepare(database, "PRAGMA user_version", version); !prepared) {
@@ -64,11 +63,18 @@ Read(Store &store, size_t index, std::vector<Package> &packages, CacheTrimResult
   if (store.Requests) {
     Sql::Statement requests;
     if (auto prepared = Sql::Prepare(
-            database, "SELECT request_key,asset_key FROM asset_requests LIMIT 0", requests);
+            database, "SELECT request_key,asset_id FROM asset_requests LIMIT 0", requests);
         !prepared) {
       return prepared;
     }
   }
+  return {};
+}
+
+std::expected<void, std::string>
+Read(Store &store, size_t index, std::vector<Package> &packages, CacheTrimResult &result) {
+  if (auto schema = ReadSchema(store); !schema) { return schema; }
+  sqlite3 *const database = store.Database->Handle;
   Sql::Statement members;
   if (auto prepared = Sql::Prepare(database, "SELECT package FROM assets", members); !prepared) {
     return prepared;
@@ -140,8 +146,8 @@ Erase(Store &store, std::span<const Package> packages, size_t index) {
   }
   if (store.Requests) {
     if (auto erased = Sql::Exec(database,
-                                "DELETE FROM asset_requests WHERE asset_key IN "
-                                "(SELECT key FROM assets WHERE package IN trim_packages)");
+                                "DELETE FROM asset_requests WHERE asset_id IN "
+                                "(SELECT id FROM assets WHERE package IN trim_packages)");
         !erased) {
       return erased;
     }

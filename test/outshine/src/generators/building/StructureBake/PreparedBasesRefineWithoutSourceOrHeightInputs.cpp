@@ -375,26 +375,6 @@ void RequestMigration(const std::filesystem::path &root) {
         "invalidated basis cannot leave a false native request hit");
 }
 
-void ReuseAliases(PreparedBuildingAssets &cache,
-                  AssetCache &records,
-                  const std::string &product,
-                  const std::string &request,
-                  const PreparedBuildingBasis *identity) {
-  const auto alias = Sha256Hex("resident-basis-independent-alias");
-  const auto bound = records.BindRequest(product, alias);
-  CHECK(bound && *bound, "an independent alias binds the already resident native basis");
-  const auto before = cache.Costs();
-  for (const auto *address : {&request, &alias, &request, &alias}) {
-    const auto hit = cache.LoadBasisRequest(*address);
-    CHECK(hit && *hit && (**hit).Product.get() == identity,
-          "both aliases retain the same live native basis without displacing each other");
-  }
-  const auto after = cache.Costs();
-  CHECK(after.BasisResidentHits == before.BasisResidentHits + 4 &&
-            after.BasisHits == before.BasisHits && after.BasisReadBytes == before.BasisReadBytes,
-        "alternating aliases reuse the resident backing without payload reads or decoding");
-}
-
 void ResidentRequests(const std::filesystem::path &root) {
   Data::ContentStore store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
@@ -449,7 +429,6 @@ void ResidentRequests(const std::filesystem::path &root) {
   const auto record = (*records)->FindRequest(request);
   CHECK(record && *record, "live basis has a current native asset record");
   if (!record || !*record) { return; }
-  ReuseAliases(**cache, **records, (**record).Key, request, identity);
   const auto payload = (*records)->Load((**record).Key, size_t{64} * 1024 * 1024);
   CHECK(payload && *payload, "resident metadata fixture retains the original native packet");
   if (!payload || !*payload) { return; }

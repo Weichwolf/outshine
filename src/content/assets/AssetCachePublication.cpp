@@ -15,9 +15,10 @@
 namespace outshine {
 namespace {
 
-constexpr auto kBindRequest = "INSERT INTO asset_requests(request_key,asset_key) VALUES(?,?) "
-                              "ON CONFLICT(request_key) DO UPDATE SET asset_key=excluded.asset_key "
-                              "WHERE asset_requests.asset_key<>excluded.asset_key";
+constexpr auto kBindRequest =
+    "INSERT INTO asset_requests(request_key,asset_id) SELECT ?,id FROM assets WHERE key=? "
+    "ON CONFLICT(request_key) DO UPDATE SET asset_id=excluded.asset_id "
+    "WHERE asset_requests.asset_id<>excluded.asset_id";
 
 class Transaction {
 public:
@@ -186,9 +187,10 @@ std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
   Transaction transaction(State_->Database);
-  for (const auto *sql : {"DELETE FROM asset_requests WHERE asset_key=?",
-                          "DELETE FROM bounds WHERE id IN (SELECT id FROM assets WHERE key=?)",
-                          "DELETE FROM assets WHERE key=?"}) {
+  for (const auto *sql :
+       {"DELETE FROM asset_requests WHERE asset_id IN (SELECT id FROM assets WHERE key=?)",
+        "DELETE FROM bounds WHERE id IN (SELECT id FROM assets WHERE key=?)",
+        "DELETE FROM assets WHERE key=?"}) {
     AssetSql::Statement statement;
     auto prepared = AssetSql::Prepare(State_->Database, sql, statement);
     if (!prepared) { return prepared; }

@@ -42,13 +42,13 @@ std::expected<void, AssetCacheError> MigrateRequests(sqlite3 *database, int vers
       "DROP INDEX IF EXISTS asset_requests;"
       "CREATE TABLE asset_requests(request_key TEXT PRIMARY KEY NOT NULL "
       "CHECK(length(request_key)=64 AND request_key NOT GLOB '*[^0-9a-f]*'),"
-      "asset_key TEXT NOT NULL REFERENCES assets(key) ON DELETE CASCADE) WITHOUT ROWID;"
-      "CREATE INDEX asset_request_products ON asset_requests(asset_key);");
+      "asset_id INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE) WITHOUT ROWID;"
+      "CREATE INDEX asset_request_products ON asset_requests(asset_id);");
   if (!created) { return created; }
   if (version == 3) {
     return AssetSql::Exec(
         database,
-        "INSERT INTO asset_requests SELECT request_key,key FROM assets WHERE request_key<>'';"
+        "INSERT INTO asset_requests SELECT request_key,id FROM assets WHERE request_key<>'';"
         "ALTER TABLE assets DROP COLUMN request_key;");
   }
   return {};

@@ -104,7 +104,7 @@ FindRecord(sqlite3 *database, Lookup lookup, std::string_view key) {
   const auto *source =
       lookup == Lookup::Product
           ? " FROM assets a WHERE a.key=?"
-          : " FROM asset_requests r JOIN assets a ON a.key=r.asset_key WHERE r.request_key=?";
+          : " FROM asset_requests r JOIN assets a ON a.id=r.asset_id WHERE r.request_key=?";
   const std::string sql = std::string("SELECT ") + AssetSql::kColumns + source;
   auto prepared = AssetSql::Prepare(database, sql.c_str(), statement);
   if (!prepared) { return std::unexpected(prepared.error()); }
