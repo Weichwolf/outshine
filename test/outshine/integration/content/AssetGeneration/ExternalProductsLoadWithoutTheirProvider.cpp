@@ -16,14 +16,16 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
+constexpr double kFixtureHeightM = 42.0;
 
 class Ground final : public Generators::HeightSampler {
 public:
   mutable size_t Calls = 0;
 
-  std::optional<double> sampleHeightAslM(const LongitudeLatitudeHeight &) const override {
+  [[nodiscard]] std::optional<double>
+  sampleHeightAslM([[maybe_unused]] const LongitudeLatitudeHeight &point) const override {
     ++Calls;
-    return 42;
+    return kFixtureHeightM;
   }
 };
 
@@ -31,9 +33,9 @@ class CachedTriangle final : public Generators::Generator {
 public:
   explicit CachedTriangle(AssetCache &cache) : Cache_(cache) {}
 
-  std::string_view kind() const override { return "external-triangle"; }
+  [[nodiscard]] std::string_view kind() const override { return "external-triangle"; }
 
-  Product make(const Generators::Request &asked) const override {
+  [[nodiscard]] Product make(const Generators::Request &asked) const override {
     const std::string key(64, asked.Seed == 0 ? 'a' : 'b');
     const auto asset = ResolveAssetRequest(Cache_, key, kBytes, [&](size_t) {
       if (!asked.Ground) {
@@ -46,7 +48,7 @@ public:
       }
       const auto y = static_cast<float>(*height);
       std::string contentKey = key;
-      contentKey.front() = *height == 42 ? 'c' : 'd';
+      contentKey.front() = *height == kFixtureHeightM ? 'c' : 'd';
       const std::array<float, 9> positions{0, y, 0, 0, y, 1, 1, y, 0};
       const std::array<uint32_t, 3> triangles{0, 1, 2};
       Geometry geometry;
@@ -66,7 +68,9 @@ public:
       package.Records.push_back({.Key = std::move(contentKey),
                                  .Kind = "external-triangle",
                                  .Bounds = {.Min = {{0, *height, 0}}, .Max = {{1, *height, 1}}},
+                                 .Package = {},
                                  .ByteCount = package.Bytes.size(),
+                                 .Parent = {},
                                  .RequestKey = key});
       return std::expected<GeneratedAssetPackage, std::string>(std::move(package));
     });
@@ -93,26 +97,31 @@ int main() {
     auto cache = AssetCache::Open(path);
     CHECK(cache.has_value(), "public native cache opens");
     if (!cache) { return Report(); }
-    CachedTriangle generator(**cache);
-    const auto cold = generator.make({.Ground = &ground});
-    CHECK(cold && cold->positionsOf(0)[1] == 42 && ground.Calls == 1,
+    const CachedTriangle generator(**cache);
+    const auto cold = generator.make({.Parameters = {}, .Ground = &ground, .Projection = {}});
+    CHECK(cold && cold->positionsOf(0)[1] == kFixtureHeightM && ground.Calls == 1,
           "external generator prepares and persists complete native geometry on a miss");
   }
   {
     auto cache = AssetCache::Open(path);
     CHECK(cache.has_value(), "stored native products survive closing their owner");
     if (!cache) { return Report(); }
-    CachedTriangle generator(**cache);
+    const CachedTriangle generator(**cache);
     const auto hit = generator.make({});
     CHECK(hit && hit->parts() == 1 && hit->trianglesOf(0).size() == 3 &&
-              hit->positionsOf(0)[1] == 42 && ground.Calls == 1,
+              hit->positionsOf(0)[1] == kFixtureHeightM && ground.Calls == 1,
           "fresh offline generator loads geometry without any provider or generation");
-    const auto found = (*cache)->Select(
-        {.Bounds = {.Min = {{-1, 40, -1}}, .Max = {{2, 43, 2}}}, .Kind = generator.kind()});
+    const auto found = (*cache)->Select({.Bounds = {.Min = {{-1, 40, -1}}, .Max = {{2, 43, 2}}},
+                                         .Kind = generator.kind(),
+                                         .Level = std::nullopt,
+                                         .Radius = std::nullopt,
+                                         .Planes = {}});
     CHECK(found && found->size() == 1 && found->front().Key != found->front().RequestKey &&
               found->front().RequestKey == std::string(64, 'a'),
           "external native products participate in the common spatial index");
-    CHECK(!generator.make({.Seed = 1}) && !(*cache)->FindRequest(std::string(64, 'b'))->has_value(),
+    const auto refused = generator.make({.Parameters = {}, .Seed = 1, .Projection = {}});
+    const auto absent = (*cache)->FindRequest(std::string(64, 'b'));
+    CHECK(!refused && absent && !absent->has_value(),
           "changed identity misses and unavailable inputs cannot publish partial products");
   }
   std::filesystem::remove_all(root);
