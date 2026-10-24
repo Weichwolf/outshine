@@ -86,3 +86,28 @@ budget pass or smaller LOD error bound follows from this experiment.
 Reference: [Aaltonen/Haar, GPU-Driven Rendering Pipelines, SIGGRAPH 2015](../../../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf),
 pages 26-27: selected occluders, full-resolution depth, conservative downsampling
 and GPU culling. The cited PS4 timings are not A18-Pro measurements.
+
+## Shared-edge coverage correction (#1249)
+
+The #1243 Mac counter-run exposed three empty coarse-terrain pixels beside the
+256 correctly hidden object pixels. The old raster used `w2 = 1-w0-w1` for
+coverage. Independent division/subtraction can make this residual negative on
+both sides of a shared edge. A simpler Linux counterexample fills a 32×32 image
+with two clockwise triangles of the square `[-1.1,33.2]²`, indices
+`[[2,0,1],[0,2,3]]`: the old path loses eight diagonal pixels.
+
+Coverage now evaluates all three oriented edges directly. Lexicographic endpoint
+order chooses the same subtraction/multiplication for either incident triangle;
+the original direction selects opposite inequalities. A shared edge therefore
+has the same computed value and opposite ownership signs. No epsilon, coordinate
+snap, dilation, filled mask or weakened assertion is introduced. Both incident
+triangles may include exact zero; the existing depth/face tie handling remains.
+The original barycentric depth interpolation, clipping and backface policy remain.
+This repairs shared-edge classification; it is not a general exact-arithmetic
+raster, native top-left/MSAA emulation, or a shader/compiler proof.
+
+`test_raster_shared_edges.py` checks full rectangular coverage for all cyclic
+corner permutations and triangle orders, plus exact expected exterior coverage
+and a pixel centre only `2^-30` outside. Existing independent scalar/ray raster,
+source-face/depth and directed-terrain assertions remain unchanged. Targeted
+results, cost and original diagnostic reproduction are recorded in the PR.
