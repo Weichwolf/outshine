@@ -105,6 +105,37 @@ there too. This is a two-consumer check inside one known cell/frame. It does not
 qualify adjacent native pages, differing frames, shader transforms or the missing
 outer terrain. No new border cache, resolver or native product format is added.
 
+This one-cell agreement does not make arbitrary independent partitions composable.
+Splitting the existing padded-outline planar control into its two original
+triangles gives13and11shared-edge knots, whose union has15. Piecewise linear
+interpolation then leaves a3.319199m vertical seam outside the body despite
+matching heights at shared points. These remain the existing declared planar
+control heights, not newly supplied native terrain or a reconstructed DEM.
+
+`pool_contact_neighbors.reconcile_pair` keeps one supplied source frame and
+original vertex IDs for two nonoverlapping conforming patches of at most64faces
+each. It first collects their exact original-edge parameters, exchanges the
+union on shared edges, and rebuilds only patches missing knots. An already
+matching original-cell pair reuses both first-pass results without rebuilding.
+`boundary_requests` contains
+an original boundary edge and a rational parameter string; reversed edge
+direction reverses the parameter. The exact partition inserts these points
+before triangulation, then evaluates the unchanged contact recipe. It neither
+fits another height surface nor moves an original point. Requests on internal
+edges, out-of-range/invalid parameters, excessive inputs and requests to the GEOS
+comparison path are refused. At most1024requests with512characters each enter
+the existing1024node/262144candidate bounds; exponents are not accepted.
+
+The second pass creates no new polygon intersections or boundary demands:
+it only inserts the first pass's known knots. Both resulting profiles must have
+the same parameters, identical XY words and reference Float32 XYZ words, and
+height disagreement at most1e-7m. Otherwise the pair refuses qualification.
+The control then has15knots on each side, zero measured seam gap and a joined
+indexed disk whose shared segments each have two incident faces. Its outer
+boundaries still report `candidate_pending_neighbor_updates`. This bounded
+two-patch reference does not implement page streaming, multi-page closure,
+different frames or native packing, and supplies none of the missing9pages.
+
 Additional planar controls use all21original water facets as an interior domain,
 the actual23-edge outline inside a padded rectangle, and an analytic convex
 corner with exactly one sixth of the input area inside. They check complete
@@ -169,4 +200,6 @@ PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport .venv/bin/p
 PYTHONPATH=lib/src:test/experiments/water:test/experiments/render .venv/bin/python -B -W error test/experiments/water/pool_body_experiment.py --render --output /tmp/outshine-pool-body
 PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/water/pool_contact_experiment.py --repeats 7 --render --output /tmp/outshine-pool-contact
 PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/water/pool_region_experiment.py --repeats 7 --render --output /tmp/outshine-pool-planar-controls
+PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/water/pool_neighbor_experiment.py --repeats 7 --render --output /tmp/outshine-pool-neighbor-control
+PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error -m unittest test_pool_contact_neighbors
 ```
