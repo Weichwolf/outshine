@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "Fetching.h"
+#include "HttpTransport.h"
 #include "LoopbackHttpServer.h"
 
 #include <array>
@@ -12,7 +12,7 @@ namespace {
 using Clock = std::chrono::steady_clock;
 using outshine::Data::Wire;
 
-std::optional<Wire::Response> Receive(outshine::Fetching &transport,
+std::optional<Wire::Response> Receive(outshine::HttpTransport &transport,
                                       outshine::Data::Ticket ticket,
                                       std::chrono::milliseconds budget) {
   const auto deadline = Clock::now() + budget;
@@ -44,7 +44,7 @@ int main() {
     });
     CHECK(limited.Ready() && other.Ready(), "independent loopback origins are available");
     if (!limited.Ready() || !other.Ready()) { continue; }
-    Fetching transport({.ConcurrentTransfers = 1, .ConnectionsPerHost = 1, .TimeoutS = 2});
+    HttpTransport transport({.ConcurrentTransfers = 1, .ConnectionsPerHost = 1, .TimeoutS = 2});
     const auto first = transport.Begin(limited.Url("LOCALHOST") + "/limit");
     CHECK(first.has_value(), "first quota request admitted");
     if (!first) { continue; }

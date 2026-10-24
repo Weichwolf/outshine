@@ -17,9 +17,9 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators/road
   generators/terrain
   generators/water
-  host
   render
   scenario
+  sources
   ui
   world
   world/entity
@@ -62,11 +62,11 @@ endforeach()
 target_link_libraries(outshine_actor PUBLIC outshine_base)
 target_link_libraries(outshine_audio PUBLIC outshine_base)
 target_link_libraries(outshine_app_capture PUBLIC outshine_base outshine_content outshine_render outshine_engine)
-target_link_libraries(outshine_client PUBLIC outshine_app_capture outshine_actor outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_host outshine_render outshine_scenario outshine_world)
+target_link_libraries(outshine_client PUBLIC outshine_app_capture outshine_actor outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_sources outshine_render outshine_scenario outshine_world)
 target_link_libraries(outshine_content PUBLIC outshine_base)
 target_link_libraries(outshine_diagnostics PUBLIC outshine_base)
 target_link_libraries(outshine_diagnostics_calibration PUBLIC outshine_base outshine_render)
-target_link_libraries(outshine_engine PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_actor outshine_render outshine_scenario outshine_ui outshine_audio outshine_diagnostics outshine_host outshine_engine_streaming)
+target_link_libraries(outshine_engine PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_actor outshine_render outshine_scenario outshine_ui outshine_audio outshine_diagnostics outshine_sources outshine_engine_streaming)
 target_link_libraries(outshine_engine_streaming PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_render)
 target_link_libraries(outshine_generators PUBLIC outshine_base outshine_content outshine_diagnostics outshine_generators_osm outshine_world outshine_generators_road outshine_generators_terrain outshine_generators_water outshine_generators_flora)
 target_link_libraries(outshine_generators_base PUBLIC outshine_base outshine_content outshine_world)
@@ -76,17 +76,17 @@ target_link_libraries(outshine_generators_osm PUBLIC outshine_base outshine_cont
 target_link_libraries(outshine_generators_road PUBLIC outshine_base outshine_content outshine_diagnostics outshine_generators_base outshine_generators_osm outshine_world)
 target_link_libraries(outshine_generators_terrain PUBLIC outshine_base outshine_content outshine_generators_base outshine_generators_osm outshine_world)
 target_link_libraries(outshine_generators_water PUBLIC outshine_base outshine_content outshine_generators_base outshine_world)
-target_link_libraries(outshine_host PUBLIC outshine_base outshine_world)
+target_link_libraries(outshine_sources PUBLIC outshine_base CURL::libcurl)
 target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_scenario PUBLIC outshine_actor outshine_audio outshine_base outshine_content outshine_render outshine_world)
 target_link_libraries(outshine_ui PUBLIC outshine_base outshine_content)
-target_link_libraries(outshine_world PUBLIC outshine_base outshine_content outshine_world_entity)
+target_link_libraries(outshine_world PUBLIC outshine_base outshine_content outshine_world_entity outshine_sources)
 target_link_libraries(outshine_world_entity PUBLIC outshine_base)
 
 target_link_libraries(outshine_base PUBLIC PkgConfig::geos ZLIB::ZLIB Threads::Threads)
 target_link_libraries(outshine_content PUBLIC PkgConfig::sdl3_image PkgConfig::sdl3_ttf
   PkgConfig::sqlite3 PkgConfig::libzstd)
-target_link_libraries(outshine_world PUBLIC PkgConfig::libtiff_4 PkgConfig::libwebp CURL::libcurl)
+target_link_libraries(outshine_world PUBLIC PkgConfig::libtiff_4 PkgConfig::libwebp)
 target_link_libraries(outshine_render PUBLIC PkgConfig::sdl3 PkgConfig::sdl3_image
   PkgConfig::spirv_cross ${SPIRV_CROSS_LIBRARIES})
 if(APPLE)

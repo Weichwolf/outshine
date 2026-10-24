@@ -56,10 +56,10 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     return false;
   }
   if (!World.Wire) {
-    World.Wire =
-        Session.Under.Offline
-            ? std::unique_ptr<Data::Transport>(std::make_unique<Data::OfflineTransport>())
-            : std::unique_ptr<Data::Transport>(std::make_unique<Fetching>(Fetching::Config{}));
+    World.Wire = Session.Under.Offline
+                     ? std::unique_ptr<Data::Transport>(std::make_unique<Data::OfflineTransport>())
+                     : std::unique_ptr<Data::Transport>(
+                           std::make_unique<HttpTransport>(HttpTransport::Config{}));
   }
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Io) { World.Io = std::make_unique<Tasks>(1); }
