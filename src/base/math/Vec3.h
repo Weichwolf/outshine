@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_VEC3_H
-#define OUTSHINE_VEC3_H
+#ifndef OUTSHINE_BASE_MATH_VEC3_H
+#define OUTSHINE_BASE_MATH_VEC3_H
 
 #include <array>
 #include <algorithm>

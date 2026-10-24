@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_QUAT_H
-#define OUTSHINE_QUAT_H
+#ifndef OUTSHINE_BASE_MATH_QUAT_H
+#define OUTSHINE_BASE_MATH_QUAT_H
 
 namespace outshine {
 

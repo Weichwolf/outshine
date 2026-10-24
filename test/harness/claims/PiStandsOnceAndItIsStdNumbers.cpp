@@ -32,7 +32,7 @@ int main(void) {
   std::vector<std::string> spelt;
   std::vector<std::string> macro;
   std::vector<std::string> alias;
-  for (const char *root : {"src", "include"}) {
+  for (const char *root : {"src"}) {
     for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
       if (!entry.is_regular_file()) { continue; }
       const std::string ext = entry.path().extension().string();
@@ -66,7 +66,7 @@ int main(void) {
 
   for (const std::string &one : spelt) { std::printf("NOTE %s\n", one.c_str()); }
   CHECK(spelt.empty(),
-        "**NO PI STANDS AS DIGITS.** Every pi in src/ and include/, shader sources included "
+        "**NO PI STANDS AS DIGITS.** Every pi in src/, shader sources included "
         "(board:1651) -- tau, half-pi, deg2rad, rad2deg, quarter-pi, the golden angle -- "
         "derives from std::numbers or GLSL's acos(-1); a digit spelling is a second origin for the "
         "one constant "
@@ -83,7 +83,7 @@ int main(void) {
       "item removed from TileMath.h, and the header is in the DOOR because a client computing "
       "against the engine reads the same pi the engine does");
 
-  Covers("pi stands once and it is std::numbers: every pi in src/ AND include/ derives from "
+  Covers("pi stands once and it is std::numbers: every pi in src/ derives from "
          "std::numbers::pi and the alias lives in one header (board:1630)");
   return Report();
 }

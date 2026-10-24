@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_TEXTURE_H
-#define OUTSHINE_TEXTURE_H
+#ifndef OUTSHINE_BASE_SCENE_TEXTURE_H
+#define OUTSHINE_BASE_SCENE_TEXTURE_H
 
 #include <cstddef>
 #include <cstdint>

@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_GEOMETRY_H
-#define OUTSHINE_GEOMETRY_H
+#ifndef OUTSHINE_BASE_SCENE_GEOMETRY_H
+#define OUTSHINE_BASE_SCENE_GEOMETRY_H
 
 #include <cstdint>
 #include <cstddef>

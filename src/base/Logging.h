@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_LOGGING_H
-#define OUTSHINE_LOGGING_H
+#ifndef OUTSHINE_BASE_LOGGING_H
+#define OUTSHINE_BASE_LOGGING_H
 
 #include <concepts>
 #include <cstdint>

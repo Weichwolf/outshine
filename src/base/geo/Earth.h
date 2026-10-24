@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_EARTH_H
-#define OUTSHINE_EARTH_H
+#ifndef OUTSHINE_BASE_GEO_EARTH_H
+#define OUTSHINE_BASE_GEO_EARTH_H
 
 #include "Units.h"
 

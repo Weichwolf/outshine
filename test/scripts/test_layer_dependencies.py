@@ -120,14 +120,16 @@ class NativeStageDependencies(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.touch()
             (root / 'obj').mkdir()
-            functions = shell_functions((self.root / 'test/run.sh').read_text(),
-                                        {'BuildGroup', 'BuildLibrary'})
+            declaration = (self.root / 'test/run.sh').read_text()
+            functions = shell_functions(declaration, {'BuildGroup', 'BuildLibrary'})
+            standard = next(line.partition('=')[2] for line in declaration.splitlines()
+                            if line.startswith('CXXSTD='))
             stubs = r'''
 COMPILEDB=1 BUILD=. OBJDIR=obj JOBS=2 CXX=forbidden-compiler
-CXXSTD=-std=c++23 OPT=-O2 WARN=-Werror SAN= EXTRA_DEFINES=-DREAL_FLAGS=1
+OPT=-O2 WARN=-Werror SAN= EXTRA_DEFINES=-DREAL_FLAGS=1
 PrepareCompilerCache() { :; }
 GroupIncludes() { printf '%s' '-Isrc/base'; }
-GroupToolchain() { printf '%s' '-std=c++23'; }
+GroupToolchain() { printf '%s' "$CXXSTD"; }
 SetGroupCompileFlags() { setId=exact; arcSetId=exact; arcStd=$groupStd; }
 SourceUnits() {
   case "${1:-all}" in
@@ -144,12 +146,13 @@ Die() { printf '%s\n' "$*" >&2; exit 99; }
 BuildLibrary
 '''
             result = subprocess.run(['sh', '-eu', '-c', functions + stubs], cwd=root,
-                                    capture_output=True, text=True, timeout=10)
+                                    capture_output=True, text=True, timeout=10,
+                                    env=dict(os.environ, CXXSTD=standard))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             entries = json.loads('[' + (root / 'compile_commands.part').read_text().rstrip(',\n') + ']')
             self.assertEqual({Path(entry['file']).relative_to(root).as_posix() for entry in entries},
                              {'src/base/Value.cpp', 'src/client/Main.cpp'})
-            self.assertTrue(all('-std=c++23 -O2 -Werror' in row['command'] for row in entries))
+            self.assertTrue(all(standard + ' -O2 -Werror' in row['command'] for row in entries))
             self.assertIn('-DREAL_FLAGS=1', entries[0]['command'])
             self.assertEqual(list((root / 'obj').iterdir()), [])
             self.assertFalse((root / 'build').exists())
