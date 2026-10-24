@@ -22,10 +22,11 @@ def construct(
     presolve=False,
     global_pose=None,
     cut_scope="flight_footprint",
+    cut_stage="source_heights",
 ):
     began = time.perf_counter()
     solver_plan, contacts = prepared(
-        arrangement, global_pose=global_pose, cut_scope=cut_scope
+        arrangement, global_pose=global_pose, cut_scope=cut_scope, cut_stage=cut_stage
     )
     prepared_at = time.perf_counter()
     solver_heights, solve = solve_profiles(

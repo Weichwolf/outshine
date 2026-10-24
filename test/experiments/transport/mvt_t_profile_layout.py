@@ -4,6 +4,7 @@ import copy
 
 import numpy as np
 import shapely
+from canonical_stair_lofts import bind_lofts, cut_lofts
 from mvt_t_stair_loft import prepare_stair_lofts
 from shared_bridge_geometry import corridor
 from stair_junction_layout import layout
@@ -68,6 +69,25 @@ def _check_recipes(mesh_recipe, stair_recipe, source_domains):
         raise ValueError("native interfaces require explicitly planned source domains")
     if stair_recipe not in ("station_loft", "legacy_sections"):
         raise ValueError("known constructed flight recipe required")
+
+
+def _canonical_refiner(rows, stairs, contacts, mesh_recipe, source_domains, scope):
+    def refine(xy, faces, owners, nodes, incident, masks):
+        geometric = {
+            "xy": xy,
+            "parts": [faces[owners[:, i]] for i in range(len(rows))],
+            "rows": rows,
+            "stairs": stairs,
+            "nodes": nodes,
+            "incident": incident,
+            "masks": masks,
+            "mesh_recipe": mesh_recipe,
+            "construction_contacts": contacts,
+        }
+        freeze_regions(geometric, source_domains)
+        return cut_lofts(geometric, faces, owners, scope)
+
+    return refine
 
 
 def _profile_row(way, source, proposal, mesh_recipe):
@@ -145,6 +165,15 @@ def prepare_profiles(
         directions[owner] = 1 if ascending else -1
     if not stairs:
         raise ValueError("a retained stair recipe is required")
+    stage = proposal.get("station_cut_stage", "source_heights")
+    scope = proposal.get("station_cut_scope", "global")
+    if stage not in ("source_heights", "canonical") or scope not in (
+        "global",
+        "flight_footprint",
+    ):
+        raise ValueError("known declared station cut stage and scope required")
+    if stage == "canonical" and stair_recipe != "station_loft":
+        raise ValueError("canonical cuts require a declared station loft")
     plan = layout(
         rows,
         "width",
@@ -153,6 +182,11 @@ def prepare_profiles(
         stairs=stairs,
         source_domains=source_domains,
         section_provider=section_provider,
+        refine_geometry=_canonical_refiner(
+            rows, stairs, contacts, mesh_recipe, source_domains, scope
+        )
+        if stage == "canonical"
+        else None,
     )
     plan["stair_directions"] = directions
     plan["construction_contacts"] = contacts
@@ -164,9 +198,14 @@ def prepare_profiles(
     plan["coordinate_frame"] = {
         k: case["provenance"][k] for k in ("frame_longitude_latitude_deg", "units")
     }
-    freeze_regions(plan, source_domains)
+    if stage == "source_heights":
+        freeze_regions(plan, source_domains)
     plan["stair_recipe"] = stair_recipe
-    plan["station_cut_scope"] = proposal.get("station_cut_scope", "global")
+    plan["station_cut_scope"] = scope
+    plan["station_cut_stage"] = stage
     if stair_recipe == "station_loft":
-        prepare_stair_lofts(plan)
+        if stage == "canonical":
+            bind_lofts(plan)
+        else:
+            prepare_stair_lofts(plan)
     return plan

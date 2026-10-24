@@ -32,9 +32,14 @@ def navigation_components(navigation):
 
 
 class IndependentFlightTests(unittest.TestCase):
+    cut_stage = "source_heights"
+
     @classmethod
     def setUpClass(cls):
-        cls.cases = {name: construct(name) for name in ("stacked", "crossed")}
+        cls.cases = {
+            name: construct(name, cut_stage=cls.cut_stage)
+            for name in ("stacked", "crossed")
+        }
 
     def test_two_declared_flights_keep_all_eight_profiles_and_positive_float32_bodies(
         self,
@@ -156,7 +161,7 @@ class IndependentFlightTests(unittest.TestCase):
                 np.testing.assert_array_equal(expected, b["enu_m"])
 
     def test_inverted_or_missing_height_order_does_not_discard_any_source(self):
-        p, contacts = prepared()
+        p, contacts = prepared(cut_stage=self.cut_stage)
         upper = set(p["controlled_derivation"]["upper_source_mapping"])
         for row in p["rows"]:
             row["separation_below_source_ids"] = (
@@ -184,7 +189,9 @@ class IndependentFlightTests(unittest.TestCase):
     def test_rigid_controls_keep_all_profiles_and_both_navigable_levels(self):
         for name in ("stacked", "crossed"):
             with self.subTest(name=name):
-                case = construct(name, global_pose=(0.437, (37, -81)))
+                case = construct(
+                    name, global_pose=(0.437, (37, -81)), cut_stage=self.cut_stage
+                )
                 self.assertEqual(
                     case["float32_orientation"]["invalid_float32_faces"], 0
                 )
