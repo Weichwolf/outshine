@@ -6,14 +6,15 @@ Transport, Gebäude und Bodenmaterialien bilden zuerst die Qualitätsbasis.
 
 | Aktueller Schwerpunkt | Ansichten | Vegetation |
 |---|---|---|
-| Natur: Wald, Gebirge, Boden | Jura, Koerbersee | an |
-| Gemischt: Stadt/Natur, Ufer, Parkrand | CentralPark, Feldkirch, Malcesine | an |
+| Natur: Gebirge und Boden | Jura, Koerbersee | aus |
+| Gemischt: Stadt/Natur, Ufer, Parkrand | CentralPark, Feldkirch, Malcesine | aus |
 | Infrastruktur und Boden ohne Baumdeckung | Wien, Tokyo, Rosenheim, Flensburg, Husum, BaselBadischerBahnhof, ZuerichHauptbahnhof | aus |
 
 Dies ist die aktuelle Arbeitsauswahl, keine repräsentative Stichprobe der Erde.
 Geografisch andere Gegenbeispiele ergänzen und ersetzen sie bei neuen Verfahren.
-Die Naturansichten prüfen den vorhandenen Vegetationsstand, ohne den Schwerpunkt
-von Transport, Gebäuden und Bodenmaterialien zu verschieben.
+Alle zwölf Szenarien bleiben vorerst ohne Vegetation. So sind Transport, Gebäude,
+Bodenmaterialien und ihre Kontakte frei sichtbar. Das ist ein Diagnoseprofil;
+die vollständige Welt einschließlich Vegetation bleibt das Ausbau- und Budgetziel.
 `references.json` erhält Webcam-Herkunft und Archivvergleiche, auch für archivierte Orte.
 Referenzen bleiben unter build/shots/reference/webcams/, aktuelle Kontrollbilder lokal
 unter build/shots/places/. In doc/ und README werden vorerst keine Bilder veröffentlicht.
@@ -33,7 +34,7 @@ Die übrigen erhaltenen Szenarien liegen unter src/assets/diagnostic-places und 
 --places explizit aufrufbar. Ihre bisherigen roten Befunde bleiben offen. Geräteabnahme:
 vollständige vorbereitete Welten, schnellstmöglicher Aufbau mit begründeten Ladezielen je Szene,
 genau Ziel-fps Frames/360 Grad in einer Sekunde, p99 <=1000/Ziel-fps ms. A18-Pro-Ziel:
-1280×720/30; 1280×720/60 ist ein getrenntes Vergleichsprofil. Internet-Erwerb separat messen.
+1280×720/60 einschließlich p99. Internet-Erwerb separat messen.
 `make prepare-place PLACE=Wien PREPARE_SECONDS=1800` bereitet Quellen vor;
 `build/outshine shots --offline Wien` misst danach im frischen Prozess ohne Netzwerk.
 Fehlende Cachebytes sind eine unerfüllte Voraussetzung, kein Beleg für zu langsamen Warmaufbau.

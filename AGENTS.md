@@ -99,9 +99,9 @@
 - Ich liefere vom konkreten Bilddefizit bis zum integrierten Rendering. Interne Arbeit braucht
   einen Feature-Blocker oder gemessenen Engpass. Abstürze, Datenverlust und falsche Geometrie
   behebe ich sofort; vorhandene Straßenqualität und Terrain-Deformation bleiben erhalten.
-- Aktueller Bildfokus: Transport, Gebäude und Bodenmaterialien. Die zwölf frei wählbaren
-  Places mischen Natur-, Misch- und Infrastrukturansichten; Vegetation ist je Szenario
-  passend aktiviert. Die Python-Forschung läuft unabhängig weiter.
+- Aktueller Bildfokus: Transport, Gebäude und Bodenmaterialien. Alle zwölf frei wählbaren
+  Places bleiben vorerst ohne Vegetation, damit Geometrie, Materialien und Kontakte frei
+  sichtbar sind. Die Python-Forschung läuft unabhängig weiter.
 - Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
