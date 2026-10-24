@@ -78,8 +78,9 @@ int main() {
         (*cache)->Select({.Bounds = {.Min = {{6378127, 0, -6}}, .Max = {{6378157, 4, 0}}},
                           .Kind = "urban-prisms",
                           .Level = 3});
-    CHECK(selected && selected->size() == 1 && selected->front().RequestKey == request,
-          "ready geometry participates in the existing spatial and LOD index");
+    CHECK(selected && selected->size() == 1 && !selected->front().RequestKey && hit &&
+              selected->front().Key == hit->Record().Key && hit->Record().RequestKey == request,
+          "ready geometry has content-only spatial metadata and request-specific lookup context");
     terrain[0] ^= 1;
     const auto changed = Osm::UrbanPrismRequestKey(source, terrain, patches, 3);
     CHECK(changed && !ResolveAssetRequest(**cache, *changed, Osm::kUrbanPrismBytesMost, {}),
