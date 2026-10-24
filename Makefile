@@ -4,9 +4,7 @@
 #
 # WHAT EACH TARGET IS FOR
 #
-#   make strip      delete every comment src/ may not keep. `include/` keeps
-#                   Doxygen; src/ keeps NOTHING, test/ keeps all comments, and seeing that on
-#                   every build is what forces code that speaks for itself
+#   make strip      remove implementation comments; leave headers and tests untouched
 #   make            the library -> build/liboutshine.a, the generators -> build/libgenerators.a,
 #                   and the tools beside them
 #   make db         compile_commands.json, derived from the SAME tier graph the build uses
@@ -146,7 +144,7 @@ all: strip shaders ## the library, the generator archive, and the tools beside t
 test-strip-comments: ## verify comment policy and lexical preservation
 	@cd $(SELF_DIR) && python3 test/scripts/test_strip_comments.py
 
-strip: test-strip-comments ## remove src comments, keep only include Doxygen; leave test comments intact
+strip: test-strip-comments ## remove src implementation comments; preserve header/test comments
 	@cd $(SELF_DIR) && CLANG_FORMAT=$(LLVM_BIN)/clang-format python3 test/strip-comments.py
 
 db: strip shaders ## compile_commands.json for clangd, clang-tidy and clang-format

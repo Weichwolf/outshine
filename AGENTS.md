@@ -250,7 +250,9 @@
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
   Typ-/Binärverträge erlaubt. `reaches` und die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
   Header liegen bei ihren besitzenden Komponenten unter `src/`; kein öffentlicher `include/`-Baum.
-  Kein Doxygen oder SDK-Gate. `src/` ohne Kommentare; Tests dürfen Kommentare haben.
+  Kein Doxygen oder SDK-Gate. Kommentare in `.cpp`/`.mm` unter `src/` werden gestripped.
+  `.h`/`.hpp` dürfen knappe nötige Vertrags-/Warum-Kommentare tragen; keine Pflichtblöcke.
+  Tests dürfen Kommentare haben.
 - Genau ein oberstes Parent-Issue mit `state:active`, darunter 0:N tatsächlich bearbeitete aktive Kinder.
   Offene Issues bleiben auf GitHub offen; `state:open` und `state:active` unterscheiden Reserve und Arbeit.
   Status-, Prioritäts- und Architekturfelder in Beschreibung und Labels gemeinsam aktualisieren.
