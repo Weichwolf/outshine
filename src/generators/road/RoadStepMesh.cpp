@@ -20,10 +20,14 @@ bool AppendRoadStepBody(const SurfaceBody &body, const Vec3f &colour, RoadMeshBu
                      static_cast<float>(source[2]),
                      static_cast<float>(-source[1])}};
     }
-    const auto a = points[1] - points[0];
-    const auto b = points[2] - points[0];
-    const Vec3f cross = {
-        {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]}};
+    std::array<double, 3> a{};
+    std::array<double, 3> b{};
+    for (size_t axis = 0; axis < a.size(); ++axis) {
+      a[axis] = static_cast<double>(points[1][axis]) - points[0][axis];
+      b[axis] = static_cast<double>(points[2][axis]) - points[0][axis];
+    }
+    const std::array cross{
+        a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
     const double length = std::hypot(cross[0], cross[1], cross[2]);
     const auto base = static_cast<uint32_t>(mesh.PositionM.size() / 3);
     for (const auto point : points) {
