@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <span>
 #include <variant>
 #include <vector>
 
@@ -10,6 +12,29 @@ namespace {
 using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Test;
+
+void UnrelatedSourceRemainsWhole(const PlanarArrangement &original,
+                                 std::span<const SurfaceHeightPort> ports,
+                                 std::span<const SurfaceHeightRecipe> sources,
+                                 std::span<const SurfaceFlightEndpoints> flights) {
+  auto extended = original;
+  const auto first = static_cast<uint32_t>(extended.Mesh.Points.size());
+  extended.Mesh.Points.insert(extended.Mesh.Points.end(), {{0, 10}, {10, 10}, {0, 12}});
+  const PlanarFace remote{first, first + 1, first + 2};
+  extended.Mesh.Faces.push_back(remote);
+  extended.FaceDomains.push_back(2);
+  const auto prepared = PrepareSurfaceFlights(extended, 2, ports, 0, sources, flights);
+  CHECK(prepared.has_value(), "the flight can coexist with an unrelated remote source region");
+  if (!prepared) { return; }
+  size_t copies = 0;
+  for (size_t at = 0; at < prepared->Arrangement.Mesh.Faces.size(); ++at) {
+    if (prepared->Arrangement.FaceDomains[at] != 2) { continue; }
+    ++copies;
+    CHECK(prepared->Arrangement.Mesh.Faces[at] == remote,
+          "the generator does not extend its flight cuts into an unrelated source region");
+  }
+  CHECK(copies == 1, "the unselected original triangle remains whole");
+}
 }
 
 int main() {
@@ -42,6 +67,7 @@ int main() {
                                                .Domain = {}}};
   const std::array flights{
       SurfaceFlightEndpoints{.Source = 0, .Start = 0, .End = 1, .Direction = 1}};
+  UnrelatedSourceRemainsWhole(original, ports, sources, flights);
   const auto prepared = PrepareSurfaceFlights(original, 2, ports, 0, sources, flights);
   CHECK(prepared.has_value(),
         "native qualified ports feed flight selection, indexed cuts and final source heights");

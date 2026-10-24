@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <optional>
+#include <span>
 #include <stop_token>
 #include <unordered_map>
 #include <utility>
@@ -13,16 +15,6 @@
 
 namespace outshine::PlanarStations {
 namespace {
-struct CutState {
-  PlanarStationMesh &Output;
-  size_t Axis;
-  double Station;
-  PlanarStationBudget Budget;
-  std::unordered_map<uint64_t, uint32_t> Edges;
-  std::vector<PlanarFace> Faces;
-  std::vector<uint32_t> Parents;
-};
-
 Checked<uint32_t> Crossing(CutState &state, uint32_t a, uint32_t b) {
   auto &mesh = state.Output.Mesh;
   auto &stations = state.Output.Stations[state.Axis];
@@ -59,6 +51,8 @@ Checked<uint32_t> Crossing(CutState &state, uint32_t a, uint32_t b) {
   return index;
 }
 
+}
+
 Checked<void> Emit(CutState &state, PlanarFace face, uint32_t parent) {
   const auto &points = state.Output.Mesh.Points;
   const double area = Area(points[face[0]], points[face[1]], points[face[2]]);
@@ -71,6 +65,16 @@ Checked<void> Emit(CutState &state, PlanarFace face, uint32_t parent) {
   }
   state.Faces.push_back(face);
   state.Parents.push_back(parent);
+  return {};
+}
+
+namespace {
+Checked<void> Visit(CutState &state, const std::stop_token &stop) {
+  if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
+  if (state.Output.Work.FaceVisits == state.Budget.FaceVisits) {
+    return std::unexpected(Error::CapacityExceeded);
+  }
+  ++state.Output.Work.FaceVisits;
   return {};
 }
 
@@ -108,6 +112,7 @@ Checked<void> Clip(CutState &state, PlanarFace face, uint32_t parent, bool above
 Checked<void> Cut(PlanarStationMesh &output,
                   size_t axis,
                   double station,
+                  std::optional<std::span<const uint8_t>> selectedParents,
                   PlanarStationBudget budget,
                   const std::stop_token &stop) {
   CutState state{.Output = output,
@@ -116,17 +121,18 @@ Checked<void> Cut(PlanarStationMesh &output,
                  .Budget = budget,
                  .Edges = {},
                  .Faces = {},
-                 .Parents = {}};
+                 .Parents = {},
+                 .Remaining = {}};
   state.Faces.reserve(output.Mesh.Faces.size());
   state.Parents.reserve(output.Mesh.Faces.size());
   for (size_t at = 0; at < output.Mesh.Faces.size(); ++at) {
-    if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
-    if (output.Work.FaceVisits == budget.FaceVisits) {
-      return std::unexpected(Error::CapacityExceeded);
-    }
-    ++output.Work.FaceVisits;
+    if (const auto visited = Visit(state, stop); !visited) { return visited; }
     const auto face = output.Mesh.Faces[at];
     const auto parent = output.Mesh.FaceParents[at];
+    if (selectedParents && (*selectedParents)[parent] == 0) {
+      state.Remaining.push_back(static_cast<uint32_t>(at));
+      continue;
+    }
     const auto &values = output.Stations[axis];
     const auto [low, high] = std::minmax({values[face[0]], values[face[1]], values[face[2]]});
     if (low >= station || high <= station) {
@@ -135,6 +141,11 @@ Checked<void> Cut(PlanarStationMesh &output,
       if (auto result = Clip(state, face, parent, false); !result) { return result; }
       if (auto result = Clip(state, face, parent, true); !result) { return result; }
     }
+  }
+  for (const auto at : state.Remaining) {
+    if (const auto visited = Visit(state, stop); !visited) { return visited; }
+    const auto conformed = Conform(state, output.Mesh.Faces[at], output.Mesh.FaceParents[at]);
+    if (!conformed) { return conformed; }
   }
   output.Mesh.Faces = std::move(state.Faces);
   output.Mesh.FaceParents = std::move(state.Parents);

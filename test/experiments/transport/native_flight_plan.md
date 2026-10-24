@@ -14,7 +14,9 @@ parameters preserve the existing Python recipe; they are local construction poli
 not a global road grid or world limit. Curved axes require separately planned flights.
 
 `PrepareSurfaceFlights` runs initial height identities → flight planning → shared
-station cuts → refined height identities. It rebinds the cutter's exact station
+station cuts → refined height identities. Initial source-face selections constrain
+each flight's cuts; only shared edge neighbors are conformed beyond that selection.
+It rebinds the cutter's exact station
 values through canonical planar indices. Source masks, child-face identities,
 original points and independent source heights remain intact. Every stage preserves
 its error type; cancellation/capacity failure publishes no partial result.
@@ -53,9 +55,9 @@ height-policy controls. Successful images/arrays and exact build commands stay i
 the explicit temp output. Three previously documented proximity diagnostics in the
 rotated/translated case remain; no welding or tolerance changes.
 
-The native cutter currently retains the global station scope. The new Python
-`flight_footprint` scope and independent multi-flight body qualification (#1205)
-have not been ported; this experiment does not admit those native body cases.
+The cutter supports explicit initial-face selections on one canonical geometry;
+see `native_local_station_cuts.md`. The independent multi-flight body qualification
+(#1205/#1206) remains separate; this experiment does not admit those native cases.
 
 The experiment's declarations/domains/sections still come from its prepared Python
 recipe. The newer native producer is documented in `native_surface_layout.md`;

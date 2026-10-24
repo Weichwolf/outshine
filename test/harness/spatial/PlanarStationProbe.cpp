@@ -7,6 +7,7 @@
 #include <iostream>
 #include <limits>
 #include <ratio>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -56,6 +57,23 @@ bool ReadAxes(std::istream &input, std::vector<PlanarStationAxis> &axes) {
   return true;
 }
 
+bool ReadSelection(std::istream &input, std::vector<PlanarStationAxis> &axes, size_t faces) {
+  size_t count = 0;
+  if (!(input >> count) || count != axes.size()) { return false; }
+  for (auto &axis : axes) {
+    int64_t selected = 0;
+    if (!(input >> selected) || selected < -1 || std::cmp_greater(selected, faces)) {
+      return false;
+    }
+    if (selected == -1) { continue; }
+    axis.InitialFaces.emplace(static_cast<size_t>(selected));
+    for (auto &face : *axis.InitialFaces) {
+      if (!(input >> face)) { return false; }
+    }
+  }
+  return true;
+}
+
 bool WriteMesh(std::ostream &output, const PlanarMesh &mesh, const std::vector<uint64_t> &owners) {
   output.precision(std::numeric_limits<double>::max_digits10);
   output << mesh.Points.size() << ' ' << mesh.Faces.size() << '\n';
@@ -80,7 +98,7 @@ size_t CapacityBytes(const PlanarStationMesh &result) {
 }
 
 int main(int argc, char *const *argv) {
-  if (argc != 5) { return 1; }
+  if (argc != 5 && argc != 6) { return 1; }
   std::ifstream meshInput(argv[1]);
   std::ifstream axisInput(argv[2]);
   std::vector<PlanarPoint> points;
@@ -88,6 +106,10 @@ int main(int argc, char *const *argv) {
   std::vector<uint64_t> owners;
   std::vector<PlanarStationAxis> axes;
   if (!ReadMesh(meshInput, points, faces, owners) || !ReadAxes(axisInput, axes)) { return 2; }
+  if (argc == 6) {
+    std::ifstream selection(argv[5]);
+    if (!ReadSelection(selection, axes, faces.size())) { return 2; }
+  }
   const auto start = std::chrono::steady_clock::now();
   const auto result = CutPlanarStations(points, faces, axes);
   const double elapsed =

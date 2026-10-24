@@ -24,6 +24,9 @@ PrepareSurfaceFlights(const PlanarArrangement &arrangement,
   if (!initial) { return std::unexpected(Error{initial.error()}); }
   auto plan = BuildSurfaceFlightPlan(*initial, sources, flights, budget.Flights, stop);
   if (!plan) { return std::unexpected(Error{plan.error()}); }
+  for (size_t flight = 0; flight < plan->Flights.size(); ++flight) {
+    plan->Axes[flight].InitialFaces = initial->Sources[plan->Flights[flight].Source].PlanarFaces;
+  }
   auto cuts = CutPlanarStations(
       arrangement.Mesh.Points, arrangement.Mesh.Faces, plan->Axes, budget.Stations, stop);
   if (!cuts) { return std::unexpected(Error{cuts.error()}); }

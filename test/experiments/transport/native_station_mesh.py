@@ -68,7 +68,7 @@ def read_stations(path, axes, points, faces):
     return stations, parents
 
 
-def check_cut(before, after, stations, parents, domains, flights):
+def check_cut(before, after, stations, parents, domains, flights, *, selections=None):
     old_xy, old_faces, old_owners = before
     xy, faces, owners = after
     if not np.array_equal(xy[: len(old_xy)].view(np.uint64), old_xy.view(np.uint64)):
@@ -89,14 +89,19 @@ def check_cut(before, after, stations, parents, domains, flights):
             )
         errors.append(error)
     for axis, flight in enumerate(flights):
-        values = stations[axis][faces]
+        selected = (
+            faces
+            if selections is None or selections[axis] is None
+            else faces[np.isin(parents, selections[axis])]
+        )
+        values = stations[axis][selected]
         for cut in [flight["start_cut_m"], flight["end_cut_m"]]:
             if np.any((values.min(axis=1) < cut) & (values.max(axis=1) > cut)):
                 raise ValueError("a native facet crosses its declared station cut")
     return errors
 
 
-def compare_reference(before, after, axes_path, stations, parents):
+def compare_reference(before, after, axes_path, stations, parents, *, selections=None):
     xy, faces, _owners = before
     rows = [
         list(map(float, row.split())) for row in axes_path.read_text().splitlines()[1:]
@@ -127,6 +132,12 @@ def compare_reference(before, after, axes_path, stations, parents):
     masks, planar = lineage.copy(), list(range(len(xy)))
     for axis, row in enumerate(rows):
         for cut in row[5:]:
+            selected = None if selections is None else selections[axis]
+            local_owners = None
+            if selected is not None:
+                selected = set(selected)
+                masks = [int(parent in selected) for parent in lineage]
+                local_owners = 1
             triangles, masks, lineage, _intersections, _points = _split(
                 vertices,
                 flights,
@@ -138,7 +149,7 @@ def compare_reference(before, after, axes_path, stations, parents):
                 cut,
                 4096,
                 8192,
-                None,
+                local_owners,
             )
     same = {
         "position_words_equal": np.array_equal(
@@ -247,7 +258,11 @@ def run(args):
     build.mkdir()
     cut_probe = build_probe(
         build,
-        units=("PlanarStationMesh.cpp", "PlanarStationCuts.cpp"),
+        units=(
+            "PlanarStationMesh.cpp",
+            "PlanarStationCuts.cpp",
+            "PlanarStationConformance.cpp",
+        ),
         probe_source=ROOT / "test/harness/spatial/PlanarStationProbe.cpp",
     )
     base, _ = source_plan()

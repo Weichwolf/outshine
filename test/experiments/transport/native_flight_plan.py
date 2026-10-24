@@ -13,10 +13,10 @@ from mvt_t_stair_loft import _flight
 from native_planar_arrangement import read_output
 from native_planar_mesh import ROOT, build_probe
 from native_station_mesh import (
-    source_plan,
-    compare_reference,
     check_cut,
+    compare_reference,
     consume_original,
+    source_plan,
 )
 from native_surface_height_topology import write_ports
 from planar_layout_reference import original_layout
@@ -150,7 +150,7 @@ def check_preparation(
     command = list(
         map(str, [binary, mesh, ports, definitions, refined, heights, members, flights])
     )
-    result = subprocess.run(command, capture_output=True, text=True)
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
     receipt = {
         "command": command,
         "returncode": result.returncode,
@@ -198,7 +198,10 @@ def check_preparation(
         recipes.append(recipe)
     stations = np.array(stations)
     parents = np.loadtxt(str(refined) + ".parents", dtype=np.int64, ndmin=1)
-    comparison = compare_reference(before, after, initial_axes, stations, parents)
+    selections = [np.flatnonzero(before[2][:, row[0]]).tolist() for row in endpoints]
+    comparison = compare_reference(
+        before, after, initial_axes, stations, parents, selections=selections
+    )
     errors = check_cut(
         before,
         after,
@@ -206,6 +209,7 @@ def check_preparation(
         parents,
         [moved_mask(d, transform) for d in domains],
         recipes,
+        selections=selections,
     )
     report = {
         "native": json.loads(result.stdout),
@@ -249,6 +253,7 @@ def run(args):
             "SurfaceFlightPlan.cpp",
             "PlanarStationMesh.cpp",
             "PlanarStationCuts.cpp",
+            "PlanarStationConformance.cpp",
             "GeosPolygon.cpp",
             "PlanHierarchy.cpp",
         ),
@@ -291,7 +296,7 @@ def run(args):
             str(definitions),
             str(flights),
         ]
-        result = subprocess.run(command, capture_output=True, text=True)
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
         record = {
             "name": name,
             "command": command,

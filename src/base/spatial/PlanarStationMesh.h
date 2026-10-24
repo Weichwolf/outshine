@@ -3,7 +3,9 @@
 
 #include "PlanarMesh.h"
 #include <cstddef>
+#include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <stop_token>
 #include <vector>
@@ -13,6 +15,7 @@ struct PlanarStationAxis {
   PlanarPoint Origin{};
   PlanarPoint Direction{};
   std::vector<double> Cuts;
+  std::optional<std::vector<uint32_t>> InitialFaces = std::nullopt;
 };
 
 struct PlanarStationBudget {
