@@ -154,7 +154,7 @@ BuildLibrary
             self.assertEqual(list((root / 'obj').iterdir()), [])
             self.assertFalse((root / 'build').exists())
 
-    def sources(self, declaration):
+    def sources(self, declaration, suite='outshine/src/render/stages/StagePipelines'):
         names = {'SourceUnits', 'NativeGroups', 'GeneratorGroups', 'EngineRootGroups',
                  'SubtreeGroups', 'TestProfile', 'LayerGroups'}
         functions = shell_functions(declaration, names)
@@ -165,11 +165,21 @@ BuildLibrary
             str(path.relative_to(self.root)) for path in (self.root / 'src').rglob('*')
             if path.is_dir())
         command = functions + (
-            '\nfor group in $(LayerGroups outshine/src/render/stages/StagePipelines); '
+            f'\nfor group in $(LayerGroups {suite}); '
             'do SourceUnits "$group"; done\n')
         result = subprocess.run(['sh', '-eu', '-c', command], cwd=self.root,
                                 env=environment, capture_output=True, text=True, check=True)
         return result.stdout.splitlines()
+
+    def test_value_and_geographic_tests_do_not_build_unrelated_modules(self):
+        declaration = (self.root / 'test/run.sh').read_text()
+        for suite in ('outshine/src/render/RenderConfiguration',
+                      'outshine/src/base/scene/Material',
+                      'outshine/src/base/scene/ProjectedErrorBudget'):
+            with self.subTest(suite=suite):
+                self.assertEqual(self.sources(declaration, suite), [])
+        self.assertEqual(set(self.sources(declaration, 'outshine/src/base/geo/GeoCellId')),
+                         {'src/base/geo/GeoCellId.cpp', 'src/base/geo/GeoCellDemand.cpp'})
 
     def test_native_stage_sources_stay_in_their_declared_components(self):
         units = self.sources((self.root / 'test/run.sh').read_text())

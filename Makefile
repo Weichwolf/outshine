@@ -8,7 +8,8 @@
 #   make            the library -> build/liboutshine.a, the generators -> build/libgenerators.a,
 #                   and the tools beside them
 #   make db         compile_commands.json, derived from the SAME tier graph the build uses
-#   make lint       clang-format, clang-tidy and this tree's own repository rules
+#   make lint       changed files and affected compiler units
+#   make lint-all   complete integration checks
 #   make shots      every place through the camera -> build/shots  (PLACE=Wien for one)
 #   make test       the world gate; compatibility corpora run explicitly
 #   make suite      one named suite                                (SUITE=outshine/integration/places)
@@ -165,7 +166,11 @@ experiment-vulkan: all ## native Vulkan proof; set VULKAN_DEVICE_NAME and system
 	@test -n "$(VULKAN_DEVICE_NAME)" || { echo 'set VULKAN_DEVICE_NAME to the exact Vulkan device name' >&2; exit 2; }
 	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" VULKAN_VALIDATION="$(VULKAN_VALIDATION)" python3 test/experiments/render/native_vulkan.py --device-name "$(VULKAN_DEVICE_NAME)" --output "$(VULKAN_OUTPUT)"
 
-lint: ## format, static analysis, and this tree's own repository rules
+lint: ## changed files and affected native units; LINT_BASE defaults to HEAD
+	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint-changed.sh
+
+.PHONY: lint-all
+lint-all: ## full integration format, static analysis and repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 
 .PHONY: lint-docs
@@ -227,6 +232,10 @@ test-client-data: all ## verify external place scenarios through the client
 .PHONY: test-tidy-analysis
 test-tidy-analysis: db ## prove clean analysis and incomplete-run detection with real clang-tidy
 	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_tidy_analysis.py
+
+.PHONY: test-lint-scope
+test-lint-scope: ## verify staged, untracked and transitive-header lint selection
+	@cd $(SELF_DIR) && python3 test/scripts/test_lint_scope.py
 
 .PHONY: test-callgraph
 test-callgraph: ## verify real archive call edges and corrupt-input rejection

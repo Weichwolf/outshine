@@ -39,13 +39,20 @@ def database_units(root):
     return expected
 
 
-def analyse(root, report, tool, jobs, timeout):
+def analyse(root, report, tool, jobs, timeout, selected=None):
     report.mkdir(parents=True, exist_ok=True)
-    summary = {'complete': False, 'expected': [], 'units': [], 'error': ''}
+    summary = {'complete': False, 'expected': [], 'units': [], 'error': '',
+               'scope': 'all' if selected is None else 'changed'}
     diagnostics = set()
     combined = []
     try:
         units = database_units(root)
+        summary['population'] = len(units)
+        if selected is not None:
+            selected = {Path(path).resolve() for path in selected}
+            if selected - set(units):
+                raise ValueError('analysis selection contains units outside the compile database')
+            units = [path for path in units if path in selected]
         summary['expected'] = [str(path) for path in units]
         version = subprocess.run([tool, '--version'], capture_output=True, text=True,
                                  timeout=timeout, check=True)
@@ -95,7 +102,7 @@ def analyse(root, report, tool, jobs, timeout):
     (report / 'tidy.unique').write_text(''.join(line + '\n' for line in sorted(diagnostics)))
     (report / 'tidy.execution.json').write_text(json.dumps(summary, indent=2) + '\n')
     successful = sum(row['returncode'] == 0 for row in summary['units'])
-    print(f"tidy: {successful}/{len(summary['expected'])} units completed successfully; "
+    print(f"tidy ({summary['scope']}): {successful}/{len(summary['expected'])} units completed successfully; "
           f"{len(diagnostics)} finding(s); execution {'complete' if summary['complete'] else 'INCOMPLETE'}")
     if summary['error']:
         print('tidy: ' + summary['error'])
@@ -113,10 +120,13 @@ def main():
     parser.add_argument('--tool', required=True)
     parser.add_argument('--jobs', type=int, default=os.cpu_count() or 1)
     parser.add_argument('--timeout', type=float, default=120)
+    parser.add_argument('--scope', type=Path)
     args = parser.parse_args()
     if args.jobs < 1 or not 0 < args.timeout < float('inf'):
         parser.error('jobs and finite timeout must be positive')
-    return analyse(args.root.resolve(), args.report.resolve(), args.tool, args.jobs, args.timeout)
+    selected = json.loads(args.scope.read_text())['units'] if args.scope else None
+    return analyse(args.root.resolve(), args.report.resolve(), args.tool, args.jobs, args.timeout,
+                   selected)
 
 
 if __name__ == '__main__':

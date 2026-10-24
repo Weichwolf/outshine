@@ -368,6 +368,8 @@ TestProfile() {
     outshine/src/generators/flora/PlantRecipe) printf '%s' 'profile/plant-recipe' ;;
     outshine/src/generators/flora/PlantRandom) printf '%s' 'profile/plant-random' ;;
     outshine/src/generators/flora/PlantPlan) printf '%s' 'profile/plant-plan' ;;
+    outshine/src/base/geo/GeoCellId) printf '%s' 'profile/geo-cell' ;;
+    outshine/src/base/scene/Material|outshine/src/base/scene/ProjectedErrorBudget) printf '%s' 'profile/base-values' ;;
     outshine/src/base/*) printf '%s' 'profile/base' ;;
     outshine/src/content/*) printf '%s' 'profile/content' ;;
     outshine/src/world/*) printf '%s' 'profile/world' ;;
@@ -440,7 +442,7 @@ LayerIncludes() {
     harness/claims) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
     harness/geographiclib/geodesic) printf '%s' "-Isrc/base/scene -Isrc/base/math -Isrc/base/geo -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
     profile/tasks) printf '%s' '-Isrc/base/io' ;;
-    profile/base) GroupIncludes src/base ;;
+    profile/base|profile/base-values|profile/geo-cell) GroupIncludes src/base ;;
     profile/content) GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sdl3-image sqlite3 libzstd)" ;;
     profile/host) GroupIncludes src/host; printf ' %s' "$(pkg-config --cflags sdl3-image libtiff-4 libwebp sqlite3 libzstd)" ;;
     profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image libtiff-4 libwebp sqlite3 libzstd)" ;;
@@ -658,7 +660,8 @@ LayerGroups() {
     profile/footpath-plan) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/road/plan' ;;
     profile/road-profile) printf '%s' 'src/generators/road/profile' ;;
     profile/client-shots) printf '%s' '' ;;
-    profile/render-configuration) printf '%s' '' ;;
+    profile/render-configuration|profile/base-values) printf '%s' '' ;;
+    profile/geo-cell) printf '%s' 'src/base/geo/GeoCellId.cpp src/base/geo/GeoCellDemand.cpp' ;;
     profile/cache-usage) printf '%s' 'src/content/cache' ;;
     profile/water-targets) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/water/WaterCourseProfile.cpp' ;;
     profile/water-mesh) printf '%s' 'src/base/spatial/PlanHierarchy.cpp src/generators/base/water/WaterSurfaceMesh.cpp src/generators/base/water/WaterSurfaceMeshQueries.cpp src/generators/base/water/WaterSurfaceMeshCodec.cpp' ;;

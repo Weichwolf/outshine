@@ -40,11 +40,16 @@ class TidyExecution(unittest.TestCase):
                             'arguments': args})
         (self.root / 'compile_commands.json').write_text(json.dumps(records))
 
-    def run_analysis(self, expected, tool=TOOL, timeout=30):
+    def run_analysis(self, expected, tool=TOOL, timeout=30, selected=None):
         report = self.root / 'report'
+        scope = []
+        if selected is not None:
+            selection = self.root / 'scope.json'
+            selection.write_text(json.dumps({'units': selected}))
+            scope = ['--scope', str(selection)]
         run = subprocess.run([sys.executable, str(RUNNER), '--root', str(self.root),
                               '--report', str(report), '--tool', str(tool), '--jobs', '2',
-                              '--timeout', str(timeout)], capture_output=True, text=True, timeout=45)
+                              '--timeout', str(timeout), *scope], capture_output=True, text=True, timeout=45)
         self.assertEqual(run.returncode, expected, run.stdout + run.stderr)
         return json.loads((report / 'tidy.execution.json').read_text())
 
@@ -54,6 +59,26 @@ class TidyExecution(unittest.TestCase):
         self.assertEqual(summary['findings'], 0)
         self.assertEqual(len(summary['units']), 1)
         self.assertEqual(summary['units'][0]['file'], str(self.main.resolve()))
+
+    def test_changed_scope_does_not_claim_full_analysis(self):
+        other = self.root / 'src/Other.cpp'
+        other.write_text('invalid C++\n')
+        self.database([self.main, other])
+        summary = self.run_analysis(0, selected=[str(self.main)])
+        self.assertEqual(summary['scope'], 'changed')
+        self.assertEqual(summary['population'], 2)
+        self.assertEqual(summary['expected'], [str(self.main.resolve())])
+
+    def test_empty_changed_scope_still_validates_full_database(self):
+        summary = self.run_analysis(0, selected=[])
+        self.assertTrue(summary['complete'])
+        self.assertEqual(summary['population'], 1)
+        self.assertEqual(summary['units'], [])
+        self.database([])
+        self.assertFalse(self.run_analysis(2, selected=[])['complete'])
+
+    def test_unknown_selected_unit_is_an_error(self):
+        self.assertFalse(self.run_analysis(2, selected=[str(self.root / 'missing.cpp')])['complete'])
 
     def test_real_warning_is_red(self):
         self.main.write_text('double division(int a, int b) { return a / b; }\n')

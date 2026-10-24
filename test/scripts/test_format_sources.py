@@ -27,10 +27,10 @@ class Formatting(unittest.TestCase):
         path.write_text(text)
         return path
 
-    def run_format(self, check=True, tool=None):
+    def run_format(self, check=True, tool=None, selected=None):
         output = io.StringIO()
         with redirect_stdout(output), redirect_stderr(output):
-            result = format_sources(self.root, tool or self.tool, check)
+            result = format_sources(self.root, tool or self.tool, check, selected)
         return result, output.getvalue()
 
     def test_real_diagnostics_count_files_and_fix_is_idempotent(self):
@@ -62,6 +62,15 @@ class Formatting(unittest.TestCase):
 
     def test_empty_coverage_is_an_error(self):
         self.assertEqual(self.run_format()[0], 2)
+
+    def test_changed_scope_checks_selected_files_and_rejects_foreign_paths(self):
+        self.write('src/clean.h', 'int value();\n')
+        self.write('src/unformatted.cpp')
+        status, output = self.run_format(selected=['src/clean.h'])
+        self.assertEqual(status, 0, output)
+        self.assertIn('1 owned C++ files checked', output)
+        self.assertEqual(self.run_format(selected=['elsewhere/foreign.cpp'])[0], 2)
+        self.assertEqual(self.run_format(selected=[])[0], 0)
 
     def test_clean_population_uses_bounded_batches(self):
         for index in range(BATCH_FILES * 2 + 1):
