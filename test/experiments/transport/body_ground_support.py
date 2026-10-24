@@ -156,7 +156,10 @@ def prepare(
                 "mesh_snapshot_bytes": sampler.mesh.vertices.nbytes
                 + sampler.mesh.triangles.nbytes,
                 "source_mask_copy_bytes": source_masks.nbytes,
-                "selected_boundary_array_bytes": extra_bytes,
+                "selected_boundary_working_array_bytes": extra_bytes,
+                "retained_boundary_face_map_bytes": 0
+                if boundary_faces is None
+                else boundary_faces.nbytes,
             }
         ),
     )

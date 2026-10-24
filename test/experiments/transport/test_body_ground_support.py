@@ -5,20 +5,11 @@ import unittest
 
 import numpy as np
 from body_ground_support import prepare, sample
+from body_ground_support_experiment import control_body as plane
+from body_ground_support_experiment import extend, native_soft_exterior
 from world_stair_reference import FIXTURE, construct
 
 STRATEGIES = ("scan", "index", "boundary")
-
-
-def plane(diagonal=0):
-    xy = np.array([[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]])
-    return {
-        "body_vertices": np.column_stack([xy, 2 + 0.25 * xy.sum(axis=1)]),
-        "bottom_faces": np.array(
-            [[0, 1, 2], [0, 2, 3]] if diagonal == 0 else [[0, 1, 3], [1, 2, 3]]
-        ),
-        "face_sources": np.array([1, 1]),
-    }
 
 
 class BodyGroundSupport(unittest.TestCase):
@@ -71,6 +62,26 @@ class BodyGroundSupport(unittest.TestCase):
             np.testing.assert_array_equal(
                 result["source_masks"], self.body["face_sources"]
             )
+
+    def test_old_exterior_control_changes_with_diagonal_and_nearest_recipe_does_not(
+        self,
+    ):
+        point = np.array([[4.5, 0.25]])
+        old, new = [], []
+        for diagonal in (0, 1):
+            model = prepare(plane(diagonal), 1)
+            old.append(native_soft_exterior(model, point, 0).item())
+            new.append(extend(sample(model, point), 0).item())
+        np.testing.assert_allclose(
+            old, [3.182405905288869, 3.1038840996118093], atol=1e-14, rtol=0
+        )
+        self.assertAlmostEqual(old[0] - old[1], 0.07852180567705958, places=14)
+        self.assertEqual(new[0], new[1])
+        model = prepare(plane(), 1)
+        hard = sample(model, np.array([[1.0, 1.0], [2.0, 2.0]]))
+        np.testing.assert_array_equal(extend(hard, 0), hard["height_m"])
+        with self.assertRaisesRegex(ValueError, "height budget"):
+            extend(hard, 0, most=1)
 
     def test_world_full_grid_has_equal_support_from_all_three_methods(self):
         x, y = np.meshgrid(np.arange(17.0, 30, 0.5), np.arange(265.0, 280, 0.5))
