@@ -61,7 +61,11 @@ actual body/profile with those old priors. Images stay in explicit temp outputs.
 Selected work/copy counters and live traced blocks are not total allocations,
 all GEOS/NumPy copies or UMA residency. Body preparation/Float32 position conversion
 is separate; each compared trace includes geometry preparation and validation.
-Traced peak is a separate invocation; process RSS is captured before export/plot.
+Traced peak is a separate invocation after garbage collection for each strategy;
+process RSS is captured before export/plot.
+Timed scalar/batch calls alternate order on each repetition. Wall and process CPU
+times are recorded together; empty timer-pair overhead is reported without
+subtracting it. This reduces ordering bias but does not create an isolated host.
 Current measured results, actual image review and terminal checks belong in the PR.
 
 Architecture reuses the existing SIGGRAPH 2008 street-graph/generated-geometry

@@ -15,27 +15,54 @@ from body_support_spans import support_points, trace
 from world_stair_reference import FIXTURE, construct
 
 
-def measure(body, path, strategy, repeats):
-    timings = []
-    for _ in range(repeats + 1):
-        began = time.perf_counter()
-        result = trace(body, path, 7, strategy=strategy)
-        timings.append(time.perf_counter() - began)
-        del result
+def compare(body, path, repeats):
+    timings = {"scalar": [], "batch": []}
+    for i in range(repeats + 1):
+        order = ("scalar", "batch") if i % 2 == 0 else ("batch", "scalar")
+        for strategy in order:
+            began = time.perf_counter()
+            cpu = time.process_time()
+            result = trace(body, path, 7, strategy=strategy)
+            cpu_elapsed = time.process_time() - cpu
+            elapsed = time.perf_counter() - began
+            timings[strategy].append((elapsed, cpu_elapsed))
+            del result
+            gc.collect()
+    results, reports = {}, {}
+    for strategy, samples in timings.items():
         gc.collect()
-    tracemalloc.start()
-    result = trace(body, path, 7, strategy=strategy)
-    _current, peak = tracemalloc.get_traced_memory()
-    live = sum(s.count for s in tracemalloc.take_snapshot().statistics("filename"))
-    tracemalloc.stop()
-    return result, {
-        "first_s": timings[0],
-        "following_s": timings[1:],
-        "median_s": float(np.median(timings[1:])),
-        "python_traced_peak_bytes": peak,
-        "python_traced_live_blocks": live,
-        "work": result["work"],
-    }
+        tracemalloc.start()
+        result = trace(body, path, 7, strategy=strategy)
+        _current, peak = tracemalloc.get_traced_memory()
+        live = sum(s.count for s in tracemalloc.take_snapshot().statistics("filename"))
+        tracemalloc.stop()
+        wall, cpu = np.asarray(samples).T
+        results[strategy] = result
+        reports[strategy] = {
+            "first_s": float(wall[0]),
+            "following_s": wall[1:].tolist(),
+            "median_s": float(np.median(wall[1:])),
+            "first_cpu_s": float(cpu[0]),
+            "following_cpu_s": cpu[1:].tolist(),
+            "median_cpu_s": float(np.median(cpu[1:])),
+            "python_traced_peak_bytes": peak,
+            "python_traced_live_blocks": live,
+            "work": result["work"],
+        }
+    overhead = []
+    for _ in range(101):
+        began, cpu = time.perf_counter(), time.process_time()
+        cpu_elapsed = time.process_time() - cpu
+        overhead.append((time.perf_counter() - began, cpu_elapsed))
+    return (
+        results,
+        reports,
+        {
+            "order": "paired, alternated every repetition",
+            "observer_median_wall_cpu_s": np.median(overhead, axis=0).tolist(),
+            "observer_scope": "Empty wall/CPU timer pairs; raw trace times are not corrected.",
+        },
+    )
 
 
 def display(body, support, original, output):
@@ -136,8 +163,8 @@ def main():
         original = original[::-1]
     path = original[:, :2]
     preparation = time.perf_counter() - began
-    scalar, baseline = measure(body, path, "scalar", args.repeats)
-    batch, candidate = measure(body, path, "batch", args.repeats)
+    results, reports, timing = compare(body, path, args.repeats)
+    scalar, batch = results["scalar"], results["batch"]
     for key, value in scalar.items():
         if isinstance(value, np.ndarray) and value.tobytes() != batch[key].tobytes():
             raise ValueError(f"batching changed support array {key}")
@@ -162,8 +189,9 @@ def main():
     report = {
         "reverse": args.reverse,
         "body_preparation_s": preparation,
-        "scalar": baseline,
-        "batch": candidate,
+        "scalar": reports["scalar"],
+        "batch": reports["batch"],
+        "timing": timing,
         "start_load": start_load,
         "step_junctions": batch["connections"].count("body_step"),
         "body_float32_position_copy_bytes": body["body_vertices"].nbytes,
