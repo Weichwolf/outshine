@@ -75,7 +75,13 @@ def _parameters(points, used, source, faces):
 
 
 def contact_patch(
-    body, terrain_vertices, terrain_faces, *, apron_m=3.0, method="exact"
+    body,
+    terrain_vertices,
+    terrain_faces,
+    *,
+    apron_m=3.0,
+    method="exact",
+    boundary_requests=(),
 ):
     """Return a local mesh plus explicit changed outer-edge obligations, never a world claim."""
     if not np.isfinite(apron_m) or not 0 < apron_m <= 10:
@@ -88,8 +94,12 @@ def contact_patch(
     )
     domain = shapely.coverage_union_all(prior._polygons)
     if method == "exact":
-        xy, faces, exact_points, work = partition(body, terrain_vertices, terrain_faces)
+        xy, faces, exact_points, work = partition(
+            body, terrain_vertices, terrain_faces, boundary_requests=boundary_requests
+        )
     elif method == "geos":
+        if boundary_requests:
+            raise ValueError("exact boundary requests require the exact partition path")
         clipped = _clipped(source, domain)
         xy, faces, work = arrange(clipped, terrain_vertices[:, :2], terrain_faces)
         exact_points = None

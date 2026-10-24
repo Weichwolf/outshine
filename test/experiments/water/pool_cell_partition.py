@@ -1,5 +1,6 @@
 """Exact planar partition for bounded interior, exterior and convex pool contacts."""
 
+import re
 from fractions import Fraction
 
 import numpy as np
@@ -42,8 +43,8 @@ def _tri_clip(poly, triangle):
     return poly
 
 
-def _triangulate(pieces, cancelled):
-    nodes = {p for poly in pieces for p in poly}
+def _triangulate(pieces, cancelled, boundary_nodes=()):
+    nodes = {p for poly in pieces for p in poly} | set(boundary_nodes)
     if len(nodes) > 1024:
         raise ValueError("exact pool-cell node budget exhausted")
     faces, work, determinants = [], 0, 0
@@ -111,7 +112,44 @@ def _outside_parts(triangle, edges, interior, area, capacity, cancelled):
     return outside
 
 
-def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
+def _boundary_nodes(source, faces, requests):
+    if not requests:
+        return set()
+    if len(requests) > 1024:
+        raise ValueError("bounded exact boundary requests required")
+    edges = np.sort(faces[:, [[0, 1], [1, 2], [2, 0]]].reshape(-1, 2), axis=1)
+    edges, counts = np.unique(edges, axis=0, return_counts=True)
+    boundary = set(map(tuple, edges[counts == 1]))
+    nodes = set()
+    for request in requests:
+        edge = request.get("input_edge") if isinstance(request, dict) else None
+        value = request.get("parameter") if isinstance(request, dict) else None
+        if (
+            not isinstance(edge, (list, tuple))
+            or len(edge) != 2
+            or any(not isinstance(i, (int, np.integer)) for i in edge)
+            or tuple(sorted(edge)) not in boundary
+            or not isinstance(value, str)
+            or len(value) > 512
+            or re.fullmatch(r"[+-]?[0-9]+(?:/[0-9]+)?", value) is None
+        ):
+            raise ValueError(
+                "original boundary edge and bounded rational parameter required"
+            )
+        try:
+            t = Fraction(value)
+        except (ValueError, ZeroDivisionError) as error:
+            raise ValueError("valid exact boundary parameter required") from error
+        if not 0 <= t <= 1:
+            raise ValueError("exact boundary parameter outside original edge")
+        a, b = [tuple(Fraction.from_float(float(v)) for v in source[i]) for i in edge]
+        nodes.add(tuple(a[i] + t * (b[i] - a[i]) for i in (0, 1)))
+    return nodes
+
+
+def partition(
+    body, terrain_vertices, terrain_faces, *, cancelled=None, boundary_requests=()
+):
     """Qualify local convex contacts; preserve the supplied planar domain before rounding."""
     if cancelled is not None and cancelled():
         raise ValueError("exact pool-cell partition cancelled")
@@ -125,6 +163,7 @@ def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
     source_polygons = shapely.polygons(source[faces])
     if not shapely.coverage_is_valid(source_polygons):
         raise ValueError("nonoverlapping conforming supplied terrain required")
+    requested = _boundary_nodes(source, faces, boundary_requests)
     domain = shapely.coverage_union_all(source_polygons)
     ring = body["plan_xy"][body["outer_ring"]]
     segments = np.stack((ring, np.roll(ring, -1, axis=0)), axis=1)
@@ -166,7 +205,9 @@ def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
         pieces.extend(interior)
         if len(pieces) > 128:
             raise ValueError("exact pool-cell piece budget exhausted")
-    xy, indices, points, work, rounding, determinants = _triangulate(pieces, cancelled)
+    xy, indices, points, work, rounding, determinants = _triangulate(
+        pieces, cancelled, requested
+    )
     expected = sum(_area([exact(p) for p in source[f]]) for f in faces)
     if sum(_area(poly) for poly in pieces) != expected:
         raise ValueError("exact pool-cell partition changed the supplied area")
@@ -178,6 +219,7 @@ def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
             "input_triangles": len(faces),
             "candidate_pairs": pairs,
             "pool_boundary_edges_considered": len(edges),
+            "boundary_requested_nodes": len(requested),
             "pieces": len(pieces),
             "edge_node_tests": work,
             "edge_node_determinants": determinants,
