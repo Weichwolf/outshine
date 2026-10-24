@@ -66,7 +66,7 @@ void Exercise(const std::string &path) {
                 "DROP TABLE asset_requests;"
                 "CREATE UNIQUE INDEX asset_requests ON assets(request_key) WHERE request_key<>'';"
                 "PRAGMA user_version=3;"
-                "CREATE VIEW retain_old_request AS SELECT request_key FROM assets;"
+                "CREATE INDEX retain_old_request ON assets(request_key);"
                 "CREATE TRIGGER no_package_insert BEFORE INSERT ON packages "
                 "BEGIN SELECT RAISE(ABORT,'package insert'); END;"
                 "CREATE TRIGGER no_package_update BEFORE UPDATE ON packages "
@@ -88,7 +88,7 @@ void Exercise(const std::string &path) {
                    "SELECT count(*) FROM sqlite_master WHERE type='table' "
                    "AND name='asset_requests'") == 0,
         "failed migration atomically restores the old column, index and schema version");
-  CHECK(Execute(path, "DROP VIEW retain_old_request"), "migration failure injector is removed");
+  CHECK(Execute(path, "DROP INDEX retain_old_request"), "migration failure injector is removed");
   auto cache = AssetCache::Open(path);
   CHECK(cache, "the same legacy cache migrates without recreating product data");
   if (!cache) { return; }
