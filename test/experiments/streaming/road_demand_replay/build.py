@@ -56,29 +56,39 @@ def main():
     rows = json.loads(args.compile_commands.read_text())
     row = next(row for row in rows if Path(row["file"]).name == "Engine.cpp")
     folder = Path(__file__).resolve().parent
-    source = folder / "ConsumerReplay.cpp"
     obj = output / "ConsumerReplay.o"
-    command = list(row.get("arguments") or shlex.split(row["command"]))
-    command[command.index(row["file"])] = str(source)
-    command[command.index("-o") + 1] = str(obj)
-    for flag, target in [
-        ("-MF", output / "ConsumerReplay.d"),
-        ("-MT", obj),
-        ("-MQ", obj),
-    ]:
-        if flag in command:
-            command[command.index(flag) + 1] = str(target)
-    command.extend(
-        shlex.split(
-            subprocess.check_output(
-                ["pkg-config", "--cflags", "libxxhash", "libzstd"], text=True
-            )
+    cflags = shlex.split(
+        subprocess.check_output(
+            ["pkg-config", "--cflags", "libxxhash", "libzstd"], text=True
         )
     )
-    cdb = [{"directory": row["directory"], "file": str(source), "arguments": command}]
+    cdb = []
+    for name in ("ConsumerReplay", "GuardCheck"):
+        source, target = folder / f"{name}.cpp", output / f"{name}.o"
+        command = list(row.get("arguments") or shlex.split(row["command"]))
+        command[command.index(row["file"])] = str(source)
+        command[command.index("-o") + 1] = str(target)
+        for flag, value in (
+            ("-MF", output / f"{name}.d"),
+            ("-MT", target),
+            ("-MQ", target),
+        ):
+            if flag in command:
+                command[command.index(flag) + 1] = str(value)
+        command.extend(cflags)
+        cdb.append(
+            {"directory": row["directory"], "file": str(source), "arguments": command}
+        )
     (output / "compile_commands.json").write_text(json.dumps(cdb, indent=2) + "\n")
     receipts = []
-    run_stage(command, "compile", output, row["directory"], receipts)
+    for entry in cdb:
+        run_stage(
+            entry["arguments"],
+            "compile-" + Path(entry["file"]).stem,
+            output,
+            row["directory"],
+            receipts,
+        )
     declarations = re.findall(
         r'asm\(((?:\s*"[^"]*")+\s*)\)',
         (folder / "ConsumerHooks.h").read_text(),
@@ -109,6 +119,16 @@ def main():
         )
     )
     run_stage(command, "link", output, row["directory"], receipts)
+    main = next(
+        entry for entry in rows if Path(entry["file"]).parts[-2:] == ("client", "Main.cpp")
+    )
+    arguments = main.get("arguments") or shlex.split(main["command"])
+    main_object = arguments[arguments.index("-o") + 1]
+    if main_object not in command:
+        parser.error("client link does not match the entry object in the native CDB")
+    command[command.index(main_object)] = str(output / "GuardCheck.o")
+    command[command.index("-o") + 1] = str(output / "GuardCheck")
+    run_stage(command, "link-guards", output, row["directory"], receipts)
 
 
 if __name__ == "__main__":
