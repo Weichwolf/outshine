@@ -26,6 +26,9 @@ int main() {
   const auto two = Generators::AssetSourceRecipe(version, pair, kinds);
   CHECK(one.size() == 64 && two.size() == 64 && one != two,
         "a free schema cannot absorb the complete next source record");
+  CHECK(one == "7f00f7a5696f29198036d32d1d916ff2fc5a30381395dbcf2077175ae169b93c" &&
+            two == "1bf01fab380836396e3519c572e4468a35d7e1d4d6a01d0e2ee808d130e903fc",
+        "source count, scalar widths and text framing match the independent fixed v2 vectors");
   constexpr auto legacy = "43f51dc152e7a9a50942d44c57f921d8c2f567f97a7888002eb21d57712d2fa8";
   CHECK(one != legacy && two != legacy,
         "new framed recipes cannot silently reuse the old ambiguous recipe identity");

@@ -19,10 +19,11 @@ public:
   Ground::TerrainBytes Take(Data::TileId at) override {
     ++Calls;
     if (!Available) {
-      return Ground::TerrainBytes::Wire(
-          Data::SourceFailure{.Requested = Data::Address::At(at),
-                              .SourceId = "fixture",
-                              .Reason = Data::SourceFailureReason::OfflineMiss});
+      Data::SourceFailure failure{};
+      failure.Requested = Data::Address::At(at);
+      failure.SourceId = "fixture";
+      failure.Reason = Data::SourceFailureReason::OfflineMiss;
+      return Ground::TerrainBytes::Wire(std::move(failure));
     }
     Ground::TerrainField field(5, 5);
     for (uint32_t row = 0; row < 5; ++row) {
@@ -46,11 +47,13 @@ public:
 
 Ground::TerrainTiles::Config
 Resolver(const std::shared_ptr<Generators::PreparedTerrainAssets> &assets) {
-  return {.PreparedFields = [assets](Data::TileId at,
-                                     const Ground::TerrainTiles::Shaped &shape,
-                                     const Ground::TerrainTiles::FieldFactory &factory) {
+  Ground::TerrainTiles::Config config{};
+  config.PreparedFields = [assets](Data::TileId at,
+                                   const Ground::TerrainTiles::Shaped &shape,
+                                   const Ground::TerrainTiles::FieldFactory &factory) {
     return assets->Resolve(at, shape, factory);
-  }};
+  };
+  return config;
 }
 
 bool Equal(const Ground::TerrainField &first, const Ground::TerrainField &second) {

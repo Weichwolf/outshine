@@ -27,6 +27,16 @@ void CheckFreeFields(const std::filesystem::path &root) {
         "free ID and revision fields cannot alias raw content");
   CHECK(Data::SourceKey(first) != Data::SourceKey(second),
         "free ID and revision fields cannot alias source metadata");
+  CHECK(keyA == "a39bc9b60dd12c8ef38e17adb3d3c3ddc2723e84b0f6a91f0daf73c5fdc07c19" &&
+            keyB == "b480ed5437b66e960b1cba96a756dee1d1ab98de951985ef045cdde5f02b880a" &&
+            Data::SourceKey(first) ==
+                "b3e891b86a0882661bdb480000e26b8b5943ad374a169c60f899f40e42c7f5fe" &&
+            Data::SourceKey(second) ==
+                "f51d2710bcaeebd78dc7ad1fa98a46fa01a393ad9a14c847d1fc71ab2e23cd61",
+        "source and object keys match independently encoded fixed v2 reference vectors");
+  CHECK(Data::ContentKey(first, at, Data::ByteRange{.First = 7, .Length = 13}, "v1") ==
+            "28a542f00f65aa895a442fde109a8e491fb43bf79a871c071d1fee4f8f4ecb1e",
+        "the ranged key matches the independent little endian field vector");
   CHECK(keyA == Data::ContentKey(first, at) && Data::SourceKey(first) == Data::SourceKey(first),
         "unchanged declarations keep stable identities");
   constexpr auto legacy = "e87743fb489e44922b9e9fb242c843ef49ea001c827f5a1feff236192da4c572";
