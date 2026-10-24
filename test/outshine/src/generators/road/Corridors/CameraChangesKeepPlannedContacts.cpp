@@ -19,17 +19,17 @@ class NoMesh final : public RoadMesher {
 public:
   mutable size_t Calls = 0;
 
-  [[nodiscard]] RoadMeshingStats Sweep(std::span<const RoadStation> along,
-                                       RoadSweep surface,
-                                       RoadMeshBuffers &mesh) const override {
+  [[nodiscard]] RoadMeshingStats Sweep([[maybe_unused]] std::span<const RoadStation> along,
+                                       [[maybe_unused]] RoadSweep surface,
+                                       [[maybe_unused]] RoadMeshBuffers &mesh) const override {
     ++Calls;
     return {.Refused = 1, .Rejections = {}};
   }
 
-  void Junction(std::span<const RoadGate> gates,
-                RoadPlane plane,
-                const Vec3f &colour,
-                RoadMeshBuffers &mesh) const override {
+  void Junction([[maybe_unused]] std::span<const RoadGate> gates,
+                [[maybe_unused]] RoadPlane plane,
+                [[maybe_unused]] const Vec3f &colour,
+                [[maybe_unused]] RoadMeshBuffers &mesh) const override {
     ++Calls;
   }
 };
@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
   const bool withoutProjection = argc == 2 && std::string_view(argv[1]) == "--without-projection";
   CHECK(argc == 1 || withoutProjection, "the diagnostic accepts only its explicit projection mode");
   constexpr LongitudeLatitude kOrigin{.LongitudeDeg = 8, .LatitudeDeg = 49};
+  constexpr double kFocalPx = 800.0;
   const std::array<std::string, 1> layers{"streets"};
   Osm::OsmField vectors(14, layers);
   const std::array<Osm::OsmField::Declared, 3> roads{
@@ -112,7 +113,7 @@ int main(int argc, char **argv) {
                            .CensusAt = {},
                            .EyeLatDeg = kOrigin.LatitudeDeg,
                            .EyeLonDeg = kOrigin.LongitudeDeg,
-                           .Projection = {.FocalPx = 800}};
+                           .Projection = {.FocalPx = kFocalPx}};
   if (withoutProjection) { nearSite.Projection = {}; }
   auto farSite = nearSite;
   farSite.EyeLatDeg += 1;
