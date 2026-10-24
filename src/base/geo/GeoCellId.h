@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_GEOCELLID_H
-#define OUTSHINE_WORLD_DATA_GEOCELLID_H
+#ifndef OUTSHINE_BASE_GEO_GEOCELLID_H
+#define OUTSHINE_BASE_GEO_GEOCELLID_H
 
 #include "GeographicBounds.h"
 #include <cstdint>

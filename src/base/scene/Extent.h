@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_EXTENT_H
-#define OUTSHINE_EXTENT_H
+#ifndef OUTSHINE_BASE_SCENE_EXTENT_H
+#define OUTSHINE_BASE_SCENE_EXTENT_H
 
 namespace outshine {
 

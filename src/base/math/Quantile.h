@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_MATH_QUANTILE_H
-#define OUTSHINE_MATH_QUANTILE_H
+#ifndef OUTSHINE_BASE_MATH_QUANTILE_H
+#define OUTSHINE_BASE_MATH_QUANTILE_H
 
 #include <cmath>
 #include <cstddef>

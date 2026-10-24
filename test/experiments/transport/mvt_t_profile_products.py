@@ -8,6 +8,7 @@ import shapely
 from mvt_t_stair_loft import require_owned_lofts
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
+from terrain_source_effects import qualify_effects
 
 
 def polygon_parts(shape):
@@ -199,8 +200,13 @@ def _source_stair_levels(plan, body_data):
     }
 
 
-def shared_products(plan, heights, body_data):
+def shared_products(plan, heights, body_data, *, terrain_declarations=None):
     require_owned_lofts(plan)
+    terrain_effects = (
+        qualify_effects(plan, body_data, terrain_declarations)
+        if terrain_declarations is not None
+        else None
+    )
     samplers, tolerance = _consumer_samplers(plan, heights)
     navigation_root = _navigation_roots(plan)
     source_levels = _source_stair_levels(plan, body_data)
@@ -306,4 +312,14 @@ def shared_products(plan, heights, body_data):
             )
         ],
         "external_contacts": external_profiles(plan, samplers),
+        **(
+            {
+                "terrain_effects": {
+                    key: value.tolist() if isinstance(value, np.ndarray) else value
+                    for key, value in terrain_effects.items()
+                }
+            }
+            if terrain_effects is not None
+            else {}
+        ),
     }

@@ -72,7 +72,8 @@ void CheckFormat(const RoadPageAsset &page) {
   CHECK(decoded && Same(page.Geometry.Mesh, decoded->Geometry.Mesh) &&
             RoadPageKey(decoded->Address) == RoadPageKey(page.Address),
         "all page words and original scoped identities survive the native format");
-  CHECK(!EncodeRoadPageAsset(page, encoded->size() - 1) &&
+  const auto overBudget = EncodeRoadPageAsset(page, encoded->size() - 1);
+  CHECK(!overBudget && overBudget.error() == "road page exceeds its native byte budget" &&
             !DecodeRoadPageAsset(*encoded, encoded->size() - 1),
         "encoded byte limits apply before exposing a page");
   auto corrupt = *encoded;
@@ -83,14 +84,19 @@ void CheckFormat(const RoadPageAsset &page) {
   CHECK(!DecodeRoadPageAsset(corrupt, kLimit), "trailing page bytes are rejected");
   auto invalid = page;
   invalid.Geometry.Parts[0].Index += 1;
-  CHECK(!EncodeRoadPageAsset(invalid, kLimit),
+  const auto wrongOwner = EncodeRoadPageAsset(invalid, kLimit);
+  CHECK(!wrongOwner && wrongOwner.error() == "road page mesh ownership differs from its address",
         "a producer cannot bind another part to the requested page");
   invalid = page;
   invalid.Geometry.Mesh.Index[0] = static_cast<uint32_t>(invalid.Geometry.Mesh.PositionM.size());
-  CHECK(!EncodeRoadPageAsset(invalid, kLimit), "indices cannot reference another page's vertices");
+  const auto wrongIndex = EncodeRoadPageAsset(invalid, kLimit);
+  CHECK(!wrongIndex && wrongIndex.error() == "road page mesh indices exceed its vertex range",
+        "indices cannot reference another page's vertices");
   invalid = page;
   invalid.Geometry.Mesh.NormalM[0] = std::numeric_limits<float>::quiet_NaN();
-  CHECK(!EncodeRoadPageAsset(invalid, kLimit), "nonfinite page words are rejected");
+  const auto invalidNormal = EncodeRoadPageAsset(invalid, kLimit);
+  CHECK(!invalidNormal && invalidNormal.error() == "road page mesh normals are nonfinite",
+        "nonfinite page words are rejected with their actual attribute");
   auto address = page.Address;
   address.Parts.push_back(address.Parts[0]);
   CHECK(RoadPageKey(address).empty(), "duplicate ownership cannot produce a stable page key");

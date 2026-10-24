@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_EVENT_H
-#define OUTSHINE_EVENT_H
+#ifndef OUTSHINE_SCENARIO_EVENT_H
+#define OUTSHINE_SCENARIO_EVENT_H
 
 #include <cstdint>
 #include <span>

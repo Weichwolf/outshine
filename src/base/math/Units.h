@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_MATH_UNITS_H
-#define OUTSHINE_MATH_UNITS_H
+#ifndef OUTSHINE_BASE_MATH_UNITS_H
+#define OUTSHINE_BASE_MATH_UNITS_H
 
 #include <numbers>
 

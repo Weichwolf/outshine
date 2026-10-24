@@ -28,7 +28,7 @@ bool OptionalKey(const std::string &key) {
 std::expected<GeneratedAssetPackage, std::string>
 EncodePackage(const RoadPageAsset &page, AssetRecord record, size_t bytesMost) {
   auto bytes = EncodeRoadPageAsset(page, bytesMost);
-  if (!bytes) { return std::unexpected("road page is invalid or exceeds its byte budget"); }
+  if (!bytes) { return std::unexpected(std::string(bytes.error())); }
   record.Bounds = RoadPageBoundsEcef(page);
   record.ByteCount = bytes->size();
   return GeneratedAssetPackage{.Records = {std::move(record)}, .Bytes = std::move(*bytes)};

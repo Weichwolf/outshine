@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_MATH_BOX_H
-#define OUTSHINE_MATH_BOX_H
+#ifndef OUTSHINE_BASE_MATH_BOX_H
+#define OUTSHINE_BASE_MATH_BOX_H
 
 #include <algorithm>
 #include <cstddef>

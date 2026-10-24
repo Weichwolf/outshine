@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_MATH_MAT4_H
-#define OUTSHINE_MATH_MAT4_H
+#ifndef OUTSHINE_BASE_MATH_MAT4_H
+#define OUTSHINE_BASE_MATH_MAT4_H
 
 #include <array>
 #include <cstddef>

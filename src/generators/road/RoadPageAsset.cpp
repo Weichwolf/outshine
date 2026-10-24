@@ -8,10 +8,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <limits>
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -144,21 +146,28 @@ bool ValidDiagnostics(const RoadPageAsset &page) {
   return refused == page.Geometry.Swept.Refused;
 }
 
-bool ValidMesh(const RoadPageAsset &page) {
-  if (page.Geometry.Parts != page.Address.Parts) { return false; }
+std::string_view MeshError(const RoadPageAsset &page) {
+  if (page.Geometry.Parts != page.Address.Parts) {
+    return "road page mesh ownership differs from its address";
+  }
   const auto &mesh = page.Geometry.Mesh;
   const size_t vertices = mesh.PositionM.size() / 3;
   if (mesh.PositionM.size() % 3 != 0 || mesh.NormalM.size() != mesh.PositionM.size() ||
       vertices > std::numeric_limits<uint32_t>::max() || mesh.ColourRgba.size() / 4 != vertices ||
       mesh.ColourRgba.size() % 4 != 0 || mesh.Index.size() % 3 != 0 ||
       (!mesh.PositionM.empty() && page.Address.Parts.empty())) {
-    return false;
+    return "road page mesh attribute sizes are inconsistent";
   }
   const auto finite = [](const auto &values) {
     return std::ranges::all_of(values, [](float value) { return std::isfinite(value); });
   };
-  return finite(mesh.PositionM) && finite(mesh.NormalM) && finite(mesh.ColourRgba) &&
-         std::ranges::all_of(mesh.Index, [vertices](uint32_t index) { return index < vertices; });
+  if (!finite(mesh.PositionM)) { return "road page mesh positions are nonfinite"; }
+  if (!finite(mesh.NormalM)) { return "road page mesh normals are nonfinite"; }
+  if (!finite(mesh.ColourRgba)) { return "road page mesh colours are nonfinite"; }
+  if (!std::ranges::all_of(mesh.Index, [vertices](uint32_t index) { return index < vertices; })) {
+    return "road page mesh indices exceed its vertex range";
+  }
+  return {};
 }
 }
 
@@ -169,10 +178,12 @@ std::string RoadPageKey(const RoadPageAddress &address) {
   return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
-std::optional<std::vector<uint8_t>> EncodeRoadPageAsset(const RoadPageAsset &page,
-                                                        size_t bytesMost) {
-  if (!ValidAddress(page.Address) || !ValidMesh(page) || !ValidDiagnostics(page)) {
-    return std::nullopt;
+std::expected<std::vector<uint8_t>, std::string_view> EncodeRoadPageAsset(const RoadPageAsset &page,
+                                                                          size_t bytesMost) {
+  if (!ValidAddress(page.Address)) { return std::unexpected("road page address is invalid"); }
+  if (const auto error = MeshError(page); !error.empty()) { return std::unexpected(error); }
+  if (!ValidDiagnostics(page)) {
+    return std::unexpected("road page diagnostics disagree with its parts or refused total");
   }
   BinaryValueWriter out(bytesMost);
   const auto &mesh = page.Geometry.Mesh;
@@ -180,7 +191,7 @@ std::optional<std::vector<uint8_t>> EncodeRoadPageAsset(const RoadPageAsset &pag
       !DiagnosticsFields(out, page.Geometry.Diagnostics) || !out.Array<float>(mesh.PositionM) ||
       !out.Array<float>(mesh.NormalM) || !out.Array<float>(mesh.ColourRgba) ||
       !out.Array<uint32_t>(mesh.Index)) {
-    return std::nullopt;
+    return std::unexpected("road page exceeds its native byte budget");
   }
   return std::move(out.Out).TakeBytes();
 }
@@ -194,7 +205,7 @@ std::optional<RoadPageAsset> DecodeRoadPageAsset(std::span<const uint8_t> bytes,
   page.Geometry.Parts = page.Address.Parts;
   if (!StatsFields(in, page.Geometry.Swept) || !DiagnosticsFields(in, page.Geometry.Diagnostics) ||
       !in.Array(mesh.PositionM) || !in.Array(mesh.NormalM) || !in.Array(mesh.ColourRgba) ||
-      !in.Array(mesh.Index) || in.In.Remaining() != 0 || !ValidMesh(page) ||
+      !in.Array(mesh.Index) || in.In.Remaining() != 0 || !MeshError(page).empty() ||
       !ValidDiagnostics(page)) {
     return std::nullopt;
   }

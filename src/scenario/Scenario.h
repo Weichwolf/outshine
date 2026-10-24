@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_SCENARIO_H
-#define OUTSHINE_SCENARIO_H
+#ifndef OUTSHINE_SCENARIO_SCENARIO_H
+#define OUTSHINE_SCENARIO_SCENARIO_H
 
 #include <cstdint>
 #include <string>
