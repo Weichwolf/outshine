@@ -112,7 +112,7 @@ int main() {
   constexpr size_t kLargeRecipeBytes = size_t{160} * 1024;
   std::string rules(kLargeRecipeBytes, 'r');
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-96",
+      "prepared-ground-region-97",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   recipe.append(rules);

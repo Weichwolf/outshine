@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_SOURCEDTERRAINFIELDS_H
 
 #include <cstddef>
+#include <cstdint>
 #include <array>
 #include <expected>
 #include <memory>
@@ -26,6 +27,16 @@ public:
     std::array<double, 2> AslM;
     size_t Nodes = 0;
   };
+
+  struct Binding {
+    std::array<uint8_t, 32> Key;
+    size_t Fields = 0;
+    size_t RasterBytes = 0;
+    size_t MetadataBytes = 0;
+    size_t CopiedRasterBytes = 0;
+  };
+
+  [[nodiscard]] std::expected<Binding, CaptureError> BindingAt(int zoom) const;
 
   [[nodiscard]] static std::expected<SourcedTerrainFields, CaptureError>
   Capture(std::span<const Entry> fields,
