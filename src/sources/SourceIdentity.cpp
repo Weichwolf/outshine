@@ -43,7 +43,7 @@ std::string ContentKey(const SourceDecl &decl,
                        const Address &at,
                        const std::optional<ByteRange> &range,
                        std::string_view entityTag) {
-  const auto object = ContentKey(decl, at);
+  auto object = ContentKey(decl, at);
   if (object.empty() || !range) { return object; }
   BinaryValueWriter out(kEncodingBytesMost);
   if (!out.Text("raw-source-range-2") || !out.Text(object) || !out(range->First, range->Length) ||

@@ -32,7 +32,7 @@ std::string AssetSourceRecipe(std::string_view version,
                               std::span<const Data::DataKind> kinds) {
   uint64_t selected = 0;
   for (size_t at = 0; at < sources.Count(); ++at) {
-    selected += std::ranges::find(kinds, sources.At(at).Declaration().Kind) != kinds.end();
+    if (std::ranges::find(kinds, sources.At(at).Declaration().Kind) != kinds.end()) { ++selected; }
   }
   BinaryValueWriter out(std::numeric_limits<size_t>::max());
   if (!out.Text("asset-source-recipe-2") || !out.Text(version) || !out(selected)) { return {}; }

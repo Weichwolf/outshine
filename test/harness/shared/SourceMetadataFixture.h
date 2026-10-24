@@ -16,22 +16,26 @@ class MetadataOnlySource final : public Data::Source {
 public:
   explicit MetadataOnlySource(Data::SourceDecl declaration) : Decl_(std::move(declaration)) {}
 
-  const Data::SourceDecl &Declaration() const noexcept override { return Decl_; }
+  [[nodiscard]] const Data::SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Data::Coverage Covers(const Data::SourceRequest &) const noexcept override {
+  [[nodiscard]] Data::Coverage
+  Covers([[maybe_unused]] const Data::SourceRequest &request) const noexcept override {
     return Data::Coverage::Inside;
   }
 
-  Data::Address Serves(const Data::SourceRequest &request) const noexcept override {
+  [[nodiscard]] Data::Address Serves(const Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
-  Data::FetchStart Begin(const Data::Address &, Data::Transport &) const override {
+  [[nodiscard]] Data::FetchStart Begin([[maybe_unused]] const Data::Address &at,
+                                       [[maybe_unused]] Data::Transport &transport) const override {
     return std::unexpected(Data::SourceFailureReason::ProviderRefused);
   }
 
-  Data::SourceResponse
-  Collect(const Data::Address &, Data::Ticket, Data::Transport &) const override {
+  [[nodiscard]] Data::SourceResponse
+  Collect([[maybe_unused]] const Data::Address &at,
+          [[maybe_unused]] Data::Ticket ticket,
+          [[maybe_unused]] Data::Transport &transport) const override {
     return Data::SourceResponse::Meant(Data::Meaning::Refused);
   }
 
@@ -39,7 +43,7 @@ private:
   Data::SourceDecl Decl_;
 };
 
-inline Data::SourceDecl Declaration(std::string id, int32_t rank = 0) {
+[[nodiscard]] inline Data::SourceDecl Declaration(std::string id, int32_t rank = 0) {
   Data::SourceDecl declaration{};
   declaration.Id = std::move(id);
   declaration.Revision = "r1";

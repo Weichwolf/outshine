@@ -11,6 +11,7 @@
 
 namespace {
 using namespace outshine;
+constexpr uint8_t kUnknownMetadataValue = 255;
 
 void CheckFreeFields(const std::filesystem::path &root) {
   Data::SourceDecl first{};
@@ -40,7 +41,7 @@ void CheckFreeFields(const std::filesystem::path &root) {
           "old unframed bytes cannot silently satisfy a new declaration");
     CHECK(cache.Keep(keyA, bytes.data(), bytes.size()), "the first canonical package is stored");
   }
-  Data::RawSourceCache fresh({.Directory = root.string()});
+  const Data::RawSourceCache fresh({.Directory = root.string()});
   const auto own = fresh.Lookup(keyA);
   const auto foreign = fresh.Lookup(keyB);
   CHECK(own.Where == Data::RawSourceCache::Presence::Bytes &&
@@ -80,12 +81,12 @@ void CheckEndpointPayloadAndRanges() {
             Data::ContentKey(wire, at) == Data::ContentKey(first, at),
         "decode format changes source identity while preserving the same raw object's field set");
   auto invalid = first;
-  invalid.Kind = static_cast<Data::DataKind>(255);
+  invalid.Kind = static_cast<Data::DataKind>(kUnknownMetadataValue);
   CHECK(!Data::SourceIdentityEncodable(invalid) && Data::SourceKey(invalid).empty() &&
             Data::ContentKey(invalid, at).empty(),
         "unknown data kinds cannot collapse into one usable empty-name identity");
   invalid = first;
-  invalid.Wire = static_cast<Data::WireFormat>(255);
+  invalid.Wire = static_cast<Data::WireFormat>(kUnknownMetadataValue);
   CHECK(!Data::SourceIdentityEncodable(invalid) && Data::SourceKey(invalid).empty(),
         "unknown source formats fail before publishing a persistent identity");
 }

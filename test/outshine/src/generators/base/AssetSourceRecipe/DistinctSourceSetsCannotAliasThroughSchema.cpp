@@ -2,6 +2,7 @@
 #include "Check.h"
 #include "SourceMetadataFixture.h"
 #include <array>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -11,7 +12,9 @@ int main() {
   using namespace outshine::Test;
   namespace Fixture = SourceMetadata;
   Data::RawSourceCache raw({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
-  Data::SourceSet single(raw), pair(raw), reverse(raw);
+  Data::SourceSet single(raw);
+  Data::SourceSet pair(raw);
+  Data::SourceSet reverse(raw);
   Fixture::RegisterRecipe(single, false);
   Fixture::RegisterRecipe(pair, true);
   Fixture::RegisterRecipe(reverse, true, true);
@@ -40,7 +43,8 @@ int main() {
   CHECK(Generators::AssetSourceRecipe("another-product-version", pair, kinds) != two,
         "the explicit product version remains part of persistent identity");
   auto invalid = Fixture::Declaration("invalid-definition", 2);
-  invalid.Wire = static_cast<Data::WireFormat>(255);
+  constexpr uint8_t unknownMetadataValue = 255;
+  invalid.Wire = static_cast<Data::WireFormat>(unknownMetadataValue);
   CHECK(pair.Add(std::make_unique<Fixture::MetadataOnlySource>(std::move(invalid))) ==
                 Data::SourceSet::Registration::InvalidDefinition &&
             pair.Count() == 2 && Generators::AssetSourceRecipe(version, pair, kinds) == two,

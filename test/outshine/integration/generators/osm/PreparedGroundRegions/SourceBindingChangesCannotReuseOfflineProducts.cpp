@@ -28,6 +28,7 @@ using Generators::Osm::MvtSchema;
 using Generators::Osm::PreparedGroundRegions;
 namespace Fixture = Test::SourceMetadata;
 constexpr auto kLegacyRequest = "c2e51b9d79875b1bbe3c2bfa418eadd4d70224b20cf180b0fe2e41bea495383c";
+constexpr std::array<float, 4> kTerrainHeightsM{100, 101, 102, 103};
 
 std::string Request(const PreparedGroundRegions &cache) {
   const std::array<Ground::TileSpot, 1> tiles{{{.Zoom = 2, .X = 1, .Y = 1}}};
@@ -55,7 +56,7 @@ bool Prime(const std::filesystem::path &root) {
             region.Surfaces.setTriangles(*part, indices),
         "the cached product contains codec-valid native geometry");
   region.Terrain.Sheets = {{.Tile = {.Zoom = 2, .X = 1, .Y = 1},
-                            .Nodes = {100, 101, 102, 103},
+                            .Nodes = {kTerrainHeightsM.begin(), kTerrainHeightsM.end()},
                             .Side = 2,
                             .Postings = 2}};
   region.Terrain.Tiles = 1;
@@ -84,10 +85,14 @@ int Offline(const std::filesystem::path &root, bool pair) {
     CHECK(!hit && request != kLegacyRequest,
           "the different source binding cannot inherit the current or old ambiguous product");
   } else {
-    CHECK(hit && (**loaded).Region.Terrain.Sheets.size() == 1 &&
-              (**loaded).Region.Terrain.Sheets.front().Nodes ==
-                  std::vector<float>({100, 101, 102, 103}),
-          "the same binding restores the exact native product in a fresh offline process");
+    CHECK(loaded && loaded->has_value(), "the same binding remains an offline hit");
+    if (loaded && loaded->has_value()) {
+      const auto &region = (**loaded).Region;
+      CHECK(region.Terrain.Sheets.size() == 1 &&
+                region.Terrain.Sheets.front().Nodes ==
+                    std::vector<float>(kTerrainHeightsM.begin(), kTerrainHeightsM.end()),
+            "the same binding restores the exact native product in a fresh offline process");
+    }
   }
   CHECK(raw.Counters().ReadCalls == 0 && sources.Counters().ProviderStarts == 0,
         "lookup uses neither raw source reads nor provider work");
