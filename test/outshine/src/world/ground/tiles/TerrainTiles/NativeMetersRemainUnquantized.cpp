@@ -64,7 +64,7 @@ int main() {
   TerrainTiles missing(source, EnuFrame::At({}), {});
   const auto refused = missing.StitchedGrid(at.Zoom, at.X, at.Y);
   CHECK(!refused.TryField() && refused.Failure() &&
-            refused.Failure()->Reason == Data::FetchFailureReason::CorruptPayload,
+            refused.Failure()->Reason == Data::SourceFailureReason::CorruptPayload,
         "missing native postings cannot become zero ground or renderable NaN geometry");
   return Report();
 }

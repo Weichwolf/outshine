@@ -15,7 +15,7 @@ using namespace outshine::Data;
 
 class MissingTransport final : public Transport {
 public:
-  FetchFailureReason Reason = FetchFailureReason::OfflineMiss;
+  SourceFailureReason Reason = SourceFailureReason::OfflineMiss;
   double Now = 0;
   bool Authorized = false;
 
@@ -51,7 +51,7 @@ void AddSources(SourceSet &sources) {
         "fallback source registered");
 }
 
-void CheckFailure(const std::optional<FetchFailure> &failure, const std::string &key) {
+void CheckFailure(const std::optional<SourceFailure> &failure, const std::string &key) {
   using namespace outshine::Test;
   CHECK(failure.has_value(), "refused request owns its failure");
   if (!failure) { return; }
@@ -60,7 +60,7 @@ void CheckFailure(const std::optional<FetchFailure> &failure, const std::string 
             failure->Served == Address::At({.Zoom = 15, .X = 17, .Y = 11}),
         "fine request and actually served ancestor remain distinct");
   CHECK(failure->SourceId == "fallback" && failure->SourceRevision == "second-pin" &&
-            failure->SourceKey == key && failure->Reason == FetchFailureReason::OfflineMiss,
+            failure->SourceKey == key && failure->Reason == SourceFailureReason::OfflineMiss,
         "failure belongs to the actual fallback provider and retains its cause");
   CHECK(!failure->HttpStatus && failure->Retries == 0,
         "an offline miss does not invent an HTTP response or a retry");
@@ -69,7 +69,7 @@ void CheckFailure(const std::optional<FetchFailure> &failure, const std::string 
 
 int main() {
   using namespace outshine::Test;
-  const Fetch request(DataKind::Elevation, Address::At({.Zoom = 17, .X = 69, .Y = 45}));
+  const SourceRequest request(DataKind::Elevation, Address::At({.Zoom = 17, .X = 69, .Y = 45}));
   const auto owned = [&] {
     RawSourceCache store({.Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
@@ -77,12 +77,12 @@ int main() {
     MissingTransport transport;
     auto query = sources.Ask(request);
     auto reply = sources.Collect(query, transport);
-    CHECK(reply.Where() == Delivery::State::Refused, "offline fallback refuses");
+    CHECK(reply.Where() == SourceDelivery::State::Refused, "offline fallback refuses");
     return std::pair(std::move(reply), SourceKey(sources.At(1).Declaration()));
   }();
   CheckFailure(owned.first.Failure(), owned.second);
-  CHECK(!Delivery::Waiting().Failure() &&
-            !Delivery::From("ok", "pin", request.Where(), {1}).Failure(),
+  CHECK(!SourceDelivery::Waiting().Failure() &&
+            !SourceDelivery::From("ok", "pin", request.Where(), {1}).Failure(),
         "success and pending do not carry diagnostic payloads");
   RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
@@ -111,9 +111,9 @@ int main() {
   }
   CHECK(sources.Counters().Delivered == deliveries,
         "repeated recovered requests do not consult source providers again");
-  for (const auto reason : {FetchFailureReason::TimedOut,
-                            FetchFailureReason::Cancelled,
-                            FetchFailureReason::Unavailable}) {
+  for (const auto reason : {SourceFailureReason::TimedOut,
+                            SourceFailureReason::Cancelled,
+                            SourceFailureReason::Unavailable}) {
     RawSourceCache empty({.Using = RawSourceCache::Use::Off});
     SourceSet isolated(empty);
     AddSources(isolated);

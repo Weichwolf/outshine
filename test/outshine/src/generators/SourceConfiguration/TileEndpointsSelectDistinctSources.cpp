@@ -65,7 +65,7 @@ int main() {
   CHECK(sources.Count() == 2, "both tile sources registered");
   if (sources.Count() != 2) { return Report(); }
   const Address tile = Address::At(TileId{.Zoom = 5, .X = 17, .Y = 11});
-  const Fetch request(DataKind::VectorMap, tile);
+  const SourceRequest request(DataKind::VectorMap, tile);
   CHECK(ContentKey(sources.At(0).Declaration(), tile) !=
             ContentKey(sources.At(1).Declaration(), tile),
         "same pin at different datasets/endpoints cannot alias in cache");
@@ -77,7 +77,7 @@ int main() {
         "source diagnostics distinguish a changed endpoint under the same pin");
   TileTransport transport;
   auto query = sources.Ask(request);
-  Delivery delivered = sources.Collect(query, transport);
+  SourceDelivery delivered = sources.Collect(query, transport);
   auto answer = delivered.Take();
   CHECK(answer && answer->SourceId == "second-vector" && answer->SourceRevision == "same-pin" &&
             answer->Bytes == std::vector<uint8_t>({17, 42}),
@@ -90,8 +90,8 @@ int main() {
             used[1].Id == "second-vector" && used[1].Revision == "same-pin" &&
             used[1].Deliveries == 1,
         "only the fallback that delivered bytes is counted as used");
-  auto preferredQuery =
-      sources.Ask(Fetch(DataKind::VectorMap, Address::At(TileId{.Zoom = 5, .X = 16, .Y = 11})));
+  auto preferredQuery = sources.Ask(
+      SourceRequest(DataKind::VectorMap, Address::At(TileId{.Zoom = 5, .X = 16, .Y = 11})));
   auto preferredAnswer = sources.Collect(preferredQuery, transport).Take();
   const auto mixed = sources.Counters().Sources;
   CHECK(preferredAnswer && preferredAnswer->SourceId == "first-vector" && mixed.size() == 2 &&
@@ -105,7 +105,7 @@ int main() {
   CHECK(RegisterSources(failSources, failing, {}, error, registry), error.c_str());
   TileTransport failTransport;
   auto failQuery = failSources.Ask(request);
-  CHECK(failSources.Collect(failQuery, failTransport).Where() == Delivery::State::Refused &&
+  CHECK(failSources.Collect(failQuery, failTransport).Where() == SourceDelivery::State::Refused &&
             failTransport.Urls.size() == 1,
         "fail policy stops before the second endpoint");
 
@@ -134,9 +134,9 @@ int main() {
   CHECK(RegisterSources(changedEndpointSources, changedEndpointProviders, {}, error, registry),
         error.c_str());
   auto changedEndpointQuery = changedEndpointSources.Ask(request);
-  const Delivery changedEndpointReply =
+  const SourceDelivery changedEndpointReply =
       changedEndpointSources.Collect(changedEndpointQuery, offline);
-  CHECK(changedEndpointReply.Where() == Delivery::State::Refused &&
+  CHECK(changedEndpointReply.Where() == SourceDelivery::State::Refused &&
             changedEndpointReply.SourceId() == "first-vector" &&
             changedEndpointSources.Counters().Delivered == 0 &&
             changedEndpointSources.Counters().RemoteStarts == 0 &&
@@ -146,9 +146,9 @@ int main() {
   error.clear();
   CHECK(RegisterSources(missing, providers, {}, error, registry), error.c_str());
   const Address uncached = Address::At(TileId{.Zoom = 5, .X = 18, .Y = 11});
-  auto missQuery = missing.Ask(Fetch(DataKind::VectorMap, uncached));
-  const Delivery missed = missing.Collect(missQuery, offline);
-  CHECK(missed.Where() == Delivery::State::Refused && missed.SourceId() == "first-vector" &&
+  auto missQuery = missing.Ask(SourceRequest(DataKind::VectorMap, uncached));
+  const SourceDelivery missed = missing.Collect(missQuery, offline);
+  CHECK(missed.Where() == SourceDelivery::State::Refused && missed.SourceId() == "first-vector" &&
             missed.SourceRevision() == "same-pin" && missing.Counters().RemoteStarts == 0,
         "offline miss reports selected source and pin without fetched data");
   std::error_code removeError;

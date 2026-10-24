@@ -28,15 +28,15 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
     ++Calls;
-    return Fetched::Delivered(std::move(Bytes));
+    return SourceResponse::Delivered(std::move(Bytes));
   }
 };
 }
@@ -53,7 +53,7 @@ int main() {
   const auto sourceKey = SourceKey(source->Decl);
   CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "source registered");
   TilePool pool({}, sources, transport);
-  const Fetch request(DataKind::Elevation, Address::Whole(0));
+  const SourceRequest request(DataKind::Elevation, Address::Whole(0));
   TilePool::Landing first;
   CHECK(pool.BytesBlocking(request, &first) == TilePool::Reply::Ready,
         "source supplies tile bytes");
@@ -74,7 +74,7 @@ int main() {
             probe->Calls == 1,
         "cache owns an independent payload and provenance snapshot without refetching");
   TilePool::Landing asynchronous;
-  CHECK(pool.Bytes(Fetch(DataKind::Elevation, Address::Whole(1)), &asynchronous) ==
+  CHECK(pool.Bytes(SourceRequest(DataKind::Elevation, Address::Whole(1)), &asynchronous) ==
             TilePool::Reply::Pending,
         "a fresh request starts a carrier job");
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

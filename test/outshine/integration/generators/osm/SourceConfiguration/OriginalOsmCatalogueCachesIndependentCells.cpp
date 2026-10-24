@@ -79,7 +79,7 @@ int main() {
     Transport &wire = pass == 0 ? static_cast<Transport &>(network) : offline;
     for (size_t at = 0; at < cells.size(); ++at) {
       const Address address = Address::AtGeoCell(cells[at]);
-      auto query = sources.Ask(Fetch(DataKind::OriginalOsm, address));
+      auto query = sources.Ask(SourceRequest(DataKind::OriginalOsm, address));
       const auto answer = sources.Collect(query, wire).Take();
       CHECK(answer && answer->At == address && answer->SourceId == provider.Dataset &&
                 answer->SourceRevision == provider.Revision &&
@@ -102,8 +102,8 @@ int main() {
     }
     for (const GeoCellId invalid :
          {GeoCellId{.Level = 8}, GeoCellId{.Level = 25}, GeoCellId{.Level = 9, .X = 512}}) {
-      auto query = sources.Ask(Fetch(DataKind::OriginalOsm, Address::AtGeoCell(invalid)));
-      CHECK(sources.Collect(query, wire).Where() == Delivery::State::Undeclared,
+      auto query = sources.Ask(SourceRequest(DataKind::OriginalOsm, Address::AtGeoCell(invalid)));
+      CHECK(sources.Collect(query, wire).Where() == SourceDelivery::State::Undeclared,
             "oversized and invalid cells fail admission before transport or cache IO");
     }
     CHECK(sources.Counters().FromStore == (pass == 0 ? 0 : 2),

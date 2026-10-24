@@ -222,7 +222,7 @@ private:
                          std::unordered_map<std::string, uint32_t> &index,
                          std::string_view s);
 
-  struct Fetched {
+  struct SourceResponse {
     bool Held = false;
     int Added = 0;
     bool Refused = false;
@@ -242,8 +242,9 @@ private:
 
   enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
 
-  [[nodiscard]] std::expected<Fetched, std::string_view> AddTile(TilePool &tiles, TileAt at);
-  [[nodiscard]] std::expected<Fetched, std::string_view> AddNativeTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddNativeTile(TilePool &tiles,
+                                                                              TileAt at);
   [[nodiscard]] bool AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage);
   [[nodiscard]] std::expected<int, std::string_view>
   AddWindowTiles(TilePool &tiles, OsmTileWindow window, ParseBudget parsing);

@@ -26,15 +26,15 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &at, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &at, Ticket, Transport &) const override {
     ++Calls;
-    return Fetched::Delivered({static_cast<uint8_t>(*at.Index() & 0xFFu)});
+    return SourceResponse::Delivered({static_cast<uint8_t>(*at.Index() & 0xFFu)});
   }
 };
 
@@ -54,7 +54,7 @@ int main() {
   constexpr uint64_t requests = 100;
   for (uint64_t at = 0; at < requests; ++at) {
     TilePool::Landing landing;
-    CHECK(pool.BytesBlocking(Fetch(DataKind::Elevation, Address::Whole(at)), &landing) ==
+    CHECK(pool.BytesBlocking(SourceRequest(DataKind::Elevation, Address::Whole(at)), &landing) ==
                   TilePool::Reply::Ready &&
               landing.Bytes == std::vector<uint8_t>{static_cast<uint8_t>(at & 0xFFu)},
           "each distinct request enters the byte cache with its payload");
@@ -64,7 +64,7 @@ int main() {
         "cache and its index grow once for each distinct request");
   for (uint64_t at = 0; at < requests; ++at) {
     TilePool::Landing landing;
-    CHECK(pool.BytesBlocking(Fetch(DataKind::Elevation, Address::Whole(at)), &landing) ==
+    CHECK(pool.BytesBlocking(SourceRequest(DataKind::Elevation, Address::Whole(at)), &landing) ==
               TilePool::Reply::Ready,
           "cached request returns its retained payload");
   }

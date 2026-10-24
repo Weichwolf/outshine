@@ -29,16 +29,16 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &request) const noexcept override {
+  Coverage Covers(const SourceRequest &request) const noexcept override {
     return request.Kind() == DataKind::Elevation ? Coverage::Inside : Coverage::Outside;
   }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Delivered({0});
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return SourceResponse::Delivered({0});
   }
 
   std::expected<HeightRaster, DecodeFailure>

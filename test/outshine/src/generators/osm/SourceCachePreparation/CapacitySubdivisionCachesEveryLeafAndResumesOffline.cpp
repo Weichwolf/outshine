@@ -23,13 +23,13 @@ public:
     std::array<double, 4> bounds{};
     const auto offset = url.find("bbox=");
     if (offset == std::string::npos) {
-      return std::unexpected(outshine::Data::FetchFailureReason::InvalidRequest);
+      return std::unexpected(outshine::Data::SourceFailureReason::InvalidRequest);
     }
     const char *at = url.data() + offset + 5;
     for (auto &coordinate : bounds) {
       const auto parsed = std::from_chars(at, url.data() + url.size(), coordinate);
       if (parsed.ec != std::errc{}) {
-        return std::unexpected(outshine::Data::FetchFailureReason::InvalidRequest);
+        return std::unexpected(outshine::Data::SourceFailureReason::InvalidRequest);
       }
       at = parsed.ptr;
       if (at != url.data() + url.size()) { ++at; }

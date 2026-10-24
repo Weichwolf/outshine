@@ -32,7 +32,7 @@ namespace {
 using namespace std::chrono_literals;
 using Clock = std::chrono::steady_clock;
 using outshine::Data::ByteRange;
-using outshine::Data::FetchFailureReason;
+using outshine::Data::SourceFailureReason;
 using outshine::Data::Wire;
 
 class Server {
@@ -135,31 +135,31 @@ Wire Await(outshine::HttpTransport &transport,
     (void)transport.Await(10.0);
   }
   transport.Cancel(ticket);
-  return Wire::Unreachable(FetchFailureReason::TimedOut);
+  return Wire::Unreachable(SourceFailureReason::TimedOut);
 }
 
 using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Test;
 
-std::expected<Delivery::Answer, FetchFailureReason>
-Acquire(SourceSet &sources, Transport &wire, const Fetch &request) {
+std::expected<SourceDelivery::Answer, SourceFailureReason>
+Acquire(SourceSet &sources, Transport &wire, const SourceRequest &request) {
   auto query = sources.Ask(request);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(25);
   while (std::chrono::steady_clock::now() < deadline) {
     auto response = sources.Collect(query, wire);
-    if (response.Where() != Delivery::State::Pending) {
+    if (response.Where() != SourceDelivery::State::Pending) {
       auto settled = response.Take();
       if (!settled) {
         return std::unexpected(response.Failure() ? response.Failure()->Reason
-                                                  : FetchFailureReason::Unavailable);
+                                                  : SourceFailureReason::Unavailable);
       }
       return std::move(*settled);
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
   SourceSet::Abandon(query, wire);
-  return std::unexpected(FetchFailureReason::Unavailable);
+  return std::unexpected(SourceFailureReason::Unavailable);
 }
 
 void RealOriginal(const char *url) {
@@ -174,7 +174,8 @@ void RealOriginal(const char *url) {
   CHECK(provider->Url(at) == url, "probe uses the official native N54/E009 source address");
   CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
         "live native source uses the shared registry and raw cache");
-  const Fetch headerRequest(DataKind::Elevation, at, ByteRange{.First = 0, .Length = 16384});
+  const SourceRequest headerRequest(
+      DataKind::Elevation, at, ByteRange{.First = 0, .Length = 16384});
   auto header = Acquire(sources, wire, headerRequest);
   CHECK(header && header->Range, "real COG metadata has a verified range receipt");
   if (!header || !header->Range) { return; }
@@ -191,7 +192,8 @@ void RealOriginal(const char *url) {
   CHECK(native.Columns == 2400 && native.Rows == 3600 && native.BlockColumns == 1024 &&
             native.BlockRows == 1024 && native.WestDeg == 9 && native.NorthDeg == 55,
         "real source georeference survives native decoding");
-  const Fetch blockRequest(DataKind::Elevation, at, native.Blocks[1], header->Range->EntityTag);
+  const SourceRequest blockRequest(
+      DataKind::Elevation, at, native.Blocks[1], header->Range->EntityTag);
   auto bytes = Acquire(sources, wire, blockRequest);
   CHECK(bytes && bytes->Range,
         "one spatially selected block keeps the same strong object revision");
@@ -282,8 +284,8 @@ int main() {
     if (!started) { continue; }
     auto reply = Await(transport, *started);
     CHECK(reply.Where() == Wire::State::Unreachable &&
-              reply.FailureReason() == (path == "/large" ? FetchFailureReason::CapacityRefused
-                                                         : FetchFailureReason::CorruptPayload),
+              reply.FailureReason() == (path == "/large" ? SourceFailureReason::CapacityRefused
+                                                         : SourceFailureReason::CorruptPayload),
           "invalid success cannot become cached source bytes");
   }
   for (const ByteRange invalid :
@@ -291,13 +293,14 @@ int main() {
         ByteRange{.First = std::numeric_limits<uint64_t>::max(), .Length = 2},
         ByteRange{.First = 0, .Length = 9}}) {
     const auto started = transport.Begin(url + "/valid", invalid);
-    CHECK(!started && started.error() == (invalid.Length == 9 ? FetchFailureReason::CapacityRefused
-                                                              : FetchFailureReason::InvalidRequest),
+    CHECK(!started &&
+              started.error() == (invalid.Length == 9 ? SourceFailureReason::CapacityRefused
+                                                      : SourceFailureReason::InvalidRequest),
           "invalid or over-budget ranges fail before occupying a queue entry");
   }
   for (const std::string_view invalid : {"W/\"v1\"", "unquoted", "\"v1\"\r\nInjected: yes"}) {
     const auto started = transport.Begin(url + "/valid", range, invalid);
-    CHECK(!started && started.error() == FetchFailureReason::InvalidRequest,
+    CHECK(!started && started.error() == SourceFailureReason::InvalidRequest,
           "weak and malformed revision pins never become request headers");
   }
   const auto failedPin = transport.Begin(url + "/precondition", range, "\"v1\"");

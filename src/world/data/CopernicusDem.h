@@ -18,15 +18,15 @@ public:
 
   [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  [[nodiscard]] Coverage Covers(const Fetch &request) const noexcept override;
+  [[nodiscard]] Coverage Covers(const SourceRequest &request) const noexcept override;
 
-  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
   [[nodiscard]] FetchStart Begin(const Address &at, Transport &transport) const override;
-  [[nodiscard]] FetchStart Begin(const Fetch &request, Transport &transport) const override;
-  [[nodiscard]] Fetched
+  [[nodiscard]] FetchStart Begin(const SourceRequest &request, Transport &transport) const override;
+  [[nodiscard]] SourceResponse
   Collect(const Address &at, Ticket ticket, Transport &transport) const override;
   [[nodiscard]] std::string Url(const Address &at) const;
 

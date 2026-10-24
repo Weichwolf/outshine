@@ -96,7 +96,7 @@ std::expected<void, std::string> UrbanAreaStreaming::PlanSources(const View &vie
       } else {
         wanted.push_back({.Owner = tile,
                           .Request = {tile, Schema_, {.PatchSide = 32}},
-                          .Delivery = {},
+                          .SourceDelivery = {},
                           .OccupiedGroups = {}});
       }
     }
@@ -110,22 +110,25 @@ std::expected<bool, std::string> UrbanAreaStreaming::PollSource() {
   using State = Generators::Osm::PreparedUrbanAreas::State;
   for (size_t visited = 0; visited < Areas_.size(); ++visited) {
     Source &area = Areas_[NextSource_++ % Areas_.size()];
-    if (area.Delivery.Status != State::Pending) { continue; }
+    if (area.SourceDelivery.Status != State::Pending) { continue; }
     auto delivery = Sources_->Acquire(Tiles_, area.Request);
     if (!delivery) { return std::unexpected(delivery.error()); }
-    area.Delivery = std::move(*delivery);
-    if (area.Delivery.Status == State::Absent || area.Delivery.Status == State::Refused) {
+    area.SourceDelivery = std::move(*delivery);
+    if (area.SourceDelivery.Status == State::Absent ||
+        area.SourceDelivery.Status == State::Refused) {
       return std::unexpected("urban source unavailable at " + std::to_string(area.Owner.Zoom) +
                              "/" + std::to_string(area.Owner.X) + "/" +
                              std::to_string(area.Owner.Y));
     }
-    if (area.Delivery.Status != State::Ready) { return false; }
-    if (!area.Delivery.Product) { return std::unexpected("ready urban source has no product"); }
-    if (area.Delivery.Product->Occupied == 0) { return true; }
+    if (area.SourceDelivery.Status != State::Ready) { return false; }
+    if (!area.SourceDelivery.Product) {
+      return std::unexpected("ready urban source has no product");
+    }
+    if (area.SourceDelivery.Product->Occupied == 0) { return true; }
     const auto groups = Generators::Osm::UrbanAreaGroups::Make(
-        *area.Delivery.Product, {.PatchesPerSide = kPatchesPerGroupSide, .GroupsMost = 1024});
+        *area.SourceDelivery.Product, {.PatchesPerSide = kPatchesPerGroupSide, .GroupsMost = 1024});
     if (!groups) { return std::unexpected(std::string(groups.error())); }
-    auto occupied = groups->Occupied(*area.Delivery.Product);
+    auto occupied = groups->Occupied(*area.SourceDelivery.Product);
     if (!occupied) { return std::unexpected(std::string(occupied.error())); }
     area.OccupiedGroups = std::move(*occupied);
     return true;
@@ -139,7 +142,7 @@ UrbanAreaStreaming::SelectGroups(const View &view, const TerrainResidency &terra
   if (!heights) { return std::unexpected("urban demand requires published terrain bounds"); }
   std::vector<Candidate> candidates;
   for (size_t source = 0; source < Areas_.size(); ++source) {
-    const auto &area = Areas_[source].Delivery.Product;
+    const auto &area = Areas_[source].SourceDelivery.Product;
     if (!area || area->Occupied == 0) { continue; }
     auto groups = Generators::Osm::UrbanAreaGroups::Make(
         *area, {.PatchesPerSide = kPatchesPerGroupSide, .GroupsMost = 1024});
@@ -174,21 +177,22 @@ std::expected<void, std::string> UrbanAreaStreaming::PlanGroups(const View &view
     const auto &source = Areas_[candidate.Source];
     const auto held = std::ranges::find_if(Groups_, [&](const Group &group) {
       return group.Owner == source.Owner && group.Index == candidate.Group &&
-             group.SourceKey == source.Delivery.AssetKey;
+             group.SourceKey == source.SourceDelivery.AssetKey;
     });
     if (held != Groups_.end()) {
       wanted.push_back(std::move(*held));
       continue;
     }
     const auto groups = Generators::Osm::UrbanAreaGroups::Make(
-        *source.Delivery.Product, {.PatchesPerSide = kPatchesPerGroupSide, .GroupsMost = 1024});
+        *source.SourceDelivery.Product,
+        {.PatchesPerSide = kPatchesPerGroupSide, .GroupsMost = 1024});
     auto patches = groups->Patches({.Index = candidate.Group, .PatchesMost = kPatchesMost});
     if (!patches) { return std::unexpected(std::string(patches.error())); }
     wanted.push_back({.Owner = source.Owner,
                       .Index = candidate.Group,
-                      .Area = source.Delivery.Product,
+                      .Area = source.SourceDelivery.Product,
                       .Patches = std::move(*patches),
-                      .SourceKey = source.Delivery.AssetKey,
+                      .SourceKey = source.SourceDelivery.AssetKey,
                       .Request = {},
                       .PublishedKey = {},
                       .Slot = std::make_unique<UrbanPrismSlot>(Pool_, Database_, kAssetBytesMost),
@@ -298,7 +302,8 @@ bool UrbanAreaStreaming::Ready() const noexcept {
   using State = Generators::Osm::PreparedUrbanAreas::State;
   return Planned_ &&
          std::ranges::all_of(
-             Areas_, [](const Source &area) { return area.Delivery.Status == State::Ready; }) &&
+             Areas_,
+             [](const Source &area) { return area.SourceDelivery.Status == State::Ready; }) &&
          std::ranges::all_of(Groups_, [this](const Group &group) {
            return group.Slot->ReadyKey() == group.Request && group.PublishedKey == group.Request &&
                   group.ChildrenRevision == WantedChildrenRevision_;
@@ -324,7 +329,7 @@ UrbanAreaStreaming::Counters UrbanAreaStreaming::Costs() const noexcept {
                  .Captures = Captures_,
                  .Publications = Publications_};
   for (const auto &area : Areas_) {
-    if (!area.Delivery.Product) { ++costs.Missing; }
+    if (!area.SourceDelivery.Product) { ++costs.Missing; }
   }
   for (const auto &group : Groups_) {
     if (group.Handle) { ++costs.Resident; }

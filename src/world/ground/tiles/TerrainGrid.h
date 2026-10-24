@@ -13,7 +13,7 @@
 
 #include "TileSourceIdentity.h"
 #include "TerrainCertificate.h"
-#include <FetchFailure.h>
+#include <SourceFailure.h>
 #include <HeightRaster.h>
 #include <optional>
 #include "TileGeodesy.h"
@@ -139,13 +139,13 @@ public:
 
   static TerrainGrid Deferred() { return {State::Deferred, TerrainField()}; }
 
-  static TerrainGrid Refused(std::optional<Data::FetchFailure> failure = std::nullopt) {
+  static TerrainGrid Refused(std::optional<Data::SourceFailure> failure = std::nullopt) {
     TerrainGrid grid(State::Refused, TerrainField());
     grid.Failure_ = std::move(failure);
     return grid;
   }
 
-  [[nodiscard]] const std::optional<Data::FetchFailure> &Failure() const noexcept {
+  [[nodiscard]] const std::optional<Data::SourceFailure> &Failure() const noexcept {
     return Failure_;
   }
 
@@ -191,7 +191,7 @@ private:
 
   State Where_;
   Storage Field_;
-  std::optional<Data::FetchFailure> Failure_;
+  std::optional<Data::SourceFailure> Failure_;
 };
 
 }

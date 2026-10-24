@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <Fetch.h>
+#include <SourceRequest.h>
 #include "TerrainTiles.h"
 
 namespace outshine::Ground {
@@ -17,7 +17,7 @@ public:
   ~CopernicusTerrain();
 
   [[nodiscard]] TerrainBytes Take(Data::TileId at);
-  [[nodiscard]] const std::optional<Data::Fetch> &Awaiting() const noexcept;
+  [[nodiscard]] const std::optional<Data::SourceRequest> &Awaiting() const noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:

@@ -33,15 +33,15 @@ std::expected<bool, std::string_view> OsmField::PollTile(TilePool &tiles, TileAt
   return true;
 }
 
-std::expected<OsmField::Fetched, std::string_view> OsmField::AddNativeTile(TilePool &tiles,
-                                                                           TileAt at) {
+std::expected<OsmField::SourceResponse, std::string_view> OsmField::AddNativeTile(TilePool &tiles,
+                                                                                  TileAt at) {
   auto delivery = Prepared_->Acquire(tiles, at, *this);
   if (!delivery) { return std::unexpected(delivery.error()); }
   using State = PreparedOsmTiles::State;
   switch (delivery->Status) {
-    case State::Pending: return Fetched{};
-    case State::Refused: return Fetched{.Held = false, .Refused = true};
-    case State::Absent: return Fetched{.Held = true};
+    case State::Pending: return SourceResponse{};
+    case State::Refused: return SourceResponse{.Held = false, .Refused = true};
+    case State::Absent: return SourceResponse{.Held = true};
     case State::Ready: break;
   }
   const auto &native = delivery->Product;
@@ -53,7 +53,7 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddNativeTile(TileP
                           .Source = source.Source,
                           .InputDigest = source.InputDigest,
                           .Native = std::move(delivery->Product)});
-  return Fetched{.Held = true, .Added = count, .Parsed = true};
+  return SourceResponse{.Held = true, .Added = count, .Parsed = true};
 }
 
 bool OsmField::AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage) {

@@ -39,19 +39,19 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &at, Transport &) const override {
     ++Starts;
     if (Ready.load()) { return Ticket::None; }
-    return std::unexpected(at.Tile()->X == 0 ? FetchFailureReason::OfflineMiss
-                                             : FetchFailureReason::Unavailable);
+    return std::unexpected(at.Tile()->X == 0 ? SourceFailureReason::OfflineMiss
+                                             : SourceFailureReason::Unavailable);
   }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Delivered({7});
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return SourceResponse::Delivered({7});
   }
 };
 }
@@ -69,8 +69,8 @@ int main() {
   CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted,
         "controlled vector source registers");
   TilePool pool({}, sources, transport);
-  const Fetch missing(DataKind::VectorMap, Address::At({.Zoom = 1, .X = 0, .Y = 1}));
-  const Fetch transient(DataKind::VectorMap, Address::At({.Zoom = 1, .X = 1, .Y = 1}));
+  const SourceRequest missing(DataKind::VectorMap, Address::At({.Zoom = 1, .X = 0, .Y = 1}));
+  const SourceRequest transient(DataKind::VectorMap, Address::At({.Zoom = 1, .X = 1, .Y = 1}));
   const auto before = pool.Counters();
   const auto emptyBytes = pool.ByteCacheBytes();
   CHECK(!pool.Refusal(missing) && !pool.Refusal(transient),
@@ -82,7 +82,7 @@ int main() {
   CHECK(pool.BytesBlocking(missing, &landing) == TilePool::Reply::Refused,
         "offline source request is classified as refused");
   const auto failed = pool.Refusal(missing);
-  CHECK(failed && failed->Reason == FetchFailureReason::OfflineMiss &&
+  CHECK(failed && failed->Reason == SourceFailureReason::OfflineMiss &&
             failed->Requested.Text() == missing.Where().Text() && failed->Served &&
             failed->Served->Text() == missing.Where().Text() &&
             failed->SourceId == "offline-vector" && failed->SourceRevision == "test-r3" &&
@@ -91,7 +91,7 @@ int main() {
   CHECK(pool.BytesBlocking(transient, &landing) == TilePool::Reply::Refused,
         "temporarily unavailable transport is also classified as refused");
   const auto retry = pool.Refusal(transient);
-  CHECK(retry && retry->Reason == FetchFailureReason::Unavailable,
+  CHECK(retry && retry->Reason == SourceFailureReason::Unavailable,
         "temporary refusal stays distinguishable from an offline miss");
   const auto starts = control->Starts.load();
   const auto refusedBytes = pool.ByteCacheBytes();
@@ -109,7 +109,7 @@ int main() {
   CHECK(pool.BytesBlocking(missing, &landing) == TilePool::Reply::Ready &&
             landing.Bytes == std::vector<uint8_t>{7} && !pool.Refusal(missing),
         "normal retry replaces refusal with the recovered payload");
-  CHECK(failed && failed->Reason == FetchFailureReason::OfflineMiss &&
+  CHECK(failed && failed->Reason == SourceFailureReason::OfflineMiss &&
             failed->SourceRevision == "test-r3",
         "a returned diagnostic remains owned after cache replacement");
   CHECK(pool.BytesBlocking(transient, &landing) == TilePool::Reply::Ready &&

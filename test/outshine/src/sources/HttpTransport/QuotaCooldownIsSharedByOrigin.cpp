@@ -59,7 +59,7 @@ int main() {
     CHECK(same && canceled && independent, "bounded queue accepts delayed and independent work");
     if (!same || !canceled || !independent) { continue; }
     transport.Cancel(*canceled);
-    CHECK(transport.Collect(*canceled).FailureReason() == Data::FetchFailureReason::Cancelled,
+    CHECK(transport.Collect(*canceled).FailureReason() == Data::SourceFailureReason::Cancelled,
           "origin-blocked requests remain cancelable");
     const auto ready = Receive(transport, *independent, 700ms);
     CHECK(ready && ready->Status == 200,

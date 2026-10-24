@@ -90,7 +90,7 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Coverage Covers(const Fetch &request) const noexcept override {
+  Coverage Covers(const SourceRequest &request) const noexcept override {
     const auto tile = request.Where().Tile();
     if (request.Kind() != DataKind::Elevation || !tile || tile->Zoom < 0 || tile->Zoom > 15) {
       return Coverage::Outside;
@@ -99,14 +99,14 @@ public:
     return tile->X < side && tile->Y < side ? Coverage::Inside : Coverage::Outside;
   }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
     ++Calls_.Acquired;
-    if (Encoding_ == Encoding::OpaqueFixture) { return Fetched::Delivered({42, 17}); }
-    return Fetched::Delivered(std::vector<uint8_t>(kPlane42.begin(), kPlane42.end()));
+    if (Encoding_ == Encoding::OpaqueFixture) { return SourceResponse::Delivered({42, 17}); }
+    return SourceResponse::Delivered(std::vector<uint8_t>(kPlane42.begin(), kPlane42.end()));
   }
 
   std::expected<HeightRaster, DecodeFailure>

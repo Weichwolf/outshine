@@ -22,19 +22,19 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Coverage Covers(const Fetch &request) const noexcept override {
+  Coverage Covers(const SourceRequest &request) const noexcept override {
     return request.Kind() == DataKind::OriginalOsm ? Coverage::Inside : Coverage::Outside;
   }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
     ++Calls_;
     const std::string xml = "<osm version='0.6'><node id='1' lat='54.78' lon='9.43'>"
                             "<tag k='custom:unknown' v='retained'/></node></osm>";
-    return Fetched::Delivered(std::vector<uint8_t>(xml.begin(), xml.end()));
+    return SourceResponse::Delivered(std::vector<uint8_t>(xml.begin(), xml.end()));
   }
 
 private:

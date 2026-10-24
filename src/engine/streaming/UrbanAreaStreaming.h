@@ -60,7 +60,7 @@ private:
   struct Source {
     Data::TileId Owner;
     Generators::Osm::PreparedUrbanAreas::Request Request;
-    Generators::Osm::PreparedUrbanAreas::Delivery Delivery;
+    Generators::Osm::PreparedUrbanAreas::SourceDelivery SourceDelivery;
     std::vector<size_t> OccupiedGroups;
   };
 

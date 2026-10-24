@@ -34,17 +34,17 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
     ++Polls;
-    return Fetched::Working();
+    return SourceResponse::Working();
   }
 };
 }
@@ -63,7 +63,7 @@ int main() {
   auto pool = std::make_unique<TilePool>(
       TilePool::Config{.PollAttempts = attempts, .Carriers = 1}, sources, transport);
   TilePool::Landing landing;
-  CHECK(pool->Bytes(Fetch(DataKind::Elevation, Address::Whole(0)), &landing) ==
+  CHECK(pool->Bytes(SourceRequest(DataKind::Elevation, Address::Whole(0)), &landing) ==
             TilePool::Reply::Pending,
         "fetch schedules asynchronously");
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);

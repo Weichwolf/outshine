@@ -53,7 +53,8 @@ void CheckResponse(int status) {
         "fallback source registered");
   HttpTransport transport;
   transport.Status = status;
-  const Fetch request(DataKind::Elevation, Address::At(TileId{.Zoom = 5, .X = 17, .Y = 11}));
+  const SourceRequest request(DataKind::Elevation,
+                              Address::At(TileId{.Zoom = 5, .X = 17, .Y = 11}));
   auto query = sources.Ask(request);
   auto reply = sources.Collect(query, transport);
   if (status == 404) {
@@ -62,7 +63,7 @@ void CheckResponse(int status) {
           "authoritative not-found permits ranked fallback");
     CHECK(sources.Counters().HandedOver == 1, "absence counted once");
   } else {
-    CHECK(reply.Where() == Delivery::State::Refused && reply.SourceId() == "primary" &&
+    CHECK(reply.Where() == SourceDelivery::State::Refused && reply.SourceId() == "primary" &&
               transport.Urls.size() == 1,
           "access refusal does not masquerade as absent terrain");
     CHECK(sources.Counters().HandedOver == 0, "refusal never recorded as absence");

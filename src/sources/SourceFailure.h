@@ -1,24 +1,24 @@
-#ifndef OUTSHINE_WORLD_DATA_FETCHFAILURE_H
-#define OUTSHINE_WORLD_DATA_FETCHFAILURE_H
+#ifndef OUTSHINE_SOURCES_SOURCEFAILURE_H
+#define OUTSHINE_SOURCES_SOURCEFAILURE_H
 
 #include <cstddef>
 #include <optional>
 #include <string>
 
-#include "FetchFailureReason.h"
+#include "SourceFailureReason.h"
 #include "Address.h"
 #include "DataKind.h"
 
 namespace outshine::Data {
 
-struct FetchFailure {
+struct SourceFailure {
   DataKind Kind = DataKind::Elevation;
   Address Requested = Address::Whole(0);
   std::optional<Address> Served;
   std::string SourceId;
   std::string SourceRevision;
   std::string SourceKey;
-  FetchFailureReason Reason = FetchFailureReason::ProviderRefused;
+  SourceFailureReason Reason = SourceFailureReason::ProviderRefused;
   std::optional<int> HttpStatus = std::nullopt;
   int Retries = 0;
 

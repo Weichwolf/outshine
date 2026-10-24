@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "RawSourceCache.h"
-#include "Delivery.h"
+#include "SourceDelivery.h"
 #include <DataKind.h>
 #include <Source.h>
 
@@ -50,7 +50,8 @@ public:
 
     enum class Phase { Ready, InFlight, Backoff, Finished };
 
-    Query(const SourceSet &owner, Fetch request) : Owner_(&owner), Request_(std::move(request)) {}
+    Query(const SourceSet &owner, SourceRequest request)
+        : Owner_(&owner), Request_(std::move(request)) {}
 
     void Finish() noexcept;
     [[nodiscard]] std::string CacheKey() const;
@@ -58,7 +59,7 @@ public:
     const SourceSet *Owner_;
     Phase Phase_ = Phase::Ready;
 
-    Fetch Request_;
+    SourceRequest Request_;
     std::vector<const Source *> Candidates_;
     size_t Next_ = 0;
     const Source *Current_ = nullptr;
@@ -68,9 +69,9 @@ public:
     double RetryAtMs_ = 0.0;
   };
 
-  [[nodiscard]] Query Ask(const Fetch &request) const;
+  [[nodiscard]] Query Ask(const SourceRequest &request) const;
 
-  [[nodiscard]] Delivery Collect(Query &query, Transport &transport);
+  [[nodiscard]] SourceDelivery Collect(Query &query, Transport &transport);
 
   static void Abandon(Query &query, Transport &transport);
 
@@ -103,27 +104,28 @@ public:
   [[nodiscard]] std::array<Ledger::ProviderCost, Ledger::KindCount> ProviderCosts() const;
 
 private:
-  [[nodiscard]] std::optional<Delivery> ReadStored(Query &query, Transport &transport);
-  [[nodiscard]] Delivery Deliver(Query &query, Fetched::Settled response);
-  [[nodiscard]] std::optional<Delivery>
+  [[nodiscard]] std::optional<SourceDelivery> ReadStored(Query &query, Transport &transport);
+  [[nodiscard]] SourceDelivery Deliver(Query &query, SourceResponse::Settled response);
+  [[nodiscard]] std::optional<SourceDelivery>
   ProcessAbsence(Query &query, Transport &transport, std::optional<int> httpStatus = std::nullopt);
   void RecordStart(const SourceDecl &decl, bool first, bool started);
   void RecordDelivery(const SourceDecl &decl);
   void RecordProviderCall(DataKind kind, std::chrono::steady_clock::time_point began);
 
-  [[nodiscard]] Delivery ResumeRetry(Query &query, Transport &transport);
-  [[nodiscard]] std::optional<Delivery> StartCurrent(Query &query, Transport &transport);
-  [[nodiscard]] std::optional<Delivery> StartNext(Query &query, Transport &transport);
+  [[nodiscard]] SourceDelivery ResumeRetry(Query &query, Transport &transport);
+  [[nodiscard]] std::optional<SourceDelivery> StartCurrent(Query &query, Transport &transport);
+  [[nodiscard]] std::optional<SourceDelivery> StartNext(Query &query, Transport &transport);
 
-  [[nodiscard]] Delivery Refuse(Query &query,
-                                double afterMs,
-                                FetchFailureReason reason = FetchFailureReason::ProviderRefused,
-                                std::optional<int> httpStatus = std::nullopt);
+  [[nodiscard]] SourceDelivery
+  Refuse(Query &query,
+         double afterMs,
+         SourceFailureReason reason = SourceFailureReason::ProviderRefused,
+         std::optional<int> httpStatus = std::nullopt);
 
-  [[nodiscard]] std::optional<Delivery> ProcessResponse(Query &query,
-                                                        Fetched::Settled response,
-                                                        double retryAfterS,
-                                                        Transport &transport);
+  [[nodiscard]] std::optional<SourceDelivery> ProcessResponse(Query &query,
+                                                              SourceResponse::Settled response,
+                                                              double retryAfterS,
+                                                              Transport &transport);
 
   RawSourceCache &Store_;
   mutable std::mutex RegistryMutex_;

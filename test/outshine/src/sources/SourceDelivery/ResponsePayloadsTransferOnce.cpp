@@ -1,5 +1,5 @@
-#include "Delivery.h"
-#include <Fetched.h>
+#include "SourceDelivery.h"
+#include <SourceResponse.h>
 #include <Transport.h>
 #include "Check.h"
 #include <type_traits>
@@ -26,9 +26,9 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
   CheckOwnership(Wire::Answered(200, {1, 2}), Wire::Working());
-  CheckOwnership(Fetched::Delivered({3, 4}), Fetched::Working());
-  CheckOwnership(Delivery::From("source", "revision", Address::Whole(7), {5, 6}),
-                 Delivery::Waiting());
+  CheckOwnership(SourceResponse::Delivered({3, 4}), SourceResponse::Working());
+  CheckOwnership(SourceDelivery::From("source", "revision", Address::Whole(7), {5, 6}),
+                 SourceDelivery::Waiting());
   std::vector<uint8_t> bytes{7, 8, 9};
   const auto *storage = bytes.data();
   auto wire = Wire::Answered(200, std::move(bytes), 0.5);
@@ -38,13 +38,13 @@ int main() {
   CHECK(wire.RetryAfterS() == 0.5, "retry metadata remains available after take");
   CHECK(!wire.Take(), "wire payload is consumed exactly once");
   if (!response) { return Report(); }
-  auto fetched = Fetched::Delivered(std::move(response->Body));
+  auto fetched = SourceResponse::Delivered(std::move(response->Body));
   auto settled = fetched.Take();
   CHECK(settled && settled->What == Meaning::Bytes && settled->Bytes.data() == storage,
         "source interpretation transfers the same allocation");
   CHECK(!fetched.Take(), "source payload is consumed exactly once");
   if (!settled) { return Report(); }
-  auto delivered = Delivery::From(
+  auto delivered = SourceDelivery::From(
       "origin", "revision", Address::Whole(7), std::move(settled->Bytes), "source-key");
   const auto answer = delivered.Take();
   CHECK(answer && answer->SourceId == "origin" && answer->SourceRevision == "revision" &&
@@ -54,11 +54,11 @@ int main() {
   CHECK(!delivered.Take(), "delivery payload is consumed exactly once");
   auto empty = Wire::Answered(204, {});
   CHECK(empty.Take().has_value() && !empty.Take(), "empty answered payload still transfers once");
-  auto retry = Fetched::MeantAfter(Meaning::Retry, 1.25);
+  auto retry = SourceResponse::MeantAfter(Meaning::Retry, 1.25);
   CHECK(retry.Take().has_value() && !retry.Take() && retry.RetryAfterS() == 1.25,
         "non-byte source responses also transfer once without losing retry metadata");
-  auto pending = Delivery::Waiting();
-  CHECK(!pending.Take() && pending.Where() == Delivery::State::Pending,
+  auto pending = SourceDelivery::Waiting();
+  CHECK(!pending.Take() && pending.Where() == SourceDelivery::State::Pending,
         "unsuccessful take does not consume a pending state");
   return Report();
 }

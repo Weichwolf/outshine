@@ -30,11 +30,11 @@ public:
 
   const Data::SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Data::Coverage Covers(const Data::Fetch &) const noexcept override {
+  Data::Coverage Covers(const Data::SourceRequest &) const noexcept override {
     return Data::Coverage::Inside;
   }
 
-  Data::Address Serves(const Data::Fetch &request) const noexcept override {
+  Data::Address Serves(const Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
@@ -42,8 +42,10 @@ public:
     return Data::Ticket::None;
   }
 
-  Data::Fetched Collect(const Data::Address &, Data::Ticket, Data::Transport &) const override {
-    return Data::Fetched::Delivered(std::vector<uint8_t>(kGradientPng.begin(), kGradientPng.end()));
+  Data::SourceResponse
+  Collect(const Data::Address &, Data::Ticket, Data::Transport &) const override {
+    return Data::SourceResponse::Delivered(
+        std::vector<uint8_t>(kGradientPng.begin(), kGradientPng.end()));
   }
 };
 

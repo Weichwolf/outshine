@@ -50,7 +50,7 @@ int main() {
   const auto ticket = (*source)->Begin(Data::Address::Whole(0), transport);
   CHECK(ticket && transport.Begins == 1 &&
             (*source)->Collect(Data::Address::Whole(0), *ticket, transport).Where() ==
-                Data::Fetched::State::Working,
+                Data::SourceResponse::State::Working,
         "pending acquisition stays pending under the existing transport lifetime");
   if (ticket) { (*source)->Cancel(*ticket, transport); }
   CHECK(transport.Cancels == 1, "source cancellation releases the original transport ticket");

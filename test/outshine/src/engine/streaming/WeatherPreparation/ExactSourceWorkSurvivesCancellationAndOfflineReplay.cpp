@@ -40,11 +40,11 @@ public:
     return Source_->Declaration();
   }
 
-  [[nodiscard]] Coverage Covers(const Fetch &request) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest &request) const noexcept override {
     return Source_->Covers(request);
   }
 
-  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
     return Source_->Serves(request);
   }
 
@@ -52,7 +52,8 @@ public:
     return Source_->Begin(at, wire);
   }
 
-  [[nodiscard]] Fetched Collect(const Address &at, Ticket ticket, Transport &wire) const override {
+  [[nodiscard]] SourceResponse
+  Collect(const Address &at, Ticket ticket, Transport &wire) const override {
     return Source_->Collect(at, ticket, wire);
   }
 

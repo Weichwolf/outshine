@@ -37,17 +37,17 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
     ++Polls;
-    return Fetched::Working();
+    return SourceResponse::Working();
   }
 };
 
@@ -70,7 +70,7 @@ int main() {
   config.OutstandingMost = 1;
   TilePool pool(config, sources, transport);
   TilePool::Landing landing;
-  const Fetch first(DataKind::Elevation, Address::Whole(0));
+  const SourceRequest first(DataKind::Elevation, Address::Whole(0));
   CHECK(pool.Bytes(first, &landing) == TilePool::Reply::Pending,
         "first request occupies the only admission slot");
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
@@ -78,7 +78,7 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   CHECK(probe->Polls > 0, "carrier owns the admitted request");
-  CHECK(pool.Bytes(Fetch(DataKind::Elevation, Address::Whole(1)), &landing) ==
+  CHECK(pool.Bytes(SourceRequest(DataKind::Elevation, Address::Whole(1)), &landing) ==
             TilePool::Reply::Deferred,
         "a distinct request beyond capacity remains unposted for a later retry");
   CHECK(pool.Bytes(first, &landing) == TilePool::Reply::Pending,

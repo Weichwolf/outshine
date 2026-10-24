@@ -39,7 +39,7 @@ namespace {
 StarBands::StarBands(std::string directory, std::string revision, Rank order, AbsencePolicy absence)
     : Directory_(std::move(directory)), Decl_(Declared(std::move(revision), order, absence)) {}
 
-Coverage StarBands::Covers(const Fetch &request) const noexcept {
+Coverage StarBands::Covers(const SourceRequest &request) const noexcept {
   if (request.Kind() != Decl_.Kind) { return Coverage::Outside; }
   const std::optional<uint32_t> band = request.Where().Index();
   if (!band) { return Coverage::Outside; }
@@ -52,15 +52,15 @@ FetchStart StarBands::Begin(const Address &at, Transport &transport) const {
   return Ticket::None;
 }
 
-Fetched StarBands::Collect(const Address &at, Ticket ticket, Transport &transport) const {
+SourceResponse StarBands::Collect(const Address &at, Ticket ticket, Transport &transport) const {
   (void)ticket;
   (void)transport;
   const std::optional<uint32_t> band = at.Index();
-  if (!band) { return Fetched::Meant(Meaning::Refused); }
+  if (!band) { return SourceResponse::Meant(Meaning::Refused); }
   std::array<char, 512> path{};
   std::snprintf(path.data(), path.size(), "%s/band%u.bin", Directory_.c_str(), *band);
   std::FILE *f = std::fopen(path.data(), "rb");
-  if (f == nullptr) { return Fetched::Meant(Meaning::Refused); }
+  if (f == nullptr) { return SourceResponse::Meant(Meaning::Refused); }
   std::fseek(f, 0, SEEK_END);
   const long size = std::ftell(f);
   std::fseek(f, 0, SEEK_SET);
@@ -71,8 +71,8 @@ Fetched StarBands::Collect(const Address &at, Ticket ticket, Transport &transpor
     whole = std::fread(bytes.data(), 1, static_cast<size_t>(size), f) == static_cast<size_t>(size);
   }
   std::fclose(f);
-  if (!whole) { return Fetched::Meant(Meaning::Refused); }
-  return Fetched::Delivered(std::move(bytes));
+  if (!whole) { return SourceResponse::Meant(Meaning::Refused); }
+  return SourceResponse::Delivered(std::move(bytes));
 }
 
 }

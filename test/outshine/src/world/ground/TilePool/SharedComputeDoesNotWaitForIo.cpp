@@ -44,20 +44,20 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &request) const noexcept override {
+  Coverage Covers(const SourceRequest &request) const noexcept override {
     return request.Kind() == DataKind::Elevation && request.Where().Tile() ? Coverage::Inside
                                                                            : Coverage::Outside;
   }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &transport) const override {
     return transport.Begin("test://pending-raster");
   }
 
-  Fetched Collect(const Address &, Ticket ticket, Transport &transport) const override {
+  SourceResponse Collect(const Address &, Ticket ticket, Transport &transport) const override {
     (void)transport.Collect(ticket);
-    return Fetched::Working();
+    return SourceResponse::Working();
   }
 };
 

@@ -50,8 +50,8 @@ private:
     Data::SourceSet::Query Query;
     int64_t UtcS;
     std::atomic_bool Stopping = false;
-    Data::Delivery Delivery = Data::Delivery::Waiting();
-    std::optional<Data::Delivery::Answer> Answer;
+    Data::SourceDelivery Delivery = Data::SourceDelivery::Waiting();
+    std::optional<Data::SourceDelivery::Answer> Answer;
     std::shared_ptr<const WeatherSnapshot> Snapshot;
     std::string Error;
     Phase Outcome = Phase::HttpTransport;

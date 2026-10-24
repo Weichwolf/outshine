@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_DELIVERY_H
-#define OUTSHINE_WORLD_DATA_DELIVERY_H
+#ifndef OUTSHINE_SOURCES_SOURCEDELIVERY_H
+#define OUTSHINE_SOURCES_SOURCEDELIVERY_H
 
 #include <string>
 #include <utility>
@@ -7,19 +7,19 @@
 #include <vector>
 
 #include <Address.h>
-#include <FetchFailure.h>
+#include <SourceFailure.h>
 #include <Transport.h>
 
 namespace outshine::Data {
 
-class Delivery {
+class SourceDelivery {
 public:
   enum class State { Delivered, Pending, Vacant, Undeclared, Refused, Consumed };
 
-  Delivery(const Delivery &) = delete;
-  Delivery &operator=(const Delivery &) = delete;
+  SourceDelivery(const SourceDelivery &) = delete;
+  SourceDelivery &operator=(const SourceDelivery &) = delete;
 
-  Delivery(Delivery &&other) noexcept
+  SourceDelivery(SourceDelivery &&other) noexcept
       : Where_(std::exchange(other.Where_, State::Consumed)),
         AfterMs_(std::exchange(other.AfterMs_, 0.0)),
         SourceId_(std::move(other.SourceId_)),
@@ -27,7 +27,7 @@ public:
         Answer_(std::move(other.Answer_)),
         Failure_(std::exchange(other.Failure_, std::nullopt)) {}
 
-  Delivery &operator=(Delivery &&other) noexcept {
+  SourceDelivery &operator=(SourceDelivery &&other) noexcept {
     if (this == &other) { return *this; }
     Where_ = std::exchange(other.Where_, State::Consumed);
     AfterMs_ = std::exchange(other.AfterMs_, 0.0);
@@ -47,13 +47,13 @@ public:
     std::optional<RangeResponse> Range = std::nullopt;
   };
 
-  [[nodiscard]] static Delivery From(std::string sourceId,
-                                     std::string sourceRevision,
-                                     Address at,
-                                     std::vector<uint8_t> bytes,
-                                     std::string sourceKey = {},
-                                     std::optional<RangeResponse> range = std::nullopt) {
-    Delivery d(State::Delivered);
+  [[nodiscard]] static SourceDelivery From(std::string sourceId,
+                                           std::string sourceRevision,
+                                           Address at,
+                                           std::vector<uint8_t> bytes,
+                                           std::string sourceKey = {},
+                                           std::optional<RangeResponse> range = std::nullopt) {
+    SourceDelivery d(State::Delivered);
     d.Answer_.SourceId = std::move(sourceId);
     d.Answer_.SourceRevision = std::move(sourceRevision);
     d.Answer_.SourceKey = std::move(sourceKey);
@@ -63,21 +63,22 @@ public:
     return d;
   }
 
-  [[nodiscard]] static Delivery Consumed() { return Delivery(State::Consumed); }
+  [[nodiscard]] static SourceDelivery Consumed() { return SourceDelivery(State::Consumed); }
 
-  [[nodiscard]] static Delivery Waiting() { return Delivery(State::Pending); }
+  [[nodiscard]] static SourceDelivery Waiting() { return SourceDelivery(State::Pending); }
 
-  [[nodiscard]] static Delivery Nothing() { return Delivery(State::Vacant); }
+  [[nodiscard]] static SourceDelivery Nothing() { return SourceDelivery(State::Vacant); }
 
-  [[nodiscard]] static Delivery NoSource() { return Delivery(State::Undeclared); }
+  [[nodiscard]] static SourceDelivery NoSource() { return SourceDelivery(State::Undeclared); }
 
-  [[nodiscard]] static Delivery Wire() { return Delivery(State::Refused); }
+  [[nodiscard]] static SourceDelivery Wire() { return SourceDelivery(State::Refused); }
 
-  [[nodiscard]] static Delivery WireAfter(double afterMs,
-                                          std::string sourceId = {},
-                                          std::string sourceRevision = {},
-                                          std::optional<FetchFailure> failure = std::nullopt) {
-    Delivery d(State::Refused);
+  [[nodiscard]] static SourceDelivery
+  WireAfter(double afterMs,
+            std::string sourceId = {},
+            std::string sourceRevision = {},
+            std::optional<SourceFailure> failure = std::nullopt) {
+    SourceDelivery d(State::Refused);
     d.AfterMs_ = afterMs > 0.0 ? afterMs : 0.0;
     d.SourceId_ = std::move(sourceId);
     d.SourceRevision_ = std::move(sourceRevision);
@@ -85,7 +86,7 @@ public:
     return d;
   }
 
-  [[nodiscard]] const std::optional<FetchFailure> &Failure() const noexcept { return Failure_; }
+  [[nodiscard]] const std::optional<SourceFailure> &Failure() const noexcept { return Failure_; }
 
   [[nodiscard]] double AfterMs() const noexcept { return AfterMs_; }
 
@@ -102,14 +103,14 @@ public:
   }
 
 private:
-  explicit Delivery(State where) : Where_(where) {}
+  explicit SourceDelivery(State where) : Where_(where) {}
 
   State Where_;
   double AfterMs_ = 0.0;
   std::string SourceId_;
   std::string SourceRevision_;
   Answer Answer_;
-  std::optional<FetchFailure> Failure_;
+  std::optional<SourceFailure> Failure_;
 };
 
 }

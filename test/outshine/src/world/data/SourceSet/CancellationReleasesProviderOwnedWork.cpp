@@ -28,14 +28,14 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket{23}; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Working();
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return SourceResponse::Working();
   }
 
   void Cancel(Ticket ticket, Transport &) const override {
@@ -56,8 +56,9 @@ int main() {
   const auto *observed = source.get();
   CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "source registered");
   WireProbe wire;
-  auto query = sources.Ask(Fetch(DataKind::Elevation, Address::At({.Zoom = 3, .X = 1, .Y = 2})));
-  CHECK(sources.Collect(query, wire).Where() == Delivery::State::Pending,
+  auto query =
+      sources.Ask(SourceRequest(DataKind::Elevation, Address::At({.Zoom = 3, .X = 1, .Y = 2})));
+  CHECK(sources.Collect(query, wire).Where() == SourceDelivery::State::Pending,
         "provider owns pending work");
   SourceSet::Abandon(query, wire);
   CHECK(observed->Cancelled == 1 && observed->Last == Ticket{23} && wire.Cancelled == 0,

@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include "FetchFailureReason.h"
+#include "SourceFailureReason.h"
 #include <expected>
 
 namespace outshine::Data {
@@ -84,19 +84,20 @@ public:
   }
 
   [[nodiscard]] static Wire
-  Unreachable(FetchFailureReason reason = FetchFailureReason::Unavailable) {
+  Unreachable(SourceFailureReason reason = SourceFailureReason::Unavailable) {
     Wire wire(State::Unreachable, 0, {}, 0.0);
     wire.Reason_ = reason;
     return wire;
   }
 
-  [[nodiscard]] static Wire Never(FetchFailureReason reason = FetchFailureReason::ProviderRefused) {
+  [[nodiscard]] static Wire
+  Never(SourceFailureReason reason = SourceFailureReason::ProviderRefused) {
     Wire wire(State::Never, 0, {}, 0.0);
     wire.Reason_ = reason;
     return wire;
   }
 
-  [[nodiscard]] FetchFailureReason FailureReason() const noexcept { return Reason_; }
+  [[nodiscard]] SourceFailureReason FailureReason() const noexcept { return Reason_; }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
 
@@ -123,10 +124,10 @@ private:
   std::vector<uint8_t> Body_;
   double RetryAfterS_;
   std::optional<RangeResponse> Range_;
-  FetchFailureReason Reason_ = FetchFailureReason::ProviderRefused;
+  SourceFailureReason Reason_ = SourceFailureReason::ProviderRefused;
 };
 
-using FetchStart = std::expected<Ticket, FetchFailureReason>;
+using FetchStart = std::expected<Ticket, SourceFailureReason>;
 
 class Transport {
 public:
@@ -139,7 +140,7 @@ public:
     (void)url;
     (void)range;
     (void)entityTag;
-    return std::unexpected(FetchFailureReason::ProviderRefused);
+    return std::unexpected(SourceFailureReason::ProviderRefused);
   }
 
   [[nodiscard]] virtual Wire Collect(Ticket ticket) = 0;

@@ -10,7 +10,7 @@ using namespace outshine::Data;
 
 class AdmissionTransport final : public Transport {
 public:
-  FetchFailureReason Reason = FetchFailureReason::CapacityRefused;
+  SourceFailureReason Reason = SourceFailureReason::CapacityRefused;
   int Begins = 0, Collects = 0, Cancels = 0;
   bool FirstNotFound = false, FirstRetry = false;
   double Now = 0;
@@ -34,11 +34,12 @@ public:
 
 int main() {
   using namespace outshine::Test;
-  const Fetch request(DataKind::Elevation, Address::At({.Zoom = 17, .X = 68660, .Y = 44812}));
-  for (const auto reason : {FetchFailureReason::CapacityRefused,
-                            FetchFailureReason::Unavailable,
-                            FetchFailureReason::InvalidRequest,
-                            FetchFailureReason::OfflineMiss}) {
+  const SourceRequest request(DataKind::Elevation,
+                              Address::At({.Zoom = 17, .X = 68660, .Y = 44812}));
+  for (const auto reason : {SourceFailureReason::CapacityRefused,
+                            SourceFailureReason::Unavailable,
+                            SourceFailureReason::InvalidRequest,
+                            SourceFailureReason::OfflineMiss}) {
     for (const bool fallback : {false, true}) {
       RawSourceCache store({.Using = RawSourceCache::Use::Off});
       SourceSet sources(store);
@@ -63,7 +64,7 @@ int main() {
       transport.FirstNotFound = fallback;
       auto query = sources.Ask(request);
       auto response = sources.Collect(query, transport);
-      CHECK(response.Where() == Delivery::State::Refused && response.Failure(),
+      CHECK(response.Where() == SourceDelivery::State::Refused && response.Failure(),
             "refused admission settles directly without collecting a nonexistent ticket");
       const auto failure = response.Failure();
       CHECK(failure && failure->Reason == reason && failure->SourceId == decl.Id &&
@@ -74,7 +75,7 @@ int main() {
       CHECK(transport.Begins == (fallback ? 2 : 1) && transport.Collects == (fallback ? 1 : 0) &&
                 transport.Cancels == 0 && sources.Counters().Retried == 0,
             "failed admission is never collected, cancelled or retried");
-      CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed,
+      CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Consumed,
             "settled admission is consumed exactly once");
     }
   }
@@ -87,18 +88,18 @@ int main() {
     AdmissionTransport transport;
     transport.FirstRetry = true;
     auto query = sources.Ask(request);
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Pending,
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending,
           "first HTTP refusal schedules retry");
     transport.Now = 100000;
     const auto refused = sources.Collect(query, transport);
-    CHECK(refused.Where() == Delivery::State::Refused && refused.Failure() &&
-              refused.Failure()->Reason == FetchFailureReason::CapacityRefused &&
+    CHECK(refused.Where() == SourceDelivery::State::Refused && refused.Failure() &&
+              refused.Failure()->Reason == SourceFailureReason::CapacityRefused &&
               transport.Begins == 2 && transport.Collects == 1 && transport.Cancels == 0,
           "retry admission failure settles with its own cause before another collect");
   }
   OfflineTransport offline;
   const auto start = offline.Begin("https://example.test/tile");
-  CHECK(!start && start.error() == FetchFailureReason::OfflineMiss,
+  CHECK(!start && start.error() == SourceFailureReason::OfflineMiss,
         "offline transport identifies refusal at admission");
   return Report();
 }

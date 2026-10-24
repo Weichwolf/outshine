@@ -14,7 +14,7 @@ constexpr int kDeepestTileZoom = 30;
 
 }
 
-Coverage WebTileSource::Covers(const Fetch &request) const noexcept {
+Coverage WebTileSource::Covers(const SourceRequest &request) const noexcept {
   if (request.Kind() != Decl_.Kind) { return Coverage::Outside; }
   const std::optional<TileId> tile = request.Where().Tile();
   if (!tile) { return Coverage::Outside; }
@@ -26,7 +26,7 @@ Coverage WebTileSource::Covers(const Fetch &request) const noexcept {
   return Coverage::Inside;
 }
 
-Address WebTileSource::Serves(const Fetch &request) const noexcept {
+Address WebTileSource::Serves(const SourceRequest &request) const noexcept {
   const std::optional<TileId> tile = request.Where().Tile();
   if (!tile) { return request.Where(); }
   const auto [zoom, tileX, tileY] = *tile;
@@ -55,32 +55,33 @@ FetchStart WebTileSource::Begin(const Address &at, Transport &transport) const {
   return transport.Begin(Url(at));
 }
 
-Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &transport) const {
+SourceResponse
+WebTileSource::Collect(const Address &at, Ticket ticket, Transport &transport) const {
   (void)at;
   Wire wire = transport.Collect(ticket);
   switch (wire.Where()) {
-    case Wire::State::Working: return Fetched::Working();
+    case Wire::State::Working: return SourceResponse::Working();
 
     case Wire::State::Unreachable: {
       const auto reason = wire.FailureReason();
-      const bool terminal =
-          reason == FetchFailureReason::Cancelled || reason == FetchFailureReason::CapacityRefused;
-      return Fetched::Meant(terminal ? Meaning::Refused : Meaning::Retry, reason);
+      const bool terminal = reason == SourceFailureReason::Cancelled ||
+                            reason == SourceFailureReason::CapacityRefused;
+      return SourceResponse::Meant(terminal ? Meaning::Refused : Meaning::Retry, reason);
     }
     case Wire::State::Consumed:
-    case Wire::State::Never: return Fetched::Meant(Meaning::Refused, wire.FailureReason());
+    case Wire::State::Never: return SourceResponse::Meant(Meaning::Refused, wire.FailureReason());
     case Wire::State::Answered: break;
   }
   std::optional<Wire::Response> answered = wire.Take();
-  if (!answered) { return Fetched::Meant(Meaning::Refused); }
-  if (answered->Status == kHttpNotFound) { return Fetched::NotFound(); }
+  if (!answered) { return SourceResponse::Meant(Meaning::Refused); }
+  if (answered->Status == kHttpNotFound) { return SourceResponse::NotFound(); }
   const Meaning what = Classify({.Status = answered->Status, .Bytes = answered->Body.size()});
   if (what != Meaning::Bytes) {
-    const auto reason = answered->Status == kHttpTimeout ? FetchFailureReason::TimedOut
-                                                         : FetchFailureReason::ProviderRefused;
-    return Fetched::MeantAfter(what, wire.RetryAfterS(), reason);
+    const auto reason = answered->Status == kHttpTimeout ? SourceFailureReason::TimedOut
+                                                         : SourceFailureReason::ProviderRefused;
+    return SourceResponse::MeantAfter(what, wire.RetryAfterS(), reason);
   }
-  return Fetched::Delivered(std::move(answered->Body));
+  return SourceResponse::Delivered(std::move(answered->Body));
 }
 
 Meaning WebTileSource::Classify(Replied said) const noexcept {

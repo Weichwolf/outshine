@@ -26,14 +26,14 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &) const noexcept override { return Address::Whole(73); }
+  Address Serves(const SourceRequest &) const noexcept override { return Address::Whole(73); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Delivered({1, 2, 3});
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return SourceResponse::Delivered({1, 2, 3});
   }
 };
 }
@@ -44,7 +44,7 @@ int main() {
   using namespace outshine::Test;
   const Data::TileId requested{.Zoom = 4, .X = 8, .Y = 8};
   for (const bool workerField : {false, true}) {
-    std::optional<Data::FetchFailure> failure;
+    std::optional<Data::SourceFailure> failure;
     std::string expectedKey;
     {
       Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
@@ -85,7 +85,7 @@ int main() {
       }
     }
     CHECK(failure && failure->Kind == Data::DataKind::Elevation &&
-              failure->Reason == Data::FetchFailureReason::CorruptPayload &&
+              failure->Reason == Data::SourceFailureReason::CorruptPayload &&
               failure->Requested == Data::Address::At(requested) &&
               failure->Served == Data::Address::Whole(73) &&
               failure->SourceId == "non-tile-provider" &&

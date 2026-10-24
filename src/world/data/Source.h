@@ -8,8 +8,8 @@
 #include <HeightRaster.h>
 #include <WeatherSnapshot.h>
 
-#include "Fetched.h"
-#include "Fetch.h"
+#include "SourceResponse.h"
+#include "SourceRequest.h"
 #include "SourceDecl.h"
 #include "Transport.h"
 
@@ -25,18 +25,18 @@ public:
 
   [[nodiscard]] virtual const SourceDecl &Declaration() const noexcept = 0;
 
-  [[nodiscard]] virtual Coverage Covers(const Fetch &request) const noexcept = 0;
+  [[nodiscard]] virtual Coverage Covers(const SourceRequest &request) const noexcept = 0;
 
-  [[nodiscard]] virtual Address Serves(const Fetch &request) const noexcept = 0;
+  [[nodiscard]] virtual Address Serves(const SourceRequest &request) const noexcept = 0;
 
   [[nodiscard]] virtual FetchStart Begin(const Address &at, Transport &transport) const = 0;
 
-  [[nodiscard]] virtual FetchStart Begin(const Fetch &request, Transport &transport) const {
-    if (request.Range()) { return std::unexpected(FetchFailureReason::ProviderRefused); }
+  [[nodiscard]] virtual FetchStart Begin(const SourceRequest &request, Transport &transport) const {
+    if (request.Range()) { return std::unexpected(SourceFailureReason::ProviderRefused); }
     return Begin(request.Where(), transport);
   }
 
-  [[nodiscard]] virtual Fetched
+  [[nodiscard]] virtual SourceResponse
   Collect(const Address &at, Ticket ticket, Transport &transport) const = 0;
 
   [[nodiscard]] virtual std::expected<HeightRaster, DecodeFailure>

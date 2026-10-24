@@ -96,7 +96,7 @@ void PreparedUrbanAreas::RetireUnused() {
   });
 }
 
-std::expected<PreparedUrbanAreas::Delivery, std::string>
+std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
 PreparedUrbanAreas::Acquire(TilePool &tiles, const Request &request) {
   if (Stop_.stop_requested()) { return std::unexpected("urban-area preparation cancelled"); }
   const Definition input{
@@ -116,7 +116,7 @@ PreparedUrbanAreas::Acquire(TilePool &tiles, const Request &request) {
   }
   if (Pending_.size() >= Budget_.PendingMost) {
     ++Deferred_;
-    return Delivery{};
+    return SourceDelivery{};
   }
   auto work = std::make_shared<Work>();
   work->Input = input;
@@ -130,19 +130,19 @@ PreparedUrbanAreas::Acquire(TilePool &tiles, const Request &request) {
     return std::unexpected("urban-area lookup task was not accepted");
   }
   Pending_.emplace(key, std::move(work));
-  return Delivery{};
+  return SourceDelivery{};
 }
 
-std::expected<PreparedUrbanAreas::Delivery, std::string> PreparedUrbanAreas::Advance(
+std::expected<PreparedUrbanAreas::SourceDelivery, std::string> PreparedUrbanAreas::Advance(
     TilePool &tiles, const std::string &key, const std::shared_ptr<Work> &work) {
   if (work->Task != Tasks::kNoTask) {
-    if (!Compute_.TakeCompletion(work->Task)) { return Delivery{}; }
+    if (!Compute_.TakeCompletion(work->Task)) { return SourceDelivery{}; }
     work->Task = Tasks::kNoTask;
     if (!work->Result) { return std::unexpected(work->Result.error()); }
     if (work->Result->Area) {
-      return Delivery{.Status = State::Ready,
-                      .Product = std::move(work->Result->Area),
-                      .AssetKey = std::move(work->Result->Key)};
+      return SourceDelivery{.Status = State::Ready,
+                            .Product = std::move(work->Result->Area),
+                            .AssetKey = std::move(work->Result->Key)};
     }
     if (work->Stage == Work::Phase::Generate) {
       return std::unexpected("urban-area generation returned no complete asset");
@@ -156,10 +156,10 @@ std::expected<PreparedUrbanAreas::Delivery, std::string> PreparedUrbanAreas::Adv
   if (work->Task == Tasks::kNoTask) {
     return std::unexpected("urban-area generation task was not accepted");
   }
-  return Delivery{};
+  return SourceDelivery{};
 }
 
-std::expected<PreparedUrbanAreas::Delivery, std::string>
+std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
 PreparedUrbanAreas::GatherSources(TilePool &tiles, Work &work) {
   const auto parent = Parent(work.Input.Owner);
   if (work.SourceCount == 0) {
@@ -183,7 +183,7 @@ PreparedUrbanAreas::GatherSources(TilePool &tiles, Work &work) {
       if (!source) { return std::unexpected(std::string(source.error())); }
       switch (source->Status) {
         case PreparedOsmTiles::State::Absent:
-          return Delivery{.Status = State::Absent, .Product = {}, .AssetKey = {}};
+          return SourceDelivery{.Status = State::Absent, .Product = {}, .AssetKey = {}};
         case PreparedOsmTiles::State::Refused: refused = true; break;
         case PreparedOsmTiles::State::Pending: pending = true; break;
         case PreparedOsmTiles::State::Ready:
@@ -193,9 +193,9 @@ PreparedUrbanAreas::GatherSources(TilePool &tiles, Work &work) {
       }
     }
   }
-  if (refused) { return Delivery{.Status = State::Refused, .Product = {}, .AssetKey = {}}; }
-  if (pending) { return Delivery{}; }
-  return Delivery{.Status = State::Ready, .Product = {}, .AssetKey = {}};
+  if (refused) { return SourceDelivery{.Status = State::Refused, .Product = {}, .AssetKey = {}}; }
+  if (pending) { return SourceDelivery{}; }
+  return SourceDelivery{.Status = State::Ready, .Product = {}, .AssetKey = {}};
 }
 
 PreparedUrbanAreas::Counters PreparedUrbanAreas::Costs() const noexcept {

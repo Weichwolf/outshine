@@ -28,11 +28,12 @@ class RefusingSource final : public outshine::Data::Source {
 public:
   const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  outshine::Data::Coverage Covers(const outshine::Data::Fetch &) const noexcept override {
+  outshine::Data::Coverage Covers(const outshine::Data::SourceRequest &) const noexcept override {
     return outshine::Data::Coverage::Inside;
   }
 
-  outshine::Data::Address Serves(const outshine::Data::Fetch &request) const noexcept override {
+  outshine::Data::Address
+  Serves(const outshine::Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
@@ -41,10 +42,10 @@ public:
     return transport.Begin("fixture");
   }
 
-  outshine::Data::Fetched Collect(const outshine::Data::Address &,
-                                  outshine::Data::Ticket,
-                                  outshine::Data::Transport &) const override {
-    return outshine::Data::Fetched::Meant(outshine::Data::Meaning::Refused);
+  outshine::Data::SourceResponse Collect(const outshine::Data::Address &,
+                                         outshine::Data::Ticket,
+                                         outshine::Data::Transport &) const override {
+    return outshine::Data::SourceResponse::Meant(outshine::Data::Meaning::Refused);
   }
 
 private:
@@ -101,7 +102,7 @@ int main() {
   {
     TilePool pool({.Threads = 1, .Carriers = 1, .Diagnostics = &sink}, sources, transport);
     TilePool::Landing landing;
-    const Fetch request(DataKind::Elevation, Address::Whole(0));
+    const SourceRequest request(DataKind::Elevation, Address::Whole(0));
     TilePool::Reply reply = pool.Bytes(request, &landing);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
     while (reply == TilePool::Reply::Pending && std::chrono::steady_clock::now() < deadline) {

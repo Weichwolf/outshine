@@ -33,7 +33,7 @@ int main() {
   CHECK(created, "isolated existing source-cache storage created");
   if (!created) { return Report(); }
   const RawSourceCache::Config config{.Directory = directory};
-  const Fetch request(DataKind::Weather, Address::Whole(0));
+  const SourceRequest request(DataKind::Weather, Address::Whole(0));
   {
     RawSourceCache store(config);
     SourceSet sources(store);
@@ -51,8 +51,9 @@ int main() {
       CHECK(snapshot && *snapshot && (**snapshot).Values.CloudLow == 0.0,
             "delivered original bytes produce an exact-time public snapshot");
     }
-    CHECK(sources.At(0).Covers(Fetch(DataKind::Weather, Address::Whole(1))) == Coverage::Outside &&
-              sources.At(0).Covers(Fetch(DataKind::Elevation, Address::Whole(0))) ==
+    CHECK(sources.At(0).Covers(SourceRequest(DataKind::Weather, Address::Whole(1))) ==
+                  Coverage::Outside &&
+              sources.At(0).Covers(SourceRequest(DataKind::Elevation, Address::Whole(0))) ==
                   Coverage::Outside,
           "a capture never claims a different address or native category");
     auto abandoned = sources.Ask(request);

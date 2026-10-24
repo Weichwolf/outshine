@@ -17,7 +17,7 @@ class PreparedOsmTiles {
 public:
   enum class State : uint8_t { Pending, Ready, Absent, Refused };
 
-  struct Delivery {
+  struct SourceDelivery {
     State Status = State::Pending;
     std::shared_ptr<const OsmField> Product;
   };
@@ -30,7 +30,7 @@ public:
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
   Open(const std::string &directory, const Data::SourceSet &sources, Tasks &compute);
   ~PreparedOsmTiles();
-  [[nodiscard]] std::expected<Delivery, std::string_view>
+  [[nodiscard]] std::expected<SourceDelivery, std::string_view>
   Acquire(TilePool &tiles, TileAt at, const OsmField &layout);
   [[nodiscard]] Counters Costs() const noexcept;
 

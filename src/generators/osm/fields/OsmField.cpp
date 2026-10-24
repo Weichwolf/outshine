@@ -343,12 +343,13 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
   return {Features_.data() + t.FirstFeature, t.FeatureCount};
 }
 
-std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &tiles, TileAt at) {
+std::expected<OsmField::SourceResponse, std::string_view> OsmField::AddTile(TilePool &tiles,
+                                                                            TileAt at) {
   if (Prepared_) { return AddNativeTile(tiles, at); }
-  const Data::Fetch request(Data::DataKind::VectorMap,
-                            Data::Address::At(Data::TileId{.Zoom = Zoom_,
-                                                           .X = static_cast<uint32_t>(at.X),
-                                                           .Y = static_cast<uint32_t>(at.Y)}));
+  const Data::SourceRequest request(
+      Data::DataKind::VectorMap,
+      Data::Address::At(Data::TileId{
+          .Zoom = Zoom_, .X = static_cast<uint32_t>(at.X), .Y = static_cast<uint32_t>(at.Y)}));
   const auto fetchAt = Clock::now();
   const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
   const double fetchMs = ElapsedMs(fetchAt);
@@ -357,10 +358,10 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
 
   const bool refused = reply == TilePool::Reply::Refused;
   if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Deferred || refused) {
-    return Fetched{.Held = false, .Refused = refused};
+    return SourceResponse{.Held = false, .Refused = refused};
   }
   if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) {
-    return Fetched{.Held = true};
+    return SourceResponse{.Held = true};
   }
   const auto parseAt = Clock::now();
   auto layers = ReadVectorLayers(Scratch_.Bytes, Layers_, Schema_, &BuildMetrics_);
@@ -394,7 +395,7 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
                                      .SourceId = std::move(Scratch_.SourceId),
                                      .Revision = std::move(Scratch_.SourceRevision)},
                           .InputDigest = Sha256Hex(Scratch_.Bytes.data(), Scratch_.Bytes.size())});
-  return Fetched{.Held = true, .Added = added, .Parsed = true};
+  return SourceResponse{.Held = true, .Added = added, .Parsed = true};
 }
 
 namespace {

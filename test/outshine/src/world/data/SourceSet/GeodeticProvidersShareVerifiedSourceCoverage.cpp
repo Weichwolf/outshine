@@ -29,23 +29,23 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &request) const noexcept override {
+  Coverage Covers(const SourceRequest &request) const noexcept override {
     const auto cell = request.Where().GeoCell();
     return request.Kind() == Decl.Kind && cell && cell->Valid() ? Coverage::Inside
                                                                 : Coverage::Outside;
   }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &at, Transport &transport) const override {
     return transport.Begin(Decl.Endpoint + "/" + at.Text());
   }
 
-  Fetched Collect(const Address &, Ticket ticket, Transport &transport) const override {
+  SourceResponse Collect(const Address &, Ticket ticket, Transport &transport) const override {
     auto wire = transport.Collect(ticket);
     auto answer = wire.Take();
-    return answer ? Fetched::Delivered(std::move(answer->Body))
-                  : Fetched::Meant(Meaning::Refused, wire.FailureReason());
+    return answer ? SourceResponse::Delivered(std::move(answer->Body))
+                  : SourceResponse::Meant(Meaning::Refused, wire.FailureReason());
   }
 };
 
@@ -81,7 +81,8 @@ int main() {
           "external geodetic source uses the same public source contract");
     Transport &wire = pass == 0 ? static_cast<Transport &>(online) : offline;
     for (size_t at = 0; at < children.size(); ++at) {
-      auto query = sources.Ask(Fetch(DataKind::Elevation, Address::AtGeoCell(children[at])));
+      auto query =
+          sources.Ask(SourceRequest(DataKind::Elevation, Address::AtGeoCell(children[at])));
       const auto answer = sources.Collect(query, wire).Take();
       CHECK(answer && answer->Bytes == std::vector<uint8_t>({1, 2, 3, 4}) &&
                 answer->At == Address::AtGeoCell(children[at]),
@@ -99,9 +100,9 @@ int main() {
   SourceSet sources(fresh);
   CHECK(sources.Add(std::make_unique<Cells>()) == SourceSet::Registration::Accepted,
         "fresh provider registered for corrupted-source replay");
-  auto query = sources.Ask(Fetch(DataKind::Elevation, Address::AtGeoCell(children[0])));
+  auto query = sources.Ask(SourceRequest(DataKind::Elevation, Address::AtGeoCell(children[0])));
   const auto failed = sources.Collect(query, offline);
-  CHECK(failed.Failure() && failed.Failure()->Reason == FetchFailureReason::OfflineMiss &&
+  CHECK(failed.Failure() && failed.Failure()->Reason == SourceFailureReason::OfflineMiss &&
             !fresh.HasCompleteChildCoverage(provider.Decl, root),
         "same-size corrupted bytes are neither delivered nor counted as world coverage");
   std::error_code error;

@@ -109,14 +109,14 @@ int main() {
   std::vector<Data::TileSourceIdentity> meshSources;
   uint32_t postings = 0;
   int side = 0;
-  std::optional<Data::FetchFailure> failure(
-      Data::FetchFailure{.Kind = Data::DataKind::Elevation,
-                         .Requested = Data::Address::At({.Zoom = 0, .X = 0, .Y = 0}),
-                         .Served = Data::Address::At({.Zoom = 0, .X = 0, .Y = 0}),
-                         .SourceId = "previous",
-                         .SourceRevision = "r0",
-                         .SourceKey = "previous-key",
-                         .Reason = Data::FetchFailureReason::OfflineMiss});
+  std::optional<Data::SourceFailure> failure(
+      Data::SourceFailure{.Kind = Data::DataKind::Elevation,
+                          .Requested = Data::Address::At({.Zoom = 0, .X = 0, .Y = 0}),
+                          .Served = Data::Address::At({.Zoom = 0, .X = 0, .Y = 0}),
+                          .SourceId = "previous",
+                          .SourceRevision = "r0",
+                          .SourceKey = "previous-key",
+                          .Reason = Data::SourceFailureReason::OfflineMiss});
   CHECK(shaped.SampleNodeHeights(
             {.Zoom = 0, .X = 0, .Y = 0}, 4, &nodes, &meshSources, &postings, &side, &failure) ==
                 TerrainGrid::State::Decoded &&

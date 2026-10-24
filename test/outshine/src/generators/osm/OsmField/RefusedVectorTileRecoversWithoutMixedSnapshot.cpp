@@ -40,14 +40,15 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Calls.fetch_add(1) == 0 ? Fetched::Meant(Meaning::Refused) : Fetched::Delivered(Bytes);
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return Calls.fetch_add(1) == 0 ? SourceResponse::Meant(Meaning::Refused)
+                                   : SourceResponse::Delivered(Bytes);
   }
 
   mutable std::atomic<int> Calls{0};

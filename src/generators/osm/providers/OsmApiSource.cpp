@@ -75,7 +75,7 @@ ApiSource::ApiSource(const Data::SourceProvider &provider, uint32_t region)
   Decl_.RetryBudget = 4;
 }
 
-Data::Coverage ApiSource::Covers(const Data::Fetch &request) const noexcept {
+Data::Coverage ApiSource::Covers(const Data::SourceRequest &request) const noexcept {
   return request.Kind() == Data::DataKind::OriginalOsm && Accepts(request.Where())
              ? Data::Coverage::Inside
              : Data::Coverage::Outside;
@@ -88,61 +88,67 @@ bool ApiSource::Accepts(const Data::Address &at) const noexcept {
 
 Data::FetchStart ApiSource::Begin(const Data::Address &at, Data::Transport &transport) const {
   if (Region_) {
-    if (at.Index() != Region_) { return std::unexpected(Data::FetchFailureReason::InvalidRequest); }
+    if (at.Index() != Region_) {
+      return std::unexpected(Data::SourceFailureReason::InvalidRequest);
+    }
     return transport.Begin(Decl_.Endpoint);
   }
   const auto bounds = ApiCellBounds(at);
-  if (!bounds) { return std::unexpected(Data::FetchFailureReason::InvalidRequest); }
+  if (!bounds) { return std::unexpected(Data::SourceFailureReason::InvalidRequest); }
   return transport.Begin(MapEndpoint(Decl_.Endpoint, *bounds));
 }
 
-Data::Fetched
+Data::SourceResponse
 ApiSource::Collect(const Data::Address &at, Data::Ticket ticket, Data::Transport &transport) const {
   if (!Accepts(at)) {
-    return Data::Fetched::Meant(Data::Meaning::Refused, Data::FetchFailureReason::InvalidRequest);
+    return Data::SourceResponse::Meant(Data::Meaning::Refused,
+                                       Data::SourceFailureReason::InvalidRequest);
   }
   auto wire = transport.Collect(ticket);
-  if (wire.Where() == Data::Wire::State::Working) { return Data::Fetched::Working(); }
+  if (wire.Where() == Data::Wire::State::Working) { return Data::SourceResponse::Working(); }
   if (wire.Where() == Data::Wire::State::Unreachable) {
     const auto reason = wire.FailureReason();
-    const bool terminal = reason == Data::FetchFailureReason::Cancelled ||
-                          reason == Data::FetchFailureReason::CapacityRefused;
-    return Data::Fetched::Meant(terminal ? Data::Meaning::Refused : Data::Meaning::Retry, reason);
+    const bool terminal = reason == Data::SourceFailureReason::Cancelled ||
+                          reason == Data::SourceFailureReason::CapacityRefused;
+    return Data::SourceResponse::Meant(terminal ? Data::Meaning::Refused : Data::Meaning::Retry,
+                                       reason);
   }
   const double retryAfterS = wire.RetryAfterS();
   auto response = wire.Take();
-  if (!response) { return Data::Fetched::Meant(Data::Meaning::Refused, wire.FailureReason()); }
+  if (!response) {
+    return Data::SourceResponse::Meant(Data::Meaning::Refused, wire.FailureReason());
+  }
   if (response->Status == kHttpOk && !response->Body.empty()) {
-    return Data::Fetched::Delivered(std::move(response->Body));
+    return Data::SourceResponse::Delivered(std::move(response->Body));
   }
   if (response->Status == kHttpBadRequest) {
     const std::string_view message(reinterpret_cast<const char *>(response->Body.data()),
                                    response->Body.size());
     if (message.starts_with("You requested too many nodes (limit is ")) {
-      return Data::Fetched::Meant(
-          Data::Meaning::Refused, Data::FetchFailureReason::CapacityRefused, response->Status);
+      return Data::SourceResponse::Meant(
+          Data::Meaning::Refused, Data::SourceFailureReason::CapacityRefused, response->Status);
     }
   }
-  if (response->Status == kHttpNotFound) { return Data::Fetched::NotFound(); }
+  if (response->Status == kHttpNotFound) { return Data::SourceResponse::NotFound(); }
   if (response->Status == kHttpBandwidthLimitExceeded) {
     if (std::isfinite(retryAfterS) && retryAfterS > 0.0) {
-      return Data::Fetched::MeantAfter(Data::Meaning::Retry,
-                                       retryAfterS,
-                                       Data::FetchFailureReason::ProviderRefused,
-                                       response->Status);
+      return Data::SourceResponse::MeantAfter(Data::Meaning::Retry,
+                                              retryAfterS,
+                                              Data::SourceFailureReason::ProviderRefused,
+                                              response->Status);
     }
-    return Data::Fetched::Meant(
-        Data::Meaning::Refused, Data::FetchFailureReason::ProviderRefused, response->Status);
+    return Data::SourceResponse::Meant(
+        Data::Meaning::Refused, Data::SourceFailureReason::ProviderRefused, response->Status);
   }
   if (response->Status == kHttpRequestTimeout || response->Status == kHttpTooManyRequests ||
       response->Status >= kHttpServerError) {
-    return Data::Fetched::MeantAfter(Data::Meaning::Retry,
-                                     retryAfterS,
-                                     Data::FetchFailureReason::ProviderRefused,
-                                     response->Status);
+    return Data::SourceResponse::MeantAfter(Data::Meaning::Retry,
+                                            retryAfterS,
+                                            Data::SourceFailureReason::ProviderRefused,
+                                            response->Status);
   }
-  return Data::Fetched::Meant(
-      Data::Meaning::Refused, Data::FetchFailureReason::ProviderRefused, response->Status);
+  return Data::SourceResponse::Meant(
+      Data::Meaning::Refused, Data::SourceFailureReason::ProviderRefused, response->Status);
 }
 
 }

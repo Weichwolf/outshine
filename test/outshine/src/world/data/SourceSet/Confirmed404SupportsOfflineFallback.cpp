@@ -19,7 +19,7 @@ using namespace outshine::Data;
 class Http final : public Transport {
 public:
   int Status = 404;
-  std::optional<FetchFailureReason> Failure;
+  std::optional<SourceFailureReason> Failure;
   int Begins = 0;
   double Clock = 0;
 
@@ -50,14 +50,14 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Meant(Meaning::Absent);
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return SourceResponse::Meant(Meaning::Absent);
   }
 
   SourceDecl Decl;
@@ -86,7 +86,7 @@ int main() {
   auto directory = (std::filesystem::temp_directory_path() / "outshine-404-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated cache created");
   const RawSourceCache::Config config{.Directory = directory};
-  const Fetch request(DataKind::Elevation, Address::At({.Zoom = 17, .X = 69, .Y = 45}));
+  const SourceRequest request(DataKind::Elevation, Address::At({.Zoom = 17, .X = 69, .Y = 45}));
   {
     RawSourceCache store(config);
     SourceSet sources(store);
@@ -117,7 +117,7 @@ int main() {
     OfflineTransport offline;
     auto query = sources.Ask(request);
     const auto reply = sources.Collect(query, offline);
-    CHECK(reply.Failure() && reply.Failure()->Reason == FetchFailureReason::ConfirmedAbsent &&
+    CHECK(reply.Failure() && reply.Failure()->Reason == SourceFailureReason::ConfirmedAbsent &&
               reply.Failure()->SourceId == "primary" && sources.Counters().ProviderStarts == 0,
           "fail policy applies identically to cached not-found evidence");
   }
@@ -129,7 +129,7 @@ int main() {
     auto query = sources.Ask(request);
     auto reply = sources.Collect(query, offline);
     if (changedRevision) {
-      CHECK(reply.Failure() && reply.Failure()->Reason == FetchFailureReason::OfflineMiss,
+      CHECK(reply.Failure() && reply.Failure()->Reason == SourceFailureReason::OfflineMiss,
             "a different source revision cannot reuse previous not-found evidence");
     } else {
       const auto bytes = reply.Take();
@@ -145,19 +145,20 @@ int main() {
     failed.Status = status;
     auto query = sources.Ask(request);
     auto reply = sources.Collect(query, failed);
-    for (int poll = 0; poll < 20 && reply.Where() == Delivery::State::Pending; ++poll) {
+    for (int poll = 0; poll < 20 && reply.Where() == SourceDelivery::State::Pending; ++poll) {
       reply = sources.Collect(query, failed);
     }
-    CHECK(reply.Where() == Delivery::State::Refused, "non-404 failure terminates with refusal");
+    CHECK(reply.Where() == SourceDelivery::State::Refused,
+          "non-404 failure terminates with refusal");
     CHECK(reply.Failure() &&
-              reply.Failure()->Reason == (status == 408 ? FetchFailureReason::TimedOut
-                                                        : FetchFailureReason::ProviderRefused),
+              reply.Failure()->Reason == (status == 408 ? SourceFailureReason::TimedOut
+                                                        : SourceFailureReason::ProviderRefused),
           "HTTP timeout remains distinct from provider refusal after retry exhaustion");
     CHECK(store.Lookup(ContentKey(sources.At(0).Declaration(), sources.At(0).Serves(request)))
                   .Where == RawSourceCache::Presence::Unknown,
           "forbidden, timeout and server errors never create absence evidence");
   }
-  for (const auto reason : {FetchFailureReason::Cancelled, FetchFailureReason::CapacityRefused}) {
+  for (const auto reason : {SourceFailureReason::Cancelled, SourceFailureReason::CapacityRefused}) {
     RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources, std::string(Name(reason)));
@@ -165,7 +166,7 @@ int main() {
     failed.Failure = reason;
     auto query = sources.Ask(request);
     const auto reply = sources.Collect(query, failed);
-    CHECK(reply.Where() == Delivery::State::Refused && reply.Failure() &&
+    CHECK(reply.Where() == SourceDelivery::State::Refused && reply.Failure() &&
               reply.Failure()->Reason == reason && sources.Counters().Retried == 0 &&
               failed.Begins == 1,
           "cancellation and body-budget refusals never restart a transfer");
@@ -180,7 +181,7 @@ int main() {
           "unproven source registered");
     OfflineTransport offline;
     auto query = sources.Ask(request);
-    CHECK(sources.Collect(query, offline).Where() == Delivery::State::Vacant,
+    CHECK(sources.Collect(query, offline).Where() == SourceDelivery::State::Vacant,
           "generic absence can finish its current request");
     CHECK(store.Lookup(ContentKey(sources.At(0).Declaration(), request.Where())).Where ==
               RawSourceCache::Presence::Unknown,

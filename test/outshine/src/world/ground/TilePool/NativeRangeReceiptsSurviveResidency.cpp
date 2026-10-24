@@ -41,10 +41,10 @@ int main() {
         "native source uses normal provider dispatch");
   Http wire;
   TilePool pool({.ByteBudget = 1024, .Carriers = 1}, sources, wire);
-  const Fetch request(DataKind::Elevation,
-                      Address::AtCell({54, 9}),
-                      ByteRange{.First = 100, .Length = 3},
-                      "\"original-revision\"");
+  const SourceRequest request(DataKind::Elevation,
+                              Address::AtCell({54, 9}),
+                              ByteRange{.First = 100, .Length = 3},
+                              "\"original-revision\"");
   TilePool::Landing live, warm;
   CHECK(
       pool.BytesBlocking(request, &live) == TilePool::Reply::Ready && live.Range &&

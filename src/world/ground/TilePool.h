@@ -22,8 +22,8 @@
 #include "TileMeshes.h"
 #include "Tasks.h"
 #include "TerrainRevisionIndex.h"
-#include <Fetch.h>
-#include <FetchFailure.h>
+#include <SourceRequest.h>
+#include <SourceFailure.h>
 
 namespace outshine {
 class LogSink;
@@ -120,7 +120,7 @@ public:
 
   [[nodiscard]] Reply Field(Data::TileId of,
                             std::shared_ptr<const TerrainField> *out,
-                            std::optional<Data::FetchFailure> *failure = nullptr);
+                            std::optional<Data::SourceFailure> *failure = nullptr);
 
   void ForgetMesh(int z, uint32_t x, uint32_t y);
 
@@ -131,19 +131,21 @@ public:
     std::string SourceKey;
     Data::Address At = Data::Address::Whole(0);
     std::optional<Data::RangeResponse> Range = std::nullopt;
-    std::optional<Data::FetchFailure> Failure;
+    std::optional<Data::SourceFailure> Failure;
     std::optional<TerrainRevisionIndex::Stamp> TerrainStamp;
   };
 
-  [[nodiscard]] Reply Bytes(const Data::Fetch &request, Landing *out);
+  [[nodiscard]] Reply Bytes(const Data::SourceRequest &request, Landing *out);
 
-  [[nodiscard]] std::optional<Data::FetchFailure> Refusal(const Data::Fetch &request) const;
+  [[nodiscard]] std::optional<Data::SourceFailure>
+  Refusal(const Data::SourceRequest &request) const;
 
-  [[nodiscard]] TerrainBytes DecodeTerrain(const Data::Fetch &request, Landing landing) const;
+  [[nodiscard]] TerrainBytes DecodeTerrain(const Data::SourceRequest &request,
+                                           Landing landing) const;
 
   [[nodiscard]] bool HasNativeTerrain() const noexcept { return NativeTerrain_; }
 
-  [[nodiscard]] Reply BytesBlocking(const Data::Fetch &request, Landing *out);
+  [[nodiscard]] Reply BytesBlocking(const Data::SourceRequest &request, Landing *out);
 
   [[nodiscard]] bool Carries() const { return !Carriers_.empty(); }
 
@@ -177,7 +179,7 @@ public:
 
 private:
   friend struct TerrainInspectionTestPeer;
-  enum class Rank { Fetch = 0, Mesh = 1, Field = 2 };
+  enum class Rank { SourceRequest = 0, Mesh = 1, Field = 2 };
 
   struct ReservationOwner {
     uint64_t Key = 0;
@@ -193,13 +195,13 @@ private:
     uint64_t TerrainScope = 0;
     double TileDist = 0.0;
 
-    std::optional<Data::Fetch> Ask;
+    std::optional<Data::SourceRequest> Ask;
   };
 
-  enum class Delivery { Pending, Taken };
+  enum class SourceDelivery { Pending, Taken };
 
   struct Result {
-    Delivery Delivered = Delivery::Pending;
+    SourceDelivery Delivered = SourceDelivery::Pending;
     Reply State = Reply::Pending;
     TileBuild Build;
     std::shared_ptr<const TerrainField> Field;
@@ -226,7 +228,7 @@ private:
     std::optional<Data::RangeResponse> Range = std::nullopt;
     bool Absent = false;
     double RefusedUntilMs = 0.0;
-    std::optional<Data::FetchFailure> Failure;
+    std::optional<Data::SourceFailure> Failure;
     uint64_t Used = 0;
     std::optional<TerrainRevisionIndex::Stamp> TerrainStamp;
   };
@@ -297,10 +299,10 @@ private:
   [[nodiscard]] Reply ReadCachedDelivery(const std::string &key, Landing *out);
   void RefuseUntil(const std::string &key,
                    double untilMs,
-                   const std::optional<Data::FetchFailure> &failure);
+                   const std::optional<Data::SourceFailure> &failure);
   [[nodiscard]] std::optional<TerrainRevisionIndex::Stamp>
-  PublishDelivery(const Data::Fetch &request, const Landing &landing, bool absent);
-  [[nodiscard]] Reply FetchDelivery(const Data::Fetch &request, Landing *out);
+  PublishDelivery(const Data::SourceRequest &request, const Landing &landing, bool absent);
+  [[nodiscard]] Reply FetchDelivery(const Data::SourceRequest &request, Landing *out);
   [[nodiscard]] std::optional<size_t> CacheEntryOf(std::string_view key) const;
   void IndexCacheEntry(std::string_view key, size_t entry);
   void EraseCacheIndex(std::string_view key, size_t entry);

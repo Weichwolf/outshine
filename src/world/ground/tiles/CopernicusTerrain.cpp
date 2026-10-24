@@ -31,7 +31,7 @@ constexpr int kLongitudeHalfTurn = 180;
 constexpr int kLongitudeTurn = 360;
 
 struct Issue {
-  std::optional<Data::FetchFailure> Failure;
+  std::optional<Data::SourceFailure> Failure;
 };
 
 template <class T> using Step = std::expected<T, Issue>;
@@ -150,15 +150,15 @@ struct CopernicusTerrain::Impl {
   TilePool &Pool;
   std::vector<std::unique_ptr<Cell>> Cells;
   std::vector<Data::TileSourceIdentity> Sources;
-  std::optional<Data::Fetch> Awaited;
+  std::optional<Data::SourceRequest> Awaited;
   uint64_t Sequence = 0, Scope = 0;
   size_t DecodedBytes = 0;
 
   explicit Impl(TilePool &pool) : Pool(pool) {}
 
   static Issue
-  Failed(Data::CellId at, Data::FetchFailureReason reason, const Cell *cell = nullptr) {
-    return {.Failure = Data::FetchFailure{
+  Failed(Data::CellId at, Data::SourceFailureReason reason, const Cell *cell = nullptr) {
+    return {.Failure = Data::SourceFailure{
                 .Kind = Data::DataKind::Elevation,
                 .Requested = Data::Address::AtCell(at),
                 .Served = Data::Address::AtCell(at),
@@ -168,17 +168,17 @@ struct CopernicusTerrain::Impl {
                 .Reason = reason}};
   }
 
-  Step<TilePool::Landing> Ask(const Data::Fetch &request) {
+  Step<TilePool::Landing> Ask(const Data::SourceRequest &request) {
     const auto at = request.Where().Cell();
     if (!at) {
-      return std::unexpected(
-          Issue{.Failure = Data::FetchFailure{.Kind = request.Kind(),
-                                              .Requested = request.Where(),
-                                              .Served = std::nullopt,
-                                              .SourceId = {},
-                                              .SourceRevision = {},
-                                              .SourceKey = {},
-                                              .Reason = Data::FetchFailureReason::InvalidRequest}});
+      return std::unexpected(Issue{
+          .Failure = Data::SourceFailure{.Kind = request.Kind(),
+                                         .Requested = request.Where(),
+                                         .Served = std::nullopt,
+                                         .SourceId = {},
+                                         .SourceRevision = {},
+                                         .SourceKey = {},
+                                         .Reason = Data::SourceFailureReason::InvalidRequest}});
     }
     TilePool::Landing landing;
     switch (Pool.Bytes(request, &landing)) {
@@ -188,28 +188,28 @@ struct CopernicusTerrain::Impl {
         if (!Awaited) { Awaited = request; }
         return std::unexpected(Issue{});
       case TilePool::Reply::Absent:
-        return std::unexpected(Failed(*at, Data::FetchFailureReason::ConfirmedAbsent));
+        return std::unexpected(Failed(*at, Data::SourceFailureReason::ConfirmedAbsent));
       case TilePool::Reply::Undeclared:
       case TilePool::Reply::Refused:
         return std::unexpected(landing.Failure
                                    ? Issue{.Failure = std::move(landing.Failure)}
-                                   : Failed(*at, Data::FetchFailureReason::InvalidRequest));
+                                   : Failed(*at, Data::SourceFailureReason::InvalidRequest));
     }
     std::unreachable();
   }
 
   Step<void> Append(Cell &cell, Data::ByteRange range) {
     if (cell.Parts.size() >= kPartMost) {
-      return std::unexpected(Failed(cell.At, Data::FetchFailureReason::CapacityRefused, &cell));
+      return std::unexpected(Failed(cell.At, Data::SourceFailureReason::CapacityRefused, &cell));
     }
     uint64_t held = 0;
     for (const auto &part : cell.Parts) { held += part.Range.Bytes.Length; }
     if (range.Length > kMetadataMostBytes - held) {
-      return std::unexpected(Failed(cell.At, Data::FetchFailureReason::CapacityRefused, &cell));
+      return std::unexpected(Failed(cell.At, Data::SourceFailureReason::CapacityRefused, &cell));
     }
     const std::string_view pin =
         cell.Parts.empty() ? std::string_view{} : cell.Parts.front().Range.EntityTag;
-    auto landing = Ask(Data::Fetch(
+    auto landing = Ask(Data::SourceRequest(
         Data::DataKind::Elevation, Data::Address::AtCell(cell.At), range, std::string(pin)));
     if (!landing) { return std::unexpected(std::move(landing.error())); }
     if (!landing->Range || landing->At != Data::Address::AtCell(cell.At) ||
@@ -217,7 +217,7 @@ struct CopernicusTerrain::Impl {
          (landing->SourceId != cell.SourceId ||
           landing->Range->TotalBytes != cell.Parts.front().Range.TotalBytes ||
           landing->Range->EntityTag != pin))) {
-      return std::unexpected(Failed(cell.At, Data::FetchFailureReason::CorruptPayload, &cell));
+      return std::unexpected(Failed(cell.At, Data::SourceFailureReason::CorruptPayload, &cell));
     }
     if (cell.Parts.empty()) {
       cell.SourceId = std::move(landing->SourceId);
@@ -256,7 +256,7 @@ struct CopernicusTerrain::Impl {
       const auto oldest =
           std::ranges::min_element(Cells, {}, [](const auto &cell) { return cell->Touched; });
       if ((*oldest)->Touched == Sequence) {
-        return std::unexpected(Failed(at, Data::FetchFailureReason::CapacityRefused));
+        return std::unexpected(Failed(at, Data::SourceFailureReason::CapacityRefused));
       }
       for (const auto &block : (*oldest)->Blocks) {
         if (block.Samples != nullptr) {
@@ -296,12 +296,12 @@ struct CopernicusTerrain::Impl {
         cell.Touched = 0;
         return Ready(at);
       }
-      return std::unexpected(Failed(at, Data::FetchFailureReason::CorruptPayload, &cell));
+      return std::unexpected(Failed(at, Data::SourceFailureReason::CorruptPayload, &cell));
     }
     const auto &base = metadata->Levels.front();
     if (std::abs(base.WestDeg - at.WestDeg) > kGeoTolerance ||
         std::abs(base.NorthDeg - (at.SouthDeg + 1)) > kGeoTolerance) {
-      return std::unexpected(Failed(at, Data::FetchFailureReason::CorruptPayload, &cell));
+      return std::unexpected(Failed(at, Data::SourceFailureReason::CorruptPayload, &cell));
     }
     cell.Metadata = std::move(*metadata);
     return *found;
@@ -330,16 +330,16 @@ struct CopernicusTerrain::Impl {
     const auto encoded = cell.Metadata.Levels[level].Blocks[index];
     while (const auto missing = FirstMissingRange(encoded, parts)) {
       if (parts.size() >= kPartMost) {
-        return std::unexpected(Failed(cell.At, Data::FetchFailureReason::CapacityRefused, &cell));
+        return std::unexpected(Failed(cell.At, Data::SourceFailureReason::CapacityRefused, &cell));
       }
-      auto landing = Ask(Data::Fetch(Data::DataKind::Elevation,
-                                     Data::Address::AtCell(cell.At),
-                                     *missing,
-                                     cell.Metadata.EntityTag));
+      auto landing = Ask(Data::SourceRequest(Data::DataKind::Elevation,
+                                             Data::Address::AtCell(cell.At),
+                                             *missing,
+                                             cell.Metadata.EntityTag));
       if (!landing) { return std::unexpected(std::move(landing.error())); }
       if (!landing->Range || landing->At != Data::Address::AtCell(cell.At) ||
           landing->SourceId != cell.SourceId) {
-        return std::unexpected(Failed(cell.At, Data::FetchFailureReason::CorruptPayload, &cell));
+        return std::unexpected(Failed(cell.At, Data::SourceFailureReason::CorruptPayload, &cell));
       }
       auto origin = std::move(*landing->Range);
       acquired.push_back(std::move(landing->Bytes));
@@ -350,7 +350,7 @@ struct CopernicusTerrain::Impl {
     }
     auto decoded = Data::ReadCopernicusBlock(ObjectOf(cell, parts), cell.Metadata, level, index);
     if (!decoded) {
-      return std::unexpected(Failed(cell.At, Data::FetchFailureReason::CorruptPayload, &cell));
+      return std::unexpected(Failed(cell.At, Data::SourceFailureReason::CorruptPayload, &cell));
     }
     return std::move(*decoded);
   }
@@ -374,7 +374,7 @@ struct CopernicusTerrain::Impl {
     auto compact = Compact(std::move(*decoded));
     const size_t bytes = compact.HeightsM.capacity() * sizeof(float);
     if (!Admit(bytes)) {
-      return std::unexpected(Failed(cell.At, Data::FetchFailureReason::CapacityRefused, &cell));
+      return std::unexpected(Failed(cell.At, Data::SourceFailureReason::CapacityRefused, &cell));
     }
     found->Samples = std::make_unique<Data::CopernicusBlock>(std::move(compact));
     DecodedBytes += bytes;
@@ -394,7 +394,7 @@ struct CopernicusTerrain::Impl {
     const auto height =
         (*samples)->HeightM(row - (*samples)->FirstRow, col - (*samples)->FirstColumn);
     if (!height) {
-      return std::unexpected(Failed(cell.At, Data::FetchFailureReason::CorruptPayload, &cell));
+      return std::unexpected(Failed(cell.At, Data::SourceFailureReason::CorruptPayload, &cell));
     }
     if (cell.Provenance != Sequence) {
       Sources.push_back(
@@ -439,7 +439,7 @@ struct CopernicusTerrain::Impl {
     const double otherRow = (otherLevel.NorthDeg - latitude) / otherLevel.RowStepDeg;
     if (otherRow < -kRowTolerance || otherRow > otherLevel.Rows - 1 + kRowTolerance ||
         std::abs(otherRow - std::round(otherRow)) > kRowTolerance) {
-      return std::unexpected(Failed(other.At, Data::FetchFailureReason::CorruptPayload, &other));
+      return std::unexpected(Failed(other.At, Data::SourceFailureReason::CorruptPayload, &other));
     }
     const uint32_t otherCol = west ? otherLevel.Columns - 1 : 0;
     double otherLongitude = otherLevel.WestDeg + otherCol * otherLevel.ColumnStepDeg;
@@ -513,13 +513,13 @@ struct CopernicusTerrain::Impl {
         at.X >= (uint32_t{1} << static_cast<uint32_t>(at.Zoom)) ||
         at.Y >= (uint32_t{1} << static_cast<uint32_t>(at.Zoom))) {
       return TerrainBytes::Wire(
-          Data::FetchFailure{.Kind = Data::DataKind::Elevation,
-                             .Requested = Data::Address::At(at),
-                             .Served = std::nullopt,
-                             .SourceId = {},
-                             .SourceRevision = {},
-                             .SourceKey = {},
-                             .Reason = Data::FetchFailureReason::InvalidRequest});
+          Data::SourceFailure{.Kind = Data::DataKind::Elevation,
+                              .Requested = Data::Address::At(at),
+                              .Served = std::nullopt,
+                              .SourceId = {},
+                              .SourceRevision = {},
+                              .SourceKey = {},
+                              .Reason = Data::SourceFailureReason::InvalidRequest});
     }
     if (Scope != Pool.TerrainScopeRevision()) {
       Cells.clear();
@@ -577,7 +577,7 @@ TerrainBytes CopernicusTerrain::Take(Data::TileId at) {
   return State_->Take(at);
 }
 
-const std::optional<Data::Fetch> &CopernicusTerrain::Awaiting() const noexcept {
+const std::optional<Data::SourceRequest> &CopernicusTerrain::Awaiting() const noexcept {
   return State_->Awaited;
 }
 

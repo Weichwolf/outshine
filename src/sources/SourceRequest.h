@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_FETCH_H
-#define OUTSHINE_WORLD_DATA_FETCH_H
+#ifndef OUTSHINE_SOURCES_SOURCEREQUEST_H
+#define OUTSHINE_SOURCES_SOURCEREQUEST_H
 
 #include <string>
 #include <optional>
@@ -12,11 +12,11 @@
 
 namespace outshine::Data {
 
-class Fetch {
+class SourceRequest {
 public:
-  Fetch(DataKind kind, Address where) : Kind_(kind), Where_(where) {}
+  SourceRequest(DataKind kind, Address where) : Kind_(kind), Where_(where) {}
 
-  Fetch(DataKind kind, Address where, ByteRange range, std::string entityTag = {})
+  SourceRequest(DataKind kind, Address where, ByteRange range, std::string entityTag = {})
       : Kind_(kind), Where_(where), Range_(range), EntityTag_(std::move(entityTag)) {}
 
   [[nodiscard]] DataKind Kind() const noexcept { return Kind_; }

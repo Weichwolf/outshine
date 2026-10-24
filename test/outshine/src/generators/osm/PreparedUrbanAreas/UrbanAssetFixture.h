@@ -68,7 +68,7 @@ public:
 
   [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  [[nodiscard]] Coverage Covers(const Fetch &request) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest &request) const noexcept override {
     const auto tile = request.Where().Tile();
     constexpr int parentZoom = 5;
     return Availability_ == Availability::Absent ||
@@ -77,7 +77,7 @@ public:
                : Coverage::Inside;
   }
 
-  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
@@ -85,13 +85,13 @@ public:
     return Ticket::None;
   }
 
-  Fetched Collect(const Address & /*address*/,
-                  Ticket /*ticket*/,
-                  Transport & /*transport*/) const override {
+  SourceResponse Collect(const Address & /*address*/,
+                         Ticket /*ticket*/,
+                         Transport & /*transport*/) const override {
     ++Calls_;
-    if (Availability_ == Availability::Refused) { return Fetched::Meant(Meaning::Refused); }
-    return Fetched::Delivered(Availability_ == Availability::Unavailable ? std::vector<uint8_t>{}
-                                                                         : UrbanTile());
+    if (Availability_ == Availability::Refused) { return SourceResponse::Meant(Meaning::Refused); }
+    return SourceResponse::Delivered(
+        Availability_ == Availability::Unavailable ? std::vector<uint8_t>{} : UrbanTile());
   }
 
 private:
@@ -128,7 +128,7 @@ struct Fixture {
   }
 };
 
-inline std::expected<PreparedUrbanAreas::Delivery, std::string>
+inline std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
 Await(Fixture &fixture, const PreparedUrbanAreas::Request &request) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   do {

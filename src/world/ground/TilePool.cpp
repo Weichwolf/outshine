@@ -31,7 +31,7 @@
 #include <utility>
 
 #include "Capacity.h"
-#include "Delivery.h"
+#include "SourceDelivery.h"
 #include "Heap.h"
 #include "Log.h"
 #include "SourceSet.h"
@@ -110,7 +110,7 @@ public:
       if (Native_.Awaiting()) { tAwaited = RequestKey(Native_.Awaiting()->Key()); }
       return delivery;
     }
-    const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(at));
+    const Data::SourceRequest request(Data::DataKind::Elevation, Data::Address::At(at));
     TilePool::Landing landing;
     const TilePool::Reply asked = Pool_.Bytes(request, &landing);
     switch (asked) {
@@ -131,20 +131,21 @@ private:
 
 }
 
-TerrainBytes TilePool::DecodeTerrain(const Data::Fetch &request, Landing landing) const {
+TerrainBytes TilePool::DecodeTerrain(const Data::SourceRequest &request, Landing landing) const {
   for (size_t index = 0; index < Sources_.Count(); ++index) {
     const auto &source = Sources_.At(index);
     if (Data::SourceKey(source.Declaration()) == landing.SourceKey) {
       return FromTerrainDelivery(request, std::move(landing), &source);
     }
   }
-  return TerrainBytes::Wire(Data::FetchFailure{.Kind = request.Kind(),
-                                               .Requested = request.Where(),
-                                               .Served = landing.At,
-                                               .SourceId = std::move(landing.SourceId),
-                                               .SourceRevision = std::move(landing.SourceRevision),
-                                               .SourceKey = std::move(landing.SourceKey),
-                                               .Reason = Data::FetchFailureReason::SourceChanged});
+  return TerrainBytes::Wire(
+      Data::SourceFailure{.Kind = request.Kind(),
+                          .Requested = request.Where(),
+                          .Served = landing.At,
+                          .SourceId = std::move(landing.SourceId),
+                          .SourceRevision = std::move(landing.SourceRevision),
+                          .SourceKey = std::move(landing.SourceKey),
+                          .Reason = Data::SourceFailureReason::SourceChanged});
 }
 
 struct TilePool::ComputeContext {
@@ -438,7 +439,7 @@ size_t TilePool::SchedulerBytes() const {
 
 void TilePool::RefuseUntil(const std::string &key,
                            double untilMs,
-                           const std::optional<Data::FetchFailure> &failure) {
+                           const std::optional<Data::SourceFailure> &failure) {
   const std::scoped_lock lock(CacheMutex_);
   if (const std::optional<size_t> found = CacheEntryOf(key)) {
     Cache_[*found].RefusedUntilMs = untilMs;
@@ -489,7 +490,7 @@ TilePool::Reply TilePool::ReadCachedDelivery(const std::string &key, Landing *ou
 }
 
 std::optional<TerrainRevisionIndex::Stamp>
-TilePool::PublishDelivery(const Data::Fetch &request, const Landing &landing, bool absent) {
+TilePool::PublishDelivery(const Data::SourceRequest &request, const Landing &landing, bool absent) {
   const std::string key = request.Key();
   std::optional<TerrainRevisionIndex::DeliveryFingerprint> fingerprint;
   if (request.Kind() == Data::DataKind::Elevation) {
@@ -549,7 +550,7 @@ TilePool::PublishDelivery(const Data::Fetch &request, const Landing &landing, bo
   return stamp;
 }
 
-TilePool::Reply TilePool::FetchDelivery(const Data::Fetch &request, Landing *out) {
+TilePool::Reply TilePool::FetchDelivery(const Data::SourceRequest &request, Landing *out) {
   out->Failure.reset();
   out->TerrainStamp.reset();
   out->Range.reset();
@@ -569,10 +570,10 @@ TilePool::Reply TilePool::FetchDelivery(const Data::Fetch &request, Landing *out
       if (Stopping_) { break; }
     }
     const auto t0 = std::chrono::steady_clock::now();
-    Data::Delivery answer = Sources_.Collect(query, Wire_);
+    Data::SourceDelivery answer = Sources_.Collect(query, Wire_);
     pollMs +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-    if (std::optional<Data::Delivery::Answer> taken = answer.Take()) {
+    if (std::optional<Data::SourceDelivery::Answer> taken = answer.Take()) {
       out->Bytes = std::move(taken->Bytes);
       out->SourceId = std::move(taken->SourceId);
       out->SourceRevision = std::move(taken->SourceRevision);
@@ -584,20 +585,22 @@ TilePool::Reply TilePool::FetchDelivery(const Data::Fetch &request, Landing *out
       break;
     }
     switch (answer.Where()) {
-      case Data::Delivery::State::Pending: (void)Wire_.Await(static_cast<double>(kPollMs)); break;
-      case Data::Delivery::State::Vacant:
+      case Data::SourceDelivery::State::Pending:
+        (void)Wire_.Await(static_cast<double>(kPollMs));
+        break;
+      case Data::SourceDelivery::State::Vacant:
 
         out->At = request.Where();
         out->TerrainStamp = PublishDelivery(request, *out, true);
         reply = Reply::Absent;
         break;
-      case Data::Delivery::State::Undeclared:
+      case Data::SourceDelivery::State::Undeclared:
 
         Log::Error(LogTag::World, "tile_undeclared", {{"request", key}});
         reply = Reply::Undeclared;
         break;
-      case Data::Delivery::State::Consumed:
-      case Data::Delivery::State::Refused:
+      case Data::SourceDelivery::State::Consumed:
+      case Data::SourceDelivery::State::Refused:
         out->Failure = answer.Failure();
         RefuseUntil(key, Wire_.NowMs() + answer.AfterMs(), out->Failure);
         Log::Error(LogTag::World,
@@ -610,7 +613,7 @@ TilePool::Reply TilePool::FetchDelivery(const Data::Fetch &request, Landing *out
                                       : "unknown failure"}});
         reply = Reply::Refused;
         break;
-      case Data::Delivery::State::Delivered: break;
+      case Data::SourceDelivery::State::Delivered: break;
     }
   }
   if (reply == Reply::Pending) { outshine::Data::SourceSet::Abandon(query, Wire_); }
@@ -634,12 +637,12 @@ TilePool::Reply TilePool::FetchDelivery(const Data::Fetch &request, Landing *out
   return reply;
 }
 
-TilePool::Reply TilePool::Bytes(const Data::Fetch &request, Landing *out) {
+TilePool::Reply TilePool::Bytes(const Data::SourceRequest &request, Landing *out) {
   const std::string key = request.Key();
   const Reply resident = ReadCachedDelivery(key, out);
   if (resident != Reply::Pending) { return resident; }
   Job job;
-  job.Kind = Rank::Fetch;
+  job.Kind = Rank::SourceRequest;
   job.Key = RequestKey(key);
   job.Ask = request;
   Result result;
@@ -648,7 +651,7 @@ TilePool::Reply TilePool::Bytes(const Data::Fetch &request, Landing *out) {
   return posted;
 }
 
-std::optional<Data::FetchFailure> TilePool::Refusal(const Data::Fetch &request) const {
+std::optional<Data::SourceFailure> TilePool::Refusal(const Data::SourceRequest &request) const {
   const std::string key = request.Key();
   const double nowMs = Wire_.NowMs();
   const std::scoped_lock lock(CacheMutex_);
@@ -657,7 +660,7 @@ std::optional<Data::FetchFailure> TilePool::Refusal(const Data::Fetch &request) 
   return Cache_[*found].Failure;
 }
 
-TilePool::Reply TilePool::BytesBlocking(const Data::Fetch &request, Landing *out) {
+TilePool::Reply TilePool::BytesBlocking(const Data::SourceRequest &request, Landing *out) {
   const Reply resident = ReadCachedDelivery(request.Key(), out);
   if (resident != Reply::Pending) { return resident; }
   return FetchDelivery(request, out);
@@ -725,10 +728,10 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
 }
 
 void TilePool::Acknowledge(Result &result) {
-  if (result.Delivered == Delivery::Taken) { return; }
+  if (result.Delivered == SourceDelivery::Taken) { return; }
   assert(UnclaimedResults_ > 0);
   --UnclaimedResults_;
-  result.Delivered = Delivery::Taken;
+  result.Delivered = SourceDelivery::Taken;
 }
 
 void TilePool::EraseDone(uint64_t key) {
@@ -737,7 +740,7 @@ void TilePool::EraseDone(uint64_t key) {
 }
 
 bool TilePool::StoresDone(uint64_t key, Result result) {
-  result.Delivered = Delivery::Pending;
+  result.Delivered = SourceDelivery::Pending;
   if (Result *const replaced = Done_.Find(key)) {
     Acknowledge(*replaced);
     *replaced = std::move(result);
@@ -822,7 +825,7 @@ std::optional<TilePool::Job> TilePool::NextJob(int slot) {
 
 TilePool::Result TilePool::RunJob(TerrainTiles &tiles, const Job &job) {
   Result result;
-  if (job.Kind != Rank::Fetch) {
+  if (job.Kind != Rank::SourceRequest) {
     ShapedGround told;
     {
       const std::scoped_lock lock(QueueMutex_);
@@ -849,7 +852,7 @@ TilePool::Result TilePool::RunJob(TerrainTiles &tiles, const Job &job) {
       RunField(tiles, job, &result);
       result.Holds = false;
       break;
-    case Rank::Fetch:
+    case Rank::SourceRequest:
       result.State = job.Ask ? FetchDelivery(*job.Ask, &result.Landed) : Reply::Refused;
       break;
   }
@@ -1046,7 +1049,7 @@ bool TilePool::OwnsReservation(const Job &job) const noexcept {
 
 bool TilePool::IsCurrentJob(const Job &job) const noexcept {
   return OwnsReservation(job) &&
-         (job.Kind == Rank::Fetch || job.TerrainScope == TerrainScopeRevision());
+         (job.Kind == Rank::SourceRequest || job.TerrainScope == TerrainScopeRevision());
 }
 
 void TilePool::ReleaseReservation(ReservationOwner owner) {
@@ -1086,7 +1089,7 @@ void TilePool::ResumeDependants(uint64_t key, bool resume) {
 std::optional<TilePool::Reply> TilePool::TakeCompleted(const Job &job, Result *out) {
   Result *done = Done_.Find(job.Key);
   if (done == nullptr) { return std::nullopt; }
-  const uint64_t scope = job.Kind == Rank::Fetch ? 0 : TerrainScopeRevision();
+  const uint64_t scope = job.Kind == Rank::SourceRequest ? 0 : TerrainScopeRevision();
   const Reservation *owner = Posted_.Find(job.Key);
   if (done->TerrainScope != scope || owner == nullptr || owner->Admission != done->Admission) {
     ReleaseReservation({.Key = job.Key, .Admission = done->Admission});
@@ -1111,7 +1114,7 @@ std::optional<TilePool::Reply> TilePool::TakeCompleted(const Job &job, Result *o
 
 TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   std::unique_lock<std::mutex> lock(QueueMutex_);
-  const uint64_t scope = job.Kind == Rank::Fetch ? 0 : TerrainScopeRevision();
+  const uint64_t scope = job.Kind == Rank::SourceRequest ? 0 : TerrainScopeRevision();
   if (const std::optional<Reply> completed = TakeCompleted(job, out)) {
     lock.unlock();
     ScheduleCompute();
@@ -1128,8 +1131,8 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   const size_t active = Posted_.Size() - Done_.Size() - CurrentParkedJobs_;
   const size_t waiting = Queue_.size() + Carrying_.size() + ParkedJobs_;
   const Reservation *working = Posted_.Find(tWorkingJob);
-  const bool dependency =
-      job.Kind == Rank::Fetch && working != nullptr && working->Admission == tWorkingAdmission;
+  const bool dependency = job.Kind == Rank::SourceRequest && working != nullptr &&
+                          working->Admission == tWorkingAdmission;
   if (((active >= OutstandingMost_ || waiting >= OutstandingMost_) && !dependency) ||
       AdmissionClock_ == std::numeric_limits<uint64_t>::max()) {
     lock.unlock();
@@ -1159,7 +1162,7 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
     }
     posting.TileDist = TileDistance(locality);
   }
-  const bool carries = posting.Kind == Rank::Fetch;
+  const bool carries = posting.Kind == Rank::SourceRequest;
   (carries ? Carrying_ : Queue_).push_back(posting);
   lock.unlock();
   ScheduleCompute();
@@ -1252,7 +1255,7 @@ void TilePool::RunField(TerrainTiles &tiles, const Job &job, Result *out) {
 
 TilePool::Reply TilePool::Field(Data::TileId of,
                                 std::shared_ptr<const TerrainField> *out,
-                                std::optional<Data::FetchFailure> *failure) {
+                                std::optional<Data::SourceFailure> *failure) {
   Job job;
   job.Kind = Rank::Field;
   job.Z = of.Zoom;

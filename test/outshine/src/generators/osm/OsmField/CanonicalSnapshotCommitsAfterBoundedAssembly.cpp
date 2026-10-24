@@ -35,11 +35,11 @@ public:
 
   [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  [[nodiscard]] Coverage Covers(const Fetch & /*request*/) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
     return Coverage::Inside;
   }
 
-  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
@@ -47,10 +47,10 @@ public:
     return Ticket::None;
   }
 
-  Fetched Collect(const Address & /*address*/,
-                  Ticket /*ticket*/,
-                  Transport & /*transport*/) const override {
-    return Fetched::Delivered(Bytes);
+  SourceResponse Collect(const Address & /*address*/,
+                         Ticket /*ticket*/,
+                         Transport & /*transport*/) const override {
+    return SourceResponse::Delivered(Bytes);
   }
 
 private:
@@ -149,7 +149,7 @@ int main() {
   for (uint32_t y = 7; y <= 9; ++y) {
     for (uint32_t x = 7; x <= 9; ++x) {
       Ground::TilePool::Landing landed;
-      const Fetch request(DataKind::VectorMap, Address::At({.Zoom = 4, .X = x, .Y = y}));
+      const SourceRequest request(DataKind::VectorMap, Address::At({.Zoom = 4, .X = x, .Y = y}));
       CHECK(pool.BytesBlocking(request, &landed) == Ground::TilePool::Reply::Ready,
             "all requested source tiles are resident before assembly");
     }
@@ -196,7 +196,7 @@ int main() {
   for (uint32_t y = 7; y <= 9; ++y) {
     for (uint32_t x = 11; x <= 13; ++x) {
       Ground::TilePool::Landing landed;
-      const Fetch request(DataKind::VectorMap, Address::At({.Zoom = 4, .X = x, .Y = y}));
+      const SourceRequest request(DataKind::VectorMap, Address::At({.Zoom = 4, .X = x, .Y = y}));
       CHECK(pool.BytesBlocking(request, &landed) == Ground::TilePool::Reply::Ready,
             "the distant source window becomes resident");
     }

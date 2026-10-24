@@ -52,7 +52,7 @@ int main() {
     for (const auto bad : {centre,
                            Data::TileId{.Zoom = 9, .X = 269, .Y = 175},
                            Data::TileId{.Zoom = 9, .X = 271, .Y = 176}}) {
-      std::optional<Data::FetchFailure> held;
+      std::optional<Data::SourceFailure> held;
       {
         PayloadSource source(bad, fault);
         TerrainTiles tiles(source, EnuFrame::At(Geo{}), {.DemCacheBytes = 1024u * 1024u});
@@ -63,7 +63,7 @@ int main() {
       }
       CHECK(held && held->Requested == Data::Address::At(bad) &&
                 held->Kind == Data::DataKind::Elevation &&
-                held->Reason == Data::FetchFailureReason::CorruptPayload &&
+                held->Reason == Data::SourceFailureReason::CorruptPayload &&
                 held->SourceId == "fallback-provider" && held->SourceRevision == "pin" &&
                 held->SourceKey == "actual-source-key",
             "corrupt failure owns actual raw provenance beyond decoder/source lifetime");

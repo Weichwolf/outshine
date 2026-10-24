@@ -18,11 +18,11 @@ class NoRequests final : public outshine::Data::Transport {
 public:
   outshine::Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
     ++Begins;
-    return std::unexpected(outshine::Data::FetchFailureReason::OfflineMiss);
+    return std::unexpected(outshine::Data::SourceFailureReason::OfflineMiss);
   }
 
   outshine::Data::Wire Collect([[maybe_unused]] outshine::Data::Ticket ticket) override {
-    return outshine::Data::Wire::Never(outshine::Data::FetchFailureReason::OfflineMiss);
+    return outshine::Data::Wire::Never(outshine::Data::SourceFailureReason::OfflineMiss);
   }
 
   void Cancel([[maybe_unused]] outshine::Data::Ticket ticket) override {}

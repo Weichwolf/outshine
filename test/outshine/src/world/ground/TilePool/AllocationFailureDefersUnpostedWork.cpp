@@ -28,16 +28,16 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Working();
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return SourceResponse::Working();
   }
 };
 
@@ -66,14 +66,14 @@ int main() {
   TilePool pool({}, sources, transport);
   TilePool::Landing landing;
   rejectAllocation = true;
-  CHECK(pool.Bytes(Fetch(DataKind::Elevation, Address::Whole(0)), &landing) ==
+  CHECK(pool.Bytes(SourceRequest(DataKind::Elevation, Address::Whole(0)), &landing) ==
             TilePool::Reply::Deferred,
         "failed posted-index allocation defers rather than inventing pending work");
   rejectAllocation = false;
   const TilePool::Ledger rejected = pool.Counters();
   CHECK(rejected.Outstanding == 0 && rejected.AdmissionDeferred == 1 && rejected.Posts == 0,
         "failed admission leaves no queued ownership behind");
-  CHECK(pool.Bytes(Fetch(DataKind::Elevation, Address::Whole(0)), &landing) ==
+  CHECK(pool.Bytes(SourceRequest(DataKind::Elevation, Address::Whole(0)), &landing) ==
             TilePool::Reply::Pending,
         "same request admits once allocation recovers");
   return Report();

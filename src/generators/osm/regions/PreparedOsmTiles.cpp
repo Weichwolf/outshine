@@ -72,7 +72,7 @@ std::string PreparedOsmTiles::RequestKey(TileAt at, const Layout &layout) const 
   return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
-std::expected<PreparedOsmTiles::Delivery, std::string_view>
+std::expected<PreparedOsmTiles::SourceDelivery, std::string_view>
 PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
   if (layout.Zoom_ < 0 || layout.Zoom_ >= std::numeric_limits<int>::digits || at.X < 0 ||
       at.Y < 0 ||
@@ -86,7 +86,7 @@ PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
   if (Pending_.size() >= kPendingMost) { RetireUnused(); }
   const auto found = Pending_.find(request);
   if (found == Pending_.end()) {
-    if (Pending_.size() >= kPendingMost) { return Delivery{}; }
+    if (Pending_.size() >= kPendingMost) { return SourceDelivery{}; }
     auto work = std::make_shared<Work>();
     work->Definition = definition;
     Observe(*work, layout.Demand_);
@@ -101,38 +101,38 @@ PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
       return std::unexpected("native OSM tile lookup was not accepted");
     }
     Pending_.emplace(request, std::move(work));
-    return Delivery{};
+    return SourceDelivery{};
   }
   const auto &work = found->second;
   Observe(*work, layout.Demand_);
   if (work->Task != Tasks::kNoTask) {
-    if (!Compute_.TakeCompletion(work->Task)) { return Delivery{}; }
+    if (!Compute_.TakeCompletion(work->Task)) { return SourceDelivery{}; }
     work->Task = Tasks::kNoTask;
     if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
     if (*work->Result) {
       auto product = std::move(*work->Result);
       Pending_.erase(found);
-      return Delivery{.Status = State::Ready, .Product = std::move(product)};
+      return SourceDelivery{.Status = State::Ready, .Product = std::move(product)};
     }
     work->Stage = Work::Phase::Source;
   }
   if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
-  if (work->Stage != Work::Phase::Source) { return Delivery{}; }
+  if (work->Stage != Work::Phase::Source) { return SourceDelivery{}; }
   TilePool::Landing landing;
   const auto status =
-      tiles.Bytes(Data::Fetch(Data::DataKind::VectorMap,
-                              Data::Address::At({.Zoom = work->Definition.Zoom,
-                                                 .X = static_cast<uint32_t>(at.X),
-                                                 .Y = static_cast<uint32_t>(at.Y)})),
+      tiles.Bytes(Data::SourceRequest(Data::DataKind::VectorMap,
+                                      Data::Address::At({.Zoom = work->Definition.Zoom,
+                                                         .X = static_cast<uint32_t>(at.X),
+                                                         .Y = static_cast<uint32_t>(at.Y)})),
                   &landing);
   switch (status) {
     case TilePool::Reply::Absent:
     case TilePool::Reply::Undeclared:
       Pending_.erase(found);
-      return Delivery{.Status = State::Absent, .Product = {}};
-    case TilePool::Reply::Refused: return Delivery{.Status = State::Refused, .Product = {}};
+      return SourceDelivery{.Status = State::Absent, .Product = {}};
+    case TilePool::Reply::Refused: return SourceDelivery{.Status = State::Refused, .Product = {}};
     case TilePool::Reply::Pending:
-    case TilePool::Reply::Deferred: return Delivery{};
+    case TilePool::Reply::Deferred: return SourceDelivery{};
     default: break;
   }
   work->Stage = Work::Phase::Generate;
@@ -147,7 +147,7 @@ PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
     work->Result = std::unexpected("native OSM tile generation was not accepted");
     return std::unexpected(std::string_view(work->Result.error()));
   }
-  return Delivery{};
+  return SourceDelivery{};
 }
 
 PreparedOsmTiles::Counters PreparedOsmTiles::Costs() const noexcept {

@@ -176,7 +176,7 @@ Result SettleTiles(std::span<const Data::TileId> tiles,
 
 std::string Refusal(Data::TileId tile,
                     std::string_view kind,
-                    const std::optional<Data::FetchFailure> &failure) {
+                    const std::optional<Data::SourceFailure> &failure) {
   std::string context =
       std::format("view data preparation refused {}/{}/{}/{}", kind, tile.Zoom, tile.X, tile.Y);
   if (!failure) { return context; }
@@ -209,7 +209,7 @@ std::expected<bool, std::string> PollVector(Data::TileId tile,
 std::expected<bool, std::string> PollField(Data::TileId tile,
                                            const Ground::SurfacePreparation &stack) {
   std::shared_ptr<const Ground::TerrainField> field;
-  std::optional<Data::FetchFailure> failure;
+  std::optional<Data::SourceFailure> failure;
   const auto status = stack.Ground().PollStitchedField(tile, field, &failure);
   if (status == Ground::TilePool::Reply::Refused) {
     return std::unexpected(Refusal(tile, "elevation", failure));

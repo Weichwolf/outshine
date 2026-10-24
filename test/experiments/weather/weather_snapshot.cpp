@@ -23,7 +23,7 @@ void Number(const std::optional<double> &value) {
 }
 
 int Consume(const outshine::Data::SourceSet &sources,
-            const outshine::Data::Delivery::Answer &answer,
+            const outshine::Data::SourceDelivery::Answer &answer,
             int64_t utcS) {
   const auto snapshot = sources.At(0).DecodeWeather(answer.Bytes, utcS);
   if (!snapshot) { return 2; }
@@ -79,8 +79,8 @@ int main(int argc, char **argv) {
   outshine::Data::Transport &transport = prepare
                                              ? static_cast<outshine::Data::Transport &>(replay)
                                              : static_cast<outshine::Data::Transport &>(offline);
-  auto query = sources.Ask(
-      outshine::Data::Fetch(outshine::Data::DataKind::Weather, outshine::Data::Address::Whole(0)));
+  auto query = sources.Ask(outshine::Data::SourceRequest(outshine::Data::DataKind::Weather,
+                                                         outshine::Data::Address::Whole(0)));
   const auto answer = sources.Collect(query, transport).Take();
   if (!answer) { return 4; }
   return Consume(sources, *answer, utcS);

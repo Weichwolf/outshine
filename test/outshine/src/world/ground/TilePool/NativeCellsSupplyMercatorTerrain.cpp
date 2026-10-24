@@ -27,7 +27,7 @@ public:
   bool Missing = false;
 
   FetchStart Begin(const std::string &) override {
-    return std::unexpected(FetchFailureReason::InvalidRequest);
+    return std::unexpected(SourceFailureReason::InvalidRequest);
   }
 
   FetchStart Begin(const std::string &url, ByteRange range, std::string_view tag) override {
@@ -76,27 +76,27 @@ class Native final : public Source {
 public:
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &request) const noexcept override {
+  Coverage Covers(const SourceRequest &request) const noexcept override {
     return request.Kind() == DataKind::Elevation && request.Where().Cell() && request.Range()
                ? Coverage::Inside
                : Coverage::Outside;
   }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override {
-    return std::unexpected(FetchFailureReason::InvalidRequest);
+    return std::unexpected(SourceFailureReason::InvalidRequest);
   }
 
-  FetchStart Begin(const Fetch &request, Transport &transport) const override {
+  FetchStart Begin(const SourceRequest &request, Transport &transport) const override {
     return transport.Begin(request.Where().Text(), *request.Range(), request.EntityTag());
   }
 
-  Fetched Collect(const Address &, Ticket ticket, Transport &transport) const override {
+  SourceResponse Collect(const Address &, Ticket ticket, Transport &transport) const override {
     auto response = transport.Collect(ticket);
     auto body = response.Take();
-    return body ? Fetched::Delivered(std::move(body->Body), std::move(body->Range))
-                : Fetched::Working();
+    return body ? SourceResponse::Delivered(std::move(body->Body), std::move(body->Range))
+                : SourceResponse::Working();
   }
 
 private:
@@ -111,7 +111,7 @@ private:
 TilePool::Reply Field(TilePool &pool,
                       TileId at,
                       std::shared_ptr<const TerrainField> &field,
-                      std::optional<FetchFailure> &failure) {
+                      std::optional<SourceFailure> &failure) {
   const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   auto state = TilePool::Reply::Pending;
   while (std::chrono::steady_clock::now() < end) {
@@ -135,7 +135,7 @@ int main() {
                 http);
   const TileId at = *TileIndex::Of({.LongitudeDeg = 9.98, .LatitudeDeg = 54.02}, 7).Tile();
   std::shared_ptr<const TerrainField> field;
-  std::optional<FetchFailure> failure;
+  std::optional<SourceFailure> failure;
   CHECK(Field(pool, at, field, failure) == TilePool::Reply::Ready && field,
         "shared compute worker publishes reprojected native heights");
   if (field) {

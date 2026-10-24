@@ -48,7 +48,7 @@ CopernicusDem::CopernicusDem(std::string revision,
   Decl_.RetryBudget = 2;
 }
 
-Coverage CopernicusDem::Covers(const Fetch &request) const noexcept {
+Coverage CopernicusDem::Covers(const SourceRequest &request) const noexcept {
   const auto cell = request.Where().Cell();
   return request.Kind() == DataKind::Elevation && request.Range() && cell && ValidCell(*cell)
              ? Coverage::Inside
@@ -66,55 +66,56 @@ std::string CopernicusDem::Url(const Address &at) const {
 
 FetchStart CopernicusDem::Begin([[maybe_unused]] const Address &at,
                                 [[maybe_unused]] Transport &transport) const {
-  return std::unexpected(FetchFailureReason::InvalidRequest);
+  return std::unexpected(SourceFailureReason::InvalidRequest);
 }
 
-FetchStart CopernicusDem::Begin(const Fetch &request, Transport &transport) const {
+FetchStart CopernicusDem::Begin(const SourceRequest &request, Transport &transport) const {
   const auto &range = request.Range();
   if (!range || Covers(request) != Coverage::Inside || !range->Valid() ||
       (!request.EntityTag().empty() && !StrongEntityTag(request.EntityTag()))) {
-    return std::unexpected(FetchFailureReason::InvalidRequest);
+    return std::unexpected(SourceFailureReason::InvalidRequest);
   }
   if (range->Length > Decl_.MaximumPayloadBytes) {
-    return std::unexpected(FetchFailureReason::CapacityRefused);
+    return std::unexpected(SourceFailureReason::CapacityRefused);
   }
   return transport.Begin(Url(request.Where()), *range, request.EntityTag());
 }
 
-Fetched CopernicusDem::Collect([[maybe_unused]] const Address &at,
-                               Ticket ticket,
-                               Transport &transport) const {
+SourceResponse CopernicusDem::Collect([[maybe_unused]] const Address &at,
+                                      Ticket ticket,
+                                      Transport &transport) const {
   auto wire = transport.Collect(ticket);
   switch (wire.Where()) {
-    case Wire::State::Working: return Fetched::Working();
+    case Wire::State::Working: return SourceResponse::Working();
     case Wire::State::Unreachable: {
       const auto reason = wire.FailureReason();
-      const bool terminal =
-          reason == FetchFailureReason::Cancelled || reason == FetchFailureReason::CapacityRefused;
-      return Fetched::Meant(terminal ? Meaning::Refused : Meaning::Retry, reason);
+      const bool terminal = reason == SourceFailureReason::Cancelled ||
+                            reason == SourceFailureReason::CapacityRefused;
+      return SourceResponse::Meant(terminal ? Meaning::Refused : Meaning::Retry, reason);
     }
     case Wire::State::Consumed:
-    case Wire::State::Never: return Fetched::Meant(Meaning::Refused, wire.FailureReason());
+    case Wire::State::Never: return SourceResponse::Meant(Meaning::Refused, wire.FailureReason());
     case Wire::State::Answered: break;
   }
   auto response = wire.Take();
-  if (!response) { return Fetched::Meant(Meaning::Refused); }
-  if (response->Status == kHttpNotFound) { return Fetched::NotFound(); }
+  if (!response) { return SourceResponse::Meant(Meaning::Refused); }
+  if (response->Status == kHttpNotFound) { return SourceResponse::NotFound(); }
   if (response->Status == kHttpPreconditionFailed) {
-    return Fetched::Meant(Meaning::Refused, FetchFailureReason::SourceChanged);
+    return SourceResponse::Meant(Meaning::Refused, SourceFailureReason::SourceChanged);
   }
   if (response->Status == kHttpTimeout || response->Status == kHttpTooMany ||
       response->Status >= kHttpServerFirst) {
-    return Fetched::MeantAfter(Meaning::Retry,
-                               wire.RetryAfterS(),
-                               response->Status == kHttpTimeout ? FetchFailureReason::TimedOut
-                                                                : FetchFailureReason::Unavailable);
+    return SourceResponse::MeantAfter(Meaning::Retry,
+                                      wire.RetryAfterS(),
+                                      response->Status == kHttpTimeout
+                                          ? SourceFailureReason::TimedOut
+                                          : SourceFailureReason::Unavailable);
   }
   if (response->Status != kHttpPartialContent || !response->Range ||
       !response->Range->Valid(response->Body.size())) {
-    return Fetched::Meant(Meaning::Refused, FetchFailureReason::CorruptPayload);
+    return SourceResponse::Meant(Meaning::Refused, SourceFailureReason::CorruptPayload);
   }
-  return Fetched::Delivered(std::move(response->Body), std::move(response->Range));
+  return SourceResponse::Delivered(std::move(response->Body), std::move(response->Range));
 }
 
 }

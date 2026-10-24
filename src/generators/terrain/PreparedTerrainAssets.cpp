@@ -84,14 +84,14 @@ Box Bounds(Data::TileId at, const ::outshine::Ground::TerrainField &field) {
   return Bounds(at, *range.min, *range.max);
 }
 
-::outshine::Ground::TerrainGrid Refused(Data::TileId at, Data::FetchFailureReason reason) {
+::outshine::Ground::TerrainGrid Refused(Data::TileId at, Data::SourceFailureReason reason) {
   return ::outshine::Ground::TerrainGrid::Refused(
-      Data::FetchFailure{.Requested = Data::Address::At(at),
-                         .Served = std::nullopt,
-                         .SourceId = "prepared-terrain",
-                         .SourceRevision = {},
-                         .SourceKey = {},
-                         .Reason = reason});
+      Data::SourceFailure{.Requested = Data::Address::At(at),
+                          .Served = std::nullopt,
+                          .SourceId = "prepared-terrain",
+                          .SourceRevision = {},
+                          .SourceKey = {},
+                          .Reason = reason});
 }
 
 }
@@ -133,10 +133,10 @@ PreparedTerrainAssets::Resolve(Data::TileId at,
   if (at.Zoom < 0 || at.Zoom > Data::TileId::MaximumZoom ||
       at.X >= (uint32_t{1} << static_cast<unsigned>(at.Zoom)) ||
       at.Y >= (uint32_t{1} << static_cast<unsigned>(at.Zoom))) {
-    return Refused(at, Data::FetchFailureReason::InvalidRequest);
+    return Refused(at, Data::SourceFailureReason::InvalidRequest);
   }
   const auto key = Key(Recipe_, at, shape);
-  if (key.empty()) { return Refused(at, Data::FetchFailureReason::InvalidRequest); }
+  if (key.empty()) { return Refused(at, Data::SourceFailureReason::InvalidRequest); }
   const std::scoped_lock lock(Lock_);
   const auto held = Resident_.find(key);
   if (held != Resident_.end()) {
@@ -146,7 +146,7 @@ PreparedTerrainAssets::Resolve(Data::TileId at,
     }
   }
   auto loaded = Cache_->Load(key, kPreparedTerrainBytesMost);
-  if (!loaded) { return Refused(at, Data::FetchFailureReason::ProviderRefused); }
+  if (!loaded) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
   if (*loaded) {
     auto field = DecodePreparedTerrain(at, (**loaded).Bytes(), kPreparedTerrainBytesMost);
     if (field) {
@@ -154,15 +154,15 @@ PreparedTerrainAssets::Resolve(Data::TileId at,
       ReadBytes_.fetch_add((**loaded).Bytes().size(), std::memory_order_relaxed);
       return Remember(key, std::move(*field));
     }
-    if (!Cache_->Remove(key)) { return Refused(at, Data::FetchFailureReason::ProviderRefused); }
+    if (!Cache_->Remove(key)) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
   }
   Misses_.fetch_add(1, std::memory_order_relaxed);
-  if (!factory) { return Refused(at, Data::FetchFailureReason::ProviderRefused); }
+  if (!factory) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
   auto generated = factory();
   const auto *field = generated.TryField();
   if (field == nullptr) { return generated; }
   auto encoded = EncodePreparedTerrain(at, *field);
-  if (!encoded) { return Refused(at, Data::FetchFailureReason::CorruptPayload); }
+  if (!encoded) { return Refused(at, Data::SourceFailureReason::CorruptPayload); }
   const AssetRecord record{.Key = key,
                            .Kind = "terrain-field",
                            .Bounds = Bounds(at, *field),
@@ -171,14 +171,14 @@ PreparedTerrainAssets::Resolve(Data::TileId at,
                            .Level = static_cast<uint32_t>(at.Zoom),
                            .Parent = {}};
   if (!Cache_->Publish({&record, 1}, *encoded)) {
-    return Refused(at, Data::FetchFailureReason::ProviderRefused);
+    return Refused(at, Data::SourceFailureReason::ProviderRefused);
   }
   Writes_.fetch_add(1, std::memory_order_relaxed);
   loaded = Cache_->Load(key, kPreparedTerrainBytesMost);
-  if (!loaded || !*loaded) { return Refused(at, Data::FetchFailureReason::ProviderRefused); }
+  if (!loaded || !*loaded) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
   auto ready = DecodePreparedTerrain(at, (**loaded).Bytes(), kPreparedTerrainBytesMost);
   return ready ? Remember(key, std::move(*ready))
-               : Refused(at, Data::FetchFailureReason::CorruptPayload);
+               : Refused(at, Data::SourceFailureReason::CorruptPayload);
 }
 
 PreparedTerrainAssets::Counters PreparedTerrainAssets::Costs() const noexcept {

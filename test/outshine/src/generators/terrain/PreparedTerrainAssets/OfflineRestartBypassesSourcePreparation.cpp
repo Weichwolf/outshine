@@ -20,9 +20,9 @@ public:
     ++Calls;
     if (!Available) {
       return Ground::TerrainBytes::Wire(
-          Data::FetchFailure{.Requested = Data::Address::At(at),
-                             .SourceId = "fixture",
-                             .Reason = Data::FetchFailureReason::OfflineMiss});
+          Data::SourceFailure{.Requested = Data::Address::At(at),
+                              .SourceId = "fixture",
+                              .Reason = Data::SourceFailureReason::OfflineMiss});
     }
     Ground::TerrainField field(5, 5);
     for (uint32_t row = 0; row < 5; ++row) {

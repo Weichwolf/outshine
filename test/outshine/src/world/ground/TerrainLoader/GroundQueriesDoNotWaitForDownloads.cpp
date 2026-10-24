@@ -19,11 +19,12 @@ public:
 
   const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  outshine::Data::Coverage Covers(const outshine::Data::Fetch &) const noexcept override {
+  outshine::Data::Coverage Covers(const outshine::Data::SourceRequest &) const noexcept override {
     return outshine::Data::Coverage::Inside;
   }
 
-  outshine::Data::Address Serves(const outshine::Data::Fetch &request) const noexcept override {
+  outshine::Data::Address
+  Serves(const outshine::Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
@@ -32,13 +33,13 @@ public:
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::Fetched Collect(const outshine::Data::Address &address,
-                                  outshine::Data::Ticket,
-                                  outshine::Data::Transport &) const override {
+  outshine::Data::SourceResponse Collect(const outshine::Data::Address &address,
+                                         outshine::Data::Ticket,
+                                         outshine::Data::Transport &) const override {
     if (std::this_thread::get_id() == Caller) { CalledOnCaller = true; }
     if (const auto tile = address.Tile(); tile && tile->Zoom == 6) { FineRequested = true; }
-    if (!Released) { return outshine::Data::Fetched::Working(); }
-    return outshine::Data::Fetched::Delivered(
+    if (!Released) { return outshine::Data::SourceResponse::Working(); }
+    return outshine::Data::SourceResponse::Delivered(
         {137, 80,  78,  71,  13,  10, 26,  10,  0,  0,   0,  13,  73,  72, 68, 82, 0,   0,  0,
          4,   0,   0,   0,   4,   8,  2,   0,   0,  0,   38, 147, 9,   41, 0,  0,  0,   16, 73,
          68,  65,  84,  120, 156, 99, 104, 208, 98, 128, 35, 6,   226, 56, 0,  28, 131, 10, 161,

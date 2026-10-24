@@ -44,7 +44,7 @@ public:
 
   enum class State : uint8_t { Pending, Ready, Absent, Refused };
 
-  struct Delivery {
+  struct SourceDelivery {
     State Status = State::Pending;
     std::shared_ptr<const UrbanArea> Product;
     std::string AssetKey;
@@ -78,8 +78,8 @@ public:
        Budget budget);
   ~PreparedUrbanAreas();
   void Cancel() noexcept;
-  [[nodiscard]] std::expected<Delivery, std::string> Acquire(TilePool &tiles,
-                                                             const Request &request);
+  [[nodiscard]] std::expected<SourceDelivery, std::string> Acquire(TilePool &tiles,
+                                                                   const Request &request);
   [[nodiscard]] Counters Costs() const noexcept;
   [[nodiscard]] bool AwaitProgress(double seconds) const;
 
@@ -120,8 +120,9 @@ private:
                                                         const Definition &input);
   [[nodiscard]] std::expected<Loaded, std::string> Generate(const std::string &request,
                                                             const Work &work);
-  [[nodiscard]] std::expected<Delivery, std::string> GatherSources(TilePool &tiles, Work &work);
-  [[nodiscard]] std::expected<Delivery, std::string>
+  [[nodiscard]] std::expected<SourceDelivery, std::string> GatherSources(TilePool &tiles,
+                                                                         Work &work);
+  [[nodiscard]] std::expected<SourceDelivery, std::string>
   Advance(TilePool &tiles, const std::string &key, const std::shared_ptr<Work> &work);
   [[nodiscard]] bool Matches(const UrbanArea &area, const Definition &input) const;
 

@@ -18,14 +18,14 @@ public:
 
   TerrainBytes Take(Data::TileId at) override {
     if (at == Missing_) {
-      return TerrainBytes::Wire(Data::FetchFailure{
+      return TerrainBytes::Wire(Data::SourceFailure{
           .Kind = Data::DataKind::Elevation,
           .Requested = Data::Address::At(at),
           .Served = Data::Address::At({.Zoom = at.Zoom - 1, .X = at.X >> 1u, .Y = at.Y >> 1u}),
           .SourceId = "fixture-provider",
           .SourceRevision = "pin",
           .SourceKey = "fixture-key",
-          .Reason = Data::FetchFailureReason::OfflineMiss});
+          .Reason = Data::SourceFailureReason::OfflineMiss});
     }
     return TerrainBytes::From(at,
                               Png_,
@@ -55,7 +55,7 @@ int main() {
     CHECK(failure.Requested == Data::Address::At(missing) &&
               failure.SourceId == "fixture-provider" && failure.SourceRevision == "pin" &&
               failure.SourceKey == "fixture-key" &&
-              failure.Reason == Data::FetchFailureReason::OfflineMiss,
+              failure.Reason == Data::SourceFailureReason::OfflineMiss,
           "aggregate field address never replaces the offending raw neighbour");
     CHECK(failure.Served ==
               Data::Address::At({.Zoom = 4, .X = missing.X >> 1u, .Y = missing.Y >> 1u}),
@@ -64,7 +64,7 @@ int main() {
     std::vector<Data::TileSourceIdentity> sources;
     uint32_t postings = 1;
     int side = 1;
-    std::optional<Data::FetchFailure> meshFailure;
+    std::optional<Data::SourceFailure> meshFailure;
     CHECK(
         tiles.SampleNodeHeights(
             {.Zoom = 5, .X = 17, .Y = 11}, 4, &heights, &sources, &postings, &side, &meshFailure) ==

@@ -39,11 +39,11 @@ public:
 
   [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  [[nodiscard]] Coverage Covers(const Fetch & /*request*/) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
     return Coverage::Inside;
   }
 
-  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
@@ -51,10 +51,10 @@ public:
     return Ticket::None;
   }
 
-  Fetched Collect(const Address & /*address*/,
-                  Ticket /*ticket*/,
-                  Transport & /*transport*/) const override {
-    return Fetched::Delivered(Bytes);
+  SourceResponse Collect(const Address & /*address*/,
+                         Ticket /*ticket*/,
+                         Transport & /*transport*/) const override {
+    return SourceResponse::Delivered(Bytes);
   }
 
 private:
@@ -83,7 +83,7 @@ TileSourceIdentity Resident(std::string revision, const std::vector<uint8_t> &by
   const auto registration = sources.Add(std::make_unique<VectorSource>(std::move(revision), bytes));
   if (registration != SourceSet::Registration::Accepted) { return {}; }
   Ground::TilePool pool({}, sources, transport);
-  const Fetch request(DataKind::VectorMap, Address::At({.Zoom = 0, .X = 0, .Y = 0}));
+  const SourceRequest request(DataKind::VectorMap, Address::At({.Zoom = 0, .X = 0, .Y = 0}));
   Ground::TilePool::Landing cached;
   if (pool.BytesBlocking(request, &cached) != Ground::TilePool::Reply::Ready) { return {}; }
   const std::array<std::string, 1> layers{"x"};

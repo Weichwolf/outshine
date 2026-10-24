@@ -73,8 +73,8 @@ public:
   }
 };
 
-std::optional<outshine::Data::FetchFailureReason> AwaitFailure(outshine::HttpTransport &transport,
-                                                               outshine::Data::Ticket ticket) {
+std::optional<outshine::Data::SourceFailureReason> AwaitFailure(outshine::HttpTransport &transport,
+                                                                outshine::Data::Ticket ticket) {
   const auto deadline = Clock::now() + 3s;
   while (Clock::now() < deadline) {
     auto reply = transport.Collect(ticket);
@@ -105,7 +105,7 @@ int main() {
     CHECK(next.has_value(), "queued native transfer is admitted");
     if (!next) { return Report(); }
     const auto refused = transport.Begin(url);
-    CHECK(!refused && refused.error() == Data::FetchFailureReason::CapacityRefused,
+    CHECK(!refused && refused.error() == Data::SourceFailureReason::CapacityRefused,
           "the bounded request table refuses work beyond its declared capacity");
     transport.Cancel(*slow);
     bool received = false;
@@ -121,9 +121,9 @@ int main() {
     CHECK(received, "cancel releases worker before the ten-second HTTP timeout");
     auto cancelled = transport.Collect(*slow);
     CHECK(cancelled.Where() == Data::Wire::State::Unreachable &&
-              cancelled.FailureReason() == Data::FetchFailureReason::Cancelled,
+              cancelled.FailureReason() == Data::SourceFailureReason::Cancelled,
           "cancelled transfer releases its payload but retains its actual cause");
-    CHECK(transport.Collect(*slow).FailureReason() == Data::FetchFailureReason::Unavailable,
+    CHECK(transport.Collect(*slow).FailureReason() == Data::SourceFailureReason::Unavailable,
           "cancel cause is consumed once");
   }
   const auto started = Clock::now();
@@ -140,7 +140,7 @@ int main() {
     CHECK(server.AwaitConnections(4), "real stalled HTTP transfer starts");
     CHECK(timed.has_value(), "timeout transfer is admitted");
     if (!timed) { return Report(); }
-    CHECK(AwaitFailure(transport, *timed) == Data::FetchFailureReason::TimedOut,
+    CHECK(AwaitFailure(transport, *timed) == Data::SourceFailureReason::TimedOut,
           "native libcurl timeout is distinct from unreachable transport");
   }
   {
@@ -157,10 +157,10 @@ int main() {
       transport.Cancel(*queued);
     }
     CHECK(transport.Collect(cancelled.front()).FailureReason() ==
-              Data::FetchFailureReason::Unavailable,
+              Data::SourceFailureReason::Unavailable,
           "bounded cancellation history forgets the oldest ticket");
     CHECK(transport.Collect(cancelled.back()).FailureReason() ==
-              Data::FetchFailureReason::Cancelled,
+              Data::SourceFailureReason::Cancelled,
           "newest queued cancellation retains its cause without a transfer");
   }
   {
@@ -171,15 +171,15 @@ int main() {
         transport.Begin("http://127.0.0.1:" + std::to_string(response.Port) + "/tile");
     CHECK(ticket.has_value(), "body limit transfer is admitted");
     if (!ticket) { return Report(); }
-    CHECK(AwaitFailure(transport, *ticket) == Data::FetchFailureReason::CapacityRefused,
+    CHECK(AwaitFailure(transport, *ticket) == Data::SourceFailureReason::CapacityRefused,
           "native body budget refusal is retained through curl write failure");
   }
   {
     HttpTransport transport({});
     const auto empty = transport.Begin("");
     const auto embedded = transport.Begin(std::string("http://127.0.0.1/") + '\0' + "hidden");
-    CHECK(!empty && empty.error() == Data::FetchFailureReason::InvalidRequest && !embedded &&
-              embedded.error() == Data::FetchFailureReason::InvalidRequest,
+    CHECK(!empty && empty.error() == Data::SourceFailureReason::InvalidRequest && !embedded &&
+              embedded.error() == Data::SourceFailureReason::InvalidRequest,
           "empty and embedded-NUL URLs refuse before transport work");
   }
   return Report();

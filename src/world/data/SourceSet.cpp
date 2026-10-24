@@ -31,21 +31,23 @@ constexpr double kRetryCapMs = 4000.0;
 constexpr int kRetryCapExponent = 4;
 static_assert(kRetryBaseMs * (1U << static_cast<unsigned>(kRetryCapExponent)) == kRetryCapMs);
 
-bool Matches(const Fetch &request, const std::optional<RangeResponse> &origin, size_t bytes) {
+bool Matches(const SourceRequest &request,
+             const std::optional<RangeResponse> &origin,
+             size_t bytes) {
   if (!request.Range()) { return !origin; }
   return origin && origin->Valid(bytes) && origin->Bytes == *request.Range() &&
          (request.EntityTag().empty() || request.EntityTag() == origin->EntityTag);
 }
 
-std::optional<FetchFailureReason> ValidateDemand(const Fetch &request, size_t maximum) {
+std::optional<SourceFailureReason> ValidateDemand(const SourceRequest &request, size_t maximum) {
   const auto &range = request.Range();
   if (!range) { return std::nullopt; }
   if (!range->Valid() || (!request.EntityTag().empty() && !StrongEntityTag(request.EntityTag()))) {
-    return FetchFailureReason::InvalidRequest;
+    return SourceFailureReason::InvalidRequest;
   }
   if (range->Length > std::numeric_limits<size_t>::max() - MaximumRangeRecordOverhead ||
       (maximum != 0 && range->Length > maximum)) {
-    return FetchFailureReason::CapacityRefused;
+    return SourceFailureReason::CapacityRefused;
   }
   return std::nullopt;
 }
@@ -139,7 +141,7 @@ void SourceSet::Seal() noexcept {
   Sealed_ = true;
 }
 
-SourceSet::Query SourceSet::Ask(const Fetch &request) const {
+SourceSet::Query SourceSet::Ask(const SourceRequest &request) const {
   const std::scoped_lock lock(RegistryMutex_);
   Query query(*this, request);
   for (const std::unique_ptr<Source> &source : Sources_) {
@@ -148,15 +150,15 @@ SourceSet::Query SourceSet::Ask(const Fetch &request) const {
   return query;
 }
 
-Delivery SourceSet::Collect(Query &query, Transport &transport) {
-  if (query.Phase_ == Query::Phase::Finished) { return Delivery::Consumed(); }
-  if (query.Owner_ != this) { return Delivery::WireAfter(kRetryCapMs); }
+SourceDelivery SourceSet::Collect(Query &query, Transport &transport) {
+  if (query.Phase_ == Query::Phase::Finished) { return SourceDelivery::Consumed(); }
+  if (query.Owner_ != this) { return SourceDelivery::WireAfter(kRetryCapMs); }
   if (query.Phase_ == Query::Phase::Backoff) { return ResumeRetry(query, transport); }
   if (query.Candidates_.empty()) {
     const std::scoped_lock lock(LedgerMutex_);
     query.Finish();
     Ledger_.Undeclared++;
-    return Delivery::NoSource();
+    return SourceDelivery::NoSource();
   }
   for (;;) {
     if (query.Phase_ == Query::Phase::Ready) {
@@ -165,12 +167,12 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     }
 
     const auto began = std::chrono::steady_clock::now();
-    Fetched answer = query.Current_->Collect(query.At_, query.Ticket_, transport);
+    SourceResponse answer = query.Current_->Collect(query.At_, query.Ticket_, transport);
     RecordProviderCall(query.Current_->Declaration().Kind, began);
-    if (answer.Where() == Fetched::State::Working) { return Delivery::Waiting(); }
+    if (answer.Where() == SourceResponse::State::Working) { return SourceDelivery::Waiting(); }
     query.Ticket_ = Ticket::None;
 
-    std::optional<Fetched::Settled> settled = answer.Take();
+    std::optional<SourceResponse::Settled> settled = answer.Take();
     if (!settled) { return Refuse(query, kRetryCapMs); }
 
     if (auto delivery =
@@ -180,12 +182,12 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
   }
 }
 
-std::optional<Delivery> SourceSet::StartNext(Query &query, Transport &transport) {
+std::optional<SourceDelivery> SourceSet::StartNext(Query &query, Transport &transport) {
   if (query.Next_ >= query.Candidates_.size()) {
     const std::scoped_lock lock(LedgerMutex_);
     query.Finish();
     Ledger_.Vacant++;
-    return Delivery::Nothing();
+    return SourceDelivery::Nothing();
   }
   query.Current_ = query.Candidates_[query.Next_++];
   query.Attempts_ = 0;
@@ -199,7 +201,7 @@ std::optional<Delivery> SourceSet::StartNext(Query &query, Transport &transport)
   return StartCurrent(query, transport);
 }
 
-std::optional<Delivery>
+std::optional<SourceDelivery>
 SourceSet::ProcessAbsence(Query &query, Transport &transport, std::optional<int> httpStatus) {
   const auto &decl = query.Current_->Declaration();
   const auto tile = query.At_.Tile();
@@ -210,11 +212,11 @@ SourceSet::ProcessAbsence(Query &query, Transport &transport, std::optional<int>
     query.Phase_ = Query::Phase::Ready;
     if (auto stored = ReadStored(query, transport)) { return stored; }
     if (query.Current_ == nullptr) { return std::nullopt; }
-    if (query.Phase_ == Query::Phase::InFlight) { return Delivery::Waiting(); }
+    if (query.Phase_ == Query::Phase::InFlight) { return SourceDelivery::Waiting(); }
     return StartCurrent(query, transport);
   }
   if (query.Current_->Declaration().OnAbsent == AbsencePolicy::Fail) {
-    return Refuse(query, kRetryCapMs, FetchFailureReason::ConfirmedAbsent, httpStatus);
+    return Refuse(query, kRetryCapMs, SourceFailureReason::ConfirmedAbsent, httpStatus);
   }
   query.Current_ = nullptr;
   query.Phase_ = Query::Phase::Ready;
@@ -223,7 +225,7 @@ SourceSet::ProcessAbsence(Query &query, Transport &transport, std::optional<int>
   return std::nullopt;
 }
 
-std::optional<Delivery> SourceSet::ReadStored(Query &query, Transport &transport) {
+std::optional<SourceDelivery> SourceSet::ReadStored(Query &query, Transport &transport) {
   const SourceDecl &decl = query.Current_->Declaration();
   if (decl.Keeps != Cacheability::Forever) { return std::nullopt; }
   const auto &range = query.Request_.Range();
@@ -252,25 +254,25 @@ std::optional<Delivery> SourceSet::ReadStored(Query &query, Transport &transport
   Ledger_.DeliveredBytes += static_cast<long long>(kept.Bytes.size());
   RecordDelivery(decl);
   query.Finish();
-  return Delivery::From(
+  return SourceDelivery::From(
       decl.Id, decl.Revision, query.At_, std::move(kept.Bytes), SourceKey(decl), std::move(origin));
 }
 
-Delivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
+SourceDelivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
   const double nowMs = transport.NowMs();
   if (!std::isfinite(nowMs) || nowMs < 0.0) { return Refuse(query, kRetryCapMs); }
-  if (nowMs < query.RetryAtMs_) { return Delivery::Waiting(); }
+  if (nowMs < query.RetryAtMs_) { return SourceDelivery::Waiting(); }
   query.RetryAtMs_ = 0.0;
   if (auto refused = StartCurrent(query, transport)) { return std::move(*refused); }
-  return Delivery::Waiting();
+  return SourceDelivery::Waiting();
 }
 
-std::optional<Delivery> SourceSet::StartCurrent(Query &query, Transport &transport) {
+std::optional<SourceDelivery> SourceSet::StartCurrent(Query &query, Transport &transport) {
   const auto &range = query.Request_.Range();
-  const Fetch served =
-      range
-          ? Fetch(query.Request_.Kind(), query.At_, *range, std::string(query.Request_.EntityTag()))
-          : Fetch(query.Request_.Kind(), query.At_);
+  const SourceRequest served =
+      range ? SourceRequest(
+                  query.Request_.Kind(), query.At_, *range, std::string(query.Request_.EntityTag()))
+            : SourceRequest(query.Request_.Kind(), query.At_);
   const auto began = std::chrono::steady_clock::now();
   const auto started = query.Current_->Begin(served, transport);
   RecordProviderCall(query.Current_->Declaration().Kind, began);
@@ -308,18 +310,18 @@ void SourceSet::RecordDelivery(const SourceDecl &decl) {
   if (use != Ledger_.Sources.end()) { ++use->Deliveries; }
 }
 
-Delivery SourceSet::Deliver(Query &query, Fetched::Settled response) {
+SourceDelivery SourceSet::Deliver(Query &query, SourceResponse::Settled response) {
   const SourceDecl &decl = query.Current_->Declaration();
   if (decl.MaximumPayloadBytes != 0 && response.Bytes.size() > decl.MaximumPayloadBytes) {
-    return Refuse(query, kRetryCapMs, FetchFailureReason::CapacityRefused);
+    return Refuse(query, kRetryCapMs, SourceFailureReason::CapacityRefused);
   }
   if (!Matches(query.Request_, response.Range, response.Bytes.size())) {
-    return Refuse(query, kRetryCapMs, FetchFailureReason::CorruptPayload);
+    return Refuse(query, kRetryCapMs, SourceFailureReason::CorruptPayload);
   }
   if (decl.Keeps == Cacheability::Forever) {
     if (response.Range) {
       auto record = PackSourceRange(response.Bytes, *response.Range);
-      if (!record) { return Refuse(query, kRetryCapMs, FetchFailureReason::CapacityRefused); }
+      if (!record) { return Refuse(query, kRetryCapMs, SourceFailureReason::CapacityRefused); }
       (void)Store_.Keep(query.CacheKey(), record->data(), record->size());
     } else {
       const auto cell = query.At_.GeoCell();
@@ -335,18 +337,18 @@ Delivery SourceSet::Deliver(Query &query, Fetched::Settled response) {
   Ledger_.DeliveredBytes += static_cast<long long>(response.Bytes.size());
   RecordDelivery(decl);
   query.Finish();
-  return Delivery::From(decl.Id,
-                        decl.Revision,
-                        query.At_,
-                        std::move(response.Bytes),
-                        SourceKey(decl),
-                        std::move(response.Range));
+  return SourceDelivery::From(decl.Id,
+                              decl.Revision,
+                              query.At_,
+                              std::move(response.Bytes),
+                              SourceKey(decl),
+                              std::move(response.Range));
 }
 
-std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
-                                                   Fetched::Settled response,
-                                                   double retryAfterS,
-                                                   Transport &transport) {
+std::optional<SourceDelivery> SourceSet::ProcessResponse(Query &query,
+                                                         SourceResponse::Settled response,
+                                                         double retryAfterS,
+                                                         Transport &transport) {
   const SourceDecl &decl = query.Current_->Declaration();
   const double retryAfterMs = retryAfterS * kMsPerS;
   const bool validDelay = std::isfinite(retryAfterMs) && retryAfterMs >= 0.0;
@@ -376,7 +378,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
         }
         query.Phase_ = Query::Phase::Backoff;
         query.RetryAtMs_ = deadlineMs;
-        return Delivery::Waiting();
+        return SourceDelivery::Waiting();
       }
       break;
     case Meaning::Refused: break;
@@ -388,26 +390,26 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
                 response.HttpStatus);
 }
 
-Delivery SourceSet::Refuse(Query &query,
-                           double afterMs,
-                           FetchFailureReason reason,
-                           std::optional<int> httpStatus) {
+SourceDelivery SourceSet::Refuse(Query &query,
+                                 double afterMs,
+                                 SourceFailureReason reason,
+                                 std::optional<int> httpStatus) {
   const SourceDecl &decl = query.Current_->Declaration();
   const std::string sourceId = decl.Id;
   const std::string sourceRevision = decl.Revision;
-  FetchFailure failure{.Kind = query.Request_.Kind(),
-                       .Requested = query.Request_.Where(),
-                       .Served = query.At_,
-                       .SourceId = sourceId,
-                       .SourceRevision = sourceRevision,
-                       .SourceKey = SourceKey(decl),
-                       .Reason = reason,
-                       .HttpStatus = httpStatus,
-                       .Retries = query.Attempts_};
+  SourceFailure failure{.Kind = query.Request_.Kind(),
+                        .Requested = query.Request_.Where(),
+                        .Served = query.At_,
+                        .SourceId = sourceId,
+                        .SourceRevision = sourceRevision,
+                        .SourceKey = SourceKey(decl),
+                        .Reason = reason,
+                        .HttpStatus = httpStatus,
+                        .Retries = query.Attempts_};
   query.Finish();
   const std::scoped_lock lock(LedgerMutex_);
   ++Ledger_.Refused;
-  return Delivery::WireAfter(afterMs, sourceId, sourceRevision, std::move(failure));
+  return SourceDelivery::WireAfter(afterMs, sourceId, sourceRevision, std::move(failure));
 }
 
 void SourceSet::Abandon(Query &query, Transport &transport) {

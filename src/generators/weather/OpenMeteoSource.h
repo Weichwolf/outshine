@@ -12,15 +12,15 @@ public:
 
   [[nodiscard]] const Data::SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  [[nodiscard]] Data::Coverage Covers(const Data::Fetch &request) const noexcept override;
+  [[nodiscard]] Data::Coverage Covers(const Data::SourceRequest &request) const noexcept override;
 
-  [[nodiscard]] Data::Address Serves(const Data::Fetch &request) const noexcept override {
+  [[nodiscard]] Data::Address Serves(const Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
   [[nodiscard]] Data::FetchStart Begin(const Data::Address &at,
                                        Data::Transport &transport) const override;
-  [[nodiscard]] Data::Fetched
+  [[nodiscard]] Data::SourceResponse
   Collect(const Data::Address &at, Data::Ticket ticket, Data::Transport &transport) const override;
   [[nodiscard]] std::expected<std::optional<WeatherSnapshot>, Data::DecodeFailure>
   DecodeWeather(std::span<const uint8_t> bytes, int64_t utcS) const override;

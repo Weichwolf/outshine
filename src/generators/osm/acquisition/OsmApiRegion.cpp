@@ -49,10 +49,10 @@ ApiRegion::Create(const Data::SourceProvider &provider,
     return std::unexpected("an original OSM catalogue requires geographic cell demand");
   }
   const auto at = cell ? Data::Address::AtGeoCell(*cell) : Data::Address::Whole(0);
-  if (cell &&
-      ((*source)->Declaration().How != Data::Scheme::GeodeticGrid ||
-       (*source)->Covers(Data::Fetch(Data::DataKind::OriginalOsm, at)) != Data::Coverage::Inside ||
-       (*source)->Serves(Data::Fetch(Data::DataKind::OriginalOsm, at)) != at)) {
+  if (cell && ((*source)->Declaration().How != Data::Scheme::GeodeticGrid ||
+               (*source)->Covers(Data::SourceRequest(Data::DataKind::OriginalOsm, at)) !=
+                   Data::Coverage::Inside ||
+               (*source)->Serves(Data::SourceRequest(Data::DataKind::OriginalOsm, at)) != at)) {
     return std::unexpected("an original OSM catalogue refused geographic cell demand");
   }
   auto region = std::unique_ptr<ApiRegion>(new ApiRegion(store, wire, at));
@@ -88,10 +88,10 @@ std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(SourceChunk 
     Query_.reset();
     return Collected::Ready;
   }
-  if (delivery.Where() == Data::Delivery::State::Pending) { return Collected::Pending; }
+  if (delivery.Where() == Data::SourceDelivery::State::Pending) { return Collected::Pending; }
   const auto reason =
-      delivery.Failure() ? delivery.Failure()->Reason : Data::FetchFailureReason::ProviderRefused;
-  if (chunk.Cell && reason == Data::FetchFailureReason::CapacityRefused) {
+      delivery.Failure() ? delivery.Failure()->Reason : Data::SourceFailureReason::ProviderRefused;
+  if (chunk.Cell && reason == Data::SourceFailureReason::CapacityRefused) {
     Query_.reset();
     return Collected::Refine;
   }
@@ -118,7 +118,7 @@ bool ApiRegion::Begin(const Data::RawSourceCache &store, std::vector<GeoCellId> 
     refine.push_back(*cell);
     return true;
   }
-  Query_.emplace(Sources_.Ask(Data::Fetch(Data::DataKind::OriginalOsm, Address_)));
+  Query_.emplace(Sources_.Ask(Data::SourceRequest(Data::DataKind::OriginalOsm, Address_)));
   return false;
 }
 

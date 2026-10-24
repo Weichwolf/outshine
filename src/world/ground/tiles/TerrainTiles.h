@@ -65,13 +65,13 @@ public:
 
   static TerrainBytes Nothing() { return TerrainBytes(State::NoTile); }
 
-  static TerrainBytes Wire(std::optional<Data::FetchFailure> failure = std::nullopt) {
+  static TerrainBytes Wire(std::optional<Data::SourceFailure> failure = std::nullopt) {
     TerrainBytes bytes(State::Refused);
     bytes.Failure_ = std::move(failure);
     return bytes;
   }
 
-  [[nodiscard]] const std::optional<Data::FetchFailure> &Failure() const noexcept {
+  [[nodiscard]] const std::optional<Data::SourceFailure> &Failure() const noexcept {
     return Failure_;
   }
 
@@ -88,7 +88,7 @@ private:
 
   State Where_;
   Payload Payload_;
-  std::optional<Data::FetchFailure> Failure_;
+  std::optional<Data::SourceFailure> Failure_;
 };
 
 class TerrainSource {
@@ -205,7 +205,7 @@ public:
                                        std::vector<Data::TileSourceIdentity> *sources,
                                        uint32_t *postings,
                                        int *side,
-                                       std::optional<Data::FetchFailure> *failure = nullptr);
+                                       std::optional<Data::SourceFailure> *failure = nullptr);
 
   [[nodiscard]] uint32_t Stride() const { return Config_.Stride; }
 
@@ -237,14 +237,14 @@ private:
                                                 float selfRawM,
                                                 Data::TileId of,
                                                 Corner corner,
-                                                std::optional<Data::FetchFailure> &failure);
+                                                std::optional<Data::SourceFailure> &failure);
 
   [[nodiscard]] TerrainGrid::State StitchEdge(TerrainField &self,
                                               int z,
                                               uint32_t nx,
                                               uint32_t ny,
                                               Side side,
-                                              std::optional<Data::FetchFailure> &failure);
+                                              std::optional<Data::SourceFailure> &failure);
 
   TerrainSource &Source_;
   EnuFrame Frame_;

@@ -202,10 +202,10 @@ Data::FetchStart HttpTransport::Begin(const std::string &url) {
 Data::FetchStart
 HttpTransport::Begin(const std::string &url, Data::ByteRange range, std::string_view entityTag) {
   if (!range.Valid() || (!entityTag.empty() && !StrongEntityTag(entityTag))) {
-    return std::unexpected(Data::FetchFailureReason::InvalidRequest);
+    return std::unexpected(Data::SourceFailureReason::InvalidRequest);
   }
   if (range.Length > Config_.MaxBodyBytes) {
-    return std::unexpected(Data::FetchFailureReason::CapacityRefused);
+    return std::unexpected(Data::SourceFailureReason::CapacityRefused);
   }
   return Start(url, range, entityTag);
 }
@@ -214,20 +214,20 @@ Data::FetchStart HttpTransport::Start(const std::string &url,
                                       std::optional<Data::ByteRange> range,
                                       std::string_view entityTag) {
   if (url.empty() || url.contains('\0')) {
-    return std::unexpected(Data::FetchFailureReason::InvalidRequest);
+    return std::unexpected(Data::SourceFailureReason::InvalidRequest);
   }
   const auto origin = UrlOrigin(url);
-  if (origin.empty()) { return std::unexpected(Data::FetchFailureReason::InvalidRequest); }
+  if (origin.empty()) { return std::unexpected(Data::SourceFailureReason::InvalidRequest); }
   uint64_t ticket = 0;
   {
     const std::scoped_lock lock(Mutex_);
-    if (State_ != State::Ready) { return std::unexpected(Data::FetchFailureReason::Unavailable); }
+    if (State_ != State::Ready) { return std::unexpected(Data::SourceFailureReason::Unavailable); }
     const double nowMs = NowMs();
     std::erase_if(Cooldowns_, [nowMs](const auto &entry) { return entry.second <= nowMs; });
     if (Transfers_.size() >= Config_.MaxRequests ||
         (Cooldowns_.size() >= Config_.MaxRequests && !Cooldowns_.contains(origin)) ||
         NextTicket_ == std::numeric_limits<uint64_t>::max()) {
-      return std::unexpected(Data::FetchFailureReason::CapacityRefused);
+      return std::unexpected(Data::SourceFailureReason::CapacityRefused);
     }
     ticket = NextTicket_++;
     Transfers_.try_emplace(ticket);
@@ -256,7 +256,7 @@ Data::Wire HttpTransport::Collect(Data::Ticket ticket) {
     const auto cancelled = std::ranges::find(CancelledTickets_, static_cast<uint64_t>(ticket));
     if (cancelled == CancelledTickets_.end()) { return Data::Wire::Unreachable(); }
     CancelledTickets_.erase(cancelled);
-    return Data::Wire::Unreachable(Data::FetchFailureReason::Cancelled);
+    return Data::Wire::Unreachable(Data::SourceFailureReason::Cancelled);
   }
   Transfer &done = found->second;
   if (!done.Done) { return Data::Wire::Working(); }
@@ -342,7 +342,7 @@ bool HttpTransport::ConfigureTransfer(void *handle, Transfer &transfer) const {
   const auto write = +[](const void *data, size_t, size_t byteCount, void *user) -> size_t {
     auto &active = *static_cast<Transfer *>(user);
     if (byteCount > active.MaxBodyBytes || active.Body.size() > active.MaxBodyBytes - byteCount) {
-      active.Failure = Data::FetchFailureReason::CapacityRefused;
+      active.Failure = Data::SourceFailureReason::CapacityRefused;
       return 0;
     }
     const auto *source = static_cast<const uint8_t *>(data);
@@ -416,7 +416,7 @@ size_t HttpTransport::AddQueuedTransfers(void *multiHandle, size_t active) {
     }
     if (easy != nullptr) { curl_easy_cleanup(easy); }
     transfer.Done = true;
-    transfer.Failure = Data::FetchFailureReason::Unavailable;
+    transfer.Failure = Data::SourceFailureReason::Unavailable;
     ++Completions_;
     Landed_.notify_all();
   }
@@ -454,8 +454,8 @@ void HttpTransport::CollectCompletions(void *multiHandle, size_t &active) {
     transfer->Done = true;
     if (message->data.result != CURLE_OK && !transfer->Failure) {
       transfer->Failure = message->data.result == CURLE_OPERATION_TIMEDOUT
-                              ? Data::FetchFailureReason::TimedOut
-                              : Data::FetchFailureReason::Unavailable;
+                              ? Data::SourceFailureReason::TimedOut
+                              : Data::SourceFailureReason::Unavailable;
     }
     if (!transfer->Failure && transfer->Range && status >= kHttpSuccessFirst &&
         status < kHttpRedirectFirst &&
@@ -464,7 +464,7 @@ void HttpTransport::CollectCompletions(void *multiHandle, size_t &active) {
          transfer->Body.size() != transfer->Range->Length ||
          !StrongEntityTag(transfer->EntityTag) ||
          (!transfer->IfMatch.empty() && transfer->EntityTag != transfer->IfMatch))) {
-      transfer->Failure = Data::FetchFailureReason::CorruptPayload;
+      transfer->Failure = Data::SourceFailureReason::CorruptPayload;
     }
     transfer->Status = static_cast<int>(status);
     transfer->RetryAfterS = static_cast<double>(retryAfter);
@@ -490,7 +490,7 @@ void HttpTransport::FinishTransfers(void *multiHandle, bool failed) {
       (void)ticket;
       if (transfer.Done) { continue; }
       transfer.Done = true;
-      if (!transfer.Failure) { transfer.Failure = Data::FetchFailureReason::Unavailable; }
+      if (!transfer.Failure) { transfer.Failure = Data::SourceFailureReason::Unavailable; }
       ++Completions_;
     }
     Landed_.notify_all();

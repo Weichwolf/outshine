@@ -24,11 +24,12 @@ public:
 
   const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  outshine::Data::Coverage Covers(const outshine::Data::Fetch &) const noexcept override {
+  outshine::Data::Coverage Covers(const outshine::Data::SourceRequest &) const noexcept override {
     return outshine::Data::Coverage::Inside;
   }
 
-  outshine::Data::Address Serves(const outshine::Data::Fetch &request) const noexcept override {
+  outshine::Data::Address
+  Serves(const outshine::Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
@@ -37,19 +38,19 @@ public:
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::Fetched Collect(const outshine::Data::Address &,
-                                  outshine::Data::Ticket,
-                                  outshine::Data::Transport &) const override {
+  outshine::Data::SourceResponse Collect(const outshine::Data::Address &,
+                                         outshine::Data::Ticket,
+                                         outshine::Data::Transport &) const override {
     ++Collections;
     if (std::this_thread::get_id() == Caller) { CalledOnCaller = true; }
-    if (!Released) { return outshine::Data::Fetched::Working(); }
+    if (!Released) { return outshine::Data::SourceResponse::Working(); }
     if (Response == Answer::Absent) {
-      return outshine::Data::Fetched::Meant(outshine::Data::Meaning::Absent);
+      return outshine::Data::SourceResponse::Meant(outshine::Data::Meaning::Absent);
     }
     if (Response == Answer::Refused) {
-      return outshine::Data::Fetched::Meant(outshine::Data::Meaning::Refused);
+      return outshine::Data::SourceResponse::Meant(outshine::Data::Meaning::Refused);
     }
-    return outshine::Data::Fetched::Delivered(
+    return outshine::Data::SourceResponse::Delivered(
         {137, 80,  78,  71,  13,  10, 26,  10,  0,  0,   0,  13,  73,  72, 68, 82, 0,   0,  0,
          4,   0,   0,   0,   4,   8,  2,   0,   0,  0,   38, 147, 9,   41, 0,  0,  0,   16, 73,
          68,  65,  84,  120, 156, 99, 104, 208, 98, 128, 35, 6,   226, 56, 0,  28, 131, 10, 161,

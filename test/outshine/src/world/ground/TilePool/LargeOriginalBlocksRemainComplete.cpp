@@ -26,7 +26,7 @@ public:
       : Bytes_(Test::NativeCog({47, 10}, false, profile)) {}
 
   FetchStart Begin(const std::string &) override {
-    return std::unexpected(FetchFailureReason::InvalidRequest);
+    return std::unexpected(SourceFailureReason::InvalidRequest);
   }
 
   FetchStart Begin(const std::string &url, ByteRange range, std::string_view tag) override {
@@ -72,7 +72,7 @@ private:
 TilePool::Reply Field(TilePool &pool,
                       TileId at,
                       std::shared_ptr<const TerrainField> &field,
-                      std::optional<FetchFailure> &failure) {
+                      std::optional<SourceFailure> &failure) {
   const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   auto state = TilePool::Reply::Pending;
   while (std::chrono::steady_clock::now() < end) {
@@ -98,7 +98,7 @@ int main() {
                   http);
     const TileId at{.Zoom = 14, .X = 8652, .Y = 5745};
     std::shared_ptr<const TerrainField> field;
-    std::optional<FetchFailure> failure;
+    std::optional<SourceFailure> failure;
     CHECK(Field(pool, at, field, failure) == TilePool::Reply::Ready && field && !failure,
           "terrain accepts a valid block larger than libtiff's individual reads");
     CHECK(http.LargestRange > 1024u * 1024,

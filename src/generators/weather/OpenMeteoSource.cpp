@@ -53,35 +53,36 @@ OpenMeteoSource::OpenMeteoSource(const Data::SourceProvider &declaration,
   Decl_.PayloadSha256 = declaration.PayloadSha256;
 }
 
-Data::Coverage OpenMeteoSource::Covers(const Data::Fetch &request) const noexcept {
+Data::Coverage OpenMeteoSource::Covers(const Data::SourceRequest &request) const noexcept {
   return request.Kind() == Data::DataKind::Weather && request.Where().Index() == 0
              ? Data::Coverage::Inside
              : Data::Coverage::Outside;
 }
 
 Data::FetchStart OpenMeteoSource::Begin(const Data::Address &at, Data::Transport &transport) const {
-  if (at.Index() != 0) { return std::unexpected(Data::FetchFailureReason::InvalidRequest); }
+  if (at.Index() != 0) { return std::unexpected(Data::SourceFailureReason::InvalidRequest); }
   return transport.Begin(Decl_.Endpoint);
 }
 
-Data::Fetched OpenMeteoSource::Collect(const Data::Address &at,
-                                       Data::Ticket ticket,
-                                       Data::Transport &transport) const {
+Data::SourceResponse OpenMeteoSource::Collect(const Data::Address &at,
+                                              Data::Ticket ticket,
+                                              Data::Transport &transport) const {
   if (at.Index() != 0) {
-    return Data::Fetched::Meant(Data::Meaning::Refused, Data::FetchFailureReason::InvalidRequest);
+    return Data::SourceResponse::Meant(Data::Meaning::Refused,
+                                       Data::SourceFailureReason::InvalidRequest);
   }
   auto wire = transport.Collect(ticket);
-  if (wire.Where() == Data::Wire::State::Working) { return Data::Fetched::Working(); }
+  if (wire.Where() == Data::Wire::State::Working) { return Data::SourceResponse::Working(); }
   const auto reason = wire.FailureReason();
   auto response = wire.Take();
-  if (!response) { return Data::Fetched::Meant(Data::Meaning::Refused, reason); }
+  if (!response) { return Data::SourceResponse::Meant(Data::Meaning::Refused, reason); }
   if (response->Status == kHttpOk && !response->Body.empty() &&
       response->Body.size() <= kOpenMeteoMaximumBytes && !response->Range) {
-    return Data::Fetched::Delivered(std::move(response->Body));
+    return Data::SourceResponse::Delivered(std::move(response->Body));
   }
-  if (response->Status == kHttpNotFound) { return Data::Fetched::NotFound(); }
-  return Data::Fetched::Meant(
-      Data::Meaning::Refused, Data::FetchFailureReason::ProviderRefused, response->Status);
+  if (response->Status == kHttpNotFound) { return Data::SourceResponse::NotFound(); }
+  return Data::SourceResponse::Meant(
+      Data::Meaning::Refused, Data::SourceFailureReason::ProviderRefused, response->Status);
 }
 
 std::expected<std::optional<WeatherSnapshot>, Data::DecodeFailure>

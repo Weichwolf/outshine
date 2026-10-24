@@ -120,7 +120,7 @@ public:
   [[nodiscard]] TilePool::Reply
   PollStitchedField(Data::TileId of,
                     std::shared_ptr<const TerrainField> &out,
-                    std::optional<Data::FetchFailure> *failure = nullptr) const;
+                    std::optional<Data::SourceFailure> *failure = nullptr) const;
 
   [[nodiscard]] size_t HeapBytes() const;
 

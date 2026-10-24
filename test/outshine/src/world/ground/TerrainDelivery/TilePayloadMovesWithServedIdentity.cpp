@@ -7,7 +7,7 @@ int main() {
   using namespace outshine::Test;
   const Data::TileId requested{.Zoom = 3, .X = 4, .Y = 3};
   const Data::TileId ancestor{.Zoom = 2, .X = 2, .Y = 1};
-  const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(requested));
+  const Data::SourceRequest request(Data::DataKind::Elevation, Data::Address::At(requested));
   TilePool::Landing landing{.Bytes = {1, 2, 3},
                             .SourceId = "ancestor-provider",
                             .SourceRevision = "actual-revision",

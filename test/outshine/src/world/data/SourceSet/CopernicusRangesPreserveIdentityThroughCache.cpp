@@ -62,7 +62,8 @@ int main() {
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original-source cache");
   const RawSourceCache::Config config{.Directory = directory};
   const auto at = Address::AtCell({54, 9});
-  const Fetch request(DataKind::Elevation, at, ByteRange{.First = 100, .Length = 3}, "\"rev-1\"");
+  const SourceRequest request(
+      DataKind::Elevation, at, ByteRange{.First = 100, .Length = 3}, "\"rev-1\"");
   const std::string url =
       "https://copernicus-dem-30m.s3.amazonaws.com/"
       "Copernicus_DSM_COG_10_N54_00_E009_00_DEM/Copernicus_DSM_COG_10_N54_00_E009_00_DEM.tif";
@@ -73,7 +74,8 @@ int main() {
     Http http;
     http.Waiting = true;
     auto query = sources.Ask(request);
-    CHECK(sources.Collect(query, http).Where() == Delivery::State::Pending && http.Begins == 1,
+    CHECK(sources.Collect(query, http).Where() == SourceDelivery::State::Pending &&
+              http.Begins == 1,
           "partial source IO starts once and parks while the original response is unavailable");
     auto moved = std::move(query);
     http.Waiting = false;
@@ -102,9 +104,10 @@ int main() {
               answer->Bytes == std::vector<uint8_t>({4, 5, 6}) &&
               sources.Counters().FromStore == 1 && sources.Counters().ProviderStarts == 0,
           "warm original ranges remain decodable offline without losing revision or file bounds");
-    auto missing = sources.Ask(Fetch(DataKind::Elevation, at, *request.Range(), "\"rev-2\""));
+    auto missing =
+        sources.Ask(SourceRequest(DataKind::Elevation, at, *request.Range(), "\"rev-2\""));
     const auto refused = sources.Collect(missing, offline);
-    CHECK(refused.Failure() && refused.Failure()->Reason == FetchFailureReason::OfflineMiss,
+    CHECK(refused.Failure() && refused.Failure()->Reason == SourceFailureReason::OfflineMiss,
           "a different revision cannot silently consume previously cached bytes");
   }
   {
@@ -137,27 +140,28 @@ int main() {
     if (bad == 4) { http.Body.pop_back(); }
     if (bad == 5) { http.Status = 412; }
     const auto where = Address::AtCell({54, 10 + bad});
-    auto query = sources.Ask(Fetch(DataKind::Elevation, where, *request.Range(), "\"rev-1\""));
+    auto query =
+        sources.Ask(SourceRequest(DataKind::Elevation, where, *request.Range(), "\"rev-1\""));
     const auto refused = sources.Collect(query, http);
     CHECK(
         refused.Failure() && refused.Failure()->SourceId == "copernicus-glo30" &&
             refused.Failure()->Served == where &&
-            refused.Failure()->Reason ==
-                (bad == 5 ? FetchFailureReason::SourceChanged : FetchFailureReason::CorruptPayload),
+            refused.Failure()->Reason == (bad == 5 ? SourceFailureReason::SourceChanged
+                                                   : SourceFailureReason::CorruptPayload),
         "whole responses, mismatched intervals, mixed revisions and missing receipts stay refused");
     CHECK(store.Counters().Writes == 0 && sources.Counters().Delivered == 0,
           "refused original ranges cannot become durable cache facts or deliveries");
   }
   CopernicusDem source;
   const std::array invalid{
-      Fetch(DataKind::Elevation, at, ByteRange{.First = 0, .Length = 0}),
-      Fetch(DataKind::Elevation,
-            at,
-            ByteRange{.First = std::numeric_limits<uint64_t>::max(), .Length = 2}),
-      Fetch(DataKind::Elevation,
-            at,
-            ByteRange{.First = 0, .Length = source.Declaration().MaximumPayloadBytes + 1}),
-      Fetch(DataKind::Elevation, at, *request.Range(), "W/\"rev-1\"")};
+      SourceRequest(DataKind::Elevation, at, ByteRange{.First = 0, .Length = 0}),
+      SourceRequest(DataKind::Elevation,
+                    at,
+                    ByteRange{.First = std::numeric_limits<uint64_t>::max(), .Length = 2}),
+      SourceRequest(DataKind::Elevation,
+                    at,
+                    ByteRange{.First = 0, .Length = source.Declaration().MaximumPayloadBytes + 1}),
+      SourceRequest(DataKind::Elevation, at, *request.Range(), "W/\"rev-1\"")};
   for (size_t i = 0; i < invalid.size(); ++i) {
     RawSourceCache store(config);
     SourceSet sources(store);
@@ -167,13 +171,13 @@ int main() {
     const auto refused = sources.Collect(query, http);
     CHECK(refused.Failure() && http.Begins == 0 && http.WholeBegins == 0 &&
               store.Counters().Hits == 0 && store.Counters().Misses == 0 &&
-              refused.Failure()->Reason == (i == 2 ? FetchFailureReason::CapacityRefused
-                                                   : FetchFailureReason::InvalidRequest),
+              refused.Failure()->Reason == (i == 2 ? SourceFailureReason::CapacityRefused
+                                                   : SourceFailureReason::InvalidRequest),
           "invalid intervals, over-budget demand and weak pins stop before cache or network work");
   }
   CHECK(source.Declaration().Wire == WireFormat::CopernicusCog &&
-            source.Covers(Fetch(DataKind::Elevation, at)) == Coverage::Outside &&
-            source.Covers(Fetch(DataKind::Elevation, Address::At({}), *request.Range())) ==
+            source.Covers(SourceRequest(DataKind::Elevation, at)) == Coverage::Outside &&
+            source.Covers(SourceRequest(DataKind::Elevation, Address::At({}), *request.Range())) ==
                 Coverage::Outside &&
             source.Url(Address::AtCell({-34, -18})).find("S34_00_W018_00") != std::string::npos &&
             source.Url(Address::AtCell({90, 0})).empty(),

@@ -70,7 +70,7 @@ private:
     std::atomic_bool Cancelled = false;
     size_t MaxBodyBytes = 0;
     bool Done = false;
-    std::optional<Data::FetchFailureReason> Failure;
+    std::optional<Data::SourceFailureReason> Failure;
     int Status = 0;
     double RetryAfterS = 0.0;
     std::vector<uint8_t> Body;

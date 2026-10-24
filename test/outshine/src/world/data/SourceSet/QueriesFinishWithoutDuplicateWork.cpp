@@ -35,18 +35,19 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &transport) const override {
     return transport.Begin(Decl.Id);
   }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
     ++Calls;
-    if (Working) { return Fetched::Working(); }
-    return Result == Meaning::Bytes ? Fetched::Delivered({1}) : Fetched::Meant(Result);
+    if (Working) { return SourceResponse::Working(); }
+    return Result == Meaning::Bytes ? SourceResponse::Delivered({1})
+                                    : SourceResponse::Meant(Result);
   }
 };
 }
@@ -54,7 +55,7 @@ public:
 int main() {
   using namespace outshine::Test;
   RawSourceCache store({.Using = RawSourceCache::Use::Off});
-  const Fetch request(DataKind::Elevation, Address::Whole(0));
+  const SourceRequest request(DataKind::Elevation, Address::Whole(0));
   CHECK(!std::is_move_assignable_v<SourceSet::Query>,
         "assignment cannot overwrite an active ticket");
   for (const Meaning outcome : {Meaning::Bytes, Meaning::Absent, Meaning::Refused}) {
@@ -66,10 +67,10 @@ int main() {
     CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "source registered");
     auto query = sources.Ask(request);
     const auto first = sources.Collect(query, transport);
-    CHECK(first.Where() != Delivery::State::Pending, "script produces a terminal result");
+    CHECK(first.Where() != SourceDelivery::State::Pending, "script produces a terminal result");
     const auto before = sources.Counters();
     CHECK(before.Providers[0].Calls == 2, "one begin and one terminal collect are measured");
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed,
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Consumed,
           "terminal query does not manufacture a second result");
     const auto after = sources.Counters();
     CHECK(before.Providers[0].Calls == after.Providers[0].Calls &&
@@ -84,9 +85,9 @@ int main() {
     SourceSet sources(store);
     ProbeTransport transport;
     auto query = sources.Ask(request);
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Undeclared,
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Undeclared,
           "missing source reported");
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed &&
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Consumed &&
               sources.Counters().Undeclared == 1,
           "undeclared result is counted once");
   }
@@ -99,29 +100,29 @@ int main() {
     CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted,
           "movable query source registered");
     auto query = sources.Ask(request);
-    CHECK(foreign.Collect(query, transport).Where() == Delivery::State::Refused &&
+    CHECK(foreign.Collect(query, transport).Where() == SourceDelivery::State::Refused &&
               probe->Calls == 0,
           "foreign source set cannot execute a query");
     probe->Working = true;
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Pending,
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending,
           "owner starts a live ticket");
     auto moved(std::move(query));
     SourceSet::Abandon(query, transport);
     CHECK(transport.Cancels == 0, "moved-from query cannot cancel transferred ticket");
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed,
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Consumed,
           "moved-from query cannot issue requests");
     probe->Working = false;
-    CHECK(sources.Collect(moved, transport).Where() == Delivery::State::Delivered &&
+    CHECK(sources.Collect(moved, transport).Where() == SourceDelivery::State::Delivered &&
               transport.Begins == 1,
           "moved query completes the existing ticket");
     auto cancelled = sources.Ask(request);
     probe->Working = true;
-    CHECK(sources.Collect(cancelled, transport).Where() == Delivery::State::Pending,
+    CHECK(sources.Collect(cancelled, transport).Where() == SourceDelivery::State::Pending,
           "second live ticket created");
     SourceSet::Abandon(cancelled, transport);
     SourceSet::Abandon(cancelled, transport);
     CHECK(transport.Cancels == 1 &&
-              sources.Collect(cancelled, transport).Where() == Delivery::State::Consumed,
+              sources.Collect(cancelled, transport).Where() == SourceDelivery::State::Consumed,
           "abandon is idempotent and terminal");
   }
   {
@@ -141,9 +142,9 @@ int main() {
     CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted,
           "cached source registered");
     auto query = sources.Ask(request);
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Delivered,
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Delivered,
           "cache satisfies query");
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed &&
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Consumed &&
               probe->Calls == 0 && sources.Counters().FromStore == 1 &&
               sources.Counters().ProviderStarts == 0 && sources.Counters().RemoteStarts == 0,
           "cached completion cannot enter the source afterward");
@@ -158,8 +159,9 @@ int main() {
     CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
               "", Rank{0}, AbsencePolicy::Continue)) == SourceSet::Registration::Accepted,
           "offline terrain source registers");
-    auto query = sources.Ask(Fetch(DataKind::Elevation, Address::At({.Zoom = 0, .X = 0, .Y = 0})));
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Refused,
+    auto query =
+        sources.Ask(SourceRequest(DataKind::Elevation, Address::At({.Zoom = 0, .X = 0, .Y = 0})));
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Refused,
           "offline cache miss refuses without a network retry");
   }
   return Report();

@@ -61,9 +61,9 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override {
+  Address Serves(const SourceRequest &request) const noexcept override {
     if (ShiftServed && request.Where().Tile()) {
       auto tile = *request.Where().Tile();
       tile.X ^= 1u;
@@ -74,11 +74,11 @@ public:
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
     const auto serial = ++Calls;
     if (serial == 1 && Gate) { Gate->Pause(); }
-    if (Absent) { return Fetched::NotFound(); }
-    return Fetched::Delivered({Stable ? uint8_t{7} : static_cast<uint8_t>(serial), 42});
+    if (Absent) { return SourceResponse::NotFound(); }
+    return SourceResponse::Delivered({Stable ? uint8_t{7} : static_cast<uint8_t>(serial), 42});
   }
 };
 }
@@ -87,8 +87,8 @@ int main() {
   using namespace outshine::Test;
   const Data::TileId a{.Zoom = 2, .X = 0, .Y = 1};
   const Data::TileId b{.Zoom = 2, .X = 1, .Y = 1};
-  const Fetch askA(DataKind::Elevation, Address::At(a));
-  const Fetch askB(DataKind::Elevation, Address::At(b));
+  const SourceRequest askA(DataKind::Elevation, Address::At(a));
+  const SourceRequest askB(DataKind::Elevation, Address::At(b));
   for (const bool evictMetadata : {false, true}) {
     RawSourceCache store({.Using = RawSourceCache::Use::Off});
     SourceSet sources(store);

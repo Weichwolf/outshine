@@ -25,7 +25,7 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Coverage Covers(const Fetch &request) const noexcept override {
+  Coverage Covers(const SourceRequest &request) const noexcept override {
     const auto cell = request.Where().Cell();
     return request.Kind() == Decl_.Kind && cell && cell->SouthDeg >= -90 && cell->SouthDeg < 90 &&
                    cell->WestDeg >= -180 && cell->WestDeg < 180
@@ -33,15 +33,15 @@ public:
                : Coverage::Outside;
   }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override {
     ++Starts;
     return Ticket::None;
   }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Delivered({1, 2, 3});
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return SourceResponse::Delivered({1, 2, 3});
   }
 
   mutable int Starts = 0;
@@ -69,7 +69,7 @@ int main() {
     OfflineTransport offline;
     for (size_t i = 0; i < cells.size(); ++i) {
       const Address at = Address::AtCell(cells[i]);
-      const Fetch request(DataKind::Elevation, at);
+      const SourceRequest request(DataKind::Elevation, at);
       CHECK(at.How() == Scheme::GeographicCell && at.Cell() == cells[i] && !at.Tile() &&
                 !at.Index() && at.Text() == names[i],
             "signed geographic cells retain a distinct native address family");
@@ -86,8 +86,8 @@ int main() {
       CHECK(keys[i] == key, "source-cell identity survives store reopening");
     }
     for (const CellId invalid : {CellId{-91, 0}, CellId{90, 0}, CellId{0, -181}, CellId{0, 180}}) {
-      auto query = sources.Ask(Fetch(DataKind::Elevation, Address::AtCell(invalid)));
-      CHECK(sources.Collect(query, offline).Where() == Delivery::State::Undeclared,
+      auto query = sources.Ask(SourceRequest(DataKind::Elevation, Address::AtCell(invalid)));
+      CHECK(sources.Collect(query, offline).Where() == SourceDelivery::State::Undeclared,
             "invalid source cells cannot reach IO or an unrelated fallback");
     }
     CHECK(provider->Starts == (pass == 0 ? 4 : 0), "warm original payloads require no provider IO");

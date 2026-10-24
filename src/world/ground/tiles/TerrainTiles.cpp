@@ -52,13 +52,13 @@ namespace {
 DecodeRawGrid(Data::TileId of, TerrainBytes::Payload delivered, uint64_t terrainScope) {
   const auto corrupt = [&] {
     return TerrainGrid::Refused(
-        Data::FetchFailure{.Kind = Data::DataKind::Elevation,
-                           .Requested = Data::Address::At(of),
-                           .Served = Data::Address::At(delivered.At),
-                           .SourceId = std::move(delivered.Source.SourceId),
-                           .SourceRevision = std::move(delivered.Source.Revision),
-                           .SourceKey = std::move(delivered.SourceKey),
-                           .Reason = Data::FetchFailureReason::CorruptPayload});
+        Data::SourceFailure{.Kind = Data::DataKind::Elevation,
+                            .Requested = Data::Address::At(of),
+                            .Served = Data::Address::At(delivered.At),
+                            .SourceId = std::move(delivered.Source.SourceId),
+                            .SourceRevision = std::move(delivered.Source.Revision),
+                            .SourceKey = std::move(delivered.SourceKey),
+                            .Reason = Data::SourceFailureReason::CorruptPayload});
   };
   const Data::TileId source = delivered.At;
   const int steps = of.Zoom - source.Zoom;
@@ -272,7 +272,7 @@ TerrainGrid::State TerrainTiles::StitchEdge(TerrainField &self,
                                             uint32_t nx,
                                             uint32_t ny,
                                             Side side,
-                                            std::optional<Data::FetchFailure> &failure) {
+                                            std::optional<Data::SourceFailure> &failure) {
   const TerrainGrid neighbour = RawGrid({.Zoom = z, .X = nx, .Y = ny});
   if (!failure && neighbour.Failure()) { failure = neighbour.Failure(); }
   const TerrainField *n = neighbour.TryField();
@@ -309,7 +309,7 @@ TerrainGrid::State TerrainTiles::StitchCorner(TerrainField &self,
                                               float selfRawM,
                                               Data::TileId of,
                                               Corner corner,
-                                              std::optional<Data::FetchFailure> &failure) {
+                                              std::optional<Data::SourceFailure> &failure) {
   const int z = of.Zoom;
   const uint32_t x = of.X;
   const uint32_t y = of.Y;
@@ -429,7 +429,7 @@ TerrainGrid TerrainTiles::BuildStitchedGrid(int z, uint32_t x, uint32_t y) {
                              field->AtM(field->Rows() - 1u, field->Cols() - 1u)}};
 
   TerrainGrid::State worst = TerrainGrid::State::Decoded;
-  std::optional<Data::FetchFailure> failure;
+  std::optional<Data::SourceFailure> failure;
   const uint32_t n = 1u << static_cast<uint32_t>(z);
   if (x > 0) { worst = Worse(worst, StitchEdge(*field, z, x - 1, y, Side::West, failure)); }
   if (x + 1 < n) { worst = Worse(worst, StitchEdge(*field, z, x + 1, y, Side::East, failure)); }
@@ -481,7 +481,7 @@ TerrainGrid::State TerrainTiles::SampleNodeHeights(Data::TileId of,
                                                    std::vector<Data::TileSourceIdentity> *sources,
                                                    uint32_t *postings,
                                                    int *side,
-                                                   std::optional<Data::FetchFailure> *failure) {
+                                                   std::optional<Data::SourceFailure> *failure) {
   out->clear();
   sources->clear();
   *postings = 0;

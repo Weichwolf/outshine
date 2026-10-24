@@ -36,7 +36,7 @@ using Result = Holds<void>;
 
 enum class WorldQuality : uint8_t { Playable, Refined };
 
-// Fetch volumes are MiB; Megabits is Mibit/s during preload.
+// SourceRequest volumes are MiB; Megabits is Mibit/s during preload.
 struct Loading {
   size_t GroundWanted = 0;
   size_t GroundArrived = 0;

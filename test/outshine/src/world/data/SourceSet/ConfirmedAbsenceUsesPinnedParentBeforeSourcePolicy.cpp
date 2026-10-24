@@ -52,7 +52,7 @@ int main() {
   using namespace outshine::Test;
   auto path = (std::filesystem::temp_directory_path() / "outshine-parent-XXXXXX").string();
   CHECK(mkdtemp(path.data()) != nullptr, "isolated source-byte cache created");
-  const Fetch request(DataKind::Elevation, Address::At({.Zoom = 3, .X = 6, .Y = 4}));
+  const SourceRequest request(DataKind::Elevation, Address::At({.Zoom = 3, .X = 6, .Y = 4}));
   {
     RawSourceCache store({.Directory = path});
     SourceSet sources(store);
@@ -91,7 +91,7 @@ int main() {
     wire.Status = 403;
     auto query = sources.Ask(request);
     const auto answer = sources.Collect(query, wire);
-    CHECK(answer.Where() == Delivery::State::Refused && wire.Requested.size() == 1,
+    CHECK(answer.Where() == SourceDelivery::State::Refused && wire.Requested.size() == 1,
           "authorization failures do not masquerade as absent detail");
   }
   std::error_code error;

@@ -112,7 +112,7 @@ struct GroundStream::Held {
 
     TerrainBytes Take(Data::TileId at) override {
       Held_.Decodes++;
-      const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(at));
+      const Data::SourceRequest request(Data::DataKind::Elevation, Data::Address::At(at));
       TilePool::Landing landing;
       switch (Held_.Pool.Bytes(request, &landing)) {
         case TilePool::Reply::Ready: return FromTerrainDelivery(request, std::move(landing));
@@ -480,7 +480,7 @@ std::shared_ptr<const TerrainField> GroundStream::ResidentStitchedField(Data::Ti
 
 TilePool::Reply GroundStream::PollStitchedField(Data::TileId of,
                                                 std::shared_ptr<const TerrainField> &out,
-                                                std::optional<Data::FetchFailure> *failure) const {
+                                                std::optional<Data::SourceFailure> *failure) const {
   SynchronizeTerrainScope();
   if (failure != nullptr) { failure->reset(); }
   out = Held_->Stitched->HeldStitched(of);

@@ -25,8 +25,8 @@ bool Prime(const WeatherCapture &capture,
   auto sources = Data::SourceSession::Open({.Directory = directory}, declarations, {}, registry);
   if (!sources) { return false; }
   CapturedWeatherTransport wire(capture);
-  auto query =
-      (*sources)->Sources().Ask(Data::Fetch(Data::DataKind::Weather, Data::Address::Whole(0)));
+  auto query = (*sources)->Sources().Ask(
+      Data::SourceRequest(Data::DataKind::Weather, Data::Address::Whole(0)));
   return (*sources)->Sources().Collect(query, wire).Take().has_value();
 }
 }

@@ -100,12 +100,12 @@ CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatit
   for (int64_t y = window->MinY; y <= window->MaxY; ++y) {
     for (int64_t x = window->MinX; x <= window->MaxX; ++x) {
       if (vectors->Settled(static_cast<int>(x), static_cast<int>(y))) { continue; }
-      const Data::Fetch request(Data::DataKind::VectorMap,
-                                Data::Address::At({.Zoom = vectors->Zoom(),
-                                                   .X = static_cast<uint32_t>(x),
-                                                   .Y = static_cast<uint32_t>(y)}));
+      const Data::SourceRequest request(Data::DataKind::VectorMap,
+                                        Data::Address::At({.Zoom = vectors->Zoom(),
+                                                           .X = static_cast<uint32_t>(x),
+                                                           .Y = static_cast<uint32_t>(y)}));
       const auto failure = stack.Pool().Refusal(request);
-      if (!failure || failure->Reason != Data::FetchFailureReason::OfflineMiss) { continue; }
+      if (!failure || failure->Reason != Data::SourceFailureReason::OfflineMiss) { continue; }
       return std::unexpected(std::format(
           "required vector input unavailable: {} at {}; served={}; source={}; revision={}; key={}",
           Data::Name(failure->Reason),

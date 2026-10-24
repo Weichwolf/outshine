@@ -11,19 +11,19 @@
 
 namespace outshine::Ground {
 
-[[nodiscard]] inline TerrainBytes FromTerrainDelivery(const Data::Fetch &request,
+[[nodiscard]] inline TerrainBytes FromTerrainDelivery(const Data::SourceRequest &request,
                                                       TilePool::Landing landing,
                                                       const Data::Source *source = nullptr) {
   const auto tile = landing.At.Tile();
   const auto corrupt = [&] {
     return TerrainBytes::Wire(
-        Data::FetchFailure{.Kind = request.Kind(),
-                           .Requested = request.Where(),
-                           .Served = landing.At,
-                           .SourceId = std::move(landing.SourceId),
-                           .SourceRevision = std::move(landing.SourceRevision),
-                           .SourceKey = std::move(landing.SourceKey),
-                           .Reason = Data::FetchFailureReason::CorruptPayload});
+        Data::SourceFailure{.Kind = request.Kind(),
+                            .Requested = request.Where(),
+                            .Served = landing.At,
+                            .SourceId = std::move(landing.SourceId),
+                            .SourceRevision = std::move(landing.SourceRevision),
+                            .SourceKey = std::move(landing.SourceKey),
+                            .Reason = Data::SourceFailureReason::CorruptPayload});
   };
   if (!tile) { return corrupt(); }
   if (source != nullptr) {

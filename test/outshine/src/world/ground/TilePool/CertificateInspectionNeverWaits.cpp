@@ -50,14 +50,14 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Delivered({42, Content.load()});
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return SourceResponse::Delivered({42, Content.load()});
   }
 };
 
@@ -106,7 +106,7 @@ int main() {
                 transport);
   const auto deliver = [&](Data::TileId at) {
     TilePool::Landing landing;
-    CHECK(pool.BytesBlocking(Fetch(DataKind::Elevation, Address::At(at)), &landing) ==
+    CHECK(pool.BytesBlocking(SourceRequest(DataKind::Elevation, Address::At(at)), &landing) ==
                   TilePool::Reply::Ready &&
               landing.TerrainStamp,
           "actual terrain delivery supplies its stamp");

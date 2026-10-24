@@ -41,11 +41,11 @@ public:
 
   [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  [[nodiscard]] Coverage Covers(const Fetch & /*request*/) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
     return Coverage::Inside;
   }
 
-  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
@@ -53,11 +53,11 @@ public:
     return Ticket::None;
   }
 
-  Fetched Collect(const Address & /*address*/,
-                  Ticket /*ticket*/,
-                  Transport & /*transport*/) const override {
+  SourceResponse Collect(const Address & /*address*/,
+                         Ticket /*ticket*/,
+                         Transport & /*transport*/) const override {
     ++Calls_;
-    return Fetched::Delivered(Bytes_);
+    return SourceResponse::Delivered(Bytes_);
   }
 
 private:

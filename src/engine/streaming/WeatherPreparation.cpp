@@ -1,6 +1,6 @@
 #include "WeatherPreparation.h"
 #include <DataKind.h>
-#include <Fetch.h>
+#include <SourceRequest.h>
 #include <utility>
 #include <atomic>
 #include <cstddef>
@@ -10,7 +10,8 @@
 namespace outshine {
 WeatherPreparation::Work::Work(std::shared_ptr<Data::SourceSession> sources, int64_t utcS)
     : Sources(std::move(sources)),
-      Query(Sources->Sources().Ask(Data::Fetch(Data::DataKind::Weather, Data::Address::Whole(0)))),
+      Query(Sources->Sources().Ask(
+          Data::SourceRequest(Data::DataKind::Weather, Data::Address::Whole(0)))),
       UtcS(utcS) {}
 
 WeatherPreparation::WeatherPreparation(std::shared_ptr<Data::SourceSession> sources,
@@ -48,7 +49,7 @@ void WeatherPreparation::Abandon() {
   Handle_ = Io_.Post([work, transport] {
     Data::SourceSet::Abandon(work->Query, *transport);
     work->Answer.reset();
-    work->Delivery = Data::Delivery::Consumed();
+    work->Delivery = Data::SourceDelivery::Consumed();
     work->Snapshot.reset();
     work->Abandoned = true;
   });
@@ -109,14 +110,14 @@ WeatherPreparation::Phase WeatherPreparation::Advance() {
     return Phase_;
   }
   if (Phase_ != Phase::HttpTransport) { return Phase_; }
-  if (Work_->Delivery.Where() == Data::Delivery::State::Delivered) {
+  if (Work_->Delivery.Where() == Data::SourceDelivery::State::Delivered) {
     Work_->Answer = Work_->Delivery.Take();
     Phase_ = Phase::Decoding;
     Decode();
-  } else if (Work_->Delivery.Where() == Data::Delivery::State::Vacant ||
-             Work_->Delivery.Where() == Data::Delivery::State::Undeclared) {
+  } else if (Work_->Delivery.Where() == Data::SourceDelivery::State::Vacant ||
+             Work_->Delivery.Where() == Data::SourceDelivery::State::Undeclared) {
     Phase_ = Phase::Missing;
-  } else if (Work_->Delivery.Where() == Data::Delivery::State::Refused) {
+  } else if (Work_->Delivery.Where() == Data::SourceDelivery::State::Refused) {
     Phase_ = Phase::Failed;
     Error_ = "weather source acquisition was refused";
   } else {
