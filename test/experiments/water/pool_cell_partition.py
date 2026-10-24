@@ -1,4 +1,4 @@
-"""Exact planar partition for a bounded terrain patch crossing one pool-wall edge."""
+"""Exact planar partition for bounded interior, exterior and convex pool contacts."""
 
 from fractions import Fraction
 
@@ -86,8 +86,33 @@ def _triangulate(pieces, cancelled):
     return xy, indices, points, work, [str(v) for v in error], determinants
 
 
+def _outside_parts(triangle, edges, interior, area, capacity, cancelled):
+    if area == 0:
+        return [triangle]
+    if area == _area(triangle):
+        return []
+    outside, remainder = [], triangle
+    for a, b in edges:
+        if not remainder:
+            break
+        if cancelled is not None and cancelled():
+            raise ValueError("exact pool-cell partition cancelled")
+        part = _clip(remainder, a, b, -1)
+        if part and _area(part) > 0:
+            if len(outside) + len(interior) >= capacity:
+                raise ValueError("exact pool-cell piece budget exhausted")
+            outside.append(part)
+        remainder = _clip(remainder, a, b)
+    contained = all(
+        _cross(a, b, p) >= 0 for poly in interior for p in poly for a, b in edges
+    )
+    if not contained or area != (_area(remainder) if remainder else 0):
+        raise ValueError("convex edge half-planes do not describe local pool interior")
+    return outside
+
+
 def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
-    """Qualify one real outer edge; preserve the supplied planar domain before rounding."""
+    """Qualify local convex contacts; preserve the supplied planar domain before rounding."""
     if cancelled is not None and cancelled():
         raise ValueError("exact pool-cell partition cancelled")
     caps = body["contact_vertices"][body["contact_faces"], :2]
@@ -104,15 +129,13 @@ def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
     ring = body["plan_xy"][body["outer_ring"]]
     segments = np.stack((ring, np.roll(ring, -1, axis=0)), axis=1)
     selected = np.flatnonzero(shapely.intersects(shapely.linestrings(segments), domain))
-    if len(selected) != 1:
-        raise ValueError(
-            "this bounded control requires exactly one crossing outer pool edge"
-        )
+    if len(selected) > 64:
+        raise ValueError("bounded exact pool-cell outer-edge work required")
 
     def exact(p):
         return tuple(Fraction.from_float(float(v)) for v in p)
 
-    a, b = map(exact, segments[selected[0]])
+    edges = [tuple(map(exact, segments[i])) for i in selected]
     pieces, pairs = [], 0
     for f in faces:
         if cancelled is not None and cancelled():
@@ -120,11 +143,7 @@ def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
         triangle = [exact(p) for p in source[f]]
         if _area(triangle) <= 0:
             raise ValueError("positive supplied terrain triangles required")
-        inside = _clip(triangle, a, b)
-        outside = _clip(triangle, a, b, -1)
-        if outside and _area(outside) > 0:
-            pieces.append(outside)
-        area = Fraction(0)
+        interior, area = [], Fraction(0)
         low, high = source[f].min(axis=0), source[f].max(axis=0)
         candidates = np.flatnonzero(
             np.all(caps.max(axis=1) >= low, axis=1)
@@ -136,18 +155,15 @@ def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
             pairs += 1
             poly = _tri_clip(triangle, [exact(p) for p in caps[index]])
             if poly and _area(poly) > 0:
-                if any(_cross(a, b, p) < 0 for p in poly):
-                    raise ValueError(
-                        "one-edge half-plane does not describe local pool interior"
-                    )
-                if len(pieces) >= 128:
+                if len(pieces) + len(interior) >= 128:
                     raise ValueError("exact pool-cell piece budget exhausted")
-                pieces.append(poly)
+                interior.append(poly)
                 area += _area(poly)
-        if area != (_area(inside) if inside else 0):
-            raise ValueError(
-                "exact pool contact partition does not cover the local interior"
-            )
+        outside = _outside_parts(
+            triangle, edges, interior, area, 128 - len(pieces), cancelled
+        )
+        pieces.extend(outside)
+        pieces.extend(interior)
         if len(pieces) > 128:
             raise ValueError("exact pool-cell piece budget exhausted")
     xy, indices, points, work, rounding, determinants = _triangulate(pieces, cancelled)
@@ -161,6 +177,7 @@ def partition(body, terrain_vertices, terrain_faces, *, cancelled=None):
         {
             "input_triangles": len(faces),
             "candidate_pairs": pairs,
+            "pool_boundary_edges_considered": len(edges),
             "pieces": len(pieces),
             "edge_node_tests": work,
             "edge_node_determinants": determinants,

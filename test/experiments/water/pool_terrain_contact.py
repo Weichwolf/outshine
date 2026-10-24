@@ -135,6 +135,14 @@ def contact_patch(
         work["exact_boundary_parameters"] = _parameters(
             exact_points, used, terrain_vertices, terrain_faces
         )
+        new_boundary = sum(
+            port["parameter"] not in ("0", "1")
+            for port in work["exact_boundary_parameters"]
+        )
+    else:
+        original_xy = set(map(tuple, np.asarray(terrain_vertices)[:, :2]))
+        new_boundary = sum(tuple(xy[i]) not in original_xy for i in used)
+    neighbor_update = bool(new_boundary or np.any(abs(z[used] - previous) > 1e-7))
     return (
         vertices,
         faces,
@@ -146,9 +154,10 @@ def contact_patch(
             "maximum_outer_boundary_height_change_m": float(
                 abs(z[used] - previous).max()
             ),
-            "neighbor_update_required": bool(np.any(abs(z[used] - previous) > 1e-7)),
+            "new_outer_boundary_vertices": new_boundary,
+            "neighbor_update_required": neighbor_update,
             "admission": "candidate_pending_neighbor_updates"
-            if np.any(abs(z[used] - previous) > 1e-7)
+            if neighbor_update
             else "local_contact_only",
             "scope": "Two-role contact surface, not body underside. Changed patch boundary is an explicit adjacent-mesh obligation; no independent native page/world admission.",
         },
