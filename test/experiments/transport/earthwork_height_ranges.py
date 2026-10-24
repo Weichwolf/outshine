@@ -17,20 +17,15 @@ class Stamp:
     corridor_key: int = 1
 
     def __post_init__(self):
+        fields = ("at_e", "at_n", "plateau", "slope_e", "slope_n", "sag_inv")
+        for name in fields:
+            object.__setattr__(self, name, float(getattr(self, name)))
         ring = tuple(tuple(float(v) for v in p) for p in self.ring)
         if (
             any(len(p) != 2 for p in ring)
             or not all(math.isfinite(v) for p in ring for v in p)
             or not all(
-                math.isfinite(v)
-                for v in (
-                    self.at_e,
-                    self.at_n,
-                    self.plateau,
-                    self.slope_e,
-                    self.slope_n,
-                    self.sag_inv,
-                )
+                math.isfinite(v) for v in (getattr(self, name) for name in fields)
             )
             or type(self.corridor_key) is not int
             or not 0 <= self.corridor_key < 2**64

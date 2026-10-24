@@ -84,11 +84,14 @@ class EarthworkHeightRanges(unittest.TestCase):
 
     def test_snapshot_owns_immutable_ring_and_ranges_keep_stamp_identity(self):
         ring = [[0, 0], [1, 0], [0, 1]]
-        stamp = Stamp(ring, 0, 0, 0, 1, 0)
+        origin = np.array(0.0)
+        stamp = Stamp(ring, origin, 0, 0, 1, 0)
         (held,) = prepare([stamp])
         before = held.at((3, 0))
         ring[1][0] = 7
+        origin[...] = 9
         self.assertEqual(held.at((3, 0)), before)
+        self.assertIs(type(stamp.at_e), float)
         self.assertIs(held.stamp, stamp)
         with self.assertRaises(dataclasses.FrozenInstanceError):
             stamp.plateau = 10
