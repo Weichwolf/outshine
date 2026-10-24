@@ -3,6 +3,7 @@
 #include "GroundMaterials.h"
 #include "OsmField.h"
 #include "PreparedStreetGraph.h"
+#include "Sha256.h"
 #include "SourceSet.h"
 #include "StreetField.h"
 #include "TerrainGrid.h"
@@ -73,8 +74,11 @@ void CheckTerrainBinding(const std::filesystem::path &root) {
   const auto &cache = *opened;
   const auto originalTerrain = Flat(0);
   const auto changedTerrain = Flat(kChangedHeightM);
-  const auto originalKey = cache->Key(vectors, ways, {}, kZoom);
-  const auto changedKey = cache->Key(vectors, ways, {}, kZoom);
+  constexpr size_t kRasterBytes = 4 * sizeof(float);
+  const auto originalBinding = Sha256Digest(originalTerrain.Data(), kRasterBytes);
+  const auto changedBinding = Sha256Digest(changedTerrain.Data(), kRasterBytes);
+  const auto originalKey = cache->Key(vectors, ways, {}, kZoom, originalBinding);
+  const auto changedKey = cache->Key(vectors, ways, {}, kZoom, changedBinding);
   CHECK(originalKey && changedKey, "both captured terrain inputs can be identified");
   if (!originalKey || !changedKey) { return; }
   size_t factories = 0, samples = 0;
@@ -94,6 +98,20 @@ void CheckTerrainBinding(const std::filesystem::path &root) {
         "changed terrain must run elevation rather than reuse the previous graph");
   CHECK(profile && profile->HeightM == kChangedHeightM,
         "the native road profile follows the terrain actually supplied to production");
+  const auto reopened = Osm::PreparedStreetGraph::Open((root / "assets").string(), sources);
+  CHECK(reopened, "a new cache owner opens both persisted terrain variants");
+  if (!reopened) { return; }
+  const auto samplesBefore = samples;
+  const auto warm = (*reopened)->Resolve(*changedKey, {});
+  const auto old = (*reopened)->Resolve(*originalKey, {});
+  const auto warmProfile = warm ? warm->Graph.Graph->Profile({.Way = 0, .StationM = 0})
+                                : std::optional<Path::Network::Station>{};
+  const auto oldProfile = old ? old->Graph.Graph->Profile({.Way = 0, .StationM = 0})
+                              : std::optional<Path::Network::Station>{};
+  CHECK(warm && warm->Hit && warmProfile && warmProfile->HeightM == kChangedHeightM && old &&
+            old->Hit && oldProfile && oldProfile->HeightM == 0 && factories == 2 &&
+            samples == samplesBefore,
+        "fresh owner hits preserve both independent profiles without a factory or elevation");
 }
 }
 

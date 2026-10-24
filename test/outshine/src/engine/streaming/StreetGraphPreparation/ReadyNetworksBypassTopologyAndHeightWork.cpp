@@ -13,12 +13,14 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 
 namespace {
 using namespace outshine;
 using Clock = std::chrono::steady_clock;
+constexpr std::string_view kTerrainRecipe = "declared-elevation-100m-plus-latitude";
 
 std::optional<StreetGraphPreparation::Completed> Await(StreetGraphPreparation &work) {
   const auto deadline = Clock::now() + std::chrono::seconds(5);
@@ -75,7 +77,8 @@ int main() {
   CHECK(opened.has_value(), "street graphs use the common asset database");
   if (!opened) { return Report(); }
   auto cache = std::move(*opened);
-  const auto key = cache->Key(*vectors, *ways, {}, 14);
+  const auto terrainBinding = Sha256Digest(kTerrainRecipe.data(), kTerrainRecipe.size());
+  const auto key = cache->Key(*vectors, *ways, {}, 14, terrainBinding);
   CHECK(key.has_value(), "complete street input has a persistent identity");
   if (!key) { return Report(); }
   Tasks pool(1);
@@ -119,12 +122,12 @@ int main() {
   auto bridge = Input(true);
   Generators::Osm::StreetField bridgeWays;
   CHECK(bridgeWays.Ingest(*bridge, templates) == 2, "bridge input is normalized");
-  CHECK(cache->Key(*bridge, bridgeWays, {}, 14) != key,
+  CHECK(cache->Key(*bridge, bridgeWays, {}, 14, terrainBinding) != key,
         "bridge classification invalidates the asset even with unchanged centreline points");
   Ground::ShapedGround changed;
   changed.Seed = 1;
-  CHECK(cache->Key(*vectors, *ways, changed, 14) != key &&
-            cache->Key(*vectors, *ways, {}, 13) != key,
+  CHECK(cache->Key(*vectors, *ways, changed, 14, terrainBinding) != key &&
+            cache->Key(*vectors, *ways, {}, 13, terrainBinding) != key,
         "terrain shape and source detail are persistent inputs");
   auto raw = AssetCache::Open((root / "assets" / "assets.sqlite").string());
   CHECK(raw.has_value(), "the generic cache can inspect native publication");

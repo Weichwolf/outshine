@@ -3,6 +3,7 @@
 #include "OsmField.h"
 #include "Sha256.h"
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -39,7 +40,8 @@ std::expected<std::string, std::string>
 PreparedStreetGraph::Key(const OsmField &vectors,
                          const StreetField &ways,
                          const ::outshine::Ground::ShapedGround &shape,
-                         int sourceZoom) const {
+                         int sourceZoom,
+                         const std::array<uint8_t, 32> &terrainBinding) const {
   BinaryValueWriter out(kKeyBytesMost);
   if (!out.Text(Recipe_) || !out.Text(shape.Kind) ||
       !out(shape.AmplitudeM,
@@ -50,6 +52,7 @@ PreparedStreetGraph::Key(const OsmField &vectors,
            shape.FocusLonDeg,
            shape.Seed,
            sourceZoom,
+           terrainBinding,
            vectors.Schema(),
            static_cast<uint64_t>(vectors.Tiles().size())) ||
       !std::ranges::all_of(vectors.Tiles(),
