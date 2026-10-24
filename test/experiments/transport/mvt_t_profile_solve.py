@@ -123,13 +123,15 @@ def solve_profiles(
         plan, system, normals, reserve, height_bound, gradient_model, crossfall_limit
     )
     junctions(plan, system, normals, reserve, True, plane_offset=count)
+    constant_loft_rows = 0
     for stair in plan["stairs"]:
-        stair_condition(
+        constant_loft_rows += stair_condition(
             plan,
             system,
             *stair,
             plane_offset=count,
             direction=plan["stair_directions"][stair[0]],
+            height_lofts=plan.get("stair_lofts", ()),
         )
     overlaps = overlap_conditions(plan, system, 0)
     if height_formulation == "equalities":
@@ -180,6 +182,7 @@ def solve_profiles(
         "contact_row_scale": contact_row_scale,
         "presolve": contact_presolve if contacts else True,
         "overlap_vertex_constraints": overlaps,
+        "constant_loft_monotonic_rows_skipped": constant_loft_rows,
         "sparse_array_bytes": _sparse_bytes(matrix),
         "scope": "local finite profile proposal; only explicitly supplied fixed contacts are bound",
     }

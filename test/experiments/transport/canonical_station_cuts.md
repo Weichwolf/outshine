@@ -50,6 +50,16 @@ Controls reuse the original case, both #1205 complete independent networks, thei
 rigid transforms and #1189's fixed `data/station-profile-boundaries.json` input.
 That fixed geometry also drives the complete original Python consumer, with
 unchanged supplied frame/cut words.
+The profile solver omits monotonic-gradient rows only on faces whose vertices
+all belong to the same constant part of an explicitly constrained station loft.
+Their exact projected expressions (or explicit loft equalities) already enforce
+one common height, so their gradient is identically zero. Forming and summing
+inverse-gradient coefficients first can leave spurious signed residuals on thin
+landing faces. Cut comparisons are exact; active/cut-crossing faces keep their
+monotonic rows, and generic solvers without loft constraints keep all rows.
+The report counts `constant_loft_monotonic_rows_skipped`. This matches the native
+flat-landing simplification in `566ee6bb4`, without changing any gradient limit,
+contact profile, HiGHS tolerance or failure control.
 The global profile-loss control remains negative. Whole profiles, independent
 heights, closed positive Float32 bodies, qualified Nav, shared terrain and local
 failure are checked. No native, World, swept walking-route or device admission.
