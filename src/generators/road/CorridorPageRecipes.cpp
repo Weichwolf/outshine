@@ -128,7 +128,8 @@ Corridors::PageRecipe(const Job &job, const Site &site, std::span<const RoadPage
                                   .Surface = SurfaceOf(ways.Ways()[edge.Lane],
                                                        site.Vegetation,
                                                        edge,
-                                                       work.UnbankedWays.contains(edge.Lane))});
+                                                       work.UnbankedWays.contains(edge.Lane)),
+                                  .StepBody = edge.StepBody});
     } else {
       return std::unexpected("unknown road page part request");
     }

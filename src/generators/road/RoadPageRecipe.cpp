@@ -1,4 +1,5 @@
 #include "RoadPageRecipe.h"
+#include "RoadStepBody.h"
 #include <expected>
 #include <stop_token>
 #include <string_view>
@@ -12,7 +13,15 @@ MeshRoadPage(const RoadMesher &mesher, const RoadPageRecipe &recipe, const std::
     if (stop.stop_requested()) { return std::unexpected("road page generation canceled"); }
     product.Parts.push_back({.Kind = RoadPagePartKind::Interval, .Index = interval.Edge});
     const auto before = product.Mesh.Index.size();
-    const auto stats = mesher.Sweep(interval.Stations, interval.Surface, product.Mesh);
+    RoadMeshingStats stats;
+    if (interval.StepBody) {
+      if (!AppendRoadStepBody(*interval.StepBody, interval.Surface.WearsLinear, product.Mesh)) {
+        return std::unexpected("road step body exceeds its mesh index range");
+      }
+      stats.Pieces = 1;
+    } else {
+      stats = mesher.Sweep(interval.Stations, interval.Surface, product.Mesh);
+    }
     product.Swept += stats;
     if (stats.Refused != 0 || product.Mesh.Index.size() == before) {
       product.Diagnostics.push_back(

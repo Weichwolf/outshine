@@ -1,4 +1,5 @@
 #include "Corridors.h"
+#include "RoadStepBody.h"
 #include "JunctionFootprint.h"
 #include "RoadCrossSection.h"
 
@@ -417,7 +418,15 @@ void Corridors::PaveEdge(const Paving &on,
   into.GroundWays += lane.Bridge ? 0u : 1u;
   const auto surface = SurfaceOf(lane, on.Vegetation, edge, into.UnbankedWays.contains(laneAt));
   into.WaterMs += since();
-  into.Swept += Sweeper_.Sweep(into.Along, surface, pavement);
+  if (edge.StepBody) {
+    if (AppendRoadStepBody(*edge.StepBody, surface.WearsLinear, pavement)) {
+      ++into.Swept.Pieces;
+    } else {
+      ++into.Swept.Refused;
+    }
+  } else {
+    into.Swept += Sweeper_.Sweep(into.Along, surface, pavement);
+  }
   into.SweepMs += since();
 }
 
@@ -2052,17 +2061,20 @@ std::expected<bool, std::string_view> Corridors::AdvanceTerrainContacts(Job &job
       std::min(job.NextEdge + std::max(size_t{1}, slice.lanesMost), job.Work.Edges.size());
   if (slice.paving != nullptr) {
     for (; job.NextEdge < end; ++job.NextEdge) {
-      const auto &edge = job.Work.Edges[job.NextEdge];
+      auto &edge = job.Work.Edges[job.NextEdge];
       if (edge.PlannedCount < 2) { continue; }
       const auto first = job.Work.Planned.begin() + edge.PlannedFirst;
       job.Work.Along.assign(first, first + edge.PlannedCount);
-      AppendTerrainStamps(*slice.paving, edge.Lane, job.Work, job.Corridor);
+      if (!PrepareStepBody(*slice.paving, edge, job.Work, job.Corridor)) {
+        AppendTerrainStamps(*slice.paving, edge.Lane, job.Work, job.Corridor);
+      }
     }
   } else {
     job.NextEdge = end;
   }
   job.TotalMs += slice.Elapsed();
   if (job.NextEdge < job.Work.Edges.size()) { return false; }
+  RecordStepMetrics(job.Work);
   job.NextLane = 0;
   job.Phase = Job::Stage::Pave;
   return false;

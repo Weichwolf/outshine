@@ -107,6 +107,7 @@ private:
     std::array<double, 2> GradeAtM{};
     std::array<bool, 2> HasEndGrade{};
     std::array<std::optional<RoadPort>, 2> EndPorts{};
+    std::shared_ptr<const SurfaceBody> StepBody = nullptr;
   };
 
   struct Leg {
@@ -166,6 +167,10 @@ private:
     std::unordered_map<uint64_t, double> GroundEndM;
     RoadMeshingStats Swept;
     size_t ChordAdded = 0;
+    size_t StairBodies = 0;
+    size_t StairBodyBytes = 0;
+    std::array<size_t, 5> StairRefusals{};
+    double StairBodyMs = 0;
 
     size_t DecksOverWater = 0;
     size_t AskedOverBridge = 0;
@@ -328,6 +333,9 @@ private:
                              const outshine::Ground::VegetationTemplates &vegetation,
                              const Edge &edge,
                              bool unbanked);
+  static bool
+  PrepareStepBody(const Paving &on, Edge &edge, Paved &into, std::vector<EarthworkStamp> &corridor);
+  static void RecordStepMetrics(Paved &into);
   static void
   GatesOf(const Paving &on, std::span<const Leg> legs, const Paved &into, Junction &made);
   static void

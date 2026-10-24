@@ -1,6 +1,9 @@
 #include "Check.h"
 #include "Corridors.h"
 #include "ProfiledRoadMesher.h"
+#include "RoadPageAsset.h"
+#include "SurfaceBody.h"
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -18,17 +21,45 @@ constexpr double kGapM = .282;
 constexpr double kDistantGapM = .8;
 constexpr double kExtentM = 20;
 constexpr size_t kPlanningLimit = 10000;
+constexpr double kStairGrade = .4;
 
 struct ConnectionCase {
   double GapM = 0;
   bool Connects = false;
   bool SharedSourceKnot = false;
+  double Grade = 0;
 };
 
-std::vector<double> Coordinates(const TangentFrame &frame, EastNorth a, EastNorth b) {
-  const auto first = frame.ApproximateGeographicAt(a);
-  const auto last = frame.ApproximateGeographicAt(b);
+struct CoordinateSpan {
+  EastNorth From, To;
+};
+
+std::vector<double> Coordinates(const TangentFrame &frame, CoordinateSpan ends) {
+  const auto first = frame.ApproximateGeographicAt(ends.From);
+  const auto last = frame.ApproximateGeographicAt(ends.To);
   return {first.LatitudeDeg, first.LongitudeDeg, last.LatitudeDeg, last.LongitudeDeg};
+}
+
+void CheckCachedProduct(const RoadPageGeometry &mesh, Corridors::Job &job) {
+  const RoadPageAsset page{.Address = {.PlanKey = std::string(64, 'a'),
+                                       .MaterialKey = std::string(64, 'b'),
+                                       .Anchor = kOrigin,
+                                       .Parts = mesh.Parts},
+                           .Geometry = mesh};
+  constexpr size_t limit = size_t{1024} * 1024;
+  const auto encoded = EncodeRoadPageAsset(page, limit);
+  const auto restored = encoded ? DecodeRoadPageAsset(*encoded, limit) : std::nullopt;
+  CHECK(restored && restored->Geometry.Mesh.PositionM == mesh.Mesh.PositionM &&
+            restored->Geometry.Mesh.Index == mesh.Mesh.Index &&
+            restored->Geometry.Mesh.NormalM == mesh.Mesh.NormalM,
+        "the actual stepped world product reloads as finished native geometry");
+  const auto contacts = Corridors::TakeTerrainContacts(job);
+  CHECK(contacts && std::ranges::any_of(*contacts,
+                                        [](const auto &stamp) {
+                                          return stamp.Fills && stamp.CorridorKey != 0 &&
+                                                 stamp.RingEastNorthM.size() == 6;
+                                        }),
+        "actual body undersides replace the old ramp terrain contacts");
 }
 
 void CheckConnection(const Ground::GroundMaterials &materials,
@@ -36,8 +67,8 @@ void CheckConnection(const Ground::GroundMaterials &materials,
                      ConnectionCase test) {
   const std::array<std::string, 1> layers{"streets"};
   const auto frame = TangentFrame::At(kOrigin);
-  auto target =
-      Coordinates(frame, {.EastM = -kExtentM, .NorthM = 0}, {.EastM = kExtentM, .NorthM = 0});
+  auto target = Coordinates(
+      frame, {.From = {.EastM = -kExtentM, .NorthM = 0}, .To = {.EastM = kExtentM, .NorthM = 0}});
   if (test.SharedSourceKnot) {
     target.insert(target.begin() + 2, {kOrigin.LatitudeDeg, kOrigin.LongitudeDeg});
   }
@@ -47,8 +78,8 @@ void CheckConnection(const Ground::GroundMaterials &materials,
                               .Key = "kind",
                               .Value = "steps",
                               .LatLon = Coordinates(frame,
-                                                    {.EastM = 0, .NorthM = -kExtentM},
-                                                    {.EastM = 0, .NorthM = -test.GapM})},
+                                                    {.From = {.EastM = 0, .NorthM = -kExtentM},
+                                                     .To = {.EastM = 0, .NorthM = -test.GapM}})},
       Osm::OsmField::Declared{
           .Layer = "streets", .Key = "kind", .Value = "footway", .LatLon = target}};
   CHECK(vectors.Declare(declarations, kOrigin).has_value(),
@@ -57,8 +88,9 @@ void CheckConnection(const Ground::GroundMaterials &materials,
   CHECK(ways.Ingest(vectors, vegetation) == 2,
         "steps retain their source kind after path admission");
   const auto empty = TriangleBvh::Over({}, {});
-  const Drape drape{.Surface = empty,
-                    .Field = [](EastNorth) -> std::optional<double> { return 0; }};
+  const Drape drape{.Surface = empty, .Field = [test](EastNorth at) -> std::optional<double> {
+                      return test.Grade * at.NorthM;
+                    }};
   const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Corridors::Site site{.Vectors = &vectors,
                              .Ways = ways,
@@ -67,6 +99,8 @@ void CheckConnection(const Ground::GroundMaterials &materials,
                              .Standing = frame,
                              .Draped = drape,
                              .Classes = noClasses,
+                             .WaterUpM = {},
+                             .CensusAt = {},
                              .EyeLatDeg = kOrigin.LatitudeDeg,
                              .EyeLonDeg = kOrigin.LongitudeDeg,
                              .Projection = {.FocalPx = 800}};
@@ -98,6 +132,10 @@ void CheckConnection(const Ground::GroundMaterials &materials,
   const auto recipe = Corridors::PageRecipe(*job, site, *parts);
   CHECK(recipe.has_value(), "the actual world-page consumer receives the corrected axes");
   if (!recipe) { return; }
+  const auto bodies = std::ranges::count_if(
+      recipe->Intervals, [](const auto &interval) { return interval.StepBody != nullptr; });
+  CHECK(bodies == (test.Grade > 0 ? 1 : 0),
+        "a suitable nonflat step interval carries its actual shared native body");
   CHECK(recipe->Junctions.size() == (test.Connects ? 1u : 0u),
         "only a qualified nearby gap creates a shared junction");
   CHECK(recipe->Intervals.size() == (test.Connects ? 3u : 2u),
@@ -110,6 +148,7 @@ void CheckConnection(const Ground::GroundMaterials &materials,
   CHECK(mesh && !mesh->Mesh.Index.empty(), "the generated product is consumed by the real mesher");
   CHECK(mesh && mesh->Swept.Refused == 0 && mesh->Diagnostics.empty(),
         "every requested interval and junction is meshed without a partial or empty product");
+  if (mesh && test.Grade > 0) { CheckCachedProduct(*mesh, *job); }
 }
 }
 
@@ -123,5 +162,6 @@ int main() {
   CheckConnection(materials, vegetation, {.GapM = kGapM, .Connects = true});
   CheckConnection(materials, vegetation, {.GapM = kDistantGapM});
   CheckConnection(materials, vegetation, {.Connects = true, .SharedSourceKnot = true});
+  CheckConnection(materials, vegetation, {.GapM = kGapM, .Connects = true, .Grade = kStairGrade});
   return Report();
 }

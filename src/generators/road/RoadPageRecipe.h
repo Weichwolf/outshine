@@ -4,11 +4,13 @@
 #include "RoadMesher.h"
 #include <cstdint>
 #include <expected>
+#include <memory>
 #include <stop_token>
 #include <string_view>
 #include <vector>
 
 namespace outshine::Generators {
+struct SurfaceBody;
 
 enum class RoadPagePartKind : uint8_t { Interval, Junction };
 
@@ -24,6 +26,7 @@ struct RoadPageInterval {
   uint32_t Lane = 0;
   std::vector<RoadStation> Stations;
   RoadSweep Surface;
+  std::shared_ptr<const SurfaceBody> StepBody = nullptr;
 };
 
 struct RoadPageJunction {
