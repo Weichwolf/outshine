@@ -1,4 +1,5 @@
 #include "ControlledRoadPageProducer.h"
+#include <stop_token>
 #include "PreparedRoadPages.h"
 #include "ProfiledRoadMesher.h"
 #include "Earth.h"
@@ -205,7 +206,7 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   const auto siblingAddress = Address(8);
   const auto sibling = pages.Resolve(
       {.Address = siblingAddress, .Parent = parent, .RequestKey = {}, .NativeBytesMost = kLimit},
-      outshine::Test::RoadProducer([](const RoadPageRequest &, std::stop_token) {
+      outshine::Test::RoadProducer([](const RoadPageRequest &, const std::stop_token &) {
         return Produce(kSiblingEastM, 8);
       }).get());
   CHECK(sibling && sibling->Record.Package != cold->Record.Package &&

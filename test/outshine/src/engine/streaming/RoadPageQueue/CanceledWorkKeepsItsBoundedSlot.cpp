@@ -256,7 +256,8 @@ int main() {
                          .Parent = {},
                          .RequestKey = {},
                          .NativeBytesMost = kPageBytesMost},
-                        outshine::Test::RoadProducer([](const RoadPageRequest &, std::stop_token) {
+                        outshine::Test::RoadProducer([](const RoadPageRequest &,
+                                                        const std::stop_token &) {
                           return Produce(9);
                         }).get())
               .has_value(),

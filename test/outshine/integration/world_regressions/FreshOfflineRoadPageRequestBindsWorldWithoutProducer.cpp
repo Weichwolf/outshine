@@ -1,3 +1,4 @@
+#include "Earth.h"
 #include "PreparedRoadPages.h"
 #include "RoadPageProducer.h"
 #include "RoadPageRestoration.h"
@@ -7,7 +8,11 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <cstdio>
+#include <print>
+#include <unistd.h>
+#ifdef __APPLE__
+#include <crt_externs.h>
+#endif
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -19,12 +24,12 @@
 #include <thread>
 #include <utility>
 
-extern char **environ;
-
 namespace {
 using namespace outshine;
 using namespace outshine::Generators;
-constexpr size_t kLimit = 1024u * 1024u;
+constexpr size_t kLimit = size_t{1024} * 1024;
+constexpr double kSpanM = 100;
+constexpr LongitudeLatitude kAnchor{.LongitudeDeg = 8, .LatitudeDeg = 49};
 
 struct Fixture {
   std::string Manifest;
@@ -37,7 +42,7 @@ RoadPageRecipe Recipe() {
   recipe.Intervals.push_back({.Edge = 7,
                               .Lane = 0,
                               .Stations = {{.EastM = 0, .NorthM = 0, .GradeM = 0, .Node = 1},
-                                           {.EastM = 100, .NorthM = 0, .GradeM = 0, .Node = 2}},
+                                           {.EastM = kSpanM, .NorthM = 0, .GradeM = 0, .Node = 2}},
                               .Surface = {.HalfWidthM = 4,
                                           .Profile = RoadProfile::Kerbed,
                                           .WearsLinear = {{0.5f, 0.5f, 0.5f}},
@@ -53,7 +58,7 @@ std::optional<Fixture> Seed(const std::filesystem::path &directory) {
   auto &pages = **opened;
   RoadPageManifest manifest;
   manifest.PlanKey.assign(64, 'a');
-  manifest.Anchor = {.LongitudeDeg = 8, .LatitudeDeg = 49};
+  manifest.Anchor = kAnchor;
   if (!manifest.Materials.addSurface("streets", Material{})) { return std::nullopt; }
   const auto material = EncodeGeometryAsset(manifest.Materials, 4096);
   if (!material) { return std::nullopt; }
@@ -99,17 +104,23 @@ bool Finish(RoadPageRestoration &restore, Geometry &world) {
   return false;
 }
 
+int ChildResult() {
+  using namespace outshine::Test;
+  std::println("ROADPAGE_CHILD checked={} failures={}", Checks.Value(), Failures.Value());
+  return Checks.Value() > 0 && Failures.Value() == 0 && Unprepareds.Value() == 0 ? 0 : 1;
+}
+
 int Offline(const char *directory, const Fixture &fixture) {
   using namespace outshine::Test;
   auto opened = PreparedRoadPages::Open(directory);
   CHECK(opened, "a fresh process opens only the finished native cache");
-  if (!opened) { return Report(); }
+  if (!opened) { return ChildResult(); }
   const std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);
   auto manifest = pages->LoadManifest(fixture.Manifest);
   auto hit = pages->LoadRequest(fixture.Request, kLimit);
   CHECK(manifest && *manifest && hit && *hit,
         "stored request and manifest resolve without source, plan, recipe or producer");
-  if (!manifest || !*manifest || !hit || !*hit) { return Report(); }
+  if (!manifest || !*manifest || !hit || !*hit) { return ChildResult(); }
   const auto bytes = EncodeRoadPageAsset(*(**hit).Page, kLimit);
   CHECK(bytes && Sha256Hex(bytes->data(), bytes->size()) == fixture.Payload,
         "the fresh hit retains every original native product word");
@@ -124,11 +135,11 @@ int Offline(const char *directory, const Fixture &fixture) {
             std::ranges::equal(world.coloursOf(0), mesh.ColourRgba) &&
             std::ranges::equal(world.trianglesOf(0), mesh.Index),
         "world positions, normals, colours and indices equal the finished native lease");
-  std::printf("ROADPAGE_OFFLINE pages=%zu native_bytes=%zu world_parts=%d\n",
-              restore ? (*restore)->Pages() : 0,
-              (**hit).NativeBytes,
-              world.parts());
-  return Report();
+  std::println("ROADPAGE_OFFLINE pages={} native_bytes={} world_parts={}",
+               restore ? (*restore)->Pages() : 0,
+               (**hit).NativeBytes,
+               world.parts());
+  return ChildResult();
 }
 
 bool Spawn(const std::string &executable, const std::string &directory, const Fixture &fixture) {
@@ -136,8 +147,13 @@ bool Spawn(const std::string &executable, const std::string &directory, const Fi
       executable, "--offline", directory, fixture.Manifest, fixture.Request, fixture.Payload};
   std::array<char *, 7> argv{};
   std::ranges::transform(arguments, argv.begin(), [](std::string &value) { return value.data(); });
+#ifdef __APPLE__
+  char **const environment = *_NSGetEnviron();
+#else
+  char **const environment = environ;
+#endif
   pid_t child = 0;
-  if (posix_spawn(&child, executable.c_str(), nullptr, nullptr, argv.data(), environ) != 0) {
+  if (posix_spawn(&child, executable.c_str(), nullptr, nullptr, argv.data(), environment) != 0) {
     return false;
   }
   int status = 0;

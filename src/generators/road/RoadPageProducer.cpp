@@ -1,5 +1,8 @@
 #include "RoadPageProducer.h"
 #include "ProfiledRoadMesher.h"
+#include <expected>
+#include <stop_token>
+#include <string>
 #include <utility>
 
 namespace outshine::Generators {

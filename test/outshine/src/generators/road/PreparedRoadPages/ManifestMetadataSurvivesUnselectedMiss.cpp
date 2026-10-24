@@ -1,4 +1,6 @@
+#include "Earth.h"
 #include "ControlledRoadPageProducer.h"
+#include <stop_token>
 #include "PreparedRoadPages.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -19,24 +21,26 @@ using namespace outshine;
 using namespace outshine::Generators;
 constexpr size_t kLimit = 4096;
 
+constexpr LongitudeLatitude kAnchor{.LongitudeDeg = 8, .LatitudeDeg = 49};
+
 std::optional<RoadPageManifest> Prepare(PreparedRoadPages &pages) {
   RoadPageManifest manifest;
   manifest.PlanKey.assign(64, 'a');
-  manifest.Anchor = {.LongitudeDeg = 8, .LatitudeDeg = 49};
+  manifest.Anchor = kAnchor;
   if (!manifest.Materials.addSurface("streets", Material{})) { return std::nullopt; }
   const auto material = EncodeGeometryAsset(manifest.Materials, kLimit);
   if (!material) { return std::nullopt; }
   manifest.MaterialKey = Sha256Hex(material->data(), material->size());
   for (uint32_t index = 0; index < 2; ++index) {
-    RoadPageAddress address{.PlanKey = manifest.PlanKey,
-                            .MaterialKey = manifest.MaterialKey,
-                            .MaterialIndex = 0,
-                            .Anchor = manifest.Anchor,
-                            .Level = 0,
-                            .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}}};
+    const RoadPageAddress address{.PlanKey = manifest.PlanKey,
+                                  .MaterialKey = manifest.MaterialKey,
+                                  .MaterialIndex = 0,
+                                  .Anchor = manifest.Anchor,
+                                  .Level = 0,
+                                  .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}}};
     auto result = pages.Resolve(
         {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
-        outshine::Test::RoadProducer([index](const RoadPageRequest &, std::stop_token) {
+        outshine::Test::RoadProducer([index](const RoadPageRequest &, const std::stop_token &) {
           const auto x = static_cast<float>(index);
           RoadPageGeometry page;
           page.Mesh.PositionM = {x, 0, 0, x + 1, 0, 0, x, 1, 0};
@@ -103,7 +107,7 @@ int main() {
   CHECK(key.has_value(), "a complete manifest publishes before any eviction");
   auto cache = AssetCache::Open((directory / "assets.sqlite").string());
   CHECK(cache.has_value(), "the underlying native cache opens for a controlled eviction");
-  if (key && cache) { CheckRemoval(**pages, **cache, *manifest, *key); }
+  if (key && cache && manifest) { CheckRemoval(**pages, **cache, *manifest, *key); }
   cache = std::unexpected(AssetCacheError::Storage);
   pages = std::unexpected("closed");
   std::filesystem::remove_all(directory, error);

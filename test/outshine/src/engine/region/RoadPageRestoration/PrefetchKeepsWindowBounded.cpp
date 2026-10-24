@@ -1,4 +1,5 @@
 #include "ControlledRoadPageProducer.h"
+#include <stop_token>
 #include "RoadPageRestoration.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -52,7 +53,7 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
                             .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}}};
     const auto result = pages->Resolve(
         {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = 4096},
-        outshine::Test::RoadProducer([index](const RoadPageRequest &, std::stop_token) {
+        outshine::Test::RoadProducer([index](const RoadPageRequest &, const std::stop_token &) {
           const auto x = static_cast<float>(index);
           RoadPageGeometry page;
           page.Mesh.PositionM = {x, 0, 0, x + 1, 0, 0, x, 1, 0};

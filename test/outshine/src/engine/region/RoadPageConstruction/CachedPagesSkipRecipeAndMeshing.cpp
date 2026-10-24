@@ -190,7 +190,7 @@ void CheckSelection(Tasks &pool,
        .Parent = {},
        .RequestKey = {},
        .NativeBytesMost = size_t{64} * 1024u * 1024u},
-      outshine::Test::RoadProducer([&](const RoadPageRequest &, std::stop_token) {
+      outshine::Test::RoadProducer([&](const RoadPageRequest &, const std::stop_token &) {
         ++repairs;
         return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
       }).get());
@@ -212,7 +212,7 @@ void CheckSelection(Tasks &pool,
        .Parent = {},
        .RequestKey = {},
        .NativeBytesMost = size_t{64} * 1024u * 1024u},
-      outshine::Test::RoadProducer([&](const RoadPageRequest &, std::stop_token) {
+      outshine::Test::RoadProducer([&](const RoadPageRequest &, const std::stop_token &) {
         ++repairs;
         return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
       }).get());
