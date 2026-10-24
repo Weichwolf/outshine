@@ -1172,7 +1172,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       return GroundBuildProgress::Failed;
     }
     const int sourceZoom = state.Coverage().Zoom;
-    auto fields =
+    const auto fields =
         std::make_shared<const SourcedTerrainFields>(build.Sheets.SnapshotSourcedFields());
     const auto ways = std::make_shared<const Generators::Osm::StreetField>(sources.Ways);
     StreetGraphPreparation::JobFactory begin =
