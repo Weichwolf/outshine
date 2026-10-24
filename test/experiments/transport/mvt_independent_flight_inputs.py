@@ -36,6 +36,7 @@ def inputs(
     height_m=10.0,
     global_pose=None,
     cut_scope="flight_footprint",
+    cut_stage="source_heights",
 ):
     if arrangement not in ("stacked", "crossed") or not np.isfinite(height_m):
         raise ValueError("known finite controlled two-flight placement required")
@@ -84,6 +85,7 @@ def inputs(
     proposal = {
         "status": "controlled_independent_networks_pending_full_body_admission",
         "station_cut_scope": cut_scope,
+        "station_cut_stage": cut_stage,
         "connections": [c for p in subplans for c in p["connections"]],
         "axes_xy_m": {k: v for p in subplans for k, v in p["axes_xy_m"].items()},
         "independent_subplans": subplans,
@@ -109,9 +111,14 @@ def prepared(
     height_m=10.0,
     global_pose=None,
     cut_scope="flight_footprint",
+    cut_stage="source_heights",
 ):
     case, sources, proposal, native, derivation = inputs(
-        arrangement, height_m=height_m, global_pose=global_pose, cut_scope=cut_scope
+        arrangement,
+        height_m=height_m,
+        global_pose=global_pose,
+        cut_scope=cut_scope,
+        cut_stage=cut_stage,
     )
     plan, contacts = prepare_native_body_plan(case, sources, proposal, native)
     upper = derivation["upper_source_mapping"]

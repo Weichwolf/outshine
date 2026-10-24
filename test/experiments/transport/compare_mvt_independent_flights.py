@@ -20,6 +20,7 @@ from mvt_native_body_display import display
 
 def summary(case):
     plan, data, products = case["solver_plan"], case["data"], case["products"]
+    canonical = plan.get("canonical_station_mesh", {})
     return {
         "sources": len(plan["rows"]),
         "flights": len(plan["stairs"]),
@@ -38,6 +39,15 @@ def summary(case):
         "profile_audit": case["proof"],
         "export_array_count": len(data),
         "selected_export_array_bytes": sum(a.nbytes for a in data.values()),
+        "canonical_output_array_bytes": sum(
+            a.nbytes for a in canonical.values() if isinstance(a, np.ndarray)
+        ),
+        "canonical_retained_input_array_bytes": sum(
+            a.nbytes for a in canonical.get("input_mesh", {}).values()
+        ),
+        "height_to_planar_map_bytes": plan["height_planar_vertices"].nbytes
+        if canonical
+        else 0,
         "float32_audit_position_cast_bytes": len(data["body_vertices"]) * 12,
         "allocation_scope": (
             "Station refinement counts explicit XY vertex copies and bytes; "
@@ -78,6 +88,37 @@ def measure(options, repeats):
     return case, report
 
 
+def export_canonical(mesh, output, source_ids):
+    from native_local_station_cuts import write_inputs
+
+    np.savez(output / "canonical-input.npz", **mesh["input_mesh"])
+    np.savez(
+        output / "canonical-output.npz",
+        **{k: v for k, v in mesh.items() if isinstance(v, np.ndarray)},
+    )
+    (output / "canonical-axes.json").write_text(
+        json.dumps(mesh["axes"], indent=2) + "\n"
+    )
+    (output / "canonical-source-ids.json").write_text(
+        json.dumps(source_ids, indent=2) + "\n"
+    )
+    target = output / "native-input"
+    target.mkdir(exist_ok=True)
+    initial = mesh["input_mesh"]
+    axes = [
+        dict(
+            a,
+            initial_faces=list(range(len(initial["triangles"])))
+            if a["initial_faces"] is None
+            else a["initial_faces"],
+        )
+        for a in mesh["axes"]
+    ]
+    write_inputs(
+        target, initial["xy_m"], initial["triangles"], initial["source_masks"], axes
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
@@ -92,6 +133,9 @@ def main():
         choices=("global", "flight_footprint"),
         default="flight_footprint",
     )
+    parser.add_argument(
+        "--cut-stage", choices=("source_heights", "canonical"), default="source_heights"
+    )
     parser.add_argument("--rigid", action="store_true")
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--render", action="store_true")
@@ -103,6 +147,7 @@ def main():
         "arrangement": args.arrangement,
         "solver": args.solver,
         "cut_scope": args.cut_scope,
+        "cut_stage": args.cut_stage,
         "global_pose": (0.437, (37, -81)) if args.rigid else None,
     }
     report = {
@@ -133,6 +178,12 @@ def main():
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     report["process_peak_rss_bytes"] = rss if sys.platform == "darwin" else rss * 1024
     np.savez(args.output / "body.npz", **case["data"])
+    if "canonical_station_mesh" in case["solver_plan"]:
+        export_canonical(
+            case["solver_plan"]["canonical_station_mesh"],
+            args.output,
+            [r["source_id"] for r in case["solver_plan"]["rows"]],
+        )
     (args.output / "shared-plan.json").write_text(
         json.dumps(case["products"], indent=2) + "\n"
     )

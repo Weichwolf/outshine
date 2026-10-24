@@ -210,6 +210,7 @@ def layout(
     stairs=None,
     source_domains=None,
     section_provider=None,
+    refine_geometry=None,
 ):
     if method not in ("fixed", "width"):
         raise ValueError("known stair core method required")
@@ -222,6 +223,11 @@ def layout(
     xy, faces, owners, note = arrangement(
         rows, domains, masks, section_provider=section_provider
     )
+    refinement = {}
+    if refine_geometry is not None:
+        xy, faces, owners, refinement = refine_geometry(
+            xy, faces, owners, nodes, incident, masks
+        )
     # Vertex identity remains per source until a real endpoint landing joins it.
     keys = {
         (i, int(v)) for i in range(len(rows)) for v in np.unique(faces[owners[:, i]])
@@ -248,7 +254,7 @@ def layout(
         np.array([[bound[(i, int(v))] for v in f] for f in faces[owners[:, i]]])
         for i in range(len(rows))
     ]
-    return {
+    result = {
         "xy": vertices,
         "parts": parts,
         "part_global_faces": [np.flatnonzero(owners[:, i]) for i in range(len(rows))],
@@ -261,3 +267,7 @@ def layout(
         "stairs": stairs if stairs is not None else [(0, 0, 1)],
         "note": note,
     }
+    if refine_geometry is not None:
+        result.update(refinement)
+        result["height_planar_vertices"] = np.array([v for _i, v in roots], dtype=int)
+    return result
