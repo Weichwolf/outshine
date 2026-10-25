@@ -38,6 +38,8 @@ tree/node arrays, preserving its existing image proofs. Larger populations need
 appropriate complete original-image controls and remain unqualified where those
 are missing. No new export/API/cache framework or native C++ implementation.
 Actual findings, source-input contracts and missing prices belong in the PR.
+The optional component expansion comparison is specified in `building_parent_buffer.md`;
+scalar remains the default recipe.
 
 Use `.venv`, one BLAS/OMP thread and
 `PYTHONPATH=lib/src:test/experiments/render:test/experiments/buildings`:

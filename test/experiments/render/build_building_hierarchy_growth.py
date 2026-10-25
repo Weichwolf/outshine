@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from build_building_hierarchy import build_case
 from building_mass_materials import policy
+from building_parent_buffer import RECIPES
 from building_source_tree import build_tree, select_cut, source_bounds, sources_at
 from building_tree_queries import queries
 from parent_surface_inputs import open_parent
@@ -141,6 +142,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed-cell", type=int, required=True)
     parser.add_argument("--cell-counts", type=int, nargs="+", default=[1, 4, 16, 64])
+    parser.add_argument("--buffer-path", choices=RECIPES, default="scalar")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     wall, cpu = time.perf_counter(), time.process_time()
@@ -149,6 +151,7 @@ def main():
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "host_load_before": os.getloadavg(),
+        "buffer_path": args.buffer_path,
         "cases": [],
     }
     with open_parent(args.input) as parent:
@@ -168,7 +171,12 @@ def main():
                 flush=True,
             )
             case = build_case(
-                parent, cells, output, policy(), make_queries=growth_queries
+                parent,
+                cells,
+                output,
+                policy(),
+                make_queries=growth_queries,
+                buffer_path=args.buffer_path,
             )
             case["before_form_demand"] = audit
             case["original_rest_audit"] = original_rest(
