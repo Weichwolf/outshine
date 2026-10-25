@@ -16,7 +16,7 @@
   | Worktree/Branch | Verantwortung | Einstieg |
   |---|---|---|
   | `outshine` / `master` | Gesamtarchitektur, Art Direction, native Übernahme, Integration/Merges, gebündelte Lint-/Test-/Bildprüfung und Metal/A18 Pro | [#5](https://github.com/Weichwolf/outshine/issues/5) |
-  | `outshine_research` | Python-Verfahren/Solver/Rezepte; unabhängige Testspezifikation, Referenzen und atomare Python-/C++-Tests | [#788](https://github.com/Weichwolf/outshine/issues/788) |
+  | `outshine_research` | Python-Verfahren, Solver und Rezepte; Bildwirkung, Rechenarbeit und Speicher optimieren | [#788](https://github.com/Weichwolf/outshine/issues/788) |
   | `outshine_engine` | Gemeinsame C++-Engine/Vulkan entwickeln und optimieren, Python-Referenzen nativ übernehmen und master dauerhaft bei PR-Review/Merges unterstützen; Intel i5-1135G7 / Iris Xe | [#789](https://github.com/Weichwolf/outshine/issues/789) |
 
   Worktrees liegen als Geschwister unter `Git/`; Branch und Verzeichnis der beiden Kollegen
@@ -31,8 +31,10 @@
 - `outshine_research` priorisiert innerhalb der gemeinsamen Ziele selbstständig den wichtigsten fehlenden Verfahrensbaustein und
   liefert kleine geprüfte vertikale Schritte. Experimente liegen unter `test/experiments/`,
   gemeinsame installierbare Referenzbibliotheken unter `lib/`; kein nativer Produktcode.
-  Research besitzt zusätzlich unabhängige Testspezifikation, Gegenbeispiele und atomare
-  Python-/C++-Tests samt testbezogener CMake-/CTest-Verdrahtung; geprüfte Test-PRs selbst mergen.
+  Research konzentriert sich auf Generatoren als Outshines Alleinstellungsmerkmal:
+  plausible, funktionale und vielfältige Inhalte aus unvollständigen Daten, schnell
+  erzeugbar, mit passenden Repräsentationen, Kontakten und wiederverwendbaren Assets.
+  Eigene Python-Verfahrensprüfungen bleiben; native Testwartung übernehme ich.
   `outshine_engine` entwickelt die gemeinsame native Engine und Vulkan, übernimmt verifizierte
   Python-Verfahren maschinennah nach `src/` und optimiert die integrierten Verfahren.
   Ich übernehme native Arbeit nach Bedarf und verantworte Metal/A18 Pro.
@@ -59,8 +61,8 @@
 - Beide Kollegen committen und pushen kleine vollständige Fachlieferungen als PRs gegen den
   vereinbarten Integrationsstand. Jeder mergt seine fertigen PRs selbst nach Aktualisierung gegen
   `master`, Konfliktlösung und betroffenen Prüfungen; gewöhnliche Fachlieferungen benötigen keine
-  zusätzliche Merge-Freigabe von mir. Research integriert Python-Verfahren, Referenzen,
-  abgeschlossene Experimente und unabhängige Tests; die native Übernahme
+  zusätzliche Merge-Freigabe von mir. Research integriert Python-Verfahren, Referenzen
+  und abgeschlossene Experimente samt Verfahrensprüfungen; die native Übernahme
   bleibt ein eigener Auftrag bei Engine oder mir. Große Drafts in vollständige Lieferungen teilen.
   Ich koordiniere Paketbesitz, Reihenfolge und gemeinsame Basis. `outshine_engine` unterstützt
   zusätzlich bei Review/Merges übernommener Pakete. Paketbesitz vor Arbeit melden, damit wir keinen
@@ -299,8 +301,10 @@
   Entscheidungen und Belege haben einen Ort; andere Stellen verlinken statt zu duplizieren.
 - Modultests prüfen je einen Vertrag mit kleinen positiven/negativen Eingaben und nur den
   deklarierten Modulabhängigkeiten. Unerwartete Abhängigkeiten sind Architekturfehler.
-  Research verantwortet die unabhängige Testsicht, Implementierer behalten ihre gezielten
-  Eigenprüfungen; kein Warten auf fremde Testlieferungen. Anforderungen bestimmen Orakel,
+  Ich verantworte unabhängige native Tests, Integration und Bildprüfung. Research liefert
+  Python-Referenzen/Gegenbeispiele; Engine fokussiert native Umsetzung und Performance.
+  Implementierer behalten gezielte Eigenprüfungen; kein Warten auf fremde Testlieferungen.
+  Anforderungen bestimmen Orakel,
   nicht die vorhandene Implementierung. Tests nicht für Grün an Produktfehler anpassen.
   Places sind die zentrale Bild-/Lade-/Performance-Integration. Wenige gezielte Integrations-
   tests ergänzen unsichtbare Verträge wie Miss/Hit, Abbruch, Persistenz und GPU-Lebensdauer.
