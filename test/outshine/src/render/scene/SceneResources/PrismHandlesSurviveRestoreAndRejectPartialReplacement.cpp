@@ -54,11 +54,11 @@ void RejectedReplacement(SceneResources &resources,
                          std::span<const PrismInstance> rows) {
   const auto generation = draw.Generation();
   const auto old = draw.Prisms().Products()[0].Id;
-  auto invalid = std::make_shared<PrismGrid>(*source);
+  const auto invalid = std::make_shared<PrismGrid>(*source);
   invalid->Patches[0].Columns = 0;
   CHECK(!resources.ReplacePrismGrid(draw, handle, invalid, rows, 0),
         "an invalid source cannot replace the current logical or GPU resource");
-  auto replacement = std::make_shared<const PrismGrid>(*source);
+  const auto replacement = std::make_shared<const PrismGrid>(*source);
   failure.Armed = true;
   const auto rejected = resources.ReplacePrismGrid(draw, handle, replacement, rows, 0);
   failure.Armed = false;
@@ -70,8 +70,10 @@ void RejectedReplacement(SceneResources &resources,
 }
 
 void Probe(Native::Device &device, UploadFailure &failure) {
-  GeometryRenderer published;
-  GeometryRenderer candidate;
+  GeometryResidency publishedStorage;
+  GeometryRenderer published{publishedStorage};
+  GeometryResidency candidateStorage;
+  GeometryRenderer candidate{candidateStorage};
   Configure(published, device);
   Configure(candidate, device);
   SceneResources original;
@@ -107,7 +109,7 @@ void Probe(Native::Device &device, UploadFailure &failure) {
   Require(copied.SetPrismGridInstances(candidate, live, rows));
   CHECK(candidate.Generation() == stable, "unchanged instances preserve shadow reuse");
   RejectedReplacement(copied, candidate, live, source, failure, rows);
-  auto replacement = std::make_shared<PrismGrid>(*source);
+  const auto replacement = std::make_shared<PrismGrid>(*source);
   replacement->Samples = std::make_shared<const std::vector<PrismSpan>>(
       std::vector<PrismSpan>{{.Lower = -1, .Upper = 8}, {.Lower = 0, .Upper = 0}});
   Require(copied.ReplacePrismGrid(candidate, live, replacement, rows, 0));

@@ -97,7 +97,8 @@ void CheckGlass(TransmissionDevice &device, bool velocity, bool rejectUnreachabl
                                                .Use = Native::TextureUse::Sampled}));
   const auto sampler = Test::Gpu::Require(device.CreateSampler({}));
   GeometryPipelineBinding binding;
-  GeometryRenderer draw;
+  GeometryResidency drawStorage;
+  GeometryRenderer draw{drawStorage};
   device.Created = device.Rejected = 0;
   device.RejectUnreachable = rejectUnreachable;
   const auto result = draw.Configure(binding, gpu, behind.get(), sampler.get(), false);

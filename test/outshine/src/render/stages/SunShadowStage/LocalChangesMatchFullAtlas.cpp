@@ -10,7 +10,8 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
+#include <bit>
+#include <algorithm>
 #include <expected>
 #include <memory>
 #include <span>
@@ -56,7 +57,7 @@ struct RejectDraw final : NativeCommandsProxy {
 struct RejectSubmit final : NativeDeviceProxy {
   using NativeDeviceProxy::NativeDeviceProxy;
 
-  Result<Completion> Submit(std::unique_ptr<Commands>) override {
+  Result<Completion> Submit([[maybe_unused]] std::unique_ptr<Commands> commands) override {
     return std::unexpected(
         Error{.Kind = ErrorKind::Driver, .Message = "rejected local submission"});
   }
@@ -129,9 +130,16 @@ void Compare(Device &device,
   Draw(device, geometry, full, frame);
   CHECK(Read(device, partial) == Read(device, full),
         "all four retained D32 tiles exactly match a full draw of the same held geometry");
-  CHECK(std::memcmp(partial.Shadow.Regions().data(),
-                    full.Shadow.Regions().data(),
-                    sizeof(partial.Shadow.Regions())) == 0,
+  CHECK(std::ranges::equal(partial.Shadow.Regions(),
+                           full.Shadow.Regions(),
+                           [](const auto &a, const auto &b) {
+                             return std::bit_cast<std::array<uint32_t, 4>>(a.Transform) ==
+                                        std::bit_cast<std::array<uint32_t, 4>>(b.Transform) &&
+                                    std::bit_cast<std::array<uint32_t, 4>>(a.Depth) ==
+                                        std::bit_cast<std::array<uint32_t, 4>>(b.Depth) &&
+                                    std::bit_cast<std::array<uint32_t, 4>>(a.Atlas) ==
+                                        std::bit_cast<std::array<uint32_t, 4>>(b.Atlas);
+                           }),
         "both atlas consumers retain identical regional uniforms");
 }
 
@@ -160,7 +168,10 @@ void Changes(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &
   std::string error;
   Compare(device, geometry, partial, full, frame);
   Mat4 row;
-  row[12] = 30;
+  constexpr double kMovedX = 30;
+  constexpr double kRetriedX = -40;
+  constexpr double kSeamShiftM = 255.75;
+  row[12] = kMovedX;
   CheckSceneUpload(geometry.SetPieceInstances(moving, std::span(&row, 1), error), error);
   Compare(device, geometry, partial, full, frame);
   CHECK(partial.Shadow.PreservesAtlas(), "a local move preserves unchanged atlas pixels");
@@ -171,7 +182,7 @@ void Changes(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &
   CHECK(!partial.Shadow.Casting(), "releasing an already hidden piece changes no shadow content");
   const auto born = Place(geometry, 4, row);
   Compare(device, geometry, partial, full, frame);
-  row[12] = -40;
+  row[12] = kRetriedX;
   CheckSceneUpload(geometry.SetPieceInstances(born, std::span(&row, 1), error), error);
   const auto before = Read(device, partial);
   Draw(device, geometry, partial, frame, false);
@@ -185,7 +196,7 @@ void Changes(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &
   Compare(device, geometry, partial, full, frame);
   CHECK(!partial.Shadow.PreservesAtlas(), "failed patch recording retries through full fallback");
   const auto retained = Read(device, partial);
-  frame.PreViewTranslation[0] -= 255.75;
+  frame.PreViewTranslation[0] -= kSeamShiftM;
   Place(geometry, 2, row);
   Compare(device, geometry, partial, full, frame);
   CHECK(Read(device, partial) != retained, "the signed seam case actually changes native pixels");
@@ -223,7 +234,7 @@ void Materials(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas
 void Prisms(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &full) {
   FrameContext frame;
   for (size_t axis = 0; axis < 3; ++axis) { frame.PreViewTranslation[axis] = -kAnchor[axis]; }
-  auto source = std::make_shared<const PrismGrid>(
+  const auto source = std::make_shared<const PrismGrid>(
       PrismGrid{.Samples = std::make_shared<const std::vector<PrismSpan>>(
                     std::vector<PrismSpan>{{.Lower = -6, .Upper = 8}}),
                 .Patches = {{.Columns = 1, .Rows = 1, .PitchX = 32, .PitchZ = 32}}});
@@ -233,7 +244,9 @@ void Prisms(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &f
   const auto revision = geometry.Prisms().ShadowChangesSince(0).Revision;
   const auto generation = geometry.Prisms().Generation();
   const auto uploaded = geometry.Prisms().Uploads().PatchBytes;
-  instance.Previous[12] = 100;
+  constexpr float kPreviousX = 100;
+  constexpr float kMovedX = -35;
+  instance.Previous[12] = kPreviousX;
   Require(geometry.SetPrismGridInstances(id, std::span(&instance, 1)));
   Compare(device, geometry, partial, full, frame);
   CHECK(!partial.Shadow.Casting() &&
@@ -241,7 +254,7 @@ void Prisms(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &f
             geometry.Prisms().Generation() > generation &&
             geometry.Prisms().Uploads().PatchBytes > uploaded,
         "proven Previous-only records retain shadow coverage while uploading velocity history");
-  instance.Current[12] = -35;
+  instance.Current[12] = kMovedX;
   Require(geometry.SetPrismGridInstances(id, std::span(&instance, 1)));
   Compare(device, geometry, partial, full, frame);
   Require(geometry.SetPrismGridInstances(id, {}));
@@ -257,7 +270,8 @@ void SubmissionAndReaders(Device &device, GeometryRenderer &geometry, Atlas &par
   const auto piece = Place(geometry, 5);
   Compare(device, geometry, partial, full, frame);
   Mat4 row;
-  row[12] = 90;
+  constexpr double kReaderOffsetM = 90;
+  row[12] = kReaderOffsetM;
   std::string error;
   CheckSceneUpload(geometry.SetPieceInstances(piece, std::span(&row, 1), error), error);
   const auto before = Read(device, partial);
@@ -267,7 +281,7 @@ void SubmissionAndReaders(Device &device, GeometryRenderer &geometry, Atlas &par
         "rejected device submission retains accepted GPU pixels and cannot commit the atlas");
   Compare(device, geometry, partial, full, frame);
   CHECK(!partial.Shadow.PreservesAtlas(), "rejected submission retries all atlas regions");
-  row[12] = -90;
+  row[12] = -kReaderOffsetM;
   CheckSceneUpload(geometry.SetPieceInstances(piece, std::span(&row, 1), error), error);
   Draw(device, geometry, full, frame);
   Compare(device, geometry, partial, full, frame);
@@ -286,7 +300,8 @@ int main() {
                             .Height = 32,
                             .SceneColours = {}};
   CHECK(gpu.SceneColours.Add(Resource::SceneHdr), "the fixture uses the existing subject pipeline");
-  GeometryRenderer geometry;
+  GeometryResidency geometryStorage;
+  GeometryRenderer geometry{geometryStorage};
   Require(geometry.Configure(gpu));
   std::string error;
   SubjectMesh mesh;
@@ -297,7 +312,8 @@ int main() {
   CheckSceneUpload(geometry.SetMaterials(std::span(&material, 1), error), error);
   geometry.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});
   geometry.SetRegisteredPieceSurfaces(std::array<uint32_t, 1>{0});
-  Atlas partial(device, geometry, gpu), full(device, geometry, gpu);
+  Atlas partial(device, geometry, gpu);
+  Atlas full(device, geometry, gpu);
   Changes(device, geometry, partial, full);
   Materials(device, geometry, partial, full);
   Prisms(device, geometry, partial, full);
