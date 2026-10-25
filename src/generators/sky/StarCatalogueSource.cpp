@@ -1,16 +1,20 @@
 #include "StarCatalogueSource.h"
 
-#include <array>
 #include <cstdint>
+#include <cstddef>
+#include <ios>
 #include <optional>
+#include <filesystem>
+#include <format>
+#include <fstream>
 #include <string>
-#include <cstdio>
 #include <utility>
 #include <vector>
 
 namespace outshine::Generators::Sky {
 
 constexpr size_t kTypicalPayloadBytes = 13380;
+constexpr size_t kMaximumBandBytes = size_t{1024} * 1024u;
 
 namespace {
 
@@ -31,6 +35,7 @@ Declared(std::string revision, Data::Rank order, Data::AbsencePolicy absence) {
   d.Latency = Data::LatencyClass::Local;
 
   d.TypicalPayloadBytes = kTypicalPayloadBytes;
+  d.MaximumPayloadBytes = kMaximumBandBytes;
   d.RetryBudget = 0;
   return d;
 }
@@ -57,28 +62,42 @@ Data::FetchStart StarCatalogueSource::Begin(const Data::Address &at,
   return Data::Ticket::None;
 }
 
-Data::SourceResponse StarCatalogueSource::Collect(const Data::Address &at,
-                                                  Data::Ticket ticket,
-                                                  Data::Transport &transport) const {
-  (void)ticket;
-  (void)transport;
-  const std::optional<uint32_t> band = at.Index();
-  if (!band) { return Data::SourceResponse::Meant(Data::Meaning::Refused); }
-  std::array<char, 512> path{};
-  std::snprintf(path.data(), path.size(), "%s/band%u.bin", Directory_.c_str(), *band);
-  std::FILE *f = std::fopen(path.data(), "rb");
-  if (f == nullptr) { return Data::SourceResponse::Meant(Data::Meaning::Refused); }
-  std::fseek(f, 0, SEEK_END);
-  const long size = std::ftell(f);
-  std::fseek(f, 0, SEEK_SET);
-  std::vector<uint8_t> bytes;
-  bool whole = size > 0;
-  if (whole) {
-    bytes.resize(static_cast<size_t>(size));
-    whole = std::fread(bytes.data(), 1, static_cast<size_t>(size), f) == static_cast<size_t>(size);
+Data::SourceResponse
+StarCatalogueSource::Collect(const Data::Address &at,
+                             [[maybe_unused]] Data::Ticket ticket,
+                             [[maybe_unused]] Data::Transport &transport) const {
+  const auto band = at.Index();
+  if (!band || *band >= kBands || Directory_.contains('\0')) {
+    return Data::SourceResponse::Meant(Data::Meaning::Refused,
+                                       Data::SourceFailureReason::InvalidRequest);
   }
-  std::fclose(f);
-  if (!whole) { return Data::SourceResponse::Meant(Data::Meaning::Refused); }
+  const auto path = std::filesystem::path(Directory_) / std::format("band{}.bin", *band);
+  std::ifstream file(path, std::ios::binary | std::ios::ate);
+  if (!file) {
+    return Data::SourceResponse::Meant(Data::Meaning::Refused,
+                                       Data::SourceFailureReason::Unavailable);
+  }
+  const std::streamoff size = file.tellg();
+  if (size <= 0) {
+    return Data::SourceResponse::Meant(Data::Meaning::Refused,
+                                       Data::SourceFailureReason::CorruptPayload);
+  }
+  if (std::cmp_greater(size, Decl_.MaximumPayloadBytes)) {
+    return Data::SourceResponse::Meant(Data::Meaning::Refused,
+                                       Data::SourceFailureReason::CapacityRefused);
+  }
+  std::vector<uint8_t> bytes(static_cast<size_t>(size));
+  file.seekg(0, std::ios::beg);
+  if (!file.read(reinterpret_cast<char *>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()))) {
+    return Data::SourceResponse::Meant(Data::Meaning::Refused,
+                                       Data::SourceFailureReason::CorruptPayload);
+  }
+  const auto next = file.peek();
+  if (file.bad() || next != std::char_traits<char>::eof()) {
+    return Data::SourceResponse::Meant(Data::Meaning::Refused,
+                                       Data::SourceFailureReason::CorruptPayload);
+  }
   return Data::SourceResponse::Delivered(std::move(bytes));
 }
 

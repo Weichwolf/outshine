@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_SKY_STARCATALOGUESOURCE_H
 
 #include <string>
+#include <cstdint>
 
 #include <Source.h>
 
