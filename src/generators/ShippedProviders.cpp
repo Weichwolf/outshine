@@ -1,9 +1,9 @@
 #include "ShippedProviders.h"
 #include "OsmProvider.h"
-#include "CopernicusDem.h"
+#include "CopernicusDemSource.h"
 #include "TerrariumSource.h"
 #include "VectorTileSource.h"
-#include "StarBands.h"
+#include "StarCatalogueSource.h"
 #include <array>
 #include <initializer_list>
 #include <cstddef>
@@ -68,7 +68,7 @@ ValidateCopernicus(const Data::SourceProvider &provider) {
     return std::unexpected(
         "Copernicus terrain does not accept a file, chunk coverage or whole-response digest");
   }
-  if (!provider.Endpoint.empty() && provider.Endpoint != Data::CopernicusDem::Endpoint) {
+  if (!provider.Endpoint.empty() && provider.Endpoint != Terrain::CopernicusDemSource::Endpoint) {
     return std::unexpected(
         "the built-in terrain provider uses the official Copernicus GLO-30 endpoint");
   }
@@ -101,11 +101,12 @@ public:
   [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
   make(const Data::SourceProvider &provider,
        [[maybe_unused]] std::string_view root) const override {
-    return std::make_unique<Data::CopernicusDem>(
+    return std::make_unique<Terrain::CopernicusDemSource>(
         provider.Revision,
         static_cast<Data::Rank>(provider.Priority),
         provider.Missing,
-        provider.Dataset.empty() ? std::string(Data::CopernicusDem::Dataset) : provider.Dataset);
+        provider.Dataset.empty() ? std::string(Terrain::CopernicusDemSource::Dataset)
+                                 : provider.Dataset);
   }
 };
 
@@ -196,10 +197,11 @@ public:
 
   [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
   make(const Data::SourceProvider &provider, std::string_view root) const override {
-    return std::make_unique<Data::StarBands>((std::filesystem::path(root) / "sky").string(),
-                                             provider.Revision,
-                                             static_cast<Data::Rank>(provider.Priority),
-                                             provider.Missing);
+    return std::make_unique<Sky::StarCatalogueSource>(
+        (std::filesystem::path(root) / "sky").string(),
+        provider.Revision,
+        static_cast<Data::Rank>(provider.Priority),
+        provider.Missing);
   }
 };
 

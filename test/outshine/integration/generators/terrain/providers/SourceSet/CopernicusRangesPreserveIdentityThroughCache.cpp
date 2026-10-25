@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "RawSourceCache.h"
-#include "CopernicusDem.h"
+#include "CopernicusDemSource.h"
 #include "OfflineTransport.h"
 #include "SourceSet.h"
 
@@ -51,7 +51,8 @@ public:
 
 void Add(SourceSet &sources) {
   using namespace outshine::Test;
-  CHECK(sources.Add(std::make_unique<CopernicusDem>()) == SourceSet::Registration::Accepted,
+  CHECK(sources.Add(std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>()) ==
+            SourceSet::Registration::Accepted,
         "Copernicus uses the same owned source registry as external providers");
 }
 }
@@ -152,7 +153,7 @@ int main() {
     CHECK(store.Counters().Writes == 0 && sources.Counters().Delivered == 0,
           "refused original ranges cannot become durable cache facts or deliveries");
   }
-  CopernicusDem source;
+  outshine::Generators::Terrain::CopernicusDemSource source;
   const std::array invalid{
       SourceRequest(DataKind::Elevation, at, ByteRange{.First = 0, .Length = 0}),
       SourceRequest(DataKind::Elevation,

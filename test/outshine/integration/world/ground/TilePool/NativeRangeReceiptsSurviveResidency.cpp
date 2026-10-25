@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "RawSourceCache.h"
-#include "CopernicusDem.h"
+#include "CopernicusDemSource.h"
 #include "SourceSet.h"
 #include "TilePool.h"
 
@@ -37,7 +37,8 @@ int main() {
   using namespace outshine::Test;
   RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
-  CHECK(sources.Add(std::make_unique<CopernicusDem>()) == SourceSet::Registration::Accepted,
+  CHECK(sources.Add(std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>()) ==
+            SourceSet::Registration::Accepted,
         "native source uses normal provider dispatch");
   Http wire;
   TilePool pool({.ByteBudget = 1024, .Carriers = 1}, sources, wire);
