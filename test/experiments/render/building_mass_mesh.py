@@ -4,6 +4,13 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
+from building_mass_contours import packed_domain
+
+
+class PackedNodeCollapse(ValueError):
+    def __init__(self, work):
+        super().__init__("distinct mass prism nodes collapse in Float32")
+        self.work = work
 
 
 def qualify(positions, indices, expected_euler):
@@ -32,7 +39,7 @@ def qualify(positions, indices, expected_euler):
     return normal, float(volume), int(euler)
 
 
-def extrude(domain, heights):
+def strict_prism(domain, heights):
     low, high = heights
     if (
         not domain.is_valid
@@ -75,7 +82,16 @@ def extrude(domain, heights):
     normal, volume, euler = qualify(positions, indices, 2 * (len(parts) - holes))
     packed = positions.astype(np.float32)
     if len(np.unique(packed.view(np.uint32), axis=0)) != len(packed):
-        raise ValueError("distinct mass prism nodes collapse in Float32")
+        raise PackedNodeCollapse(
+            {
+                "vertices": len(packed),
+                "triangles": len(indices),
+                "cap_xy_bytes": xy.nbytes,
+                "triangle_coordinate_bytes": coordinates.nbytes,
+                "unique_double_position_bytes": positions.nbytes,
+                "packed_position_bytes": packed.nbytes,
+            }
+        )
     packed_normal, packed_volume, _ = qualify(packed, indices, euler)
     if np.any(np.einsum("ij,ij->i", normal, packed_normal) <= 0):
         raise ValueError("mass prism face orientation changes in Float32")
@@ -94,3 +110,23 @@ def extrude(domain, heights):
         "triangle_coordinate_bytes": coordinates.nbytes,
         "unique_double_position_bytes": positions.nbytes,
     }
+
+
+def extrude(domain, heights):
+    try:
+        return strict_prism(domain, heights)
+    except PackedNodeCollapse as error:
+        rounded, rounding = packed_domain(domain)
+        if not rounding["adjacent_duplicate_words_removed"]:
+            raise
+        mesh, report = strict_prism(rounded, heights)
+        report["maximum_float32_vertex_rounding_m"] = float(
+            np.hypot(
+                report["maximum_float32_vertex_rounding_m"],
+                rounding["maximum_xy_vertex_rounding_m"],
+            )
+        )
+        report["input_footprint_volume_m3"] = domain.area * (heights[1] - heights[0])
+        report["failed_attempt_work"] = error.work
+        report["pretriangulation_rounding"] = rounding
+        return mesh, report
