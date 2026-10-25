@@ -5,6 +5,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   base
   client
   content
+  content/assets
   diagnostics
   diagnostics/calibration
   engine
@@ -66,7 +67,9 @@ target_link_libraries(outshine_actor PUBLIC outshine_base)
 target_link_libraries(outshine_audio PUBLIC outshine_base)
 target_link_libraries(outshine_app_capture PUBLIC outshine_base outshine_content outshine_render outshine_engine)
 target_link_libraries(outshine_client PUBLIC outshine_app_capture outshine_actor outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_sources outshine_render outshine_scenario outshine_world)
-target_link_libraries(outshine_content PUBLIC outshine_base outshine_storage outshine_world_products)
+target_link_libraries(outshine_content PUBLIC outshine_base outshine_content_assets outshine_world_products)
+target_link_libraries(outshine_content_assets PUBLIC outshine_base outshine_storage
+  PRIVATE PkgConfig::libzstd ZLIB::ZLIB)
 target_link_libraries(outshine_diagnostics PUBLIC outshine_base)
 target_link_libraries(outshine_diagnostics_calibration PUBLIC outshine_base outshine_render)
 target_link_libraries(outshine_engine PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_actor outshine_render outshine_scenario outshine_ui outshine_audio outshine_diagnostics outshine_sources outshine_engine_streaming)
@@ -90,8 +93,7 @@ target_link_libraries(outshine_world_entity PUBLIC outshine_base)
 target_link_libraries(outshine_world_products PUBLIC outshine_base)
 
 target_link_libraries(outshine_base PUBLIC PkgConfig::geos ZLIB::ZLIB Threads::Threads)
-target_link_libraries(outshine_content PUBLIC PkgConfig::sdl3_image PkgConfig::sdl3_ttf
-  PkgConfig::sqlite3 PkgConfig::libzstd)
+target_link_libraries(outshine_content PUBLIC PkgConfig::sdl3_image PkgConfig::sdl3_ttf)
 target_link_libraries(outshine_world PUBLIC PkgConfig::libtiff_4 PkgConfig::libwebp)
 target_link_libraries(outshine_render PUBLIC PkgConfig::sdl3 PkgConfig::sdl3_image
   PkgConfig::spirv_cross ${SPIRV_CROSS_LIBRARIES})
