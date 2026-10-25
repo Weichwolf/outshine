@@ -136,7 +136,19 @@ def layer_weights(rays, depth, alpha, ties, count):
     return weight, transmission
 
 
-def render(data, original, fields, camera, box, tables, rate=16):
+def render(
+    data,
+    original,
+    fields,
+    camera,
+    box,
+    tables,
+    rate=16,
+    *,
+    light=(0.45, -0.5, 0.7),
+    intensity=3,
+    ambient=0.1,
+):
     width, height = map(int, box[1] - box[0])
     count = width * height * rate**2
     if count > 1048576:
@@ -178,8 +190,10 @@ def render(data, original, fields, camera, box, tables, rate=16):
             data["roughness_palette"],
             data["profile_normal"][profile],
             outgoing[rays[selected]],
-            [0.45, -0.5, 0.7],
+            light,
             tables,
+            intensity=intensity,
+            ambient=ambient,
         )
         coefficient = weight[selected] * fractions[selected, rank]
         np.add.at(colour, rays[selected], coefficient[:, None] * value)
@@ -194,8 +208,10 @@ def render(data, original, fields, camera, box, tables, rate=16):
         data["roughness_palette"],
         fields["normal"][face],
         outgoing[native_rays[selected]],
-        [0.45, -0.5, 0.7],
+        light,
         tables,
+        intensity=intensity,
+        ambient=ambient,
     )
     np.add.at(
         colour, native_rays[selected], weight[cloud_count + selected, None] * value

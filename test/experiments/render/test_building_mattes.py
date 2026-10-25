@@ -22,7 +22,7 @@ from building_matte_fields import (
 )
 from building_matte_image import cell_profiles, layer_weights, render
 from building_matte_planes import cover_domains
-from building_tree_transfer import compose_layers
+from building_tree_transfer import compose_layers, transfers
 from compare_mass_appearance import read
 from source_material_patches import MaterialPatch
 from source_surface_patches import SurfacePatch
@@ -244,20 +244,50 @@ class BuildingMattes(unittest.TestCase):
             Path(__file__).resolve().parents[2]
             / "outshine/data/render/material-filter/energy-tables.npz"
         )
-        actual, _ = render(data, original, fields, camera, box, tables, rate=4)
-        expected, _ = evaluate(
-            original,
-            original,
-            fields,
-            {"roughness_palette": at["palette"]},
-            {"indices": np.empty((0, 3), int)},
-            camera,
-            box,
-            tables,
-            supersample=4,
-        )
-        np.testing.assert_array_equal(actual["C"], expected["C"])
-        np.testing.assert_array_equal(actual["T"], expected["T"])
+        product = {
+            "indices": np.empty((0, 3), int),
+            "needs_sources": np.array([1]),
+            "group_coverage": np.empty((0, 3)),
+        }
+        appearance = {
+            "roughness_palette": at["palette"],
+            "supported": np.empty(0, bool),
+            "albedo": np.empty((0, 2, 3)),
+        }
+        colours = []
+        for lighting in ({}, {"light": [0, 0, -1], "intensity": 2}, {"intensity": 0}):
+            actual, _ = render(
+                data, original, fields, camera, box, tables, rate=4, **lighting
+            )
+            expected, _ = evaluate(
+                original,
+                original,
+                fields,
+                appearance,
+                product,
+                camera,
+                box,
+                tables,
+                supersample=4,
+                **lighting,
+            )
+            control, _ = transfers(
+                original,
+                original,
+                fields,
+                product,
+                appearance,
+                camera,
+                box,
+                tables,
+                4,
+                **lighting,
+            )
+            for key in ("C", "T"):
+                np.testing.assert_array_equal(actual[key], expected[key])
+                np.testing.assert_array_equal(control[key], expected[key])
+            colours.append(actual["C"])
+        self.assertGreater(float(np.max(colours[1] - colours[2])), 0)
 
 
 if __name__ == "__main__":

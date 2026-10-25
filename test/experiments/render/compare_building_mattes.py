@@ -36,7 +36,11 @@ def compare_query(
     merged,
     camera,
     tables,
+    *,
+    lighting=None,
+    fixed_box=None,
 ):
+    lighting = {} if lighting is None else lighting
     if not np.array_equal(
         prism["needs_sources"], separate["needs_sources"]
     ) or not np.array_equal(prism["needs_sources"], merged["needs_sources"]):
@@ -68,19 +72,42 @@ def compare_query(
         ],
         int,
     )
+    if fixed_box is not None:
+        if np.any(fixed_box[0] > box[0]) or np.any(fixed_box[1] < box[1]):
+            raise ValueError("fixed motion ROI must contain every endpoint")
+        box = fixed_box
     images, work = {}, {}
     images["original"], work["original"] = evaluate(
-        original, original, fields, baseline_material, baseline, camera, box, tables
+        original,
+        original,
+        fields,
+        baseline_material,
+        baseline,
+        camera,
+        box,
+        tables,
+        **lighting,
     )
     for name, mesh, p, m in (
         ("parent_original_cut", base_mesh, baseline, baseline_material),
         ("parent_matched_rest", prism_mesh, prism, material),
     ):
         images[name], work[name] = transfers(
-            mesh, original, fields, p, m, camera, box, tables, 16
+            mesh,
+            original,
+            fields,
+            p,
+            m,
+            camera,
+            box,
+            tables,
+            16,
+            **lighting,
         )
     for name, data in (("matte_separate", separate), ("matte_merged", merged)):
-        images[name], work[name] = render(data, original, fields, camera, box, tables)
+        images[name], work[name] = render(
+            data, original, fields, camera, box, tables, **lighting
+        )
     rest = retained_subset(original, prism["needs_sources"])
     report = {
         "roi": box.tolist(),
