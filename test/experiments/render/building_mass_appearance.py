@@ -88,6 +88,32 @@ def source_measure(identity, surface, frame, at):
     return result, patches, calls
 
 
+def group_materials(measures, geometry, at):
+    count = len(geometry["group_offsets"]) - 1
+    colour = np.zeros((count, 2, 3), np.float32)
+    weights = np.zeros((count, 2, len(at["palette"])), np.float32)
+    area = np.zeros((count, 2), np.float32)
+    supported = np.zeros(count, bool)
+    for group in range(count):
+        low, high = geometry["group_offsets"][group : group + 2]
+        sources = geometry["group_sources"][low:high]
+        if not all(int(i) in measures for i in sources):
+            continue
+        total = np.sum([measures[int(i)] for i in sources], axis=0)
+        colour[group] = total[:, :3] / total[:, -1, None]
+        weights[group] = total[:, 3:-1] / total[:, -1, None]
+        area[group], supported[group] = total[:, -1], True
+    arrays = {
+        "albedo": colour,
+        "roughness_weights": weights,
+        "surface_area_m2": area,
+        "supported": supported,
+        "roughness_palette": at["palette"],
+        "policy_sha256": np.frombuffer(policy_digest(at), np.uint8).copy(),
+    }
+    return arrays
+
+
 def build_appearance(parent, cells, geometry, at):
     selected = set(map(int, geometry["selected_sources"]))
     grouped = set(map(int, geometry["group_sources"]))
@@ -118,27 +144,7 @@ def build_appearance(parent, cells, geometry, at):
             "geometry and material producer must cover the same original sources"
         )
     count = len(geometry["group_offsets"]) - 1
-    colour = np.zeros((count, 2, 3), np.float32)
-    weights = np.zeros((count, 2, len(at["palette"])), np.float32)
-    area = np.zeros((count, 2), np.float32)
-    supported = np.zeros(count, bool)
-    for group in range(count):
-        low, high = geometry["group_offsets"][group : group + 2]
-        sources = geometry["group_sources"][low:high]
-        if not all(int(i) in measures for i in sources):
-            continue
-        total = np.sum([measures[int(i)] for i in sources], axis=0)
-        colour[group] = total[:, :3] / total[:, -1, None]
-        weights[group] = total[:, 3:-1] / total[:, -1, None]
-        area[group], supported[group] = total[:, -1], True
-    arrays = {
-        "albedo": colour,
-        "roughness_weights": weights,
-        "surface_area_m2": area,
-        "supported": supported,
-        "roughness_palette": at["palette"],
-        "policy_sha256": np.frombuffer(policy_digest(at), np.uint8).copy(),
-    }
+    arrays = group_materials(measures, geometry, at)
     return arrays, {
         "source_needs": needs,
         "sources_with_measures": len(measures),
@@ -151,7 +157,7 @@ def build_appearance(parent, cells, geometry, at):
         * 8,
         "form_reads": parent.form_reads,
         "form_bytes": parent.form_bytes,
-        "supported_groups": int(supported.sum()),
+        "supported_groups": int(arrays["supported"].sum()),
         "all_groups": count,
         "array_bytes": {k: v.nbytes for k, v in arrays.items()},
         "all_array_bytes": sum(v.nbytes for v in arrays.values()),

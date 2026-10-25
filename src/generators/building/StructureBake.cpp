@@ -382,8 +382,7 @@ struct StructureBakeProgress::State {
     out.UnsupportedMeshes = 0;
     out.SkippedRings = 0;
     out.FallbackHeights = fallback;
-    const StructureSelectionView selectedView{
-        .Eye = raw.Eye, .EyeEcef = raw.EyeEcef, .Projection = raw.Projection};
+    const auto selectedView = StructureSelectionDomain(raw.Eye, raw.Projection, raw.EyeEcef);
     out.SelectedView =
         !raw.RequestedDetail && selectedView.Contains(raw.Eye, raw.Projection, raw.EyeEcef)
             ? std::optional(selectedView)

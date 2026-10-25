@@ -20,9 +20,10 @@ void Engine::State::PublishUrbanMeasurements() {
 
 namespace {
 std::vector<Ground::GeoBounds>
-PublishedBuildingTiles(const TilePieces &pieces, const Generators::Osm::BuildingField &footprints) {
+PublishedBuildingTiles(const Render::GeometryPageResidency &pieces,
+                       const Generators::Osm::BuildingField &footprints) {
   std::map<uint32_t, uint64_t> masks;
-  pieces.ForEachDigest([&](const TilePieces::DigestRecord &piece) {
+  pieces.ForEachDigest([&](const Render::GeometryPageResidency::DigestRecord &piece) {
     const auto *input = footprints.InputOfTile(piece.Tile);
     if (!input || !input->Qualified || !input->Vector || input->SourceKey != piece.SourceKey ||
         piece.FallbackHeights) {

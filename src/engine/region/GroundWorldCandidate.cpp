@@ -99,7 +99,7 @@ GroundWorldCandidate::Prepare(const Core::RuntimeScene &previous, const Ui::Font
   if (Prepared_) { return true; }
   if (!WorldPrepared_) {
     if (PieceSources_ == Render::SceneResources::PieceSources::Copy) {
-      Products_.Pieces.Into(&World_.Renderer());
+      Products_.Pieces.BindRenderer(&World_.Renderer());
       std::string sourceError;
       if (!Products_.Pieces.ValidateSources(sourceError)) {
         return std::unexpected("candidate snapshot before preparation: " + sourceError);
@@ -121,10 +121,10 @@ GroundWorldCandidate::Prepare(const Core::RuntimeScene &previous, const Ui::Font
   if (!ground) { return std::unexpected(std::move(ground.error())); }
   if (!*ground) { return false; }
   Products_.Sheets.Into(&World_.Renderer());
-  Products_.Pieces.Into(&World_.Renderer());
+  Products_.Pieces.BindRenderer(&World_.Renderer());
   if (PieceSources_ == Render::SceneResources::PieceSources::Omit) {
     Products_.Pieces.Clear();
-    Products_.Pieces.Into(&World_.Renderer());
+    Products_.Pieces.BindRenderer(&World_.Renderer());
   }
   Prepared_ = true;
   return true;
@@ -162,7 +162,6 @@ GroundWorldCandidate::Publish(WorldRegionState &world,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   phaseAt = std::chrono::steady_clock::now();
   world.Pieces = std::move(Products_.Pieces);
-  if (Products_.Surfaces) { world.Pieces.SetSurfaces(*Products_.Surfaces); }
   world.StructureSurfaces = Products_.Surfaces;
   PublicationMetrics_.PiecesMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();

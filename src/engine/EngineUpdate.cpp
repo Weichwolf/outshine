@@ -1,3 +1,4 @@
+#include "RigidBodyDynamics.h"
 #include "GeodeticCamera.h"
 #include "Earth.h"
 #include "AzimuthElevation.h"
@@ -46,7 +47,7 @@ constexpr auto kInvalidCarriedView = "the carried view has no valid camera basis
 }
 
 namespace {
-[[nodiscard]] Mat4 BodyTransform(const Physics::Rigid &body, const Vec3 &shiftM) {
+[[nodiscard]] Mat4 BodyTransform(const World::RigidBodyState &body, const Vec3 &shiftM) {
   Mat4 worldFromBody = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   {
     const Quat &q = body.OrientationQ;
@@ -223,7 +224,7 @@ bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
 }
 
 bool Engine::State::UpdateSceneBodyTransform(size_t which,
-                                             const Physics::Rigid &body,
+                                             const World::RigidBodyState &body,
                                              const Vec3 &shiftM) {
   const Mat4 bodyFromWorld = BodyTransform(body, shiftM);
 
@@ -245,17 +246,18 @@ bool Engine::State::UpdateSceneBodyTransform(size_t which,
 
 bool Engine::State::FollowCamera(const ViewBook &views) {
   const size_t active = views.ActiveIndex();
-  if (Simulation->DeclarationRevision != Session.DeclarationRevision ||
-      active >= Simulation->ViewBodies.size()) {
+  if (ScenarioState->DeclarationRevision != Session.DeclarationRevision ||
+      active >= ScenarioState->ViewBodies.size()) {
     Error = Says::kCameraAssemblyRequired;
     return false;
   }
-  const auto binding = Simulation->ViewBodies[active];
-  if (!binding || !Simulation->Entities.alive(Simulation->DynamicBodies[*binding].Owner)) {
+  const auto binding = ScenarioState->ViewBodies[active];
+  const auto *bound = binding ? ScenarioState->Entities.Body(*binding) : nullptr;
+  if (bound == nullptr) {
     Error = Says::kCameraBodyRequired;
     return false;
   }
-  const Physics::Rigid &body = Simulation->DynamicBodies[*binding].Motion;
+  const World::RigidBodyState &body = *bound;
   const Mat4 bodyFromWorld = BodyTransform(body, {});
   const Scenario::View &seen = views.Active();
   const Vec3 &seatM = seen.OffsetM;
@@ -295,7 +297,7 @@ void Engine::State::HandsPiecesOver() {
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   World.StructureBuilds.Opens(World.Pool.get(), &World.Shipping.Shaping());
   if (World.PiecesFramed) { return; }
-  World.Pieces.Framed(
+  World.Pieces.SetFrame(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                         .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg}));
   World.PiecesFramed = true;
@@ -450,17 +452,18 @@ bool Engine::State::UpdateVegetation(bool prepare) {
 }
 
 bool Engine::State::UpdateTriggers() {
-  if (!Simulation->Triggers || Simulation->DeclarationRevision != Session.DeclarationRevision) {
+  if (!ScenarioState->Triggers ||
+      ScenarioState->DeclarationRevision != Session.DeclarationRevision) {
     return true;
   }
-  for (const auto &body : Simulation->DynamicBodies) {
-    if (!Simulation->Entities.alive(body.Owner)) { continue; }
-    if (!Simulation->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS)) {
+  for (const auto &body : ScenarioState->Entities.Bodies()) {
+    if (!ScenarioState->Entities.Registry().alive(body.Owner)) { continue; }
+    if (!ScenarioState->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS)) {
       Error = Says::kInvalidTriggerProbe;
       return false;
     }
   }
-  for (const TriggerField::Fired &fired : Simulation->Triggers->Drain()) {
+  for (const TriggerField::Fired &fired : ScenarioState->Triggers->Drain()) {
     ++Session.Fired;
     Session.Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
                               " for entity " + std::to_string(fired.Body.Index) + ":" +
@@ -530,7 +533,8 @@ bool Engine::State::Updates(bool simulate) {
     const double simulationStepS =
         Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
     const double gravityMs2 = Session.Declared.Ground.GravityMs2;
-    Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
+    Physics::IntegrateBodies(
+        ScenarioState->Entities.MutableBodies(), simulationStepS, {{0.0, -gravityMs2, 0.0}});
     Ticking.ElapsedS += simulationStepS;
     triggered = UpdateTriggers();
   }
@@ -556,14 +560,15 @@ bool Engine::State::Updates(bool simulate) {
 }
 
 bool Engine::State::Draws() {
-  if (!Simulation->DynamicBodies.empty() && Picture.Standing && Picture.Standing->Stands() &&
+  if (!ScenarioState->Entities.Bodies().empty() && Picture.Standing && Picture.Standing->Stands() &&
       Picture.Standing->DrivenParts() != 0) {
     const Vec3 unshifted;
-    if (!Picture.Standing->ResizeBodyInstances(Simulation->DynamicBodies.size(), Error)) {
+    if (!Picture.Standing->ResizeBodyInstances(ScenarioState->Entities.Bodies().size(), Error)) {
       return false;
     }
-    for (size_t which = 0; which < Simulation->DynamicBodies.size(); ++which) {
-      if (!UpdateSceneBodyTransform(which, Simulation->DynamicBodies[which].Motion, unshifted)) {
+    for (size_t which = 0; which < ScenarioState->Entities.Bodies().size(); ++which) {
+      if (!UpdateSceneBodyTransform(
+              which, ScenarioState->Entities.Bodies()[which].Motion, unshifted)) {
         return false;
       }
     }
@@ -592,7 +597,7 @@ Result Engine::advance() {
 Result Engine::advanceFrame(bool simulate) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (!S_->Simulation) {
+  if (!S_->ScenarioState) {
     return std::unexpected(std::string("camera and simulation updates require an assembled scene"));
   }
   const auto began = std::chrono::steady_clock::now();

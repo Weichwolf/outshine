@@ -19,12 +19,13 @@
 #include "GroundPublication.h"
 #include "GroundRegionPreparation.h"
 #include "GroundPatchPreparation.h"
-#include "Rigid.h"
+#include "RigidBodyState.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "HeightSheets.h"
 #include "Wayfinding.h"
-#include "TilePieces.h"
+#include "GeometryPageResidency.h"
+#include "BuildingPageAdapter.h"
 #include "WorldPlacement.h"
 #include "StructureBuildQueue.h"
 #include "RoadAlignmentBuildQueue.h"
@@ -41,7 +42,7 @@
 #include <vector>
 
 #include "Assembly.h"
-#include "SimulationState.h"
+#include "ScenarioRuntime.h"
 #include "TriangleBvh.h"
 #include "DiagnosticLedger.h"
 #include "Mixer.h"
@@ -209,7 +210,7 @@ struct ScenarioSession {
   InputMap Bound;
   size_t Fired = 0;
   std::optional<Audio::Mixer> Sounding;
-  std::vector<std::optional<size_t>> AudioBodies;
+  std::vector<std::optional<Entity>> AudioBodies;
   std::array<std::vector<Audio::Heard>, 2> Sources;
   std::array<Audio::Listening, 2> Ear{};
   std::atomic<unsigned> Told{0};
@@ -224,7 +225,7 @@ struct WorldRegionState {
   WorldRegionState &operator=(WorldRegionState &&) = delete;
 
   void BindSceneResources(Render::SceneRenderer &renderer) noexcept {
-    Pieces.Into(&renderer);
+    Pieces.BindRenderer(&renderer);
     Sheets.Into(&renderer);
     if (Vegetation) { Vegetation->Into(renderer); }
     if (UrbanAreas) { UrbanAreas->Into(renderer); }
@@ -265,8 +266,8 @@ struct WorldRegionState {
   std::unique_ptr<GroundPatchPreparation> PlacementGround;
   size_t GroundCandidates = 0;
 
-  TilePieces Pieces;
-  std::optional<TilePieces::Surfaces> StructureSurfaces;
+  Render::GeometryPageResidency Pieces;
+  std::optional<BuildingPageMaterials> StructureSurfaces;
   HeightSheets Sheets;
   std::shared_ptr<const Path::Network> StreetGraph;
   size_t StreetGraphWayCount = 0;
@@ -451,7 +452,7 @@ struct Engine::State {
   EngineRenderState Picture;
   FrameCoordinator Frames;
   ScenarioSession Session;
-  std::unique_ptr<SimulationState> Simulation = std::make_unique<SimulationState>();
+  std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
   WorldRegionState World;
   EngineCostCounters Cost;
   SimulationClock Ticking;
@@ -616,7 +617,7 @@ struct Engine::State {
   [[nodiscard]] bool InspectTerrainCoverage();
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool
-  UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
+  UpdateSceneBodyTransform(size_t which, const World::RigidBodyState &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
   [[nodiscard]] bool PollWeather();

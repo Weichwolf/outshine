@@ -1,6 +1,6 @@
 #include "ImpostorBaker.h"
 
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 #include "Lens.h"
 #include "SceneRenderer.h"
 #include "Shape.h"
@@ -316,7 +316,7 @@ std::optional<Content::ImpostorAtlas> ImpostorBaker::Bake(ImpostorCapture captur
                            Resource::SceneSurfaceBase,
                            Resource::SceneSurfaceMetalRough};
   specification.Content = {Stage::Geometry};
-  auto plan = Compiled::Compile(specification);
+  auto plan = ExecutionPlan::Compile(specification);
   if (!plan) {
     error = std::move(plan.error());
     return std::nullopt;

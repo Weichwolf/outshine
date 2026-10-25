@@ -36,7 +36,7 @@ auto CompilePlan(std::vector<Resource> outputs, std::vector<Stage> content) {
   PlanSpec spec;
   spec.Outputs = std::move(outputs);
   spec.Content = std::move(content);
-  return Compiled::Compile(spec);
+  return ExecutionPlan::Compile(spec);
 }
 
 struct Faults {

@@ -23,32 +23,32 @@ constexpr uint64_t kShellDigest = 102;
 void CheckWholeTiles(WorldRegionState &world,
                      Render::SceneRenderer &renderer,
                      std::unique_ptr<Core::RuntimeScene> &scene,
-                     Generators::BakedTile &built,
+                     const Generators::BakedTile &built,
                      StructureBuildQueue::Landing &landing,
                      Render::PieceSurface wallSurface,
                      Render::PieceSurface roofSurface) {
-  auto *const original = scene.get();
+  const auto *const original = scene.get();
   const auto first = PublishStructureTile(world, renderer, landing);
   CHECK(first.has_value(), first ? "first tile publishes" : first.error().c_str());
   CHECK(renderer.PiecesStanding() == 2 && scene.get() == original,
         "complete tile publishes wall and roof without replacing the world");
   const auto digest = world.Pieces.Digest();
   const auto payload = renderer.PieceSourceBytes();
-  world.Pieces.SetSurfaces({.Walls = wallSurface, .Roofs = Render::PieceSurface(3)});
+  world.StructureSurfaces = {.Walls = wallSurface, .Roofs = Render::PieceSurface(3)};
   CHECK(!PublishStructureTile(world, renderer, landing),
         "replacement roof refuses after its candidate wall uploads");
   CHECK(scene.get() == original && renderer.PiecesStanding() == 2 &&
-            world.Pieces.Digest() == digest && world.Pieces.Handed() == 1 &&
+            world.Pieces.Digest() == digest && world.Pieces.Uploads() == 1 &&
             renderer.PieceSourceBytes() == payload,
         "rejected tile keeps old world, geometry, digest and source payload");
-  world.Pieces.SetSurfaces({.Walls = wallSurface, .Roofs = roofSurface});
+  world.StructureSurfaces = {.Walls = wallSurface, .Roofs = roofSurface};
   for (const size_t count : {size_t{1}, size_t{2}}) {
     Generators::BakedTile malformed;
     malformed.Built.WallCorners = built.Built.WallCorners;
     malformed.Built.WallRun.resize(count, 0);
     landing.Baked = &malformed;
     CHECK(!PublishStructureTile(world, renderer, landing) && scene.get() == original &&
-              renderer.PiecesStanding() == 2 && world.Pieces.Handed() == 1 &&
+              renderer.PiecesStanding() == 2 && world.Pieces.Uploads() == 1 &&
               world.Pieces.Digest() == digest,
           "an incomplete triangle is an error, not an empty tile replacement");
   }
@@ -57,18 +57,18 @@ void CheckWholeTiles(WorldRegionState &world,
   CHECK(PublishStructureTile(world, renderer, landing).has_value(),
         "empty tile is an accepted replacement");
   CHECK(renderer.PiecesStanding() == 0 && renderer.PieceSourceBytes() == 0 &&
-            world.Pieces.Handed() == 2 && world.Pieces.Digest() != digest,
+            world.Pieces.Uploads() == 2 && world.Pieces.Digest() != digest,
         "empty replacement removes previous buildings and advances publication");
   landing.Baked = &built;
   CHECK(PublishStructureTile(world, renderer, landing).has_value() &&
-            renderer.PiecesStanding() == 2 && world.Pieces.Handed() == 3,
+            renderer.PiecesStanding() == 2 && world.Pieces.Uploads() == 3,
         "buildings can return after an empty revision");
   std::array<StructureBuildQueue::Landing, 2> batch{
       {{.Tile = 8, .Baked = &built, .AnchorEcef = {}, .Footprints = {}},
        {.Tile = 9, .Baked = &built, .AnchorEcef = {}, .Footprints = {}}}};
   CHECK(PublishStructureTile(world, renderer, batch[0]).has_value() &&
             PublishStructureTile(world, renderer, batch[1]).has_value() &&
-            renderer.PiecesStanding() == 6 && world.Pieces.Handed() == 5,
+            renderer.PiecesStanding() == 6 && world.Pieces.Uploads() == 5,
         "independent complete tiles publish in order");
   {
     Core::WorldCandidate replacement(renderer);
@@ -83,11 +83,11 @@ void CheckWholeTiles(WorldRegionState &world,
   CHECK(renderer.PiecesStanding() == 6,
         "abandoning the full rebuild leaves published pieces resident");
   const auto batchedDigest = world.Pieces.Digest();
-  world.Pieces.SetSurfaces({.Walls = wallSurface, .Roofs = Render::PieceSurface(3)});
+  world.StructureSurfaces = {.Walls = wallSurface, .Roofs = Render::PieceSurface(3)};
   CHECK(!PublishStructureTile(world, renderer, batch[0]) && scene.get() == original &&
             renderer.PiecesStanding() == 6 && world.Pieces.Digest() == batchedDigest,
         "a tile failure preserves every published tile");
-  world.Pieces.SetSurfaces({.Walls = wallSurface, .Roofs = roofSurface});
+  world.StructureSurfaces = {.Walls = wallSurface, .Roofs = roofSurface};
   {
     Core::WorldCandidate outer(renderer);
     const auto prepared = outer.Prepare(*scene, nullptr);
@@ -106,7 +106,7 @@ void CheckWholeTiles(WorldRegionState &world,
 
 void CheckLivePublication(WorldRegionState &world,
                           Render::SceneRenderer &renderer,
-                          std::unique_ptr<Core::RuntimeScene> &scene,
+                          const std::unique_ptr<Core::RuntimeScene> &scene,
                           Generators::BakedTile &built,
                           StructureBuildQueue::Landing &landing,
                           std::string &error) {
@@ -134,7 +134,7 @@ void CheckLivePublication(WorldRegionState &world,
 
 void CheckCellPublication(WorldRegionState &world,
                           Render::SceneRenderer &renderer,
-                          Generators::BakedTile &built,
+                          const Generators::BakedTile &built,
                           StructureBuildQueue::Landing &landing,
                           Render::PieceSurface wallSurface,
                           Render::PieceSurface roofSurface,
@@ -158,17 +158,17 @@ void CheckCellPublication(WorldRegionState &world,
   CHECK(StageStructureCell(world, renderer, cellLanding).has_value() &&
             renderer.PiecesStanding() == 10 && world.Pieces.Digest() == legacyDigest,
         "first cell lands without changing the published image");
-  const std::array<TilePieces::CellSelection, 2> cells{
+  const std::array<Render::GeometryPageResidency::CellSelection, 2> cells{
       {{.Cell = 1, .Detail = LevelOfDetail::Fine}, {.Cell = 2, .Detail = LevelOfDetail::Shell}}};
   CHECK(!ActivateStructureCells(world, renderer, 10, kOriginalSource, 3, cells) &&
             renderer.PiecesStanding() == 10 && world.Pieces.Digest() == legacyDigest,
         "incomplete cell set cannot retire the published whole tile");
   cellLanding.Baked = &cellTwo;
-  world.Pieces.SetSurfaces({.Walls = wallSurface, .Roofs = Render::PieceSurface(3)});
+  world.StructureSurfaces = {.Walls = wallSurface, .Roofs = Render::PieceSurface(3)};
   CHECK(!StageStructureCell(world, renderer, cellLanding) && renderer.PiecesStanding() == 10 &&
             world.Pieces.Digest() == legacyDigest,
         "failed cell upload preserves the safety net and prior staged product");
-  world.Pieces.SetSurfaces({.Walls = wallSurface, .Roofs = roofSurface});
+  world.StructureSurfaces = {.Walls = wallSurface, .Roofs = roofSurface};
   CHECK(StageStructureCell(world, renderer, cellLanding).has_value() &&
             renderer.PiecesStanding() == 12 &&
             !ActivateStructureCells(world, renderer, 10, kReplacementSource, 3, cells) &&
@@ -178,7 +178,7 @@ void CheckCellPublication(WorldRegionState &world,
             renderer.PiecesStanding() == 10 && world.Pieces.Digest() != legacyDigest,
         "complete source-matched cells atomically replace the published whole tile");
   size_t visibleCells = 0;
-  world.Pieces.ForEachDigest([&](TilePieces::DigestRecord record) {
+  world.Pieces.ForEachDigest([&](Render::GeometryPageResidency::DigestRecord record) {
     if (record.Tile == 10 && record.Cell != 0) { ++visibleCells; }
   });
   CHECK(visibleCells == 2 && world.Pieces.ValidateSources(error),
@@ -193,30 +193,30 @@ void CheckCellPublication(WorldRegionState &world,
             ActivateStructureCells(world, renderer, 10, kReplacementSource, 3, cells).has_value() &&
             renderer.PiecesStanding() == 10 && world.Pieces.ValidateSources(error),
         "new source atomically replaces both cells and retires the prior GPU products");
-  world.Pieces.ForEachDigest([&](TilePieces::DigestRecord record) {
+  world.Pieces.ForEachDigest([&](Render::GeometryPageResidency::DigestRecord record) {
     if (record.Tile == 10) {
       CHECK(record.SourceKey == kReplacementSource, "only the new source is visible");
     }
   });
   landing.SourceKey = kFallbackSource;
-  world.Pieces.SetSurfaces({.Walls = wallSurface, .Roofs = Render::PieceSurface(3)});
+  world.StructureSurfaces = {.Walls = wallSurface, .Roofs = Render::PieceSurface(3)};
   CHECK(!PublishStructureTile(world, renderer, landing) && renderer.PiecesStanding() == 10 &&
             world.Pieces.ValidateSources(error),
         "failed whole-tile fallback preserves published cell sources");
-  world.Pieces.SetSurfaces({.Walls = wallSurface, .Roofs = roofSurface});
+  world.StructureSurfaces = {.Walls = wallSurface, .Roofs = roofSurface};
   CHECK(PublishStructureTile(world, renderer, landing).has_value() &&
             renderer.PiecesStanding() == 8 && world.Pieces.ValidateSources(error),
         "whole-tile source replacement retires both published cell products");
-  world.Pieces.ForEachDigest([&](TilePieces::DigestRecord record) {
+  world.Pieces.ForEachDigest([&](Render::GeometryPageResidency::DigestRecord record) {
     if (record.Tile == 10) {
       CHECK(record.Cell == 0 && record.SourceKey == kFallbackSource,
             "fallback publication exposes only the complete new tile");
     }
   });
-  world.Pieces.Forgets(10);
-  world.Pieces.Forgets(7);
-  world.Pieces.Forgets(8);
-  world.Pieces.Forgets(9);
+  world.Pieces.Retire(10);
+  world.Pieces.Retire(7);
+  world.Pieces.Retire(8);
+  world.Pieces.Retire(9);
   CHECK(renderer.PiecesStanding() == 0 && renderer.PieceSourceBytes() == 0,
         "streaming owner still addresses published pieces after all replacements");
 }
@@ -258,7 +258,7 @@ int main() {
             "ground candidate publishes its native material table");
       const auto wallSurface = Render::PieceSurface(static_cast<uint32_t>(wall->index()));
       const auto roofSurface = Render::PieceSurface(static_cast<uint32_t>(roof->index()));
-      world.Pieces.SetSurfaces({.Walls = wallSurface, .Roofs = roofSurface});
+      world.StructureSurfaces = {.Walls = wallSurface, .Roofs = roofSurface};
       Generators::BakedTile built;
       built.Built.WallCorners = {
           StoredVertex::Of({{0, 0, 0}}, {{kCornerUv, kCornerUv}}, {{0, 0, 1}}),

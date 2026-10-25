@@ -348,7 +348,7 @@ private:
                                             std::unique_ptr<RuntimeScene> &out,
                                             std::string &error,
                                             const GroundAtmosphere &atmosphere,
-                                            std::shared_ptr<const Render::Compiled> plan);
+                                            std::shared_ptr<const Render::ExecutionPlan> plan);
   [[nodiscard]] std::expected<void, std::string> ValidGeometryBuild(const Geometry &built,
                                                                     size_t drivenParts) const;
   [[nodiscard]] static bool
@@ -390,7 +390,6 @@ private:
 
   static size_t TookAiming_, TookDrawing_;
   static size_t PlanInits_;
-  Render::PlanSpec PlanDeclared_;
 
   RuntimeScene(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
 
@@ -436,8 +435,8 @@ private:
   Declaration Declared_;
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;
-  std::shared_ptr<const Render::Compiled> Plan_;
-  std::shared_ptr<const Render::Compiled> PreparationPlan_;
+  std::shared_ptr<const Render::ExecutionPlan> Plan_;
+  std::shared_ptr<const Render::ExecutionPlan> PreparationPlan_;
   Render::CameraState Camera_;
   std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
   Render::ObjectTransformHistory PlacementUploadHistory_;

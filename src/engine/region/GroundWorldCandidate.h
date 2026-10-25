@@ -19,7 +19,7 @@ namespace outshine {
 struct GroundBuildProducts {
   HeightSheets Sheets;
   ::outshine::Generators::Osm::BuildingField Footprints;
-  TilePieces Pieces;
+  Render::GeometryPageResidency Pieces;
   Geometry Ground;
   std::vector<float> PositionsM;
   std::vector<uint32_t> Indices;
@@ -33,7 +33,7 @@ struct GroundBuildProducts {
   bool StreetGraphComplete = true;
   std::vector<NamedRoadAlignment> RoadAlignments;
   size_t RimsMissing = 0;
-  std::optional<TilePieces::Surfaces> Surfaces;
+  std::optional<BuildingPageMaterials> Surfaces;
 
   [[nodiscard]] size_t OwnedHeapBytes() const noexcept;
 };
@@ -158,7 +158,7 @@ private:
   PublicationMetrics PublicationMetrics_;
   static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
   static_assert(std::is_nothrow_move_assignable_v<::outshine::Generators::Osm::BuildingField>);
-  static_assert(std::is_nothrow_move_assignable_v<TilePieces>);
+  static_assert(std::is_nothrow_move_assignable_v<Render::GeometryPageResidency>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::PositionsM)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::Indices)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::ClassPalette)>);

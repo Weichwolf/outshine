@@ -56,8 +56,9 @@ def evaluate(
     parent=False,
     neutral=False,
     diagnostic=None,
+    supersample=16,
 ):
-    supersample = 16 if diagnostic is None else 1
+    supersample = supersample if diagnostic is None else 1
     data = samples(source, view, box, supersample) if diagnostic is None else diagnostic
     faces = data["faces"]
     count = len(product["indices"]) if parent else 0

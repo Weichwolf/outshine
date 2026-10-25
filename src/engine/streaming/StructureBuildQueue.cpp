@@ -289,8 +289,7 @@ bool StructureBuildQueue::BakeRevision::Matches(
          RequestedDetail == detail && Purpose == purpose &&
          (purpose == BuildPurpose::SourceGeometry ||
           (RequestedDetail && *RequestedDetail != LevelOfDetail::Fine) ||
-          Generators::StructureSelectionView{
-              .Eye = Eye, .EyeEcef = EyeEcef, .Projection = Projection}
+          Generators::StructureSelectionDomain(Eye, Projection, EyeEcef)
               .Contains(eye, footprints.Projection(), footprints.EyeEcef())) &&
          (heights == HeightRequirement::AllowFallback || !FallbackHeights);
 }
@@ -577,9 +576,8 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
       accepted->HeightRevision != 0 && accepted->HeightRevision == heightAt.Revision.Value &&
       accepted->Qualified &&
       (purpose == BuildPurpose::SourceGeometry ||
-       Generators::StructureSelectionView{.Eye = accepted->Bake.Eye,
-                                          .EyeEcef = accepted->Bake.EyeEcef,
-                                          .Projection = accepted->Bake.Projection}
+       Generators::StructureSelectionDomain(
+           accepted->Bake.Eye, accepted->Bake.Projection, accepted->Bake.EyeEcef)
            .Contains(eye, prints.Projection(), prints.EyeEcef()))) {
     return 0;
   }

@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
 #include <ProjectedErrorBudget.h>
+#include "ViewReuseDomain.h"
 #include "GeographicRing.h"
 #include "BuildingHeightInterval.h"
 #include "StructureSourceInputs.h"
@@ -76,16 +77,13 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError, Struct
   return "unknown structure bake error";
 }
 
-struct StructureSelectionView {
-  LongitudeLatitude Eye;
-  std::optional<Vec3> EyeEcef;
-  ProjectedErrorBudget Projection;
-  double EyeRadiusM = kStructureEyeReuseM;
-
-  [[nodiscard]] bool Contains(LongitudeLatitude eye,
-                              ProjectedErrorBudget projection,
-                              std::optional<Vec3> eyeEcef = std::nullopt) const noexcept;
-};
+[[nodiscard]] inline ViewReuseDomain
+StructureSelectionDomain(LongitudeLatitude eye,
+                         ProjectedErrorBudget projection,
+                         std::optional<Vec3> eyeEcef = std::nullopt) noexcept {
+  return {
+      .Eye = eye, .EyeEcef = eyeEcef, .Projection = projection, .EyeRadiusM = kStructureEyeReuseM};
+}
 
 struct RawTile {
   struct Structure {
@@ -136,7 +134,7 @@ struct BakedTile {
   ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;
   bool FallbackHeights = false;
-  std::optional<StructureSelectionView> SelectedView;
+  std::optional<ViewReuseDomain> SelectedView;
   std::optional<LevelOfDetail> RequestedDetail;
   std::optional<uint32_t> RequestedCell;
   std::optional<outshine::Ground::GeoBounds> FootprintBounds;

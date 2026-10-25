@@ -34,7 +34,7 @@ struct SDL_Window;
 #include "Readback.h"
 #include "scene/SceneResources.h"
 #include "Viewing.h"
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 #include "stages/OverlayDraw.h"
 #include "stages/PresentStage.h"
 
@@ -110,7 +110,7 @@ public:
   enum class GroundSources : uint8_t { Default, Published };
 
   [[nodiscard]] std::expected<void, std::string> Init(Extent frame,
-                                                      std::shared_ptr<const Compiled> plan);
+                                                      std::shared_ptr<const ExecutionPlan> plan);
 
   [[nodiscard]] UploadQueue::WaitScope OfflineUploads(std::chrono::nanoseconds budget) {
     return {UploadBudget_, budget};
@@ -125,7 +125,7 @@ public:
 
   [[nodiscard]] bool HasWorldCandidate() const noexcept { return Candidate_.has_value(); }
 
-  [[nodiscard]] const Compiled &Plan() const { return *ActiveState().Plan; }
+  [[nodiscard]] const ExecutionPlan &Plan() const { return *ActiveState().Plan; }
 
   [[nodiscard]] bool DeviceUsable() const { return ActiveState().Ready; }
 
@@ -829,27 +829,27 @@ private:
 
   [[nodiscard]] Native::Result<void> CreateSampler(FrameResources &frame, Resource resource);
   [[nodiscard]] Native::Result<void>
-  CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, Resource resource);
+  CreateAtmosphereLut(FrameResources &frame, const ExecutionPlan &plan, Resource resource);
   void CommitSubmittedFrame(StageSubmission &stageSubmission);
   [[nodiscard]] Native::Result<void>
-  Create(FrameResources &frame, const Compiled &plan, Resource resource);
+  Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource);
   [[nodiscard]] static bool Created(const FrameResources &frame, Resource resource);
   [[nodiscard]] bool Configure(Stage stage,
                                FrameResources &frame,
-                               const Compiled &plan,
+                               const ExecutionPlan &plan,
                                bool drawsGlass,
                                std::string &error);
   [[nodiscard]] bool
-  ConfigurePlanStages(FrameResources &frame, const Compiled &plan, bool drawsGlass);
+  ConfigurePlanStages(FrameResources &frame, const ExecutionPlan &plan, bool drawsGlass);
   [[nodiscard]] static AttachmentSet
-  ColoursForStage(const FrameResources &frame, const Compiled &plan, Stage wanted);
+  ColoursForStage(const FrameResources &frame, const ExecutionPlan &plan, Stage wanted);
   [[nodiscard]] Native::Result<void> EncodeStage(Stage stage, const PassRecording &into);
 
   struct Executor {
     Stage Named;
     bool (*Configure)(SceneRenderer &renderer,
                       FrameResources &frame,
-                      const Compiled &plan,
+                      const ExecutionPlan &plan,
                       bool drawsGlass,
                       std::string &error);
     Native::Result<void> (SceneRenderer::*Encode)(const FrameContext &ctx,
@@ -862,12 +862,12 @@ private:
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
   [[nodiscard]] static bool ConfigureGroundPyramid(SceneRenderer &renderer,
                                                    FrameResources &frame,
-                                                   const Compiled &plan,
+                                                   const ExecutionPlan &plan,
                                                    bool drawsGlass,
                                                    std::string &error);
   [[nodiscard]] static bool ConfigureGroundSelection(SceneRenderer &renderer,
                                                      FrameResources &frame,
-                                                     const Compiled &plan,
+                                                     const ExecutionPlan &plan,
                                                      bool drawsGlass,
                                                      std::string &error);
   [[nodiscard]] Native::Result<void> EncodeGroundPyramid(const FrameContext &ctx,
@@ -878,82 +878,82 @@ private:
                                                   const PassRecording &into);
   [[nodiscard]] static bool ConfigureGeometry(SceneRenderer &renderer,
                                               FrameResources &frame,
-                                              const Compiled &plan,
+                                              const ExecutionPlan &plan,
                                               bool drawsGlass,
                                               std::string &error);
   [[nodiscard]] static bool ConfigureGlass(SceneRenderer &renderer,
                                            FrameResources &frame,
-                                           const Compiled &plan,
+                                           const ExecutionPlan &plan,
                                            bool drawsGlass,
                                            std::string &error);
   [[nodiscard]] static bool ConfigureCompositeTransmission(SceneRenderer &renderer,
                                                            FrameResources &frame,
-                                                           const Compiled &plan,
+                                                           const ExecutionPlan &plan,
                                                            bool drawsGlass,
                                                            std::string &error);
   [[nodiscard]] static bool ConfigureOverlay(SceneRenderer &renderer,
                                              FrameResources &frame,
-                                             const Compiled &plan,
+                                             const ExecutionPlan &plan,
                                              bool drawsGlass,
                                              std::string &error);
   [[nodiscard]] static bool ConfigurePresent(SceneRenderer &renderer,
                                              FrameResources &frame,
-                                             const Compiled &plan,
+                                             const ExecutionPlan &plan,
                                              bool drawsGlass,
                                              std::string &error);
   [[nodiscard]] static bool ConfigureTonemap(SceneRenderer &renderer,
                                              FrameResources &frame,
-                                             const Compiled &plan,
+                                             const ExecutionPlan &plan,
                                              bool drawsGlass,
                                              std::string &error);
   [[nodiscard]] static bool ConfigureMediumTransmittance(SceneRenderer &renderer,
                                                          FrameResources &frame,
-                                                         const Compiled &plan,
+                                                         const ExecutionPlan &plan,
                                                          bool drawsGlass,
                                                          std::string &error);
   [[nodiscard]] static bool ConfigureMediumMultiScatter(SceneRenderer &renderer,
                                                         FrameResources &frame,
-                                                        const Compiled &plan,
+                                                        const ExecutionPlan &plan,
                                                         bool drawsGlass,
                                                         std::string &error);
   [[nodiscard]] static bool ConfigureMediumRadiance(SceneRenderer &renderer,
                                                     FrameResources &frame,
-                                                    const Compiled &plan,
+                                                    const ExecutionPlan &plan,
                                                     bool drawsGlass,
                                                     std::string &error);
   [[nodiscard]] static bool ConfigureEnvironmentSpecular(SceneRenderer &renderer,
                                                          FrameResources &frame,
-                                                         const Compiled &plan,
+                                                         const ExecutionPlan &plan,
                                                          bool drawsGlass,
                                                          std::string &error);
   [[nodiscard]] static bool ConfigureIrradiance(SceneRenderer &renderer,
                                                 FrameResources &frame,
-                                                const Compiled &plan,
+                                                const ExecutionPlan &plan,
                                                 bool drawsGlass,
                                                 std::string &error);
   [[nodiscard]] static bool ConfigureDepthPyramid(SceneRenderer &renderer,
                                                   FrameResources &frame,
-                                                  const Compiled &plan,
+                                                  const ExecutionPlan &plan,
                                                   bool drawsGlass,
                                                   std::string &error);
   [[nodiscard]] static bool ConfigureSky(SceneRenderer &renderer,
                                          FrameResources &frame,
-                                         const Compiled &plan,
+                                         const ExecutionPlan &plan,
                                          bool drawsGlass,
                                          std::string &error);
   [[nodiscard]] static bool ConfigureAerialPerspective(SceneRenderer &renderer,
                                                        FrameResources &frame,
-                                                       const Compiled &plan,
+                                                       const ExecutionPlan &plan,
                                                        bool drawsGlass,
                                                        std::string &error);
   [[nodiscard]] static bool ConfigureLightVisibility(SceneRenderer &renderer,
                                                      FrameResources &frame,
-                                                     const Compiled &plan,
+                                                     const ExecutionPlan &plan,
                                                      bool drawsGlass,
                                                      std::string &error);
   [[nodiscard]] static bool ConfigureGeometryCull(SceneRenderer &renderer,
                                                   FrameResources &frame,
-                                                  const Compiled &plan,
+                                                  const ExecutionPlan &plan,
                                                   bool drawsGlass,
                                                   std::string &error);
   [[nodiscard]] Native::Result<void> EncodeGeometry(const FrameContext &ctx,
@@ -997,10 +997,10 @@ private:
   [[nodiscard]] Native::Result<void>
   EncodePass(Native::Commands *commands, size_t pass, StageSubmission &submission);
   [[nodiscard]] Native::Result<void> EncodeComputePass(Native::Commands *commands,
-                                                       const Compiled::Pass &declared,
+                                                       const ExecutionPlan::Pass &declared,
                                                        StageSubmission &submission);
   [[nodiscard]] Native::Result<void> EncodeGraphicsPass(Native::Commands *commands,
-                                                        const Compiled::Pass &declared,
+                                                        const ExecutionPlan::Pass &declared,
                                                         StageSubmission &submission);
   [[nodiscard]] FrameContext Framing() const;
   void SettleShadow();
@@ -1078,7 +1078,7 @@ private:
   };
 
   struct SceneStateCore {
-    std::shared_ptr<const Compiled> Plan;
+    std::shared_ptr<const ExecutionPlan> Plan;
     WorldContent Content;
     Medium Medium = kEarthAir;
     float CosSunZenith = 1.0f;
@@ -1146,18 +1146,18 @@ private:
 
   bool Stands();
   [[nodiscard]] std::expected<void, std::string>
-  InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan, bool presents);
-  [[nodiscard]] std::expected<void, std::string> ValidateExecutablePlan(const Compiled &plan);
+  InitForTarget(Extent frame, std::shared_ptr<const ExecutionPlan> plan, bool presents);
+  [[nodiscard]] std::expected<void, std::string> ValidateExecutablePlan(const ExecutionPlan &plan);
   [[nodiscard]] std::expected<bool, std::string> ReuseFrameResources(Extent frame,
-                                                                     const Compiled &plan);
+                                                                     const ExecutionPlan &plan);
   [[nodiscard]] std::expected<FrameResources, std::string>
-  BuildFrameResources(Extent frame, const Compiled &plan, bool presents);
-  void PublishFrameResources(FrameResources frame, std::shared_ptr<const Compiled> plan);
+  BuildFrameResources(Extent frame, const ExecutionPlan &plan, bool presents);
+  void PublishFrameResources(FrameResources frame, std::shared_ptr<const ExecutionPlan> plan);
   void LogReadyPlan(Native::Device *device) const;
   [[nodiscard]] std::expected<void, std::string>
-  StandsOffscreen(FrameResources &frame, const Compiled *plan, bool presents);
+  StandsOffscreen(FrameResources &frame, const ExecutionPlan *plan, bool presents);
   [[nodiscard]] std::expected<std::unique_ptr<Native::Texture>, std::string>
-  MakeOffscreen(const Compiled *plan, Extent frame);
+  MakeOffscreen(const ExecutionPlan *plan, Extent frame);
   [[nodiscard]] std::expected<bool, std::string> ClaimWindow(SDL_Window *window);
 
   bool Presenting_ = true;

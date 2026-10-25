@@ -37,14 +37,15 @@ void Engine::State::PublishRenderedFrame(std::chrono::steady_clock::time_point b
   Published.RecordMetric("cull: jobs it swept",
                          static_cast<double>(Render::GeometryCullStage::JobsSweptTaken()),
                          "jobs");
-  if (!Simulation->DynamicBodies.empty()) {
+  if (!ScenarioState->Entities.Bodies().empty()) {
     Published.RecordMetric("bodies standing on no route",
-                           static_cast<double>(Simulation->DynamicBodies.size()),
+                           static_cast<double>(ScenarioState->Entities.Bodies().size()),
                            "bodies");
     Published.RecordMetric(
-        "the first of them, up", Simulation->DynamicBodies.front().Motion.PositionM[1], "m");
-    Published.RecordMetric(
-        "and how fast it falls", Simulation->DynamicBodies.front().Motion.VelocityMs[1], "m/s");
+        "the first of them, up", ScenarioState->Entities.Bodies().front().Motion.PositionM[1], "m");
+    Published.RecordMetric("and how fast it falls",
+                           ScenarioState->Entities.Bodies().front().Motion.VelocityMs[1],
+                           "m/s");
   }
   if (Session.Declared.Render.Audits) {
     Render::PyramidDepths depths;

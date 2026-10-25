@@ -1,4 +1,4 @@
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 #include "Image.h"
 #include "PlantSurface.h"
 #include "SceneRenderer.h"
@@ -152,7 +152,7 @@ int main(int argc, const char *const *argv) {
   spec.Outputs = {Resource::FrameTex};
   spec.Content = {Stage::Geometry};
   spec.Exposure = Declared<float>(kExposure);
-  const auto compiled = Compiled::Compile(spec);
+  const auto compiled = ExecutionPlan::Compile(spec);
   if (!compiled) { return 3; }
   SceneRenderer renderer;
   if (!renderer.Init({.WidthPx = kWidth, .HeightPx = kHeight}, *compiled) ||

@@ -164,7 +164,8 @@ void Engine::State::Inspected() {
   const Heap::Tagged measuring(kFrameMeasurementsTag);
   const uint64_t structures = World.Pieces.Digest();
   size_t structureTiles = 0;
-  World.Pieces.ForEachDigest([&structureTiles](TilePieces::DigestRecord) { ++structureTiles; });
+  World.Pieces.ForEachDigest(
+      [&structureTiles](Render::GeometryPageResidency::DigestRecord) { ++structureTiles; });
   Published.RecordMetric(
       "world: live structure digest high half", static_cast<double>(structures >> 32u), "digest");
   Published.RecordMetric("world: live structure digest low half",

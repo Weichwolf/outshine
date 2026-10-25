@@ -26,7 +26,7 @@ Result Engine::prepareAudio(int sampleRateHz) {
   const bool bound =
       std::ranges::any_of(S_->Session.Declared.Sounds,
                           [](const Audio::SoundSource &sound) { return !sound.Body.empty(); });
-  if (bound && S_->Simulation->DeclarationRevision != S_->Session.DeclarationRevision) {
+  if (bound && S_->ScenarioState->DeclarationRevision != S_->Session.DeclarationRevision) {
     S_->Error = Says::kAudioAssemblyRequired;
     return std::unexpected(S_->Error);
   }
@@ -37,9 +37,9 @@ Result Engine::prepareAudio(int sampleRateHz) {
     S_->Error = setup.error();
     return setup;
   }
-  std::vector<std::optional<size_t>> bindings(S_->Session.Declared.Sounds.size());
+  std::vector<std::optional<Entity>> bindings(S_->Session.Declared.Sounds.size());
   if (bound) {
-    auto resolved = S_->Simulation->BindAudio(S_->Session.Declared.Sounds);
+    auto resolved = S_->ScenarioState->BindAudio(S_->Session.Declared.Sounds);
     if (!resolved) {
       S_->Error = resolved.error();
       return std::unexpected(S_->Error);

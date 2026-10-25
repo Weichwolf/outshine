@@ -392,7 +392,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
 bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
                                             GroundBuildProducts &build,
                                             Phasing &clocks) {
-  build.Pieces.Framed(standing);
+  build.Pieces.SetFrame(standing);
   Core::ReportBuildingFootprints(Published,
                                  World.Stack.Footprints(),
                                  World.Stack.Vectors(),
@@ -425,9 +425,9 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
       return false;
     }
     build.Surfaces =
-        TilePieces::Surfaces{.Walls = Render::PieceSurface::Registered(*first),
-                             .Roofs = Render::PieceSurface::Registered(*first + 1u),
-                             .MetreWalls = Render::PieceSurface::Registered(*first + 2u)};
+        BuildingPageMaterials{.Walls = Render::PieceSurface::Registered(*first),
+                              .Roofs = Render::PieceSurface::Registered(*first + 1u),
+                              .MetreWalls = Render::PieceSurface::Registered(*first + 2u)};
   }
   Published.RecordMetric(
       "rebuild: the ground ring took",
@@ -441,7 +441,7 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
   Published.RecordMetric(
       "buildings: the roof surface", static_cast<double>(build.Surfaces->Roofs.Index), "index");
   Published.RecordMetric("buildings: tiles handed to the arena as pieces",
-                         static_cast<double>(World.Pieces.Handed()),
+                         static_cast<double>(World.Pieces.Uploads()),
                          "tiles");
   Published.RecordMetric(
       "buildings: pieces the arena refused", static_cast<double>(World.Pieces.Refused()), "pieces");
@@ -1378,9 +1378,8 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
     Error = "structure materials were not registered before baking";
     return false;
   }
-  build.Pieces.SetSurfaces(*build.Surfaces);
   for (const StructureBuildQueue::Landing &landing : *ready) {
-    if (!PublishStructureSource(build.Pieces, landing, Error)) { return false; }
+    if (!PublishStructureSource(build.Pieces, landing, *build.Surfaces, Error)) { return false; }
   }
   const double transferMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - transferAt)
