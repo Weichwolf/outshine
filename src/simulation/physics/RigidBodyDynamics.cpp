@@ -1,6 +1,3 @@
-#include <array>
-#include <span>
-
 #include "Quat.h"
 #include "RigidBodyDynamics.h"
 
@@ -11,8 +8,6 @@
 namespace outshine::Physics {
 
 using outshine::Cross;
-
-constexpr double kQuarterOfRoot = 0.25;
 
 void RotateVector(const Quat &orientationQ, const Vec3 &bodyV, Vec3 &worldV) {
   const Vec3 q = {{orientationQ.X, orientationQ.Y, orientationQ.Z}};
@@ -26,19 +21,6 @@ void InverseRotateVector(const Quat &orientationQ, const Vec3 &worldV, Vec3 &bod
   const Quat back = {
       .X = -orientationQ.X, .Y = -orientationQ.Y, .Z = -orientationQ.Z, .W = orientationQ.W};
   RotateVector(back, worldV, bodyV);
-}
-
-void TransformBodyPoint(const World::RigidBodyState &body, const Vec3 &atBodyM, Vec3 &worldM) {
-  Vec3 turned;
-  RotateVector(body.OrientationQ, atBodyM, turned);
-  worldM = body.PositionM + turned;
-}
-
-void VelocityAtBodyPoint(const World::RigidBodyState &body, const Vec3 &atBodyM, Vec3 &worldMs) {
-  const Vec3 spun = Cross(body.SpinBodyRadS, atBodyM);
-  Vec3 turned;
-  RotateVector(body.OrientationQ, spun, turned);
-  worldMs = body.VelocityMs + turned;
 }
 
 void AccumulateForce(Wrench &wrench, const World::RigidBodyState &body, const Force &applied) {
@@ -102,49 +84,6 @@ double MechanicalEnergyJ(const World::RigidBodyState &body, const Vec3 &gravityM
     energy -= body.MassKg * gravityMs2[axis] * body.PositionM[axis];
   }
   return energy;
-}
-
-void SetBodyOrientation(World::RigidBodyState &body, const Facing &faces) {
-  Vec3 ahead = faces.AheadM;
-  Vec3 up = faces.UpM;
-  (void)Normalise(up);
-  const double along = ahead[0] * up[0] + ahead[1] * up[1] + ahead[2] * up[2];
-  for (int axis = 0; axis < 3; ++axis) { ahead[axis] -= along * up[axis]; }
-  (void)Normalise(ahead);
-
-  const Vec3 back = {{-ahead[0], -ahead[1], -ahead[2]}};
-  const Vec3 right = Cross(up, back);
-
-  const std::array<std::array<double, 3>, 3> m = {
-      {{right[0], up[0], back[0]}, {right[1], up[1], back[1]}, {right[2], up[2], back[2]}}};
-  const double trace = m[0][0] + m[1][1] + m[2][2];
-  Quat q;
-  if (trace > 0.0) {
-    const double root = std::sqrt(trace + 1.0) * 2.0;
-    q.W = kQuarterOfRoot * root;
-    q.X = (m[2][1] - m[1][2]) / root;
-    q.Y = (m[0][2] - m[2][0]) / root;
-    q.Z = (m[1][0] - m[0][1]) / root;
-  } else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) {
-    const double root = std::sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2.0;
-    q.W = (m[2][1] - m[1][2]) / root;
-    q.X = kQuarterOfRoot * root;
-    q.Y = (m[0][1] + m[1][0]) / root;
-    q.Z = (m[0][2] + m[2][0]) / root;
-  } else if (m[1][1] > m[2][2]) {
-    const double root = std::sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2.0;
-    q.W = (m[0][2] - m[2][0]) / root;
-    q.X = (m[0][1] + m[1][0]) / root;
-    q.Y = kQuarterOfRoot * root;
-    q.Z = (m[1][2] + m[2][1]) / root;
-  } else {
-    const double root = std::sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2.0;
-    q.W = (m[1][0] - m[0][1]) / root;
-    q.X = (m[0][2] + m[2][0]) / root;
-    q.Y = (m[1][2] + m[2][1]) / root;
-    q.Z = kQuarterOfRoot * root;
-  }
-  body.OrientationQ = q;
 }
 
 }

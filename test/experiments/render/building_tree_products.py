@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 import shapely
+from building_coverage_field import source_projections
 from building_mass_inputs import describe
 from building_mass_mesh import extrude
 from building_source_tree import sources_at
@@ -57,23 +58,15 @@ def prepare_sources(parent, cells, requested, frame):
 
 
 def projected_mass_coverage(group, domain, heights):
-    source_areas = [shapely.union_all([s.footprint for s in group]).area]
+    source_areas = [p.area for p in source_projections(group)]
     proxy_areas = [domain.area]
     for axis in (0, 1):
-        original = shapely.union_all(
-            [
-                shapely.box(p.bounds[axis], s.bottom[0], p.bounds[axis + 2], s.roof[1])
-                for s in group
-                for p in shapely.get_parts(s.footprint)
-            ]
-        )
         proxy = shapely.union_all(
             [
                 shapely.box(p.bounds[axis], heights[0], p.bounds[axis + 2], heights[1])
                 for p in shapely.get_parts(domain)
             ]
         )
-        source_areas.append(original.area)
         proxy_areas.append(proxy.area)
     ratios = np.array(source_areas) / proxy_areas
     return np.minimum(ratios, 1).tolist(), ratios.tolist()
