@@ -21,13 +21,10 @@
 #include "RenderObject.h"
 #include "SubjectMaterials.h"
 #include "ObjectTransformHistory.h"
-#include "UiSession.h"
+#include "SurfaceSession.h"
 #include "Layout.h"
-#include "Markup.h"
-#include "Paint.h"
 #include "Pointer.h"
 #include "SceneRenderer.h"
-#include "Style.h"
 #include "Material.h"
 #include "GroundAtmosphere.h"
 #include "Surfacing.h"
@@ -78,7 +75,7 @@ struct Declaration {
   double KeyElevationDeg = 0.0, KeyBearingDeg = 0.0;
   bool KeyFromClock = false;
 
-  std::vector<UiSurface> Surfaces;
+  std::vector<Ui::SurfaceDeclaration> Surfaces;
 };
 
 struct Extents {
@@ -148,7 +145,7 @@ public:
                                                    std::string &error);
 
   [[nodiscard]] bool ResizeBodyInstances(size_t bodies, std::string &error);
-  [[nodiscard]] bool Redeclare(std::vector<UiSurface> surfaces, std::string &error);
+  [[nodiscard]] bool Redeclare(std::vector<Ui::SurfaceDeclaration> surfaces, std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
@@ -435,7 +432,7 @@ private:
   [[nodiscard]] bool Submit(std::string &error);
 
   Render::SceneRenderer *Renderer_ = nullptr;
-  UiSession Ui_;
+  Ui::SurfaceSession Ui_;
   Declaration Declared_;
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;

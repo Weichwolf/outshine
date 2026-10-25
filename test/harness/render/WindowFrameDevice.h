@@ -50,7 +50,7 @@ private:
 };
 
 inline N::Buffer &Actual(N::Buffer &buffer) {
-  auto *download = dynamic_cast<DownloadBuffer *>(&buffer);
+  const auto *download = dynamic_cast<const DownloadBuffer *>(&buffer);
   return download == nullptr ? buffer : download->Actual();
 }
 
@@ -90,7 +90,7 @@ public:
   explicit FrameDevice(std::unique_ptr<N::Device> device)
       : NativeDeviceProxy(*device), Device_(std::move(device)) {}
 
-  [[nodiscard]] static N::Result<std::unique_ptr<N::Device>> Create(void *,
+  [[nodiscard]] static N::Result<std::unique_ptr<N::Device>> Create([[maybe_unused]] void *context,
                                                                     N::DeviceOptions options) {
     auto device = N::CreateDevice(options);
     if (!device) { return std::unexpected(device.error()); }

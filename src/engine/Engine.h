@@ -310,6 +310,7 @@ private:
 
   friend class SwapChain;
   friend class TestEngine;
+  friend class FrameCoordinator;
   struct State;
   explicit Engine(std::unique_ptr<State> state);
   void ships();

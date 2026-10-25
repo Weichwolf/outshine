@@ -1,4 +1,6 @@
-#include "UiSession.h"
+#include "SurfaceSession.h"
+#include "Paint.h"
+#include "Style.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -9,7 +11,7 @@
 #include <vector>
 #include <utility>
 
-namespace outshine::Core {
+namespace outshine::Ui {
 
 constexpr unsigned kRedShift = 24u;
 constexpr unsigned kGreenShift = 16u;
@@ -20,13 +22,13 @@ constexpr uint32_t kByteMask = 0xFFu;
 
 namespace {
 
-void AsOverlay(const std::vector<Ui::Quad> &from,
-               double offsetX,
-               double offsetY,
-               std::vector<Render::OverlayQuad> &out) {
+void AppendPaintQuads(const std::vector<Quad> &from,
+                      double offsetX,
+                      double offsetY,
+                      std::vector<PaintQuad> &out) {
   out.reserve(out.size() + from.size());
-  for (const Ui::Quad &quad : from) {
-    Render::OverlayQuad to;
+  for (const Quad &quad : from) {
+    PaintQuad to;
     to.LeftPx = static_cast<float>(quad.X + offsetX);
     to.TopPx = static_cast<float>(quad.Y + offsetY);
     to.WidthPx = static_cast<float>(quad.Width);
@@ -51,29 +53,29 @@ void AsOverlay(const std::vector<Ui::Quad> &from,
 
 }
 
-void UiSession::Configure(Render::SceneRenderer &renderer,
-                          const Ui::Font *font,
-                          std::vector<UiSurface> surfaces,
-                          SurfacePx over) {
-  Renderer_ = &renderer;
+void SurfaceSession::Configure(PaintPublisher publisher,
+                               const Font *font,
+                               std::vector<SurfaceDeclaration> surfaces,
+                               SurfacePx over) {
+  Publisher_ = std::move(publisher);
   Font_ = font;
   Surface_ = over;
   Surfaces_ = std::move(surfaces);
 }
 
-bool UiSession::Compose(std::string &error) {
+bool SurfaceSession::Compose(std::string &error) {
   return Compose(Surfaces_, error);
 }
 
-bool UiSession::Compose(std::span<const UiSurface> surfaces, std::string &error) {
+bool SurfaceSession::Compose(std::span<const SurfaceDeclaration> surfaces, std::string &error) {
   const double surfaceWidthPx = Surface_.WidthPx;
   const double surfaceHeightPx = Surface_.HeightPx;
   std::vector<Laid> candidate(surfaces.size());
-  std::vector<Render::OverlayQuad> quads;
+  std::vector<PaintQuad> quads;
   auto scrolled = Scrolled_;
   scrolled.resize(surfaces.size());
   for (size_t at = 0; at < surfaces.size(); ++at) {
-    const UiSurface &declared = surfaces[at];
+    const SurfaceDeclaration &declared = surfaces[at];
     Laid &laid = candidate[at];
     const double widthPx = declared.WidthFrac * surfaceWidthPx;
     const double heightPx = declared.HeightFrac * surfaceHeightPx;
@@ -86,45 +88,47 @@ bool UiSession::Compose(std::span<const UiSurface> surfaces, std::string &error)
     laid.LeftPx = declared.LeftFrac * surfaceWidthPx;
     laid.TopPx = declared.TopFrac * surfaceHeightPx;
     if (!laid.Tree.Read(declared.Markup, error)) { return false; }
-    laid.Sheet.Read(Ui::UserAgentSheet());
-    if (!declared.Style.empty()) { laid.Sheet.Read(declared.Style); }
-    laid.Sheet.Read(laid.Tree.StyleText());
+    Stylesheet sheet;
+    sheet.Read(UserAgentSheet());
+    if (!declared.Style.empty()) { sheet.Read(declared.Style); }
+    sheet.Read(laid.Tree.StyleText());
     if (!laid.Placed.Build(laid.Tree,
-                           laid.Sheet,
+                           sheet,
                            widthPx,
                            heightPx,
                            *Font_,
-                           std::span<const Ui::Layout::Scrolled>(scrolled[at]),
+                           std::span<const Layout::Scrolled>(scrolled[at]),
                            error)) {
       return false;
     }
-    if (!laid.Painted.Build(laid.Placed, *Font_, error)) { return false; }
-    AsOverlay(laid.Painted.Quads(), laid.LeftPx, laid.TopPx, quads);
+    Painting painted;
+    if (!painted.Build(laid.Placed, *Font_, error)) { return false; }
+    AppendPaintQuads(painted.Quads(), laid.LeftPx, laid.TopPx, quads);
   }
   const bool changed = Font_ != nullptr && Font_->Cut() != Cut_;
-  Render::OverlayDraw::AtlasPixels atlas;
+  PaintAtlasView atlas;
   if (changed) {
     atlas = {
         .Rgba = Font_->Sheet(), .Width = Font_->SheetWidthPx(), .Height = Font_->SheetHeightPx()};
   }
-  if (Renderer_ == nullptr ||
-      !Renderer_->ReplaceOverlay(quads, changed ? &atlas : nullptr, error)) {
+  if (!Publisher_) {
+    error = "UI paint publisher is not configured";
     return false;
   }
+  if (!Publisher_(quads, changed ? &atlas : nullptr, error)) { return false; }
   Laid_ = std::move(candidate);
-  Quads_ = std::move(quads);
   Scrolled_ = std::move(scrolled);
   if (changed) { Cut_ = Font_->Cut(); }
   return true;
 }
 
-bool UiSession::Redeclare(std::vector<UiSurface> surfaces, std::string &error) {
+bool SurfaceSession::Redeclare(std::vector<SurfaceDeclaration> surfaces, std::string &error) {
   if (!Compose(surfaces, error)) { return false; }
   Surfaces_ = std::move(surfaces);
   return true;
 }
 
-std::expected<bool, std::string> UiSession::Wheel(double xPx, double yPx, double byPx) {
+std::expected<bool, std::string> SurfaceSession::Wheel(double xPx, double yPx, double byPx) {
   auto previous = Scrolled_;
   bool changed = false;
   ApplyWheel(xPx, yPx, byPx, changed);
@@ -135,8 +139,8 @@ std::expected<bool, std::string> UiSession::Wheel(double xPx, double yPx, double
   return std::unexpected(std::move(error));
 }
 
-bool UiSession::RestoreScroll(std::vector<std::vector<Ui::Layout::Scrolled>> kept,
-                              std::string &error) {
+bool SurfaceSession::RestoreScroll(std::vector<std::vector<Layout::Scrolled>> kept,
+                                   std::string &error) {
   auto previous = std::move(Scrolled_);
   Scrolled_ = std::move(kept);
   if (Compose(error)) { return true; }
@@ -144,7 +148,7 @@ bool UiSession::RestoreScroll(std::vector<std::vector<Ui::Layout::Scrolled>> kep
   return false;
 }
 
-void UiSession::ApplyWheel(double xPx, double yPx, double byPx, bool &changed) {
+void SurfaceSession::ApplyWheel(double xPx, double yPx, double byPx, bool &changed) {
   Scrolled_.resize(Laid_.size());
   for (size_t at = Laid_.size(); at > 0; --at) {
     const Laid &laid = Laid_[at - 1];
@@ -153,13 +157,13 @@ void UiSession::ApplyWheel(double xPx, double yPx, double byPx, bool &changed) {
     const int scroller = laid.Placed.Scroller(x, y);
     if (scroller < 0) { continue; }
     const double most = laid.Placed.ScrollableBy(scroller);
-    std::vector<Ui::Layout::Scrolled> &kept = Scrolled_[at - 1];
+    std::vector<Layout::Scrolled> &kept = Scrolled_[at - 1];
     double *held = nullptr;
-    for (Ui::Layout::Scrolled &one : kept) {
+    for (Layout::Scrolled &one : kept) {
       if (one.Node == scroller) { held = &one.Px; }
     }
     if (held == nullptr) {
-      kept.push_back(Ui::Layout::Scrolled{.Node = scroller, .Px = 0.0});
+      kept.push_back(Layout::Scrolled{.Node = scroller, .Px = 0.0});
       held = &kept.back().Px;
     }
     const double was = *held;
@@ -169,19 +173,19 @@ void UiSession::ApplyWheel(double xPx, double yPx, double byPx, bool &changed) {
   }
 }
 
-Ui::Touched UiSession::Under(double xPx, double yPx, size_t &surface) const {
+Touched SurfaceSession::Under(double xPx, double yPx, size_t &surface) const {
   for (size_t at = Laid_.size(); at > 0; --at) {
     const Laid &laid = Laid_[at - 1];
-    Ui::Touched found = Ui::Under(laid.Placed, laid.Tree, xPx - laid.LeftPx, yPx - laid.TopPx);
+    Touched found = Ui::Under(laid.Placed, laid.Tree, xPx - laid.LeftPx, yPx - laid.TopPx);
     if (found.Node >= 0) {
       surface = at - 1;
       return found;
     }
   }
-  return Ui::Touched{};
+  return Touched{};
 }
 
-const std::string &UiSession::ProgrammeOf(size_t surface) const {
+const std::string &SurfaceSession::ProgrammeOf(size_t surface) const {
   static const std::string none;
   return surface < Surfaces_.size() ? Surfaces_[surface].Programme : none;
 }

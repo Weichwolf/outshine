@@ -1,6 +1,9 @@
+#include "UiPaint.h"
 #include "RuntimeScene.h"
 #include "FrameReadback.h"
 #include "SceneRenderer.h"
+#include "SurfaceSession.h"
+#include "Layout.h"
 #include "Check.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
@@ -20,6 +23,7 @@ using namespace outshine::Render;
 using namespace outshine::Test;
 using outshine::Test::Gpu::UploadFailurePoint;
 constexpr size_t kExtentPx = 32;
+constexpr double kHitPx = static_cast<double>(kExtentPx) * 0.5;
 constexpr double kNearM = 0.1;
 constexpr double kFarM = 100;
 constexpr std::array<uint8_t, 4> kWhite{255, 255, 255, 255};
@@ -38,16 +42,15 @@ struct OverlayFixture {
   UploadQueue::WaitScope UploadBudget = Renderer.OfflineUploads(std::chrono::seconds(5));
   std::unique_ptr<Core::RuntimeScene> Scene;
   std::string Error;
-  OverlayQuad Quad;
-  std::array<OverlayQuad, 2> Replacement;
+  Ui::PaintQuad Quad;
+  std::array<Ui::PaintQuad, 2> Replacement;
   std::vector<uint8_t> Baseline;
 
-  bool Open() {
+  bool Open(const Ui::Font *font = nullptr) {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = kExtentPx;
     declaration.Outputs = {"surface"};
-    CHECK(Core::RuntimeScene::Open(Renderer, declaration, nullptr, Scene, Error),
-          "empty scene opens");
+    CHECK(Core::RuntimeScene::Open(Renderer, declaration, font, Scene, Error), "empty scene opens");
     if (!Scene) { return false; }
     Viewpoint eye;
     eye.EyeM = {{0, 0, 5}};
@@ -73,6 +76,34 @@ struct OverlayFixture {
     CHECK(Scene->Draw(Error), Error.c_str());
     CHECK(Render::ReadFrame(Renderer, pixels, Error), Error.c_str());
     return pixels;
+  }
+
+  void SurfacePublication() {
+    const Ui::SurfaceDeclaration red{.Markup = "<div data-action='red()'></div>",
+                                     .Style =
+                                         "div { width:32px; height:32px; background:#ff0000; }",
+                                     .Programme = {}};
+    const Ui::SurfaceDeclaration blue{.Markup = "<div data-action='blue()'></div>",
+                                      .Style =
+                                          "div { width:32px; height:32px; background:#0000ff; }",
+                                      .Programme = {}};
+    CHECK(Scene->Redeclare({red}, Error), "UI paint reaches the native renderer");
+    const auto pixels = Read();
+    constexpr size_t centre = ((kExtentPx / 2) * kExtentPx + kExtentPx / 2) * 4;
+    CHECK(pixels.size() == kExtentPx * kExtentPx * 4 && pixels[centre] > pixels[centre + 2],
+          "published UI paints its red surface into the native image");
+    const auto rejected = Arm(UploadFailurePoint::Map);
+    CHECK(!Scene->Redeclare({blue}, Error), "a real upload failure rejects replacement UI");
+    Reached(rejected);
+    size_t surface = 0;
+    CHECK(Read() == pixels && Scene->Under(kHitPx, kHitPx, surface).Action == "red()",
+          "upload rejection preserves both native pixels and UI hit testing");
+    CHECK(Scene->Redeclare({blue}, Error), "UI replacement recovers after failed upload");
+    const auto replacement = Read();
+    CHECK(replacement.size() == pixels.size() && replacement.size() > centre + 2 &&
+              replacement[centre + 2] > replacement[centre] &&
+              Scene->Under(kHitPx, kHitPx, surface).Action == "blue()",
+          "successful publication changes pixels and UI hit testing together");
   }
 
   unsigned Arm(UploadFailurePoint point, unsigned skip = 0) {
@@ -122,8 +153,8 @@ struct OverlayFixture {
   }
 
   void CombinedFailure(UploadFailurePoint point, unsigned skip = 0) {
-    const OverlayDraw::AtlasPixels black{.Rgba = kBlack.data(), .Width = 1, .Height = 1};
-    const OverlayDraw::AtlasPixels white{.Rgba = kWhite.data(), .Width = 1, .Height = 1};
+    const Ui::PaintAtlasView black{.Rgba = kBlack.data(), .Width = 1, .Height = 1};
+    const Ui::PaintAtlasView white{.Rgba = kWhite.data(), .Width = 1, .Height = 1};
     const auto before = Arm(point, skip);
     CHECK(!Renderer.ReplaceOverlay(Replacement, &black, Error),
           "native upload failure rejects combined replacement");
@@ -170,6 +201,11 @@ int main() {
       fixture.CombinedFailure(UploadFailurePoint::Copy, 1);
       fixture.AtlasInputs();
     }
+  }
+  {
+    Ui::AhemFont font;
+    OverlayFixture fixture;
+    if (fixture.Open(&font)) { fixture.SurfacePublication(); }
   }
   SDL_Quit();
   return Report();

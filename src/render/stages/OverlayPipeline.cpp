@@ -1,3 +1,4 @@
+#include "UiPaint.h"
 #include "OverlayDraw.h"
 #include "SpirvFile.h"
 #include "Vec2.h"
@@ -27,7 +28,7 @@ OverlayPipeline::Configure(const Gpu &gpu, Native::Sampler *smooth, Native::Form
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = fragment.error()});
   }
   const std::array streams{Native::VertexStream{
-      .Slot = 0, .Stride = sizeof(OverlayQuad), .Rate = Native::VertexRate::Instance}};
+      .Slot = 0, .Stride = sizeof(Ui::PaintQuad), .Rate = Native::VertexRate::Instance}};
   constexpr size_t attributesCount = 5;
   std::array<Native::VertexAttribute, attributesCount> attributes;
   for (uint32_t i = 0; i < attributes.size(); ++i) {

@@ -5,21 +5,38 @@
 #include "test/harness/render/WindowFrameDevice.h"
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <print>
 #include <cstdio>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
 using namespace outshine::Test::Gpu::WindowFrame;
+constexpr int kFrameSidePx = 64;
+constexpr size_t kImageByteCount = static_cast<size_t>(kFrameSidePx) * kFrameSidePx * 4;
+constexpr size_t kCentreByte =
+    (static_cast<size_t>(kFrameSidePx / 2) * kFrameSidePx + kFrameSidePx / 2) * 4;
+constexpr double kNearM = 0.1;
+constexpr outshine::Vec4f kCopper{{0.8f, 0.12f, 0.03f, 1}};
+constexpr outshine::Vec4f kGreen{{0.03f, 0.8f, 0.12f, 1}};
+
+double RenderFrames(const outshine::Engine &engine) {
+  for (const auto &sample : engine.measures()) {
+    if (sample.Name == "cost.render.frames") { return sample.Value; }
+  }
+  return std::numeric_limits<double>::quiet_NaN();
+}
 
 bool Prepare(outshine::Engine &engine, bool colour = true) {
   using namespace outshine;
   Scenario::Document scene;
   scene.Render.Declared = true;
-  scene.Render.Frame = {64, 64};
+  scene.Render.Frame = {.WidthPx = kFrameSidePx, .HeightPx = kFrameSidePx};
   scene.Render.Outputs = {colour ? "surface" : "sceneLinear"};
   scene.Render.Stages = {"subjects"};
   if (colour) {
@@ -31,11 +48,11 @@ bool Prepare(outshine::Engine &engine, bool colour = true) {
   view.Person = "first";
   view.Placement = Scenario::CameraPlacement::Local;
   view.Sees.PositionM = {{0, 0, 2}};
-  view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
+  view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = kNearM, .FarM = 10});
   scene.Views.push_back(view);
   Material material;
   material.Unlit = true;
-  material.BaseColour = colour ? Vec4f{{0.8f, 0.12f, 0.03f, 1}} : Vec4f{{0.03f, 0.8f, 0.12f, 1}};
+  material.BaseColour = colour ? kCopper : kGreen;
   Geometry geometry;
   const auto surface = geometry.addSurface("copper coloured test", material);
   if (!surface) { return false; }
@@ -52,13 +69,18 @@ void CheckFrameScopes(outshine::Engine &engine, std::vector<uint8_t> &windowPixe
   CHECK(renderer.beginFrame(target).has_value(), "window scope begins");
   CHECK(renderer.render({}).has_value(), "explicit window draw succeeds");
   unsigned before = swapchainCalls;
+  double framesBefore = RenderFrames(engine);
   CHECK(copied.endFrame().has_value(), "copied facade closes a drawn frame");
   CHECK(swapchainCalls == before, "endFrame never repeats an explicit successful draw");
+  CHECK(RenderFrames(engine) == framesBefore,
+        "closing an explicitly drawn frame does not publish another render");
 
   CHECK(renderer.beginFrame(target).has_value(), "empty window scope begins");
   before = swapchainCalls;
   CHECK(renderer.endFrame().has_value() && swapchainCalls == before + 1,
         "an empty window scope still draws once when closed");
+  CHECK(RenderFrames(engine) == framesBefore + 1,
+        "the closing fallback publishes its successfully submitted render");
 
   CHECK(renderer.beginFrame(target).has_value(), "skipped window scope begins");
   skipSwapchain = true;
@@ -73,8 +95,22 @@ void CheckFrameScopes(outshine::Engine &engine, std::vector<uint8_t> &windowPixe
   CHECK(!renderer.render({}) && !failSwapchain,
         "failed draw reaches the real acquisition boundary");
   before = swapchainCalls;
+  framesBefore = RenderFrames(engine);
   CHECK(renderer.endFrame().has_value() && swapchainCalls == before + 1,
         "endFrame retains the fallback draw when no draw succeeded");
+  CHECK(RenderFrames(engine) == framesBefore + 1,
+        "recovery after a failed draw publishes the successful fallback");
+
+  CHECK(renderer.beginFrame(target).has_value(), "failed fallback scope begins");
+  failSwapchain = true;
+  framesBefore = RenderFrames(engine);
+  CHECK(!renderer.endFrame() && !failSwapchain,
+        "the closing fallback propagates the real acquisition failure");
+  before = swapchainCalls;
+  CHECK(!copied.endFrame() && swapchainCalls == before,
+        "a failed fallback still closes its frame exactly once");
+  CHECK(RenderFrames(engine) == framesBefore,
+        "a failed fallback does not publish a successful render");
 
   CHECK(renderer.beginFrame(target).has_value(), "readback scope begins");
   before = swapchainCalls;
@@ -98,19 +134,20 @@ void CheckReadbackFailures(outshine::Engine &engine) {
   auto renderer = engine.renderer();
   auto target = engine.swapChain();
   unsigned before = 0;
+  const std::vector<uint8_t> untouched{17, 19, 23};
   for (const auto failure : {DownloadFailure::Acquire,
                              DownloadFailure::Copy,
                              DownloadFailure::Map,
                              DownloadFailure::Wait}) {
     CHECK(renderer.beginFrame(target).has_value(), "failed readback scope begins");
-    std::vector<uint8_t> preserved{17, 19, 23};
+    auto preserved = untouched;
     const unsigned failuresBefore = downloadFailures;
     downloadFailure = failure;
     const auto failed = renderer.readPixels(preserved);
-    CHECK(!failed && failed.error().find("injected") != std::string::npos &&
+    CHECK(!failed && failed.error().contains("injected") &&
               downloadFailure == DownloadFailure::None && downloadFailures == failuresBefore + 1,
           "download failure is reached and propagated");
-    CHECK((preserved == std::vector<uint8_t>{17, 19, 23}), "failed readback preserves caller data");
+    CHECK(preserved == untouched, "failed readback preserves caller data");
     before = swapchainCalls;
     CHECK(renderer.endFrame().has_value() && swapchainCalls == before + 1,
           "failed readback leaves the empty frame scope unchanged");
@@ -146,8 +183,10 @@ void CheckOffscreenCapture(outshine::Engine &engine, const std::vector<uint8_t> 
   using namespace outshine;
   using namespace outshine::Test;
   auto offscreen = TestEngine::WithGpu({.Create = FrameDevice::Create});
-  CHECK(offscreen.setRenderTarget({64, 64}).has_value() && Prepare(offscreen),
-        "offscreen scene is ready");
+  CHECK(
+      offscreen.setRenderTarget({.WidthPx = kFrameSidePx, .HeightPx = kFrameSidePx}).has_value() &&
+          Prepare(offscreen),
+      "offscreen scene is ready");
   auto offscreenRenderer = offscreen.renderer();
   auto offscreenTarget = offscreen.swapChain();
   CHECK(offscreenRenderer.beginFrame(offscreenTarget).has_value(), "offscreen scope begins");
@@ -158,13 +197,12 @@ void CheckOffscreenCapture(outshine::Engine &engine, const std::vector<uint8_t> 
   std::vector<uint8_t> offscreenPixels;
   CHECK(offscreen.renderer().readPixels(offscreenPixels).has_value(),
         "offscreen pixels are readable");
-  CHECK(windowPixels.size() == 64u * 64u * 4u && windowPixels == offscreenPixels,
+  CHECK(windowPixels.size() == kImageByteCount && windowPixels == offscreenPixels,
         "window and offscreen capture the same owned final colour image");
-  if (windowPixels.size() == 64u * 64u * 4u) {
-    constexpr size_t centre = (32u * 64u + 32u) * 4u;
-    CHECK(windowPixels[centre] > windowPixels[centre + 1] &&
-              windowPixels[centre + 1] > windowPixels[centre + 2] &&
-              windowPixels[0] < windowPixels[centre],
+  if (windowPixels.size() == kImageByteCount) {
+    CHECK(windowPixels[kCentreByte] > windowPixels[kCentreByte + 1] &&
+              windowPixels[kCentreByte + 1] > windowPixels[kCentreByte + 2] &&
+              windowPixels[0] < windowPixels[kCentreByte],
           "capture contains the coloured triangle against its dark background");
   }
   CHECK(forbiddenReads == 0, "every download used an owned texture");
@@ -182,10 +220,10 @@ void CheckOffscreenCapture(outshine::Engine &engine, const std::vector<uint8_t> 
   std::vector<uint8_t> changed;
   CHECK(offscreen.renderer().readPixels(changed).has_value(),
         "additional linear output preserves the standard colour output");
-  CHECK(changed.size() == 64u * 64u * 4u, "the replacement colour image has the target extent");
-  if (changed.size() == 64u * 64u * 4u) {
-    const size_t centre = (32u * 64u + 32u) * 4u;
-    CHECK(changed[centre + 1] > changed[centre + 2] && changed[centre + 2] > changed[centre],
+  CHECK(changed.size() == kImageByteCount, "the replacement colour image has the target extent");
+  if (changed.size() == kImageByteCount) {
+    CHECK(changed[kCentreByte + 1] > changed[kCentreByte + 2] &&
+              changed[kCentreByte + 2] > changed[kCentreByte],
           "readback after plan replacement contains the new green material");
   }
 }
@@ -196,7 +234,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video starts on the test thread");
-  auto *window = SDL_CreateWindow("Outshine frame scope", 64, 64, 0);
+  auto *window = SDL_CreateWindow("Outshine frame scope", kFrameSidePx, kFrameSidePx, 0);
   CHECK(window != nullptr, "a real window exists");
   if (window == nullptr) {
     SDL_Quit();

@@ -1,3 +1,4 @@
+#include "SurfaceSession.h"
 #include <expected>
 #include <span>
 #include <array>
@@ -130,13 +131,16 @@ RuntimeScene::RuntimeScene(Render::SceneRenderer &renderer,
     Held_.SetGeometry(DrivenGeometry_.clone());
     Declared_.InitialGeometry = nullptr;
   }
-  std::vector<UiSurface> surfaces = std::move(Declared_.Surfaces);
+  std::vector<Ui::SurfaceDeclaration> surfaces = std::move(Declared_.Surfaces);
   Declared_.Surfaces.clear();
-  Ui_.Configure(renderer,
-                font,
-                std::move(surfaces),
-                {.WidthPx = static_cast<double>(Declared_.SurfaceWidthPx),
-                 .HeightPx = static_cast<double>(Declared_.SurfaceHeightPx)});
+  Ui_.Configure(
+      [&renderer](std::span<const Ui::PaintQuad> quads,
+                  const Ui::PaintAtlasView *atlas,
+                  std::string &error) { return renderer.ReplaceOverlay(quads, atlas, error); },
+      font,
+      std::move(surfaces),
+      {.WidthPx = static_cast<double>(Declared_.SurfaceWidthPx),
+       .HeightPx = static_cast<double>(Declared_.SurfaceHeightPx)});
 }
 
 RuntimeScene::~RuntimeScene() {
@@ -1023,7 +1027,7 @@ const std::string &RuntimeScene::ProgrammeOf(size_t surface) const {
   return Ui_.ProgrammeOf(surface);
 }
 
-bool RuntimeScene::Redeclare(std::vector<UiSurface> surfaces, std::string &error) {
+bool RuntimeScene::Redeclare(std::vector<Ui::SurfaceDeclaration> surfaces, std::string &error) {
   const auto published = Renderer_->PublishedWorld();
   return Ui_.Redeclare(std::move(surfaces), error);
 }
