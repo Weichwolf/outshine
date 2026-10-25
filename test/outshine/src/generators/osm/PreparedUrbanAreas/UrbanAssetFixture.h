@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_TEST_URBANASSETFIXTURE_H
 #define OUTSHINE_TEST_URBANASSETFIXTURE_H
 
+#include "TilePool.h"
+
 #include "PreparedUrbanAreas.h"
 #include "SourceSet.h"
 #include "Check.h"

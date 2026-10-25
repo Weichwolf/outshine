@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_URBANAREASTREAMING_H
 
 #include "PreparedUrbanAreas.h"
+#include "SourceReader.h"
 #include "PrismGridViews.h"
 #include "ResourceHandle.h"
 #include "TangentFrame.h"
@@ -41,7 +42,7 @@ public:
 
   UrbanAreaStreaming(Tasks &pool,
                      std::shared_ptr<Generators::Osm::PreparedUrbanAreas> sources,
-                     Ground::TilePool &tiles,
+                     Data::SourceReader &reader,
                      Generators::Osm::MvtSchema schema,
                      std::string database);
   ~UrbanAreaStreaming();
@@ -104,7 +105,7 @@ private:
   void Retire(Group &group);
   Tasks &Pool_;
   std::shared_ptr<Generators::Osm::PreparedUrbanAreas> Sources_;
-  Ground::TilePool &Tiles_;
+  Data::SourceReader &Reader_;
   Generators::Osm::MvtSchema Schema_;
   std::string Database_;
   Render::SceneRenderer *Renderer_ = nullptr;

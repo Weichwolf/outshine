@@ -1,3 +1,4 @@
+#include "TilePool.h"
 #include "OsmField.h"
 #include "TileGeodesy.h"
 #include "SurfacePreparation.h"

@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_OSM_URBAN_PREPAREDURBANAREAS_H
 #define OUTSHINE_GENERATORS_OSM_URBAN_PREPAREDURBANAREAS_H
 
+#include "SourceReader.h"
+
 #include "UrbanArea.h"
 #include "PreparedOsmTiles.h"
 #include "Tasks.h"
@@ -78,7 +80,7 @@ public:
        Budget budget);
   ~PreparedUrbanAreas();
   void Cancel() noexcept;
-  [[nodiscard]] std::expected<SourceDelivery, std::string> Acquire(TilePool &tiles,
+  [[nodiscard]] std::expected<SourceDelivery, std::string> Acquire(Data::SourceReader &reader,
                                                                    const Request &request);
   [[nodiscard]] Counters Costs() const noexcept;
   [[nodiscard]] bool AwaitProgress(double seconds) const;
@@ -120,10 +122,10 @@ private:
                                                         const Definition &input);
   [[nodiscard]] std::expected<Loaded, std::string> Generate(const std::string &request,
                                                             const Work &work);
-  [[nodiscard]] std::expected<SourceDelivery, std::string> GatherSources(TilePool &tiles,
+  [[nodiscard]] std::expected<SourceDelivery, std::string> GatherSources(Data::SourceReader &reader,
                                                                          Work &work);
   [[nodiscard]] std::expected<SourceDelivery, std::string>
-  Advance(TilePool &tiles, const std::string &key, const std::shared_ptr<Work> &work);
+  Advance(Data::SourceReader &reader, const std::string &key, const std::shared_ptr<Work> &work);
   [[nodiscard]] bool Matches(const UrbanArea &area, const Definition &input) const;
 
   std::unique_ptr<AssetCache> Cache_;

@@ -17,7 +17,7 @@
 #include "OsmLayer.h"
 #include "MvtLayer.h"
 #include "MvtSchema.h"
-#include "TilePool.h"
+#include "SourceReader.h"
 #include "TileSourceIdentity.h"
 #include "GeographicRing.h"
 
@@ -79,10 +79,13 @@ public:
   };
 
   [[nodiscard]] std::expected<int, std::string_view>
-  Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget);
+  Build(Data::SourceReader &sources, LongitudeLatitude at, int ringTiles, size_t tileBudget);
 
-  [[nodiscard]] std::expected<int, std::string_view> Build(
-      TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget, ParseBudget parsing);
+  [[nodiscard]] std::expected<int, std::string_view> Build(Data::SourceReader &sources,
+                                                           LongitudeLatitude at,
+                                                           int ringTiles,
+                                                           size_t tileBudget,
+                                                           ParseBudget parsing);
 
   [[nodiscard]] static std::expected<OsmTileWindow, std::string_view>
   SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t tileBudget);
@@ -104,7 +107,8 @@ public:
 
   [[nodiscard]] int CentreY() const { return CentreY_; }
 
-  [[nodiscard]] std::expected<bool, std::string_view> PollTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<bool, std::string_view> PollTile(Data::SourceReader &sources,
+                                                               TileAt at);
 
   [[nodiscard]] std::expected<int, std::string_view>
   Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
@@ -242,12 +246,13 @@ private:
 
   enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
 
-  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddTile(TilePool &tiles, TileAt at);
-  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddNativeTile(TilePool &tiles,
-                                                                              TileAt at);
+  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddTile(Data::SourceReader &sources,
+                                                                        TileAt at);
+  [[nodiscard]] std::expected<SourceResponse, std::string_view>
+  AddNativeTile(Data::SourceReader &sources, TileAt at);
   [[nodiscard]] bool AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage);
   [[nodiscard]] std::expected<int, std::string_view>
-  AddWindowTiles(TilePool &tiles, OsmTileWindow window, ParseBudget parsing);
+  AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, ParseBudget parsing);
   [[nodiscard]] std::expected<void, std::string_view> PublishParsed(const ParsedTile *replacement,
                                                                     std::optional<TileAt> contact);
   [[nodiscard]] std::expected<void, std::string_view> PublishReady(TileAt centre);
@@ -280,7 +285,6 @@ private:
   std::vector<Value> Values_;
   std::unordered_map<std::string, uint32_t> KeyIndex_, StringIndex_;
   std::vector<uint64_t> Settled_;
-  TilePool::Landing Scratch_;
   BuildMetrics BuildMetrics_;
   BuildMetrics TotalBuildMetrics_;
   int Zoom_;

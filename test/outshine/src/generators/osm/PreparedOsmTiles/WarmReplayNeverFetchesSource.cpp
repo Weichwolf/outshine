@@ -1,3 +1,4 @@
+#include "TilePool.h"
 #include "PreparedOsmTiles.h"
 #include "Check.h"
 #include "SourceSet.h"
@@ -66,33 +67,6 @@ private:
   std::atomic_uint &Calls_;
 };
 
-std::vector<uint8_t> TileBytes() {
-  using outshine::Test::Mvt::Append;
-  using outshine::Test::Mvt::Bytes;
-  constexpr uint8_t layerVersion = 0x78;
-  constexpr uint8_t layerExtent = 0x28;
-  constexpr uint8_t layerKey = 0x1a;
-  constexpr uint8_t layerValue = 0x22;
-  constexpr uint8_t featureType = 0x18;
-  constexpr uint8_t featureTags = 0x12;
-  constexpr uint8_t polygonGeometry = 0x22;
-  constexpr uint8_t polygonLineTo = 26;
-  constexpr uint8_t buildingHeight = 19;
-  constexpr uint8_t side = 20;
-  Bytes layer{0x0a, 8, 'b', 'u', 'i', 'l', 'd', 'i', 'n', 'g', layerVersion, 2, layerExtent, 64};
-  Append(layer, layerKey, Bytes{'r', 'e', 'n', 'd', 'e', 'r', '_', 'h', 'e', 'i', 'g', 'h', 't'});
-  Append(layer, layerValue, Bytes{layerExtent, buildingHeight});
-  Bytes feature{0x08, 7, featureType, 3};
-  Append(feature, featureTags, Bytes{0, 0});
-  Append(feature,
-         polygonGeometry,
-         Bytes{9, 0, 0, polygonLineTo, side, 0, 0, side, buildingHeight, 0, 15});
-  Append(layer, featureTags, feature);
-  Bytes tile;
-  Append(tile, layerKey, layer);
-  return tile;
-}
-
 struct Snapshot {
   std::vector<double> Points;
   std::vector<std::string> Digests;
@@ -107,7 +81,8 @@ Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string r
   NoTransport transport;
   Tasks compute(1);
   CHECK(sources.Add(std::make_unique<VectorSource>(std::move(revision),
-                                                   warm ? std::vector<uint8_t>{} : TileBytes(),
+                                                   warm ? std::vector<uint8_t>{}
+                                                        : outshine::Test::Mvt::BuildingTile(),
                                                    calls)) == SourceSet::Registration::Accepted,
         "isolated provider registration succeeds");
   Ground::TilePool pool({.Compute = &compute, .PreparedFields = {}}, sources, transport);
@@ -154,8 +129,8 @@ void AbandonedRequestsDoNotBlock(const std::filesystem::path &directory) {
   SourceSet sources(store);
   NoTransport transport;
   Tasks compute(1);
-  CHECK(sources.Add(std::make_unique<VectorSource>("r1", TileBytes(), calls)) ==
-            SourceSet::Registration::Accepted,
+  CHECK(sources.Add(std::make_unique<VectorSource>(
+            "r1", outshine::Test::Mvt::BuildingTile(), calls)) == SourceSet::Registration::Accepted,
         "abandoned-demand provider registers");
   Ground::TilePool pool({.Compute = &compute, .PreparedFields = {}}, sources, transport);
   auto opened = PreparedOsmTiles::Open(directory.string(), sources, compute);

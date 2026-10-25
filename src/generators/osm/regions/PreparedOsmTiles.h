@@ -12,6 +12,10 @@
 #include <string_view>
 #include <unordered_map>
 
+namespace outshine::Data {
+class SourceSet;
+}
+
 namespace outshine::Generators::Osm {
 class PreparedOsmTiles {
 public:
@@ -31,7 +35,7 @@ public:
   Open(const std::string &directory, const Data::SourceSet &sources, Tasks &compute);
   ~PreparedOsmTiles();
   [[nodiscard]] std::expected<SourceDelivery, std::string_view>
-  Acquire(TilePool &tiles, TileAt at, const OsmField &layout);
+  Acquire(Data::SourceReader &sources, TileAt at, const OsmField &layout);
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
@@ -58,8 +62,10 @@ private:
   [[nodiscard]] std::string RequestKey(TileAt at, const Layout &layout) const;
   [[nodiscard]] std::expected<Product, std::string> Load(const std::string &request,
                                                          const Layout &layout);
-  [[nodiscard]] std::expected<Product, std::string>
-  Generate(TileAt at, TilePool::Landing landing, const std::string &request, const Layout &layout);
+  [[nodiscard]] std::expected<Product, std::string> Generate(TileAt at,
+                                                             Data::SourceDelivery::Answer landing,
+                                                             const std::string &request,
+                                                             const Layout &layout);
 
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
   static constexpr size_t kHeapBytesMost = size_t{128} * 1024 * 1024;

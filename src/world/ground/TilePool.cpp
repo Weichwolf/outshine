@@ -131,6 +131,29 @@ private:
 
 }
 
+Data::SourceDelivery TilePool::Poll(const Data::SourceRequest &request) {
+  Landing landing;
+  switch (Bytes(request, &landing)) {
+    case Reply::Ready:
+      return Data::SourceDelivery::From(std::move(landing.SourceId),
+                                        std::move(landing.SourceRevision),
+                                        landing.At,
+                                        std::move(landing.Bytes),
+                                        std::move(landing.SourceKey),
+                                        std::move(landing.Range));
+    case Reply::Pending:
+    case Reply::Deferred: return Data::SourceDelivery::Waiting();
+    case Reply::Absent: return Data::SourceDelivery::Nothing();
+    case Reply::Undeclared: return Data::SourceDelivery::NoSource();
+    case Reply::Refused:
+      return Data::SourceDelivery::WireAfter(0,
+                                             std::move(landing.SourceId),
+                                             std::move(landing.SourceRevision),
+                                             std::move(landing.Failure));
+  }
+  std::unreachable();
+}
+
 TerrainBytes TilePool::DecodeTerrain(const Data::SourceRequest &request, Landing landing) const {
   for (size_t index = 0; index < Sources_.Count(); ++index) {
     const auto &source = Sources_.At(index);

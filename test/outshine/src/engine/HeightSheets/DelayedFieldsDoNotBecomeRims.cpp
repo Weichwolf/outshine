@@ -1,3 +1,4 @@
+#include "TilePool.h"
 #include "TerrainLoader.h"
 #include "HeightSheets.h"
 #include "TerrainRenderer.h"

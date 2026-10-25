@@ -1,8 +1,9 @@
 #ifndef OUTSHINE_GENERATORS_OSM_STREETS_PREPAREDSTREETGRAPH_H
 #define OUTSHINE_GENERATORS_OSM_STREETS_PREPAREDSTREETGRAPH_H
 
+#include "ShapedGround.h"
+
 #include "StreetGraphBuilder.h"
-#include "TilePool.h"
 #include "AssetCache.h"
 #include <array>
 #include <cstdint>

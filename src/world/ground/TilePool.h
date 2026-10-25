@@ -22,8 +22,10 @@
 #include "TileMeshes.h"
 #include "Tasks.h"
 #include "TerrainRevisionIndex.h"
+#include "ShapedGround.h"
 #include <SourceRequest.h>
 #include <SourceFailure.h>
+#include <SourceReader.h>
 
 namespace outshine {
 class LogSink;
@@ -38,22 +40,9 @@ namespace outshine::Ground {
 
 class TerrainTiles;
 
-struct ShapedGround {
-  std::string Kind;
-  double AmplitudeM = 0.0;
-  double WavelengthM = 0.0;
-  double Gradient = 0.0;
-  double BearingDeg = 0.0;
-  double FocusLatDeg = 0.0;
-  double FocusLonDeg = 0.0;
-  uint64_t Seed = 0;
-
-  [[nodiscard]] bool operator==(const ShapedGround &) const noexcept = default;
-};
-
 using outshine::TileBuild;
 
-class TilePool : public TileMeshes {
+class TilePool : public TileMeshes, public Data::SourceReader {
 public:
   using TileMeshes::Reply;
 
@@ -136,6 +125,8 @@ public:
   };
 
   [[nodiscard]] Reply Bytes(const Data::SourceRequest &request, Landing *out);
+
+  [[nodiscard]] Data::SourceDelivery Poll(const Data::SourceRequest &request) override;
 
   [[nodiscard]] std::optional<Data::SourceFailure>
   Refusal(const Data::SourceRequest &request) const;

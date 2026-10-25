@@ -73,7 +73,7 @@ std::string PreparedOsmTiles::RequestKey(TileAt at, const Layout &layout) const 
 }
 
 std::expected<PreparedOsmTiles::SourceDelivery, std::string_view>
-PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
+PreparedOsmTiles::Acquire(Data::SourceReader &sources, TileAt at, const OsmField &layout) {
   if (layout.Zoom_ < 0 || layout.Zoom_ >= std::numeric_limits<int>::digits || at.X < 0 ||
       at.Y < 0 ||
       std::cmp_greater_equal(at.X, uint64_t{1} << static_cast<unsigned>(layout.Zoom_)) ||
@@ -118,25 +118,27 @@ PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
   }
   if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
   if (work->Stage != Work::Phase::Source) { return SourceDelivery{}; }
-  TilePool::Landing landing;
-  const auto status =
-      tiles.Bytes(Data::SourceRequest(Data::DataKind::VectorMap,
-                                      Data::Address::At({.Zoom = work->Definition.Zoom,
-                                                         .X = static_cast<uint32_t>(at.X),
-                                                         .Y = static_cast<uint32_t>(at.Y)})),
-                  &landing);
-  switch (status) {
-    case TilePool::Reply::Absent:
-    case TilePool::Reply::Undeclared:
+  auto delivery =
+      sources.Poll(Data::SourceRequest(Data::DataKind::VectorMap,
+                                       Data::Address::At({.Zoom = work->Definition.Zoom,
+                                                          .X = static_cast<uint32_t>(at.X),
+                                                          .Y = static_cast<uint32_t>(at.Y)})));
+  switch (delivery.Where()) {
+    case Data::SourceDelivery::State::Vacant:
+    case Data::SourceDelivery::State::Undeclared:
       Pending_.erase(found);
       return SourceDelivery{.Status = State::Absent, .Product = {}};
-    case TilePool::Reply::Refused: return SourceDelivery{.Status = State::Refused, .Product = {}};
-    case TilePool::Reply::Pending:
-    case TilePool::Reply::Deferred: return SourceDelivery{};
-    default: break;
+    case Data::SourceDelivery::State::Refused:
+      return SourceDelivery{.Status = State::Refused, .Product = {}};
+    case Data::SourceDelivery::State::Pending: return SourceDelivery{};
+    case Data::SourceDelivery::State::Consumed:
+      return std::unexpected("native OSM source reader returned no payload");
+    case Data::SourceDelivery::State::Delivered: break;
   }
+  auto landing = delivery.Take();
+  if (!landing) { return std::unexpected("native OSM source reader returned no payload"); }
   work->Stage = Work::Phase::Generate;
-  work->Task = Compute_.Post([this, work, at, request, landing = std::move(landing)] mutable {
+  work->Task = Compute_.Post([this, work, at, request, landing = std::move(*landing)] mutable {
     const auto began = std::chrono::steady_clock::now();
     work->Result = Generate(at, std::move(landing), request, work->Definition);
     GenerationMs_.fetch_add(
