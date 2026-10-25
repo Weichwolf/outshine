@@ -1,6 +1,6 @@
 #include "OsmSourceAcquisitionState.h"
 
-#include "SourceProviderValidation.h"
+#include "OsmProviderValidation.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -25,14 +25,14 @@ bool Before(GeoCellId left, GeoCellId right) noexcept {
 bool ValidCell(GeoCellId cell) noexcept {
   const auto bounds = cell.Bounds();
   return bounds && (bounds->EastDeg - bounds->WestDeg) * (bounds->NorthDeg - bounds->SouthDeg) <=
-                       Data::kOsmApiMaximumAreaDeg2;
+                       kOsmApiMaximumAreaDeg2;
 }
 
 std::expected<std::vector<GeoCellId>, std::string>
 ValidatedCellDemand(const Data::SourceProvider &provider,
                     std::span<const GeoCellId> cells,
                     SourceAcquisition::CellLimits limits) {
-  if (auto valid = Data::ValidateSourceProviders(std::span(&provider, 1)); !valid) {
+  if (auto valid = ValidateProviders(std::span(&provider, 1)); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
   if (provider.Kind != "osm" || provider.Coverage || !provider.Location.empty() ||

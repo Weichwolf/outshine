@@ -1,6 +1,6 @@
+#include "OsmProviderValidation.h"
 #include "Check.h"
 #include "OsmSourceAcquisition.h"
-#include "SourceProviderValidation.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -89,7 +89,8 @@ int main() {
                                   .Revision = "pipeline",
                                   .Missing = MissingDataPolicy::Fail,
                                   .Dataset = "openstreetmap.original",
-                                  .Endpoint = std::string(kOfficialOsmApi)};
+                                  .Endpoint =
+                                      std::string(outshine::Generators::Osm::kOfficialOsmApi)};
     std::array<GeoCellId, 10> cells{};
     for (size_t index = 0; index < cells.size(); ++index) {
       cells[index] = {.Level = 9, .X = static_cast<uint32_t>(269 + index), .Y = 411};

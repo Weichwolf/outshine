@@ -1,11 +1,13 @@
 #include "OsmProvider.h"
 #include "OsmApiSource.h"
+#include "OsmProviderValidation.h"
 #include "OsmXmlReader.h"
 #include "ReadTextFile.h"
 #include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -66,6 +68,12 @@ private:
   Data::SourceDecl Decl_;
 };
 
+}
+
+std::expected<void, std::string>
+Provider::validate(const Data::SourceProvider &provider,
+                   std::span<const Data::SourceProvider> declared) const {
+  return ValidateProvider(provider, declared);
 }
 
 std::expected<std::unique_ptr<Data::Source>, std::string>

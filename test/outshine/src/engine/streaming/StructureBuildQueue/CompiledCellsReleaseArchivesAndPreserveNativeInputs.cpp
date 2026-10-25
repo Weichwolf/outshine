@@ -1,8 +1,8 @@
+#include "OsmProviderValidation.h"
 #include "Check.h"
 #include "OsmSourceAcquisition.h"
 #include "OsmStructureCell.h"
 #include "OsmSourceCapture.h"
-#include "SourceProviderValidation.h"
 #include "StructureBuildQueue.h"
 #include "ShippedProviders.h"
 #include <array>
@@ -110,7 +110,8 @@ int main() {
                                        .Missing = Data::MissingDataPolicy::Fail,
                                        .Dataset = "original",
                                        .Location = {},
-                                       .Endpoint = std::string(Data::kOfficialOsmApi),
+                                       .Endpoint =
+                                           std::string(outshine::Generators::Osm::kOfficialOsmApi),
                                        .Coverage = {},
                                        .PayloadSha256 = {},
                                        .Schema = {}};

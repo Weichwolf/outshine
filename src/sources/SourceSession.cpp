@@ -1,5 +1,6 @@
 #include "SourceSession.h"
 #include "SourceConfiguration.h"
+#include "SourceProviderValidation.h"
 #include <utility>
 #include <expected>
 #include <memory>
@@ -13,6 +14,9 @@ SourceSession::Open(const RawSourceCache::Config &config,
                     std::span<const SourceProvider> providers,
                     std::string_view shippedRoot,
                     const ProviderRegistry &registry) {
+  if (auto valid = ValidateSourceProviders(providers, registry); !valid) {
+    return std::unexpected(std::move(valid.error()));
+  }
   auto session = std::shared_ptr<SourceSession>(new SourceSession(config));
   std::string error;
   if (!RegisterSources(session->Sources_, providers, shippedRoot, error, registry)) {

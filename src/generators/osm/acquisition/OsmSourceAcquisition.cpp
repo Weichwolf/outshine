@@ -4,7 +4,7 @@
 #include "OsmChunkSetLoader.h"
 #include "OsmApiReader.h"
 #include "RawSourceCache.h"
-#include "SourceProviderValidation.h"
+#include "OsmProviderValidation.h"
 
 #include <algorithm>
 #include <atomic>
@@ -65,7 +65,7 @@ std::expected<void, std::string>
 SourceAcquisition::Request(std::span<const Data::SourceProvider> providers,
                            std::string_view root,
                            const Data::ProviderRegistry *registry) {
-  if (auto valid = Data::ValidateSourceProviders(providers); !valid) {
+  if (auto valid = ValidateProviders(providers); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
   if (providers.size() > kMaxChunks ||

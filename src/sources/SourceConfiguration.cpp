@@ -11,7 +11,7 @@
 namespace outshine::Data {
 std::expected<std::unique_ptr<Source>, std::string> ConfigureSource(
     const SourceProvider &provider, std::string_view root, const ProviderRegistry &registry) {
-  if (auto valid = ValidateSourceProviders(std::span(&provider, 1)); !valid) {
+  if (auto valid = ValidateSourceProviders(std::span(&provider, 1), registry); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
   const Provider *factory = registry.named(provider.Kind);
@@ -29,16 +29,20 @@ bool RegisterSources(SourceSet &set,
                      std::string_view shippedRoot,
                      std::string &error,
                      const ProviderRegistry &registry) {
-  if (const auto valid = ValidateSourceProviders(providers); !valid) {
+  if (const auto valid = ValidateSourceProviders(providers, registry); !valid) {
     error = valid.error();
     return false;
   }
   std::vector<std::unique_ptr<Source>> candidates;
   candidates.reserve(providers.size());
   for (const SourceProvider &provider : providers) {
-    auto made = ConfigureSource(provider, shippedRoot, registry);
+    auto made = registry.named(provider.Kind)->make(provider, shippedRoot);
     if (!made) {
       error = std::move(made.error());
+      return false;
+    }
+    if (!*made) {
+      error = "provider factory returned a null source";
       return false;
     }
     candidates.push_back(std::move(*made));
