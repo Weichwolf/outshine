@@ -168,18 +168,19 @@ Result Engine::assemble() {
   auto candidate = std::make_unique<ScenarioRuntime>();
   if (named != 0) {
     if (!candidate->Entities.Open(named) ||
-        !candidate->Definitions.Open(candidate->Entities.Registry())) {
+        !candidate->Definitions.Open(candidate->Entities.Registry()) ||
+        !candidate->Attributes.Open(candidate->Entities.Registry())) {
       S_->Error = "could not allocate native entity storage";
       return std::unexpected(S_->Error);
     }
-    if (!outshine::Assemble(declared,
-                            candidate->Entities.Registry(),
-                            candidate->Definitions,
-                            candidate->Entities.Traits(),
-                            candidate->Stood,
-                            S_->Error)) {
-      return std::unexpected(S_->Error);
-    }
+  }
+  if (!outshine::Assemble(declared,
+                          candidate->Entities.Registry(),
+                          candidate->Definitions,
+                          candidate->Attributes,
+                          candidate->Stood,
+                          S_->Error)) {
+    return std::unexpected(S_->Error);
   }
   if (!declared.Tables.empty()) {
     auto book = TableBook::Stand(declared.Tables);

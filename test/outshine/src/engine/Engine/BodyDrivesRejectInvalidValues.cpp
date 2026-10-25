@@ -8,12 +8,16 @@ int main() {
   using namespace outshine::Test;
   Scenario::Document source;
   source.Room = 1;
-  source.Bodies.push_back({.Name = "kept", .Placed = true, .MassKg = 1});
+  Scenario::Body body;
+  body.Name = "kept";
+  body.Placed = true;
+  body.MassKg = 1;
+  source.Bodies.push_back(body);
   source.Bodies[0].Driven.push_back({});
   Engine engine;
   CHECK(engine.declare(source) && engine.assemble(), "valid actuator assembles");
   auto *registry = &engine.entities();
-  const auto marker = registry->addEntity(Role::Tool);
+  const auto marker = registry->addEntity();
   CHECK(marker.has_value(), "spare entity capacity remains usable");
   if (!marker) { return Report(); }
   auto reject = [&](const Scenario::Drive &drive) {

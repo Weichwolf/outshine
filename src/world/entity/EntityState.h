@@ -1,7 +1,6 @@
 #ifndef OUTSHINE_WORLD_ENTITY_ENTITYSTATE_H
 #define OUTSHINE_WORLD_ENTITY_ENTITYSTATE_H
 
-#include "Column.h"
 #include "BodySnapshot.h"
 #include <memory>
 #include <utility>
@@ -9,7 +8,6 @@
 #include "EntityBodyState.h"
 #include "EntityRegistry.h"
 #include "RigidBodyState.h"
-#include "Traits.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -54,13 +52,8 @@ public:
 
   [[nodiscard]] const EntityRegistry &Registry() const noexcept { return Registry_; }
 
-  [[nodiscard]] Column<::outshine::Traits> &Traits() noexcept { return Traits_; }
-
-  [[nodiscard]] const Column<::outshine::Traits> &Traits() const noexcept { return Traits_; }
-
 private:
   EntityRegistry Registry_;
-  Column<::outshine::Traits> Traits_;
   std::vector<EntityBodyState> Bodies_;
   void PruneDeadBodies();
   std::shared_ptr<const std::vector<uint32_t>> BodyOfEntity_;

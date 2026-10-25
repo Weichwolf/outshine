@@ -704,11 +704,11 @@ std::expected<std::string, std::string> Engine::writeScenario() const {
   return WriteScenario(S_->Session.Declared);
 }
 
-EntityRegistry &Engine::entities() {
+World::EntityRegistry &Engine::entities() {
   return S_->ScenarioState->Entities.Registry();
 }
 
-const EntityRegistry &Engine::entities() const {
+const World::EntityRegistry &Engine::entities() const {
   return S_->ScenarioState->Entities.Registry();
 }
 

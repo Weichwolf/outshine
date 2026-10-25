@@ -15,7 +15,7 @@ int main() {
   std::vector<World::EntityBodyState> bodies;
   std::array<Entity, kCount> entities;
   for (size_t i = 0; i < kCount; ++i) {
-    const auto entity = world.Registry().addEntity(Role::Body);
+    const auto entity = world.Registry().addEntity();
     CHECK(entity, "each physical body has a native identity");
     if (!entity) { return Report(); }
     entities[i] = *entity;

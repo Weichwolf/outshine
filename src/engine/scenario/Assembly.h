@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_ASSEMBLY_H
-#define OUTSHINE_ENGINE_ASSEMBLY_H
+#ifndef OUTSHINE_ENGINE_SCENARIO_ASSEMBLY_H
+#define OUTSHINE_ENGINE_SCENARIO_ASSEMBLY_H
 
 #include <expected>
 #include <string>
@@ -18,7 +18,7 @@ namespace outshine {
 RequiredEntityCapacity(const Scenario::Document &declared);
 
 [[nodiscard]] bool Assemble(const Scenario::Document &declared,
-                            EntityRegistry &into,
+                            World::EntityRegistry &entities,
                             Column<Scenario::Body> &bodies,
                             Column<Traits> &traits,
                             Assembled &out,
