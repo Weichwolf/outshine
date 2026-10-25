@@ -124,8 +124,8 @@ void CheckDiffuseHalfspace(Device &device, const Sources &source) {
                   read.Rows.data() + row * read.RowBytes + column * sizeof(pixel),
                   sizeof(pixel));
       for (size_t channel = 0; channel < sky.size(); ++channel) {
-        const uint16_t bits = pixel[channel];
-        const int exponent = (bits >> 10u) & 31;
+        const uint32_t bits = pixel[channel];
+        const auto exponent = static_cast<int>((bits >> 10u) & 31u);
         const auto fraction = static_cast<float>(bits & 1023u);
         const float value = exponent == 0 ? std::ldexp(fraction, -24)
                                           : std::ldexp(1.0f + fraction / 1024.0f, exponent - 15);
