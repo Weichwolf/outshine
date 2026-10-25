@@ -222,12 +222,16 @@ Result Engine::assemble() {
   return {};
 }
 
+void Engine::logsTo(LogSink *sink) {
+  S_->Diagnostics = sink;
+}
+
 Engine::~Engine() = default;
 
 Result Engine::setRenderTarget(SDL_Window *window) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->Picture.Scope != FrameScope::Closed) {
+  if (S_->Frames.Open()) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
   }
@@ -255,7 +259,7 @@ Result Engine::setRenderTarget(SDL_Window *window) {
 Result Engine::setRenderTarget(Extent offscreen) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->Picture.Scope != FrameScope::Closed) {
+  if (S_->Frames.Open()) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
   }

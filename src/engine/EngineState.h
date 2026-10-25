@@ -6,6 +6,7 @@
 #include <string_view>
 #include <cstdint>
 #include <Engine.h>
+#include "FrameCoordinator.h"
 #include "Units.h"
 #include "Vec2.h"
 #include "Vec3.h"
@@ -185,8 +186,6 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
   return carried;
 }
 
-enum class FrameScope { Closed, Open, DrawSucceeded };
-
 struct EngineRenderState {
   explicit EngineRenderState(Render::GpuSubmission submission = {}) : Device(submission) {}
 
@@ -194,7 +193,6 @@ struct EngineRenderState {
   std::unique_ptr<Core::RuntimeScene> Standing;
   Extent Frame{.WidthPx = kFrameUnsaidWidePx, .HeightPx = kFrameUnsaidHighPx};
   bool Targeted = false;
-  FrameScope Scope = FrameScope::Closed;
   Core::Declaration Shown;
   Ui::Typeface Face;
   std::optional<Geometry> PendingGeometry;
@@ -448,9 +446,10 @@ inline constexpr std::string_view kCaptureMutation =
 }
 
 struct Engine::State {
-  explicit State(Render::GpuSubmission submission = {}) : Picture(submission) {}
+  explicit State(Render::GpuSubmission submission = {}) : Picture(submission), Frames(*this) {}
 
   EngineRenderState Picture;
+  FrameCoordinator Frames;
   ScenarioSession Session;
   std::unique_ptr<SimulationState> Simulation = std::make_unique<SimulationState>();
   WorldRegionState World;
@@ -679,6 +678,7 @@ struct Engine::State {
                                std::chrono::steady_clock::time_point rebuildBegan);
   void PublishFrameMeasurements();
   void PublishCostMeasurements();
+  void PublishRenderedFrame(std::chrono::steady_clock::time_point began);
   void PublishGpuFrameMeasurements(bool completedCapture = false);
   void PublishSubmittedCameraMeasurements();
   void PublishResourcePayloadMeasurements();
