@@ -38,8 +38,7 @@ Result Engine::save(std::string_view path) const {
         S_->ScenarioState->Stood.InstanceNamed(std::string_view(row.What).substr(0, dot));
     const uint32_t key =
         S_->ScenarioState->Stood.TraitKey(std::string_view(row.What).substr(dot + 1));
-    const Traits *held =
-        holder == kNoEntity ? nullptr : S_->ScenarioState->Entities.Traits().Get(holder);
+    const Traits *held = holder == kNoEntity ? nullptr : S_->ScenarioState->Attributes.Get(holder);
     const double *value = held == nullptr || key == 0 ? nullptr : held->Named(key);
     if (value == nullptr) {
       S_->Error = "the persist row '" + row.What +
@@ -167,12 +166,12 @@ Result Engine::restore(std::string_view path) {
     }
     staged.push_back(*trait);
   }
-  const auto rows = StageSavedTraits(staged, S_->ScenarioState->Entities.Traits());
+  const auto rows = StageSavedTraits(staged, S_->ScenarioState->Attributes);
   if (!rows) {
     S_->Error = rows.error();
     return std::unexpected(S_->Error);
   }
-  if (!S_->ScenarioState->Entities.Traits().Replace(*rows)) {
+  if (!S_->ScenarioState->Attributes.Replace(*rows)) {
     S_->Error = Says::RestoreTargetsChanged;
     return std::unexpected(S_->Error);
   }

@@ -46,14 +46,14 @@ int main() {
     const auto ready = engine.declare(initial) && engine.assemble();
     CHECK(ready, "initial simulation assembled");
     if (!ready) { return Report(); }
-    EntityRegistry *const previous = &engine.entities();
+    World::EntityRegistry *const previous = &engine.entities();
     roots.Shipped = "wrong";
     roots.Offline = false;
     const auto changedRoots = engine.setRoots(std::move(roots));
     CHECK(!changedRoots && changedRoots.error().contains("roots"),
           "roots reject a change after declaration");
     CHECK(&engine.entities() == previous, "rejected roots preserve the assembled simulation");
-    const auto marker = previous->addEntity(Role::Tool);
+    const auto marker = previous->addEntity();
     CHECK(marker.has_value(), "spare entity capacity remains usable");
     if (!marker) { return Report(); }
     for (const bool populated : {true, false}) {

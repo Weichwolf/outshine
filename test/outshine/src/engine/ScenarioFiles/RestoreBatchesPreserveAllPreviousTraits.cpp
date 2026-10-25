@@ -12,10 +12,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  EntityRegistry registry;
+  World::EntityRegistry registry;
   CHECK(registry.open(4), "registry opened");
-  const auto addedFirst = registry.addEntity(Role::Tool);
-  const auto addedSecond = registry.addEntity(Role::Tool);
+  const auto addedFirst = registry.addEntity();
+  const auto addedSecond = registry.addEntity();
   CHECK(addedFirst && addedSecond, "fixture entities are allocated");
   if (!addedFirst || !addedSecond) { return Report(); }
   const Entity first = *addedFirst;

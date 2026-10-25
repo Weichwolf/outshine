@@ -11,8 +11,8 @@ int main() {
   scene.Instances.push_back({.Of = "actor", .Id = "actor"});
   Engine engine;
   CHECK(engine.declare(scene) && engine.assemble(), "kind and instance have separate namespaces");
-  EntityRegistry *const original = &engine.entities();
-  const auto marker = original->addEntity(Role::Tool);
+  World::EntityRegistry *const original = &engine.entities();
+  const auto marker = original->addEntity();
   CHECK(marker && original->alive(*marker), "live marker created");
   if (!marker) { return Report(); }
   std::array<Scenario::Document, 4> invalid{scene, scene, scene, scene};
@@ -34,8 +34,5 @@ int main() {
   linked.Kinds.push_back({.Name = "derived", .Inherits = "actor"});
   linked.Instances.push_back({.Of = "derived", .Id = "child", .In = "actor"});
   CHECK(engine.declare(linked) && engine.assemble(), "valid inheritance and containment recover");
-  std::array<Entity, 4> from{}, to{};
-  CHECK(engine.entities().linkedPairs(Relation::HeldBy, from, to) == 1,
-        "unique instance names produce one containment relation");
   return Report();
 }

@@ -7,8 +7,8 @@ int main() {
   using namespace outshine::Test;
   World::EntityState world;
   CHECK(world.Open(2), "native identities open");
-  const auto first = world.Registry().addEntity(Role::Body);
-  const auto second = world.Registry().addEntity(Role::Body);
+  const auto first = world.Registry().addEntity();
+  const auto second = world.Registry().addEntity();
   CHECK(first && second, "both native body identities exist");
   if (!first || !second) { return Report(); }
   World::EntityBodyState left;
@@ -27,7 +27,7 @@ int main() {
             reordered.At(0).Owner == *second,
         "lookup and held storage preserve identity across reorder");
   world.Registry().remove(*first);
-  const auto replacement = world.Registry().addEntity(Role::Body);
+  const auto replacement = world.Registry().addEntity();
   CHECK(replacement && *replacement != *first, "a registry slot gets a new generation");
   if (!replacement) { return Report(); }
   const auto removed = world.PublishBodies();

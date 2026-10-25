@@ -42,7 +42,7 @@ int main() {
     std::filesystem::remove(path);
   };
   checkTraits();
-  const EntityRegistry *previous = &engine.entities();
+  const World::EntityRegistry *previous = &engine.entities();
   for (const char *invalid : {"nan",
                               "-nan",
                               "NAN",

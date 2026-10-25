@@ -43,7 +43,7 @@ int main() {
   auto invalid = scene;
   invalid.Volumes[0].Fires = "missing";
   CHECK(engine.declare(invalid).has_value(), "trigger configuration waits for assembly");
-  const EntityRegistry *previous = &engine.entities();
+  const World::EntityRegistry *previous = &engine.entities();
   CHECK(!engine.assemble(), "unknown trigger event rejects candidate");
   CHECK(&engine.entities() == previous, "failed trigger assembly preserves simulation owner");
   CHECK(engine.advance().has_value(), "previous simulation remains available");

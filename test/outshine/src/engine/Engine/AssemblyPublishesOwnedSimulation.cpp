@@ -33,15 +33,16 @@ int main() {
   const auto built = engine.assemble();
   CHECK(built.has_value(), built ? "simulation built" : built.error().c_str());
   if (!built) { return Report(); }
-  EntityRegistry *const original = &engine.entities();
-  const auto marker = original->addEntity(Role::Tool);
+  World::EntityRegistry *const original = &engine.entities();
+  const auto marker = original->addEntity();
   CHECK(marker.has_value(), "spare entity capacity remains usable after publication");
   if (!marker) { return Report(); }
   CHECK(original->alive(*marker), "spare entity capacity remains usable after publication");
   const auto path = std::filesystem::temp_directory_path() /
                     ("outshine-assembly-owner-" + std::to_string(getpid()) + ".save");
   const auto saved = engine.save(path.string());
-  CHECK(saved.has_value(), "published component columns still refer to the live EntityRegistry");
+  CHECK(saved.has_value(),
+        "published component columns still refer to the live World::EntityRegistry");
   if (saved) {
     std::ifstream file(path);
     const std::string text{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
@@ -54,7 +55,7 @@ int main() {
   CHECK(engine.declare(invalid).has_value(), "new declaration awaits assembly validation");
   CHECK(!engine.assemble(), "missing prefab rejects the candidate assembly");
   CHECK(&engine.entities() == original,
-        "failed assembly preserves the borrowed EntityRegistry object");
+        "failed assembly preserves the borrowed World::EntityRegistry object");
   if (&engine.entities() != original) { return Report(); }
   CHECK(original->alive(*marker),
         "failed assembly preserves existing entities and spare allocations");

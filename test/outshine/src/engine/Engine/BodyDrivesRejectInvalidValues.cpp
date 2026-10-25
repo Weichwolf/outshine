@@ -13,7 +13,7 @@ int main() {
   Engine engine;
   CHECK(engine.declare(source) && engine.assemble(), "valid actuator assembles");
   auto *registry = &engine.entities();
-  const auto marker = registry->addEntity(Role::Tool);
+  const auto marker = registry->addEntity();
   CHECK(marker.has_value(), "spare entity capacity remains usable");
   if (!marker) { return Report(); }
   auto reject = [&](const Scenario::Drive &drive) {

@@ -21,8 +21,8 @@ int main() {
   using namespace outshine::Test;
   World::EntityState state;
   CHECK(state.Open(2), "native World storage opens without a scenario or simulation");
-  const auto left = state.Registry().addEntity(Role::Body);
-  const auto right = state.Registry().addEntity(Role::Body);
+  const auto left = state.Registry().addEntity();
+  const auto right = state.Registry().addEntity();
   CHECK(left && right, "native identities are allocated");
   if (!left || !right) { return Report(); }
   CHECK(state.SetBodies({Body(*left, -1)}), "a subset of native entities has physical state");
@@ -47,7 +47,7 @@ int main() {
         "capacity rejection does not replace the current world state");
   World::EntityState other;
   CHECK(other.Open(1), "a second world has independent identity ownership");
-  const auto foreign = other.Registry().addEntity(Role::Body);
+  const auto foreign = other.Registry().addEntity();
   CHECK(foreign.has_value(), "foreign entity exists");
   if (!foreign) { return Report(); }
   const auto invalid = state.SetBodies({Body(*foreign, 0)});
@@ -58,7 +58,7 @@ int main() {
         "a bound world cannot reopen its registry beneath component columns");
   state.Registry().remove(*right);
   CHECK(state.Body(*right) == nullptr, "dead identities no longer expose physical state");
-  const auto replacement = state.Registry().addEntity(Role::Body);
+  const auto replacement = state.Registry().addEntity();
   CHECK(replacement && replacement->Index == right->Index && *replacement != *right,
         "reused registry slots get a new entity generation");
   if (!replacement) { return Report(); }
