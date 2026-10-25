@@ -1,4 +1,5 @@
 #ifndef OUTSHINE_GENERATORS_TERRAIN_BUILDINGSTAMPJOB_H
+#include "BuildingPhysicalProduct.h"
 #define OUTSHINE_GENERATORS_TERRAIN_BUILDINGSTAMPJOB_H
 
 #include "GeographicRing.h"
@@ -66,7 +67,7 @@ private:
 
   const ::outshine::Generators::Osm::BuildingField *Products_ = nullptr;
   const ::outshine::Ground::BuildingGeometry *Geometry_ = nullptr;
-  std::vector<::outshine::Generators::Osm::BuildingField::PinnedProduct> PinnedProducts_;
+  std::vector<::outshine::Ground::BuildingProductLease> PinnedProducts_;
   const ::outshine::Ground::BuildingFootprint *ProductFootprint_ = nullptr;
   size_t NextProduct_ = 0;
   const ::outshine::Ground::BuildingTerrainPart *Part_ = nullptr;
