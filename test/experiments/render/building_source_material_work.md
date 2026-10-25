@@ -13,10 +13,10 @@ palette reduction, material averaging or additional cache lifetime is introduced
 Repeated calls, other sources and policy changes do not share dictionary contents.
 Consumers read response arrays without modifying them.
 
-The third `source_measure` result remains the actual material evaluation count:
-now distinct evaluated states, rather than all repeated patch requests. All
-existing producer counters labelled `material_evaluations` therefore count calls
-that actually execute the material program. Patch count/geometry/source selection
+The third `source_measure` result for a successfully measured source remains the
+actual material evaluation count: now distinct evaluated states, rather than all
+repeated patch requests. Producer counters labelled `material_evaluations` sum
+these calls; source failures remain separate. Patch count/geometry/source selection
 are unchanged. No new native asset schema, cache or reader contract follows.
 
 `patch_normal_areas` batches the two cross-product families per generated shape,
