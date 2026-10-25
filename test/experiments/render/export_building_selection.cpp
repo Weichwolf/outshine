@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <span>
 #include <string>
@@ -115,12 +116,12 @@ Json Sources(const PreparedStructureTile &base,
 Json Bake(const PreparedStructureTile &base,
           RawTile view,
           size_t captureTriangleLimit = 0,
-          const BakedTile *fullView = nullptr) {
-  Test::BuildingSelectionObserver observer(base,
-                                           captureTriangleLimit,
-                                           fullView != nullptr
-                                               ? Test::BuildingSelectionMode::FullView
-                                               : Test::BuildingSelectionMode::Projected);
+          const BakedTile *fullView = nullptr,
+          Test::BuildingSelectionMode mode = Test::BuildingSelectionMode::Projected) {
+  Test::BuildingSelectionObserver observer(
+      base,
+      captureTriangleLimit,
+      fullView != nullptr ? Test::BuildingSelectionMode::FullView : mode);
   auto scratch = observer.Scratch();
   const auto start = std::chrono::steady_clock::now();
   auto baked = BakePreparedStructures(base, view, observer, *scratch);
@@ -148,7 +149,10 @@ Json Bake(const PreparedStructureTile &base,
     row["archived_geometry_identical"] = same;
     row["archived_metadata_identical"] = metadata;
     row["accepted"] = same && metadata;
-    row["geometry"] = Test::ViewGeometryInputs(fullView->Built);
+  }
+  if (fullView != nullptr || mode == Test::BuildingSelectionMode::FullView) {
+    row["geometry"] =
+        Test::ViewGeometryInputs(fullView != nullptr ? fullView->Built : baked->Built);
   }
   row["details"] = Json::array();
   for (const auto detail : baked->FootprintDetails) {
@@ -167,13 +171,38 @@ Json Bake(const PreparedStructureTile &base,
   return row;
 }
 
+enum class ExportMode { Selection, Surfaces, ArchivedView, CellView, Captures };
+
+bool ValidInput(const Json &input) {
+  if (!input.is_object()) { return false; }
+  for (const auto *field : {"parent", "index", "view_key", "view_file"}) {
+    if (!input.contains(field) || !input[field].is_string()) { return false; }
+  }
+  if (!input.contains("cluster_triangles") || !input["cluster_triangles"].is_number_unsigned() ||
+      input["cluster_triangles"].get<uint64_t>() > std::numeric_limits<uint32_t>::max() ||
+      !input.contains("forms") || !input["forms"].is_array()) {
+    return false;
+  }
+  return std::ranges::all_of(input["forms"], [](const auto &form) {
+    return form.is_object() && form.contains("cell") && form["cell"].is_number_unsigned() &&
+           form["cell"].template get<uint64_t>() <= std::numeric_limits<uint32_t>::max() &&
+           form.contains("file") && form["file"].is_string();
+  });
+}
+
 struct Paths {
   std::filesystem::path Root;
   std::filesystem::path Target;
-  bool SurfacesOnly = false;
-  bool FullView = false;
+  ExportMode Mode = ExportMode::Selection;
+  std::optional<uint32_t> Cell = std::nullopt;
   size_t CaptureTriangleLimit = 0;
 };
+
+bool HasCell(const PreparedStructureTile &base, std::optional<uint32_t> cell) {
+  return cell && std::ranges::any_of(base.Structures, [&](const auto &source) {
+           return source.Layout.Cell.Index == cell;
+         });
+}
 
 int Run(const Json &input, const Paths &paths) {
   const auto &root = paths.Root;
@@ -192,11 +221,16 @@ int Run(const Json &input, const Paths &paths) {
   view.EyeEcef = selected.EyeEcef;
   view.Projection = selected.Projection;
   view.ClusterTriangles = input.at("cluster_triangles").get<uint32_t>();
-  if (paths.FullView) { view.RequestedCell = artifact->RequestedCell; }
+  const bool fullView =
+      paths.Mode == ExportMode::ArchivedView || paths.Mode == ExportMode::CellView;
+  if (fullView) {
+    view.RequestedCell = paths.Mode == ExportMode::CellView ? paths.Cell : artifact->RequestedCell;
+    if (!HasCell(*base, view.RequestedCell)) { return 2; }
+  }
   Json report{
       {"parent", input.at("parent")},
       {"anchor_ecef", {base->AnchorEcef[0], base->AnchorEcef[1], base->AnchorEcef[2]}},
-      {"sources", Sources(*base, view, paths.SurfacesOnly || paths.FullView, paths.FullView)},
+      {"sources", Sources(*base, view, paths.Mode == ExportMode::Surfaces || fullView, fullView)},
       {"results", Json::array()},
       {"scope",
        "Actual unchanged native producer; observer costs included; no GPU or world admission."}};
@@ -211,7 +245,7 @@ int Run(const Json &input, const Paths &paths) {
       {"error_px", selected.Projection.AllowedErrorPx},
       {"cluster_triangles", view.ClusterTriangles}};
   bool accepted = true;
-  if (paths.FullView) {
+  if (paths.Mode == ExportMode::ArchivedView) {
     if (!view.RequestedCell) { return 2; }
     report["view_key"] = input.at("view_key");
     report["view"]["cell"] = *view.RequestedCell;
@@ -220,7 +254,17 @@ int Run(const Json &input, const Paths &paths) {
     accepted = report["results"].back().at("accepted");
     report["scope"] = "Original complete 3D cell; native full-hierarchy replay byte-checked "
                       "against the archived geometry. Opacity/material binding unqualified.";
-  } else if (paths.CaptureTriangleLimit != 0) {
+  } else if (paths.Mode == ExportMode::CellView) {
+    if (!view.RequestedCell) { return 2; }
+    report["view_key"] = input.at("view_key");
+    report["view"]["cell"] = *view.RequestedCell;
+    report["view"]["reuse_radius_m"] = selected.EyeRadiusM;
+    report["results"].push_back(
+        Bake(*base, view, 0, nullptr, Test::BuildingSelectionMode::FullView));
+    accepted = report["results"].back().at("accepted");
+    report["scope"] = "Native unprojected cell control from original inputs and camera. "
+                      "No archived-geometry identity claim; failed sources remain explicit.";
+  } else if (paths.Mode == ExportMode::Captures) {
     view.RequestedCell = artifact->RequestedCell;
     report["results"].push_back(Bake(*base, view, paths.CaptureTriangleLimit));
     const auto &row = report["results"].back();
@@ -228,7 +272,7 @@ int Run(const Json &input, const Paths &paths) {
                row.at("captured_projection_calls").get<size_t>() != 0;
     report["scope"] = "Actual archived cell/view; full input surfaces and exact native capture "
                       "emissions. Opacity/culling unqualified.";
-  } else if (!paths.SurfacesOnly) {
+  } else if (paths.Mode == ExportMode::Selection) {
     report["results"].push_back(Bake(*base, view));
     accepted = report["results"].back().at("accepted");
     for (const auto &form : input.at("forms")) {
@@ -244,31 +288,52 @@ int Run(const Json &input, const Paths &paths) {
   stream << report.dump(2) << '\n';
   return stream && accepted ? 0 : 3;
 }
+
+template <typename Number> std::optional<Number> PositiveNumber(std::string_view text) {
+  Number number = 0;
+  const auto parsed = std::from_chars(text.data(), text.data() + text.size(), number);
+  if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() || number == 0) {
+    return std::nullopt;
+  }
+  return number;
+}
+
+std::optional<Paths> ParseOptions(int argc, char *const *argv) {
+  if (argc < 3 || argc > 5) { return std::nullopt; }
+  Paths paths{.Root = std::filesystem::path(argv[1]).parent_path(), .Target = argv[2]};
+  if (argc == 3) { return paths; }
+  const std::string_view mode(argv[3]);
+  if (argc == 4) {
+    if (mode == "--surfaces") {
+      paths.Mode = ExportMode::Surfaces;
+    } else if (mode == "--full-view") {
+      paths.Mode = ExportMode::ArchivedView;
+    } else {
+      return std::nullopt;
+    }
+    return paths;
+  }
+  if (mode == "--full-cell") {
+    paths.Cell = PositiveNumber<uint32_t>(argv[4]);
+    if (!paths.Cell) { return std::nullopt; }
+    paths.Mode = ExportMode::CellView;
+  } else if (mode == "--captures") {
+    const auto limit = PositiveNumber<size_t>(argv[4]);
+    if (!limit) { return std::nullopt; }
+    paths.CaptureTriangleLimit = *limit;
+    paths.Mode = ExportMode::Captures;
+  } else {
+    return std::nullopt;
+  }
+  return paths;
+}
 }
 
 int main(int argc, char *const *argv) {
-  const std::string_view mode = argc >= 4 ? argv[3] : "";
-  size_t captureLimit = 0;
-  if (argc == 5 && mode == "--captures") {
-    const std::string_view limit(argv[4]);
-    const auto parsed = std::from_chars(limit.data(), limit.data() + limit.size(), captureLimit);
-    if (parsed.ec != std::errc{} || parsed.ptr != limit.data() + limit.size() ||
-        captureLimit == 0) {
-      return 2;
-    }
-  } else if (argc != 3 && (argc != 4 || (mode != "--surfaces" && mode != "--full-view"))) {
-    return 2;
-  }
-  const std::filesystem::path inputPath(argv[1]);
-  const std::filesystem::path outputPath(argv[2]);
-  if (std::filesystem::exists(outputPath)) { return 2; }
-  std::ifstream stream(inputPath);
+  const auto paths = ParseOptions(argc, argv);
+  if (!paths || std::filesystem::exists(paths->Target)) { return 2; }
+  std::ifstream stream(argv[1]);
   const auto input = nlohmann::json::parse(stream, nullptr, false);
-  if (input.is_discarded()) { return 2; }
-  return Run(input,
-             {.Root = inputPath.parent_path(),
-              .Target = outputPath,
-              .SurfacesOnly = mode == "--surfaces",
-              .FullView = mode == "--full-view",
-              .CaptureTriangleLimit = captureLimit});
+  if (input.is_discarded() || !ValidInput(input)) { return 2; }
+  return Run(input, *paths);
 }
