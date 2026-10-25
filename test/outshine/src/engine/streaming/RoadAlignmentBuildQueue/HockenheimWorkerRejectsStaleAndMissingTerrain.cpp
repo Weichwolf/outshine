@@ -44,7 +44,7 @@ int main() {
         "the worker input contains one admitted multi-tile route");
   if (!coverage) { return Report(); }
 
-  std::vector<SourcedTerrainFields::Entry> fields;
+  std::vector<Generators::TerrainFieldSet::Entry> fields;
   for (const TileId tile : coverage->Tiles) {
     auto field = std::make_shared<Ground::TerrainField>(2, 2);
     for (uint32_t row = 0; row < 2; ++row) {
@@ -59,11 +59,12 @@ int main() {
 
   Tasks tasks(1);
   RoadAlignmentBuildQueue queue;
-  const auto submit = [&](uint64_t generation, std::vector<SourcedTerrainFields::Entry> terrain) {
+  const auto submit = [&](uint64_t generation,
+                          std::vector<Generators::TerrainFieldSet::Entry> terrain) {
     return queue.TryStart(
         tasks,
         {.Source = source,
-         .Terrain = SourcedTerrainFields(std::move(terrain)),
+         .Terrain = Generators::TerrainFieldSet(std::move(terrain)),
          .RouteIndices = coverage->SelectedRouteIndices,
          .RenderFrame = TangentFrame::At({.LongitudeDeg = 8.565, .LatitudeDeg = 49.329}),
          .TerrainZoom = 15,
@@ -127,7 +128,8 @@ int main() {
   CHECK(queue.TryStart(
             tasks,
             {.Source = source,
-             .Terrain = SourcedTerrainFields(std::vector<SourcedTerrainFields::Entry>{}),
+             .Terrain =
+                 Generators::TerrainFieldSet(std::vector<Generators::TerrainFieldSet::Entry>{}),
              .RouteIndices = {0, 0},
              .RenderFrame = TangentFrame::At({.LongitudeDeg = 8.565, .LatitudeDeg = 49.329}),
              .TerrainZoom = 15,

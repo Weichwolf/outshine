@@ -120,11 +120,11 @@ const Ground::TerrainField *HeightSheets::FieldAt(Data::TileId tile) const {
 }
 
 bool HeightSheets::ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const {
-  return SourcedTerrainFields::Share(Fields_, tile, into);
+  return Generators::TerrainFieldSet::Share(Fields_, tile, into);
 }
 
-SourcedTerrainFields HeightSheets::SnapshotSourcedFields() const {
-  return SourcedTerrainFields(Fields_, Metadata_);
+Generators::TerrainFieldSet HeightSheets::SnapshotSourceFields() const {
+  return Generators::TerrainFieldSet(Fields_, Metadata_);
 }
 
 std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &candidate,
@@ -332,7 +332,7 @@ std::optional<double> HeightSheets::FieldUpM(int zoom, EastNorth at) const {
 
 std::optional<double> HeightSheets::AslMAt(int zoom, LongitudeLatitude at) const {
   if (!Framed_) { return std::nullopt; }
-  return SourcedTerrainFields::AslMAt(Fields_, zoom, at);
+  return Generators::TerrainFieldSet::AslMAt(Fields_, zoom, at);
 }
 
 void HeightSheets::Clear() {

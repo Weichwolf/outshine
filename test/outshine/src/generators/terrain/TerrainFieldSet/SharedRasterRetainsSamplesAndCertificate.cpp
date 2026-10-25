@@ -1,8 +1,10 @@
 #include "Check.h"
-#include "SourcedTerrainFields.h"
+#include "TerrainFieldSet.h"
 #include "TerrainRevisionIndex.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <utility>
 #include <memory>
 #include <vector>
 
@@ -16,23 +18,31 @@ int main() {
   const auto stamp = (**revisions).IssueDeliveryStamp(tile);
   CHECK(stamp.has_value(), "raster has a certified delivery");
   if (!stamp) { return Report(); }
+  constexpr float kBaseHeightM = 10.0f;
+  constexpr float kXIncrementM = 2.0f;
+  constexpr float kYIncrementM = 4.0f;
   auto raster = std::make_shared<Ground::TerrainField>(3, 3);
   for (uint32_t y = 0; y < 3; ++y) {
     for (uint32_t x = 0; x < 3; ++x) {
-      raster->SetM(y, x, static_cast<float>(10u + 2u * x + 4u * y));
+      raster->SetM(y,
+                   x,
+                   kBaseHeightM + kXIncrementM * static_cast<float>(x) +
+                       kYIncrementM * static_cast<float>(y));
     }
   }
   raster->AddSource(
       {.Kind = Data::DataKind::Elevation, .Tile = tile, .SourceId = "dem", .Revision = "r1"});
   raster->SetCertificate(Ground::TerrainCertificate::FromDelivery(tile, *stamp, 7));
   const std::weak_ptr<const Ground::TerrainField> lifetime = raster;
-  std::vector<SourcedTerrainFields::Entry> sources{{tile, raster}};
-  Ground::HeightField::Block pinned, copied, missing;
-  CHECK(SourcedTerrainFields::Share(sources, tile, pinned) && pinned.Terrain == raster &&
+  std::vector<Generators::TerrainFieldSet::Entry> sources{{tile, raster}};
+  Ground::HeightField::Block pinned;
+  Ground::HeightField::Block copied;
+  Ground::HeightField::Block missing;
+  CHECK(Generators::TerrainFieldSet::Share(sources, tile, pinned) && pinned.Terrain == raster &&
             pinned.Nodes.empty(),
         "exact raster pins existing storage without a second sample array");
-  CHECK(SourcedTerrainFields::Copy(sources, tile, copied), "independent copy is available");
-  CHECK(!SourcedTerrainFields::Share(sources, {.Zoom = 2, .X = 2, .Y = 1}, missing),
+  CHECK(Generators::TerrainFieldSet::Copy(sources, tile, copied), "independent copy is available");
+  CHECK(!Generators::TerrainFieldSet::Share(sources, {.Zoom = 2, .X = 2, .Y = 1}, missing),
         "uncovered region cannot borrow a neighbouring raster");
   const auto shared = Ground::HeightField::Of(2, {std::move(pinned)});
   const auto owned = Ground::HeightField::Of(2, {std::move(copied)});
@@ -49,6 +59,7 @@ int main() {
   const auto point = Ground::TileFracToGeo({.X = 1.5, .Y = 1.5}, 2);
   const auto height =
       shared->At({.LongitudeDeg = point.LongitudeDeg, .LatitudeDeg = point.LatitudeDeg}).AslM();
-  CHECK(height && *height == 16.0, "analytic centre height survives ownership transfer");
+  CHECK(height && *height == kBaseHeightM + kXIncrementM + kYIncrementM,
+        "analytic centre height survives ownership transfer");
   return Report();
 }

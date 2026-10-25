@@ -1,6 +1,6 @@
 #include "Address.h"
 #include "Check.h"
-#include "SourcedTerrainFields.h"
+#include "TerrainFieldSet.h"
 #include "TerrainCertificate.h"
 #include "TerrainGrid.h"
 #include "TileGeodesy.h"
@@ -44,9 +44,10 @@ Field(Data::TileId tile, float heightM, std::string revision = "r1") {
 void CheckStableBindings() {
   const auto west = Field(kWest, 0);
   const auto east = Field(kEast, kRaisedM);
-  const SourcedTerrainFields scope({{kWest, west}, {kEast, east}});
+  const Generators::TerrainFieldSet scope({{kWest, west}, {kEast, east}});
   const auto binding = scope.BindingAt(1);
-  const SourcedTerrainFields reordered({{kEast, Field(kEast, kRaisedM)}, {kWest, Field(kWest, 0)}});
+  const Generators::TerrainFieldSet reordered(
+      {{kEast, Field(kEast, kRaisedM)}, {kWest, Field(kWest, 0)}});
   const auto same = reordered.BindingAt(1);
   CHECK(binding && same && binding->Key == same->Key,
         "field order and ownership addresses cannot change the same captured input binding");
@@ -58,17 +59,17 @@ void CheckStableBindings() {
   CHECK(binding->Fields == 2 && binding->RasterBytes == kRasterBytes &&
             binding->CopiedRasterBytes == copied && binding->MetadataBytes > 0,
         "binding work reports exact raster reads and avoids raster copies on little endian hosts");
-  const SourcedTerrainFields raised({{kWest, Field(kWest, kRaisedM)}, {kEast, east}});
+  const Generators::TerrainFieldSet raised({{kWest, Field(kWest, kRaisedM)}, {kEast, east}});
   const auto changed = raised.BindingAt(1);
   CHECK(changed && changed->Key != binding->Key,
         "changed terrain data invalidates elevation content");
-  const SourcedTerrainFields revised({{kWest, Field(kWest, 0, "r2")}, {kEast, east}});
+  const Generators::TerrainFieldSet revised({{kWest, Field(kWest, 0, "r2")}, {kEast, east}});
   const auto provenance = revised.BindingAt(1);
   CHECK(provenance && provenance->Key != binding->Key,
         "a newly selected source revision is a persistent input even at the same height");
   auto recertified = Field(kWest, 0);
   recertified->SetCertificate(Ground::TerrainCertificate::FromDelivery(kWest, std::nullopt, 7));
-  const SourcedTerrainFields runtimeState({{kWest, recertified}, {kEast, east}});
+  const Generators::TerrainFieldSet runtimeState({{kWest, recertified}, {kEast, east}});
   const auto restarted = runtimeState.BindingAt(1);
   CHECK(restarted && restarted->Key == binding->Key,
         "process-local terrain certification cannot salt persistent content identity");
@@ -81,8 +82,8 @@ void CheckStableBindings() {
 void CheckSamplingDetail() {
   const auto parent = Field(kWest, 0);
   const auto child = Field(kChild, kRaisedM);
-  const SourcedTerrainFields coarse({{kWest, parent}});
-  const SourcedTerrainFields refined({{kChild, child}, {kWest, parent}});
+  const Generators::TerrainFieldSet coarse({{kWest, parent}});
+  const Generators::TerrainFieldSet refined({{kChild, child}, {kWest, parent}});
   const auto original = coarse.BindingAt(1);
   const auto irrelevant = refined.BindingAt(1);
   CHECK(original && irrelevant && original->Key == irrelevant->Key &&
@@ -97,22 +98,23 @@ void CheckSamplingDetail() {
         "a child replacing its sampled ancestor changes both binding and actual elevation");
   auto unsourced = std::make_shared<Ground::TerrainField>(2, 2);
   std::fill_n(unsourced->Data(), 4, kRaisedM);
-  const SourcedTerrainFields sampled({{kChild, unsourced}, {kWest, parent}});
+  const Generators::TerrainFieldSet sampled({{kChild, unsourced}, {kWest, parent}});
   const auto withoutProvenance = sampled.BindingAt(2);
   CHECK(
       withoutProvenance && ancestor && withoutProvenance->Key != ancestor->Key &&
           sampled.AslMAt(2, point) == kRaisedM && unsourced->Sources().empty(),
       "sampling binds unsourced finer data instead of silently substituting its sourced ancestor");
-  const SourcedTerrainFields masked({{kChild, nullptr}, {kChild, child}, {kWest, parent}});
+  const Generators::TerrainFieldSet masked({{kChild, nullptr}, {kChild, child}, {kWest, parent}});
   const auto firstMatch = masked.BindingAt(2);
   CHECK(firstMatch && ancestor && firstMatch->Key == ancestor->Key && masked.AslMAt(2, point) == 0,
         "duplicate tile entries follow the sampler's first-match fallback semantics");
   const auto invalid = coarse.BindingAt(-1);
   const auto excessive = coarse.BindingAt(Data::TileId::MaximumZoom + 1);
-  CHECK(!invalid && invalid.error() == SourcedTerrainFields::BindingError::InvalidRequest &&
-            !excessive && excessive.error() == SourcedTerrainFields::BindingError::InvalidRequest,
+  CHECK(!invalid && invalid.error() == Generators::TerrainFieldSet::BindingError::InvalidRequest &&
+            !excessive &&
+            excessive.error() == Generators::TerrainFieldSet::BindingError::InvalidRequest,
         "invalid sampling zooms cannot acquire a persistent input binding");
-  const auto empty = SourcedTerrainFields{}.BindingAt(1);
+  const auto empty = Generators::TerrainFieldSet{}.BindingAt(1);
   CHECK(empty && empty->Fields == 0 && empty->RasterBytes == 0,
         "an empty captured view has a defined binding without fabricated terrain inputs");
 }

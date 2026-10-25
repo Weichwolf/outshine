@@ -17,7 +17,7 @@
 #include "TangentFrame.h"
 #include "TerrainRefinement.h"
 #include "TerrainResidency.h"
-#include "SourcedTerrainFields.h"
+#include "TerrainFieldSet.h"
 
 namespace outshine::Generators::Osm {
 class OsmField;
@@ -119,7 +119,7 @@ public:
 
   [[nodiscard]] const Ground::TerrainField *FieldAt(Data::TileId tile) const;
   [[nodiscard]] bool ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
-  [[nodiscard]] SourcedTerrainFields SnapshotSourcedFields() const;
+  [[nodiscard]] Generators::TerrainFieldSet SnapshotSourceFields() const;
 
   void ForgetsFields() {
     Fields_.clear();

@@ -1174,7 +1174,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
     }
     const int sourceZoom = state.Coverage().Zoom;
     const auto fields =
-        std::make_shared<const SourcedTerrainFields>(build.Sheets.SnapshotSourcedFields());
+        std::make_shared<const Generators::TerrainFieldSet>(build.Sheets.SnapshotSourceFields());
     const auto ways = std::make_shared<const Generators::Osm::StreetField>(sources.Ways);
     StreetGraphPreparation::JobFactory begin =
         [vectors = sources.Vectors, ways, fields, sourceZoom] {
@@ -1263,7 +1263,7 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
   if (!state.RoadAlignmentRequested()) {
     RoadAlignmentBuildRequest request{
         .Source = state.TransportSnapshotOwner(),
-        .Terrain = state.Candidate().Products().Sheets.SnapshotSourcedFields(),
+        .Terrain = state.Candidate().Products().Sheets.SnapshotSourceFields(),
         .RouteIndices = {state.RoadRouteIndices().begin(), state.RoadRouteIndices().end()},
         .RenderFrame = standing,
         .TerrainZoom = state.Coverage().Zoom,

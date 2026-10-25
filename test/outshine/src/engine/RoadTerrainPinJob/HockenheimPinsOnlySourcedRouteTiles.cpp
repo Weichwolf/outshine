@@ -70,7 +70,7 @@ int main() {
   CHECK(!staleSelection && staleSelection.error().Code == RoadTerrainPinErrorCode::SourceMismatch,
         "a stale route revision cannot request terrain from the current graph");
 
-  using Entry = SourcedTerrainFields::Entry;
+  using Entry = Generators::TerrainFieldSet::Entry;
   std::vector<Entry> fields;
   for (const TileId tile : tiles) {
     auto field = std::make_shared<Ground::TerrainField>(2, 2);
@@ -85,7 +85,7 @@ int main() {
   }
 
   auto shortBudget = RoadTerrainPinJob::Begin(
-      SourcedTerrainFields(fields),
+      Generators::TerrainFieldSet(fields),
       *topology,
       route->SourceIdentity,
       route->EdgeIds,
@@ -96,7 +96,7 @@ int main() {
   auto completeFields = fields;
   fields.pop_back();
   auto missing = RoadTerrainPinJob::Begin(
-      SourcedTerrainFields(fields),
+      Generators::TerrainFieldSet(fields),
       *topology,
       route->SourceIdentity,
       route->EdgeIds,
@@ -108,7 +108,7 @@ int main() {
         "a missing source tile leaves the candidate pending without synthesized elevation");
 
   auto complete = RoadTerrainPinJob::Begin(
-      SourcedTerrainFields(std::move(completeFields)),
+      Generators::TerrainFieldSet(std::move(completeFields)),
       *topology,
       route->SourceIdentity,
       route->EdgeIds,

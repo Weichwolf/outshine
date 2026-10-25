@@ -1,4 +1,4 @@
-#include "SourcedTerrainFields.h"
+#include "TerrainFieldSet.h"
 
 #include <algorithm>
 #include <utility>
@@ -12,14 +12,14 @@
 #include <ranges>
 #include <span>
 
-namespace outshine {
+namespace outshine::Generators {
 namespace {
 enum class SourceUse { Qualified, Sampling };
 constexpr double kInfinity = std::numeric_limits<double>::infinity();
 constexpr float kFloatInfinity = std::numeric_limits<float>::infinity();
 
-std::span<const SourcedTerrainFields::Entry>::iterator
-SourceFor(std::span<const SourcedTerrainFields::Entry> fields,
+std::span<const TerrainFieldSet::Entry>::iterator
+SourceFor(std::span<const TerrainFieldSet::Entry> fields,
           Data::TileId tile,
           SourceUse use = SourceUse::Qualified) {
   for (int zoom = tile.Zoom; zoom >= 0; --zoom) {
@@ -35,24 +35,25 @@ SourceFor(std::span<const SourcedTerrainFields::Entry> fields,
   return fields.end();
 }
 
-using RangeError = SourcedTerrainFields::RangeError;
+using RangeError = TerrainFieldSet::RangeError;
 
 struct SampleRectangle {
-  Ground::TileFrac First, Last;
+  ::outshine::Ground::TileFrac First, Last;
 };
 
-std::expected<SampleRectangle, RangeError> RangeRectangle(int zoom, Ground::GeoBounds bounds) {
-  if (zoom < 0 || zoom > Ground::HeightField::MaximumTileZoom || !std::isfinite(bounds.MinLonDeg) ||
-      !std::isfinite(bounds.MaxLonDeg) || !std::isfinite(bounds.MinLatDeg) ||
-      !std::isfinite(bounds.MaxLatDeg) || bounds.MinLonDeg > bounds.MaxLonDeg ||
-      bounds.MinLatDeg > bounds.MaxLatDeg || bounds.MinLonDeg < -kDegPerHalfTurn ||
-      bounds.MaxLonDeg >= kDegPerHalfTurn || bounds.MinLatDeg <= -kMercatorLatMaxDeg ||
-      bounds.MaxLatDeg >= kMercatorLatMaxDeg) {
+std::expected<SampleRectangle, RangeError> RangeRectangle(int zoom,
+                                                          ::outshine::Ground::GeoBounds bounds) {
+  if (zoom < 0 || zoom > ::outshine::Ground::HeightField::MaximumTileZoom ||
+      !std::isfinite(bounds.MinLonDeg) || !std::isfinite(bounds.MaxLonDeg) ||
+      !std::isfinite(bounds.MinLatDeg) || !std::isfinite(bounds.MaxLatDeg) ||
+      bounds.MinLonDeg > bounds.MaxLonDeg || bounds.MinLatDeg > bounds.MaxLatDeg ||
+      bounds.MinLonDeg < -kDegPerHalfTurn || bounds.MaxLonDeg >= kDegPerHalfTurn ||
+      bounds.MinLatDeg <= -kMercatorLatMaxDeg || bounds.MaxLatDeg >= kMercatorLatMaxDeg) {
     return std::unexpected(RangeError::InvalidRequest);
   }
-  const auto first = Ground::ToTileFracClamped(
+  const auto first = ::outshine::Ground::ToTileFracClamped(
       {.LongitudeDeg = bounds.MinLonDeg, .LatitudeDeg = bounds.MaxLatDeg}, zoom);
-  const auto last = Ground::ToTileFracClamped(
+  const auto last = ::outshine::Ground::ToTileFracClamped(
       {.LongitudeDeg = bounds.MaxLonDeg, .LatitudeDeg = bounds.MinLatDeg}, zoom);
   const double span = std::ldexp(1.0, zoom);
   if (first.X < 0 || first.Y < 0 || last.X >= span || last.Y >= span) {
@@ -71,11 +72,11 @@ std::array<uint32_t, 2> SupportIndices(double first, double last, uint32_t count
           static_cast<uint32_t>(std::min(end, std::ceil(last * end) + 1))};
 }
 
-std::expected<void, RangeError> IncludeRange(const SourcedTerrainFields::Entry &source,
+std::expected<void, RangeError> IncludeRange(const TerrainFieldSet::Entry &source,
                                              int zoom,
                                              SampleRectangle rectangle,
                                              size_t nodesMost,
-                                             SourcedTerrainFields::HeightRange &range) {
+                                             TerrainFieldSet::HeightRange &range) {
   const auto &field = *source.second;
   if (field.HasMissingBoundary()) { return std::unexpected(RangeError::IncompleteSource); }
   const double scale = std::ldexp(1.0, source.first.Zoom - zoom);
@@ -103,52 +104,61 @@ std::expected<void, RangeError> IncludeRange(const SourcedTerrainFields::Entry &
 
 }
 
-bool SourcedTerrainFields::ShareSourcedField(Data::TileId tile,
-                                             Ground::HeightField::Block &into) const {
+bool TerrainFieldSet::ShareSourcedField(Data::TileId tile,
+                                        ::outshine::Ground::HeightField::Block &into) const {
   return Share(Fields_, tile, into);
 }
 
-bool SourcedTerrainFields::Share(std::span<const Entry> fields,
-                                 Data::TileId tile,
-                                 Ground::HeightField::Block &into) {
-  if (tile.Zoom < 0 || tile.Zoom > Ground::HeightField::MaximumTileZoom) { return false; }
+bool TerrainFieldSet::Share(std::span<const Entry> fields,
+                            Data::TileId tile,
+                            ::outshine::Ground::HeightField::Block &into) {
+  if (tile.Zoom < 0 || tile.Zoom > ::outshine::Ground::HeightField::MaximumTileZoom) {
+    return false;
+  }
   const auto found = SourceFor(fields, tile);
   if (found == fields.end()) { return false; }
-  return found->first == tile ? Ground::HeightField::SharesField(found->second, tile, into)
-                              : Ground::HeightField::ResamplesSourcedAncestor(
-                                    *found->second, found->first, tile, into);
+  return found->first == tile
+             ? ::outshine::Ground::HeightField::SharesField(found->second, tile, into)
+             : ::outshine::Ground::HeightField::ResamplesSourcedAncestor(
+                   *found->second, found->first, tile, into);
 }
 
-bool SourcedTerrainFields::Copy(std::span<const Entry> fields,
-                                Data::TileId tile,
-                                Ground::HeightField::Block &into) {
-  if (tile.Zoom < 0 || tile.Zoom > Ground::HeightField::MaximumTileZoom) { return false; }
+bool TerrainFieldSet::Copy(std::span<const Entry> fields,
+                           Data::TileId tile,
+                           ::outshine::Ground::HeightField::Block &into) {
+  if (tile.Zoom < 0 || tile.Zoom > ::outshine::Ground::HeightField::MaximumTileZoom) {
+    return false;
+  }
   const auto found = SourceFor(fields, tile);
   if (found == fields.end()) { return false; }
-  if (found->first == tile) { return Ground::HeightField::CopiesField(*found->second, tile, into); }
-  return Ground::HeightField::ResamplesSourcedAncestor(*found->second, found->first, tile, into);
+  if (found->first == tile) {
+    return ::outshine::Ground::HeightField::CopiesField(*found->second, tile, into);
+  }
+  return ::outshine::Ground::HeightField::ResamplesSourcedAncestor(
+      *found->second, found->first, tile, into);
 }
 
-bool SourcedTerrainFields::CopySourcedField(Data::TileId tile,
-                                            Ground::HeightField::Block &into) const {
+bool TerrainFieldSet::CopySourcedField(Data::TileId tile,
+                                       ::outshine::Ground::HeightField::Block &into) const {
   return Copy(Fields_, tile, into);
 }
 
-std::optional<double> SourcedTerrainFields::AslMAt(int zoom, LongitudeLatitude at) const {
+std::optional<double> TerrainFieldSet::AslMAt(int zoom, LongitudeLatitude at) const {
   return AslMAt(Fields_, zoom, at);
 }
 
 std::optional<double>
-SourcedTerrainFields::AslMAt(std::span<const Entry> fields, int zoom, LongitudeLatitude at) {
+TerrainFieldSet::AslMAt(std::span<const Entry> fields, int zoom, LongitudeLatitude at) {
   for (int heldZoom = zoom; heldZoom >= 0; --heldZoom) {
-    const Ground::TileFrac frac = Ground::ToTileFracClamped(
+    const ::outshine::Ground::TileFrac frac = ::outshine::Ground::ToTileFracClamped(
         {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}, heldZoom);
     const Data::TileId tile{.Zoom = heldZoom,
                             .X = static_cast<uint32_t>(std::floor(frac.X)),
                             .Y = static_cast<uint32_t>(std::floor(frac.Y))};
     const auto found =
         std::ranges::find_if(fields, [tile](const Entry &entry) { return entry.first == tile; });
-    const Ground::TerrainField *field = found == fields.end() ? nullptr : found->second.get();
+    const ::outshine::Ground::TerrainField *field =
+        found == fields.end() ? nullptr : found->second.get();
     if (field == nullptr || !field->Meshable()) { continue; }
     return field->PostingM(
         {.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});
@@ -156,8 +166,10 @@ SourcedTerrainFields::AslMAt(std::span<const Entry> fields, int zoom, LongitudeL
   return std::nullopt;
 }
 
-std::expected<SourcedTerrainFields::HeightRange, SourcedTerrainFields::RangeError>
-SourcedTerrainFields::AslRangeOver(int zoom, Ground::GeoBounds bounds, size_t nodesMost) const {
+std::expected<TerrainFieldSet::HeightRange, TerrainFieldSet::RangeError>
+TerrainFieldSet::AslRangeOver(int zoom,
+                              ::outshine::Ground::GeoBounds bounds,
+                              size_t nodesMost) const {
   const auto rectangle = RangeRectangle(zoom, bounds);
   if (!rectangle) { return std::unexpected(rectangle.error()); }
   const auto firstX = static_cast<uint32_t>(rectangle->First.X);

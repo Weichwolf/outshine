@@ -80,7 +80,7 @@ int main() {
         "an off-camera route tile is prepared as a sourced field");
   CHECK(!sheets.ShareSourcedField({.Zoom = 5, .X = 2, .Y = 2}, absent),
         "a tile outside sourced coverage is not qualified as fine terrain");
-  auto snapshot = sheets.SnapshotSourcedFields();
+  auto snapshot = sheets.SnapshotSourceFields();
   HeightSheets cleared = sheets;
   cleared.ForgetsFields();
   CHECK(sheets.HeapBytes() >=

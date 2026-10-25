@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "SourcedTerrainFields.h"
+#include "TerrainFieldSet.h"
 
 #include <array>
 #include <cmath>
@@ -25,7 +25,7 @@ Ground::GeoBounds Bounds(int zoom, Ground::TileFrac first, Ground::TileFrac last
           .MaxLatDeg = northWest.LatitudeDeg};
 }
 
-void CheckSamples(const SourcedTerrainFields &fields,
+void CheckSamples(const Generators::TerrainFieldSet &fields,
                   Ground::GeoBounds bounds,
                   std::array<double, 2> range,
                   int zoom) {
@@ -48,12 +48,12 @@ void CheckSamples(const SourcedTerrainFields &fields,
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  using Error = SourcedTerrainFields::RangeError;
+  using Error = Generators::TerrainFieldSet::RangeError;
   const Data::TileId owner{.Zoom = 2, .X = 1, .Y = 1};
   auto terrain = std::make_shared<Ground::TerrainField>(9, 9);
   terrain->SetM(4, 4, kPeakM);
   terrain->SetM(4, 5, kDepressionM);
-  SourcedTerrainFields fields({{owner, terrain}});
+  Generators::TerrainFieldSet fields({{owner, terrain}});
   const auto bounds = Bounds(2, {.X = 1.2, .Y = 1.2}, {.X = 1.8, .Y = 1.8});
   const auto range = fields.AslRangeOver(2, bounds, 81);
   CHECK(range && range->Nodes == 81 && range->AslM[0] < kDepressionM && range->AslM[1] > kPeakM,
@@ -80,7 +80,7 @@ int main() {
           static_cast<float>(kAncestorBaseM + kAncestorStepM * static_cast<int>(row + column)));
     }
   }
-  fields = SourcedTerrainFields({{owner, terrain}, {{.Zoom = 1, .X = 0, .Y = 0}, ancestor}});
+  fields = Generators::TerrainFieldSet({{owner, terrain}, {{.Zoom = 1, .X = 0, .Y = 0}, ancestor}});
   const auto seam = Bounds(2, {.X = .9, .Y = 1.3}, {.X = 1.7, .Y = 1.7});
   const auto mixed = fields.AslRangeOver(2, seam, kNodesMost);
   CHECK(mixed && mixed->Nodes < 162, "mixed finest and ancestor sources scan only ROI support");
@@ -104,7 +104,7 @@ int main() {
     const auto invalid = fields.AslRangeOver(zoom, bounds, kNodesMost);
     CHECK(!invalid && invalid.error() == Error::InvalidRequest, "unsupported zoom is refused");
   }
-  const SourcedTerrainFields global({{{.Zoom = 0, .X = 0, .Y = 0}, ancestor}});
+  const Generators::TerrainFieldSet global({{{.Zoom = 0, .X = 0, .Y = 0}, ancestor}});
   for (const double longitude : {-179.9, 179.8}) {
     for (const double latitude : {-84.0, 83.9}) {
       const Ground::GeoBounds edge{.MinLonDeg = longitude,

@@ -1,4 +1,4 @@
-#include "SourcedTerrainFields.h"
+#include "TerrainFieldSet.h"
 #include "Address.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
@@ -16,10 +16,10 @@
 #include <tuple>
 #include <vector>
 
-namespace outshine {
+namespace outshine::Generators {
 namespace {
-using Error = SourcedTerrainFields::BindingError;
-using Entry = SourcedTerrainFields::Entry;
+using Error = TerrainFieldSet::BindingError;
+using Entry = TerrainFieldSet::Entry;
 constexpr size_t kMetadataBytesMost = size_t{256} * 1024u * 1024u;
 
 std::vector<size_t> CanonicalFields(std::span<const Entry> fields, int zoom) {
@@ -64,8 +64,8 @@ bool WriteSource(BinaryValueWriter &out, const Data::TileSourceIdentity &source)
   return out.Text(source.SourceId) && out.Text(source.Revision);
 }
 
-std::expected<std::array<uint8_t, 32>, Error> RasterDigest(const Ground::TerrainField &field,
-                                                           size_t bytes) {
+std::expected<std::array<uint8_t, 32>, Error>
+RasterDigest(const ::outshine::Ground::TerrainField &field, size_t bytes) {
   if constexpr (std::endian::native == std::endian::little) {
     return Sha256Digest(field.Data(), bytes);
   } else {
@@ -79,8 +79,8 @@ std::expected<std::array<uint8_t, 32>, Error> RasterDigest(const Ground::Terrain
 }
 }
 
-std::expected<SourcedTerrainFields::Binding, SourcedTerrainFields::BindingError>
-SourcedTerrainFields::BindingAt(int zoom) const {
+std::expected<TerrainFieldSet::Binding, TerrainFieldSet::BindingError>
+TerrainFieldSet::BindingAt(int zoom) const {
   if (zoom < 0 || zoom > Data::TileId::MaximumZoom) {
     return std::unexpected(BindingError::InvalidRequest);
   }

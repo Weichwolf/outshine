@@ -70,7 +70,7 @@ RoadTerrainPinJob::SelectTiles(const World::TransportTopology &topology,
 }
 
 std::expected<RoadTerrainPinJob, RoadTerrainPinError>
-RoadTerrainPinJob::Begin(SourcedTerrainFields fields,
+RoadTerrainPinJob::Begin(Generators::TerrainFieldSet fields,
                          const World::TransportTopology &topology,
                          const Data::SourceIdentity &selectionSource,
                          std::span<const World::TransportEdgeId> route,

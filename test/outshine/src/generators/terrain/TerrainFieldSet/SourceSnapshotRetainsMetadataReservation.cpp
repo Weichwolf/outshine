@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "SourcedTerrainFields.h"
+#include "TerrainFieldSet.h"
 
 #include <array>
 #include <cstdint>
@@ -24,10 +24,10 @@ int main() {
   raster->AddSource(
       {.Kind = Data::DataKind::Elevation, .Tile = tile, .SourceId = "dem", .Revision = "r1"});
   raster->SetCertificate(Ground::TerrainCertificate::FromDelivery(tile, stamp, 1));
-  std::vector<SourcedTerrainFields::Entry> fields{{tile, raster}};
-  SourcedTerrainFields snapshot(fields, *metadata);
-  std::optional<SourcedTerrainFields> captured(snapshot);
-  snapshot = SourcedTerrainFields{};
+  std::vector<Generators::TerrainFieldSet::Entry> fields{{tile, raster}};
+  Generators::TerrainFieldSet snapshot(fields, *metadata);
+  std::optional<Generators::TerrainFieldSet> captured(snapshot);
+  snapshot = Generators::TerrainFieldSet{};
   metadata->reset();
   fields.clear();
   raster.reset();
