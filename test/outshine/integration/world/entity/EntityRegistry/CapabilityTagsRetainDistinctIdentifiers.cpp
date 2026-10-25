@@ -20,9 +20,9 @@ int main() {
   constexpr auto at255 = TagCatalogue::under(tags::Does, 255);
   constexpr auto at256 = TagCatalogue::under(tags::Does, 256);
   static_assert(at255 && at256 && *at255 != *at256);
-  const auto maximum = TagCatalogue::under(tags::Offers, maximumOrdinal);
+  const auto maximum = TagCatalogue::under(tags::Does, maximumOrdinal);
   CHECK(maximum && (maximum->value() & maximumOrdinal) == maximumOrdinal &&
-            maximum->within(tags::Offers) && !maximum->within(tags::Does),
+            maximum->within(tags::Does) && !maximum->within(*first),
         "all 24 child bits are preserved within the correct family");
   for (const uint32_t ordinal : {0u, maximumOrdinal + 1, std::numeric_limits<uint32_t>::max()}) {
     const auto invalid = TagCatalogue::under(tags::Does, ordinal);
