@@ -35,7 +35,7 @@ struct TransportSourceReference {
   uint32_t Source = 0;
   // Input segment ordinal; native splits have their own edge ordinals.
   uint32_t SegmentOrdinal = 0;
-  std::optional<uint64_t> ProviderElementId;
+  std::optional<uint64_t> ProviderElementId = std::nullopt;
   std::array<uint8_t, 32> Fragment{};
 };
 

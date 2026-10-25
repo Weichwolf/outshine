@@ -99,6 +99,7 @@ bool Contact(Reader &in, EarthworkStamp &stamp);
 bool Omission(BinaryValueWriter &out, const TransportOmission &omission);
 bool Omission(Reader &in, TransportOmission &omission);
 bool InputsValid(std::span<const TransportInputReference> inputs);
+bool NetworkInputsBound(const TransportPlan &plan);
 bool ValidProfile(RoadProfile profile);
 bool ValidUse(TransportUse use);
 bool ValidGate(const RoadGate &gate);

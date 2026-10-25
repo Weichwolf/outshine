@@ -1,12 +1,11 @@
-#include "TransportPlanFixture.h"
-#include "TransportProvenanceFixture.h"
+#include "TransportPlanSourceFixture.h"
+#include "TransportPlanCodec.h"
 #include "TransportProvenance.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <print>
 #include <utility>
 #include <vector>
@@ -14,16 +13,6 @@
 namespace {
 using namespace outshine;
 using namespace outshine::World;
-
-std::shared_ptr<const TransportNetworkSnapshot>
-WithProvenance(const TransportNetworkSnapshot &source, TransportProvenance provenance) {
-  return std::make_shared<const TransportNetworkSnapshot>(
-      ResolvedTransport{.Graph = source.Topology(),
-                        .Routes = {source.Routes().begin(), source.Routes().end()}},
-      std::vector<GeographicBounds>{source.Coverage().begin(), source.Coverage().end()},
-      source.Metrics(),
-      std::move(provenance));
-}
 
 void CheckMalformedReference(const std::vector<uint8_t> &encoded) {
   using namespace outshine::Generators;
@@ -47,11 +36,13 @@ void CheckMalformedReference(const std::vector<uint8_t> &encoded) {
 int main() {
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  auto plan = TransportPlanFixture();
-  CHECK(plan && plan->Network, "an original-identity native plan is available");
+  auto plan = TransportPlanSourceFixture();
+  CHECK(plan && plan->Network, "a source-bound native plan is available");
   if (!plan || !plan->Network) { return Report(); }
-  const auto bare = EncodeTransportPlan(*plan, kTransportFixtureLimits);
-  CHECK(bare.has_value(), "original archive products remain serializable");
+  auto barePlan = *plan;
+  barePlan.Network = WithTransportProvenance(*barePlan.Network, {});
+  const auto bare = EncodeTransportPlan(barePlan, kTransportFixtureLimits);
+  CHECK(bare.has_value(), "native source-element products remain serializable");
   if (!bare) { return Report(); }
   const auto original = DecodeTransportPlan(*bare, kTransportFixtureLimits);
   CHECK(original && original->Network &&
@@ -59,8 +50,7 @@ int main() {
                 TransportIdentitySpace::SourceElements &&
             original->Network->Provenance().Sources.empty(),
         "original element identities remain distinct from derived fragments");
-  const size_t originalCapacity = TransportPlanCapacityBytes(*plan);
-  plan->Network = WithProvenance(*plan->Network, TransportProvenanceFixture());
+  const size_t originalCapacity = TransportPlanCapacityBytes(barePlan);
   const auto encoded = EncodeTransportPlan(*plan, kTransportFixtureLimits);
   CHECK(encoded.has_value(), "the plan persists complete native provenance within its budget");
   if (!encoded) { return Report(); }
@@ -99,9 +89,14 @@ int main() {
   CheckMalformedReference(*encoded);
   auto invalid = provenance;
   invalid.References[0].Source = 2;
-  plan->Network = WithProvenance(*plan->Network, std::move(invalid));
+  plan->Network = WithTransportProvenance(*plan->Network, std::move(invalid));
   CHECK(!EncodeTransportPlan(*plan, kTransportFixtureLimits),
         "invalid source references cannot become a stored functional product");
+  invalid = provenance;
+  invalid.Sources[0].Content[0] = 2;
+  plan->Network = WithTransportProvenance(*plan->Network, std::move(invalid));
+  CHECK(!EncodeTransportPlan(*plan, kTransportFixtureLimits),
+        "source rows must belong to the actual bound input manifest");
   auto oldFormat = *encoded;
   oldFormat[5] = 2;
   CHECK(!DecodeTransportPlan(oldFormat, kTransportFixtureLimits),

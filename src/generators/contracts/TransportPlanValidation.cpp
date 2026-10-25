@@ -149,6 +149,9 @@ std::expected<void, TransportPlanCodecError> ValidateTransportPlan(const Transpo
   if (!TransportFormat::InputsValid(plan.Inputs)) {
     return std::unexpected(TransportPlanCodecError::InvalidInputs);
   }
+  if (!TransportFormat::NetworkInputsBound(plan)) {
+    return std::unexpected(TransportPlanCodecError::InvalidNetwork);
+  }
   if (!PathsPartitionStations(plan) ||
       !std::ranges::all_of(plan.Stations,
                            [](const auto &station) {
