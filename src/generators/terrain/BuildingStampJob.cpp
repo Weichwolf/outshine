@@ -1,4 +1,5 @@
 #include "BuildingStampJob.h"
+#include "BuildingPhysicalProduct.h"
 
 #include "Units.h"
 
@@ -255,8 +256,7 @@ std::expected<std::vector<EarthworkStamp>, std::string_view> BuildingStampJob::T
 
 size_t BuildingStampJob::HeapBytes() const noexcept {
   return Stamps_.capacity() * sizeof(EarthworkStamp) + FinishedHeapBytes_ + Current_.HeapBytes() +
-         PinnedProducts_.capacity() *
-             sizeof(::outshine::Generators::Osm::BuildingField::PinnedProduct);
+         PinnedProducts_.capacity() * sizeof(::outshine::Ground::BuildingProductLease);
 }
 
 }

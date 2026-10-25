@@ -1,4 +1,5 @@
 #include "BuildingField.h"
+#include "BuildingPhysicalProduct.h"
 
 #include <algorithm>
 #include <cassert>
@@ -11,11 +12,7 @@
 
 namespace outshine::Generators::Osm {
 
-size_t BuildingField::PhysicalProduct::HeapBytes() const noexcept {
-  return CapacityBytes(Prints) + CapacityBytes(SeatSpreadM) + CapacityBytes(AcrossM) + ContactBytes;
-}
-
-std::shared_ptr<const BuildingField::PhysicalProduct>
+std::shared_ptr<const ::outshine::Ground::BuildingPhysicalProduct>
 BuildingField::PrepareProduct(uint32_t tile, const Baked &baked) const {
   const auto at = std::ranges::lower_bound(AcceptedTiles_, tile);
   if (at != AcceptedTiles_.end() && *at == tile) {
@@ -28,11 +25,12 @@ BuildingField::PrepareProduct(uint32_t tile, const Baked &baked) const {
   }
   size_t contactBytes = 0;
   for (const auto &print : baked.Prints) { contactBytes += print.HeapBytes(); }
-  return std::make_shared<const PhysicalProduct>(
-      PhysicalProduct{.Prints = {baked.Prints.begin(), baked.Prints.end()},
-                      .SeatSpreadM = {baked.SeatSpreadM.begin(), baked.SeatSpreadM.end()},
-                      .AcrossM = {baked.AcrossM.begin(), baked.AcrossM.end()},
-                      .ContactBytes = contactBytes});
+  return std::make_shared<const ::outshine::Ground::BuildingPhysicalProduct>(
+      ::outshine::Ground::BuildingPhysicalProduct{
+          .Prints = {baked.Prints.begin(), baked.Prints.end()},
+          .SeatSpreadM = {baked.SeatSpreadM.begin(), baked.SeatSpreadM.end()},
+          .AcrossM = {baked.AcrossM.begin(), baked.AcrossM.end()},
+          .ContactBytes = contactBytes});
 }
 
 const BuildingField::TileProduct *BuildingField::ProductForFootprint(size_t index) const noexcept {
@@ -57,8 +55,8 @@ const BuildingGeometry *BuildingField::GeometryOfFootprint(size_t index) const n
              : nullptr;
 }
 
-std::vector<BuildingField::PinnedProduct> BuildingField::PinProducts() const {
-  std::vector<PinnedProduct> pinned;
+std::vector<::outshine::Ground::BuildingProductLease> BuildingField::PinProducts() const {
+  std::vector<::outshine::Ground::BuildingProductLease> pinned;
   pinned.reserve(Products_.size());
   for (size_t at = 0; at < Products_.size(); ++at) {
     pinned.push_back({.Physical = Products_[at].Physical,
@@ -88,7 +86,7 @@ size_t BuildingField::HeapBytes(HeapScope scope) const noexcept {
                  CapacityBytes(Products_) + Admission_.HeapBytes();
   for (const auto &product : Products_) {
     if (scope == HeapScope::Reachable || product.Physical.use_count() == 1) {
-      bytes += sizeof(PhysicalProduct) + product.Physical->HeapBytes();
+      bytes += sizeof(::outshine::Ground::BuildingPhysicalProduct) + product.Physical->HeapBytes();
     }
   }
   for (const AcceptedInput &input : AcceptedInputs_) {

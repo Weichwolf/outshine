@@ -11,6 +11,7 @@
 #include "StructureSourceKey.h"
 #include "BuildingGeometry.h"
 #include "BuildingFootprint.h"
+#include "BuildingPhysicalProduct.h"
 
 #include <cstdint>
 #include <cassert>
@@ -49,21 +50,6 @@ public:
   };
 
   enum class HeapScope : uint8_t { Reachable, Additional };
-
-  struct PhysicalProduct {
-    std::vector<BuildingFootprint> Prints;
-    std::vector<double> SeatSpreadM;
-    std::vector<double> AcrossM;
-    size_t ContactBytes = 0;
-
-    [[nodiscard]] size_t HeapBytes() const noexcept;
-  };
-
-  struct PinnedProduct {
-    std::shared_ptr<const PhysicalProduct> Physical;
-    std::shared_ptr<const BuildingGeometry> Coordinates;
-    size_t FirstFootprint = 0;
-  };
 
   struct BakeInputs {
     uint64_t HeightRasterDigest = 0;
@@ -148,7 +134,7 @@ public:
     size_t Prints_ = 0;
     size_t Spread_ = 0;
     size_t Across_ = 0;
-    std::shared_ptr<const PhysicalProduct> Physical_;
+    std::shared_ptr<const ::outshine::Ground::BuildingPhysicalProduct> Physical_;
     AcceptedInput Input_;
   };
 
@@ -269,9 +255,10 @@ public:
 
   [[nodiscard]] std::span<const BuildingFootprint> OfTile(int tile) const noexcept;
   [[nodiscard]] const BuildingGeometry *GeometryOfFootprint(size_t index) const noexcept;
-  [[nodiscard]] std::vector<PinnedProduct> PinProducts() const;
+  [[nodiscard]] std::vector<::outshine::Ground::BuildingProductLease> PinProducts() const;
 
-  [[nodiscard]] const PhysicalProduct &ProductAt(size_t tileIndex) const noexcept {
+  [[nodiscard]] const ::outshine::Ground::BuildingPhysicalProduct &
+  ProductAt(size_t tileIndex) const noexcept {
     assert(tileIndex < Products_.size());
     return *Products_[tileIndex].Physical;
   }
@@ -331,7 +318,7 @@ private:
 
   struct TileProduct {
     Range Prints;
-    std::shared_ptr<const PhysicalProduct> Physical;
+    std::shared_ptr<const ::outshine::Ground::BuildingPhysicalProduct> Physical;
     size_t Triangles = 0;
     int OsmHeights = 0;
     int DefaultHeights = 0;
@@ -339,8 +326,8 @@ private:
   };
 
   [[nodiscard]] const TileProduct *ProductForFootprint(size_t index) const noexcept;
-  [[nodiscard]] std::shared_ptr<const PhysicalProduct> PrepareProduct(uint32_t tile,
-                                                                      const Baked &baked) const;
+  [[nodiscard]] std::shared_ptr<const ::outshine::Ground::BuildingPhysicalProduct>
+  PrepareProduct(uint32_t tile, const Baked &baked) const;
 
   uint64_t Revision_ = 0;
   std::vector<uint32_t> AcceptedTiles_;

@@ -1,4 +1,5 @@
 #include "BuildingField.h"
+#include "BuildingPhysicalProduct.h"
 #include "Check.h"
 
 #include <algorithm>
@@ -37,8 +38,8 @@ bool MeasurementsMatch(const Field &field,
     }
     return offset == expected.size();
   };
-  return matches(std::span(spread), &Field::PhysicalProduct::SeatSpreadM) &&
-         matches(std::span(across), &Field::PhysicalProduct::AcrossM);
+  return matches(std::span(spread), &::outshine::Ground::BuildingPhysicalProduct::SeatSpreadM) &&
+         matches(std::span(across), &::outshine::Ground::BuildingPhysicalProduct::AcrossM);
 }
 }
 
