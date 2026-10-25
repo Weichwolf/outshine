@@ -129,7 +129,7 @@ void RoadPageQueue::CompleteBinding(const std::shared_ptr<Work> &work) {
   } else if (!*work->Bound) {
     work->Result = std::unexpected(std::move(work->Bound->error()));
   } else {
-    auto stored =
+    const auto stored =
         std::make_shared<BoundReceipt>(BoundReceipt{.Record = std::move(work->Bound->value()),
                                                     .Publication = std::move(work->Published),
                                                     .Retention = std::move(*work->Ticket)});
