@@ -713,11 +713,11 @@ std::expected<std::string, std::string> Engine::writeScenario() const {
 }
 
 EntityRegistry &Engine::entities() {
-  return S_->Simulation->Entities;
+  return S_->ScenarioState->Entities.Registry();
 }
 
 const EntityRegistry &Engine::entities() const {
-  return S_->Simulation->Entities;
+  return S_->ScenarioState->Entities.Registry();
 }
 
 const Scenario::Document &Engine::declaration() const {

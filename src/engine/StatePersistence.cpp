@@ -35,9 +35,11 @@ Result Engine::save(std::string_view path) const {
       return std::unexpected(S_->Error);
     }
     const Entity holder =
-        S_->Simulation->Stood.InstanceNamed(std::string_view(row.What).substr(0, dot));
-    const uint32_t key = S_->Simulation->Stood.TraitKey(std::string_view(row.What).substr(dot + 1));
-    const Traits *held = holder == kNoEntity ? nullptr : S_->Simulation->Kinds.Get(holder);
+        S_->ScenarioState->Stood.InstanceNamed(std::string_view(row.What).substr(0, dot));
+    const uint32_t key =
+        S_->ScenarioState->Stood.TraitKey(std::string_view(row.What).substr(dot + 1));
+    const Traits *held =
+        holder == kNoEntity ? nullptr : S_->ScenarioState->Entities.Traits().Get(holder);
     const double *value = held == nullptr || key == 0 ? nullptr : held->Named(key);
     if (value == nullptr) {
       S_->Error = "the persist row '" + row.What +
@@ -130,7 +132,7 @@ StageSavedTraits(std::span<SavedTrait> traits, const Column<Traits> &column) {
 
 Result Engine::restore(std::string_view path) {
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->Simulation->Stood.Instances.empty() && S_->Session.Declared.Instances.empty()) {
+  if (S_->ScenarioState->Stood.Instances.empty() && S_->Session.Declared.Instances.empty()) {
     S_->Error = "nothing is assembled, and loading a save is standing the scenario up FIRST "
                 "and then applying the state -- one arrival route";
     return std::unexpected(S_->Error);
@@ -158,19 +160,19 @@ Result Engine::restore(std::string_view path) {
         at + 1, (end == std::string::npos ? text.size() : end) - at - 1);
     at = end;
     if (line.empty()) { continue; }
-    const auto trait = ParseSavedTrait(line, S_->Simulation->Stood);
+    const auto trait = ParseSavedTrait(line, S_->ScenarioState->Stood);
     if (!trait) {
       S_->Error = trait.error();
       return std::unexpected(S_->Error);
     }
     staged.push_back(*trait);
   }
-  const auto rows = StageSavedTraits(staged, S_->Simulation->Kinds);
+  const auto rows = StageSavedTraits(staged, S_->ScenarioState->Entities.Traits());
   if (!rows) {
     S_->Error = rows.error();
     return std::unexpected(S_->Error);
   }
-  if (!S_->Simulation->Kinds.Replace(*rows)) {
+  if (!S_->ScenarioState->Entities.Traits().Replace(*rows)) {
     S_->Error = Says::RestoreTargetsChanged;
     return std::unexpected(S_->Error);
   }
