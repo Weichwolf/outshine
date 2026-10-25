@@ -1,10 +1,10 @@
-#ifndef OUTSHINE_WORLD_GROUND_TILES_TILEGEODESY_H
-#define OUTSHINE_WORLD_GROUND_TILES_TILEGEODESY_H
+#ifndef OUTSHINE_BASE_GEO_TILEGEODESY_H
+#define OUTSHINE_BASE_GEO_TILEGEODESY_H
 
 #include <cstdint>
 #include <optional>
 
-#include <Address.h>
+#include "TileId.h"
 #include "Earth.h"
 #include "Units.h"
 #include "TileMath.h"

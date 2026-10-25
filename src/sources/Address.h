@@ -2,6 +2,7 @@
 #define OUTSHINE_SOURCES_ADDRESS_H
 
 #include "GeoCellId.h"
+#include "TileId.h"
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -10,19 +11,6 @@
 namespace outshine::Data {
 
 enum class Scheme : uint8_t { TileZxy, WholeWorld, GeographicCell, GeodeticGrid };
-
-struct TileId {
-
-  static constexpr int MaximumZoom = 30;
-
-  int Zoom = 0;
-
-  uint32_t X = 0;
-
-  uint32_t Y = 0;
-
-  [[nodiscard]] bool operator==(const TileId &) const noexcept = default;
-};
 
 struct CellId {
   int SouthDeg = 0;
