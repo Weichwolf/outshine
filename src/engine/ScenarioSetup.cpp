@@ -12,7 +12,7 @@
 #include "RouteValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineState.h"
-#include "ActionHostAdapter.h"
+#include "UiAction.h"
 #include "Ephemeris.h"
 #include "CivilTime.h"
 
@@ -110,20 +110,12 @@ Holds<bool> Engine::handleEvent(const SDL_Event &event) {
   const Ui::Touched found = S_->Picture.Standing->Under(
       static_cast<double>(event.button.x), static_cast<double>(event.button.y), surface);
   if (!found.Held() || found.Action.empty()) { return false; }
-  const std::string &action = found.Action;
-  if (S_->Offered == nullptr) {
-    S_->Error = "a surface declares the call '" + action +
-                "' and no host was offered to answer it -- the client calls Offers before it "
-                "hands an event in";
+  auto called = RunUiAction(S_->Offered, S_->Picture.Standing->ProgrammeOf(surface), found.Action);
+  if (!called) {
+    S_->Error = std::move(called.error());
     return std::unexpected(S_->Error);
   }
-
-  Script::Program programme;
-  const std::string text = S_->Picture.Standing->ProgrammeOf(surface) + "\n" + action + ";\n";
-  if (!programme.Read(text, S_->Error)) { return std::unexpected(S_->Error); }
-  ActionHostAdapter answering(S_->Offered);
-  if (!programme.Run(answering, S_->Error)) { return std::unexpected(S_->Error); }
-  return answering.Fired();
+  return *called;
 }
 
 Result Engine::setSurfaces(std::span<const Scenario::Surface> surfaces) {

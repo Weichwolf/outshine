@@ -1,5 +1,8 @@
 #include <array>
 #include <string>
+#include <string_view>
+#include <span>
+#include <cstddef>
 #include "ActionHostAdapter.h"
 #include "Check.h"
 
@@ -31,13 +34,16 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  constexpr double kPriorValue = 99;
+  constexpr double kNativeNumber = 7.5;
   Receiver receiver;
   ActionHostAdapter adapter(&receiver);
   const auto record = adapter.Global("record");
-  Script::Value result = Script::Value::OfNumber(99);
-  const std::array valid{Script::Value::OfNumber(7.5), Script::Value::OfText("copied text")};
+  Script::Value result = Script::Value::OfNumber(kPriorValue);
+  const std::array valid{Script::Value::OfNumber(kNativeNumber),
+                         Script::Value::OfText("copied text")};
   CHECK(adapter.Call(record, valid, result), "number and text reach the receiver");
-  CHECK(receiver.Count == 2 && receiver.Number == 7.5 && receiver.Text == "copied text",
+  CHECK(receiver.Count == 2 && receiver.Number == kNativeNumber && receiver.Text == "copied text",
         "argument payload and order survive the callback boundary");
   CHECK(result.What == Script::Kind::Nothing, "action does not invent a script return value");
   for (const auto &bad : {Script::Value{}, Script::Value::OfRef(1)}) {
@@ -72,7 +78,9 @@ int main() {
   std::string error;
   receiver.Accept = true;
   ActionHostAdapter scripted(&receiver);
-  CHECK(script.Read("record(12, 'script text');", error) && script.Run(scripted, error),
+  CHECK(script.Read("const twice = x => x*2; record(twice('6'), ['script','text'].join(' '));",
+                    error) &&
+            script.Run(scripted, error),
         "script execution uses the same typed callback boundary");
   CHECK(receiver.Number == 12 && receiver.Text == "script text", "script arguments are preserved");
   return Report();
