@@ -36,11 +36,7 @@ int main() {
     localSource.Revision = "original-r1";
     scene.Providers.push_back(std::move(localSource));
     auto local = App::CreateEngine();
-    CHECK(local.setRoots({.Assets = {},
-                          .Shipped = ".",
-                          .Cache = directory,
-                          .Offline = true,
-                          .AssetCache = {}}) &&
+    CHECK(local.setRoots({.Shipped = ".", .Cache = directory, .Offline = true, .AssetCache = {}}) &&
               local.setRenderTarget({64, 64}) && local.declare(scene) && local.assemble(),
           "groundless scene queues original source and graph");
     CHECK(!local.settled() && !local.settled(WorldQuality::Refined),
@@ -67,8 +63,7 @@ int main() {
     scene.Providers.front().Endpoint = "https://api.openstreetmap.org/api/0.6";
     auto missing = App::CreateEngine();
     CHECK(
-        missing.setRoots(
-            {.Assets = {}, .Shipped = {}, .Cache = directory, .Offline = true, .AssetCache = {}}) &&
+        missing.setRoots({.Shipped = {}, .Cache = directory, .Offline = true, .AssetCache = {}}) &&
             missing.setRenderTarget({64, 64}) && missing.declare(scene) && missing.assemble(),
         "offline remote declaration assembles without fetching or a fallback");
     const auto absent = missing.preload(kMissingPreloadS);
@@ -81,8 +76,7 @@ int main() {
     scene.Providers.front().Location = "missing-original-preload.osm";
     auto invalid = App::CreateEngine();
     CHECK(
-        invalid.setRoots(
-            {.Assets = {}, .Shipped = directory, .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+        invalid.setRoots({.Shipped = directory, .Cache = {}, .Offline = true, .AssetCache = {}}) &&
             invalid.setRenderTarget({64, 64}) && invalid.declare(scene) && invalid.assemble(),
         "missing local source remains an asynchronous request");
     CHECK(!invalid.preload(kMissingPreloadS) && !invalid.settled() && !invalid.beginCapture(),

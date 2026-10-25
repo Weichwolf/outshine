@@ -32,8 +32,7 @@ int main() {
     localSource.Revision = "original-r1";
     document.Providers.push_back(std::move(localSource));
     document.Routes.push_back({.Id = "grand-prix", .OsmRelationId = Circuit::RelationId});
-    CHECK(engine.setRoots(
-              {.Assets = {}, .Shipped = ".", .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+    CHECK(engine.setRoots({.Shipped = ".", .Cache = {}, .Offline = true, .AssetCache = {}}) &&
               engine.setRenderTarget({64, 64}) && engine.declare(document) && engine.assemble(),
           "groundless public declaration queues the pinned semantic source");
     CHECK(engine.unsettledReasons(WorldQuality::Playable)
@@ -64,8 +63,7 @@ int main() {
     Scenario::Document simulationOnly = document;
     simulationOnly.Views.clear();
     auto headless = App::CreateEngine();
-    CHECK(headless.setRoots(
-              {.Assets = {}, .Shipped = ".", .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+    CHECK(headless.setRoots({.Shipped = ".", .Cache = {}, .Offline = true, .AssetCache = {}}) &&
               headless.declare(simulationOnly) && headless.assemble(),
           "renderer-free simulation queues the same semantic source");
     double headlessBytes = -1.0;

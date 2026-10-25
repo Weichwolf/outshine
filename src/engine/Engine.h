@@ -104,7 +104,6 @@ struct Loading {
 };
 
 struct Roots {
-  std::string Assets;
   std::string Shipped;
   std::string Cache;
   bool Offline = false;

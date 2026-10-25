@@ -9,6 +9,8 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  constexpr double sightM = 1000;
+  constexpr double latitudeDeg = 49;
   std::string temporary =
       (std::filesystem::temp_directory_path() / "outshine-shipped-XXXXXX").string();
   const bool created = mkdtemp(temporary.data()) != nullptr;
@@ -23,23 +25,25 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for public assembly path");
   {
     Engine engine;
-    (void)engine.setRoots(
-        {.Assets = "src/assets/drive", .Shipped = temporary, .Cache = (root / "cache").string()});
+    CHECK(engine.setRoots({.Shipped = temporary,
+                           .Cache = (root / "cache").string(),
+                           .Offline = false,
+                           .AssetCache = {}}),
+          "isolated content roots are accepted");
     CHECK(engine.setRenderTarget({32, 32}).has_value(), "offscreen target opens");
-    Scenario::Document empty;
+    const Scenario::Document empty;
     CHECK(engine.declare(empty) && engine.assemble(), "initial empty simulation assembles");
     const auto *previous = &engine.entities();
     Scenario::Document world;
     world.Ground.Declared = true;
-    world.Ground.SightM = 1000;
+    world.Ground.SightM = sightM;
     world.Ground.VegetationEnabled = true;
-    world.Ground.Origin.LatitudeDeg = 49;
+    world.Ground.Origin.LatitudeDeg = latitudeDeg;
     world.Ground.Origin.LongitudeDeg = 10;
     CHECK(engine.declare(world).has_value(),
           "world declaration accepted before resource preparation");
     const auto assembled = engine.assemble();
-    CHECK(!assembled &&
-              assembled.error().find((root / "world/species").string()) != std::string::npos,
+    CHECK(!assembled && assembled.error().contains((root / "world/species").string()),
           assembled ? "assembly unexpectedly succeeded" : assembled.error().c_str());
     CHECK(&engine.entities() == previous,
           "failed world preparation preserves prior simulation ownership");
