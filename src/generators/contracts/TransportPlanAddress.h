@@ -8,7 +8,7 @@
 #include <string>
 
 namespace outshine::Generators {
-inline constexpr uint32_t kTransportPlanRecipeVersion = 2;
+inline constexpr uint32_t kTransportPlanRecipeVersion = 3;
 
 struct TransportInputScopeId {
   explicit TransportInputScopeId(std::array<uint8_t, 32> bytes) noexcept : Bytes(bytes) {}

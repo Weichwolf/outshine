@@ -12,7 +12,7 @@
 
 namespace outshine::Generators {
 namespace {
-constexpr uint64_t kFormat = 0x0002314e4c5054ULL;
+constexpr uint64_t kFormat = 0x0003314e4c5054ULL;
 
 bool DefinitionFields(BinaryValueWriter &out, const TransportPlanDefinition &definition) {
   return out(static_cast<uint32_t>(definition.Core.Level),

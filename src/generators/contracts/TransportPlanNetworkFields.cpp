@@ -93,7 +93,8 @@ bool Network(BinaryValueWriter &out,
          List(out,
               network->Coverage(),
               [&](const auto &bounds) { return CoverageFields(out, bounds); }) &&
-         List(out, network->Routes(), [&](const auto &route) { return RouteFields(out, route); });
+         List(out, network->Routes(), [&](const auto &route) { return RouteFields(out, route); }) &&
+         Provenance(out, network->Provenance());
 }
 
 bool Network(Reader &in, std::shared_ptr<const World::TransportNetworkSnapshot> &network) {
@@ -107,10 +108,12 @@ bool Network(Reader &in, std::shared_ptr<const World::TransportNetworkSnapshot> 
   World::PreparedTransportTopology data;
   std::vector<GeographicBounds> coverage;
   std::vector<World::NamedCircuitRoute> routes;
+  World::TransportProvenance provenance;
   if (!TopologyFields(in, data) ||
       !in.List(
           coverage, 4 * sizeof(double), [&](auto &bounds) { return CoverageFields(in, bounds); }) ||
-      !in.List(routes, 4 * sizeof(uint64_t), [&](auto &route) { return RouteFields(in, route); })) {
+      !in.List(routes, 4 * sizeof(uint64_t), [&](auto &route) { return RouteFields(in, route); }) ||
+      !Provenance(in, provenance)) {
     return false;
   }
   auto graph = World::TransportTopology::RestorePrepared(std::move(data));
@@ -122,7 +125,8 @@ bool Network(Reader &in, std::shared_ptr<const World::TransportNetworkSnapshot> 
   auto restored = std::make_shared<const World::TransportNetworkSnapshot>(
       World::ResolvedTransport{.Graph = std::move(*graph), .Routes = std::move(routes)},
       std::move(coverage),
-      World::TransportLoadMetrics{});
+      World::TransportLoadMetrics{},
+      std::move(provenance));
   network = std::move(restored);
   return true;
 }

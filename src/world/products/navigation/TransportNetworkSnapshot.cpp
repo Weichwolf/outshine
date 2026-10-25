@@ -37,6 +37,9 @@ ValidateTransportNetwork(const TransportNetworkSnapshot &network) {
   if (!ValidateTransportTopology(network.Topology())) {
     return std::unexpected(TransportNetworkError::InvalidTopology);
   }
+  if (!ValidateTransportProvenance(network.Topology(), network.Provenance())) {
+    return std::unexpected(TransportNetworkError::InvalidProvenance);
+  }
   if (!std::ranges::all_of(network.Coverage(), ValidCoverage)) {
     return std::unexpected(TransportNetworkError::InvalidCoverage);
   }
@@ -56,6 +59,14 @@ size_t TransportNetworkSnapshot::CapacityBytes() const noexcept {
   add(Transport_.Graph.CapacityBytes() - sizeof(TransportTopology));
   add(Coverage_.capacity() * sizeof(GeographicBounds));
   add(Transport_.Routes.capacity() * sizeof(NamedCircuitRoute));
+  add(Provenance_.Sources.capacity() * sizeof(TransportSource));
+  add(Provenance_.Paths.capacity() * sizeof(TransportPathSource));
+  add(Provenance_.References.capacity() * sizeof(TransportSourceReference));
+  for (const auto &source : Provenance_.Sources) {
+    add(source.Identity.DatasetId.capacity() + 1);
+    add(source.Identity.Revision.capacity() + 1);
+    add(source.Item.capacity() + 1);
+  }
   for (const auto &route : Transport_.Routes) {
     add(route.Id.capacity() + 1);
     add(route.Circuit.SourceIdentity.DatasetId.capacity() + 1);

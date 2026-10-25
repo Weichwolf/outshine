@@ -3,6 +3,7 @@
 
 #include "BinaryValueArchive.h"
 #include "TransportPlanCodec.h"
+#include "TransportProvenance.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -77,6 +78,8 @@ bool List(BinaryValueWriter &out, std::span<const T> items, Write write) {
 bool Network(BinaryValueWriter &out,
              const std::shared_ptr<const World::TransportNetworkSnapshot> &network);
 bool Network(Reader &in, std::shared_ptr<const World::TransportNetworkSnapshot> &network);
+bool Provenance(BinaryValueWriter &out, const World::TransportProvenance &provenance);
+bool Provenance(Reader &in, World::TransportProvenance &provenance);
 bool Input(BinaryValueWriter &out, const TransportInputReference &input);
 bool Input(Reader &in, TransportInputReference &input);
 bool Path(BinaryValueWriter &out, const TransportPath &path);
