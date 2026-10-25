@@ -1,4 +1,5 @@
 #include "BuildingFootprintMeasurements.h"
+#include "BuildingPhysicalProduct.h"
 
 #include "BuildingField.h"
 #include "DiagnosticLedger.h"
@@ -17,7 +18,7 @@
 namespace outshine::Core {
 namespace {
 using Field = ::outshine::Generators::Osm::BuildingField;
-using Samples = std::vector<double> Field::PhysicalProduct::*;
+using Samples = std::vector<double> Ground::BuildingPhysicalProduct::*;
 constexpr uint64_t kSignBit = uint64_t{1} << 63u;
 constexpr double kGroundCellM = 25.0;
 static_assert(std::numeric_limits<double>::is_iec559);
@@ -84,8 +85,8 @@ double Quantile(const Field &field, Samples samples, const Summary &summary, dou
 void ReportBuildingFootprintMeasurements(DiagnosticLedger &report,
                                          const Field &field,
                                          bool quantiles) {
-  constexpr Samples kFill = &Field::PhysicalProduct::SeatSpreadM;
-  constexpr Samples kAcross = &Field::PhysicalProduct::AcrossM;
+  constexpr Samples kFill = &Ground::BuildingPhysicalProduct::SeatSpreadM;
+  constexpr Samples kAcross = &Ground::BuildingPhysicalProduct::AcrossM;
   const Summary fill = Describe(field, kFill, kStampWorthM);
   if (fill.Count != 0) {
     report.RecordMetric("buildings: a stamp would fill, worst", fill.Maximum, "m");

@@ -1,4 +1,5 @@
 #include "BuildingField.h"
+#include "BuildingPhysicalProduct.h"
 #include "BuildingStampJob.h"
 #include "Check.h"
 
@@ -15,7 +16,7 @@ constexpr auto kStepBudget = 100;
 using Field = outshine::Generators::Osm::BuildingField;
 
 struct Owners {
-  std::weak_ptr<const Field::PhysicalProduct> Physical;
+  std::weak_ptr<const ::outshine::Ground::BuildingPhysicalProduct> Physical;
   std::weak_ptr<const outshine::Ground::BuildingGeometry> Coordinates;
 };
 
@@ -25,7 +26,7 @@ std::array<Owners, 2> Populate(Field &field) {
   field.AnchorAt({{0, 0, 0}});
   for (uint32_t tile = 0; tile < 2; ++tile) {
     const double longitude = static_cast<double>(tile) * kTileStepDeg;
-    auto coordinates = std::make_shared<outshine::Ground::BuildingGeometry>();
+    const auto coordinates = std::make_shared<outshine::Ground::BuildingGeometry>();
     coordinates->OwnCoordinates({0,
                                  longitude,
                                  0,
