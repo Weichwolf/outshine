@@ -37,7 +37,17 @@ def load(path):
             raise ValueError("bounded original native view required")
         original = archive.extractfile(member).read()
     receipt = check(document, original)
-    result = document["results"][0]
+    source = source_arrays(document["results"][0])
+    receipt.update(
+        opaque_assumption=True,
+        material_scope=context["material_scope"],
+        part_scope=context["part_scope"],
+    )
+    return source, document, context, receipt
+
+
+def source_arrays(result):
+    """Decode validated native geometry; callers own input/provenance checks."""
     data = result["geometry"]
     arrays = {
         key: []
@@ -91,12 +101,7 @@ def load(path):
         offset += n
     source = {name: np.concatenate(parts) for name, parts in arrays.items()}
     source["vertex_normal"] = unpack(source["normal"])
-    receipt.update(
-        opaque_assumption=True,
-        material_scope=context["material_scope"],
-        part_scope=context["part_scope"],
-    )
-    return source, document, context, receipt
+    return source
 
 
 def views(document, context):
