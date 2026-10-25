@@ -160,8 +160,8 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   Drape drapedOver{.Surface = surface, .Field = {}};
   size_t fieldMisses = 0;
   std::optional<Drape::EastNorth> firstFieldMiss;
-  drapedOver.Field = [&coverage, &build, &fieldMisses, &firstFieldMiss](Drape::EastNorth at) {
-    const std::optional<double> sampled = build.Sheets.FieldUpM(coverage.Zoom, at);
+  drapedOver.Field = [&coverage, &state, &fieldMisses, &firstFieldMiss](Drape::EastNorth at) {
+    const std::optional<double> sampled = state.TerrainInputs().FieldUpM(coverage.Zoom, at);
     fieldMisses += sampled ? 0u : 1u;
     if (!sampled && !firstFieldMiss) { firstFieldMiss = at; }
     return sampled;

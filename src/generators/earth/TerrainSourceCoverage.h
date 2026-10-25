@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_STREAMING_TERRAINSOURCECOVERAGE_H
-#define OUTSHINE_ENGINE_STREAMING_TERRAINSOURCECOVERAGE_H
+#ifndef OUTSHINE_GENERATORS_EARTH_TERRAINSOURCECOVERAGE_H
+#define OUTSHINE_GENERATORS_EARTH_TERRAINSOURCECOVERAGE_H
 
 #include <cstddef>
 #include <expected>
@@ -13,7 +13,7 @@ namespace outshine::Generators::Osm {
 class OsmField;
 }
 
-namespace outshine {
+namespace outshine::Generators {
 
 struct TerrainSourceCoverage {
   static constexpr size_t MaximumFields = 8192;

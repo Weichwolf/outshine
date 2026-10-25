@@ -302,19 +302,11 @@ void Engine::State::HandsPiecesOver() {
 }
 
 StructureBuildQueue::HeightSource Engine::State::StructureHeightSource() {
-  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   return StructureBuildQueue::HeightSource{
-      .Sample =
-          [this, finestZoom](LongitudeLatitude at) {
-            return World.GroundPublished.Current() ? World.Sheets.AslMAt(finestZoom, at)
-                                                   : World.Stack.Ground().Resident(at).AslM();
-          },
+      .Sample = [this](LongitudeLatitude at) { return World.Stack.Ground().Resident(at).AslM(); },
       .PinField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            return PinTerrainField(World.GroundPublished.Current() ? &World.Sheets : nullptr,
-                                   World.Stack.Ground(),
-                                   tile,
-                                   into);
+            return PinTerrainField(nullptr, World.Stack.Ground(), tile, into);
           },
       .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()}};
 }

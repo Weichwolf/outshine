@@ -868,6 +868,7 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
   WorldRegionBuildState &state = *World.GroundBuild;
   GroundBuildProducts &build = state.Candidate().Products();
   build.Sheets.Framed(standing);
+  state.TerrainInputs().Framed(standing);
   Published.RecordMetric(
       "ground refinement: source sheets", static_cast<double>(patchwork.Sheets.size()), "sheets");
   const Render::Viewpoint &eye =
@@ -899,11 +900,11 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
   Published.RecordMetric(
       "ground refinement: road corridors", static_cast<double>(roadCorridors.size()), "edges");
   state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
-      build.Sheets.BeginRefinement(patchwork,
-                                   {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
-                                   detail,
-                                   Render::TerrainRenderer::kMaximumPages,
-                                   roadCorridors)));
+      state.TerrainInputs().BeginRefinement(patchwork,
+                                            {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
+                                            detail,
+                                            Render::TerrainRenderer::kMaximumPages,
+                                            roadCorridors)));
   return GroundBuildProgress::Pending;
 }
 
@@ -993,7 +994,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
         return GroundBuildProgress::Failed;
       }
       if (!*original) { return GroundBuildProgress::Pending; }
-      const auto prepared = build.Sheets.PrepareFields(
+      const auto prepared = state.TerrainInputs().PrepareFields(
           patchwork,
           World.Stack.Ground(),
           {.FinestZoom = coverage.Zoom,
@@ -1051,11 +1052,11 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
     }
     case Core::GroundBuildSchedule::SheetPhase::NeedsHalos: {
       if (state.HaloJob() == nullptr) {
-        state.BeginsHalos(
-            std::make_unique<HeightSheets::HaloBuildJob>(build.Sheets, patchwork, coverage.Zoom));
+        state.BeginsHalos(std::make_unique<Generators::TerrainInputPreparation::HaloBuildJob>(
+            state.TerrainInputs(), patchwork, coverage.Zoom));
       }
       const auto began = std::chrono::steady_clock::now();
-      HeightSheets::HaloBuildJob &job = *state.HaloJob();
+      Generators::TerrainInputPreparation::HaloBuildJob &job = *state.HaloJob();
       const bool ready = job.Advance(kHaloNodesPerFrame);
       state.SamplesHaloSlice(
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -1063,7 +1064,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
       if (!ready) { return GroundBuildProgress::Pending; }
       Published.RecordMetric(
           "ground: sheets the lattice haloed", static_cast<double>(job.Haloed()), "sheets");
-      build.RimsMissing = build.Sheets.RimsMissing();
+      build.RimsMissing = state.TerrainInputs().RimsMissing();
       Published.RecordMetric("ground: rims copied for want of a neighbour",
                              static_cast<double>(build.RimsMissing),
                              "sheets");
@@ -1173,8 +1174,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       return GroundBuildProgress::Failed;
     }
     const int sourceZoom = state.Coverage().Zoom;
-    const auto fields =
-        std::make_shared<const Generators::TerrainFieldSet>(build.Sheets.SnapshotSourceFields());
+    const auto fields = std::make_shared<const Generators::TerrainFieldSet>(
+        state.TerrainInputs().SnapshotSourceFields());
     const auto ways = std::make_shared<const Generators::Osm::StreetField>(sources.Ways);
     StreetGraphPreparation::JobFactory begin =
         [vectors = sources.Vectors, ways, fields, sourceZoom] {
@@ -1263,7 +1264,7 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
   if (!state.RoadAlignmentRequested()) {
     RoadAlignmentBuildRequest request{
         .Source = state.TransportSnapshotOwner(),
-        .Terrain = state.Candidate().Products().Sheets.SnapshotSourceFields(),
+        .Terrain = state.TerrainInputs().SnapshotSourceFields(),
         .RouteIndices = {state.RoadRouteIndices().begin(), state.RoadRouteIndices().end()},
         .RenderFrame = standing,
         .TerrainZoom = state.Coverage().Zoom,
@@ -1317,7 +1318,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() 
                          ? World.StructureBuilds.SourcesComplete(World.Stack, state.Footprints())
                          : StructuresReady(state.Footprints(), state.Revision());
   if (!ready) { return GroundBuildProgress::Pending; }
-  state.Candidate().Products().Sheets.ForgetsFields();
+  state.TerrainInputs().Reset();
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
 }
@@ -1353,11 +1354,11 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
                            : StructureBuildQueue::HeightRequirement::AllowFallback;
   const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   const StructureBuildQueue::HeightSource heightAt{
-      .Sample = [&build,
-                 finestZoom](LongitudeLatitude at) { return build.Sheets.AslMAt(finestZoom, at); },
+      .Sample = [&state, finestZoom](
+                    LongitudeLatitude at) { return state.TerrainInputs().AslMAt(finestZoom, at); },
       .PinField =
-          [this, &build](Data::TileId tile, Ground::HeightField::Block &into) {
-            return PinTerrainField(&build.Sheets, World.Stack.Ground(), tile, into);
+          [this, &state](Data::TileId tile, Ground::HeightField::Block &into) {
+            return PinTerrainField(&state.TerrainInputs(), World.Stack.Ground(), tile, into);
           },
       .Revision = {.Value = World.Stack.Pool().TerrainScopeRevision()}};
   const auto landingAt = std::chrono::steady_clock::now();

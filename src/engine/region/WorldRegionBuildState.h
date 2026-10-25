@@ -12,6 +12,7 @@
 #include "BuildingStampJob.h"
 #include "TerrainDeformationTask.h"
 #include "TerrainRefinement.h"
+#include "TerrainInputPreparation.h"
 #include "TerrainMesh.h"
 #include "WaterGeometryPreparation.h"
 #include "WaterSurfaceBuilder.h"
@@ -37,6 +38,7 @@ public:
 
   struct ProductMemory {
     size_t Candidate = 0;
+    size_t TerrainSources = 0;
     size_t Patchwork = 0;
     size_t SourceCoverage = 0;
     size_t Survey = 0;
@@ -46,8 +48,8 @@ public:
     size_t RoadStamps = 0;
 
     [[nodiscard]] size_t Total() const noexcept {
-      return Candidate + Patchwork + SourceCoverage + Survey + BuildingStamps + Deformation +
-             CorridorStamps + RoadStamps;
+      return Candidate + TerrainSources + Patchwork + SourceCoverage + Survey + BuildingStamps +
+             Deformation + CorridorStamps + RoadStamps;
     }
   };
 
@@ -88,6 +90,14 @@ public:
   [[nodiscard]] uint64_t Id() const noexcept { return Id_; }
 
   [[nodiscard]] GroundWorldCandidate &Candidate() noexcept { return Candidate_; }
+
+  [[nodiscard]] Generators::TerrainInputPreparation &TerrainInputs() noexcept {
+    return TerrainInputs_;
+  }
+
+  [[nodiscard]] const Generators::TerrainInputPreparation &TerrainInputs() const noexcept {
+    return TerrainInputs_;
+  }
 
   [[nodiscard]] const World::TransportNetworkSnapshot *TransportSnapshot() const noexcept {
     return TransportSnapshot_.get();
@@ -252,10 +262,6 @@ public:
 
   [[nodiscard]] const ProductMemory &ProductPeakMemory() const noexcept { return ProductPeak_; }
 
-  [[nodiscard]] size_t ProductPeakTerrainSources() const noexcept {
-    return ProductPeakTerrainSources_;
-  }
-
   [[nodiscard]] size_t RetainedProductBytes() const noexcept {
     return CurrentProductMemory().Total();
   }
@@ -362,9 +368,12 @@ public:
 
   void FinishesRefinement() noexcept { RefinementJob_.reset(); }
 
-  [[nodiscard]] HeightSheets::HaloBuildJob *HaloJob() noexcept { return HaloJob_.get(); }
+  [[nodiscard]] Generators::TerrainInputPreparation::HaloBuildJob *HaloJob() noexcept {
+    return HaloJob_.get();
+  }
 
-  void BeginsHalos(std::unique_ptr<HeightSheets::HaloBuildJob> job) noexcept {
+  void
+  BeginsHalos(std::unique_ptr<Generators::TerrainInputPreparation::HaloBuildJob> job) noexcept {
     HaloJob_ = std::move(job);
   }
 
@@ -463,15 +472,13 @@ private:
 
   void RecordsProductPeak() noexcept {
     const auto current = CurrentProductMemory();
-    if (current.Total() > ProductPeak_.Total()) {
-      ProductPeak_ = current;
-      ProductPeakTerrainSources_ = Candidate_.Products().Sheets.SourceHeapBytes();
-    }
+    if (current.Total() > ProductPeak_.Total()) { ProductPeak_ = current; }
   }
 
   Around Coverage_;
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
+  Generators::TerrainInputPreparation TerrainInputs_;
   std::vector<std::shared_ptr<const Generators::Osm::SourceSnapshot>> OriginalSources_;
   std::vector<std::shared_ptr<const Generators::Osm::StructureCell>> OriginalCells_;
   std::shared_ptr<const World::TransportNetworkSnapshot> TransportSnapshot_;
@@ -497,14 +504,13 @@ private:
   WaterPhase WaterPhase_ = WaterPhase::Awaiting;
   std::unique_ptr<WaterGeometryPreparation> WaterWorker_;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
-  std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
+  std::unique_ptr<Generators::TerrainInputPreparation::HaloBuildJob> HaloJob_;
   std::vector<EarthworkStamp> Corridors_;
   std::vector<EarthworkStamp> RoadEarthworks_;
   ResidencyBuild Residency_;
   GroundSurvey Surveying_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   ProductMemory ProductPeak_;
-  size_t ProductPeakTerrainSources_ = 0;
   size_t StampingCandidateHeapBytes_ = 0;
   size_t CorridorHeapBytes_ = 0;
   size_t RoadEarthworkHeapBytes_ = 0;

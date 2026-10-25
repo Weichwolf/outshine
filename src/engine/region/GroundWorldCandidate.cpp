@@ -57,9 +57,7 @@ GroundWorldCandidate::GroundWorldCandidate(
           world.Stack.WaterBodies(),
           world.Region ? world.Region->VectorSnapshot() : nullptr)),
       SharedVectors_(world.Region ? world.Region->Vectors() : nullptr),
-      PieceSources_(pieces) {
-  Products_.Sheets.ForgetsFields();
-}
+      PieceSources_(pieces) {}
 
 [[nodiscard]] bool GroundWorldCandidate::BeginGroundClasses(
     std::shared_ptr<const Render::PackedTerrainClassification> packed,

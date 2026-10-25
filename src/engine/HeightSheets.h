@@ -2,26 +2,13 @@
 #define OUTSHINE_ENGINE_HEIGHTSHEETS_H
 
 #include <cstddef>
-#include <memory>
-#include <span>
 #include <string>
-#include <vector>
 
 #include "GroundMesher.h"
-#include "HeightField.h"
-#include "TerrainGrid.h"
 #include <optional>
-#include <utility>
-#include "TerrainLoader.h"
 #include <expected>
 #include "TangentFrame.h"
-#include "TerrainRefinement.h"
 #include "TerrainResidency.h"
-#include "TerrainFieldSet.h"
-
-namespace outshine::Generators::Osm {
-class OsmField;
-}
 
 namespace outshine {
 
@@ -31,44 +18,6 @@ class SceneRenderer;
 
 class HeightSheets {
 public:
-  struct FieldPreparation {
-    int FinestZoom;
-    size_t RequestsMost;
-    const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
-    bool BuildingFootprints = true;
-    std::span<const Data::TileId> AdditionalTiles;
-  };
-
-  class HaloBuildJob {
-  public:
-    HaloBuildJob(HeightSheets &sheets, Patchwork &candidate, int finestZoom) noexcept;
-
-    [[nodiscard]] bool Advance(size_t nodesMost);
-
-    [[nodiscard]] size_t Haloed() const noexcept { return Haloed_; }
-
-  private:
-    [[nodiscard]] bool BeginsSheet();
-    [[nodiscard]] bool AdvancesNode();
-    void CompletesSheet();
-
-    HeightSheets *Sheets_ = nullptr;
-    Patchwork *Candidate_ = nullptr;
-    int FinestZoom_ = 0;
-    size_t SheetAt_ = 0;
-    size_t NodeAt_ = 0;
-    size_t Haloed_ = 0;
-    int Zoom_ = 0;
-    double Span_ = 0;
-    double AtX_ = 0;
-    double AtY_ = 0;
-    std::vector<float> Page_;
-    std::vector<bool> Missing_;
-    bool Whole_ = false;
-    bool AnyMissing_ = false;
-    bool Working_ = false;
-  };
-
   HeightSheets() = default;
   HeightSheets(const HeightSheets &other) = default;
   HeightSheets &operator=(const HeightSheets &) = delete;
@@ -94,42 +43,6 @@ public:
 
   [[nodiscard]] double ResidencyFinalizeMs() const noexcept { return Residency_.FinalizeMs(); }
 
-  [[nodiscard]] std::expected<bool, std::string> PrepareFields(const Patchwork &candidate,
-                                                               const Ground::GroundStream &ground,
-                                                               FieldPreparation preparation);
-
-  [[nodiscard]] std::string FieldDiagnostic() const;
-
-  [[nodiscard]] bool RefineByError(Patchwork &candidate,
-                                   Generators::TerrainPageLayout layout,
-                                   Generators::TerrainRefinementDetail detail,
-                                   size_t maximumPatches,
-                                   std::string &error) const;
-  [[nodiscard]] Generators::TerrainRefinementJob
-  BeginRefinement(const Patchwork &candidate,
-                  Generators::TerrainPageLayout layout,
-                  Generators::TerrainRefinementDetail detail,
-                  size_t maximumPatches,
-                  std::span<const Generators::TerrainRefinementCorridor> corridors = {}) const;
-  [[nodiscard]] size_t Halos(Patchwork &laid, int finestZoom);
-
-  [[nodiscard]] std::optional<double> FieldUpM(int zoom, EastNorth at) const;
-
-  [[nodiscard]] std::optional<double> AslMAt(int zoom, LongitudeLatitude at) const;
-
-  [[nodiscard]] const Ground::TerrainField *FieldAt(Data::TileId tile) const;
-  [[nodiscard]] bool ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
-  [[nodiscard]] Generators::TerrainFieldSet SnapshotSourceFields() const;
-
-  void ForgetsFields() {
-    Fields_.clear();
-    Metadata_.reset();
-    Requests_.clear();
-    NextRequest_ = 0;
-    ResolvedRequests_ = 0;
-    RequestsPrepared_ = false;
-  }
-
   void Clear();
 
   [[nodiscard]] size_t Standing() const { return Residency_.Standing(); }
@@ -152,11 +65,8 @@ public:
 
   [[nodiscard]] uint64_t Digest() const;
 
-  [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }
-
   [[nodiscard]] size_t
   HeapBytes(TerrainHeapScope scope = TerrainHeapScope::Retained) const noexcept;
-  [[nodiscard]] size_t SourceHeapBytes() const noexcept;
 
   [[nodiscard]] bool Occludes(const Ray &ray, float nearM, float distanceM) const noexcept {
     return Framed_ && Residency_.Occludes(ray, nearM, distanceM, Frame_);
@@ -182,20 +92,6 @@ public:
 
 private:
   [[nodiscard]] bool StitchEdges(Patchwork &laid, std::string &error);
-  [[nodiscard]] std::optional<float> AslAt(int zoom, Ground::TileFrac at) const;
-
-  struct FieldRequest {
-    Data::TileId Tile;
-    bool Resolved = false;
-  };
-
-  Ground::TerrainRevisionIndex::Reservation Metadata_;
-  std::vector<std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>> Fields_;
-  std::vector<FieldRequest> Requests_;
-  size_t NextRequest_ = 0;
-  size_t ResolvedRequests_ = 0;
-  bool RequestsPrepared_ = false;
-  size_t RimsMissing_ = 0;
   Seam Seams_;
   TerrainResidency Residency_;
   TangentFrame Frame_ = TangentFrame::At({});

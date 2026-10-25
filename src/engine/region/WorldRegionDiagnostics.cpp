@@ -62,8 +62,7 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   diagnostic +=
       ", footprints ingested=" +
       std::to_string(static_cast<int>(vectors != nullptr && footprints.Ingested(*vectors)));
-  diagnostic +=
-      ", terrain fields=" + World.GroundBuild->Candidate().Products().Sheets.FieldDiagnostic();
+  diagnostic += ", terrain fields=" + World.GroundBuild->TerrainInputs().FieldDiagnostic();
   const auto *pinned = World.GroundBuild->Candidate().Sources().Vectors.get();
   diagnostic +=
       ", vector generations=" + std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +
@@ -95,6 +94,7 @@ void Engine::State::PublishGroundCandidateMeasurements(const GroundWorldCandidat
                          "bytes");
   const auto &peak = state.ProductPeakMemory();
   constexpr std::array names{"ground candidate: peak candidate",
+                             "ground candidate: peak terrain sources",
                              "ground candidate: peak patchwork",
                              "ground candidate: peak source coverage",
                              "ground candidate: peak survey",
@@ -103,6 +103,7 @@ void Engine::State::PublishGroundCandidateMeasurements(const GroundWorldCandidat
                              "ground candidate: peak corridor stamps",
                              "ground candidate: peak road stamps"};
   const std::array bytes{peak.Candidate,
+                         peak.TerrainSources,
                          peak.Patchwork,
                          peak.SourceCoverage,
                          peak.Survey,
@@ -113,9 +114,6 @@ void Engine::State::PublishGroundCandidateMeasurements(const GroundWorldCandidat
   for (size_t at = 0; at < names.size(); ++at) {
     Published.RecordMetric(names[at], static_cast<double>(bytes[at]), "bytes");
   }
-  Published.RecordMetric("ground candidate: peak candidate terrain sources",
-                         static_cast<double>(state.ProductPeakTerrainSources()),
-                         "bytes");
   Published.RecordMetric("ground candidate: CPU products retained for retirement",
                          static_cast<double>(state.RetainedProductBytes()),
                          "bytes");
