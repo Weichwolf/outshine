@@ -10,7 +10,8 @@ namespace outshine {
 AssetPipeline::AssetPipeline(Tasks &pool, Limits limits)
     : State_(std::make_shared<State>(pool, limits)) {}
 
-std::expected<AssetPipeline::Consumer, AssetPublicationError> AssetPipeline::OpenConsumer() {
+std::expected<AssetPipeline::Consumer, AssetPublicationError>
+AssetPipeline::OpenConsumer(AssetStoreScope scope) {
   const std::scoped_lock lock(State_->Lock);
   if (State_->Held.Consumers >= State_->Budget.ConsumersMost) {
     return std::unexpected(AssetPublicationError::ResourceDeferred);
@@ -19,7 +20,9 @@ std::expected<AssetPipeline::Consumer, AssetPublicationError> AssetPipeline::Ope
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
   const AssetConsumerId id{State_->NextConsumer++};
-  State_->Consumers.emplace(id, State::Owner{});
+  State::Owner owner;
+  owner.Scope = std::move(scope);
+  State_->Consumers.emplace(id, std::move(owner));
   ++State_->Held.Consumers;
   return Consumer(State_, id);
 }
@@ -45,7 +48,8 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
     if (State_->NextTicket == std::numeric_limits<uint64_t>::max()) {
       return std::unexpected(AssetPublicationError::InvalidRequest);
     }
-    auto found = State_->Jobs.find(request.Key);
+    const State::ScopedKey address{.Scope = owner->second.Scope, .Product = request.Key};
+    auto found = State_->Jobs.find(address);
     std::shared_ptr<State::Job> job;
     if (found != State_->Jobs.end()) {
       job = found->second;
@@ -61,11 +65,12 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
       }
       job = std::make_shared<State::Job>();
       job->Key = request.Key;
+      job->Scope = address.Scope;
       job->InputBytes = request.InputBytes;
       job->Output = std::make_shared<State::Reservation>();
       job->Output->Owner = State_;
       job->Output->Bytes = request.ReceiptBytesMost;
-      State_->Jobs.emplace(request.Key, job);
+      State_->Jobs.emplace(address, job);
       ++State_->Held.Jobs;
       ++State_->Held.Running;
       State_->Held.InputBytes += request.InputBytes;

@@ -32,7 +32,7 @@ AssetRecord Record(char key) {
 }
 
 AssetPipeline::ResolvedRequest Request(const AssetPipeline::Consumer &consumer, char key) {
-  return {.Key = *AssetProductKey::Parse(std::string(64, key)),
+  return {.Key = AssetProductKey::Parse(std::string(64, key)).value_or(AssetProductKey{}),
           .Generation = consumer.Generation(),
           .InputBytes = kInput,
           .ConsumerBytes = kDemand,
@@ -57,8 +57,8 @@ struct Control {
 AssetPipeline::Producer Held(const std::shared_ptr<Control> &control,
                              std::weak_ptr<AssetPipeline> pipeline,
                              std::shared_ptr<int> input) {
-  return [control, pipeline, input = std::move(input)](
-             std::stop_token stop) -> std::expected<AssetRecord, std::string> {
+  return [control, pipeline = std::move(pipeline), input = std::move(input)](
+             const std::stop_token &stop) -> std::expected<AssetRecord, std::string> {
     const std::stop_callback callback(stop, [control, pipeline] {
       if (const auto live = pipeline.lock()) { (void)live->Counts(); }
       ++control->Stops;
@@ -111,12 +111,15 @@ void CheckDraining() {
     control->Release.release();
     return;
   }
-  auto second =
-      pipeline->RequestResolved(*b, Request(*b, 'a'), [](std::stop_token) { return Record('a'); });
+  auto second = pipeline->RequestResolved(
+      *b, Request(*b, 'a'), [](const std::stop_token &) { return Record('a'); });
   CHECK(second && pipeline->Counts().Jobs == 1 &&
             pipeline->Counts().InputBytes == kInput + 2 * kDemand,
         "independent tickets share one job and retain separately admitted consumer bytes");
   first->Cancel();
+  CHECK(first->Poll().Status == AssetPublicationStatus::Cancelled && !first->Poll().Finished,
+        "logical cancellation completes without waiting for another consumer or releasing its live "
+        "job");
   CHECK(control->Stops.load() == 0,
         "canceling A leaves the still demanded native producer running");
   if (second) { second->Cancel(); }
@@ -127,10 +130,10 @@ void CheckDraining() {
   CHECK(pipeline->Counts().Jobs == 1 && pipeline->Counts().InputBytes == kInput &&
             pipeline->Counts().ReceiptBytes == kReceipt,
         "dropping canceled tickets releases no running job, captured input or output reservation");
-  const auto repeat =
-      pipeline->RequestResolved(*a, Request(*a, 'a'), [](std::stop_token) { return Record('a'); });
-  const auto other =
-      pipeline->RequestResolved(*b, Request(*b, 'b'), [](std::stop_token) { return Record('b'); });
+  const auto repeat = pipeline->RequestResolved(
+      *a, Request(*a, 'a'), [](const std::stop_token &) { return Record('a'); });
+  const auto other = pipeline->RequestResolved(
+      *b, Request(*b, 'b'), [](const std::stop_token &) { return Record('b'); });
   CHECK(!repeat && repeat.error() == AssetPublicationError::ResourceDeferred && !other,
         "later demand neither revives stopped work nor reuses its still occupied slot");
   control->Release.release();
@@ -146,7 +149,7 @@ void CheckLeases() {
   CHECK(consumer.has_value(), "a scoped consumer opens");
   if (!consumer) { return; }
   auto ticket = pipeline->RequestResolved(
-      *consumer, Request(*consumer, 'a'), [](std::stop_token) { return Record('a'); });
+      *consumer, Request(*consumer, 'a'), [](const std::stop_token &) { return Record('a'); });
   CHECK(ticket.has_value(), "a publication is admitted");
   if (!ticket) { return; }
   auto result = Wait(*ticket);
@@ -158,12 +161,12 @@ void CheckLeases() {
             pipeline->Counts().ReceiptBytes == kReceipt,
         "a receipt lease retains its reservation after the ticket and job index are gone");
   const auto blocked = pipeline->RequestResolved(
-      *consumer, Request(*consumer, 'b'), [](std::stop_token) { return Record('b'); });
+      *consumer, Request(*consumer, 'b'), [](const std::stop_token &) { return Record('b'); });
   CHECK(!blocked && blocked.error() == AssetPublicationError::ResourceDeferred,
         "held terminal outputs participate in admission");
   result.Receipt.reset();
   auto mismatch = pipeline->RequestResolved(
-      *consumer, Request(*consumer, 'b'), [](std::stop_token) { return Record('c'); });
+      *consumer, Request(*consumer, 'b'), [](const std::stop_token &) { return Record('c'); });
   CHECK(mismatch.has_value(), "last-lease release restores output capacity");
   if (!mismatch) { return; }
   const auto failed = Wait(*mismatch);
@@ -195,17 +198,17 @@ void CheckGenerations() {
     control->Release.release();
     return;
   }
-  auto survivor =
-      pipeline->RequestResolved(*b, Request(*b, 'a'), [](std::stop_token) { return Record('a'); });
+  auto survivor = pipeline->RequestResolved(
+      *b, Request(*b, 'a'), [](const std::stop_token &) { return Record('a'); });
   CHECK(survivor && a->Advance({.Value = 2}) && !a->Advance({.Value = 2}) &&
             control->Stops.load() == 0,
         "a new generation invalidates only A and preserves B's live shared demand");
-  auto stale =
-      pipeline->RequestResolved(*a, oldRequest, [](std::stop_token) { return Record('a'); });
+  auto stale = pipeline->RequestResolved(
+      *a, oldRequest, [](const std::stop_token &) { return Record('a'); });
   CHECK(!stale && stale.error() == AssetPublicationError::StaleGeneration,
         "old generation requests cannot become current again");
-  auto current =
-      pipeline->RequestResolved(*a, Request(*a, 'a'), [](std::stop_token) { return Record('a'); });
+  auto current = pipeline->RequestResolved(
+      *a, Request(*a, 'a'), [](const std::stop_token &) { return Record('a'); });
   CHECK(current.has_value(), "a current consumer can join a producer still valid for B");
   control->Release.release();
   CHECK(Wait(*old).Status == AssetPublicationStatus::Cancelled,

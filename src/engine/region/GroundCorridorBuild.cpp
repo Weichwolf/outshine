@@ -19,16 +19,15 @@ namespace {
 std::shared_ptr<AssetPipeline> RoadPublications(WorldRegionState &world) {
   const auto pages = world.Stack.RoadAssets();
   if (!pages || !world.Pool) { return {}; }
-  if (!world.Publications || world.PublicationStore.lock() != pages) {
+  if (!world.Publications) {
     constexpr size_t kMebibyte = size_t{1024} * 1024;
-    world.Publications =
-        std::make_shared<AssetPipeline>(*world.Pool,
-                                        AssetPipeline::Limits{.JobsMost = 4,
-                                                              .ConsumersMost = 32,
-                                                              .TicketsMost = 32,
-                                                              .InputBytesMost = 128 * kMebibyte,
-                                                              .ReceiptBytesMost = 32 * 4096});
-    world.PublicationStore = pages;
+    world.Publications = std::make_shared<AssetPipeline>(
+        *world.Pool,
+        AssetPipeline::Limits{.JobsMost = 4,
+                              .ConsumersMost = 32,
+                              .TicketsMost = 32,
+                              .InputBytesMost = 128 * kMebibyte,
+                              .ReceiptBytesMost = size_t{32} * 4096});
   }
   return world.Publications;
 }

@@ -37,7 +37,7 @@ void AssetPipeline::State::CancelTicket(uint64_t ticket) noexcept {
 
 void AssetPipeline::State::Remove(const std::shared_ptr<Job> &job) {
   if (job->Finished && job->References == 0) {
-    Jobs.erase(job->Key);
+    Jobs.erase(ScopedKey{.Scope = job->Scope, .Product = job->Key});
     --Held.Jobs;
   }
 }
@@ -45,6 +45,7 @@ void AssetPipeline::State::Remove(const std::shared_ptr<Job> &job) {
 void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
   std::optional<std::stop_source> stop;
   std::optional<Demand> released;
+  std::optional<Owner> retired;
   {
     const std::scoped_lock lock(Lock);
     const auto at = Tickets.find(ticket);
@@ -56,6 +57,7 @@ void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
     Held.InputBytes -= released->Bytes;
     const auto owner = Consumers.find(released->Consumer);
     if (--owner->second.Tickets == 0 && !owner->second.Alive) {
+      retired.emplace(std::move(owner->second));
       Consumers.erase(owner);
       --Held.Consumers;
     }
@@ -89,6 +91,7 @@ bool AssetPipeline::State::Advance(AssetConsumerId consumer,
 
 void AssetPipeline::State::Retire(AssetConsumerId consumer) noexcept {
   std::vector<std::stop_source> stops;
+  std::optional<Owner> retired;
   {
     const std::scoped_lock lock(Lock);
     const auto owner = Consumers.find(consumer);
@@ -101,6 +104,7 @@ void AssetPipeline::State::Retire(AssetConsumerId consumer) noexcept {
       }
     }
     if (owner->second.Tickets == 0) {
+      retired.emplace(std::move(owner->second));
       Consumers.erase(owner);
       --Held.Consumers;
     }

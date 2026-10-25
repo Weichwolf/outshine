@@ -1,6 +1,5 @@
 #include "RoadPublicationFixture.h"
 #include "ControlledRoadPageProducer.h"
-#include "PreparedRoadPageFixture.h"
 #include "Check.h"
 #include <sqlite3.h>
 #include <atomic>
@@ -29,12 +28,13 @@ constexpr size_t kLimit = size_t{1024} * 1024;
 constexpr auto kDeadline = std::chrono::seconds(5);
 constexpr auto kPoll = std::chrono::milliseconds(1);
 constexpr uint32_t kPart = 7;
+constexpr double kLatitude = 49;
 
 RoadPageRequest Request(char plan, std::string alias) {
   return {.Address = {.PlanKey = std::string(64, plan),
                       .MaterialKey = std::string(64, 'b'),
                       .MaterialIndex = 0,
-                      .Anchor = {.LongitudeDeg = 8, .LatitudeDeg = 49},
+                      .Anchor = {.LongitudeDeg = 8, .LatitudeDeg = kLatitude},
                       .Level = 0,
                       .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = kPart}}},
           .Parent = {},
@@ -114,7 +114,7 @@ void CheckRebind(const std::shared_ptr<PreparedRoadPages> &pages) {
   std::vector<RoadPageQueue::Completed> done;
   const auto until = std::chrono::steady_clock::now() + kDeadline;
   size_t canceled = 0;
-  while (std::chrono::steady_clock::now() < until && !Receipt(done)) {
+  while (std::chrono::steady_clock::now() < until && Receipt(done) == nullptr) {
     auto batch = queue.Collect();
     for (auto &entry : batch) {
       if (!entry.Result) {
@@ -143,7 +143,7 @@ void CheckAliasFailure(const std::filesystem::path &root,
   const int opened = sqlite3_open((root / "assets.sqlite").c_str(), &database);
   CHECK(opened == SQLITE_OK, "the fixture opens an independent native metadata connection");
   if (opened != SQLITE_OK) {
-    if (database) { sqlite3_close(database); }
+    if (database != nullptr) { sqlite3_close(database); }
     return;
   }
   const int trigger = sqlite3_exec(database,

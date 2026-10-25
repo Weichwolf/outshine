@@ -11,12 +11,13 @@
 namespace outshine::Test {
 inline std::shared_ptr<AssetPipeline> RoadPublications(Tasks &pool) {
   constexpr size_t kMebibyte = size_t{1024} * 1024;
-  return std::make_shared<AssetPipeline>(pool,
-                                         AssetPipeline::Limits{.JobsMost = 4,
-                                                               .ConsumersMost = 16,
-                                                               .TicketsMost = 16,
-                                                               .InputBytesMost = 64 * kMebibyte,
-                                                               .ReceiptBytesMost = 16 * 4096});
+  return std::make_shared<AssetPipeline>(
+      pool,
+      AssetPipeline::Limits{.JobsMost = 4,
+                            .ConsumersMost = 16,
+                            .TicketsMost = 16,
+                            .InputBytesMost = 64 * kMebibyte,
+                            .ReceiptBytesMost = size_t{16} * 4096});
 }
 
 inline bool AdmitRoadPage(RoadPageQueue &queue,

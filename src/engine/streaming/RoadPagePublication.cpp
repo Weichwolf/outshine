@@ -31,7 +31,7 @@ std::expected<bool, std::string>
 RoadPageQueue::RequestRecord(Generators::RoadPageRequest request,
                              std::shared_ptr<const Generators::RoadPageProducer> producer) {
   if (!Consumer_ && Publications_) {
-    auto consumer = Publications_->OpenConsumer();
+    auto consumer = Publications_->OpenConsumer({.Identity = Pages_});
     if (!consumer) {
       if (consumer.error() == AssetPublicationError::ResourceDeferred) { return false; }
       return std::unexpected("road page consumer admission failed");
@@ -60,7 +60,7 @@ RoadPageQueue::RequestRecord(Generators::RoadPageRequest request,
   request.RequestKey.clear();
   const auto inputBytes = RequestBytes(request) + (producer ? producer->InputCapacityBytes() : 0);
   auto factory = [pages = Pages_, request = std::move(request), producer = std::move(producer)](
-                     std::stop_token stop) {
+                     const std::stop_token &stop) {
     return pages->Prepare(request, producer.get(), stop);
   };
   auto ticket = Publications_->RequestResolved(
@@ -87,8 +87,13 @@ RoadPageQueue::RequestRecord(Generators::RoadPageRequest request,
 
 void RoadPageQueue::PollPublication(const std::shared_ptr<Work> &work) {
   if (work->BindingQueued) { return; }
+  if (!work->Ticket || !work->Request) {
+    work->Result = std::unexpected("road publication lost its admitted ticket or request");
+    work->Complete.store(true, std::memory_order_release);
+    return;
+  }
   auto publication = work->Ticket->Poll();
-  if (publication.Status == AssetPublicationStatus::Pending) { return; }
+  if (publication.Status == AssetPublicationStatus::Pending || !publication.Finished) { return; }
   if (publication.Status == AssetPublicationStatus::Cancelled || work->Stop.stop_requested()) {
     work->Result = std::unexpected("road page request canceled");
   } else if (publication.Status == AssetPublicationStatus::Failed) {
@@ -99,6 +104,11 @@ void RoadPageQueue::PollPublication(const std::shared_ptr<Work> &work) {
     work->Published = std::move(publication.Receipt);
     work->BindingQueued = true;
     const bool posted = Pool_.PostDetached([work, pages = Pages_] {
+      if (!work->Request) {
+        work->Bound.emplace(std::unexpected("road alias lost its request"));
+        work->Complete.store(true, std::memory_order_release);
+        return;
+      }
       work->Bound.emplace(pages->Prepare(*work->Request, nullptr, work->Stop.get_token()));
       work->Complete.store(true, std::memory_order_release);
     });
@@ -109,6 +119,10 @@ void RoadPageQueue::PollPublication(const std::shared_ptr<Work> &work) {
 }
 
 void RoadPageQueue::CompleteBinding(const std::shared_ptr<Work> &work) {
+  if (!work->Ticket || !work->Bound) {
+    work->Result = std::unexpected("road alias lost its admitted ticket or result");
+    return;
+  }
   const auto publication = work->Ticket->Poll();
   if (publication.Status == AssetPublicationStatus::Cancelled || work->Stop.stop_requested()) {
     work->Result = std::unexpected("road page request canceled");

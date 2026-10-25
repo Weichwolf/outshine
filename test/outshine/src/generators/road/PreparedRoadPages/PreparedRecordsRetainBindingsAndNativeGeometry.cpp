@@ -2,20 +2,15 @@
 #include "PreparedRoadPages.h"
 #include "ControlledRoadPageProducer.h"
 #include "Check.h"
-#include <atomic>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <expected>
 #include <filesystem>
 #include <memory>
-#include <optional>
-#include <semaphore>
 #include <stop_token>
 #include <string>
 #include <system_error>
-#include <thread>
 #include <utility>
 
 namespace {
@@ -88,50 +83,6 @@ void CheckRecords(PreparedRoadPages &pages) {
         "metadata output cannot bypass the admitted complete-page byte ceiling");
 }
 
-void CheckShared(const std::shared_ptr<PreparedRoadPages> &pages) {
-  using namespace outshine::Test;
-
-  struct Work {
-    std::binary_semaphore Started{0}, Release{0}, ReaderStarted{0};
-    std::atomic<size_t> Calls{0};
-    std::optional<std::expected<AssetRecord, std::string>> Record;
-    std::optional<std::expected<RoadPageLease, std::string>> Payload;
-  };
-
-  const auto work = std::make_shared<Work>();
-  auto request = Request();
-  request.Address.PlanKey.assign(64, 'f');
-  const auto producer = RoadProducer([work]([[maybe_unused]] const RoadPageRequest &asked,
-                                            [[maybe_unused]] const std::stop_token &stop) {
-    if (work->Calls.fetch_add(1) == 0) {
-      work->Started.release();
-      work->Release.acquire();
-    }
-    return Triangle();
-  });
-  std::jthread record(
-      [pages, work, producer, request] { work->Record = pages->Prepare(request, producer.get()); });
-  const bool started = work->Started.try_acquire_for(std::chrono::seconds(5));
-  CHECK(started, "record production owns the real shared generation gate");
-  if (!started) {
-    work->Release.release();
-    return;
-  }
-  std::jthread payload([pages, work, producer, request] {
-    work->ReaderStarted.release();
-    work->Payload = outshine::Test::PrepareAndLoadRoadPage(*pages, request, producer.get());
-  });
-  const bool reader = work->ReaderStarted.try_acquire_for(std::chrono::seconds(5));
-  work->Release.release();
-  record.join();
-  payload.join();
-  CHECK(reader && work->Record && *work->Record && work->Payload && *work->Payload &&
-            work->Calls.load() == 1 &&
-            work->Record->value().Key == work->Payload->value().Record.Key &&
-            work->Record->value().Package == work->Payload->value().Record.Package,
-        "record and payload consumers share one committed production and retain their distinct "
-        "results");
-}
 }
 
 int main() {
@@ -144,7 +95,6 @@ int main() {
   if (!opened) { return Report(); }
   auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));
   CheckRecords(*pages);
-  CheckShared(pages);
   pages.reset();
   std::error_code error;
   std::filesystem::remove_all(root, error);

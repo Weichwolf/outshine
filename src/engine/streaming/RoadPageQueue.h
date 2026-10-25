@@ -62,7 +62,7 @@ private:
   [[nodiscard]] Admission RequestState(const std::string &key, Kind kind) const;
   [[nodiscard]] bool Enqueue(const std::string &key, Kind kind, Loader load);
   void PollPublication(const std::shared_ptr<Work> &work);
-  void CompleteBinding(const std::shared_ptr<Work> &work);
+  static void CompleteBinding(const std::shared_ptr<Work> &work);
   Tasks &Pool_;
   std::shared_ptr<Generators::PreparedRoadPages> Pages_;
   Limits Limits_;

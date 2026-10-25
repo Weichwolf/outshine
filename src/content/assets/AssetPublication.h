@@ -17,6 +17,10 @@ struct AssetProductKey {
   [[nodiscard]] auto operator<=>(const AssetProductKey &) const = default;
 };
 
+struct AssetStoreScope {
+  std::weak_ptr<const void> Identity;
+};
+
 struct AssetConsumerId {
   uint64_t Value = 0;
   auto operator<=>(const AssetConsumerId &) const = default;
@@ -32,7 +36,8 @@ enum class AssetPublicationError : uint8_t {
   StaleGeneration,
   InvalidReceipt,
   ProducerFailed,
-  DispatcherStopped
+  DispatcherStopped,
+  Cancelled
 };
 enum class AssetPublicationStatus : uint8_t { Pending, Ready, Failed, Cancelled };
 
@@ -41,6 +46,7 @@ struct AssetPublication {
   std::shared_ptr<const AssetRecord> Receipt;
   AssetPublicationError Error = AssetPublicationError::InvalidRequest;
   std::string Message;
+  bool Finished = false;
 };
 }
 #endif

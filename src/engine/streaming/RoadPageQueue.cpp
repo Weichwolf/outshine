@@ -20,7 +20,7 @@ RoadPageQueue::RoadPageQueue(Tasks &pool,
       Limits_(limits),
       Publications_(std::move(publications)) {
   if (Publications_) {
-    auto consumer = Publications_->OpenConsumer();
+    auto consumer = Publications_->OpenConsumer({.Identity = Pages_});
     if (consumer) { Consumer_.emplace(std::move(*consumer)); }
   }
 }

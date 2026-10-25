@@ -1,6 +1,7 @@
 #include "AssetPipelineState.h"
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <memory>
 #include <mutex>
@@ -54,6 +55,7 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
 void AssetPipeline::State::Finish(const std::shared_ptr<Job> &job,
                                   AssetPublication result) noexcept {
   const std::scoped_lock lock(Lock);
+  result.Finished = true;
   job->Result = std::move(result);
   job->Finished = true;
   --Held.Running;
@@ -67,7 +69,7 @@ void AssetPipeline::State::Execution::Run() {
   if (Work->Stop.stop_requested()) {
     result = Failed(AssetPublicationError::ProducerFailed, "asset publication canceled");
   } else {
-    result = Owner->Receipt(Work, Produce(Work->Stop.get_token()));
+    result = State::Receipt(Work, Produce(Work->Stop.get_token()));
   }
   Produce = {};
   Owner->Finish(Work, std::move(result));
@@ -93,15 +95,23 @@ AssetPublication AssetPipeline::State::Poll(uint64_t ticket) const noexcept {
             .Message = {}};
   }
   const auto &demand = at->second;
-  if (!demand.Work->Finished) { return {}; }
   const auto owner = Consumers.find(demand.Consumer);
-  if (demand.Cancelled || owner == Consumers.end() || !owner->second.Alive ||
+  if (owner == Consumers.end() || !owner->second.Alive ||
       owner->second.Generation != demand.Generation) {
     return {.Status = AssetPublicationStatus::Cancelled,
             .Receipt = {},
             .Error = AssetPublicationError::StaleGeneration,
-            .Message = {}};
+            .Message = {},
+            .Finished = demand.Work->Finished};
   }
+  if (demand.Cancelled) {
+    return {.Status = AssetPublicationStatus::Cancelled,
+            .Receipt = {},
+            .Error = AssetPublicationError::Cancelled,
+            .Message = {},
+            .Finished = demand.Work->Finished};
+  }
+  if (!demand.Work->Finished) { return {}; }
   return demand.Work->Result;
 }
 }

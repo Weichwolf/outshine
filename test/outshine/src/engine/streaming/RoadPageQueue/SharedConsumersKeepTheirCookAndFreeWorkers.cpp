@@ -29,7 +29,13 @@ constexpr auto kStartup = std::chrono::seconds(5);
 constexpr auto kPoll = std::chrono::milliseconds(1);
 constexpr uint32_t kPart = 7;
 constexpr double kLatitude = 49;
-enum class Scenario : uint8_t { Shared, CancelOwner, CancelSingleWorker, DifferentProduct };
+enum class Scenario : uint8_t {
+  Shared,
+  CancelOwner,
+  CancelSingleWorker,
+  DifferentProduct,
+  WarmDifferentProduct
+};
 
 RoadPageRequest Request(char plan) {
   return {.Address = {.PlanKey = std::string(64, plan),
@@ -95,6 +101,7 @@ char Plan(Scenario scenario) {
   if (scenario == Scenario::CancelOwner) { return 'c'; }
   if (scenario == Scenario::CancelSingleWorker) { return 'f'; }
   if (scenario == Scenario::DifferentProduct) { return 'd'; }
+  if (scenario == Scenario::WarmDifferentProduct) { return '1'; }
   return 'a';
 }
 
@@ -102,6 +109,7 @@ const char *CookLabel(Scenario scenario) {
   if (scenario == Scenario::CancelOwner) { return "cancel-owner cooks"; }
   if (scenario == Scenario::CancelSingleWorker) { return "cancel-owner single-worker cooks"; }
   if (scenario == Scenario::DifferentProduct) { return "different-product cooks"; }
+  if (scenario == Scenario::WarmDifferentProduct) { return "warm-product cooks"; }
   return "shared cooks";
 }
 
@@ -145,9 +153,16 @@ void CheckSharing(const std::shared_ptr<PreparedRoadPages> &pages, Scenario scen
   const auto work = std::make_shared<Controlled>();
   const auto producer = Producer(work);
   const bool canceled = CancelsOwner(scenario);
-  const bool different = scenario == Scenario::DifferentProduct;
+  const bool different =
+      scenario == Scenario::DifferentProduct || scenario == Scenario::WarmDifferentProduct;
   const auto first = Request(Plan(scenario));
   const auto second = different ? Request('e') : first;
+  if (scenario == Scenario::WarmDifferentProduct) {
+    const auto seed =
+        RoadProducer([](const RoadPageRequest &, const std::stop_token &) { return Triangle(); });
+    CHECK(pages->Prepare(second, seed.get()).has_value(),
+          "the independent product is a complete cached native page");
+  }
   Tasks pool(scenario == Scenario::CancelSingleWorker ? 1 : 2);
   const auto publications = outshine::Test::RoadPublications(pool);
   RoadPageQueue a(pool, pages, {.PendingMost = 1, .PageBytesMost = kLimit}, publications);
@@ -180,7 +195,7 @@ void CheckSharing(const std::shared_ptr<PreparedRoadPages> &pages, Scenario scen
   const auto left = Wait(a);
   const auto right = Wait(b);
   CheckCompletions(left, right, second.Address, scenario);
-  CHECK(work->Cooks.load() == (different ? size_t{2} : size_t{1}),
+  CHECK(work->Cooks.load() == (scenario == Scenario::DifferentProduct ? size_t{2} : size_t{1}),
         "the same product is cooked once even when its initial consumer cancels");
   CheckGeometry(*pages, second.Address);
   Note(CookLabel(scenario), static_cast<double>(work->Cooks.load()), "producer calls");
@@ -197,6 +212,7 @@ int main() {
   if (!opened) { return Report(); }
   auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));
   CheckSharing(pages, Scenario::DifferentProduct);
+  CheckSharing(pages, Scenario::WarmDifferentProduct);
   CheckSharing(pages, Scenario::Shared);
   CheckSharing(pages, Scenario::CancelOwner);
   CheckSharing(pages, Scenario::CancelSingleWorker);

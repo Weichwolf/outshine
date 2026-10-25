@@ -36,7 +36,7 @@ AssetRecord Record() {
 }
 
 AssetPipeline::ResolvedRequest Request(const AssetPipeline::Consumer &consumer) {
-  return {.Key = *AssetProductKey::Parse(std::string(64, 'a')),
+  return {.Key = AssetProductKey::Parse(std::string(64, 'a')).value_or(AssetProductKey{}),
           .Generation = consumer.Generation(),
           .InputBytes = kInput,
           .ConsumerBytes = kDemand,
@@ -71,7 +71,7 @@ void CheckConsumer() {
   CHECK(a && b, "two scoped consumers own independent lifetimes");
   if (!a || !b) { return; }
   const auto work = std::make_shared<Work>();
-  auto first = pipeline->RequestResolved(*a, Request(*a), [work](std::stop_token stop) {
+  auto first = pipeline->RequestResolved(*a, Request(*a), [work](const std::stop_token &stop) {
     const std::stop_callback callback(stop, [work] { ++work->Stops; });
     ++work->Calls;
     work->Started.release();
@@ -87,7 +87,7 @@ void CheckConsumer() {
     return;
   }
   auto second =
-      pipeline->RequestResolved(*b, Request(*b), [](std::stop_token) { return Record(); });
+      pipeline->RequestResolved(*b, Request(*b), [](const std::stop_token &) { return Record(); });
   a = std::unexpected(AssetPublicationError::InvalidRequest);
   CHECK(second && work->Stops.load() == 0 && pipeline->Counts().Consumers == 2,
         "destruction returns before worker release and retains the retired consumer's held ticket");
@@ -126,13 +126,13 @@ void CheckDispatcher() {
   }
   auto input = std::make_shared<int>(1);
   const std::weak_ptr<int> retained = input;
-  auto ticket = pipeline->RequestResolved(
-      *consumer,
-      Request(*consumer),
-      [input = std::move(input)](std::stop_token) -> std::expected<AssetRecord, std::string> {
-        if (!input) { return std::unexpected("missing input"); }
-        return Record();
-      });
+  auto ticket = pipeline->RequestResolved(*consumer,
+                                          Request(*consumer),
+                                          [input = std::move(input)](const std::stop_token &)
+                                              -> std::expected<AssetRecord, std::string> {
+                                            if (!input) { return std::unexpected("missing input"); }
+                                            return Record();
+                                          });
   CHECK(ticket && !retained.expired(), "queued dispatch owns admitted inputs before execution");
   if (!ticket) {
     block->Release.release();
