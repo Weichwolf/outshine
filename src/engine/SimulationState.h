@@ -12,18 +12,13 @@
 #include <Scenario.h>
 #include "Assembled.h"
 #include "Column.h"
-#include "Rigid.h"
+#include "EntityBodyState.h"
 #include "Vec3.h"
 #include "Tables.h"
 #include "Traits.h"
 #include "Triggers.h"
 
 namespace outshine {
-
-struct SimulatedBody {
-  Entity Owner = kNoEntity;
-  Physics::Rigid Motion;
-};
 
 struct SimulationState {
   SimulationState() = default;
@@ -38,7 +33,6 @@ struct SimulationState {
   [[nodiscard]] std::expected<std::vector<std::optional<size_t>>, std::string>
   BindBodies(std::span<const std::string_view> names) const;
   void PrepareBodies();
-  void Integrate(double stepSeconds, const Vec3 &gravityMs2);
 
   uint64_t DeclarationRevision = 0;
   EntityRegistry Entities;
@@ -47,7 +41,7 @@ struct SimulationState {
   Assembled Stood;
   std::optional<TableBook> Tables;
   std::optional<TriggerField> Triggers;
-  std::vector<SimulatedBody> DynamicBodies;
+  std::vector<World::EntityBodyState> DynamicBodies;
   std::vector<std::optional<size_t>> ViewBodies;
 };
 

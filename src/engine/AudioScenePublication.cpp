@@ -1,3 +1,4 @@
+#include "RigidBodyState.h"
 #include "EngineState.h"
 #include "Vec3.h"
 
@@ -25,7 +26,7 @@ void Engine::State::PublishAudioSnapshot() {
       sources.push_back(where);
       continue;
     }
-    const Physics::Rigid *stood = nullptr;
+    const World::RigidBodyState *stood = nullptr;
     const auto binding =
         source < Session.AudioBodies.size() ? Session.AudioBodies[source] : std::nullopt;
     if (binding && Simulation->DeclarationRevision == Session.DeclarationRevision) {

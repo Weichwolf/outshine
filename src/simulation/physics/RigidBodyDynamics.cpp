@@ -2,7 +2,7 @@
 #include <span>
 
 #include "Quat.h"
-#include "Rigid.h"
+#include "RigidBodyDynamics.h"
 
 #include <cmath>
 
@@ -14,7 +14,7 @@ using outshine::Cross;
 
 constexpr double kQuarterOfRoot = 0.25;
 
-void Turn(const Quat &orientationQ, const Vec3 &bodyV, Vec3 &worldV) {
+void RotateVector(const Quat &orientationQ, const Vec3 &bodyV, Vec3 &worldV) {
   const Vec3 q = {{orientationQ.X, orientationQ.Y, orientationQ.Z}};
   const Vec3 qv = Cross(q, bodyV);
   const Vec3 twice = qv * 2.0;
@@ -22,38 +22,38 @@ void Turn(const Quat &orientationQ, const Vec3 &bodyV, Vec3 &worldV) {
   worldV = bodyV + twice * orientationQ.W + qqv;
 }
 
-void Unturn(const Quat &orientationQ, const Vec3 &worldV, Vec3 &bodyV) {
+void InverseRotateVector(const Quat &orientationQ, const Vec3 &worldV, Vec3 &bodyV) {
   const Quat back = {
       .X = -orientationQ.X, .Y = -orientationQ.Y, .Z = -orientationQ.Z, .W = orientationQ.W};
-  Turn(back, worldV, bodyV);
+  RotateVector(back, worldV, bodyV);
 }
 
-void Place(const Rigid &body, const Vec3 &atBodyM, Vec3 &worldM) {
+void TransformBodyPoint(const World::RigidBodyState &body, const Vec3 &atBodyM, Vec3 &worldM) {
   Vec3 turned;
-  Turn(body.OrientationQ, atBodyM, turned);
+  RotateVector(body.OrientationQ, atBodyM, turned);
   worldM = body.PositionM + turned;
 }
 
-void Carry(const Rigid &body, const Vec3 &atBodyM, Vec3 &worldMs) {
+void VelocityAtBodyPoint(const World::RigidBodyState &body, const Vec3 &atBodyM, Vec3 &worldMs) {
   const Vec3 spun = Cross(body.SpinBodyRadS, atBodyM);
   Vec3 turned;
-  Turn(body.OrientationQ, spun, turned);
+  RotateVector(body.OrientationQ, spun, turned);
   worldMs = body.VelocityMs + turned;
 }
 
-void Push(Wrench &wrench, const Rigid &body, const Force &applied) {
+void AccumulateForce(Wrench &wrench, const World::RigidBodyState &body, const Force &applied) {
   Vec3 arm;
-  Turn(body.OrientationQ, applied.AtBodyM, arm);
+  RotateVector(body.OrientationQ, applied.AtBodyM, arm);
   const Vec3 torque = Cross(arm, applied.Newtons);
   wrench.ForceN = wrench.ForceN + applied.Newtons;
   wrench.TorqueNm = wrench.TorqueNm + torque;
 }
 
-void Fall(Wrench &wrench, const Rigid &body, const Vec3 &gravityMs2) {
+void AccumulateGravity(Wrench &wrench, const World::RigidBodyState &body, const Vec3 &gravityMs2) {
   for (int axis = 0; axis < 3; ++axis) { wrench.ForceN[axis] += body.MassKg * gravityMs2[axis]; }
 }
 
-void Step(Rigid &body, const Wrench &wrench, double dtS) {
+void IntegrateBody(World::RigidBodyState &body, const Wrench &wrench, double dtS) {
   if (!(body.MassKg > 0.0) || !(dtS > 0.0)) { return; }
 
   for (int axis = 0; axis < 3; ++axis) {
@@ -62,7 +62,7 @@ void Step(Rigid &body, const Wrench &wrench, double dtS) {
   }
 
   Vec3 torqueBody;
-  Unturn(body.OrientationQ, wrench.TorqueNm, torqueBody);
+  InverseRotateVector(body.OrientationQ, wrench.TorqueNm, torqueBody);
   Vec3 momentum;
   for (int axis = 0; axis < 3; ++axis) {
     momentum[axis] = body.InertiaKgM2[axis] * body.SpinBodyRadS[axis];
@@ -94,7 +94,7 @@ void Step(Rigid &body, const Wrench &wrench, double dtS) {
                        .W = turned.W / length};
 }
 
-double EnergyJ(const Rigid &body, const Vec3 &gravityMs2) {
+double MechanicalEnergyJ(const World::RigidBodyState &body, const Vec3 &gravityMs2) {
   double energy = 0.0;
   for (int axis = 0; axis < 3; ++axis) {
     energy += 0.5 * body.MassKg * body.VelocityMs[axis] * body.VelocityMs[axis];
@@ -104,7 +104,7 @@ double EnergyJ(const Rigid &body, const Vec3 &gravityMs2) {
   return energy;
 }
 
-void Lie(Rigid &body, const Facing &faces) {
+void SetBodyOrientation(World::RigidBodyState &body, const Facing &faces) {
   Vec3 ahead = faces.AheadM;
   Vec3 up = faces.UpM;
   (void)Normalise(up);

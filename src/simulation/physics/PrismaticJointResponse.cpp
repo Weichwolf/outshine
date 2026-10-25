@@ -1,4 +1,4 @@
-#include "Prismatic.h"
+#include "PrismaticJointResponse.h"
 
 #include <algorithm>
 
