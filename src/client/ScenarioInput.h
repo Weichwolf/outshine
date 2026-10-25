@@ -6,14 +6,10 @@
 #include <string>
 #include <string_view>
 
-namespace outshine {
-struct Roots;
-}
-
 namespace outshine::Client {
 
-[[nodiscard]] std::expected<Scenario::Document, std::string>
-ReadClientScenario(std::string_view source, std::string_view overrides, const Roots &roots);
+[[nodiscard]] std::expected<Scenario::Document, std::string> ReadClientScenario(
+    std::string_view source, std::string_view overrides, std::string_view resourceDirectory);
 
 }
 

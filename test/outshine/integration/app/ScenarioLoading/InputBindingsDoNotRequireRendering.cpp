@@ -1,3 +1,4 @@
+#include "ScenarioLoading.h"
 #include <Engine.h>
 #include "Check.h"
 #include <vector>
@@ -5,6 +6,9 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <string_view>
+#include <span>
+#include <system_error>
 
 namespace {
 class Receiver final : public outshine::Host {
@@ -43,13 +47,13 @@ int main() {
   auto temporary = (std::filesystem::temp_directory_path() / "outshine-input-XXXXXX").string();
   const char *created = mkdtemp(temporary.data());
   CHECK(created != nullptr, "temporary import directory created");
-  if (!created) { return Report(); }
+  if (created == nullptr) { return Report(); }
   const auto path = std::filesystem::path(created) / "input.scn";
   std::ofstream file(path);
   file << *serialized;
   file.close();
   CHECK(!file.fail(), "export fixture written");
-  CHECK(engine.readScenario(path.string()).has_value(),
+  CHECK(outshine::Test::LoadAndDeclareScenario(engine, path.string()).has_value(),
         "exported declaration reimports through public API");
   std::error_code cleanup;
   std::filesystem::remove_all(temporary, cleanup);

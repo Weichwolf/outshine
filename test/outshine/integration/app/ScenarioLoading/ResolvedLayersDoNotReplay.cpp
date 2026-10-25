@@ -1,9 +1,12 @@
+#include "ScenarioLoading.h"
 #include <Engine.h>
 #include "Check.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <string_view>
+#include <system_error>
 
 int main() {
   using namespace outshine;
@@ -23,7 +26,7 @@ int main() {
       "root.scn",
       R"(<scenario active="day"><layer id="overlay" path="layer.scn" set="day"/><layer path="missing.scn" set="night"/><placements><place asset="base" x="1"/></placements></scenario>)");
   Engine engine;
-  CHECK(engine.readScenario(directory + "/root.scn").has_value(),
+  CHECK(outshine::Test::LoadAndDeclareScenario(engine, directory + "/root.scn").has_value(),
         "selected layer resolves; inactive missing file is not read");
   CHECK(engine.declaration().Layers.empty(),
         "resolved declaration contains no executable layer references");
@@ -31,17 +34,18 @@ int main() {
   const auto snapshot = engine.writeScenario();
   CHECK(snapshot.has_value(), "resolved snapshot exports");
   if (snapshot) {
-    CHECK(snapshot->find("<layer ") == std::string::npos, "snapshot has no source dependencies");
+    CHECK(!snapshot->contains("<layer "), "snapshot has no source dependencies");
     write("snapshot.scn", *snapshot);
     Engine withSources;
-    CHECK(withSources.readScenario(directory + "/snapshot.scn").has_value(),
+    CHECK(outshine::Test::LoadAndDeclareScenario(withSources, directory + "/snapshot.scn")
+              .has_value(),
           "snapshot reloads while the original layer still exists");
     CHECK(withSources.declaration().Placements.size() == 2,
           "existing layer is not applied again on snapshot reload");
     CHECK(std::filesystem::remove(directory + "/layer.scn"),
           "source layer removed for independent reload");
     Engine replay;
-    CHECK(replay.readScenario(directory + "/snapshot.scn").has_value(),
+    CHECK(outshine::Test::LoadAndDeclareScenario(replay, directory + "/snapshot.scn").has_value(),
           "snapshot reloads without source layer");
     CHECK(replay.declaration().Placements.size() == 2,
           "reload does not append duplicate placements");
@@ -51,7 +55,8 @@ int main() {
             "resolved order retained");
     }
     const auto before = replay.writeScenario();
-    CHECK(!replay.readScenario(directory + "/root.scn"), "missing active layer is still an error");
+    CHECK(!outshine::Test::LoadAndDeclareScenario(replay, directory + "/root.scn"),
+          "missing active layer is still an error");
     CHECK(replay.writeScenario() == before, "failed resolution preserves active declaration");
   }
   std::error_code error;

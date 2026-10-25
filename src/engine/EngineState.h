@@ -45,7 +45,6 @@
 #include "DiagnosticLedger.h"
 #include "Mixer.h"
 #include "Tables.h"
-#include "ScenarioLayer.h"
 #include "RuntimeScene.h"
 #include "Typeface.h"
 #include "InputPump.h"
@@ -65,8 +64,6 @@
 #include "spatial/Drape.h"
 #include "TileGeodesy.h"
 #include "SceneRenderer.h"
-#include "ScenarioRead.h"
-#include "ScenarioJson.h"
 
 namespace outshine::Generators {
 struct TerrainDeformationMetrics;
@@ -209,7 +206,6 @@ struct ScenarioSession {
   uint64_t DeclarationRevision = 0;
   bool Taken = false;
   std::vector<std::string> Carried;
-  std::vector<std::string> LayerTrace;
   Roots Under;
   std::optional<ViewBook> Views;
   InputMap Bound;

@@ -1,3 +1,4 @@
+#include "ScenarioLoading.h"
 #include "EngineFactory.h"
 #include <Engine.h>
 #include "Check.h"
@@ -23,7 +24,8 @@ int main() {
                          .Cache = directory,
                          .Offline = true,
                          .AssetCache = {}}) &&
-        engine.readScenario("test/outshine/data/diagnostic-places/Hockenheimring.scenario") &&
+        outshine::Test::LoadAndDeclareScenario(
+            engine, "test/outshine/data/diagnostic-places/Hockenheimring.scenario") &&
         engine.assemble();
     CHECK(assembled, "offline world assembles from pinned local OSM");
     if (!assembled) { return Report(); }

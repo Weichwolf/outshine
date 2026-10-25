@@ -2,8 +2,6 @@ outshine/src/engine/WorldCandidate/GeneratorProductsComposeAtomically
 outshine/src/engine/Engine/RegisteredProviderSuppliesRenderedTerrain
 outshine/src/engine/Engine/NativeOsmDeclarationIsValidated
 outshine/src/engine/Engine/NativeMipImagesReachTheRenderer
-outshine/src/engine/Engine/InlineScenarioOverridesResolveLayersAndKeepFinalPrecedence
-outshine/src/engine/Engine/ResolvedLayersDoNotReplay
 outshine/src/engine/Engine/WeatherValuesPreserveDeclaration
 outshine/src/app
 outshine/src/base

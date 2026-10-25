@@ -11,7 +11,6 @@
 #include "RouteValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineState.h"
-#include "ReadTextFile.h"
 #include "ActionHostAdapter.h"
 #include "Ephemeris.h"
 #include "CivilTime.h"
@@ -41,38 +40,6 @@ constexpr auto kInputHostMissing = "a bound input action requires an offered hos
 }
 
 namespace {
-
-struct ScenarioInput {
-  std::string Text;
-  size_t RemainingBytes = 0;
-};
-
-[[nodiscard]] std::expected<ScenarioInput, std::string>
-ReadScenarioSource(std::string_view source, std::string_view overrides) {
-  if (source.contains('\0') || overrides.contains('\0') || overrides.size() > kMostScenarioBytes) {
-    return std::unexpected("scenario input contains NUL or exceeds the input budget");
-  }
-  const bool inlineJson = IsJsonScenario(source);
-  const size_t sourceBudget = kMostScenarioBytes - overrides.size();
-  if (inlineJson && source.size() > sourceBudget) {
-    return std::unexpected("scenario input exceeds the input budget");
-  }
-  auto slurped = inlineJson ? std::expected<std::string, std::string>(std::string(source))
-                            : ReadTextFile(source, sourceBudget);
-  if (!slurped) { return std::unexpected(slurped.error()); }
-  if (slurped->size() > sourceBudget) {
-    return std::unexpected("scenario input exceeds the input budget");
-  }
-  const size_t remaining = sourceBudget - slurped->size();
-  if (!overrides.empty()) {
-    auto xml = IsJsonScenario(*slurped) ? ScenarioXmlFromJson(*slurped) : std::move(slurped);
-    if (!xml) { return std::unexpected(xml.error()); }
-    auto patched = ScenarioXmlFromJson(overrides, *xml);
-    if (!patched) { return std::unexpected(patched.error()); }
-    slurped = std::move(patched);
-  }
-  return ScenarioInput{.Text = std::move(*slurped), .RemainingBytes = remaining};
-}
 
 [[nodiscard]] std::vector<Core::UiSurface>
 PrepareSurfaces(std::span<const Scenario::Surface> surfaces) {
@@ -707,74 +674,6 @@ Result Engine::declare(const Scenario::Document &scenario) {
   return {};
 }
 
-bool Engine::readScenarioInto(std::string_view source,
-                              Scenario::Document &out,
-                              std::string_view overrides) {
-  const auto input = ReadScenarioSource(source, overrides);
-  if (!input) {
-    S_->Error = input.error();
-    return false;
-  }
-  const bool inlineJson = IsJsonScenario(source);
-  const std::string held = inlineJson ? "inline scenario" : std::string(source);
-  size_t remainingBytes = input->RemainingBytes;
-  const std::string &text = input->Text;
-  if (!ReadScenario(text.data(), text.size(), out, S_->Error)) {
-    S_->Error = held + ": " + S_->Error;
-    return false;
-  }
-  S_->Session.LayerTrace.clear();
-  const size_t cut = held.find_last_of('/');
-  std::string dir;
-  if (inlineJson) {
-    dir = S_->Session.Under.Shipped + "/";
-  } else if (cut != std::string::npos) {
-    dir = held.substr(0, cut + 1);
-  }
-  for (const Scenario::Layer &layer : out.Layers) {
-    const std::string named = layer.Id.empty() ? layer.Path : layer.Id;
-    if (!LayerActive(layer, out.Named.Active)) {
-      S_->Session.LayerTrace.push_back("layer '" + named + "' is inactive -- its set '" +
-                                       layer.Set + "' is not selected by active=\"" +
-                                       out.Named.Active + "\"");
-      continue;
-    }
-    const std::string at =
-        (!layer.Path.empty() && layer.Path.front() == '/') ? layer.Path : dir + layer.Path;
-    const std::expected<std::string, std::string> read = ReadTextFile(at, remainingBytes);
-    if (!read) {
-      S_->Error = read.error();
-      return false;
-    }
-    const std::string &fragmentText = *read;
-    remainingBytes -= fragmentText.size();
-    if (!ApplyLayer(out,
-                    fragmentText.c_str(),
-                    fragmentText.size(),
-                    named,
-                    S_->Session.LayerTrace,
-                    S_->Error)) {
-      S_->Error = at + ": " + S_->Error;
-      return false;
-    }
-  }
-  out.Layers.clear();
-  if (overrides.empty()) { return true; }
-  const auto flat = WriteScenario(out);
-  if (!flat) {
-    S_->Error = flat.error();
-    return false;
-  }
-  const auto patched = ScenarioXmlFromJson(overrides, *flat);
-  if (!patched) {
-    S_->Error = patched.error();
-    return false;
-  }
-  if (!ReadScenario(patched->data(), patched->size(), out, S_->Error)) { return false; }
-  out.Layers.clear();
-  return true;
-}
-
 Result Engine::setGeometry(const Geometry &geometry) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
@@ -810,18 +709,6 @@ Result Engine::setGeometry(const Geometry &geometry) {
 
 std::expected<std::string, std::string> Engine::writeScenario() const {
   return WriteScenario(S_->Session.Declared);
-}
-
-Result Engine::readScenario(std::string_view source, std::string_view overrides) {
-  [[maybe_unused]] const auto logs = S_->Logs();
-  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  Scenario::Document scenario;
-  if (!readScenarioInto(source, scenario, overrides)) { return std::unexpected(S_->Error); }
-  const std::vector<std::string> traced = S_->Session.LayerTrace;
-  const Result stood = declare(scenario);
-  if (!stood) { return stood; }
-  S_->Session.Carried.insert(S_->Session.Carried.end(), traced.begin(), traced.end());
-  return {};
 }
 
 EntityRegistry &Engine::entities() {
