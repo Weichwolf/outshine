@@ -8,7 +8,7 @@
 #include "BuildingWallNormals.h"
 #include "Box.h"
 
-#include "ground/TileMeshes.h"
+#include "TileMeshes.h"
 #include "Vec3.h"
 
 #include <array>

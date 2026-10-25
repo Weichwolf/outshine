@@ -5,7 +5,7 @@
 #include <span>
 #include "Structures.h"
 
-#include "ground/TileMeshes.h"
+#include "TileMeshes.h"
 
 #include <array>
 #include <algorithm>
