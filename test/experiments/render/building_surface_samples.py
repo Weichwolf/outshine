@@ -10,7 +10,35 @@ from source_shading_fields import wall_colours
 SIZE = 16
 
 
-def first_surfaces(patches, bounds):
+def validate(surfels):
+    count = len(surfels["positions"])
+    palette = surfels["roughness_palette"]
+    if (
+        not 0 < count <= 1536
+        or any(
+            surfels[k].shape != (count, 3) for k in ("positions", "normal", "albedo")
+        )
+        or surfels["roughness_weights"].shape != (count, len(palette))
+        or any(
+            not np.isfinite(surfels[k]).all()
+            for k in ("positions", "normal", "albedo", "roughness_weights", "spacing")
+        )
+        or surfels["spacing"].shape != ()
+        or surfels["spacing"] <= 0
+        or np.any(abs(np.linalg.norm(surfels["normal"], axis=1) - 1) > 1e-6)
+        or np.any((surfels["albedo"] < 0) | (surfels["albedo"] > 1))
+        or np.any(surfels["roughness_weights"] < 0)
+        or np.any(
+            abs(surfels["roughness_weights"].sum(axis=1) - 1)
+            > 8 * np.finfo(np.float32).eps
+        )
+    ):
+        raise ValueError(
+            "finite bounded surface positions, individual normals and material masses required"
+        )
+
+
+def sample_surfaces(patches, bounds, *, all_depths=False):
     bounds = np.asarray(bounds, float)
     side = float(np.ptp(bounds, axis=0).max())
     if bounds.shape != (2, 3) or not np.isfinite(bounds).all() or side <= 0:
@@ -24,6 +52,8 @@ def first_surfaces(patches, bounds):
     owners = np.full(depths.shape, -1, np.int32)
     points = np.zeros((*depths.shape, 3))
     parameters = np.zeros((*depths.shape, 2))
+    layers = []
+    layer_count = 0
     work = {
         "source_patches": len(patches),
         "parallel_patch_axis_pairs": 0,
@@ -48,6 +78,18 @@ def first_surfaces(patches, bounds):
             hit = shapely.covers(surface.domain, shapely.points(local))
             work["tested_patch_ray_pairs"] += len(candidate)
             work["inside_patch_hits"] += int(hit.sum())
+            if all_depths:
+                layer_count += int(hit.sum())
+                if layer_count > 65536:
+                    raise ValueError("bounded diagnostic LDC intermediate exhausted")
+                layers.append(
+                    (
+                        candidate[hit],
+                        np.full(int(hit.sum()), index, np.int32),
+                        local[hit],
+                    )
+                )
+                continue
             for layer in range(2):
                 nearer = (
                     candidate[:, axis] < depths[layer, axis]
@@ -65,15 +107,25 @@ def first_surfaces(patches, bounds):
         "patches": owners.ravel()[hit],
         "parameters": parameters.reshape(-1, 2)[hit],
     }
+    if all_depths:
+        result = {
+            k: np.concatenate([v[i] for v in layers])
+            for i, k in enumerate(("positions", "patches", "parameters"))
+        }
     work.update(
         {
             "axis_rays": 3 * SIZE * SIZE,
             "maximum_front_back_records": 6 * SIZE * SIZE,
-            "first_surface_records": int(hit.sum()),
+            "first_surface_records": int(hit.sum()) if not all_depths else None,
+            "all_depth_records": layer_count if all_depths else None,
             "sampling_grid_spacing_m": spacing,
             "known_sampler_array_bytes": sum(
                 v.nbytes for v in (depths, owners, points, parameters)
             ),
+            "known_all_depth_array_bytes": sum(
+                v.nbytes for layer in layers for v in layer
+            ),
+            "sampling_result_array_bytes": sum(v.nbytes for v in result.values()),
         }
     )
     return result, spacing, work
@@ -131,6 +183,8 @@ def emit_samples(patches, sampled, spacing, at):
     rows = np.column_stack([v for v in result.values()])
     _, unique = np.unique(rows, axis=0, return_index=True)
     unique.sort()
+    if len(unique) > 1536:
+        raise ValueError("bounded diagnostic surface product exhausted")
     result = {k: v[unique] for k, v in result.items()}
     result.update(
         {"spacing": np.array(spacing), "roughness_palette": np.asarray(at["palette"])}
@@ -139,5 +193,5 @@ def emit_samples(patches, sampled, spacing, at):
         "duplicate_records_removed": count - len(unique),
         "surface_samples": len(unique),
         "surface_array_bytes": sum(v.nbytes for v in result.values()),
-        "maximum_sample_records": 6 * SIZE * SIZE,
+        "maximum_sample_records": 1536,
     }

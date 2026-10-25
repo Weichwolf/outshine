@@ -4,36 +4,9 @@ import numpy as np
 from building_mass_lighting import shade
 from building_mass_material_image import hit_materials, samples
 from building_material_reference import face_materials
+from building_surface_samples import validate
 from current_visibility import project
 from triangle_image_reference import average_samples, image_rays
-
-
-def validate(surfels):
-    count = len(surfels["positions"])
-    palette = surfels["roughness_palette"]
-    if (
-        not 0 < count <= 1536
-        or any(
-            surfels[k].shape != (count, 3) for k in ("positions", "normal", "albedo")
-        )
-        or surfels["roughness_weights"].shape != (count, len(palette))
-        or any(
-            not np.isfinite(surfels[k]).all()
-            for k in ("positions", "normal", "albedo", "roughness_weights", "spacing")
-        )
-        or surfels["spacing"].shape != ()
-        or surfels["spacing"] <= 0
-        or np.any(abs(np.linalg.norm(surfels["normal"], axis=1) - 1) > 1e-6)
-        or np.any((surfels["albedo"] < 0) | (surfels["albedo"] > 1))
-        or np.any(surfels["roughness_weights"] < 0)
-        or np.any(
-            abs(surfels["roughness_weights"].sum(axis=1) - 1)
-            > 8 * np.finfo(np.float32).eps
-        )
-    ):
-        raise ValueError(
-            "finite bounded surface positions, individual normals and material masses required"
-        )
 
 
 def tangent_axes(normal):
@@ -177,6 +150,7 @@ def render(surfels, rest, at, camera, box, tables, rate=16):
             for k in range(3)
         ],
         axis=1,
+        dtype=float,
     )
     alpha = np.minimum(density / 0.4, 1)
     colour = (

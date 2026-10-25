@@ -10,14 +10,14 @@ from pathlib import Path
 import numpy as np
 from building_mass_appearance import policy_digest
 from building_mass_materials import policy
-from building_surface_samples import emit_samples, first_surfaces
+from building_surface_samples import emit_samples, sample_surfaces, validate
 from building_tree_load import read_tree
 from parent_surface_inputs import open_parent
 from process_memory import peak_rss_bytes
 from source_material_patches import shape_material_patches
 
 
-def compile_root(parent, root, cell, at):
+def compile_root(parent, root, cell, at, *, all_depths=False):
     case = json.loads((root / "report.json").read_text())
     tree = read_tree(root)
     node_path = root / case["node_files"]["0"]
@@ -40,7 +40,9 @@ def compile_root(parent, root, cell, at):
             seen.add(identity)
     if seen != wanted:
         raise ValueError("all root source domains must remain available")
-    sampled, spacing, sampling = first_surfaces(patches, tree["node_bounds"][0])
+    sampled, spacing, sampling = sample_surfaces(
+        patches, tree["node_bounds"][0], all_depths=all_depths
+    )
     result, emission = emit_samples(patches, sampled, spacing, at)
     selected_sources = {patches[int(i)].geometry.source for i in sampled["patches"]}
     report = {
@@ -49,10 +51,10 @@ def compile_root(parent, root, cell, at):
         "decoded_form_bytes": parent.form_bytes - before_bytes,
         "form_reads": parent.form_reads - before_reads,
         "qualified_sources": len(wanted),
-        "sources_without_first_surface_sample": [
+        "sources_without_surface_sample": [
             {
                 "source": i,
-                "reason": "not sampled among six orthographic first surfaces; approximation, not proven hidden",
+                "reason": "not sampled by fixed orthographic rays; approximation, not proven hidden",
             }
             for i in sorted(wanted - selected_sources)
         ],
@@ -100,6 +102,7 @@ def read_surfels(path, node, tree, at):
         or not np.array_equal(arrays["roughness_palette"], at["palette"])
     ):
         raise ValueError("surface hull source, material or frame differs")
+    validate(arrays)
     return arrays
 
 
@@ -108,6 +111,7 @@ def main():
     for name in ("input", "source", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--cells", type=int, nargs="+", required=True)
+    parser.add_argument("--all-depths", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     wall, cpu = time.perf_counter(), time.process_time()
@@ -118,7 +122,11 @@ def main():
             raise ValueError("source root archive differs")
         for cell in args.cells:
             arrays, work = compile_root(
-                parent, args.input / f"cell-{cell}", cell, policy()
+                parent,
+                args.input / f"cell-{cell}",
+                cell,
+                policy(),
+                all_depths=args.all_depths,
             )
             path = args.output / f"cell-{cell}.npz"
             np.savez(path, **arrays)
@@ -134,12 +142,13 @@ def main():
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "cells": reports,
+        "all_depths": args.all_depths,
         "cost": {
             "cpu_ms": (time.process_time() - cpu) * 1000,
             "wall_ms": (time.perf_counter() - wall) * 1000,
             "peak_bytes": peak_rss_bytes(),
         },
-        "scope": "At most1536first-surface records before exact attribute deduplication. Fixed16x16per axis; source domains before triangulation. Six first views are not a full LDC, arbitrary-view visibility or caster certificate. Missing interior/thin surfaces reported, original logical/near sources retained. No new native cache/bindings or default replacement.",
+        "scope": "Fixed16x16per axis, source domains before triangulation. Hull or all-depth control explicitly selected; at most65536all-depth intermediates and1536emitted samples, overflow fails without publishing that product. Neither six first views nor this coarse direct LDC sampling certifies arbitrary-view visibility. Missing interior/thin surfaces reported, original logical/near sources retained. No native cache/bindings or default replacement.",
     }
     (args.output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result["cost"]))
