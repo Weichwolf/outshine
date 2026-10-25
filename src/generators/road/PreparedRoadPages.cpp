@@ -231,7 +231,7 @@ PreparedRoadPages::LoadRequest(const std::string &requestKey, size_t bytesMost) 
 
 std::expected<AssetRecord, std::string> PreparedRoadPages::Prepare(const RoadPageRequest &request,
                                                                    const RoadPageProducer *producer,
-                                                                   std::stop_token stop) {
+                                                                   const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
   auto key = RequestKey(request);
   if (!key) { return std::unexpected(std::move(key.error())); }
