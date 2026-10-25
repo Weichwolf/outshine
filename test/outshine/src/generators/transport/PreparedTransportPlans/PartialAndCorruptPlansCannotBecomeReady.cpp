@@ -29,6 +29,12 @@ void Exercise(const std::string &directory) {
   if (!record) { return; }
   const TransportPlanAddress address{.Definition = plan->Definition,
                                      .Inputs = TransportInputScopeId(std::array<uint8_t, 32>{})};
+  auto geometryOnly = *plan;
+  geometryOnly.Network.reset();
+  const auto missingNetwork =
+      (*store)->StoreComplete(geometryOnly, bounds, kTransportFixtureLimits);
+  CHECK(!missingNetwork && missingNetwork.error() == TransportPlanAssetError::InvalidPlan,
+        "a complete geometric-only product cannot enter the functional asset store");
   auto partial = *plan;
   partial.Coverage = TransportCoverage::Partial;
   partial.Omissions.push_back(

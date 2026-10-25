@@ -3,6 +3,8 @@
 #include "CppAllocationProbe.h"
 #include <chrono>
 #include <cstddef>
+#include <memory>
+#include <vector>
 #include <print>
 #include <string>
 
@@ -53,8 +55,24 @@ int main() {
   const auto duration = std::chrono::steady_clock::now() - begin;
   CHECK(decoded.has_value(), "the owned product decodes under its admission");
   if (!decoded) { return Report(); }
-  constexpr size_t ownedBlocks = 18;
-  const size_t owned = OwnedBytes(*decoded);
+  BeginCppAllocationProbe();
+  const auto allocationControl = std::make_shared<const World::TransportNetworkSnapshot>(
+      World::ResolvedTransport{}, std::vector<GeographicBounds>{}, World::TransportLoadMetrics{});
+  const auto sharedBlock = EndCppAllocationProbe();
+  CHECK(sharedBlock.Calls == 1 && allocationControl.use_count() == 1,
+        "the standard-library shared snapshot allocation is measured independently");
+  const auto &network = *decoded->Network;
+  const auto &graph = network.Topology();
+  constexpr size_t geometryBlocks = 18;
+  constexpr size_t networkBlocks = 7;
+  const size_t owned =
+      OwnedBytes(*decoded) + sharedBlock.Bytes +
+      graph.Nodes().size() * sizeof(World::TransportNode) +
+      graph.Edges().size() * sizeof(World::TransportEdge) +
+      graph.Outgoing().size() * sizeof(World::OutgoingTransportEdge) +
+      network.Coverage().size() * sizeof(GeographicBounds) +
+      network.Routes().size() * sizeof(World::NamedCircuitRoute) +
+      network.Routes()[0].Circuit.EdgeIds.capacity() * sizeof(World::TransportEdgeId);
   std::println("TRANSPORT_PLAN_DECODE package_bytes={} cpp_allocations={} requested_bytes={} "
                "owned_bytes={} capacity_bytes={} wall_ns={}",
                bytes->size(),
@@ -63,7 +81,7 @@ int main() {
                owned,
                TransportPlanCapacityBytes(*decoded),
                std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count());
-  CHECK(allocations.Calls == ownedBlocks && allocations.Bytes == owned,
+  CHECK(allocations.Calls == geometryBlocks + networkBlocks && allocations.Bytes == owned,
         "each owned container/string allocates once without temporary decoded copies or scratch");
   BeginCppAllocationProbe();
   const auto refused = DecodeTransportPlan(

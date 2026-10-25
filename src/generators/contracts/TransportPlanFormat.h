@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -73,6 +74,9 @@ bool List(BinaryValueWriter &out, std::span<const T> items, Write write) {
          out(static_cast<uint32_t>(items.size())) && std::ranges::all_of(items, write);
 }
 
+bool Network(BinaryValueWriter &out,
+             const std::shared_ptr<const World::TransportNetworkSnapshot> &network);
+bool Network(Reader &in, std::shared_ptr<const World::TransportNetworkSnapshot> &network);
 bool Input(BinaryValueWriter &out, const TransportInputReference &input);
 bool Input(Reader &in, TransportInputReference &input);
 bool Path(BinaryValueWriter &out, const TransportPath &path);

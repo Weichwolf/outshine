@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <print>
 #include <spawn.h>
 #include <string>
@@ -33,16 +34,33 @@ int Offline(const std::string &directory) {
   const auto a = (*cache)->LoadRequest(Address(0), kTransportFixtureLimits);
   const auto b = (*cache)->LoadRequest(Address(1), kTransportFixtureLimits);
   const auto unknown = (*cache)->LoadRequest(Address(2), kTransportFixtureLimits);
-  const bool valid =
-      a && *a && b && *b && unknown && !*unknown && (**a).Record.Key == (**b).Record.Key &&
-      (**a).Plan->Coverage == TransportCoverage::Complete &&
-      (**a).Plan->TerrainContacts.size() == 1 && (**a).Plan->TerrainContacts[0].Profile &&
-      (**a).Plan->TerrainContacts[0].HoleRingsEastNorthM.size() == 1 &&
-      (**a).Plan->Ports.size() == 1 && (**a).Plan->Bodies.size() == 1 &&
-      (**a).Plan->Paths.size() == 2 &&
-      EncodeTransportPlan(*(**a).Plan, kTransportFixtureLimits) ==
-          EncodeTransportPlan(*(**b).Plan, kTransportFixtureLimits);
-  std::println("TRANSPORT_PLAN_OFFLINE valid={} independent_aliases=2", valid);
+  if (!a || !*a || !b || !*b || !unknown || *unknown) { return 3; }
+  const auto &first = **a;
+  const auto &second = **b;
+  const std::shared_ptr<const World::TransportNetworkSnapshot> consumer = first.Plan->Network;
+  constexpr uint64_t sourcePath = 42;
+  const auto *route = consumer ? consumer->FindRoute("fixture-circuit") : nullptr;
+  const auto *edge = consumer ? consumer->Topology().FindEdge({.PathId = sourcePath}) : nullptr;
+  const bool native = consumer && consumer.get() == first.Plan->Network.get() && route != nullptr &&
+                      edge != nullptr && route->EdgeIds.size() == 2 &&
+                      route->SourceRouteId == sourcePath * 2 &&
+                      consumer->Topology().OutgoingFrom(7).size() == 2 &&
+                      edge->Allows(World::TransportMode::Motor) &&
+                      consumer->Metrics().SourceBytes == 0 && consumer->Metrics().ReadMs == 0 &&
+                      consumer->Metrics().ParseMs == 0 && consumer->Metrics().GraphMs == 0;
+  const bool valid = native && first.Record.Key == second.Record.Key &&
+                     first.Plan->Coverage == TransportCoverage::Complete &&
+                     first.Plan->TerrainContacts.size() == 1 &&
+                     first.Plan->TerrainContacts[0].Profile &&
+                     first.Plan->TerrainContacts[0].HoleRingsEastNorthM.size() == 1 &&
+                     first.Plan->Ports.size() == 1 && first.Plan->Bodies.size() == 1 &&
+                     first.Plan->Paths.size() == 2 &&
+                     EncodeTransportPlan(*first.Plan, kTransportFixtureLimits) ==
+                         EncodeTransportPlan(*second.Plan, kTransportFixtureLimits);
+  std::println(
+      "TRANSPORT_PLAN_OFFLINE valid={} independent_aliases=2 native_snapshot={} source_modules=0",
+      valid,
+      native);
   return valid ? 0 : 3;
 }
 

@@ -4,6 +4,7 @@
 #include <compare>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <span>
 #include <vector>
 
@@ -86,6 +87,16 @@ struct CircuitRoute {
   std::vector<TransportEdgeId> EdgeIds;
 };
 
+struct PreparedTransportTopology {
+  Data::SourceIdentity SourceIdentity;
+  std::vector<TransportNode> Nodes;
+  std::vector<TransportEdge> Edges;
+  std::vector<OutgoingTransportEdge> Outgoing;
+  size_t UnclassifiedPathCount = 0;
+};
+
+enum class TransportTopologyError : uint8_t { InvalidNodes, InvalidEdges, InvalidOutgoing };
+
 class TransportTopology {
 public:
   TransportTopology() = default;
@@ -94,6 +105,9 @@ public:
                     std::vector<TransportEdge> edges,
                     size_t unclassifiedPathCount = 0);
 
+  [[nodiscard]] static std::expected<TransportTopology, TransportTopologyError>
+  RestorePrepared(PreparedTransportTopology data);
+
   [[nodiscard]] const Data::SourceIdentity &SourceIdentity() const noexcept {
     return SourceIdentity_;
   }
@@ -101,6 +115,12 @@ public:
   [[nodiscard]] std::span<const TransportNode> Nodes() const noexcept { return Nodes_; }
 
   [[nodiscard]] std::span<const TransportEdge> Edges() const noexcept { return Edges_; }
+
+  [[nodiscard]] std::span<const OutgoingTransportEdge> Outgoing() const noexcept {
+    return Outgoing_;
+  }
+
+  [[nodiscard]] size_t CapacityBytes() const noexcept;
 
   [[nodiscard]] size_t UnclassifiedPathCount() const noexcept { return UnclassifiedPathCount_; }
 
@@ -111,12 +131,17 @@ public:
                                         const TransportEdge &to) noexcept;
 
 private:
+  explicit TransportTopology(PreparedTransportTopology data);
+
   Data::SourceIdentity SourceIdentity_;
   std::vector<TransportNode> Nodes_;
   std::vector<TransportEdge> Edges_;
   std::vector<OutgoingTransportEdge> Outgoing_;
   size_t UnclassifiedPathCount_ = 0;
 };
+
+[[nodiscard]] std::expected<void, TransportTopologyError>
+ValidateTransportTopology(const TransportTopology &topology);
 
 }
 

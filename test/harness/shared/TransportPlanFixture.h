@@ -2,6 +2,7 @@
 #define OUTSHINE_TEST_TRANSPORTPLANFIXTURE_H
 
 #include "TransportPlanCodec.h"
+#include "TransportNetworkFixture.h"
 #include "TangentFrame.h"
 #include <array>
 #include <cstddef>
@@ -84,6 +85,7 @@ inline std::optional<Generators::TransportPlan> TransportPlanFixture() {
   plan.Anchor = {.LongitudeDeg = std::midpoint(bounds->WestDeg, bounds->EastDeg),
                  .LatitudeDeg = std::midpoint(bounds->SouthDeg, bounds->NorthDeg)};
   plan.Coverage = TransportCoverage::Complete;
+  plan.Network = TransportNetworkFixture(plan.Anchor, *bounds);
   TransportInputReference input;
   input.DatasetId = "fixture-source";
   input.Version = "v1";

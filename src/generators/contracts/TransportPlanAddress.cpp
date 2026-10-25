@@ -11,7 +11,7 @@ TransportPlanRequestKey(const TransportPlanAddress &address) {
   const auto &definition = address.Definition;
   if (!definition.Core.Valid()) { return std::unexpected(TransportPlanRequestError::InvalidCore); }
   if (definition.Representation != TransportRepresentation::Functional ||
-      definition.RepresentationVersion != 1) {
+      definition.RepresentationVersion != 2) {
     return std::unexpected(TransportPlanRequestError::UnsupportedRepresentation);
   }
   BinaryValueWriter out(256);

@@ -12,7 +12,7 @@
 
 namespace outshine::Generators {
 namespace {
-constexpr uint64_t kFormat = 0x0001314e4c5054ULL;
+constexpr uint64_t kFormat = 0x0002314e4c5054ULL;
 
 bool DefinitionFields(BinaryValueWriter &out, const TransportPlanDefinition &definition) {
   return out(static_cast<uint32_t>(definition.Core.Level),
@@ -54,7 +54,8 @@ bool ReadInputs(TransportFormat::Reader &in, std::vector<TransportInputReference
 
 bool WriteProducts(BinaryValueWriter &out, const TransportPlan &plan) {
   using TransportFormat::List;
-  return List(out,
+  return TransportFormat::Network(out, plan.Network) &&
+         List(out,
               std::span(plan.Paths),
               [&](const auto &path) { return TransportFormat::Path(out, path); }) &&
          List(out,
@@ -83,21 +84,25 @@ bool ReadProducts(TransportFormat::Reader &in, TransportPlan &plan) {
   constexpr size_t portBytes = 168;
   constexpr size_t bodyBytes = 32;
   constexpr size_t contactBytes = 123;
-  return in.List(plan.Paths, pathBytes, [&](auto &path) {
-    return TransportFormat::Path(in, path);
-  }) && in.List(plan.Stations, 3 * sizeof(double) + sizeof(uint64_t), [&](auto &station) {
-    return TransportFormat::Station(in, station);
-  }) && in.List(plan.Junctions, junctionBytes, [&](auto &junction) {
-    return TransportFormat::Junction(in, junction);
-  }) && in.List(plan.Ports, portBytes, [&](auto &port) {
-    return TransportFormat::Port(in, port);
-  }) && in.List(plan.Bodies, bodyBytes, [&](auto &body) {
-    return TransportFormat::Body(in, body);
-  }) && in.List(plan.TerrainContacts, contactBytes, [&](auto &stamp) {
-    return TransportFormat::Contact(in, stamp);
-  }) && in.List(plan.Omissions, 2 * sizeof(uint32_t), [&](auto &omission) {
-    return TransportFormat::Omission(in, omission);
-  });
+  return TransportFormat::Network(in, plan.Network) &&
+         in.List(
+             plan.Paths, pathBytes, [&](auto &path) { return TransportFormat::Path(in, path); }) &&
+         in.List(plan.Stations,
+                 3 * sizeof(double) + sizeof(uint64_t),
+                 [&](auto &station) { return TransportFormat::Station(in, station); }) &&
+         in.List(plan.Junctions,
+                 junctionBytes,
+                 [&](auto &junction) { return TransportFormat::Junction(in, junction); }) &&
+         in.List(
+             plan.Ports, portBytes, [&](auto &port) { return TransportFormat::Port(in, port); }) &&
+         in.List(
+             plan.Bodies, bodyBytes, [&](auto &body) { return TransportFormat::Body(in, body); }) &&
+         in.List(plan.TerrainContacts,
+                 contactBytes,
+                 [&](auto &stamp) { return TransportFormat::Contact(in, stamp); }) &&
+         in.List(plan.Omissions, 2 * sizeof(uint32_t), [&](auto &omission) {
+           return TransportFormat::Omission(in, omission);
+         });
 }
 }
 
@@ -177,7 +182,7 @@ TransportPlanContentKey(const TransportPlanDefinition &definition,
                         const std::array<uint8_t, 32> &inputBinding) {
   if (!definition.Core.Valid() ||
       definition.Representation != TransportRepresentation::Functional ||
-      definition.RepresentationVersion != 1) {
+      definition.RepresentationVersion != 2) {
     return std::unexpected(TransportPlanCodecError::InvalidAddress);
   }
   BinaryValueWriter out(128);

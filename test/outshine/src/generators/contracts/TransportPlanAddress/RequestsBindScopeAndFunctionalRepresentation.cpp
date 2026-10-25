@@ -19,7 +19,7 @@ int main() {
   const TransportPlanAddress address{.Definition = {.Core = {.Level = 9, .X = 270, .Y = 99}},
                                      .Inputs = TransportInputScopeId(binding)};
   const auto original = TransportPlanRequestKey(address);
-  CHECK(original && *original == "9be27da031fd40c1d630b01913d0018f4c4780434d11f06dcc0a3c910cd3641f",
+  CHECK(original && *original == "d580458b8db0d9732c8bdeb5902e372b467b19beb060e0ce18944faab6604c55",
         "the request key has independently encoded fixed fields and explicit domain version");
   CHECK(TransportPlanRequestKey(address) == original,
         "identical known metadata resolves without source or plan state");
@@ -36,6 +36,10 @@ int main() {
   const auto version = TransportPlanRequestKey(unsupported);
   CHECK(!version && version.error() == TransportPlanRequestError::UnsupportedRepresentation,
         "an unsupported functional contract is rejected before lookup or input work");
+  unsupported = address;
+  unsupported.Definition.RepresentationVersion = 1;
+  CHECK(!TransportPlanRequestKey(unsupported),
+        "the old geometric-only representation cannot alias a functional network lookup");
   unsupported = address;
   unsupported.Definition.Representation =
       static_cast<TransportRepresentation>(std::numeric_limits<uint8_t>::max());

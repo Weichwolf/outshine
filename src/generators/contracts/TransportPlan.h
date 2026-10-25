@@ -15,6 +15,10 @@
 #include <variant>
 #include <vector>
 
+namespace outshine::World {
+class TransportNetworkSnapshot;
+}
+
 namespace outshine::Generators {
 enum class TransportUse : uint8_t { Road, Path, Rail };
 enum class TransportCoverage : uint8_t { Unknown, Partial, Complete };
@@ -111,6 +115,7 @@ struct TransportPlan {
   std::vector<HeightSolid> Bodies;
   std::vector<EarthworkStamp> TerrainContacts;
   std::vector<TransportOmission> Omissions;
+  std::shared_ptr<const World::TransportNetworkSnapshot> Network;
 };
 
 using TransportPlanLease = std::shared_ptr<const TransportPlan>;

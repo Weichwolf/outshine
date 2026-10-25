@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <span>
 #include <string>
 #include <string_view>
@@ -76,7 +78,14 @@ public:
   [[nodiscard]] std::span<const GeographicBounds> Coverage() const noexcept { return Coverage_; }
 
   [[nodiscard]] const TransportLoadMetrics &Metrics() const noexcept { return Metrics_; }
+
+  [[nodiscard]] size_t CapacityBytes() const noexcept;
 };
+
+enum class TransportNetworkError : uint8_t { InvalidTopology, InvalidCoverage, InvalidRoutes };
+
+[[nodiscard]] std::expected<void, TransportNetworkError>
+ValidateTransportNetwork(const TransportNetworkSnapshot &network);
 
 }
 

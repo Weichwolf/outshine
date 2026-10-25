@@ -1,4 +1,5 @@
 #include "TransportPlanFormat.h"
+#include "TransportNetworkSnapshot.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -121,7 +122,7 @@ std::expected<void, TransportPlanCodecError> ValidateTransportPlan(const Transpo
   const auto &definition = plan.Definition;
   const auto bounds = definition.Core.Bounds();
   if (!bounds || definition.Representation != TransportRepresentation::Functional ||
-      definition.RepresentationVersion != 1 ||
+      definition.RepresentationVersion != 2 ||
       plan.Anchor.LongitudeDeg != std::midpoint(bounds->WestDeg, bounds->EastDeg) ||
       plan.Anchor.LatitudeDeg != std::midpoint(bounds->SouthDeg, bounds->NorthDeg)) {
     return std::unexpected(TransportPlanCodecError::InvalidAddress);
@@ -137,6 +138,13 @@ std::expected<void, TransportPlanCodecError> ValidateTransportPlan(const Transpo
                omission.Reason <= TransportOmissionReason::ResourceDeferred;
       })) {
     return std::unexpected(TransportPlanCodecError::InvalidOmission);
+  }
+  if ((plan.Coverage == TransportCoverage::Complete &&
+       (!plan.Network || plan.Network->Coverage().empty())) ||
+      (plan.Network && (!World::ValidateTransportNetwork(*plan.Network) ||
+                        plan.Network->SourceIdentity().DatasetId.empty() ||
+                        plan.Network->SourceIdentity().Revision.empty()))) {
+    return std::unexpected(TransportPlanCodecError::InvalidNetwork);
   }
   if (!TransportFormat::InputsValid(plan.Inputs)) {
     return std::unexpected(TransportPlanCodecError::InvalidInputs);

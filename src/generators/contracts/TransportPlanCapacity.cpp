@@ -1,4 +1,5 @@
 #include "TransportPlanCodec.h"
+#include "TransportNetworkSnapshot.h"
 #include <algorithm>
 #include <cstddef>
 #include <limits>
@@ -25,6 +26,7 @@ public:
 
 size_t TransportPlanCapacityBytes(const TransportPlan &plan) noexcept {
   Capacity held;
+  if (plan.Network) { held.Add(plan.Network->CapacityBytes()); }
   held.Vector(plan.Inputs);
   held.Vector(plan.Paths);
   held.Vector(plan.Stations);

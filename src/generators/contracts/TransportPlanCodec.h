@@ -30,6 +30,7 @@ enum class TransportPlanCodecError : uint8_t {
   InvalidPort,
   InvalidBody,
   InvalidContact,
+  InvalidNetwork,
   InvalidOmission
 };
 
