@@ -28,7 +28,7 @@
   Gesicherte Übergabestände und offene PRs stehen in [#786](https://github.com/Weichwolf/outshine/issues/786).
   Historische Branch-/Hostnamen bleiben Herkunftsbelege. Nicht integrierte Arbeiten bleiben
   geschützt; der Backlog weist jede offene Aufgabe einem der drei aktuellen Besitzer zu.
-- `outshine_research` priorisiert mit mir den wichtigsten fehlenden Verfahrensbaustein und
+- `outshine_research` priorisiert innerhalb der gemeinsamen Ziele selbstständig den wichtigsten fehlenden Verfahrensbaustein und
   liefert kleine geprüfte vertikale Schritte. Experimente liegen unter `test/experiments/`,
   gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Implementierung.
   `outshine_engine` entwickelt die gemeinsame native Engine und Vulkan, übernimmt verifizierte
@@ -37,6 +37,14 @@
   Gemeinsame Integration, Lint, Tests und Bildprüfung liegen vorrangig bei mir.
   Forschung und native Umsetzung können unabhängig voranschreiten; fehlende Teilverträge
   benennen und unabhängig weiterarbeiten. Python-Zeiten ersetzen keine native Geräteabnahme.
+- Research und Engine arbeiten fortlaufend selbstständig. Nach einer Lieferung, einem Merge
+  oder bei einem lokalen Blocker nehmen sie das höchstpriorisierte passende offene Issue
+  oder prüfbare PR-Paket in ihrem Fachbereich; kein Warten auf neue Einzelaufträge von mir.
+  Vor Beginn aktuellen Stand lesen, Besitz kurz im Fach-Issue/#47 melden und Doppelarbeit
+  vermeiden; das ist eine Mitteilung, keine Freigabeanfrage. Fehlende Verträge blockieren
+  nur abhängige Arbeit. Gemeinsame Vertragsänderungen weiter abstimmen; unabhängige Arbeit
+  läuft währenddessen weiter. Fachpakete liefern, prüfen, integrieren und das nächste
+  passende Paket übernehmen. Nur der Nutzer pausiert ein Goal; fertige PRs beenden es nicht.
 - Transport plant zuerst und liefert angepasste Gebäudegrundrisse/Freiräume, Buildings baut
   danach, Vegetation zuletzt mit den räumlichen Produkten und Hinweisen beider Vorgänger.
   Quellen/Quell-IDs erhalten. Räumliche Verträge stehen in [#18](https://github.com/Weichwolf/outshine/issues/18).
