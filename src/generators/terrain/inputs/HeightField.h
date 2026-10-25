@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <bit>
 #include <cstdint>
+#include <cstddef>
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <span>
@@ -39,9 +41,22 @@ public:
     TerrainCertificate Certificate;
   };
 
+  [[nodiscard]] static bool HasRaster(const Block &block) noexcept {
+    if (block.Raster.Side < 2 || std::cmp_less(block.Raster.Postings, block.Raster.Side) ||
+        block.At.Zoom < 0 || block.At.Zoom > MaximumTileZoom) {
+      return false;
+    }
+    const auto side = static_cast<size_t>(block.Raster.Side);
+    if (block.Terrain) {
+      return block.Terrain->Rows() == side && block.Terrain->Cols() == side &&
+             side <= block.Terrain->Heights().size() / side;
+    }
+    return side <= block.Nodes.size() / side;
+  }
+
   [[nodiscard]] static bool Qualifies(std::span<const Block> blocks, bool fallback) {
     return !fallback && !blocks.empty() && std::ranges::all_of(blocks, [](const Block &block) {
-      return !block.Sources.empty() && !block.MissingBoundary;
+      return HasRaster(block) && !block.Sources.empty() && !block.MissingBoundary;
     });
   }
 
@@ -86,7 +101,7 @@ public:
   }
 
   [[nodiscard]] static bool CopiesField(const TerrainField &field, Data::TileId at, Block &into) {
-    if (field.Rows() != field.Cols() || field.Cols() < 2) { return false; }
+    if (!field.Meshable() || field.Rows() != field.Cols()) { return false; }
     into.At = {.Zoom = at.Zoom, .X = static_cast<long>(at.X), .Y = static_cast<long>(at.Y)};
     into.Raster = {.Side = static_cast<int>(field.Cols()), .Postings = field.Cols()};
     into.Terrain.reset();
@@ -200,16 +215,34 @@ public:
     return request;
   }
 
-  [[nodiscard]] GroundSample At(LongitudeLatitude at) const noexcept {
+  struct LocatedSample {
+    GroundSample Height;
+    size_t BlockIndex = 0;
+  };
+
+  [[nodiscard]] int Zoom() const noexcept { return Zoom_; }
+
+  [[nodiscard]] std::optional<LocatedSample> SampleAt(LongitudeLatitude at) const noexcept {
+    if (Zoom_ < 0 || Zoom_ > MaximumTileZoom || !std::isfinite(at.LongitudeDeg) ||
+        !std::isfinite(at.LatitudeDeg)) {
+      return std::nullopt;
+    }
     const TileSpot spot = SpotOf(at, Zoom_);
-    for (const Block &one : Blocks_) {
-      if (one.At.X != spot.X || one.At.Y != spot.Y) { continue; }
+    for (size_t index = 0; index < Blocks_.size(); ++index) {
+      const Block &one = Blocks_[index];
+      if (one.At.Zoom != spot.Zoom || one.At.X != spot.X || one.At.Y != spot.Y) { continue; }
+      if (!Qualified_ && !HasRaster(one)) { return std::nullopt; }
       double held = 0.0;
       const float *const nodes = one.Terrain ? one.Terrain->Data() : one.Nodes.data();
       GroundBlock::Over(nodes, one.At, one.Raster).AslMRow(at, 0.0, std::span<double>(&held, 1));
-      return GroundSample::At(held);
+      return LocatedSample{.Height = GroundSample::At(held), .BlockIndex = index};
     }
-    return GroundSample::Missing();
+    return std::nullopt;
+  }
+
+  [[nodiscard]] GroundSample At(LongitudeLatitude at) const noexcept {
+    const auto located = SampleAt(at);
+    return located ? located->Height : GroundSample::Missing();
   }
 
   [[nodiscard]] const TerrainCertificate &Certificate() const noexcept { return Certificate_; }
@@ -234,11 +267,14 @@ public:
 private:
   HeightField(int zoom, std::vector<Block> blocks, bool fallback)
       : Blocks_(std::move(blocks)), Zoom_(zoom), Fallback_(fallback) {
-    Qualified_ = Qualifies(Blocks_, fallback);
+    Qualified_ =
+        Qualifies(Blocks_, fallback) &&
+        std::ranges::all_of(Blocks_, [zoom](const Block &block) { return block.At.Zoom == zoom; });
     for (const Block &block : Blocks_) {
       Sources_.insert(Sources_.end(), block.Sources.begin(), block.Sources.end());
     }
     Certificate_ = CertificateOf(Blocks_, fallback);
+    if (!Qualified_) { Certificate_.Invalidate(); }
     std::ranges::sort(Sources_);
     Sources_.erase(std::ranges::unique(Sources_).begin(), Sources_.end());
     const auto fold = [this](uint32_t word) {
@@ -253,6 +289,7 @@ private:
       fold(static_cast<uint32_t>(block.At.Y));
       fold(static_cast<uint32_t>(block.Raster.Side));
       fold(block.Raster.Postings);
+      if (!HasRaster(block)) { continue; }
       const float *const values = block.Terrain ? block.Terrain->Data() : block.Nodes.data();
       const size_t count = static_cast<size_t>(block.Raster.Side) * block.Raster.Side;
       for (size_t at = 0; at < count; ++at) { fold(std::bit_cast<uint32_t>(values[at])); }

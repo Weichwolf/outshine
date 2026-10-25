@@ -16,10 +16,12 @@ int main() {
                                       .SourceId = "dem",
                                       .Revision = "east-1"};
   Ground::HeightField::Block first;
+  first.At = {.Zoom = 14, .X = 4, .Y = 7};
   first.Sources = {east, west};
   first.Nodes = {1, 1, 1, 1};
   first.Raster = {.Side = 2, .Postings = 2};
   Ground::HeightField::Block second = first;
+  second.At.X = 5;
   second.Sources = {east};
   const auto fine = Ground::HeightField::Of(14, {first, second});
   const std::array<Data::TileSourceIdentity, 2> expected{west, east};

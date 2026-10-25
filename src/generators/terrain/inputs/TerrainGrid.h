@@ -42,7 +42,9 @@ public:
 
   [[nodiscard]] uint32_t Cols() const { return Cols_; }
 
-  [[nodiscard]] bool Meshable() const { return Rows_ >= 2 && Cols_ >= 2; }
+  [[nodiscard]] bool Meshable() const {
+    return Rows_ >= 2 && Cols_ >= 2 && static_cast<size_t>(Rows_) <= HeightsM_.size() / Cols_;
+  }
 
   [[nodiscard]] bool HasMissingBoundary() const noexcept { return MissingBoundary_; }
 
@@ -90,6 +92,8 @@ public:
   void AddSources(std::span<const Data::TileSourceIdentity> sources) {
     for (const auto &source : sources) { AddSource(source); }
   }
+
+  [[nodiscard]] std::span<const float> Heights() const noexcept { return HeightsM_; }
 
   [[nodiscard]] const float *Data() const { return HeightsM_.data(); }
 

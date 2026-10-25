@@ -15,9 +15,9 @@ namespace outshine::Path {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
 static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559);
-constexpr uint64_t kNetworkAssetFormat = 0x00013154454eULL;
+constexpr uint64_t kNetworkAssetFormat = 0x00023154454eULL;
 constexpr size_t kWayRecordBytes = 107, kNodeRecordBytes = 68;
-constexpr size_t kEdgeRecordBytes = 16, kCrossingRecordBytes = 32;
+constexpr size_t kEdgeRecordBytes = 24, kCrossingRecordBytes = 32;
 
 bool ValidCoordinates(LongitudeLatitude at) {
   return std::isfinite(at.LatitudeDeg) && std::abs(at.LatitudeDeg) <= kDegPerHalfTurn / 2 &&
@@ -103,7 +103,10 @@ public:
         !WriteRecords(out, network.Nodes_, NodeFields<BinaryValueWriter, const Network::Node>) ||
         !WriteRecords(out,
                       network.Edges_,
-                      [](auto &archive, auto &edge) { return archive(edge.To, edge.LengthM); }) ||
+                      [](auto &archive, auto &edge) {
+                        return archive(
+                            edge.To, edge.LengthM, edge.Source.Way, edge.Source.SignedStep);
+                      }) ||
         !WriteRecords(out,
                       network.CachedCrossings_,
                       CrossingFields<BinaryValueWriter, const Network::Crossing>)) {
@@ -138,7 +141,10 @@ public:
         !ReadRecords(in,
                      network.Edges_,
                      kEdgeRecordBytes,
-                     [](auto &archive, auto &edge) { return archive(edge.To, edge.LengthM); }) ||
+                     [](auto &archive, auto &edge) {
+                       return archive(
+                           edge.To, edge.LengthM, edge.Source.Way, edge.Source.SignedStep);
+                     }) ||
         !ReadRecords(in,
                      network.CachedCrossings_,
                      kCrossingRecordBytes,
@@ -188,7 +194,10 @@ public:
     return ValidateWays(network) && ValidateNodes(network) && ValidateCrossings(network) &&
            std::ranges::all_of(network.Edges_, [&network](const auto &edge) {
              return edge.To < network.Nodes_.size() && std::isfinite(edge.LengthM) &&
-                    edge.LengthM >= 0;
+                    edge.LengthM >= 0 && edge.Source.Way < network.Ways_.size() &&
+                    edge.Source.Step() > 0 &&
+                    edge.Source.Step() < network.Ways_[edge.Source.Way].Count &&
+                    (!edge.Source.Reverse() || !network.Ways_[edge.Source.Way].Oneway);
            });
   }
 

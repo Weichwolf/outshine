@@ -1,5 +1,5 @@
 #include "src/generators/road/Corridors.h"
-#include "src/generators/road/ProfiledRoadMesher.h"
+#include "ProfiledRoadMesher.h"
 #include "Check.h"
 #include <math/RenderFrame.h>
 

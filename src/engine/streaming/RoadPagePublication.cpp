@@ -16,6 +16,7 @@ constexpr size_t kReceiptBytesMost = 4096;
 size_t RequestBytes(const Generators::RoadPageRequest &request) {
   return sizeof(request) + request.Address.PlanKey.capacity() +
          request.Address.MaterialKey.capacity() +
+         Generators::RoadPageAppearanceCapacityBytes(request.Address.Appearance) +
          request.Address.Parts.capacity() * sizeof(Generators::RoadPagePart) +
          request.Parent.capacity() + request.RequestKey.capacity();
 }
