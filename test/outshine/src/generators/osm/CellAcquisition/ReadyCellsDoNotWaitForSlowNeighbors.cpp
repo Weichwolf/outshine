@@ -1,6 +1,6 @@
+#include "OsmProviderValidation.h"
 #include "Check.h"
 #include "OsmCellAcquisition.h"
-#include "SourceProviderValidation.h"
 #include <array>
 #include <cstdlib>
 #include <filesystem>
@@ -48,7 +48,8 @@ int main() {
                                   .Revision = "independent",
                                   .Missing = MissingDataPolicy::Fail,
                                   .Dataset = "openstreetmap.original",
-                                  .Endpoint = std::string(kOfficialOsmApi)};
+                                  .Endpoint =
+                                      std::string(outshine::Generators::Osm::kOfficialOsmApi)};
     DelayedOsmTransport wire;
     std::array<GeoCellId, outshine::Generators::Osm::CellAcquisition::MaximumPendingCells> cells{};
     outshine::Generators::Osm::CellAcquisition reader(provider, store, wire);

@@ -1,10 +1,10 @@
+#include "OsmProviderValidation.h"
 #include "ShippedProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
 #include "OfflineTransport.h"
 #include "OsmApiReader.h"
 #include "Sha256.h"
-#include "SourceProviderValidation.h"
 
 #include <algorithm>
 #include <array>
@@ -107,7 +107,8 @@ int main() {
                                 .Revision = "cell-job-source",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint = std::string(kOfficialOsmApi)};
+                                .Endpoint =
+                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
   const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;

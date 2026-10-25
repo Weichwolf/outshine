@@ -1,7 +1,7 @@
+#include "OsmProviderValidation.h"
 #include "OsmApiReader.h"
 #include "OsmApiSource.h"
 #include "OfflineTransport.h"
-#include "SourceProviderValidation.h"
 #include "OsmXmlReader.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -63,7 +63,7 @@ int main() {
                           .Revision = "r1",
                           .Missing = MissingDataPolicy::Fail,
                           .Dataset = "openstreetmap.original",
-                          .Endpoint = std::string(kOfficialOsmApi),
+                          .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
                           .Coverage = GeographicBounds{.WestDeg = 9.433,
                                                        .SouthDeg = 54.785,
                                                        .EastDeg = 9.445,

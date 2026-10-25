@@ -1,5 +1,5 @@
+#include "OsmProviderValidation.h"
 #include "OsmSourceAcquisition.h"
-#include "SourceProviderValidation.h"
 #include "OsmBuildingFootprints.h"
 #include "OsmTransportPreparation.h"
 #include "Check.h"
@@ -67,7 +67,7 @@ int main() {
         .Revision = "r1",
         .Missing = Data::MissingDataPolicy::Fail,
         .Dataset = "openstreetmap.original",
-        .Endpoint = std::string(Data::kOfficialOsmApi),
+        .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
         .Coverage =
             GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 0.01, .NorthDeg = 0.01}}};
     CHECK(loader.Request(providers, ".") && WaitFor(loader) && loader.Current(),

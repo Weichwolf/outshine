@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -12,7 +13,7 @@
 
 namespace outshine::Data {
 
-// Registered factories outlive their engines; make performs no IO.
+// Factories outlive their engines; validate and make perform no IO.
 class Provider {
 public:
   virtual ~Provider() = default;
@@ -22,6 +23,12 @@ public:
   Provider &operator=(const Provider &) = delete;
 
   [[nodiscard]] virtual std::string_view kind() const = 0;
+
+  [[nodiscard]] virtual std::expected<void, std::string>
+  validate([[maybe_unused]] const SourceProvider &declaration,
+           [[maybe_unused]] std::span<const SourceProvider> declared) const {
+    return {};
+  }
 
   [[nodiscard]] virtual std::expected<std::unique_ptr<Source>, std::string>
   make(const SourceProvider &declaration, std::string_view shippedRoot) const = 0;

@@ -1,9 +1,9 @@
+#include "OsmProviderValidation.h"
 #include "Check.h"
 #include "RawSourceCache.h"
 #include "OfflineTransport.h"
 #include "OsmApiReader.h"
 #include "OsmApiSource.h"
-#include "SourceProviderValidation.h"
 
 #include <array>
 #include <cstdlib>
@@ -50,7 +50,8 @@ int main() {
                                 .Revision = "partial-source",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint = std::string(kOfficialOsmApi)};
+                                .Endpoint =
+                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
   auto source = ApiSource::Create(provider, 0);
   CHECK(source.has_value(), "official original source configured");
   if (!source) { return Report(); }

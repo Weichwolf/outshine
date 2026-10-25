@@ -1,7 +1,7 @@
+#include "OsmProviderValidation.h"
 #include "OsmApiReader.h"
 #include "OfflineTransport.h"
 #include "Sha256.h"
-#include "SourceProviderValidation.h"
 #include "Check.h"
 
 #include <algorithm>
@@ -70,7 +70,7 @@ int main() {
                      .Priority = static_cast<int>(at),
                      .Missing = MissingDataPolicy::Fail,
                      .Dataset = "openstreetmap.original",
-                     .Endpoint = std::string(kOfficialOsmApi),
+                     .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
                      .Coverage = GeographicBounds{.WestDeg = static_cast<double>(at) * 0.01,
                                                   .SouthDeg = 0,
                                                   .EastDeg = static_cast<double>(at + 1) * 0.01,

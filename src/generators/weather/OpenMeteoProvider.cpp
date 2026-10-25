@@ -5,6 +5,7 @@
 #include <cmath>
 #include <expected>
 #include <memory>
+#include <span>
 #include <string_view>
 #include <ranges>
 #include <utility>
@@ -44,11 +45,20 @@ std::string_view OpenMeteoProvider::kind() const {
 std::expected<std::unique_ptr<Data::Source>, std::string>
 OpenMeteoProvider::make(const Data::SourceProvider &declaration,
                         [[maybe_unused]] std::string_view shippedRoot) const {
+  if (auto valid = validate(declaration, std::span(&declaration, 1)); !valid) {
+    return std::unexpected(std::move(valid.error()));
+  }
+  return std::make_unique<OpenMeteoSource>(declaration, Request_);
+}
+
+std::expected<void, std::string>
+OpenMeteoProvider::validate(const Data::SourceProvider &declaration,
+                            [[maybe_unused]] std::span<const Data::SourceProvider> declared) const {
   if (!ValidRequest(Request_) || !ValidCapture(declaration)) {
     return std::unexpected(
         "open-meteo requires a valid typed request and immutable pinned capture");
   }
-  return std::make_unique<OpenMeteoSource>(declaration, Request_);
+  return {};
 }
 
 }

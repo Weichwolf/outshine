@@ -57,7 +57,8 @@ int main() {
        .Dataset = "second-vector",
        .Endpoint = "https://second.example/map/{z}/{x}/{y}.png"},
   }};
-  CHECK(ValidateSourceProviders(providers).has_value(), "distinct tile declarations validate");
+  CHECK(ValidateSourceProviders(providers, registry).has_value(),
+        "distinct tile declarations validate");
   RawSourceCache store({.Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   std::string error;
@@ -159,7 +160,7 @@ int main() {
        {"http://a/{z}/{x}/{y}", "https://a/{z}/{x}/{x}", "https://a/{z}/{x}/{y}/{q}"}) {
     auto rejected = providers;
     rejected[0].Endpoint = invalid;
-    CHECK(!ValidateSourceProviders(rejected).has_value(),
+    CHECK(!ValidateSourceProviders(rejected, registry).has_value(),
           "unsafe scheme or invalid placeholder is rejected");
   }
   return Report();

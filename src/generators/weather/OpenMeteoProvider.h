@@ -2,6 +2,9 @@
 #define OUTSHINE_GENERATORS_WEATHER_OPENMETEOPROVIDER_H
 
 #include <Provider.h>
+#include <expected>
+#include <span>
+#include <string>
 #include <WeatherSnapshot.h>
 
 namespace outshine::Generators::Weather {
@@ -15,6 +18,9 @@ struct OpenMeteoRequest {
 
 class OpenMeteoProvider final : public Data::Provider {
 public:
+  [[nodiscard]] std::expected<void, std::string>
+  validate(const Data::SourceProvider &declaration,
+           std::span<const Data::SourceProvider> declared) const override;
   explicit OpenMeteoProvider(OpenMeteoRequest request);
 
   [[nodiscard]] std::string_view kind() const override;

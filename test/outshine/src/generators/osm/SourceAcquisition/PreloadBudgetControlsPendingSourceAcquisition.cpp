@@ -1,6 +1,6 @@
+#include "OsmProviderValidation.h"
 #include "Check.h"
 #include "OsmSourceAcquisition.h"
-#include "SourceProviderValidation.h"
 
 #include <array>
 #include <atomic>
@@ -67,7 +67,7 @@ int main() {
                           .Revision = "longer",
                           .Missing = MissingDataPolicy::Fail,
                           .Dataset = "openstreetmap.original",
-                          .Endpoint = std::string(kOfficialOsmApi)};
+                          .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi)};
   const std::array cells{GeoCellId{.Level = 9, .X = 256, .Y = 256}};
   const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
       .CellsMost = 1, .SnapshotBytesMost = 1024 * 1024};
