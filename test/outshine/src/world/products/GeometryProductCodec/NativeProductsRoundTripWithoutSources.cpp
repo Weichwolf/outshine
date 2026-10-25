@@ -1,53 +1,66 @@
-#include "GeometryAsset.h"
-#include "AssetGeneration.h"
+#include "GeometryProductCodec.h"
 #include "Check.h"
-#include "Sha256.h"
 #include <algorithm>
 #include <array>
-#include <chrono>
-#include <filesystem>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <limits>
-#include <string>
+#include <span>
 
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
+
+constexpr Material kOpticalParameters{.DiffuseTransmission = {},
+                                      .Pattern = SurfacePattern::Facade,
+                                      .BaseColour = {{0.2f, 0.3f, 0.4f, 0.5f}},
+                                      .Metalness = 0.2f,
+                                      .Roughness = 0.4f,
+                                      .Transmission = 0.1f,
+                                      .Ior = 1.4f,
+                                      .Emission = {{0.2f, 0.1f, 0.3f}},
+                                      .Alpha = AlphaMode::Masked,
+                                      .DoubleSided = true,
+                                      .CoverageCut = 0.25f,
+                                      .Unlit = true,
+                                      .NeedsTangents = true,
+                                      .NormalScale = 0.3f,
+                                      .OcclusionStrength = 0.6f,
+                                      .SpecularFactor = 0.4f,
+                                      .SpecularColour = {{0.7f, 0.8f, 0.9f}},
+                                      .SheenColour = {{0.1f, 0.2f, 0.3f}},
+                                      .SheenRoughness = 0.3f,
+                                      .Clearcoat = 0.7f,
+                                      .ClearcoatRoughness = 0.2f,
+                                      .Anisotropy = 0.1f,
+                                      .AnisotropyRotationRad = 0.3f,
+                                      .Iridescence = 0.4f,
+                                      .IridescenceIor = 1.5f,
+                                      .IridescenceThicknessMinNm = 110.0f,
+                                      .IridescenceThicknessMaxNm = 220.0f,
+                                      .Thickness = 0.8f,
+                                      .AttenuationDistance = 15.0f,
+                                      .AttenuationColour = {{0.6f, 0.5f, 0.4f}},
+                                      .BaseColourMap = {},
+                                      .NormalMap = {},
+                                      .MetalRoughMap = {},
+                                      .EmissiveMap = {},
+                                      .OcclusionMap = {},
+                                      .SpecularStrengthMap = {},
+                                      .SpecularTintMap = {},
+                                      .DiffuseReflectionMap = {},
+                                      .DiffuseTransmissionMap = {}};
 
 Geometry Product() {
   Geometry geometry;
   const std::array<uint8_t, 16> rgba = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
   const auto image = geometry.addImage(2, 2, rgba);
   CHECK(image && *image == 0, "native image uses the first owner-local slot");
-  Material surface;
-  surface.Pattern = SurfacePattern::Facade;
-  surface.BaseColour = {{0.2f, 0.3f, 0.4f, 0.5f}};
-  surface.Metalness = 0.2f;
-  surface.Roughness = 0.4f;
-  surface.Transmission = 0.1f;
-  surface.Ior = 1.4f;
-  surface.Emission = {{0.2f, 0.1f, 0.3f}};
-  surface.Alpha = AlphaMode::Masked;
-  surface.DoubleSided = true;
-  surface.CoverageCut = 0.25f;
-  surface.Unlit = true;
-  surface.NeedsTangents = true;
-  surface.NormalScale = 0.3f;
-  surface.OcclusionStrength = 0.6f;
-  surface.SpecularFactor = 0.4f;
-  surface.SpecularColour = {{0.7f, 0.8f, 0.9f}};
-  surface.SheenColour = {{0.1f, 0.2f, 0.3f}};
-  surface.SheenRoughness = 0.3f;
-  surface.Clearcoat = 0.7f;
-  surface.ClearcoatRoughness = 0.2f;
-  surface.Anisotropy = 0.1f;
-  surface.AnisotropyRotationRad = 0.3f;
-  surface.Iridescence = 0.4f;
-  surface.IridescenceIor = 1.5f;
-  surface.IridescenceThicknessMinNm = 110.0f;
-  surface.IridescenceThicknessMaxNm = 220.0f;
-  surface.Thickness = 0.8f;
-  surface.AttenuationDistance = 15.0f;
-  surface.AttenuationColour = {{0.6f, 0.5f, 0.4f}};
+  Material surface = kOpticalParameters;
+  constexpr double mapOffsetStep = 0.1;
+  constexpr double mapOffsetY = -0.2;
+  constexpr double mapRotationStep = 0.2;
   int mapIndex = 0;
   for (auto *map : {&surface.BaseColourMap,
                     &surface.NormalMap,
@@ -63,8 +76,8 @@ Geometry Product() {
                     .Mip = MipFilter::Nearest,
                     .WrapU = Wrap::ClampToEdge,
                     .WrapV = Wrap::MirroredRepeat};
-    map->Uv = {.OffsetUv = {{mapIndex * 0.1, -0.2}},
-               .RotationRad = mapIndex * 0.2,
+    map->Uv = {.OffsetUv = {{mapIndex * mapOffsetStep, mapOffsetY}},
+               .RotationRad = mapIndex * mapRotationStep,
                .ScaleUv = {{2.0, -3.0}}};
     ++mapIndex;
   }
@@ -74,8 +87,10 @@ Geometry Product() {
   CHECK(defaultMaterial, "the native default permits infinite attenuation distance");
   Material thin;
   thin.Scattering = ScatteringModel::DiffuseThinSheet;
-  thin.BaseColour = {{0.1f, 0.2f, 0.03f, 1}};
-  thin.DiffuseTransmission = {{0.4f, 0.6f, 0.1f}};
+  constexpr Vec4f thinReflection{{0.1f, 0.2f, 0.03f, 1}};
+  thin.BaseColour = thinReflection;
+  constexpr Vec3f thinTransmission{{0.4f, 0.6f, 0.1f}};
+  thin.DiffuseTransmission = thinTransmission;
   thin.DoubleSided = true;
   CHECK(geometry.addSurface("unlit optical coefficients", thin),
         "native products store direct energy-bounded thin-sheet R/T alongside opaque materials");
@@ -103,14 +118,14 @@ Geometry Product() {
             geometry.setTriangles(*part, indices) &&
             geometry.setPlacement(*part, Mat4ShiftedBy({{2, 3, 4}})),
         "all native mesh attributes and model placement are accepted");
-  const PunctualLight light{.Kind = LightKind::Spot,
-                            .Colour = {{0.2f, 0.3f, 0.4f}},
-                            .Intensity = 17.0f,
-                            .Position = {{1, 2, 3}},
-                            .Direction = {{0, -1, 0}},
-                            .InnerConeRad = 0.1f,
-                            .OuterConeRad = 0.4f,
-                            .RangeM = 20.0f};
+  constexpr PunctualLight light{.Kind = LightKind::Spot,
+                                .Colour = {{0.2f, 0.3f, 0.4f}},
+                                .Intensity = 17.0f,
+                                .Position = {{1, 2, 3}},
+                                .Direction = {{0, -1, 0}},
+                                .InnerConeRad = 0.1f,
+                                .OuterConeRad = 0.4f,
+                                .RangeM = 20.0f};
   CHECK(geometry.addLamp("street light", light, Mat4ShiftedBy({{5, 6, 7}})),
         "native light data and placement are accepted");
   CHECK(geometry.wellFormed(), "the generated product is a complete renderable scene");
@@ -128,7 +143,8 @@ void Compare(const Geometry &a, const Geometry &b) {
           "exactly");
   }
   for (int index = 0; index < a.images(); ++index) {
-    const auto before = a.imageAt(index), after = b.imageAt(index);
+    const auto before = a.imageAt(index);
+    const auto after = b.imageAt(index);
     CHECK(before.WidthPx == after.WidthPx && before.HeightPx == after.HeightPx &&
               std::ranges::equal(before.Rgba, after.Rgba),
           "native RGBA pixels survive without colour conversion");
@@ -146,7 +162,8 @@ void Compare(const Geometry &a, const Geometry &b) {
               std::ranges::equal(a.trianglesOf(part), b.trianglesOf(part)),
           "all mesh attributes retain exact values and topology");
   }
-  const auto &before = a.lampAt(0), &after = b.lampAt(0);
+  const auto &before = a.lampAt(0);
+  const auto &after = b.lampAt(0);
   CHECK(before.Kind == after.Kind && before.Colour == after.Colour &&
             before.Intensity == after.Intensity && before.Position == after.Position &&
             before.Direction == after.Direction && before.InnerConeRad == after.InnerConeRad &&
@@ -157,40 +174,41 @@ void Compare(const Geometry &a, const Geometry &b) {
 }
 
 int main() {
-  const auto empty = EncodeGeometryAsset(Geometry{}, 24);
-  const auto emptyProduct = empty ? DecodeGeometryAsset(*empty, 24) : std::nullopt;
+  const auto empty = EncodeGeometryProduct(Geometry{}, 24);
+  const auto emptyProduct = empty ? DecodeGeometryProduct(*empty, 24) : std::nullopt;
   CHECK(emptyProduct && emptyProduct->parts() == 0 && emptyProduct->lamps() == 0,
         "a known empty native scene remains distinct from corruption or an absent asset");
   const Geometry original = Product();
-  const auto encoded = EncodeGeometryAsset(original, 1u << 20u);
+  const auto encoded = EncodeGeometryProduct(original, 1u << 20u);
   CHECK(encoded, "a complete native product encodes within its byte bound");
   if (!encoded) { return Report(); }
-  auto decoded = DecodeGeometryAsset(*encoded, encoded->size());
+  auto decoded = DecodeGeometryProduct(*encoded, encoded->size());
   CHECK(decoded, "the complete native product decodes without source data or a device");
   if (decoded) { Compare(original, *decoded); }
-  CHECK(!EncodeGeometryAsset(original, encoded->size() - 1) &&
-            !DecodeGeometryAsset(*encoded, encoded->size() - 1),
+  CHECK(!EncodeGeometryProduct(original, encoded->size() - 1) &&
+            !DecodeGeometryProduct(*encoded, encoded->size() - 1),
         "encoding and decoding respect the caller's exact payload bound");
   auto corrupt = *encoded;
   corrupt.push_back(0);
-  CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()), "trailing bytes are not a native product");
+  CHECK(!DecodeGeometryProduct(corrupt, corrupt.size()), "trailing bytes are not a native product");
   corrupt = *encoded;
-  std::fill_n(corrupt.begin() + 8, 4, uint8_t{255});
-  CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()),
+  std::fill_n(corrupt.begin() + 8, 4, std::numeric_limits<uint8_t>::max());
+  CHECK(!DecodeGeometryProduct(corrupt, corrupt.size()),
         "forged image counts fail before allocation of their table");
   corrupt = *encoded;
   corrupt[0] ^= 1;
-  CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()), "unsupported format versions are misses");
+  CHECK(!DecodeGeometryProduct(corrupt, corrupt.size()), "unsupported format versions are misses");
   corrupt = *encoded;
   corrupt[5] = 3;
-  CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()),
+  CHECK(!DecodeGeometryProduct(corrupt, corrupt.size()),
         "pre-optical material assets are rejected instead of misreading their old layout");
   corrupt = *encoded;
-  std::fill_n(corrupt.end() - 4, 4, uint8_t{255});
-  CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()),
+  std::fill_n(corrupt.end() - 4, 4, std::numeric_limits<uint8_t>::max());
+  CHECK(!DecodeGeometryProduct(corrupt, corrupt.size()),
         "native indices outside the vertex table are rejected after structural decoding");
-  for (size_t end = 0; end < encoded->size(); end += 31) {
-    CHECK(!DecodeGeometryAsset(std::span(*encoded).first(end), encoded->size()),
+  constexpr size_t truncationStride = 31;
+  for (size_t end = 0; end < encoded->size(); end += truncationStride) {
+    CHECK(!DecodeGeometryProduct(std::span(*encoded).first(end), encoded->size()),
           "truncated native fields never publish a partial scene");
   }
   return Report();

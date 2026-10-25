@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "ImpostorAtlas.h"
 #include "ImpostorSurface.h"
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include "Vec3.h"
 #include <Engine.h>
 #include <Scenario.h>
@@ -208,7 +208,7 @@ int main(int argc, char *const *argv) {
   std::filesystem::create_directories(argv[3], ioError);
   CHECK(!ioError, "the explicit diagnostic output directory is available");
   if (ioError) { return Report(); }
-  const auto encoded = EncodeGeometryAsset(*card, kInputLimit);
+  const auto encoded = EncodeGeometryProduct(*card, kInputLimit);
   CHECK(encoded.has_value(), "the exact native product encodes for the shader comparison");
   if (!encoded) { return Report(); }
   Save(std::as_bytes(std::span(*encoded)), std::string(argv[3]) + "/card.asset");

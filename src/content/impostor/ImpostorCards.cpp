@@ -1,7 +1,7 @@
 #include "ImpostorCards.h"
 #include "Sha256.h"
 #include "BinaryValueArchive.h"
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -56,7 +56,7 @@ std::optional<std::vector<uint8_t>> ImpostorCards::Encode(std::string_view prove
   }
   for (const auto &view : Views) {
     if (!out(view.Direction[0], view.Direction[1], view.Direction[2])) { return std::nullopt; }
-    auto geometry = EncodeGeometryAsset(view.Surface, bytesMost - out.Out.Bytes().size());
+    auto geometry = EncodeGeometryProduct(view.Surface, bytesMost - out.Out.Bytes().size());
     if (!geometry || !out.Array(std::span<const uint8_t>(*geometry))) { return std::nullopt; }
   }
   return std::move(out.Out).TakeBytes();
@@ -83,7 +83,7 @@ std::optional<ImpostorCards> ImpostorCards::Decode(std::span<const uint8_t> byte
     if (!in(view.Direction[0], view.Direction[1], view.Direction[2], size)) { return std::nullopt; }
     const auto payload = in.In.Take(size);
     if (!payload) { return std::nullopt; }
-    auto geometry = DecodeGeometryAsset(*payload, bytesMost);
+    auto geometry = DecodeGeometryProduct(*payload, bytesMost);
     if (!geometry) { return std::nullopt; }
     view.Surface = std::move(*geometry);
     cards.Views.push_back(std::move(view));

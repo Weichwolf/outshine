@@ -3,7 +3,7 @@
 #include "RoadPageRestoration.h"
 #include "Sha256.h"
 #include "Check.h"
-#include <GeometryAsset.h>
+#include <GeometryProductCodec.h>
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -44,7 +44,7 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
   manifest->PlanKey.assign(64, 'a');
   manifest->Anchor = kAnchor;
   if (!manifest->Materials.addSurface("streets", Material{})) { return std::nullopt; }
-  const auto material = EncodeGeometryAsset(manifest->Materials, 4096);
+  const auto material = EncodeGeometryProduct(manifest->Materials, 4096);
   if (!material) { return std::nullopt; }
   manifest->MaterialKey = Sha256Hex(material->data(), material->size());
   for (uint32_t index = 0; index < 32; ++index) {
@@ -249,7 +249,7 @@ void CheckWindows(Tasks &pool, const Fixture &fixture, const std::filesystem::pa
                                         {},
                                         {.PendingMost = 1, .NativeBytesMost = 0}),
         "empty admission budgets fail before starting any worker");
-  auto excessive = std::make_shared<RoadPageManifest>();
+  const auto excessive = std::make_shared<RoadPageManifest>();
   excessive->PlanKey = fixture.Manifest->PlanKey;
   excessive->MaterialKey = fixture.Manifest->MaterialKey;
   excessive->Anchor = fixture.Manifest->Anchor;

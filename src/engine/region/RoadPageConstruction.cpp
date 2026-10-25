@@ -1,7 +1,7 @@
 #include "RoadPageConstruction.h"
 #include "RoadPageProducer.h"
 #include "Sha256.h"
-#include <GeometryAsset.h>
+#include <GeometryProductCodec.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -43,7 +43,7 @@ RoadPageConstruction::Begin(Tasks &pool,
   if (!materials.addSurface("streets", Generators::Corridors::StreetMaterial(site.Materials))) {
     return std::unexpected("could not prepare the shared road material");
   }
-  const auto encoded = EncodeGeometryAsset(materials, 4096);
+  const auto encoded = EncodeGeometryProduct(materials, 4096);
   if (!encoded) { return std::unexpected("could not identify the shared road material"); }
   result->Address_.PlanKey = Sha256Hex("world-road-pages-1\n" + planKey);
   result->Address_.MaterialKey = Sha256Hex(encoded->data(), encoded->size());

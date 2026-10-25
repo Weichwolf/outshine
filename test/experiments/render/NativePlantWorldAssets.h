@@ -4,7 +4,7 @@
 #include "PlantCrownAsset.h"
 #include "PlantLimbAsset.h"
 #include "AssetGeneration.h"
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include "Sha256.h"
 #include <cstddef>
 #include <expected>
@@ -42,7 +42,7 @@ inline std::expected<Source, std::string> Load(AssetCache &cache, std::string_vi
   }
   auto leaves = Generators::DecodePlantCrownPlan(crown->Bytes(), kAssetBytesMost);
   auto limbs = Generators::DecodePlantLimbs(wood->Bytes(), kAssetBytesMost);
-  auto geometry = DecodeGeometryAsset(blades->Bytes(), kAssetBytesMost);
+  auto geometry = DecodeGeometryProduct(blades->Bytes(), kAssetBytesMost);
   if (!leaves || !limbs || !geometry || geometry->parts() != 8) {
     return std::unexpected("prepared plant fields cannot be decoded");
   }

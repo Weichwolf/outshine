@@ -99,7 +99,7 @@ near/far/shadow transitions and all-Place/device acceptance remain open.
 64×64 source normal/coverage fields. `--carrier-segments 4` selects the other
 verified carrier grid. The source exporter checks the same original manifest.
 The native producer restores this bounded packet and stores ordinary native
-GeometryAsset data in the same package, including all required colour/normal mips.
+GeometryProductCodec data in the same package, including all required colour/normal mips.
 The world reader copies only the referenced images and remaps their owner-local
 bindings when separating prototypes; supplied tangents survive publication.
 

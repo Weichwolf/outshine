@@ -1,4 +1,4 @@
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include "Check.h"
 #include <array>
 #include <algorithm>
@@ -26,18 +26,18 @@ int main() {
               original.setTexture(*part, uv) && original.setTexture(*part, metres, 1) &&
               original.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}),
           "the native wall carries distinct metadata and physical coordinates");
-    const auto bytes = EncodeGeometryAsset(original, kBytesMost);
+    const auto bytes = EncodeGeometryProduct(original, kBytesMost);
     CHECK(bytes.has_value(), "the material and both streams encode");
     if (!bytes) { continue; }
     original = Geometry{};
-    const auto loaded = DecodeGeometryAsset(*bytes, kBytesMost);
+    const auto loaded = DecodeGeometryProduct(*bytes, kBytesMost);
     CHECK(loaded.has_value(), "a fresh owner decodes without the original geometry");
     if (!loaded) { continue; }
     CHECK(loaded->surfaceAt(MaterialInstance(0)).Pattern == pattern &&
               std::ranges::equal(loaded->textureOf(0), uv) &&
               std::ranges::equal(loaded->textureOf(0, UvSet::Uv1), metres),
           "the exact procedural mode and independent coordinates survive the cache");
-    CHECK(EncodeGeometryAsset(*loaded, kBytesMost) == bytes,
+    CHECK(EncodeGeometryProduct(*loaded, kBytesMost) == bytes,
           "the owned roundtrip remains canonical for every material mode");
   }
   return Report();

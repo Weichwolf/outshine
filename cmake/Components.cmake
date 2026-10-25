@@ -25,6 +25,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   ui
   world
   world/entity
+  world/products
 )
 function(outshine_component name directory)
   file(GLOB_RECURSE files CONFIGURE_DEPENDS
@@ -65,7 +66,7 @@ target_link_libraries(outshine_actor PUBLIC outshine_base)
 target_link_libraries(outshine_audio PUBLIC outshine_base)
 target_link_libraries(outshine_app_capture PUBLIC outshine_base outshine_content outshine_render outshine_engine)
 target_link_libraries(outshine_client PUBLIC outshine_app_capture outshine_actor outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_sources outshine_render outshine_scenario outshine_world)
-target_link_libraries(outshine_content PUBLIC outshine_base outshine_storage)
+target_link_libraries(outshine_content PUBLIC outshine_base outshine_storage outshine_world_products)
 target_link_libraries(outshine_diagnostics PUBLIC outshine_base)
 target_link_libraries(outshine_diagnostics_calibration PUBLIC outshine_base outshine_render)
 target_link_libraries(outshine_engine PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_actor outshine_render outshine_scenario outshine_ui outshine_audio outshine_diagnostics outshine_sources outshine_engine_streaming)
@@ -84,8 +85,9 @@ target_link_libraries(outshine_storage PUBLIC outshine_base PkgConfig::sqlite3)
 target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_scenario PUBLIC outshine_actor outshine_audio outshine_base outshine_content outshine_render outshine_world outshine_sources)
 target_link_libraries(outshine_ui PUBLIC outshine_base outshine_content)
-target_link_libraries(outshine_world PUBLIC outshine_base outshine_content outshine_world_entity outshine_sources)
+target_link_libraries(outshine_world PUBLIC outshine_base outshine_world_products outshine_world_entity outshine_sources)
 target_link_libraries(outshine_world_entity PUBLIC outshine_base)
+target_link_libraries(outshine_world_products PUBLIC outshine_base)
 
 target_link_libraries(outshine_base PUBLIC PkgConfig::geos ZLIB::ZLIB Threads::Threads)
 target_link_libraries(outshine_content PUBLIC PkgConfig::sdl3_image PkgConfig::sdl3_ttf

@@ -1,7 +1,7 @@
 # Prepared native plant products — #1 / #10 / #48
 
 `src/generators/flora/PreparedPlant` owns a finished, device-independent plant
-product. It uses the existing GeometryAsset codec and AssetCache/ResolveAsset;
+product. It uses the existing GeometryProductCodec codec and AssetCache/ResolveAsset;
 there is no second store, index, compression layer or source-data format.
 
 ## Product boundary
@@ -20,7 +20,7 @@ there is no second store, index, compression layer or source-data format.
 - Geometry uses native local Y-up metres. Part placement applies before instance
   placement. The producer converts canonical Z-up frames once. Normals are
   prepared for every part, UVs for blades. Existing native material/image/mip
-  data are carried by GeometryAsset. Runtime light/wind are not baked poses.
+  data are carried by GeometryProductCodec. Runtime light/wind are not baked poses.
 
 The generator-owned versioned envelope encodes fields explicitly little-endian,
 without struct padding, pointers or GPU handles. Geometry is encoded once,
@@ -72,7 +72,7 @@ no GPU, provider or asset-store dependency.
 The product unit passes focused analysis. Case analysis stays red at shared
 Check.h findings and three libc++ parameter-name diagnoses for legal global
 new/delete replacements. The same three diagnoses reproduce in the existing
-GeometryAsset allocation case; no reserved implementation names, suppression
+GeometryProductCodec allocation case; no reserved implementation names, suppression
 or weakened rule was introduced (#603).
 
 The full64-axis/571-leaf technical portrait was assembled through this product

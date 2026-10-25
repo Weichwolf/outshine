@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -50,11 +50,11 @@ int main() {
   if (!heldMips) { return Report(); }
   CHECK(held.Format == format && std::ranges::equal(held.Rgba, original) && heldMips->size() == 8,
         "the owner retains the format and independent base/mip allocations");
-  const auto encoded = EncodeGeometryAsset(geometry, 4096);
+  const auto encoded = EncodeGeometryProduct(geometry, 4096);
   CHECK(encoded && (*encoded)[5] == 7,
         "typed image bytes select the new version instead of an RGBA8 schema");
   if (!encoded) { return Report(); }
-  auto restored = DecodeGeometryAsset(*encoded, encoded->size());
+  auto restored = DecodeGeometryProduct(*encoded, encoded->size());
   CHECK(restored.has_value(), "the typed native product decodes");
   if (!restored) { return Report(); }
   const auto after = restored->imageAt(0);
@@ -75,10 +75,10 @@ int main() {
   auto corrupt = *encoded;
   constexpr size_t kFormatOffset = sizeof(uint64_t) + 6 * sizeof(int);
   corrupt[kFormatOffset] = 2;
-  CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()),
+  CHECK(!DecodeGeometryProduct(corrupt, corrupt.size()),
         "an unknown serialized image format cannot be read as default RGBA8");
   for (size_t count = 0; count < encoded->size(); ++count) {
-    CHECK(!DecodeGeometryAsset(std::span(*encoded).first(count), encoded->size()),
+    CHECK(!DecodeGeometryProduct(std::span(*encoded).first(count), encoded->size()),
           "no truncated typed image or mip payload can publish a partial native product");
   }
   return Report();
