@@ -22,6 +22,7 @@ foreach(source IN LISTS cases)
   string(REPLACE "/" "_" target "test_${name}")
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
   if(name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
+      OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/NativeSourceBindingsSurviveOfflineRoundTrip"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
       OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
       OR name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"

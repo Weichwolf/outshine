@@ -2,6 +2,7 @@
 #include "TransportPlanCodec.h"
 #include "TransportProvenance.h"
 #include "Check.h"
+#include "CppAllocationProbe.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -44,7 +45,9 @@ int main() {
   const auto bare = EncodeTransportPlan(barePlan, kTransportFixtureLimits);
   CHECK(bare.has_value(), "native source-element products remain serializable");
   if (!bare) { return Report(); }
+  BeginCppAllocationProbe();
   const auto original = DecodeTransportPlan(*bare, kTransportFixtureLimits);
+  const auto originalAllocations = EndCppAllocationProbe();
   CHECK(original && original->Network &&
             original->Network->Provenance().IdentitySpace ==
                 TransportIdentitySpace::SourceElements &&
@@ -54,7 +57,9 @@ int main() {
   const auto encoded = EncodeTransportPlan(*plan, kTransportFixtureLimits);
   CHECK(encoded.has_value(), "the plan persists complete native provenance within its budget");
   if (!encoded) { return Report(); }
+  BeginCppAllocationProbe();
   const auto decoded = DecodeTransportPlan(*encoded, kTransportFixtureLimits);
+  const auto allocations = EndCppAllocationProbe();
   CHECK(decoded && decoded->Network, "offline restoration requires no source or topology rebuild");
   if (!decoded || !decoded->Network) { return Report(); }
   const auto &provenance = decoded->Network->Provenance();
@@ -66,6 +71,12 @@ int main() {
       provenance.References.size() != 2) {
     return Report();
   }
+  const size_t owned = provenance.Sources.capacity() * sizeof(TransportSource) +
+                       provenance.Paths.capacity() * sizeof(TransportPathSource) +
+                       provenance.References.capacity() * sizeof(TransportSourceReference);
+  CHECK(original && allocations.Calls == originalAllocations.Calls + 3 &&
+            allocations.Bytes == originalAllocations.Bytes + owned,
+        "provenance decoding allocates its three owned arrays without scratch or copied tables");
   CHECK(provenance.Sources[0].Identity.DatasetId == "source-a" &&
             provenance.Sources[0].Identity.Revision == "revision-1" &&
             provenance.Sources[0].Item == "opaque-item-a" &&
@@ -101,8 +112,12 @@ int main() {
   oldFormat[5] = 2;
   CHECK(!DecodeTransportPlan(oldFormat, kTransportFixtureLimits),
         "a prior source-free plan format is a local miss rather than a provenance-complete hit");
-  std::println("TRANSPORT_PROVENANCE package_extra_bytes={} capacity_extra_bytes={}",
+  std::println("TRANSPORT_PROVENANCE package_extra_bytes={} capacity_extra_bytes={} "
+               "cpp_allocations_extra={} requested_bytes_extra={} object_bytes={}",
                encoded->size() - bare->size(),
-               TransportPlanCapacityBytes(*decoded) - originalCapacity);
+               TransportPlanCapacityBytes(*decoded) - originalCapacity,
+               allocations.Calls - originalAllocations.Calls,
+               allocations.Bytes - originalAllocations.Bytes,
+               sizeof(TransportProvenance));
   return Report();
 }
