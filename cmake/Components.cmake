@@ -12,6 +12,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators
   generators/base
   generators/building
+  generators/contracts
   generators/flora
   generators/osm
   generators/road
@@ -23,6 +24,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   storage
   ui
   world
+  world/contracts
   world/entity
 )
 function(outshine_component name directory)
@@ -71,10 +73,12 @@ target_link_libraries(outshine_engine PUBLIC outshine_base outshine_content outs
 target_link_libraries(outshine_engine_streaming PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_render outshine_sources)
 target_link_libraries(outshine_generators PUBLIC outshine_base outshine_content outshine_diagnostics outshine_generators_osm outshine_world outshine_generators_road outshine_generators_terrain outshine_generators_water outshine_generators_flora outshine_sources)
 target_link_libraries(outshine_generators_base PUBLIC outshine_base outshine_content outshine_world)
+target_link_libraries(outshine_generators_contracts PUBLIC outshine_base outshine_world_contracts)
+target_link_libraries(outshine_world_contracts PUBLIC outshine_base)
 target_link_libraries(outshine_generators_building PUBLIC outshine_generators_base outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_generators_flora PUBLIC outshine_generators_base outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_generators_osm PUBLIC outshine_base outshine_content outshine_generators_base outshine_generators_building outshine_world outshine_sources)
-target_link_libraries(outshine_generators_road PUBLIC outshine_base outshine_content outshine_diagnostics outshine_generators_base outshine_generators_osm outshine_world)
+target_link_libraries(outshine_generators_road PUBLIC outshine_generators_contracts outshine_base outshine_content outshine_diagnostics outshine_generators_base outshine_generators_osm outshine_world)
 target_link_libraries(outshine_generators_terrain PUBLIC outshine_base outshine_content outshine_generators_base outshine_generators_osm outshine_world)
 target_link_libraries(outshine_generators_water PUBLIC outshine_base outshine_content outshine_generators_base outshine_world)
 target_link_libraries(outshine_sources PUBLIC outshine_base outshine_storage CURL::libcurl)
@@ -82,7 +86,7 @@ target_link_libraries(outshine_storage PUBLIC outshine_base PkgConfig::sqlite3)
 target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_scenario PUBLIC outshine_actor outshine_audio outshine_base outshine_content outshine_render outshine_world outshine_sources)
 target_link_libraries(outshine_ui PUBLIC outshine_base outshine_content)
-target_link_libraries(outshine_world PUBLIC outshine_base outshine_content outshine_world_entity outshine_sources)
+target_link_libraries(outshine_world PUBLIC outshine_world_contracts outshine_base outshine_content outshine_world_entity outshine_sources)
 target_link_libraries(outshine_world_entity PUBLIC outshine_base)
 
 target_link_libraries(outshine_base PUBLIC PkgConfig::geos ZLIB::ZLIB Threads::Threads)

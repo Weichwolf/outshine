@@ -1,0 +1,39 @@
+#ifndef OUTSHINE_GENERATORS_CONTRACTS_TRANSPORTPLANADDRESS_H
+#define OUTSHINE_GENERATORS_CONTRACTS_TRANSPORTPLANADDRESS_H
+
+#include "GeoCellId.h"
+#include <array>
+#include <cstdint>
+#include <expected>
+#include <string>
+
+namespace outshine::Generators {
+struct TransportInputScopeId {
+  explicit TransportInputScopeId(std::array<uint8_t, 32> bytes) noexcept : Bytes(bytes) {}
+
+  std::array<uint8_t, 32> Bytes;
+
+  [[nodiscard]] bool operator==(const TransportInputScopeId &) const noexcept = default;
+};
+
+enum class TransportRepresentation : uint8_t { Functional = 1 };
+
+struct TransportPlanAddress {
+  GeoCellId Core;
+  TransportInputScopeId Inputs;
+  TransportRepresentation Representation = TransportRepresentation::Functional;
+  uint32_t RepresentationVersion = 1;
+
+  [[nodiscard]] bool operator==(const TransportPlanAddress &) const noexcept = default;
+};
+
+enum class TransportPlanRequestError : uint8_t {
+  InvalidCore,
+  UnsupportedRepresentation,
+  EncodingFailed
+};
+
+[[nodiscard]] std::expected<std::string, TransportPlanRequestError>
+TransportPlanRequestKey(const TransportPlanAddress &address);
+}
+#endif
