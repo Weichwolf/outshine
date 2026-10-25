@@ -80,8 +80,9 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
     ActiveState().WhyNot = Says::kNoColourOutput;
     return ReadState::Failed;
   }
-  const Native::Texture *const held =
-      source == Resource::FrameTex ? ActiveFrame().FrameTex.get() : ActiveFrame().Offscreen.get();
+  const Native::Texture *const held = source == Resource::FrameTex
+                                          ? ActiveFrame().Targets.Get(Resource::FrameTex)
+                                          : ActiveFrame().Offscreen.get();
   if (held == nullptr) {
     ActiveState().WhyNot = Says::kNoColourTexture;
     return ReadState::Failed;
@@ -106,10 +107,12 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
 }
 
 ReadState SceneRenderer::ReadDepth(std::vector<float> &depth) {
-  if (!ActiveState().Ready || !ActiveFrame().DepthTex) { return ReadState::Failed; }
+  if (!ActiveState().Ready || ActiveFrame().Targets.Get(Resource::SceneDepth) == nullptr) {
+    return ReadState::Failed;
+  }
   Readback read;
   if (read.FromTexture(Device_.get(),
-                       ActiveFrame().DepthTex.get(),
+                       ActiveFrame().Targets.Get(Resource::SceneDepth),
                        {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
                        4u) != ReadState::Ready) {
     return ReadState::Failed;
@@ -303,7 +306,7 @@ ReadState ReadHalfTarget(Native::Device *device,
 ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
   if (!ActiveState().Ready) { return ReadState::Failed; }
   return ReadHalfTarget(Device_.get(),
-                        ActiveFrame().ShadingNormalTex.get(),
+                        ActiveFrame().Targets.Get(Resource::SceneShadingNormal),
                         {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
                         4,
                         xyz);
@@ -312,7 +315,7 @@ ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
 ReadState SceneRenderer::ReadSurfaceBase(std::vector<float> &rgba) {
   if (!ActiveState().Ready) { return ReadState::Failed; }
   return ReadHalfTarget(Device_.get(),
-                        ActiveFrame().SurfaceBaseTex.get(),
+                        ActiveFrame().Targets.Get(Resource::SceneSurfaceBase),
                         {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
                         4,
                         rgba);
@@ -321,14 +324,14 @@ ReadState SceneRenderer::ReadSurfaceBase(std::vector<float> &rgba) {
 ReadState SceneRenderer::ReadSurfaceMetalRough(std::vector<float> &rg) {
   if (!ActiveState().Ready) { return ReadState::Failed; }
   return ReadHalfTarget(Device_.get(),
-                        ActiveFrame().SurfaceMetalRoughTex.get(),
+                        ActiveFrame().Targets.Get(Resource::SceneSurfaceMetalRough),
                         {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
                         2,
                         rg);
 }
 
 ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
-  const Native::Texture *source = ActiveFrame().VelTex.get();
+  const Native::Texture *source = ActiveFrame().Targets.Get(Resource::SceneVelocity);
   if (!ActiveState().Ready || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.get(),
@@ -349,7 +352,7 @@ ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
 }
 
 ReadState SceneRenderer::ReadSurfaceIdentity(std::vector<float> &slot) {
-  const Native::Texture *source = ActiveFrame().SurfaceIdentityTex.get();
+  const Native::Texture *source = ActiveFrame().Targets.Get(Resource::SceneSurfaceIdentity);
   if (!ActiveState().Ready || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.get(),

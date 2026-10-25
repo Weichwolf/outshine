@@ -28,6 +28,9 @@ struct SDL_Window;
 #include "Gpu.h"
 #include "GpuSubmission.h"
 #include "GpuFrameSample.h"
+#include "TemporalSequence.h"
+#include "FrameTargets.h"
+#include "TextureFormat.h"
 #include "UploadQueue.h"
 #include "TerrainMaterialBuffers.h"
 
@@ -798,7 +801,6 @@ public:
   }
 
 private:
-  [[nodiscard]] static Native::Format TextureFormatOf(TexelFormat declared);
   [[nodiscard]] static bool Accepted(Native::Result<void> result, std::string &error);
   friend class Core::RuntimeScene;
 
@@ -1006,7 +1008,8 @@ private:
   void SettleShadow();
   std::array<bool, kResourceCount> Touched_ = {{}};
   [[nodiscard]] Native::Texture *Target(Resource resource) const;
-  [[nodiscard]] static Native::Texture *Target(const FrameResources &frame, Resource resource);
+  [[nodiscard]] static Native::Texture *
+  Target(const FrameResources &frame, Resource resource, size_t linearIndex);
   void BindFrameResources();
   void ApplyWorldDeclarations();
 
@@ -1040,24 +1043,16 @@ private:
     Shown Shown;
     std::unique_ptr<Native::Texture> Offscreen;
     Gpu Handles;
-    std::unique_ptr<Native::Texture> HdrTex, VelTex, DepthTex, FrameTex;
+    FrameTargets Targets;
     std::unique_ptr<Native::Texture> TransmittanceLut, MultiScatterLut, SkyViewLut,
         EnvironmentSpecular;
     std::unique_ptr<Native::Texture> ShadowAtlas;
-    std::unique_ptr<Native::Texture> TransmissiveTex, CompositedTex, AerialTex;
-    std::unique_ptr<Native::Texture> ShadingNormalTex;
-    std::unique_ptr<Native::Texture> SurfaceIdentityTex;
-    std::unique_ptr<Native::Texture> SurfaceBaseTex;
-    std::unique_ptr<Native::Texture> SurfaceMetalRoughTex;
     std::unique_ptr<Native::Sampler> Samp, LutSamp;
     std::unique_ptr<Native::Buffer> IrradianceBuffer;
     std::unique_ptr<Native::Buffer> Pyramid;
     std::unique_ptr<Native::Buffer> GroundPyramid;
     Readback PyramidRead;
     int Width = 0, Height = 0;
-    std::array<std::unique_ptr<Native::Texture>, 2> LinearTex{};
-    int LinearAt = 0;
-    bool HistoryHeld = false;
     CompositeTransmissionStage CompositeTransmission;
     AerialPerspectiveStage Aerial;
     TonemapStage Tonemap;
@@ -1083,10 +1078,7 @@ private:
     Medium Medium = kEarthAir;
     float CosSunZenith = 1.0f;
     float EyeHeightM = 0.0f;
-    bool HistoryStarted = false;
-    int JitterAt = 0;
-    Vec2f Jitter = {{0.0f, 0.0f}};
-    Vec2f PrevJitter = {{0.0f, 0.0f}};
+    TemporalSequence Temporal;
     bool CameraFull = false;
     double RegionX = 0.0;
     double RegionY = 0.0;
@@ -1162,7 +1154,6 @@ private:
 
   bool Presenting_ = true;
   SDL_Window *Showing_ = nullptr;
-  static constexpr int kJitterPeriod = 8;
 
   struct Placed {
     double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;

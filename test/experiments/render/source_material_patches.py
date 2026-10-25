@@ -100,6 +100,28 @@ def shape_material_patches(surface, shape, source, part, basis, anchor):
     return patches
 
 
+def selected_material_patches(parent, cells, identities, frame):
+    selected = set(map(int, identities))
+    patches, seen = [], set()
+    for _, sources, forms in parent.iter_forms(cells):
+        for identity, surface in zip(sources, forms, strict=True):
+            identity = int(identity)
+            if identity not in selected:
+                continue
+            if surface is None:
+                raise ValueError(f"whole source reference unavailable: {identity}")
+            for part, shape in enumerate(surface["shapes"]):
+                patches.extend(
+                    shape_material_patches(
+                        surface, shape, identity, part, frame["basis"], frame["anchor"]
+                    )
+                )
+            seen.add(identity)
+    if seen != selected:
+        raise ValueError("all selected source domains must remain available")
+    return patches
+
+
 def weld_local(points):
     """BuildingMesh::Snapped: millimetres, ties away from zero."""
     p = np.asarray(points, float)

@@ -57,6 +57,9 @@ def evaluate(
     neutral=False,
     diagnostic=None,
     supersample=16,
+    light=(0.45, -0.5, 0.7),
+    intensity=3,
+    ambient=0.1,
 ):
     supersample = supersample if diagnostic is None else 1
     data = samples(source, view, box, supersample) if diagnostic is None else diagnostic
@@ -100,8 +103,10 @@ def evaluate(
         palette,
         normal[faces],
         data["outgoing"],
-        [0.45, -0.5, 0.7],
+        light,
         tables,
+        intensity=intensity,
+        ambient=ambient,
     )
     width, height = map(int, box[1] - box[0])
     c = np.zeros((len(data["hit"]), 3))

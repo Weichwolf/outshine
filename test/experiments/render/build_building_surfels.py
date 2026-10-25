@@ -14,7 +14,7 @@ from building_surface_samples import emit_samples, sample_surfaces, validate
 from building_tree_load import read_tree
 from parent_surface_inputs import open_parent
 from process_memory import peak_rss_bytes
-from source_material_patches import shape_material_patches
+from source_material_patches import selected_material_patches
 
 
 def compile_root(parent, root, cell, at, *, all_depths=False):
@@ -24,22 +24,8 @@ def compile_root(parent, root, cell, at, *, all_depths=False):
     with np.load(node_path, allow_pickle=False) as archive:
         wanted = set(map(int, archive["g__group_sources"]))
         needs = archive["g__needs_sources"]
-    patches, seen = [], set()
     before_bytes, before_reads = parent.form_bytes, parent.form_reads
-    for _, identities, forms in parent.iter_forms({cell}):
-        for identity, surface in zip(identities, forms, strict=True):
-            identity = int(identity)
-            if identity not in wanted:
-                continue
-            for part, shape in enumerate(surface["shapes"]):
-                patches.extend(
-                    shape_material_patches(
-                        surface, shape, identity, part, tree["basis"], tree["anchor"]
-                    )
-                )
-            seen.add(identity)
-    if seen != wanted:
-        raise ValueError("all root source domains must remain available")
+    patches = selected_material_patches(parent, {cell}, wanted, tree)
     sampled, spacing, sampling = sample_surfaces(
         patches, tree["node_bounds"][0], all_depths=all_depths
     )
