@@ -149,8 +149,9 @@ def contact_error(model, vertices, faces):
     return {
         "intersecting_pairs": pairs.shape[1],
         "common_refinement_vertices": len(points),
-        "maximum_above_underside_m": max(0.0, float(error.max())),
-        "maximum_gap_below_underside_m": max(0.0, float(-error.min())),
+        "maximum_above_underside_m": float(error.max(initial=0.0)),
+        "maximum_gap_below_underside_m": max(0.0, float(-error.min(initial=0.0))),
+        "positive_area_overlap": bool(len(error)),
         "compared_area_m2": float(shapely.area(overlap).sum()),
         "cap_area_m2": float(shapely.area(caps).sum()),
         "scope": "All vertices of positive-area GEOS common-refinement polygons; affine extrema occur there. Binary64/GEOS result, not exact-rational or native Float32 proof.",
