@@ -15,10 +15,10 @@
 #include "Vec3.h"
 
 #include "TileMeshes.h"
+#include "EarthworkStamp.h"
+#include "TerrainPatchwork.h"
 
 namespace outshine {
-
-constexpr size_t kZoomLevels = 24;
 
 constexpr int kPatchGrid = 32;
 
@@ -40,91 +40,6 @@ struct Around {
   int Grid = kPatchGrid;
   TerrainTileAccess Access = TerrainTileAccess::Mesh;
   bool PlayableOnly = false;
-};
-
-struct Sheet {
-  Data::TileId Tile;
-  std::vector<float> Nodes;
-  int Side = 0;
-  uint32_t Postings = 0;
-  bool Virtual = false;
-  int SourceZoom = -1;
-
-  [[nodiscard]] bool operator==(const Sheet &) const = default;
-};
-
-struct Patchwork {
-  std::vector<Sheet> Sheets;
-  size_t Tiles = 0;
-  size_t Pending = 0;
-  size_t Absent = 0;
-  size_t Refused = 0;
-  size_t Skipped = 0;
-  size_t Bare = 0;
-  size_t ContactPending = 0;
-  std::array<int, kZoomLevels> PendingAtZoom = {{}};
-  std::array<int, kZoomLevels> WantedAtZoom = {{}};
-  size_t Overlapped = 0;
-  long ReachTiles = 0;
-  int CoarsestZoom = 0;
-
-  [[nodiscard]] size_t HeapBytes() const noexcept {
-    size_t bytes = Sheets.capacity() * sizeof(Sheet);
-    for (const Sheet &sheet : Sheets) { bytes += sheet.Nodes.capacity() * sizeof(float); }
-    return bytes;
-  }
-};
-
-enum class EarthworkKind : uint8_t { Pad, Corridor, Basin, Clearance };
-
-struct ProfiledCorridorSpan {
-  uint64_t CorridorKey = 0;
-  EastNorth BeginM;
-  EastNorth EndM;
-  EastNorthUp BeginDerivativeM;
-  EastNorthUp EndDerivativeM;
-  double StationLengthM = 0.0;
-  double BeginBedM = 0.0;
-  double EndBedM = 0.0;
-  double BeginPavementHalfWidthM = 0.0;
-  double EndPavementHalfWidthM = 0.0;
-  double BeginHalfWidthM = 0.0;
-  double EndHalfWidthM = 0.0;
-
-  [[nodiscard]] bool operator==(const ProfiledCorridorSpan &) const = default;
-};
-
-struct EarthworkStamp {
-  std::vector<double> RingEastNorthM;
-  std::vector<std::vector<double>> HoleRingsEastNorthM;
-  double LowE = 0.0, HighE = 0.0, LowN = 0.0, HighN = 0.0;
-  double AtE = 0.0, AtN = 0.0;
-  double PlateauM = 0.0;
-  double SlopeE = 0.0, SlopeN = 0.0;
-  std::vector<double> SeamEastNorthM;
-  std::optional<ProfiledCorridorSpan> Profile;
-  std::optional<double> PlanarSupportM;
-  uint64_t CorridorKey = 0;
-  double ApronM = 0.0;
-  double YieldM = 0.0;
-  double SagInv = 0.0;
-  bool Fills = false;
-  EarthworkKind Kind = EarthworkKind::Pad;
-
-  [[nodiscard]] bool operator==(const EarthworkStamp &) const = default;
-
-  [[nodiscard]] size_t HeapBytes() const noexcept {
-    size_t bytes = (RingEastNorthM.capacity() + SeamEastNorthM.capacity()) * sizeof(double);
-    bytes += HoleRingsEastNorthM.capacity() * sizeof(std::vector<double>);
-    for (const auto &hole : HoleRingsEastNorthM) { bytes += hole.capacity() * sizeof(double); }
-    return bytes;
-  }
-
-  [[nodiscard]] double WantsAt(EastNorth at) const {
-    const double dE = at.EastM - AtE;
-    const double dN = at.NorthM - AtN;
-    return PlateauM + SlopeE * dE + SlopeN * dN - 0.5 * (dE * dE + dN * dN) * SagInv;
-  }
 };
 
 class GroundMesher {

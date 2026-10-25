@@ -2,7 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_GROUNDREGIONASSET_H
 
 #include "TerrainClassificationMap.h"
-#include "GroundMesher.h"
+#include "TerrainPatchwork.h"
 #include "Wayfinding.h"
 #include "Geometry.h"
 #include <cstddef>

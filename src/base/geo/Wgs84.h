@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_WGS84_H
-#define OUTSHINE_WORLD_DATA_WGS84_H
+#ifndef OUTSHINE_BASE_GEO_WGS84_H
+#define OUTSHINE_BASE_GEO_WGS84_H
 
 #include <numbers>
 
