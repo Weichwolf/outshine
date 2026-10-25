@@ -24,6 +24,7 @@
 
 #include "EngineState.h"
 #include "StructureTilePublication.h"
+#include "TerrainFieldPinning.h"
 #include "Lens.h"
 #include "Viewing.h"
 #include "Views.h"
@@ -310,17 +311,20 @@ StructureBuildQueue::HeightSource Engine::State::StructureHeightSource() {
           },
       .PinField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            if (World.GroundPublished.Current()) {
-              return World.Sheets.ShareSourcedField(tile, into);
-            }
-            return Ground::HeightField::SharesField(
-                World.Stack.Ground().StitchedField(tile), tile, into);
+            return PinTerrainField(World.GroundPublished.Current() ? &World.Sheets : nullptr,
+                                   World.Stack.Ground(),
+                                   tile,
+                                   into);
           },
       .ResidentField =
           [this](Data::TileId tile) { return World.Stack.Ground().ResidentStitchedField(tile); },
       .PinResidentField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            return World.Sheets.ShareSourcedField(tile, into);
+            return PinResidentTerrainField(World.GroundPublished.Current() ? &World.Sheets
+                                                                           : nullptr,
+                                           World.Stack.Ground(),
+                                           tile,
+                                           into);
           },
       .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()},
       .CaptureFields =

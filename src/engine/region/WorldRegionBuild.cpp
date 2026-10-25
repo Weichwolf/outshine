@@ -1,4 +1,5 @@
 #include "WorldRegionBuildState.h"
+#include "TerrainFieldPinning.h"
 #include "building/BuildingMaterials.h"
 #include "Digest.h"
 #include "Units.h"
@@ -1316,6 +1317,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() 
                          ? World.StructureBuilds.SourcesComplete(World.Stack, state.Footprints())
                          : StructuresReady(state.Footprints(), state.Revision());
   if (!ready) { return GroundBuildProgress::Pending; }
+  state.Candidate().Products().Sheets.ForgetsFields();
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
 }
@@ -1355,14 +1357,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
                  finestZoom](LongitudeLatitude at) { return build.Sheets.AslMAt(finestZoom, at); },
       .PinField =
           [this, &build](Data::TileId tile, Ground::HeightField::Block &into) {
-            if (build.Sheets.ShareSourcedField(tile, into)) { return true; }
-            std::shared_ptr<const Ground::TerrainField> field;
-            if (World.Stack.Ground().PollStitchedField(tile, field) !=
-                    Ground::TilePool::Reply::Ready ||
-                !field) {
-              return false;
-            }
-            return Ground::HeightField::SharesField(std::move(field), tile, into);
+            return PinTerrainField(&build.Sheets, World.Stack.Ground(), tile, into);
           },
       .ResidentField = {},
       .Revision = {.Value = World.Stack.Pool().TerrainScopeRevision()}};
