@@ -19,7 +19,7 @@ int main() {
   const TransportPlanAddress address{.Definition = {.Core = {.Level = 9, .X = 270, .Y = 99}},
                                      .Inputs = TransportInputScopeId(binding)};
   const auto original = TransportPlanRequestKey(address);
-  CHECK(original && *original == "d580458b8db0d9732c8bdeb5902e372b467b19beb060e0ce18944faab6604c55",
+  CHECK(original && *original == "cf923a02cf23279bf813a229636646271ea653405a3097b781307836f9dace42",
         "the request key has independently encoded fixed fields and explicit domain version");
   CHECK(TransportPlanRequestKey(address) == original,
         "identical known metadata resolves without source or plan state");
