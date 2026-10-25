@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from facing_cones import cone_excludes, prepare_cone
 from native_visibility_cost import load
 from native_visibility_data import digest
 
@@ -60,28 +61,7 @@ def unit_normals(points):
 
 
 def cone_rejects(points, normals, eye, margin):
-    if not np.isfinite(normals).all() or ((normals * normals).sum(axis=1) < 0.5).any():
-        return False
-    axis = normals.sum(axis=0)
-    length = np.linalg.norm(axis)
-    if length < 1e-12:
-        return False
-    axis /= length
-    dots = normals @ axis
-    cutoff = float(dots.min())
-    if cutoff <= 1e-6:
-        return False
-    centre = (points.min(axis=(0, 1)) + points.max(axis=(0, 1))) * 0.5
-    offset = np.max(np.einsum("ij,ij->i", normals, centre - points[:, 0]) / dots)
-    apex = centre - axis * offset
-    direction = eye - apex
-    along = float(direction @ axis)
-    return bool(
-        along < -margin
-        and along * along
-        > np.dot(direction, direction) * max(0, 1 - cutoff * cutoff)
-        + margin * (2 * abs(along) + margin)
-    )
+    return cone_excludes(prepare_cone(points, normals), eye, margin)
 
 
 def cell_rays(direction, grid):
