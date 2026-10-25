@@ -1,0 +1,20 @@
+{
+  "issue": 1248,
+  "archive": "pool-contact-neighborhood.tar.xz",
+  "archive_sha256": "5cc5befb26cad360aedb5f7a76d8d11e21927328e232c5b77af46a53ba5b14ce",
+  "state": "complete_requested_window",
+  "source_asset_key": "d2b2abbf7790527cd7f9176a7572fa9c5d2719bcd336df091723e231a13a8961",
+  "source_stored_sha256": "bef07125e34b6714e9686e2bca2c744d5ad17565a85f4f8b442858a3a829f840",
+  "source_native_sha256": "4e9ab24526105c6ac5cb72bcd7cbb755205fc7c8145194c114db4fac21e90aad",
+  "pages": 9,
+  "height_bytes": 44100,
+  "window_zoom_x0_x1_y0_y1": [
+    20,
+    308878,
+    308880,
+    393922,
+    393924
+  ],
+  "scope": "Read-only extraction of versioned page prefix; trailing classes/network/geometry are not independently revalidated.",
+  "producer": "test/experiments/render/terrain_cached_window.py"
+}
