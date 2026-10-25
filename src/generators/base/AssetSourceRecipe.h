@@ -11,6 +11,7 @@ class SourceSet;
 }
 
 namespace outshine::Generators {
+// Empty means the selected metadata cannot be encoded; callers must reject it.
 [[nodiscard]] std::string AssetSourceRecipe(std::string_view version,
                                             const Data::SourceSet &sources,
                                             std::span<const Data::DataKind> kinds);

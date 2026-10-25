@@ -4,9 +4,11 @@
 #include "SourceSet.h"
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <memory>
 #include <string>
 #include <system_error>
@@ -17,6 +19,7 @@ using outshine::GeoCellId;
 
 namespace {
 using namespace outshine::Data;
+constexpr int kOk = 200;
 
 class Cells final : public Source {
 public:
@@ -25,23 +28,28 @@ public:
                   .Endpoint = "https://native.example/cells",
                   .Kind = DataKind::Elevation,
                   .How = Scheme::GeodeticGrid,
-                  .MaximumPayloadBytes = 64};
+                  .MaximumPayloadBytes = 64,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &request) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest &request) const noexcept override {
     const auto cell = request.Where().GeoCell();
     return request.Kind() == Decl.Kind && cell && cell->Valid() ? Coverage::Inside
                                                                 : Coverage::Outside;
   }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
   FetchStart Begin(const Address &at, Transport &transport) const override {
     return transport.Begin(Decl.Endpoint + "/" + at.Text());
   }
 
-  SourceResponse Collect(const Address &, Ticket ticket, Transport &transport) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket ticket, Transport &transport) const override {
     auto wire = transport.Collect(ticket);
     auto answer = wire.Take();
     return answer ? SourceResponse::Delivered(std::move(answer->Body))
@@ -53,11 +61,11 @@ class Network final : public Transport {
 public:
   int Starts = 0;
 
-  FetchStart Begin(const std::string &) override { return static_cast<Ticket>(++Starts); }
+  FetchStart Begin(const std::string & /*url*/) override { return static_cast<Ticket>(++Starts); }
 
-  Wire Collect(Ticket) override { return Wire::Answered(200, {1, 2, 3, 4}); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Answered(kOk, {1, 2, 3, 4}); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 }
 

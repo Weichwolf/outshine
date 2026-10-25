@@ -58,6 +58,9 @@ bool RegisterSources(SourceSet &set,
     case SourceSet::Registration::Sealed:
       error = "providers cannot be registered after the tile pool starts";
       return false;
+    case SourceSet::Registration::InvalidDefinition:
+      error = "a provider resolves to source metadata without a valid persistent identity";
+      return false;
   }
   return true;
 }

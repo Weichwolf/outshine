@@ -4,23 +4,25 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace {
 using namespace outshine::Data;
+constexpr Ticket kTransportTicket{17};
+constexpr Ticket kProviderTicket{23};
 
 class WireProbe final : public Transport {
 public:
   int Cancelled = 0;
 
-  FetchStart Begin(const std::string &) override { return Ticket{17}; }
+  FetchStart Begin(const std::string & /*url*/) override { return kTransportTicket; }
 
-  Wire Collect(Ticket) override { return Wire::Working(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Working(); }
 
-  void Cancel(Ticket) override { ++Cancelled; }
+  void Cancel(Ticket /*ticket*/) override { ++Cancelled; }
 };
 
-class OwnedWork final : public Source {
-public:
+struct OwnedWork final : Source {
   mutable int Cancelled = 0;
   mutable Ticket Last = Ticket::None;
 
@@ -28,29 +30,33 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket{23}; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return kProviderTicket;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     return SourceResponse::Working();
   }
 
-  void Cancel(Ticket ticket, Transport &) const override {
+  void Cancel(Ticket ticket, Transport & /*transport*/) const override {
     ++Cancelled;
     Last = ticket;
   }
 
-private:
   SourceDecl Decl_;
 };
 }
 
 int main() {
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   auto source = std::make_unique<OwnedWork>();
   const auto *observed = source.get();
@@ -61,7 +67,7 @@ int main() {
   CHECK(sources.Collect(query, wire).Where() == SourceDelivery::State::Pending,
         "provider owns pending work");
   SourceSet::Abandon(query, wire);
-  CHECK(observed->Cancelled == 1 && observed->Last == Ticket{23} && wire.Cancelled == 0,
+  CHECK(observed->Cancelled == 1 && observed->Last == kProviderTicket && wire.Cancelled == 0,
         "cancellation returns the exact ticket to the owning provider instead of a foreign "
         "transport");
   SourceSet::Abandon(query, wire);
