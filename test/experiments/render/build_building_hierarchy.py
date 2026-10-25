@@ -97,7 +97,7 @@ def write_nodes(root, tree, nodes, ready, frame, values, at):
     return files, report
 
 
-def case(parent, cell, output, at):
+def case(parent, cell, output, at, *, make_queries=queries):
     wall, cpu = time.perf_counter(), time.process_time()
     output.mkdir()
     before_reads = parent.form_reads
@@ -107,7 +107,7 @@ def case(parent, cell, output, at):
     for array in (*tree.values(), frame["basis"], frame["anchor"]):
         digest.update(array.tobytes())
     frame["tree_sha256"] = np.frombuffer(digest.digest(), np.uint8).copy()
-    poses = queries(tree)
+    poses = make_queries(tree)
     cuts = []
     for pose in poses:
         cut, work = select_cut(tree, pose["eye"], pose["focal_px"])
