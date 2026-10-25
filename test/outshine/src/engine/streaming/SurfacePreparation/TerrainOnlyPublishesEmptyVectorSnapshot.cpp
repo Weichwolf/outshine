@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "OfflineTransport.h"
@@ -49,11 +50,14 @@ int main() {
   terrain.Kind = "terrain";
   const std::array providers{terrain};
   Tasks sourceCompute(1);
+  Data::ProviderRegistry registry;
+  Generators::RegisterShippedProviders(registry);
   SurfacePreparation stack;
   const LongitudeLatitude first{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
   CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
                    providers,
+                   registry,
                    first,
                    wire,
                    sourceCompute,

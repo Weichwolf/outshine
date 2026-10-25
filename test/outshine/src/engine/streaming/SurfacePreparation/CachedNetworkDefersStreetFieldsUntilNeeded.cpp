@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include "Check.h"
 #include "Sink.h"
 #include "SurfacePreparation.h"
@@ -97,12 +98,15 @@ int main() {
   source.Schema = "shortbread";
   const std::array providers{source};
   Tasks compute(1);
+  Data::ProviderRegistry registry;
+  Generators::RegisterShippedProviders(registry);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   constexpr LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
   const auto open = [&] {
     return stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
                       providers,
+                      registry,
                       focus,
                       wire,
                       compute,

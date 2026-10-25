@@ -1,3 +1,5 @@
+#include "EngineFactory.h"
+#include "ShippedProviders.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
 #include <Generator.h>
@@ -31,7 +33,7 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes");
   {
     Probe probe;
-    Engine engine;
+    auto engine = App::CreateEngine();
     CHECK(engine.registerGenerator(probe), "fixture generator registers");
     CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "real offscreen target opens");
     Scenario::Document scenario;
@@ -59,6 +61,8 @@ int main() {
     CHECK(engine.declare(scenario) && probe.Calls == 6,
           "removing generated content does not invoke removed producer");
     Scenario::Document earth;
+    const auto sources = Generators::ShippedProviders();
+    earth.Providers.assign(sources.begin(), sources.end());
     earth.Ground.Declared = true;
     earth.Ground.VegetationEnabled = false;
     earth.Ground.Origin.LatitudeDeg = 49;
@@ -76,8 +80,13 @@ int main() {
     earthView.Geographic.Geodetic.HeightM = 1.7;
     earthView.Geographic.SamplesHeight = false;
     earth.Views.push_back(earthView);
-    CHECK(engine.declare(earth) && engine.assemble(),
-          "Earth with an explicit view opens after invalid auto framing");
+    const auto earthDeclared = engine.declare(earth);
+    CHECK(earthDeclared,
+          earthDeclared ? "explicit Earth view declares" : earthDeclared.error().c_str());
+    const auto earthBuilt = earthDeclared ? engine.assemble() : earthDeclared;
+    CHECK(earthBuilt,
+          earthBuilt ? "Earth with an explicit view opens after invalid auto framing"
+                     : earthBuilt.error().c_str());
     scenario.Generators.push_back({.Kind = "redeclare-probe"});
     Scenario::View spaceView;
     spaceView.Id = "space";

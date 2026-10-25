@@ -1,4 +1,5 @@
 set(OUTSHINE_COMPONENT_ROOTS
+  app
   app/capture
   actor
   audio
@@ -70,10 +71,11 @@ foreach(root IN LISTS OUTSHINE_COMPONENT_ROOTS)
   string(REPLACE "/" "_" name "outshine_${root}")
   outshine_component(${name} "${root}")
 endforeach()
+target_link_libraries(outshine_app PUBLIC outshine_base outshine_engine outshine_generators outshine_sources)
 target_link_libraries(outshine_actor PUBLIC outshine_base)
 target_link_libraries(outshine_audio PUBLIC outshine_base)
 target_link_libraries(outshine_app_capture PUBLIC outshine_base outshine_content outshine_render outshine_engine)
-target_link_libraries(outshine_client PUBLIC outshine_app_capture outshine_actor outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_sources outshine_render outshine_scenario outshine_world)
+target_link_libraries(outshine_client PUBLIC outshine_app outshine_app_capture outshine_actor outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_sources outshine_render outshine_scenario outshine_world)
 target_link_libraries(outshine_content PUBLIC outshine_base outshine_content_assets outshine_world_products)
 target_link_libraries(outshine_content_assets PUBLIC outshine_base outshine_storage
   PRIVATE PkgConfig::libzstd ZLIB::ZLIB)

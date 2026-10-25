@@ -1,3 +1,5 @@
+#include "EngineFactory.h"
+#include "ShippedProviders.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
 
@@ -25,11 +27,13 @@ int main() {
   {
     Scenario::Document scene;
     scene.Ground.Declared = true;
+    const auto sources = Generators::ShippedProviders();
+    scene.Providers.assign(sources.begin(), sources.end());
     scene.Ground.Origin = {.LatitudeDeg = kLatitudeDeg, .LongitudeDeg = kLongitudeDeg};
     scene.Render.Declared = true;
     scene.Render.Frame = kFramePx;
     scene.Views.push_back(view);
-    Engine engine;
+    auto engine = App::CreateEngine();
     CHECK(engine.setRoots(roots) && engine.setRenderTarget(kFramePx) && engine.declare(scene),
           "natural world enters the public engine without source acquisition");
     CHECK(engine.assemble(), "assembly queues world acquisition without requiring original OSM");
@@ -48,7 +52,7 @@ int main() {
     provider.Dataset = "test.map";
     provider.Endpoint = "https://fixture.invalid/{z}/{x}/{y}";
     scene.Providers.push_back(provider);
-    Engine engine;
+    auto engine = App::CreateEngine();
     CHECK(engine.setRoots(roots) && engine.setRenderTarget(kFramePx) && engine.declare(scene),
           "explicit vector-tile declaration reaches the runtime boundary");
     CHECK(engine.assemble() && engine.settled(WorldQuality::Refined),

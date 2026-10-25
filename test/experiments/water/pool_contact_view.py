@@ -6,23 +6,27 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
 
 
-def _view(body, terrain, faces, centre):
-    vertices = np.vstack((body["vertices"], terrain))
-    indices = np.vstack((body["faces"], faces + len(body["vertices"])))
-    # Display a fixed local orthographic view; all scene triangles retain depth.
+def _basis():
     direction = np.array([0.6, -0.5, -0.65])
     direction /= np.linalg.norm(direction)
     right = np.cross(direction, [0, 0, 1])
     right /= np.linalg.norm(right)
     up = np.cross(right, direction)
-    basis = np.array([right, up, direction])
+    return np.array([right, up, direction])
+
+
+def _view(body, terrain, faces, centre, *, span_m=5.0):
+    vertices = np.vstack((body["vertices"], terrain))
+    indices = np.vstack((body["faces"], faces + len(body["vertices"])))
+    # Display a fixed local orthographic view; all scene triangles retain depth.
+    basis = _basis()
     all_points = np.vstack((vertices, body["water_triangles"].reshape(-1, 3)))
     local = (all_points - centre) @ basis.T
     low, high = local[:, 2].min() - 1, local[:, 2].max() + 1
     projected = np.column_stack(
         (
-            640 + 1280 / 5 * local[:, 0],
-            360 - 1280 / 5 * local[:, 1],
+            640 + 1280 / span_m * local[:, 0],
+            360 - 1280 / span_m * local[:, 1],
             (high - local[:, 2]) / (high - low),
         )
     )

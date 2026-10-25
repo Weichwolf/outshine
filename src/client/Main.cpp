@@ -1,3 +1,5 @@
+#include "EngineFactory.h"
+#include "ShippedProviders.h"
 #include "ScenarioJson.h"
 #include "CommandLine.h"
 #include "CacheCommand.h"
@@ -703,7 +705,7 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   }
   const std::string named = options.Argc > 1 ? options.Argv[1] : "scenario";
   const auto began = std::chrono::steady_clock::now();
-  outshine::Engine engine;
+  auto engine = outshine::App::CreateEngine();
   const auto setupFailed = [&](int result) {
     if (options.Stats) {
       const double elapsedMs =
@@ -785,9 +787,11 @@ constexpr auto kHeightCoordinates =
   }
   const double lat = *latitude;
   const double lon = *longitude;
-  outshine::Engine engine;
+  auto engine = outshine::App::CreateEngine();
   if (!InitializeClientEngine(engine)) { return 2; }
   outshine::Scenario::Document stands;
+  const auto sources = outshine::Generators::ShippedProviders();
+  stands.Providers.assign(sources.begin(), sources.end());
   stands.Ground.Declared = true;
   stands.Ground.Origin.LatitudeDeg = lat;
   stands.Ground.Origin.LongitudeDeg = lon;

@@ -1,3 +1,4 @@
+#include "EngineFactory.h"
 #include <Engine.h>
 #include "Check.h"
 
@@ -8,7 +9,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
 
-  Engine engine;
+  auto engine = App::CreateEngine();
   Scenario::Document original;
   original.Named.Name = "kept";
   CHECK(engine.declare(original).has_value(), "initial native declaration accepted");

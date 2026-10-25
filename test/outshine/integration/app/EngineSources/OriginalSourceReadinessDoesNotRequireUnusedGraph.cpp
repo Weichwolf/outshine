@@ -1,3 +1,4 @@
+#include "EngineFactory.h"
 #include <Engine.h>
 #include "Check.h"
 
@@ -36,7 +37,7 @@ int main() {
        .Location = path.string(),
        .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}});
   {
-    Engine sourceOnly;
+    auto sourceOnly = App::CreateEngine();
     CHECK(sourceOnly.setRoots({.Offline = true}) && sourceOnly.declare(document) &&
               sourceOnly.assemble(),
           "renderer-free source declaration queues original data");
@@ -56,7 +57,7 @@ int main() {
     CHECK(bytes == static_cast<double>(xml.size()) && pending == 0 && graphMs == -1,
           "actual source bytes publish without an unused graph job");
     document.Routes.push_back({.Id = "incomplete", .OsmRelationId = 20});
-    Engine routed;
+    auto routed = App::CreateEngine();
     CHECK(routed.setRoots({.Offline = true}) && routed.declare(document) && routed.assemble(),
           "the same original data admits an explicit route request");
     const auto loaded = routed.preload(2.0);

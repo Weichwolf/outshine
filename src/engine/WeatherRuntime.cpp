@@ -1,5 +1,4 @@
 #include "EngineState.h"
-#include "ShippedProviders.h"
 #include "OfflineTransport.h"
 
 #include <algorithm>
@@ -14,11 +13,7 @@
 
 namespace outshine {
 bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
-  if (providers.empty() && Session.Declared.Ground.Declared) {
-    const auto defaults = Generators::ShippedProviders();
-    providers.assign(defaults.begin(), defaults.end());
-  }
-  if (providers.empty()) {
+  if (providers.empty() && !Session.Declared.Ground.Declared) {
     World.Weather.reset();
     World.WeatherUtcS.reset();
     World.UrbanAreas.reset();

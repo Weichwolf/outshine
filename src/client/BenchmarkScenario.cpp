@@ -1,3 +1,4 @@
+#include "EngineFactory.h"
 #include "BenchmarkScenario.h"
 #include "BenchmarkMotion.h"
 #include "BenchmarkOptions.h"
@@ -148,7 +149,7 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
     return std::unexpected("SDL video did not start: " + std::string(SDL_GetError()));
   }
   [[maybe_unused]] const VideoSystem video;
-  Engine engine;
+  auto engine = App::CreateEngine();
   if (const auto rooted = engine.setRoots(std::move(*roots)); !rooted) {
     return std::unexpected(rooted.error());
   }

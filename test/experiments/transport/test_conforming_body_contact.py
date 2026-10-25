@@ -44,6 +44,19 @@ class ConformingBodyContact(unittest.TestCase):
         self.assertLess(new["maximum_above_underside_m"], 1e-7)
         self.assertLess(new["maximum_gap_below_underside_m"], 1e-7)
         self.assertAlmostEqual(new["compared_area_m2"], new["cap_area_m2"], places=10)
+        self.assertTrue(new["positive_area_overlap"])
+
+    def test_disjoint_terrain_has_no_contact_comparison_or_false_full_coverage(self):
+        high = self.body["body_vertices"][:, :2].max(axis=0) + 5
+        xy = high + np.array([[0, 0], [1, 0], [0, 1]])
+        vertices = np.column_stack((xy, np.zeros(3)))
+        result = contact_error(self.model, vertices, np.array([[0, 1, 2]]))
+        self.assertFalse(result["positive_area_overlap"])
+        self.assertEqual(result["common_refinement_vertices"], 0)
+        self.assertEqual(result["compared_area_m2"], 0)
+        self.assertGreater(result["cap_area_m2"], 0)
+        self.assertEqual(result["maximum_above_underside_m"], 0)
+        self.assertEqual(result["maximum_gap_below_underside_m"], 0)
 
     def test_indexed_interior_edges_have_two_incident_triangles_and_boundary_is_external(
         self,

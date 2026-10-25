@@ -123,6 +123,10 @@ CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatit
 
 Engine::Engine() : Engine(std::make_unique<State>()) {}
 
+Engine::Engine(Data::ProviderRegistry providers) : Engine() {
+  S_->World.Providers = std::move(providers);
+}
+
 Engine::Engine(std::unique_ptr<State> state) : S_(std::move(state)) {}
 
 Capture::~Capture() {

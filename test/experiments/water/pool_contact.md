@@ -142,6 +142,51 @@ corner with exactly one sixth of the input area inside. They check complete
 coverage, positive faces and indexed topology. These are geometric controls;
 they do not supply or reconstruct the missing native neighborhood heights.
 
+## Original neighboring pages
+
+The original nine-page window is now pinned as
+`test/outshine/data/terrain/pool-contact-neighborhood.tar.xz`, with provenance
+beside it. `pool_native_neighborhood` verifies the archive, every height/fraction
+file, complete tile coverage and shared core words before constructing geometry.
+It reuses the supplied source/package identities and all44,100Float32 height
+bytes;392repeated core-edge values agree exactly. The old four height words are
+present unchanged. Their WGS84 reconstruction differs from the earlier printed
+geographic coordinates by at most2.05nm. These are the original deformed end
+heights, not a pre-deformation DEM or a newly cooked replacement.
+
+The finite reference places those words in the existing WGS84 Double frame and
+retains explicit NW-SE grid diagonals. It does not reconstruct native shader or
+Float32 page transforms. The source has9409unique nodes/18432triangles. Four-cell
+patches keep the existing exact kernel bounds; a conservative patch box rejects
+work beyond the declared3m apron. Exact original-edge parameters are exchanged
+once, and only patches missing a knot are rebuilt. Reusing an unchanged patch
+must preserve every output word relative to unconditional rebuilding. No further
+intersection is introduced by inserting the already known boundary knots.
+
+The complete window qualifies all2681.769m² of the body's two-role contact
+surface. All common-refinement extrema remain within the existing1e-7m height
+contract. The384outer source edges retain their original positions/words, and
+the joined mesh is a positive indexed disk. `reference_window_closed` names only
+this finite Double reference; partial windows report `partial_body_window`.
+Disjoint apron patches now report zero compared area and `positive_area_overlap`
+false, instead of failing an empty extrema reduction. This does not manufacture
+body coverage; the complete-window check separately requires the entire body.
+
+The direct whole-window ENU→Float32 diagnostic has25coincident vertices and140
+nonpositive triangles. It is an explicit negative packing control, not a native
+representation or accepted GPU mesh. Native adoption still needs the agreed
+contact-mesh/regular-grid choice, shared output frames and original-edge word
+ownership; a0.3m wall cannot be assumed represented by the roughly0.9m grid.
+Other world-class contacts and physical/runtime integration remain native work.
+The existing body/water source words and recipe dimensions are unchanged.
+
+The explicit neighborhood driver stores the whole candidate, original mesh,
+source-node mapping, work counters, a same-quality rebuild comparison and a
+fixed common1280×720depth before/after view. Allocation tracing is scoped to one
+real32-face witness patch; process RSS and cumulative returned numeric array
+bytes are separate, with external GEOS allocations uncounted. No Python time,
+Float32 diagnostic or closed finite window establishes a world/device budget.
+
 ## Checks, cost and limits
 
 Exact edge noding first checks rational coordinate intervals. An interior point
@@ -183,7 +228,7 @@ checks. Cancel is checked between exact clipping stages; individual GEOS calls
 are not preemptible. These are admission/work bounds, not hard scratch/RSS caps.
 Everything is asynchronous generation; a cache hit must not redo it. Native
 height-grid/contact-mesh integration, adjacent pages, world/physics/Float32
-qualification and device budgets remain #1248/#826.
+qualification and device budgets remain native work under #826.
 
 ## References and reproduction
 
@@ -202,4 +247,5 @@ PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experi
 PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/water/pool_region_experiment.py --repeats 7 --render --output /tmp/outshine-pool-planar-controls
 PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/water/pool_neighbor_experiment.py --repeats 7 --render --output /tmp/outshine-pool-neighbor-control
 PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error -m unittest test_pool_contact_neighbors
+PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -W error test/experiments/water/pool_neighborhood_experiment.py --compare-rebuilds --render --output /tmp/outshine-pool-native-neighborhood
 ```
