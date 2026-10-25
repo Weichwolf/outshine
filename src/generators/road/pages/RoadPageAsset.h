@@ -2,7 +2,8 @@
 #define OUTSHINE_GENERATORS_ROAD_ROADPAGEASSET_H
 
 #include "Earth.h"
-#include "RoadPageRecipe.h"
+#include "RoadPageGeometry.h"
+#include "RoadPageAppearance.h"
 #include "Box.h"
 #include <cstddef>
 #include <cstdint>
@@ -21,6 +22,7 @@ struct RoadPageAddress {
   LongitudeLatitude Anchor;
   uint32_t Level = 0;
   std::vector<RoadPagePart> Parts;
+  RoadPageAppearance Appearance = LegacyRoadPageV1{};
 };
 
 struct RoadPageAsset {

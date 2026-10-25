@@ -19,6 +19,7 @@ struct RoadPageReference {
   uint64_t ByteCount = 0;
   uint32_t Level = 0;
   std::vector<RoadPagePart> Parts;
+  RoadPageAppearance Appearance = LegacyRoadPageV1{};
 };
 
 struct RoadPageManifest {
@@ -27,7 +28,10 @@ struct RoadPageManifest {
   LongitudeLatitude Anchor;
   Geometry Materials;
   std::vector<RoadPageReference> Pages;
+  RoadPageAppearance Appearance = LegacyRoadPageV1{};
 };
+
+[[nodiscard]] std::string RoadPageManifestAppearanceKey(std::span<const RoadPageReference> pages);
 
 [[nodiscard]] std::optional<std::vector<uint8_t>>
 EncodeRoadPageManifest(const RoadPageManifest &manifest, size_t bytesMost);

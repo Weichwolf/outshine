@@ -1,4 +1,5 @@
 #include "Corridors.h"
+#include "RoadLaneColour.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -18,7 +19,7 @@ RoadSweep Corridors::SurfaceOf(const Osm::StreetField::Way &lane,
                                bool unbanked) {
   return {.HalfWidthM = static_cast<double>(lane.HalfWidthM),
           .Profile = ProfileOf(lane, vegetation),
-          .WearsLinear = LaneColour(lane, vegetation),
+          .WearsLinear = RoadLaneColour(lane.CoverRow, vegetation),
           .Crossfall = lane.Bridge && !unbanked ? std::atan(kCrossfall) : 0.0,
           .Form = lane.Bridge ? RibbonForm::ClosedShell : RibbonForm::Surface,
           .EndPorts = edge.EndPorts};
