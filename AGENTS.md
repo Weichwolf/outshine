@@ -16,7 +16,7 @@
   | Worktree/Branch | Verantwortung | Einstieg |
   |---|---|---|
   | `outshine` / `master` | Gesamtarchitektur, Art Direction, native Übernahme, Integration/Merges, gebündelte Lint-/Test-/Bildprüfung und Metal/A18 Pro | [#5](https://github.com/Weichwolf/outshine/issues/5) |
-  | `outshine_research` | Ausschließlich Python: Verfahren, Solver und Rezepte entwickeln und nach Bildwirkung, Rechenarbeit und Speicher optimieren | [#788](https://github.com/Weichwolf/outshine/issues/788) |
+  | `outshine_research` | Python-Verfahren/Solver/Rezepte; unabhängige Testspezifikation, Referenzen und atomare Python-/C++-Tests | [#788](https://github.com/Weichwolf/outshine/issues/788) |
   | `outshine_engine` | Gemeinsame C++-Engine/Vulkan entwickeln und optimieren, Python-Referenzen nativ übernehmen und master dauerhaft bei PR-Review/Merges unterstützen; Intel i5-1135G7 / Iris Xe | [#789](https://github.com/Weichwolf/outshine/issues/789) |
 
   Worktrees liegen als Geschwister unter `Git/`; Branch und Verzeichnis der beiden Kollegen
@@ -30,7 +30,9 @@
   geschützt; der Backlog weist jede offene Aufgabe einem der drei aktuellen Besitzer zu.
 - `outshine_research` priorisiert innerhalb der gemeinsamen Ziele selbstständig den wichtigsten fehlenden Verfahrensbaustein und
   liefert kleine geprüfte vertikale Schritte. Experimente liegen unter `test/experiments/`,
-  gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Implementierung.
+  gemeinsame installierbare Referenzbibliotheken unter `lib/`; kein nativer Produktcode.
+  Research besitzt zusätzlich unabhängige Testspezifikation, Gegenbeispiele und atomare
+  Python-/C++-Tests samt testbezogener CMake-/CTest-Verdrahtung; geprüfte Test-PRs selbst mergen.
   `outshine_engine` entwickelt die gemeinsame native Engine und Vulkan, übernimmt verifizierte
   Python-Verfahren maschinennah nach `src/` und optimiert die integrierten Verfahren.
   Ich übernehme native Arbeit nach Bedarf und verantworte Metal/A18 Pro.
@@ -57,8 +59,8 @@
 - Beide Kollegen committen und pushen kleine vollständige Fachlieferungen als PRs gegen den
   vereinbarten Integrationsstand. Jeder mergt seine fertigen PRs selbst nach Aktualisierung gegen
   `master`, Konfliktlösung und betroffenen Prüfungen; gewöhnliche Fachlieferungen benötigen keine
-  zusätzliche Merge-Freigabe von mir. Research integriert ausschließlich Python-Verfahren,
-  Referenzen und abgeschlossene Experimente mit ausdrücklich benannten Grenzen; native Übernahme
+  zusätzliche Merge-Freigabe von mir. Research integriert Python-Verfahren, Referenzen,
+  abgeschlossene Experimente und unabhängige Tests; die native Übernahme
   bleibt ein eigener Auftrag bei Engine oder mir. Große Drafts in vollständige Lieferungen teilen.
   Ich koordiniere Paketbesitz, Reihenfolge und gemeinsame Basis. `outshine_engine` unterstützt
   zusätzlich bei Review/Merges übernommener Pakete. Paketbesitz vor Arbeit melden, damit wir keinen
@@ -255,8 +257,8 @@
   Backendentscheidungen und Übergang stehen in [#48](https://github.com/Weichwolf/outshine/issues/48).
   RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
-  Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
-  Typ-/Binärverträge erlaubt. CMake-Targets besitzen Modulabhängigkeiten und Include-Sichtbarkeit; CTest besitzt
+  Warnings sind Fehler. An der CPU/GPU-Grenze Größe, Alignment und Offsets verbindlich
+  mit `static_assert` sichern; sonstige Logik durch atomare Modultests prüfen. CMake-Targets besitzen Modulabhängigkeiten und Include-Sichtbarkeit; CTest besitzt
   Testauswahl/-ausführung. Standardwerkzeuge statt eigener Build-/Layersteuerung;
   kein separater Claims-Block. Funktionstests gehören zu ihren Komponenten.
   Die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
@@ -295,8 +297,14 @@
   Implementierungen stehen in `.cpp`. Keine künstliche Fragmentierung oder Zeilenverdichtung.
   Ich lese gezielte Symbole/Ausschnitte und fasse Logs als Ergebnis, Fehler und Belegpfad zusammen.
   Entscheidungen und Belege haben einen Ort; andere Stellen verlinken statt zu duplizieren.
-- Modultests bauen nur die deklarierten Modulabhängigkeiten. Unerwartete Abhängigkeiten
-  prüfe ich als Architekturfehler; gemischte Integrationsprüfungen erhalten einen eigenen Ort.
+- Modultests prüfen je einen Vertrag mit kleinen positiven/negativen Eingaben und nur den
+  deklarierten Modulabhängigkeiten. Unerwartete Abhängigkeiten sind Architekturfehler.
+  Research verantwortet die unabhängige Testsicht, Implementierer behalten ihre gezielten
+  Eigenprüfungen; kein Warten auf fremde Testlieferungen. Anforderungen bestimmen Orakel,
+  nicht die vorhandene Implementierung. Tests nicht für Grün an Produktfehler anpassen.
+  Places sind die zentrale Bild-/Lade-/Performance-Integration. Wenige gezielte Integrations-
+  tests ergänzen unsichtbare Verträge wie Miss/Hit, Abbruch, Persistenz und GPU-Lebensdauer.
+  Gemischte Prüfungen liegen ausdrücklich unter integration, nicht als scheinbare Modultests.
 - Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und
   betroffene Places prüfen. Bei geänderten C++-Includes oder Modulpfaden die betroffenen CMake-Targets bauen.
   `make lint` verwendet CMake-integriertes clang-tidy; Ninja bestimmt geänderte Units samt
