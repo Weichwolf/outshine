@@ -31,8 +31,11 @@ offset can have zero residual change while retaining a nonzero spatial error.
 
 The original dielectric GGX lighting model stays unchanged. Existing renderers
 gain explicit optional light/intensity/ambient arguments with identical default
-values. No baked illumination, geometry/normal/roughness change or new runtime
-cache contract. Source response receipts stay applicable. Camera-/Caster-Ready
+values. At exactly zero direct intensity, validation still runs and the known
+ambient term returns without GGX evaluation or row allocation; every positive
+intensity retains the existing path. No baked illumination, geometry/normal/
+roughness change or new runtime cache contract. Response receipts bind the
+lighting implementation and must be regenerated when it changes. Camera-/Caster-Ready
 domains and full physical LOD transitions remain separate work.
 
 Use `.venv`, one BLAS/OMP thread and
