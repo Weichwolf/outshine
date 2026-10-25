@@ -41,6 +41,29 @@ if(NOT spirv_cross_FOUND)
 endif()
 if(NOT APPLE)
   find_package(Vulkan REQUIRED)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${Vulkan_INCLUDE_DIR}/vulkan/vulkan_core.h")
+  try_compile(OUTSHINE_VULKAN_PRESENT_HEADERS
+    SOURCE_FROM_CONTENT VulkanPresentHeaders.cpp [=[
+#include <vulkan/vulkan_core.h>
+
+static_assert(VK_KHR_internally_synchronized_queues != 0);
+static_assert(VK_DEVICE_QUEUE_CREATE_INTERNALLY_SYNCHRONIZED_BIT_KHR != 0);
+
+int main() {
+  const VkPhysicalDeviceInternallySynchronizedQueuesFeaturesKHR features{
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INTERNALLY_SYNCHRONIZED_QUEUES_FEATURES_KHR,
+      .pNext = nullptr,
+      .internallySynchronizedQueues = VK_FALSE};
+  return static_cast<int>(features.internallySynchronizedQueues);
+}
+]=]
+    LINK_LIBRARIES Vulkan::Headers
+    NO_CACHE)
+  if(NOT OUTSHINE_VULKAN_PRESENT_HEADERS)
+    message(FATAL_ERROR
+      "Vulkan headers must support VK_KHR_internally_synchronized_queues for single-queue presentation. Install current Vulkan development headers or set -DVulkan_INCLUDE_DIR=<SDK>/include.")
+  endif()
   find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 endif()
 find_program(CCACHE_EXECUTABLE ccache)
