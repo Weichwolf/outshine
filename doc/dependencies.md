@@ -30,6 +30,7 @@ Commitaktivität allein beweist keine Fehlerfreiheit oder künftige Wartung.
 | zlib | PNG und bestehende Cachepfade; bleibt für diese Formate. |
 | libtiff / libwebp | Copernicus-Raster / Terrarium-Höhen; Quellformatdecoder, kein eigener Codec-Eigenbau. |
 | SPIRV-Cross | Native Shaderübersetzung/Reflexion; bleibt. glslang ist ein Buildwerkzeug. |
+| Vulkan-Header / Loader | Linux-Backend; Header müssen `VK_KHR_internally_synchronized_queues` enthalten (geprüft mit 1.4.363). Runtimefähigkeiten werden unabhängig am Gerät geprüft. |
 | QuickJS-NG | JavaScript-Semantik und VM statt eigenem Parser/Interpreter; MIT, keine transitiven Laufzeitpakete. Speicher, Stack und kooperative Ausführung begrenzt; kein JS-Datei-/Netzwerkmodul eingebunden. |
 | nlohmann/json | Benchmarkberichte; eigenen JSON-Ausgabepfad als Ersatz prüfen. |
 
@@ -54,6 +55,20 @@ Linux verwendet für Einmal-SHA-256 die Systembibliothek libcrypto; `libssl-dev`
 liefert Header und `libcrypto.pc`. `pkg-config --modversion libcrypto` prüft den Stand.
 Prefix-/Append-Zustände und Cacheformate bleiben erhalten; isolierte native Render-/
 Stage-Profile benötigen libcrypto nicht. Apple bleibt bei CommonCrypto ohne OpenSSL-Paket.
+
+Linux prüft beim CMake-Konfigurieren die Vulkan-Featurestruktur und Queueflags für
+die Ein-Queue-Präsentation der Iris Xe. Header 1.4.309 enthalten diesen Vertrag
+nicht; ein erfolgreicher Offscreen-Build ersetzt die benötigte Fensterfähigkeit
+nicht. CMake weist ungeeignete Header vor dem Produktbau mit einer Fehlermeldung
+zurück. Die Prüfung wird auch nach einem SDK-Wechsel erneut ausgeführt;
+Änderungen der gewählten Headerdatei lösen beim Ninja-Build die Konfiguration neu aus.
+Ein separates Header-SDK lässt sich mit `-DVulkan_INCLUDE_DIR=<SDK>/include`
+wählen; bei diesem Pfad liegt `vulkan/vulkan_core.h`. Loader und Treiber werden
+weiter separat gefunden, keine Fremdheader werden im Repository gebündelt.
+Die geprüfte Kombination ist Header 1.4.363, Loader 1.4.309 und Mesa 26.1.6.
+Der Treiber muss die benötigte Erweiterung und ihr Feature tatsächlich anbieten;
+fehlende Runtimefähigkeit bleibt ein erklärter Unsupported-Fehler. Apple/Metal
+benötigt diesen Vulkan-Vertrag nicht. Entscheidung und Gegenproben: [#1346](https://github.com/Weichwolf/outshine/issues/1346).
 
 Scripting benötigt QuickJS-NG (geprüft mit 0.17.0) mit `qjsConfig.cmake` und dem
 importierten CMake-Target `qjs`. Paketverfügbarkeit unter Linux distributionsabhängig;
