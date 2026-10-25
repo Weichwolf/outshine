@@ -240,13 +240,13 @@ ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
 }
 
 ReadState SceneRenderer::ReadEnvironmentSpecular(std::vector<float> &rgba) {
-  if (!ActiveState().Ready || !ActiveFrame().EnvironmentSpecular ||
-      !ActiveFrame().EnvironmentSpecularStage.Settled()) {
+  if (!ActiveState().Ready || !ActiveFrame().Atmosphere.Has(Resource::EnvironmentSpecular) ||
+      !ActiveFrame().Atmosphere.Settled(Stage::EnvironmentSpecular)) {
     return ReadState::Failed;
   }
   Readback read;
   if (read.FromTexture(Device_.get(),
-                       ActiveFrame().EnvironmentSpecular.get(),
+                       ActiveFrame().Atmosphere.Texture(Resource::EnvironmentSpecular),
                        {.WidthPx = kEnvironmentWidth, .HeightPx = kEnvironmentHeight},
                        8u) != ReadState::Ready) {
     return ReadState::Failed;
@@ -266,13 +266,13 @@ ReadState SceneRenderer::ReadEnvironmentSpecular(std::vector<float> &rgba) {
 }
 
 ReadState SceneRenderer::ReadSkyIrradiance(std::span<float, kIrradianceFloats> out) {
-  if (!ActiveState().Ready || !ActiveFrame().IrradianceBuffer ||
-      !ActiveFrame().SkyIrradianceStage.Settled()) {
+  if (!ActiveState().Ready || !ActiveFrame().Atmosphere.Has(Resource::IrradianceBuffer) ||
+      !ActiveFrame().Atmosphere.Settled(Stage::Irradiance)) {
     return ReadState::Failed;
   }
   Readback read;
   if (read.FromBuffer(Device_.get(),
-                      ActiveFrame().IrradianceBuffer.get(),
+                      ActiveFrame().Atmosphere.Irradiance(),
                       kIrradianceFloats * static_cast<uint32_t>(sizeof(float))) !=
       ReadState::Ready) {
     return ReadState::Failed;
