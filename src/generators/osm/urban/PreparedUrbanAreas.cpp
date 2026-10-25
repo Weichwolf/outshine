@@ -98,7 +98,7 @@ void PreparedUrbanAreas::RetireUnused() {
 }
 
 std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
-PreparedUrbanAreas::Acquire(TilePool &tiles, const Request &request) {
+PreparedUrbanAreas::Acquire(Data::SourceReader &reader, const Request &request) {
   if (Stop_.stop_requested()) { return std::unexpected("urban-area preparation cancelled"); }
   const Definition input{
       .Owner = request.Owner_, .Schema = request.Schema_, .Recipe = request.Recipe_};
@@ -109,7 +109,7 @@ PreparedUrbanAreas::Acquire(TilePool &tiles, const Request &request) {
   if (found != Pending_.end()) {
     const auto work = found->second;
     Observe(*work, request.Demand_);
-    auto result = Advance(tiles, key, work);
+    auto result = Advance(reader, key, work);
     if (!result || result->Status == State::Ready || result->Status == State::Absent) {
       Pending_.erase(key);
     }
@@ -135,7 +135,7 @@ PreparedUrbanAreas::Acquire(TilePool &tiles, const Request &request) {
 }
 
 std::expected<PreparedUrbanAreas::SourceDelivery, std::string> PreparedUrbanAreas::Advance(
-    TilePool &tiles, const std::string &key, const std::shared_ptr<Work> &work) {
+    Data::SourceReader &reader, const std::string &key, const std::shared_ptr<Work> &work) {
   if (work->Task != Tasks::kNoTask) {
     if (!Compute_.TakeCompletion(work->Task)) { return SourceDelivery{}; }
     work->Task = Tasks::kNoTask;
@@ -150,7 +150,7 @@ std::expected<PreparedUrbanAreas::SourceDelivery, std::string> PreparedUrbanArea
     }
     work->Stage = Work::Phase::Source;
   }
-  auto sources = GatherSources(tiles, *work);
+  auto sources = GatherSources(reader, *work);
   if (!sources || sources->Status != State::Ready) { return sources; }
   work->Stage = Work::Phase::Generate;
   work->Task = Compute_.Post([this, work, key] { work->Result = Generate(key, *work); });
@@ -161,7 +161,7 @@ std::expected<PreparedUrbanAreas::SourceDelivery, std::string> PreparedUrbanArea
 }
 
 std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
-PreparedUrbanAreas::GatherSources(TilePool &tiles, Work &work) {
+PreparedUrbanAreas::GatherSources(Data::SourceReader &reader, Work &work) {
   const auto parent = Parent(work.Input.Owner);
   if (work.SourceCount == 0) {
     const std::array<std::string, 7> layers{
@@ -180,7 +180,7 @@ PreparedUrbanAreas::GatherSources(TilePool &tiles, Work &work) {
       const auto at = index == 0 ? work.Input.Owner : parent;
       ++SourcePolls_;
       auto source = Prepared_->Acquire(
-          tiles, {.X = static_cast<int>(at.X), .Y = static_cast<int>(at.Y)}, *work.Layouts[index]);
+          reader, {.X = static_cast<int>(at.X), .Y = static_cast<int>(at.Y)}, *work.Layouts[index]);
       if (!source) { return std::unexpected(std::string(source.error())); }
       switch (source->Status) {
         case PreparedOsmTiles::State::Absent:

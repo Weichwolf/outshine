@@ -1,3 +1,4 @@
+#include "TilePool.h"
 #include "ClassificationPreparation.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"

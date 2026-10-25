@@ -1,3 +1,4 @@
+#include "TilePool.h"
 #include "OsmField.h"
 #include "SourceSet.h"
 #include "Check.h"

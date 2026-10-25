@@ -73,9 +73,19 @@ int main() {
             cached.SourceRevision == "fixture-r1" && cached.SourceKey == sourceKey &&
             probe->Calls == 1,
         "cache owns an independent payload and provenance snapshot without refetching");
-  TilePool::Landing asynchronous;
-  CHECK(pool.Bytes(SourceRequest(DataKind::Elevation, Address::Whole(1)), &asynchronous) ==
-            TilePool::Reply::Pending,
+  SourceReader &reader = pool;
+  auto delivery = reader.Poll(request);
+  auto answer = delivery.Take();
+  CHECK(answer.has_value(), "generic source reads reuse the resident delivery");
+  if (!answer) { return Report(); }
+  CHECK(answer->Bytes == cached.Bytes && answer->SourceId == cached.SourceId &&
+            answer->SourceRevision == cached.SourceRevision && answer->SourceKey == sourceKey &&
+            answer->At == request.Where() && probe->Calls == 1,
+        "the generic adapter preserves bytes, served address and provenance without refetching");
+  CHECK(pool.Counters().MeshAttempts == 0 && pool.Counters().FieldAttempts == 0,
+        "generic source reads do not generate terrain fields or meshes");
+  CHECK(reader.Poll(SourceRequest(DataKind::Elevation, Address::Whole(1))).Where() ==
+            SourceDelivery::State::Pending,
         "a fresh request starts a carrier job");
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (pool.Counters().Held == 0 && std::chrono::steady_clock::now() < deadline) {

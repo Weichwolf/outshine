@@ -33,12 +33,12 @@ double ResolvedRadius(const UrbanAreaStreaming::View &view) {
 
 UrbanAreaStreaming::UrbanAreaStreaming(Tasks &pool,
                                        std::shared_ptr<Generators::Osm::PreparedUrbanAreas> sources,
-                                       Ground::TilePool &tiles,
+                                       Data::SourceReader &reader,
                                        Generators::Osm::MvtSchema schema,
                                        std::string database)
     : Pool_(pool),
       Sources_(std::move(sources)),
-      Tiles_(tiles),
+      Reader_(reader),
       Schema_(schema),
       Database_(std::move(database)) {}
 
@@ -111,7 +111,7 @@ std::expected<bool, std::string> UrbanAreaStreaming::PollSource() {
   for (size_t visited = 0; visited < Areas_.size(); ++visited) {
     Source &area = Areas_[NextSource_++ % Areas_.size()];
     if (area.SourceDelivery.Status != State::Pending) { continue; }
-    auto delivery = Sources_->Acquire(Tiles_, area.Request);
+    auto delivery = Sources_->Acquire(Reader_, area.Request);
     if (!delivery) { return std::unexpected(delivery.error()); }
     area.SourceDelivery = std::move(*delivery);
     if (area.SourceDelivery.Status == State::Absent ||

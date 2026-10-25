@@ -17,7 +17,6 @@
 #include "Log.h"
 #include "MvtLayer.h"
 #include "OsmStorageUsage.h"
-#include "TerrainLoader.h"
 #include "TileGeodesy.h"
 
 #include <cstdio>
@@ -205,13 +204,18 @@ OsmField::SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t til
       {.Centre = *centre, .Zoom = zoom, .Radius = ringTiles, .Budget = tileBudget});
 }
 
-std::expected<int, std::string_view>
-OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget) {
-  return Build(tiles, at, ringTiles, tileBudget, ParseBudget{});
+std::expected<int, std::string_view> OsmField::Build(Data::SourceReader &sources,
+                                                     LongitudeLatitude at,
+                                                     int ringTiles,
+                                                     size_t tileBudget) {
+  return Build(sources, at, ringTiles, tileBudget, ParseBudget{});
 }
 
-std::expected<int, std::string_view> OsmField::Build(
-    TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget, ParseBudget parsing) {
+std::expected<int, std::string_view> OsmField::Build(Data::SourceReader &sources,
+                                                     LongitudeLatitude at,
+                                                     int ringTiles,
+                                                     size_t tileBudget,
+                                                     ParseBudget parsing) {
   BuildMetrics_ = {};
   if (parsing.TilesMost == 0) { return std::unexpected(Says::kOsmTileBudgetExceeded); }
   const auto centre = Locate(at, Zoom_);
@@ -239,7 +243,7 @@ std::expected<int, std::string_view> OsmField::Build(
   CentreX_ = centre->X;
   CentreY_ = centre->Y;
   RequestedRing_ = std::max(RequestedRing_, ringTiles);
-  const auto added = AddWindowTiles(tiles, *window, parsing);
+  const auto added = AddWindowTiles(sources, *window, parsing);
   if (!added) { return std::unexpected(added.error()); }
 
   const auto publicationAt = Clock::now();
@@ -252,7 +256,7 @@ std::expected<int, std::string_view> OsmField::Build(
 }
 
 std::expected<int, std::string_view>
-OsmField::AddWindowTiles(TilePool &tiles, OsmTileWindow window, ParseBudget parsing) {
+OsmField::AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, ParseBudget parsing) {
   int added = 0;
   size_t parsed = 0;
 
@@ -261,7 +265,7 @@ OsmField::AddWindowTiles(TilePool &tiles, OsmTileWindow window, ParseBudget pars
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
       if (std::ranges::find(Settled_, key) != Settled_.end()) { continue; }
 
-      const auto got = AddTile(tiles, {.X = static_cast<int>(tx), .Y = static_cast<int>(ty)});
+      const auto got = AddTile(sources, {.X = static_cast<int>(tx), .Y = static_cast<int>(ty)});
       if (!got) { return std::unexpected(got.error()); }
       if (!got->Held) {
         if (got->Refused) {
@@ -343,28 +347,32 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
   return {Features_.data() + t.FirstFeature, t.FeatureCount};
 }
 
-std::expected<OsmField::SourceResponse, std::string_view> OsmField::AddTile(TilePool &tiles,
-                                                                            TileAt at) {
-  if (Prepared_) { return AddNativeTile(tiles, at); }
+std::expected<OsmField::SourceResponse, std::string_view>
+OsmField::AddTile(Data::SourceReader &sources, TileAt at) {
+  if (Prepared_) { return AddNativeTile(sources, at); }
   const Data::SourceRequest request(
       Data::DataKind::VectorMap,
       Data::Address::At(Data::TileId{
           .Zoom = Zoom_, .X = static_cast<uint32_t>(at.X), .Y = static_cast<uint32_t>(at.Y)}));
   const auto fetchAt = Clock::now();
-  const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
+  auto delivery = sources.Poll(request);
+  const auto reply = delivery.Where();
   const double fetchMs = ElapsedMs(fetchAt);
   BuildMetrics_.FetchMs += fetchMs;
   TotalBuildMetrics_.FetchMs += fetchMs;
 
-  const bool refused = reply == TilePool::Reply::Refused;
-  if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Deferred || refused) {
+  const bool refused = reply == Data::SourceDelivery::State::Refused;
+  if (reply == Data::SourceDelivery::State::Pending || refused) {
     return SourceResponse{.Held = false, .Refused = refused};
   }
-  if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) {
+  if (reply == Data::SourceDelivery::State::Vacant ||
+      reply == Data::SourceDelivery::State::Undeclared) {
     return SourceResponse{.Held = true};
   }
+  auto landing = delivery.Take();
+  if (!landing) { return std::unexpected("OSM source reader returned no payload"); }
   const auto parseAt = Clock::now();
-  auto layers = ReadVectorLayers(Scratch_.Bytes, Layers_, Schema_, &BuildMetrics_);
+  auto layers = ReadVectorLayers(landing->Bytes, Layers_, Schema_, &BuildMetrics_);
   const double parseMs = ElapsedMs(parseAt);
   BuildMetrics_.ParseMs += parseMs;
   TotalBuildMetrics_.ParseMs += parseMs;
@@ -392,9 +400,9 @@ std::expected<OsmField::SourceResponse, std::string_view> OsmField::AddTile(Tile
                                      .Tile = {.Zoom = Zoom_,
                                               .X = static_cast<uint32_t>(at.X),
                                               .Y = static_cast<uint32_t>(at.Y)},
-                                     .SourceId = std::move(Scratch_.SourceId),
-                                     .Revision = std::move(Scratch_.SourceRevision)},
-                          .InputDigest = Sha256Hex(Scratch_.Bytes.data(), Scratch_.Bytes.size())});
+                                     .SourceId = std::move(landing->SourceId),
+                                     .Revision = std::move(landing->SourceRevision)},
+                          .InputDigest = Sha256Hex(landing->Bytes.data(), landing->Bytes.size())});
   return SourceResponse{.Held = true, .Added = added, .Parsed = true};
 }
 
@@ -670,7 +678,6 @@ void OsmField::Settle() {
   Tags_.shrink_to_fit();
   Values_.shrink_to_fit();
   Settled_.shrink_to_fit();
-  Scratch_.Bytes.shrink_to_fit();
   Keys_.shrink_to_fit();
 }
 
@@ -683,7 +690,6 @@ size_t OsmField::HeapBytes() const {
     strings += tile.Source.SourceId.capacity() + tile.Source.Revision.capacity() +
                tile.InputDigest.capacity();
   }
-  strings += Scratch_.SourceId.capacity() + Scratch_.SourceRevision.capacity();
 
   size_t parsed = CapacityBytes(ParsedTiles_);
   for (const ParsedTile &tile : ParsedTiles_) {
@@ -701,8 +707,8 @@ size_t OsmField::HeapBytes() const {
                                     : 0;
   return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
          CapacityBytes(Tiles_) + CapacityBytes(Tags_) + CapacityBytes(Values_) +
-         CapacityBytes(Settled_) + CapacityBytes(Scratch_.Bytes) + CapacityBytes(Keys_) +
-         CapacityBytes(Strings_) + CapacityBytes(Layers_) + strings + nodes + parsed + assembly;
+         CapacityBytes(Settled_) + CapacityBytes(Keys_) + CapacityBytes(Strings_) +
+         CapacityBytes(Layers_) + strings + nodes + parsed + assembly;
 }
 
 int OsmField::Layer(const char *name) const {

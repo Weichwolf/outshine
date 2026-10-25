@@ -1,3 +1,4 @@
+#include "TilePool.h"
 #include "TerrainPathPreparation.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
