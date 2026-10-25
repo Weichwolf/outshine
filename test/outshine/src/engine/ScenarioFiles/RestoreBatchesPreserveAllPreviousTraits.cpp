@@ -23,15 +23,21 @@ int main() {
   Column<int> values;
   CHECK(values.Open(registry) && values.Put(first, 10) && values.Put(second, 20),
         "columns prepared");
-  std::array<Column<int>::Replacement, 2> changed{{{first, 100}, {kNoEntity, 200}}};
+  constexpr int kFirstReplacement = 100;
+  constexpr int kSecondReplacement = 200;
+  constexpr int kRejectedReplacement = 999;
+  std::array<Column<int>::Replacement, 2> changed{
+      {{.Owner = first, .Data = kFirstReplacement},
+       {.Owner = kNoEntity, .Data = kSecondReplacement}}};
   CHECK(!values.Replace(changed) && *values.Get(first) == 10,
         "invalid late target preserves an earlier valid target");
   changed[1].Owner = second;
-  CHECK(values.Replace(changed) && *values.Get(first) == 100 && *values.Get(second) == 200,
+  CHECK(values.Replace(changed) && *values.Get(first) == kFirstReplacement &&
+            *values.Get(second) == kSecondReplacement,
         "validated batch replaces all existing components");
   registry.remove(second);
-  changed[0].Data = 999;
-  CHECK(!values.Replace(changed) && *values.Get(first) == 100,
+  changed[0].Data = kRejectedReplacement;
+  CHECK(!values.Replace(changed) && *values.Get(first) == kFirstReplacement,
         "stale late target rejects before any publication");
 
   auto path = (std::filesystem::temp_directory_path() / "outshine-restore-XXXXXX").string();
