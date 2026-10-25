@@ -27,8 +27,8 @@ are retained. No opacity, shadow, contact or near-detail qualification follows.
 
 The existing `--full-view` continues its strict geometry/metadata comparison with
 the original archived cell33. The new control33 is equal to that replay; the other
-cells are explicitly producer controls. Per-run elapsed time stays in Temp logs,
-not the fixed data. Additional compressed inputs total2969439bytes.
+cells are explicitly producer controls. New fixed files omit elapsed times;
+the archived cell33 stays unchanged. Additional compressed inputs total2969439bytes.
 
 Build the standard CMake target and run its focused boundary checks:
 
