@@ -117,6 +117,11 @@
 - Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
+- Beibehaltenen Altcode nehmen ich und `outshine_engine` gemeinsam fachlich ab:
+  tatsächliche Verbraucher, Zielarchitektur, Korrektheit, Einsatzgrenzen und Kosten.
+  Commit/Pfade, Entscheidung und beide Bestätigungen stehen im Fach-Issue/PR;
+  Bestand, Umbenennung, Tests oder Merge ersetzen keine Abnahme. Besonders Scenario,
+  Physik, Body/Entity, Rigging und Audio gelten bis dahin als vorläufig (https://github.com/Weichwolf/outshine/issues/1320).
 - Entfällt der letzte Produktkonsument, entferne ich den überholten Pfad samt exklusiven Tests,
   Buildregeln, Abhängigkeiten und Dokumentation. Tests allein rechtfertigen keinen Altpfad.
   Aktive Verbraucher, benötigte Datenformate und laufende Fachlieferungen vorher prüfen.
