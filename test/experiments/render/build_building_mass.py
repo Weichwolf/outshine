@@ -28,7 +28,10 @@ def cook(path, cells):
             return member(name)
 
         parent.member = source_only
-        return build(parent, cells)
+        try:
+            return build(parent, cells)
+        finally:
+            del parent.member
 
 
 def main():

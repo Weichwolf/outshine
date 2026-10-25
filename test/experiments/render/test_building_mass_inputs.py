@@ -73,16 +73,19 @@ class BuildingMassInputs(unittest.TestCase):
             Path(__file__).resolve().parents[2]
             / "outshine/data/render/building-full-view/original-inputs.tar.gz"
         )
-        original_member, reads = ParentInputs.member, []
+        original_member, reads, parents = ParentInputs.member, [], []
 
         def member(parent, name):
             self.assertIn(name, {parent.metadata["index"], parent.forms[33]})
+            if not parents:
+                parents.append(parent)
             reads.append(name)
             return original_member(parent, name)
 
         with patch.object(ParentInputs, "member", member):
             arrays, report = cook(path, {33})
         self.assertEqual(len(reads), 2)
+        self.assertNotIn("member", vars(parents[0]))
         self.assertEqual(len(arrays["selected_sources"]), 576)
         np.testing.assert_array_equal(
             np.sort(np.r_[arrays["group_sources"], arrays["needs_sources"]]),
