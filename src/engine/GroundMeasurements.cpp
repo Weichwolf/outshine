@@ -11,8 +11,7 @@ namespace outshine {
 void Engine::State::PublishCameraHeightMeasurements(LongitudeLatitude at) {
   const auto source = World.Stack.Ground().At(at).AslM();
   const auto published = World.Sheets.HeightMAt(at);
-  const auto fine =
-      World.Stack.Ground().At(at, World.Stack.FinestZoomOf(Data::DataKind::Elevation)).AslM();
+  const auto fine = World.Stack.Ground().At(at, World.Stack.TerrainRenderZoom()).AslM();
   if (fine) { Published.RecordMetric("camera: fine source terrain height", *fine, "m"); }
   if (source) { Published.RecordMetric("camera: source terrain height", *source, "m"); }
   if (published) { Published.RecordMetric("camera: published terrain height", *published, "m"); }

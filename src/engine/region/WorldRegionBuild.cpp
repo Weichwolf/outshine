@@ -1352,7 +1352,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   const auto heights = state.Revision().Quality == GroundQuality::Refined
                            ? StructureBuildQueue::HeightRequirement::FineOnly
                            : StructureBuildQueue::HeightRequirement::AllowFallback;
-  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
+  const int finestZoom = World.Stack.TerrainRenderZoom();
   const StructureBuildQueue::HeightSource heightAt{
       .Sample = [&state, finestZoom](
                     LongitudeLatitude at) { return state.TerrainInputs().AslMAt(finestZoom, at); },
