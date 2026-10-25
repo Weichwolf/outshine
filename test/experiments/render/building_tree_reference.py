@@ -77,6 +77,10 @@ def reference(path, cell, frame, *, native_input=None, native_cell=None):
         source["indices"][nonzero],
         source["binding"][nonzero],
     )
+    used, indices = np.unique(source["indices"], return_inverse=True)
+    source["indices"] = indices.reshape(-1, 3)
+    for key in ("positions", "uv", "colour", "normal", "vertex_normal", "metres"):
+        source[key] = source[key][used]
     work["exact_zero_area_reference_triangles_ignored"] = int((~nonzero).sum())
     if set(np.unique(source["binding"][:, 1])) != set(frame["selected_sources"]):
         raise ValueError("fine reference must cover every selected whole source")

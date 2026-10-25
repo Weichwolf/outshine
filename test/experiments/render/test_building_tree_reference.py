@@ -29,6 +29,9 @@ class BuildingTreeReference(unittest.TestCase):
         )
         self.assertTrue(np.any(area != 0, axis=1).all())
         self.assertTrue(np.isfinite(source["positions"]).all())
+        np.testing.assert_array_equal(
+            np.unique(source["indices"]), np.arange(len(source["positions"]))
+        )
         fields, needs = face_materials(source, policy())
         self.assertFalse(needs)
         self.assertTrue(fields["supported"].all())
