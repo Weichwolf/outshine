@@ -1,4 +1,4 @@
-#include "PrismRenderer.h"
+#include "PrismResidency.h"
 #include "PrismPlacements.h"
 #include "UploadQueue.h"
 #include <algorithm>
@@ -11,7 +11,7 @@
 #include <utility>
 
 namespace outshine::Render {
-Native::Result<void> PrismRenderer::Uses(Native::Device &device, UploadQueue *queue) {
+Native::Result<void> PrismResidency::Uses(Native::Device &device, UploadQueue *queue) {
   if ((Device_ != nullptr && Device_ != &device && !Products_.empty()) ||
       (queue != nullptr && &queue->Device() != &device)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -22,7 +22,7 @@ Native::Result<void> PrismRenderer::Uses(Native::Device &device, UploadQueue *qu
   return {};
 }
 
-uint64_t PrismRenderer::HeldBytes() const noexcept {
+uint64_t PrismResidency::HeldBytes() const noexcept {
   uint64_t bytes = 0;
   for (const auto &product : Products_) {
     for (const auto &buffer : product.Buffers) {
@@ -32,9 +32,9 @@ uint64_t PrismRenderer::HeldBytes() const noexcept {
   return bytes;
 }
 
-Native::Result<uint64_t> PrismRenderer::Place(std::shared_ptr<const PrismGrid> source,
-                                              std::span<const PrismInstance> instances,
-                                              uint32_t material) {
+Native::Result<uint64_t> PrismResidency::Place(std::shared_ptr<const PrismGrid> source,
+                                               std::span<const PrismInstance> instances,
+                                               uint32_t material) {
   if (Device_ == nullptr || !source || Next_ == std::numeric_limits<uint64_t>::max()) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -58,8 +58,8 @@ Native::Result<uint64_t> PrismRenderer::Place(std::shared_ptr<const PrismGrid> s
   return Next_++;
 }
 
-Native::Result<void> PrismRenderer::ReplaceInstances(PrismProduct &product,
-                                                     std::span<const PrismInstance> instances) {
+Native::Result<void> PrismResidency::ReplaceInstances(PrismProduct &product,
+                                                      std::span<const PrismInstance> instances) {
   auto records = PackPrismPlacements(*product.Source, product.Info, instances);
   if (!records) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -89,8 +89,8 @@ Native::Result<void> PrismRenderer::ReplaceInstances(PrismProduct &product,
   return {};
 }
 
-Native::Result<void> PrismRenderer::SetInstances(uint64_t id,
-                                                 std::span<const PrismInstance> instances) {
+Native::Result<void> PrismResidency::SetInstances(uint64_t id,
+                                                  std::span<const PrismInstance> instances) {
   const auto found = std::ranges::find(Products_, id, &PrismProduct::Id);
   if (found == Products_.end()) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -99,7 +99,7 @@ Native::Result<void> PrismRenderer::SetInstances(uint64_t id,
   return ReplaceInstances(*found, instances);
 }
 
-bool PrismRenderer::Release(uint64_t id) {
+bool PrismResidency::Release(uint64_t id) {
   const auto found = std::ranges::find(Products_, id, &PrismProduct::Id);
   if (found == Products_.end()) { return false; }
   RecordShadowChanges(*found, {});
@@ -107,4 +107,17 @@ bool PrismRenderer::Release(uint64_t id) {
   Products_.erase(found);
   return true;
 }
+
+Boxf PrismResidency::Bounds() const noexcept {
+  Boxf bounds;
+  for (const auto &product : Products_) {
+    for (const auto &record : product.Records) {
+      const Boxf local{.Min = {{0, record.Shape[3], 0}},
+                       .Max = {{record.Bounds[1], record.Bounds[0], record.Bounds[2]}}};
+      bounds.Cover(local.Through(record.Current));
+    }
+  }
+  return bounds;
+}
+
 }

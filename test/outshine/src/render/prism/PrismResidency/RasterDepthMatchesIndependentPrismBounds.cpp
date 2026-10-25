@@ -1,4 +1,5 @@
-#include "PrismRenderer.h"
+#include "PrismDrawing.h"
+#include "PrismResidency.h"
 #include "PrismPipelines.h"
 #include "UploadQueue.h"
 #include "Mat4.h"
@@ -208,7 +209,7 @@ void Compare(const ImagePixels &image, std::span<const WorldBox> boxes, const Te
 void Probe(Device &device, const char *diagnostic) {
   std::chrono::nanoseconds budget = std::chrono::seconds(5);
   UploadQueue uploads(device, budget);
-  PrismRenderer renderer;
+  PrismResidency renderer;
   Require(renderer.Uses(device, &uploads));
   PrismPipelines pipelines;
   const std::array targets{ColourTarget{.Texels = Format::Rgba16Float, .Rgb = {}, .Alpha = {}}};
@@ -227,7 +228,7 @@ void Probe(Device &device, const char *diagnostic) {
   for (auto &instance : instances) { instance.Previous = instance.Current; }
   const auto boxes = Boxes(*source, instances);
   const auto id = Require(renderer.Place(source, instances, 0));
-  auto target =
+  const auto target =
       Require(device.CreateTexture({.Width = kWidth,
                                     .Height = kHeight,
                                     .Texels = Format::Depth32Float,
@@ -248,14 +249,15 @@ void Probe(Device &device, const char *diagnostic) {
         {.Colours = {},
          .Depth =
              DepthAttachment{.Image = {.Image = target.get()}, .Begin = Load::Clear, .Clear = 0}}));
-    Require(renderer.EncodeDepth(*commands,
-                                 *pipelines.Depth(),
-                                 View(view),
-                                 view.Area,
-                                 {.X = static_cast<uint32_t>(view.Area.X),
-                                  .Y = static_cast<uint32_t>(view.Area.Y),
-                                  .Width = static_cast<uint32_t>(view.Area.Width),
-                                  .Height = static_cast<uint32_t>(view.Area.Height)}));
+    Require(EncodePrismDepth(renderer,
+                             *commands,
+                             *pipelines.Depth(),
+                             View(view),
+                             view.Area,
+                             {.X = static_cast<uint32_t>(view.Area.X),
+                              .Y = static_cast<uint32_t>(view.Area.Y),
+                              .Width = static_cast<uint32_t>(view.Area.Width),
+                              .Height = static_cast<uint32_t>(view.Area.Height)}));
     Require(commands->EndRenderPass());
     if (view.Release) {
       CHECK(renderer.Release(id), "recorded raster resources survive owner release");
@@ -275,7 +277,7 @@ void Probe(Device &device, const char *diagnostic) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   auto device = Require(CreateDevice({.Validation = true}));
   std::println("DEVICE {}", device->Limits().Name);
   Probe(*device, argc > 1 ? argv[1] : nullptr);

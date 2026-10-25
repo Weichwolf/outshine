@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include "Check.h"
 #include "GeometryRenderer.h"
 #include "Gpu.h"
@@ -67,9 +68,9 @@ void Exercise(bool acquire, Native::ErrorKind kind) {
   const auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
   outshine::Test::Gpu::NativeOfflineDevice offline(*native);
   Pressure device(offline);
-  GeometryResidency publishedStorage;
+  RenderScene publishedStorage;
   GeometryRenderer published{publishedStorage};
-  GeometryResidency candidateStorage;
+  RenderScene candidateStorage;
   GeometryRenderer candidate{candidateStorage};
   CHECK(Configure(published, device) && Configure(candidate, device),
         "published and candidate draw native geometry");

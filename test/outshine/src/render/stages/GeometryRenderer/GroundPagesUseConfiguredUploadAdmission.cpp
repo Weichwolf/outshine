@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include "Check.h"
 #include "Gpu.h"
 #include "GeometryRenderer.h"
@@ -49,7 +50,7 @@ int main() {
   gpu.Width = gpu.Height = 32;
   CHECK(gpu.SceneColours.Add(Resource::SceneLinear),
         "the configured subject has its colour target");
-  GeometryResidency drawStorage;
+  RenderScene drawStorage;
   GeometryRenderer draw{drawStorage};
   Require(draw.Configure(gpu));
   const auto marker = Require(uploads.Submit(Require(uploads.Begin())));

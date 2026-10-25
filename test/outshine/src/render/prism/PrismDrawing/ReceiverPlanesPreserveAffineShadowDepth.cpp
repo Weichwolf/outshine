@@ -133,7 +133,7 @@ void CheckReceivers(Device &device) {
   std::vector<uint32_t> words(inputs.size() * sizeof(Input) / sizeof(uint32_t));
   std::memcpy(words.data(), inputs.data(), inputs.size() * sizeof(Input));
   const auto pipeline =
-      Require(device.CreateComputePipeline(Spirv("build/test/shaders/prism-receiver.comp.spv")));
+      Require(device.CreateComputePipeline(Spirv(OUTSHINE_PRISM_RECEIVER_SHADER)));
   auto commands = Require(device.Begin());
   const auto source = Upload(device, *commands, words);
   auto output =

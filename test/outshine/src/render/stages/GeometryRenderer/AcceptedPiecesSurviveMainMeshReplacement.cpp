@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include <cstddef>
 #include <cstdint>
 #include <algorithm>
@@ -61,7 +62,7 @@ int main() {
     outshine::Test::Gpu::NativeOfflineDevice offline(*native);
     Faults device(offline);
     for (const bool replacement : {false, true}) {
-      GeometryResidency drawStorage;
+      RenderScene drawStorage;
       GeometryRenderer draw{drawStorage};
       std::string error;
       outshine::Render::Gpu gpu;

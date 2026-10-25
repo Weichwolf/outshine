@@ -213,7 +213,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
                             Bound().Buffer(GeometryResidency::Stream::Index);
   if (!drawsBatches &&
-      (Binding().Behind != nullptr || (Ground_.Drawn() == 0 && Prisms_.Products().empty()))) {
+      (Binding().Behind != nullptr || (Ground_.Drawn() == 0 && Prisms_->Products().empty()))) {
     return {};
   }
   const auto uniforms = FrameUniformsOf(ctx);

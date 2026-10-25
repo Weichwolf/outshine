@@ -46,7 +46,7 @@ bool GeometryRenderer::TruncatesShadowMaterials(size_t count) const noexcept {
         piece.Surface.From == PieceSurface::Source::Registered ? RegisteredSlotOf_ : SlotOf_;
     if (piece.Surface.Index >= slots.size() || slots[piece.Surface.Index] >= count) { return true; }
   }
-  return std::ranges::any_of(Prisms_.Products(), [count](const PrismProduct &product) {
+  return std::ranges::any_of(Prisms_->Products(), [count](const PrismProduct &product) {
     return !product.Records.empty() && product.Material >= count;
   });
 }
