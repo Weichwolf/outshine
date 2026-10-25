@@ -1,7 +1,7 @@
 #include "OsmApiSource.h"
 
 #include "OsmXmlReader.h"
-#include "SourceProviderValidation.h"
+#include "OsmProviderValidation.h"
 #include <SourceProvider.h>
 
 #include <format>
@@ -40,7 +40,7 @@ std::optional<GeographicBounds> ApiCellBounds(const Data::Address &at) noexcept 
   if (!cell) { return std::nullopt; }
   const auto bounds = cell->Bounds();
   if (!bounds || (bounds->EastDeg - bounds->WestDeg) * (bounds->NorthDeg - bounds->SouthDeg) >
-                     Data::kOsmApiMaximumAreaDeg2) {
+                     kOsmApiMaximumAreaDeg2) {
     return std::nullopt;
   }
   return bounds;
@@ -52,7 +52,7 @@ ApiSource::Create(const Data::SourceProvider &provider, uint32_t region) {
   if (provider.Kind != "osm" || provider.Endpoint.empty()) {
     return std::unexpected("an original OSM API source requires an osm endpoint declaration");
   }
-  if (auto valid = Data::ValidateSourceProviders(std::span(&provider, 1)); !valid) {
+  if (auto valid = ValidateProviders(std::span(&provider, 1)); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
   return std::unique_ptr<ApiSource>(new ApiSource(provider, region));

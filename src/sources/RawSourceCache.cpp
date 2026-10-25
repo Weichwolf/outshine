@@ -17,7 +17,6 @@
 #include <vector>
 #include <utility>
 
-#include "Sha256.h"
 #include "WriteFileAtomically.h"
 
 namespace outshine::Data {
@@ -84,58 +83,6 @@ std::optional<std::vector<uint8_t>> RawSourceCache::ReadEntry(const std::string 
   ReadCalls_.fetch_add(1, std::memory_order_relaxed);
   if (bytes) { ReadBytes_.fetch_add(bytes->size(), std::memory_order_relaxed); }
   return bytes;
-}
-
-std::string ContentKey(const SourceDecl &decl, const Address &at) {
-  std::string subject = decl.Id;
-  subject += '\n';
-  subject += std::to_string(decl.Version);
-  subject += '\n';
-  subject += decl.Revision;
-  subject += '\n';
-  subject += Name(decl.Kind);
-  subject += '\n';
-  subject += at.Text();
-  if (!decl.Endpoint.empty()) {
-    subject += '\n';
-    subject += decl.Endpoint;
-  }
-  if (!decl.PayloadSha256.empty()) {
-    subject += '\n';
-    subject += decl.PayloadSha256;
-  }
-  return Sha256Hex(subject);
-}
-
-std::string ContentKey(const SourceDecl &decl,
-                       const Address &at,
-                       const std::optional<ByteRange> &range,
-                       std::string_view entityTag) {
-  auto object = ContentKey(decl, at);
-  if (!range) { return object; }
-  std::string subject =
-      object + "/r/" + std::to_string(range->First) + "/" + std::to_string(range->Length) + "/";
-  subject += entityTag;
-  return Sha256Hex(subject);
-}
-
-std::string SourceKey(const SourceDecl &decl) {
-  std::string subject = decl.Id;
-  subject += '\n';
-  subject += std::to_string(decl.Version);
-  subject += '\n';
-  subject += decl.Revision;
-  subject += '\n';
-  subject += Name(decl.Kind);
-  subject += '\n';
-  subject += Name(decl.Wire);
-  subject += '\n';
-  subject += decl.Endpoint;
-  if (!decl.PayloadSha256.empty()) {
-    subject += '\n';
-    subject += decl.PayloadSha256;
-  }
-  return Sha256Hex(subject);
 }
 
 RawSourceCache::RawSourceCache(const Config &config)

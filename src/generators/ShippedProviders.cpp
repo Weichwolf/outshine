@@ -5,6 +5,7 @@
 #include "VectorTileSource.h"
 #include "StarBands.h"
 #include <array>
+#include <initializer_list>
 #include <cstddef>
 #include <exception>
 #include <expected>
@@ -21,9 +22,81 @@ constexpr int kMapterhornMaximumZoom = 17;
 constexpr size_t kTerrariumTypicalPayloadBytes = 60000;
 constexpr size_t kTerrariumMaximumPayloadBytes = size_t{4} * 1024u * 1024u;
 
+[[nodiscard]] bool ValidEndpoint(std::string_view endpoint) {
+  if (!endpoint.starts_with("https://") || endpoint.size() <= 8 ||
+      endpoint.find_first_of(" \t\r\n") != std::string_view::npos) {
+    return false;
+  }
+  for (const std::string_view token : {"{z}", "{x}", "{y}"}) {
+    const size_t at = endpoint.find(token);
+    if (at == std::string_view::npos ||
+        endpoint.find(token, at + token.size()) != std::string_view::npos) {
+      return false;
+    }
+  }
+  std::string remaining(endpoint);
+  for (const std::string_view token : {"{z}", "{x}", "{y}"}) {
+    remaining.erase(remaining.find(token), token.size());
+  }
+  return remaining.find_first_of("{}") == std::string::npos;
+}
+
+[[nodiscard]] std::expected<void, std::string> ValidateTile(const Data::SourceProvider &provider) {
+  if (!provider.PayloadSha256.empty()) {
+    return std::unexpected("this provider does not accept a response sha256");
+  }
+
+  if (!provider.Location.empty() || provider.Coverage) {
+    return std::unexpected("tile providers cannot declare location or coverage");
+  }
+  if (provider.Endpoint.empty() != provider.Dataset.empty()) {
+    return std::unexpected("a tile endpoint requires a stable dataset and vice versa");
+  }
+  if (!provider.Endpoint.empty() && !ValidEndpoint(provider.Endpoint)) {
+    return std::unexpected("a tile endpoint requires HTTPS and one each of {z}, {x}, {y}");
+  }
+  return {};
+}
+
+[[nodiscard]] std::expected<void, std::string>
+ValidateCopernicus(const Data::SourceProvider &provider) {
+  if (!provider.PayloadSha256.empty()) {
+    return std::unexpected("this provider does not accept a response sha256");
+  }
+
+  if (!provider.Location.empty() || provider.Coverage || !provider.PayloadSha256.empty()) {
+    return std::unexpected(
+        "Copernicus terrain does not accept a file, chunk coverage or whole-response digest");
+  }
+  if (!provider.Endpoint.empty() && provider.Endpoint != Data::CopernicusDem::Endpoint) {
+    return std::unexpected(
+        "the built-in terrain provider uses the official Copernicus GLO-30 endpoint");
+  }
+  return {};
+}
+
+[[nodiscard]] std::expected<void, std::string>
+ValidateUnparameterized(const Data::SourceProvider &provider) {
+  if (!provider.PayloadSha256.empty()) {
+    return std::unexpected("this provider does not accept a response sha256");
+  }
+
+  if (!provider.Dataset.empty() || !provider.Location.empty() || !provider.Endpoint.empty() ||
+      provider.Coverage) {
+    return std::unexpected("this provider cannot declare dataset, location or endpoint");
+  }
+  return {};
+}
+
 class CopernicusProvider final : public Data::Provider {
 public:
   [[nodiscard]] std::string_view kind() const override { return "copernicus"; }
+
+  [[nodiscard]] std::expected<void, std::string>
+  validate(const Data::SourceProvider &provider,
+           [[maybe_unused]] std::span<const Data::SourceProvider> declared) const override {
+    return ValidateCopernicus(provider);
+  }
 
   [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
   make(const Data::SourceProvider &provider,
@@ -39,6 +112,12 @@ public:
 class TerrariumProvider final : public Data::Provider {
 public:
   [[nodiscard]] std::string_view kind() const override { return "terrain"; }
+
+  [[nodiscard]] std::expected<void, std::string>
+  validate(const Data::SourceProvider &provider,
+           [[maybe_unused]] std::span<const Data::SourceProvider> declared) const override {
+    return ValidateTile(provider);
+  }
 
   [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
   make(const Data::SourceProvider &provider,
@@ -73,6 +152,20 @@ class VectorProvider final : public Data::Provider {
 public:
   [[nodiscard]] std::string_view kind() const override { return "vector"; }
 
+  [[nodiscard]] std::expected<void, std::string>
+  validate(const Data::SourceProvider &provider,
+           [[maybe_unused]] std::span<const Data::SourceProvider> declared) const override {
+    if (auto valid = ValidateTile(provider); !valid) { return valid; }
+    if (provider.Dataset.empty() || provider.Endpoint.empty()) {
+      return std::unexpected(
+          "a vector-tile fixture requires an explicit dataset and endpoint; no default exists");
+    }
+    if (!Osm::ParseMvtSchema(provider.Schema)) {
+      return std::unexpected("unsupported vector schema: " + provider.Schema);
+    }
+    return {};
+  }
+
   [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
   make(const Data::SourceProvider &provider,
        [[maybe_unused]] std::string_view root) const override {
@@ -94,6 +187,12 @@ public:
 class StarsProvider final : public Data::Provider {
 public:
   [[nodiscard]] std::string_view kind() const override { return "stars"; }
+
+  [[nodiscard]] std::expected<void, std::string>
+  validate(const Data::SourceProvider &provider,
+           [[maybe_unused]] std::span<const Data::SourceProvider> declared) const override {
+    return ValidateUnparameterized(provider);
+  }
 
   [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
   make(const Data::SourceProvider &provider, std::string_view root) const override {

@@ -148,7 +148,7 @@ std::shared_ptr<SourceSession> Session(const WeatherCapture &capture,
 WeatherPreparation::Phase Pump(WeatherPreparation &work, WeatherPreparation::Workers workers) {
   auto phase = work.CurrentPhase();
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while ((phase == WeatherPreparation::Phase::HttpTransport ||
+  while ((phase == WeatherPreparation::Phase::Acquiring ||
           phase == WeatherPreparation::Phase::Decoding) &&
          std::chrono::steady_clock::now() < until) {
     phase = work.Advance();
@@ -217,7 +217,7 @@ void PendingCancellation(const WeatherCapture &capture, const std::string &direc
   WeatherPreparation work(sources, replay, workers, kCapturedWeatherUtcS);
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (wireCalls.Begins == 0 && std::chrono::steady_clock::now() < until) {
-    CHECK(work.Advance() == WeatherPreparation::Phase::HttpTransport,
+    CHECK(work.Advance() == WeatherPreparation::Phase::Acquiring,
           "pending remote work returns control without a decode or wait");
     (void)workers.Io.AwaitCompletion(kWorkerPollSeconds);
   }

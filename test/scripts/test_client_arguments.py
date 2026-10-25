@@ -34,6 +34,15 @@ class Coordinates(unittest.TestCase):
                                  capture_output=True, text=True, timeout=10)
         self.assertEqual(unknown.returncode, 2)
 
+    def test_named_capture_commands_are_not_product_commands(self):
+        env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
+        for verb in ('shots', 'places', 'prepare', 'roundtrip'):
+            with self.subTest(verb=verb):
+                result = subprocess.run([str(CLIENT), verb, '--help'], cwd=ROOT, env=env,
+                                        capture_output=True, text=True, timeout=10, check=False)
+                self.assertEqual(result.returncode, 2)
+                self.assertNotIn('SDL', result.stdout + result.stderr)
+
     def test_invalid_benchmark_arguments_leave_existing_results_untouched(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-arguments-') as directory:
             target = Path(directory) / 'result.json'

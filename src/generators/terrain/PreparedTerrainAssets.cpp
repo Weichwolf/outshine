@@ -108,10 +108,11 @@ PreparedTerrainAssets::Open(const std::string &directory, const Data::SourceSet 
   }
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the native asset cache"); }
-  return std::shared_ptr<PreparedTerrainAssets>(new PreparedTerrainAssets(
-      std::move(*cache),
-      AssetSourceRecipe(
-          "prepared-terrain-field-1", sources, std::array{Data::DataKind::Elevation})));
+  auto recipe =
+      AssetSourceRecipe("prepared-terrain-field-1", sources, std::array{Data::DataKind::Elevation});
+  if (recipe.empty()) { return std::unexpected("terrain source metadata cannot be encoded"); }
+  return std::shared_ptr<PreparedTerrainAssets>(
+      new PreparedTerrainAssets(std::move(*cache), std::move(recipe)));
 }
 
 ::outshine::Ground::TerrainGrid

@@ -104,14 +104,6 @@ std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(SourceChunk 
                          "' failed: " + std::string(Data::Name(reason)) + context);
 }
 
-bool ApiRegion::HasCachedCoverage(Data::RawSourceCache &store) const {
-  const auto cell = Address_.GeoCell();
-  if (!cell) { return false; }
-  const auto &declaration = Sources_.At(0).Declaration();
-  return store.LookupCell(declaration, *cell).Where == Data::RawSourceCache::Presence::Bytes ||
-         store.HasCompleteChildCoverage(declaration, *cell);
-}
-
 bool ApiRegion::Begin(const Data::RawSourceCache &store, std::vector<GeoCellId> &refine) {
   const auto cell = Address_.GeoCell();
   if (cell && store.CanResumeFromChildren(Sources_.At(0).Declaration(), *cell)) {

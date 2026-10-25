@@ -27,8 +27,7 @@ class SourceAcquisition {
 public:
   static constexpr double DefaultAcquisitionBudgetS = 10.0;
   [[nodiscard]] std::expected<void, std::string> SetAcquisitionBudget(double seconds);
-  enum class Phase : uint8_t { Inactive, Loading, Verifying, Ready, Failed };
-  enum class Target : uint8_t { Inputs, Cache };
+  enum class Phase : uint8_t { Inactive, Loading, Ready, Failed };
   enum class CellState : uint8_t { Missing, Validated };
 
   struct CellLimits {
@@ -55,7 +54,6 @@ public:
   explicit SourceAcquisition(Workers workers,
                              Data::Transport *wire = nullptr,
                              std::string cacheDirectory = {},
-                             Target target = Target::Inputs,
                              std::shared_ptr<const CellCompiler> compiler = {});
 
   ~SourceAcquisition();
@@ -75,8 +73,6 @@ public:
                const Data::ProviderRegistry *registry = nullptr);
   [[nodiscard]] std::span<const CellSource> CurrentCells() const noexcept;
   [[nodiscard]] size_t CellSnapshotChargeBytes() const noexcept;
-  [[nodiscard]] size_t PreparedCellCount() const noexcept;
-  [[nodiscard]] size_t RequiredCellCount() const noexcept;
   void Poll();
   [[nodiscard]] bool AwaitSlice(double seconds);
 
@@ -99,10 +95,9 @@ private:
   using LoadResult = std::expected<std::shared_ptr<const SourceSnapshot>, std::string>;
   using ReadResult = std::expected<std::vector<SourceChunk>, std::string>;
   using CellLoadResult = std::expected<std::vector<CellSource>, std::string>;
-  using CacheProofResult = std::expected<std::monostate, std::string>;
 
   struct Result {
-    std::variant<std::monostate, ReadResult, LoadResult, CellLoadResult, CacheProofResult> Value;
+    std::variant<std::monostate, ReadResult, LoadResult, CellLoadResult> Value;
     std::optional<double> ReadMs;
   };
 
@@ -129,13 +124,11 @@ private:
   StartDecode(std::vector<SourceChunk> input, std::stop_source stop, std::optional<double> readMs);
   void CompletePending(Pending finished);
   void CompleteCells(std::vector<CellSource> ready);
-  void VerifyCache();
   void PublishCells();
   struct Access;
   struct Cells;
   struct CellPipeline;
   enum class Scope : uint8_t { Region, Cells };
-  const Target Target_;
   const std::shared_ptr<const CellCompiler> Compiler_;
   Tasks *Tasks_;
   Tasks &Io_;

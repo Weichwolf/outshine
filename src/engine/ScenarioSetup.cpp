@@ -8,6 +8,7 @@
 #include "WorldValidation.h"
 #include "OsmValidation.h"
 #include "SourceProviderValidation.h"
+#include "ShippedProviders.h"
 #include "RouteValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineState.h"
@@ -455,11 +456,12 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 namespace {
-[[nodiscard]] Result ValidateDeclarationInputs(const Scenario::Document &scenario) {
+[[nodiscard]] Result ValidateDeclarationInputs(const Scenario::Document &scenario,
+                                               const Data::ProviderRegistry &registry) {
   if (auto valid = ValidateRouteDeclarations(scenario.Routes); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
-  if (const auto valid = Data::ValidateSourceProviders(scenario.Providers); !valid) {
+  if (const auto valid = Data::ValidateSourceProviders(scenario.Providers, registry); !valid) {
     return std::unexpected(valid.error());
   }
   if (!scenario.Routes.empty() &&
@@ -600,7 +602,10 @@ PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std:
 Result Engine::declare(const Scenario::Document &scenario) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (const auto valid = ValidateDeclarationInputs(scenario); !valid) { return valid; }
+  Generators::RegisterShippedProviders(S_->World.Providers);
+  if (const auto valid = ValidateDeclarationInputs(scenario, S_->World.Providers); !valid) {
+    return valid;
+  }
   if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
     S_->Error = Says::RevisionExhausted;
     return std::unexpected(S_->Error);

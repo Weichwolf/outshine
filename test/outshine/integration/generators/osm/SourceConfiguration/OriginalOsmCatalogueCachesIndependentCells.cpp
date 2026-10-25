@@ -1,10 +1,10 @@
+#include "OsmProviderValidation.h"
 #include "ShippedProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
 #include "OfflineTransport.h"
 #include "OsmApiReader.h"
 #include "OsmXmlReader.h"
-#include "SourceProviderValidation.h"
 #include "SourceSet.h"
 
 #include <array>
@@ -53,7 +53,8 @@ int main() {
                                 .Revision = "original-source-cells",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint = std::string(kOfficialOsmApi)};
+                                .Endpoint =
+                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
   const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;
@@ -122,15 +123,15 @@ int main() {
         "a catalogue cannot masquerade as a complete bounded regional source");
   auto invalid = provider;
   invalid.PayloadSha256.assign(64, 'a');
-  CHECK(!ValidateSourceProviders(std::span(&invalid, 1)),
+  CHECK(!outshine::Generators::Osm::ValidateProviders(std::span(&invalid, 1)),
         "one payload digest cannot claim to pin every catalogue cell");
   invalid = provider;
   invalid.Revision = "sha256:" + std::string(64, 'a');
-  CHECK(!ValidateSourceProviders(std::span(&invalid, 1)),
+  CHECK(!outshine::Generators::Osm::ValidateProviders(std::span(&invalid, 1)),
         "a legacy single-response pin cannot become a catalogue revision");
   invalid = provider;
   invalid.Endpoint = "https://tiles.versatiles.org/api/0.6";
-  CHECK(!ValidateSourceProviders(std::span(&invalid, 1)),
+  CHECK(!outshine::Generators::Osm::ValidateProviders(std::span(&invalid, 1)),
         "catalogues cannot substitute an unofficial reduced source");
   std::error_code error;
   (void)std::filesystem::remove_all(directory, error);

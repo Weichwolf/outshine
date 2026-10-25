@@ -1,6 +1,6 @@
 #include "OsmSourceAcquisitionState.h"
 
-#include "SourceProviderValidation.h"
+#include "OsmProviderValidation.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -25,14 +25,14 @@ bool Before(GeoCellId left, GeoCellId right) noexcept {
 bool ValidCell(GeoCellId cell) noexcept {
   const auto bounds = cell.Bounds();
   return bounds && (bounds->EastDeg - bounds->WestDeg) * (bounds->NorthDeg - bounds->SouthDeg) <=
-                       Data::kOsmApiMaximumAreaDeg2;
+                       kOsmApiMaximumAreaDeg2;
 }
 
 std::expected<std::vector<GeoCellId>, std::string>
 ValidatedCellDemand(const Data::SourceProvider &provider,
                     std::span<const GeoCellId> cells,
                     SourceAcquisition::CellLimits limits) {
-  if (auto valid = Data::ValidateSourceProviders(std::span(&provider, 1)); !valid) {
+  if (auto valid = ValidateProviders(std::span(&provider, 1)); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
   if (provider.Kind != "osm" || provider.Coverage || !provider.Location.empty() ||
@@ -141,39 +141,21 @@ std::expected<void, std::string> SourceAcquisition::Cells::Stage(std::vector<Cel
     auto &entry = ready[index];
     entry.Address = Wanted[positions[index]];
     entry.State = CellState::Validated;
-    if (Destination == Target::Inputs) {
-      Tracked.push_back({.Snapshot = entry.Snapshot ? std::shared_ptr<const void>(entry.Snapshot)
-                                                    : std::shared_ptr<const void>(entry.Product),
-                         .ChargedBytes = entry.ChargedBytes});
-    } else {
-      entry.Snapshot.reset();
-      entry.ChargedBytes = 0;
-    }
+    Tracked.push_back({.Snapshot = entry.Snapshot ? std::shared_ptr<const void>(entry.Snapshot)
+                                                  : std::shared_ptr<const void>(entry.Product),
+                       .ChargedBytes = entry.ChargedBytes});
     Preparing[positions[index]] = std::move(entry);
   }
   return {};
 }
 
 std::span<const SourceAcquisition::CellSource> SourceAcquisition::CurrentCells() const noexcept {
-  return Target_ == Target::Inputs && Scope_ == Scope::Cells && Cells_
-             ? std::span(Cells_->Published)
-             : std::span<const CellSource>{};
+  return Scope_ == Scope::Cells && Cells_ ? std::span(Cells_->Published)
+                                          : std::span<const CellSource>{};
 }
 
 size_t SourceAcquisition::CellSnapshotChargeBytes() const noexcept {
   return Cells_ ? Cells_->ChargedBytes() : 0;
-}
-
-size_t SourceAcquisition::RequiredCellCount() const noexcept {
-  return Cells_ && Scope_ == Scope::Cells ? Cells_->Wanted.size() : 0;
-}
-
-size_t SourceAcquisition::PreparedCellCount() const noexcept {
-  if (!Cells_ || Scope_ != Scope::Cells) { return 0; }
-  if (Phase_ == Phase::Ready) { return Cells_->Published.size(); }
-  if (Phase_ != Phase::Loading && Phase_ != Phase::Verifying) { return 0; }
-  return static_cast<size_t>(std::ranges::count_if(
-      Cells_->Preparing, [](const auto &entry) { return entry.State == CellState::Validated; }));
 }
 
 std::expected<void, std::string>
@@ -182,12 +164,6 @@ SourceAcquisition::RequestCells(const Data::SourceProvider &provider,
                                 CellLimits limits,
                                 std::string_view root,
                                 const Data::ProviderRegistry *registry) {
-  if (Target_ == Target::Cache && Compiler_) {
-    return std::unexpected("source cache preparation cannot own a cell compiler");
-  }
-  if (Target_ == Target::Cache && Access_->Directory.empty()) {
-    return std::unexpected("OSM cache preparation requires a persistent source cache directory");
-  }
   auto validated = ValidatedCellDemand(provider, cells, limits);
   if (!validated) { return std::unexpected(std::move(validated.error())); }
   auto wanted = std::move(*validated);
@@ -199,17 +175,13 @@ SourceAcquisition::RequestCells(const Data::SourceProvider &provider,
   }
   if (Scope_ == Scope::Cells && Requested_.front() == provider && Root_ == root &&
       Access_->Registry == registry && Cells_->Roots == wanted && Cells_->Limits == limits &&
-      Phase_ != Phase::Failed &&
-      (Target_ == Target::Inputs || Phase_ == Phase::Loading || Phase_ == Phase::Verifying)) {
+      Phase_ != Phase::Failed) {
     return {};
   }
   if (Revision_ == std::numeric_limits<uint64_t>::max()) {
     return std::unexpected("original OSM source revision is exhausted");
   }
-  if (!Cells_) {
-    Cells_ = std::make_unique<Cells>();
-    Cells_->Destination = Target_;
-  }
+  if (!Cells_) { Cells_ = std::make_unique<Cells>(); }
   const bool published = Cells_->PublishedProvider == provider && Cells_->PublishedRoot == root &&
                          Cells_->PublishedRegistry == registry;
   const bool pending = Scope_ == Scope::Cells && Requested_.front() == provider && Root_ == root &&
@@ -219,8 +191,7 @@ SourceAcquisition::RequestCells(const Data::SourceProvider &provider,
       std::ranges::any_of(leaves, [limits](auto cell) { return cell.Level > limits.LevelMost; })) {
     return std::unexpected("original OSM resident leaves exceed requested cell limits");
   }
-  auto preparing = Cells_->Reuse(
-      leaves, published && Target_ == Target::Inputs, pending && Phase_ == Phase::Loading);
+  auto preparing = Cells_->Reuse(leaves, published, pending && Phase_ == Phase::Loading);
   ++Revision_;
   Scope_ = Scope::Cells;
   Requested_.assign(1, provider);
@@ -247,10 +218,6 @@ void SourceAcquisition::CompleteCells(std::vector<CellSource> ready) {
     return;
   }
   if (!Cells_->Ready()) { return; }
-  if (Target_ == Target::Cache && !Cells_->Wanted.empty()) {
-    VerifyCache();
-    return;
-  }
   PublishCells();
 }
 

@@ -1,5 +1,5 @@
 #include "OsmChunkSetLoader.h"
-#include "SourceProviderValidation.h"
+#include "OsmProviderValidation.h"
 #include "Sha256.h"
 #include "Check.h"
 
@@ -44,7 +44,7 @@ int main() {
     CHECK(file.good(), "original response bytes stored without rewriting");
   }
   CHECK(providers[0].PayloadSha256 != providers[1].PayloadSha256 &&
-            ValidateSourceProviders(providers).has_value(),
+            outshine::Generators::Osm::ValidateProviders(providers).has_value(),
         "distinct response hashes validate under one dataset revision");
   const auto source = outshine::Generators::Osm::ChunkSetLoader::Load(providers, directory);
   CHECK(source.has_value(), "separately pinned responses close cross-region references");
@@ -74,7 +74,8 @@ int main() {
   legacy.Revision = "sha256:" + legacy.PayloadSha256;
   legacy.PayloadSha256.clear();
   const std::array legacyProviders{legacy};
-  CHECK(ValidateSourceProviders(legacyProviders).has_value(), "legacy byte pin remains valid");
+  CHECK(outshine::Generators::Osm::ValidateProviders(legacyProviders).has_value(),
+        "legacy byte pin remains valid");
   const auto legacySource =
       outshine::Generators::Osm::ChunkSetLoader::LoadRegion(legacyProviders, directory);
   CHECK(legacySource && legacySource->Chunks.size() == 1 && legacySource->Chunks[0].PinVerified &&
@@ -91,16 +92,20 @@ int main() {
         "observed digest of an unpinned response does not claim pin verification");
   wrong = providers;
   wrong[1].Revision = "another-snapshot";
-  CHECK(!ValidateSourceProviders(wrong), "response pins do not permit mixing dataset revisions");
+  CHECK(!outshine::Generators::Osm::ValidateProviders(wrong),
+        "response pins do not permit mixing dataset revisions");
   wrong = providers;
   wrong[1].PayloadSha256[0] = 'G';
-  CHECK(!ValidateSourceProviders(wrong), "non-hex response digest is rejected");
+  CHECK(!outshine::Generators::Osm::ValidateProviders(wrong),
+        "non-hex response digest is rejected");
   wrong = providers;
   wrong[1].Revision = "sha256:" + providers[0].PayloadSha256;
-  CHECK(!ValidateSourceProviders(wrong), "contradictory legacy and response pins are rejected");
+  CHECK(!outshine::Generators::Osm::ValidateProviders(wrong),
+        "contradictory legacy and response pins are rejected");
   wrong = providers;
   wrong[1].Kind = "terrain";
-  CHECK(!ValidateSourceProviders(wrong), "response pins are reserved for original OSM chunks");
+  CHECK(!outshine::Generators::Osm::ValidateProviders(wrong),
+        "response pins are reserved for original OSM chunks");
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "isolated original-source directory removed");

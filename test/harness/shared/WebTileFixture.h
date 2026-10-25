@@ -13,7 +13,7 @@ public:
                  Data::Rank order,
                  Data::AbsencePolicy absence,
                  std::string dataset = "tile-fixture",
-                 std::string endpoint = "https://fixture.invalid/{z}/{x}/{y}.png")
+                 const std::string &endpoint = "https://fixture.invalid/{z}/{x}/{y}.png")
       : WebTileSource(Data::SourceDecl{.Id = std::move(dataset),
                                        .Revision = std::move(revision),
                                        .Endpoint = endpoint,
@@ -28,7 +28,9 @@ public:
                                        .Keeps = Data::Cacheability::Forever,
                                        .Need = Data::Necessity::Required,
                                        .Latency = Data::LatencyClass::Distant,
-                                       .RetryBudget = 4},
+                                       .RetryBudget = 4,
+                                       .PayloadSha256 = {},
+                                       .Schema = {}},
                       endpoint) {}
 };
 

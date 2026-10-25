@@ -41,7 +41,8 @@ std::array<GeoCellId, 4> Children(GeoCellId cell) {
 }
 
 bool CacheableCell(const SourceDecl &decl, GeoCellId cell) {
-  return cell.Valid() && decl.How == Scheme::GeodeticGrid && decl.Keeps == Cacheability::Forever;
+  return cell.Valid() && decl.How == Scheme::GeodeticGrid && decl.Keeps == Cacheability::Forever &&
+         SourceIdentityEncodable(decl);
 }
 
 bool EnsureCellDirectory(const RawSourceCache &store, const std::string &path, bool create) {

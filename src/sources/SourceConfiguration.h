@@ -1,8 +1,11 @@
-#ifndef OUTSHINE_WORLD_DATA_SOURCECONFIGURATION_H
-#define OUTSHINE_WORLD_DATA_SOURCECONFIGURATION_H
+#ifndef OUTSHINE_SOURCES_SOURCECONFIGURATION_H
+#define OUTSHINE_SOURCES_SOURCECONFIGURATION_H
 
 #include <span>
 #include <string>
+#include <string_view>
+#include <expected>
+#include <memory>
 
 #include <SourceProvider.h>
 #include <Provider.h>

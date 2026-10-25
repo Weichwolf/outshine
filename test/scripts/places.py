@@ -2,7 +2,6 @@
 """Render the test catalogue through Outshine's generic scenario benchmark."""
 
 import argparse
-import copy
 import hashlib
 import json
 import math
@@ -14,72 +13,9 @@ import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from place_turn import turn_scenario
+
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def turn_velocity(world, camera):
-    origin = tuple(float(world.get(key, "0")) for key in ("lat", "lon"))
-    at = tuple(float(camera.get(key)) for key in ("lat", "lon"))
-    if origin == at:
-        return "0,-360,0"
-    latitude, longitude = map(math.radians, at)
-    origin_latitude, origin_longitude = map(math.radians, origin)
-    delta = longitude - origin_longitude
-    east = math.cos(latitude) * math.sin(delta)
-    up = math.cos(latitude) * math.cos(origin_latitude) * math.cos(delta) + math.sin(
-        latitude
-    ) * math.sin(origin_latitude)
-    north = -math.cos(latitude) * math.sin(origin_latitude) * math.cos(
-        delta
-    ) + math.sin(latitude) * math.cos(origin_latitude)
-    return ",".join(
-        format(value, ".17g") for value in (-360 * east, -360 * up, 360 * north)
-    )
-
-
-def turn_scenario(source, rate):
-    root = ET.parse(source).getroot()
-    views = root.find("views")
-    geographic = (
-        []
-        if views is None
-        else [
-            view
-            for view in views
-            if view.find("at") is not None
-            and "lat" in view.find("at").attrib
-            and "lon" in view.find("at").attrib
-        ]
-    )
-    if len(geographic) != 1:
-        raise ValueError(f"{source}: exactly one geodetic view is required")
-    render = root.find("render")
-    if render is None or root.find("world") is None:
-        raise ValueError(f"{source}: declared world and render profile are required")
-    clock = root.find("clock")
-    if clock is None or not clock.get("start") or clock.get("live") != "no":
-        raise ValueError(f"{source}: capture requires a fixed declared clock")
-    initial = copy.deepcopy(geographic[0])
-    bearing = float(initial.find("at").get("bearingDeg", "0"))
-    if not math.isfinite(bearing):
-        raise ValueError(f"{source}: bearing must be finite")
-    identifier = initial.get("id")
-    if not identifier:
-        raise ValueError(f"{source}: capture view requires an id")
-    render.set("fps", str(rate))
-    views.clear()
-    views.append(initial)
-    for frame in range(1, rate):
-        view = copy.deepcopy(initial)
-        view.set("id", f"{identifier}/turn/{frame}")
-        angle = math.remainder(bearing + 360 * frame / rate, 360)
-        view.find("at").set("bearingDeg", format(angle, ".17g"))
-        views.append(view)
-    return (
-        ET.tostring(root, encoding="unicode"),
-        identifier,
-        turn_velocity(root.find("world"), initial.find("at")),
-    )
 
 
 def keep_latest(image, directory, name):
