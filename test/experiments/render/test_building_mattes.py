@@ -256,10 +256,10 @@ class BuildingMattes(unittest.TestCase):
         }
         colours = []
         for lighting in ({}, {"light": [0, 0, -1], "intensity": 2}, {"intensity": 0}):
-            actual, _ = render(
+            actual, actual_work = render(
                 data, original, fields, camera, box, tables, rate=4, **lighting
             )
-            expected, _ = evaluate(
+            expected, expected_work = evaluate(
                 original,
                 original,
                 fields,
@@ -271,7 +271,7 @@ class BuildingMattes(unittest.TestCase):
                 supersample=4,
                 **lighting,
             )
-            control, _ = transfers(
+            control, control_work = transfers(
                 original,
                 original,
                 fields,
@@ -286,6 +286,9 @@ class BuildingMattes(unittest.TestCase):
             for key in ("C", "T"):
                 np.testing.assert_array_equal(actual[key], expected[key])
                 np.testing.assert_array_equal(control[key], expected[key])
+            if lighting.get("intensity") == 0:
+                for work in (actual_work, expected_work, control_work):
+                    self.assertEqual(work["ggx_lobe_evaluations"], 0)
             colours.append(actual["C"])
         self.assertGreater(float(np.max(colours[1] - colours[2])), 0)
 
