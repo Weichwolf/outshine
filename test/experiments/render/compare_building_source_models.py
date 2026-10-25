@@ -151,7 +151,7 @@ def compare_view(
 
 
 def contact(panels, output):
-    page = Image.new("RGB", (1200, 1200), (24, 24, 24))
+    page = Image.new("RGB", (600 * len(panels), 1200), (24, 24, 24))
     draw = ImageDraw.Draw(page)
     for column, (images, _) in enumerate(panels):
         for row, (name, img) in enumerate(images.items()):

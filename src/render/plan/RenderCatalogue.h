@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "native/Render.h"
+#include "Render.h"
 #include "IrradianceLayout.h"
 
 namespace outshine::Render {

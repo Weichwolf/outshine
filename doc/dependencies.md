@@ -30,6 +30,7 @@ Commitaktivität allein beweist keine Fehlerfreiheit oder künftige Wartung.
 | zlib | PNG und bestehende Cachepfade; bleibt für diese Formate. |
 | libtiff / libwebp | Copernicus-Raster / Terrarium-Höhen; Quellformatdecoder, kein eigener Codec-Eigenbau. |
 | SPIRV-Cross | Native Shaderübersetzung/Reflexion; bleibt. glslang ist ein Buildwerkzeug. |
+| QuickJS-NG | JavaScript-Semantik und VM statt eigenem Parser/Interpreter; MIT, keine transitiven Laufzeitpakete. Speicher, Stack und kooperative Ausführung begrenzt; kein JS-Datei-/Netzwerkmodul eingebunden. |
 | nlohmann/json | Benchmarkberichte; eigenen JSON-Ausgabepfad als Ersatz prüfen. |
 
 Die Installation oben betrifft die numerischen/Assetpakete, nicht das gesamte Toolchain-
@@ -40,7 +41,7 @@ SDL3_shadercross ist keine Produkt- oder Buildabhängigkeit.
 ## Installation
 
 ```sh
-brew install ccache geos osqp highs sqlite zstd
+brew install ccache geos osqp highs sqlite zstd quickjs-ng
 ```
 
 Debian/Ubuntu, abhängig von der Distributionsversion:
@@ -53,6 +54,11 @@ Linux verwendet für Einmal-SHA-256 die Systembibliothek libcrypto; `libssl-dev`
 liefert Header und `libcrypto.pc`. `pkg-config --modversion libcrypto` prüft den Stand.
 Prefix-/Append-Zustände und Cacheformate bleiben erhalten; isolierte native Render-/
 Stage-Profile benötigen libcrypto nicht. Apple bleibt bei CommonCrypto ohne OpenSSL-Paket.
+
+Scripting benötigt QuickJS-NG (geprüft mit 0.17.0) mit `qjsConfig.cmake` und dem
+importierten CMake-Target `qjs`. Paketverfügbarkeit unter Linux distributionsabhängig;
+Systempräfix bei Bedarf mit `CMAKE_PREFIX_PATH` angeben. Bellards QuickJS ist kein
+stillschweigender ABI-Ersatz. Nur Scripting bindet die Bibliothek direkt ein.
 
 GEOS benötigt mindestens 3.12 (`GEOSOrientPolygons`); die Paketversion mit
 `pkg-config --modversion geos` prüfen. GEOS, SQLite und Zstandard liefern pkg-config-Metadaten.

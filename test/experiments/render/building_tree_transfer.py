@@ -92,6 +92,14 @@ def triangle_normals(candidate):
     return normal / np.where(length > 0, length, 1)[:, None]
 
 
+def layer_groups(candidate, product, count):
+    groups = [(-1, np.arange(len(product["indices"]), len(candidate["indices"])))]
+    groups.extend(
+        (g, np.flatnonzero(product["triangle_groups"] == g)) for g in range(count)
+    )
+    return groups
+
+
 def transfers(
     candidate,
     original,
@@ -105,6 +113,9 @@ def transfers(
     *,
     opaque=False,
     coverage=None,
+    light=(0.45, -0.5, 0.7),
+    intensity=3,
+    ambient=0.1,
 ):
     width, height = map(int, box[1] - box[0])
     sample_count = width * height * supersample**2
@@ -121,12 +132,7 @@ def transfers(
     original_faces = np.flatnonzero(
         np.isin(original["binding"][:, 1], product["needs_sources"])
     )
-    parent_count = len(product["indices"])
-    groups = [(-1, np.arange(parent_count, len(candidate["indices"])))]
-    groups.extend(
-        (g, np.flatnonzero(product["triangle_groups"] == g))
-        for g in range(len(appearance["albedo"]))
-    )
+    groups = layer_groups(candidate, product, len(appearance["albedo"]))
     rays, depths, colours, alphas, ties = [], [], [], [], []
     lobes, peak, zero_samples, coverage_lookups = 0, 0, 0, 0
     raster_work = defaultdict(int)
@@ -180,8 +186,10 @@ def transfers(
             appearance["roughness_palette"],
             normal[face],
             outgoing[hit],
-            [0.45, -0.5, 0.7],
+            light,
             tables,
+            intensity=intensity,
+            ambient=ambient,
         )
         rays.append(hit)
         depths.append(-z)
