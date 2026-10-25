@@ -16,7 +16,7 @@ int main() {
   using namespace outshine::Test;
   std::array<uint8_t, 32> binding{};
   for (size_t at = 0; at < binding.size(); ++at) { binding[at] = static_cast<uint8_t>(at); }
-  const TransportPlanAddress address{.Core = {.Level = 9, .X = 270, .Y = 99},
+  const TransportPlanAddress address{.Definition = {.Core = {.Level = 9, .X = 270, .Y = 99}},
                                      .Inputs = TransportInputScopeId(binding)};
   const auto original = TransportPlanRequestKey(address);
   CHECK(original && *original == "9be27da031fd40c1d630b01913d0018f4c4780434d11f06dcc0a3c910cd3641f",
@@ -24,7 +24,7 @@ int main() {
   CHECK(TransportPlanRequestKey(address) == original,
         "identical known metadata resolves without source or plan state");
   auto moved = address;
-  ++moved.Core.X;
+  ++moved.Definition.Core.X;
   CHECK(TransportPlanRequestKey(moved) != original,
         "a different geographic core has an independent logical lookup");
   auto rebound = address;
@@ -32,24 +32,24 @@ int main() {
   CHECK(TransportPlanRequestKey(rebound) != original,
         "an explicitly changed source binding cannot reuse the old request");
   auto unsupported = address;
-  ++unsupported.RepresentationVersion;
+  ++unsupported.Definition.RepresentationVersion;
   const auto version = TransportPlanRequestKey(unsupported);
   CHECK(!version && version.error() == TransportPlanRequestError::UnsupportedRepresentation,
         "an unsupported functional contract is rejected before lookup or input work");
   unsupported = address;
-  unsupported.Representation =
+  unsupported.Definition.Representation =
       static_cast<TransportRepresentation>(std::numeric_limits<uint8_t>::max());
   CHECK(!TransportPlanRequestKey(unsupported), "unknown representation IDs are not aliases");
   auto invalid = address;
-  invalid.Core.Y = uint32_t{1} << static_cast<unsigned>(invalid.Core.Level);
+  invalid.Definition.Core.Y = uint32_t{1} << static_cast<unsigned>(invalid.Definition.Core.Level);
   const auto core = TransportPlanRequestKey(invalid);
   CHECK(!core && core.error() == TransportPlanRequestError::InvalidCore,
         "an out-of-domain core does not acquire a persistent identity");
-  const TransportPlanAddress zero{.Core = {},
+  const TransportPlanAddress zero{.Definition = {},
                                   .Inputs = TransportInputScopeId(std::array<uint8_t, 32>{})};
   CHECK(TransportPlanRequestKey(zero).has_value(),
         "an explicitly supplied zero digest is not confused with absent source binding");
-  const TransportPlan plan(address);
+  const TransportPlan plan(address.Definition);
   CHECK(plan.Coverage == TransportCoverage::Unknown,
         "constructing the data contract does not claim complete functional coverage");
   return Report();

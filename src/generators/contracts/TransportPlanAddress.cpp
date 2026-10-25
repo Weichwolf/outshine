@@ -8,21 +8,21 @@
 namespace outshine::Generators {
 std::expected<std::string, TransportPlanRequestError>
 TransportPlanRequestKey(const TransportPlanAddress &address) {
-  if (!address.Core.Valid()) { return std::unexpected(TransportPlanRequestError::InvalidCore); }
-  if (address.Representation != TransportRepresentation::Functional ||
-      address.RepresentationVersion != 1) {
+  const auto &definition = address.Definition;
+  if (!definition.Core.Valid()) { return std::unexpected(TransportPlanRequestError::InvalidCore); }
+  if (definition.Representation != TransportRepresentation::Functional ||
+      definition.RepresentationVersion != 1) {
     return std::unexpected(TransportPlanRequestError::UnsupportedRepresentation);
   }
   BinaryValueWriter out(256);
-  constexpr uint32_t recipeVersion = 1;
   if (!out.Text("outshine/functional-transport-plan") ||
-      !out(recipeVersion,
-           static_cast<uint32_t>(address.Core.Level),
-           address.Core.X,
-           address.Core.Y,
+      !out(kTransportPlanRecipeVersion,
+           static_cast<uint32_t>(definition.Core.Level),
+           definition.Core.X,
+           definition.Core.Y,
            address.Inputs.Bytes,
-           address.Representation,
-           address.RepresentationVersion)) {
+           definition.Representation,
+           definition.RepresentationVersion)) {
     return std::unexpected(TransportPlanRequestError::EncodingFailed);
   }
   return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());

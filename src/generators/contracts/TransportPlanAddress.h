@@ -8,6 +8,8 @@
 #include <string>
 
 namespace outshine::Generators {
+inline constexpr uint32_t kTransportPlanRecipeVersion = 1;
+
 struct TransportInputScopeId {
   explicit TransportInputScopeId(std::array<uint8_t, 32> bytes) noexcept : Bytes(bytes) {}
 
@@ -18,11 +20,17 @@ struct TransportInputScopeId {
 
 enum class TransportRepresentation : uint8_t { Functional = 1 };
 
-struct TransportPlanAddress {
+struct TransportPlanDefinition {
   GeoCellId Core;
-  TransportInputScopeId Inputs;
   TransportRepresentation Representation = TransportRepresentation::Functional;
   uint32_t RepresentationVersion = 1;
+
+  [[nodiscard]] bool operator==(const TransportPlanDefinition &) const noexcept = default;
+};
+
+struct TransportPlanAddress {
+  TransportPlanDefinition Definition;
+  TransportInputScopeId Inputs;
 
   [[nodiscard]] bool operator==(const TransportPlanAddress &) const noexcept = default;
 };

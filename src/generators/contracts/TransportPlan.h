@@ -52,6 +52,7 @@ using TransportPathEnd =
     std::variant<std::monostate, TransportBoundaryPortReference, TransportJunctionGateReference>;
 
 struct TransportPath {
+  std::string PartId;
   std::string SourceId;
   std::string Material;
   uint32_t FirstStation = 0;
@@ -95,9 +96,10 @@ struct TransportOmission {
 };
 
 struct TransportPlan {
-  explicit TransportPlan(const TransportPlanAddress &address) noexcept : Address(address) {}
+  explicit TransportPlan(const TransportPlanDefinition &definition) noexcept
+      : Definition(definition) {}
 
-  TransportPlanAddress Address;
+  TransportPlanDefinition Definition;
   LongitudeLatitude Anchor{};
   std::array<uint8_t, 32> InputBinding{};
   TransportCoverage Coverage = TransportCoverage::Unknown;
