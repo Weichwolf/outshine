@@ -46,9 +46,18 @@ struct EarthworkStamp {
 
   [[nodiscard]] bool operator==(const EarthworkStamp &) const = default;
 
-  [[nodiscard]] size_t HeapBytes() const noexcept;
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    size_t bytes = (RingEastNorthM.capacity() + SeamEastNorthM.capacity()) * sizeof(double);
+    bytes += HoleRingsEastNorthM.capacity() * sizeof(std::vector<double>);
+    for (const auto &hole : HoleRingsEastNorthM) { bytes += hole.capacity() * sizeof(double); }
+    return bytes;
+  }
 
-  [[nodiscard]] double WantsAt(EastNorth at) const;
+  [[nodiscard]] double WantsAt(EastNorth at) const {
+    const double dE = at.EastM - AtE;
+    const double dN = at.NorthM - AtN;
+    return PlateauM + SlopeE * dE + SlopeN * dN - 0.5 * (dE * dE + dN * dN) * SagInv;
+  }
 };
 
 }
