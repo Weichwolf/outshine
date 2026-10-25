@@ -89,13 +89,56 @@ const AssetRecord *Record(const std::vector<RoadPageQueue::Completed> &done) {
   return std::get_if<AssetRecord>(&**result);
 }
 
+char Plan(Scenario scenario) {
+  if (scenario == Scenario::CancelOwner) { return 'c'; }
+  if (scenario == Scenario::DifferentProduct) { return 'd'; }
+  return 'a';
+}
+
+const char *CookLabel(Scenario scenario) {
+  if (scenario == Scenario::CancelOwner) { return "cancel-owner cooks"; }
+  if (scenario == Scenario::DifferentProduct) { return "different-product cooks"; }
+  return "shared cooks";
+}
+
+void CheckGeometry(PreparedRoadPages &pages, const RoadPageAddress &address) {
+  using namespace outshine::Test;
+  const auto loaded = pages.Load(address, kLimit);
+  const auto expected = Triangle();
+  CHECK(loaded && *loaded && (**loaded).Page->Geometry.Mesh.PositionM == expected.Mesh.PositionM &&
+            (**loaded).Page->Geometry.Mesh.NormalM == expected.Mesh.NormalM &&
+            (**loaded).Page->Geometry.Mesh.ColourRgba == expected.Mesh.ColourRgba &&
+            (**loaded).Page->Geometry.Mesh.Index == expected.Mesh.Index,
+        "the normal native loader verifies all of the surviving consumer's geometry");
+}
+
+void CheckCompletions(const std::vector<RoadPageQueue::Completed> &left,
+                      const std::vector<RoadPageQueue::Completed> &right,
+                      const RoadPageAddress &address,
+                      Scenario scenario) {
+  using namespace outshine::Test;
+  const bool canceled = scenario == Scenario::CancelOwner;
+  const auto *aRecord = Record(left);
+  const auto *bRecord = Record(right);
+  CHECK(left.size() == 1 && (canceled ? !left.front().Result && left.front().Result.error() ==
+                                                                    "road page request canceled"
+                                      : aRecord != nullptr),
+        "A independently receives its own terminal completion or cancellation");
+  CHECK(bRecord != nullptr && bRecord->Key == RoadPageKey(address),
+        "the still current consumer B receives its complete committed product");
+  if (scenario == Scenario::Shared) {
+    CHECK(aRecord != nullptr && bRecord != nullptr && aRecord->Package == bRecord->Package,
+          "both consumers refer to the same persisted immutable product");
+  }
+}
+
 void CheckSharing(const std::shared_ptr<PreparedRoadPages> &pages, Scenario scenario) {
   using namespace outshine::Test;
   const auto work = std::make_shared<Controlled>();
   const auto producer = Producer(work);
   const bool canceled = scenario == Scenario::CancelOwner;
   const bool different = scenario == Scenario::DifferentProduct;
-  const auto first = Request(canceled ? 'c' : (different ? 'd' : 'a'));
+  const auto first = Request(Plan(scenario));
   const auto second = different ? Request('e') : first;
   Tasks pool(2);
   RoadPageQueue a(pool, pages, {.PendingMost = 1, .PageBytesMost = kLimit});
@@ -125,30 +168,11 @@ void CheckSharing(const std::shared_ptr<PreparedRoadPages> &pages, Scenario scen
   work->Release.release();
   const auto left = Wait(a);
   const auto right = Wait(b);
-  const auto *aRecord = Record(left);
-  const auto *bRecord = Record(right);
-  CHECK(left.size() == 1 && (canceled ? !left.front().Result && left.front().Result.error() ==
-                                                                    "road page request canceled"
-                                      : aRecord != nullptr),
-        "A independently receives its own terminal completion or cancellation");
-  CHECK(bRecord != nullptr && bRecord->Key == RoadPageKey(second.Address),
-        "the still current consumer B receives its complete committed product");
+  CheckCompletions(left, right, second.Address, scenario);
   CHECK(work->Cooks.load() == (different ? size_t{2} : size_t{1}),
         "the same product is cooked once even when its initial consumer cancels");
-  if (!different && !canceled) {
-    CHECK(aRecord != nullptr && bRecord != nullptr && aRecord->Package == bRecord->Package,
-          "both consumers refer to the same persisted immutable product");
-  }
-  const auto loaded = pages->Load(second.Address, kLimit);
-  const auto expected = Triangle();
-  CHECK(loaded && *loaded && (**loaded).Page->Geometry.Mesh.PositionM == expected.Mesh.PositionM &&
-            (**loaded).Page->Geometry.Mesh.NormalM == expected.Mesh.NormalM &&
-            (**loaded).Page->Geometry.Mesh.ColourRgba == expected.Mesh.ColourRgba &&
-            (**loaded).Page->Geometry.Mesh.Index == expected.Mesh.Index,
-        "the normal native loader verifies all of the surviving consumer's geometry");
-  Note(canceled ? "cancel-owner cooks" : (different ? "different-product cooks" : "shared cooks"),
-       static_cast<double>(work->Cooks.load()),
-       "producer calls");
+  CheckGeometry(*pages, second.Address);
+  Note(CookLabel(scenario), static_cast<double>(work->Cooks.load()), "producer calls");
 }
 }
 
