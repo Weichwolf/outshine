@@ -40,10 +40,6 @@ public:
   Prepare(const RoadPageRequest &request,
           const RoadPageProducer *producer = nullptr,
           const std::stop_token &stop = {});
-  [[nodiscard]] std::expected<RoadPageLease, std::string>
-  Resolve(const RoadPageRequest &request,
-          const RoadPageProducer *producer = nullptr,
-          const std::stop_token &stop = {});
 
 private:
   struct Generation;

@@ -1,3 +1,4 @@
+#include "PreparedRoadPageFixture.h"
 #include "Earth.h"
 #include "ControlledRoadPageProducer.h"
 #include <stop_token>
@@ -44,7 +45,8 @@ RoadPageGeometry Triangle(uint32_t part) {
 
 void CheckConcurrent(const std::shared_ptr<PreparedRoadPages> &pages) {
   using namespace outshine::Test;
-  const auto warm = pages->Resolve(
+  const auto warm = outshine::Test::PrepareAndLoadRoadPage(
+      *pages,
       {.Address = Address(8), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
       outshine::Test::RoadProducer([](const RoadPageRequest &, const std::stop_token &) {
         return Triangle(8);
@@ -67,7 +69,8 @@ void CheckConcurrent(const std::shared_ptr<PreparedRoadPages> &pages) {
 
   const auto state = std::make_shared<State>();
   std::jthread first([state, pages] {
-    state->First = pages->Resolve(
+    state->First = outshine::Test::PrepareAndLoadRoadPage(
+        *pages,
         {.Address = Address(7), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
         outshine::Test::RoadProducer([state](const RoadPageRequest &, const std::stop_token &) {
           ++state->Factories;
@@ -84,7 +87,8 @@ void CheckConcurrent(const std::shared_ptr<PreparedRoadPages> &pages) {
   }
   std::jthread rival([state, pages] {
     state->RivalStarted.release();
-    state->Rival = pages->Resolve(
+    state->Rival = outshine::Test::PrepareAndLoadRoadPage(
+        *pages,
         {.Address = Address(7), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
         outshine::Test::RoadProducer([state](const RoadPageRequest &, const std::stop_token &) {
           ++state->Factories;
@@ -114,7 +118,8 @@ void CheckConcurrent(const std::shared_ptr<PreparedRoadPages> &pages) {
 void CheckRetry(PreparedRoadPages &pages) {
   using namespace outshine::Test;
   size_t attempts = 0;
-  const auto failed = pages.Resolve(
+  const auto failed = outshine::Test::PrepareAndLoadRoadPage(
+      pages,
       {.Address = Address(9), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
       outshine::Test::RoadProducer([&](const RoadPageRequest &, const std::stop_token &)
                                        -> std::expected<RoadPageGeometry, std::string> {
@@ -122,7 +127,8 @@ void CheckRetry(PreparedRoadPages &pages) {
         return std::unexpected("controlled producer failure");
       }).get());
   CHECK(!failed, "a failed build does not publish a complete page");
-  const auto retry = pages.Resolve(
+  const auto retry = outshine::Test::PrepareAndLoadRoadPage(
+      pages,
       {.Address = Address(9), .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
       outshine::Test::RoadProducer([&](const RoadPageRequest &, const std::stop_token &) {
         ++attempts;

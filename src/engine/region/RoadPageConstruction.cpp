@@ -16,23 +16,28 @@
 
 namespace outshine {
 RoadPageConstruction::RoadPageConstruction(Tasks &pool,
-                                           std::shared_ptr<Generators::PreparedRoadPages> pages)
-    : Queue_(pool, std::move(pages), {.PendingMost = 1, .PageBytesMost = PageBytesMost}) {}
+                                           std::shared_ptr<Generators::PreparedRoadPages> pages,
+                                           std::shared_ptr<AssetPipeline> publications)
+    : Queue_(pool,
+             std::move(pages),
+             {.PendingMost = 1, .PageBytesMost = PageBytesMost},
+             std::move(publications)) {}
 
 std::expected<std::unique_ptr<RoadPageConstruction>, std::string>
 RoadPageConstruction::Begin(Tasks &pool,
                             std::shared_ptr<Generators::PreparedRoadPages> pages,
                             const Generators::Corridors::Job &plan,
                             const Generators::Corridors::Site &site,
-                            const std::string &planKey) {
+                            const std::string &planKey,
+                            std::shared_ptr<AssetPipeline> publications) {
   if (!pages || planKey.size() != 64) {
     return std::unexpected("road construction needs its native cache and complete plan identity");
   }
   constexpr double kCellWidthM = 256;
   auto parts = Generators::Corridors::PlannedPages(plan, kCellWidthM, PartsMost);
   if (!parts) { return std::unexpected(std::string(parts.error())); }
-  auto result =
-      std::unique_ptr<RoadPageConstruction>(new RoadPageConstruction(pool, std::move(pages)));
+  auto result = std::unique_ptr<RoadPageConstruction>(
+      new RoadPageConstruction(pool, std::move(pages), std::move(publications)));
   result->Pages_ = std::move(*parts);
   Geometry materials;
   if (!materials.addSurface("streets", Generators::Corridors::StreetMaterial(site.Materials))) {
@@ -65,14 +70,18 @@ RoadPageConstruction::Advance(const Generators::Corridors::Job &plan,
     Stage_ = Stage::Lookup;
     return false;
   }
-  auto recipe = Generators::Corridors::PageRecipe(plan, site, requested);
-  if (!recipe) { return std::unexpected(std::string(recipe.error())); }
-  auto producer =
-      std::make_shared<const Generators::RoadPageMeshProducer>(PendingKey_, std::move(*recipe));
-  const bool admitted = Queue_.RequestRecord(
+  if (!PendingProducer_) {
+    auto recipe = Generators::Corridors::PageRecipe(plan, site, requested);
+    if (!recipe) { return std::unexpected(std::string(recipe.error())); }
+    PendingProducer_ =
+        std::make_shared<const Generators::RoadPageMeshProducer>(PendingKey_, std::move(*recipe));
+  }
+  const auto admitted = Queue_.RequestRecord(
       {.Address = Address_, .Parent = {}, .RequestKey = {}, .NativeBytesMost = PageBytesMost},
-      std::move(producer));
-  if (!admitted) { return std::unexpected("road page worker admission failed"); }
+      PendingProducer_);
+  if (!admitted) { return std::unexpected(admitted.error()); }
+  if (!*admitted) { return false; }
+  PendingProducer_.reset();
   ++MissRequests_;
   Stage_ = Stage::Generating;
   return false;
@@ -93,7 +102,8 @@ std::expected<bool, std::string> RoadPageConstruction::Collect() {
     Stage_ = Stage::Generate;
     return false;
   }
-  const auto *record = std::get_if<AssetRecord>(&**one.Result);
+  const auto *receipt = std::get_if<RoadPageQueue::Receipt>(&**one.Result);
+  const auto *record = receipt != nullptr && *receipt ? receipt->get() : nullptr;
   if (record == nullptr || record->Key != PendingKey_ || record->Level != Address_.Level ||
       record->ByteCount == 0 || record->ByteCount > PageBytesMost) {
     return std::unexpected("road page metadata differs from its admitted native request");

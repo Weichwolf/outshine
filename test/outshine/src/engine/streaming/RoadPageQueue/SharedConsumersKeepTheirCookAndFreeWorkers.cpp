@@ -1,3 +1,4 @@
+#include "RoadPublicationFixture.h"
 #include "RoadPageQueue.h"
 #include "ControlledRoadPageProducer.h"
 #include "Check.h"
@@ -86,7 +87,8 @@ const AssetRecord *Record(const std::vector<RoadPageQueue::Completed> &done) {
   if (done.size() != 1) { return nullptr; }
   const auto &result = done.front().Result;
   if (!result || !*result) { return nullptr; }
-  return std::get_if<AssetRecord>(&**result);
+  const auto *receipt = std::get_if<RoadPageQueue::Receipt>(&**result);
+  return receipt != nullptr && *receipt ? receipt->get() : nullptr;
 }
 
 char Plan(Scenario scenario) {
@@ -147,16 +149,19 @@ void CheckSharing(const std::shared_ptr<PreparedRoadPages> &pages, Scenario scen
   const auto first = Request(Plan(scenario));
   const auto second = different ? Request('e') : first;
   Tasks pool(scenario == Scenario::CancelSingleWorker ? 1 : 2);
-  RoadPageQueue a(pool, pages, {.PendingMost = 1, .PageBytesMost = kLimit});
-  RoadPageQueue b(pool, pages, {.PendingMost = 1, .PageBytesMost = kLimit});
-  CHECK(a.RequestRecord(first, producer), "the first consumer admits a real publication job");
+  const auto publications = outshine::Test::RoadPublications(pool);
+  RoadPageQueue a(pool, pages, {.PendingMost = 1, .PageBytesMost = kLimit}, publications);
+  RoadPageQueue b(pool, pages, {.PendingMost = 1, .PageBytesMost = kLimit}, publications);
+  CHECK(outshine::Test::AdmitRoadPage(a, first, producer),
+        "the first consumer admits a real publication job");
   const bool started = work->Started.try_acquire_for(kStartup);
   CHECK(started, "the first native cook holds its worker until explicitly released");
   if (!started) {
     work->Release.release();
     return;
   }
-  CHECK(b.RequestRecord(second, producer), "the independent consumer admits its own demand");
+  CHECK(outshine::Test::AdmitRoadPage(b, second, producer),
+        "the independent consumer admits its own demand");
   if (canceled) {
     a.Cancel(RoadPageKey(first.Address));
     CHECK(!work->CookCancelled.load(),

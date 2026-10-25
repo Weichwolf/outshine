@@ -1,3 +1,4 @@
+#include "PreparedRoadPageFixture.h"
 #include "Check.h"
 #include "ControlledRoadPageProducer.h"
 #include "PreparedRoadPages.h"
@@ -61,15 +62,17 @@ void CheckCancelledHit(PreparedRoadPages &pages) {
     ++builds;
     return Triangle(kWarmPart);
   });
-  const auto warm = pages.Resolve(Request(kWarmPart), producer.get());
+  const auto warm =
+      outshine::Test::PrepareAndLoadRoadPage(pages, Request(kWarmPart), producer.get());
   CHECK(warm.has_value(), "a complete page is cached before the cancelled demand");
   if (!warm) { return; }
   std::stop_source stop;
   CHECK(stop.request_stop(), "the consumer cancels before its cache request");
-  const auto cancelled = pages.Resolve(Request(kWarmPart), producer.get(), stop.get_token());
+  const auto cancelled = outshine::Test::PrepareAndLoadRoadPage(
+      pages, Request(kWarmPart), producer.get(), stop.get_token());
   CHECK(!cancelled && cancelled.error() == "road page request canceled",
         "an already cancelled consumer receives no cached product");
-  const auto unchanged = pages.Resolve(Request(kWarmPart));
+  const auto unchanged = outshine::Test::PrepareAndLoadRoadPage(pages, Request(kWarmPart));
   CHECK(unchanged && unchanged->Record.Key == warm->Record.Key && builds == 1,
         "consumer cancellation preserves the complete shared cached product");
 }
@@ -96,7 +99,7 @@ void CheckCancelledRival(const std::shared_ptr<PreparedRoadPages> &pages, bool c
     return Triangle(part);
   });
   std::jthread owner([pages, work, producer, part] {
-    work->Owner = pages->Resolve(Request(part), producer.get());
+    work->Owner = outshine::Test::PrepareAndLoadRoadPage(*pages, Request(part), producer.get());
   });
   const bool started = work->Started.try_acquire_for(kStartupLimit);
   CHECK(started, "the original native producer holds its generation slot");
@@ -108,7 +111,8 @@ void CheckCancelledRival(const std::shared_ptr<PreparedRoadPages> &pages, bool c
   if (cancelledAtEntry) { (void)stop.request_stop(); }
   std::jthread rival([pages, work, producer, part, token = stop.get_token()] {
     work->RivalStarted.release();
-    work->Rival = pages->Resolve(Request(part), producer.get(), token);
+    work->Rival =
+        outshine::Test::PrepareAndLoadRoadPage(*pages, Request(part), producer.get(), token);
     work->RivalDone.release();
   });
   const bool competing = work->RivalStarted.try_acquire_for(kStartupLimit);
@@ -131,7 +135,7 @@ void CheckCancelledRival(const std::shared_ptr<PreparedRoadPages> &pages, bool c
   CHECK(work->Rival && !work->Rival->has_value() &&
             work->Rival->error() == "road page request canceled",
         "the cancelled rival reports cancellation instead of exposing another consumer's page");
-  const auto hit = pages->Resolve(Request(part));
+  const auto hit = outshine::Test::PrepareAndLoadRoadPage(*pages, Request(part));
   CHECK(hit && work->Owner && work->Owner->has_value() &&
             hit->Record.Key == work->Owner->value().Record.Key,
         "the original result remains available to an independent valid consumer");

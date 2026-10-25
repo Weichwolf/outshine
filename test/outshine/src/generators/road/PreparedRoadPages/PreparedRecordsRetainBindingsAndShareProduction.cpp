@@ -1,3 +1,4 @@
+#include "PreparedRoadPageFixture.h"
 #include "PreparedRoadPages.h"
 #include "ControlledRoadPageProducer.h"
 #include "Check.h"
@@ -118,7 +119,7 @@ void CheckShared(const std::shared_ptr<PreparedRoadPages> &pages) {
   }
   std::jthread payload([pages, work, producer, request] {
     work->ReaderStarted.release();
-    work->Payload = pages->Resolve(request, producer.get());
+    work->Payload = outshine::Test::PrepareAndLoadRoadPage(*pages, request, producer.get());
   });
   const bool reader = work->ReaderStarted.try_acquire_for(std::chrono::seconds(5));
   work->Release.release();

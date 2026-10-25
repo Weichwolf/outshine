@@ -1,3 +1,5 @@
+#include "RoadPublicationFixture.h"
+#include "PreparedRoadPageFixture.h"
 #include "ControlledRoadPageProducer.h"
 #include "RoadPageQueue.h"
 #include "ProfiledRoadMesher.h"
@@ -73,13 +75,16 @@ RoadPageQueue::Product *ReadyProduct(std::vector<RoadPageQueue::Completed> &done
   return product ? std::addressof(*product) : nullptr;
 }
 
-RoadPageLease *Payload(std::vector<RoadPageQueue::Completed> &done) {
-  return std::get_if<RoadPageLease>(ReadyProduct(done));
+RoadPageLease *Payload(std::vector<RoadPageQueue::Completed> &done, PreparedRoadPages &pages) {
+  return outshine::Test::ConsumeRoadPage(done, pages);
 }
 
 void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   using namespace outshine::Test;
-  RoadPageQueue queue(pool, pages, {.PendingMost = 1, .PageBytesMost = kPageBytesMost});
+  RoadPageQueue queue(pool,
+                      pages,
+                      {.PendingMost = 1, .PageBytesMost = kPageBytesMost},
+                      outshine::Test::RoadPublications(pool));
 
   struct Control {
     std::binary_semaphore Entered{0};
@@ -90,10 +95,11 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   const auto control = std::make_shared<Control>();
   const auto first = Address(7);
   const auto other = Address(8);
-  CHECK(!queue.Request({.Address = first,
-                        .Parent = {},
-                        .RequestKey = {},
-                        .NativeBytesMost = kPageBytesMost - 1}) &&
+  CHECK(!outshine::Test::AdmitRoadPage(queue,
+                                       {.Address = first,
+                                        .Parent = {},
+                                        .RequestKey = {},
+                                        .NativeBytesMost = kPageBytesMost - 1}) &&
             queue.Pending() == 0,
         "a different request ceiling cannot silently share this queue's admitted contract");
   const auto blocked = outshine::Test::RoadProducer(
@@ -105,7 +111,8 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
         if (stop.stop_requested()) { return std::unexpected("canceled fixture producer"); }
         return Produce();
       });
-  CHECK(queue.Request(
+  CHECK(outshine::Test::AdmitRoadPage(
+            queue,
             {.Address = first, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost},
             blocked),
         "the first native request occupies one worker slot");
@@ -115,28 +122,32 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
     control->Finish.release();
     return;
   }
-  CHECK(queue.Request(
+  CHECK(outshine::Test::AdmitRoadPage(
+            queue,
             {.Address = first, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost},
             blocked) &&
             control->Factories.load() == 1 && queue.Pending() == 1,
         "identical pending requests are coalesced before IO or generation");
-  CHECK(queue.RequestCached(RoadPageKey(first)) && queue.Pending() == 1 &&
+  CHECK(!queue.RequestCached(RoadPageKey(first)) && queue.Pending() == 1 &&
             control->Factories.load() == 1,
-        "a metadata demand shares an already running producer for the same product");
+        "payload loading stays distinct from a pending publication receipt");
   CHECK(!queue.RequestMetadata(first) && queue.Pending() == 1,
         "an index probe cannot silently coalesce with a different payload result type");
   CHECK(!queue.RequestCached(RoadPageKey(other)) &&
-            !queue.Request({.Address = other,
-                            .Parent = {},
-                            .RequestKey = {},
-                            .NativeBytesMost = kPageBytesMost}) &&
+            !outshine::Test::AdmitRoadPage(queue,
+                                           {.Address = other,
+                                            .Parent = {},
+                                            .RequestKey = {},
+                                            .NativeBytesMost = kPageBytesMost}) &&
             queue.Collect().empty(),
         "the frame cannot enqueue beyond its bound or wait for a blocked producer");
   queue.Cancel(RoadPageKey(first));
   CHECK(
-      !queue.Request(
+      !outshine::Test::AdmitRoadPage(
+          queue,
           {.Address = other, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost}) &&
-          !queue.Request(
+          !outshine::Test::AdmitRoadPage(
+              queue,
               {.Address = first, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost},
               blocked) &&
           queue.Pending() == 1,
@@ -149,7 +160,8 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   CHECK(missing && !*missing, "cancellation before encoding publishes no partial cached page");
   auto source = std::make_shared<uint32_t>(8);
   const std::weak_ptr<uint32_t> retainedSource = source;
-  CHECK(queue.Request(
+  CHECK(outshine::Test::AdmitRoadPage(
+            queue,
             {.Address = other, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost},
             outshine::Test::RoadProducer(
                 [source = std::move(source)](const RoadPageRequest &, const std::stop_token &) {
@@ -162,15 +174,17 @@ void CheckQueue(Tasks &pool, const std::shared_ptr<PreparedRoadPages> &pages) {
   pool.Wait(generated);
   CHECK(retainedSource.expired(), "worker completion releases generator inputs before collection");
   auto done = Wait(queue);
-  CHECK(Payload(done) && !Payload(done)->Page->Geometry.Mesh.Index.empty(),
+  CHECK(Payload(done, *pages) && !Payload(done, *pages)->Page->Geometry.Mesh.Index.empty(),
         "completed work exposes an independently owned native page");
-  const auto retained =
-      Payload(done) != nullptr ? std::move(Payload(done)->Page) : std::unique_ptr<RoadPageAsset>{};
-  CHECK(queue.Request(
+  const auto retained = Payload(done, *pages) != nullptr ? std::move(Payload(done, *pages)->Page)
+                                                         : std::unique_ptr<RoadPageAsset>{};
+  CHECK(outshine::Test::AdmitRoadPage(
+            queue,
             {.Address = other, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost}),
         "a cached page can be requested without any generator");
   auto hit = Wait(queue);
-  CHECK(Payload(hit) && retained && Payload(hit)->Record.Key == RoadPageKey(other) &&
+  CHECK(Payload(hit, *pages) && retained &&
+            Payload(hit, *pages)->Record.Key == RoadPageKey(other) &&
             control->Factories.load() == 1,
         "a warm asynchronous request restores the existing page without source preparation");
   CHECK(queue.RequestCached(RoadPageKey(other)),
@@ -204,7 +218,10 @@ void CheckMetadata(Tasks &pool, const std::filesystem::path &directory) {
   CHECK(opened.has_value(), "the consumer starts with a fresh page service");
   if (!opened) { return; }
   auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));
-  RoadPageQueue queue(pool, pages, {.PendingMost = 1, .PageBytesMost = kPageBytesMost});
+  RoadPageQueue queue(pool,
+                      pages,
+                      {.PendingMost = 1, .PageBytesMost = kPageBytesMost},
+                      outshine::Test::RoadPublications(pool));
   CHECK(!queue.RequestCached("") && !queue.RequestCached(std::string(64, 'g')) &&
             queue.Pending() == 0,
         "invalid metadata keys are rejected without occupying worker slots");
@@ -213,15 +230,16 @@ void CheckMetadata(Tasks &pool, const std::filesystem::path &directory) {
             queue.Pending() == 1,
         "metadata alone enqueues and coalesces one bounded cached-page load");
   auto hit = Wait(queue);
-  CHECK(Payload(hit) && Payload(hit)->Record == selected &&
-            !Payload(hit)->Page->Geometry.Mesh.Index.empty(),
+  CHECK(Payload(hit, *pages) && Payload(hit, *pages)->Record == selected &&
+            !Payload(hit, *pages)->Page->Geometry.Mesh.Index.empty(),
         "a fresh worker restores the selected native page without any plan address or factory");
   CHECK(queue.RequestMetadata(Address(8)) && queue.RequestMetadata(Address(8)) &&
             !queue.RequestCached(selected.Key) && queue.Pending() == 1,
         "index probes coalesce while a fine load requires its own explicit result contract");
   auto probe = Wait(queue);
-  const auto *record = std::get_if<AssetRecord>(ReadyProduct(probe));
-  CHECK(record && *record == selected && !Payload(probe),
+  const auto *receipt = std::get_if<RoadPageQueue::Receipt>(ReadyProduct(probe));
+  CHECK(receipt && *receipt && **receipt == selected &&
+            !std::holds_alternative<RoadPageLease>(*ReadyProduct(probe)),
         "the metadata result carries the indexed product without a native mesh lease");
   CHECK(queue.RequestCached(std::string(64, 'f')), "an absent valid product can be queried");
   const auto miss = Wait(queue);
@@ -251,17 +269,15 @@ int main() {
     CheckQueue(pool, pages);
     auto distant = Address(9);
     distant.Anchor.LongitudeDeg = 9;
-    CHECK(pages
-              ->Resolve({.Address = distant,
-                         .Parent = {},
-                         .RequestKey = {},
-                         .NativeBytesMost = kPageBytesMost},
-                        outshine::Test::RoadProducer([](const RoadPageRequest &,
-                                                        const std::stop_token &) {
-                          return Produce(9);
-                        }).get())
-              .has_value(),
-          "a second complete native package lies outside the metadata query");
+    CHECK(
+        outshine::Test::PrepareAndLoadRoadPage(
+            *pages,
+            {.Address = distant, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kPageBytesMost},
+            outshine::Test::RoadProducer([](const RoadPageRequest &, const std::stop_token &) {
+              return Produce(9);
+            }).get())
+            .has_value(),
+        "a second complete native package lies outside the metadata query");
     CheckMetadata(pool, root);
   }
   pages.reset();

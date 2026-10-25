@@ -29,6 +29,8 @@
 #include "RoadAlignmentBuildQueue.h"
 #include "RouteSpeedProfile.h"
 #include "Tasks.h"
+#include "AssetPipeline.h"
+#include "PreparedRoadPages.h"
 #include "Log.h"
 
 #include <chrono>
@@ -239,6 +241,8 @@ struct WorldRegionState {
   Data::ProviderRegistry Providers;
   std::unique_ptr<Tasks> Pool;
   std::unique_ptr<Tasks> Io;
+  std::shared_ptr<AssetPipeline> Publications;
+  std::weak_ptr<Generators::PreparedRoadPages> PublicationStore;
   std::shared_ptr<Data::SourceSession> Sources;
   std::vector<Data::SourceProvider> SourceDeclarations;
   Ground::SurfacePreparation Stack;

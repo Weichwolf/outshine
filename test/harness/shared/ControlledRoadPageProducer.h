@@ -2,6 +2,7 @@
 #define OUTSHINE_TEST_CONTROLLEDROADPAGEPRODUCER_H
 
 #include "RoadPageProducer.h"
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -11,6 +12,8 @@ template <typename Function>
 class ControlledRoadPageProducer final : public Generators::RoadPageProducer {
 public:
   explicit ControlledRoadPageProducer(Function function) : Function_(std::move(function)) {}
+
+  [[nodiscard]] size_t InputCapacityBytes() const noexcept override { return sizeof(*this); }
 
   [[nodiscard]] std::expected<Generators::RoadPageGeometry, std::string>
   Produce(const Generators::RoadPageRequest &request, std::stop_token stop) const override {

@@ -235,8 +235,9 @@ std::expected<AssetRecord, std::string> PreparedRoadPages::Prepare(const RoadPag
   if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
   auto key = RequestKey(request);
   if (!key) { return std::unexpected(std::move(key.error())); }
-  const auto lookup = [&] {
+  const auto lookup = [&]() -> std::expected<std::optional<AssetRecord>, std::string> {
     const std::scoped_lock lock(Lock_);
+    if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
     return ReadRecord(*key, request.Address, request.NativeBytesMost, request.RequestKey);
   };
   auto existing = lookup();
@@ -261,42 +262,4 @@ std::expected<AssetRecord, std::string> PreparedRoadPages::Prepare(const RoadPag
   return std::move(*committed);
 }
 
-std::expected<RoadPageLease, std::string> PreparedRoadPages::Resolve(
-    const RoadPageRequest &request, const RoadPageProducer *producer, const std::stop_token &stop) {
-  if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
-  auto key = RequestKey(request);
-  if (!key) { return std::unexpected(std::move(key.error())); }
-  const auto &requestKey = request.RequestKey;
-  const auto bytesMost = request.NativeBytesMost;
-  {
-    const std::scoped_lock lock(Lock_);
-    auto existing = Read(*key, bytesMost, requestKey);
-    if (!existing) { return std::unexpected(std::move(existing.error())); }
-    if (*existing) { return std::move(**existing); }
-  }
-  if (producer == nullptr) { return std::unexpected("road page miss has no producer"); }
-  const auto gate = GenerationGate(*key);
-  if (!gate->Acquire(stop)) { return std::unexpected("road page request canceled"); }
-  const Generation::Lease generating(*gate);
-  {
-    const std::scoped_lock lock(Lock_);
-    auto existing = Read(*key, bytesMost, requestKey);
-    if (!existing) { return std::unexpected(std::move(existing.error())); }
-    if (*existing) { return std::move(**existing); }
-  }
-  auto package = ProducePackage(request, *key, *producer, stop);
-  if (!package) { return std::unexpected(std::move(package.error())); }
-  auto generated = [&] {
-    const std::scoped_lock lock(Lock_);
-    return ResolveAsset(*Cache_, *key, bytesMost, [&](size_t) { return std::move(*package); });
-  }();
-  if (!generated) { return std::unexpected(std::move(generated.error())); }
-  auto loaded = DecodeRoadPageAsset(generated->Bytes(), bytesMost);
-  if (!loaded || RoadPageKey(loaded->Address) != *key) {
-    return std::unexpected("published road page failed native validation");
-  }
-  return RoadPageLease{.Page = std::make_unique<RoadPageAsset>(std::move(*loaded)),
-                       .Record = generated->Record(),
-                       .NativeBytes = generated->Bytes().size()};
-}
 }

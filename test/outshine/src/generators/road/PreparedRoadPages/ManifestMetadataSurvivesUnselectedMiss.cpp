@@ -1,3 +1,4 @@
+#include "PreparedRoadPageFixture.h"
 #include "Earth.h"
 #include "ControlledRoadPageProducer.h"
 #include <stop_token>
@@ -38,7 +39,8 @@ std::optional<RoadPageManifest> Prepare(PreparedRoadPages &pages) {
                                   .Anchor = manifest.Anchor,
                                   .Level = 0,
                                   .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}}};
-    auto result = pages.Resolve(
+    auto result = outshine::Test::PrepareAndLoadRoadPage(
+        pages,
         {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit},
         outshine::Test::RoadProducer([index](const RoadPageRequest &, const std::stop_token &) {
           const auto x = static_cast<float>(index);

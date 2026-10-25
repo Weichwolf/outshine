@@ -1,3 +1,4 @@
+#include "RoadPublicationFixture.h"
 #include "RoadPageQueue.h"
 #include "ControlledRoadPageProducer.h"
 #include "Check.h"
@@ -42,7 +43,7 @@ std::vector<RoadPageQueue::Completed> Wait(RoadPageQueue &queue) {
   return {};
 }
 
-void CheckBindings(const std::filesystem::path &directory, bool recordOnly) {
+void CheckBindings(const std::filesystem::path &directory) {
   using namespace outshine::Test;
   std::filesystem::create_directories(directory);
   auto opened = PreparedRoadPages::Open(directory.string());
@@ -50,7 +51,10 @@ void CheckBindings(const std::filesystem::path &directory, bool recordOnly) {
   if (!opened) { return; }
   const std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);
   Tasks pool(1);
-  RoadPageQueue queue(pool, pages, {.PendingMost = 1, .PageBytesMost = kLimit});
+  RoadPageQueue queue(pool,
+                      pages,
+                      {.PendingMost = 1, .PageBytesMost = kLimit},
+                      outshine::Test::RoadPublications(pool));
   const RoadPageRequest first{
       .Address = {.PlanKey = std::string(64, 'a'),
                   .MaterialKey = std::string(64, 'b'),
@@ -76,7 +80,7 @@ void CheckBindings(const std::filesystem::path &directory, bool recordOnly) {
     return Triangle();
   });
   const auto request = [&](const RoadPageRequest &value) {
-    return recordOnly ? queue.RequestRecord(value, producer) : queue.Request(value, producer);
+    return outshine::Test::AdmitRoadPage(queue, value, producer);
   };
   CHECK(request(first), "the first complete binding is admitted");
   const bool running = control->Entered.try_acquire_for(std::chrono::seconds(5));
@@ -91,7 +95,7 @@ void CheckBindings(const std::filesystem::path &directory, bool recordOnly) {
   otherParent.Parent.assign(64, 'f');
   CHECK(!request(otherRequest) && !request(otherParent),
         "different durable bindings are explicitly rejected instead of being silently lost");
-  CHECK(request(first) && (queue.RequestCached(RoadPageKey(first.Address)) == !recordOnly) &&
+  CHECK(request(first) && !queue.RequestCached(RoadPageKey(first.Address)) &&
             !queue.RequestMetadata(first.Address) && queue.Pending() == 1 &&
             control->Calls.load() == 1,
         "matching requests coalesce while incompatible payload and probe results stay separate");
@@ -104,7 +108,7 @@ void CheckBindings(const std::filesystem::path &directory, bool recordOnly) {
     if (result) {
       const auto &product = *result;
       if (product) {
-        CHECK(std::holds_alternative<AssetRecord>(*product) == recordOnly,
+        CHECK(std::holds_alternative<RoadPageQueue::Receipt>(*product),
               "the worker result matches its admitted record or payload contract");
       }
     }
@@ -129,8 +133,8 @@ int main() {
       ("outshine-roadpage-bindings-" +
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(directory);
-  CheckBindings(directory / "payload", false);
-  CheckBindings(directory / "record", true);
+
+  CheckBindings(directory / "record");
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "the fixture is removed after all workers and cache handles close");

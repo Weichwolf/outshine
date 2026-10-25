@@ -54,7 +54,7 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
                                   .Anchor = manifest->Anchor,
                                   .Level = 0,
                                   .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}}};
-    const auto result = pages->Resolve(
+    const auto result = pages->Prepare(
         {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = 4096},
         outshine::Test::RoadProducer([index](const RoadPageRequest &, const std::stop_token &) {
           const auto x = static_cast<float>(index);
@@ -67,9 +67,9 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
           return std::expected<RoadPageGeometry, std::string>(std::move(page));
         }).get());
     if (!result) { return std::nullopt; }
-    manifest->Pages.push_back({.Key = result->Record.Key,
-                               .Bounds = result->Record.Bounds,
-                               .ByteCount = result->NativeBytes,
+    manifest->Pages.push_back({.Key = result->Key,
+                               .Bounds = result->Bounds,
+                               .ByteCount = result->ByteCount,
                                .Level = 0,
                                .Parts = address.Parts});
   }
