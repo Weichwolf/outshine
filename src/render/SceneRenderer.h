@@ -29,6 +29,8 @@ struct SDL_Window;
 #include "GpuSubmission.h"
 #include "GpuFrameSample.h"
 #include "TemporalSequence.h"
+#include "FrameTargets.h"
+#include "TextureFormat.h"
 #include "UploadQueue.h"
 #include "TerrainMaterialBuffers.h"
 
@@ -799,7 +801,6 @@ public:
   }
 
 private:
-  [[nodiscard]] static Native::Format TextureFormatOf(TexelFormat declared);
   [[nodiscard]] static bool Accepted(Native::Result<void> result, std::string &error);
   friend class Core::RuntimeScene;
 
@@ -1042,22 +1043,16 @@ private:
     Shown Shown;
     std::unique_ptr<Native::Texture> Offscreen;
     Gpu Handles;
-    std::unique_ptr<Native::Texture> HdrTex, VelTex, DepthTex, FrameTex;
+    FrameTargets Targets;
     std::unique_ptr<Native::Texture> TransmittanceLut, MultiScatterLut, SkyViewLut,
         EnvironmentSpecular;
     std::unique_ptr<Native::Texture> ShadowAtlas;
-    std::unique_ptr<Native::Texture> TransmissiveTex, CompositedTex, AerialTex;
-    std::unique_ptr<Native::Texture> ShadingNormalTex;
-    std::unique_ptr<Native::Texture> SurfaceIdentityTex;
-    std::unique_ptr<Native::Texture> SurfaceBaseTex;
-    std::unique_ptr<Native::Texture> SurfaceMetalRoughTex;
     std::unique_ptr<Native::Sampler> Samp, LutSamp;
     std::unique_ptr<Native::Buffer> IrradianceBuffer;
     std::unique_ptr<Native::Buffer> Pyramid;
     std::unique_ptr<Native::Buffer> GroundPyramid;
     Readback PyramidRead;
     int Width = 0, Height = 0;
-    std::array<std::unique_ptr<Native::Texture>, 2> LinearTex{};
     CompositeTransmissionStage CompositeTransmission;
     AerialPerspectiveStage Aerial;
     TonemapStage Tonemap;

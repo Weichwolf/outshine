@@ -9,19 +9,6 @@
 #include <utility>
 
 namespace outshine::Render {
-Native::Format SceneRenderer::TextureFormatOf(TexelFormat declared) {
-  switch (declared) {
-    case TexelFormat::Handle:
-    case TexelFormat::Table: return Native::Format::Count;
-    case TexelFormat::Rgba16Float: return Native::Format::Rgba16Float;
-    case TexelFormat::Rgba32Float: return Native::Format::Rgba32Float;
-    case TexelFormat::Rg16Float: return Native::Format::Rg16Float;
-    case TexelFormat::R8Unorm: return Native::Format::R8Unorm;
-    case TexelFormat::Rgba8UnormSrgb: return Native::Format::Rgba8Srgb;
-    case TexelFormat::Depth32Float: return Native::Format::Depth32Float;
-  }
-  return Native::Format::Count;
-}
 
 namespace {
 
@@ -89,31 +76,9 @@ Native::Result<void> SceneRenderer::CreateAtmosphereLut(FrameResources &frame,
 Native::Result<void>
 SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource) {
   using enum Native::TextureUse;
-  const auto target = [&](Resource of,
-                          Native::UseMask<Native::TextureUse> use,
-                          std::unique_ptr<Native::Texture> &into) {
-    return Keep(Device_->CreateTexture({.Width = static_cast<uint32_t>(frame.Width),
-                                        .Height = static_cast<uint32_t>(frame.Height),
-                                        .Texels = TextureFormatOf(plan.Format(of)),
-                                        .Use = use | CopySource}),
-                into);
-  };
-  const auto colour = ColourAttachment | Sampled;
   switch (resource) {
     case Resource::LinearSampler:
     case Resource::LutSampler: return CreateSampler(frame, resource);
-    case Resource::SceneHdr: return target(resource, colour, frame.HdrTex);
-    case Resource::SceneTransmissive: return target(resource, colour, frame.TransmissiveTex);
-    case Resource::SceneComposited: return target(resource, colour, frame.CompositedTex);
-    case Resource::SceneAerial: return target(resource, colour, frame.AerialTex);
-    case Resource::SceneVelocity: return target(resource, colour, frame.VelTex);
-    case Resource::SceneShadingNormal: return target(resource, colour, frame.ShadingNormalTex);
-    case Resource::SceneSurfaceIdentity: return target(resource, colour, frame.SurfaceIdentityTex);
-    case Resource::SceneSurfaceBase: return target(resource, colour, frame.SurfaceBaseTex);
-    case Resource::SceneSurfaceMetalRough:
-      return target(resource, colour, frame.SurfaceMetalRoughTex);
-    case Resource::SceneDepth: return target(resource, DepthAttachment | Sampled, frame.DepthTex);
-    case Resource::FrameTex: return target(resource, colour, frame.FrameTex);
     case Resource::TransmittanceLut:
     case Resource::MultiScatterLut:
     case Resource::SkyViewLut:
@@ -139,13 +104,6 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
                                           .Texels = Native::Format::Depth32Float,
                                           .Use = DepthAttachment | Sampled | CopySource}),
                   frame.ShadowAtlas);
-    case Resource::SceneLinear: {
-      auto made = target(resource, colour, frame.LinearTex[0]);
-      if (!made) { return made; }
-      made = target(resource, colour, frame.LinearTex[1]);
-      if (!made) { return made; }
-      return {};
-    }
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
     case Resource::VegetationTable:
@@ -163,8 +121,11 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
     case Resource::DrawArguments:
     case Resource::AoBuffer:
     case Resource::kCount: return {};
+    default:
+      if (!FrameTargets::Owns(resource) || frame.Targets.Get(resource) != nullptr) { return {}; }
+      return frame.Targets.Replace(
+          *Device_, {.WidthPx = frame.Width, .HeightPx = frame.Height}, plan);
   }
-  return {};
 }
 
 bool SceneRenderer::Accepted(Native::Result<void> result, std::string &error) {

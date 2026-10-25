@@ -22,7 +22,7 @@ bool SceneRenderer::ConfigureGroundPyramid([[maybe_unused]] SceneRenderer &rende
                                            std::string &error) {
   return Accepted(
       frame.GroundPyramidStage.Configure(frame.Handles,
-                                         frame.DepthTex.get(),
+                                         frame.Targets.Get(Resource::SceneDepth),
                                          frame.Samp.get(),
                                          frame.GroundPyramid.get(),
                                          {.WidthPx = frame.Width, .HeightPx = frame.Height}),
