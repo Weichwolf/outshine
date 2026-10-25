@@ -19,9 +19,12 @@ def reference(path, cell, frame, *, native_input=None, native_cell=None):
     from source_shading_fields import wall_colours
 
     patches = []
+    selected = set(map(int, frame["selected_sources"]))
     with open_parent(path) as parent:
         for _, identities, forms in parent.iter_forms({cell}):
             for identity, surface in zip(identities, forms, strict=True):
+                if int(identity) not in selected:
+                    continue
                 if surface is None:
                     raise ValueError(
                         f"whole source reference unavailable: {int(identity)}"
