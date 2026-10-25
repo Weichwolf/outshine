@@ -19,7 +19,7 @@
 #include "GroundPublication.h"
 #include "GroundRegionPreparation.h"
 #include "GroundPatchPreparation.h"
-#include "Rigid.h"
+#include "RigidBodyState.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "HeightSheets.h"
@@ -616,7 +616,7 @@ struct Engine::State {
   [[nodiscard]] bool InspectTerrainCoverage();
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool
-  UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
+  UpdateSceneBodyTransform(size_t which, const World::RigidBodyState &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
   [[nodiscard]] bool PollWeather();

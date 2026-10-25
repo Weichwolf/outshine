@@ -1,3 +1,4 @@
+#include "RigidBodyDynamics.h"
 #include "GeodeticCamera.h"
 #include "Earth.h"
 #include "AzimuthElevation.h"
@@ -46,7 +47,7 @@ constexpr auto kInvalidCarriedView = "the carried view has no valid camera basis
 }
 
 namespace {
-[[nodiscard]] Mat4 BodyTransform(const Physics::Rigid &body, const Vec3 &shiftM) {
+[[nodiscard]] Mat4 BodyTransform(const World::RigidBodyState &body, const Vec3 &shiftM) {
   Mat4 worldFromBody = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   {
     const Quat &q = body.OrientationQ;
@@ -223,7 +224,7 @@ bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
 }
 
 bool Engine::State::UpdateSceneBodyTransform(size_t which,
-                                             const Physics::Rigid &body,
+                                             const World::RigidBodyState &body,
                                              const Vec3 &shiftM) {
   const Mat4 bodyFromWorld = BodyTransform(body, shiftM);
 
@@ -255,7 +256,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
     Error = Says::kCameraBodyRequired;
     return false;
   }
-  const Physics::Rigid &body = Simulation->DynamicBodies[*binding].Motion;
+  const World::RigidBodyState &body = Simulation->DynamicBodies[*binding].Motion;
   const Mat4 bodyFromWorld = BodyTransform(body, {});
   const Scenario::View &seen = views.Active();
   const Vec3 &seatM = seen.OffsetM;
@@ -530,7 +531,7 @@ bool Engine::State::Updates(bool simulate) {
     const double simulationStepS =
         Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
     const double gravityMs2 = Session.Declared.Ground.GravityMs2;
-    Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
+    Physics::IntegrateBodies(Simulation->DynamicBodies, simulationStepS, {{0.0, -gravityMs2, 0.0}});
     Ticking.ElapsedS += simulationStepS;
     triggered = UpdateTriggers();
   }

@@ -2,6 +2,8 @@
 #include "RouteSpeedProfile.h"
 
 #include <cmath>
+#include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <numbers>
 #include <optional>
@@ -12,6 +14,10 @@ int main() {
   using namespace outshine::Test;
 
   constexpr double radiusM = 30.0;
+  constexpr double lateralBoundMs2 = 5.1;
+  constexpr double differenceTolerance = 1e-8;
+  constexpr double minimumCurveSpeedMps = 10;
+  constexpr double minimumStraightSpeedMps = 19;
   constexpr double lapM = 2.0 * std::numbers::pi * radiusM;
   const RouteSpeedProfile::Sampler circle = [](double stationM) -> std::optional<RouteCurveSample> {
     const double angle = stationM / radiusM;
@@ -33,13 +39,15 @@ int main() {
     double highestSpeedMps = 0.0;
     bool physicallyBounded = true;
     constexpr double tickS = 1.0 / 60.0;
-    for (double timeS = 0.0; timeS <= profile->DurationS(); timeS += tickS) {
+    const auto ticks = static_cast<size_t>(std::floor(profile->DurationS() / tickS));
+    for (size_t tick = 0; tick <= ticks; ++tick) {
+      const double timeS = static_cast<double>(tick) * tickS;
       const auto at = profile->AtTime(timeS);
       physicallyBounded &=
           at && at->StationM >= previousStationM && at->StationM <= lapM && at->SpeedMps >= 0.0 &&
-          at->SpeedMps * at->SpeedMps / radiusM < 5.1 &&
-          at->SpeedMps - previousSpeedMps <= limits.AccelerationMs2 * tickS + 1e-8 &&
-          previousSpeedMps - at->SpeedMps <= limits.BrakingMs2 * tickS + 1e-8;
+          at->SpeedMps * at->SpeedMps / radiusM < lateralBoundMs2 &&
+          at->SpeedMps - previousSpeedMps <= limits.AccelerationMs2 * tickS + differenceTolerance &&
+          previousSpeedMps - at->SpeedMps <= limits.BrakingMs2 * tickS + differenceTolerance;
       if (at) {
         previousStationM = at->StationM;
         previousSpeedMps = at->SpeedMps;
@@ -49,9 +57,9 @@ int main() {
     const auto start = profile->AtTime(0.0);
     const auto finish = profile->AtTime(profile->DurationS());
     CHECK(
-        physicallyBounded && highestSpeedMps > 10.0 && start && start->StationM == 0.0 &&
-            start->SpeedMps == 0.0 && finish && finish->StationM == lapM &&
-            finish->SpeedMps == 0.0 && !profile->AtTime(-1.0) &&
+        physicallyBounded && highestSpeedMps > minimumCurveSpeedMps && start &&
+            start->StationM == 0.0 && start->SpeedMps == 0.0 && finish &&
+            finish->StationM == lapM && finish->SpeedMps == 0.0 && !profile->AtTime(-1.0) &&
             !profile->AtTime(std::numeric_limits<double>::quiet_NaN()),
         "the camera reaches the same seam without exceeding lateral, acceleration or brake limits");
   }
@@ -61,7 +69,9 @@ int main() {
     return RouteCurveSample{.PositionM = {{stationM, 0.0, 0.0}}, .Forward = {{1.0, 0.0, 0.0}}};
   };
   const auto straightPlan = RouteSpeedProfile::Build(200.0, straight, {.MaximumSpeedMps = 20.0});
-  CHECK(straightPlan && straightPlan->AtTime(straightPlan->DurationS() * 0.5)->SpeedMps >= 19.0,
+  const auto midpoint =
+      straightPlan ? straightPlan->AtTime(straightPlan->DurationS() * 0.5) : std::nullopt;
+  CHECK(midpoint && midpoint->SpeedMps >= minimumStraightSpeedMps,
         "a long straight reaches the declared maximum speed before braking");
   const auto tooLong = RouteSpeedProfile::Build(100000.0, straight, limits);
   CHECK(!tooLong && tooLong.error() == RouteSpeedError::SampleBudget,
