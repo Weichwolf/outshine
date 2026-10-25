@@ -1,11 +1,13 @@
 #ifndef OUTSHINE_SIMULATION_PHYSICS_RIGIDBODYDYNAMICS_H
 #define OUTSHINE_SIMULATION_PHYSICS_RIGIDBODYDYNAMICS_H
 
-#include "EntityBodyState.h"
 #include "RigidBodyState.h"
 #include "Quat.h"
 #include "Vec3.h"
-#include <span>
+
+namespace outshine::World {
+class EntityState;
+}
 
 namespace outshine::Physics {
 
@@ -39,9 +41,7 @@ void IntegrateBody(World::RigidBodyState &body, const Wrench &wrench, double dtS
 
 [[nodiscard]] double MechanicalEnergyJ(const World::RigidBodyState &body, const Vec3 &gravityMs2);
 
-void IntegrateBodies(std::span<World::EntityBodyState> bodies,
-                     double stepSeconds,
-                     const Vec3 &gravityMs2);
+void IntegrateBodies(World::EntityState &bodies, double stepSeconds, const Vec3 &gravityMs2);
 
 }
 

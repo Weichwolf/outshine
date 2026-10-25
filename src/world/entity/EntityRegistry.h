@@ -113,6 +113,7 @@ public:
   void remove(Entity of);
 
   [[nodiscard]] bool alive(Entity of) const;
+  [[nodiscard]] uint64_t LivenessRevision() const noexcept;
 
   [[nodiscard]] std::optional<Role> roleOf(Entity of) const;
 

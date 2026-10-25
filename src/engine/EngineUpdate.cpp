@@ -252,7 +252,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
     return false;
   }
   const auto binding = ScenarioState->ViewBodies[active];
-  const auto *bound = binding ? ScenarioState->Entities.Body(*binding) : nullptr;
+  const auto *bound = binding ? BodyFrame.Body(*binding) : nullptr;
   if (bound == nullptr) {
     Error = Says::kCameraBodyRequired;
     return false;
@@ -456,8 +456,8 @@ bool Engine::State::UpdateTriggers() {
       ScenarioState->DeclarationRevision != Session.DeclarationRevision) {
     return true;
   }
-  for (const auto &body : ScenarioState->Entities.Bodies()) {
-    if (!ScenarioState->Entities.Registry().alive(body.Owner)) { continue; }
+  for (size_t row = 0; row < BodyFrame.Count(); ++row) {
+    const auto &body = BodyFrame.At(row);
     if (!ScenarioState->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS)) {
       Error = Says::kInvalidTriggerProbe;
       return false;
@@ -533,11 +533,11 @@ bool Engine::State::Updates(bool simulate) {
     const double simulationStepS =
         Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
     const double gravityMs2 = Session.Declared.Ground.GravityMs2;
-    Physics::IntegrateBodies(
-        ScenarioState->Entities.MutableBodies(), simulationStepS, {{0.0, -gravityMs2, 0.0}});
+    Physics::IntegrateBodies(ScenarioState->Entities, simulationStepS, {{0.0, -gravityMs2, 0.0}});
     Ticking.ElapsedS += simulationStepS;
-    triggered = UpdateTriggers();
   }
+  BodyFrame = ScenarioState->Entities.PublishBodies();
+  if (simulate) { triggered = UpdateTriggers(); }
   const bool cameraUpdated = triggered && UpdateActiveCamera();
   Cost.Simulation.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - simulationAt)
@@ -560,17 +560,12 @@ bool Engine::State::Updates(bool simulate) {
 }
 
 bool Engine::State::Draws() {
-  if (!ScenarioState->Entities.Bodies().empty() && Picture.Standing && Picture.Standing->Stands() &&
+  if (BodyFrame.Count() != 0 && Picture.Standing && Picture.Standing->Stands() &&
       Picture.Standing->DrivenParts() != 0) {
     const Vec3 unshifted;
-    if (!Picture.Standing->ResizeBodyInstances(ScenarioState->Entities.Bodies().size(), Error)) {
-      return false;
-    }
-    for (size_t which = 0; which < ScenarioState->Entities.Bodies().size(); ++which) {
-      if (!UpdateSceneBodyTransform(
-              which, ScenarioState->Entities.Bodies()[which].Motion, unshifted)) {
-        return false;
-      }
+    if (!Picture.Standing->ResizeBodyInstances(BodyFrame.Count(), Error)) { return false; }
+    for (size_t which = 0; which < BodyFrame.Count(); ++which) {
+      if (!UpdateSceneBodyTransform(which, BodyFrame.At(which).Motion, unshifted)) { return false; }
     }
   }
   if (Picture.Standing && !Picture.Standing->Advance(Error)) { return false; }
@@ -610,17 +605,19 @@ Result Engine::advanceFrame(bool simulate) {
   S_->Cost.Update.Took(updateMs);
   if (!updated) { return std::unexpected(S_->Error); }
   S_->Cost.ObservesSuccessfulUpdate(updateMs, S_->Session.Declared.Ground.Declared);
-  const auto publicationAt = std::chrono::steady_clock::now();
-  S_->PublishFrameMeasurements();
-  S_->PublishAudioSnapshot();
-  S_->Cost.FramePublication.Took(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - publicationAt)
-          .count());
   const auto sceneAt = std::chrono::steady_clock::now();
   const bool drew = S_->Draws();
   S_->Cost.SceneAdvance.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sceneAt)
           .count());
+  if (drew) {
+    const auto publicationAt = std::chrono::steady_clock::now();
+    S_->PublishFrameMeasurements();
+    S_->PublishAudioSnapshot();
+    S_->Cost.FramePublication.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - publicationAt)
+            .count());
+  }
   if (simulate) {
     S_->Cost.Advance.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)

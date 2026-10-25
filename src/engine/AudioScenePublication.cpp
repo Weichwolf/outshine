@@ -30,7 +30,7 @@ void Engine::State::PublishAudioSnapshot() {
     const auto binding =
         source < Session.AudioBodies.size() ? Session.AudioBodies[source] : std::nullopt;
     if (binding && ScenarioState->DeclarationRevision == Session.DeclarationRevision) {
-      stood = ScenarioState->Entities.Body(*binding);
+      stood = BodyFrame.Body(*binding);
     }
     if (stood != nullptr) {
       where.Standing = true;

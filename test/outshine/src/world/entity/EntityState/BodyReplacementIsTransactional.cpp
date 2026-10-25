@@ -32,7 +32,8 @@ int main() {
         "physical rows may arrive independently of registry order");
   CHECK(state.Body(*left)->PositionM[0] == -1 && state.Body(*right)->PositionM[0] == 1,
         "constant-time lookup resolves the correct entity rather than a row ordinal");
-  state.MutableBodies().front().Motion.PositionM[0] = 2;
+  CHECK(state.EditBody(*right, [](World::RigidBodyState &body) { body.PositionM[0] = 2; }),
+        "the native writer edits an owned body");
   CHECK(state.Body(*right)->PositionM[0] == 2,
         "simulation writes directly into the authoritative native body row");
   const auto *previous = state.Bodies().data();
