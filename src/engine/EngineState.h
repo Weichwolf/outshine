@@ -24,7 +24,8 @@
 #include "RegionPool.h"
 #include "HeightSheets.h"
 #include "Wayfinding.h"
-#include "TilePieces.h"
+#include "GeometryPageResidency.h"
+#include "BuildingPageAdapter.h"
 #include "WorldPlacement.h"
 #include "StructureBuildQueue.h"
 #include "RoadAlignmentBuildQueue.h"
@@ -224,7 +225,7 @@ struct WorldRegionState {
   WorldRegionState &operator=(WorldRegionState &&) = delete;
 
   void BindSceneResources(Render::SceneRenderer &renderer) noexcept {
-    Pieces.Into(&renderer);
+    Pieces.BindRenderer(&renderer);
     Sheets.Into(&renderer);
     if (Vegetation) { Vegetation->Into(renderer); }
     if (UrbanAreas) { UrbanAreas->Into(renderer); }
@@ -265,8 +266,8 @@ struct WorldRegionState {
   std::unique_ptr<GroundPatchPreparation> PlacementGround;
   size_t GroundCandidates = 0;
 
-  TilePieces Pieces;
-  std::optional<TilePieces::Surfaces> StructureSurfaces;
+  Render::GeometryPageResidency Pieces;
+  std::optional<BuildingPageMaterials> StructureSurfaces;
   HeightSheets Sheets;
   std::shared_ptr<const Path::Network> StreetGraph;
   size_t StreetGraphWayCount = 0;

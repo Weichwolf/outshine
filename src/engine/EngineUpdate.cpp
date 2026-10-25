@@ -297,7 +297,7 @@ void Engine::State::HandsPiecesOver() {
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   World.StructureBuilds.Opens(World.Pool.get(), &World.Shipping.Shaping());
   if (World.PiecesFramed) { return; }
-  World.Pieces.Framed(
+  World.Pieces.SetFrame(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                         .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg}));
   World.PiecesFramed = true;

@@ -1,7 +1,8 @@
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "TilePieces.h"
+#include "GeometryPageResidency.h"
+#include "BuildingPageAdapter.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cstdint>
@@ -30,28 +31,32 @@ void CheckSelection(outshine::Render::SceneRenderer &renderer) {
                              StoredVertex::Of({{1, 0, 0}}, {{1, 1}}, {{0, 0, 1}}),
                              StoredVertex::Of({{0, 1, 0}}, {{0, 2}}, {{0, 0, 1}})};
   baked.Built.WallRun = {0, 1, 2};
-  TilePieces pieces;
-  pieces.Into(&renderer);
+  Render::GeometryPageResidency pieces;
+  BuildingPageMaterials bindings;
+  pieces.BindRenderer(&renderer);
   constexpr uint32_t kMissingSurface = 99;
-  pieces.SetSurfaces({.Walls = Render::PieceSurface::Registered(*first),
-                      .Roofs = Render::PieceSurface::Registered(*first),
-                      .MetreWalls = Render::PieceSurface::Registered(*first + kMissingSurface)});
-  CHECK(pieces.Hands(1, baked, {}, error) && renderer.PiecesStanding() == 1,
+  bindings = {.Walls = Render::PieceSurface::Registered(*first),
+              .Roofs = Render::PieceSurface::Registered(*first),
+              .MetreWalls = Render::PieceSurface::Registered(*first + kMissingSurface)};
+  CHECK(pieces.Upload(1, BuildingPageView(baked, bindings).View(), {}, error) &&
+            renderer.PiecesStanding() == 1,
         "an absent optional stream uses legacy walls even with an unavailable metre surface");
   const auto original = pieces.Digest();
   baked.Digest = 2;
   baked.Built.WallMaterialM = {0, 0, 1, 0, 0, 1};
-  CHECK(!pieces.Hands(1, baked, {}, error) && renderer.PiecesStanding() == 1 &&
-            pieces.Digest() == original,
+  CHECK(!pieces.Upload(1, BuildingPageView(baked, bindings).View(), {}, error) &&
+            renderer.PiecesStanding() == 1 && pieces.Digest() == original,
         "actual metric data select the metre surface and failed admission keeps the old tile");
-  pieces.SetSurfaces({.Walls = Render::PieceSurface::Registered(*first),
-                      .Roofs = Render::PieceSurface::Registered(*first),
-                      .MetreWalls = Render::PieceSurface::Registered(*first + 1u)});
-  CHECK(pieces.Hands(1, baked, {}, error) && renderer.PiecesStanding() == 1,
+  bindings = {.Walls = Render::PieceSurface::Registered(*first),
+              .Roofs = Render::PieceSurface::Registered(*first),
+              .MetreWalls = Render::PieceSurface::Registered(*first + 1u)};
+  CHECK(pieces.Upload(1, BuildingPageView(baked, bindings).View(), {}, error) &&
+            renderer.PiecesStanding() == 1,
         "the explicit metre material consumes the real UV1 stream without images");
   baked.Digest = 3;
   baked.Built.WallMaterialM.clear();
-  CHECK(pieces.Hands(1, baked, {}, error) && renderer.PiecesStanding() == 1,
+  CHECK(pieces.Upload(1, BuildingPageView(baked, bindings).View(), {}, error) &&
+            renderer.PiecesStanding() == 1,
         "removing the optional stream selects the valid legacy material again");
 }
 }

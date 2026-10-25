@@ -60,7 +60,7 @@ WorldRegionBuildState::WorldRegionBuildState(
     return true;
   }();
   if (sameLayout) { return; }
-  for (const auto tile : accepted) { Candidate_.Products().Pieces.Forgets(tile); }
+  for (const auto tile : accepted) { Candidate_.Products().Pieces.Retire(tile); }
   Footprints().ResetDerived();
 }
 

@@ -16,14 +16,18 @@ PublishStructureTile(WorldRegionState &world,
                      const StructureBuildQueue::Landing &landing) {
   assert(landing.Baked);
   const auto published = renderer.PublishedWorld();
-  TilePieces pieces = world.Pieces;
-  pieces.Into(&renderer);
+  auto &pieces = world.Pieces;
+  pieces.BindRenderer(&renderer);
   const auto &baked = *landing.Baked;
   std::string error;
-  if (!pieces.Hands(landing.Tile, baked, landing.AnchorEcef, error, landing.SourceKey)) {
+  if (!pieces.Upload(
+          landing.Tile,
+          BuildingPageView(baked, world.StructureSurfaces.value_or(BuildingPageMaterials{})).View(),
+          landing.AnchorEcef,
+          error,
+          landing.SourceKey)) {
     return std::unexpected(std::move(error));
   }
-  world.Pieces = std::move(pieces);
   world.BindSceneResources(renderer);
   return {};
 }
@@ -40,12 +44,13 @@ StageStructureCell(WorldRegionState &world,
     return std::unexpected("staged structure product has no cell address");
   }
   std::string error;
-  if (!world.Pieces.StageCell(landing.Tile,
-                              *baked.RequestedCell,
-                              baked,
-                              landing.AnchorEcef,
-                              error,
-                              landing.SourceKey)) {
+  if (!world.Pieces.StageCell(
+          landing.Tile,
+          *baked.RequestedCell,
+          BuildingPageView(baked, world.StructureSurfaces.value_or(BuildingPageMaterials{})).View(),
+          landing.AnchorEcef,
+          error,
+          landing.SourceKey)) {
     return std::unexpected(std::move(error));
   }
   return {};
@@ -57,7 +62,7 @@ ActivateStructureCells(WorldRegionState &world,
                        uint32_t tile,
                        uint64_t sourceKey,
                        uint64_t occupiedCells,
-                       std::span<const TilePieces::CellSelection> selected) {
+                       std::span<const Render::GeometryPageResidency::CellSelection> selected) {
   const auto published = renderer.PublishedWorld();
   world.BindSceneResources(renderer);
   std::string error;
