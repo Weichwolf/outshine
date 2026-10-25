@@ -2,15 +2,19 @@
 #include "EnvironmentSpecularLayout.h"
 #include "EnvironmentSpecularStage.h"
 #include "IrradianceLayout.h"
+#include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeImageReadback.h"
+#include "test/harness/render/NativeOffline.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <numbers>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -59,7 +63,7 @@ void UploadSources(Device &device, const Sources &source) {
   const std::array colours{ColourAttachment{.Image = {.Image = source.Sky.get()},
                                             .Begin = Load::Clear,
                                             .Clear = {0.25f, 0.5f, 1.0f, 1.0f}}};
-  Require(commands->BeginRenderPass({.Colours = colours}));
+  Require(commands->BeginRenderPass({.Colours = colours, .Depth = {}}));
   Require(commands->EndRenderPass());
   Require(commands->Copy(*transfer, *source.Irradiance, {.Bytes = sizeof(sky)}));
   const auto done = Require(device.Submit(std::move(commands)));
@@ -70,7 +74,8 @@ void UploadSources(Device &device, const Sources &source) {
 void Filter(Device &device, EnvironmentSpecularStage &stage, bool commit) {
   auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
   StageSubmission submission;
-  Require(stage.Encode({.Commands = commands.get(), .Submission = submission}));
+  Require(
+      stage.Encode({.Commands = commands.get(), .Submission = submission, .Area = {}, .Clip = {}}));
   if (!commit) { return; }
   const auto done = Require(device.Submit(std::move(commands)));
   submission.Commit();
@@ -86,7 +91,9 @@ void CheckAtlas(Device &device, const Sources &source) {
   for (uint32_t row = 0; row < kEnvironmentHeight; ++row) {
     for (uint32_t col = 0; col < kEnvironmentWidth; ++col) {
       std::array<uint16_t, 4> texel{};
-      std::memcpy(texel.data(), read.Rows.data() + row * read.RowBytes + col * 8u, sizeof(texel));
+      std::memcpy(texel.data(),
+                  read.Rows.data() + row * read.RowBytes + col * sizeof(texel),
+                  sizeof(texel));
       for (size_t channel = 0; channel < texel.size(); ++channel) {
         const int error = static_cast<int>(texel[channel]) - expected[channel];
         constant &= error >= -1 && error <= 1;
@@ -100,6 +107,7 @@ void CheckDiffuseHalfspace(Device &device, const Sources &source) {
   const auto read =
       ReadImage(device, *source.Atlas, {.Width = kEnvironmentWidth, .Height = kEnvironmentHeight});
   constexpr std::array<float, 3> sky{0.25f, 0.5f, 1.0f};
+  constexpr double kMaximumViewFactorError = 0.035;
   double maximumError = 0;
   for (uint32_t y = 0; y < kEnvironmentSide; ++y) {
     for (uint32_t x = 0; x < kEnvironmentSide; ++x) {
@@ -112,12 +120,13 @@ void CheckDiffuseHalfspace(Device &device, const Sources &source) {
       const uint32_t row = kEnvironmentDiffuseLevel * kEnvironmentWidth + kEnvironmentBorder + y;
       const uint32_t column = kEnvironmentBorder + x;
       std::array<uint16_t, 4> pixel{};
-      std::memcpy(
-          pixel.data(), read.Rows.data() + row * read.RowBytes + column * 8u, sizeof(pixel));
+      std::memcpy(pixel.data(),
+                  read.Rows.data() + row * read.RowBytes + column * sizeof(pixel),
+                  sizeof(pixel));
       for (size_t channel = 0; channel < sky.size(); ++channel) {
         const uint16_t bits = pixel[channel];
         const int exponent = (bits >> 10u) & 31;
-        const float fraction = static_cast<float>(bits & 1023u);
+        const auto fraction = static_cast<float>(bits & 1023u);
         const float value = exponent == 0 ? std::ldexp(fraction, -24)
                                           : std::ldexp(1.0f + fraction / 1024.0f, exponent - 15);
         CHECK((bits & 0x8000u) == 0 && exponent != 31,
@@ -126,7 +135,7 @@ void CheckDiffuseHalfspace(Device &device, const Sources &source) {
       }
     }
   }
-  CHECK(maximumError < 0.035,
+  CHECK(maximumError < kMaximumViewFactorError,
         "128 cosine samples match the analytic bright-sky/dark-ground view factor within 3.5 "
         "percent");
 }
@@ -135,7 +144,7 @@ void CheckFiltering(Device &device) {
   const Sources source(device);
   UploadSources(device, source);
   EnvironmentSpecularStage stage;
-  Require(stage.Configure({.Device = &device},
+  Require(stage.Configure({.Device = &device, .SceneColours = {}},
                           {.Sky = source.Sky.get(),
                            .Irradiance = source.Irradiance.get(),
                            .Sampler = source.Sample.get(),

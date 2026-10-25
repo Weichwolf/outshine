@@ -57,7 +57,7 @@ void CheckInvalidRaster() {
             !shortField->At({.LongitudeDeg = -90, .LatitudeDeg = 30}).AslM() &&
             shortField->CaptureRequest().Tiles.size() == 1,
         "truncated raster storage is never read or promoted and retains its original request");
-  auto malformedRaster =
+  const auto malformedRaster =
       std::make_shared<TerrainField>(HeightRaster{.Rows = 2, .Cols = 2, .Meters = {1.0f}});
   HeightField::Block copied;
   CHECK(!malformedRaster->Meshable() &&

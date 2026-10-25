@@ -1,29 +1,21 @@
 #ifndef OUTSHINE_SCRIPTING_SCRIPT_H
 #define OUTSHINE_SCRIPTING_SCRIPT_H
 
-#include <span>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <span>
 #include <string>
 #include <string_view>
-#include <vector>
+#include <utility>
 
 namespace outshine::Script {
 
-inline constexpr size_t kMaxTokens = 4096;
-inline constexpr size_t kMostScriptNodes = 2048;
-inline constexpr size_t kMaxDepth = 32;
-inline constexpr size_t kMaxSteps = 100000;
 inline constexpr size_t kMaxNames = 128;
 inline constexpr size_t kMaxArgs = 8;
 
-enum class Kind : uint8_t {
-  Nothing,
-  Number,
-  Text,
-
-  Ref,
-};
+enum class Kind : uint8_t { Nothing, Number, Text, Ref, Boolean, Null };
 
 struct Value {
   Kind What = Kind::Nothing;
@@ -52,48 +44,60 @@ struct Value {
     return out;
   }
 
-  [[nodiscard]] bool Truth() const;
+  [[nodiscard]] static Value OfBoolean(bool value) {
+    Value out;
+    out.What = Kind::Boolean;
+    out.Number = value ? 1.0 : 0.0;
+    return out;
+  }
 
-  [[nodiscard]] std::string AsText() const;
+  [[nodiscard]] static Value OfNull() {
+    Value out;
+    out.What = Kind::Null;
+    return out;
+  }
+
+  [[nodiscard]] bool Truth() const;
 };
 
 struct Host {
   virtual ~Host() = default;
 
-  [[nodiscard]] virtual Value Global(std::string_view name) {
-    (void)name;
+  [[nodiscard]] virtual Value Global([[maybe_unused]] std::string_view name) { return {}; }
+
+  [[nodiscard]] virtual Value Member([[maybe_unused]] const Value &object,
+                                     [[maybe_unused]] std::string_view name) {
     return {};
   }
 
-  [[nodiscard]] virtual Value Member(const Value &object, std::string_view name) {
-    (void)object;
-    (void)name;
-    return {};
-  }
-
-  [[nodiscard]] virtual bool
-  SetMember(const Value &object, std::string_view name, const Value &to) {
-    (void)object;
-    (void)name;
-    (void)to;
+  [[nodiscard]] virtual bool SetMember([[maybe_unused]] const Value &object,
+                                       [[maybe_unused]] std::string_view name,
+                                       [[maybe_unused]] const Value &value) {
     return false;
   }
 
-  [[nodiscard]] virtual bool Call(const Value &callee, std::span<const Value> args, Value &out) {
-    (void)callee;
-    (void)args;
-    (void)out;
+  [[nodiscard]] virtual bool Call([[maybe_unused]] const Value &callee,
+                                  [[maybe_unused]] std::span<const Value> args,
+                                  [[maybe_unused]] Value &out) {
     return false;
   }
 };
 
-[[nodiscard]] const char *WhyOutside(std::string_view name);
+struct Budget {
+  size_t InputBytes = size_t{256} * 1024;
+  size_t MemoryBytes = size_t{8} * 1024 * 1024;
+  size_t StackBytes = size_t{256} * 1024;
+  size_t InterruptChecks = 128;
+  size_t HostAccesses = 256;
+  size_t HostBytes = size_t{64} * 1024;
+  std::chrono::microseconds Time = std::chrono::milliseconds(2);
+};
+
+struct Runtime;
 
 class Program {
 public:
-  struct Node;
-
-  Program();
+  explicit Program(Budget budget = {});
   ~Program();
   Program(const Program &) = delete;
   Program &operator=(const Program &) = delete;
@@ -101,37 +105,14 @@ public:
   Program &operator=(Program &&) noexcept;
 
   [[nodiscard]] bool Read(std::string_view text, std::string &error);
-  [[nodiscard]] bool Held() const;
-
-  [[nodiscard]] size_t NodeCount() const;
-
+  // A successfully entered program binds this host instance until its next Read.
   [[nodiscard]] bool Run(Host &host, std::string &error);
-
-  void Reset();
-
-  [[nodiscard]] size_t Steps() const { return Steps_; }
-
-  [[nodiscard]] const Value *Named(std::string_view name) const;
-
-  [[nodiscard]] const std::string &Stopped() const { return Stopped_; }
+  [[nodiscard]] bool Held() const;
+  [[nodiscard]] size_t InterruptChecks() const;
 
 private:
-  [[nodiscard]] bool PerformAssign(const Node &node, Host &host, std::string &error);
-  [[nodiscard]] bool PerformAssignMember(const Node &node, Host &host, std::string &error);
-  [[nodiscard]] bool PerformWhile(const Node &node, Host &host, std::string &error);
-  [[nodiscard]] bool EvaluateCall(const Node &node, Host &host, Value &out, std::string &error);
-  [[nodiscard]] bool EvaluateStep(const Node &node, Host &host, Value &out, std::string &error);
-  [[nodiscard]] bool EvaluateUnary(const Node &node, Host &host, Value &out, std::string &error);
-  [[nodiscard]] bool EvaluateBinary(const Node &node, Host &host, Value &out, std::string &error);
-  [[nodiscard]] bool Evaluate(size_t at, Host &host, Value &out, std::string &error);
-  [[nodiscard]] bool Perform(size_t at, Host &host, std::string &error);
-
-  std::vector<Node> Nodes_;
-  size_t Root_ = 0;
-  std::vector<std::string> Names_;
-  std::vector<Value> Held_;
-  size_t Steps_ = 0;
-  std::string Stopped_;
+  Budget Budget_;
+  std::unique_ptr<Runtime> Runtime_;
 };
 
 }

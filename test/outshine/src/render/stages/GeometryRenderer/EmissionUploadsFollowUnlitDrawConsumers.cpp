@@ -32,7 +32,8 @@ int main() {
   {
     auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
     outshine::Test::Gpu::NativeOfflineDevice device(*native);
-    GeometryRenderer draw;
+    GeometryResidency drawStorage;
+    GeometryRenderer draw{drawStorage};
     outshine::Render::Gpu gpu;
     gpu.Device = &device;
     gpu.HdrFormat = Native::Format::Rgba16Float;
@@ -67,7 +68,7 @@ int main() {
       mesh.IndexCount = phase == 3 ? 6 : 3;
       mesh.Draws = &draws;
       CHECK(draw.SetMesh(mesh, error), "replacement mesh uploads");
-      CHECK(draw.Owned().SubmitPendingUploads().has_value(),
+      CHECK(draw.Residency().SubmitPendingUploads().has_value(),
             "accepted streams submit before inspection");
       CHECK(emission.Calls == (phase + 1) / 2, "only unlit consumers execute the emission writer");
       const auto &resident = draw.Resident();

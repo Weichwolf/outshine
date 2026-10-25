@@ -16,11 +16,6 @@ struct Force {
   Vec3 Newtons = {{0.0, 0.0, 0.0}};
 };
 
-struct Facing {
-  Vec3 AheadM = {{0.0, 0.0, -1.0}};
-  Vec3 UpM = {{0.0, 1.0, 0.0}};
-};
-
 struct Wrench {
   alignas(16) Vec3 ForceN;
   alignas(16) Vec3 TorqueNm;
@@ -28,11 +23,6 @@ struct Wrench {
 
 void RotateVector(const Quat &orientationQ, const Vec3 &bodyV, Vec3 &worldV);
 void InverseRotateVector(const Quat &orientationQ, const Vec3 &worldV, Vec3 &bodyV);
-
-void TransformBodyPoint(const World::RigidBodyState &body, const Vec3 &atBodyM, Vec3 &worldM);
-
-void SetBodyOrientation(World::RigidBodyState &body, const Facing &faces);
-void VelocityAtBodyPoint(const World::RigidBodyState &body, const Vec3 &atBodyM, Vec3 &worldMs);
 
 void AccumulateForce(Wrench &wrench, const World::RigidBodyState &body, const Force &applied);
 void AccumulateGravity(Wrench &wrench, const World::RigidBodyState &body, const Vec3 &gravityMs2);

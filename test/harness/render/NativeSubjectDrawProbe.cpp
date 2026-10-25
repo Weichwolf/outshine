@@ -289,7 +289,8 @@ int main() {
                               Resource::SceneSurfaceMetalRough}) {
     CHECK(gpu.SceneColours.Add(resource), "the full native material attachment order is accepted");
   }
-  GeometryRenderer subject;
+  GeometryResidency subjectStorage;
+  GeometryRenderer subject{subjectStorage};
   Require(subject.Configure(gpu));
   CHECK(subject.PipelineCount() > 0,
         "all existing vertex/domain/coverage variants compile natively");

@@ -1,6 +1,7 @@
 #include <Engine.h>
 #include "Check.h"
 #include <array>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -15,9 +16,12 @@ int main() {
   scene.Room = 4;
   Scenario::Kind kind;
   kind.Name = "actor";
-  kind.Attributes = {{"health", "23"}};
+  kind.Attributes = {{.Name = "health", .Value = "23"}};
   scene.Kinds.push_back(kind);
-  scene.Instances.push_back({.Of = "actor", .Id = "kept"});
+  Scenario::Instance instance;
+  instance.Of = "actor";
+  instance.Id = "kept";
+  scene.Instances.push_back(instance);
   scene.State.push_back({.What = "kept.health"});
   Scenario::Body body;
   body.Name = "template";
@@ -33,20 +37,20 @@ int main() {
   const auto built = engine.assemble();
   CHECK(built.has_value(), built ? "simulation built" : built.error().c_str());
   if (!built) { return Report(); }
-  EntityRegistry *const original = &engine.entities();
-  const auto marker = original->addEntity(Role::Tool);
+  World::EntityRegistry *const original = &engine.entities();
+  const auto marker = original->addEntity();
   CHECK(marker.has_value(), "spare entity capacity remains usable after publication");
   if (!marker) { return Report(); }
   CHECK(original->alive(*marker), "spare entity capacity remains usable after publication");
   const auto path = std::filesystem::temp_directory_path() /
                     ("outshine-assembly-owner-" + std::to_string(getpid()) + ".save");
   const auto saved = engine.save(path.string());
-  CHECK(saved.has_value(), "published component columns still refer to the live EntityRegistry");
+  CHECK(saved.has_value(),
+        "published component columns still refer to the live World::EntityRegistry");
   if (saved) {
     std::ifstream file(path);
     const std::string text{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
-    CHECK(text.find("kept.health 23\n") != std::string::npos,
-          "native component value survives publication");
+    CHECK(text.contains("kept.health 23\n"), "native component value survives publication");
   }
   std::filesystem::remove(path);
   auto invalid = scene;
@@ -54,7 +58,7 @@ int main() {
   CHECK(engine.declare(invalid).has_value(), "new declaration awaits assembly validation");
   CHECK(!engine.assemble(), "missing prefab rejects the candidate assembly");
   CHECK(&engine.entities() == original,
-        "failed assembly preserves the borrowed EntityRegistry object");
+        "failed assembly preserves the borrowed World::EntityRegistry object");
   if (&engine.entities() != original) { return Report(); }
   CHECK(original->alive(*marker),
         "failed assembly preserves existing entities and spare allocations");

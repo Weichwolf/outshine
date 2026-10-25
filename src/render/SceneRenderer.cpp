@@ -110,7 +110,7 @@ Lens SceneRenderer::Through() const {
           .OrthoM = ActiveState().OrthoM,
           .NearM = ActiveState().NearM,
           .FarM = ActiveState().FarM,
-          .Jitter = ActiveState().Jitter};
+          .Jitter = ActiveState().Temporal.Jitter()};
 }
 
 const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRenderer::kExecutors =
@@ -249,7 +249,7 @@ bool SceneRenderer::BeginsWorldCandidate(std::string &error,
   }
   Candidate_.emplace();
   Candidate_->GroundInputs = ground;
-  Candidate_->Content.Resources.CopySourcesFrom(State_.Content.Resources, pieces);
+  Candidate_->Content.Scene->Resources().CopySourcesFrom(State_.Content.Scene->Resources(), pieces);
   error.clear();
   return true;
 }
@@ -317,24 +317,25 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
                 ActiveState().WhyNot)) {
     return std::unexpected(ActiveState().WhyNot);
   }
-  ActiveState().Content.Glass.Shares(ActiveState().Content.Geometry.Owned());
-  if (reusesGround &&
-      !Accepted(ActiveState().Content.Ground.ReuseInputsFrom(State_.Content.Ground, *Device_),
-                ActiveState().WhyNot)) {
+  if (reusesGround && !Accepted(ActiveState().Content.Scene->GroundMaterials().ReuseInputsFrom(
+                                    State_.Content.Scene->GroundMaterials(), *Device_),
+                                ActiveState().WhyNot)) {
     return std::unexpected(ActiveState().WhyNot);
   }
-  if (!ActiveState().Content.Ground.Ready()) {
-    const auto ground = ActiveState().Content.Ground.Replace(
+  if (!ActiveState().Content.Scene->GroundMaterials().Ready()) {
+    const auto ground = ActiveState().Content.Scene->GroundMaterials().Replace(
         State_.Frame.Handles.Device, {}, {}, std::chrono::seconds(5));
     if (!ground) {
       ActiveState().WhyNot = ground.error().Message;
       return std::unexpected(ActiveState().WhyNot);
     }
   }
-  ActiveState().Content.Geometry.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                             .Palette = ActiveState().Content.Ground.Palette()});
-  ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                          .Palette = ActiveState().Content.Ground.Palette()});
+  ActiveState().Content.Geometry.GroundFrom(
+      {.Classes = ActiveState().Content.Scene->GroundMaterials().Classes(),
+       .Palette = ActiveState().Content.Scene->GroundMaterials().Palette()});
+  ActiveState().Content.Glass.GroundFrom(
+      {.Classes = ActiveState().Content.Scene->GroundMaterials().Classes(),
+       .Palette = ActiveState().Content.Scene->GroundMaterials().Palette()});
   ActiveState().Submitted = false;
   ActiveState().Ready = true;
   return true;
@@ -422,7 +423,7 @@ std::expected<void, std::string> SceneRenderer::InitForTarget(
   ActiveState().WhyNot.clear();
   if (const auto valid = ValidateExecutablePlan(*plan); !valid) { return valid; }
   if (!Stands()) { return std::unexpected(ActiveState().WhyNot); }
-  ActiveState().Content.Ground.UploadsFrom(Uploads_.get());
+  ActiveState().Content.Scene->GroundMaterials().UploadsFrom(Uploads_.get());
   const auto reused = ReuseFrameResources(frame, *plan);
   if (!reused) { return std::unexpected(reused.error()); }
   if (*reused) { return {}; }
@@ -463,35 +464,18 @@ bool SceneRenderer::ConfigurePlanStages(FrameResources &frame,
 SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts() const noexcept {
   FrameGraphAllocations counts;
   const auto count = [&counts](const FrameResources &frame) {
-    const std::array textures{&frame.Offscreen,
-                              &frame.HdrTex,
-                              &frame.VelTex,
-                              &frame.DepthTex,
-                              &frame.FrameTex,
-                              &frame.TransmittanceLut,
-                              &frame.MultiScatterLut,
-                              &frame.SkyViewLut,
-                              &frame.EnvironmentSpecular,
-                              &frame.ShadowAtlas,
-                              &frame.TransmissiveTex,
-                              &frame.CompositedTex,
-                              &frame.AerialTex,
-                              &frame.ShadingNormalTex,
-                              &frame.SurfaceIdentityTex,
-                              &frame.SurfaceBaseTex,
-                              &frame.SurfaceMetalRoughTex,
-                              frame.LinearTex.data(),
-                              &frame.LinearTex[1]};
-    for (const std::unique_ptr<Native::Texture> *texture : textures) {
-      counts.Textures += static_cast<size_t>(static_cast<bool>(*texture));
+    counts.Textures += frame.Targets.Count();
+    const auto atmosphere = frame.Atmosphere.Allocations();
+    counts.Textures += atmosphere.Textures;
+    counts.Buffers += atmosphere.Buffers;
+    counts.Samplers += atmosphere.Samplers;
+    for (const auto *texture : {frame.Offscreen.get(), frame.ShadowAtlas.get()}) {
+      if (texture != nullptr) { ++counts.Textures; }
     }
-    for (const std::unique_ptr<Native::Buffer> *buffer :
-         {&frame.IrradianceBuffer, &frame.Pyramid, &frame.GroundPyramid}) {
-      counts.Buffers += static_cast<size_t>(static_cast<bool>(*buffer));
+    for (const auto *buffer : {frame.Pyramid.get(), frame.GroundPyramid.get()}) {
+      if (buffer != nullptr) { ++counts.Buffers; }
     }
-    for (const std::unique_ptr<Native::Sampler> *sampler : {&frame.Samp, &frame.LutSamp}) {
-      counts.Samplers += static_cast<size_t>(static_cast<bool>(*sampler));
-    }
+    if (frame.Samp) { ++counts.Samplers; }
   };
   count(State_.Frame);
   if (Candidate_ && Candidate_->Frame) { count(*Candidate_->Frame); }
@@ -499,30 +483,13 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
 }
 
 bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
+  if (AtmospherePasses::Owns(resource)) { return frame.Atmosphere.Has(resource); }
   switch (resource) {
     case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
-    case Resource::SceneHdr: return static_cast<bool>(frame.HdrTex);
-    case Resource::SceneTransmissive: return static_cast<bool>(frame.TransmissiveTex);
-    case Resource::SceneComposited: return static_cast<bool>(frame.CompositedTex);
-    case Resource::SceneAerial: return static_cast<bool>(frame.AerialTex);
-    case Resource::SceneVelocity: return static_cast<bool>(frame.VelTex);
-    case Resource::SceneShadingNormal: return static_cast<bool>(frame.ShadingNormalTex);
-    case Resource::SceneSurfaceIdentity: return static_cast<bool>(frame.SurfaceIdentityTex);
-    case Resource::SceneSurfaceBase: return static_cast<bool>(frame.SurfaceBaseTex);
-    case Resource::SceneSurfaceMetalRough: return static_cast<bool>(frame.SurfaceMetalRoughTex);
-    case Resource::SceneDepth: return static_cast<bool>(frame.DepthTex);
-    case Resource::FrameTex: return static_cast<bool>(frame.FrameTex);
-    case Resource::TransmittanceLut: return static_cast<bool>(frame.TransmittanceLut);
-    case Resource::MultiScatterLut: return static_cast<bool>(frame.MultiScatterLut);
-    case Resource::SkyViewLut: return static_cast<bool>(frame.SkyViewLut);
-    case Resource::EnvironmentSpecular: return static_cast<bool>(frame.EnvironmentSpecular);
-    case Resource::LutSampler: return static_cast<bool>(frame.LutSamp);
-    case Resource::IrradianceBuffer: return static_cast<bool>(frame.IrradianceBuffer);
     case Resource::DepthPyramid: return static_cast<bool>(frame.Pyramid);
     case Resource::GroundPyramid: return static_cast<bool>(frame.GroundPyramid);
     case Resource::GroundSelection: return true;
     case Resource::ShadowAtlas: return static_cast<bool>(frame.ShadowAtlas);
-    case Resource::SceneLinear: return frame.LinearTex[0] && frame.LinearTex[1];
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
     case Resource::VegetationTable:
@@ -539,28 +506,19 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::DrawArguments:
     case Resource::AoBuffer:
     case Resource::kCount: return true;
+    default: return frame.Targets.Get(resource) != nullptr;
   }
-  return false;
 }
 
 Native::Texture *SceneRenderer::Target(Resource resource) const {
-  return Target(ActiveFrame(), resource);
+  return Target(ActiveFrame(), resource, ActiveState().Temporal.OutputIndex());
 }
 
-Native::Texture *SceneRenderer::Target(const FrameResources &frame, Resource resource) {
+Native::Texture *
+SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t linearIndex) {
+  if (AtmospherePasses::Owns(resource)) { return frame.Atmosphere.Texture(resource); }
   switch (resource) {
     case Resource::OverlayAtlas: return nullptr;
-    case Resource::SceneHdr: return frame.HdrTex.get();
-    case Resource::SceneTransmissive: return frame.TransmissiveTex.get();
-    case Resource::SceneComposited: return frame.CompositedTex.get();
-    case Resource::SceneAerial: return frame.AerialTex.get();
-    case Resource::SceneVelocity: return frame.VelTex.get();
-    case Resource::SceneShadingNormal: return frame.ShadingNormalTex.get();
-    case Resource::SceneSurfaceIdentity: return frame.SurfaceIdentityTex.get();
-    case Resource::SceneSurfaceBase: return frame.SurfaceBaseTex.get();
-    case Resource::SceneSurfaceMetalRough: return frame.SurfaceMetalRoughTex.get();
-    case Resource::SceneDepth: return frame.DepthTex.get();
-    case Resource::FrameTex: return frame.FrameTex.get();
 
     case Resource::Surface: return frame.Offscreen.get();
 
@@ -572,10 +530,6 @@ Native::Texture *SceneRenderer::Target(const FrameResources &frame, Resource res
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return nullptr;
-    case Resource::TransmittanceLut: return frame.TransmittanceLut.get();
-    case Resource::MultiScatterLut: return frame.MultiScatterLut.get();
-    case Resource::SkyViewLut: return frame.SkyViewLut.get();
-    case Resource::EnvironmentSpecular: return frame.EnvironmentSpecular.get();
     case Resource::ShadowAtlas: return frame.ShadowAtlas.get();
     case Resource::LinearSampler:
     case Resource::LutSampler:
@@ -587,12 +541,10 @@ Native::Texture *SceneRenderer::Target(const FrameResources &frame, Resource res
     case Resource::GroundPyramid:
     case Resource::GroundSelection:
     case Resource::DepthPyramid:
-    case Resource::AoBuffer: return nullptr;
-
-    case Resource::SceneLinear: return frame.LinearTex[frame.LinearAt].get();
+    case Resource::AoBuffer:
     case Resource::kCount: return nullptr;
+    default: return frame.Targets.Get(resource, linearIndex);
   }
-  return nullptr;
 }
 
 DisplayOptions SceneRenderer::Display() const {
@@ -669,12 +621,30 @@ bool SceneRenderer::Configure(Stage stage,
   return seat->Configure(*this, frame, plan, drawsGlass, error);
 }
 
+bool SceneRenderer::PrepareGroundMaterialBuffers(FrameResources &frame, std::string &error) {
+  auto &content = ActiveState().Content;
+  if (content.Scene->GroundMaterials().Ready()) { return true; }
+  const auto uploaded = content.Scene->GroundMaterials().Replace(
+      frame.Handles.Device, {}, {}, std::chrono::seconds(5));
+  if (!uploaded) {
+    error = uploaded.error().Message;
+    return false;
+  }
+  const GeometryRenderer::GroundBuffers buffers{
+      .Classes = content.Scene->GroundMaterials().Classes(),
+      .Palette = content.Scene->GroundMaterials().Palette()};
+  content.Geometry.GroundFrom(buffers);
+  content.Glass.GroundFrom(buffers);
+  return true;
+}
+
 bool SceneRenderer::ConfigureGeometry(SceneRenderer &renderer,
                                       FrameResources &frame,
                                       const ExecutionPlan &plan,
                                       bool drawsGlass,
                                       std::string &error) {
   (void)plan;
+  if (!renderer.PrepareGroundMaterialBuffers(frame, error)) { return false; }
   return Accepted(renderer.ActiveState().Content.Geometry.Configure(
                       frame.GeometryPipelines, frame.Handles, nullptr, nullptr, drawsGlass),
                   error);
@@ -687,9 +657,13 @@ bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
                                    std::string &error) {
   (void)plan;
   (void)drawsGlass;
+  if (!renderer.PrepareGroundMaterialBuffers(frame, error)) { return false; }
   return Accepted(
-      renderer.ActiveState().Content.Glass.Configure(
-          frame.GlassPipelines, frame.Handles, frame.HdrTex.get(), frame.Samp.get(), false),
+      renderer.ActiveState().Content.Glass.Configure(frame.GlassPipelines,
+                                                     frame.Handles,
+                                                     frame.Targets.Get(Resource::SceneHdr),
+                                                     frame.Samp.get(),
+                                                     false),
       error);
 }
 
@@ -702,8 +676,8 @@ bool SceneRenderer::ConfigureCompositeTransmission(SceneRenderer &renderer,
   (void)drawsGlass;
   return Accepted(frame.CompositeTransmission.Configure(
                       frame.Handles,
-                      {.Opaque = frame.HdrTex.get(),
-                       .Transmissive = frame.TransmissiveTex.get(),
+                      {.Opaque = frame.Targets.Get(Resource::SceneHdr),
+                       .Transmissive = frame.Targets.Get(Resource::SceneTransmissive),
                        .Exact = frame.Samp.get(),
                        .Target = TextureFormatOf(plan.Format(Resource::SceneComposited))}),
                   error);
@@ -730,7 +704,8 @@ bool SceneRenderer::ConfigurePresent(SceneRenderer &renderer,
   static_cast<void>(renderer);
   (void)plan;
   (void)drawsGlass;
-  if (!Accepted(frame.Present.Configure(frame.FrameTex.get(), frame.Samp.get()), error)) {
+  if (!Accepted(frame.Present.Configure(frame.Targets.Get(Resource::FrameTex), frame.Samp.get()),
+                error)) {
     return false;
   }
   constexpr std::array formats{Native::Format::Rgba8Unorm,
@@ -761,8 +736,8 @@ bool SceneRenderer::ConfigureTonemap(SceneRenderer &renderer,
   display.Temporal = plan.Holds(Stage::TemporalResolve);
   return Accepted(
       frame.Tonemap.Configure(frame.Handles,
-                              {.Scene = Target(frame, plan.Bound(input)),
-                               .Depth = frame.DepthTex.get(),
+                              {.Scene = Target(frame, plan.Bound(input), 0),
+                               .Depth = frame.Targets.Get(Resource::SceneDepth),
                                .Exact = frame.Samp.get(),
                                .Linear = TextureFormatOf(plan.Format(Resource::SceneLinear))},
                               display),
@@ -774,11 +749,10 @@ bool SceneRenderer::ConfigureMediumTransmittance(SceneRenderer &renderer,
                                                  const ExecutionPlan &plan,
                                                  bool drawsGlass,
                                                  std::string &error) {
-  static_cast<void>(renderer);
+  (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  return Accepted(frame.MediumTransmittance.Configure(frame.Handles, frame.TransmittanceLut.get()),
-                  error);
+  return Accepted(frame.Atmosphere.Configure(Stage::MediumTransmittance, frame.Handles), error);
 }
 
 bool SceneRenderer::ConfigureMediumMultiScatter(SceneRenderer &renderer,
@@ -786,14 +760,10 @@ bool SceneRenderer::ConfigureMediumMultiScatter(SceneRenderer &renderer,
                                                 const ExecutionPlan &plan,
                                                 bool drawsGlass,
                                                 std::string &error) {
-  static_cast<void>(renderer);
+  (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  return Accepted(frame.MultiScatter.Configure(frame.Handles,
-                                               frame.TransmittanceLut.get(),
-                                               frame.LutSamp.get(),
-                                               frame.MultiScatterLut.get()),
-                  error);
+  return Accepted(frame.Atmosphere.Configure(Stage::MediumMultiScatter, frame.Handles), error);
 }
 
 bool SceneRenderer::ConfigureMediumRadiance(SceneRenderer &renderer,
@@ -801,15 +771,10 @@ bool SceneRenderer::ConfigureMediumRadiance(SceneRenderer &renderer,
                                             const ExecutionPlan &plan,
                                             bool drawsGlass,
                                             std::string &error) {
-  static_cast<void>(renderer);
+  (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  return Accepted(frame.Radiance.Configure(frame.Handles,
-                                           frame.TransmittanceLut.get(),
-                                           frame.MultiScatterLut.get(),
-                                           frame.LutSamp.get(),
-                                           frame.SkyViewLut.get()),
-                  error);
+  return Accepted(frame.Atmosphere.Configure(Stage::MediumRadiance, frame.Handles), error);
 }
 
 bool SceneRenderer::ConfigureSky(SceneRenderer &renderer,
@@ -820,11 +785,12 @@ bool SceneRenderer::ConfigureSky(SceneRenderer &renderer,
   static_cast<void>(renderer);
   (void)plan;
   (void)drawsGlass;
-  return Accepted(frame.Sky.Configure(frame.Handles,
-                                      {.SkyView = frame.SkyViewLut.get(),
-                                       .Transmittance = frame.TransmittanceLut.get(),
-                                       .Lut = frame.LutSamp.get()}),
-                  error);
+  return Accepted(
+      frame.Sky.Configure(frame.Handles,
+                          {.SkyView = frame.Atmosphere.Texture(Resource::SkyViewLut),
+                           .Transmittance = frame.Atmosphere.Texture(Resource::TransmittanceLut),
+                           .Lut = frame.Atmosphere.Sampler()}),
+      error);
 }
 
 bool SceneRenderer::ConfigureAerialPerspective(SceneRenderer &renderer,
@@ -836,12 +802,12 @@ bool SceneRenderer::ConfigureAerialPerspective(SceneRenderer &renderer,
   (void)drawsGlass;
   return Accepted(
       frame.Aerial.Configure(frame.Handles,
-                             {.Scene = Target(frame, plan.Bound(Resource::SceneComposited)),
-                              .Depth = frame.DepthTex.get(),
-                              .SkyView = frame.SkyViewLut.get(),
-                              .Transmittance = frame.TransmittanceLut.get(),
+                             {.Scene = Target(frame, plan.Bound(Resource::SceneComposited), 0),
+                              .Depth = frame.Targets.Get(Resource::SceneDepth),
+                              .SkyView = frame.Atmosphere.Texture(Resource::SkyViewLut),
+                              .Transmittance = frame.Atmosphere.Texture(Resource::TransmittanceLut),
                               .Exact = frame.Samp.get(),
-                              .Lut = frame.LutSamp.get()},
+                              .Lut = frame.Atmosphere.Sampler()},
                              TextureFormatOf(plan.Format(Resource::SceneAerial))),
       error);
 }
@@ -858,16 +824,11 @@ bool SceneRenderer::ConfigureLightVisibility(SceneRenderer &renderer,
 }
 
 void SceneRenderer::ApplyWorldDeclarations() {
-  ActiveFrame().MediumTransmittance.Declare(ActiveState().Medium);
-  ActiveFrame().MultiScatter.Declare(ActiveState().Medium);
-  ActiveFrame().Radiance.Declare(
-      ActiveState().Medium, ActiveState().CosSunZenith, ActiveState().EyeHeightM);
-  ActiveFrame().SkyIrradianceStage.Declare(ActiveState().Medium, ActiveState().CosSunZenith);
-  ActiveFrame().EnvironmentSpecularStage.Declare(
-      ActiveState().Medium,
-      ActiveState().CosSunZenith,
-      ActiveState().EyeHeightM,
-      ActiveState().Content.Geometry.Environment().GroundAlbedo);
+  ActiveFrame().Atmosphere.Declare(
+      {.Air = ActiveState().Medium,
+       .CosSunZenith = ActiveState().CosSunZenith,
+       .EyeHeightM = ActiveState().EyeHeightM,
+       .GroundAlbedo = ActiveState().Content.Geometry.Environment().GroundAlbedo});
   if (ActiveState().SkyDeclared) {
     const SkyStanding stands = {.SunDir = ActiveState().SkyToSun,
                                 .WorldUp = ActiveState().SkyUp,
@@ -877,9 +838,9 @@ void SceneRenderer::ApplyWorldDeclarations() {
   }
   const GeometryRenderer::Reflections reflections{
       .Atlas = ActiveState().MediumDeclared && ActiveState().SkyDeclared
-                   ? ActiveFrame().EnvironmentSpecular.get()
+                   ? ActiveFrame().Atmosphere.Texture(Resource::EnvironmentSpecular)
                    : nullptr,
-      .Sampler = ActiveFrame().LutSamp.get(),
+      .Sampler = ActiveFrame().Atmosphere.Sampler(),
       .Up = ActiveState().SkyUp,
       .ToSun = ActiveState().SkyToSun};
   ActiveState().Content.Geometry.ReflectionsFrom(reflections);
@@ -894,7 +855,6 @@ void SceneRenderer::ApplyWorldDeclarations() {
 void SceneRenderer::BindFrameResources() {
   ActiveState().Content.Geometry.UsePipelines(ActiveFrame().GeometryPipelines);
   ActiveState().Content.Glass.UsePipelines(ActiveFrame().GlassPipelines);
-  ActiveState().Content.Glass.Shares(ActiveState().Content.Geometry.Owned());
   ActiveFrame().Shadow.Binds(ActiveState().Content.Geometry);
   ActiveFrame().Cull.Binds(CullSource(ActiveState().Content.Geometry));
 }
@@ -990,14 +950,13 @@ Native::Result<void> SceneRenderer::EncodeCompositeTransmission(const FrameConte
 Native::Result<void> SceneRenderer::EncodeTonemap(const FrameContext &ctx,
                                                   const PassRecording &into) {
   ActiveFrame().Tonemap.Bind(DisplaySource());
-  const Vec2f delta = {{ActiveState().Jitter[0] - ActiveState().PrevJitter[0],
-                        ActiveState().Jitter[1] - ActiveState().PrevJitter[1]}};
   ActiveFrame().Tonemap.BindTemporal(
-      {.History = ActiveFrame().LinearTex[1 - ActiveFrame().LinearAt].get(),
-       .Velocity = ActiveFrame().VelTex.get()},
+      {.History =
+           ActiveFrame().Targets.Get(Resource::SceneLinear, ActiveState().Temporal.HistoryIndex()),
+       .Velocity = ActiveFrame().Targets.Get(Resource::SceneVelocity)},
       Extent{.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
-      delta,
-      ActiveFrame().HistoryHeld);
+      ActiveState().Temporal.JitterDelta(),
+      ActiveState().Temporal.HasHistory());
   return ActiveFrame().Tonemap.Encode(ctx, Picture(true, into));
 }
 
@@ -1005,7 +964,7 @@ Native::Result<void> SceneRenderer::EncodeOverlay(const FrameContext &ctx,
                                                   const PassRecording &into) {
   ActiveFrame().OverlayPipe.Bind(
       Extent{.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height});
-  return ActiveFrame().OverlayPipe.Encode(ActiveState().Content.Overlay, ctx, Picture(false, into));
+  return ActiveFrame().OverlayPipe.Encode(ActiveState().Overlay, ctx, Picture(false, into));
 }
 
 Native::Result<void> SceneRenderer::EncodePresent([[maybe_unused]] const FrameContext &ctx,
@@ -1018,19 +977,19 @@ Native::Result<void> SceneRenderer::EncodePresent([[maybe_unused]] const FrameCo
 Native::Result<void> SceneRenderer::EncodeMediumTransmittance(const FrameContext &ctx,
                                                               const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().MediumTransmittance.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::MediumTransmittance, into);
 }
 
 Native::Result<void> SceneRenderer::EncodeMediumMultiScatter(const FrameContext &ctx,
                                                              const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().MultiScatter.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::MediumMultiScatter, into);
 }
 
 Native::Result<void> SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx,
                                                          const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().Radiance.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::MediumRadiance, into);
 }
 
 bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
@@ -1039,7 +998,7 @@ bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                      GroundClassUploadMetrics *metrics) {
   if (!UploadGroundClasses(classes, palette, error, metrics)) { return false; }
   const auto copyAt = std::chrono::steady_clock::now();
-  ActiveState().Content.Resources.SetGroundClassification(classes, palette);
+  ActiveState().Content.Scene->Resources().SetGroundClassification(classes, palette);
   if (metrics != nullptr) {
     metrics->RestoreSourceMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - copyAt)
@@ -1060,7 +1019,7 @@ bool SceneRenderer::SetGroundClasses(GroundClassificationSource source,
     return false;
   }
   const auto retainAt = std::chrono::steady_clock::now();
-  ActiveState().Content.Resources.SetGroundClassification(std::move(source));
+  ActiveState().Content.Scene->Resources().SetGroundClassification(std::move(source));
   if (metrics != nullptr) {
     metrics->RestoreSourceMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retainAt)
@@ -1080,10 +1039,11 @@ bool SceneRenderer::BeginGroundClasses(GroundClassificationSource source,
     return false;
   }
   content.PendingGroundClasses.emplace(std::move(source));
-  auto begun = content.Ground.BeginReplace(ActiveFrame().Handles.Device,
-                                           content.PendingGroundClasses->ClassSpan(),
-                                           content.PendingGroundClasses->PaletteSpan(),
-                                           metrics != nullptr ? &metrics->Storage : nullptr);
+  auto begun = content.Scene->GroundMaterials().BeginReplace(
+      ActiveFrame().Handles.Device,
+      content.PendingGroundClasses->ClassSpan(),
+      content.PendingGroundClasses->PaletteSpan(),
+      metrics != nullptr ? &metrics->Storage : nullptr);
   if (!begun) {
     error = std::move(begun.error().Message);
     content.PendingGroundClasses.reset();
@@ -1099,19 +1059,19 @@ SceneRenderer::AdvanceGroundClasses(size_t bytesMost, GroundClassUploadMetrics *
   if (!content.PendingGroundClasses) {
     return std::unexpected("ground classification upload has no source");
   }
-  auto advanced =
-      content.Ground.AdvanceReplace(bytesMost, metrics != nullptr ? &metrics->Storage : nullptr);
+  auto advanced = content.Scene->GroundMaterials().AdvanceReplace(
+      bytesMost, metrics != nullptr ? &metrics->Storage : nullptr);
   if (!advanced) {
     content.PendingGroundClasses.reset();
     return std::unexpected(std::move(advanced.error().Message));
   }
   if (!*advanced) { return false; }
-  content.Geometry.GroundFrom(
-      {.Classes = content.Ground.Classes(), .Palette = content.Ground.Palette()});
-  content.Glass.GroundFrom(
-      {.Classes = content.Ground.Classes(), .Palette = content.Ground.Palette()});
+  content.Geometry.GroundFrom({.Classes = content.Scene->GroundMaterials().Classes(),
+                               .Palette = content.Scene->GroundMaterials().Palette()});
+  content.Glass.GroundFrom({.Classes = content.Scene->GroundMaterials().Classes(),
+                            .Palette = content.Scene->GroundMaterials().Palette()});
   const auto retainAt = std::chrono::steady_clock::now();
-  content.Resources.SetGroundClassification(std::move(*content.PendingGroundClasses));
+  content.Scene->Resources().SetGroundClassification(std::move(*content.PendingGroundClasses));
   content.PendingGroundClasses.reset();
   if (metrics != nullptr) {
     metrics->RestoreSourceMs =
@@ -1126,20 +1086,22 @@ bool SceneRenderer::UploadGroundClasses(std::span<const uint32_t> classes,
                                         std::string &error,
                                         GroundClassUploadMetrics *metrics) {
   if (metrics != nullptr) { *metrics = {}; }
-  const auto uploaded =
-      ActiveState().Content.Ground.Replace(ActiveFrame().Handles.Device,
-                                           classes,
-                                           palette,
-                                           std::chrono::seconds(5),
-                                           metrics != nullptr ? &metrics->Storage : nullptr);
+  const auto uploaded = ActiveState().Content.Scene->GroundMaterials().Replace(
+      ActiveFrame().Handles.Device,
+      classes,
+      palette,
+      std::chrono::seconds(5),
+      metrics != nullptr ? &metrics->Storage : nullptr);
   if (!uploaded) {
     error = uploaded.error().Message;
     return false;
   }
-  ActiveState().Content.Geometry.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                             .Palette = ActiveState().Content.Ground.Palette()});
-  ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                          .Palette = ActiveState().Content.Ground.Palette()});
+  ActiveState().Content.Geometry.GroundFrom(
+      {.Classes = ActiveState().Content.Scene->GroundMaterials().Classes(),
+       .Palette = ActiveState().Content.Scene->GroundMaterials().Palette()});
+  ActiveState().Content.Glass.GroundFrom(
+      {.Classes = ActiveState().Content.Scene->GroundMaterials().Classes(),
+       .Palette = ActiveState().Content.Scene->GroundMaterials().Palette()});
   return true;
 }
 
@@ -1151,19 +1113,13 @@ bool SceneRenderer::ConfigureEnvironmentSpecular(SceneRenderer &renderer,
   (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  return Accepted(
-      frame.EnvironmentSpecularStage.Configure(frame.Handles,
-                                               {.Sky = frame.SkyViewLut.get(),
-                                                .Irradiance = frame.IrradianceBuffer.get(),
-                                                .Sampler = frame.LutSamp.get(),
-                                                .Target = frame.EnvironmentSpecular.get()}),
-      error);
+  return Accepted(frame.Atmosphere.Configure(Stage::EnvironmentSpecular, frame.Handles), error);
 }
 
 Native::Result<void> SceneRenderer::EncodeEnvironmentSpecular(const FrameContext &ctx,
                                                               const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().EnvironmentSpecularStage.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::EnvironmentSpecular, into);
 }
 
 bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
@@ -1171,34 +1127,16 @@ bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
                                         const ExecutionPlan &plan,
                                         bool drawsGlass,
                                         std::string &error) {
+  (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  if (!renderer.ActiveState().Content.Ground.Ready()) {
-    const auto uploaded = renderer.ActiveState().Content.Ground.Replace(
-        frame.Handles.Device, {}, {}, std::chrono::seconds(5));
-    if (!uploaded) {
-      error = uploaded.error().Message;
-      return false;
-    }
-    renderer.ActiveState().Content.Geometry.GroundFrom(
-        {.Classes = renderer.ActiveState().Content.Ground.Classes(),
-         .Palette = renderer.ActiveState().Content.Ground.Palette()});
-    renderer.ActiveState().Content.Glass.GroundFrom(
-        {.Classes = renderer.ActiveState().Content.Ground.Classes(),
-         .Palette = renderer.ActiveState().Content.Ground.Palette()});
-  }
-  return Accepted(frame.SkyIrradianceStage.Configure(frame.Handles,
-                                                     frame.TransmittanceLut.get(),
-                                                     frame.MultiScatterLut.get(),
-                                                     frame.LutSamp.get(),
-                                                     frame.IrradianceBuffer.get()),
-                  error);
+  return Accepted(frame.Atmosphere.Configure(Stage::Irradiance, frame.Handles), error);
 }
 
 Native::Result<void> SceneRenderer::EncodeIrradiance(const FrameContext &ctx,
                                                      const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().SkyIrradianceStage.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::Irradiance, into);
 }
 
 bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
@@ -1210,7 +1148,7 @@ bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
   (void)plan;
   (void)drawsGlass;
   return Accepted(frame.PyramidStage.Configure(frame.Handles,
-                                               frame.DepthTex.get(),
+                                               frame.Targets.Get(Resource::SceneDepth),
                                                frame.Samp.get(),
                                                frame.Pyramid.get(),
                                                {.WidthPx = frame.Width, .HeightPx = frame.Height}),
@@ -1271,7 +1209,7 @@ Native::Result<void> SceneRenderer::EncodeLightVisibility(const FrameContext &ct
   Spent_[static_cast<size_t>(Stage::LightVisibility)].DeviceBytes =
       static_cast<uint64_t>(kShadowAtlasPx) * kShadowAtlasPx * sizeof(float);
   ActiveState().Content.Geometry.ShadowedBy(ActiveFrame().ShadowAtlas.get(),
-                                            ActiveFrame().LutSamp.get(),
+                                            ActiveFrame().Atmosphere.Sampler(),
                                             ActiveState().ShadowLightIndex,
                                             ActiveFrame().Shadow.LightFromWorld(),
                                             ActiveFrame().Shadow.Regions(),
@@ -1357,25 +1295,6 @@ Native::Result<void> SceneRenderer::EncodeSky(const FrameContext &ctx, const Pas
   return ActiveFrame().Sky.Encode(ctx, Picture(true, into));
 }
 
-namespace {
-
-template <int Base> float RadicalInverse(int index) {
-  float result = 0.0f;
-  float weight = 1.0f / static_cast<float>(Base);
-  int at = index + 1;
-  while (at > 0) {
-    result += weight * static_cast<float>(at % Base);
-    at /= Base;
-    weight /= static_cast<float>(Base);
-  }
-  return result;
-}
-
-Vec2f HaltonJitter(int at) {
-  return {{RadicalInverse<2>(at) - 0.5f, RadicalInverse<3>(at) - 0.5f}};
-}
-}
-
 Native::Result<void>
 SceneRenderer::EncodePass(Native::Commands *commands, size_t pass, StageSubmission &submission) {
   const auto &declared = ActiveState().Plan->Passes()[pass];
@@ -1453,14 +1372,7 @@ Native::Result<void> SceneRenderer::EncodeGraphicsPass(Native::Commands *command
 }
 
 void SceneRenderer::BeginTemporalRun() {
-  ActiveState().HistoryStarted = false;
-  ActiveState().JitterAt = 0;
-  ActiveState().Jitter[0] = 0.0f;
-  ActiveState().Jitter[1] = 0.0f;
-  ActiveState().PrevJitter[0] = 0.0f;
-  ActiveState().PrevJitter[1] = 0.0f;
-  ActiveFrame().LinearAt = 0;
-  ActiveFrame().HistoryHeld = false;
+  ActiveState().Temporal.Reset();
 }
 
 std::expected<void, std::string> SceneRenderer::PrepareFrame() {
@@ -1485,12 +1397,7 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
 }
 
 Native::Result<void> SceneRenderer::FlushCrossings(Native::Commands &commands) {
-  auto flushed = ActiveState().Content.Geometry.FlushCrossings(&commands);
-  if (!flushed) { return flushed; }
-  if (ActiveState().Content.DrawsGlass) {
-    return ActiveState().Content.Glass.FlushCrossings(&commands);
-  }
-  return {};
+  return ActiveState().Content.Scene->Meshes().FlushCrossings(&commands);
 }
 
 std::expected<Native::Completion, std::string> SceneRenderer::PrepareWorldResources() {
@@ -1516,8 +1423,7 @@ std::expected<Native::Completion, std::string> SceneRenderer::PrepareWorldResour
   }
   auto completion = Submission_.Submit(Submission_.Context, Device_.get(), std::move(*commands));
   if (!completion) { return std::unexpected(completion.error().Message); }
-  ActiveState().Content.Geometry.CommitCrossings();
-  if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
+  ActiveState().Content.Scene->Meshes().CommitCrossings();
   preparation.Commit();
   Uploads_->Submitted(*completion);
   return *completion;
@@ -1527,8 +1433,7 @@ bool SceneRenderer::WorldResourcesComplete(const Native::Completion &completion)
   if (!Device_) { return false; }
   const auto status = Submission_.QueryFence(Submission_.Context, Device_.get(), completion);
   if (!status || *status != Native::CompletionStatus::Ready) { return false; }
-  ActiveState().Content.Geometry.Owned().ReleaseUploadScratch();
-  ActiveState().Content.Glass.Owned().ReleaseUploadScratch();
+  ActiveState().Content.Scene->Meshes().ReleaseUploadScratch();
   return true;
 }
 
@@ -1538,8 +1443,7 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
 }
 
 void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission) {
-  ActiveState().Content.Geometry.CommitCrossings();
-  if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
+  ActiveState().Content.Scene->Meshes().CommitCrossings();
   stageSubmission.Commit();
   ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid) &&
                                     DepthPyramidNeeded(*ActiveState().Plan));
@@ -1603,36 +1507,16 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   }
   record(RenderFramePhase::Swapchain);
 
-  const auto previousJitter = ActiveState().Jitter;
-  const auto previousPrevJitter = ActiveState().PrevJitter;
-  const auto previousJitterAt = ActiveState().JitterAt;
-  const auto previousHistoryStarted = ActiveState().HistoryStarted;
-  const auto previousHistoryHeld = ActiveFrame().HistoryHeld;
-  const auto previousLinearAt = ActiveFrame().LinearAt;
-  if (ActiveState().Plan->Holds(Stage::TemporalResolve)) {
-    ActiveState().PrevJitter = ActiveState().Jitter;
-    ActiveState().JitterAt = (ActiveState().JitterAt + 1) % kJitterPeriod;
-    ActiveState().Jitter = HaltonJitter(ActiveState().JitterAt);
-
-    ActiveFrame().HistoryHeld = ActiveState().HistoryStarted;
-    ActiveState().HistoryStarted = true;
-    ActiveFrame().LinearAt = 1 - ActiveFrame().LinearAt;
-  }
+  auto temporal = ActiveState().Temporal.Begin(ActiveState().Plan->Holds(Stage::TemporalResolve));
   StageSubmission stageSubmission;
-  const auto restoreTemporalState = [&] {
-    ActiveState().Jitter = previousJitter;
-    ActiveState().PrevJitter = previousPrevJitter;
-    ActiveState().JitterAt = previousJitterAt;
-    ActiveState().HistoryStarted = previousHistoryStarted;
-    ActiveFrame().HistoryHeld = previousHistoryHeld;
-    ActiveFrame().LinearAt = previousLinearAt;
+  const auto restorePresentSurface = [&] {
     if (presenting) { ActiveFrame().HostSurface = ActiveFrame().Offscreen.get(); }
   };
 
   auto culled = ActiveState().Content.Geometry.Ground().Cull(
       Framing(), ActiveState().Content.Geometry.AnchorM(), **commands);
   if (!culled) {
-    restoreTemporalState();
+    restorePresentSurface();
     return std::unexpected(culled.error().Message);
   }
   record(RenderFramePhase::Cull);
@@ -1640,7 +1524,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     auto encoded = EncodePass(commands->get(), pass, stageSubmission);
     if (!encoded) {
-      restoreTemporalState();
+      restorePresentSurface();
       return std::unexpected(encoded.error().Message);
     }
   }
@@ -1649,15 +1533,16 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     auto queued = (*commands)->Present(std::move(presenting));
     ActiveFrame().HostSurface = ActiveFrame().Offscreen.get();
     if (!queued) {
-      restoreTemporalState();
+      restorePresentSurface();
       return std::unexpected(queued.error().Message);
     }
   }
   auto submitted = Submission_.Submit(Submission_.Context, Device_.get(), std::move(*commands));
   if (!submitted) {
-    restoreTemporalState();
+    restorePresentSurface();
     return std::unexpected(submitted.error().Message);
   }
+  temporal.Commit();
   Landed_[LandedAt_] = *submitted;
   LastFrameSubmission_ = *submitted;
   Uploads_->Submitted(*submitted);
@@ -1695,7 +1580,7 @@ std::expected<void, std::string>
 SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   if (widthPx <= 0 || heightPx <= 0) { return std::unexpected(Says::kInvalidTargetExtent); }
   if (!Stands()) { return std::unexpected(ActiveState().WhyNot); }
-  ActiveState().Content.Ground.UploadsFrom(Uploads_.get());
+  ActiveState().Content.Scene->GroundMaterials().UploadsFrom(Uploads_.get());
   const bool changed = Showing_ != presents;
   if (changed) {
     auto claimed = ClaimWindow(presents);

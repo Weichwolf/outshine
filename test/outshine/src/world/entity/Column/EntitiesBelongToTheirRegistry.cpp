@@ -3,17 +3,17 @@
 #include "Check.h"
 #include <type_traits>
 
-static_assert(!std::is_move_constructible_v<outshine::EntityRegistry>);
-static_assert(!std::is_move_assignable_v<outshine::EntityRegistry>);
+static_assert(!std::is_move_constructible_v<outshine::World::EntityRegistry>);
+static_assert(!std::is_move_assignable_v<outshine::World::EntityRegistry>);
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  EntityRegistry first;
-  EntityRegistry second;
+  World::EntityRegistry first;
+  World::EntityRegistry second;
   CHECK(first.open(2) && second.open(2), "independent registries open");
-  const auto addedOriginal = first.addEntity(Role::Body);
-  const auto addedForeign = second.addEntity(Role::Body);
+  const auto addedOriginal = first.addEntity();
+  const auto addedForeign = second.addEntity();
   CHECK(addedOriginal && addedForeign, "fixture entities are allocated");
   if (!addedOriginal || !addedForeign) { return Report(); }
   const Entity original = *addedOriginal;
@@ -31,7 +31,7 @@ int main() {
   first.remove(foreign);
   CHECK(first.alive(original), "foreign removal cannot destroy the local entity");
   CHECK(first.open(2), "registry opens a fresh epoch");
-  const auto addedReplacement = first.addEntity(Role::Body);
+  const auto addedReplacement = first.addEntity();
   CHECK(addedReplacement, "replacement is allocated");
   if (!addedReplacement) { return Report(); }
   const Entity replacement = *addedReplacement;

@@ -4,8 +4,10 @@ from collections import defaultdict
 
 import numpy as np
 import shapely
+from building_coverage_field import source_projections
 from building_mass_inputs import describe
 from building_mass_mesh import extrude
+from building_parent_buffer import expand
 from building_source_tree import sources_at
 
 
@@ -57,35 +59,27 @@ def prepare_sources(parent, cells, requested, frame):
 
 
 def projected_mass_coverage(group, domain, heights):
-    source_areas = [shapely.union_all([s.footprint for s in group]).area]
+    source_areas = [p.area for p in source_projections(group)]
     proxy_areas = [domain.area]
     for axis in (0, 1):
-        original = shapely.union_all(
-            [
-                shapely.box(p.bounds[axis], s.bottom[0], p.bounds[axis + 2], s.roof[1])
-                for s in group
-                for p in shapely.get_parts(s.footprint)
-            ]
-        )
         proxy = shapely.union_all(
             [
                 shapely.box(p.bounds[axis], heights[0], p.bounds[axis + 2], heights[1])
                 for p in shapely.get_parts(domain)
             ]
         )
-        source_areas.append(original.area)
         proxy_areas.append(proxy.area)
     ratios = np.array(source_areas) / proxy_areas
     return np.minimum(ratios, 1).tolist(), ratios.tolist()
 
 
-def band_mesh(group, scale):
+def band_mesh(group, scale, *, buffer_path="scalar"):
     original = shapely.union_all([s.footprint for s in group])
     holes = shapely.union_all(
         [shapely.Polygon(r) for p in shapely.get_parts(original) for r in p.interiors]
     )
     holes = shapely.difference(holes, original)
-    expanded = shapely.buffer(original, scale, join_style="mitre", mitre_limit=2)
+    expanded = expand(original, scale, buffer_path)
     closed = shapely.buffer(expanded, -scale, join_style="mitre", mitre_limit=2)
     domain = shapely.difference(
         shapely.simplify(closed, scale / 2, preserve_topology=True), holes
@@ -139,7 +133,7 @@ def node_bands(tree, node, masses):
     return bands, scale
 
 
-def build_node(tree, node, masses):
+def build_node(tree, node, masses, *, buffer_path="scalar"):
     groups, failures = [], []
     bands, scale = node_bands(tree, node, masses)
     for group in bands.values():
@@ -147,7 +141,7 @@ def build_node(tree, node, masses):
             continue
         ids = [s.source for s in group]
         try:
-            mesh, interval, work = band_mesh(group, scale)
+            mesh, interval, work = band_mesh(group, scale, buffer_path=buffer_path)
         except (ValueError, ArithmeticError, shapely.errors.GEOSException) as error:
             failures.append({"node": node, "sources": ids, "reason": str(error)})
             continue

@@ -53,6 +53,8 @@ def shade(
         )
     light /= np.linalg.norm(light)
     result = ambient * albedo
+    if intensity == 0:
+        return result, {"ggx_lobe_evaluations": 0, "maximum_row_array_bytes": 0}
     total, peak = 0, 0
     lit = (normal @ light > 0) & (np.einsum("ij,ij->i", normal, outgoing) > 0)
     for begin in range(0, len(albedo), 2048):

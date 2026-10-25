@@ -12,17 +12,17 @@ int main() {
   Scenario::Document scene;
   Scenario::Kind root;
   root.Name = "root";
-  root.Attributes = {{"health", "+1.25e2"}, {"speed", "2.5"}};
+  root.Attributes = {{.Name = "health", .Value = "+1.25e2"}, {.Name = "speed", .Value = "2.5"}};
   scene.Kinds.push_back(root);
   Scenario::Kind derived;
   derived.Name = "actor";
   derived.Inherits = "root";
-  derived.Attributes = {{"health", "42"}};
+  derived.Attributes = {{.Name = "health", .Value = "42"}};
   scene.Kinds.push_back(derived);
   Scenario::Instance instance;
   instance.Of = "actor";
   instance.Id = "player";
-  instance.Attributes = {{"health", "73.5"}};
+  instance.Attributes = {{.Name = "health", .Value = "73.5"}};
   scene.Instances.push_back(instance);
   scene.State = {{.What = "player.health"}, {.What = "player.speed"}};
   Engine engine;
@@ -35,14 +35,14 @@ int main() {
     if (!saved) { return; }
     std::ifstream input(path);
     const std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
-    CHECK(text.find("player.health 73.5\n") != std::string::npos,
+    CHECK(text.contains("player.health 73.5\n"),
           "instance override wins over derived and root defaults");
-    CHECK(text.find("player.speed 2.5\n") != std::string::npos,
+    CHECK(text.contains("player.speed 2.5\n"),
           "unoverridden root trait survives the inheritance chain");
     std::filesystem::remove(path);
   };
   checkTraits();
-  const EntityRegistry *previous = &engine.entities();
+  const World::EntityRegistry *previous = &engine.entities();
   for (const char *invalid : {"nan",
                               "-nan",
                               "NAN",
@@ -56,7 +56,7 @@ int main() {
                               "1 ",
                               "0x1p2",
                               ""}) {
-    for (bool prefab : {false, true}) {
+    for (const bool prefab : {false, true}) {
       auto candidate = scene;
       auto &attribute =
           prefab ? candidate.Kinds[0].Attributes[0] : candidate.Instances[0].Attributes[0];

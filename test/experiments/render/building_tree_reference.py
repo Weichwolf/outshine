@@ -15,30 +15,13 @@ def reference(path, cell, frame, *, native_input=None, native_cell=None):
     from packed_normals import unpack
     from parent_surface_inputs import open_parent
     from source_material_mesh import material_mesh
-    from source_material_patches import shape_material_patches
+    from source_material_patches import selected_material_patches
     from source_shading_fields import wall_colours
 
-    patches = []
     with open_parent(path) as parent:
-        for _, identities, forms in parent.iter_forms({cell}):
-            for identity, surface in zip(identities, forms, strict=True):
-                if surface is None:
-                    raise ValueError(
-                        f"whole source reference unavailable: {int(identity)}"
-                    )
-                pieces = []
-                for part, shape in enumerate(surface["shapes"]):
-                    pieces.extend(
-                        shape_material_patches(
-                            surface,
-                            shape,
-                            int(identity),
-                            part,
-                            frame["basis"],
-                            frame["anchor"],
-                        )
-                    )
-                patches.extend(pieces)
+        patches = selected_material_patches(
+            parent, {cell}, frame["selected_sources"], frame
+        )
     geometry, fields, work = material_mesh(patches)
     xyz = geometry["positions"][geometry["indices"]].reshape(-1, 3)
     face = fields["face_patches"]

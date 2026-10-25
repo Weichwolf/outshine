@@ -4,6 +4,17 @@ import numpy as np
 import shapely
 
 
+def polygonal_domain(domain):
+    """Retain polygonal area after clipping; boundary-only contacts carry no area."""
+    if isinstance(domain, (shapely.Polygon, shapely.MultiPolygon)):
+        return domain
+    if isinstance(domain, shapely.GeometryCollection):
+        parts = [polygonal_domain(p) for p in domain.geoms]
+        parts = [p for p in parts if p.area > 0]
+        return shapely.union_all(parts) if parts else shapely.Polygon()
+    return shapely.Polygon()
+
+
 def roof_patches(shape):
     polygon = shapely.Polygon(shape["ring"], shape["holes"])
     if not polygon.is_valid or polygon.area <= 0:
@@ -27,7 +38,9 @@ def roof_patches(shape):
                 gradient, deck + scale * facet["intercept_m"] - gradient @ origin
             ]
             face = shapely.Polygon(np.asarray(facet["ring"]) + origin)
-            patches.append((shapely.intersection(polygon, face), plane))
+            patch = polygonal_domain(shapely.intersection(polygon, face))
+            if patch.area > 0:
+                patches.append((patch, plane))
         union = shapely.union_all([p for p, _ in patches])
         if shapely.area(shapely.symmetric_difference(union, polygon)) > 1e-7 * max(
             polygon.area, 1
@@ -92,7 +105,7 @@ def roof_patches(shape):
                 axis * a + other * across,
             ]
         )
-        patch = shapely.intersection(polygon, shapely.Polygon(ring))
+        patch = polygonal_domain(shapely.intersection(polygon, shapely.Polygon(ring)))
         if patch.area > 0:
             gradient = slope * axis
             result.append(

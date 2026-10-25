@@ -52,7 +52,8 @@ int main() {
   {
     auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
     outshine::Test::Gpu::NativeOfflineDevice device(*native);
-    GeometryRenderer draw;
+    GeometryResidency drawStorage;
+    GeometryRenderer draw{drawStorage};
     std::string error;
     outshine::Render::Gpu gpu;
     gpu.Device = &device;
