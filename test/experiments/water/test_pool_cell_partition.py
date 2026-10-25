@@ -8,6 +8,29 @@ from pool_cell_partition import _area, _triangulate
 
 
 class PoolCellPartition(unittest.TestCase):
+    def test_exact_interval_search_keeps_edge_nodes_and_excludes_subfloat_offsets(self):
+        f = Fraction
+        tiny = f(1, 2**2000)
+        polygon = [(f(0), f(0)), (f(1), f(0)), (f(1), f(1)), (f(0), f(1))]
+        requested = {(f(1, 3), f(0)), (f(2, 3), tiny), (-tiny, f(1, 3))}
+        _, faces, points, work, _, determinants, search = _triangulate(
+            [polygon], None, requested
+        )
+        self.assertIn((f(1, 3), f(0)), points)
+        self.assertNotIn((f(2, 3), f(0)), points)
+        self.assertNotIn((f(0), f(1, 3)), points)
+        self.assertEqual(len(faces), 5)
+        self.assertEqual(determinants, 1)
+        self.assertLess(search["edge_node_interval_visits"], work)
+        self.assertEqual(sum(_area([points[i] for i in face]) for face in faces), 2)
+
+    def test_interval_skips_do_not_relax_original_candidate_budget(self):
+        f = Fraction
+        polygon = [(f(0), f(0)), (f(1), f(0)), (f(1), f(1)), (f(0), f(1))]
+        far = {(f(i + 2), f(2)) for i in range(1000)}
+        with self.assertRaisesRegex(ValueError, "edge-node work budget exhausted"):
+            _triangulate([polygon] * 66, None, far)
+
     def test_exact_third_on_shared_edge_survives_rotation_shear_and_outside_nodes(self):
         f = Fraction
         pieces = [
@@ -30,7 +53,7 @@ class PoolCellPartition(unittest.TestCase):
                     )
 
                 polygons = [[transform(p) for p in poly] for poly in pieces]
-                _, faces, points, _, _, _ = _triangulate(polygons, None)
+                _, faces, points, _, _, _, _ = _triangulate(polygons, None)
                 ids = {p: i for i, p in enumerate(points)}
                 a, mid, b = [ids[transform(p)] for p in ((1, 0), (1, f(1, 3)), (1, 1))]
                 edges = np.sort(
