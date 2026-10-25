@@ -3,6 +3,7 @@
 from collections import defaultdict
 
 import numpy as np
+from building_coverage_field import sample_field, validate_field
 from building_mass_lighting import shade
 from building_mass_material_image import hit_materials
 from current_visibility import project, raster
@@ -54,6 +55,7 @@ def layer_material(
     original_faces,
     *,
     opaque,
+    coverage=None,
 ):
     if group < 0:
         mapped = original_faces[faces - len(product["indices"])]
@@ -65,7 +67,29 @@ def layer_material(
     n = np.abs(normals)
     coefficient = product["group_coverage"][group][[2, 1, 0]]
     opacity = np.ones(len(faces)) if opaque else (n @ coefficient) / n.sum(axis=1)
+    if coverage is not None and not opaque:
+        opacity = sample_field(points, normals, coverage, group)
     return colour, weights, opacity
+
+
+def validate_inputs(appearance, product, coverage):
+    if (
+        not appearance["supported"].all()
+        or not np.isfinite(product["group_coverage"]).all()
+        or np.any((product["group_coverage"] < 0) | (product["group_coverage"] > 1))
+    ):
+        raise ValueError("qualified finite source coverage/material measures required")
+    if coverage is not None:
+        validate_field(coverage, len(appearance["albedo"]))
+
+
+def triangle_normals(candidate):
+    triangles = candidate["positions"].astype(float)[candidate["indices"]]
+    normal = np.cross(
+        triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
+    )
+    length = np.linalg.norm(normal, axis=1)
+    return normal / np.where(length > 0, length, 1)[:, None]
 
 
 def transfers(
@@ -80,30 +104,20 @@ def transfers(
     supersample,
     *,
     opaque=False,
+    coverage=None,
 ):
     width, height = map(int, box[1] - box[0])
     sample_count = width * height * supersample**2
     if sample_count > 1048576:
         raise ValueError("bounded diagnostic ray count required")
+    validate_inputs(appearance, product, coverage)
     projected, forward = project(candidate["positions"], camera)
     if np.any(forward <= 0.1):
         raise ValueError("geometry must remain beyond near plane")
     projected[:, :2] = (projected[:, :2] - box[0]) * supersample
     _, directions = image_rays(camera, box, width, height, supersample)
     outgoing = -directions / np.linalg.norm(directions, axis=1)[:, None]
-    triangles = candidate["positions"].astype(float)[candidate["indices"]]
-    normal = np.cross(
-        triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
-    )
-    normal /= np.where(
-        np.linalg.norm(normal, axis=1) > 0, np.linalg.norm(normal, axis=1), 1
-    )[:, None]
-    if (
-        not appearance["supported"].all()
-        or not np.isfinite(product["group_coverage"]).all()
-        or np.any((product["group_coverage"] < 0) | (product["group_coverage"] > 1))
-    ):
-        raise ValueError("qualified finite source coverage/material measures required")
+    normal = triangle_normals(candidate)
     original_faces = np.flatnonzero(
         np.isin(original["binding"][:, 1], product["needs_sources"])
     )
@@ -114,7 +128,7 @@ def transfers(
         for g in range(len(appearance["albedo"]))
     )
     rays, depths, colours, alphas, ties = [], [], [], [], []
-    lobes, peak = 0, 0
+    lobes, peak, zero_samples, coverage_lookups = 0, 0, 0, 0
     raster_work = defaultdict(int)
     for group, faces in groups:
         if not len(faces):
@@ -135,6 +149,8 @@ def transfers(
         face = faces[owner.ravel()[hit]]
         z = depth.ravel()[hit]
         points = camera[0] + (0.1 / z)[:, None] * directions[hit]
+        if coverage is not None and not opaque and group >= 0:
+            coverage_lookups += 3 * len(hit)
         rgb, weights, alpha = layer_material(
             face,
             points,
@@ -146,7 +162,18 @@ def transfers(
             fields,
             original_faces,
             opaque=opaque,
+            coverage=coverage,
         )
+        nonzero = alpha > 0
+        zero_samples += int(np.count_nonzero(~nonzero))
+        if not nonzero.all():
+            hit, face, z, alpha = (
+                hit[nonzero],
+                face[nonzero],
+                z[nonzero],
+                alpha[nonzero],
+            )
+            rgb, weights = rgb[nonzero], weights[nonzero]
         value, work = shade(
             rgb,
             weights,
@@ -174,6 +201,8 @@ def transfers(
         "T": average_samples(transmission, width, height, supersample),
     }, {
         "layer_records": len(r),
+        "zero_opacity_samples_skipped_before_shading": zero_samples,
+        "coverage_projection_cell_lookups": coverage_lookups,
         "maximum_groups_per_ray": layers,
         "all_samples": sample_count,
         "ggx_lobe_evaluations": lobes,
