@@ -304,8 +304,10 @@
   Ich verantworte unabhängige native Tests, Integration und Bildprüfung. Research liefert
   Python-Referenzen/Gegenbeispiele; Engine fokussiert native Umsetzung und Performance.
   Implementierer behalten gezielte Eigenprüfungen; kein Warten auf fremde Testlieferungen.
-  Anforderungen bestimmen Orakel,
-  nicht die vorhandene Implementierung. Tests nicht für Grün an Produktfehler anpassen.
+  Anforderungen bestimmen Orakel, nicht die vorhandene Implementierung. Tests für
+  aufgegebene Schnittstellen, Abläufe oder Architekturannahmen entferne ich beim Refactor;
+  ihr bisheriger Bestand begründet keine weitere Pflege. Weiter gültige Anforderungen
+  prüfe ich an den neuen Modulgrenzen. Tests nicht für Grün an Produktfehler anpassen.
   Places sind die zentrale Bild-/Lade-/Performance-Integration. Wenige gezielte Integrations-
   tests ergänzen unsichtbare Verträge wie Miss/Hit, Abbruch, Persistenz und GPU-Lebensdauer.
   Gemischte Prüfungen liegen ausdrücklich unter integration, nicht als scheinbare Modultests.
