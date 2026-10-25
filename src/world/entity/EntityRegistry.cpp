@@ -37,12 +37,6 @@ struct EntityRegistry::Kept {
   size_t entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const;
   Entity instantiate(Entity prefab);
   Entity copyOf(Instanced which) const;
-  bool offerSeats(Entity at, Tag activity, size_t seats);
-  size_t entitiesOffering(Tag activity, std::span<Entity> into) const;
-  bool claimSeat(Seating who);
-  bool takeSeat(Seating who);
-  bool releaseSeat(Seating who);
-  Seat seatOf(Seating who) const;
 
   size_t capacity() const { return Slots_.size(); }
 
@@ -61,11 +55,6 @@ struct EntityRegistry::Kept {
     return filled;
   }
 
-  struct Taken {
-    Entity By = kNoEntity;
-    Seat State = Seat::Free;
-  };
-
   struct Pair {
     Relation How = kNoRelation;
     Entity To = kNoEntity;
@@ -81,12 +70,8 @@ struct EntityRegistry::Kept {
     size_t GivenCount = 0;
     std::array<Pair, kPairsPerEntity> Pairs = {{}};
     size_t PairCount = 0;
-    Tag Offers;
-    size_t SeatCount = 0;
-    std::array<Taken, kSeatsPerOffer> Seats = {{}};
     std::array<uint32_t, kRelations> InHead = NoRefs<kRelations>();
     uint32_t RoleNext = kNoRef, RolePrev = kNoRef;
-    uint32_t OfferNext = kNoRef, OfferPrev = kNoRef;
   };
 
   [[nodiscard]] const Slot *Held(Entity of) const;
@@ -111,7 +96,6 @@ struct EntityRegistry::Kept {
   std::vector<Slot> Slots_;
   std::vector<uint32_t> Free_;
   std::array<uint32_t, kRoles> RoleHead_ = NoRefs<kRoles>();
-  uint32_t OfferHead_ = kNoRef;
   std::array<uint32_t, kRelations> RelHead_ = NoRefs<kRelations>();
   static constexpr size_t kMostRefusalBytes = 256;
 
@@ -189,7 +173,6 @@ bool EntityRegistry::Kept::open(size_t capacity) {
   for (size_t at = capacity; at > 0; --at) { Free_.push_back(static_cast<uint32_t>(at - 1)); }
   for (size_t role = 0; role < kRoles; ++role) { RoleHead_[role] = kNoRef; }
   for (size_t how = 0; how < kRelations; ++how) { RelHead_[how] = kNoRef; }
-  OfferHead_ = kNoRef;
   Said_ = {};
   ErrorText_.clear();
   Touched_ = 0;
@@ -269,12 +252,6 @@ void EntityRegistry::Kept::Fell(Entity of) {
   if (slot->RoleNext != kNoRef) { Slots_[slot->RoleNext].RolePrev = slot->RolePrev; }
   if (RoleHead_[static_cast<size_t>(slot->Is)] == index) {
     RoleHead_[static_cast<size_t>(slot->Is)] = slot->RoleNext;
-  }
-
-  if (slot->Offers.value() != 0) {
-    if (slot->OfferPrev != kNoRef) { Slots_[slot->OfferPrev].OfferNext = slot->OfferNext; }
-    if (slot->OfferNext != kNoRef) { Slots_[slot->OfferNext].OfferPrev = slot->OfferPrev; }
-    if (OfferHead_ == index) { OfferHead_ = slot->OfferNext; }
   }
 
   slot->Held = false;
@@ -597,99 +574,6 @@ Entity EntityRegistry::Kept::copyOf(Instanced which) const {
   return kNoEntity;
 }
 
-bool EntityRegistry::Kept::offerSeats(Entity at, Tag activity, size_t seats) {
-  Slot *slot = const_cast<Slot *>(Held(at));
-  if (slot == nullptr) { return Refuse("an offer needs its object standing"); }
-  if (activity.value() == 0) {
-    return Refuse("an offer advertises an activity from the catalogue");
-  }
-  if (seats == 0 || seats > kSeatsPerOffer) {
-    return Refuse("an offer holds between one seat and the pool's few");
-  }
-  if (slot->Offers.value() != 0) {
-    return Refuse("this object already advertises, and one object is one offer");
-  }
-  slot->Offers = activity;
-  slot->SeatCount = seats;
-  for (size_t seat = 0; seat < seats; ++seat) { slot->Seats[seat] = Taken{}; }
-  slot->OfferNext = OfferHead_;
-  slot->OfferPrev = kNoRef;
-  if (OfferHead_ != kNoRef) { Slots_[OfferHead_].OfferPrev = at.Index; }
-  OfferHead_ = at.Index;
-  return true;
-}
-
-size_t EntityRegistry::Kept::entitiesOffering(Tag activity, std::span<Entity> into) const {
-  size_t found = 0;
-  for (uint32_t at = OfferHead_; at != kNoRef; at = Slots_[at].OfferNext) {
-    ++Touched_;
-    const Slot &slot = Slots_[at];
-    if (!slot.Offers.within(activity)) { continue; }
-    if (found < into.size()) {
-      into[found] = Entity{.Index = at, .Generation = slot.Generation, .Owner = Owner_};
-    }
-    ++found;
-  }
-  return found;
-}
-
-bool EntityRegistry::Kept::claimSeat(Seating who) {
-  Slot *slot = const_cast<Slot *>(Held(who.At));
-  if (Held(who.By) == nullptr || slot == nullptr) {
-    return Refuse("a claim needs both of its ends standing");
-  }
-  if (slot->Offers.value() == 0) { return Refuse("this object advertises nothing to claim"); }
-  if (!(seatOf(who) == Seat::Free)) { return Refuse("one claimant holds at most one seat here"); }
-  for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
-    Taken &taken = slot->Seats[seat];
-    if (taken.State != Seat::Free && Held(taken.By) == nullptr) { taken = Taken{}; }
-    if (taken.State == Seat::Free) {
-      taken = Taken{.By = who.By, .State = Seat::Claimed};
-      return true;
-    }
-  }
-  return Refuse("every seat of this offer is claimed or occupied -- come back or go elsewhere");
-}
-
-bool EntityRegistry::Kept::takeSeat(Seating who) {
-  Slot *slot = const_cast<Slot *>(Held(who.At));
-  if (Held(who.By) == nullptr || slot == nullptr) {
-    return Refuse("use needs both the claimant and the object standing");
-  }
-  for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
-    Taken &taken = slot->Seats[seat];
-    if (taken.By == who.By && taken.State == Seat::Claimed) {
-      taken.State = Seat::Occupied;
-      return true;
-    }
-  }
-  return Refuse("use stands only on a claim, and this claimant holds none here");
-}
-
-bool EntityRegistry::Kept::releaseSeat(Seating who) {
-  Slot *slot = const_cast<Slot *>(Held(who.At));
-  if (Held(who.By) == nullptr || slot == nullptr) {
-    return Refuse("a release needs both the claimant and the object standing");
-  }
-  for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
-    Taken &taken = slot->Seats[seat];
-    if (taken.By == who.By && taken.State != Seat::Free) {
-      taken = Taken{};
-      return true;
-    }
-  }
-  return Refuse("nothing of this claimant's stands here to release");
-}
-
-Seat EntityRegistry::Kept::seatOf(Seating who) const {
-  const Slot *slot = Held(who.At);
-  if (slot == nullptr || Held(who.By) == nullptr) { return Seat::Free; }
-  for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
-    if (slot->Seats[seat].By == who.By) { return slot->Seats[seat].State; }
-  }
-  return Seat::Free;
-}
-
 const EntityRegistry::Kept::Slot *EntityRegistry::Kept::Held(Entity of) const {
   if (of.Owner != Owner_ || of.Index >= Slots_.size()) { return nullptr; }
   const Slot &slot = Slots_[of.Index];
@@ -794,35 +678,6 @@ std::expected<Entity, RegistryError> EntityRegistry::instantiate(Entity prefab) 
 
 Entity EntityRegistry::copyOf(Instanced which) const {
   return Kept_->copyOf(which);
-}
-
-std::expected<void, RegistryError>
-EntityRegistry::offerSeats(Entity at, Tag activity, size_t seats) {
-  if (Kept_->offerSeats(at, activity, seats)) { return {}; }
-  return std::unexpected(Kept_->failure());
-}
-
-size_t EntityRegistry::entitiesOffering(Tag activity, std::span<Entity> into) const {
-  return Kept_->entitiesOffering(activity, into);
-}
-
-std::expected<void, RegistryError> EntityRegistry::claimSeat(Seating who) {
-  if (Kept_->claimSeat(who)) { return {}; }
-  return std::unexpected(Kept_->failure());
-}
-
-std::expected<void, RegistryError> EntityRegistry::takeSeat(Seating who) {
-  if (Kept_->takeSeat(who)) { return {}; }
-  return std::unexpected(Kept_->failure());
-}
-
-std::expected<void, RegistryError> EntityRegistry::releaseSeat(Seating who) {
-  if (Kept_->releaseSeat(who)) { return {}; }
-  return std::unexpected(Kept_->failure());
-}
-
-Seat EntityRegistry::seatOf(Seating who) const {
-  return Kept_->seatOf(who);
 }
 
 size_t EntityRegistry::capacity() const {
