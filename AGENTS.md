@@ -268,7 +268,7 @@
   mit `static_assert` sichern; sonstige Logik durch atomare Modultests prüfen. CMake-Targets besitzen Modulabhängigkeiten und Include-Sichtbarkeit; CTest besitzt
   Testauswahl/-ausführung. Standardwerkzeuge statt eigener Build-/Layersteuerung;
   kein separater Claims-Block. Funktionstests gehören zu ihren Komponenten.
-  Die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
+  Die dokumentierte HTML/CSS-Funktionalität und JavaScript erhalten.
   Header liegen bei ihren besitzenden Komponenten unter `src/`; kein separater öffentlicher Headerbaum.
   Kein Doxygen oder SDK-Gate. Kommentare in `.cpp`/`.mm` unter `src/` werden gestripped.
   `.h`/`.hpp` dürfen knappe nötige Vertrags-/Warum-Kommentare tragen; keine Pflichtblöcke.

@@ -1,210 +1,91 @@
-#include <span>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <string_view>
-#include <vector>
-
 #include "Check.h"
 #include "Json.h"
 #include "Script.h"
+#include "ReadTextFile.h"
+#include <print>
+#include <string>
+#include <string_view>
+#include <cstddef>
+#include <utility>
 
 namespace {
-
-using outshine::Json;
-namespace S = outshine::Script;
-
-class Test262Host final : public S::Host {
-public:
-  std::string Unprovided;
-  std::string Failed;
-
-  [[nodiscard]] S::Value Global(std::string_view name) override {
-    if (name == "assert") { return S::Value::OfRef(kAssert); }
-    if (name == "$ERROR" || name == "$DONOTEVALUATE") { return S::Value::OfRef(kError); }
-    if (name == "print") { return S::Value::OfRef(kPrint); }
-    if (name == "undefined") { return {}; }
-    if (Unprovided.empty()) { Unprovided = "name:" + std::string(name); }
-    return {};
+constexpr std::string_view kAssertions = R"(
+class Test262Error extends Error {}
+function $ERROR(message) { throw new Test262Error(message); }
+function $DONOTEVALUATE() { throw new Test262Error('unexpected evaluation'); }
+function assert(value, message) { if (value !== true) $ERROR(message || 'assertion failed'); }
+assert.sameValue = function(a,b,message) { if (!Object.is(a,b)) $ERROR(message || 'different values'); };
+assert.notSameValue = function(a,b,message) { if (Object.is(a,b)) $ERROR(message || 'same values'); };
+assert.throws = function(type, action, message) {
+  try { action(); } catch(error) {
+    if (error !== null && error !== undefined && error.constructor === type) return;
+    $ERROR(message || 'wrong exception type');
   }
-
-  [[nodiscard]] S::Value Member(const S::Value &object, std::string_view name) override {
-    if (object.What == S::Kind::Ref && object.Ref == kAssert) {
-      if (name == "sameValue") { return S::Value::OfRef(kSame); }
-      if (name == "notSameValue") { return S::Value::OfRef(kNotSame); }
-      if (Unprovided.empty()) { Unprovided = "name:assert." + std::string(name); }
-      return {};
-    }
-    if (Unprovided.empty()) { Unprovided = "name:" + std::string(name); }
-    return {};
-  }
-
-  [[nodiscard]] bool
-  Call(const S::Value &callee, std::span<const S::Value> args, S::Value &out) override {
-    const size_t count = args.size();
-    if (callee.What != S::Kind::Ref) { return false; }
-    out = S::Value();
-    switch (callee.Ref) {
-      case kAssert:
-        if (count >= 1 && !args[0].Truth()) {
-          Failed = count >= 2 ? args[1].AsText() : "an assertion did not hold";
-          return false;
-        }
-        return true;
-      case kSame:
-      case kNotSame: {
-        if (count < 2) { return false; }
-        const bool same = args[0].What == S::Kind::Text || args[1].What == S::Kind::Text
-                              ? args[0].AsText() == args[1].AsText()
-                              : args[0].Number == args[1].Number;
-        if (same != (callee.Ref == kSame)) {
-          Failed = (count >= 3 ? args[2].AsText() + ": " : std::string()) + "got " +
-                   args[0].AsText() + ", wanted " + (callee.Ref == kSame ? "" : "anything but ") +
-                   args[1].AsText();
-          return false;
-        }
-        return true;
-      }
-      case kError: Failed = count >= 1 ? args[0].AsText() : "the case called $ERROR"; return false;
-      case kPrint: return true;
-      default: break;
-    }
-    return false;
-  }
-
-private:
-  static constexpr int kAssert = 1;
-  static constexpr int kSame = 2;
-  static constexpr int kNotSame = 3;
-  static constexpr int kError = 4;
-  static constexpr int kPrint = 5;
+  $ERROR(message || 'missing exception');
 };
+)";
 
-std::string ReadFile(const std::string &path, bool &found) {
-  std::FILE *f = std::fopen(path.c_str(), "rb");
-  if (f == nullptr) {
-    found = false;
-    return {};
-  }
-  std::string text;
-  char buffer[1 << 15];
-  size_t got = 0;
-  while ((got = std::fread(buffer, 1, sizeof buffer, f)) > 0) { text.append(buffer, got); }
-  std::fclose(f);
-  found = true;
-  return text;
+bool Read(const std::string &path, std::string &text) {
+  constexpr size_t kMostCaseBytes = size_t{1} * 1024 * 1024;
+  auto input = outshine::ReadTextFile(path, kMostCaseBytes);
+  if (!input) { return false; }
+  text = std::move(*input);
+  return true;
+}
 }
 
-} // namespace
-
-int main(int argc, char **argv) {
+int main(int argc, const char *const *argv) {
+  using namespace outshine;
+  using namespace outshine::Test;
   if (argc != 2) {
-    outshine::Test::Checked(
-        false, "argc == 2", "one prepared case directory is the argument", __FILE__, __LINE__);
-    return outshine::Test::Report();
+    CHECK(false, "one prepared corpus case is required");
+    return Report();
   }
   const std::string prepared = argv[1];
-
-  bool found = false;
-  const std::string manifestText = ReadFile(prepared + "/manifest.json", found);
-  if (!found) {
-    outshine::Test::Unprepared(
-        (prepared + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
-    return outshine::Test::Report();
+  std::string manifestText;
+  if (!Read(prepared + "/manifest.json", manifestText)) {
+    Unprepared(prepared.c_str());
+    return Report();
   }
   Json manifest;
-  if (!manifest.Parse(manifestText.c_str(), manifestText.size())) {
-    outshine::Test::Checked(false, "the manifest parses", prepared.c_str(), __FILE__, __LINE__);
-    return outshine::Test::Report();
-  }
-  const Json::Ref root = manifest.Root();
-  const std::string id = root["id"].Str();
-  const Json::Ref subject = root["subjects"][size_t(0)];
-  const std::string entry = subject["entry"].Str();
-  const bool wantsRefusal = root["criterion"]["expects"].StrEquals("refuses");
-  const std::string phase = root["criterion"]["phase"].Str();
-
-  std::vector<std::string> wanted;
-  for (size_t at = 0; at < subject["attributes"].Size(); ++at) {
-    const std::string attribute = subject["attributes"][at].Str();
-
-    const bool nothingToUs = attribute == "flags:raw" || attribute == "flags:generated" ||
-                             attribute == "flags:CanBlockIsFalse" ||
-                             attribute == "flags:CanBlockIsTrue";
-    if (!nothingToUs) { wanted.push_back(attribute); }
-  }
-  if (wantsRefusal && phase != "runtime") {
-    wanted.push_back("negative-" + (phase.empty() ? std::string("parse") : phase));
-  }
-
-  const std::string script = ReadFile(prepared + "/" + entry, found);
-  if (!found) {
-    outshine::Test::Unprepared((prepared + " -- " + entry).c_str());
-    return outshine::Test::Report();
-  }
-
-  const auto settle = [&id](const std::vector<std::string> &names) {
-    std::string boundary, gap;
-    for (const std::string &name : names) {
-      const char *why = S::WhyOutside(name);
-      std::string &into = why != nullptr ? boundary : gap;
-      if (!into.empty()) { into += " "; }
-      into += name;
-      if (why != nullptr) { into += " (" + std::string(why) + ")"; }
+  CHECK(manifest.Parse(manifestText.data(), manifestText.size()), "manifest parses");
+  if (!manifest.Root().Valid()) { return Report(); }
+  const auto root = manifest.Root();
+  const auto subject = root["subjects"][size_t{0}];
+  bool raw = false;
+  bool strict = false;
+  for (size_t row = 0; row < subject["attributes"].Size(); ++row) {
+    const std::string attribute = subject["attributes"][row].Str();
+    raw = raw || attribute == "flags:raw";
+    strict = strict || attribute == "flags:onlyStrict";
+    if (attribute == "flags:module" || attribute == "flags:async" ||
+        attribute == "flags:CanBlockIsTrue" || attribute.starts_with("includes:")) {
+      Unprepared(("missing external Test262 harness environment: " + attribute).c_str());
+      return Report();
     }
-    if (gap.empty()) {
-      std::printf("JS-SUBSET reduced\n");
-      std::printf("REDUCED %s -- every name that puts it outside is a declared boundary: %s\n",
-                  id.c_str(),
-                  boundary.c_str());
-      outshine::Test::Checked(true,
-                              "the case is outside a boundary this language declared",
-                              (id + ": " + boundary).c_str(),
-                              __FILE__,
-                              __LINE__);
-    } else {
-      std::printf("JS-SUBSET outside\n");
-      std::printf("OUTSIDE %s -- undeclared: %s\n", id.c_str(), gap.c_str());
-      outshine::Test::Checked(
-          false,
-          "every name that puts a case outside is declared",
-          (id + ": " + gap + " is outside the subset and nothing says why").c_str(),
-          __FILE__,
-          __LINE__);
-    }
-    return outshine::Test::Report();
-  };
-
-  if (!wanted.empty()) { return settle(wanted); }
-
-  S::Program program;
+  }
+  std::string source;
+  if (!Read(prepared + "/" + subject["entry"].Str(), source)) {
+    Unprepared(prepared.c_str());
+    return Report();
+  }
+  const std::string prefix = (strict ? "\"use strict\";\n" : std::string()) +
+                             (raw ? std::string() : std::string(kAssertions));
+  Script::Program program;
+  Script::Host host;
   std::string error;
-  if (!program.Read(script, error)) {
-    return settle({program.Stopped().empty() ? error : "token:" + program.Stopped()});
-  }
-
-  Test262Host host;
-  const bool ran = program.Run(host, error);
-  if (!host.Unprovided.empty()) { return settle({host.Unprovided}); }
-
-  std::printf("JS-SUBSET inside\n");
-  char why[512];
-  if (wantsRefusal) {
-    std::snprintf(why,
-                  sizeof why,
-                  "%s: upstream states this case must fail at runtime, and it %s",
-                  id.c_str(),
-                  ran ? "ran to its end" : "was refused");
-    outshine::Test::Checked(!ran, "a negative case is refused", why, __FILE__, __LINE__);
+  const bool compiled = program.Read(prefix + source, error);
+  const bool negative = root["criterion"]["expects"].StrEquals("refuses");
+  const bool parseFailure = negative && root["criterion"]["phase"].StrEquals("parse");
+  if (parseFailure) {
+    CHECK(!compiled, "negative syntax case is rejected by the actual parser");
   } else {
-    std::snprintf(why,
-                  sizeof why,
-                  "%s: %s",
-                  id.c_str(),
-                  ran ? "ran to its end" : (host.Failed.empty() ? error : host.Failed).c_str());
-    outshine::Test::Checked(ran, "a positive case runs to its end", why, __FILE__, __LINE__);
+    CHECK(compiled, error.c_str());
+    if (compiled) {
+      const bool ran = program.Run(host, error);
+      CHECK(negative ? !ran : ran, error.c_str());
+    }
   }
-  std::printf("JS-CASE %s\n", outshine::Test::Failures.Value() == 0 ? "held" : "red");
-  std::printf("STEPS %s %zu\n", id.c_str(), program.Steps());
-  return outshine::Test::Report();
+  std::println("JS-CASE {} interrupts={}", root["id"].Str(), program.InterruptChecks());
+  return Report();
 }

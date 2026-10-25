@@ -26,5 +26,8 @@ int main() {
         "truncated strings still report a parse failure");
   error.clear();
   CHECK(program.Read("clicked()", error), "the parser recovers after a rejected input");
+  const std::array<char, 5> binary{'1', ';', '\0', '2', ';'};
+  CHECK(!program.Read(std::string_view(binary.data(), binary.size()), error) && !program.Held(),
+        "a raw NUL cannot silently truncate source before its supplied end");
   return Report();
 }

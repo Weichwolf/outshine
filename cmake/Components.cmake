@@ -97,7 +97,7 @@ target_link_libraries(outshine_generators_terrain_inputs PUBLIC outshine_base ou
 target_link_libraries(outshine_generators_terrain_providers PUBLIC outshine_base outshine_sources outshine_world_products PRIVATE PkgConfig::libwebp PkgConfig::libtiff_4)
 target_link_libraries(outshine_generators_sky PUBLIC outshine_base outshine_sources)
 target_link_libraries(outshine_generators_water PUBLIC outshine_base outshine_content outshine_generators_base outshine_world)
-target_link_libraries(outshine_scripting PUBLIC outshine_base)
+target_link_libraries(outshine_scripting PRIVATE qjs Threads::Threads)
 target_link_libraries(outshine_sources PUBLIC outshine_base outshine_storage CURL::libcurl)
 target_link_libraries(outshine_storage PUBLIC outshine_base PkgConfig::sqlite3)
 target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world outshine_ui_paint)
