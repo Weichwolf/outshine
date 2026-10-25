@@ -201,6 +201,48 @@ bounding approximation or changed intersection/rounding rule.
 separate exact clipping calculations. Raw same-input cost comparisons live in
 the PR; the additional counter does not imply new resident geometry.
 
+The noder also sorts the exact nodes once on each coordinate axis. Four binary
+searches per edge delimit the open interval on its nonconstant axis and the
+closed interval on the other axis. It visits the shorter of those two ranges,
+then applies the same two exact interval tests and determinant as before.
+Every eligible point belongs to both ranges, including the closed endpoints on
+the other axis. Sorting and candidate order cannot change the later parameter
+sort, centre fan, final point order or Float64 materialization. No floating
+coordinate, epsilon or snapped key participates in this index.
+
+`edge_node_interval_visits` counts the points visited after range selection;
+`edge_node_binary_searches` counts the four searches, not their comparisons.
+`edge_node_sorted_references` counts point references in the two sorted orders;
+two additional equally sized lists reference existing rational coordinate keys.
+These bounded temporary lists create no new rational coordinate values.
+The original all-pairs `edge_node_tests` budget remains unchanged even when a
+range query skips most nodes. Thus this optimization admits no previously
+over-budget patch and leaves clipping, geometry and exact predicates unchanged.
+
+SIGGRAPH-first reference: Gottschalk/Lin/Manocha,
+[OBBTree, 1996](../../../doc/references/buildings/siggraph/1996-obbtree-hierarchical-interference-detection.pdf),
+pp.8–9/Fig.2, inspected optically. Disjoint coordinate projections provide the
+rejection principle; this small exact sorted point index is not an OBBTree.
+
+Reproduce the same-input scan/index comparison from a checkout containing the
+original `d569b2b1b` Git object:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/water:test/experiments/transport:test/experiments/render \
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B \
+  test/experiments/water/pool_node_search_experiment.py \
+  --output /tmp/outshine-pool-node-comparison --render
+```
+
+The explicit driver extracts the previous own implementation to its temporary
+output directory and substitutes only the noding function during each comparison.
+It alternates scan/index on the actual32-face witness patch, then compares the
+whole original97×97window, including unchanged qualification fields and every
+output word. It stores the retained candidate, reports and local diagnostic;
+there is no runtime strategy flag or second maintained geometry implementation.
+Patch allocation traces exclude the external GEOS heap. Whole-process RSS holds
+both alternatives and libraries and is not an index memory-saving measurement.
+
 Tests preserve original water words and source permutation, closed body winding,
 contact roles, internal-subdivision wall invariance, negative role/hole/dimension
 cases, exact partition/positive areas, indexed topology, shared rounding and

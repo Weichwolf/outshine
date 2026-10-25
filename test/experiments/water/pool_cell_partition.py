@@ -1,6 +1,7 @@
 """Exact planar partition for bounded interior, exterior and convex pool contacts."""
 
 import re
+from bisect import bisect_left, bisect_right
 from fractions import Fraction
 
 import numpy as np
@@ -47,7 +48,10 @@ def _triangulate(pieces, cancelled, boundary_nodes=()):
     nodes = {p for poly in pieces for p in poly} | set(boundary_nodes)
     if len(nodes) > 1024:
         raise ValueError("exact pool-cell node budget exhausted")
+    ordered = [sorted(nodes, key=lambda p, axis=axis: p[axis]) for axis in (0, 1)]
+    coordinates = [[p[axis] for p in ordered[axis]] for axis in (0, 1)]
     faces, work, determinants = [], 0, 0
+    visits, searches = 0, 0
     for poly in pieces:
         if cancelled is not None and cancelled():
             raise ValueError("exact pool-cell partition cancelled")
@@ -62,7 +66,24 @@ def _triangulate(pieces, cancelled, boundary_nodes=()):
             low, high = min(a[axis], b[axis]), max(a[axis], b[axis])
             other_low, other_high = min(a[other], b[other]), max(a[other], b[other])
             candidates = [(Fraction(0), a)]
-            for p in nodes:
+            intervals = {
+                axis: (
+                    bisect_right(coordinates[axis], low),
+                    bisect_left(coordinates[axis], high),
+                ),
+                other: (
+                    bisect_left(coordinates[other], other_low),
+                    bisect_right(coordinates[other], other_high),
+                ),
+            }
+            search_axis = min(
+                intervals, key=lambda k: intervals[k][1] - intervals[k][0]
+            )
+            first, last = intervals[search_axis]
+            searches += 4
+            visits += last - first
+            for at in range(first, last):
+                p = ordered[search_axis][at]
                 if not (low < p[axis] < high and other_low <= p[other] <= other_high):
                     continue
                 determinants += 1
@@ -84,7 +105,19 @@ def _triangulate(pieces, cancelled, boundary_nodes=()):
         max(abs(Fraction.from_float(float(p[i])) - p[i]) for p in points)
         for i in (0, 1)
     ]
-    return xy, indices, points, work, [str(v) for v in error], determinants
+    return (
+        xy,
+        indices,
+        points,
+        work,
+        [str(v) for v in error],
+        determinants,
+        {
+            "edge_node_interval_visits": visits,
+            "edge_node_binary_searches": searches,
+            "edge_node_sorted_references": 2 * len(nodes),
+        },
+    )
 
 
 def _outside_parts(triangle, edges, interior, area, capacity, cancelled):
@@ -205,7 +238,7 @@ def partition(
         pieces.extend(interior)
         if len(pieces) > 128:
             raise ValueError("exact pool-cell piece budget exhausted")
-    xy, indices, points, work, rounding, determinants = _triangulate(
+    xy, indices, points, work, rounding, determinants, search_work = _triangulate(
         pieces, cancelled, requested
     )
     expected = sum(_area([exact(p) for p in source[f]]) for f in faces)
@@ -223,6 +256,7 @@ def partition(
             "pieces": len(pieces),
             "edge_node_tests": work,
             "edge_node_determinants": determinants,
+            **search_work,
             "vertices": len(xy),
             "triangles": len(indices),
             "exact_doubled_area": str(expected),

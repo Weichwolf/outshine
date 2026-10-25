@@ -212,6 +212,9 @@ def reconcile_window(
             "pieces",
             "edge_node_tests",
             "edge_node_determinants",
+            "edge_node_interval_visits",
+            "edge_node_binary_searches",
+            "edge_node_sorted_references",
             "boundary_requested_nodes",
         ):
             work[key] += result[3]["work"][key]
