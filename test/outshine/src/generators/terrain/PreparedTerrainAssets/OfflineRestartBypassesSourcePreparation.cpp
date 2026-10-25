@@ -5,24 +5,30 @@
 #include "SourceSet.h"
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
 #include <utility>
 
 namespace {
 using namespace outshine;
+constexpr int kNativeCellSouthDeg = 45;
 
 class Fields final : public Ground::TerrainSource {
 public:
   Ground::TerrainBytes Take(Data::TileId at) override {
     ++Calls;
     if (!Available) {
-      return Ground::TerrainBytes::Wire(
-          Data::SourceFailure{.Requested = Data::Address::At(at),
-                              .SourceId = "fixture",
-                              .Reason = Data::SourceFailureReason::OfflineMiss});
+      Data::SourceFailure failure{};
+      failure.Requested = Data::Address::At(at);
+      failure.SourceId = "fixture";
+      failure.Reason = Data::SourceFailureReason::OfflineMiss;
+      return Ground::TerrainBytes::Wire(std::move(failure));
     }
     Ground::TerrainField field(5, 5);
     for (uint32_t row = 0; row < 5; ++row) {
@@ -30,14 +36,15 @@ public:
         field.SetM(row, col, static_cast<float>(100.0 + at.X * 2.0 + at.Y * 4.0 + col * 0.5 + row));
       }
     }
-    return Ground::TerrainBytes::From(at,
-                                      std::move(field),
-                                      {.From = Data::TileSourceIdentity::Origin::Provider,
-                                       .Kind = Data::DataKind::Elevation,
-                                       .Tile = at,
-                                       .NativeCell = Data::CellId{.SouthDeg = 45, .WestDeg = 8},
-                                       .SourceId = "fixture",
-                                       .Revision = "fixture-v1"});
+    return Ground::TerrainBytes::From(
+        at,
+        std::move(field),
+        {.From = Data::TileSourceIdentity::Origin::Provider,
+         .Kind = Data::DataKind::Elevation,
+         .Tile = at,
+         .NativeCell = Data::CellId{.SouthDeg = kNativeCellSouthDeg, .WestDeg = 8},
+         .SourceId = "fixture",
+         .Revision = "fixture-v1"});
   }
 
   size_t Calls = 0;
@@ -46,11 +53,13 @@ public:
 
 Ground::TerrainTiles::Config
 Resolver(const std::shared_ptr<Generators::PreparedTerrainAssets> &assets) {
-  return {.PreparedFields = [assets](Data::TileId at,
-                                     const Ground::TerrainTiles::Shaped &shape,
-                                     const Ground::TerrainTiles::FieldFactory &factory) {
+  Ground::TerrainTiles::Config config{};
+  config.PreparedFields = [assets](Data::TileId at,
+                                   const Ground::TerrainTiles::Shaped &shape,
+                                   const Ground::TerrainTiles::FieldFactory &factory) {
     return assets->Resolve(at, shape, factory);
-  }};
+  };
+  return config;
 }
 
 bool Equal(const Ground::TerrainField &first, const Ground::TerrainField &second) {
@@ -70,14 +79,14 @@ int main() {
                     ("outshine-native-terrain-test-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   constexpr Data::TileId at{.Zoom = 3, .X = 3, .Y = 3};
   Fields original;
   Ground::TerrainTiles plain(original, Ground::EnuFrame::At(Ground::Geo{}), {});
   auto reference = plain.StitchedGrid(at.Zoom, at.X, at.Y);
   CHECK(reference.TryField() != nullptr && original.Calls > 0,
         "cold reference performs source acquisition and edge/corner stitching");
-  if (!reference.TryField()) { return outshine::Test::Report(); }
+  if (reference.TryField() == nullptr) { return outshine::Test::Report(); }
   auto opened = Generators::PreparedTerrainAssets::Open((root / "assets").string(), sources);
   CHECK(opened.has_value(), "native terrain uses the common persistent spatial cache");
   if (!opened) { return outshine::Test::Report(); }

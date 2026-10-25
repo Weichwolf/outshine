@@ -2,6 +2,7 @@
 #include "OfflineTransport.h"
 #include "WebTileFixture.h"
 #include "Check.h"
+#include <cstdint>
 #include <memory>
 #include <array>
 #include <cstdlib>
@@ -19,31 +20,39 @@ public:
   int Begins = 0;
   int Cancels = 0;
 
-  FetchStart Begin(const std::string &) override { return static_cast<Ticket>(++Begins); }
+  FetchStart Begin(const std::string & /*url*/) override { return static_cast<Ticket>(++Begins); }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override { ++Cancels; }
+  void Cancel(Ticket /*ticket*/) override { ++Cancels; }
 };
 
 class ProbeSource final : public Source {
 public:
-  SourceDecl Decl{.Id = "probe", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "probe",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   Meaning Result = Meaning::Bytes;
   bool Working = false;
   mutable int Calls = 0;
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &transport) const override {
+  FetchStart Begin(const Address & /*at*/, Transport &transport) const override {
     return transport.Begin(Decl.Id);
   }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     ++Calls;
     if (Working) { return SourceResponse::Working(); }
     return Result == Meaning::Bytes ? SourceResponse::Delivered({1})
@@ -54,7 +63,7 @@ public:
 
 int main() {
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   const SourceRequest request(DataKind::Elevation, Address::Whole(0));
   CHECK(!std::is_move_assignable_v<SourceSet::Query>,
         "assignment cannot overwrite an active ticket");
@@ -153,7 +162,7 @@ int main() {
     CHECK(!error, "cache directory removed");
   }
   {
-    RawSourceCache cache({.Using = RawSourceCache::Use::Off});
+    RawSourceCache cache({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(cache);
     OfflineTransport transport;
     CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(

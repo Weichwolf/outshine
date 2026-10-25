@@ -32,6 +32,7 @@ std::expected<std::shared_ptr<PreparedOsmTiles>, std::string> PreparedOsmTiles::
   if (!cache) { return std::unexpected("could not open native OSM tile cache"); }
   const auto recipe = Generators::AssetSourceRecipe(
       "prepared-osm-tile-2", sources, std::array{Data::DataKind::VectorMap});
+  if (recipe.empty()) { return std::unexpected("OSM source metadata cannot be encoded"); }
   return std::shared_ptr<PreparedOsmTiles>(
       new PreparedOsmTiles(std::move(*cache), compute, recipe));
 }

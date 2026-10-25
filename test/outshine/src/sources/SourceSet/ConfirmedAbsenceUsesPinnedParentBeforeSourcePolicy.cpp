@@ -2,6 +2,7 @@
 #include "WebTileSource.h"
 #include "OfflineTransport.h"
 #include "Check.h"
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
@@ -11,6 +12,9 @@
 
 namespace {
 using namespace outshine::Data;
+constexpr int kOk = 200;
+constexpr int kForbidden = 403;
+constexpr uint8_t kSecondByte = 22;
 
 class Tiles final : public WebTileSource {
 public:
@@ -23,6 +27,8 @@ public:
                        .MinZoom = 1,
                        .MaxZoom = 3,
                        .AncestorFill = true,
+                       .PayloadSha256 = {},
+                       .Schema = {},
                        .TileAbsence = TileAbsencePolicy::Parent},
                       "https://tiles.example/{z}/{x}/{y}") {}
 };
@@ -39,10 +45,11 @@ public:
 
   Wire Collect(Ticket ticket) override {
     const auto &url = Requested[static_cast<size_t>(ticket) - 1];
-    return url.ends_with("/1/1/1") ? Wire::Answered(200, {11, 22}) : Wire::Answered(Status, {});
+    return url.ends_with("/1/1/1") ? Wire::Answered(kOk, {11, kSecondByte})
+                                   : Wire::Answered(Status, {});
   }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 
   double NowMs() override { return 0; }
 };
@@ -83,12 +90,12 @@ int main() {
           "cached absence chain reaches parent bytes without network or changed pins");
   }
   {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<Tiles>()) == SourceSet::Registration::Accepted,
           "failure source configured");
     Http wire;
-    wire.Status = 403;
+    wire.Status = kForbidden;
     auto query = sources.Ask(request);
     const auto answer = sources.Collect(query, wire);
     CHECK(answer.Where() == SourceDelivery::State::Refused && wire.Requested.size() == 1,

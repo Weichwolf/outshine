@@ -23,6 +23,7 @@ class CacheUsageIndex;
 
 namespace outshine::Data {
 
+[[nodiscard]] bool SourceIdentityEncodable(const SourceDecl &decl) noexcept;
 [[nodiscard]] std::string ContentKey(const SourceDecl &decl, const Address &at);
 [[nodiscard]] std::string ContentKey(const SourceDecl &decl,
                                      const Address &at,
