@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include "Check.h"
 #include "GeometryRenderer.h"
 #include "ReadbackTransfer.h"
@@ -300,7 +301,7 @@ int main() {
                             .Height = 32,
                             .SceneColours = {}};
   CHECK(gpu.SceneColours.Add(Resource::SceneHdr), "the fixture uses the existing subject pipeline");
-  GeometryResidency geometryStorage;
+  RenderScene geometryStorage;
   GeometryRenderer geometry{geometryStorage};
   Require(geometry.Configure(gpu));
   std::string error;

@@ -1,4 +1,4 @@
-#include "PrismRenderer.h"
+#include "PrismResidency.h"
 #include "CasterChanges.h"
 #include "BatchVisibility.h"
 #include "Box.h"
@@ -41,8 +41,8 @@ std::optional<Boxf> BoundsOf(const GpuPrismPatch &record) noexcept {
 }
 }
 
-void PrismRenderer::RecordShadowChanges(const PrismProduct &product,
-                                        std::span<const GpuPrismPatch> records) noexcept {
+void PrismResidency::RecordShadowChanges(const PrismProduct &product,
+                                         std::span<const GpuPrismPatch> records) noexcept {
   Boxf before;
   Boxf after;
   bool changed = false;

@@ -1,4 +1,4 @@
-#include "PrismRenderer.h"
+#include "PrismResidency.h"
 #include "UploadQueue.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include "test/harness/render/NativeGpuCheck.h"
@@ -72,9 +72,9 @@ void Matches(Device &device, Buffer &buffer, std::span<const Value> expected) {
 }
 
 void FailedChanges(Observed &device,
-                   UploadQueue &queue,
+                   const UploadQueue &queue,
                    std::chrono::nanoseconds &budget,
-                   PrismRenderer &renderer,
+                   PrismResidency &renderer,
                    uint64_t id,
                    std::span<const PrismInstance> moved) {
   const auto oldRecords = renderer.Products()[0].Records;
@@ -108,7 +108,7 @@ void FailedChanges(Observed &device,
 }
 
 void MemoryChanges(Observed &device,
-                   PrismRenderer &renderer,
+                   PrismResidency &renderer,
                    std::span<const PrismInstance> moved) {
   const auto before = renderer.HeldBytes();
   constexpr uint64_t sampleBytes = 2 * sizeof(PrismSpan);
@@ -137,7 +137,7 @@ void MemoryChanges(Observed &device,
 void Probe(Observed &device) {
   std::chrono::nanoseconds budget = std::chrono::seconds(5);
   UploadQueue queue(device, budget);
-  PrismRenderer renderer;
+  PrismResidency renderer;
   Require(renderer.Uses(device, &queue));
   const std::vector<PrismSpan> samples{{.Lower = -4, .Upper = 6}, {.Lower = 2, .Upper = 8}};
   auto source = std::make_shared<const PrismGrid>(PrismGrid{

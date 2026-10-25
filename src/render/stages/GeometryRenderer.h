@@ -23,7 +23,7 @@
 #include "KernelShape.h"
 #include "DrawList.h"
 #include "TerrainRenderer.h"
-#include "PrismRenderer.h"
+#include "PrismResidency.h"
 #include "PrismPipelines.h"
 #include "GeometryResidency.h"
 #include "GpuPlacement.h"
@@ -34,6 +34,8 @@
 #include "SubjectLightingUniform.h"
 
 namespace outshine::Render {
+
+class RenderScene;
 
 class GeometryPipelineBinding {
 public:
@@ -75,9 +77,8 @@ enum class GeometryPassKind : uint8_t { Opaque, Transmission };
 
 class GeometryRenderer {
 public:
-  explicit GeometryRenderer(GeometryResidency &storage,
-                            GeometryPassKind pass = GeometryPassKind::Opaque) noexcept
-      : Storage_(&storage), Pass_(pass) {}
+  explicit GeometryRenderer(RenderScene &scene,
+                            GeometryPassKind pass = GeometryPassKind::Opaque) noexcept;
 
   struct MeshTicket {
     uint64_t Generation = 0;
@@ -145,7 +146,7 @@ public:
 
   [[nodiscard]] const TerrainRenderer &Ground() const { return Ground_; }
 
-  [[nodiscard]] const PrismRenderer &Prisms() const noexcept { return Prisms_; }
+  [[nodiscard]] const PrismResidency &Prisms() const noexcept { return *Prisms_; }
 
   [[nodiscard]] CasterChanges::Snapshot ShadowChangesSince(uint64_t revision) const noexcept {
     return ShadowChanges_.Since(revision);
@@ -156,7 +157,7 @@ public:
   }
 
   void AcknowledgePrismShadowChanges(uint64_t revision) noexcept {
-    Prisms_.AcknowledgeShadowChanges(revision);
+    Prisms_->AcknowledgeShadowChanges(revision);
   }
 
   [[nodiscard]] Native::Result<uint64_t> PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
@@ -236,7 +237,7 @@ public:
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
-  [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_ + Prisms_.Generation(); }
+  [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_ + Prisms_->Generation(); }
 
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
     ShadowChanges_.Unknown();
@@ -414,7 +415,7 @@ public:
   [[nodiscard]] const Mat4 &ModelM() const { return Model; }
 
   [[nodiscard]] uint64_t HeldBytes() const {
-    return (IsTransmission() ? 0u : Storage_->HeldBytes()) + Prisms_.HeldBytes();
+    return IsTransmission() ? 0u : Storage_->HeldBytes() + Prisms_->HeldBytes();
   }
 
   [[nodiscard]] uint32_t StagedBytes() const { return Bound().StagedBytes(); }
@@ -470,7 +471,7 @@ private:
   };
 
   TerrainRenderer Ground_;
-  PrismRenderer Prisms_;
+  PrismResidency *Prisms_;
   CasterChanges ShadowChanges_;
 
   void RecordPieceShadowChange(const std::optional<std::array<float, 4>> &before,
