@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -15,11 +16,11 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for the public camera contract");
   const std::filesystem::path directory(PlantedPath("follow-camera"));
   std::filesystem::create_directories(directory);
-  NativeTriangle generator;
+  const NativeTriangle generator;
   const std::string assetName(generator.kind());
   Scenario::Document scene;
   scene.Render.Declared = true;
-  scene.Render.Frame = {64, 64};
+  scene.Render.Frame = {.WidthPx = 64, .HeightPx = 64};
   scene.Render.Outputs = {"sceneLinear", "surface"};
   Scenario::Asset asset;
   asset.Uri = assetName;
@@ -48,8 +49,8 @@ int main() {
   {
     Engine engine;
     CHECK(engine.registerGenerator(generator), "native camera fixture generator registers");
-    const auto ready =
-        engine.setRenderTarget(Extent{64, 64}) && engine.declare(scene) && engine.assemble();
+    const auto ready = engine.setRenderTarget(Extent{.WidthPx = 64, .HeightPx = 64}) &&
+                       engine.declare(scene) && engine.assemble();
     CHECK(ready, "camera targets resolve before rendering");
     if (!ready) { return Report(); }
     const auto checkEye = [&](double expected) {
@@ -73,8 +74,7 @@ int main() {
     auto missingAsset = scene;
     missingAsset.Assets.front().Uri = "outshine-absent-generator";
     const auto refusedAsset = engine.declare(missingAsset);
-    CHECK(!refusedAsset &&
-              refusedAsset.error().find("outshine-absent-generator") != std::string::npos,
+    CHECK(!refusedAsset && refusedAsset.error().contains("outshine-absent-generator"),
           "an unavailable generator is rejected by the declaration");
     CHECK(engine.declaration().Assets.front().Uri == scene.Assets.front().Uri,
           "the rejected asset keeps the published declaration");

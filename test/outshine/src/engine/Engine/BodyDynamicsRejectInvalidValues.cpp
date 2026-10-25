@@ -1,6 +1,7 @@
 #include <Engine.h>
 #include "Check.h"
 #include <array>
+#include <cstddef>
 #include <limits>
 
 int main() {
@@ -28,7 +29,7 @@ int main() {
     CHECK(engine.declaration().Bodies[0].Name == "kept", "body declaration preserved");
     CHECK(&engine.entities() == registry && registry->alive(*marker), "live simulation preserved");
   };
-  for (double invalid :
+  for (const double invalid :
        {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
     auto broken = body;
     broken.MassKg = invalid;
@@ -39,7 +40,7 @@ int main() {
       reject(broken);
     }
   }
-  for (double invalid :
+  for (const double invalid :
        {std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
     for (size_t axis = 0; axis < 3; ++axis) {
       auto broken = body;
@@ -52,13 +53,13 @@ int main() {
       reject(broken);
     }
   }
-  for (double scalar : {0.0, 2.0}) {
+  for (const double scalar : {0.0, 2.0}) {
     auto broken = body;
     broken.Stands.Facing.W = scalar;
     reject(broken);
   }
   body.Contacts.emplace_back();
-  for (double invalid :
+  for (const double invalid :
        {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
     for (const auto member : std::array{&Physics::PrismaticJoint::ReachM,
                                         &Physics::PrismaticJoint::StiffnessNPerM,

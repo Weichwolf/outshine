@@ -49,9 +49,11 @@ int main() {
   CHECK(engine.advance().has_value(), "previous simulation remains available");
   CHECK(fired() == 0, "old triggers do not act on a new unassembled declaration");
 
-  scene.Motion.StepS = 0.02;
+  constexpr double kSimulationStepS = 0.02;
+  constexpr double kDwellS = 0.035;
+  scene.Motion.StepS = kSimulationStepS;
   scene.Volumes[0].When = "dwell";
-  scene.Volumes[0].DwellS = 0.035;
+  scene.Volumes[0].DwellS = kDwellS;
   CHECK(engine.declare(scene) && engine.assemble(), "dwell scene uses its declared physics step");
   CHECK(engine.advance().has_value(), "first dwell step enters the volume");
   CHECK(fired() == 0, "entry alone is not a dwell event");
