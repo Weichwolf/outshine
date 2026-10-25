@@ -23,6 +23,7 @@ struct EntityRegistry::Kept {
   Entity addEntity(Role role);
   void remove(Entity of);
   bool alive(Entity of) const;
+  uint64_t LivenessRevision_ = 0;
   std::optional<Role> roleOf(Entity of) const;
   bool giveTag(Entity to, Tag tag);
   bool hasTag(Entity of, Tag tag) const;
@@ -193,6 +194,7 @@ bool EntityRegistry::Kept::open(size_t capacity) {
   ErrorText_.clear();
   Touched_ = 0;
   Owner_ = owner;
+  ++LivenessRevision_;
   return true;
 }
 
@@ -216,6 +218,7 @@ Entity EntityRegistry::Kept::addEntity(Role role) {
   slot.RoleNext = RoleHead_[static_cast<size_t>(role)];
   if (slot.RoleNext != kNoRef) { Slots_[slot.RoleNext].RolePrev = index; }
   RoleHead_[static_cast<size_t>(role)] = index;
+  ++LivenessRevision_;
   return Entity{.Index = index, .Generation = generation, .Owner = Owner_};
 }
 
@@ -275,6 +278,7 @@ void EntityRegistry::Kept::Fell(Entity of) {
   }
 
   slot->Held = false;
+  ++LivenessRevision_;
   if (slot->Generation != std::numeric_limits<uint32_t>::max()) {
     slot->Generation += 1;
     Free_.push_back(index);
@@ -720,6 +724,10 @@ std::expected<Entity, RegistryError> EntityRegistry::addEntity(Role role) {
   const Entity entity = Kept_->addEntity(role);
   if (entity != kNoEntity) { return entity; }
   return std::unexpected(Kept_->failure());
+}
+
+uint64_t EntityRegistry::LivenessRevision() const noexcept {
+  return Kept_->LivenessRevision_;
 }
 
 void EntityRegistry::remove(Entity of) {
