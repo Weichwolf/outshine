@@ -35,6 +35,22 @@ public:
   enum class RegionPhase : uint8_t { Lookup, Loading, Miss, Hit, Storing, Stored, Bypass };
   enum class WaterPhase : uint8_t { Awaiting, Preparing, Bound };
 
+  struct ProductMemory {
+    size_t Candidate = 0;
+    size_t Patchwork = 0;
+    size_t SourceCoverage = 0;
+    size_t Survey = 0;
+    size_t BuildingStamps = 0;
+    size_t Deformation = 0;
+    size_t CorridorStamps = 0;
+    size_t RoadStamps = 0;
+
+    [[nodiscard]] size_t Total() const noexcept {
+      return Candidate + Patchwork + SourceCoverage + Survey + BuildingStamps + Deformation +
+             CorridorStamps + RoadStamps;
+    }
+  };
+
   struct ResidencyBuild {
     bool SheetsStitched = false;
     bool ResidencyStarted = false;
@@ -232,9 +248,13 @@ public:
     assert(completed);
   }
 
-  [[nodiscard]] size_t ProductPeakBytes() const noexcept { return ProductPeakBytes_; }
+  [[nodiscard]] size_t ProductPeakBytes() const noexcept { return ProductPeak_.Total(); }
 
-  [[nodiscard]] size_t RetainedProductBytes() const noexcept { return CurrentProductBytes(); }
+  [[nodiscard]] const ProductMemory &ProductPeakMemory() const noexcept { return ProductPeak_; }
+
+  [[nodiscard]] size_t RetainedProductBytes() const noexcept {
+    return CurrentProductMemory().Total();
+  }
 
   [[nodiscard]] size_t RetainedCandidateBytes() const noexcept {
     return Candidate_.OwnedHeapBytes();
@@ -435,10 +455,11 @@ private:
     return bytes;
   }
 
-  [[nodiscard]] size_t CurrentProductBytes() const noexcept;
+  [[nodiscard]] ProductMemory CurrentProductMemory() const noexcept;
 
   void RecordsProductPeak() noexcept {
-    ProductPeakBytes_ = std::max(ProductPeakBytes_, CurrentProductBytes());
+    const auto current = CurrentProductMemory();
+    if (current.Total() > ProductPeak_.Total()) { ProductPeak_ = current; }
   }
 
   Around Coverage_;
@@ -475,7 +496,7 @@ private:
   ResidencyBuild Residency_;
   GroundSurvey Surveying_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
-  size_t ProductPeakBytes_ = 0;
+  ProductMemory ProductPeak_;
   size_t StampingCandidateHeapBytes_ = 0;
   size_t CorridorHeapBytes_ = 0;
   size_t RoadEarthworkHeapBytes_ = 0;
