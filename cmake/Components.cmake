@@ -24,6 +24,8 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators/terrain/providers
   generators/water
   render
+  render/device/native
+  render/plan
   render/temporal
   scenario
   scripting
@@ -68,11 +70,15 @@ function(outshine_component name directory)
 endfunction()
 add_library(outshine_ui_paint INTERFACE)
 target_include_directories(outshine_ui_paint INTERFACE "${PROJECT_SOURCE_DIR}/src/ui/paint")
+add_library(outshine_render_device_api INTERFACE)
+target_include_directories(outshine_render_device_api INTERFACE
+  "${PROJECT_SOURCE_DIR}/src/render/device/native")
 
 foreach(root IN LISTS OUTSHINE_COMPONENT_ROOTS)
   string(REPLACE "/" "_" name "outshine_${root}")
   outshine_component(${name} "${root}")
 endforeach()
+set_property(TARGET outshine_render_device_native_objects PROPERTY INTERFACE_INCLUDE_DIRECTORIES "")
 target_link_libraries(outshine_app_scenario PUBLIC outshine_base outshine_scenario)
 target_link_libraries(outshine_app PUBLIC outshine_app_scenario outshine_base outshine_engine outshine_generators outshine_sources)
 target_link_libraries(outshine_simulation PUBLIC outshine_base outshine_world_entity)
@@ -101,7 +107,10 @@ target_link_libraries(outshine_generators_water PUBLIC outshine_base outshine_co
 target_link_libraries(outshine_scripting PRIVATE qjs Threads::Threads)
 target_link_libraries(outshine_sources PUBLIC outshine_base outshine_storage CURL::libcurl)
 target_link_libraries(outshine_storage PUBLIC outshine_base PkgConfig::sqlite3)
-target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world outshine_ui_paint outshine_render_temporal)
+target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world outshine_ui_paint outshine_render_device_native outshine_render_plan outshine_render_temporal)
+target_link_libraries(outshine_render_device_native PUBLIC outshine_render_device_api
+  PRIVATE Threads::Threads PkgConfig::sdl3 PkgConfig::spirv_cross ${SPIRV_CROSS_LIBRARIES})
+target_link_libraries(outshine_render_plan PUBLIC outshine_base outshine_render_device_api)
 target_link_libraries(outshine_render_temporal PUBLIC outshine_base)
 target_link_libraries(outshine_scenario PUBLIC outshine_base outshine_sources outshine_world_entity)
 target_link_libraries(outshine_ui PUBLIC outshine_base outshine_ui_paint PRIVATE PkgConfig::sdl3_ttf)
@@ -111,14 +120,13 @@ target_link_libraries(outshine_world_products PUBLIC outshine_base)
 
 target_link_libraries(outshine_base PUBLIC PkgConfig::geos ZLIB::ZLIB Threads::Threads)
 target_link_libraries(outshine_content PUBLIC PkgConfig::sdl3_image)
-target_link_libraries(outshine_render PUBLIC PkgConfig::sdl3 PkgConfig::sdl3_image
-  PkgConfig::spirv_cross ${SPIRV_CROSS_LIBRARIES})
+target_link_libraries(outshine_render PUBLIC PkgConfig::sdl3 PkgConfig::sdl3_image)
 if(APPLE)
-  target_link_libraries(outshine_render PUBLIC "-framework Foundation" "-framework Metal"
+  target_link_libraries(outshine_render_device_native PRIVATE "-framework Foundation" "-framework Metal"
     "-framework QuartzCore" "-framework CoreGraphics")
 else()
   target_link_libraries(outshine_base PUBLIC OpenSSL::Crypto)
-  target_link_libraries(outshine_render PUBLIC Vulkan::Vulkan)
+  target_link_libraries(outshine_render_device_native PRIVATE Vulkan::Vulkan)
 endif()
 target_link_libraries(outshine_generators_water PUBLIC osqp::osqp)
 target_link_libraries(outshine_generators_road PUBLIC highs::highs)
