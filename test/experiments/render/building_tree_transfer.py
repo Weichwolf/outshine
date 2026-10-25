@@ -100,6 +100,30 @@ def layer_groups(candidate, product, count):
     return groups
 
 
+def group_hits(projected, forward, indices, faces, shape, directions, camera, mask):
+    work = {}
+    depth, owner = raster(
+        projected, forward, indices[faces], *shape, with_faces=True, counters=work
+    )
+    hit = owner.ravel() >= 0
+    if mask is not None:
+        hit &= mask
+    hit = np.flatnonzero(hit)
+    face = faces[owner.ravel()[hit]]
+    z = depth.ravel()[hit]
+    points = camera[0] + (0.1 / z)[:, None] * directions[hit]
+    return hit, face, z, points, work
+
+
+def sample_owners(mask, count):
+    if mask is None:
+        return None
+    mask = np.asarray(mask)
+    if mask.dtype != np.bool_ or mask.shape != (count,):
+        raise ValueError("one explicit boolean owner per quadrature sample required")
+    return mask
+
+
 def transfers(
     candidate,
     original,
@@ -116,11 +140,14 @@ def transfers(
     light=(0.45, -0.5, 0.7),
     intensity=3,
     ambient=0.1,
+    sample_mask=None,
 ):
+    """Masked output is a partial C/T measure, with zero at unowned samples."""
     width, height = map(int, box[1] - box[0])
     sample_count = width * height * supersample**2
     if sample_count > 1048576:
         raise ValueError("bounded diagnostic ray count required")
+    sample_mask = sample_owners(sample_mask, sample_count)
     validate_inputs(appearance, product, coverage)
     projected, forward = project(candidate["positions"], camera)
     if np.any(forward <= 0.1):
@@ -139,22 +166,18 @@ def transfers(
     for group, faces in groups:
         if not len(faces):
             continue
-        traffic = {}
-        depth, owner = raster(
+        hit, face, z, points, traffic = group_hits(
             projected,
             forward,
-            candidate["indices"][faces],
-            width * supersample,
-            height * supersample,
-            with_faces=True,
-            counters=traffic,
+            candidate["indices"],
+            faces,
+            (width * supersample, height * supersample),
+            directions,
+            camera,
+            sample_mask,
         )
         for key, value in traffic.items():
             raster_work[key] += value
-        hit = np.flatnonzero(owner.ravel() >= 0)
-        face = faces[owner.ravel()[hit]]
-        z = depth.ravel()[hit]
-        points = camera[0] + (0.1 / z)[:, None] * directions[hit]
         if coverage is not None and not opaque and group >= 0:
             coverage_lookups += 3 * len(hit)
         rgb, weights, alpha = layer_material(
@@ -204,6 +227,8 @@ def transfers(
     a = np.concatenate(alphas) if alphas else np.empty(0)
     tie = np.concatenate(ties) if ties else np.empty(0, int)
     value, transmission, layers = compose_layers(r, d, c, a, tie, sample_count)
+    if sample_mask is not None:
+        transmission[~sample_mask] = 0
     return {
         "C": average_samples(value, width, height, supersample),
         "T": average_samples(transmission, width, height, supersample),
