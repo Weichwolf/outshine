@@ -119,7 +119,7 @@ bool Moved(SceneRenderer &renderer, Moving what, const Mat4 &ecef, std::string &
   for (size_t part = what.FromPart; part < what.ToPart; ++part) {
     renderer.MoveGeometryPlacement(part * what.Many + what.Which, ecef);
   }
-  return renderer.HandGeometryPlacements(error);
+  return true;
 }
 
 namespace {
