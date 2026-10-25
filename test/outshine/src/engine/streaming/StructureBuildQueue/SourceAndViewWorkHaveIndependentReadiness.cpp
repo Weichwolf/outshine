@@ -126,7 +126,6 @@ int main() {
             ++copies;
             return allowCopy && HeightField::SharesField(field, at, into);
           },
-      .ResidentField = {},
       .Revision = {.Value = 11}};
   Tasks pool(1);
   Generators::BuildingMesh mesher;

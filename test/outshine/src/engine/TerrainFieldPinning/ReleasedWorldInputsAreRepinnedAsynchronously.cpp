@@ -34,7 +34,7 @@ void CheckReleasedInputs(HeightSheets &sheets,
   const Data::TileId tile{.Zoom = 4, .X = 8, .Y = 8};
   Ground::HeightField::Block field;
   const auto posts = pool.Counters().Posts;
-  CHECK(!PinResidentTerrainField(&sheets, ground, tile, field) && pool.Counters().Posts == posts,
+  CHECK(!ground.ResidentStitchedField(tile) && pool.Counters().Posts == posts,
         "a resident-only miss never posts work");
   CHECK(!PinTerrainField(&sheets, ground, tile, field) && !source.CalledOnCaller,
         "an unavailable field is pending without collecting on the caller");
@@ -73,13 +73,12 @@ void CheckReleasedInputs(HeightSheets &sheets,
         "published camera and collision heights survive source release");
   CHECK(retained.Terrain && retained.Terrain->Data()[0] == DelayedTerrainSource::HeightM,
         "an independent worker pin survives world input release");
-  CHECK(PinResidentTerrainField(&sheets, ground, tile, field),
+  CHECK(Ground::HeightField::SharesField(ground.ResidentStitchedField(tile), tile, field),
         "released world inputs can still use the bounded producer cache");
   source.Released = false;
   const Data::TileId moved{.Zoom = 4, .X = 2, .Y = 2};
   const auto residentPosts = pool.Counters().Posts;
-  CHECK(!PinResidentTerrainField(&sheets, ground, moved, field) &&
-            pool.Counters().Posts == residentPosts,
+  CHECK(!ground.ResidentStitchedField(moved) && pool.Counters().Posts == residentPosts,
         "moving beyond held coverage does not turn a resident query into IO");
   CHECK(!PinTerrainField(&sheets, ground, moved, field),
         "new runtime coverage starts as pending rather than an empty finished field");

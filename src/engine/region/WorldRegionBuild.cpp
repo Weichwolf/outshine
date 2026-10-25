@@ -1359,7 +1359,6 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
           [this, &build](Data::TileId tile, Ground::HeightField::Block &into) {
             return PinTerrainField(&build.Sheets, World.Stack.Ground(), tile, into);
           },
-      .ResidentField = {},
       .Revision = {.Value = World.Stack.Pool().TerrainScopeRevision()}};
   const auto landingAt = std::chrono::steady_clock::now();
   auto ready =

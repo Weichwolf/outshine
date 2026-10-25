@@ -123,12 +123,6 @@ bool HeightSheets::ShareSourcedField(Data::TileId tile, Ground::HeightField::Blo
   return SourcedTerrainFields::Share(Fields_, tile, into);
 }
 
-std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>
-HeightSheets::CaptureSourcedFields(std::span<const Ground::TileSpot> requests,
-                                   size_t bytesMost) const {
-  return SourcedTerrainFields::Capture(Fields_, requests, bytesMost, Metadata_);
-}
-
 SourcedTerrainFields HeightSheets::SnapshotSourcedFields() const {
   return SourcedTerrainFields(Fields_, Metadata_);
 }

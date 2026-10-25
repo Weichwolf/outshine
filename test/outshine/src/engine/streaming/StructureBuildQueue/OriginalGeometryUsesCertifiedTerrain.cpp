@@ -134,7 +134,6 @@ int main() {
                 std::ranges::find(fields, tile, &decltype(fields)::value_type::first);
             return found != fields.end() && HeightField::SharesField(found->second, tile, into);
           },
-      .ResidentField = {},
       .Revision = {.Value = 11}};
   CHECK(queue.Posts(stack,
                     prints,

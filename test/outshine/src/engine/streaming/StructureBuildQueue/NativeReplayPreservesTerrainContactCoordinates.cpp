@@ -164,7 +164,6 @@ void Replay(const std::filesystem::path &directory,
             }
             return HeightField::SharesField(field, tile, into);
           },
-      .ResidentField = {},
       .Revision = {.Value = 11}};
   Generators::BuildingMesh mesher;
   StructureBuildQueue queue;

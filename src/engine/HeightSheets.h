@@ -120,8 +120,6 @@ public:
   [[nodiscard]] const Ground::TerrainField *FieldAt(Data::TileId tile) const;
   [[nodiscard]] bool ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
   [[nodiscard]] SourcedTerrainFields SnapshotSourcedFields() const;
-  [[nodiscard]] std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>
-  CaptureSourcedFields(std::span<const Ground::TileSpot> requests, size_t bytesMost) const;
 
   void ForgetsFields() {
     Fields_.clear();

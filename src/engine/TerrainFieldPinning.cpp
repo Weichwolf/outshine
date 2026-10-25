@@ -10,12 +10,4 @@ bool PinTerrainField(const HeightSheets *sheets,
   if (sheets != nullptr && sheets->ShareSourcedField(tile, into)) { return true; }
   return Ground::HeightField::SharesField(source.StitchedField(tile), tile, into);
 }
-
-bool PinResidentTerrainField(const HeightSheets *sheets,
-                             const Ground::GroundStream &source,
-                             Data::TileId tile,
-                             Ground::HeightField::Block &into) {
-  if (sheets != nullptr && sheets->ShareSourcedField(tile, into)) { return true; }
-  return Ground::HeightField::SharesField(source.ResidentStitchedField(tile), tile, into);
-}
 }

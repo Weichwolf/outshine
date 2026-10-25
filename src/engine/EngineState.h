@@ -284,9 +284,6 @@ struct WorldRegionState {
   StructureBuildQueue StructureBuilds;
   size_t StructurePlanAt = 0;
   size_t StructurePlanBurst = 0;
-  size_t StructureCellsPosted = 0;
-  size_t StructureCellsLanded = 0;
-  size_t StructureTilesActivated = 0;
   size_t Relaid = 0;
   size_t Asked = 0;
   double RebuildMs = 0.0;
