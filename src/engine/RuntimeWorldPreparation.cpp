@@ -1,4 +1,3 @@
-#include "ShippedProviders.h"
 #include "EngineState.h"
 #include "Heap.h"
 #include "OfflineTransport.h"
@@ -41,7 +40,6 @@ constexpr double kEastStepDeg = 0.0138;
 }
 
 bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders) {
-  Generators::RegisterShippedProviders(World.Providers);
   std::vector<Data::SourceProvider> osmProviders;
   tileProviders.reserve(Session.Declared.Providers.size());
   osmProviders.reserve(Session.Declared.Providers.size());

@@ -1,3 +1,4 @@
+#include "EngineFactory.h"
 #include <Engine.h>
 #include "Check.h"
 
@@ -15,7 +16,7 @@ int main() {
   if (!std::filesystem::is_directory(directory)) { return Report(); }
 
   {
-    Engine engine;
+    auto engine = App::CreateEngine();
     const bool assembled =
         engine.setRoots({.Assets = "src/assets/drive",
                          .Shipped = "src/assets",

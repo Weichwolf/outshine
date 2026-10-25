@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "PreparedGroundRegions.h"
@@ -89,12 +90,15 @@ int main() {
   SilentSink sink;
   NoRequests wire;
   Tasks compute(1);
+  Data::ProviderRegistry registry;
+  Generators::RegisterShippedProviders(registry);
   Ground::SurfacePreparation stack;
   const auto open = [&] {
     return stack.Open({.Shipped = "src/assets",
                        .Cache = (cache.Path / "sources").string(),
                        .AssetCache = (cache.Path / "assets").string()},
                       {},
+                      registry,
                       {},
                       wire,
                       compute,

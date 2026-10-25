@@ -1,3 +1,4 @@
+#include "EngineFactory.h"
 #include "Engine.h"
 #include "ScenarioRead.h"
 #include "GeographicBounds.h"
@@ -68,7 +69,7 @@ int main() {
                   "</providers></scenario>"},
   };
 
-  Engine engine;
+  auto engine = App::CreateEngine();
   Scenario::Document document;
   document.Named.Name = "previous";
   document.Providers.push_back({.Kind = "vector",

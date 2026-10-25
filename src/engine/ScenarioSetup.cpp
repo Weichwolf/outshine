@@ -8,7 +8,6 @@
 #include "WorldValidation.h"
 #include "OsmValidation.h"
 #include "SourceProviderValidation.h"
-#include "ShippedProviders.h"
 #include "RouteValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineState.h"
@@ -602,7 +601,6 @@ PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std:
 Result Engine::declare(const Scenario::Document &scenario) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  Generators::RegisterShippedProviders(S_->World.Providers);
   if (const auto valid = ValidateDeclarationInputs(scenario, S_->World.Providers); !valid) {
     return valid;
   }

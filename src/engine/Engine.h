@@ -186,6 +186,7 @@ private:
 class Engine {
 public:
   Engine();
+  explicit Engine(Data::ProviderRegistry providers);
 
   ~Engine();
   Engine(Engine &&) = delete;

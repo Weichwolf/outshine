@@ -161,6 +161,9 @@ int main() {
     CHECK(engine.setRoots(std::move(roots)), "offline roots configured");
     CHECK(engine.setRenderTarget(Extent{64, 64}), "offscreen target configured");
     Scenario::Document scene;
+    Data::SourceProvider selected;
+    selected.Kind = "terrain";
+    scene.Providers.push_back(std::move(selected));
     scene.Ground.Declared = true;
     scene.Ground.VegetationEnabled = false;
     scene.Ground.Origin.LatitudeDeg = 47;

@@ -73,13 +73,13 @@ public:
 
   [[nodiscard]] bool Open(const World::StoragePaths &under,
                           std::span<const Data::SourceProvider> providers,
+                          const Data::ProviderRegistry &registry,
                           LongitudeLatitude focus,
                           Data::Transport &wire,
                           Tasks &compute,
                           Sink &say,
                           LogSink *diagnostics,
-                          double patienceS = 0.0,
-                          const Data::ProviderRegistry *registry = nullptr);
+                          double patienceS = 0.0);
   [[nodiscard]] bool OpenSession(const World::StoragePaths &under,
                                  std::shared_ptr<Data::SourceSession> session,
                                  LongitudeLatitude focus,

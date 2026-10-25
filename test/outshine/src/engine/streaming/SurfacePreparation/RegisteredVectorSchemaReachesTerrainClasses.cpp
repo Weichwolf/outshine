@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "Sink.h"
@@ -79,10 +80,13 @@ int main() {
   source.Schema = "openmaptiles";
   const std::array providers{source};
   Tasks compute(1);
+  Data::ProviderRegistry registry;
+  Generators::RegisterShippedProviders(registry);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 1, .LatitudeDeg = 1};
   CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
                    providers,
+                   registry,
                    focus,
                    wire,
                    compute,

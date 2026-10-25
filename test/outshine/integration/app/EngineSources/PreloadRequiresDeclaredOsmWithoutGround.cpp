@@ -1,3 +1,4 @@
+#include "EngineFactory.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
 #include "Check.h"
@@ -28,7 +29,7 @@ int main() {
          .Location = "src/assets/world/osm/HockenheimringGrandPrix.osm",
          .Coverage = GeographicBounds{
              .WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34}});
-    Engine local;
+    auto local = App::CreateEngine();
     CHECK(local.setRoots({.Shipped = ".", .Cache = directory, .Offline = true}) &&
               local.setRenderTarget({64, 64}) && local.declare(scene) && local.assemble(),
           "groundless scene queues original source and graph");
@@ -54,7 +55,7 @@ int main() {
 
     scene.Providers.front().Location.clear();
     scene.Providers.front().Endpoint = "https://api.openstreetmap.org/api/0.6";
-    Engine missing;
+    auto missing = App::CreateEngine();
     CHECK(missing.setRoots({.Cache = directory, .Offline = true}) &&
               missing.setRenderTarget({64, 64}) && missing.declare(scene) && missing.assemble(),
           "offline remote declaration assembles without fetching or a fallback");
@@ -66,7 +67,7 @@ int main() {
 
     scene.Providers.front().Endpoint.clear();
     scene.Providers.front().Location = "missing-original-preload.osm";
-    Engine invalid;
+    auto invalid = App::CreateEngine();
     CHECK(invalid.setRoots({.Shipped = directory, .Offline = true}) &&
               invalid.setRenderTarget({64, 64}) && invalid.declare(scene) && invalid.assemble(),
           "missing local source remains an asynchronous request");

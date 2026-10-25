@@ -1,4 +1,3 @@
-#include "ShippedProviders.h"
 #include <algorithm>
 #include <expected>
 #include <array>
@@ -97,13 +96,13 @@ std::expected<void, std::string> SurfacePreparation::BindAssetCaches(const std::
 
 bool SurfacePreparation::Open(const World::StoragePaths &under,
                               std::span<const Data::SourceProvider> providers,
+                              const Data::ProviderRegistry &registry,
                               LongitudeLatitude focus,
                               Data::Transport &wire,
                               Tasks &compute,
                               Sink &say,
                               LogSink *diagnostics,
-                              double patienceS,
-                              const Data::ProviderRegistry *registry) {
+                              double patienceS) {
   const auto position = Generators::Osm::OsmField::Locate(focus, kFineZoom);
   if (!position) {
     say.Refuse(std::string(position.error()));
@@ -114,12 +113,8 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
     say.Refuse(std::string(config.error()));
     return false;
   }
-  Data::ProviderRegistry defaults;
-  if (registry == nullptr) { Generators::RegisterShippedProviders(defaults); }
-  auto sources = Data::SourceSession::Open({.Directory = under.Cache},
-                                           providers,
-                                           under.Shipped,
-                                           registry != nullptr ? *registry : defaults);
+  auto sources =
+      Data::SourceSession::Open({.Directory = under.Cache}, providers, under.Shipped, registry);
   if (!sources) {
     say.Refuse(sources.error());
     return false;

@@ -1,3 +1,4 @@
+#include "EngineFactory.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
 #include "Check.h"
@@ -10,7 +11,7 @@ int main() {
 
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
-    Engine engine;
+    auto engine = App::CreateEngine();
     Scenario::Document document;
     Scenario::View view;
     view.Id = "source-probe";
@@ -56,7 +57,7 @@ int main() {
 
     Scenario::Document simulationOnly = document;
     simulationOnly.Views.clear();
-    Engine headless;
+    auto headless = App::CreateEngine();
     CHECK(headless.setRoots({.Shipped = ".", .Offline = true}) &&
               headless.declare(simulationOnly) && headless.assemble(),
           "renderer-free simulation queues the same semantic source");

@@ -1,3 +1,4 @@
+#include "EngineFactory.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
 
@@ -97,7 +98,7 @@ int main() {
   scene.Providers.push_back(terrain);
   FlatTerrainProvider terrainProvider;
   {
-    Engine engine;
+    auto engine = App::CreateEngine();
     CHECK(engine.registerProvider(terrainProvider), "local terrain provider registers");
     CHECK(engine.setRoots(roots) && engine.setRenderTarget(scene.Render.Frame) &&
               engine.declare(scene) && engine.assemble(),
