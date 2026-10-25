@@ -351,8 +351,11 @@ uint64_t HeightSheets::Digest() const {
 }
 
 size_t HeightSheets::HeapBytes(TerrainHeapScope scope) const noexcept {
-  size_t bytes = Residency_.HeapBytes(scope) +
-                 Fields_.capacity() * sizeof(decltype(Fields_)::value_type) +
+  return Residency_.HeapBytes(scope) + SourceHeapBytes();
+}
+
+size_t HeightSheets::SourceHeapBytes() const noexcept {
+  size_t bytes = Fields_.capacity() * sizeof(decltype(Fields_)::value_type) +
                  Requests_.capacity() * sizeof(FieldRequest);
   if (Metadata_) { bytes += Metadata_->HeapBytes(); }
   for (const auto &entry : Fields_) {

@@ -113,6 +113,9 @@ void Engine::State::PublishGroundCandidateMeasurements(const GroundWorldCandidat
   for (size_t at = 0; at < names.size(); ++at) {
     Published.RecordMetric(names[at], static_cast<double>(bytes[at]), "bytes");
   }
+  Published.RecordMetric("ground candidate: peak candidate terrain sources",
+                         static_cast<double>(state.ProductPeakTerrainSources()),
+                         "bytes");
   Published.RecordMetric("ground candidate: CPU products retained for retirement",
                          static_cast<double>(state.RetainedProductBytes()),
                          "bytes");
