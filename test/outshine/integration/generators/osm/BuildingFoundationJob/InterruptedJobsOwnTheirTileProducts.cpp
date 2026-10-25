@@ -1,6 +1,6 @@
 #include "BuildingField.h"
 #include "BuildingPhysicalProduct.h"
-#include "BuildingStampJob.h"
+#include "BuildingFoundationJob.h"
 #include "Check.h"
 
 #include <array>
@@ -59,35 +59,21 @@ int main() {
   const auto owners = Populate(field);
   const uint64_t revision = field.Revision();
   const auto frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
-  std::optional<Generators::BuildingStampJob> job{std::in_place, frame, revision};
-  const auto started = job->Advance({.Products = &field,
-                                     .Footprints = {},
-                                     .Points = {},
-                                     .Rings = {},
-                                     .VectorGeneration = revision,
-                                     .UnitsMost = 1});
+  std::optional<Generators::BuildingFoundationJob> job{
+      std::in_place, frame, revision, field.PinProducts()};
+  const auto started = job->Advance({.Generation = revision, .UnitsMost = 1});
   CHECK(started && !*started, "one bounded unit starts a product-owned stamp job");
   const size_t beforeFailedTake = job->HeapBytes();
   CHECK(!job->Take() && job->HeapBytes() == beforeFailedTake,
         "failed transfer preserves partial outputs and product pins");
-  const auto resumed = job->Advance({.Products = &field,
-                                     .Footprints = {},
-                                     .Points = {},
-                                     .Rings = {},
-                                     .VectorGeneration = revision,
-                                     .UnitsMost = 1});
+  const auto resumed = job->Advance({.Generation = revision, .UnitsMost = 1});
   CHECK(resumed && !*resumed, "the same input continues after an incomplete transfer");
   field.ResetDerived();
   CHECK(!owners[0].Physical.expired() && !owners[1].Physical.expired() &&
             !owners[0].Coordinates.expired() && !owners[1].Coordinates.expired(),
         "an interrupted job pins all physical products and their corresponding geometry");
-  CHECK(!job->Advance({.Products = &field,
-                       .Footprints = {},
-                       .Points = {},
-                       .Rings = {},
-                       .VectorGeneration = revision,
-                       .UnitsMost = 1}),
-        "changing source dimensions still refuses continuation instead of mixing products");
+  CHECK(!job->Advance({.Generation = field.Revision(), .UnitsMost = 1}),
+        "a changed publication generation refuses continuation of retained products");
   job.reset();
   CHECK(owners[0].Physical.expired() && owners[1].Physical.expired() &&
             owners[0].Coordinates.expired() && owners[1].Coordinates.expired(),
@@ -96,16 +82,11 @@ int main() {
   const auto completedOwners = Populate(field);
   Field snapshot = field.SnapshotAccepted();
   const uint64_t stableRevision = snapshot.Revision();
-  Generators::BuildingStampJob complete(frame, stableRevision);
+  Generators::BuildingFoundationJob complete(frame, stableRevision, snapshot.PinProducts());
   field.ResetDerived();
   bool done = false;
   for (size_t step = 0; step < kStepBudget && !done; ++step) {
-    const auto advanced = complete.Advance({.Products = &snapshot,
-                                            .Footprints = {},
-                                            .Points = {},
-                                            .Rings = {},
-                                            .VectorGeneration = stableRevision,
-                                            .UnitsMost = 1});
+    const auto advanced = complete.Advance({.Generation = stableRevision, .UnitsMost = 1});
     CHECK(advanced.has_value(), "stable per-tile spans advance across every interruption");
     if (!advanced) { break; }
     done = *advanced;
@@ -116,29 +97,11 @@ int main() {
   const auto repeated = complete.Take();
   CHECK(repeated && repeated->empty() && complete.HeapBytes() == 0,
         "repeated transfer returns no second product and retains no heap storage");
-  const auto alreadyDone = complete.Advance({.Products = &snapshot,
-                                             .Footprints = {},
-                                             .Points = {},
-                                             .Rings = {},
-                                             .VectorGeneration = stableRevision,
-                                             .UnitsMost = 1});
+  const auto alreadyDone = complete.Advance({.Generation = stableRevision, .UnitsMost = 1});
   CHECK(alreadyDone && *alreadyDone, "the same completed input stays done after transfer");
-  {
-    const Field other = snapshot.SnapshotAccepted();
-    CHECK(!complete.Advance({.Products = &other,
-                             .Footprints = {},
-                             .Points = {},
-                             .Rings = {},
-                             .VectorGeneration = stableRevision,
-                             .UnitsMost = 1}),
-          "completed transfer preserves source identity checks");
-  }
-  CHECK(!complete.Advance({.Products = &snapshot,
-                           .Footprints = {},
-                           .Points = {},
-                           .Rings = {},
-                           .VectorGeneration = stableRevision + 1,
-                           .UnitsMost = 1}),
+  CHECK(!complete.Advance({.Generation = stableRevision + 1, .UnitsMost = 1}),
+        "completed jobs retain their publication generation check");
+  CHECK(!complete.Advance({.Generation = stableRevision + 1, .UnitsMost = 1}),
         "completed transfer preserves generation checks");
   snapshot.ResetDerived();
   CHECK(completedOwners[0].Physical.expired() && completedOwners[1].Physical.expired() &&

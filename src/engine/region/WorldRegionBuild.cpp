@@ -44,7 +44,7 @@
 #include "geo/PlaceKey.h"
 #include "spatial/Refine.h"
 #include "Corridors.h"
-#include "BuildingStampJob.h"
+#include "BuildingFoundationJob.h"
 #include "TerrainMesh.h"
 #include "TerrainDeformation.h"
 #include "TerrainDeformationTask.h"
@@ -610,16 +610,11 @@ Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
                                          std::vector<EarthworkStamp> &yielding) {
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.BuildingEarthworks() == nullptr) {
-    state.BeginBuildingEarthworks(
-        std::make_unique<Generators::BuildingStampJob>(standing, state.Footprints().Revision()));
+    state.BeginBuildingEarthworks(std::make_unique<Generators::BuildingFoundationJob>(
+        standing, state.Footprints().Revision(), state.Footprints().PinProducts()));
   }
-  const auto advanced =
-      state.BuildingEarthworks()->Advance({.Products = &state.Footprints(),
-                                           .Footprints = {},
-                                           .Points = {},
-                                           .Rings = {},
-                                           .VectorGeneration = state.Footprints().Revision(),
-                                           .UnitsMost = kEarthworkStampUnitsPerFrame});
+  const auto advanced = state.BuildingEarthworks()->Advance(
+      {.Generation = state.Footprints().Revision(), .UnitsMost = kEarthworkStampUnitsPerFrame});
   if (!advanced) {
     Error = std::string(advanced.error());
     return GroundBuildProgress::Failed;

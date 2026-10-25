@@ -1,4 +1,5 @@
-#include "BuildingStampJob.h"
+#include "BuildingFoundationFixture.h"
+#include "BuildingFoundationJob.h"
 #include "Check.h"
 #include <array>
 #include <utility>
@@ -23,14 +24,11 @@ int main() {
   prints[2] = prints[0];
   prints[2].HeightM = 0;
   const auto frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
-  Generators::BuildingStampJob job(frame, 1);
+  Generators::BuildingFoundationJob job(
+      frame, 1, ::outshine::Test::FoundationProducts(prints, points, {}));
   bool done = false;
   for (int step = 0; step < kStepBudget && !done; ++step) {
-    const auto advanced = job.Advance({.Footprints = prints,
-                                       .Points = points,
-                                       .Rings = {},
-                                       .VectorGeneration = 1,
-                                       .UnitsMost = 1});
+    const auto advanced = job.Advance({.Generation = 1, .UnitsMost = 1});
     CHECK(advanced.has_value(), "signed footprints keep their source across interruptions");
     if (!advanced) { return Report(); }
     done = *advanced;

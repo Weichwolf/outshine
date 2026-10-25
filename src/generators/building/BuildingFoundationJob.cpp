@@ -1,4 +1,4 @@
-#include "BuildingStampJob.h"
+#include "BuildingFoundationJob.h"
 #include "BuildingPhysicalProduct.h"
 
 #include "Units.h"
@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <expected>
 #include <span>
 #include <string_view>
@@ -19,58 +20,66 @@ namespace {
 constexpr double kPadApronM = 6.0;
 }
 
-std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
-  const size_t footprintCount =
-      work.Products != nullptr ? work.Products->FootprintCount() : work.Footprints.size();
-  const auto points = work.Points;
-  if (work.VectorGeneration != VectorGeneration_) {
-    return std::unexpected("building stamps require their pinned vector generation");
+std::expected<void, std::string_view> BuildingFoundationJob::PrepareProducts() {
+  FootprintCount_ = 0;
+  for (const auto &product : PinnedProducts_) {
+    if (!product.Physical || product.FirstFootprint != FootprintCount_) {
+      return std::unexpected("building foundation product ranges are invalid");
+    }
+    const auto count = product.Physical->Prints.size();
+    if (count > std::numeric_limits<size_t>::max() - FootprintCount_) {
+      return std::unexpected("building foundation product range overflows");
+    }
+    if (count != 0 && !product.Coordinates) {
+      return std::unexpected("building footprint has no pinned geometry");
+    }
+    FootprintCount_ += count;
   }
-  if (work.UnitsMost == 0) { return std::unexpected("building stamp work budget is zero"); }
+  Phase_ = Phase::Choose;
+  return {};
+}
+
+std::expected<bool, std::string_view> BuildingFoundationJob::Advance(Work work) {
+  if (work.Generation != Generation_) {
+    return std::unexpected("building foundations require their pinned input generation");
+  }
+  if (work.UnitsMost == 0) { return std::unexpected("building foundation work budget is zero"); }
   if (Phase_ == Phase::Unstarted) {
-    Products_ = work.Products;
-    FootprintCount_ = footprintCount;
-    if (Products_ != nullptr) { PinnedProducts_ = Products_->PinProducts(); }
-    PointCount_ = points.size();
-    RingCount_ = work.Rings.size();
-    Phase_ = Phase::Choose;
-  } else if (Products_ != work.Products || FootprintCount_ != footprintCount ||
-             PointCount_ != points.size() || RingCount_ != work.Rings.size()) {
-    return std::unexpected("building stamp source dimensions changed during construction");
+    if (const auto prepared = PrepareProducts(); !prepared) {
+      return std::unexpected(prepared.error());
+    }
   }
   for (size_t visited = 0; visited < work.UnitsMost && Phase_ != Phase::Done; ++visited) {
-    if (const auto step = AdvanceStep(work); !step) { return std::unexpected(step.error()); }
+    if (const auto step = AdvanceStep(); !step) { return std::unexpected(step.error()); }
   }
   if (Phase_ == Phase::Choose && NextFootprint_ == FootprintCount_) { Phase_ = Phase::Done; }
   return Phase_ == Phase::Done;
 }
 
-std::expected<void, std::string_view> BuildingStampJob::SelectProduct() {
-  if (Products_ != nullptr) {
-    while (NextProduct_ < PinnedProducts_.size()) {
-      const auto &product = PinnedProducts_[NextProduct_];
-      if (NextFootprint_ < product.FirstFootprint + product.Physical->Prints.size()) { break; }
-      ++NextProduct_;
-    }
-    if (NextProduct_ == PinnedProducts_.size() || !PinnedProducts_[NextProduct_].Coordinates) {
-      return std::unexpected("building footprint has no pinned geometry");
-    }
+std::expected<void, std::string_view> BuildingFoundationJob::SelectProduct() {
+  while (NextProduct_ < PinnedProducts_.size()) {
     const auto &product = PinnedProducts_[NextProduct_];
-    Geometry_ = product.Coordinates.get();
-    ProductFootprint_ = &product.Physical->Prints[NextFootprint_ - product.FirstFootprint];
+    if (NextFootprint_ < product.FirstFootprint + product.Physical->Prints.size()) { break; }
+    ++NextProduct_;
   }
+  if (NextProduct_ == PinnedProducts_.size()) {
+    return std::unexpected("building footprint has no pinned geometry");
+  }
+  const auto &product = PinnedProducts_[NextProduct_];
+  Geometry_ = product.Coordinates.get();
+  ProductFootprint_ = &product.Physical->Prints[NextFootprint_ - product.FirstFootprint];
   return {};
 }
 
-std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
+std::expected<void, std::string_view> BuildingFoundationJob::Choose() {
   if (NextFootprint_ == FootprintCount_) {
     Phase_ = Phase::Done;
     return {};
   }
   if (const auto selected = SelectProduct(); !selected) { return selected; }
-  const auto points = PointsOf(work);
-  const auto rings = RingsOf(work);
-  const auto &footprint = FootprintOf(work);
+  const auto points = PointsOf();
+  const auto rings = RingsOf();
+  const auto &footprint = FootprintOf();
   const size_t first = footprint.FirstPoint;
   const size_t count = footprint.PointCount;
   if (footprint.MinimumHeightM > 0.0f ||
@@ -111,9 +120,9 @@ std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
   return {};
 }
 
-std::expected<void, std::string_view> BuildingStampJob::AppendOuterPoint(Work work) {
-  const auto &footprint = FootprintOf(work);
-  const auto points = PointsOf(work);
+std::expected<void, std::string_view> BuildingFoundationJob::AppendOuterPoint() {
+  const auto &footprint = FootprintOf();
+  const auto points = PointsOf();
   const size_t point = static_cast<size_t>(footprint.FirstPoint) + NextPoint_;
   const EastNorthUp seated =
       Part_ != nullptr ? PartPosition(Part_->Ring[NextPoint_])
@@ -165,18 +174,18 @@ std::expected<void, std::string_view> BuildingStampJob::AppendOuterPoint(Work wo
   return {};
 }
 
-std::expected<void, std::string_view> BuildingStampJob::AdvanceStep(Work work) {
+std::expected<void, std::string_view> BuildingFoundationJob::AdvanceStep() {
   switch (Phase_) {
-    case Phase::Choose: return Choose(work);
-    case Phase::Ring: return AppendOuterPoint(work);
+    case Phase::Choose: return Choose();
+    case Phase::Ring: return AppendOuterPoint();
     case Phase::Holes:
-      if (const auto appended = AppendHolePoint(work); !appended) { return appended; }
-      if (NextHole_ == HoleCount(work)) { FinishStamp(); }
+      if (const auto appended = AppendHolePoint(); !appended) { return appended; }
+      if (NextHole_ == HoleCount()) { FinishStamp(); }
       return {};
     case Phase::Seam:
       Current_.SeamEastNorthM.push_back(Current_.RingEastNorthM[NextSeam_++]);
       if (NextSeam_ == Current_.RingEastNorthM.size()) {
-        if (HoleCount(work) == 0) {
+        if (HoleCount() == 0) {
           FinishStamp();
         } else {
           NextPoint_ = 0;
@@ -190,7 +199,7 @@ std::expected<void, std::string_view> BuildingStampJob::AdvanceStep(Work work) {
   return std::unexpected("building stamp phase is invalid");
 }
 
-void BuildingStampJob::FinishStamp() {
+void BuildingFoundationJob::FinishStamp() {
   FinishedHeapBytes_ += Current_.HeapBytes();
   Stamps_.push_back(std::move(Current_));
   Current_ = EarthworkStamp{};
@@ -203,7 +212,7 @@ void BuildingStampJob::FinishStamp() {
   Phase_ = Phase::Choose;
 }
 
-std::expected<void, std::string_view> BuildingStampJob::AppendHolePoint(Work work) {
+std::expected<void, std::string_view> BuildingFoundationJob::AppendHolePoint() {
   if (Part_ != nullptr) {
     const auto &hole = Part_->Holes[NextHole_];
     if (hole.size() < 3) { return std::unexpected("building terrain courtyard is invalid"); }
@@ -221,9 +230,9 @@ std::expected<void, std::string_view> BuildingStampJob::AppendHolePoint(Work wor
     }
     return {};
   }
-  const auto &footprint = FootprintOf(work);
-  const auto points = PointsOf(work);
-  const auto &ring = RingsOf(work)[static_cast<size_t>(footprint.FirstHole) + NextHole_];
+  const auto &footprint = FootprintOf();
+  const auto points = PointsOf();
+  const auto &ring = RingsOf()[static_cast<size_t>(footprint.FirstHole) + NextHole_];
   if (ring.Exterior || ring.Count < 3 || ring.First > points.size() / 2 ||
       ring.Count > points.size() / 2 - ring.First) {
     return std::unexpected("building courtyard coordinates are invalid");
@@ -245,7 +254,7 @@ std::expected<void, std::string_view> BuildingStampJob::AppendHolePoint(Work wor
   return {};
 }
 
-std::expected<std::vector<EarthworkStamp>, std::string_view> BuildingStampJob::Take() {
+std::expected<std::vector<EarthworkStamp>, std::string_view> BuildingFoundationJob::Take() {
   if (Phase_ != Phase::Done) { return std::unexpected("building stamps are incomplete"); }
   FinishedHeapBytes_ = 0;
   PinnedProducts_ = decltype(PinnedProducts_){};
@@ -254,7 +263,7 @@ std::expected<std::vector<EarthworkStamp>, std::string_view> BuildingStampJob::T
   return std::exchange(Stamps_, {});
 }
 
-size_t BuildingStampJob::HeapBytes() const noexcept {
+size_t BuildingFoundationJob::HeapBytes() const noexcept {
   return Stamps_.capacity() * sizeof(EarthworkStamp) + FinishedHeapBytes_ + Current_.HeapBytes() +
          PinnedProducts_.capacity() * sizeof(::outshine::Ground::BuildingProductLease);
 }

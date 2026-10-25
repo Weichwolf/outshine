@@ -1,4 +1,5 @@
-#include "BuildingStampJob.h"
+#include "BuildingFoundationFixture.h"
+#include "BuildingFoundationJob.h"
 #include "Check.h"
 
 #include <array>
@@ -36,37 +37,19 @@ int main() {
   const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
   std::optional<std::vector<EarthworkStamp>> oracle;
   for (const size_t budget : {size_t{1}, size_t{7}, size_t{1024}}) {
-    Generators::BuildingStampJob job(frame, kRevision);
-    CHECK(!job.Advance({.Footprints = prints,
-                        .Points = points,
-                        .Rings = {},
-                        .VectorGeneration = 43,
-                        .UnitsMost = budget})
-               .has_value(),
+    auto products = ::outshine::Test::FoundationProducts(prints, points, {});
+    const size_t inputBytes = products.capacity() * sizeof(Ground::BuildingProductLease);
+    Generators::BuildingFoundationJob job(frame, kRevision, std::move(products));
+    CHECK(!job.Advance({.Generation = 43, .UnitsMost = budget}).has_value(),
           "changed vector generation refuses an incomplete stamp job");
     CHECK(!job.Take().has_value(), "partial building stamps cannot publish");
     if (budget == 1) {
-      const auto started = job.Advance({.Footprints = prints,
-                                        .Points = points,
-                                        .Rings = {},
-                                        .VectorGeneration = kRevision,
-                                        .UnitsMost = budget});
+      const auto started = job.Advance({.Generation = kRevision, .UnitsMost = budget});
       CHECK(started.has_value() && !*started, "one work unit leaves the pad incomplete");
-      CHECK(!job.Advance({.Footprints = std::span(prints).first(2),
-                          .Points = points,
-                          .Rings = {},
-                          .VectorGeneration = kRevision,
-                          .UnitsMost = budget})
-                 .has_value(),
-            "source dimensions cannot change within a candidate");
     }
     bool done = false;
     for (size_t step = 0; step < kStepBudget && !done; ++step) {
-      const auto advanced = job.Advance({.Footprints = prints,
-                                         .Points = points,
-                                         .Rings = {},
-                                         .VectorGeneration = kRevision,
-                                         .UnitsMost = budget});
+      const auto advanced = job.Advance({.Generation = kRevision, .UnitsMost = budget});
       CHECK(advanced.has_value(), "pinned building stamp source advances");
       if (!advanced) { break; }
       done = *advanced;
@@ -80,7 +63,8 @@ int main() {
     if (!stamps || stamps->size() != 2) { continue; }
     size_t actualBytes = stamps->capacity() * sizeof(EarthworkStamp);
     for (const auto &stamp : *stamps) { actualBytes += stamp.HeapBytes(); }
-    CHECK(retainedBytes == actualBytes, "incremental heap accounting matches the owned stamps");
+    CHECK(retainedBytes == actualBytes + inputBytes,
+          "heap accounting includes owned input leases and output stamps");
     CHECK(job.HeapBytes() == 0, "transferred stamps retain no diagnostic ownership");
     const EastNorthUp first =
         frame.ToLocalPosition({.LongitudeDeg = points[1], .LatitudeDeg = points[0], .HeightM = 12});

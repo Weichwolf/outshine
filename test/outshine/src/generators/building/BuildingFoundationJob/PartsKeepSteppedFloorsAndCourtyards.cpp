@@ -1,4 +1,5 @@
-#include "BuildingStampJob.h"
+#include "BuildingFoundationFixture.h"
+#include "BuildingFoundationJob.h"
 #include "Check.h"
 #include "Geodesy.h"
 #include <array>
@@ -47,15 +48,12 @@ int main() {
       .TerrainContacts = {
           .Parts = std::make_shared<const std::vector<Ground::BuildingTerrainPart>>(parts)}}};
   const auto frame = TangentFrame::At({.LongitudeDeg = 9, .LatitudeDeg = 48});
-  BuildingStampJob job(frame, kRevision);
+  BuildingFoundationJob job(
+      frame, kRevision, ::outshine::Test::FoundationProducts(footprints, points, {}));
   bool complete = false;
   size_t calls = 0;
   while (!complete && calls < kStepBudget) {
-    const auto advanced = job.Advance({.Footprints = footprints,
-                                       .Points = points,
-                                       .Rings = {},
-                                       .VectorGeneration = kRevision,
-                                       .UnitsMost = 1});
+    const auto advanced = job.Advance({.Generation = kRevision, .UnitsMost = 1});
     CHECK(advanced, "each bounded part-vertex step succeeds");
     if (!advanced) { return Report(); }
     complete = *advanced;

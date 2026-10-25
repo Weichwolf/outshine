@@ -1,4 +1,5 @@
-#include "BuildingStampJob.h"
+#include "BuildingField.h"
+#include "BuildingFoundationJob.h"
 #include "Check.h"
 
 #include <array>
@@ -21,7 +22,7 @@ int main() {
   field.AnchorAt({{1, 2, 3}});
   std::array<std::weak_ptr<const Ground::BuildingGeometry>, 2> owners;
   for (uint32_t tile = 0; tile < 2; ++tile) {
-    auto geometry = std::make_shared<Ground::BuildingGeometry>();
+    const auto geometry = std::make_shared<Ground::BuildingGeometry>();
     const double longitude = static_cast<double>(tile) * 0.01;
     geometry->OwnCoordinates({0,
                               longitude,
@@ -49,15 +50,10 @@ int main() {
   CHECK(!owners[0].expired() && !owners[1].expired(),
         "accepted products retain geometry after producer reset");
   const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
-  Generators::BuildingStampJob job(frame, snapshot.Revision());
+  Generators::BuildingFoundationJob job(frame, snapshot.Revision(), snapshot.PinProducts());
   bool done = false;
   for (size_t step = 0; step < kStepBudget && !done; ++step) {
-    const auto advanced = job.Advance({.Products = &snapshot,
-                                       .Footprints = {},
-                                       .Points = {},
-                                       .Rings = {},
-                                       .VectorGeneration = snapshot.Revision(),
-                                       .UnitsMost = 1});
+    const auto advanced = job.Advance({.Generation = snapshot.Revision(), .UnitsMost = 1});
     CHECK(advanced.has_value(), "product-owned stamp advances without an external point buffer");
     if (!advanced) { break; }
     done = *advanced;
