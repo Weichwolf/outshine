@@ -4,6 +4,8 @@
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -11,6 +13,8 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  constexpr double kNearPlaneM = 0.1;
+  constexpr double kCameraOffsetM = 1.5;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
     Geometry geometry;
@@ -24,6 +28,7 @@ int main() {
     declaration.Outputs = {"sceneLinear"};
     declaration.Surfacing.front().Unlit = true;
     Render::SceneRenderer renderer;
+    const auto uploadBudget = renderer.OfflineUploads(std::chrono::seconds(5));
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
@@ -33,7 +38,7 @@ int main() {
       eye.EyeM = {{0, 0, 4}};
       eye.Kind = Render::CameraKind::Orthographic;
       eye.XMagM = eye.YMagM = 2;
-      eye.ZNearM = 0.1;
+      eye.ZNearM = kNearPlaneM;
       eye.ZFarM = 10;
       scene->Eye(eye);
       CHECK(scene->Draw(error), "published world draws before replacement");
@@ -65,7 +70,7 @@ int main() {
         CHECK(prepared.has_value(),
               prepared ? "camera replacement prepares" : prepared.error().c_str());
         if (prepared) {
-          eye.EyeM[0] = 1.5;
+          eye.EyeM[0] = kCameraOffsetM;
           scene->Eye(eye);
           CHECK(scene->Advance(error) && scene->Draw(error),
                 "published camera advances while a replacement builds");
