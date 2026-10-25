@@ -23,6 +23,7 @@ foreach(source IN LISTS cases)
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
   if(name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
+      OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
       OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex")
     target_sources(${target} PRIVATE test/harness/shared/CppAllocationProbe.cpp)
   endif()
