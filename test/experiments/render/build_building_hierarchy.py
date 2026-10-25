@@ -97,11 +97,12 @@ def write_nodes(root, tree, nodes, ready, frame, values, at):
     return files, report
 
 
-def case(parent, cell, output, at, *, make_queries=queries):
+def build_case(parent, cells, output, at, *, make_queries=queries):
     wall, cpu = time.perf_counter(), time.process_time()
     output.mkdir()
     before_reads = parent.form_reads
-    ids, bounds, frame = source_bounds(parent.plans, {cell})
+    cells = set(cells)
+    ids, bounds, frame = source_bounds(parent.plans, cells)
     tree = build_tree(ids, bounds)
     digest = hashlib.sha256(b"building-tree-recipe-1" + parent.archive_sha256.encode())
     for array in (*tree.values(), frame["basis"], frame["anchor"]):
@@ -122,7 +123,7 @@ def case(parent, cell, output, at, *, make_queries=queries):
         if tree["node_sources"][n, 1] > 1
         for i in sources_at(tree, n)
     }
-    masses, forms, read = prepare_sources(parent, {cell}, requested, frame)
+    masses, forms, read = prepare_sources(parent, cells, requested, frame)
     demanded = {int(n) for cut in cuts for n in cut}
     parents = {n for n in demanded if tree["node_sources"][n, 1] > 1}
     ready = {
@@ -149,7 +150,7 @@ def case(parent, cell, output, at, *, make_queries=queries):
         )
     np.savez(output / "tree.npz", **tree, **frame)
     report = {
-        "cell": cell,
+        "cells": sorted(cells),
         "sources": len(frame["selected_sources"]),
         "node_files": files,
         "node_products": node_work,
@@ -170,6 +171,12 @@ def case(parent, cell, output, at, *, make_queries=queries):
             "peak_bytes": peak_rss_bytes(),
         },
     }
+    return report
+
+
+def case(parent, cell, output, at, *, make_queries=queries):
+    report = build_case(parent, {cell}, output, at, make_queries=make_queries)
+    report["cell"] = report.pop("cells")[0]
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     return report
 
