@@ -173,18 +173,50 @@ class BuildingMassMaterials(unittest.TestCase):
                 parents.append(parent)
             return original(parent, name)
 
-        with patch.object(ParentInputs, "member", member):
+        with (
+            patch.object(ParentInputs, "member", member),
+            patch(
+                "building_mass_appearance.source_measure", wraps=source_measure
+            ) as measured,
+        ):
             arrays, report = cook(path, {33}, product, self.at)
         self.assertEqual(len(reads), 2)
         self.assertNotIn("member", vars(parents[0]))
-        self.assertEqual(report["supported_groups"], 74)
+        self.assertEqual(report["supported_groups"], len(product["group_offsets"]) - 1)
         self.assertEqual(report["form_reads"], 1)
         self.assertTrue(arrays["supported"].all())
-        self.assertEqual(report["sources_with_measures"], 413)
-        self.assertEqual(report["retained_sources_without_new_material_work"], 163)
+        self.assertEqual(report["sources_with_measures"], len(product["group_sources"]))
+        self.assertEqual(
+            report["retained_sources_without_new_material_work"],
+            len(product["needs_sources"]),
+        )
+        called = [call.args[0] for call in measured.call_args_list]
+        self.assertEqual(len(called), len(product["group_sources"]))
+        self.assertEqual(set(called), set(product["group_sources"]))
+        self.assertTrue(set(called).isdisjoint(product["needs_sources"]))
         np.testing.assert_allclose(
             arrays["roughness_weights"].sum(axis=2), 1, rtol=0, atol=2e-7
         )
+
+    def test_unavailable_remainder_source_receives_no_material_work(self):
+        product = geometry() | {
+            "selected_sources": np.array([1, 2, 3]),
+            "group_sources": np.array([1, 3]),
+        }
+        parent = SimpleNamespace(
+            iter_forms=lambda _: [(33, [1, 2, 3], [surface(), None, surface()])],
+            form_reads=1,
+            form_bytes=0,
+        )
+        with patch(
+            "building_mass_appearance.source_measure", wraps=source_measure
+        ) as measured:
+            arrays, report = build_appearance(parent, {33}, product, self.at)
+        self.assertEqual([call.args[0] for call in measured.call_args_list], [1, 3])
+        self.assertEqual(report["sources_with_measures"], 2)
+        self.assertEqual(report["retained_sources_without_new_material_work"], 1)
+        self.assertEqual(report["source_needs"], [])
+        self.assertTrue(arrays["supported"].all())
 
     def test_perspective_sample_points_stay_on_the_original_triangle_plane(self):
         mesh = {
