@@ -23,10 +23,16 @@ constexpr int kSide = 64;
 constexpr size_t kImageValues = size_t{kSide} * kSide * 4;
 constexpr double kNearM = 0.1, kFarM = 1000, kIlluminanceLux = 10000;
 
-std::vector<float> RenderSequence(bool reject) {
+enum class Mode { Control, RejectedSubmission, PendingCamera };
+
+std::vector<float> RenderSequence(Mode mode) {
   struct Injection {
     bool Refuse = false;
     unsigned Refused = 0;
+    SceneRenderer *Renderer = nullptr;
+    CameraBasis FutureCamera;
+    Lens FutureLens;
+    bool AdvanceCamera = false;
   } injection;
 
   GpuSubmission submission;
@@ -41,9 +47,14 @@ std::vector<float> RenderSequence(bool reject) {
       return std::unexpected(
           Native::Error{.Kind = Native::ErrorKind::Driver, .Message = "rejected test frame"});
     }
-    return device->Submit(std::move(commands));
+    auto accepted = device->Submit(std::move(commands));
+    if (accepted && std::exchange(state.AdvanceCamera, false)) {
+      state.Renderer->SetCamera(state.FutureCamera, state.FutureLens);
+    }
+    return accepted;
   };
   SceneRenderer renderer(submission);
+  injection.Renderer = &renderer;
   PlanSpec spec;
   spec.Outputs = {Resource::SceneLinear, Resource::Surface};
   spec.Content = {Stage::Geometry, Stage::Sky, Stage::TemporalResolve};
@@ -72,7 +83,7 @@ std::vector<float> RenderSequence(bool reject) {
   for (int frame = 0; frame < 3; ++frame) {
     camera.EyeM[0] = frame;
     renderer.SetCamera(camera, *lens);
-    if (reject && frame == 1) {
+    if (mode == Mode::RejectedSubmission && frame == 1) {
       const auto previous = renderer.LastSubmittedCamera();
       injection.Refuse = true;
       CHECK(!renderer.RenderFrame() && injection.Refused == 1,
@@ -81,7 +92,16 @@ std::vector<float> RenderSequence(bool reject) {
                 renderer.LastSubmittedCamera().Basis.EyeM == previous.Basis.EyeM,
             "rejected frame preserves the accepted camera publication");
     }
+    if (mode == Mode::PendingCamera && frame == 1) {
+      injection.FutureCamera = camera;
+      injection.FutureCamera.EyeM[0] += kFarM;
+      injection.FutureLens = *lens;
+      injection.FutureLens.FovDeg *= 2;
+      injection.AdvanceCamera = true;
+    }
     CHECK(renderer.RenderFrame(), "the next requested frame submits successfully");
+    CHECK(renderer.LastSubmittedCamera().Basis.EyeM == camera.EyeM,
+          "accepted camera publication refers to the encoded frame, not a pending next pose");
   }
   std::vector<float> image;
   CHECK(renderer.ReadSceneLinear(image) == ReadState::Ready, "submitted temporal HDR reads back");
@@ -92,10 +112,13 @@ std::vector<float> RenderSequence(bool reject) {
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "native temporal integration starts video");
   if (SDL_WasInit(SDL_INIT_VIDEO) != 0) {
-    const auto control = RenderSequence(false);
-    const auto retried = RenderSequence(true);
+    const auto control = RenderSequence(Mode::Control);
+    const auto retried = RenderSequence(Mode::RejectedSubmission);
+    const auto pendingCamera = RenderSequence(Mode::PendingCamera);
     CHECK(control.size() == kImageValues && control == retried,
           "a rejected submission and retry produce the unchanged temporal image");
+    CHECK(control.size() == kImageValues && control == pendingCamera,
+          "a next pose delivered at submission cannot change the recorded camera history");
     if (!control.empty()) {
       CHECK(control[0] > 0 || control[1] > 0 || control[2] > 0,
             "the compared HDR contains sky radiance rather than only clear alpha");

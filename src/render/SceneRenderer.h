@@ -28,7 +28,7 @@ struct SDL_Window;
 #include "Gpu.h"
 #include "GpuSubmission.h"
 #include "GpuFrameSample.h"
-#include "TemporalSequence.h"
+#include "ViewHistory.h"
 #include "FrameTargets.h"
 #include "atmosphere/AtmospherePasses.h"
 #include "TextureFormat.h"
@@ -169,7 +169,7 @@ public:
 
   [[nodiscard]] std::expected<void, std::string> RenderFrame();
 
-  [[nodiscard]] bool Drew() const { return ActiveState().Submitted; }
+  [[nodiscard]] bool Drew() const { return ActiveState().History.HasSubmittedFrame(); }
 
   ~SceneRenderer() {
     WaitForGpu();
@@ -836,7 +836,7 @@ private:
 
   [[nodiscard]] Native::Result<void> CreateSampler(FrameResources &frame);
   [[nodiscard]] bool PrepareGroundMaterialBuffers(FrameResources &frame, std::string &error);
-  void CommitSubmittedFrame(StageSubmission &stageSubmission);
+  void CommitSubmittedFrame(StageSubmission &stageSubmission, const CameraBasis &camera);
   [[nodiscard]] Native::Result<void>
   Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource);
   [[nodiscard]] static bool Created(const FrameResources &frame, Resource resource);
@@ -849,7 +849,8 @@ private:
   ConfigurePlanStages(FrameResources &frame, const ExecutionPlan &plan, bool drawsGlass);
   [[nodiscard]] static AttachmentSet
   ColoursForStage(const FrameResources &frame, const ExecutionPlan &plan, Stage wanted);
-  [[nodiscard]] Native::Result<void> EncodeStage(Stage stage, const PassRecording &into);
+  [[nodiscard]] Native::Result<void>
+  EncodeStage(Stage stage, const FrameContext &ctx, const PassRecording &into);
 
   struct Executor {
     Stage Named;
@@ -1000,13 +1001,17 @@ private:
                                                         const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGeometryCompact(const FrameContext &ctx,
                                                            const PassRecording &into);
-  [[nodiscard]] Native::Result<void>
-  EncodePass(Native::Commands *commands, size_t pass, StageSubmission &submission);
+  [[nodiscard]] Native::Result<void> EncodePass(Native::Commands *commands,
+                                                size_t pass,
+                                                const FrameContext &ctx,
+                                                StageSubmission &submission);
   [[nodiscard]] Native::Result<void> EncodeComputePass(Native::Commands *commands,
                                                        const ExecutionPlan::Pass &declared,
+                                                       const FrameContext &ctx,
                                                        StageSubmission &submission);
   [[nodiscard]] Native::Result<void> EncodeGraphicsPass(Native::Commands *commands,
                                                         const ExecutionPlan::Pass &declared,
+                                                        const FrameContext &ctx,
                                                         StageSubmission &submission);
   [[nodiscard]] FrameContext Framing() const;
   void SettleShadow();
@@ -1078,7 +1083,7 @@ private:
     Medium Medium = kEarthAir;
     float CosSunZenith = 1.0f;
     float EyeHeightM = 0.0f;
-    TemporalSequence Temporal;
+    ViewHistory History;
     bool CameraFull = false;
     double RegionX = 0.0;
     double RegionY = 0.0;
@@ -1091,11 +1096,8 @@ private:
     float OrthoM = 0.0f;
     float NearM = kNearM;
     float FarM = 0.0f;
-    bool Submitted = false;
     bool Ready = false;
     std::string WhyNot;
-    Vec3 PrevEye = {{0, 0, 0}};
-    Mat4f PrevMvp = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 
     bool MediumDeclared = false;
     bool SkyDeclared = false;

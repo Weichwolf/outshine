@@ -66,7 +66,7 @@ constexpr auto kColourReadbackFailed = "colour readback failed: ";
 
 ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
   ActiveState().WhyNot.clear();
-  if (!ActiveState().Ready || !ActiveState().Submitted) {
+  if (!ActiveState().Ready || !ActiveState().History.HasSubmittedFrame()) {
     ActiveState().WhyNot = Says::kNoReadbackFrame;
     return ReadState::Failed;
   }
