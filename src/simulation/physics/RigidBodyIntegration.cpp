@@ -1,17 +1,18 @@
 #include "RigidBodyDynamics.h"
 #include "EntityBodyState.h"
-#include <span>
+#include "EntityState.h"
 
 namespace outshine::Physics {
 
-void IntegrateBodies(std::span<World::EntityBodyState> bodies,
-                     double stepSeconds,
-                     const Vec3 &gravityMs2) {
-  for (auto &body : bodies) {
-    Wrench force;
-    AccumulateGravity(force, body.Motion, gravityMs2);
-    IntegrateBody(body.Motion, force, stepSeconds);
+void IntegrateBodies(World::EntityState &bodies, double stepSeconds, const Vec3 &gravityMs2) {
+  if (!(stepSeconds > 0.0)) { return; }
+  for (const auto &body : bodies.Bodies()) {
+    if (!(body.Motion.MassKg > 0.0)) { continue; }
+    (void)bodies.EditBody(body.Owner, [&](World::RigidBodyState &motion) {
+      Wrench force;
+      AccumulateGravity(force, motion, gravityMs2);
+      IntegrateBody(motion, force, stepSeconds);
+    });
   }
 }
-
 }

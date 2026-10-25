@@ -454,6 +454,7 @@ struct Engine::State {
   ScenarioSession Session;
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
   WorldRegionState World;
+  World::BodySnapshot BodyFrame;
   EngineCostCounters Cost;
   SimulationClock Ticking;
   std::optional<RouteCameraMotion> RouteCamera;

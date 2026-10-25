@@ -37,15 +37,20 @@ void Engine::State::PublishRenderedFrame(std::chrono::steady_clock::time_point b
   Published.RecordMetric("cull: jobs it swept",
                          static_cast<double>(Render::GeometryCullStage::JobsSweptTaken()),
                          "jobs");
-  if (!ScenarioState->Entities.Bodies().empty()) {
-    Published.RecordMetric("bodies standing on no route",
-                           static_cast<double>(ScenarioState->Entities.Bodies().size()),
-                           "bodies");
+  const auto &bodyPublication = ScenarioState->Entities.PublicationCost();
+  Published.RecordMetric("body publication: copied payload",
+                         static_cast<double>(bodyPublication.CopiedBytes),
+                         "bytes");
+  Published.RecordMetric(
+      "body publication: new pages", static_cast<double>(bodyPublication.NewPages), "pages");
+  Published.RecordMetric("body publication: directory entries",
+                         static_cast<double>(bodyPublication.DirectoryEntries),
+                         "entries");
+  if (BodyFrame.Count() != 0) {
     Published.RecordMetric(
-        "the first of them, up", ScenarioState->Entities.Bodies().front().Motion.PositionM[1], "m");
-    Published.RecordMetric("and how fast it falls",
-                           ScenarioState->Entities.Bodies().front().Motion.VelocityMs[1],
-                           "m/s");
+        "bodies standing on no route", static_cast<double>(BodyFrame.Count()), "bodies");
+    Published.RecordMetric("the first of them, up", BodyFrame.At(0).Motion.PositionM[1], "m");
+    Published.RecordMetric("and how fast it falls", BodyFrame.At(0).Motion.VelocityMs[1], "m/s");
   }
   if (Session.Declared.Render.Audits) {
     Render::PyramidDepths depths;
