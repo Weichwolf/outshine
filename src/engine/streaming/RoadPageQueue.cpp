@@ -1,4 +1,4 @@
-#include "RoadPageQueue.h"
+#include "RoadPageQueueWork.h"
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
@@ -11,72 +11,25 @@
 #include <vector>
 
 namespace outshine {
-struct RoadPageQueue::Work {
-  Loader Load;
-  std::string Parent;
-  std::string RequestKey;
-  Kind Type = Kind::Payload;
-  std::stop_source Stop;
-  RoadPageQueue::Result Result = std::unexpected("road page work has not completed");
-  std::atomic<bool> Complete{false};
-};
-
 RoadPageQueue::RoadPageQueue(Tasks &pool,
                              std::shared_ptr<Generators::PreparedRoadPages> pages,
-                             Limits limits)
-    : Pool_(pool), Pages_(std::move(pages)), Limits_(limits) {}
+                             Limits limits,
+                             std::shared_ptr<AssetPipeline> publications)
+    : Pool_(pool),
+      Pages_(std::move(pages)),
+      Limits_(limits),
+      Publications_(std::move(publications)) {
+  if (Publications_) {
+    auto consumer = Publications_->OpenConsumer({.Identity = Pages_});
+    if (consumer) { Consumer_.emplace(std::move(*consumer)); }
+  }
+}
 
 RoadPageQueue::~RoadPageQueue() {
-  for (const auto &[key, work] : Work_) { (void)work->Stop.request_stop(); }
-}
-
-bool RoadPageQueue::Request(Generators::RoadPageRequest request,
-                            std::shared_ptr<const Generators::RoadPageProducer> producer) {
-  return RequestProduct(std::move(request), std::move(producer), Kind::Payload);
-}
-
-bool RoadPageQueue::RequestRecord(Generators::RoadPageRequest request,
-                                  std::shared_ptr<const Generators::RoadPageProducer> producer) {
-  return RequestProduct(std::move(request), std::move(producer), Kind::Publication);
-}
-
-bool RoadPageQueue::RequestProduct(Generators::RoadPageRequest request,
-                                   std::shared_ptr<const Generators::RoadPageProducer> producer,
-                                   Kind kind) {
-  if (request.NativeBytesMost == 0 || request.NativeBytesMost != Limits_.PageBytesMost ||
-      (!request.Parent.empty() && request.Parent.size() != 64) ||
-      (!request.RequestKey.empty() && request.RequestKey.size() != 64)) {
-    return false;
+  for (auto &[key, work] : Work_) {
+    (void)work->Stop.request_stop();
+    if (work->Ticket) { work->Ticket->Cancel(); }
   }
-  const auto key = Generators::RoadPageKey(request.Address);
-  const auto admission = RequestState(key, kind);
-  if (admission == Admission::Pending) {
-    const auto &work = Work_.find(key)->second;
-    return work->Parent == request.Parent && work->RequestKey == request.RequestKey;
-  }
-  if (admission != Admission::Available) { return false; }
-  auto parent = request.Parent;
-  auto requestKey = request.RequestKey;
-  const bool admitted =
-      Enqueue(key,
-              kind,
-              [pages = Pages_, request = std::move(request), producer = std::move(producer), kind](
-                  const std::stop_token &stop) -> Result {
-                if (kind == Kind::Publication) {
-                  auto record = pages->Prepare(request, producer.get(), stop);
-                  if (!record) { return std::unexpected(std::move(record.error())); }
-                  return std::optional<Product>(std::move(*record));
-                }
-                auto result = pages->Resolve(request, producer.get(), stop);
-                if (!result) { return std::unexpected(std::move(result.error())); }
-                return std::optional<Product>(std::move(*result));
-              });
-  if (admitted) {
-    const auto &work = Work_.find(key)->second;
-    work->Parent = std::move(parent);
-    work->RequestKey = std::move(requestKey);
-  }
-  return admitted;
 }
 
 bool RoadPageQueue::RequestCached(const std::string &key, Manifest dependency) {
@@ -110,7 +63,8 @@ bool RoadPageQueue::RequestMetadata(Generators::RoadPageAddress address) {
                    auto record = pages->Inspect(address, bytesMost);
                    if (!record) { return std::unexpected(std::move(record.error())); }
                    if (!*record) { return std::nullopt; }
-                   return std::optional<Product>(std::move(**record));
+                   return std::optional<Product>(
+                       std::make_shared<const AssetRecord>(std::move(**record)));
                  });
 }
 
@@ -151,17 +105,30 @@ bool RoadPageQueue::Enqueue(const std::string &key, Kind kind, Loader load) {
 
 void RoadPageQueue::Cancel(const std::string &key) {
   const auto found = Work_.find(key);
-  if (found != Work_.end()) { (void)found->second->Stop.request_stop(); }
+  if (found != Work_.end()) {
+    (void)found->second->Stop.request_stop();
+    if (found->second->Ticket) { found->second->Ticket->Cancel(); }
+  }
+}
+
+bool RoadPageQueue::SetGeneration(AssetConsumerGeneration generation) noexcept {
+  if (!Consumer_ || generation <= Consumer_->Generation()) { return false; }
+  for (auto &[key, work] : Work_) { (void)work->Stop.request_stop(); }
+  return Consumer_->Advance(generation);
 }
 
 std::vector<RoadPageQueue::Completed> RoadPageQueue::Collect() {
   std::vector<Completed> completed;
   for (auto it = Work_.begin(); it != Work_.end();) {
     const auto &work = it->second;
+    if (work->Type == Kind::Publication && !work->Complete.load(std::memory_order_acquire)) {
+      PollPublication(work);
+    }
     if (!work->Complete.load(std::memory_order_acquire)) {
       ++it;
       continue;
     }
+    if (work->Type == Kind::Publication && work->Bound) { CompleteBinding(work); }
     if (work->Stop.stop_requested()) {
       completed.push_back(
           {.Key = it->first, .Result = std::unexpected("road page request canceled")});

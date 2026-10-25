@@ -1,3 +1,5 @@
+#include "PreparedRoadPageFixture.h"
+#include "RoadPublicationFixture.h"
 #include "ControlledRoadPageProducer.h"
 #include "RoadPageConstruction.h"
 #include "RoadPageRestoration.h"
@@ -187,7 +189,8 @@ void CheckSelection(Tasks &pool,
   CHECK(removed && !*removed,
         "the failed payload loses its index row so metadata hits cannot cause a rebuild loop");
   size_t repairs = 0;
-  const auto repaired = pages->Resolve(
+  const auto repaired = outshine::Test::PrepareAndLoadRoadPage(
+      *pages,
       {.Address = address,
        .Parent = {},
        .RequestKey = {},
@@ -209,7 +212,8 @@ void CheckSelection(Tasks &pool,
   const auto wrongLevel = pages->Inspect(address, size_t{64} * size_t{1024} * 1024);
   CHECK(wrongLevel && !*wrongLevel,
         "inconsistent index metadata becomes a regenerable miss before any fine read");
-  const auto corrected = pages->Resolve(
+  const auto corrected = outshine::Test::PrepareAndLoadRoadPage(
+      *pages,
       {.Address = address,
        .Parent = {},
        .RequestKey = {},
@@ -229,7 +233,8 @@ void CheckWarm(Tasks &pool,
                const std::string &key,
                const RoadPageManifest &expected) {
   using namespace outshine::Test;
-  auto warm = RoadPageConstruction::Begin(pool, pages, plan, site, key);
+  auto warm = RoadPageConstruction::Begin(
+      pool, pages, plan, site, key, outshine::Test::RoadPublications(pool));
   CHECK(warm && Prepare(**warm, plan, site) && (*warm)->MissRequests() == 0 &&
             (*warm)->Pages() == expected.Pages.size(),
         "warm construction uses only native index hits without source recipes or meshing");
@@ -298,7 +303,8 @@ void CheckBuild(const std::filesystem::path &directory,
   std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);
   Tasks pool(1);
   const std::string key(64, 'a');
-  auto cold = RoadPageConstruction::Begin(pool, pages, *plan, site, key);
+  auto cold = RoadPageConstruction::Begin(
+      pool, pages, *plan, site, key, outshine::Test::RoadPublications(pool));
   CHECK(cold && Prepare(**cold, *plan, site), "misses generate and persist real native pages");
   CHECK(cold && (*cold)->Pages() >= 2 && (*cold)->MissRequests() == (*cold)->Pages(),
         "more than64 whole intervals create multiple independently read products");

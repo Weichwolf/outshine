@@ -1,3 +1,4 @@
+#include "PreparedRoadPageFixture.h"
 #include "ControlledRoadPageProducer.h"
 #include <stop_token>
 #include "PreparedRoadPages.h"
@@ -173,31 +174,35 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   auto &pages = **opened;
   const auto miss = pages.Load(first.Address, kLimit);
   CHECK(miss && !*miss, "absent pages remain ordinary misses");
-  CHECK(!pages.Resolve({.Address = first.Address,
-                        .Parent = parent,
-                        .RequestKey = "invalid",
-                        .NativeBytesMost = kLimit},
-                       outshine::Test::RoadProducer(factory).get()) &&
+  CHECK(!outshine::Test::PrepareAndLoadRoadPage(pages,
+                                                {.Address = first.Address,
+                                                 .Parent = parent,
+                                                 .RequestKey = "invalid",
+                                                 .NativeBytesMost = kLimit},
+                                                outshine::Test::RoadProducer(factory).get()) &&
             factories == 0,
         "invalid demand identities fail before mesh generation");
   CHECK(
-      !pages.Resolve(
+      !outshine::Test::PrepareAndLoadRoadPage(
+          pages,
           {.Address = first.Address, .Parent = parent, .RequestKey = request, .NativeBytesMost = 1},
           outshine::Test::RoadProducer(factory).get()) &&
           factories == 0,
       "an impossible header budget fails before mesh generation");
-  auto cold = pages.Resolve({.Address = first.Address,
-                             .Parent = parent,
-                             .RequestKey = request,
-                             .NativeBytesMost = kLimit},
-                            outshine::Test::RoadProducer(factory).get());
+  auto cold = outshine::Test::PrepareAndLoadRoadPage(pages,
+                                                     {.Address = first.Address,
+                                                      .Parent = parent,
+                                                      .RequestKey = request,
+                                                      .NativeBytesMost = kLimit},
+                                                     outshine::Test::RoadProducer(factory).get());
   CHECK(cold && factories == 1 && Same(cold->Page->Geometry.Mesh, first.Geometry.Mesh),
         "a miss builds and reads the exact finished native page");
   if (!cold) { return; }
-  const auto hit = pages.Resolve({.Address = first.Address,
-                                  .Parent = parent,
-                                  .RequestKey = request,
-                                  .NativeBytesMost = kLimit});
+  const auto hit = outshine::Test::PrepareAndLoadRoadPage(pages,
+                                                          {.Address = first.Address,
+                                                           .Parent = parent,
+                                                           .RequestKey = request,
+                                                           .NativeBytesMost = kLimit});
   CHECK(hit && factories == 1 && hit->Record.Key == cold->Record.Key &&
             hit->Record.Package == cold->Record.Package,
         "a hit loads without any source or mesh factory");
@@ -205,7 +210,8 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
             hit->Page->Geometry.Mesh.PositionM.data() != cold->Page->Geometry.Mesh.PositionM.data(),
         "independent loads exclusively own distinct decoded pages and mesh allocations");
   const auto siblingAddress = Address(8);
-  const auto sibling = pages.Resolve(
+  const auto sibling = outshine::Test::PrepareAndLoadRoadPage(
+      pages,
       {.Address = siblingAddress, .Parent = parent, .RequestKey = {}, .NativeBytesMost = kLimit},
       outshine::Test::RoadProducer([](const RoadPageRequest &, const std::stop_token &) {
         return Produce(kSiblingEastM, 8);
@@ -237,10 +243,11 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   CHECK(!(*fresh)->LoadKey("", kLimit) && !(*fresh)->LoadKey(std::string(64, 'g'), kLimit),
         "invalid direct product identities fail before cache loading");
   const std::string reboundRequest(64, 'e');
-  const auto rebound = pages.Resolve({.Address = first.Address,
-                                      .Parent = parent,
-                                      .RequestKey = reboundRequest,
-                                      .NativeBytesMost = kLimit});
+  const auto rebound = outshine::Test::PrepareAndLoadRoadPage(pages,
+                                                              {.Address = first.Address,
+                                                               .Parent = parent,
+                                                               .RequestKey = reboundRequest,
+                                                               .NativeBytesMost = kLimit});
   const auto reboundMetadata = (*cache)->FindRequest(reboundRequest);
   CHECK(rebound && rebound->Record.RequestKey == reboundRequest && reboundMetadata &&
             *reboundMetadata && (**reboundMetadata).Key == rebound->Record.Key,

@@ -19,7 +19,8 @@ public:
         std::shared_ptr<Generators::PreparedRoadPages> pages,
         const Generators::Corridors::Job &plan,
         const Generators::Corridors::Site &site,
-        const std::string &planKey);
+        const std::string &planKey,
+        std::shared_ptr<AssetPipeline> publications);
   [[nodiscard]] std::expected<bool, std::string> Advance(const Generators::Corridors::Job &plan,
                                                          const Generators::Corridors::Site &site);
   [[nodiscard]] std::expected<Generators::RoadPageManifest, std::string> TakeManifest();
@@ -32,11 +33,14 @@ public:
 
 private:
   enum class Stage : unsigned char { Request, Lookup, Generate, Generating };
-  RoadPageConstruction(Tasks &pool, std::shared_ptr<Generators::PreparedRoadPages> pages);
+  RoadPageConstruction(Tasks &pool,
+                       std::shared_ptr<Generators::PreparedRoadPages> pages,
+                       std::shared_ptr<AssetPipeline> publications);
   [[nodiscard]] std::expected<bool, std::string> Collect();
   static constexpr size_t PageBytesMost = size_t{64} * 1024u * 1024u;
   static constexpr size_t PartsMost = 64;
   RoadPageQueue Queue_;
+  std::shared_ptr<const Generators::RoadPageProducer> PendingProducer_;
   Generators::RoadPageAddress Address_;
   std::vector<std::vector<Generators::RoadPagePart>> Pages_;
   Generators::RoadPageManifest Manifest_;

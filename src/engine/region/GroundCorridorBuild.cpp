@@ -16,6 +16,22 @@
 
 namespace outshine {
 namespace {
+std::shared_ptr<AssetPipeline> RoadPublications(WorldRegionState &world) {
+  const auto pages = world.Stack.RoadAssets();
+  if (!pages || !world.Pool) { return {}; }
+  if (!world.Publications) {
+    constexpr size_t kMebibyte = size_t{1024} * 1024;
+    world.Publications = std::make_shared<AssetPipeline>(
+        *world.Pool,
+        AssetPipeline::Limits{.JobsMost = 4,
+                              .ConsumersMost = 32,
+                              .TicketsMost = 32,
+                              .InputBytesMost = 128 * kMebibyte,
+                              .ReceiptBytesMost = size_t{32} * 4096});
+  }
+  return world.Publications;
+}
+
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
 
@@ -41,12 +57,13 @@ std::expected<void, std::string>
 AcceptRoadPlan(WorldRegionBuildState &state,
                const Generators::Corridors::Site &site,
                Tasks *pool,
-               const std::shared_ptr<Generators::PreparedRoadPages> &assets) {
+               const std::shared_ptr<Generators::PreparedRoadPages> &assets,
+               std::shared_ptr<AssetPipeline> publications) {
   auto contacts = Generators::Corridors::TakeTerrainContacts(*state.CorridorJob());
   if (!contacts) { return std::unexpected(std::string(contacts.error())); }
   if (assets && pool != nullptr && !state.RegionKey().empty()) {
-    auto pages =
-        RoadPageConstruction::Begin(*pool, assets, *state.CorridorJob(), site, state.RegionKey());
+    auto pages = RoadPageConstruction::Begin(
+        *pool, assets, *state.CorridorJob(), site, state.RegionKey(), std::move(publications));
     if (!pages) { return std::unexpected(std::move(pages.error())); }
     state.BeginRoadPages(std::move(*pages));
   }
@@ -199,7 +216,8 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
     for (const auto &one : Generators::Corridors::PlanMeasures(*state.CorridorJob())) {
       Published.RecordMetric(one.Name, one.Value, one.Unit.c_str());
     }
-    const auto accepted = AcceptRoadPlan(state, site, World.Pool.get(), World.Stack.RoadAssets());
+    const auto accepted = AcceptRoadPlan(
+        state, site, World.Pool.get(), World.Stack.RoadAssets(), RoadPublications(World));
     if (!accepted) {
       Error = accepted.error();
       return false;
