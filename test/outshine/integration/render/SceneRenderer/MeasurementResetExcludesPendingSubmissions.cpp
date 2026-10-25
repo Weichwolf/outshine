@@ -1,6 +1,6 @@
+#include "UiPaint.h"
 #include "Check.h"
 #include "RuntimeScene.h"
-#include <chrono>
 #include "SceneRenderer.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include <SDL3/SDL.h>
@@ -20,6 +20,8 @@ using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
 constexpr double kNanosecondsPerMs = 1'000'000;
+constexpr double kNearM = 0.1;
+constexpr double kFarM = 100;
 
 enum class BadTiming { None, Pending, NotFinite, Negative };
 
@@ -82,7 +84,7 @@ public:
     }
     auto result = Backing().SubmissionGpuTime(completion);
     if (result) {
-      result->ElapsedNanoseconds = completion.Serial * kNanosecondsPerMs;
+      result->ElapsedNanoseconds = static_cast<double>(completion.Serial) * kNanosecondsPerMs;
       if (State_.Bad == BadTiming::Pending) { result->Status = Native::CompletionStatus::Pending; }
       if (State_.Bad == BadTiming::NotFinite) {
         result->ElapsedNanoseconds = std::numeric_limits<double>::quiet_NaN();
@@ -163,7 +165,7 @@ void CheckUploadBurst(Core::RuntimeScene &scene, SceneRenderer &renderer, Timing
   const auto queriesAt = state.Queried.size();
   const auto *reserved = renderer.GpuSamples().data();
   constexpr unsigned uploadCount = 16;
-  OverlayQuad quad{.WidthPx = 1, .HeightPx = 1};
+  Ui::PaintQuad quad{.WidthPx = 1, .HeightPx = 1};
   {
     const auto offline = renderer.OfflineUploads(std::chrono::seconds(5));
     for (unsigned at = 0; at < uploadCount; ++at) {
@@ -202,10 +204,13 @@ void Exercise() {
   std::string error;
   CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), error.c_str());
   if (!scene) { return; }
-  auto eye = *Viewpoint::LookAt({.EyeM = {{0, 0, 4}}, .AimM = {{0, 0, 0}}}, 0.0);
+  const auto aimed = Viewpoint::LookAt({.EyeM = {{0, 0, 4}}, .AimM = {{0, 0, 0}}}, 0.0);
+  CHECK(aimed.has_value(), "measurement camera is valid");
+  if (!aimed) { return; }
+  auto eye = *aimed;
   eye.YfovRad = 1;
-  eye.ZNearM = 0.1;
-  eye.ZFarM = 100;
+  eye.ZNearM = kNearM;
+  eye.ZFarM = kFarM;
   scene->Eye(eye);
   state.Hold = true;
   CHECK(scene->Draw(error), "an earlier frame is submitted without completing its GPU sample");
@@ -224,7 +229,8 @@ void Exercise() {
   CHECK(state.Queried.empty() && renderer.Costs().Gpu.Frames == 0 &&
             renderer.Costs().UnavailableGpuFrames == 0 && renderer.GpuSamples().empty(),
         "late completion of the prior frame never contaminates the new interval");
-  std::vector<uint8_t> before, after;
+  std::vector<uint8_t> before;
+  std::vector<uint8_t> after;
   CHECK(renderer.ReadPixels(before) == ReadState::Ready && !before.empty(),
         "the previous image remains readable after reset");
   renderer.ResetMeasurements();

@@ -473,15 +473,15 @@ public:
 
   [[nodiscard]] ReadState ReadSceneVelocity(std::vector<float> &xy);
 
-  [[nodiscard]] bool ReplaceOverlay(std::span<const OverlayQuad> quads,
-                                    const OverlayDraw::AtlasPixels *atlas,
+  [[nodiscard]] bool ReplaceOverlay(std::span<const Ui::PaintQuad> quads,
+                                    const Ui::PaintAtlasView *atlas,
                                     std::string &error) {
     return Accepted(ActiveState().Content.Overlay.Replace(
                         ActiveFrame().Handles, quads.data(), quads.size(), atlas),
                     error);
   }
 
-  [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
+  [[nodiscard]] bool SetOverlay(const Ui::PaintQuad *quads, size_t count, std::string &error) {
     return Accepted(ActiveState().Content.Overlay.SetQuads(ActiveFrame().Handles, quads, count),
                     error);
   }
