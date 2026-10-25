@@ -386,7 +386,7 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
   RowsStale_ = true;
   if (Bound().Shape().Vertices == 0 || Bound().Shape().Indices == 0) {
     Bound().Shape().Indices = 0;
-    if (!Borrows()) {
+    if (!IsTransmission()) {
       Bound().GiveVertices(Bound().SubjectVertices());
       Bound().GiveIndices(Bound().SubjectIndices());
       Bound().GiveColours(Bound().SubjectColours());
@@ -401,7 +401,7 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
     SubjectRows_ = std::max(SubjectRows_, batch.ModelSlot + batch.Instances);
   }
 
-  if (Borrows()) {
+  if (IsTransmission()) {
     if (!HandTables(error)) { return std::unexpected(std::move(error)); }
     return MeshTicket{.Generation = Reshaped_};
   }
@@ -572,7 +572,7 @@ bool GeometryRenderer::HandStreams(const SubjectPose &pose, bool deferred, std::
 }
 
 bool GeometryRenderer::ValidatePiece(const PieceMesh &piece, std::string &error) const {
-  if (Borrows()) { return false; }
+  if (IsTransmission()) { return false; }
   if (!ValidPieceUv1(piece)) {
     error = kPieceUv1Error;
     return false;
@@ -791,7 +791,7 @@ bool GeometryRenderer::Retable(std::string &error) {
   Args_.clear();
   Jobs_ = 0;
   if (!BuildSubjectBatches(error)) { return false; }
-  if (Borrows()) { return true; }
+  if (IsTransmission()) { return true; }
   PrepareSubjectTables();
   OrderPieces();
   for (const uint32_t at : TableOrder_) {
@@ -1056,7 +1056,7 @@ bool GeometryRenderer::SetPose(const SubjectPose &pose, std::string &error) {
   ShadowCasters_.Invalidate();
   ShadowChanges_.Unknown();
   ++Reshaped_;
-  if (Borrows()) { return true; }
+  if (IsTransmission()) { return true; }
   if (Bound().Shape().Indices == 0) {
     error = "a pose arrived before any mesh, and there is no subject for it to be a pose of";
     return false;

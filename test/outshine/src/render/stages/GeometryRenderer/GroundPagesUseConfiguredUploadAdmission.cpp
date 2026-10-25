@@ -49,7 +49,8 @@ int main() {
   gpu.Width = gpu.Height = 32;
   CHECK(gpu.SceneColours.Add(Resource::SceneLinear),
         "the configured subject has its colour target");
-  GeometryRenderer draw;
+  GeometryResidency drawStorage;
+  GeometryRenderer draw{drawStorage};
   Require(draw.Configure(gpu));
   const auto marker = Require(uploads.Submit(Require(uploads.Begin())));
   CHECK(Require(actual->Wait(marker, std::chrono::seconds(5))) == Native::CompletionStatus::Ready,

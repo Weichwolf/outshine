@@ -102,7 +102,8 @@ int main() {
   {
     auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
     outshine::Test::Gpu::NativeOfflineDevice device(*native);
-    GeometryRenderer draw;
+    GeometryResidency drawStorage;
+    GeometryRenderer draw{drawStorage};
     outshine::Render::Gpu gpu;
     gpu.Device = &device;
     gpu.HdrFormat = Native::Format::Rgba16Float;
@@ -151,11 +152,11 @@ int main() {
     }
     CHECK(draw.HandTables(error), "cluster job tables publish");
     CHECK(draw.ClusterJobs() == 256, "both clusters of every remaining native piece survive");
-    CHECK(draw.Owned().SubmitPendingUploads().has_value(),
+    CHECK(draw.Residency().SubmitPendingUploads().has_value(),
           "accepted cluster streams submit before inspection");
     Compare(draw, &device);
     CHECK(ReplaceMain(draw, error) && draw.HandTables(error), "main mesh replaces independently");
-    CHECK(draw.Owned().SubmitPendingUploads().has_value(),
+    CHECK(draw.Residency().SubmitPendingUploads().has_value(),
           "accepted cluster streams submit before inspection");
     Compare(draw, &device);
   }

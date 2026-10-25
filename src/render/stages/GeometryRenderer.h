@@ -71,8 +71,14 @@ struct GeometryUploadMetrics {
   double TablesMs = 0.0;
 };
 
+enum class GeometryPassKind : uint8_t { Opaque, Transmission };
+
 class GeometryRenderer {
 public:
+  explicit GeometryRenderer(GeometryResidency &storage,
+                            GeometryPassKind pass = GeometryPassKind::Opaque) noexcept
+      : Storage_(&storage), Pass_(pass) {}
+
   struct MeshTicket {
     uint64_t Generation = 0;
     bool NeedsFinish = false;
@@ -381,14 +387,11 @@ public:
 
   [[nodiscard]] const GeometryResidency &Resident() const { return Bound(); }
 
-  void Shares(GeometryResidency &other) {
-    if (At_ != &other) { ShadowChanges_.Unknown(); }
-    At_ = &other;
+  [[nodiscard]] GeometryResidency &Residency() noexcept { return *Storage_; }
+
+  [[nodiscard]] bool IsTransmission() const noexcept {
+    return Pass_ == GeometryPassKind::Transmission;
   }
-
-  [[nodiscard]] GeometryResidency &Owned() { return Own_; }
-
-  [[nodiscard]] bool Borrows() const { return At_ != nullptr; }
 
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
 
@@ -411,7 +414,7 @@ public:
   [[nodiscard]] const Mat4 &ModelM() const { return Model; }
 
   [[nodiscard]] uint64_t HeldBytes() const {
-    return (At_ != nullptr ? 0u : Own_.HeldBytes()) + Prisms_.HeldBytes();
+    return (IsTransmission() ? 0u : Storage_->HeldBytes()) + Prisms_.HeldBytes();
   }
 
   [[nodiscard]] uint32_t StagedBytes() const { return Bound().StagedBytes(); }
@@ -501,14 +504,14 @@ private:
 
   std::vector<VertexLayout> BatchLayout;
 
-  GeometryResidency Own_;
-  GeometryResidency *At_ = nullptr;
+  GeometryResidency *Storage_;
+  GeometryPassKind Pass_;
   const Native::Buffer *GroundClasses_ = nullptr;
   const Native::Buffer *GroundPalette_ = nullptr;
 
-  [[nodiscard]] GeometryResidency &Bound() { return At_ != nullptr ? *At_ : Own_; }
+  [[nodiscard]] GeometryResidency &Bound() { return *Storage_; }
 
-  [[nodiscard]] const GeometryResidency &Bound() const { return At_ != nullptr ? *At_ : Own_; }
+  [[nodiscard]] const GeometryResidency &Bound() const { return *Storage_; }
 
   Native::Texture *Atlas_ = nullptr;
   Native::Sampler *AtlasSampler_ = nullptr;

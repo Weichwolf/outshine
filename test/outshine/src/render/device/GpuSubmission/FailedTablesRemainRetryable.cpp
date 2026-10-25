@@ -321,7 +321,7 @@ struct TableRetry {
     const std::array<Mat4, 1> one{Row};
     const std::array<Mat4, 2> two{Row, Row};
     CHECK(Draw.SetPieceInstances(Piece, one, Error) && Draw.HandTables(Error) &&
-              Accepted(Draw.Owned().SubmitPendingUploads(), Error),
+              Accepted(Draw.Residency().SubmitPendingUploads(), Error),
           "baseline has one submitted instance");
     CHECK(Draw.SetPieceInstances(Piece, two, Error), "two instances require different tables");
     if (phase == TablePhase::Submission) {
@@ -334,7 +334,7 @@ struct TableRetry {
       Error.clear();
       const bool accepted = phase == TablePhase::Staging
                                 ? Draw.HandTables(Error)
-                                : Accepted(Draw.Owned().SubmitPendingUploads(), Error);
+                                : Accepted(Draw.Residency().SubmitPendingUploads(), Error);
       CHECK(!accepted, "table upload rejects every injected attempt");
       CHECK(fault.Rejected == before + 1 && Error.contains("injected"),
             "retry reaches the failing native operation and preserves its cause");
@@ -348,7 +348,7 @@ struct TableRetry {
       }
       fault.Armed = false;
     }
-    CHECK(Draw.HandTables(Error) && Accepted(Draw.Owned().SubmitPendingUploads(), Error),
+    CHECK(Draw.HandTables(Error) && Accepted(Draw.Residency().SubmitPendingUploads(), Error),
           "retry submits the complete tables without another scene mutation");
     CHECK(Draw.ClusterJobs() == 2 && Draw.ClusterBatchRows() == 2,
           "both instance jobs remain present after recovery");
@@ -360,7 +360,8 @@ struct TableRetry {
 };
 
 void Tables(Native::Device *device) {
-  GeometryRenderer draw;
+  GeometryResidency drawStorage;
+  GeometryRenderer draw{drawStorage};
   outshine::Render::Gpu gpu;
   gpu.Device = device;
   gpu.HdrFormat = Native::Format::Rgba16Float;
@@ -412,7 +413,7 @@ void Tables(Native::Device *device) {
   piece.Clusters = clusters;
   const auto id = draw.PlacePiece(piece);
   CHECK(id.has_value() && draw.HandTables(error) &&
-            Accepted(draw.Owned().SubmitPendingUploads(), error),
+            Accepted(draw.Residency().SubmitPendingUploads(), error),
         "initial clustered piece publishes tables");
   if (!id) { return; }
   CHECK(draw.ClusterJobs() == 1, "fixture starts with one actual clustered job");

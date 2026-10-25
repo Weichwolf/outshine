@@ -19,7 +19,8 @@ int main() {
   {
     auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
     outshine::Test::Gpu::NativeOfflineDevice device(*native);
-    GeometryRenderer draw;
+    GeometryResidency drawStorage;
+    GeometryRenderer draw{drawStorage};
     outshine::Render::Gpu gpu;
     gpu.Device = &device;
     gpu.HdrFormat = Native::Format::Rgba16Float;
@@ -69,7 +70,7 @@ int main() {
     SubjectPose pose = mesh;
     pose.PrevVerts.From = previous.data();
     CHECK(draw.SetPose(pose, error), "the same mesh can begin deforming without replacement");
-    CHECK(draw.Owned().SubmitPendingUploads().has_value(), "deferred pose uploads submit");
+    CHECK(draw.Residency().SubmitPendingUploads().has_value(), "deferred pose uploads submit");
     CHECK(resident.Buffer(Stream::Previous), "deformation acquires its own previous stream");
     if (resident.Buffer(Stream::Previous)) {
       Readback read;
