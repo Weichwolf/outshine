@@ -1,8 +1,8 @@
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "TerrainRenderer.h"
-#include "TerrainResidency.h"
+#include "streaming/TerrainResidency.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
@@ -14,6 +14,11 @@
 #include <vector>
 
 namespace {
+constexpr auto kReplacementHeightM = 101;
+constexpr auto kChildEnd = 2050;
+constexpr auto kOutsideColumn = 2055;
+constexpr auto kOutsideHeightM = 99;
+
 using namespace outshine;
 using namespace outshine::Test;
 constexpr Data::TileId kParent{.Zoom = 11, .X = 1024, .Y = 1024};
@@ -21,9 +26,9 @@ constexpr Data::TileId kFocus{.Zoom = 12, .X = 2048, .Y = 2048};
 
 Sheet Page(Data::TileId tile, float height) {
   return {.Tile = tile,
-          .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, height),
-          .Side = Render::TerrainRenderer::kSide,
-          .Postings = Render::TerrainRenderer::kSide};
+          .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, height),
+          .Side = Render::TerrainLattice::kSide,
+          .Postings = Render::TerrainLattice::kSide};
 }
 
 bool CompletePublication(TerrainResidency &terrain,
@@ -52,12 +57,12 @@ void CheckIdentity(Render::SceneRenderer &renderer) {
         "unpublished heights cannot authorize a cached asset");
   Patchwork patch;
   patch.Sheets.push_back(Page(kParent, 1));
-  for (uint32_t x = 2048; x < 2050; ++x) {
-    for (uint32_t y = 2048; y < 2050; ++y) {
+  for (uint32_t x = 2048; x < kChildEnd; ++x) {
+    for (uint32_t y = 2048; y < kChildEnd; ++y) {
       patch.Sheets.push_back(Page({.Zoom = 12, .X = x, .Y = y}, static_cast<float>(x + y)));
     }
   }
-  patch.Sheets.push_back(Page({.Zoom = 12, .X = 2055, .Y = 2048}, 99));
+  patch.Sheets.push_back(Page({.Zoom = 12, .X = kOutsideColumn, .Y = 2048}, kOutsideHeightM));
   const auto frame = TangentFrame::At({});
   std::string error;
   CHECK(terrain.Publish(patch, frame, error), "the complete terrain publication succeeds");
@@ -86,14 +91,14 @@ void CheckIdentity(Render::SceneRenderer &renderer) {
             terrain.SurfaceIdentity(kParent, 5) == parent,
         "geographic content identity ignores publication order and render origin");
   CHECK(terrain.Digest() != oldDiagnostic, "the former diagnostic still observes render placement");
-  patch.Sheets.front().Nodes.assign(Render::TerrainRenderer::kPageNodes, 101);
+  patch.Sheets.front().Nodes.assign(Render::TerrainLattice::kPageNodes, kReplacementHeightM);
   CHECK(terrain.Publish(patch, moved, error), "an unrelated geographic page can be replaced");
   CHECK(terrain.SurfaceIdentity(kFocus, 2) == initial &&
             terrain.SurfaceIdentity(kParent, 5) == parent,
         "outside content does not invalidate a local asset");
   auto &changed = patch.Sheets[patch.Sheets.size() - 2];
   CHECK(changed.Tile == kFocus, "the independent fixture changes the selected child");
-  changed.Nodes.assign(Render::TerrainRenderer::kPageNodes, 7);
+  changed.Nodes.assign(Render::TerrainLattice::kPageNodes, 7);
   CHECK(terrain.Publish(patch, moved, error), "a selected deformed page can be replaced");
   CHECK(terrain.SurfaceIdentity(kFocus, 2) != initial &&
             terrain.SurfaceIdentity(kParent, 5) != parent,

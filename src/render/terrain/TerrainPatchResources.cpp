@@ -86,6 +86,11 @@ Native::Result<void> TerrainPatchSelection::Reserve(Native::Device &device, uint
 
 Native::Result<void> TerrainPatchSelection::Upload(Native::Device &device,
                                                    Native::Commands &commands) {
+  if (SourceRevision_ != Source_->Generation()) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Busy,
+                      .Message = "ground patch sources changed during selection"});
+  }
   if (Seen_.empty()) { return {}; }
   if (Seen_.size() > std::numeric_limits<uint32_t>::max() / 4u) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,

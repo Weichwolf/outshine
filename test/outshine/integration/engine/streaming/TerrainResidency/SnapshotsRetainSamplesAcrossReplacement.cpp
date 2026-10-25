@@ -1,7 +1,7 @@
-#include "TerrainResidency.h"
+#include "TerrainLattice.h"
+#include "streaming/TerrainResidency.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "TerrainRenderer.h"
 #include "Check.h"
 
 #include <SDL3/SDL.h>
@@ -29,9 +29,9 @@ int main() {
       const auto frame = TangentFrame::At({});
       Patchwork patch;
       patch.Sheets.push_back({.Tile = tile,
-                              .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, 2),
-                              .Side = Render::TerrainRenderer::kSide,
-                              .Postings = Render::TerrainRenderer::kSide});
+                              .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, 2),
+                              .Side = Render::TerrainLattice::kSide,
+                              .Postings = Render::TerrainLattice::kSide});
       TerrainResidency terrain;
       terrain.Into(&renderer);
       CHECK(terrain.Publish(patch, frame, error), error.c_str());
@@ -53,7 +53,7 @@ int main() {
                   !pendingSnapshot.HasPublishedSurface(),
               "copying a pending publication preserves old queries and pending visibility");
       }
-      patch.Sheets.front().Nodes.assign(Render::TerrainRenderer::kPageNodes, 9);
+      patch.Sheets.front().Nodes.assign(Render::TerrainLattice::kPageNodes, 9);
       CHECK(terrain.Publish(patch, frame, error), error.c_str());
       CHECK(terrain.SurfaceIdentity(tile, 1) != initial && terrain.HeightMAt(point) != height,
             "replacement publishes its own changed sample buffer");

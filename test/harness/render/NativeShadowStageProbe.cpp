@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "RenderScene.h"
 #include "SunShadowStage.h"
 #include "GeometryRenderer.h"
@@ -406,7 +407,7 @@ void GroundOnly(Device &device, Scene &scene) {
   CheckSceneUpload(scene.Geometry.SetMesh(SubjectMesh{}, error), error);
   CheckSceneUpload(scene.Geometry.SetPlacements(nullptr, 0, error), error);
   auto &ground = scene.Geometry.Ground();
-  std::vector<float> heights(TerrainRenderer::kPageNodes, 3);
+  std::vector<float> heights(TerrainLattice::kPageNodes, 3);
   const auto page = Require(ground.PlacePage(heights));
   GroundTile tile;
   tile.Instance.Corners = {{-64, 64, 64, 64, -64, -64, 64, -64}};

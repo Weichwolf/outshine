@@ -1,3 +1,5 @@
+#include "terrain/TerrainResidency.h"
+#include "TerrainLattice.h"
 #include "test/harness/render/NativeTerrainRendererProbe.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeOffline.h"
@@ -21,7 +23,8 @@ int main() {
   constexpr float nearM = 0.1f;
   constexpr float eyeEast = 2;
   auto device = Require(CreateDevice({.Validation = true}));
-  TerrainRenderer ground;
+  outshine::Render::TerrainResidency groundData;
+  TerrainRenderer ground{groundData};
   std::array<ColourTarget, kTargetFormats.size()> formats;
   for (size_t i = 0; i < formats.size(); ++i) { formats[i].Texels = kTargetFormats[i]; }
   Require(RetryOffline(
@@ -32,7 +35,7 @@ int main() {
             formats);
       },
       std::chrono::seconds(5)));
-  std::vector<float> nodes(TerrainRenderer::kPageNodes, high);
+  std::vector<float> nodes(TerrainLattice::kPageNodes, high);
   const auto highPage =
       Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5)));
   std::ranges::fill(nodes, low);
@@ -50,7 +53,7 @@ int main() {
     result.Instance.Page = static_cast<float>(page);
     result.Instance.Corners = {
         extent.West, 0.5f, extent.East, 0.5f, extent.West, -0.5f, extent.East, -0.5f};
-    result.Instance.StepE = result.Instance.StepN = 1.0f / (TerrainRenderer::kSide - 1);
+    result.Instance.StepE = result.Instance.StepN = 1.0f / (TerrainLattice::kSide - 1);
     result.LowM = extent.Height - 0.5f;
     result.HighM = extent.Height;
     return result;

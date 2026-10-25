@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "TerrainRenderer.h"
 #include <algorithm>
 #include <array>
@@ -55,11 +56,12 @@ Intersects(const SidePlanes &planes, const std::array<float, 4> &sphere, const V
 
 Native::Result<void>
 TerrainRenderer::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Commands &commands) {
+  CulledGeneration_ = Resident_->Generation();
   VisibleReal_ = 0;
   VisibleVirtual_ = 0;
   Selection_.BeginFrame();
-  if (Held_.empty()) { return {}; }
-  if (Device_ == nullptr) {
+  if (Resident_->Held_.empty()) { return {}; }
+  if (Resident_->Device_ == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground visibility requires a device"});
   }
@@ -70,11 +72,11 @@ TerrainRenderer::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comm
   }
   const SidePlanes planes = SidePlanesOf(ctx.Mvp);
   Seen_.clear();
-  for (size_t at = 0; at < Held_.size(); ++at) {
-    if (!Intersects(planes, Bounds_[at], shift)) { continue; }
-    Seen_.push_back(Held_[at]);
+  for (size_t at = 0; at < Resident_->Held_.size(); ++at) {
+    if (!Intersects(planes, Resident_->Bounds_[at], shift)) { continue; }
+    Seen_.push_back(Resident_->Held_[at]);
     Selection_.Include(at);
-    if (at < RealCount_) {
+    if (at < Resident_->RealCount_) {
       ++VisibleReal_;
     } else {
       ++VisibleVirtual_;
@@ -83,7 +85,7 @@ TerrainRenderer::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comm
 
   if (!Seen_.empty()) {
     auto copied = HandsVisible(commands);
-    if (copied) { copied = Selection_.Upload(*Device_, commands); }
+    if (copied) { copied = Selection_.Upload(*Resident_->Device_, commands); }
     if (!copied) {
       VisibleReal_ = 0;
       VisibleVirtual_ = 0;
@@ -99,20 +101,25 @@ Native::Result<void> TerrainRenderer::Cast(const PassRecording &into,
                                            std::span<const Native::Binding> bindings) const {
   if (!DrawEnabled_) { return {}; }
   const SidePlanes planes = SidePlanesOf(projection);
-  const auto total = static_cast<uint32_t>(Held_.size());
+  const auto total = static_cast<uint32_t>(Resident_->Held_.size());
   uint32_t at = 0;
   while (at < total) {
-    if (!Intersects(planes, Bounds_[at], shift)) {
+    if (!Intersects(planes, Resident_->Bounds_[at], shift)) {
       ++at;
       continue;
     }
     const uint32_t first = at;
-    const bool real = at < RealCount_;
-    const uint32_t end = real ? RealCount_ : total;
-    do { ++at; } while (at < end && Intersects(planes, Bounds_[at], shift));
+    const bool real = at < Resident_->RealCount_;
+    const uint32_t end = real ? Resident_->RealCount_ : total;
+    do { ++at; } while (at < end && Intersects(planes, Resident_->Bounds_[at], shift));
     const uint32_t count = at - first;
-    const auto drawn = Draw(
-        into, Pipelines_->Depth(), Instances_, real ? count : 0, real ? 0 : count, bindings, first);
+    const auto drawn = Draw(into,
+                            Pipelines_->Depth(),
+                            Resident_->Instances_,
+                            real ? count : 0,
+                            real ? 0 : count,
+                            bindings,
+                            first);
     if (!drawn) { return drawn; }
   }
   return {};
@@ -121,19 +128,19 @@ Native::Result<void> TerrainRenderer::Cast(const PassRecording &into,
 Native::Result<void> TerrainRenderer::HandsVisible(Native::Commands &commands) {
   const auto count = static_cast<uint32_t>(Seen_.size());
   const uint64_t tileBytes = uint64_t{count} * sizeof(TerrainInstance);
-  const uint64_t patchBytes = uint64_t{count} * kPatchCount * sizeof(uint32_t);
+  const uint64_t patchBytes = uint64_t{count} * TerrainLattice::kPatchCount * sizeof(uint32_t);
   const uint64_t bytes = tileBytes + patchBytes;
   if (!Visible_ || VisibleRoom_ < count) {
     const auto room = std::max(count, VisibleRoom_ > 0 ? VisibleRoom_ * 2u : 64u);
-    auto created =
-        Device_->CreateBuffer({.Bytes = uint64_t{room} * sizeof(TerrainInstance),
-                               .Use = Native::BufferUse::Vertex | Native::BufferUse::Storage |
-                                      Native::BufferUse::CopyDestination});
+    auto created = Resident_->Device_->CreateBuffer(
+        {.Bytes = uint64_t{room} * sizeof(TerrainInstance),
+         .Use = Native::BufferUse::Vertex | Native::BufferUse::Storage |
+                Native::BufferUse::CopyDestination});
     if (!created) { return std::unexpected(created.error()); }
-    auto patches =
-        Device_->CreateBuffer({.Bytes = uint64_t{room} * kPatchCount * sizeof(uint32_t),
-                               .Use = Native::BufferUse::Vertex | Native::BufferUse::Storage |
-                                      Native::BufferUse::CopyDestination});
+    auto patches = Resident_->Device_->CreateBuffer(
+        {.Bytes = uint64_t{room} * TerrainLattice::kPatchCount * sizeof(uint32_t),
+         .Use = Native::BufferUse::Vertex | Native::BufferUse::Storage |
+                Native::BufferUse::CopyDestination});
     if (!patches) { return std::unexpected(patches.error()); }
     Visible_ = std::move(*created);
     PatchList_ = std::move(*patches);
@@ -142,31 +149,32 @@ Native::Result<void> TerrainRenderer::HandsVisible(Native::Commands &commands) {
   Native::Result<std::span<std::byte>> mapped =
       std::unexpected(Native::Error{.Kind = Native::ErrorKind::Busy, .Message = "no staging"});
   if (VisibleStaging_ && VisibleStaging_->Description().Bytes >= bytes) {
-    mapped = Device_->MapWrite(*VisibleStaging_, {.Bytes = bytes});
+    mapped = Resident_->Device_->MapWrite(*VisibleStaging_, {.Bytes = bytes});
   }
   if (!mapped && mapped.error().Kind == Native::ErrorKind::Busy) {
-    auto created =
-        Device_->CreateBuffer({.Bytes = uint64_t{VisibleRoom_} *
-                                        (sizeof(TerrainInstance) + kPatchCount * sizeof(uint32_t)),
-                               .Use = Native::BufferUse::CopySource,
-                               .Placement = Native::Memory::Upload});
+    auto created = Resident_->Device_->CreateBuffer(
+        {.Bytes = uint64_t{VisibleRoom_} *
+                  (sizeof(TerrainInstance) + TerrainLattice::kPatchCount * sizeof(uint32_t)),
+         .Use = Native::BufferUse::CopySource,
+         .Placement = Native::Memory::Upload});
     if (!created) { return std::unexpected(created.error()); }
-    mapped = Device_->MapWrite(**created, {.Bytes = bytes});
+    mapped = Resident_->Device_->MapWrite(**created, {.Bytes = bytes});
     if (!mapped) { return std::unexpected(mapped.error()); }
     VisibleStaging_ = std::move(*created);
   }
   if (!mapped) { return std::unexpected(mapped.error()); }
   std::memcpy(mapped->data(), Seen_.data(), static_cast<size_t>(tileBytes));
   for (uint32_t tile = 0; tile < count; ++tile) {
-    for (uint32_t patch = 0; patch < kPatchCount; ++patch) {
-      const uint32_t code =
-          (tile << kGroundPatchBits) | patch | (tile >= VisibleReal_ ? kGroundUniformBit : 0u);
-      const size_t offset = static_cast<size_t>(tileBytes) +
-                            (static_cast<size_t>(tile) * kPatchCount + patch) * sizeof(code);
+    for (uint32_t patch = 0; patch < TerrainLattice::kPatchCount; ++patch) {
+      const uint32_t code = (tile << TerrainLattice::kGroundPatchBits) | patch |
+                            (tile >= VisibleReal_ ? TerrainLattice::kGroundUniformBit : 0u);
+      const size_t offset =
+          static_cast<size_t>(tileBytes) +
+          (static_cast<size_t>(tile) * TerrainLattice::kPatchCount + patch) * sizeof(code);
       std::memcpy(mapped->data() + offset, &code, sizeof(code));
     }
   }
-  const auto unmapped = Device_->Unmap(*VisibleStaging_);
+  const auto unmapped = Resident_->Device_->Unmap(*VisibleStaging_);
   if (!unmapped) { return unmapped; }
   auto copied = commands.Copy(*VisibleStaging_, *Visible_, {.Bytes = tileBytes});
   if (!copied) { return copied; }

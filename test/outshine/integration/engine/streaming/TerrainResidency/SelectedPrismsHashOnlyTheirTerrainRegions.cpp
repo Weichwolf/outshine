@@ -1,8 +1,8 @@
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "TerrainRenderer.h"
-#include "TerrainResidency.h"
+#include "streaming/TerrainResidency.h"
 #include "UrbanAreaTerrainPrisms.h"
 #include "TileGeodesy.h"
 #include "Units.h"
@@ -15,6 +15,10 @@
 #include <vector>
 
 namespace {
+constexpr auto kSelectedHeightM = 100;
+constexpr auto kInitialHeightM = 42;
+constexpr auto kUnrelatedHeightM = 99;
+
 using namespace outshine;
 using namespace outshine::Test;
 
@@ -31,9 +35,9 @@ void Probe(Render::SceneRenderer &renderer) {
   for (const auto page : pages) {
     patchwork.Sheets.push_back(
         {.Tile = page,
-         .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, 42),
-         .Side = Render::TerrainRenderer::kSide,
-         .Postings = Render::TerrainRenderer::kSide});
+         .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, kInitialHeightM),
+         .Side = Render::TerrainLattice::kSide,
+         .Postings = Render::TerrainLattice::kSide});
   }
   TerrainResidency terrain;
   terrain.Into(&renderer);
@@ -53,12 +57,12 @@ void Probe(Render::SceneRenderer &renderer) {
         "the whole source owner exceeds the same single-page metadata budget");
   const auto identity = UrbanPrismTerrainIdentity(area, selected, terrain, limits);
   CHECK(identity, "selected terrain identity fits without widening that budget");
-  patchwork.Sheets[1].Nodes.front() = 99;
+  patchwork.Sheets[1].Nodes.front() = kUnrelatedHeightM;
   CHECK(terrain.Publish(patchwork, frame, error), "an unrelated page changes");
   const auto unrelated = UrbanPrismTerrainIdentity(area, selected, terrain, limits);
   CHECK(identity && unrelated && *identity == *unrelated,
         "unrelated source-region changes do not invalidate the selected cached game asset");
-  patchwork.Sheets[0].Nodes.front() = 100;
+  patchwork.Sheets[0].Nodes.front() = kSelectedHeightM;
   CHECK(terrain.Publish(patchwork, frame, error), "a contributing native page changes");
   const auto changed = UrbanPrismTerrainIdentity(area, selected, terrain, limits);
   CHECK(identity && changed && *identity != *changed,

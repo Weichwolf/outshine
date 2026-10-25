@@ -1,3 +1,5 @@
+#include "terrain/TerrainResidency.h"
+#include "TerrainLattice.h"
 #include "test/harness/render/NativeTerrainRendererProbe.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeOffline.h"
@@ -43,18 +45,20 @@ int main() {
   HeightPattern original;
   for (size_t i = 0; i < original.Fractions.size(); ++i) {
     original.Fractions[i] =
-        std::pow(static_cast<float>(i) / (TerrainRenderer::kSide - 1), kFractionPower);
+        std::pow(static_cast<float>(i) / (TerrainLattice::kSide - 1), kFractionPower);
   }
-  for (size_t y = 0; y < TerrainRenderer::kPageSide; ++y) {
-    for (size_t x = 0; x < TerrainRenderer::kPageSide; ++x) {
-      original.Nodes[y * TerrainRenderer::kPageSide + x] =
+  for (size_t y = 0; y < TerrainLattice::kPageSide; ++y) {
+    for (size_t x = 0; x < TerrainLattice::kPageSide; ++x) {
+      original.Nodes[y * TerrainLattice::kPageSide + x] =
           kHeightBase + kHeightAmpE * std::sin(static_cast<float>(x) * kHeightRateE) +
           kHeightAmpN * std::cos(static_cast<float>(y) * kHeightRateN);
     }
   }
-  TerrainRenderer kept;
+  outshine::Render::TerrainResidency keptData;
+  TerrainRenderer kept{keptData};
   {
-    TerrainRenderer published;
+    outshine::Render::TerrainResidency publishedData;
+    TerrainRenderer published{publishedData};
     Configure(*device, published);
     Require(RetryOffline([&] { return published.SetGrid(original.Fractions); },
                          std::chrono::seconds(5)));
@@ -65,12 +69,13 @@ int main() {
   Configure(*device, kept);
   Place(kept, original);
   Lit(*device, kept, "", &original, true);
-  TerrainRenderer changed;
+  outshine::Render::TerrainResidency changedData;
+  TerrainRenderer changed{changedData};
   Require(changed.ReuseInputsFrom(kept, *device));
   Configure(*device, changed);
   HeightPattern replacement = original;
   for (size_t i = 0; i < replacement.Fractions.size(); ++i) {
-    replacement.Fractions[i] = static_cast<float>(i) / (TerrainRenderer::kSide - 1);
+    replacement.Fractions[i] = static_cast<float>(i) / (TerrainLattice::kSide - 1);
   }
   Require(RetryOffline([&] { return changed.SetGrid(replacement.Fractions); },
                        std::chrono::seconds(5)));

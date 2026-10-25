@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "TerrainRenderer.h"
 #include <algorithm>
 #include <array>
@@ -9,11 +10,11 @@
 
 namespace outshine::Render {
 Native::Result<void> TerrainRenderer::ConfigurePatchSelection() {
-  if (Device_ == nullptr) {
+  if (Resident_->Device_ == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground selection has no device"});
   }
-  return Pipelines_->ConfigureSelection(*Device_);
+  return Pipelines_->ConfigureSelection(*Resident_->Device_);
 }
 
 Native::Result<void> TerrainRenderer::SelectPatches(const FrameContext &ctx,
@@ -22,6 +23,11 @@ Native::Result<void> TerrainRenderer::SelectPatches(const FrameContext &ctx,
                                                     Native::Buffer &pyramid,
                                                     const PyramidShape &shape) {
   if (!DrawEnabled_ || Drawn() == 0) { return {}; }
+  if (!Current()) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Busy,
+                      .Message = "ground inputs changed before patch selection"});
+  }
   if (into.Commands == nullptr || !PatchList_) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground patch input is missing"});
@@ -33,8 +39,9 @@ Native::Result<void> TerrainRenderer::DrawPatches(const PassRecording &into,
                                                   std::span<const Native::Binding> bindings) const {
   const uint32_t count = VisibleReal_ + VisibleVirtual_;
   if (count == 0) { return {}; }
-  if (Pipelines_->Patches() == nullptr || into.Commands == nullptr || !PatchGrid_ || !PatchIndex_ ||
-      !PatchFractions_ || !PatchList_ || !Visible_ || !Pages_ || !Nearest_) {
+  if (Pipelines_->Patches() == nullptr || into.Commands == nullptr || !Resident_->PatchGrid_ ||
+      !Resident_->PatchIndex_ || !Resident_->PatchFractions_ || !PatchList_ || !Visible_ ||
+      !Resident_->Pages_ || !Resident_->Nearest_) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "ground patch draw is missing native resources"});
@@ -53,8 +60,9 @@ Native::Result<void> TerrainRenderer::DrawPatches(const PassRecording &into,
   resources[bindings.size()] = {
       .Set = 0,
       .Slot = 0,
-      .Value = Native::SampledTexture{.Image = {.Image = Pages_.get(), .Layers = PageLayers_},
-                                      .Sampling = Nearest_.get()}};
+      .Value = Native::SampledTexture{
+          .Image = {.Image = Resident_->Pages_.get(), .Layers = Resident_->PageLayers_},
+          .Sampling = Resident_->Nearest_.get()}};
   resources[bindings.size() + 1u] = {
       .Set = 0,
       .Slot = 1,
@@ -63,12 +71,13 @@ Native::Result<void> TerrainRenderer::DrawPatches(const PassRecording &into,
   resources[bindings.size() + 2u] = {
       .Set = 0,
       .Slot = 2,
-      .Value = Native::StorageBuffer{.Data = PatchFractions_.get(),
-                                     .Range = {.Bytes = PatchFractions_->Description().Bytes}}};
+      .Value = Native::StorageBuffer{
+          .Data = Resident_->PatchFractions_.get(),
+          .Range = {.Bytes = Resident_->PatchFractions_->Description().Bytes}}};
   const std::array vertices{
       Native::VertexBuffer{.Stream = 0,
-                           .Data = PatchGrid_.get(),
-                           .Range = {.Bytes = PatchGrid_->Description().Bytes}},
+                           .Data = Resident_->PatchGrid_.get(),
+                           .Range = {.Bytes = Resident_->PatchGrid_->Description().Bytes}},
       Native::VertexBuffer{.Stream = 1,
                            .Data = Selection_.Ready() ? Selection_.Codes() : PatchList_.get(),
                            .Range = {.Bytes = Selection_.Ready()
@@ -79,8 +88,9 @@ Native::Result<void> TerrainRenderer::DrawPatches(const PassRecording &into,
                                 .Vertices = vertices,
                                 .Area = into.Area,
                                 .Clip = into.Clip};
-  const Native::IndexBuffer indices{.Data = PatchIndex_.get(),
-                                    .Range = {.Bytes = PatchIndex_->Description().Bytes}};
+  const Native::IndexBuffer indices{
+      .Data = Resident_->PatchIndex_.get(),
+      .Range = {.Bytes = Resident_->PatchIndex_->Description().Bytes}};
   if (Selection_.Ready()) {
     return into.Commands->DrawIndexedIndirect({.State = state,
                                                .Indices = indices,
@@ -88,9 +98,9 @@ Native::Result<void> TerrainRenderer::DrawPatches(const PassRecording &into,
                                                          .Offset = Selection_.ArgumentOffset(),
                                                          .Count = 4}});
   }
-  return into.Commands->DrawIndexed(
-      {.State = state,
-       .Indices = indices,
-       .Range = {.Count = kPatchIndices, .Instances = count * kPatchCount}});
+  return into.Commands->DrawIndexed({.State = state,
+                                     .Indices = indices,
+                                     .Range = {.Count = TerrainLattice::kPatchIndices,
+                                               .Instances = count * TerrainLattice::kPatchCount}});
 }
 }

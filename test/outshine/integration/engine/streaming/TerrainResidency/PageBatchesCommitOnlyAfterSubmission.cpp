@@ -1,5 +1,7 @@
+#include "test/harness/render/NativeUploadFaultDevice.h"
+#include "TerrainLattice.h"
 #include "RuntimeScene.h"
-#include "TerrainResidency.h"
+#include "streaming/TerrainResidency.h"
 #include "Check.h"
 #include "test/harness/render/HeightPageReadback.h"
 #include <SDL3/SDL.h>
@@ -21,20 +23,26 @@ constexpr uint32_t kFirst = 8192;
 constexpr float kOldHeight = 3;
 constexpr float kChangedHeight = 7;
 constexpr float kFinalHeight = 9;
-constexpr size_t kPageBytes = Render::TerrainRenderer::kPageNodes * sizeof(float);
+constexpr size_t kPageBytes = Render::TerrainLattice::kPageNodes * sizeof(float);
 constexpr size_t kTarget = Render::kHeightPageBatchMost + 1;
 constexpr size_t kFinishSteps = 8;
 constexpr LongitudeLatitude kRemovedPoint{.LongitudeDeg = 0.2427, .LatitudeDeg = -0.001};
 constexpr LongitudeLatitude kChangedPoint{.LongitudeDeg = 0.2207, .LatitudeDeg = -0.001};
 
-Patchwork Pages(size_t first, size_t count, float height) {
+struct PageRange {
+  size_t First;
+  size_t Count;
+};
+
+Patchwork Pages(PageRange range, float height) {
+  const auto [first, count] = range;
   Patchwork patch;
   for (size_t at = first; at < first + count; ++at) {
     patch.Sheets.push_back(
         {.Tile = {.Zoom = kZoom, .X = kFirst + static_cast<uint32_t>(at), .Y = kFirst},
-         .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, height),
-         .Side = Render::TerrainRenderer::kSide,
-         .Postings = Render::TerrainRenderer::kSide});
+         .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, height),
+         .Side = Render::TerrainLattice::kSide,
+         .Postings = Render::TerrainLattice::kSide});
   }
   return patch;
 }
@@ -56,7 +64,7 @@ bool Finish(Render::SceneRenderer &renderer,
 
 void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
   const auto frame = TangentFrame::At({});
-  auto original = Pages(10, 2, kOldHeight);
+  auto original = Pages({.First = 10, .Count = 2}, kOldHeight);
   std::ranges::reverse(original.Sheets);
   TerrainResidency residency;
   residency.Into(&renderer);
@@ -64,14 +72,14 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
   CHECK(residency.BeginPublish(original, error) && Finish(renderer, residency, original, frame),
         "the original complete terrain is published");
   CHECK(renderer.Settle(error), "original uploads finish before fault injection");
-  auto *const oldAtlas = failure.LastHeightAtlas;
-  auto changedRegion = failure.LastHeightRegion;
+  const auto *const oldAtlas = failure.LastHeightAtlas;
+  const auto changedRegion = failure.LastHeightRegion;
   const auto removedHeight = residency.HeightMAt(kRemovedPoint);
   const auto changedHeight = residency.HeightMAt(kChangedPoint);
   CHECK(removedHeight && changedHeight, "both original tiles support real height queries");
   const auto triangles = renderer.TerrainRendererTriangles();
   const auto bytes = renderer.HeightPageSourceBytes();
-  auto replacement = Pages(0, kTarget + 1, kChangedHeight);
+  auto replacement = Pages({.First = 0, .Count = kTarget + 1}, kChangedHeight);
   replacement.Sheets.erase(replacement.Sheets.begin() + 11);
   CHECK(residency.BeginPublish(replacement, error), "a changed and expanded patchwork begins");
   CHECK(residency.HeightMAt(kRemovedPoint) == removedHeight &&
@@ -113,7 +121,7 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
   CHECK(residency.Standing() == kTarget && residency.Instances() == kTarget &&
             renderer.HeightPageSourceBytes() == kTarget * kPageBytes &&
             renderer.TerrainRendererTriangles() ==
-                kTarget * (Render::TerrainRenderer::kIndices / 3u),
+                kTarget * (Render::TerrainLattice::kIndices / 3u),
         "completion publishes all demanded tiles and retires precisely the removed tile");
   CHECK(!residency.HeightMAt(kRemovedPoint) && residency.HeightMAt(kChangedPoint) != changedHeight,
         "height queries switch from old removal coverage to accepted replacement data");

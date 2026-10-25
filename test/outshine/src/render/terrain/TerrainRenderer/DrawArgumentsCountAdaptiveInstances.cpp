@@ -1,3 +1,4 @@
+#include "terrain/TerrainResidency.h"
 #include "test/harness/render/NativeTerrainRendererProbe.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeOffline.h"
@@ -10,7 +11,8 @@
 int main() {
   using namespace outshine::Test::GroundProbe;
   auto device = Require(CreateDevice({.Validation = true}));
-  TerrainRenderer ground;
+  outshine::Render::TerrainResidency groundData;
+  TerrainRenderer ground{groundData};
   CHECK(Require(ground.ReadDrawArguments()).SkirtInstances == 0,
         "empty terrain needs no readback or device");
   std::array<ColourTarget, kTargetFormats.size()> targets;

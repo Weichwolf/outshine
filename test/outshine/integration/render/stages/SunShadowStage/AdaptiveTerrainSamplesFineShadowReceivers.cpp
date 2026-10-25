@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -47,10 +48,10 @@ bool PlaceTerrain(SceneRenderer &renderer, std::string &error) {
   std::ranges::copy(material.Row.BaseColour, palette.begin() + 4);
   palette[8] = kVerticalSlopeDeg;
   if (!renderer.SetGroundClasses(classes, palette, error)) { return false; }
-  std::vector<float> nodes(TerrainRenderer::kPageNodes);
-  for (int y = 0; y < TerrainRenderer::kPageSide; ++y) {
-    for (int x = 0; x < TerrainRenderer::kPageSide; ++x) {
-      nodes[static_cast<size_t>(y) * TerrainRenderer::kPageSide + static_cast<size_t>(x)] =
+  std::vector<float> nodes(TerrainLattice::kPageNodes);
+  for (int y = 0; y < TerrainLattice::kPageSide; ++y) {
+    for (int x = 0; x < TerrainLattice::kPageSide; ++x) {
+      nodes[static_cast<size_t>(y) * TerrainLattice::kPageSide + static_cast<size_t>(x)] =
           kBaseHeightM - kRippleHeightM * std::cos(static_cast<float>(x - 1) * kRipplePhase) *
                              std::cos(static_cast<float>(y - 1) * kRipplePhase);
     }
@@ -58,7 +59,7 @@ bool PlaceTerrain(SceneRenderer &renderer, std::string &error) {
   const auto page = renderer.PlaceHeightPage(nodes);
   CHECK(page.has_value(), "fine source heights are resident");
   if (!page) { return false; }
-  std::vector<float> fractions(TerrainRenderer::kSide);
+  std::vector<float> fractions(TerrainLattice::kSide);
   for (size_t at = 0; at < fractions.size(); ++at) {
     fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
   }
@@ -75,7 +76,7 @@ bool PlaceTerrain(SceneRenderer &renderer, std::string &error) {
                    -kTileHalfWidthM}};
   tile.LowM = kBaseHeightM - kRippleHeightM;
   tile.HighM = kBaseHeightM + kRippleHeightM;
-  tile.StepE = tile.StepN = 2 * kTileHalfWidthM / (TerrainRenderer::kSide - 1);
+  tile.StepE = tile.StepN = 2 * kTileHalfWidthM / (TerrainLattice::kSide - 1);
   return renderer.SetGroundGrid(fractions, error) &&
          renderer.SetTerrainTiles({&tile, 1}, {}, error) && renderer.Settle(error);
 }
@@ -164,10 +165,10 @@ int main() {
               std::ranges::any_of(atlas, [](float value) { return value > 0; }),
           "the test genuinely renders fine terrain into the native shadow atlas");
     CheckUnoccluded(reference, receiving);
-    std::array<float, TerrainRenderer::kSide> nonuniform;
+    std::array<float, TerrainLattice::kSide> nonuniform;
     for (size_t at = 0; at < nonuniform.size(); ++at) {
       const float offset = at % 2 != 0 ? kRippleHeightM : 0;
-      nonuniform[at] = (static_cast<float>(at) + offset) / (TerrainRenderer::kSide - 1);
+      nonuniform[at] = (static_cast<float>(at) + offset) / (TerrainLattice::kSide - 1);
     }
     CHECK(renderer.SetGroundGrid(nonuniform, error) && scene->Draw(error),
           "nonuniform terrain keeps its source grid");

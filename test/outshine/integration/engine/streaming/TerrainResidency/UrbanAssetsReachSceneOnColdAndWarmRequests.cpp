@@ -1,7 +1,8 @@
+#include <cstdint>
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "UrbanAreaStreaming.h"
-#include "TerrainResidency.h"
-#include "TerrainRenderer.h"
+#include "streaming/TerrainResidency.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "Geodesy.h"
@@ -17,6 +18,11 @@
 #include <vector>
 
 namespace {
+constexpr auto kAwaitSeconds = .05;
+constexpr auto kMovementM = .25;
+constexpr auto kTerrainHeightM = 42;
+constexpr auto kEyeHeightM = 70;
+
 using namespace outshine;
 using namespace outshine::Test;
 
@@ -36,7 +42,7 @@ bool Pump(UrbanAreaStreaming &stream,
               after.Publications - before.Publications <= 1,
           "all groups share bounded jobs, captures and scene publications");
     if (stream.Ready()) { return true; }
-    (void)stream.AwaitProgress(.05);
+    (void)stream.AwaitProgress(kAwaitSeconds);
   } while (std::chrono::steady_clock::now() < until);
   return false;
 }
@@ -47,14 +53,17 @@ void Probe(Render::SceneRenderer &renderer, const std::filesystem::path &directo
   const LongitudeLatitude focus{.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg};
   const auto frame = TangentFrame::At(focus);
   Vec3 eye;
-  GeoToEcef({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = 70}, eye);
+  GeoToEcef(
+      {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = kEyeHeightM},
+      eye);
   const UrbanAreaStreaming::View view{
       .Focus = focus, .EyeEcef = eye, .FocalPx = 1, .RadiusM = 240000, .Frame = frame};
   Patchwork patch;
-  patch.Sheets.push_back({.Tile = kOwner,
-                          .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, 42),
-                          .Side = Render::TerrainRenderer::kSide,
-                          .Postings = Render::TerrainRenderer::kSide});
+  patch.Sheets.push_back(
+      {.Tile = kOwner,
+       .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, kTerrainHeightM),
+       .Side = Render::TerrainLattice::kSide,
+       .Postings = Render::TerrainLattice::kSide});
   TerrainResidency terrain;
   terrain.Into(&renderer);
   std::string error;
@@ -74,7 +83,7 @@ void Probe(Render::SceneRenderer &renderer, const std::filesystem::path &directo
               stream.Costs().Publications == cold.Publications,
           "an unchanged camera position does no generation or scene publication");
     auto moved = view;
-    moved.EyeEcef = moved.EyeEcef + frame.EastEcef() * .25;
+    moved.EyeEcef = moved.EyeEcef + frame.EastEcef() * kMovementM;
     const auto geographic = GeoFromEcef(moved.EyeEcef);
     CHECK(geographic, "the moved eye remains a valid geographic position");
     if (geographic) {

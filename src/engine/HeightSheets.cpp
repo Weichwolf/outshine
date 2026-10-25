@@ -1,12 +1,12 @@
+#include "TerrainLattice.h"
 #include "HeightSheets.h"
-#include "TerrainRenderer.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <string>
 
 namespace outshine {
-static_assert(kPatchGrid + 1 == Render::TerrainRenderer::kSide,
+static_assert(kPatchGrid + 1 == Render::TerrainLattice::kSide,
               "native height pages and the renderer share one lattice");
 
 bool HeightSheets::Stitch(Patchwork &laid, std::string &error) {
