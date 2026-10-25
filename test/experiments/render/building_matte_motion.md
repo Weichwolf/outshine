@@ -50,8 +50,9 @@ python -B -W error test/experiments/render/compare_building_matte_motion.py \
 ```
 
 Input generation is unchanged (`building_transition.md`, `building_mattes.md`).
-Outputs are explicit Temp paths. Only first/midpoint/last images and C/T arrays
-are retained, plus each lighting path's contact and complete per-pose metrics.
+Outputs are explicit Temp paths. First/midpoint/last images and C/T arrays are
+retained, as are poses where merged mattes lose RGB or T to matched prisms.
+Each lighting path retains a contact and complete per-pose metrics.
 Actual work, array sizes and process costs belong in the PR; no native, GPU,
 frame-rate, full allocator/copy/bandwidth or population-scaling admission.
 

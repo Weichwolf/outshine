@@ -94,8 +94,16 @@ def run_light(output, scene, cameras, times, box, lighting, tables):
         )
         reports.append(report)
         previous = current
-        if i in (0, len(cameras) // 2, len(cameras) - 1):
+        keyframe = i in (0, len(cameras) // 2, len(cameras) - 1)
+        error = report["errors_vs_original"]
+        counterexample = any(
+            error["matte_merged"][key] > error["parent_matched_rest"][key]
+            for key in ("linear_rgb_l1_channel_sum", "T_l1_px2")
+        )
+        report["retained_counterexample"] = counterexample
+        if keyframe or counterexample:
             write_images(output, f"frame-{i}", images, {}, camera, actual_box)
+        if keyframe:
             panels.append((images, actual_box))
     contact(panels, output)
     return {"lighting": lighting, "frames": reports}
