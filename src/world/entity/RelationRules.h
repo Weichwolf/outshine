@@ -131,7 +131,6 @@ static_assert(kOwnedRelations >= 1, "removal owns at least the ChildOf chain");
 
 inline constexpr size_t kPairsPerEntity = 8;
 inline constexpr size_t kTagsPerEntity = 8;
-inline constexpr size_t kSeatsPerOffer = 4;
 
 [[nodiscard]] constexpr bool IsValid(Role role) noexcept {
   return static_cast<size_t>(role) < kRoles;

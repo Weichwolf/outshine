@@ -51,7 +51,6 @@ struct RegistryError {
 
 struct TagCatalogue {
   static constexpr Tag Does{0x01000000};
-  static constexpr Tag Offers{0x02000000};
 
   [[nodiscard]] static constexpr std::expected<Tag, TagError> under(Tag family,
                                                                     uint32_t ordinal) noexcept {
@@ -67,25 +66,12 @@ struct TagCatalogue {
 
 namespace tags {
 inline constexpr Tag Does = TagCatalogue::Does;
-inline constexpr Tag Offers = TagCatalogue::Offers;
 }
 
 static_assert(TagCatalogue::under(tags::Does, 1)->within(tags::Does) &&
                   !tags::Does.within(*TagCatalogue::under(tags::Does, 1)),
               "a tag is within its family and never the other way round");
-static_assert(!TagCatalogue::under(tags::Does, 1)->within(tags::Offers),
-              "and a family holds only its own");
-
 enum class Relation : uint8_t { IsA, ChildOf, DrivenBy, Uses, Assigned, HeldBy };
-
-enum class Seat : uint8_t { Free, Claimed, Occupied };
-
-struct Seating {
-
-  Entity By = kNoEntity;
-
-  Entity At = kNoEntity;
-};
 
 struct Instanced {
 
@@ -141,19 +127,6 @@ public:
   [[nodiscard]] std::expected<Entity, RegistryError> instantiate(Entity prefab);
 
   [[nodiscard]] Entity copyOf(Instanced which) const;
-
-  [[nodiscard]] std::expected<void, RegistryError>
-  offerSeats(Entity at, Tag activity, size_t seats);
-
-  [[nodiscard]] size_t entitiesOffering(Tag activity, std::span<Entity> into) const;
-
-  [[nodiscard]] std::expected<void, RegistryError> claimSeat(Seating who);
-
-  [[nodiscard]] std::expected<void, RegistryError> takeSeat(Seating who);
-
-  [[nodiscard]] std::expected<void, RegistryError> releaseSeat(Seating who);
-
-  [[nodiscard]] Seat seatOf(Seating who) const;
 
   [[nodiscard]] size_t capacity() const;
 
