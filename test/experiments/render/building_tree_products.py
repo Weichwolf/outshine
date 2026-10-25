@@ -7,6 +7,7 @@ import shapely
 from building_coverage_field import source_projections
 from building_mass_inputs import describe
 from building_mass_mesh import extrude
+from building_parent_buffer import expand
 from building_source_tree import sources_at
 
 
@@ -72,13 +73,13 @@ def projected_mass_coverage(group, domain, heights):
     return np.minimum(ratios, 1).tolist(), ratios.tolist()
 
 
-def band_mesh(group, scale):
+def band_mesh(group, scale, *, buffer_path="scalar"):
     original = shapely.union_all([s.footprint for s in group])
     holes = shapely.union_all(
         [shapely.Polygon(r) for p in shapely.get_parts(original) for r in p.interiors]
     )
     holes = shapely.difference(holes, original)
-    expanded = shapely.buffer(original, scale, join_style="mitre", mitre_limit=2)
+    expanded = expand(original, scale, buffer_path)
     closed = shapely.buffer(expanded, -scale, join_style="mitre", mitre_limit=2)
     domain = shapely.difference(
         shapely.simplify(closed, scale / 2, preserve_topology=True), holes
@@ -132,7 +133,7 @@ def node_bands(tree, node, masses):
     return bands, scale
 
 
-def build_node(tree, node, masses):
+def build_node(tree, node, masses, *, buffer_path="scalar"):
     groups, failures = [], []
     bands, scale = node_bands(tree, node, masses)
     for group in bands.values():
@@ -140,7 +141,7 @@ def build_node(tree, node, masses):
             continue
         ids = [s.source for s in group]
         try:
-            mesh, interval, work = band_mesh(group, scale)
+            mesh, interval, work = band_mesh(group, scale, buffer_path=buffer_path)
         except (ValueError, ArithmeticError, shapely.errors.GEOSException) as error:
             failures.append({"node": node, "sources": ids, "reason": str(error)})
             continue

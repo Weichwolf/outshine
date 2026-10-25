@@ -67,8 +67,10 @@ void Exercise(bool acquire, Native::ErrorKind kind) {
   const auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
   outshine::Test::Gpu::NativeOfflineDevice offline(*native);
   Pressure device(offline);
-  GeometryRenderer published;
-  GeometryRenderer candidate;
+  GeometryResidency publishedStorage;
+  GeometryRenderer published{publishedStorage};
+  GeometryResidency candidateStorage;
+  GeometryRenderer candidate{candidateStorage};
   CHECK(Configure(published, device) && Configure(candidate, device),
         "published and candidate draw native geometry");
   SceneResources original;
@@ -86,7 +88,7 @@ void Exercise(bool acquire, Native::ErrorKind kind) {
     if (!placed) { return; }
     handle = *placed;
   }
-  CHECK(published.Owned().SubmitPendingUploads().has_value(), "published uploads complete");
+  CHECK(published.Residency().SubmitPendingUploads().has_value(), "published uploads complete");
   copied.CopySourcesFrom(original, SceneResources::PieceSources::Copy);
   device.Acquire = acquire;
   device.SubmitBusy = !acquire;
@@ -111,7 +113,7 @@ void Exercise(bool acquire, Native::ErrorKind kind) {
   CHECK(copied.AdvancePieceRestore(candidate, next, kPieces).value_or(false) && next == kPieces,
         "restoration completes from the retained cursor after pressure ends");
   CHECK(candidate.PiecesStanding() == kPieces && candidate.PieceTriangles() == kPieces &&
-            candidate.Owned().SubmitPendingUploads().has_value(),
+            candidate.Residency().SubmitPendingUploads().has_value(),
         "every source piece is resident exactly once and its uploads remain accepted");
   CHECK(copied.AdvancePieceRestore(candidate, next, kPieces).value_or(false),
         "completed restoration remains idempotent");
