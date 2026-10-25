@@ -110,7 +110,7 @@ Lens SceneRenderer::Through() const {
           .OrthoM = ActiveState().OrthoM,
           .NearM = ActiveState().NearM,
           .FarM = ActiveState().FarM,
-          .Jitter = ActiveState().Jitter};
+          .Jitter = ActiveState().Temporal.Jitter()};
 }
 
 const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRenderer::kExecutors =
@@ -544,10 +544,11 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
 }
 
 Native::Texture *SceneRenderer::Target(Resource resource) const {
-  return Target(ActiveFrame(), resource);
+  return Target(ActiveFrame(), resource, ActiveState().Temporal.OutputIndex());
 }
 
-Native::Texture *SceneRenderer::Target(const FrameResources &frame, Resource resource) {
+Native::Texture *
+SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t linearIndex) {
   switch (resource) {
     case Resource::OverlayAtlas: return nullptr;
     case Resource::SceneHdr: return frame.HdrTex.get();
@@ -589,7 +590,7 @@ Native::Texture *SceneRenderer::Target(const FrameResources &frame, Resource res
     case Resource::DepthPyramid:
     case Resource::AoBuffer: return nullptr;
 
-    case Resource::SceneLinear: return frame.LinearTex[frame.LinearAt].get();
+    case Resource::SceneLinear: return frame.LinearTex[linearIndex].get();
     case Resource::kCount: return nullptr;
   }
   return nullptr;
@@ -761,7 +762,7 @@ bool SceneRenderer::ConfigureTonemap(SceneRenderer &renderer,
   display.Temporal = plan.Holds(Stage::TemporalResolve);
   return Accepted(
       frame.Tonemap.Configure(frame.Handles,
-                              {.Scene = Target(frame, plan.Bound(input)),
+                              {.Scene = Target(frame, plan.Bound(input), 0),
                                .Depth = frame.DepthTex.get(),
                                .Exact = frame.Samp.get(),
                                .Linear = TextureFormatOf(plan.Format(Resource::SceneLinear))},
@@ -836,7 +837,7 @@ bool SceneRenderer::ConfigureAerialPerspective(SceneRenderer &renderer,
   (void)drawsGlass;
   return Accepted(
       frame.Aerial.Configure(frame.Handles,
-                             {.Scene = Target(frame, plan.Bound(Resource::SceneComposited)),
+                             {.Scene = Target(frame, plan.Bound(Resource::SceneComposited), 0),
                               .Depth = frame.DepthTex.get(),
                               .SkyView = frame.SkyViewLut.get(),
                               .Transmittance = frame.TransmittanceLut.get(),
@@ -990,14 +991,12 @@ Native::Result<void> SceneRenderer::EncodeCompositeTransmission(const FrameConte
 Native::Result<void> SceneRenderer::EncodeTonemap(const FrameContext &ctx,
                                                   const PassRecording &into) {
   ActiveFrame().Tonemap.Bind(DisplaySource());
-  const Vec2f delta = {{ActiveState().Jitter[0] - ActiveState().PrevJitter[0],
-                        ActiveState().Jitter[1] - ActiveState().PrevJitter[1]}};
   ActiveFrame().Tonemap.BindTemporal(
-      {.History = ActiveFrame().LinearTex[1 - ActiveFrame().LinearAt].get(),
+      {.History = ActiveFrame().LinearTex[ActiveState().Temporal.HistoryIndex()].get(),
        .Velocity = ActiveFrame().VelTex.get()},
       Extent{.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
-      delta,
-      ActiveFrame().HistoryHeld);
+      ActiveState().Temporal.JitterDelta(),
+      ActiveState().Temporal.HasHistory());
   return ActiveFrame().Tonemap.Encode(ctx, Picture(true, into));
 }
 
@@ -1357,25 +1356,6 @@ Native::Result<void> SceneRenderer::EncodeSky(const FrameContext &ctx, const Pas
   return ActiveFrame().Sky.Encode(ctx, Picture(true, into));
 }
 
-namespace {
-
-template <int Base> float RadicalInverse(int index) {
-  float result = 0.0f;
-  float weight = 1.0f / static_cast<float>(Base);
-  int at = index + 1;
-  while (at > 0) {
-    result += weight * static_cast<float>(at % Base);
-    at /= Base;
-    weight /= static_cast<float>(Base);
-  }
-  return result;
-}
-
-Vec2f HaltonJitter(int at) {
-  return {{RadicalInverse<2>(at) - 0.5f, RadicalInverse<3>(at) - 0.5f}};
-}
-}
-
 Native::Result<void>
 SceneRenderer::EncodePass(Native::Commands *commands, size_t pass, StageSubmission &submission) {
   const auto &declared = ActiveState().Plan->Passes()[pass];
@@ -1453,14 +1433,7 @@ Native::Result<void> SceneRenderer::EncodeGraphicsPass(Native::Commands *command
 }
 
 void SceneRenderer::BeginTemporalRun() {
-  ActiveState().HistoryStarted = false;
-  ActiveState().JitterAt = 0;
-  ActiveState().Jitter[0] = 0.0f;
-  ActiveState().Jitter[1] = 0.0f;
-  ActiveState().PrevJitter[0] = 0.0f;
-  ActiveState().PrevJitter[1] = 0.0f;
-  ActiveFrame().LinearAt = 0;
-  ActiveFrame().HistoryHeld = false;
+  ActiveState().Temporal.Reset();
 }
 
 std::expected<void, std::string> SceneRenderer::PrepareFrame() {
@@ -1603,36 +1576,16 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   }
   record(RenderFramePhase::Swapchain);
 
-  const auto previousJitter = ActiveState().Jitter;
-  const auto previousPrevJitter = ActiveState().PrevJitter;
-  const auto previousJitterAt = ActiveState().JitterAt;
-  const auto previousHistoryStarted = ActiveState().HistoryStarted;
-  const auto previousHistoryHeld = ActiveFrame().HistoryHeld;
-  const auto previousLinearAt = ActiveFrame().LinearAt;
-  if (ActiveState().Plan->Holds(Stage::TemporalResolve)) {
-    ActiveState().PrevJitter = ActiveState().Jitter;
-    ActiveState().JitterAt = (ActiveState().JitterAt + 1) % kJitterPeriod;
-    ActiveState().Jitter = HaltonJitter(ActiveState().JitterAt);
-
-    ActiveFrame().HistoryHeld = ActiveState().HistoryStarted;
-    ActiveState().HistoryStarted = true;
-    ActiveFrame().LinearAt = 1 - ActiveFrame().LinearAt;
-  }
+  auto temporal = ActiveState().Temporal.Begin(ActiveState().Plan->Holds(Stage::TemporalResolve));
   StageSubmission stageSubmission;
-  const auto restoreTemporalState = [&] {
-    ActiveState().Jitter = previousJitter;
-    ActiveState().PrevJitter = previousPrevJitter;
-    ActiveState().JitterAt = previousJitterAt;
-    ActiveState().HistoryStarted = previousHistoryStarted;
-    ActiveFrame().HistoryHeld = previousHistoryHeld;
-    ActiveFrame().LinearAt = previousLinearAt;
+  const auto restorePresentSurface = [&] {
     if (presenting) { ActiveFrame().HostSurface = ActiveFrame().Offscreen.get(); }
   };
 
   auto culled = ActiveState().Content.Geometry.Ground().Cull(
       Framing(), ActiveState().Content.Geometry.AnchorM(), **commands);
   if (!culled) {
-    restoreTemporalState();
+    restorePresentSurface();
     return std::unexpected(culled.error().Message);
   }
   record(RenderFramePhase::Cull);
@@ -1640,7 +1593,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     auto encoded = EncodePass(commands->get(), pass, stageSubmission);
     if (!encoded) {
-      restoreTemporalState();
+      restorePresentSurface();
       return std::unexpected(encoded.error().Message);
     }
   }
@@ -1649,15 +1602,16 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     auto queued = (*commands)->Present(std::move(presenting));
     ActiveFrame().HostSurface = ActiveFrame().Offscreen.get();
     if (!queued) {
-      restoreTemporalState();
+      restorePresentSurface();
       return std::unexpected(queued.error().Message);
     }
   }
   auto submitted = Submission_.Submit(Submission_.Context, Device_.get(), std::move(*commands));
   if (!submitted) {
-    restoreTemporalState();
+    restorePresentSurface();
     return std::unexpected(submitted.error().Message);
   }
+  temporal.Commit();
   Landed_[LandedAt_] = *submitted;
   LastFrameSubmission_ = *submitted;
   Uploads_->Submitted(*submitted);

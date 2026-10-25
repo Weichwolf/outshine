@@ -144,8 +144,6 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
       if (!made) { return made; }
       made = target(resource, colour, frame.LinearTex[1]);
       if (!made) { return made; }
-      frame.LinearAt = 0;
-      frame.HistoryHeld = false;
       return {};
     }
     case Resource::AtmosphereUniform:

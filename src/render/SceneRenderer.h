@@ -28,6 +28,7 @@ struct SDL_Window;
 #include "Gpu.h"
 #include "GpuSubmission.h"
 #include "GpuFrameSample.h"
+#include "TemporalSequence.h"
 #include "UploadQueue.h"
 #include "TerrainMaterialBuffers.h"
 
@@ -1006,7 +1007,8 @@ private:
   void SettleShadow();
   std::array<bool, kResourceCount> Touched_ = {{}};
   [[nodiscard]] Native::Texture *Target(Resource resource) const;
-  [[nodiscard]] static Native::Texture *Target(const FrameResources &frame, Resource resource);
+  [[nodiscard]] static Native::Texture *
+  Target(const FrameResources &frame, Resource resource, size_t linearIndex);
   void BindFrameResources();
   void ApplyWorldDeclarations();
 
@@ -1056,8 +1058,6 @@ private:
     Readback PyramidRead;
     int Width = 0, Height = 0;
     std::array<std::unique_ptr<Native::Texture>, 2> LinearTex{};
-    int LinearAt = 0;
-    bool HistoryHeld = false;
     CompositeTransmissionStage CompositeTransmission;
     AerialPerspectiveStage Aerial;
     TonemapStage Tonemap;
@@ -1083,10 +1083,7 @@ private:
     Medium Medium = kEarthAir;
     float CosSunZenith = 1.0f;
     float EyeHeightM = 0.0f;
-    bool HistoryStarted = false;
-    int JitterAt = 0;
-    Vec2f Jitter = {{0.0f, 0.0f}};
-    Vec2f PrevJitter = {{0.0f, 0.0f}};
+    TemporalSequence Temporal;
     bool CameraFull = false;
     double RegionX = 0.0;
     double RegionY = 0.0;
@@ -1162,7 +1159,6 @@ private:
 
   bool Presenting_ = true;
   SDL_Window *Showing_ = nullptr;
-  static constexpr int kJitterPeriod = 8;
 
   struct Placed {
     double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
