@@ -12,6 +12,7 @@ The native replay reproduces geometry bytes and footprint/detail metadata exactl
 | `original-inputs.tar.gz` | Unchanged native index, all original parent shape blocks, selected view and original per-package hashes |
 | `context.json` | Actual scenario, 1280×720/60 profile, 6 m/s and 360°/s sequence, projection/error, input/build hashes and frame conventions |
 | `manifest.json` | SHA256 and byte size of each delivered data file |
+| `native-cells/manifest.json` | Native unprojected controls for original cells25/33/34/41;33 reuses `cell.json.gz`; missing native meshes remain explicit |
 
 Inventory totals independently match the native control: 613,121 footprints and
 21,172,410 building triangles. The archive supplies the complete parent required

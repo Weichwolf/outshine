@@ -129,6 +129,26 @@ foreach(source IN LISTS cases)
   endwhile()
 endforeach()
 
+add_executable(test_harness_building_selection_export EXCLUDE_FROM_ALL
+  test/experiments/render/export_building_selection.cpp
+  test/experiments/render/building_capture_inputs.cpp)
+target_compile_options(test_harness_building_selection_export PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_building_selection_export PRIVATE outshine_generators_osm)
+add_dependencies(outshine_tests test_harness_building_selection_export)
+add_custom_target(test_experiments_render_BuildingCellControl
+  DEPENDS test_harness_building_selection_export)
+add_test(NAME experiments/render/BuildingCellControl
+  COMMAND "${Python3_EXECUTABLE}" -B
+  "${PROJECT_SOURCE_DIR}/test/experiments/render/test_building_cell_control.py")
+set_tests_properties(experiments/render/BuildingCellControl PROPERTIES
+  TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "experiments/render")
+add_test(NAME experiments/render/NativeBuildingCellExport
+  COMMAND "${Python3_EXECUTABLE}" -B
+  "${PROJECT_SOURCE_DIR}/test/experiments/render/test_native_building_cell_export.py"
+  --exporter $<TARGET_FILE:test_harness_building_selection_export>)
+set_tests_properties(experiments/render/NativeBuildingCellExport PROPERTIES
+  TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "experiments/render")
+
 execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import tempfile; print(tempfile.gettempdir())"
   OUTPUT_VARIABLE system_temp OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 set(OUTSHINE_PREPARED_DIR "${system_temp}/outshine-prepared" CACHE PATH "Prepared pinned corpus inputs")
