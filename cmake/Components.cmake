@@ -25,6 +25,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators/water
   render
   render/device/native
+  render/frame
   render/plan
   render/temporal
   scenario
@@ -107,10 +108,11 @@ target_link_libraries(outshine_generators_water PUBLIC outshine_base outshine_co
 target_link_libraries(outshine_scripting PRIVATE qjs Threads::Threads)
 target_link_libraries(outshine_sources PUBLIC outshine_base outshine_storage CURL::libcurl)
 target_link_libraries(outshine_storage PUBLIC outshine_base PkgConfig::sqlite3)
-target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world outshine_ui_paint outshine_render_device_native outshine_render_plan outshine_render_temporal)
+target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world outshine_ui_paint outshine_render_device_native outshine_render_frame outshine_render_plan outshine_render_temporal)
 target_link_libraries(outshine_render_device_native PUBLIC outshine_render_device_api
   PRIVATE Threads::Threads PkgConfig::sdl3 PkgConfig::spirv_cross ${SPIRV_CROSS_LIBRARIES})
 target_link_libraries(outshine_render_plan PUBLIC outshine_base outshine_render_device_api)
+target_link_libraries(outshine_render_frame PUBLIC outshine_render_plan)
 target_link_libraries(outshine_render_temporal PUBLIC outshine_base)
 target_link_libraries(outshine_scenario PUBLIC outshine_base outshine_sources outshine_world_entity)
 target_link_libraries(outshine_ui PUBLIC outshine_base outshine_ui_paint PRIVATE PkgConfig::sdl3_ttf)

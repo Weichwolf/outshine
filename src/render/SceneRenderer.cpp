@@ -463,25 +463,13 @@ bool SceneRenderer::ConfigurePlanStages(FrameResources &frame,
 SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts() const noexcept {
   FrameGraphAllocations counts;
   const auto count = [&counts](const FrameResources &frame) {
+    counts.Textures += frame.Targets.Count();
     const std::array textures{&frame.Offscreen,
-                              &frame.HdrTex,
-                              &frame.VelTex,
-                              &frame.DepthTex,
-                              &frame.FrameTex,
                               &frame.TransmittanceLut,
                               &frame.MultiScatterLut,
                               &frame.SkyViewLut,
                               &frame.EnvironmentSpecular,
-                              &frame.ShadowAtlas,
-                              &frame.TransmissiveTex,
-                              &frame.CompositedTex,
-                              &frame.AerialTex,
-                              &frame.ShadingNormalTex,
-                              &frame.SurfaceIdentityTex,
-                              &frame.SurfaceBaseTex,
-                              &frame.SurfaceMetalRoughTex,
-                              frame.LinearTex.data(),
-                              &frame.LinearTex[1]};
+                              &frame.ShadowAtlas};
     for (const std::unique_ptr<Native::Texture> *texture : textures) {
       counts.Textures += static_cast<size_t>(static_cast<bool>(*texture));
     }
@@ -501,17 +489,6 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
 bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
   switch (resource) {
     case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
-    case Resource::SceneHdr: return static_cast<bool>(frame.HdrTex);
-    case Resource::SceneTransmissive: return static_cast<bool>(frame.TransmissiveTex);
-    case Resource::SceneComposited: return static_cast<bool>(frame.CompositedTex);
-    case Resource::SceneAerial: return static_cast<bool>(frame.AerialTex);
-    case Resource::SceneVelocity: return static_cast<bool>(frame.VelTex);
-    case Resource::SceneShadingNormal: return static_cast<bool>(frame.ShadingNormalTex);
-    case Resource::SceneSurfaceIdentity: return static_cast<bool>(frame.SurfaceIdentityTex);
-    case Resource::SceneSurfaceBase: return static_cast<bool>(frame.SurfaceBaseTex);
-    case Resource::SceneSurfaceMetalRough: return static_cast<bool>(frame.SurfaceMetalRoughTex);
-    case Resource::SceneDepth: return static_cast<bool>(frame.DepthTex);
-    case Resource::FrameTex: return static_cast<bool>(frame.FrameTex);
     case Resource::TransmittanceLut: return static_cast<bool>(frame.TransmittanceLut);
     case Resource::MultiScatterLut: return static_cast<bool>(frame.MultiScatterLut);
     case Resource::SkyViewLut: return static_cast<bool>(frame.SkyViewLut);
@@ -522,7 +499,6 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::GroundPyramid: return static_cast<bool>(frame.GroundPyramid);
     case Resource::GroundSelection: return true;
     case Resource::ShadowAtlas: return static_cast<bool>(frame.ShadowAtlas);
-    case Resource::SceneLinear: return frame.LinearTex[0] && frame.LinearTex[1];
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
     case Resource::VegetationTable:
@@ -539,8 +515,8 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::DrawArguments:
     case Resource::AoBuffer:
     case Resource::kCount: return true;
+    default: return frame.Targets.Get(resource) != nullptr;
   }
-  return false;
 }
 
 Native::Texture *SceneRenderer::Target(Resource resource) const {
@@ -551,17 +527,6 @@ Native::Texture *
 SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t linearIndex) {
   switch (resource) {
     case Resource::OverlayAtlas: return nullptr;
-    case Resource::SceneHdr: return frame.HdrTex.get();
-    case Resource::SceneTransmissive: return frame.TransmissiveTex.get();
-    case Resource::SceneComposited: return frame.CompositedTex.get();
-    case Resource::SceneAerial: return frame.AerialTex.get();
-    case Resource::SceneVelocity: return frame.VelTex.get();
-    case Resource::SceneShadingNormal: return frame.ShadingNormalTex.get();
-    case Resource::SceneSurfaceIdentity: return frame.SurfaceIdentityTex.get();
-    case Resource::SceneSurfaceBase: return frame.SurfaceBaseTex.get();
-    case Resource::SceneSurfaceMetalRough: return frame.SurfaceMetalRoughTex.get();
-    case Resource::SceneDepth: return frame.DepthTex.get();
-    case Resource::FrameTex: return frame.FrameTex.get();
 
     case Resource::Surface: return frame.Offscreen.get();
 
@@ -588,12 +553,10 @@ SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t lin
     case Resource::GroundPyramid:
     case Resource::GroundSelection:
     case Resource::DepthPyramid:
-    case Resource::AoBuffer: return nullptr;
-
-    case Resource::SceneLinear: return frame.LinearTex[linearIndex].get();
+    case Resource::AoBuffer:
     case Resource::kCount: return nullptr;
+    default: return frame.Targets.Get(resource, linearIndex);
   }
-  return nullptr;
 }
 
 DisplayOptions SceneRenderer::Display() const {
@@ -689,8 +652,11 @@ bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
   (void)plan;
   (void)drawsGlass;
   return Accepted(
-      renderer.ActiveState().Content.Glass.Configure(
-          frame.GlassPipelines, frame.Handles, frame.HdrTex.get(), frame.Samp.get(), false),
+      renderer.ActiveState().Content.Glass.Configure(frame.GlassPipelines,
+                                                     frame.Handles,
+                                                     frame.Targets.Get(Resource::SceneHdr),
+                                                     frame.Samp.get(),
+                                                     false),
       error);
 }
 
@@ -703,8 +669,8 @@ bool SceneRenderer::ConfigureCompositeTransmission(SceneRenderer &renderer,
   (void)drawsGlass;
   return Accepted(frame.CompositeTransmission.Configure(
                       frame.Handles,
-                      {.Opaque = frame.HdrTex.get(),
-                       .Transmissive = frame.TransmissiveTex.get(),
+                      {.Opaque = frame.Targets.Get(Resource::SceneHdr),
+                       .Transmissive = frame.Targets.Get(Resource::SceneTransmissive),
                        .Exact = frame.Samp.get(),
                        .Target = TextureFormatOf(plan.Format(Resource::SceneComposited))}),
                   error);
@@ -731,7 +697,8 @@ bool SceneRenderer::ConfigurePresent(SceneRenderer &renderer,
   static_cast<void>(renderer);
   (void)plan;
   (void)drawsGlass;
-  if (!Accepted(frame.Present.Configure(frame.FrameTex.get(), frame.Samp.get()), error)) {
+  if (!Accepted(frame.Present.Configure(frame.Targets.Get(Resource::FrameTex), frame.Samp.get()),
+                error)) {
     return false;
   }
   constexpr std::array formats{Native::Format::Rgba8Unorm,
@@ -763,7 +730,7 @@ bool SceneRenderer::ConfigureTonemap(SceneRenderer &renderer,
   return Accepted(
       frame.Tonemap.Configure(frame.Handles,
                               {.Scene = Target(frame, plan.Bound(input), 0),
-                               .Depth = frame.DepthTex.get(),
+                               .Depth = frame.Targets.Get(Resource::SceneDepth),
                                .Exact = frame.Samp.get(),
                                .Linear = TextureFormatOf(plan.Format(Resource::SceneLinear))},
                               display),
@@ -838,7 +805,7 @@ bool SceneRenderer::ConfigureAerialPerspective(SceneRenderer &renderer,
   return Accepted(
       frame.Aerial.Configure(frame.Handles,
                              {.Scene = Target(frame, plan.Bound(Resource::SceneComposited), 0),
-                              .Depth = frame.DepthTex.get(),
+                              .Depth = frame.Targets.Get(Resource::SceneDepth),
                               .SkyView = frame.SkyViewLut.get(),
                               .Transmittance = frame.TransmittanceLut.get(),
                               .Exact = frame.Samp.get(),
@@ -992,8 +959,9 @@ Native::Result<void> SceneRenderer::EncodeTonemap(const FrameContext &ctx,
                                                   const PassRecording &into) {
   ActiveFrame().Tonemap.Bind(DisplaySource());
   ActiveFrame().Tonemap.BindTemporal(
-      {.History = ActiveFrame().LinearTex[ActiveState().Temporal.HistoryIndex()].get(),
-       .Velocity = ActiveFrame().VelTex.get()},
+      {.History =
+           ActiveFrame().Targets.Get(Resource::SceneLinear, ActiveState().Temporal.HistoryIndex()),
+       .Velocity = ActiveFrame().Targets.Get(Resource::SceneVelocity)},
       Extent{.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
       ActiveState().Temporal.JitterDelta(),
       ActiveState().Temporal.HasHistory());
@@ -1209,7 +1177,7 @@ bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
   (void)plan;
   (void)drawsGlass;
   return Accepted(frame.PyramidStage.Configure(frame.Handles,
-                                               frame.DepthTex.get(),
+                                               frame.Targets.Get(Resource::SceneDepth),
                                                frame.Samp.get(),
                                                frame.Pyramid.get(),
                                                {.WidthPx = frame.Width, .HeightPx = frame.Height}),
