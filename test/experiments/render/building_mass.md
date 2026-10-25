@@ -32,10 +32,32 @@ unresolved image/semantic cost, even if the coarse silhouette looks plausible.
 The group is extruded between its actual minimum bottom and maximum roof height.
 Constrained cap triangles must cover the footprint. Positive triangle area,
 indexed oriented edge incidence, expected Euler characteristic and positive
-volume are checked before/after Float32 packing. Distinct nodes may not collapse,
-and face orientation may not flip. A failed group retains every original source;
-there is no tolerance repair or partial packed group. Local closed prisms do not
-prove global nonintersection, physical validity or source surface correspondence.
+volume are checked before/after Float32 packing. Distinct emitted nodes may not
+collapse and face orientation may not flip. Only a duplicate-node packing failure
+may retry: cast the original polygon rings to Float32, remove **adjacent identical
+coordinate words**, then triangulate both caps and walls from those same rings.
+Nonadjacent collisions, invalid rings/polygons, lost holes/components and collapsed
+heights remain failures. No distance tolerance, feature-size cutoff or invalid-
+polygon repair is introduced. All original strict checks run on the retried prism.
+Previously accepted groups stay word-equal, including their indices. A failed group
+retains every original source. Local closed prisms do not prove global nonintersection,
+physical validity or source surface correspondence.
+
+The retry reports ring casts, retained arrays, removed words, plan-area change and
+the failed first attempt's known arrays/work. Its maximum vertex-rounding value
+includes the initial XY cast as well as height packing. The retry's Double-volume
+field describes the rounded-XY prism; `input_footprint_volume_m3` separately retains
+the pre-rounding footprint/height volume. These are scoped numeric diagnostics,
+not an error certificate against original buildings. More groups can increase
+image error as they replace original geometry; smaller payload is not a free
+quality improvement. The complete remainder/material comparison must be retained.
+
+Initial group counts/accepted source totals are not portable material oracles:
+even unchanged NumPy/GEOS versions can select different strict outcomes under
+different BLAS kernels. Regression checks compare old/new groups in the same
+environment; measured counts belong to their receipt. This retry does not promise
+bit-identical triangulations across platforms. The separate material test checks
+the supplied group/remainder partition and actual source-measure calls.
 
 The complete comparison pays the original remainder. Both candidates and the
 fixed original geometry control use shared Float32 XYZ/UInt16 indices in the same
