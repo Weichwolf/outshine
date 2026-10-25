@@ -12,10 +12,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  EntityRegistry registry;
+  World::EntityRegistry registry;
   CHECK(registry.open(4), "registry opened");
-  const auto addedFirst = registry.addEntity(Role::Tool);
-  const auto addedSecond = registry.addEntity(Role::Tool);
+  const auto addedFirst = registry.addEntity();
+  const auto addedSecond = registry.addEntity();
   CHECK(addedFirst && addedSecond, "fixture entities are allocated");
   if (!addedFirst || !addedSecond) { return Report(); }
   const Entity first = *addedFirst;
@@ -46,9 +46,14 @@ int main() {
   scene.Room = 4;
   Scenario::Kind kind;
   kind.Name = "actor";
-  kind.Attributes = {{"health", "23"}};
+  kind.Attributes = {{.Name = "health", .Value = "23"}};
   scene.Kinds.push_back(kind);
-  scene.Instances = {{.Of = "actor", .Id = "first"}, {.Of = "actor", .Id = "second"}};
+  Scenario::Instance instance;
+  instance.Of = "actor";
+  instance.Id = "first";
+  scene.Instances.push_back(instance);
+  instance.Id = "second";
+  scene.Instances.push_back(instance);
   scene.State = {{.What = "first.health"}, {.What = "second.health"}};
   Engine engine;
   const bool ready = engine.declare(scene).has_value() && engine.assemble().has_value() &&

@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_SCENARIORUNTIME_H
-#define OUTSHINE_ENGINE_SCENARIORUNTIME_H
+#ifndef OUTSHINE_ENGINE_SCENARIO_SCENARIORUNTIME_H
+#define OUTSHINE_ENGINE_SCENARIO_SCENARIORUNTIME_H
 
 #include <optional>
 #include <expected>
@@ -37,6 +37,7 @@ struct ScenarioRuntime {
   uint64_t DeclarationRevision = 0;
   World::EntityState Entities;
   Column<Scenario::Body> Definitions;
+  Column<Traits> Attributes;
   Assembled Stood;
   std::optional<TableBook> Tables;
   std::optional<TriggerField> Triggers;

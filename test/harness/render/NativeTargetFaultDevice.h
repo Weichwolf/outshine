@@ -6,6 +6,7 @@
 #include <chrono>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -23,6 +24,8 @@ struct TargetFault {
   unsigned CreatedSamplers = 0;
   unsigned CreatedBuffers = 0;
   unsigned CreatedPipelines = 0;
+  unsigned PresentAttempts = 0;
+  std::optional<TargetNative::ErrorKind> PresentError;
   SDL_Window *Window = nullptr;
 
   void Arm(TargetFailure point, unsigned at = 1) {
@@ -90,9 +93,18 @@ public:
   }
 
   [[nodiscard]] TargetNative::Result<void> SetPresentTarget(SDL_Window *window) override {
-    if (Fault_.Reject(TargetFailure::Present)) { return std::unexpected(TargetFault::Error()); }
+    ++Fault_.PresentAttempts;
+    Fault_.PresentError.reset();
+    if (Fault_.Reject(TargetFailure::Present)) {
+      Fault_.PresentError = TargetNative::ErrorKind::Driver;
+      return std::unexpected(TargetFault::Error());
+    }
     auto result = Backing().SetPresentTarget(window);
-    if (result) { Fault_.Window = window; }
+    if (result) {
+      Fault_.Window = window;
+    } else {
+      Fault_.PresentError = result.error().Kind;
+    }
     return result;
   }
 

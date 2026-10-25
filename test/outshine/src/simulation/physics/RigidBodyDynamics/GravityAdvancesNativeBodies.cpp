@@ -22,7 +22,7 @@ int main() {
   std::vector<World::EntityBodyState> initial;
   std::array<Entity, 3> owners;
   for (size_t at = 0; at < massesKg.size(); ++at) {
-    const auto entity = world.Registry().addEntity(Role::Body);
+    const auto entity = world.Registry().addEntity();
     CHECK(entity, "native physics identity exists");
     if (!entity) { return Report(); }
     owners[at] = *entity;

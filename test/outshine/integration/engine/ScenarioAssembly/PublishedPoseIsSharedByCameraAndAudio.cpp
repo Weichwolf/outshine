@@ -4,12 +4,34 @@
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <atomic>
+#include <memory>
+#include <print>
 #include <string>
+#include <utility>
 
 namespace {
+namespace Native = outshine::Render::Native;
+
+struct SubmittedWork {
+  uint64_t LastSerial = 0;
+  size_t Count = 0;
+
+  static Native::Result<Native::Completion>
+  Submit(void *context, Native::Device *device, std::unique_ptr<Native::Commands> commands) {
+    auto completion = device->Submit(std::move(commands));
+    if (completion) {
+      auto &record = *static_cast<SubmittedWork *>(context);
+      record.LastSerial = completion->Serial;
+      ++record.Count;
+    }
+    return completion;
+  }
+};
+
 void CheckPublication() {
   using namespace outshine;
   using namespace outshine::Test;
@@ -42,7 +64,8 @@ void CheckPublication() {
   sound.Graph.emplace_back().Id = "osc";
   sound.Graph.back().Parameters = {{.Name = "frequency", .Value = "1000"}};
   scene.Sounds.push_back(sound);
-  Engine engine;
+  SubmittedWork submissions;
+  auto engine = TestEngine::WithGpu({.Context = &submissions, .Submit = SubmittedWork::Submit});
   const bool ready = engine.registerGenerator(triangle) &&
                      engine.setRenderTarget({.WidthPx = 32, .HeightPx = 32}) &&
                      engine.declare(scene) && engine.assemble() && engine.prepareAudio(48000) &&
@@ -53,13 +76,22 @@ void CheckPublication() {
   const auto surface = geometry.addSurface("native-pose", Material{});
   const auto part =
       surface ? geometry.addPart("pose", *surface) : std::expected<int, GeometryPartError>{};
-  const bool placed =
+  const bool described =
       surface && part &&
       geometry.setPositions(*part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
-      geometry.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}) &&
-      engine.setGeometry(geometry) && engine.advance();
-  CHECK(placed, "native geometry actually prepares the rendered body instances");
+      geometry.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2});
+  CHECK(described, "the fixture describes valid native geometry");
+  if (!described) { return; }
+  const auto installed = engine.setGeometry(geometry);
+  CHECK(installed, installed ? "native geometry installs" : installed.error().c_str());
+  if (!installed) { return; }
+  const auto placed = engine.advance();
+  CHECK(placed, placed ? "native body instances prepare" : placed.error().c_str());
   if (!placed) { return; }
+  const auto initialFrame = engine.renderer().render({});
+  CHECK(initialFrame, initialFrame ? "initial poses render" : initialFrame.error().c_str());
+  if (!initialFrame) { return; }
+  const uint64_t firstFrameSerial = submissions.LastSerial;
   auto &state = TestEngine::StateOf(engine);
   const auto held = state.BodyFrame;
   const auto camera = state.ScenarioState->ViewBodies.front();
@@ -89,7 +121,15 @@ void CheckPublication() {
   CHECK(state.Picture.Standing && state.Picture.Standing->InstancesStanding() == 2 &&
             state.Picture.Standing->PlacementStanding(0)[12] == kCameraM,
         "the actual native render placement consumes the same published pose");
-  CHECK(engine.renderer().render({}), "the coherent native placements submit to the GPU");
+  const auto rendered = engine.renderer().render({});
+  CHECK(rendered, rendered ? "coherent poses render" : rendered.error().c_str());
+  std::println("body-frame-submissions total={} first={} second={} delta={}",
+               submissions.Count,
+               firstFrameSerial,
+               submissions.LastSerial,
+               submissions.LastSerial - firstFrameSerial);
+  CHECK(firstFrameSerial != 0 && submissions.LastSerial == firstFrameSerial + 1,
+        "all changed body placements travel with the next frame without per-body submissions");
   const auto revision = state.BodyFrame.Revision();
   CHECK(engine.advance() && state.BodyFrame.Revision() == revision &&
             state.ScenarioState->Entities.PublicationCost().CopiedBytes == 0,

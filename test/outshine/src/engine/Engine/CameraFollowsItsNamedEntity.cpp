@@ -21,7 +21,10 @@ int main() {
   scene.Render.Declared = true;
   scene.Render.Frame = {64, 64};
   scene.Render.Outputs = {"sceneLinear", "surface"};
-  scene.Assets.push_back({.Uri = assetName, .Kind = "generated"});
+  Scenario::Asset asset;
+  asset.Uri = assetName;
+  asset.Kind = "generated";
+  scene.Assets.push_back(asset);
   Scenario::Body body;
   body.Name = "template";
   scene.Bodies.push_back(body);
@@ -94,7 +97,7 @@ int main() {
     auto invalid = scene;
     invalid.Views[0].Follows = "missing";
     CHECK(engine.declare(invalid).has_value(), "target validation waits for assembly");
-    const EntityRegistry *previous = &engine.entities();
+    const World::EntityRegistry *previous = &engine.entities();
     CHECK(!engine.assemble() && &engine.entities() == previous,
           "missing target preserves old assembly");
     CHECK(!engine.advance(), "new camera cannot silently follow old assembly");
