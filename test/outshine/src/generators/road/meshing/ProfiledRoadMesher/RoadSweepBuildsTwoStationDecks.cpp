@@ -1,19 +1,22 @@
-#include "src/generators/road/ProfiledRoadMesher.h"
+#include "ProfiledRoadMesher.h"
 #include "Check.h"
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Generators::ProfiledRoadMesher mesher;
+  constexpr double kEndpointToleranceM = 0.0001;
+  const Generators::ProfiledRoadMesher mesher;
   const RoadSweep settings{.HalfWidthM = 3,
                            .Profile = RoadProfile::Simple,
                            .WearsLinear = {{0.2f, 0.3f, 0.4f}},
                            .Crossfall = 0};
-  for (double heading : {0.0, 0.7, -1.2}) {
-    const double east = std::cos(heading), north = std::sin(heading);
+  for (const double heading : {0.0, 0.7, -1.2}) {
+    const double east = std::cos(heading);
+    const double north = std::sin(heading);
     const std::array<RoadStation, 2> stations{
         {{.EastM = 10, .NorthM = 20, .GradeM = 5},
          {.EastM = 10 + 64 * east, .NorthM = 20 + 64 * north, .GradeM = 21}}};
@@ -30,9 +33,9 @@ int main() {
       for (size_t at = 0; at < mesh.PositionM.size(); at += 3) {
         const double dx = mesh.PositionM[at] - station.EastM;
         const double dz = mesh.PositionM[at + 2] + station.NorthM;
-        found |= std::abs(dx * east - dz * north) < 0.0001 &&
-                 std::abs(std::hypot(dx, dz) - 3) < 0.0001 &&
-                 std::abs(mesh.PositionM[at + 1] - station.GradeM) < 0.0001;
+        found |= std::abs(dx * east - dz * north) < kEndpointToleranceM &&
+                 std::abs(std::hypot(dx, dz) - 3) < kEndpointToleranceM &&
+                 std::abs(mesh.PositionM[at + 1] - station.GradeM) < kEndpointToleranceM;
       }
       CHECK(found, "deck edge matches the declared endpoint, half-width and elevation");
     }

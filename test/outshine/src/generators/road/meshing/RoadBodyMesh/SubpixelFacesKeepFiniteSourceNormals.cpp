@@ -1,9 +1,8 @@
 #include "Check.h"
-#include "RoadStepBody.h"
+#include "RoadBodyMesh.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <utility>
 
 int main() {
   using namespace outshine;
@@ -24,10 +23,8 @@ int main() {
   if (!solid) { return Report(); }
   CHECK(static_cast<float>(eastM) == static_cast<float>(eastM + widthM),
         "Float32 merges the two source sides at this render-coordinate offset");
-  SurfaceBody body;
-  body.Geometry = std::move(*solid);
   RoadMeshBuffers mesh;
-  CHECK(AppendRoadStepBody(body, {{1, 1, 1}}, mesh), "the valid body reaches render buffers");
+  CHECK(AppendRoadBodyMesh(*solid, {{1, 1, 1}}, mesh), "the valid body reaches render buffers");
   CHECK(!mesh.NormalM.empty() &&
             std::ranges::all_of(mesh.NormalM, [](float normal) { return std::isfinite(normal); }),
         "subpixel triangles retain finite normals from their unquantized source body");

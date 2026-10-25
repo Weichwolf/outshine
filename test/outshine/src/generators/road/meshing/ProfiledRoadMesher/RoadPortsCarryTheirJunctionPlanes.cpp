@@ -1,14 +1,22 @@
 #include "Check.h"
-#include "src/generators/road/ProfiledRoadMesher.h"
-#include "src/generators/road/RoadCrossSection.h"
+#include "ProfiledRoadMesher.h"
+#include "RoadCrossSection.h"
 
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <span>
 
 namespace {
+inline constexpr double kBaseHeightM = 5.0;
+inline constexpr double kCrossfallRad = .04;
+inline constexpr double kEndpointToleranceM = .0001;
+inline constexpr double kHeightToleranceM = .00002;
+inline constexpr double kNormalTolerance = .00001;
+inline constexpr outshine::Vec3f kRoadColour{{.2f, .3f, .4f}};
 
 double Height(outshine::RoadPlane plane, double east, double north) {
-  return 5.0 + plane.SlopeE * east + plane.SlopeN * north;
+  return kBaseHeightM + plane.SlopeE * east + plane.SlopeN * north;
 }
 
 void CheckPortedRoad(std::span<const outshine::RoadStation> stations, outshine::RoadPlane plane) {
@@ -19,15 +27,15 @@ void CheckPortedRoad(std::span<const outshine::RoadStation> stations, outshine::
       stations,
       {.HalfWidthM = 2,
        .Profile = RoadProfile::Simple,
-       .WearsLinear = {{.2f, .3f, .4f}},
-       .Crossfall = .04,
+       .WearsLinear = kRoadColour,
+       .Crossfall = kCrossfallRad,
        .Form = RibbonForm::Surface,
-       .EndPorts = {RoadPort{Generators::RoadEndGate(
+       .EndPorts = {RoadPort{.Gate = Generators::RoadEndGate(
                                  stations, false, Generators::RoadSection(2, RoadProfile::Simple)),
-                             plane},
-                    RoadPort{Generators::RoadEndGate(
+                             .Plane = plane},
+                    RoadPort{.Gate = Generators::RoadEndGate(
                                  stations, true, Generators::RoadSection(2, RoadProfile::Simple)),
-                             plane}}},
+                             .Plane = plane}}},
       mesh);
   CHECK(result.Pieces == 1 && result.Cuts == 0 && result.Refused == 0,
         "ported road forms one complete fitted surface");
@@ -45,16 +53,16 @@ void CheckPortedRoad(std::span<const outshine::RoadStation> stations, outshine::
       const double along = ((mesh.PositionM[at] - station.EastM) * east +
                             (-mesh.PositionM[at + 2] - station.NorthM) * north) /
                            run;
-      if (std::abs(along) > .0001) { continue; }
+      if (std::abs(along) > kEndpointToleranceM) { continue; }
       CHECK_NEAR(mesh.PositionM[at + 1],
                  Height(plane, mesh.PositionM[at], -mesh.PositionM[at + 2]),
-                 .00002,
+                 kHeightToleranceM,
                  "m",
                  "every endpoint section vertex lies on the junction plane");
       for (size_t axis = 0; axis < 3; ++axis) {
         CHECK_NEAR(mesh.NormalM[at + axis],
                    expectedNormal[axis],
-                   .00001,
+                   kNormalTolerance,
                    "unit",
                    "endpoint surface normal matches the complete junction plane");
       }
@@ -70,7 +78,8 @@ int main() {
   using namespace outshine;
   constexpr RoadPlane plane{.SlopeE = .06, .SlopeN = -.03};
   for (const double heading : {0.0, .7, 1.5707963267948966, -2.0}) {
-    const double east = std::cos(heading), north = std::sin(heading);
+    const double east = std::cos(heading);
+    const double north = std::sin(heading);
     const std::array<RoadStation, 2> stations{
         {{.EastM = 13.4567, .NorthM = -25.6789, .GradeM = Height(plane, 13.4567, -25.6789)},
          {.EastM = 13.4567 + 40 * east,
