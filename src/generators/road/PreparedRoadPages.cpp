@@ -183,18 +183,21 @@ PreparedRoadPages::Inspect(const RoadPageAddress &address, size_t bytesMost) {
     return std::unexpected("road page metadata needs a valid bounded address");
   }
   const std::scoped_lock lock(Lock_);
-  return ReadRecord(key, address.Level, bytesMost);
+  return ReadRecord(key, address, bytesMost);
 }
 
-std::expected<std::optional<AssetRecord>, std::string> PreparedRoadPages::ReadRecord(
-    const std::string &key, uint32_t level, size_t bytesMost, const std::string &requestKey) {
+std::expected<std::optional<AssetRecord>, std::string>
+PreparedRoadPages::ReadRecord(const std::string &key,
+                              const RoadPageAddress &address,
+                              size_t bytesMost,
+                              const std::string &requestKey) {
   auto record = Cache_->Find(key);
   if (!record) { return std::unexpected("could not inspect the native road page metadata"); }
   if (!*record) { return std::nullopt; }
   if ((**record).Kind != "road-render-page") {
     return std::unexpected("road page metadata differs from its owning format");
   }
-  if ((**record).Level != level || (**record).ByteCount == 0) {
+  if ((**record).Level != address.Level || (**record).ByteCount == 0) {
     if (!Cache_->Remove(key)) {
       return std::unexpected("could not remove invalid road page metadata");
     }
@@ -234,7 +237,7 @@ std::expected<AssetRecord, std::string> PreparedRoadPages::Prepare(const RoadPag
   if (!key) { return std::unexpected(std::move(key.error())); }
   const auto lookup = [&] {
     const std::scoped_lock lock(Lock_);
-    return ReadRecord(*key, request.Address.Level, request.NativeBytesMost, request.RequestKey);
+    return ReadRecord(*key, request.Address, request.NativeBytesMost, request.RequestKey);
   };
   auto existing = lookup();
   if (!existing) { return std::unexpected(std::move(existing.error())); }
@@ -249,7 +252,7 @@ std::expected<AssetRecord, std::string> PreparedRoadPages::Prepare(const RoadPag
   auto package = ProducePackage(request, *key, *producer, stop);
   if (!package) { return std::unexpected(std::move(package.error())); }
   const std::scoped_lock lock(Lock_);
-  existing = ReadRecord(*key, request.Address.Level, request.NativeBytesMost, request.RequestKey);
+  existing = ReadRecord(*key, request.Address, request.NativeBytesMost, request.RequestKey);
   if (!existing) { return std::unexpected(std::move(existing.error())); }
   if (*existing) { return std::move(**existing); }
   auto committed = CommitAsset(*Cache_, *key, request.NativeBytesMost, *package);
@@ -259,7 +262,7 @@ std::expected<AssetRecord, std::string> PreparedRoadPages::Prepare(const RoadPag
 }
 
 std::expected<RoadPageLease, std::string> PreparedRoadPages::Resolve(
-    const RoadPageRequest &request, const RoadPageProducer *producer, std::stop_token stop) {
+    const RoadPageRequest &request, const RoadPageProducer *producer, const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
   auto key = RequestKey(request);
   if (!key) { return std::unexpected(std::move(key.error())); }

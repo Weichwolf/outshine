@@ -99,9 +99,15 @@ void CheckBindings(const std::filesystem::path &directory, bool recordOnly) {
   auto complete = Wait(queue);
   CHECK(complete.size() == 1 && complete.front().Result && *complete.front().Result,
         "the original accepted request publishes its complete product");
-  if (complete.size() == 1 && complete.front().Result && *complete.front().Result) {
-    CHECK(std::holds_alternative<AssetRecord>(**complete.front().Result) == recordOnly,
-          "the worker result matches its admitted record or payload contract");
+  if (complete.size() == 1) {
+    const auto &result = complete.front().Result;
+    if (result) {
+      const auto &product = *result;
+      if (product) {
+        CHECK(std::holds_alternative<AssetRecord>(*product) == recordOnly,
+              "the worker result matches its admitted record or payload contract");
+      }
+    }
   }
   auto fresh = PreparedRoadPages::Open(directory.string());
   CHECK(fresh.has_value(), "a fresh offline cache connection opens after publication");
