@@ -117,6 +117,30 @@ public:
 
   [[nodiscard]] size_t EdgeCount() const { return Edges_.size(); }
 
+  struct WaySegment {
+    uint32_t Way = 0;
+    int32_t SignedStep = 0;
+
+    [[nodiscard]] uint32_t Step() const noexcept {
+      return static_cast<uint32_t>(SignedStep < 0 ? -int64_t{SignedStep} : SignedStep);
+    }
+
+    [[nodiscard]] bool Reverse() const noexcept { return SignedStep < 0; }
+  };
+
+  struct Connection {
+    size_t To = 0;
+    double LengthM = 0.0;
+    WaySegment Source;
+  };
+
+  [[nodiscard]] std::optional<LongitudeLatitude> PositionOfNode(size_t node) const noexcept;
+  [[nodiscard]] std::span<const Connection> ConnectionsFrom(size_t node) const noexcept;
+
+  [[nodiscard]] size_t ConnectionCapacityBytes() const noexcept {
+    return Edges_.capacity() * sizeof(Connection);
+  }
+
   [[nodiscard]] size_t TiedToEdges() const { return Tied_; }
 
   [[nodiscard]] size_t CrossingsJoined() const { return Joined_; }
@@ -290,10 +314,7 @@ private:
     int Lanes = 0;
   };
 
-  struct Edge {
-    size_t To = 0;
-    double LengthM = 0.0;
-  };
+  using Edge = Connection;
 
   struct RowShape {
     int64_t Row = 0;

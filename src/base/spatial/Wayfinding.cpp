@@ -511,8 +511,14 @@ void Network::AppendWayEdge(const Way &way,
       ApartM({.LongitudeDeg = Nodes_[from].LongitudeDeg, .LatitudeDeg = Nodes_[from].LatitudeDeg},
              {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
              Sphere{.RadiusM = RadiusM_});
-  outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
-  if (!way.Oneway) { outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM}); }
+  const auto owner = static_cast<uint32_t>(&way - Ways_.data());
+  const auto directed = static_cast<int32_t>(step);
+  outgoing[from].push_back(
+      Edge{.To = to, .LengthM = lengthM, .Source = {.Way = owner, .SignedStep = directed}});
+  if (!way.Oneway) {
+    outgoing[to].push_back(
+        Edge{.To = from, .LengthM = lengthM, .Source = {.Way = owner, .SignedStep = -directed}});
+  }
 }
 
 void Network::EdgesFromWays(std::span<const size_t> nodeOf, OutgoingEdges &outgoing) const {
@@ -716,34 +722,30 @@ bool Network::SpliceInto(size_t loose,
                          double tieReachM,
                          OutgoingEdges &outgoing,
                          EdgesByCell &byEdgeCell) {
-  const auto count = [&outgoing](size_t from, size_t to) {
-    return std::ranges::count(outgoing[from], to, &Edge::To);
+  const auto contains = [&outgoing](size_t from, size_t to) {
+    return std::ranges::any_of(outgoing[from], [to](const Edge &edge) { return edge.To == to; });
   };
-  const auto forward = count(best.From, best.To);
-  const auto reverse = count(best.To, best.From);
-  if (forward == 0 && reverse == 0) { return false; }
-  const auto unlink = [&outgoing](size_t from, size_t to) {
-    std::erase_if(outgoing[from], [to](const Edge &edge) { return edge.To == to; });
-  };
-  unlink(best.From, best.To);
-  unlink(best.To, best.From);
+  if (!contains(best.From, best.To) && !contains(best.To, best.From)) { return false; }
   MarkEdgeOverCells({.From = best.From, .To = best.To}, false, tieReachM, byEdgeCell);
-
-  const auto link = [this, &outgoing](size_t from, size_t to) {
-    const double lengthM =
-        ApartM({.LongitudeDeg = Nodes_[from].LongitudeDeg, .LatitudeDeg = Nodes_[from].LatitudeDeg},
-               {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
-               Sphere{.RadiusM = RadiusM_});
-    outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
+  const auto distance = [this](size_t from, size_t to) {
+    return ApartM(
+        {.LongitudeDeg = Nodes_[from].LongitudeDeg, .LatitudeDeg = Nodes_[from].LatitudeDeg},
+        {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
+        Sphere{.RadiusM = RadiusM_});
   };
-  for (std::ptrdiff_t at = 0; at < forward; ++at) {
-    link(best.From, loose);
-    link(loose, best.To);
-  }
-  for (std::ptrdiff_t at = 0; at < reverse; ++at) {
-    link(best.To, loose);
-    link(loose, best.From);
-  }
+  const auto split = [&outgoing, &distance, loose](size_t from, size_t to) {
+    const double firstM = distance(from, loose);
+    const double secondM = distance(loose, to);
+    for (Edge &edge : outgoing[from]) {
+      if (edge.To != to) { continue; }
+      const Edge tail{.To = to, .LengthM = secondM, .Source = edge.Source};
+      edge.To = loose;
+      edge.LengthM = firstM;
+      outgoing[loose].push_back(tail);
+    }
+  };
+  split(best.From, best.To);
+  split(best.To, best.From);
   MarkEdgeOverCells({.From = best.From, .To = loose}, true, tieReachM, byEdgeCell);
   MarkEdgeOverCells({.From = loose, .To = best.To}, true, tieReachM, byEdgeCell);
   return true;
