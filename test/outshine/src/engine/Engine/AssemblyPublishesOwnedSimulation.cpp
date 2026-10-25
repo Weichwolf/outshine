@@ -1,6 +1,7 @@
 #include <Engine.h>
 #include "Check.h"
 #include <array>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -15,9 +16,12 @@ int main() {
   scene.Room = 4;
   Scenario::Kind kind;
   kind.Name = "actor";
-  kind.Attributes = {{"health", "23"}};
+  kind.Attributes = {{.Name = "health", .Value = "23"}};
   scene.Kinds.push_back(kind);
-  scene.Instances.push_back({.Of = "actor", .Id = "kept"});
+  Scenario::Instance instance;
+  instance.Of = "actor";
+  instance.Id = "kept";
+  scene.Instances.push_back(instance);
   scene.State.push_back({.What = "kept.health"});
   Scenario::Body body;
   body.Name = "template";
@@ -46,8 +50,7 @@ int main() {
   if (saved) {
     std::ifstream file(path);
     const std::string text{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
-    CHECK(text.find("kept.health 23\n") != std::string::npos,
-          "native component value survives publication");
+    CHECK(text.contains("kept.health 23\n"), "native component value survives publication");
   }
   std::filesystem::remove(path);
   auto invalid = scene;

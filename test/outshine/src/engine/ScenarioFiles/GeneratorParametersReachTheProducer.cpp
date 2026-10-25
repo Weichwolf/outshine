@@ -51,10 +51,13 @@ int main() {
   CHECK(probe.Calls == 1 && probe.Seen == expected,
         "serialization and dispatch preserve exact values and order");
   Scenario::Document asset;
-  asset.Assets.push_back({.Uri = "parameter-probe", .Kind = "generated"});
+  Scenario::Asset invocation;
+  invocation.Uri = "parameter-probe";
+  invocation.Kind = "generated";
+  asset.Assets.push_back(invocation);
   CHECK(engine.declare(asset).has_value() && probe.Calls == 2 && probe.Seen.empty(),
         "asset invocation cannot inherit another declaration's parameter views");
-  copy.Generators = {{.Kind = "unregistered"}};
+  copy.Generators = {{.Kind = "unregistered", .Parameters = {}}};
   CHECK(!engine.declare(copy), "unknown generator is not silently skipped");
   Generators::Structures structures;
   const std::array<Generators::Parameter, 1> unsupported{{{.Name = "unknown", .Value = "1"}}};

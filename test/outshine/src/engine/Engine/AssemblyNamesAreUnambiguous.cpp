@@ -7,8 +7,13 @@ int main() {
   using namespace outshine::Test;
   Scenario::Document scene;
   scene.Room = 4;
-  scene.Kinds.push_back({.Name = "actor"});
-  scene.Instances.push_back({.Of = "actor", .Id = "actor"});
+  Scenario::Kind actor;
+  actor.Name = "actor";
+  scene.Kinds.push_back(actor);
+  Scenario::Instance instance;
+  instance.Of = "actor";
+  instance.Id = "actor";
+  scene.Instances.push_back(instance);
   Engine engine;
   CHECK(engine.declare(scene) && engine.assemble(), "kind and instance have separate namespaces");
   World::EntityRegistry *const original = &engine.entities();
@@ -31,8 +36,15 @@ int main() {
     CHECK(original->alive(*marker), "failed assembly preserves live entities");
   }
   auto linked = scene;
-  linked.Kinds.push_back({.Name = "derived", .Inherits = "actor"});
-  linked.Instances.push_back({.Of = "derived", .Id = "child", .In = "actor"});
+  Scenario::Kind derived;
+  derived.Name = "derived";
+  derived.Inherits = "actor";
+  linked.Kinds.push_back(derived);
+  Scenario::Instance child;
+  child.Of = "derived";
+  child.Id = "child";
+  child.In = "actor";
+  linked.Instances.push_back(child);
   CHECK(engine.declare(linked) && engine.assemble(), "valid inheritance and containment recover");
   return Report();
 }

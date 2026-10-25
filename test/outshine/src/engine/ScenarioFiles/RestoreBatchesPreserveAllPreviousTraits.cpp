@@ -46,9 +46,14 @@ int main() {
   scene.Room = 4;
   Scenario::Kind kind;
   kind.Name = "actor";
-  kind.Attributes = {{"health", "23"}};
+  kind.Attributes = {{.Name = "health", .Value = "23"}};
   scene.Kinds.push_back(kind);
-  scene.Instances = {{.Of = "actor", .Id = "first"}, {.Of = "actor", .Id = "second"}};
+  Scenario::Instance instance;
+  instance.Of = "actor";
+  instance.Id = "first";
+  scene.Instances.push_back(instance);
+  instance.Id = "second";
+  scene.Instances.push_back(instance);
   scene.State = {{.What = "first.health"}, {.What = "second.health"}};
   Engine engine;
   const bool ready = engine.declare(scene).has_value() && engine.assemble().has_value() &&

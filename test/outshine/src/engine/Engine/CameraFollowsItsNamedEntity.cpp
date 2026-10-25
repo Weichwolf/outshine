@@ -21,7 +21,10 @@ int main() {
   scene.Render.Declared = true;
   scene.Render.Frame = {64, 64};
   scene.Render.Outputs = {"sceneLinear", "surface"};
-  scene.Assets.push_back({.Uri = assetName, .Kind = "generated"});
+  Scenario::Asset asset;
+  asset.Uri = assetName;
+  asset.Kind = "generated";
+  scene.Assets.push_back(asset);
   Scenario::Body body;
   body.Name = "template";
   scene.Bodies.push_back(body);
