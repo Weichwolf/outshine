@@ -17,7 +17,7 @@ int main() {
   CHECK(engine.declare(source).has_value() && engine.assemble().has_value(),
         "valid dynamic body assembled");
   auto *registry = &engine.entities();
-  const auto marker = registry->addEntity(Role::Tool);
+  const auto marker = registry->addEntity();
   CHECK(marker.has_value(), "spare entity capacity remains usable");
   if (!marker) { return Report(); }
   const auto reject = [&](Scenario::Body invalid) {

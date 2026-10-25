@@ -20,7 +20,7 @@ void Measure(size_t changed) {
   std::vector<World::EntityBodyState> bodies;
   std::vector<Entity> owners;
   for (size_t i = 0; i < kBodies; ++i) {
-    const auto entity = world.Registry().addEntity(Role::Body);
+    const auto entity = world.Registry().addEntity();
     CHECK(entity, "cost case allocates a native identity");
     if (!entity) { return; }
     owners.push_back(*entity);

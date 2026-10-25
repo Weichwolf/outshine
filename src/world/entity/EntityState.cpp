@@ -17,7 +17,7 @@ constexpr uint32_t kNoBody = std::numeric_limits<uint32_t>::max();
 bool EntityState::Open(size_t capacity) {
   if (Registry_.capacity() != 0) { return false; }
   if (capacity == 0) { return true; }
-  return Registry_.open(capacity) && Traits_.Open(Registry_);
+  return Registry_.open(capacity).has_value();
 }
 
 std::expected<void, EntityStateError> EntityState::SetBodies(std::vector<EntityBodyState> bodies) {

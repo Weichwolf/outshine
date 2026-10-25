@@ -11,9 +11,9 @@ int main() {
   ScenarioRuntime runtime;
   CHECK(runtime.Entities.Open(3) && runtime.Definitions.Open(runtime.Entities.Registry()),
         "component storage opened");
-  const auto addedUnrelated = runtime.Entities.Registry().addEntity(Role::Tool);
-  const auto addedUnplaced = runtime.Entities.Registry().addEntity(Role::Body);
-  const auto addedPlaced = runtime.Entities.Registry().addEntity(Role::Body);
+  const auto addedUnrelated = runtime.Entities.Registry().addEntity();
+  const auto addedUnplaced = runtime.Entities.Registry().addEntity();
+  const auto addedPlaced = runtime.Entities.Registry().addEntity();
   CHECK(addedUnrelated && addedUnplaced && addedPlaced, "fixture entities are allocated");
   if (!addedUnrelated || !addedUnplaced || !addedPlaced) { return Report(); }
   const Entity unrelated = *addedUnrelated;
