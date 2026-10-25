@@ -4,9 +4,11 @@
 #include "Scenario.h"
 #include "Traits.h"
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace outshine {
 bool BuildBootstrapInstances(std::span<const Scenario::Instance> instances,
@@ -50,15 +52,29 @@ bool LinkHolder(size_t child, size_t holder, Assembled &scene, std::string &erro
     error = "a scenario instance can have only one declared holder";
     return false;
   }
-  std::optional<size_t> at = holder;
-  while (at) {
-    if (*at == child) {
+  scene.Instances[child].Holder = holder;
+  return true;
+}
+
+bool CheckHolders(const Assembled &scene, std::string &error) {
+  enum class Mark : uint8_t { Unseen, Active, Finished };
+  std::vector<Mark> marks(scene.Instances.size(), Mark::Unseen);
+  for (size_t first = 0; first < scene.Instances.size(); ++first) {
+    std::optional<size_t> at = first;
+    while (at && marks[*at] == Mark::Unseen) {
+      marks[*at] = Mark::Active;
+      at = scene.Instances[*at].Holder;
+    }
+    if (at && marks[*at] == Mark::Active) {
       error = "scenario containment cannot close a cycle";
       return false;
     }
-    at = scene.Instances[*at].Holder;
+    at = first;
+    while (at && marks[*at] == Mark::Active) {
+      marks[*at] = Mark::Finished;
+      at = scene.Instances[*at].Holder;
+    }
   }
-  scene.Instances[child].Holder = holder;
   return true;
 }
 }
@@ -84,6 +100,6 @@ bool LinkBootstrapInstances(std::span<const Scenario::Instance> instances,
     }
     if (!LinkHolder(at, holder->second, inputs.Output, error)) { return false; }
   }
-  return true;
+  return CheckHolders(inputs.Output, error);
 }
 }

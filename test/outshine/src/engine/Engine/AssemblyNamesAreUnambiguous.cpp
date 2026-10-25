@@ -46,5 +46,13 @@ int main() {
   child.In = "actor";
   linked.Instances.push_back(child);
   CHECK(engine.declare(linked) && engine.assemble(), "valid inheritance and containment recover");
+  World::EntityRegistry *const linkedOwner = &engine.entities();
+  const auto linkedMarker = linkedOwner->addEntity();
+  CHECK(linkedMarker, "the published valid forest has spare identity capacity");
+  if (!linkedMarker) { return Report(); }
+  linked.Instances.front().In = "child";
+  CHECK(engine.declare(linked) && !engine.assemble(), "a cyclic candidate cannot publish");
+  CHECK(&engine.entities() == linkedOwner && linkedOwner->alive(*linkedMarker),
+        "cycle rejection preserves the existing registry and its live entities");
   return Report();
 }
