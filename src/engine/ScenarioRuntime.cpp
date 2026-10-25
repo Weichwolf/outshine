@@ -1,5 +1,6 @@
-#include "SimulationState.h"
+#include "ScenarioRuntime.h"
 #include <cassert>
+#include <utility>
 #include <algorithm>
 #include <cstddef>
 #include <expected>
@@ -21,34 +22,29 @@ constexpr auto AmbiguousBody = "ambiguous body name: ";
 constexpr auto PlacedBodyRequired = "binding requires a placed body: ";
 }
 
-std::expected<std::vector<std::optional<size_t>>, std::string>
-SimulationState::BindAudio(std::span<const Audio::SoundSource> sounds) const {
+std::expected<std::vector<std::optional<Entity>>, std::string>
+ScenarioRuntime::BindAudio(std::span<const Audio::SoundSource> sounds) const {
   std::vector<std::string_view> names;
   names.reserve(sounds.size());
   for (const Audio::SoundSource &sound : sounds) { names.push_back(sound.Body); }
   return BindBodies(names);
 }
 
-std::expected<std::vector<std::optional<size_t>>, std::string>
-SimulationState::BindBodies(std::span<const std::string_view> names) const {
+std::expected<std::vector<std::optional<Entity>>, std::string>
+ScenarioRuntime::BindBodies(std::span<const std::string_view> names) const {
   if (std::ranges::all_of(names, [](std::string_view name) { return name.empty(); })) {
-    return std::vector<std::optional<size_t>>(names.size());
+    return std::vector<std::optional<Entity>>(names.size());
   }
   std::unordered_map<std::string_view, Entity> named;
   named.reserve(Stood.Bodies.size());
   for (const Entity entity : Stood.Bodies) {
-    const auto *body = Bodies.Get(entity);
+    const auto *body = Definitions.Get(entity);
     if (body == nullptr || body->Name.empty()) { continue; }
     if (!named.emplace(body->Name, entity).second) {
       return std::unexpected(Says::AmbiguousBody + body->Name);
     }
   }
-  std::vector<std::optional<size_t>> physical(Entities.capacity());
-  for (size_t index = 0; index < DynamicBodies.size(); ++index) {
-    const Entity owner = DynamicBodies[index].Owner;
-    if (Entities.alive(owner)) { physical[owner.Index] = index; }
-  }
-  std::vector<std::optional<size_t>> bindings;
+  std::vector<std::optional<Entity>> bindings;
   bindings.reserve(names.size());
   for (const auto name : names) {
     if (name.empty()) {
@@ -56,18 +52,19 @@ SimulationState::BindBodies(std::span<const std::string_view> names) const {
       continue;
     }
     const auto target = named.find(name);
-    if (target == named.end() || !physical[target->second.Index]) {
+    if (target == named.end() || Entities.Body(target->second) == nullptr) {
       return std::unexpected(Says::PlacedBodyRequired + std::string(name));
     }
-    bindings.push_back(physical[target->second.Index]);
+    bindings.emplace_back(target->second);
   }
   return bindings;
 }
 
-void SimulationState::PrepareBodies() {
-  DynamicBodies.reserve(Stood.Bodies.size());
+std::expected<void, std::string> ScenarioRuntime::PrepareBodies() {
+  std::vector<World::EntityBodyState> bodies;
+  bodies.reserve(Stood.Bodies.size());
   for (const Entity entity : Stood.Bodies) {
-    const Scenario::Body *definition = Bodies.Get(entity);
+    const Scenario::Body *definition = Definitions.Get(entity);
     assert(definition != nullptr);
     if (!definition->Placed) { continue; }
     World::RigidBodyState motion;
@@ -75,8 +72,11 @@ void SimulationState::PrepareBodies() {
     motion.PositionM = definition->Stands.AtM;
     motion.InertiaKgM2 = definition->InertiaKgM2;
     motion.OrientationQ = definition->Stands.Facing;
-    DynamicBodies.push_back({.Owner = entity, .Motion = motion});
+    bodies.push_back({.Owner = entity, .Motion = motion});
   }
+  const auto installed = Entities.SetBodies(std::move(bodies));
+  if (!installed) { return std::unexpected("could not publish native entity bodies"); }
+  return {};
 }
 
 }

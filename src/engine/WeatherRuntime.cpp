@@ -75,7 +75,7 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
 
 bool Engine::State::PollWeather() {
   if (!World.Weather) { return true; }
-  if (!Simulation || Simulation->DeclarationRevision != Session.DeclarationRevision) {
+  if (!ScenarioState || ScenarioState->DeclarationRevision != Session.DeclarationRevision) {
     Error = "assemble the current declaration before acquiring its weather";
     return false;
   }
@@ -86,7 +86,7 @@ bool Engine::State::PollWeather() {
 
 std::string_view Engine::State::WeatherBlocker() const noexcept {
   if (!World.Weather) { return {}; }
-  if (!Simulation || Simulation->DeclarationRevision != Session.DeclarationRevision) {
+  if (!ScenarioState || ScenarioState->DeclarationRevision != Session.DeclarationRevision) {
     return "current weather declaration is not assembled";
   }
   switch (World.Weather->CurrentPhase()) {
@@ -99,8 +99,8 @@ std::string_view Engine::State::WeatherBlocker() const noexcept {
 }
 
 Holds<std::shared_ptr<const WeatherSnapshot>> Engine::weather() const {
-  if (S_->Session.Taken &&
-      (!S_->Simulation || S_->Simulation->DeclarationRevision != S_->Session.DeclarationRevision)) {
+  if (S_->Session.Taken && (!S_->ScenarioState || S_->ScenarioState->DeclarationRevision !=
+                                                      S_->Session.DeclarationRevision)) {
     return std::unexpected("assemble the current declaration before reading its weather");
   }
   if (const auto blocker = S_->WeatherBlocker(); !blocker.empty()) {

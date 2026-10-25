@@ -41,7 +41,7 @@
 #include <vector>
 
 #include "Assembly.h"
-#include "SimulationState.h"
+#include "ScenarioRuntime.h"
 #include "TriangleBvh.h"
 #include "DiagnosticLedger.h"
 #include "Mixer.h"
@@ -209,7 +209,7 @@ struct ScenarioSession {
   InputMap Bound;
   size_t Fired = 0;
   std::optional<Audio::Mixer> Sounding;
-  std::vector<std::optional<size_t>> AudioBodies;
+  std::vector<std::optional<Entity>> AudioBodies;
   std::array<std::vector<Audio::Heard>, 2> Sources;
   std::array<Audio::Listening, 2> Ear{};
   std::atomic<unsigned> Told{0};
@@ -451,7 +451,7 @@ struct Engine::State {
   EngineRenderState Picture;
   FrameCoordinator Frames;
   ScenarioSession Session;
-  std::unique_ptr<SimulationState> Simulation = std::make_unique<SimulationState>();
+  std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
   WorldRegionState World;
   EngineCostCounters Cost;
   SimulationClock Ticking;

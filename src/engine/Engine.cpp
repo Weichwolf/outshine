@@ -165,17 +165,17 @@ Result Engine::assemble() {
     return std::unexpected(S_->Error);
   }
   const size_t named = *capacity;
-  auto candidate = std::make_unique<SimulationState>();
+  auto candidate = std::make_unique<ScenarioRuntime>();
   if (named != 0) {
-    if (!candidate->Entities.open(named) || !candidate->Bodies.Open(candidate->Entities) ||
-        !candidate->Kinds.Open(candidate->Entities)) {
-      S_->Error = "could not allocate simulation entity storage";
+    if (!candidate->Entities.Open(named) ||
+        !candidate->Definitions.Open(candidate->Entities.Registry())) {
+      S_->Error = "could not allocate native entity storage";
       return std::unexpected(S_->Error);
     }
     if (!outshine::Assemble(declared,
-                            candidate->Entities,
-                            candidate->Bodies,
-                            candidate->Kinds,
+                            candidate->Entities.Registry(),
+                            candidate->Definitions,
+                            candidate->Entities.Traits(),
                             candidate->Stood,
                             S_->Error)) {
       return std::unexpected(S_->Error);
@@ -198,7 +198,11 @@ Result Engine::assemble() {
     candidate->Triggers.emplace(std::move(*triggers));
   }
   candidate->DeclarationRevision = S_->Session.DeclarationRevision;
-  candidate->PrepareBodies();
+  const auto preparedBodies = candidate->PrepareBodies();
+  if (!preparedBodies) {
+    S_->Error = preparedBodies.error();
+    return std::unexpected(S_->Error);
+  }
   std::vector<std::string_view> followed;
   followed.reserve(declared.Views.size());
   for (const auto &view : declared.Views) { followed.push_back(view.Follows); }
@@ -208,12 +212,12 @@ Result Engine::assemble() {
     return std::unexpected(S_->Error);
   }
   candidate->ViewBodies = std::move(*viewBodies);
-  auto previous = std::exchange(S_->Simulation, std::move(candidate));
+  auto previous = std::exchange(S_->ScenarioState, std::move(candidate));
   std::vector<Data::SourceProvider> unusedTileProviders;
   const bool worldReady = S_->Picture.Targeted ? S_->PrepareRuntimeWorld()
                                                : S_->ConfigureSourceProviders(unusedTileProviders);
   if (!worldReady) {
-    S_->Simulation = std::move(previous);
+    S_->ScenarioState = std::move(previous);
     return std::unexpected(S_->Error);
   }
   S_->Session.Sounding.reset();
