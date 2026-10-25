@@ -1,5 +1,7 @@
+#include <cstddef>
+#include "BuildingFoundationFixture.h"
 #include "BuildingMesh.h"
-#include "BuildingStampJob.h"
+#include "BuildingFoundationJob.h"
 #include "Check.h"
 #include "Geodesy.h"
 #include "StructureBake.h"
@@ -13,6 +15,11 @@
 #include <vector>
 
 namespace {
+constexpr size_t kInputBound = 1000;
+constexpr double kFlatHeightM = 30;
+constexpr double kCoverageTolerance = 0.02;
+constexpr double kOutsideShiftDeg = 0.01;
+constexpr size_t kStepBudget = 100;
 using Point = std::array<double, 2>;
 
 double Area(std::span<const Point> ring) {
@@ -31,7 +38,8 @@ double Overlap(std::vector<Point> polygon, double low, double high) {
       std::vector<Point> clipped;
       const double boundary = lower ? low : high;
       for (size_t at = 0; at < polygon.size(); ++at) {
-        const Point a = polygon[at], b = polygon[(at + 1) % polygon.size()];
+        const Point a = polygon[at];
+        const Point b = polygon[(at + 1) % polygon.size()];
         const bool inA = lower ? a[axis] >= boundary : a[axis] <= boundary;
         const bool inB = lower ? b[axis] >= boundary : b[axis] <= boundary;
         if (inA) { clipped.push_back(a); }
@@ -47,6 +55,52 @@ double Overlap(std::vector<Point> polygon, double low, double high) {
 }
 }
 
+namespace {
+using namespace outshine;
+using namespace outshine::Generators;
+using namespace outshine::Test;
+
+void CheckGeometry(const BakedTile &product, const RawTile &raw) {
+  double roofArea = 0;
+  double coveredCourt = 0;
+  const auto inspect = [&](const auto &vertices, const auto &indices, bool roof) {
+    for (size_t at = 0; at + 2 < indices.size(); at += 3) {
+      std::vector<Point> triangle;
+      for (size_t corner = 0; corner < 3; ++corner) {
+        const auto &vertex = vertices[indices[at + corner]];
+        triangle.push_back({vertex.pos[1], vertex.pos[2]});
+      }
+      if (roof) { roofArea += Area(triangle); }
+      coveredCourt += Overlap(triangle, 10, kFlatHeightM) + Overlap(triangle, 2, 6);
+    }
+  };
+  inspect(product.Built.RoofCorners, product.Built.RoofRun, true);
+  inspect(product.Built.WallCorners, product.Built.WallRun, false);
+  CHECK(std::abs(roofArea - (40 * 40 - 20 * 20 - 4 * 4)) < kCoverageTolerance,
+        "projected roof area equals outer rectangle minus both courtyards");
+  CHECK(coveredCourt < kCoverageTolerance,
+        "independent polygon clipping finds no roof or floor over either courtyard");
+  for (const size_t budget : {size_t{1}, size_t{64}}) {
+    BuildingFoundationJob job(
+        TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0}),
+        1,
+        ::outshine::Test::FoundationProducts(product.Prints, raw.LatLon, raw.Holes));
+    bool done = false;
+    for (size_t step = 0; step < kStepBudget && !done; ++step) {
+      const auto next = job.Advance({.Generation = 1, .UnitsMost = budget});
+      CHECK(next.has_value(), "bounded terrain stamp retains courtyard source ranges");
+      if (!next) { break; }
+      done = *next;
+    }
+    const auto stamps = std::move(job).Take();
+    CHECK(done && stamps && stamps->size() == 1 &&
+              stamps->front().HoleRingsEastNorthM.size() == 2 &&
+              stamps->front().HoleRingsEastNorthM[0].size() == 8,
+          "terrain receives both holes even when interrupted after every work unit");
+  }
+}
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Generators;
@@ -57,9 +111,9 @@ int main() {
                                       {40, 40},
                                       {0, 40},
                                       {10, 10},
-                                      {10, 30},
-                                      {30, 30},
-                                      {30, 10},
+                                      {10, kFlatHeightM},
+                                      {kFlatHeightM, kFlatHeightM},
+                                      {kFlatHeightM, 10},
                                       {2, 2},
                                       {2, 6},
                                       {6, 6},
@@ -75,16 +129,21 @@ int main() {
   if (!cell) { return Report(); }
   raw.Holes = {{.First = 4, .Count = 4, .Exterior = false},
                {.First = 8, .Count = 4, .Exterior = false}};
-  raw.Structures.push_back(
-      {.PointCount = 4, .HoleCount = 2, .Cell = *cell, .HeightM = 12, .Pitched = 0});
-  raw.TileSpanM = 1000;
+  raw.Structures.push_back({.PointCount = 4,
+                            .HoleCount = 2,
+                            .Cell = *cell,
+                            .HeightM = 12,
+                            .Pitched = 0,
+                            .WallColour = {},
+                            .Facade = {}});
+  raw.TileSpanM = kInputBound;
   GeoToEcef({.LongitudeDeg = 0, .LatitudeDeg = 0, .HeightM = 0}, raw.AnchorEcef);
   Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   for (const int pitched : {0, 1}) {
     raw.Structures[0].Pitched = pitched;
@@ -97,51 +156,15 @@ int main() {
       if (!built) { continue; }
       CHECK(product.Prints.size() == 1 && product.Prints[0].HoleCount == 2 && product.Lumped == 0,
             "source courtyard ranges survive and prevent solid aggregation");
-      double roofArea = 0, coveredCourt = 0;
-      const auto inspect = [&](const auto &vertices, const auto &indices, bool roof) {
-        for (size_t at = 0; at + 2 < indices.size(); at += 3) {
-          std::vector<Point> triangle;
-          for (size_t corner = 0; corner < 3; ++corner) {
-            const auto &vertex = vertices[indices[at + corner]];
-            triangle.push_back({vertex.pos[1], vertex.pos[2]});
-          }
-          if (roof) { roofArea += Area(triangle); }
-          coveredCourt += Overlap(triangle, 10, 30) + Overlap(triangle, 2, 6);
-        }
-      };
-      inspect(product.Built.RoofCorners, product.Built.RoofRun, true);
-      inspect(product.Built.WallCorners, product.Built.WallRun, false);
-      CHECK(std::abs(roofArea - (40 * 40 - 20 * 20 - 4 * 4)) < 0.02,
-            "projected roof area equals outer rectangle minus both courtyards");
-      CHECK(coveredCourt < 0.02,
-            "independent polygon clipping finds no roof or floor over either courtyard");
-      for (const size_t budget : {size_t{1}, size_t{64}}) {
-        BuildingStampJob job(TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0}), 1);
-        bool done = false;
-        for (size_t step = 0; step < 100 && !done; ++step) {
-          const auto next = job.Advance({.Footprints = product.Prints,
-                                         .Points = raw.LatLon,
-                                         .Rings = raw.Holes,
-                                         .VectorGeneration = 1,
-                                         .UnitsMost = budget});
-          CHECK(next.has_value(), "bounded terrain stamp retains courtyard source ranges");
-          if (!next) { break; }
-          done = *next;
-        }
-        const auto stamps = std::move(job).Take();
-        CHECK(done && stamps && stamps->size() == 1 &&
-                  stamps->front().HoleRingsEastNorthM.size() == 2 &&
-                  stamps->front().HoleRingsEastNorthM[0].size() == 8,
-              "terrain receives both holes even when interrupted after every work unit");
-      }
+      CheckGeometry(product, raw);
     }
   }
   auto outside = raw;
-  for (size_t at = 8; at < 16; ++at) { outside.LatLon[at] += 0.01; }
+  for (size_t at = 8; at < 16; ++at) { outside.LatLon[at] += kOutsideShiftDeg; }
   BakedTile outsideProduct;
   CHECK(!BakeStructures(outside, *heights, mesher, *scratch, outsideProduct),
         "a courtyard outside its exterior fails instead of silently omitting the building");
-  raw.Holes[0].First = 1000;
+  raw.Holes[0].First = kInputBound;
   BakedTile invalid;
   CHECK(!BakeStructures(raw, *heights, mesher, *scratch, invalid),
         "invalid inner coordinate ownership cannot publish a building");

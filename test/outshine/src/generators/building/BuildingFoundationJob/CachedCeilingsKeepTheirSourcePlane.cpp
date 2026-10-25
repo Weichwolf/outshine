@@ -1,4 +1,5 @@
-#include "BuildingStampJob.h"
+#include "BuildingFoundationFixture.h"
+#include "BuildingFoundationJob.h"
 #include "Check.h"
 #include "Geodesy.h"
 #include <array>
@@ -28,14 +29,11 @@ int main() {
       .TerrainContacts = {}};
   const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 8, .LatitudeDeg = 48});
   const std::array footprints{print};
-  BuildingStampJob job(frame, kRevision);
+  BuildingFoundationJob job(
+      frame, kRevision, ::outshine::Test::FoundationProducts(footprints, points, {}));
   bool done = false;
   for (size_t step = 0; step < 32 && !done; ++step) {
-    const auto advance = job.Advance({.Footprints = footprints,
-                                      .Points = points,
-                                      .Rings = {},
-                                      .VectorGeneration = kRevision,
-                                      .UnitsMost = 1});
+    const auto advance = job.Advance({.Generation = kRevision, .UnitsMost = 1});
     CHECK(advance.has_value(), "bounded stamp work accepts cached contact metadata");
     if (!advance) { return Report(); }
     done = *advance;
@@ -66,12 +64,9 @@ int main() {
   auto invalid = footprints;
   invalid[0].TerrainCeiling =
       Ground::BuildingTerrainCeiling{.OriginPoint = UINT32_MAX, .HeightAslM = kCeilingAslM};
-  BuildingStampJob bad(frame, kRevision);
-  CHECK(!bad.Advance({.Footprints = invalid,
-                      .Points = points,
-                      .Rings = {},
-                      .VectorGeneration = kRevision,
-                      .UnitsMost = 32}),
+  BuildingFoundationJob bad(
+      frame, kRevision, ::outshine::Test::FoundationProducts(invalid, points, {}));
+  CHECK(!bad.Advance({.Generation = kRevision, .UnitsMost = 32}),
         "invalid cached origin references fail before coordinate access");
   return Report();
 }
