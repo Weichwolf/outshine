@@ -36,10 +36,14 @@ public:
   LoadKey(const std::string &key, size_t bytesMost);
   [[nodiscard]] std::expected<std::optional<RoadPageLease>, std::string>
   LoadRequest(const std::string &requestKey, size_t bytesMost);
+  [[nodiscard]] std::expected<AssetRecord, std::string>
+  Prepare(const RoadPageRequest &request,
+          const RoadPageProducer *producer = nullptr,
+          const std::stop_token &stop = {});
   [[nodiscard]] std::expected<RoadPageLease, std::string>
   Resolve(const RoadPageRequest &request,
           const RoadPageProducer *producer = nullptr,
-          std::stop_token stop = {});
+          const std::stop_token &stop = {});
 
 private:
   struct Generation;
@@ -48,6 +52,11 @@ private:
   ManifestReady(const RoadPageManifest &manifest) const;
   [[nodiscard]] std::expected<std::optional<RoadPageLease>, std::string>
   Read(const std::string &key, size_t bytesMost, const std::string &requestKey = {});
+  [[nodiscard]] std::expected<std::optional<AssetRecord>, std::string>
+  ReadRecord(const std::string &key,
+             const RoadPageAddress &address,
+             size_t bytesMost,
+             const std::string &requestKey = {});
   [[nodiscard]] std::shared_ptr<Generation> GenerationGate(const std::string &key);
   std::unique_ptr<AssetCache> Cache_;
   std::mutex Lock_;
