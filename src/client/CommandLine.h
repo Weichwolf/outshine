@@ -9,12 +9,9 @@
 namespace outshine::Client {
 namespace Says {
 inline constexpr std::string_view kNullCommandArgument = "command arguments must not be null";
-inline constexpr std::string_view kMissingPlaceCommand =
-    "--places requires a directory and command";
 }
 
 struct CommandLine {
-  std::string_view Directory;
   std::string_view Verb = "help";
   std::span<const char *const> Arguments;
 };
@@ -27,11 +24,6 @@ ReadCommandLine(std::span<const char *const> arguments) noexcept {
   CommandLine command;
   if (arguments.size() <= 1) { return command; }
   arguments = arguments.subspan(1);
-  if (std::string_view(arguments.front()) == "--places") {
-    if (arguments.size() < 3) { return std::unexpected(Says::kMissingPlaceCommand); }
-    command.Directory = arguments[1];
-    arguments = arguments.subspan(2);
-  }
   command.Verb = arguments.front();
   command.Arguments = arguments.subspan(1);
   return command;
