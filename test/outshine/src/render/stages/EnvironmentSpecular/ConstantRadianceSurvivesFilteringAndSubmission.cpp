@@ -59,7 +59,7 @@ void UploadSources(Device &device, const Sources &source) {
   const std::array colours{ColourAttachment{.Image = {.Image = source.Sky.get()},
                                             .Begin = Load::Clear,
                                             .Clear = {0.25f, 0.5f, 1.0f, 1.0f}}};
-  Require(commands->BeginRenderPass({.Colours = colours}));
+  Require(commands->BeginRenderPass({.Colours = colours, .Depth = {}}));
   Require(commands->EndRenderPass());
   Require(commands->Copy(*transfer, *source.Irradiance, {.Bytes = sizeof(sky)}));
   const auto done = Require(device.Submit(std::move(commands)));
@@ -70,7 +70,8 @@ void UploadSources(Device &device, const Sources &source) {
 void Filter(Device &device, EnvironmentSpecularStage &stage, bool commit) {
   auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
   StageSubmission submission;
-  Require(stage.Encode({.Commands = commands.get(), .Submission = submission}));
+  Require(
+      stage.Encode({.Commands = commands.get(), .Submission = submission, .Area = {}, .Clip = {}}));
   if (!commit) { return; }
   const auto done = Require(device.Submit(std::move(commands)));
   submission.Commit();
@@ -135,7 +136,7 @@ void CheckFiltering(Device &device) {
   const Sources source(device);
   UploadSources(device, source);
   EnvironmentSpecularStage stage;
-  Require(stage.Configure({.Device = &device},
+  Require(stage.Configure({.Device = &device, .SceneColours = {}},
                           {.Sky = source.Sky.get(),
                            .Irradiance = source.Irradiance.get(),
                            .Sampler = source.Sample.get(),
