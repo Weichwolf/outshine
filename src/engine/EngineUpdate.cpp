@@ -24,6 +24,7 @@
 
 #include "EngineState.h"
 #include "StructureTilePublication.h"
+#include "TerrainFieldPinning.h"
 #include "Lens.h"
 #include "Viewing.h"
 #include "Views.h"
@@ -310,23 +311,12 @@ StructureBuildQueue::HeightSource Engine::State::StructureHeightSource() {
           },
       .PinField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            if (World.GroundPublished.Current()) {
-              return World.Sheets.ShareSourcedField(tile, into);
-            }
-            return Ground::HeightField::SharesField(
-                World.Stack.Ground().StitchedField(tile), tile, into);
+            return PinTerrainField(World.GroundPublished.Current() ? &World.Sheets : nullptr,
+                                   World.Stack.Ground(),
+                                   tile,
+                                   into);
           },
-      .ResidentField =
-          [this](Data::TileId tile) { return World.Stack.Ground().ResidentStitchedField(tile); },
-      .PinResidentField =
-          [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            return World.Sheets.ShareSourcedField(tile, into);
-          },
-      .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()},
-      .CaptureFields =
-          [this](std::span<const Ground::TileSpot> requests, size_t bytesMost) {
-            return World.Sheets.CaptureSourcedFields(requests, bytesMost);
-          }};
+      .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()}};
 }
 
 bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
@@ -428,18 +418,6 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   Published.RecordMetric("buildings: stale tiles discarded",
                          static_cast<double>(World.StructureBuilds.Discarded()),
                          "tiles");
-  Published.RecordMetric(
-      "buildings: cells posted", static_cast<double>(World.StructureCellsPosted), "cells");
-  Published.RecordMetric(
-      "buildings: cells landed", static_cast<double>(World.StructureCellsLanded), "cells");
-  Published.RecordMetric("buildings: cell tiles activated",
-                         static_cast<double>(World.StructureTilesActivated),
-                         "tiles");
-  Published.RecordMetric(
-      "buildings: cells queued", static_cast<double>(World.StructureBuilds.QueuedCells()), "cells");
-  Published.RecordMetric("buildings: resident cells validated",
-                         static_cast<double>(World.StructureBuilds.FastCellValidations()),
-                         "cells");
   return true;
 }
 

@@ -2,14 +2,15 @@
 #include "SourcedTerrainFields.h"
 
 #include <array>
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
   using Index = Ground::TerrainRevisionIndex;
-  using Error = SourcedTerrainFields::CaptureError;
   auto created = Index::Create(1);
   CHECK(created.has_value(), "source owns a bounded revision index");
   if (!created) { return Report(); }
@@ -25,14 +26,7 @@ int main() {
   raster->SetCertificate(Ground::TerrainCertificate::FromDelivery(tile, stamp, 1));
   std::vector<SourcedTerrainFields::Entry> fields{{tile, raster}};
   SourcedTerrainFields snapshot(fields, *metadata);
-  const std::array requested{Ground::TileSpot{.Zoom = 4, .X = 0, .Y = 1}};
-  const size_t budget = snapshot.PreparationBytes();
-  const auto refused = SourcedTerrainFields::Capture(fields, requested, budget - 1, *metadata);
-  CHECK(!refused && refused.error() == Error::OverBudget,
-        "the capture budgets its allocated pointers independently of shared metadata");
-  auto captured = SourcedTerrainFields::Capture(fields, requested, budget, *metadata);
-  CHECK(captured && captured->RetainedBytes() > budget,
-        "exact pointer budget permits capture while shared metadata and rasters remain accounted");
+  std::optional<SourcedTerrainFields> captured(snapshot);
   snapshot = SourcedTerrainFields{};
   metadata->reset();
   fields.clear();
@@ -43,7 +37,7 @@ int main() {
   }
   CHECK(index.AreCurrent(std::array{stamp}),
         "background snapshot retains metadata after its original world owner releases it");
-  captured = std::unexpected(Error::MissingSource);
+  captured.reset();
   for (uint32_t x = 10; x < 14; ++x) {
     CHECK(index.IssueDeliveryStamp({.Zoom = 4, .X = x, .Y = 0}).has_value(),
           "source cache continues after snapshot retirement");

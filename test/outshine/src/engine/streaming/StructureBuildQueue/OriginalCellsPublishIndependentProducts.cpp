@@ -154,7 +154,6 @@ int main() {
                 std::ranges::find(fields, tile, &decltype(fields)::value_type::first);
             return found != fields.end() && HeightField::SharesField(found->second, tile, into);
           },
-      .ResidentField = {},
       .Revision = {.Value = 11}};
   for (size_t product = 0; product < sources.size(); ++product) {
     CHECK(!queue.SourcesComplete(stack, prints), "readiness requires every pinned cell product");

@@ -252,6 +252,10 @@ public:
 
   [[nodiscard]] const ProductMemory &ProductPeakMemory() const noexcept { return ProductPeak_; }
 
+  [[nodiscard]] size_t ProductPeakTerrainSources() const noexcept {
+    return ProductPeakTerrainSources_;
+  }
+
   [[nodiscard]] size_t RetainedProductBytes() const noexcept {
     return CurrentProductMemory().Total();
   }
@@ -459,7 +463,10 @@ private:
 
   void RecordsProductPeak() noexcept {
     const auto current = CurrentProductMemory();
-    if (current.Total() > ProductPeak_.Total()) { ProductPeak_ = current; }
+    if (current.Total() > ProductPeak_.Total()) {
+      ProductPeak_ = current;
+      ProductPeakTerrainSources_ = Candidate_.Products().Sheets.SourceHeapBytes();
+    }
   }
 
   Around Coverage_;
@@ -497,6 +504,7 @@ private:
   GroundSurvey Surveying_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   ProductMemory ProductPeak_;
+  size_t ProductPeakTerrainSources_ = 0;
   size_t StampingCandidateHeapBytes_ = 0;
   size_t CorridorHeapBytes_ = 0;
   size_t RoadEarthworkHeapBytes_ = 0;

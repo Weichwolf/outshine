@@ -3,6 +3,7 @@
 #include "HeightSheets.h"
 #include "TerrainRenderer.h"
 #include "SourceSet.h"
+#include "DelayedTerrainSource.h"
 #include "Check.h"
 #include <array>
 #include <atomic>
@@ -11,75 +12,13 @@
 #include <thread>
 #include <utility>
 
-namespace {
-class DelayedSource final : public outshine::Data::Source {
-public:
-  enum class Answer { Height, Absent, Refused };
-  outshine::Data::SourceDecl Decl{
-      .Id = "delayed", .Revision = "r1", .Keeps = outshine::Data::Cacheability::Never};
-  std::thread::id Caller = std::this_thread::get_id();
-  mutable std::atomic<bool> CalledOnCaller{false};
-  mutable std::atomic<int> Collections{0};
-  std::atomic<bool> Released{false};
-  Answer Response = Answer::Height;
-
-  const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl; }
-
-  outshine::Data::Coverage Covers(const outshine::Data::SourceRequest &) const noexcept override {
-    return outshine::Data::Coverage::Inside;
-  }
-
-  outshine::Data::Address
-  Serves(const outshine::Data::SourceRequest &request) const noexcept override {
-    return request.Where();
-  }
-
-  outshine::Data::FetchStart Begin(const outshine::Data::Address &,
-                                   outshine::Data::Transport &) const override {
-    return outshine::Data::Ticket::None;
-  }
-
-  outshine::Data::SourceResponse Collect(const outshine::Data::Address &,
-                                         outshine::Data::Ticket,
-                                         outshine::Data::Transport &) const override {
-    ++Collections;
-    if (std::this_thread::get_id() == Caller) { CalledOnCaller = true; }
-    if (!Released) { return outshine::Data::SourceResponse::Working(); }
-    if (Response == Answer::Absent) {
-      return outshine::Data::SourceResponse::Meant(outshine::Data::Meaning::Absent);
-    }
-    if (Response == Answer::Refused) {
-      return outshine::Data::SourceResponse::Meant(outshine::Data::Meaning::Refused);
-    }
-    return outshine::Data::SourceResponse::Delivered(
-        {137, 80,  78,  71,  13,  10, 26,  10,  0,  0,   0,  13,  73,  72, 68, 82, 0,   0,  0,
-         4,   0,   0,   0,   4,   8,  2,   0,   0,  0,   38, 147, 9,   41, 0,  0,  0,   16, 73,
-         68,  65,  84,  120, 156, 99, 104, 208, 98, 128, 35, 6,   226, 56, 0,  28, 131, 10, 161,
-         92,  158, 195, 228, 0,   0,  0,   0,   73, 69,  78, 68,  174, 66, 96, 130});
-  }
-};
-
-class NoNetwork final : public outshine::Data::Transport {
-public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
-    return outshine::Data::Ticket::None;
-  }
-
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
-    return outshine::Data::Wire::Never();
-  }
-
-  void Cancel(outshine::Data::Ticket) override {}
-};
-}
-
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;
-  auto source = std::make_unique<DelayedSource>();
+  auto source = std::make_unique<DelayedTerrainSource>();
   auto *probe = source.get();
   CHECK(sources.Add(std::move(source)) == Data::SourceSet::Registration::Accepted,
         "delayed source registered");
@@ -276,12 +215,12 @@ int main() {
           "the dependent field is parked while its fetch is withheld");
   }
   probe->Released = true;
-  for (DelayedSource::Answer answer :
-       {DelayedSource::Answer::Absent, DelayedSource::Answer::Refused}) {
+  for (DelayedTerrainSource::Answer answer :
+       {DelayedTerrainSource::Answer::Absent, DelayedTerrainSource::Answer::Refused}) {
     Data::RawSourceCache otherStore({.Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet otherSources(otherStore);
     NoNetwork otherTransport;
-    auto otherSource = std::make_unique<DelayedSource>();
+    auto otherSource = std::make_unique<DelayedTerrainSource>();
     otherSource->Response = answer;
     otherSource->Released = true;
     CHECK(otherSources.Add(std::move(otherSource)) == Data::SourceSet::Registration::Accepted,
@@ -299,7 +238,7 @@ int main() {
       settled = otherSheets.PrepareFields(other, otherGround, {.FinestZoom = 4, .RequestsMost = 9});
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    if (answer == DelayedSource::Answer::Absent) {
+    if (answer == DelayedTerrainSource::Answer::Absent) {
       CHECK(settled.has_value() && *settled, "terminal absence finishes field preparation");
       if (settled && *settled) {
         CHECK(otherSheets.Halos(other, 4) == 1 && otherSheets.RimsMissing() == 1,
@@ -310,7 +249,7 @@ int main() {
             "source refusal aborts the private candidate with a concrete error");
     }
     CHECK(other.Sheets.front().Nodes.size() == Render::TerrainRenderer::kNodes ||
-              answer == DelayedSource::Answer::Absent,
+              answer == DelayedTerrainSource::Answer::Absent,
           "failure leaves the original candidate geometry untouched");
   }
   return Report();

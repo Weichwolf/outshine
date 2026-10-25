@@ -18,7 +18,7 @@
 
 namespace outshine {
 namespace {
-using Error = SourcedTerrainFields::CaptureError;
+using Error = SourcedTerrainFields::BindingError;
 using Entry = SourcedTerrainFields::Entry;
 constexpr size_t kMetadataBytesMost = size_t{256} * 1024u * 1024u;
 
@@ -79,27 +79,27 @@ std::expected<std::array<uint8_t, 32>, Error> RasterDigest(const Ground::Terrain
 }
 }
 
-std::expected<SourcedTerrainFields::Binding, SourcedTerrainFields::CaptureError>
+std::expected<SourcedTerrainFields::Binding, SourcedTerrainFields::BindingError>
 SourcedTerrainFields::BindingAt(int zoom) const {
   if (zoom < 0 || zoom > Data::TileId::MaximumZoom) {
-    return std::unexpected(CaptureError::InvalidRequest);
+    return std::unexpected(BindingError::InvalidRequest);
   }
   const auto order = CanonicalFields(Fields_, zoom);
   BinaryValueWriter out(kMetadataBytesMost);
   if (!out.Text("sourced-terrain-view-1") ||
       !out(static_cast<int32_t>(zoom), static_cast<uint64_t>(order.size()))) {
-    return std::unexpected(CaptureError::OverBudget);
+    return std::unexpected(BindingError::OverBudget);
   }
   Binding binding{};
   for (const size_t at : order) {
     const auto &[tile, held] = Fields_[at];
     const auto &field = *held;
     if (field.Rows() > std::numeric_limits<size_t>::max() / sizeof(float) / field.Cols()) {
-      return std::unexpected(CaptureError::OverBudget);
+      return std::unexpected(BindingError::OverBudget);
     }
     const size_t bytes = static_cast<size_t>(field.Rows()) * field.Cols() * sizeof(float);
     if (bytes > std::numeric_limits<size_t>::max() - binding.RasterBytes) {
-      return std::unexpected(CaptureError::OverBudget);
+      return std::unexpected(BindingError::OverBudget);
     }
     const auto digest = RasterDigest(field, bytes);
     if (!digest ||
@@ -113,7 +113,7 @@ SourcedTerrainFields::BindingAt(int zoom) const {
              static_cast<uint64_t>(field.Sources().size())) ||
         !std::ranges::all_of(field.Sources(),
                              [&](const auto &source) { return WriteSource(out, source); })) {
-      return std::unexpected(CaptureError::OverBudget);
+      return std::unexpected(BindingError::OverBudget);
     }
     ++binding.Fields;
     binding.RasterBytes += bytes;

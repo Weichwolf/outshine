@@ -109,8 +109,8 @@ void CheckSamplingDetail() {
         "duplicate tile entries follow the sampler's first-match fallback semantics");
   const auto invalid = coarse.BindingAt(-1);
   const auto excessive = coarse.BindingAt(Data::TileId::MaximumZoom + 1);
-  CHECK(!invalid && invalid.error() == SourcedTerrainFields::CaptureError::InvalidRequest &&
-            !excessive && excessive.error() == SourcedTerrainFields::CaptureError::InvalidRequest,
+  CHECK(!invalid && invalid.error() == SourcedTerrainFields::BindingError::InvalidRequest &&
+            !excessive && excessive.error() == SourcedTerrainFields::BindingError::InvalidRequest,
         "invalid sampling zooms cannot acquire a persistent input binding");
   const auto empty = SourcedTerrainFields{}.BindingAt(1);
   CHECK(empty && empty->Fields == 0 && empty->RasterBytes == 0,

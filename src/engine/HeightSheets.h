@@ -120,8 +120,6 @@ public:
   [[nodiscard]] const Ground::TerrainField *FieldAt(Data::TileId tile) const;
   [[nodiscard]] bool ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
   [[nodiscard]] SourcedTerrainFields SnapshotSourcedFields() const;
-  [[nodiscard]] std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>
-  CaptureSourcedFields(std::span<const Ground::TileSpot> requests, size_t bytesMost) const;
 
   void ForgetsFields() {
     Fields_.clear();
@@ -158,6 +156,7 @@ public:
 
   [[nodiscard]] size_t
   HeapBytes(TerrainHeapScope scope = TerrainHeapScope::Retained) const noexcept;
+  [[nodiscard]] size_t SourceHeapBytes() const noexcept;
 
   [[nodiscard]] bool Occludes(const Ray &ray, float nearM, float distanceM) const noexcept {
     return Framed_ && Residency_.Occludes(ray, nearM, distanceM, Frame_);

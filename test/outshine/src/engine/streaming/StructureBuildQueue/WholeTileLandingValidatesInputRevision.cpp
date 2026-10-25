@@ -126,7 +126,6 @@ int main() {
             ++copies;
             return allowCopy && HeightField::SharesField(field, at, into);
           },
-      .ResidentField = {},
       .Revision = {.Value = 11}};
   Tasks pool(1);
   Generators::BuildingMesh mesher;
@@ -311,22 +310,6 @@ int main() {
   if (!ready.empty()) { queue.CommitsLandings(prints, ready); }
   CHECK(prints.RefinementComplete() && prints.IngestedTiles() == takenBefore,
         "replacement retry completes without a second whole-tile reservation");
-  const auto acceptedKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
-  CHECK(acceptedKey.has_value(), "validated tile has a qualified source key");
-  source.Revision.Value = 12;
-  if (acceptedKey) {
-    CHECK(!StructureBuildQueue::ValidateResidentCellSource(stack, prints, source, 0, *acceptedKey),
-          "readiness rejects frozen inputs from the previous terrain scope");
-    CHECK(!queue.PostsCell(stack,
-                           prints,
-                           eye,
-                           source,
-                           {.Tile = 0,
-                            .Cell = cell->Index,
-                            .Detail = LevelOfDetail::Massed,
-                            .SourceKey = *acceptedKey}),
-          "cell posting rejects frozen inputs from the previous revision");
-  }
   source.Revision.Value = 15;
   prints.ResetDerived();
   CHECK(post() == 1, "a fresh reservation is captured by its original field");
