@@ -145,7 +145,7 @@ function(outshine_corpus family component scorer)
   endforeach()
 endfunction()
 outshine_corpus(wpt/css outshine_ui ScoreEveryWptCase)
-outshine_corpus(test262/js outshine_ui ScoreEveryScriptCase)
+outshine_corpus(test262/js outshine_scripting ScoreEveryScriptCase)
 outshine_corpus(geographiclib/geodesic outshine_world ScoreEveryGeodesic)
 
 set_tests_properties(outshine/src/render/stages/StagePipelines/NativePipelinesKeepDeclaredBindings

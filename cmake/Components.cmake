@@ -26,6 +26,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators/water
   render
   scenario
+  scripting
   sources
   storage
   ui
@@ -79,7 +80,7 @@ target_link_libraries(outshine_content_assets PUBLIC outshine_base outshine_stor
   PRIVATE PkgConfig::libzstd ZLIB::ZLIB)
 target_link_libraries(outshine_diagnostics PUBLIC outshine_base)
 target_link_libraries(outshine_diagnostics_calibration PUBLIC outshine_base outshine_render)
-target_link_libraries(outshine_engine PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_actor outshine_render outshine_scenario outshine_ui outshine_audio outshine_diagnostics outshine_sources outshine_engine_streaming)
+target_link_libraries(outshine_engine PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_actor outshine_render outshine_scenario outshine_scripting outshine_ui outshine_audio outshine_diagnostics outshine_sources outshine_engine_streaming)
 target_link_libraries(outshine_engine_streaming PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_render outshine_sources)
 target_link_libraries(outshine_generators PUBLIC outshine_base outshine_content outshine_diagnostics outshine_generators_osm outshine_generators_earth outshine_generators_sky outshine_world outshine_generators_road outshine_generators_terrain outshine_generators_water outshine_generators_flora outshine_sources)
 target_link_libraries(outshine_generators_base PUBLIC outshine_base outshine_content outshine_world outshine_sources)
@@ -93,6 +94,7 @@ target_link_libraries(outshine_generators_terrain_inputs PUBLIC outshine_base ou
 target_link_libraries(outshine_generators_terrain_providers PUBLIC outshine_base outshine_sources outshine_world_products PRIVATE PkgConfig::libwebp PkgConfig::libtiff_4)
 target_link_libraries(outshine_generators_sky PUBLIC outshine_base outshine_sources)
 target_link_libraries(outshine_generators_water PUBLIC outshine_base outshine_content outshine_generators_base outshine_world)
+target_link_libraries(outshine_scripting PUBLIC outshine_base)
 target_link_libraries(outshine_sources PUBLIC outshine_base outshine_storage CURL::libcurl)
 target_link_libraries(outshine_storage PUBLIC outshine_base PkgConfig::sqlite3)
 target_link_libraries(outshine_render PUBLIC outshine_base outshine_content outshine_world)
