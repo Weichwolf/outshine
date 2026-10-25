@@ -1,5 +1,5 @@
 #include "ClientShot.h"
 
-int main(void) {
-  return outshine::Test::ScorePlace("Venice", "src/assets/diagnostic-places");
+int main() {
+  return outshine::Test::ScorePlace("Venice", "test/outshine/data/diagnostic-places");
 }

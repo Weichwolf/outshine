@@ -4,7 +4,7 @@
 #include "BenchmarkCommand.h"
 #include "CostReport.h"
 #include "ProcessBoundary.h"
-#include "ShotOptions.h"
+#include "ScenarioArguments.h"
 #include "SourceCache.h"
 #include "WorldSourcePolicy.h"
 #include <chrono>
@@ -29,9 +29,8 @@
 #include <Engine.h>
 #include <Scenario.h>
 
-#include "PlaceCamera.h"
+#include "StillCapture.h"
 #include "PixelProbe.h"
-#include "ScenarioRoundTrip.h"
 #include "ScenarioCapture.h"
 #include "ScenarioInput.h"
 #include "format/Number.h"
@@ -39,7 +38,7 @@
 
 namespace {
 
-class Telling final : public outshine::LogSink {
+class ClientLogSink final : public outshine::LogSink {
 public:
   void Write(double simTimeS,
              outshine::LogLevel level,
@@ -81,15 +80,14 @@ private:
   }
 };
 
-Telling gTelling;
+ClientLogSink gClientLog;
 
 using outshine::Client::ClientRoots;
-using outshine::Shots::Place;
-using outshine::Shots::Shot;
+using outshine::Client::StillCaptureResult;
 
 constexpr double kMillisecondsPerSecond = 1000.0;
 
-void Tell(const Shot &shot, std::string_view name) {
+void PrintCapture(const StillCaptureResult &shot, std::string_view name) {
   if (!shot.Why.empty()) {
     std::println("SHOT    {:<26} -- {}", name, shot.Why);
     return;
@@ -115,7 +113,7 @@ void Tell(const Shot &shot, std::string_view name) {
       shot.Triangles,
       shot.BareTiles,
       shot.VariationAlongRows,
-      shot.StandingMs / kMillisecondsPerSecond,
+      shot.SetupMs / kMillisecondsPerSecond,
       shot.LoadingMs / kMillisecondsPerSecond,
       shot.StreamedS,
       shot.PeakHeapMB,
@@ -123,7 +121,7 @@ void Tell(const Shot &shot, std::string_view name) {
   outshine::Client::PrintCostReport(name, shot.Measures);
 }
 
-void Row(const Shot &shot, std::string_view name) {
+void PrintCaptureRow(const StillCaptureResult &shot, std::string_view name) {
   std::println("ROW\t{}\t{}\t{}\t{:.4f}\t{:.4f}\t{:.4f}\t{}\t{}\t{}\t{:.0f}\t{:.0f}\t{:.4f}\t{}\t{:"
                ".0f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}\t{}",
                name,
@@ -149,18 +147,14 @@ void Row(const Shot &shot, std::string_view name) {
 
 void Usage(std::string_view verb = {}) {
   if (verb.empty()) {
-    std::println("Usage: outshine [--places <directory>] <command> [arguments]\n"
+    std::println("Usage: outshine <command> [arguments]\n"
                  "  benchmark   measure CPU, GPU and memory workloads\n"
                  "  run         capture a scenario or route motion\n"
-                 "  shots       capture named places\n"
                  "  measures    capture a scenario and print engine diagnostics\n"
-                 "  prepare     preload a named place\n"
-                 "  places      list place cameras\n"
-                 "  roundtrip   check scenario serialization\n"
                  "  height      query terrain elevation\n"
                  "  cache       inspect and trim source/asset storage\n\n"
-                 "Use <command> --help for options. --places defaults to src/assets/places.\n"
-                 "--stats on run, shots or measures prints "
+                 "Use <command> --help for options.\n"
+                 "--stats on run or measures prints "
                  "STAT<TAB>name<TAB>key<TAB>value<TAB>unit rows.");
     return;
   }
@@ -206,35 +200,14 @@ void Usage(std::string_view verb = {}) {
         "time, readiness, ground candidate progress, previous-frame GPU diagnostics and "
         "left/centre/right road contact with eye clearance.",
         verb);
-  } else if (verb == "shots") {
-    std::println("Usage: outshine shots [options] [--all | <place> ...]\n"
-                 "  --scenario-overrides <json>     override selected place scenarios\n"
-                 "  --preload-seconds <seconds>     positive preparation timeout, default 10\n"
-                 "  --cache-dir <directory>         default user-data directory/sources\n"
-                 "  --offline                       use only cached and shipped sources\n"
-                 "  --audit                         run image audit\n"
-                 "  --measures                      print engine diagnostic samples\n"
-                 "  --rows                          machine-readable capture rows\n"
-                 "  --stats                         timing, readiness and source STAT rows\n"
-                 "With no place, capture all. Preparation time is separate from frame timing.");
-  } else if (verb == "prepare") {
-    std::println(
-        "Usage: outshine prepare <place> <timeout-seconds>\n"
-        "Preload a named place with a positive timeout; report readiness, not frame rate.");
-  } else if (verb == "places") {
-    std::println("Usage: outshine [--places <directory>] places\n"
-                 "List each place camera, geodetic pose, resolution and time as TSV.");
-  } else if (verb == "roundtrip") {
-    std::println("Usage: outshine [--places <directory>] roundtrip\n"
-                 "Write, read and rewrite every place scenario.");
   } else if (verb == "height") {
     std::println("Usage: outshine height <latitude-deg> <longitude-deg>\n"
                  "Query terrain elevation in metres; latitude [-90,90], longitude [-180,180].");
   }
-  if (verb == "run" || verb == "measures" || verb == "shots") {
+  if (verb == "run" || verb == "measures") {
     std::println("STAT TSV: STAT<TAB>name<TAB>key<TAB>value<TAB>unit; "
                  "status is ok or failed. Timings are milliseconds.\n"
-                 "run: setup_ms; run/shots: preload/wait timings, playable/refined, tile and "
+                 "run: setup_ms; run/measures: preload/wait timings, playable/refined, tile and "
                  "source counts.\n"
                  "route motion: frame count, p50/p95/p99, budget/readiness, contact gaps, "
                  "eye clearance and peak heap.");
@@ -253,8 +226,7 @@ RequestedHelp(const outshine::Client::CommandLine &command) {
     return std::nullopt;
   }
   const std::string_view verb = command.Verb;
-  if (verb == "run" || verb == "shots" || verb == "measures" || verb == "prepare" ||
-      verb == "places" || verb == "roundtrip" || verb == "height" || verb == "benchmark") {
+  if (verb == "run" || verb == "measures" || verb == "height" || verb == "benchmark") {
     return verb;
   }
   return std::nullopt;
@@ -344,15 +316,14 @@ void PrintStats(std::string_view name,
 
 [[nodiscard]] bool InitializeClientEngine(
     outshine::Engine &engine,
-    outshine::Extent frame = {.WidthPx = outshine::Shots::kWidePx,
-                              .HeightPx = outshine::Shots::kHighPx},
+    outshine::Extent frame = outshine::Client::kDefaultCaptureFrame,
     outshine::Roots roots = ClientRoots(outshine::Client::kDefaultCacheDirectory, false)) {
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     std::println("outshine: SDL did not start");
     return false;
   }
-  gTelling.TracePreload(false);
-  engine.logsTo(&gTelling);
+  gClientLog.TracePreload(false);
+  engine.logsTo(&gClientLog);
   if (const auto rooted = outshine::Client::WithSourceCache(std::move(roots))
                               .and_then([&](outshine::Roots resolved) {
                                 return engine.setRoots(std::move(resolved));
@@ -368,75 +339,6 @@ void PrintStats(std::string_view name,
     }
   }
   return true;
-}
-
-void ReportShot(const Shot &shot,
-                std::string_view name,
-                const outshine::Client::ShotOptions &options,
-                std::chrono::steady_clock::time_point began) {
-  std::println("PROFILE\t{}\t{}\t{}\t{}\t{:.6f}",
-               name,
-               shot.Frame.WidthPx,
-               shot.Frame.HeightPx,
-               shot.Timing.RateHz,
-               shot.Timing.BudgetMs());
-  if (options.Rows) {
-    Row(shot, name);
-    outshine::Client::PrintGpuRow(name, shot.Measures);
-  } else {
-    Tell(shot, name);
-  }
-  if (options.Measures) {
-    for (const outshine::DiagnosticSample &measure : shot.Measures) {
-      std::println("        {:<56} {:14.3f} {}", measure.Name, measure.Value, measure.Unit);
-    }
-  }
-  if (options.Stats) {
-    if (options.Rows) { outshine::Client::PrintCostReport(name, shot.Measures); }
-    const double elapsedMs =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    PrintStats(name,
-               shot.LoadingAtEnd,
-               elapsedMs,
-               shot.Why.empty() && shot.Kept,
-               shot.Playable,
-               shot.Refined);
-  }
-}
-
-int TakeShots(std::span<const Place> places,
-              std::span<const char *const> arguments,
-              const outshine::Client::ShotOptions &options) {
-  std::vector<const Place *> taking;
-  outshine::Shots::Audits = options.Audit;
-  gTelling.TracePreload(options.Stats);
-  const auto names = arguments.subspan(options.FirstPlace);
-  if (options.All || names.empty()) {
-    for (const Place &one : places) { taking.push_back(&one); }
-  } else {
-    for (const char *name : names) {
-      const Place *const named = outshine::Shots::PlaceNamed(places, name);
-      if (named == nullptr) {
-        std::println(stderr, "outshine: no place is called '{}'", name);
-        return 2;
-      }
-      taking.push_back(named);
-    }
-  }
-  std::println("CONTROL\t{:.4f}", outshine::Shots::ControlVariation());
-  std::println("PRELOAD\t{} s", options.PreloadSeconds);
-  int refused = 0;
-  for (const Place *const one : taking) {
-    outshine::Shots::Telling = &gTelling;
-    const auto began = std::chrono::steady_clock::now();
-    const Shot shot = outshine::Shots::Take(*one,
-                                            !options.Rows,
-                                            options.PreloadSeconds,
-                                            ClientRoots(options.CacheDirectory, options.Offline));
-    ReportShot(shot, one->Name, options, began);
-    refused += shot.Why.empty() && shot.Kept ? 0 : 1;
-  }
-  return refused == 0 ? 0 : 1;
 }
 
 struct ScenarioRunOptions {
@@ -770,9 +672,7 @@ int CaptureView(outshine::Engine &engine,
   auto declaration = std::move(*input);
   if (options.ProbePixel) { outshine::Client::PreparePixelAttachments(declaration); }
   outshine::Extent frame = declaration.Render.Frame;
-  if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
-    frame = {.WidthPx = outshine::Shots::kWidePx, .HeightPx = outshine::Shots::kHighPx};
-  }
+  if (frame.WidthPx <= 0 || frame.HeightPx <= 0) { frame = outshine::Client::kDefaultCaptureFrame; }
   if (options.ProbePixel &&
       (options.ProbePixel->X >= frame.WidthPx || options.ProbePixel->Y >= frame.HeightPx)) {
     std::println(stderr, "outshine: probe pixel lies outside the current render target");
@@ -835,7 +735,8 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     }
     return result;
   }
-  Shot shot = outshine::Shots::Draw(engine, named, true, options.Into);
+  auto shot = outshine::Client::CaptureStill(engine, named, !options.Rows, options.Into);
+  shot.SetupMs = setupMs;
   if (shot.Why.empty() && !options.LinearOutput.empty()) {
     if (const auto saved = outshine::Client::SaveLinearImage(engine, options.LinearOutput);
         !saved) {
@@ -843,9 +744,9 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     }
   }
   if (options.Rows) {
-    Row(shot, named);
+    PrintCaptureRow(shot, named);
   } else {
-    Tell(shot, named);
+    PrintCapture(shot, named);
   }
   if (everyMeasure && !PrintMeasures(engine)) { return 1; }
   if (options.Stats) {
@@ -915,35 +816,6 @@ constexpr auto kHeightCoordinates =
   return 0;
 }
 
-std::expected<std::vector<Place>, std::string>
-LoadCommandPlaces(const outshine::Client::CommandLine &command, std::string_view overrides) {
-  if (command.Verb == "shots" || command.Verb == "prepare" || command.Verb == "places" ||
-      command.Verb == "roundtrip") {
-    return outshine::Shots::LoadPlaces(command.Directory, overrides);
-  }
-  return std::vector<Place>{};
-}
-
-int ListPlaces(std::span<const Place> places) {
-  for (const Place &one : places) {
-    const auto &view = one.Declaration.Views.front().Sees;
-    const auto &at = one.Declaration.Views.front().Geographic;
-    const auto &frame = one.Declaration.Render.Frame;
-    std::println("{}\t{:.12g}\t{:.12g}\t{:.12g}\t{:.12g}\t{:.12g}\t{:.12g}\t{}\t{}\t{}",
-                 one.Name,
-                 at.Geodetic.LatitudeDeg,
-                 at.Geodetic.LongitudeDeg,
-                 at.Geodetic.HeightM,
-                 at.BearingDeg,
-                 at.PitchDeg,
-                 view.FovDeg,
-                 frame.WidthPx,
-                 frame.HeightPx,
-                 one.Declaration.Time.Start);
-  }
-  return 0;
-}
-
 int RunClientCommand(std::span<const char *const> arguments) {
   const auto command = outshine::Client::ReadCommandLine(arguments);
   if (!command) {
@@ -959,43 +831,9 @@ int RunClientCommand(std::span<const char *const> arguments) {
     return 0;
   }
   if (verb == "benchmark") { return outshine::Client::RunBenchmarkCommand(command->Arguments); }
-  outshine::Client::ShotOptions shotOptions;
-  if (verb == "shots") {
-    const auto parsed = outshine::Client::ReadShotOptions(command->Arguments);
-    if (!parsed) {
-      std::println(stderr, "outshine: {}", parsed.error());
-      return 2;
-    }
-    shotOptions = *parsed;
-  }
-  auto loaded = LoadCommandPlaces(*command, shotOptions.ScenarioOverrides);
-  if (!loaded) {
-    std::println(stderr, "outshine: {}", loaded.error());
-    return 1;
-  }
-  const auto &places = *loaded;
-  if (verb == "shots") { return TakeShots(places, command->Arguments, shotOptions); }
-  if (verb == "prepare" && rest == 2) {
-    const auto *place = outshine::Shots::PlaceNamed(places, from[0]);
-    char *end = nullptr;
-    const double seconds = std::strtod(from[1], &end);
-    if (place == nullptr || end == from[1] || *end != 0 || !std::isfinite(seconds) ||
-        seconds <= 0) {
-      return 2;
-    }
-    outshine::Shots::Telling = &gTelling;
-    const std::string why = outshine::Shots::Prepare(*place, seconds);
-    std::println(
-        "PREPARE {} {}; no frame-rate measurement", place->Name, why.empty() ? "ready" : why);
-    return why.empty() ? 0 : 1;
-  }
   if (verb == "run") { return RunScenario(rest, from, false); }
   if (verb == "measures") { return RunScenario(rest, from, true); }
   if (verb == "height") { return QueryTerrainHeight({from, static_cast<std::size_t>(rest)}); }
-  if (verb == "roundtrip") {
-    return outshine::Client::RoundTripPlaces(places, "build/outshine-roundtrip.scn");
-  }
-  if (verb == "places") { return ListPlaces(places); }
   Usage();
   return verb == "help" || verb == "--help" ? 0 : 2;
 }

@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <system_error>
 
 int main() {
   using namespace outshine;
@@ -19,8 +20,9 @@ int main() {
         engine.setRoots({.Assets = "src/assets/drive",
                          .Shipped = "src/assets",
                          .Cache = directory,
-                         .Offline = true}) &&
-        engine.readScenario("src/assets/diagnostic-places/Hockenheimring.scenario") &&
+                         .Offline = true,
+                         .AssetCache = {}}) &&
+        engine.readScenario("test/outshine/data/diagnostic-places/Hockenheimring.scenario") &&
         engine.assemble();
     CHECK(assembled, "offline world assembles from pinned local OSM");
     if (!assembled) { return Report(); }
@@ -44,8 +46,7 @@ int main() {
     CHECK(waited.TileNoOutstandingMs == 0.0 && waited.TileNoOutstandingCalls == 0,
           "preload never waits on an empty tile pool");
     const auto refined = engine.preload(0.0, WorldQuality::Refined);
-    CHECK(!refined && !engine.settled(WorldQuality::Refined) &&
-              refined.error().find("pending") != std::string::npos,
+    CHECK(!refined && !engine.settled(WorldQuality::Refined) && refined.error().contains("pending"),
           "refined preload refuses an incomplete world and describes pending work");
   }
 

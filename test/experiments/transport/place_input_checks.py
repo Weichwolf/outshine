@@ -23,7 +23,7 @@ from transport_place_inputs import (
 
 class PlaceInputs(unittest.TestCase):
     def camera(self):
-        camera = read_camera(ROOT / "src/assets/places/Wien.scenario")
+        camera = read_camera(ROOT / "test/outshine/data/places/Wien.scenario")
         return replace(
             camera,
             latitude_deg=0.0,
@@ -77,7 +77,7 @@ class PlaceInputs(unittest.TestCase):
             plan_vertices(self.camera(), [0.0, 0.0], [[0.0, np.nan, 0.0]])
 
     def manifest(self, directory, name, receipts):
-        camera = read_camera(ROOT / "src/assets/places" / (name + ".scenario"))
+        camera = read_camera(ROOT / "test/outshine/data/places" / (name + ".scenario"))
         path = directory / "elevation.json"
         path.write_text(
             json.dumps(

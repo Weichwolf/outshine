@@ -89,7 +89,7 @@ def write_controls(output):
     cases = [('GroundDetail', 1.6, 240., 60.), ('GroundGrains', .2, 240., 60.),
              ('GroundGrainsZoom', 1.6, 210., 6.)]
     for name, height, bearing, fov in cases:
-        tree = ET.parse(ROOT/'src/assets/places/Koerbersee.scenario')
+        tree = ET.parse(ROOT/'test/outshine/data/places/Koerbersee.scenario')
         root = tree.getroot()
         root.find('world').set('vegetation', 'no')
         root.find('views/view').set('fovDeg', str(fov))

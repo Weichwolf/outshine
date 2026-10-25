@@ -2,7 +2,7 @@
 #define OUTSHINE_CLIENT_BENCHMARKOPTIONS_H
 
 #include "BenchmarkMotion.h"
-#include "ShotOptions.h"
+#include "ScenarioArguments.h"
 #include <optional>
 #include <string_view>
 

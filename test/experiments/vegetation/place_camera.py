@@ -6,10 +6,10 @@ from outshine_ref.places import PlaceCamera, read_camera
 
 PLACES = ("CentralPark", "Koerbersee", "DarmstadtWest", "Malcesine")
 SCENARIOS = (
-    "src/assets/places/CentralPark.scenario",
-    "src/assets/places/Koerbersee.scenario",
-    "src/assets/diagnostic-places/DarmstadtWest.scenario",
-    "src/assets/places/Malcesine.scenario",
+    "test/outshine/data/places/CentralPark.scenario",
+    "test/outshine/data/places/Koerbersee.scenario",
+    "test/outshine/data/diagnostic-places/DarmstadtWest.scenario",
+    "test/outshine/data/places/Malcesine.scenario",
 )
 RESOLUTION = (2560, 1440)
 __all__ = ["PLACES", "RESOLUTION", "PlaceCamera", "read_camera", "selected_cameras"]

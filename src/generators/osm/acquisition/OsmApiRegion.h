@@ -26,7 +26,6 @@ public:
   [[nodiscard]] SourceChunk Chunk(const Data::SourceProvider &provider,
                                   std::optional<GeoCellId> cell) const;
   [[nodiscard]] bool Begin(const Data::RawSourceCache &store, std::vector<GeoCellId> &refine);
-  [[nodiscard]] bool HasCachedCoverage(Data::RawSourceCache &store) const;
   [[nodiscard]] std::expected<Collected, std::string> Collect(SourceChunk &chunk, double beganMs);
 
 private:

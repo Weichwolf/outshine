@@ -15,13 +15,13 @@ CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolv
 class Coordinates(unittest.TestCase):
     def test_help_describes_commands_and_stats_without_starting_platform(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
-        cases = ((('--help',), ('run', 'shots', 'measures', '<command> --help')),
+        cases = ((('--help',), ('run', 'benchmark', 'measures', '<command> --help')),
                  (('run', '--help'), ('--view', '--motion', '--samples', '--stats',
                                      '--probe-pixel', '--quality playable|refined')),
-                 (('shots', '--help'), ('--preload-seconds', '--offline', '--stats')),
                  (('measures', '--help'), ('structure source keys', '--stats')),
                  (('height', '--help'), ('latitude-deg', 'longitude-deg')),
-                 (('benchmark', '--help'), ('--output', '--gpu-validation', 'JSON')))
+                 (('benchmark', '--help'), ('--output', '--gpu-validation', 'JSON',
+                                           '--preload-seconds', '--offline')))
         for args, expected in cases:
             with self.subTest(args=args):
                 result = subprocess.run([str(CLIENT), *args], cwd=ROOT, env=env,
@@ -33,6 +33,15 @@ class Coordinates(unittest.TestCase):
         unknown = subprocess.run([str(CLIENT), 'unknown', '--help'], cwd=ROOT, env=env,
                                  capture_output=True, text=True, timeout=10)
         self.assertEqual(unknown.returncode, 2)
+
+    def test_named_capture_commands_are_not_product_commands(self):
+        env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
+        for verb in ('shots', 'places', 'prepare', 'roundtrip'):
+            with self.subTest(verb=verb):
+                result = subprocess.run([str(CLIENT), verb, '--help'], cwd=ROOT, env=env,
+                                        capture_output=True, text=True, timeout=10, check=False)
+                self.assertEqual(result.returncode, 2)
+                self.assertNotIn('SDL', result.stdout + result.stderr)
 
     def test_invalid_benchmark_arguments_leave_existing_results_untouched(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-arguments-') as directory:
@@ -132,7 +141,7 @@ class Coordinates(unittest.TestCase):
 
     def test_cache_directory_is_validated_before_platform_initialization(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
-        for verb in ('run', 'shots'):
+        for verb in ('run', 'measures'):
             for cache in ('', '--offline'):
                 result = subprocess.run([str(CLIENT), verb, '--cache-dir', cache], cwd=ROOT,
                                         env=env, capture_output=True, text=True, timeout=10)
@@ -157,7 +166,7 @@ class Coordinates(unittest.TestCase):
 
     def test_scenario_overrides_use_one_generic_option(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
-        for verb in ('run', 'shots'):
+        for verb in ('run', 'measures'):
             for arguments in (('--scenario-overrides',),
                               ('--scenario-overrides', '[]'),
                               ('--scenario-overrides', ''),

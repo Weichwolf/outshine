@@ -42,15 +42,16 @@ public:
           std::stop_token stop = {});
 
 private:
+  struct Generation;
   explicit PreparedRoadPages(std::unique_ptr<AssetCache> cache);
   [[nodiscard]] std::expected<bool, std::string>
   ManifestReady(const RoadPageManifest &manifest) const;
   [[nodiscard]] std::expected<std::optional<RoadPageLease>, std::string>
   Read(const std::string &key, size_t bytesMost, const std::string &requestKey = {});
-  [[nodiscard]] std::shared_ptr<std::mutex> GenerationGate(const std::string &key);
+  [[nodiscard]] std::shared_ptr<Generation> GenerationGate(const std::string &key);
   std::unique_ptr<AssetCache> Cache_;
   std::mutex Lock_;
-  std::unordered_map<std::string, std::weak_ptr<std::mutex>> Generating_;
+  std::unordered_map<std::string, std::weak_ptr<Generation>> Generating_;
 };
 }
 #endif

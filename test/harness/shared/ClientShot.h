@@ -143,7 +143,7 @@ inline void CheckPlaceTiming(const PlaceCapture &capture, unsigned rateHz) {
 }
 
 inline int ScorePlace(const char *place,
-                      const char *catalog = "src/assets/places",
+                      const char *catalog = "test/outshine/data/places",
                       unsigned rateHz = kPlaceRateHz) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
   const auto command = "python3 -B test/scripts/places.py --catalog " + ShellArgument(catalog) +

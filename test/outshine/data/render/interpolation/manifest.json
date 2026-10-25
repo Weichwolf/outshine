@@ -4,7 +4,7 @@
   "source": {
     "issue": "https://github.com/Weichwolf/outshine/issues/900",
     "commit": "d408273e7a41fa2081465c6d4c8223fa00c174b6",
-    "scenario": "src/assets/places/Flensburg.scenario",
+    "scenario": "test/outshine/data/places/Flensburg.scenario",
     "frame": 47,
     "renderdoc_event": 3062,
     "original_first_index": 5613435,

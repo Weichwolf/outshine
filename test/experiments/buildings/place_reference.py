@@ -38,7 +38,7 @@ def read(name):
     if name not in REFERENCE_PLACES:
         raise ValueError("Unknown fixed Buildings Place")
     return PlaceCamera(
-        **asdict(read_camera(ROOT / "src/assets/places" / (name + ".scenario")))
+        **asdict(read_camera(ROOT / "test/outshine/data/places" / (name + ".scenario")))
     )
 
 

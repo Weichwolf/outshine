@@ -12,29 +12,38 @@
 #include <system_error>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
+#include <expected>
 #include <memory>
 #include <span>
+#include <stop_token>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
 using namespace outshine;
 using Loader = Generators::Osm::SourceAcquisition;
+constexpr int kHttpOk = 200;
+constexpr double kAwaitSliceS = 0.01;
+constexpr int kUnconsumedNodeFirst = 100;
+constexpr int kUnconsumedNodeCount = 80;
+constexpr int kMaximumAttempts = 100;
 
 class ApiWire final : public Data::Transport {
 public:
   std::string Xml;
   std::atomic<int> Starts{0};
 
-  Data::FetchStart Begin(const std::string &) override {
+  Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
     return static_cast<Data::Ticket>(++Starts);
   }
 
-  Data::Wire Collect(Data::Ticket) override {
-    return Data::Wire::Answered(200, std::vector<uint8_t>(Xml.begin(), Xml.end()));
+  Data::Wire Collect([[maybe_unused]] Data::Ticket ticket) override {
+    return Data::Wire::Answered(kHttpOk, std::vector<uint8_t>(Xml.begin(), Xml.end()));
   }
 
-  void Cancel(Data::Ticket) override {}
+  void Cancel([[maybe_unused]] Data::Ticket ticket) override {}
 };
 
 class TrackedCompiler final : public Generators::Osm::CellCompiler {
@@ -60,7 +69,7 @@ bool Wait(Loader &source) {
   while (source.CurrentPhase() == Loader::Phase::Loading &&
          std::chrono::steady_clock::now() < until) {
     source.Poll();
-    (void)source.AwaitSlice(0.01);
+    (void)source.AwaitSlice(kAwaitSliceS);
   }
   return source.CurrentPhase() == Loader::Phase::Ready;
 }
@@ -72,7 +81,7 @@ std::string OriginalXml() {
                     "<nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='4'/><nd ref='1'/>"
                     "<tag k='building' v='yes'/><tag k='height' v='12'/>"
                     "<tag k='custom:original' v='preserved'/></way>";
-  for (int id = 100; id < 180; ++id) {
+  for (int id = kUnconsumedNodeFirst; id < kUnconsumedNodeFirst + kUnconsumedNodeCount; ++id) {
     xml += "<node id='" + std::to_string(id) +
            "' lat='0.02' lon='0.02'>"
            "<tag k='unconsumed:original' v='" +
@@ -90,11 +99,12 @@ int main() {
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   Data::ProviderRegistry registry;
   Generators::RegisterShippedProviders(registry);
-  Tasks compute(1), io(1);
+  Tasks compute(1);
+  Tasks io(1);
   ApiWire wire;
   wire.Xml = OriginalXml();
-  auto compiler = std::make_shared<TrackedCompiler>();
-  Loader source({.Compute = compute, .Io = io}, &wire, directory, Loader::Target::Inputs, compiler);
+  const auto compiler = std::make_shared<TrackedCompiler>();
+  Loader source({.Compute = compute, .Io = io}, &wire, directory, compiler);
   const Data::SourceProvider catalogue{.Kind = "osm",
                                        .Revision = "one",
                                        .Missing = Data::MissingDataPolicy::Fail,
@@ -104,12 +114,14 @@ int main() {
                                        .Coverage = {},
                                        .PayloadSha256 = {},
                                        .Schema = {}};
-  const std::array<GeoCellId, 4> cells{
-      {{9, 256, 256}, {9, 257, 256}, {9, 258, 256}, {9, 259, 256}}};
-  CHECK(
-      source.RequestCells(catalogue, std::span(cells).first(1), {4, 1024 * 1024}, ".", &registry) &&
-          Wait(source),
-      "one source compiles through the actual bounded IO and compute pipeline");
+  const std::array<GeoCellId, 4> cells{{{.Level = 9, .X = 256, .Y = 256},
+                                        {.Level = 9, .X = 257, .Y = 256},
+                                        {.Level = 9, .X = 258, .Y = 256},
+                                        {.Level = 9, .X = 259, .Y = 256}}};
+  CHECK(source.RequestCells(
+            catalogue, std::span(cells).first(1), {4, size_t{1024} * 1024}, ".", &registry) &&
+            Wait(source),
+        "one source compiles through the actual bounded IO and compute pipeline");
   const size_t rawBytes = compiler->RawBytes;
   CHECK(rawBytes > 0 && source.RequestCells(catalogue, cells, {4, rawBytes}, ".", &registry) &&
             Wait(source),
@@ -136,17 +148,17 @@ int main() {
                                 [](const auto &tag) {
                                   return tag.Key == "custom:original" && tag.Value == "preserved";
                                 }) &&
-            !capture.Snapshot().Elements.FindNode(100),
+            !capture.Snapshot().Elements.FindNode(kUnconsumedNodeFirst),
         "consumed closure preserves original tags without pinning unrelated source objects");
   StructureBuildQueue queue;
   queue.Opens(&compute, nullptr);
   bool ready = false;
-  for (int attempt = 0; attempt < 100 && !ready; ++attempt) {
+  for (int attempt = 0; attempt < kMaximumAttempts && !ready; ++attempt) {
     const auto prepared = queue.PrepareOriginal(native, 14);
     CHECK(prepared, "native cells enter the runtime structure preparation contract");
     if (!prepared) { return Report(); }
     ready = *prepared;
-    if (!ready) { (void)queue.AwaitSlice(0.01); }
+    if (!ready) { (void)queue.AwaitSlice(kAwaitSliceS); }
   }
   const auto heights = queue.OriginalHeightTiles(14);
   CHECK(ready && heights && !heights->empty(),
@@ -157,11 +169,8 @@ int main() {
   CHECK(value != std::string::npos, "independent conflict changes an unconsumed original tag");
   if (value == std::string::npos) { return Report(); }
   changedWire.Xml[value + 3] = 'y';
-  Loader changedSource({.Compute = compute, .Io = io},
-                       &changedWire,
-                       directory + "/changed",
-                       Loader::Target::Inputs,
-                       compiler);
+  Loader changedSource(
+      {.Compute = compute, .Io = io}, &changedWire, directory + "/changed", compiler);
   CHECK(changedSource.RequestCells(
             catalogue, std::span(cells).last(1), {4, rawBytes}, ".", &registry) &&
             Wait(changedSource),

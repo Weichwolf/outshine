@@ -33,7 +33,7 @@ def extract(cache_root, sources, output):
             "exact pinned forest source not present; no download or pin update"
         )
     tile = decode_vector(dict(receipt, path=str(path), kind="vector"))
-    camera = read_camera(ROOT / "src/assets/places/Feldkirch.scenario")
+    camera = read_camera(ROOT / "test/outshine/data/places/Feldkirch.scenario")
     frame = LocalFrame(
         f"enu:{camera.origin_latitude_deg:.12g}:{camera.origin_longitude_deg:.12g}:ellipsoid0"
     )

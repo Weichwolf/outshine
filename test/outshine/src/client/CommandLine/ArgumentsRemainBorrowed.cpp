@@ -10,30 +10,24 @@ int main() {
   using namespace outshine::Client;
   using namespace outshine::Test;
   const auto empty = ReadCommandLine({});
-  CHECK(empty && empty->Verb == "help" && empty->Directory == "src/assets/places" &&
-            empty->Arguments.empty(),
-        "empty input selects help");
+  CHECK(empty && empty->Verb == "help" && empty->Arguments.empty(), "empty input selects help");
   const std::array<const char *, 1> program{"client"};
   const auto help = ReadCommandLine(program);
   CHECK(help && help->Verb == "help", "program alone selects help");
   const std::array<const char *, 6> args{
-      "client", "--places", "custom/places", "shots", "--all", "--audit"};
+      "client", "benchmark", "--scenario", "world.scenario", "--frames", "60"};
   const auto command = ReadCommandLine(args);
-  CHECK(command && command->Directory == "custom/places" && command->Verb == "shots",
-        "override and command parse");
+  CHECK(command && command->Verb == "benchmark", "command is selected without content knowledge");
   if (command) {
-    CHECK(command->Directory.data() == args[2] && command->Verb.data() == args[3],
-          "text views borrow process strings");
-    CHECK(command->Arguments.data() == args.data() + 4 && command->Arguments.size() == 2,
-          "rest arguments borrow original pointer table");
+    CHECK(command->Verb.data() == args[1], "command borrows its process string");
+    CHECK(command->Arguments.data() == args.data() + 2 && command->Arguments.size() == 4,
+          "command arguments borrow the original pointer table");
   }
-  CHECK(!ReadCommandLine(std::span(args).first(2)) && !ReadCommandLine(std::span(args).first(3)),
-        "incomplete override is rejected");
   const std::array<const char *, 3> nullArg{"client", "help", nullptr};
   CHECK(!ReadCommandLine(nullArg), "null trailing argument is rejected");
-  const std::array<const char *, 3> plain{"client", "render", "asset.glb"};
+  const std::array<const char *, 3> plain{"client", "run", "asset.scenario"};
   const auto render = ReadCommandLine(plain);
-  CHECK(render && render->Verb == "render" && render->Arguments.size() == 1 &&
+  CHECK(render && render->Verb == "run" && render->Arguments.size() == 1 &&
             render->Arguments[0] == plain[2],
         "ordinary command preserves its argument");
   return Report();

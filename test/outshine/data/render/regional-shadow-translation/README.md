@@ -13,7 +13,7 @@ SHA-256 and image SHA-256. A declaration hash does not identify every external a
 The computed matrix fixture is independent of the original prepared source/asset caches.
 
 ```sh
-build/outshine benchmark --scenario src/assets/places/Flensburg.scenario \
+build/outshine benchmark --scenario test/outshine/data/places/Flensburg.scenario \
   --frames 60 --linear-velocity 6,0,0 --angular-velocity 0,-360,0 \
   --offline --preload-seconds 60 \
   --output "$scratch/benchmark.json" --image "$scratch/final.png"

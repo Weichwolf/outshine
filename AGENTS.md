@@ -163,7 +163,7 @@
   Konkrete Verträge besitzt [#9](https://github.com/Weichwolf/outshine/issues/9); sie werden mit einem echten Feature integriert.
 - Produktcode und mitgelieferte Produktdaten kennen keine Places, Place-Koordinaten oder
   ortsspezifischen Optimierungen. Feste Place-Kamera-/Messdaten stehen ausschließlich im
-  aufrufenden Testskript. Der generische `bench`-Befehl erhält Szenario, Startpose, Bewegungs-/
+  aufrufenden Testskript. Der generische `benchmark`-Befehl erhält Szenario, Startpose, Bewegungs-/
   Rotationsvektor und Framezahl als Eingaben; Namen und Bildaufbewahrung besitzt der Testtreiber.
 - Ich halte die Welt auch in Bewegung flüssig: vom Gehen bis zu vielen hundert Metern
   pro Sekunde, einschließlich Beschleunigung, Richtungs- und Höhenwechseln, bei denselben

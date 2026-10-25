@@ -77,7 +77,6 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
         Generators::Osm::SourceAcquisition::Workers{.Compute = *World.Pool, .Io = *World.Io},
         World.Wire.get(),
         Session.Under.Cache,
-        Generators::Osm::SourceAcquisition::Target::Inputs,
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
   if (!ConfigureWorldSources(tileProviders)) { return false; }
