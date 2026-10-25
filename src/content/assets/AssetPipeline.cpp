@@ -49,7 +49,7 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
       return std::unexpected(AssetPublicationError::InvalidRequest);
     }
     const State::ScopedKey address{.Scope = owner->second.Scope, .Product = request.Key};
-    auto found = State_->Jobs.find(address);
+    const auto found = State_->Jobs.find(address);
     std::shared_ptr<State::Job> job;
     if (found != State_->Jobs.end()) {
       job = found->second;

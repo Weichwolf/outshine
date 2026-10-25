@@ -187,7 +187,7 @@ std::expected<AssetRecord, std::string> PreparedRoadPages::Prepare(const RoadPag
   if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
   auto key = RequestKey(request);
   if (!key) { return std::unexpected(std::move(key.error())); }
-  const auto lookup = [&]() -> std::expected<std::optional<AssetRecord>, std::string> {
+  const auto lookup = [&] -> std::expected<std::optional<AssetRecord>, std::string> {
     const std::scoped_lock lock(Lock_);
     if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
     return ReadRecord(*key, request.Address, request.NativeBytesMost, request.RequestKey);

@@ -43,7 +43,7 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
     return Failed(AssetPublicationError::InvalidReceipt,
                   "producer returned an invalid publication receipt");
   }
-  auto stored = std::make_shared<StoredReceipt>(
+  const auto stored = std::make_shared<StoredReceipt>(
       StoredReceipt{.Record = std::move(*result), .Reservation = job->Output});
   std::shared_ptr<const AssetRecord> record(stored, &stored->Record);
   return {.Status = AssetPublicationStatus::Ready,
