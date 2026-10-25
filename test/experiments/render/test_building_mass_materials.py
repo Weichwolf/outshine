@@ -142,6 +142,37 @@ class BuildingMassMaterials(unittest.TestCase):
         with self.assertRaises(ValueError):
             shade(a, [[1]], [0.12], normal, normal, [0, 0, 0], tables)
 
+    def test_zero_direct_intensity_avoids_ggx_after_all_validation(self):
+        albedo = np.array([[0.25, 0.5, 0.75], [0.75, 0.25, 0.5]])
+        weights = np.array([[1, 0], [0.25, 0.75]])
+        normal = np.tile([0, 0, 1.0], (2, 1))
+        inputs = (albedo, weights, [0.12, 0.88], normal, normal, [0, 0, 1])
+        with patch("building_mass_lighting.direct_ggx", side_effect=AssertionError):
+            value, cost = shade(*inputs, {}, intensity=0, ambient=0.125)
+            np.testing.assert_array_equal(value, 0.125 * albedo)
+            self.assertEqual(
+                cost, {"ggx_lobe_evaluations": 0, "maximum_row_array_bytes": 0}
+            )
+            for kwargs in ({"ambient": -1}, {"ambient": float("nan")}):
+                with self.assertRaises(ValueError):
+                    shade(*inputs, {}, intensity=0, **kwargs)
+            for index, bad in (
+                (1, [[0, 0], [0.25, 0.75]]),
+                (3, np.zeros((2, 3))),
+                (5, [0, 0, 0]),
+            ):
+                invalid = list(inputs)
+                invalid[index] = bad
+                with self.assertRaises(ValueError):
+                    shade(*invalid, {}, intensity=0)
+        tables = {
+            "shape": (2, 2),
+            "kGgxAlbedo": np.ones(4),
+            "kGgxAlbedoAverage": np.ones(2),
+        }
+        _, cost = shade(*inputs, tables, intensity=np.nextafter(0.0, 1.0))
+        self.assertEqual(cost["ggx_lobe_evaluations"], 3)
+
     def test_original_affine_uv_gradient_and_unknown_paint_are_explicit(self):
         source = {
             "positions": np.array([[0.0, 0, 0], [1, 0, 0], [0, 1, 0]]),
