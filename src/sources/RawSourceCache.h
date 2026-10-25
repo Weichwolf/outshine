@@ -24,7 +24,6 @@ class CacheUsageIndex;
 namespace outshine::Data {
 
 [[nodiscard]] bool SourceIdentityEncodable(const SourceDecl &decl) noexcept;
-// An empty key reports unencodable source metadata; it is never a cache identity.
 [[nodiscard]] std::string ContentKey(const SourceDecl &decl, const Address &at);
 [[nodiscard]] std::string ContentKey(const SourceDecl &decl,
                                      const Address &at,
