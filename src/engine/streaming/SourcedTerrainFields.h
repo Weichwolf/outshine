@@ -20,7 +20,7 @@ class SourcedTerrainFields {
 public:
   using Entry = std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>;
 
-  enum class CaptureError { InvalidRequest, MissingSource, OverBudget };
+  enum class BindingError { InvalidRequest, OverBudget };
   enum class RangeError { InvalidRequest, MissingSource, IncompleteSource, OverBudget };
 
   struct HeightRange {
@@ -36,17 +36,8 @@ public:
     size_t CopiedRasterBytes = 0;
   };
 
-  [[nodiscard]] std::expected<Binding, CaptureError> BindingAt(int zoom) const;
+  [[nodiscard]] std::expected<Binding, BindingError> BindingAt(int zoom) const;
 
-  [[nodiscard]] static std::expected<SourcedTerrainFields, CaptureError>
-  Capture(std::span<const Entry> fields,
-          std::span<const Ground::TileSpot> requests,
-          size_t bytesMost,
-          Ground::TerrainRevisionIndex::Reservation metadata = nullptr);
-  [[nodiscard]] size_t RetainedBytes() const noexcept;
-  [[nodiscard]] size_t PreparationBytes() const noexcept;
-  [[nodiscard]] bool FitsPreparation(std::span<const Ground::TileSpot> requests,
-                                     size_t bytesMost) const;
   [[nodiscard]] bool ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
 
   [[nodiscard]] static bool

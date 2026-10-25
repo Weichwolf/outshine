@@ -14,14 +14,14 @@
 
 namespace outshine {
 namespace {
-enum class SourceUse { Capture, Sampling };
+enum class SourceUse { Qualified, Sampling };
 constexpr double kInfinity = std::numeric_limits<double>::infinity();
 constexpr float kFloatInfinity = std::numeric_limits<float>::infinity();
 
 std::span<const SourcedTerrainFields::Entry>::iterator
 SourceFor(std::span<const SourcedTerrainFields::Entry> fields,
           Data::TileId tile,
-          SourceUse use = SourceUse::Capture) {
+          SourceUse use = SourceUse::Qualified) {
   for (int zoom = tile.Zoom; zoom >= 0; --zoom) {
     const auto drop = static_cast<uint32_t>(tile.Zoom - zoom);
     const Data::TileId source{.Zoom = zoom, .X = tile.X >> drop, .Y = tile.Y >> drop};
@@ -101,97 +101,6 @@ std::expected<void, RangeError> IncludeRange(const SourcedTerrainFields::Entry &
   return {};
 }
 
-std::optional<Data::TileId> RequestedTile(Ground::TileSpot request) {
-  if (request.Zoom < 0 || request.Zoom > Ground::HeightField::MaximumTileZoom || request.X < 0 ||
-      request.Y < 0 ||
-      static_cast<uint64_t>(request.X) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom)) ||
-      static_cast<uint64_t>(request.Y) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom))) {
-    return std::nullopt;
-  }
-  return Data::TileId{.Zoom = request.Zoom,
-                      .X = static_cast<uint32_t>(request.X),
-                      .Y = static_cast<uint32_t>(request.Y)};
-}
-
-}
-
-size_t SourcedTerrainFields::RetainedBytes() const noexcept {
-  size_t bytes = PreparationBytes();
-  if (Metadata_) { bytes += Metadata_->HeapBytes(); }
-  for (auto at = Fields_.begin(); at != Fields_.end(); ++at) {
-    if (at->second && std::none_of(Fields_.begin(), at, [&at](const Entry &entry) {
-          return entry.second == at->second;
-        })) {
-      bytes += at->second->HeapBytes();
-    }
-  }
-  return bytes;
-}
-
-size_t SourcedTerrainFields::PreparationBytes() const noexcept {
-  return Fields_.capacity() * sizeof(Entry);
-}
-
-std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>
-SourcedTerrainFields::Capture(std::span<const Entry> fields,
-                              std::span<const Ground::TileSpot> requests,
-                              size_t bytesMost,
-                              Ground::TerrainRevisionIndex::Reservation metadata) {
-  if (requests.size() > bytesMost / sizeof(Entry)) {
-    return std::unexpected(CaptureError::OverBudget);
-  }
-  SourcedTerrainFields captured;
-  captured.Metadata_ = std::move(metadata);
-  captured.Fields_.reserve(requests.size());
-  if (captured.PreparationBytes() > bytesMost) { return std::unexpected(CaptureError::OverBudget); }
-  for (const Ground::TileSpot request : requests) {
-    const auto tile = RequestedTile(request);
-    if (!tile) { return std::unexpected(CaptureError::InvalidRequest); }
-    const auto found = SourceFor(fields, *tile);
-    if (found == fields.end()) { return std::unexpected(CaptureError::MissingSource); }
-    if (std::ranges::any_of(captured.Fields_,
-                            [&found](const Entry &entry) { return entry.first == found->first; })) {
-      continue;
-    }
-    captured.Fields_.push_back(*found);
-  }
-  return captured;
-}
-
-bool SourcedTerrainFields::FitsPreparation(std::span<const Ground::TileSpot> requests,
-                                           size_t bytesMost) const {
-  size_t bytes = PreparationBytes();
-  const auto charge = [&bytes, bytesMost](size_t count, size_t size) {
-    if (bytes > bytesMost || (size != 0 && count > (bytesMost - bytes) / size)) { return false; }
-    bytes += count * size;
-    return true;
-  };
-  if (!charge(1, sizeof(Ground::HeightField)) ||
-      !charge(requests.size(), sizeof(Ground::TileSpot) + sizeof(Ground::HeightField::Block))) {
-    return false;
-  }
-  for (const auto request : requests) {
-    const auto tile = RequestedTile(request);
-    if (!tile) { return false; }
-    const auto found = SourceFor(Fields_, *tile);
-    if (found == Fields_.end()) { return false; }
-    const auto &field = *found->second;
-    if (field.Rows() != field.Cols()) { return false; }
-    if (!charge(4, field.Certificate().HeapBytes())) { return false; }
-    for (const auto &source : field.Sources()) {
-      if (!charge(4,
-                  sizeof(Data::TileSourceIdentity) + source.SourceId.capacity() +
-                      source.Revision.capacity() + 2)) {
-        return false;
-      }
-    }
-    if (found->first != *tile) {
-      const auto scale = uint64_t{1} << static_cast<uint32_t>(tile->Zoom - found->first.Zoom);
-      const size_t side = std::min<size_t>((field.Cols() - 1u + scale - 1u) / scale + 1u, 257u);
-      if (!charge(side * side, sizeof(float))) { return false; }
-    }
-  }
-  return true;
 }
 
 bool SourcedTerrainFields::ShareSourcedField(Data::TileId tile,
