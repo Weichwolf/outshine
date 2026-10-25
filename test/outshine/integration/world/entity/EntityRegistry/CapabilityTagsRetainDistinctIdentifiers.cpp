@@ -2,6 +2,8 @@
 #include "Check.h"
 #include "Engine.h"
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
 
@@ -38,7 +40,8 @@ int main() {
         "invalid tag matches no family or child");
   Scenario::Document scene;
   scene.Room = 4;
-  for (size_t i = 0; i < 257; ++i) {
+  constexpr size_t distinctCapabilities = 257;
+  for (size_t i = 0; i < distinctCapabilities; ++i) {
     Scenario::Kind kind;
     kind.Name = "kind-" + std::to_string(i);
     kind.Capabilities.push_back("capability-" + std::to_string(i));
@@ -48,7 +51,8 @@ int main() {
   const bool built = engine.declare(scene).has_value() && engine.assemble().has_value();
   CHECK(built, "public assembly supports more than 255 distinct capabilities");
   if (built) {
-    std::array<Entity, 2> firstMatches{}, lastMatches{};
+    std::array<Entity, 2> firstMatches{};
+    std::array<Entity, 2> lastMatches{};
     auto &registry = engine.entities();
     CHECK(registry.entitiesWithTagAndRole(*first, Role::Body, firstMatches) == 1 &&
               registry.entitiesWithTagAndRole(*last, Role::Body, lastMatches) == 1 &&
