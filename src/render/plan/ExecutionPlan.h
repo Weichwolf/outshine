@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_PLAN_COMPILED_H
-#define OUTSHINE_RENDER_PLAN_COMPILED_H
+#ifndef OUTSHINE_RENDER_PLAN_EXECUTIONPLAN_H
+#define OUTSHINE_RENDER_PLAN_EXECUTIONPLAN_H
 
 #include <array>
 #include <string_view>
@@ -97,7 +97,7 @@ struct PlanSpec {
   }
 };
 
-class Compiled {
+class ExecutionPlan {
 public:
   struct Pass {
     PassKind Kind;
@@ -111,7 +111,7 @@ public:
     Resource Depth = kNoEdge;
   };
 
-  [[nodiscard]] static std::expected<std::shared_ptr<const Compiled>, std::string>
+  [[nodiscard]] static std::expected<std::shared_ptr<const ExecutionPlan>, std::string>
   Compile(const PlanSpec &spec);
   [[nodiscard]] static std::optional<Stage> StageByName(std::string_view name);
   [[nodiscard]] static std::optional<Resource> ResourceByName(std::string_view name);
@@ -177,7 +177,7 @@ public:
   [[nodiscard]] const std::vector<std::string> &Aliases() const { return Aliases_; }
 
 private:
-  Compiled() = default;
+  ExecutionPlan() = default;
 
   std::array<bool, kStageCount> HeldStage_ = {{}};
   std::array<bool, kResourceCount> HeldResource_ = {{}};

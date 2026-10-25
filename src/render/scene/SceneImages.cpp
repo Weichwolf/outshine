@@ -51,8 +51,9 @@ Native::Result<void> SceneRenderer::CreateSampler(FrameResources &frame, Resourc
   return {};
 }
 
-Native::Result<void>
-SceneRenderer::CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, Resource resource) {
+Native::Result<void> SceneRenderer::CreateAtmosphereLut(FrameResources &frame,
+                                                        const ExecutionPlan &plan,
+                                                        Resource resource) {
   struct Shape {
     uint32_t Width, Height;
     std::unique_ptr<Native::Texture> *Into;
@@ -86,7 +87,7 @@ SceneRenderer::CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, 
 }
 
 Native::Result<void>
-SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource resource) {
+SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource) {
   using enum Native::TextureUse;
   const auto target = [&](Resource of,
                           Native::UseMask<Native::TextureUse> use,

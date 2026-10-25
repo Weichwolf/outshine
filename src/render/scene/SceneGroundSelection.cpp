@@ -17,7 +17,7 @@ Native::Result<TerrainRenderer::DrawArguments> SceneRenderer::ReadGroundDrawArgu
 
 bool SceneRenderer::ConfigureGroundPyramid([[maybe_unused]] SceneRenderer &renderer,
                                            FrameResources &frame,
-                                           [[maybe_unused]] const Compiled &plan,
+                                           [[maybe_unused]] const ExecutionPlan &plan,
                                            [[maybe_unused]] bool drawsGlass,
                                            std::string &error) {
   return Accepted(
@@ -31,7 +31,7 @@ bool SceneRenderer::ConfigureGroundPyramid([[maybe_unused]] SceneRenderer &rende
 
 bool SceneRenderer::ConfigureGroundSelection([[maybe_unused]] SceneRenderer &renderer,
                                              FrameResources &frame,
-                                             [[maybe_unused]] const Compiled &plan,
+                                             [[maybe_unused]] const ExecutionPlan &plan,
                                              [[maybe_unused]] bool drawsGlass,
                                              std::string &error) {
   return Accepted(frame.GeometryPipelines.ConfigureGroundSelection(*frame.Handles.Device), error);

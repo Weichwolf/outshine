@@ -1,4 +1,4 @@
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 
 #include <array>
 #include <cmath>
@@ -249,25 +249,25 @@ std::string Decimal(float value) {
 
 }
 
-std::optional<Stage> Compiled::StageByName(std::string_view name) {
+std::optional<Stage> ExecutionPlan::StageByName(std::string_view name) {
   for (size_t s = 0; s < kStageCount; ++s) {
     if (name == kStages[s].Name) { return static_cast<Stage>(s); }
   }
   return std::nullopt;
 }
 
-std::optional<Resource> Compiled::ResourceByName(std::string_view name) {
+std::optional<Resource> ExecutionPlan::ResourceByName(std::string_view name) {
   for (size_t at = 0; at < static_cast<size_t>(Resource::kCount); ++at) {
     if (name == kResources[at].Name) { return static_cast<Resource>(at); }
   }
   return std::nullopt;
 }
 
-std::expected<std::shared_ptr<const Compiled>, std::string>
-Compiled::Compile(const PlanSpec &spec) {
+std::expected<std::shared_ptr<const ExecutionPlan>, std::string>
+ExecutionPlan::Compile(const PlanSpec &spec) {
   std::string error;
   if (!ValidateSpec(spec, error)) { return std::unexpected(std::move(error)); }
-  std::unique_ptr<Compiled> plan(new Compiled());
+  std::unique_ptr<ExecutionPlan> plan(new ExecutionPlan());
   plan->Specification_ = spec;
   if (!plan->ResolveDependencies(spec, error) || !plan->ConfigureOutput(spec, error)) {
     return std::unexpected(std::move(error));
@@ -276,10 +276,10 @@ Compiled::Compile(const PlanSpec &spec) {
   if (!plan->AttachTargets(error)) { return std::unexpected(std::move(error)); }
   plan->PlanStorage(spec);
   plan->BuildDigest();
-  return std::shared_ptr<const Compiled>(std::move(plan));
+  return std::shared_ptr<const ExecutionPlan>(std::move(plan));
 }
 
-bool Compiled::ResolveDependencies(const PlanSpec &spec, std::string &error) {
+bool ExecutionPlan::ResolveDependencies(const PlanSpec &spec, std::string &error) {
   Pull pull(spec);
   if (!pull.Run()) {
     error = pull.Error;
@@ -318,7 +318,7 @@ bool Compiled::ResolveDependencies(const PlanSpec &spec, std::string &error) {
   return true;
 }
 
-bool Compiled::ConfigureOutput(const PlanSpec &spec, std::string &error) {
+bool ExecutionPlan::ConfigureOutput(const PlanSpec &spec, std::string &error) {
   if (spec.Precision.IsSet() && !HeldResource_[static_cast<size_t>(Resource::SceneHdr)]) {
     error = "render.precision: no resource of the compiled plan carries scene-referred radiance";
     return false;
@@ -358,7 +358,7 @@ bool Compiled::ConfigureOutput(const PlanSpec &spec, std::string &error) {
   return true;
 }
 
-bool Compiled::CanSharePass(const Pass &pass, const StageRow &row) const {
+bool ExecutionPlan::CanSharePass(const Pass &pass, const StageRow &row) const {
   const StageRow &last = Row(Order_[pass.First + pass.Count - 1]);
   if (last.Contributes != row.Contributes) { return false; }
   for (size_t held = 0; held < pass.Count; ++held) {
@@ -369,7 +369,7 @@ bool Compiled::CanSharePass(const Pass &pass, const StageRow &row) const {
   return true;
 }
 
-bool Compiled::MergeStage(Pass &pass, Stage stage) {
+bool ExecutionPlan::MergeStage(Pass &pass, Stage stage) {
   const StageRow &row = Row(stage);
   const StageRow &last = Row(Order_[pass.First + pass.Count - 1]);
   if (last.Kind != row.Kind || last.Phase != row.Phase) { return false; }
@@ -385,7 +385,7 @@ bool Compiled::MergeStage(Pass &pass, Stage stage) {
   return true;
 }
 
-void Compiled::BuildPasses() {
+void ExecutionPlan::BuildPasses() {
   for (size_t at = 0; at < Order_.size(); ++at) {
     const Stage stage = Order_[at];
     const StageRow &row = Row(stage);
@@ -403,7 +403,7 @@ void Compiled::BuildPasses() {
   }
 }
 
-bool Compiled::AttachComputeTargets(Pass &pass, std::string &error) const {
+bool ExecutionPlan::AttachComputeTargets(Pass &pass, std::string &error) const {
   for (size_t at = 0; at < pass.Count; ++at) {
     const StageRow &row = Row(Order_[pass.First + at]);
     for (size_t e = 0; e < kMaxEdges && row.Writes[e] != kNoEdge; ++e) {
@@ -429,7 +429,7 @@ bool Compiled::AttachComputeTargets(Pass &pass, std::string &error) const {
   return true;
 }
 
-bool Compiled::AttachRasterTargets(Pass &pass, std::string &error) const {
+bool ExecutionPlan::AttachRasterTargets(Pass &pass, std::string &error) const {
   for (size_t at = 0; at < pass.Count; ++at) {
     const StageRow &row = Row(Order_[pass.First + at]);
     const std::array<const Resource *const, 2> edges = {row.Writes.data(), row.Contributes.data()};
@@ -460,7 +460,7 @@ bool Compiled::AttachRasterTargets(Pass &pass, std::string &error) const {
   return true;
 }
 
-bool Compiled::AttachTargets(std::string &error) {
+bool ExecutionPlan::AttachTargets(std::string &error) {
   for (Pass &pass : Passes_) {
     const bool attached = pass.Kind == PassKind::Compute ? AttachComputeTargets(pass, error)
                                                          : AttachRasterTargets(pass, error);
@@ -469,7 +469,7 @@ bool Compiled::AttachTargets(std::string &error) {
   return true;
 }
 
-bool Compiled::IsRead(Resource resource) const {
+bool ExecutionPlan::IsRead(Resource resource) const {
   for (const Stage held : Order_) {
     const StageRow &row = Row(held);
     for (const Resource read : row.Reads) {
@@ -488,7 +488,7 @@ bool Compiled::IsRead(Resource resource) const {
   return false;
 }
 
-void Compiled::PlanStorage(const PlanSpec &spec) {
+void ExecutionPlan::PlanStorage(const PlanSpec &spec) {
   std::array<size_t, kResourceCount> attachedInPasses = {{}};
   for (const Pass &pass : Passes_) {
     for (const Resource target : pass.Targets) { ++attachedInPasses[static_cast<size_t>(target)]; }
@@ -507,7 +507,7 @@ void Compiled::PlanStorage(const PlanSpec &spec) {
       1 + (HeldStage_[static_cast<size_t>(Stage::TemporalResolve)] ? kTemporalSettleFrames : 0);
 }
 
-void Compiled::BuildDigest() {
+void ExecutionPlan::BuildDigest() {
   std::string material = "outshine/render-plan/1\n";
   for (const Stage s : Order_) { material += std::string("stage ") + Row(s).Name + "\n"; }
   for (const Pass &pass : Passes_) {

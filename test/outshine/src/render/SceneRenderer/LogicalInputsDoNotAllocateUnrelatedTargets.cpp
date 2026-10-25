@@ -11,7 +11,7 @@ int main() {
   {
     PlanSpec spec;
     spec.Outputs = {Resource::SkyViewLut, Resource::VegetationTable, Resource::CascadeUniform};
-    const auto plan = Compiled::Compile(spec);
+    const auto plan = ExecutionPlan::Compile(spec);
     CHECK(plan.has_value(), "native sky and logical input plan compiles");
     if (plan) {
       CHECK(!(*plan)->Holds(Resource::ShadowAtlas) && !(*plan)->Holds(Resource::IrradianceBuffer),
@@ -25,7 +25,7 @@ int main() {
         CHECK(held.Buffers == 0, "pushed uniforms do not allocate storage buffers");
         CHECK(held.Samplers == 1, "atmosphere lookups share one sampler");
         spec.Outputs.push_back(Resource::IrradianceBuffer);
-        const auto litPlan = Compiled::Compile(spec);
+        const auto litPlan = ExecutionPlan::Compile(spec);
         CHECK(litPlan.has_value(), "explicit irradiance demand compiles");
         if (litPlan) {
           const auto lit = renderer.Init({.WidthPx = 32, .HeightPx = 32}, *litPlan);

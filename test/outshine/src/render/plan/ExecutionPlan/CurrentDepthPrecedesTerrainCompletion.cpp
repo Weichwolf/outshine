@@ -1,4 +1,4 @@
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 #include "Check.h"
 #include <algorithm>
 #include <iterator>
@@ -12,11 +12,11 @@ int main() {
         "an attachment read before its first contributor is invalid");
   CHECK(!AccumulatedAttachmentHasEarlierProducer(Stage::GroundPyramid, Resource::DepthPyramid),
         "accumulated reads cannot hide derived-resource dependency cycles");
-  const auto compiled = Compiled::Compile({.Outputs = {Resource::SceneHdr},
-                                           .Content = {Stage::Geometry},
-                                           .Exposure = {},
-                                           .Display = {},
-                                           .Precision = {}});
+  const auto compiled = ExecutionPlan::Compile({.Outputs = {Resource::SceneHdr},
+                                                .Content = {Stage::Geometry},
+                                                .Exposure = {},
+                                                .Display = {},
+                                                .Precision = {}});
   CHECK(compiled, "the existing subjects declaration includes terrain and its current visibility");
   if (!compiled) { return Report(); }
   const auto &plan = **compiled;
@@ -29,11 +29,11 @@ int main() {
         "opaque draw, current depth, selection and terrain have distinct ordered phases");
   CHECK(plan.Stored(Resource::SceneDepth),
         "depth survives the read between its raster contributors");
-  CHECK(!Compiled::Compile({.Outputs = {Resource::GroundPyramid},
-                            .Content = {},
-                            .Exposure = {},
-                            .Display = {},
-                            .Precision = {}}),
+  CHECK(!ExecutionPlan::Compile({.Outputs = {Resource::GroundPyramid},
+                                 .Content = {},
+                                 .Exposure = {},
+                                 .Display = {},
+                                 .Precision = {}}),
         "current depth cannot be read without an active preceding producer");
   return Report();
 }

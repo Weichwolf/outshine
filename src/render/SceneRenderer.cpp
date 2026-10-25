@@ -33,7 +33,7 @@
 
 namespace outshine::Render {
 namespace {
-bool DepthPyramidNeeded(const Compiled &plan) {
+bool DepthPyramidNeeded(const ExecutionPlan &plan) {
   return !plan.Holds(Stage::TemporalResolve) ||
          std::ranges::contains(plan.Specification().Outputs, Resource::DepthPyramid) ||
          std::ranges::contains(plan.Specification().Content, Stage::DepthPyramid);
@@ -210,7 +210,7 @@ bool SceneRenderer::Stands() {
 }
 
 std::expected<std::unique_ptr<Native::Texture>, std::string>
-SceneRenderer::MakeOffscreen(const Compiled *plan, Extent frame) {
+SceneRenderer::MakeOffscreen(const ExecutionPlan *plan, Extent frame) {
   if (plan == nullptr || !plan->Holds(Resource::Surface)) {
     return std::unique_ptr<Native::Texture>{};
   }
@@ -225,7 +225,7 @@ SceneRenderer::MakeOffscreen(const Compiled *plan, Extent frame) {
 }
 
 std::expected<void, std::string>
-SceneRenderer::StandsOffscreen(FrameResources &frame, const Compiled *plan, bool presents) {
+SceneRenderer::StandsOffscreen(FrameResources &frame, const ExecutionPlan *plan, bool presents) {
   if (presents || frame.Offscreen || frame.Width <= 0 || frame.Height <= 0) { return {}; }
   auto texture = MakeOffscreen(plan, {.WidthPx = frame.Width, .HeightPx = frame.Height});
   if (!texture) { return std::unexpected(texture.error()); }
@@ -235,7 +235,7 @@ SceneRenderer::StandsOffscreen(FrameResources &frame, const Compiled *plan, bool
 }
 
 std::expected<void, std::string> SceneRenderer::Init(Extent frame,
-                                                     std::shared_ptr<const Compiled> plan) {
+                                                     std::shared_ptr<const ExecutionPlan> plan) {
   return InitForTarget(frame, std::move(plan), Showing_ != nullptr);
 }
 
@@ -275,7 +275,7 @@ void SceneRenderer::AbandonsWorldCandidate() noexcept {
   Candidate_.reset();
 }
 
-std::expected<void, std::string> SceneRenderer::ValidateExecutablePlan(const Compiled &plan) {
+std::expected<void, std::string> SceneRenderer::ValidateExecutablePlan(const ExecutionPlan &plan) {
   for (const Stage stage : plan.Order()) {
     if (Executable(stage)) { continue; }
     Log::Error(LogTag::Render, "stage_not_executed", {{"stage", Row(stage).Name}});
@@ -288,7 +288,7 @@ std::expected<void, std::string> SceneRenderer::ValidateExecutablePlan(const Com
 }
 
 std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame,
-                                                                    const Compiled &plan) {
+                                                                    const ExecutionPlan &plan) {
   if (!Candidate_) { return false; }
   const bool reusesFrame =
       State_.Ready && State_.Plan != nullptr && State_.Frame.Width == frame.WidthPx &&
@@ -341,7 +341,7 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
 }
 
 std::expected<SceneRenderer::FrameResources, std::string>
-SceneRenderer::BuildFrameResources(Extent frame, const Compiled &plan, bool presents) {
+SceneRenderer::BuildFrameResources(Extent frame, const ExecutionPlan &plan, bool presents) {
   Native::Device *const device = Device_.get();
   FrameResources candidate;
   candidate.Width = frame.WidthPx;
@@ -353,7 +353,7 @@ SceneRenderer::BuildFrameResources(Extent frame, const Compiled &plan, bool pres
   candidate.Handles.Width = candidate.Width;
   candidate.Handles.Height = candidate.Height;
 
-  for (const Compiled::Pass &pass : plan.Passes()) {
+  for (const ExecutionPlan::Pass &pass : plan.Passes()) {
     if (pass.Kind == PassKind::Compute || pass.Depth == kNoEdge) { continue; }
     candidate.Handles.SceneColours = pass.Targets;
     break;
@@ -378,7 +378,7 @@ SceneRenderer::BuildFrameResources(Extent frame, const Compiled &plan, bool pres
 }
 
 void SceneRenderer::PublishFrameResources(FrameResources frame,
-                                          std::shared_ptr<const Compiled> plan) {
+                                          std::shared_ptr<const ExecutionPlan> plan) {
   ActiveState().Ready = false;
   ActiveState().Submitted = false;
   if (Candidate_) {
@@ -416,8 +416,8 @@ void SceneRenderer::LogReadyPlan(Native::Device *device) const {
   }
 }
 
-std::expected<void, std::string>
-SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan, bool presents) {
+std::expected<void, std::string> SceneRenderer::InitForTarget(
+    Extent frame, std::shared_ptr<const ExecutionPlan> plan, bool presents) {
   const auto offline = OfflineUploads(std::chrono::seconds(5));
   ActiveState().WhyNot.clear();
   if (const auto valid = ValidateExecutablePlan(*plan); !valid) { return valid; }
@@ -434,9 +434,10 @@ SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan,
   return {};
 }
 
-AttachmentSet
-SceneRenderer::ColoursForStage(const FrameResources &frame, const Compiled &plan, Stage wanted) {
-  for (const Compiled::Pass &pass : plan.Passes()) {
+AttachmentSet SceneRenderer::ColoursForStage(const FrameResources &frame,
+                                             const ExecutionPlan &plan,
+                                             Stage wanted) {
+  for (const ExecutionPlan::Pass &pass : plan.Passes()) {
     for (size_t at = pass.First; at < pass.First + pass.Count; ++at) {
       if (plan.Order()[at] == wanted) { return pass.Targets; }
     }
@@ -445,7 +446,7 @@ SceneRenderer::ColoursForStage(const FrameResources &frame, const Compiled &plan
 }
 
 bool SceneRenderer::ConfigurePlanStages(FrameResources &frame,
-                                        const Compiled &plan,
+                                        const ExecutionPlan &plan,
                                         bool drawsGlass) {
   for (const Stage stage : plan.Order()) {
     std::string why;
@@ -654,8 +655,11 @@ Native::Texture *SceneRenderer::LinearSource() const {
   return Target(ActiveState().Plan->Bound(Resource::SceneLinear));
 }
 
-bool SceneRenderer::Configure(
-    Stage stage, FrameResources &frame, const Compiled &plan, bool drawsGlass, std::string &error) {
+bool SceneRenderer::Configure(Stage stage,
+                              FrameResources &frame,
+                              const ExecutionPlan &plan,
+                              bool drawsGlass,
+                              std::string &error) {
   const Executor *seat = ExecutorOf(stage);
   if (seat == nullptr) {
     error = "this device layer does not execute the stage";
@@ -667,7 +671,7 @@ bool SceneRenderer::Configure(
 
 bool SceneRenderer::ConfigureGeometry(SceneRenderer &renderer,
                                       FrameResources &frame,
-                                      const Compiled &plan,
+                                      const ExecutionPlan &plan,
                                       bool drawsGlass,
                                       std::string &error) {
   (void)plan;
@@ -678,7 +682,7 @@ bool SceneRenderer::ConfigureGeometry(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
                                    FrameResources &frame,
-                                   const Compiled &plan,
+                                   const ExecutionPlan &plan,
                                    bool drawsGlass,
                                    std::string &error) {
   (void)plan;
@@ -691,7 +695,7 @@ bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureCompositeTransmission(SceneRenderer &renderer,
                                                    FrameResources &frame,
-                                                   const Compiled &plan,
+                                                   const ExecutionPlan &plan,
                                                    bool drawsGlass,
                                                    std::string &error) {
   static_cast<void>(renderer);
@@ -707,7 +711,7 @@ bool SceneRenderer::ConfigureCompositeTransmission(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureOverlay(SceneRenderer &renderer,
                                      FrameResources &frame,
-                                     const Compiled &plan,
+                                     const ExecutionPlan &plan,
                                      bool drawsGlass,
                                      std::string &error) {
   (void)drawsGlass;
@@ -720,7 +724,7 @@ bool SceneRenderer::ConfigureOverlay(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigurePresent(SceneRenderer &renderer,
                                      FrameResources &frame,
-                                     const Compiled &plan,
+                                     const ExecutionPlan &plan,
                                      bool drawsGlass,
                                      std::string &error) {
   static_cast<void>(renderer);
@@ -744,7 +748,7 @@ bool SceneRenderer::ConfigurePresent(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureTonemap(SceneRenderer &renderer,
                                      FrameResources &frame,
-                                     const Compiled &plan,
+                                     const ExecutionPlan &plan,
                                      bool drawsGlass,
                                      std::string &error) {
   static_cast<void>(renderer);
@@ -767,7 +771,7 @@ bool SceneRenderer::ConfigureTonemap(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureMediumTransmittance(SceneRenderer &renderer,
                                                  FrameResources &frame,
-                                                 const Compiled &plan,
+                                                 const ExecutionPlan &plan,
                                                  bool drawsGlass,
                                                  std::string &error) {
   static_cast<void>(renderer);
@@ -779,7 +783,7 @@ bool SceneRenderer::ConfigureMediumTransmittance(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureMediumMultiScatter(SceneRenderer &renderer,
                                                 FrameResources &frame,
-                                                const Compiled &plan,
+                                                const ExecutionPlan &plan,
                                                 bool drawsGlass,
                                                 std::string &error) {
   static_cast<void>(renderer);
@@ -794,7 +798,7 @@ bool SceneRenderer::ConfigureMediumMultiScatter(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureMediumRadiance(SceneRenderer &renderer,
                                             FrameResources &frame,
-                                            const Compiled &plan,
+                                            const ExecutionPlan &plan,
                                             bool drawsGlass,
                                             std::string &error) {
   static_cast<void>(renderer);
@@ -810,7 +814,7 @@ bool SceneRenderer::ConfigureMediumRadiance(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureSky(SceneRenderer &renderer,
                                  FrameResources &frame,
-                                 const Compiled &plan,
+                                 const ExecutionPlan &plan,
                                  bool drawsGlass,
                                  std::string &error) {
   static_cast<void>(renderer);
@@ -825,7 +829,7 @@ bool SceneRenderer::ConfigureSky(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureAerialPerspective(SceneRenderer &renderer,
                                                FrameResources &frame,
-                                               const Compiled &plan,
+                                               const ExecutionPlan &plan,
                                                bool drawsGlass,
                                                std::string &error) {
   static_cast<void>(renderer);
@@ -844,7 +848,7 @@ bool SceneRenderer::ConfigureAerialPerspective(SceneRenderer &renderer,
 
 bool SceneRenderer::ConfigureLightVisibility(SceneRenderer &renderer,
                                              FrameResources &frame,
-                                             const Compiled &plan,
+                                             const ExecutionPlan &plan,
                                              bool drawsGlass,
                                              std::string &error) {
   (void)plan;
@@ -1141,7 +1145,7 @@ bool SceneRenderer::UploadGroundClasses(std::span<const uint32_t> classes,
 
 bool SceneRenderer::ConfigureEnvironmentSpecular(SceneRenderer &renderer,
                                                  FrameResources &frame,
-                                                 const Compiled &plan,
+                                                 const ExecutionPlan &plan,
                                                  bool drawsGlass,
                                                  std::string &error) {
   (void)renderer;
@@ -1164,7 +1168,7 @@ Native::Result<void> SceneRenderer::EncodeEnvironmentSpecular(const FrameContext
 
 bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
                                         FrameResources &frame,
-                                        const Compiled &plan,
+                                        const ExecutionPlan &plan,
                                         bool drawsGlass,
                                         std::string &error) {
   (void)plan;
@@ -1199,7 +1203,7 @@ Native::Result<void> SceneRenderer::EncodeIrradiance(const FrameContext &ctx,
 
 bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
                                           FrameResources &frame,
-                                          const Compiled &plan,
+                                          const ExecutionPlan &plan,
                                           bool drawsGlass,
                                           std::string &error) {
   static_cast<void>(renderer);
@@ -1222,7 +1226,7 @@ Native::Result<void> SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx,
 
 bool SceneRenderer::ConfigureGeometryCull(SceneRenderer &renderer,
                                           FrameResources &frame,
-                                          const Compiled &plan,
+                                          const ExecutionPlan &plan,
                                           bool drawsGlass,
                                           std::string &error) {
   (void)plan;
@@ -1386,7 +1390,7 @@ SceneRenderer::EncodePass(Native::Commands *commands, size_t pass, StageSubmissi
 }
 
 Native::Result<void> SceneRenderer::EncodeComputePass(Native::Commands *commands,
-                                                      const Compiled::Pass &declared,
+                                                      const ExecutionPlan::Pass &declared,
                                                       StageSubmission &submission) {
   const PassRecording into{.Commands = commands, .Submission = submission, .Area = {}, .Clip = {}};
   for (size_t at = 0; at < declared.Count; ++at) {
@@ -1397,7 +1401,7 @@ Native::Result<void> SceneRenderer::EncodeComputePass(Native::Commands *commands
 }
 
 Native::Result<void> SceneRenderer::EncodeGraphicsPass(Native::Commands *commands,
-                                                       const Compiled::Pass &declared,
+                                                       const ExecutionPlan::Pass &declared,
                                                        StageSubmission &submission) {
   std::array<Native::ColourAttachment, kMaxColourAttachments> colours{};
   size_t count = 0;

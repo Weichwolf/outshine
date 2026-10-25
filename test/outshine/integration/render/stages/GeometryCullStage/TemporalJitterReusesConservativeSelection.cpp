@@ -31,7 +31,7 @@ void PlanTransitions(SceneRenderer &renderer, Core::RuntimeScene &scene, std::st
   for (const bool temporal : {false, true}) {
     auto specification = original;
     if (!temporal) { std::erase(specification.Content, Stage::TemporalResolve); }
-    auto plan = Compiled::Compile(specification);
+    auto plan = ExecutionPlan::Compile(specification);
     CHECK(plan.has_value(), "the changed temporal plan compiles");
     if (!plan) { return; }
     CHECK(renderer.Init({64, 64}, *plan).has_value(), "the same renderer accepts the changed plan");

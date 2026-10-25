@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "Atmosphere.h"
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 #include "Lens.h"
 #include "Viewing.h"
 #include "SceneRenderer.h"
@@ -51,7 +51,7 @@ public:
     ++Pressure_.Waits;
     Pressure_.Budget = budget;
     const auto began = std::chrono::steady_clock::now();
-    auto ready = [&]() -> Native::Result<Native::CompletionStatus> {
+    auto ready = [&] -> Native::Result<Native::CompletionStatus> {
       if (Pressure_.WaitFailure) {
         return std::unexpected(
             Native::Error{.Kind = Native::ErrorKind::Driver, .Message = "owned wait failure"});
@@ -85,7 +85,7 @@ void Exercise(Case mode) {
   PlanSpec spec;
   spec.Outputs = {Resource::Surface};
   spec.Content = {Stage::Geometry, Stage::Sky};
-  const auto plan = Compiled::Compile(spec);
+  const auto plan = ExecutionPlan::Compile(spec);
   CHECK(plan.has_value(), "pressure fixture compiles the actual frame pipeline");
   if (!plan) { return; }
   const auto initialized = renderer.Init({.WidthPx = kSide, .HeightPx = kSide}, *plan);

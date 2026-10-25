@@ -1,4 +1,4 @@
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 #include "Check.h"
 #include <array>
 #include <cstddef>
@@ -8,7 +8,7 @@
 namespace {
 constexpr int kUnknownEnumValue = 255;
 
-void Snapshot(size_t index, const outshine::Render::Compiled &plan) {
+void Snapshot(size_t index, const outshine::Render::ExecutionPlan &plan) {
   using namespace outshine::Render;
   std::print("PLAN {} {} 0x{:a} {} {} {}",
              index,
@@ -69,7 +69,7 @@ int main() {
                .Display = Declared<Transfer>(Transfer::Linear),
                .Precision = Declared<ScenePrecision>(ScenePrecision::Float)}};
   for (size_t index = 0; index < specs.size(); ++index) {
-    const auto result = Compiled::Compile(specs[index]);
+    const auto result = ExecutionPlan::Compile(specs[index]);
     CHECK(result.has_value(), "representative plan compiles");
     if (!result) { continue; }
     const auto &plan = **result;
@@ -95,28 +95,28 @@ int main() {
        {-1.0f, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
     auto invalid = specs[1];
     invalid.Exposure = Declared<float>(exposure);
-    CHECK(!Compiled::Compile(invalid), "invalid exposure rejected");
+    CHECK(!ExecutionPlan::Compile(invalid), "invalid exposure rejected");
   }
   auto invalid = specs[1];
   invalid.Display = Declared<Transfer>(static_cast<Transfer>(kUnknownEnumValue));
-  CHECK(!Compiled::Compile(invalid), "unknown display transfer rejected");
+  CHECK(!ExecutionPlan::Compile(invalid), "unknown display transfer rejected");
   invalid = specs[1];
   invalid.Precision = Declared<ScenePrecision>(static_cast<ScenePrecision>(kUnknownEnumValue));
-  CHECK(!Compiled::Compile(invalid), "unknown precision rejected");
+  CHECK(!ExecutionPlan::Compile(invalid), "unknown precision rejected");
   for (const auto id :
        {-1, static_cast<int>(kResourceCount), static_cast<int>(kResourceCount) + 1}) {
     invalid = specs[1];
     invalid.Outputs = {static_cast<Resource>(id)};
-    CHECK(!Compiled::Compile(invalid), "unknown output rejected before dependency indexing");
+    CHECK(!ExecutionPlan::Compile(invalid), "unknown output rejected before dependency indexing");
   }
   for (const auto id : {-1, static_cast<int>(kStageCount), static_cast<int>(kStageCount) + 1}) {
     invalid = specs[1];
     invalid.Content = {static_cast<Stage>(id)};
-    CHECK(!Compiled::Compile(invalid), "unknown stage rejected before dependency indexing");
+    CHECK(!ExecutionPlan::Compile(invalid), "unknown stage rejected before dependency indexing");
   }
   auto zero = specs[1];
   zero.Exposure = Declared<float>(0);
-  const auto dark = Compiled::Compile(zero);
+  const auto dark = ExecutionPlan::Compile(zero);
   CHECK(dark && (*dark)->Exposure() == 0, "zero exposure is a valid scale");
   return Report();
 }

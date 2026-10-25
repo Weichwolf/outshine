@@ -6,6 +6,7 @@
 #include "Units.h"
 #include "Mat4.h"
 #include "RuntimeScene.h"
+#include "FramePipeline.h"
 #include "AzimuthElevation.h"
 
 #include <cstdint>
@@ -43,84 +44,9 @@ constexpr auto InvalidGroundSurface = "generated ground surface is absent";
 constexpr auto GeneratedGeometryAppendFailed = "generated geometry could not join driven geometry";
 }
 
-constexpr double kExposureCalibration = 1.2;
-constexpr double kMeteredMiddleGrey = 2.5;
-
 constexpr double kLuminanceRed = 0.2126;
 constexpr double kLuminanceGreen = 0.7152;
 constexpr double kLuminanceBlue = 0.0722;
-
-namespace {
-
-struct Listed {
-  const std::vector<std::string> &Stages;
-  const std::vector<std::string> &Outputs;
-};
-
-bool DeclarePlan(std::span<const Render::SubjectMaterial> surfaces,
-                 bool sky,
-                 bool presents,
-                 const Listed &lists,
-                 Render::PlanSpec &declaration,
-                 std::string &error) {
-  declaration.Outputs = {Render::Resource::FrameTex};
-  if (presents) { declaration.Outputs.push_back(Render::Resource::Surface); }
-  for (const std::string &named : lists.Outputs) {
-    const std::optional<Render::Resource> row = Render::Compiled::ResourceByName(named);
-    if (!row) {
-      error = "the declaration asks the frame to keep '" + named +
-              "', and the catalogue holds no picture by that name -- an output list is checked "
-              "against the catalogue because a typo that silently drops a buffer leaves a client "
-              "reading zeros and calling them a measurement";
-      return false;
-    }
-    bool already = false;
-    for (const Render::Resource held : declaration.Outputs) { already = already || held == *row; }
-    if (!already) { declaration.Outputs.push_back(*row); }
-  }
-
-  if (!lists.Stages.empty()) {
-
-    declaration.Content.clear();
-    for (const std::string &named : lists.Stages) {
-      const std::optional<Render::Stage> row = Render::Compiled::StageByName(named);
-      if (!row) {
-        error = "the declaration names render stage '" + named +
-                "', and the catalogue holds no row by that name -- a stage list is checked "
-                "against the catalogue because a typo that silently drops a pass is a picture "
-                "nobody can explain";
-        return false;
-      }
-      declaration.Content.push_back(*row);
-    }
-    declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Filmic);
-    declaration.Exposure = Render::Declared<float>(1.0f);
-    return true;
-  }
-  declaration.Outputs.push_back(Render::Resource::SceneVelocity);
-  declaration.Content = {Render::Stage::Geometry, Render::Stage::Overlay};
-  if (sky) {
-    declaration.Content.push_back(Render::Stage::Sky);
-    declaration.Content.push_back(Render::Stage::AerialPerspective);
-  }
-  declaration.Content.push_back(Render::Stage::LightVisibility);
-  bool carriesGlass = false;
-  for (const Render::SubjectMaterial &surface : surfaces) {
-    const SurfaceKind kind = surface.State().Kind();
-    carriesGlass =
-        carriesGlass || kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
-  }
-  if (carriesGlass) {
-    declaration.Content.push_back(Render::Stage::TransmissiveGeometry);
-    declaration.Content.push_back(Render::Stage::CompositeTransmission);
-  }
-
-  declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Filmic);
-  declaration.Exposure = Render::Declared<float>(1.0f);
-  return true;
-}
-
-}
 
 RuntimeScene::RuntimeScene(Render::SceneRenderer &renderer,
                            Declaration declaration,
@@ -197,7 +123,7 @@ bool RuntimeScene::PrepareWithPlan(Render::SceneRenderer &renderer,
                                    std::unique_ptr<RuntimeScene> &out,
                                    std::string &error,
                                    const GroundAtmosphere &atmosphere,
-                                   std::shared_ptr<const Render::Compiled> plan) {
+                                   std::shared_ptr<const Render::ExecutionPlan> plan) {
   if (declaration.InitialGeometry != nullptr && !declaration.InitialGeometry->wellFormed()) {
     error = Says::InvalidInitialGeometry;
     return false;
@@ -568,67 +494,38 @@ void RuntimeScene::StandsKeyLight() {
 bool RuntimeScene::StandsPlan(std::string &error) {
   if (PreparationPlan_) {
     Plan_ = std::move(PreparationPlan_);
-    PlanDeclared_ = Plan_->Specification();
     return InitializesFramePlan(error);
   }
-  Render::PlanSpec declaration;
-  if (!DeclarePlan(Materials_.Slots(),
-                   Declared_.DrawsSky,
-                   Renderer_ != nullptr && Renderer_->Presents(),
-                   {.Stages = Declared_.Stages, .Outputs = Declared_.Outputs},
-                   declaration,
-                   error)) {
+  bool transmissive = false;
+  for (const auto &surface : Materials_.Slots()) {
+    const SurfaceKind kind = surface.State().Kind();
+    transmissive =
+        transmissive || kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
+  }
+  auto planned =
+      Render::BuildFramePipeline({.Stages = Declared_.Stages,
+                                  .Outputs = Declared_.Outputs,
+                                  .Transfer = Declared_.Transfer,
+                                  .Precision = Declared_.Precision,
+                                  .Antialiasing = Declared_.Antialiasing,
+                                  .DrawsSky = Declared_.DrawsSky,
+                                  .Presents = Renderer_ != nullptr && Renderer_->Presents(),
+                                  .Transmissive = transmissive,
+                                  .Exposure = Declared_.Exposure,
+                                  .IlluminanceLx = MeteredLux()});
+  if (!planned) {
+    error = std::move(planned.error());
     return false;
   }
-  if (!Declared_.Antialiasing.empty() && Declared_.Antialiasing != "none" &&
-      Declared_.Antialiasing != "temporal") {
-    error = "render antialiasing must be none or temporal";
-    return false;
-  }
-  if (Declared_.Antialiasing == "temporal" &&
-      std::ranges::find(declaration.Content, Render::Stage::TemporalResolve) ==
-          declaration.Content.end()) {
-    declaration.Content.push_back(Render::Stage::TemporalResolve);
-  }
-  if (!Declared_.Transfer.empty()) {
-    const std::optional<Render::Transfer> meant =
-        Render::Spells(Render::kTransfers, Declared_.Transfer);
-    if (!meant) {
-      error = "the declaration transfers the frame as '" + Declared_.Transfer +
-              "', and this engine spells " + Render::Spellings(Render::kTransfers);
-      return false;
-    }
-    declaration.Display = Render::Declared<Render::Transfer>(*meant);
-  }
-  if (!Declared_.Precision.empty()) {
-    const std::optional<Render::ScenePrecision> meant =
-        Render::Spells(Render::kPrecisions, Declared_.Precision);
-    if (!meant) {
-      error = "the declaration carries the scene at '" + Declared_.Precision +
-              "' precision, and this engine spells " + Render::Spellings(Render::kPrecisions);
-      return false;
-    }
-    declaration.Precision = Render::Declared<Render::ScenePrecision>(*meant);
-  }
-  if (Declared_.Exposure > 0.0) {
-    declaration.Exposure = Render::Declared<float>(static_cast<float>(Declared_.Exposure));
-  } else {
-    const double metered = MeteredLux();
-    if (metered > 0.0) {
-      const double ev100 = std::log2(metered / kMeteredMiddleGrey);
-      declaration.Exposure = Render::Declared<float>(
-          static_cast<float>(1.0 / (kExposureCalibration * std::pow(2.0, ev100))));
-    }
-  }
-  if (Plan_ != nullptr && !(PlanDeclared_ == declaration)) { Plan_ = nullptr; }
+  const auto &declaration = *planned;
+  if (Plan_ != nullptr && !(Plan_->Specification() == declaration)) { Plan_ = nullptr; }
   if (Plan_ == nullptr) {
-    auto made = Render::Compiled::Compile(declaration);
+    auto made = Render::ExecutionPlan::Compile(declaration);
     if (!made) {
       error = std::move(made).error();
       return false;
     }
     Plan_ = *std::move(made);
-    PlanDeclared_ = std::move(declaration);
     PlanInits_ += 1;
     return InitializesFramePlan(error);
   }

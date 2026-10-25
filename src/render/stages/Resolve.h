@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_RESOLVE_H
 #define OUTSHINE_RENDER_STAGES_RESOLVE_H
 
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 
 namespace outshine::Render {
 
