@@ -3,7 +3,7 @@
 #include "Sha256.h"
 #include "TangentFrame.h"
 #include "Units.h"
-#include <GeometryAsset.h>
+#include <GeometryProductCodec.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -89,7 +89,7 @@ bool ReferenceFields(BinaryValueReader &archive, RoadPageReference &page) {
 std::optional<std::vector<uint8_t>> EncodeRoadPageManifest(const RoadPageManifest &manifest,
                                                            size_t bytesMost) {
   if (!Valid(manifest)) { return std::nullopt; }
-  const auto materials = EncodeGeometryAsset(manifest.Materials, bytesMost);
+  const auto materials = EncodeGeometryProduct(manifest.Materials, bytesMost);
   if (!materials || Sha256Hex(materials->data(), materials->size()) != manifest.MaterialKey) {
     return std::nullopt;
   }
@@ -128,7 +128,7 @@ std::optional<RoadPageManifest> DecodeRoadPageManifest(std::span<const uint8_t> 
       Sha256Hex(materials.data(), materials.size()) != manifest.MaterialKey) {
     return std::nullopt;
   }
-  auto decoded = DecodeGeometryAsset(materials, bytesMost);
+  auto decoded = DecodeGeometryProduct(materials, bytesMost);
   if (!decoded) { return std::nullopt; }
   manifest.Materials = std::move(*decoded);
   if (!Valid(manifest)) { return std::nullopt; }

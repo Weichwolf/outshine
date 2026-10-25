@@ -1,5 +1,5 @@
 #include <Geometry.h>
-#include <GeometryAsset.h>
+#include <GeometryProductCodec.h>
 #include "Check.h"
 #include <array>
 #include <cstddef>
@@ -23,7 +23,7 @@ void Reject(Geometry &geometry,
             Adopt adopt,
             GeometryAttributeError error,
             int part = 0) {
-  const auto before = EncodeGeometryAsset(geometry, 4096);
+  const auto before = EncodeGeometryProduct(geometry, 4096);
   const auto saved = values;
   const auto *pointer = values.data();
   const auto result = (geometry.*adopt)(part, values);
@@ -32,7 +32,7 @@ void Reject(Geometry &geometry,
             (values.empty() ||
              std::memcmp(values.data(), saved.data(), values.size() * sizeof(T)) == 0),
         "failed validation retains the caller's allocation and all original bits");
-  CHECK(before && EncodeGeometryAsset(geometry, 4096) == before,
+  CHECK(before && EncodeGeometryProduct(geometry, 4096) == before,
         "a failed attribute transfer preserves the complete target product");
 }
 }

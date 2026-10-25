@@ -2,7 +2,7 @@
 #include "ClassSeed.h"
 #include "BinaryValueArchive.h"
 #include "Units.h"
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -211,7 +211,7 @@ std::optional<std::vector<uint8_t>> EncodeGroundRegionAsset(const GroundRegionAs
     const auto bytes = region.Network->EncodeAsset(bytesMost - out.Out.Bytes().size());
     if (!bytes || !out.Array<uint8_t>(*bytes)) { return std::nullopt; }
   }
-  const auto geometry = EncodeGeometryAsset(region.Surfaces, bytesMost - out.Out.Bytes().size());
+  const auto geometry = EncodeGeometryProduct(region.Surfaces, bytesMost - out.Out.Bytes().size());
   if (!geometry || !out.Out.Put(*geometry)) { return std::nullopt; }
   return std::move(out.Out).TakeBytes();
 }
@@ -244,7 +244,7 @@ std::optional<GroundRegionAsset> DecodeGroundRegionAsset(std::span<const uint8_t
   }
   const auto geometry = in.In.Take(in.In.Remaining());
   if (!geometry) { return std::nullopt; }
-  auto decoded = DecodeGeometryAsset(*geometry, bytesMost);
+  auto decoded = DecodeGeometryProduct(*geometry, bytesMost);
   if (!decoded) { return std::nullopt; }
   region.Surfaces = std::move(*decoded);
   if (!ValidRegion(region)) { return std::nullopt; }

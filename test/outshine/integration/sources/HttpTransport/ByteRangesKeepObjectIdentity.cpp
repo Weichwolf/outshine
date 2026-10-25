@@ -6,7 +6,7 @@
 #include "SourceSet.h"
 #include "OfflineTransport.h"
 #include "RawSourceCache.h"
-#include "CopernicusDem.h"
+#include "CopernicusDemSource.h"
 #include "CopernicusRaster.h"
 #include "HttpTransport.h"
 #include "Check.h"
@@ -170,7 +170,7 @@ void RealOriginal(const char *url) {
   RawSourceCache store(config);
   SourceSet sources(store);
   const auto at = Address::AtCell({54, 9});
-  auto provider = std::make_unique<CopernicusDem>();
+  auto provider = std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>();
   CHECK(provider->Url(at) == url, "probe uses the official native N54/E009 source address");
   CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
         "live native source uses the shared registry and raw cache");
@@ -219,7 +219,8 @@ void RealOriginal(const char *url) {
       decodeMs);
   RawSourceCache reopened(config);
   SourceSet warm(reopened);
-  CHECK(warm.Add(std::make_unique<CopernicusDem>()) == SourceSet::Registration::Accepted,
+  CHECK(warm.Add(std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>()) ==
+            SourceSet::Registration::Accepted,
         "warm source starts with a newly opened cache and registry");
   OfflineTransport offline;
   auto cachedHeader = Acquire(warm, offline, headerRequest);

@@ -1,6 +1,6 @@
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include "BinaryValueArchive.h"
-#include "GeometryAssetValues.h"
+#include "GeometryProductValues.h"
 #include "MaterialValidation.h"
 #include <algorithm>
 #include <cmath>
@@ -15,9 +15,9 @@
 
 namespace outshine {
 namespace {
-constexpr uint64_t kGeometryAssetFormat = 0x0005314f45474fULL;
-constexpr uint64_t kPreparedGeometryAssetFormat = 0x0006314f45474fULL;
-constexpr uint64_t kTypedGeometryAssetFormat = 0x0007314f45474fULL;
+constexpr uint64_t kGeometryProductFormat = 0x0005314f45474fULL;
+constexpr uint64_t kPreparedGeometryProductFormat = 0x0006314f45474fULL;
+constexpr uint64_t kTypedGeometryProductFormat = 0x0007314f45474fULL;
 static_assert(sizeof(float) == 4 && sizeof(double) == 8 && std::numeric_limits<float>::is_iec559 &&
               std::numeric_limits<double>::is_iec559);
 
@@ -78,14 +78,14 @@ bool WriteImages(BinaryValueWriter &out, const Geometry &geometry, ImageStorage 
 bool WriteTables(BinaryValueWriter &out, const Geometry &geometry) {
   for (int index = 0; index < geometry.surfaces(); ++index) {
     Material surface = geometry.surfaceAt(MaterialInstance(index));
-    if (!out.Text(geometry.surfaceNameOf(index)) || !Content::GeometryAssetMaterial(out, surface)) {
+    if (!out.Text(geometry.surfaceNameOf(index)) || !World::GeometryProductMaterial(out, surface)) {
       return false;
     }
   }
   for (int index = 0; index < geometry.lamps(); ++index) {
     PunctualLight light = geometry.lampAt(index);
     if (!ValidLamp(light, geometry.lampPlacementOf(index)) ||
-        !out.Text(geometry.lampNameOf(index)) || !Content::GeometryAssetLight(out, light) ||
+        !out.Text(geometry.lampNameOf(index)) || !World::GeometryProductLight(out, light) ||
         !out(geometry.lampPlacementOf(index).Column)) {
       return false;
     }
@@ -143,7 +143,7 @@ bool ReadTables(BinaryValueReader &in, Geometry &geometry, const TableCounts &ta
   std::string name;
   for (int index = 0; index < tables.Surfaces; ++index) {
     Material surface;
-    if (!in.Text(name) || !Content::GeometryAssetMaterial(in, surface) ||
+    if (!in.Text(name) || !World::GeometryProductMaterial(in, surface) ||
         !geometry.addSurface(name, surface)) {
       return false;
     }
@@ -151,7 +151,7 @@ bool ReadTables(BinaryValueReader &in, Geometry &geometry, const TableCounts &ta
   for (int index = 0; index < tables.Lamps; ++index) {
     PunctualLight light;
     Mat4 placement;
-    if (!in.Text(name) || !Content::GeometryAssetLight(in, light) || !in(placement.Column) ||
+    if (!in.Text(name) || !World::GeometryProductLight(in, light) || !in(placement.Column) ||
         !ValidLamp(light, placement) || !geometry.addLamp(name, light, placement)) {
       return false;
     }
@@ -178,8 +178,8 @@ bool ReadParts(BinaryValueReader &in, Geometry &geometry, int parts) {
 }
 }
 
-std::optional<std::vector<uint8_t>> EncodeGeometryAsset(const Geometry &geometry,
-                                                        size_t bytesMost) {
+std::optional<std::vector<uint8_t>> EncodeGeometryProduct(const Geometry &geometry,
+                                                          size_t bytesMost) {
   if (!Complete(geometry)) { return std::nullopt; }
   BinaryValueWriter out(bytesMost);
   out.Out.Reserve(geometry.storageBytes());
@@ -192,8 +192,8 @@ std::optional<std::vector<uint8_t>> EncodeGeometryAsset(const Geometry &geometry
         std::ranges::any_of(image.LowerMips, [](const auto &levels) { return levels.has_value(); });
   }
   storage.Prepared = storage.Prepared || storage.Typed;
-  auto format = storage.Prepared ? kPreparedGeometryAssetFormat : kGeometryAssetFormat;
-  if (storage.Typed) { format = kTypedGeometryAssetFormat; }
+  auto format = storage.Prepared ? kPreparedGeometryProductFormat : kGeometryProductFormat;
+  if (storage.Typed) { format = kTypedGeometryProductFormat; }
   if (!out(format, geometry.images(), geometry.surfaces(), geometry.lamps(), geometry.parts()) ||
       !WriteImages(out, geometry, storage) || !WriteTables(out, geometry) ||
       !WriteParts(out, geometry)) {
@@ -202,14 +202,14 @@ std::optional<std::vector<uint8_t>> EncodeGeometryAsset(const Geometry &geometry
   return std::move(out.Out).TakeBytes();
 }
 
-std::optional<Geometry> DecodeGeometryAsset(std::span<const uint8_t> bytes, size_t bytesMost) {
+std::optional<Geometry> DecodeGeometryProduct(std::span<const uint8_t> bytes, size_t bytesMost) {
   if (bytes.size() > bytesMost) { return std::nullopt; }
   BinaryValueReader in(bytes);
   uint64_t format = 0;
   TableCounts tables;
   if (!in(format, tables.Images, tables.Surfaces, tables.Lamps, tables.Parts) ||
-      (format != kGeometryAssetFormat && format != kPreparedGeometryAssetFormat &&
-       format != kTypedGeometryAssetFormat) ||
+      (format != kGeometryProductFormat && format != kPreparedGeometryProductFormat &&
+       format != kTypedGeometryProductFormat) ||
       !tables.Fits(in.In.Remaining())) {
     return std::nullopt;
   }
@@ -217,8 +217,8 @@ std::optional<Geometry> DecodeGeometryAsset(std::span<const uint8_t> bytes, size
   if (!ReadImages(in,
                   geometry,
                   tables.Images,
-                  {.Prepared = format != kGeometryAssetFormat,
-                   .Typed = format == kTypedGeometryAssetFormat}) ||
+                  {.Prepared = format != kGeometryProductFormat,
+                   .Typed = format == kTypedGeometryProductFormat}) ||
       !ReadTables(in, geometry, tables) || !ReadParts(in, geometry, tables.Parts) ||
       in.In.Remaining() != 0 || !Complete(geometry)) {
     return std::nullopt;

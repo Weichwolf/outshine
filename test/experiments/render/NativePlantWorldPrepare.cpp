@@ -251,7 +251,7 @@ int Prepare(int argc, const char *const *argv) {
     return 6;
   }
   const auto wood = EncodePlantLimbs(*limbs, kAssetBytesMost);
-  const auto leaf = EncodeGeometryAsset(*blades, kAssetBytesMost);
+  const auto leaf = EncodeGeometryProduct(*blades, kAssetBytesMost);
   if (!wood || !leaf) { return 7; }
   const auto bounds = Bounds(*crown, *blades, radiusMost);
   const std::array<std::span<const uint8_t>, 3> slices{*original, *wood, *leaf};

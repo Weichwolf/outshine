@@ -6,7 +6,7 @@
 #include "Sha256.h"
 #include "Check.h"
 #include <AssetCache.h>
-#include <GeometryAsset.h>
+#include <GeometryProductCodec.h>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -29,7 +29,7 @@ std::optional<RoadPageManifest> Prepare(PreparedRoadPages &pages) {
   manifest.PlanKey.assign(64, 'a');
   manifest.Anchor = kAnchor;
   if (!manifest.Materials.addSurface("streets", Material{})) { return std::nullopt; }
-  const auto material = EncodeGeometryAsset(manifest.Materials, kLimit);
+  const auto material = EncodeGeometryProduct(manifest.Materials, kLimit);
   if (!material) { return std::nullopt; }
   manifest.MaterialKey = Sha256Hex(material->data(), material->size());
   for (uint32_t index = 0; index < 2; ++index) {

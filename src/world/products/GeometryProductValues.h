@@ -1,12 +1,12 @@
-#ifndef OUTSHINE_CONTENT_ASSETS_GEOMETRYASSETVALUES_H
-#define OUTSHINE_CONTENT_ASSETS_GEOMETRYASSETVALUES_H
+#ifndef OUTSHINE_WORLD_PRODUCTS_GEOMETRYPRODUCTVALUES_H
+#define OUTSHINE_WORLD_PRODUCTS_GEOMETRYPRODUCTVALUES_H
 
 #include "Material.h"
 #include "MaterialMaps.h"
 #include "PunctualLight.h"
 
-namespace outshine::Content {
-template <class Archive> bool GeometryAssetMap(Archive &archive, SurfaceMap &map) {
+namespace outshine::World {
+template <class Archive> bool GeometryProductMap(Archive &archive, SurfaceMap &map) {
   return archive(map.Image,
                  map.Set,
                  map.Sampler.Magnify,
@@ -19,7 +19,7 @@ template <class Archive> bool GeometryAssetMap(Archive &archive, SurfaceMap &map
                  map.Uv.RotationRad);
 }
 
-template <class Archive> bool GeometryAssetMaterial(Archive &archive, Material &surface) {
+template <class Archive> bool GeometryProductMaterial(Archive &archive, Material &surface) {
   if (!archive(surface.Scattering,
                surface.DiffuseTransmission.Axis,
                surface.Pattern,
@@ -54,12 +54,12 @@ template <class Archive> bool GeometryAssetMaterial(Archive &archive, Material &
     return false;
   }
   for (auto *map : MaterialMaps(surface)) {
-    if (!GeometryAssetMap(archive, *map)) { return false; }
+    if (!GeometryProductMap(archive, *map)) { return false; }
   }
   return true;
 }
 
-template <class Archive> bool GeometryAssetLight(Archive &archive, PunctualLight &light) {
+template <class Archive> bool GeometryProductLight(Archive &archive, PunctualLight &light) {
   return archive(light.Kind,
                  light.Colour.Axis,
                  light.Intensity,

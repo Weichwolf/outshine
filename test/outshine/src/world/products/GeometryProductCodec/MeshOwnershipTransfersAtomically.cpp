@@ -1,5 +1,5 @@
 #include <Geometry.h>
-#include <GeometryAsset.h>
+#include <GeometryProductCodec.h>
 #include "Check.h"
 #include <array>
 #include <cstddef>
@@ -59,12 +59,12 @@ void Rejection(Geometry &geometry, Geometry::Mesh mesh, GeometryAttributeError e
   const auto input = Pointers(mesh);
   const auto saved = mesh;
   const auto oldPointers = Pointers(geometry);
-  const auto before = EncodeGeometryAsset(geometry, kLimit);
+  const auto before = EncodeGeometryProduct(geometry, kLimit);
   const auto result = geometry.adoptMesh(0, mesh);
   CHECK(!result && result.error() == expected, "invalid mesh reports its attribute failure");
   CHECK(Pointers(mesh) == input && Same(mesh, saved),
         "failed transfer changes no input stream or value, including NaN bits");
-  CHECK(Pointers(geometry) == oldPointers && EncodeGeometryAsset(geometry, kLimit) == before,
+  CHECK(Pointers(geometry) == oldPointers && EncodeGeometryProduct(geometry, kLimit) == before,
         "failed transfer preserves every published stream and its values");
 }
 

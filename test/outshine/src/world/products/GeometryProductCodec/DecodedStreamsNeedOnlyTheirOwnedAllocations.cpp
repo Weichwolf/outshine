@@ -1,4 +1,4 @@
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include "Check.h"
 #include <array>
 #include <cstddef>
@@ -58,7 +58,7 @@ std::vector<uint8_t> Product() {
         "tangent and colour streams are present");
   CHECK(geometry.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}),
         "the fixture has a complete indexed triangle");
-  auto encoded = EncodeGeometryAsset(geometry, kLimit);
+  auto encoded = EncodeGeometryProduct(geometry, kLimit);
   CHECK(encoded.has_value(), "the source encodes as a complete native asset");
   return encoded ? std::move(*encoded) : std::vector<uint8_t>{};
 }
@@ -67,7 +67,7 @@ std::vector<uint8_t> Product() {
 int main() {
   const auto bytes = Product();
   Tracking = true;
-  auto decoded = outshine::DecodeGeometryAsset(bytes, bytes.size());
+  auto decoded = outshine::DecodeGeometryProduct(bytes, bytes.size());
   Tracking = false;
   CHECK(decoded.has_value(), "the complete product decodes");
   if (!decoded) { return outshine::Test::Report(); }
@@ -85,7 +85,7 @@ int main() {
                expectedBytes);
   CHECK(Allocations == streams.size() && AllocatedBytes == expectedBytes,
         "decoding allocates each owned stream once without large scratch buffers");
-  const auto replay = outshine::EncodeGeometryAsset(*decoded, bytes.size());
+  const auto replay = outshine::EncodeGeometryProduct(*decoded, bytes.size());
   CHECK(replay && *replay == bytes, "ownership changes preserve every encoded byte");
   return outshine::Test::Report();
 }

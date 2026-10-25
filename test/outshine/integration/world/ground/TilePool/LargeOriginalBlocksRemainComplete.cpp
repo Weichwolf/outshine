@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "NativeCog.h"
 #include "RawSourceCache.h"
-#include "CopernicusDem.h"
+#include "CopernicusDemSource.h"
 #include "SourceSet.h"
 #include "TilePool.h"
 #include "TileGeodesy.h"
@@ -90,7 +90,8 @@ int main() {
        {NativeCogProfile::LargeBlock, NativeCogProfile::LargeBlockOverlapsHeader}) {
     RawSourceCache store({.Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
-    CHECK(sources.Add(std::make_unique<CopernicusDem>()) == SourceSet::Registration::Accepted,
+    CHECK(sources.Add(std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>()) ==
+              SourceSet::Registration::Accepted,
           "large original native fixture registers through the public provider contract");
     OriginalBlocks http(profile);
     TilePool pool({.ByteBudget = 8u * 1024 * 1024, .DecodedBytes = 8u * 1024 * 1024, .Carriers = 1},

@@ -2,7 +2,7 @@
 #include "PreparedRoadPages.h"
 #include "RoadPageProducer.h"
 #include "RoadPageRestoration.h"
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include "Sha256.h"
 #include "Check.h"
 #include <algorithm>
@@ -20,6 +20,7 @@
 #include <spawn.h>
 #include <string>
 #include <string_view>
+#include <span>
 #include <sys/wait.h>
 #include <system_error>
 #include <thread>
@@ -61,7 +62,7 @@ std::optional<Fixture> Seed(const std::filesystem::path &directory) {
   manifest.PlanKey.assign(64, 'a');
   manifest.Anchor = kAnchor;
   if (!manifest.Materials.addSurface("streets", Material{})) { return std::nullopt; }
-  const auto material = EncodeGeometryAsset(manifest.Materials, 4096);
+  const auto material = EncodeGeometryProduct(manifest.Materials, 4096);
   if (!material) { return std::nullopt; }
   manifest.MaterialKey = Sha256Hex(material->data(), material->size());
   const RoadPageRequest request{
@@ -160,8 +161,10 @@ bool Spawn(const std::string &executable, const std::string &directory, const Fi
 }
 
 int main(int argc, char **argv) {
-  if (argc == 6 && std::string_view(argv[1]) == "--offline") {
-    return Offline(argv[2], {.Manifest = argv[3], .Request = argv[4], .Payload = argv[5]});
+  const std::span arguments(argv, static_cast<size_t>(argc));
+  if (argc == 6 && std::string_view(arguments[1]) == "--offline") {
+    return Offline(arguments[2],
+                   {.Manifest = arguments[3], .Request = arguments[4], .Payload = arguments[5]});
   }
   using namespace outshine::Test;
   const auto directory =
@@ -171,7 +174,8 @@ int main(int argc, char **argv) {
   std::filesystem::create_directories(directory);
   const auto fixture = Seed(directory);
   CHECK(fixture, "the generator-owned typed producer commits a complete native page and manifest");
-  CHECK(fixture && Spawn(std::filesystem::absolute(argv[0]).string(), directory.string(), *fixture),
+  CHECK(fixture &&
+            Spawn(std::filesystem::absolute(arguments[0]).string(), directory.string(), *fixture),
         "a separate offline process restores and binds the committed product without generation");
   std::error_code error;
   std::filesystem::remove_all(directory, error);

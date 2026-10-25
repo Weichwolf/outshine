@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "AssetGeneration.h"
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include "Generator.h"
 #include <array>
 #include <chrono>
@@ -58,7 +58,7 @@ public:
         return std::expected<GeneratedAssetPackage, std::string>(
             std::unexpected("invalid generated geometry"));
       }
-      auto encoded = EncodeGeometryAsset(geometry, kBytes);
+      auto encoded = EncodeGeometryProduct(geometry, kBytes);
       if (!encoded) {
         return std::expected<GeneratedAssetPackage, std::string>(
             std::unexpected("native geometry exceeds its package budget"));
@@ -75,7 +75,7 @@ public:
       return std::expected<GeneratedAssetPackage, std::string>(std::move(package));
     });
     if (!asset) { return std::unexpected(asset.error()); }
-    auto geometry = DecodeGeometryAsset(asset->Bytes(), kBytes);
+    auto geometry = DecodeGeometryProduct(asset->Bytes(), kBytes);
     if (!geometry) { return std::unexpected("invalid cached native geometry"); }
     return std::move(*geometry);
   }

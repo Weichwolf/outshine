@@ -2,7 +2,7 @@
 #include "ImpostorSurface.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include <cmath>
 
 #include <SDL3/SDL.h>
@@ -173,10 +173,10 @@ void CheckCard(const std::vector<float> &native,
     CHECK(card->setSurface(MaterialInstance(0), material),
           "current UV derivatives select the final mip");
   }
-  const auto encoded = EncodeGeometryAsset(*card, kProductBytesMost);
+  const auto encoded = EncodeGeometryProduct(*card, kProductBytesMost);
   CHECK(encoded.has_value(), "complete native card encodes without discarding its typed mips");
   if (!encoded) { return; }
-  auto restored = DecodeGeometryAsset(*encoded, encoded->size());
+  auto restored = DecodeGeometryProduct(*encoded, encoded->size());
   CHECK(restored.has_value(), "typed card loads as a native product before rendering");
   if (!restored) { return; }
   const auto optical = CaptureSheet(*restored);
