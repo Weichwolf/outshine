@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace outshine::Generators {
@@ -38,6 +39,18 @@ struct TransportPort {
   TransportUse Use = TransportUse::Road;
 };
 
+struct TransportBoundaryPortReference {
+  uint32_t Port = 0;
+};
+
+struct TransportJunctionGateReference {
+  uint32_t Junction = 0;
+  uint32_t Gate = 0;
+};
+
+using TransportPathEnd =
+    std::variant<std::monostate, TransportBoundaryPortReference, TransportJunctionGateReference>;
+
 struct TransportPath {
   std::string SourceId;
   std::string Material;
@@ -54,7 +67,7 @@ struct TransportPath {
   int32_t Priority = 0;
   bool Oneway = false;
   bool Bridge = false;
-  std::array<std::optional<uint32_t>, 2> Ports;
+  std::array<TransportPathEnd, 2> Ends;
   std::optional<uint32_t> Body;
 };
 
