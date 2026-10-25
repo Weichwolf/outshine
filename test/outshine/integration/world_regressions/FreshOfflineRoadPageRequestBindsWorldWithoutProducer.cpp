@@ -78,20 +78,17 @@ std::optional<Fixture> Seed(const std::filesystem::path &directory) {
   auto wrong = request;
   wrong.Address.Parts.front().Index = 8;
   if (producer.Produce(wrong, {})) { return std::nullopt; }
-  auto cold = pages.Resolve(request, &producer);
-  if (!cold || cold->Page->Geometry.Mesh.Index.empty()) { return std::nullopt; }
-  const auto bytes = EncodeRoadPageAsset(*cold->Page, kLimit);
-  if (!bytes) { return std::nullopt; }
-  manifest.Pages.push_back({.Key = cold->Record.Key,
-                            .Bounds = cold->Record.Bounds,
-                            .ByteCount = cold->NativeBytes,
+  auto cold = pages.Prepare(request, &producer);
+  if (!cold || cold->ByteCount == 0) { return std::nullopt; }
+  manifest.Pages.push_back({.Key = cold->Key,
+                            .Bounds = cold->Bounds,
+                            .ByteCount = cold->ByteCount,
                             .Level = 0,
                             .Parts = request.Address.Parts});
   auto key = pages.StoreManifest(manifest);
   if (!key) { return std::nullopt; }
-  return Fixture{.Manifest = std::move(*key),
-                 .Request = request.RequestKey,
-                 .Payload = Sha256Hex(bytes->data(), bytes->size())};
+  return Fixture{
+      .Manifest = std::move(*key), .Request = request.RequestKey, .Payload = cold->Package};
 }
 
 bool Finish(RoadPageRestoration &restore, Geometry &world) {

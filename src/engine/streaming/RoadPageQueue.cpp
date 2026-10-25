@@ -32,13 +32,24 @@ RoadPageQueue::~RoadPageQueue() {
 
 bool RoadPageQueue::Request(Generators::RoadPageRequest request,
                             std::shared_ptr<const Generators::RoadPageProducer> producer) {
+  return RequestProduct(std::move(request), std::move(producer), Kind::Payload);
+}
+
+bool RoadPageQueue::RequestRecord(Generators::RoadPageRequest request,
+                                  std::shared_ptr<const Generators::RoadPageProducer> producer) {
+  return RequestProduct(std::move(request), std::move(producer), Kind::Publication);
+}
+
+bool RoadPageQueue::RequestProduct(Generators::RoadPageRequest request,
+                                   std::shared_ptr<const Generators::RoadPageProducer> producer,
+                                   Kind kind) {
   if (request.NativeBytesMost == 0 || request.NativeBytesMost != Limits_.PageBytesMost ||
       (!request.Parent.empty() && request.Parent.size() != 64) ||
       (!request.RequestKey.empty() && request.RequestKey.size() != 64)) {
     return false;
   }
   const auto key = Generators::RoadPageKey(request.Address);
-  const auto admission = RequestState(key, Kind::Payload);
+  const auto admission = RequestState(key, kind);
   if (admission == Admission::Pending) {
     const auto &work = Work_.find(key)->second;
     return work->Parent == request.Parent && work->RequestKey == request.RequestKey;
@@ -48,9 +59,14 @@ bool RoadPageQueue::Request(Generators::RoadPageRequest request,
   auto requestKey = request.RequestKey;
   const bool admitted =
       Enqueue(key,
-              Kind::Payload,
-              [pages = Pages_, request = std::move(request), producer = std::move(producer)](
+              kind,
+              [pages = Pages_, request = std::move(request), producer = std::move(producer), kind](
                   const std::stop_token &stop) -> Result {
+                if (kind == Kind::Publication) {
+                  auto record = pages->Prepare(request, producer.get(), stop);
+                  if (!record) { return std::unexpected(std::move(record.error())); }
+                  return std::optional<Product>(std::move(*record));
+                }
                 auto result = pages->Resolve(request, producer.get(), stop);
                 if (!result) { return std::unexpected(std::move(result.error())); }
                 return std::optional<Product>(std::move(*result));

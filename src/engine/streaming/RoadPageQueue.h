@@ -42,6 +42,9 @@ public:
 
   [[nodiscard]] bool Request(Generators::RoadPageRequest request,
                              std::shared_ptr<const Generators::RoadPageProducer> producer = {});
+  [[nodiscard]] bool
+  RequestRecord(Generators::RoadPageRequest request,
+                std::shared_ptr<const Generators::RoadPageProducer> producer = {});
   [[nodiscard]] bool RequestCached(const std::string &key, Manifest dependency = {});
   [[nodiscard]] bool RequestMetadata(Generators::RoadPageAddress address);
   void Cancel(const std::string &key);
@@ -52,8 +55,11 @@ public:
 private:
   struct Work;
   enum class Admission : uint8_t { Rejected, Pending, Available };
-  enum class Kind : uint8_t { Payload, Metadata };
+  enum class Kind : uint8_t { Payload, Metadata, Publication };
   using Loader = std::function<Result(const std::stop_token &)>;
+  [[nodiscard]] bool RequestProduct(Generators::RoadPageRequest request,
+                                    std::shared_ptr<const Generators::RoadPageProducer> producer,
+                                    Kind kind);
   [[nodiscard]] Admission RequestState(const std::string &key, Kind kind) const;
   [[nodiscard]] bool Enqueue(const std::string &key, Kind kind, Loader load);
   Tasks &Pool_;

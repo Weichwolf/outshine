@@ -61,6 +61,27 @@ bool OptionalKey(const std::string &key) {
                          }));
 }
 
+std::expected<std::string, std::string> RequestKey(const RoadPageRequest &request) {
+  auto key = RoadPageKey(request.Address);
+  if (key.empty()) { return std::unexpected("invalid road page address"); }
+  if (!OptionalKey(request.Parent) || !OptionalKey(request.RequestKey)) {
+    return std::unexpected("invalid road page hierarchy or request identity");
+  }
+  if (!FitsHeader(request.Address, request.NativeBytesMost)) {
+    return std::unexpected("road page header exceeds its byte budget");
+  }
+  return key;
+}
+
+std::expected<void, std::string>
+BindRecord(AssetCache &cache, AssetRecord &record, const std::string &requestKey) {
+  if (requestKey.empty()) { return {}; }
+  const auto bound = cache.BindRequest(record.Key, requestKey);
+  if (!bound || !*bound) { return std::unexpected("could not bind the existing road page"); }
+  record.RequestKey = requestKey;
+  return {};
+}
+
 std::expected<GeneratedAssetPackage, std::string>
 EncodePackage(const RoadPageAsset &page, AssetRecord record, size_t bytesMost) {
   auto bytes = EncodeRoadPageAsset(page, bytesMost);
@@ -69,6 +90,28 @@ EncodePackage(const RoadPageAsset &page, AssetRecord record, size_t bytesMost) {
   record.ByteCount = bytes->size();
   return GeneratedAssetPackage{.Records = {std::move(record)}, .Bytes = std::move(*bytes)};
 }
+
+std::expected<GeneratedAssetPackage, std::string> ProducePackage(const RoadPageRequest &request,
+                                                                 const std::string &key,
+                                                                 const RoadPageProducer &producer,
+                                                                 const std::stop_token &stop) {
+  if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
+  auto geometry = producer.Produce(request, stop);
+  if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
+  if (!geometry) { return std::unexpected(std::move(geometry.error())); }
+  return EncodePackage(
+      {.Address = request.Address, .Geometry = std::move(*geometry)},
+      {.Key = key,
+       .Kind = "road-render-page",
+       .Bounds = {},
+       .Package = {},
+       .ByteCount = 0,
+       .Level = request.Address.Level,
+       .Parent = request.Parent,
+       .RequestKey = request.RequestKey.empty() ? std::nullopt : std::optional(request.RequestKey)},
+      request.NativeBytesMost);
+}
+
 }
 
 PreparedRoadPages::PreparedRoadPages(std::unique_ptr<AssetCache> cache)
@@ -102,11 +145,8 @@ PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::str
     if (!Cache_->Remove(key)) { return std::unexpected("could not remove an invalid road page"); }
     return std::optional<RoadPageLease>{};
   }
-  if (!requestKey.empty()) {
-    const auto bound = Cache_->BindRequest(key, requestKey);
-    if (!bound || !*bound) { return std::unexpected("could not bind the existing road page"); }
-    record.RequestKey = requestKey;
-  }
+  auto bound = BindRecord(*Cache_, record, requestKey);
+  if (!bound) { return std::unexpected(std::move(bound.error())); }
   return RoadPageLease{.Page = std::make_unique<RoadPageAsset>(std::move(*page)),
                        .Record = std::move(record),
                        .NativeBytes = (**cached).Bytes().size()};
@@ -143,13 +183,18 @@ PreparedRoadPages::Inspect(const RoadPageAddress &address, size_t bytesMost) {
     return std::unexpected("road page metadata needs a valid bounded address");
   }
   const std::scoped_lock lock(Lock_);
+  return ReadRecord(key, address.Level, bytesMost);
+}
+
+std::expected<std::optional<AssetRecord>, std::string> PreparedRoadPages::ReadRecord(
+    const std::string &key, uint32_t level, size_t bytesMost, const std::string &requestKey) {
   auto record = Cache_->Find(key);
   if (!record) { return std::unexpected("could not inspect the native road page metadata"); }
   if (!*record) { return std::nullopt; }
   if ((**record).Kind != "road-render-page") {
     return std::unexpected("road page metadata differs from its owning format");
   }
-  if ((**record).Level != address.Level || (**record).ByteCount == 0) {
+  if ((**record).Level != level || (**record).ByteCount == 0) {
     if (!Cache_->Remove(key)) {
       return std::unexpected("could not remove invalid road page metadata");
     }
@@ -158,6 +203,8 @@ PreparedRoadPages::Inspect(const RoadPageAddress &address, size_t bytesMost) {
   if ((**record).ByteCount > bytesMost) {
     return std::unexpected("road page metadata exceeds its native payload budget");
   }
+  auto bound = BindRecord(*Cache_, **record, requestKey);
+  if (!bound) { return std::unexpected(std::move(bound.error())); }
   return std::move(*record);
 }
 
@@ -179,60 +226,70 @@ PreparedRoadPages::LoadRequest(const std::string &requestKey, size_t bytesMost) 
   return Read((**found).Key, bytesMost, requestKey);
 }
 
+std::expected<AssetRecord, std::string> PreparedRoadPages::Prepare(const RoadPageRequest &request,
+                                                                   const RoadPageProducer *producer,
+                                                                   std::stop_token stop) {
+  if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
+  auto key = RequestKey(request);
+  if (!key) { return std::unexpected(std::move(key.error())); }
+  const auto lookup = [&] {
+    const std::scoped_lock lock(Lock_);
+    return ReadRecord(*key, request.Address.Level, request.NativeBytesMost, request.RequestKey);
+  };
+  auto existing = lookup();
+  if (!existing) { return std::unexpected(std::move(existing.error())); }
+  if (*existing) { return std::move(**existing); }
+  if (producer == nullptr) { return std::unexpected("road page miss has no producer"); }
+  const auto gate = GenerationGate(*key);
+  if (!gate->Acquire(stop)) { return std::unexpected("road page request canceled"); }
+  const Generation::Lease generating(*gate);
+  existing = lookup();
+  if (!existing) { return std::unexpected(std::move(existing.error())); }
+  if (*existing) { return std::move(**existing); }
+  auto package = ProducePackage(request, *key, *producer, stop);
+  if (!package) { return std::unexpected(std::move(package.error())); }
+  const std::scoped_lock lock(Lock_);
+  existing = ReadRecord(*key, request.Address.Level, request.NativeBytesMost, request.RequestKey);
+  if (!existing) { return std::unexpected(std::move(existing.error())); }
+  if (*existing) { return std::move(**existing); }
+  auto committed = CommitAsset(*Cache_, *key, request.NativeBytesMost, *package);
+  if (!committed) { return std::unexpected(std::move(committed.error())); }
+  if (!request.RequestKey.empty()) { committed->RequestKey = request.RequestKey; }
+  return std::move(*committed);
+}
+
 std::expected<RoadPageLease, std::string> PreparedRoadPages::Resolve(
     const RoadPageRequest &request, const RoadPageProducer *producer, std::stop_token stop) {
   if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
-  const auto &address = request.Address;
-  const auto &parent = request.Parent;
+  auto key = RequestKey(request);
+  if (!key) { return std::unexpected(std::move(key.error())); }
   const auto &requestKey = request.RequestKey;
   const auto bytesMost = request.NativeBytesMost;
-  const auto key = RoadPageKey(address);
-  if (key.empty()) { return std::unexpected("invalid road page address"); }
-  if (!OptionalKey(parent) || !OptionalKey(requestKey)) {
-    return std::unexpected("invalid road page hierarchy or request identity");
-  }
-  if (!FitsHeader(address, bytesMost)) {
-    return std::unexpected("road page header exceeds its byte budget");
-  }
   {
     const std::scoped_lock lock(Lock_);
-    auto existing = Read(key, bytesMost, requestKey);
+    auto existing = Read(*key, bytesMost, requestKey);
     if (!existing) { return std::unexpected(std::move(existing.error())); }
     if (*existing) { return std::move(**existing); }
   }
   if (producer == nullptr) { return std::unexpected("road page miss has no producer"); }
-  const auto gate = GenerationGate(key);
+  const auto gate = GenerationGate(*key);
   if (!gate->Acquire(stop)) { return std::unexpected("road page request canceled"); }
   const Generation::Lease generating(*gate);
   {
     const std::scoped_lock lock(Lock_);
-    auto existing = Read(key, bytesMost, requestKey);
+    auto existing = Read(*key, bytesMost, requestKey);
     if (!existing) { return std::unexpected(std::move(existing.error())); }
     if (*existing) { return std::move(**existing); }
   }
-  auto generated = [&] -> std::expected<CachedAsset, std::string> {
-    if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
-    auto geometry = producer->Produce(request, stop);
-    if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
-    if (!geometry) { return std::unexpected(std::move(geometry.error())); }
-    auto package =
-        EncodePackage({.Address = address, .Geometry = std::move(*geometry)},
-                      {.Key = key,
-                       .Kind = "road-render-page",
-                       .Bounds = {},
-                       .Package = {},
-                       .ByteCount = 0,
-                       .Level = address.Level,
-                       .Parent = parent,
-                       .RequestKey = requestKey.empty() ? std::nullopt : std::optional(requestKey)},
-                      bytesMost);
-    if (!package) { return std::unexpected(std::move(package.error())); }
+  auto package = ProducePackage(request, *key, *producer, stop);
+  if (!package) { return std::unexpected(std::move(package.error())); }
+  auto generated = [&] {
     const std::scoped_lock lock(Lock_);
-    return ResolveAsset(*Cache_, key, bytesMost, [&](size_t) { return std::move(*package); });
+    return ResolveAsset(*Cache_, *key, bytesMost, [&](size_t) { return std::move(*package); });
   }();
   if (!generated) { return std::unexpected(std::move(generated.error())); }
   auto loaded = DecodeRoadPageAsset(generated->Bytes(), bytesMost);
-  if (!loaded || RoadPageKey(loaded->Address) != key) {
+  if (!loaded || RoadPageKey(loaded->Address) != *key) {
     return std::unexpected("published road page failed native validation");
   }
   return RoadPageLease{.Page = std::make_unique<RoadPageAsset>(std::move(*loaded)),
