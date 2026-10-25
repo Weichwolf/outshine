@@ -17,7 +17,7 @@ Engine::State::GeodeticCameraPosition(const Scenario::View &view) const {
   if (view.Geographic.SamplesHeight && ground != nullptr) {
     sample = ground->At({.LongitudeDeg = view.Geographic.Geodetic.LongitudeDeg,
                          .LatitudeDeg = view.Geographic.Geodetic.LatitudeDeg},
-                        World.Stack.FinestZoomOf(Data::DataKind::Elevation));
+                        World.Stack.TerrainRenderZoom());
   }
   return ResolveGeodeticCamera(
       view,

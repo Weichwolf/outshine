@@ -19,6 +19,12 @@ namespace {
 constexpr double kMostWaitS = 0.05;
 constexpr double kBitsPerByte = 8.0;
 
+[[nodiscard]] Result SetPreloadAcquisitionBudget(Generators::Osm::SourceAcquisition *source,
+                                                 double patienceS) {
+  if (source == nullptr || patienceS == 0.0) { return {}; }
+  return source->SetAcquisitionBudget(patienceS);
+}
+
 void ReportPreload(const Engine &engine,
                    std::chrono::steady_clock::time_point began,
                    const std::function<void(const Loading &)> &tell) {
@@ -50,8 +56,7 @@ Result Engine::preloadWithQuality(double patienceS,
   if (!std::isfinite(patienceS * kMsPerS) || patienceS < 0.0) {
     return std::unexpected(Says::kInvalidPreloadBudget);
   }
-  const auto configured =
-      S_->World.OsmSource ? S_->World.OsmSource->SetAcquisitionBudget(patienceS) : Result{};
+  const auto configured = SetPreloadAcquisitionBudget(S_->World.OsmSource.get(), patienceS);
   if (!configured) { return std::unexpected(configured.error()); }
   const auto began = std::chrono::steady_clock::now();
   S_->LastPreloadMs = 0.0;

@@ -583,7 +583,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
            .Contains(eye, prints.Projection(), prints.EyeEcef()))) {
     return 0;
   }
-  const int zoom = stack.FinestZoomOf(Data::DataKind::Elevation);
+  const int zoom = stack.TerrainRenderZoom();
   if (zoom != OriginalHeightZoom_) {
     ++Deferred_;
     return 0;
@@ -844,19 +844,14 @@ bool StructureBuildQueue::SelectVectorInputs(
     return ResolveHeights(
         vectors,
         over,
-        stack.FinestZoomOf(Data::DataKind::Elevation),
+        stack.TerrainRenderZoom(),
         heightAt,
         requirement,
         selected.Heights,
         {.Deferred = Deferred_, .DurationMs = durationMs, .Failure = &LastHeightFailure_});
   }
-  return ResolveVectorHeights(vectors,
-                              over,
-                              stack.FinestZoomOf(Data::DataKind::Elevation),
-                              heightAt,
-                              requirement,
-                              selected,
-                              durationMs);
+  return ResolveVectorHeights(
+      vectors, over, stack.TerrainRenderZoom(), heightAt, requirement, selected, durationMs);
 }
 
 void StructureBuildQueue::PrepareViewRefinement(::outshine::Generators::Osm::BuildingField &prints,

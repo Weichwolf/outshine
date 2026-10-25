@@ -302,6 +302,7 @@ public:
   [[nodiscard]] bool IngestedWithin(int rings) const;
   [[nodiscard]] std::string IngestionStatus() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
+  [[nodiscard]] int TerrainRenderZoom() const;
 
 private:
   [[nodiscard]] std::expected<void, std::string>

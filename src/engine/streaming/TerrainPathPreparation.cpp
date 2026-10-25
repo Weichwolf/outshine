@@ -277,7 +277,7 @@ PrepareTerrainPath(TerrainPathPlan plan,
   }
   const auto heights = Generators::PlanTerrainSourceTiles(
       {},
-      {.FinestZoom = stack.FinestZoomOf(Data::DataKind::Elevation),
+      {.FinestZoom = stack.TerrainRenderZoom(),
        .GroundZoom = stack.Ground().BlockZoom(),
        .Vectors = stack.HasDeclaredVectors() ? stack.Vectors() : vectors.get(),
        .AdditionalTiles = {}});

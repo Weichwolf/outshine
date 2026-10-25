@@ -172,7 +172,7 @@ bool SurfacePreparation::OpenSession(const World::StoragePaths &under,
 
   outshine::Ground::GroundSurface surface;
   surface.Grid = outshine::Ground::kStreamGrid;
-  surface.Z = FinestZoomOf(Data::DataKind::Elevation) - 1;
+  surface.Z = TerrainRenderZoom() - 1;
   auto poolConfig = *config;
   poolConfig.Compute = &compute;
   poolConfig.Diagnostics = diagnostics;
@@ -242,6 +242,11 @@ void SurfacePreparation::Close() {
   Settled_.reset();
   LastAdvance_ = {};
   WorstAdvance_ = {};
+}
+
+int SurfacePreparation::TerrainRenderZoom() const {
+  const int sourceZoom = FinestZoomOf(Data::DataKind::Elevation);
+  return sourceZoom > 0 ? sourceZoom : kGeographicTerrainRenderZoom;
 }
 
 int SurfacePreparation::FinestZoomOf(Data::DataKind kind) const {
