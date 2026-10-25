@@ -34,6 +34,24 @@ std::string_view Identity(const AssetRecord &record, Address address) {
   return record.RequestKey ? std::string_view(*record.RequestKey) : std::string_view{};
 }
 
+std::expected<void, std::string> CommitPackage(AssetCache &cache,
+                                               std::string_view key,
+                                               size_t packageBytesMost,
+                                               const GeneratedAssetPackage &package,
+                                               Address address) {
+  if (package.Bytes.size() > packageBytesMost) {
+    return std::unexpected(Describe(AssetCacheError::CapacityExceeded));
+  }
+  if (std::ranges::count_if(package.Records, [key, address](const AssetRecord &record) {
+        return Identity(record, address) == key;
+      }) != 1) {
+    return std::unexpected("generator omitted the requested asset");
+  }
+  const auto published = cache.Publish(package.Records, package.Bytes);
+  if (!published) { return std::unexpected(Describe(published.error())); }
+  return {};
+}
+
 std::expected<CachedAsset, std::string> Resolve(AssetCache &cache,
                                                 std::string_view key,
                                                 size_t packageBytesMost,
@@ -45,21 +63,25 @@ std::expected<CachedAsset, std::string> Resolve(AssetCache &cache,
   if (!factory) { return std::unexpected("asset miss has no registered generator"); }
   auto generated = factory(packageBytesMost);
   if (!generated) { return std::unexpected(std::move(generated.error())); }
-  if (generated->Bytes.size() > packageBytesMost) {
-    return std::unexpected(Describe(AssetCacheError::CapacityExceeded));
-  }
-  if (std::ranges::count_if(generated->Records, [key, address](const AssetRecord &record) {
-        return Identity(record, address) == key;
-      }) != 1) {
-    return std::unexpected("generator omitted the requested asset");
-  }
-  const auto published = cache.Publish(generated->Records, generated->Bytes);
-  if (!published) { return std::unexpected(Describe(published.error())); }
+  auto committed = CommitPackage(cache, key, packageBytesMost, *generated, address);
+  if (!committed) { return std::unexpected(std::move(committed.error())); }
   loaded = Load(cache, key, packageBytesMost, address);
   if (!loaded) { return std::unexpected(Describe(loaded.error())); }
   if (!*loaded) { return std::unexpected("published asset package is unavailable"); }
   return std::move(**loaded);
 }
+}
+
+std::expected<AssetRecord, std::string> CommitAsset(AssetCache &cache,
+                                                    std::string_view key,
+                                                    size_t packageBytesMost,
+                                                    const GeneratedAssetPackage &package) {
+  auto committed = CommitPackage(cache, key, packageBytesMost, package, Address::Product);
+  if (!committed) { return std::unexpected(std::move(committed.error())); }
+  auto record = cache.Find(key);
+  if (!record) { return std::unexpected(Describe(record.error())); }
+  if (!*record) { return std::unexpected("published asset package is unavailable"); }
+  return std::move(**record);
 }
 
 std::expected<CachedAsset, std::string> ResolveAsset(AssetCache &cache,

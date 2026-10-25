@@ -69,7 +69,7 @@ RoadPageConstruction::Advance(const Generators::Corridors::Job &plan,
   if (!recipe) { return std::unexpected(std::string(recipe.error())); }
   auto producer =
       std::make_shared<const Generators::RoadPageMeshProducer>(PendingKey_, std::move(*recipe));
-  const bool admitted = Queue_.Request(
+  const bool admitted = Queue_.RequestRecord(
       {.Address = Address_, .Parent = {}, .RequestKey = {}, .NativeBytesMost = PageBytesMost},
       std::move(producer));
   if (!admitted) { return std::unexpected("road page worker admission failed"); }
@@ -93,17 +93,7 @@ std::expected<bool, std::string> RoadPageConstruction::Collect() {
     Stage_ = Stage::Generate;
     return false;
   }
-  const AssetRecord *record = nullptr;
-  if (Stage_ == Stage::Lookup) {
-    record = std::get_if<AssetRecord>(&**one.Result);
-  } else {
-    const auto *loaded = std::get_if<Generators::RoadPageLease>(&**one.Result);
-    if (loaded == nullptr || !loaded->Page ||
-        Generators::RoadPageKey(loaded->Page->Address) != PendingKey_) {
-      return std::unexpected("road page references an unavailable material or different plan");
-    }
-    record = &loaded->Record;
-  }
+  const auto *record = std::get_if<AssetRecord>(&**one.Result);
   if (record == nullptr || record->Key != PendingKey_ || record->Level != Address_.Level ||
       record->ByteCount == 0 || record->ByteCount > PageBytesMost) {
     return std::unexpected("road page metadata differs from its admitted native request");
