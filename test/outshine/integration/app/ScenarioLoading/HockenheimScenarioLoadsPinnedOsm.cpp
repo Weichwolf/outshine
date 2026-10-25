@@ -1,3 +1,5 @@
+#include "EngineFactory.h"
+#include "ScenarioLoading.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
 #include "Check.h"
@@ -11,12 +13,13 @@ int main() {
   constexpr int kMostPolls = 200;
   constexpr double kSourceBytes = 33557.0;
   constexpr double kRouteEdges = 267.0;
-  Engine engine;
+  auto engine = App::CreateEngine();
   CHECK(
       engine.setRoots(
           {.Assets = {}, .Shipped = "src/assets", .Cache = {}, .Offline = true, .AssetCache = {}}),
       "scenario sources resolve inside the shipped asset root");
-  CHECK(engine.readScenario("test/outshine/data/diagnostic-places/Hockenheimring.scenario"),
+  CHECK(outshine::Test::LoadAndDeclareScenario(
+            engine, "test/outshine/data/diagnostic-places/Hockenheimring.scenario"),
         "the authored Hockenheim scenario declares a pinned semantic OSM source");
   CHECK(engine.assemble(), "the pinned source queues without a renderer or terrain fetch");
 

@@ -1,5 +1,7 @@
+#include "ScenarioLoading.h"
 #include <Engine.h>
 #include "Check.h"
+#include "ScenarioJson.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -29,9 +31,7 @@ int main() {
   constexpr std::string_view overrides =
       R"({"name":null,"active":"day","world":{"vegetation":false},"render":{"widthPx":800}})";
   Engine engine;
-  CHECK(engine.setRoots({.Assets = directory, .Shipped = directory}).has_value(),
-        "inline source has an explicit layer base directory");
-  CHECK(engine.readScenario(source, overrides).has_value(),
+  CHECK(outshine::Test::LoadAndDeclareScenario(engine, source, overrides, directory).has_value(),
         "inline JSON selects a JSON layer using overridden metadata");
   CHECK(engine.declaration().Named.Active == "day" && engine.declaration().Named.Name.empty() &&
             engine.declaration().Layers.empty() && !engine.declaration().Ground.VegetationEnabled &&
@@ -44,31 +44,36 @@ int main() {
   CHECK(snapshot.has_value(), "overridden inline declaration exports");
   write("root.scenario", source);
   Engine file;
-  CHECK(file.readScenario(directory + "/root.scenario", overrides).has_value(),
+  CHECK(outshine::Test::LoadAndDeclareScenario(file, directory + "/root.scenario", overrides)
+            .has_value(),
         "a JSON file uses its own directory for selected layers");
   CHECK(file.writeScenario() == snapshot, "file and inline sources have identical declarations");
   CHECK(
-      engine
-          .readScenario(
-              source,
-              R"({"name":null,"active":"day","world":{"vegetation":false},"render":{"widthPx":800},"layer":[{"path":"day.scenario","set":"day"}]})")
+      outshine::Test::LoadAndDeclareScenario(
+          engine,
+          source,
+          R"({"name":null,"active":"day","world":{"vegetation":false},"render":{"widthPx":800},"layer":[{"path":"day.scenario","set":"day"}]})",
+          directory)
           .has_value(),
       "overrides can replace the selected layer collection");
   CHECK(engine.writeScenario() == snapshot && engine.declaration().Layers.empty(),
         "overridden layer references are consumed rather than reintroduced by final overrides");
-  for (std::string_view invalid :
+  for (const std::string_view invalid :
        {R"({"world":{"vegetation":{}}})", R"({"world":{"nonexistent":1}})", R"([])", "{"}) {
-    CHECK(!engine.readScenario(source, invalid), "invalid overrides are refused");
+    CHECK(!outshine::Test::LoadAndDeclareScenario(engine, source, invalid, directory),
+          "invalid overrides are refused");
     CHECK(engine.writeScenario() == snapshot, "override failure preserves the active declaration");
   }
-  CHECK(!engine.readScenario(source), "missing selected layer remains an error without overrides");
+  CHECK(!outshine::Test::LoadAndDeclareScenario(engine, source, {}, directory),
+        "missing selected layer remains an error without overrides");
   CHECK(engine.writeScenario() == snapshot, "layer failure preserves the active declaration");
   std::string nul = "{}";
   nul += '\0';
-  CHECK(!engine.readScenario(nul), "embedded input NUL is rejected");
-  CHECK(!engine.readScenario("{}", std::string(16u * 1024u * 1024u + 1u, ' ')),
+  CHECK(!outshine::Test::LoadAndDeclareScenario(engine, nul), "embedded input NUL is rejected");
+  CHECK(!outshine::Test::LoadAndDeclareScenario(
+            engine, "{}", std::string(kMostScenarioBytes + 1u, ' ')),
         "combined scenario input has a bounded byte budget");
-  CHECK(!engine.readScenario("{" + std::string(16u * 1024u * 1024u, ' ')),
+  CHECK(!outshine::Test::LoadAndDeclareScenario(engine, "{" + std::string(kMostScenarioBytes, ' ')),
         "oversized inline input is refused before copying or parsing");
   std::error_code error;
   std::filesystem::remove_all(directory, error);

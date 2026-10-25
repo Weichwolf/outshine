@@ -1,3 +1,4 @@
+#include "ScenarioLoading.h"
 #include <Engine.h>
 #include "WriteFileAtomically.h"
 #include <cstddef>
@@ -27,7 +28,7 @@ RoundTripScenario(const outshine::Scenario::Document &declaration, std::string_v
     return std::unexpected(std::move(written.error()));
   }
   outshine::Engine restored;
-  if (auto read = restored.readScenario(scratchPath); !read) {
+  if (auto read = outshine::Test::LoadAndDeclareScenario(restored, scratchPath); !read) {
     return std::unexpected(std::move(read.error()));
   }
   auto second = restored.writeScenario();

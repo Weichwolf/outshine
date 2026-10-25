@@ -251,8 +251,6 @@ public:
 
   [[nodiscard]] Result mix(std::span<float> stereo);
 
-  [[nodiscard]] Result readScenario(std::string_view source, std::string_view overrides = {});
-
   [[nodiscard]] std::expected<std::string, std::string> writeScenario() const;
 
   [[nodiscard]] Result setGeometry(const Geometry &geometry);
@@ -315,8 +313,6 @@ private:
   friend class TestEngine;
   struct State;
   explicit Engine(std::unique_ptr<State> state);
-  [[nodiscard]] bool
-  readScenarioInto(std::string_view source, Scenario::Document &out, std::string_view overrides);
   void ships();
   std::unique_ptr<State> S_;
 };

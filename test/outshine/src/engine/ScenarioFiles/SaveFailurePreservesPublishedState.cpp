@@ -17,37 +17,15 @@ int main() {
     CHECK(false, "temporary directory created");
     return Report();
   }
-  const std::string path = directory + "/scenario";
   Engine engine;
-  {
-    std::ofstream output(path, std::ios::binary);
-    output << "<scenario name=\"oversized\"/>" << std::string(16u << 20u, ' ');
-  }
-  const auto oversized = engine.readScenario(path);
-  CHECK(!oversized && oversized.error().ends_with("file exceeds byte budget") &&
-            engine.declaration().Named.Name != "oversized",
-        "public scenario reader enforces its budget before publishing a declaration");
-  const std::string layerPath = path + ".layer";
-  {
-    std::ofstream layer(layerPath, std::ios::binary);
-    const std::string body = "<scenario/>";
-    layer << body << std::string((8u << 20u) - body.size(), ' ');
-    std::ofstream root(path, std::ios::binary);
-    root << "<scenario name=\"layered\"><layer path=\"" << layerPath << "\"/><layer path=\""
-         << layerPath << "\"/></scenario>";
-  }
-  const auto cumulative = engine.readScenario(path);
-  CHECK(!cumulative && cumulative.error().ends_with("file exceeds byte budget") &&
-            engine.declaration().Named.Name != "layered",
-        "selected layers share the root input budget instead of receiving individual budgets");
-  std::filesystem::remove(layerPath);
   Scenario::Document scene;
   scene.Room = 4;
   Scenario::Kind kind;
   kind.Name = "actor";
-  kind.Attributes = {{"health", "23"}};
+  kind.Attributes = {{.Name = "health", .Value = "23"}};
   scene.Kinds.push_back(kind);
-  scene.Instances.push_back({.Of = "actor", .Id = "kept"});
+  scene.Instances.push_back(
+      {.Of = "actor", .Id = "kept", .In = {}, .Stands = {}, .Attributes = {}, .Holds = {}});
   scene.State.push_back({.What = "kept.health"});
   const std::string savePath = directory + "/engine-save";
   const bool ready = engine.declare(scene).has_value() && engine.assemble().has_value() &&

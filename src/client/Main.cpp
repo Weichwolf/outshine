@@ -663,10 +663,10 @@ int CaptureView(outshine::Engine &engine,
   }
   const std::string_view sourceName =
       outshine::IsJsonScenario(options.Argv[0]) ? "inline scenario" : options.Argv[0];
-  auto input =
-      outshine::Client::ReadClientScenario(options.Argv[0],
-                                           options.ScenarioOverrides,
-                                           ClientRoots(options.CacheDirectory, options.Offline));
+  auto input = outshine::Client::ReadClientScenario(
+      options.Argv[0],
+      options.ScenarioOverrides,
+      ClientRoots(options.CacheDirectory, options.Offline).Shipped);
   if (!input) {
     std::println("outshine: {} -- {}", sourceName, input.error());
     return 1;
