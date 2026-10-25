@@ -30,6 +30,7 @@ struct SDL_Window;
 #include "GpuFrameSample.h"
 #include "TemporalSequence.h"
 #include "FrameTargets.h"
+#include "atmosphere/AtmospherePasses.h"
 #include "TextureFormat.h"
 #include "UploadQueue.h"
 #include "TerrainMaterialBuffers.h"
@@ -46,15 +47,10 @@ struct SDL_Window;
 #include "stages/GeometryResidency.h"
 #include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
-#include "stages/MediumMultiScatterStage.h"
 #include "stages/DepthPyramidStage.h"
-#include "stages/IrradianceStage.h"
-#include "stages/EnvironmentSpecularStage.h"
-#include "stages/MediumRadianceStage.h"
 #include "stages/SunShadowStage.h"
 #include "stages/GeometryCullStage.h"
 #include "stages/SkyStage.h"
-#include "stages/MediumTransmittanceStage.h"
 #include "stages/TonemapStage.h"
 
 namespace outshine::Core {
@@ -631,14 +627,16 @@ public:
     if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
-  [[nodiscard]] Native::Texture *SkyViewTable() const { return ActiveFrame().SkyViewLut.get(); }
+  [[nodiscard]] Native::Texture *SkyViewTable() const {
+    return ActiveFrame().Atmosphere.Texture(Resource::SkyViewLut);
+  }
 
   [[nodiscard]] Native::Texture *MultiScatterTable() const {
-    return ActiveFrame().MultiScatterLut.get();
+    return ActiveFrame().Atmosphere.Texture(Resource::MultiScatterLut);
   }
 
   [[nodiscard]] Native::Texture *TransmittanceTable() const {
-    return ActiveFrame().TransmittanceLut.get();
+    return ActiveFrame().Atmosphere.Texture(Resource::TransmittanceLut);
   }
 
   void SetGeometryEnvironment(const SubjectEnvironment &environment) {
@@ -829,9 +827,8 @@ private:
   RenderFrameTiming LastRenderFrameTiming_;
   RenderFrameTiming SlowestRenderFrameTiming_;
 
-  [[nodiscard]] Native::Result<void> CreateSampler(FrameResources &frame, Resource resource);
-  [[nodiscard]] Native::Result<void>
-  CreateAtmosphereLut(FrameResources &frame, const ExecutionPlan &plan, Resource resource);
+  [[nodiscard]] Native::Result<void> CreateSampler(FrameResources &frame);
+  [[nodiscard]] bool PrepareGroundMaterialBuffers(FrameResources &frame, std::string &error);
   void CommitSubmittedFrame(StageSubmission &stageSubmission);
   [[nodiscard]] Native::Result<void>
   Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource);
@@ -1044,11 +1041,9 @@ private:
     std::unique_ptr<Native::Texture> Offscreen;
     Gpu Handles;
     FrameTargets Targets;
-    std::unique_ptr<Native::Texture> TransmittanceLut, MultiScatterLut, SkyViewLut,
-        EnvironmentSpecular;
+    AtmospherePasses Atmosphere;
     std::unique_ptr<Native::Texture> ShadowAtlas;
-    std::unique_ptr<Native::Sampler> Samp, LutSamp;
-    std::unique_ptr<Native::Buffer> IrradianceBuffer;
+    std::unique_ptr<Native::Sampler> Samp;
     std::unique_ptr<Native::Buffer> Pyramid;
     std::unique_ptr<Native::Buffer> GroundPyramid;
     Readback PyramidRead;
@@ -1056,11 +1051,6 @@ private:
     CompositeTransmissionStage CompositeTransmission;
     AerialPerspectiveStage Aerial;
     TonemapStage Tonemap;
-    MediumTransmittanceStage MediumTransmittance;
-    MediumMultiScatterStage MultiScatter;
-    MediumRadianceStage Radiance;
-    IrradianceStage SkyIrradianceStage;
-    EnvironmentSpecularStage EnvironmentSpecularStage;
     DepthPyramidStage PyramidStage;
     DepthPyramidStage GroundPyramidStage;
     SkyStage Sky;

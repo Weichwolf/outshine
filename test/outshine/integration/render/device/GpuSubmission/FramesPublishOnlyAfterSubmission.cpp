@@ -151,8 +151,7 @@ struct Faults {
 
 void InitializationUploads() {
   const auto compiled = CompilePlan({Resource::Surface, Resource::IrradianceBuffer}, {Stage::Sky});
-  CHECK(compiled.has_value(),
-        "the initialization oracle requires irradiance and its ground bindings");
+  CHECK(compiled.has_value(), "the initialization oracle requires sky and irradiance");
   if (!compiled) { return; }
   SceneRenderer unopened;
   std::string error;
@@ -174,11 +173,15 @@ void InitializationUploads() {
       CHECK(renderer.Settle(error) && error.empty(), "successful retry clears the old diagnosis");
     }
   }
+  const auto geometry =
+      CompilePlan({Resource::Surface, Resource::IrradianceBuffer}, {Stage::Geometry, Stage::Sky});
+  CHECK(geometry, "ground fallback uploads belong to an explicit geometry consumer");
+  if (!geometry) { return; }
   for (const auto point : {Faults::Point::Map, Faults::Point::Acquire, Faults::Point::Submit}) {
     Faults faults;
     faults.Next = point;
     SceneRenderer renderer(faults.Functions());
-    const auto stood = renderer.Init({.WidthPx = 32, .HeightPx = 32}, *compiled);
+    const auto stood = renderer.Init({.WidthPx = 32, .HeightPx = 32}, *geometry);
     CHECK(!stood && stood.error().contains("injected"),
           "failed fallback upload returns the native diagnosis");
     CHECK(!renderer.DeviceUsable(), "failed fallback upload prevents renderer readiness");
