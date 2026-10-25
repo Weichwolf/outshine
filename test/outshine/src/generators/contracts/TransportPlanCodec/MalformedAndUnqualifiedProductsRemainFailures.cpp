@@ -74,6 +74,10 @@ int main() {
   CHECK(!EncodeTransportPlan(broken, kTransportFixtureLimits),
         "station ranges are checked without overflow");
   broken = *source;
+  broken.Paths[1].FirstStation = 0;
+  CHECK(!EncodeTransportPlan(broken, kTransportFixtureLimits),
+        "overlapping ranges cannot multiply profile-validation work over the same stations");
+  broken = *source;
   broken.Inputs[0].Content[0] ^= uint8_t{1};
   const auto binding = EncodeTransportPlan(broken, kTransportFixtureLimits);
   CHECK(!binding && binding.error() == TransportPlanCodecError::InvalidInputs,

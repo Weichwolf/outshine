@@ -61,6 +61,17 @@ bool ProfileFits(const TransportPlan &plan, const TransportPath &path) {
   return spans;
 }
 
+bool PathsPartitionStations(const TransportPlan &plan) {
+  size_t next = 0;
+  for (const auto &path : plan.Paths) {
+    if (path.FirstStation != next || path.StationCount > plan.Stations.size() - next) {
+      return false;
+    }
+    next += path.StationCount;
+  }
+  return next == plan.Stations.size();
+}
+
 bool ValidPath(const TransportPlan &plan, const TransportPath &path) {
   return !path.PartId.empty() && !path.SourceId.empty() && !path.Material.empty() &&
          path.FirstStation <= plan.Stations.size() && path.StationCount >= 2 &&
@@ -130,7 +141,8 @@ std::expected<void, TransportPlanCodecError> ValidateTransportPlan(const Transpo
   if (!TransportFormat::InputsValid(plan.Inputs)) {
     return std::unexpected(TransportPlanCodecError::InvalidInputs);
   }
-  if (!std::ranges::all_of(plan.Stations,
+  if (!PathsPartitionStations(plan) ||
+      !std::ranges::all_of(plan.Stations,
                            [](const auto &station) {
                              return std::isfinite(station.EastM) && std::isfinite(station.NorthM) &&
                                     std::isfinite(station.GradeM);

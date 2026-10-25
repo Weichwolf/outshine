@@ -21,6 +21,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators/sky
   generators/terrain
   generators/terrain/providers
+  generators/transport
   generators/water
   render
   scenario
@@ -81,6 +82,7 @@ target_link_libraries(outshine_engine_streaming PUBLIC outshine_base outshine_co
 target_link_libraries(outshine_generators PUBLIC outshine_base outshine_content outshine_diagnostics outshine_generators_osm outshine_generators_earth outshine_generators_sky outshine_world outshine_generators_road outshine_generators_terrain outshine_generators_water outshine_generators_flora outshine_sources)
 target_link_libraries(outshine_generators_base PUBLIC outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_generators_contracts PUBLIC outshine_base outshine_world_contracts)
+target_link_libraries(outshine_generators_transport PUBLIC outshine_generators_contracts outshine_content_assets)
 target_link_libraries(outshine_world_contracts PUBLIC outshine_base)
 target_sources(outshine_world_contracts PRIVATE src/world/contracts/EarthworkStamp.h)
 set_target_properties(outshine_world_contracts outshine_world_contracts_objects
