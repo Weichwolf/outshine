@@ -28,7 +28,7 @@ constexpr auto kStartup = std::chrono::seconds(5);
 constexpr auto kPoll = std::chrono::milliseconds(1);
 constexpr uint32_t kPart = 7;
 constexpr double kLatitude = 49;
-enum class Scenario : uint8_t { Shared, CancelOwner, DifferentProduct };
+enum class Scenario : uint8_t { Shared, CancelOwner, CancelSingleWorker, DifferentProduct };
 
 RoadPageRequest Request(char plan) {
   return {.Address = {.PlanKey = std::string(64, plan),
@@ -91,14 +91,20 @@ const AssetRecord *Record(const std::vector<RoadPageQueue::Completed> &done) {
 
 char Plan(Scenario scenario) {
   if (scenario == Scenario::CancelOwner) { return 'c'; }
+  if (scenario == Scenario::CancelSingleWorker) { return 'f'; }
   if (scenario == Scenario::DifferentProduct) { return 'd'; }
   return 'a';
 }
 
 const char *CookLabel(Scenario scenario) {
   if (scenario == Scenario::CancelOwner) { return "cancel-owner cooks"; }
+  if (scenario == Scenario::CancelSingleWorker) { return "cancel-owner single-worker cooks"; }
   if (scenario == Scenario::DifferentProduct) { return "different-product cooks"; }
   return "shared cooks";
+}
+
+bool CancelsOwner(Scenario scenario) {
+  return scenario == Scenario::CancelOwner || scenario == Scenario::CancelSingleWorker;
 }
 
 void CheckGeometry(PreparedRoadPages &pages, const RoadPageAddress &address) {
@@ -117,7 +123,7 @@ void CheckCompletions(const std::vector<RoadPageQueue::Completed> &left,
                       const RoadPageAddress &address,
                       Scenario scenario) {
   using namespace outshine::Test;
-  const bool canceled = scenario == Scenario::CancelOwner;
+  const bool canceled = CancelsOwner(scenario);
   const auto *aRecord = Record(left);
   const auto *bRecord = Record(right);
   CHECK(left.size() == 1 && (canceled ? !left.front().Result && left.front().Result.error() ==
@@ -136,11 +142,11 @@ void CheckSharing(const std::shared_ptr<PreparedRoadPages> &pages, Scenario scen
   using namespace outshine::Test;
   const auto work = std::make_shared<Controlled>();
   const auto producer = Producer(work);
-  const bool canceled = scenario == Scenario::CancelOwner;
+  const bool canceled = CancelsOwner(scenario);
   const bool different = scenario == Scenario::DifferentProduct;
   const auto first = Request(Plan(scenario));
   const auto second = different ? Request('e') : first;
-  Tasks pool(2);
+  Tasks pool(scenario == Scenario::CancelSingleWorker ? 1 : 2);
   RoadPageQueue a(pool, pages, {.PendingMost = 1, .PageBytesMost = kLimit});
   RoadPageQueue b(pool, pages, {.PendingMost = 1, .PageBytesMost = kLimit});
   CHECK(a.RequestRecord(first, producer), "the first consumer admits a real publication job");
@@ -188,6 +194,7 @@ int main() {
   CheckSharing(pages, Scenario::DifferentProduct);
   CheckSharing(pages, Scenario::Shared);
   CheckSharing(pages, Scenario::CancelOwner);
+  CheckSharing(pages, Scenario::CancelSingleWorker);
   pages.reset();
   std::error_code error;
   std::filesystem::remove_all(root, error);
