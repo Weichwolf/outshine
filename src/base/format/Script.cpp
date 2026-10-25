@@ -134,7 +134,7 @@ std::string Where(std::string_view text, size_t at) {
 }
 
 size_t PastTrivia(std::string_view text, size_t at) {
-  for (;;) {
+  while (at < text.size()) {
     if (const size_t run = SpaceRun(text, at)) {
       at += run;
       continue;
@@ -151,6 +151,7 @@ size_t PastTrivia(std::string_view text, size_t at) {
     }
     return at;
   }
+  return at;
 }
 
 bool ReadStringToken(std::string_view text, size_t &at, Token &token, std::string &error) {
