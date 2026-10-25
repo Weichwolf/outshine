@@ -43,15 +43,17 @@ int main() {
   auto invalid = scene;
   invalid.Volumes[0].Fires = "missing";
   CHECK(engine.declare(invalid).has_value(), "trigger configuration waits for assembly");
-  const EntityRegistry *previous = &engine.entities();
+  const World::EntityRegistry *previous = &engine.entities();
   CHECK(!engine.assemble(), "unknown trigger event rejects candidate");
   CHECK(&engine.entities() == previous, "failed trigger assembly preserves simulation owner");
   CHECK(engine.advance().has_value(), "previous simulation remains available");
   CHECK(fired() == 0, "old triggers do not act on a new unassembled declaration");
 
-  scene.Motion.StepS = 0.02;
+  constexpr double kSimulationStepS = 0.02;
+  constexpr double kDwellS = 0.035;
+  scene.Motion.StepS = kSimulationStepS;
   scene.Volumes[0].When = "dwell";
-  scene.Volumes[0].DwellS = 0.035;
+  scene.Volumes[0].DwellS = kDwellS;
   CHECK(engine.declare(scene) && engine.assemble(), "dwell scene uses its declared physics step");
   CHECK(engine.advance().has_value(), "first dwell step enters the volume");
   CHECK(fired() == 0, "entry alone is not a dwell event");

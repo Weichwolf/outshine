@@ -6,6 +6,7 @@
 #include "Check.h"
 #include <array>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -31,7 +32,7 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Probe probe;
+  const Probe probe;
   Engine engine;
   CHECK(engine.registerGenerator(probe), "fixture generator registers");
   Scenario::Document source;
@@ -51,12 +52,15 @@ int main() {
   CHECK(probe.Calls == 1 && probe.Seen == expected,
         "serialization and dispatch preserve exact values and order");
   Scenario::Document asset;
-  asset.Assets.push_back({.Uri = "parameter-probe", .Kind = "generated"});
+  Scenario::Asset invocation;
+  invocation.Uri = "parameter-probe";
+  invocation.Kind = "generated";
+  asset.Assets.push_back(invocation);
   CHECK(engine.declare(asset).has_value() && probe.Calls == 2 && probe.Seen.empty(),
         "asset invocation cannot inherit another declaration's parameter views");
-  copy.Generators = {{.Kind = "unregistered"}};
+  copy.Generators = {{.Kind = "unregistered", .Parameters = {}}};
   CHECK(!engine.declare(copy), "unknown generator is not silently skipped");
-  Generators::Structures structures;
+  const Generators::Structures structures;
   const std::array<Generators::Parameter, 1> unsupported{{{.Name = "unknown", .Value = "1"}}};
   Generators::Request request;
   request.Parameters = unsupported;

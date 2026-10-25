@@ -260,9 +260,9 @@ public:
 
   [[nodiscard]] const Scenario::Document &declaration() const;
 
-  [[nodiscard]] EntityRegistry &entities();
+  [[nodiscard]] World::EntityRegistry &entities();
 
-  [[nodiscard]] const EntityRegistry &entities() const;
+  [[nodiscard]] const World::EntityRegistry &entities() const;
 
   [[nodiscard]] std::span<const std::string> unacted() const;
 

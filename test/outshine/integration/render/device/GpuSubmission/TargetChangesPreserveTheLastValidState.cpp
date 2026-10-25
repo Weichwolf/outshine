@@ -4,6 +4,7 @@
 #include "test/harness/render/NativeTargetFaultDevice.h"
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <dlfcn.h>
@@ -69,11 +70,27 @@ void Unconfigured() {
         "a rejected first target leaves no drawable extent");
 }
 
+Result ClaimReleased(Engine &engine, TargetFault &fault, SDL_Window *window) {
+  const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+  unsigned attempts = fault.PresentAttempts;
+  auto result = engine.setRenderTarget(window);
+  while (!result && fault.PresentAttempts == attempts + 1u &&
+         fault.PresentError == TargetNative::ErrorKind::Busy &&
+         std::chrono::steady_clock::now() < limit) {
+    attempts = fault.PresentAttempts;
+    SDL_Delay(1);
+    result = engine.setRenderTarget(window);
+  }
+  return result;
+}
+
 void WindowClaims(SDL_Window *first, SDL_Window *candidate) {
   TargetFault fault;
   Engine owner =
       TestEngine::WithGpu({.Context = &fault, .Create = NativeTargetFaultDevice::Create});
-  Engine contender;
+  TargetFault contenderFault;
+  Engine contender =
+      TestEngine::WithGpu({.Context = &contenderFault, .Create = NativeTargetFaultDevice::Create});
   CHECK(owner.setRenderTarget(first).has_value(), "the owner claims its real window");
   const Extent original = owner.swapChain().extent();
   CHECK(!contender.setRenderTarget(first), "a second Engine cannot claim the same window");
@@ -89,7 +106,7 @@ void WindowClaims(SDL_Window *first, SDL_Window *candidate) {
   for (const auto point : {TargetFailure::Present, TargetFailure::Texture}) {
     const unsigned rejected = fault.Rejected;
     fault.Arm(point);
-    const auto result = owner.setRenderTarget(candidate);
+    const auto result = ClaimReleased(owner, fault, candidate);
     fault.Arm(TargetFailure::None);
     CHECK(!result && fault.Rejected == rejected + 1 && result.error().contains("injected"),
           "native claim and post-claim resource failures reach the public caller");
@@ -98,7 +115,7 @@ void WindowClaims(SDL_Window *first, SDL_Window *candidate) {
               retained.WidthPx == original.WidthPx && retained.HeightPx == original.HeightPx,
           "failed configuration restores the actual original window and physical extent");
     CHECK(!contender.setRenderTarget(first), "the retained original claim remains exclusive");
-    CHECK(contender.setRenderTarget(candidate).has_value(),
+    CHECK(ClaimReleased(contender, contenderFault, candidate).has_value(),
           "a rejected candidate has no leaked native window claim");
     CHECK(contender.setRenderTarget(kOriginal).has_value(),
           "the contender can release the candidate");
@@ -112,11 +129,11 @@ void WindowClaims(SDL_Window *first, SDL_Window *candidate) {
           "both target overloads reject a change inside an open frame");
     CHECK(renderer.endFrame().has_value(), "the retained window still presents that frame");
   }
-  CHECK(owner.setRenderTarget(candidate).has_value(), "a closed frame permits replacement");
+  CHECK(ClaimReleased(owner, fault, candidate).has_value(), "a closed frame permits replacement");
   auto replacement = owner.swapChain();
   CHECK(renderer.beginFrame(replacement).has_value() && renderer.endFrame().has_value(),
         "the replacement window opens and presents a complete frame");
-  CHECK(contender.setRenderTarget(first).has_value(),
+  CHECK(ClaimReleased(contender, contenderFault, first).has_value(),
         "successful replacement releases the former native window claim");
 }
 

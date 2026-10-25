@@ -464,22 +464,17 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
   FrameGraphAllocations counts;
   const auto count = [&counts](const FrameResources &frame) {
     counts.Textures += frame.Targets.Count();
-    const std::array textures{&frame.Offscreen,
-                              &frame.TransmittanceLut,
-                              &frame.MultiScatterLut,
-                              &frame.SkyViewLut,
-                              &frame.EnvironmentSpecular,
-                              &frame.ShadowAtlas};
-    for (const std::unique_ptr<Native::Texture> *texture : textures) {
-      counts.Textures += static_cast<size_t>(static_cast<bool>(*texture));
+    const auto atmosphere = frame.Atmosphere.Allocations();
+    counts.Textures += atmosphere.Textures;
+    counts.Buffers += atmosphere.Buffers;
+    counts.Samplers += atmosphere.Samplers;
+    for (const auto *texture : {frame.Offscreen.get(), frame.ShadowAtlas.get()}) {
+      if (texture != nullptr) { ++counts.Textures; }
     }
-    for (const std::unique_ptr<Native::Buffer> *buffer :
-         {&frame.IrradianceBuffer, &frame.Pyramid, &frame.GroundPyramid}) {
-      counts.Buffers += static_cast<size_t>(static_cast<bool>(*buffer));
+    for (const auto *buffer : {frame.Pyramid.get(), frame.GroundPyramid.get()}) {
+      if (buffer != nullptr) { ++counts.Buffers; }
     }
-    for (const std::unique_ptr<Native::Sampler> *sampler : {&frame.Samp, &frame.LutSamp}) {
-      counts.Samplers += static_cast<size_t>(static_cast<bool>(*sampler));
-    }
+    if (frame.Samp) { ++counts.Samplers; }
   };
   count(State_.Frame);
   if (Candidate_ && Candidate_->Frame) { count(*Candidate_->Frame); }
@@ -487,14 +482,9 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
 }
 
 bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
+  if (AtmospherePasses::Owns(resource)) { return frame.Atmosphere.Has(resource); }
   switch (resource) {
     case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
-    case Resource::TransmittanceLut: return static_cast<bool>(frame.TransmittanceLut);
-    case Resource::MultiScatterLut: return static_cast<bool>(frame.MultiScatterLut);
-    case Resource::SkyViewLut: return static_cast<bool>(frame.SkyViewLut);
-    case Resource::EnvironmentSpecular: return static_cast<bool>(frame.EnvironmentSpecular);
-    case Resource::LutSampler: return static_cast<bool>(frame.LutSamp);
-    case Resource::IrradianceBuffer: return static_cast<bool>(frame.IrradianceBuffer);
     case Resource::DepthPyramid: return static_cast<bool>(frame.Pyramid);
     case Resource::GroundPyramid: return static_cast<bool>(frame.GroundPyramid);
     case Resource::GroundSelection: return true;
@@ -525,6 +515,7 @@ Native::Texture *SceneRenderer::Target(Resource resource) const {
 
 Native::Texture *
 SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t linearIndex) {
+  if (AtmospherePasses::Owns(resource)) { return frame.Atmosphere.Texture(resource); }
   switch (resource) {
     case Resource::OverlayAtlas: return nullptr;
 
@@ -538,10 +529,6 @@ SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t lin
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return nullptr;
-    case Resource::TransmittanceLut: return frame.TransmittanceLut.get();
-    case Resource::MultiScatterLut: return frame.MultiScatterLut.get();
-    case Resource::SkyViewLut: return frame.SkyViewLut.get();
-    case Resource::EnvironmentSpecular: return frame.EnvironmentSpecular.get();
     case Resource::ShadowAtlas: return frame.ShadowAtlas.get();
     case Resource::LinearSampler:
     case Resource::LutSampler:
@@ -633,12 +620,29 @@ bool SceneRenderer::Configure(Stage stage,
   return seat->Configure(*this, frame, plan, drawsGlass, error);
 }
 
+bool SceneRenderer::PrepareGroundMaterialBuffers(FrameResources &frame, std::string &error) {
+  auto &content = ActiveState().Content;
+  if (content.Ground.Ready()) { return true; }
+  const auto uploaded =
+      content.Ground.Replace(frame.Handles.Device, {}, {}, std::chrono::seconds(5));
+  if (!uploaded) {
+    error = uploaded.error().Message;
+    return false;
+  }
+  const GeometryRenderer::GroundBuffers buffers{.Classes = content.Ground.Classes(),
+                                                .Palette = content.Ground.Palette()};
+  content.Geometry.GroundFrom(buffers);
+  content.Glass.GroundFrom(buffers);
+  return true;
+}
+
 bool SceneRenderer::ConfigureGeometry(SceneRenderer &renderer,
                                       FrameResources &frame,
                                       const ExecutionPlan &plan,
                                       bool drawsGlass,
                                       std::string &error) {
   (void)plan;
+  if (!renderer.PrepareGroundMaterialBuffers(frame, error)) { return false; }
   return Accepted(renderer.ActiveState().Content.Geometry.Configure(
                       frame.GeometryPipelines, frame.Handles, nullptr, nullptr, drawsGlass),
                   error);
@@ -651,6 +655,7 @@ bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
                                    std::string &error) {
   (void)plan;
   (void)drawsGlass;
+  if (!renderer.PrepareGroundMaterialBuffers(frame, error)) { return false; }
   return Accepted(
       renderer.ActiveState().Content.Glass.Configure(frame.GlassPipelines,
                                                      frame.Handles,
@@ -742,11 +747,10 @@ bool SceneRenderer::ConfigureMediumTransmittance(SceneRenderer &renderer,
                                                  const ExecutionPlan &plan,
                                                  bool drawsGlass,
                                                  std::string &error) {
-  static_cast<void>(renderer);
+  (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  return Accepted(frame.MediumTransmittance.Configure(frame.Handles, frame.TransmittanceLut.get()),
-                  error);
+  return Accepted(frame.Atmosphere.Configure(Stage::MediumTransmittance, frame.Handles), error);
 }
 
 bool SceneRenderer::ConfigureMediumMultiScatter(SceneRenderer &renderer,
@@ -754,14 +758,10 @@ bool SceneRenderer::ConfigureMediumMultiScatter(SceneRenderer &renderer,
                                                 const ExecutionPlan &plan,
                                                 bool drawsGlass,
                                                 std::string &error) {
-  static_cast<void>(renderer);
+  (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  return Accepted(frame.MultiScatter.Configure(frame.Handles,
-                                               frame.TransmittanceLut.get(),
-                                               frame.LutSamp.get(),
-                                               frame.MultiScatterLut.get()),
-                  error);
+  return Accepted(frame.Atmosphere.Configure(Stage::MediumMultiScatter, frame.Handles), error);
 }
 
 bool SceneRenderer::ConfigureMediumRadiance(SceneRenderer &renderer,
@@ -769,15 +769,10 @@ bool SceneRenderer::ConfigureMediumRadiance(SceneRenderer &renderer,
                                             const ExecutionPlan &plan,
                                             bool drawsGlass,
                                             std::string &error) {
-  static_cast<void>(renderer);
+  (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  return Accepted(frame.Radiance.Configure(frame.Handles,
-                                           frame.TransmittanceLut.get(),
-                                           frame.MultiScatterLut.get(),
-                                           frame.LutSamp.get(),
-                                           frame.SkyViewLut.get()),
-                  error);
+  return Accepted(frame.Atmosphere.Configure(Stage::MediumRadiance, frame.Handles), error);
 }
 
 bool SceneRenderer::ConfigureSky(SceneRenderer &renderer,
@@ -788,11 +783,12 @@ bool SceneRenderer::ConfigureSky(SceneRenderer &renderer,
   static_cast<void>(renderer);
   (void)plan;
   (void)drawsGlass;
-  return Accepted(frame.Sky.Configure(frame.Handles,
-                                      {.SkyView = frame.SkyViewLut.get(),
-                                       .Transmittance = frame.TransmittanceLut.get(),
-                                       .Lut = frame.LutSamp.get()}),
-                  error);
+  return Accepted(
+      frame.Sky.Configure(frame.Handles,
+                          {.SkyView = frame.Atmosphere.Texture(Resource::SkyViewLut),
+                           .Transmittance = frame.Atmosphere.Texture(Resource::TransmittanceLut),
+                           .Lut = frame.Atmosphere.Sampler()}),
+      error);
 }
 
 bool SceneRenderer::ConfigureAerialPerspective(SceneRenderer &renderer,
@@ -806,10 +802,10 @@ bool SceneRenderer::ConfigureAerialPerspective(SceneRenderer &renderer,
       frame.Aerial.Configure(frame.Handles,
                              {.Scene = Target(frame, plan.Bound(Resource::SceneComposited), 0),
                               .Depth = frame.Targets.Get(Resource::SceneDepth),
-                              .SkyView = frame.SkyViewLut.get(),
-                              .Transmittance = frame.TransmittanceLut.get(),
+                              .SkyView = frame.Atmosphere.Texture(Resource::SkyViewLut),
+                              .Transmittance = frame.Atmosphere.Texture(Resource::TransmittanceLut),
                               .Exact = frame.Samp.get(),
-                              .Lut = frame.LutSamp.get()},
+                              .Lut = frame.Atmosphere.Sampler()},
                              TextureFormatOf(plan.Format(Resource::SceneAerial))),
       error);
 }
@@ -826,16 +822,11 @@ bool SceneRenderer::ConfigureLightVisibility(SceneRenderer &renderer,
 }
 
 void SceneRenderer::ApplyWorldDeclarations() {
-  ActiveFrame().MediumTransmittance.Declare(ActiveState().Medium);
-  ActiveFrame().MultiScatter.Declare(ActiveState().Medium);
-  ActiveFrame().Radiance.Declare(
-      ActiveState().Medium, ActiveState().CosSunZenith, ActiveState().EyeHeightM);
-  ActiveFrame().SkyIrradianceStage.Declare(ActiveState().Medium, ActiveState().CosSunZenith);
-  ActiveFrame().EnvironmentSpecularStage.Declare(
-      ActiveState().Medium,
-      ActiveState().CosSunZenith,
-      ActiveState().EyeHeightM,
-      ActiveState().Content.Geometry.Environment().GroundAlbedo);
+  ActiveFrame().Atmosphere.Declare(
+      {.Air = ActiveState().Medium,
+       .CosSunZenith = ActiveState().CosSunZenith,
+       .EyeHeightM = ActiveState().EyeHeightM,
+       .GroundAlbedo = ActiveState().Content.Geometry.Environment().GroundAlbedo});
   if (ActiveState().SkyDeclared) {
     const SkyStanding stands = {.SunDir = ActiveState().SkyToSun,
                                 .WorldUp = ActiveState().SkyUp,
@@ -845,9 +836,9 @@ void SceneRenderer::ApplyWorldDeclarations() {
   }
   const GeometryRenderer::Reflections reflections{
       .Atlas = ActiveState().MediumDeclared && ActiveState().SkyDeclared
-                   ? ActiveFrame().EnvironmentSpecular.get()
+                   ? ActiveFrame().Atmosphere.Texture(Resource::EnvironmentSpecular)
                    : nullptr,
-      .Sampler = ActiveFrame().LutSamp.get(),
+      .Sampler = ActiveFrame().Atmosphere.Sampler(),
       .Up = ActiveState().SkyUp,
       .ToSun = ActiveState().SkyToSun};
   ActiveState().Content.Geometry.ReflectionsFrom(reflections);
@@ -985,19 +976,19 @@ Native::Result<void> SceneRenderer::EncodePresent([[maybe_unused]] const FrameCo
 Native::Result<void> SceneRenderer::EncodeMediumTransmittance(const FrameContext &ctx,
                                                               const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().MediumTransmittance.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::MediumTransmittance, into);
 }
 
 Native::Result<void> SceneRenderer::EncodeMediumMultiScatter(const FrameContext &ctx,
                                                              const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().MultiScatter.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::MediumMultiScatter, into);
 }
 
 Native::Result<void> SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx,
                                                          const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().Radiance.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::MediumRadiance, into);
 }
 
 bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
@@ -1118,19 +1109,13 @@ bool SceneRenderer::ConfigureEnvironmentSpecular(SceneRenderer &renderer,
   (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  return Accepted(
-      frame.EnvironmentSpecularStage.Configure(frame.Handles,
-                                               {.Sky = frame.SkyViewLut.get(),
-                                                .Irradiance = frame.IrradianceBuffer.get(),
-                                                .Sampler = frame.LutSamp.get(),
-                                                .Target = frame.EnvironmentSpecular.get()}),
-      error);
+  return Accepted(frame.Atmosphere.Configure(Stage::EnvironmentSpecular, frame.Handles), error);
 }
 
 Native::Result<void> SceneRenderer::EncodeEnvironmentSpecular(const FrameContext &ctx,
                                                               const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().EnvironmentSpecularStage.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::EnvironmentSpecular, into);
 }
 
 bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
@@ -1138,34 +1123,16 @@ bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
                                         const ExecutionPlan &plan,
                                         bool drawsGlass,
                                         std::string &error) {
+  (void)renderer;
   (void)plan;
   (void)drawsGlass;
-  if (!renderer.ActiveState().Content.Ground.Ready()) {
-    const auto uploaded = renderer.ActiveState().Content.Ground.Replace(
-        frame.Handles.Device, {}, {}, std::chrono::seconds(5));
-    if (!uploaded) {
-      error = uploaded.error().Message;
-      return false;
-    }
-    renderer.ActiveState().Content.Geometry.GroundFrom(
-        {.Classes = renderer.ActiveState().Content.Ground.Classes(),
-         .Palette = renderer.ActiveState().Content.Ground.Palette()});
-    renderer.ActiveState().Content.Glass.GroundFrom(
-        {.Classes = renderer.ActiveState().Content.Ground.Classes(),
-         .Palette = renderer.ActiveState().Content.Ground.Palette()});
-  }
-  return Accepted(frame.SkyIrradianceStage.Configure(frame.Handles,
-                                                     frame.TransmittanceLut.get(),
-                                                     frame.MultiScatterLut.get(),
-                                                     frame.LutSamp.get(),
-                                                     frame.IrradianceBuffer.get()),
-                  error);
+  return Accepted(frame.Atmosphere.Configure(Stage::Irradiance, frame.Handles), error);
 }
 
 Native::Result<void> SceneRenderer::EncodeIrradiance(const FrameContext &ctx,
                                                      const PassRecording &into) {
   (void)ctx;
-  return ActiveFrame().SkyIrradianceStage.Encode(into);
+  return ActiveFrame().Atmosphere.Encode(Stage::Irradiance, into);
 }
 
 bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
@@ -1238,7 +1205,7 @@ Native::Result<void> SceneRenderer::EncodeLightVisibility(const FrameContext &ct
   Spent_[static_cast<size_t>(Stage::LightVisibility)].DeviceBytes =
       static_cast<uint64_t>(kShadowAtlasPx) * kShadowAtlasPx * sizeof(float);
   ActiveState().Content.Geometry.ShadowedBy(ActiveFrame().ShadowAtlas.get(),
-                                            ActiveFrame().LutSamp.get(),
+                                            ActiveFrame().Atmosphere.Sampler(),
                                             ActiveState().ShadowLightIndex,
                                             ActiveFrame().Shadow.LightFromWorld(),
                                             ActiveFrame().Shadow.Regions(),

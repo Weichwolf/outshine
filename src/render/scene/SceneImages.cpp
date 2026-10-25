@@ -27,67 +27,23 @@ Native::Result<void> Keep(Native::Result<std::unique_ptr<Native::Buffer>> made,
 }
 }
 
-Native::Result<void> SceneRenderer::CreateSampler(FrameResources &frame, Resource resource) {
+Native::Result<void> SceneRenderer::CreateSampler(FrameResources &frame) {
   auto made = Device_->CreateSampler({.Min = Native::Filter::Linear,
                                       .Mag = Native::Filter::Linear,
-                                      .Mip = resource == Resource::LinearSampler
-                                                 ? Native::Filter::Linear
-                                                 : Native::Filter::Nearest});
+                                      .Mip = Native::Filter::Linear});
   if (!made) { return std::unexpected(made.error()); }
-  (resource == Resource::LinearSampler ? frame.Samp : frame.LutSamp) = std::move(*made);
+  frame.Samp = std::move(*made);
   return {};
-}
-
-Native::Result<void> SceneRenderer::CreateAtmosphereLut(FrameResources &frame,
-                                                        const ExecutionPlan &plan,
-                                                        Resource resource) {
-  struct Shape {
-    uint32_t Width, Height;
-    std::unique_ptr<Native::Texture> *Into;
-  };
-
-  const Shape shape = [&frame, resource] -> Shape {
-    switch (resource) {
-      case Resource::MultiScatterLut:
-        return {.Width = kMultiScatterLutSize,
-                .Height = kMultiScatterLutSize,
-                .Into = &frame.MultiScatterLut};
-      case Resource::EnvironmentSpecular:
-        return {.Width = kEnvironmentWidth,
-                .Height = kEnvironmentHeight,
-                .Into = &frame.EnvironmentSpecular};
-      case Resource::SkyViewLut:
-        return {.Width = kSkyViewLutWidth, .Height = kSkyViewLutHeight, .Into = &frame.SkyViewLut};
-      default:
-        return {.Width = kTransmittanceLutWidth,
-                .Height = kTransmittanceLutHeight,
-                .Into = &frame.TransmittanceLut};
-    }
-  }();
-  return Keep(
-      Device_->CreateTexture({.Width = shape.Width,
-                              .Height = shape.Height,
-                              .Texels = TextureFormatOf(plan.Format(resource)),
-                              .Use = Native::TextureUse::Storage | Native::TextureUse::Sampled |
-                                     Native::TextureUse::CopySource}),
-      *shape.Into);
 }
 
 Native::Result<void>
 SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource) {
   using enum Native::TextureUse;
+  if (AtmospherePasses::Owns(resource)) {
+    return frame.Atmosphere.Create(*Device_, plan, resource);
+  }
   switch (resource) {
-    case Resource::LinearSampler:
-    case Resource::LutSampler: return CreateSampler(frame, resource);
-    case Resource::TransmittanceLut:
-    case Resource::MultiScatterLut:
-    case Resource::SkyViewLut:
-    case Resource::EnvironmentSpecular: return CreateAtmosphereLut(frame, plan, resource);
-    case Resource::IrradianceBuffer:
-      return Keep(Device_->CreateBuffer(
-                      {.Bytes = kIrradianceFloats * sizeof(float),
-                       .Use = Native::BufferUse::Storage | Native::BufferUse::CopySource}),
-                  frame.IrradianceBuffer);
+    case Resource::LinearSampler: return CreateSampler(frame);
     case Resource::GroundPyramid:
     case Resource::DepthPyramid:
       return Keep(

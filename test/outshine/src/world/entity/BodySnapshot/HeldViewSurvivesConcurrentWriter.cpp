@@ -9,7 +9,7 @@ int main() {
   using namespace outshine::Test;
   World::EntityState world;
   CHECK(world.Open(1), "one native world opens");
-  const auto entity = world.Registry().addEntity(Role::Body);
+  const auto entity = world.Registry().addEntity();
   CHECK(entity, "native owner exists");
   if (!entity) { return Report(); }
   World::EntityBodyState body;

@@ -7,12 +7,17 @@ int main() {
   using namespace outshine::Test;
   Scenario::Document scene;
   scene.Room = 4;
-  scene.Kinds.push_back({.Name = "actor"});
-  scene.Instances.push_back({.Of = "actor", .Id = "actor"});
+  Scenario::Kind actor;
+  actor.Name = "actor";
+  scene.Kinds.push_back(actor);
+  Scenario::Instance instance;
+  instance.Of = "actor";
+  instance.Id = "actor";
+  scene.Instances.push_back(instance);
   Engine engine;
   CHECK(engine.declare(scene) && engine.assemble(), "kind and instance have separate namespaces");
-  EntityRegistry *const original = &engine.entities();
-  const auto marker = original->addEntity(Role::Tool);
+  World::EntityRegistry *const original = &engine.entities();
+  const auto marker = original->addEntity();
   CHECK(marker && original->alive(*marker), "live marker created");
   if (!marker) { return Report(); }
   std::array<Scenario::Document, 4> invalid{scene, scene, scene, scene};
@@ -31,11 +36,23 @@ int main() {
     CHECK(original->alive(*marker), "failed assembly preserves live entities");
   }
   auto linked = scene;
-  linked.Kinds.push_back({.Name = "derived", .Inherits = "actor"});
-  linked.Instances.push_back({.Of = "derived", .Id = "child", .In = "actor"});
+  Scenario::Kind derived;
+  derived.Name = "derived";
+  derived.Inherits = "actor";
+  linked.Kinds.push_back(derived);
+  Scenario::Instance child;
+  child.Of = "derived";
+  child.Id = "child";
+  child.In = "actor";
+  linked.Instances.push_back(child);
   CHECK(engine.declare(linked) && engine.assemble(), "valid inheritance and containment recover");
-  std::array<Entity, 4> from{}, to{};
-  CHECK(engine.entities().linkedPairs(Relation::HeldBy, from, to) == 1,
-        "unique instance names produce one containment relation");
+  World::EntityRegistry *const linkedOwner = &engine.entities();
+  const auto linkedMarker = linkedOwner->addEntity();
+  CHECK(linkedMarker, "the published valid forest has spare identity capacity");
+  if (!linkedMarker) { return Report(); }
+  linked.Instances.front().In = "child";
+  CHECK(engine.declare(linked) && !engine.assemble(), "a cyclic candidate cannot publish");
+  CHECK(&engine.entities() == linkedOwner && linkedOwner->alive(*linkedMarker),
+        "cycle rejection preserves the existing registry and its live entities");
   return Report();
 }
