@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from build_building_coverage import read_field
+from build_building_coverage import field_cut, read_field
 from building_coverage_field import (
     area_field,
     build_field,
@@ -81,7 +81,7 @@ class BuildingCoverageField(unittest.TestCase):
         ) as directory:
             root = Path(directory)
             node = root / "node.npz"
-            node.write_bytes(b"opaque original retained")
+            np.savez(node, g__group_coverage=np.ones((1, 3), np.float32))
             digest = np.frombuffer(hashlib.sha256(node.read_bytes()).digest(), np.uint8)
             np.savez(root / "field.npz", **field, source_sha256=digest)
             with patch(
@@ -91,6 +91,17 @@ class BuildingCoverageField(unittest.TestCase):
                 loaded, cost = read_field(root / "field.npz", node, 1)
             self.assertEqual(cost, node.stat().st_size)
             np.testing.assert_array_equal(loaded["values"], field["values"])
+            sidecars = root / "sidecars"
+            sidecars.mkdir()
+            np.savez(sidecars / node.name, **field, source_sha256=digest)
+            cut, work = field_cut(
+                root, sidecars, {"node_files": {"0": node.name}}, {"nodes": [0]}, 1
+            )
+            np.testing.assert_array_equal(cut["values"], field["values"])
+            self.assertEqual(work["resident_field_array_bytes"], 864)
+            self.assertEqual(work["decoded_field_bytes"], 896)
+            self.assertEqual(work["decoded_node_group_count_array_bytes"], 12)
+            self.assertEqual(work["hashed_node_container_bytes"], node.stat().st_size)
             node.write_bytes(b"changed source")
             with self.assertRaisesRegex(ValueError, "source node differs"):
                 read_field(root / "field.npz", node, 1)

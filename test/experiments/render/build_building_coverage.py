@@ -91,13 +91,15 @@ def read_field(path, source, groups):
 
 
 def field_cut(root, field_root, case, query, groups):
-    fields, hashed = [], 0
+    fields, hashed, metadata = [], 0, 0
     for node in query["nodes"]:
         name = case["node_files"].get(str(node))
         if name is None:
             continue
         with np.load(root / name, allow_pickle=False) as source:
-            count = len(source["g__group_coverage"])
+            group_coverage = source["g__group_coverage"]
+            count = len(group_coverage)
+            metadata += group_coverage.nbytes
         field, cost = read_field(field_root / name, root / name, count)
         fields.append(field)
         hashed += cost
@@ -106,7 +108,10 @@ def field_cut(root, field_root, case, query, groups):
     result = {k: np.concatenate([f[k] for f in fields]) for k in ("values", "bounds")}
     validate_field(result, groups)
     return result, {
-        "decoded_field_bytes": sum(v.nbytes for v in result.values()),
+        "resident_field_array_bytes": sum(v.nbytes for v in result.values()),
+        "decoded_field_bytes": sum(v.nbytes for v in result.values())
+        + 32 * len(fields),
+        "decoded_node_group_count_array_bytes": metadata,
         "hashed_node_container_bytes": hashed,
     }
 
