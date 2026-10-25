@@ -378,6 +378,47 @@ size_t TilePool::ByteCacheBytes() const {
   return bytes;
 }
 
+size_t TilePool::EvictSourceBytes(size_t bytes) {
+  if (bytes == 0) { return 0; }
+  size_t freed = 0;
+  size_t evicted = 0;
+  {
+    const std::scoped_lock lock(CacheMutex_);
+    const auto eligible = [](const CacheEntry &entry) {
+      return !entry.Data.empty() && !entry.Absent && !entry.Failure;
+    };
+    std::vector<size_t> order;
+    order.reserve(Cache_.size());
+    for (size_t at = 0; at < Cache_.size(); ++at) {
+      if (eligible(Cache_[at])) { order.push_back(at); }
+    }
+    std::ranges::sort(order, {}, [this](size_t at) { return Cache_[at].Used; });
+    uint64_t evictionCutoff = 0;
+    size_t payload = 0;
+    for (const size_t at : order) {
+      freed += CapacityBytes(Cache_[at].Data);
+      payload += Cache_[at].Data.size();
+      evictionCutoff = Cache_[at].Used;
+      if (freed >= bytes) { break; }
+    }
+    if (freed == 0) { return 0; }
+    evicted = std::erase_if(Cache_, [&](const CacheEntry &entry) {
+      return eligible(entry) && entry.Used <= evictionCutoff;
+    });
+    CacheBytes_ -= payload;
+    CacheAt_.resize(Cache_.size());
+    for (size_t at = 0; at < Cache_.size(); ++at) {
+      CacheAt_[at] = {.Digest = RequestKey(Cache_[at].Key), .Entry = at};
+    }
+    std::ranges::sort(CacheAt_, {}, &CacheIndex::Digest);
+  }
+  if (evicted != 0) {
+    const std::scoped_lock ledger(LedgerMutex_);
+    Ledger_.Evictions += static_cast<long long>(evicted);
+  }
+  return freed;
+}
+
 std::optional<size_t> TilePool::CacheEntryOf(std::string_view key) const {
   const uint64_t digest = RequestKey(key);
   const auto first = std::ranges::lower_bound(CacheAt_, digest, {}, &CacheIndex::Digest);

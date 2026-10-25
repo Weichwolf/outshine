@@ -94,32 +94,41 @@ Geometry Geometry::clone() const {
 
 std::expected<void, GeometryAppendError> Geometry::append(const Geometry &source) {
   if (!source.wellFormed()) { return std::unexpected(GeometryAppendError::MalformedSource); }
-  if (Held_->Surfaces.size() >
-          static_cast<size_t>(std::numeric_limits<int>::max()) - source.Held_->Surfaces.size() ||
-      Held_->Images.size() >
-          static_cast<size_t>(std::numeric_limits<int>::max()) - source.Held_->Images.size()) {
+  const auto fits = [](const auto &held, size_t added) {
+    const size_t limit =
+        std::min(held.max_size(), static_cast<size_t>(std::numeric_limits<int>::max()));
+    return held.size() <= limit && added <= limit - held.size();
+  };
+  const size_t partsMost =
+      std::min(Held_->Parts.max_size(), static_cast<size_t>(std::numeric_limits<int>::max()));
+  if (Held_->Live > partsMost || source.Held_->Live > partsMost - Held_->Live ||
+      !fits(Held_->Surfaces, source.Held_->Surfaces.size()) ||
+      !fits(Held_->Images, source.Held_->Images.size()) ||
+      !fits(Held_->Lamps, source.Held_->Lamps.size())) {
     return std::unexpected(GeometryAppendError::CapacityExceeded);
   }
-  Geometry candidate = clone();
-  const int imageBase = static_cast<int>(candidate.Held_->Images.size());
-  const int materialBase = static_cast<int>(candidate.Held_->Surfaces.size());
-  candidate.Held_->Images.insert(
-      candidate.Held_->Images.end(), source.Held_->Images.begin(), source.Held_->Images.end());
+  if (this == &source) {
+    const Geometry snapshot = source.clone();
+    return append(snapshot);
+  }
+  const int imageBase = static_cast<int>(Held_->Images.size());
+  const int materialBase = static_cast<int>(Held_->Surfaces.size());
+  Held_->Parts.resize(Held_->Live);
+  Held_->Images.insert(
+      Held_->Images.end(), source.Held_->Images.begin(), source.Held_->Images.end());
   for (Held::Named surface : source.Held_->Surfaces) {
     const auto remap = [imageBase](SurfaceMap &map) {
       if (map.Image >= 0) { map.Image += imageBase; }
     };
     for (auto *map : MaterialMaps(surface.Surface)) { remap(*map); }
-    candidate.Held_->Surfaces.push_back(std::move(surface));
+    Held_->Surfaces.push_back(std::move(surface));
   }
   for (Held::Piece part : std::span(source.Held_->Parts).first(source.Held_->Live)) {
     if (part.Material >= 0) { part.Material += materialBase; }
-    candidate.Held_->Parts.push_back(std::move(part));
-    ++candidate.Held_->Live;
+    Held_->Parts.push_back(std::move(part));
+    ++Held_->Live;
   }
-  candidate.Held_->Lamps.insert(
-      candidate.Held_->Lamps.end(), source.Held_->Lamps.begin(), source.Held_->Lamps.end());
-  *this = std::move(candidate);
+  Held_->Lamps.insert(Held_->Lamps.end(), source.Held_->Lamps.begin(), source.Held_->Lamps.end());
   return {};
 }
 

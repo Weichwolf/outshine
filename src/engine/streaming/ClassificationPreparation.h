@@ -166,6 +166,7 @@ public:
   size_t HeapBytes() const;
 
   void Settle();
+  void ReleaseBuildInputs();
 
 private:
   std::vector<::outshine::Generators::Osm::OsmField::Declared> Declared_;
@@ -206,6 +207,7 @@ private:
           Zoom(how.Zoom) {}
 
     void Settle();
+    void Reset();
     [[nodiscard]] size_t HeapBytes() const;
   };
 

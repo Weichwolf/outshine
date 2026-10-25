@@ -93,6 +93,26 @@ void Engine::State::PublishGroundCandidateMeasurements(const GroundWorldCandidat
   Published.RecordMetric("ground candidate: direct CPU product peak",
                          static_cast<double>(state.ProductPeakBytes()),
                          "bytes");
+  const auto &peak = state.ProductPeakMemory();
+  constexpr std::array names{"ground candidate: peak candidate",
+                             "ground candidate: peak patchwork",
+                             "ground candidate: peak source coverage",
+                             "ground candidate: peak survey",
+                             "ground candidate: peak building stamps",
+                             "ground candidate: peak deformation",
+                             "ground candidate: peak corridor stamps",
+                             "ground candidate: peak road stamps"};
+  const std::array bytes{peak.Candidate,
+                         peak.Patchwork,
+                         peak.SourceCoverage,
+                         peak.Survey,
+                         peak.BuildingStamps,
+                         peak.Deformation,
+                         peak.CorridorStamps,
+                         peak.RoadStamps};
+  for (size_t at = 0; at < names.size(); ++at) {
+    Published.RecordMetric(names[at], static_cast<double>(bytes[at]), "bytes");
+  }
   Published.RecordMetric("ground candidate: CPU products retained for retirement",
                          static_cast<double>(state.RetainedProductBytes()),
                          "bytes");

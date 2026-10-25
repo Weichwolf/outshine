@@ -3,23 +3,29 @@
 #include "Check.h"
 
 #include <atomic>
+#include <cstdint>
+#include <cstddef>
+#include <utility>
 #include <memory>
+#include <limits>
 #include <string>
 #include <vector>
 #include <expected>
 
 namespace {
+constexpr int kRefusalInspections = 20;
+constexpr double kAfterRetryDeadlineMs = 1000000.0;
 using namespace outshine::Data;
 
 class ClockTransport final : public Transport {
 public:
   std::atomic<double> Now = 0.0;
 
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 
   double NowMs() override { return Now.load(); }
 };
@@ -39,18 +45,23 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &at, Transport &) const override {
+  FetchStart Begin(const Address &at, Transport & /*transport*/) const override {
     ++Starts;
     if (Ready.load()) { return Ticket::None; }
-    return std::unexpected(at.Tile()->X == 0 ? SourceFailureReason::OfflineMiss
-                                             : SourceFailureReason::Unavailable);
+    const auto tile = at.Tile();
+    if (!tile) { return std::unexpected(SourceFailureReason::ProviderRefused); }
+    return std::unexpected(tile->X == 0 ? SourceFailureReason::OfflineMiss
+                                        : SourceFailureReason::Unavailable);
   }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     return SourceResponse::Delivered({7});
   }
 };
@@ -96,13 +107,17 @@ int main() {
   const auto starts = control->Starts.load();
   const auto refusedBytes = pool.ByteCacheBytes();
   const auto refused = pool.Counters();
-  for (int i = 0; i < 20; ++i) {
+  CHECK(pool.EvictSourceBytes(std::numeric_limits<size_t>::max()) == 0 &&
+            pool.ByteCacheBytes() == refusedBytes && pool.Refusal(missing) &&
+            pool.Refusal(transient),
+        "memory pressure preserves refusal identity and the original retry schedule");
+  for (int i = 0; i < kRefusalInspections; ++i) {
     CHECK(pool.Refusal(missing).has_value(), "refusal remains observable");
   }
   CHECK(control->Starts == starts && pool.ByteCacheBytes() == refusedBytes &&
             pool.Counters().Posts == refused.Posts && pool.Counters().Fetches == refused.Fetches,
         "repeated inspection neither retries nor changes residency");
-  transport.Now = 1000000.0;
+  transport.Now = kAfterRetryDeadlineMs;
   CHECK(!pool.Refusal(missing) && !pool.Refusal(transient),
         "expired refusal is not reported as a currently blocked request");
   control->Ready = true;

@@ -98,12 +98,33 @@ public:
 
   [[nodiscard]] bool Overflowing() const { return Overflowing_; }
 
-  [[nodiscard]] std::size_t HeapBytes() const {
-    return Cls_.HeapBytes() + Footprints_.HeapBytes() + WaterBodies_.HeapBytes() +
-           WaterProducer_.HeapBytes() + Ways_.HeapBytes() +
-           (Vectors_ ? Vectors_->HeapBytes() : 0u) + (Pool_ ? Pool_->ResidentBytes() : 0u) +
-           (Ground_ ? Ground_->HeapBytes() : 0u);
+  struct StagingBytes {
+    size_t Classification = 0;
+    size_t Buildings = 0;
+    size_t Water = 0;
+    size_t WaterBuild = 0;
+    size_t Streets = 0;
+    size_t Vectors = 0;
+    size_t Pool = 0;
+    size_t Ground = 0;
+
+    [[nodiscard]] size_t Total() const noexcept {
+      return Classification + Buildings + Water + WaterBuild + Streets + Vectors + Pool + Ground;
+    }
+  };
+
+  [[nodiscard]] StagingBytes Staging() const {
+    return {.Classification = Cls_.HeapBytes(),
+            .Buildings = Footprints_.HeapBytes(),
+            .Water = WaterBodies_.HeapBytes(),
+            .WaterBuild = WaterProducer_.HeapBytes(),
+            .Streets = Ways_.HeapBytes(),
+            .Vectors = Vectors_ ? Vectors_->HeapBytes() : 0u,
+            .Pool = Pool_ ? Pool_->ResidentBytes() : 0u,
+            .Ground = Ground_ ? Ground_->HeapBytes() : 0u};
   }
+
+  [[nodiscard]] std::size_t HeapBytes() const { return Staging().Total(); }
 
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
 

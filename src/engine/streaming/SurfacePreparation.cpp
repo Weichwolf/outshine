@@ -340,9 +340,12 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
   for (size_t pass = 0; pass < budget.IngestTilesMost; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       const auto settleAt = std::chrono::steady_clock::now();
+      Cls_.ReleaseBuildInputs();
       Settle();
-      metrics.SettlementMs += ElapsedMs(settleAt);
       Settled_ = inputs;
+      const size_t held = HeapBytes();
+      if (held > kHoldsBytes && Pool_) { (void)Pool_->EvictSourceBytes(held - kHoldsBytes); }
+      metrics.SettlementMs += ElapsedMs(settleAt);
       if (HeapBytes() > kHoldsBytes) {
         ++Overflowed_;
         Overflowing_ = true;

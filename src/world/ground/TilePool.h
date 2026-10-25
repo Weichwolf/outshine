@@ -141,6 +141,7 @@ public:
   [[nodiscard]] bool Carries() const { return !Carriers_.empty(); }
 
   size_t ByteCacheBytes() const;
+  [[nodiscard]] size_t EvictSourceBytes(size_t bytes);
   [[nodiscard]] size_t TerrainMetadataBytes() const noexcept;
   [[nodiscard]] std::expected<TerrainRevisionIndex::Reservation, TerrainRevisionIndex::Error>
   PrepareTerrainMetadata(std::span<const Data::TileId> fields);

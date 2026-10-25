@@ -739,10 +739,19 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
 }
 
 Result Engine::State::PreloadOverflow() {
-  Error = "the world at this place holds " + std::to_string(World.Stack.HeapBytes()) +
-          " bytes against a ceiling of " + std::to_string(Ground::SurfacePreparation::kHoldsBytes) +
-          ", so it stopped ingesting part-way. What it did take depends on which tiles had "
-          "landed when the round ran, which is a picture the declaration does not name";
+  const auto bytes = World.Stack.Staging();
+  Error =
+      "the world at this place holds " + std::to_string(bytes.Total()) +
+      " bytes against a ceiling of " + std::to_string(Ground::SurfacePreparation::kHoldsBytes) +
+      ", so it stopped ingesting part-way. What it did take depends on which tiles had "
+      "landed when the round ran, which is a picture the declaration does not name" +
+      "; staging bytes: classes=" + std::to_string(bytes.Classification) +
+      " buildings=" + std::to_string(bytes.Buildings) + " water=" + std::to_string(bytes.Water) +
+      " waterBuild=" + std::to_string(bytes.WaterBuild) +
+      " streets=" + std::to_string(bytes.Streets) + " vectors=" + std::to_string(bytes.Vectors) +
+      " pool=" + std::to_string(bytes.Pool) + " ground=" + std::to_string(bytes.Ground) +
+      "; building bytes: prints=" + std::to_string(World.Stack.Footprints().PrintBytes()) +
+      " measurements=" + std::to_string(World.Stack.Footprints().MeasurementBytes());
   return std::unexpected(Error);
 }
 

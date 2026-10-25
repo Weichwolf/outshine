@@ -197,17 +197,17 @@ void WorldRegionBuildState::SamplesClassComponents(
   return static_cast<uint8_t>(Schedule_.CurrentStage()) + 6u;
 }
 
-[[nodiscard]] size_t WorldRegionBuildState::CurrentProductBytes() const noexcept {
-  const size_t phaseBytes = (Patchwork_ ? Patchwork_->HeapBytes() : 0u) +
-                            RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
-                            RoadHeightCoverage_.SelectedRouteIndices.capacity() * sizeof(size_t) +
-                            Corridors_.capacity() * sizeof(EarthworkStamp) +
-                            Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f) +
-                            (BuildingEarthworks_ ? BuildingEarthworks_->HeapBytes() : 0u) +
-                            (TerrainDeformation_ ? TerrainDeformation_->HeapBytes() : 0u);
-  const size_t candidateBytes =
-      BuildingEarthworks_ ? StampingCandidateHeapBytes_ : Candidate_.OwnedHeapBytes();
-  return candidateBytes + phaseBytes + CorridorHeapBytes_ + RoadEarthworkHeapBytes_ +
-         RoadEarthworks_.capacity() * sizeof(EarthworkStamp);
+[[nodiscard]] WorldRegionBuildState::ProductMemory
+WorldRegionBuildState::CurrentProductMemory() const noexcept {
+  return {
+      .Candidate = BuildingEarthworks_ ? StampingCandidateHeapBytes_ : Candidate_.OwnedHeapBytes(),
+      .Patchwork = Patchwork_ ? Patchwork_->HeapBytes() : 0u,
+      .SourceCoverage = RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
+                        RoadHeightCoverage_.SelectedRouteIndices.capacity() * sizeof(size_t),
+      .Survey = Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f),
+      .BuildingStamps = BuildingEarthworks_ ? BuildingEarthworks_->HeapBytes() : 0u,
+      .Deformation = TerrainDeformation_ ? TerrainDeformation_->HeapBytes() : 0u,
+      .CorridorStamps = Corridors_.capacity() * sizeof(EarthworkStamp) + CorridorHeapBytes_,
+      .RoadStamps = RoadEarthworkHeapBytes_ + RoadEarthworks_.capacity() * sizeof(EarthworkStamp)};
 }
 }
