@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from xml.sax.saxutils import quoteattr
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,9 +24,9 @@ SCENARIO = """<scenario>
       pitchDeg="-30" samplesHeight="no"/>
 </view></views>
 </scenario>"""
-XML = """<providers><provider kind="osm" dataset="openstreetmap"
+XML = f"""<providers><provider kind="osm" dataset="openstreetmap"
 pin="sha256:f50914eac077325eee1b3e88eae0eeffac58ff086e180cba4ec8734e94661d7f"
-location="world/osm/HockenheimringGrandPrix.osm" whenAbsent="fail"
+location={quoteattr(str(ROOT / "test/outshine/data/osm/HockenheimringGrandPrix.osm"))} whenAbsent="fail"
 westDeg="8.54" southDeg="49.315" eastDeg="8.61" northDeg="49.34"/></providers>"""
 AREA = """<osm><area kind="building" heightM="{height}"
 points="49.3274,8.5659 49.3274,8.5661 49.3276,8.5661 49.3276,8.5659"/></osm>"""
@@ -95,7 +96,7 @@ class DeclaredPlaceAssets(unittest.TestCase):
         self.capture(hit=0)
         self.capture(hit=1)
 
-    def test_shipped_xml_reuses_complete_asset(self):
+    def test_local_xml_reuses_complete_asset(self):
         self.scenario(providers=XML)
         self.capture(hit=0)
         self.capture(hit=1)

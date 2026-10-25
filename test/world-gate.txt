@@ -13,6 +13,7 @@ outshine/src/world
 outshine/src/render
 outshine/src/engine
 outshine/src/scenario
+outshine/src/scripting
 outshine/src/sources
 outshine/src/storage
 outshine/src/client

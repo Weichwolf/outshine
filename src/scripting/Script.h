@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_BASE_FORMAT_SCRIPT_H
-#define OUTSHINE_BASE_FORMAT_SCRIPT_H
+#ifndef OUTSHINE_SCRIPTING_SCRIPT_H
+#define OUTSHINE_SCRIPTING_SCRIPT_H
 
 #include <span>
 #include <cstddef>

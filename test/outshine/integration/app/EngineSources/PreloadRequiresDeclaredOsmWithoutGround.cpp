@@ -1,10 +1,20 @@
+#include "HockenheimCircuitFixture.h"
 #include "EngineFactory.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
+#include <utility>
 #include "Check.h"
 
 #include <cstdlib>
 #include <filesystem>
+#include <system_error>
+
+namespace Circuit = outshine::Test::HockenheimFixture;
+
+namespace {
+constexpr outshine::Camera::Perspective kSourceProjection{.FovDeg = 60, .NearM = 0.2, .FarM = 100};
+constexpr double kMissingPreloadS = 0.2;
+}
 
 int main() {
   using namespace outshine;
@@ -19,18 +29,14 @@ int main() {
     Scenario::View view;
     view.Id = "source";
     view.Placement = Scenario::CameraPlacement::Local;
-    view.Sees.setProjection(Camera::Perspective{.FovDeg = 60, .NearM = 0.2, .FarM = 100});
+    view.Sees.setProjection(kSourceProjection);
     scene.Views.push_back(view);
-    scene.Providers.push_back(
-        {.Kind = "osm",
-         .Revision = "original-r1",
-         .Missing = Data::MissingDataPolicy::Fail,
-         .Dataset = "openstreetmap.original",
-         .Location = "src/assets/world/osm/HockenheimringGrandPrix.osm",
-         .Coverage = GeographicBounds{
-             .WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34}});
+    auto localSource = Circuit::LocalSource();
+    localSource.Dataset = "openstreetmap.original";
+    localSource.Revision = "original-r1";
+    scene.Providers.push_back(std::move(localSource));
     auto local = App::CreateEngine();
-    CHECK(local.setRoots({.Shipped = ".", .Cache = directory, .Offline = true}) &&
+    CHECK(local.setRoots({.Shipped = ".", .Cache = directory, .Offline = true, .AssetCache = {}}) &&
               local.setRenderTarget({64, 64}) && local.declare(scene) && local.assemble(),
           "groundless scene queues original source and graph");
     CHECK(!local.settled() && !local.settled(WorldQuality::Refined),
@@ -49,29 +55,31 @@ int main() {
       if (sample.Name == "semantic OSM source bytes") { bytes = sample.Value; }
       if (sample.Name == "semantic OSM jobs pending") { pending = sample.Value; }
     }
-    CHECK(bytes > 30000.0 && pending == 0.0,
+    CHECK(bytes > Circuit::MinimumReportedBytes && pending == 0.0,
           "successful preload has published actual original bytes and completed jobs");
     CHECK(local.beginCapture().has_value(), "completed original world permits capture");
 
     scene.Providers.front().Location.clear();
     scene.Providers.front().Endpoint = "https://api.openstreetmap.org/api/0.6";
     auto missing = App::CreateEngine();
-    CHECK(missing.setRoots({.Cache = directory, .Offline = true}) &&
-              missing.setRenderTarget({64, 64}) && missing.declare(scene) && missing.assemble(),
-          "offline remote declaration assembles without fetching or a fallback");
-    const auto absent = missing.preload(0.2);
+    CHECK(
+        missing.setRoots({.Shipped = {}, .Cache = directory, .Offline = true, .AssetCache = {}}) &&
+            missing.setRenderTarget({64, 64}) && missing.declare(scene) && missing.assemble(),
+        "offline remote declaration assembles without fetching or a fallback");
+    const auto absent = missing.preload(kMissingPreloadS);
     CHECK(!absent && !missing.settled() && !missing.beginCapture(),
           "missing original cache cannot produce successful preload or capture");
-    CHECK(!absent && absent.error().find("api.openstreetmap.org") != std::string::npos,
+    CHECK(!absent && absent.error().contains("api.openstreetmap.org"),
           "failed preload identifies the required official source");
 
     scene.Providers.front().Endpoint.clear();
     scene.Providers.front().Location = "missing-original-preload.osm";
     auto invalid = App::CreateEngine();
-    CHECK(invalid.setRoots({.Shipped = directory, .Offline = true}) &&
-              invalid.setRenderTarget({64, 64}) && invalid.declare(scene) && invalid.assemble(),
-          "missing local source remains an asynchronous request");
-    CHECK(!invalid.preload(0.2) && !invalid.settled() && !invalid.beginCapture(),
+    CHECK(
+        invalid.setRoots({.Shipped = directory, .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+            invalid.setRenderTarget({64, 64}) && invalid.declare(scene) && invalid.assemble(),
+        "missing local source remains an asynchronous request");
+    CHECK(!invalid.preload(kMissingPreloadS) && !invalid.settled() && !invalid.beginCapture(),
           "source read failure cannot become a complete groundless world");
   }
   std::error_code error;

@@ -7,7 +7,7 @@
   <providers>
     <provider kind="osm" dataset="openstreetmap"
               pin="sha256:f50914eac077325eee1b3e88eae0eeffac58ff086e180cba4ec8734e94661d7f"
-              location="world/osm/HockenheimringGrandPrix.osm" rank="0" whenAbsent="fail"
+              location="../../test/outshine/data/osm/HockenheimringGrandPrix.osm" rank="0" whenAbsent="fail"
               westDeg="8.54" southDeg="49.315" eastDeg="8.61" northDeg="49.34"/>
   </providers>
   <routes>

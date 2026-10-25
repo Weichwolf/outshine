@@ -11,8 +11,7 @@
 namespace outshine::Client {
 
 [[nodiscard]] inline Roots ClientRoots(std::string_view cacheDirectory = {}, bool offline = false) {
-  return {.Assets = "src/assets/drive",
-          .Shipped = "src/assets",
+  return {.Shipped = "src/assets",
           .Cache = std::string(cacheDirectory),
           .Offline = offline,
           .AssetCache = {}};

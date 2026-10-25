@@ -45,12 +45,7 @@ int main() {
     Engine engine;
     CHECK(engine.registerProvider(provider).has_value(),
           "the normal public provider API registers");
-    CHECK(engine
-              .setRoots({.Assets = {},
-                         .Shipped = {},
-                         .Cache = directory,
-                         .Offline = true,
-                         .AssetCache = {}})
+    CHECK(engine.setRoots({.Shipped = {}, .Cache = directory, .Offline = true, .AssetCache = {}})
               .has_value(),
           "the engine uses the prepared source cache and disallows network acquisition");
     Scenario::Document scenario;

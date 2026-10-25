@@ -1,9 +1,18 @@
+#include "HockenheimCircuitFixture.h"
 #include "EngineFactory.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
+#include <utility>
 #include "Check.h"
 
 #include <string>
+
+namespace Circuit = outshine::Test::HockenheimFixture;
+
+namespace {
+constexpr outshine::Camera::Perspective kSourceProjection{.FovDeg = 60, .NearM = 0.2, .FarM = 100};
+constexpr int kPublicationPolls = 200;
+}
 
 int main() {
   using namespace outshine;
@@ -16,31 +25,27 @@ int main() {
     Scenario::View view;
     view.Id = "source-probe";
     view.Placement = Scenario::CameraPlacement::Local;
-    view.Sees.setProjection(Camera::Perspective{.FovDeg = 60, .NearM = 0.2, .FarM = 100});
+    view.Sees.setProjection(kSourceProjection);
     document.Views.push_back(view);
-    document.Providers.push_back(
-        {.Kind = "osm",
-         .Revision = "pin-r1",
-         .Missing = Data::MissingDataPolicy::Fail,
-         .Dataset = "openstreetmap",
-         .Location = "src/assets/world/osm/HockenheimringGrandPrix.osm",
-         .Coverage = GeographicBounds{
-             .WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34}});
-    document.Routes.push_back({.Id = "grand-prix", .OsmRelationId = 284588});
-    CHECK(engine.setRoots({.Shipped = ".", .Offline = true}) && engine.setRenderTarget({64, 64}) &&
-              engine.declare(document) && engine.assemble(),
+    auto localSource = Circuit::LocalSource();
+    localSource.Dataset = "openstreetmap.original";
+    localSource.Revision = "original-r1";
+    document.Providers.push_back(std::move(localSource));
+    document.Routes.push_back({.Id = "grand-prix", .OsmRelationId = Circuit::RelationId});
+    CHECK(engine.setRoots({.Shipped = ".", .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+              engine.setRenderTarget({64, 64}) && engine.declare(document) && engine.assemble(),
           "groundless public declaration queues the pinned semantic source");
     CHECK(engine.unsettledReasons(WorldQuality::Playable)
-                  .find("semantic OSM transport source pending") != std::string::npos,
+              .contains("semantic OSM transport source pending"),
           "public readiness reports the in-flight source");
     bool published = false;
-    for (int attempt = 0; attempt < 200 && !published; ++attempt) {
+    for (int attempt = 0; attempt < kPublicationPolls && !published; ++attempt) {
       const auto advanced = engine.advance();
       CHECK(advanced,
             advanced ? "the world advances while its semantic graph loads"
                      : advanced.error().c_str());
-      published = engine.unsettledReasons(WorldQuality::Playable)
-                      .find("semantic OSM transport source pending") == std::string::npos;
+      published = !engine.unsettledReasons(WorldQuality::Playable)
+                       .contains("semantic OSM transport source pending");
       if (!published) { SDL_Delay(10); }
     }
     CHECK(published, "public readiness observes the complete graph publication");
@@ -52,24 +57,24 @@ int main() {
       if (sample.Name == "semantic OSM graph time") { graphMs = sample.Value; }
       if (sample.Name == "semantic OSM jobs pending") { pendingJobs = sample.Value; }
     }
-    CHECK(publishedBytes > 30000.0 && graphMs >= 0.0 && pendingJobs == 0.0,
+    CHECK(publishedBytes > Circuit::MinimumReportedBytes && graphMs >= 0.0 && pendingJobs == 0.0,
           "public diagnostics expose the completed source and bounded worker queue");
 
     Scenario::Document simulationOnly = document;
     simulationOnly.Views.clear();
     auto headless = App::CreateEngine();
-    CHECK(headless.setRoots({.Shipped = ".", .Offline = true}) &&
+    CHECK(headless.setRoots({.Shipped = ".", .Cache = {}, .Offline = true, .AssetCache = {}}) &&
               headless.declare(simulationOnly) && headless.assemble(),
           "renderer-free simulation queues the same semantic source");
     double headlessBytes = -1.0;
-    for (int attempt = 0; attempt < 200 && headlessBytes < 0.0; ++attempt) {
+    for (int attempt = 0; attempt < kPublicationPolls && headlessBytes < 0.0; ++attempt) {
       CHECK(headless.advance(), "renderer-free simulation advances while source loads");
       for (const DiagnosticSample &sample : headless.measures()) {
         if (sample.Name == "semantic OSM source bytes") { headlessBytes = sample.Value; }
       }
       if (headlessBytes < 0.0) { SDL_Delay(10); }
     }
-    CHECK(headlessBytes > 30000.0,
+    CHECK(headlessBytes > Circuit::MinimumReportedBytes,
           "semantic graph publication does not depend on render target or vector tiles");
   }
   SDL_Quit();
