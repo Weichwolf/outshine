@@ -4,13 +4,15 @@
 #include "HeightField.h"
 
 namespace outshine {
-class HeightSheets;
+namespace Generators {
+class TerrainInputPreparation;
+}
 
 namespace Ground {
 class GroundStream;
 }
 
-[[nodiscard]] bool PinTerrainField(const HeightSheets *sheets,
+[[nodiscard]] bool PinTerrainField(const Generators::TerrainInputPreparation *inputs,
                                    const Ground::GroundStream &source,
                                    Data::TileId tile,
                                    Ground::HeightField::Block &into);

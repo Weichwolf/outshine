@@ -236,10 +236,10 @@ std::expected<TerrainPathPlan, std::string> PlanTerrainPath(std::span<const Arou
     if (!added) { return std::unexpected(added.error()); }
   }
   const std::vector<Data::TileId> meshTiles(tiles.Meshes.begin(), tiles.Meshes.end());
-  const auto fields = PlanTerrainSourceTiles(meshTiles,
-                                             {.FinestZoom = finest,
-                                              .GroundZoom = ground.BlockZoom(),
-                                              .AdditionalTiles = sources.RoadTiles});
+  const auto fields = Generators::PlanTerrainSourceTiles(meshTiles,
+                                                         {.FinestZoom = finest,
+                                                          .GroundZoom = ground.BlockZoom(),
+                                                          .AdditionalTiles = sources.RoadTiles});
   if (!fields) { return std::unexpected(fields.error()); }
   if (const auto added = Add(tiles.Samples, *fields); !added) {
     return std::unexpected(added.error());
@@ -275,7 +275,7 @@ PrepareTerrainPath(TerrainPathPlan plan,
       !read) {
     return read;
   }
-  const auto heights = PlanTerrainSourceTiles(
+  const auto heights = Generators::PlanTerrainSourceTiles(
       {},
       {.FinestZoom = stack.FinestZoomOf(Data::DataKind::Elevation),
        .GroundZoom = stack.Ground().BlockZoom(),

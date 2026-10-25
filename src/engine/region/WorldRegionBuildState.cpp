@@ -201,6 +201,7 @@ void WorldRegionBuildState::SamplesClassComponents(
 WorldRegionBuildState::CurrentProductMemory() const noexcept {
   return {
       .Candidate = BuildingEarthworks_ ? StampingCandidateHeapBytes_ : Candidate_.OwnedHeapBytes(),
+      .TerrainSources = TerrainInputs_.HeapBytes(),
       .Patchwork = Patchwork_ ? Patchwork_->HeapBytes() : 0u,
       .SourceCoverage = RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
                         RoadHeightCoverage_.SelectedRouteIndices.capacity() * sizeof(size_t),

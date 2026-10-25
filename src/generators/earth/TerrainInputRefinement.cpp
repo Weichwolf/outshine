@@ -1,4 +1,4 @@
-#include "HeightSheets.h"
+#include "TerrainInputPreparation.h"
 
 #include <cstddef>
 #include <span>
@@ -8,29 +8,29 @@
 
 #include "TerrainRefinement.h"
 
-namespace outshine {
+namespace outshine::Generators {
 
-Generators::TerrainRefinementJob HeightSheets::BeginRefinement(
+TerrainRefinementJob TerrainInputPreparation::BeginRefinement(
     const Patchwork &candidate,
-    Generators::TerrainPageLayout layout,
-    Generators::TerrainRefinementDetail detail,
+    TerrainPageLayout layout,
+    TerrainRefinementDetail detail,
     size_t maximumPatches,
-    std::span<const Generators::TerrainRefinementCorridor> corridors) const {
-  std::vector<Generators::TerrainRefinementSource> sources;
+    std::span<const TerrainRefinementCorridor> corridors) const {
+  std::vector<TerrainRefinementSource> sources;
   sources.reserve(candidate.Sheets.size());
   for (const Sheet &sheet : candidate.Sheets) {
-    const Ground::TerrainField *heights = nullptr;
+    const ::outshine::Ground::TerrainField *heights = nullptr;
     if (!sheet.Virtual && sheet.Side == layout.Side) { heights = FieldAt(sheet.Tile); }
     sources.push_back({.Page = &sheet, .Heights = heights});
   }
   return {sources, Frame_, layout, detail, maximumPatches, corridors};
 }
 
-bool HeightSheets::RefineByError(Patchwork &candidate,
-                                 Generators::TerrainPageLayout layout,
-                                 Generators::TerrainRefinementDetail detail,
-                                 size_t maximumPatches,
-                                 std::string &error) const {
+bool TerrainInputPreparation::RefineByError(Patchwork &candidate,
+                                            TerrainPageLayout layout,
+                                            TerrainRefinementDetail detail,
+                                            size_t maximumPatches,
+                                            std::string &error) const {
   auto job = BeginRefinement(candidate, layout, detail, maximumPatches);
   auto refined = job.Advance(candidate.Sheets.size());
   if (!refined) {

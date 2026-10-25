@@ -17,7 +17,7 @@
 #include "OsmLayer.h"
 #include "TileGeodesy.h"
 
-namespace outshine {
+namespace outshine::Generators {
 namespace {
 constexpr uint8_t kPolygonFeature = 3;
 
@@ -26,7 +26,9 @@ constexpr uint8_t kPolygonFeature = 3;
 }
 
 [[nodiscard]] bool ValidTile(Data::TileId tile) {
-  if (tile.Zoom < 0 || tile.Zoom > Ground::HeightField::MaximumTileZoom) { return false; }
+  if (tile.Zoom < 0 || tile.Zoom > ::outshine::Ground::HeightField::MaximumTileZoom) {
+    return false;
+  }
   const uint32_t side = uint32_t{1} << static_cast<uint32_t>(tile.Zoom);
   return tile.X < side && tile.Y < side;
 }
@@ -48,7 +50,7 @@ public:
       for (long dx = -1; dx <= 1; ++dx) {
         long x = static_cast<long>(tile.X) + dx;
         const long y = static_cast<long>(tile.Y) + dy;
-        if (!Ground::WrapTile(tile.Zoom, &x, &y)) { continue; }
+        if (!::outshine::Ground::WrapTile(tile.Zoom, &x, &y)) { continue; }
         if (!Add({.Zoom = tile.Zoom,
                   .X = static_cast<uint32_t>(x),
                   .Y = static_cast<uint32_t>(y)})) {
@@ -83,7 +85,8 @@ constexpr auto kBudgetRefusal = "terrain source coverage exceeds its tile budget
 }
 
 [[nodiscard]] uint32_t BoundsRow(double lat, int zoom) {
-  const auto at = Ground::ToTileFracClamped({.LongitudeDeg = 0.0, .LatitudeDeg = lat}, zoom);
+  const auto at =
+      ::outshine::Ground::ToTileFracClamped({.LongitudeDeg = 0.0, .LatitudeDeg = lat}, zoom);
   const double last = std::ldexp(1.0, zoom) - 1.0;
   return static_cast<uint32_t>(std::clamp(std::floor(at.Y), 0.0, last));
 }
@@ -161,7 +164,8 @@ AddSources(TilePlan &plan, std::span<const Data::TileId> sources, TerrainSourceC
 
 std::expected<std::vector<Data::TileId>, std::string>
 PlanTerrainSourceTiles(std::span<const Data::TileId> sources, TerrainSourceCoverage coverage) {
-  if (coverage.FinestZoom < 0 || coverage.FinestZoom > Ground::HeightField::MaximumTileZoom ||
+  if (coverage.FinestZoom < 0 ||
+      coverage.FinestZoom > ::outshine::Ground::HeightField::MaximumTileZoom ||
       coverage.GroundZoom < -1 || coverage.GroundZoom > coverage.FinestZoom ||
       coverage.MaximumTiles == 0 || coverage.MaximumTiles > TerrainSourceCoverage::MaximumFields) {
     return std::unexpected("terrain source coverage has invalid zooms or tile budget");

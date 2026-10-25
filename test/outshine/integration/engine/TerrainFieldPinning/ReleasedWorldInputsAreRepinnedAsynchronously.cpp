@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "DelayedTerrainSource.h"
 #include "HeightSheets.h"
+#include "TerrainInputPreparation.h"
 #include "TerrainFieldPinning.h"
 #include "TerrainRenderer.h"
 #include "RuntimeScene.h"
@@ -26,7 +27,8 @@ template <typename Poll> bool UntilReady(Poll poll) {
   return false;
 }
 
-void CheckReleasedInputs(HeightSheets &sheets,
+void CheckReleasedInputs(Generators::TerrainInputPreparation &inputs,
+                         HeightSheets &published,
                          const Ground::GroundStream &ground,
                          const Ground::TilePool &pool,
                          DelayedTerrainSource &source,
@@ -36,10 +38,10 @@ void CheckReleasedInputs(HeightSheets &sheets,
   const auto posts = pool.Counters().Posts;
   CHECK(!ground.ResidentStitchedField(tile) && pool.Counters().Posts == posts,
         "a resident-only miss never posts work");
-  CHECK(!PinTerrainField(&sheets, ground, tile, field) && !source.CalledOnCaller,
+  CHECK(!PinTerrainField(&inputs, ground, tile, field) && !source.CalledOnCaller,
         "an unavailable field is pending without collecting on the caller");
   source.Released = true;
-  CHECK(UntilReady([&] { return PinTerrainField(&sheets, ground, tile, field); }),
+  CHECK(UntilReady([&] { return PinTerrainField(&inputs, ground, tile, field); }),
         "a published world without source fields repins through the existing producer");
   if (!field.Terrain) { return; }
   CHECK(field.Raster.Side == 4 && field.Terrain->Data()[0] == DelayedTerrainSource::HeightM &&
@@ -52,24 +54,25 @@ void CheckReleasedInputs(HeightSheets &sheets,
        .Side = Render::TerrainRenderer::kSide,
        .Postings = Render::TerrainRenderer::kSide});
   CHECK(UntilReady([&] {
-          const auto ready = sheets.PrepareFields(
+          const auto ready = inputs.PrepareFields(
               candidate, ground, {.FinestZoom = 4, .RequestsMost = 9, .AdditionalTiles = {}});
           return ready && *ready;
         }),
         "world preparation owns its complete source coverage");
-  CHECK(sheets.ShareSourcedField(tile, retained), "a worker pins a consumed world input");
-  sheets.Framed(TangentFrame::At({}));
+  CHECK(inputs.ShareSourcedField(tile, retained), "a worker pins a consumed world input");
+  inputs.Framed(TangentFrame::At({}));
+  published.Framed(TangentFrame::At({}));
   std::string error;
-  CHECK(sheets.Halos(candidate, 4) == candidate.Sheets.size() && sheets.Hands(candidate, error),
+  CHECK(inputs.Halos(candidate, 4) == candidate.Sheets.size() && published.Hands(candidate, error),
         "the sampled inputs become an independent published terrain surface");
   const LongitudeLatitude camera{.LongitudeDeg = 1.0, .LatitudeDeg = -1.0};
-  const auto cameraHeight = sheets.HeightMAt(camera);
-  const size_t before = sheets.SourceHeapBytes();
-  sheets.ForgetsFields();
-  CHECK(sheets.SourceHeapBytes() < before && !sheets.ShareSourcedField(tile, field),
+  const auto cameraHeight = published.HeightMAt(camera);
+  const size_t before = inputs.HeapBytes();
+  inputs.Reset();
+  CHECK(inputs.HeapBytes() < before && !inputs.ShareSourcedField(tile, field),
         "completed world preparation releases its source ownership");
-  CHECK(cameraHeight.has_value() && sheets.HeightMAt(camera) == cameraHeight &&
-            sheets.PublishedSurface() != nullptr,
+  CHECK(cameraHeight.has_value() && published.HeightMAt(camera) == cameraHeight &&
+            published.PublishedSurface() != nullptr,
         "published camera and collision heights survive source release");
   CHECK(retained.Terrain && retained.Terrain->Data()[0] == DelayedTerrainSource::HeightM,
         "an independent worker pin survives world input release");
@@ -80,10 +83,10 @@ void CheckReleasedInputs(HeightSheets &sheets,
   const auto residentPosts = pool.Counters().Posts;
   CHECK(!ground.ResidentStitchedField(moved) && pool.Counters().Posts == residentPosts,
         "moving beyond held coverage does not turn a resident query into IO");
-  CHECK(!PinTerrainField(&sheets, ground, moved, field),
+  CHECK(!PinTerrainField(&inputs, ground, moved, field),
         "new runtime coverage starts as pending rather than an empty finished field");
   source.Released = true;
-  CHECK(UntilReady([&] { return PinTerrainField(&sheets, ground, moved, field); }) &&
+  CHECK(UntilReady([&] { return PinTerrainField(&inputs, ground, moved, field); }) &&
             field.At.X == 2 && field.At.Y == 2 && !source.CalledOnCaller,
         "new coverage becomes available asynchronously without cached native assets");
 }
@@ -116,9 +119,10 @@ int main() {
       config.PollAttempts = pollAttempts;
       Ground::TilePool pool(config, sources, transport);
       const Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
-      HeightSheets sheets;
-      sheets.Into(&renderer);
-      CheckReleasedInputs(sheets, ground, pool, *probe, retained);
+      Generators::TerrainInputPreparation inputs;
+      HeightSheets published;
+      published.Into(&renderer);
+      CheckReleasedInputs(inputs, published, ground, pool, *probe, retained);
     }
   }
   CHECK(retained.Terrain && retained.Terrain->Data()[0] == DelayedTerrainSource::HeightM,
