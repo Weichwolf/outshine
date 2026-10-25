@@ -25,6 +25,8 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
       OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
       OR name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
+      OR name STREQUAL "outshine/src/generators/transport/terrain/BridgeGroundSamples/ValuesRetainExactDEMLeases"
+      OR name STREQUAL "outshine/src/generators/transport/terrain/BridgeGroundSamples/UnresolvedInputsRemainExplicit"
       OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex")
     target_sources(${target} PRIVATE test/harness/shared/CppAllocationProbe.cpp)
   endif()
