@@ -749,7 +749,9 @@ Result Engine::State::PreloadOverflow() {
       " buildings=" + std::to_string(bytes.Buildings) + " water=" + std::to_string(bytes.Water) +
       " waterBuild=" + std::to_string(bytes.WaterBuild) +
       " streets=" + std::to_string(bytes.Streets) + " vectors=" + std::to_string(bytes.Vectors) +
-      " pool=" + std::to_string(bytes.Pool) + " ground=" + std::to_string(bytes.Ground);
+      " pool=" + std::to_string(bytes.Pool) + " ground=" + std::to_string(bytes.Ground) +
+      "; building bytes: prints=" + std::to_string(World.Stack.Footprints().PrintBytes()) +
+      " measurements=" + std::to_string(World.Stack.Footprints().MeasurementBytes());
   return std::unexpected(Error);
 }
 

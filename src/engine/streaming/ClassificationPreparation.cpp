@@ -64,17 +64,7 @@ void ClassificationPreparation::Close() {
   Builder_.reset();
   Submitted_.reset();
   Prepared_.reset();
-  for (Tier *tier : {&Fine_, &Coarse_}) {
-    tier->Field.reset();
-    tier->Pts.clear();
-    tier->Rings.clear();
-    tier->Feats.clear();
-    tier->Generation = 0;
-    tier->PtsDone = tier->RingsDone = tier->FeatsDone = 0;
-    tier->Have = false;
-    tier->Stale = true;
-    tier->ArraysLent = false;
-  }
+  for (Tier *tier : {&Fine_, &Coarse_}) { tier->Reset(); }
   const std::scoped_lock lock(Mu_);
   Published_ = {};
   Restored_.reset();
@@ -104,6 +94,18 @@ void ClassificationPreparation::Tier::Settle() {
   Feats.shrink_to_fit();
 }
 
+void ClassificationPreparation::Tier::Reset() {
+  Field.reset();
+  Pts = decltype(Pts){};
+  Rings = decltype(Rings){};
+  Feats = decltype(Feats){};
+  Generation = 0;
+  PtsDone = RingsDone = FeatsDone = 0;
+  Have = false;
+  Stale = true;
+  ArraysLent = false;
+}
+
 size_t ClassificationPreparation::Tier::HeapBytes() const {
   return (Field ? Field->HeapBytes() : 0) + CapacityBytes(Pts) + CapacityBytes(Rings) +
          CapacityBytes(Feats);
@@ -114,6 +116,15 @@ void ClassificationPreparation::Settle() {
   if (Fine_.ArraysLent || Coarse_.ArraysLent) { return; }
   Fine_.Settle();
   Coarse_.Settle();
+}
+
+void ClassificationPreparation::ReleaseBuildInputs() {
+  if (Restored_ || !Complete()) { return; }
+  const std::scoped_lock lock(Mu_);
+  if (!Published_.Classes) { return; }
+  Restored_ = Published_.Classes;
+  for (Tier *tier : {&Fine_, &Coarse_}) { tier->Reset(); }
+  ++FrameRevision_;
 }
 
 size_t ClassificationPreparation::HeapBytes() const {
