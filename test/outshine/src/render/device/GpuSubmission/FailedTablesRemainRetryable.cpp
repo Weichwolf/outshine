@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include "GeometryRenderer.h"
 #include "ReadbackTransfer.h"
 #include "Check.h"
@@ -360,7 +361,7 @@ struct TableRetry {
 };
 
 void Tables(Native::Device *device) {
-  GeometryResidency drawStorage;
+  RenderScene drawStorage;
   GeometryRenderer draw{drawStorage};
   outshine::Render::Gpu gpu;
   gpu.Device = device;

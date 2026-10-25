@@ -1,3 +1,5 @@
+#include "terrain/TerrainResidency.h"
+#include "TerrainLattice.h"
 #include "TerrainRenderer.h"
 #include "test/harness/render/NativeCommandsProxy.h"
 #include "test/harness/render/NativeDeviceProxy.h"
@@ -90,8 +92,8 @@ GroundTile Tile(float east) {
   return tile;
 }
 
-void Pages(FaultDevice &device, TerrainRenderer &ground) {
-  std::vector<float> nodes(TerrainRenderer::kPageNodes);
+void Pages(TerrainRenderer &ground) {
+  std::vector<float> nodes(TerrainLattice::kPageNodes);
   CHECK(Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5))) ==
             0,
         "first height page is placed");
@@ -117,7 +119,6 @@ void Pages(FaultDevice &device, TerrainRenderer &ground) {
   TerrainPipelines pipelines;
   CHECK(!ground.AttachPipelines(pipelines, *other),
         "ground resources cannot silently move between native devices");
-  static_cast<void>(device);
 }
 
 void Instances(TerrainRenderer &ground) {
@@ -142,7 +143,7 @@ void Instances(TerrainRenderer &ground) {
           "rejected tile upload preserves the published tile count");
   }
   Require(RetryOffline([&] { return ground.SetInstances(many, {}); }, std::chrono::seconds(5)));
-  CHECK(ground.Triangles() == many.size() * TerrainRenderer::kIndices / 3u,
+  CHECK(ground.Triangles() == many.size() * TerrainLattice::kIndices / 3u,
         "successful tile upload publishes every tile");
 }
 }
@@ -150,11 +151,12 @@ void Instances(TerrainRenderer &ground) {
 int main() {
   auto actual = Require(CreateDevice({.Validation = true}));
   FaultDevice device(*actual);
-  TerrainRenderer ground;
+  outshine::Render::TerrainResidency groundData;
+  TerrainRenderer ground{groundData};
   TerrainPipelines pipelines;
   Require(RetryOffline([&] { return ground.AttachPipelines(pipelines, device); },
                        std::chrono::seconds(5)));
-  Pages(device, ground);
+  Pages(ground);
   Instances(ground);
   return Report();
 }

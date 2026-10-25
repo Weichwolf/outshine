@@ -17,12 +17,31 @@ def policy_digest(at):
     return hashlib.sha256(raw).digest()
 
 
-def patch_measure(patch, at):
+def patch_normal_areas(patches):
+    """Per-shape batches; retain the scalar norm arithmetic for each row."""
+    if not patches:
+        return np.empty((0, 3)), np.empty(0)
+    local = np.stack([p.local_axes for p in patches])
+    axes = np.stack([p.geometry.axes for p in patches])
+    normals = np.array([p.orientation for p in patches])[:, None] * np.cross(
+        local[:, 0], local[:, 1]
+    )
+    for normal in normals:
+        normal /= np.linalg.norm(normal)
+    areas = np.array([np.linalg.norm(n) for n in np.cross(axes[:, 0], axes[:, 1])])
+    return normals, areas
+
+
+def patch_measure(patch, at, *, normal_area=None, material_lookup=None):
     shape = patch.shape
-    local_normal = patch.orientation * np.cross(*patch.local_axes)
-    local_normal /= np.linalg.norm(local_normal)
+    if normal_area is None:
+        local_normal = patch.orientation * np.cross(*patch.local_axes)
+        local_normal /= np.linalg.norm(local_normal)
+        jacobian = np.linalg.norm(np.cross(*patch.geometry.axes))
+    else:
+        local_normal, jacobian = normal_area
     stream = int(local_normal[2] > 0.5)
-    jacobian = np.linalg.norm(np.cross(*patch.geometry.axes))
+    lookup = material if material_lookup is None else material_lookup
     colour = patch.surface["wall_colour"]
     paint = np.ones(3) if colour is None else np.asarray(colour) / at["base"][0]
     result = np.zeros(4 + len(at["palette"]))
@@ -34,7 +53,7 @@ def patch_measure(patch, at):
                 "roof category cannot be represented by the source UV word"
             )
         slope = np.sqrt(max(0, 1 - local_normal[2] ** 2))
-        colour, weights = material(at, code, stream, paint, slope=slope)
+        colour, weights = lookup(at, code, stream, paint, slope=slope)
         area = patch.geometry.domain.area * jacobian
         result[:] = np.r_[colour, weights, 1] * area
         return result, 1
@@ -57,7 +76,7 @@ def patch_measure(patch, at):
         )
         if area <= 0:
             continue
-        colour, weights = material(
+        colour, weights = lookup(
             at,
             code,
             stream,
@@ -74,18 +93,36 @@ def source_measure(identity, surface, frame, at):
     if surface is None:
         raise ValueError("original source material forms unavailable")
     result = np.zeros((2, 4 + len(at["palette"])))
-    patches, calls = 0, 0
+    states = {}
+
+    def lookup(policy, code, stream, paint, **kwargs):
+        key = (
+            code,
+            stream,
+            paint.dtype.str,
+            paint.shape,
+            paint.tobytes(),
+            tuple(sorted(kwargs.items())),
+        )
+        if key not in states:
+            states[key] = material(policy, code, stream, paint, **kwargs)
+        return states[key]
+
+    patches = 0
     for part, shape in enumerate(surface["shapes"]):
-        for patch in shape_material_patches(
+        generated = shape_material_patches(
             surface, shape, identity, part, frame["basis"], frame["anchor"]
-        ):
-            value, count = patch_measure(patch, at)
+        )
+        normals, areas = patch_normal_areas(generated)
+        for patch, normal, area in zip(generated, normals, areas, strict=True):
+            value, _ = patch_measure(
+                patch, at, normal_area=(normal, area), material_lookup=lookup
+            )
             result[int(patch.side == 1)] += value
             patches += 1
-            calls += count
     if np.any(result[:, -1] <= 0) or not np.isfinite(result).all():
         raise ValueError("positive finite source wall/roof measures required")
-    return result, patches, calls
+    return result, patches, len(states)
 
 
 def group_materials(measures, geometry, at):

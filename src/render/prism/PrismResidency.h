@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_PRISM_PRISMRENDERER_H
-#define OUTSHINE_RENDER_PRISM_PRISMRENDERER_H
+#ifndef OUTSHINE_RENDER_PRISM_PRISMRESIDENCY_H
+#define OUTSHINE_RENDER_PRISM_PRISMRESIDENCY_H
 
 #include "GpuPrismPatch.h"
 #include <scene/PrismGrid.h>
@@ -30,7 +30,7 @@ struct PrismUploadCosts {
   uint64_t Submissions = 0;
 };
 
-class PrismRenderer {
+class PrismResidency {
 public:
   [[nodiscard]] Native::Result<void> Uses(Native::Device &device, UploadQueue *queue);
   [[nodiscard]] Native::Result<uint64_t> Place(std::shared_ptr<const PrismGrid> source,
@@ -39,17 +39,6 @@ public:
   [[nodiscard]] Native::Result<void> SetInstances(uint64_t id,
                                                   std::span<const PrismInstance> instances);
   [[nodiscard]] bool Release(uint64_t id);
-  [[nodiscard]] Native::Result<void> EncodeDepth(Native::Commands &commands,
-                                                 const Native::GraphicsPipeline &pipeline,
-                                                 const PrismDepthView &view,
-                                                 Native::Viewport area,
-                                                 Native::Scissor clip) const;
-  [[nodiscard]] static Native::Result<void> Encode(const PrismProduct &product,
-                                                   Native::Commands &commands,
-                                                   const Native::GraphicsPipeline &pipeline,
-                                                   std::span<const Native::Binding> bindings,
-                                                   Native::Viewport area,
-                                                   Native::Scissor clip);
 
   [[nodiscard]] std::span<const PrismProduct> Products() const noexcept { return Products_; }
 

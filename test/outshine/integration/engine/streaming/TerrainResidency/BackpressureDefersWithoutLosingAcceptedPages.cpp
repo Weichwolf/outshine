@@ -1,5 +1,6 @@
+#include "TerrainLattice.h"
 #include "RuntimeScene.h"
-#include "TerrainResidency.h"
+#include "streaming/TerrainResidency.h"
 #include "Check.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
@@ -28,9 +29,9 @@ int main() {
       const auto waits = failure.Waits;
       Patchwork patch;
       patch.Sheets.push_back({.Tile = {.Zoom = 14, .X = 8192, .Y = 8192},
-                              .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, 3),
-                              .Side = Render::TerrainRenderer::kSide,
-                              .Postings = Render::TerrainRenderer::kSide});
+                              .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, 3),
+                              .Side = Render::TerrainLattice::kSide,
+                              .Postings = Render::TerrainLattice::kSide});
       const TangentFrame frame = TangentFrame::At({});
       TerrainResidency residency;
       residency.Into(&renderer);
@@ -55,7 +56,7 @@ int main() {
       defer(UploadFailurePoint::Acquire, 1);
       const auto bytes = renderer.HeightPageSourceBytes();
       CHECK(residency.Standing() == 1 &&
-                bytes == Render::TerrainRenderer::kPageNodes * sizeof(float),
+                bytes == Render::TerrainLattice::kPageNodes * sizeof(float),
             "accepted page survives a later grid-upload refusal");
       defer(UploadFailurePoint::Acquire, 2);
       CHECK(residency.Standing() == 1 && renderer.HeightPageSourceBytes() == bytes &&
@@ -64,7 +65,7 @@ int main() {
       const auto vertices = failure.VertexBufferAllocations;
       const auto completed = residency.AdvancePublish(patch, frame, 1);
       CHECK(completed && *completed && failure.Rejected == 4 && failure.Waits == waits &&
-                renderer.TerrainRendererTriangles() == Render::TerrainRenderer::kIndices / 3u &&
+                renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u &&
                 renderer.HeightPageSourceBytes() == bytes,
             "the original bounded transaction resumes and publishes its complete topology");
       CHECK(failure.VertexBufferAllocations == vertices + 1,
@@ -72,7 +73,7 @@ int main() {
       constexpr LongitudeLatitude point{.LongitudeDeg = 0.001, .LatitudeDeg = -0.001};
       const auto height = residency.HeightMAt(point);
       CHECK(height.has_value(), "the committed height page supports a real world query");
-      patch.Sheets.front().Nodes.assign(Render::TerrainRenderer::kPageNodes, 7);
+      patch.Sheets.front().Nodes.assign(Render::TerrainLattice::kPageNodes, 7);
       CHECK(residency.BeginPublish(patch, error), "a replacement begins after recovery");
       CHECK(renderer.Settle(error), "accepted prior uploads finish before the real map fault");
       failure.Kind = Render::Native::ErrorKind::Driver;
@@ -81,7 +82,7 @@ int main() {
       const auto broken = residency.AdvancePublish(patch, frame, 1);
       CHECK(!broken && broken.error() == failure.Message && residency.HeightMAt(point) == height &&
                 renderer.HeightPageSourceBytes() == bytes &&
-                renderer.TerrainRendererTriangles() == Render::TerrainRenderer::kIndices / 3u,
+                renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
             "a real driver error stays an error and preserves the committed terrain");
       residency.Clear();
     }

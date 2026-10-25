@@ -5,8 +5,8 @@
 #include "NormalUpload.h"
 #include <format>
 #include <optional>
-#include "TerrainRenderer.h"
 #include "GeometryRenderer.h"
+#include "RenderScene.h"
 #include "BatchVisibility.h"
 #include "Vec3.h"
 
@@ -40,6 +40,9 @@
 #include "SurfaceState.h"
 
 namespace outshine::Render {
+GeometryRenderer::GeometryRenderer(RenderScene &scene, GeometryPassKind pass) noexcept
+    : Ground_(scene.Terrain()), Prisms_(&scene.Prisms()), Storage_(&scene.Meshes()), Pass_(pass) {}
+
 namespace Says {
 constexpr auto MissingMeshAttributes = "mesh vertex layout requires an absent attribute stream";
 constexpr auto InvalidMeshLayout = "mesh batch has an invalid vertex layout";

@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "WorldRegionBuildState.h"
 #include "TerrainFieldPinning.h"
 #include "building/BuildingMaterials.h"
@@ -729,7 +730,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
         std::move(yielding),
         patchwork,
         standing,
-        Generators::TerrainPageLayout{.Side = Render::TerrainRenderer::kSide, .Halo = 1},
+        Generators::TerrainPageLayout{.Side = Render::TerrainLattice::kSide, .Halo = 1},
         kMostEarthworkM));
     state.RecordTerrainDeformationSlice(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
@@ -896,9 +897,9 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
       "ground refinement: road corridors", static_cast<double>(roadCorridors.size()), "edges");
   state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
       state.TerrainInputs().BeginRefinement(patchwork,
-                                            {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
+                                            {.Side = Render::TerrainLattice::kSide, .Halo = 1},
                                             detail,
-                                            Render::TerrainRenderer::kMaximumPages,
+                                            Render::TerrainLattice::kMaximumPages,
                                             roadCorridors)));
   return GroundBuildProgress::Pending;
 }
@@ -909,9 +910,8 @@ Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patc
   WorldRegionBuildState::GroundSurvey &survey = state.Surveying();
   const auto began = std::chrono::steady_clock::now();
   if (survey.NextSheet == 0) {
-    const auto nodes =
-        patchwork.Sheets.size() *
-        static_cast<size_t>(Render::TerrainRenderer::kSide * Render::TerrainRenderer::kSide);
+    const auto nodes = patchwork.Sheets.size() * static_cast<size_t>(Render::TerrainLattice::kSide *
+                                                                     Render::TerrainLattice::kSide);
     survey.Terrain.ProbePositionsM.reserve((nodes + kBounceProbeStride - 1) / kBounceProbeStride);
   }
   const size_t end = std::min(survey.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
@@ -919,7 +919,7 @@ Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patc
     Generators::SurveyTerrainSheet(survey.Terrain,
                                    patchwork.Sheets[survey.NextSheet],
                                    standing,
-                                   {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
+                                   {.Side = Render::TerrainLattice::kSide, .Halo = 1},
                                    kBounceProbeStride);
   }
   const double sliceMs =

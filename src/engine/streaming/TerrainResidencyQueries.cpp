@@ -1,7 +1,7 @@
+#include "TerrainLattice.h"
 #include "TerrainResidency.h"
 
 #include "ChunkSurface.h"
-#include "TerrainRenderer.h"
 #include "TileGeodesy.h"
 #include "math/RenderFrame.h"
 #include <algorithm>
@@ -15,7 +15,7 @@
 namespace outshine {
 namespace {
 constexpr size_t kOcclusionProbes = 64;
-constexpr int kSide = Render::TerrainRenderer::kSide;
+constexpr int kSide = Render::TerrainLattice::kSide;
 constexpr int kPageSide = kSide + 2;
 
 struct CellCoordinate {

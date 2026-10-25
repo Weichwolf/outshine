@@ -153,7 +153,7 @@ Native::Result<void> GeometryRenderer::AttachPipelines(GeometryPipelineBinding &
   Ground_.UploadsFrom(gpu.Uploads);
   const auto attached = Bound().StandsOn(gpu.Device);
   if (!attached) { return attached; }
-  const auto prisms = Prisms_.Uses(*gpu.Device, gpu.Uploads);
+  const auto prisms = Prisms_->Uses(*gpu.Device, gpu.Uploads);
   if (!prisms) { return prisms; }
   Binding_ = &binding;
   Ground_.UsePipelines(binding.Ground);
@@ -218,7 +218,7 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
   Ground_.UploadsFrom(gpu.Uploads);
   const auto attached = Bound().StandsOn(gpu.Device);
   if (!attached) { return attached; }
-  const auto prisms = Prisms_.Uses(*gpu.Device, gpu.Uploads);
+  const auto prisms = Prisms_->Uses(*gpu.Device, gpu.Uploads);
   if (!prisms) { return prisms; }
   if (!glass) {
     const auto targets = Targets(gpu, options, colours, false);

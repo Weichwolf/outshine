@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -40,11 +41,11 @@ bool CaptureTerrainShadow(double anchorZ, std::vector<float> &depth) {
   SubjectMesh mesh;
   mesh.Anchor = {{0, 0, anchorZ}};
   CHECK(renderer.SetGeometryMesh(mesh, error), "empty subjects retain the terrain anchor");
-  const std::vector<float> nodes(TerrainRenderer::kPageNodes, 3.0f);
+  const std::vector<float> nodes(TerrainLattice::kPageNodes, 3.0f);
   const auto page = renderer.PlaceHeightPage(nodes);
   CHECK(page.has_value(), "terrain heights upload");
   if (!page) { return false; }
-  std::vector<float> fractions(TerrainRenderer::kSide);
+  std::vector<float> fractions(TerrainLattice::kSide);
   for (size_t at = 0; at < fractions.size(); ++at) {
     fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
   }

@@ -8,7 +8,7 @@
 #include <optional>
 #include <expected>
 #include "TangentFrame.h"
-#include "TerrainResidency.h"
+#include "streaming/TerrainResidency.h"
 
 namespace outshine {
 

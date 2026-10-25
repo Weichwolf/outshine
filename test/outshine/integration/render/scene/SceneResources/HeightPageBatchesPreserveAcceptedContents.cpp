@@ -1,3 +1,7 @@
+#include "test/harness/render/NativeOffline.h"
+#include "test/harness/render/NativeUploadFaultDevice.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "TerrainLattice.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "Check.h"
@@ -34,9 +38,9 @@ bool SameBits(std::span<const float> a, std::span<const float> b) {
 
 void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
   std::string error;
-  std::vector<float> old(Render::TerrainRenderer::kPageNodes, kOldHeight);
+  std::vector<float> old(Render::TerrainLattice::kPageNodes, kOldHeight);
   const auto original = Require(renderer.PlaceHeightPage(old));
-  auto *const oldAtlas = failure.LastHeightAtlas;
+  const auto *const oldAtlas = failure.LastHeightAtlas;
   const auto oldRegion = failure.LastHeightRegion;
   CHECK(oldAtlas != nullptr, "the fixture records the actual R32 atlas transfer");
   if (oldAtlas == nullptr) { return; }
@@ -46,7 +50,7 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
   std::array<std::vector<float>, kBatch> values;
   std::array<Render::HeightPageView, kBatch> nodes;
   for (size_t at = 0; at < kBatch; ++at) {
-    values[at].resize(Render::TerrainRenderer::kPageNodes);
+    values[at].resize(Render::TerrainLattice::kPageNodes);
     for (size_t node = 0; node < values[at].size(); ++node) {
       values[at][node] = static_cast<float>(at + 1) + static_cast<float>(node) * kHeightStep;
     }
@@ -84,9 +88,9 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
         "an empty group creates no GPU work");
   std::array<Render::HeightPageView, Render::kHeightPageBatchMost> fill;
   fill.fill(old);
-  while (renderer.HeightPageSlots() < Render::TerrainRenderer::kPagesPerLayer - 1u) {
+  while (renderer.HeightPageSlots() < Render::TerrainLattice::kPagesPerLayer - 1u) {
     const size_t count = std::min(
-        fill.size(), Render::TerrainRenderer::kPagesPerLayer - 1u - renderer.HeightPageSlots());
+        fill.size(), Render::TerrainLattice::kPagesPerLayer - 1u - renderer.HeightPageSlots());
     static_cast<void>(Require(
         RetryOffline([&] { return renderer.PlaceHeightPages(std::span(fill).first(count)); },
                      std::chrono::seconds(5))));
@@ -99,7 +103,7 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
   CHECK(!growth && growth.error().Message == failure.Message && !failure.Armed,
         "rejected atlas growth and packed writes report their submission cause");
   CHECK(renderer.HasHeightPage(original) &&
-            renderer.HeightPageSlots() == Render::TerrainRenderer::kPagesPerLayer - 1u,
+            renderer.HeightPageSlots() == Render::TerrainLattice::kPagesPerLayer - 1u,
         "failed growth exposes no partial slot commit");
   CHECK(SameBits(ReadHeightPage(failure, *oldAtlas, oldRegion), old),
         "failed growth retains the original physical atlas and values");

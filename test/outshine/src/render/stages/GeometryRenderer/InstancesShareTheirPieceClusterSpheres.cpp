@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include <span>
 #include <cstddef>
 #include <cstdint>
@@ -52,7 +53,7 @@ int main() {
   {
     auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
     outshine::Test::Gpu::NativeOfflineDevice device(*native);
-    GeometryResidency drawStorage;
+    RenderScene drawStorage;
     GeometryRenderer draw{drawStorage};
     std::string error;
     outshine::Render::Gpu gpu;

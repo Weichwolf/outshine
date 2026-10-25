@@ -11,8 +11,8 @@
 #include <vector>
 
 namespace outshine::Test::Gpu {
-inline std::vector<float> ReadHeightPage(UploadFailure &failure,
-                                         Render::Native::Texture &atlas,
+inline std::vector<float> ReadHeightPage(const UploadFailure &failure,
+                                         const Render::Native::Texture &atlas,
                                          Render::Native::TextureRegion region) {
   using namespace Render::Native;
   CHECK(failure.Observed != nullptr, "the real native upload device is observed");

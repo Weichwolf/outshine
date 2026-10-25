@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "TerrainRenderer.h"
 #include "ReadbackTransfer.h"
 #include <chrono>
@@ -9,21 +10,21 @@ Native::Result<TerrainRenderer::DrawArguments> TerrainRenderer::ReadDrawArgument
   DrawArguments result;
   result.SkirtInstances = Drawn();
   if (result.SkirtInstances == 0) { return result; }
-  if (!Selection_.Ready()) {
-    result.Patches[0] = {.IndexCount = kPatchIndices,
-                         .InstanceCount = result.SkirtInstances * kPatchCount};
+  if (!Current() || !Selection_.Ready()) {
+    result.Patches[0] = {.IndexCount = TerrainLattice::kPatchIndices,
+                         .InstanceCount = result.SkirtInstances * TerrainLattice::kPatchCount};
     return result;
   }
-  if (Device_ == nullptr || Selection_.Arguments() == nullptr) {
+  if (Resident_->Device_ == nullptr || Selection_.Arguments() == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground draw arguments are unavailable"});
   }
   auto read = ReadbackTransfer::Start(
-      *Device_,
+      *Resident_->Device_,
       *Selection_.Arguments(),
       {.Offset = Selection_.ArgumentOffset(), .Bytes = sizeof(result.Patches)});
   if (!read) { return std::unexpected(read.error()); }
-  const auto mapped = read->Wait(*Device_, std::chrono::seconds(5));
+  const auto mapped = read->Wait(*Resident_->Device_, std::chrono::seconds(5));
   if (!mapped) { return std::unexpected(mapped.error()); }
   if (!mapped->has_value()) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Busy,
