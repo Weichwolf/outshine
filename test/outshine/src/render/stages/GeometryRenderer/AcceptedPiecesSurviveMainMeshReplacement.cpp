@@ -61,7 +61,8 @@ int main() {
     outshine::Test::Gpu::NativeOfflineDevice offline(*native);
     Faults device(offline);
     for (const bool replacement : {false, true}) {
-      GeometryRenderer draw;
+      GeometryResidency drawStorage;
+      GeometryRenderer draw{drawStorage};
       std::string error;
       outshine::Render::Gpu gpu;
       gpu.Device = &device;
@@ -118,7 +119,7 @@ int main() {
       const auto retry = draw.BeginMesh(mesh);
       CHECK(retry.has_value(), "main mesh changes on retry");
       if (retry) { CHECK(draw.FinishMesh(*retry, mesh, error), "main mesh replacement finishes"); }
-      CHECK(draw.Owned().SubmitPendingUploads().has_value(),
+      CHECK(draw.Residency().SubmitPendingUploads().has_value(),
             "accepted retry submits before inspection");
       positions = resident.Buffer(GeometryResidency::Stream::Vertex).get();
       triangles = resident.Buffer(GeometryResidency::Stream::Index).get();

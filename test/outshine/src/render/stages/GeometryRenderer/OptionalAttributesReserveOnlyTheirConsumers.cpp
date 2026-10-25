@@ -77,7 +77,8 @@ void CheckLayout(Native::Device *device,
                  std::span<const uint32_t> prefixIndices,
                  bool mapped,
                  bool second) {
-  GeometryRenderer draw;
+  GeometryResidency drawStorage;
+  GeometryRenderer draw{drawStorage};
   std::string error;
   outshine::Render::Gpu gpu;
   gpu.Device = device;
@@ -130,7 +131,7 @@ void CheckLayout(Native::Device *device,
   CHECK(ticket.has_value(), "main mesh admitted after the independent piece");
   if (!ticket) { return; }
   CHECK(draw.FinishMesh(*ticket, mesh, error), "main mesh uploads complete");
-  CHECK(draw.Owned().SubmitPendingUploads().has_value(),
+  CHECK(draw.Residency().SubmitPendingUploads().has_value(),
         "accepted streams submit before inspection");
   CheckMainStreams(device, resident, mapped, second);
   constexpr std::array<uint32_t, 3> packedNormals{0x80008000u, 0x80008000u, 0x80008000u};

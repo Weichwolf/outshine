@@ -48,7 +48,8 @@ struct MaskCase {
 };
 
 struct Scene {
-  GeometryRenderer Geometry;
+  GeometryResidency GeometryStorage;
+  GeometryRenderer Geometry{GeometryStorage};
   SunShadowStage Shadow;
   std::unique_ptr<Texture> Atlas;
 
@@ -391,7 +392,8 @@ void ConfigureRollback(Device &device, Scene &scene) {
       scene.Shadow.Configure(scene.Geometry, {.Device = &rejected, .SceneColours = {}});
   CHECK(!changed && changed.error().Kind == ErrorKind::Driver && scene.Shadow.Cached(),
         "failed native pipeline creation preserves the accepted cache and pipeline set");
-  GeometryRenderer other;
+  GeometryResidency otherStorage;
+  GeometryRenderer other{otherStorage};
   scene.Shadow.Binds(other);
   CHECK(!scene.Shadow.HasSubmittedData(),
         "rebinding another subject owner explicitly invalidates the previous world atlas");

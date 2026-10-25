@@ -249,7 +249,7 @@ bool SceneRenderer::BeginsWorldCandidate(std::string &error,
   }
   Candidate_.emplace();
   Candidate_->GroundInputs = ground;
-  Candidate_->Content.Resources.CopySourcesFrom(State_.Content.Resources, pieces);
+  Candidate_->Content.Scene->Resources().CopySourcesFrom(State_.Content.Scene->Resources(), pieces);
   error.clear();
   return true;
 }
@@ -317,24 +317,25 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
                 ActiveState().WhyNot)) {
     return std::unexpected(ActiveState().WhyNot);
   }
-  ActiveState().Content.Glass.Shares(ActiveState().Content.Geometry.Owned());
-  if (reusesGround &&
-      !Accepted(ActiveState().Content.Ground.ReuseInputsFrom(State_.Content.Ground, *Device_),
-                ActiveState().WhyNot)) {
+  if (reusesGround && !Accepted(ActiveState().Content.Scene->GroundMaterials().ReuseInputsFrom(
+                                    State_.Content.Scene->GroundMaterials(), *Device_),
+                                ActiveState().WhyNot)) {
     return std::unexpected(ActiveState().WhyNot);
   }
-  if (!ActiveState().Content.Ground.Ready()) {
-    const auto ground = ActiveState().Content.Ground.Replace(
+  if (!ActiveState().Content.Scene->GroundMaterials().Ready()) {
+    const auto ground = ActiveState().Content.Scene->GroundMaterials().Replace(
         State_.Frame.Handles.Device, {}, {}, std::chrono::seconds(5));
     if (!ground) {
       ActiveState().WhyNot = ground.error().Message;
       return std::unexpected(ActiveState().WhyNot);
     }
   }
-  ActiveState().Content.Geometry.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                             .Palette = ActiveState().Content.Ground.Palette()});
-  ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                          .Palette = ActiveState().Content.Ground.Palette()});
+  ActiveState().Content.Geometry.GroundFrom(
+      {.Classes = ActiveState().Content.Scene->GroundMaterials().Classes(),
+       .Palette = ActiveState().Content.Scene->GroundMaterials().Palette()});
+  ActiveState().Content.Glass.GroundFrom(
+      {.Classes = ActiveState().Content.Scene->GroundMaterials().Classes(),
+       .Palette = ActiveState().Content.Scene->GroundMaterials().Palette()});
   ActiveState().Submitted = false;
   ActiveState().Ready = true;
   return true;
@@ -422,7 +423,7 @@ std::expected<void, std::string> SceneRenderer::InitForTarget(
   ActiveState().WhyNot.clear();
   if (const auto valid = ValidateExecutablePlan(*plan); !valid) { return valid; }
   if (!Stands()) { return std::unexpected(ActiveState().WhyNot); }
-  ActiveState().Content.Ground.UploadsFrom(Uploads_.get());
+  ActiveState().Content.Scene->GroundMaterials().UploadsFrom(Uploads_.get());
   const auto reused = ReuseFrameResources(frame, *plan);
   if (!reused) { return std::unexpected(reused.error()); }
   if (*reused) { return {}; }
@@ -622,15 +623,16 @@ bool SceneRenderer::Configure(Stage stage,
 
 bool SceneRenderer::PrepareGroundMaterialBuffers(FrameResources &frame, std::string &error) {
   auto &content = ActiveState().Content;
-  if (content.Ground.Ready()) { return true; }
-  const auto uploaded =
-      content.Ground.Replace(frame.Handles.Device, {}, {}, std::chrono::seconds(5));
+  if (content.Scene->GroundMaterials().Ready()) { return true; }
+  const auto uploaded = content.Scene->GroundMaterials().Replace(
+      frame.Handles.Device, {}, {}, std::chrono::seconds(5));
   if (!uploaded) {
     error = uploaded.error().Message;
     return false;
   }
-  const GeometryRenderer::GroundBuffers buffers{.Classes = content.Ground.Classes(),
-                                                .Palette = content.Ground.Palette()};
+  const GeometryRenderer::GroundBuffers buffers{
+      .Classes = content.Scene->GroundMaterials().Classes(),
+      .Palette = content.Scene->GroundMaterials().Palette()};
   content.Geometry.GroundFrom(buffers);
   content.Glass.GroundFrom(buffers);
   return true;
@@ -853,7 +855,6 @@ void SceneRenderer::ApplyWorldDeclarations() {
 void SceneRenderer::BindFrameResources() {
   ActiveState().Content.Geometry.UsePipelines(ActiveFrame().GeometryPipelines);
   ActiveState().Content.Glass.UsePipelines(ActiveFrame().GlassPipelines);
-  ActiveState().Content.Glass.Shares(ActiveState().Content.Geometry.Owned());
   ActiveFrame().Shadow.Binds(ActiveState().Content.Geometry);
   ActiveFrame().Cull.Binds(CullSource(ActiveState().Content.Geometry));
 }
@@ -963,7 +964,7 @@ Native::Result<void> SceneRenderer::EncodeOverlay(const FrameContext &ctx,
                                                   const PassRecording &into) {
   ActiveFrame().OverlayPipe.Bind(
       Extent{.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height});
-  return ActiveFrame().OverlayPipe.Encode(ActiveState().Content.Overlay, ctx, Picture(false, into));
+  return ActiveFrame().OverlayPipe.Encode(ActiveState().Overlay, ctx, Picture(false, into));
 }
 
 Native::Result<void> SceneRenderer::EncodePresent([[maybe_unused]] const FrameContext &ctx,
@@ -997,7 +998,7 @@ bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                      GroundClassUploadMetrics *metrics) {
   if (!UploadGroundClasses(classes, palette, error, metrics)) { return false; }
   const auto copyAt = std::chrono::steady_clock::now();
-  ActiveState().Content.Resources.SetGroundClassification(classes, palette);
+  ActiveState().Content.Scene->Resources().SetGroundClassification(classes, palette);
   if (metrics != nullptr) {
     metrics->RestoreSourceMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - copyAt)
@@ -1018,7 +1019,7 @@ bool SceneRenderer::SetGroundClasses(GroundClassificationSource source,
     return false;
   }
   const auto retainAt = std::chrono::steady_clock::now();
-  ActiveState().Content.Resources.SetGroundClassification(std::move(source));
+  ActiveState().Content.Scene->Resources().SetGroundClassification(std::move(source));
   if (metrics != nullptr) {
     metrics->RestoreSourceMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retainAt)
@@ -1038,10 +1039,11 @@ bool SceneRenderer::BeginGroundClasses(GroundClassificationSource source,
     return false;
   }
   content.PendingGroundClasses.emplace(std::move(source));
-  auto begun = content.Ground.BeginReplace(ActiveFrame().Handles.Device,
-                                           content.PendingGroundClasses->ClassSpan(),
-                                           content.PendingGroundClasses->PaletteSpan(),
-                                           metrics != nullptr ? &metrics->Storage : nullptr);
+  auto begun = content.Scene->GroundMaterials().BeginReplace(
+      ActiveFrame().Handles.Device,
+      content.PendingGroundClasses->ClassSpan(),
+      content.PendingGroundClasses->PaletteSpan(),
+      metrics != nullptr ? &metrics->Storage : nullptr);
   if (!begun) {
     error = std::move(begun.error().Message);
     content.PendingGroundClasses.reset();
@@ -1057,19 +1059,19 @@ SceneRenderer::AdvanceGroundClasses(size_t bytesMost, GroundClassUploadMetrics *
   if (!content.PendingGroundClasses) {
     return std::unexpected("ground classification upload has no source");
   }
-  auto advanced =
-      content.Ground.AdvanceReplace(bytesMost, metrics != nullptr ? &metrics->Storage : nullptr);
+  auto advanced = content.Scene->GroundMaterials().AdvanceReplace(
+      bytesMost, metrics != nullptr ? &metrics->Storage : nullptr);
   if (!advanced) {
     content.PendingGroundClasses.reset();
     return std::unexpected(std::move(advanced.error().Message));
   }
   if (!*advanced) { return false; }
-  content.Geometry.GroundFrom(
-      {.Classes = content.Ground.Classes(), .Palette = content.Ground.Palette()});
-  content.Glass.GroundFrom(
-      {.Classes = content.Ground.Classes(), .Palette = content.Ground.Palette()});
+  content.Geometry.GroundFrom({.Classes = content.Scene->GroundMaterials().Classes(),
+                               .Palette = content.Scene->GroundMaterials().Palette()});
+  content.Glass.GroundFrom({.Classes = content.Scene->GroundMaterials().Classes(),
+                            .Palette = content.Scene->GroundMaterials().Palette()});
   const auto retainAt = std::chrono::steady_clock::now();
-  content.Resources.SetGroundClassification(std::move(*content.PendingGroundClasses));
+  content.Scene->Resources().SetGroundClassification(std::move(*content.PendingGroundClasses));
   content.PendingGroundClasses.reset();
   if (metrics != nullptr) {
     metrics->RestoreSourceMs =
@@ -1084,20 +1086,22 @@ bool SceneRenderer::UploadGroundClasses(std::span<const uint32_t> classes,
                                         std::string &error,
                                         GroundClassUploadMetrics *metrics) {
   if (metrics != nullptr) { *metrics = {}; }
-  const auto uploaded =
-      ActiveState().Content.Ground.Replace(ActiveFrame().Handles.Device,
-                                           classes,
-                                           palette,
-                                           std::chrono::seconds(5),
-                                           metrics != nullptr ? &metrics->Storage : nullptr);
+  const auto uploaded = ActiveState().Content.Scene->GroundMaterials().Replace(
+      ActiveFrame().Handles.Device,
+      classes,
+      palette,
+      std::chrono::seconds(5),
+      metrics != nullptr ? &metrics->Storage : nullptr);
   if (!uploaded) {
     error = uploaded.error().Message;
     return false;
   }
-  ActiveState().Content.Geometry.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                             .Palette = ActiveState().Content.Ground.Palette()});
-  ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                          .Palette = ActiveState().Content.Ground.Palette()});
+  ActiveState().Content.Geometry.GroundFrom(
+      {.Classes = ActiveState().Content.Scene->GroundMaterials().Classes(),
+       .Palette = ActiveState().Content.Scene->GroundMaterials().Palette()});
+  ActiveState().Content.Glass.GroundFrom(
+      {.Classes = ActiveState().Content.Scene->GroundMaterials().Classes(),
+       .Palette = ActiveState().Content.Scene->GroundMaterials().Palette()});
   return true;
 }
 
@@ -1393,12 +1397,7 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
 }
 
 Native::Result<void> SceneRenderer::FlushCrossings(Native::Commands &commands) {
-  auto flushed = ActiveState().Content.Geometry.FlushCrossings(&commands);
-  if (!flushed) { return flushed; }
-  if (ActiveState().Content.DrawsGlass) {
-    return ActiveState().Content.Glass.FlushCrossings(&commands);
-  }
-  return {};
+  return ActiveState().Content.Scene->Meshes().FlushCrossings(&commands);
 }
 
 std::expected<Native::Completion, std::string> SceneRenderer::PrepareWorldResources() {
@@ -1424,8 +1423,7 @@ std::expected<Native::Completion, std::string> SceneRenderer::PrepareWorldResour
   }
   auto completion = Submission_.Submit(Submission_.Context, Device_.get(), std::move(*commands));
   if (!completion) { return std::unexpected(completion.error().Message); }
-  ActiveState().Content.Geometry.CommitCrossings();
-  if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
+  ActiveState().Content.Scene->Meshes().CommitCrossings();
   preparation.Commit();
   Uploads_->Submitted(*completion);
   return *completion;
@@ -1435,8 +1433,7 @@ bool SceneRenderer::WorldResourcesComplete(const Native::Completion &completion)
   if (!Device_) { return false; }
   const auto status = Submission_.QueryFence(Submission_.Context, Device_.get(), completion);
   if (!status || *status != Native::CompletionStatus::Ready) { return false; }
-  ActiveState().Content.Geometry.Owned().ReleaseUploadScratch();
-  ActiveState().Content.Glass.Owned().ReleaseUploadScratch();
+  ActiveState().Content.Scene->Meshes().ReleaseUploadScratch();
   return true;
 }
 
@@ -1446,8 +1443,7 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
 }
 
 void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission) {
-  ActiveState().Content.Geometry.CommitCrossings();
-  if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
+  ActiveState().Content.Scene->Meshes().CommitCrossings();
   stageSubmission.Commit();
   ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid) &&
                                     DepthPyramidNeeded(*ActiveState().Plan));
@@ -1584,7 +1580,7 @@ std::expected<void, std::string>
 SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   if (widthPx <= 0 || heightPx <= 0) { return std::unexpected(Says::kInvalidTargetExtent); }
   if (!Stands()) { return std::unexpected(ActiveState().WhyNot); }
-  ActiveState().Content.Ground.UploadsFrom(Uploads_.get());
+  ActiveState().Content.Scene->GroundMaterials().UploadsFrom(Uploads_.get());
   const bool changed = Showing_ != presents;
   if (changed) {
     auto claimed = ClaimWindow(presents);
