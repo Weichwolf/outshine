@@ -20,6 +20,13 @@ def legacy_module(path):
     return module
 
 
+def verification_bounds(product):
+    bounds, hierarchy = product[0].bounds, product[2]
+    if len(bounds) or hierarchy is None:
+        return bounds
+    return hierarchy.bounds[hierarchy.children[:, 0] < 0]
+
+
 def run(args):
     from attributed_prisms import load_product, native_inputs, render_product
     from compare_attributed_prisms import check_view
@@ -30,17 +37,18 @@ def run(args):
 
     args.output.mkdir(parents=True, exist_ok=False)
     old = legacy_module(args.legacy)
-    legacy = old.load_product(args.product / "dense-product.npz")
+    legacy_path = args.legacy_product or args.product / "dense-product.npz"
+    legacy = old.load_product(legacy_path)
+    if args.legacy_traversal is not None:
+        old.trace = legacy_module(args.legacy_traversal).trace
     current = load_product(args.product / "product.npz")
     source, document, context, _ = load(args.input)
     poses = views(document, context)
     extra, _, _ = camera_cases(source, document, context)
     poses.update({name: view for name, view in extra.items() if name not in poses})
+    bounds = verification_bounds(legacy)
     corners = np.array(
-        [
-            list(itertools.product(*zip(box[0], box[1], strict=True)))
-            for box in legacy[0].bounds
-        ]
+        [list(itertools.product(*zip(box[0], box[1], strict=True))) for box in bounds]
     ).reshape(-1, 3)
     extent = {"positions": np.concatenate((source["positions"], corners))}
     rows = []
@@ -79,6 +87,13 @@ def run(args):
     }
     report = {
         "legacy_source_sha256": hashlib.sha256(args.legacy.read_bytes()).hexdigest(),
+        "legacy_product_sha256": hashlib.sha256(legacy_path.read_bytes()).hexdigest(),
+        "legacy_traversal_sha256": hashlib.sha256(
+            args.legacy_traversal.read_bytes()
+        ).hexdigest()
+        if args.legacy_traversal is not None
+        else None,
+        "extent_primitive_boxes": len(bounds),
         "poses": rows,
         "known_native_counterexamples": counter,
         "scope": "Same exact old consumer outputs, not native equivalence. Native material/coverage counterexamples remain reported, no tolerance relaxed.",
@@ -91,5 +106,7 @@ if __name__ == "__main__":
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--product", type=Path, required=True)
     parser.add_argument("--legacy", type=Path, required=True)
+    parser.add_argument("--legacy-product", type=Path)
+    parser.add_argument("--legacy-traversal", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     run(parser.parse_args())
