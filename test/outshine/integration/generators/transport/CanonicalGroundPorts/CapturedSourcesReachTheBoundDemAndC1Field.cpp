@@ -5,6 +5,7 @@
 #include "GroundPortSources.h"
 #include "RoadGroundStrip.h"
 #include "RoadGroundAffine.h"
+#include "RoadGroundFacetAudit.h"
 #include "RoadPortFieldFit.h"
 #include "RoadPortFieldQuery.h"
 #include "RoadPortFieldProgram.h"
@@ -14,8 +15,10 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <format>
+#include <numeric>
 #include <ratio>
 #include <span>
 #include <string>
@@ -148,6 +151,38 @@ std::vector<PortRecord> Ports(const RoadPortFieldFit &fit,
   return result;
 }
 
+void CheckCoarseFacets(const RoadGroundField &source, const RoadPortField &field) {
+  PlanarMesh mesh;
+  std::vector<double> heights;
+  for (const auto &prior : source.Priors) {
+    const auto sampled = field.Evaluate(prior.Patch, prior.At);
+    CHECK(sampled.has_value(), "every original facet vertex samples the fitted analytic field");
+    if (!sampled) { return; }
+    mesh.Points.push_back({prior.At.EastM, prior.At.NorthM});
+    heights.push_back(sampled->HeightM);
+  }
+  mesh.Faces = source.Triangles;
+  mesh.FaceParents.resize(mesh.Faces.size());
+  std::ranges::iota(mesh.FaceParents, uint32_t{0});
+  const auto began = std::chrono::steady_clock::now();
+  const auto audit = AuditRoadGroundFacets(source, field, mesh, heights);
+  Note("actual coarse finite audit elapsed",
+       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+       "ms");
+  CHECK(audit.has_value(), "both actual coarse products admit independent finite facet checks");
+  if (!audit) { return; }
+  Note("actual coarse finite bad faces", static_cast<double>(audit->BadFaces), "faces");
+  Note("actual coarse chord bound", audit->MaximumHeightChordErrorM, "m");
+  Note("actual coarse finite normalized grade", audit->MaximumNormalizedFiniteGrade, "ratio");
+  Note("actual coarse contact gradient jump", audit->MaximumContactGradientJump, "m/m");
+  Note("actual coarse shared contact segments",
+       static_cast<double>(audit->SharedContactSegments),
+       "segments");
+  Note("actual coarse facet audit workspace",
+       static_cast<double>(audit->ContainerCapacityBytes),
+       "B");
+}
+
 ComponentResult CheckField(const CanonicalGroundFixture::Source &source,
                            const GroundPortSources &sources,
                            const CanonicalGroundFixture::Terrain &terrain,
@@ -206,6 +241,7 @@ ComponentResult CheckField(const CanonicalGroundFixture::Source &source,
   Note("actual source/DEM/C1 original prior error", fitted->MaximumPriorErrorM, "m");
   CHECK(heights.size() == (which == 0 ? 36 : 58),
         "the native fields retain exactly the same 94 original full-width DEM stencils");
+  CheckCoarseFacets(*field, fitted->Field);
   auto demands = CanonicalGroundFixture::Demands(source, source.Components[which]);
   if (reverse) { std::ranges::reverse(demands); }
   if (!reverse) { WriteFieldDiagnostics(*field, *fitted, which, path); }
