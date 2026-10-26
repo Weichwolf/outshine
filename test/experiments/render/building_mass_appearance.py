@@ -7,7 +7,7 @@ import numpy as np
 import shapely
 from building_mass_materials import material
 from prepared_material_fields import edge_at
-from source_material_patches import shape_material_patches
+from source_material_domains import domain_axes, shape_material_domains
 
 
 def policy_digest(at):
@@ -23,9 +23,11 @@ def patch_normal_areas(patches):
         return np.empty((0, 3)), np.empty(0)
     local = np.stack([p.local_axes for p in patches])
     axes = np.stack([p.geometry.axes for p in patches])
-    normals = np.array([p.orientation for p in patches])[:, None] * np.cross(
-        local[:, 0], local[:, 1]
-    )
+    return normal_areas(local, axes, [p.orientation for p in patches])
+
+
+def normal_areas(local, axes, orientations):
+    normals = np.array(orientations)[:, None] * np.cross(local[:, 0], local[:, 1])
     for normal in normals:
         normal /= np.linalg.norm(normal)
     areas = np.array([np.linalg.norm(n) for n in np.cross(axes[:, 0], axes[:, 1])])
@@ -33,19 +35,34 @@ def patch_normal_areas(patches):
 
 
 def patch_measure(patch, at, *, normal_area=None, material_lookup=None):
-    shape = patch.shape
     if normal_area is None:
         local_normal = patch.orientation * np.cross(*patch.local_axes)
         local_normal /= np.linalg.norm(local_normal)
         jacobian = np.linalg.norm(np.cross(*patch.geometry.axes))
     else:
         local_normal, jacobian = normal_area
+    return domain_measure(
+        patch.geometry.domain,
+        patch.shape,
+        patch.surface,
+        patch.side,
+        patch.gable,
+        at,
+        (local_normal, jacobian),
+        material_lookup=material_lookup,
+    )
+
+
+def domain_measure(
+    domain, shape, surface, side, gable, at, normal_area, *, material_lookup=None
+):
+    local_normal, jacobian = normal_area
     stream = int(local_normal[2] > 0.5)
     lookup = material if material_lookup is None else material_lookup
-    colour = patch.surface["wall_colour"]
+    colour = surface["wall_colour"]
     paint = np.ones(3) if colour is None else np.asarray(colour) / at["base"][0]
     result = np.zeros(4 + len(at["palette"]))
-    if patch.side == 1:
+    if side == 1:
         trim = 2 if shape["roof_kind"] == 0 else 1
         code = -(1 + trim + 16 * shape["ident"])
         if int(np.float32(code)) != code:
@@ -54,25 +71,22 @@ def patch_measure(patch, at, *, normal_area=None, material_lookup=None):
             )
         slope = np.sqrt(max(0, 1 - local_normal[2] ** 2))
         colour, weights = lookup(at, code, stream, paint, slope=slope)
-        area = patch.geometry.domain.area * jacobian
+        area = domain.area * jacobian
         result[:] = np.r_[colour, weights, 1] * area
         return result, 1
-    a, b, entrance, party = edge_at(shape, patch.side)
-    opening = not (patch.gable or party) and np.linalg.norm(b - a) >= 1.9
+    a, b, entrance, party = edge_at(shape, side)
+    opening = not (gable or party) and np.linalg.norm(b - a) >= 1.9
     code = shape["opening_style"] + len(at["fractions"]) * (
-        (2 if entrance and not patch.gable else 0) + 3 * (shape["wall_variant"] % 8)
+        (2 if entrance and not gable else 0) + 3 * (shape["wall_variant"] % 8)
     )
     base = shape["seat_m"] + shape["foot_m"]
-    x0, z0, x1, z1 = patch.geometry.domain.bounds
+    x0, z0, x1, z1 = domain.bounds
     calls = 0
     for above, low, high in ((False, z0, min(z1, base)), (True, max(z0, base), z1)):
         if high <= low:
             continue
         area = (
-            shapely.intersection(
-                patch.geometry.domain, shapely.box(x0, low, x1, high)
-            ).area
-            * jacobian
+            shapely.intersection(domain, shapely.box(x0, low, x1, high)).area * jacobian
         )
         if area <= 0:
             continue
@@ -92,6 +106,8 @@ def patch_measure(patch, at, *, normal_area=None, material_lookup=None):
 def source_measure(identity, surface, frame, at):
     if surface is None:
         raise ValueError("original source material forms unavailable")
+    if not surface["shapes"]:
+        raise ValueError("positive finite source wall/roof measures required")
     result = np.zeros((2, 4 + len(at["palette"])))
     states = {}
 
@@ -109,14 +125,26 @@ def source_measure(identity, surface, frame, at):
         return states[key]
 
     patches = 0
-    for part, shape in enumerate(surface["shapes"]):
-        generated = shape_material_patches(
-            surface, shape, identity, part, frame["basis"], frame["anchor"]
-        )
-        normals, areas = patch_normal_areas(generated)
+    transform = (
+        np.array([surface[k] for k in ("east", "north", "up")]) @ frame["basis"].T
+    )
+    for shape in surface["shapes"]:
+        generated = shape_material_domains(surface, shape)
+        if not generated:
+            continue
+        local = np.stack([p.local_axes for p in generated])
+        axes = np.stack([domain_axes(p, transform) for p in generated])
+        normals, areas = normal_areas(local, axes, [p.orientation for p in generated])
         for patch, normal, area in zip(generated, normals, areas, strict=True):
-            value, _ = patch_measure(
-                patch, at, normal_area=(normal, area), material_lookup=lookup
+            value, _ = domain_measure(
+                patch.domain,
+                shape,
+                surface,
+                patch.side,
+                patch.gable,
+                at,
+                (normal, area),
+                material_lookup=lookup,
             )
             result[int(patch.side == 1)] += value
             patches += 1

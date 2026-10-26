@@ -3,10 +3,9 @@
 from dataclasses import dataclass
 
 import numpy as np
-import shapely
-from column_roof_patches import bottom_m, roof_patches
 from prepared_material_fields import edge_at, facade_catalog
-from source_surface_patches import SurfacePatch, wall_domains
+from source_material_domains import domain_axes, shape_material_domains
+from source_surface_patches import SurfacePatch
 
 
 @dataclass
@@ -23,80 +22,33 @@ class MaterialPatch:
 
 
 def shape_material_patches(surface, shape, source, part, basis, anchor):
-    """Split known source sides at the deck before triangulation or clustering.
-
-    Side is the BSC3 ring-side ordinal, never an inferred native triangle ID.
-    Only the existing roof/wall source support is covered; no floor, overhang,
-    recessed opening, native triangulation or native shading normal is rebuilt.
-    """
-    roofs = roof_patches(shape)
+    """Build full world-space patches only for consumers requesting geometry."""
+    domains = shape_material_domains(surface, shape)
     frame = np.array([surface[k] for k in ("east", "north", "up")]) @ basis.T
     origin = np.array(surface["origin"]) @ basis.T - anchor
-
-    def make(domain, local_origin, local_axes, side, gable, orientation=1):
-        # Preserve the existing source_surface_patches arithmetic/plane frames.
-        if side == 1:
-            axes = frame[:2] + local_axes[:, 2, None] * frame[2]
-            offset = origin + local_origin[2] * frame[2]
-        else:
-            axes = np.stack((local_axes[0, :2] @ frame[:2], frame[2]))
-            offset = origin + local_origin[:2] @ frame[:2]
-        normal = orientation * np.cross(*axes)
-        normal /= np.linalg.norm(normal)
-        geometry = SurfacePatch(domain, offset, axes, normal, source)
-        return MaterialPatch(
-            geometry,
-            shape,
-            part,
-            side,
-            gable,
-            local_origin,
-            local_axes,
-            surface,
-            orientation,
-        )
-
     patches = []
-    for domain, plane in roofs:
+    for d in domains:
+        axes = domain_axes(d, frame)
+        if d.side == 1:
+            offset = origin + d.local_origin[2] * frame[2]
+        else:
+            offset = origin + d.local_origin[:2] @ frame[:2]
+        normal = d.orientation * np.cross(*axes)
+        normal /= np.linalg.norm(normal)
+        geometry = SurfacePatch(d.domain, offset, axes, normal, source)
         patches.append(
-            make(
-                domain,
-                np.array([0, 0, plane[2]]),
-                np.array([[1, 0, plane[0]], [0, 1, plane[1]]]),
-                1,
-                False,
+            MaterialPatch(
+                geometry,
+                shape,
+                part,
+                d.side,
+                d.gable,
+                d.local_origin,
+                d.local_axes,
+                surface,
+                d.orientation,
             )
         )
-    sides = {}
-    for ring in [shape["ring"], *shape["holes"]]:
-        for a in ring:
-            key = tuple(a)
-            if key in sides:
-                raise ValueError("ambiguous source-side origin")
-            sides[key] = 2 + len(sides)
-    deck = shape["seat_m"] + shape["foot_m"] + shape["eaves_m"]
-    if shape["roof_kind"] == 0:
-        deck += shape["rise_m"]
-    for domain, a, along, orientation in wall_domains(
-        shape, roofs, bottom_m(surface, shape)
-    ):
-        x0, z0, x1, z1 = domain.bounds
-        intervals = [(False, z0, min(z1, deck)), (True, max(z0, deck), z1)]
-        for gable, low, high in intervals:
-            if high <= low:
-                continue
-            piece = shapely.intersection(domain, shapely.box(x0, low, x1, high))
-            if piece.area > 0:
-                patches.append(
-                    make(
-                        piece,
-                        np.r_[a, 0.0],
-                        np.array([[*along, 0], [0, 0, 1]]),
-                        sides[tuple(a)],
-                        gable,
-                        orientation,
-                    )
-                )
     return patches
 
 

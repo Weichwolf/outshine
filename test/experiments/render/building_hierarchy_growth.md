@@ -34,7 +34,12 @@ repeated GEOS extraction without a persistent cache or approximate geometry.
 Mass construction reuses one source-to-common frame per source and requests only
 projected domains/height planes and the needed roof-to-wall shift. The full
 `project_patch` control still computes bottom extents for consumers that need them;
-unused bottom-coordinate arrays are not constructed during mass description. Compare actual
+unused bottom-coordinate arrays are not constructed during mass description.
+Material integration consumes the shared source-local domains and area Jacobians
+without constructing world-space patch origins/normals or full surface objects.
+Consumers requesting full patches use those same domains with their unchanged
+geometry fields; this path additionally creates temporary local-domain records.
+No source-sampling, deck/party/gable rule or material accumulation order changes. Compare actual
 post-qualification original needs with the earlier lower bound. Missing parent
 files retain every source in that subtree; unbounded originals remain required.
 Count known source-summary faces separately. They are not native runtime
