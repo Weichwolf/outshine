@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
@@ -276,7 +276,7 @@ void Replay(const std::filesystem::path &directory,
   Tasks compute(1);
   SurfacePreparation stack;
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   CHECK(stack.Open({.BuiltinData = "data",
                     .Sources = (directory / "sources").string(),
                     .Assets = (directory / "assets").string()},

@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "RawSourceCache.h"
 #include "SourceConfiguration.h"
@@ -98,7 +98,7 @@ void CheckOfflineEndpoints(const std::array<outshine::Data::SourceProvider, 2> &
 
 int main() {
   outshine::Data::ProviderRegistry registry;
-  outshine::Generators::RegisterShippedProviders(registry);
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
   using namespace outshine;
   using namespace outshine::Data;
   using namespace outshine::Test;

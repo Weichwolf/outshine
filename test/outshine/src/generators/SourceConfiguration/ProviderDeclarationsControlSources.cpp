@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "SourceConfiguration.h"
 #include "Check.h"
 #include <array>
@@ -7,7 +7,7 @@
 
 int main() {
   outshine::Data::ProviderRegistry registry;
-  outshine::Generators::RegisterShippedProviders(registry);
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
   using namespace outshine;
   using namespace outshine::Data;
   using namespace outshine::Test;

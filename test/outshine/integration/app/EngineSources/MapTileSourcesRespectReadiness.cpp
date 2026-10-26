@@ -1,5 +1,5 @@
 #include "EngineFactory.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
 
@@ -27,7 +27,7 @@ int main() {
   {
     Scenario::Document scene;
     scene.Ground.Declared = true;
-    const auto sources = Generators::ShippedProviders();
+    const auto sources = Generators::DefaultSourceProviders();
     scene.Providers.assign(sources.begin(), sources.end());
     scene.Ground.Origin = {.LatitudeDeg = kLatitudeDeg, .LongitudeDeg = kLongitudeDeg};
     scene.Render.Declared = true;

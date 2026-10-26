@@ -1,5 +1,5 @@
 #include "EngineFactory.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
 #include <Generator.h>
@@ -66,7 +66,7 @@ int main() {
     CHECK(engine.declare(scenario) && probe.Calls == 6,
           "removing generated content does not invoke removed producer");
     Scenario::Document earth;
-    const auto sources = Generators::ShippedProviders();
+    const auto sources = Generators::DefaultSourceProviders();
     earth.Providers.assign(sources.begin(), sources.end());
     earth.Ground.Declared = true;
     earth.Ground.VegetationEnabled = false;

@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "OfflineSourceTransport.h"
@@ -55,7 +55,7 @@ int main() {
   const std::array providers{terrain};
   Tasks sourceCompute(1);
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   SurfacePreparation stack;
   const LongitudeLatitude first{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};

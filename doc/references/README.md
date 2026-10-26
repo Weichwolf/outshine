@@ -1,11 +1,11 @@
 # Forschungsgrundlage für Outshine
 
-Stand: 2026-10-20. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+Stand: 2026-10-27. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
 Papers, Kurse und Produktdokumentation sind als solche bezeichnet; Links und lokale PDFs bleiben erhalten.
 Die Einträge sind die kanonische Relevanzbewertung nach [#919](https://github.com/Weichwolf/outshine/issues/919),
 keine Machbarkeitsbestätigung und keine neue Architekturfreigabe.
 
-**Prüfstand: 69 von 70 Einträgen bewertet.** Alle Bereiche sind eingeordnet;
+**Prüfstand: 70 von 71 Einträgen bewertet.** Alle Bereiche sind eingeordnet;
 ein Normalenartikel bleibt wegen fehlender Volltext-/Abbildungsprüfung ausdrücklich
 unter „Bewertung ausstehend“, ohne Relevanzurteil.
 Bewertete Einträge folgen absteigend dem aktuellen Nutzen innerhalb jeder Stufe:
@@ -315,6 +315,22 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   - **Grenzen:** Ebenenabweichung ohne
     Alpha-/Mip-/GGX-/Tiefen-/Disokklusions-/Schattenfehlergarantie; Texturleerraum/Overdraw,
     Wind-/Lichtänderungen können Meshgewinn aufheben.
+
+- **Maximum Mipmaps for Fast, Accurate, and Scalable Dynamic Height Field Rendering**,
+  Tevs / Ihrke / Seidel, I3D 2008.
+  [Autorenquelle](https://projects.tevs.eu/www.tevs.eu/files/i3d08_lowres.pdf) ·
+  [PDF](terrain/i3d/2008-maximum-mipmaps.pdf).
+
+  - **Relevanz: Mittel — Exakte Terrain-Strahlreferenz / #1237, #515.**
+  - **Einsatz:** Maximum-Hierarchie; leere Höhenbereiche überspringen; dynamischer Aufbau;
+    Referenz für selektive exakte Abfragen. PDF-Seiten 3/5 optisch geprüft.
+  - **Grenzen:** Bilineare Paperfläche statt nativer Dreiecke; LOD-Heuristik keine eigene
+    0,5px-Schranke. Lokaler #1237-Gewinn gegen Vollscan kein Renderergewinn: unabhängiger
+    Raster billiger; kein direkter nativer Port empfohlen. Hierarchiebytes/Traversal extra;
+    alte GPUzeiten kein A18-/Iris-/Welt-/p99-Beleg, keine Fine-IO-Vermeidung.
+  - **Bezüge:** [#1239](https://github.com/Weichwolf/outshine/pull/1239) ·
+    [#1237](https://github.com/Weichwolf/outshine/issues/1237) ·
+    [#515](https://github.com/Weichwolf/outshine/issues/515).
 
 - **LEAN Mapping**, Olano / Baker, I3D 2010, korrigierte Autorenfassung.
   [Autorenquelle](https://userpages.cs.umbc.edu/olano/papers/lean/) ·
