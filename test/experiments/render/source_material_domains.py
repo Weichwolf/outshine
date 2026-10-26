@@ -10,7 +10,7 @@ from source_surface_patches import wall_domains
 
 class MaterialDomain(NamedTuple):
     domain: object
-    local_origin: np.ndarray
+    local_origin: tuple[float, float, float]
     local_axes: np.ndarray
     side: int
     gable: bool
@@ -29,7 +29,7 @@ def shape_material_domains(surface, shape):
     patches = [
         MaterialDomain(
             domain,
-            np.array([0, 0, plane[2]]),
+            (0.0, 0.0, plane[2]),
             np.array([[1, 0, plane[0]], [0, 1, plane[1]]]),
             1,
             False,
@@ -59,7 +59,7 @@ def shape_material_domains(surface, shape):
                 patches.append(
                     MaterialDomain(
                         piece,
-                        np.r_[a, 0.0],
+                        (*a, 0.0),
                         np.array([[*along, 0], [0, 0, 1]]),
                         sides[tuple(a)],
                         gable,
