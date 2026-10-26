@@ -64,6 +64,7 @@ foreach(source IN LISTS cases)
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
   if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
+      OR name STREQUAL "outshine/src/generators/road/height/RoadPortFieldQuery/PortsKeepTheirOwnFrameAndSourceOrientation"
       OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
       OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"

@@ -17,12 +17,6 @@ struct RoadPortPrior {
   double HeightM = 0;
 };
 
-struct RoadPortFace {
-  uint32_t Patch = 0;
-  std::array<EastNorth, 3> Triangle;
-  std::array<double, 4> GradeFrame;
-};
-
 struct RoadPortFieldFitInput {
   std::span<const RoadPortField::Plane> Planes;
   std::span<const RoadPortField::Patch> Patches;

@@ -13,6 +13,12 @@
 
 namespace outshine::Generators {
 
+struct RoadPortFace {
+  uint32_t Patch = 0;
+  std::array<EastNorth, 3> Triangle;
+  std::array<double, 4> GradeFrame;
+};
+
 class RoadPortField {
 public:
   struct Plane {
