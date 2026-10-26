@@ -49,7 +49,7 @@ int CheckSource() {
                                                         candidate,
                                                         error,
                                                         Render::SceneResources::PieceSources::Copy,
-                                                        Core::SubjectGeometrySources::Driven);
+                                                        Core::GeometryRetention::Driven);
   };
   CHECK(prepare(), error.c_str());
   if (!candidate) { return Report(); }

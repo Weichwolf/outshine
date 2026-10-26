@@ -27,7 +27,7 @@ void CheckLayouts() {
   shape.CarriesNormal = true;
   RenderObject proxy;
   proxy.ResetForShape(shape, {});
-  SubjectView view;
+  PreparedView view;
   view.HasExplicitCamera = true;
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = 0.05;

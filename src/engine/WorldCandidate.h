@@ -78,7 +78,7 @@ public:
   Prepare(const RuntimeScene &previous,
           const Ui::Font *font,
           Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
-          SubjectGeometrySources geometry = SubjectGeometrySources::All,
+          GeometryRetention geometry = GeometryRetention::All,
           ResourceRestoreMode restore = ResourceRestoreMode::Immediate) {
     std::string error;
     if (!RuntimeScene::PreparesWorldReplacement(

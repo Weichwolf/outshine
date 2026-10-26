@@ -37,7 +37,7 @@ void CheckSelection() {
   constexpr std::array<uint32_t, 2> slots{0, 0};
   std::string error;
   CHECK(proxy.SetMaterials(slots, {&material, 1}, error), "native materials bind");
-  SubjectView view;
+  PreparedView view;
   view.HasExplicitCamera = true;
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = .05;

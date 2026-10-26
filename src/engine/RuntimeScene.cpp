@@ -85,7 +85,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
                         std::unique_ptr<RuntimeScene> &out,
                         std::string &error) {
   const auto offlineUploads = renderer.OfflineUploads(std::chrono::seconds(5));
-  const bool framesSubject = out && !out->Camera_.Prepared().HasExplicitCamera;
+  const bool frameGeometry = out && !out->Camera_.Prepared().HasExplicitCamera;
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   std::unique_ptr<RuntimeScene> candidate;
   if (!Prepare(renderer,
@@ -97,7 +97,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
-  if (framesSubject) { candidate->FrameItself(); }
+  if (frameGeometry) { candidate->FrameGeometry(); }
   if (!renderer.Settle(error) || !renderer.PublishesWorldCandidate(error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
@@ -231,9 +231,9 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                             std::unique_ptr<RuntimeScene> &candidate,
                                             std::string &error,
                                             Render::SceneResources::PieceSources pieces,
-                                            SubjectGeometrySources geometry,
+                                            GeometryRetention geometry,
                                             ResourceRestoreMode restore) {
-  if (previous.Held_.HasGeometry() && geometry == SubjectGeometrySources::All) {
+  if (previous.Held_.HasGeometry() && geometry == GeometryRetention::All) {
     return PreparesRetainedGeometryReplacement(renderer,
                                                previous,
                                                previous.Held_.Retain(),

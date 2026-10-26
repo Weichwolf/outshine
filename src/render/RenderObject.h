@@ -147,7 +147,7 @@ struct RenderObjectPreparation {
 
 [[nodiscard]] bool Aim(SceneRenderer &renderer,
                        const Shape &subject,
-                       const SubjectView &view,
+                       const PreparedView &view,
                        const Vec3 &anchorEcefM,
                        std::string &error);
 
@@ -158,13 +158,13 @@ struct RenderObjectPreparation {
 
 [[nodiscard]] bool Surface(SceneRenderer &renderer,
                            const RenderObject &proxy,
-                           const SubjectView &view,
+                           const PreparedView &view,
                            RenderObjectPreparation &scratch,
                            std::string &error);
 
 [[nodiscard]] bool PlanPlacement(SceneRenderer &renderer,
                                  const RenderObject &proxy,
-                                 const SubjectView &view,
+                                 const PreparedView &view,
                                  RenderObjectPreparation &scratch,
                                  std::string &error);
 
@@ -176,7 +176,7 @@ AdvancePackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch
 
 [[nodiscard]] bool PreparePlacement(SceneRenderer &renderer,
                                     const RenderObject &proxy,
-                                    const SubjectView &view,
+                                    const PreparedView &view,
                                     RenderObjectPreparation &scratch,
                                     std::string &error);
 
@@ -196,13 +196,13 @@ AdvancePackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch
 
 [[nodiscard]] bool Place(SceneRenderer &renderer,
                          const RenderObject &proxy,
-                         const SubjectView &view,
+                         const PreparedView &view,
                          RenderObjectPreparation &scratch,
                          std::string &error);
 
 [[nodiscard]] bool Move(SceneRenderer &renderer,
                         const RenderObject &proxy,
-                        const SubjectView &view,
+                        const PreparedView &view,
                         RenderObjectPreparation &scratch,
                         std::string &error);
 

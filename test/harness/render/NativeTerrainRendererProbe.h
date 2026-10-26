@@ -63,7 +63,7 @@ struct HeightPattern {
   std::array<GroundTile, 2> Tiles{};
 };
 
-struct alignas(16) SubjectView {
+struct alignas(16) TerrainViewUniform {
   Mat4f Current = kIdentity, Previous = kIdentity, Light = kIdentity;
   Vec4f Shift{}, PreviousShift{};
 };
@@ -73,10 +73,10 @@ struct alignas(16) DepthView {
   Vec4f Shift{};
 };
 
-constexpr size_t kSubjectViewBytes = 224;
-constexpr size_t kSubjectShiftOffset = 192;
-static_assert(sizeof(SubjectView) == kSubjectViewBytes &&
-              offsetof(SubjectView, Shift) == kSubjectShiftOffset);
+constexpr size_t kTerrainViewBytes = 224;
+constexpr size_t kTerrainShiftOffset = 192;
+static_assert(sizeof(TerrainViewUniform) == kTerrainViewBytes &&
+              offsetof(TerrainViewUniform, Shift) == kTerrainShiftOffset);
 constexpr size_t kDepthViewBytes = 80;
 static_assert(sizeof(DepthView) == kDepthViewBytes && offsetof(DepthView, Shift) == sizeof(Mat4f));
 
@@ -328,7 +328,7 @@ inline void Lit(Device &device,
   Require(commands->BeginRenderPass(
       {.Colours = attachments,
        .Depth = DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Load::Clear}}));
-  SubjectView view;
+  TerrainViewUniform view;
   view.Current = frame.Mvp;
   SubjectLightingUniform lighting{};
   lighting.Up = {{0, 0, 1, 0}};

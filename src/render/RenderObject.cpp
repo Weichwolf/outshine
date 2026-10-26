@@ -234,7 +234,7 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
 }
 
 [[nodiscard]] bool BuildDrawList(const RenderObject &proxy,
-                                 const SubjectView &view,
+                                 const PreparedView &view,
                                  const Shape &subject,
                                  DrawList &list,
                                  std::string &error) {
@@ -365,7 +365,7 @@ PlaceLights(const RenderObject &proxy, std::vector<SubjectLight> &out, std::stri
 
 bool Aim(SceneRenderer &renderer,
          const Shape &subject,
-         const SubjectView &view,
+         const PreparedView &view,
          const Vec3 &anchorEcefM,
          std::string &error) {
   const Viewpoint &eye = view.Eye;
@@ -396,7 +396,7 @@ bool BindIllumination(SceneRenderer &renderer,
 
 bool Surface(SceneRenderer &renderer,
              const RenderObject &proxy,
-             [[maybe_unused]] const SubjectView &view,
+             [[maybe_unused]] const PreparedView &view,
              RenderObjectPreparation &scratch,
              std::string &error) {
   if (proxy.Shaped() == nullptr) {
@@ -522,7 +522,7 @@ bool DigestChannelSlice(const Shape &subject, RenderObjectPreparation &scratch, 
 
 bool PlanPlacement(SceneRenderer &renderer,
                    const RenderObject &proxy,
-                   const SubjectView &view,
+                   const PreparedView &view,
                    RenderObjectPreparation &scratch,
                    std::string &error) {
   scratch.PlannedShape = nullptr;
@@ -616,7 +616,7 @@ std::expected<bool, std::string> AdvancePackPlacement(const RenderObject &proxy,
 
 bool PreparePlacement(SceneRenderer &renderer,
                       const RenderObject &proxy,
-                      const SubjectView &view,
+                      const PreparedView &view,
                       RenderObjectPreparation &scratch,
                       std::string &error) {
   return PlanPlacement(renderer, proxy, view, scratch, error) &&
@@ -756,7 +756,7 @@ bool SubmitPlacement(SceneRenderer &renderer,
 
 bool Place(SceneRenderer &renderer,
            const RenderObject &proxy,
-           const SubjectView &view,
+           const PreparedView &view,
            RenderObjectPreparation &scratch,
            std::string &error) {
   return PreparePlacement(renderer, proxy, view, scratch, error) &&
@@ -765,7 +765,7 @@ bool Place(SceneRenderer &renderer,
 
 bool Move(SceneRenderer &renderer,
           const RenderObject &proxy,
-          const SubjectView &view,
+          const PreparedView &view,
           RenderObjectPreparation &scratch,
           std::string &error) {
   if (proxy.Shaped() == nullptr) {

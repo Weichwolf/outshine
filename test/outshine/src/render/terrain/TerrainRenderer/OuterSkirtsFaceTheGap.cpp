@@ -85,7 +85,7 @@ int main() {
   Require(commands->BeginRenderPass(
       {.Colours = attachments,
        .Depth = DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Load::Clear}}));
-  SubjectView view;
+  TerrainViewUniform view;
   view.Current = frame.Mvp;
   SubjectLightingUniform lighting{};
   lighting.Up = {{0, 0, 1, 0}};

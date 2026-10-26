@@ -66,7 +66,7 @@ void Exercise() {
       const auto prepared = candidate.Prepare(*state.Picture.Standing,
                                               nullptr,
                                               Render::SceneResources::PieceSources::Copy,
-                                              Core::SubjectGeometrySources::All,
+                                              Core::GeometryRetention::All,
                                               Core::ResourceRestoreMode::Deferred);
       CHECK(prepared.has_value(),
             prepared ? "an incomplete candidate owns an active editing scope"
