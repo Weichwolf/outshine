@@ -317,7 +317,16 @@ def run_case(
     return report
 
 
-def plot(owner, reference, comparison, path, owner_title):
+def plot(
+    owner,
+    reference,
+    comparison,
+    path,
+    owner_title,
+    *,
+    reference_title="20 m boundary-refined reference",
+    mask=None,
+):
     difference = comparison.report
     import matplotlib
 
@@ -327,11 +336,20 @@ def plot(owner, reference, comparison, path, owner_title):
     fig, axes = plt.subplots(1, 3, figsize=(14, 5))
     for axis, mesh, title in (
         (axes[0], owner, owner_title),
-        (axes[1], reference, "20 m boundary-refined reference"),
+        (axes[1], reference, reference_title),
     ):
         axis.triplot(
-            *mesh.vertices[:, :2].T, mesh.triangles, color="tab:blue", linewidth=0.6
+            *mesh.vertices[:, :2].T,
+            mesh.triangles,
+            color="tab:blue" if mask is None else "0.8",
+            linewidth=0.6,
         )
+        if mask is not None:
+            import shapely
+
+            for part in shapely.get_parts(mask):
+                for ring in (part.exterior, *part.interiors):
+                    axis.plot(*ring.xy, color="tab:blue", linewidth=0.8)
         axis.set_title(
             f"{title}\n{len(mesh.vertices)} vertices / {len(mesh.triangles)} faces"
         )
