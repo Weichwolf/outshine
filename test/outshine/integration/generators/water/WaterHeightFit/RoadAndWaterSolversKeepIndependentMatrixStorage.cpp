@@ -3,7 +3,6 @@
 #include "WaterHeightFit.h"
 #include <array>
 #include <cmath>
-#include <vector>
 
 namespace {
 using namespace outshine;
@@ -12,20 +11,20 @@ using namespace outshine::Test;
 
 void CheckRoad() {
   using namespace outshine::Generators::RoadProfiles;
-  const std::array terms{SparseEntry<int>{0, 0, 1},
-                         SparseEntry<int>{1, 0, -1},
-                         SparseEntry<int>{2, 0, 1},
-                         SparseEntry<int>{2, 1, 1},
-                         SparseEntry<int>{3, 0, -1},
-                         SparseEntry<int>{3, 1, -1},
-                         SparseEntry<int>{4, 0, 1},
-                         SparseEntry<int>{4, 1, 2},
-                         SparseEntry<int>{4, 2, -1},
-                         SparseEntry<int>{5, 0, -1},
-                         SparseEntry<int>{5, 1, -2},
-                         SparseEntry<int>{5, 2, -1},
-                         SparseEntry<int>{6, 1, 1},
-                         SparseEntry<int>{7, 1, -1}};
+  std::array terms{SparseEntry<int>{0, 0, 1},
+                   SparseEntry<int>{1, 0, -1},
+                   SparseEntry<int>{2, 0, 1},
+                   SparseEntry<int>{2, 1, 1},
+                   SparseEntry<int>{3, 0, -1},
+                   SparseEntry<int>{3, 1, -1},
+                   SparseEntry<int>{4, 0, 1},
+                   SparseEntry<int>{4, 1, 2},
+                   SparseEntry<int>{4, 2, -1},
+                   SparseEntry<int>{5, 0, -1},
+                   SparseEntry<int>{5, 1, -2},
+                   SparseEntry<int>{5, 2, -1},
+                   SparseEntry<int>{6, 1, 1},
+                   SparseEntry<int>{7, 1, -1}};
   const HeightProgram program{.Conditions = SparseMatrix<int>::Assemble(8, 3, terms),
                               .Upper = {10, -10, 10.1, -10.1, 11, -11, .2, .2},
                               .Variables = {{}, {}, {0, 2}},
@@ -56,7 +55,8 @@ void CheckWater() {
                                    .TargetUpM = target,
                                    .Grades = grades,
                                    .PrimaryGrades = primary,
-                                   .UpBoundsM = {-1, 2}};
+                                   .UpBoundsM = {-1, 2},
+                                   .Contacts = {}};
   const auto fit = FitWaterSurfaceHeights(problem);
   CHECK(fit.has_value(), "OSQP solves the actual water programme beside HiGHS");
   if (!fit) { return; }

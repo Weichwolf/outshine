@@ -14,15 +14,22 @@ int main() {
   const WaterAsset source({.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 999},
                                         {.FirstRing = 0, .RingCount = 1, .LevelM = 888}},
                            .Rings = {{.FirstPoint = 0, .PointCount = 3}},
+                           .Courses = {},
+                           .Levels = {},
                            .Points = {-.001, -.001, -.001, .001, .001, 0},
                            .Tiles = {{.Zoom = 0, .X = 0, .Y = 0, .SurfaceCount = 2}},
-                           .ProcessedTiles = 1});
+                           .ProcessedTiles = 1,
+                           .Sources = {},
+                           .Inputs = {}});
   auto mesh = WaterSurfaceMesh::Build(
       {}, {{{-100, -100, 30}}, {{100, -100, 34}}, {{0, 100, 32}}}, {{.Vertices = {0, 1, 2}}});
   CHECK(mesh, "fitted physical facet exists");
   if (!mesh) { return Report(); }
-  const auto prepared = source.WithSurfaces(
-      {.Mesh = std::move(*mesh), .FaceSourceOffsets = {0, 2}, .FaceSources = {0, 1}});
+  const auto prepared = source.WithSurfaces({.Mesh = std::move(*mesh),
+                                             .Rejections = {},
+                                             .FaceSourceOffsets = {0, 2},
+                                             .FaceSources = {0, 1},
+                                             .ProfileDeclines = {}});
   CHECK(prepared, "one fitted physical facet preserves both overlapping source surfaces");
   if (!prepared) { return Report(); }
   const auto encoded = prepared->EncodeNative(16384);
