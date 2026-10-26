@@ -22,14 +22,8 @@ def project(points, zoom, anchor):
     return local_points(anchor, np.c_[longitude, latitude], 0)
 
 
-def prepare(records, data, original_indices, *, spacing_m=None):
-    """A bounded declared body/cohort, not a global hydraulic owner.
-
-    Ring vertices already share published edge subdivisions. One ENU frame and
-    soft source-height recipe serve contacts, height/bed consumers and render
-    detail. The comparison driver, not this producer, may construct a fine fit.
-    Native levels are unverified geodetic soft-model inputs, not measured ASL.
-    """
+def body_geometry(records):
+    """Project aligned source rings once; construct no contour or fine mesh."""
     kinds = {r[1].info["kind"] for r in records}
     if len(kinds) != 1 or not kinds <= {"river", "lake"}:
         raise ValueError("one explicitly supported river/lake recipe required")
@@ -44,6 +38,16 @@ def prepare(records, data, original_indices, *, spacing_m=None):
             for r in (piece.polygon.exterior, *piece.polygon.interiors)
         ]
         polygons.append(shapely.Polygon(rings[0], rings[1:]))
+    return anchor, polygons
+
+
+def prepare(records, data, original_indices, *, spacing_m=None):
+    """Bounded cohort with unverified native levels as soft geodetic targets.
+
+    Contacts, height/bed consumers and render detail share this functional owner;
+    this does not determine a world-wide hydraulic domain or observed ASL datum.
+    """
+    anchor, polygons = body_geometry(records)
     flat, topology = surface_mesh(shapely.union_all(polygons), spacing_m)
     csr = face_membership(flat.vertices, flat.triangles, polygons)
     if np.any(csr.status):
@@ -97,7 +101,7 @@ def prepare(records, data, original_indices, *, spacing_m=None):
         {
             "scope": "finite delivered normalized cohort with retained originals; not a world-wide body closure",
             "source_revision": digest.hexdigest(),
-            "normalized_cells": tiles,
+            "normalized_cells": sorted({r[0] for r in records}),
             "original_keys": sorted({r[2] for r in records}),
             "normalized_pieces": len(records),
             "source_height_sampling": sampling,
@@ -109,7 +113,7 @@ def prepare(records, data, original_indices, *, spacing_m=None):
 
 
 def publish_contacts(
-    mesh, anchor, version, records, knots, output, *, query_limit=4096
+    mesh, anchor, version, records, knots, output, *, query_limit=4096, mask=None
 ):
     """Publish the common functional owner at actual shared border vertices.
 
@@ -134,6 +138,12 @@ def publish_contacts(
     if len(selected) > query_limit:
         raise ValueError("shared border contact query budget")
     xy = project(np.asarray(selected).reshape(-1, 2), records[0][0][0], anchor)[:, :2]
+    if mask is not None and not shapely.covers(mask, shapely.points(xy)).all():
+        return {
+            "state": "unresolved_contacts",
+            "owner_version": version,
+            "scope": "shared source vertex outside precise water mask; no product published",
+        }
     sampler = SurfaceSampler(mesh, xy_tolerance_m=0, max_faces=16384)
     first = sampler.sample(xy, max_queries=query_limit)
     second = SurfaceSampler(mesh, xy_tolerance_m=0, max_faces=16384).sample(
@@ -152,6 +162,8 @@ def publish_contacts(
     context = hashlib.sha256(version.encode())
     for array in (anchor, mesh.vertices, mesh.triangles):
         context.update(np.ascontiguousarray(array).tobytes())
+    if mask is not None:
+        context.update(mask.wkb)
     payload = first.points_enu_m.nbytes + first.face_indices.nbytes
     np.savez_compressed(
         output,
@@ -172,5 +184,6 @@ def publish_contacts(
         "points_and_parent_ids_bytes": payload,
         "height_queries_use_published_owner": True,
         "bed_consumer_integrated": False,
+        "precise_water_mask_checked": mask is not None,
         "scope": "common vertex contacts before fine; complete edge profile and local fine-fit feasibility remain open",
     }
