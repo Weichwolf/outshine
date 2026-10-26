@@ -84,9 +84,9 @@ void main() {
   vec3 shaded = shadeRow(surface, localPosition, shadingNormal, position, albedo,
       surface.metalness, roughness, vec3(surface.f0), surface.specularWeight, surface.emissive, vec3(0.0),
 #if GROUND_PATCHES
-      shadowLightSpace,
+      shadowLightSpace, sunShadowReceiverSlope(shadowLightSpace),
 #else
-      lightSpace,
+      lightSpace, sunShadowReceiverSlope(lightSpace),
 #endif
       shadowMap);
   outputSurface(vec4(shaded, 1.0), shadingNormal, surface.identity);
