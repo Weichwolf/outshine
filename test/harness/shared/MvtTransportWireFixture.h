@@ -55,6 +55,14 @@ inline Bytes Feature(const FeatureInput &input) {
   return out;
 }
 
+inline Bytes EmptyTile() {
+  Bytes layer{kLayerVersion, 2, kLayerExtent, 64};
+  Text(layer, 0x0a, "streets");
+  Bytes out;
+  Message(out, kLayerKey, layer);
+  return out;
+}
+
 inline Bytes Tile() {
   Bytes layer{kLayerVersion, 2, kLayerExtent, 64};
   Text(layer, 0x0a, "streets");

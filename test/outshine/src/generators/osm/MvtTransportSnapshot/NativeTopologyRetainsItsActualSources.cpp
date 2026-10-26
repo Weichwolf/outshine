@@ -191,6 +191,29 @@ void CheckDemand(const MvtTransportSnapshot &made,
         "neither equal foreign bytes nor another street field can reuse local bindings");
 }
 
+void CheckEmptyRegion(const Generators::RegionSurfaceRecipes &recipes,
+                      std::span<const GeographicBounds> coverage) {
+  using namespace outshine::Test;
+  const std::array<std::string, 1> layers{"streets"};
+  OsmField field(16, layers);
+  CHECK(field.Accept(kTileX, kTileX, MvtTransportWire::EmptyTile()).has_value(),
+        "an actual MVT layer may declare a region with no transport features");
+  StreetField streets;
+  (void)streets.Ingest(field, recipes);
+  const auto graph = StreetGraphBuilder::BuildOneShot(
+      streets, field.Points(), [](LongitudeLatitude) -> std::optional<double> { return 0.0; });
+  CHECK(graph.Graph && streets.Ways().empty(), "the source builder retains its valid empty graph");
+  if (!graph.Graph) { return; }
+  const auto made = BuildMvtTransportSnapshot(field, streets, *graph.Graph, coverage);
+  CHECK(made && made->Network->Topology().Nodes().empty() &&
+            made->Network->Topology().Edges().empty() && made->Omissions.empty() &&
+            made->Network->Provenance().Sources.size() == 1,
+        "known empty transport retains actual source provenance without invented omissions");
+  if (!made) { return; }
+  const auto selected = ResolveMvtTransportWays(*made, field, streets, {});
+  CHECK(selected && selected->empty(), "empty functional demand resolves without a source rebuild");
+}
+
 void CheckPartialTopology(const OsmField &field,
                           const StreetField &streets,
                           std::span<const GeographicBounds> coverage) {
@@ -261,6 +284,7 @@ int main() {
     CheckDemand(*made, field, streets);
   }
   CheckPartialTopology(field, streets, coverage);
+  CheckEmptyRegion(recipes, coverage);
   std::stop_source cancelled;
   cancelled.request_stop();
   CHECK(!BuildMvtTransportSnapshot(field, streets, *graph.Graph, coverage, cancelled.get_token()),
