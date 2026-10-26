@@ -112,5 +112,5 @@ Losasso/Hoppe, SIGGRAPH 2004, *Geometry Clipmaps*, §§3/5 and Figure 2,
 Toroidal storage and newly exposed strips motivate the experiment; the paper's
 terrain clipping/delayed-update policy is not adopted and proves no shadow method.
 Product arithmetic/PCF source at native input product commit `37db0b9e3`:
-`SunShadowStage.cpp`, `subjectShadowVertex.glsl`, `subjectLighting.glsl`,
+`SunShadowStage.cpp`, `geometryShadowVertex.glsl`, `surfaceLighting.glsl`,
 `shadowFilter.glsl` (unchanged at this experiment's initial base).

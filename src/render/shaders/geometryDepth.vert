@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 #include "depthView.glsl"
 layout(location = 0) in vec3 position;
-#include "subjectPlacement.glsl"
+#include "geometryPlacements.glsl"
 void main() {
   mat4 model = placements[uint(gl_InstanceIndex)].current;
   model[3] += vec4(s.shift.xyz, 0.0);

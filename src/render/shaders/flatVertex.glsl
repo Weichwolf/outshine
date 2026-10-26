@@ -1,9 +1,9 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "subjectView.glsl"
+#include "geometryView.glsl"
 #define VARYING out
 #include "flatVaryings.glsl"
-#include "subjectPlacement.glsl"
+#include "geometryPlacements.glsl"
 layout(location = 0) in vec3 p;
 layout(location = 2) in vec3 emission;
 #if FLAT_UVS > 0
@@ -15,7 +15,7 @@ layout(location = 6) in vec2 vertexUv1;
 #if FLAT_TINTED
 layout(std430, set = 0, binding = 1) readonly buffer ColourFactors { vec4 colourFactors[]; };
 #endif
-#if SUBJECT_WRITES_VELOCITY
+#if SURFACE_WRITES_VELOCITY
 layout(location = 5) in vec3 previous;
 #endif
 void main() {
@@ -36,7 +36,7 @@ void main() {
   colour = colourFactors[placed.colourOffset + uint(gl_VertexIndex)];
 #endif
   emitted = emission;
-#if SUBJECT_WRITES_VELOCITY
+#if SURFACE_WRITES_VELOCITY
   curClip = gl_Position;
   mat4 previousPlacement = placed.previous;
   previousPlacement[3] += vec4(s.prevShift.xyz, 0.0);

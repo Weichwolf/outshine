@@ -4,7 +4,7 @@
 #include <expected>
 #include <limits>
 #include <string_view>
-#include "SubjectTypes.h"
+#include "MeshInput.h"
 #include "GeometryResidency.h"
 
 namespace outshine::Render {
@@ -15,7 +15,7 @@ inline constexpr std::string_view kVertexUploadTooLarge =
 
 struct VertexStreamUpload {
   GeometryResidency::Stream Which;
-  SubjectStream Source;
+  VertexSource Source;
   bool Carried;
   uint32_t Components;
 };

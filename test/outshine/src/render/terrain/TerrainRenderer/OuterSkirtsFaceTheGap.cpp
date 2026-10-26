@@ -1,3 +1,4 @@
+#include "LightingUniform.h"
 #include "terrain/TerrainResidency.h"
 #include "TerrainLattice.h"
 #include "test/harness/render/NativeTerrainRendererProbe.h"
@@ -85,9 +86,9 @@ int main() {
   Require(commands->BeginRenderPass(
       {.Colours = attachments,
        .Depth = DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Load::Clear}}));
-  SubjectView view;
+  TerrainViewUniform view;
   view.Current = frame.Mvp;
-  SubjectLightingUniform lighting{};
+  LightingUniform lighting{};
   lighting.Up = {{0, 0, 1, 0}};
   const auto material = PackMaterial(MaterialBinding{}, 1);
   const std::array bindings{

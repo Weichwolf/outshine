@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "ImageCapture.h"
 #include "Check.h"
 #include "ImpostorPreparation.h"
@@ -722,7 +723,7 @@ bool OpenInstances(InstanceScene &scene, const ImpostorAtlas &atlas) {
   CHECK(Core::RuntimeScene::Open(scene.Renderer, declaration, nullptr, scene.Live, scene.Error),
         "crown piece Live opens with the reference lighting");
   if (!scene.Live) { return false; }
-  Render::SubjectMesh empty;
+  Render::MeshInput empty;
   empty.Anchor = {{kWgs84A, 0, 0}};
   CHECK(scene.Renderer.SetGeometryMesh(empty, scene.Error),
         "reference mesh leaves while the Live coordinate anchor remains");

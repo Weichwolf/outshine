@@ -1,9 +1,9 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define VARYING out
-#define SUBJECT_VERTEX_STAGE 1
-#include "subjectVaryings.glsl"
-#include "subjectView.glsl"
+#define SURFACE_VERTEX_STAGE 1
+#include "surfaceVaryings.glsl"
+#include "geometryView.glsl"
 #include "groundLatticeCore.glsl"
 layout(set = 0, binding = 0) uniform sampler2DArray pages;
 void main() {
@@ -26,7 +26,7 @@ void main() {
   position = wp.xyz;
   localPosition = g.local;
   lightSpace = s.lightFromWorld * (model * vec4(g.rim, 1.0));
-#if SUBJECT_WRITES_VELOCITY
+#if SURFACE_WRITES_VELOCITY
   curClip = gl_Position;
   prevClip = s.prevViewProj * (mat4(c0, c1, c2, c3 + vec4(s.prevShift.xyz, 0.0)) * local);
 #endif

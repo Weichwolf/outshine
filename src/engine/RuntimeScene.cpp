@@ -1,3 +1,5 @@
+#include "SceneLighting.h"
+#include "MeshInput.h"
 #include "SurfaceSession.h"
 #include <expected>
 #include <span>
@@ -73,7 +75,7 @@ RuntimeScene::~RuntimeScene() {
   if (Renderer_ == nullptr) { return; }
 
   std::string ignored;
-  (void)Renderer_->SetGeometryMesh(Render::SubjectMesh{}, ignored);
+  (void)Renderer_->SetGeometryMesh(Render::MeshInput{}, ignored);
   (void)Renderer_->SetOverlay(nullptr, 0, ignored);
   Renderer_->SetPictureRegion({});
 }
@@ -84,7 +86,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
                         std::unique_ptr<RuntimeScene> &out,
                         std::string &error) {
   const auto offlineUploads = renderer.OfflineUploads(std::chrono::seconds(5));
-  const bool framesSubject = out && !out->Camera_.Prepared().HasExplicitCamera;
+  const bool frameGeometry = out && !out->Camera_.Prepared().HasExplicitCamera;
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   std::unique_ptr<RuntimeScene> candidate;
   if (!Prepare(renderer,
@@ -96,7 +98,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
-  if (framesSubject) { candidate->FrameItself(); }
+  if (frameGeometry) { candidate->FrameGeometry(); }
   if (!renderer.Settle(error) || !renderer.PublishesWorldCandidate(error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
@@ -230,9 +232,9 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                             std::unique_ptr<RuntimeScene> &candidate,
                                             std::string &error,
                                             Render::SceneResources::PieceSources pieces,
-                                            SubjectGeometrySources geometry,
+                                            GeometryRetention geometry,
                                             ResourceRestoreMode restore) {
-  if (previous.Held_.HasGeometry() && geometry == SubjectGeometrySources::All) {
+  if (previous.Held_.HasGeometry() && geometry == GeometryRetention::All) {
     return PreparesRetainedGeometryReplacement(renderer,
                                                previous,
                                                previous.Held_.Retain(),
@@ -385,7 +387,7 @@ void RuntimeScene::ClearsSubject() {
   PartBounds_.clear();
   if (Renderer_ != nullptr) {
     std::string ignored;
-    (void)Renderer_->SetGeometryMesh(Render::SubjectMesh{}, ignored);
+    (void)Renderer_->SetGeometryMesh(Render::MeshInput{}, ignored);
     (void)Renderer_->SetGeometryPlacements(nullptr, 0, ignored);
   }
 }
@@ -593,7 +595,7 @@ std::expected<void, std::string> RuntimeScene::PlanBuild() {
 std::expected<void, std::string> RuntimeScene::BindBuild() {
   std::string error;
   if (Shaped_.TriangleCount() == 0) {
-    if (!Renderer_->SetGeometryMesh(Render::SubjectMesh{}, error) ||
+    if (!Renderer_->SetGeometryMesh(Render::MeshInput{}, error) ||
         !Renderer_->SetGeometryPlacements(nullptr, 0, error)) {
       return std::unexpected(std::move(error));
     }
@@ -815,7 +817,7 @@ bool RuntimeScene::Look(std::string &error) {
 }
 
 void RuntimeScene::StandsEnvironment() {
-  Render::SubjectEnvironment environment;
+  Render::EnvironmentLighting environment;
   for (int channel = 0; channel < 3; ++channel) {
     environment.RadianceLinear[channel] = static_cast<float>(Declared_.IndirectLight[channel]);
     environment.GroundLinear[channel] = environment.RadianceLinear[channel];
@@ -840,7 +842,7 @@ void RuntimeScene::ReadIrradiance(std::span<const float, Render::kIrradianceFloa
   }
 }
 
-void RuntimeScene::LightsFromTheSky(Render::SubjectEnvironment &environment) const {
+void RuntimeScene::LightsFromTheSky(Render::EnvironmentLighting &environment) const {
   environment.SkyLux = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
   environment.CosSunZenith = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
   for (int channel = 0; channel < 3; ++channel) {

@@ -3,7 +3,7 @@
 #include "SceneRenderer.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
 #include "Viewing.h"
 #include <Geometry.h>
 #include <Material.h>

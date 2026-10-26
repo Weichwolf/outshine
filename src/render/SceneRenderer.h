@@ -1,3 +1,5 @@
+#include "SceneLighting.h"
+#include "MeshInput.h"
 #include "Lens.h"
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
@@ -500,7 +502,7 @@ public:
                     error);
   }
 
-  [[nodiscard]] bool SetGeometryMesh(const SubjectMesh &mesh, std::string &error) {
+  [[nodiscard]] bool SetGeometryMesh(const MeshInput &mesh, std::string &error) {
     const Heap::Tagged relaying("mesh-relay");
     if (ActiveState().Content.DrawsGlass &&
         !ActiveState().Content.Glass.ValidateMesh(mesh, error)) {
@@ -511,7 +513,7 @@ public:
   }
 
   [[nodiscard]] std::expected<GeometryRenderer::MeshTicket, std::string>
-  BeginGeometryMesh(const SubjectMesh &mesh) {
+  BeginGeometryMesh(const MeshInput &mesh) {
     std::string error;
     if (ActiveState().Content.DrawsGlass &&
         !ActiveState().Content.Glass.ValidateMesh(mesh, error)) {
@@ -521,7 +523,7 @@ public:
   }
 
   [[nodiscard]] bool FinishGeometryMesh(GeometryRenderer::MeshTicket ticket,
-                                        const SubjectMesh &mesh,
+                                        const MeshInput &mesh,
                                         std::string &error) {
     return ActiveState().Content.Geometry.FinishMesh(ticket, mesh, error) &&
            (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetMesh(mesh, error));
@@ -572,9 +574,10 @@ public:
             ActiveState().Content.Glass.SetPlacements(models, rows, error));
   }
 
-  [[nodiscard]] bool SetGeometryPose(const SubjectPose &pose, std::string &error) {
-    return ActiveState().Content.Geometry.SetPose(pose, error) &&
-           (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetPose(pose, error));
+  [[nodiscard]] bool SetGeometryVertexInput(const VertexInput &pose, std::string &error) {
+    return ActiveState().Content.Geometry.SetVertexInput(pose, error) &&
+           (!ActiveState().Content.DrawsGlass ||
+            ActiveState().Content.Glass.SetVertexInput(pose, error));
   }
 
   [[nodiscard]] bool SetGeometryMaterials(std::span<const MaterialBinding> materials,
@@ -596,7 +599,7 @@ public:
             ActiveState().Content.Glass.AppendMaterials(materials, error));
   }
 
-  [[nodiscard]] bool SetGeometryLights(std::span<const SubjectLight> lights, std::string &error) {
+  [[nodiscard]] bool SetGeometryLights(std::span<const SceneLight> lights, std::string &error) {
     return ActiveState().Content.Geometry.SetLights(lights, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.SetLights(lights, error));
@@ -648,7 +651,7 @@ public:
     return ActiveFrame().Atmosphere.Texture(Resource::TransmittanceLut);
   }
 
-  void SetGeometryEnvironment(const SubjectEnvironment &environment) {
+  void SetGeometryEnvironment(const EnvironmentLighting &environment) {
     ActiveState().Content.Geometry.SetEnvironment(environment);
     if (ActiveState().Content.DrawsGlass) {
       ActiveState().Content.Glass.SetEnvironment(environment);

@@ -1,0 +1,82 @@
+{
+  "schema": "outshine/canonical-port-reference-inputs/1",
+  "native_capture": {
+    "native_commit": "dd5aa6b279ee70fa0d996bca3961aaa5ab39fad0",
+    "integrated_via": "#1394 /95fdd2b14",
+    "export_schema": "outshine/native-mvt-snapshot-dump/1",
+    "json_sha256": "a8df76840f2c0b0f4db1c6479994ed305bdf9543fd3bb98c3728c310234d6bb2",
+    "bytes": 5344716,
+    "input_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+    "upstream_revision_external_to_native_direct_identity": "20260927_080001_pt",
+    "tile": [
+      14,
+      8937,
+      5678
+    ],
+    "source_identity": {
+      "DatasetId": "outshine/mvt/transport",
+      "Revision": "f1ced008d5aa2313a8c5c2afbc4cc59dda4e1fdb16d1033ced42f3b2c2ee1e08"
+    },
+    "nodes": 4433,
+    "directed_edges": 8623,
+    "paths": 4107,
+    "references": 4107,
+    "omissions": {
+      "4": 146,
+      "1": 21,
+      "3": 75,
+      "5": 12
+    },
+    "compile_exit": 0,
+    "link_exit": 0,
+    "run_exit": 0,
+    "integrity_exit": 0,
+    "source_equal_to_current_merged_normalizer": true,
+    "graph_ms": 35.926696,
+    "normalization_ms": 37.106234,
+    "native_capacity_bytes": 1597628,
+    "scope": [
+      "Private read-only JSON rendering of actual native DTOs; not a new product or Planformat3 codec",
+      "Direct Accept source identity is direct with empty upstream revision; payload binding supplied explicitly",
+      "HeightSource returned nullopt; no manufactured zero DEM, port height, or qualified boundary closure",
+      "A single source tile does not prove full connected geographic closure",
+      "Edges.Id.SegmentOrdinal is a normalized edge-fragment ordinal; References.SegmentOrdinal is the source-segment binding",
+      "uint64 IDs remain JSON integer values; Python int preserves them exactly",
+      "native_capacity_bytes is owned vector capacity, not peak RSS or UMA usage"
+    ],
+    "process_nice": 10,
+    "load_at_measurement": "not sampled; no isolated performance claim"
+  },
+  "native_schema": "outshine/native-mvt-snapshot-dump/1",
+  "native_raw_sha256": "a8df76840f2c0b0f4db1c6479994ed305bdf9543fd3bb98c3728c310234d6bb2",
+  "native_raw_bytes": 5344716,
+  "files": {
+    "native.json.gz": {
+      "bytes": 803511,
+      "sha256": "8a90724692891cb48881b9bcee3b4b7b4af84aa13bb4a48460f3c246b1100393"
+    },
+    "dem.webp": {
+      "bytes": 56194,
+      "sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177"
+    },
+    "recipes.json": {
+      "bytes": 764125,
+      "sha256": "f2687ca5036667b11b80a4b75b3c0b1d19f443d58be8c54b537197e77d832b99"
+    }
+  },
+  "recipe_source_sha256": "aa45e156d194479404beff997b81201331e27ec983f27952fe23c77432dbca9b",
+  "terrain": {
+    "tile": [
+      14,
+      8937,
+      5678
+    ],
+    "source_sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+    "source_url": "https://tiles.mapterhorn.com/14/8937/5678.webp",
+    "source_datum": "Mapterhorn values as supplied; no measured geoid/ellipsoid equivalence",
+    "height_mapping": "source signed metres as model geodetic heights/1",
+    "sampling": "bilinear boundary posts, side-1"
+  },
+  "credits": "Vectors: OpenMapTiles/OpenStreetMap contributors; elevation: Mapterhorn. Original source tables and capture receipts retained.",
+  "scope": "Real source-only native DTO input, raw bound DEM and existing recipes. No cooked heights, expected new ports, invented OSM mapping, product codec or full-world admission."
+}

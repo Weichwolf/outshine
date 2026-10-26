@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -119,7 +120,7 @@ void Exercise() {
   draws.Compile();
   draws.JobsAddress(clusters);
   std::array<float, kVertexFloats> emitted{};
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Verts.From = positions.data();
   mesh.Emitted.From = emitted.data();
   mesh.Positions = positions;
@@ -139,8 +140,9 @@ void Exercise() {
     positions[vertex * 3] += kOutside;
     positions[(vertex + 3) * 3] -= kOutside;
   }
-  const SubjectPose pose = mesh;
-  CHECK(renderer.SetGeometryPose(pose, error), "a vertex pose moves geometry outside old spheres");
+  const VertexInput pose = mesh;
+  CHECK(renderer.SetGeometryVertexInput(pose, error),
+        "a vertex pose moves geometry outside old spheres");
   counts.ShadowIndices = counts.ShadowPackets = 0;
   CHECK(scene->Draw(error) && counts.ShadowIndices > selected &&
             renderer.ShadowCastCount() == counts.ShadowPackets,

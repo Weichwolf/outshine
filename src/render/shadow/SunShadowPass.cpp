@@ -384,7 +384,7 @@ Native::Result<void> SunShadowPass::CastGeometry(const PassRecording &into,
   FrameContext frame;
   std::ranges::copy(selection, frame.Mvp.begin());
   const BatchFrustum visible(frame, {});
-  const auto subjectRows = Geometry_->SubjectRows();
+  const auto subjectRows = Geometry_->MainMeshRows();
   for (size_t batchIndex = 0; batchIndex < batches.size(); ++batchIndex) {
     const auto &batch = batches[batchIndex];
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < subjectRows) { continue; }

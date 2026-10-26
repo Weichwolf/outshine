@@ -33,7 +33,7 @@ when every qualified interval is outside and multiple disjoint retained packets.
 Bounds are prepared after accepted table/placement preparation and reused while
 those inputs are unchanged. Table changes invalidate selection; failed uploads
 cannot publish newly prepared bounds. An accepted full mesh qualifies its supplied
-cluster bounds. Any vertex `SetPose` invalidates main-subject bounds until a new
+cluster bounds. Any vertex `SetVertexInput` invalidates main-subject bounds until a new
 qualified mesh arrives; independent immutable pieces retain their own contract.
 The real native pose regression moves vertices into a light tile from outside
 their old spheres, verifies full draw coverage, then replaces the mesh/bounds and

@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "Check.h"
 #include "SceneRenderer.h"
 #include "RenderObject.h"
@@ -27,7 +28,7 @@ void CheckLayouts() {
   shape.CarriesNormal = true;
   RenderObject proxy;
   proxy.ResetForShape(shape, {});
-  SubjectView view;
+  PreparedView view;
   view.HasExplicitCamera = true;
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = 0.05;
@@ -40,7 +41,7 @@ void CheckLayouts() {
     material.Row.Unlit = unlit;
     CHECK(proxy.SetMaterials(slots, {&material, 1}, error), "the native material binds");
     for (const double skyLux : {0.0, 10000.0}) {
-      SubjectEnvironment environment;
+      EnvironmentLighting environment;
       environment.SkyLux = skyLux;
       proxy.SetEnvironment(environment);
       CHECK(proxy.Lights().empty(), "no direct light enables the normal stream");

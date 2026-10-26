@@ -301,7 +301,7 @@ def main():
             name: sha(ROOT / "src/render/shaders" / name)
             for name in (
                 "metalRoughBrdf.glsl",
-                "subjectLighting.glsl",
+                "surfaceLighting.glsl",
                 "microfacetEnergy.glsl",
             )
         },

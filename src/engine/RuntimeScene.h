@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_RUNTIMESCENE_H
 #define OUTSHINE_ENGINE_RUNTIMESCENE_H
 
+#include "SceneLighting.h"
 #include <algorithm>
 #include <expected>
 #include <span>
@@ -94,7 +95,7 @@ struct GeometryBuildSliceMetrics {
   double FinalizeMs = 0;
 };
 
-enum class SubjectGeometrySources : uint8_t { All, Driven };
+enum class GeometryRetention : uint8_t { All, Driven };
 enum class ResourceRestoreMode : uint8_t { Immediate, Deferred };
 
 class RuntimeScene {
@@ -137,7 +138,7 @@ public:
       std::unique_ptr<RuntimeScene> &candidate,
       std::string &error,
       Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
-      SubjectGeometrySources geometry = SubjectGeometrySources::All,
+      GeometryRetention geometry = GeometryRetention::All,
       ResourceRestoreMode restore = ResourceRestoreMode::Immediate);
   [[nodiscard]] static bool PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                                    std::unique_ptr<RuntimeScene> &out,
@@ -277,7 +278,7 @@ public:
 
   [[nodiscard]] const Vec3 &GroundAlbedo() const noexcept { return GroundAlbedo_; }
 
-  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() const {
+  [[nodiscard]] const Render::EnvironmentLighting &AmbientStanding() const {
     return Stood_.IndirectLight();
   }
 
@@ -302,7 +303,7 @@ public:
 
   [[nodiscard]] bool Watched() const { return Camera_.HasOverride(); }
 
-  void FrameItself() { Camera_.FrameSubject(); }
+  void FrameGeometry() { Camera_.FrameGeometry(); }
 
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const {
     return Ui_.Under(xPx, yPx, surface);
@@ -395,7 +396,7 @@ private:
 
   [[nodiscard]] Mat4 InMetres(const Mat4 &placed) const;
   void StandsEnvironment();
-  void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
+  void LightsFromTheSky(Render::EnvironmentLighting &environment) const;
   void EmitsPerPart();
   [[nodiscard]] bool StandsPlan(std::string &error);
   [[nodiscard]] bool InitializesFramePlan(std::string &error);

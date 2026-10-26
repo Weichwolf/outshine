@@ -1,4 +1,4 @@
-#if SUBJECT_BASE_LOCATION == 0
+#if SURFACE_BASE_LOCATION == 0
 #include "lighting.glsl"
 #endif
 #if LIT_TEXTURED
@@ -7,7 +7,7 @@ layout(set = 2, binding = 0) uniform sampler2D colourMap;
 layout(set = 2, binding = 1) uniform sampler2D normalMap;
 #endif
 layout(set = 2, binding = 1 + LIT_MAPPED) uniform sampler2D metalRoughMap;
-#if SUBJECT_BASE_LOCATION == 0
+#if SURFACE_BASE_LOCATION == 0
 layout(set = 2, binding = 2 + LIT_MAPPED) uniform sampler2D emissiveMap;
 layout(set = 2, binding = 3 + LIT_MAPPED) uniform sampler2D specularStrengthMap;
 layout(set = 2, binding = 4 + LIT_MAPPED) uniform sampler2D specularTintMap;
@@ -18,7 +18,7 @@ layout(set = 2, binding = 6 + LIT_MAPPED) uniform sampler2D diffuseTransmissionM
 #else
 #define LIT_NEXT_BINDING 0
 #endif
-#if SUBJECT_BASE_LOCATION == 0
+#if SURFACE_BASE_LOCATION == 0
 #if LIT_KIND == 3
 layout(set = 2, binding = LIT_NEXT_BINDING) uniform sampler2D behindMap;
 layout(set = 2, binding = LIT_NEXT_BINDING + 1) uniform sampler2D shadowMap;

@@ -1,7 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "subjectPlacement.glsl"
-#include "subjectView.glsl"
+#include "geometryPlacements.glsl"
+#include "geometryView.glsl"
 struct Point { vec4 p; vec4 shift; };
 layout(std430,set=0,binding=1) readonly buffer Inputs { Point points[]; };
 layout(location=0) flat out vec4 captured;
