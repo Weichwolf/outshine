@@ -4,6 +4,7 @@
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -25,6 +26,12 @@ std::vector<float> Read(Render::SceneRenderer &renderer) {
   return image;
 }
 
+bool Prepare(Core::WorldCandidate &candidate, const Core::RuntimeScene &scene, const char *label) {
+  const auto prepared = candidate.Prepare(scene, nullptr);
+  CHECK(prepared, prepared ? label : prepared.error().c_str());
+  return prepared.has_value();
+}
+
 void AnchorChanges(Render::SceneRenderer &renderer,
                    std::unique_ptr<Core::RuntimeScene> &scene,
                    const Geometry &geometry) {
@@ -35,7 +42,7 @@ void AnchorChanges(Render::SceneRenderer &renderer,
   std::string error;
   for (const bool empty : {true, false}) {
     Core::WorldCandidate candidate(renderer);
-    CHECK(candidate.Prepare(*scene, nullptr), "the next anchor starts with the published world");
+    if (!Prepare(candidate, *scene, "the next anchor starts with the published world")) { return; }
     CHECK(candidate.SetGeometry(empty ? Geometry{} : geometry.clone(), empty ? 0 : 1, error),
           "empty and populated geometry use different native anchors");
     const auto previous = renderer.LastSubmittedCamera();
@@ -72,6 +79,7 @@ int main() {
     declaration.Outputs = {"sceneLinear"};
     declaration.OrbitDegPerFrame = kOrbitDegPerFrame;
     Render::SceneRenderer renderer;
+    const auto uploads = renderer.OfflineUploads(std::chrono::seconds(5));
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
@@ -87,9 +95,9 @@ int main() {
     CHECK(scene->Advance(error) && scene->Draw(error), "the first camera draws");
     for (const bool alreadyDrawn : {true, false}) {
       Core::WorldCandidate candidate(renderer);
-      const auto prepared = candidate.Prepare(*scene, nullptr);
-      CHECK(prepared, "world preparation captures the earlier view");
-      if (!prepared) { continue; }
+      if (!Prepare(candidate, *scene, "world preparation captures the earlier view")) {
+        return Report();
+      }
       eye.EyeM[0] = alreadyDrawn ? kOffsetM : -kOffsetM;
       eye.XMagM = eye.YMagM = kOffsetM;
       scene->Eye(eye);
@@ -113,8 +121,9 @@ int main() {
     const auto valid = scene->Aimed();
     const auto before = Read(renderer);
     Core::WorldCandidate candidate(renderer);
-    CHECK(candidate.Prepare(*scene, nullptr),
-          "a candidate prepares before an invalid pending lens");
+    if (!Prepare(candidate, *scene, "a candidate prepares before an invalid pending lens")) {
+      return Report();
+    }
     auto invalid = valid;
     invalid.XMagM = 0;
     scene->Eye(invalid);
@@ -131,7 +140,9 @@ int main() {
     CHECK(scene->Advance(error) && scene->Draw(error),
           "automatic framing draws before preparation");
     Core::WorldCandidate orbit(renderer);
-    CHECK(orbit.Prepare(*scene, nullptr), "a candidate captures the earlier automatic orbit");
+    if (!Prepare(orbit, *scene, "a candidate captures the earlier automatic orbit")) {
+      return Report();
+    }
     const auto earlier = scene->Aimed();
     CHECK(scene->Advance(error) && scene->Draw(error), "the published automatic orbit advances");
     const auto latest = scene->Aimed();
