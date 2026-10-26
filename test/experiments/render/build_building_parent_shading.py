@@ -9,6 +9,7 @@ from pathlib import Path
 from build_building_hierarchy import build_case
 from build_building_hierarchy_growth import growth_queries, population_cells
 from building_mass_materials import policy
+from building_parent_buffer import RECIPES
 from fit_building_parent_shading import compile_states
 from parent_surface_inputs import open_parent
 from process_memory import peak_rss_bytes
@@ -25,6 +26,7 @@ def run(args):
             args.output / "parents",
             policy(),
             make_queries=growth_queries,
+            buffer_path=args.buffer_path,
         )
         (args.output / "parents/report.json").write_text(
             json.dumps(case, indent=2) + "\n"
@@ -40,6 +42,7 @@ def run(args):
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "source_archive_sha256": digest,
+        "buffer_path": args.buffer_path,
         "parents": case,
         "shading_states": fitted,
         "cost": {
@@ -47,7 +50,7 @@ def run(args):
             "wall_ms": (time.perf_counter() - wall) * 1000,
             "peak_bytes": peak_rss_bytes(),
         },
-        "scope": "Sequential measured original archive/index, scalar parent recipe, source-material production, then fixed1/2-lobe offline shading-state controls. Raw source/parent assets retained. Stage process peaks cumulative; total producer measured directly, not an addition of async times. No rendering/loading solver, new cache/asset/native binding or device admission.",
+        "scope": "Sequential measured original archive/index, declared existing parent recipe, source-material production, then fixed1/2-lobe offline shading-state controls. Raw source/parent assets retained. Stage process peaks cumulative; total producer measured directly, not an addition of async times. No rendering/loading solver, new cache/asset/native binding or device admission.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report["cost"]))
@@ -59,6 +62,7 @@ def main():
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--seed-cell", type=int, required=True)
     parser.add_argument("--cell-count", type=int, required=True)
+    parser.add_argument("--buffer-path", choices=RECIPES, default="scalar")
     run(parser.parse_args())
 
 
