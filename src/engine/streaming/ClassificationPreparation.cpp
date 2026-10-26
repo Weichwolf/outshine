@@ -17,7 +17,7 @@
 
 #include "Capacity.h"
 #include "Log.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 
 #include <cassert>
 #include <chrono>
@@ -42,9 +42,12 @@ double Clock() {
 }
 
 std::unique_ptr<Generators::Osm::OsmField> ClassificationPreparation::CreateField(int zoom) const {
-  if (Veg_ == nullptr || (zoom != Fine_.Zoom && zoom != Coarse_.Zoom)) { return {}; }
-  return std::make_unique<Generators::Osm::OsmField>(
-      zoom, zoom == Fine_.Zoom ? Veg_->Layers() : Veg_->AreaLayers(), VectorSchema_, Prepared_);
+  if (Recipes_ == nullptr || (zoom != Fine_.Zoom && zoom != Coarse_.Zoom)) { return {}; }
+  return std::make_unique<Generators::Osm::OsmField>(zoom,
+                                                     zoom == Fine_.Zoom ? Recipes_->Layers()
+                                                                        : Recipes_->AreaLayers(),
+                                                     VectorSchema_,
+                                                     Prepared_);
 }
 
 void ClassificationPreparation::SetPreparedTiles(
@@ -203,7 +206,8 @@ void ClassificationPreparation::AppendFeature(
     Tier &t, const ::outshine::Generators::Osm::OsmField::Feature &f) {
   const std::string_view layer = t.Field->LayerName(static_cast<int>(f.Layer));
   const std::string_view kind = t.Field->Str(f, "kind");
-  const VegetationTemplates::Rule *rule = Generators::Osm::GroundRuleOf(*t.Field, f, *Veg_);
+  const Generators::RegionSurfaceRecipes::Rule *rule =
+      Generators::Osm::GroundRuleOf(*t.Field, f, *Recipes_);
   if (rule == nullptr) {
     std::string key(layer);
     key.append("/").append(kind);
@@ -270,12 +274,12 @@ ClassificationPreparation::LendTo(Tier &t, ClassGrain grain, double camE, double
   job.Raster.CamN = camN;
   job.Raster.CellM = t.CellM;
   double reachM = 0;
-  for (size_t row = 0; row < Veg_->TemplateCount(); ++row) {
-    reachM = std::max(reachM, static_cast<double>(Veg_->Rows()[row].Edge[0]));
+  for (size_t row = 0; row < Recipes_->TemplateCount(); ++row) {
+    reachM = std::max(reachM, static_cast<double>(Recipes_->Rows()[row].Edge[0]));
   }
   job.Raster.BoundaryHaloM = reachM + .5 * t.CellM;
   job.Raster.HalfCells = t.HalfCells;
-  job.UnmappedRow = Veg_->UnmappedRow();
+  job.UnmappedRow = Recipes_->UnmappedRow();
   job.Raster.Points = std::move(t.Pts);
   job.Raster.Rings = std::move(t.Rings);
   job.Raster.Features = std::move(t.Feats);
@@ -311,7 +315,7 @@ bool ClassificationPreparation::SubmitDue(double camE, double camN) {
 }
 
 bool ClassificationPreparation::HasSourceRequests() const noexcept {
-  return Opened_ && !Restored_ && Veg_ != nullptr && Veg_->Ready() && HasVectorSource_ &&
+  return Opened_ && !Restored_ && Recipes_ != nullptr && Recipes_->Ready() && HasVectorSource_ &&
          Declared_.empty();
 }
 
@@ -321,7 +325,7 @@ std::expected<void, std::string_view> ClassificationPreparation::Update(TilePool
   if (!fine) { return std::unexpected(fine.error()); }
   const auto coarse = ::outshine::Generators::Osm::OsmField::Locate(at, Coarse_.Zoom);
   if (!coarse) { return std::unexpected(coarse.error()); }
-  if (!Opened_ || (Veg_ == nullptr) || !Veg_->Ready()) { return {}; }
+  if (!Opened_ || (Recipes_ == nullptr) || !Recipes_->Ready()) { return {}; }
 
   if (Restored_) {
     const EastNorth cam = Project(at);

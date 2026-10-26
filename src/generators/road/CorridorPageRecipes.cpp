@@ -13,7 +13,7 @@
 namespace outshine::Generators {
 
 RoadSweep Corridors::SurfaceOf(const Osm::StreetField::Way &lane,
-                               const outshine::Ground::VegetationTemplates &vegetation,
+                               const RegionSurfaceRecipes &vegetation,
                                const Edge &edge,
                                bool unbanked) {
   return {.HalfWidthM = static_cast<double>(lane.HalfWidthM),

@@ -4,7 +4,7 @@
 #include <span>
 #include "OsmField.h"
 #include "WaterAsset.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 
 #include <cstdint>
 #include <cstddef>
@@ -40,7 +40,8 @@ public:
   using SurfaceRing = WaterAsset::SurfaceRing;
   using Course = WaterAsset::Course;
 
-  uint32_t Ingest(const GroundQuery &ground, const OsmField &field, const VegetationTemplates &veg);
+  uint32_t
+  Ingest(const GroundQuery &ground, const OsmField &field, const RegionSurfaceRecipes &veg);
 
   [[nodiscard]] const IngestMetrics &WorstIngest() const noexcept { return WorstIngest_; }
 
@@ -132,7 +133,7 @@ private:
   void AddCourse(const OsmField &field,
                  size_t feature,
                  const OsmField::Ring &ring,
-                 const VegetationTemplates &vegetation,
+                 const RegionSurfaceRecipes &vegetation,
                  std::span<double> heights);
   void AddSurface(std::span<const RingSamples> rings, const OsmField &field);
   void ResolveSurfaceLevels(const OsmField &field);
@@ -153,7 +154,7 @@ private:
                                         IngestMetrics &metrics);
   void MaterializeCandidate(const OsmField &field,
                             OnLayers on,
-                            const VegetationTemplates &vegetation,
+                            const RegionSurfaceRecipes &vegetation,
                             const Candidate &candidate);
   std::vector<Surface> Surfaces_;
   std::vector<SurfaceRing> SurfaceRings_;

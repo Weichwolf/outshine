@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
-#define OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
+#ifndef OUTSHINE_GENERATORS_RECIPES_REGIONSURFACERECIPES_H
+#define OUTSHINE_GENERATORS_RECIPES_REGIONSURFACERECIPES_H
 
 #include "SurfaceMaterial.h"
 #include "Vec3.h"
@@ -11,11 +11,11 @@
 
 #include "Json.h"
 #include "AlpineLimit.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 
-namespace outshine::Ground {
+namespace outshine::Generators {
 
-class VegetationTemplates {
+class RegionSurfaceRecipes {
 public:
   struct Rule {
     int Tpl = 0;
@@ -36,13 +36,15 @@ public:
     Vec3f Dry;
   };
 
-  [[nodiscard]] bool Load(const char *path, const GroundMaterials &mats);
+  [[nodiscard]] bool Load(const char *path, const GroundMaterialCatalog &mats);
 
-  [[nodiscard]] const SurfaceMaterial *Rows() const { return Table_.data(); }
+  [[nodiscard]] const ::outshine::Ground::SurfaceMaterial *Rows() const { return Table_.data(); }
 
-  [[nodiscard]] size_t RowBytes() const { return Table_.size() * sizeof(SurfaceMaterial); }
+  [[nodiscard]] size_t RowBytes() const {
+    return Table_.size() * sizeof(::outshine::Ground::SurfaceMaterial);
+  }
 
-  [[nodiscard]] SurfacePaletteView SurfacePalette() const noexcept {
+  [[nodiscard]] ::outshine::Ground::SurfacePaletteView SurfacePalette() const noexcept {
     return {.Materials = Table_, .RockMaterial = RockTpl_, .SlopeBandDeg = Limit_.SlopeBandDeg()};
   }
 
@@ -82,16 +84,17 @@ public:
 private:
   using BladeMap = std::unordered_map<std::string, Blade>;
   [[nodiscard]] bool ReadBlades(const Json::Ref &root, BladeMap &bladeByName);
-  [[nodiscard]] bool
-  ReadSubstrate(const Json::Ref &ground, const GroundMaterials &materials, SurfaceMaterial &row);
+  [[nodiscard]] bool ReadSubstrate(const Json::Ref &ground,
+                                   const GroundMaterialCatalog &materials,
+                                   ::outshine::Ground::SurfaceMaterial &row);
   [[nodiscard]] bool ReadTemplates(const Json::Ref &root,
-                                   const GroundMaterials &materials,
+                                   const GroundMaterialCatalog &materials,
                                    const BladeMap &bladeByName);
   [[nodiscard]] bool ReadRules(const Json::Ref &templates);
   void ReadLayers(const Json::Ref &templates);
   [[nodiscard]] bool ReadEnvironment(const Json::Ref &root);
 
-  std::vector<SurfaceMaterial> Table_;
+  std::vector<::outshine::Ground::SurfaceMaterial> Table_;
   std::vector<float> Friction_;
   std::vector<std::string> Names_;
   std::unordered_map<std::string, Rule> Rules_;

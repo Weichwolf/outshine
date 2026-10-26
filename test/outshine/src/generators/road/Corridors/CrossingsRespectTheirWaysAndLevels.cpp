@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <span>
@@ -16,8 +17,8 @@ void CheckCrossings(int variant) {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "crossings use production road classification");
@@ -53,7 +54,8 @@ void CheckCrossings(int variant) {
     const auto &way = ways.Ways()[lane];
     CHECK(
         network
-            ->Lay(vectors.Points().subspan(2u * way.FirstPoint, 2u * way.PointCount), {.Tag = lane})
+            ->Lay(vectors.Points().subspan(size_t{2} * way.FirstPoint, size_t{2} * way.PointCount),
+                  {.Tag = lane})
             .has_value(),
         "the network retains the source-way association");
   }

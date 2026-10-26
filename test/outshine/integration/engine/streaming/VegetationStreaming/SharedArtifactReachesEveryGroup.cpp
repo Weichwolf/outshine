@@ -5,8 +5,8 @@
 #include "TreeSpecies.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "GroundMaterials.h"
-#include "VegetationTemplates.h"
+#include "GroundMaterialCatalog.h"
+#include "RegionSurfaceRecipes.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -108,8 +108,8 @@ int main() {
   const Cleanup cleanup{directory};
 
   WriteSpecies(directory);
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "materials load");
   CHECK(vegetation.Load("src/assets/world/vegetation.json", materials), "vegetation rules load");
   Generators::Shipping catalogue;

@@ -308,7 +308,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
   Classed out;
   const auto publication = World.Stack.Classes().ReadPublication();
   const auto &classes = publication.Classes;
-  const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
+  const Generators::RegionSurfaceRecipes &wearing = World.Stack.SurfaceRecipes();
   const Medium fallback = kEarthAir;
   if (classes && wearing.Ready()) {
     out.Structure = classes;

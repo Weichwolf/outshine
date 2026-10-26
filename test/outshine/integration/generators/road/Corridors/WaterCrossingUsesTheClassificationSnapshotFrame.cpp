@@ -6,12 +6,14 @@
 #include <algorithm>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cmath>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -65,8 +67,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "production water and bridge rules are available");
@@ -111,7 +113,7 @@ int main() {
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const double longitude : {8.1, 9.0}) {
-    auto grid = std::make_shared<TerrainClassificationMap::Grid>();
+    const auto grid = std::make_shared<TerrainClassificationMap::Grid>();
     grid->W = grid->H = 1;
     grid->OrgE = -8000;
     grid->OrgN = -1000;

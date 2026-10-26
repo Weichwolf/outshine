@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUND_GROUNDMATERIALS_H
-#define OUTSHINE_WORLD_GROUND_GROUNDMATERIALS_H
+#ifndef OUTSHINE_GENERATORS_RECIPES_GROUNDMATERIALCATALOG_H
+#define OUTSHINE_GENERATORS_RECIPES_GROUNDMATERIALCATALOG_H
 
 #include "Vec3.h"
 #include <string_view>
@@ -7,9 +7,9 @@
 #include <string>
 #include <vector>
 
-namespace outshine::Ground {
+namespace outshine::Generators {
 
-class GroundMaterials {
+class GroundMaterialCatalog {
 public:
   struct Material {
     std::string Name;

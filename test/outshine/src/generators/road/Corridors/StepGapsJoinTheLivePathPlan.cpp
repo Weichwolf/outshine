@@ -62,8 +62,8 @@ void CheckCachedProduct(const RoadPageGeometry &mesh, Corridors::Job &job) {
         "actual body undersides replace the old ramp terrain contacts");
 }
 
-void CheckConnection(const Ground::GroundMaterials &materials,
-                     const Ground::VegetationTemplates &vegetation,
+void CheckConnection(const outshine::Generators::GroundMaterialCatalog &materials,
+                     const outshine::Generators::RegionSurfaceRecipes &vegetation,
                      ConnectionCase test) {
   const std::array<std::string, 1> layers{"streets"};
   const auto frame = TangentFrame::At(kOrigin);
@@ -153,8 +153,8 @@ void CheckConnection(const Ground::GroundMaterials &materials,
 }
 
 int main() {
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the integration uses production material and path rules");

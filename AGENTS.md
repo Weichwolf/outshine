@@ -117,6 +117,17 @@
 - Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
+- Vor neuen Features schließen wir den Refactor und die gemeinsame architektonische
+  Abnahme der gesamten aktuellen Codebasis ab; auch neuerer Code ist eingeschlossen.
+  Beim Refactor nötige Korrekturen und Optimierungen direkt umsetzen; ungeeignete
+  Verfahren samt Altpfaden ersetzen. Bis zur Abnahme keine neuen Features. Bestand
+  oder bestandene Tests ersetzen keine ausdrückliche Abnahme (#1233/#1320).
+  Abnahmekriterien: Zuständigkeiten, Abhängigkeiten, Datenfluss, Lebensdauer,
+  Nebenläufigkeit und Kostenmodell. Fehlende zukünftige Features ausdrücklich
+  benennen; sie müssen für diese Bestandsabnahme nicht vorab implementiert sein.
+  Belegte Eignung entscheidet über Beibehalten/Ersetzen, nicht Alter oder Herkunft.
+  Ein kleiner abgestimmter Referenzkern trägt das Engine-Design; Annahmen und
+  Hardwareübertragung prüfen. Generatorverfahren bleiben ein breites Forschungsfeld.
 - Beibehaltenen Altcode nehmen ich und `outshine_engine` gemeinsam fachlich ab:
   tatsächliche Verbraucher, Zielarchitektur, Korrektheit, Einsatzgrenzen und Kosten.
   Commit/Pfade, Entscheidung und beide Bestätigungen stehen im Fach-Issue/PR;

@@ -67,13 +67,13 @@ uint64_t DigestOfWays(const OsmField &field, std::span<const StreetField::Way> w
 
 }
 
-uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
+uint32_t StreetField::Ingest(const OsmField &field, const RegionSurfaceRecipes &veg) {
   return Ingest(
       field, veg, {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing});
 }
 
 uint32_t StreetField::Ingest(const OsmField &field,
-                             const VegetationTemplates &veg,
+                             const RegionSurfaceRecipes &veg,
                              TileAdmission::Reach reach) {
   if (SourceOrigin_.get() != field.OriginToken() || SourceGeneration_ != field.Generation()) {
     *this = StreetField{};
@@ -105,7 +105,7 @@ uint32_t StreetField::Ingest(const OsmField &field,
       continue;
     }
 
-    const VegetationTemplates::Rule *rule =
+    const RegionSurfaceRecipes::Rule *rule =
         veg.Find(field.LayerName(static_cast<int>(f.Layer)), field.Str(f, "kind"));
     if (rule == nullptr) {
       Unruled_++;
@@ -157,7 +157,7 @@ std::optional<StreetField::SourceReference> StreetField::SourceOf(const OsmField
 
 void StreetField::AppendFeature(const OsmField &field,
                                 uint32_t featureAt,
-                                const VegetationTemplates::Rule &rule,
+                                const RegionSurfaceRecipes::Rule &rule,
                                 Shape shape,
                                 const SurfacePlacement &placement) {
   const auto &feature = field.Features()[featureAt];

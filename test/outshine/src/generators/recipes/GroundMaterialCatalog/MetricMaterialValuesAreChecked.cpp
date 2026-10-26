@@ -1,18 +1,18 @@
-#include "GroundMaterials.h"
-#include "VegetationTemplates.h"
+#include "GroundMaterialCatalog.h"
+#include "RegionSurfaceRecipes.h"
 #include "Check.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
 
 int main() {
-  using namespace outshine::Ground;
   using namespace outshine::Test;
   auto temporary = (std::filesystem::temp_directory_path() / "outshine-metrics-XXXXXX").string();
   const char *created = mkdtemp(temporary.data());
   CHECK(created != nullptr, "temporary directory created");
-  if (!created) { return Report(); }
+  if (created == nullptr) { return Report(); }
   const auto path = std::filesystem::path(created) / "materials.json";
   const auto write = [&](const std::string &fields) {
     std::ofstream file(path);
@@ -20,7 +20,7 @@ int main() {
         << R"({"frictionModel":{"reference":"sample"},"classes":[{"name":"sample","peakFriction":1,"surface":"coherent",)"
         << fields << "}]}";
   };
-  GroundMaterials materials;
+  outshine::Generators::GroundMaterialCatalog materials;
   const std::string slope = R"("slope":{"plausibleDeg":[0,90]})";
   write(slope + R"(,"grainSizeM":0,"heightAmplitudeM":0,"detailScaleM":[2,0.5])");
   CHECK(materials.Load(path.c_str()), "zero grain and relief are valid for smooth surfaces");
@@ -56,7 +56,7 @@ int main() {
                                "[null,90]",
                                "[0,\"90\"]",
                                "[0]",
-                               "{\"a\":0,\"b\":90}"}) {
+                               R"({"a":0,"b":90})"}) {
     write(std::string(R"("slope":{"plausibleDeg":)") + interval + "}");
     CHECK(!materials.Load(path.c_str()) && !materials.Error().empty(), "invalid slope rejected");
     CHECK(preserved(), "slope failure preserves catalog");
@@ -71,7 +71,7 @@ int main() {
         "declared rock exposure preserves the separate plausible-slope limit");
   write(slope + R"(,"slopeExposesRock":"true")");
   CHECK(!materials.Load(path.c_str()) && materials.At(0).SlopeExposesRock &&
-            materials.Error().find("slopeExposesRock") != std::string::npos,
+            materials.Error().contains("slopeExposesRock"),
         "invalid exposure flag cannot replace the last valid catalog");
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped catalog remains valid");
   const int asphalt = materials.Find("asphalt");
@@ -85,7 +85,7 @@ int main() {
               materials.At(static_cast<size_t>(water)).SlopeExposesRock,
           "pavement remains built while rocky and water-covered slopes expose bedrock");
   }
-  VegetationTemplates templates;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(templates.Load("src/assets/world/vegetation.json", materials),
         "shipped vegetation templates accept the material contract");
   const int sand = materials.Find("sand");

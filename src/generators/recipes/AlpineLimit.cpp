@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace outshine {
+namespace outshine::Generators {
 
 constexpr uint32_t kJitterWordD = 0xd8163841u;
 

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "MvtWireFixture.h"
 #include "OsmSurfacePlacement.h"
 #include "OsmFootpathSource.h"
@@ -97,7 +97,7 @@ Bytes Tile(const Case &input) {
   return result;
 }
 
-void CheckCase(const Case &input, const VegetationTemplates &templates) {
+void CheckCase(const Case &input, const outshine::Generators::RegionSurfaceRecipes &templates) {
   const std::array<std::string, 1> layers{"streets"};
   OsmField field(1, layers, input.Schema);
   const auto accepted = field.Accept(0, 0, Tile(input));
@@ -137,7 +137,7 @@ void CheckCase(const Case &input, const VegetationTemplates &templates) {
 
 void CheckFootpathAccess(const Case &input,
                          std::optional<bool> expected,
-                         const VegetationTemplates &templates,
+                         const outshine::Generators::RegionSurfaceRecipes &templates,
                          bool invalid = false) {
   const std::array<std::string, 1> layers{"streets"};
   OsmField field(1, layers, input.Schema);
@@ -158,15 +158,15 @@ void CheckFootpathAccess(const Case &input,
         "the source reader does not invent placement facts");
   CHECK(!source->OwnsEnds[0] && source->OwnsEnds[1],
         "a tile-boundary end stays a fragment while the interior end belongs to the source");
-  OsmField unrelated(1, layers, input.Schema);
+  const OsmField unrelated(1, layers, input.Schema);
   CHECK(!ReadFootpathSource(unrelated, streets, 0), "an index cannot read another field's tags");
 }
 
 }
 
 int main() {
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground catalog loads");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "street rules load");
   if (!templates.Ready()) { return Report(); }

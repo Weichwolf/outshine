@@ -4,14 +4,15 @@
 #include "EarthworkDeformation.h"
 #include "src/generators/road/RoadMesher.h"
 #include <Units.h>
+#include <algorithm>
 #include <cmath>
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -64,8 +65,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the approach uses production road and water rules");
@@ -101,7 +102,7 @@ int main() {
   Generators::Osm::StreetField ways;
   CHECK(ways.Ingest(vectors, vegetation) == declared.size(), "all four roads are ingested");
   const TangentFrame standing = TangentFrame::At(origin);
-  auto grid = std::make_shared<TerrainClassificationMap::Grid>();
+  const auto grid = std::make_shared<TerrainClassificationMap::Grid>();
   grid->W = grid->H = 1;
   grid->OrgE = grid->OrgN = -500;
   grid->CellM = 1000;
@@ -134,10 +135,13 @@ int main() {
   std::vector<DiagnosticSample> notes;
   CHECK(corridors.Lay(site, geometry, contacts, notes),
         "the approach generates native road contacts");
-  const std::array<EastNorth, 4> samples{{{0, 0}, {0, 1}, {1, 0}, {-1, 0}}};
+  const std::array<EastNorth, 4> samples{{{.EastM = 0, .NorthM = 0},
+                                          {.EastM = 0, .NorthM = 1},
+                                          {.EastM = 1, .NorthM = 0},
+                                          {.EastM = -1, .NorthM = 0}}};
   std::array<double, 4> heights{};
   (void)ApplyEarthworkStamps(contacts, samples, heights, kMostEarthworkM);
-  const auto [low, high] = std::minmax_element(heights.begin(), heights.end());
+  const auto [low, high] = std::ranges::minmax_element(heights);
   const double bridgeRunM = (declared[0].LatLon[2] - declared[0].LatLon[0]) * kMPerDegLat;
   double clearanceM = 0;
   for (const auto &band : vegetation.WaterBands()) {

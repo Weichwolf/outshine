@@ -43,8 +43,7 @@ PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how
                                    Ground::Snapshot *out,
                                    std::shared_ptr<const GroundPatch> patch = {});
 
-[[nodiscard]] std::shared_ptr<const GroundTable>
-TableOf(const outshine::Ground::VegetationTemplates &templates);
+[[nodiscard]] std::shared_ptr<const GroundTable> TableOf(const RegionSurfaceRecipes &templates);
 
 }
 

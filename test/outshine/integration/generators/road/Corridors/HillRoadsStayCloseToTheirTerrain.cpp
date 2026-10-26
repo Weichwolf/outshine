@@ -28,8 +28,8 @@ int main() {
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
   constexpr double latitudeStepDeg = .0036;
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates recipes;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes recipes;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             recipes.Load("src/assets/world/vegetation.json", materials),
         "the hillside uses the actual built-in road recipes");

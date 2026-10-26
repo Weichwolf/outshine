@@ -30,26 +30,30 @@ outshine::Test::Mvt::Bytes WaterTile() {
 
 class VectorTransport final : public outshine::Data::Transport {
 public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(1);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Answered(200, WaterTile());
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 
 class SilentSink final : public outshine::Sink {
 public:
-  void Number(const char *, double, const char *) override {}
+  void Number(const char * /*what*/, double /*value*/, const char * /*unit*/) override {}
 
-  void Claim(bool, const char *) override {}
+  void Claim(bool /*held*/, const char * /*why*/) override {}
 
-  void Near(double, double, double, const char *, const char *) override {}
+  void Near(double /*got*/,
+            double /*want*/,
+            double /*within*/,
+            const char * /*unit*/,
+            const char * /*why*/) override {}
 
-  void Say(const std::string &) override {}
+  void Say(const std::string & /*line*/) override {}
 };
 
 struct TemporaryCache {
@@ -70,7 +74,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  TemporaryCache cache;
+  const TemporaryCache cache;
   SilentSink sink;
   VectorTransport wire;
   Data::SourceProvider source;
@@ -84,7 +88,7 @@ int main() {
   Generators::RegisterShippedProviders(registry);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 1, .LatitudeDeg = 1};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
+  CHECK(stack.Open({.BuiltinData = "src/assets", .Sources = cache.Path.string(), .Assets = {}},
                    providers,
                    registry,
                    focus,
@@ -105,7 +109,7 @@ int main() {
   CHECK(stack.Classes().Complete(), "both classification tiers finish from the registered source");
   CHECK(stack.Classes().FeaturesHeld() > 0 && stack.Classes().FeaturesTaken() > 0,
         "the water layer reaches terrain classification rather than an empty publication");
-  const auto *water = stack.Vegetation().Find("water_polygons", "ocean");
+  const auto *water = stack.SurfaceRecipes().Find("water_polygons", "ocean");
   CHECK(water && stack.Classes().ClassAt(focus, nullptr, nullptr) == water->Tpl,
         "the original OpenMapTiles ocean polygon classifies the camera position as water");
   while (!stack.InputsReady() && std::chrono::steady_clock::now() < deadline) {

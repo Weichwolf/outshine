@@ -2,7 +2,7 @@
 #include "ClassificationPreparation.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include "Check.h"
 #include <Transport.h>
 #include <array>
@@ -45,8 +45,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "materials load");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "classification rules load");
   Data::RawSourceCache::Config cache;
@@ -57,7 +57,7 @@ int main() {
   TilePool pool({}, sources, transport);
   Tasks compute(1);
   ClassificationPreparation producer;
-  producer.SetVegetation(&templates);
+  producer.SetRecipes(&templates);
   producer.SetVectorSource(false);
   producer.Open(0, 0, compute);
   const std::array<Generators::Osm::OsmField::Declared, 1> forest{
@@ -72,7 +72,7 @@ int main() {
   CHECK(classes, "producer publishes a native classification");
   if (!classes) { return Report(); }
   ClassificationPreparation loaded;
-  loaded.SetVegetation(&templates);
+  loaded.SetRecipes(&templates);
   CHECK(!loaded.Restore(classes), "closed preparation rejects restoration");
   loaded.Open(1, 1, compute);
   CHECK(!loaded.Restore(classes), "another tangent frame rejects the product");

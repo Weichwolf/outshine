@@ -3,6 +3,7 @@
 #include "Check.h"
 #include <algorithm>
 #include <cmath>
+#include <expected>
 #include <limits>
 #include <numeric>
 #include <array>
@@ -13,13 +14,14 @@
 #include <span>
 #include <stop_token>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
 using namespace outshine;
 using namespace outshine::Generators;
 
-class CountedMesher final : public RoadMesher {
+struct CountedMesher final : public RoadMesher {
 public:
   mutable size_t Sweeps = 0;
   mutable size_t Junctions = 0;
@@ -41,7 +43,6 @@ public:
     Native_.Junction(gates, plane, wears, into);
   }
 
-private:
   ProfiledRoadMesher Native_;
 };
 
@@ -79,7 +80,7 @@ void CheckSelection(const Corridors::Job &plan,
   const auto recipe = Corridors::PageRecipe(plan, site, one);
   CHECK(recipe && recipe->Intervals.size() == 1 && recipe->Junctions.empty(),
         "a page owns only its requested whole interval");
-  CountedMesher selected;
+  const CountedMesher selected;
   const auto product =
       recipe
           ? MeshRoadPage(selected, *recipe)
@@ -87,7 +88,7 @@ void CheckSelection(const Corridors::Job &plan,
   CHECK(product && !product->Mesh.Index.empty() && selected.Sweeps == 1 && selected.Junctions == 0,
         "unrequested intervals and junctions cause no mesh work");
   const auto node = Corridors::PageRecipe(plan, site, std::array{*junction});
-  CountedMesher body;
+  const CountedMesher body;
   const auto bodyProduct =
       node ? MeshRoadPage(body, *node)
            : std::expected<RoadPageGeometry, std::string_view>{std::unexpected("missing junction")};
@@ -103,7 +104,7 @@ void CheckSelection(const Corridors::Job &plan,
             std::array{RoadPagePart{.Kind = RoadPagePartKind::Interval, .Index = UINT32_MAX}}),
         "an unknown interval is not silently omitted");
   const auto empty = Corridors::PageRecipe(plan, site, {});
-  CountedMesher none;
+  const CountedMesher none;
   const auto emptyProduct = empty ? MeshRoadPage(none, *empty)
                                   : std::expected<RoadPageGeometry, std::string_view>{
                                         std::unexpected("missing empty recipe")};
@@ -167,7 +168,7 @@ void CheckCancellation(const RoadPageRecipe &recipe) {
   using namespace outshine::Test;
   std::stop_source before;
   (void)before.request_stop();
-  CountedMesher untouched;
+  const CountedMesher untouched;
   CHECK(!MeshRoadPage(untouched, recipe, before.get_token()) && untouched.Sweeps == 0 &&
             untouched.Junctions == 0,
         "an already canceled page does no mesh work");
@@ -177,6 +178,30 @@ void CheckCancellation(const RoadPageRecipe &recipe) {
   CHECK(!MeshRoadPage(interrupted, recipe, during.get_token()) && interrupted.Sweeps == 1 &&
             interrupted.Junctions == 0,
         "cancellation discards a partial page before remaining work");
+}
+}
+
+namespace {
+Geometry
+ResumeAfterTransfer(const Corridors &corridors, Corridors::Job &plan, const Corridors::Site &site) {
+  using namespace outshine::Test;
+  Geometry resumed;
+  std::vector<EarthworkStamp> remaining;
+  std::vector<DiagnosticSample> resumedNotes;
+  bool completed = false;
+  for (size_t step = 0; step < 2048; ++step) {
+    const auto advanced = corridors.Advance(plan, site, 1, 1, resumed, remaining, resumedNotes);
+    if (!advanced) { break; }
+    if (*advanced) {
+      completed = true;
+      break;
+    }
+  }
+  CHECK(completed && remaining.empty(),
+        "normal meshing after contact transfer does not rebuild or duplicate terrain contacts");
+  CHECK(!Corridors::TakeTerrainContacts(plan),
+        "finished meshing cannot expose an earlier plan-only ownership transfer");
+  return resumed;
 }
 }
 
@@ -201,8 +226,8 @@ int main() {
         .Value = "residential",
         .LatLon = {49.0, 8.0, 49.0007, 8.0008}}}};
   CHECK(vectors.Declare(roads, origin).has_value(), "source roads are declared");
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the page uses production transport recipes");
@@ -226,7 +251,7 @@ int main() {
                              .EyeLatDeg = origin.LatitudeDeg,
                              .EyeLonDeg = origin.LongitudeDeg,
                              .Projection = {.FocalPx = 800}};
-  CountedMesher observer;
+  const CountedMesher observer;
   const Corridors corridors(observer);
   auto early = Corridors::Begin(site);
   CHECK(!Corridors::PlannedParts(*early) && !Corridors::PlannedPages(*early, 64, 2) &&
@@ -254,7 +279,7 @@ int main() {
   CHECK(recipe && !recipe->Intervals.empty(), "all requested plan data is owned by the recipe");
   if (!recipe || recipe->Intervals.empty()) { return Report(); }
   CheckCancellation(*recipe);
-  ProfiledRoadMesher native;
+  const ProfiledRoadMesher native;
   const Corridors reference(native);
   Geometry whole;
   std::vector<EarthworkStamp> earthworks;
@@ -267,22 +292,7 @@ int main() {
         "complete terrain contacts precede every fine sweep and match the ordinary path");
   const auto again = Corridors::TakeTerrainContacts(*plan);
   CHECK(again && again->empty(), "terrain contact ownership transfers once without copying");
-  Geometry resumed;
-  std::vector<EarthworkStamp> remaining;
-  std::vector<DiagnosticSample> resumedNotes;
-  bool completed = false;
-  for (size_t step = 0; step < 2048; ++step) {
-    const auto advanced = corridors.Advance(*plan, site, 1, 1, resumed, remaining, resumedNotes);
-    if (!advanced) { break; }
-    if (*advanced) {
-      completed = true;
-      break;
-    }
-  }
-  CHECK(completed && remaining.empty(),
-        "normal meshing after contact transfer does not rebuild or duplicate terrain contacts");
-  CHECK(!Corridors::TakeTerrainContacts(*plan),
-        "finished meshing cannot expose an earlier plan-only ownership transfer");
+  const Geometry resumed = ResumeAfterTransfer(corridors, *plan, site);
   const auto mesh = MeshRoadPage(native, *recipe);
   int street = -1;
   for (int at = 0; at < whole.parts(); ++at) {

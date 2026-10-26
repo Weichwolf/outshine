@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -38,6 +40,89 @@ bool SameGeometry(const outshine::Geometry &left, const outshine::Geometry &righ
 
 }
 
+namespace {
+using namespace outshine;
+
+void CheckPacedMesh(const Generators::Corridors &corridors,
+                    const Generators::Corridors::Site &site,
+                    const Geometry &mesh,
+                    const std::vector<EarthworkStamp> &earthworks) {
+  using namespace outshine::Test;
+  Geometry sliced;
+  std::vector<EarthworkStamp> slicedEarthworks;
+  std::vector<DiagnosticSample> slicedMeasures;
+  std::unique_ptr<Generators::Corridors::Job> job = Generators::Corridors::Begin(site);
+  bool complete = false;
+  for (size_t step = 0; step < 1024 && !complete; ++step) {
+    const auto advanced =
+        corridors.Advance(*job, site, 1, 1, sliced, slicedEarthworks, slicedMeasures);
+    if (!advanced) { break; }
+    complete = *advanced;
+  }
+  CHECK(complete && SameGeometry(mesh, sliced) && earthworks == slicedEarthworks,
+        "paced road construction preserves junction covers and terrain geometry exactly");
+}
+}
+
+namespace {
+struct JunctionCovers {
+  Vec3f Track;
+  Vec3f Residential;
+  Vec3f Mixed;
+};
+
+struct CoverProbe {
+  size_t Variant;
+  Vec3f Expected;
+  Vec3f Asphalt;
+};
+
+bool CheckCover(const Geometry &mesh, CoverProbe probe, JunctionCovers &covers) {
+  using namespace outshine::Test;
+  const auto variant = probe.Variant;
+  const auto &expected = probe.Expected;
+  const auto &asphalt = probe.Asphalt;
+  auto &trackColour = covers.Track;
+  auto &residentialColour = covers.Residential;
+  auto &mixedColour = covers.Mixed;
+  const std::span<const float> colors = mesh.coloursOf(0);
+  CHECK(!colors.empty() && colors.size() % 4u == 0u, "the corridor has vertex colors");
+  size_t mismatched = 0;
+  size_t asphaltVertices = 0;
+  std::vector<Vec3f> palette;
+  for (size_t at = 0; at + 3 < colors.size(); at += 4) {
+    const Vec3f actual = {{colors[at], colors[at + 1], colors[at + 2]}};
+    mismatched += actual != expected ? 1u : 0u;
+    asphaltVertices += actual == asphalt ? 1u : 0u;
+    if (std::ranges::find(palette, actual) == palette.end()) { palette.push_back(actual); }
+  }
+  if (variant < 2) {
+    CHECK(mismatched == 0, "joined way and connector colors follow the same OSM cover");
+  }
+  if (variant == 0) {
+    trackColour = expected;
+    CHECK(asphaltVertices == 0, "unsealed track connectors contain no asphalt-colored vertices");
+  } else if (variant == 1) {
+    residentialColour = expected;
+  } else {
+    const auto blend = std::ranges::find_if(palette, [&](const Vec3f &colour) {
+      return colour != trackColour && colour != residentialColour;
+    });
+    CHECK(blend != palette.end(), "mixed junction colors derive from both incident covers");
+    if (blend == palette.end()) { return false; }
+    if (variant == 2) {
+      mixedColour = *blend;
+    } else {
+      for (size_t axis = 0; axis < 3; ++axis) {
+        CHECK(std::fabs((*blend)[axis] - mixedColour[axis]) < 1.0e-6f,
+              "source-way order preserves mixed junction color");
+      }
+    }
+  }
+  return true;
+}
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
@@ -51,8 +136,8 @@ int main() {
       ::outshine::Generators::Osm::OsmLayerName(::outshine::Generators::Osm::OsmLayer::Streets),
       ::outshine::Generators::Osm::OsmLayerName(
           ::outshine::Generators::Osm::OsmLayer::StreetPolygons)};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "road fixture loads production cover rules");
@@ -68,9 +153,7 @@ int main() {
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
 
-  Vec3f trackColour;
-  Vec3f residentialColour;
-  Vec3f mixedColour;
+  JunctionCovers covers;
   constexpr std::array<std::array<std::string_view, 3>, 4> kKinds{{
       {{"track", "track", "track"}},
       {{"residential", "residential", "residential"}},
@@ -124,58 +207,13 @@ int main() {
     std::vector<DiagnosticSample> measures;
     CHECK(corridors.Lay(site, mesh, earthworks, measures) && mesh.wellFormed(),
           "the joined roads publish valid geometry");
-    Geometry sliced;
-    std::vector<EarthworkStamp> slicedEarthworks;
-    std::vector<DiagnosticSample> slicedMeasures;
-    std::unique_ptr<Generators::Corridors::Job> job = Generators::Corridors::Begin(site);
-    bool complete = false;
-    for (size_t step = 0; step < 1024 && !complete; ++step) {
-      const auto advanced =
-          corridors.Advance(*job, site, 1, 1, sliced, slicedEarthworks, slicedMeasures);
-      if (!advanced) { break; }
-      complete = *advanced;
-    }
-    CHECK(complete && SameGeometry(mesh, sliced) && earthworks == slicedEarthworks,
-          "paced road construction preserves junction covers and terrain geometry exactly");
+    CheckPacedMesh(corridors, site, mesh, earthworks);
     CHECK(mesh.parts() == 1, "joined roads publish one colored corridor part");
     if (mesh.parts() != 1) { return Report(); }
-    const std::span<const float> colors = mesh.coloursOf(0);
-    CHECK(!colors.empty() && colors.size() % 4u == 0u, "the corridor has vertex colors");
-    size_t mismatched = 0;
-    size_t asphaltVertices = 0;
-    std::vector<Vec3f> palette;
-    for (size_t at = 0; at + 3 < colors.size(); at += 4) {
-      const Vec3f actual = {{colors[at], colors[at + 1], colors[at + 2]}};
-      mismatched += actual != expected ? 1u : 0u;
-      asphaltVertices += actual == asphalt ? 1u : 0u;
-      if (std::find(palette.begin(), palette.end(), actual) == palette.end()) {
-        palette.push_back(actual);
-      }
-    }
-    if (variant < 2) {
-      CHECK(mismatched == 0, "joined way and connector colors follow the same OSM cover");
-    }
-    if (variant == 0) {
-      trackColour = expected;
-      CHECK(asphaltVertices == 0, "unsealed track connectors contain no asphalt-colored vertices");
-    } else if (variant == 1) {
-      residentialColour = expected;
-    } else {
-      const auto blend = std::find_if(palette.begin(), palette.end(), [&](const Vec3f &colour) {
-        return colour != trackColour && colour != residentialColour;
-      });
-      CHECK(blend != palette.end(), "mixed junction colors derive from both incident covers");
-      if (blend == palette.end()) { return Report(); }
-      if (variant == 2) {
-        mixedColour = *blend;
-      } else {
-        for (size_t axis = 0; axis < 3; ++axis) {
-          CHECK(std::fabs((*blend)[axis] - mixedColour[axis]) < 1.0e-6f,
-                "source-way order preserves mixed junction color");
-        }
-      }
+    if (!CheckCover(mesh, {.Variant = variant, .Expected = expected, .Asphalt = asphalt}, covers)) {
+      return Report();
     }
   }
-  CHECK(trackColour != residentialColour, "different OSM way kinds change the road cover");
+  CHECK(covers.Track != covers.Residential, "different OSM way kinds change the road cover");
   return Report();
 }

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -21,8 +22,8 @@ using Sampler = std::function<std::optional<double>(EastNorth)>;
 std::vector<EarthworkStamp> Contacts(bool bridge, Sampler sample) {
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the production material and traffic recipes load");
@@ -74,7 +75,7 @@ std::vector<EarthworkStamp> Contacts(bool bridge, Sampler sample) {
   return contacts;
 }
 
-std::optional<double> Terrain(EastNorth at) {
+double Terrain(EastNorth at) {
   const double distance = std::min(std::abs(at.NorthM), std::abs(at.NorthM - 12.0));
   const double t = std::clamp((distance - 3.5) / 2.0, 0.0, 1.0);
   return 10.0 + 0.8 * t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
@@ -90,9 +91,13 @@ int main() {
             contacts,
             [](const auto &stamp) { return stamp.ApronM > 0 && stamp.ApronM <= kMostApronM; }),
         "ground railway shoulders remain bounded even when axis and edge samples agree");
-  const std::array<EastNorth, 5> points{{{0, 0}, {0, 6}, {0, 12}, {0, -25}, {0, 37}}};
+  const std::array<EastNorth, 5> points{{{.EastM = 0, .NorthM = 0},
+                                         {.EastM = 0, .NorthM = 6},
+                                         {.EastM = 0, .NorthM = 12},
+                                         {.EastM = 0, .NorthM = -25},
+                                         {.EastM = 0, .NorthM = 37}}};
   std::array<double, 5> heights;
-  for (size_t at = 0; at < points.size(); ++at) { heights[at] = *Terrain(points[at]); }
+  for (size_t at = 0; at < points.size(); ++at) { heights[at] = Terrain(points[at]); }
   const auto result = ApplyEarthworkStamps(contacts, points, heights, kMostEarthworkM);
   CHECK(result.Refused.empty() || std::ranges::none_of(result.Refused, [](auto v) { return v; }),
         "compatible parallel track beds are not discarded");
@@ -100,8 +105,8 @@ int main() {
         "the physical railway heights remain fixed");
   CHECK(heights[1] >= 10 && heights[1] < 10.1,
         "nearby compatible track beds do not leave a thin source-height ridge between them");
-  CHECK(std::abs(heights[3] - *Terrain(points[3])) < 0.001 &&
-            std::abs(heights[4] - *Terrain(points[4])) < 0.001,
+  CHECK(std::abs(heights[3] - Terrain(points[3])) < 0.001 &&
+            std::abs(heights[4] - Terrain(points[4])) < 0.001,
         "terrain outside the finite construction neighborhood is unchanged");
   const auto flat = Contacts(false, [](EastNorth) -> std::optional<double> { return 10; });
   heights.fill(10);

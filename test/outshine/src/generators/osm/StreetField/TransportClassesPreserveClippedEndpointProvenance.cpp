@@ -1,5 +1,5 @@
 #include "StreetField.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
 
@@ -46,14 +46,14 @@ int main() {
   using namespace outshine;
   using namespace outshine::Generators::Osm;
   using namespace outshine::Test;
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "transport classes use the production recipes");
   if (!vegetation.Ready()) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};
-  for (const auto kind : {"residential", "footway", "rail"}) {
+  for (const auto *const kind : {"residential", "footway", "rail"}) {
     for (const int32_t firstX : {-64, 0, 2048}) {
       OsmField field(1, layers);
       CHECK(field.Accept(0, 0, Tile(kind, firstX)).has_value(),
@@ -62,9 +62,12 @@ int main() {
       CHECK(streets.Ingest(field, vegetation) == 1, "the supplied transport line is retained");
       if (streets.Ways().empty()) { continue; }
       const auto &way = streets.Ways().front();
-      const auto traffic = std::string_view(kind) == "rail"      ? StreetField::Traffic::Rail
-                           : std::string_view(kind) == "footway" ? StreetField::Traffic::Path
-                                                                 : StreetField::Traffic::Road;
+      auto traffic = StreetField::Traffic::Road;
+      if (std::string_view(kind) == "rail") {
+        traffic = StreetField::Traffic::Rail;
+      } else if (std::string_view(kind) == "footway") {
+        traffic = StreetField::Traffic::Path;
+      }
       CHECK(way.TrafficKind == traffic, "the supplied transport class survives normalization");
       CHECK(way.OwnsEnds[0] == (firstX > 0) && way.OwnsEnds[1],
             "a buffered or tile-border end cannot prove a physical bridge landing");

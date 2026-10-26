@@ -93,7 +93,7 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
 }
 
 Vec3f Corridors::LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
-                            const outshine::Ground::VegetationTemplates &vegetation) {
+                            const RegionSurfaceRecipes &vegetation) {
   if (lane.CoverRow < 0 || static_cast<size_t>(lane.CoverRow) >= vegetation.TemplateCount()) {
     return {{0.5f, 0.5f, 0.5f}};
   }
@@ -348,8 +348,7 @@ void Corridors::DetermineWaterClearance(const Paving &on, size_t laneAt, Paved &
   }
   if (overWaterM > 0.0) {
     double clear = 0.0;
-    for (const outshine::Ground::VegetationTemplates::WaterBand &band :
-         on.Vegetation.WaterBands()) {
+    for (const RegionSurfaceRecipes::WaterBand &band : on.Vegetation.WaterBands()) {
       clear = static_cast<double>(band.ClearanceM);
       if (overWaterM <= static_cast<double>(band.RunM)) { break; }
     }
@@ -388,7 +387,7 @@ void Corridors::PaveLane(
 }
 
 RoadProfile Corridors::ProfileOf(const Osm::StreetField::Way &lane,
-                                 const outshine::Ground::VegetationTemplates &vegetation) {
+                                 const RegionSurfaceRecipes &vegetation) {
   const bool sealed = lane.CoverRow >= 0 &&
                       static_cast<size_t>(lane.CoverRow) < vegetation.TemplateCount() &&
                       vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
@@ -1281,7 +1280,7 @@ void Corridors::TellsWhatTheFitFound(Paved &into) {
         "stations");
 }
 
-Material Corridors::StreetMaterial(const outshine::Ground::GroundMaterials &wearing) {
+Material Corridors::StreetMaterial(const GroundMaterialCatalog &wearing) {
   Material tarmac;
   for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
   const int asphalt = wearing.Find("asphalt");

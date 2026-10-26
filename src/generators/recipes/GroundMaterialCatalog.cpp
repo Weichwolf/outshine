@@ -1,4 +1,4 @@
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "Json.h"
 #include "Log.h"
 #include "ReadTextFile.h"
@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace outshine::Ground {
+namespace outshine::Generators {
 namespace {
 constexpr double kRoughnessUnsaid = 0.9;
 constexpr double kGrainSizeUnsaidM = 0.002;
@@ -34,7 +34,7 @@ struct MoistureModel {
 };
 
 struct ParsedMaterial {
-  GroundMaterials::Material Value;
+  GroundMaterialCatalog::Material Value;
   std::string Litter;
 };
 
@@ -87,7 +87,8 @@ float MoistureSpecular(float moisture, float low, float high) {
   return t * t * (3.0f - 2.0f * t);
 }
 
-int FindMaterial(std::span<const GroundMaterials::Material> materials, std::string_view name) {
+int FindMaterial(std::span<const GroundMaterialCatalog::Material> materials,
+                 std::string_view name) {
   for (size_t i = 0; i < materials.size(); ++i) {
     if (materials[i].Name == name) { return static_cast<int>(i); }
   }
@@ -95,7 +96,7 @@ int FindMaterial(std::span<const GroundMaterials::Material> materials, std::stri
 }
 
 std::expected<void, std::string>
-ReadOpticalValues(Json::Ref source, GroundMaterials::Material &material, float wet) {
+ReadOpticalValues(Json::Ref source, GroundMaterialCatalog::Material &material, float wet) {
   const auto roughness = ReadFactor(source["roughness"], kRoughnessUnsaid, "roughness");
   if (!roughness) { return std::unexpected(roughness.error()); }
   const auto litter = source["litter"];
@@ -167,7 +168,7 @@ std::expected<float, std::string> ReadSlopeLimit(Json::Ref source) {
 }
 
 std::expected<void, std::string> ReadMetricValues(Json::Ref source,
-                                                  GroundMaterials::Material &material) {
+                                                  GroundMaterialCatalog::Material &material) {
   const auto grain = ReadFactor(
       source["grainSizeM"], kGrainSizeUnsaidM, "grainSizeM", std::numeric_limits<float>::max());
   if (!grain) { return std::unexpected(grain.error()); }
@@ -245,9 +246,10 @@ struct NamedMaterial {
   int Index;
 };
 
-std::expected<void, std::string> ResolveMaterials(std::span<GroundMaterials::Material> materials,
-                                                  std::span<const std::string> litterNames,
-                                                  std::string_view reference) {
+std::expected<void, std::string>
+ResolveMaterials(std::span<GroundMaterialCatalog::Material> materials,
+                 std::span<const std::string> litterNames,
+                 std::string_view reference) {
   std::vector<NamedMaterial> names;
   names.reserve(materials.size());
   for (size_t i = 0; i < materials.size(); ++i) {
@@ -283,7 +285,8 @@ std::expected<void, std::string> ResolveMaterials(std::span<GroundMaterials::Mat
   return {};
 }
 
-std::expected<std::vector<GroundMaterials::Material>, std::string> ReadCatalog(const Json &doc) {
+std::expected<std::vector<GroundMaterialCatalog::Material>, std::string>
+ReadCatalog(const Json &doc) {
   const auto model = ReadMoistureModel(doc.Root());
   if (!model) { return std::unexpected(model.error()); }
 
@@ -298,7 +301,7 @@ std::expected<std::vector<GroundMaterials::Material>, std::string> ReadCatalog(c
     return std::unexpected("no classes array");
   }
 
-  std::vector<GroundMaterials::Material> materials;
+  std::vector<GroundMaterialCatalog::Material> materials;
   std::vector<std::string> litterName;
   materials.reserve(cls.Size());
   litterName.reserve(cls.Size());
@@ -316,11 +319,11 @@ std::expected<std::vector<GroundMaterials::Material>, std::string> ReadCatalog(c
 }
 }
 
-int GroundMaterials::Find(std::string_view name) const {
+int GroundMaterialCatalog::Find(std::string_view name) const {
   return FindMaterial(Mats_, name);
 }
 
-bool GroundMaterials::Load(const char *path) {
+bool GroundMaterialCatalog::Load(const char *path) {
   Error_.clear();
   if (path == nullptr) {
     Error_ = "material catalog path is null";

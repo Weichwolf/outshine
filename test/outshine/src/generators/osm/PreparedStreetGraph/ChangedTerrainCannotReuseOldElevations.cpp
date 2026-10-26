@@ -1,13 +1,13 @@
 #include "Check.h"
 #include "RawSourceCache.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "OsmField.h"
 #include "PreparedStreetGraph.h"
 #include "Sha256.h"
 #include "SourceSet.h"
 #include "StreetField.h"
 #include "TerrainGrid.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include "Wayfinding.h"
 #include <array>
 #include <chrono>
@@ -59,8 +59,8 @@ Generate(const Osm::OsmField &vectors,
 void CheckTerrainBinding(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             templates.Load("src/assets/world/vegetation.json", materials),
         "the fixture uses the production street rules");

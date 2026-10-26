@@ -13,7 +13,7 @@
 #include "OsmField.h"
 #include "TileRanges.h"
 #include "TileAdmission.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 
 namespace outshine::Generators::Osm {
 struct SurfacePlacement;
@@ -51,10 +51,10 @@ public:
     std::optional<SourceReference> Source;
   };
 
-  uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
+  uint32_t Ingest(const OsmField &field, const RegionSurfaceRecipes &veg);
 
   uint32_t
-  Ingest(const OsmField &field, const VegetationTemplates &veg, TileAdmission::Reach reach);
+  Ingest(const OsmField &field, const RegionSurfaceRecipes &veg, TileAdmission::Reach reach);
 
   [[nodiscard]] std::optional<uint64_t> SourceDigest(const OsmField &field,
                                                      uint32_t tile) const noexcept;
@@ -119,7 +119,7 @@ private:
   void RecordInvalidPlacement(SurfacePlacementError error);
   void AppendFeature(const OsmField &field,
                      uint32_t featureAt,
-                     const VegetationTemplates::Rule &rule,
+                     const RegionSurfaceRecipes::Rule &rule,
                      Shape shape,
                      const SurfacePlacement &placement);
   long InvalidLayers_ = 0;

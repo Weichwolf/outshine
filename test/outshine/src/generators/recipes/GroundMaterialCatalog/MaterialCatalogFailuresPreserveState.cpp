@@ -1,17 +1,43 @@
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "Check.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
+
+namespace {
+void CheckMoistureResponse(const auto &write,
+                           const std::filesystem::path &path,
+                           outshine::Generators::GroundMaterialCatalog &materials) {
+  using namespace outshine::Test;
+  for (const auto *moisture : {"0", "0.25", "0.5", "0.75", "1"}) {
+    write(
+        std::string(
+            R"({"moistureModel":{"kWet":0.5},"specularModel":{"edges":[0.25,0.75]},"frictionModel":{"reference":"sample"},"classes":[{"name":"sample","peakFriction":1,"surface":"particulate","albedo":[1,1,1],"slope":{"plausibleDeg":[0,90]},"moisture":)") +
+        moisture + "}]}");
+    CHECK(materials.Load(path.c_str()), "valid moisture model loads after failures");
+    const float amount = std::stof(moisture);
+    float expected = 0.5f;
+    if (amount <= 0.25f) {
+      expected = 0.0f;
+    } else if (amount >= 0.75f) {
+      expected = 1.0f;
+    }
+    CHECK(materials.At(0).SpecularScale == expected,
+          "smoothstep has exact dry, middle and saturated values");
+    CHECK(materials.At(0).Albedo[0] == 1.0f - 0.5f * amount,
+          "wet albedo follows declared attenuation");
+  }
+}
+}
 
 int main() {
-  using namespace outshine::Ground;
   using namespace outshine::Test;
   auto temporary = (std::filesystem::temp_directory_path() / "outshine-materials-XXXXXX").string();
   const char *created = mkdtemp(temporary.data());
   CHECK(created != nullptr, "temporary directory created");
-  if (!created) { return Report(); }
+  if (created == nullptr) { return Report(); }
   const auto path = std::filesystem::path(created) / "materials.json";
   const std::string row =
       R"({"name":"reference","peakFriction":0.5,"surface":"coherent","slope":{"plausibleDeg":[0,90]}})";
@@ -19,19 +45,23 @@ int main() {
     std::ofstream file(path);
     file << text;
   };
-  write("{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + row + "]}");
-  GroundMaterials materials;
+  write(R"({"frictionModel":{"reference":"reference"},"classes":[)" + row + "]}");
+  outshine::Generators::GroundMaterialCatalog materials;
   CHECK(materials.Load(path.c_str()), "valid catalog loads");
   CHECK(materials.Ready() && materials.Count() == 1 && materials.At(0).FrictionFactor == 1,
         "reference friction resolves analytically");
   for (const std::string &invalid :
-       {"{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + row + ",{}]}",
-        "{\"frictionModel\":{\"reference\":\"missing\"},\"classes\":[" + row + "]}",
-        "{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + row + "," + row + "]}",
-        "{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + row +
-            ",{\"peakFriction\":1,\"surface\":\"coherent\",\"slope\":{\"plausibleDeg\":[0,90]}}]}",
-        "{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" +
-            row.substr(0, row.size() - 1) + ",\"litter\":{\"class\":\"missing\"}}]}",
+       {R"({"frictionModel":{"reference":"reference"},"classes":[)" + row + ",{}]}",
+        R"({"frictionModel":{"reference":"missing"},"classes":[)" + row + "]}",
+        std::string(R"({"frictionModel":{"reference":"reference"},"classes":[)")
+            .append(row)
+            .append(",")
+            .append(row)
+            .append("]}"),
+        R"({"frictionModel":{"reference":"reference"},"classes":[)" + row +
+            R"(,{"peakFriction":1,"surface":"coherent","slope":{"plausibleDeg":[0,90]}}]})",
+        R"({"frictionModel":{"reference":"reference"},"classes":[)" +
+            row.substr(0, row.size() - 1) + R"(,"litter":{"class":"missing"}}]})",
         std::string("not json"),
         std::string(1024 * 1024 + 1, ' ')}) {
     write(invalid);
@@ -43,7 +73,7 @@ int main() {
   for (const auto *friction : {"1e300", "1e-300", "0", "-1"}) {
     auto invalid = row;
     invalid.replace(invalid.find("0.5"), 3, friction);
-    write("{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + invalid + "]}");
+    write(R"({"frictionModel":{"reference":"reference"},"classes":[)" + invalid + "]}");
     CHECK(!materials.Load(path.c_str()), "nonrepresentable positive friction rejected");
     CHECK(materials.Count() == 1 && materials.At(0).PeakFriction == 0.5f &&
               materials.At(0).FrictionFactor == 1,
@@ -54,8 +84,13 @@ int main() {
     small.replace(small.find("0.5"), 3, "1e-30");
     const std::string large =
         R"({"name":"extreme","peakFriction":1e30,"surface":"coherent","slope":{"plausibleDeg":[0,90]}})";
-    write("{\"frictionModel\":{\"reference\":\"" + std::string(reference) + "\"},\"classes\":[" +
-          small + "," + large + "]}");
+    write(std::string(R"({"frictionModel":{"reference":")")
+              .append(reference)
+              .append(R"("},"classes":[)")
+              .append(small)
+              .append(",")
+              .append(large)
+              .append("]}"));
     CHECK(!materials.Load(path.c_str()), "unrepresentable friction quotient rejected");
     CHECK(materials.Count() == 1 && materials.At(0).PeakFriction == 0.5f &&
               materials.At(0).FrictionFactor == 1,
@@ -73,37 +108,24 @@ int main() {
                             R"("specularModel":{"edges":[-1,1]})",
                             R"("specularModel":{"edges":[0,"1"]})",
                             R"("specularModel":{"edges":[0]})"}) {
-    write("{" + std::string(model) +
-          ",\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + row + "]}");
+    write("{" + std::string(model) + R"(,"frictionModel":{"reference":"reference"},"classes":[)" +
+          row + "]}");
     CHECK(!materials.Load(path.c_str()), "invalid moisture model rejected");
     CHECK(materials.Count() == 1 && materials.At(0).PeakFriction == 0.5f,
           "model failure preserves previous catalog");
   }
   for (const auto *moisture : {"-0.1", "1.1", "1e300", "null", "\"0.5\""}) {
-    write("{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" +
+    write(R"({"frictionModel":{"reference":"reference"},"classes":[)" +
           row.substr(0, row.size() - 1) + ",\"moisture\":" + moisture + "}]}");
     CHECK(!materials.Load(path.c_str()), "invalid material moisture rejected");
     CHECK(materials.Count() == 1 && materials.At(0).PeakFriction == 0.5f,
           "moisture failure preserves previous catalog");
   }
-  for (const auto *moisture : {"0", "0.25", "0.5", "0.75", "1"}) {
-    write(
-        std::string(
-            R"({"moistureModel":{"kWet":0.5},"specularModel":{"edges":[0.25,0.75]},"frictionModel":{"reference":"sample"},"classes":[{"name":"sample","peakFriction":1,"surface":"particulate","albedo":[1,1,1],"slope":{"plausibleDeg":[0,90]},"moisture":)") +
-        moisture + "}]}");
-    CHECK(materials.Load(path.c_str()), "valid moisture model loads after failures");
-    const float amount = std::stof(moisture);
-    const float expected = amount <= 0.25f ? 0.0f : (amount >= 0.75f ? 1.0f : 0.5f);
-    CHECK(materials.At(0).SpecularScale == expected,
-          "smoothstep has exact dry, middle and saturated values");
-    CHECK(materials.At(0).Albedo[0] == 1.0f - 0.5f * amount,
-          "wet albedo follows declared attenuation");
-  }
-  const std::string forward = row.substr(0, row.size() - 1) + ",\"litter\":{\"class\":\"later\"}}";
+  CheckMoistureResponse(write, path, materials);
+  const std::string forward = row.substr(0, row.size() - 1) + R"(,"litter":{"class":"later"}})";
   const std::string later =
       R"({"name":"later","peakFriction":1,"surface":"coherent","slope":{"plausibleDeg":[0,90]},"litter":{"class":"later"}})";
-  write("{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + forward + "," + later +
-        "]}");
+  write(R"({"frictionModel":{"reference":"reference"},"classes":[)" + forward + "," + later + "]}");
   CHECK(materials.Load(path.c_str()), "forward and self references accepted");
   CHECK(materials.Count() == 2 && materials.Find("reference") == 0 &&
             materials.Find("later") == 1 && materials.At(0).LitterClass == 1 &&

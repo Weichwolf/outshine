@@ -4,6 +4,8 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -35,8 +37,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the fixture uses production road and water rules");
@@ -84,7 +86,7 @@ int main() {
     CHECK(ways.Ingest(vectors, vegetation) == declared.size(),
           "both adjoining roads reach the generator");
     const TangentFrame standing = TangentFrame::At(origin);
-    auto grid = std::make_shared<TerrainClassificationMap::Grid>();
+    const auto grid = std::make_shared<TerrainClassificationMap::Grid>();
     grid->W = grid->H = 1;
     grid->OrgE = -500;
     grid->OrgN = betweenBridges ? -500 : 0;
@@ -121,7 +123,7 @@ int main() {
     std::vector<DiagnosticSample> notes;
     CHECK(corridors.Lay(site, geometry, earthworks, notes) && geometry.wellFormed(),
           "the water crossing generates native road products");
-    CheckBridgeJoint(earthworks, {0, 0});
+    CheckBridgeJoint(earthworks, {.EastM = 0, .NorthM = 0});
     if (betweenBridges) {
       CheckBridgeJoint(earthworks,
                        standing.ToLocalGroundPosition({.LongitudeDeg = 8, .LatitudeDeg = 49.0002}));

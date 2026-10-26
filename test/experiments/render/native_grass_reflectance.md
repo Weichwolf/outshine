@@ -29,7 +29,7 @@ than1/255, worst41/255. It remains a modest colour correction. Sparse near
 crowns, dark leaf undersides, flat distant trees and ground distribution remain
 major visible defects. Native plant integration is tracked under #1.
 
-The two VegetationTemplates tests pass in3970ms. Product recipe and test are
+The two RegionSurfaceRecipes tests pass in3970ms. Product recipe and test are
 from the checked upstream delivery; no C++ producer implementation changes.
 
 ## Budget remains open
