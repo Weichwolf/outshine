@@ -14,6 +14,7 @@ import numpy as np
 from compare_urban_parents import background_image, camera, lighting, opaque_image
 from PIL import Image
 from triangle_image_reference import average_samples, image_rays
+from urban_opaque_receivers import has_prism_domain, opaque_receivers
 from urban_parent_conditional import grid
 from urban_parent_layer import compose, render_layer
 from urban_parent_light import display, light_at, shade
@@ -56,23 +57,14 @@ def mixed(
     view_region,
     caster_region,
     foreground,
+    *,
+    receiver_ownership=False,
+    camera_miss_witness=False,
 ):
     total_started = time.perf_counter()
-    stop = -o[:, 2] / d[:, 2]
-    normals = np.tile([0.0, 0.0, 1.0], (len(o), 1))
-    albedo = np.full(len(o), 0.2)
-    primary_work = {}
-    if camera_child is not None:
-        depth, n, _, primary_work = trace_resolved(camera_child, o, d)
-        hit = depth < stop
-        stop[hit], normals[hit], albedo[hit] = depth[hit], n[hit], 0.6
-    if foreground:
-        plane = (120 - o[:, 2]) / d[:, 2]
-        points = o + plane[:, None] * d
-        width = parent.frame[2] * parent.frame[3]
-        foreground_mask = (points[:, 0] < width / 2) & (plane < stop)
-        stop[foreground_mask] = plane[foreground_mask]
-        normals[foreground_mask], albedo[foreground_mask] = [0, 0, 1], 0.35
+    stop, normals, albedo, receiver_cells, primary_work = opaque_receivers(
+        parent, o, d, camera_child, foreground, 0.5, ownership=receiver_ownership
+    )
     points = o + stop[:, None] * d
     shadow_work = {}
     external = None
@@ -111,6 +103,13 @@ def mixed(
             profile | {"ambient": 0},
         )
     started = time.perf_counter()
+    receiver_options = (
+        {} if receiver_cells is None else {"receiver_cells": receiver_cells}
+    )
+    if camera_miss_witness and has_prism_domain(
+        grid(parent), camera_child, view_region
+    ):
+        receiver_options["camera_miss_witness"] = True
     c, t, s, work = render_layer(
         parent,
         o,
@@ -121,6 +120,7 @@ def mixed(
         primary_covered=view_region,
         caster_covered=caster_region,
         external_visibility=external,
+        **receiver_options,
     )
     rgb = compose(c, t, s, direct, profile["ambient"] * albedo[:, None])
     return rgb, {
@@ -188,6 +188,8 @@ def run(args):
             view_region,
             caster_region,
             front,
+            receiver_ownership=args.receiver_ownership,
+            camera_miss_witness=args.camera_miss_witness,
         )
         arrays[name] = rgb
         if name != "foreground":
@@ -227,6 +229,8 @@ def run(args):
         "lighting": profile,
         "rays": len(o),
         "samples_per_axis": args.samples,
+        "receiver_ownership": args.receiver_ownership,
+        "camera_miss_witness": args.camera_miss_witness,
         "roi": box.tolist(),
         "results": results,
         "control_work": control_work,
@@ -243,6 +247,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--lighting", choices=["day", "back", "night"], default="day")
     parser.add_argument("--samples", type=int, choices=range(1, 17), default=4)
+    parser.add_argument("--receiver-ownership", action="store_true")
+    parser.add_argument("--camera-miss-witness", action="store_true")
     parser.add_argument("--distance", type=float, default=240000.0)
     parser.add_argument("--altitude", type=float)
     parser.add_argument("--motion", type=float, default=0.0)

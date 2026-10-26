@@ -119,12 +119,12 @@ void Pixels(Device &device, const Texture &image, const std::array<uint16_t, 4> 
 }
 
 void Draw(Device &device,
-          GeometryRenderer &subject,
+          GeometryRenderer &renderer,
           Targets &targets,
           GeometryCullStage *cull = nullptr,
           const std::array<uint16_t, 4> &values = kBaseValues) {
   auto commands = Require(device.Begin());
-  Require(subject.FlushCrossings(commands.get()));
+  Require(renderer.FlushCrossings(commands.get()));
   FrameContext frame;
   frame.Mvp = frame.PrevMvp = kIdentity;
   StageSubmission submission;
@@ -144,17 +144,18 @@ void Draw(Device &device,
   Require(commands->BeginRenderPass(
       {.Colours = attachments,
        .Depth = DepthAttachment{.Image = {.Image = targets.Depth.get()}, .Begin = Load::Clear}}));
-  Require(subject.Encode(frame, recording));
+  Require(renderer.Encode(frame, recording));
   Require(commands->EndRenderPass());
   Require(device.Submit(std::move(commands)));
-  subject.CommitCrossings();
+  renderer.CommitCrossings();
   submission.Commit();
-  CHECK(subject.EncodedDrawCalls() == 1, "the native mesh retains one draw for its compiled batch");
+  CHECK(renderer.EncodedDrawCalls() == 1,
+        "the native mesh retains one draw for its compiled batch");
   Pixels(device, *targets.Colours[3], values);
 }
 
 void Indirect(Device &device,
-              GeometryRenderer &subject,
+              GeometryRenderer &renderer,
               Targets &targets,
               const MeshData &source,
               const outshine::Render::Gpu &gpu) {
@@ -184,24 +185,27 @@ void Indirect(Device &device,
   auto mesh = source.Mesh(VertexLayout::PositionNormalUvUv1TangentColour, draws);
   mesh.Clusters = clusters;
   mesh.ClusterSpheres = spheres;
-  CheckSceneUpload(subject.SetMesh(mesh, error), error);
+  CheckSceneUpload(renderer.SetMesh(mesh, error), error);
   GeometryCullStage stage;
-  Require(stage.Configure({.Resident = &subject.Resident(),
-                           .AnchorM = subject.AnchorM(),
-                           .Jobs = subject.ClusterJobs(),
-                           .BatchRows = subject.ClusterBatchRows(),
-                           .Generation = subject.Generation(),
-                           .GroundGeneration = subject.Ground().Generation()},
+  Require(stage.Configure({.Resident = &renderer.Resident(),
+                           .AnchorM = renderer.AnchorM(),
+                           .Jobs = renderer.ClusterJobs(),
+                           .BatchRows = renderer.ClusterBatchRows(),
+                           .Generation = renderer.Generation(),
+                           .GroundGeneration = renderer.Ground().Generation()},
                           gpu));
   stage.Projects(kHeight);
-  Draw(device, subject, targets, &stage);
+  Draw(device, renderer, targets, &stage);
   CHECK(stage.JobsSwept() == 2,
         "both real mesh clusters pass through the three native culling stages");
 }
 
-void PieceUv1(Device &device, GeometryRenderer &subject, Targets &targets, const MeshData &source) {
+void PieceUv1(Device &device,
+              GeometryRenderer &renderer,
+              Targets &targets,
+              const MeshData &source) {
   std::string error;
-  CheckSceneUpload(subject.SetMesh(MeshInput{}, error), error);
+  CheckSceneUpload(renderer.SetMesh(MeshInput{}, error), error);
   constexpr std::array<uint8_t, 8> texels{255, 0, 0, 255, 0, 0, 255, 255};
   MaterialBinding material;
   material.Row.Unlit = true;
@@ -215,7 +219,7 @@ void PieceUv1(Device &device, GeometryRenderer &subject, Targets &targets, const
                      .Mip = outshine::MipFilter::None,
                      .Uv = {},
                      .Set = UvSet::Uv1};
-  CheckSceneUpload(subject.SetMaterials(std::span(&material, 1), error), error);
+  CheckSceneUpload(renderer.SetMaterials(std::span(&material, 1), error), error);
   std::array<StoredVertex, 4> vertices;
   for (size_t i = 0; i < vertices.size(); ++i) {
     vertices[i] =
@@ -224,7 +228,7 @@ void PieceUv1(Device &device, GeometryRenderer &subject, Targets &targets, const
                          {{0, 0, 1}});
   }
   const std::array<uint32_t, 1> slots{0};
-  subject.SetNativePieceSurfaces(slots);
+  renderer.SetNativePieceSurfaces(slots);
   PieceMesh piece;
   piece.Verts = vertices;
   piece.Indices = kIndices;
@@ -233,19 +237,19 @@ void PieceUv1(Device &device, GeometryRenderer &subject, Targets &targets, const
   piece.Textured = true;
   PieceMesh missing = piece;
   missing.Uv1 = {};
-  const auto absent = subject.PlacePiece(missing);
+  const auto absent = renderer.PlacePiece(missing);
   CHECK(!absent && absent.error().Message == "piece surface requires a complete second UV run",
         "the integrated material contract rejects a missing second UV run before allocation");
-  const auto id = subject.PlacePiece(piece);
+  const auto id = renderer.PlacePiece(piece);
   CHECK(id.has_value(), "the actual piece allocator carries authored second UVs");
   if (!id) { Failed(); }
-  CheckSceneUpload(subject.HandTables(error), error);
+  CheckSceneUpload(renderer.HandTables(error), error);
   constexpr std::array<uint16_t, 4> blue{0, 0, 0x3a00, 0x3c00};
-  Draw(device, subject, targets, nullptr, blue);
-  subject.ReleasePiece(*id);
+  Draw(device, renderer, targets, nullptr, blue);
+  renderer.ReleasePiece(*id);
 }
 
-void PreparedMipChain(Device &device, GeometryRenderer &subject, Targets &targets) {
+void PreparedMipChain(Device &device, GeometryRenderer &renderer, Targets &targets) {
   static constexpr std::array<uint8_t, 16> base{
       255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255};
   static constexpr std::array<uint8_t, 4> lower{0, 255, 0, 255};
@@ -258,8 +262,8 @@ void PreparedMipChain(Device &device, GeometryRenderer &subject, Targets &target
   material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Colour)] = std::span(lower);
   material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Linear)] = std::span(lower);
   std::string error;
-  CheckSceneUpload(subject.SetMesh(MeshInput{}, error), error);
-  CheckSceneUpload(subject.SetMaterials(std::span(&material, 1), error), error);
+  CheckSceneUpload(renderer.SetMesh(MeshInput{}, error), error);
+  CheckSceneUpload(renderer.SetMaterials(std::span(&material, 1), error), error);
   MeshData data;
   constexpr float uvMost = 64;
   data.Uv = {0, 0, uvMost, 0, uvMost, uvMost, 0, uvMost};
@@ -268,9 +272,10 @@ void PreparedMipChain(Device &device, GeometryRenderer &subject, Targets &target
       draws.Add({.Order = {}, .IndexCount = 6, .Layout = VertexLayout::PositionNormalUv}, error),
       error);
   draws.Compile();
-  CheckSceneUpload(subject.SetMesh(data.Mesh(VertexLayout::PositionNormalUv, draws), error), error);
+  CheckSceneUpload(renderer.SetMesh(data.Mesh(VertexLayout::PositionNormalUv, draws), error),
+                   error);
   constexpr std::array<uint16_t, 4> expected{0, 0x3800, 0, 0x3c00};
-  Draw(device, subject, targets, nullptr, expected);
+  Draw(device, renderer, targets, nullptr, expected);
 }
 
 }
@@ -291,16 +296,16 @@ int main() {
                               Resource::SceneSurfaceMetalRough}) {
     CHECK(gpu.SceneColours.Add(resource), "the full native material attachment order is accepted");
   }
-  RenderScene subjectStorage;
-  GeometryRenderer subject{subjectStorage};
-  Require(subject.Configure(gpu));
-  CHECK(subject.PipelineCount() > 0,
+  RenderScene scene;
+  GeometryRenderer renderer{scene};
+  Require(renderer.Configure(gpu));
+  CHECK(renderer.PipelineCount() > 0,
         "all existing vertex/domain/coverage variants compile natively");
   MaterialBinding material;
   material.Row.DoubleSided = true;
   material.Row.BaseColour = {{kColour[0], kColour[1], kColour[2], 1}};
   std::string error;
-  CheckSceneUpload(subject.SetMaterials(std::span(&material, 1), error), error);
+  CheckSceneUpload(renderer.SetMaterials(std::span(&material, 1), error), error);
   Targets targets(device);
   const MeshData source;
   for (const auto &row : kVertexLayouts) {
@@ -308,11 +313,11 @@ int main() {
     CheckSceneUpload(draws.Add({.Order = {}, .IndexCount = 6, .Layout = row.Layout}, error), error);
     draws.Compile();
     const auto mesh = source.Mesh(row.Layout, draws);
-    CheckSceneUpload(subject.SetMesh(mesh, error), error);
-    Draw(device, subject, targets);
+    CheckSceneUpload(renderer.SetMesh(mesh, error), error);
+    Draw(device, renderer, targets);
   }
-  Indirect(device, subject, targets, source, gpu);
-  PieceUv1(device, subject, targets, source);
-  PreparedMipChain(device, subject, targets);
+  Indirect(device, renderer, targets, source, gpu);
+  PieceUv1(device, renderer, targets, source);
+  PreparedMipChain(device, renderer, targets);
   return Report();
 }
