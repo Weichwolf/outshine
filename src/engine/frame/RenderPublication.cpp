@@ -1,6 +1,5 @@
 #include "EngineState.h"
 #include <chrono>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -60,33 +59,6 @@ void Engine::State::PublishRenderedFrame(std::chrono::steady_clock::time_point b
       Published.RecordMetric("cull: its farthest", static_cast<double>(depths.Farthest), "0..1");
       Published.RecordMetric("cull: and its mean", static_cast<double>(depths.Mean), "0..1");
     }
-  }
-  {
-    const Render::Viewpoint &eye = Picture.Standing->Aimed();
-    const double aspect = Picture.Frame.HeightPx > 0
-                              ? static_cast<double>(Picture.Frame.WidthPx) /
-                                    static_cast<double>(Picture.Frame.HeightPx)
-                              : 1.0;
-    const double half = 0.5 * eye.YfovRad;
-    const double up = std::tan(half);
-    const double across = up * aspect;
-    size_t kept = 0;
-    for (const DagCluster &one : Picture.Standing->Shown().Clusters) {
-      const Vec3 to = {{static_cast<double>(one.SelfCenter[0]) - eye.EyeM[0],
-                        static_cast<double>(one.SelfCenter[1]) - eye.EyeM[1],
-                        static_cast<double>(one.SelfCenter[2]) - eye.EyeM[2]}};
-      const double ahead = to[0] * eye.Forward[0] + to[1] * eye.Forward[1] + to[2] * eye.Forward[2];
-      const double right = to[0] * eye.Right[0] + to[1] * eye.Right[1] + to[2] * eye.Right[2];
-      const double over = to[0] * eye.Up[0] + to[1] * eye.Up[1] + to[2] * eye.Up[2];
-      const auto radius = static_cast<double>(one.SelfRadius);
-      if (ahead + radius < eye.ZNearM) { continue; }
-      if (eye.ZFarM > 0.0 && ahead - radius > eye.ZFarM) { continue; }
-      if (std::fabs(right) - radius > across * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
-      if (std::fabs(over) - radius > up * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
-      ++kept;
-    }
-    Published.RecordMetric(
-        "ring: clusters a frustum would keep", static_cast<double>(kept), "clusters");
   }
   Published.RecordMetric(
       "subject draw calls", static_cast<double>(Picture.Device.GeometryDrawCallCount()), "calls");
