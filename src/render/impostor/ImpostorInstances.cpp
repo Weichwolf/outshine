@@ -21,7 +21,7 @@ constexpr auto Limit = "impostor instance count exceeds its declared capacity";
 }
 
 std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &renderer,
-                                                             const Content::ImpostorAtlas &atlas,
+                                                             const ImpostorAtlas &atlas,
                                                              uint32_t maxInstances,
                                                              std::string &error) {
   auto cards = PrepareImpostorCards(atlas, error);
@@ -29,7 +29,7 @@ std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &rend
 }
 
 std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &renderer,
-                                                             const Content::ImpostorCards &cards,
+                                                             const ImpostorCards &cards,
                                                              uint32_t maxInstances,
                                                              std::string &error) {
   if (maxInstances == 0 || cards.Views.empty()) {

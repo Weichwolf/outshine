@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -45,8 +46,6 @@ std::optional<AssetRecord> Read(sqlite3_stmt *statement) {
   record.ByteCount = static_cast<uint64_t>(bytes);
   record.Level = static_cast<uint32_t>(level);
   record.Parent = Column(statement, 12);
-  auto request = Column(statement, 13);
-  if (!request.empty()) { record.RequestKey = std::move(request); }
   return Valid(record) ? std::optional(std::move(record)) : std::nullopt;
 }
 
@@ -103,10 +102,11 @@ std::expected<std::optional<AssetRecord>, AssetCacheError>
 FindRecord(sqlite3 *database, Lookup lookup, std::string_view key) {
   if (!AssetSql::ValidKey(key)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;
-  const auto *predicate =
-      lookup == Lookup::Product ? "a.key=?" : "a.request_key=? AND a.request_key<>''";
-  const std::string sql =
-      std::string("SELECT ") + AssetSql::kColumns + " FROM assets a WHERE " + predicate;
+  const auto *source =
+      lookup == Lookup::Product
+          ? " FROM assets a WHERE a.key=?"
+          : " FROM asset_requests r JOIN assets a ON a.id=r.asset_id WHERE r.request_key=?";
+  const std::string sql = std::string("SELECT ") + AssetSql::kColumns + source;
   auto prepared = AssetSql::Prepare(database, sql.c_str(), statement);
   if (!prepared) { return std::unexpected(prepared.error()); }
   if (!AssetSql::Text(statement.Value, 1, key)) {
@@ -117,22 +117,26 @@ FindRecord(sqlite3 *database, Lookup lookup, std::string_view key) {
   if (code != SQLITE_ROW) { return std::unexpected(AssetSql::Error(code)); }
   auto record = AssetSql::Read(statement.Value);
   if (!record) { return std::unexpected(AssetCacheError::Storage); }
+  if (lookup == Lookup::Request) { record->RequestKey = std::string(key); }
   return record;
 }
 }
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>
 AssetCache::Find(std::string_view key) const {
+  const std::scoped_lock lock(*State_->Mutex);
   return FindRecord(State_->Database, Lookup::Product, key);
 }
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>
 AssetCache::FindRequest(std::string_view requestKey) const {
+  const std::scoped_lock lock(*State_->Mutex);
   return FindRecord(State_->Database, Lookup::Request, requestKey);
 }
 
 std::expected<std::vector<AssetRecord>, AssetCacheError>
 AssetCache::Select(const AssetQuery &query) const {
+  const std::scoped_lock lock(*State_->Mutex);
   if (!Valid(query)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;
   const std::string sql =

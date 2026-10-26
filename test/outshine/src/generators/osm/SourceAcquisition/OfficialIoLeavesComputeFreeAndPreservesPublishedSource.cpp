@@ -1,5 +1,5 @@
+#include "OsmProviderValidation.h"
 #include "OsmSourceAcquisition.h"
-#include "SourceProviderValidation.h"
 #include "OsmBuildingFootprints.h"
 #include "OsmTransportPreparation.h"
 #include "Check.h"
@@ -7,10 +7,12 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <system_error>
+#include <vector>
 
 namespace {
 class ApiWire final : public outshine::Data::Transport {
@@ -25,16 +27,16 @@ public:
       "<tag k='building' v='yes'/><tag k='custom:unknown' v='preserved'/></way>"
       "<way id='11'><nd ref='1'/><nd ref='2'/><tag k='highway' v='residential'/></way></osm>";
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(++Starts);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     if (Block) { return outshine::Data::Wire::Working(); }
     return outshine::Data::Wire::Answered(200, std::vector<uint8_t>(Xml.begin(), Xml.end()));
   }
 
-  void Cancel(outshine::Data::Ticket) override { ++Canceled; }
+  void Cancel(outshine::Data::Ticket /*ticket*/) override { ++Canceled; }
 };
 
 bool WaitFor(outshine::Generators::Osm::SourceAcquisition &loader) {
@@ -67,9 +69,12 @@ int main() {
         .Revision = "r1",
         .Missing = Data::MissingDataPolicy::Fail,
         .Dataset = "openstreetmap.original",
-        .Endpoint = std::string(Data::kOfficialOsmApi),
+        .Location = {},
+        .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
         .Coverage =
-            Data::SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 0.01, .NorthDeg = 0.01}}};
+            GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 0.01, .NorthDeg = 0.01},
+        .PayloadSha256 = {},
+        .Schema = {}}};
     CHECK(loader.Request(providers, ".") && WaitFor(loader) && loader.Current(),
           "official source acquisition and native compute publication complete asynchronously");
     const auto source = loader.Current();

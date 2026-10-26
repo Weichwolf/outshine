@@ -2,9 +2,10 @@
 #define OUTSHINE_RENDER_TERRAIN_TERRAINPATCHSELECTION_H
 
 #include "DepthPyramid.h"
+#include "TerrainPatchBounds.h"
 #include "FrameContext.h"
 #include "Gpu.h"
-#include "SubjectTypes.h"
+#include "GroundTile.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -15,7 +16,7 @@
 namespace outshine::Render {
 class TerrainPatchSelection {
 public:
-  TerrainPatchSelection();
+  explicit TerrainPatchSelection(const TerrainPatchBounds &bounds) noexcept : Source_(&bounds) {}
 
   struct Pipelines {
     std::unique_ptr<Native::ComputePipeline> Cull, LocalScan, Scan, Compact;
@@ -23,22 +24,8 @@ public:
 
   void UsePipelines(const Pipelines &pipelines) noexcept { Pipelines_ = &pipelines; }
 
-  struct alignas(16) Bounds {
-    std::array<float, 4> Low{};
-    std::array<float, 4> High{};
-    std::array<float, 4> Errors{};
-  };
+  using Bounds = TerrainPatchBounds::Bounds;
 
-  static constexpr size_t kBoundsBytes = 48;
-  static_assert(sizeof(Bounds) == kBoundsBytes && alignof(Bounds) == 16);
-  static_assert(offsetof(Bounds, High) == 16 && offsetof(Bounds, Errors) == 32);
-
-  void Fractions(std::span<const float> fractions);
-
-  [[nodiscard]] std::span<const float> Fractions() const noexcept { return Fractions_; }
-
-  void Page(PageId page, std::span<const float> heights);
-  void Sources(std::span<const TerrainInstance> tiles, uint32_t real);
   void BeginFrame();
   void Include(size_t tile);
   [[nodiscard]] Native::Result<void> Upload(Native::Device &device, Native::Commands &commands);
@@ -52,7 +39,7 @@ public:
                                           const Native::Buffer &candidates,
                                           float errorPx = 0);
 
-  [[nodiscard]] bool Ready() const { return Ready_; }
+  [[nodiscard]] bool Ready() const { return Ready_ && SourceRevision_ == Source_->Generation(); }
 
   [[nodiscard]] Native::Buffer *Codes() const { return Selected_.get(); }
 
@@ -72,20 +59,6 @@ private:
 #undef GROUND_FLOAT
   static constexpr size_t kPatchCount = 1u << kGroundPatchBits;
 
-  struct PageRange {
-    std::array<std::array<float, 2>, kPatchCount> Patches{};
-    std::array<float, 2> Whole{};
-    std::array<std::array<float, 4>, kPatchCount> Errors{};
-    uint64_t Revision = 0;
-    bool Finite = false;
-  };
-
-  struct TileRange {
-    std::array<Bounds, kPatchCount> Patches{};
-    PageId Page = kNoPage;
-    uint64_t Revision = 0;
-  };
-
   struct alignas(16) View {
     Mat4f Clip{};
     Vec4f Shift{};
@@ -104,20 +77,14 @@ private:
   static_assert(offsetof(View, Work) == kViewSourceOffset + 16);
   static_assert(offsetof(View, Detail) == kViewBytes - 16);
 
-  [[nodiscard]] TileRange BoundsFor(const TerrainInstance &tile, bool uniform) const;
   [[nodiscard]] Native::Result<void> Reserve(Native::Device &device, uint32_t count);
   [[nodiscard]] Native::Result<void> Select(Native::Commands &commands,
                                             const View &view,
                                             Native::Buffer &pyramid,
                                             const Native::Buffer &candidates);
-  std::array<float, kGroundSide> Fractions_{};
-  std::vector<PageRange> Pages_;
-  std::vector<TileRange> Tiles_;
+  const TerrainPatchBounds *Source_;
   std::vector<Bounds> Seen_;
-  uint64_t Revision_ = 0;
-  bool AlignedFractions_ = true;
-  bool UniformFractions_ = true;
-  bool FiniteFractions_ = true;
+  uint64_t SourceRevision_ = 0;
   bool Ready_ = false;
   uint32_t Room_ = 0;
   uint32_t Blocks_ = 0;

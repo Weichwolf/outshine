@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_TEST_NATIVE_TREE_DETAIL_PREVIEW_H
 #define OUTSHINE_TEST_NATIVE_TREE_DETAIL_PREVIEW_H
 
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "ImpostorInstances.h"
 #include "ImpostorSurface.h"
 #include "SceneRenderer.h"
@@ -144,9 +144,9 @@ inline bool BuildCards(std::string_view provenance,
     error = "depth preview atlas absent";
     return false;
   }
-  auto atlas = Content::ImpostorAtlas::Decode((**bytes).Bytes(), provenance, error);
+  auto atlas = ImpostorAtlas::Decode((**bytes).Bytes(), provenance, error);
   if (!atlas) { return false; }
-  Content::ImpostorCards cards;
+  ImpostorCards cards;
   cards.Centre = atlas->CentreM();
   cards.HalfExtentM = atlas->HalfExtentM();
   for (size_t view = 0; view < atlas->Views().size(); ++view) {

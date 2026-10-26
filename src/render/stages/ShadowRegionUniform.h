@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_SHADOWREGIONUNIFORM_H
 #define OUTSHINE_RENDER_STAGES_SHADOWREGIONUNIFORM_H
 
-#include "math/Vec4.h"
+#include "Vec4.h"
 #include <cstddef>
 #include <cstdint>
 

@@ -1,3 +1,4 @@
+#include "TilePool.h"
 #include "OsmField.h"
 #include "SourceSet.h"
 #include "Check.h"
@@ -30,28 +31,31 @@ public:
 
 class RecoveringSource final : public Source {
 public:
-  explicit RecoveringSource(std::vector<uint8_t> bytes) : Bytes(std::move(bytes)) {}
+  explicit RecoveringSource(std::vector<uint8_t> bytes) : Bytes(std::move(bytes)) {
+    Decl.Id = "recovering-vector";
+    Decl.Revision = "r1";
+    Decl.Kind = DataKind::VectorMap;
+    Decl.Wire = WireFormat::MapboxVectorTile;
+    Decl.Keeps = Cacheability::Never;
+  }
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Calls.fetch_add(1) == 0 ? Fetched::Meant(Meaning::Refused) : Fetched::Delivered(Bytes);
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return Calls.fetch_add(1) == 0 ? SourceResponse::Meant(Meaning::Refused)
+                                   : SourceResponse::Delivered(Bytes);
   }
 
   mutable std::atomic<int> Calls{0};
 
 private:
-  SourceDecl Decl{.Id = "recovering-vector",
-                  .Revision = "r1",
-                  .Kind = DataKind::VectorMap,
-                  .Wire = WireFormat::MapboxVectorTile,
-                  .Keeps = Cacheability::Never};
+  SourceDecl Decl;
   std::vector<uint8_t> Bytes;
 };
 
@@ -81,7 +85,9 @@ int main() {
   using namespace outshine;
   using namespace outshine::Data;
   using namespace outshine::Test;
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache::Config cache;
+  cache.Using = RawSourceCache::Use::Off;
+  RawSourceCache store(cache);
   SourceSet sources(store);
   ClockTransport transport;
   const auto bytes = TileBytes();

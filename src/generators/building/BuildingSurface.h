@@ -4,7 +4,7 @@
 #include "BuildingShape.h"
 #include "Geodesy.h"
 #include "StoredVertex.h"
-#include "math/Box.h"
+#include "Box.h"
 
 #include <cstddef>
 #include <array>

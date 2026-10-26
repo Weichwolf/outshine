@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-#include <audio/AudioScene.h>
+#include <AudioScene.h>
 
 namespace outshine::Audio {
 

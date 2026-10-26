@@ -2,7 +2,7 @@
 #include "PlantAxisSurface.h"
 #include "PlantAxisDetail.h"
 #include "PlantSurface.h"
-#include "math/Mat4.h"
+#include "Mat4.h"
 #include <array>
 #include <algorithm>
 #include <cstddef>

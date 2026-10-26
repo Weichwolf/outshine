@@ -9,7 +9,7 @@
 #include "GroundSample.h"
 #include "Earth.h"
 #include "Tile.h"
-#include "world/data/Address.h"
+#include "Address.h"
 
 namespace outshine::Generators {
 

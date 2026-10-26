@@ -4,8 +4,8 @@
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
 #include "ResourceHandle.h"
-#include "math/Mat4.h"
-#include "math/Vec3.h"
+#include "Mat4.h"
+#include "Vec3.h"
 
 #include <cstdint>
 #include <memory>
@@ -19,16 +19,14 @@ class SceneRenderer;
 
 class ImpostorInstances {
 public:
-  [[nodiscard]] static std::unique_ptr<ImpostorInstances>
-  Create(SceneRenderer &renderer,
-         const Content::ImpostorAtlas &atlas,
-         uint32_t maxInstances,
-         std::string &error);
-  [[nodiscard]] static std::unique_ptr<ImpostorInstances>
-  Create(SceneRenderer &renderer,
-         const Content::ImpostorCards &cards,
-         uint32_t maxInstances,
-         std::string &error);
+  [[nodiscard]] static std::unique_ptr<ImpostorInstances> Create(SceneRenderer &renderer,
+                                                                 const ImpostorAtlas &atlas,
+                                                                 uint32_t maxInstances,
+                                                                 std::string &error);
+  [[nodiscard]] static std::unique_ptr<ImpostorInstances> Create(SceneRenderer &renderer,
+                                                                 const ImpostorCards &cards,
+                                                                 uint32_t maxInstances,
+                                                                 std::string &error);
   ~ImpostorInstances();
   ImpostorInstances(const ImpostorInstances &) = delete;
   ImpostorInstances &operator=(const ImpostorInstances &) = delete;

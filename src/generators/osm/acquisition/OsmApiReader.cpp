@@ -26,7 +26,7 @@ constexpr size_t kConcurrentRegions = 2;
 std::expected<size_t, std::string> PollStarted(std::span<const std::unique_ptr<ApiRegion>> regions,
                                                std::span<SourceChunk> chunks,
                                                std::span<const double> beganMs,
-                                               std::vector<Data::GeoCellId> &refine) {
+                                               std::vector<GeoCellId> &refine) {
   size_t completed = 0;
   for (size_t at = 0; at < regions.size(); ++at) {
     auto ready = regions[at]->Collect(chunks[at], beganMs[at]);
@@ -40,8 +40,8 @@ std::expected<size_t, std::string> PollStarted(std::span<const std::unique_ptr<A
 
 std::expected<SourceRead, std::string>
 ReadRequests(std::span<const Data::SourceProvider> providers,
-             std::span<const Data::GeoCellId> cells,
-             Data::ContentStore &store,
+             std::span<const GeoCellId> cells,
+             Data::RawSourceCache &store,
              Data::Transport &wire,
              double deadlineMs,
              const std::stop_token &stop,
@@ -64,7 +64,7 @@ ReadRequests(std::span<const Data::SourceProvider> providers,
   std::vector<double> beganMs(providers.size());
   size_t next = 0;
   size_t completed = 0;
-  std::vector<Data::GeoCellId> refine;
+  std::vector<GeoCellId> refine;
   while (completed < regions.size()) {
     const double nowMs = wire.NowMs();
     const double untilMs = currentDeadline ? currentDeadline() : deadlineMs;
@@ -93,8 +93,8 @@ ReadRequests(std::span<const Data::SourceProvider> providers,
 }
 
 std::expected<SourceRead, std::string> ReadCells(const Data::SourceProvider &catalogue,
-                                                 std::span<const Data::GeoCellId> cells,
-                                                 Data::ContentStore &store,
+                                                 std::span<const GeoCellId> cells,
+                                                 Data::RawSourceCache &store,
                                                  Data::Transport &wire,
                                                  double deadlineMs,
                                                  const std::stop_token &stop,
@@ -113,7 +113,7 @@ std::expected<SourceRead, std::string> ReadCells(const Data::SourceProvider &cat
 }
 
 std::expected<SourceRead, std::string> ReadRegions(std::span<const Data::SourceProvider> providers,
-                                                   Data::ContentStore &store,
+                                                   Data::RawSourceCache &store,
                                                    Data::Transport &wire,
                                                    double deadlineMs,
                                                    const std::stop_token &stop,
@@ -125,7 +125,7 @@ std::expected<SourceRead, std::string> ReadRegions(std::span<const Data::SourceP
 }
 
 std::expected<SourceChunk, std::string> ReadRegion(const Data::SourceProvider &provider,
-                                                   Data::ContentStore &store,
+                                                   Data::RawSourceCache &store,
                                                    Data::Transport &wire,
                                                    double deadlineMs,
                                                    const std::stop_token &stop,

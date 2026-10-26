@@ -1,8 +1,8 @@
-#include "math/Units.h"
+#include "Units.h"
 #include "math/RenderFrame.h"
 #include "ProfiledRoadMesher.h"
 #include "RoadCrossSection.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include "Fit.h"
 #include "ReferenceLine.h"

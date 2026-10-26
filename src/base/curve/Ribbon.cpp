@@ -3,7 +3,7 @@
 #include <span>
 #include <string_view>
 #include "math/RenderFrame.h"
-#include "math/Vec2.h"
+#include "Vec2.h"
 #include "Carriageway.h"
 #include "Ribbon.h"
 

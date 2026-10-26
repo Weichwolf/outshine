@@ -2,7 +2,9 @@
 #define OUTSHINE_WORLD_PRODUCTS_BUILDINGFOOTPRINT_H
 
 #include "BuildingFrontage.h"
+#include "BuildingTerrainCeiling.h"
 #include <cstdint>
+#include <optional>
 
 namespace outshine::Ground {
 
@@ -18,8 +20,12 @@ struct BuildingFootprint {
   float FootM = 0.0f;
   BuildingHeightSource Source = BuildingHeightSource::Generated;
   BuildingFrontage Street;
+  std::optional<BuildingTerrainCeiling> TerrainCeiling;
+  BuildingTerrainContacts TerrainContacts;
 
   [[nodiscard]] bool operator==(const BuildingFootprint &) const noexcept = default;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept { return TerrainContacts.HeapBytes(); }
 };
 
 }

@@ -1,7 +1,7 @@
 #include "PlantLimbSurface.h"
 #include "PlantLimbPlan.h"
 #include "PlantSurface.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

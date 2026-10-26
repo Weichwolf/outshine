@@ -1,7 +1,7 @@
 #include "EngineState.h"
 #include "OsmSourceAcquisition.h"
-#include <Outshine.h>
-#include <math/Units.h>
+#include <Engine.h>
+#include <Units.h>
 
 #include <algorithm>
 #include <chrono>
@@ -18,6 +18,12 @@ constexpr auto kInvalidPreloadBudget = "preload requires finite nonnegative seco
 namespace {
 constexpr double kMostWaitS = 0.05;
 constexpr double kBitsPerByte = 8.0;
+
+[[nodiscard]] Result SetPreloadAcquisitionBudget(Generators::Osm::SourceAcquisition *source,
+                                                 double patienceS) {
+  if (source == nullptr || patienceS == 0.0) { return {}; }
+  return source->SetAcquisitionBudget(patienceS);
+}
 
 void ReportPreload(const Engine &engine,
                    std::chrono::steady_clock::time_point began,
@@ -50,8 +56,7 @@ Result Engine::preloadWithQuality(double patienceS,
   if (!std::isfinite(patienceS * kMsPerS) || patienceS < 0.0) {
     return std::unexpected(Says::kInvalidPreloadBudget);
   }
-  const auto configured =
-      S_->World.OsmSource ? S_->World.OsmSource->SetAcquisitionBudget(patienceS) : Result{};
+  const auto configured = SetPreloadAcquisitionBudget(S_->World.OsmSource.get(), patienceS);
   if (!configured) { return std::unexpected(configured.error()); }
   const auto began = std::chrono::steady_clock::now();
   S_->LastPreloadMs = 0.0;
@@ -89,7 +94,8 @@ Result Engine::preloadWithQuality(double patienceS,
     if (!S_->Session.Declared.Ground.Declared && S_->Readiness(quality).Ready()) {
       return timed(Result{});
     }
-    if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate()) {
+    if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate() ||
+        S_->Readiness(quality).Ready()) {
       const auto flushAt = std::chrono::steady_clock::now();
       const auto finished = S_->FlushPreloadGround(began, bound, quality);
       S_->PreloadFlushMs += elapsedMs(flushAt);

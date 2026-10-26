@@ -64,6 +64,47 @@ frame/query. Earlier preparation remains in the raw file. A wrong fresh-process
 log with identical image/content is rejected; mismatched windows, dropped records
 or unavailable samples are not converted into timings.
 
+The current application also writes benchmark JSON with explicit submission IDs.
+Use `--benchmark` instead of `--log` for that output:
+
+```sh
+python3 test/experiments/render/metal_encoder_profile.py analyse \
+  --trace "$TRACE" --benchmark "$BENCHMARK_JSON" \
+  --output "$profile_root/summary"
+```
+
+Every declared frame must have one ordered, unique GPU sample from one device.
+Each serial and individual elapsed time must match its actual trace submission;
+matching only a sum is insufficient. Preparation and later readbacks remain in
+the trace but are excluded by IDs. Tests reject swapped durations with equal
+totals, missing/duplicate/reordered/cross-device samples and incomplete windows.
+Historical GPUROW analysis retains its stricter tail-window requirement.
+
+## Current e2ae80985 countercheck
+
+Four full original 1280×720/60, 60-frame/360-degree offline windows complete.
+Every final PNG is byte-identical to its current Place; no unrefined frames.
+Each raw trace has 61 submissions, with no dropped records/allocation failures;
+all 60 measured IDs and individual durations agree with benchmark JSON.
+The following means cover exactly those measured frames, including first use.
+
+| Interval, ms | Tokyo | Wien | Koerbersee | CentralPark |
+|---|---:|---:|---:|---:|
+| Whole GPU submission | 14.251 | 12.375 | 15.181 | 14.006 |
+| Cull/scan/compact compute encoder | 1.516 | 1.450 | 0.288 | 1.262 |
+| Opaque object vertex | 6.191 | 4.410 | 0.248 | 4.557 |
+| Opaque object fragment | 3.502 | 2.442 | 2.337 | 2.746 |
+| Terrain vertex | 0.993 | 1.185 | 6.939 | 0.951 |
+| Terrain fragment | 0.717 | 1.312 | 3.586 | 3.134 |
+
+These intervals overlap and cannot be added or converted into exclusive shares.
+GPU p99 remains 25.013/23.677/23.224/19.631 ms respectively, above 16.67 ms.
+The first compute label names the cull pipeline but does not isolate it from
+scan/compact dispatches in the same encoder. No sampling-overhead-free timing
+or general optimisation gain is claimed. #894 continues object work reduction;
+terrain vertex work remains a separate substantial cost under #12/#16.
+Raw traces, commands and source association are linked from #15.
+
 ## Verification and costs on 82e7a69d7
 
 The following original 11-encoder measurements precede the valid-cache shadow-pass

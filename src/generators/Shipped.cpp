@@ -44,7 +44,7 @@ constexpr Rank kRankFlora{200};
 
 }
 
-bool Shipping::EnsureCatalogue(const outshine::Ground::VegetationTemplates &declared,
+bool Shipping::EnsureCatalogue(const RegionSurfaceRecipes &declared,
                                std::string_view speciesDir,
                                std::string &error,
                                bool vegetation,
@@ -68,7 +68,7 @@ bool Shipping::EnsureCatalogue(const outshine::Ground::VegetationTemplates &decl
   return true;
 }
 
-bool Shipping::BuildCatalogue(const outshine::Ground::VegetationTemplates &declared,
+bool Shipping::BuildCatalogue(const RegionSurfaceRecipes &declared,
                               std::string_view speciesDir,
                               std::string &error,
                               bool vegetation,

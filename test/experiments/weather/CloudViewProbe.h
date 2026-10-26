@@ -3,7 +3,7 @@
 
 #include "MediumViewProbe.h"
 #include "CloudLayer.h"
-#include <world/weather/WeatherSnapshot.h>
+#include <WeatherSnapshot.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>

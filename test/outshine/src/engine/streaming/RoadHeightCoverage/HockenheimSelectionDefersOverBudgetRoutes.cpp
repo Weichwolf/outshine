@@ -1,13 +1,16 @@
+#include "HockenheimTransportFixture.h"
+#include "HockenheimCircuitFixture.h"
 #include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadHeightCoverage.h"
 
-#include <fstream>
-#include <iterator>
+#include <cstddef>
 #include <string>
 #include <utility>
 #include <vector>
+
+namespace Circuit = outshine::Test::HockenheimFixture;
 
 int main() {
   using namespace outshine;
@@ -15,30 +18,22 @@ int main() {
   using namespace outshine::Test;
   using namespace outshine::World;
 
-  std::ifstream input("src/assets/world/osm/HockenheimringGrandPrix.osm", std::ios::binary);
-  CHECK(input.good(), "the pinned circuit source exists");
-  if (!input) { return Report(); }
-  const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
-  auto source = outshine::Generators::Osm::XmlReader::Read(
-      xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
-  CHECK(source.has_value(), "the source parses");
-  if (!source) { return Report(); }
-  auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);
-  CHECK(topology.has_value(), "the source builds a topology");
-  if (!topology) { return Report(); }
-  auto circuit =
-      outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*topology, *source, 284588);
-  CHECK(circuit.has_value(), "the 267-edge route resolves");
-  if (!circuit) { return Report(); }
-  ResolvedTransport transport{.Graph = std::move(*topology),
-                              .Routes = {{.Id = "grand-prix", .Circuit = *circuit},
-                                         {.Id = "second-view", .Circuit = std::move(*circuit)}}};
-  TransportNetworkSnapshot snapshot(std::move(transport), {}, {});
+  auto fixture = Circuit::LoadNetwork();
+  CHECK(fixture,
+        fixture ? "pinned source, topology and directed circuit load" : fixture.error().c_str());
+  if (!fixture) { return Report(); }
+  auto &topology = fixture->Graph;
+  auto &circuit = fixture->Route;
+
+  ResolvedTransport transport{.Graph = std::move(topology),
+                              .Routes = {{.Id = "grand-prix", .Circuit = circuit},
+                                         {.Id = "second-view", .Circuit = std::move(circuit)}}};
+  const TransportNetworkSnapshot snapshot(std::move(transport), {}, {});
 
   const auto selected =
       RoadHeightCoverage::Select(snapshot, {.Zoom = 15, .MaximumEdges = 512, .MaximumTiles = 256});
   CHECK(selected && selected->SelectedRouteIndices == std::vector<size_t>{0} &&
-            selected->SelectedEdges == 267 && selected->DeferredRoutes == 1 &&
+            selected->SelectedEdges == Circuit::EdgeCount && selected->DeferredRoutes == 1 &&
             selected->Tiles.size() > 1 && selected->Tiles.size() < 64,
         "one local circuit is admitted while the second exceeds the edge budget");
   const auto edgeLimited =

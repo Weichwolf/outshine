@@ -1,7 +1,7 @@
 #include <expected>
 #include "Shape.h"
-#include "math/Mat4.h"
-#include "scene/Geometry.h"
+#include "Mat4.h"
+#include "Geometry.h"
 
 #include <algorithm>
 #include <cassert>

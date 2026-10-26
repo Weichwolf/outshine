@@ -7,6 +7,7 @@
 #include <limits>
 #include <algorithm>
 #include <utility>
+#include <string>
 #include <vector>
 
 int main() {
@@ -17,6 +18,7 @@ int main() {
   region.Anchor = {.LongitudeDeg = 9, .LatitudeDeg = 47};
   region.GroundAlbedo = {{0.2, 0.3, 0.1}};
   region.MissingRims = 3;
+  region.SurfaceManifest = std::string(64, 'a');
   region.Terrain.Sheets = {{.Tile = {.Zoom = 14, .X = 8601, .Y = 5761},
                             .Nodes = {100, 101, 102, 103},
                             .Side = 2,
@@ -24,7 +26,9 @@ int main() {
   region.Terrain.Tiles = 1;
   const std::array<float, 9> positions{0, 100, 0, 10, 101, 0, 0, 102, 10};
   const std::array<uint32_t, 3> indices{0, 1, 2};
-  auto surface = region.Surfaces.addSurface("pavement", Material{.Roughness = 0.75f});
+  Material pavement{};
+  pavement.Roughness = 0.75f;
+  auto surface = region.Surfaces.addSurface("pavement", pavement);
   CHECK(surface, "native material is created");
   if (!surface) { return Report(); }
   region.GroundSurface = surface->index();
@@ -55,6 +59,13 @@ int main() {
             restored->GroundAlbedo == region.GroundAlbedo && restored->MissingRims == 3 &&
             restored->ClassPalette == region.ClassPalette,
         "deformed contact pages, collision and material inputs survive");
+  CHECK(restored->SurfaceManifest == region.SurfaceManifest,
+        "the independent surface manifest reference survives without embedding its meshes");
+  const auto reference = region.SurfaceManifest;
+  region.SurfaceManifest = "invalid-reference";
+  CHECK(!EncodeGroundRegionAsset(region, bytesMost),
+        "invalid manifest identities cannot enter a region package");
+  region.SurfaceManifest = reference;
   CHECK(restored->Classes && restored->Classes->Version() == 123 &&
             restored->Classes->Fine().BoundaryHaloM == .75 &&
             restored->Classes->Evaluate(0.5, 0.5, nullptr, nullptr) == 7 &&

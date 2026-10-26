@@ -8,7 +8,7 @@
 #include "Sha256.h"
 #include "Geodesy.h"
 #include "TileGeodesy.h"
-#include <math/Units.h>
+#include <Units.h>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -84,14 +84,14 @@ Box Bounds(Data::TileId at, const ::outshine::Ground::TerrainField &field) {
   return Bounds(at, *range.min, *range.max);
 }
 
-::outshine::Ground::TerrainGrid Refused(Data::TileId at, Data::FetchFailureReason reason) {
+::outshine::Ground::TerrainGrid Refused(Data::TileId at, Data::SourceFailureReason reason) {
   return ::outshine::Ground::TerrainGrid::Refused(
-      Data::FetchFailure{.Requested = Data::Address::At(at),
-                         .Served = std::nullopt,
-                         .SourceId = "prepared-terrain",
-                         .SourceRevision = {},
-                         .SourceKey = {},
-                         .Reason = reason});
+      Data::SourceFailure{.Requested = Data::Address::At(at),
+                          .Served = std::nullopt,
+                          .SourceId = "prepared-terrain",
+                          .SourceRevision = {},
+                          .SourceKey = {},
+                          .Reason = reason});
 }
 
 }
@@ -108,15 +108,29 @@ PreparedTerrainAssets::Open(const std::string &directory, const Data::SourceSet 
   }
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the native asset cache"); }
-  return std::shared_ptr<PreparedTerrainAssets>(new PreparedTerrainAssets(
-      std::move(*cache),
-      AssetSourceRecipe(
-          "prepared-terrain-field-1", sources, std::array{Data::DataKind::Elevation})));
+  auto recipe =
+      AssetSourceRecipe("prepared-terrain-field-1", sources, std::array{Data::DataKind::Elevation});
+  if (recipe.empty()) { return std::unexpected("terrain source metadata cannot be encoded"); }
+  return std::shared_ptr<PreparedTerrainAssets>(
+      new PreparedTerrainAssets(std::move(*cache), std::move(recipe)));
+}
+
+std::shared_ptr<std::mutex> PreparedTerrainAssets::MutexForRequest(const std::string &key) {
+  const std::scoped_lock lock(Lock_);
+  std::erase_if(Requests_, [](const auto &entry) { return entry.second.expired(); });
+  auto &pending = Requests_[key];
+  auto request = pending.lock();
+  if (!request) {
+    request = std::make_shared<std::mutex>();
+    pending = request;
+  }
+  return request;
 }
 
 ::outshine::Ground::TerrainGrid
 PreparedTerrainAssets::Remember(const std::string &key, ::outshine::Ground::TerrainField field) {
   auto shared = std::make_shared<const ::outshine::Ground::TerrainField>(std::move(field));
+  const std::scoped_lock lock(Lock_);
   constexpr size_t maximum = 4096;
   if (Resident_.size() >= maximum) {
     std::erase_if(Resident_, [](const auto &entry) { return entry.second.expired(); });
@@ -133,20 +147,24 @@ PreparedTerrainAssets::Resolve(Data::TileId at,
   if (at.Zoom < 0 || at.Zoom > Data::TileId::MaximumZoom ||
       at.X >= (uint32_t{1} << static_cast<unsigned>(at.Zoom)) ||
       at.Y >= (uint32_t{1} << static_cast<unsigned>(at.Zoom))) {
-    return Refused(at, Data::FetchFailureReason::InvalidRequest);
+    return Refused(at, Data::SourceFailureReason::InvalidRequest);
   }
   const auto key = Key(Recipe_, at, shape);
-  if (key.empty()) { return Refused(at, Data::FetchFailureReason::InvalidRequest); }
-  const std::scoped_lock lock(Lock_);
-  const auto held = Resident_.find(key);
-  if (held != Resident_.end()) {
-    if (auto field = held->second.lock()) {
-      ResidentHits_.fetch_add(1, std::memory_order_relaxed);
-      return TerrainGrid::Holding(std::move(field));
+  if (key.empty()) { return Refused(at, Data::SourceFailureReason::InvalidRequest); }
+  const auto request = MutexForRequest(key);
+  const std::scoped_lock preparing(*request);
+  {
+    const std::scoped_lock lock(Lock_);
+    const auto held = Resident_.find(key);
+    if (held != Resident_.end()) {
+      if (auto field = held->second.lock()) {
+        ResidentHits_.fetch_add(1, std::memory_order_relaxed);
+        return TerrainGrid::Holding(std::move(field));
+      }
     }
   }
   auto loaded = Cache_->Load(key, kPreparedTerrainBytesMost);
-  if (!loaded) { return Refused(at, Data::FetchFailureReason::ProviderRefused); }
+  if (!loaded) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
   if (*loaded) {
     auto field = DecodePreparedTerrain(at, (**loaded).Bytes(), kPreparedTerrainBytesMost);
     if (field) {
@@ -154,15 +172,15 @@ PreparedTerrainAssets::Resolve(Data::TileId at,
       ReadBytes_.fetch_add((**loaded).Bytes().size(), std::memory_order_relaxed);
       return Remember(key, std::move(*field));
     }
-    if (!Cache_->Remove(key)) { return Refused(at, Data::FetchFailureReason::ProviderRefused); }
+    if (!Cache_->Remove(key)) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
   }
   Misses_.fetch_add(1, std::memory_order_relaxed);
-  if (!factory) { return Refused(at, Data::FetchFailureReason::ProviderRefused); }
+  if (!factory) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
   auto generated = factory();
   const auto *field = generated.TryField();
   if (field == nullptr) { return generated; }
   auto encoded = EncodePreparedTerrain(at, *field);
-  if (!encoded) { return Refused(at, Data::FetchFailureReason::CorruptPayload); }
+  if (!encoded) { return Refused(at, Data::SourceFailureReason::CorruptPayload); }
   const AssetRecord record{.Key = key,
                            .Kind = "terrain-field",
                            .Bounds = Bounds(at, *field),
@@ -171,14 +189,14 @@ PreparedTerrainAssets::Resolve(Data::TileId at,
                            .Level = static_cast<uint32_t>(at.Zoom),
                            .Parent = {}};
   if (!Cache_->Publish({&record, 1}, *encoded)) {
-    return Refused(at, Data::FetchFailureReason::ProviderRefused);
+    return Refused(at, Data::SourceFailureReason::ProviderRefused);
   }
   Writes_.fetch_add(1, std::memory_order_relaxed);
   loaded = Cache_->Load(key, kPreparedTerrainBytesMost);
-  if (!loaded || !*loaded) { return Refused(at, Data::FetchFailureReason::ProviderRefused); }
+  if (!loaded || !*loaded) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
   auto ready = DecodePreparedTerrain(at, (**loaded).Bytes(), kPreparedTerrainBytesMost);
   return ready ? Remember(key, std::move(*ready))
-               : Refused(at, Data::FetchFailureReason::CorruptPayload);
+               : Refused(at, Data::SourceFailureReason::CorruptPayload);
 }
 
 PreparedTerrainAssets::Counters PreparedTerrainAssets::Costs() const noexcept {
@@ -217,7 +235,8 @@ std::string PreparedTerrainAssets::PatchKey(Data::TileId at,
 
 std::expected<std::shared_ptr<const GroundPatch>, std::string>
 PreparedTerrainAssets::LoadPatch(const std::string &key, Data::TileId at, int side) {
-  const std::scoped_lock lock(Lock_);
+  const auto request = MutexForRequest(key);
+  const std::scoped_lock preparing(*request);
   auto loaded = Cache_->Load(key, kPreparedGroundPatchBytesMost);
   if (!loaded) { return std::unexpected("terrain sampling patch read failed"); }
   if (*loaded) {
@@ -238,6 +257,8 @@ PreparedTerrainAssets::LoadPatch(const std::string &key, Data::TileId at, int si
 std::expected<void, std::string> PreparedTerrainAssets::StorePatch(const std::string &key,
                                                                    Data::TileId at,
                                                                    const GroundPatch &patch) {
+  const auto request = MutexForRequest(key);
+  const std::scoped_lock preparing(*request);
   const auto encoded = EncodePreparedGroundPatch(at, patch);
   if (!encoded) { return std::unexpected("terrain sampling patch encoding failed"); }
   const auto range = std::ranges::minmax_element(patch.HeightsAslM());
@@ -248,7 +269,6 @@ std::expected<void, std::string> PreparedTerrainAssets::StorePatch(const std::st
                            .ByteCount = encoded->size(),
                            .Level = static_cast<uint32_t>(at.Zoom),
                            .Parent = {}};
-  const std::scoped_lock lock(Lock_);
   if (!Cache_->Publish({&record, 1}, *encoded)) {
     return std::unexpected("terrain sampling patch publication failed");
   }

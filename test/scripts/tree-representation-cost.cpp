@@ -1,8 +1,8 @@
 #include "TreePrototype.h"
 #include "TreeSpecies.h"
 #include "TreeFoliage.h"
-#include "math/Mat4.h"
-#include "scene/Geometry.h"
+#include "Mat4.h"
+#include "Geometry.h"
 #include <chrono>
 #include <algorithm>
 #include <array>

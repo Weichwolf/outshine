@@ -1,11 +1,13 @@
 #include "OsmProvider.h"
 #include "OsmApiSource.h"
+#include "OsmProviderValidation.h"
 #include "OsmXmlReader.h"
 #include "ReadTextFile.h"
 #include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -34,37 +36,44 @@ public:
 
   [[nodiscard]] const Data::SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  [[nodiscard]] Data::Coverage Covers(const Data::Fetch &request) const noexcept override {
+  [[nodiscard]] Data::Coverage Covers(const Data::SourceRequest &request) const noexcept override {
     return request.Kind() == Data::DataKind::OriginalOsm && request.Where().Index() == 0
                ? Data::Coverage::Inside
                : Data::Coverage::Outside;
   }
 
-  [[nodiscard]] Data::Address Serves(const Data::Fetch &request) const noexcept override {
+  [[nodiscard]] Data::Address Serves(const Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
   Data::FetchStart Begin(const Data::Address &at,
                          [[maybe_unused]] Data::Transport &transport) const override {
     return at.Index() == 0 ? Data::FetchStart(Data::Ticket::None)
-                           : std::unexpected(Data::FetchFailureReason::InvalidRequest);
+                           : std::unexpected(Data::SourceFailureReason::InvalidRequest);
   }
 
-  Data::Fetched Collect(const Data::Address &at,
-                        [[maybe_unused]] Data::Ticket ticket,
-                        [[maybe_unused]] Data::Transport &transport) const override {
+  Data::SourceResponse Collect(const Data::Address &at,
+                               [[maybe_unused]] Data::Ticket ticket,
+                               [[maybe_unused]] Data::Transport &transport) const override {
     if (at.Index() != 0) {
-      return Data::Fetched::Meant(Data::Meaning::Refused, Data::FetchFailureReason::InvalidRequest);
+      return Data::SourceResponse::Meant(Data::Meaning::Refused,
+                                         Data::SourceFailureReason::InvalidRequest);
     }
     auto text = ReadTextFile(Decl_.Endpoint, kMaximumXmlBytes);
-    if (!text) { return Data::Fetched::Meant(Data::Meaning::Refused); }
-    return Data::Fetched::Delivered(std::vector<uint8_t>(text->begin(), text->end()));
+    if (!text) { return Data::SourceResponse::Meant(Data::Meaning::Refused); }
+    return Data::SourceResponse::Delivered(std::vector<uint8_t>(text->begin(), text->end()));
   }
 
 private:
   Data::SourceDecl Decl_;
 };
 
+}
+
+std::expected<void, std::string>
+Provider::validate(const Data::SourceProvider &provider,
+                   std::span<const Data::SourceProvider> declared) const {
+  return ValidateProvider(provider, declared);
 }
 
 std::expected<std::unique_ptr<Data::Source>, std::string>

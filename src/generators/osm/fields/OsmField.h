@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_OSM_FIELDS_OSMFIELD_H
 #define OUTSHINE_GENERATORS_OSM_FIELDS_OSMFIELD_H
 
+#include <array>
 #include <cstdint>
 #include <expected>
 #include <initializer_list>
@@ -17,7 +18,7 @@
 #include "OsmLayer.h"
 #include "MvtLayer.h"
 #include "MvtSchema.h"
-#include "TilePool.h"
+#include "SourceReader.h"
 #include "TileSourceIdentity.h"
 #include "GeographicRing.h"
 
@@ -52,7 +53,9 @@ public:
     uint32_t Tile = 0;
     uint16_t Layer = 0;
     uint8_t Type = 0;
+    bool HasContentDigest = false;
     std::optional<uint64_t> ProviderFeatureId;
+    std::array<uint8_t, 32> ContentDigest{};
     double MinLat = 0, MinLon = 0, MaxLat = 0, MaxLon = 0;
   };
 
@@ -79,10 +82,13 @@ public:
   };
 
   [[nodiscard]] std::expected<int, std::string_view>
-  Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget);
+  Build(Data::SourceReader &sources, LongitudeLatitude at, int ringTiles, size_t tileBudget);
 
-  [[nodiscard]] std::expected<int, std::string_view> Build(
-      TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget, ParseBudget parsing);
+  [[nodiscard]] std::expected<int, std::string_view> Build(Data::SourceReader &sources,
+                                                           LongitudeLatitude at,
+                                                           int ringTiles,
+                                                           size_t tileBudget,
+                                                           ParseBudget parsing);
 
   [[nodiscard]] static std::expected<OsmTileWindow, std::string_view>
   SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t tileBudget);
@@ -104,7 +110,8 @@ public:
 
   [[nodiscard]] int CentreY() const { return CentreY_; }
 
-  [[nodiscard]] std::expected<bool, std::string_view> PollTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<bool, std::string_view> PollTile(Data::SourceReader &sources,
+                                                               TileAt at);
 
   [[nodiscard]] std::expected<int, std::string_view>
   Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
@@ -166,7 +173,8 @@ public:
     return OriginToken_;
   }
 
-  [[nodiscard]] std::shared_ptr<const OsmField> SnapshotQueries() const;
+  [[nodiscard]] std::shared_ptr<const OsmField>
+  SnapshotQueries(std::shared_ptr<const OsmField> previous = {}) const;
 
   [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeNativeTile(size_t bytesMost) const;
   [[nodiscard]] static std::unique_ptr<OsmField> DecodeNativeTile(std::span<const uint8_t> bytes,
@@ -195,10 +203,15 @@ public:
 
   [[nodiscard]] bool Has(const Feature &feature, std::string_view key) const;
 
+  [[nodiscard]] std::optional<MvtLayer::Tag> ReadAttribute(const Feature &feature,
+                                                           std::string_view key) const;
+
   [[nodiscard]] int Extent() const { return Extent_; }
 
 private:
   friend class PreparedOsmTiles;
+  enum class StorageRole : uint8_t { Source, QuerySnapshot };
+  StorageRole Role_ = StorageRole::Source;
   struct NativeCodec;
   enum class TagKind : uint8_t { Any, Number, String };
 
@@ -219,7 +232,7 @@ private:
                          std::unordered_map<std::string, uint32_t> &index,
                          std::string_view s);
 
-  struct Fetched {
+  struct SourceResponse {
     bool Held = false;
     int Added = 0;
     bool Refused = false;
@@ -239,11 +252,13 @@ private:
 
   enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
 
-  [[nodiscard]] std::expected<Fetched, std::string_view> AddTile(TilePool &tiles, TileAt at);
-  [[nodiscard]] std::expected<Fetched, std::string_view> AddNativeTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddTile(Data::SourceReader &sources,
+                                                                        TileAt at);
+  [[nodiscard]] std::expected<SourceResponse, std::string_view>
+  AddNativeTile(Data::SourceReader &sources, TileAt at);
   [[nodiscard]] bool AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage);
   [[nodiscard]] std::expected<int, std::string_view>
-  AddWindowTiles(TilePool &tiles, OsmTileWindow window, ParseBudget parsing);
+  AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, ParseBudget parsing);
   [[nodiscard]] std::expected<void, std::string_view> PublishParsed(const ParsedTile *replacement,
                                                                     std::optional<TileAt> contact);
   [[nodiscard]] std::expected<void, std::string_view> PublishReady(TileAt centre);
@@ -276,7 +291,6 @@ private:
   std::vector<Value> Values_;
   std::unordered_map<std::string, uint32_t> KeyIndex_, StringIndex_;
   std::vector<uint64_t> Settled_;
-  TilePool::Landing Scratch_;
   BuildMetrics BuildMetrics_;
   BuildMetrics TotalBuildMetrics_;
   int Zoom_;

@@ -22,6 +22,19 @@ enum class Variation {
   MissingWay
 };
 
+std::string_view MiddleWay(Variation variation) {
+  if (variation == Variation::ReversedMiddle) {
+    return "<way id='11'><nd ref='3'/><nd ref='2'/>"
+           "<tag k='highway' v='raceway'/><tag k='oneway' v='yes'/></way>";
+  }
+  if (variation == Variation::Bidirectional) {
+    return "<way id='11'><nd ref='2'/><nd ref='3'/>"
+           "<tag k='highway' v='raceway'/><tag k='oneway' v='no'/></way>";
+  }
+  return "<way id='11'><nd ref='2'/><nd ref='3'/>"
+         "<tag k='highway' v='raceway'/><tag k='oneway' v='yes'/></way>";
+}
+
 std::string CircuitXml(Variation variation) {
   std::string xml = "<osm version='0.6'>"
                     "<node id='1' lat='0' lon='0'/><node id='2' lat='0' lon='1'/>"
@@ -29,15 +42,7 @@ std::string CircuitXml(Variation variation) {
   const std::string_view way10 =
       "<way id='10'><nd ref='1'/><nd ref='2'/><tag k='highway' v='raceway'/>"
       "<tag k='oneway' v='yes'/></way>";
-  const std::string_view way11 =
-      variation == Variation::ReversedMiddle
-          ? "<way id='11'><nd ref='3'/><nd ref='2'/>"
-            "<tag k='highway' v='raceway'/><tag k='oneway' v='yes'/></way>"
-      : variation == Variation::Bidirectional
-          ? "<way id='11'><nd ref='2'/><nd ref='3'/>"
-            "<tag k='highway' v='raceway'/><tag k='oneway' v='no'/></way>"
-          : "<way id='11'><nd ref='2'/><nd ref='3'/>"
-            "<tag k='highway' v='raceway'/><tag k='oneway' v='yes'/></way>";
+  const std::string_view way11 = MiddleWay(variation);
   const std::string_view way12 =
       "<way id='12'><nd ref='3'/><nd ref='1'/><tag k='highway' v='raceway'/>"
       "<tag k='oneway' v='yes'/></way>";

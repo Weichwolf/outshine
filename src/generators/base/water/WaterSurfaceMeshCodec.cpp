@@ -2,7 +2,7 @@
 #include "WaterAssetFormat.h"
 #include "Earth.h"
 #include "PlanHierarchy.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <cstdint>
 #include <utility>
 #include <vector>

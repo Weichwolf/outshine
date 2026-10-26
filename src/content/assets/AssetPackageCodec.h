@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_ASSETPACKAGECODEC_H
 #define OUTSHINE_CONTENT_ASSETS_ASSETPACKAGECODEC_H
 
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>

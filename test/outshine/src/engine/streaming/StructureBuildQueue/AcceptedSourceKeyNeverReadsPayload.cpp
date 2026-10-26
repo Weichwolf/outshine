@@ -14,13 +14,20 @@
 #include <unistd.h>
 
 namespace {
+constexpr auto kTileSpanM = 100;
+constexpr auto kHeightDigest = 17;
+constexpr auto kStreetDigest = 19;
+constexpr auto kProtectionFailure = 22;
+constexpr auto kPayloadRead = 23;
+constexpr auto kWrongKey = 24;
+constexpr auto kWatchdogExpired = 25;
 
-void RejectsPayloadRead(int) {
-  _exit(23);
+void RejectsPayloadRead(int /*unused*/) {
+  _exit(kPayloadRead);
 }
 
-void StopsOverdueRead(int) {
-  _exit(25);
+void StopsOverdueRead(int /*unused*/) {
+  _exit(kWatchdogExpired);
 }
 
 void ChecksPayloadIsolation(const ::outshine::Generators::Osm::BuildingField &field,
@@ -33,9 +40,10 @@ void ChecksPayloadIsolation(const ::outshine::Generators::Osm::BuildingField &fi
   const auto &text = field.InputOfTile(7)->Sources.front().SourceId;
   const auto first = reinterpret_cast<uintptr_t>(text.data());
   const auto page = static_cast<uintptr_t>(pageSize);
-  const auto interior = (first + page - 1) / page * page;
-  CHECK(interior + page <= first + text.size(), "guard page lies inside source string storage");
-  if (interior + page > first + text.size()) { return; }
+  const auto offset = (page - first % page) % page;
+  const char *const interior = text.data() + offset;
+  CHECK(offset + page <= text.size(), "guard page lies inside source string storage");
+  if (offset + page > text.size()) { return; }
   const pid_t child = fork();
   CHECK(child >= 0, "isolated getter process starts");
   if (child == 0) {
@@ -43,15 +51,15 @@ void ChecksPayloadIsolation(const ::outshine::Generators::Osm::BuildingField &fi
     std::signal(SIGBUS, RejectsPayloadRead);
     std::signal(SIGALRM, StopsOverdueRead);
     alarm(2);
-    if (mprotect(reinterpret_cast<void *>(interior), page, PROT_NONE) != 0) { _exit(22); }
+    if (mprotect(const_cast<char *>(interior), page, PROT_NONE) != 0) { _exit(kProtectionFailure); }
     const auto key = StructureBuildQueue::QualifiedSourceKey(field, 7);
-    _exit(key && *key == expected ? 0 : 24);
+    _exit(key && *key == expected ? 0 : kWrongKey);
   }
   if (child < 0) { return; }
   int status = 0;
   pid_t waited;
   do { waited = waitpid(child, &status, 0); } while (waited < 0 && errno == EINTR);
-  CHECK(waited == child && WIFEXITED(status) && WEXITSTATUS(status) != 25,
+  CHECK(waited == child && WIFEXITED(status) && WEXITSTATUS(status) != kWatchdogExpired,
         "source-payload guard watchdog did not expire");
   CHECK(waited == child && WIFEXITED(status) && WEXITSTATUS(status) == 0,
         "real runtime getter returns the cached key without reading protected source bytes");
@@ -64,7 +72,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  ::outshine::Generators::Osm::OsmField vectors(14, {});
+  const ::outshine::Generators::Osm::OsmField vectors(14, {});
   ::outshine::Generators::Osm::BuildingField field;
   field.AnchorAt({{1, 2, 3}});
   const Data::TileSourceIdentity source{.Kind = Data::DataKind::Elevation,
@@ -77,18 +85,19 @@ int main() {
                                   .SourceId = "osm",
                                   .Revision = "vector-a"};
   const ::outshine::Generators::Osm::BuildingField::Baked empty;
-  field.PreparesAcceptances({.Tiles = 1});
+  field.PreparesAcceptances(1);
   field.Take(7);
   auto pending = field.PrepareAcceptance(7,
                                          empty,
                                          sources,
                                          true,
                                          vector,
-                                         {.HeightRasterDigest = 17,
-                                          .StreetDigest = 19,
+                                         {.HeightRasterDigest = kHeightDigest,
+                                          .StreetDigest = kStreetDigest,
                                           .Projection = {.FocalPx = 0},
-                                          .TileSpanM = 100,
-                                          .Eye = {}});
+                                          .TileSpanM = kTileSpanM,
+                                          .Eye = {},
+                                          .EyeEcef = {}});
   sources.front().SourceId.front() = 'x';
   vector.Revision = "producer-changed";
   field.CommitAcceptance(std::move(pending), empty);

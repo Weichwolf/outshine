@@ -129,7 +129,7 @@ std::expected<SourceSnapshot, std::string> ChunkSetLoader::ParseCell(const Sourc
 std::expected<SourceSnapshot, std::string>
 ChunkSetLoader::ParseChunks(std::span<const SourceChunk> input, const std::stop_token &stop) {
   std::vector<ElementSet> chunks;
-  std::vector<Data::SourceCoverage> coverage;
+  std::vector<GeographicBounds> coverage;
   std::vector<ChunkProvenance> provenance;
   chunks.reserve(input.size());
   coverage.reserve(input.size());

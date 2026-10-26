@@ -1,14 +1,14 @@
-#include "SubjectDraw.h"
+#include "RenderScene.h"
+#include "GeometryRenderer.h"
 #include "SceneResources.h"
 #include "Check.h"
 #include "Gpu.h"
 #include "ReadbackTransfer.h"
 #include "NativeGpuCheck.h"
 #include "NativeOfflineDevice.h"
-#include "VertexArms.h"
 #include "DrawList.h"
-#include "scene/Geometry.h"
-#include "scene/Material.h"
+#include "Geometry.h"
+#include "Material.h"
 #include <SDL3/SDL.h>
 
 #include <array>
@@ -31,14 +31,14 @@ using namespace outshine::Test::Gpu;
 constexpr std::array<float, 6> kMetres{0, 0, 3, 0, 3, 2};
 constexpr float kChangedInput = 99.0f;
 
-void CheckResident(Native::Device &device, SubjectDraw &subjects) {
+void CheckResident(Native::Device &device, GeometryRenderer &subjects) {
   std::string error;
   CHECK(subjects.HandTables(error), error.c_str());
   CHECK(std::ranges::any_of(subjects.Drawn(),
                             [](const DrawBatch &batch) { return CarriesUv1(batch.Layout); }),
         "the actual piece selects UV1 without a UV1 material image");
-  Require(subjects.Owned().SubmitPendingUploads());
-  const auto &buffer = subjects.Resident().Buffer(SubjectResidency::Stream::Uv1);
+  Require(subjects.Residency().SubmitPendingUploads());
+  const auto &buffer = subjects.Resident().Buffer(GeometryResidency::Stream::Uv1);
   CHECK(buffer != nullptr, "actual optional UV1 residency has its own buffer");
   if (!buffer) { return; }
   auto read = Require(ReadbackTransfer::Start(device, *buffer, {.Bytes = sizeof(kMetres)}));
@@ -51,7 +51,7 @@ void CheckResident(Native::Device &device, SubjectDraw &subjects) {
   }
   const auto allocations = subjects.Resident().Allocations();
   std::println(R"({{"uv1_buffer_bytes":{},"vertex_slots":{},"transfer_bytes":{}}})",
-               allocations.StreamBytes[static_cast<size_t>(SubjectResidency::Stream::Uv1)],
+               allocations.StreamBytes[static_cast<size_t>(GeometryResidency::Stream::Uv1)],
                allocations.VertexSlots,
                allocations.TransferBytes);
 }
@@ -65,8 +65,9 @@ void GpuOwnership(Native::Device &device) {
   gpu.Width = kExtent;
   gpu.Height = kExtent;
   CHECK(gpu.SceneColours.Add(Resource::SceneHdr), "the actual subject pipeline has an HDR target");
-  SubjectPipelineBinding binding;
-  SubjectDraw subjects;
+  GeometryPipelineBinding binding;
+  RenderScene subjectsStorage;
+  GeometryRenderer subjects{subjectsStorage};
   std::string error;
   Require(subjects.Configure(binding, gpu, nullptr, nullptr, false));
   Require(subjects.AttachPipelines(binding, gpu));
@@ -119,7 +120,8 @@ void GpuOwnership(Native::Device &device) {
           "a legacy piece retains its original layout beside the UV1 piece");
     kept.CopySourcesFrom(resources, SceneResources::PieceSources::Copy);
   }
-  SubjectDraw restored;
+  RenderScene restoredStorage;
+  GeometryRenderer restored{restoredStorage};
   Require(restored.AttachPipelines(binding, gpu));
   CHECK(kept.RestorePieceMaterials(restored, nullptr, error), error.c_str());
   CHECK(kept.RestorePieces(restored, error), error.c_str());
@@ -145,12 +147,13 @@ int main(int argc, char *const *argv) {
   piece.Uv1 = coordinates;
   CHECK(ValidPieceUv1(piece),
         "physical metre values outside normalized texture range remain valid");
-  SubjectDraw subjects;
+  RenderScene subjectsStorage;
+  GeometryRenderer subjects{subjectsStorage};
   SceneResources resources;
-  std::string error;
   const auto reject = [&] {
     CHECK(!ValidPieceUv1(piece), "inconsistent second UV input is invalid");
-    CHECK(subjects.PlacePiece(piece, error) == kNoPiece && error == kPieceUv1Error,
+    const auto invalid = subjects.PlacePiece(piece);
+    CHECK(!invalid && invalid.error().Message == kPieceUv1Error,
           "the actual subject entry rejects malformed data before device access");
     const auto result = resources.PlacePiece(subjects, piece);
     CHECK(!result && result.error() == kPieceUv1Error,

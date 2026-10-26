@@ -20,11 +20,11 @@
 #include <span>
 #include <vector>
 
-#include "math/Units.h"
+#include "Units.h"
 #include "StructureMassing.h"
 #include "StructurePlanSelection.h"
 #include "Geodesy.h"
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 
 namespace outshine::Generators {
 
@@ -189,28 +189,26 @@ struct BuildingDetail {
 
 BuildingDetail DetailOf(const RawTile &raw, const Spread &bounds, double statedM) {
   BuildingDetail detail{.Envelope = raw.RequestedDetail.value_or(LevelOfDetail::Fine)};
-  if (!raw.RequestedDetail || raw.RequestedCell) {
-    const double nearLat = std::clamp(raw.Eye.LatitudeDeg, bounds.LowLat, bounds.HighLat);
-    const double midLon = 0.5 * (bounds.LowLon + bounds.HighLon);
-    const double localEyeLon = midLon + std::remainder(raw.Eye.LongitudeDeg - midLon, kDegPerTurn);
-    const double nearLon = std::clamp(localEyeLon, bounds.LowLon, bounds.HighLon);
-    const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
-    const double eastM =
-        (nearLon - localEyeLon) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
-    const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
-    const double conservativeAwayM =
-        std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
-    const auto &projection = raw.Projection;
-    detail.RecessedOpenings = !projection.Allows(
-        kOpeningDepthM, std::max(awayAtLeastM - kStructureEyeReuseM, kNearestSeenM));
-    if (!raw.RequestedDetail &&
-        projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
-      detail.Envelope = LevelOfDetail::Shell;
-    }
-    if (!raw.RequestedDetail && detail.Envelope == LevelOfDetail::Shell &&
-        projection.Allows(0.5 * raw.TileSpanM / kBlocksPerTile, conservativeAwayM)) {
-      detail.Envelope = LevelOfDetail::Massed;
-    }
+  if (raw.RequestedDetail) { return detail; }
+  const double nearLat = std::clamp(raw.Eye.LatitudeDeg, bounds.LowLat, bounds.HighLat);
+  const double midLon = 0.5 * (bounds.LowLon + bounds.HighLon);
+  const double localEyeLon = midLon + std::remainder(raw.Eye.LongitudeDeg - midLon, kDegPerTurn);
+  const double nearLon = std::clamp(localEyeLon, bounds.LowLon, bounds.HighLon);
+  const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
+  const double eastM =
+      (nearLon - localEyeLon) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
+  const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
+  const double conservativeAwayM =
+      std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
+  const auto &projection = raw.Projection;
+  detail.RecessedOpenings = !projection.Allows(
+      kOpeningDepthM, std::max(awayAtLeastM - kStructureEyeReuseM, kNearestSeenM));
+  if (projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
+    detail.Envelope = LevelOfDetail::Shell;
+  }
+  if (detail.Envelope == LevelOfDetail::Shell &&
+      projection.Allows(0.5 * raw.TileSpanM / kBlocksPerTile, conservativeAwayM)) {
+    detail.Envelope = LevelOfDetail::Massed;
   }
   return detail;
 }
@@ -266,6 +264,10 @@ std::expected<void, StructureBakeError> EmitStructure(const PreparedStructure &p
   plan.Prepared = surface;
   plan.Coarseness = level;
   plan.RecessedOpenings = detail.RecessedOpenings;
+  if (mesher.KnownEmptySurface(plan)) {
+    ++out.UnsupportedMeshes;
+    return {};
+  }
 
   const auto mass = StructureMassOf(bounds,
                                     {.BaseM = base,
@@ -380,8 +382,7 @@ struct StructureBakeProgress::State {
     out.UnsupportedMeshes = 0;
     out.SkippedRings = 0;
     out.FallbackHeights = fallback;
-    const StructureSelectionView selectedView{
-        .Eye = raw.Eye, .EyeEcef = raw.EyeEcef, .Projection = raw.Projection};
+    const auto selectedView = StructureSelectionDomain(raw.Eye, raw.Projection, raw.EyeEcef);
     out.SelectedView =
         !raw.RequestedDetail && selectedView.Contains(raw.Eye, raw.Projection, raw.EyeEcef)
             ? std::optional(selectedView)

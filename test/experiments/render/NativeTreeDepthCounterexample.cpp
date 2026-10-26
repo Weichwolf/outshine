@@ -17,7 +17,7 @@ int main() {
   constexpr float kNearDepth = 0.6f;
   std::vector<float> depth(size_t{kPixels} * kPixels);
   std::vector<uint32_t> labels(depth.size());
-  std::vector<Content::ImpostorAtlas::Texel> texels(depth.size());
+  std::vector<ImpostorAtlas::Texel> texels(depth.size());
   for (const auto at : {kFirst, kFirst + 1}) {
     depth[at] = at == kFirst ? kFarDepth : kNearDepth;
     labels[at] = 1;
@@ -26,11 +26,9 @@ int main() {
   const auto patches = Render::BuildDepthSurfacePatches(
       {.Width = kPixels, .Height = kPixels, .Depth = depth, .Surface = labels, .AllowedError = 0});
   if (!patches || patches->size() != 1) { return 1; }
-  Content::ImpostorAtlas::View view{
-      .TowardEye = {{0, 0, 1}}, .Texels = std::move(texels), .Materials = {}};
+  ImpostorAtlas::View view{.TowardEye = {{0, 0, 1}}, .Texels = std::move(texels), .Materials = {}};
   std::string error;
-  auto atlas =
-      Content::ImpostorAtlas::Create(kPixels, {}, 1, {Material{}}, {std::move(view)}, error);
+  auto atlas = ImpostorAtlas::Create(kPixels, {}, 1, {Material{}}, {std::move(view)}, error);
   if (!atlas) {
     std::println(stderr, "{}", error);
     return 2;

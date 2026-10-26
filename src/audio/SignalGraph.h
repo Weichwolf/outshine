@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <audio/AudioScene.h>
+#include <AudioScene.h>
 
 namespace outshine::Audio {
 

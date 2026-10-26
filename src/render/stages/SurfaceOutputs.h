@@ -15,12 +15,12 @@ struct SurfaceOutputs {
   long MetalRoughIndex = -1;
 
   [[nodiscard]] std::string VertexPath(std::string_view name) const {
-    return std::format("build/shaders/{}-{}.vert.spv", name, WritesVelocity ? 1 : 0);
+    return std::format("{}-{}.vert.spv", name, WritesVelocity ? 1 : 0);
   }
 
   [[nodiscard]] std::string FragmentPath(std::string_view name) const {
     if (BaseIndex >= 0 && MetalRoughIndex >= 0) {
-      return std::format("build/shaders/{}-{}{}{}{}{}.frag.spv",
+      return std::format("{}-{}{}{}{}{}.frag.spv",
                          name,
                          WritesVelocity ? 1 : 0,
                          NormalIndex < 0 ? 0 : NormalIndex,
@@ -28,7 +28,7 @@ struct SurfaceOutputs {
                          BaseIndex,
                          MetalRoughIndex);
     }
-    return std::format("build/shaders/{}-{}{}{}.frag.spv",
+    return std::format("{}-{}{}{}.frag.spv",
                        name,
                        WritesVelocity ? 1 : 0,
                        NormalIndex < 0 ? 0 : NormalIndex,

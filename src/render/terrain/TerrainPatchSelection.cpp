@@ -10,6 +10,16 @@
 #include <utility>
 
 namespace outshine::Render {
+void TerrainPatchSelection::BeginFrame() {
+  Seen_.clear();
+  Ready_ = false;
+  SourceRevision_ = Source_->Generation();
+}
+
+void TerrainPatchSelection::Include(size_t tile) {
+  Source_->Include(tile, Seen_);
+}
+
 namespace {
 constexpr uint32_t kCullThreads =
     FindComputeShader(ComputeShaderId::TerrainPatchCull)->Shape.GroupX;
@@ -43,7 +53,7 @@ Native::Result<void> TerrainPatchSelection::Configure(Native::Device &device,
   if (!cull) { return std::unexpected(cull.error()); }
   auto local = CreateComputePipeline(device, ComputeShaderId::TerrainPatchScan);
   if (!local) { return std::unexpected(local.error()); }
-  auto scan = CreateComputePipeline(device, ComputeShaderId::SubjectScan);
+  auto scan = CreateComputePipeline(device, ComputeShaderId::GeometryScan);
   if (!scan) { return std::unexpected(scan.error()); }
   auto compact = CreateComputePipeline(device, ComputeShaderId::TerrainPatchCompact);
   if (!compact) { return std::unexpected(compact.error()); }
@@ -63,6 +73,11 @@ Native::Result<void> TerrainPatchSelection::Cull(Native::Commands &commands,
                                                  const Native::Buffer &candidates,
                                                  float errorPx) {
   Ready_ = false;
+  if (SourceRevision_ != Source_->Generation()) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Busy,
+                      .Message = "ground patch sources changed during selection"});
+  }
   if (Seen_.empty()) { return {}; }
   if (Pipelines_ == nullptr || !Pipelines_->Cull || !Pipelines_->LocalScan || !Pipelines_->Scan ||
       !Pipelines_->Compact || !Bounds_ || !Slots_ || !Kept_ || !Batch_ || !Selected_ ||

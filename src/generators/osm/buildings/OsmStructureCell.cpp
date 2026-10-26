@@ -32,7 +32,7 @@ PrepareStructureCell(const std::shared_ptr<const SourceSnapshot> &source,
                            std::to_string(buildings.error().Source.Id) + " with code " +
                            std::to_string(static_cast<int>(buildings.error().Code)));
   }
-  Data::SourceCoverage bounds = source->Coverage.front();
+  GeographicBounds bounds = source->Coverage.front();
   for (const auto &coverage : source->Coverage) {
     bounds.WestDeg = std::min(bounds.WestDeg, coverage.WestDeg);
     bounds.SouthDeg = std::min(bounds.SouthDeg, coverage.SouthDeg);

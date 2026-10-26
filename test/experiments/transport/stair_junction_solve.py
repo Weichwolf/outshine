@@ -9,6 +9,7 @@ from scipy import sparse
 from scipy.optimize import linprog
 from stair_crossing_order import crossing_order
 from stair_junction_layout import cross_sections
+from stair_planar_lineage import overlap_faces
 
 
 def gradient_rows(xy, face):
@@ -28,6 +29,24 @@ class Conditions:
         self.values.extend(values)
         self.bounds.append(bound)
 
+    def add_rows(self, columns, values, bounds):
+        columns, values, bounds = map(np.asarray, (columns, values, bounds))
+        if (
+            columns.ndim != 2
+            or values.shape != columns.shape
+            or bounds.shape != (len(columns),)
+        ):
+            raise ValueError(
+                "matching sparse row columns, values and scalar bounds required"
+            )
+        first = len(self.bounds)
+        self.rows.extend(
+            np.repeat(np.arange(first, first + len(bounds)), columns.shape[1]).tolist()
+        )
+        self.columns.extend(columns.ravel().tolist())
+        self.values.extend(values.ravel().tolist())
+        self.bounds.extend(bounds.tolist())
+
     def equal(self, columns, values, bound=0):
         self.add(columns, values, bound)
         self.add(columns, -np.array(values), -bound)
@@ -39,12 +58,15 @@ class Conditions:
         )
 
 
-def facets(plan, system, directions, reserve, flat, precision):
+def facets(plan, system, directions, reserve, flat, precision, *, height_bound_m=None):
     seen = set()
     stair_owners = {s[0] for s in plan.get("stairs", [(0, 0, 1)])}
     cast_xy = plan["xy"].astype(np.float32).astype(float)
     root = plan["rows"][0]["prior"][0]
-    epsilon = float(np.spacing(np.float32(max(abs(root - 2), abs(root + 10))))) / 2
+    magnitude_bound = (
+        max(abs(root - 2), abs(root + 10)) if height_bound_m is None else height_bound_m
+    )
+    epsilon = float(np.spacing(np.float32(magnitude_bound))) / 2
     for owner, (row, faces) in enumerate(zip(plan["rows"], plan["parts"], strict=True)):
         limit = row["gradient"] - (0.002 if row["gradient"] > 0.1 else 0.0002)
         for face in faces:
@@ -75,8 +97,9 @@ def facets(plan, system, directions, reserve, flat, precision):
                     system.add(face, values, bound)
 
 
-def junctions(plan, system, directions, reserve, flat):
+def junctions(plan, system, directions, reserve, flat, *, plane_offset=None):
     count = len(plan["xy"])
+    offset = 2 * count if plane_offset is None else plane_offset
     for j, (node, owners, mask) in enumerate(
         zip(plan["nodes"], plan["incident"], plan["masks"], strict=True)
     ):
@@ -84,7 +107,7 @@ def junctions(plan, system, directions, reserve, flat):
         indices = indices[
             shapely.dwithin(mask, shapely.points(plan["xy"][indices]), 1e-8)
         ]
-        h, east, north = 2 * count + 3 * j + np.arange(3)
+        h, east, north = offset + 3 * j + np.arange(3)
         for i in indices:
             xy = plan["xy"][i] - node
             system.equal([i, h, east, north], [1, -1, -xy[0], -xy[1]])
@@ -93,10 +116,7 @@ def junctions(plan, system, directions, reserve, flat):
 
 
 def overlap_conditions(plan, system, gap, gap_variable=None):
-    mapped = [
-        {int(k): f for k, f in zip(keys, faces, strict=True)}
-        for keys, faces in zip(plan["part_global_faces"], plan["parts"], strict=True)
-    ]
+    mapped = overlap_faces(plan)
     checks = 0
     for i, j in itertools.combinations(range(len(plan["rows"])), 2):
         for key in mapped[i].keys() & mapped[j].keys():
@@ -116,23 +136,45 @@ def overlap_conditions(plan, system, gap, gap_variable=None):
     return checks
 
 
-def stair_condition(plan, system, owner, low_node, high_node):
+def stair_condition(
+    plan,
+    system,
+    owner,
+    low_node,
+    high_node,
+    *,
+    plane_offset=None,
+    direction=1,
+    height_lofts=(),
+):
     count = len(plan["xy"])
+    offset = 2 * count if plane_offset is None else plane_offset
     face = plan["parts"][owner]
-    low, high = 2 * count + 3 * low_node, 2 * count + 3 * high_node
+    low, high = offset + 3 * low_node, offset + 3 * high_node
     for i in np.unique(face):
         system.add([low, i], [1, -1], 0)
         system.add([i, high], [1, -1], 0)
     row = plan["rows"][owner]
     shapes = shapely.polygons(plan["xy"][face])
+    constant = np.zeros(len(face), dtype=bool)
+    for loft in height_lofts:
+        if loft["owner"] == owner:
+            stations = np.asarray(loft["stations_m"])[face]
+            constant |= (stations <= loft["start_cut_m"]).all(axis=1) | (
+                stations >= loft["end_cut_m"]
+            ).all(axis=1)
+    skipped = 0
     for a, b in itertools.pairwise(row["xy"]):
         tangent = (b - a) / np.linalg.norm(b - a)
         influence = shapely.LineString([a, b]).buffer(row["width_m"])
         for index in np.flatnonzero(
             shapely.area(shapely.intersection(shapes, influence)) > 1e-10
         ):
+            if constant[index]:
+                skipped += 1
+                continue
             f = face[index]
-            system.add(f, -tangent @ gradient_rows(plan["xy"], f), 0)
+            system.add(f, -direction * tangent @ gradient_rows(plan["xy"], f), 0)
     indices = np.unique(face)
     for line in cross_sections(row):
         selected = indices[
@@ -140,6 +182,7 @@ def stair_condition(plan, system, owner, low_node, high_node):
         ]
         for i in selected[1:]:
             system.equal([int(selected[0]), int(i)], [1, -1])
+    return skipped
 
 
 def solve(

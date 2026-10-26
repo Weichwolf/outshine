@@ -15,9 +15,11 @@ int main() {
   field.SeenWith({.FocalPx = 720});
   field.TilesSpan(1000);
   const StructureBuildQueue::BakeRevision revision{.Vectors = vectors.Generation(),
+                                                   .HeightSource = {},
                                                    .Projection = field.Projection(),
                                                    .TileSpanM = field.TileSpanM(),
                                                    .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                                   .EyeEcef = {},
                                                    .RequestedDetail = LevelOfDetail::Fine};
   using Heights = StructureBuildQueue::HeightRequirement;
   CHECK(revision.Matches(vectors,

@@ -1,6 +1,7 @@
 #include "GroundSnapshot.h"
 #include "Check.h"
 #include <array>
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -15,6 +16,8 @@ int main() {
   const std::array<std::string, 1> layers{Osm::OsmLayerName(Osm::OsmLayer::Buildings)};
   Osm::OsmField vectors(14, layers);
   const std::array<Osm::OsmField::Declared, 1> declared{{{.Layer = layers[0],
+                                                          .Key = {},
+                                                          .Value = {},
                                                           .Area = true,
                                                           .LatLon = {a.LatitudeDeg,
                                                                      a.LongitudeDeg,
@@ -24,18 +27,24 @@ int main() {
                                                                      c.LongitudeDeg}}}};
   vectors.Declare(declared, {.X = region.X(), .Y = region.Y()});
   Osm::BuildingField footprints;
-  WaterAsset water;
-  Osm::StreetField streets;
+  const WaterAsset water;
+  const Osm::StreetField streets;
   const Fields inputs{
       .Vectors = &vectors, .Footprints = &footprints, .WaterBodies = &water, .Ways = &streets};
   CHECK(vectors.Settled(region.X(), region.Y()), "vector input is fully available");
   CHECK(!FeaturesOver(region, inputs),
         "known buildings pending preparation cannot be classified as unoccupied land");
   const auto tile = static_cast<uint32_t>(vectors.TileIndex(region.X(), region.Y()));
-  const std::array<outshine::Ground::BuildingFootprint, 1> prints{
-      {{.FirstPoint = 0, .PointCount = 3, .HeightM = 12, .BaseM = 100}}};
-  const Osm::BuildingField::Baked baked{.Prints = prints};
-  footprints.PreparesAcceptances({.Prints = 1, .Tiles = 1});
+  const std::array<outshine::Ground::BuildingFootprint, 1> prints{{{.FirstPoint = 0,
+                                                                    .PointCount = 3,
+                                                                    .HeightM = 12,
+                                                                    .BaseM = 100,
+                                                                    .Street = {},
+                                                                    .TerrainCeiling = {},
+                                                                    .TerrainContacts = {}}}};
+  const Osm::BuildingField::Baked baked{
+      .Coordinates = {}, .Prints = prints, .SeatSpreadM = {}, .AcrossM = {}};
+  footprints.PreparesAcceptances(1);
   footprints.Take(tile);
   footprints.CommitAcceptance(footprints.PrepareAcceptance(tile, baked), baked);
   const auto ready = FeaturesOver(region, inputs);
@@ -43,7 +52,7 @@ int main() {
         "placement receives the building footprint after native publication");
   footprints.ResetDerived();
   const Osm::BuildingField::Baked empty;
-  footprints.PreparesAcceptances({.Tiles = 1});
+  footprints.PreparesAcceptances(1);
   footprints.Take(tile);
   footprints.CommitAcceptance(footprints.PrepareAcceptance(tile, empty), empty);
   const auto filtered = FeaturesOver(region, inputs);

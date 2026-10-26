@@ -60,7 +60,7 @@ def main():
     shader_dir = ROOT / "src/render/shaders"
     common_names = (
         "lighting.glsl",
-        "subjectLights.glsl",
+        "surfaceBindings.glsl",
         "material.glsl",
         "shadowFilter.glsl",
         "environmentSpecular.glsl",
@@ -90,14 +90,14 @@ def main():
         run(["nice", "-n", "10", ROOT / "build/shader-tables"], args.output, "tables")
     )
     old = run(
-        ["git", "show", baseline + ":src/render/shaders/subjectLighting.glsl"],
+        ["git", "show", baseline + ":src/render/shaders/surfaceLighting.glsl"],
         args.output,
         "old-kernel",
     )
     (args.output / "before.glsl").write_text(old)
     wrapper = (ROOT / "test/experiments/render/shadow_source_probe.frag").read_text()
     (args.output / "before.frag").write_text(
-        wrapper.replace('"subjectLighting.glsl"', '"before.glsl"')
+        wrapper.replace('"surfaceLighting.glsl"', '"before.glsl"')
     )
     glslang = shlex.split(os.environ.get("GLSLANG", "glslangValidator"))
     for name, source in (
@@ -249,7 +249,7 @@ def main():
     record["source_hashes"] = {
         str(p.relative_to(ROOT)): digest(p)
         for p in [
-            shader_dir / "subjectLighting.glsl",
+            shader_dir / "surfaceLighting.glsl",
             *(ROOT / "test/experiments/render").glob("shadow_source*"),
         ]
         if p.is_file()

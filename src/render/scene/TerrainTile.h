@@ -2,7 +2,7 @@
 #define OUTSHINE_RENDER_SCENE_TERRAINTILE_H
 
 #include "ResourceHandle.h"
-#include "math/Mat4.h"
+#include "Mat4.h"
 
 #include <array>
 

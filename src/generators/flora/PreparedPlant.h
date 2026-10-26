@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_FLORA_PREPAREDPLANT_H
 #define OUTSHINE_GENERATORS_FLORA_PREPAREDPLANT_H
 
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

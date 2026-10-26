@@ -10,11 +10,12 @@
 
 namespace outshine {
 
-[[nodiscard]] std::optional<Content::ImpostorAtlas> BakeImpostorAtlas(
-    const Generators::TreePrototype &tree, Content::ImpostorAtlasShape shape, std::string &error);
+[[nodiscard]] std::optional<ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePrototype &tree,
+                                                             ImpostorAtlasShape shape,
+                                                             std::string &error);
 
 [[nodiscard]] std::string ImpostorAtlasProvenance(std::string_view species,
-                                                  Content::ImpostorAtlasShape shape);
+                                                  ImpostorAtlasShape shape);
 
 }
 #endif

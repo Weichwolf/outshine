@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <world/data/Address.h>
+#include <Address.h>
 #include "TransportNetworkSnapshot.h"
 
 namespace outshine {

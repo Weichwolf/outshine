@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "OsmChunkSetLoader.h"
-#include "SourceProviderValidation.h"
+#include "OsmProviderValidation.h"
 
 namespace outshine::Generators::Osm {
 
@@ -46,7 +46,7 @@ std::expected<void, std::string>
 TransportPreparation::Request(std::span<const Data::SourceProvider> providers,
                               std::string_view shippedRoot,
                               std::span<const CircuitRequest> routes) {
-  if (auto valid = Data::ValidateSourceProviders(providers); !valid) {
+  if (auto valid = ValidateProviders(providers); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
   if (providers.size() > kMaxChunks) {

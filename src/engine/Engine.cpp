@@ -1,7 +1,7 @@
 #include "EngineState.h"
 #include "GpuFrameSample.h"
 #include "geo/Mercator.h"
-#include "math/Units.h"
+#include "Units.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -17,6 +17,7 @@
 #include <string_view>
 #include <cstdint>
 #include <functional>
+#include <format>
 #include <chrono>
 #include <cmath>
 #include <ratio>
@@ -89,9 +90,42 @@ RequiredBlocker(bool required, bool ready, std::string_view reason) noexcept {
   return required && !ready ? reason : "";
 }
 
+Result
+CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatitude at, int ring) {
+  const auto *vectors = stack.Vectors();
+  if (vectors == nullptr || vectors->RefusedTiles() == 0) { return {}; }
+  const auto window =
+      Generators::Osm::OsmField::SourceWindow(at, vectors->Zoom(), ring, Ground::kVectorTiles);
+  if (!window) { return std::unexpected(std::string(window.error())); }
+  for (int64_t y = window->MinY; y <= window->MaxY; ++y) {
+    for (int64_t x = window->MinX; x <= window->MaxX; ++x) {
+      if (vectors->Settled(static_cast<int>(x), static_cast<int>(y))) { continue; }
+      const Data::SourceRequest request(Data::DataKind::VectorMap,
+                                        Data::Address::At({.Zoom = vectors->Zoom(),
+                                                           .X = static_cast<uint32_t>(x),
+                                                           .Y = static_cast<uint32_t>(y)}));
+      const auto failure = stack.Pool().Refusal(request);
+      if (!failure || failure->Reason != Data::SourceFailureReason::OfflineMiss) { continue; }
+      return std::unexpected(std::format(
+          "required vector input unavailable: {} at {}; served={}; source={}; revision={}; key={}",
+          Data::Name(failure->Reason),
+          request.Key(),
+          failure->Served ? failure->Served->Text() : "unknown",
+          failure->SourceId,
+          failure->SourceRevision,
+          failure->SourceKey));
+    }
+  }
+  return {};
+}
+
 }
 
 Engine::Engine() : Engine(std::make_unique<State>()) {}
+
+Engine::Engine(Data::ProviderRegistry providers) : Engine() {
+  S_->World.Providers = std::move(providers);
+}
 
 Engine::Engine(std::unique_ptr<State> state) : S_(std::move(state)) {}
 
@@ -131,21 +165,20 @@ Result Engine::assemble() {
     return std::unexpected(S_->Error);
   }
   const size_t named = *capacity;
-  auto candidate = std::make_unique<SimulationState>();
-  if (named != 0) {
-    if (!candidate->Entities.open(named) || !candidate->Bodies.Open(candidate->Entities) ||
-        !candidate->Kinds.Open(candidate->Entities)) {
-      S_->Error = "could not allocate simulation entity storage";
-      return std::unexpected(S_->Error);
-    }
-    if (!outshine::Assemble(declared,
-                            candidate->Entities,
-                            candidate->Bodies,
-                            candidate->Kinds,
-                            candidate->Stood,
-                            S_->Error)) {
-      return std::unexpected(S_->Error);
-    }
+  auto candidate = std::make_unique<ScenarioRuntime>();
+  if (named != 0 && (!candidate->Entities.Open(named) ||
+                     !candidate->Definitions.Open(candidate->Entities.Registry()) ||
+                     !candidate->Attributes.Open(candidate->Entities.Registry()))) {
+    S_->Error = "could not allocate native entity storage";
+    return std::unexpected(S_->Error);
+  }
+  if (!outshine::Assemble(declared,
+                          candidate->Entities.Registry(),
+                          candidate->Definitions,
+                          candidate->Attributes,
+                          candidate->Stood,
+                          S_->Error)) {
+    return std::unexpected(S_->Error);
   }
   if (!declared.Tables.empty()) {
     auto book = TableBook::Stand(declared.Tables);
@@ -164,7 +197,11 @@ Result Engine::assemble() {
     candidate->Triggers.emplace(std::move(*triggers));
   }
   candidate->DeclarationRevision = S_->Session.DeclarationRevision;
-  candidate->PrepareBodies();
+  const auto preparedBodies = candidate->PrepareBodies();
+  if (!preparedBodies) {
+    S_->Error = preparedBodies.error();
+    return std::unexpected(S_->Error);
+  }
   std::vector<std::string_view> followed;
   followed.reserve(declared.Views.size());
   for (const auto &view : declared.Views) { followed.push_back(view.Follows); }
@@ -174,12 +211,14 @@ Result Engine::assemble() {
     return std::unexpected(S_->Error);
   }
   candidate->ViewBodies = std::move(*viewBodies);
-  auto previous = std::exchange(S_->Simulation, std::move(candidate));
+  auto previous = std::exchange(S_->ScenarioState, std::move(candidate));
+  auto previousBodies = std::exchange(S_->BodyFrame, S_->ScenarioState->Entities.PublishBodies());
   std::vector<Data::SourceProvider> unusedTileProviders;
   const bool worldReady = S_->Picture.Targeted ? S_->PrepareRuntimeWorld()
                                                : S_->ConfigureSourceProviders(unusedTileProviders);
   if (!worldReady) {
-    S_->Simulation = std::move(previous);
+    S_->ScenarioState = std::move(previous);
+    S_->BodyFrame = std::move(previousBodies);
     return std::unexpected(S_->Error);
   }
   S_->Session.Sounding.reset();
@@ -188,12 +227,16 @@ Result Engine::assemble() {
   return {};
 }
 
+void Engine::logsTo(LogSink *sink) {
+  S_->Diagnostics = sink;
+}
+
 Engine::~Engine() = default;
 
 Result Engine::setRenderTarget(SDL_Window *window) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->Picture.Scope != FrameScope::Closed) {
+  if (S_->Frames.Open()) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
   }
@@ -221,7 +264,7 @@ Result Engine::setRenderTarget(SDL_Window *window) {
 Result Engine::setRenderTarget(Extent offscreen) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->Picture.Scope != FrameScope::Closed) {
+  if (S_->Frames.Open()) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
   }
@@ -354,6 +397,7 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
        published && (!refined || RefinedGroundClassified(*ground)) ? ""
                                                                    : Says::kPendingClassification,
        vectorBlocker,
+       refined ? UrbanWorldBlocker() : "",
        !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
                (World.Vegetation && World.Vegetation->Ready())
            ? ""
@@ -392,7 +436,7 @@ Holds<Capture> Engine::beginCapture() {
     return std::unexpected("capture could not pin the published ground");
   }
   S_->Capturing = true;
-  S_->World.Pieces.ForEachDigest([this](TilePieces::DigestRecord piece) {
+  S_->World.Pieces.ForEachDigest([this](Render::GeometryPageResidency::DigestRecord piece) {
     const std::string name = "capture: structure tile " + std::to_string(piece.Tile) +
                              (piece.Cell == 0 ? "" : " cell " + std::to_string(piece.Cell)) +
                              " digest ";
@@ -460,10 +504,6 @@ bool Renderer::camera(Camera &out) const {
 
 std::string_view Renderer::gpuName() const {
   return Of_->S_->Picture.Device.GpuName();
-}
-
-Result Renderer::saveScreenshot(std::string_view path) {
-  return Of_->saveScreenshot(path);
 }
 
 int Renderer::settleFrames() const {
@@ -632,6 +672,7 @@ Result Engine::State::CompletePreloadResources(std::chrono::steady_clock::time_p
     }
     if (Picture.Device.WorldResourcesComplete(*uploads)) {
       PublishGroundMemoryMeasurements();
+      PublishUrbanMeasurements();
       return {};
     }
     std::this_thread::sleep_for(
@@ -690,8 +731,16 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
     Error = streamed.error();
     return std::unexpected(Error);
   }
+  if (quality == GroundQuality::Refined) {
+    const auto inputs = CheckPreloadVectorInputs(World.Stack, stands, vectorRing);
+    if (!inputs) {
+      Error = inputs.error();
+      return std::unexpected(Error);
+    }
+  }
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   if (!AdvanceStructureBuilds(kBakesLandedInPreload)) { return std::unexpected(Error); }
+  if (!AdvanceUrbanAreas()) { return std::unexpected(Error); }
   const auto growthBegan = std::chrono::steady_clock::now();
   (void)GenerateInitialInstances(atLat, atLon);
   Published.RecordMetric(
@@ -703,10 +752,19 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
 }
 
 Result Engine::State::PreloadOverflow() {
-  Error = "the world at this place holds " + std::to_string(World.Stack.HeapBytes()) +
-          " bytes against a ceiling of " + std::to_string(Ground::SurfacePreparation::kHoldsBytes) +
-          ", so it stopped ingesting part-way. What it did take depends on which tiles had "
-          "landed when the round ran, which is a picture the declaration does not name";
+  const auto bytes = World.Stack.Staging();
+  Error =
+      "the world at this place holds " + std::to_string(bytes.Total()) +
+      " bytes against a ceiling of " + std::to_string(Ground::SurfacePreparation::kHoldsBytes) +
+      ", so it stopped ingesting part-way. What it did take depends on which tiles had "
+      "landed when the round ran, which is a picture the declaration does not name" +
+      "; staging bytes: classes=" + std::to_string(bytes.Classification) +
+      " buildings=" + std::to_string(bytes.Buildings) + " water=" + std::to_string(bytes.Water) +
+      " waterBuild=" + std::to_string(bytes.WaterBuild) +
+      " streets=" + std::to_string(bytes.Streets) + " vectors=" + std::to_string(bytes.Vectors) +
+      " pool=" + std::to_string(bytes.Pool) + " ground=" + std::to_string(bytes.Ground) +
+      "; building bytes: prints=" + std::to_string(World.Stack.Footprints().PrintBytes()) +
+      " measurements=" + std::to_string(World.Stack.Footprints().MeasurementBytes());
   return std::unexpected(Error);
 }
 
@@ -748,7 +806,17 @@ bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
     return World.OsmSource->AwaitSlice(seconds);
   }
   if (GroundDeformationPending()) { return AwaitGroundDeformation(seconds); }
+  if (World.UrbanAreas && !World.UrbanAreas->Ready()) {
+    return World.UrbanAreas->AwaitProgress(seconds);
+  }
   return World.Pool->AwaitCompletion(seconds);
+}
+
+bool Engine::State::WorldPreparationPending() const {
+  return WeatherRunning() || GroundDeformationPending() || World.RoadAlignmentBuilds.Busy() ||
+         (World.OsmSource && World.OsmSource->PendingCount() > 0) ||
+         (World.UrbanAreas && !World.UrbanAreas->Ready()) ||
+         (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
 }
 
 void Engine::State::AwaitPreloadProgress(double seconds) {
@@ -806,11 +874,7 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
         signalled);
     if (signalled || remaining() <= 0.0) { return; }
   }
-  const bool sourceWorker = World.OsmSource && World.OsmSource->PendingCount() > 0;
-  const bool worldWorker = WeatherRunning() || GroundDeformationPending() ||
-                           World.RoadAlignmentBuilds.Busy() || sourceWorker ||
-                           (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
-  if (worldWorker && World.Pool) {
+  if (WorldPreparationPending() && World.Pool) {
     const auto began = std::chrono::steady_clock::now();
     const bool signalled = AwaitWorldWorkerProgress(remaining());
     record({.Milliseconds = waited.WorldWorkerMs,

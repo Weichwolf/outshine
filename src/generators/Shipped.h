@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-#include <generation/Generate.h>
+#include <Generator.h>
 
 #include "DrawSet.h"
 #include "TreeSpecies.h"
@@ -14,7 +14,7 @@
 #include "road/RoadMesher.h"
 #include "building/StructureMesher.h"
 #include "GeneratorSet.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 
 namespace outshine::Generators {
 
@@ -27,7 +27,7 @@ public:
   Shipping(const Shipping &) = delete;
   Shipping &operator=(const Shipping &) = delete;
 
-  [[nodiscard]] bool EnsureCatalogue(const outshine::Ground::VegetationTemplates &declared,
+  [[nodiscard]] bool EnsureCatalogue(const RegionSurfaceRecipes &declared,
                                      std::string_view speciesDir,
                                      std::string &error,
                                      bool vegetation = true,
@@ -52,7 +52,7 @@ public:
   [[nodiscard]] const GroundMesher &Covering() const { return *Coverer_; }
 
 private:
-  [[nodiscard]] bool BuildCatalogue(const outshine::Ground::VegetationTemplates &declared,
+  [[nodiscard]] bool BuildCatalogue(const RegionSurfaceRecipes &declared,
                                     std::string_view speciesDir,
                                     std::string &error,
                                     bool vegetation,

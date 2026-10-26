@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_TEST_WEATHERCAPTURE_H
 #define OUTSHINE_TEST_WEATHERCAPTURE_H
 
-#include <generation/weather/OpenMeteoProvider.h>
+#include <OpenMeteoProvider.h>
 #include "format/Json.h"
 #include "io/ReadTextFile.h"
 
@@ -74,7 +74,7 @@ public:
 
   Data::FetchStart Begin(const std::string &url) override {
     if (url != Capture_.Declaration.Endpoint) {
-      return std::unexpected(Data::FetchFailureReason::InvalidRequest);
+      return std::unexpected(Data::SourceFailureReason::InvalidRequest);
     }
     Active_ = static_cast<Data::Ticket>(++Begins_);
     return Active_;
@@ -82,7 +82,7 @@ public:
 
   Data::Wire Collect(Data::Ticket ticket) override {
     if (ticket != Active_ || Active_ == Data::Ticket::None) {
-      return Data::Wire::Unreachable(Data::FetchFailureReason::InvalidRequest);
+      return Data::Wire::Unreachable(Data::SourceFailureReason::InvalidRequest);
     }
     Active_ = Data::Ticket::None;
     return Data::Wire::Answered(kWeatherHttpOk,

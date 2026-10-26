@@ -11,9 +11,6 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
-PACKAGES = ('sdl3', 'sdl3-image', 'sdl3-ttf', 'liblz4',
-            'libtiff-4', 'libwebp', 'geos', 'sqlite3', 'libzstd')
-
 
 def compiler_command():
     records = json.loads((ROOT / 'compile_commands.json').read_text())
@@ -53,14 +50,12 @@ def main():
     package_path = ROOT / 'build/deps/install/lib/pkgconfig'
     environment['PKG_CONFIG_PATH'] = str(package_path) + os.pathsep + environment.get('PKG_CONFIG_PATH', '')
     libraries = shlex.split(subprocess.check_output(
-        ['pkg-config', '--libs', *PACKAGES], cwd=ROOT, env=environment, text=True, timeout=30))
-    libraries += shlex.split(subprocess.check_output(
-        ['bash', 'test/run.sh', '--native-link-flags'], cwd=ROOT, env=environment,
-        text=True, timeout=30))
+        ['sh', 'test/run.sh', '--link-flags', 'profile/engine'], cwd=ROOT,
+        env=environment, text=True, timeout=30))
     binary = output / 'tree-representation-cost'
     source = ROOT / 'test/scripts/tree-representation-cost.cpp'
     command = [*compiler_command(), str(source), 'build/libgenerators.a', 'build/liboutshine.a',
-               *libraries, '-lz', '-lcurl',
+               *libraries,
                '-o', str(binary)]
     checked(command)
     with (output / 'cost.csv').open('w') as report:

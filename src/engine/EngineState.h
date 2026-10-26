@@ -5,30 +5,33 @@
 #include <array>
 #include <string_view>
 #include <cstdint>
-#include <Outshine.h>
-#include "math/Units.h"
-#include "math/Vec2.h"
-#include "math/Vec3.h"
-#include "Fetching.h"
+#include <Engine.h>
+#include "FrameCoordinator.h"
+#include "Units.h"
+#include "Vec2.h"
+#include "Vec3.h"
+#include "HttpTransport.h"
 #include "HeapProbe.h"
 #include "Shipped.h"
 #include "VegetationStreaming.h"
+#include "UrbanAreaStreaming.h"
 #include "WorldReadiness.h"
 #include "GroundPublication.h"
 #include "GroundRegionPreparation.h"
 #include "GroundPatchPreparation.h"
-#include "Rigid.h"
+#include "RigidBodyState.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
-#include "Unwired.h"
 #include "HeightSheets.h"
 #include "Wayfinding.h"
-#include "TilePieces.h"
+#include "GeometryPageResidency.h"
+#include "BuildingPageAdapter.h"
 #include "WorldPlacement.h"
 #include "StructureBuildQueue.h"
 #include "RoadAlignmentBuildQueue.h"
 #include "RouteSpeedProfile.h"
 #include "Tasks.h"
+#include "AssetPipeline.h"
 #include "Log.h"
 
 #include <chrono>
@@ -39,12 +42,11 @@
 #include <vector>
 
 #include "Assembly.h"
-#include "SimulationState.h"
+#include "ScenarioRuntime.h"
 #include "TriangleBvh.h"
 #include "DiagnosticLedger.h"
 #include "Mixer.h"
 #include "Tables.h"
-#include "ScenarioLayer.h"
 #include "RuntimeScene.h"
 #include "Typeface.h"
 #include "InputPump.h"
@@ -54,7 +56,7 @@
 #include "SourceConfiguration.h"
 #include "SurfacePreparation.h"
 #include "SourceSession.h"
-#include "WeatherPreparation.h"
+#include "WeatherSnapshotLoader.h"
 #include "PublishedRegion.h"
 #include "OsmTransportPreparation.h"
 #include "OsmSourceAcquisition.h"
@@ -64,8 +66,6 @@
 #include "spatial/Drape.h"
 #include "TileGeodesy.h"
 #include "SceneRenderer.h"
-#include "ScenarioRead.h"
-#include "ScenarioJson.h"
 
 namespace outshine::Generators {
 struct TerrainDeformationMetrics;
@@ -187,8 +187,6 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
   return carried;
 }
 
-enum class FrameScope { Closed, Open, DrawSucceeded };
-
 struct EngineRenderState {
   explicit EngineRenderState(Render::GpuSubmission submission = {}) : Device(submission) {}
 
@@ -196,7 +194,6 @@ struct EngineRenderState {
   std::unique_ptr<Core::RuntimeScene> Standing;
   Extent Frame{.WidthPx = kFrameUnsaidWidePx, .HeightPx = kFrameUnsaidHighPx};
   bool Targeted = false;
-  FrameScope Scope = FrameScope::Closed;
   Core::Declaration Shown;
   Ui::Typeface Face;
   std::optional<Geometry> PendingGeometry;
@@ -208,13 +205,12 @@ struct ScenarioSession {
   uint64_t DeclarationRevision = 0;
   bool Taken = false;
   std::vector<std::string> Carried;
-  std::vector<std::string> LayerTrace;
   Roots Under;
   std::optional<ViewBook> Views;
   InputMap Bound;
   size_t Fired = 0;
   std::optional<Audio::Mixer> Sounding;
-  std::vector<std::optional<size_t>> AudioBodies;
+  std::vector<std::optional<Entity>> AudioBodies;
   std::array<std::vector<Audio::Heard>, 2> Sources;
   std::array<Audio::Listening, 2> Ear{};
   std::atomic<unsigned> Told{0};
@@ -229,19 +225,21 @@ struct WorldRegionState {
   WorldRegionState &operator=(WorldRegionState &&) = delete;
 
   void BindSceneResources(Render::SceneRenderer &renderer) noexcept {
-    Pieces.Into(&renderer);
+    Pieces.BindRenderer(&renderer);
     Sheets.Into(&renderer);
     if (Vegetation) { Vegetation->Into(renderer); }
+    if (UrbanAreas) { UrbanAreas->Into(renderer); }
   }
 
   std::unique_ptr<Data::Transport> Wire;
   Data::ProviderRegistry Providers;
   std::unique_ptr<Tasks> Pool;
   std::unique_ptr<Tasks> Io;
+  std::shared_ptr<AssetPipeline> Publications;
   std::shared_ptr<Data::SourceSession> Sources;
   std::vector<Data::SourceProvider> SourceDeclarations;
   Ground::SurfacePreparation Stack;
-  std::unique_ptr<WeatherPreparation> Weather;
+  std::unique_ptr<Generators::Weather::WeatherSnapshotLoader> Weather;
   std::optional<int64_t> WeatherUtcS;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
   Generators::Registry Offering;
@@ -251,6 +249,9 @@ struct WorldRegionState {
 
   std::vector<Standing> Instances;
   std::unique_ptr<VegetationStreaming> Vegetation;
+  std::unique_ptr<UrbanAreaStreaming> UrbanAreas;
+  std::optional<uint64_t> UrbanChildrenRevision;
+  std::vector<Ground::GeoBounds> UrbanChildren;
   size_t Pending = 0;
   size_t Bare = 0;
   size_t Wanted = 0;
@@ -265,8 +266,8 @@ struct WorldRegionState {
   std::unique_ptr<GroundPatchPreparation> PlacementGround;
   size_t GroundCandidates = 0;
 
-  TilePieces Pieces;
-  std::optional<TilePieces::Surfaces> StructureSurfaces;
+  Render::GeometryPageResidency Pieces;
+  std::optional<BuildingPageMaterials> StructureSurfaces;
   HeightSheets Sheets;
   std::shared_ptr<const Path::Network> StreetGraph;
   size_t StreetGraphWayCount = 0;
@@ -280,9 +281,6 @@ struct WorldRegionState {
   StructureBuildQueue StructureBuilds;
   size_t StructurePlanAt = 0;
   size_t StructurePlanBurst = 0;
-  size_t StructureCellsPosted = 0;
-  size_t StructureCellsLanded = 0;
-  size_t StructureTilesActivated = 0;
   size_t Relaid = 0;
   size_t Asked = 0;
   double RebuildMs = 0.0;
@@ -449,12 +447,14 @@ inline constexpr std::string_view kCaptureMutation =
 }
 
 struct Engine::State {
-  explicit State(Render::GpuSubmission submission = {}) : Picture(submission) {}
+  explicit State(Render::GpuSubmission submission = {}) : Picture(submission), Frames(*this) {}
 
   EngineRenderState Picture;
+  FrameCoordinator Frames;
   ScenarioSession Session;
-  std::unique_ptr<SimulationState> Simulation = std::make_unique<SimulationState>();
+  std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
   WorldRegionState World;
+  World::BodySnapshot BodyFrame;
   EngineCostCounters Cost;
   SimulationClock Ticking;
   std::optional<RouteCameraMotion> RouteCamera;
@@ -569,6 +569,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceReadyGroundSheets(Patchwork &patchwork,
                                                              WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress StoreGroundRegion(WorldRegionBuildState &state) const;
+  [[nodiscard]] GroundBuildProgress RestoreGroundRoadPages(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress
   AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
   [[nodiscard]] GroundBuildProgress BeginGroundSheetRefinement(const TangentFrame &standing,
@@ -582,7 +583,6 @@ struct Engine::State {
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;
-  [[nodiscard]] ::outshine::Generators::Osm::BuildingField *CandidateFootprints() const noexcept;
   [[nodiscard]] bool StagesGroundBakes(size_t landsMost);
 
   [[nodiscard]] Laid Focuses(GroundRequest &request,
@@ -618,7 +618,7 @@ struct Engine::State {
   [[nodiscard]] bool InspectTerrainCoverage();
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool
-  UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
+  UpdateSceneBodyTransform(size_t which, const World::RigidBodyState &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
   [[nodiscard]] bool PollWeather();
@@ -654,6 +654,9 @@ struct Engine::State {
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateVegetation(bool prepare);
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
+  [[nodiscard]] bool AdvanceUrbanAreas();
+  [[nodiscard]] std::string_view UrbanWorldBlocker() const noexcept;
+  [[nodiscard]] bool WorldPreparationPending() const;
   [[nodiscard]] bool StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const;
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates(bool simulate);
@@ -661,6 +664,7 @@ struct Engine::State {
   void PublishGroundPreparationMeasurements();
   void PublishAdvanceMeasurements();
   void PublishGroundMemoryMeasurements();
+  void PublishUrbanMeasurements();
   void PublishEarthworkMeasurements(const Generators::TerrainDeformationMetrics &pressed,
                                     double longestSliceMs);
   [[nodiscard]] StructureBuildQueue::HeightSource StructureHeightSource();
@@ -676,6 +680,7 @@ struct Engine::State {
                                std::chrono::steady_clock::time_point rebuildBegan);
   void PublishFrameMeasurements();
   void PublishCostMeasurements();
+  void PublishRenderedFrame(std::chrono::steady_clock::time_point began);
   void PublishGpuFrameMeasurements(bool completedCapture = false);
   void PublishSubmittedCameraMeasurements();
   void PublishResourcePayloadMeasurements();

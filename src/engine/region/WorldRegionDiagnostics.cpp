@@ -35,6 +35,10 @@ std::string Engine::State::GroundBuildDiagnostic() const {
     diagnostic += ", region absent";
   }
   if (!World.GroundBuild) { return diagnostic; }
+  if (const auto &published = World.GroundPublished.Current()) {
+    diagnostic += ", candidate revision delta=" +
+                  std::to_string(published->CandidateDifferenceMask(World.GroundBuild->Revision()));
+  }
   const auto &footprints = World.GroundBuild->Footprints();
   const auto *vectors = World.Stack.Vectors();
   diagnostic += World.GroundBuild->Revision().Quality == GroundQuality::Refined
@@ -43,6 +47,8 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   diagnostic += ", structure accepted/taken=" + std::to_string(footprints.AcceptedTiles().size()) +
                 "/" + std::to_string(footprints.IngestedTiles());
   diagnostic += ", source refinement complete=" +
+                std::to_string(static_cast<int>(footprints.SourceRefinementComplete()));
+  diagnostic += ", view refinement complete=" +
                 std::to_string(static_cast<int>(footprints.RefinementComplete()));
   diagnostic +=
       ", unqualified structure tiles=" +
@@ -56,8 +62,7 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   diagnostic +=
       ", footprints ingested=" +
       std::to_string(static_cast<int>(vectors != nullptr && footprints.Ingested(*vectors)));
-  diagnostic +=
-      ", terrain fields=" + World.GroundBuild->Candidate().Products().Sheets.FieldDiagnostic();
+  diagnostic += ", terrain fields=" + World.GroundBuild->TerrainInputs().FieldDiagnostic();
   const auto *pinned = World.GroundBuild->Candidate().Sources().Vectors.get();
   diagnostic +=
       ", vector generations=" + std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +
@@ -87,6 +92,28 @@ void Engine::State::PublishGroundCandidateMeasurements(const GroundWorldCandidat
   Published.RecordMetric("ground candidate: direct CPU product peak",
                          static_cast<double>(state.ProductPeakBytes()),
                          "bytes");
+  const auto &peak = state.ProductPeakMemory();
+  constexpr std::array names{"ground candidate: peak candidate",
+                             "ground candidate: peak terrain sources",
+                             "ground candidate: peak patchwork",
+                             "ground candidate: peak source coverage",
+                             "ground candidate: peak survey",
+                             "ground candidate: peak building stamps",
+                             "ground candidate: peak deformation",
+                             "ground candidate: peak corridor stamps",
+                             "ground candidate: peak road stamps"};
+  const std::array bytes{peak.Candidate,
+                         peak.TerrainSources,
+                         peak.Patchwork,
+                         peak.SourceCoverage,
+                         peak.Survey,
+                         peak.BuildingStamps,
+                         peak.Deformation,
+                         peak.CorridorStamps,
+                         peak.RoadStamps};
+  for (size_t at = 0; at < names.size(); ++at) {
+    Published.RecordMetric(names[at], static_cast<double>(bytes[at]), "bytes");
+  }
   Published.RecordMetric("ground candidate: CPU products retained for retirement",
                          static_cast<double>(state.RetainedProductBytes()),
                          "bytes");

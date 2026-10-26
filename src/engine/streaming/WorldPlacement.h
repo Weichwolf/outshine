@@ -7,7 +7,7 @@
 #include "ClusterId.h"
 #include "Tile.h"
 #include "TangentFrame.h"
-#include "math/Mat4.h"
+#include "Mat4.h"
 #include "math/RenderFrame.h"
 
 namespace outshine {

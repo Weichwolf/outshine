@@ -1,36 +1,34 @@
 #ifndef OUTSHINE_ENGINE_RUNTIMESCENE_H
 #define OUTSHINE_ENGINE_RUNTIMESCENE_H
 
+#include "SceneLighting.h"
 #include <algorithm>
 #include <expected>
 #include <span>
 #include <optional>
 #include <array>
-#include "math/Box.h"
-#include "math/Mat4.h"
+#include "Box.h"
+#include "Mat4.h"
 #include "Shape.h"
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <Outshine.h>
-#include <render/RenderConfiguration.h>
+#include <Engine.h>
+#include <RenderConfiguration.h>
 #include "SceneGeometry.h"
 #include "CameraState.h"
-#include "SubjectProxy.h"
-#include "SubjectMaterials.h"
-#include "SubjectPlacementHistory.h"
-#include "UiSession.h"
+#include "RenderObject.h"
+#include "MaterialBindings.h"
+#include "ObjectTransformHistory.h"
+#include "SurfaceSession.h"
 #include "Layout.h"
-#include "Markup.h"
-#include "Paint.h"
 #include "Pointer.h"
 #include "SceneRenderer.h"
-#include "Style.h"
-#include "scene/Material.h"
-#include "Atmosphere.h"
-#include "Surfacing.h"
+#include "Material.h"
+#include "GroundAtmosphere.h"
+#include "MaterialResolution.h"
 
 namespace outshine::Core {
 
@@ -53,9 +51,9 @@ struct Declaration {
   std::string Antialiasing;
 
   const Geometry *InitialGeometry = nullptr;
-  std::vector<Material> Surfacing{Material{}};
+  std::vector<Material> Materials{Material{}};
 
-  std::vector<SubjectSurfaceOverride> Overriding;
+  std::vector<MaterialOverride> Overriding;
 
   double MetresPerUnit = 1.0;
 
@@ -78,7 +76,7 @@ struct Declaration {
   double KeyElevationDeg = 0.0, KeyBearingDeg = 0.0;
   bool KeyFromClock = false;
 
-  std::vector<UiSurface> Surfaces;
+  std::vector<Ui::SurfaceDeclaration> Surfaces;
 };
 
 struct Extents {
@@ -97,7 +95,7 @@ struct GeometryBuildSliceMetrics {
   double FinalizeMs = 0;
 };
 
-enum class SubjectGeometrySources : uint8_t { All, Driven };
+enum class GeometryRetention : uint8_t { All, Driven };
 enum class ResourceRestoreMode : uint8_t { Immediate, Deferred };
 
 class RuntimeScene {
@@ -140,7 +138,7 @@ public:
       std::unique_ptr<RuntimeScene> &candidate,
       std::string &error,
       Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
-      SubjectGeometrySources geometry = SubjectGeometrySources::All,
+      GeometryRetention geometry = GeometryRetention::All,
       ResourceRestoreMode restore = ResourceRestoreMode::Immediate);
   [[nodiscard]] static bool PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                                    std::unique_ptr<RuntimeScene> &out,
@@ -148,7 +146,7 @@ public:
                                                    std::string &error);
 
   [[nodiscard]] bool ResizeBodyInstances(size_t bodies, std::string &error);
-  [[nodiscard]] bool Redeclare(std::vector<UiSurface> surfaces, std::string &error);
+  [[nodiscard]] bool Redeclare(std::vector<Ui::SurfaceDeclaration> surfaces, std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
@@ -177,7 +175,7 @@ public:
 
   [[nodiscard]] double MediumMs() const { return MediumMs_; }
 
-  [[nodiscard]] Render::SubjectTransferMetrics TransferMetrics() const { return Scratch_.Metrics; }
+  [[nodiscard]] Render::GeometryTransferMetrics TransferMetrics() const { return Scratch_.Metrics; }
 
   [[nodiscard]] const GeometryBuildSliceMetrics &GeometrySlices() const noexcept {
     return GeometrySlices_;
@@ -247,7 +245,7 @@ public:
 
   [[nodiscard]] const Vec3 &ShadowCentreStanding() const {
     const auto published = Renderer_->PublishedWorld();
-    return Renderer_->ShadowStoodAtM();
+    return Renderer_->ShadowCentreM();
   }
 
   struct Bearing {
@@ -280,7 +278,7 @@ public:
 
   [[nodiscard]] const Vec3 &GroundAlbedo() const noexcept { return GroundAlbedo_; }
 
-  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() const {
+  [[nodiscard]] const Render::EnvironmentLighting &AmbientStanding() const {
     return Stood_.IndirectLight();
   }
 
@@ -305,7 +303,7 @@ public:
 
   [[nodiscard]] bool Watched() const { return Camera_.HasOverride(); }
 
-  void FrameItself() { Camera_.FrameSubject(); }
+  void FrameGeometry() { Camera_.FrameGeometry(); }
 
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const {
     return Ui_.Under(xPx, yPx, surface);
@@ -351,7 +349,7 @@ private:
                                             std::unique_ptr<RuntimeScene> &out,
                                             std::string &error,
                                             const GroundAtmosphere &atmosphere,
-                                            std::shared_ptr<const Render::Compiled> plan);
+                                            std::shared_ptr<const Render::ExecutionPlan> plan);
   [[nodiscard]] std::expected<void, std::string> ValidGeometryBuild(const Geometry &built,
                                                                     size_t drivenParts) const;
   [[nodiscard]] static bool
@@ -393,13 +391,12 @@ private:
 
   static size_t TookAiming_, TookDrawing_;
   static size_t PlanInits_;
-  Render::PlanSpec PlanDeclared_;
 
   RuntimeScene(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
 
   [[nodiscard]] Mat4 InMetres(const Mat4 &placed) const;
   void StandsEnvironment();
-  void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
+  void LightsFromTheSky(Render::EnvironmentLighting &environment) const;
   void EmitsPerPart();
   [[nodiscard]] bool StandsPlan(std::string &error);
   [[nodiscard]] bool InitializesFramePlan(std::string &error);
@@ -435,33 +432,33 @@ private:
   [[nodiscard]] bool Submit(std::string &error);
 
   Render::SceneRenderer *Renderer_ = nullptr;
-  UiSession Ui_;
+  Ui::SurfaceSession Ui_;
   Declaration Declared_;
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;
-  std::shared_ptr<const Render::Compiled> Plan_;
-  std::shared_ptr<const Render::Compiled> PreparationPlan_;
+  std::shared_ptr<const Render::ExecutionPlan> Plan_;
+  std::shared_ptr<const Render::ExecutionPlan> PreparationPlan_;
   Render::CameraState Camera_;
   std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
-  Render::SubjectPlacementHistory PlacementUploadHistory_;
+  Render::ObjectTransformHistory PlacementUploadHistory_;
 
   std::vector<Box> PartBounds_;
   void CoverShapedParts();
   void PreparePartBounds();
-  SubjectMaterials Materials_;
+  MaterialBindings Materials_;
 
   [[nodiscard]] bool RestoresPieceResources(std::string &error);
 
   [[nodiscard]] bool RestoresGroundResources(std::string &error);
-  Geometry DrivenGeometry_;
+  SceneGeometry DrivenGeometry_;
   SceneGeometry Held_;
-  Render::SubjectProxy Stood_;
-  Render::SubjectScratch Scratch_;
+  Render::RenderObject Stood_;
+  Render::RenderObjectPreparation Scratch_;
 
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
   GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
-  Render::SubjectDraw::MeshTicket BuildTicket_;
+  Render::GeometryRenderer::MeshTicket BuildTicket_;
   GeometryBuildSliceMetrics GeometrySlices_;
   std::optional<Render::ShapeCookJob> ShapeCooking_;
   std::vector<Material> GeometryBuildSurfaces_;

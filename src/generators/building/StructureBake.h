@@ -1,7 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
+#include "ViewReuseDomain.h"
 #include "GeographicRing.h"
 #include "BuildingHeightInterval.h"
 #include "StructureSourceInputs.h"
@@ -16,14 +17,14 @@
 #include <span>
 #include <vector>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "BuildingFootprint.h"
 #include "BuildingGeometry.h"
 #include "HeightField.h"
 #include "StructureMesher.h"
 #include "spatial/Capacity.h"
 #include "spatial/ClusterCook.h"
-#include "scene/LevelOfDetail.h"
+#include "LevelOfDetail.h"
 #include "StructureCell.h"
 #include "StructureSurfaceRefinement.h"
 
@@ -76,16 +77,13 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError, Struct
   return "unknown structure bake error";
 }
 
-struct StructureSelectionView {
-  LongitudeLatitude Eye;
-  std::optional<Vec3> EyeEcef;
-  ProjectedErrorBudget Projection;
-  double EyeRadiusM = kStructureEyeReuseM;
-
-  [[nodiscard]] bool Contains(LongitudeLatitude eye,
-                              ProjectedErrorBudget projection,
-                              std::optional<Vec3> eyeEcef = std::nullopt) const noexcept;
-};
+[[nodiscard]] inline ViewReuseDomain
+StructureSelectionDomain(LongitudeLatitude eye,
+                         ProjectedErrorBudget projection,
+                         std::optional<Vec3> eyeEcef = std::nullopt) noexcept {
+  return {
+      .Eye = eye, .EyeEcef = eyeEcef, .Projection = projection, .EyeRadiusM = kStructureEyeReuseM};
+}
 
 struct RawTile {
   struct Structure {
@@ -136,7 +134,7 @@ struct BakedTile {
   ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;
   bool FallbackHeights = false;
-  std::optional<StructureSelectionView> SelectedView;
+  std::optional<ViewReuseDomain> SelectedView;
   std::optional<LevelOfDetail> RequestedDetail;
   std::optional<uint32_t> RequestedCell;
   std::optional<outshine::Ground::GeoBounds> FootprintBounds;
@@ -160,8 +158,11 @@ struct BakedTile {
   std::optional<StructureSurfaceErrorFailure> SurfaceFailure;
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return Built.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes() + CapacityBytes(Prints) +
-           CapacityBytes(FootprintDetails) + CapacityBytes(SeatSpreadM) + CapacityBytes(AcrossM);
+    size_t bytes = Built.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes() +
+                   CapacityBytes(Prints) + CapacityBytes(FootprintDetails) +
+                   CapacityBytes(SeatSpreadM) + CapacityBytes(AcrossM);
+    for (const auto &print : Prints) { bytes += print.HeapBytes(); }
+    return bytes;
   }
 };
 

@@ -1,3 +1,4 @@
+#include "AssetCacheTrim.h"
 #include "CacheTrim.h"
 #include "CacheTrimSql.h"
 #include <algorithm>
@@ -23,6 +24,7 @@ struct Store {
   std::filesystem::path Path;
   std::unique_ptr<Sql::Database> Database;
   bool Usage = false;
+  bool Requests = false;
 };
 
 struct Package {
@@ -34,20 +36,24 @@ struct Package {
   size_t StoreIndex = 0;
 };
 
-std::expected<void, std::string>
-Read(Store &store, size_t index, std::vector<Package> &packages, CacheTrimResult &result) {
+std::expected<void, std::string> ReadSchema(Store &store) {
   sqlite3 *const database = store.Database->Handle;
   Sql::Statement version;
   if (auto prepared = Sql::Prepare(database, "PRAGMA user_version", version); !prepared) {
     return prepared;
   }
-  if (sqlite3_step(version.Handle) != SQLITE_ROW || sqlite3_column_int(version.Handle, 0) != 3) {
+  if (sqlite3_step(version.Handle) != SQLITE_ROW) {
+    return std::unexpected("could not read native asset cache schema");
+  }
+  const int schemaVersion = sqlite3_column_int(version.Handle, 0);
+  if (schemaVersion != 3 && schemaVersion != 4) {
     return std::unexpected("unsupported native asset cache schema");
   }
+  store.Requests = schemaVersion == 4;
   Sql::Statement schema;
   if (auto prepared = Sql::Prepare(database,
                                    "SELECT a.id,a.key,a.kind,a.minx,a.miny,a.minz,a.maxx,a.maxy,"
-                                   "a.maxz,a.offset,a.bytes,a.level,a.parent,a.request_key,b.id,"
+                                   "a.maxz,a.offset,a.bytes,a.level,a.parent,b.id,"
                                    "p.crc,p.codec,p.native_bytes FROM assets a "
                                    "LEFT JOIN bounds b ON b.id=a.id "
                                    "LEFT JOIN packages p ON p.key=a.package LIMIT 0",
@@ -55,6 +61,21 @@ Read(Store &store, size_t index, std::vector<Package> &packages, CacheTrimResult
       !prepared) {
     return prepared;
   }
+  if (store.Requests) {
+    Sql::Statement requests;
+    if (auto prepared = Sql::Prepare(
+            database, "SELECT request_key,asset_id FROM asset_requests LIMIT 0", requests);
+        !prepared) {
+      return prepared;
+    }
+  }
+  return {};
+}
+
+std::expected<void, std::string>
+Read(Store &store, size_t index, std::vector<Package> &packages, CacheTrimResult &result) {
+  if (auto schema = ReadSchema(store); !schema) { return schema; }
+  sqlite3 *const database = store.Database->Handle;
   Sql::Statement members;
   if (auto prepared = Sql::Prepare(database, "SELECT package FROM assets", members); !prepared) {
     return prepared;
@@ -122,6 +143,14 @@ Erase(Store &store, std::span<const Package> packages, size_t index) {
             SQLITE_OK ||
         sqlite3_step(insert.Handle) != SQLITE_DONE || sqlite3_reset(insert.Handle) != SQLITE_OK) {
       return std::unexpected(sqlite3_errmsg(database));
+    }
+  }
+  if (store.Requests) {
+    if (auto erased = Sql::Exec(database,
+                                "DELETE FROM asset_requests WHERE asset_id IN "
+                                "(SELECT id FROM assets WHERE package IN trim_packages)");
+        !erased) {
+      return erased;
     }
   }
   for (const auto *sql :

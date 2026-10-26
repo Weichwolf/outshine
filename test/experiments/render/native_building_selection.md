@@ -7,6 +7,12 @@ Python resident-page comparison (`outshine_research`, `930392b72`). No product
 algorithm, cache schema, render contract, source or error budget changes.
 
 Analytic surface transfer for coverage is in `native_building_surface_inputs.md`.
+Additional unprojected cell controls are in `native_building_cell_controls.md`;
+the standard CMake exporter target is `test_harness_building_selection_export`.
+`--full-view` exports one archived normal-3D cell with complete geometry, original
+source index ranges and plans. Its native replay must match the original geometry
+bytes and footprint/detail metadata. The dense #844 input and reproduction are in
+`test/outshine/data/render/building-full-view/README.md`.
 
 ## Input and observer contract
 
@@ -83,7 +89,9 @@ remain the rendering control; this diagnostic makes no new visual quality claim.
 Requires the existing cache, Python with system libzstd/pkg-config and the native
 C++ build with nlohmann-json. No new package was required on the measured host.
 Build the C++ executable using the complete current generator compilation flags
-and declared native archives/libraries. A shortened ad hoc compiler invocation
+and declared native archives/libraries, compiling both `export_building_selection.cpp`
+and `building_capture_inputs.cpp`. Actual archived-cell capture pairs are described
+in `native_building_capture_inputs.md`. A shortened ad hoc compiler invocation
 does not reproduce the checked configuration. Run focused clang-tidy against
 that exact experiment entry in the compilation database, including its header.
 

@@ -1,8 +1,8 @@
 #include "GroundRegionAsset.h"
 #include "ClassSeed.h"
 #include "BinaryValueArchive.h"
-#include "math/Units.h"
-#include "content/GeometryAsset.h"
+#include "Units.h"
+#include "GeometryProductCodec.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -19,7 +19,7 @@
 
 namespace outshine {
 namespace {
-constexpr uint64_t kFormat = 0x0004314e5247ULL;
+constexpr uint64_t kFormat = 0x0005314e5247ULL;
 constexpr uint32_t kPagesMost = 65536;
 constexpr size_t kPageHeaderBytes = 7 * sizeof(uint32_t) + sizeof(uint8_t);
 
@@ -137,13 +137,21 @@ template <class Archive, class Region> bool RegionFields(Archive &archive, Regio
                  region.GroundAlbedo[0],
                  region.GroundAlbedo[1],
                  region.GroundAlbedo[2]) &&
-         PatchFields(archive, region.Terrain) && archive.template Array<float>(region.ClassPalette);
+         PatchFields(archive, region.Terrain) &&
+         archive.template Array<float>(region.ClassPalette) && archive.Text(region.SurfaceManifest);
 }
 
 bool ValidRegion(const GroundRegionAsset &region) {
   return std::isfinite(region.Anchor.LongitudeDeg) && std::isfinite(region.Anchor.LatitudeDeg) &&
          std::abs(region.Anchor.LongitudeDeg) <= kDegPerHalfTurn &&
          std::abs(region.Anchor.LatitudeDeg) <= (kDegPerHalfTurn * 0.5) &&
+         (region.SurfaceManifest.empty() ||
+          (region.SurfaceManifest.size() == 64 &&
+           std::ranges::all_of(region.SurfaceManifest,
+                               [](char value) {
+                                 return (value >= '0' && value <= '9') ||
+                                        (value >= 'a' && value <= 'f');
+                               }))) &&
          region.GroundSurface >= 0 && region.GroundSurface < region.Surfaces.surfaces() &&
          std::ranges::all_of(
              region.GroundAlbedo,
@@ -203,7 +211,7 @@ std::optional<std::vector<uint8_t>> EncodeGroundRegionAsset(const GroundRegionAs
     const auto bytes = region.Network->EncodeAsset(bytesMost - out.Out.Bytes().size());
     if (!bytes || !out.Array<uint8_t>(*bytes)) { return std::nullopt; }
   }
-  const auto geometry = EncodeGeometryAsset(region.Surfaces, bytesMost - out.Out.Bytes().size());
+  const auto geometry = EncodeGeometryProduct(region.Surfaces, bytesMost - out.Out.Bytes().size());
   if (!geometry || !out.Out.Put(*geometry)) { return std::nullopt; }
   return std::move(out.Out).TakeBytes();
 }
@@ -236,7 +244,7 @@ std::optional<GroundRegionAsset> DecodeGroundRegionAsset(std::span<const uint8_t
   }
   const auto geometry = in.In.Take(in.In.Remaining());
   if (!geometry) { return std::nullopt; }
-  auto decoded = DecodeGeometryAsset(*geometry, bytesMost);
+  auto decoded = DecodeGeometryProduct(*geometry, bytesMost);
   if (!decoded) { return std::nullopt; }
   region.Surfaces = std::move(*decoded);
   if (!ValidRegion(region)) { return std::nullopt; }

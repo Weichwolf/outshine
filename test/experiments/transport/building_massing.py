@@ -58,7 +58,7 @@ def aggregate(plans, bands):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', required=True, type=Path)
-    parser.add_argument('--scenario', type=Path, default=Path('src/assets/places/Tokyo.scenario'))
+    parser.add_argument('--scenario', type=Path, default=Path('test/outshine/data/places/Tokyo.scenario'))
     parser.add_argument('--reference', type=Path, default=Path('build/experiments/building-lod-checked/reference.png'))
     parser.add_argument('--output', type=Path, default=Path('build/experiments/building-massing'))
     args = parser.parse_args()

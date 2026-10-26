@@ -3,8 +3,8 @@
 #include "BuildPreparedPlant.h"
 #include "PlantPlan.h"
 #include "PlantBladeSurface.h"
-#include "scene/Geometry.h"
-#include "scene/Material.h"
+#include "Geometry.h"
+#include "Material.h"
 #include "Check.h"
 #include <array>
 #include <cstdint>

@@ -23,7 +23,7 @@ void Number(const std::optional<double> &value) {
 }
 
 int Consume(const outshine::Data::SourceSet &sources,
-            const outshine::Data::Delivery::Answer &answer,
+            const outshine::Data::SourceDelivery::Answer &answer,
             int64_t utcS) {
   const auto snapshot = sources.At(0).DecodeWeather(answer.Bytes, utcS);
   if (!snapshot) { return 2; }
@@ -49,7 +49,7 @@ int Consume(const outshine::Data::SourceSet &sources,
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if ((argc != 3 && argc != 4) || std::string_view(argv[1]).empty() ||
       (argc == 4 && std::string_view(argv[3]) != "prepare")) {
     std::println(stderr, "usage: weather-snapshot <isolated-cache-dir> <exact-unix-utc> [prepare]");
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
   const outshine::Generators::Weather::OpenMeteoProvider provider(capture->Request);
   outshine::Data::ProviderRegistry registry;
   if (!registry.registerProvider(provider)) { return 2; }
-  outshine::Data::ContentStore store({.Directory = argv[1]});
+  outshine::Data::RawSourceCache store({.Directory = argv[1]});
   outshine::Data::SourceSet sources(store);
   std::string error;
   const std::array declarations{capture->Declaration};
@@ -79,8 +79,8 @@ int main(int argc, char **argv) {
   outshine::Data::Transport &transport = prepare
                                              ? static_cast<outshine::Data::Transport &>(replay)
                                              : static_cast<outshine::Data::Transport &>(offline);
-  auto query = sources.Ask(
-      outshine::Data::Fetch(outshine::Data::DataKind::Weather, outshine::Data::Address::Whole(0)));
+  auto query = sources.Ask(outshine::Data::SourceRequest(outshine::Data::DataKind::Weather,
+                                                         outshine::Data::Address::Whole(0)));
   const auto answer = sources.Collect(query, transport).Take();
   if (!answer) { return 4; }
   return Consume(sources, *answer, utcS);

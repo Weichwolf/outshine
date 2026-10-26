@@ -3,9 +3,9 @@
 
 #include "ImpostorAtlas.h"
 #include "ImpostorAtlasShape.h"
-#include "math/Mat4.h"
-#include "math/Vec3.h"
-#include "scene/Geometry.h"
+#include "Mat4.h"
+#include "Vec3.h"
+#include "Geometry.h"
 
 #include <optional>
 #include <string>
@@ -26,8 +26,8 @@ struct ImpostorCapture {
 
 class ImpostorBaker {
 public:
-  [[nodiscard]] static std::optional<Content::ImpostorAtlas>
-  Bake(ImpostorCapture capture, Content::ImpostorAtlasShape shape, std::string &error);
+  [[nodiscard]] static std::optional<ImpostorAtlas>
+  Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error);
 };
 
 }

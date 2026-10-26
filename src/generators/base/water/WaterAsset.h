@@ -56,7 +56,7 @@ public:
     std::optional<bool> Intermittent;
   };
 
-  enum class SurfaceRejectionReason { InvalidTopology, CapacityExceeded };
+  enum class SurfaceRejectionReason { InvalidTopology, CapacityExceeded, InvalidHeightModel };
 
   struct SurfaceRejection {
     uint32_t Surface = 0;
@@ -66,6 +66,9 @@ public:
   struct SurfaceGeometry {
     WaterSurfaceMesh Mesh;
     std::vector<SurfaceRejection> Rejections;
+    std::vector<uint32_t> FaceSourceOffsets;
+    std::vector<uint32_t> FaceSources;
+    std::vector<SurfaceRejection> ProfileDeclines;
   };
 
   struct Data {

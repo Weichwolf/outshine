@@ -9,19 +9,19 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-CLIENT = ROOT / 'build/outshine'
+CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolve()
 
 
 class Coordinates(unittest.TestCase):
     def test_help_describes_commands_and_stats_without_starting_platform(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
-        cases = ((('--help',), ('run', 'shots', 'measures', '<command> --help')),
+        cases = ((('--help',), ('run', 'benchmark', 'measures', '<command> --help')),
                  (('run', '--help'), ('--view', '--motion', '--samples', '--stats',
                                      '--probe-pixel', '--quality playable|refined')),
-                 (('shots', '--help'), ('--preload-seconds', '--offline', '--stats')),
                  (('measures', '--help'), ('structure source keys', '--stats')),
                  (('height', '--help'), ('latitude-deg', 'longitude-deg')),
-                 (('benchmark', '--help'), ('--output', '--gpu-validation', 'JSON')))
+                 (('benchmark', '--help'), ('--output', '--gpu-validation', 'JSON',
+                                           '--preload-seconds', '--offline')))
         for args, expected in cases:
             with self.subTest(args=args):
                 result = subprocess.run([str(CLIENT), *args], cwd=ROOT, env=env,
@@ -33,6 +33,15 @@ class Coordinates(unittest.TestCase):
         unknown = subprocess.run([str(CLIENT), 'unknown', '--help'], cwd=ROOT, env=env,
                                  capture_output=True, text=True, timeout=10)
         self.assertEqual(unknown.returncode, 2)
+
+    def test_named_capture_commands_are_not_product_commands(self):
+        env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
+        for verb in ('shots', 'places', 'prepare', 'roundtrip'):
+            with self.subTest(verb=verb):
+                result = subprocess.run([str(CLIENT), verb, '--help'], cwd=ROOT, env=env,
+                                        capture_output=True, text=True, timeout=10, check=False)
+                self.assertEqual(result.returncode, 2)
+                self.assertNotIn('SDL', result.stdout + result.stderr)
 
     def test_invalid_benchmark_arguments_leave_existing_results_untouched(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-arguments-') as directory:
@@ -81,10 +90,10 @@ class Coordinates(unittest.TestCase):
                               capture_output=True, text=True, timeout=10)
 
     def test_ignored_number_result_is_a_compile_error(self):
-        database = json.loads((ROOT / 'compile_commands.json').read_text())
+        database = json.loads((Path(os.environ.get('OUTSHINE_BUILD_DIR', ROOT / 'build')) / 'compile_commands.json').read_text())
         command = next(entry for entry in database
                        if (Path(entry['directory']) / entry['file']).resolve() ==
-                       (ROOT / 'src/client/Main.cpp').resolve())
+                       (ROOT / 'src/app/Main.cpp').resolve())
         arguments = command.get('arguments') or shlex.split(command['command'])
         with tempfile.TemporaryDirectory(prefix='outshine-nodiscard-') as temporary:
             source = Path(temporary) / 'result.cpp'
@@ -132,7 +141,7 @@ class Coordinates(unittest.TestCase):
 
     def test_cache_directory_is_validated_before_platform_initialization(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
-        for verb in ('run', 'shots'):
+        for verb in ('run', 'measures'):
             for cache in ('', '--offline'):
                 result = subprocess.run([str(CLIENT), verb, '--cache-dir', cache], cwd=ROOT,
                                         env=env, capture_output=True, text=True, timeout=10)
@@ -157,7 +166,7 @@ class Coordinates(unittest.TestCase):
 
     def test_scenario_overrides_use_one_generic_option(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
-        for verb in ('run', 'shots'):
+        for verb in ('run', 'measures'):
             for arguments in (('--scenario-overrides',),
                               ('--scenario-overrides', '[]'),
                               ('--scenario-overrides', ''),

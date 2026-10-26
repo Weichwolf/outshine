@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "Shape.h"
-#include <scene/Geometry.h>
+#include <Geometry.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>

@@ -1,10 +1,12 @@
+#include "OsmProviderValidation.h"
 #include "Check.h"
 #include "OsmCellAcquisition.h"
-#include "SourceProviderValidation.h"
 #include <array>
 #include <cstdlib>
 #include <filesystem>
 #include <system_error>
+
+using outshine::GeoCellId;
 
 namespace {
 class DelayedOsmTransport final : public outshine::Data::Transport {
@@ -41,12 +43,13 @@ int main() {
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original source cache created");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   {
-    ContentStore store({.Directory = directory});
+    RawSourceCache store({.Directory = directory});
     const SourceProvider provider{.Kind = "osm",
                                   .Revision = "independent",
                                   .Missing = MissingDataPolicy::Fail,
                                   .Dataset = "openstreetmap.original",
-                                  .Endpoint = std::string(kOfficialOsmApi)};
+                                  .Endpoint =
+                                      std::string(outshine::Generators::Osm::kOfficialOsmApi)};
     DelayedOsmTransport wire;
     std::array<GeoCellId, outshine::Generators::Osm::CellAcquisition::MaximumPendingCells> cells{};
     outshine::Generators::Osm::CellAcquisition reader(provider, store, wire);

@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "parent": "6d3f9945a1035effd6769a8d93a00499aad7662296e276c8ec15dc2a10b52cae",
+  "archive": {
+    "file": "../original-inputs.tar.gz",
+    "sha256": "5b9737a91f79f6ff6b786843638675118bfcefc0725cf60a459aa6751d1728ac"
+  },
+  "native_product_commit": "077d9827e05f2f967204ccb80d700c5f8c7e9d50",
+  "native_product_tree": "c1844df44f1470f121b9636abe788ba581d49bfc",
+  "mode": "unprojected native producer with original selected view; no new archive-identity claim",
+  "cells": [
+    {
+      "cell": 25,
+      "file": "25.json.gz",
+      "bytes": 1109522,
+      "sha256": "404cf732a74522bf2a826c6c612d936a4904dc155fdd83ea3cc4b5e7c97a97ae",
+      "sources": 508,
+      "triangles": 12327,
+      "unsupported": []
+    },
+    {
+      "cell": 33,
+      "file": "../cell.json.gz",
+      "bytes": 1270215,
+      "sha256": "31e296fdda1e8ffebba3303bf28f35e4de99c29410e19bc9983a6e375696d3da",
+      "sources": 576,
+      "triangles": 14169,
+      "unsupported": []
+    },
+    {
+      "cell": 34,
+      "file": "34.json.gz",
+      "bytes": 1128516,
+      "sha256": "bbd96d43b21e7439f876a1023f947fb3fac5397b9f4419daf9efcf8356439964",
+      "sources": 474,
+      "triangles": 11980,
+      "unsupported": []
+    },
+    {
+      "cell": 41,
+      "file": "41.json.gz",
+      "bytes": 731401,
+      "sha256": "ecb25d9490b8f64e4a1f72d797636e9a76a8e448f402542fe61a78234aadfec9",
+      "sources": 335,
+      "triangles": 8413,
+      "unsupported": [
+        {
+          "source": 3825,
+          "reason": "footprint cannot form a supported building mass"
+        },
+        {
+          "source": 3827,
+          "reason": "footprint cannot form a supported building mass"
+        }
+      ]
+    }
+  ]
+}

@@ -107,11 +107,12 @@ Result<void> MetalCommands::BeginRenderPass(const RenderPassDescription &descrip
     const auto held = HoldImages(images);
     if (!held) { return held; }
     Finish();
-    ProfileRenderEncoder(Profile.get(), descriptor);
+    ProfileRenderEncoder(Profile.get(), descriptor, description.Label);
     state.Encoder = [Native renderCommandEncoderWithDescriptor:descriptor];
     if (state.Encoder == nil) {
       return Failure(ErrorKind::Driver, "Metal render encoder creation failed");
     }
+    state.Encoder.label = Text(description.Label);
     Render = std::move(state);
     return {};
   }

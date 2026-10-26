@@ -46,7 +46,7 @@ def plan_vertices(camera, origin, vertices):
 
 
 def place_camera(name, inventory):
-    path = ROOT / "src/assets/places" / (name + ".scenario")
+    path = ROOT / "test/outshine/data/places" / (name + ".scenario")
     camera = read_camera(path)
     cases = json.loads(Path(inventory).read_text())["cases"]
     row = cases[name]

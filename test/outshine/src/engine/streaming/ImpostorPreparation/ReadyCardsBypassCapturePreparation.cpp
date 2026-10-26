@@ -6,14 +6,14 @@
 #include "PreparedImpostorAssets.h"
 #include "Sha256.h"
 #include "Tasks.h"
-#include "content/AssetCache.h"
-#include "content/GeometryAsset.h"
+#include "AssetCache.h"
+#include "GeometryProductCodec.h"
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
+#include <print>
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -27,13 +27,13 @@ using outshine::Test::Report;
 namespace {
 std::atomic_uint64_t attempts{0};
 
-std::optional<Content::ImpostorCards> Prepare(const Content::ImpostorAtlas &atlas,
-                                              std::string &error) {
+std::optional<ImpostorCards> Prepare(const ImpostorAtlas &atlas, std::string &error) {
   ++attempts;
   return Render::PrepareImpostorCards(atlas, error);
 }
 
-std::optional<Content::ImpostorCards> Refuse(const Content::ImpostorAtlas &, std::string &error) {
+std::optional<ImpostorCards> Refuse([[maybe_unused]] const ImpostorAtlas &atlas,
+                                    std::string &error) {
   ++attempts;
   error = "a ready hit must not call preparation";
   return std::nullopt;
@@ -52,21 +52,23 @@ std::optional<Content::PreparedImpostorAssets::Loaded> Read(Content::PreparedImp
   return std::nullopt;
 }
 
-std::optional<Content::ImpostorAtlas> Atlas(std::string &error) {
+std::optional<ImpostorAtlas> Atlas(std::string &error) {
+  constexpr Vec4f albedo{{0.3f, 0.5f, 0.2f, 1}};
+  constexpr float roughness = 0.7f;
   Material material;
-  material.BaseColour = {{0.3f, 0.5f, 0.2f, 1}};
-  material.Roughness = 0.7f;
-  Content::ImpostorAtlas::View view;
+  material.BaseColour = albedo;
+  material.Roughness = roughness;
+  ImpostorAtlas::View view;
   view.TowardEye = {{0, 0, 1}};
-  view.Texels.resize(16 * 16);
+  view.Texels.resize(size_t{16} * 16);
   for (size_t at = 0; at < view.Texels.size(); ++at) {
     if (at % 16 < 3 || at / 16 < 2) { continue; }
     view.Texels[at] = {.Normal = {{0, 0, 1}}, .Depth = 0.5f, .Surface = 1};
   }
-  return Content::ImpostorAtlas::Create(16, {{0, 1, 0}}, 1, {material}, {std::move(view)}, error);
+  return ImpostorAtlas::Create(16, {{0, 1, 0}}, 1, {material}, {std::move(view)}, error);
 }
 
-size_t PreparedMipBytes(const Content::ImpostorCards &cards) {
+size_t PreparedMipBytes(const ImpostorCards &cards) {
   size_t bytes = 0;
   for (const auto &view : cards.Views) {
     for (int at = 0; at < view.Surface.images(); ++at) {
@@ -84,10 +86,10 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-ready-cards-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  const Content::ImpostorAtlasShape shape{.Pixels = 16, .Views = 1};
+  const ImpostorAtlasShape shape{.Pixels = 16, .Views = 1};
   const std::string provenance = ImpostorAtlasProvenance("ready-cards-fixture-1", shape);
-  CHECK(Content::ImpostorCards::AssetKey(provenance) == Sha256Hex("impostor-cards-4/" + provenance),
-        "mapped-optical-material-aware products version their recipe without invalidating capture");
+  CHECK(ImpostorCards::AssetKey(provenance) == Sha256Hex("impostor-cards-5/" + provenance),
+        "typed optical materials version their recipe without invalidating capture");
   std::string error;
   auto atlas = Atlas(error);
   CHECK(atlas, "capture fixture is valid");
@@ -95,21 +97,22 @@ int main() {
   auto reference = Render::PrepareImpostorCards(*atlas, error);
   CHECK(reference, "reference uses the existing flat-card preparation");
   if (!reference) { return Report(); }
-  const auto cardsBytes = reference->Encode(provenance, 1024 * 1024);
+  const auto cardsBytes = reference->Encode(provenance, size_t{1024} * 1024);
   const auto captureBytes = atlas->Encode(provenance, error);
   const size_t mipBytes = PreparedMipBytes(*reference);
   CHECK(cardsBytes && captureBytes && cardsBytes->size() >= mipBytes &&
             cardsBytes->size() - mipBytes < captureBytes->size(),
         "the base card retains its storage saving; only required mips and their schema add bytes");
   if (!cardsBytes || !captureBytes) { return Report(); }
-  std::printf("PRODUCT capture=%zu cards=%zu required_mips_and_schema=%zu\n",
-              captureBytes->size(),
-              cardsBytes->size(),
-              mipBytes);
-  CHECK(!Content::ImpostorCards::Decode(*cardsBytes, provenance + "changed", 1024 * 1024) &&
-            !Content::ImpostorCards::Decode(*cardsBytes, provenance, cardsBytes->size() - 1) &&
-            !Content::ImpostorCards::Decode(
-                std::span(*cardsBytes).first(cardsBytes->size() - 1), provenance, 1024 * 1024),
+  std::println("PRODUCT capture={} cards={} required_mips_and_schema={}",
+               captureBytes->size(),
+               cardsBytes->size(),
+               mipBytes);
+  CHECK(!ImpostorCards::Decode(*cardsBytes, provenance + "changed", size_t{1024} * 1024) &&
+            !ImpostorCards::Decode(*cardsBytes, provenance, cardsBytes->size() - 1) &&
+            !ImpostorCards::Decode(std::span(*cardsBytes).first(cardsBytes->size() - 1),
+                                   provenance,
+                                   size_t{1024} * 1024),
         "provenance changes, limits and truncation are rejected");
   Tasks tasks(1);
   const Content::PreparedImpostorAssets::Config config{.Directory = root.string()};
@@ -134,8 +137,8 @@ int main() {
     if (loaded && loaded->Cards) {
       CHECK(loaded->Cards->Centre == reference->Centre &&
                 loaded->Cards->Views[0].Direction == reference->Views[0].Direction &&
-                EncodeGeometryAsset(loaded->Cards->Views[0].Surface, 1024 * 1024) ==
-                    EncodeGeometryAsset(reference->Views[0].Surface, 1024 * 1024),
+                EncodeGeometryProduct(loaded->Cards->Views[0].Surface, size_t{1024} * 1024) ==
+                    EncodeGeometryProduct(reference->Views[0].Surface, size_t{1024} * 1024),
             "ready products preserve every geometry, material and texture byte");
     }
     const std::array otherRecipes{
@@ -154,7 +157,7 @@ int main() {
     CHECK(database, "fixture cache reopens for corruption control");
     if (database) {
       const std::array<uint8_t, 4> corrupt{};
-      const AssetRecord record{.Key = Content::ImpostorCards::AssetKey(provenance),
+      const AssetRecord record{.Key = ImpostorCards::AssetKey(provenance),
                                .Kind = "impostor-cards",
                                .Bounds = {.Min = {{-1, 0, -1}}, .Max = {{1, 2, 1}}},
                                .Package = {},

@@ -48,10 +48,10 @@ int main() {
                        .Dataset = "openstreetmap",
                        .Location = "osm/Hockenheim & region.osm",
                        .Endpoint = {},
-                       .Coverage = Data::SourceCoverage{.WestDeg = kWestDeg,
-                                                        .SouthDeg = kSouthDeg,
-                                                        .EastDeg = kEastDeg,
-                                                        .NorthDeg = kNorthDeg},
+                       .Coverage = GeographicBounds{.WestDeg = kWestDeg,
+                                                    .SouthDeg = kSouthDeg,
+                                                    .EastDeg = kEastDeg,
+                                                    .NorthDeg = kNorthDeg},
                        .PayloadSha256 = std::string(64, 'a'),
                        .Schema = {}}};
   const auto text = WriteScenario(source);

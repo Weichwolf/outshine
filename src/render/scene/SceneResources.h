@@ -3,10 +3,14 @@
 
 #include "ResourceHandle.h"
 #include "HeightPageBatch.h"
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
+#include "GroundTile.h"
+#include "MaterialBinding.h"
 #include "TerrainTile.h"
+#include "PrismInstance.h"
+#include <PrismGrid.h>
 #include "device/native/Commands.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 
 #include <cstddef>
 #include <expected>
@@ -17,7 +21,7 @@
 
 namespace outshine::Render {
 
-class SubjectDraw;
+class GeometryRenderer;
 
 struct GroundClassificationSource {
   std::shared_ptr<const uint32_t> Classes;
@@ -44,31 +48,49 @@ public:
     std::span<const Mat4> Rows;
   };
 
-  [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(
-      SubjectDraw &subjects, const PieceMesh &piece, PieceOwner owner = PieceOwner::Independent);
+  [[nodiscard]] std::expected<PieceHandle, std::string>
+  PlacePiece(GeometryRenderer &subjects,
+             const PieceMesh &piece,
+             PieceOwner owner = PieceOwner::Independent);
   [[nodiscard]] std::expected<size_t, std::string>
-  ReconcileStructurePieces(SubjectDraw &subjects, std::span<const PieceHandle> held);
-  [[nodiscard]] bool SetPieceInstances(SubjectDraw &subjects,
+  ReconcileStructurePieces(GeometryRenderer &subjects, std::span<const PieceHandle> held);
+  [[nodiscard]] bool SetPieceInstances(GeometryRenderer &subjects,
                                        PieceHandle which,
                                        std::span<const Mat4> rows,
                                        std::string &error);
-  [[nodiscard]] bool
-  SetPieceInstances(SubjectDraw &subjects, std::span<const PieceRows> pieces, std::string &error);
-  void ReleasePiece(SubjectDraw &subjects, PieceHandle which);
+  [[nodiscard]] bool SetPieceInstances(GeometryRenderer &subjects,
+                                       std::span<const PieceRows> pieces,
+                                       std::string &error);
+  void ReleasePiece(GeometryRenderer &subjects, PieceHandle which);
 
   void CopySourcesFrom(const SceneResources &source, PieceSources pieces);
-  [[nodiscard]] bool RestorePieces(SubjectDraw &subjects, std::string &error);
+  [[nodiscard]] bool RestorePieces(GeometryRenderer &subjects, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
-  AdvancePieceRestore(SubjectDraw &subjects, size_t &nextPiece, size_t piecesMost);
+  AdvancePieceRestore(GeometryRenderer &subjects, size_t &nextPiece, size_t piecesMost);
 
   [[nodiscard]] std::expected<uint32_t, std::string>
-  RegisterPieceMaterials(SubjectDraw &subjects, SubjectDraw *glass, Geometry source);
+  RegisterPieceMaterials(GeometryRenderer &subjects, GeometryRenderer *glass, Geometry source);
   [[nodiscard]] bool
-  RestorePieceMaterials(SubjectDraw &subjects, SubjectDraw *glass, std::string &error);
+  RestorePieceMaterials(GeometryRenderer &subjects, GeometryRenderer *glass, std::string &error);
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
   [[nodiscard]] size_t PieceSourceCount() const noexcept;
   [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
+
+  [[nodiscard]] Native::Result<PrismGridHandle>
+  PlacePrismGrid(GeometryRenderer &subjects,
+                 std::shared_ptr<const PrismGrid> source,
+                 std::span<const PrismInstance> instances,
+                 uint32_t material);
+  [[nodiscard]] Native::Result<void> ReplacePrismGrid(GeometryRenderer &subjects,
+                                                      PrismGridHandle which,
+                                                      std::shared_ptr<const PrismGrid> source,
+                                                      std::span<const PrismInstance> instances,
+                                                      uint32_t material);
+  [[nodiscard]] Native::Result<void> SetPrismGridInstances(
+      GeometryRenderer &subjects, PrismGridHandle which, std::span<const PrismInstance> instances);
+  void ReleasePrismGrid(GeometryRenderer &subjects, PrismGridHandle which);
+  [[nodiscard]] bool HasPrismGrid(PrismGridHandle which) const noexcept;
 
   [[nodiscard]] size_t PieceSlots() const noexcept { return Pieces_.size(); }
 
@@ -76,22 +98,21 @@ public:
     return Pieces_.capacity() * sizeof(Piece);
   }
 
-  [[nodiscard]] Native::Result<HeightPageHandle> PlaceHeightPage(SubjectDraw &subjects,
+  [[nodiscard]] Native::Result<HeightPageHandle> PlaceHeightPage(GeometryRenderer &subjects,
                                                                  std::span<const float> nodes);
   [[nodiscard]] Native::Result<std::vector<HeightPageHandle>>
-  PlaceHeightPages(SubjectDraw &subjects, std::span<const HeightPageView> nodes);
-  void ReleaseHeightPage(SubjectDraw &subjects, HeightPageHandle which);
+  PlaceHeightPages(GeometryRenderer &subjects, std::span<const HeightPageView> nodes);
+  void ReleaseHeightPage(GeometryRenderer &subjects, HeightPageHandle which);
   [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
   [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
-  [[nodiscard]] bool RestoreHeightPages(SubjectDraw &subjects, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
-  AdvanceTerrainRestore(SubjectDraw &subjects, size_t &nextPage, size_t pagesMost);
-  [[nodiscard]] Native::Result<void> SetGroundGrid(SubjectDraw &subjects,
+  AdvanceTerrainRestore(GeometryRenderer &subjects, size_t &nextPage, size_t pagesMost);
+  [[nodiscard]] Native::Result<void> SetGroundGrid(GeometryRenderer &subjects,
                                                    std::span<const float> fractions);
-  [[nodiscard]] Native::Result<void> SetTerrainTiles(SubjectDraw &subjects,
+  [[nodiscard]] Native::Result<void> SetTerrainTiles(GeometryRenderer &subjects,
                                                      std::span<const TerrainTile> real,
                                                      std::span<const TerrainTile> virtual_);
-  [[nodiscard]] bool RestoreTerrain(SubjectDraw &subjects, std::string &error);
+  [[nodiscard]] bool RestoreTerrain(GeometryRenderer &subjects, std::string &error);
   void SetGroundClassification(std::span<const uint32_t> classes, std::span<const float> palette);
   void SetGroundClassification(GroundClassificationSource source) noexcept;
 
@@ -137,13 +158,13 @@ private:
 
   struct PieceMaterials {
     Geometry Source;
-    std::vector<SubjectMaterial> Slots;
+    std::vector<MaterialBinding> Slots;
   };
 
   [[nodiscard]] static std::expected<PieceMaterials, std::string>
   ResolvePieceMaterials(Geometry source);
-  [[nodiscard]] bool AppendPieceMaterials(SubjectDraw &subjects,
-                                          SubjectDraw *glass,
+  [[nodiscard]] bool AppendPieceMaterials(GeometryRenderer &subjects,
+                                          GeometryRenderer *glass,
                                           const PieceMaterials &materials,
                                           std::string &error);
 
@@ -153,8 +174,20 @@ private:
     PageId Resident = kNoPage;
   };
 
+  struct PrismSource {
+    ResourceSlotState State{};
+    std::shared_ptr<const PrismGrid> Source;
+    std::vector<PrismInstance> Instances;
+    uint32_t Material = 0;
+    uint64_t Resident = 0;
+  };
+
+  void CopyPrismSourcesFrom(const SceneResources &source, PieceSources pieces);
+  [[nodiscard]] std::expected<bool, std::string>
+  AdvancePrismRestore(GeometryRenderer &subjects, size_t &nextGrid, size_t gridsMost);
+
   [[nodiscard]] Native::Result<size_t>
-  RestoreHeightPageBatch(SubjectDraw &subjects, size_t first, size_t pagesMost);
+  RestoreHeightPageBatch(GeometryRenderer &subjects, size_t first, size_t pagesMost);
 
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;
@@ -162,6 +195,8 @@ private:
   std::vector<uint32_t> RegisteredPieceSlots_;
   std::vector<HeightPage> HeightPages_;
   uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
+  std::vector<PrismSource> PrismGrids_;
+  uint32_t FirstFreePrismGrid_ = kNoResourceSlot;
   std::vector<float> GroundGrid_;
   std::vector<TerrainTile> GroundReal_;
   std::vector<TerrainTile> GroundVirtual_;

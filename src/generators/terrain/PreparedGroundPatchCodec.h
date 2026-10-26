@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_TERRAIN_PREPAREDGROUNDPATCHCODEC_H
 
 #include "GroundPatch.h"
-#include "world/data/Address.h"
+#include "Address.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>

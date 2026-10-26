@@ -1,6 +1,7 @@
 """Check diagnostic bytes and explicit/standalone test artifact roots."""
 
 import os
+import json
 import shlex
 import subprocess
 import tempfile
@@ -8,7 +9,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNNER = (ROOT / "test/run.sh").read_text()
+from cmake_context import compile_flags
+
+STANDARD_FLAGS = compile_flags()
 
 
 class CheckHarness(unittest.TestCase):
@@ -19,10 +22,12 @@ class CheckHarness(unittest.TestCase):
         cls.root = Path(cls.temporary.name)
         cls.source = cls.root / "control.cpp"
         cls.source.write_text("""#include "Check.h"
+#include "Shell.h"
 #include <string_view>
 int main(int argc, char **argv) {
   using namespace outshine::Test;
   const std::string_view mode = argc > 1 ? argv[1] : "pass";
+  if (mode == "shell") { std::println("{}", ShellArgument(argc > 2 ? argv[2] : "")); return 0; }
   if (mode == "path") { std::println("{}", PlantedPath("asset.sqlite")); return 0; }
   if (mode == "pass") { Checked(true, "true", "claim", "control", 7); }
   if (mode == "fail") { Checked(false, "false", "claim", "control", 7); }
@@ -34,19 +39,7 @@ int main(int argc, char **argv) {
 }
 """)
         cls.compiler = shlex.split(os.environ.get("CXX", "c++"))
-        declarations = "\n".join(
-            line
-            for line in RUNNER.splitlines()
-            if line.startswith(("CXXSTD=", "WARN="))
-        )
-        cls.flags = shlex.split(
-            subprocess.check_output(
-                ["sh"],
-                input=declarations + '\nprintf "%s" "$CXXSTD $WARN"',
-                cwd=ROOT,
-                text=True,
-            )
-        )
+        cls.flags = STANDARD_FLAGS
         cls.plain = cls.build("standalone")
 
     @classmethod
@@ -108,18 +101,22 @@ int main(int argc, char **argv) {
             missing.stdout.endswith("FAILURES 2 SKIPPED 0 UNPREPARED 0 PARTIAL 0\n")
         )
 
+    def test_shell_arguments_preserve_literal_bytes(self):
+        values = ["", "space quote' slash\\ dollar$ tick` grün", "line\nbreak",
+                  "$(printf injected); `printf injected` $OUTSHINE_FLAG"]
+        for value in values:
+            with self.subTest(value=value):
+                quoted = subprocess.check_output(
+                    [str(self.plain), "shell", value], text=True).removesuffix("\n")
+                result = subprocess.run(["sh", "-c", "printf '%s' " + quoted],
+                                        capture_output=True, text=True, check=False)
+                self.assertEqual((result.returncode, result.stdout), (0, value))
+
     def test_declared_root_is_one_literal_argument(self):
-        assignment = next(
-            line for line in RUNNER.splitlines() if line.startswith("testNestDefine=")
-        )
         for name in ["ordinary", 'space quote" slash\\ dollar$ tick` grün']:
             with self.subTest(name=name):
                 root = str(self.root / name)
-                encoded = subprocess.check_output(
-                    ["sh", "-c", assignment + '\nprintf "%s" "$testNestDefine"'],
-                    env={**os.environ, "BUILD": root},
-                    text=True,
-                )
+                encoded = "-DOUTSHINE_TEST_NEST=" + json.dumps(root, ensure_ascii=False)
                 binary = self.build("declared", encoded)
                 result = self.run_control("path", binary, OUTSHINE_NEST="/ignored")
                 self.assertEqual(

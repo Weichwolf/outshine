@@ -5,7 +5,7 @@
 #include "OsmStructureCell.h"
 #include "StructureBake.h"
 #include "Tasks.h"
-#include <world/data/Address.h>
+#include <Address.h>
 
 #include <expected>
 #include <cstdint>

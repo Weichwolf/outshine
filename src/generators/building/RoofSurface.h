@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <span>
 #include <optional>
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include "BuildingScratch.h"
 

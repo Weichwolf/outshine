@@ -62,7 +62,7 @@ void SceneRenderer::KeepGpuSamples(size_t maximum) {
 }
 
 void SceneRenderer::ResetMeasurements() noexcept {
-  MeasurementBegin_ = LastFrameSubmission_;
+  MeasurementBegin_ = Frames_.LastSubmitted();
   Costs_ = {};
   GpuSamples_.clear();
   LastRenderFrameTiming_ = {};
@@ -71,7 +71,7 @@ void SceneRenderer::ResetMeasurements() noexcept {
 }
 
 void SceneRenderer::CollectCompletedFrameTimes() {
-  for (auto &completion : Landed_) {
+  for (const auto &completion : Frames_.Pending()) {
     if (!completion) { continue; }
     const auto began = std::chrono::steady_clock::now();
     const auto ready = Device_->Poll(*completion);
@@ -79,13 +79,13 @@ void SceneRenderer::CollectCompletedFrameTimes() {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     if (ready && *ready == Native::CompletionStatus::Ready) {
       CollectGpuTime(*completion);
-      completion.reset();
+      Frames_.Retire(*completion);
     }
   }
 }
 
 Native::Result<void> SceneRenderer::WaitForFrameSlot() {
-  auto &completion = Landed_[LandedAt_];
+  const auto completion = Frames_.Next();
   if (!completion) { return {}; }
   const auto ready = Submission_.WaitFence(
       Submission_.Context, Device_.get(), *completion, std::chrono::seconds(5));
@@ -96,7 +96,7 @@ Native::Result<void> SceneRenderer::WaitForFrameSlot() {
                       .Message = "GPU frame completion exceeds the explicit wait budget"});
   }
   CollectGpuTime(*completion);
-  completion.reset();
+  Frames_.Retire(*completion);
   return {};
 }
 
@@ -123,7 +123,7 @@ void SceneRenderer::WaitForGpu() {
     Log::Error(LogTag::Render, "gpu_settle_failed", {{"msg", error}});
     return;
   }
-  for (auto &completion : Landed_) { completion.reset(); }
+  Frames_.RetireAll();
 }
 
 }

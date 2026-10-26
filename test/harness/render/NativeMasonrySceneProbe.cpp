@@ -1,4 +1,5 @@
-#include <Outshine.h>
+#include "ImageCapture.h"
+#include <Engine.h>
 #include "BuildingMaterials.h"
 #include "StoredVertex.h"
 #include "Check.h"
@@ -143,7 +144,7 @@ bool RenderWall(const Geometry &mesh, double centreX, const char *prefix) {
                static_cast<std::streamsize>(linear.size() * sizeof(float)));
   output.close();
   CHECK(output, "linear radiance is saved separately from display encoding");
-  return Accepted(engine.renderer().saveScreenshot(path + ".png"));
+  return Accepted(outshine::App::SaveImage(engine, path + ".png"));
 }
 }
 

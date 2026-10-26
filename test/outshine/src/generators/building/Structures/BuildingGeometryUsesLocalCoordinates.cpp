@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 int main() {
   using namespace outshine;

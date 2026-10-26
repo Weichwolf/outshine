@@ -1,4 +1,4 @@
-#include "scene/SurfaceSampler.h"
+#include "SurfaceSampler.h"
 
 #include <array>
 #include <bit>

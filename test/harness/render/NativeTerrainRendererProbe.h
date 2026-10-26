@@ -1,12 +1,15 @@
 #ifndef OUTSHINE_TEST_RENDER_NATIVETERRAINRENDERERPROBE_H
 #define OUTSHINE_TEST_RENDER_NATIVETERRAINRENDERERPROBE_H
 
+#include "terrain/TerrainResidency.h"
+#include "TerrainLattice.h"
+
 #include "TerrainRenderer.h"
 #include "GroundRasterReference.h"
 #include "SurfaceOutputs.h"
 #include "StageSubmission.h"
-#include "SubjectMaterialPacking.h"
-#include "SubjectLightingUniform.h"
+#include "MaterialPacking.h"
+#include "LightingUniform.h"
 #include "ReadbackTransfer.h"
 #include "NativeGpuCheck.h"
 #include "NativeOffline.h"
@@ -55,12 +58,12 @@ constexpr std::array kTargetFormats{Format::Rgba32Float,
                                     Format::Rg16Float};
 
 struct HeightPattern {
-  std::array<float, TerrainRenderer::kSide> Fractions{};
-  std::array<float, TerrainRenderer::kPageNodes> Nodes{};
+  std::array<float, TerrainLattice::kSide> Fractions{};
+  std::array<float, TerrainLattice::kPageNodes> Nodes{};
   std::array<GroundTile, 2> Tiles{};
 };
 
-struct alignas(16) SubjectView {
+struct alignas(16) TerrainViewUniform {
   Mat4f Current = kIdentity, Previous = kIdentity, Light = kIdentity;
   Vec4f Shift{}, PreviousShift{};
 };
@@ -70,10 +73,10 @@ struct alignas(16) DepthView {
   Vec4f Shift{};
 };
 
-constexpr size_t kSubjectViewBytes = 224;
-constexpr size_t kSubjectShiftOffset = 192;
-static_assert(sizeof(SubjectView) == kSubjectViewBytes &&
-              offsetof(SubjectView, Shift) == kSubjectShiftOffset);
+constexpr size_t kTerrainViewBytes = 224;
+constexpr size_t kTerrainShiftOffset = 192;
+static_assert(sizeof(TerrainViewUniform) == kTerrainViewBytes &&
+              offsetof(TerrainViewUniform, Shift) == kTerrainShiftOffset);
 constexpr size_t kDepthViewBytes = 80;
 static_assert(sizeof(DepthView) == kDepthViewBytes && offsetof(DepthView, Shift) == sizeof(Mat4f));
 
@@ -325,11 +328,11 @@ inline void Lit(Device &device,
   Require(commands->BeginRenderPass(
       {.Colours = attachments,
        .Depth = DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Load::Clear}}));
-  SubjectView view;
+  TerrainViewUniform view;
   view.Current = frame.Mvp;
-  SubjectLightingUniform lighting{};
+  LightingUniform lighting{};
   lighting.Up = {{0, 0, 1, 0}};
-  const auto material = PackSubjectMaterial(SubjectMaterial{}, 1);
+  const auto material = PackMaterial(MaterialBinding{}, 1);
   const std::array bindings{
       Binding{.Set = 1, .Slot = 0, .Value = Uniform{.Bytes = std::as_bytes(std::span(&view, 1))}},
       Storage(2, 0, *classes),
@@ -385,11 +388,11 @@ inline void NonAffine(Device &device, TerrainRenderer &ground) {
   HeightPattern pattern;
   for (size_t i = 0; i < pattern.Fractions.size(); ++i) {
     pattern.Fractions[i] =
-        std::pow(static_cast<float>(i) / (TerrainRenderer::kSide - 1), kFractionPower);
+        std::pow(static_cast<float>(i) / (TerrainLattice::kSide - 1), kFractionPower);
   }
-  for (size_t j = 0; j < TerrainRenderer::kPageSide; ++j) {
-    for (size_t i = 0; i < TerrainRenderer::kPageSide; ++i) {
-      pattern.Nodes[j * TerrainRenderer::kPageSide + i] =
+  for (size_t j = 0; j < TerrainLattice::kPageSide; ++j) {
+    for (size_t i = 0; i < TerrainLattice::kPageSide; ++i) {
+      pattern.Nodes[j * TerrainLattice::kPageSide + i] =
           kHeightBase + kHeightAmpE * std::sin(static_cast<float>(i) * kHeightRateE) +
           kHeightAmpN * std::cos(static_cast<float>(j) * kHeightRateN);
     }
@@ -408,23 +411,24 @@ inline void NonAffine(Device &device, TerrainRenderer &ground) {
 
 inline int RunTerrainRendererProbe(const std::string &prefix) {
   auto device = Require(CreateDevice({.Validation = true}));
-  TerrainRenderer ground;
+  outshine::Render::TerrainResidency groundData;
+  TerrainRenderer ground{groundData};
   std::array<ColourTarget, kTargetFormats.size()> targets;
   for (size_t at = 0; at < targets.size(); ++at) { targets[at].Texels = kTargetFormats[at]; }
   const SurfaceOutputs outputs{
       .NormalIndex = 1, .IdentityIndex = 2, .BaseIndex = 3, .MetalRoughIndex = 4};
   Require(RetryOffline([&] { return ground.Configure(*device, outputs, targets); },
                        std::chrono::seconds(5)));
-  std::vector<float> nodes(TerrainRenderer::kPageNodes, kSurface[0]);
+  std::vector<float> nodes(TerrainLattice::kPageNodes, kSurface[0]);
   const auto left =
       Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5)));
   std::ranges::fill(nodes, kSurface[2]);
   auto right =
       Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5)));
-  for (uint32_t page = 2; page <= TerrainRenderer::kPagesPerLayer; ++page) {
+  for (uint32_t page = 2; page <= TerrainLattice::kPagesPerLayer; ++page) {
     right = Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5)));
   }
-  CHECK(right == TerrainRenderer::kPagesPerLayer,
+  CHECK(right == TerrainLattice::kPagesPerLayer,
         "real texture-array growth preserves the first layer and adds the next");
   auto distant = Tile(left, {kLeft, -kInner});
   distant.Instance.Row[12] = 10;

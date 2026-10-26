@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "GroundWorldCandidate.h"
 #include "Check.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"
@@ -114,11 +115,11 @@ int main() {
       const GroundRevision nextRevision{.Region = 18, .Coverage = {}};
       CHECK(world.GroundPublished.Publish(oldRevision), "original ground revision publishes");
       const Core::RuntimeScene *const oldScene = scene.get();
-      std::vector<float> nodes(Render::TerrainRenderer::kPageNodes, 3.0f);
+      std::vector<float> nodes(Render::TerrainLattice::kPageNodes, 3.0f);
       const auto page = renderer.PlaceHeightPage(nodes);
       CHECK(page.has_value(), "original height page uploads");
       if (!page) { return Report(); }
-      std::vector<float> fractions(Render::TerrainRenderer::kSide);
+      std::vector<float> fractions(Render::TerrainLattice::kSide);
       for (size_t at = 0; at < fractions.size(); ++at) {
         fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
       }
@@ -161,7 +162,7 @@ int main() {
           }
         }
         CHECK(scene.get() == oldScene &&
-                  renderer.TerrainRendererTriangles() == Render::TerrainRenderer::kIndices / 3u,
+                  renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
               "abandonment preserves the published owner and original GPU terrain");
         CHECK(world.GroundPositionsM == std::vector<float>({1, 2, 3}) &&
                   world.GroundIndex == std::vector<uint32_t>({0}) &&

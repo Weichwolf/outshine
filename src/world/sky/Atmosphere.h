@@ -3,7 +3,7 @@
 
 #include <algorithm>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <numbers>
 #include <cmath>
 #include <cstddef>
@@ -433,50 +433,6 @@ MediumTransmittanceToTop(const Medium &medium, MediumLook look, int steps) {
 }
 
 inline constexpr double kSolarIlluminanceLx = 133000.0;
-
-struct GroundLight {
-  Vec3f SunTransmittance;
-  Vec3f SkyIrradiance;
-};
-
-class GroundAtmosphere {
-public:
-  [[nodiscard]] GroundLight Evaluate(const Medium &medium, double cosSunZenith) const {
-    const auto cosine = static_cast<float>(cosSunZenith);
-    if (cosine != CachedCosine_ || !(medium == CachedMedium_)) {
-      const float radiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm;
-      const auto toSun = [&](MediumLook look) {
-        return MediumTransmittance(medium, look, kTransmittanceSteps);
-      };
-      const auto secondOrder = [&](MediumLook look) {
-        const MediumUv unit = {.U = look.CosZenith * 0.5f + 0.5f,
-                               .V = (look.RadiusKm - medium.BottomRadiusKm) /
-                                    (medium.TopRadiusKm - medium.BottomRadiusKm)};
-        const MultiScatterSample sample = MediumMultiScatterTexel(medium, unit, toSun);
-        Vec3f result;
-        for (int channel = 0; channel < 3; ++channel) {
-          result[channel] = sample.Luminance[channel] / (1.0f - sample.Transfer[channel]);
-        }
-        return result;
-      };
-      const MediumLook ground = {.RadiusKm = radiusKm, .CosZenith = cosine};
-      CachedLight_.SkyIrradiance = MediumSkyIrradiance(medium, ground, toSun, secondOrder);
-      CachedLight_.SunTransmittance = toSun(ground);
-      CachedCosine_ = cosine;
-      CachedMedium_ = medium;
-      ++Integrations_;
-    }
-    return CachedLight_;
-  }
-
-  [[nodiscard]] size_t Integrations() const noexcept { return Integrations_; }
-
-private:
-  mutable float CachedCosine_ = -2.0f;
-  mutable Medium CachedMedium_{};
-  mutable GroundLight CachedLight_{};
-  mutable size_t Integrations_ = 0;
-};
 
 }
 #endif

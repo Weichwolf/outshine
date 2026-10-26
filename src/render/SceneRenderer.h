@@ -1,12 +1,14 @@
+#include "SceneLighting.h"
+#include "MeshInput.h"
 #include "Lens.h"
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
-#include "math/Mat4.h"
-#include "math/Vec2.h"
-#include "math/Vec3.h"
+#include "Mat4.h"
+#include "Vec2.h"
+#include "Vec3.h"
 #include "Extent.h"
-#include <render/RenderConfiguration.h>
+#include <RenderConfiguration.h>
 #include "Heap.h"
 #include <array>
 #include <cassert>
@@ -27,31 +29,32 @@ struct SDL_Window;
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuSubmission.h"
+#include "FrameTimeline.h"
 #include "GpuFrameSample.h"
+#include "ViewHistory.h"
+#include "FrameTargets.h"
+#include "atmosphere/AtmospherePasses.h"
+#include "TextureFormat.h"
 #include "UploadQueue.h"
 #include "TerrainMaterialBuffers.h"
 
 #include "Readback.h"
 #include "scene/SceneResources.h"
+#include "scene/RenderScene.h"
 #include "Viewing.h"
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 #include "stages/OverlayDraw.h"
 #include "stages/PresentStage.h"
 
 #include "stages/Resolve.h"
-#include "stages/SubjectDraw.h"
-#include "stages/SubjectResidency.h"
+#include "stages/GeometryRenderer.h"
+#include "stages/GeometryResidency.h"
 #include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
-#include "stages/MediumMultiScatterStage.h"
-#include "stages/DepthPyramidStage.h"
-#include "stages/IrradianceStage.h"
-#include "stages/EnvironmentSpecularStage.h"
-#include "stages/MediumRadianceStage.h"
-#include "stages/LightVisibilityStage.h"
-#include "stages/SubjectCullStage.h"
+#include "visibility/DepthPyramidPass.h"
+#include "shadow/SunShadowPass.h"
+#include "stages/GeometryCullStage.h"
 #include "stages/SkyStage.h"
-#include "stages/MediumTransmittanceStage.h"
 #include "stages/TonemapStage.h"
 
 namespace outshine::Core {
@@ -108,9 +111,10 @@ struct SkyDeclaration {
 class SceneRenderer {
 public:
   enum class GroundSources : uint8_t { Default, Published };
+  enum class OverlaySource : uint8_t { Candidate, Published };
 
   [[nodiscard]] std::expected<void, std::string> Init(Extent frame,
-                                                      std::shared_ptr<const Compiled> plan);
+                                                      std::shared_ptr<const ExecutionPlan> plan);
 
   [[nodiscard]] UploadQueue::WaitScope OfflineUploads(std::chrono::nanoseconds budget) {
     return {UploadBudget_, budget};
@@ -120,12 +124,13 @@ public:
   BeginsWorldCandidate(std::string &error,
                        SceneResources::PieceSources pieces = SceneResources::PieceSources::Copy,
                        GroundSources ground = GroundSources::Default);
-  [[nodiscard]] bool PublishesWorldCandidate(std::string &error);
+  [[nodiscard]] bool PublishesWorldCandidate(std::string &error,
+                                             OverlaySource overlay = OverlaySource::Candidate);
   void AbandonsWorldCandidate() noexcept;
 
   [[nodiscard]] bool HasWorldCandidate() const noexcept { return Candidate_.has_value(); }
 
-  [[nodiscard]] const Compiled &Plan() const { return *ActiveState().Plan; }
+  [[nodiscard]] const ExecutionPlan &Plan() const { return *ActiveState().Plan; }
 
   [[nodiscard]] bool DeviceUsable() const { return ActiveState().Ready; }
 
@@ -169,7 +174,7 @@ public:
 
   [[nodiscard]] std::expected<void, std::string> RenderFrame();
 
-  [[nodiscard]] bool Drew() const { return ActiveState().Submitted; }
+  [[nodiscard]] bool Drew() const { return ActiveState().History.HasSubmittedFrame(); }
 
   ~SceneRenderer() {
     WaitForGpu();
@@ -183,7 +188,7 @@ public:
 
   void WaitForGpu();
 
-  static constexpr int kFramesInFlight = 2;
+  static constexpr int kFramesInFlight = static_cast<int>(FrameTimeline::Capacity);
 
   [[nodiscard]] int SettleFrames() const {
     return ActiveState().Plan ? ActiveState().Plan->SettleFrames() : 1;
@@ -214,37 +219,43 @@ public:
   using PieceRows = SceneResources::PieceRows;
 
   [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(const PieceMesh &piece) {
-    return ActiveState().Content.Resources.PlacePiece(ActiveState().Content.Subjects, piece);
+    return ActiveState().Content.Scene->Resources().PlacePiece(ActiveState().Content.Geometry,
+                                                               piece);
   }
 
   [[nodiscard]] std::expected<PieceHandle, std::string>
   PlaceStructurePiece(const PieceMesh &piece) {
-    return ActiveState().Content.Resources.PlacePiece(
-        ActiveState().Content.Subjects, piece, SceneResources::PieceOwner::StructureTile);
+    return ActiveState().Content.Scene->Resources().PlacePiece(
+        ActiveState().Content.Geometry, piece, SceneResources::PieceOwner::StructureTile);
   }
 
   [[nodiscard]] bool HasPieceSource(PieceHandle which) const noexcept {
-    return ActiveState().Content.Resources.HasPiece(which);
+    return ActiveState().Content.Scene->Resources().HasPiece(which);
   }
 
   [[nodiscard]] std::expected<size_t, std::string>
   ReconcileStructurePieces(std::span<const PieceHandle> held) {
-    return ActiveState().Content.Resources.ReconcileStructurePieces(ActiveState().Content.Subjects,
-                                                                    held);
+    return ActiveState().Content.Scene->Resources().ReconcileStructurePieces(
+        ActiveState().Content.Geometry, held);
   }
 
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error) {
-    return ActiveState().Content.Subjects.PlacePiece(piece, error);
+    auto placed = ActiveState().Content.Geometry.PlacePiece(piece);
+    if (!placed) {
+      error = std::move(placed.error().Message);
+      return kNoPiece;
+    }
+    return *placed;
   }
 
   void ReleasePiece(PieceHandle which) {
-    ActiveState().Content.Resources.ReleasePiece(ActiveState().Content.Subjects, which);
+    ActiveState().Content.Scene->Resources().ReleasePiece(ActiveState().Content.Geometry, which);
   }
 
-  void ReleasePiece(PieceId which) { ActiveState().Content.Subjects.ReleasePiece(which); }
+  void ReleasePiece(PieceId which) { ActiveState().Content.Geometry.ReleasePiece(which); }
 
   [[nodiscard]] PageId PlaceHeightPage(std::span<const float> nodes, std::string &error) {
-    auto placed = ActiveState().Content.Subjects.Ground().PlacePage(nodes);
+    auto placed = ActiveState().Content.Geometry.Ground().PlacePage(nodes);
     if (!placed) {
       error = std::move(placed.error().Message);
       return kNoPage;
@@ -253,36 +264,39 @@ public:
   }
 
   [[nodiscard]] Native::Result<HeightPageHandle> PlaceHeightPage(std::span<const float> nodes) {
-    return ActiveState().Content.Resources.PlaceHeightPage(ActiveState().Content.Subjects, nodes);
+    return ActiveState().Content.Scene->Resources().PlaceHeightPage(ActiveState().Content.Geometry,
+                                                                    nodes);
   }
 
   [[nodiscard]] Native::Result<std::vector<HeightPageHandle>>
   PlaceHeightPages(std::span<const HeightPageView> nodes) {
-    return ActiveState().Content.Resources.PlaceHeightPages(ActiveState().Content.Subjects, nodes);
+    return ActiveState().Content.Scene->Resources().PlaceHeightPages(ActiveState().Content.Geometry,
+                                                                     nodes);
   }
 
   [[nodiscard]] bool HasHeightPage(HeightPageHandle which) const noexcept {
-    return ActiveState().Content.Resources.HasHeightPage(which);
+    return ActiveState().Content.Scene->Resources().HasHeightPage(which);
   }
 
   void ReleaseHeightPage(PageId which) {
-    ActiveState().Content.Subjects.Ground().ReleasePage(which);
+    ActiveState().Content.Geometry.Ground().ReleasePage(which);
   }
 
   void ReleaseHeightPage(HeightPageHandle which) {
-    ActiveState().Content.Resources.ReleaseHeightPage(ActiveState().Content.Subjects, which);
+    ActiveState().Content.Scene->Resources().ReleaseHeightPage(ActiveState().Content.Geometry,
+                                                               which);
   }
 
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept {
-    return ActiveState().Content.Resources.HeightPageSourceBytes();
+    return ActiveState().Content.Scene->Resources().HeightPageSourceBytes();
   }
 
   [[nodiscard]] size_t HeightPageSlots() const noexcept {
-    return ActiveState().Content.Resources.HeightPageSlots();
+    return ActiveState().Content.Scene->Resources().HeightPageSlots();
   }
 
   [[nodiscard]] size_t HeightPageSlotBytes() const noexcept {
-    return ActiveState().Content.Resources.HeightPageSlotBytes();
+    return ActiveState().Content.Scene->Resources().HeightPageSlotBytes();
   }
 
   [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error) {
@@ -290,7 +304,8 @@ public:
   }
 
   [[nodiscard]] Native::Result<void> SetGroundGrid(std::span<const float> fractions) {
-    return ActiveState().Content.Resources.SetGroundGrid(ActiveState().Content.Subjects, fractions);
+    return ActiveState().Content.Scene->Resources().SetGroundGrid(ActiveState().Content.Geometry,
+                                                                  fractions);
   }
 
   [[nodiscard]] bool SetTerrainTiles(std::span<const TerrainTile> real,
@@ -301,116 +316,150 @@ public:
 
   [[nodiscard]] Native::Result<void> SetTerrainTiles(std::span<const TerrainTile> real,
                                                      std::span<const TerrainTile> virtual_) {
-    return ActiveState().Content.Resources.SetTerrainTiles(
-        ActiveState().Content.Subjects, real, virtual_);
+    return ActiveState().Content.Scene->Resources().SetTerrainTiles(
+        ActiveState().Content.Geometry, real, virtual_);
   }
 
   [[nodiscard]] bool SetTerrainRenderer(std::span<const GroundTile> real,
                                         std::span<const GroundTile> virtual_,
                                         std::string &error) {
-    return Accepted(ActiveState().Content.Subjects.Ground().SetInstances(real, virtual_), error);
+    return Accepted(ActiveState().Content.Geometry.Ground().SetInstances(real, virtual_), error);
   }
 
   [[nodiscard]] uint32_t TerrainRendererTriangles() const {
-    return ActiveState().Content.Subjects.Ground().Triangles();
+    return ActiveState().Content.Geometry.Ground().Triangles();
   }
 
   [[nodiscard]] bool
   SetPieceInstances(PieceHandle which, std::span<const Mat4> rows, std::string &error) {
-    return ActiveState().Content.Resources.SetPieceInstances(
-        ActiveState().Content.Subjects, which, rows, error);
+    return ActiveState().Content.Scene->Resources().SetPieceInstances(
+        ActiveState().Content.Geometry, which, rows, error);
   }
 
   [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error) {
-    return ActiveState().Content.Subjects.SetPieceInstances(which, rows, error);
+    return ActiveState().Content.Geometry.SetPieceInstances(which, rows, error);
   }
 
   [[nodiscard]] bool SetPieceInstances(std::span<const PieceRows> pieces, std::string &error) {
-    return ActiveState().Content.Resources.SetPieceInstances(
-        ActiveState().Content.Subjects, pieces, error);
+    return ActiveState().Content.Scene->Resources().SetPieceInstances(
+        ActiveState().Content.Geometry, pieces, error);
+  }
+
+  [[nodiscard]] Native::Result<PrismGridHandle>
+  PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
+                 std::span<const PrismInstance> instances,
+                 uint32_t material) {
+    auto &content = ActiveState().Content;
+    return content.Scene->Resources().PlacePrismGrid(
+        content.Geometry, std::move(source), instances, material);
+  }
+
+  [[nodiscard]] Native::Result<void> ReplacePrismGrid(PrismGridHandle which,
+                                                      std::shared_ptr<const PrismGrid> source,
+                                                      std::span<const PrismInstance> instances,
+                                                      uint32_t material) {
+    auto &content = ActiveState().Content;
+    return content.Scene->Resources().ReplacePrismGrid(
+        content.Geometry, which, std::move(source), instances, material);
+  }
+
+  [[nodiscard]] Native::Result<void>
+  SetPrismGridInstances(PrismGridHandle which, std::span<const PrismInstance> instances) {
+    auto &content = ActiveState().Content;
+    return content.Scene->Resources().SetPrismGridInstances(content.Geometry, which, instances);
+  }
+
+  void ReleasePrismGrid(PrismGridHandle which) {
+    auto &content = ActiveState().Content;
+    content.Scene->Resources().ReleasePrismGrid(content.Geometry, which);
+  }
+
+  [[nodiscard]] bool HasPrismGrid(PrismGridHandle which) const noexcept {
+    return ActiveState().Content.Scene->Resources().HasPrismGrid(which);
   }
 
   [[nodiscard]] bool RestorePieces(std::string &error) {
-    return ActiveState().Content.Resources.RestorePieces(ActiveState().Content.Subjects, error);
+    return ActiveState().Content.Scene->Resources().RestorePieces(ActiveState().Content.Geometry,
+                                                                  error);
   }
 
   [[nodiscard]] std::expected<bool, std::string> AdvancePieceRestore(size_t &nextPiece,
                                                                      size_t piecesMost) {
     auto &content = ActiveState().Content;
-    return content.Resources.AdvancePieceRestore(content.Subjects, nextPiece, piecesMost);
+    return content.Scene->Resources().AdvancePieceRestore(content.Geometry, nextPiece, piecesMost);
   }
 
   [[nodiscard]] std::expected<uint32_t, std::string> RegisterPieceMaterials(Geometry source) {
     auto &content = ActiveState().Content;
-    return content.Resources.RegisterPieceMaterials(
-        content.Subjects, content.DrawsGlass ? &content.Glass : nullptr, std::move(source));
+    return content.Scene->Resources().RegisterPieceMaterials(
+        content.Geometry, content.DrawsGlass ? &content.Glass : nullptr, std::move(source));
   }
 
   [[nodiscard]] bool RestorePieceMaterials(std::string &error) {
     auto &content = ActiveState().Content;
-    return content.Resources.RestorePieceMaterials(
-        content.Subjects, content.DrawsGlass ? &content.Glass : nullptr, error);
+    return content.Scene->Resources().RestorePieceMaterials(
+        content.Geometry, content.DrawsGlass ? &content.Glass : nullptr, error);
   }
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept {
-    return ActiveState().Content.Resources.PieceSourceBytes();
+    return ActiveState().Content.Scene->Resources().PieceSourceBytes();
   }
 
   [[nodiscard]] size_t PieceSlots() const noexcept {
-    return ActiveState().Content.Resources.PieceSlots();
+    return ActiveState().Content.Scene->Resources().PieceSlots();
   }
 
   [[nodiscard]] size_t PieceSlotBytes() const noexcept {
-    return ActiveState().Content.Resources.PieceSlotBytes();
+    return ActiveState().Content.Scene->Resources().PieceSlotBytes();
   }
 
   void SetNativePieceSurfaces(std::span<const uint32_t> slots) {
-    ActiveState().Content.Subjects.SetNativePieceSurfaces(slots);
+    ActiveState().Content.Geometry.SetNativePieceSurfaces(slots);
   }
 
   [[nodiscard]] uint32_t PiecesStanding() const {
-    return ActiveState().Content.Subjects.PiecesStanding();
+    return ActiveState().Content.Geometry.PiecesStanding();
   }
 
   [[nodiscard]] size_t PieceSourceCount() const {
-    return ActiveState().Content.Resources.PieceSourceCount();
+    return ActiveState().Content.Scene->Resources().PieceSourceCount();
   }
 
   [[nodiscard]] uint32_t PieceTriangles() const {
-    return ActiveState().Content.Subjects.PieceTriangles();
+    return ActiveState().Content.Geometry.PieceTriangles();
   }
 
   [[nodiscard]] size_t TakeUploadAttempts() {
-    return ActiveState().Content.Subjects.Owned().TakeUploadAttempts();
+    return ActiveState().Content.Geometry.Residency().TakeUploadAttempts();
   }
 
   [[nodiscard]] size_t TotalUploadAttempts() const {
-    return ActiveState().Content.Subjects.Resident().TotalUploadAttempts();
+    return ActiveState().Content.Geometry.Resident().TotalUploadAttempts();
   }
 
   [[nodiscard]] size_t RecordedCrossings() const {
-    return ActiveState().Content.Subjects.Resident().RecordedCrossings();
+    return ActiveState().Content.Geometry.Resident().RecordedCrossings();
   }
 
   [[nodiscard]] size_t TakeUploadBytes() {
-    return ActiveState().Content.Subjects.Owned().TakeUploadBytes();
+    return ActiveState().Content.Geometry.Residency().TakeUploadBytes();
   }
 
   [[nodiscard]] size_t TakeBufferAllocationAttempts() {
-    return ActiveState().Content.Subjects.Owned().TakeBufferAllocationAttempts();
+    return ActiveState().Content.Geometry.Residency().TakeBufferAllocationAttempts();
   }
 
   [[nodiscard]] size_t TakeStagingAllocationAttempts() {
-    return ActiveState().Content.Subjects.Owned().TakeStagingAllocationAttempts();
+    return ActiveState().Content.Geometry.Residency().TakeStagingAllocationAttempts();
   }
 
-  [[nodiscard]] SubjectResidency::AllocationStats PieceAllocations() const {
-    return ActiveState().Content.Subjects.Resident().Allocations();
+  [[nodiscard]] GeometryResidency::AllocationStats PieceAllocations() const {
+    return ActiveState().Content.Geometry.Resident().Allocations();
   }
 
   [[nodiscard]] uint64_t PieceBytesHeld() const {
-    return ActiveState().Content.Subjects.Resident().HeldBytes();
+    return ActiveState().Content.Geometry.Resident().HeldBytes();
   }
 
   [[nodiscard]] ReadState ReadEnvironmentSpecular(std::vector<float> &rgba);
@@ -435,122 +484,123 @@ public:
 
   [[nodiscard]] ReadState ReadSceneVelocity(std::vector<float> &xy);
 
-  [[nodiscard]] bool ReplaceOverlay(std::span<const OverlayQuad> quads,
-                                    const OverlayDraw::AtlasPixels *atlas,
+  [[nodiscard]] bool ReplaceOverlay(std::span<const Ui::PaintQuad> quads,
+                                    const Ui::PaintAtlasView *atlas,
                                     std::string &error) {
-    return Accepted(ActiveState().Content.Overlay.Replace(
-                        ActiveFrame().Handles, quads.data(), quads.size(), atlas),
-                    error);
+    return Accepted(
+        ActiveState().Overlay.Replace(ActiveFrame().Handles, quads.data(), quads.size(), atlas),
+        error);
   }
 
-  [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
-    return Accepted(ActiveState().Content.Overlay.SetQuads(ActiveFrame().Handles, quads, count),
-                    error);
+  [[nodiscard]] bool SetOverlay(const Ui::PaintQuad *quads, size_t count, std::string &error) {
+    return Accepted(ActiveState().Overlay.SetQuads(ActiveFrame().Handles, quads, count), error);
   }
 
   [[nodiscard]] bool
   SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
-    return Accepted(
-        ActiveState().Content.Overlay.SetAtlas(ActiveFrame().Handles, rgba, width, height), error);
+    return Accepted(ActiveState().Overlay.SetAtlas(ActiveFrame().Handles, rgba, width, height),
+                    error);
   }
 
-  [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
+  [[nodiscard]] bool SetGeometryMesh(const MeshInput &mesh, std::string &error) {
     const Heap::Tagged relaying("mesh-relay");
     if (ActiveState().Content.DrawsGlass &&
         !ActiveState().Content.Glass.ValidateMesh(mesh, error)) {
       return false;
     }
-    return ActiveState().Content.Subjects.SetMesh(mesh, error) &&
+    return ActiveState().Content.Geometry.SetMesh(mesh, error) &&
            (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetMesh(mesh, error));
   }
 
-  [[nodiscard]] std::expected<SubjectDraw::MeshTicket, std::string>
-  BeginSubjectMesh(const SubjectMesh &mesh) {
+  [[nodiscard]] std::expected<GeometryRenderer::MeshTicket, std::string>
+  BeginGeometryMesh(const MeshInput &mesh) {
     std::string error;
     if (ActiveState().Content.DrawsGlass &&
         !ActiveState().Content.Glass.ValidateMesh(mesh, error)) {
       return std::unexpected(std::move(error));
     }
-    return ActiveState().Content.Subjects.BeginMesh(mesh);
+    return ActiveState().Content.Geometry.BeginMesh(mesh);
   }
 
-  [[nodiscard]] bool
-  FinishSubjectMesh(SubjectDraw::MeshTicket ticket, const SubjectMesh &mesh, std::string &error) {
-    return ActiveState().Content.Subjects.FinishMesh(ticket, mesh, error) &&
+  [[nodiscard]] bool FinishGeometryMesh(GeometryRenderer::MeshTicket ticket,
+                                        const MeshInput &mesh,
+                                        std::string &error) {
+    return ActiveState().Content.Geometry.FinishMesh(ticket, mesh, error) &&
            (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetMesh(mesh, error));
   }
 
-  [[nodiscard]] bool SubjectMeshPending() const noexcept {
-    return ActiveState().Content.Subjects.MeshPending();
+  [[nodiscard]] bool GeometryMeshPending() const noexcept {
+    return ActiveState().Content.Geometry.MeshPending();
   }
 
-  [[nodiscard]] SubjectMeshUploadMetrics LastSubjectMeshUpload() const noexcept {
-    return ActiveState().Content.Subjects.LastMeshUpload();
+  [[nodiscard]] GeometryUploadMetrics LastGeometryMeshUpload() const noexcept {
+    return ActiveState().Content.Geometry.LastMeshUpload();
   }
 
-  [[nodiscard]] bool SubjectPlacementRows(size_t rows, std::string &error) {
-    return ActiveState().Content.Subjects.PlacementRows(rows, error) &&
+  [[nodiscard]] bool GeometryPlacementRows(size_t rows, std::string &error) {
+    return ActiveState().Content.Geometry.PlacementRows(rows, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.PlacementRows(rows, error));
   }
 
-  void MoveSubjectPlacement(size_t slot, const Mat4 &model) {
-    ActiveState().Content.Subjects.MovePlacement(slot, model);
+  void MoveGeometryPlacement(size_t slot, const Mat4 &model) {
+    ActiveState().Content.Geometry.MovePlacement(slot, model);
     if (ActiveState().Content.DrawsGlass) {
       ActiveState().Content.Glass.MovePlacement(slot, model);
     }
   }
 
-  [[nodiscard]] bool HandSubjectPlacements(std::string &error) {
-    return ActiveState().Content.Subjects.HandPlacements(false, error) &&
+  [[nodiscard]] bool HandGeometryPlacements(std::string &error) {
+    return ActiveState().Content.Geometry.HandPlacements(false, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.HandPlacements(false, error));
   }
 
-  [[nodiscard]] size_t SubjectPlacementsMoved() const {
-    return ActiveState().Content.Subjects.PlacementsMoved();
+  [[nodiscard]] size_t GeometryPlacementsMoved() const {
+    return ActiveState().Content.Geometry.PlacementsMoved();
   }
 
-  [[nodiscard]] uint32_t SubjectBytesStaged() const {
-    return ActiveState().Content.Subjects.StagedBytes();
+  [[nodiscard]] uint32_t GeometryBytesStaged() const {
+    return ActiveState().Content.Geometry.StagedBytes();
   }
 
-  void ForgetSubjectStaging() { ActiveState().Content.Subjects.ForgetStagedCount(); }
+  void ForgetGeometryStaging() { ActiveState().Content.Geometry.ForgetStagedCount(); }
 
-  [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return ActiveFrame().Shadow.StoodAtM(); }
+  [[nodiscard]] const Vec3 &ShadowCentreM() const { return ActiveFrame().Shadow.ShadowCentreM(); }
 
-  [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
-    return ActiveState().Content.Subjects.SetPlacements(models, rows, error) &&
+  [[nodiscard]] bool SetGeometryPlacements(const double *models, size_t rows, std::string &error) {
+    return ActiveState().Content.Geometry.SetPlacements(models, rows, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.SetPlacements(models, rows, error));
   }
 
-  [[nodiscard]] bool SetSubjectPose(const SubjectPose &pose, std::string &error) {
-    return ActiveState().Content.Subjects.SetPose(pose, error) &&
-           (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetPose(pose, error));
+  [[nodiscard]] bool SetGeometryVertexInput(const VertexInput &pose, std::string &error) {
+    return ActiveState().Content.Geometry.SetVertexInput(pose, error) &&
+           (!ActiveState().Content.DrawsGlass ||
+            ActiveState().Content.Glass.SetVertexInput(pose, error));
   }
 
-  [[nodiscard]] bool SetSubjectMaterials(std::span<const SubjectMaterial> materials,
-                                         std::string &error) {
-    return ActiveState().Content.Subjects.SetMaterials(materials, error) &&
+  [[nodiscard]] bool SetGeometryMaterials(std::span<const MaterialBinding> materials,
+                                          std::string &error) {
+    return ActiveState().Content.Geometry.SetMaterials(materials, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.SetMaterials(materials, error));
   }
 
-  [[nodiscard]] bool AppendSubjectMaterials(std::span<const SubjectMaterial> materials,
-                                            std::string &error) {
-    if (!ActiveState().Content.Subjects.ValidateMaterials(materials, error) ||
+  [[nodiscard]] bool AppendGeometryMaterials(std::span<const MaterialBinding> materials,
+                                             std::string &error) {
+    if (!ActiveState().Content.Geometry.ValidateMaterials(materials, error) ||
         (ActiveState().Content.DrawsGlass &&
          !ActiveState().Content.Glass.ValidateMaterials(materials, error))) {
       return false;
     }
-    return ActiveState().Content.Subjects.AppendMaterials(materials, error) &&
+    return ActiveState().Content.Geometry.AppendMaterials(materials, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.AppendMaterials(materials, error));
   }
 
-  [[nodiscard]] bool SetSubjectLights(std::span<const SubjectLight> lights, std::string &error) {
-    return ActiveState().Content.Subjects.SetLights(lights, error) &&
+  [[nodiscard]] bool SetGeometryLights(std::span<const SceneLight> lights, std::string &error) {
+    return ActiveState().Content.Geometry.SetLights(lights, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.SetLights(lights, error));
   }
@@ -589,31 +639,33 @@ public:
     if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
-  [[nodiscard]] Native::Texture *SkyViewTable() const { return ActiveFrame().SkyViewLut.get(); }
+  [[nodiscard]] Native::Texture *SkyViewTable() const {
+    return ActiveFrame().Atmosphere.Texture(Resource::SkyViewLut);
+  }
 
   [[nodiscard]] Native::Texture *MultiScatterTable() const {
-    return ActiveFrame().MultiScatterLut.get();
+    return ActiveFrame().Atmosphere.Texture(Resource::MultiScatterLut);
   }
 
   [[nodiscard]] Native::Texture *TransmittanceTable() const {
-    return ActiveFrame().TransmittanceLut.get();
+    return ActiveFrame().Atmosphere.Texture(Resource::TransmittanceLut);
   }
 
-  void SetSubjectEnvironment(const SubjectEnvironment &environment) {
-    ActiveState().Content.Subjects.SetEnvironment(environment);
+  void SetGeometryEnvironment(const EnvironmentLighting &environment) {
+    ActiveState().Content.Geometry.SetEnvironment(environment);
     if (ActiveState().Content.DrawsGlass) {
       ActiveState().Content.Glass.SetEnvironment(environment);
     }
     if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
-  [[nodiscard]] uint32_t SubjectBatchCount() const {
-    return ActiveState().Content.Subjects.BatchCount();
+  [[nodiscard]] uint32_t GeometryBatchCount() const {
+    return ActiveState().Content.Geometry.BatchCount();
   }
 
-  [[nodiscard]] uint32_t SubjectBatchesTaking(VertexLayout layout) const {
+  [[nodiscard]] uint32_t GeometryBatchesTaking(VertexLayout layout) const {
     uint32_t many = 0;
-    for (const DrawBatch &batch : ActiveState().Content.Subjects.Drawn()) {
+    for (const DrawBatch &batch : ActiveState().Content.Geometry.Drawn()) {
       many += batch.Layout == layout ? 1u : 0u;
     }
     return many;
@@ -621,20 +673,25 @@ public:
 
   [[nodiscard]] size_t ShadowCastCount() const { return ActiveFrame().Shadow.CastBatches(); }
 
+  [[nodiscard]] const std::array<ShadowRegionUniform, kSunShadowRegions> &ShadowRegions() const {
+    return ActiveFrame().Shadow.Regions();
+  }
+
   [[nodiscard]] size_t ShadowedFrames() const {
-    return ActiveState().Content.Subjects.ShadowedFrames();
+    return ActiveState().Content.Geometry.ShadowedFrames();
   }
 
   struct Effort {
     double TookMs = 0.0;
     uint64_t DeviceBytes = 0;
     uint32_t Draws = 0;
-    uint32_t Triangles = 0;
+    uint64_t DirectTriangles = 0;
+    uint64_t IndirectInputTriangles = 0;
+    uint32_t IndirectRecords = 0;
     uint32_t Surfaces = 0;
     uint32_t Placements = 0;
     uint32_t Textured = 0;
     uint32_t Palettes = 0;
-    uint32_t Distinct = 0;
     uint32_t Layouts = 0;
   };
 
@@ -684,8 +741,8 @@ public:
     return SlowestRenderFrameTiming_;
   }
 
-  [[nodiscard]] size_t SubjectUniformPushes() const {
-    return ActiveState().Content.Subjects.UniformPushes() +
+  [[nodiscard]] size_t GeometryUniformPushes() const {
+    return ActiveState().Content.Geometry.UniformPushes() +
            ActiveState().Content.Glass.UniformPushes();
   }
 
@@ -693,18 +750,18 @@ public:
     return ActiveState().Plan ? ActiveState().Plan->Exposure() : 0.0f;
   }
 
-  [[nodiscard]] uint32_t SubjectDrawCount() const {
-    return ActiveState().Content.Subjects.DrawCount();
+  [[nodiscard]] uint32_t GeometryDrawCount() const {
+    return ActiveState().Content.Geometry.DrawCount();
   }
 
-  [[nodiscard]] uint32_t SubjectDrawCallCount() const noexcept {
+  [[nodiscard]] uint32_t GeometryDrawCallCount() const noexcept {
     const auto &content = ActiveState().Content;
-    return content.Subjects.EncodedDrawCalls() +
+    return content.Geometry.EncodedDrawCalls() +
            (content.DrawsGlass ? content.Glass.EncodedDrawCalls() : 0u);
   }
 
-  [[nodiscard]] uint32_t SubjectPipelineCount() const {
-    return ActiveState().Content.Subjects.PipelineCount();
+  [[nodiscard]] uint32_t GeometryPipelineCount() const {
+    return ActiveState().Content.Geometry.PipelineCount();
   }
 
   void SetCamera(const CameraBasis &basis, const Lens &lens) noexcept;
@@ -724,17 +781,18 @@ public:
 
   [[nodiscard]] bool RestoreGroundResources(std::string &error) {
     auto &content = ActiveState().Content;
-    if (!UploadGroundClasses(
-            content.Resources.GroundClasses(), content.Resources.GroundPalette(), error)) {
+    if (!UploadGroundClasses(content.Scene->Resources().GroundClasses(),
+                             content.Scene->Resources().GroundPalette(),
+                             error)) {
       return false;
     }
-    return content.Resources.RestoreTerrain(content.Subjects, error);
+    return content.Scene->Resources().RestoreTerrain(content.Geometry, error);
   }
 
   [[nodiscard]] std::expected<bool, std::string> AdvanceGroundResourceRestore(size_t &nextPage,
                                                                               size_t pagesMost) {
     auto &content = ActiveState().Content;
-    return content.Resources.AdvanceTerrainRestore(content.Subjects, nextPage, pagesMost);
+    return content.Scene->Resources().AdvanceTerrainRestore(content.Geometry, nextPage, pagesMost);
   }
 
   [[nodiscard]] float NearMetres() const { return ActiveState().NearM; }
@@ -774,36 +832,36 @@ private:
   void CollectGpuTime(Native::Completion completion);
   void CollectCompletedFrameTimes();
   CostProfile Costs_;
-  Native::Completion LastFrameSubmission_{}, MeasurementBegin_{};
+  Native::Completion MeasurementBegin_{};
   std::vector<GpuFrameSample> GpuSamples_;
   size_t GpuSampleLimit_ = 0;
   std::array<Effort, kStageCount> PendingSpent_{};
   RenderFrameTiming LastRenderFrameTiming_;
   RenderFrameTiming SlowestRenderFrameTiming_;
 
-  [[nodiscard]] Native::Result<void> CreateSampler(FrameResources &frame, Resource resource);
+  [[nodiscard]] Native::Result<void> CreateSampler(FrameResources &frame);
+  [[nodiscard]] bool PrepareGroundMaterialBuffers(FrameResources &frame, std::string &error);
+  void CommitSubmittedFrame(StageSubmission &stageSubmission, const CameraBasis &camera);
   [[nodiscard]] Native::Result<void>
-  CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, Resource resource);
-  void CommitSubmittedFrame(StageSubmission &stageSubmission);
-  [[nodiscard]] Native::Result<void>
-  Create(FrameResources &frame, const Compiled &plan, Resource resource);
+  Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource);
   [[nodiscard]] static bool Created(const FrameResources &frame, Resource resource);
   [[nodiscard]] bool Configure(Stage stage,
                                FrameResources &frame,
-                               const Compiled &plan,
+                               const ExecutionPlan &plan,
                                bool drawsGlass,
                                std::string &error);
   [[nodiscard]] bool
-  ConfigurePlanStages(FrameResources &frame, const Compiled &plan, bool drawsGlass);
+  ConfigurePlanStages(FrameResources &frame, const ExecutionPlan &plan, bool drawsGlass);
   [[nodiscard]] static AttachmentSet
-  ColoursForStage(const FrameResources &frame, const Compiled &plan, Stage wanted);
-  [[nodiscard]] Native::Result<void> EncodeStage(Stage stage, const PassRecording &into);
+  ColoursForStage(const FrameResources &frame, const ExecutionPlan &plan, Stage wanted);
+  [[nodiscard]] Native::Result<void>
+  EncodeStage(Stage stage, const FrameContext &ctx, const PassRecording &into);
 
   struct Executor {
     Stage Named;
     bool (*Configure)(SceneRenderer &renderer,
                       FrameResources &frame,
-                      const Compiled &plan,
+                      const ExecutionPlan &plan,
                       bool drawsGlass,
                       std::string &error);
     Native::Result<void> (SceneRenderer::*Encode)(const FrameContext &ctx,
@@ -816,12 +874,12 @@ private:
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
   [[nodiscard]] static bool ConfigureGroundPyramid(SceneRenderer &renderer,
                                                    FrameResources &frame,
-                                                   const Compiled &plan,
+                                                   const ExecutionPlan &plan,
                                                    bool drawsGlass,
                                                    std::string &error);
   [[nodiscard]] static bool ConfigureGroundSelection(SceneRenderer &renderer,
                                                      FrameResources &frame,
-                                                     const Compiled &plan,
+                                                     const ExecutionPlan &plan,
                                                      bool drawsGlass,
                                                      std::string &error);
   [[nodiscard]] Native::Result<void> EncodeGroundPyramid(const FrameContext &ctx,
@@ -830,87 +888,87 @@ private:
                                                            const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
                                                   const PassRecording &into);
-  [[nodiscard]] static bool ConfigureSubjects(SceneRenderer &renderer,
+  [[nodiscard]] static bool ConfigureGeometry(SceneRenderer &renderer,
                                               FrameResources &frame,
-                                              const Compiled &plan,
+                                              const ExecutionPlan &plan,
                                               bool drawsGlass,
                                               std::string &error);
   [[nodiscard]] static bool ConfigureGlass(SceneRenderer &renderer,
                                            FrameResources &frame,
-                                           const Compiled &plan,
+                                           const ExecutionPlan &plan,
                                            bool drawsGlass,
                                            std::string &error);
   [[nodiscard]] static bool ConfigureCompositeTransmission(SceneRenderer &renderer,
                                                            FrameResources &frame,
-                                                           const Compiled &plan,
+                                                           const ExecutionPlan &plan,
                                                            bool drawsGlass,
                                                            std::string &error);
   [[nodiscard]] static bool ConfigureOverlay(SceneRenderer &renderer,
                                              FrameResources &frame,
-                                             const Compiled &plan,
+                                             const ExecutionPlan &plan,
                                              bool drawsGlass,
                                              std::string &error);
   [[nodiscard]] static bool ConfigurePresent(SceneRenderer &renderer,
                                              FrameResources &frame,
-                                             const Compiled &plan,
+                                             const ExecutionPlan &plan,
                                              bool drawsGlass,
                                              std::string &error);
   [[nodiscard]] static bool ConfigureTonemap(SceneRenderer &renderer,
                                              FrameResources &frame,
-                                             const Compiled &plan,
+                                             const ExecutionPlan &plan,
                                              bool drawsGlass,
                                              std::string &error);
   [[nodiscard]] static bool ConfigureMediumTransmittance(SceneRenderer &renderer,
                                                          FrameResources &frame,
-                                                         const Compiled &plan,
+                                                         const ExecutionPlan &plan,
                                                          bool drawsGlass,
                                                          std::string &error);
   [[nodiscard]] static bool ConfigureMediumMultiScatter(SceneRenderer &renderer,
                                                         FrameResources &frame,
-                                                        const Compiled &plan,
+                                                        const ExecutionPlan &plan,
                                                         bool drawsGlass,
                                                         std::string &error);
   [[nodiscard]] static bool ConfigureMediumRadiance(SceneRenderer &renderer,
                                                     FrameResources &frame,
-                                                    const Compiled &plan,
+                                                    const ExecutionPlan &plan,
                                                     bool drawsGlass,
                                                     std::string &error);
   [[nodiscard]] static bool ConfigureEnvironmentSpecular(SceneRenderer &renderer,
                                                          FrameResources &frame,
-                                                         const Compiled &plan,
+                                                         const ExecutionPlan &plan,
                                                          bool drawsGlass,
                                                          std::string &error);
   [[nodiscard]] static bool ConfigureIrradiance(SceneRenderer &renderer,
                                                 FrameResources &frame,
-                                                const Compiled &plan,
+                                                const ExecutionPlan &plan,
                                                 bool drawsGlass,
                                                 std::string &error);
   [[nodiscard]] static bool ConfigureDepthPyramid(SceneRenderer &renderer,
                                                   FrameResources &frame,
-                                                  const Compiled &plan,
+                                                  const ExecutionPlan &plan,
                                                   bool drawsGlass,
                                                   std::string &error);
   [[nodiscard]] static bool ConfigureSky(SceneRenderer &renderer,
                                          FrameResources &frame,
-                                         const Compiled &plan,
+                                         const ExecutionPlan &plan,
                                          bool drawsGlass,
                                          std::string &error);
   [[nodiscard]] static bool ConfigureAerialPerspective(SceneRenderer &renderer,
                                                        FrameResources &frame,
-                                                       const Compiled &plan,
+                                                       const ExecutionPlan &plan,
                                                        bool drawsGlass,
                                                        std::string &error);
   [[nodiscard]] static bool ConfigureLightVisibility(SceneRenderer &renderer,
                                                      FrameResources &frame,
-                                                     const Compiled &plan,
+                                                     const ExecutionPlan &plan,
                                                      bool drawsGlass,
                                                      std::string &error);
-  [[nodiscard]] static bool ConfigureSubjectCull(SceneRenderer &renderer,
-                                                 FrameResources &frame,
-                                                 const Compiled &plan,
-                                                 bool drawsGlass,
-                                                 std::string &error);
-  [[nodiscard]] Native::Result<void> EncodeSubjects(const FrameContext &ctx,
+  [[nodiscard]] static bool ConfigureGeometryCull(SceneRenderer &renderer,
+                                                  FrameResources &frame,
+                                                  const ExecutionPlan &plan,
+                                                  bool drawsGlass,
+                                                  std::string &error);
+  [[nodiscard]] Native::Result<void> EncodeGeometry(const FrameContext &ctx,
                                                     const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGlass(const FrameContext &ctx,
                                                  const PassRecording &into);
@@ -942,29 +1000,33 @@ private:
                                                              const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeLightVisibility(const FrameContext &ctx,
                                                            const PassRecording &into);
-  [[nodiscard]] Native::Result<void> EncodeSubjectCull(const FrameContext &ctx,
-                                                       const PassRecording &into);
-  [[nodiscard]] Native::Result<void> EncodeSubjectScan(const FrameContext &ctx,
-                                                       const PassRecording &into);
-  [[nodiscard]] Native::Result<void> EncodeSubjectCompact(const FrameContext &ctx,
-                                                          const PassRecording &into);
-  [[nodiscard]] Native::Result<void>
-  EncodePass(Native::Commands *commands, size_t pass, StageSubmission &submission);
+  [[nodiscard]] Native::Result<void> EncodeGeometryCull(const FrameContext &ctx,
+                                                        const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGeometryScan(const FrameContext &ctx,
+                                                        const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGeometryCompact(const FrameContext &ctx,
+                                                           const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodePass(Native::Commands *commands,
+                                                size_t pass,
+                                                const FrameContext &ctx,
+                                                StageSubmission &submission);
   [[nodiscard]] Native::Result<void> EncodeComputePass(Native::Commands *commands,
-                                                       const Compiled::Pass &declared,
+                                                       const ExecutionPlan::Pass &declared,
+                                                       const FrameContext &ctx,
                                                        StageSubmission &submission);
   [[nodiscard]] Native::Result<void> EncodeGraphicsPass(Native::Commands *commands,
-                                                        const Compiled::Pass &declared,
+                                                        const ExecutionPlan::Pass &declared,
+                                                        const FrameContext &ctx,
                                                         StageSubmission &submission);
   [[nodiscard]] FrameContext Framing() const;
   void SettleShadow();
   std::array<bool, kResourceCount> Touched_ = {{}};
   [[nodiscard]] Native::Texture *Target(Resource resource) const;
-  [[nodiscard]] static Native::Texture *Target(const FrameResources &frame, Resource resource);
+  [[nodiscard]] static Native::Texture *
+  Target(const FrameResources &frame, Resource resource, size_t linearIndex);
   void BindFrameResources();
   void ApplyWorldDeclarations();
 
-  [[nodiscard]] Native::Buffer *BufferFor(Resource resource) const;
   [[nodiscard]] DisplayOptions Display() const;
 
   [[nodiscard]] Native::Texture *LinearSource() const;
@@ -975,15 +1037,17 @@ private:
   std::unique_ptr<UploadQueue> Uploads_;
 
   struct WorldContent {
-    TerrainMaterialBuffers Ground;
+    std::unique_ptr<RenderScene> Scene;
     std::optional<GroundClassificationSource> PendingGroundClasses;
-    SceneResources Resources;
-    SubjectDraw Subjects;
-    SubjectDraw Glass;
-    OverlayDraw Overlay;
+    GeometryRenderer Geometry;
+    GeometryRenderer Glass;
     bool DrawsGlass = false;
 
-    WorldContent() = default;
+    WorldContent()
+        : Scene(std::make_unique<RenderScene>()),
+          Geometry(*Scene),
+          Glass(*Scene, GeometryPassKind::Transmission) {}
+
     WorldContent(const WorldContent &) = delete;
     WorldContent &operator=(const WorldContent &) = delete;
     WorldContent(WorldContent &&) noexcept = default;
@@ -995,53 +1059,33 @@ private:
     Shown Shown;
     std::unique_ptr<Native::Texture> Offscreen;
     Gpu Handles;
-    std::unique_ptr<Native::Texture> HdrTex, VelTex, DepthTex, FrameTex;
-    std::unique_ptr<Native::Texture> TransmittanceLut, MultiScatterLut, SkyViewLut,
-        EnvironmentSpecular;
-    std::unique_ptr<Native::Texture> ShadowAtlas;
-    std::unique_ptr<Native::Texture> TransmissiveTex, CompositedTex, AerialTex;
-    std::unique_ptr<Native::Texture> ShadingNormalTex;
-    std::unique_ptr<Native::Texture> SurfaceIdentityTex;
-    std::unique_ptr<Native::Texture> SurfaceBaseTex;
-    std::unique_ptr<Native::Texture> SurfaceMetalRoughTex;
-    std::unique_ptr<Native::Sampler> Samp, LutSamp;
-    std::unique_ptr<Native::Buffer> IrradianceBuffer;
-    std::unique_ptr<Native::Buffer> Pyramid;
-    std::unique_ptr<Native::Buffer> GroundPyramid;
+    FrameTargets Targets;
+    AtmospherePasses Atmosphere;
+    std::unique_ptr<Native::Sampler> Samp;
     Readback PyramidRead;
     int Width = 0, Height = 0;
-    std::array<std::unique_ptr<Native::Texture>, 2> LinearTex{};
-    int LinearAt = 0;
-    bool HistoryHeld = false;
     CompositeTransmissionStage CompositeTransmission;
     AerialPerspectiveStage Aerial;
     TonemapStage Tonemap;
-    MediumTransmittanceStage MediumTransmittance;
-    MediumMultiScatterStage MultiScatter;
-    MediumRadianceStage Radiance;
-    IrradianceStage SkyIrradianceStage;
-    EnvironmentSpecularStage EnvironmentSpecularStage;
-    DepthPyramidStage PyramidStage;
-    DepthPyramidStage GroundPyramidStage;
+    DepthPyramidPass DepthPyramid;
+    DepthPyramidPass GroundPyramid;
     SkyStage Sky;
-    LightVisibilityStage Shadow;
-    SubjectCullStage Cull;
+    SunShadowPass Shadow;
+    GeometryCullStage Cull;
     OverlayPipeline OverlayPipe;
     PresentStage Present;
-    SubjectPipelineBinding SubjectPipelines;
-    SubjectPipelineBinding GlassPipelines;
+    GeometryPipelineBinding GeometryPipelines;
+    GeometryPipelineBinding GlassPipelines;
   };
 
   struct SceneStateCore {
-    std::shared_ptr<const Compiled> Plan;
+    std::shared_ptr<const ExecutionPlan> Plan;
     WorldContent Content;
+    OverlayDraw Overlay;
     Medium Medium = kEarthAir;
     float CosSunZenith = 1.0f;
     float EyeHeightM = 0.0f;
-    bool HistoryStarted = false;
-    int JitterAt = 0;
-    Vec2f Jitter = {{0.0f, 0.0f}};
-    Vec2f PrevJitter = {{0.0f, 0.0f}};
+    ViewHistory History;
     bool CameraFull = false;
     double RegionX = 0.0;
     double RegionY = 0.0;
@@ -1054,11 +1098,8 @@ private:
     float OrthoM = 0.0f;
     float NearM = kNearM;
     float FarM = 0.0f;
-    bool Submitted = false;
     bool Ready = false;
     std::string WhyNot;
-    Vec3 PrevEye = {{0, 0, 0}};
-    Mat4f PrevMvp = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 
     bool MediumDeclared = false;
     bool SkyDeclared = false;
@@ -1101,23 +1142,22 @@ private:
 
   bool Stands();
   [[nodiscard]] std::expected<void, std::string>
-  InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan, bool presents);
-  [[nodiscard]] std::expected<void, std::string> ValidateExecutablePlan(const Compiled &plan);
+  InitForTarget(Extent frame, std::shared_ptr<const ExecutionPlan> plan, bool presents);
+  [[nodiscard]] std::expected<void, std::string> ValidateExecutablePlan(const ExecutionPlan &plan);
   [[nodiscard]] std::expected<bool, std::string> ReuseFrameResources(Extent frame,
-                                                                     const Compiled &plan);
+                                                                     const ExecutionPlan &plan);
   [[nodiscard]] std::expected<FrameResources, std::string>
-  BuildFrameResources(Extent frame, const Compiled &plan, bool presents);
-  void PublishFrameResources(FrameResources frame, std::shared_ptr<const Compiled> plan);
+  BuildFrameResources(Extent frame, const ExecutionPlan &plan, bool presents);
+  void PublishFrameResources(FrameResources frame, std::shared_ptr<const ExecutionPlan> plan);
   void LogReadyPlan(Native::Device *device) const;
   [[nodiscard]] std::expected<void, std::string>
-  StandsOffscreen(FrameResources &frame, const Compiled *plan, bool presents);
+  StandsOffscreen(FrameResources &frame, const ExecutionPlan *plan, bool presents);
   [[nodiscard]] std::expected<std::unique_ptr<Native::Texture>, std::string>
-  MakeOffscreen(const Compiled *plan, Extent frame);
+  MakeOffscreen(const ExecutionPlan *plan, Extent frame);
   [[nodiscard]] std::expected<bool, std::string> ClaimWindow(SDL_Window *window);
 
   bool Presenting_ = true;
   SDL_Window *Showing_ = nullptr;
-  static constexpr int kJitterPeriod = 8;
 
   struct Placed {
     double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
@@ -1212,8 +1252,7 @@ private:
                : State_.Frame;
   }
 
-  std::array<std::optional<Native::Completion>, kFramesInFlight> Landed_{};
-  int LandedAt_ = 0;
+  FrameTimeline Frames_;
   SceneState State_;
   std::optional<WorldCandidate> Candidate_;
   size_t PublishedScopeDepth_ = 0;

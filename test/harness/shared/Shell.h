@@ -7,6 +7,18 @@
 
 namespace outshine::Test {
 
+[[nodiscard]] inline std::string ShellArgument(std::string_view value) {
+  std::string quoted = "'";
+  for (const char byte : value) {
+    if (byte == '\'') {
+      quoted += "'\\''";
+    } else {
+      quoted += byte;
+    }
+  }
+  return quoted + "'";
+}
+
 inline int Run(const std::string &command, std::string &said) {
   std::FILE *const pipe = popen(command.c_str(), "r");
   if (pipe == nullptr) { return -1; }

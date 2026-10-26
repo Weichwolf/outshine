@@ -37,17 +37,18 @@ void PublishRenderFrameTiming(Core::DiagnosticLedger &published,
 void PublishStageMeasurements(Core::DiagnosticLedger &published,
                               const Render::SceneRenderer &device) {
   static const auto names = [] {
-    std::array<std::array<std::string, 10>, Render::kStageCount> out;
-    constexpr std::array<const char *, 10> suffixes{", took",
-                                                    ", drew",
-                                                    ", triangles",
-                                                    ", surfaces",
-                                                    ", placements",
-                                                    ", textured",
-                                                    ", colour images",
-                                                    ", device bytes",
-                                                    ", placements that differ",
-                                                    ", vertex layouts"};
+    std::array<std::array<std::string, 11>, Render::kStageCount> out;
+    constexpr std::array<const char *, 11> suffixes{", took",
+                                                    ", encoded draw requests",
+                                                    ", direct input triangles",
+                                                    ", referenced surface slot limit",
+                                                    ", referenced placement slot limit",
+                                                    ", resident textured slots",
+                                                    ", resident colour images",
+                                                    ", owned device bytes",
+                                                    ", resident vertex layouts",
+                                                    ", indirect input triangles",
+                                                    ", indirect draw records"};
     for (size_t at = 0; at < out.size(); ++at) {
       for (size_t key = 0; key < suffixes.size(); ++key) {
         out[at][key] = std::string(Row(static_cast<Render::Stage>(at)).Name) + suffixes[key];
@@ -58,17 +59,18 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
   for (size_t at = 0; at < Render::kStageCount; ++at) {
     const auto &spent = device.Spent(static_cast<Render::Stage>(at));
     if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
-    const std::array<double, 10> values{spent.TookMs,
+    const std::array<double, 11> values{spent.TookMs,
                                         static_cast<double>(spent.Draws),
-                                        static_cast<double>(spent.Triangles),
+                                        static_cast<double>(spent.DirectTriangles),
                                         static_cast<double>(spent.Surfaces),
                                         static_cast<double>(spent.Placements),
                                         static_cast<double>(spent.Textured),
                                         static_cast<double>(spent.Palettes),
                                         static_cast<double>(spent.DeviceBytes),
-                                        static_cast<double>(spent.Distinct),
-                                        static_cast<double>(spent.Layouts)};
-    constexpr std::array<const char *, 10> units{"ms",
+                                        static_cast<double>(spent.Layouts),
+                                        static_cast<double>(spent.IndirectInputTriangles),
+                                        static_cast<double>(spent.IndirectRecords)};
+    constexpr std::array<const char *, 11> units{"ms",
                                                  "draws",
                                                  "triangles",
                                                  "slots",
@@ -76,9 +78,15 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
                                                  "slots",
                                                  "images",
                                                  "bytes",
-                                                 "rows",
-                                                 "layouts"};
-    for (size_t key = 0; key < values.size(); ++key) {
+                                                 "layouts",
+                                                 "triangles",
+                                                 "records"};
+    published.RecordMetric(names[at][0], values[0], units[0]);
+    const auto stage = static_cast<Render::Stage>(at);
+    if (stage != Render::Stage::OpaqueGeometry && stage != Render::Stage::TransmissiveGeometry) {
+      continue;
+    }
+    for (size_t key = 1; key < values.size(); ++key) {
       published.RecordMetric(names[at][key], values[key], units[key]);
     }
   }
@@ -274,7 +282,9 @@ void Engine::State::PublishAdvanceMeasurements() {
 }
 
 void Engine::State::PublishGroundMemoryMeasurements() {
-  Published.RecordMetric("building triangles the world meshed",
+  constexpr auto kSnapshotAnchor = "building triangles the world meshed";
+  if (Published.RecordedThisFrame(kSnapshotAnchor)) { return; }
+  Published.RecordMetric(kSnapshotAnchor,
                          static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
                          "triangles");
   Published.RecordMetric(
@@ -367,6 +377,7 @@ void Engine::State::PublishFrameMeasurements() {
     }
   }
   PublishAdvanceMeasurements();
+  PublishUrbanMeasurements();
   if (Picture.Standing) { PublishStageMeasurements(Published, Picture.Device); }
 
   if (Cost.Render.Taken() > 0) {

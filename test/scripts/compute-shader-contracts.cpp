@@ -1,9 +1,10 @@
 #include "ComputeShaders.h"
+#include <cstdio>
 #include <iomanip>
 #include <iostream>
 #include <string>
 
-int main() {
+int main() try {
   std::cout << "[\n";
   bool first = true;
   for (const auto &shader : outshine::Render::ComputeShaders()) {
@@ -22,4 +23,8 @@ int main() {
   std::cout << "\n]\n";
   std::cout.flush();
   return std::cout.good() ? 0 : 1;
+} catch (...) {
+
+  std::fputs("compute shader catalog generation failed\n", stderr);
+  return 1;
 }

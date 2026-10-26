@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 layout(std430, set = 0, binding = 0) readonly buffer Palette { float values[]; };
-struct Probe { vec4 SourceCoverage; vec2 Distances; int At; uint Mode; };
+struct Probe { vec4 GeographicBounds; vec2 Distances; int At; uint Mode; };
 layout(std430, set = 0, binding = 1) readonly buffer Inputs { Probe probes[]; };
 struct Result { vec4 First; vec4 Second; };
 layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Result results[]; };
@@ -15,8 +15,8 @@ void main() {
   Probe probe = probes[index];
   vec3 medium = surfaceMediumTransmittance(inputColour(probe.At + 3), probe.Distances.x,
                                            probe.Distances.y);
-  SurfaceTransfer surface = SurfaceTransfer(probe.SourceCoverage.rgb, inputColour(probe.At) * medium);
-  if (probe.Mode != 0u) { surface = coveredSurfaceTransfer(surface, probe.SourceCoverage.a); }
+  SurfaceTransfer surface = SurfaceTransfer(probe.GeographicBounds.rgb, inputColour(probe.At) * medium);
+  if (probe.Mode != 0u) { surface = coveredSurfaceTransfer(surface, probe.GeographicBounds.a); }
   if (probe.Mode == 2u) {
     results[index] = Result(vec4(surfaceTransferBehind(surface, inputColour(probe.At + 6)), 0.0),
                             vec4(medium, 0.0));

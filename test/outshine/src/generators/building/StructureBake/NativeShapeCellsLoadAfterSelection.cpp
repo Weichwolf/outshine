@@ -6,9 +6,9 @@
 #include "BuildingSurfaceBlock.h"
 #include "BuildingScratch.h"
 #include "BuildingMesh.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "Geodesy.h"
 #include <array>
 #include <algorithm>
@@ -132,7 +132,7 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-building-cells-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "native building cache opens");
@@ -172,6 +172,11 @@ int main() {
   CHECK(base && *base && (*cache)->Costs().SurfaceReadBytes == 0,
         "parent generation reloads metadata without reading any form cell");
   if (!reference || !base || !*base) { return Report(); }
+  CHECK((*base)->Structures.front().Standing.TerrainCeiling ==
+                reference->Structures.front().Standing.TerrainCeiling &&
+            (*base)->Structures.front().Standing.TerrainCeiling.has_value() &&
+            (*cache)->Costs().SurfaceReadBytes == 0,
+        "cached source contacts are ready without opening any fine form cell");
   raw = {};
   heights.reset();
   BuildingMesh mesher;

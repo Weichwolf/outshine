@@ -34,7 +34,7 @@ python test/experiments/render/shadow_source_native.py \
 ```
 
 Die installierbare öffentliche Engine-API wird getrennt über
-`test/outshine/include/Outshine/OnlyDeclaredSunConsumesShadowAtlas.cpp` geprüft:
+`test/outshine/src/engine/Engine/OnlyDeclaredSunConsumesShadowAtlas.cpp` geprüft:
 reale Geometrie, Würfelschatten und 1/15 authored Fülllichter vor dem Runtime-Key.
 Kontrollpixel bestätigen echtes Fülllicht außerhalb und tatsächliche Verdeckung
 innerhalb des Sonnenschattens. Dort muss der zusätzliche blaue Anteil innerhalb 1 %

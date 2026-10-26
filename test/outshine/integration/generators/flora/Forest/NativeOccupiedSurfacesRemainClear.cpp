@@ -1,0 +1,161 @@
+#include "Check.h"
+#include "Forest.h"
+#include "GroundSample.h"
+#include "RegionPool.h"
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <memory>
+#include <span>
+#include <vector>
+
+namespace {
+void CheckCanopies(outshine::Generators::Ground::Snapshot &snapshot,
+                   const outshine::Generators::Tile &region,
+                   std::span<const float> density) {
+  using namespace outshine;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  const auto east = static_cast<float>(region.SpanEm());
+  const auto north = static_cast<float>(region.SpanNm());
+  const float width = east / 2;
+  const float crownRadiusM = 4;
+  const Forest crownForest({.HeightM = 12, .CrownRadiusM = crownRadiusM, .CrownBaseM = 3},
+                           density,
+                           outshine::Generators::AlpineLimit{});
+  std::vector<FeatureField::Vertex> vertices{{.Em = 0, .Nm = 0},
+                                             {.Em = width, .Nm = 0},
+                                             {.Em = width, .Nm = north},
+                                             {.Em = 0, .Nm = north}};
+  const std::array<FeatureField::Ring, 1> rings{{{.First = 0, .Count = 4}}};
+  size_t highBuildingCount = 0;
+  for (const float roofM : {8.f, 2.f}) {
+    const std::array<FeatureField::Feature, 1> features{{{.FirstRing = 0,
+                                                          .RingCount = 1,
+                                                          .CoverRow = 0,
+                                                          .Kind = FeatureKind::Structure,
+                                                          .Form = FeatureForm::Area,
+                                                          .HalfWidthM = 0,
+                                                          .Base = FeatureLevel::At(0),
+                                                          .Top = FeatureLevel::At(roofM),
+                                                          .MinEm = 0,
+                                                          .MinNm = 0,
+                                                          .MaxEm = 0,
+                                                          .MaxNm = 0}}};
+    snapshot.Features = FeatureField::Of(features, rings, vertices);
+    const auto ground = Generators::Ground::Of(region, snapshot);
+    CHECK(ground.has_value(), "structure heights accompany their occupied footprint");
+    if (!ground) { continue; }
+    RegionPool pool({.Reached = region, .Anywhere = region}, {});
+    auto lease = pool.TryAcquire(*ground);
+    CHECK(lease.has_value(), "crown clearance fixture obtains a production placement sink");
+    if (!lease) { continue; }
+    std::vector<Yield::Note> notes(crownForest.NoteNames().size());
+    Yield yield(lease->Sink(), crownForest.NoteNames(), notes);
+    crownForest.Occupy(*ground, yield);
+    const auto bodies = lease->Sink().Placed();
+    CHECK(!bodies.empty(), "clear ground retains trees after crown intersection checks");
+    const double marginM = roofM > 3 ? crownRadiusM : 0;
+    CHECK(std::ranges::all_of(
+              bodies, [width, marginM](const Solid &body) { return body.Em > width + marginM; }),
+          "crowns avoid tall buildings while roots still avoid low buildings");
+    if (roofM > 3) {
+      highBuildingCount = bodies.size();
+    } else {
+      CHECK(bodies.size() > highBuildingCount,
+            "a crown above a low roof may overhang it without removing a valid tree");
+    }
+  }
+}
+}
+
+namespace {
+void CheckPartialFootprint(std::span<const outshine::Generators::Solid> bodies, float width) {
+  bool clear = true;
+  for (const outshine::Generators::Solid &body : bodies) { clear = clear && body.Em > width; }
+  CHECK(clear, "a partial footprint excludes only its occupied portion of the tile");
+}
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  const Tile region = Tile::Of(18, {.LongitudeDeg = 10, .LatitudeDeg = 47});
+  std::array<GroundPatch::Posting, 4> samples;
+  for (auto &sample : samples) { sample.Height = GroundSample::At(0); }
+  const auto frame = TangentFrame::At(region.Geo({.EastM = 0, .NorthM = 0}));
+  const auto grid = std::make_shared<TerrainClassificationMap::Grid>();
+  grid->W = grid->H = 1;
+  grid->OrgE = grid->OrgN = -1;
+  grid->CellM = 2 * std::max(region.SpanEm(), region.SpanNm()) + 2;
+  grid->Cells = {1u << 8, 0};
+  Generators::Ground::Snapshot snapshot;
+  snapshot.Patch = GroundPatch::Complete(region, 2, samples);
+  snapshot.Classes = std::make_shared<TerrainClassificationMap>(
+      frame,
+      grid,
+      std::make_shared<const TerrainClassificationMap::Grid>(),
+      TerrainClassificationMap::FromRun{});
+  const std::array<GroundTable::Row, 1> rows{};
+  snapshot.Table = GroundTable::Of(rows);
+  const std::array<float, 1> density{1};
+  const Forest forest(Forest::Stem{}, density, outshine::Generators::AlpineLimit{});
+  const auto east = static_cast<float>(region.SpanEm());
+  const auto north = static_cast<float>(region.SpanNm());
+  for (const int variant : {0, 1, 2, 3, 4}) {
+    const float width = variant == 4 ? east / 2 : east;
+    std::vector<FeatureField::Vertex> vertices{{.Em = 0, .Nm = 0},
+                                               {.Em = width, .Nm = 0},
+                                               {.Em = width, .Nm = north},
+                                               {.Em = 0, .Nm = north}};
+    const std::array<FeatureField::Ring, 1> rings{{{.First = 0, .Count = 4}}};
+    FeatureKind kind = FeatureKind::Structure;
+    if (variant == 2) { kind = FeatureKind::Water; }
+    if (variant == 3) { kind = FeatureKind::Way; }
+    const std::array<FeatureField::Feature, 1> features{{{.FirstRing = 0,
+                                                          .RingCount = 1,
+                                                          .CoverRow = 0,
+                                                          .Kind = kind,
+                                                          .Form = FeatureForm::Area,
+                                                          .HalfWidthM = 0,
+                                                          .Base = {},
+                                                          .Top = {},
+                                                          .MinEm = 0,
+                                                          .MinNm = 0,
+                                                          .MaxEm = 0,
+                                                          .MaxNm = 0}}};
+    if (variant == 0) {
+      snapshot.Features = FeatureField::Of({}, {}, {});
+    } else if (variant == 3) {
+      vertices = {{.Em = east / 2, .Nm = 0}, {.Em = east / 2, .Nm = north}};
+      const std::array<FeatureField::Ring, 1> line{{{.First = 0, .Count = 2}}};
+      auto ribbon = features;
+      ribbon[0].Form = FeatureForm::Ribbon;
+      ribbon[0].HalfWidthM = east;
+      snapshot.Features = FeatureField::Of(ribbon, line, vertices);
+    } else {
+      snapshot.Features = FeatureField::Of(features, rings, vertices);
+    }
+    const auto ground = Generators::Ground::Of(region, snapshot);
+    CHECK(ground.has_value(), "the native terrain and occupied footprint fixture is complete");
+    if (!ground) { continue; }
+    RegionPool pool({.Reached = region, .Anywhere = region}, {});
+    auto lease = pool.TryAcquire(*ground);
+    CHECK(lease.has_value(), "the fixture obtains a production placement sink");
+    if (!lease) { continue; }
+    std::vector<Yield::Note> notes(forest.NoteNames().size());
+    Yield yield(lease->Sink(), forest.NoteNames(), notes);
+    forest.Occupy(*ground, yield);
+    const auto bodies = lease->Sink().Placed();
+    if (variant == 0 || variant == 4) {
+      CHECK(!bodies.empty(), "free fertile ground retains vegetation");
+    } else {
+      CHECK(bodies.empty(), "native building, water and road footprints remain clear of trees");
+    }
+    if (variant == 4) { CheckPartialFootprint(bodies, width); }
+  }
+  CheckCanopies(snapshot, region, density);
+  return Report();
+}

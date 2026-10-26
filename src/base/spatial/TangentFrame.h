@@ -4,8 +4,8 @@
 #include <cmath>
 
 #include "Geodesy.h"
-#include "math/Units.h"
-#include "math/Vec3.h"
+#include "Units.h"
+#include "Vec3.h"
 
 namespace outshine {
 

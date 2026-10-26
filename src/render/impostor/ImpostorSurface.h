@@ -3,7 +3,7 @@
 
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 
 #include <cstddef>
 #include <optional>
@@ -14,12 +14,12 @@ namespace outshine::Render {
 enum class ImpostorSurfaceDetail { Flat, Depth };
 
 [[nodiscard]] std::optional<Geometry>
-BuildImpostorSurface(const Content::ImpostorAtlas &atlas,
+BuildImpostorSurface(const ImpostorAtlas &atlas,
                      size_t view,
                      ImpostorSurfaceDetail detail = ImpostorSurfaceDetail::Depth);
 
-[[nodiscard]] std::optional<Content::ImpostorCards>
-PrepareImpostorCards(const Content::ImpostorAtlas &atlas, std::string &error);
+[[nodiscard]] std::optional<ImpostorCards> PrepareImpostorCards(const ImpostorAtlas &atlas,
+                                                                std::string &error);
 
 }
 #endif

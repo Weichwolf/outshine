@@ -4,7 +4,7 @@
 #include <string>
 #include <expected>
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 
 namespace outshine {
 

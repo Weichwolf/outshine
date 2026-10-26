@@ -1,7 +1,7 @@
-#include <Outshine.h>
-#include <scenario/Scenario.h>
-#include <scene/Geometry.h>
-#include <scene/PunctualLight.h>
+#include <Engine.h>
+#include <Scenario.h>
+#include <Geometry.h>
+#include <PunctualLight.h>
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>

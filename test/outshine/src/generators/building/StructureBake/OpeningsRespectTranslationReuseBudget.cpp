@@ -1,3 +1,6 @@
+#include <cstddef>
+#include <optional>
+#include <expected>
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "Geodesy.h"
@@ -8,6 +11,11 @@
 #include <memory>
 
 namespace {
+constexpr double kTileSpanM = 16000, kEyeLatitudeDeg = 47, kLongitudeDeg = 9;
+constexpr double kHighLongitudeDeg = 9.0001, kRingSizeDeg = 0.0001;
+constexpr double kFocalPx = 691.554, kReuseM = 64, kOldReserveM = 128;
+constexpr double kOpeningDepthM = 0.16, kFarLatitudeDeg = 47.0018, kNearLatitudeDeg = 47.0012;
+
 class ObservedMesher final : public outshine::StructureMesher {
 public:
   std::unique_ptr<outshine::MeshScratch> Scratch() const override { return Native.Scratch(); }
@@ -43,13 +51,19 @@ void CheckAt(double latitude, bool expectedRecess) {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  const std::array ring{
-      latitude, 9.0, latitude, 9.0001, latitude + 0.0001, 9.0001, latitude + 0.0001, 9.0};
+  const std::array ring{latitude,
+                        kLongitudeDeg,
+                        latitude,
+                        kHighLongitudeDeg,
+                        latitude + kRingSizeDeg,
+                        kHighLongitudeDeg,
+                        latitude + kRingSizeDeg,
+                        kLongitudeDeg};
   RawTile raw;
-  raw.TileSpanM = 16000;
-  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
-  raw.Projection = {.FocalPx = 691.554, .AllowedErrorPx = 1};
-  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47}, raw.AnchorEcef);
+  raw.TileSpanM = kTileSpanM;
+  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = kEyeLatitudeDeg};
+  raw.Projection = {.FocalPx = kFocalPx, .AllowedErrorPx = 1};
+  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = kEyeLatitudeDeg}, raw.AnchorEcef);
   raw.EyeEcef = raw.AnchorEcef;
   StructurePlan plan;
   plan.RingLatLon = ring;
@@ -58,7 +72,7 @@ void CheckAt(double latitude, bool expectedRecess) {
   plan.HeightMeasured = true;
   plan.AnchorEcef = raw.AnchorEcef;
   plan.Facade = FacadeStyle::Block;
-  ObservedMesher mesher;
+  const ObservedMesher mesher;
   auto scratch = mesher.Scratch();
   const auto bounds = mesher.SourceEnvelopeBounds(plan, *scratch);
   CHECK(bounds.has_value(), "native building bounds are available before detail emission");
@@ -68,19 +82,19 @@ void CheckAt(double latitude, bool expectedRecess) {
     offset[axis] = std::clamp(0.0, bounds->Min[axis], bounds->Max[axis]);
   }
   const double distance = std::hypot(offset[0], offset[1], offset[2]);
-  CHECK(StructureSelectionView{}.EyeRadiusM == 64.0,
+  CHECK(StructureSelectionDomain({}, {}).EyeRadiusM == kReuseM,
         "translation reuse is limited to the promised 64 metres");
-  CHECK(expectedRecess || raw.Projection.Allows(0.16, distance - 64.0),
+  CHECK(expectedRecess || raw.Projection.Allows(kOpeningDepthM, distance - kReuseM),
         "omitted recesses remain subpixel after the full allowed movement toward the wall");
-  CHECK(expectedRecess || !raw.Projection.Allows(0.16, distance - 128.0),
+  CHECK(expectedRecess || !raw.Projection.Allows(kOpeningDepthM, distance - kOldReserveM),
         "this case distinguishes actual reuse from the old doubled reserve");
   StructurePlanSelection selection;
   CHECK(selection
             .Add(plan,
                  {.LowLat = latitude,
-                  .HighLat = latitude + 0.0001,
-                  .LowLon = 9.0,
-                  .HighLon = 9.0001,
+                  .HighLat = latitude + kRingSizeDeg,
+                  .LowLon = kLongitudeDeg,
+                  .HighLon = kHighLongitudeDeg,
                   .Count = 1,
                   .Cell = 1},
                  0,
@@ -100,7 +114,7 @@ void CheckAt(double latitude, bool expectedRecess) {
 }
 
 int main() {
-  CheckAt(47.0018, false);
-  CheckAt(47.0012, true);
+  CheckAt(kFarLatitudeDeg, false);
+  CheckAt(kNearLatitudeDeg, true);
   return outshine::Test::Report();
 }

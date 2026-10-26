@@ -1,10 +1,10 @@
-#include "math/Units.h"
+#include "Units.h"
 #include "math/Projection.h"
 #include <cmath>
 #include <algorithm>
 #include <expected>
-#include "math/Mat4.h"
-#include "scene/Camera.h"
+#include "Mat4.h"
+#include "Camera.h"
 #include "math/TransformMatrix.h"
 
 namespace outshine {

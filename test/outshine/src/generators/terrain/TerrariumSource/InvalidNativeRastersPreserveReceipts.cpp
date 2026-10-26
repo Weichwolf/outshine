@@ -1,6 +1,6 @@
 #include "TerrainDelivery.h"
 #include "Check.h"
-#include <world/data/Source.h>
+#include <Source.h>
 #include <limits>
 #include <memory>
 #include <variant>
@@ -19,14 +19,14 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Meant(Meaning::Refused);
+  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+    return SourceResponse::Meant(Meaning::Refused);
   }
 
   std::expected<HeightRaster, DecodeFailure>
@@ -53,7 +53,7 @@ private:
 int main() {
   using namespace outshine::Test;
   const TileId at{.Zoom = 3, .X = 2, .Y = 2};
-  const Fetch request(DataKind::Elevation, Address::At(at));
+  const SourceRequest request(DataKind::Elevation, Address::At(at));
   for (const auto payload : {Payload::Valid,
                              Payload::OneRow,
                              Payload::Incomplete,
@@ -83,7 +83,7 @@ int main() {
             "invalid native products prevent world publication");
       if (decoded.Failure()) {
         const auto &failure = *decoded.Failure();
-        CHECK(failure.Reason == FetchFailureReason::CorruptPayload &&
+        CHECK(failure.Reason == SourceFailureReason::CorruptPayload &&
                   failure.SourceId == "actual-source" &&
                   failure.SourceRevision == "actual-revision" &&
                   failure.SourceKey == "actual-key" && failure.Requested == request.Where() &&

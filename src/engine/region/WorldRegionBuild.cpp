@@ -1,9 +1,12 @@
+#include "SceneLighting.h"
+#include "TerrainLattice.h"
 #include "WorldRegionBuildState.h"
+#include "TerrainFieldPinning.h"
 #include "building/BuildingMaterials.h"
 #include "Digest.h"
-#include "math/Units.h"
-#include "math/Vec2.h"
-#include "math/Vec3.h"
+#include "Units.h"
+#include "Vec2.h"
+#include "Vec3.h"
 #include "Capacity.h"
 #include "Log.h"
 #include <algorithm>
@@ -43,7 +46,7 @@
 #include "geo/PlaceKey.h"
 #include "spatial/Refine.h"
 #include "Corridors.h"
-#include "BuildingStampJob.h"
+#include "BuildingFoundationJob.h"
 #include "TerrainMesh.h"
 #include "TerrainDeformation.h"
 #include "TerrainDeformationTask.h"
@@ -67,8 +70,6 @@
 namespace outshine {
 namespace Says {
 constexpr auto MaterialCreationFailed = "could not create ground materials";
-constexpr auto CorridorTerrainIncomplete =
-    "corridor generation reached terrain without a DEM field";
 constexpr auto GroundContactIncomplete = "ground patchwork has no ready contact terrain";
 constexpr auto GroundDetailCameraInvalid =
     "ground detail needs a finite camera eye, positive lens and frame height";
@@ -81,6 +82,28 @@ static_assert(Ground::kStreamGrid == 2 * kPatchGrid,
               "re-derived rather than kept");
 
 namespace {
+
+void RecordWaterSurfaceState(Core::DiagnosticLedger &published,
+                             const Generators::WaterAsset &water) {
+  const auto built = Generators::InspectWaterSurfaceGeometry(water);
+  published.RecordMetric("water: surfaces laid", static_cast<double>(built.Laid), "surfaces");
+  published.RecordMetric("water: surfaces refused",
+                         static_cast<double>(built.RefusedTopology + built.RefusedCapacity),
+                         "surfaces");
+  published.RecordMetric("water: surfaces refused by topology",
+                         static_cast<double>(built.RefusedTopology),
+                         "surfaces");
+  published.RecordMetric("water: surfaces refused by capacity",
+                         static_cast<double>(built.RefusedCapacity),
+                         "surfaces");
+  published.RecordMetric("water: surfaces without admitted shared height model",
+                         static_cast<double>(built.ProfileDeclines),
+                         "surfaces");
+  published.RecordMetric("water: triangles", static_cast<double>(built.Triangles), "triangles");
+  published.RecordMetric("water: prepared surface payload",
+                         static_cast<double>(water.PreparedSurfaceBytes()),
+                         "bytes");
+}
 
 bool ValidGroundDetailCamera(const Render::Viewpoint &view, Extent frame) {
   if (frame.HeightPx <= 0) { return false; }
@@ -127,8 +150,6 @@ constexpr size_t kRefinedStructureCandidates = 4;
 constexpr size_t kTerrainSheetsPerFrame = 48;
 constexpr size_t kTerrainResidencySheetsPerFrame = 64;
 constexpr size_t kEarthworkStampUnitsPerFrame = 2048;
-constexpr size_t kCorridorLanesPerFrame = 128;
-constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kClassUploadBytesPerFrame = 1u << 20u;
 constexpr size_t kHaloNodesPerFrame = 32768;
@@ -234,7 +255,8 @@ ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
     return GroundRegionPreparation::Completed{.Key = std::move(key),
                                               .Loaded = std::move(*demanded),
                                               .RequestKey = std::move(request),
-                                              .RequestHit = true};
+                                              .RequestHit = true,
+                                              .SurfacePages = nullptr};
   }
   if (std::ranges::any_of(vectors.Tiles(),
                           [](const auto &tile) { return tile.InputDigest.empty(); })) {
@@ -249,8 +271,10 @@ ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
     auto bound = assets.BindRequest(key, request);
     if (!bound) { return std::unexpected(std::move(bound.error())); }
   }
-  return GroundRegionPreparation::Completed{
-      .Key = std::move(key), .Loaded = std::move(*loaded), .RequestKey = std::move(request)};
+  return GroundRegionPreparation::Completed{.Key = std::move(key),
+                                            .Loaded = std::move(*loaded),
+                                            .RequestKey = std::move(request),
+                                            .SurfacePages = nullptr};
 }
 
 bool GroundSourcesReady(const Ground::SurfacePreparation &stack, GroundQuality quality) {
@@ -285,7 +309,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
   Classed out;
   const auto publication = World.Stack.Classes().ReadPublication();
   const auto &classes = publication.Classes;
-  const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
+  const Generators::RegionSurfaceRecipes &wearing = World.Stack.SurfaceRecipes();
   const Medium fallback = kEarthAir;
   if (classes && wearing.Ready()) {
     out.Structure = classes;
@@ -294,7 +318,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
                          fallback.GroundAlbedo[1],
                          fallback.GroundAlbedo[2],
                          Material{}.Roughness}};
-    out.Palette = Render::GroundMaterialPalette(wearing, unknown);
+    out.Palette = Render::GroundMaterialPalette(wearing.SurfacePalette(), unknown);
   }
   if (out.Structure && !out.Palette.empty()) {
     const size_t rows = std::bit_cast<uint32_t>(out.Palette[0]);
@@ -320,7 +344,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
       Published.RecordMetric("lighting: blue", kPerMille * wornMean[2], "albedo/1000");
     }
   }
-  const Render::SubjectEnvironment &lighting = candidate.AmbientStanding();
+  const Render::EnvironmentLighting &lighting = candidate.AmbientStanding();
   Published.RecordMetric(
       "lighting: the sky's own radiance, red", lighting.RadianceLinear[0], "cd/m2");
   Published.RecordMetric("lighting: sky green", lighting.RadianceLinear[1], "cd/m2");
@@ -370,9 +394,12 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
 bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
                                             GroundBuildProducts &build,
                                             Phasing &clocks) {
-  build.Pieces.Framed(standing);
-  Core::ReportBuildingFootprints(
-      Published, World.Stack.Footprints(), World.Stack.Vectors(), standing);
+  build.Pieces.SetFrame(standing);
+  Core::ReportBuildingFootprints(Published,
+                                 World.Stack.Footprints(),
+                                 World.Stack.Vectors(),
+                                 standing,
+                                 Session.Declared.Render.Audits);
   if (!build.Surfaces) {
     Geometry materials;
     Material walls;
@@ -400,9 +427,9 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
       return false;
     }
     build.Surfaces =
-        TilePieces::Surfaces{.Walls = Render::PieceSurface::Registered(*first),
-                             .Roofs = Render::PieceSurface::Registered(*first + 1u),
-                             .MetreWalls = Render::PieceSurface::Registered(*first + 2u)};
+        BuildingPageMaterials{.Walls = Render::PieceSurface::Registered(*first),
+                              .Roofs = Render::PieceSurface::Registered(*first + 1u),
+                              .MetreWalls = Render::PieceSurface::Registered(*first + 2u)};
   }
   Published.RecordMetric(
       "rebuild: the ground ring took",
@@ -416,7 +443,7 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
   Published.RecordMetric(
       "buildings: the roof surface", static_cast<double>(build.Surfaces->Roofs.Index), "index");
   Published.RecordMetric("buildings: tiles handed to the arena as pieces",
-                         static_cast<double>(World.Pieces.Handed()),
+                         static_cast<double>(World.Pieces.Uploads()),
                          "tiles");
   Published.RecordMetric(
       "buildings: pieces the arena refused", static_cast<double>(World.Pieces.Refused()), "pieces");
@@ -584,50 +611,45 @@ Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
                                          WorldRegionBuildState &state,
                                          std::vector<EarthworkStamp> &yielding) {
   const auto sliceAt = std::chrono::steady_clock::now();
-  if (state.Stamping() == nullptr) {
-    state.BeginsStamping(
-        std::make_unique<Generators::BuildingStampJob>(standing, state.Footprints().Revision()));
+  if (state.BuildingEarthworks() == nullptr) {
+    state.BeginBuildingEarthworks(std::make_unique<Generators::BuildingFoundationJob>(
+        standing, state.Footprints().Revision(), state.Footprints().PinProducts()));
   }
-  const auto advanced =
-      state.Stamping()->Advance({.Products = &state.Footprints(),
-                                 .Footprints = state.Footprints().Footprints(),
-                                 .Points = {},
-                                 .Rings = {},
-                                 .VectorGeneration = state.Footprints().Revision(),
-                                 .UnitsMost = kEarthworkStampUnitsPerFrame});
+  const auto advanced = state.BuildingEarthworks()->Advance(
+      {.Generation = state.Footprints().Revision(), .UnitsMost = kEarthworkStampUnitsPerFrame});
   if (!advanced) {
     Error = std::string(advanced.error());
     return GroundBuildProgress::Failed;
   }
-  state.SamplesPressingSlice(
+  state.RecordTerrainDeformationSlice(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
           .count());
   state.SamplesProductPeak();
   if (!*advanced) { return GroundBuildProgress::Pending; }
-  auto stamped = std::move(*state.Stamping()).Take();
+  auto stamped = state.BuildingEarthworks()->Take();
   if (!stamped) {
     Error = std::string(stamped.error());
     return GroundBuildProgress::Failed;
   }
   yielding = std::move(*stamped);
-  state.FinishesStamping();
+  state.FinishBuildingEarthworks();
   return GroundBuildProgress::Ready;
 }
 
 bool Engine::State::GroundDeformationPending() const noexcept {
-  return World.GroundBuild && World.GroundBuild->Pressing() != nullptr;
+  return World.GroundBuild && World.GroundBuild->TerrainDeformation() != nullptr;
 }
 
 bool Engine::State::AwaitGroundDeformation(double seconds) const {
   assert(GroundDeformationPending());
-  return World.GroundBuild->Pressing()->AwaitSlice(seconds);
+  return World.GroundBuild->TerrainDeformation()->AwaitSlice(seconds);
 }
 
 bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
                                           WorldRegionBuildState &state) {
   const auto sliceAt = std::chrono::steady_clock::now();
-  if (state.Pressing() == nullptr) {
+  if (state.TerrainDeformation() == nullptr) {
     const ::outshine::Generators::Osm::OsmField *const live = World.Stack.Vectors();
     const ::outshine::Generators::Osm::OsmField *const shapes =
         state.Candidate().Sources().Vectors.get();
@@ -636,10 +658,10 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
       return true;
     }
     std::vector<EarthworkStamp> yielding;
-    if (shapes != nullptr || !state.Footprints().Footprints().empty()) {
+    if (shapes != nullptr || state.Footprints().FootprintCount() != 0) {
       const GroundBuildProgress stamped = BuildGroundBuildingStamps(standing, state, yielding);
       if (stamped != GroundBuildProgress::Ready) { return stamped != GroundBuildProgress::Failed; }
-    } else if (state.Stamping() != nullptr) {
+    } else if (state.BuildingEarthworks() != nullptr) {
       World.GroundBuild.reset();
       return true;
     }
@@ -703,34 +725,34 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     Published.RecordMetric("ground: corridor pieces that press it",
                            static_cast<double>(yielding.size() - builtPads - builtLakes),
                            "pieces");
-    state.BeginsPressing(std::make_unique<Generators::TerrainDeformationTask>(
+    state.BeginTerrainDeformation(std::make_unique<Generators::TerrainDeformationTask>(
         *World.Pool,
         World.Stack.TerrainAssets(),
         std::move(yielding),
         patchwork,
         standing,
-        Generators::TerrainPageLayout{.Side = Render::TerrainRenderer::kSide, .Halo = 1},
+        Generators::TerrainPageLayout{.Side = Render::TerrainLattice::kSide, .Halo = 1},
         kMostEarthworkM));
-    state.SamplesPressingSlice(
+    state.RecordTerrainDeformationSlice(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
             .count());
     state.SamplesProductPeak();
     return true;
   }
-  const bool completed = state.Pressing()->Advance();
-  state.SamplesPressingSlice(
+  const bool completed = state.TerrainDeformation()->Advance();
+  state.RecordTerrainDeformationSlice(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
           .count());
   state.SamplesProductPeak();
   if (!completed) { return true; }
-  auto pressed = state.Pressing()->Take(patchwork);
-  state.FinishesPressing();
+  auto pressed = state.TerrainDeformation()->Take(patchwork);
+  state.FinishTerrainDeformation();
   if (!pressed) {
     Error = std::move(pressed.error());
     World.GroundBuild.reset();
     return false;
   }
-  PublishEarthworkMeasurements(*pressed, state.LongestPressingSliceMs());
+  PublishEarthworkMeasurements(*pressed, state.LongestTerrainDeformationSliceMs());
   state.AdvanceStage();
   return true;
 }
@@ -755,20 +777,6 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
       "water: of that, laying the surfaces",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - waterAt).count(),
       "ms");
-  Published.RecordMetric("water: surfaces laid", static_cast<double>(built->Laid), "surfaces");
-  Published.RecordMetric("water: surfaces refused",
-                         static_cast<double>(built->RefusedTopology + built->RefusedCapacity),
-                         "surfaces");
-  Published.RecordMetric("water: surfaces refused by topology",
-                         static_cast<double>(built->RefusedTopology),
-                         "surfaces");
-  Published.RecordMetric("water: surfaces refused by capacity",
-                         static_cast<double>(built->RefusedCapacity),
-                         "surfaces");
-  Published.RecordMetric("water: triangles", static_cast<double>(built->Triangles), "triangles");
-  Published.RecordMetric("water: prepared surface payload",
-                         static_cast<double>(water.PreparedSurfaceBytes()),
-                         "bytes");
   if (built->Triangles > 0) {
     Published.RecordMetric("water: the geometry took it", 1.0, "yes/no");
   }
@@ -857,6 +865,7 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
   WorldRegionBuildState &state = *World.GroundBuild;
   GroundBuildProducts &build = state.Candidate().Products();
   build.Sheets.Framed(standing);
+  state.TerrainInputs().Framed(standing);
   Published.RecordMetric(
       "ground refinement: source sheets", static_cast<double>(patchwork.Sheets.size()), "sheets");
   const Render::Viewpoint &eye =
@@ -888,11 +897,11 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
   Published.RecordMetric(
       "ground refinement: road corridors", static_cast<double>(roadCorridors.size()), "edges");
   state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
-      build.Sheets.BeginRefinement(patchwork,
-                                   {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
-                                   detail,
-                                   Render::TerrainRenderer::kMaximumPages,
-                                   roadCorridors)));
+      state.TerrainInputs().BeginRefinement(patchwork,
+                                            {.Side = Render::TerrainLattice::kSide, .Halo = 1},
+                                            detail,
+                                            Render::TerrainLattice::kMaximumPages,
+                                            roadCorridors)));
   return GroundBuildProgress::Pending;
 }
 
@@ -902,9 +911,8 @@ Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patc
   WorldRegionBuildState::GroundSurvey &survey = state.Surveying();
   const auto began = std::chrono::steady_clock::now();
   if (survey.NextSheet == 0) {
-    const auto nodes =
-        patchwork.Sheets.size() *
-        static_cast<size_t>(Render::TerrainRenderer::kSide * Render::TerrainRenderer::kSide);
+    const auto nodes = patchwork.Sheets.size() * static_cast<size_t>(Render::TerrainLattice::kSide *
+                                                                     Render::TerrainLattice::kSide);
     survey.Terrain.ProbePositionsM.reserve((nodes + kBounceProbeStride - 1) / kBounceProbeStride);
   }
   const size_t end = std::min(survey.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
@@ -912,7 +920,7 @@ Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patc
     Generators::SurveyTerrainSheet(survey.Terrain,
                                    patchwork.Sheets[survey.NextSheet],
                                    standing,
-                                   {.Side = Render::TerrainRenderer::kSide, .Halo = 1},
+                                   {.Side = Render::TerrainLattice::kSide, .Halo = 1},
                                    kBounceProbeStride);
   }
   const double sliceMs =
@@ -982,7 +990,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
         return GroundBuildProgress::Failed;
       }
       if (!*original) { return GroundBuildProgress::Pending; }
-      const auto prepared = build.Sheets.PrepareFields(
+      const auto prepared = state.TerrainInputs().PrepareFields(
           patchwork,
           World.Stack.Ground(),
           {.FinestZoom = coverage.Zoom,
@@ -1040,11 +1048,11 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
     }
     case Core::GroundBuildSchedule::SheetPhase::NeedsHalos: {
       if (state.HaloJob() == nullptr) {
-        state.BeginsHalos(
-            std::make_unique<HeightSheets::HaloBuildJob>(build.Sheets, patchwork, coverage.Zoom));
+        state.BeginsHalos(std::make_unique<Generators::TerrainInputPreparation::HaloBuildJob>(
+            state.TerrainInputs(), patchwork, coverage.Zoom));
       }
       const auto began = std::chrono::steady_clock::now();
-      HeightSheets::HaloBuildJob &job = *state.HaloJob();
+      Generators::TerrainInputPreparation::HaloBuildJob &job = *state.HaloJob();
       const bool ready = job.Advance(kHaloNodesPerFrame);
       state.SamplesHaloSlice(
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -1052,7 +1060,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
       if (!ready) { return GroundBuildProgress::Pending; }
       Published.RecordMetric(
           "ground: sheets the lattice haloed", static_cast<double>(job.Haloed()), "sheets");
-      build.RimsMissing = build.Sheets.RimsMissing();
+      build.RimsMissing = state.TerrainInputs().RimsMissing();
       Published.RecordMetric("ground: rims copied for want of a neighbour",
                              static_cast<double>(build.RimsMissing),
                              "sheets");
@@ -1162,11 +1170,11 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       return GroundBuildProgress::Failed;
     }
     const int sourceZoom = state.Coverage().Zoom;
-    auto fields =
-        std::make_shared<const SourcedTerrainFields>(build.Sheets.SnapshotSourcedFields());
+    const auto fields = std::make_shared<const Generators::TerrainFieldSet>(
+        state.TerrainInputs().SnapshotSourceFields());
     const auto ways = std::make_shared<const Generators::Osm::StreetField>(sources.Ways);
     StreetGraphPreparation::JobFactory begin =
-        [vectors = sources.Vectors, ways, fields = std::move(fields), sourceZoom] {
+        [vectors = sources.Vectors, ways, fields, sourceZoom] {
           return outshine::Generators::Osm::StreetGraphBuildJob::Begin(
               *vectors, *ways, [fields, sourceZoom](LongitudeLatitude at) {
                 return fields->AslMAt(sourceZoom, at);
@@ -1177,10 +1185,15 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       resolve = [assets = std::move(assets),
                  vectors = sources.Vectors,
                  ways,
+                 fields,
                  shape = World.Stack.Pool().Shaped(),
                  sourceZoom](const Generators::Osm::PreparedStreetGraph::Factory &factory)
           -> std::expected<Generators::Osm::PreparedStreetGraph::Loaded, std::string> {
-        auto key = assets->Key(*vectors, *ways, shape, sourceZoom);
+        const auto binding = fields->BindingAt(sourceZoom);
+        if (!binding) {
+          return std::unexpected("street graph terrain binding is invalid or over budget");
+        }
+        auto key = assets->Key(*vectors, *ways, shape, sourceZoom, binding->Key);
         if (!key) { return std::unexpected(std::move(key.error())); }
         return assets->Resolve(*key, factory);
       };
@@ -1247,7 +1260,7 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
   if (!state.RoadAlignmentRequested()) {
     RoadAlignmentBuildRequest request{
         .Source = state.TransportSnapshotOwner(),
-        .Terrain = state.Candidate().Products().Sheets.SnapshotSourcedFields(),
+        .Terrain = state.TerrainInputs().SnapshotSourceFields(),
         .RouteIndices = {state.RoadRouteIndices().begin(), state.RoadRouteIndices().end()},
         .RenderFrame = standing,
         .TerrainZoom = state.Coverage().Zoom,
@@ -1301,6 +1314,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() 
                          ? World.StructureBuilds.SourcesComplete(World.Stack, state.Footprints())
                          : StructuresReady(state.Footprints(), state.Revision());
   if (!ready) { return GroundBuildProgress::Pending; }
+  state.TerrainInputs().Reset();
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
 }
@@ -1311,10 +1325,6 @@ size_t Engine::State::StructureCandidatesMost() const noexcept {
                   World.GroundBuild->Revision().Quality == GroundQuality::Playable)
              ? kPlayableStructureCandidates
              : kRefinedStructureCandidates;
-}
-
-::outshine::Generators::Osm::BuildingField *Engine::State::CandidateFootprints() const noexcept {
-  return World.GroundBuild ? &World.GroundBuild->Footprints() : nullptr;
 }
 
 bool Engine::State::StagesGroundBakes(size_t landsMost) {
@@ -1338,22 +1348,14 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   const auto heights = state.Revision().Quality == GroundQuality::Refined
                            ? StructureBuildQueue::HeightRequirement::FineOnly
                            : StructureBuildQueue::HeightRequirement::AllowFallback;
-  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
+  const int finestZoom = World.Stack.TerrainRenderZoom();
   const StructureBuildQueue::HeightSource heightAt{
-      .Sample = [&build,
-                 finestZoom](LongitudeLatitude at) { return build.Sheets.AslMAt(finestZoom, at); },
+      .Sample = [&state, finestZoom](
+                    LongitudeLatitude at) { return state.TerrainInputs().AslMAt(finestZoom, at); },
       .PinField =
-          [this, &build](Data::TileId tile, Ground::HeightField::Block &into) {
-            if (build.Sheets.ShareSourcedField(tile, into)) { return true; }
-            std::shared_ptr<const Ground::TerrainField> field;
-            if (World.Stack.Ground().PollStitchedField(tile, field) !=
-                    Ground::TilePool::Reply::Ready ||
-                !field) {
-              return false;
-            }
-            return Ground::HeightField::SharesField(std::move(field), tile, into);
+          [this, &state](Data::TileId tile, Ground::HeightField::Block &into) {
+            return PinTerrainField(&state.TerrainInputs(), World.Stack.Ground(), tile, into);
           },
-      .ResidentField = {},
       .Revision = {.Value = World.Stack.Pool().TerrainScopeRevision()}};
   const auto landingAt = std::chrono::steady_clock::now();
   auto ready =
@@ -1377,9 +1379,8 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
     Error = "structure materials were not registered before baking";
     return false;
   }
-  build.Pieces.SetSurfaces(*build.Surfaces);
   for (const StructureBuildQueue::Landing &landing : *ready) {
-    if (!PublishStructureSource(build.Pieces, landing, Error)) { return false; }
+    if (!PublishStructureSource(build.Pieces, landing, *build.Surfaces, Error)) { return false; }
   }
   const double transferMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - transferAt)
@@ -1445,7 +1446,8 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
         return ReadGroundRegion(
             *assets, *vectors, shape, *native, std::move(request), checked, stop);
       },
-      Phase::Loading);
+      Phase::Loading,
+      World.Stack.RoadAssets());
   return GroundBuildProgress::Pending;
 }
 
@@ -1480,9 +1482,11 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   if (hit && result.Loaded) {
     World.Stack.RestoreWater(std::move(result.Loaded->Water));
     state.PublishesWaterInputs(World.Stack.WaterBodies());
+    RecordWaterSurfaceState(Published, World.Stack.WaterBodies());
   }
   auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
   if (hit) { phase = Phase::Hit; }
+  if (result.Loaded) { state.HoldRoadManifest(std::move(result.SurfacePages)); }
   state.FinishRegion(std::move(result.Key), phase, std::move(result.RequestKey));
   return GroundBuildProgress::Ready;
 }
@@ -1499,6 +1503,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
   const auto &water = World.Stack.WaterBodies();
   if (water.SurfacesReady()) {
     state.PublishesWaterInputs(water);
+    RecordWaterSurfaceState(Published, water);
     return GroundBuildProgress::Ready;
   }
   const auto origin = Session.Declared.Ground.Origin;
@@ -1516,6 +1521,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
   }
   Published.RecordMetric("water: geometry preparation worker", result->value().WorkerMs, "ms");
   state.PublishesWaterInputs(result->value().Water);
+  RecordWaterSurfaceState(Published, result->value().Water);
   return GroundBuildProgress::Ready;
 }
 
@@ -1539,122 +1545,6 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundPatchwork(const A
   }
   state.Lays(*std::move(made));
   return GroundBuildProgress::Pending;
-}
-
-bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
-                                         const Around &coverage,
-                                         WorldRegionBuildState &state) {
-  const auto began = std::chrono::steady_clock::now();
-  if (state.RetiringCorridors()) {
-    if (!state.AdvancesCorridorRetirement(began)) { return true; }
-    state.AdvanceStage();
-    Published.RecordMetric(
-        "ground candidate: corridor job retirement", state.LongestCorridorRetirementMs(), "ms");
-    Published.RecordMetric(
-        "ground candidate: longest corridor slice", state.LongestCorridorSliceMs(), "ms");
-    return true;
-  }
-  GroundBuildProducts &build = state.Candidate().Products();
-  const TriangleBvh surface;
-  Published.RecordMetric("ground: triangles the drape can reach",
-                         static_cast<double>(build.Indices.size()) / 3.0,
-                         "triangles");
-  Drape drapedOver{.Surface = surface, .Field = {}};
-  size_t fieldMisses = 0;
-  std::optional<Drape::EastNorth> firstFieldMiss;
-  drapedOver.Field = [&coverage, &build, &fieldMisses, &firstFieldMiss](Drape::EastNorth at) {
-    const std::optional<double> sampled = build.Sheets.FieldUpM(coverage.Zoom, at);
-    fieldMisses += sampled ? 0u : 1u;
-    if (!sampled && !firstFieldMiss) { firstFieldMiss = at; }
-    return sampled;
-  };
-  std::vector<EarthworkStamp> corridors;
-  std::vector<DiagnosticSample> notes;
-  const ::outshine::Generators::Osm::RegionSources &sources = state.Candidate().Sources();
-  const Generators::Corridors::Site site{
-      .Vectors = sources.Vectors.get(),
-      .Ways = sources.Ways,
-      .Materials = World.Stack.Materials(),
-      .Vegetation = World.Stack.Vegetation(),
-      .Ground = &World.Stack.Ground(),
-      .Network = build.StreetGraph.get(),
-      .Standing = standing,
-      .Draped = drapedOver,
-      .Classes = build.TerrainClassificationMap,
-      .WaterUpM = [&sources, &standing](LongitudeLatitude at) -> std::optional<double> {
-        return Generators::WaterSurfaceUpAt(sources.WaterBodies, standing, at);
-      },
-      .CensusAt = state.Began(),
-      .EyeLatDeg = coverage.LatitudeDeg,
-      .EyeLonDeg = coverage.LongitudeDeg,
-      .Projection = build.Footprints.Projection()};
-  if (state.CorridorJob() == nullptr) {
-    const auto jobAt = std::chrono::steady_clock::now();
-    state.BeginsCorridors(Generators::Corridors::Begin(site));
-    Published.RecordMetric(
-        "ground candidate: corridor job admission",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - jobAt).count(),
-        "ms");
-    const auto inventoryAt = std::chrono::steady_clock::now();
-    state.SamplesProductPeak();
-    Published.RecordMetric(
-        "ground candidate: corridor product inventory",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - inventoryAt)
-            .count(),
-        "ms");
-    state.SamplesCorridorSlice(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-            .count());
-    return true;
-  }
-  const auto paved = World.Shipping.Corridors().Advance(*state.CorridorJob(),
-                                                        site,
-                                                        kCorridorLanesPerFrame,
-                                                        kCorridorNodesPerFrame,
-                                                        build.Ground,
-                                                        corridors,
-                                                        notes);
-  state.SamplesProductPeak();
-  if (!paved) {
-    Error = paved.error();
-    return false;
-  }
-  if (fieldMisses > 0) {
-    if (firstFieldMiss) {
-      const ::outshine::Generators::Osm::OsmField *const shapes = sources.Vectors.get();
-      const int vectorZoom =
-          shapes != nullptr && !shapes->Tiles().empty() ? shapes->Tiles().front().Z : -1;
-      Error = std::format("{}: east {:.3f} m, north {:.3f} m, {} misses, sheet zoom {}, "
-                          "DEM zoom {}, OSM zoom {}",
-                          Says::CorridorTerrainIncomplete,
-                          firstFieldMiss->EastM,
-                          firstFieldMiss->NorthM,
-                          fieldMisses,
-                          coverage.Zoom,
-                          World.Stack.Ground().BlockZoom(),
-                          vectorZoom);
-    } else {
-      Error = Says::CorridorTerrainIncomplete;
-    }
-    return false;
-  }
-  if (!*paved) {
-    state.SamplesCorridorSlice(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-            .count());
-    return true;
-  }
-  for (const DiagnosticSample &one : notes) {
-    Published.RecordMetric(one.Name, one.Value, one.Unit.c_str());
-  }
-  Published.RecordMetric(
-      "ground candidate: corridor drape field misses", static_cast<double>(fieldMisses), "queries");
-  state.HoldsCorridors(std::move(corridors));
-  Published.RecordMetric("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
-  state.BeginsCorridorRetirement();
-  state.SamplesCorridorSlice(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
-  return true;
 }
 
 bool Engine::State::BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildState &state) {
@@ -1760,29 +1650,50 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
       .NetworkWays = build.StreetGraphWayCount,
       .GroundSurface = build.GroundSurface.index(),
       .GroundAlbedo = state.Candidate().GroundAlbedo(),
-      .MissingRims = build.RimsMissing});
+      .MissingRims = build.RimsMissing,
+      .SurfaceManifest =
+          state.RoadManifest()
+              ? Generators::RoadPageManifestKey(*state.RoadManifest(),
+                                                Generators::PreparedRoadPages::ManifestBytesMost)
+              : std::string{}});
   const auto key = state.RegionKey();
   const auto request = state.RegionRequest();
+  const auto roadManifest = state.RoadManifest();
+  const auto roadAssets = World.Stack.RoadAssets();
   const auto water =
       std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
   state.BeginRegion(
       *World.Pool,
-      [assets, region, key, request, water](const std::stop_token &stop)
+      [assets, region, key, request, water, roadManifest, roadAssets](const std::stop_token &stop)
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
         if (stop.stop_requested()) { return std::unexpected("ground region publication canceled"); }
-        const auto bounds = GroundRegionBoundsEcef(*region);
+        if (roadManifest) {
+          if (!roadAssets) { return std::unexpected("road manifest has no native cache service"); }
+          const auto stored = roadAssets->StoreManifest(*roadManifest);
+          if (!stored) { return std::unexpected(stored.error()); }
+          if (*stored != region->SurfaceManifest) {
+            return std::unexpected("stored road manifest differs from its region reference");
+          }
+        }
+        auto bounds = GroundRegionBoundsEcef(*region);
+        if (roadManifest) { bounds.Cover(Generators::RoadPageManifestBounds(*roadManifest)); }
         auto loaded = assets->Store(key, bounds, *region, *water, request);
         if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-        return GroundRegionPreparation::Completed{
-            .Key = key, .Loaded = std::move(*loaded), .RequestKey = request};
+        return GroundRegionPreparation::Completed{.Key = key,
+                                                  .Loaded = std::move(*loaded),
+                                                  .RequestKey = request,
+                                                  .SurfacePages = nullptr};
       },
-      Phase::Storing);
+      Phase::Storing,
+      roadAssets);
   return GroundBuildProgress::Pending;
 }
 
 bool Engine::State::PublishGroundGeometry(WorldRegionBuildState &state) {
   const GroundBuildProgress stored = StoreGroundRegion(state);
   if (stored != GroundBuildProgress::Ready) { return stored != GroundBuildProgress::Failed; }
+  const auto roadPages = RestoreGroundRoadPages(state);
+  if (roadPages != GroundBuildProgress::Ready) { return roadPages != GroundBuildProgress::Failed; }
   const auto sliceBegan = std::chrono::steady_clock::now();
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
@@ -1980,7 +1891,6 @@ void Engine::State::FinishGroundPublication(const Patchwork &laid,
                          "instances");
   Published.RecordMetric(
       "restand: the near plane the renderer stands on", Picture.Standing->NearStanding(), "m");
-  Core::ReportSubjectPlacements(Published, *Picture.Standing);
   World.GroundTiles = laid.Tiles;
   Published.RecordMetric("tiles the ring laid", static_cast<double>(laid.Tiles), "tiles");
   Published.RecordMetric(
@@ -2021,12 +1931,20 @@ void Engine::State::FinishGroundPublication(const Patchwork &laid,
 }
 
 bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQuality quality) {
-  static const Heap::Tag kLayingTag("world-ground");
-  const Heap::Tagged laying(kLayingTag);
+  static const Heap::Tag kGroundBuildTag("world-ground");
+  const Heap::Tagged groundBuildScope(kGroundBuildTag);
   if (World.Pool) {
     World.RoadAlignmentBuilds.Poll(*World.Pool, World.GroundBuild ? World.GroundBuild->Id() : 0);
   }
   if (!AdvancesGroundRetirement()) { return true; }
+  if (World.GroundBuild && World.GroundBuild->RoadsMissing()) {
+    World.Stack.ForgetCachedRegionNetwork();
+    World.Stack.RequestStreets();
+    World.GroundLookup.reset();
+    World.GroundLookupRequest.clear();
+    World.GroundRetirement = std::move(World.GroundBuild);
+    return true;
+  }
   if (!GroundInputsReady(quality)) { return true; }
   const Scenario::Document &declared = Session.Declared;
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;

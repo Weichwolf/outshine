@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_FLORA_TREELOOK_H
 #define OUTSHINE_GENERATORS_FLORA_TREELOOK_H
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "math/Srgb.h"
 #include "TreeSpecies.h"
 #include "LeafOpticsDefaults.h"

@@ -6,8 +6,8 @@
 #include <optional>
 #include <vector>
 
-#include "scene/Material.h"
-#include "scene/Geometry.h"
+#include "Material.h"
+#include "Geometry.h"
 #include "TreeLook.h"
 #include "TreeSpecies.h"
 

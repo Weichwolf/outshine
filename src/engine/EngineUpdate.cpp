@@ -1,9 +1,10 @@
+#include "RigidBodyDynamics.h"
 #include "GeodeticCamera.h"
 #include "Earth.h"
 #include "AzimuthElevation.h"
-#include "math/Units.h"
-#include "math/Mat4.h"
-#include "math/Vec3.h"
+#include "Units.h"
+#include "Mat4.h"
+#include "Vec3.h"
 #include "Heap.h"
 #include <algorithm>
 #include <chrono>
@@ -24,6 +25,7 @@
 
 #include "EngineState.h"
 #include "StructureTilePublication.h"
+#include "TerrainFieldPinning.h"
 #include "Lens.h"
 #include "Viewing.h"
 #include "Views.h"
@@ -45,7 +47,7 @@ constexpr auto kInvalidCarriedView = "the carried view has no valid camera basis
 }
 
 namespace {
-[[nodiscard]] Mat4 BodyTransform(const Physics::Rigid &body, const Vec3 &shiftM) {
+[[nodiscard]] Mat4 BodyTransform(const World::RigidBodyState &body, const Vec3 &shiftM) {
   Mat4 worldFromBody = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   {
     const Quat &q = body.OrientationQ;
@@ -222,7 +224,7 @@ bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
 }
 
 bool Engine::State::UpdateSceneBodyTransform(size_t which,
-                                             const Physics::Rigid &body,
+                                             const World::RigidBodyState &body,
                                              const Vec3 &shiftM) {
   const Mat4 bodyFromWorld = BodyTransform(body, shiftM);
 
@@ -244,17 +246,18 @@ bool Engine::State::UpdateSceneBodyTransform(size_t which,
 
 bool Engine::State::FollowCamera(const ViewBook &views) {
   const size_t active = views.ActiveIndex();
-  if (Simulation->DeclarationRevision != Session.DeclarationRevision ||
-      active >= Simulation->ViewBodies.size()) {
+  if (ScenarioState->DeclarationRevision != Session.DeclarationRevision ||
+      active >= ScenarioState->ViewBodies.size()) {
     Error = Says::kCameraAssemblyRequired;
     return false;
   }
-  const auto binding = Simulation->ViewBodies[active];
-  if (!binding || !Simulation->Entities.alive(Simulation->DynamicBodies[*binding].Owner)) {
+  const auto binding = ScenarioState->ViewBodies[active];
+  const auto *bound = binding ? BodyFrame.Body(*binding) : nullptr;
+  if (bound == nullptr) {
     Error = Says::kCameraBodyRequired;
     return false;
   }
-  const Physics::Rigid &body = Simulation->DynamicBodies[*binding].Motion;
+  const World::RigidBodyState &body = *bound;
   const Mat4 bodyFromWorld = BodyTransform(body, {});
   const Scenario::View &seen = views.Active();
   const Vec3 &seatM = seen.OffsetM;
@@ -294,39 +297,20 @@ void Engine::State::HandsPiecesOver() {
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   World.StructureBuilds.Opens(World.Pool.get(), &World.Shipping.Shaping());
   if (World.PiecesFramed) { return; }
-  World.Pieces.Framed(
+  World.Pieces.SetFrame(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                         .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg}));
   World.PiecesFramed = true;
 }
 
 StructureBuildQueue::HeightSource Engine::State::StructureHeightSource() {
-  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   return StructureBuildQueue::HeightSource{
-      .Sample =
-          [this, finestZoom](LongitudeLatitude at) {
-            return World.GroundPublished.Current() ? World.Sheets.AslMAt(finestZoom, at)
-                                                   : World.Stack.Ground().Resident(at).AslM();
-          },
+      .Sample = [this](LongitudeLatitude at) { return World.Stack.Ground().Resident(at).AslM(); },
       .PinField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            if (World.GroundPublished.Current()) {
-              return World.Sheets.ShareSourcedField(tile, into);
-            }
-            return Ground::HeightField::SharesField(
-                World.Stack.Ground().StitchedField(tile), tile, into);
+            return PinTerrainField(nullptr, World.Stack.Ground(), tile, into);
           },
-      .ResidentField =
-          [this](Data::TileId tile) { return World.Stack.Ground().ResidentStitchedField(tile); },
-      .PinResidentField =
-          [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            return World.Sheets.ShareSourcedField(tile, into);
-          },
-      .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()},
-      .CaptureFields =
-          [this](std::span<const Ground::TileSpot> requests, size_t bytesMost) {
-            return World.Sheets.CaptureSourcedFields(requests, bytesMost);
-          }};
+      .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()}};
 }
 
 bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
@@ -428,18 +412,6 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   Published.RecordMetric("buildings: stale tiles discarded",
                          static_cast<double>(World.StructureBuilds.Discarded()),
                          "tiles");
-  Published.RecordMetric(
-      "buildings: cells posted", static_cast<double>(World.StructureCellsPosted), "cells");
-  Published.RecordMetric(
-      "buildings: cells landed", static_cast<double>(World.StructureCellsLanded), "cells");
-  Published.RecordMetric("buildings: cell tiles activated",
-                         static_cast<double>(World.StructureTilesActivated),
-                         "tiles");
-  Published.RecordMetric(
-      "buildings: cells queued", static_cast<double>(World.StructureBuilds.QueuedCells()), "cells");
-  Published.RecordMetric("buildings: resident cells validated",
-                         static_cast<double>(World.StructureBuilds.FastCellValidations()),
-                         "cells");
   return true;
 }
 
@@ -450,7 +422,7 @@ bool Engine::State::UpdateVegetation(bool prepare) {
   if (!World.Vegetation) {
     VegetationStreaming::Config config;
     config.Cache.Directory = Session.Under.AssetCache;
-    const auto bytesMost = Content::ImpostorAtlas::EncodedBytesMost(config.Shape);
+    const auto bytesMost = ImpostorAtlas::EncodedBytesMost(config.Shape);
     if (!bytesMost) {
       Error = "vegetation atlas shape has no valid package bound";
       return false;
@@ -480,17 +452,18 @@ bool Engine::State::UpdateVegetation(bool prepare) {
 }
 
 bool Engine::State::UpdateTriggers() {
-  if (!Simulation->Triggers || Simulation->DeclarationRevision != Session.DeclarationRevision) {
+  if (!ScenarioState->Triggers ||
+      ScenarioState->DeclarationRevision != Session.DeclarationRevision) {
     return true;
   }
-  for (const auto &body : Simulation->DynamicBodies) {
-    if (!Simulation->Entities.alive(body.Owner)) { continue; }
-    if (!Simulation->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS)) {
+  for (size_t row = 0; row < BodyFrame.Count(); ++row) {
+    const auto &body = BodyFrame.At(row);
+    if (!ScenarioState->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS)) {
       Error = Says::kInvalidTriggerProbe;
       return false;
     }
   }
-  for (const TriggerField::Fired &fired : Simulation->Triggers->Drain()) {
+  for (const TriggerField::Fired &fired : ScenarioState->Triggers->Drain()) {
     ++Session.Fired;
     Session.Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
                               " for entity " + std::to_string(fired.Body.Index) + ":" +
@@ -534,6 +507,7 @@ bool Engine::State::Updates(bool simulate) {
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bakesAt)
                 .count());
         if (!baked) { return false; }
+        if (!AdvanceUrbanAreas()) { return false; }
         {
           static const Heap::Tag kGrowingTag("world-grow");
           const Heap::Tagged growing(kGrowingTag);
@@ -559,10 +533,11 @@ bool Engine::State::Updates(bool simulate) {
     const double simulationStepS =
         Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
     const double gravityMs2 = Session.Declared.Ground.GravityMs2;
-    Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
+    Physics::IntegrateBodies(ScenarioState->Entities, simulationStepS, {{0.0, -gravityMs2, 0.0}});
     Ticking.ElapsedS += simulationStepS;
-    triggered = UpdateTriggers();
   }
+  BodyFrame = ScenarioState->Entities.PublishBodies();
+  if (simulate) { triggered = UpdateTriggers(); }
   const bool cameraUpdated = triggered && UpdateActiveCamera();
   Cost.Simulation.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - simulationAt)
@@ -585,16 +560,12 @@ bool Engine::State::Updates(bool simulate) {
 }
 
 bool Engine::State::Draws() {
-  if (!Simulation->DynamicBodies.empty() && Picture.Standing && Picture.Standing->Stands() &&
+  if (BodyFrame.Count() != 0 && Picture.Standing && Picture.Standing->Stands() &&
       Picture.Standing->DrivenParts() != 0) {
     const Vec3 unshifted;
-    if (!Picture.Standing->ResizeBodyInstances(Simulation->DynamicBodies.size(), Error)) {
-      return false;
-    }
-    for (size_t which = 0; which < Simulation->DynamicBodies.size(); ++which) {
-      if (!UpdateSceneBodyTransform(which, Simulation->DynamicBodies[which].Motion, unshifted)) {
-        return false;
-      }
+    if (!Picture.Standing->ResizeBodyInstances(BodyFrame.Count(), Error)) { return false; }
+    for (size_t which = 0; which < BodyFrame.Count(); ++which) {
+      if (!UpdateSceneBodyTransform(which, BodyFrame.At(which).Motion, unshifted)) { return false; }
     }
   }
   if (Picture.Standing && !Picture.Standing->Advance(Error)) { return false; }
@@ -621,7 +592,7 @@ Result Engine::advance() {
 Result Engine::advanceFrame(bool simulate) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (!S_->Simulation) {
+  if (!S_->ScenarioState) {
     return std::unexpected(std::string("camera and simulation updates require an assembled scene"));
   }
   const auto began = std::chrono::steady_clock::now();
@@ -634,17 +605,19 @@ Result Engine::advanceFrame(bool simulate) {
   S_->Cost.Update.Took(updateMs);
   if (!updated) { return std::unexpected(S_->Error); }
   S_->Cost.ObservesSuccessfulUpdate(updateMs, S_->Session.Declared.Ground.Declared);
-  const auto publicationAt = std::chrono::steady_clock::now();
-  S_->PublishFrameMeasurements();
-  S_->PublishAudioSnapshot();
-  S_->Cost.FramePublication.Took(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - publicationAt)
-          .count());
   const auto sceneAt = std::chrono::steady_clock::now();
   const bool drew = S_->Draws();
   S_->Cost.SceneAdvance.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sceneAt)
           .count());
+  if (drew) {
+    const auto publicationAt = std::chrono::steady_clock::now();
+    S_->PublishFrameMeasurements();
+    S_->PublishAudioSnapshot();
+    S_->Cost.FramePublication.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - publicationAt)
+            .count());
+  }
   if (simulate) {
     S_->Cost.Advance.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -670,10 +643,10 @@ void Engine::State::Drew() {
                          static_cast<double>(World.Stack.WaterBodies().Surfaces().size()),
                          "surfaces");
   Published.RecordMetric("building footprints it holds",
-                         static_cast<double>(World.Stack.Footprints().Footprints().size()),
+                         static_cast<double>(World.Stack.Footprints().FootprintCount()),
                          "footprints");
   Published.RecordMetric("batches the picture draws",
-                         static_cast<double>(Picture.Device.SubjectBatchCount()),
+                         static_cast<double>(Picture.Device.GeometryBatchCount()),
                          "batches");
   Published.RecordMetric("stages the compiled plan runs",
                          static_cast<double>(Picture.Standing->PlanStages()),
@@ -681,12 +654,12 @@ void Engine::State::Drew() {
   Published.RecordMetric(
       "passes it runs them in", static_cast<double>(Picture.Standing->PlanPasses()), "passes");
   Published.RecordMetric("vertex uniform pushes the subject stages make",
-                         static_cast<double>(Picture.Device.SubjectUniformPushes()),
+                         static_cast<double>(Picture.Device.GeometryUniformPushes()),
                          "pushes");
   Published.RecordMetric(
       "batches the shadow casts", static_cast<double>(Picture.Device.ShadowCastCount()), "batches");
   Published.RecordMetric("placement rows the renderer has been sent",
-                         static_cast<double>(Picture.Device.SubjectPlacementsMoved()),
+                         static_cast<double>(Picture.Device.GeometryPlacementsMoved()),
                          "rows");
   Published.RecordMetric("frames the subject drew shadowed",
                          static_cast<double>(Picture.Device.ShadowedFrames()),

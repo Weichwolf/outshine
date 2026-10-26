@@ -1,3 +1,4 @@
+#include "HockenheimCircuitFixture.h"
 #include "OsmTransportBuilder.h"
 #include "OsmXmlReader.h"
 #include "TransportTopology.h"
@@ -6,10 +7,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <ios>
 #include <iterator>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <vector>
+
+namespace Circuit = outshine::Test::HockenheimFixture;
 
 namespace {
 
@@ -28,70 +33,13 @@ std::string ReverseWayNodes(std::string xml, uint64_t wayId) {
     at = end + 1;
   }
   std::string reversed;
-  for (auto line = lines.rbegin(); line != lines.rend(); ++line) { reversed += *line; }
+  for (const auto &line : std::views::reverse(lines)) { reversed += line; }
   xml.replace(firstNode, firstTag - firstNode, reversed);
   return xml;
 }
 
-}
-
-int main() {
-  using namespace outshine::Data;
+void RejectCorruptedMembers(const std::string &xml, uint64_t mainWayId) {
   using namespace outshine::Test;
-  using namespace outshine::World;
-  std::ifstream input("src/assets/world/osm/HockenheimringGrandPrix.osm", std::ios::binary);
-  CHECK(input.good(), "the pinned Hockenheim OSM source is available");
-  if (!input) { return Report(); }
-  const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
-  const auto source = outshine::Generators::Osm::XmlReader::Read(
-      xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
-  CHECK(source.has_value(), "the pinned Hockenheim source parses");
-  if (!source) { return Report(); }
-  const auto graph = outshine::Generators::Osm::TransportBuilder::Build(*source);
-  CHECK(graph.has_value(), "the complete source builds a native logical transport graph");
-  if (!graph) { return Report(); }
-  const auto route =
-      outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*graph, *source, 284588);
-  const auto undersizedBudget =
-      outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*graph, *source, 284588, {}, 266);
-  CHECK(!undersizedBudget &&
-            undersizedBudget.error().Code ==
-                outshine::Generators::Osm::CircuitErrorCode::TooManyEdges &&
-            undersizedBudget.error().SourceId == 284588,
-        "route edge budget rejects before selecting an overlong circuit");
-  CHECK(route && route->EdgeIds.size() == 267 && graph->UnclassifiedPathCount() == 0,
-        "the main Grand Prix relation resolves to 267 directed raceway edges");
-  if (!route) { return Report(); }
-  const outshine::Generators::Osm::Relation *relation = source->FindRelation(284588);
-  CHECK(relation != nullptr, "the route retains its original relation ID");
-  if (relation == nullptr) { return Report(); }
-  uint64_t pitWayId = 0;
-  for (const outshine::Generators::Osm::RelationMember &member : relation->Members) {
-    if (member.Role == "pitlane") { pitWayId = member.Id; }
-  }
-  CHECK(pitWayId != 0, "the alternate pit way is identified by its relation role");
-  uint64_t node = route->StartNodeId;
-  bool continuous = true;
-  bool racewayMaterial = true;
-  for (const TransportEdgeId id : route->EdgeIds) {
-    const TransportEdge *edge = graph->FindEdge(id);
-    continuous &= edge != nullptr && edge->FromNodeId == node &&
-                  edge->Allows(TransportMode::Motor) && edge->Id.PathId != pitWayId;
-    if (edge == nullptr) { break; }
-    racewayMaterial &= edge->Facility == TransportFacility::Raceway &&
-                       edge->Surface == TransportSurface::Asphalt && edge->WidthM == 12.0;
-    node = edge->ToNodeId;
-  }
-  CHECK(continuous && node == route->StartNodeId,
-        "the ID-based lap closes without a gap, jump or pitlane substitution");
-  CHECK(racewayMaterial, "every main-loop edge has a native asphalt raceway corridor profile");
-  uint64_t mainWayId = 0;
-  for (const outshine::Generators::Osm::RelationMember &member : relation->Members) {
-    if (member.Role.empty()) {
-      mainWayId = member.Id;
-      break;
-    }
-  }
   const std::string reversedWay = ReverseWayNodes(xml, mainWayId);
   CHECK(!reversedWay.empty(), "the pinned main way can be reversed independently");
   if (!reversedWay.empty()) {
@@ -101,7 +49,7 @@ int main() {
     if (changedSource) {
       const auto changedGraph = outshine::Generators::Osm::TransportBuilder::Build(*changedSource);
       CHECK(changedGraph && !outshine::Generators::Osm::TransportBuilder::ResolveCircuit(
-                                *changedGraph, *changedSource, 284588),
+                                *changedGraph, *changedSource, Circuit::RelationId),
             "reversing one source way breaks the directed circuit rather than teleporting");
     }
   }
@@ -116,7 +64,7 @@ int main() {
     if (changedSource) {
       const auto changedGraph = outshine::Generators::Osm::TransportBuilder::Build(*changedSource);
       CHECK(changedGraph && !outshine::Generators::Osm::TransportBuilder::ResolveCircuit(
-                                *changedGraph, *changedSource, 284588),
+                                *changedGraph, *changedSource, Circuit::RelationId),
             "promoting the pit branch to the main role rejects the ambiguous route");
     }
   }
@@ -139,5 +87,68 @@ int main() {
             "a missing pinned member rejects the graph before route publication");
     }
   }
+}
+
+}
+
+int main() {
+  using namespace outshine::Data;
+  using namespace outshine::Test;
+  using namespace outshine::World;
+  std::ifstream input(Circuit::SourcePath, std::ios::binary);
+  CHECK(input.good(), "the pinned Hockenheim OSM source is available");
+  if (!input) { return Report(); }
+  const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
+  const auto source = outshine::Generators::Osm::XmlReader::Read(
+      xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
+  CHECK(source.has_value(), "the pinned Hockenheim source parses");
+  if (!source) { return Report(); }
+  const auto graph = outshine::Generators::Osm::TransportBuilder::Build(*source);
+  CHECK(graph.has_value(), "the complete source builds a native logical transport graph");
+  if (!graph) { return Report(); }
+  const auto route = outshine::Generators::Osm::TransportBuilder::ResolveCircuit(
+      *graph, *source, Circuit::RelationId);
+  const auto undersizedBudget = outshine::Generators::Osm::TransportBuilder::ResolveCircuit(
+      *graph, *source, Circuit::RelationId, {}, Circuit::EdgeCount - 1);
+  CHECK(!undersizedBudget &&
+            undersizedBudget.error().Code ==
+                outshine::Generators::Osm::CircuitErrorCode::TooManyEdges &&
+            undersizedBudget.error().SourceId == Circuit::RelationId,
+        "route edge budget rejects before selecting an overlong circuit");
+  CHECK(route && route->EdgeIds.size() == Circuit::EdgeCount && graph->UnclassifiedPathCount() == 0,
+        "the main Grand Prix relation resolves to 267 directed raceway edges");
+  if (!route) { return Report(); }
+  const outshine::Generators::Osm::Relation *relation = source->FindRelation(Circuit::RelationId);
+  CHECK(relation != nullptr, "the route retains its original relation ID");
+  if (relation == nullptr) { return Report(); }
+  uint64_t pitWayId = 0;
+  for (const outshine::Generators::Osm::RelationMember &member : relation->Members) {
+    if (member.Role == "pitlane") { pitWayId = member.Id; }
+  }
+  CHECK(pitWayId != 0, "the alternate pit way is identified by its relation role");
+  uint64_t node = route->StartNodeId;
+  bool continuous = true;
+  bool racewayMaterial = true;
+  for (const TransportEdgeId id : route->EdgeIds) {
+    const TransportEdge *edge = graph->FindEdge(id);
+    continuous &= edge != nullptr && edge->FromNodeId == node &&
+                  edge->Allows(TransportMode::Motor) && edge->Id.PathId != pitWayId;
+    if (edge == nullptr) { break; }
+    racewayMaterial &= edge->Facility == TransportFacility::Raceway &&
+                       edge->Surface == TransportSurface::Asphalt &&
+                       edge->WidthM == Circuit::TrackWidthM;
+    node = edge->ToNodeId;
+  }
+  CHECK(continuous && node == route->StartNodeId,
+        "the ID-based lap closes without a gap, jump or pitlane substitution");
+  CHECK(racewayMaterial, "every main-loop edge has a native asphalt raceway corridor profile");
+  uint64_t mainWayId = 0;
+  for (const outshine::Generators::Osm::RelationMember &member : relation->Members) {
+    if (member.Role.empty()) {
+      mainWayId = member.Id;
+      break;
+    }
+  }
+  RejectCorruptedMembers(xml, mainWayId);
   return Report();
 }

@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_WEATHER_LOWCLOUD_H
 
 #include "CloudLayer.h"
-#include <world/weather/WeatherSnapshot.h>
+#include <WeatherSnapshot.h>
 
 #include <expected>
 #include <optional>

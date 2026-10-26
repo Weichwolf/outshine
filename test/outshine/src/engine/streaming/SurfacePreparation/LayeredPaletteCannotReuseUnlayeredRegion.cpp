@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "PreparedGroundRegions.h"
@@ -18,11 +19,11 @@ class NoRequests final : public outshine::Data::Transport {
 public:
   outshine::Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
     ++Begins;
-    return std::unexpected(outshine::Data::FetchFailureReason::OfflineMiss);
+    return std::unexpected(outshine::Data::SourceFailureReason::OfflineMiss);
   }
 
   outshine::Data::Wire Collect([[maybe_unused]] outshine::Data::Ticket ticket) override {
-    return outshine::Data::Wire::Never(outshine::Data::FetchFailureReason::OfflineMiss);
+    return outshine::Data::Wire::Never(outshine::Data::SourceFailureReason::OfflineMiss);
   }
 
   void Cancel([[maybe_unused]] outshine::Data::Ticket ticket) override {}
@@ -73,7 +74,7 @@ int main() {
   if (!materialRules || !vegetationRules) { return Report(); }
   materialRules->push_back('\0');
   materialRules->append(*vegetationRules);
-  Data::ContentStore store({.Directory = {}, .Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   const Data::SourceSet sources(store);
   auto legacy = Generators::Osm::PreparedGroundRegions::Open(
       (cache.Path / "assets").string(), sources, *materialRules);
@@ -89,12 +90,15 @@ int main() {
   SilentSink sink;
   NoRequests wire;
   Tasks compute(1);
+  Data::ProviderRegistry registry;
+  Generators::RegisterShippedProviders(registry);
   Ground::SurfacePreparation stack;
   const auto open = [&] {
-    return stack.Open({.Shipped = "src/assets",
-                       .Cache = (cache.Path / "sources").string(),
-                       .AssetCache = (cache.Path / "assets").string()},
+    return stack.Open({.BuiltinData = "src/assets",
+                       .Sources = (cache.Path / "sources").string(),
+                       .Assets = (cache.Path / "assets").string()},
                       {},
+                      registry,
                       {},
                       wire,
                       compute,

@@ -3,7 +3,7 @@
 #include <expected>
 #include <string_view>
 #include <vector>
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include "Xml.h"
 
 namespace outshine {

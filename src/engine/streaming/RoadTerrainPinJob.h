@@ -9,7 +9,7 @@
 #include <span>
 #include <vector>
 
-#include "SourcedTerrainFields.h"
+#include "TerrainFieldSet.h"
 #include "TransportTopology.h"
 
 namespace outshine {
@@ -61,7 +61,7 @@ public:
               RoadTerrainTileSelectionRequest request);
 
   [[nodiscard]] static std::expected<RoadTerrainPinJob, RoadTerrainPinError>
-  Begin(SourcedTerrainFields fields,
+  Begin(Generators::TerrainFieldSet fields,
         const World::TransportTopology &topology,
         const Data::SourceIdentity &selectionSource,
         std::span<const World::TransportEdgeId> route,
@@ -80,7 +80,7 @@ public:
   [[nodiscard]] const std::optional<PinnedRoadTerrain> &Result() const noexcept { return Result_; }
 
 private:
-  SourcedTerrainFields Fields_;
+  Generators::TerrainFieldSet Fields_;
   Data::SourceIdentity SourceIdentity_;
   std::vector<Data::TileId> Tiles_;
   std::vector<Ground::HeightField::Block> Blocks_;

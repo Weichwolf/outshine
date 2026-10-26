@@ -1,192 +1,177 @@
 #ifndef OUTSHINE_TEST_CLIENTSHOT_H
 #define OUTSHINE_TEST_CLIENTSHOT_H
 
-#include <charconv>
+#include "Check.h"
+#include "ClientCommand.h"
+#include "format/Json.h"
+#include "io/PngImage.h"
+#include "io/ReadTextFile.h"
+
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
-#include <limits>
 #include <filesystem>
+#include <limits>
+#include <print>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "Check.h"
-#include "src/client/GpuFrameTiming.h"
-
-// THE CASE DRIVES THE SAME COMMAND A PERSON DOES. `build/outshine shots
-// --rows <place>` is what `make shots` runs; a case that reached around it into the library would
-// be scoring a path nobody uses. So the binary is run, its machine-readable row is read, and the
-// ORACLES are applied here -- the instrument is the library's, the judgement is the test's, and
-// neither is the other's.
 namespace outshine::Test {
 
-struct ClientRow {
-  std::string Name;
-  std::string Digest;
-  std::string Why;
-  bool Kept = false;
-  double P50Ms = 0.0, P95Ms = 0.0, P99Ms = 0.0;
-  double Frames = 0.0, OverBudget = 0.0, WorstAt = 0.0;
-  double Triangles = 0.0, BareTiles = 0.0, Variation = 0.0;
-  double MeasurementMs = 0.0, LoadingMs = 0.0, TurnDegrees = 0.0;
-  bool Preloaded = false;
-  bool Read = false;
-  double WidthPx = 0.0, HeightPx = 0.0, RateHz = 0.0, BudgetMs = 0.0;
-  Client::GpuFrameTiming Gpu;
+inline constexpr uint32_t kPlaceWidthPx = 1280;
+inline constexpr uint32_t kPlaceHeightPx = 720;
+inline constexpr unsigned kPlaceRateHz = 60;
+
+struct PlaceCapture {
+  Json Summary;
+  Json Report;
 };
 
-inline double ClientNumber(const std::string &field) {
-  double value = 0.0;
-  const auto read = std::from_chars(field.data(), field.data() + field.size(), value);
-  return read.ec == std::errc{} && read.ptr == field.data() + field.size()
-             ? value
-             : std::numeric_limits<double>::quiet_NaN();
+inline double PlaceMetric(Json::Ref report, const char *name) {
+  const auto metrics = report["metrics"];
+  for (size_t at = 0; at < metrics.Size(); ++at) {
+    if (metrics[at]["name"].StrEquals(name)) {
+      return metrics[at]["value"].Num(std::numeric_limits<double>::quiet_NaN());
+    }
+  }
+  return std::numeric_limits<double>::quiet_NaN();
 }
 
-inline void ReadClientOutput(std::FILE *running, double &control, ClientRow &row) {
-  char line[4096];
-  while (std::fgets(line, sizeof line, running) != nullptr) {
-    std::printf("%s", line);
-    std::vector<std::string> field;
-    for (const char *at = line, *from = line;; ++at) {
-      if (*at != '\t' && *at != '\n' && *at != '\0') { continue; }
-      field.emplace_back(from, (std::size_t)(at - from));
-      from = at + 1;
-      if (*at != '\t') { break; }
-    }
-    if (field.size() >= 2 && field[0] == "CONTROL") { control = ClientNumber(field[1]); }
-    if (field.size() == 6 && field[0] == "PROFILE") {
-      row.WidthPx = ClientNumber(field[2]);
-      row.HeightPx = ClientNumber(field[3]);
-      row.RateHz = ClientNumber(field[4]);
-      row.BudgetMs = ClientNumber(field[5]);
-    }
-    if (field.size() == 8 && field[0] == "GPUROW") {
-      row.Gpu = {.RenderedFrames = ClientNumber(field[2]),
-                 .TimedFrames = ClientNumber(field[3]),
-                 .TotalMs = ClientNumber(field[4]),
-                 .MaxMs = ClientNumber(field[5]),
-                 .UnavailableFrames = ClientNumber(field[6]),
-                 .QueryMs = ClientNumber(field[7])};
-    }
-    if (field.size() >= 20 && field[0] == "ROW") {
-      row.Read = true;
-      row.Name = field[1];
-      row.Digest = field[2];
-      row.Kept = field[3] == "1";
-      row.P50Ms = ClientNumber(field[4]);
-      row.P95Ms = ClientNumber(field[5]);
-      row.P99Ms = ClientNumber(field[6]);
-      row.Frames = ClientNumber(field[7]);
-      row.OverBudget = ClientNumber(field[8]);
-      row.WorstAt = ClientNumber(field[9]);
-      row.Triangles = ClientNumber(field[10]);
-      row.BareTiles = ClientNumber(field[11]);
-      row.Variation = ClientNumber(field[12]);
-      row.Preloaded = field[13] == "1";
-      row.MeasurementMs = ClientNumber(field[16]);
-      row.LoadingMs = ClientNumber(field[17]);
-      row.TurnDegrees = ClientNumber(field[18]);
-      row.Why = field.back();
+inline double RowVariation(const Io::Png &image) {
+  if (!image.Read || image.Wide < 2 || image.High == 0 || image.Channels < 3) {
+    return std::numeric_limits<double>::quiet_NaN();
+  }
+  double sum = 0;
+  size_t steps = 0;
+  for (size_t y = 0; y < image.High; ++y) {
+    for (size_t x = 1; x < image.Wide; ++x) {
+      const size_t at = (y * image.Wide + x) * image.Channels;
+      for (size_t channel = 0; channel < 3; ++channel) {
+        const int here = image.Bytes[at + channel];
+        const int left = image.Bytes[at - image.Channels + channel];
+        sum += std::abs(here - left);
+        ++steps;
+      }
     }
   }
+  return sum / static_cast<double>(steps);
 }
 
-inline int
-ScorePlace(const char *place, const char *catalog = "src/assets/places", unsigned rateHz = 30) {
-  std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string command = std::string("build/outshine --places ") + catalog +
-                              " shots --rows --offline --preload-seconds 600 --scenario-overrides "
-                              "'{\"render\":{\"widthPx\":1280,\"heightPx\":720,\"fps\":" +
-                              std::to_string(rateHz) + "}}' " + place + " 2>&1";
-  std::FILE *const running = popen(command.c_str(), "r");
-  if (running == nullptr) {
-    Unprepared("the client did not start");
-    return Report();
-  }
-  double control = -1.0;
-  ClientRow row;
-  ReadClientOutput(running, control, row);
-  const int status = pclose(running);
-  if (!row.Read) {
-    Unprepared((std::string(place) + " left no row: the client exited " + std::to_string(status) +
-                ". `make` builds it")
-                   .c_str());
-    return Report();
-  }
-  if (row.Why != "-") {
-    Unprepared(row.Why.c_str());
-    return Report();
-  }
-
-  constexpr double kCurrentPlaceFrameBudgetMs = 10.0;
-  CHECK(status == 0, "the public client finishes successfully");
-  CHECK(row.WidthPx == 1280.0 && row.HeightPx == 720.0 && row.RateHz == rateHz &&
-            std::isfinite(row.BudgetMs) && std::abs(row.BudgetMs - 1000.0 / rateHz) < 1e-6,
-        "the client reports the requested 1280x720 profile and its frame budget");
-  CHECK(row.Frames == rateHz && row.TurnDegrees == 360.0,
-        "a place measures exactly the target-rate frames of its complete turn");
-  CHECK(std::isfinite(row.MeasurementMs) && row.MeasurementMs > 0.0 && row.MeasurementMs <= 1000.0,
-        "the complete measured turn fits one second including pacing");
-  CHECK(std::isfinite(row.LoadingMs) && row.LoadingMs >= 0.0,
-        "complete cached world preload reports its actual duration");
-  CHECK(row.Preloaded, "the complete world was preloaded before frame measurement");
-  CHECK(std::isfinite(row.P99Ms) && row.P99Ms > 0.0 && row.P99Ms < kCurrentPlaceFrameBudgetMs,
-        "current place CPU p99 stays below ten milliseconds, including initial frames");
-  CHECK(row.Gpu.Complete(row.Frames),
-        "every measured frame has a finite GPU timestamp; lifetime/preload data cannot substitute");
-  CHECK(std::isfinite(row.Gpu.MaxMs) && row.Gpu.MaxMs > 0.0 && row.Gpu.MaxMs <= 1000.0 / rateHz,
-        "GPU maximum, also nearest-rank p99 for 30 or 60 frames, fits the requested frame budget");
-
-  // THE MEASURE'S OWN NEGATIVE CONTROL, and without it the bar below is a number nobody checked. A
-  // bare ellipsoid under a sky IS a vertical gradient, so the statistic is run over one first -- if
-  // THAT does not come in far under the bar, the bar separates nothing and every green is
-  // worthless.
-  CHECK(control >= 0.0 && control < 0.5,
-        "**THE BLANK-FRAME BAR SEPARATES SOMETHING**: a picture of nothing is a vertical gradient "
-        "and a vertical gradient has no horizontal variation at all, so this has to read far below "
-        "the bar of 1.0 a real frame is held to");
-
-  // A PICTURE OF NOTHING PASSED THIS CASE FOR MONTHS. A bare tile means the elevation never
-  // arrived, so the ground and everything on it is drawn at sea level: the picture is of the
-  // STREAMING and not of the place.
-  if (row.BareTiles > 0.0) {
-    Unprepared((std::string(place) + " stood " + std::to_string((long)row.BareTiles) +
-                " tile(s) BARE on the ellipsoid -- the elevation never arrived, so the ground and "
-                "everything on it is drawn at sea level")
-                   .c_str());
-    return Report();
-  }
-  // A PICTURE EQUAL TO A REFERENCE WAS LOOKED AT, which is the stronger proof: the bar below is a
-  // heuristic against an empty frame, and a frame that is byte for byte one an eye accepted under
-  // build/shots/reference/ cannot be empty -- Koerbersee's meadow and lake read 0.67 along their
-  // rows with a town and a bridge in view.
-  if (std::filesystem::exists(std::string("build/shots/reference/") + place + "-" + row.Digest +
-                              ".png")) {
-    CHECK(row.Kept,
-          "**THERE IS A PICTURE, AND IT IS THE REFERENCE**: byte for byte the one an eye "
-          "accepted, so no statistic about it is needed");
-    Covers("a declared place on Earth stands, advances and leaves the picture its reference holds");
-    return Report();
-  }
+inline bool CheckPlacePicture(const PlaceCapture &capture, const char *place) {
+  const auto summary = capture.Summary.Root();
+  const auto report = capture.Report.Root();
   constexpr double kMinimumVisibleVariation = 0.1;
-  if (row.Triangles > 0.0 && row.Variation <= control + kMinimumVisibleVariation) {
-    Unprepared((std::string(place) + " meshed " + std::to_string((long)row.Triangles) +
-                " building triangle(s) but varies by only " + std::to_string(row.Variation) +
-                " of 255 along its rows, indistinguishable from the blank-frame control " +
-                std::to_string(control))
-                   .c_str());
+  constexpr size_t kMostImageBytes = size_t{16} * 1024 * 1024;
+  const auto bytes = ReadTextFile(summary["image"].Str(), kMostImageBytes);
+  if (!bytes) {
+    Unprepared(bytes.error().c_str());
+    return false;
+  }
+  const auto image = Io::ReadPng(reinterpret_cast<const uint8_t *>(bytes->data()), bytes->size());
+  CHECK(image.Read && image.Wide == kPlaceWidthPx && image.High == kPlaceHeightPx,
+        "the saved image has the requested dimensions and valid pixels");
+  Io::Png gradient{.Read = true,
+                   .Wide = kPlaceWidthPx,
+                   .High = 2,
+                   .Channels = 4,
+                   .Bytes = std::vector<uint8_t>(size_t{kPlaceWidthPx} * 2 * 4,
+                                                 std::numeric_limits<uint8_t>::max()),
+                   .Error = {}};
+  for (size_t at = 0; at < size_t{kPlaceWidthPx} * 4; ++at) { gradient.Bytes[at] = 0; }
+  const double control = RowVariation(gradient);
+  const double variation = RowVariation(image);
+  CHECK(std::isfinite(control) && control >= 0 && control < 0.5,
+        "a vertical gradient is rejected by the actual image variation measure");
+  const double bare = PlaceMetric(report, "tiles the last rebuild laid bare");
+  CHECK(std::isfinite(bare) && bare == 0, "no terrain tiles remain without elevation");
+  const auto digest = summary["sha256"].Str().substr(0, 8);
+  const auto reference =
+      std::filesystem::path("build/shots/reference") / (std::string(place) + "-" + digest + ".png");
+  const double triangles = PlaceMetric(report, "building triangles the world meshed");
+  CHECK(std::isfinite(triangles) && triangles >= 0, "the building geometry measure is present");
+  if (!std::filesystem::exists(reference) && triangles > 0) {
+    CHECK(std::isfinite(variation) && variation > control + kMinimumVisibleVariation,
+          "meshed buildings produce a picture distinct from the blank-frame control");
+  }
+  return image.Read;
+}
+
+inline void CheckPlaceTiming(const PlaceCapture &capture, unsigned rateHz) {
+  const auto summary = capture.Summary.Root();
+  const auto report = capture.Report.Root();
+  constexpr double kBudgetRoundingMs = 1e-6;
+  constexpr double kClockRoundingS = 1e-12;
+  constexpr double kMinimumPacedWindowMs = 999.0;
+  constexpr double kCurrentCpuBudgetMs = 10.0;
+  const auto profile = report["profile"];
+  const auto motion = report["motion"];
+  const auto gpu = report["gpu_times"];
+  const auto cpu = report["cpu_times"]["frame"];
+  const auto phases = report["phases_ms"];
+  const double missing = std::numeric_limits<double>::quiet_NaN();
+  const double budgetMs = 1000.0 / rateHz;
+  CHECK(std::cmp_equal(profile["width_px"].Int(), kPlaceWidthPx) &&
+            std::cmp_equal(profile["height_px"].Int(), kPlaceHeightPx) &&
+            profile["fps"].Int() == static_cast<int>(rateHz) &&
+            std::abs(profile["budget_ms"].Num(missing) - budgetMs) < kBudgetRoundingMs,
+        "the requested 1280x720 profile and frame budget are measured");
+  CHECK(summary["frames"].Int() == static_cast<int>(rateHz) &&
+            summary["turn_degrees"].Int() == 360 &&
+            motion["frames"].Int() == static_cast<int>(rateHz) &&
+            std::abs(motion["time_step_s"].Num(missing) * rateHz - 1.0) < kClockRoundingS,
+        "exactly one second of target-rate simulation frames completes the camera turn");
+  CHECK(phases["paced_window"].Num(missing) >= kMinimumPacedWindowMs,
+        "the measured turn is paced over a complete second of actual wall time");
+  CHECK(std::isfinite(phases["preload"].Num(missing)) && phases["preload"].Num(missing) >= 0,
+        "complete cached world preload reports its actual duration");
+  CHECK(report["measurement_complete"].Bool() && report["world_complete"].Bool() &&
+            report["unrefined_frames"].Int(-1) == 0,
+        "the complete world is present before and throughout measurement");
+  CHECK(std::isfinite(cpu["p99_ms"].Num(missing)) && cpu["p99_ms"].Num(missing) > 0 &&
+            cpu["p99_ms"].Num(missing) < kCurrentCpuBudgetMs,
+        "current place CPU p99 stays below ten milliseconds, including initial frames");
+  CHECK(gpu["complete"].Bool() && gpu["rendered_frames"].Int() == static_cast<int>(rateHz) &&
+            gpu["timed_frames"].Int() == static_cast<int>(rateHz) &&
+            gpu["unavailable_frames"].Int(-1) == 0,
+        "every measured frame has a native GPU timestamp");
+  CHECK(std::isfinite(gpu["frame"]["max_ms"].Num(missing)) &&
+            gpu["frame"]["max_ms"].Num(missing) > 0 &&
+            gpu["frame"]["max_ms"].Num(missing) <= budgetMs,
+        "GPU maximum and p99 fit the requested frame budget");
+}
+
+inline int ScorePlace(const char *place,
+                      const char *catalog = "test/outshine/data/places",
+                      unsigned rateHz = kPlaceRateHz) {
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
+  const auto command = "python3 -B test/scripts/places.py --catalog " + ShellArgument(catalog) +
+                       " --client " + ClientCommand() + " --fps " + std::to_string(rateHz) +
+                       " --preload-seconds 600 " + ShellArgument(place) + " 2>&1";
+  std::string output;
+  const int status = Run(command, output);
+  std::print("{}", output);
+  PlaceCapture capture;
+  if (status != 0 || !capture.Summary.Parse(output.data(), output.size())) {
+    Unprepared(
+        (std::string(place) + " capture failed with status " + std::to_string(status)).c_str());
     return Report();
   }
-
-  CHECK(row.Kept,
-        "**THERE IS A PICTURE**: the only thing this case refuses on. A place that declares, "
-        "composes, advances and writes its frame has done its whole job here -- what the frame "
-        "SHOWS is the owner's to judge, and no number invented here may stand in for that");
-
-  Covers("a declared place on Earth stands, advances and leaves a picture in build/shots for an "
-         "eye -- driven through build/outshine, the same command a person runs");
+  constexpr size_t kMostReportBytes = size_t{4} * 1024 * 1024;
+  const auto bytes = ReadTextFile(capture.Summary.Root()["report"].Str(), kMostReportBytes);
+  if (!bytes || !capture.Report.Parse(bytes->data(), bytes->size())) {
+    Unprepared("the native benchmark left no valid report");
+    return Report();
+  }
+  CHECK(capture.Summary.Root()["place"].StrEquals(place), "the requested place was captured");
+  CHECK(capture.Report.Root()["benchmark_version"].Int() == 1 &&
+            capture.Report.Root()["mode"].StrEquals("scenario"),
+        "the native scenario benchmark provides the measurement");
+  CheckPlaceTiming(capture, rateHz);
+  if (!CheckPlacePicture(capture, place)) { Unprepared("the driver left no valid final picture"); }
   return Report();
 }
 
-} // namespace outshine::Test
+}
 #endif

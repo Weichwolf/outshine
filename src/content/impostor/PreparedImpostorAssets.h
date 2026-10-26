@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CONTENT_IMPOSTOR_PREPAREDIMPOSTORASSETS_H
 #define OUTSHINE_CONTENT_IMPOSTOR_PREPAREDIMPOSTORASSETS_H
 
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
 #include "Tasks.h"
@@ -22,8 +22,8 @@ public:
 
   struct Loaded {
     std::string Provenance;
-    std::optional<Content::ImpostorAtlas> Atlas;
-    std::optional<Content::ImpostorCards> Cards;
+    std::optional<ImpostorAtlas> Atlas;
+    std::optional<ImpostorCards> Cards;
     std::string Error;
   };
   enum class Request { Queued, Existing, Full };
@@ -38,7 +38,7 @@ public:
   PreparedImpostorAssets(Tasks &tasks, const Config &config, Prepare prepare = nullptr);
   ~PreparedImpostorAssets();
   [[nodiscard]] bool
-  Publish(const Content::ImpostorAtlas &atlas, std::string_view provenance, std::string &error);
+  Publish(const ImpostorAtlas &atlas, std::string_view provenance, std::string &error);
   [[nodiscard]] Request Read(std::string provenance);
   [[nodiscard]] std::optional<Loaded> Take();
 

@@ -13,14 +13,14 @@
 #include <vector>
 
 namespace outshine::Generators::Osm {
-std::expected<bool, std::string_view> OsmField::PollTile(TilePool &tiles, TileAt at) {
+std::expected<bool, std::string_view> OsmField::PollTile(Data::SourceReader &sources, TileAt at) {
   if (Zoom_ < 0 || Zoom_ >= std::numeric_limits<int>::digits || at.X < 0 || at.Y < 0 ||
       std::cmp_greater_equal(at.X, uint64_t{1} << static_cast<unsigned>(Zoom_)) ||
       std::cmp_greater_equal(at.Y, uint64_t{1} << static_cast<unsigned>(Zoom_))) {
     return std::unexpected("invalid OSM tile address");
   }
   if (Settled(at.X, at.Y)) { return true; }
-  auto fetched = AddTile(tiles, at);
+  auto fetched = AddTile(sources, at);
   if (!fetched) { return std::unexpected(fetched.error()); }
   if (fetched->Refused) { return std::unexpected("OSM tile source refused demand"); }
   if (!fetched->Held) { return false; }
@@ -33,15 +33,15 @@ std::expected<bool, std::string_view> OsmField::PollTile(TilePool &tiles, TileAt
   return true;
 }
 
-std::expected<OsmField::Fetched, std::string_view> OsmField::AddNativeTile(TilePool &tiles,
-                                                                           TileAt at) {
-  auto delivery = Prepared_->Acquire(tiles, at, *this);
+std::expected<OsmField::SourceResponse, std::string_view>
+OsmField::AddNativeTile(Data::SourceReader &sources, TileAt at) {
+  auto delivery = Prepared_->Acquire(sources, at, *this);
   if (!delivery) { return std::unexpected(delivery.error()); }
   using State = PreparedOsmTiles::State;
   switch (delivery->Status) {
-    case State::Pending: return Fetched{};
-    case State::Refused: return Fetched{.Held = false, .Refused = true};
-    case State::Absent: return Fetched{.Held = true};
+    case State::Pending: return SourceResponse{};
+    case State::Refused: return SourceResponse{.Held = false, .Refused = true};
+    case State::Absent: return SourceResponse{.Held = true};
     case State::Ready: break;
   }
   const auto &native = delivery->Product;
@@ -53,7 +53,7 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddNativeTile(TileP
                           .Source = source.Source,
                           .InputDigest = source.InputDigest,
                           .Native = std::move(delivery->Product)});
-  return Fetched{.Held = true, .Added = count, .Parsed = true};
+  return SourceResponse{.Held = true, .Added = count, .Parsed = true};
 }
 
 bool OsmField::AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage) {

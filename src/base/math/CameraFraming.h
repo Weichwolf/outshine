@@ -4,8 +4,8 @@
 #include <expected>
 #include <string_view>
 
-#include "math/Box.h"
-#include "scene/Camera.h"
+#include "Box.h"
+#include "Camera.h"
 
 namespace outshine {
 

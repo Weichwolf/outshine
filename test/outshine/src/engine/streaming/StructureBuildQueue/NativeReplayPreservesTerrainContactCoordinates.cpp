@@ -164,7 +164,6 @@ void Replay(const std::filesystem::path &directory,
             }
             return HeightField::SharesField(field, tile, into);
           },
-      .ResidentField = {},
       .Revision = {.Value = 11}};
   Generators::BuildingMesh mesher;
   StructureBuildQueue queue;
@@ -179,7 +178,7 @@ void Replay(const std::filesystem::path &directory,
     CHECK(queue.Queued() == 4, "completed obsolete lookups occupy the entire candidate window");
     prints.TilesSpan(1000.0);
   }
-  const auto *const initialContactBuffer = prints.Footprints().data();
+  const auto initialContacts = prints.PinProducts();
   bool landed = false;
   const auto purpose = initialCells ? StructureBuildQueue::BuildPurpose::SourceGeometry
                                     : StructureBuildQueue::BuildPurpose::ViewDetail;
@@ -210,10 +209,16 @@ void Replay(const std::filesystem::path &directory,
                 ready->front().Baked->Coordinates->Points().size() == coordinateCount,
             "native geometry owns its complete ground-contact ring before publication");
       if (initialCells) {
-        CHECK(ready->front().SourceComplete || prints.Footprints().data() == initialContactBuffer,
+        const auto contacts = prints.PinProducts();
+        const bool unchanged =
+            std::ranges::equal(contacts, initialContacts, [](const auto &a, const auto &b) {
+              return a.Physical == b.Physical && a.Coordinates == b.Coordinates &&
+                     a.FirstFootprint == b.FirstFootprint;
+            });
+        CHECK(ready->front().SourceComplete || unchanged,
               "partial children do not repeatedly reserve or copy the accepted contact buffer");
         CHECK(ready->front().InitialCells != 0 && ready->front().Baked->RequestedCell &&
-                  ready->front().Baked->Prints.size() == 1 && prints.Footprints().empty() &&
+                  ready->front().Baked->Prints.size() == 1 && (prints.FootprintCount() == 0) &&
                   ready->front().Footprints.has_value() == ready->front().SourceComplete,
               "children land independently while source contacts remain unaccepted until complete");
       }
@@ -224,7 +229,7 @@ void Replay(const std::filesystem::path &directory,
       if (queue.Queued() == 0) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
     }
   }
-  CHECK(landed && prints.Footprints().size() == sourceCount, "the complete footprints land once");
+  CHECK(landed && prints.FootprintCount() == sourceCount, "the complete footprints land once");
   CHECK(warm || fields.size() > 1,
         "cold input crosses multiple height fields delivered on separate pumps");
   CHECK(repeatedPins == 0,

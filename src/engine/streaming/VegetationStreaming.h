@@ -15,7 +15,7 @@ public:
 
   struct Config {
     Content::PreparedImpostorAssets::Config Cache;
-    Content::ImpostorAtlasShape Shape;
+    ImpostorAtlasShape Shape;
     size_t Prototypes = 64;
     size_t Instances = 65536;
   };
@@ -64,8 +64,8 @@ private:
   std::vector<Group> Groups_;
   Tasks *Preparation_;
   Content::PreparedImpostorAssets Cache_;
-  Content::ImpostorAtlasShape Shape_;
-  std::optional<Content::ImpostorAtlas> PreparedAtlas_;
+  ImpostorAtlasShape Shape_;
+  std::optional<ImpostorAtlas> PreparedAtlas_;
   Tasks::Handle Preparing_ = Tasks::kNoTask;
   size_t PreparingGroup_ = 0;
   std::string PreparedError_, Failure_;

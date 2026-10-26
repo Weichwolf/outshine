@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_SCENARIO_AUDIOSPELLINGS_H
 #define OUTSHINE_SCENARIO_AUDIOSPELLINGS_H
 #include "Spelling.h"
-#include <audio/AudioScene.h>
+#include <AudioScene.h>
 #include <optional>
 #include <string_view>
 

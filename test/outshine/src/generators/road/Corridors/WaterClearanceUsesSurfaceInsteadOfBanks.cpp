@@ -16,8 +16,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the bridge uses production clearance rules");
@@ -44,7 +44,7 @@ int main() {
   Generators::Osm::StreetField ways;
   CHECK(ways.Ingest(vectors, vegetation) == 1, "the bridge reaches the road generator");
   const TangentFrame standing = TangentFrame::At(origin);
-  auto grid = std::make_shared<TerrainClassificationMap::Grid>();
+  const auto grid = std::make_shared<TerrainClassificationMap::Grid>();
   grid->W = grid->H = 1;
   grid->OrgE = grid->OrgN = -500;
   grid->CellM = 1000;

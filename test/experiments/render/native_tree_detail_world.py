@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import json
 import math
-import re
 import shlex
 import shutil
 import subprocess
@@ -102,25 +101,8 @@ def compile_unit(database, native, original, source, target):
 
 
 def libraries(native):
-    runner = (
-        (native / "test/run.sh")
-        .read_text()
-        .split("LayerLink() {", 1)[1]
-        .split("\n}", 1)[0]
-    )
-    line = next(
-        row
-        for row in runner.splitlines()
-        if row.lstrip().startswith("profile/engine | harness/wpt/css")
-    )
-    packages = re.search(r"\$\(pkg-config --libs ([^)]+)\)", line).group(1).split()
-    package_flags = subprocess.check_output(
-        ["pkg-config", "--libs", *packages], text=True
-    )
-    backend_flags = subprocess.check_output(
-        ["sh", "test/run.sh", "--native-link-flags"], cwd=native, text=True
-    )
-    return [*shlex.split(package_flags), "-lz", "-lcurl", *shlex.split(backend_flags)]
+    return shlex.split(subprocess.check_output(
+        ["sh", "test/run.sh", "--link-flags", "profile/engine"], cwd=native, text=True))
 
 
 def build(native, output, database, extra, label, dump=False):
@@ -288,7 +270,7 @@ def main():
             database,
             native,
             "Main.cpp",
-            native / "src/client/Main.cpp",
+            native / "src/app/Main.cpp",
             output / "main.o",
         )
     ]

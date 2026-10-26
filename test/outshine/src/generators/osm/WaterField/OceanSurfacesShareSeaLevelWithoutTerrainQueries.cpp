@@ -23,11 +23,11 @@ public:
 
   GroundSample Resident(LongitudeLatitude at) const override { return At(at); }
 
-  Ground::GroundBlock BlockAt(Ground::TileSpot) const override {
+  Ground::GroundBlock BlockAt(Ground::TileSpot /*at*/) const override {
     return Ground::GroundBlock::Waiting();
   }
 
-  double PostM(double) const override { return 1.0; }
+  double PostM(double /*latDeg*/) const override { return 1.0; }
 };
 }
 
@@ -53,7 +53,7 @@ int main() {
                          .LatLon = {3, 0, 3, 1, 4, 1, 4, 0}}};
   field.Declare(std::span(features).first(2), Ground::TileAt{.X = 32, .Y = 32});
   Heights ground;
-  VegetationTemplates materials;
+  const outshine::Generators::RegionSurfaceRecipes materials;
   WaterField water;
   CHECK(water.Ingest(ground, field, materials) == 2 && water.Ingested(field),
         "known ocean surfaces do not wait for unrelated terrain acquisition");

@@ -1,5 +1,8 @@
-#include "LightVisibilityStage.h"
-#include "SubjectDraw.h"
+#include "MeshInput.h"
+#include "TerrainLattice.h"
+#include "RenderScene.h"
+#include "SunShadowPass.h"
+#include "GeometryRenderer.h"
 #include "ReadbackTransfer.h"
 #include "NativeOfflineDevice.h"
 #include "NativeDeviceProxy.h"
@@ -40,7 +43,7 @@ constexpr std::array<uint32_t, 6> kIndices{0, 1, 2, 0, 2, 3};
 constexpr std::array<uint8_t, 8> kMask{255, 255, 255, 255, 255, 255, 255, 0};
 constexpr Mat4 kIdentity{{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 constexpr size_t kTilePixels = size_t{kShadowTilePx} * kShadowTilePx;
-constexpr auto kSun = LightVisibilityStage::Overhead{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
+constexpr auto kSun = SunShadowPass::Overhead{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
 
 struct MaskCase {
   uint32_t Uv = 0;
@@ -48,9 +51,9 @@ struct MaskCase {
 };
 
 struct Scene {
-  SubjectDraw Subjects;
-  LightVisibilityStage Shadow;
-  std::unique_ptr<Texture> Atlas;
+  RenderScene GeometryStorage;
+  GeometryRenderer Geometry{GeometryStorage};
+  SunShadowPass Shadow;
 
   explicit Scene(Device &device) {
     outshine::Render::Gpu gpu{.Device = &device,
@@ -61,19 +64,14 @@ struct Scene {
                               .SceneColours = {}};
     CHECK(gpu.SceneColours.Add(Resource::SceneHdr),
           "the shadow consumer keeps the existing subject pipeline");
-    Require(Subjects.Configure(gpu));
-    Require(Shadow.Configure(Subjects, gpu));
+    Require(Geometry.Configure(gpu));
+    Require(Shadow.Configure(Geometry, gpu));
     Shadow.Declare(kSun, 256);
-    Atlas = Require(
-        device.CreateTexture({.Width = kShadowAtlasPx,
-                              .Height = kShadowAtlasPx,
-                              .Texels = Format::Depth32Float,
-                              .Use = TextureUse::DepthAttachment | TextureUse::CopySource}));
   }
 };
 
 void SetMask(Scene &scene, MaskCase mask) {
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Row.Alpha = AlphaMode::Masked;
   material.Row.BaseColour[3] = kMaterialAlpha;
   material.Row.DoubleSided = true;
@@ -81,10 +79,10 @@ void SetMask(Scene &scene, MaskCase mask) {
     material.Colour = {.Rgba = kMask.data(),
                        .Width = 2,
                        .Height = 1,
-                       .WrapU = SubjectWrap::ClampToEdge,
-                       .Magnify = SubjectFilter::Nearest,
-                       .Minify = SubjectFilter::Nearest,
-                       .Mip = SubjectMip::None,
+                       .WrapU = outshine::Wrap::ClampToEdge,
+                       .Magnify = outshine::Filter::Nearest,
+                       .Minify = outshine::Filter::Nearest,
+                       .Mip = outshine::MipFilter::None,
                        .Uv = {},
                        .Set = mask.Uv == 2 ? UvSet::Uv1 : UvSet::Uv0};
     if (mask.Reverse) { material.Colour.Uv.M = {{-1, 0, 1, 0, 1, 0}}; }
@@ -94,13 +92,13 @@ void SetMask(Scene &scene, MaskCase mask) {
     static constexpr std::array<uint8_t, 4> lower{255, 255, 255, 255};
     material.Colour.Rgba = base.data();
     material.Colour.Width = material.Colour.Height = 2;
-    material.Colour.Mip = SubjectMip::Nearest;
+    material.Colour.Mip = outshine::MipFilter::Nearest;
     material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Colour)] = std::span(lower);
     material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Linear)] = std::span(lower);
   }
   std::string error;
-  CheckSceneUpload(scene.Subjects.SetMesh(SubjectMesh{}, error), error);
-  CheckSceneUpload(scene.Subjects.SetMaterials(std::span(&material, 1), error), error);
+  CheckSceneUpload(scene.Geometry.SetMesh(MeshInput{}, error), error);
+  CheckSceneUpload(scene.Geometry.SetMaterials(std::span(&material, 1), error), error);
   std::array<float, 12> emitted{};
   std::array<float, 16> colours{};
   for (size_t i = 0; i < 4; ++i) {
@@ -124,7 +122,7 @@ void SetMask(Scene &scene, MaskCase mask) {
   std::ranges::copy(kIdentity.Column, models.begin());
   std::ranges::copy(kIdentity.Column, models.begin() + 16);
   models[16 + 12] = kInstanceStepM;
-  CheckSceneUpload(scene.Subjects.SetPlacements(models.data(), instances, error), error);
+  CheckSceneUpload(scene.Geometry.SetPlacements(models.data(), instances, error), error);
   DrawList draws;
   CheckSceneUpload(draws.Add({.Order = {.Surface = material.State()},
                               .IndexCount = 6,
@@ -133,7 +131,7 @@ void SetMask(Scene &scene, MaskCase mask) {
                              error),
                    error);
   draws.Compile();
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Verts.From = kPositions.data();
   mesh.Positions = kPositions;
   mesh.Emitted.From = emitted.data();
@@ -144,17 +142,17 @@ void SetMask(Scene &scene, MaskCase mask) {
   if (mask.Uv > 0) { mesh.Uv.From = uv.data(); }
   if (mask.Uv > 1) { mesh.Uv1.From = uv1.data(); }
   if (mask.Tinted) { mesh.Colours.From = colours.data(); }
-  CheckSceneUpload(scene.Subjects.SetMesh(mesh, error), error);
+  CheckSceneUpload(scene.Geometry.SetMesh(mesh, error), error);
 }
 
 void Record(Device &device, Scene &scene, const FrameContext &frame, bool submit) {
   scene.Shadow.Prepare(frame);
   if (!scene.Shadow.Casting()) { return; }
   auto commands = Require(device.Begin());
-  Require(scene.Subjects.FlushCrossings(commands.get()));
+  Require(scene.Geometry.FlushCrossings(commands.get()));
   Require(commands->BeginRenderPass(
       {.Colours = {},
-       .Depth = DepthAttachment{.Image = {.Image = scene.Atlas.get()}, .Begin = Load::Clear}}));
+       .Depth = DepthAttachment{.Image = {.Image = scene.Shadow.Atlas()}, .Begin = Load::Clear}}));
   StageSubmission submission;
   Require(scene.Shadow.Encode(frame,
                               {.Commands = commands.get(),
@@ -164,15 +162,15 @@ void Record(Device &device, Scene &scene, const FrameContext &frame, bool submit
   Require(commands->EndRenderPass());
   if (submit) {
     Require(device.Submit(std::move(commands)));
-    scene.Subjects.CommitCrossings();
+    scene.Geometry.CommitCrossings();
     submission.Commit();
   }
 }
 
-std::vector<float> Read(Device &device, Scene &scene, size_t region = 0) {
+std::vector<float> Read(Device &device, const Scene &scene, size_t region = 0) {
   auto read =
       Require(ReadbackTransfer::Start(device,
-                                      *scene.Atlas,
+                                      *scene.Shadow.Atlas(),
                                       {.X = static_cast<uint32_t>(region % 2) * kShadowTilePx,
                                        .Y = static_cast<uint32_t>(region / 2) * kShadowTilePx,
                                        .Width = kShadowTilePx,
@@ -189,6 +187,19 @@ struct WorldPoint {
   double X, Y;
 };
 
+struct Pixel {
+  int X, Y;
+};
+
+WorldPoint TexelWorld(const Scene &scene, Pixel at) {
+  const auto &origin = scene.Shadow.Regions()[0].Depth;
+  const int column = (at.X + kShadowTilePx - static_cast<int>(origin[2])) % kShadowTilePx;
+  const int row = (at.Y + kShadowTilePx - static_cast<int>(origin[3])) % kShadowTilePx;
+  const auto &matrix = scene.Shadow.RegionProjection(0);
+  return {.X = ((2 * (column + 0.5) / kShadowTilePx - 1) - matrix[12]) / matrix[0],
+          .Y = ((1 - 2 * (row + 0.5) / kShadowTilePx) - matrix[13]) / matrix[5]};
+}
+
 bool CastsAt(WorldPoint point, MaskCase mask) {
   if ((mask.Tinted && mask.Thin) || std::abs(point.Y) >= kHalfM) { return false; }
   const uint32_t instances = mask.Tinted ? 2u : 1u;
@@ -203,16 +214,14 @@ bool CastsAt(WorldPoint point, MaskCase mask) {
   return false;
 }
 
-void Coverage(Scene &scene, std::span<const float> pixels, MaskCase mask) {
+void Coverage(const Scene &scene, std::span<const float> pixels, MaskCase mask) {
   const auto &matrix = scene.Shadow.RegionProjection(0);
   const bool covered = !mask.Tinted || !mask.Thin;
   size_t errors = 0;
   size_t occupied = 0;
   for (int y = 0; y < kShadowTilePx; ++y) {
     for (int x = 0; x < kShadowTilePx; ++x) {
-      const double worldX = ((2 * (x + 0.5) / kShadowTilePx - 1) - matrix[12]) / matrix[0];
-      const double worldY = ((1 - 2 * (y + 0.5) / kShadowTilePx) - matrix[13]) / matrix[5];
-      const bool casts = CastsAt({.X = worldX, .Y = worldY}, mask);
+      const bool casts = CastsAt(TexelWorld(scene, {.X = x, .Y = y}), mask);
       const auto value =
           pixels[size_t{static_cast<uint32_t>(y)} * kShadowTilePx + static_cast<uint32_t>(x)];
       const float expected = casts ? static_cast<float>(matrix[14]) : 0;
@@ -236,8 +245,9 @@ void Masks(Device &device, Scene &scene) {
           SetMask(scene, mask);
           const FrameContext frame;
           Record(device, scene, frame, true);
-          CHECK(scene.Shadow.HasSubmittedData() && scene.Shadow.CastBatches() == 1,
-                "one actual masked batch casts every declared instance");
+          CHECK(scene.Shadow.HasSubmittedData() && scene.Shadow.CastBatches() >= 1 &&
+                    scene.Shadow.CastBatches() <= 4,
+                "one masked surface spans at most two physical tile periods on each axis");
           const auto pixels = Read(device, scene);
           Coverage(scene, pixels, mask);
           scene.Shadow.Prepare(frame);
@@ -267,9 +277,9 @@ void Regions(Device &device, Scene &scene, std::string_view output) {
   SetMask(scene, {.Tinted = true});
   Mat4 distant = kIdentity;
   distant[12] = kDistantCasterM;
-  scene.Subjects.MovePlacement(1, distant);
+  scene.Geometry.MovePlacement(1, distant);
   std::string error;
-  CheckSceneUpload(scene.Subjects.HandPlacements(false, error), error);
+  CheckSceneUpload(scene.Geometry.HandPlacements(false, error), error);
   scene.Shadow.Declare(kSun, 8192, true);
   FrameContext frame;
   Record(device, scene, frame, true);
@@ -342,9 +352,10 @@ void RejectedRecording(Device &device, Scene &scene) {
   scene.Shadow.Prepare(frame);
   {
     RefuseDraw commands(Require(device.Begin()));
-    Require(commands.BeginRenderPass(
-        {.Colours = {},
-         .Depth = DepthAttachment{.Image = {.Image = scene.Atlas.get()}, .Begin = Load::Clear}}));
+    Require(
+        commands.BeginRenderPass({.Colours = {},
+                                  .Depth = DepthAttachment{.Image = {.Image = scene.Shadow.Atlas()},
+                                                           .Begin = Load::Clear}}));
     StageSubmission submission;
     const auto rejected =
         scene.Shadow.Encode(frame,
@@ -380,22 +391,23 @@ void ConfigureRollback(Device &device, Scene &scene) {
   CHECK(scene.Shadow.Cached(), "the accepted state is cached before the configuration fault");
   RefusePipeline rejected(device);
   const auto changed =
-      scene.Shadow.Configure(scene.Subjects, {.Device = &rejected, .SceneColours = {}});
+      scene.Shadow.Configure(scene.Geometry, {.Device = &rejected, .SceneColours = {}});
   CHECK(!changed && changed.error().Kind == ErrorKind::Driver && scene.Shadow.Cached(),
         "failed native pipeline creation preserves the accepted cache and pipeline set");
-  SubjectDraw other;
+  RenderScene otherStorage;
+  GeometryRenderer other{otherStorage};
   scene.Shadow.Binds(other);
   CHECK(!scene.Shadow.HasSubmittedData(),
         "rebinding another subject owner explicitly invalidates the previous world atlas");
-  scene.Shadow.Binds(scene.Subjects);
+  scene.Shadow.Binds(scene.Geometry);
 }
 
 void GroundOnly(Device &device, Scene &scene) {
   std::string error;
-  CheckSceneUpload(scene.Subjects.SetMesh(SubjectMesh{}, error), error);
-  CheckSceneUpload(scene.Subjects.SetPlacements(nullptr, 0, error), error);
-  auto &ground = scene.Subjects.Ground();
-  std::vector<float> heights(TerrainRenderer::kPageNodes, 3);
+  CheckSceneUpload(scene.Geometry.SetMesh(MeshInput{}, error), error);
+  CheckSceneUpload(scene.Geometry.SetPlacements(nullptr, 0, error), error);
+  auto &ground = scene.Geometry.Ground();
+  std::vector<float> heights(TerrainLattice::kPageNodes, 3);
   const auto page = Require(ground.PlacePage(heights));
   GroundTile tile;
   tile.Instance.Corners = {{-64, 64, 64, 64, -64, -64, 64, -64}};
@@ -412,9 +424,8 @@ void GroundOnly(Device &device, Scene &scene) {
   size_t occupied = 0;
   for (int y = 0; y < kShadowTilePx; ++y) {
     for (int x = 0; x < kShadowTilePx; ++x) {
-      const double worldX = ((2 * (x + 0.5) / kShadowTilePx - 1) - matrix[12]) / matrix[0];
-      const double worldY = ((1 - 2 * (y + 0.5) / kShadowTilePx) - matrix[13]) / matrix[5];
-      const bool inside = std::abs(worldX) < 64 && std::abs(worldY) < 64;
+      const auto world = TexelWorld(scene, {.X = x, .Y = y});
+      const bool inside = std::abs(world.X) < 64 && std::abs(world.Y) < 64;
       const float expected = inside ? static_cast<float>(matrix[10] * 3 + matrix[14]) : 0;
       const float value =
           pixels[size_t{static_cast<uint32_t>(y)} * kShadowTilePx + static_cast<uint32_t>(x)];
@@ -442,7 +453,7 @@ void MinifiedMasks(Device &device, Scene &scene) {
 
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   auto actual = Require(CreateDevice({.Validation = true}));
   NativeOfflineDevice device(*actual);
   Scene scene(device);

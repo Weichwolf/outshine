@@ -1,4 +1,4 @@
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include "Check.h"
 #include "Sha256.h"
 #include <algorithm>
@@ -12,6 +12,7 @@
 #include <span>
 #include <sqlite3.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -31,8 +32,12 @@ GeneratedAssetPackage Package() {
     package.Records.push_back({.Key = Key(kind),
                                .Kind = kind,
                                .Bounds = {.Min = {{0, 0, 0}}, .Max = {{10, 10, 10}}},
+                               .Package = {},
                                .OffsetBytes = package.Records.size() * 3,
-                               .ByteCount = 3});
+                               .ByteCount = 3,
+                               .Level = {},
+                               .Parent = {},
+                               .RequestKey = {}});
   }
   return package;
 }
@@ -86,12 +91,13 @@ void FreshHitsAndSnapshots(const std::string &path) {
   const auto constrained = (*restarted)->Load(Key("terrain"), 2);
   CHECK(!constrained && constrained.error() == AssetCacheError::CapacityExceeded,
         "whole-package budget is checked before allocating its payload");
+  constexpr uint8_t kReplacementByte = 42;
   auto changed = Package();
-  changed.Bytes.front() = 42;
+  changed.Bytes.front() = kReplacementByte;
   CHECK((*restarted)->Publish(changed.Records, changed.Bytes).has_value(),
         "replacement publishes all slices atomically");
   auto replacement = (*restarted)->Load(Key("terrain"), 16);
-  CHECK(replacement && *replacement && (**replacement).Bytes().front() == 42 &&
+  CHECK(replacement && *replacement && (**replacement).Bytes().front() == kReplacementByte &&
             cold->Bytes().front() == 1,
         "new readers observe replacement while held bytes remain immutable");
   restarted->reset();
@@ -119,7 +125,15 @@ void RepairsCorruption(const std::string &path) {
   });
   CHECK(rebuilt && generated == 1 && rebuilt->Bytes().front() == 1,
         "corruption causes exactly one fresh generation and republishes a complete package");
-  const AssetRecord empty{.Key = Key("empty"), .Kind = "water", .Bounds = {.Min = {}, .Max = {}}};
+  const AssetRecord empty{.Key = Key("empty"),
+                          .Kind = "water",
+                          .Bounds = {.Min = {}, .Max = {}},
+                          .Package = {},
+                          .OffsetBytes = {},
+                          .ByteCount = {},
+                          .Level = {},
+                          .Parent = {},
+                          .RequestKey = {}};
   CHECK((*opened)->Publish(std::span(&empty, 1), {}).has_value(),
         "known empty asset is persistently representable");
   const auto known = (*opened)->Load(empty.Key, 0);

@@ -4,6 +4,8 @@
 
 #include <array>
 #include <cmath>
+#include <span>
+#include <cstddef>
 
 namespace {
 
@@ -22,12 +24,12 @@ void CheckPortedRoad(std::span<const outshine::RoadStation> stations, outshine::
        .WearsLinear = {{.2f, .3f, .4f}},
        .Crossfall = .04,
        .Form = RibbonForm::Surface,
-       .EndPorts = {RoadPort{Generators::RoadEndGate(
+       .EndPorts = {RoadPort{.Gate = Generators::RoadEndGate(
                                  stations, false, Generators::RoadSection(2, RoadProfile::Simple)),
-                             plane},
-                    RoadPort{Generators::RoadEndGate(
+                             .Plane = plane},
+                    RoadPort{.Gate = Generators::RoadEndGate(
                                  stations, true, Generators::RoadSection(2, RoadProfile::Simple)),
-                             plane}}},
+                             .Plane = plane}}},
       mesh);
   CHECK(result.Pieces == 1 && result.Cuts == 0 && result.Refused == 0,
         "ported road forms one complete fitted surface");
@@ -70,7 +72,8 @@ int main() {
   using namespace outshine;
   constexpr RoadPlane plane{.SlopeE = .06, .SlopeN = -.03};
   for (const double heading : {0.0, .7, 1.5707963267948966, -2.0}) {
-    const double east = std::cos(heading), north = std::sin(heading);
+    const double east = std::cos(heading);
+    const double north = std::sin(heading);
     const std::array<RoadStation, 2> stations{
         {{.EastM = 13.4567, .NorthM = -25.6789, .GradeM = Height(plane, 13.4567, -25.6789)},
          {.EastM = 13.4567 + 40 * east,

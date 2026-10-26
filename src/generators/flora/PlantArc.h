@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_FLORA_PLANTARC_H
 #define OUTSHINE_GENERATORS_FLORA_PLANTARC_H
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <cmath>
 
 namespace outshine::Generators {

@@ -1,4 +1,4 @@
-#include "scene/SurfaceClearance.h"
+#include "SurfaceClearance.h"
 #include "GeosTriangle.h"
 
 #include <geos_c.h>

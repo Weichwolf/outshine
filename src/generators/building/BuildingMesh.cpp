@@ -1,15 +1,15 @@
-#include "math/Units.h"
+#include "Units.h"
 #include "BuildingMaterials.h"
 #include "BuildingWallMaterial.h"
 #include "Digest.h"
-#include <generation/Generate.h>
+#include <Generator.h>
 
 #include "BuildingMesh.h"
 #include "BuildingWallNormals.h"
-#include "math/Box.h"
+#include "Box.h"
 
-#include "ground/TileMeshes.h"
-#include "math/Vec3.h"
+#include "TileMeshes.h"
+#include "Vec3.h"
 
 #include <array>
 #include <algorithm>
@@ -775,6 +775,12 @@ double ShellErrorAtMagnitude(double magnitudeM) noexcept {
   return std::ceil((kOpeningDepthM + weldM + roundingM) * kErrorUnitsPerM) / kErrorUnitsPerM;
 }
 
+}
+
+bool BuildingMesh::KnownEmptySurface(const StructurePlan &plan) const noexcept {
+  return plan.Prepared != nullptr && plan.Prepared->FaceCount() == 0 &&
+         ValidFootprintCoordinates(plan.RingLatLon) && ValidPlanParameters(plan) &&
+         plan.Prepared->RequireShapes() && plan.Prepared->Shapes().empty();
 }
 
 std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {

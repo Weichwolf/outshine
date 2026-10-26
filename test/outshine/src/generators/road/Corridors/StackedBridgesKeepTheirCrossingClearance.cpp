@@ -1,15 +1,17 @@
 #include "Check.h"
 #include "Corridors.h"
 #include "ProfiledRoadMesher.h"
-#include <scene/SurfaceClearance.h>
+#include <SurfaceClearance.h>
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <print>
 #include <span>
 #include <string>
 #include <vector>
@@ -24,21 +26,24 @@ struct SelectedSurface {
   Append(const outshine::RoadMeshBuffers &mesh, std::span<const uint32_t> indices, double facing) {
     for (size_t at = 0; at < indices.size(); at += 3) {
       const std::array face{indices[at], indices[at + 1], indices[at + 2]};
-      if (!std::ranges::all_of(
-              face, [&](uint32_t vertex) { return facing * mesh.NormalM[vertex * 3 + 1] > .5; })) {
+      if (!std::ranges::all_of(face, [&](uint32_t vertex) {
+            return facing * mesh.NormalM[size_t{vertex} * 3 + 1] > .5;
+          })) {
         continue;
       }
       const auto first = static_cast<uint32_t>(Vertices.size());
-      for (uint32_t vertex : face) {
-        Vertices.push_back({{mesh.PositionM[vertex * 3],
-                             -mesh.PositionM[vertex * 3 + 2],
-                             mesh.PositionM[vertex * 3 + 1]}});
+      for (const uint32_t vertex : face) {
+        Vertices.push_back({{mesh.PositionM[size_t{vertex} * 3],
+                             -mesh.PositionM[size_t{vertex} * 3 + 2],
+                             mesh.PositionM[size_t{vertex} * 3 + 1]}});
       }
       Triangles.push_back({first, first + 1, first + 2});
     }
   }
 
-  outshine::HeightSurfaceView View() const { return {Vertices, Triangles}; }
+  [[nodiscard]] outshine::HeightSurfaceView View() const {
+    return {.Vertices = Vertices, .Triangles = Triangles};
+  }
 };
 
 struct RecordingMesher final : outshine::RoadMesher {
@@ -109,14 +114,14 @@ void CheckHeights(Crossing kind,
   CHECK(gap.has_value(), "selected native road top and bridge underside overlap over their width");
   if (gap) {
     if (gap->MinimumM < lower.ClearanceM - 1e-4) {
-      std::printf("crossing=%u gap=%.9f required=%.9f xy=%.9f,%.9f centre=%.9f,%.9f\n",
-                  static_cast<unsigned>(kind),
-                  gap->MinimumM,
-                  lower.ClearanceM,
-                  gap->Witness[0],
-                  gap->Witness[1],
-                  mesher.CrossingHeightM[0],
-                  mesher.CrossingHeightM[1]);
+      std::println("crossing={} gap={:.9f} required={:.9f} xy={:.9f},{:.9f} centre={:.9f},{:.9f}",
+                   static_cast<unsigned>(kind),
+                   gap->MinimumM,
+                   lower.ClearanceM,
+                   gap->Witness[0],
+                   gap->Witness[1],
+                   mesher.CrossingHeightM[0],
+                   mesher.CrossingHeightM[1]);
     }
     CHECK(gap->MinimumM >= lower.ClearanceM - 1e-4,
           "the entire rendered overlap preserves vehicle clearance within float32 mesh precision");
@@ -194,8 +199,8 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "both bridge decks use production road dimensions");
@@ -213,10 +218,12 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
   if (!network) { return; }
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const auto &way = ways.Ways()[at];
-    CHECK(network
-              ->Lay(vectors.Points().subspan(2u * way.FirstPoint, 2u * way.PointCount), {.Tag = at})
-              .has_value(),
-          "each axis keeps its source association");
+    CHECK(
+        network
+            ->Lay(vectors.Points().subspan(size_t{2} * way.FirstPoint, size_t{2} * way.PointCount),
+                  {.Tag = at})
+            .has_value(),
+        "each axis keeps its source association");
   }
   const TangentFrame standing = TangentFrame::At(origin);
   const TriangleBvh empty = TriangleBvh::Over({}, {});

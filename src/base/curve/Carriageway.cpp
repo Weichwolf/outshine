@@ -1,7 +1,7 @@
 #include <optional>
-#include "math/Vec2.h"
+#include "Vec2.h"
 #include "Carriageway.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <cmath>
 

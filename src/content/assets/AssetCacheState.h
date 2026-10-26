@@ -1,17 +1,22 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_ASSETCACHESTATE_H
 #define OUTSHINE_CONTENT_ASSETS_ASSETCACHESTATE_H
 
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "CacheUsageIndex.h"
+#include <memory>
+#include <mutex>
 #include <sqlite3.h>
 
 namespace outshine {
 
 struct AssetCache::State {
+  // Handles of one database share the lock; transaction helpers can call lookups.
+  std::shared_ptr<std::recursive_mutex> Mutex;
   sqlite3 *Database = nullptr;
   std::unique_ptr<CacheUsageIndex> Usage;
   bool UsageWarning = false;
   void Observe(std::string_view key, uint64_t storedBytes, bool published = false);
+  void WarnUsage();
   ~State();
 };
 
@@ -36,7 +41,7 @@ Prepare(sqlite3 *database, const char *sql, Statement &statement);
 [[nodiscard]] std::optional<AssetRecord> Read(sqlite3_stmt *statement);
 
 inline constexpr auto kColumns = "a.key,a.kind,a.minx,a.miny,a.minz,a.maxx,a.maxy,a.maxz,a.package,"
-                                 "a.offset,a.bytes,a.level,a.parent,a.request_key";
+                                 "a.offset,a.bytes,a.level,a.parent";
 
 }
 }

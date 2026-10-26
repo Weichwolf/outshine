@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "TerrainRenderer.h"
 #include "SurfaceOutputs.h"
 #include "SpirvFile.h"
@@ -13,7 +14,7 @@ namespace outshine::Render {
 namespace {
 struct LatticeInput {
   std::array<Native::VertexStream, 2> Streams{
-      {{.Slot = 0, .Stride = TerrainRenderer::kGridFloats * sizeof(float)},
+      {{.Slot = 0, .Stride = TerrainLattice::kGridFloats * sizeof(float)},
        {.Slot = 1,
         .Stride = kGroundInstanceFloats * sizeof(float),
         .Rate = Native::VertexRate::Instance}}};
@@ -40,19 +41,19 @@ Pipeline(Native::Device &device,
          std::span<const Native::ColourTarget> targets,
          Native::Cull culling,
          bool patched = false) {
-  auto vertex = ReadSpirv(paths.Vertex);
+  auto vertex = ReadShaderSpirv(paths.Vertex);
   if (!vertex) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = vertex.error()});
   }
-  auto fragment = ReadSpirv(paths.Fragment);
+  auto fragment = ReadShaderSpirv(paths.Fragment);
   if (!fragment) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = fragment.error()});
   }
   constexpr LatticeInput input;
   constexpr std::array patchStreams{
-      Native::VertexStream{.Slot = 0, .Stride = TerrainRenderer::kGridFloats * sizeof(float)},
+      Native::VertexStream{.Slot = 0, .Stride = TerrainLattice::kGridFloats * sizeof(float)},
       Native::VertexStream{
           .Slot = 1, .Stride = sizeof(uint32_t), .Rate = Native::VertexRate::Instance}};
   constexpr std::array patchAttributes{
@@ -95,8 +96,7 @@ Native::Result<void> TerrainPipelines::ConfigureLit(Native::Device &device,
 
 Native::Result<void> TerrainPipelines::ConfigureDepth(Native::Device &device) {
   auto made = Pipeline(device,
-                       {.Vertex = "build/shaders/groundLatticeDepth.vert.spv",
-                        .Fragment = "build/shaders/depth.frag.spv"},
+                       {.Vertex = "groundLatticeDepth.vert.spv", .Fragment = "depth.frag.spv"},
                        {},
                        Native::Cull::Front);
   if (!made) { return std::unexpected(made.error()); }
@@ -122,46 +122,15 @@ Native::Result<void> TerrainRenderer::Configure(TerrainPipelines &pipelines,
 
 Native::Result<void> TerrainRenderer::ReuseInputsFrom(const TerrainRenderer &previous,
                                                       Native::Device &device) {
-  if ((Device_ != nullptr && Device_ != &device) ||
-      (previous.Device_ != nullptr && previous.Device_ != &device)) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "ground geometry belongs to another device"});
-  }
-  if (Grid_ || UniformGrid_ || Index_ || PatchGrid_ || PatchIndex_ || PatchFractions_ ||
-      !previous.Grid_ || !previous.UniformGrid_ || !previous.Index_ || !previous.PatchGrid_ ||
-      !previous.PatchIndex_ || !previous.PatchFractions_) {
-    return {};
-  }
-  Grid_ = previous.Grid_;
-  UniformGrid_ = previous.UniformGrid_;
-  Index_ = previous.Index_;
-  PatchGrid_ = previous.PatchGrid_;
-  PatchIndex_ = previous.PatchIndex_;
-  PatchFractions_ = previous.PatchFractions_;
-  Selection_.Fractions(previous.Selection_.Fractions());
-  Device_ = &device;
-  return {};
+  auto reused = Resident_->ReuseInputsFrom(*previous.Resident_, device);
+  if (reused) { SyncInputs(); }
+  return reused;
 }
 
 Native::Result<void> TerrainRenderer::AttachPipelines(TerrainPipelines &pipelines,
                                                       Native::Device &device) {
-  if (Device_ != nullptr && Device_ != &device) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "ground resources belong to another device"});
-  }
-  Device_ = &device;
-  if (!Grid_) {
-    const auto grid = BuildGrid({}, Grid_);
-    if (!grid) { return grid; }
-  }
-  if (!UniformGrid_) {
-    const auto grid = BuildGrid({}, UniformGrid_);
-    if (!grid) { return grid; }
-  }
-  if (!PatchGrid_) {
-    const auto grid = BuildPatchGrid();
-    if (!grid) { return grid; }
-  }
+  auto ready = Resident_->StandsOn(device);
+  if (!ready) { return ready; }
   UsePipelines(pipelines);
   return {};
 }

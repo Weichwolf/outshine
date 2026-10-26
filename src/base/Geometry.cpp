@@ -1,8 +1,9 @@
-#include "math/Mat4.h"
+#include "Mat4.h"
 #include "MaterialValidation.h"
 #include "GeometryCapacity.h"
 #include <array>
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstddef>
@@ -15,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-#include <scene/Geometry.h>
+#include <Geometry.h>
 
 namespace outshine {
 
@@ -54,6 +55,7 @@ struct Geometry::Held {
   struct Picture {
     int WidthPx = 0;
     int HeightPx = 0;
+    ImagePixelFormat Format = ImagePixelFormat::Rgba8Unorm;
     std::vector<uint8_t> Rgba;
     ImageMipData LowerMips;
   };
@@ -92,32 +94,41 @@ Geometry Geometry::clone() const {
 
 std::expected<void, GeometryAppendError> Geometry::append(const Geometry &source) {
   if (!source.wellFormed()) { return std::unexpected(GeometryAppendError::MalformedSource); }
-  if (Held_->Surfaces.size() >
-          static_cast<size_t>(std::numeric_limits<int>::max()) - source.Held_->Surfaces.size() ||
-      Held_->Images.size() >
-          static_cast<size_t>(std::numeric_limits<int>::max()) - source.Held_->Images.size()) {
+  const auto fits = [](const auto &held, size_t added) {
+    const size_t limit =
+        std::min(held.max_size(), static_cast<size_t>(std::numeric_limits<int>::max()));
+    return held.size() <= limit && added <= limit - held.size();
+  };
+  const size_t partsMost =
+      std::min(Held_->Parts.max_size(), static_cast<size_t>(std::numeric_limits<int>::max()));
+  if (Held_->Live > partsMost || source.Held_->Live > partsMost - Held_->Live ||
+      !fits(Held_->Surfaces, source.Held_->Surfaces.size()) ||
+      !fits(Held_->Images, source.Held_->Images.size()) ||
+      !fits(Held_->Lamps, source.Held_->Lamps.size())) {
     return std::unexpected(GeometryAppendError::CapacityExceeded);
   }
-  Geometry candidate = clone();
-  const int imageBase = static_cast<int>(candidate.Held_->Images.size());
-  const int materialBase = static_cast<int>(candidate.Held_->Surfaces.size());
-  candidate.Held_->Images.insert(
-      candidate.Held_->Images.end(), source.Held_->Images.begin(), source.Held_->Images.end());
+  if (this == &source) {
+    const Geometry snapshot = source.clone();
+    return append(snapshot);
+  }
+  const int imageBase = static_cast<int>(Held_->Images.size());
+  const int materialBase = static_cast<int>(Held_->Surfaces.size());
+  Held_->Parts.resize(Held_->Live);
+  Held_->Images.insert(
+      Held_->Images.end(), source.Held_->Images.begin(), source.Held_->Images.end());
   for (Held::Named surface : source.Held_->Surfaces) {
     const auto remap = [imageBase](SurfaceMap &map) {
       if (map.Image >= 0) { map.Image += imageBase; }
     };
     for (auto *map : MaterialMaps(surface.Surface)) { remap(*map); }
-    candidate.Held_->Surfaces.push_back(std::move(surface));
+    Held_->Surfaces.push_back(std::move(surface));
   }
   for (Held::Piece part : std::span(source.Held_->Parts).first(source.Held_->Live)) {
     if (part.Material >= 0) { part.Material += materialBase; }
-    candidate.Held_->Parts.push_back(std::move(part));
-    ++candidate.Held_->Live;
+    Held_->Parts.push_back(std::move(part));
+    ++Held_->Live;
   }
-  candidate.Held_->Lamps.insert(
-      candidate.Held_->Lamps.end(), source.Held_->Lamps.begin(), source.Held_->Lamps.end());
-  *this = std::move(candidate);
+  Held_->Lamps.insert(Held_->Lamps.end(), source.Held_->Lamps.begin(), source.Held_->Lamps.end());
   return {};
 }
 
@@ -156,6 +167,24 @@ std::expected<int, GeometryPartError> Geometry::addPart(std::string_view named,
 namespace {
 
 constexpr double kUnitWithin = 1.0e-3;
+constexpr int kBinary64Digits = 53;
+constexpr uint64_t kBinary64OneBits = 0x3ff0000000000000ULL;
+static_assert(std::numeric_limits<double>::is_iec559 &&
+              std::numeric_limits<double>::digits == kBinary64Digits &&
+              std::bit_cast<uint64_t>(1.0) == kBinary64OneBits);
+
+[[nodiscard]] consteval double NextPositiveDouble(double value) noexcept {
+  return std::bit_cast<double>(std::bit_cast<uint64_t>(value) + 1);
+}
+
+[[nodiscard]] consteval double PreviousPositiveDouble(double value) noexcept {
+  return std::bit_cast<double>(std::bit_cast<uint64_t>(value) - 1);
+}
+
+constexpr double kUnitLengthMin = NextPositiveDouble(1.0 - kUnitWithin);
+constexpr double kUnitLengthMax = PreviousPositiveDouble(1.0 + kUnitWithin);
+constexpr double kUnitSquaredMin = NextPositiveDouble(kUnitLengthMin * kUnitLengthMin);
+constexpr double kUnitSquaredMax = PreviousPositiveDouble(kUnitLengthMax * kUnitLengthMax);
 constexpr double kNoAreaM4 = 1.0e-12;
 
 [[nodiscard]] std::expected<void, GeometryAttributeError>
@@ -170,9 +199,11 @@ Finite(std::span<const float> from) noexcept {
 ValidateNormals(std::span<const float> unit) noexcept {
   if (unit.size() % 3 != 0) { return std::unexpected(GeometryAttributeError::IncompleteTuple); }
   for (size_t at = 0; at + 2 < unit.size(); at += 3) {
-    const double length = std::sqrt(static_cast<double>(unit[at]) * unit[at] +
-                                    static_cast<double>(unit[at + 1]) * unit[at + 1] +
-                                    static_cast<double>(unit[at + 2]) * unit[at + 2]);
+    const double squared = static_cast<double>(unit[at]) * unit[at] +
+                           static_cast<double>(unit[at + 1]) * unit[at + 1] +
+                           static_cast<double>(unit[at + 2]) * unit[at + 2];
+    if (squared >= kUnitSquaredMin && squared <= kUnitSquaredMax) { continue; }
+    const double length = std::sqrt(squared);
     if (!std::isfinite(length)) { return std::unexpected(GeometryAttributeError::NonFiniteValue); }
     if (std::fabs(length - 1.0) > kUnitWithin) {
       return std::unexpected(GeometryAttributeError::NonUnitNormal);
@@ -221,6 +252,51 @@ std::expected<void, GeometryAttributeError> Geometry::setPositions(int part,
                                : GeometryAttributeError::IncompleteTuple);
   }
   return Into(Held_->Parts[static_cast<size_t>(part)].Data.PositionsM, metres);
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptPositions(int part, std::vector<float> &metres) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || metres.size() % 3 != 0) {
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
+  }
+  if (const auto valid = Finite(metres); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.PositionsM = std::move(metres);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptNormals(int part, std::vector<float> &unit) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(GeometryAttributeError::MissingPart);
+  }
+  if (const auto valid = ValidateNormals(unit); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.Normals = std::move(unit);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptColours(int part, std::vector<float> &rgba) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || rgba.size() % 4 != 0) {
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
+  }
+  if (const auto valid = Finite(rgba); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.Colours = std::move(rgba);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptTriangles(int part, std::vector<uint32_t> &indices) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || indices.size() % 3 != 0) {
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
+  }
+  Held_->Parts[static_cast<size_t>(part)].Data.Indices = std::move(indices);
+  return {};
 }
 
 std::expected<void, GeometryAttributeError> Geometry::setNormals(int part,
@@ -378,10 +454,10 @@ std::expected<int, GeometryImageError> Geometry::addImage(ImageView image) {
   if (!CanAppendGeometryEntry(Held_->Images.size(), Held_->Images.max_size())) {
     return std::unexpected(GeometryImageError::CapacityExceeded);
   }
-  constexpr size_t bytesPerPixel = 4;
+  const size_t bytesPerPixel = ImagePixelBytes(image.Format);
   const auto width = static_cast<size_t>(widthPx);
   const auto height = static_cast<size_t>(heightPx);
-  if (width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) {
+  if (bytesPerPixel == 0 || width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) {
     return std::unexpected(GeometryImageError::InvalidDimensions);
   }
   const size_t bytes = width * height * bytesPerPixel;
@@ -390,6 +466,7 @@ std::expected<int, GeometryImageError> Geometry::addImage(ImageView image) {
   Held::Picture made;
   made.WidthPx = widthPx;
   made.HeightPx = heightPx;
+  made.Format = image.Format;
   made.Rgba.assign(rgba.begin(), rgba.end());
   made.LowerMips = CopyImageMips(image.LowerMips);
   Held_->Images.push_back(std::move(made));
@@ -418,6 +495,7 @@ ImageView Geometry::imageAt(int image) const {
   const Held::Picture &held = Held_->Images[static_cast<size_t>(image)];
   return ImageView{.WidthPx = held.WidthPx,
                    .HeightPx = held.HeightPx,
+                   .Format = held.Format,
                    .Rgba = std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size()),
                    .LowerMips = ViewImageMips(held.LowerMips)};
 }

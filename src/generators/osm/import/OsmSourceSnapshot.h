@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "OsmElementSet.h"
-#include <world/SourceProvider.h>
-#include <world/data/GeoCellId.h>
+#include <SourceProvider.h>
+#include <GeoCellId.h>
 
 namespace outshine::Generators::Osm {
 
@@ -21,12 +21,12 @@ struct ChunkProvenance {
 
 struct SourceSnapshot {
   ElementSet Elements;
-  std::vector<Data::SourceCoverage> Coverage;
+  std::vector<GeographicBounds> Coverage;
   size_t SourceBytes = 0;
   double ReadMs = 0.0;
   double ParseMs = 0.0;
   std::vector<ChunkProvenance> Chunks;
-  std::optional<Data::GeoCellId> Cell = std::nullopt;
+  std::optional<GeoCellId> Cell = std::nullopt;
 
   [[nodiscard]] size_t StorageChargeBytes() const noexcept;
 };

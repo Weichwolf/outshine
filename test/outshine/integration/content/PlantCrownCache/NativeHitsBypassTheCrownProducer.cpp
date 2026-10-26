@@ -1,4 +1,4 @@
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include "PlantCrownAsset.h"
 #include "PlantCrownPlan.h"
 #include "Sha256.h"

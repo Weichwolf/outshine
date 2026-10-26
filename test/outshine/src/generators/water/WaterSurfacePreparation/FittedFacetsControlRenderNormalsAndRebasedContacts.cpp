@@ -3,23 +3,41 @@
 #include "WaterSurfaceMesh.h"
 #include "TangentFrame.h"
 #include "Check.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include <cmath>
+#include <cstddef>
 #include <utility>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  const WaterAsset source({.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 999}},
+  const WaterAsset source({.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 999},
+                                        {.FirstRing = 0, .RingCount = 1, .LevelM = 888}},
                            .Rings = {{.FirstPoint = 0, .PointCount = 3}},
-                           .Points = {-.001, -.001, -.001, .001, .001, 0}});
+                           .Courses = {},
+                           .Levels = {},
+                           .Points = {-.001, -.001, -.001, .001, .001, 0},
+                           .Tiles = {{.Zoom = 0, .X = 0, .Y = 0, .SurfaceCount = 2}},
+                           .ProcessedTiles = 1,
+                           .Sources = {},
+                           .Inputs = {}});
   auto mesh = WaterSurfaceMesh::Build(
       {}, {{{-100, -100, 30}}, {{100, -100, 34}}, {{0, 100, 32}}}, {{.Vertices = {0, 1, 2}}});
   CHECK(mesh, "fitted physical facet exists");
   if (!mesh) { return Report(); }
-  auto water = source.WithSurfaces({.Mesh = std::move(*mesh), .Rejections = {}});
-  CHECK(water, "fitted facet is bound to source water");
+  const auto prepared = source.WithSurfaces({.Mesh = std::move(*mesh),
+                                             .Rejections = {},
+                                             .FaceSourceOffsets = {0, 2},
+                                             .FaceSources = {0, 1},
+                                             .ProfileDeclines = {}});
+  CHECK(prepared, "one fitted physical facet preserves both overlapping source surfaces");
+  if (!prepared) { return Report(); }
+  const auto encoded = prepared->EncodeNative(16384);
+  CHECK(encoded, "shared fitted water is cached without repeating the solver");
+  if (!encoded) { return Report(); }
+  const auto water = WaterAsset::DecodeNative(*encoded);
+  CHECK(water, "render and contact consumers load the same shared cached facet");
   if (!water) { return Report(); }
   Geometry geometry;
   const auto material = geometry.addSurface("water", WaterSurfaceMaterial());

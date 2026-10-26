@@ -1,6 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#define FLAT_MATERIAL (FLAT_TEXTURED || FLAT_KIND != 0 || SUBJECT_IDENTITY_LOCATION > 0)
+#define FLAT_MATERIAL (FLAT_TEXTURED || FLAT_KIND != 0 || SURFACE_IDENTITY_LOCATION > 0)
 #if FLAT_MATERIAL
 #include "material.glsl"
 #endif
@@ -9,7 +9,7 @@
 #if FLAT_TEXTURED || FLAT_KIND == 3
 layout(set = 2, binding = 0) uniform sampler2D imageMap;
 #endif
-#include "subjectOutput.glsl"
+#include "surfaceOutput.glsl"
 #include "surfaceTransfer.glsl"
 void main() {
   float identity = 0.0;
@@ -37,7 +37,7 @@ void main() {
 #endif
   outputMaterial(shaded.rgb, 1.0, 0.0);
   outputSurface(shaded, vec3(0.0), identity);
-#if SUBJECT_NORMAL_LOCATION > 0
+#if SURFACE_NORMAL_LOCATION > 0
   outNormal.w = 1.0;
 #endif
 }

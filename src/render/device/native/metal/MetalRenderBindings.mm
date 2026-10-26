@@ -4,22 +4,26 @@
 namespace outshine::Render::Native::Metal {
 namespace {
 
-void BindBuffer(id<MTLRenderCommandEncoder> encoder,
-                ShaderStage stage,
-                id<MTLBuffer> buffer,
-                uint64_t offset,
-                uint32_t slot) {
+void BindBuffer(
+    RenderState &pass, ShaderStage stage, id<MTLBuffer> buffer, uint64_t offset, uint32_t slot) {
+  auto &bound = pass.Bindings[stage == ShaderStage::Vertex ? 0u : 1u].Buffers[slot];
+  if (bound.Buffer == buffer && bound.Offset == offset) { return; }
+  const auto encoder = pass.Encoder;
   if (stage == ShaderStage::Vertex) {
     [encoder setVertexBuffer:buffer offset:offset atIndex:slot];
   } else {
     [encoder setFragmentBuffer:buffer offset:offset atIndex:slot];
   }
+  bound = {.Buffer = buffer, .Offset = offset};
 }
 
-void BindBytes(id<MTLRenderCommandEncoder> encoder,
+void BindBytes(RenderState &pass,
                ShaderStage stage,
                std::span<const std::byte> bytes,
                uint32_t slot) {
+  auto &bindings = pass.Bindings[stage == ShaderStage::Vertex ? 0u : 1u];
+  if (slot < bindings.Buffers.size()) { bindings.Buffers[slot] = {}; }
+  const auto encoder = pass.Encoder;
   if (stage == ShaderStage::Vertex) {
     [encoder setVertexBytes:bytes.data() length:bytes.size() atIndex:slot];
   } else {
@@ -27,55 +31,65 @@ void BindBytes(id<MTLRenderCommandEncoder> encoder,
   }
 }
 
-void BindTexture(id<MTLRenderCommandEncoder> encoder,
-                 ShaderStage stage,
-                 const ShaderArgument &argument) {
-  if (stage == ShaderStage::Vertex) {
-    [encoder setVertexTexture:argument.Texture atIndex:argument.Layout->Texture];
-    if (argument.Sampler != nil) {
-      [encoder setVertexSamplerState:argument.Sampler atIndex:argument.Layout->Sampler];
+void BindTexture(RenderState &pass, ShaderStage stage, const ShaderArgument &argument) {
+  auto &bindings = pass.Bindings[stage == ShaderStage::Vertex ? 0u : 1u];
+  const auto encoder = pass.Encoder;
+  const auto texture = argument.Layout->Texture;
+  if (texture >= bindings.Textures.size() || bindings.Textures[texture] != argument.Texture) {
+    if (stage == ShaderStage::Vertex) {
+      [encoder setVertexTexture:argument.Texture atIndex:texture];
+    } else {
+      [encoder setFragmentTexture:argument.Texture atIndex:texture];
     }
-  } else {
-    [encoder setFragmentTexture:argument.Texture atIndex:argument.Layout->Texture];
-    if (argument.Sampler != nil) {
-      [encoder setFragmentSamplerState:argument.Sampler atIndex:argument.Layout->Sampler];
+    if (texture < bindings.Textures.size()) { bindings.Textures[texture] = argument.Texture; }
+  }
+  const auto sampler = argument.Layout->Sampler;
+  if (argument.Sampler != nil &&
+      (sampler >= bindings.Samplers.size() || bindings.Samplers[sampler] != argument.Sampler)) {
+    if (stage == ShaderStage::Vertex) {
+      [encoder setVertexSamplerState:argument.Sampler atIndex:sampler];
+    } else {
+      [encoder setFragmentSamplerState:argument.Sampler atIndex:sampler];
     }
+    if (sampler < bindings.Samplers.size()) { bindings.Samplers[sampler] = argument.Sampler; }
   }
 }
 
 }
 
-Result<void> Bind(id<MTLRenderCommandEncoder> encoder,
+Result<void> Bind(RenderState &pass,
                   ShaderStage stage,
                   const Shader &shader,
-                  const std::vector<ShaderArgument> &arguments) {
+                  std::span<const ShaderArgument> arguments) {
   std::array<uint32_t, kBufferSizesSlot> sizes{};
   for (const auto &argument : arguments) {
     const auto slot = argument.Layout->Buffer;
     if (argument.Storage != nullptr) {
-      BindBuffer(encoder, stage, argument.Buffer->Native, argument.Storage->Range.Offset, slot);
+      BindBuffer(pass, stage, argument.Buffer->Native, argument.Storage->Range.Offset, slot);
       sizes[slot] = static_cast<uint32_t>(argument.Storage->Range.Bytes);
     } else if (argument.Texture != nil) {
-      BindTexture(encoder, stage, argument);
+      BindTexture(pass, stage, argument);
     } else {
       const auto bytes = argument.Constants->Bytes;
       constexpr size_t inlineBytes = 4096;
       if (bytes.size() <= inlineBytes) {
-        BindBytes(encoder, stage, bytes, slot);
+        BindBytes(pass, stage, bytes, slot);
       } else {
         const id<MTLBuffer> constants =
-            [encoder.device newBufferWithBytes:bytes.data()
-                                        length:bytes.size()
-                                       options:MTLResourceStorageModeShared];
+            [pass.Encoder.device newBufferWithBytes:bytes.data()
+                                             length:bytes.size()
+                                            options:MTLResourceStorageModeShared];
         if (constants == nil) {
           return Failure(ErrorKind::OutOfMemory, "Metal render uniform allocation failed");
         }
-        BindBuffer(encoder, stage, constants, 0, slot);
+        BindBuffer(pass, stage, constants, 0, slot);
       }
     }
   }
-  if (shader.NeedsBufferSizes) {
-    BindBytes(encoder, stage, std::as_bytes(std::span(sizes)), kBufferSizesSlot);
+  auto &bindings = pass.Bindings[stage == ShaderStage::Vertex ? 0u : 1u];
+  if (shader.NeedsBufferSizes && (!bindings.Sizes || *bindings.Sizes != sizes)) {
+    BindBytes(pass, stage, std::as_bytes(std::span(sizes)), kBufferSizesSlot);
+    bindings.Sizes = sizes;
   }
   return {};
 }

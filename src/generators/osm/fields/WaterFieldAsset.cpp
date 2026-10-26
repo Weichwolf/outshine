@@ -6,6 +6,7 @@
 #include <limits>
 #include <optional>
 #include <span>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -42,6 +43,36 @@ std::vector<CoordinateRange> CoordinateRanges(std::span<const WaterField::Surfac
   }
   assert(packed <= std::numeric_limits<uint32_t>::max());
   return ranges;
+}
+
+void OrderWaterSnapshot(WaterAsset::Data &data) {
+  std::vector<WaterAsset::Surface> surfaces;
+  std::vector<WaterAsset::SurfaceRing> rings;
+  surfaces.reserve(data.Surfaces.size());
+  rings.reserve(data.Rings.size());
+  for (auto &tile : data.Tiles) {
+    const auto original = std::span(data.Surfaces).subspan(tile.FirstSurface, tile.SurfaceCount);
+    tile.FirstSurface = static_cast<uint32_t>(surfaces.size());
+    for (auto surface : original) {
+      const auto source = std::span(data.Rings).subspan(surface.FirstRing, surface.RingCount);
+      surface.FirstRing = static_cast<uint32_t>(rings.size());
+      rings.insert(rings.end(), source.begin(), source.end());
+      surfaces.push_back(surface);
+    }
+  }
+  data.Surfaces = std::move(surfaces);
+  data.Rings = std::move(rings);
+  std::ranges::sort(data.Courses, {}, [](const WaterAsset::Course &course) {
+    return std::tuple(course.Input, course.FirstPoint, course.PointCount);
+  });
+  std::vector<float> levels;
+  levels.reserve(data.Levels.size());
+  for (auto &course : data.Courses) {
+    const auto source = std::span(data.Levels).subspan(course.FirstLevel, course.PointCount);
+    course.FirstLevel = static_cast<uint32_t>(levels.size());
+    levels.insert(levels.end(), source.begin(), source.end());
+  }
+  data.Levels = std::move(levels);
 }
 
 uint32_t PackedPoint(std::span<const CoordinateRange> ranges, uint32_t point) {
@@ -96,6 +127,7 @@ WaterAsset WaterField::Asset(const OsmField &source) const {
                           .SurfaceCount = surfaces.Count});
   }
   BindInputs(data, source);
+  OrderWaterSnapshot(data);
   AssetInputs_ = inputs;
   Asset_.emplace(std::move(data));
   return *Asset_;

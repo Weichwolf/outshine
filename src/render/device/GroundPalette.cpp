@@ -1,5 +1,4 @@
 #include "GroundPalette.h"
-#include "VegetationTemplates.h"
 #include <array>
 #include <bit>
 #include <cstddef>
@@ -24,19 +23,19 @@ static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559 &&
               offsetof(LitterLayer, Difference) == 0 && offsetof(LitterLayer, Surface) == 16);
 }
 
-std::vector<float> GroundMaterialPalette(const Ground::VegetationTemplates &wearing,
+std::vector<float> GroundMaterialPalette(Ground::SurfacePaletteView surfaces,
                                          const Vec4f &fallback) {
-  const size_t rows = wearing.TemplateCount();
+  const size_t rows = surfaces.Materials.size();
   const size_t slopesAt = kPaletteStride * (rows + 2u);
   const size_t surfacesAt = slopesAt + rows + 1u;
   const size_t layersAt = surfacesAt + kSurfaceStride * (rows + 1u);
   std::vector<float> palette(layersAt + kLayerStride * (rows + 1u), 0.0f);
   palette[0] = std::bit_cast<float>(static_cast<uint32_t>(rows));
-  palette[1] = std::bit_cast<float>(static_cast<uint32_t>(wearing.RockTemplate()));
-  palette[2] = wearing.Limit().SlopeBandDeg();
+  palette[1] = std::bit_cast<float>(static_cast<uint32_t>(surfaces.RockMaterial));
+  palette[2] = surfaces.SlopeBandDeg;
   palette[3] = std::bit_cast<float>(static_cast<uint32_t>(layersAt));
   for (size_t row = 0; row < rows; ++row) {
-    const auto &source = wearing.Rows()[row];
+    const auto &source = surfaces.Materials[row];
     const auto appearance = source.MeanGround();
     LitterLayer layer;
     for (size_t channel = 0; channel < kPaletteStride; ++channel) {

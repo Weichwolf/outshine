@@ -2,7 +2,7 @@
 #define OUTSHINE_BASE_SPATIAL_TRIANGLEREGION_H
 #include <array>
 #include <optional>
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine {
 struct PointEnclosure {

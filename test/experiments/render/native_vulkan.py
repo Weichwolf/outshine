@@ -60,11 +60,6 @@ def main():
     dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True))
     log_path = output / 'run.log'
     with log_path.open('w') as log:
-        compiler = shlex.split(os.environ.get('CXX', 'c++'))
-        declarations = dict(line.split('=', 1) for line in (ROOT / 'test/run.sh').read_text().splitlines()
-                            if line.startswith(('CXXSTD=', 'WARN=', 'OPT=')))
-        toolchain = [flag for key in ('CXXSTD', 'WARN', 'OPT')
-                     for flag in shlex.split(declarations[key].strip('"'))]
         glslang = shlex.split(os.environ.get('GLSLANG', 'glslangValidator'))
         flags = shlex.split(run(
             ['pkg-config', '--cflags', 'vulkan', 'spirv-cross-c-shared', 'sdl3'], log).stdout)
@@ -73,7 +68,14 @@ def main():
         database = json.loads((ROOT / 'compile_commands.json').read_text())
         stage = next(item for item in database if Path(item['file']).name == 'StagePipelines.cpp')
         arguments = stage.get('arguments') or shlex.split(stage['command'])
-        includes = [flag for flag in arguments if flag.startswith('-I')]
+        compiler = arguments[:1]
+        toolchain = []
+        operands = iter(arguments[1:])
+        for argument in operands:
+            if argument == '-o':
+                next(operands)
+            elif argument not in ('-c', stage['file']):
+                toolchain.append(argument)
         selected = run(['python3', 'test/scripts/source_units.py'], log).stdout.splitlines()
         native = [ROOT / name for name in selected if name.startswith('src/render/device/native/')]
         members = run(['ar', 't', str(archive)], log).stdout.splitlines()
@@ -81,8 +83,8 @@ def main():
             prefix = str(unit.relative_to(ROOT).with_suffix('')).replace('/', '-') + '.'
             if sum(member.startswith(prefix) for member in members) != 1:
                 raise RuntimeError(f'archive does not contain exactly one selected object for {unit}')
-        sources = [ROOT / 'src/render/shaders/subjectScanKernel.comp',
-                   ROOT / 'src/render/shaders/subjectCompactKernel.comp',
+        sources = [ROOT / 'src/render/shaders/geometryScan.comp',
+                   ROOT / 'src/render/shaders/geometryCompact.comp',
                    Path(__file__).with_name('native_texture.comp'),
                    ROOT / 'src/render/shaders/depthPyramid.comp',
                    ROOT / 'src/render/shaders/fullscreen.vert',
@@ -109,6 +111,8 @@ def main():
             sources.append(Path(__file__).with_name('native_present.frag'))
         sources += [Path(__file__).with_name('native_depth_clamp.' + stage)
                     for stage in ('vert', 'frag')]
+        sources += [Path(__file__).with_name('native_binding_' + kind + '.frag')
+                    for kind in ('storage', 'uniform', 'texture')]
         shaders = []
         for source in sources:
             shader = output / (source.name + '.spv')
@@ -136,22 +140,29 @@ def main():
         consumers += [ROOT / 'test/harness/render' / name
                       for name in ('NativeSubmissionTimingProbe.cpp', 'NativeSubmissionScopeProbe.cpp')]
         consumers.append(ROOT / 'test/harness/render/NativeDepthClampProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeBindingTransitionsProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeImageReadScopeProbe.cpp')
         binaries = []
         for source in consumers:
             binary = output / source.stem
-            run(['nice', '-n', '10', *compiler, *toolchain, '-fno-exceptions', '-I.',
-                 '-Isrc/render/device/native', *includes, '-Itest/harness/shared', str(source),
+            run(['nice', '-n', '10', *compiler, *toolchain, '-I.',
+                 '-Isrc/render/device/native', '-Itest/harness/shared', str(source),
                  str(archive), *flags, '-o', str(binary)], log)
             binaries.append(binary)
         environment = os.environ.copy()
         suffix = ['--validation'] if args.validation else []
         if args.validation:
-            environment['VK_LAYER_VALIDATE_SYNC'] = '1'
+            environment['VK_VALIDATION_VALIDATE_SYNC'] = '1'
+            environment['VK_VALIDATION_SYNCVAL_SHADER_ACCESSES_HEURISTIC'] = '1'
         result = run([str(binaries[0]), *map(str, shaders[:2]), args.device_name, *suffix], log,
                      environment=environment, timeout=20)
         if result.stderr:
             raise RuntimeError(f'native Vulkan probe reported diagnostics (see {log.name})')
         report = json.loads(result.stdout)
+        report['validation_environment'] = {
+            name: environment[name] for name in
+            ('VK_VALIDATION_VALIDATE_SYNC', 'VK_VALIDATION_SYNCVAL_SHADER_ACCESSES_HEURISTIC')
+            if args.validation}
         report['texture_checks'] = verdict(run(
             [str(binaries[1]), *map(str, shaders[2:4]), *suffix], log,
             environment=environment, timeout=25), log)
@@ -168,6 +179,15 @@ def main():
             report[key] = verdict(run(
                 [str(binaries[binary]), *(str(shaders[index]) for index in indices), *suffix],
                 log, environment=environment, timeout=25), log)
+        report['image_read_scope_checks'] = verdict(run(
+            [str(output / 'NativeImageReadScopeProbe')], log,
+            environment=environment, timeout=20), log)
+        report['binding_transition_checks'] = verdict(run(
+            [str(output / 'NativeBindingTransitionsProbe'),
+             str(output / 'fullscreen.vert.spv'),
+             *(str(output / ('native_binding_' + kind + '.frag.spv'))
+               for kind in ('storage', 'uniform', 'texture')), *suffix],
+            log, environment=environment, timeout=25), log)
         report['dispatch_timing_checks'] = verdict(run(
             [str(output / 'NativeTimingProbe'), str(output / 'native_timing.comp.spv'),
              str(output / 'native_timing_empty.comp.spv')], log,

@@ -3,7 +3,7 @@
 
 #include "WaterAsset.h"
 #include "TangentFrame.h"
-#include "GroundMesher.h"
+#include "EarthworkStamp.h"
 #include <vector>
 
 namespace outshine::Generators {

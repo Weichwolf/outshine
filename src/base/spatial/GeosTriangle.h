@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_BASE_SPATIAL_GEOSTRIANGLE_H
 #define OUTSHINE_BASE_SPATIAL_GEOSTRIANGLE_H
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "GeosGeometry.h"
 #include <geos_c.h>
 #include <array>

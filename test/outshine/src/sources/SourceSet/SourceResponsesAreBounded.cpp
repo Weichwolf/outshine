@@ -1,0 +1,264 @@
+#include "SourceSet.h"
+#include "Check.h"
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <limits>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace {
+using namespace outshine::Data;
+constexpr unsigned char kUnknownMeaning = 255;
+constexpr double kRetryDeadlineMs = 500;
+constexpr double kMillisecondsPerSecond = 1000;
+constexpr double kClockOriginMs = 100;
+constexpr double kServerDeadlineMs = 10100;
+
+class ClockTransport final : public Transport {
+public:
+  double Now = 0;
+  int Begins = 0;
+  int Cancels = 0;
+
+  FetchStart Begin(const std::string & /*url*/) override { return static_cast<Ticket>(++Begins); }
+
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
+
+  void Cancel(Ticket /*ticket*/) override { ++Cancels; }
+
+  double NowMs() override { return Now; }
+};
+
+class ScriptedSource final : public Source {
+public:
+  SourceDecl Decl;
+  mutable std::vector<SourceResponse> Answers;
+  mutable size_t Calls = 0;
+
+  const SourceDecl &Declaration() const noexcept override { return Decl; }
+
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
+
+  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+
+  FetchStart Begin(const Address & /*at*/, Transport &transport) const override {
+    return transport.Begin(Decl.Id);
+  }
+
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
+    const size_t at = Calls++;
+    return at < Answers.size() ? std::move(Answers[at]) : SourceResponse::Meant(Meaning::Refused);
+  }
+};
+
+template <class... Answers> auto SourceWith(std::string name, Rank order, Answers &&...answers) {
+  auto source = std::make_unique<ScriptedSource>();
+  source->Decl.Id = std::move(name);
+  source->Decl.Order = order;
+  source->Decl.Keeps = Cacheability::Never;
+  source->Answers.reserve(sizeof...(Answers));
+  (source->Answers.push_back(std::forward<Answers>(answers)), ...);
+  return source;
+}
+}
+
+namespace {
+void CheckResponses(RawSourceCache &store,
+                    ClockTransport &transport,
+                    const SourceRequest &request) {
+  using namespace outshine::Test;
+  {
+    SourceSet sources(store);
+    auto source = SourceWith(
+        "invalid", Rank{0}, SourceResponse::Meant(static_cast<Meaning>(kUnknownMeaning)));
+    const auto *probe = source.get();
+    CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "source registered");
+    auto query = sources.Ask(request);
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Refused,
+          "unknown response is refused");
+    CHECK(probe->Calls == 1, "unknown response never reenters the source in the same collect");
+    CHECK(sources.Counters().Refused == 1, "invalid response counted once");
+  }
+  {
+    SourceSet sources(store);
+    CHECK(sources.Add(SourceWith("absent", Rank{0}, SourceResponse::Meant(Meaning::Absent))) ==
+              SourceSet::Registration::Accepted,
+          "first source registered");
+    CHECK(sources.Add(SourceWith("bytes", Rank{1}, SourceResponse::Delivered({1, 2, 3}))) ==
+              SourceSet::Registration::Accepted,
+          "fallback source registered");
+    auto query = sources.Ask(request);
+    auto delivery = sources.Collect(query, transport);
+    const auto answer = delivery.Take();
+    CHECK(answer && answer->SourceId == "bytes" && answer->Bytes == std::vector<uint8_t>({1, 2, 3}),
+          "absent response hands over to the next ranked source");
+    const auto ledger = sources.Counters();
+    CHECK(ledger.Asked == 2 && ledger.HandedOver == 1 && ledger.Delivered == 1 &&
+              ledger.DeliveredBytes == 3,
+          "fallback updates the correct counters");
+  }
+  {
+    SourceSet sources(store);
+    auto first = SourceWith("closed", Rank{0}, SourceResponse::Meant(Meaning::Absent));
+    first->Decl.OnAbsent = AbsencePolicy::Fail;
+    const auto *probe = first.get();
+    CHECK(sources.Add(std::move(first)) == SourceSet::Registration::Accepted,
+          "closed source registered");
+    CHECK(sources.Add(SourceWith("next", Rank{1}, SourceResponse::Delivered({4}))) ==
+              SourceSet::Registration::Accepted,
+          "fallback after closed source registered");
+    auto query = sources.Ask(request);
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Refused &&
+              probe->Calls == 1,
+          "fail-on-absence refuses without consulting a lower-ranked source");
+  }
+  {
+    SourceSet sources(store);
+    auto source = SourceWith("retry",
+                             Rank{0},
+                             SourceResponse::Working(),
+                             SourceResponse::MeantAfter(Meaning::Retry, 0.5),
+                             SourceResponse::Delivered({4}));
+    source->Decl.RetryBudget = 1;
+    const auto *probe = source.get();
+    CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted,
+          "retry source registered");
+    auto query = sources.Ask(request);
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending,
+          "working remains pending");
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending,
+          "retry schedules backoff");
+    transport.Now = kRetryDeadlineMs - 1;
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending &&
+              probe->Calls == 2,
+          "provider is not polled during retry delay");
+    transport.Now = kRetryDeadlineMs;
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending &&
+              probe->Calls == 2,
+          "deadline restarts the transport before collecting again");
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Delivered,
+          "retry delivers");
+    const auto counted = sources.Counters();
+    CHECK(counted.Retried == 1 && counted.ProviderStarts == 2 && counted.Sources.size() == 1 &&
+              counted.Sources[0].Deliveries == 1,
+          "retry counts both starts but attributes only the successful delivery");
+  }
+  {
+    SourceSet sources(store);
+    CHECK(sources.Add(SourceWith("refused", Rank{0}, SourceResponse::Meant(Meaning::Retry))) ==
+              SourceSet::Registration::Accepted,
+          "zero retry budget registered");
+    auto query = sources.Ask(request);
+    const auto answer = sources.Collect(query, transport);
+    CHECK(answer.Where() == SourceDelivery::State::Refused && answer.AfterMs() == 4000,
+          "exhausted retry budget returns refusal with bounded fallback delay");
+  }
+  {
+    SourceSet sources(store);
+    CHECK(sources.Add(SourceWith("pending", Rank{0}, SourceResponse::Working())) ==
+              SourceSet::Registration::Accepted,
+          "pending source registered");
+    auto query = sources.Ask(request);
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending,
+          "live ticket created");
+    SourceSet::Abandon(query, transport);
+    CHECK(transport.Cancels == 1, "abandon cancels the live transport ticket");
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Consumed,
+          "abandoned query is consumed and cannot restart");
+  }
+}
+
+void CheckInvalidTiming(RawSourceCache &store,
+                        ClockTransport &transport,
+                        const SourceRequest &request) {
+  using namespace outshine::Test;
+  const double infinity = std::numeric_limits<double>::infinity();
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  const double largest = std::numeric_limits<double>::max();
+  for (const double delay : {nan, infinity, -1.0, largest}) {
+    for (const Meaning meaning : {Meaning::Retry, Meaning::Refused}) {
+      SourceSet sources(store);
+      auto source = SourceWith("bad-delay", Rank{0}, SourceResponse::MeantAfter(meaning, delay));
+      source->Decl.RetryBudget = 1;
+      CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "registered");
+      auto query = sources.Ask(request);
+      const auto answer = sources.Collect(query, transport);
+      CHECK(answer.Where() == SourceDelivery::State::Refused && answer.AfterMs() == 4000,
+            "invalid server delay terminates with finite fallback");
+      CHECK(sources.Counters().Retried == 0 && sources.Counters().Refused == 1,
+            "invalid delay consumes no retry attempt");
+    }
+  }
+  for (const double now : {nan, infinity, -1.0, largest}) {
+    for (const bool duringBackoff : {false, true}) {
+      SourceSet sources(store);
+      auto source = SourceWith("bad-clock", Rank{0}, SourceResponse::Meant(Meaning::Retry));
+      source->Decl.RetryBudget = 1;
+      CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "registered");
+      auto query = sources.Ask(request);
+      transport.Now = duringBackoff ? 0 : now;
+      const int begins = transport.Begins;
+      auto answer = sources.Collect(query, transport);
+      if (duringBackoff) {
+        CHECK(answer.Where() == SourceDelivery::State::Pending, "valid clock schedules retry");
+        transport.Now = now == largest ? infinity : now;
+        answer = sources.Collect(query, transport);
+      }
+      CHECK(answer.Where() == SourceDelivery::State::Refused && answer.AfterMs() == 4000,
+            "invalid clock or unrepresentable deadline terminates query");
+      CHECK(transport.Begins == begins + 1, "invalid timing cannot restart transport");
+      CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Consumed,
+            "timing refusal is terminal");
+    }
+  }
+  {
+    SourceSet sources(store);
+    auto source =
+        SourceWith("overflow",
+                   Rank{0},
+                   SourceResponse::MeantAfter(Meaning::Retry, largest / kMillisecondsPerSecond));
+    source->Decl.RetryBudget = 1;
+    CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "registered");
+    auto query = sources.Ask(request);
+    transport.Now = largest / 2;
+    const auto answer = sources.Collect(query, transport);
+    CHECK(answer.Where() == SourceDelivery::State::Refused && answer.AfterMs() == 4000,
+          "finite delay plus finite clock cannot overflow the deadline");
+    CHECK(sources.Counters().Retried == 0, "overflow consumes no retry attempt");
+  }
+  {
+    SourceSet sources(store);
+    auto source = SourceWith("long-delay", Rank{0}, SourceResponse::MeantAfter(Meaning::Retry, 10));
+    source->Decl.RetryBudget = 1;
+    CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "registered");
+    auto query = sources.Ask(request);
+    transport.Now = kClockOriginMs;
+    const int begins = transport.Begins;
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending,
+          "retry scheduled");
+    transport.Now = kServerDeadlineMs - 1;
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending &&
+              transport.Begins == begins + 1,
+          "valid server delay is not clamped to local backoff cap");
+    transport.Now = kServerDeadlineMs;
+    CHECK(sources.Collect(query, transport).Where() == SourceDelivery::State::Pending &&
+              transport.Begins == begins + 2,
+          "server deadline includes the clock origin");
+    SourceSet::Abandon(query, transport);
+  }
+}
+}
+
+int main() {
+  const SourceRequest request(DataKind::Elevation, Address::Whole(0));
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
+  ClockTransport transport;
+  CheckResponses(store, transport, request);
+  CheckInvalidTiming(store, transport, request);
+  return outshine::Test::Report();
+}

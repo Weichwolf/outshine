@@ -25,7 +25,7 @@ ConfiguredSource(const Data::SourceProvider &provider,
 }
 }
 
-ApiRegion::ApiRegion(Data::ContentStore &store, Data::Transport &wire, Data::Address at)
+ApiRegion::ApiRegion(Data::RawSourceCache &store, Data::Transport &wire, Data::Address at)
     : Sources_(store), Wire_(wire), Address_(at) {}
 
 ApiRegion::~ApiRegion() {
@@ -34,11 +34,11 @@ ApiRegion::~ApiRegion() {
 
 std::expected<std::unique_ptr<ApiRegion>, std::string>
 ApiRegion::Create(const Data::SourceProvider &provider,
-                  Data::ContentStore &store,
+                  Data::RawSourceCache &store,
                   Data::Transport &wire,
                   const Data::ProviderRegistry *registry,
                   std::string_view shippedRoot,
-                  std::optional<Data::GeoCellId> cell) {
+                  std::optional<GeoCellId> cell) {
   auto source = ConfiguredSource(provider, shippedRoot, registry);
   if (!source) { return std::unexpected(std::move(source.error())); }
   if ((*source)->Declaration().Kind != Data::DataKind::OriginalOsm ||
@@ -49,10 +49,10 @@ ApiRegion::Create(const Data::SourceProvider &provider,
     return std::unexpected("an original OSM catalogue requires geographic cell demand");
   }
   const auto at = cell ? Data::Address::AtGeoCell(*cell) : Data::Address::Whole(0);
-  if (cell &&
-      ((*source)->Declaration().How != Data::Scheme::GeodeticGrid ||
-       (*source)->Covers(Data::Fetch(Data::DataKind::OriginalOsm, at)) != Data::Coverage::Inside ||
-       (*source)->Serves(Data::Fetch(Data::DataKind::OriginalOsm, at)) != at)) {
+  if (cell && ((*source)->Declaration().How != Data::Scheme::GeodeticGrid ||
+               (*source)->Covers(Data::SourceRequest(Data::DataKind::OriginalOsm, at)) !=
+                   Data::Coverage::Inside ||
+               (*source)->Serves(Data::SourceRequest(Data::DataKind::OriginalOsm, at)) != at)) {
     return std::unexpected("an original OSM catalogue refused geographic cell demand");
   }
   auto region = std::unique_ptr<ApiRegion>(new ApiRegion(store, wire, at));
@@ -64,7 +64,7 @@ ApiRegion::Create(const Data::SourceProvider &provider,
 }
 
 SourceChunk ApiRegion::Chunk(const Data::SourceProvider &provider,
-                             std::optional<Data::GeoCellId> cell) const {
+                             std::optional<GeoCellId> cell) const {
   const auto &declaration = Sources_.At(0).Declaration();
   SourceChunk chunk{.Provider = provider, .Xml = {}, .Origin = declaration.Endpoint, .Cell = cell};
   if (cell) {
@@ -88,10 +88,10 @@ std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(SourceChunk 
     Query_.reset();
     return Collected::Ready;
   }
-  if (delivery.Where() == Data::Delivery::State::Pending) { return Collected::Pending; }
+  if (delivery.Where() == Data::SourceDelivery::State::Pending) { return Collected::Pending; }
   const auto reason =
-      delivery.Failure() ? delivery.Failure()->Reason : Data::FetchFailureReason::ProviderRefused;
-  if (chunk.Cell && reason == Data::FetchFailureReason::CapacityRefused) {
+      delivery.Failure() ? delivery.Failure()->Reason : Data::SourceFailureReason::ProviderRefused;
+  if (chunk.Cell && reason == Data::SourceFailureReason::CapacityRefused) {
     Query_.reset();
     return Collected::Refine;
   }
@@ -104,21 +104,13 @@ std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(SourceChunk 
                          "' failed: " + std::string(Data::Name(reason)) + context);
 }
 
-bool ApiRegion::HasCachedCoverage(Data::ContentStore &store) const {
-  const auto cell = Address_.GeoCell();
-  if (!cell) { return false; }
-  const auto &declaration = Sources_.At(0).Declaration();
-  return store.LookupCell(declaration, *cell).Where == Data::ContentStore::Presence::Bytes ||
-         store.HasCompleteChildCoverage(declaration, *cell);
-}
-
-bool ApiRegion::Begin(const Data::ContentStore &store, std::vector<Data::GeoCellId> &refine) {
+bool ApiRegion::Begin(const Data::RawSourceCache &store, std::vector<GeoCellId> &refine) {
   const auto cell = Address_.GeoCell();
   if (cell && store.CanResumeFromChildren(Sources_.At(0).Declaration(), *cell)) {
     refine.push_back(*cell);
     return true;
   }
-  Query_.emplace(Sources_.Ask(Data::Fetch(Data::DataKind::OriginalOsm, Address_)));
+  Query_.emplace(Sources_.Ask(Data::SourceRequest(Data::DataKind::OriginalOsm, Address_)));
   return false;
 }
 

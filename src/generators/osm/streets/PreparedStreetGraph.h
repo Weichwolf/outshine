@@ -1,9 +1,12 @@
 #ifndef OUTSHINE_GENERATORS_OSM_STREETS_PREPAREDSTREETGRAPH_H
 #define OUTSHINE_GENERATORS_OSM_STREETS_PREPAREDSTREETGRAPH_H
 
+#include "ShapedGround.h"
+
 #include "StreetGraphBuilder.h"
-#include "TilePool.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
+#include <array>
+#include <cstdint>
 #include <expected>
 #include <functional>
 #include <memory>
@@ -32,7 +35,8 @@ public:
   Key(const OsmField &vectors,
       const StreetField &ways,
       const ::outshine::Ground::ShapedGround &shape,
-      int sourceZoom) const;
+      int sourceZoom,
+      const std::array<uint8_t, 32> &terrainBinding) const;
   [[nodiscard]] std::expected<Loaded, std::string> Resolve(const std::string &key,
                                                            const Factory &factory);
 

@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "Check.h"
 #include "NormalUpload.h"
 #include "math/Octahedral.h"
@@ -15,7 +16,7 @@ void Callback(const void *source, float *into, uint32_t floats) {
   std::memcpy(into, source, floats * sizeof(float));
 }
 
-void Verify(outshine::Render::SubjectStream source) {
+void Verify(outshine::Render::VertexSource source) {
   using namespace outshine;
   using namespace outshine::Render;
   std::array<float, 8> storage{};

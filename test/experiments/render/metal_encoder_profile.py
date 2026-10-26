@@ -103,8 +103,45 @@ def probe(output):
     print(result.stdout.strip())
 
 
-def analyse(trace, log, output):
-    document = json.loads(trace.read_text())
+def benchmark_window(document, benchmark):
+    gpu = benchmark["gpu_times"]
+    frames = benchmark["motion"]["frames"]
+    samples = gpu["samples"]
+    if (
+        not benchmark["measurement_complete"]
+        or not gpu["complete"]
+        or frames <= 0
+        or gpu["timed_frames"] != frames
+        or gpu["rendered_frames"] != frames
+        or gpu["unavailable_frames"] != 0
+        or len(samples) != frames
+        or len({sample["device"] for sample in samples}) != 1
+    ):
+        raise ValueError("the benchmark must contain every declared frame timestamp")
+    serials = [sample["submission"] for sample in samples]
+    if serials != sorted(set(serials)):
+        raise ValueError("benchmark submissions must be unique and ordered")
+    submissions = {row["serial"]: row for row in document["submissions"]}
+    if len(submissions) != len(document["submissions"]):
+        raise ValueError("trace submission serials must be unique")
+    window = []
+    for sample in samples:
+        row = submissions.get(sample["submission"])
+        if row is None:
+            raise ValueError("a benchmark submission is absent from the trace")
+        duration = sample["elapsed_ms"]
+        actual = row["submission_gpu_ns"] / 1e6
+        if (
+            not math.isfinite(duration)
+            or duration < 0
+            or not math.isclose(actual, duration, rel_tol=1e-9, abs_tol=1e-6)
+        ):
+            raise ValueError("trace timing differs from the benchmark submission")
+        window.append(row)
+    return window
+
+
+def gpurow_window(document, log):
     rows = [
         line.split("\t")
         for line in log.read_text().splitlines()
@@ -118,8 +155,6 @@ def analyse(trace, log, output):
     frames = int(gpu[2])
     if frames <= 0 or int(gpu[3]) != frames or float(gpu[6]) != 0:
         raise ValueError("the GPUROW window must have every declared frame timestamp")
-    if document["dropped_submissions"] or document["allocation_failures"]:
-        raise ValueError("the diagnostic trace is incomplete")
     submissions = sorted(document["submissions"], key=lambda row: row["serial"])
     if len(submissions) < frames:
         raise ValueError("the trace contains fewer submissions than measured frames")
@@ -127,6 +162,20 @@ def analyse(trace, log, output):
     total = sum(row["submission_gpu_ns"] for row in window) / 1e6
     if not math.isclose(total, float(gpu[4]), rel_tol=1e-9, abs_tol=1e-6):
         raise ValueError("the trace tail does not match the actual measured GPUROW sum")
+    return window
+
+
+def analyse(trace, log, output, benchmark=None):
+    document = json.loads(trace.read_text())
+    if document["dropped_submissions"] or document["allocation_failures"]:
+        raise ValueError("the diagnostic trace is incomplete")
+    window = (
+        benchmark_window(document, json.loads(benchmark.read_text()))
+        if benchmark is not None
+        else gpurow_window(document, log)
+    )
+    frames = len(window)
+    total = sum(row["submission_gpu_ns"] for row in window) / 1e6
     groups = {}
     for submission in window:
         if submission["dropped_encoders"]:
@@ -193,14 +242,21 @@ def main():
     case.add_argument("--output", type=Path, required=True)
     report = commands.add_parser("analyse")
     report.add_argument("--trace", type=Path, required=True)
-    report.add_argument("--log", type=Path, required=True)
+    source = report.add_mutually_exclusive_group(required=True)
+    source.add_argument("--log", type=Path)
+    source.add_argument("--benchmark", type=Path)
     report.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     output = temporary(args.output)
     if args.command == "probe":
         probe(output)
     else:
-        analyse(args.trace.resolve(), args.log.resolve(), output)
+        analyse(
+            args.trace.resolve(),
+            args.log.resolve() if args.log else None,
+            output,
+            args.benchmark.resolve() if args.benchmark else None,
+        )
 
 
 if __name__ == "__main__":

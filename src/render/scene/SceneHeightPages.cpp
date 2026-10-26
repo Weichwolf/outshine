@@ -1,5 +1,5 @@
 #include "SceneResources.h"
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "TerrainTileUpload.h"
 #include "VectorCapacity.h"
 #include <algorithm>
@@ -16,7 +16,8 @@
 
 namespace outshine::Render {
 Native::Result<std::vector<HeightPageHandle>>
-SceneResources::PlaceHeightPages(SubjectDraw &subjects, std::span<const HeightPageView> nodes) {
+SceneResources::PlaceHeightPages(GeometryRenderer &subjects,
+                                 std::span<const HeightPageView> nodes) {
   if (nodes.size() > kHeightPageBatchMost) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "height-page batch exceeds its budget"});
@@ -63,7 +64,7 @@ SceneResources::PlaceHeightPages(SubjectDraw &subjects, std::span<const HeightPa
   return handles;
 }
 
-Native::Result<HeightPageHandle> SceneResources::PlaceHeightPage(SubjectDraw &subjects,
+Native::Result<HeightPageHandle> SceneResources::PlaceHeightPage(GeometryRenderer &subjects,
                                                                  std::span<const float> nodes) {
   const std::array batch{nodes};
   auto placed = PlaceHeightPages(subjects, batch);
@@ -76,7 +77,7 @@ bool SceneResources::HasHeightPage(HeightPageHandle handle) const noexcept {
          HeightPages_[handle.Slot].State.Matches(handle.Generation);
 }
 
-void SceneResources::ReleaseHeightPage(SubjectDraw &subjects, HeightPageHandle which) {
+void SceneResources::ReleaseHeightPage(GeometryRenderer &subjects, HeightPageHandle which) {
   if (!HasHeightPage(which)) { return; }
   HeightPage &page = HeightPages_[which.Slot];
   subjects.Ground().ReleasePage(page.Resident);
@@ -94,7 +95,7 @@ PageId SceneResources::HeightPageResident(HeightPageHandle which) const noexcept
 }
 
 Native::Result<size_t>
-SceneResources::RestoreHeightPageBatch(SubjectDraw &subjects, size_t first, size_t pagesMost) {
+SceneResources::RestoreHeightPageBatch(GeometryRenderer &subjects, size_t first, size_t pagesMost) {
   const size_t end =
       first + std::min({pagesMost, kHeightPageBatchMost, HeightPages_.size() - first});
   std::array<HeightPageView, kHeightPageBatchMost> nodes{};
@@ -112,20 +113,7 @@ SceneResources::RestoreHeightPageBatch(SubjectDraw &subjects, size_t first, size
   return end;
 }
 
-bool SceneResources::RestoreHeightPages(SubjectDraw &subjects, std::string &error) {
-  size_t next = 0;
-  while (next < HeightPages_.size()) {
-    auto advanced = RestoreHeightPageBatch(subjects, next, kHeightPageBatchMost);
-    if (!advanced) {
-      error = std::move(advanced.error().Message);
-      return false;
-    }
-    next = *advanced;
-  }
-  return true;
-}
-
-Native::Result<void> SceneResources::SetGroundGrid(SubjectDraw &subjects,
+Native::Result<void> SceneResources::SetGroundGrid(GeometryRenderer &subjects,
                                                    std::span<const float> fractions) {
   const auto uploaded = subjects.Ground().SetGrid(fractions);
   if (!uploaded) { return uploaded; }
@@ -133,7 +121,7 @@ Native::Result<void> SceneResources::SetGroundGrid(SubjectDraw &subjects,
   return {};
 }
 
-Native::Result<void> SceneResources::SetTerrainTiles(SubjectDraw &subjects,
+Native::Result<void> SceneResources::SetTerrainTiles(GeometryRenderer &subjects,
                                                      std::span<const TerrainTile> real,
                                                      std::span<const TerrainTile> virtual_) {
   const auto translate =
@@ -171,7 +159,7 @@ Native::Result<void> SceneResources::SetTerrainTiles(SubjectDraw &subjects,
   return {};
 }
 
-bool SceneResources::RestoreTerrain(SubjectDraw &subjects, std::string &error) {
+bool SceneResources::RestoreTerrain(GeometryRenderer &subjects, std::string &error) {
   size_t nextPage = 0;
   for (;;) {
     const size_t previous = nextPage;
@@ -188,8 +176,9 @@ bool SceneResources::RestoreTerrain(SubjectDraw &subjects, std::string &error) {
   }
 }
 
-std::expected<bool, std::string>
-SceneResources::AdvanceTerrainRestore(SubjectDraw &subjects, size_t &nextPage, size_t pagesMost) {
+std::expected<bool, std::string> SceneResources::AdvanceTerrainRestore(GeometryRenderer &subjects,
+                                                                       size_t &nextPage,
+                                                                       size_t pagesMost) {
   assert(nextPage <= HeightPages_.size());
   auto advanced = RestoreHeightPageBatch(subjects, nextPage, pagesMost);
   if (!advanced) {

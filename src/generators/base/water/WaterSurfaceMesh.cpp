@@ -1,6 +1,6 @@
 #include "WaterSurfaceMesh.h"
-#include "math/Box.h"
-#include "math/Units.h"
+#include "Box.h"
+#include "Units.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

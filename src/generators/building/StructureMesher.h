@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREMESHER_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREMESHER_H
 
-#include "math/Box.h"
+#include "Box.h"
 
 #include <cstddef>
 #include <expected>
@@ -12,10 +12,10 @@
 #include <span>
 #include <vector>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
-#include <scene/LevelOfDetail.h>
-#include <scene/ProjectedErrorBudget.h>
+#include <LevelOfDetail.h>
+#include <ProjectedErrorBudget.h>
 
 #include "StoredVertex.h"
 #include "BuildingFrontage.h"
@@ -148,8 +148,6 @@ public:
   StructureMesher(const StructureMesher &) = delete;
   StructureMesher &operator=(const StructureMesher &) = delete;
 
-  [[nodiscard]] virtual std::string_view ArtifactVersion() const noexcept { return {}; }
-
   [[nodiscard]] virtual std::optional<double>
   ShellSurfaceErrorM([[maybe_unused]] std::span<const StoredVertex> walls) const noexcept {
     return std::nullopt;
@@ -162,6 +160,11 @@ public:
   }
 
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
+
+  [[nodiscard]] virtual bool
+  KnownEmptySurface([[maybe_unused]] const StructurePlan &plan) const noexcept {
+    return false;
+  }
 
   [[nodiscard]] virtual bool HasSurfaceProjection() const noexcept { return false; }
 

@@ -1,10 +1,11 @@
 #include <chrono>
 #include <cstdio>
 #include "FlatMap.h"
-#include "math/Units.h"
+#include "Units.h"
 #include "EarthworkDeformation.h"
+#include "CorridorApronBlend.h"
 #include "ProfiledCorridorPress.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <array>
 #include <algorithm>
@@ -313,6 +314,7 @@ void BidSurface(const EarthworkStamp &held,
                 CoveredNodes covered,
                 Bids *bids,
                 ApronBlend *aprons,
+                CorridorApronBlend &corridors,
                 bool cutOnly = false) {
   if (!cutOnly && covered.Into != nullptr && bid.OutsideM < 0.0) {
     covered.Into->push_back({.Point = covered.Point, .Stamp = bid.Which});
@@ -328,6 +330,9 @@ void BidSurface(const EarthworkStamp &held,
       std::clamp(bid.WantsM - wasM, -limits.MostCorrectionM, limits.MostCorrectionM);
   if (cutOnly || !held.Fills || held.Kind == EarthworkKind::Clearance) {
     correctionM = std::min(correctionM, 0.0);
+  }
+  if (!cutOnly && corridors.Add(bid.Which, {.Weight = weight, .CorrectionM = correctionM})) {
+    return;
   }
   aprons->Weight += weight;
   aprons->CorrectionM += weight * correctionM;
@@ -370,8 +375,10 @@ struct PressWorkspace {
   std::vector<NearestProfile> Profiles;
   std::vector<double> WidthsM;
   std::vector<double> ReliefM;
+  CorridorApronBlend Corridors;
 
-  PressWorkspace(std::span<const EarthworkStamp> stamps, double mostEarthworkM) {
+  PressWorkspace(std::span<const EarthworkStamp> stamps, double mostEarthworkM)
+      : Corridors(stamps) {
     WidthsM.reserve(stamps.size());
     ReliefM.reserve(stamps.size());
     for (const auto &stamp : stamps) {
@@ -399,7 +406,7 @@ struct PressWorkspace {
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return Profiles.capacity() * sizeof(NearestProfile) +
-           (WidthsM.capacity() + ReliefM.capacity()) * sizeof(double);
+           (WidthsM.capacity() + ReliefM.capacity()) * sizeof(double) + Corridors.HeapBytes();
   }
 };
 
@@ -491,6 +498,7 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
                    PressWorkspace &workspace) {
   Bids bids{.LowestM = wasM, .HighestM = wasM, .BasinM = wasM};
   ApronBlend aprons;
+  workspace.Corridors.Reset();
   for (const uint32_t which : over) {
     if (!structures.empty() && structures[which] != 0u) { continue; }
     const EarthworkStamp &held = these[which];
@@ -511,7 +519,8 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
                  {.WidthM = apronM, .MostCorrectionM = mostEarthworkM},
                  covered,
                  &bids,
-                 &aprons);
+                 &aprons,
+                 workspace.Corridors);
       if (held.PlanarSupportM && *held.PlanarSupportM > 0.0) {
         BidSurface(held,
                    {.Which = which,
@@ -522,6 +531,7 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
                    covered,
                    &bids,
                    &aprons,
+                   workspace.Corridors,
                    true);
       }
     }
@@ -536,7 +546,15 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
                {.WidthM = workspace.WidthsM[profile.Which], .MostCorrectionM = mostEarthworkM},
                covered,
                &bids,
-               &aprons);
+               &aprons,
+               workspace.Corridors);
+  }
+  const auto corridors = workspace.Corridors.Fold();
+  aprons.Weight += corridors.Weight;
+  aprons.CorrectionM += corridors.CorrectionM;
+  if (corridors.StrongestWeight > aprons.StrongestWeight) {
+    aprons.StrongestWeight = corridors.StrongestWeight;
+    aprons.Which = corridors.Which;
   }
   ResolveAprons(aprons, wasM, &bids);
   return ChooseHeight(bids, wasM);

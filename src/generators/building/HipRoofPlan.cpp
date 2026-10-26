@@ -1,18 +1,15 @@
 #include "HipRoofPlan.h"
 #include "PolygonTriangulation.h"
 
-#include <SFCGAL/capi/sfcgal_c.h>
+#include "roof/RoofContourInternal.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdarg>
-#include <cstdio>
 #include <expected>
 #include <limits>
 #include <map>
-#include <memory>
-#include <mutex>
 #include <optional>
 #include <span>
 #include <utility>
@@ -21,8 +18,6 @@
 namespace outshine::Generators {
 namespace {
 
-using OwnedGeometry = std::unique_ptr<sfcgal_geometry_t, decltype(&sfcgal_geometry_delete)>;
-
 struct Edge {
   EastNorth From, To, Gradient;
   double InterceptM;
@@ -30,31 +25,9 @@ struct Edge {
 };
 
 struct Input {
-  OwnedGeometry Polygon{nullptr, &sfcgal_geometry_delete};
   std::vector<Edge> Edges;
   double ToleranceM = 0;
 };
-
-extern "C" int ReportLibraryError(const char *message, ...) {
-  std::array<char, 256> formatted{};
-  if (message == nullptr) { return std::fprintf(stderr, "sfcgal: partition failed\n"); }
-  va_list arguments;
-  va_start(arguments, message);
-  const int count = std::vsnprintf(formatted.data(), formatted.size(), message, arguments);
-  va_end(arguments);
-  return std::fprintf(
-      stderr, "sfcgal: %.255s\n", count >= 0 ? formatted.data() : "partition failed");
-}
-
-extern "C" int IgnoreLibraryWarning(const char *message, ...) {
-  (void)message;
-  return 0;
-}
-
-void InitialiseLibrary() {
-  sfcgal_init();
-  sfcgal_set_error_handlers(IgnoreLibraryWarning, ReportLibraryError);
-}
 
 EastNorth Local(EastNorth point, EastNorth origin) {
   return {.EastM = point.EastM - origin.EastM, .NorthM = point.NorthM - origin.NorthM};
@@ -80,19 +53,13 @@ RingArea(std::span<const EastNorth> points, EastNorth origin, double &magnitude)
   return area;
 }
 
-std::expected<OwnedGeometry, HipRoofError> BuildRing(std::span<const EastNorth> points,
-                                                     EastNorth origin,
-                                                     size_t ring,
-                                                     double area,
-                                                     std::vector<Edge> &edges) {
-  OwnedGeometry line(sfcgal_linestring_create(), &sfcgal_geometry_delete);
-  if (!line) { return std::unexpected(HipRoofError::PartitionFailed); }
-  for (size_t at = 0; at <= points.size(); ++at) {
-    const auto a = Local(points[at % points.size()], origin);
-    OwnedGeometry point(sfcgal_point_create_from_xy(a.EastM, a.NorthM), &sfcgal_geometry_delete);
-    if (!point) { return std::unexpected(HipRoofError::PartitionFailed); }
-    sfcgal_linestring_add_point(line.get(), point.release());
-    if (at == points.size()) { break; }
+void AppendEdges(std::span<const EastNorth> points,
+                 EastNorth origin,
+                 size_t ring,
+                 double area,
+                 std::vector<Edge> &edges) {
+  for (size_t at = 0; at < points.size(); ++at) {
+    const auto a = Local(points[at], origin);
     const auto b = Local(points[(at + 1) % points.size()], origin);
     const double length = std::hypot(b.EastM - a.EastM, b.NorthM - a.NorthM);
     const double direction = (area > 0 ? 1.0 : -1.0) * (ring == 0 ? 1.0 : -1.0);
@@ -105,7 +72,6 @@ std::expected<OwnedGeometry, HipRoofError> BuildRing(std::span<const EastNorth> 
                      .Ring = ring,
                      .Number = at});
   }
-  return line;
 }
 
 std::expected<Input, HipRoofError> ReadInput(std::span<const EastNorth> exterior,
@@ -124,79 +90,10 @@ std::expected<Input, HipRoofError> ReadInput(std::span<const EastNorth> exterior
     count += points.size();
     const auto area = RingArea(points, origin, magnitude);
     if (!area) { return std::unexpected(area.error()); }
-    auto line = BuildRing(points, origin, ring, *area, input.Edges);
-    if (!line) { return std::unexpected(line.error()); }
-    if (ring == 0) {
-      input.Polygon.reset(sfcgal_polygon_create_from_exterior_ring(line->release()));
-      if (!input.Polygon) { return std::unexpected(HipRoofError::PartitionFailed); }
-    } else {
-      sfcgal_polygon_add_interior_ring(input.Polygon.get(), line->release());
-    }
+    AppendEdges(points, origin, ring, *area, input.Edges);
   }
   input.ToleranceM = magnitude * 64 * std::numeric_limits<double>::epsilon();
-  if (sfcgal_geometry_is_valid(input.Polygon.get()) == 0) {
-    return std::unexpected(HipRoofError::InvalidInput);
-  }
   return input;
-}
-
-std::expected<EastNorth, HipRoofError> Canonical(EastNorth point, const Input &input) {
-  const EastNorth *matched = nullptr;
-  for (const auto &edge : input.Edges) {
-    if (!Same(point, edge.From, input.ToleranceM)) { continue; }
-    if (matched != nullptr) { return std::unexpected(HipRoofError::InvalidFacet); }
-    matched = &edge.From;
-  }
-  return matched != nullptr ? *matched : point;
-}
-
-const Edge *FindOwner(std::span<const EastNorth> ring, const Input &input) {
-  const Edge *owner = nullptr;
-  for (size_t at = 0; at < ring.size(); ++at) {
-    const auto a = ring[at];
-    const auto b = ring[(at + 1) % ring.size()];
-    for (const auto &edge : input.Edges) {
-      if ((Same(a, edge.From, input.ToleranceM) && Same(b, edge.To, input.ToleranceM)) ||
-          (Same(b, edge.From, input.ToleranceM) && Same(a, edge.To, input.ToleranceM))) {
-        if (owner != nullptr) { return nullptr; }
-        owner = &edge;
-      }
-    }
-  }
-  return owner;
-}
-
-std::expected<HipRoofPlan::Facet, HipRoofError>
-ReadFacet(const sfcgal_geometry_t *polygon, const Input &input, size_t remaining) {
-  if (sfcgal_polygon_num_interior_rings(polygon) != 0) {
-    return std::unexpected(HipRoofError::InvalidFacet);
-  }
-  const auto *line = sfcgal_polygon_exterior_ring(polygon);
-  const size_t count = sfcgal_linestring_num_points(line);
-  if (count < 3) { return std::unexpected(HipRoofError::InvalidFacet); }
-  if (count - 1 > remaining) { return std::unexpected(HipRoofError::CapacityExceeded); }
-  HipRoofPlan::Facet facet;
-  facet.Ring.reserve(count);
-  for (size_t at = 0; at < count; ++at) {
-    const auto *point = sfcgal_linestring_point_n(line, at);
-    const EastNorth p{.EastM = sfcgal_point_x(point), .NorthM = sfcgal_point_y(point)};
-    if (!std::isfinite(p.EastM) || !std::isfinite(p.NorthM)) {
-      return std::unexpected(HipRoofError::InvalidFacet);
-    }
-    const auto canonical = Canonical(p, input);
-    if (!canonical) { return std::unexpected(canonical.error()); }
-    facet.Ring.push_back(*canonical);
-  }
-  if (Same(facet.Ring.front(), facet.Ring.back(), input.ToleranceM)) { facet.Ring.pop_back(); }
-  if (facet.Ring.size() < 3) { return std::unexpected(HipRoofError::InvalidFacet); }
-  if (facet.Ring.size() > remaining) { return std::unexpected(HipRoofError::CapacityExceeded); }
-  const Edge *owner = FindOwner(facet.Ring, input);
-  if (owner == nullptr) { return std::unexpected(HipRoofError::InvalidFacet); }
-  facet.Gradient = owner->Gradient;
-  facet.InterceptM = owner->InterceptM;
-  facet.SourceRing = owner->Ring;
-  facet.SourceEdge = owner->Number;
-  return facet;
 }
 
 std::optional<std::vector<HipRoofPlan::Facet>> RectangleFacets(const Input &input) {
@@ -252,36 +149,37 @@ std::optional<std::vector<HipRoofPlan::Facet>> RectangleFacets(const Input &inpu
 std::expected<std::vector<HipRoofPlan::Facet>, HipRoofError>
 PrepareFacets(const Input &input, HipRoofPlan::Limits limits) {
   if (auto rectangle = RectangleFacets(input)) { return std::move(*rectangle); }
-  std::vector<PolygonRing> rings;
+  std::vector<RoofContour::Ring> rings;
+  std::vector<RoofContour::Point> normals;
+  std::vector<double> intercepts;
   for (const auto &edge : input.Edges) {
     if (edge.Number == 0) { rings.emplace_back(); }
     rings.back().push_back({edge.From.EastM, edge.From.NorthM});
+    normals.push_back({edge.Gradient.EastM, edge.Gradient.NorthM});
+    intercepts.push_back(edge.InterceptM);
   }
-  constexpr double kMinimumRoofClearanceM = 1e-6;
-  const auto clearance = PolygonMinimumClearance(rings);
-  if (!clearance || *clearance < kMinimumRoofClearanceM) {
-    return std::unexpected(HipRoofError::InsufficientClearance);
-  }
-  const OwnedGeometry partition(
-      sfcgal_geometry_straight_skeleton_partition(input.Polygon.get(), true),
-      &sfcgal_geometry_delete);
-  if (!partition || sfcgal_geometry_type_id(partition.get()) != SFCGAL_TYPE_POLYHEDRALSURFACE) {
-    return std::unexpected(HipRoofError::PartitionFailed);
-  }
-  const size_t count = sfcgal_polyhedral_surface_num_patches(partition.get());
-  if (count == 0 || count > limits.Facets) {
-    return std::unexpected(HipRoofError::CapacityExceeded);
-  }
-  if (count != input.Edges.size()) { return std::unexpected(HipRoofError::InvalidFacet); }
+  const RoofContour::Input request{.Rings = rings,
+                                   .Normals = normals,
+                                   .Intercepts = intercepts,
+                                   .Limits = limits,
+                                   .ToleranceM = std::max(1e-12, 32 * input.ToleranceM),
+                                   .PlaneToleranceM = input.ToleranceM};
+  auto partition = RoofContour::Prepare(request);
+  if (!partition) { return std::unexpected(partition.error().Kind); }
   std::vector<HipRoofPlan::Facet> facets;
-  facets.reserve(count);
-  size_t corners = 0;
-  for (size_t at = 0; at < count; ++at) {
-    auto facet = ReadFacet(
-        sfcgal_polyhedral_surface_patch_n(partition.get(), at), input, limits.Corners - corners);
-    if (!facet) { return std::unexpected(facet.error()); }
-    corners += facet->Ring.size();
-    facets.push_back(std::move(*facet));
+  facets.reserve(partition->Faces.size());
+  for (size_t at = 0; at < partition->Faces.size(); ++at) {
+    const auto &edge = input.Edges[partition->Ownership[at]];
+    HipRoofPlan::Facet facet{.Ring = {},
+                             .Gradient = edge.Gradient,
+                             .InterceptM = edge.InterceptM,
+                             .SourceRing = edge.Ring,
+                             .SourceEdge = edge.Number};
+    for (const auto index : partition->Faces[at]) {
+      const auto point = partition->Nodes[index];
+      facet.Ring.push_back({.EastM = point[0], .NorthM = point[1]});
+    }
+    facets.push_back(std::move(facet));
   }
   return facets;
 }
@@ -335,8 +233,6 @@ HipRoofPlan::Prepare(std::span<const EastNorth> exterior,
       limits.Corners == 0) {
     return std::unexpected(HipRoofError::InvalidInput);
   }
-  static std::once_flag initialised;
-  std::call_once(initialised, InitialiseLibrary);
   auto input = ReadInput(exterior, holes, limits, exterior.front());
   if (!input) { return std::unexpected(input.error()); }
   auto facets = PrepareFacets(*input, limits);

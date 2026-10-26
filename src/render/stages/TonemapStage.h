@@ -4,7 +4,7 @@
 #include <memory>
 
 #include "Extent.h"
-#include "math/Vec2.h"
+#include "Vec2.h"
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "Resolve.h"

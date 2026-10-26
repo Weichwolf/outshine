@@ -1,0 +1,19 @@
+{
+  "url": "https://tinghuiz.github.io/papers/siggraph18_mpi_lowres.pdf",
+  "publication": "https://research.google/pubs/stereo-magnification-learning-view-synthesis-using-multiplane-images/",
+  "doi": "10.1145/3197517.3201323",
+  "title": "Stereo Magnification: Learning view synthesis using multiplane images",
+  "authors": [
+    "Tinghui Zhou",
+    "Richard Tucker",
+    "John Flynn",
+    "Graham Fyffe",
+    "Noah Snavely"
+  ],
+  "venue": "SIGGRAPH 2018",
+  "sha256": "3ac32ebd8af0a8470f9a7bfcb50f8ab79bae84f0920efe2add4ec44f162612c8",
+  "inspected_pages": [
+    3
+  ],
+  "scope": "Geometrically anchored layered representation only; Outshine experiments use analytic original-surface measures, no learned/photographic textures or baked light. Not an implementation of the trained MPI model."
+}

@@ -5,8 +5,10 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -55,8 +57,8 @@ void CheckLanding(bool joined, bool reversed) {
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
   const auto frame = TangentFrame::At(origin);
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "landing dimensions use production recipes");
@@ -75,12 +77,12 @@ void CheckLanding(bool joined, bool reversed) {
     const auto at = frame.ApproximateGeographicAt(point);
     declared[way].LatLon.insert(declared[way].LatLon.end(), {at.LatitudeDeg, at.LongitudeDeg});
   };
-  append(0, {-20, 0});
-  append(0, {0, 0});
-  append(1, {joined ? 0 : .3, 0});
-  append(1, {-2, 1});
-  append(1, {-2, -1});
-  append(1, {-20, -1});
+  append(0, {.EastM = -20, .NorthM = 0});
+  append(0, {.EastM = 0, .NorthM = 0});
+  append(1, {.EastM = joined ? 0 : .3, .NorthM = 0});
+  append(1, {.EastM = -2, .NorthM = 1});
+  append(1, {.EastM = -2, .NorthM = -1});
+  append(1, {.EastM = -20, .NorthM = -1});
   if (reversed) {
     for (auto &way : declared) {
       for (size_t at = 0; at < way.LatLon.size() / 4; ++at) {
@@ -98,10 +100,12 @@ void CheckLanding(bool joined, bool reversed) {
   if (!network) { return; }
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const auto &way = ways.Ways()[at];
-    CHECK(network
-              ->Lay(vectors.Points().subspan(2u * way.FirstPoint, 2u * way.PointCount), {.Tag = at})
-              .has_value(),
-          "both path axes enter the production crossing plan");
+    CHECK(
+        network
+            ->Lay(vectors.Points().subspan(size_t{2} * way.FirstPoint, size_t{2} * way.PointCount),
+                  {.Tag = at})
+            .has_value(),
+        "both path axes enter the production crossing plan");
   }
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty, .Field = [](EastNorth) { return std::optional<double>{0}; }};

@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_BUILDING_BUILDINGWALLMATERIAL_H
 
 #include "BuildingShape.h"
-#include "math/Vec2.h"
+#include "Vec2.h"
 #include <cmath>
 
 namespace outshine::Generators {

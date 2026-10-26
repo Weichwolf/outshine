@@ -1,8 +1,7 @@
-#include "ShippedProviders.h"
 #include "EngineState.h"
 #include "Heap.h"
 #include "OfflineTransport.h"
-#include "math/Units.h"
+#include "Units.h"
 #include "OsmXmlReader.h"
 #include "OsmSourceDemand.h"
 #include "OsmStructureCell.h"
@@ -41,7 +40,6 @@ constexpr double kEastStepDeg = 0.0138;
 }
 
 bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders) {
-  Generators::RegisterShippedProviders(World.Providers);
   std::vector<Data::SourceProvider> osmProviders;
   tileProviders.reserve(Session.Declared.Providers.size());
   osmProviders.reserve(Session.Declared.Providers.size());
@@ -67,17 +65,16 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
       if (Session.Under.Offline) {
         World.Wire = std::make_unique<Data::OfflineTransport>();
       } else {
-        World.Wire = std::make_unique<Fetching>(
-            Fetching::Config{.ConcurrentTransfers = 8,
-                             .ConnectionsPerHost = 8,
-                             .MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
+        World.Wire = std::make_unique<HttpTransport>(
+            HttpTransport::Config{.ConcurrentTransfers = 8,
+                                  .ConnectionsPerHost = 8,
+                                  .MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
       }
     }
     World.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
         Generators::Osm::SourceAcquisition::Workers{.Compute = *World.Pool, .Io = *World.Io},
         World.Wire.get(),
         Session.Under.Cache,
-        Generators::Osm::SourceAcquisition::Target::Inputs,
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
   if (!ConfigureWorldSources(tileProviders)) { return false; }
@@ -121,11 +118,11 @@ bool Engine::State::RequestOriginalCells() {
   const auto focus = CurrentGeographicFocus();
   const std::array demand{focus.LatitudeDeg, focus.LongitudeDeg, TerrainSightM()};
   if (World.OriginalSourceDemand == demand) { return true; }
-  auto cells = Data::CellsAround(demand[0],
-                                 demand[1],
-                                 demand[2],
-                                 Generators::Osm::kCatalogueCellLevel,
-                                 Generators::Osm::kDefaultCellLimits.CellsMost);
+  auto cells = CellsAround(demand[0],
+                           demand[1],
+                           demand[2],
+                           Generators::Osm::kCatalogueCellLevel,
+                           Generators::Osm::kDefaultCellLimits.CellsMost);
   if (!cells) {
     Error = std::move(cells.error());
     return false;
@@ -205,17 +202,17 @@ bool Engine::State::PrepareRuntimeWorld() {
     if (Session.Under.Offline) {
       World.Wire = std::make_unique<Data::OfflineTransport>();
     } else {
-      World.Wire = std::make_unique<Fetching>(Fetching::Config{});
+      World.Wire = std::make_unique<HttpTransport>(HttpTransport::Config{});
     }
   }
 
   Collecting say;
-  const World::StoragePaths worldStorage{.Shipped = Session.Under.Shipped,
-                                         .Cache = Session.Under.Cache,
-                                         .AssetCache = Session.Under.AssetCache};
+  const ContentDirectories contentDirectories{.BuiltinData = Session.Under.Shipped,
+                                              .Sources = Session.Under.Cache,
+                                              .Assets = Session.Under.AssetCache};
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Stack.Opened() &&
-      !World.Stack.OpenSession(worldStorage,
+      !World.Stack.OpenSession(contentDirectories,
                                World.Sources,
                                {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
                                *World.Wire,
@@ -269,9 +266,9 @@ bool Engine::State::PrepareRuntimeWorld() {
                                std::ldexp(1.0, vectorZoom);
     World.Stack.FootprintTilesSpan(vectorSpanM);
   }
-  if (World.Stack.Vegetated()) {
+  if (World.Stack.RecipesReady()) {
     std::string why;
-    if (!World.Shipping.EnsureCatalogue(World.Stack.Vegetation(),
+    if (!World.Shipping.EnsureCatalogue(World.Stack.SurfaceRecipes(),
                                         std::string(Session.Under.Shipped) + "/world/species",
                                         why,
                                         declared.Ground.VegetationEnabled,
@@ -280,7 +277,7 @@ bool Engine::State::PrepareRuntimeWorld() {
       Error = std::move(why);
       return false;
     }
-    World.Table = Generators::TableOf(World.Stack.Vegetation());
+    World.Table = Generators::TableOf(World.Stack.SurfaceRecipes());
   }
 
   HandsPiecesOver();

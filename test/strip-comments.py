@@ -8,8 +8,6 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT = Path(__file__).resolve().parent.parent
-KEEP_LINE = ("///", "//!")
-KEEP_BLOCK = ("/**", "/*!")
 RAW = re.compile(r'(?:u8|u|U|L)?R"([^\s()\\]{0,16})\(')
 IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z_0-9]*')
 NUMBER = re.compile(r'(?:[0-9]|\.[0-9])(?:[A-Za-z_0-9.\']|[eEpP][+-])*')
@@ -21,16 +19,16 @@ def policy(path):
         parts = Path(path).resolve().relative_to(ROOT).parts
     except ValueError:
         return None
-    if parts and parts[0] in ("src", "include"):
-        return parts[0] == "include"
+    if parts and parts[0] == "src":
+        return Path(path).suffix in (".h", ".hpp")
     return None
 
 
-def keeps_doxygen(path):
+def keeps_comments(path):
     return policy(path) is True
 
 
-def strip(text, doxygen=False):
+def strip(text, keep_comments=False):
     out = []
     at = 0
     end = len(text)
@@ -70,9 +68,6 @@ def strip(text, doxygen=False):
         second = next_logical(at + 1)
         if text[at] == '/' and second < end and text[second] in ('/', '*'):
             line = text[second] == '/'
-            third = next_logical(second + 1)
-            keep = doxygen and third < end and (
-                text[third] in ('/', '!') if line else text[third] in ('*', '!'))
             stop = second + 1
             if line:
                 while stop < end:
@@ -93,7 +88,7 @@ def strip(text, doxygen=False):
                 else:
                     raise ValueError("unterminated block comment")
             comment = text[at:stop]
-            if keep:
+            if keep_comments:
                 out.append(comment)
             else:
                 # Translation-phase splices are not logical line breaks.
@@ -122,12 +117,15 @@ def reflowed(path, text):
 
 def settle(path):
     keep = policy(path)
-    if keep is None:
+    if keep is None or keep:
         return 0, 0
     with open(path, encoding="utf-8", newline="") as reading:
         was = reading.read()
-    now = reflowed(path, strip(was, keep))
-    if strip(now, keep) != now:
+    stripped = strip(was)
+    if stripped == was:
+        return 0, 0
+    now = reflowed(path, stripped)
+    if strip(now) != now:
         raise ValueError(f"{path}: formatter introduced forbidden comments")
     if now == was:
         return 0, 0
@@ -146,9 +144,9 @@ def main(roots):
     with ThreadPoolExecutor() as pool:
         done = list(pool.map(settle, sorted(set(paths))))
     print(f"strip: {sum(one for one, _ in done)} of {len(done)} file(s) rewritten; "
-          "src/ keeps no comments, include/ keeps Doxygen, test/ is untouched")
+          "src implementations stripped; headers and tests untouched")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:] or ["src", "include"]))
+    sys.exit(main(sys.argv[1:] or ["src"]))

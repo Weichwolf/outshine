@@ -2,8 +2,8 @@
 #include "EnvironmentSpecularLayout.h"
 #include "IrradianceLayout.h"
 #include "StagePipelines.h"
-#include "math/Vec2.h"
-#include "math/Vec4.h"
+#include "Vec2.h"
+#include "Vec4.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>

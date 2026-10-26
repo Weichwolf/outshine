@@ -3,6 +3,7 @@
 import numpy as np
 import shapely
 
+from .._rectangle import minimum_rectangle
 from .extrude import euler
 from .scope import Frame, Scope, fixed, rotation
 from .scope_geometry import effective_size, rebake
@@ -24,7 +25,7 @@ def referenced_vertices(geometry):
 
 def minimum_axis(points):
     """Return a canonical long-side direction; GEOS solves the area objective."""
-    rectangle = shapely.minimum_rotated_rectangle(shapely.multipoints(points)).normalize()
+    rectangle = minimum_rectangle(shapely.multipoints(points), points).normalize()
     if rectangle.geom_type == 'Point':
         return np.array([1., 0.])
     coordinates = np.asarray(rectangle.coords if rectangle.geom_type == 'LineString' else rectangle.exterior.coords)

@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_RENDER_TERRAIN_TERRAINRENDERER_H
 #define OUTSHINE_RENDER_TERRAIN_TERRAINRENDERER_H
 
+#include "TerrainLattice.h"
+
 #include <array>
 #include <cstdint>
 #include <span>
@@ -12,9 +14,12 @@
 #include "Gpu.h"
 #include "FrameContext.h"
 #include "KernelShape.h"
-#include "math/Vec3.h"
-#include "SubjectTypes.h"
+#include "Vec3.h"
+#include "GroundTile.h"
+#include "MaterialBinding.h"
 #include "TerrainPatchSelection.h"
+#include "TerrainResidency.h"
+#include <optional>
 #include "scene/HeightPageBatch.h"
 
 namespace outshine::Render {
@@ -52,43 +57,21 @@ private:
 
 class TerrainRenderer {
 public:
-  void UploadsFrom(UploadQueue *queue) noexcept { Uploads_ = queue; }
+  explicit TerrainRenderer(TerrainResidency &resident) noexcept
+      : Resident_(&resident), Selection_(resident.Patches_) {}
 
-#define GROUND_INT(name, value) static constexpr int name = value;
-#define GROUND_UINT(name, value) static constexpr uint32_t name = value;
-#define GROUND_FLOAT(name, value) static constexpr float name = value;
-#include "GroundConstants.inc"
-#undef GROUND_INT
-#undef GROUND_UINT
-#undef GROUND_FLOAT
-  static constexpr int kSide = kGroundSide;
-  static constexpr int kPageSide = kSide + 2;
-  static constexpr uint32_t kPageNodes =
-      static_cast<uint32_t>(kPageSide) * static_cast<uint32_t>(kPageSide);
-  static constexpr float kSkirtSteps = kGroundSkirtSteps;
-  static constexpr uint32_t kNodes = static_cast<uint32_t>(kSide) * static_cast<uint32_t>(kSide);
-  static constexpr uint32_t kPageColumns = kGroundPageColumns;
-  static constexpr uint32_t kPagesPerLayer = kPageColumns * kPageColumns;
-  static constexpr uint32_t kMaximumPageLayers = 256;
-  static constexpr uint32_t kMaximumPages = kMaximumPageLayers * kPagesPerLayer;
-  static constexpr uint32_t kGridFloats = 3;
-  static constexpr uint32_t kVertices = kNodes + 4u * static_cast<uint32_t>(kSide);
-  static constexpr uint32_t kQuads =
-      static_cast<uint32_t>(kSide - 1) * static_cast<uint32_t>(kSide - 1);
-  static constexpr uint32_t kSkirtQuads = 4u * static_cast<uint32_t>(kSide - 1);
-  static constexpr uint32_t kIndices = (kQuads + kSkirtQuads) * 6u;
-  static constexpr uint32_t kPatchSide = kGroundPatchCells + 1u;
-  static constexpr uint32_t kPatchCount = 1u << kGroundPatchBits;
-  static constexpr uint32_t kPatchIndices = kGroundPatchCells * kGroundPatchCells * 6u;
+  void UploadsFrom(UploadQueue *queue) noexcept { Resident_->UploadsFrom(queue); }
+
   static constexpr DrawShape LitShape{.VertexSamplers = 1,
                                       .VertexUniformBuffers = 1,
                                       .FragmentSamplers = 2,
-                                      .FragmentUniformBuffers = kSubjectFragmentUniforms,
+                                      .FragmentUniformBuffers = kGeometryFragmentUniformCount,
                                       .FragmentStorageBuffers = 2};
   static constexpr DrawShape PatchShape = [] {
     auto shape = LitShape;
     shape.VertexStorageBuffers = 2;
     shape.FragmentSamplers += 1;
+    shape.FragmentUniformBuffers += 1;
     shape.FragmentStorageBuffers += 1;
     return shape;
   }();
@@ -129,7 +112,9 @@ public:
                                                    Native::Buffer &pyramid,
                                                    const PyramidShape &shape);
 
-  [[nodiscard]] Native::Buffer *SelectedPatches() const { return Selection_.Codes(); }
+  [[nodiscard]] Native::Buffer *SelectedPatches() const {
+    return Current() ? Selection_.Codes() : nullptr;
+  }
 
   struct DrawArguments {
     std::array<Native::IndexedIndirectArguments, 4> Patches{};
@@ -145,37 +130,35 @@ public:
                                           const Vec4f &shift,
                                           std::span<const Native::Binding> bindings) const;
 
-  [[nodiscard]] uint64_t Generation() const { return Generation_; }
+  [[nodiscard]] uint64_t Generation() const { return Resident_->Generation() + DrawRevision_; }
 
-  [[nodiscard]] uint32_t Instances() const { return RealCount_ + VirtualCount_; }
+  [[nodiscard]] uint32_t Instances() const { return Resident_->Instances(); }
 
   void SetDrawEnabled(bool enabled) {
     if (DrawEnabled_ == enabled) { return; }
     DrawEnabled_ = enabled;
-    ++Generation_;
+    ++DrawRevision_;
   }
 
   [[nodiscard]] uint32_t Drawn() const {
-    return DrawEnabled_ ? VisibleReal_ + VisibleVirtual_ : 0u;
+    if (!DrawEnabled_) { return 0; }
+    return Current() ? VisibleReal_ + VisibleVirtual_ : Resident_->Instances();
   }
 
-  [[nodiscard]] uint32_t PagesStanding() const { return PagesLive_; }
+  [[nodiscard]] uint32_t PagesStanding() const { return Resident_->PagesStanding(); }
 
-  [[nodiscard]] uint32_t Triangles() const { return Drawn() * (kIndices / 3u); }
+  [[nodiscard]] uint32_t Triangles() const { return Drawn() * (TerrainLattice::kIndices / 3u); }
 
   [[nodiscard]] uint64_t HeldBytes() const;
 
 private:
-  [[nodiscard]] Native::Result<void> BuildGrid(std::span<const float> fractions,
-                                               std::shared_ptr<const Native::Buffer> &into);
-  [[nodiscard]] Native::Result<void> BuildPages(uint32_t layers,
-                                                std::unique_ptr<Native::Texture> &into);
+  void SyncInputs();
+
+  [[nodiscard]] bool Current() const noexcept {
+    return CulledGeneration_ && *CulledGeneration_ == Resident_->Generation();
+  }
+
   [[nodiscard]] Native::Result<void> HandsVisible(Native::Commands &commands);
-  [[nodiscard]] Native::Result<void> BuildPatchGrid();
-  [[nodiscard]] Native::Result<std::unique_ptr<Native::Buffer>>
-  PatchFractions(std::span<const float> fractions);
-  [[nodiscard]] Native::Result<std::unique_ptr<Native::Buffer>>
-  PatchBuffer(std::span<const std::byte> bytes, Native::BufferUse use);
   [[nodiscard]] Native::Result<void> DrawPatches(const PassRecording &into,
                                                  std::span<const Native::Binding> bindings) const;
   [[nodiscard]] Native::Result<void> Draw(const PassRecording &into,
@@ -187,40 +170,16 @@ private:
                                           uint32_t first = 0,
                                           bool skirtsOnly = false) const;
 
-  uint64_t Generation_ = 0;
+  TerrainResidency *Resident_;
+  uint64_t DrawRevision_ = 0;
+  std::optional<uint64_t> CulledGeneration_;
   bool DrawEnabled_ = true;
-  UploadQueue *Uploads_ = nullptr;
-  Native::Device *Device_ = nullptr;
   TerrainPipelines OwnedPipelines_;
   TerrainPipelines *Pipelines_ = &OwnedPipelines_;
   TerrainPatchSelection Selection_;
-  std::unique_ptr<Native::Texture> Pages_;
-  std::unique_ptr<Native::Sampler> Nearest_;
-  std::shared_ptr<const Native::Buffer> Grid_;
-  std::shared_ptr<const Native::Buffer> UniformGrid_;
-  std::shared_ptr<const Native::Buffer> Index_;
-  std::shared_ptr<const Native::Buffer> PatchGrid_;
-  std::shared_ptr<const Native::Buffer> PatchIndex_;
-  std::shared_ptr<const Native::Buffer> PatchFractions_;
-  std::unique_ptr<Native::Buffer> PatchList_;
-  std::unique_ptr<Native::Buffer> Instances_;
-  std::unique_ptr<Native::Buffer> Visible_;
-  std::unique_ptr<Native::Buffer> VisibleStaging_;
-  std::vector<TerrainInstance> Held_;
-  std::vector<std::array<float, 4>> Bounds_;
+  std::unique_ptr<Native::Buffer> PatchList_, Visible_, VisibleStaging_;
   std::vector<TerrainInstance> Seen_;
-  std::vector<PageId> Spare_;
-  std::vector<uint8_t> PagesInUse_;
-  uint32_t PagesMade_ = 0;
-  uint32_t PageLayers_ = 0;
-  uint32_t PagesLive_ = 0;
-  uint32_t InstanceRoom_ = 0;
-  uint32_t RealCount_ = 0;
-  uint32_t VirtualCount_ = 0;
-  uint32_t VisibleReal_ = 0;
-  uint32_t VisibleVirtual_ = 0;
-  uint32_t VisibleRoom_ = 0;
+  uint32_t VisibleReal_ = 0, VisibleVirtual_ = 0, VisibleRoom_ = 0;
 };
-
 }
 #endif

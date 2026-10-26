@@ -12,7 +12,7 @@
 #include "TransportNetworkSnapshot.h"
 #include "RoadAlignment.h"
 #include "RoadSurfaceBuilder.h"
-#include "SourcedTerrainFields.h"
+#include "TerrainFieldSet.h"
 #include "TangentFrame.h"
 #include "Tasks.h"
 
@@ -54,7 +54,7 @@ struct RoadAlignmentBuildProduct {
 
 struct RoadAlignmentBuildRequest {
   std::shared_ptr<const World::TransportNetworkSnapshot> Source;
-  SourcedTerrainFields Terrain;
+  Generators::TerrainFieldSet Terrain;
   std::vector<size_t> RouteIndices;
   TangentFrame RenderFrame;
   int TerrainZoom = 0;

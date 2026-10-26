@@ -1,0 +1,18 @@
+{
+  "cell.json.gz": {
+    "bytes": 1270215,
+    "sha256": "31e296fdda1e8ffebba3303bf28f35e4de99c29410e19bc9983a6e375696d3da"
+  },
+  "context.json": {
+    "bytes": 8635,
+    "sha256": "a153637233fdf30916ec46586641b94fdbedb27e9b91df1d5aee1151fc77539d"
+  },
+  "inventory.json.gz": {
+    "bytes": 569947,
+    "sha256": "b1e458da462614fecf45e5248c79137b8855ebdfc5ab9d134faa51aa42d03a97"
+  },
+  "original-inputs.tar.gz": {
+    "bytes": 8823232,
+    "sha256": "5b9737a91f79f6ff6b786843638675118bfcefc0725cf60a459aa6751d1728ac"
+  }
+}

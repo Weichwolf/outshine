@@ -134,7 +134,7 @@ void Exercise(bool glass) {
   eye.ZNearM = kNearM;
   eye.ZFarM = kFarM;
   scene->Eye(eye);
-  CHECK(scene->DrivenParts() == 0 && renderer.Plan().Holds(Stage::SubjectsTransmissive) == glass,
+  CHECK(scene->DrivenParts() == 0 && renderer.Plan().Holds(Stage::TransmissiveGeometry) == glass,
         "the published generated world has its complete material plan and no driven parts");
   const auto before = Draw(*scene, renderer);
   const auto spec = renderer.Plan().Specification();
@@ -145,7 +145,7 @@ void Exercise(bool glass) {
     CHECK(next.Prepare(*scene,
                        nullptr,
                        SceneResources::PieceSources::Copy,
-                       Core::SubjectGeometrySources::Driven,
+                       Core::GeometryRetention::Driven,
                        Core::ResourceRestoreMode::Deferred)
               .has_value(),
           "empty next candidate prepares privately");
@@ -168,7 +168,7 @@ void Exercise(bool glass) {
     if (publish) {
       CHECK(next.SetGeometry(Mesh(!glass), 0, error), error.c_str());
       CHECK(next.Publish(scene).has_value(), "completed candidate publishes atomically");
-      CHECK(renderer.Plan().Holds(Stage::SubjectsTransmissive) == !glass,
+      CHECK(renderer.Plan().Holds(Stage::TransmissiveGeometry) == !glass,
             "complete new materials can legitimately change the final plan");
       CHECK(!Draw(*scene, renderer).empty(),
             "completed replacement renders through its actual plan");

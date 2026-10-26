@@ -10,27 +10,29 @@
 #include <string_view>
 #include <utility>
 
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceConfiguration.h"
 #include "SourceSet.h"
 #include "SourceSession.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedGroundRegions.h"
+#include "PreparedRoadPages.h"
 #include "PreparedOsmTiles.h"
+#include "PreparedUrbanAreas.h"
 #include "PreparedStreetGraph.h"
 #include "TerrainLoader.h"
-#include <world/data/SourceDecl.h>
+#include <SourceDecl.h>
 #include "BuildingField.h"
 #include "ClassificationPreparation.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "OsmField.h"
 #include "StreetField.h"
 #include "TilePool.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include "WaterField.h"
 
-#include <world/WorldStorage.h>
+#include "ContentDirectories.h"
 
 namespace outshine {
 class LogSink;
@@ -69,16 +71,16 @@ public:
   SurfacePreparation(const SurfacePreparation &) = delete;
   SurfacePreparation &operator=(const SurfacePreparation &) = delete;
 
-  [[nodiscard]] bool Open(const World::StoragePaths &under,
+  [[nodiscard]] bool Open(const ContentDirectories &under,
                           std::span<const Data::SourceProvider> providers,
+                          const Data::ProviderRegistry &registry,
                           LongitudeLatitude focus,
                           Data::Transport &wire,
                           Tasks &compute,
                           Sink &say,
                           LogSink *diagnostics,
-                          double patienceS = 0.0,
-                          const Data::ProviderRegistry *registry = nullptr);
-  [[nodiscard]] bool OpenSession(const World::StoragePaths &under,
+                          double patienceS = 0.0);
+  [[nodiscard]] bool OpenSession(const ContentDirectories &under,
                                  std::shared_ptr<Data::SourceSession> session,
                                  LongitudeLatitude focus,
                                  Data::Transport &wire,
@@ -96,12 +98,33 @@ public:
 
   [[nodiscard]] bool Overflowing() const { return Overflowing_; }
 
-  [[nodiscard]] std::size_t HeapBytes() const {
-    return Cls_.HeapBytes() + Footprints_.HeapBytes() + WaterBodies_.HeapBytes() +
-           WaterProducer_.HeapBytes() + Ways_.HeapBytes() +
-           (Vectors_ ? Vectors_->HeapBytes() : 0u) + (Pool_ ? Pool_->ResidentBytes() : 0u) +
-           (Ground_ ? Ground_->HeapBytes() : 0u);
+  struct StagingBytes {
+    size_t Classification = 0;
+    size_t Buildings = 0;
+    size_t Water = 0;
+    size_t WaterBuild = 0;
+    size_t Streets = 0;
+    size_t Vectors = 0;
+    size_t Pool = 0;
+    size_t Ground = 0;
+
+    [[nodiscard]] size_t Total() const noexcept {
+      return Classification + Buildings + Water + WaterBuild + Streets + Vectors + Pool + Ground;
+    }
+  };
+
+  [[nodiscard]] StagingBytes Staging() const {
+    return {.Classification = Cls_.HeapBytes(),
+            .Buildings = Footprints_.HeapBytes(),
+            .Water = WaterBodies_.HeapBytes(),
+            .WaterBuild = WaterProducer_.HeapBytes(),
+            .Streets = Ways_.HeapBytes(),
+            .Vectors = Vectors_ ? Vectors_->HeapBytes() : 0u,
+            .Pool = Pool_ ? Pool_->ResidentBytes() : 0u,
+            .Ground = Ground_ ? Ground_->HeapBytes() : 0u};
   }
+
+  [[nodiscard]] std::size_t HeapBytes() const { return Staging().Total(); }
 
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
 
@@ -111,8 +134,8 @@ public:
     return Sources_ ? Sources_->Counters() : SourceCounters{};
   }
 
-  [[nodiscard]] Data::ContentStore::Ledger StoreCosts() const {
-    return Sources_ ? Sources_->Store().Counters() : Data::ContentStore::Ledger{};
+  [[nodiscard]] Data::RawSourceCache::Ledger StoreCosts() const {
+    return Sources_ ? Sources_->Store().Counters() : Data::RawSourceCache::Ledger{};
   }
 
   [[nodiscard]] auto ProviderCosts() const {
@@ -146,6 +169,16 @@ public:
     return PreparedNetwork_;
   }
 
+  [[nodiscard]] const std::shared_ptr<::outshine::Generators::PreparedRoadPages> &
+  RoadAssets() const noexcept {
+    return PreparedRoads_;
+  }
+
+  [[nodiscard]] const std::shared_ptr<Generators::Osm::PreparedUrbanAreas> &
+  UrbanAssets() const noexcept {
+    return PreparedUrban_;
+  }
+
   [[nodiscard]] const std::shared_ptr<Generators::Osm::PreparedGroundRegions> &
   RegionAssets() const noexcept {
     return PreparedRegions_;
@@ -176,9 +209,9 @@ public:
 
   [[nodiscard]] Generators::Osm::MvtSchema VectorSchema() const noexcept { return VectorSchema_; }
 
-  [[nodiscard]] const GroundMaterials &Materials() const { return Materials_; }
+  [[nodiscard]] const Generators::GroundMaterialCatalog &Materials() const { return Materials_; }
 
-  void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }
+  void SetRecipes(const Generators::RegionSurfaceRecipes *veg) { Cls_.SetRecipes(veg); }
 
   [[nodiscard]] std::unique_ptr<::outshine::Generators::Osm::OsmField> CreateVectorField() const;
 
@@ -221,9 +254,9 @@ public:
   void RequestStreets() noexcept;
   [[nodiscard]] bool UsesCachedRegionNetwork() const noexcept;
 
-  [[nodiscard]] const VegetationTemplates &Vegetation() const { return Templates_; }
+  [[nodiscard]] const Generators::RegionSurfaceRecipes &SurfaceRecipes() const { return Recipes_; }
 
-  [[nodiscard]] bool Vegetated() const { return Vegetated_; }
+  [[nodiscard]] bool RecipesReady() const { return RecipesReady_; }
 
   [[nodiscard]] std::expected<void, std::string_view> AdvanceAt(LongitudeLatitude at,
                                                                 SurfacePreparationBudget budget);
@@ -269,11 +302,12 @@ public:
   [[nodiscard]] bool IngestedWithin(int rings) const;
   [[nodiscard]] std::string IngestionStatus() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
+  [[nodiscard]] int TerrainRenderZoom() const;
 
 private:
   [[nodiscard]] std::expected<void, std::string>
   BindAssetCaches(const std::string &directory, const Data::SourceSet &sources, Tasks &compute);
-  [[nodiscard]] std::expected<void, std::string> BindRegionCache(const World::StoragePaths &under,
+  [[nodiscard]] std::expected<void, std::string> BindRegionCache(const ContentDirectories &under,
                                                                  const Data::SourceSet &sources);
   void RecordAdvance(SurfacePreparationMetrics metrics) noexcept;
   [[nodiscard]] std::expected<TileAt, std::string_view>
@@ -284,10 +318,12 @@ private:
   std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> PreparedBuildings_;
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;
   std::shared_ptr<Generators::Osm::PreparedGroundRegions> PreparedRegions_;
+  std::shared_ptr<::outshine::Generators::PreparedRoadPages> PreparedRoads_;
   std::shared_ptr<Generators::Osm::PreparedOsmTiles> PreparedVectors_;
+  std::shared_ptr<Generators::Osm::PreparedUrbanAreas> PreparedUrban_;
   enum class StreetMode : uint8_t { Source, CachedRegion, RequiredSource };
   StreetMode StreetMode_ = StreetMode::Source;
-  LongitudeLatitude CachedNetworkFocus_;
+  TileAt CachedNetworkTile_;
   enum class WaterStage : uint8_t { Deferred, Requested, Ready };
   enum class WaterMode : uint8_t { Immediate, RegionLookup };
   WaterStage WaterStage_ = WaterStage::Requested;
@@ -298,8 +334,8 @@ private:
   std::vector<::outshine::Generators::Osm::OsmField::Declared> Declared_;
   std::string DeclaredDigest_;
   ClassificationPreparation Cls_;
-  GroundMaterials Materials_;
-  VegetationTemplates Templates_;
+  Generators::GroundMaterialCatalog Materials_;
+  Generators::RegionSurfaceRecipes Recipes_;
   std::size_t Overflowed_ = 0;
 
   struct SettlementInputs {
@@ -347,7 +383,7 @@ private:
   ::outshine::Generators::Osm::StreetField Ways_;
   int SurfaceZoom_ = 0;
   std::optional<LongitudeLatitude> Stood_;
-  bool Vegetated_ = false;
+  bool RecipesReady_ = false;
   bool Opened_ = false;
   SurfacePreparationMetrics LastAdvance_;
   SurfacePreparationMetrics WorstAdvance_;

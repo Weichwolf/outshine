@@ -1,4 +1,4 @@
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "StructureArtifact.h"
 #include "PreparedStructureCodec.h"
 #include <array>

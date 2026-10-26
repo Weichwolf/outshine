@@ -1,5 +1,6 @@
-#include "TerrainPatchSelection.h"
-#include "TerrainRenderer.h"
+#include <vector>
+#include "TerrainLattice.h"
+#include "TerrainPatchBounds.h"
 #include "TerrainPatchError.h"
 #include <algorithm>
 #include <array>
@@ -11,9 +12,9 @@
 
 namespace outshine::Render {
 namespace {
-constexpr float kCells = static_cast<float>(TerrainRenderer::kSide - 1);
-constexpr size_t kPatchCells = TerrainRenderer::kGroundPatchCells;
-constexpr size_t kPatchColumns = (TerrainRenderer::kSide - 1) / kPatchCells;
+constexpr float kCells = static_cast<float>(TerrainLattice::kSide - 1);
+constexpr size_t kPatchCells = TerrainLattice::kGroundPatchCells;
+constexpr size_t kPatchColumns = (TerrainLattice::kSide - 1) / kPatchCells;
 constexpr std::array<size_t, 4> kAffineRow{3, 7, 11, 15};
 using Interval = std::array<double, 2>;
 
@@ -56,8 +57,8 @@ Volume LocalVolume(const TerrainInstance &tile,
   return box;
 }
 
-TerrainPatchSelection::Bounds WorldVolume(const TerrainInstance &tile, const Volume &box) {
-  TerrainPatchSelection::Bounds bounds;
+TerrainPatchBounds::Bounds WorldVolume(const TerrainInstance &tile, const Volume &box) {
+  TerrainPatchBounds::Bounds bounds;
   bounds.Low[3] = 1;
   for (size_t axis = 0; axis < 3; ++axis) {
     double low = tile.Row[12 + axis];
@@ -81,11 +82,12 @@ TerrainPatchSelection::Bounds WorldVolume(const TerrainInstance &tile, const Vol
 }
 }
 
-TerrainPatchSelection::TerrainPatchSelection() {
+TerrainPatchBounds::TerrainPatchBounds() {
   Fractions({});
 }
 
-void TerrainPatchSelection::Fractions(std::span<const float> fractions) {
+void TerrainPatchBounds::Fractions(std::span<const float> fractions) {
+  ++Generation_;
   AlignedFractions_ = true;
   UniformFractions_ = true;
   FiniteFractions_ = true;
@@ -98,15 +100,16 @@ void TerrainPatchSelection::Fractions(std::span<const float> fractions) {
   }
 }
 
-void TerrainPatchSelection::Page(PageId page, std::span<const float> heights) {
+void TerrainPatchBounds::Page(PageId page, std::span<const float> heights) {
+  ++Generation_;
   if (page >= Pages_.size()) { Pages_.resize(static_cast<size_t>(page) + 1u); }
   auto &range = Pages_[page];
   range.Revision = ++Revision_;
   range.Finite = std::ranges::all_of(heights, [](float h) { return std::isfinite(h); });
   const auto [low, high] = std::ranges::minmax_element(heights);
   range.Whole = {*low, *high};
-  constexpr size_t side = TerrainRenderer::kPageSide;
-  constexpr size_t cells = TerrainRenderer::kGroundPatchCells;
+  constexpr size_t side = TerrainLattice::kPageSide;
+  constexpr size_t cells = TerrainLattice::kGroundPatchCells;
   for (size_t patch = 0; patch < kPatchCount; ++patch) {
     range.Errors[patch] = TerrainPatchHeightErrors(heights, patch);
     auto &bounds = range.Patches[patch];
@@ -121,27 +124,22 @@ void TerrainPatchSelection::Page(PageId page, std::span<const float> heights) {
   }
 }
 
-void TerrainPatchSelection::Sources(std::span<const TerrainInstance> tiles, uint32_t real) {
+void TerrainPatchBounds::Sources(std::span<const TerrainInstance> tiles, uint32_t real) {
   Tiles_.clear();
   Tiles_.reserve(tiles.size());
   for (size_t i = 0; i < tiles.size(); ++i) { Tiles_.push_back(BoundsFor(tiles[i], i >= real)); }
-  Ready_ = false;
+  ++Generation_;
 }
 
-void TerrainPatchSelection::BeginFrame() {
-  Seen_.clear();
-  Ready_ = false;
-}
-
-void TerrainPatchSelection::Include(size_t tile) {
+void TerrainPatchBounds::Include(size_t tile, std::vector<Bounds> &into) const {
   const auto &source = Tiles_[tile];
   const bool current =
       source.Page < Pages_.size() && Pages_[source.Page].Revision == source.Revision;
-  for (const auto &bound : source.Patches) { Seen_.push_back(current ? bound : Bounds{}); }
+  for (const auto &bound : source.Patches) { into.push_back(current ? bound : Bounds{}); }
 }
 
-TerrainPatchSelection::TileRange TerrainPatchSelection::BoundsFor(const TerrainInstance &tile,
-                                                                  bool uniform) const {
+TerrainPatchBounds::TileRange TerrainPatchBounds::BoundsFor(const TerrainInstance &tile,
+                                                            bool uniform) const {
   TileRange result;
   if (!std::isfinite(tile.Page) || tile.Page < 0 ||
       static_cast<double>(tile.Page) >= static_cast<double>(Pages_.size()) ||

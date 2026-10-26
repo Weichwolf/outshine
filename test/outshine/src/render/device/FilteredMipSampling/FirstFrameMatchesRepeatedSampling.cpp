@@ -1,5 +1,4 @@
 #include <SDL3/SDL.h>
-#include <import/GltfImporter.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -20,12 +19,10 @@
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeOffline.h"
 #include "GpuPlacement.h"
-#include "Lens.h"
-#include "PreparedRoot.h"
-#include "Shape.h"
-#include "SubjectMaterialPacking.h"
-#include "SubjectResidency.h"
-#include "Surfacing.h"
+#include "MaterialPacking.h"
+#include "MaterialBinding.h"
+#include "Material.h"
+#include "GeometryResidency.h"
 #include "TexelChain.h"
 
 namespace {
@@ -231,16 +228,16 @@ bool Configure(Fixture &fixture,
        .U = N::Address::Repeat,
        .V = N::Address::Repeat,
        .MaxLod = static_cast<float>(Levels(mode) - 1u)}));
-  const char *vertexPath = derivatives ? "build/shaders/filteredMipDerivativeSample.vert.spv"
-                                       : "build/shaders/fullscreen.vert.spv";
-  const char *fragmentPath = "build/shaders/filteredMipSample.frag.spv";
+  const char *vertexPath =
+      derivatives ? "filteredMipDerivativeSample.vert.spv" : "fullscreen.vert.spv";
+  const char *fragmentPath = "filteredMipSample.frag.spv";
   if (descriptorTable) {
-    fragmentPath = "build/shaders/filteredMipDescriptorSample.frag.spv";
+    fragmentPath = "filteredMipDescriptorSample.frag.spv";
   } else if (derivatives) {
-    fragmentPath = "build/shaders/filteredMipDerivativeSample.frag.spv";
+    fragmentPath = "filteredMipDerivativeSample.frag.spv";
   }
-  const auto vertex = Gpu::Spirv(vertexPath);
-  const auto fragment = Gpu::Spirv(fragmentPath);
+  const auto vertex = Gpu::Shader(vertexPath);
+  const auto fragment = Gpu::Shader(fragmentPath);
   const std::array target{
       N::ColourTarget{.Texels = N::Format::Rgba16Float, .Rgb = {}, .Alpha = {}}};
   const std::array streams{N::VertexStream{.Slot = 0, .Stride = 4u * sizeof(float)},
@@ -369,34 +366,19 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
   return pixels;
 }
 
-bool ConfigureImported(Fixture &fixture, TextureUploadCounts &counts) {
+bool ConfigureNative(Fixture &fixture, TextureUploadCounts &counts) {
   if (!CreateTargets(fixture)) { return false; }
-  const std::string path = PreparedRoot() + "/test-khronos-glTF-ABeautifulGame/scene.gltf";
-  outshine::GltfImporter imported;
-  const auto loaded = imported.load(path);
-  if (!loaded) {
-    SDL_SetError("%s", loaded.error().c_str());
-    return false;
-  }
-  const outshine::Geometry &native = imported.geometry();
-  ShapeStore store;
-  const auto shaped = PrepareShape(native, store);
-  if (!shaped || shaped->Parts.empty()) {
-    SDL_SetError("could not pack the imported chess part");
-    return false;
-  }
-  const ShapePart &part = shaped->Parts.front();
-  SubjectMaterial material;
-  material.Row = native.surfaceAt(native.materialOf(0));
-  std::string error;
-  if (!ResolveNativeTextures(native, std::span(&material, 1), error)) {
-    SDL_SetError("%s", error.c_str());
-    return false;
-  }
-  SubjectResidency residency;
+  const auto chain = Chain(MipMode::None);
+  MaterialBinding material;
+  material.Row.BaseColour = {{1, 1, 1, 1}};
+  material.Row.Unlit = true;
+  material.Row.BaseColourMap.Image = 0;
+  material.Colour = {
+      .Rgba = chain.front().data(), .Width = kSourceWidth, .Height = kSourceWidth, .Uv = {}};
+  GeometryResidency residency;
   if (!residency.StandsOn(fixture.Device.get())) { return false; }
   auto bound =
-      residency.Upload(material.Colour, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+      residency.Upload(material.Colour, GeometryResidency::Transfer::Srgb, TexelKind::Value);
   if (!bound) {
     SDL_SetError("%s", bound.error().Message.c_str());
     return false;
@@ -407,8 +389,8 @@ bool ConfigureImported(Fixture &fixture, TextureUploadCounts &counts) {
   fixture.Source = std::move(bound->Image);
   fixture.Sampler = std::move(bound->Sample);
 
-  const auto vertex = Gpu::Spirv("build/shaders/flat-10-0.vert.spv");
-  const auto fragment = Gpu::Spirv("build/shaders/flat-01-000.frag.spv");
+  const auto vertex = Gpu::Shader("flat-10-0.vert.spv");
+  const auto fragment = Gpu::Shader("flat-01-000.frag.spv");
   const std::array target{
       N::ColourTarget{.Texels = N::Format::Rgba16Float, .Rgb = {}, .Alpha = {}}};
   const std::array streams{N::VertexStream{.Slot = 0, .Stride = 3u * sizeof(float)},
@@ -426,29 +408,25 @@ bool ConfigureImported(Fixture &fixture, TextureUploadCounts &counts) {
                                                       .Colours = target,
                                                       .Depth = N::DepthTarget{},
                                                       .Label = {}}));
-
-  const auto indices = shaped->Indices.subspan(part.FirstIndex, part.IndexCount);
-  const N::IndexedIndirectArguments indirect{.IndexCount = static_cast<uint32_t>(indices.size()),
-                                             .InstanceCount = 1};
-  std::vector<float> emitted(part.VertexCount * 3u);
-  for (size_t vertexIndex = 0; vertexIndex < part.VertexCount; ++vertexIndex) {
-    for (size_t channel = 0; channel < 3; ++channel) {
-      emitted[vertexIndex * 3u + channel] = material.Row.BaseColour[channel];
-    }
-  }
-  constexpr std::array placements = {
-      GpuPlacement{.Current = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
-                   .Previous = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}};
+  constexpr std::array<float, 9> positions{-1, -1, 0.5f, 3, -1, 0.5f, -1, 3, 0.5f};
+  constexpr std::array<float, 6> uvs{
+      0, 0, 2 * kFractionalLodUvScaleX, 0, 0, 2 * kFractionalLodUvScaleY};
+  constexpr std::array<float, 9> emitted{1, 1, 1, 1, 1, 1, 1, 1, 1};
+  constexpr std::array<uint32_t, 3> indices{0, 1, 2};
+  constexpr std::array<float, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  constexpr std::array placements = {GpuPlacement{.Current = identity, .Previous = identity}};
+  constexpr N::IndexedIndirectArguments indirect{.IndexCount = 3, .InstanceCount = 1};
   if (!UploadBuffer(
-          fixture, std::as_bytes(part.PositionsM), N::BufferUse::Vertex, fixture.Vertices) ||
-      !UploadBuffer(fixture, std::as_bytes(part.Uv), N::BufferUse::Vertex, fixture.Uvs) ||
+          fixture, std::as_bytes(std::span(positions)), N::BufferUse::Vertex, fixture.Vertices) ||
+      !UploadBuffer(fixture, std::as_bytes(std::span(uvs)), N::BufferUse::Vertex, fixture.Uvs) ||
       !UploadBuffer(
           fixture, std::as_bytes(std::span(emitted)), N::BufferUse::Vertex, fixture.Emitted) ||
       !UploadBuffer(fixture,
                     std::as_bytes(std::span(placements)),
                     N::BufferUse::Storage,
                     fixture.Placements) ||
-      !UploadBuffer(fixture, std::as_bytes(indices), N::BufferUse::Index, fixture.Indices) ||
+      !UploadBuffer(
+          fixture, std::as_bytes(std::span(indices)), N::BufferUse::Index, fixture.Indices) ||
       !UploadBuffer(fixture,
                     std::as_bytes(std::span(&indirect, 1)),
                     N::BufferUse::Indirect,
@@ -457,34 +435,11 @@ bool ConfigureImported(Fixture &fixture, TextureUploadCounts &counts) {
   }
   fixture.Derivatives = true;
   fixture.IndexCount = static_cast<uint32_t>(indices.size());
-  fixture.IndirectDraw = part.ClusterCount > 0;
-
-  constexpr outshine::Vec3 eye = {{2.781138576118416, 1.3202289998916963, 1.9473741958039332}};
-  constexpr outshine::Vec3 aim = {{0, 0.08449789705936794, 0}};
-  auto viewpoint = Viewpoint::LookAt({.EyeM = eye, .AimM = aim}, 0.0);
-  if (!viewpoint) { return false; }
-  constexpr double kImportedYfovRad = 0.47108996144172666;
-  constexpr double kImportedNearM = 3.107125103623776;
-  constexpr double kImportedFarM = 4.118946968135317;
-  viewpoint->YfovRad = kImportedYfovRad;
-  viewpoint->ZNearM = kImportedNearM;
-  viewpoint->ZFarM = kImportedFarM;
-  const auto lens = Lens::From(*viewpoint, kTargetWidth, kTargetHeight);
-  if (!lens) { return false; }
-  const outshine::Mat4f viewProjection = lens->ViewProjection(*viewpoint);
-  fixture.VertexUniform.assign(viewProjection.begin(), viewProjection.end());
-  fixture.VertexUniform.insert(
-      fixture.VertexUniform.end(), viewProjection.begin(), viewProjection.end());
-  fixture.VertexUniform.insert(fixture.VertexUniform.end(), 16u, 0.0f);
-  fixture.VertexUniform.push_back(-static_cast<float>(eye[0]));
-  fixture.VertexUniform.push_back(-static_cast<float>(eye[1]));
-  fixture.VertexUniform.push_back(-static_cast<float>(eye[2]));
-  fixture.VertexUniform.push_back(0.0f);
-  fixture.VertexUniform.push_back(-static_cast<float>(eye[0]));
-  fixture.VertexUniform.push_back(-static_cast<float>(eye[1]));
-  fixture.VertexUniform.push_back(-static_cast<float>(eye[2]));
-  fixture.VertexUniform.push_back(0.0f);
-  const PackedSubjectMaterial packed = PackSubjectMaterial(material, 1.0f);
+  fixture.IndirectDraw = true;
+  fixture.VertexUniform.assign(identity.begin(), identity.end());
+  fixture.VertexUniform.insert(fixture.VertexUniform.end(), identity.begin(), identity.end());
+  fixture.VertexUniform.insert(fixture.VertexUniform.end(), 24u, 0.0f);
+  const GpuMaterialRecord packed = PackMaterial(material, 1.0f);
   fixture.FragmentUniform.assign(packed.begin(), packed.end());
   return true;
 }
@@ -555,24 +510,24 @@ int main() {
             true,
             "small sRGB primitive edges repeat exactly",
             RasterShape::SmallTriangle);
-  Fixture imported;
-  TextureUploadCounts importedUpload;
-  const bool configured = imported.Device && ConfigureImported(imported, importedUpload);
-  if (!configured) { std::println(stderr, "imported fixture: {}", SDL_GetError()); }
-  CHECK(configured, "the exact imported chess draw configures through native GPU");
-  if (imported.Device && imported.Pipeline) {
-    CHECK(importedUpload.Submissions == 1,
-          "a complete imported mip chain submits through one copy command");
-    CHECK(importedUpload.StagingAllocations == 1,
-          "a complete imported mip chain owns one staging allocation");
-    CHECK(importedUpload.Bytes > 0, "the imported mip chain records its transferred bytes");
-    CHECK(imported.IndirectDraw, "the imported part uses the engine's clustered indirect draw");
-    const auto first = Draw(imported);
-    const auto repeated = Draw(imported);
-    CHECK(!first.empty(), "the exact imported chess draw produces pixels");
+  Fixture native;
+  TextureUploadCounts nativeUpload;
+  const bool configured = native.Device && ConfigureNative(native, nativeUpload);
+  if (!configured) { std::println(stderr, "native fixture: {}", SDL_GetError()); }
+  CHECK(configured, "the exact native procedural draw configures through native GPU");
+  if (native.Device && native.Pipeline) {
+    CHECK(nativeUpload.Submissions == 1,
+          "a complete native mip chain submits through one copy command");
+    CHECK(nativeUpload.StagingAllocations == 1,
+          "a complete native mip chain owns one staging allocation");
+    CHECK(nativeUpload.Bytes > 0, "the native mip chain records its transferred bytes");
+    CHECK(native.IndirectDraw, "the native part uses the engine's clustered indirect draw");
+    const auto first = Draw(native);
+    const auto repeated = Draw(native);
+    CHECK(!first.empty(), "the exact native procedural draw produces pixels");
     CHECK(std::ranges::any_of(first, [](uint8_t byte) { return byte != 0; }),
-          "the exact imported chess draw reaches the target");
-    CHECK(first == repeated, "the exact imported chess draw repeats every half channel exactly");
+          "the exact native procedural draw reaches the target");
+    CHECK(first == repeated, "the exact native procedural draw repeats every half channel exactly");
   }
   SDL_Quit();
   return Report();

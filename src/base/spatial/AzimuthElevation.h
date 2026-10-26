@@ -2,7 +2,7 @@
 #define OUTSHINE_BASE_SPATIAL_AZIMUTHELEVATION_H
 
 #include <cmath>
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine {
 inline Vec3 EastUpSouthDirection(double azimuthRad, double elevationRad) {

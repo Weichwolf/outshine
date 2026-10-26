@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_BASE_TILE_H
 
 #include "Earth.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <cstdint>
 
 namespace outshine::Generators {

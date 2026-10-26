@@ -1,0 +1,63 @@
+#ifndef OUTSHINE_GENERATORS_RECIPES_ALPINELIMIT_H
+#define OUTSHINE_GENERATORS_RECIPES_ALPINELIMIT_H
+
+#include "Earth.h"
+#include <cmath>
+#include <string>
+
+#include "Json.h"
+
+namespace outshine::Generators {
+
+constexpr double kTreelineBaseLatDeg = 47.4;
+constexpr double kTreelineBaseM = 1900.0;
+constexpr double kTreelinePerDegM = -58.8;
+constexpr double kTreelineBandM = 200.0;
+constexpr double kTreelineJitterM = 150.0;
+constexpr double kTreelineJitterScaleM = 700.0;
+
+class AlpineLimit {
+public:
+  [[nodiscard]] bool Load(const Json::Ref &root);
+
+  [[nodiscard]] bool Ready() const { return Ready_; }
+
+  [[nodiscard]] const std::string &RockTemplateName() const { return RockTemplate_; }
+
+  [[nodiscard]] float SlopeBandDeg() const { return SlopeBandDeg_; }
+
+  [[nodiscard]] const std::string &Error() const { return Error_; }
+
+  [[nodiscard]] double SpeciesLimitM(double latDeg) const {
+    return BaseM_ + PerDegM_ * (std::fabs(latDeg) - BaseLatDeg_) + BandM_;
+  }
+
+  [[nodiscard]] double WoodyFraction(LongitudeLatitudeHeight at, EastNorth jitterAt) const {
+    const double top = SpeciesLimitM(at.LatitudeDeg);
+    if (at.HeightM >= top) { return 0.0; }
+    const double floorM = top - BandM_ - JitterM_ * Noise(jitterAt);
+    if (at.HeightM <= floorM) { return 1.0; }
+    const double t = (top - at.HeightM) / (top - floorM);
+    return t * t * (3.0 - 2.0 * t);
+  }
+
+  [[nodiscard]] double BareBySlope(double slopeDeg, double slopeMaxDeg) const {
+    const double t = (slopeDeg - slopeMaxDeg) / static_cast<double>(SlopeBandDeg_);
+    if (t <= 0.0) { return 0.0; }
+    if (t >= 1.0) { return 1.0; }
+    return t * t * (3.0 - 2.0 * t);
+  }
+
+private:
+  [[nodiscard]] double Noise(EastNorth at) const;
+
+  double BaseLatDeg_ = kTreelineBaseLatDeg, BaseM_ = kTreelineBaseM, PerDegM_ = kTreelinePerDegM,
+         BandM_ = kTreelineBandM;
+  double JitterM_ = kTreelineJitterM, JitterScaleM_ = kTreelineJitterScaleM;
+  float SlopeBandDeg_ = 4.0f;
+  std::string RockTemplate_, Error_;
+  bool Ready_ = false;
+};
+
+}
+#endif

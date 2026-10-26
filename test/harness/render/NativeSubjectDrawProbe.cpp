@@ -1,5 +1,7 @@
-#include "SubjectDraw.h"
-#include "SubjectCullStage.h"
+#include "MeshInput.h"
+#include "RenderScene.h"
+#include "GeometryRenderer.h"
+#include "GeometryCullStage.h"
 #include "StageSubmission.h"
 #include "ReadbackTransfer.h"
 #include "NativeOfflineDevice.h"
@@ -50,8 +52,8 @@ struct MeshData {
     }
   }
 
-  [[nodiscard]] SubjectMesh Mesh(VertexLayout layout, const DrawList &draws) const {
-    SubjectMesh mesh;
+  [[nodiscard]] MeshInput Mesh(VertexLayout layout, const DrawList &draws) const {
+    MeshInput mesh;
     mesh.Verts.From = kPositions.data();
     mesh.Positions = kPositions;
     mesh.VertexCount = 4;
@@ -117,9 +119,9 @@ void Pixels(Device &device, const Texture &image, const std::array<uint16_t, 4> 
 }
 
 void Draw(Device &device,
-          SubjectDraw &subject,
+          GeometryRenderer &subject,
           Targets &targets,
-          SubjectCullStage *cull = nullptr,
+          GeometryCullStage *cull = nullptr,
           const std::array<uint16_t, 4> &values = kBaseValues) {
   auto commands = Require(device.Begin());
   Require(subject.FlushCrossings(commands.get()));
@@ -152,7 +154,7 @@ void Draw(Device &device,
 }
 
 void Indirect(Device &device,
-              SubjectDraw &subject,
+              GeometryRenderer &subject,
               Targets &targets,
               const MeshData &source,
               const outshine::Render::Gpu &gpu) {
@@ -183,7 +185,7 @@ void Indirect(Device &device,
   mesh.Clusters = clusters;
   mesh.ClusterSpheres = spheres;
   CheckSceneUpload(subject.SetMesh(mesh, error), error);
-  SubjectCullStage stage;
+  GeometryCullStage stage;
   Require(stage.Configure({.Resident = &subject.Resident(),
                            .AnchorM = subject.AnchorM(),
                            .Jobs = subject.ClusterJobs(),
@@ -197,20 +199,20 @@ void Indirect(Device &device,
         "both real mesh clusters pass through the three native culling stages");
 }
 
-void PieceUv1(Device &device, SubjectDraw &subject, Targets &targets, const MeshData &source) {
+void PieceUv1(Device &device, GeometryRenderer &subject, Targets &targets, const MeshData &source) {
   std::string error;
-  CheckSceneUpload(subject.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(subject.SetMesh(MeshInput{}, error), error);
   constexpr std::array<uint8_t, 8> texels{255, 0, 0, 255, 0, 0, 255, 255};
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Row.Unlit = true;
   material.Row.DoubleSided = true;
   material.Row.BaseColour = {{kColour[0], kColour[1], kColour[2], 1}};
   material.Colour = {.Rgba = texels.data(),
                      .Width = 2,
                      .Height = 1,
-                     .Magnify = SubjectFilter::Nearest,
-                     .Minify = SubjectFilter::Nearest,
-                     .Mip = SubjectMip::None,
+                     .Magnify = outshine::Filter::Nearest,
+                     .Minify = outshine::Filter::Nearest,
+                     .Mip = outshine::MipFilter::None,
                      .Uv = {},
                      .Set = UvSet::Uv1};
   CheckSceneUpload(subject.SetMaterials(std::span(&material, 1), error), error);
@@ -231,32 +233,32 @@ void PieceUv1(Device &device, SubjectDraw &subject, Targets &targets, const Mesh
   piece.Textured = true;
   PieceMesh missing = piece;
   missing.Uv1 = {};
-  CHECK(subject.PlacePiece(missing, error) == kNoPiece &&
-            error == "piece surface requires a complete second UV run",
+  const auto absent = subject.PlacePiece(missing);
+  CHECK(!absent && absent.error().Message == "piece surface requires a complete second UV run",
         "the integrated material contract rejects a missing second UV run before allocation");
-  const auto id = subject.PlacePiece(piece, error);
-  CHECK(id != kNoPiece, "the actual piece allocator carries authored second UVs");
-  if (id == kNoPiece) { Failed(); }
+  const auto id = subject.PlacePiece(piece);
+  CHECK(id.has_value(), "the actual piece allocator carries authored second UVs");
+  if (!id) { Failed(); }
   CheckSceneUpload(subject.HandTables(error), error);
   constexpr std::array<uint16_t, 4> blue{0, 0, 0x3a00, 0x3c00};
   Draw(device, subject, targets, nullptr, blue);
-  subject.ReleasePiece(id);
+  subject.ReleasePiece(*id);
 }
 
-void PreparedMipChain(Device &device, SubjectDraw &subject, Targets &targets) {
+void PreparedMipChain(Device &device, GeometryRenderer &subject, Targets &targets) {
   static constexpr std::array<uint8_t, 16> base{
       255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255};
   static constexpr std::array<uint8_t, 4> lower{0, 255, 0, 255};
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Row.Unlit = true;
   material.Row.DoubleSided = true;
   material.Row.BaseColour = {{kColour[0], kColour[1], kColour[2], 1}};
   material.Colour = {
-      .Rgba = base.data(), .Width = 2, .Height = 2, .Mip = SubjectMip::Nearest, .Uv = {}};
+      .Rgba = base.data(), .Width = 2, .Height = 2, .Mip = outshine::MipFilter::Nearest, .Uv = {}};
   material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Colour)] = std::span(lower);
   material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Linear)] = std::span(lower);
   std::string error;
-  CheckSceneUpload(subject.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(subject.SetMesh(MeshInput{}, error), error);
   CheckSceneUpload(subject.SetMaterials(std::span(&material, 1), error), error);
   MeshData data;
   constexpr float uvMost = 64;
@@ -289,11 +291,12 @@ int main() {
                               Resource::SceneSurfaceMetalRough}) {
     CHECK(gpu.SceneColours.Add(resource), "the full native material attachment order is accepted");
   }
-  SubjectDraw subject;
+  RenderScene subjectStorage;
+  GeometryRenderer subject{subjectStorage};
   Require(subject.Configure(gpu));
   CHECK(subject.PipelineCount() > 0,
         "all existing vertex/domain/coverage variants compile natively");
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Row.DoubleSided = true;
   material.Row.BaseColour = {{kColour[0], kColour[1], kColour[2], 1}};
   std::string error;

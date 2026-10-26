@@ -1,7 +1,8 @@
+#include "TerrainLattice.h"
 #include "EngineState.h"
 #include "Heap.h"
 #include "RuntimeScene.h"
-#include "math/Units.h"
+#include "Units.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -62,7 +63,7 @@ void InspectGround(const EngineRenderState &picture, Core::DiagnosticLedger &pub
     published.RecordMetric(indexNames[i], static_cast<double>(referenced), "indices");
     indices += referenced;
   }
-  const auto skirts = uint64_t{Render::TerrainRenderer::kSkirtQuads} * 6u * ground->SkirtInstances;
+  const auto skirts = uint64_t{Render::TerrainLattice::kSkirtQuads} * 6u * ground->SkirtInstances;
   published.RecordMetric("ground: skirt instances", ground->SkirtInstances, "instances");
   published.RecordMetric("ground: skirt index references", static_cast<double>(skirts), "indices");
   published.RecordMetric(
@@ -164,7 +165,8 @@ void Engine::State::Inspected() {
   const Heap::Tagged measuring(kFrameMeasurementsTag);
   const uint64_t structures = World.Pieces.Digest();
   size_t structureTiles = 0;
-  World.Pieces.ForEachDigest([&structureTiles](TilePieces::DigestRecord) { ++structureTiles; });
+  World.Pieces.ForEachDigest(
+      [&structureTiles](Render::GeometryPageResidency::DigestRecord) { ++structureTiles; });
   Published.RecordMetric(
       "world: live structure digest high half", static_cast<double>(structures >> 32u), "digest");
   Published.RecordMetric("world: live structure digest low half",

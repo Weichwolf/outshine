@@ -1,15 +1,15 @@
+#include "TerrainLattice.h"
 #include "TerrainResidency.h"
 
 #include "ChunkSurface.h"
 #include "Digest.h"
 #include "Geodesy.h"
-#include "TerrainRenderer.h"
 #include "Heap.h"
 #include "SceneRenderer.h"
 #include "TerrainGrid.h"
 #include "TileGeodesy.h"
 #include "math/RenderFrame.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -88,19 +88,29 @@ using SheetIndex = FlatMap<size_t, Data::TileId, SheetHash>;
 
 TerrainResidency::TerrainResidency(const TerrainResidency &other)
     : Held_(other.Held_),
+      PageLevels_(other.PageLevels_),
       Instances_(other.Instances_),
       Virtual_(other.Virtual_),
       Flat_(other.Flat_),
       GridPostings_(other.GridPostings_),
-      Renderer_(other.Renderer_) {
+      Renderer_(other.Renderer_),
+      Publishing_(other.Publishing_) {
+  if (!Publishing_) {
+    auto index = other.PageIndex_.Clone();
+    if (!index) { Heap::Exhausted("height page index"); }
+    PageIndex_ = std::move(*index);
+  }
   for (size_t at = 0; at < Held_.size(); ++at) {
-    if (!PageIndex_.Emplace(Held_[at].Tile, at)) { Heap::Exhausted("height page index"); }
+    Held_[at].SharedNodes = Held_[at].Nodes.get();
+    if (Publishing_ && !PageIndex_.Emplace(Held_[at].Tile, at)) {
+      Heap::Exhausted("height page index");
+    }
   }
 }
 
 Render::TerrainTile TerrainResidency::TileOf(Data::TileId tile,
                                              Render::HeightPageHandle page,
-                                             std::span<const float> nodes,
+                                             std::array<float, 2> samples,
                                              const TangentFrame &frame) {
   const Ground::GeoBounds bounds = Ground::TileBounds(tile);
   const double midLon = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg);
@@ -134,28 +144,27 @@ Render::TerrainTile TerrainResidency::TileOf(Data::TileId tile,
   made.Corners = {{nw[0], nw[1], ne[0], ne[1], sw[0], sw[1], se[0], se[1]}};
   made.Page = page;
   made.SagInv = static_cast<float>(1.0 / std::sqrt(Dot(centre, centre)));
-  const auto steps = static_cast<float>(Render::TerrainRenderer::kSide - 1);
+  const auto steps = static_cast<float>(Render::TerrainLattice::kSide - 1);
   made.StepE = 0.5f * ((ne[0] - nw[0]) + (se[0] - sw[0])) / steps;
   made.StepN = 0.5f * ((nw[1] - sw[1]) + (ne[1] - se[1])) / steps;
-  const auto [low, high] = std::ranges::minmax_element(nodes);
-  const float skirt = Render::TerrainRenderer::kSkirtSteps * std::max(made.StepE, made.StepN);
+  const float skirt = Render::TerrainLattice::kSkirtSteps * std::max(made.StepE, made.StepN);
   const float sag = 0.5f * std::max({Dot2(nw), Dot2(ne), Dot2(sw), Dot2(se)}) * made.SagInv;
-  made.LowM = (nodes.empty() ? 0.0f : *low) - skirt - sag;
-  made.HighM = nodes.empty() ? 0.0f : *high;
+  made.LowM = samples[0] - skirt - sag;
+  made.HighM = samples[1];
   return made;
 }
 
 Render::Native::Result<void> TerrainResidency::PublishGrid(const Patchwork &patchwork) {
   for (const Sheet &sheet : patchwork.Sheets) {
-    if (sheet.Side != Render::TerrainRenderer::kSide || sheet.Virtual || sheet.Postings < 2 ||
+    if (sheet.Side != Render::TerrainLattice::kSide || sheet.Virtual || sheet.Postings < 2 ||
         sheet.Postings == GridPostings_) {
       continue;
     }
     std::vector<float> fractions;
-    fractions.reserve(static_cast<size_t>(Render::TerrainRenderer::kSide));
-    for (int k = 0; k < Render::TerrainRenderer::kSide; ++k) {
+    fractions.reserve(static_cast<size_t>(Render::TerrainLattice::kSide));
+    for (int k = 0; k < Render::TerrainLattice::kSide; ++k) {
       fractions.push_back(
-          static_cast<float>(FractionOf(k, sheet.Postings, Render::TerrainRenderer::kSide)));
+          static_cast<float>(FractionOf(k, sheet.Postings, Render::TerrainLattice::kSide)));
     }
     const auto uploaded = Renderer_->SetGroundGrid(fractions);
     if (!uploaded) { return uploaded; }
@@ -167,6 +176,7 @@ Render::Native::Result<void> TerrainResidency::PublishGrid(const Patchwork &patc
 
 bool TerrainResidency::ReindexPages(std::string &error) {
   PageIndex_.Clear();
+  PageLevels_.fill({});
   for (size_t at = 0; at < Held_.size(); ++at) {
     const auto indexed = PageIndex_.Emplace(Held_[at].Tile, at);
     if (!indexed) {
@@ -174,6 +184,12 @@ bool TerrainResidency::ReindexPages(std::string &error) {
                   ? Says::HeightPageIndexAllocationFailed
                   : Says::HeightPageIndexCapacityExceeded;
       return false;
+    }
+    const int zoom = Held_[at].Tile.Zoom;
+    if (zoom >= 0 && static_cast<size_t>(zoom) < PageLevels_.size()) {
+      auto &level = PageLevels_[static_cast<size_t>(zoom)];
+      if (level.First == level.End) { level.First = at; }
+      level.End = at + 1;
     }
   }
   return true;
@@ -198,6 +214,11 @@ bool TerrainResidency::Publish(const Patchwork &patchwork,
   }
 }
 
+bool TerrainResidency::HasNativePage(const Sheet &sheet) noexcept {
+  return sheet.Side == Render::TerrainLattice::kSide &&
+         sheet.Nodes.size() == Render::TerrainLattice::kPageNodes;
+}
+
 bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &error) {
   if (Renderer_ == nullptr) { return true; }
   auto wanted = IndexSheets(patchwork);
@@ -207,7 +228,8 @@ bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &err
   }
   Retiring_.clear();
   for (size_t at = 0; at < Held_.size(); ++at) {
-    if (!wanted->Holds(Held_[at].Tile)) { Retiring_.push_back(at); }
+    const size_t *sheet = wanted->Find(Held_[at].Tile);
+    if (sheet == nullptr || !HasNativePage(patchwork.Sheets[*sheet])) { Retiring_.push_back(at); }
   }
   Flat_ = 0;
   Instances_.clear();
@@ -297,6 +319,7 @@ void TerrainResidency::Clear() {
   Retiring_.clear();
   Replaced_.clear();
   PageIndex_.Clear();
+  PageLevels_.fill({});
   Instances_.clear();
   Virtual_.clear();
   GridPostings_ = 0;
@@ -325,7 +348,7 @@ uint64_t TerrainResidency::Digest() const noexcept {
     fold(static_cast<uint32_t>(held.Tile.Zoom));
     fold(held.Tile.X);
     fold(held.Tile.Y);
-    for (const float value : held.Nodes) { foldFloat(value); }
+    for (const float value : held.Samples()) { foldFloat(value); }
   }
   return digest;
 }
@@ -336,12 +359,17 @@ uint64_t TerrainResidency::TileHash::operator()(const Data::TileId &tile) const 
   return (hash ^ tile.Y) * kTileHashMix;
 }
 
-size_t TerrainResidency::HeapBytes() const noexcept {
+size_t TerrainResidency::HeapBytes(TerrainHeapScope scope) const noexcept {
   size_t bytes = Held_.capacity() * sizeof(Held) + Retiring_.capacity() * sizeof(size_t) +
                  Replaced_.capacity() * sizeof(Render::HeightPageHandle) + PageIndex_.HeapBytes() +
                  Instances_.capacity() * sizeof(Render::TerrainTile) +
                  Virtual_.capacity() * sizeof(Render::TerrainTile);
-  for (const Held &held : Held_) { bytes += held.Nodes.capacity() * sizeof(float); }
+  for (const Held &held : Held_) {
+    if (held.Nodes &&
+        (scope == TerrainHeapScope::Retained || held.Nodes.get() != held.SharedNodes)) {
+      bytes += sizeof(std::vector<float>) + held.Nodes->capacity() * sizeof(float);
+    }
+  }
   return bytes;
 }
 

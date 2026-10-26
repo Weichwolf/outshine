@@ -13,12 +13,12 @@
 
 #include "GroundPatch.h"
 #include "GroundSample.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 
 namespace outshine::Generators {
 
-std::shared_ptr<const GroundTable> TableOf(const outshine::Ground::VegetationTemplates &templates) {
-  const outshine::Ground::VegetationTemplates::Row *rows = templates.Rows();
+std::shared_ptr<const GroundTable> TableOf(const RegionSurfaceRecipes &templates) {
+  const outshine::Ground::SurfaceMaterial *rows = templates.Rows();
   const size_t count = templates.TemplateCount();
   std::vector<GroundTable::Row> table(count);
   for (size_t at = 0; at < count; ++at) {

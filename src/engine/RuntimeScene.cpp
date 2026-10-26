@@ -1,10 +1,14 @@
+#include "SceneLighting.h"
+#include "MeshInput.h"
+#include "SurfaceSession.h"
 #include <expected>
 #include <span>
 #include <array>
 #include <chrono>
-#include "math/Units.h"
-#include "math/Mat4.h"
+#include "Units.h"
+#include "Mat4.h"
 #include "RuntimeScene.h"
+#include "FramePipeline.h"
 #include "AzimuthElevation.h"
 
 #include <cstdint>
@@ -25,7 +29,7 @@
 
 #include "Heap.h"
 #include "CameraFraming.h"
-#include "SubjectProxy.h"
+#include "RenderObject.h"
 #include "Wgs84.h"
 
 namespace outshine::Core {
@@ -42,108 +46,36 @@ constexpr auto InvalidGroundSurface = "generated ground surface is absent";
 constexpr auto GeneratedGeometryAppendFailed = "generated geometry could not join driven geometry";
 }
 
-constexpr double kExposureCalibration = 1.2;
-constexpr double kMeteredMiddleGrey = 2.5;
-
 constexpr double kLuminanceRed = 0.2126;
 constexpr double kLuminanceGreen = 0.7152;
 constexpr double kLuminanceBlue = 0.0722;
-
-namespace {
-
-struct Listed {
-  const std::vector<std::string> &Stages;
-  const std::vector<std::string> &Outputs;
-};
-
-bool DeclarePlan(std::span<const Render::SubjectMaterial> surfaces,
-                 bool sky,
-                 bool presents,
-                 const Listed &lists,
-                 Render::PlanSpec &declaration,
-                 std::string &error) {
-  declaration.Outputs = {Render::Resource::FrameTex};
-  if (presents) { declaration.Outputs.push_back(Render::Resource::Surface); }
-  for (const std::string &named : lists.Outputs) {
-    const std::optional<Render::Resource> row = Render::Compiled::ResourceByName(named);
-    if (!row) {
-      error = "the declaration asks the frame to keep '" + named +
-              "', and the catalogue holds no picture by that name -- an output list is checked "
-              "against the catalogue because a typo that silently drops a buffer leaves a client "
-              "reading zeros and calling them a measurement";
-      return false;
-    }
-    bool already = false;
-    for (const Render::Resource held : declaration.Outputs) { already = already || held == *row; }
-    if (!already) { declaration.Outputs.push_back(*row); }
-  }
-
-  if (!lists.Stages.empty()) {
-
-    declaration.Content.clear();
-    for (const std::string &named : lists.Stages) {
-      const std::optional<Render::Stage> row = Render::Compiled::StageByName(named);
-      if (!row) {
-        error = "the declaration names render stage '" + named +
-                "', and the catalogue holds no row by that name -- a stage list is checked "
-                "against the catalogue because a typo that silently drops a pass is a picture "
-                "nobody can explain";
-        return false;
-      }
-      declaration.Content.push_back(*row);
-    }
-    declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Filmic);
-    declaration.Exposure = Render::Declared<float>(1.0f);
-    return true;
-  }
-  declaration.Outputs.push_back(Render::Resource::SceneVelocity);
-  declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
-  if (sky) {
-    declaration.Content.push_back(Render::Stage::Sky);
-    declaration.Content.push_back(Render::Stage::AerialPerspective);
-  }
-  declaration.Content.push_back(Render::Stage::LightVisibility);
-  bool carriesGlass = false;
-  for (const Render::SubjectMaterial &surface : surfaces) {
-    const SurfaceKind kind = surface.State().Kind();
-    carriesGlass =
-        carriesGlass || kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
-  }
-  if (carriesGlass) {
-    declaration.Content.push_back(Render::Stage::SubjectsTransmissive);
-    declaration.Content.push_back(Render::Stage::CompositeTransmission);
-  }
-
-  declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Filmic);
-  declaration.Exposure = Render::Declared<float>(1.0f);
-  return true;
-}
-
-}
 
 RuntimeScene::RuntimeScene(Render::SceneRenderer &renderer,
                            Declaration declaration,
                            const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
   if (Declared_.InitialGeometry != nullptr) {
-    DrivenGeometry_ = Declared_.InitialGeometry->clone();
-    Held_.SetGeometry(DrivenGeometry_.clone());
+    DrivenGeometry_.SetGeometry(Declared_.InitialGeometry->clone());
+    Held_.SetGeometry(DrivenGeometry_.Retain());
     Declared_.InitialGeometry = nullptr;
   }
-  std::vector<UiSurface> surfaces = std::move(Declared_.Surfaces);
+  std::vector<Ui::SurfaceDeclaration> surfaces = std::move(Declared_.Surfaces);
   Declared_.Surfaces.clear();
-  Ui_.Configure(renderer,
-                font,
-                std::move(surfaces),
-                {.WidthPx = static_cast<double>(Declared_.SurfaceWidthPx),
-                 .HeightPx = static_cast<double>(Declared_.SurfaceHeightPx)});
+  Ui_.Configure(
+      [&renderer](std::span<const Ui::PaintQuad> quads,
+                  const Ui::PaintAtlasView *atlas,
+                  std::string &error) { return renderer.ReplaceOverlay(quads, atlas, error); },
+      font,
+      std::move(surfaces),
+      {.WidthPx = static_cast<double>(Declared_.SurfaceWidthPx),
+       .HeightPx = static_cast<double>(Declared_.SurfaceHeightPx)});
 }
 
 RuntimeScene::~RuntimeScene() {
   if (Renderer_ == nullptr) { return; }
 
   std::string ignored;
-  (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
+  (void)Renderer_->SetGeometryMesh(Render::MeshInput{}, ignored);
   (void)Renderer_->SetOverlay(nullptr, 0, ignored);
   Renderer_->SetPictureRegion({});
 }
@@ -154,7 +86,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
                         std::unique_ptr<RuntimeScene> &out,
                         std::string &error) {
   const auto offlineUploads = renderer.OfflineUploads(std::chrono::seconds(5));
-  const bool framesSubject = out && !out->Camera_.Prepared().HasExplicitCamera;
+  const bool frameGeometry = out && !out->Camera_.Prepared().HasExplicitCamera;
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   std::unique_ptr<RuntimeScene> candidate;
   if (!Prepare(renderer,
@@ -166,7 +98,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
-  if (framesSubject) { candidate->FrameItself(); }
+  if (frameGeometry) { candidate->FrameGeometry(); }
   if (!renderer.Settle(error) || !renderer.PublishesWorldCandidate(error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
@@ -193,7 +125,7 @@ bool RuntimeScene::PrepareWithPlan(Render::SceneRenderer &renderer,
                                    std::unique_ptr<RuntimeScene> &out,
                                    std::string &error,
                                    const GroundAtmosphere &atmosphere,
-                                   std::shared_ptr<const Render::Compiled> plan) {
+                                   std::shared_ptr<const Render::ExecutionPlan> plan) {
   if (declaration.InitialGeometry != nullptr && !declaration.InitialGeometry->wellFormed()) {
     error = Says::InvalidInitialGeometry;
     return false;
@@ -279,7 +211,7 @@ bool RuntimeScene::PreparesRetainedGeometryReplacement(Render::SceneRenderer &re
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
   if (std::cmp_less(drivenParts, replacement->parts())) {
-    candidate->DrivenGeometry_ = previous.DrivenGeometry_.clone();
+    candidate->DrivenGeometry_.SetGeometry(previous.DrivenGeometry_.Retain());
   }
   if (!candidate->SetRetainedGeometry(std::move(replacement), drivenParts, error) ||
       (restore == ResourceRestoreMode::Immediate &&
@@ -300,9 +232,9 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                             std::unique_ptr<RuntimeScene> &candidate,
                                             std::string &error,
                                             Render::SceneResources::PieceSources pieces,
-                                            SubjectGeometrySources geometry,
+                                            GeometryRetention geometry,
                                             ResourceRestoreMode restore) {
-  if (previous.Held_.HasGeometry() && geometry == SubjectGeometrySources::All) {
+  if (previous.Held_.HasGeometry() && geometry == GeometryRetention::All) {
     return PreparesRetainedGeometryReplacement(renderer,
                                                previous,
                                                previous.Held_.Retain(),
@@ -313,16 +245,17 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                                pieces,
                                                restore);
   }
-  if (previous.DrivenGeometry_.parts() > 0) {
-    return PreparesGeometryReplacement(renderer,
-                                       previous,
-                                       previous.DrivenGeometry_.clone(),
-                                       static_cast<size_t>(previous.DrivenGeometry_.parts()),
-                                       font,
-                                       candidate,
-                                       error,
-                                       pieces,
-                                       restore);
+  if (previous.DrivenGeometry_.Snapshot().parts() > 0) {
+    return PreparesRetainedGeometryReplacement(
+        renderer,
+        previous,
+        previous.DrivenGeometry_.Retain(),
+        static_cast<size_t>(previous.DrivenGeometry_.Snapshot().parts()),
+        font,
+        candidate,
+        error,
+        pieces,
+        restore);
   }
   if (!renderer.BeginsWorldCandidate(
           error, pieces, Render::SceneRenderer::GroundSources::Published)) {
@@ -359,11 +292,22 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                           std::unique_ptr<RuntimeScene> &out,
                                           std::unique_ptr<RuntimeScene> &candidate,
                                           std::string &error) {
-  if (!renderer.PublishesWorldCandidate(error)) {
+  if (out != nullptr) {
+    candidate->Camera_ = out->Camera_;
+    candidate->Camera_.Invalidate();
+    if (candidate->Camera_.HasOverride() || candidate->Shaped_.TriangleCount() > 0) {
+      if (!candidate->Look(error)) { return false; }
+      candidate->Camera_.MarkBound();
+    }
+  }
+  const auto overlay = out ? Render::SceneRenderer::OverlaySource::Published
+                           : Render::SceneRenderer::OverlaySource::Candidate;
+  if (!renderer.PublishesWorldCandidate(error, overlay)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
     return false;
   }
+  if (out != nullptr) { candidate->Ui_ = std::move(out->Ui_); }
   candidate->StopsEditingCandidate();
   HandOffRenderer(out);
   out = std::move(candidate);
@@ -434,7 +378,7 @@ double RuntimeScene::MeteredLux() const {
 
 void RuntimeScene::ClearsSubject() {
   Held_.Clear();
-  DrivenGeometry_.clear();
+  DrivenGeometry_.Clear();
   Materials_.Clear();
   ShadowRadiusStoodM_ = 0.0;
   DrivenParts_ = 0;
@@ -443,13 +387,13 @@ void RuntimeScene::ClearsSubject() {
   PartBounds_.clear();
   if (Renderer_ != nullptr) {
     std::string ignored;
-    (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
-    (void)Renderer_->SetSubjectPlacements(nullptr, 0, ignored);
+    (void)Renderer_->SetGeometryMesh(Render::MeshInput{}, ignored);
+    (void)Renderer_->SetGeometryPlacements(nullptr, 0, ignored);
   }
 }
 
 bool RuntimeScene::PrepareSubject(std::string &error) {
-  if (Declared_.Surfacing.empty()) {
+  if (Declared_.Materials.empty()) {
     error = "the declaration carries a built subject and no surface -- a body without a "
             "material cannot be resolved, and an empty list is a refusal, not a "
             "dereference";
@@ -466,7 +410,7 @@ bool RuntimeScene::PrepareSubject(std::string &error) {
   const auto resolvedFrom = std::chrono::steady_clock::now();
   auto resolved = Materials_.Resolve(Held_.Snapshot(),
                                      Shaped_,
-                                     Declared_.Surfacing.front(),
+                                     Declared_.Materials.front(),
                                      Declared_.Overriding,
                                      GroundSurface_,
                                      "native geometry");
@@ -564,67 +508,38 @@ void RuntimeScene::StandsKeyLight() {
 bool RuntimeScene::StandsPlan(std::string &error) {
   if (PreparationPlan_) {
     Plan_ = std::move(PreparationPlan_);
-    PlanDeclared_ = Plan_->Specification();
     return InitializesFramePlan(error);
   }
-  Render::PlanSpec declaration;
-  if (!DeclarePlan(Materials_.Slots(),
-                   Declared_.DrawsSky,
-                   Renderer_ != nullptr && Renderer_->Presents(),
-                   {.Stages = Declared_.Stages, .Outputs = Declared_.Outputs},
-                   declaration,
-                   error)) {
+  bool transmissive = false;
+  for (const auto &surface : Materials_.Slots()) {
+    const SurfaceKind kind = surface.State().Kind();
+    transmissive =
+        transmissive || kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
+  }
+  auto planned =
+      Render::BuildFramePipeline({.Stages = Declared_.Stages,
+                                  .Outputs = Declared_.Outputs,
+                                  .Transfer = Declared_.Transfer,
+                                  .Precision = Declared_.Precision,
+                                  .Antialiasing = Declared_.Antialiasing,
+                                  .DrawsSky = Declared_.DrawsSky,
+                                  .Presents = Renderer_ != nullptr && Renderer_->Presents(),
+                                  .Transmissive = transmissive,
+                                  .Exposure = Declared_.Exposure,
+                                  .IlluminanceLx = MeteredLux()});
+  if (!planned) {
+    error = std::move(planned.error());
     return false;
   }
-  if (!Declared_.Antialiasing.empty() && Declared_.Antialiasing != "none" &&
-      Declared_.Antialiasing != "temporal") {
-    error = "render antialiasing must be none or temporal";
-    return false;
-  }
-  if (Declared_.Antialiasing == "temporal" &&
-      std::ranges::find(declaration.Content, Render::Stage::TemporalResolve) ==
-          declaration.Content.end()) {
-    declaration.Content.push_back(Render::Stage::TemporalResolve);
-  }
-  if (!Declared_.Transfer.empty()) {
-    const std::optional<Render::Transfer> meant =
-        Render::Spells(Render::kTransfers, Declared_.Transfer);
-    if (!meant) {
-      error = "the declaration transfers the frame as '" + Declared_.Transfer +
-              "', and this engine spells " + Render::Spellings(Render::kTransfers);
-      return false;
-    }
-    declaration.Display = Render::Declared<Render::Transfer>(*meant);
-  }
-  if (!Declared_.Precision.empty()) {
-    const std::optional<Render::ScenePrecision> meant =
-        Render::Spells(Render::kPrecisions, Declared_.Precision);
-    if (!meant) {
-      error = "the declaration carries the scene at '" + Declared_.Precision +
-              "' precision, and this engine spells " + Render::Spellings(Render::kPrecisions);
-      return false;
-    }
-    declaration.Precision = Render::Declared<Render::ScenePrecision>(*meant);
-  }
-  if (Declared_.Exposure > 0.0) {
-    declaration.Exposure = Render::Declared<float>(static_cast<float>(Declared_.Exposure));
-  } else {
-    const double metered = MeteredLux();
-    if (metered > 0.0) {
-      const double ev100 = std::log2(metered / kMeteredMiddleGrey);
-      declaration.Exposure = Render::Declared<float>(
-          static_cast<float>(1.0 / (kExposureCalibration * std::pow(2.0, ev100))));
-    }
-  }
-  if (Plan_ != nullptr && !(PlanDeclared_ == declaration)) { Plan_ = nullptr; }
+  const auto &declaration = *planned;
+  if (Plan_ != nullptr && !(Plan_->Specification() == declaration)) { Plan_ = nullptr; }
   if (Plan_ == nullptr) {
-    auto made = Render::Compiled::Compile(declaration);
+    auto made = Render::ExecutionPlan::Compile(declaration);
     if (!made) {
       error = std::move(made).error();
       return false;
     }
     Plan_ = *std::move(made);
-    PlanDeclared_ = std::move(declaration);
     PlanInits_ += 1;
     return InitializesFramePlan(error);
   }
@@ -680,16 +595,16 @@ std::expected<void, std::string> RuntimeScene::PlanBuild() {
 std::expected<void, std::string> RuntimeScene::BindBuild() {
   std::string error;
   if (Shaped_.TriangleCount() == 0) {
-    if (!Renderer_->SetSubjectMesh(Render::SubjectMesh{}, error) ||
-        !Renderer_->SetSubjectPlacements(nullptr, 0, error)) {
+    if (!Renderer_->SetGeometryMesh(Render::MeshInput{}, error) ||
+        !Renderer_->SetGeometryPlacements(nullptr, 0, error)) {
       return std::unexpected(std::move(error));
     }
     if (!Camera_.NeedsBinding()) { Camera_.Unbind(); }
-    if (!Renderer_->SetSubjectMaterials(Materials_.Slots(), error)) {
+    if (!Renderer_->SetGeometryMaterials(Materials_.Slots(), error)) {
       return std::unexpected(std::move(error));
     }
     Renderer_->SetPictureRegion({});
-    Stood_ = Render::SubjectProxy{};
+    Stood_ = Render::RenderObject{};
     Stood_.ResetForShape(Shaped_, Vec3{});
     Stood_.SelectParts(Declared_.Content.MeshParts);
     StandsLighting();
@@ -902,7 +817,7 @@ bool RuntimeScene::Look(std::string &error) {
 }
 
 void RuntimeScene::StandsEnvironment() {
-  Render::SubjectEnvironment environment;
+  Render::EnvironmentLighting environment;
   for (int channel = 0; channel < 3; ++channel) {
     environment.RadianceLinear[channel] = static_cast<float>(Declared_.IndirectLight[channel]);
     environment.GroundLinear[channel] = environment.RadianceLinear[channel];
@@ -927,7 +842,7 @@ void RuntimeScene::ReadIrradiance(std::span<const float, Render::kIrradianceFloa
   }
 }
 
-void RuntimeScene::LightsFromTheSky(Render::SubjectEnvironment &environment) const {
+void RuntimeScene::LightsFromTheSky(Render::EnvironmentLighting &environment) const {
   environment.SkyLux = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
   environment.CosSunZenith = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
   for (int channel = 0; channel < 3; ++channel) {
@@ -965,7 +880,7 @@ bool RuntimeScene::Stand(std::string &error) {
     standFrom = std::chrono::steady_clock::now();
     return ms;
   };
-  Stood_ = Render::SubjectProxy{};
+  Stood_ = Render::RenderObject{};
   const Vec3 anchorEcefM = {{kWgs84A, 0.0, 0.0}};
   if (!Reshape(error)) { return false; }
   ReshapeAgainMs_ = sinceStand();
@@ -1023,7 +938,7 @@ const std::string &RuntimeScene::ProgrammeOf(size_t surface) const {
   return Ui_.ProgrammeOf(surface);
 }
 
-bool RuntimeScene::Redeclare(std::vector<UiSurface> surfaces, std::string &error) {
+bool RuntimeScene::Redeclare(std::vector<Ui::SurfaceDeclaration> surfaces, std::string &error) {
   const auto published = Renderer_->PublishedWorld();
   return Ui_.Redeclare(std::move(surfaces), error);
 }
@@ -1134,21 +1049,21 @@ bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
 }
 
 bool RuntimeScene::SetGeometry(outshine::Geometry &&built, size_t drivenParts, std::string &error) {
-  if (Declared_.Surfacing.empty()) {
+  if (Declared_.Materials.empty()) {
     error = Says::NoGeometrySurface;
     return false;
   }
-  return SetGeometry(std::move(built), drivenParts, Declared_.Surfacing.front(), error);
+  return SetGeometry(std::move(built), drivenParts, Declared_.Materials.front(), error);
 }
 
 bool RuntimeScene::SetRetainedGeometry(std::shared_ptr<const Geometry> built,
                                        size_t drivenParts,
                                        std::string &error) {
-  if (Declared_.Surfacing.empty()) {
+  if (Declared_.Materials.empty()) {
     error = Says::NoGeometrySurface;
     return false;
   }
-  return SetRetainedGeometry(std::move(built), drivenParts, Declared_.Surfacing.front(), error);
+  return SetRetainedGeometry(std::move(built), drivenParts, Declared_.Materials.front(), error);
 }
 
 bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
@@ -1200,7 +1115,7 @@ std::expected<void, std::string> RuntimeScene::ValidGeometryBuild(const Geometry
     return std::unexpected(Says::InvalidDrivenPartCount);
   }
   if (!std::cmp_equal(drivenParts, built.parts()) &&
-      !std::cmp_equal(drivenParts, DrivenGeometry_.parts())) {
+      !std::cmp_equal(drivenParts, DrivenGeometry_.Snapshot().parts())) {
     return std::unexpected(Says::InvalidDrivenGeometry);
   }
   return {};
@@ -1212,11 +1127,11 @@ std::expected<void, std::string> RuntimeScene::BeginRetainedGeometryBuild(
   if (auto valid = ValidGeometryBuild(*built, drivenParts); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
-  if (std::cmp_equal(drivenParts, built->parts())) { DrivenGeometry_ = built->clone(); }
+  if (std::cmp_equal(drivenParts, built->parts())) { DrivenGeometry_.SetGeometry(built); }
   Camera_.Invalidate();
-  GeometryBuildSurfaces_ = std::move(Declared_.Surfacing);
-  Declared_.Surfacing.clear();
-  Declared_.Surfacing.push_back(wearing);
+  GeometryBuildSurfaces_ = std::move(Declared_.Materials);
+  Declared_.Materials.clear();
+  Declared_.Materials.push_back(wearing);
   Held_.SetGeometry(std::move(built));
   Stoodup_ = false;
   PendingDrivenParts_ = drivenParts;
@@ -1244,7 +1159,7 @@ std::expected<void, std::string> RuntimeScene::BeginGeneratedGeometryBuild(
     GroundSurface_ = groundSurface.index();
     return BeginGeometryBuild(std::move(generated), 0, wearing);
   }
-  Geometry driven = DrivenGeometry_.clone();
+  Geometry driven = DrivenGeometry_.Snapshot().clone();
   const int surfaceBase = driven.surfaces();
   if (!driven.append(generated)) { return std::unexpected(Says::GeneratedGeometryAppendFailed); }
   GroundSurface_ = surfaceBase + groundSurface.index();
@@ -1294,7 +1209,7 @@ void RuntimeScene::RestoreGeometryBuildState() noexcept {
   BuildStage_ = GeometryBuildStage::Idle;
   BuildTicket_ = {};
   PendingDrivenParts_.reset();
-  Declared_.Surfacing = std::move(GeometryBuildSurfaces_);
+  Declared_.Materials = std::move(GeometryBuildSurfaces_);
 }
 
 size_t RuntimeScene::TookAiming_ = 0, RuntimeScene::TookDrawing_ = 0;

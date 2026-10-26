@@ -90,7 +90,6 @@ int main() {
   Vec3 eye;
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 1000}, eye);
   raw.EyeEcef = eye;
-  const auto firstKey = StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion());
   BakedTile selected;
   CHECK(BakeStructures(raw, *heights, mesher, *scratch, selected),
         "automatic planning supplies a view-qualified product");
@@ -102,7 +101,8 @@ int main() {
         "transport preserves the selection's camera height and projection");
   eye[0] += 128;
   raw.EyeEcef = eye;
-  CHECK(firstKey != StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion()),
-        "a spatially different demand changes the artifact identity");
+  CHECK(selectedCopy && selectedCopy->SelectedView &&
+            !selectedCopy->SelectedView->Contains(raw.Eye, raw.Projection, raw.EyeEcef),
+        "the loaded selection rejects a demand outside its stored movement radius");
   return Report();
 }

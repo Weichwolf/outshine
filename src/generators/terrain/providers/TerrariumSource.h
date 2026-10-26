@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_TERRAIN_PROVIDERS_TERRARIUMSOURCE_H
 
 #include "WebTileSource.h"
-#include <world/data/SourceDecl.h>
+#include <SourceDecl.h>
 
 namespace outshine::Generators::Terrain {
 

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "VertexUpload.h"
 #include "Check.h"
 #include <limits>
@@ -7,7 +8,7 @@ int main() {
   using namespace outshine::Test;
   const float source = 1;
   for (const uint32_t components : {2u, 3u, 4u}) {
-    VertexStreamUpload upload{.Which = SubjectResidency::Stream::Vertex,
+    VertexStreamUpload upload{.Which = GeometryResidency::Stream::Vertex,
                               .Source = {.From = &source},
                               .Carried = true,
                               .Components = components};
@@ -25,7 +26,7 @@ int main() {
           "wrapped starting offset is rejected");
     upload.Carried = false;
     const auto inactive = VertexCrossing(upload, {.First = 1u << 30, .Count = 1u << 30});
-    CHECK(inactive.has_value() && inactive->Bytes == 0 && !inactive->Stands(),
+    CHECK(inactive.has_value() && inactive->Bytes == 0 && !inactive->HasSource(),
           "inactive stream carries no bytes or producer");
   }
   return Report();

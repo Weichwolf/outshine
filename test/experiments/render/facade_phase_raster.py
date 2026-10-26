@@ -45,7 +45,7 @@ def compile_pairs(output, baseline):
         "-Isrc",
         "-Isrc/render/shaders",
         "-Isrc/content/shade",
-        "-DSUBJECT_WRITES_VELOCITY=0",
+        "-DSURFACE_WRITES_VELOCITY=0",
     ]
     run(
         [

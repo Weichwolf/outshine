@@ -1,6 +1,6 @@
 #include "PreparedPlant.h"
 #include "BinaryValueArchive.h"
-#include "content/GeometryAsset.h"
+#include "GeometryProductCodec.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -47,7 +47,7 @@ EncodePreparedPlant(const PreparedPlant &plant, size_t bytesMost) {
   if (!PreparedPlantIsValid(plant) || plant.Axes.size() > std::numeric_limits<uint32_t>::max()) {
     return std::unexpected("prepared plant requires complete prototypes and owned identities");
   }
-  const auto geometry = EncodeGeometryAsset(plant.Prototypes, bytesMost);
+  const auto geometry = EncodeGeometryProduct(plant.Prototypes, bytesMost);
   if (!geometry) { return std::unexpected("prepared plant geometry exceeds encoded budget"); }
   BinaryValueWriter out(bytesMost);
   if (!out(kFormat,
@@ -90,7 +90,7 @@ std::expected<PreparedPlant, std::string_view> DecodePreparedPlant(std::span<con
   if (!geometry || axes > in.In.Remaining() / kAxisBytes) {
     return std::unexpected("prepared plant has incomplete axis ranges");
   }
-  auto decoded = DecodeGeometryAsset(*geometry, bytesMost);
+  auto decoded = DecodeGeometryProduct(*geometry, bytesMost);
   if (!decoded) { return std::unexpected("prepared plant has invalid native geometry"); }
   result.Prototypes = std::move(*decoded);
   result.Axes.resize(axes);

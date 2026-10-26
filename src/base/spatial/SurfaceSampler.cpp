@@ -1,4 +1,4 @@
-#include "scene/SurfaceSampler.h"
+#include "SurfaceSampler.h"
 #include "GeosTriangle.h"
 #include <geos_c.h>
 #include <algorithm>

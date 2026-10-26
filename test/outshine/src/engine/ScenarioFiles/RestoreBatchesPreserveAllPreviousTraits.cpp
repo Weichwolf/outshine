@@ -1,6 +1,6 @@
 #include "Column.h"
 #include "Traits.h"
-#include "Outshine.h"
+#include "Engine.h"
 #include "io/ReadTextFile.h"
 #include "Check.h"
 #include <array>
@@ -12,10 +12,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  EntityRegistry registry;
+  World::EntityRegistry registry;
   CHECK(registry.open(4), "registry opened");
-  const auto addedFirst = registry.addEntity(Role::Tool);
-  const auto addedSecond = registry.addEntity(Role::Tool);
+  const auto addedFirst = registry.addEntity();
+  const auto addedSecond = registry.addEntity();
   CHECK(addedFirst && addedSecond, "fixture entities are allocated");
   if (!addedFirst || !addedSecond) { return Report(); }
   const Entity first = *addedFirst;
@@ -23,15 +23,21 @@ int main() {
   Column<int> values;
   CHECK(values.Open(registry) && values.Put(first, 10) && values.Put(second, 20),
         "columns prepared");
-  std::array<Column<int>::Replacement, 2> changed{{{first, 100}, {kNoEntity, 200}}};
+  constexpr int kFirstReplacement = 100;
+  constexpr int kSecondReplacement = 200;
+  constexpr int kRejectedReplacement = 999;
+  std::array<Column<int>::Replacement, 2> changed{
+      {{.Owner = first, .Data = kFirstReplacement},
+       {.Owner = kNoEntity, .Data = kSecondReplacement}}};
   CHECK(!values.Replace(changed) && *values.Get(first) == 10,
         "invalid late target preserves an earlier valid target");
   changed[1].Owner = second;
-  CHECK(values.Replace(changed) && *values.Get(first) == 100 && *values.Get(second) == 200,
+  CHECK(values.Replace(changed) && *values.Get(first) == kFirstReplacement &&
+            *values.Get(second) == kSecondReplacement,
         "validated batch replaces all existing components");
   registry.remove(second);
-  changed[0].Data = 999;
-  CHECK(!values.Replace(changed) && *values.Get(first) == 100,
+  changed[0].Data = kRejectedReplacement;
+  CHECK(!values.Replace(changed) && *values.Get(first) == kFirstReplacement,
         "stale late target rejects before any publication");
 
   auto path = (std::filesystem::temp_directory_path() / "outshine-restore-XXXXXX").string();
@@ -46,9 +52,14 @@ int main() {
   scene.Room = 4;
   Scenario::Kind kind;
   kind.Name = "actor";
-  kind.Attributes = {{"health", "23"}};
+  kind.Attributes = {{.Name = "health", .Value = "23"}};
   scene.Kinds.push_back(kind);
-  scene.Instances = {{.Of = "actor", .Id = "first"}, {.Of = "actor", .Id = "second"}};
+  Scenario::Instance instance;
+  instance.Of = "actor";
+  instance.Id = "first";
+  scene.Instances.push_back(instance);
+  instance.Id = "second";
+  scene.Instances.push_back(instance);
   scene.State = {{.What = "first.health"}, {.What = "second.health"}};
   Engine engine;
   const bool ready = engine.declare(scene).has_value() && engine.assemble().has_value() &&

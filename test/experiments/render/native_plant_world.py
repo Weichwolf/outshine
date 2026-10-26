@@ -182,7 +182,7 @@ def main():
         raise ValueError("existing assets require their complete request identity")
     database = json.loads((native / "compile_commands.json").read_text())
     main_command = world_probe.compile_unit(
-        database, native, "Main.cpp", native / "src/client/Main.cpp", output / "main.o"
+        database, native, "Main.cpp", native / "src/app/Main.cpp", output / "main.o"
     )
     world_probe.checked(
         ["nice", "-n", "10", *main_command], native, output / "main-compile.log"

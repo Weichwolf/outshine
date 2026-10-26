@@ -5,7 +5,7 @@
 #include "ComputeShaders.h"
 #include "Gpu.h"
 #include "StageSubmission.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <optional>
 #include <memory>
 

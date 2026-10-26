@@ -118,9 +118,10 @@ def arrangement(rows, domains, masks, *, constraints=(), section_provider=None):
     lines = [p.boundary for p in domains + masks] + list(constraints)
     section_counts = []
     for row in rows:
-        lines.append(shapely.LineString(row.get("surface_axis_xy_m", row["xy"])))
-        if "surface_axis_xy_m" in row:
-            lines.append(shapely.LineString(row["xy"]))
+        if row.get("surface_axis_constraints", True):
+            lines.append(shapely.LineString(row.get("surface_axis_xy_m", row["xy"])))
+            if "surface_axis_xy_m" in row:
+                lines.append(shapely.LineString(row["xy"]))
         sections = (
             cross_sections(row) if section_provider is None else section_provider(row)
         )
@@ -128,6 +129,11 @@ def arrangement(rows, domains, masks, *, constraints=(), section_provider=None):
         section_counts.append(len(sections))
     from stair_seed_precision import node_lines
 
+    input_line_count = len(lines)
+    unique_lines = {}
+    for line in lines:
+        unique_lines.setdefault(line.wkb, line)
+    lines = list(unique_lines.values())
     noded = shapely.get_parts(node_lines(lines, rows))
     if len(noded) > 8192:
         raise ValueError("local stair arrangement segment budget")
@@ -188,18 +194,40 @@ def arrangement(rows, domains, masks, *, constraints=(), section_provider=None):
             "segments": len(noded),
             "weld_m": float(drift),
             "source_section_counts": section_counts,
-            "input_lines": len(lines),
+            "input_lines": input_line_count,
+            "unique_input_lines": len(lines),
             **weld_note,
         },
     )
 
 
-def layout(rows, method, *, width_reach_m=0.75, junctions=None, stairs=None):
+def layout(
+    rows,
+    method,
+    *,
+    width_reach_m=0.75,
+    junctions=None,
+    stairs=None,
+    source_domains=None,
+    section_provider=None,
+    refine_geometry=None,
+):
     if method not in ("fixed", "width"):
         raise ValueError("known stair core method required")
-    domains = [corridor(row) for row in rows]
+    domains = (
+        [corridor(row) for row in rows] if source_domains is None else source_domains
+    )
+    if len(domains) != len(rows):
+        raise ValueError("one prepared source domain per row required")
     nodes, incident, masks = landings(rows, domains, method, width_reach_m, junctions)
-    xy, faces, owners, note = arrangement(rows, domains, masks)
+    xy, faces, owners, note = arrangement(
+        rows, domains, masks, section_provider=section_provider
+    )
+    refinement = {}
+    if refine_geometry is not None:
+        xy, faces, owners, refinement = refine_geometry(
+            xy, faces, owners, nodes, incident, masks
+        )
     # Vertex identity remains per source until a real endpoint landing joins it.
     keys = {
         (i, int(v)) for i in range(len(rows)) for v in np.unique(faces[owners[:, i]])
@@ -226,7 +254,7 @@ def layout(rows, method, *, width_reach_m=0.75, junctions=None, stairs=None):
         np.array([[bound[(i, int(v))] for v in f] for f in faces[owners[:, i]]])
         for i in range(len(rows))
     ]
-    return {
+    result = {
         "xy": vertices,
         "parts": parts,
         "part_global_faces": [np.flatnonzero(owners[:, i]) for i in range(len(rows))],
@@ -239,3 +267,7 @@ def layout(rows, method, *, width_reach_m=0.75, junctions=None, stairs=None):
         "stairs": stairs if stairs is not None else [(0, 0, 1)],
         "note": note,
     }
+    if refine_geometry is not None:
+        result.update(refinement)
+        result["height_planar_vertices"] = np.array([v for _i, v in roots], dtype=int)
+    return result

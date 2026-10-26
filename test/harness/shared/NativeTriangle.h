@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_TEST_NATIVETRIANGLE_H
 #define OUTSHINE_TEST_NATIVETRIANGLE_H
 
-#include <Outshine.h>
+#include <Engine.h>
 #include <array>
 #include <cstdint>
 #include <string_view>
@@ -12,10 +12,12 @@ class NativeTriangle final : public Generators::Generator {
 public:
   [[nodiscard]] std::string_view kind() const override { return "camera-triangle"; }
 
-  [[nodiscard]] Generator::Product make(const Generators::Request &) const override {
+  [[nodiscard]] Generator::Product
+  make([[maybe_unused]] const Generators::Request &request) const override {
     Geometry geometry;
     Material material;
-    material.BaseColour = {{1, 0.25F, 0.05F, 1}};
+    constexpr Vec4f colour{{1, 0.25F, 0.05F, 1}};
+    material.BaseColour = colour;
     material.Unlit = true;
     const auto surface = geometry.addSurface("triangle", material);
     if (!surface) { return std::unexpected("native fixture material failed"); }

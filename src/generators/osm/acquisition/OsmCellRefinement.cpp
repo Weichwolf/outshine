@@ -15,11 +15,11 @@
 
 namespace outshine::Generators::Osm {
 namespace {
-bool Before(Data::GeoCellId left, Data::GeoCellId right) noexcept {
+bool Before(GeoCellId left, GeoCellId right) noexcept {
   return std::tie(left.Level, left.X, left.Y) < std::tie(right.Level, right.X, right.Y);
 }
 
-std::optional<size_t> RootPosition(std::span<const Data::GeoCellId> roots, Data::GeoCellId leaf) {
+std::optional<size_t> RootPosition(std::span<const GeoCellId> roots, GeoCellId leaf) {
   for (;;) {
     const auto at = std::ranges::lower_bound(roots, leaf, Before);
     if (at != roots.end() && *at == leaf) { return static_cast<size_t>(at - roots.begin()); }
@@ -31,9 +31,10 @@ std::optional<size_t> RootPosition(std::span<const Data::GeoCellId> roots, Data:
 }
 }
 
-std::vector<Data::GeoCellId> SourceAcquisition::Cells::SelectLeaves(
-    std::span<const Data::GeoCellId> roots, bool published, bool pending) const {
-  std::vector<std::vector<Data::GeoCellId>> plans(roots.size());
+std::vector<GeoCellId> SourceAcquisition::Cells::SelectLeaves(std::span<const GeoCellId> roots,
+                                                              bool published,
+                                                              bool pending) const {
+  std::vector<std::vector<GeoCellId>> plans(roots.size());
   if (pending) {
     for (const auto leaf : Wanted) {
       const auto at = RootPosition(roots, leaf);
@@ -52,7 +53,7 @@ std::vector<Data::GeoCellId> SourceAcquisition::Cells::SelectLeaves(
       if (at && use[*at]) { plans[*at].push_back(entry.Address); }
     }
   }
-  std::vector<Data::GeoCellId> leaves;
+  std::vector<GeoCellId> leaves;
   for (size_t at = 0; at < roots.size(); ++at) {
     if (plans[at].empty()) {
       leaves.push_back(roots[at]);
@@ -65,7 +66,7 @@ std::vector<Data::GeoCellId> SourceAcquisition::Cells::SelectLeaves(
 }
 
 std::expected<void, std::string>
-SourceAcquisition::Cells::Refine(std::span<const Data::GeoCellId> cells) {
+SourceAcquisition::Cells::Refine(std::span<const GeoCellId> cells) {
   if (cells.empty()) { return {}; }
   if (cells.size() > (Limits.CellsMost - Wanted.size()) / 3) {
     return std::unexpected("original OSM subdivision exceeds the cell budget");

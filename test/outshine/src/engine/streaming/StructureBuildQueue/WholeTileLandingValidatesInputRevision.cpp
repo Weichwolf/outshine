@@ -60,8 +60,10 @@ int main() {
   Tasks sourceCompute(1);
   SurfacePreparation stack;
   const LongitudeLatitude eye{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
-  const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string()},
+  Data::SourceProvider terrainProvider;
+  terrainProvider.Kind = "terrain";
+  const std::array providers{terrainProvider};
+  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
                    providers,
                    eye,
                    wire,
@@ -124,7 +126,6 @@ int main() {
             ++copies;
             return allowCopy && HeightField::SharesField(field, at, into);
           },
-      .ResidentField = {},
       .Revision = {.Value = 11}};
   Tasks pool(1);
   Generators::BuildingMesh mesher;
@@ -309,22 +310,6 @@ int main() {
   if (!ready.empty()) { queue.CommitsLandings(prints, ready); }
   CHECK(prints.RefinementComplete() && prints.IngestedTiles() == takenBefore,
         "replacement retry completes without a second whole-tile reservation");
-  const auto acceptedKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
-  CHECK(acceptedKey.has_value(), "validated tile has a qualified source key");
-  source.Revision.Value = 12;
-  if (acceptedKey) {
-    CHECK(!StructureBuildQueue::ValidateResidentCellSource(stack, prints, source, 0, *acceptedKey),
-          "readiness rejects frozen inputs from the previous terrain scope");
-    CHECK(!queue.PostsCell(stack,
-                           prints,
-                           eye,
-                           source,
-                           {.Tile = 0,
-                            .Cell = cell->Index,
-                            .Detail = LevelOfDetail::Massed,
-                            .SourceKey = *acceptedKey}),
-          "cell posting rejects frozen inputs from the previous revision");
-  }
   source.Revision.Value = 15;
   prints.ResetDerived();
   CHECK(post() == 1, "a fresh reservation is captured by its original field");

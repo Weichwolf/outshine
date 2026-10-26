@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_SCENARIO_BODYVALIDATION_H
 #define OUTSHINE_SCENARIO_BODYVALIDATION_H
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include <cmath>
 #include <array>
 #include <expected>

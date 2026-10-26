@@ -1,7 +1,7 @@
+#include "OsmProviderValidation.h"
 #include "OsmApiReader.h"
 #include "OfflineTransport.h"
 #include "Sha256.h"
-#include "SourceProviderValidation.h"
 #include "Check.h"
 
 #include <algorithm>
@@ -11,6 +11,9 @@
 #include <map>
 #include <string>
 #include <system_error>
+
+using outshine::GeoCellId;
+using outshine::GeographicBounds;
 
 namespace {
 std::string Xml(size_t id) {
@@ -67,14 +70,14 @@ int main() {
                      .Priority = static_cast<int>(at),
                      .Missing = MissingDataPolicy::Fail,
                      .Dataset = "openstreetmap.original",
-                     .Endpoint = std::string(kOfficialOsmApi),
-                     .Coverage = SourceCoverage{.WestDeg = static_cast<double>(at) * 0.01,
-                                                .SouthDeg = 0,
-                                                .EastDeg = static_cast<double>(at + 1) * 0.01,
-                                                .NorthDeg = 0.01},
+                     .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                     .Coverage = GeographicBounds{.WestDeg = static_cast<double>(at) * 0.01,
+                                                  .SouthDeg = 0,
+                                                  .EastDeg = static_cast<double>(at + 1) * 0.01,
+                                                  .NorthDeg = 0.01},
                      .PayloadSha256 = outshine::Sha256Hex(Xml(at + 1))};
   }
-  ContentStore store({.Directory = directory});
+  RawSourceCache store({.Directory = directory});
   ApiWire wire;
   const auto cold = outshine::Generators::Osm::ReadRegions(providers, store, wire, 100, {});
   CHECK(cold && cold->Chunks.size() == 4 && wire.Starts == 4 && wire.Peak == 2 &&
@@ -100,7 +103,7 @@ int main() {
             std::ranges::all_of(warm->Chunks, [](const auto &chunk) { return chunk.FromStore; }),
         "all regions reload offline from original-response bytes");
 
-  ContentStore noCache({.Using = ContentStore::Use::Off});
+  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
   CHECK(!outshine::Generators::Osm::ReadRegions(providers, noCache, stalled, 7, {}) &&

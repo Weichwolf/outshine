@@ -4,14 +4,14 @@
 #include <span>
 #include <optional>
 
-#include "math/Units.h"
-#include "math/Vec3.h"
-#include "math/Mat4.h"
+#include "Units.h"
+#include "Vec3.h"
+#include "Mat4.h"
 #include "Rotation.h"
 #include <array>
 #include <cstddef>
 #include <cmath>
-#include "scene/Camera.h"
+#include "Camera.h"
 #include <numbers>
 #include <cstdint>
 

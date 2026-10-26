@@ -1,3 +1,5 @@
+#include "terrain/TerrainResidency.h"
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "TerrainRenderer.h"
 #include "test/harness/render/NativeCommandsProxy.h"
@@ -36,7 +38,7 @@ struct CountingCommands final : NativeCommandsProxy {
     if (Reject) {
       return std::unexpected(Error{.Kind = ErrorKind::Driver, .Message = "shadow draw rejected"});
     }
-    CHECK(draw.Range.Count == TerrainRenderer::kIndices,
+    CHECK(draw.Range.Count == TerrainLattice::kIndices,
           "selected casters retain complete terrain topology");
     RecordedDraws.push_back({.First = draw.Range.FirstInstance,
                              .Count = draw.Range.Instances,
@@ -145,12 +147,13 @@ void CastCases(Device &device, TerrainRenderer &ground) {
 
 int main() {
   auto device = Require(CreateDevice({.Validation = true}));
-  TerrainRenderer ground;
+  outshine::Render::TerrainResidency groundData;
+  TerrainRenderer ground{groundData};
   TerrainPipelines pipelines;
   Require(RetryOffline([&] { return ground.AttachPipelines(pipelines, *device); },
                        std::chrono::seconds(5)));
   Require(TerrainRenderer::ConfigureDepth(pipelines, *device));
-  const std::vector<float> nodes(TerrainRenderer::kPageNodes);
+  const std::vector<float> nodes(TerrainLattice::kPageNodes);
   static_cast<void>(
       Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5))));
   CastCases(*device, ground);

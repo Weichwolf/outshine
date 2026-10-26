@@ -3,8 +3,8 @@
 
 #include <optional>
 
-#include "math/Box.h"
-#include "math/Vec3.h"
+#include "Box.h"
+#include "Vec3.h"
 
 #include <array>
 #include <algorithm>

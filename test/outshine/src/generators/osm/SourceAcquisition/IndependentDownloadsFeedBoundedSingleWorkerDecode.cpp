@@ -1,16 +1,20 @@
+#include "OsmProviderValidation.h"
 #include "Check.h"
 #include "OsmSourceAcquisition.h"
-#include "SourceProviderValidation.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <charconv>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <cstddef>
 #include <filesystem>
 #include <map>
+#include <string>
 #include <system_error>
 #include <thread>
+#include <vector>
 
 namespace {
 class DelayedCellTransport final : public outshine::Data::Transport {
@@ -46,7 +50,7 @@ public:
   }
 
   void Cancel(outshine::Data::Ticket ticket) override {
-    if (Longitude.erase(ticket)) { --Active; }
+    if (Longitude.erase(ticket) != 0u) { --Active; }
   }
 };
 
@@ -73,7 +77,9 @@ int main() {
   {
     Tasks compute(1);
     Tasks io(1);
-    std::atomic<bool> releaseCompute{false}, computeEntered{false}, guardExpired{false};
+    std::atomic<bool> releaseCompute{false};
+    std::atomic<bool> computeEntered{false};
+    std::atomic<bool> guardExpired{false};
     const auto blocker = compute.Post([&] {
       computeEntered = true;
       const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -89,13 +95,18 @@ int main() {
                                   .Revision = "pipeline",
                                   .Missing = MissingDataPolicy::Fail,
                                   .Dataset = "openstreetmap.original",
-                                  .Endpoint = std::string(kOfficialOsmApi)};
+                                  .Location = {},
+                                  .Endpoint =
+                                      std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                  .Coverage = {},
+                                  .PayloadSha256 = {},
+                                  .Schema = {}};
     std::array<GeoCellId, 10> cells{};
     for (size_t index = 0; index < cells.size(); ++index) {
       cells[index] = {.Level = 9, .X = static_cast<uint32_t>(269 + index), .Y = 411};
     }
     CHECK(loader.RequestCells(
-              provider, cells, {.CellsMost = 16, .SnapshotBytesMost = 1024 * 1024}, ".") &&
+              provider, cells, {.CellsMost = 16, .SnapshotBytesMost = size_t{1024} * 1024}, ".") &&
               Await(loader, [&] { return wire.Starts == 8 && computeEntered; }) &&
               loader.CellSnapshotChargeBytes() == 0 && loader.CurrentCells().empty() &&
               !wire.MainIo,

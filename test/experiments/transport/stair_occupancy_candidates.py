@@ -183,10 +183,27 @@ class CandidateQuery:
         self.catalog, self.budget, self.method = catalog, budget, method
         self.distance_method = distance_method
 
-    def nearest_distance(self, geometry):
-        from stair_occupancy_candidate_distance import nearest
+    @property
+    def catalog(self):
+        return self._catalog
 
-        return nearest(self.catalog, geometry, self.budget, method=self.distance_method)
+    @catalog.setter
+    def catalog(self, value):
+        self._catalog = value
+        self._flat_distance = None
+
+    def nearest_distance(self, geometry):
+        from stair_occupancy_candidate_distance import FlatDistance, nearest
+
+        if self.distance_method == "flat" and self._flat_distance is None:
+            self._flat_distance = FlatDistance()
+        return nearest(
+            self.catalog,
+            geometry,
+            self.budget,
+            method=self.distance_method,
+            prepared=self._flat_distance,
+        )
 
     def conflict(self, footprint, *, method="index", maximum=8192, envelope=False):
         if type(maximum) is not int or not 1 <= maximum <= 8192:

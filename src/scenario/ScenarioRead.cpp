@@ -19,7 +19,7 @@
 #include "SourceProviderValidation.h"
 #include "RouteValidation.h"
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 
 #include <cstdint>
 #include <cstdlib>
@@ -515,7 +515,7 @@ bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &er
       error = Says::kInvalidProviderAbsence;
       return false;
     }
-    Data::SourceCoverage coverage;
+    GeographicBounds coverage;
     const std::array bounds{std::pair{"westDeg", &coverage.WestDeg},
                             std::pair{"southDeg", &coverage.SouthDeg},
                             std::pair{"eastDeg", &coverage.EastDeg},

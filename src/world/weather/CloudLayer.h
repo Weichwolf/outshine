@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_WEATHER_CLOUDLAYER_H
 #define OUTSHINE_WORLD_WEATHER_CLOUDLAYER_H
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <array>
 #include <cstddef>

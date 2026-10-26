@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_SCENARIO_WEATHERVALIDATION_H
 #define OUTSHINE_SCENARIO_WEATHERVALIDATION_H
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include <array>
 #include <cmath>
 #include <expected>

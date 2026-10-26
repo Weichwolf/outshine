@@ -2,7 +2,7 @@
 #include "BuildPreparedPlant.h"
 #include "PreparedPlant.h"
 #include "Check.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

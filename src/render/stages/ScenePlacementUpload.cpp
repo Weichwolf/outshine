@@ -1,7 +1,7 @@
-#include "SubjectDraw.h"
+#include "GeometryRenderer.h"
 #include "GpuPlacement.h"
-#include "SubjectResidency.h"
-#include "math/Mat4.h"
+#include "GeometryResidency.h"
+#include "Mat4.h"
 
 #include <algorithm>
 #include <array>
@@ -11,11 +11,15 @@
 
 namespace outshine::Render {
 
-bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
-  const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_));
+bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
+  const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(MainMeshRows_));
   size_t all = needed;
   for (const Piece &piece : Pieces_) { all += piece.Rows.size(); }
-  if (!RowsStale_ && Rows_.size() == all) { return true; }
+  if (!RowsStale_ && Rows_.size() == all) {
+    PrepareShadowCasters();
+    return true;
+  }
+  ShadowCasters_.Invalidate();
   if (all == 0) { return true; }
   Rows_.assign(all, {});
   size_t offset = needed;
@@ -41,11 +45,11 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
       Rows_[row].Current[at] = static_cast<float>(now[at]);
       Rows_[row].Previous[at] = static_cast<float>(was[at]);
     }
-    Rows_[row].ColourOffset = Bound().SubjectColours().First - Bound().SubjectVertices().First;
-    Rows_[row].TangentOffset = Bound().SubjectTangents().First - Bound().SubjectVertices().First;
+    Rows_[row].ColourOffset = Bound().MainColourRange().First - Bound().MainVertexRange().First;
+    Rows_[row].TangentOffset = Bound().MainTangentRange().First - Bound().MainVertexRange().First;
   }
-  std::array rows = {SubjectResidency::Crossing{
-      .Which = SubjectResidency::Stream::Placements,
+  std::array rows = {GeometryResidency::Crossing{
+      .Which = GeometryResidency::Stream::Placements,
       .Usage = Native::BufferUse::Storage,
       .From = Rows_.data(),
       .Bytes = static_cast<uint32_t>(Rows_.size() * sizeof(GpuPlacement))}};
@@ -55,7 +59,14 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
     return false;
   }
   RowsStale_ = false;
+  PrepareShadowCasters();
   return true;
+}
+
+void GeometryRenderer::PrepareShadowCasters() {
+  if (ShadowCasters_.Ready()) { return; }
+  ShadowCasters_.Prepare(
+      Batches, TableJobs_, TableSpheres_, Rows_, MainMeshRows_, MainMeshBoundsCurrent_);
 }
 
 }

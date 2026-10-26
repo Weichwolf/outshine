@@ -1,3 +1,4 @@
+#include "SurfaceSession.h"
 #include <limits>
 #include <type_traits>
 #include <cmath>
@@ -11,8 +12,7 @@
 #include "RouteValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineState.h"
-#include "ReadTextFile.h"
-#include "ActionHostAdapter.h"
+#include "UiAction.h"
 #include "Ephemeris.h"
 #include "CivilTime.h"
 
@@ -42,49 +42,17 @@ constexpr auto kInputHostMissing = "a bound input action requires an offered hos
 
 namespace {
 
-struct ScenarioInput {
-  std::string Text;
-  size_t RemainingBytes = 0;
-};
-
-[[nodiscard]] std::expected<ScenarioInput, std::string>
-ReadScenarioSource(std::string_view source, std::string_view overrides) {
-  if (source.contains('\0') || overrides.contains('\0') || overrides.size() > kMostScenarioBytes) {
-    return std::unexpected("scenario input contains NUL or exceeds the input budget");
-  }
-  const bool inlineJson = IsJsonScenario(source);
-  const size_t sourceBudget = kMostScenarioBytes - overrides.size();
-  if (inlineJson && source.size() > sourceBudget) {
-    return std::unexpected("scenario input exceeds the input budget");
-  }
-  auto slurped = inlineJson ? std::expected<std::string, std::string>(std::string(source))
-                            : ReadTextFile(source, sourceBudget);
-  if (!slurped) { return std::unexpected(slurped.error()); }
-  if (slurped->size() > sourceBudget) {
-    return std::unexpected("scenario input exceeds the input budget");
-  }
-  const size_t remaining = sourceBudget - slurped->size();
-  if (!overrides.empty()) {
-    auto xml = IsJsonScenario(*slurped) ? ScenarioXmlFromJson(*slurped) : std::move(slurped);
-    if (!xml) { return std::unexpected(xml.error()); }
-    auto patched = ScenarioXmlFromJson(overrides, *xml);
-    if (!patched) { return std::unexpected(patched.error()); }
-    slurped = std::move(patched);
-  }
-  return ScenarioInput{.Text = std::move(*slurped), .RemainingBytes = remaining};
-}
-
-[[nodiscard]] std::vector<Core::UiSurface>
+[[nodiscard]] std::vector<Ui::SurfaceDeclaration>
 PrepareSurfaces(std::span<const Scenario::Surface> surfaces) {
   std::vector<size_t> ordered(surfaces.size());
   std::ranges::iota(ordered, size_t{0});
   std::ranges::stable_sort(
       ordered, [&surfaces](size_t a, size_t b) { return surfaces[a].Z < surfaces[b].Z; });
-  std::vector<Core::UiSurface> laid;
+  std::vector<Ui::SurfaceDeclaration> laid;
   laid.reserve(ordered.size());
   for (const size_t at : ordered) {
     const Scenario::Surface *const surface = &surfaces[at];
-    Core::UiSurface shows;
+    Ui::SurfaceDeclaration shows;
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
     shows.Programme = surface->Programme;
@@ -142,20 +110,12 @@ Holds<bool> Engine::handleEvent(const SDL_Event &event) {
   const Ui::Touched found = S_->Picture.Standing->Under(
       static_cast<double>(event.button.x), static_cast<double>(event.button.y), surface);
   if (!found.Held() || found.Action.empty()) { return false; }
-  const std::string &action = found.Action;
-  if (S_->Offered == nullptr) {
-    S_->Error = "a surface declares the call '" + action +
-                "' and no host was offered to answer it -- the client calls Offers before it "
-                "hands an event in";
+  auto called = RunUiAction(S_->Offered, S_->Picture.Standing->ProgrammeOf(surface), found.Action);
+  if (!called) {
+    S_->Error = std::move(called.error());
     return std::unexpected(S_->Error);
   }
-
-  Script::Program programme;
-  const std::string text = S_->Picture.Standing->ProgrammeOf(surface) + "\n" + action + ";\n";
-  if (!programme.Read(text, S_->Error)) { return std::unexpected(S_->Error); }
-  ActionHostAdapter answering(S_->Offered);
-  if (!programme.Run(answering, S_->Error)) { return std::unexpected(S_->Error); }
-  return answering.Fired();
+  return *called;
 }
 
 Result Engine::setSurfaces(std::span<const Scenario::Surface> surfaces) {
@@ -180,14 +140,14 @@ Result Engine::setSurfaces(std::span<const Scenario::Surface> surfaces) {
 
 namespace {
 
-[[nodiscard]] bool SameUiSurface(const Core::UiSurface &a, const Core::UiSurface &b) {
+[[nodiscard]] bool SameUiSurface(const Ui::SurfaceDeclaration &a, const Ui::SurfaceDeclaration &b) {
   return a.Markup == b.Markup && a.Style == b.Style && a.Programme == b.Programme &&
          a.LeftFrac == b.LeftFrac && a.TopFrac == b.TopFrac && a.WidthFrac == b.WidthFrac &&
          a.HeightFrac == b.HeightFrac;
 }
 
-[[nodiscard]] bool SameSurfaces(const std::vector<Core::UiSurface> &a,
-                                const std::vector<Core::UiSurface> &b) {
+[[nodiscard]] bool SameSurfaces(const std::vector<Ui::SurfaceDeclaration> &a,
+                                const std::vector<Ui::SurfaceDeclaration> &b) {
   if (a.size() != b.size()) { return false; }
   for (size_t at = 0; at < a.size(); ++at) {
     if (!SameUiSurface(a[at], b[at])) { return false; }
@@ -455,11 +415,12 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 namespace {
-[[nodiscard]] Result ValidateDeclarationInputs(const Scenario::Document &scenario) {
+[[nodiscard]] Result ValidateDeclarationInputs(const Scenario::Document &scenario,
+                                               const Data::ProviderRegistry &registry) {
   if (auto valid = ValidateRouteDeclarations(scenario.Routes); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
-  if (const auto valid = Data::ValidateSourceProviders(scenario.Providers); !valid) {
+  if (const auto valid = Data::ValidateSourceProviders(scenario.Providers, registry); !valid) {
     return std::unexpected(valid.error());
   }
   if (!scenario.Routes.empty() &&
@@ -600,7 +561,9 @@ PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std:
 Result Engine::declare(const Scenario::Document &scenario) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (const auto valid = ValidateDeclarationInputs(scenario); !valid) { return valid; }
+  if (const auto valid = ValidateDeclarationInputs(scenario, S_->World.Providers); !valid) {
+    return valid;
+  }
   if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
     S_->Error = Says::RevisionExhausted;
     return std::unexpected(S_->Error);
@@ -658,6 +621,9 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.StructureBuilds.Clear();
   S_->World.Stack.Footprints().ResetDerived();
   S_->World.Pieces.Clear();
+  S_->World.UrbanAreas.reset();
+  S_->World.UrbanChildrenRevision.reset();
+  S_->World.UrbanChildren.clear();
   S_->World.Sheets.Clear();
   S_->World.PiecesFramed = false;
   S_->World.GroundPublished.Reset();
@@ -701,74 +667,6 @@ Result Engine::declare(const Scenario::Document &scenario) {
   return {};
 }
 
-bool Engine::readScenarioInto(std::string_view source,
-                              Scenario::Document &out,
-                              std::string_view overrides) {
-  const auto input = ReadScenarioSource(source, overrides);
-  if (!input) {
-    S_->Error = input.error();
-    return false;
-  }
-  const bool inlineJson = IsJsonScenario(source);
-  const std::string held = inlineJson ? "inline scenario" : std::string(source);
-  size_t remainingBytes = input->RemainingBytes;
-  const std::string &text = input->Text;
-  if (!ReadScenario(text.data(), text.size(), out, S_->Error)) {
-    S_->Error = held + ": " + S_->Error;
-    return false;
-  }
-  S_->Session.LayerTrace.clear();
-  const size_t cut = held.find_last_of('/');
-  std::string dir;
-  if (inlineJson) {
-    dir = S_->Session.Under.Shipped + "/";
-  } else if (cut != std::string::npos) {
-    dir = held.substr(0, cut + 1);
-  }
-  for (const Scenario::Layer &layer : out.Layers) {
-    const std::string named = layer.Id.empty() ? layer.Path : layer.Id;
-    if (!LayerActive(layer, out.Named.Active)) {
-      S_->Session.LayerTrace.push_back("layer '" + named + "' is inactive -- its set '" +
-                                       layer.Set + "' is not selected by active=\"" +
-                                       out.Named.Active + "\"");
-      continue;
-    }
-    const std::string at =
-        (!layer.Path.empty() && layer.Path.front() == '/') ? layer.Path : dir + layer.Path;
-    const std::expected<std::string, std::string> read = ReadTextFile(at, remainingBytes);
-    if (!read) {
-      S_->Error = read.error();
-      return false;
-    }
-    const std::string &fragmentText = *read;
-    remainingBytes -= fragmentText.size();
-    if (!ApplyLayer(out,
-                    fragmentText.c_str(),
-                    fragmentText.size(),
-                    named,
-                    S_->Session.LayerTrace,
-                    S_->Error)) {
-      S_->Error = at + ": " + S_->Error;
-      return false;
-    }
-  }
-  out.Layers.clear();
-  if (overrides.empty()) { return true; }
-  const auto flat = WriteScenario(out);
-  if (!flat) {
-    S_->Error = flat.error();
-    return false;
-  }
-  const auto patched = ScenarioXmlFromJson(overrides, *flat);
-  if (!patched) {
-    S_->Error = patched.error();
-    return false;
-  }
-  if (!ReadScenario(patched->data(), patched->size(), out, S_->Error)) { return false; }
-  out.Layers.clear();
-  return true;
-}
-
 Result Engine::setGeometry(const Geometry &geometry) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
@@ -806,24 +704,12 @@ std::expected<std::string, std::string> Engine::writeScenario() const {
   return WriteScenario(S_->Session.Declared);
 }
 
-Result Engine::readScenario(std::string_view source, std::string_view overrides) {
-  [[maybe_unused]] const auto logs = S_->Logs();
-  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  Scenario::Document scenario;
-  if (!readScenarioInto(source, scenario, overrides)) { return std::unexpected(S_->Error); }
-  const std::vector<std::string> traced = S_->Session.LayerTrace;
-  const Result stood = declare(scenario);
-  if (!stood) { return stood; }
-  S_->Session.Carried.insert(S_->Session.Carried.end(), traced.begin(), traced.end());
-  return {};
+World::EntityRegistry &Engine::entities() {
+  return S_->ScenarioState->Entities.Registry();
 }
 
-EntityRegistry &Engine::entities() {
-  return S_->Simulation->Entities;
-}
-
-const EntityRegistry &Engine::entities() const {
-  return S_->Simulation->Entities;
+const World::EntityRegistry &Engine::entities() const {
+  return S_->ScenarioState->Entities.Registry();
 }
 
 const Scenario::Document &Engine::declaration() const {

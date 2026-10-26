@@ -1,34 +1,60 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define VARYING in
-#define GROUND_WORLD_POSITION
-#include "subjectVaryings.glsl"
+#if PRISM_GRID
+#define SURFACE_FRONT_FACING true
+#endif
+#if LIT_TEXTURED == 0
+#define SURFACE_CONSTANT_UV 1
+#endif
+#include "surfaceVaryings.glsl"
+#if SURFACE_CONSTANT_UV || PRISM_GRID
+float facadeBay = 0.0;
+float facadeCode = 0.0;
+#else
 layout(location = 11) in float facadeBay;
 layout(location = 12) flat in float facadeCode;
-#include "subjectOutput.glsl"
+#endif
+#include "surfaceOutput.glsl"
 #include "surfaceTransfer.glsl"
 #include "material.glsl"
-#include "subjectLights.glsl"
+#include "surfaceBindings.glsl"
 #include "brdfTables.glsl"
 const float kPi = acos(-1.0);
 #include "metalRoughBrdf.glsl"
 #include "sheenLobe.glsl"
 #include "iridescenceLobe.glsl"
 #include "microfacetEnergy.glsl"
-#if SUBJECT_BASE_LOCATION == 0
-#include "subjectLighting.glsl"
+#if PRISM_GRID && SURFACE_BASE_LOCATION == 0
+#include "prismReceiver.glsl"
+vec4 prismShadowReceiver;
+#endif
+#if SURFACE_BASE_LOCATION == 0
+#include "surfaceLighting.glsl"
 #endif
 #include "surfaceGradient.glsl"
 #include "facadePattern.glsl"
 #if LIT_MAPPED
+#if PRISM_GRID
+vec4 tangent;
+#else
 layout(location = 9) in vec4 tangent;
+#endif
 #include "normalFromMap.glsl"
+#endif
+#if PRISM_GRID
+#include "prismSurface.glsl"
 #endif
 vec2 coordinate(vec3 u, vec3 v, float second) {
   vec3 homogeneous = vec3(mix(uv, uv1, second), 1.0);
   return vec2(dot(u, homogeneous), dot(v, homogeneous));
 }
 void main() {
+#if PRISM_GRID
+  if (!readPrismSurface()) { discard; }
+#else
+  readSubjectVaryings();
+#endif
   M surface = materialAt();
   vec4 tap = vec4(1.0);
   vec4 orm = vec4(1.0);
@@ -37,30 +63,27 @@ void main() {
   float f90 = surface.specularWeight;
   float roughness = surface.roughness;
   vec3 tangentDir = vec3(0.0);
-  vec3 shadingNormal = facing(normal, gl_FrontFacing);
+  vec3 shadingNormal = facing(normal, SURFACE_FRONT_FACING);
 #if LIT_TEXTURED
   tap = texture(colourMap, coordinate(surface.colourUvU, surface.colourUvV, surface.colourUvSecond));
   orm = texture(metalRoughMap, coordinate(surface.metalRoughUvU, surface.metalRoughUvV, surface.metalRoughUvSecond));
-#if SUBJECT_BASE_LOCATION == 0
+#if SURFACE_BASE_LOCATION == 0
   emission *= texture(emissiveMap, coordinate(surface.emissiveUvU, surface.emissiveUvV, surface.emissiveUvSecond)).rgb;
   float strength = texture(specularStrengthMap, coordinate(surface.specularStrengthUvU, surface.specularStrengthUvV, surface.specularStrengthUvSecond)).a;
   f0 *= strength * texture(specularTintMap, coordinate(surface.specularTintUvU, surface.specularTintUvV, surface.specularTintUvSecond)).rgb;
   f90 *= strength;
 #endif
 #endif
-#if SUBJECT_BASE_LOCATION == 0 && LIT_TEXTURED
+#if SURFACE_BASE_LOCATION == 0 && LIT_TEXTURED
   if (surface.scattering > 1.5) {
     orm.g = pow(clamp(orm.g / max(orm.a, 1e-8), 0.0, 1.0), 0.25);
     orm.b /= max(orm.a, 1e-8);
   }
 #endif
   roughness *= orm.g;
-#if LIT_KIND == 1
-  if (materialCoverage(surface, tap.a, colour.a) < surface.cut) { discard; }
-#endif
 #if LIT_MAPPED
   vec4 mapped = texture(normalMap, coordinate(surface.normalUvU, surface.normalUvV, surface.normalUvSecond));
-  shadingNormal = normalFromMap(normal, tangent, mapped.xyz * 2.0 - 1.0, surface.normalScale, gl_FrontFacing);
+  shadingNormal = normalFromMap(normal, tangent, mapped.xyz * 2.0 - 1.0, surface.normalScale, SURFACE_FRONT_FACING);
   roughness = roughenedBy(roughness, mapped.w);
   tangentDir = tangent.xyz;
 #endif
@@ -68,11 +91,11 @@ void main() {
   float metalness = surface.metalness * orm.b;
   if (surface.pattern > 0.5) {
     vec2 heightChange;
-    applyFacade(int(facadeCode), vec2(facadeBay, uv.y), colour.rgb, position, localPosition, groundWorldM, facing(normal, gl_FrontFacing), surface.pattern > 1.5, uv1, albedo, roughness, heightChange);
-    shadingNormal = bumpNormal(facing(normal, gl_FrontFacing), shadingNormal, dFdx(position), dFdy(position), heightChange.x, heightChange.y);
+    applyFacade(int(facadeCode), vec2(facadeBay, uv.y), colour.rgb, position, localPosition, groundWorldM, facing(normal, SURFACE_FRONT_FACING), surface.pattern > 1.5, uv1, albedo, roughness, heightChange);
+    shadingNormal = bumpNormal(facing(normal, SURFACE_FRONT_FACING), shadingNormal, dFdx(position), dFdy(position), heightChange.x, heightChange.y);
   }
   else { albedo *= colour.rgb; }
-#if SUBJECT_BASE_LOCATION == 0
+#if SURFACE_BASE_LOCATION == 0
   if (surface.scattering > 0.5) {
     surface.thinReflection = albedo;
 #if LIT_TEXTURED
@@ -97,12 +120,18 @@ void main() {
     surface.diffuseTransmission *= keep;
   }
 #endif
-#if SUBJECT_BASE_LOCATION > 0
+#if SURFACE_BASE_LOCATION == 0
+  SURFACE_SHADOW_RECEIVER receiverSlope = sunShadowReceiverSlope(lightSpace);
+#endif
+#if LIT_KIND == 1
+  if (materialCoverage(surface, tap.a, colour.a) < surface.cut) { discard; }
+#endif
+#if SURFACE_BASE_LOCATION > 0
   outputMaterial(albedo, roughness, metalness);
   outputSurface(vec4(0.0), shadingNormal, surface.identity);
 #else
   vec4 shaded = vec4(shadeRow(surface, localPosition, shadingNormal, position, albedo,
-      metalness, roughness, f0, f90, emission, tangentDir, lightSpace, shadowMap), 1.0);
+      metalness, roughness, f0, f90, emission, tangentDir, lightSpace, receiverSlope, shadowMap), 1.0);
 #if LIT_KIND == 2
   shaded.a = surface.factor * tap.a * colour.a;
 #endif

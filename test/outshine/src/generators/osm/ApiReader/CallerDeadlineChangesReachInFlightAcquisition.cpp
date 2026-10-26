@@ -1,11 +1,14 @@
+#include "OsmProviderValidation.h"
 #include "Check.h"
 #include "OsmApiReader.h"
-#include "SourceProviderValidation.h"
 
 #include <atomic>
 #include <limits>
 #include <string>
 #include <vector>
+
+using outshine::GeoCellId;
+using outshine::GeographicBounds;
 
 namespace {
 class DelayedWire final : public outshine::Data::Transport {
@@ -46,10 +49,10 @@ int main() {
        .Revision = "bounded",
        .Missing = MissingDataPolicy::Fail,
        .Dataset = "openstreetmap.original",
-       .Endpoint = std::string(kOfficialOsmApi),
+       .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
        .Coverage =
-           SourceCoverage{.WestDeg = -0.1, .SouthDeg = -0.1, .EastDeg = 0.1, .NorthDeg = 0.1}}};
-  ContentStore store({.Using = ContentStore::Use::Off});
+           GeographicBounds{.WestDeg = -0.1, .SouthDeg = -0.1, .EastDeg = 0.1, .NorthDeg = 0.1}}};
+  RawSourceCache store({.Using = RawSourceCache::Use::Off});
   DelayedWire fixed;
   CHECK(!outshine::Generators::Osm::ReadRegions(providers, store, fixed, 10, {}) &&
             fixed.ClockMs == 10 && fixed.Canceled == 1,

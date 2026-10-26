@@ -23,6 +23,19 @@ def plane_value(plane, origin, xy):
     )
 
 
+def plane_values(plane, origin, points):
+    z, gx, gy = map(rational, plane)
+    if not gx and not gy:
+        return [z] * len(points)
+    ox, oy = map(rational, origin)
+    intercept = z - gx * ox - gy * oy
+    if not gx:
+        return [intercept + gy * y for _x, y in points]
+    if not gy:
+        return [intercept + gx * x for x, _y in points]
+    return [intercept + gx * x + gy * y for x, y in points]
+
+
 def bounded_tuple(value, size, bound):
     if (
         not isinstance(value, tuple)
@@ -104,8 +117,9 @@ class AffineOccupancy(Reservation):
         xy = shapely.get_coordinates(self.geometry)
         if len(xy) > 65536 or abs(xy).max() > 1e6:
             raise ValueError("bounded local affine domain required")
-        lower = [plane_value(self.lower_plane_m, self.origin_xy_m, p) for p in xy]
-        upper = [plane_value(self.upper_plane_m, self.origin_xy_m, p) for p in xy]
+        points = [tuple(map(rational, point)) for point in xy]
+        lower = plane_values(self.lower_plane_m, self.origin_xy_m, points)
+        upper = plane_values(self.upper_plane_m, self.origin_xy_m, points)
         if any(a >= b for a, b in zip(lower, upper, strict=True)):
             raise ValueError("non-inverting positive affine volume required")
         # An outward-rounded envelope cannot reject a real positive overlap.

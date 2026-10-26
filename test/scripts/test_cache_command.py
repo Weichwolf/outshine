@@ -10,7 +10,7 @@ import unittest
 import zlib
 
 ROOT = Path(__file__).resolve().parents[2]
-CLIENT = ROOT / 'build/outshine'
+CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolve()
 MIB = 1024 * 1024
 SCHEMA = '''
 PRAGMA user_version=3;

@@ -75,8 +75,8 @@ def compile_variant(output, points, variant, glslang, translator):
                      else 'src/render/shaders/groundLit.glsl')
     defines = [f'-DGROUND_LITTER_GAUSS_POINTS={points}']
     if stage == 'frag':
-        flags = ('SUBJECT_WRITES_VELOCITY', 'SUBJECT_NORMAL_LOCATION', 'SUBJECT_IDENTITY_LOCATION',
-                 'SUBJECT_BASE_LOCATION', 'SUBJECT_METALROUGH_LOCATION')
+        flags = ('SURFACE_WRITES_VELOCITY', 'SURFACE_NORMAL_LOCATION', 'SURFACE_IDENTITY_LOCATION',
+                 'SURFACE_BASE_LOCATION', 'SURFACE_METALROUGH_LOCATION')
         defines += [f'-D{flag}={variant[i] if i < len(variant) else 0}'
                     for i, flag in enumerate(flags)]
     run([glslang, '-V', '--target-env', 'vulkan1.0', '-S', stage,
@@ -99,10 +99,8 @@ def compile_variant(output, points, variant, glslang, translator):
 
 
 def native_syntax(output):
-    declarations = dict(line.split('=', 1) for line in (ROOT / 'test/run.sh').read_text().splitlines()
-                        if line.startswith(('CXXSTD=', 'WARN=', 'OPT=')))
-    flags = [flag for key in ('CXXSTD', 'WARN', 'OPT')
-             for flag in shlex.split(declarations[key].strip('"'))]
+    flags = shlex.split(subprocess.check_output(
+        ["sh", "test/run.sh", "--native-compile-flags"], cwd=ROOT, text=True))
     include = Path(os.environ.get('NATIVE_INCLUDE', str(ROOT / 'src/render/device')))
     command = [*shlex.split(os.environ.get('CXX', 'c++')), *flags, '-fno-exceptions',
                '-I' + str(include), '-fsyntax-only', 'test/harness/render/NativeGroundLitterProbe.cpp']

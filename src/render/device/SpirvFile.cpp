@@ -42,4 +42,8 @@ std::expected<std::vector<uint32_t>, std::string> ReadSpirv(std::string_view pat
   return words;
 }
 
+std::expected<std::vector<uint32_t>, std::string> ReadShaderSpirv(std::string_view name) {
+  return ReadSpirv(std::string(OUTSHINE_SHADER_DIRECTORY) + "/" + std::string(name));
+}
+
 }

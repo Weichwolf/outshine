@@ -3,8 +3,8 @@
 
 #include <array>
 #include <cmath>
-#include "math/Mat4.h"
-#include "math/Quat.h"
+#include "Mat4.h"
+#include "Quat.h"
 
 namespace outshine {
 [[nodiscard]] inline Mat4

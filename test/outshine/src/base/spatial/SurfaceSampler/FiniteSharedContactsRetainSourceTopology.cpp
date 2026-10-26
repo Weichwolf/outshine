@@ -1,4 +1,4 @@
-#include "scene/SurfaceSampler.h"
+#include "SurfaceSampler.h"
 #include "Json.h"
 #include "Check.h"
 #include <algorithm>

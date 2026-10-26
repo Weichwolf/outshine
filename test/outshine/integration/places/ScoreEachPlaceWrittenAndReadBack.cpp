@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "Check.h"
-#include "Shell.h"
+#include "ClientCommand.h"
 
 // READ, WRITE, READ AGAIN, and the two declarations must be the same one.
 //
@@ -23,7 +23,7 @@
 int main(void) {
   using namespace outshine::Test;
   std::string said;
-  const int closed = Run("build/outshine roundtrip", said);
+  const int closed = Run(ClientCommand() + " roundtrip", said);
   std::printf("%s", said.c_str());
 
   size_t held = 0, apart = 0;

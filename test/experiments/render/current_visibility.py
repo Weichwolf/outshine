@@ -150,10 +150,39 @@ def occluded(
     return hidden
 
 
-def raster(projected, forward_z, triangles, width, height):
+def covered_edges(q, x, y):
+    """Clockwise triangles share one canonical edge equation with opposite signs."""
+    covered = np.ones(np.broadcast_shapes(x.shape, y.shape), dtype=bool)
+    for i, j in ((1, 2), (2, 0), (0, 1)):
+        a, b = q[:, i, :2], q[:, j, :2]
+        forward = (a[:, 0] < b[:, 0]) | ((a[:, 0] == b[:, 0]) & (a[:, 1] <= b[:, 1]))
+        start = np.where(forward[:, None], a, b)
+        delta = np.where(forward[:, None], b - a, a - b)
+        edge = delta[:, 0, None] * (y + 0.5 - start[:, 1, None]) - delta[:, 1, None] * (
+            x + 0.5 - start[:, 0, None]
+        )
+        covered &= np.where(forward[:, None], edge <= 0, edge >= 0)
+    return covered
+
+
+def raster(
+    projected, forward_z, triangles, width, height, *, with_faces=False, counters=None
+):
     depth = np.zeros((height, width))
+    owner = (
+        np.full((height, width), np.iinfo(np.int32).max, np.int32)
+        if with_faces
+        else None
+    )
+    if counters is not None:
+        counters.update(
+            input_triangles=len(triangles),
+            triangle_pixel_candidates=0,
+            covered_triangle_samples=0,
+            maximum_batch_candidates=0,
+        )
     if not len(triangles):
-        return depth
+        return (depth, np.full((height, width), -1, np.int32)) if with_faces else depth
     p = projected[triangles]
     front = (forward_z[triangles] > 0.1).all(axis=1)
     den = (p[:, 1, 1] - p[:, 2, 1]) * (p[:, 0, 0] - p[:, 2, 0]) + (
@@ -169,6 +198,7 @@ def raster(projected, forward_z, triangles, width, height):
     low = np.maximum(low, 0)
     high = np.minimum(high, (width - 1, height - 1))
     front &= (high >= low).all(axis=1)
+    face_ids = np.flatnonzero(front) if with_faces else None
     p, low, high, den = p[front], low[front], high[front], den[front]
     sizes = high - low + 1
     bins = np.ceil(np.log2(sizes)).astype(int)
@@ -193,16 +223,33 @@ def raster(projected, forward_z, triangles, width, height):
             ) / den[ids, None]
             w2 = 1 - w0 - w1
             covered = (
-                (w0 >= 0)
-                & (w1 >= 0)
-                & (w2 >= 0)
+                covered_edges(q, x, y)
                 & (x <= high[ids, 0, None])
                 & (y <= high[ids, 1, None])
             )
             values = (
                 w0 * q[:, 0, 2, None] + w1 * q[:, 1, 2, None] + w2 * q[:, 2, 2, None]
             )
-            np.maximum.at(depth.ravel(), (y * width + x)[covered], values[covered])
+            if counters is not None:
+                counters["triangle_pixel_candidates"] += values.size
+                counters["covered_triangle_samples"] += int(covered.sum())
+                counters["maximum_batch_candidates"] = max(
+                    counters["maximum_batch_candidates"], values.size
+                )
+            pixels, operands = (y * width + x)[covered], values[covered]
+            previous = depth.ravel()[pixels].copy() if with_faces else None
+            np.maximum.at(depth.ravel(), pixels, operands)
+            if with_faces:
+                current = depth.ravel()[pixels]
+                owner.ravel()[pixels[current > previous]] = np.iinfo(np.int32).max
+                winner = operands == current
+                candidates = np.broadcast_to(face_ids[ids, None], covered.shape)[
+                    covered
+                ]
+                np.minimum.at(owner.ravel(), pixels[winner], candidates[winner])
+    if with_faces:
+        owner[depth == 0] = -1
+        return depth, owner
     return depth
 
 

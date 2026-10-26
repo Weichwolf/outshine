@@ -9,8 +9,8 @@
 #include <vector>
 
 #include <SDL3/SDL.h>
-#include <Outshine.h>
-#include <generation/Generate.h>
+#include <Engine.h>
+#include <Generator.h>
 #include "Check.h"
 #include "TestEngine.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"

@@ -9,7 +9,7 @@
 #include "RoadAlignment.h"
 #include "GroundMesher.h"
 #include "TangentFrame.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 
 namespace outshine::Generators {
 

@@ -4,13 +4,13 @@
 #include <memory>
 #include <optional>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "TerrainClassificationMap.h"
 #include "Cover.h"
 #include "FeatureField.h"
 #include "GroundPatch.h"
 #include "GroundTable.h"
-#include <generation/Generate.h>
+#include <Generator.h>
 
 #include "Tile.h"
 

@@ -8,6 +8,8 @@
 #include <string>
 #include <system_error>
 
+using outshine::GeographicBounds;
+
 int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
@@ -29,7 +31,7 @@ int main() {
       .Revision = "r1",
       .Dataset = "original",
       .Location = path.string(),
-      .Coverage = SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
+      .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
   const auto region = outshine::Generators::Osm::ChunkSetLoader::LoadRegion(providers, ".");
   CHECK(region.has_value(), "spatial source retains an unrelated open relation");
   if (region) {
