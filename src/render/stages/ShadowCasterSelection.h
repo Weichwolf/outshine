@@ -27,8 +27,8 @@ public:
                std::span<const uint32_t> jobs,
                std::span<const float> spheres,
                std::span<const GpuPlacement> placements,
-               uint32_t subjectRows,
-               bool subjectBoundsCurrent);
+               uint32_t mainMeshRows,
+               bool mainMeshBoundsCurrent);
   [[nodiscard]] std::span<const ShadowCasterRange> Ranges(size_t batch) const noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
 

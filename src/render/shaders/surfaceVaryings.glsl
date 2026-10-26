@@ -31,7 +31,7 @@ SURFACE_VARYING(12) vec2 groundSampleUV;
 #endif
 
 #if defined(SURFACE_VERTEX_STAGE)
-void writeSubjectVaryings() {
+void writeSurfaceVaryings() {
 #if !SURFACE_CONSTANT_UV
   textureCoordinates = vec4(uv, uv1);
 #endif
@@ -40,7 +40,7 @@ void writeSubjectVaryings() {
   localPositionMetric = vec4(localPosition, groundWorldM.z);
 }
 #else
-void readSubjectVaryings() {
+void readSurfaceVaryings() {
 #if !SURFACE_CONSTANT_UV
   uv = textureCoordinates.xy;
   uv1 = textureCoordinates.zw;

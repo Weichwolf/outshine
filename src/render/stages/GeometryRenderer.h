@@ -596,8 +596,8 @@ private:
                            std::span<const std::byte> view) const;
   [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
-  [[nodiscard]] bool BuildSubjectBatches(std::string &error);
-  void PrepareSubjectTables();
+  [[nodiscard]] bool BuildMainMeshBatches(std::string &error);
+  void PrepareMainMeshTables();
   void PrepareShadowCasters();
   [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
   void OrderPieces();

@@ -116,7 +116,7 @@ uint32_t GeometryRenderer::Textured() const {
 bool GeometryRenderer::ValidateMaterials(std::span<const MaterialBinding> materials,
                                          std::string &error) const {
   if (Binding().Device == nullptr) {
-    error = "the subject unit has no device, so no surface can be bound";
+    error = "the geometry unit has no device, so no surface can be bound";
     return false;
   }
   for (size_t slot = 0; slot < materials.size(); ++slot) {
@@ -126,7 +126,7 @@ bool GeometryRenderer::ValidateMaterials(std::span<const MaterialBinding> materi
         Binding().Behind == nullptr && !Binding().GlassDrawnElsewhere) {
       error = "surface slot " + std::to_string(slot) + " is " + KindName(kind) +
               ", and no pass of this plan draws it -- what is transmitted through a sheet or "
-              "refracted by a volume is the scene behind it, so a subject carrying one needs the "
+              "refracted by a volume is the scene behind it, so a geometry carrying one needs the "
               "transmissive pass declared, and drawing it opaque instead would be a picture nobody "
               "asked for";
       return false;

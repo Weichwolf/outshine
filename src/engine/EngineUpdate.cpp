@@ -653,7 +653,7 @@ void Engine::State::Drew() {
                          "stages");
   Published.RecordMetric(
       "passes it runs them in", static_cast<double>(Picture.Standing->PlanPasses()), "passes");
-  Published.RecordMetric("vertex uniform pushes the subject stages make",
+  Published.RecordMetric("vertex uniform pushes the geometry stages make",
                          static_cast<double>(Picture.Device.GeometryUniformPushes()),
                          "pushes");
   Published.RecordMetric(
@@ -661,7 +661,7 @@ void Engine::State::Drew() {
   Published.RecordMetric("placement rows the renderer has been sent",
                          static_cast<double>(Picture.Device.GeometryPlacementsMoved()),
                          "rows");
-  Published.RecordMetric("frames the subject drew shadowed",
+  Published.RecordMetric("frames the geometry drew shadowed",
                          static_cast<double>(Picture.Device.ShadowedFrames()),
                          "frames");
   if (Heap::ProcessInstrumentationEnabled()) {

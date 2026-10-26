@@ -113,7 +113,7 @@ private:
   bool DepthForSelection_ = false;
   SelectionProjection LastProjection_{};
   Vec3 LastPreViewTranslation_{};
-  uint64_t LastSubjectGeneration_ = 0;
+  uint64_t LastGeometryGeneration_ = 0;
   uint64_t LastGroundGeneration_ = 0;
   [[nodiscard]] static Native::Result<void>
   EnsurePipeline(Native::Device &device,

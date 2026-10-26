@@ -411,8 +411,8 @@ private:
   void StandsKeyLight();
   void StandsLighting();
   void StandsShadowRadius();
-  void ClearsSubject();
-  [[nodiscard]] bool PrepareSubject(std::string &error);
+  void ClearGeometry();
+  [[nodiscard]] bool PrepareGeometry(std::string &error);
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] std::expected<bool, std::string> AdvanceBuild(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> PlanBuild();

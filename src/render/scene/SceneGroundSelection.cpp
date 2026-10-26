@@ -41,10 +41,10 @@ Native::Result<void> SceneRenderer::EncodeGroundPyramid([[maybe_unused]] const F
 
 Native::Result<void> SceneRenderer::EncodeGroundSelection(const FrameContext &ctx,
                                                           const PassRecording &into) {
-  const auto &subjects = ActiveState().Content.Geometry;
+  const auto &geometry = ActiveState().Content.Geometry;
   const auto &frame = ActiveFrame();
   return ActiveState().Content.Geometry.Ground().SelectPatches(ctx,
-                                                               subjects.AnchorM(),
+                                                               geometry.AnchorM(),
                                                                Picture(true, into),
                                                                *frame.GroundPyramid.Buffer(),
                                                                frame.GroundPyramid.Shape());

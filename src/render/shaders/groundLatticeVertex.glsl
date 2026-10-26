@@ -30,5 +30,5 @@ void main() {
   curClip = gl_Position;
   prevClip = s.prevViewProj * (mat4(c0, c1, c2, c3 + vec4(s.prevShift.xyz, 0.0)) * local);
 #endif
-  writeSubjectVaryings();
+  writeSurfaceVaryings();
 }

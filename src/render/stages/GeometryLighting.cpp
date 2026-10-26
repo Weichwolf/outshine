@@ -11,7 +11,7 @@
 namespace outshine::Render {
 bool GeometryRenderer::SetLights(std::span<const SceneLight> lights, std::string &error) {
   if (lights.size() > kMaxUniformLights) {
-    error = "the subject declares " + std::to_string(lights.size()) +
+    error = "the geometry declares " + std::to_string(lights.size()) +
             " punctual lights over a list of " + std::to_string(kMaxUniformLights) +
             ", and a light this unit cannot bind is a refusal rather than a light left out of the "
             "picture";

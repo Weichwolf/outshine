@@ -79,5 +79,5 @@ void main() {
   previousPlacement[3] += vec4(s.prevShift.xyz, 0.0);
   prevClip = s.prevViewProj * (previousPlacement * vec4(previous, 1.0));
 #endif
-  writeSubjectVaryings();
+  writeSurfaceVaryings();
 }
