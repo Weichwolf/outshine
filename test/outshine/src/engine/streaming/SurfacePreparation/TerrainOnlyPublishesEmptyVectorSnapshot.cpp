@@ -20,11 +20,11 @@ public:
 
   void Claim(bool valid, const char *claim) override {}
 
-  void Near(double actual,
-            double expected,
-            double tolerance,
-            const char *unit,
-            const char *claim) override {}
+  void Near(double /*got*/,
+            double /*want*/,
+            double /*within*/,
+            const char * /*unit*/,
+            const char * /*why*/) override {}
 
   void Say(const std::string &message) override {}
 };
