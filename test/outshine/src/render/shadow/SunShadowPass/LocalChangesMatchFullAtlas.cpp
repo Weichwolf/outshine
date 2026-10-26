@@ -2,7 +2,7 @@
 #include "Check.h"
 #include "GeometryRenderer.h"
 #include "ReadbackTransfer.h"
-#include "SunShadowStage.h"
+#include "SunShadowPass.h"
 #include "test/harness/render/NativeCommandsProxy.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include "test/harness/render/NativeGpuCheck.h"
@@ -27,21 +27,15 @@ using namespace outshine::Render::Native;
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
 constexpr Vec3 kAnchor{{1000000, 2000000, 3000000}};
-constexpr SunShadowStage::Overhead kSun{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
+constexpr SunShadowPass::Overhead kSun{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
 constexpr std::array<uint32_t, 6> kIndices{0, 1, 2, 0, 2, 3};
 
 struct Atlas {
-  SunShadowStage Shadow;
-  std::unique_ptr<Texture> Image;
+  SunShadowPass Shadow;
 
-  Atlas(Device &device, GeometryRenderer &geometry, const outshine::Render::Gpu &gpu) {
+  Atlas(GeometryRenderer &geometry, const outshine::Render::Gpu &gpu) {
     Require(Shadow.Configure(geometry, gpu));
     Shadow.Declare(kSun, 8192, true);
-    Image = Require(
-        device.CreateTexture({.Width = kShadowAtlasPx,
-                              .Height = kShadowAtlasPx,
-                              .Texels = Format::Depth32Float,
-                              .Use = TextureUse::DepthAttachment | TextureUse::CopySource}));
   }
 };
 
@@ -64,6 +58,16 @@ struct RejectSubmit final : NativeDeviceProxy {
   }
 };
 
+struct RejectPipeline final : NativeDeviceProxy {
+  using NativeDeviceProxy::NativeDeviceProxy;
+
+  Result<std::unique_ptr<GraphicsPipeline>>
+  CreateGraphicsPipeline([[maybe_unused]] const GraphicsDescription &description) override {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Driver, .Message = "shadow pipeline replacement refused"});
+  }
+};
+
 void Draw(Device &device,
           GeometryRenderer &geometry,
           Atlas &atlas,
@@ -80,7 +84,7 @@ void Draw(Device &device,
   Require(commands->BeginRenderPass(
       {.Colours = {},
        .Depth =
-           DepthAttachment{.Image = {.Image = atlas.Image.get()},
+           DepthAttachment{.Image = {.Image = atlas.Shadow.Atlas()},
                            .Begin = atlas.Shadow.PreservesAtlas() ? Load::Load : Load::Clear}}));
   StageSubmission submission;
   RejectDraw fault(std::move(commands));
@@ -113,7 +117,7 @@ void Draw(Device &device,
 
 std::vector<std::byte> Read(Device &device, const Atlas &atlas) {
   auto transfer = Require(ReadbackTransfer::Start(
-      device, *atlas.Image, {.Width = kShadowAtlasPx, .Height = kShadowAtlasPx}));
+      device, *atlas.Shadow.Atlas(), {.Width = kShadowAtlasPx, .Height = kShadowAtlasPx}));
   auto pixels = Require(transfer.Wait(device, std::chrono::seconds(5)));
   CHECK(pixels, "the complete real D32 atlas is readable");
   if (!pixels) { Failed(); }
@@ -126,6 +130,10 @@ void Compare(Device &device,
              Atlas &full,
              const FrameContext &frame) {
   Draw(device, geometry, partial, frame);
+  const auto *const retained = partial.Shadow.Atlas();
+  Require(partial.Shadow.Allocate(device));
+  CHECK(partial.Shadow.Atlas() == retained && partial.Shadow.HasSubmittedData(),
+        "repeated target demand preserves the submitted atlas and its valid history");
   full.Shadow.Prepare(frame);
   full.Shadow.Invalidate();
   Draw(device, geometry, full, frame);
@@ -313,10 +321,18 @@ int main() {
   CheckSceneUpload(geometry.SetMaterials(std::span(&material, 1), error), error);
   geometry.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});
   geometry.SetRegisteredPieceSurfaces(std::array<uint32_t, 1>{0});
-  Atlas partial(device, geometry, gpu);
-  Atlas full(device, geometry, gpu);
+  Atlas partial(geometry, gpu);
+  Atlas full(geometry, gpu);
   Changes(device, geometry, partial, full);
   Materials(device, geometry, partial, full);
+  const auto *const atlas = partial.Shadow.Atlas();
+  const bool submitted = partial.Shadow.HasSubmittedData();
+  RejectPipeline rejected(device);
+  const auto reconfigured =
+      partial.Shadow.Configure(geometry, {.Device = &rejected, .SceneColours = {}});
+  CHECK(!reconfigured && reconfigured.error().Kind == ErrorKind::Driver &&
+            partial.Shadow.Atlas() == atlas && partial.Shadow.HasSubmittedData() == submitted,
+        "failed pipeline replacement retains the owned atlas and accepted cache");
   Prisms(device, geometry, partial, full);
   SubmissionAndReaders(device, geometry, partial, full);
   return Report();

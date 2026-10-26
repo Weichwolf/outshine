@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_STAGES_SUNSHADOWSTAGE_H
-#define OUTSHINE_RENDER_STAGES_SUNSHADOWSTAGE_H
+#ifndef OUTSHINE_RENDER_SHADOW_SUNSHADOWPASS_H
+#define OUTSHINE_RENDER_SHADOW_SUNSHADOWPASS_H
 
 #include <array>
 #include <cstddef>
@@ -22,14 +22,19 @@ constexpr uint32_t kNoBatch = 0xffffffffu;
 
 class GeometryRenderer;
 
-class SunShadowStage {
+class SunShadowPass {
 public:
-  [[nodiscard]] Native::Result<void> Configure(GeometryRenderer &subjects, const Gpu &gpu);
+  [[nodiscard]] Native::Result<void> Allocate(Native::Device &device);
 
-  void Binds(GeometryRenderer &subjects) noexcept {
-    if (Subjects_ == &subjects) { return; }
+  [[nodiscard]] Native::Texture *Atlas() const noexcept { return Atlas_.get(); }
+
+  // The frame owner retires GPU uses before reconfiguring this pass.
+  [[nodiscard]] Native::Result<void> Configure(GeometryRenderer &geometry, const Gpu &gpu);
+
+  void Binds(GeometryRenderer &geometry) noexcept {
+    if (Geometry_ == &geometry) { return; }
     Cache_.Invalidate();
-    Subjects_ = &subjects;
+    Geometry_ = &geometry;
   }
 
   void Invalidate() noexcept { Cache_.Invalidate(); }
@@ -103,12 +108,13 @@ private:
   BuildRegions(const LightBasis &basis, const Vec3 &centre, double radiusM, const Vec3 &preView);
   [[nodiscard]] Native::Result<void> Cast(size_t region, const PassRecording &into);
   [[nodiscard]] Native::Result<void>
-  CastSubjects(const PassRecording &into, std::span<const std::byte> view, const Mat4f &selection);
+  CastGeometry(const PassRecording &into, std::span<const std::byte> view, const Mat4f &selection);
 
   size_t CastBatches_ = 0;
   Vec3 ShadowCentreM_;
-  GeometryRenderer *Subjects_ = nullptr;
+  GeometryRenderer *Geometry_ = nullptr;
   Native::Device *Device_ = nullptr;
+  std::unique_ptr<Native::Texture> Atlas_;
   std::unique_ptr<Native::GraphicsPipeline> DepthOnly_;
   std::unique_ptr<Native::GraphicsPipeline> ClearTile_;
   MaskedPipelines Masked_;

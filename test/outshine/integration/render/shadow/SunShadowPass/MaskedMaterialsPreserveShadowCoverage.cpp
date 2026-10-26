@@ -136,15 +136,15 @@ int main() {
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for masked shadows");
   for (const int uv : {0, 1}) {
-    CheckMask({uv, 1, true});
-    CheckMask({uv, .5f, true});
+    CheckMask({.uvSet = uv, .vertexAlpha = 1, .textured = true});
+    CheckMask({.uvSet = uv, .vertexAlpha = .5f, .textured = true});
   }
-  CheckMask({0, 1, false});
-  CheckMask({0, .5f, false});
-  CheckMask({0, 1, true, true});
-  CheckMask({1, 1, true, true});
-  CheckMask({0, 1, true, false, true});
-  CheckMask({0, 1, true, true, true});
+  CheckMask({.uvSet = 0, .vertexAlpha = 1, .textured = false});
+  CheckMask({.uvSet = 0, .vertexAlpha = .5f, .textured = false});
+  CheckMask({.uvSet = 0, .vertexAlpha = 1, .textured = true, .reverse = true});
+  CheckMask({.uvSet = 1, .vertexAlpha = 1, .textured = true, .reverse = true});
+  CheckMask({.uvSet = 0, .vertexAlpha = 1, .textured = true, .reverse = false, .instanced = true});
+  CheckMask({.uvSet = 0, .vertexAlpha = 1, .textured = true, .reverse = true, .instanced = true});
   SDL_Quit();
   return Report();
 }

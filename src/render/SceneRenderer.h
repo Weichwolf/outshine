@@ -49,7 +49,7 @@ struct SDL_Window;
 #include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
 #include "stages/DepthPyramidStage.h"
-#include "stages/SunShadowStage.h"
+#include "shadow/SunShadowPass.h"
 #include "stages/GeometryCullStage.h"
 #include "stages/SkyStage.h"
 #include "stages/TonemapStage.h"
@@ -1056,7 +1056,6 @@ private:
     Gpu Handles;
     FrameTargets Targets;
     AtmospherePasses Atmosphere;
-    std::unique_ptr<Native::Texture> ShadowAtlas;
     std::unique_ptr<Native::Sampler> Samp;
     std::unique_ptr<Native::Buffer> Pyramid;
     std::unique_ptr<Native::Buffer> GroundPyramid;
@@ -1068,7 +1067,7 @@ private:
     DepthPyramidStage PyramidStage;
     DepthPyramidStage GroundPyramidStage;
     SkyStage Sky;
-    SunShadowStage Shadow;
+    SunShadowPass Shadow;
     GeometryCullStage Cull;
     OverlayPipeline OverlayPipe;
     PresentStage Present;

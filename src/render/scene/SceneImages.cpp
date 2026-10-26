@@ -12,13 +12,6 @@ namespace outshine::Render {
 
 namespace {
 
-Native::Result<void> Keep(Native::Result<std::unique_ptr<Native::Texture>> made,
-                          std::unique_ptr<Native::Texture> &into) {
-  if (!made) { return std::unexpected(made.error()); }
-  into = std::move(*made);
-  return {};
-}
-
 Native::Result<void> Keep(Native::Result<std::unique_ptr<Native::Buffer>> made,
                           std::unique_ptr<Native::Buffer> &into) {
   if (!made) { return std::unexpected(made.error()); }
@@ -38,7 +31,6 @@ Native::Result<void> SceneRenderer::CreateSampler(FrameResources &frame) {
 
 Native::Result<void>
 SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource) {
-  using enum Native::TextureUse;
   if (AtmospherePasses::Owns(resource)) {
     return frame.Atmosphere.Create(*Device_, plan, resource);
   }
@@ -54,12 +46,7 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
                         sizeof(float),
                .Use = Native::BufferUse::Storage | Native::BufferUse::CopySource}),
           resource == Resource::DepthPyramid ? frame.Pyramid : frame.GroundPyramid);
-    case Resource::ShadowAtlas:
-      return Keep(Device_->CreateTexture({.Width = kShadowAtlasPx,
-                                          .Height = kShadowAtlasPx,
-                                          .Texels = Native::Format::Depth32Float,
-                                          .Use = DepthAttachment | Sampled | CopySource}),
-                  frame.ShadowAtlas);
+    case Resource::ShadowAtlas: return frame.Shadow.Allocate(*Device_);
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
     case Resource::VegetationTable:

@@ -1,11 +1,19 @@
-#include "SunShadowStage.h"
+#include "SunShadowPass.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cmath>
 #include <limits>
 
 namespace {
+constexpr double kRadiusM = 10000;
+constexpr double kRegionTolerance = 2e-5;
+constexpr double kDepthTolerance = 2e-7;
+constexpr double kMaximumDepthBias = 0.001;
+constexpr double kNearRadiusM = 256;
+constexpr double kScaleTolerance = 1e-12;
+
 outshine::Vec3 Project(const outshine::Mat4 &matrix, const outshine::Vec3 &point) {
   outshine::Vec3 result;
   for (size_t row = 0; row < 3; ++row) {
@@ -20,9 +28,9 @@ int main() {
   using namespace outshine;
   using namespace outshine::Render;
   using namespace outshine::Test;
-  SunShadowStage stage;
-  const SunShadowStage::Overhead sun{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
-  stage.Declare(sun, 10000, true);
+  SunShadowPass stage;
+  const SunShadowPass::Overhead sun{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
+  stage.Declare(sun, kRadiusM, true);
   CHECK(stage.IsDeclared() && stage.RegionCount() == 4, "world shadows have four regions");
   const Vec3 eye{{20000.125, -30000.125, 100.0}};
   const Vec3 relative{{-eye[0], -eye[1], -eye[2]}};
@@ -41,27 +49,28 @@ int main() {
       const Vec3 actual = Project(stage.RegionProjection(region), point);
       CHECK_NEAR(base[0] * transform[0] + transform[2],
                  actual[0],
-                 2e-5,
+                 kRegionTolerance,
                  "region X",
                  "GPU region transform matches the independently projected point");
       CHECK_NEAR(base[1] * transform[1] + transform[3],
                  actual[1],
-                 2e-5,
+                 kRegionTolerance,
                  "region Y",
                  "GPU region transform matches the independently projected point");
       const auto depth = stage.Regions()[region].Depth;
       CHECK_NEAR(base[2] * depth[0] + depth[1],
                  actual[2],
-                 2e-7,
+                 kDepthTolerance,
                  "depth",
                  "region mapping retains full-world caster depth from camera-relative metres");
     }
-    CHECK(stage.Regions()[region].Atlas[3] > 0 && stage.Regions()[region].Atlas[3] < 0.001,
+    CHECK(stage.Regions()[region].Atlas[3] > 0 &&
+              stage.Regions()[region].Atlas[3] < kMaximumDepthBias,
           "bias is finite and follows world texel size rather than a fixed depth fraction");
   }
   CHECK_NEAR(std::abs(original[0][0]),
-             1.0 / 256.0,
-             1e-12,
+             1.0 / kNearRadiusM,
+             kScaleTolerance,
              "near scale",
              "near coverage remains 512 metres across a large world");
   for (const Vec3 caster :
@@ -76,7 +85,7 @@ int main() {
     CHECK(stage.RegionProjection(region) == original[region],
           "repeated framing without movement preserves every region");
   }
-  stage.Declare({.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}}, 10000, true);
+  stage.Declare({.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}}, kRadiusM, true);
   CHECK(stage.IsDeclared(), "zenith light has a defined alternate basis");
   stage.Build(relative);
   CHECK(std::ranges::all_of(stage.LightFromWorld(),

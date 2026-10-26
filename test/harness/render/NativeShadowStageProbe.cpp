@@ -1,6 +1,6 @@
 #include "TerrainLattice.h"
 #include "RenderScene.h"
-#include "SunShadowStage.h"
+#include "SunShadowPass.h"
 #include "GeometryRenderer.h"
 #include "ReadbackTransfer.h"
 #include "NativeOfflineDevice.h"
@@ -42,7 +42,7 @@ constexpr std::array<uint32_t, 6> kIndices{0, 1, 2, 0, 2, 3};
 constexpr std::array<uint8_t, 8> kMask{255, 255, 255, 255, 255, 255, 255, 0};
 constexpr Mat4 kIdentity{{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 constexpr size_t kTilePixels = size_t{kShadowTilePx} * kShadowTilePx;
-constexpr auto kSun = SunShadowStage::Overhead{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
+constexpr auto kSun = SunShadowPass::Overhead{.ToSun = {{0, 0, 1}}, .Up = {{0, 1, 0}}};
 
 struct MaskCase {
   uint32_t Uv = 0;
@@ -52,8 +52,7 @@ struct MaskCase {
 struct Scene {
   RenderScene GeometryStorage;
   GeometryRenderer Geometry{GeometryStorage};
-  SunShadowStage Shadow;
-  std::unique_ptr<Texture> Atlas;
+  SunShadowPass Shadow;
 
   explicit Scene(Device &device) {
     outshine::Render::Gpu gpu{.Device = &device,
@@ -67,11 +66,6 @@ struct Scene {
     Require(Geometry.Configure(gpu));
     Require(Shadow.Configure(Geometry, gpu));
     Shadow.Declare(kSun, 256);
-    Atlas = Require(
-        device.CreateTexture({.Width = kShadowAtlasPx,
-                              .Height = kShadowAtlasPx,
-                              .Texels = Format::Depth32Float,
-                              .Use = TextureUse::DepthAttachment | TextureUse::CopySource}));
   }
 };
 
@@ -157,7 +151,7 @@ void Record(Device &device, Scene &scene, const FrameContext &frame, bool submit
   Require(scene.Geometry.FlushCrossings(commands.get()));
   Require(commands->BeginRenderPass(
       {.Colours = {},
-       .Depth = DepthAttachment{.Image = {.Image = scene.Atlas.get()}, .Begin = Load::Clear}}));
+       .Depth = DepthAttachment{.Image = {.Image = scene.Shadow.Atlas()}, .Begin = Load::Clear}}));
   StageSubmission submission;
   Require(scene.Shadow.Encode(frame,
                               {.Commands = commands.get(),
@@ -172,10 +166,10 @@ void Record(Device &device, Scene &scene, const FrameContext &frame, bool submit
   }
 }
 
-std::vector<float> Read(Device &device, Scene &scene, size_t region = 0) {
+std::vector<float> Read(Device &device, const Scene &scene, size_t region = 0) {
   auto read =
       Require(ReadbackTransfer::Start(device,
-                                      *scene.Atlas,
+                                      *scene.Shadow.Atlas(),
                                       {.X = static_cast<uint32_t>(region % 2) * kShadowTilePx,
                                        .Y = static_cast<uint32_t>(region / 2) * kShadowTilePx,
                                        .Width = kShadowTilePx,
@@ -192,10 +186,14 @@ struct WorldPoint {
   double X, Y;
 };
 
-WorldPoint TexelWorld(const Scene &scene, int x, int y) {
+struct Pixel {
+  int X, Y;
+};
+
+WorldPoint TexelWorld(const Scene &scene, Pixel at) {
   const auto &origin = scene.Shadow.Regions()[0].Depth;
-  const int column = (x + kShadowTilePx - static_cast<int>(origin[2])) % kShadowTilePx;
-  const int row = (y + kShadowTilePx - static_cast<int>(origin[3])) % kShadowTilePx;
+  const int column = (at.X + kShadowTilePx - static_cast<int>(origin[2])) % kShadowTilePx;
+  const int row = (at.Y + kShadowTilePx - static_cast<int>(origin[3])) % kShadowTilePx;
   const auto &matrix = scene.Shadow.RegionProjection(0);
   return {.X = ((2 * (column + 0.5) / kShadowTilePx - 1) - matrix[12]) / matrix[0],
           .Y = ((1 - 2 * (row + 0.5) / kShadowTilePx) - matrix[13]) / matrix[5]};
@@ -215,14 +213,14 @@ bool CastsAt(WorldPoint point, MaskCase mask) {
   return false;
 }
 
-void Coverage(Scene &scene, std::span<const float> pixels, MaskCase mask) {
+void Coverage(const Scene &scene, std::span<const float> pixels, MaskCase mask) {
   const auto &matrix = scene.Shadow.RegionProjection(0);
   const bool covered = !mask.Tinted || !mask.Thin;
   size_t errors = 0;
   size_t occupied = 0;
   for (int y = 0; y < kShadowTilePx; ++y) {
     for (int x = 0; x < kShadowTilePx; ++x) {
-      const bool casts = CastsAt(TexelWorld(scene, x, y), mask);
+      const bool casts = CastsAt(TexelWorld(scene, {.X = x, .Y = y}), mask);
       const auto value =
           pixels[size_t{static_cast<uint32_t>(y)} * kShadowTilePx + static_cast<uint32_t>(x)];
       const float expected = casts ? static_cast<float>(matrix[14]) : 0;
@@ -353,9 +351,10 @@ void RejectedRecording(Device &device, Scene &scene) {
   scene.Shadow.Prepare(frame);
   {
     RefuseDraw commands(Require(device.Begin()));
-    Require(commands.BeginRenderPass(
-        {.Colours = {},
-         .Depth = DepthAttachment{.Image = {.Image = scene.Atlas.get()}, .Begin = Load::Clear}}));
+    Require(
+        commands.BeginRenderPass({.Colours = {},
+                                  .Depth = DepthAttachment{.Image = {.Image = scene.Shadow.Atlas()},
+                                                           .Begin = Load::Clear}}));
     StageSubmission submission;
     const auto rejected =
         scene.Shadow.Encode(frame,
@@ -424,7 +423,7 @@ void GroundOnly(Device &device, Scene &scene) {
   size_t occupied = 0;
   for (int y = 0; y < kShadowTilePx; ++y) {
     for (int x = 0; x < kShadowTilePx; ++x) {
-      const auto world = TexelWorld(scene, x, y);
+      const auto world = TexelWorld(scene, {.X = x, .Y = y});
       const bool inside = std::abs(world.X) < 64 && std::abs(world.Y) < 64;
       const float expected = inside ? static_cast<float>(matrix[10] * 3 + matrix[14]) : 0;
       const float value =
@@ -453,7 +452,7 @@ void MinifiedMasks(Device &device, Scene &scene) {
 
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   auto actual = Require(CreateDevice({.Validation = true}));
   NativeOfflineDevice device(*actual);
   Scene scene(device);

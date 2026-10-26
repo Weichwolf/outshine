@@ -2,7 +2,7 @@
 #include "BatchVisibility.h"
 #include "Units.h"
 #include "Mat4.h"
-#include "SunShadowStage.h"
+#include "SunShadowPass.h"
 #include "Vec3.h"
 #include "Box.h"
 
@@ -10,6 +10,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <memory>
 #include <cstddef>
 #include <limits>
 #include <string>
@@ -39,31 +40,69 @@ static_assert(offsetof(ShadowView, Light) == 0 && offsetof(ShadowView, Shift) ==
 std::array<size_t, 2> ShadowTile(size_t region) {
   return {{region % 2, region / 2}};
 }
+
+Native::Result<std::unique_ptr<Native::Texture>> CreateShadowAtlas(Native::Device &device) {
+  auto atlas =
+      device.CreateTexture({.Width = kShadowAtlasPx,
+                            .Height = kShadowAtlasPx,
+                            .Texels = Native::Format::Depth32Float,
+                            .Use = Native::TextureUse::DepthAttachment |
+                                   Native::TextureUse::Sampled | Native::TextureUse::CopySource});
+  if (!atlas) { return std::unexpected(std::move(atlas.error())); }
+  if (!*atlas) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                         .Message = "native device returned no sun-shadow atlas"});
+  }
+  return std::move(*atlas);
 }
 
-Native::Result<void> SunShadowStage::Configure(GeometryRenderer &subjects, const Gpu &gpu) {
+}
+
+Native::Result<void> SunShadowPass::Allocate(Native::Device &device) {
+  if (Atlas_) {
+    if (Device_ == &device) { return {}; }
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "sun-shadow atlas belongs to another device"});
+  }
+  auto atlas = CreateShadowAtlas(device);
+  if (!atlas) { return std::unexpected(std::move(atlas.error())); }
+  Atlas_ = std::move(*atlas);
+  Device_ = &device;
+  Cache_.Invalidate();
+  return {};
+}
+
+Native::Result<void> SunShadowPass::Configure(GeometryRenderer &geometry, const Gpu &gpu) {
   if (gpu.Device == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "shadow pipelines require a device"});
   }
-  if (Device_ != gpu.Device || !DepthOnly_ || !ClearTile_) {
+  const bool replacing = Device_ != gpu.Device;
+  if (replacing || !DepthOnly_ || !ClearTile_ || !Atlas_) {
+    std::unique_ptr<Native::Texture> atlas;
+    if (replacing || !Atlas_) {
+      auto allocated = CreateShadowAtlas(*gpu.Device);
+      if (!allocated) { return std::unexpected(std::move(allocated.error())); }
+      atlas = std::move(*allocated);
+    }
     auto depth = ConfigureDepthOnly(*gpu.Device);
     if (!depth) { return std::unexpected(depth.error()); }
     auto masked = ConfigureMasked(*gpu.Device);
     if (!masked) { return std::unexpected(masked.error()); }
     auto clear = ConfigureTileClear(*gpu.Device);
     if (!clear) { return std::unexpected(clear.error()); }
+    if (atlas) { Atlas_ = std::move(atlas); }
     DepthOnly_ = std::move(*depth);
     ClearTile_ = std::move(*clear);
     Masked_ = std::move(*masked);
     Device_ = gpu.Device;
   }
   Cache_.Invalidate();
-  Binds(subjects);
+  Binds(geometry);
   return {};
 }
 
-void SunShadowStage::Declare(Overhead sky, double radiusM, bool cameraCentred) {
+void SunShadowPass::Declare(Overhead sky, double radiusM, bool cameraCentred) {
   const Vec3 toSun = {{sky.ToSun[0], sky.ToSun[1], sky.ToSun[2]}};
   const Vec3 up = {{sky.Up[0], sky.Up[1], sky.Up[2]}};
   if (ToSun_ != toSun || Up_ != up || RadiusM_ != radiusM || CameraCentred_ != cameraCentred) {
@@ -85,17 +124,17 @@ void SunShadowStage::Declare(Overhead sky, double radiusM, bool cameraCentred) {
               sunLength > 0.0 && std::isfinite(upLength) && upLength > 0.0;
 }
 
-Vec3 SunShadowStage::CasterCentre() const {
-  const Vec3 anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : Vec3{};
+Vec3 SunShadowPass::CasterCentre() const {
+  const Vec3 anchor = Geometry_ != nullptr ? Geometry_->AnchorM() : Vec3{};
   Box bounds;
-  if (Subjects_ != nullptr) {
-    const std::vector<double> &placed = Subjects_->Placements();
+  if (Geometry_ != nullptr) {
+    const std::vector<double> &placed = Geometry_->Placements();
     const size_t slots = placed.size() / 16u;
     for (size_t slot = 0; slot < slots && slot < CastsBelow_; ++slot) {
       const double *const model = placed.data() + slot * 16u;
       bounds.Cover(Vec3{{model[12], model[13], model[14]}});
     }
-    const auto prisms = Subjects_->Prisms().Bounds();
+    const auto prisms = Geometry_->Prisms().Bounds();
     if (!prisms.Empty()) {
       bounds.Cover(Vec3{{static_cast<double>(prisms.Min[0]),
                          static_cast<double>(prisms.Min[1]),
@@ -108,7 +147,7 @@ Vec3 SunShadowStage::CasterCentre() const {
   return bounds.Empty() ? anchor : bounds.Middle() + anchor;
 }
 
-void SunShadowStage::Build(const Vec3 &preView) {
+void SunShadowPass::Build(const Vec3 &preView) {
   Vec3 forward = {{-ToSun_[0], -ToSun_[1], -ToSun_[2]}};
   double length = 0.0;
   for (const double axis : forward) { length += axis * axis; }
@@ -147,10 +186,10 @@ void SunShadowStage::Build(const Vec3 &preView) {
   BuildRegions({.Right = right, .Upward = upward, .Forward = forward}, centre, radiusM, preView);
 }
 
-void SunShadowStage::BuildRegions(const LightBasis &basis,
-                                  const Vec3 &centre,
-                                  double radiusM,
-                                  const Vec3 &preView) {
+void SunShadowPass::BuildRegions(const LightBasis &basis,
+                                 const Vec3 &centre,
+                                 double radiusM,
+                                 const Vec3 &preView) {
   Vec3 centreLight{};
   Vec3 casterLight{};
   const Vec3 casterCentre = CasterCentre();
@@ -224,20 +263,20 @@ void SunShadowStage::BuildRegions(const LightBasis &basis,
   }
 }
 
-void SunShadowStage::Prepare(const FrameContext &ctx) {
+void SunShadowPass::Prepare(const FrameContext &ctx) {
   Casting_ = false;
   PreservesAtlas_ = false;
   CastBatches_ = 0;
-  if (!Declared_ || Subjects_ == nullptr) { return; }
+  if (!Declared_ || Geometry_ == nullptr) { return; }
   if (Cache_.Submitted()) {
     for (size_t region = 0; region < RegionCount(); ++region) {
       AcceptedRaster_[region] = RasterUpdates_[region].Next;
     }
   }
   Build(ctx.PreViewTranslation);
-  const auto geometry = Subjects_->ShadowChangesSince(PreparedGeometryRevision_);
-  const auto prisms = Subjects_->Prisms().ShadowChangesSince(PreparedPrismRevision_);
-  const uint64_t ground = Subjects_->Ground().Generation();
+  const auto geometry = Geometry_->ShadowChangesSince(PreparedGeometryRevision_);
+  const auto prisms = Geometry_->Prisms().ShadowChangesSince(PreparedPrismRevision_);
+  const uint64_t ground = Geometry_->Ground().Generation();
   const bool reusable = Cache_.Submitted() && ground == PreparedGroundGeneration_;
   const bool full = !reusable || !geometry.Complete || !prisms.Complete;
   Boxf bounds = geometry.Bounds;
@@ -246,11 +285,11 @@ void SunShadowStage::Prepare(const FrameContext &ctx) {
   size_t changed = 0;
   for (size_t region = 0; region < RegionCount(); ++region) {
     RasterUpdates_[region] = PrepareShadowRaster(
-        AcceptedRaster_[region], Static_[region], Subjects_->AnchorM(), kShadowTilePx, full);
+        AcceptedRaster_[region], Static_[region], Geometry_->AnchorM(), kShadowTilePx, full);
     bool regionFull = RasterUpdates_[region].Texels == uint64_t{kShadowTilePx} * kShadowTilePx;
     if (!full && !regionFull && !IncludeShadowChange(RasterUpdates_[region], bounds)) {
       RasterUpdates_[region] = PrepareShadowRaster(
-          AcceptedRaster_[region], Static_[region], Subjects_->AnchorM(), kShadowTilePx, true);
+          AcceptedRaster_[region], Static_[region], Geometry_->AnchorM(), kShadowTilePx, true);
       regionFull = true;
     }
     allFull = allFull && regionFull;
@@ -269,14 +308,14 @@ void SunShadowStage::Prepare(const FrameContext &ctx) {
   PreparedGeometryRevision_ = geometry.Revision;
   PreparedPrismRevision_ = prisms.Revision;
   PreparedGroundGeneration_ = ground;
-  Subjects_->AcknowledgeShadowChanges(geometry.Revision);
-  Subjects_->AcknowledgePrismShadowChanges(prisms.Revision);
+  Geometry_->AcknowledgeShadowChanges(geometry.Revision);
+  Geometry_->AcknowledgePrismShadowChanges(prisms.Revision);
 }
 
-Native::Result<void> SunShadowStage::Encode([[maybe_unused]] const FrameContext &ctx,
-                                            const PassRecording &into) {
+Native::Result<void> SunShadowPass::Encode([[maybe_unused]] const FrameContext &ctx,
+                                           const PassRecording &into) {
   if (!Casting_ || !Cache_.NeedsRecording()) { return {}; }
-  if (!DepthOnly_ || Subjects_ == nullptr || into.Commands == nullptr) {
+  if (!DepthOnly_ || Geometry_ == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "shadow recording requires native resources"});
   }
@@ -290,7 +329,7 @@ Native::Result<void> SunShadowStage::Encode([[maybe_unused]] const FrameContext 
   return {};
 }
 
-Native::Result<void> SunShadowStage::Cast(size_t region, const PassRecording &into) {
+Native::Result<void> SunShadowPass::Cast(size_t region, const PassRecording &into) {
   const auto tile = ShadowTile(region);
   const Native::Viewport square{.X = static_cast<float>(tile[0]) * kShadowTilePx,
                                 .Y = static_cast<float>(tile[1]) * kShadowTilePx,
@@ -319,33 +358,33 @@ Native::Result<void> SunShadowStage::Cast(size_t region, const PassRecording &in
     const auto bytes = std::as_bytes(std::span(&uniform, 1));
     const std::array bindings{
         Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = bytes}}};
-    const auto ground = Subjects_->Ground().Cast(recording, selection, uniform.Shift, bindings);
+    const auto ground = Geometry_->Ground().Cast(recording, selection, uniform.Shift, bindings);
     if (!ground) { return ground; }
-    const auto subjects = CastSubjects(recording, bytes, selection);
-    if (!subjects) { return subjects; }
-    const auto prisms = Subjects_->EncodePrismShadow(
+    const auto geometry = CastGeometry(recording, bytes, selection);
+    if (!geometry) { return geometry; }
+    const auto prisms = Geometry_->EncodePrismShadow(
         recording, {.ClipFromWorld = uniform.Light, .Shift = uniform.Shift.Axis});
     if (!prisms) { return prisms; }
   }
   return {};
 }
 
-Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
-                                                  std::span<const std::byte> view,
-                                                  const Mat4f &selection) {
-  const auto &resident = Subjects_->Resident();
-  const auto &batches = Subjects_->Drawn();
+Native::Result<void> SunShadowPass::CastGeometry(const PassRecording &into,
+                                                 std::span<const std::byte> view,
+                                                 const Mat4f &selection) {
+  const auto &resident = Geometry_->Resident();
+  const auto &batches = Geometry_->Drawn();
   if (batches.empty()) { return {}; }
   if (!resident.Buffer(GeometryResidency::Stream::Vertex) ||
       !resident.Buffer(GeometryResidency::Stream::Index)) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
-                      .Message = "shadow subjects have no native vertex/index data"});
+                      .Message = "shadow geometry have no native vertex/index data"});
   }
   FrameContext frame;
   std::ranges::copy(selection, frame.Mvp.begin());
   const BatchFrustum visible(frame, {});
-  const auto subjectRows = Subjects_->SubjectRows();
+  const auto subjectRows = Geometry_->SubjectRows();
   for (size_t batchIndex = 0; batchIndex < batches.size(); ++batchIndex) {
     const auto &batch = batches[batchIndex];
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < subjectRows) { continue; }
@@ -360,7 +399,7 @@ Native::Result<void> SunShadowStage::CastSubjects(const PassRecording &into,
                                            .Message = "shadow pipeline is missing"});
     }
     const auto cast =
-        Subjects_->EncodeShadow(into, *pipeline, batchIndex, visible, instances, view);
+        Geometry_->EncodeShadow(into, *pipeline, batchIndex, visible, instances, view);
     if (!cast) { return std::unexpected(cast.error()); }
     CastBatches_ += *cast;
   }

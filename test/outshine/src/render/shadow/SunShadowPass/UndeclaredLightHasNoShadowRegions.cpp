@@ -1,4 +1,4 @@
-#include "SunShadowStage.h"
+#include "SunShadowPass.h"
 #include "Check.h"
 
 #include <limits>
@@ -6,8 +6,8 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Render::SunShadowStage shadow;
-  const Render::SunShadowStage::Overhead sun{.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}};
+  Render::SunShadowPass shadow;
+  const Render::SunShadowPass::Overhead sun{.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}};
   CHECK(!shadow.IsDeclared() && shadow.RegionCount() == 0, "an undeclared atlas has no regions");
   shadow.Declare(sun, 10);
   CHECK(shadow.IsDeclared() && shadow.RegionCount() == 1, "a valid bounded shadow has one region");
