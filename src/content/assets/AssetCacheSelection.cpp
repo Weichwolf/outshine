@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -123,16 +124,19 @@ FindRecord(sqlite3 *database, Lookup lookup, std::string_view key) {
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>
 AssetCache::Find(std::string_view key) const {
+  const std::scoped_lock lock(*State_->Mutex);
   return FindRecord(State_->Database, Lookup::Product, key);
 }
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>
 AssetCache::FindRequest(std::string_view requestKey) const {
+  const std::scoped_lock lock(*State_->Mutex);
   return FindRecord(State_->Database, Lookup::Request, requestKey);
 }
 
 std::expected<std::vector<AssetRecord>, AssetCacheError>
 AssetCache::Select(const AssetQuery &query) const {
+  const std::scoped_lock lock(*State_->Mutex);
   if (!Valid(query)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;
   const std::string sql =
