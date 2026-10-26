@@ -148,7 +148,7 @@ bool Spawn(const std::string &executable, std::string mode, const std::filesyste
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc == 3) {
     const std::string_view mode(argv[1]);
     if (mode == "--offline-same" || mode == "--offline-pair") {
