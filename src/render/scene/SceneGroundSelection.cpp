@@ -21,11 +21,7 @@ bool SceneRenderer::ConfigureGroundPyramid([[maybe_unused]] SceneRenderer &rende
                                            [[maybe_unused]] bool drawsGlass,
                                            std::string &error) {
   return Accepted(
-      frame.GroundPyramidStage.Configure(frame.Handles,
-                                         frame.Targets.Get(Resource::SceneDepth),
-                                         frame.Samp.get(),
-                                         frame.GroundPyramid.get(),
-                                         {.WidthPx = frame.Width, .HeightPx = frame.Height}),
+      frame.GroundPyramid.Configure(frame.Targets.Get(Resource::SceneDepth), frame.Samp.get()),
       error);
 }
 
@@ -40,20 +36,18 @@ bool SceneRenderer::ConfigureGroundSelection([[maybe_unused]] SceneRenderer &ren
 Native::Result<void> SceneRenderer::EncodeGroundPyramid([[maybe_unused]] const FrameContext &ctx,
                                                         const PassRecording &into) {
   if (ActiveState().Content.Geometry.Ground().Drawn() == 0) { return {}; }
-  return ActiveFrame().GroundPyramidStage.Encode(into);
+  return ActiveFrame().GroundPyramid.Encode(into);
 }
 
 Native::Result<void> SceneRenderer::EncodeGroundSelection(const FrameContext &ctx,
                                                           const PassRecording &into) {
   const auto &subjects = ActiveState().Content.Geometry;
   const auto &frame = ActiveFrame();
-  return ActiveState().Content.Geometry.Ground().SelectPatches(
-      ctx,
-      subjects.AnchorM(),
-      Picture(true, into),
-      *frame.GroundPyramid,
-      PyramidOver({.WidthPx = static_cast<uint32_t>(frame.Width),
-                   .HeightPx = static_cast<uint32_t>(frame.Height)}));
+  return ActiveState().Content.Geometry.Ground().SelectPatches(ctx,
+                                                               subjects.AnchorM(),
+                                                               Picture(true, into),
+                                                               *frame.GroundPyramid.Buffer(),
+                                                               frame.GroundPyramid.Shape());
 }
 
 Native::Result<void> SceneRenderer::EncodeGround(const FrameContext &ctx,

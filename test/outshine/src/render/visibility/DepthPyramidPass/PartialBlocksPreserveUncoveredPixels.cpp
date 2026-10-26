@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "DepthPyramidStage.h"
+#include "DepthPyramidPass.h"
 #include "GpuPlacement.h"
 #include "ReadbackTransfer.h"
 #include "StagePipelines.h"
@@ -86,7 +86,8 @@ struct alignas(16) CullInput {
 
 static_assert(sizeof(CullInput) == 256 && offsetof(CullInput, Source) == kSourceOffset);
 
-uint32_t Selected(Device &device, Buffer *pyramid, PyramidShape shape, Texels extent, Probe probe) {
+uint32_t
+Selected(Device &device, const Buffer *pyramid, PyramidShape shape, Texels extent, Probe probe) {
   const auto width = extent.WidthPx;
   const auto height = extent.HeightPx;
   const auto x = probe.X;
@@ -105,9 +106,9 @@ uint32_t Selected(Device &device, Buffer *pyramid, PyramidShape shape, Texels ex
   const auto work = Upload(device, *commands, jobs.data(), sizeof(jobs));
   const auto model = Upload(device, *commands, &placement, sizeof(placement));
   const auto args = Upload(device, *commands, arguments.data(), sizeof(arguments));
-  auto kept = Require(device.CreateBuffer(
+  const auto kept = Require(device.CreateBuffer(
       {.Bytes = sizeof(uint32_t), .Use = BufferUse::Storage | BufferUse::CopySource}));
-  auto pipeline = Require(CreateComputePipeline(device, ComputeShaderId::SubjectCull));
+  const auto pipeline = Require(CreateComputePipeline(device, ComputeShaderId::SubjectCull));
   CullInput view;
   view.Wide = shape.Wide;
   view.High = shape.High;
@@ -173,7 +174,7 @@ void CheckEveryDepth(std::span<const float> source,
   CHECK(equal, "every GPU pyramid texel equals the direct clamped reverse-Z block minimum");
 }
 
-void MeasureReduction(Device &device, DepthPyramidStage &stage, Texels extent) {
+void MeasureReduction(Device &device, DepthPyramidPass &stage, Texels extent) {
   if (SDL_GetEnvironmentVariable(SDL_GetEnvironment(), "OUTSHINE_DEPTH_PYRAMID_BENCHMARK") ==
       nullptr) {
     return;
@@ -224,24 +225,22 @@ void CheckExtent(Device &device, Texels extent, bool border) {
       {.RowBytes = uint64_t{width} * sizeof(float), .Region = {.Width = width, .Height = height}}));
   Land(device, std::move(commands));
   const PyramidShape shape = PyramidOver({.WidthPx = width, .HeightPx = height});
-  auto pyramid = Require(device.CreateBuffer({.Bytes = uint64_t{shape.Texels} * sizeof(float),
-                                              .Use = BufferUse::Storage | BufferUse::CopySource}));
-  auto sampler = Require(device.CreateSampler(
+  const auto sampler = Require(device.CreateSampler(
       {.Min = Filter::Nearest, .Mag = Filter::Nearest, .Mip = Filter::Nearest, .MaxLod = 0}));
-  DepthPyramidStage stage;
-  Require(
-      stage.Configure({.Device = &device, .SceneColours = {}},
-                      texture.get(),
-                      sampler.get(),
-                      pyramid.get(),
-                      {.WidthPx = static_cast<int>(width), .HeightPx = static_cast<int>(height)}));
+  DepthPyramidPass stage;
+  Require(stage.Allocate(
+      device, {.WidthPx = static_cast<int>(width), .HeightPx = static_cast<int>(height)}));
+  Require(stage.Configure(texture.get(), sampler.get()));
+  CHECK(!stage.Configure(nullptr, sampler.get()) && !stage.Configure(texture.get(), nullptr) &&
+            stage.Ready(),
+        "rejected bindings preserve the sources used by the following real GPU reduction");
   commands = Require(device.Begin());
   StageSubmission submission;
   Require(
       stage.Encode({.Commands = commands.get(), .Submission = submission, .Area = {}, .Clip = {}}));
   Land(device, std::move(commands));
-  auto read = Require(
-      ReadbackTransfer::Start(device, *pyramid, {.Bytes = uint64_t{shape.Texels} * sizeof(float)}));
+  auto read = Require(ReadbackTransfer::Start(
+      device, *stage.Buffer(), {.Bytes = uint64_t{shape.Texels} * sizeof(float)}));
   const auto output = Require(read.Wait(device, std::chrono::seconds(5)));
   CHECK(output, "reduced depth is read from the actual GPU");
   if (!output) { Failed(); }
@@ -263,16 +262,17 @@ void CheckExtent(Device &device, Texels extent, bool border) {
   if (width < 4 || height < 4) { return; }
   const uint32_t x = border ? width / 2u : width - 2u;
   const uint32_t y = border ? height - 1u : height / 2u;
-  CHECK(Selected(device, pyramid.get(), shape, extent, {.X = x, .Y = y, .Radius = kSmallSphere}) ==
+  CHECK(Selected(device, stage.Buffer(), shape, extent, {.X = x, .Y = y, .Radius = kSmallSphere}) ==
             3,
         "a genuine uncovered pixel cannot hide its cluster");
   if (border) {
     CHECK(Selected(
-              device, pyramid.get(), shape, extent, {.X = x, .Y = y, .Radius = kCoarseSphere}) == 3,
+              device, stage.Buffer(), shape, extent, {.X = x, .Y = y, .Radius = kCoarseSphere}) ==
+              3,
           "coarser reduction also preserves uncovered edge coverage");
   }
   CHECK(Selected(device,
-                 pyramid.get(),
+                 stage.Buffer(),
                  shape,
                  extent,
                  {.X = width / 2u, .Y = height / 2u, .Radius = kSmallSphere}) == 0,

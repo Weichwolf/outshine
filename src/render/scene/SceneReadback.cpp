@@ -210,15 +210,16 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
 
 ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
   into = {};
-  if (!ActiveState().Ready || !ActiveFrame().Pyramid) { return ReadState::Failed; }
-  const PyramidShape shape = PyramidOver({.WidthPx = static_cast<uint32_t>(ActiveFrame().Width),
-                                          .HeightPx = static_cast<uint32_t>(ActiveFrame().Height)});
+  if (!ActiveState().Ready || ActiveFrame().DepthPyramid.Buffer() == nullptr) {
+    return ReadState::Failed;
+  }
+  const PyramidShape &shape = ActiveFrame().DepthPyramid.Shape();
   const uint32_t texels = shape.Wide[0] * shape.High[0];
   if (texels == 0) { return ReadState::Failed; }
   const ReadState landed = ActiveFrame().PyramidRead.Poll();
   if (landed == ReadState::Failed) {
     return ActiveFrame().PyramidRead.Enqueue(Device_.get(),
-                                             ActiveFrame().Pyramid.get(),
+                                             ActiveFrame().DepthPyramid.Buffer(),
                                              texels * static_cast<uint32_t>(sizeof(float))) ==
                    ReadState::Failed
                ? ReadState::Failed
