@@ -449,7 +449,7 @@ private:
   [[nodiscard]] bool RestoresPieceResources(std::string &error);
 
   [[nodiscard]] bool RestoresGroundResources(std::string &error);
-  Geometry DrivenGeometry_;
+  SceneGeometry DrivenGeometry_;
   SceneGeometry Held_;
   Render::RenderObject Stood_;
   Render::RenderObjectPreparation Scratch_;

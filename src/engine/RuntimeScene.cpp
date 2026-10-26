@@ -53,8 +53,8 @@ RuntimeScene::RuntimeScene(Render::SceneRenderer &renderer,
                            const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
   if (Declared_.InitialGeometry != nullptr) {
-    DrivenGeometry_ = Declared_.InitialGeometry->clone();
-    Held_.SetGeometry(DrivenGeometry_.clone());
+    DrivenGeometry_.SetGeometry(Declared_.InitialGeometry->clone());
+    Held_.SetGeometry(DrivenGeometry_.Retain());
     Declared_.InitialGeometry = nullptr;
   }
   std::vector<Ui::SurfaceDeclaration> surfaces = std::move(Declared_.Surfaces);
@@ -209,7 +209,7 @@ bool RuntimeScene::PreparesRetainedGeometryReplacement(Render::SceneRenderer &re
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
   if (std::cmp_less(drivenParts, replacement->parts())) {
-    candidate->DrivenGeometry_ = previous.DrivenGeometry_.clone();
+    candidate->DrivenGeometry_.SetGeometry(previous.DrivenGeometry_.Retain());
   }
   if (!candidate->SetRetainedGeometry(std::move(replacement), drivenParts, error) ||
       (restore == ResourceRestoreMode::Immediate &&
@@ -243,16 +243,17 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                                pieces,
                                                restore);
   }
-  if (previous.DrivenGeometry_.parts() > 0) {
-    return PreparesGeometryReplacement(renderer,
-                                       previous,
-                                       previous.DrivenGeometry_.clone(),
-                                       static_cast<size_t>(previous.DrivenGeometry_.parts()),
-                                       font,
-                                       candidate,
-                                       error,
-                                       pieces,
-                                       restore);
+  if (previous.DrivenGeometry_.Snapshot().parts() > 0) {
+    return PreparesRetainedGeometryReplacement(
+        renderer,
+        previous,
+        previous.DrivenGeometry_.Retain(),
+        static_cast<size_t>(previous.DrivenGeometry_.Snapshot().parts()),
+        font,
+        candidate,
+        error,
+        pieces,
+        restore);
   }
   if (!renderer.BeginsWorldCandidate(
           error, pieces, Render::SceneRenderer::GroundSources::Published)) {
@@ -375,7 +376,7 @@ double RuntimeScene::MeteredLux() const {
 
 void RuntimeScene::ClearsSubject() {
   Held_.Clear();
-  DrivenGeometry_.clear();
+  DrivenGeometry_.Clear();
   Materials_.Clear();
   ShadowRadiusStoodM_ = 0.0;
   DrivenParts_ = 0;
@@ -1112,7 +1113,7 @@ std::expected<void, std::string> RuntimeScene::ValidGeometryBuild(const Geometry
     return std::unexpected(Says::InvalidDrivenPartCount);
   }
   if (!std::cmp_equal(drivenParts, built.parts()) &&
-      !std::cmp_equal(drivenParts, DrivenGeometry_.parts())) {
+      !std::cmp_equal(drivenParts, DrivenGeometry_.Snapshot().parts())) {
     return std::unexpected(Says::InvalidDrivenGeometry);
   }
   return {};
@@ -1124,7 +1125,7 @@ std::expected<void, std::string> RuntimeScene::BeginRetainedGeometryBuild(
   if (auto valid = ValidGeometryBuild(*built, drivenParts); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
-  if (std::cmp_equal(drivenParts, built->parts())) { DrivenGeometry_ = built->clone(); }
+  if (std::cmp_equal(drivenParts, built->parts())) { DrivenGeometry_.SetGeometry(built); }
   Camera_.Invalidate();
   GeometryBuildSurfaces_ = std::move(Declared_.Surfacing);
   Declared_.Surfacing.clear();
@@ -1156,7 +1157,7 @@ std::expected<void, std::string> RuntimeScene::BeginGeneratedGeometryBuild(
     GroundSurface_ = groundSurface.index();
     return BeginGeometryBuild(std::move(generated), 0, wearing);
   }
-  Geometry driven = DrivenGeometry_.clone();
+  Geometry driven = DrivenGeometry_.Snapshot().clone();
   const int surfaceBase = driven.surfaces();
   if (!driven.append(generated)) { return std::unexpected(Says::GeneratedGeometryAppendFailed); }
   GroundSurface_ = surfaceBase + groundSurface.index();
