@@ -35,7 +35,7 @@ int main() {
     const auto &scenario = *parsed->Scenario;
     CHECK(scenario.Source == "scene.json" && scenario.Motion.Frames == 60 &&
               scenario.View == "start" && scenario.Offline && scenario.Image == "last.png" &&
-              parsed->Output == "report.json",
+              parsed->Output == "report.json" && !scenario.Unpaced,
           "scenario, time window, camera and outputs retain their identities");
     CHECK(scenario.Motion.LinearVelocityMps[0] == 1 && scenario.Motion.LinearVelocityMps[1] == -2 &&
               scenario.Motion.LinearVelocityMps[2] == 3 &&
@@ -55,6 +55,13 @@ int main() {
       "--scenario", "scene.json", "--frames", "1", "--output", "same", "--image", "same"});
   reject(std::array{"--gpu-validation", "--gpu-validation"});
   reject(std::array{"--offline", "--offline"});
+  reject(std::array{"--unpaced"});
+  reject(std::array{"--scenario", "scene.json", "--frames", "1", "--unpaced", "--unpaced"});
+  const auto unpaced = ReadBenchmarkOptions(
+      std::array{"--unpaced", "--scenario", "scene.json", "--frames", "60", "--offline"});
+  CHECK(unpaced && unpaced->Scenario && unpaced->Scenario->Unpaced && unpaced->Scenario->Offline &&
+            unpaced->Scenario->Motion.Frames == 60,
+        "unpaced throughput is an explicit scenario policy with the same frame count");
   reject(std::array{"--output", "a", "--output", "b"});
   reject(std::array{"--unknown"});
   for (const char *number : {"0", "-1", "1.0", "1000001", "18446744073709551616", "1extra", ""}) {

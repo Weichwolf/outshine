@@ -79,6 +79,38 @@ class ScenarioBenchmark(unittest.TestCase):
                 self.assertAlmostEqual(metrics[f'render last submitted camera: eye {axis}'],
                                        value, places=9)
 
+    def test_unpaced_preserves_motion_image_and_avoids_target_waits(self):
+        scene = dict(SCENE, render={'widthPx': 32, 'heightPx': 32, 'fps': 2})
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-throughput-') as folder:
+            reports = []
+            images = []
+            for unpaced in (False, True):
+                image = Path(folder) / f'{unpaced}.png'
+                args = ('--unpaced',) if unpaced else ()
+                result = self.invoke('--scenario', json.dumps(scene), '--frames', '6',
+                                     '--linear-velocity', '1,-2,3',
+                                     '--angular-velocity', '0,-90,0', '--offline',
+                                     '--image', str(image), *args)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                report = json.loads(result.stdout)
+                self.assertTrue(report['world_complete'])
+                self.assertTrue(report['measurement_complete'])
+                self.assertEqual(report['motion']['frames'], 6)
+                self.assertEqual(report['gpu_times']['rendered_frames'], 6)
+                self.assertEqual(report['profile']['fps'], 2)
+                reports.append(report)
+                images.append(image.read_bytes())
+            self.assertEqual(reports[0]['motion'], reports[1]['motion'])
+            self.assertEqual(reports[0]['declaration_sha256'], reports[1]['declaration_sha256'])
+            self.assertEqual(images[0], images[1])
+            self.assertEqual(reports[0]['profile']['pacing'], 'target_fps')
+            self.assertEqual(reports[1]['profile']['pacing'], 'unpaced')
+            self.assertGreaterEqual(reports[0]['phases_ms']['paced_window'], 2999)
+            self.assertLess(reports[1]['phases_ms']['unpaced_window'], 1500)
+            for report, phase in zip(reports, ('paced_window', 'unpaced_window'), strict=True):
+                duration_ms = report['phases_ms'][phase] + report['phases_ms']['final_gpu_flush']
+                self.assertAlmostEqual(report['wall_throughput_fps'], 6000 / duration_ms)
+
     def test_file_input_overrides_and_stdout(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-input-') as folder:
             scene = Path(folder) / 'scene.json'

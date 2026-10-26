@@ -173,6 +173,7 @@ void Usage(std::string_view verb = {}) {
                  "  --preload-seconds <s>          refined preparation deadline (default10)\n"
                  "  --cache-dir <directory>        source directory; assets remain separate\n"
                  "  --offline                      use cached and shipped sources\n"
+                 "  --unpaced                      measure throughput without target-fps sleeps\n"
                  "  --output <file.json>           atomic report; default stdout\n"
                  "  --image <file.png>             save only the final measured frame\n"
                  "N is 1..1000000; the scenario supplies width, height and target fps.\n"

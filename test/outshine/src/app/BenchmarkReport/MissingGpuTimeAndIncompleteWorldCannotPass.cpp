@@ -40,6 +40,17 @@ int main() {
         "CPU and GPU retain their own nearest-rank durations without adding asynchronous phases");
   CHECK(json["build"]["host_load_before"].is_null(),
         "unavailable host load is not fabricated as zero");
+  CHECK(json["profile"]["pacing"] == "target_fps" && json["phases_ms"].contains("paced_window") &&
+            json["wall_throughput_fps"].is_null(),
+        "default pacing stays explicit and missing window durations do not imply throughput");
+  report.Unpaced = true;
+  report.WindowMs = 20;
+  report.FlushMs = 5;
+  json = decode();
+  CHECK(json["profile"]["pacing"] == "unpaced" && json["phases_ms"]["unpaced_window"] == 20 &&
+            !json["phases_ms"].contains("paced_window") && json["wall_throughput_fps"] == 80 &&
+            json["profile"]["fps"] == 60 && json["motion"]["frames"] == 2,
+        "unpaced throughput includes final GPU completion and preserves simulation timing");
   report.GpuSamples.pop_back();
   report.Measures[1].Value = 1;
   report.Measures[4].Value = 1;
@@ -57,5 +68,7 @@ int main() {
   json = decode();
   CHECK(json["measurement_complete"] == false && json["cpu_times"]["complete"] == false,
         "a shorter observed window never masquerades as the requested frame count");
+  CHECK(json["wall_throughput_fps"].is_null(),
+        "an incomplete measurement never publishes completed-window throughput");
   return Report();
 }

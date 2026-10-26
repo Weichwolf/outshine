@@ -26,6 +26,7 @@ struct ScenarioBenchmarkReport {
   std::string Gpu;
   Extent Frame;
   BenchmarkMotionInput Motion;
+  bool Unpaced = false;
   Camera Start;
   Camera Finish;
   Loading Prepared;

@@ -170,6 +170,11 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"benchmark_version", 1},
       {"mode", "scenario"},
       {"measurement_complete", measurementComplete},
+      {"wall_throughput_fps",
+       measurementComplete && report.WindowMs + report.FlushMs > 0
+           ? ReportJson(static_cast<double>(report.Frames.size()) * 1000.0 /
+                        (report.WindowMs + report.FlushMs))
+           : ReportJson(nullptr)},
       {"scenario", report.Scenario},
       {"declaration_sha256", report.DeclarationSha256},
       {"view", report.View},
@@ -188,6 +193,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
        {{"width_px", report.Frame.WidthPx},
         {"height_px", report.Frame.HeightPx},
         {"fps", report.Motion.RateHz},
+        {"pacing", report.Unpaced ? "unpaced" : "target_fps"},
         {"budget_ms", budgetMs}}},
       {"motion",
        {{"frames", report.Motion.Frames},
@@ -201,7 +207,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"phases_ms",
        {{"setup", report.SetupMs},
         {"preload", report.PreloadMs},
-        {"paced_window", report.WindowMs},
+        {report.Unpaced ? "unpaced_window" : "paced_window", report.WindowMs},
         {"final_gpu_flush", report.FlushMs},
         {"final_image", report.ImageMs},
         {"hardware_metadata", report.HardwareMs}}},

@@ -60,6 +60,13 @@ stehen im Szenario. Ohne deklarierte Bildgröße gilt 1280×720. `--frames` ford
 einen rechtshändigen Weltachsenvektor in Grad pro Sekunde. Geografische Weltachsen sind
 Ost/Oben/Süd. Die Kamera folgt der Startpose bei `(i+1)/fps`; ihre Linse bleibt erhalten.
 
+Standardmäßig taktet das Messfenster auf die Ziel-fps. `--unpaced` misst stattdessen
+maximalen Durchsatz ohne diese Wartezeiten; Simulationsschritte, Kamera und Framezahl
+bleiben gleich. `profile.pacing` unterscheidet `target_fps` und `unpaced`, die Phase
+heißt entsprechend `paced_window` oder `unpaced_window`. `wall_throughput_fps` zählt
+Frames pro tatsächlicher Fensterzeit einschließlich abschließendem GPU-Warten.
+Der ungepacete Vergleich ersetzt kein zeitlich getaktetes Places-/Geräte-Gate.
+
 Vor dem Fenster wird die gewählte Ansicht vollständig in Refined-Qualität vorbereitet.
 `--preload-seconds` setzt deren Deadline, standardmäßig zehn Sekunden. Es gibt keine
 Warmup- oder Zusatzframes. Nur das letzte gemessene Bild wird auf Wunsch atomar als PNG

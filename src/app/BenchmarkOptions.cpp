@@ -30,6 +30,7 @@ enum class Argument : uint8_t {
   Angular,
   Preload,
   Offline,
+  Unpaced,
   Cache,
   Image
 };
@@ -49,6 +50,7 @@ constexpr std::array kFlags{Flag{.Name = "--output", .Kind = Argument::Output},
                             Flag{.Name = "--angular-velocity", .Kind = Argument::Angular},
                             Flag{.Name = "--preload-seconds", .Kind = Argument::Preload},
                             Flag{.Name = "--offline", .Kind = Argument::Offline},
+                            Flag{.Name = "--unpaced", .Kind = Argument::Unpaced},
                             Flag{.Name = "--cache-dir", .Kind = Argument::Cache},
                             Flag{.Name = "--image", .Kind = Argument::Image}};
 
@@ -112,7 +114,8 @@ ApplyValue(BenchmarkOptions &options, Argument kind, std::string_view value) noe
     }
     case Argument::Output:
     case Argument::Validation:
-    case Argument::Offline: return std::unexpected("benchmark argument requires no value here");
+    case Argument::Offline:
+    case Argument::Unpaced: return std::unexpected("benchmark argument requires no value here");
   }
   return {};
 }
@@ -151,9 +154,13 @@ ReadBenchmarkOptions(std::span<const char *const> arguments) noexcept {
       options.GpuValidation = true;
       continue;
     }
-    if (flag->Kind == Argument::Offline) {
+    if (flag->Kind == Argument::Offline || flag->Kind == Argument::Unpaced) {
       if (!options.Scenario) { options.Scenario.emplace(); }
-      options.Scenario->Offline = true;
+      if (flag->Kind == Argument::Offline) {
+        options.Scenario->Offline = true;
+      } else {
+        options.Scenario->Unpaced = true;
+      }
       continue;
     }
     ++at;

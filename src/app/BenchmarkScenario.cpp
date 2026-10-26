@@ -79,7 +79,7 @@ Result MeasureFrames(Engine &engine,
                              .AdvanceMs = advanceMs,
                              .RenderMs = renderMs,
                              .Refined = refined});
-    schedule.Wait(frame + 1);
+    if (!report.Unpaced) { schedule.Wait(frame + 1); }
   }
   report.WindowMs = ElapsedMs(began);
   if (!renderer.camera(report.Finish)) {
@@ -131,6 +131,7 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   if (!declaration) { return std::unexpected(declaration.error()); }
   report.DeclarationSha256 = Sha256Hex(*declaration);
   report.Motion = options.Motion;
+  report.Unpaced = options.Unpaced;
   report.Motion.RateHz = document.Render.FrameRateHz;
   const auto timing = FrameTiming::At(report.Motion.RateHz);
   if (!timing) { return std::unexpected(timing.error()); }
