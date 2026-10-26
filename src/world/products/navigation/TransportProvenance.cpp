@@ -26,13 +26,14 @@ bool SourcesValid(const TransportProvenance &provenance) {
 }
 
 bool PathsValid(const TransportProvenance &provenance) {
-  constexpr uint16_t knownFields = 1023;
+  constexpr uint32_t knownFields = 1023;
   size_t next = 0;
   uint64_t previous = 0;
   for (const auto &path : provenance.Paths) {
+    const uint32_t fields = uint32_t{path.SuppliedFields} | uint32_t{path.DerivedFields};
     if (path.PathId == 0 || path.PathId <= previous || path.FirstReference != next ||
         path.ReferenceCount == 0 || path.ReferenceCount > provenance.References.size() - next ||
-        ((path.SuppliedFields | path.DerivedFields) & ~knownFields) != 0) {
+        (fields & ~knownFields) != 0) {
       return false;
     }
     previous = path.PathId;
