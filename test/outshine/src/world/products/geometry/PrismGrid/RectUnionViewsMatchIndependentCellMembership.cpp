@@ -57,11 +57,15 @@ int main() {
   using namespace outshine::Test;
   auto source = PrismViewFixture::Grid(17, 13);
   std::minstd_rand random(8181);
-  std::uniform_int_distribution<uint32_t> x(0, 22), y(0, 17);
+  std::uniform_int_distribution<uint32_t> x(0, 22);
+  std::uniform_int_distribution<uint32_t> y(0, 17);
   for (size_t example = 0; example < 256; ++example) {
     std::array<PrismCellRect, 16> cuts;
     for (auto &cut : cuts) {
-      const auto left = x(random), right = x(random), top = y(random), bottom = y(random);
+      const auto left = x(random);
+      const auto right = x(random);
+      const auto top = y(random);
+      const auto bottom = y(random);
       cut = {.Left = std::min(left, right),
              .Top = std::min(top, bottom),
              .Right = std::max(left, right),

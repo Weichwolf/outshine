@@ -3,7 +3,7 @@
 
 #include "UrbanArea.h"
 #include "Mat4.h"
-#include <scene/PrismGrid.h>
+#include <PrismGrid.h>
 #include <cstddef>
 #include <expected>
 #include <mdspan>

@@ -65,7 +65,7 @@ std::optional<Geometry> OpticalCard(float roughness) {
   Material material;
   material.BaseColour = {{0, 0, 0, 1}};
   material.Roughness = roughness;
-  Content::ImpostorAtlas::View view{.TowardEye = {{0, 0, 1}}, .Texels = {}, .Materials = {}};
+  ImpostorAtlas::View view{.TowardEye = {{0, 0, 1}}, .Texels = {}, .Materials = {}};
   view.Texels.assign(16, {.Normal = {{0, 0, 1}}, .Depth = .5f, .Surface = 1});
   std::string error;
   Material sheet;
@@ -73,7 +73,7 @@ std::optional<Geometry> OpticalCard(float roughness) {
   sheet.BaseColour = {{0, 0, 0, 1}};
   view.Texels[0].Surface = 2;
   sheet.DiffuseTransmission = {{kSheetTransmission, kSheetTransmission, kSheetTransmission}};
-  const auto atlas = Content::ImpostorAtlas::Create(4, {}, 1, {material, sheet}, {view}, error);
+  const auto atlas = ImpostorAtlas::Create(4, {}, 1, {material, sheet}, {view}, error);
   CHECK(atlas.has_value(), "constant glossy input creates an atlas");
   if (!atlas) { return std::nullopt; }
   return Render::BuildImpostorSurface(*atlas, 0, Render::ImpostorSurfaceDetail::Flat);

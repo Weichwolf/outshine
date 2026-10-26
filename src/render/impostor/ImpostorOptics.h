@@ -7,7 +7,7 @@
 namespace outshine::Render {
 [[nodiscard]] bool AddOpticalCardImages(Geometry &geometry,
                                         Material &material,
-                                        const Content::ImpostorAtlas &atlas,
-                                        const Content::ImpostorAtlas::View &source);
+                                        const ImpostorAtlas &atlas,
+                                        const ImpostorAtlas::View &source);
 }
 #endif

@@ -13,7 +13,7 @@ int main() {
   constexpr float elevatedBase = 100;
   constexpr float elevatedTop = 120;
   constexpr float reusedFill = .25f;
-  auto values = std::make_shared<const std::vector<PrismSpan>>(
+  const auto values = std::make_shared<const std::vector<PrismSpan>>(
       std::vector<PrismSpan>{{.Lower = std::numeric_limits<float>::quiet_NaN(), .Upper = 0},
                              {.Lower = -4, .Upper = -1},
                              {.Lower = 2, .Upper = 8},

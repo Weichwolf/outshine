@@ -1,6 +1,7 @@
 #include "ImpostorAtlas.h"
 #include "Check.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -45,7 +46,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   std::string error;
-  const auto atlas = Content::ImpostorAtlas::Decode(kFixture, "codec-fixture", error);
+  const auto atlas = ImpostorAtlas::Decode(kFixture, "codec-fixture", error);
   CHECK(atlas.has_value(), "hand-encoded native artifact is readable without renderer setup");
   if (!atlas) { return Report(); }
   CHECK(atlas->Pixels() == 3 && atlas->Views().size() == 1 && atlas->Surfaces().size() == 1,
@@ -59,12 +60,10 @@ int main() {
   const auto encoded = atlas->Encode("codec-fixture", error);
   CHECK(encoded && *encoded == std::vector<uint8_t>(kFixture.begin(), kFixture.end()),
         "encoder matches independently specified complete binary layout");
-  CHECK(!Content::ImpostorAtlas::Decode(kFixture, "other-source", error),
-        "provenance mismatch rejected");
+  CHECK(!ImpostorAtlas::Decode(kFixture, "other-source", error), "provenance mismatch rejected");
   for (const size_t length : {size_t{0}, size_t{64}, kFixture.size() - 1}) {
-    CHECK(
-        !Content::ImpostorAtlas::Decode(std::span{kFixture}.first(length), "codec-fixture", error),
-        "truncation rejected before field access");
+    CHECK(!ImpostorAtlas::Decode(std::span{kFixture}.first(length), "codec-fixture", error),
+          "truncation rejected before field access");
   }
 
   struct Invalid {
@@ -72,25 +71,25 @@ int main() {
     uint32_t Value;
   };
 
-  for (const auto mutation : std::array<Invalid, 9>{{{20, 2},
-                                                     {24, 0xffffffffu},
-                                                     {84, 0x7fc00000u},
-                                                     {104, 3},
-                                                     {108, 2},
-                                                     {140, 0x3f800000u},
-                                                     {228, 0},
-                                                     {232, 0},
-                                                     {236, 2}}}) {
+  for (const auto mutation : std::array<Invalid, 9>{{{.Offset = 20, .Value = 2},
+                                                     {.Offset = 24, .Value = 0xffffffffu},
+                                                     {.Offset = 84, .Value = 0x7fc00000u},
+                                                     {.Offset = 104, .Value = 3},
+                                                     {.Offset = 108, .Value = 2},
+                                                     {.Offset = 140, .Value = 0x3f800000u},
+                                                     {.Offset = 228, .Value = 0},
+                                                     {.Offset = 232, .Value = 0},
+                                                     {.Offset = 236, .Value = 2}}}) {
     std::vector<uint8_t> changed(kFixture.begin(), kFixture.end());
     Put32(changed, mutation.Offset, mutation.Value);
     Resign(changed);
-    CHECK(!Content::ImpostorAtlas::Decode(changed, "codec-fixture", error),
+    CHECK(!ImpostorAtlas::Decode(changed, "codec-fixture", error),
           "invalid dimensions materials or texels rejected despite a valid checksum");
   }
   std::vector<uint8_t> direction(kFixture.begin(), kFixture.end());
   Put32(direction, 120, 0);
   Resign(direction);
-  CHECK(!Content::ImpostorAtlas::Decode(direction, "codec-fixture", error),
+  CHECK(!ImpostorAtlas::Decode(direction, "codec-fixture", error),
         "nonunit view direction rejected with a valid checksum");
   return Report();
 }

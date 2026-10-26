@@ -11,8 +11,8 @@
 
 namespace outshine::NativeTreeDetailProbe {
 inline std::vector<Render::DepthSurfacePatch>
-NormalPatches(const Content::ImpostorAtlas &atlas,
-              const Content::ImpostorAtlas::View &source,
+NormalPatches(const ImpostorAtlas &atlas,
+              const ImpostorAtlas::View &source,
               std::span<const Render::DepthSurfacePatch> patches) {
   const auto pixels = static_cast<uint32_t>(atlas.Pixels());
   const Vec3 toward = source.TowardEye;

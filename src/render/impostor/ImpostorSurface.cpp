@@ -1,7 +1,7 @@
 #include "ImpostorSurface.h"
 #include "DepthSurfacePatches.h"
 #include "ImpostorOptics.h"
-#include "shade/ImageMips.h"
+#include "ImageMips.h"
 
 #include "math/Srgb.h"
 
@@ -50,7 +50,7 @@ uint8_t Byte(float value) {
       std::lround(std::clamp(value, 0.0f, 1.0f) * static_cast<float>(kOpaqueByte)));
 }
 
-std::vector<uint32_t> NearestCoveredTexels(const Content::ImpostorAtlas::View &source, int pixels) {
+std::vector<uint32_t> NearestCoveredTexels(const ImpostorAtlas::View &source, int pixels) {
   const size_t count = source.Texels.size();
   constexpr uint32_t missing = std::numeric_limits<uint32_t>::max();
   std::vector<uint32_t> owner(count, missing);
@@ -78,10 +78,8 @@ std::vector<uint32_t> NearestCoveredTexels(const Content::ImpostorAtlas::View &s
   return owner;
 }
 
-std::expected<std::vector<DepthSurfacePatch>, DepthSurfaceError>
-PatchesOf(const Content::ImpostorAtlas &atlas,
-          const Content::ImpostorAtlas::View &source,
-          ImpostorSurfaceDetail detail) {
+std::expected<std::vector<DepthSurfacePatch>, DepthSurfaceError> PatchesOf(
+    const ImpostorAtlas &atlas, const ImpostorAtlas::View &source, ImpostorSurfaceDetail detail) {
   const auto pixels = static_cast<uint32_t>(atlas.Pixels());
   if (detail == ImpostorSurfaceDetail::Flat) {
     return std::vector<DepthSurfacePatch>{{.Right = pixels, .Bottom = pixels, .OriginDepth = 0.5}};
@@ -102,8 +100,8 @@ PatchesOf(const Content::ImpostorAtlas &atlas,
 
 bool AddDepthSurface(Geometry &geometry,
                      int part,
-                     const Content::ImpostorAtlas &atlas,
-                     const Content::ImpostorAtlas::View &source,
+                     const ImpostorAtlas &atlas,
+                     const ImpostorAtlas::View &source,
                      Vec3 toward,
                      Vec3 right,
                      ImpostorSurfaceDetail detail) {
@@ -154,8 +152,8 @@ bool AddDepthSurface(Geometry &geometry,
 namespace {
 bool AddOpaqueCardImages(Geometry &geometry,
                          Material &into,
-                         const Content::ImpostorAtlas &atlas,
-                         const Content::ImpostorAtlas::View &source) {
+                         const ImpostorAtlas &atlas,
+                         const ImpostorAtlas::View &source) {
   const size_t count = source.Texels.size();
   const auto owner = NearestCoveredTexels(source, atlas.Pixels());
   if (owner.empty()) { return false; }
@@ -164,16 +162,15 @@ bool AddOpaqueCardImages(Geometry &geometry,
   std::array<std::vector<uint8_t>, 3> images;
   for (auto &image : images) { image.resize(count * 4); }
   for (size_t at = 0; at < count; ++at) {
-    const Content::ImpostorAtlas::Texel &pixel = source.Texels[owner[at]];
+    const ImpostorAtlas::Texel &pixel = source.Texels[owner[at]];
     const Material &material = atlas.Surfaces()[pixel.Surface - 1];
-    const auto sample =
-        source.Materials.empty()
-            ? Content::ImpostorAtlas::SurfaceSample{.BaseColour = {{material.BaseColour[0],
-                                                                    material.BaseColour[1],
-                                                                    material.BaseColour[2]}},
-                                                    .Roughness = material.Roughness,
-                                                    .Metalness = material.Metalness}
-            : source.Materials[owner[at]];
+    const auto sample = source.Materials.empty()
+                            ? ImpostorAtlas::SurfaceSample{.BaseColour = {{material.BaseColour[0],
+                                                                           material.BaseColour[1],
+                                                                           material.BaseColour[2]}},
+                                                           .Roughness = material.Roughness,
+                                                           .Metalness = material.Metalness}
+                            : source.Materials[owner[at]];
     Vec3 n{{pixel.Normal[0], pixel.Normal[1], pixel.Normal[2]}};
     if (!Normalise(n)) { return false; }
     for (size_t c = 0; c < 3; ++c) {
@@ -194,11 +191,10 @@ bool AddOpaqueCardImages(Geometry &geometry,
 
 }
 
-std::optional<Geometry> BuildImpostorSurface(const Content::ImpostorAtlas &atlas,
-                                             size_t view,
-                                             ImpostorSurfaceDetail detail) {
+std::optional<Geometry>
+BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail) {
   if (view >= atlas.Views().size()) { return std::nullopt; }
-  const Content::ImpostorAtlas::View &source = atlas.Views()[view];
+  const ImpostorAtlas::View &source = atlas.Views()[view];
   Geometry geometry;
   Material material;
   material.BaseColour = {{1, 1, 1, 1}};
@@ -224,9 +220,8 @@ std::optional<Geometry> BuildImpostorSurface(const Content::ImpostorAtlas &atlas
   return geometry;
 }
 
-std::optional<Content::ImpostorCards> PrepareImpostorCards(const Content::ImpostorAtlas &atlas,
-                                                           std::string &error) {
-  Content::ImpostorCards cards;
+std::optional<ImpostorCards> PrepareImpostorCards(const ImpostorAtlas &atlas, std::string &error) {
+  ImpostorCards cards;
   cards.Centre = atlas.CentreM();
   cards.HalfExtentM = atlas.HalfExtentM();
   cards.Views.reserve(atlas.Views().size());

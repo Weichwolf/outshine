@@ -1,7 +1,7 @@
 #include "ImageCapture.h"
 #include "Engine.h"
 #include "FrameReadback.h"
-#include "Image.h"
+#include "PngEncoding.h"
 #include "WriteFileAtomically.h"
 #include <cstddef>
 #include <cstdint>
@@ -28,7 +28,7 @@ SaveImage(std::span<const uint8_t> rgba, Extent frame, std::string_view path) {
     return std::unexpected("image capture requires a valid output path");
   }
   std::vector<uint8_t> png;
-  if (!Core::EncodePng(rgba.data(), frame.WidthPx, frame.HeightPx, png)) {
+  if (!EncodePng(rgba.data(), frame.WidthPx, frame.HeightPx, png)) {
     return std::unexpected("the frame did not encode as a png");
   }
   const std::filesystem::path destination(path);

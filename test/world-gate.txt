@@ -6,7 +6,6 @@ outshine/src/engine/Engine/WeatherValuesPreserveDeclaration
 outshine/src/app
 outshine/src/base
 outshine/src/content/assets
-outshine/src/content/impostor
 outshine/src/content/shade
 outshine/src/generators
 outshine/src/world

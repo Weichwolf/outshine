@@ -144,9 +144,9 @@ inline bool BuildCards(std::string_view provenance,
     error = "depth preview atlas absent";
     return false;
   }
-  auto atlas = Content::ImpostorAtlas::Decode((**bytes).Bytes(), provenance, error);
+  auto atlas = ImpostorAtlas::Decode((**bytes).Bytes(), provenance, error);
   if (!atlas) { return false; }
-  Content::ImpostorCards cards;
+  ImpostorCards cards;
   cards.Centre = atlas->CentreM();
   cards.HalfExtentM = atlas->HalfExtentM();
   for (size_t view = 0; view < atlas->Views().size(); ++view) {

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "shade/HalfTexels.h"
+#include "HalfTexels.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>

@@ -29,8 +29,8 @@ template <class T> bool Write(const std::filesystem::path &path, const std::vect
   return static_cast<bool>(output);
 }
 
-bool ExportViews(const outshine::Content::ImpostorAtlas &atlas,
-                 const outshine::Content::ImpostorCards &cards,
+bool ExportViews(const outshine::ImpostorAtlas &atlas,
+                 const outshine::ImpostorCards &cards,
                  const std::filesystem::path &output,
                  std::ofstream &metadata,
                  bool depth) {
@@ -98,16 +98,16 @@ int main(int argc, const char *const *argv) {
   const auto loaded = (*cache)->Load(Sha256Hex(provenance), size_t{64} * 1024 * 1024);
   if (!loaded || !*loaded) { return 2; }
   std::string error;
-  const auto atlas = Content::ImpostorAtlas::Decode((**loaded).Bytes(), provenance, error);
+  const auto atlas = ImpostorAtlas::Decode((**loaded).Bytes(), provenance, error);
   if (!atlas) {
     std::println(stderr, "{}", error);
     return 2;
   }
   const auto cardAsset =
-      (*cache)->Load(Content::ImpostorCards::AssetKey(provenance), size_t{64} * 1024 * 1024);
+      (*cache)->Load(ImpostorCards::AssetKey(provenance), size_t{64} * 1024 * 1024);
   if (!cardAsset || !*cardAsset) { return 2; }
   const auto cards =
-      Content::ImpostorCards::Decode((**cardAsset).Bytes(), provenance, size_t{64} * 1024 * 1024);
+      ImpostorCards::Decode((**cardAsset).Bytes(), provenance, size_t{64} * 1024 * 1024);
   if (!cards || cards->Views.size() != atlas->Views().size()) { return 2; }
   const bool depth = argc == 5;
   if (depth && std::string(argv[4]) != "depth") { return 2; }

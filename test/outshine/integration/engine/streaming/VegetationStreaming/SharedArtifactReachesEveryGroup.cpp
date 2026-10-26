@@ -34,8 +34,8 @@ void WriteSpecies(const std::filesystem::path &directory) {
   }
 }
 
-void CheckAtlasBudget(outshine::Content::ImpostorAtlasShape shape) {
-  using outshine::Content::ImpostorAtlas;
+void CheckAtlasBudget(outshine::ImpostorAtlasShape shape) {
+  using outshine::ImpostorAtlas;
   const auto bytes = ImpostorAtlas::EncodedBytesMost(shape);
   constexpr auto kOpticalMetadataMost = 64u + 64u * 68u + 8u * 24u + 8u;
   CHECK(bytes && *bytes == 256u * 256u * 8u * 40u + kOpticalMetadataMost,
@@ -45,11 +45,11 @@ void CheckAtlasBudget(outshine::Content::ImpostorAtlasShape shape) {
         "invalid shapes cannot produce overflowing native allocation budgets");
 }
 
-void CheckEncodedAtlasBudget(const outshine::Content::ImpostorAtlas &atlas,
-                             outshine::Content::ImpostorAtlasShape shape,
+void CheckEncodedAtlasBudget(const outshine::ImpostorAtlas &atlas,
+                             outshine::ImpostorAtlasShape shape,
                              std::string &error) {
   const auto bytes = atlas.Encode("bound-check", error);
-  const auto bound = outshine::Content::ImpostorAtlas::EncodedBytesMost(shape);
+  const auto bound = outshine::ImpostorAtlas::EncodedBytesMost(shape);
   CHECK(bytes && bound && bytes->size() <= *bound,
         "format-derived budget contains a real encoded native atlas");
 }

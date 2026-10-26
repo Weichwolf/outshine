@@ -29,8 +29,9 @@
 #include <thread>
 #include <utility>
 #include "Image.h"
+#include "PngEncoding.h"
 #include "math/Srgb.h"
-#include "shade/HalfTexels.h"
+#include "HalfTexels.h"
 #include "ImpostorInstances.h"
 #include "VegetationStreaming.h"
 #include "FrameReadback.h"
@@ -163,11 +164,11 @@ void PrintForegroundTimes(Foreground &foreground) {
   }
 }
 
-std::optional<Content::ImpostorAtlas>
+std::optional<ImpostorAtlas>
 CaptureAtlas(const TreePrototype &tree, Tasks &worker, Foreground &foreground) {
   std::string error;
   for (size_t n = 0; n < kForegroundFrames; ++n) { DrawForeground(foreground, 0); }
-  std::optional<Content::ImpostorAtlas> atlas;
+  std::optional<ImpostorAtlas> atlas;
   const auto began = std::chrono::steady_clock::now();
   const auto job = worker.Post(
       [&] { atlas = BakeImpostorAtlas(tree, {.Pixels = kPixels, .Views = kViews}, error); });
@@ -197,8 +198,7 @@ CaptureAtlas(const TreePrototype &tree, Tasks &worker, Foreground &foreground) {
   return atlas;
 }
 
-bool SameView(const Content::ImpostorAtlas::View &before,
-              const Content::ImpostorAtlas::View &after) {
+bool SameView(const ImpostorAtlas::View &before, const ImpostorAtlas::View &after) {
   if (before.TowardEye != after.TowardEye || before.Texels.size() != after.Texels.size()) {
     return false;
   }
@@ -210,7 +210,7 @@ bool SameView(const Content::ImpostorAtlas::View &before,
   return true;
 }
 
-void CheckSameAtlas(const Content::ImpostorAtlas &atlas, const Content::ImpostorAtlas &restored) {
+void CheckSameAtlas(const ImpostorAtlas &atlas, const ImpostorAtlas &restored) {
   bool identical = restored.Pixels() == atlas.Pixels() && restored.CentreM() == atlas.CentreM() &&
                    restored.HalfExtentM() == atlas.HalfExtentM() &&
                    restored.Surfaces() == atlas.Surfaces() &&
@@ -234,38 +234,36 @@ void Resign(std::vector<uint8_t> &bytes) {
   }
 }
 
-void CheckCorruption(const Content::ImpostorAtlas &atlas,
+void CheckCorruption(const ImpostorAtlas &atlas,
                      const std::vector<uint8_t> &encoded,
                      const std::string &provenance) {
   std::string error;
-  CHECK(!Content::ImpostorAtlas::Decode(encoded, provenance + "changed", error),
+  CHECK(!ImpostorAtlas::Decode(encoded, provenance + "changed", error),
         "changed generator or species provenance invalidates the cache");
   CHECK(!atlas.Encode("", error), "unidentified cache data is refused");
   for (const size_t length : {size_t{0}, kChecksumBytes, kShortHeaderBytes, encoded.size() - 1}) {
-    CHECK(!Content::ImpostorAtlas::Decode(std::span(encoded).first(length), provenance, error),
+    CHECK(!ImpostorAtlas::Decode(std::span(encoded).first(length), provenance, error),
           "truncated artifact data is refused");
   }
   auto corrupt = encoded;
   corrupt[kCorruptByte] ^= 1;
-  CHECK(!Content::ImpostorAtlas::Decode(corrupt, provenance, error),
-        "payload corruption is detected");
+  CHECK(!ImpostorAtlas::Decode(corrupt, provenance, error), "payload corruption is detected");
   for (const size_t field : kCorruptFields) {
     corrupt = encoded;
     for (size_t at = 0; at < sizeof(uint32_t); ++at) { corrupt[field + at] = kOpaque; }
     Resign(corrupt);
-    CHECK(!Content::ImpostorAtlas::Decode(corrupt, provenance, error),
+    CHECK(!ImpostorAtlas::Decode(corrupt, provenance, error),
           "unsupported version and oversized dimensions fail even with a valid checksum");
   }
   corrupt = encoded;
   std::ranges::copy(kNanBytes, corrupt.begin() + kNanOffset);
   Resign(corrupt);
-  CHECK(!Content::ImpostorAtlas::Decode(corrupt, provenance, error),
+  CHECK(!ImpostorAtlas::Decode(corrupt, provenance, error),
         "nonfinite material data is refused even with a valid checksum");
 }
 
-std::optional<std::vector<uint8_t>> CheckStorage(const Content::ImpostorAtlas &atlas,
-                                                 const TreeSpecies &species,
-                                                 const std::string &text) {
+std::optional<std::vector<uint8_t>>
+CheckStorage(const ImpostorAtlas &atlas, const TreeSpecies &species, const std::string &text) {
   std::string error;
   const std::string provenance =
       ImpostorAtlasProvenance(species.Definition(), {.Pixels = kPixels, .Views = kViews});
@@ -280,7 +278,7 @@ std::optional<std::vector<uint8_t>> CheckStorage(const Content::ImpostorAtlas &a
     std::println("{}", error);
     return std::nullopt;
   }
-  const auto restored = Content::ImpostorAtlas::Decode(*encoded, provenance, error);
+  const auto restored = ImpostorAtlas::Decode(*encoded, provenance, error);
   CHECK(restored.has_value(), "versioned crown data reads back");
   if (!restored) { return std::nullopt; }
   CheckSameAtlas(atlas, *restored);
@@ -373,7 +371,7 @@ void CheckPendingReads(Content::PreparedImpostorAssets &cache,
 }
 
 void CheckLoaded(Content::PreparedImpostorAssets &cache,
-                 std::optional<Content::ImpostorAtlas> &atlas,
+                 std::optional<ImpostorAtlas> &atlas,
                  const std::vector<uint8_t> &bytes,
                  const std::string &provenance) {
   std::vector<Content::PreparedImpostorAssets::Loaded> loaded;
@@ -403,7 +401,7 @@ void CheckLoaded(Content::PreparedImpostorAssets &cache,
   if (loaded[0].Atlas) { atlas = std::move(loaded[0].Atlas); }
 }
 
-bool CheckCache(std::optional<Content::ImpostorAtlas> &atlas,
+bool CheckCache(std::optional<ImpostorAtlas> &atlas,
                 const std::vector<uint8_t> &bytes,
                 const std::string &provenance,
                 Tasks &worker) {
@@ -429,7 +427,7 @@ bool CheckCache(std::optional<Content::ImpostorAtlas> &atlas,
   return true;
 }
 
-void CheckIntrinsicCapture(const Content::ImpostorAtlas &atlas, size_t view) {
+void CheckIntrinsicCapture(const ImpostorAtlas &atlas, size_t view) {
   const auto &texels = atlas.Views()[view].Texels;
   CHECK(texels.size() == kTexels, "every view has its full pixel population");
   std::array<size_t, 3> covered{};
@@ -467,7 +465,7 @@ void CheckIntrinsicCapture(const Content::ImpostorAtlas &atlas, size_t view) {
   CHECK(valid, "depth, coverage, surface identities and unit normals agree");
   CHECK(covered[1] > 0 && covered[2] > 0, "each crown view contains both bark and foliage");
   std::vector<uint8_t> png;
-  CHECK(Core::EncodePng(rgba.data(), kPixels, kPixels, png),
+  CHECK(App::EncodePng(rgba.data(), kPixels, kPixels, png),
         "intrinsic crown colour encodes as a PNG");
   WriteBytes(png, OutputDirectory() + "/birch-" + std::to_string(view) + ".png");
   std::println("view {} bark={} leaf={} sampled pixels", view, covered[1], covered[2]);
@@ -488,7 +486,7 @@ bool SheetMatches(const OpticalMaps &maps,
                   std::span<const float> moments,
                   size_t offset,
                   const Material &original,
-                  const Content::ImpostorAtlas::SurfaceSample &sample) {
+                  const ImpostorAtlas::SurfaceSample &sample) {
   bool valid = moments[offset + 3] == 0 && maps.Reflection.Rgba[offset + 3] == kOpaque;
   for (size_t c = 0; c < 3; ++c) {
     valid &= std::abs(static_cast<float>(maps.Reflection.Rgba[offset + c]) / kByteSteps -
@@ -511,7 +509,7 @@ bool OpaqueMatches(const OpticalMaps &maps,
          moments[offset + 3] == 1 && maps.Reflection.Rgba[offset + 3] == 0;
 }
 
-void CheckMaterialMaps(const Content::ImpostorAtlas &atlas, size_t view, const Geometry &card) {
+void CheckMaterialMaps(const ImpostorAtlas &atlas, size_t view, const Geometry &card) {
   const auto material = card.surfaceAt(MaterialInstance(0));
   const OpticalMaps maps{.Colour = card.imageAt(material.BaseColourMap.Image),
                          .Moments = card.imageAt(material.MetalRoughMap.Image),
@@ -553,7 +551,7 @@ void CheckMaterialMaps(const Content::ImpostorAtlas &atlas, size_t view, const G
         "the card carries normal detail and retains mip filtering");
 }
 
-Scenario::Document CardScene(size_t view, const Content::ImpostorAtlas &atlas, size_t light) {
+Scenario::Document CardScene(size_t view, const ImpostorAtlas &atlas, size_t light) {
   Scenario::Document scene;
   scene.Render.Declared = true;
   scene.Render.Frame = kCardExtent;
@@ -587,7 +585,7 @@ struct CardAttachments {
   std::span<const float> Normals;
 };
 
-void CheckCardAttachments(const Content::ImpostorAtlas::View &source,
+void CheckCardAttachments(const ImpostorAtlas::View &source,
                           const CardAttachments &data,
                           size_t view,
                           size_t light) {
@@ -642,7 +640,7 @@ void CheckFine(const Geometry &fine,
         "fine comparison PNG is written");
 }
 
-void CheckLighting(const Content::ImpostorAtlas &atlas,
+void CheckLighting(const ImpostorAtlas &atlas,
                    size_t view,
                    const Geometry &card,
                    const std::optional<Geometry> &fine) {
@@ -678,9 +676,7 @@ void CheckLighting(const Content::ImpostorAtlas &atlas,
         "changing the light relights captured crown surfaces");
 }
 
-void CheckViews(const Content::ImpostorAtlas &atlas,
-                const TreePrototype &tree,
-                const TreeSpecies &species) {
+void CheckViews(const ImpostorAtlas &atlas, const TreePrototype &tree, const TreeSpecies &species) {
   CHECK(atlas.Views().size() == kViews && atlas.Surfaces().size() == 2,
         "four independent views retain bark and leaf materials");
   if (atlas.Surfaces().size() != 2) { return; }
@@ -711,7 +707,7 @@ struct InstanceScene {
   std::string Error;
 };
 
-bool OpenInstances(InstanceScene &scene, const Content::ImpostorAtlas &atlas) {
+bool OpenInstances(InstanceScene &scene, const ImpostorAtlas &atlas) {
   const auto card = Render::BuildImpostorSurface(atlas, 0);
   CHECK(card.has_value(), "crown piece fixture starts from the native card reference");
   if (!card) { return false; }
@@ -739,7 +735,7 @@ bool Screenshot(InstanceScene &scene, const std::string &path) {
   return saved.has_value();
 }
 
-std::array<Mat4, 2> Models(const Content::ImpostorAtlas &atlas, Vec3 toward) {
+std::array<Mat4, 2> Models(const ImpostorAtlas &atlas, Vec3 toward) {
   const Vec3 right{{toward[2], 0, -toward[0]}};
   std::array<Mat4, 2> models{};
   models[0][0] = models[0][10] = -1;
@@ -776,7 +772,7 @@ struct PixelResult {
   double NormalError = 0;
 };
 
-PixelResult InspectPixel(const Content::ImpostorAtlas &atlas,
+PixelResult InspectPixel(const ImpostorAtlas &atlas,
                          size_t view,
                          const Attachments &data,
                          const Mat4 &model,
@@ -796,7 +792,7 @@ PixelResult InspectPixel(const Content::ImpostorAtlas &atlas,
   return result;
 }
 
-void CheckInstancePixels(const Content::ImpostorAtlas &atlas,
+void CheckInstancePixels(const ImpostorAtlas &atlas,
                          size_t view,
                          const Attachments &data,
                          const std::array<Mat4, 2> &models) {
@@ -826,7 +822,7 @@ void CheckInstancePixels(const Content::ImpostorAtlas &atlas,
 }
 
 void CheckInstanceViews(InstanceScene &scene,
-                        const Content::ImpostorAtlas &atlas,
+                        const ImpostorAtlas &atlas,
                         Render::ImpostorInstances &crowns) {
   const double extent = atlas.HalfExtentM();
   for (size_t view = 0; view < atlas.Views().size(); ++view) {
@@ -872,7 +868,7 @@ uint32_t FindBirch(const Generators::Shipping &catalogue, const TreeSpecies &spe
   return birch;
 }
 
-void CheckWorldCoverage(InstanceScene &scene, const Content::ImpostorAtlas &atlas) {
+void CheckWorldCoverage(InstanceScene &scene, const ImpostorAtlas &atlas) {
   std::vector<float> depth;
   CHECK(scene.Renderer.ReadDepth(depth) == Render::ReadState::Ready &&
             depth.size() == size_t{kInstanceExtent.WidthPx} * kPixels,
@@ -923,7 +919,7 @@ void CheckMissing(InstanceScene &scene,
 }
 
 void CheckWorld(InstanceScene &scene,
-                const Content::ImpostorAtlas &atlas,
+                const ImpostorAtlas &atlas,
                 const TreeSpecies &species,
                 Tasks &worker) {
   outshine::Ground::GroundMaterials materials;
@@ -981,9 +977,7 @@ void CheckWorld(InstanceScene &scene,
   CheckMissing(scene, worker, catalogue, placements, frame, config);
 }
 
-void CheckInstances(const Content::ImpostorAtlas &atlas,
-                    const TreeSpecies &species,
-                    Tasks &worker) {
+void CheckInstances(const ImpostorAtlas &atlas, const TreeSpecies &species, Tasks &worker) {
   InstanceScene scene;
   if (!OpenInstances(scene, atlas)) { return; }
   CHECK(!Render::ImpostorInstances::Create(scene.Renderer, atlas, 0, scene.Error),
@@ -1037,6 +1031,6 @@ int main() {
   std::println(
       "atlas capture, checks and PNG export {:.3f} ms; payload {} bytes; no world frame-rate claim",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
-      atlas->Views().size() * kTexels * sizeof(Content::ImpostorAtlas::Texel));
+      atlas->Views().size() * kTexels * sizeof(ImpostorAtlas::Texel));
   return Report();
 }

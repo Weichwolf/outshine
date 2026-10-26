@@ -2,7 +2,7 @@
 #include "Sha256.h"
 #include "BinaryValueArchive.h"
 #include "Box.h"
-#include <scene/PrismGrid.h>
+#include <PrismGrid.h>
 #include <algorithm>
 #include <array>
 #include <span>

@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-namespace outshine::Content {
+namespace outshine {
 namespace {
 
 constexpr uint64_t kAtlasMagic = 0x004e574f5243534full;

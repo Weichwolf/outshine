@@ -27,14 +27,13 @@ using outshine::Test::Report;
 namespace {
 std::atomic_uint64_t attempts{0};
 
-std::optional<Content::ImpostorCards> Prepare(const Content::ImpostorAtlas &atlas,
-                                              std::string &error) {
+std::optional<ImpostorCards> Prepare(const ImpostorAtlas &atlas, std::string &error) {
   ++attempts;
   return Render::PrepareImpostorCards(atlas, error);
 }
 
-std::optional<Content::ImpostorCards> Refuse([[maybe_unused]] const Content::ImpostorAtlas &atlas,
-                                             std::string &error) {
+std::optional<ImpostorCards> Refuse([[maybe_unused]] const ImpostorAtlas &atlas,
+                                    std::string &error) {
   ++attempts;
   error = "a ready hit must not call preparation";
   return std::nullopt;
@@ -53,23 +52,23 @@ std::optional<Content::PreparedImpostorAssets::Loaded> Read(Content::PreparedImp
   return std::nullopt;
 }
 
-std::optional<Content::ImpostorAtlas> Atlas(std::string &error) {
+std::optional<ImpostorAtlas> Atlas(std::string &error) {
   constexpr Vec4f albedo{{0.3f, 0.5f, 0.2f, 1}};
   constexpr float roughness = 0.7f;
   Material material;
   material.BaseColour = albedo;
   material.Roughness = roughness;
-  Content::ImpostorAtlas::View view;
+  ImpostorAtlas::View view;
   view.TowardEye = {{0, 0, 1}};
   view.Texels.resize(size_t{16} * 16);
   for (size_t at = 0; at < view.Texels.size(); ++at) {
     if (at % 16 < 3 || at / 16 < 2) { continue; }
     view.Texels[at] = {.Normal = {{0, 0, 1}}, .Depth = 0.5f, .Surface = 1};
   }
-  return Content::ImpostorAtlas::Create(16, {{0, 1, 0}}, 1, {material}, {std::move(view)}, error);
+  return ImpostorAtlas::Create(16, {{0, 1, 0}}, 1, {material}, {std::move(view)}, error);
 }
 
-size_t PreparedMipBytes(const Content::ImpostorCards &cards) {
+size_t PreparedMipBytes(const ImpostorCards &cards) {
   size_t bytes = 0;
   for (const auto &view : cards.Views) {
     for (int at = 0; at < view.Surface.images(); ++at) {
@@ -87,9 +86,9 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-ready-cards-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  const Content::ImpostorAtlasShape shape{.Pixels = 16, .Views = 1};
+  const ImpostorAtlasShape shape{.Pixels = 16, .Views = 1};
   const std::string provenance = ImpostorAtlasProvenance("ready-cards-fixture-1", shape);
-  CHECK(Content::ImpostorCards::AssetKey(provenance) == Sha256Hex("impostor-cards-5/" + provenance),
+  CHECK(ImpostorCards::AssetKey(provenance) == Sha256Hex("impostor-cards-5/" + provenance),
         "typed optical materials version their recipe without invalidating capture");
   std::string error;
   auto atlas = Atlas(error);
@@ -109,11 +108,11 @@ int main() {
                captureBytes->size(),
                cardsBytes->size(),
                mipBytes);
-  CHECK(!Content::ImpostorCards::Decode(*cardsBytes, provenance + "changed", size_t{1024} * 1024) &&
-            !Content::ImpostorCards::Decode(*cardsBytes, provenance, cardsBytes->size() - 1) &&
-            !Content::ImpostorCards::Decode(std::span(*cardsBytes).first(cardsBytes->size() - 1),
-                                            provenance,
-                                            size_t{1024} * 1024),
+  CHECK(!ImpostorCards::Decode(*cardsBytes, provenance + "changed", size_t{1024} * 1024) &&
+            !ImpostorCards::Decode(*cardsBytes, provenance, cardsBytes->size() - 1) &&
+            !ImpostorCards::Decode(std::span(*cardsBytes).first(cardsBytes->size() - 1),
+                                   provenance,
+                                   size_t{1024} * 1024),
         "provenance changes, limits and truncation are rejected");
   Tasks tasks(1);
   const Content::PreparedImpostorAssets::Config config{.Directory = root.string()};
@@ -158,7 +157,7 @@ int main() {
     CHECK(database, "fixture cache reopens for corruption control");
     if (database) {
       const std::array<uint8_t, 4> corrupt{};
-      const AssetRecord record{.Key = Content::ImpostorCards::AssetKey(provenance),
+      const AssetRecord record{.Key = ImpostorCards::AssetKey(provenance),
                                .Kind = "impostor-cards",
                                .Bounds = {.Min = {{-1, 0, -1}}, .Max = {{1, 2, 1}}},
                                .Package = {},

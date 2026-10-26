@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "GeometryResidency.h"
 #include "ReadbackTransfer.h"
-#include "shade/HalfTexels.h"
+#include "HalfTexels.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include <algorithm>
 #include <array>

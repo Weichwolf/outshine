@@ -51,8 +51,8 @@ struct NativePiece {
   std::vector<float> Uv1;
 };
 
-std::optional<Content::ImpostorAtlas::View> ConvertReadback(const AtlasReadback &readback,
-                                                            std::string &error) {
+std::optional<ImpostorAtlas::View> ConvertReadback(const AtlasReadback &readback,
+                                                   std::string &error) {
   const size_t count = readback.PixelCount;
   if (readback.Depth.size() != count || readback.Normal.size() != count * 4 ||
       readback.Identity.size() != count * 4 || readback.Base.size() != count * 4 ||
@@ -60,7 +60,7 @@ std::optional<Content::ImpostorAtlas::View> ConvertReadback(const AtlasReadback 
     error = Says::Readback;
     return std::nullopt;
   }
-  Content::ImpostorAtlas::View view;
+  ImpostorAtlas::View view;
   view.Texels.resize(count);
   view.Materials.resize(count);
   for (size_t pixel = 0; pixel < count; ++pixel) {
@@ -209,14 +209,13 @@ bool InstallSource(SceneRenderer &renderer,
   return true;
 }
 
-std::optional<std::vector<Content::ImpostorAtlas::View>>
-CaptureViews(SceneRenderer &renderer,
-             const Vec3 &centre,
-             double halfExtent,
-             Content::ImpostorAtlasShape shape,
-             size_t materialCount,
-             std::string &error) {
-  std::vector<Content::ImpostorAtlas::View> views;
+std::optional<std::vector<ImpostorAtlas::View>> CaptureViews(SceneRenderer &renderer,
+                                                             const Vec3 &centre,
+                                                             double halfExtent,
+                                                             ImpostorAtlasShape shape,
+                                                             size_t materialCount,
+                                                             std::string &error) {
+  std::vector<ImpostorAtlas::View> views;
   views.reserve(shape.Views);
   std::vector<float> depth;
   std::vector<float> normal;
@@ -290,9 +289,8 @@ CaptureViews(SceneRenderer &renderer,
 
 }
 
-std::optional<Content::ImpostorAtlas> ImpostorBaker::Bake(ImpostorCapture capture,
-                                                          Content::ImpostorAtlasShape shape,
-                                                          std::string &error) {
+std::optional<ImpostorAtlas>
+ImpostorBaker::Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error) {
   if (shape.Pixels < 3 || shape.Pixels > 4096 || shape.Views == 0 || shape.Views > 64 ||
       static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels) * shape.Views >
           kMostAtlasTexels) {
@@ -333,7 +331,7 @@ std::optional<Content::ImpostorAtlas> ImpostorBaker::Bake(ImpostorCapture captur
   }
   auto views = CaptureViews(renderer, centre, halfExtent, shape, surfaces.size(), error);
   if (!views) { return std::nullopt; }
-  return Content::ImpostorAtlas::Create(
+  return ImpostorAtlas::Create(
       shape.Pixels, centre, halfExtent, std::move(surfaces), std::move(*views), error);
 }
 

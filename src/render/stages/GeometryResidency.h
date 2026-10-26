@@ -10,7 +10,7 @@
 #include "native/Device.h"
 
 #include "SubjectTypes.h"
-#include "shade/TexelChain.h"
+#include "TexelChain.h"
 
 namespace outshine::Render {
 class UploadQueue;

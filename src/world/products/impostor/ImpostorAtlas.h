@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORATLAS_H
-#define OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORATLAS_H
+#ifndef OUTSHINE_WORLD_PRODUCTS_IMPOSTOR_IMPOSTORATLAS_H
+#define OUTSHINE_WORLD_PRODUCTS_IMPOSTOR_IMPOSTORATLAS_H
 
 #include "Vec3.h"
 #include "Material.h"
@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace outshine::Content {
+namespace outshine {
 
 class ImpostorAtlas {
 public:

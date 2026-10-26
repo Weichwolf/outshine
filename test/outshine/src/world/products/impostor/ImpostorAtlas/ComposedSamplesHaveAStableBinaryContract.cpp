@@ -2,8 +2,10 @@
 #include "Check.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -20,21 +22,21 @@ void Resign(std::vector<uint8_t> &bytes) {
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Content::ImpostorAtlas::View view{.TowardEye = {{0, 0, 1}}, .Texels = {}, .Materials = {}};
+  ImpostorAtlas::View view{.TowardEye = {{0, 0, 1}}, .Texels = {}, .Materials = {}};
   view.Texels.resize(9);
   view.Materials.resize(9);
   view.Texels[4] = {.Normal = {{0, 0, 1}}, .Depth = 0.5f, .Surface = 1};
   view.Materials[4] = {
       .BaseColour = {{0.125f, 0.25f, 0.75f}}, .Roughness = 0.5f, .Metalness = 0.25f};
   std::string error;
-  auto atlas = Content::ImpostorAtlas::Create(3, {}, 1, {Material{}}, {view}, error);
+  auto atlas = ImpostorAtlas::Create(3, {}, 1, {Material{}}, {view}, error);
   CHECK(atlas.has_value(), "composed material samples form a valid atlas");
   if (!atlas) { return Report(); }
   const auto encoded = atlas->Encode("composed-fixture", error);
   CHECK(encoded && encoded->size() == 508 && (*encoded)[8] == 2,
         "v2 adds exactly five float fields per pixel to the independent v1 layout");
   if (!encoded) { return Report(); }
-  const auto decoded = Content::ImpostorAtlas::Decode(*encoded, "composed-fixture", error);
+  const auto decoded = ImpostorAtlas::Decode(*encoded, "composed-fixture", error);
   CHECK(decoded && decoded->Views()[0].Materials.size() == 9,
         "composed values survive asset transport");
   if (!decoded) { return Report(); }
@@ -48,15 +50,14 @@ int main() {
   leaf.DiffuseTransmission = {{.4f, .6f, .1f}};
   auto opticalView = view;
   opticalView.Materials[4].BaseColour = {{.1f, .2f, .03f}};
-  auto optical = Content::ImpostorAtlas::Create(3, {}, 1, {leaf}, {opticalView}, error);
+  auto optical = ImpostorAtlas::Create(3, {}, 1, {leaf}, {opticalView}, error);
   CHECK(optical.has_value(), "composed samples retain optical source provenance");
   auto opticalBytes = optical ? optical->Encode("optical-composed-fixture", error) : std::nullopt;
   CHECK(opticalBytes && (*opticalBytes)[8] == 4 && opticalBytes->size() == encoded->size() + 16,
         "optical composed layout adds exactly model and direct RGB transmission per source row");
-  auto opticalReplay =
-      opticalBytes
-          ? Content::ImpostorAtlas::Decode(*opticalBytes, "optical-composed-fixture", error)
-          : std::nullopt;
+  auto opticalReplay = opticalBytes
+                           ? ImpostorAtlas::Decode(*opticalBytes, "optical-composed-fixture", error)
+                           : std::nullopt;
   CHECK(opticalReplay && opticalReplay->Surfaces()[0] == leaf &&
             opticalReplay->Views()[0].Materials[4].BaseColour ==
                 opticalView.Materials[4].BaseColour,
@@ -70,14 +71,14 @@ int main() {
   corrupt[roughnessAt + 2] = 128;
   corrupt[roughnessAt + 3] = 127;
   Resign(corrupt);
-  CHECK(!Content::ImpostorAtlas::Decode(corrupt, "composed-fixture", error),
+  CHECK(!ImpostorAtlas::Decode(corrupt, "composed-fixture", error),
         "nonfinite composed values are rejected even with a valid checksum");
   view.Materials.pop_back();
-  CHECK(!Content::ImpostorAtlas::Create(3, {}, 1, {Material{}}, {view}, error),
+  CHECK(!ImpostorAtlas::Create(3, {}, 1, {Material{}}, {view}, error),
         "partial material coverage is rejected");
   view.Materials.resize(9);
   view.Materials[4].Metalness = 1.1f;
-  CHECK(!Content::ImpostorAtlas::Create(3, {}, 1, {Material{}}, {view}, error),
+  CHECK(!ImpostorAtlas::Create(3, {}, 1, {Material{}}, {view}, error),
         "unrepresentable material channels cannot be silently clamped");
   return Report();
 }

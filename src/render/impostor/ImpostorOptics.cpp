@@ -1,6 +1,6 @@
 #include "ImpostorOptics.h"
-#include "shade/TexelChain.h"
-#include "shade/HalfTexels.h"
+#include "TexelChain.h"
+#include "HalfTexels.h"
 #include "math/Srgb.h"
 
 #include <algorithm>
@@ -24,8 +24,7 @@ uint8_t Byte(float value) {
   return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * kByteSteps));
 }
 
-OpticalFields FieldsOf(const Content::ImpostorAtlas &atlas,
-                       const Content::ImpostorAtlas::View &source) {
+OpticalFields FieldsOf(const ImpostorAtlas &atlas, const ImpostorAtlas::View &source) {
   OpticalFields fields;
   for (auto &field : fields) { field.resize(source.Texels.size() * 4); }
   const Vec3 right{{source.TowardEye[2], 0, -source.TowardEye[0]}};
@@ -33,14 +32,13 @@ OpticalFields FieldsOf(const Content::ImpostorAtlas &atlas,
     const auto &pixel = source.Texels[at];
     if (pixel.Surface == 0) { continue; }
     const auto &row = atlas.Surfaces()[pixel.Surface - 1];
-    const auto sample =
-        source.Materials.empty()
-            ? Content::ImpostorAtlas::SurfaceSample{.BaseColour = {{row.BaseColour[0],
-                                                                    row.BaseColour[1],
-                                                                    row.BaseColour[2]}},
-                                                    .Roughness = row.Roughness,
-                                                    .Metalness = row.Metalness}
-            : source.Materials[at];
+    const auto sample = source.Materials.empty()
+                            ? ImpostorAtlas::SurfaceSample{.BaseColour = {{row.BaseColour[0],
+                                                                           row.BaseColour[1],
+                                                                           row.BaseColour[2]}},
+                                                           .Roughness = row.Roughness,
+                                                           .Metalness = row.Metalness}
+                            : source.Materials[at];
     Vec3 n{{pixel.Normal[0], pixel.Normal[1], pixel.Normal[2]}};
     if (!Normalise(n)) { return {}; }
     const size_t offset = at * 4;
@@ -110,8 +108,8 @@ std::expected<OpticalImages, Core::HalfTexelError> Encoded(const OpticalFields &
 
 bool AddOpticalCardImages(Geometry &geometry,
                           Material &material,
-                          const Content::ImpostorAtlas &atlas,
-                          const Content::ImpostorAtlas::View &source) {
+                          const ImpostorAtlas &atlas,
+                          const ImpostorAtlas::View &source) {
   if (std::ranges::none_of(source.Texels, [](const auto &pixel) { return pixel.Surface > 0; })) {
     return false;
   }

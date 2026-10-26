@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <memory>
+#include <numbers>
 #include <span>
 #include <string>
 #include <utility>
@@ -85,14 +86,16 @@ void CheckCurrentLighting(const Geometry &card) {
   CHECK(renderer.SetGeometryLights({}, error), "capture light is absent from runtime lighting");
   CHECK(renderer.RenderFrame(), "unlit card frame draws");
   renderer.WaitForGpu();
-  std::vector<float> before, after, depth;
+  std::vector<float> before;
+  std::vector<float> after;
+  std::vector<float> depth;
   CHECK(renderer.ReadSceneLinear(before) == Render::ReadState::Ready &&
             renderer.ReadDepth(depth) == Render::ReadState::Ready,
         "card pixels read back");
   Render::SubjectLight key;
   key.Light.Kind = LightKind::Directional;
   key.Light.Intensity = 100;
-  const float axis = -1 / std::sqrt(3.0f);
+  const float axis = -1 / std::numbers::sqrt3_v<float>;
   key.Light.Direction = {{axis, axis, axis}};
   CHECK(renderer.SetGeometryLights(std::span(&key, 1), error),
         "current light changes without recapture");
@@ -165,7 +168,7 @@ void CheckCapture(Finish finish) {
   CheckCurrentLighting(*card);
 }
 
-bool PureMasonryPane(const Content::ImpostorAtlas::View &view, size_t at, size_t pixels) {
+bool PureMasonryPane(const ImpostorAtlas::View &view, size_t at, size_t pixels) {
   constexpr float kCapturedPaneRoughness = .1199951171875f;
   const size_t row = at / pixels;
   const size_t column = at % pixels;

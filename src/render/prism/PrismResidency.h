@@ -2,7 +2,7 @@
 #define OUTSHINE_RENDER_PRISM_PRISMRESIDENCY_H
 
 #include "GpuPrismPatch.h"
-#include <scene/PrismGrid.h>
+#include <PrismGrid.h>
 #include "PrismInstance.h"
 #include "PrismUpload.h"
 #include "CasterChanges.h"

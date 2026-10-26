@@ -71,7 +71,7 @@ struct SceneChoice {
   size_t Light;
 };
 
-Scenario::Document Scene(const Content::ImpostorAtlas &atlas, SceneChoice choice) {
+Scenario::Document Scene(const ImpostorAtlas &atlas, SceneChoice choice) {
   Scenario::Document scene;
   scene.Render.Declared = true;
   scene.Render.Frame = {.WidthPx = atlas.Pixels(), .HeightPx = atlas.Pixels()};
@@ -121,7 +121,7 @@ std::optional<Frame> CaptureFrame(const Geometry &card, const Scenario::Document
   return frame;
 }
 
-double NormalError(const Frame &frame, const Content::ImpostorAtlas::Texel &source, size_t pixel) {
+double NormalError(const Frame &frame, const ImpostorAtlas::Texel &source, size_t pixel) {
   Vec3 actual{{frame.Normal[pixel * kChannels],
                frame.Normal[pixel * kChannels + 1],
                frame.Normal[pixel * kChannels + 2]}};
@@ -131,7 +131,7 @@ double NormalError(const Frame &frame, const Content::ImpostorAtlas::Texel &sour
   return std::sqrt(Dot(delta, delta));
 }
 
-void CheckFrame(const Content::ImpostorAtlas &atlas,
+void CheckFrame(const ImpostorAtlas &atlas,
                 size_t view,
                 const Frame &frame,
                 const std::string &stem) {
@@ -164,7 +164,7 @@ void CheckFrame(const Content::ImpostorAtlas &atlas,
   Save(std::as_bytes(std::span(frame.Linear)), stem + ".linear.f32");
 }
 
-void Run(const Content::ImpostorAtlas &atlas,
+void Run(const ImpostorAtlas &atlas,
          const Geometry &card,
          size_t view,
          const std::string &directory,
@@ -194,7 +194,7 @@ int main(int argc, char *const *argv) {
   if (!bytes || !producer) { return Report(); }
   const std::string provenance(producer->begin(), producer->end());
   std::string error;
-  const auto atlas = Content::ImpostorAtlas::Decode(*bytes, provenance, error);
+  const auto atlas = ImpostorAtlas::Decode(*bytes, provenance, error);
   CHECK(atlas.has_value(), "the frozen atlas decodes against its explicit producer identity");
   if (!atlas) {
     std::println(stderr, "{}", error);

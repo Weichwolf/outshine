@@ -6,7 +6,7 @@
 #include "SubjectTypes.h"
 #include "TerrainTile.h"
 #include "PrismInstance.h"
-#include <scene/PrismGrid.h>
+#include <PrismGrid.h>
 #include "device/native/Commands.h"
 #include "Geometry.h"
 

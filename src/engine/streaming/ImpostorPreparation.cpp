@@ -10,14 +10,14 @@
 
 namespace outshine {
 
-std::string ImpostorAtlasProvenance(std::string_view species, Content::ImpostorAtlasShape shape) {
+std::string ImpostorAtlasProvenance(std::string_view species, ImpostorAtlasShape shape) {
   return "tree-prototype-3/impostor-capture-2/" + std::to_string(shape.Pixels) + "/" +
          std::to_string(shape.Views) + "/" + std::string(species);
 }
 
-std::optional<Content::ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePrototype &tree,
-                                                        Content::ImpostorAtlasShape shape,
-                                                        std::string &error) {
+std::optional<ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePrototype &tree,
+                                               ImpostorAtlasShape shape,
+                                               std::string &error) {
   auto geometry = tree.InstancedGeometryAt(0);
   if (!geometry) {
     error = "impostor capture requires native tree geometry";

@@ -10,7 +10,7 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  auto samples = std::make_shared<std::vector<PrismSpan>>(64);
+  const auto samples = std::make_shared<std::vector<PrismSpan>>(64);
   for (size_t index = 0; index < samples->size(); ++index) {
     (*samples)[index] = {.Lower = static_cast<float>(index),
                          .Upper = static_cast<float>(index + 2)};
@@ -46,7 +46,8 @@ int main() {
           "partial columns use single-row views; full-width bands preserve dense multirow storage");
     for (uint32_t row = 0; row < view.Rows; ++row) {
       for (uint32_t column = 0; column < view.Columns; ++column) {
-        const uint32_t x = placement.Column + column, y = placement.Row + row;
+        const uint32_t x = placement.Column + column;
+        const uint32_t y = placement.Row + row;
         const size_t cell = static_cast<size_t>(y) * original.Columns + x;
         ++visits[placement.Patch][cell];
         CHECK(view.FirstSample + static_cast<size_t>(row) * view.Columns + column ==

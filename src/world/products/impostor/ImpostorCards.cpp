@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-namespace outshine::Content {
+namespace outshine {
 namespace {
 constexpr uint64_t kFormat = 0x0001314452434fULL;
 constexpr double kUnitDirectionSquaredTolerance = 1e-12;

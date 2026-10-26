@@ -65,13 +65,13 @@ void CheckCamera(Core::RuntimeScene &scene,
 
 int CheckDepth() {
   const Material material;
-  std::vector<Content::ImpostorAtlas::Texel> samples(64);
+  std::vector<ImpostorAtlas::Texel> samples(64);
   for (size_t at = 0; at < samples.size(); ++at) {
     samples[at] = {
         .Normal = {{0, 0, 1}}, .Depth = at % 8 < 4 ? kNearSample : kFarSample, .Surface = 1};
   }
   std::string error;
-  const auto atlas = Content::ImpostorAtlas::Create(
+  const auto atlas = ImpostorAtlas::Create(
       8,
       {},
       2,

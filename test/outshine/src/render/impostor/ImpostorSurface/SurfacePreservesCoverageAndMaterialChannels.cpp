@@ -2,7 +2,7 @@
 
 #include "Check.h"
 #include "math/Srgb.h"
-#include "shade/HalfTexels.h"
+#include "HalfTexels.h"
 
 #include <string>
 #include <array>
@@ -72,18 +72,18 @@ void CheckOpticalFiltering() {
   leaf.Scattering = ScatteringModel::DiffuseThinSheet;
   leaf.BaseColour = kLeafColour;
   leaf.DiffuseTransmission = kLeafTransmission;
-  Content::ImpostorAtlas::View view{.TowardEye = {{0, 0, 1}}, .Texels = {}, .Materials = {}};
+  ImpostorAtlas::View view{.TowardEye = {{0, 0, 1}}, .Texels = {}, .Materials = {}};
   view.Texels.resize(16);
   view.Texels[0] = {.Normal = {{0, 0, 1}}, .Depth = .5f, .Surface = 1};
   view.Texels[1] = {.Normal = {{0, 0, 1}}, .Depth = .5f, .Surface = 2};
   std::string error;
-  const auto atlas = Content::ImpostorAtlas::Create(4, {}, 1, {wood, leaf}, {view}, error);
+  const auto atlas = ImpostorAtlas::Create(4, {}, 1, {wood, leaf}, {view}, error);
   CHECK(atlas.has_value(), "opaque and transmissive source coefficients share a native atlas");
   if (!atlas) { return; }
   const auto encoded = atlas->Encode("optical-fixture", error);
   CHECK(encoded && (*encoded)[8] == 3, "uncomposed optical surfaces use their own binary layout");
   const auto decoded =
-      encoded ? Content::ImpostorAtlas::Decode(*encoded, "optical-fixture", error) : std::nullopt;
+      encoded ? ImpostorAtlas::Decode(*encoded, "optical-fixture", error) : std::nullopt;
   CHECK(decoded && decoded->Surfaces()[1] == leaf,
         "optical source material survives cache replay exactly");
   const auto card = Render::BuildImpostorSurface(*atlas, 0, Render::ImpostorSurfaceDetail::Flat);
@@ -139,12 +139,12 @@ void CheckDepthSurface(const outshine::Material &surface) {
   using namespace outshine;
   using namespace outshine::Test;
   std::string error;
-  std::vector<Content::ImpostorAtlas::Texel> stepped(16);
+  std::vector<ImpostorAtlas::Texel> stepped(16);
   for (size_t pixel = 0; pixel < stepped.size(); ++pixel) {
     stepped[pixel] = {
         .Normal = {{0, 0, 1}}, .Depth = pixel % 4 < 2 ? kQuarter : kThreeQuarters, .Surface = 1};
   }
-  const auto depthAtlas = Content::ImpostorAtlas::Create(
+  const auto depthAtlas = ImpostorAtlas::Create(
       4,
       {},
       2.0,
@@ -181,10 +181,10 @@ int main() {
   surface.BaseColour = kOpaqueColour;
   surface.Metalness = kOpaqueMetalness;
   surface.Roughness = 0.5f;
-  std::vector<Content::ImpostorAtlas::Texel> texels(9);
+  std::vector<ImpostorAtlas::Texel> texels(9);
   texels[4] = {.Normal = {{0, 0, 1}}, .Depth = 0.5f, .Surface = 1};
   std::string error;
-  auto atlas = Content::ImpostorAtlas::Create(
+  auto atlas = ImpostorAtlas::Create(
       3,
       {},
       1.0,

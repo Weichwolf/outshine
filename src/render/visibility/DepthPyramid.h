@@ -4,7 +4,7 @@
 #include <array>
 #include <cstdint>
 
-#include "shade/TexelChain.h"
+#include "TexelChain.h"
 
 namespace outshine::Render {
 

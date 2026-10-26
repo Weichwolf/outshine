@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORCARDS_H
-#define OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORCARDS_H
+#ifndef OUTSHINE_WORLD_PRODUCTS_IMPOSTOR_IMPOSTORCARDS_H
+#define OUTSHINE_WORLD_PRODUCTS_IMPOSTOR_IMPOSTORCARDS_H
 
 #include "Vec3.h"
 #include "Geometry.h"
@@ -11,7 +11,7 @@
 #include <string_view>
 #include <vector>
 
-namespace outshine::Content {
+namespace outshine {
 struct ImpostorCards {
   struct View {
     Vec3 Direction;

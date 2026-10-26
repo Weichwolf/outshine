@@ -2,7 +2,7 @@
 #include "BinaryValueArchive.h"
 #include "Mat4.h"
 #include "Vec3.h"
-#include <scene/PrismGrid.h>
+#include <PrismGrid.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

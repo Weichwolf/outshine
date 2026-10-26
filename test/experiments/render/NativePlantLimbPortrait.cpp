@@ -1,5 +1,6 @@
 #include "ExecutionPlan.h"
 #include "Image.h"
+#include "PngEncoding.h"
 #include "PlantSurface.h"
 #include "SceneRenderer.h"
 #include "StoredVertex.h"
@@ -133,7 +134,7 @@ bool RenderPortrait(SceneRenderer &renderer, const char *destination, bool near)
   std::vector<uint8_t> rgba;
   std::vector<uint8_t> png;
   if (renderer.ReadPixels(rgba) != ReadState::Ready ||
-      !Core::EncodePng(rgba.data(), kWidth, kHeight, png)) {
+      !App::EncodePng(rgba.data(), kWidth, kHeight, png)) {
     return false;
   }
   std::ofstream output(destination, std::ios::binary);

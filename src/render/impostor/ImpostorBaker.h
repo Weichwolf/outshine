@@ -26,8 +26,8 @@ struct ImpostorCapture {
 
 class ImpostorBaker {
 public:
-  [[nodiscard]] static std::optional<Content::ImpostorAtlas>
-  Bake(ImpostorCapture capture, Content::ImpostorAtlasShape shape, std::string &error);
+  [[nodiscard]] static std::optional<ImpostorAtlas>
+  Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error);
 };
 
 }

@@ -1,6 +1,6 @@
 #include "UploadQueue.h"
 #include "GeometryResidency.h"
-#include "shade/ImageMips.h"
+#include "ImageMips.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>

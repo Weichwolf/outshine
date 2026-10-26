@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "UrbanPrismAsset.h"
 #include "Sha256.h"
-#include <scene/PrismGrid.h>
+#include <PrismGrid.h>
 #include <array>
 #include <chrono>
 #include <cstddef>

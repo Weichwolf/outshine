@@ -1,4 +1,4 @@
-#include "Image.h"
+#include "PngEncoding.h"
 
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_surface.h>
@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace outshine::Core {
+namespace outshine::App {
 
 namespace {
 
