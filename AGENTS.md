@@ -117,6 +117,10 @@
 - Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
+- Vor neuen Features schließen wir den Refactor und die gemeinsame architektonische
+  Abnahme der gesamten aktuellen Codebasis ab; auch neuerer Code ist eingeschlossen.
+  Bis dahin nur Migration bestehender Funktionen, notwendige Korrekturen und deren
+  Prüfung. Bestand oder bestandene Tests ersetzen keine ausdrückliche Abnahme (#1233/#1320).
 - Beibehaltenen Altcode nehmen ich und `outshine_engine` gemeinsam fachlich ab:
   tatsächliche Verbraucher, Zielarchitektur, Korrektheit, Einsatzgrenzen und Kosten.
   Commit/Pfade, Entscheidung und beide Bestätigungen stehen im Fach-Issue/PR;
