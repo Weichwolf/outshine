@@ -51,6 +51,10 @@ foreach(source IN LISTS cases)
   if(name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain")
     target_link_libraries(${target} PRIVATE ZLIB::ZLIB)
   endif()
+  if(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/")
+    target_link_libraries(${target} PRIVATE outshine_generators_road_height
+      outshine_generators_terrain_providers ZLIB::ZLIB)
+  endif()
   if(name STREQUAL "outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth")
     set(receiver_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-receiver.comp.spv")
     file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
@@ -67,6 +71,7 @@ foreach(source IN LISTS cases)
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
   if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
+      OR name STREQUAL "outshine/src/generators/road/height/RoadGroundStrip/WholeWidthObservationsKeepTheOriginalFieldContracts"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/UnqualifiedComponentsNeverBecomePartialHeightInputs"
       OR name STREQUAL "outshine/src/generators/road/height/RoadPortFieldQuery/PortsKeepTheirOwnFrameAndSourceOrientation"
@@ -111,6 +116,8 @@ foreach(source IN LISTS cases)
       set(owner generators/water)
     elseif(name MATCHES "^outshine/integration/generators/terrain/providers/")
       set(owner generators/terrain/providers)
+    elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/")
+      set(owner generators/transport)
     elseif(name MATCHES "^outshine/integration/generators/terrain/inputs/")
       set(owner generators/terrain/inputs)
     elseif(name MATCHES "^outshine/integration/storage/")
