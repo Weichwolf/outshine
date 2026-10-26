@@ -135,10 +135,20 @@ def fit_ground(inputs, error_limit_m, method, budget):
             return affine, {"selected_method": "affine", **affine_report}
         if method == "affine":
             return None, {"reason": "ground_prior_error_limit", **affine_report}
-    fit = plan_port_heights(inputs, budget=budget.surface, method="cone")
+    backend = "lp" if method == "lp" else "cone"
+    fit = plan_port_heights(inputs, budget=budget.surface, method=backend)
     report = dict(fit.report)
-    report.update(selected_method="cone", affine_control=affine_report)
+    report.update(selected_method=backend, affine_control=affine_report)
     if fit.plan is None:
+        return None, report
+    complete = not any(
+        row["fitting"]
+        and not row["fitting"]["solver"].get("termination_complete", False)
+        for row in report["rounds"]
+    )
+    report["solver_termination_complete"] = complete
+    if not complete:
+        report["reason"] = "canonical_solver_incomplete"
         return None, report
     if report["maximum_original_prior_error_m"] > error_limit_m:
         report["reason"] = "ground_prior_error_limit"
