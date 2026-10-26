@@ -254,11 +254,12 @@ bool SceneRenderer::BeginsWorldCandidate(std::string &error,
   return true;
 }
 
-bool SceneRenderer::PublishesWorldCandidate(std::string &error) {
+bool SceneRenderer::PublishesWorldCandidate(std::string &error, OverlaySource overlay) {
   if (!Candidate_) {
     error = "a renderer cannot publish a world candidate it did not begin";
     return false;
   }
+  if (overlay == OverlaySource::Published) { Candidate_->Overlay = std::move(State_.Overlay); }
   if (Candidate_->Frame) { State_.Frame = std::move(*Candidate_->Frame); }
   static_cast<SceneStateCore &>(State_) = std::move(static_cast<SceneStateCore &>(*Candidate_));
   Candidate_.reset();

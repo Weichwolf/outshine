@@ -108,6 +108,7 @@ struct SkyDeclaration {
 class SceneRenderer {
 public:
   enum class GroundSources : uint8_t { Default, Published };
+  enum class OverlaySource : uint8_t { Candidate, Published };
 
   [[nodiscard]] std::expected<void, std::string> Init(Extent frame,
                                                       std::shared_ptr<const ExecutionPlan> plan);
@@ -120,7 +121,8 @@ public:
   BeginsWorldCandidate(std::string &error,
                        SceneResources::PieceSources pieces = SceneResources::PieceSources::Copy,
                        GroundSources ground = GroundSources::Default);
-  [[nodiscard]] bool PublishesWorldCandidate(std::string &error);
+  [[nodiscard]] bool PublishesWorldCandidate(std::string &error,
+                                             OverlaySource overlay = OverlaySource::Candidate);
   void AbandonsWorldCandidate() noexcept;
 
   [[nodiscard]] bool HasWorldCandidate() const noexcept { return Candidate_.has_value(); }
