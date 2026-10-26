@@ -13,6 +13,13 @@ palette reduction, material averaging or additional cache lifetime is introduced
 Repeated calls, other sources and policy changes do not share dictionary contents.
 Consumers read response arrays without modifying them.
 
+`MaterialDomain.local_origin` is an immutable three-value tuple. Pure material
+measurement never needs an origin array. Full `shape_material_patches` consumers
+convert it to Float64 once when constructing world geometry; their emitted
+`MaterialPatch.local_origin` remains a NumPy array with the same arithmetic and
+layout. Fixed three-component roof/height vectors use direct array construction
+instead of the generic `np.r_` parser. No serialized representation changes.
+
 Each stored response already contains linear colour, palette weights and unit
 area mass in one Float64 vector. `material_measure` packs this vector once per
 evaluated state. `domain_measure` multiplies it by each independently computed

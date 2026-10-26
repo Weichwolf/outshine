@@ -34,9 +34,9 @@ def roof_patches(shape):
         patches = []
         for facet in hip["facets"]:
             gradient = scale * np.asarray(facet["gradient"])
-            plane = np.r_[
-                gradient, deck + scale * facet["intercept_m"] - gradient @ origin
-            ]
+            plane = np.array(
+                [*gradient, deck + scale * facet["intercept_m"] - gradient @ origin]
+            )
             face = shapely.Polygon(np.asarray(facet["ring"]) + origin)
             patch = polygonal_domain(shapely.intersection(polygon, face))
             if patch.area > 0:
@@ -109,7 +109,7 @@ def roof_patches(shape):
         if patch.area > 0:
             gradient = slope * axis
             result.append(
-                (patch, np.r_[gradient, deck + intercept - gradient @ centre])
+                (patch, np.array([*gradient, deck + intercept - gradient @ centre]))
             )
     return result
 
@@ -156,7 +156,7 @@ def project_domain(polygon, plane, transform, origin):
 
     footprint = affine_transform(polygon, affine)
     gradient = np.linalg.solve(matrix[:, :2], matrix[:, 2])
-    height = np.r_[gradient, offset[2] - offset[:2] @ gradient]
+    height = np.array([*gradient, offset[2] - offset[:2] @ gradient])
     return footprint, height
 
 

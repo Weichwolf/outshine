@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
 #define OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
 
-#include "Vec4.h"
+#include "SurfaceMaterial.h"
 #include "Vec3.h"
 #include <cstdint>
 #include <string>
@@ -17,21 +17,6 @@ namespace outshine::Ground {
 
 class VegetationTemplates {
 public:
-  struct Row {
-    Vec4f Ground;
-    Vec4f Litter;
-    Vec4f GroundSurf;
-    Vec4f LitterSurf;
-    Vec4f Mix;
-    Vec4f Grass;
-    Vec4f Dry;
-    Vec4f Param;
-    Vec4f Edge;
-    int GroundClass = -1;
-
-    [[nodiscard]] Vec4f MeanGround() const noexcept;
-  };
-
   struct Rule {
     int Tpl = 0;
     int Rank = 0;
@@ -53,9 +38,13 @@ public:
 
   [[nodiscard]] bool Load(const char *path, const GroundMaterials &mats);
 
-  [[nodiscard]] const Row *Rows() const { return Table_.data(); }
+  [[nodiscard]] const SurfaceMaterial *Rows() const { return Table_.data(); }
 
-  [[nodiscard]] size_t RowBytes() const { return Table_.size() * sizeof(Row); }
+  [[nodiscard]] size_t RowBytes() const { return Table_.size() * sizeof(SurfaceMaterial); }
+
+  [[nodiscard]] SurfacePaletteView SurfacePalette() const noexcept {
+    return {.Materials = Table_, .RockMaterial = RockTpl_, .SlopeBandDeg = Limit_.SlopeBandDeg()};
+  }
 
   [[nodiscard]] bool Ready() const { return !Table_.empty(); }
 
@@ -94,7 +83,7 @@ private:
   using BladeMap = std::unordered_map<std::string, Blade>;
   [[nodiscard]] bool ReadBlades(const Json::Ref &root, BladeMap &bladeByName);
   [[nodiscard]] bool
-  ReadSubstrate(const Json::Ref &ground, const GroundMaterials &materials, Row &row);
+  ReadSubstrate(const Json::Ref &ground, const GroundMaterials &materials, SurfaceMaterial &row);
   [[nodiscard]] bool ReadTemplates(const Json::Ref &root,
                                    const GroundMaterials &materials,
                                    const BladeMap &bladeByName);
@@ -102,7 +91,7 @@ private:
   void ReadLayers(const Json::Ref &templates);
   [[nodiscard]] bool ReadEnvironment(const Json::Ref &root);
 
-  std::vector<Row> Table_;
+  std::vector<SurfaceMaterial> Table_;
   std::vector<float> Friction_;
   std::vector<std::string> Names_;
   std::unordered_map<std::string, Rule> Rules_;

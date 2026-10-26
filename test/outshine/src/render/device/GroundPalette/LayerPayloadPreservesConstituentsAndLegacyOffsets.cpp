@@ -14,7 +14,7 @@ int main() {
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "shipped ground recipes");
   if (!templates.Ready()) { return Report(); }
   const Vec4f fallback{{.11f, .22f, .33f, .9f}};
-  const auto palette = Render::GroundMaterialPalette(templates, fallback);
+  const auto palette = Render::GroundMaterialPalette(templates.SurfacePalette(), fallback);
   const size_t rows = templates.TemplateCount();
   const size_t slopesAt = 4u * (rows + 2u);
   const size_t surfacesAt = slopesAt + rows + 1u;
