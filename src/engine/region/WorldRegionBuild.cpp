@@ -1890,7 +1890,6 @@ void Engine::State::FinishGroundPublication(const Patchwork &laid,
                          "instances");
   Published.RecordMetric(
       "restand: the near plane the renderer stands on", Picture.Standing->NearStanding(), "m");
-  Core::ReportSubjectPlacements(Published, *Picture.Standing);
   World.GroundTiles = laid.Tiles;
   Published.RecordMetric("tiles the ring laid", static_cast<double>(laid.Tiles), "tiles");
   Published.RecordMetric(

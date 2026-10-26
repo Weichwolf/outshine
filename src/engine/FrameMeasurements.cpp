@@ -37,8 +37,8 @@ void PublishRenderFrameTiming(Core::DiagnosticLedger &published,
 void PublishStageMeasurements(Core::DiagnosticLedger &published,
                               const Render::SceneRenderer &device) {
   static const auto names = [] {
-    std::array<std::array<std::string, 12>, Render::kStageCount> out;
-    constexpr std::array<const char *, 12> suffixes{", took",
+    std::array<std::array<std::string, 11>, Render::kStageCount> out;
+    constexpr std::array<const char *, 11> suffixes{", took",
                                                     ", encoded draw requests",
                                                     ", direct input triangles",
                                                     ", referenced surface slot limit",
@@ -46,7 +46,6 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
                                                     ", resident textured slots",
                                                     ", resident colour images",
                                                     ", owned device bytes",
-                                                    ", resident placements that differ",
                                                     ", resident vertex layouts",
                                                     ", indirect input triangles",
                                                     ", indirect draw records"};
@@ -60,7 +59,7 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
   for (size_t at = 0; at < Render::kStageCount; ++at) {
     const auto &spent = device.Spent(static_cast<Render::Stage>(at));
     if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
-    const std::array<double, 12> values{spent.TookMs,
+    const std::array<double, 11> values{spent.TookMs,
                                         static_cast<double>(spent.Draws),
                                         static_cast<double>(spent.DirectTriangles),
                                         static_cast<double>(spent.Surfaces),
@@ -68,11 +67,10 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
                                         static_cast<double>(spent.Textured),
                                         static_cast<double>(spent.Palettes),
                                         static_cast<double>(spent.DeviceBytes),
-                                        static_cast<double>(spent.Distinct),
                                         static_cast<double>(spent.Layouts),
                                         static_cast<double>(spent.IndirectInputTriangles),
                                         static_cast<double>(spent.IndirectRecords)};
-    constexpr std::array<const char *, 12> units{"ms",
+    constexpr std::array<const char *, 11> units{"ms",
                                                  "draws",
                                                  "triangles",
                                                  "slots",
@@ -80,7 +78,6 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
                                                  "slots",
                                                  "images",
                                                  "bytes",
-                                                 "rows",
                                                  "layouts",
                                                  "triangles",
                                                  "records"};

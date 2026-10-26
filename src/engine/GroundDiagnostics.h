@@ -14,7 +14,6 @@ class TangentFrame;
 namespace outshine::Core {
 
 class DiagnosticLedger;
-class RuntimeScene;
 
 struct GroundRelief {
   double TallestM = 0.0;
@@ -29,8 +28,6 @@ void ReportBuildingFootprints(DiagnosticLedger &report,
                               bool quantiles);
 
 void ReportGroundRelief(DiagnosticLedger &report, GroundRelief relief);
-
-void ReportSubjectPlacements(DiagnosticLedger &report, const RuntimeScene &scene);
 
 }
 #endif

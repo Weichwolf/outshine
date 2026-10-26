@@ -919,7 +919,6 @@ SceneRenderer::EncodeStage(Stage stage, const FrameContext &ctx, const PassRecor
     spent.Placements = work.PlacementSlotLimit;
     spent.Textured = drew.Textured();
     spent.Palettes = drew.ColourImages();
-    spent.Distinct = drew.DistinctPlacements();
     spent.DeviceBytes = drew.HeldBytes();
     spent.Layouts = drew.Layouts();
   }

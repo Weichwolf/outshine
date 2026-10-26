@@ -689,7 +689,6 @@ public:
     uint32_t Placements = 0;
     uint32_t Textured = 0;
     uint32_t Palettes = 0;
-    uint32_t Distinct = 0;
     uint32_t Layouts = 0;
   };
 

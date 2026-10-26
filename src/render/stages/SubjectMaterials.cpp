@@ -105,21 +105,6 @@ uint32_t GeometryRenderer::Layouts() const {
   return static_cast<uint32_t>(distinct.size());
 }
 
-uint32_t GeometryRenderer::DistinctPlacements() const {
-  const size_t rows = Placed_.size() / 16u;
-  if (rows == 0) { return 0; }
-  uint32_t distinct = 0;
-  for (size_t row = 0; row < rows; ++row) {
-    bool seen = false;
-    for (size_t over = 0; over < row && !seen; ++over) {
-      seen = std::ranges::equal(std::span(Placed_).subspan(row * 16u, 16u),
-                                std::span(Placed_).subspan(over * 16u, 16u));
-    }
-    if (!seen) { ++distinct; }
-  }
-  return distinct;
-}
-
 uint32_t GeometryRenderer::Textured() const {
   uint32_t wearing = 0;
   for (const SurfaceSlot &slot : Slots) {

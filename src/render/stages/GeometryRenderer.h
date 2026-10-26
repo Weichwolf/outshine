@@ -404,7 +404,6 @@ public:
                                                       std::span<const std::byte> view) const;
 
   [[nodiscard]] uint32_t ColourImages() const;
-  [[nodiscard]] uint32_t DistinctPlacements() const;
   [[nodiscard]] uint32_t Layouts() const;
   [[nodiscard]] uint32_t Textured() const;
 
