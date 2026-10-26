@@ -72,16 +72,22 @@ def clipped_wall_areas(domains, base):
     result = np.zeros((len(domains), 2))
     if not domains:
         return result
+    domains = np.asarray(domains, object)
     bounds = shapely.bounds(domains)
     lower = np.column_stack((bounds[:, 1], np.maximum(bounds[:, 1], base)))
     upper = np.column_stack((np.minimum(bounds[:, 3], base), bounds[:, 3]))
     rows, cols = np.nonzero(upper > lower)
+    covered = (lower[rows, cols] == bounds[rows, 1]) & (
+        upper[rows, cols] == bounds[rows, 3]
+    )
+    result[rows[covered], cols[covered]] = shapely.area(domains[rows[covered]])
+    rows, cols = rows[~covered], cols[~covered]
+    if not len(rows):
+        return result
     boxes = shapely.box(
         bounds[rows, 0], lower[rows, cols], bounds[rows, 2], upper[rows, cols]
     )
-    result[rows, cols] = shapely.area(
-        shapely.intersection(np.asarray(domains, object)[rows], boxes)
-    )
+    result[rows, cols] = shapely.area(shapely.intersection(domains[rows], boxes))
     return result
 
 

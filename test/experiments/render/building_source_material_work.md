@@ -43,8 +43,13 @@ per domain; Jacobian multiplication and material accumulation remain scalar in
 their original order. Only positive-height intervals enter GEOS. Independent
 patch consumers retain `clipped_wall_parts` and its original scalar operation
 order. No clip, opening/gable distinction or geometric precision is removed.
-Batching reduces Python/Shapely dispatch, not the number of intersections, and
-holds temporary arrays/geometries for one shape instead of one clip. Fresh
+Batching reduces Python/Shapely dispatch and holds temporary arrays/geometries
+for one shape instead of one clip. A selected interval that exactly matches the
+whole domain's vertical bounds uses the domain area directly; only partial
+intervals need an intersection. This is a full-domain identity, with no tolerance
+or rounded boundary decision. Jacobian multiplication and accumulation keep their
+original order. Finite numerical controls compare direct and clipped area words;
+they do not certify platform-independent GEOS rounding for arbitrary domains. Fresh
 process peaks and selected copied reference/array bytes need separate reporting.
 
 Compare actual source measures in float64 before group packing, all tree/node
