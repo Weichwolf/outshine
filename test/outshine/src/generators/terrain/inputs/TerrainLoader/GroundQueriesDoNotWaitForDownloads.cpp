@@ -137,6 +137,10 @@ int main() {
             shared.Terrain == terrain,
         "height snapshot shares an immutable terrain raster");
   const auto field = Ground::HeightField::Of(0, {std::move(shared)});
-  CHECK_NEAR(*field->At({}).AslM(), 42.0, 0.001, "m", "shared height snapshot remains sampleable");
+  const auto sample = field ? field->At({}).AslM() : std::nullopt;
+  CHECK(sample.has_value(), "shared height snapshot has its native sample");
+  if (sample) {
+    CHECK_NEAR(*sample, 42.0, 0.001, "m", "shared height snapshot remains sampleable");
+  }
   return Report();
 }

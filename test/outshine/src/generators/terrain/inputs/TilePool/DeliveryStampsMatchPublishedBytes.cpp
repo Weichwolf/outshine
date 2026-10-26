@@ -75,8 +75,9 @@ public:
   }
 
   Address Serves(const SourceRequest &request) const noexcept override {
-    if (ShiftServed && request.Where().Tile()) {
-      auto tile = *request.Where().Tile();
+    const auto requested = request.Where().Tile();
+    if (ShiftServed && requested) {
+      auto tile = *requested;
       tile.X ^= 1u;
       return Address::At(tile);
     }

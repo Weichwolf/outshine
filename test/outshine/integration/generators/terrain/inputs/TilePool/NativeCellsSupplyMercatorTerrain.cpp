@@ -32,8 +32,11 @@ using namespace outshine::Ground;
 
 class Http final : public Transport {
 public:
-  std::atomic<int> Begins{0}, Pinned{0};
-  bool Missing = false;
+  explicit Http(bool missing = false) : Missing_(missing) {}
+
+  [[nodiscard]] int Begins() const noexcept { return Begins_.load(); }
+
+  [[nodiscard]] int Pinned() const noexcept { return Pinned_.load(); }
 
   FetchStart Begin(const std::string & /*url*/) override {
     return std::unexpected(SourceFailureReason::InvalidRequest);
@@ -41,9 +44,9 @@ public:
 
   FetchStart Begin(const std::string &url, ByteRange range, std::string_view tag) override {
     const std::scoped_lock lock(Mutex);
-    ++Begins;
-    if (!tag.empty()) { ++Pinned; }
-    const Ticket ticket{static_cast<uint64_t>(Begins.load())};
+    ++Begins_;
+    if (!tag.empty()) { ++Pinned_; }
+    const Ticket ticket{static_cast<uint64_t>(Begins_.load())};
     Requests.emplace(ticket, std::pair{url, range});
     return ticket;
   }
@@ -58,7 +61,7 @@ public:
     CHECK(std::sscanf(url.c_str(), "g/%d/%d", &south, &west) == 2,
           "source IO uses native cell addresses");
     auto &bytes = Objects[url];
-    if (bytes.empty()) { bytes = Test::NativeCog({.SouthDeg = south, .WestDeg = west}, Missing); }
+    if (bytes.empty()) { bytes = Test::NativeCog({.SouthDeg = south, .WestDeg = west}, Missing_); }
     CHECK(range.First <= bytes.size() && range.Length <= bytes.size() - range.First,
           "source receives original byte intervals");
     if (range.First > bytes.size() || range.Length > bytes.size() - range.First) {
@@ -77,6 +80,8 @@ public:
   }
 
 private:
+  std::atomic<int> Begins_{0}, Pinned_{0};
+  const bool Missing_;
   std::mutex Mutex;
   std::map<Ticket, std::pair<std::string, ByteRange>> Requests;
   std::map<std::string, std::vector<uint8_t>> Objects;
@@ -101,7 +106,9 @@ public:
   }
 
   FetchStart Begin(const SourceRequest &request, Transport &transport) const override {
-    return transport.Begin(request.Where().Text(), *request.Range(), request.EntityTag());
+    const auto range = request.Range();
+    if (!range) { return std::unexpected(SourceFailureReason::InvalidRequest); }
+    return transport.Begin(request.Where().Text(), *range, request.EntityTag());
   }
 
   SourceResponse
@@ -152,7 +159,10 @@ int main() {
                  .PreparedFields = {}},
                 sources,
                 http);
-  const TileId at = *TileIndex::Of({.LongitudeDeg = 9.98, .LatitudeDeg = 54.02}, 7).Tile();
+  const auto requested = TileIndex::Of({.LongitudeDeg = 9.98, .LatitudeDeg = 54.02}, 7).Tile();
+  CHECK(requested.has_value(), "fixture camera has a native geographic tile");
+  if (!requested) { return Report(); }
+  const TileId at = *requested;
   std::shared_ptr<const TerrainField> field;
   std::optional<SourceFailure> failure;
   CHECK(Field(pool, at, field, failure) == TilePool::Reply::Ready && field,
@@ -183,18 +193,18 @@ int main() {
           "all original native cells and pinned revisions remain provenance");
     CHECK(!field->Certificate().IsComplete(),
           "native samples alone do not invent a conservative runtime certificate");
-    const int before = http.Begins;
+    const int before = http.Begins();
     std::shared_ptr<const TerrainField> warm;
-    CHECK(Field(pool, at, warm, failure) == TilePool::Reply::Ready && warm && http.Begins == before,
+    CHECK(Field(pool, at, warm, failure) == TilePool::Reply::Ready && warm &&
+              http.Begins() == before,
           "unchanged terrain is resident without source IO");
   }
-  CHECK(http.Pinned > 0 && pool.Counters().FetchOnCompute == 0,
+  CHECK(http.Pinned() > 0 && pool.Counters().FetchOnCompute == 0,
         "original block requests are revision pinned and IO never runs on compute");
   SourceSet absentSources(store);
   CHECK(absentSources.Add(std::make_unique<Native>()) == SourceSet::Registration::Accepted,
         "missing-post fixture registers");
-  Http absentHttp;
-  absentHttp.Missing = true;
+  Http absentHttp(true);
   TilePool absent(
       {.ByteBudget = 1024u * 1024, .Carriers = 1, .PreparedFields = {}}, absentSources, absentHttp);
   std::shared_ptr<const TerrainField> none;
@@ -205,7 +215,7 @@ int main() {
                                             .SourceId = "native",
                                             .Revision = "original"}}};
   auto second = first;
-  second[0].NativeCell->WestDeg = 10;
+  second[0].NativeCell = CellId{.SouthDeg = 54, .WestDeg = 10};
   CHECK(StructureSourceKey({.Vector = noVector, .HeightSources = first}) !=
             StructureSourceKey({.Vector = noVector, .HeightSources = second}),
         "structure terrain keys distinguish native source cells without fake Mercator addresses");

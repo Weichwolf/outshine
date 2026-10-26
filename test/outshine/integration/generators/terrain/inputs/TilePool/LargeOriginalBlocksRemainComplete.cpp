@@ -41,8 +41,8 @@ public:
     CHECK(url.find("Copernicus_DSM_COG_10_N47_00_E010_00_DEM") != std::string::npos &&
               (tag.empty() || tag == "\"original-native\""),
           "built-in provider uses the original cell and pins subsequent ranges");
-    LargestRange.store(std::max(LargestRange.load(), range.Length));
-    const Ticket ticket{static_cast<uint64_t>(++Begins)};
+    LargestRange_.store(std::max(LargestRange_.load(), range.Length));
+    const Ticket ticket{static_cast<uint64_t>(++Begins_)};
     Requests_.emplace(ticket, range);
     return ticket;
   }
@@ -67,10 +67,13 @@ public:
     Requests_.erase(ticket);
   }
 
-  std::atomic<int> Begins{0};
-  std::atomic<uint64_t> LargestRange{0};
+  [[nodiscard]] int Begins() const noexcept { return Begins_.load(); }
+
+  [[nodiscard]] uint64_t LargestRange() const noexcept { return LargestRange_.load(); }
 
 private:
+  std::atomic<int> Begins_{0};
+  std::atomic<uint64_t> LargestRange_{0};
   std::mutex Mutex_;
   std::map<Ticket, ByteRange> Requests_;
   const std::vector<uint8_t> Bytes_;
@@ -112,7 +115,7 @@ int main() {
     std::optional<SourceFailure> failure;
     CHECK(Field(pool, at, field, failure) == TilePool::Reply::Ready && field && !failure,
           "terrain accepts a valid block larger than libtiff's individual reads");
-    CHECK(http.LargestRange > 1024u * 1024,
+    CHECK(http.LargestRange() > 1024u * 1024,
           "acquisition batches the complete missing encoded block interval");
     if (!field) { continue; }
     double largest = 0;
@@ -128,9 +131,10 @@ int main() {
     }
     CHECK(largest < 0.0001,
           "complete block decoding retains the independently defined geographic plane");
-    const int before = http.Begins;
+    const int before = http.Begins();
     std::shared_ptr<const TerrainField> warm;
-    CHECK(Field(pool, at, warm, failure) == TilePool::Reply::Ready && warm && http.Begins == before,
+    CHECK(Field(pool, at, warm, failure) == TilePool::Reply::Ready && warm &&
+              http.Begins() == before,
           "resident decoded terrain starts no additional source IO");
   }
   return Report();

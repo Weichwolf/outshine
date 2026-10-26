@@ -51,6 +51,8 @@ std::unique_ptr<Generators::RawTile> Raw(LevelOfDetail detail) {
   raw->LatLon = {47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
   const auto cell = Generators::StructureCellOf(
       {.MinLonDeg = 9, .MinLatDeg = 47, .MaxLonDeg = 9.008, .MaxLatDeg = 47.008}, raw->LatLon);
+  CHECK(cell.has_value(), "fixture ring has a native structure cell");
+  if (!cell) { return {}; }
   raw->Structures.push_back(
       {.PointCount = 4, .Cell = *cell, .HeightM = 12, .WallColour = {}, .Facade = {}});
   raw->RequestedCell = cell->Index;
@@ -134,16 +136,18 @@ int main() {
     auto task = Task(chosen, LevelOfDetail::Shell, 71, invalidRing);
     task.Start(pool, chosen);
     task.Join(pool);
-    CHECK(task.Result().Tile && !task.Result().Tile->SurfaceError &&
-              task.Result().Tile->SurfaceFailure ==
+    const auto &result = task.Result();
+    CHECK(result.Tile && !result.Tile->SurfaceError &&
+              result.Tile->SurfaceFailure ==
                   Generators::StructureSurfaceErrorFailure::InvalidGeometry,
           "identical missing surfaces from refused meshes or skipped rings never certify zero");
   }
   auto unknown = Task(mesher, LevelOfDetail::Shell, 0);
   unknown.Start(pool, mesher);
   unknown.Join(pool);
-  CHECK(unknown.Result().Tile && !unknown.Result().Tile->SurfaceError &&
-            unknown.Result().Tile->SurfaceFailure ==
+  const auto &unknownResult = unknown.Result();
+  CHECK(unknownResult.Tile && !unknownResult.Tile->SurfaceError &&
+            unknownResult.Tile->SurfaceFailure ==
                 Generators::StructureSurfaceErrorFailure::InvalidSource,
         "missing source identity retains a variant without claiming a certificate");
   const Generators::BuildingMesh native;
@@ -151,8 +155,9 @@ int main() {
   task.Start(pool, native);
   task.Join(pool);
   Complete(task, pool, native);
-  CHECK(task.Result().Status && task.Result().Tile && task.Result().Tile->SurfaceError &&
-            task.Result().Tile->SurfaceError->UpperDistanceM() >= 0,
+  const auto &result = task.Result();
+  CHECK(result.Status && result.Tile && result.Tile->SurfaceError &&
+            result.Tile->SurfaceError->UpperDistanceM() >= 0,
         "native cell generation traverses the paired worker path to a finite certificate");
   return Report();
 }

@@ -89,12 +89,15 @@ int main() {
         "a coverage change rebuilds even when its quality label is unchanged");
   CHECK(publication.BeginCapture() && !publication.CanPublish(),
         "capture closes the publication boundary around the complete revision");
-  CHECK(!publication.Publish(changed[2]) && publication.Current()->Footprints == initial.Footprints,
+  const bool publishedDuringCapture = publication.Publish(changed[2]);
+  const auto captured = publication.Current();
+  CHECK(!publishedDuringCapture && captured && captured->Footprints == initial.Footprints,
         "a late ground revision remains unpublished while capture holds the prior revision");
   publication.EndCapture();
   CHECK(publication.CanPublish() && publication.Publish(changed[2]),
         "releasing capture resumes ground publication");
-  CHECK(publication.Current()->Footprints == 4 &&
+  const auto published = publication.Current();
+  CHECK(published && published->Footprints == 4 &&
             !publication.NeedsRebuild(changed[2], false, false),
         "a successful retry advances the published building revision");
   publication.Reset();

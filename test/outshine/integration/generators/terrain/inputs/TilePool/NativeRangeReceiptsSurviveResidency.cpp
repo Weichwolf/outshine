@@ -43,17 +43,19 @@ int main() {
         "native source uses normal provider dispatch");
   Http wire;
   TilePool pool({.ByteBudget = 1024, .Carriers = 1, .PreparedFields = {}}, sources, wire);
+  const ByteRange requestedRange{.First = 100, .Length = 3};
   const SourceRequest request(DataKind::Elevation,
                               Address::AtCell({.SouthDeg = 54, .WestDeg = 9}),
-                              ByteRange{.First = 100, .Length = 3},
+                              requestedRange,
                               "\"original-revision\"");
   TilePool::Landing live;
   TilePool::Landing warm;
   CHECK(
       pool.BytesBlocking(request, &live) == TilePool::Reply::Ready && live.Range &&
-          live.Range->Bytes == *request.Range() && live.Range->EntityTag == request.EntityTag() &&
+          live.Range->Bytes == requestedRange && live.Range->EntityTag == request.EntityTag() &&
           live.Range->TotalBytes == 1000 && live.At == request.Where(),
       "runtime IO landing retains native source object, original range, revision and file length");
+  if (!live.Range) { return Report(); }
   CHECK(pool.BytesBlocking(request, &warm) == TilePool::Reply::Ready && warm.Range &&
             warm.Range->Bytes == live.Range->Bytes &&
             warm.Range->EntityTag == live.Range->EntityTag &&

@@ -6,6 +6,8 @@
 #include "Geodesy.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
+#include "OsmSourceCapture.h"
+#include "OsmSourceSnapshot.h"
 
 #include <algorithm>
 #include <array>

@@ -27,7 +27,7 @@ public:
   explicit Fixture(std::string revision) : Revision_(std::move(revision)) {}
 
   TerrainBytes Take(Data::TileId at) override {
-    ++Calls;
+    ++Calls_;
     return TerrainBytes::From(at,
                               {kPng, kPng + sizeof(kPng)},
                               {.Kind = Data::DataKind::Elevation,
@@ -36,9 +36,10 @@ public:
                                .Revision = Revision_});
   }
 
-  int Calls = 0;
+  [[nodiscard]] int Calls() const noexcept { return Calls_; }
 
 private:
+  int Calls_ = 0;
   std::string Revision_;
 };
 
@@ -47,7 +48,7 @@ public:
   explicit AncestorFixture(std::string revision) : Revision_(std::move(revision)) {}
 
   TerrainBytes Take(Data::TileId at) override {
-    ++Calls;
+    ++Calls_;
     const Data::TileId parent{.Zoom = at.Zoom - 1, .X = at.X >> 1u, .Y = at.Y >> 1u};
     return TerrainBytes::From(parent,
                               {kPng, kPng + sizeof(kPng)},
@@ -57,9 +58,10 @@ public:
                                .Revision = Revision_});
   }
 
-  int Calls = 0;
+  [[nodiscard]] int Calls() const noexcept { return Calls_; }
 
 private:
+  int Calls_ = 0;
   std::string Revision_;
 };
 
@@ -90,11 +92,11 @@ int main() {
                               return source.SourceId == "fixture-dem" && source.Revision == "r1";
                             }),
         "every contributing raw DEM keeps the declared revision");
-  const int decoded = first.Calls;
+  const int decoded = first.Calls();
   const TerrainGrid cached = tiles.StitchedGrid(2, 1, 1);
   const TerrainField *cachedField = cached.TryField();
   CHECK(cachedField && std::ranges::equal(sources, cachedField->Sources()) &&
-            first.Calls == decoded,
+            first.Calls() == decoded,
         "decoded-cache hits preserve the exact stitched source set without refetching");
 
   Fixture second("r2");
@@ -134,7 +136,7 @@ int main() {
   const auto after = shaped.StitchedField(0, 0, 0);
   CHECK(before && after && before->Sources().size() == 1 && after->Sources().size() == 1 &&
             before->Sources().front().From == Data::TileSourceIdentity::Origin::Shaped &&
-            !(before->Sources().front() == after->Sources().front()) && unused.Calls == 0,
+            !(before->Sources().front() == after->Sources().front()) && unused.Calls() == 0,
         "changing shaped-terrain parameters invalidates the stitched cache and source identity");
 
   AncestorFixture ancestor("parent-r1");
@@ -155,17 +157,17 @@ int main() {
               HeightField::Of(child.Zoom, {block})->Qualified(),
           "a structure bake can qualify an identified ancestor DEM");
   }
-  const int ancestorReads = ancestor.Calls;
+  const int ancestorReads = ancestor.Calls();
   const auto cachedAncestor = cropped.StitchedField(child.Zoom, child.X, child.Y);
   CHECK(cachedAncestor && croppedField &&
             std::ranges::equal(cachedAncestor->Sources(), croppedField->Sources()) &&
-            ancestor.Calls == ancestorReads,
+            ancestor.Calls() == ancestorReads,
         "stitched cache hit retains the cropped ancestor provenance without refetching");
   const TerrainGrid decodedAncestor = cropped.StitchedGrid(child.Zoom, child.X, child.Y);
   const TerrainField *decodedField = decodedAncestor.TryField();
   CHECK(decodedField && croppedField &&
             std::ranges::equal(decodedField->Sources(), croppedField->Sources()) &&
-            ancestor.Calls == ancestorReads,
+            ancestor.Calls() == ancestorReads,
         "decoded-cache hit also retains every ancestor source without refetching");
   AncestorFixture revisedAncestor("parent-r2");
   TerrainTiles revisedCropped(revisedAncestor, EnuFrame::At(Geo{}), Cache());

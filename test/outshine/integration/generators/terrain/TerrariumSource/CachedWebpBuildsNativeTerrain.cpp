@@ -25,14 +25,15 @@ class Tiles final : public Transport {
 public:
   explicit Tiles(std::vector<uint8_t> bytes) : Bytes_(std::move(bytes)) {}
 
-  std::atomic<unsigned> Starts = 0;
-  std::atomic<unsigned> InvalidEndpoints = 0;
+  [[nodiscard]] unsigned Starts() const noexcept { return Starts_.load(); }
+
+  [[nodiscard]] unsigned InvalidEndpoints() const noexcept { return InvalidEndpoints_.load(); }
 
   FetchStart Begin(const std::string &url) override {
     if (!url.starts_with("https://fixture.invalid/height/") || !url.ends_with(".webp")) {
-      ++InvalidEndpoints;
+      ++InvalidEndpoints_;
     }
-    return static_cast<Ticket>(++Starts);
+    return static_cast<Ticket>(++Starts_);
   }
 
   Wire Collect(Ticket /*ticket*/) override { return Wire::Answered(200, Bytes_); }
@@ -40,6 +41,8 @@ public:
   void Cancel(Ticket /*ticket*/) override {}
 
 private:
+  std::atomic<unsigned> Starts_{0};
+  std::atomic<unsigned> InvalidEndpoints_{0};
   std::vector<uint8_t> Bytes_;
 };
 
@@ -112,8 +115,8 @@ int main() {
     Generators::RegisterShippedProviders(registry);
     Tiles online({owned.get(), owned.get() + count});
     Build(cache, online, registry, false);
-    CHECK(online.InvalidEndpoints == 0, "configured adapter expands its own endpoint");
-    CHECK(online.Starts == 9, "one request per actual required source tile");
+    CHECK(online.InvalidEndpoints() == 0, "configured adapter expands its own endpoint");
+    CHECK(online.Starts() == 9, "one request per actual required source tile");
     OfflineTransport offline;
     Build(cache, offline, registry, true);
   }
