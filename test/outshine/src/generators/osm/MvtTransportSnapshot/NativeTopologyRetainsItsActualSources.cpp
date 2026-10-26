@@ -29,6 +29,7 @@ using namespace outshine::Generators::Osm;
 using outshine::Test::MvtTransportWire::kNextTileX;
 using outshine::Test::MvtTransportWire::kTileX;
 using outshine::Test::MvtTransportWire::Tile;
+constexpr uint32_t kAbsentSegmentOrdinal = 1000;
 
 void CheckSnapshot(const MvtTransportSnapshot &made) {
   using namespace outshine::Test;
@@ -86,6 +87,22 @@ void CheckSnapshot(const MvtTransportSnapshot &made) {
                sizeof(MvtTransportSnapshot));
 }
 
+std::optional<uint32_t> CheckResolvedWay(const MvtTransportSnapshot &made,
+                                         const OsmField &field,
+                                         const StreetField &streets,
+                                         World::TransportEdgeId edge) {
+  using namespace outshine::Test;
+  const auto selected = ResolveMvtTransportWays(made, field, streets, std::span(&edge, 1));
+  CHECK(selected && selected->size() == 1,
+        "the same native edge resolves after either actual tile arrival order");
+  if (!selected || selected->size() != 1) { return {}; }
+  const auto source = streets.SourceOf(field, selected->front());
+  CHECK(source && streets.Ways()[selected->front()].Bridge ==
+                      made.Network->Topology().FindEdge(edge)->Bridge,
+        "the local demand retains the requested source semantics");
+  return selected->front();
+}
+
 void CheckArrivalOrder(const Ground::VegetationTemplates &recipes,
                        std::span<const GeographicBounds> coverage) {
   using namespace outshine::Test;
@@ -115,15 +132,9 @@ void CheckArrivalOrder(const Ground::VegetationTemplates &recipes,
     if (!made) { return; }
     outputs[order] = made->Network;
     if (order == 0) { requested = made->Network->Topology().Edges().front().Id; }
-    const auto selected = ResolveMvtTransportWays(*made, field, streets, std::span(&requested, 1));
-    CHECK(selected && selected->size() == 1,
-          "the same native edge resolves after either actual tile arrival order");
-    if (!selected || selected->size() != 1) { return; }
-    selectedWays[order] = selected->front();
-    const auto source = streets.SourceOf(field, selected->front());
-    CHECK(source && streets.Ways()[selected->front()].Bridge ==
-                        made->Network->Topology().FindEdge(requested)->Bridge,
-          "the local demand retains the requested source semantics");
+    const auto selected = CheckResolvedWay(*made, field, streets, requested);
+    if (!selected) { return; }
+    selectedWays[order] = *selected;
   }
   CHECK(outputs[0]->SourceIdentity() == outputs[1]->SourceIdentity(),
         "canonical full-product identity is independent of input arrival order");
@@ -160,7 +171,7 @@ void CheckDemand(const MvtTransportSnapshot &made,
   const auto empty = ResolveMvtTransportWays(made, field, streets, {});
   CHECK(empty && empty->empty(), "empty native demand selects no source ways");
   auto absent = edges.front();
-  absent.SegmentOrdinal = 1000;
+  absent.SegmentOrdinal = kAbsentSegmentOrdinal;
   CHECK(!ResolveMvtTransportWays(made, field, streets, std::span(&absent, 1)),
         "a valid path cannot admit an absent directed fragment");
   const auto retired = streets.Without(0);
@@ -174,7 +185,7 @@ void CheckDemand(const MvtTransportSnapshot &made,
   OsmField unrelated(16, layers);
   CHECK(unrelated.Accept(kTileX, kTileX, Tile()).has_value(),
         "equal source bytes have another owner");
-  StreetField otherStreets;
+  const StreetField otherStreets;
   CHECK(!ResolveMvtTransportWays(made, unrelated, streets, edges) &&
             !ResolveMvtTransportWays(made, field, otherStreets, edges),
         "neither equal foreign bytes nor another street field can reuse local bindings");
