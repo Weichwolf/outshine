@@ -861,7 +861,7 @@ Engine::State::GroundBuildProgress
 Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwork &patchwork) {
   WorldRegionBuildState &state = *World.GroundBuild;
   GroundBuildProducts &build = state.Candidate().Products();
-  build.Sheets.Framed(standing);
+  build.TerrainSurface.SetFrame(standing);
   state.TerrainInputs().Framed(standing);
   Published.RecordMetric(
       "ground refinement: source sheets", static_cast<double>(patchwork.Sheets.size()), "sheets");
@@ -951,14 +951,14 @@ Engine::State::GroundBuildProgress
 Engine::State::AdvanceReadyGroundSheets(Patchwork &patchwork, WorldRegionBuildState &state) {
   auto &residency = state.Residency();
   if (!residency.ResidencyStarted) {
-    if (!state.Candidate().Products().Sheets.BeginResidency(patchwork, Error)) {
+    if (!state.Candidate().Products().TerrainSurface.BeginResidency(patchwork, Error)) {
       return GroundBuildProgress::Failed;
     }
     residency.ResidencyStarted = true;
     return GroundBuildProgress::Pending;
   }
-  auto advanced =
-      state.Candidate().Products().Sheets.AdvanceResidency(patchwork, kTerrainSheetsPerFrame);
+  auto advanced = state.Candidate().Products().TerrainSurface.AdvanceResidency(
+      patchwork, kTerrainSheetsPerFrame);
   if (!advanced) {
     Error = std::move(advanced.error());
     return GroundBuildProgress::Failed;
@@ -1549,7 +1549,7 @@ bool Engine::State::BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildS
   GroundBuildProducts &build = state.Candidate().Products();
   WorldRegionBuildState::ResidencyBuild &residency = state.Residency();
   if (!residency.SheetsStitched) {
-    if (!build.Sheets.Stitch(patchwork, Error)) { return false; }
+    if (!build.TerrainSurface.StitchSeams(patchwork, Error)) { return false; }
     residency.SheetsStitched = true;
     Published.RecordMetric(
         "ground candidate: sheet stitching",
@@ -1558,7 +1558,7 @@ bool Engine::State::BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildS
     return true;
   }
   if (!residency.ResidencyStarted) {
-    if (!build.Sheets.BeginResidency(patchwork, Error)) { return false; }
+    if (!build.TerrainSurface.BeginResidency(patchwork, Error)) { return false; }
     residency.ResidencyStarted = true;
     Published.RecordMetric(
         "ground candidate: residency preparation",
@@ -1567,7 +1567,8 @@ bool Engine::State::BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildS
     return true;
   }
   if (!residency.ResidencyReady) {
-    const auto advanced = build.Sheets.AdvanceResidency(patchwork, kTerrainResidencySheetsPerFrame);
+    const auto advanced =
+        build.TerrainSurface.AdvanceResidency(patchwork, kTerrainResidencySheetsPerFrame);
     if (!advanced) {
       Error = advanced.error();
       return false;
@@ -1580,18 +1581,21 @@ bool Engine::State::BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildS
     residency.ResidencyReady = true;
     Published.RecordMetric(
         "ground candidate: longest residency slice", residency.LongestResidencySliceMs, "ms");
+    Published.RecordMetric("ground candidate: longest residency batch",
+                           build.TerrainSurface.LongestResidencyBatchMs(),
+                           "ms");
     Published.RecordMetric(
-        "ground candidate: longest residency batch", build.Sheets.LongestResidencyBatchMs(), "ms");
-    Published.RecordMetric(
-        "ground candidate: residency finalize", build.Sheets.ResidencyFinalizeMs(), "ms");
+        "ground candidate: residency finalize", build.TerrainSurface.ResidencyFinalizeMs(), "ms");
     return true;
   }
-  Published.RecordMetric(
-      "ground: height pages standing", static_cast<double>(build.Sheets.Standing()), "pages");
-  Published.RecordMetric(
-      "ground: tiles the lattice draws", static_cast<double>(build.Sheets.Instances()), "tiles");
-  for (const auto &[name, kind] : {std::pair{"virtual", build.Sheets.Seams().Virtual},
-                                   std::pair{"real", build.Sheets.Seams().Real}}) {
+  Published.RecordMetric("ground: height pages standing",
+                         static_cast<double>(build.TerrainSurface.PageCount()),
+                         "pages");
+  Published.RecordMetric("ground: tiles the lattice draws",
+                         static_cast<double>(build.TerrainSurface.Instances()),
+                         "tiles");
+  for (const auto &[name, kind] : {std::pair{"virtual", build.TerrainSurface.Seams().Virtual},
+                                   std::pair{"real", build.TerrainSurface.Seams().Real}}) {
     const std::string at = std::string("ground: seam, ") + name + ", ";
     Published.RecordMetric(at + "edges stitched", static_cast<double>(kind.Edges), "edges");
     Published.RecordMetric(at + "even nodes off the coarser node, worst", kind.EvenM, "m");
@@ -1606,14 +1610,14 @@ bool Engine::State::BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildS
       Published.RecordMetric(at + "worst odd node coarse zoom", kind.WorstCoarseZoom, "zoom");
     }
   }
-  const uint64_t sheets = build.Sheets.Digest();
+  const uint64_t sheets = build.TerrainSurface.Digest();
   Published.RecordMetric("ground: the sheets' digest, low half",
                          static_cast<double>(sheets & kRegionDigestLowWordMask),
                          "digest");
   Published.RecordMetric(
       "ground: the sheets' digest, high half", static_cast<double>(sheets >> 32U), "digest");
   Published.RecordMetric("ground: sheets NOT drawn for want of nodes",
-                         static_cast<double>(build.Sheets.Flat()),
+                         static_cast<double>(build.TerrainSurface.Flat()),
                          "tiles");
   state.AdvanceStage();
   Published.RecordMetric(

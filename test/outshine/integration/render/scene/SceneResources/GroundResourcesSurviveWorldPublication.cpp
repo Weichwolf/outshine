@@ -146,7 +146,7 @@ int main() {
                 renderer.SetTerrainTiles({&next, 1}, {}, error),
             "a second candidate publishes the reused native generation");
       world.BindSceneResources(renderer);
-      world.Sheets.Clear();
+      world.TerrainSurface.Clear();
       CHECK(renderer.TerrainRendererTriangles() == 0,
             "rebound streaming owner clears the current world after two replacements");
     }

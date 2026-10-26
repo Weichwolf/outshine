@@ -1,6 +1,6 @@
 #include "TerrainLattice.h"
 #include "RuntimeScene.h"
-#include "HeightSheets.h"
+#include "TerrainSurfacePublication.h"
 #include "Check.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
@@ -25,9 +25,9 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), "world opens");
     if (scene) {
       const auto uploadBudget = renderer.OfflineUploads(std::chrono::seconds(5));
-      HeightSheets sheets;
-      sheets.Into(&renderer);
-      sheets.Framed(TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0}));
+      TerrainSurfacePublication sheets;
+      sheets.SetRenderer(&renderer);
+      sheets.SetFrame(TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0}));
       Patchwork patch;
       patch.Sheets.push_back({.Tile = {.Zoom = 14, .X = 8192, .Y = 8192},
                               .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, 3),

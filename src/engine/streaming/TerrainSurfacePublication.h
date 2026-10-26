@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_HEIGHTSHEETS_H
-#define OUTSHINE_ENGINE_HEIGHTSHEETS_H
+#ifndef OUTSHINE_ENGINE_STREAMING_TERRAINSURFACEPUBLICATION_H
+#define OUTSHINE_ENGINE_STREAMING_TERRAINSURFACEPUBLICATION_H
 
 #include <cstddef>
 #include <string>
@@ -9,7 +9,7 @@
 #include <optional>
 #include <expected>
 #include "TangentFrame.h"
-#include "streaming/TerrainResidency.h"
+#include "TerrainResidency.h"
 
 namespace outshine {
 
@@ -17,22 +17,22 @@ namespace Render {
 class SceneRenderer;
 }
 
-class HeightSheets {
+class TerrainSurfacePublication {
 public:
-  HeightSheets() = default;
-  HeightSheets(const HeightSheets &other) = default;
-  HeightSheets &operator=(const HeightSheets &) = delete;
-  HeightSheets(HeightSheets &&) noexcept = default;
-  HeightSheets &operator=(HeightSheets &&) noexcept = default;
+  TerrainSurfacePublication() = default;
+  TerrainSurfacePublication(const TerrainSurfacePublication &other) = default;
+  TerrainSurfacePublication &operator=(const TerrainSurfacePublication &) = delete;
+  TerrainSurfacePublication(TerrainSurfacePublication &&) noexcept = default;
+  TerrainSurfacePublication &operator=(TerrainSurfacePublication &&) noexcept = default;
 
-  void Into(Render::SceneRenderer *renderer) noexcept { Residency_.Into(renderer); }
+  void SetRenderer(Render::SceneRenderer *renderer) noexcept { Residency_.Into(renderer); }
 
-  void Framed(const TangentFrame &frame) {
+  void SetFrame(const TangentFrame &frame) {
     Frame_ = frame;
     Framed_ = true;
   }
 
-  [[nodiscard]] bool Stitch(Patchwork &laid, std::string &error);
+  [[nodiscard]] bool StitchSeams(Patchwork &laid, std::string &error);
   [[nodiscard]] bool Hands(Patchwork &laid, std::string &error);
   [[nodiscard]] bool BeginResidency(const Patchwork &laid, std::string &error);
   [[nodiscard]] std::expected<bool, std::string> AdvanceResidency(const Patchwork &laid,
@@ -46,7 +46,7 @@ public:
 
   void Clear();
 
-  [[nodiscard]] size_t Standing() const { return Residency_.Standing(); }
+  [[nodiscard]] size_t PageCount() const { return Residency_.Standing(); }
 
   [[nodiscard]] size_t Instances() const { return Residency_.Instances(); }
 

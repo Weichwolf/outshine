@@ -22,7 +22,7 @@
 #include "RigidBodyState.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
-#include "HeightSheets.h"
+#include "TerrainSurfacePublication.h"
 #include "Wayfinding.h"
 #include "GeometryPageResidency.h"
 #include "BuildingPageAdapter.h"
@@ -226,7 +226,7 @@ struct WorldRegionState {
 
   void BindSceneResources(Render::SceneRenderer &renderer) noexcept {
     Pieces.BindRenderer(&renderer);
-    Sheets.Into(&renderer);
+    TerrainSurface.SetRenderer(&renderer);
     if (Vegetation) { Vegetation->Into(renderer); }
     if (UrbanAreas) { UrbanAreas->Into(renderer); }
   }
@@ -268,7 +268,7 @@ struct WorldRegionState {
 
   Render::GeometryPageResidency Pieces;
   std::optional<BuildingPageMaterials> StructureSurfaces;
-  HeightSheets Sheets;
+  TerrainSurfacePublication TerrainSurface;
   std::shared_ptr<const Path::Network> StreetGraph;
   size_t StreetGraphWayCount = 0;
   std::vector<NamedRoadAlignment> RoadAlignments;
