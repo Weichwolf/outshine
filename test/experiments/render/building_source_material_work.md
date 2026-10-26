@@ -37,6 +37,16 @@ matte domains and as the independent comparison control. Source measurement pass
 prepared local normals/area Jacobians and its local material lookup explicitly.
 The final positive finite wall/roof checks remain unchanged. No tolerance is added.
 
+Source measurement batches the same wall-domain clips at the footing height
+within each generated shape. `clipped_wall_areas` keeps two ordered local areas
+per domain; Jacobian multiplication and material accumulation remain scalar in
+their original order. Only positive-height intervals enter GEOS. Independent
+patch consumers retain `clipped_wall_parts` and its original scalar operation
+order. No clip, opening/gable distinction or geometric precision is removed.
+Batching reduces Python/Shapely dispatch, not the number of intersections, and
+holds temporary arrays/geometries for one shape instead of one clip. Fresh
+process peaks and selected copied reference/array bytes need separate reporting.
+
 Compare actual source measures in float64 before group packing, all tree/node
 arrays by dtype/shape/bytes, unchanged native reference images, material-program
 call counts and complete producer CPU/peak. Kernel speed alone is not the full
