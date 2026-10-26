@@ -53,7 +53,7 @@ foreach(source IN LISTS cases)
   endif()
   if(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/")
     target_link_libraries(${target} PRIVATE outshine_generators_road_height
-      outshine_generators_terrain_providers ZLIB::ZLIB)
+      outshine_generators_terrain outshine_generators_terrain_inputs outshine_generators_terrain_providers ZLIB::ZLIB)
   endif()
   if(name STREQUAL "outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth")
     set(receiver_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-receiver.comp.spv")
@@ -82,6 +82,7 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
       OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
       OR name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
+      OR name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/BilinearSamplesKeepTheirNativeRasterAndUnknowns"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/NativeSourceBindingsSurviveOfflineRoundTrip"
       OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex")

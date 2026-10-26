@@ -216,6 +216,17 @@ ComponentResult CheckField(const CanonicalGroundFixture::Source &source,
     const auto height = terrain.At(query);
     CHECK(height.has_value(), "every full-width observation has its original bound DEM stencil");
     if (!height) { return {}; }
+    const auto reference = terrain.ReferenceAt(query);
+    CHECK(reference.has_value(),
+          "the unchanged reference stencil remains available for comparison");
+    if (reference) {
+      CHECK_NEAR(*height,
+                 *reference,
+                 1e-7,
+                 "m",
+                 "native logarithmic Mercator and reference asinh projections retain the same "
+                 "physical bilinear DEM contract");
+    }
     heights.push_back(*height);
   }
   const auto field = BindRoadGroundField(*strip, heights, budget);
@@ -296,6 +307,10 @@ int main(int argc, char **argv) {
   const auto terrain = CanonicalGroundFixture::LoadTerrain();
   CHECK(source && terrain, "original normalized source, recipe and DEM input pins are available");
   if (!source || !terrain) { return Report(); }
+  CHECK(terrain->Binding.Fields == 1 && terrain->Binding.CopiedRasterBytes == 0 &&
+            terrain->Input->Qualified() && terrain->Input->Blocks()[0].Nodes.empty(),
+        "the original decoder raster reaches the bound production bilinear sampler through its "
+        "existing lease without a copy");
   CHECK(
       !terrain->SourceDatum.empty() && !terrain->HeightMapping.empty(),
       "the actual source datum and explicit model mapping remain bound without a geoid invention");

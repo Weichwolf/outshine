@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -24,6 +25,8 @@ namespace outshine::Ground {
 class HeightField {
 public:
   static constexpr int MaximumTileZoom = Data::TileId::MaximumZoom;
+  static constexpr std::string_view BilinearSamplingSemantics =
+      "native-mercator-postings/bilinear-f64/1";
 
   struct Request {
     int Zoom = 0;
@@ -221,6 +224,8 @@ public:
   };
 
   [[nodiscard]] int Zoom() const noexcept { return Zoom_; }
+
+  [[nodiscard]] std::optional<LocatedSample> SampleBilinearAt(LongitudeLatitude at) const noexcept;
 
   [[nodiscard]] std::optional<LocatedSample> SampleAt(LongitudeLatitude at) const noexcept {
     if (Zoom_ < 0 || Zoom_ > MaximumTileZoom || !std::isfinite(at.LongitudeDeg) ||
