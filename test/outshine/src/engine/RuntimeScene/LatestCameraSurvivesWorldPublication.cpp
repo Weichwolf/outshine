@@ -29,7 +29,9 @@ void AnchorChanges(Render::SceneRenderer &renderer,
                    std::unique_ptr<Core::RuntimeScene> &scene,
                    const Geometry &geometry) {
   const auto image = Read(renderer);
-  const auto expected = renderer.LastSubmittedCamera().Basis;
+  const auto expected = renderer.LastSubmittedCamera();
+  const Vec3 expectedEye = expected.Basis.EyeM - expected.GeometryAnchorM;
+  const auto input = scene->Watching();
   std::string error;
   for (const bool empty : {true, false}) {
     Core::WorldCandidate candidate(renderer);
@@ -38,15 +40,19 @@ void AnchorChanges(Render::SceneRenderer &renderer,
           "empty and populated geometry use different native anchors");
     const auto previous = renderer.LastSubmittedCamera();
     CHECK(candidate.Publish(scene), "the replacement publishes across a changed anchor");
+    CHECK(scene->Watching().EyeM == input.EyeM && scene->Aimed().EyeM == input.EyeM,
+          "world publication preserves camera input in the engine's fixed coordinate frame");
     CHECK(renderer.LastSubmittedCamera().Serial == previous.Serial,
           "world publication does not submit an extra camera frame");
     CHECK(scene->Draw(error), "the rebound camera draws at the replacement anchor");
     const auto &submitted = renderer.LastSubmittedCamera();
     CHECK(submitted.GeometryAnchorM != previous.GeometryAnchorM,
           "the control actually changes the native geometry anchor");
-    CHECK(submitted.Basis.EyeM == expected.EyeM && submitted.Basis.Forward == expected.Forward &&
-              submitted.Basis.Right == expected.Right && submitted.Basis.Up == expected.Up,
-          "changing geometry anchors preserves the absolute camera basis");
+    CHECK(submitted.Basis.EyeM - submitted.GeometryAnchorM == expectedEye &&
+              submitted.Basis.Forward == expected.Basis.Forward &&
+              submitted.Basis.Right == expected.Basis.Right &&
+              submitted.Basis.Up == expected.Basis.Up,
+          "changing render anchors preserves the camera in the paired geometry frame");
   }
   CHECK(Read(renderer) == image, "restoring geometry at its anchor restores the original view");
 }
