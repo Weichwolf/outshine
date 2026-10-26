@@ -14,6 +14,13 @@ bool Corridors::UsesWay(const Paving &on, size_t way) {
   return !on.FunctionalPlan || std::ranges::binary_search(on.FunctionalWays, way);
 }
 
+void Corridors::DesignWays(Job &job, const Paving &on, size_t end) const {
+  for (; job.NextLane < end; ++job.NextLane) {
+    const size_t lane = job.Functional ? job.Functional->Ways[job.NextLane] : job.NextLane;
+    PaveLane(on, Pass::Designing, lane, job.Work, job.Pavement);
+  }
+}
+
 bool Corridors::MatchesFunctionalInput(const Job &job, const Site &site) {
   return !job.Functional ||
          (site.Vectors != nullptr && site.Vectors->OriginToken() == job.Functional->Origin.get() &&

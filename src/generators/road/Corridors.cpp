@@ -1892,10 +1892,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
       const size_t count = job.Functional ? job.Functional->Ways.size() : job.WayCount;
       const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), count);
       if (paving != nullptr) {
-        for (; job.NextLane < end; ++job.NextLane) {
-          const size_t lane = job.Functional ? job.Functional->Ways[job.NextLane] : job.NextLane;
-          PaveLane(*paving, Pass::Designing, lane, into, job.Pavement);
-        }
+        DesignWays(job, *paving, end);
       } else {
         job.NextLane = end;
       }

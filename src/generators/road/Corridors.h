@@ -497,6 +497,7 @@ private:
   struct JobSlice;
   [[nodiscard]] static bool MatchesFunctionalInput(const Job &job, const Site &site);
   [[nodiscard]] static bool UsesWay(const Paving &on, size_t way);
+  void DesignWays(Job &job, const Paving &on, size_t end) const;
   [[nodiscard]] static bool RetainValidWays(Job &job, const JobSlice &slice);
   [[nodiscard]] std::expected<bool, std::string_view> AdvanceStage(Job &job,
                                                                    const JobSlice &slice) const;

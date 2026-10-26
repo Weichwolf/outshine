@@ -1,4 +1,5 @@
 #include "Corridors.h"
+#include "StreetGraphBuilder.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
@@ -24,6 +25,8 @@ constexpr double kTerrainSlope = 0.002;
 constexpr double kSouthLatitude = 48.9998;
 constexpr double kNorthLatitude = 49.0002;
 constexpr double kUnusedLongitude = 8.01;
+constexpr double kBridgeWest = 8.0098;
+constexpr double kBridgeEast = 8.0102;
 constexpr double kFocalPx = 800;
 constexpr LongitudeLatitude kOrigin{.LongitudeDeg = 8, .LatitudeDeg = 49};
 
@@ -116,7 +119,7 @@ int main() {
   if (!recipes.Ready()) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};
   Osm::OsmField field(14, layers);
-  const std::array<Osm::OsmField::Declared, 2> roads{
+  const std::array<Osm::OsmField::Declared, 3> roads{
       {{.Layer = "streets",
         .Key = "kind",
         .Value = "residential",
@@ -124,10 +127,24 @@ int main() {
        {.Layer = "streets",
         .Key = "kind",
         .Value = "residential",
-        .LatLon = {kSouthLatitude, kUnusedLongitude, kNorthLatitude, kUnusedLongitude}}}};
-  CHECK(field.Declare(roads, origin).has_value(), "two independent source roads are present");
+        .LatLon = {kSouthLatitude, kUnusedLongitude, kNorthLatitude, kUnusedLongitude}},
+       {.Layer = "streets",
+        .Key = "kind",
+        .Value = "residential",
+        .Bridge = true,
+        .Level = 1,
+        .LatLon = {origin.LatitudeDeg, kBridgeWest, origin.LatitudeDeg, kBridgeEast}}}};
+  CHECK(field.Declare(roads, origin).has_value(),
+        "an independent road and a distant crossing are present");
   Osm::StreetField ways;
-  CHECK(ways.Ingest(field, recipes) == 2, "both source ways reach normalization");
+  CHECK(ways.Ingest(field, recipes) == 3, "all source ways reach normalization");
+  const auto network = Osm::StreetGraphBuilder::BuildOneShot(
+      ways, field.Points(), [](LongitudeLatitude) -> std::optional<double> { return 0; });
+  CHECK(network.Graph != nullptr, "the existing source network is prepared once");
+  if (!network.Graph) { return Report(); }
+  std::vector<Path::Network::Crossing> crossings;
+  CHECK(network.Graph->Crossings(crossings) && !crossings.empty(),
+        "the unused source geometry really includes a crossing");
   const TangentFrame frame = TangentFrame::At(origin);
   const TriangleBvh surface = TriangleBvh::Over({}, {});
   size_t samples = 0;
@@ -142,6 +159,7 @@ int main() {
                              .Ways = ways,
                              .Materials = materials,
                              .Vegetation = recipes,
+                             .Network = network.Graph.get(),
                              .Standing = frame,
                              .Draped = drape,
                              .Classes = classes,
@@ -170,11 +188,18 @@ int main() {
             empty->Contacts.empty() && samples == beforeEmpty,
         "empty functional demand performs no height or geometry work");
   CheckContext(generator, near);
+  const size_t selectedUnused = unusedSamples;
+  const size_t beforeAll = samples;
+  const auto all = Plan(generator, near, std::array<uint32_t, 3>{0, 1, 2});
+  const size_t allSamples = samples - beforeAll;
+  CHECK(all && allSamples > firstSamples && unusedSamples > selectedUnused,
+        "the same input with full demand performs the additional required terrain work");
   std::println("FUNCTIONAL_PLAN source_ways={} selected_ways=1 samples_per_plan={} "
-               "unused_samples={} mesh_calls={}",
+               "unused_samples={} full_demand_samples={} mesh_calls={}",
                ways.Ways().size(),
                firstSamples,
-               unusedSamples,
+               selectedUnused,
+               allSamples,
                observer.Calls);
   return Report();
 }
