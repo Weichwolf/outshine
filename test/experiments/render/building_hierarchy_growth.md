@@ -41,9 +41,13 @@ Consumers requesting full patches use those same domains with their unchanged
 geometry fields; this path additionally creates temporary local-domain records.
 No source-sampling, deck/party/gable rule or material accumulation order changes.
 The bounded index/form reader reuses six declared scalar `Struct` decoders;
-other scalar formats retain their dynamic fallback. Byte/scalar limits, finite
-checks, cursor advancement, decoded types and values remain unchanged. Fixed
-float-block decoding was compared but adds no consistent gain here. Compare actual
+other scalar formats retain their dynamic fallback. Each supported index summary
+additionally reads its fixed19-Float64 frame/bounds/minimum-height prefix with one
+compiled `Struct` when complete, within budget and finite. Other prefixes retain
+the scalar path, including the first failing field and its cursor/accounting.
+Decoded types, values and numeric payload bytes remain unchanged. Index and full
+producer cost comparisons belong to [PR #1388](https://github.com/Weichwolf/outshine/pull/1388);
+lower index CPU does not imply lower full-producer wall time or peak memory. Compare actual
 post-qualification original needs with the earlier lower bound. Missing parent
 files retain every source in that subtree; unbounded originals remain required.
 Count known source-summary faces separately. They are not native runtime
