@@ -1,4 +1,5 @@
 #include "Corridors.h"
+#include "RoadLaneColour.h"
 #include "SurfaceBody.h"
 #include "RoadBodyMesh.h"
 #include "JunctionFootprint.h"
@@ -91,15 +92,6 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
   return std::clamp(kBatterRun * yieldM, minimumApronM, kMostApronM);
 }
 
-}
-
-Vec3f Corridors::LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
-                            const RegionSurfaceRecipes &vegetation) {
-  if (lane.CoverRow < 0 || static_cast<size_t>(lane.CoverRow) >= vegetation.TemplateCount()) {
-    return {{0.5f, 0.5f, 0.5f}};
-  }
-  const Vec4f &cover = vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
-  return {{cover[0], cover[1], cover[2]}};
 }
 
 double Corridors::RoadGradient(const ::outshine::Generators::Osm::StreetField::Way &way) noexcept {
@@ -973,12 +965,13 @@ void Corridors::GatesOf(const Paving &on,
 
 Vec3f Corridors::JunctionColour(const Paving &on, std::span<const Leg> legs, const Paved &into) {
   const Vec3f firstColour =
-      LaneColour(on.Ways.Ways()[into.Edges[legs.front().Edge].Lane], on.Vegetation);
+      RoadLaneColour(on.Ways.Ways()[into.Edges[legs.front().Edge].Lane].CoverRow, on.Vegetation);
   std::array<double, 3> sum{};
   double widthM = 0.0;
   bool uniformColour = true;
   for (const Leg &leg : legs) {
-    const Vec3f colour = LaneColour(on.Ways.Ways()[into.Edges[leg.Edge].Lane], on.Vegetation);
+    const Vec3f colour =
+        RoadLaneColour(on.Ways.Ways()[into.Edges[leg.Edge].Lane].CoverRow, on.Vegetation);
     uniformColour = uniformColour && colour == firstColour;
     const double weightM = std::max(0.0, leg.HalfM);
     for (size_t channel = 0; channel < sum.size(); ++channel) {

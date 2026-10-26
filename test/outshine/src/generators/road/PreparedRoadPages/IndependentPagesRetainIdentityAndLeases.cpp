@@ -3,6 +3,7 @@
 #include <stop_token>
 #include "PreparedRoadPages.h"
 #include "ProfiledRoadMesher.h"
+#include "RoadPageRecipe.h"
 #include "Earth.h"
 #include "Check.h"
 #include <algorithm>
