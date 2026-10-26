@@ -1,4 +1,5 @@
 #include "PreparedTransportPlans.h"
+#include "TransportPlanFixture.h"
 #include "TransportPlanSourceFixture.h"
 #include "Check.h"
 #include <array>
