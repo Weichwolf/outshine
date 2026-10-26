@@ -68,12 +68,22 @@ float worldSunShadowVisibility(sampler2D map, vec3 coordinate, SUBJECT_SHADOW_RE
   return 1.0;
 }
 
+SUBJECT_SHADOW_RECEIVER sunShadowReceiverSlope(vec4 lightSpace) {
+#if PRISM_GRID
+  return prismShadowReceiver;
+#else
+  vec3 shadowCoordinate = lightSpace.xyz / max(1.0e-6, lightSpace.w);
+  vec3 shadowUvDepth = shadowReceiverVector(shadowCoordinate);
+  return shadowReceiverSlope(dFdx(shadowUvDepth), dFdy(shadowUvDepth));
+#endif
+}
+
 vec3 shadeRow(M surface,
 
                               vec3 localM, vec3 n, vec3 p, vec3 albedo, float metalness,
                               float roughness, vec3 dielectricF0, float dielectricF90,
                               vec3 emitted, vec3 tangentDir, vec4 lightSpace,
-                              sampler2D shadowMap) {
+                              SUBJECT_SHADOW_RECEIVER receiverSlope, sampler2D shadowMap) {
   vec3 sheenColour = vec3(surface.sheenColour);
   float sheenRoughness = surface.sheenRoughness;
   float clearcoat = surface.clearcoat;
@@ -112,12 +122,6 @@ vec3 shadeRow(M surface,
   }
   vec3 originM = localM + n * lights.count.y;
   vec3 shadowCoordinate = lightSpace.xyz / max(1.0e-6, lightSpace.w);
-  vec3 shadowUvDepth = shadowReceiverVector(shadowCoordinate);
-#if PRISM_GRID
-  SUBJECT_SHADOW_RECEIVER receiverSlope = prismShadowReceiver;
-#else
-  SUBJECT_SHADOW_RECEIVER receiverSlope = shadowReceiverSlope(dFdx(shadowUvDepth), dFdy(shadowUvDepth));
-#endif
   vec3 sum = vec3(0.0);
   int count = int(lights.count.x);
   for (int at = 0; at < count; at = at + 1) {
@@ -222,5 +226,5 @@ vec3 shade(M surface,
   if (surface.scattering > 0.5 && surface.scattering < 1.5) { surface.thinReflection = albedo; }
   return shadeRow(surface,  localM, n, p, albedo, surface.metalness,
                   surface.roughness, vec3(surface.f0), surface.specularWeight,
-                  surface.emissive, vec3(0.0), lightSpace, shadowMap);
+                  surface.emissive, vec3(0.0), lightSpace, sunShadowReceiverSlope(lightSpace), shadowMap);
 }
