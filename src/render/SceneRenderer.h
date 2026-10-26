@@ -27,6 +27,7 @@ struct SDL_Window;
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuSubmission.h"
+#include "FrameTimeline.h"
 #include "GpuFrameSample.h"
 #include "ViewHistory.h"
 #include "FrameTargets.h"
@@ -185,7 +186,7 @@ public:
 
   void WaitForGpu();
 
-  static constexpr int kFramesInFlight = 2;
+  static constexpr int kFramesInFlight = static_cast<int>(FrameTimeline::Capacity);
 
   [[nodiscard]] int SettleFrames() const {
     return ActiveState().Plan ? ActiveState().Plan->SettleFrames() : 1;
@@ -829,7 +830,7 @@ private:
   void CollectGpuTime(Native::Completion completion);
   void CollectCompletedFrameTimes();
   CostProfile Costs_;
-  Native::Completion LastFrameSubmission_{}, MeasurementBegin_{};
+  Native::Completion MeasurementBegin_{};
   std::vector<GpuFrameSample> GpuSamples_;
   size_t GpuSampleLimit_ = 0;
   std::array<Effort, kStageCount> PendingSpent_{};
@@ -1249,8 +1250,7 @@ private:
                : State_.Frame;
   }
 
-  std::array<std::optional<Native::Completion>, kFramesInFlight> Landed_{};
-  int LandedAt_ = 0;
+  FrameTimeline Frames_;
   SceneState State_;
   std::optional<WorldCandidate> Candidate_;
   size_t PublishedScopeDepth_ = 0;

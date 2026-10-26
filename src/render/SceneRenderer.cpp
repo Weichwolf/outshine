@@ -1444,7 +1444,6 @@ void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission,
   stageSubmission.Commit();
   ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid) &&
                                     DepthPyramidNeeded(*ActiveState().Plan));
-  LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   ActiveState().Content.Geometry.CarryFrame();
   ActiveState().Content.Glass.CarryFrame();
 
@@ -1538,8 +1537,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     return std::unexpected(submitted.error().Message);
   }
   temporal.Commit(ctx);
-  Landed_[LandedAt_] = *submitted;
-  LastFrameSubmission_ = *submitted;
+  Frames_.Submitted(*submitted);
   Uploads_->Submitted(*submitted);
   record(RenderFramePhase::Submit);
   CommitSubmittedFrame(stageSubmission, camera);
