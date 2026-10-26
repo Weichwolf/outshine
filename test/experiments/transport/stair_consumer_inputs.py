@@ -15,7 +15,7 @@ from stair_occupancy_verify import read
 from stair_patch_inputs import whole
 
 
-def inputs(products):
+def _inputs(products, current_state=None):
     report = json.loads((products / "comparison.json").read_text())
     receipt = json.loads((products / "verification.json").read_text())
     if not receipt["valid_saved_occupancy"] or receipt[
@@ -39,6 +39,8 @@ def inputs(products):
     path = INPUT.with_name(native["origin"]["payload_file"])
     layers = decode_vector(dict(context["vector"], path=str(path)))
     rows, _ = read(products / "volumes.json", report)
+    if current_state is not None:
+        view, assets, supports, contacts, _manifest = current_state
     terrain = whole(view).mesh
     return {
         "report": report,
@@ -56,20 +58,13 @@ def inputs(products):
     }
 
 
+def inputs(products):
+    return _inputs(products)
+
+
 def candidate_inputs(baseline, state):
-    data = inputs(baseline)
+    data = _inputs(baseline, state)
     del data["reservations"], data["report"]
-    view, assets, supports, contacts, _manifest = state
-    terrain = whole(view).mesh
-    data.update(
-        terrain=terrain,
-        terrain_patches=view,
-        sampler=SurfaceSampler(terrain),
-        assets=assets,
-        supports=supports,
-        contacts=contacts,
-        frame=view.patches[0].frame,
-    )
     return data
 
 
