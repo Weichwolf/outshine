@@ -6,6 +6,7 @@ refuse the entire cell. Source membership uses projected Mercator square metres,
 not surface area on Earth. No local height fit, snapping or normal reconstruction.
 """
 
+import hashlib
 from dataclasses import dataclass
 
 import numpy as np
@@ -157,6 +158,7 @@ def cut_cell(
         faces=len(parameter),
         unshared_vertices=3 * len(parameter),
         coverage=coverage,
+        mask_digest=hashlib.sha256(shapely.normalize(mask).wkb).hexdigest(),
         membership=membership.work,
         numerical_array_bytes=sum(
             a.nbytes for a in (parameter, world, parents, normals)
