@@ -3,6 +3,8 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <expected>
 #include <memory>
 #include <vector>
 
@@ -10,11 +12,16 @@ int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  const std::array<EastNorth, 6> ring{{{0, 0}, {10, 0}, {10, 4}, {4, 4}, {4, 10}, {0, 10}}};
+  const std::array<EastNorth, 6> ring{{{.EastM = 0, .NorthM = 0},
+                                       {.EastM = 10, .NorthM = 0},
+                                       {.EastM = 10, .NorthM = 4},
+                                       {.EastM = 4, .NorthM = 4},
+                                       {.EastM = 4, .NorthM = 10},
+                                       {.EastM = 0, .NorthM = 10}}};
   const auto made = HipRoofPlan::Prepare(ring, {}, {});
   CHECK(made.has_value(), "concave plan is generated once before caching");
   if (!made) { return Report(); }
-  HipRoofCodec::Product source =
+  const HipRoofCodec::Product source =
       std::make_shared<const std::expected<HipRoofPlan, HipRoofError>>(*made);
   StructureBinary::Writer writer;
   CHECK(HipRoofCodec::Fields(writer, source), "complete prepared facets are serialized");
@@ -25,7 +32,7 @@ int main() {
   if (restored && *restored) {
     CHECK(HipRoofCodec::BoundTo(restored, ring, {}), "a cached plan owns every original eave");
     auto subdivided = std::vector<EastNorth>(ring.begin(), ring.end());
-    subdivided.insert(subdivided.begin() + 1, EastNorth{5, 0});
+    subdivided.insert(subdivided.begin() + 1, EastNorth{.EastM = 5, .NorthM = 0});
     CHECK(!HipRoofCodec::BoundTo(restored, subdivided, {}),
           "unchanged footprint coverage cannot hide a missing source-eave owner");
     CHECK((**restored).Facets().size() == made->Facets().size(),

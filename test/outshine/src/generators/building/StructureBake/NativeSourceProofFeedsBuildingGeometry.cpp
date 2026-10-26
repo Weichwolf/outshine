@@ -48,7 +48,7 @@ int main() {
   const auto heights = outshine::Ground::HeightField::Of(0, {block});
   CHECK(heights != nullptr, "independent flat terrain is available");
   if (!heights) { return Report(); }
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BakedTile product;
   CHECK(BakeStructures(*input, *heights, mesher, *scratch, product) && product.Prints.size() == 1 &&

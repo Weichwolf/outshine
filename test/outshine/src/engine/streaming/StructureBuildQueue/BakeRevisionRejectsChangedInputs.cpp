@@ -1,82 +1,15 @@
 #include "StructureBuildQueue.h"
 #include "Check.h"
 #include <array>
+#include <optional>
 #include <string>
 
-int main() {
-  using namespace outshine;
-  using namespace outshine::Test;
-  CHECK(StructureBuildQueue::kCandidateWindow == 4,
-        "structure admission keeps the measured four-candidate window across hardware sizes");
-  const std::array<std::string, 1> layers{"building"};
-  ::outshine::Generators::Osm::OsmField vectors(14, layers);
-  const std::array<::outshine::Generators::Osm::OsmField::Declared, 0> noFeatures;
-  vectors.Declare(noFeatures, {.X = 18, .Y = 27});
-  ::outshine::Generators::Osm::BuildingField footprints;
-  CHECK(!footprints.Anchored(), "a default footprint field refuses bake admission");
-  footprints.AnchorAt({{0, 0, 0}});
-  CHECK(footprints.Anchored(), "an anchored field admits bake scheduling");
-  footprints.SeenWith({.FocalPx = 720.0});
-  footprints.TilesSpan(2400.0);
-  const StructureBuildQueue::BakeRevision revision{.Vectors = vectors.Generation(),
-                                                   .HeightSource = {},
-                                                   .Projection = footprints.Projection(),
-                                                   .TileSpanM = footprints.TileSpanM(),
-                                                   .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
-                                                   .EyeEcef = {},
-                                                   .RequestedDetail = {}};
-  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
-        "posted bake inputs still match");
-  CHECK(revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
-        "the posting candidate owns its footprint reservation");
-  CHECK(
-      !revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {.Value = 1}),
-      "a different height snapshot makes a bake stale");
-  CHECK(!revision.OwnsReservation(
-            vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {.Value = 1}),
-        "another candidate cannot release the stale bake's footprint reservation");
-  const StructureBuildQueue::BakeRevision fallbackRevision{
-      .Vectors = vectors.Generation(),
-      .HeightSource = {},
-      .Projection = footprints.Projection(),
-      .TileSpanM = footprints.TileSpanM(),
-      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
-      .EyeEcef = {},
-      .RequestedDetail = {},
-      .FallbackHeights = true};
-  CHECK(fallbackRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
-        "playable accepts fallback heights");
-  CHECK(!fallbackRevision.Matches(vectors,
-                                  footprints,
-                                  {.LongitudeDeg = 9, .LatitudeDeg = 47},
-                                  {},
-                                  StructureBuildQueue::HeightRequirement::FineOnly),
-        "refined rejects a queued fallback bake");
-  CHECK(revision.Matches(vectors,
-                         footprints,
-                         {.LongitudeDeg = 9, .LatitudeDeg = 47},
-                         {},
-                         StructureBuildQueue::HeightRequirement::FineOnly),
-        "refined accepts a queued fine bake");
-  footprints.SeenWith({.FocalPx = 1080.0});
-  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
-        "changed focal scale makes a bake stale");
-  footprints.SeenWith({.FocalPx = 720.0, .AllowedErrorPx = 0.25});
-  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}) &&
-            !revision.OwnsReservation(
-                vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
-        "a changed pixel allowance revokes an implicit view bake and its reservation");
-  footprints.SeenWith({.FocalPx = 720.0});
-  footprints.ResetDerived();
-  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
-        "accepted footprints do not invalidate sibling bakes");
-  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9.0001, .LatitudeDeg = 47}, {}),
-        "a camera moving within the conservative eye radius retains the in-flight bake");
-  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}, {}),
-        "camera movement beyond the eye radius makes detail stale");
-  CHECK(
-      revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}, {}),
-      "camera movement cannot strand a discarded bake's footprint reservation");
+namespace {
+using namespace outshine;
+using namespace outshine::Test;
+
+void CheckSourceRevisions(Generators::Osm::OsmField &vectors,
+                          Generators::Osm::BuildingField &footprints) {
   const StructureBuildQueue::BakeRevision sourceRevision{
       .Vectors = vectors.Generation(),
       .HeightSource = {},
@@ -161,6 +94,84 @@ int main() {
                                   StructureBuildQueue::HeightRequirement::AllowFallback,
                                   LevelOfDetail::Shell),
         "explicit detail still rejects a changed spatial scale");
+}
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Test;
+  CHECK(StructureBuildQueue::kCandidateWindow == 4,
+        "structure admission keeps the measured four-candidate window across hardware sizes");
+  const std::array<std::string, 1> layers{"building"};
+  ::outshine::Generators::Osm::OsmField vectors(14, layers);
+  const std::array<::outshine::Generators::Osm::OsmField::Declared, 0> noFeatures;
+  vectors.Declare(noFeatures, {.X = 18, .Y = 27});
+  ::outshine::Generators::Osm::BuildingField footprints;
+  CHECK(!footprints.Anchored(), "a default footprint field refuses bake admission");
+  footprints.AnchorAt({{0, 0, 0}});
+  CHECK(footprints.Anchored(), "an anchored field admits bake scheduling");
+  footprints.SeenWith({.FocalPx = 720.0});
+  footprints.TilesSpan(2400.0);
+  const StructureBuildQueue::BakeRevision revision{.Vectors = vectors.Generation(),
+                                                   .HeightSource = {},
+                                                   .Projection = footprints.Projection(),
+                                                   .TileSpanM = footprints.TileSpanM(),
+                                                   .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                                   .EyeEcef = {},
+                                                   .RequestedDetail = {}};
+  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
+        "posted bake inputs still match");
+  CHECK(revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
+        "the posting candidate owns its footprint reservation");
+  CHECK(
+      !revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {.Value = 1}),
+      "a different height snapshot makes a bake stale");
+  CHECK(!revision.OwnsReservation(
+            vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {.Value = 1}),
+        "another candidate cannot release the stale bake's footprint reservation");
+  const StructureBuildQueue::BakeRevision fallbackRevision{
+      .Vectors = vectors.Generation(),
+      .HeightSource = {},
+      .Projection = footprints.Projection(),
+      .TileSpanM = footprints.TileSpanM(),
+      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .EyeEcef = {},
+      .RequestedDetail = {},
+      .FallbackHeights = true};
+  CHECK(fallbackRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
+        "playable accepts fallback heights");
+  CHECK(!fallbackRevision.Matches(vectors,
+                                  footprints,
+                                  {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                  {},
+                                  StructureBuildQueue::HeightRequirement::FineOnly),
+        "refined rejects a queued fallback bake");
+  CHECK(revision.Matches(vectors,
+                         footprints,
+                         {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                         {},
+                         StructureBuildQueue::HeightRequirement::FineOnly),
+        "refined accepts a queued fine bake");
+  footprints.SeenWith({.FocalPx = 1080.0});
+  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
+        "changed focal scale makes a bake stale");
+  footprints.SeenWith({.FocalPx = 720.0, .AllowedErrorPx = 0.25});
+  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}) &&
+            !revision.OwnsReservation(
+                vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
+        "a changed pixel allowance revokes an implicit view bake and its reservation");
+  footprints.SeenWith({.FocalPx = 720.0});
+  footprints.ResetDerived();
+  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
+        "accepted footprints do not invalidate sibling bakes");
+  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9.0001, .LatitudeDeg = 47}, {}),
+        "a camera moving within the conservative eye radius retains the in-flight bake");
+  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}, {}),
+        "camera movement beyond the eye radius makes detail stale");
+  CHECK(
+      revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}, {}),
+      "camera movement cannot strand a discarded bake's footprint reservation");
+  CheckSourceRevisions(vectors, footprints);
   footprints.SeenWith({.FocalPx = 720.0});
   footprints.TilesSpan(2400.0);
   const StructureBuildQueue::BakeRevision vectorRevision{
