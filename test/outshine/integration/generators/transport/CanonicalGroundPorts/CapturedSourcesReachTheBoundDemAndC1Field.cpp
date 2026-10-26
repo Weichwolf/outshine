@@ -3,9 +3,11 @@
 #include "CanonicalGroundTerrainFixture.h"
 #include "CanonicalGroundMeshFixture.h"
 #include "Check.h"
+#include "CppAllocationProbe.h"
 #include "GroundPortSources.h"
 #include "RoadGroundStrip.h"
 #include "RoadGroundAffine.h"
+#include "RoadGroundFit.h"
 #include "RoadGroundFacetAudit.h"
 #include "RoadGroundMesh.h"
 #include "RoadPortFieldFit.h"
@@ -31,6 +33,7 @@
 #include <tuple>
 #include <type_traits>
 #include <vector>
+#include <variant>
 
 namespace {
 using namespace outshine;
@@ -131,12 +134,12 @@ void WriteFieldDiagnostics(const RoadGroundField &field,
                     p.RayResidualM};
 }
 
-std::vector<PortRecord> Ports(const RoadPortFieldFit &fit,
+std::vector<PortRecord> Ports(const RoadPortField &fit,
                               const RoadGroundField &field,
                               std::span<const CanonicalGroundFixture::Demand> demands,
                               const CanonicalGroundFixture::Terrain &terrain,
                               const GroundPortSourceChain &chain) {
-  auto query = RoadPortFieldQuery::Make(fit.Field, field.Faces);
+  auto query = RoadPortFieldQuery::Make(fit, field.Faces);
   CHECK(query.has_value(), "the fitted actual original domain is available to its port consumer");
   if (!query) { return {}; }
   std::vector<PortRecord> result;
@@ -192,9 +195,9 @@ void CheckCoarseFacets(const RoadGroundField &source, const RoadPortField &field
 }
 
 std::optional<std::array<uint8_t, 32>>
-BindProcedureAndTerrain(const RoadPortFieldFit &fit,
+BindProcedureAndTerrain(const TransportInputReference &procedure,
                         const CanonicalGroundFixture::Terrain &terrain) {
-  std::array inputs{fit.RecipeInput,
+  std::array inputs{procedure,
                     TransportInputReference{.DatasetId = "outshine/terrain-bilinear-view",
                                             .Version = "1",
                                             .Revision = "",
@@ -203,16 +206,107 @@ BindProcedureAndTerrain(const RoadPortFieldFit &fit,
   const auto binding = TransportPlanInputBinding(inputs, 4096);
   CHECK(binding.has_value(),
         "the actual solver procedure and sampled DEM identity compose through the existing codec");
-  Note("actual C1 procedure encoded inputs", static_cast<double>(fit.Work.ProcedureBytes), "B");
   return binding ? std::make_optional(*binding) : std::nullopt;
 }
 
-ComponentResult CheckField(const CanonicalGroundFixture::Source &source,
-                           const GroundPortSources &sources,
-                           const CanonicalGroundFixture::Terrain &terrain,
-                           size_t which,
-                           bool reverse,
-                           const char *path) {
+ComponentResult CheckSelected(const RoadGroundField &field,
+                              std::span<const CanonicalGroundFixture::Demand> demands,
+                              const CanonicalGroundFixture::Terrain &terrain,
+                              const GroundPortSourceChain &chain,
+                              size_t which,
+                              bool reverse,
+                              const char *path) {
+  RoadGroundBudget groundBudget;
+  RoadProfiles::HeightFitBudget smoothBudget;
+  if (reverse) {
+    groundBudget.ContainerBytes *= 2;
+    smoothBudget.Conditions *= 2;
+    smoothBudget.Nonzeros *= 2;
+    smoothBudget.Seconds *= 2;
+    smoothBudget.Iterations *= 2;
+  }
+  const auto begin = std::chrono::steady_clock::now();
+  BeginCppAllocationProbe();
+  const auto selected = FitRoadGround(field, .5, groundBudget, smoothBudget);
+  const auto allocations = EndCppAllocationProbe();
+  Note("actual automatic fit elapsed",
+       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count(),
+       "ms");
+  Note("actual automatic fit C++ allocations", static_cast<double>(allocations.Calls), "calls");
+  Note("actual automatic fit C++ requested bytes", static_cast<double>(allocations.Bytes), "B");
+  CHECK(selected.has_value(), "both real components consume the native affine-first selection");
+  if (!selected) { return {}; }
+  CHECK(std::holds_alternative<RoadGroundAffine>(selected->Value) == (which == 0),
+        "the actual service uses affine while the actual non-affine path requires C1");
+  std::vector<double> coefficients;
+  if (const auto *smooth = std::get_if<RoadPortFieldFit>(&selected->Value)) {
+    coefficients = smooth->Solver.Values;
+    CHECK(smooth->MaximumPriorErrorM <= .5 && smooth->MaximumNormalizedGrade <= 1,
+          "the selected actual C1 field preserves the original quality requirements");
+  } else {
+    const auto sample = selected->Field().Evaluate(0, {});
+    CHECK(sample.has_value(), "a shared affine plane retains its defining height and gradient");
+    if (sample) {
+      coefficients = {sample->HeightM, sample->Gradient.SlopeE, sample->Gradient.SlopeN};
+    }
+  }
+  const auto selectedPath = path == nullptr ? std::string{} : std::format("{}.selected", path);
+  auto geometry = CanonicalGroundFixture::CheckFiniteMesh(
+      field, selected->Field(), which, reverse, path == nullptr ? nullptr : selectedPath.c_str());
+  if (which == 0 && geometry) {
+    CHECK(
+        geometry->Surface.Points.size() == field.Vertices.size() &&
+            geometry->Surface.Faces == field.Triangles,
+        "the selected shared plane needs no parameter subdivision and retains every original face");
+  }
+  return {.Ports = Ports(selected->Field(), field, demands, terrain, chain),
+          .Coefficients = std::move(coefficients),
+          .Geometry = std::move(geometry),
+          .ProcedureAndTerrainBinding = BindProcedureAndTerrain(selected->RecipeInput, terrain)};
+}
+
+void CheckSame(const ComponentResult &forward, const ComponentResult &backward, size_t which) {
+  CHECK(forward.ProcedureAndTerrainBinding &&
+            forward.ProcedureAndTerrainBinding == backward.ProcedureAndTerrainBinding,
+        "the actual procedure and DEM binding remain exact across independent request order "
+        "and admitted work caps");
+  CHECK(forward.Geometry && backward.Geometry &&
+            forward.Geometry->Surface.Points == backward.Geometry->Surface.Points &&
+            forward.Geometry->Surface.Faces == backward.Geometry->Surface.Faces &&
+            forward.Geometry->Surface.FaceParents == backward.Geometry->Surface.FaceParents &&
+            forward.Geometry->Surface.PointRemap == backward.Geometry->Surface.PointRemap &&
+            forward.Geometry->HeightsM == backward.Geometry->HeightsM,
+        "independent reversed source/core order and different admitted output capacities "
+        "produce exactly the same complete finite geometry");
+  CHECK(forward.Ports.size() == (which == 0 ? 2 : 8) &&
+            forward.Ports.size() == backward.Ports.size(),
+        "both actual components produce all ten ports through native geographic core selection");
+  if (forward.Ports.size() != backward.Ports.size()) { return; }
+  for (size_t at = 0; at < forward.Ports.size(); ++at) {
+    CHECK(Values(forward.Ports[at].Sample) ==
+              Values(backward.Ports[backward.Ports.size() - 1 - at].Sample),
+          "independent reversed source/core order and admitted work budgets produce exactly equal "
+          "ports");
+  }
+  CHECK(forward.Coefficients == backward.Coefficients,
+        "all field coefficients remain exact across independent request order and admitted caps");
+}
+
+void CheckSelectedC1(const ComponentResult &forced, const ComponentResult &selected) {
+  CHECK(forced.Coefficients == selected.Coefficients,
+        "actual non-affine selection retains the exact defining coefficients of the C1 control");
+  for (size_t at = 0; at < forced.Ports.size() && at < selected.Ports.size(); ++at) {
+    CHECK(Values(forced.Ports[at].Sample) == Values(selected.Ports[at].Sample),
+          "all actual selected C1 ports remain exact to the forced C1 control");
+  }
+}
+
+std::array<ComponentResult, 2> CheckField(const CanonicalGroundFixture::Source &source,
+                                          const GroundPortSources &sources,
+                                          const CanonicalGroundFixture::Terrain &terrain,
+                                          size_t which,
+                                          bool reverse,
+                                          const char *path) {
   const auto chain =
       sources.Chain(reverse ? source.Components[which].back() : source.Components[which].front());
   CHECK(chain.has_value(), "actual normalized source closure supplies the full height-field input");
@@ -264,7 +358,11 @@ ComponentResult CheckField(const CanonicalGroundFixture::Source &source,
         "the same affine control admits the real service and requires C1 for the real non-affine "
         "path");
   if (affine) { Note("actual affine original prior error", affine->MaximumPriorErrorM, "m"); }
+  BeginCppAllocationProbe();
   const auto fitted = FitRoadPortField(field->FitInput(.5), {});
+  const auto fitAllocations = EndCppAllocationProbe();
+  Note("actual forced C1 fit C++ allocations", static_cast<double>(fitAllocations.Calls), "calls");
+  Note("actual forced C1 fit C++ requested bytes", static_cast<double>(fitAllocations.Bytes), "B");
   CHECK(fitted.has_value(),
         "both actual DEM components admit the native conservative C1/HiGHS fit");
   if (!fitted) { return {}; }
@@ -283,10 +381,13 @@ ComponentResult CheckField(const CanonicalGroundFixture::Source &source,
   auto demands = CanonicalGroundFixture::Demands(source, source.Components[which]);
   if (reverse) { std::ranges::reverse(demands); }
   if (!reverse) { WriteFieldDiagnostics(*field, *fitted, which, path); }
-  return {.Ports = Ports(*fitted, *field, demands, terrain, *chain),
-          .Coefficients = fitted->Solver.Values,
-          .Geometry = std::move(geometry),
-          .ProcedureAndTerrainBinding = BindProcedureAndTerrain(*fitted, terrain)};
+  Note("actual C1 procedure encoded inputs", static_cast<double>(fitted->Work.ProcedureBytes), "B");
+  ComponentResult forced{.Ports = Ports(fitted->Field, *field, demands, terrain, *chain),
+                         .Coefficients = fitted->Solver.Values,
+                         .Geometry = std::move(geometry),
+                         .ProcedureAndTerrainBinding =
+                             BindProcedureAndTerrain(fitted->RecipeInput, terrain)};
+  return {std::move(forced), CheckSelected(*field, demands, terrain, *chain, which, reverse, path)};
 }
 
 void WriteDiagnostics(std::span<const PortRecord> ports, const char *path) {
@@ -339,39 +440,23 @@ int main(int argc, char **argv) {
         "actual physical source incidence is prepared once for both components");
   if (sources) {
     std::vector<PortRecord> ports;
+    std::vector<PortRecord> selectedPorts;
     for (size_t which = 0; which < 2; ++which) {
       const auto forward =
           CheckField(*source, *sources, *terrain, which, false, argc > 1 ? argv[1] : nullptr);
       const auto backward = CheckField(*source, *sources, *terrain, which, true, nullptr);
-      CHECK(forward.ProcedureAndTerrainBinding &&
-                forward.ProcedureAndTerrainBinding == backward.ProcedureAndTerrainBinding,
-            "the actual procedure and DEM binding remain exact across independent request order "
-            "and admitted work caps");
-      CHECK(forward.Geometry && backward.Geometry &&
-                forward.Geometry->Surface.Points == backward.Geometry->Surface.Points &&
-                forward.Geometry->Surface.Faces == backward.Geometry->Surface.Faces &&
-                forward.Geometry->Surface.FaceParents == backward.Geometry->Surface.FaceParents &&
-                forward.Geometry->Surface.PointRemap == backward.Geometry->Surface.PointRemap &&
-                forward.Geometry->HeightsM == backward.Geometry->HeightsM,
-            "independent reversed source/core order and different admitted output capacities "
-            "produce exactly the same complete finite geometry");
-      CHECK(
-          forward.Ports.size() == (which == 0 ? 2 : 8) &&
-              forward.Ports.size() == backward.Ports.size(),
-          "both actual components produce all ten ports through native geographic core selection");
-      if (forward.Ports.size() != backward.Ports.size()) { continue; }
-      for (size_t at = 0; at < forward.Ports.size(); ++at) {
-        CHECK(Values(forward.Ports[at].Sample) ==
-                  Values(backward.Ports[backward.Ports.size() - 1 - at].Sample),
-              "independent reversed source/core order and admitted work budgets produce exactly "
-              "equal ports");
+      for (size_t method = 0; method < forward.size(); ++method) {
+        CheckSame(forward[method], backward[method], which);
       }
-      CHECK(
-          forward.Coefficients == backward.Coefficients,
-          "all field coefficients remain exact across independent request order and admitted caps");
-      ports.insert(ports.end(), forward.Ports.begin(), forward.Ports.end());
+      if (which == 1) { CheckSelectedC1(forward[0], forward[1]); }
+      ports.insert(ports.end(), forward[0].Ports.begin(), forward[0].Ports.end());
+      selectedPorts.insert(selectedPorts.end(), forward[1].Ports.begin(), forward[1].Ports.end());
     }
     WriteDiagnostics(ports, argc > 1 ? argv[1] : nullptr);
+    if (argc > 1) {
+      const auto selectedPath = std::format("{}.selected", argv[1]);
+      WriteDiagnostics(selectedPorts, selectedPath.c_str());
+    }
   }
   return Report();
 }

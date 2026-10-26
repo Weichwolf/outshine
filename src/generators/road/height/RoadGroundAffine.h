@@ -3,10 +3,14 @@
 
 #include "RoadGroundStrip.h"
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <stop_token>
 
 namespace outshine::Generators {
+inline constexpr uint32_t kRoadGroundAffineRevision = 1;
+inline constexpr size_t kRoadGroundAffineRoundingRounds = 8;
+
 struct RoadGroundAffine {
   RoadPortField Field;
   double MaximumPriorErrorM = 0;

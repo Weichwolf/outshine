@@ -19,6 +19,9 @@ struct RoadPortProcedure {
 [[nodiscard]] std::expected<RoadPortProcedure, RoadProfiles::HeightFitError>
 BindRoadPortProcedure(const RoadPortFieldFitInput &input, const std::stop_token &stop);
 
+[[nodiscard]] std::expected<RoadPortProcedure, RoadProfiles::HeightFitError>
+BindRoadGroundAffineProcedure(const RoadPortFieldFitInput &input, const std::stop_token &stop);
+
 struct RoadPortFieldProgram {
   RoadProfiles::HeightProgram Program;
   RoadPortFieldFitWork Work;

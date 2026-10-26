@@ -14,7 +14,6 @@
 namespace outshine::Generators {
 namespace {
 constexpr size_t kColumns = 3;
-constexpr size_t kRoundingRounds = 8;
 constexpr size_t kSamplesMost = 4096;
 constexpr size_t kControlsMost = 256;
 constexpr double kFrameCoefficientMost = 1e12;
@@ -86,6 +85,23 @@ double Norm(std::span<const RoadPortFace> faces, RoadPlane gradient, size_t &tes
   return maximum;
 }
 
+bool ValidFace(const RoadPortFace &face, size_t patches) {
+  if (face.Patch >= patches) { return false; }
+  for (const auto at : face.Triangle) {
+    if (!std::isfinite(at.EastM) || !std::isfinite(at.NorthM)) { return false; }
+  }
+  const auto &triangle = face.Triangle;
+  const double area =
+      (triangle[1].EastM - triangle[0].EastM) * (triangle[2].NorthM - triangle[0].NorthM) -
+      (triangle[1].NorthM - triangle[0].NorthM) * (triangle[2].EastM - triangle[0].EastM);
+  if (!(area > 0) || !std::isfinite(area)) { return false; }
+  for (const auto value : face.GradeFrame) {
+    if (!std::isfinite(value) || std::abs(value) > kFrameCoefficientMost) { return false; }
+  }
+  const auto &f = face.GradeFrame;
+  return f[0] * f[3] - f[1] * f[2] != 0;
+}
+
 bool Valid(const RoadGroundField &input) {
   if (input.Priors.size() < kColumns || input.Faces.empty() || input.Patches.empty()) {
     return false;
@@ -96,15 +112,8 @@ bool Valid(const RoadGroundField &input) {
       return false;
     }
   }
-  for (const auto &face : input.Faces) {
-    if (face.Patch >= input.Patches.size()) { return false; }
-    for (const auto value : face.GradeFrame) {
-      if (!std::isfinite(value) || std::abs(value) > kFrameCoefficientMost) { return false; }
-    }
-    const auto &f = face.GradeFrame;
-    if (f[0] * f[3] - f[1] * f[2] == 0) { return false; }
-  }
-  return true;
+  return std::ranges::all_of(
+      input.Faces, [&](const RoadPortFace &face) { return ValidFace(face, input.Patches.size()); });
 }
 }
 
@@ -151,7 +160,7 @@ std::expected<RoadGroundAffine, RoadGroundError> FitRoadGroundAffine(const RoadG
     gradient->SlopeE /= maximum;
     gradient->SlopeN /= maximum;
     maximum = Norm(input.Faces, *gradient, tests);
-    for (size_t round = 0; maximum > 1 && round < kRoundingRounds; ++round) {
+    for (size_t round = 0; maximum > 1 && round < kRoadGroundAffineRoundingRounds; ++round) {
       gradient->SlopeE = std::nextafter(gradient->SlopeE, 0.);
       gradient->SlopeN = std::nextafter(gradient->SlopeN, 0.);
       maximum = Norm(input.Faces, *gradient, tests);

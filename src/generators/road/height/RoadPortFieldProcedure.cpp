@@ -1,5 +1,6 @@
 #include "RoadPortFieldProgram.h"
 #include "HeightProgramInternal.h"
+#include "RoadGroundAffine.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
 #include <cstddef>
@@ -19,15 +20,17 @@ constexpr size_t kPatchBytes = 2 * sizeof(uint32_t) + sizeof(uint8_t) + 9 * size
 constexpr size_t kPriorBytes = sizeof(uint32_t) + 3 * sizeof(double);
 constexpr size_t kFaceBytes = sizeof(uint32_t) + 10 * sizeof(double);
 
-std::expected<size_t, Error> EncodingCapacity(const RoadPortFieldFitInput &input) {
-  if (input.Planes.size() > kProcedureBytesMost / kPlaneBytes ||
-      input.Patches.size() > kProcedureBytesMost / kPatchBytes ||
+std::expected<size_t, Error> EncodingCapacity(const RoadPortFieldFitInput &input,
+                                              bool geometry = true) {
+  if ((geometry && (input.Planes.size() > kProcedureBytesMost / kPlaneBytes ||
+                    input.Patches.size() > kProcedureBytesMost / kPatchBytes)) ||
       input.Priors.size() > kProcedureBytesMost / kPriorBytes ||
       input.Faces.size() > kProcedureBytesMost / kFaceBytes) {
     return std::unexpected(Error::CapacityExceeded);
   }
-  const size_t bytes = kHeaderBytesMost + input.Planes.size() * kPlaneBytes +
-                       input.Patches.size() * kPatchBytes + input.Priors.size() * kPriorBytes +
+  const size_t geometryBytes =
+      geometry ? input.Planes.size() * kPlaneBytes + input.Patches.size() * kPatchBytes : 0;
+  const size_t bytes = kHeaderBytesMost + geometryBytes + input.Priors.size() * kPriorBytes +
                        input.Faces.size() * kFaceBytes;
   if (bytes > kProcedureBytesMost) { return std::unexpected(Error::CapacityExceeded); }
   return bytes;
@@ -118,6 +121,34 @@ BindRoadPortProcedure(const RoadPortFieldFitInput &input, const std::stop_token 
                 .Version = std::to_string(kPortFitProcedureRevision),
                 .Revision = std::string(version) + "+" + revision,
                 .ItemId = "ordered-minimax-lp/" + std::to_string(kPortFitPolygonSides),
+                .Content = Sha256Digest(out.Out.Bytes().data(), out.Out.Bytes().size())},
+      .Bytes = out.Out.Bytes().size()};
+}
+
+std::expected<RoadPortProcedure, RoadProfiles::HeightFitError>
+BindRoadGroundAffineProcedure(const RoadPortFieldFitInput &input, const std::stop_token &stop) {
+  if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
+  const auto capacity = EncodingCapacity(input, false);
+  if (!capacity) { return std::unexpected(capacity.error()); }
+  BinaryValueWriter out(kProcedureBytesMost);
+  out.Out.Reserve(*capacity);
+  if (!out.Text("outshine/native-affine-ground-field") ||
+      !out(kRoadGroundAffineRevision,
+           static_cast<uint64_t>(kRoadGroundAffineRoundingRounds),
+           input.MaximumPriorChangeM,
+           static_cast<uint64_t>(input.Patches.size()),
+           static_cast<uint64_t>(input.Priors.size()),
+           static_cast<uint64_t>(input.Faces.size()))) {
+    return std::unexpected(Error::CapacityExceeded);
+  }
+  if (const auto observations = Observations(out, input, stop); !observations) {
+    return std::unexpected(observations.error());
+  }
+  return RoadPortProcedure{
+      .Input = {.DatasetId = "outshine/native-affine-ground-field",
+                .Version = std::to_string(kRoadGroundAffineRevision),
+                .Revision = "streaming-givens-qr/common-grade-scaling",
+                .ItemId = "fixed-gradient-minimax-intercept",
                 .Content = Sha256Digest(out.Out.Bytes().data(), out.Out.Bytes().size())},
       .Bytes = out.Out.Bytes().size()};
 }

@@ -59,6 +59,8 @@ public:
 
   [[nodiscard]] std::expected<Sample, Error> Evaluate(size_t patch, EastNorth at) const noexcept;
 
+  [[nodiscard]] bool HasSinglePlane() const noexcept { return Planes_.size() == 1; }
+
   [[nodiscard]] std::expected<FaceBounds, Error>
   Bounds(size_t patch,
          const std::array<EastNorth, 3> &triangle,

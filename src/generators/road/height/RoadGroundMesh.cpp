@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <numeric>
 #include <span>
 #include <stop_token>
 #include <utility>
@@ -13,6 +14,24 @@ namespace outshine::Generators {
 namespace {
 constexpr size_t kInitialSegments = 8;
 constexpr size_t kRoundsMost = 7;
+
+PlanarMesh OriginalMesh(const RoadGroundField &source, RoadGroundMeshWork &work) {
+  PlanarMesh mesh;
+  mesh.Points.reserve(source.Priors.size());
+  for (const auto &prior : source.Priors) {
+    mesh.Points.push_back({prior.At.EastM, prior.At.NorthM});
+  }
+  mesh.Faces = source.Triangles;
+  mesh.FaceParents.resize(mesh.Faces.size());
+  std::ranges::iota(mesh.FaceParents, uint32_t{0});
+  mesh.PointRemap.resize(mesh.Points.size());
+  std::ranges::iota(mesh.PointRemap, uint32_t{0});
+  work.SourceFaceVisits += mesh.Faces.size();
+  work.ContainerCapacityBytes =
+      mesh.Points.capacity() * sizeof(PlanarPoint) + mesh.Faces.capacity() * sizeof(PlanarFace) +
+      (mesh.FaceParents.capacity() + mesh.PointRemap.capacity()) * sizeof(uint32_t);
+  return mesh;
+}
 
 std::expected<std::vector<double>, RoadGroundError>
 Heights(const RoadGroundField &source, const RoadPortField &field, const PlanarMesh &mesh) {
@@ -63,10 +82,13 @@ std::expected<RoadGroundMesh, RoadGroundError> BuildRoadGroundMesh(const RoadGro
   if (const auto admitted = RoadGround::AdmitMeshSource(source, budget); !admitted) {
     return std::unexpected(admitted.error());
   }
-  std::vector<size_t> segments(source.Patches.size(), kInitialSegments);
+  std::vector<size_t> segments(field.HasSinglePlane() ? 0 : source.Patches.size(),
+                               kInitialSegments);
   RoadGroundMeshWork work;
   for (size_t round = 0; round < kRoundsMost; ++round) {
-    auto mesh = RoadGround::SliceMesh(source, segments, budget, work, stop);
+    auto mesh = field.HasSinglePlane()
+                    ? std::expected<PlanarMesh, RoadGroundError>(OriginalMesh(source, work))
+                    : RoadGround::SliceMesh(source, segments, budget, work, stop);
     if (!mesh) { return std::unexpected(mesh.error()); }
     auto heights = Heights(source, field, *mesh);
     if (!heights) { return std::unexpected(heights.error()); }
@@ -90,7 +112,7 @@ std::expected<RoadGroundMesh, RoadGroundError> BuildRoadGroundMesh(const RoadGro
                             .Audit = std::move(*audit),
                             .Work = work};
     }
-    if (!Refine(source, *mesh, *audit, segments)) {
+    if (field.HasSinglePlane() || !Refine(source, *mesh, *audit, segments)) {
       return std::unexpected(RoadGroundError::InvalidGeometry);
     }
   }
