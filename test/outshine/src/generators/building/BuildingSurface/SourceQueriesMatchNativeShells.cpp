@@ -18,7 +18,7 @@ namespace {
 
 using namespace outshine;
 
-std::optional<double> Closest(const Raised &mesh, const BuildingSurface::Ray &ray) {
+std::optional<double> Closest(const Raised &mesh, const Generators::BuildingSurface::Ray &ray) {
   double nearest = std::numeric_limits<double>::infinity();
   const auto trace = [&](std::span<const StoredVertex> points, std::span<const uint32_t> run) {
     for (size_t at = 0; at < run.size(); at += 3) {
