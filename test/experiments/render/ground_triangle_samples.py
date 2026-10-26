@@ -83,9 +83,9 @@ def sources(shader_root):
     fragment = (shader_root / "groundLit.glsl").read_text()
     fragment = replace_once(
         fragment,
-        "  vec3 surfaceNormal = groundFineNormal();\n#if SUBJECT_BASE_LOCATION == 0\n"
+        "  vec3 surfaceNormal = groundFineNormal();\n#if SURFACE_BASE_LOCATION == 0\n"
         "  vec4 shadowLightSpace = fineGroundShadow();\n#endif",
-        "#if SUBJECT_BASE_LOCATION == 0\n"
+        "#if SURFACE_BASE_LOCATION == 0\n"
         "  const FineGroundSamples fineSamples = gatherFineGroundSamples();\n"
         "  vec3 surfaceNormal = groundFineNormal(fineSamples);\n"
         "  vec4 shadowLightSpace = fineGroundShadow(fineSamples.heights);\n"

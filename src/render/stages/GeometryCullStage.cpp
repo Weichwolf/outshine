@@ -118,7 +118,7 @@ Native::Result<void> GeometryCullStage::EncodeCull(const FrameContext &ctx,
   Swept_ = 0;
   const bool unchanged = Cache_.Submitted() && LastProjection_ == projection &&
                          LastPreViewTranslation_ == ctx.PreViewTranslation &&
-                         LastSubjectGeneration_ == Source_.Generation &&
+                         LastGeometryGeneration_ == Source_.Generation &&
                          LastGroundGeneration_ == Source_.GroundGeneration;
   if (!unchanged) { DepthForSelection_ = false; }
   OccludeThisFrame_ = DepthForSelection_ && PyramidBuffer_ != nullptr && unchanged &&
@@ -172,7 +172,7 @@ Native::Result<void> GeometryCullStage::EncodeCull(const FrameContext &ctx,
   if (!encoded) { return encoded; }
   LastProjection_ = projection;
   LastPreViewTranslation_ = ctx.PreViewTranslation;
-  LastSubjectGeneration_ = Source_.Generation;
+  LastGeometryGeneration_ = Source_.Generation;
   LastGroundGeneration_ = Source_.GroundGeneration;
   Refined_ = OccludeThisFrame_;
   Swept_ = Source_.Jobs;
@@ -237,7 +237,7 @@ Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into)
   const auto encoded =
       into.Commands->Dispatch(*Compact_, bindings, {.X = Source_.Jobs, .Y = 1, .Z = 1});
   if (!encoded) { return encoded; }
-  into.Submission.Record(Stage::SubjectCompact, Cache_);
+  into.Submission.Record(Stage::GeometryCompact, Cache_);
   return {};
 }
 

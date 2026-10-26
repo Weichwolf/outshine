@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include <span>
 #include <cstddef>
@@ -57,18 +58,18 @@ void CheckMainStreams(Native::Device *device,
         "only a tangent consumer reserves the tangent stream");
   CHECK((resident.HeldOf(Stream::Uv1) != 0) == second,
         "only a second-UV consumer reserves the second-UV stream");
-  CHECK(Verify(device, resident, Stream::Uv, uv, resident.SubjectVertices().First),
+  CHECK(Verify(device, resident, Stream::Uv, uv, resident.MainVertexRange().First),
         "main UVs reach their independently addressed GPU range");
   if (mapped) {
     CHECK(resident.HeldOf(Stream::Tangent) == sizeof(tangents),
           "late tangents reserve exactly their payload despite the large position prefix");
-    CHECK(Verify(device, resident, Stream::Tangent, tangents, resident.SubjectTangents().First),
+    CHECK(Verify(device, resident, Stream::Tangent, tangents, resident.MainTangentRange().First),
           "main tangents reach their independently addressed GPU range");
   }
   if (second) {
-    CHECK(Verify(device, resident, Stream::Uv1, uv, resident.SubjectVertices().First),
+    CHECK(Verify(device, resident, Stream::Uv1, uv, resident.MainVertexRange().First),
           "main second UVs reach their independently addressed GPU range");
-    CHECK(Verify(device, resident, Stream::Colour, colours, resident.SubjectColours().First),
+    CHECK(Verify(device, resident, Stream::Colour, colours, resident.MainColourRange().First),
           "main colours reach their independently addressed GPU range");
   }
 }
@@ -89,7 +90,7 @@ void CheckLayout(Native::Device *device,
   CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "scene attachment adds");
   CHECK(gpu.SceneColours.Add(Resource::SceneVelocity), "motion attachment adds");
   CHECK(draw.Configure(gpu).has_value(), "native pipelines configure");
-  const std::array<SubjectMaterial, 1> materials{};
+  const std::array<MaterialBinding, 1> materials{};
   CHECK(draw.AppendMaterials(materials, error), "material registers");
   constexpr std::array<uint32_t, 1> slots{0};
   draw.SetNativePieceSurfaces(slots);
@@ -114,7 +115,7 @@ void CheckLayout(Native::Device *device,
   item.Layout = layout;
   CHECK(draws.Add(item, error), "draw adds");
   draws.Compile();
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Verts.From = positions.data();
   mesh.Positions = positions;
   mesh.PrevVerts.From = previous.data();
@@ -136,15 +137,15 @@ void CheckLayout(Native::Device *device,
         "accepted streams submit before inspection");
   CheckMainStreams(device, resident, mapped, second);
   constexpr std::array<uint32_t, 3> packedNormals{0x80008000u, 0x80008000u, 0x80008000u};
-  CHECK(Verify(device, resident, Stream::Normal, packedNormals, resident.SubjectVertices().First),
+  CHECK(Verify(device, resident, Stream::Normal, packedNormals, resident.MainVertexRange().First),
         "the main normal range stores one Oct16x2 word per vertex after the native prefix");
   const auto previousBytes = resident.HeldOf(Stream::Previous);
   CHECK(previousBytes != 0 &&
-            Verify(device, resident, Stream::Previous, previous, resident.SubjectVertices().First),
+            Verify(device, resident, Stream::Previous, previous, resident.MainVertexRange().First),
         "subject previous pose remains independently addressed after a rigid piece");
   const auto pieceFirst = resident.VertexRoom();
   const auto pieceTangentFirst = resident.TangentRoom();
-  const auto pieceColourFirst = resident.SubjectColours().Count;
+  const auto pieceColourFirst = resident.MainColourRange().Count;
   PieceMesh mappedPiece{};
   mappedPiece.Tangents = tangents;
   mappedPiece.Verts = vertices;
@@ -170,10 +171,10 @@ void CheckLayout(Native::Device *device,
     CHECK(placement.ColourOffset + pieceFirst == pieceColourFirst,
           "GPU placement maps piece indices into compact colour storage");
   }
-  CHECK(Verify(device, resident, Stream::Uv, uv, resident.SubjectVertices().First),
+  CHECK(Verify(device, resident, Stream::Uv, uv, resident.MainVertexRange().First),
         "later piece growth preserves the earlier main UV bytes");
   if (second) {
-    CHECK(Verify(device, resident, Stream::Colour, colours, resident.SubjectColours().First),
+    CHECK(Verify(device, resident, Stream::Colour, colours, resident.MainColourRange().First),
           "later piece growth preserves the earlier main colour bytes");
   }
   const auto colourBytes = resident.HeldOf(Stream::Colour);
@@ -188,9 +189,9 @@ void CheckLayout(Native::Device *device,
   CHECK(resident.HeldOf(Stream::Colour) == colourBytes && resident.HeldOf(Stream::Uv) == uvBytes,
         "arena growth without consumers does not grow optional streams");
   CHECK(resident.HeldOf(Stream::Previous) == previousBytes &&
-            Verify(device, resident, Stream::Previous, previous, resident.SubjectVertices().First),
+            Verify(device, resident, Stream::Previous, previous, resident.MainVertexRange().First),
         "rigid arena growth does not expand deformable pose storage");
-  const SubjectMesh empty;
+  const MeshInput empty;
   const auto cleared = draw.BeginMesh(empty);
   CHECK(cleared.has_value(), "main mesh clears without retiring independent pieces");
   CHECK(draw.PiecesStanding() == 5 &&

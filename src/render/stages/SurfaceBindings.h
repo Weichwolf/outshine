@@ -4,14 +4,14 @@
 #include <array>
 #include "DrawList.h"
 #include "KernelShape.h"
-#include "SubjectTypes.h"
+#include "MaterialBinding.h"
 #include "SurfaceState.h"
 
 namespace outshine::Render {
 
 struct SurfaceBindings {
   DrawShape Shape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
-  std::array<uint32_t, kSubjectImages> Images{};
+  std::array<uint32_t, kGeometryFragmentImageCount> Images{};
   uint32_t Count = 0;
 
   constexpr SurfaceBindings(VertexLayout layout,
@@ -37,15 +37,15 @@ struct SurfaceBindings {
 private:
   constexpr void AddLightingImages(bool transmits, bool capture) {
     if (capture) { return; }
-    if (transmits) { Images[Count++] = kSubjectMaterialImages; }
-    Images[Count++] = kSubjectMaterialImages + 1;
-    Images[Count++] = kSubjectMaterialImages + 2;
+    if (transmits) { Images[Count++] = kMaterialTextureCount; }
+    Images[Count++] = kMaterialTextureCount + 1;
+    Images[Count++] = kMaterialTextureCount + 2;
   }
 
   constexpr void
   FlatResources(VertexLayout layout, SurfaceKind kind, long identityIndex, bool transmits) {
     if (transmits) {
-      Images[Count++] = kSubjectMaterialImages;
+      Images[Count++] = kMaterialTextureCount;
     } else if (CarriesUv(layout)) {
       Images[Count++] = 0;
     }
@@ -57,7 +57,7 @@ private:
     Shape.FragmentStorageBuffers = 0u;
     Shape.FragmentUniformBuffers = capture ? 1u : 2u;
     if (CarriesUv(layout)) {
-      const uint32_t images = capture ? 3u : kSubjectMaterialImages;
+      const uint32_t images = capture ? 3u : kMaterialTextureCount;
       for (uint32_t image = 0; image < images; ++image) {
         if (image != 1 || CarriesTangent(layout)) { Images[Count++] = image; }
       }

@@ -173,8 +173,8 @@ void InitializationUploads() {
       CHECK(renderer.Settle(error) && error.empty(), "successful retry clears the old diagnosis");
     }
   }
-  const auto geometry =
-      CompilePlan({Resource::Surface, Resource::IrradianceBuffer}, {Stage::Geometry, Stage::Sky});
+  const auto geometry = CompilePlan({Resource::Surface, Resource::IrradianceBuffer},
+                                    {Stage::OpaqueGeometry, Stage::Sky});
   CHECK(geometry, "ground fallback uploads belong to an explicit geometry consumer");
   if (!geometry) { return; }
   for (const auto point : {Faults::Point::Map, Faults::Point::Acquire, Faults::Point::Submit}) {
@@ -272,9 +272,9 @@ void ReinitializationInvalidatesFrames(bool temporal) {
   CHECK(compiled.has_value(), "reinitialization plan compiles");
   if (!compiled) { return; }
   const auto previous =
-      temporal
-          ? CompilePlan({Resource::Surface}, {Stage::Geometry, Stage::Sky, Stage::TemporalResolve})
-          : compiled;
+      temporal ? CompilePlan({Resource::Surface},
+                             {Stage::OpaqueGeometry, Stage::Sky, Stage::TemporalResolve})
+               : compiled;
   CHECK(previous.has_value(), "previous render plan compiles");
   if (!previous) { return; }
   Faults faults;
@@ -330,12 +330,12 @@ void ReinitializationInvalidatesFrames(bool temporal) {
 }
 
 void TransmissionFollowsReplacementPlan() {
-  const auto opaque = CompilePlan({Resource::Surface}, {Stage::Geometry, Stage::Sky});
+  const auto opaque = CompilePlan({Resource::Surface}, {Stage::OpaqueGeometry, Stage::Sky});
   const auto glass = CompilePlan({Resource::Surface, Resource::SceneComposited},
-                                 {Stage::Geometry, Stage::TransmissiveGeometry, Stage::Sky});
+                                 {Stage::OpaqueGeometry, Stage::TransmissiveGeometry, Stage::Sky});
   CHECK(opaque.has_value() && glass.has_value(), "transmission switching plans compile");
   if (!opaque || !glass) { return; }
-  std::array<SubjectMaterial, 1> materials{};
+  std::array<MaterialBinding, 1> materials{};
   materials.front().Row.Transmission = 1;
   SceneRenderer renderer;
   std::string error;
@@ -355,7 +355,7 @@ void TransmissionFollowsReplacementPlan() {
 void WorldPreparationCompletesLighting() {
   const auto compiled =
       CompilePlan({Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
-                  {Stage::Geometry, Stage::Sky, Stage::TemporalResolve});
+                  {Stage::OpaqueGeometry, Stage::Sky, Stage::TemporalResolve});
   CHECK(compiled.has_value(), "world preparation uses the real atmosphere and temporal plan");
   if (!compiled) { return; }
   Faults faults;
@@ -427,7 +427,7 @@ void WorldPreparationCompletesLighting() {
 void Exercise() {
   const auto compiled =
       CompilePlan({Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
-                  {Stage::Geometry, Stage::Sky, Stage::TemporalResolve});
+                  {Stage::OpaqueGeometry, Stage::Sky, Stage::TemporalResolve});
   CHECK(compiled.has_value(), "the real sky, irradiance and temporal plan compiles");
   if (!compiled) { return; }
   CHECK((*compiled)->Holds(Stage::TemporalResolve) && (*compiled)->Holds(Stage::MediumRadiance),

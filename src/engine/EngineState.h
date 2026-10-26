@@ -181,7 +181,7 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
   if (scenario.Motion.Declared) { carried.emplace_back("a physics dial"); }
   if (scenario.Time.Declared) { carried.emplace_back("a clock"); }
   if (scenario.Assets.size() > 1) {
-    carried.push_back(std::to_string(scenario.Assets.size() - 1) + " assets beside the subject");
+    carried.push_back(std::to_string(scenario.Assets.size() - 1) + " assets beside the geometry");
   }
   carried.insert(carried.end(), quiet.begin(), quiet.end());
   return carried;

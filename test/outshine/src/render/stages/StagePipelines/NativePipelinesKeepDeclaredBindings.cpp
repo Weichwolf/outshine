@@ -3,6 +3,7 @@
 #include "Check.h"
 #include <array>
 #include <cstdint>
+#include <cstdio>
 #include <print>
 
 int main() {
@@ -25,21 +26,21 @@ int main() {
           "unknown stages cannot publish an empty or unrelated pipeline");
   }
   const auto depth = *FindComputeShader(ComputeShaderId::DepthPyramid);
-  auto previousCompact = *FindComputeShader(ComputeShaderId::SubjectCompact);
+  auto previousCompact = *FindComputeShader(ComputeShaderId::GeometryCompact);
   constexpr uint32_t kPreviousCompactGroupX = 128;
   previousCompact.Shape.GroupX = kPreviousCompactGroupX;
   const auto incompatibleCompact = CompileComputePipeline(**device, previousCompact);
   CHECK(!incompatibleCompact && incompatibleCompact.error().Kind == Native::ErrorKind::Invalid,
         "the compact shader cannot retain the previous workgroup contract");
-  for (auto field : {&ComputeShape::Samplers,
-                     &ComputeShape::ReadOnlyTextures,
-                     &ComputeShape::ReadWriteTextures,
-                     &ComputeShape::ReadOnlyBuffers,
-                     &ComputeShape::ReadWriteBuffers,
-                     &ComputeShape::UniformBuffers,
-                     &ComputeShape::GroupX,
-                     &ComputeShape::GroupY,
-                     &ComputeShape::GroupZ}) {
+  for (const auto field : {&ComputeShape::Samplers,
+                           &ComputeShape::ReadOnlyTextures,
+                           &ComputeShape::ReadWriteTextures,
+                           &ComputeShape::ReadOnlyBuffers,
+                           &ComputeShape::ReadWriteBuffers,
+                           &ComputeShape::UniformBuffers,
+                           &ComputeShape::GroupX,
+                           &ComputeShape::GroupY,
+                           &ComputeShape::GroupZ}) {
     auto wrong = depth;
     ++(wrong.Shape.*field);
     const auto rejected = CompileComputePipeline(**device, wrong);
@@ -47,7 +48,7 @@ int main() {
               rejected.error().Message.contains("declared compute bindings"),
           "native SPIR-V reflection rejects each incorrect binding count or group dimension");
   }
-  auto staleScan = *FindComputeShader(ComputeShaderId::SubjectScan);
+  auto staleScan = *FindComputeShader(ComputeShaderId::GeometryScan);
   staleScan.Shape.GroupX = 256;
   const auto stale = CompileComputePipeline(**device, staleScan);
   CHECK(!stale && stale.error().Kind == Native::ErrorKind::Invalid,

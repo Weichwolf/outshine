@@ -104,7 +104,7 @@ def main():
     parser.add_argument('--output', type=Path, default=ROOT/'build/experiments/render/ground-detail')
     args = parser.parse_args(); args.output.mkdir(parents=True, exist_ok=True)
     write_controls(args.output)
-    source = ROOT/'src/assets/world/ground-materials.json'
+    source = ROOT/'data/world/ground-materials.json'
     recipes = json.loads(source.read_text())['classes']
     spacing = .02
     x, y = np.meshgrid(np.arange(320)*spacing+1000., np.arange(240)*spacing+200.)

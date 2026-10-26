@@ -30,15 +30,15 @@ int main() {
         "the native execution plan resolves all requested scene contributions");
   CHECK(std::ranges::count(full->Outputs, Resource::Surface) == 1,
         "a presented pipeline requests its output surface once");
-  const std::array<std::string, 1> stages{"subjects"};
+  const std::array<std::string, 1> stages{"opaqueGeometry"};
   const std::array<std::string, 2> outputs{"sceneLinear", "sceneLinear"};
   settings.Stages = stages;
   settings.Outputs = outputs;
   const auto explicitPlan = BuildFramePipeline(settings);
   CHECK(explicitPlan && std::ranges::count(explicitPlan->Outputs, Resource::SceneLinear) == 1,
         "explicit output requests are deduplicated");
-  CHECK(explicitPlan &&
-            explicitPlan->Content == std::vector<Stage>({Stage::Geometry, Stage::TemporalResolve}),
+  CHECK(explicitPlan && explicitPlan->Content ==
+                            std::vector<Stage>({Stage::OpaqueGeometry, Stage::TemporalResolve}),
         "explicit stage selection remains authoritative while temporal resolve is requested");
   return Report();
 }

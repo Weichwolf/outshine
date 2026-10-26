@@ -3,7 +3,9 @@
 
 #include "ResourceHandle.h"
 #include "HeightPageBatch.h"
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
+#include "GroundTile.h"
+#include "MaterialBinding.h"
 #include "TerrainTile.h"
 #include "PrismInstance.h"
 #include <PrismGrid.h>
@@ -47,47 +49,47 @@ public:
   };
 
   [[nodiscard]] std::expected<PieceHandle, std::string>
-  PlacePiece(GeometryRenderer &subjects,
+  PlacePiece(GeometryRenderer &geometry,
              const PieceMesh &piece,
              PieceOwner owner = PieceOwner::Independent);
   [[nodiscard]] std::expected<size_t, std::string>
-  ReconcileStructurePieces(GeometryRenderer &subjects, std::span<const PieceHandle> held);
-  [[nodiscard]] bool SetPieceInstances(GeometryRenderer &subjects,
+  ReconcileStructurePieces(GeometryRenderer &geometry, std::span<const PieceHandle> held);
+  [[nodiscard]] bool SetPieceInstances(GeometryRenderer &geometry,
                                        PieceHandle which,
                                        std::span<const Mat4> rows,
                                        std::string &error);
-  [[nodiscard]] bool SetPieceInstances(GeometryRenderer &subjects,
+  [[nodiscard]] bool SetPieceInstances(GeometryRenderer &geometry,
                                        std::span<const PieceRows> pieces,
                                        std::string &error);
-  void ReleasePiece(GeometryRenderer &subjects, PieceHandle which);
+  void ReleasePiece(GeometryRenderer &geometry, PieceHandle which);
 
   void CopySourcesFrom(const SceneResources &source, PieceSources pieces);
-  [[nodiscard]] bool RestorePieces(GeometryRenderer &subjects, std::string &error);
+  [[nodiscard]] bool RestorePieces(GeometryRenderer &geometry, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
-  AdvancePieceRestore(GeometryRenderer &subjects, size_t &nextPiece, size_t piecesMost);
+  AdvancePieceRestore(GeometryRenderer &geometry, size_t &nextPiece, size_t piecesMost);
 
   [[nodiscard]] std::expected<uint32_t, std::string>
-  RegisterPieceMaterials(GeometryRenderer &subjects, GeometryRenderer *glass, Geometry source);
+  RegisterPieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source);
   [[nodiscard]] bool
-  RestorePieceMaterials(GeometryRenderer &subjects, GeometryRenderer *glass, std::string &error);
+  RestorePieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
   [[nodiscard]] size_t PieceSourceCount() const noexcept;
   [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
 
   [[nodiscard]] Native::Result<PrismGridHandle>
-  PlacePrismGrid(GeometryRenderer &subjects,
+  PlacePrismGrid(GeometryRenderer &geometry,
                  std::shared_ptr<const PrismGrid> source,
                  std::span<const PrismInstance> instances,
                  uint32_t material);
-  [[nodiscard]] Native::Result<void> ReplacePrismGrid(GeometryRenderer &subjects,
+  [[nodiscard]] Native::Result<void> ReplacePrismGrid(GeometryRenderer &geometry,
                                                       PrismGridHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
                                                       std::span<const PrismInstance> instances,
                                                       uint32_t material);
   [[nodiscard]] Native::Result<void> SetPrismGridInstances(
-      GeometryRenderer &subjects, PrismGridHandle which, std::span<const PrismInstance> instances);
-  void ReleasePrismGrid(GeometryRenderer &subjects, PrismGridHandle which);
+      GeometryRenderer &geometry, PrismGridHandle which, std::span<const PrismInstance> instances);
+  void ReleasePrismGrid(GeometryRenderer &geometry, PrismGridHandle which);
   [[nodiscard]] bool HasPrismGrid(PrismGridHandle which) const noexcept;
 
   [[nodiscard]] size_t PieceSlots() const noexcept { return Pieces_.size(); }
@@ -96,21 +98,21 @@ public:
     return Pieces_.capacity() * sizeof(Piece);
   }
 
-  [[nodiscard]] Native::Result<HeightPageHandle> PlaceHeightPage(GeometryRenderer &subjects,
+  [[nodiscard]] Native::Result<HeightPageHandle> PlaceHeightPage(GeometryRenderer &geometry,
                                                                  std::span<const float> nodes);
   [[nodiscard]] Native::Result<std::vector<HeightPageHandle>>
-  PlaceHeightPages(GeometryRenderer &subjects, std::span<const HeightPageView> nodes);
-  void ReleaseHeightPage(GeometryRenderer &subjects, HeightPageHandle which);
+  PlaceHeightPages(GeometryRenderer &geometry, std::span<const HeightPageView> nodes);
+  void ReleaseHeightPage(GeometryRenderer &geometry, HeightPageHandle which);
   [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
   [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
   [[nodiscard]] std::expected<bool, std::string>
-  AdvanceTerrainRestore(GeometryRenderer &subjects, size_t &nextPage, size_t pagesMost);
-  [[nodiscard]] Native::Result<void> SetGroundGrid(GeometryRenderer &subjects,
+  AdvanceTerrainRestore(GeometryRenderer &geometry, size_t &nextPage, size_t pagesMost);
+  [[nodiscard]] Native::Result<void> SetGroundGrid(GeometryRenderer &geometry,
                                                    std::span<const float> fractions);
-  [[nodiscard]] Native::Result<void> SetTerrainTiles(GeometryRenderer &subjects,
+  [[nodiscard]] Native::Result<void> SetTerrainTiles(GeometryRenderer &geometry,
                                                      std::span<const TerrainTile> real,
                                                      std::span<const TerrainTile> virtual_);
-  [[nodiscard]] bool RestoreTerrain(GeometryRenderer &subjects, std::string &error);
+  [[nodiscard]] bool RestoreTerrain(GeometryRenderer &geometry, std::string &error);
   void SetGroundClassification(std::span<const uint32_t> classes, std::span<const float> palette);
   void SetGroundClassification(GroundClassificationSource source) noexcept;
 
@@ -156,12 +158,12 @@ private:
 
   struct PieceMaterials {
     Geometry Source;
-    std::vector<SubjectMaterial> Slots;
+    std::vector<MaterialBinding> Slots;
   };
 
   [[nodiscard]] static std::expected<PieceMaterials, std::string>
   ResolvePieceMaterials(Geometry source);
-  [[nodiscard]] bool AppendPieceMaterials(GeometryRenderer &subjects,
+  [[nodiscard]] bool AppendPieceMaterials(GeometryRenderer &geometry,
                                           GeometryRenderer *glass,
                                           const PieceMaterials &materials,
                                           std::string &error);
@@ -182,10 +184,10 @@ private:
 
   void CopyPrismSourcesFrom(const SceneResources &source, PieceSources pieces);
   [[nodiscard]] std::expected<bool, std::string>
-  AdvancePrismRestore(GeometryRenderer &subjects, size_t &nextGrid, size_t gridsMost);
+  AdvancePrismRestore(GeometryRenderer &geometry, size_t &nextGrid, size_t gridsMost);
 
   [[nodiscard]] Native::Result<size_t>
-  RestoreHeightPageBatch(GeometryRenderer &subjects, size_t first, size_t pagesMost);
+  RestoreHeightPageBatch(GeometryRenderer &geometry, size_t first, size_t pagesMost);
 
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;

@@ -30,7 +30,7 @@ void Configure(GeometryRenderer &draw, Native::Device &device) {
   gpu.Width = gpu.Height = 32;
   CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "the fixture has one HDR attachment");
   Require(draw.Configure(gpu));
-  std::array<SubjectMaterial, 4> materials{};
+  std::array<MaterialBinding, 4> materials{};
   materials[1].Row.Alpha = AlphaMode::Masked;
   materials[2].Row.Alpha = AlphaMode::Blended;
   materials[3].Row.Unlit = true;

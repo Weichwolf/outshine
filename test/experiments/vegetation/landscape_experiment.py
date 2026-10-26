@@ -93,7 +93,7 @@ def validate_mesh(mesh):
 def dimensions(recipe):
     if recipe["profiles"]:
         profiles = [
-            json.loads((ROOT / "src/assets/world/species" / f"{name}.json").read_text())
+            json.loads((ROOT / "data/world/species" / f"{name}.json").read_text())
             for name in recipe["profiles"]
         ]
         return [
@@ -240,7 +240,7 @@ def main():
                     str(HERE / "crown_surface.py"),
                     str(HERE / "stand_plan.py"),
                     str(HERE / "wood_mesh.py"),
-                    "src/assets/world/species",
+                    "data/world/species",
                 ],
                 cwd=ROOT,
                 text=True,

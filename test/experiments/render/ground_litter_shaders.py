@@ -75,8 +75,8 @@ def compile_variant(output, points, variant, glslang, translator):
                      else 'src/render/shaders/groundLit.glsl')
     defines = [f'-DGROUND_LITTER_GAUSS_POINTS={points}']
     if stage == 'frag':
-        flags = ('SUBJECT_WRITES_VELOCITY', 'SUBJECT_NORMAL_LOCATION', 'SUBJECT_IDENTITY_LOCATION',
-                 'SUBJECT_BASE_LOCATION', 'SUBJECT_METALROUGH_LOCATION')
+        flags = ('SURFACE_WRITES_VELOCITY', 'SURFACE_NORMAL_LOCATION', 'SURFACE_IDENTITY_LOCATION',
+                 'SURFACE_BASE_LOCATION', 'SURFACE_METALROUGH_LOCATION')
         defines += [f'-D{flag}={variant[i] if i < len(variant) else 0}'
                     for i, flag in enumerate(flags)]
     run([glslang, '-V', '--target-env', 'vulkan1.0', '-S', stage,

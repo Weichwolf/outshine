@@ -111,7 +111,7 @@ def render(normals):
 
 def main():
     output = ROOT/'build/experiments/render/ground-gradients'; output.mkdir(parents=True, exist_ok=True)
-    recipe = next(r for r in json.loads((ROOT/'src/assets/world/ground-materials.json').read_text())['classes'] if r['name']=='limestone')
+    recipe = next(r for r in json.loads((ROOT/'data/world/ground-materials.json').read_text())['classes'] if r['name']=='limestone')
     points = np.random.default_rng(2169).uniform(-100., 100., (512, 3))
     _, exact = rock_bump(points, recipe)
     estimated = np.empty_like(exact)

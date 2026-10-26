@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "ImpostorBaker.h"
 #include "ImpostorSurface.h"
 #include "RuntimeScene.h"
@@ -92,7 +93,7 @@ void CheckCurrentLighting(const Geometry &card) {
   CHECK(renderer.ReadSceneLinear(before) == Render::ReadState::Ready &&
             renderer.ReadDepth(depth) == Render::ReadState::Ready,
         "card pixels read back");
-  Render::SubjectLight key;
+  Render::SceneLight key;
   key.Light.Kind = LightKind::Directional;
   key.Light.Intensity = 100;
   const float axis = -1 / std::numbers::sqrt3_v<float>;

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_TERRAIN_TERRAINRESIDENCY_H
 #define OUTSHINE_RENDER_TERRAIN_TERRAINRESIDENCY_H
 
-#include "SubjectTypes.h"
+#include "GroundTile.h"
 #include "TerrainPatchBounds.h"
 #include "scene/HeightPageBatch.h"
 #include "device/native/Device.h"

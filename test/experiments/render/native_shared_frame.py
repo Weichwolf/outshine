@@ -47,8 +47,8 @@ def main():
     fragment = Path(__file__).with_suffix(".frag")
     contracts = (
         "src/render/stages/GpuPlacement.h",
-        "src/render/shaders/subjectPlacement.glsl",
-        "src/render/shaders/subjectView.glsl",
+        "src/render/shaders/geometryPlacements.glsl",
+        "src/render/shaders/geometryView.glsl",
     )
     if any(digest(ROOT / name) != digest(build / name) for name in contracts):
         parser.error(

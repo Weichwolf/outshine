@@ -64,7 +64,7 @@ int main() {
     message(FATAL_ERROR
       "Vulkan headers must support VK_KHR_internally_synchronized_queues for single-queue presentation. Install current Vulkan development headers or set -DVulkan_INCLUDE_DIR=<SDK>/include.")
   endif()
-  find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+  find_package(OpenSSL 3 REQUIRED COMPONENTS Crypto)
 endif()
 find_program(CCACHE_EXECUTABLE ccache)
 if(CCACHE_EXECUTABLE)

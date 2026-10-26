@@ -65,7 +65,7 @@ void Exercise(DepthRequest requestedDepth) {
   Core::Declaration declaration;
   declaration.InitialGeometry = &base;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 64;
-  declaration.Stages = {"subjects", "temporalResolve"};
+  declaration.Stages = {"opaqueGeometry", "temporalResolve"};
   declaration.Outputs = {"surface", "sceneDepth", "sceneVelocity"};
   if (requestedDepth == DepthRequest::Stage || requestedDepth == DepthRequest::Both) {
     declaration.Stages.emplace_back("depthPyramid");

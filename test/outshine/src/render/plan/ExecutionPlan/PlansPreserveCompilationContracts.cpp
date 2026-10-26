@@ -46,28 +46,29 @@ void Snapshot(size_t index, const outshine::Render::ExecutionPlan &plan) {
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  const std::array specs{
-      PlanSpec{.Outputs = {Resource::SceneHdr},
-               .Content = {Stage::Geometry, Stage::Sky},
-               .Exposure = {},
-               .Display = {},
-               .Precision = {}},
-      PlanSpec{.Outputs = {Resource::FrameTex},
-               .Content = {Stage::Geometry, Stage::Sky},
-               .Exposure = {},
-               .Display = {},
-               .Precision = {}},
-      PlanSpec{
-          .Outputs = {Resource::FrameTex},
-          .Content = {Stage::Geometry, Stage::Sky, Stage::TemporalResolve, Stage::AutoExposure},
-          .Exposure = {},
-          .Display = {},
-          .Precision = {}},
-      PlanSpec{.Outputs = {Resource::FrameTex},
-               .Content = {Stage::Geometry, Stage::Sky},
-               .Exposure = Declared<float>(2),
-               .Display = Declared<Transfer>(Transfer::Linear),
-               .Precision = Declared<ScenePrecision>(ScenePrecision::Float)}};
+  const std::array specs{PlanSpec{.Outputs = {Resource::SceneHdr},
+                                  .Content = {Stage::OpaqueGeometry, Stage::Sky},
+                                  .Exposure = {},
+                                  .Display = {},
+                                  .Precision = {}},
+                         PlanSpec{.Outputs = {Resource::FrameTex},
+                                  .Content = {Stage::OpaqueGeometry, Stage::Sky},
+                                  .Exposure = {},
+                                  .Display = {},
+                                  .Precision = {}},
+                         PlanSpec{.Outputs = {Resource::FrameTex},
+                                  .Content = {Stage::OpaqueGeometry,
+                                              Stage::Sky,
+                                              Stage::TemporalResolve,
+                                              Stage::AutoExposure},
+                                  .Exposure = {},
+                                  .Display = {},
+                                  .Precision = {}},
+                         PlanSpec{.Outputs = {Resource::FrameTex},
+                                  .Content = {Stage::OpaqueGeometry, Stage::Sky},
+                                  .Exposure = Declared<float>(2),
+                                  .Display = Declared<Transfer>(Transfer::Linear),
+                                  .Precision = Declared<ScenePrecision>(ScenePrecision::Float)}};
   for (size_t index = 0; index < specs.size(); ++index) {
     const auto result = ExecutionPlan::Compile(specs[index]);
     CHECK(result.has_value(), "representative plan compiles");

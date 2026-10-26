@@ -32,12 +32,12 @@ int main() {
     auto source = *base;
     ImageMipData mips;
     mips[0] = *lower;
-    const SubjectTexture texture{.Rgba = source.data(),
-                                 .Width = 2,
-                                 .Height = 2,
-                                 .Format = ImagePixelFormat::Rgba16Float,
-                                 .LowerMips = ViewImageMips(mips),
-                                 .Uv = {}};
+    const MaterialTexture texture{.Rgba = source.data(),
+                                  .Width = 2,
+                                  .Height = 2,
+                                  .Format = ImagePixelFormat::Rgba16Float,
+                                  .LowerMips = ViewImageMips(mips),
+                                  .Uv = {}};
     image = Require(residency.Upload(texture,
                                      GeometryResidency::Transfer::Linear,
                                      TexelKind::Value,
@@ -62,7 +62,7 @@ int main() {
     CHECK(read && std::ranges::equal(*read, std::as_bytes(std::span(expected))),
           "every half-float mip survives source release and its exact upload offset");
   }
-  SubjectTexture missing;
+  MaterialTexture missing;
   missing.Format = ImagePixelFormat::Rgba16Float;
   const auto invalid =
       residency.Upload(missing, GeometryResidency::Transfer::Linear, TexelKind::Value);

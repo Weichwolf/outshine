@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include "Check.h"
 #include "GeometryRenderer.h"
@@ -217,7 +218,7 @@ void Materials(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas
   FrameContext frame;
   for (size_t axis = 0; axis < 3; ++axis) { frame.PreViewTranslation[axis] = -kAnchor[axis]; }
   Compare(device, geometry, partial, full, frame);
-  SubjectMaterial masked;
+  MaterialBinding masked;
   masked.Row.Alpha = AlphaMode::Masked;
   masked.Row.BaseColour[3] = 0;
   masked.Row.DoubleSided = true;
@@ -228,7 +229,7 @@ void Materials(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas
   geometry.SetNativePieceSurfaces(std::array<uint32_t, 1>{1});
   Compare(device, geometry, partial, full, frame);
   CHECK(!partial.Shadow.PreservesAtlas(), "live opacity mapping requires full invalidation");
-  SubjectMaterial opaque;
+  MaterialBinding opaque;
   opaque.Row.DoubleSided = true;
   CheckSceneUpload(geometry.SetMaterials(std::span(&opaque, 1), error), error);
   geometry.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});
@@ -313,10 +314,10 @@ int main() {
   GeometryRenderer geometry{geometryStorage};
   Require(geometry.Configure(gpu));
   std::string error;
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Anchor = kAnchor;
   CheckSceneUpload(geometry.SetMesh(mesh, error), error);
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Row.DoubleSided = true;
   CheckSceneUpload(geometry.SetMaterials(std::span(&material, 1), error), error);
   geometry.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});

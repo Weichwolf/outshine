@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "ImageCapture.h"
 #include <Engine.h>
 #include "TestEngine.h"
@@ -246,7 +247,7 @@ void DeclareShadows(Engine &engine, const HeightGrid &field, double bearingDeg =
 bool Relight(Engine &engine, const HeightGrid &field, size_t &setterCalls) {
   constexpr double bearingDeg = 300;
   const auto direction = EastUpSouthDirection(bearingDeg * kDeg2Rad, kSunElevationDeg * kDeg2Rad);
-  Render::SubjectLight light;
+  Render::SceneLight light;
   light.Light.Intensity = static_cast<float>(kSunLux);
   for (size_t axis = 0; axis < 3; ++axis) {
     light.Light.Direction[axis] = -static_cast<float>(direction[axis]);

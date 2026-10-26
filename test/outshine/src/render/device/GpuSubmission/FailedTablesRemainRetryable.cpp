@@ -397,7 +397,7 @@ void Tables(Native::Device *device) {
   fault.Armed = false;
   CHECK(Accepted(draw.Configure(gpu), error),
         "the ground pipeline configures again after a refusal");
-  const std::array<SubjectMaterial, 1> materials{};
+  const std::array<MaterialBinding, 1> materials{};
   const bool materialReady = draw.SetMaterials(materials, error);
   CHECK(materialReady, error.c_str());
   if (!materialReady) { return; }

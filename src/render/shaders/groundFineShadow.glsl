@@ -1,4 +1,4 @@
-#include "subjectView.glsl"
+#include "geometryView.glsl"
 
 vec3 fineGroundPoint(uint page, ivec2 node, vec4 north, vec4 south, float sagInv) {
   const vec2 uv = vec2(node) / float(kGroundSide - 1);

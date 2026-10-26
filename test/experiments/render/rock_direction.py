@@ -71,7 +71,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=ROOT/'build/experiments/render/rock-direction')
     args = parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
-    source = ROOT/'src/assets/world/ground-materials.json'
+    source = ROOT/'data/world/ground-materials.json'
     recipe = next(r for r in json.loads(source.read_text())['classes'] if r['name']=='rock')
     spacing = .125
     x,y = np.meshgrid(np.arange(640)*spacing,np.arange(480)*spacing)

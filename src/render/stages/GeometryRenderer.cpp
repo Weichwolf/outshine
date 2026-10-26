@@ -1,4 +1,5 @@
-#include "SubjectLightingUniform.h"
+#include "MeshInput.h"
+#include "LightingUniform.h"
 #include "Vec4.h"
 #include "SurfaceBindings.h"
 #include "VertexUpload.h"
@@ -58,8 +59,8 @@ bool Uploaded(Native::Result<void> result, std::string &error) {
   return false;
 }
 
-bool UsesPrevious(const SubjectPose &pose, std::span<const DrawBatch> batches) {
-  return pose.PrevVerts.Stands() && std::ranges::any_of(batches, [](const DrawBatch &batch) {
+bool UsesPrevious(const VertexInput &pose, std::span<const DrawBatch> batches) {
+  return pose.PrevVerts.HasSource() && std::ranges::any_of(batches, [](const DrawBatch &batch) {
            return batch.Motion == VertexMotion::Deforming;
          });
 }
@@ -192,7 +193,7 @@ UploadPieceRuns(GeometryResidency &res, const PieceMesh &piece, const PieceAlloc
   }};
   size_t count = 0;
   for (const GeometryResidency::Crossing &one : crossings) {
-    if (one.Bytes > 0 && one.Stands()) { crossings[count++] = one; }
+    if (one.Bytes > 0 && one.HasSource()) { crossings[count++] = one; }
   }
   return res.Cross(std::span<GeometryResidency::Crossing>(crossings.data(), count), true);
 }
@@ -202,7 +203,7 @@ UploadPieceRuns(GeometryResidency &res, const PieceMesh &piece, const PieceAlloc
 Native::Result<void> GeometryRenderer::RoomForStreams() {
   GeometryResidency &res = Bound();
   const uint32_t verts = res.VertexRoom();
-  const uint32_t subject = res.SubjectVertices().First + res.SubjectVertices().Count;
+  const uint32_t mainVertexEnd = res.MainVertexRange().First + res.MainVertexRange().Count;
   const auto bytes = [](uint32_t count, uint32_t wide) {
     return count * wide * static_cast<uint32_t>(sizeof(float));
   };
@@ -211,18 +212,18 @@ Native::Result<void> GeometryRenderer::RoomForStreams() {
   const std::array streams = {
       std::pair{S::Vertex, bytes(verts, kPositionFloats)},
       std::pair{S::Normal, bytes(verts, 1u)},
-      std::pair{S::Previous, res.Shape().HasPrevious ? bytes(subject, kPositionFloats) : 0u},
-      std::pair{S::Emitted, res.Shape().HasEmitted ? bytes(subject, kPositionFloats) : 0u}};
+      std::pair{S::Previous, res.Shape().HasPrevious ? bytes(mainVertexEnd, kPositionFloats) : 0u},
+      std::pair{S::Emitted, res.Shape().HasEmitted ? bytes(mainVertexEnd, kPositionFloats) : 0u}};
   for (const auto &[stream, size] : streams) {
     if (size == 0) { continue; }
     auto grown = res.Grow(stream, {.Usage = vertex, .Bytes = size, .Deferred = true});
     if (!grown) { return grown; }
   }
-  if (subject != 0) {
+  if (mainVertexEnd != 0) {
     auto optional =
-        RoomForOptionalStreams({.VertexEnd = res.SubjectVertices().First + res.Shape().Vertices,
-                                .ColourEnd = res.SubjectColours().First + res.Shape().Vertices,
-                                .TangentEnd = res.SubjectTangents().First + res.Shape().Vertices},
+        RoomForOptionalStreams({.VertexEnd = res.MainVertexRange().First + res.Shape().Vertices,
+                                .ColourEnd = res.MainColourRange().First + res.Shape().Vertices,
+                                .TangentEnd = res.MainTangentRange().First + res.Shape().Vertices},
                                {.Uv = res.Shape().HasUv,
                                 .Uv1 = res.Shape().HasUv1,
                                 .Tangent = res.Shape().HasTangent,
@@ -256,18 +257,18 @@ Native::Result<void> GeometryRenderer::RoomForOptionalStreams(OptionalStreamEnds
   return {};
 }
 
-bool GeometryRenderer::ValidateBatch(const SubjectMesh &mesh,
+bool GeometryRenderer::ValidateBatch(const MeshInput &mesh,
                                      const DrawBatch &batch,
                                      std::string &error) const {
   if (static_cast<size_t>(batch.Layout) >= kVertexLayouts.size()) {
     error = Says::InvalidMeshLayout;
     return false;
   }
-  if ((CarriesUv(batch.Layout) && !mesh.Uv.Stands()) ||
-      (CarriesUv1(batch.Layout) && !mesh.Uv1.Stands()) ||
-      (CarriesNormal(batch.Layout) && !mesh.Normals.Stands()) ||
-      (CarriesTangent(batch.Layout) && !mesh.Tangents.Stands()) ||
-      (CarriesColour(batch.Layout) && !mesh.Colours.Stands())) {
+  if ((CarriesUv(batch.Layout) && !mesh.Uv.HasSource()) ||
+      (CarriesUv1(batch.Layout) && !mesh.Uv1.HasSource()) ||
+      (CarriesNormal(batch.Layout) && !mesh.Normals.HasSource()) ||
+      (CarriesTangent(batch.Layout) && !mesh.Tangents.HasSource()) ||
+      (CarriesColour(batch.Layout) && !mesh.Colours.HasSource())) {
     error = Says::MissingMeshAttributes;
     return false;
   }
@@ -276,11 +277,11 @@ bool GeometryRenderer::ValidateBatch(const SubjectMesh &mesh,
     return false;
   }
   if (batch.MaterialSlot < Slots.size() && Slots[batch.MaterialSlot].ReadsSecondUv &&
-      !(CarriesUv1(batch.Layout) && mesh.Uv1.Stands())) {
+      !(CarriesUv1(batch.Layout) && mesh.Uv1.HasSource())) {
     error = "surface slot " + std::to_string(batch.MaterialSlot) +
             " requires the second UV set and the draw wearing it " +
-            (mesh.Uv1.Stands() ? "takes a vertex layout that binds no second run"
-                               : "has no second uv run at all") +
+            (mesh.Uv1.HasSource() ? "takes a vertex layout that binds no second run"
+                                  : "has no second uv run at all") +
             ", and the first set is not a substitute for it";
     return false;
   }
@@ -298,22 +299,22 @@ bool GeometryRenderer::ValidateBatch(const SubjectMesh &mesh,
   return true;
 }
 
-bool GeometryRenderer::ValidateMesh(const SubjectMesh &mesh, std::string &error) const {
+bool GeometryRenderer::ValidateMesh(const MeshInput &mesh, std::string &error) const {
   if (mesh.VertexCount == 0 || mesh.IndexCount == 0) { return true; }
   if (Binding().Device == nullptr) {
-    error = "the subject stage carries no device, so a mesh of " +
+    error = "the geometry stage carries no device, so a mesh of " +
             std::to_string(mesh.VertexCount) + " vertices has nowhere to become resident";
     return false;
   }
   {
     const char *missing = nullptr;
-    if (!mesh.Verts.Stands()) {
+    if (!mesh.Verts.HasSource()) {
       missing = "position run";
     } else if (mesh.Indices == nullptr) {
       missing = "index run";
     } else if (mesh.Draws == nullptr) {
       missing = "draw list";
-    } else if (!mesh.Emitted.Stands()) {
+    } else if (!mesh.Emitted.HasSource()) {
       missing = "emitted-radiance run";
     }
     if (missing != nullptr) {
@@ -326,7 +327,7 @@ bool GeometryRenderer::ValidateMesh(const SubjectMesh &mesh, std::string &error)
     }
   }
 
-  if (mesh.PrevVerts.Stands() && !Binding().WritesVelocity) {
+  if (mesh.PrevVerts.HasSource() && !Binding().WritesVelocity) {
     error = "the mesh carries a previous pose and the pass attaches no velocity target, so the run "
             "would reach no shader";
     return false;
@@ -337,7 +338,7 @@ bool GeometryRenderer::ValidateMesh(const SubjectMesh &mesh, std::string &error)
   return true;
 }
 
-bool GeometryRenderer::SetMesh(const SubjectMesh &mesh, std::string &error) {
+bool GeometryRenderer::SetMesh(const MeshInput &mesh, std::string &error) {
   auto began = BeginMesh(mesh);
   if (!began) {
     error = std::move(began.error());
@@ -347,7 +348,7 @@ bool GeometryRenderer::SetMesh(const SubjectMesh &mesh, std::string &error) {
 }
 
 std::expected<GeometryRenderer::MeshTicket, std::string>
-GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
+GeometryRenderer::BeginMesh(const MeshInput &mesh) {
   std::string error;
   LastMeshUpload_ = {};
   const auto admissionAt = std::chrono::steady_clock::now();
@@ -362,23 +363,23 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
   PendingIndexCount_ = 0;
   Bound().Shape().Vertices = mesh.VertexCount;
   Bound().Shape().Indices = mesh.IndexCount;
-  Bound().Shape().HasUv = mesh.Uv.Stands();
-  Bound().Shape().HasUv1 = mesh.Uv1.Stands();
-  Bound().Shape().HasNormal = mesh.Normals.Stands();
-  Bound().Shape().HasTangent = mesh.Tangents.Stands();
-  Bound().Shape().HasColour = mesh.Colours.Stands();
+  Bound().Shape().HasUv = mesh.Uv.HasSource();
+  Bound().Shape().HasUv1 = mesh.Uv1.HasSource();
+  Bound().Shape().HasNormal = mesh.Normals.HasSource();
+  Bound().Shape().HasTangent = mesh.Tangents.HasSource();
+  Bound().Shape().HasColour = mesh.Colours.HasSource();
   Bound().Shape().HasEmitted =
       mesh.Draws != nullptr &&
       std::ranges::any_of(mesh.Draws->Batches(),
                           [](const DrawBatch &batch) { return !CarriesNormal(batch.Layout); });
   Bound().Shape().HasPrevious = Binding().WritesVelocity && mesh.Draws != nullptr &&
                                 UsesPrevious(mesh, mesh.Draws->Batches());
-  SubjectBoundsCurrent_ = false;
+  MainMeshBoundsCurrent_ = false;
   ShadowCasters_.Invalidate();
-  SubjectBatches_.clear();
-  SubjectJobs_.clear();
-  SubjectSpheres_.clear();
-  SubjectRows_ = 0;
+  MainMeshBatches_.clear();
+  MainMeshClusterJobs_.clear();
+  MainMeshClusterSpheres_.clear();
+  MainMeshRows_ = 0;
   TablesStale_ = true;
   for (int axis = 0; axis < 3; ++axis) { Anchor[axis] = mesh.Anchor[axis]; }
   if (ModelStamp_ != Frame_) {
@@ -390,18 +391,18 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
   if (Bound().Shape().Vertices == 0 || Bound().Shape().Indices == 0) {
     Bound().Shape().Indices = 0;
     if (!IsTransmission()) {
-      Bound().GiveVertices(Bound().SubjectVertices());
-      Bound().GiveIndices(Bound().SubjectIndices());
-      Bound().GiveColours(Bound().SubjectColours());
-      Bound().GiveTangents(Bound().SubjectTangents());
-      Bound().SubjectStands({}, {}, {}, {});
+      Bound().GiveVertices(Bound().MainVertexRange());
+      Bound().GiveIndices(Bound().MainIndexRange());
+      Bound().GiveColours(Bound().MainColourRange());
+      Bound().GiveTangents(Bound().MainTangentRange());
+      Bound().SetMainMeshRanges({}, {}, {}, {});
     }
     if (!HandTables(error)) { return std::unexpected(std::move(error)); }
     return MeshTicket{.Generation = Reshaped_};
   }
-  SubjectBatches_ = mesh.Draws->Batches();
-  for (const DrawBatch &batch : SubjectBatches_) {
-    SubjectRows_ = std::max(SubjectRows_, batch.ModelSlot + batch.Instances);
+  MainMeshBatches_ = mesh.Draws->Batches();
+  for (const DrawBatch &batch : MainMeshBatches_) {
+    MainMeshRows_ = std::max(MainMeshRows_, batch.ModelSlot + batch.Instances);
   }
 
   if (IsTransmission()) {
@@ -416,17 +417,17 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
   {
     static const Heap::Tag kUploadingTag("mesh-upload");
     const Heap::Tagged uploading(kUploadingTag);
-    Bound().GiveVertices(Bound().SubjectVertices());
-    Bound().GiveIndices(Bound().SubjectIndices());
-    Bound().GiveColours(Bound().SubjectColours());
-    Bound().GiveTangents(Bound().SubjectTangents());
+    Bound().GiveVertices(Bound().MainVertexRange());
+    Bound().GiveIndices(Bound().MainIndexRange());
+    Bound().GiveColours(Bound().MainColourRange());
+    Bound().GiveTangents(Bound().MainTangentRange());
     const GeometryResidency::Range v = Bound().TakeVertices(mesh.VertexCount);
     const GeometryResidency::Range i = Bound().TakeIndices(mesh.IndexCount);
-    const auto c =
-        mesh.Colours.Stands() ? Bound().TakeColours(mesh.VertexCount) : GeometryResidency::Range{};
-    const auto t = mesh.Tangents.Stands() ? Bound().TakeTangents(mesh.VertexCount)
-                                          : GeometryResidency::Range{};
-    Bound().SubjectStands(v, i, c, t);
+    const auto c = mesh.Colours.HasSource() ? Bound().TakeColours(mesh.VertexCount)
+                                            : GeometryResidency::Range{};
+    const auto t = mesh.Tangents.HasSource() ? Bound().TakeTangents(mesh.VertexCount)
+                                             : GeometryResidency::Range{};
+    Bound().SetMainMeshRanges(v, i, c, t);
     if (!Uploaded(RoomForStreams(), error)) {
       Bound().Shape().Indices = 0;
       return std::unexpected(std::move(error));
@@ -447,7 +448,7 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
   }
   if (!Bound().Buffer(GeometryResidency::Stream::Index)) {
     Bound().Shape().Indices = 0;
-    error = std::string("the subject's index run did not reach the device: ");
+    error = std::string("the geometry's index run did not reach the device: ");
     return std::unexpected(std::move(error));
   }
   LastMeshUpload_.IndexMs =
@@ -460,18 +461,18 @@ GeometryRenderer::BeginMesh(const SubjectMesh &mesh) {
   return PendingMesh_;
 }
 
-bool GeometryRenderer::FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, std::string &error) {
+bool GeometryRenderer::FinishMesh(MeshTicket ticket, const MeshInput &mesh, std::string &error) {
   if (!ticket.NeedsFinish) {
     if (ticket.Generation != 0 && ticket.Generation == Reshaped_ && !PendingMesh_.NeedsFinish) {
       return true;
     }
-    error = "subject mesh completion has no matching preparation";
+    error = "geometry mesh completion has no matching preparation";
     return false;
   }
   if (ticket.Generation == 0 || ticket.Generation != PendingMesh_.Generation ||
       mesh.Draws != PendingDraws_ || mesh.Indices != PendingIndices_ ||
       mesh.IndexCount != PendingIndexCount_ || mesh.VertexCount != Bound().Shape().Vertices) {
-    error = "subject mesh completion has no matching preparation";
+    error = "geometry mesh completion has no matching preparation";
     return false;
   }
   Bound().Shape().Indices = PendingIndexCount_;
@@ -488,10 +489,10 @@ bool GeometryRenderer::FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, st
   const auto tablesAt = std::chrono::steady_clock::now();
   const std::vector<uint32_t> &jobs = mesh.Draws->ClusterJobs();
   if (!jobs.empty() && !mesh.ClusterSpheres.empty()) {
-    SubjectJobs_ = jobs;
-    SubjectSpheres_.assign(mesh.ClusterSpheres.begin(), mesh.ClusterSpheres.end());
+    MainMeshClusterJobs_ = jobs;
+    MainMeshClusterSpheres_.assign(mesh.ClusterSpheres.begin(), mesh.ClusterSpheres.end());
   }
-  SubjectBoundsCurrent_ = true;
+  MainMeshBoundsCurrent_ = true;
   const bool handed = HandTables(error);
   LastMeshUpload_.TablesMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tablesAt)
@@ -500,12 +501,12 @@ bool GeometryRenderer::FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, st
   return handed;
 }
 
-bool GeometryRenderer::HandStreams(const SubjectPose &pose, bool deferred, std::string &error) {
+bool GeometryRenderer::HandStreams(const VertexInput &pose, bool deferred, std::string &error) {
   static const Heap::Tag kUploadingTag("mesh-upload");
   const Heap::Tagged uploading(kUploadingTag);
-  const GeometryResidency::Range vertices{.First = Bound().SubjectVertices().First,
+  const GeometryResidency::Range vertices{.First = Bound().MainVertexRange().First,
                                           .Count = Bound().Shape().Vertices};
-  Bound().Shape().HasPrevious = Binding().WritesVelocity && UsesPrevious(pose, SubjectBatches_);
+  Bound().Shape().HasPrevious = Binding().WritesVelocity && UsesPrevious(pose, MainMeshBatches_);
   using Stream = GeometryResidency::Stream;
   const NormalUpload normals{.Source = pose.Normals};
   const std::array<VertexStreamUpload, 8> uploads{
@@ -518,9 +519,9 @@ bool GeometryRenderer::HandStreams(const SubjectPose &pose, bool deferred, std::
         .Carried = Bound().Shape().HasEmitted,
         .Components = kPositionFloats},
        {.Which = Stream::Normal,
-        .Source = pose.Normals.Stands()
-                      ? SubjectStream{.Writes = NormalUpload::Write, .Carrying = &normals}
-                      : SubjectStream{},
+        .Source = pose.Normals.HasSource()
+                      ? VertexSource{.Writes = NormalUpload::Write, .Carrying = &normals}
+                      : VertexSource{},
         .Carried = Bound().Shape().HasNormal,
         .Components = 1},
        {.Which = Stream::Tangent,
@@ -547,14 +548,14 @@ bool GeometryRenderer::HandStreams(const SubjectPose &pose, bool deferred, std::
   size_t count = 0;
   for (const auto &upload : uploads) {
     auto range = vertices;
-    if (upload.Which == Stream::Colour) { range.First = Bound().SubjectColours().First; }
-    if (upload.Which == Stream::Tangent) { range.First = Bound().SubjectTangents().First; }
+    if (upload.Which == Stream::Colour) { range.First = Bound().MainColourRange().First; }
+    if (upload.Which == Stream::Tangent) { range.First = Bound().MainTangentRange().First; }
     const auto crossing = VertexCrossing(upload, range);
     if (!crossing) {
       error = crossing.error();
       return false;
     }
-    if (crossing->Bytes > 0 && crossing->Stands()) { streams[count++] = *crossing; }
+    if (crossing->Bytes > 0 && crossing->HasSource()) { streams[count++] = *crossing; }
   }
   if (!HandPlacements(deferred, error)) { return false; }
   if (!Uploaded(
@@ -568,7 +569,7 @@ bool GeometryRenderer::HandStreams(const SubjectPose &pose, bool deferred, std::
       (Bound().Shape().HasPrevious && !Bound().Buffer(GeometryResidency::Stream::Previous)) ||
       (Bound().Shape().HasColour && !Bound().Buffer(GeometryResidency::Stream::Colour))) {
     Bound().Shape().Indices = 0;
-    error = std::string("the subject's vertex streams did not reach the device: ");
+    error = std::string("the geometry's vertex streams did not reach the device: ");
     return false;
   }
   return true;
@@ -601,17 +602,17 @@ bool GeometryRenderer::ValidatePiece(const PieceMesh &piece, std::string &error)
     return false;
   }
   if (Binding().Device == nullptr) {
-    error = "the subject stage carries no device, so a piece has nowhere to become resident";
+    error = "the geometry stage carries no device, so a piece has nowhere to become resident";
     return false;
   }
   const std::span<const uint32_t> slots = piece.Surface.From == PieceSurface::Source::Registered
                                               ? std::span<const uint32_t>(RegisteredSlotOf_)
                                               : std::span<const uint32_t>(SlotOf_);
-  if (piece.Surface.Index >= slots.size() || slots[piece.Surface.Index] == kNoSlot) {
+  if (piece.Surface.Index >= slots.size() || slots[piece.Surface.Index] == kNoMaterialSlot) {
     error = "a piece refers to " +
             std::string(piece.Surface.From == PieceSurface::Source::Registered ? "a registered"
                                                                                : "a native") +
-            " surface " + std::to_string(piece.Surface.Index) + " but the subject has " +
+            " surface " + std::to_string(piece.Surface.Index) + " but the geometry has " +
             std::to_string(slots.size()) + " surface slots";
     return false;
   }
@@ -793,9 +794,9 @@ bool GeometryRenderer::Retable(std::string &error) {
   BatchLayout.clear();
   Args_.clear();
   Jobs_ = 0;
-  if (!BuildSubjectBatches(error)) { return false; }
+  if (!BuildMainMeshBatches(error)) { return false; }
   if (IsTransmission()) { return true; }
-  PrepareSubjectTables();
+  PrepareMainMeshTables();
   OrderPieces();
   for (const uint32_t at : TableOrder_) {
     if (!AppendPieceBatches(Pieces_[at], error)) { return false; }
@@ -803,11 +804,11 @@ bool GeometryRenderer::Retable(std::string &error) {
   return UploadTables(error);
 }
 
-bool GeometryRenderer::BuildSubjectBatches(std::string &error) {
-  const uint32_t subjectIndexFirst = Bound().SubjectIndices().First;
-  for (const DrawBatch &one : SubjectBatches_) {
+bool GeometryRenderer::BuildMainMeshBatches(std::string &error) {
+  const uint32_t mainIndexFirst = Bound().MainIndexRange().First;
+  for (const DrawBatch &one : MainMeshBatches_) {
     DrawBatch batch = one;
-    batch.FirstIndex += subjectIndexFirst;
+    batch.FirstIndex += mainIndexFirst;
     VertexRunsCarried carried;
     carried.Uv = CarriesUv(batch.Layout) && Bound().Shape().HasUv;
     carried.Normal = CarriesNormal(batch.Layout) && Bound().Shape().HasNormal;
@@ -830,17 +831,15 @@ bool GeometryRenderer::BuildSubjectBatches(std::string &error) {
   return true;
 }
 
-void GeometryRenderer::PrepareSubjectTables() {
-  const uint32_t subjectIndexFirst = Bound().SubjectIndices().First;
+void GeometryRenderer::PrepareMainMeshTables() {
+  const uint32_t mainIndexFirst = Bound().MainIndexRange().First;
   std::vector<uint32_t> &jobs = TableJobs_;
   std::vector<float> &spheres = TableSpheres_;
-  jobs.assign(SubjectJobs_.begin(), SubjectJobs_.end());
-  spheres.assign(SubjectSpheres_.begin(), SubjectSpheres_.end());
-  for (size_t at = 2; at < jobs.size(); at += DrawList::kJobWords) {
-    jobs[at] += subjectIndexFirst;
-  }
-  const bool subjectCut = !jobs.empty() && !spheres.empty();
-  if (!subjectCut) {
+  jobs.assign(MainMeshClusterJobs_.begin(), MainMeshClusterJobs_.end());
+  spheres.assign(MainMeshClusterSpheres_.begin(), MainMeshClusterSpheres_.end());
+  for (size_t at = 2; at < jobs.size(); at += DrawList::kJobWords) { jobs[at] += mainIndexFirst; }
+  const bool hasMainClusters = !jobs.empty() && !spheres.empty();
+  if (!hasMainClusters) {
     jobs.clear();
     spheres.clear();
     for (DrawBatch &batch : Batches) {
@@ -853,7 +852,7 @@ void GeometryRenderer::PrepareSubjectTables() {
 uint32_t GeometryRenderer::MaterialSlotFor(const Piece &piece) const {
   const auto &slots =
       piece.Surface.From == PieceSurface::Source::Registered ? RegisteredSlotOf_ : SlotOf_;
-  return piece.Surface.Index < slots.size() ? slots[piece.Surface.Index] : kNoSlot;
+  return piece.Surface.Index < slots.size() ? slots[piece.Surface.Index] : kNoMaterialSlot;
 }
 
 void GeometryRenderer::OrderPieces() {
@@ -864,13 +863,14 @@ void GeometryRenderer::OrderPieces() {
   size_t clusters = 0;
   size_t uniqueClusters = 0;
   auto nextRow =
-      static_cast<uint32_t>(std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_)));
+      static_cast<uint32_t>(std::max(Placed_.size() / 16u, static_cast<size_t>(MainMeshRows_)));
   for (Piece &piece : Pieces_) {
     piece.FirstRow = nextRow;
     nextRow += static_cast<uint32_t>(piece.Rows.size());
   }
   for (uint32_t at = 0; at < Pieces_.size(); ++at) {
-    if (Pieces_[at].Live && !Pieces_[at].Rows.empty() && MaterialSlotFor(Pieces_[at]) != kNoSlot &&
+    if (Pieces_[at].Live && !Pieces_[at].Rows.empty() &&
+        MaterialSlotFor(Pieces_[at]) != kNoMaterialSlot &&
         MaterialSlotFor(Pieces_[at]) < Slots.size()) {
       order.push_back(at);
       clusters += Pieces_[at].Clusters.size() * Pieces_[at].Rows.size();
@@ -1054,23 +1054,23 @@ bool GeometryRenderer::HandDrawArguments(bool deferred, std::string &error) {
   return Uploaded(Bound().Cross(table, deferred), error);
 }
 
-bool GeometryRenderer::SetPose(const SubjectPose &pose, std::string &error) {
-  SubjectBoundsCurrent_ = false;
+bool GeometryRenderer::SetVertexInput(const VertexInput &pose, std::string &error) {
+  MainMeshBoundsCurrent_ = false;
   ShadowCasters_.Invalidate();
   ShadowChanges_.Unknown();
   ++Reshaped_;
   if (IsTransmission()) { return true; }
   if (Bound().Shape().Indices == 0) {
-    error = "a pose arrived before any mesh, and there is no subject for it to be a pose of";
+    error = "a pose arrived before any mesh, and there is no geometry for it to be a pose of";
     return false;
   }
   if (pose.VertexCount != Bound().Shape().Vertices) {
     error = "the pose carries " + std::to_string(pose.VertexCount) +
-            " vertices and the subject has " + std::to_string(Bound().Shape().Vertices) +
+            " vertices and the geometry has " + std::to_string(Bound().Shape().Vertices) +
             ", so it is a different body rather than the same one moved";
     return false;
   }
-  if (!pose.Verts.Stands() || !pose.Emitted.Stands()) {
+  if (!pose.Verts.HasSource() || !pose.Emitted.HasSource()) {
     error = "a pose arrived without positions or emitted radiance, which every draw binds";
     return false;
   }

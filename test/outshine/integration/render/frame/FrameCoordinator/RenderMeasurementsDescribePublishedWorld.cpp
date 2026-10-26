@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "Check.h"
 #include "TestEngine.h"
 #include "WorldCandidate.h"
@@ -65,14 +66,14 @@ void Exercise() {
       const auto prepared = candidate.Prepare(*state.Picture.Standing,
                                               nullptr,
                                               Render::SceneResources::PieceSources::Copy,
-                                              Core::SubjectGeometrySources::All,
+                                              Core::GeometryRetention::All,
                                               Core::ResourceRestoreMode::Deferred);
       CHECK(prepared.has_value(),
             prepared ? "an incomplete candidate owns an active editing scope"
                      : prepared.error().c_str());
       if (!prepared) { return; }
       std::string error;
-      const bool emptied = state.Picture.Device.SetGeometryMesh(Render::SubjectMesh{}, error);
+      const bool emptied = state.Picture.Device.SetGeometryMesh(Render::MeshInput{}, error);
       CHECK(emptied, "the active candidate has not retained a resident subject mesh");
       if (!emptied) { return; }
     }
@@ -82,8 +83,8 @@ void Exercise() {
           "the unfinished candidate differs from the published render counters");
     CHECK(engine.renderer().render({}), "the engine keeps rendering the published world");
     CHECK(Metric(engine, "batches the picture draws") == batches &&
-              Metric(engine, "subject draws") > 0 &&
-              Metric(engine, "vertex uniform pushes the subject stages make") > pushes,
+              Metric(engine, "geometry draw records") > 0 &&
+              Metric(engine, "vertex uniform pushes the geometry stages make") > pushes,
           "published frame diagnostics describe the world that actually drew");
     CHECK(state.Picture.Device.HasWorldCandidate() &&
               state.Picture.Device.GeometryBatchCount() == candidateBatches &&

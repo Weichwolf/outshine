@@ -51,7 +51,7 @@ private:
       for (const auto &row : kVertexLayouts) {
         for (const auto kind : {SurfaceKind::ThinTransmissive, SurfaceKind::Refractive}) {
           result.emplace_back(
-              GeometryRenderer::FragmentEntry(SurfaceDomain::Subject, kind, row.Layout));
+              GeometryRenderer::FragmentEntry(SurfaceDomain::Geometry, kind, row.Layout));
         }
       }
       return result;
@@ -62,7 +62,7 @@ private:
 
 uint32_t RequiredPipelines(bool transmission) {
   uint32_t count = 0;
-  for (const auto domain : {SurfaceDomain::Subject, SurfaceDomain::Ground}) {
+  for (const auto domain : {SurfaceDomain::Geometry, SurfaceDomain::Ground}) {
     for (const auto &row : kVertexLayouts) {
       for (const auto kind : {SurfaceKind::Opaque,
                               SurfaceKind::Masked,

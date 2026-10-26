@@ -130,13 +130,13 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
         {.Named = Stage::Irradiance,
          .Configure = &SceneRenderer::ConfigureIrradiance,
          .Encode = &SceneRenderer::EncodeIrradiance},
-        {.Named = Stage::SubjectCull,
+        {.Named = Stage::GeometryCull,
          .Configure = &SceneRenderer::ConfigureGeometryCull,
          .Encode = &SceneRenderer::EncodeGeometryCull},
-        {.Named = Stage::SubjectScan,
+        {.Named = Stage::GeometryScan,
          .Configure = &SceneRenderer::ConfigureGeometryCull,
          .Encode = &SceneRenderer::EncodeGeometryScan},
-        {.Named = Stage::SubjectCompact,
+        {.Named = Stage::GeometryCompact,
          .Configure = &SceneRenderer::ConfigureGeometryCull,
          .Encode = &SceneRenderer::EncodeGeometryCompact},
         {.Named = Stage::LightVisibility,
@@ -145,7 +145,7 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
         {.Named = Stage::Sky,
          .Configure = &SceneRenderer::ConfigureSky,
          .Encode = &SceneRenderer::EncodeSky},
-        {.Named = Stage::Geometry,
+        {.Named = Stage::OpaqueGeometry,
          .Configure = &SceneRenderer::ConfigureGeometry,
          .Encode = &SceneRenderer::EncodeGeometry},
         {.Named = Stage::GroundPyramid,
@@ -907,9 +907,9 @@ SceneRenderer::EncodeStage(Stage stage, const FrameContext &ctx, const PassRecor
   spent.IndirectRecords = 0;
   spent.Surfaces = 0;
   spent.Placements = 0;
-  if (stage == Stage::Geometry || stage == Stage::TransmissiveGeometry) {
-    const GeometryRenderer &drew =
-        stage == Stage::Geometry ? ActiveState().Content.Geometry : ActiveState().Content.Glass;
+  if (stage == Stage::OpaqueGeometry || stage == Stage::TransmissiveGeometry) {
+    const GeometryRenderer &drew = stage == Stage::OpaqueGeometry ? ActiveState().Content.Geometry
+                                                                  : ActiveState().Content.Glass;
     const auto &work = drew.Work();
     spent.Draws = work.DrawRequests;
     spent.DirectTriangles = work.DirectTriangles;

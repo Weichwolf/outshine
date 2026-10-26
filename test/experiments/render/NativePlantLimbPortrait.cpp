@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "ExecutionPlan.h"
 #include "Image.h"
 #include "PngEncoding.h"
@@ -106,7 +107,7 @@ bool Place(SceneRenderer &renderer, const Generators::PlantSurface &surface) {
 }
 
 bool RenderPortrait(SceneRenderer &renderer, const char *destination, bool near) {
-  SubjectLight light;
+  SceneLight light;
   light.Light.Intensity = kSunLux;
   light.Light.Direction = {{-0.5f, -kSunAxis, 0.5f}};
   std::string error;
@@ -151,7 +152,7 @@ int main(int argc, const char *const *argv) {
   if (!input || !Load(input, surface)) { return 2; }
   PlanSpec spec;
   spec.Outputs = {Resource::FrameTex};
-  spec.Content = {Stage::Geometry};
+  spec.Content = {Stage::OpaqueGeometry};
   spec.Exposure = Declared<float>(kExposure);
   const auto compiled = ExecutionPlan::Compile(spec);
   if (!compiled) { return 3; }

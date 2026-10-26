@@ -5,8 +5,11 @@
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -21,11 +24,11 @@ std::array<StoredVertex, 3> Triangle(float x) {
 bool ReadNormals(Render::SceneRenderer &renderer, std::vector<float> &normal) {
   renderer.WaitForGpu();
   if (renderer.ReadShadingNormal(normal) != Render::ReadState::Ready ||
-      normal.size() != 64 * 64 * 4) {
+      normal.size() != size_t{64} * 64 * 4) {
     return false;
   }
-  const size_t left = (32 * 64 + 20) * 4;
-  const size_t right = (32 * 64 + 44) * 4;
+  const size_t left = (size_t{32} * 64 + 20) * 4;
+  const size_t right = (size_t{32} * 64 + 44) * 4;
   return normal[left] > 0.70f && normal[right] < -0.70f && normal[left + 1] > 0.70f &&
          normal[right + 1] > 0.70f;
 }

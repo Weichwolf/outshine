@@ -33,7 +33,7 @@ void SetGeometryPlanes(outshine::Geometry &geometry,
 void CheckWork(const outshine::Render::SceneRenderer &renderer) {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  for (const auto stage : {Stage::Geometry, Stage::TransmissiveGeometry}) {
+  for (const auto stage : {Stage::OpaqueGeometry, Stage::TransmissiveGeometry}) {
     const auto &work = renderer.Spent(stage);
     CHECK(work.Draws == 1, "each material pass records only its own draw request");
     CHECK(work.DirectTriangles + work.IndirectInputTriangles == 2,

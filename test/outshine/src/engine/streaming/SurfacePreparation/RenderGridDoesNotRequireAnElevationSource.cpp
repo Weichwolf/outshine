@@ -41,7 +41,7 @@ int main() {
     const Data::ProviderRegistry registry;
     Ground::SurfacePreparation stack;
     constexpr LongitudeLatitude focus{.LongitudeDeg = 9, .LatitudeDeg = 47};
-    CHECK(stack.Open({.BuiltinData = "src/assets", .Sources = directory, .Assets = {}},
+    CHECK(stack.Open({.BuiltinData = "data", .Sources = directory, .Assets = {}},
                      std::span<const Data::SourceProvider>{},
                      registry,
                      focus,
@@ -59,10 +59,11 @@ int main() {
     coverage.Zoom = stack.TerrainRenderZoom();
     const auto tiles = PlanPatchworkTiles(coverage);
     CHECK(tiles && !tiles->empty(), "source-independent render grid gives valid coverage");
+    const auto beforeQuery = stack.Pool().Counters();
+    CHECK(beforeQuery.Posts == 0 && beforeQuery.Fetches == 0,
+          "source-independent coverage starts no implicit acquisition");
     CHECK(!stack.Ground().At(focus, coverage.Zoom).AslM(),
           "absent elevation data does not become a fabricated ground height");
-    CHECK(stack.Pool().Counters().Fetches == 0,
-          "source-independent coverage starts no implicit acquisition");
   }
   std::error_code error;
   std::filesystem::remove_all(directory, error);

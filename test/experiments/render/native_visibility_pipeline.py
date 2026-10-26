@@ -102,7 +102,7 @@ def shaders(checkout, output, records):
     for name, source in (
         ("select", sources / "select.comp"),
         ("pack", sources / "pack.comp"),
-        ("scan", checkout / "src/render/shaders/subjectScanKernel.comp"),
+        ("scan", checkout / "src/render/shaders/geometryScan.comp"),
         ("compact32", sources / "compact.comp"),
         ("raster", sources / "raster.vert"),
     ):
@@ -200,7 +200,7 @@ def main():
             Path(__file__).with_name("native_visibility_data.py"),
             Path(__file__).with_name("native_visibility_cost.py"),
             *sorted(Path(__file__).with_name("native_visibility").glob("*")),
-            checkout / "src/render/shaders/subjectScanKernel.comp",
+            checkout / "src/render/shaders/geometryScan.comp",
             checkout / "src/render/shaders/cullView.glsl",
         ]
         receipt["source_sha256"] = {str(path): digest(path) for path in sources}

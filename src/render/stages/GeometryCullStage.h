@@ -43,11 +43,11 @@ public:
     Pyramid_ = shape;
   }
 
-  static constexpr ComputeShaderId CullShader = ComputeShaderId::SubjectCull;
+  static constexpr ComputeShaderId CullShader = ComputeShaderId::GeometryCull;
   static constexpr ComputeShape CullShape = FindComputeShader(CullShader)->Shape;
-  static constexpr ComputeShaderId ScanShader = ComputeShaderId::SubjectScan;
+  static constexpr ComputeShaderId ScanShader = ComputeShaderId::GeometryScan;
   static constexpr ComputeShape ScanShape = FindComputeShader(ScanShader)->Shape;
-  static constexpr ComputeShaderId CompactShader = ComputeShaderId::SubjectCompact;
+  static constexpr ComputeShaderId CompactShader = ComputeShaderId::GeometryCompact;
   static constexpr ComputeShape CompactShape = FindComputeShader(CompactShader)->Shape;
 
   [[nodiscard]] Native::Result<void> Configure(Source source, const Gpu &gpu);
@@ -113,7 +113,7 @@ private:
   bool DepthForSelection_ = false;
   SelectionProjection LastProjection_{};
   Vec3 LastPreViewTranslation_{};
-  uint64_t LastSubjectGeneration_ = 0;
+  uint64_t LastGeometryGeneration_ = 0;
   uint64_t LastGroundGeneration_ = 0;
   [[nodiscard]] static Native::Result<void>
   EnsurePipeline(Native::Device &device,
