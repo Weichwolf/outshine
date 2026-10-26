@@ -70,6 +70,12 @@ and component full/two on one ROI and original rest; same-recipe T is exact.
 Without fit roots the previous opaque/full comparison remains unchanged.
 Price the complete producer separately from shader work and dense stored weights.
 No new recipe parameter, quality threshold or native format is selected here.
+For existing larger population checks use the same producer with `--cell-count
+16` or `64`, both fixed recipes and unchanged queries. Source/material checks do
+not replace missing native images for those populations. To inspect the worst
+fixed held-out two-lobe response use `counterexamples(..., selected_budget=2)`;
+default1 preserves the earlier one-lobe control. This selects an existing held-out
+material/row, without changing fitting samples, solver, quality or world lights.
 
 For strict opaque-blocked work run `diagnose_building_layer_work.py` with the
 same comparator arguments. It preserves the actual shade/composition path,

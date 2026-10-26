@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from building_parent_shading_cases import normal_counter
+from building_parent_shading_cases import counterexamples, normal_counter
 from building_parent_shading_work import factor_work, opaque_blocked, projected_work
 from building_tree_transfer import compose_layers
 from compare_mass_appearance import read
@@ -140,6 +140,23 @@ class BuildingParentShading(unittest.TestCase):
                     self.assertTrue(
                         (np.count_nonzero(data["weights"], axis=-1) <= budget).all()
                     )
+            cases = counterexamples(
+                source, root / "fits", read(TABLES), selected_budget=2
+            )
+            rgb = cases["material"]["direct_rgb"]
+            actual_error = float(
+                np.max(abs(np.array(rgb["2"]) - rgb["full"]) / rgb["full"])
+            )
+            receipt = json.loads((root / "fits/2/report.json").read_text())
+            expected_error = max(
+                m["validation_maximum_relative_channel_error"]
+                for node in receipt["nodes"]
+                for m in node["materials"]
+            )
+            self.assertEqual(cases["material"]["selection_budget"], 2)
+            self.assertAlmostEqual(actual_error, expected_error, places=12)
+            with self.assertRaisesRegex(ValueError, "existing fixed lobe"):
+                counterexamples(source, root / "fits", read(TABLES), selected_budget=3)
             path = root / "fits/2/report.json"
             receipt = json.loads(path.read_text())
             del receipt["response_program_sha256"]["material_filter.py"]
