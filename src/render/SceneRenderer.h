@@ -41,6 +41,7 @@ struct SDL_Window;
 #include "Readback.h"
 #include "scene/SceneResources.h"
 #include "scene/RenderScene.h"
+#include "scene/SceneCandidateEdit.h"
 #include "Viewing.h"
 #include "ExecutionPlan.h"
 #include "stages/OverlayDraw.h"
@@ -56,10 +57,6 @@ struct SDL_Window;
 #include "stages/GeometryCullStage.h"
 #include "stages/SkyStage.h"
 #include "stages/TonemapStage.h"
-
-namespace outshine::Core {
-class RuntimeScene;
-}
 
 namespace outshine::Render {
 
@@ -812,7 +809,6 @@ public:
 
 private:
   [[nodiscard]] static bool Accepted(Native::Result<void> result, std::string &error);
-  friend class Core::RuntimeScene;
 
   [[nodiscard]] bool UploadGroundClasses(std::span<const uint32_t> classes,
                                          std::span<const float> palette,
@@ -1189,45 +1185,12 @@ public:
 
   [[nodiscard]] PublishedWorldScope PublishedWorld() noexcept { return PublishedWorldScope(*this); }
 
-private:
-  class CandidateEditorScope {
-  public:
-    explicit CandidateEditorScope(SceneRenderer &renderer) noexcept : Renderer_(&renderer) {
-      assert(Renderer_->Candidate_);
-      ++Renderer_->CandidateEditorDepth_;
-    }
-
-    CandidateEditorScope(const CandidateEditorScope &) = delete;
-    CandidateEditorScope &operator=(const CandidateEditorScope &) = delete;
-
-    CandidateEditorScope(CandidateEditorScope &&other) noexcept
-        : Renderer_(std::exchange(other.Renderer_, nullptr)) {}
-
-    CandidateEditorScope &operator=(CandidateEditorScope &&other) noexcept {
-      if (this != &other) {
-        Release();
-        Renderer_ = std::exchange(other.Renderer_, nullptr);
-      }
-      return *this;
-    }
-
-    ~CandidateEditorScope() { Release(); }
-
-  private:
-    void Release() noexcept {
-      if (Renderer_ == nullptr) { return; }
-      assert(Renderer_->CandidateEditorDepth_ > 0);
-      --Renderer_->CandidateEditorDepth_;
-      Renderer_ = nullptr;
-    }
-
-    SceneRenderer *Renderer_ = nullptr;
-  };
-
-  [[nodiscard]] CandidateEditorScope EditsWorldCandidate() noexcept {
-    return CandidateEditorScope(*this);
+  [[nodiscard]] SceneCandidateEdit EditWorldCandidate() noexcept {
+    assert(Candidate_);
+    return SceneCandidateEdit(CandidateEditorDepth_);
   }
 
+private:
   [[nodiscard]] SceneStateCore &ActiveState() noexcept {
     return Candidate_ && CandidateEditorDepth_ > 0 && PublishedScopeDepth_ == 0
                ? static_cast<SceneStateCore &>(*Candidate_)
