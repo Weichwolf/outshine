@@ -25,17 +25,18 @@ bool ValidNodes(std::span<const TransportNode> nodes) {
 }
 
 bool ValidEdges(const TransportTopology &graph) {
-  constexpr uint8_t modes =
-      static_cast<uint8_t>(TransportMode::Motor) | static_cast<uint8_t>(TransportMode::Walk) |
-      static_cast<uint8_t>(TransportMode::Cycle) | static_cast<uint8_t>(TransportMode::Rail) |
-      static_cast<uint8_t>(TransportMode::Water);
+  constexpr uint32_t modes =
+      static_cast<uint32_t>(TransportMode::Motor) | static_cast<uint32_t>(TransportMode::Walk) |
+      static_cast<uint32_t>(TransportMode::Cycle) | static_cast<uint32_t>(TransportMode::Rail) |
+      static_cast<uint32_t>(TransportMode::Water);
   const auto edges = graph.Edges();
   if (edges.size() > std::numeric_limits<uint32_t>::max()) { return false; }
   for (size_t at = 0; at < edges.size(); ++at) {
     const auto &edge = edges[at];
+    const uint32_t edgeModes = edge.Modes;
     if ((edge.Id.Direction != EdgeDirection::Forward &&
          edge.Id.Direction != EdgeDirection::Reverse) ||
-        (at != 0 && !(edges[at - 1].Id < edge.Id)) || (edge.Modes & modes) != edge.Modes ||
+        (at != 0 && !(edges[at - 1].Id < edge.Id)) || (edgeModes & modes) != edgeModes ||
         edge.Facility > TransportFacility::Mixed || edge.Surface > TransportSurface::Water ||
         edge.Access > TransportAccess::Forbidden || !std::isfinite(edge.WidthM) ||
         edge.WidthM < 0 || graph.FindNode(edge.ToNodeId) == nullptr) {
