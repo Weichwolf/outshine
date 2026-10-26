@@ -132,11 +132,15 @@ def tangent_basis(plans):
     return np.stack((east, np.cross(up, east), up))
 
 
-def project_patch(surface, polygon, plane, basis, bottom):
-    """Project the actual roof; vertical walls use a declared common-up approximation."""
+def projection_frame(surface, basis):
     local_basis = np.array([surface[k] for k in ("east", "north", "up")])
     transform = local_basis @ basis.T
     origin = np.array(surface["origin"]) @ basis.T
+    return transform, origin
+
+
+def project_domain(polygon, plane, transform, origin):
+    """Map a planar source domain without computing unrequested height extents."""
     # Roof mapping from source XY to common XY is affine and retains curvature tilt.
     matrix = transform[:2] + plane[:2, None] * transform[2]
     offset = origin + plane[2] * transform[2]
@@ -153,11 +157,22 @@ def project_patch(surface, polygon, plane, basis, bottom):
     footprint = affine_transform(polygon, affine)
     gradient = np.linalg.solve(matrix[:, :2], matrix[:, 2])
     height = np.r_[gradient, offset[2] - offset[:2] @ gradient]
+    return footprint, height
+
+
+def wall_shift(corners, plane, transform, bottom):
+    return np.linalg.norm(transform[2, :2]) * np.max(
+        np.abs(corners @ plane[:2] + plane[2] - bottom)
+    )
+
+
+def project_patch(surface, polygon, plane, basis, bottom):
+    """Project the actual roof; vertical walls use a declared common-up approximation."""
+    transform, origin = projection_frame(surface, basis)
+    footprint, height = project_domain(polygon, plane, transform, origin)
     corners = shapely.get_coordinates(polygon)
     bottom_z = (
         origin + np.column_stack((corners, np.full(len(corners), bottom))) @ transform
     )[:, 2].min()
-    lateral_wall_shift = np.linalg.norm(transform[2, :2]) * np.max(
-        np.abs(corners @ plane[:2] + plane[2] - bottom)
-    )
+    lateral_wall_shift = wall_shift(corners, plane, transform, bottom)
     return footprint, height, bottom_z, lateral_wall_shift
