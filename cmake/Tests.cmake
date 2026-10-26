@@ -48,6 +48,9 @@ foreach(source IN LISTS cases)
   string(REGEX REPLACE "\\.cpp$" "" name "${name}")
   string(REPLACE "/" "_" target "test_${name}")
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
+  if(name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain")
+    target_link_libraries(${target} PRIVATE ZLIB::ZLIB)
+  endif()
   if(name STREQUAL "outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth")
     set(receiver_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-receiver.comp.spv")
     file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
@@ -64,6 +67,8 @@ foreach(source IN LISTS cases)
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
   if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
+      OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain"
+      OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/UnqualifiedComponentsNeverBecomePartialHeightInputs"
       OR name STREQUAL "outshine/src/generators/road/height/RoadPortFieldQuery/PortsKeepTheirOwnFrameAndSourceOrientation"
       OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
