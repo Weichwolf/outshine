@@ -1,3 +1,4 @@
+#include <array>
 #include "TilePool.h"
 #include "TerrainTiles.h"
 #include "RawSourceCache.h"
@@ -7,14 +8,18 @@
 #include <chrono>
 #include <condition_variable>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <utility>
 
 namespace {
 using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Ground;
-constexpr uint8_t kPng0[]{
+constexpr std::array<uint8_t, 75> kPng0{
     0x89, 0x50, 0x4e, 0x47, 0xd,  0xa,  0x1a, 0xa,  0x0,  0x0,  0x0,  0xd,  0x49, 0x48, 0x44,
     0x52, 0x0,  0x0,  0x0,  0x8,  0x0,  0x0,  0x0,  0x8,  0x8,  0x2,  0x0,  0x0,  0x0,  0x4b,
     0x6d, 0x29, 0xdc, 0x0,  0x0,  0x0,  0x12, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x68,
@@ -34,7 +39,7 @@ struct Gate {
   }
 
   void Release() {
-    const std::lock_guard lock(Mutex);
+    const std::scoped_lock lock(Mutex);
     Released = true;
     Changed.notify_all();
   }
@@ -50,35 +55,119 @@ struct Gate {
 
 class NoNetwork final : public SourceTransport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class Provider final : public Source {
 public:
   explicit Provider(std::shared_ptr<Gate> gate) : Gate_(std::move(gate)) {}
 
-  SourceDecl Decl{.Id = "stale-owner-dem", .Keeps = Cacheability::Never};
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
-
-  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     Gate_->Pause();
-    return SourceResponse::Delivered({kPng0, kPng0 + sizeof(kPng0)});
+    return SourceResponse::Delivered({kPng0.begin(), kPng0.end()});
   }
 
 private:
+  SourceDecl Decl_{.Id = "stale-owner-dem",
+                   .Revision = {},
+                   .Endpoint = {},
+                   .Keeps = Cacheability::Never,
+                   .PayloadSha256 = {},
+                   .Schema = {}};
   std::shared_ptr<Gate> Gate_;
 };
+
+void CheckStaleJob(Mode mode) {
+  using namespace outshine;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
+
+  const bool mesh = mode != Mode::FieldScope;
+  const bool cancelled = mode == Mode::MeshCancelled;
+  const float expectedHeight = cancelled ? 0.0f : 9.0f;
+  auto gate = std::make_shared<Gate>();
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
+  Data::SourceSet sources(store);
+  NoNetwork transport;
+  CHECK(sources.Add(std::make_unique<Provider>(gate)) == Data::SourceSet::Registration::Accepted,
+        "controlled local provider registers");
+  TilePool pool({.Threads = 2,
+                 .ByteBudget = static_cast<size_t>(1024u) * 1024u,
+                 .PollAttempts = 10,
+                 .PreparedFields = {}},
+                sources,
+                transport);
+  const Data::TileId at{.Zoom = 2, .X = 1, .Y = 1};
+  std::shared_ptr<const TerrainField> field;
+  TileBuild build;
+  const auto ask = [&] { return mesh ? pool.Mesh(at, 4, &build) : pool.Field(at, &field); };
+  CHECK(ask() == TilePool::Reply::Pending, "old product starts asynchronously");
+  CHECK(gate->Wait(), "old computation pauses before delivering source bytes");
+  if (cancelled) {
+    pool.ForgetMesh(at.Zoom, at.X, at.Y);
+  } else {
+    pool.Shapes({.Kind = "sineRidge", .AmplitudeM = 9.0, .WavelengthM = 1.0e12});
+  }
+  const auto before = pool.Counters().Posts;
+  CHECK(ask() == TilePool::Reply::Pending, "replacement starts without accepting old geometry");
+  CHECK(pool.Counters().Posts == before + 1, "new scope admits a separate reservation");
+  if (cancelled) { gate->Release(); }
+  bool ready = false;
+  const auto readyDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  do {
+    ready = ask() == TilePool::Reply::Ready;
+    if (!ready) { (void)pool.AwaitLanding(0.01); }
+  } while (!ready && std::chrono::steady_clock::now() < readyDeadline);
+  CHECK(ready, "replacement publishes from its own live reservation");
+  if (ready && mesh) {
+    const auto side = static_cast<size_t>(build.Side);
+    CHECK(side >= 2 && build.Nodes.size() == side * side &&
+              std::abs(build.Nodes[(side / 2) * side + side / 2] - expectedHeight) < 1.0e-4f,
+          "mesh contains new source heights, never stale heights");
+  } else if (ready) {
+    CHECK(field && std::abs(field->AtM(3, 3) - expectedHeight) < 1.0e-4f,
+          "height field contains new source heights, never stale heights");
+  }
+  gate->Release();
+  const auto dropped = [&] {
+    const auto counters = pool.Counters();
+    return mesh ? counters.MeshDropped : counters.FieldDropped;
+  };
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+  while (dropped() == 0 && std::chrono::steady_clock::now() < deadline) {
+    (void)pool.AwaitLanding(0.01);
+  }
+  CHECK(dropped() == 1, "obsolete work releases only its own reservation");
+  if (mesh) {
+    CHECK(ask() == TilePool::Reply::Ready,
+          "obsolete completion cannot poison the retained current mesh");
+  }
+  {
+    const std::scoped_lock lock(gate->Mutex);
+    CHECK(!gate->TimedOut, "ordering comes from barriers rather than source timeouts");
+  }
+}
+
 }
 
 int main() {
@@ -86,66 +175,7 @@ int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
   for (const Mode mode : {Mode::FieldScope, Mode::MeshScope, Mode::MeshCancelled}) {
-    const bool mesh = mode != Mode::FieldScope;
-    const bool cancelled = mode == Mode::MeshCancelled;
-    const float expectedHeight = cancelled ? 0.0f : 9.0f;
-    auto gate = std::make_shared<Gate>();
-    Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
-    Data::SourceSet sources(store);
-    NoNetwork transport;
-    CHECK(sources.Add(std::make_unique<Provider>(gate)) == Data::SourceSet::Registration::Accepted,
-          "controlled local provider registers");
-    TilePool pool(
-        {.Threads = 2, .ByteBudget = 1024u * 1024u, .PollAttempts = 10}, sources, transport);
-    const Data::TileId at{.Zoom = 2, .X = 1, .Y = 1};
-    std::shared_ptr<const TerrainField> field;
-    TileBuild build;
-    const auto ask = [&] { return mesh ? pool.Mesh(at, 4, &build) : pool.Field(at, &field); };
-    CHECK(ask() == TilePool::Reply::Pending, "old product starts asynchronously");
-    CHECK(gate->Wait(), "old computation pauses before delivering source bytes");
-    if (cancelled) {
-      pool.ForgetMesh(at.Zoom, at.X, at.Y);
-    } else {
-      pool.Shapes({.Kind = "sineRidge", .AmplitudeM = 9.0, .WavelengthM = 1.0e12});
-    }
-    const auto before = pool.Counters().Posts;
-    CHECK(ask() == TilePool::Reply::Pending, "replacement starts without accepting old geometry");
-    CHECK(pool.Counters().Posts == before + 1, "new scope admits a separate reservation");
-    if (cancelled) { gate->Release(); }
-    bool ready = false;
-    const auto readyDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-    do {
-      ready = ask() == TilePool::Reply::Ready;
-      if (!ready) { (void)pool.AwaitLanding(0.01); }
-    } while (!ready && std::chrono::steady_clock::now() < readyDeadline);
-    CHECK(ready, "replacement publishes from its own live reservation");
-    if (ready && mesh) {
-      const auto side = static_cast<size_t>(build.Side);
-      CHECK(side >= 2 && build.Nodes.size() == side * side &&
-                std::abs(build.Nodes[(side / 2) * side + side / 2] - expectedHeight) < 1.0e-4f,
-            "mesh contains new source heights, never stale heights");
-    } else if (ready) {
-      CHECK(field && std::abs(field->AtM(3, 3) - expectedHeight) < 1.0e-4f,
-            "height field contains new source heights, never stale heights");
-    }
-    gate->Release();
-    const auto dropped = [&] {
-      const auto counters = pool.Counters();
-      return mesh ? counters.MeshDropped : counters.FieldDropped;
-    };
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-    while (dropped() == 0 && std::chrono::steady_clock::now() < deadline) {
-      (void)pool.AwaitLanding(0.01);
-    }
-    CHECK(dropped() == 1, "obsolete work releases only its own reservation");
-    if (mesh) {
-      CHECK(ask() == TilePool::Reply::Ready,
-            "obsolete completion cannot poison the retained current mesh");
-    }
-    {
-      const std::lock_guard lock(gate->Mutex);
-      CHECK(!gate->TimedOut, "ordering comes from barriers rather than source timeouts");
-    }
+    CheckStaleJob(mode);
   }
   return Report();
 }

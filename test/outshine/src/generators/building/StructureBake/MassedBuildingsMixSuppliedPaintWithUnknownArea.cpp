@@ -3,6 +3,7 @@
 #include "StructureBake.h"
 #include "Check.h"
 #include <cmath>
+#include <cstddef>
 
 int main() {
   using namespace outshine;
@@ -16,8 +17,10 @@ int main() {
   CHECK(cell.has_value(), "fixture has a valid cell");
   if (!cell) { return Report(); }
   const Vec3f paint{{0.2f, 0.4f, 0.6f}};
-  raw.Structures.push_back({.PointCount = 4, .Cell = *cell, .HeightM = 12.0});
-  raw.Structures.push_back({.PointCount = 4, .Cell = *cell, .HeightM = 12.0, .WallColour = paint});
+  raw.Structures.push_back(
+      {.PointCount = 4, .Cell = *cell, .HeightM = 12.0, .WallColour = {}, .Facade = {}});
+  raw.Structures.push_back(
+      {.PointCount = 4, .Cell = *cell, .HeightM = 12.0, .WallColour = paint, .Facade = {}});
   raw.TileSpanM = 1000.0;
   raw.RequestedDetail = LevelOfDetail::Massed;
   Ground::HeightField::Block block;
@@ -25,7 +28,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BakedTile built;
   CHECK(BakeStructures(raw, *heights, mesher, *scratch, built).has_value(),

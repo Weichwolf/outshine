@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <numbers>
 #include <vector>
 
@@ -62,7 +63,7 @@ int main() {
     const auto encoded = EncodeBuildingSurfaceBlock(block);
     CHECK(encoded.has_value(), "enriched round footprint encodes in the native asset");
     if (!encoded) { continue; }
-    const auto loaded = DecodeBuildingSurfaceBlock(*encoded, 1024 * 1024);
+    const auto loaded = DecodeBuildingSurfaceBlock(*encoded, size_t{1024} * 1024);
     CHECK(loaded && loaded->size() == 1 && loaded->front().Shapes().size() == 1 &&
               loaded->front().Shapes().front().RoundFootprint &&
               HasCurvedShaftWalls(loaded->front().Shapes().front()),

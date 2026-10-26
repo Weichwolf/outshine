@@ -4,7 +4,9 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <string>
 #include <thread>
+#include <utility>
 
 namespace {
 using namespace outshine::Data;
@@ -13,15 +15,15 @@ class PendingTransport final : public SourceTransport {
 public:
   std::atomic<int> Cancelled{0};
 
-  FetchStart Begin(const std::string &) override { return static_cast<Ticket>(1); }
+  FetchStart Begin(const std::string & /*url*/) override { return static_cast<Ticket>(1); }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
   void Cancel(Ticket ticket) override {
     if (ticket == static_cast<Ticket>(1)) { ++Cancelled; }
   }
 
-  bool Await(double) override {
+  bool Await(double /*forMs*/) override {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     return false;
   }
@@ -29,20 +31,29 @@ public:
 
 class PendingSource final : public Source {
 public:
-  SourceDecl Decl{.Id = "pending", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "pending",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   mutable std::atomic<int> Polls{0};
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, SourceTransport &transport) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     ++Polls;
     return SourceResponse::Working();
   }
@@ -52,7 +63,7 @@ public:
 int main() {
   using namespace outshine::Test;
   using outshine::Ground::TilePool;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   PendingTransport transport;
   auto source = std::make_unique<PendingSource>();
@@ -61,7 +72,9 @@ int main() {
         "pending source registers");
   constexpr int attempts = 3000;
   auto pool = std::make_unique<TilePool>(
-      TilePool::Config{.PollAttempts = attempts, .Carriers = 1}, sources, transport);
+      TilePool::Config{.PollAttempts = attempts, .Carriers = 1, .PreparedFields = {}},
+      sources,
+      transport);
   TilePool::Landing landing;
   CHECK(pool->Bytes(SourceRequest(DataKind::Elevation, Address::Whole(0)), &landing) ==
             TilePool::Reply::Pending,

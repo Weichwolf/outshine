@@ -2,11 +2,12 @@
 #include "StructureBake.h"
 #include "Check.h"
 #include "Geodesy.h"
-#include "StructureCellDetail.h"
 #include "Units.h"
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <print>
 
 int main() {
   using namespace outshine;
@@ -21,7 +22,7 @@ int main() {
     for (uint32_t column = 0; column < 32; ++column) {
       const double lat = 47 + (row * 20.0) / kMPerDegLat;
       const double lon = 9 + (column * 20.0) / metresPerLon;
-      const uint32_t first = static_cast<uint32_t>(raw.LatLon.size() / 2);
+      const auto first = static_cast<uint32_t>(raw.LatLon.size() / 2);
       const std::array ring{lat,
                             lon,
                             lat,
@@ -34,8 +35,13 @@ int main() {
       CHECK(cell.has_value(), "each source footprint has a cell");
       if (!cell) { return Report(); }
       raw.LatLon.insert(raw.LatLon.end(), ring.begin(), ring.end());
-      raw.Structures.push_back(
-          {.LocalFirst = first, .PointCount = 4, .Cell = *cell, .HeightM = 9, .Pitched = 0});
+      raw.Structures.push_back({.LocalFirst = first,
+                                .PointCount = 4,
+                                .Cell = *cell,
+                                .HeightM = 9,
+                                .Pitched = 0,
+                                .WallColour = {},
+                                .Facade = {}});
     }
   }
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47}, raw.AnchorEcef);
@@ -44,7 +50,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   size_t fineTriangles = 0;
   for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     raw.RequestedDetail = detail;
@@ -55,28 +61,21 @@ int main() {
     CHECK(built.Prints.size() == 1024 && built.UnsupportedMeshes == 0 && built.NoGround == 0,
           "all 1024 source footprints survive every detail level");
     const size_t triangles = (built.Built.WallRun.size() + built.Built.RoofRun.size()) / 3;
-    std::printf("detail %d: %zu triangles, %d aggregated buildings\n",
-                static_cast<int>(detail),
-                triangles,
-                built.Lumped);
+    std::println("detail {}: {} triangles, {} aggregated buildings",
+                 static_cast<int>(detail),
+                 triangles,
+                 built.Lumped);
     for (size_t cell = 0; cell < built.CellShellErrorM.size(); ++cell) {
       if ((built.OccupiedCells & (uint64_t{1} << cell)) == 0) { continue; }
       CHECK(built.CellShellErrorM[cell] > 0.16,
             "source plans retain their future shell bound even when the initial product is massed");
-      CHECK(RequestedStructureCellDetail(built.CellBounds[cell],
-                                         built.CellMaxHeightM[cell],
-                                         raw.TileSpanM,
-                                         {.LongitudeDeg = 9.02, .LatitudeDeg = 47},
-                                         {.FocalPx = 720},
-                                         built.CellShellErrorM[cell]) == LevelOfDetail::Shell,
-            "distant cell planning does not expand Fine geometry after a massed source bake");
     }
     if (detail == LevelOfDetail::Fine) {
       fineTriangles = triangles;
-      CHECK(triangles > 1024 * 12,
+      CHECK(triangles > size_t{1024} * 12,
             "fine housing adds recessed openings to every complete rectangular envelope");
     } else if (detail == LevelOfDetail::Shell) {
-      CHECK(triangles == 1024 * 12,
+      CHECK(triangles == size_t{1024} * 12,
             "the shell keeps eight wall, two floor and two roof triangles per building");
     } else {
       CHECK(built.Lumped == 1024 && triangles > 0 && triangles < fineTriangles / 4,

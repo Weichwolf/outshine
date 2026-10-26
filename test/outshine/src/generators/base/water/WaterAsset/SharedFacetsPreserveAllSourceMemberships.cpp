@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <ios>
 #include <iterator>
 #include <utility>
 #include <vector>
@@ -37,17 +38,24 @@ int main() {
       {.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 999},
                     {.FirstRing = 1, .RingCount = 1, .LevelM = 888}},
        .Rings = {{.FirstPoint = 0, .PointCount = 3}, {.FirstPoint = 0, .PointCount = 3}},
+       .Courses = {},
+       .Levels = {},
        .Points = {-.001, -.001, -.001, .001, .001, 0},
        .Tiles = {{.Zoom = 0, .X = 0, .Y = 0, .FirstSurface = 0, .SurfaceCount = 2}},
-       .ProcessedTiles = 1});
+       .ProcessedTiles = 1,
+       .Sources = {},
+       .Inputs = {}});
   const auto mesh =
       WaterSurfaceMesh::Build({},
                               {{{-100, -100, 1}}, {{100, -100, 1.2}}, {{0, 100, 1.1}}},
                               {{.Vertices = {0, 1, 2}, .Surface = 0}});
   CHECK(mesh, "one continuous physical facet can cover overlapping source surfaces");
   if (!mesh) { return Report(); }
-  const WaterAsset::SurfaceGeometry geometry{
-      .Mesh = *mesh, .FaceSourceOffsets = {0, 2}, .FaceSources = {0, 1}};
+  const WaterAsset::SurfaceGeometry geometry{.Mesh = *mesh,
+                                             .Rejections = {},
+                                             .FaceSourceOffsets = {0, 2},
+                                             .FaceSources = {0, 1},
+                                             .ProfileDeclines = {}};
   const auto prepared = source.WithSurfaces(geometry);
   CHECK(prepared, "both original surfaces are covered without duplicating physical facets");
   if (!prepared) { return Report(); }

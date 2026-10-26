@@ -5,17 +5,28 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <iomanip>
 #include <memory>
 #include <sstream>
 #include <span>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace {
 using namespace outshine;
 
-Ground::GeoBounds Inside(Data::TileId northWest, Data::TileId southEast) {
-  const auto low = Ground::TileBounds(northWest), high = Ground::TileBounds(southEast);
+struct TileRectangle {
+  Data::TileId NorthWest;
+  Data::TileId SouthEast;
+};
+
+Ground::GeoBounds Inside(TileRectangle tiles) {
+  const auto low = Ground::TileBounds(tiles.NorthWest);
+  const auto high = Ground::TileBounds(tiles.SouthEast);
   return {.MinLonDeg = low.MinLonDeg + (low.MaxLonDeg - low.MinLonDeg) * 0.2,
           .MinLatDeg = high.MinLatDeg + (high.MaxLatDeg - high.MinLatDeg) * 0.2,
           .MaxLonDeg = high.MaxLonDeg - (high.MaxLonDeg - high.MinLonDeg) * 0.2,
@@ -56,7 +67,7 @@ Source(std::span<const Ground::GeoBounds> bounds) {
 
 std::expected<bool, std::string>
 Prepare(StructureBuildQueue &queue,
-        std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> source,
+        const std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> &source,
         int zoom) {
   for (int attempt = 0; attempt < 200; ++attempt) {
     auto result = queue.PrepareOriginal(
@@ -75,7 +86,9 @@ int main() {
   constexpr int zoom = 14;
   const Data::TileId first{.Zoom = zoom, .X = 8590, .Y = 5600};
   const Data::TileId distant{.Zoom = zoom, .X = 8610, .Y = 5618};
-  const std::array sparse{Inside(first, first), Inside(first, first), Inside(distant, distant)};
+  const std::array sparse{Inside({.NorthWest = first, .SouthEast = first}),
+                          Inside({.NorthWest = first, .SouthEast = first}),
+                          Inside({.NorthWest = distant, .SouthEast = distant})};
   const auto source = Source(sparse);
   CHECK(source, "sparse original buildings parse inside a large declared source region");
   if (!source) { return Report(); }
@@ -98,7 +111,7 @@ int main() {
             !queue.OriginalHeightTiles(zoom),
         "changing zoom regenerates the complete demand on the worker");
   const Data::TileId end{.Zoom = zoom, .X = first.X + 2, .Y = first.Y + 2};
-  const std::array large{Inside(first, end)};
+  const std::array large{Inside({.NorthWest = first, .SouthEast = end})};
   const auto largeReady = Prepare(queue, Source(large), zoom);
   const auto largeTiles = queue.OriginalHeightTiles(zoom);
   CHECK(largeReady && *largeReady && largeTiles && largeTiles->size() == 9 &&
@@ -106,7 +119,7 @@ int main() {
                               Data::TileId{.Zoom = zoom, .X = first.X + 1, .Y = first.Y + 1}) !=
                 largeTiles->end(),
         "wide footprints require interior terrain fields as well as their vertex fields");
-  auto seam = Inside(first, first);
+  auto seam = Inside({.NorthWest = first, .SouthEast = first});
   seam.MinLonDeg = 179.999;
   seam.MaxLonDeg = -179.999;
   const std::array wrapped{seam};
@@ -120,7 +133,7 @@ int main() {
   std::vector<Ground::GeoBounds> overBudget;
   for (uint32_t at = 0; at < 65; ++at) {
     const Data::TileId tile{.Zoom = zoom, .X = first.X + at * 2, .Y = first.Y};
-    overBudget.push_back(Inside(tile, tile));
+    overBudget.push_back(Inside({.NorthWest = tile, .SouthEast = tile}));
   }
   CHECK(!Prepare(queue, Source(overBudget), zoom) && queue.OriginalHeightTiles(zoom) &&
             std::ranges::equal(*queue.OriginalHeightTiles(zoom), seamExpected),

@@ -4,6 +4,9 @@
 #include "OfflineSourceTransport.h"
 #include "TilePool.h"
 #include "Check.h"
+#include <cstdint>
+#include <span>
+#include <utility>
 #include <webp/encode.h>
 #include <array>
 #include <atomic>
@@ -22,21 +25,24 @@ class Tiles final : public SourceTransport {
 public:
   explicit Tiles(std::vector<uint8_t> bytes) : Bytes_(std::move(bytes)) {}
 
-  std::atomic<unsigned> Starts = 0;
-  std::atomic<unsigned> InvalidEndpoints = 0;
+  [[nodiscard]] unsigned Starts() const noexcept { return Starts_.load(); }
+
+  [[nodiscard]] unsigned InvalidEndpoints() const noexcept { return InvalidEndpoints_.load(); }
 
   FetchStart Begin(const std::string &url) override {
     if (!url.starts_with("https://fixture.invalid/height/") || !url.ends_with(".webp")) {
-      ++InvalidEndpoints;
+      ++InvalidEndpoints_;
     }
-    return static_cast<Ticket>(++Starts);
+    return static_cast<Ticket>(++Starts_);
   }
 
-  Wire Collect(Ticket) override { return Wire::Answered(200, Bytes_); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Answered(200, Bytes_); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 
 private:
+  std::atomic<unsigned> Starts_{0};
+  std::atomic<unsigned> InvalidEndpoints_{0};
   std::vector<uint8_t> Bytes_;
 };
 
@@ -48,14 +54,21 @@ void Build(RawSourceCache &cache,
                               .Revision = "fixture-2026",
                               .Missing = MissingDataPolicy::Fail,
                               .Dataset = "fixture.terrarium",
-                              .Endpoint = "https://fixture.invalid/height/{z}/{x}/{y}.webp"};
+                              .Location = {},
+                              .Endpoint = "https://fixture.invalid/height/{z}/{x}/{y}.webp",
+                              .Coverage = {},
+                              .PayloadSha256 = {},
+                              .Schema = {}};
   SourceSet sources(cache);
   std::string error;
   CHECK(RegisterSources(sources, std::span(&config, 1), {}, error, registry), error.c_str());
   if (sources.Count() != 1) { return; }
   CHECK(sources.At(0).Declaration().Wire == WireFormat::TerrariumWebp,
         "factory declares actual network encoding independently of native heights");
-  Ground::TilePool pool({.Threads = 2, .ByteBudget = 1024u * 1024u}, sources, transport);
+  Ground::TilePool pool(
+      {.Threads = 2, .ByteBudget = static_cast<size_t>(1024u) * 1024u, .PreparedFields = {}},
+      sources,
+      transport);
   const TileId at{.Zoom = 12, .X = 2048, .Y = 2048};
   std::shared_ptr<const Ground::TerrainField> field;
   Ground::TilePool::Reply reply = Ground::TilePool::Reply::Pending;
@@ -86,7 +99,7 @@ void Build(RawSourceCache &cache,
 
 int main() {
   using namespace outshine::Test;
-  std::array<uint8_t, 8 * 8 * 3> rgb{};
+  std::array<uint8_t, static_cast<long>(8 * 8) * 3> rgb{};
   for (size_t at = 0; at < rgb.size(); at += 3) {
     rgb[at] = 128;
     rgb[at + 1] = 172;
@@ -107,8 +120,8 @@ int main() {
     Generators::RegisterShippedProviders(registry);
     Tiles online({owned.get(), owned.get() + count});
     Build(cache, online, registry, false);
-    CHECK(online.InvalidEndpoints == 0, "configured adapter expands its own endpoint");
-    CHECK(online.Starts == 9, "one request per actual required source tile");
+    CHECK(online.InvalidEndpoints() == 0, "configured adapter expands its own endpoint");
+    CHECK(online.Starts() == 9, "one request per actual required source tile");
     OfflineSourceTransport offline;
     Build(cache, offline, registry, true);
   }

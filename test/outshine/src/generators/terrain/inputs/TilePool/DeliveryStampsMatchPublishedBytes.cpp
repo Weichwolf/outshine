@@ -8,9 +8,13 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -19,11 +23,11 @@ using namespace outshine::Ground;
 
 class NoNetwork final : public SourceTransport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 struct FirstDeliveryGate {
@@ -52,7 +56,12 @@ struct FirstDeliveryGate {
 
 class Provider final : public Source {
 public:
-  SourceDecl Decl{.Id = "revision-dem", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "revision-dem",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   mutable std::atomic<unsigned> Calls = 0;
   std::atomic<bool> Absent = false;
   std::atomic<bool> Stable = false;
@@ -61,26 +70,104 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override {
-    if (ShiftServed && request.Where().Tile()) {
-      auto tile = *request.Where().Tile();
+    const auto requested = request.Where().Tile();
+    if (ShiftServed && requested) {
+      auto tile = *requested;
       tile.X ^= 1u;
       return Address::At(tile);
     }
     return request.Where();
   }
 
-  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     const auto serial = ++Calls;
     if (serial == 1 && Gate) { Gate->Pause(); }
     if (Absent) { return SourceResponse::NotFound(); }
     return SourceResponse::Delivered({Stable ? uint8_t{7} : static_cast<uint8_t>(serial), 42});
   }
 };
+
+void CheckConcurrentPublication(const SourceRequest &askA) {
+  using namespace outshine::Test;
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
+  SourceSet sources(store);
+  NoNetwork transport;
+  auto provider = std::make_unique<Provider>();
+  auto gate = std::make_shared<FirstDeliveryGate>();
+  provider->Gate = gate;
+  CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
+        "concurrent provider registers");
+  TilePool pool({.ByteBudget = 64, .PreparedFields = {}}, sources, transport);
+  TilePool::Landing delayed;
+  TilePool::Landing earlier;
+  TilePool::Landing cached;
+  TilePool::Reply delayedReply = TilePool::Reply::Pending;
+  std::thread first([&] { delayedReply = pool.BytesBlocking(askA, &delayed); });
+  CHECK(gate->Wait(), "first delivery reaches the controlled barrier");
+  CHECK(pool.BytesBlocking(askA, &earlier) == TilePool::Reply::Ready,
+        "independent delivery publishes first");
+  gate->Release();
+  first.join();
+  CHECK(!gate->TimedOut && delayedReply == TilePool::Reply::Ready,
+        "delayed delivery publishes without timeout");
+  CHECK(pool.BytesBlocking(askA, &cached) == TilePool::Reply::Ready,
+        "latest publication is cached");
+  CHECK(cached.Bytes == delayed.Bytes && cached.TerrainStamp == delayed.TerrainStamp,
+        "fresh publication replaces existing bytes and stamp together");
+  CHECK(earlier.TerrainStamp && !pool.ValidTerrainStamps(std::array{*earlier.TerrainStamp}),
+        "replaced delivery cannot certify current terrain");
+  CHECK(delayed.TerrainStamp && pool.ValidTerrainStamps(std::array{*delayed.TerrainStamp}),
+        "latest published bytes retain their exact stamp");
+}
+
+void CheckStableRedelivery(const SourceRequest &askA, const SourceRequest &askB) {
+  using namespace outshine::Test;
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
+  SourceSet sources(store);
+  NoNetwork transport;
+  auto provider = std::make_unique<Provider>();
+  auto *observed = provider.get();
+  observed->Stable = true;
+  CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
+        "stable terrain provider registers");
+  TilePool pool(
+      {.ByteBudget = 2, .TerrainRevisionEntries = 8, .PreparedFields = {}}, sources, transport);
+  TilePool::Landing first;
+  TilePool::Landing neighbour;
+  TilePool::Landing again;
+  TilePool::Landing relocated;
+  CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready && first.TerrainStamp,
+        "first immutable payload has a certificate");
+  CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready &&
+            pool.BytesBlocking(askA, &again) == TilePool::Reply::Ready,
+        "evicted bytes are delivered again");
+  CHECK(observed->Calls == 3 && first.Bytes == again.Bytes &&
+            first.TerrainStamp == again.TerrainStamp,
+        "identical re-delivery preserves certificates held by in-flight world candidates");
+  CHECK(first.TerrainStamp && pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
+        "candidate can continue after raw-byte cache eviction and identical refill");
+  CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready,
+        "evict the first address before changing served provenance");
+  observed->ShiftServed = true;
+  CHECK(pool.BytesBlocking(askA, &relocated) == TilePool::Reply::Ready &&
+            relocated.Bytes == first.Bytes && relocated.At != first.At,
+        "negative control delivers equal bytes from a different source address");
+  CHECK(relocated.TerrainStamp != first.TerrainStamp && first.TerrainStamp &&
+            !pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
+        "equal bytes cannot hide changed terrain provenance");
+}
+
 }
 
 int main() {
@@ -90,18 +177,22 @@ int main() {
   const SourceRequest askA(DataKind::Elevation, Address::At(a));
   const SourceRequest askB(DataKind::Elevation, Address::At(b));
   for (const bool evictMetadata : {false, true}) {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     NoNetwork transport;
     auto provider = std::make_unique<Provider>();
     auto *observed = provider.get();
     CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
           "provider registers");
-    TilePool pool(
-        {.ByteBudget = evictMetadata ? 64u : 2u, .TerrainRevisionEntries = evictMetadata ? 1u : 8u},
-        sources,
-        transport);
-    TilePool::Landing first, cached, neighbour, next;
+    TilePool pool({.ByteBudget = evictMetadata ? 64u : 2u,
+                   .TerrainRevisionEntries = evictMetadata ? 1u : 8u,
+                   .PreparedFields = {}},
+                  sources,
+                  transport);
+    TilePool::Landing first;
+    TilePool::Landing cached;
+    TilePool::Landing neighbour;
+    TilePool::Landing next;
     CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready, "first delivery arrives");
     CHECK(first.TerrainStamp.has_value(), "delivery carries its requested-address stamp");
     if (!first.TerrainStamp) { continue; }
@@ -136,65 +227,7 @@ int main() {
       CHECK(next.Bytes.empty(), "absent delivery has no stale payload");
     }
   }
-  {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
-    SourceSet sources(store);
-    NoNetwork transport;
-    auto provider = std::make_unique<Provider>();
-    auto gate = std::make_shared<FirstDeliveryGate>();
-    provider->Gate = gate;
-    CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
-          "concurrent provider registers");
-    TilePool pool({.ByteBudget = 64}, sources, transport);
-    TilePool::Landing delayed, earlier, cached;
-    TilePool::Reply delayedReply = TilePool::Reply::Pending;
-    std::thread first([&] { delayedReply = pool.BytesBlocking(askA, &delayed); });
-    CHECK(gate->Wait(), "first delivery reaches the controlled barrier");
-    CHECK(pool.BytesBlocking(askA, &earlier) == TilePool::Reply::Ready,
-          "independent delivery publishes first");
-    gate->Release();
-    first.join();
-    CHECK(!gate->TimedOut && delayedReply == TilePool::Reply::Ready,
-          "delayed delivery publishes without timeout");
-    CHECK(pool.BytesBlocking(askA, &cached) == TilePool::Reply::Ready,
-          "latest publication is cached");
-    CHECK(cached.Bytes == delayed.Bytes && cached.TerrainStamp == delayed.TerrainStamp,
-          "fresh publication replaces existing bytes and stamp together");
-    CHECK(earlier.TerrainStamp && !pool.ValidTerrainStamps(std::array{*earlier.TerrainStamp}),
-          "replaced delivery cannot certify current terrain");
-    CHECK(delayed.TerrainStamp && pool.ValidTerrainStamps(std::array{*delayed.TerrainStamp}),
-          "latest published bytes retain their exact stamp");
-  }
-  {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
-    SourceSet sources(store);
-    NoNetwork transport;
-    auto provider = std::make_unique<Provider>();
-    auto *observed = provider.get();
-    observed->Stable = true;
-    CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
-          "stable terrain provider registers");
-    TilePool pool({.ByteBudget = 2, .TerrainRevisionEntries = 8}, sources, transport);
-    TilePool::Landing first, neighbour, again, relocated;
-    CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready && first.TerrainStamp,
-          "first immutable payload has a certificate");
-    CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready &&
-              pool.BytesBlocking(askA, &again) == TilePool::Reply::Ready,
-          "evicted bytes are delivered again");
-    CHECK(observed->Calls == 3 && first.Bytes == again.Bytes &&
-              first.TerrainStamp == again.TerrainStamp,
-          "identical re-delivery preserves certificates held by in-flight world candidates");
-    CHECK(first.TerrainStamp && pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
-          "candidate can continue after raw-byte cache eviction and identical refill");
-    CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready,
-          "evict the first address before changing served provenance");
-    observed->ShiftServed = true;
-    CHECK(pool.BytesBlocking(askA, &relocated) == TilePool::Reply::Ready &&
-              relocated.Bytes == first.Bytes && relocated.At != first.At,
-          "negative control delivers equal bytes from a different source address");
-    CHECK(relocated.TerrainStamp != first.TerrainStamp && first.TerrainStamp &&
-              !pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
-          "equal bytes cannot hide changed terrain provenance");
-  }
+  CheckConcurrentPublication(askA);
+  CheckStableRedelivery(askA, askB);
   return Report();
 }

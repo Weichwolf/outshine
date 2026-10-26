@@ -6,8 +6,12 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   GroundPublication publication;
-  const GroundRevision initial{
-      .Region = 17, .ResidentTiles = 4, .Classes = 2, .Footprints = 3, .Projection = {0, 1.0, 2.0}};
+  const GroundRevision initial{.Region = 17,
+                               .ResidentTiles = 4,
+                               .Classes = 2,
+                               .Footprints = 3,
+                               .Projection = {0, 1.0, 2.0},
+                               .Coverage = {}};
   CHECK(!publication.Current() && publication.NeedsRebuild(initial, false, false),
         "an unpublished world needs its first build even without tile arrivals");
   CHECK(publication.NeedsRebuild(initial, false, false) && !publication.Current(),
@@ -85,12 +89,15 @@ int main() {
         "a coverage change rebuilds even when its quality label is unchanged");
   CHECK(publication.BeginCapture() && !publication.CanPublish(),
         "capture closes the publication boundary around the complete revision");
-  CHECK(!publication.Publish(changed[2]) && publication.Current()->Footprints == initial.Footprints,
+  const bool publishedDuringCapture = publication.Publish(changed[2]);
+  const auto captured = publication.Current();
+  CHECK(!publishedDuringCapture && captured && captured->Footprints == initial.Footprints,
         "a late ground revision remains unpublished while capture holds the prior revision");
   publication.EndCapture();
   CHECK(publication.CanPublish() && publication.Publish(changed[2]),
         "releasing capture resumes ground publication");
-  CHECK(publication.Current()->Footprints == 4 &&
+  const auto published = publication.Current();
+  CHECK(published && published->Footprints == 4 &&
             !publication.NeedsRebuild(changed[2], false, false),
         "a successful retry advances the published building revision");
   publication.Reset();

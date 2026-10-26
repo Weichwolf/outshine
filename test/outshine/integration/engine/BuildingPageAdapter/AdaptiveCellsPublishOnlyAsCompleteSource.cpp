@@ -77,7 +77,7 @@ struct Fixture {
     return values[(kSide / 2) * kSide + kSide / 2];
   }
 
-  std::vector<Render::GeometryPageResidency::DigestRecord> Visible() const {
+  [[nodiscard]] std::vector<Render::GeometryPageResidency::DigestRecord> Visible() const {
     std::vector<Render::GeometryPageResidency::DigestRecord> records;
     Pieces.ForEachDigest([&](const auto &record) { records.push_back(record); });
     return records;

@@ -6,34 +6,48 @@
 #include <chrono>
 #include <memory>
 #include <optional>
+#include <string>
 #include <thread>
+#include <utility>
 
 namespace {
 using namespace outshine::Data;
 
 class NoNetwork final : public SourceTransport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class WholeSource final : public Source {
 public:
-  SourceDecl Decl{
-      .Id = "non-tile-provider", .Revision = "owned-revision", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "non-tile-provider",
+                  .Revision = "owned-revision",
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Address Serves(const SourceRequest &) const noexcept override { return Address::Whole(73); }
+  [[nodiscard]] Address Serves(const SourceRequest & /*request*/) const noexcept override {
+    return Address::Whole(73);
+  }
 
-  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Delivered({1, 2, 3});
   }
 };
@@ -48,15 +62,15 @@ int main() {
     std::optional<Data::SourceFailure> failure;
     std::string expectedKey;
     {
-      Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+      Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
       Data::SourceSet sources(store);
       NoNetwork transport;
       auto source = std::make_unique<WholeSource>();
       expectedKey = Data::SourceKey(source->Decl);
       CHECK(sources.Add(std::move(source)) == Data::SourceSet::Registration::Accepted,
             "non-tile source registers without network access");
-      TilePool pool({.Threads = 1, .PollAttempts = 10}, sources, transport);
-      GroundStream ground(pool, {.Z = 4, .Grid = 4});
+      TilePool pool({.Threads = 1, .PollAttempts = 10, .PreparedFields = {}}, sources, transport);
+      const GroundStream ground(pool, {.Z = 4, .Grid = 4});
       bool refused = false;
       const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
       do {

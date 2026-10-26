@@ -18,14 +18,14 @@ class NoNetwork final : public Data::SourceTransport {
 public:
   int Starts = 0;
 
-  Data::FetchStart Begin(const std::string &) override {
+  Data::FetchStart Begin(const std::string & /*url*/) override {
     ++Starts;
     return Data::Ticket::None;
   }
 
-  Data::Wire Collect(Data::Ticket) override { return Data::Wire::Never(); }
+  Data::Wire Collect(Data::Ticket /*ticket*/) override { return Data::Wire::Never(); }
 
-  void Cancel(Data::Ticket) override {}
+  void Cancel(Data::Ticket /*ticket*/) override {}
 };
 
 constexpr auto kCompiledCoverage =
@@ -63,11 +63,11 @@ int main() {
           "invalid native grids are refused before shifting coordinates");
   }
 
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork network;
   Ground::TilePool pool({}, sources, network);
-  Ground::GroundStream ground(pool, {.Z = 6, .Grid = 4});
+  const Ground::GroundStream ground(pool, {.Z = 6, .Grid = 4});
   const auto converted = ground.SamplingCoverage({.Zoom = 9, .X = 200, .Y = 201});
   const Data::TileId fine{.Zoom = 6, .X = 25, .Y = 25};
   const Data::TileId coarse{.Zoom = 3, .X = 3, .Y = 3};

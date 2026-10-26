@@ -1,4 +1,3 @@
-#include "OriginalBuildingInput.h"
 #include "StructureBake.h"
 #include "PreparedStructureCodec.h"
 #include "BuildingMesh.h"
@@ -7,12 +6,15 @@
 #include "Geodesy.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
+#include "OsmSourceCapture.h"
+#include "OsmSourceSnapshot.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <utility>
@@ -30,6 +32,19 @@ std::optional<std::vector<uint8_t>> PreparedBytes(const outshine::Generators::Ra
   CHECK(bytes, "the current asset codec accepts the complete prepared product");
   return bytes ? std::optional(std::move(*bytes)) : std::nullopt;
 }
+
+double LowestSurface(const outshine::Raised &mesh, const outshine::Vec3 &vertical) {
+  double lower = std::numeric_limits<double>::infinity();
+  for (const auto &vertices : {std::span(mesh.WallCorners), std::span(mesh.RoofCorners)}) {
+    for (const auto &vertex : vertices) {
+      double up = 0;
+      for (int axis = 0; axis < 3; ++axis) { up += vertex.pos[axis] * vertical[axis]; }
+      lower = std::min(lower, up);
+    }
+  }
+  return lower;
+}
+
 }
 
 int main() {
@@ -43,8 +58,13 @@ int main() {
   const auto cell = StructureCellOf(bounds, raw.LatLon);
   CHECK(cell.has_value(), "raised building belongs to a spatial cell");
   if (!cell) { return Report(); }
-  raw.Structures.push_back(
-      {.PointCount = 4, .Cell = *cell, .HeightM = 12, .MinimumHeightM = 5, .Pitched = 0});
+  raw.Structures.push_back({.PointCount = 4,
+                            .Cell = *cell,
+                            .HeightM = 12,
+                            .MinimumHeightM = 5,
+                            .Pitched = 0,
+                            .WallColour = {},
+                            .Facade = {}});
   raw.TileSpanM = 1000;
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 100}, raw.AnchorEcef);
   const auto axes = EnuAxesEcef({.LongitudeDeg = 9, .LatitudeDeg = 47});
@@ -53,7 +73,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 100);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   for (const auto level : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     raw.RequestedDetail = level;
@@ -64,15 +84,7 @@ int main() {
     CHECK(product.Prints.size() == 1 && product.Prints[0].MinimumHeightM == 5 &&
               product.Lumped == 0,
           "raised source retains its clearance and is not mixed into grounded aggregates");
-    double lower = std::numeric_limits<double>::infinity();
-    for (const auto &vertices :
-         {std::span(product.Built.WallCorners), std::span(product.Built.RoofCorners)}) {
-      for (const auto &vertex : vertices) {
-        double up = 0;
-        for (int axis = 0; axis < 3; ++axis) { up += vertex.pos[axis] * axes.Up[axis]; }
-        lower = std::min(lower, up);
-      }
-    }
+    const double lower = LowestSurface(product.Built, axes.Up);
     CHECK(std::isfinite(lower) && std::abs(lower - 5) < 0.02,
           "independent ENU projection places the lowest generated surface at min_height");
   }
@@ -119,8 +131,8 @@ int main() {
   if (!original) { return Report(); }
   raw.SourceInputs.Objects = std::make_shared<const outshine::Generators::Osm::SourceCapture>(
       std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
-          outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*original),
-                                                    .Coverage = {}}));
+          outshine::Generators::Osm::SourceSnapshot{
+              .Elements = std::move(*original), .Coverage = {}, .Chunks = {}}));
   raw.Structures[0].SourceId = {
       .Id = 7, .Kind = static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Node)};
   BakedTile native;

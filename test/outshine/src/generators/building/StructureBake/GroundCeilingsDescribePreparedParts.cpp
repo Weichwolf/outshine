@@ -9,12 +9,14 @@
 #include "TileGeodesy.h"
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <cmath>
 #include <limits>
 #include <memory>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -47,11 +49,12 @@ Fixture Inputs() {
                                  .MaxLatDeg = northwest.LatitudeDeg};
   GeoToEcef(position(0.5, 0.5), fixture.Raw.AnchorEcef);
   fixture.Raw.TileSpanM = 200;
+  constexpr std::array minimumHeights{0.0, -3.0, 3.0};
   for (uint32_t index = 0; index < 3; ++index) {
     const double x = index == 0 ? 0.1 : 0.6;
     const double y = index == 2 ? 0.6 : 0.1;
     const double width = index == 0 ? 0.4 : 0.3;
-    const uint32_t first = static_cast<uint32_t>(fixture.Raw.LatLon.size() / 2u);
+    const auto first = static_cast<uint32_t>(fixture.Raw.LatLon.size() / 2u);
     for (const auto &point : std::array{position(x, y),
                                         position(x + width, y),
                                         position(x + width, y + 0.3),
@@ -63,16 +66,15 @@ Fixture Inputs() {
     const auto cell = StructureCellOf(bounds, ring);
     CHECK(cell.has_value(), "source belongs to a canonical spatial cell");
     if (!cell) { return {}; }
-    fixture.Raw.Structures.push_back(
-        {.LocalFirst = first,
-         .PointCount = 4,
-         .SourceFirst = first,
-         .Cell = *cell,
-         .HeightM = 12,
-         .MinimumHeightM = index == 1 ? -3.0 : (index == 2 ? 3.0 : 0.0),
-         .Pitched = 0,
-         .WallColour = std::nullopt,
-         .Facade = std::nullopt});
+    fixture.Raw.Structures.push_back({.LocalFirst = first,
+                                      .PointCount = 4,
+                                      .SourceFirst = first,
+                                      .Cell = *cell,
+                                      .HeightM = 12,
+                                      .MinimumHeightM = minimumHeights[index],
+                                      .Pitched = 0,
+                                      .WallColour = std::nullopt,
+                                      .Facade = std::nullopt});
   }
   return fixture;
 }
@@ -145,7 +147,7 @@ int main() {
             header->Structures.front().Standing.TerrainCeiling ==
                 base->Structures.front().Standing.TerrainCeiling,
         "source-frame contacts survive a metadata-only native cache restart");
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   RawTile view;
   view.RequestedDetail = LevelOfDetail::Shell;
@@ -161,11 +163,17 @@ int main() {
   CHECK(restored && restored->Prints == product->Prints,
         "LOD cache hits retain the contact without rebuilding the source model");
   auto invalid = *base;
-  invalid.Structures.front().Standing.TerrainCeiling->OriginPoint = UINT32_MAX;
+  const auto ceiling = base->Structures.front().Standing.TerrainCeiling;
+  CHECK(ceiling, "the invalid-input controls start with a valid contact ceiling");
+  if (!ceiling) { return Report(); }
+  auto invalidCeiling = *ceiling;
+  invalidCeiling.OriginPoint = UINT32_MAX;
+  invalid.Structures.front().Standing.TerrainCeiling = invalidCeiling;
   CHECK(!EncodePreparedStructureIndex(invalid), "dangling contact origins cannot publish");
   invalid = *base;
-  invalid.Structures.front().Standing.TerrainCeiling->HeightAslM =
-      std::numeric_limits<double>::infinity();
+  invalidCeiling = *ceiling;
+  invalidCeiling.HeightAslM = std::numeric_limits<double>::infinity();
+  invalid.Structures.front().Standing.TerrainCeiling = invalidCeiling;
   CHECK(!EncodePreparedStructureIndex(invalid), "nonfinite contact heights cannot publish");
   invalid = *base;
   auto parts = *invalid.Structures.front().Standing.TerrainContacts.Parts;

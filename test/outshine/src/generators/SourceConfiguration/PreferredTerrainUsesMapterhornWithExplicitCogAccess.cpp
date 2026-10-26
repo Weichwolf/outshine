@@ -9,7 +9,16 @@ int main() {
   using namespace outshine::Test;
   ProviderRegistry registry;
   Generators::RegisterShippedProviders(registry);
-  const auto primary = ConfigureSource({.Kind = "terrain"}, {}, registry);
+  const auto primary = ConfigureSource({.Kind = "terrain",
+                                        .Revision = {},
+                                        .Dataset = {},
+                                        .Location = {},
+                                        .Endpoint = {},
+                                        .Coverage = {},
+                                        .PayloadSha256 = {},
+                                        .Schema = {}},
+                                       {},
+                                       registry);
   CHECK(primary.has_value(), "preferred height source configures through the public registry");
   if (primary) {
     const auto &decl = (*primary)->Declaration();
@@ -19,7 +28,16 @@ int main() {
               decl.Wire == WireFormat::TerrariumWebp && decl.AncestorFill,
           "default terrain is the measured preferred lossless WebP source");
   }
-  const auto original = ConfigureSource({.Kind = "copernicus"}, {}, registry);
+  const auto original = ConfigureSource({.Kind = "copernicus",
+                                         .Revision = {},
+                                         .Dataset = {},
+                                         .Location = {},
+                                         .Endpoint = {},
+                                         .Coverage = {},
+                                         .PayloadSha256 = {},
+                                         .Schema = {}},
+                                        {},
+                                        registry);
   CHECK(original.has_value(), "library users can explicitly select the original COG provider");
   if (original) {
     CHECK((*original)->Declaration().Wire == WireFormat::CopernicusCog &&
@@ -27,14 +45,24 @@ int main() {
           "original native source remains distinct without a client fallback");
   }
   const auto invalid = ConfigureSource({.Kind = "terrain",
+                                        .Revision = {},
                                         .Dataset = "invalid",
-                                        .Endpoint = "http://fixture.invalid/{z}/{x}/{y}.webp"},
+                                        .Location = {},
+                                        .Endpoint = "http://fixture.invalid/{z}/{x}/{y}.webp",
+                                        .Coverage = {},
+                                        .PayloadSha256 = {},
+                                        .Schema = {}},
                                        {},
                                        registry);
   CHECK(!invalid, "plain HTTP cannot bypass adapter validation");
   const auto replacement = ConfigureSource({.Kind = "terrain",
+                                            .Revision = {},
                                             .Dataset = "alternate",
-                                            .Endpoint = "https://fixture.invalid/{z}/{x}/{y}.webp"},
+                                            .Location = {},
+                                            .Endpoint = "https://fixture.invalid/{z}/{x}/{y}.webp",
+                                            .Coverage = {},
+                                            .PayloadSha256 = {},
+                                            .Schema = {}},
                                            {},
                                            registry);
   CHECK(replacement &&

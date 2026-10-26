@@ -50,7 +50,28 @@ def landings(rows, domains, method, width_reach_m, junctions=None):
         else [r["incident"] for r in junctions]
     )
     masks = []
-    for node, owners in zip(nodes, incident, strict=True):
+    for index, (node, owners) in enumerate(zip(nodes, incident, strict=True)):
+        if junctions is not None and "flat_patch_xy_m" in junctions[index]:
+            xy = np.asarray(junctions[index]["flat_patch_xy_m"], float)
+            if (
+                xy.ndim != 2
+                or xy.shape[1:] != (2,)
+                or not 3 <= len(xy) <= 16
+                or not np.isfinite(xy).all()
+                or np.max(abs(xy)) > 1e7
+            ):
+                raise ValueError("bounded finite explicit flat-patch polygon required")
+            patch = shapely.Polygon(xy)
+            if (
+                not patch.is_valid
+                or patch.area <= 0
+                or not patch.covers(shapely.Point(node))
+            ):
+                raise ValueError(
+                    "valid explicit flat patch must contain its construction node"
+                )
+            masks.append(patch)
+            continue
         parts = [
             shapely.Point(node).buffer(
                 max(rows[i]["width_m"] for i in owners) / 2, quad_segs=2

@@ -1,29 +1,30 @@
 #include "TilePool.h"
 #include "SourceSet.h"
 #include "Check.h"
+#include <string>
 
 namespace {
 class NoTransport final : public outshine::Data::SourceTransport {
 public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Never();
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 }
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoTransport transport;
-  Ground::TilePool pool({.OutstandingMost = 1}, sources, transport);
+  Ground::TilePool pool({.OutstandingMost = 1, .PreparedFields = {}}, sources, transport);
   pool.Shapes({.Kind = "sineRidge", .AmplitudeM = 4.0, .WavelengthM = 100.0});
   TileBuild first;
   const Data::TileId original{.Zoom = 12, .X = 1200, .Y = 1500};

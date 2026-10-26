@@ -5,7 +5,10 @@
 #include "Check.h"
 #include "Geometry.h"
 #include <cmath>
+#include <cstddef>
+#include <expected>
 #include <stop_token>
+#include <string>
 
 int main() {
   using namespace outshine;
@@ -14,6 +17,8 @@ int main() {
   const WaterAsset source(
       {.Surfaces = {{.FirstRing = 0, .RingCount = 2, .LevelM = 123}},
        .Rings = {{.FirstPoint = 0, .PointCount = 4}, {.FirstPoint = 4, .PointCount = 4}},
+       .Courses = {},
+       .Levels = {},
        .Points = {-.001,
                   -.001,
                   -.001,
@@ -29,7 +34,10 @@ int main() {
                   .0002,
                   .0002,
                   -.0002,
-                  .0002}});
+                  .0002},
+       .Tiles = {},
+       .Sources = {},
+       .Inputs = {}});
   const auto frame = TangentFrame::At({});
   Geometry geometry;
   const auto material = geometry.addSurface("water", WaterSurfaceMaterial());

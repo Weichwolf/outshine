@@ -1,9 +1,12 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstddef>
+#include <expected>
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <utility>
 
 #include "Check.h"
 #include "StructureBuildTask.h"
@@ -21,9 +24,9 @@ public:
   }
 
   std::expected<void, outshine::StructureMeshError>
-  Mesh(const outshine::StructurePlan &,
+  Mesh(const outshine::StructurePlan & /*plan*/,
        outshine::MeshScratch &scratch,
-       outshine::Raised &) const noexcept override {
+       outshine::Raised & /*into*/) const noexcept override {
     auto &blocking = static_cast<BlockingScratch &>(scratch);
     blocking.Held.store(true, std::memory_order_release);
     std::unique_lock lock(Mutex_);
@@ -40,7 +43,7 @@ public:
   }
 
   void ReleasesMesh() const {
-    std::lock_guard lock(Mutex_);
+    const std::scoped_lock lock(Mutex_);
     Released_ = true;
     ReleasedCv_.notify_one();
   }
@@ -57,14 +60,14 @@ struct Scratch final : outshine::MeshScratch {};
 
 class UnsupportedMesher final : public outshine::StructureMesher {
 public:
-  std::unique_ptr<outshine::MeshScratch> Scratch() const override {
+  [[nodiscard]] std::unique_ptr<outshine::MeshScratch> Scratch() const override {
     return std::make_unique<::Scratch>();
   }
 
   std::expected<void, outshine::StructureMeshError>
-  Mesh(const outshine::StructurePlan &,
-       outshine::MeshScratch &,
-       outshine::Raised &) const noexcept override {
+  Mesh(const outshine::StructurePlan & /*plan*/,
+       outshine::MeshScratch & /*scratch*/,
+       outshine::Raised & /*into*/) const noexcept override {
     return std::unexpected(outshine::StructureMeshError::UnsupportedFootprint);
   }
 };
@@ -92,18 +95,18 @@ std::unique_ptr<outshine::Generators::RawTile> Raw(size_t structures = 1) {
   return raw;
 }
 
-}
+using namespace outshine;
+using namespace outshine::Test;
 
-int main() {
-  using namespace outshine;
-  using namespace outshine::Test;
+void CancelDuringMesh() {
   Tasks pool(1);
-  BlockingMesher mesher;
+  const BlockingMesher mesher;
   StructureBuildTask task(
       3, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), mesher.Scratch());
   task.Start(pool, mesher);
   CHECK(mesher.WaitsInMesh(), "the real bake worker holds its scratch during meshing");
   StructureBuildTask stopped(std::move(task));
+  // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
   CHECK(stopped.Running() && !task.Running(),
         "cancellation fixture transfers a running owner before shutdown");
   if (!task.Running()) { task.RequestStop(); }
@@ -127,7 +130,11 @@ int main() {
         "joining returns only after the stopped worker has completed");
   CHECK(!stopped.Result().Status,
         "a stop requested during meshing reaches the task output as an explicit failure");
-  BlockingMesher movingMesher;
+}
+
+void TransferRunningPayload() {
+  Tasks pool(1);
+  const BlockingMesher movingMesher;
   auto movedHeights = Heights();
   const std::weak_ptr<const Ground::HeightField> releasedHeights = movedHeights;
   StructureBuildTask moving(7,
@@ -142,6 +149,7 @@ int main() {
   moving.Start(pool, movingMesher);
   CHECK(movingMesher.WaitsInMesh(), "move fixture holds a real worker in its mesher");
   StructureBuildTask constructed(std::move(moving));
+  // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
   CHECK(constructed.Running() && !moving.Running() && constructed.Tile() == 7 &&
             &constructed.Raw() == raw && &constructed.Heights() == heights &&
             &constructed.Result() == output && &constructed.Progress() == progress,
@@ -161,6 +169,7 @@ int main() {
                               std::make_unique<StructureBuildTask::Output>(),
                               movingMesher.Scratch());
   assigned = std::move(constructed);
+  // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
   CHECK(assigned.Running() && !constructed.Running() && assigned.Tile() == 7 &&
             &assigned.Raw() == raw && &assigned.Heights() == heights &&
             &assigned.Result() == output && &assigned.Progress() == progress &&
@@ -186,7 +195,11 @@ int main() {
   assigned = StructureBuildTask(
       11, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), movingMesher.Scratch());
   CHECK(releasedHeights.expired(), "completed payload releases after its sole owner replaces it");
-  UnsupportedMesher unsupported;
+}
+
+void TransferPartialCompletion() {
+  Tasks pool(1);
+  const UnsupportedMesher unsupported;
   StructureBuildTask ranged(4,
                             Raw(257),
                             Heights(),
@@ -201,6 +214,7 @@ int main() {
         "one worker task exposes exactly four completed 64-structure ranges");
   const auto *partial = &ranged.Progress();
   StructureBuildTask resumed(std::move(ranged));
+  // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
   CHECK(!ranged.Running() && ranged.Tile() == 0 && &resumed.Progress() == partial &&
             resumed.Progress().BakedStructures() == 256 && !resumed.Result().Tile,
         "partial completion moves without resetting progress or publishing final output");
@@ -228,6 +242,7 @@ int main() {
             resumed.Progress().BakedStructures() == 257 && resumed.Result().FinalizationMs >= 0.0,
         "bounded planning and emission finish with separately timed finalization");
   StructureBuildTask completed(std::move(resumed));
+  // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
   CHECK(!completed.Running() && !resumed.Running() && resumed.Tile() == 0 &&
             completed.Result().Tile && &completed.Progress() == partial &&
             completed.Progress().BakedStructures() == 257,
@@ -236,5 +251,12 @@ int main() {
     resumed.RequestStop();
     resumed.Join(pool);
   }
-  return Report();
+}
+}
+
+int main() {
+  CancelDuringMesh();
+  TransferRunningPayload();
+  TransferPartialCompletion();
+  return outshine::Test::Report();
 }

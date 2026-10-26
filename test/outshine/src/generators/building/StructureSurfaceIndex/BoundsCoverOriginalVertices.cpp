@@ -2,7 +2,26 @@
 #include "Check.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <span>
+
+namespace {
+bool EnclosesSourceRange(const outshine::Generators::StructureSurfaceIndex &index,
+                         uint32_t at,
+                         std::span<const std::array<outshine::Vec3f, 3>> triangles) {
+  const auto &node = index.At(at);
+  bool coverage = true;
+  for (size_t triangle = node.First; triangle < node.First + node.Count; ++triangle) {
+    for (const auto point : triangles[triangle]) {
+      for (size_t axis = 0; axis < 3; ++axis) {
+        coverage &= node.MinM[axis] <= point[axis] && point[axis] <= node.MaxM[axis];
+      }
+    }
+  }
+  return coverage;
+}
+}
 
 int main() {
   using namespace outshine;
@@ -20,7 +39,7 @@ int main() {
     auto &vertices = triangle < 2 ? mesh.WallCorners : mesh.RoofCorners;
     for (const auto point : triangles[triangle]) {
       indices.push_back(static_cast<uint32_t>(vertices.size()));
-      vertices.push_back({.pos = point});
+      vertices.push_back({.pos = point, .texture = {}, .normWord = {}});
     }
   }
   StructureSurfaceIndex index;
@@ -39,14 +58,9 @@ int main() {
   size_t leaves = 0;
   bool coverage = true;
   while (count > 0) {
-    const auto &node = index.At(pending[--count]);
-    for (size_t triangle = node.First; triangle < node.First + node.Count; ++triangle) {
-      for (const auto point : triangles[triangle]) {
-        for (size_t axis = 0; axis < 3; ++axis) {
-          coverage &= node.MinM[axis] <= point[axis] && point[axis] <= node.MaxM[axis];
-        }
-      }
-    }
+    const uint32_t at = pending[--count];
+    const auto &node = index.At(at);
+    coverage &= EnclosesSourceRange(index, at, triangles);
     if (node.Count == 1) {
       const auto actual = index.Triangle(node.First);
       for (size_t corner = 0; corner < 3; ++corner) {

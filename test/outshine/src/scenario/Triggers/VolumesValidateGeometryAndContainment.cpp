@@ -6,26 +6,31 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  const std::array events{Scenario::Event{.Name = "entered"}};
-  Scenario::Volume volume{
-      .Shape = "sphere", .ExtentM = {1, 1, 1}, .Fires = "entered", .When = "enter"};
+  const std::array events{Scenario::Event{.Name = "entered", .Carries = {}}};
+  Scenario::Volume volume{.Id = {},
+                          .In = {},
+                          .Shape = "sphere",
+                          .AtM = {},
+                          .ExtentM = {1, 1, 1},
+                          .Fires = "entered",
+                          .When = "enter"};
   const auto prepare = [&] { return TriggerField::Stand(std::span(&volume, 1), events); };
   const double infinity = std::numeric_limits<double>::infinity();
   const double nan = std::numeric_limits<double>::quiet_NaN();
   for (int axis = 0; axis < 3; ++axis) {
-    for (double bad : {infinity, -infinity, nan}) {
+    for (const double bad : {infinity, -infinity, nan}) {
       volume.AtM[axis] = bad;
       CHECK(!prepare(), "nonfinite centers are rejected");
       volume.AtM[axis] = 0;
     }
-    for (double bad : {-1.0, infinity, nan}) {
+    for (const double bad : {-1.0, infinity, nan}) {
       volume.ExtentM[axis] = bad;
       CHECK(!prepare(), "invalid extents are rejected");
       volume.ExtentM[axis] = 1;
     }
   }
   volume.When = "dwell";
-  for (double bad : {0.0, -1.0, infinity, nan}) {
+  for (const double bad : {0.0, -1.0, infinity, nan}) {
     volume.DwellS = bad;
     CHECK(!prepare(), "dwell requires a finite positive duration");
   }

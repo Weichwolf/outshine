@@ -166,6 +166,11 @@ def region_inputs(case, selected_source_ids):
                 raise ValueError("observed multi-flight contact needs a shared recipe")
             existing[0]["source_ids"] = keys
             existing[0]["observed_native_node"] = group["native_node"]
+            existing[0]["source_endpoints"] = {
+                e["source_id"]: e["endpoint"]
+                for e in group["members"]
+                if e["endpoint"] is not None
+            }
             continue
         junctions.append(
             {
@@ -173,6 +178,11 @@ def region_inputs(case, selected_source_ids):
                 "xy_m": group["xy_m"],
                 "source_ids": keys,
                 "observed_native_node": group["native_node"],
+                "source_endpoints": {
+                    e["source_id"]: e["endpoint"]
+                    for e in group["members"]
+                    if e["endpoint"] is not None
+                },
             }
         )
     proposal["observed_junctions"] = junctions
