@@ -116,8 +116,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    paths = [ROOT / "src/assets/world/ground-materials.json",
-             ROOT / "src/assets/world/vegetation.json"]
+    paths = [ROOT / "data/world/ground-materials.json",
+             ROOT / "data/world/vegetation.json"]
     catalog, vegetation = [json.loads(path.read_text()) for path in paths]
     names = {"mixed_broadleaf", "conifer_forest", "alpine_grassland"}
     results = [compare(template, catalog, args.output)

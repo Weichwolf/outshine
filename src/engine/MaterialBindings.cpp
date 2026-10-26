@@ -110,7 +110,7 @@ MaterialBindings::Resolve(const Geometry &native,
   applied += OverrideNativeParts(candidate, shaped, native, overrides);
   if (!overrides.empty() && applied == 0) {
     return std::unexpected(std::format(
-        "this declaration names {} surface(s) of '{}' and the subject carries neither those "
+        "this declaration names {} surface(s) of '{}' and the geometry carries neither those "
         "material names, those part names nor those part indices -- a surface declared onto "
         "nothing changes no pixel and says it did",
         overrides.size(),

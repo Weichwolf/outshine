@@ -76,7 +76,7 @@ SunShadowPass::ConfigureTileClear(Native::Device &device) {
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
 SunShadowPass::ConfigureDepthOnly(Native::Device &device) {
   return Pipeline(device,
-                  {.Vertex = "subjectDepth.vert.spv", .Fragment = "depth.frag.spv"},
+                  {.Vertex = "geometryDepth.vert.spv", .Fragment = "depth.frag.spv"},
                   0,
                   Native::Cull::Front);
 }
@@ -89,8 +89,8 @@ SunShadowPass::ConfigureMasked(Native::Device &device) {
     const auto uv = at % uvLayouts;
     const auto tinted = at / uvLayouts;
     auto made = Pipeline(device,
-                         {.Vertex = std::format("subjectShadow-{}{}.vert.spv", uv, tinted),
-                          .Fragment = std::format("subjectShadow-{}.frag.spv", uv)},
+                         {.Vertex = std::format("geometryShadow-{}{}.vert.spv", uv, tinted),
+                          .Fragment = std::format("geometryShadow-{}.frag.spv", uv)},
                          uv,
                          Native::Cull::None);
     if (!made) { return std::unexpected(made.error()); }

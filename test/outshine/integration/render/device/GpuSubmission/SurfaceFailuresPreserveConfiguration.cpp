@@ -3,6 +3,10 @@
 #include "TestEngine.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <string_view>
 #include <expected>
 #include <memory>
 #include <string>
@@ -20,7 +24,7 @@ public:
       : NativeDeviceProxy(*device), Device_(std::move(device)) {}
 
   [[nodiscard]] static Native::Result<std::unique_ptr<Native::Device>>
-  Create(void *, Native::DeviceOptions options) {
+  Create(void * /*context*/, Native::DeviceOptions options) {
     auto device = Native::CreateDevice(options);
     if (!device) { return std::unexpected(device.error()); }
     return std::make_unique<SubmissionFaultDevice>(std::move(*device));
@@ -45,7 +49,7 @@ class Receiver final : public outshine::Host {
 public:
   std::string Last;
 
-  bool calls(std::string_view name, std::span<const outshine::Argument>) override {
+  bool calls(std::string_view name, std::span<const outshine::Argument> /*arguments*/) override {
     Last = name;
     return true;
   }
@@ -60,7 +64,8 @@ int main() {
     Receiver receiver;
     Engine engine = TestEngine::WithGpu({.Create = SubmissionFaultDevice::Create});
     engine.setInputHost(&receiver);
-    (void)engine.setRoots({.Shipped = "src/assets"});
+    CHECK(engine.setRoots({.Shipped = "data", .Cache = {}, .AssetCache = {}}),
+          "data roots are accepted");
     CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target ready");
     Scenario::Document document;
     document.Render.Declared = true;
@@ -72,8 +77,10 @@ int main() {
     view.Sees.PositionM = {{0, 0, 2}};
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
     document.Views.push_back(view);
-    document.Surfaces.push_back({.Document = "<div data-action=\"old()\"></div>",
-                                 .Style = "div {width:64px;height:64px;background:red;}"});
+    document.Surfaces.push_back({.Document = R"html(<div data-action="old()"></div>)html",
+                                 .Style = "div {width:64px;height:64px;background:red;}",
+                                 .Programme = {},
+                                 .Where = {}});
     const bool ready = engine.declare(document) && engine.assemble() && engine.advance();
     CHECK(ready, "surface and explicit camera ready");
     if (ready) {
@@ -94,14 +101,14 @@ int main() {
               "hit target and program match committed surface");
       };
       const auto initial = read();
-      CHECK(initial.size() == 64 * 64 * 4 && initial[0] > initial[1],
+      CHECK(initial.size() == std::size_t{64} * 64 * 4 && initial[0] > initial[1],
             "baseline actually contains a red surface");
       const auto saved = engine.writeScenario();
       auto candidate = document.Surfaces;
-      candidate[0].Document = "<div data-action=\"newAction()\">Omega Ω</div>";
+      candidate[0].Document = R"html(<div data-action="newAction()">Omega Ω</div>)html";
       candidate[0].Style = "div {width:64px;height:64px;background:blue;}";
       auto invalid = candidate;
-      invalid[0].Document.assign(2 * 1024 * 1024, 'x');
+      invalid[0].Document.assign(std::size_t{2} * 1024 * 1024, 'x');
       CHECK(!engine.setSurfaces(invalid), "oversized markup rejected");
       CHECK(engine.writeScenario() == saved && read() == initial,
             "parse failure preserves declaration and pixels");
@@ -124,7 +131,7 @@ int main() {
       click("old");
       auto scrollScene = document;
       scrollScene.WheelStepPx = 16;
-      scrollScene.Surfaces[0].Document = "<div id=\"scroll\"><div id=\"content\"></div></div>";
+      scrollScene.Surfaces[0].Document = R"(<div id="scroll"><div id="content"></div></div>)";
       scrollScene.Surfaces[0].Style = "#scroll {width:64px;height:64px;overflow:scroll;} #content "
                                       "{width:32px;height:128px;background:red;}";
       CHECK(engine.declare(scrollScene).has_value(), "scrolling surface ready");

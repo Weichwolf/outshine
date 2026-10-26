@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -6,7 +7,9 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
+#include <cstdint>
+#include <cstddef>
+#include <print>
 #include <memory>
 #include <string>
 #include <vector>
@@ -62,7 +65,7 @@ Vec3f ReflectedColour(Vec3f up, bool upward, float roughness) {
         "the scenario binds its camera and native world origin before lighting");
   renderer.SetMedium(kEarthAir);
   renderer.SetSky({.ToSun = up, .Up = up, .IlluminanceLux = 1, .EyeHeightM = 0});
-  SubjectEnvironment environment;
+  EnvironmentLighting environment;
   environment.UpUnit = {{up[0], up[1], up[2]}};
   environment.GroundAlbedo = {{0, 0, 0}};
   environment.SkyLux = environment.CosSunZenith = 1;
@@ -70,22 +73,22 @@ Vec3f ReflectedColour(Vec3f up, bool upward, float roughness) {
   CHECK(scene->Draw(error), "the first frame consumes the prepared reflection atlas");
   std::vector<float> pixels;
   CHECK(renderer.ReadSceneLinear(pixels) == ReadState::Ready, "linear radiance reaches readback");
-  if (pixels.size() != 32 * 32 * 4) { return {}; }
-  constexpr size_t at = (16 * 32 + 16) * 4;
+  if (pixels.size() != size_t{32} * 32 * 4) { return {}; }
+  constexpr size_t at = (size_t{16} * 32 + 16) * 4;
   CHECK(renderer.Plan().Holds(Stage::EnvironmentSpecular),
         "the plan holds the shared reflection producer");
   std::vector<float> atlas;
   const auto atlasState = renderer.ReadEnvironmentSpecular(atlas);
   CHECK(atlasState == ReadState::Ready && !atlas.empty(), "submitted sky radiance is readable");
   CHECK(pixels[at + 3] == 1, "the measured pixel is covered by the declared surface");
-  std::printf("reflection upward %d up %.1f %.1f %.1f: %.8g %.8g %.8g\n",
-              upward,
-              up[0],
-              up[1],
-              up[2],
-              pixels[at],
-              pixels[at + 1],
-              pixels[at + 2]);
+  std::println("reflection upward {} up {:.1f} {:.1f} {:.1f}: {:.8g} {:.8g} {:.8g}",
+               static_cast<int>(upward),
+               up[0],
+               up[1],
+               up[2],
+               pixels[at],
+               pixels[at + 1],
+               pixels[at + 2]);
   return {{pixels[at], pixels[at + 1], pixels[at + 2]}};
 }
 }

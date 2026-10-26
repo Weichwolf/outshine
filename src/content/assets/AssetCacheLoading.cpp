@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -25,6 +26,7 @@ AssetCache::LoadRequest(std::string_view requestKey, size_t packageBytesMost) co
 }
 
 void AssetCache::UsePackage(std::string_view packageKey) const {
+  const std::scoped_lock lock(*State_->Mutex);
   AssetSql::Statement statement;
   const auto prepared =
       AssetSql::Prepare(State_->Database,
@@ -52,6 +54,7 @@ std::span<const uint8_t> CachedAsset::Bytes() const noexcept {
 
 std::expected<std::optional<CachedAsset>, AssetCacheError>
 AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
+  std::unique_lock lock(*State_->Mutex);
   auto found = Find(key);
   if (!found) { return std::unexpected(found.error()); }
   if (!*found) { return std::optional<CachedAsset>{}; }
@@ -103,15 +106,17 @@ AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
     const int read = sqlite3_blob_read(input.get(), stored.data(), static_cast<int>(bytes), 0);
     if (read != SQLITE_OK) { return std::unexpected(AssetSql::Error(read)); }
   }
-  if (std::cmp_not_equal(sqlite3_column_int64(statement.Value, 2),
-                         crc32_z(0, stored.data(), stored.size()))) {
+  const auto expectedCrc = sqlite3_column_int64(statement.Value, 2);
+  input.reset();
+  sqlite3_finalize(std::exchange(statement.Value, nullptr));
+  lock.unlock();
+  if (std::cmp_not_equal(expectedCrc, crc32_z(0, stored.data(), stored.size()))) {
     return std::optional<CachedAsset>{};
   }
   auto decoded =
       AssetSql::Decompress(std::move(stored), static_cast<int>(codec), static_cast<size_t>(native));
   if (!decoded) { return std::optional<CachedAsset>{}; }
-  input.reset();
-  sqlite3_reset(statement.Value);
+  lock.lock();
   State_->Observe(record.Package, bytes);
   return CachedAsset(std::move(**found),
                      std::make_shared<const std::vector<uint8_t>>(std::move(*decoded)));

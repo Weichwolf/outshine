@@ -68,8 +68,8 @@ int main() {
   CHECK(!directoryError, "the private asset-cache directory exists");
   if (directoryError) { return Report(); }
   constexpr size_t bytesMost = size_t{1024} * 1024;
-  auto materialRules = ReadTextFile("src/assets/world/ground-materials.json", bytesMost);
-  auto vegetationRules = ReadTextFile("src/assets/world/vegetation.json", bytesMost);
+  auto materialRules = ReadTextFile("data/world/ground-materials.json", bytesMost);
+  auto vegetationRules = ReadTextFile("data/world/vegetation.json", bytesMost);
   CHECK(materialRules && vegetationRules, "shipped material inputs are available");
   if (!materialRules || !vegetationRules) { return Report(); }
   materialRules->push_back('\0');
@@ -94,7 +94,7 @@ int main() {
   Generators::RegisterShippedProviders(registry);
   Ground::SurfacePreparation stack;
   const auto open = [&] {
-    return stack.Open({.BuiltinData = "src/assets",
+    return stack.Open({.BuiltinData = "data",
                        .Sources = (cache.Path / "sources").string(),
                        .Assets = (cache.Path / "assets").string()},
                       {},

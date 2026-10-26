@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "MeshInput.h"
 #include "Digest.h"
 #include "Units.h"
@@ -34,10 +35,10 @@ constexpr auto kInvalidLens =
     "the camera projection is invalid or cannot be represented by the GPU lens";
 }
 
-void RenderObject::ResetForShape(const Shape &subject, const Vec3 &anchorEcefM) {
-  Shape_ = &subject;
+void RenderObject::ResetForShape(const Shape &geometry, const Vec3 &anchorEcefM) {
+  Shape_ = &geometry;
   for (int axis = 0; axis < 3; ++axis) { AnchorEcefM_[axis] = anchorEcefM[axis]; }
-  const size_t parts = subject.Parts.size();
+  const size_t parts = geometry.Parts.size();
   EmittedRadiance_.assign(parts, {0.0f, 0.0f, 0.0f});
   PartSurface_.assign(parts, 0);
   PartVisible_.assign(parts, 1);
@@ -75,7 +76,7 @@ bool RenderObject::SetMaterials(std::span<const uint32_t> partSlot,
                                 std::span<const MaterialBinding> slots,
                                 std::string &error) {
   if (partSlot.size() != Parts()) {
-    error = "the subject proxy stands over " + std::to_string(Parts()) +
+    error = "the geometry proxy stands over " + std::to_string(Parts()) +
             " parts and the surface table names a slot for " + std::to_string(partSlot.size());
     return false;
   }
@@ -125,15 +126,15 @@ bool Moved(SceneRenderer &renderer, Moving what, const Mat4 &ecef, std::string &
 
 namespace {
 
-[[nodiscard]] bool ClearsNearPlane(const Shape &subject,
+[[nodiscard]] bool ClearsNearPlane(const Shape &geometry,
                                    const Viewpoint &eye,
                                    size_t framedParts,
                                    std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : static_cast<double>(SceneRenderer::kNearM);
-  const Box framed = subject.BoundsOf(framedParts);
-  size_t beyond = subject.VertexCount();
-  if (framedParts > 0 && framedParts < subject.Parts.size()) {
-    const ShapePart &last = subject.Parts[framedParts - 1];
+  const Box framed = geometry.BoundsOf(framedParts);
+  size_t beyond = geometry.VertexCount();
+  if (framedParts > 0 && framedParts < geometry.Parts.size()) {
+    const ShapePart &last = geometry.Parts[framedParts - 1];
     beyond = last.FirstVertex + last.VertexCount;
   }
 
@@ -142,7 +143,7 @@ namespace {
     least = std::min(least, Dot(framed.Corner(corner) - eye.EyeM, eye.Forward));
   }
   if (least > plane) { return true; }
-  for (const ShapePart &one : subject.Parts) {
+  for (const ShapePart &one : geometry.Parts) {
     if (one.FirstVertex >= beyond) { break; }
     for (size_t within = 0; within < one.VertexCount && (within + 1) * 3 <= one.PositionsM.size();
          ++within) {
@@ -157,7 +158,7 @@ namespace {
       if (along <= plane) {
         error = "vertex " + std::to_string(vertex) + " of the " + std::to_string(beyond) +
                 " that " + std::to_string(framedParts) + " framed part(s) of " +
-                std::to_string(subject.Parts.size()) + " carry sits " + std::to_string(along) +
+                std::to_string(geometry.Parts.size()) + " carry sits " + std::to_string(along) +
                 " m along the view axis, inside the near plane of " + std::to_string(plane) +
                 " m this placement declares";
         return false;
@@ -168,7 +169,7 @@ namespace {
 }
 
 double
-DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, const Viewpoint &eye) {
+DepthFraction([[maybe_unused]] const Shape &geometry, const ShapePart &part, const Viewpoint &eye) {
   if (part.VertexCount == 0) { return 0.0; }
   if (part.PositionsM.size() < 3) { return 0.0; }
   Vec3 low;
@@ -201,14 +202,14 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
          proxy.IndirectLight().RadianceLinear[2] > 0.0;
 }
 
-[[nodiscard]] bool Lit(const RenderObject &proxy, const Shape &subject, size_t part) {
+[[nodiscard]] bool Lit(const RenderObject &proxy, const Shape &geometry, size_t part) {
   const MaterialBinding &wearing = proxy.Slots()[proxy.Slot(part)];
-  return subject.Parts[part].HasNormal && (Gathers(proxy) || wearing.Emissive.Rgba != nullptr) &&
+  return geometry.Parts[part].HasNormal && (Gathers(proxy) || wearing.Emissive.Rgba != nullptr) &&
          !wearing.Row.Unlit;
 }
 
-[[nodiscard]] bool Agrees(const RenderObject &proxy, const Shape &subject, std::string &error) {
-  const size_t parts = subject.Parts.size();
+[[nodiscard]] bool Agrees(const RenderObject &proxy, const Shape &geometry, std::string &error) {
+  const size_t parts = geometry.Parts.size();
   if (proxy.Slots().empty()) {
     error = "the proxy declares no surface at all, and every draw binds one";
     return false;
@@ -220,11 +221,11 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
               std::to_string(proxy.Slots().size());
       return false;
     }
-    if (Gathers(proxy) && !subject.Parts[part].HasNormal &&
+    if (Gathers(proxy) && !geometry.Parts[part].HasNormal &&
         !proxy.Slots()[proxy.Slot(part)].Row.Unlit) {
       error = "the proxy declares " + std::to_string(proxy.Lights().size()) +
               " punctual lights and an environment, and part " + std::to_string(part) +
-              " of node '" + std::string(subject.Parts[part].Name) +
+              " of node '" + std::string(geometry.Parts[part].Name) +
               "' carries no NORMAL, so there is no direction for the cosine -- and nothing here "
               "derives the flat normal the format asks for";
       return false;
@@ -235,19 +236,19 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
 
 [[nodiscard]] bool BuildDrawList(const RenderObject &proxy,
                                  const PreparedView &view,
-                                 const Shape &subject,
+                                 const Shape &geometry,
                                  DrawList &list,
                                  std::string &error) {
   list.Clear();
-  for (size_t part = 0; part < subject.Parts.size(); ++part) {
+  for (size_t part = 0; part < geometry.Parts.size(); ++part) {
     if (!proxy.PartVisible(part)) { continue; }
-    const ShapePart &where = subject.Parts[part];
+    const ShapePart &where = geometry.Parts[part];
     const uint32_t slot = proxy.Slot(part);
     Render::DrawItem item;
     item.Order.Viewport = 0;
     item.Order.Layer = Render::ViewLayer::World;
     item.Order.Surface = proxy.Slots()[slot].State();
-    item.Order.DepthFraction = DepthFraction(subject, where, view.Eye);
+    item.Order.DepthFraction = DepthFraction(geometry, where, view.Eye);
     item.Order.MaterialSlot = slot;
     item.ModelSlot = static_cast<uint32_t>(part * proxy.Instances());
     item.Instances = static_cast<uint32_t>(proxy.Instances());
@@ -260,7 +261,7 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
     carried.Uv = where.HasUv && (proxy.Slots()[slot].ReadsAnyImage() ||
                                  proxy.Slots()[slot].Row.Pattern != SurfacePattern::None ||
                                  proxy.Slots()[slot].Domain == SurfaceDomain::Ground);
-    carried.Normal = Lit(proxy, subject, part);
+    carried.Normal = Lit(proxy, geometry, part);
 
     carried.Tangent = carried.Normal && carried.Uv && where.HasTangent &&
                       (proxy.Slots()[slot].Normal.Rgba != nullptr);
@@ -276,7 +277,7 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
     if (!list.Add(item, error)) { return false; }
   }
   list.Compile();
-  list.JobsAddress(subject.Clusters);
+  list.JobsAddress(geometry.Clusters);
   return true;
 }
 
@@ -334,7 +335,7 @@ void PackPrevious(const void *carrying, float *into, uint32_t floats) {
 }
 
 [[nodiscard]] bool
-PlaceLights(const RenderObject &proxy, std::vector<SubjectLight> &out, std::string &error) {
+PlaceLights(const RenderObject &proxy, std::vector<SceneLight> &out, std::string &error) {
   out.clear();
   out.reserve(proxy.Lights().size());
   for (size_t at = 0; at < proxy.Lights().size(); ++at) {
@@ -349,7 +350,7 @@ PlaceLights(const RenderObject &proxy, std::vector<SubjectLight> &out, std::stri
       error = "light " + std::to_string(at) + " declares a beam of zero length";
       return false;
     }
-    SubjectLight placed;
+    SceneLight placed;
     placed.Light = declared;
     for (int axis = 0; axis < 3; ++axis) {
       placed.Light.Direction[axis] = static_cast<float>(direction[axis] / length);
@@ -364,7 +365,7 @@ PlaceLights(const RenderObject &proxy, std::vector<SubjectLight> &out, std::stri
 }
 
 bool Aim(SceneRenderer &renderer,
-         const Shape &subject,
+         const Shape &geometry,
          const PreparedView &view,
          const Vec3 &anchorEcefM,
          std::string &error) {
@@ -374,7 +375,7 @@ bool Aim(SceneRenderer &renderer,
     error = Says::kInvalidLens;
     return false;
   }
-  if (!view.HasExplicitCamera && !ClearsNearPlane(subject, eye, view.FramedParts, error)) {
+  if (!view.HasExplicitCamera && !ClearsNearPlane(geometry, eye, view.FramedParts, error)) {
     return false;
   }
   Vec3 position;
@@ -400,7 +401,7 @@ bool Surface(SceneRenderer &renderer,
              RenderObjectPreparation &scratch,
              std::string &error) {
   if (proxy.Shaped() == nullptr) {
-    error = "the proxy declares no subject";
+    error = "the proxy declares no geometry";
     return false;
   }
   if (!Agrees(proxy, *proxy.Shaped(), error)) { return false; }
@@ -423,7 +424,7 @@ DigestBytes(uint64_t &digest, const void *source, size_t bytes, size_t &offset, 
   return count / sizeof(uint32_t);
 }
 
-bool PackIndexSlice(const Shape &subject, RenderObjectPreparation &scratch, size_t wordsMost) {
+bool PackIndexSlice(const Shape &geometry, RenderObjectPreparation &scratch, size_t wordsMost) {
   RenderObjectPreparation::PackCursor &cursor = scratch.Packing;
   const std::vector<IndexRun> &runs = scratch.Draws.Runs();
   if (cursor.Run == 0 && cursor.RunWord == 0) {
@@ -433,7 +434,7 @@ bool PackIndexSlice(const Shape &subject, RenderObjectPreparation &scratch, size
     const IndexRun &run = runs[cursor.Run];
     const size_t count = std::min(wordsMost, static_cast<size_t>(run.Count) - cursor.RunWord);
     const size_t first = static_cast<size_t>(run.SourceFirst) + cursor.RunWord;
-    const std::span<const uint32_t> section = subject.Indices.subspan(first, count);
+    const std::span<const uint32_t> section = geometry.Indices.subspan(first, count);
     scratch.Indices.insert(scratch.Indices.end(), section.begin(), section.end());
     cursor.RunWord += count;
     wordsMost -= count;
@@ -447,13 +448,13 @@ bool PackIndexSlice(const Shape &subject, RenderObjectPreparation &scratch, size
   return false;
 }
 
-bool PackPositionSlice(const Shape &subject, RenderObjectPreparation &scratch, size_t wordsMost) {
+bool PackPositionSlice(const Shape &geometry, RenderObjectPreparation &scratch, size_t wordsMost) {
   RenderObjectPreparation::PackCursor &cursor = scratch.Packing;
   if (cursor.Part == 0 && cursor.PartWord == 0) {
-    scratch.Vertices.resize(subject.VertexCount() * 3u);
+    scratch.Vertices.resize(geometry.VertexCount() * 3u);
   }
-  while (cursor.Part < subject.Parts.size() && wordsMost > 0) {
-    const ShapePart &part = subject.Parts[cursor.Part];
+  while (cursor.Part < geometry.Parts.size() && wordsMost > 0) {
+    const ShapePart &part = geometry.Parts[cursor.Part];
     const size_t partWords = part.VertexCount * 3u;
     const size_t count = std::min(wordsMost, partWords - cursor.PartWord);
     float *const into = scratch.Vertices.data() + cursor.PositionWord;
@@ -470,11 +471,11 @@ bool PackPositionSlice(const Shape &subject, RenderObjectPreparation &scratch, s
       cursor.PartWord = 0;
     }
   }
-  if (cursor.Part != subject.Parts.size()) { return false; }
+  if (cursor.Part != geometry.Parts.size()) { return false; }
   cursor.Digest = kDigestBasis;
   cursor.Next = scratch.Digests ? RenderObjectPreparation::PackCursor::Phase::DigestIndices
                                 : RenderObjectPreparation::PackCursor::Phase::Done;
-  if (!scratch.Digests) { scratch.PreparedShape = &subject; }
+  if (!scratch.Digests) { scratch.PreparedShape = &geometry; }
   return cursor.Next == RenderObjectPreparation::PackCursor::Phase::Done;
 }
 
@@ -489,7 +490,7 @@ bool DigestIndexSlice(RenderObjectPreparation &scratch, size_t wordsMost) {
   return false;
 }
 
-bool DigestChannelSlice(const Shape &subject, RenderObjectPreparation &scratch, size_t wordsMost) {
+bool DigestChannelSlice(const Shape &geometry, RenderObjectPreparation &scratch, size_t wordsMost) {
   constexpr std::array<std::span<const float> ShapePart::*, 6> channels{&ShapePart::PositionsM,
                                                                         &ShapePart::Normals,
                                                                         &ShapePart::Tangents,
@@ -497,9 +498,9 @@ bool DigestChannelSlice(const Shape &subject, RenderObjectPreparation &scratch, 
                                                                         &ShapePart::Uv1,
                                                                         &ShapePart::Colours};
   RenderObjectPreparation::PackCursor &cursor = scratch.Packing;
-  while (cursor.Part < subject.Parts.size() && wordsMost > 0) {
+  while (cursor.Part < geometry.Parts.size() && wordsMost > 0) {
     const std::span<const float> values =
-        subject.Parts[cursor.Part].*channels[cursor.DigestChannel];
+        geometry.Parts[cursor.Part].*channels[cursor.DigestChannel];
     const size_t bytes = values.size() * sizeof(float);
     const size_t taken =
         DigestBytes(cursor.Digest, values.data(), bytes, cursor.DigestByte, wordsMost);
@@ -511,9 +512,9 @@ bool DigestChannelSlice(const Shape &subject, RenderObjectPreparation &scratch, 
       ++cursor.Part;
     }
   }
-  if (cursor.Part != subject.Parts.size()) { return false; }
+  if (cursor.Part != geometry.Parts.size()) { return false; }
   scratch.Metrics.GeometryDigest = cursor.Digest;
-  scratch.PreparedShape = &subject;
+  scratch.PreparedShape = &geometry;
   cursor.Next = RenderObjectPreparation::PackCursor::Phase::Done;
   return true;
 }
@@ -528,22 +529,22 @@ bool PlanPlacement(SceneRenderer &renderer,
   scratch.PlannedShape = nullptr;
   scratch.PreparedShape = nullptr;
   if (proxy.Shaped() == nullptr) {
-    error = "the proxy declares no subject";
+    error = "the proxy declares no geometry";
     return false;
   }
-  const Shape &subject = *proxy.Shaped();
-  if (subject.TriangleCount() == 0) {
-    error = "the subject carries no triangle, so there is nothing to stand in the proxy";
+  const Shape &geometry = *proxy.Shaped();
+  if (geometry.TriangleCount() == 0) {
+    error = "the geometry carries no triangle, so there is nothing to stand in the proxy";
     return false;
   }
-  if (!Agrees(proxy, subject, error)) { return false; }
-  if (!proxy.Previous().empty() && proxy.Previous().size() / 3 != subject.VertexCount()) {
+  if (!Agrees(proxy, geometry, error)) { return false; }
+  if (!proxy.Previous().empty() && proxy.Previous().size() / 3 != geometry.VertexCount()) {
     error = "the proxy's previous pose carries " + std::to_string(proxy.Previous().size() / 3) +
-            " vertices and this one carries " + std::to_string(subject.VertexCount()) +
+            " vertices and this one carries " + std::to_string(geometry.VertexCount()) +
             ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, view, proxy.Anchor(), error)) { return false; }
+  if (!Aim(renderer, geometry, view, proxy.Anchor(), error)) { return false; }
 
   scratch.Metrics = {};
   scratch.Packing = {};
@@ -553,12 +554,12 @@ bool PlanPlacement(SceneRenderer &renderer,
   {
     static const Heap::Tag kInsideTag("draw-list");
     const Heap::Tagged inside(kInsideTag);
-    if (!BuildDrawList(proxy, view, subject, scratch.Draws, error)) { return false; }
+    if (!BuildDrawList(proxy, view, geometry, scratch.Draws, error)) { return false; }
   }
   scratch.Metrics.DrawPlanMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - planFrom)
           .count();
-  scratch.PlannedShape = &subject;
+  scratch.PlannedShape = &geometry;
   return true;
 }
 
@@ -580,7 +581,7 @@ std::expected<bool, std::string> AdvancePackPlacement(const RenderObject &proxy,
                                                       size_t wordsMost) {
   const Shape *const source = proxy.Shaped();
   if (source == nullptr || source != scratch.PlannedShape) {
-    return std::unexpected("subject packing no longer matches its draw plan");
+    return std::unexpected("geometry packing no longer matches its draw plan");
   }
   if (wordsMost == 0) { return false; }
   static const Heap::Tag kPackingTag("index-run");
@@ -625,7 +626,7 @@ bool PreparePlacement(SceneRenderer &renderer,
 
 namespace {
 
-const Shape *PreparedSubject(const RenderObject &proxy, const RenderObjectPreparation &scratch) {
+const Shape *PreparedGeometry(const RenderObject &proxy, const RenderObjectPreparation &scratch) {
   const Shape *const source = proxy.Shaped();
   if (source == nullptr || source != scratch.PreparedShape ||
       scratch.Indices.size() != scratch.Draws.IndexCount() ||
@@ -645,30 +646,30 @@ struct PlacementMeshInput {
   EmitPack Emitted;
   MeshInput Mesh;
 
-  PlacementMeshInput(const Shape &subject,
+  PlacementMeshInput(const Shape &geometry,
                      const RenderObject &proxy,
                      const RenderObjectPreparation &scratch)
-      : Positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3},
-        Uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2},
-        Uv1{.From = &subject, .Channel = &ShapePart::Uv1, .Wide = 2},
-        Normals{.From = &subject, .Channel = &ShapePart::Normals, .Wide = 3},
-        Tangents{.From = &subject, .Channel = &ShapePart::Tangents, .Wide = 4},
-        Colours{.From = &subject, .Channel = &ShapePart::Colours, .Wide = 4},
-        Emitted{.From = &subject, .Proxy = &proxy} {
+      : Positions{.From = &geometry, .Channel = &ShapePart::PositionsM, .Wide = 3},
+        Uv{.From = &geometry, .Channel = &ShapePart::Uv, .Wide = 2},
+        Uv1{.From = &geometry, .Channel = &ShapePart::Uv1, .Wide = 2},
+        Normals{.From = &geometry, .Channel = &ShapePart::Normals, .Wide = 3},
+        Tangents{.From = &geometry, .Channel = &ShapePart::Tangents, .Wide = 4},
+        Colours{.From = &geometry, .Channel = &ShapePart::Colours, .Wide = 4},
+        Emitted{.From = &geometry, .Proxy = &proxy} {
     Mesh.Verts = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Positions};
-    if (subject.CarriesUv) {
+    if (geometry.CarriesUv) {
       Mesh.Uv = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv};
     }
-    if (subject.CarriesUv1) {
+    if (geometry.CarriesUv1) {
       Mesh.Uv1 = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv1};
     }
-    if (subject.CarriesNormal) {
+    if (geometry.CarriesNormal) {
       Mesh.Normals = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Normals};
     }
-    if (subject.CarriesTangent) {
+    if (geometry.CarriesTangent) {
       Mesh.Tangents = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Tangents};
     }
-    if (subject.CarriesColour) {
+    if (geometry.CarriesColour) {
       Mesh.Colours = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Colours};
     }
     Mesh.Emitted = VertexSource{.From = nullptr, .Writes = PackEmitted, .Carrying = &Emitted};
@@ -677,13 +678,13 @@ struct PlacementMeshInput {
       Mesh.PrevVerts =
           VertexSource{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
     }
-    Mesh.VertexCount = static_cast<uint32_t>(subject.VertexCount());
+    Mesh.VertexCount = static_cast<uint32_t>(geometry.VertexCount());
     Mesh.Indices = scratch.Indices.data();
     Mesh.IndexCount = static_cast<uint32_t>(scratch.Indices.size());
     for (int axis = 0; axis < 3; ++axis) { Mesh.Anchor[axis] = proxy.Anchor()[axis]; }
     Mesh.Draws = &scratch.Draws;
-    Mesh.Clusters = subject.Clusters;
-    Mesh.ClusterSpheres = subject.ClusterSpheres;
+    Mesh.Clusters = geometry.Clusters;
+    Mesh.ClusterSpheres = geometry.ClusterSpheres;
   }
 };
 
@@ -699,12 +700,12 @@ void RecordsMeshUpload(const SceneRenderer &renderer, RenderObjectPreparation &s
 
 std::expected<GeometryRenderer::MeshTicket, std::string> BeginPlacementUpload(
     SceneRenderer &renderer, const RenderObject &proxy, RenderObjectPreparation &scratch) {
-  const Shape *const source = PreparedSubject(proxy, scratch);
+  const Shape *const source = PreparedGeometry(proxy, scratch);
   if (source == nullptr) {
-    return std::unexpected("subject placement no longer matches its prepared geometry");
+    return std::unexpected("geometry placement no longer matches its prepared geometry");
   }
   const PlacementMeshInput input(*source, proxy, scratch);
-  static const Heap::Tag kHandingTag("subject-mesh");
+  static const Heap::Tag kHandingTag("geometry-mesh");
   const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
   auto began = renderer.BeginGeometryMesh(input.Mesh);
@@ -720,13 +721,13 @@ bool FinishPlacementUpload(SceneRenderer &renderer,
                            RenderObjectPreparation &scratch,
                            GeometryRenderer::MeshTicket ticket,
                            std::string &error) {
-  const Shape *const source = PreparedSubject(proxy, scratch);
+  const Shape *const source = PreparedGeometry(proxy, scratch);
   if (source == nullptr) {
-    error = "subject placement no longer matches its prepared geometry";
+    error = "geometry placement no longer matches its prepared geometry";
     return false;
   }
   const PlacementMeshInput input(*source, proxy, scratch);
-  static const Heap::Tag kHandingTag("subject-mesh");
+  static const Heap::Tag kHandingTag("geometry-mesh");
   const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
   const bool uploaded = renderer.FinishGeometryMesh(ticket, input.Mesh, error);
@@ -769,48 +770,48 @@ bool Move(SceneRenderer &renderer,
           RenderObjectPreparation &scratch,
           std::string &error) {
   if (proxy.Shaped() == nullptr) {
-    error = "the proxy declares no subject";
+    error = "the proxy declares no geometry";
     return false;
   }
-  const Shape &subject = *proxy.Shaped();
-  if (!Agrees(proxy, subject, error)) { return false; }
-  if (!proxy.Previous().empty() && proxy.Previous().size() / 3 != subject.VertexCount()) {
+  const Shape &geometry = *proxy.Shaped();
+  if (!Agrees(proxy, geometry, error)) { return false; }
+  if (!proxy.Previous().empty() && proxy.Previous().size() / 3 != geometry.VertexCount()) {
     error = "the proxy's previous pose carries " + std::to_string(proxy.Previous().size() / 3) +
-            " vertices and this one carries " + std::to_string(subject.VertexCount()) +
+            " vertices and this one carries " + std::to_string(geometry.VertexCount()) +
             ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, view, proxy.Anchor(), error)) { return false; }
+  if (!Aim(renderer, geometry, view, proxy.Anchor(), error)) { return false; }
 
   scratch.Metrics = {};
   const auto packingFrom = std::chrono::steady_clock::now();
   VertexInput pose;
-  const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
-  const ChannelPack uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2};
-  const ChannelPack uv1{.From = &subject, .Channel = &ShapePart::Uv1, .Wide = 2};
-  const ChannelPack normals{.From = &subject, .Channel = &ShapePart::Normals, .Wide = 3};
-  const ChannelPack tangents{.From = &subject, .Channel = &ShapePart::Tangents, .Wide = 4};
-  const ChannelPack colours{.From = &subject, .Channel = &ShapePart::Colours, .Wide = 4};
-  const EmitPack emitted{.From = &subject, .Proxy = &proxy};
+  const ChannelPack positions{.From = &geometry, .Channel = &ShapePart::PositionsM, .Wide = 3};
+  const ChannelPack uv{.From = &geometry, .Channel = &ShapePart::Uv, .Wide = 2};
+  const ChannelPack uv1{.From = &geometry, .Channel = &ShapePart::Uv1, .Wide = 2};
+  const ChannelPack normals{.From = &geometry, .Channel = &ShapePart::Normals, .Wide = 3};
+  const ChannelPack tangents{.From = &geometry, .Channel = &ShapePart::Tangents, .Wide = 4};
+  const ChannelPack colours{.From = &geometry, .Channel = &ShapePart::Colours, .Wide = 4};
+  const EmitPack emitted{.From = &geometry, .Proxy = &proxy};
 
   pose.Verts = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &positions};
-  if (subject.CarriesUv) {
+  if (geometry.CarriesUv) {
     pose.Uv = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &uv};
   }
-  if (subject.CarriesUv1) {
+  if (geometry.CarriesUv1) {
     pose.Uv1 = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &uv1};
   }
-  if (subject.CarriesNormal) {
+  if (geometry.CarriesNormal) {
     pose.Normals = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &normals};
   }
-  if (subject.CarriesTangent) {
+  if (geometry.CarriesTangent) {
     pose.Tangents = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &tangents};
   }
-  if (subject.CarriesColour) {
+  if (geometry.CarriesColour) {
     pose.Colours = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &colours};
   }
   pose.Emitted = VertexSource{.From = nullptr, .Writes = PackEmitted, .Carrying = &emitted};
-  scratch.Vertices.resize(subject.VertexCount() * 3u);
+  scratch.Vertices.resize(geometry.VertexCount() * 3u);
   PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   scratch.Metrics.PackingMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packingFrom)
@@ -835,9 +836,9 @@ bool Move(SceneRenderer &renderer,
     pose.PrevVerts =
         VertexSource{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
   }
-  pose.VertexCount = static_cast<uint32_t>(subject.VertexCount());
+  pose.VertexCount = static_cast<uint32_t>(geometry.VertexCount());
   for (int axis = 0; axis < 3; ++axis) { pose.Anchor[axis] = proxy.Anchor()[axis]; }
-  static const Heap::Tag kHandingTag("subject-pose");
+  static const Heap::Tag kHandingTag("geometry-pose");
   const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
   const bool uploaded = renderer.SetGeometryVertexInput(pose, error);

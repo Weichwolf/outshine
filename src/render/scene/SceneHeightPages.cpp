@@ -16,7 +16,7 @@
 
 namespace outshine::Render {
 Native::Result<std::vector<HeightPageHandle>>
-SceneResources::PlaceHeightPages(GeometryRenderer &subjects,
+SceneResources::PlaceHeightPages(GeometryRenderer &geometry,
                                  std::span<const HeightPageView> nodes) {
   if (nodes.size() > kHeightPageBatchMost) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -44,7 +44,7 @@ SceneResources::PlaceHeightPages(GeometryRenderer &subjects,
         std::make_shared<const std::vector<float>>(nodes[at].begin(), nodes[at].end());
     views[at] = *pending[at].Nodes;
   }
-  const auto placed = subjects.Ground().PlacePages(std::span(views).first(nodes.size()));
+  const auto placed = geometry.Ground().PlacePages(std::span(views).first(nodes.size()));
   if (!placed) { return std::unexpected(placed.error()); }
   for (size_t at = 0; at < nodes.size(); ++at) {
     auto &held = pending[at];
@@ -64,10 +64,10 @@ SceneResources::PlaceHeightPages(GeometryRenderer &subjects,
   return handles;
 }
 
-Native::Result<HeightPageHandle> SceneResources::PlaceHeightPage(GeometryRenderer &subjects,
+Native::Result<HeightPageHandle> SceneResources::PlaceHeightPage(GeometryRenderer &geometry,
                                                                  std::span<const float> nodes) {
   const std::array batch{nodes};
-  auto placed = PlaceHeightPages(subjects, batch);
+  auto placed = PlaceHeightPages(geometry, batch);
   if (!placed) { return std::unexpected(placed.error()); }
   return placed->front();
 }
@@ -77,10 +77,10 @@ bool SceneResources::HasHeightPage(HeightPageHandle handle) const noexcept {
          HeightPages_[handle.Slot].State.Matches(handle.Generation);
 }
 
-void SceneResources::ReleaseHeightPage(GeometryRenderer &subjects, HeightPageHandle which) {
+void SceneResources::ReleaseHeightPage(GeometryRenderer &geometry, HeightPageHandle which) {
   if (!HasHeightPage(which)) { return; }
   HeightPage &page = HeightPages_[which.Slot];
-  subjects.Ground().ReleasePage(page.Resident);
+  geometry.Ground().ReleasePage(page.Resident);
   ResourceSlotState state = page.State;
   if (state.Release()) {
     state.NextFree = FirstFreeHeightPage_;
@@ -95,7 +95,7 @@ PageId SceneResources::HeightPageResident(HeightPageHandle which) const noexcept
 }
 
 Native::Result<size_t>
-SceneResources::RestoreHeightPageBatch(GeometryRenderer &subjects, size_t first, size_t pagesMost) {
+SceneResources::RestoreHeightPageBatch(GeometryRenderer &geometry, size_t first, size_t pagesMost) {
   const size_t end =
       first + std::min({pagesMost, kHeightPageBatchMost, HeightPages_.size() - first});
   std::array<HeightPageView, kHeightPageBatchMost> nodes{};
@@ -107,21 +107,21 @@ SceneResources::RestoreHeightPageBatch(GeometryRenderer &subjects, size_t first,
     nodes[count] = *page.Nodes;
     slots[count++] = at;
   }
-  const auto placed = subjects.Ground().PlacePages(std::span(nodes).first(count));
+  const auto placed = geometry.Ground().PlacePages(std::span(nodes).first(count));
   if (!placed) { return std::unexpected(placed.error()); }
   for (size_t at = 0; at < count; ++at) { HeightPages_[slots[at]].Resident = (*placed)[at]; }
   return end;
 }
 
-Native::Result<void> SceneResources::SetGroundGrid(GeometryRenderer &subjects,
+Native::Result<void> SceneResources::SetGroundGrid(GeometryRenderer &geometry,
                                                    std::span<const float> fractions) {
-  const auto uploaded = subjects.Ground().SetGrid(fractions);
+  const auto uploaded = geometry.Ground().SetGrid(fractions);
   if (!uploaded) { return uploaded; }
   GroundGrid_.assign(fractions.begin(), fractions.end());
   return {};
 }
 
-Native::Result<void> SceneResources::SetTerrainTiles(GeometryRenderer &subjects,
+Native::Result<void> SceneResources::SetTerrainTiles(GeometryRenderer &geometry,
                                                      std::span<const TerrainTile> real,
                                                      std::span<const TerrainTile> virtual_) {
   const auto translate =
@@ -144,7 +144,7 @@ Native::Result<void> SceneResources::SetTerrainTiles(GeometryRenderer &subjects,
   if (!residentReal) { return std::unexpected(residentReal.error()); }
   const auto residentVirtual = translate(virtual_);
   if (!residentVirtual) { return std::unexpected(residentVirtual.error()); }
-  const auto uploaded = subjects.Ground().SetInstances(*residentReal, *residentVirtual);
+  const auto uploaded = geometry.Ground().SetInstances(*residentReal, *residentVirtual);
   if (!uploaded) { return uploaded; }
   if (real.data() != GroundReal_.data()) {
     GroundReal_.assign(real.begin(), real.end());
@@ -159,11 +159,11 @@ Native::Result<void> SceneResources::SetTerrainTiles(GeometryRenderer &subjects,
   return {};
 }
 
-bool SceneResources::RestoreTerrain(GeometryRenderer &subjects, std::string &error) {
+bool SceneResources::RestoreTerrain(GeometryRenderer &geometry, std::string &error) {
   size_t nextPage = 0;
   for (;;) {
     const size_t previous = nextPage;
-    auto restored = AdvanceTerrainRestore(subjects, nextPage, kHeightPageBatchMost);
+    auto restored = AdvanceTerrainRestore(geometry, nextPage, kHeightPageBatchMost);
     if (!restored) {
       error = std::move(restored.error());
       return false;
@@ -176,11 +176,11 @@ bool SceneResources::RestoreTerrain(GeometryRenderer &subjects, std::string &err
   }
 }
 
-std::expected<bool, std::string> SceneResources::AdvanceTerrainRestore(GeometryRenderer &subjects,
+std::expected<bool, std::string> SceneResources::AdvanceTerrainRestore(GeometryRenderer &geometry,
                                                                        size_t &nextPage,
                                                                        size_t pagesMost) {
   assert(nextPage <= HeightPages_.size());
-  auto advanced = RestoreHeightPageBatch(subjects, nextPage, pagesMost);
+  auto advanced = RestoreHeightPageBatch(geometry, nextPage, pagesMost);
   if (!advanced) {
     if (advanced.error().Kind == Native::ErrorKind::Busy) { return false; }
     return std::unexpected(std::move(advanced.error().Message));
@@ -188,10 +188,10 @@ std::expected<bool, std::string> SceneResources::AdvanceTerrainRestore(GeometryR
   nextPage = *advanced;
   if (nextPage < HeightPages_.size()) { return false; }
   if (!GroundGrid_.empty()) {
-    const auto uploaded = subjects.Ground().SetGrid(GroundGrid_);
+    const auto uploaded = geometry.Ground().SetGrid(GroundGrid_);
     if (!uploaded) { return std::unexpected(uploaded.error().Message); }
   }
-  const auto restored = SetTerrainTiles(subjects, GroundReal_, GroundVirtual_);
+  const auto restored = SetTerrainTiles(geometry, GroundReal_, GroundVirtual_);
   if (!restored) { return std::unexpected(restored.error().Message); }
   return true;
 }

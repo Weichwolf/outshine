@@ -20,7 +20,7 @@ int main() {
     auto engine = App::CreateEngine();
     const bool assembled =
         engine.setRoots(
-            {.Shipped = "src/assets", .Cache = directory, .Offline = true, .AssetCache = {}}) &&
+            {.Shipped = "data", .Cache = directory, .Offline = true, .AssetCache = {}}) &&
         outshine::Test::LoadAndDeclareScenario(
             engine, "test/outshine/data/diagnostic-places/Hockenheimring.scenario") &&
         engine.assemble();

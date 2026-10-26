@@ -179,7 +179,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     sources = [
-        Path("src/assets/world/species") / f"{name}.json"
+        Path("data/world/species") / f"{name}.json"
         for name in ("oak", "beech", "birch")
     ]
     cases = [

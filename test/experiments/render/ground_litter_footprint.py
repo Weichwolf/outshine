@@ -121,8 +121,8 @@ def main():
     if output.is_relative_to(ROOT) or not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         parser.error('use a directory in system temp')
     output.mkdir(parents=True, exist_ok=True)
-    catalog = json.loads((ROOT / 'src/assets/world/ground-materials.json').read_text())
-    recipes = json.loads((ROOT / 'src/assets/world/vegetation.json').read_text())['templates']
+    catalog = json.loads((ROOT / 'data/world/ground-materials.json').read_text())
+    recipes = json.loads((ROOT / 'data/world/vegetation.json').read_text())['templates']
     templates = [r for r in recipes if r['name'] in ('mixed_broadleaf', 'conifer_forest', 'alpine_grassland')]
     points = np.random.default_rng(196).uniform(-8, 8, (128, 2))
     records, convergence = comparison(points, templates, catalog)
@@ -130,7 +130,7 @@ def main():
     worst = max(records, key=lambda r: r['errors']['bounding_box']['rgb_max'])
     report = dict(scope=__doc__,
                   commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-                  input_sha256={name: hashlib.sha256((ROOT / 'src/assets/world' / name).read_bytes()).hexdigest()
+                  input_sha256={name: hashlib.sha256((ROOT / 'data/world' / name).read_bytes()).hexdigest()
                                 for name in ('ground-materials.json', 'vegetation.json')},
                   method_hash_upper_bounds=dict(point=4, bounding_box=16, gauss4=16, gauss9=36, mean=0),
                   reference_points=128, reference_side=64, refinement_max_field_delta=convergence,

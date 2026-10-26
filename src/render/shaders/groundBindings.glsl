@@ -1,5 +1,5 @@
 #include "lighting.glsl"
-#if SUBJECT_BASE_LOCATION > 0
+#if SURFACE_BASE_LOCATION > 0
 #define GROUND_CLASS_BINDING 0
 #else
 #define GROUND_CLASS_BINDING 2

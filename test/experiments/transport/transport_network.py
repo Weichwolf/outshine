@@ -162,7 +162,7 @@ def save_inputs(path, receipt, transport):
 
 
 def transport_widths():
-    templates = json.loads(Path("src/assets/world/vegetation.json").read_text())[
+    templates = json.loads(Path("data/world/vegetation.json").read_text())[
         "templates"
     ]
     rules = [

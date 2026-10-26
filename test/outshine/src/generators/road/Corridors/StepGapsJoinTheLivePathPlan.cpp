@@ -155,8 +155,8 @@ void CheckConnection(const outshine::Generators::GroundMaterialCatalog &material
 int main() {
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "the integration uses production material and path rules");
   if (!vegetation.Ready()) { return Report(); }
   CheckConnection(materials, vegetation, {.GapM = kGapM, .Connects = true});

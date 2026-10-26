@@ -32,7 +32,7 @@ std::optional<SourceResponse::Settled> Read(const StarCatalogueSource &source, A
 }
 
 void CheckBands() {
-  const std::filesystem::path directory = "src/assets/sky/stars";
+  const std::filesystem::path directory = "data/sky/stars";
   const StarCatalogueSource source(
       directory.string(), "fixture-version", Rank{0}, AbsencePolicy::Fail);
   const auto &decl = source.Declaration();

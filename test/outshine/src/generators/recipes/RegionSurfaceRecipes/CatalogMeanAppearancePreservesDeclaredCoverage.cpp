@@ -8,8 +8,8 @@ int main() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped material catalog");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "shipped surface recipes");
+  CHECK(materials.Load("data/world/ground-materials.json"), "shipped material catalog");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "shipped surface recipes");
   if (!templates.Ready()) { return Report(); }
   for (size_t at = 0; at < templates.TemplateCount(); ++at) {
     const auto &source = templates.Rows()[at];

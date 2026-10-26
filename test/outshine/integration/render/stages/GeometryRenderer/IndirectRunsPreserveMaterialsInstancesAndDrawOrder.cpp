@@ -7,7 +7,7 @@
 #include "Viewing.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
 
 #include <SDL3/SDL.h>
 #include <array>

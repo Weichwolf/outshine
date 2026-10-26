@@ -273,7 +273,8 @@ UrbanAreaStreaming::AdvanceGroups(const View &view,
                                : UrbanPrismSlot::Admission::CollectOnly;
     auto advanced = group.Slot->Advance(
         group.Request,
-        [&](const std::stop_token &stop) -> std::optional<UrbanPrismPreparation::Captured> {
+        [&](const std::stop_token &stop)
+            -> std::optional<Generators::Osm::UrbanPrismPreparation::Captured> {
           if (captured) { return std::nullopt; }
           captured = true;
           ++Captures_;

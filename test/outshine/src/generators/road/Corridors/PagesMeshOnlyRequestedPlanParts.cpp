@@ -228,8 +228,8 @@ int main() {
   CHECK(vectors.Declare(roads, origin).has_value(), "source roads are declared");
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "the page uses production transport recipes");
   if (!vegetation.Ready()) { return Report(); }
   Osm::StreetField ways;

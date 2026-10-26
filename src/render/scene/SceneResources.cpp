@@ -23,7 +23,7 @@ constexpr auto PieceSlotLimit = "piece storage exceeds the native slot index ran
 constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
 constexpr auto NoPieceMaterials = "piece material registration requires native materials";
 constexpr auto PieceMaterialLimit = "piece material registration exceeds the slot index range";
-constexpr auto PieceMaterialTables = "subject material tables disagree before piece registration";
+constexpr auto PieceMaterialTables = "geometry material tables disagree before piece registration";
 }
 
 PieceMesh SceneResources::Piece::Mesh() const noexcept {
@@ -41,7 +41,7 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
 }
 
 std::expected<PieceHandle, std::string>
-SceneResources::PlacePiece(GeometryRenderer &subjects, const PieceMesh &piece, PieceOwner owner) {
+SceneResources::PlacePiece(GeometryRenderer &geometry, const PieceMesh &piece, PieceOwner owner) {
   if (!ValidPieceUv1(piece)) { return std::unexpected(std::string(kPieceUv1Error)); }
   if (FirstFreePiece_ == kNoResourceSlot && Pieces_.size() >= kNoResourceSlot) {
     return std::unexpected(Says::PieceSlotLimit);
@@ -61,7 +61,7 @@ SceneResources::PlacePiece(GeometryRenderer &subjects, const PieceMesh &piece, P
              .Owner = owner,
              .Textured = piece.Textured};
   if (held.Rows.empty()) { held.Rows.push_back(piece.Row); }
-  auto placed = subjects.PlacePiece(held.Mesh());
+  auto placed = geometry.PlacePiece(held.Mesh());
   if (!placed) { return std::unexpected(std::move(placed.error().Message)); }
   held.Resident = *placed;
   held.State.Occupied = true;
@@ -78,7 +78,7 @@ SceneResources::PlacePiece(GeometryRenderer &subjects, const PieceMesh &piece, P
 }
 
 std::expected<size_t, std::string>
-SceneResources::ReconcileStructurePieces(GeometryRenderer &subjects,
+SceneResources::ReconcileStructurePieces(GeometryRenderer &geometry,
                                          std::span<const PieceHandle> held) {
   std::vector<uint8_t> retained(Pieces_.size(), 0);
   for (const PieceHandle handle : held) {
@@ -101,7 +101,7 @@ SceneResources::ReconcileStructurePieces(GeometryRenderer &subjects,
     if (!piece.State.Occupied || piece.Owner != PieceOwner::StructureTile || retained[slot] != 0) {
       continue;
     }
-    ReleasePiece(subjects, {.Slot = slot, .Generation = piece.State.Generation});
+    ReleasePiece(geometry, {.Slot = slot, .Generation = piece.State.Generation});
     ++released;
   }
   return released;
@@ -111,15 +111,15 @@ bool SceneResources::HasPiece(PieceHandle handle) const noexcept {
   return handle.Slot < Pieces_.size() && Pieces_[handle.Slot].State.Matches(handle.Generation);
 }
 
-bool SceneResources::SetPieceInstances(GeometryRenderer &subjects,
+bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
                                        PieceHandle which,
                                        std::span<const Mat4> rows,
                                        std::string &error) {
   const PieceRows one{.Piece = which, .Rows = rows};
-  return SetPieceInstances(subjects, {&one, 1}, error);
+  return SetPieceInstances(geometry, {&one, 1}, error);
 }
 
-bool SceneResources::SetPieceInstances(GeometryRenderer &subjects,
+bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
                                        std::span<const PieceRows> pieces,
                                        std::string &error) {
   for (size_t at = 0; at < pieces.size(); ++at) {
@@ -145,14 +145,14 @@ bool SceneResources::SetPieceInstances(GeometryRenderer &subjects,
   size_t changed = 0;
   for (; changed < pieces.size(); ++changed) {
     const PieceRows &change = pieces[changed];
-    if (subjects.SetPieceInstances(Pieces_[change.Piece.Slot].Resident, change.Rows, error)) {
+    if (geometry.SetPieceInstances(Pieces_[change.Piece.Slot].Resident, change.Rows, error)) {
       continue;
     }
     while (changed > 0) {
       --changed;
       const PieceRows &undo = pieces[changed];
       std::string ignored;
-      (void)subjects.SetPieceInstances(
+      (void)geometry.SetPieceInstances(
           Pieces_[undo.Piece.Slot].Resident, Pieces_[undo.Piece.Slot].Rows, ignored);
     }
     return false;
@@ -163,10 +163,10 @@ bool SceneResources::SetPieceInstances(GeometryRenderer &subjects,
   return true;
 }
 
-void SceneResources::ReleasePiece(GeometryRenderer &subjects, PieceHandle which) {
+void SceneResources::ReleasePiece(GeometryRenderer &geometry, PieceHandle which) {
   if (!HasPiece(which)) { return; }
   Piece &piece = Pieces_[which.Slot];
-  subjects.ReleasePiece(piece.Resident);
+  geometry.ReleasePiece(piece.Resident);
   ResourceSlotState state = piece.State;
   if (state.Release()) {
     state.NextFree = FirstFreePiece_;
@@ -212,71 +212,71 @@ SceneResources::ResolvePieceMaterials(Geometry source) {
   return held;
 }
 
-bool SceneResources::AppendPieceMaterials(GeometryRenderer &subjects,
+bool SceneResources::AppendPieceMaterials(GeometryRenderer &geometry,
                                           GeometryRenderer *glass,
                                           const PieceMaterials &materials,
                                           std::string &error) {
   if (materials.Slots.size() >= kNoMaterialSlot ||
       RegisteredPieceSlots_.size() >= kNoMaterialSlot ||
       materials.Slots.size() > kNoMaterialSlot - RegisteredPieceSlots_.size() ||
-      subjects.MaterialSlots() >= kNoMaterialSlot ||
-      materials.Slots.size() > kNoMaterialSlot - subjects.MaterialSlots()) {
+      geometry.MaterialSlots() >= kNoMaterialSlot ||
+      materials.Slots.size() > kNoMaterialSlot - geometry.MaterialSlots()) {
     error = Says::PieceMaterialLimit;
     return false;
   }
-  if (!subjects.ValidateMaterials(materials.Slots, error) ||
+  if (!geometry.ValidateMaterials(materials.Slots, error) ||
       (glass != nullptr && !glass->ValidateMaterials(materials.Slots, error))) {
     return false;
   }
-  const size_t subjectBefore = subjects.MaterialSlots();
+  const size_t geometryMaterialSlotsBefore = geometry.MaterialSlots();
   const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
-  if (glass != nullptr && glassBefore != subjectBefore) {
+  if (glass != nullptr && glassBefore != geometryMaterialSlotsBefore) {
     error = Says::PieceMaterialTables;
     return false;
   }
-  if (!subjects.AppendMaterials(
+  if (!geometry.AppendMaterials(
           materials.Slots, error, GeometryResidency::ImageUploadMode::Deferred)) {
     return false;
   }
   if (glass != nullptr && !glass->AppendMaterials(materials.Slots,
                                                   error,
                                                   GeometryResidency::ImageUploadMode::Deferred)) {
-    subjects.TruncateMaterials(subjectBefore);
+    geometry.TruncateMaterials(geometryMaterialSlotsBefore);
     return false;
   }
   for (size_t at = 0; at < materials.Slots.size(); ++at) {
-    RegisteredPieceSlots_.push_back(static_cast<uint32_t>(subjectBefore + at));
+    RegisteredPieceSlots_.push_back(static_cast<uint32_t>(geometryMaterialSlotsBefore + at));
   }
-  subjects.SetRegisteredPieceSurfaces(RegisteredPieceSlots_);
+  geometry.SetRegisteredPieceSurfaces(RegisteredPieceSlots_);
   if (glass != nullptr) { glass->SetRegisteredPieceSurfaces(RegisteredPieceSlots_); }
   return true;
 }
 
 std::expected<uint32_t, std::string> SceneResources::RegisterPieceMaterials(
-    GeometryRenderer &subjects, GeometryRenderer *glass, Geometry source) {
+    GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source) {
   auto materials = ResolvePieceMaterials(std::move(source));
   if (!materials) { return std::unexpected(std::move(materials).error()); }
   const auto first = static_cast<uint32_t>(RegisteredPieceSlots_.size());
   PieceMaterials_.reserve(PieceMaterials_.size() + 1u);
   RegisteredPieceSlots_.reserve(RegisteredPieceSlots_.size() + materials->Slots.size());
   std::string error;
-  if (!AppendPieceMaterials(subjects, glass, *materials, error)) {
+  if (!AppendPieceMaterials(geometry, glass, *materials, error)) {
     return std::unexpected(std::move(error));
   }
   PieceMaterials_.push_back(std::make_shared<const PieceMaterials>(std::move(*materials)));
   return first;
 }
 
-bool SceneResources::RestorePieceMaterials(GeometryRenderer &subjects,
+bool SceneResources::RestorePieceMaterials(GeometryRenderer &geometry,
                                            GeometryRenderer *glass,
                                            std::string &error) {
-  const size_t subjectBefore = subjects.MaterialSlots();
+  const size_t geometryMaterialSlotsBefore = geometry.MaterialSlots();
   const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
   RegisteredPieceSlots_.clear();
   for (const auto &materials : PieceMaterials_) {
-    if (AppendPieceMaterials(subjects, glass, *materials, error)) { continue; }
-    subjects.TruncateMaterials(subjectBefore);
-    subjects.SetRegisteredPieceSurfaces({});
+    if (AppendPieceMaterials(geometry, glass, *materials, error)) { continue; }
+    geometry.TruncateMaterials(geometryMaterialSlotsBefore);
+    geometry.SetRegisteredPieceSurfaces({});
     if (glass != nullptr) {
       glass->TruncateMaterials(glassBefore);
       glass->SetRegisteredPieceSurfaces({});
@@ -287,9 +287,9 @@ bool SceneResources::RestorePieceMaterials(GeometryRenderer &subjects,
   return true;
 }
 
-bool SceneResources::RestorePieces(GeometryRenderer &subjects, std::string &error) {
+bool SceneResources::RestorePieces(GeometryRenderer &geometry, std::string &error) {
   size_t nextPiece = 0;
-  auto restored = AdvancePieceRestore(subjects, nextPiece, std::numeric_limits<size_t>::max());
+  auto restored = AdvancePieceRestore(geometry, nextPiece, std::numeric_limits<size_t>::max());
   if (!restored) {
     error = std::move(restored.error());
     return false;
@@ -298,7 +298,7 @@ bool SceneResources::RestorePieces(GeometryRenderer &subjects, std::string &erro
   return *restored;
 }
 
-std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRenderer &subjects,
+std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRenderer &geometry,
                                                                      size_t &nextPiece,
                                                                      size_t piecesMost) {
   if (piecesMost == 0) { return std::unexpected("piece restore budget is zero"); }
@@ -310,15 +310,15 @@ std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRen
       ++visited;
       continue;
     }
-    auto placed = subjects.PlacePiece(piece.Mesh());
+    auto placed = geometry.PlacePiece(piece.Mesh());
     if (!placed) {
       if (placed.error().Kind == Native::ErrorKind::Busy) { return false; }
       return std::unexpected(std::move(placed.error().Message));
     }
     piece.Resident = *placed;
     std::string error;
-    if (piece.Rows.empty() && !subjects.SetPieceInstances(piece.Resident, {}, error)) {
-      subjects.ReleasePiece(piece.Resident);
+    if (piece.Rows.empty() && !geometry.SetPieceInstances(piece.Resident, {}, error)) {
+      geometry.ReleasePiece(piece.Resident);
       piece.Resident = kNoPiece;
       return std::unexpected(std::move(error));
     }
@@ -327,7 +327,7 @@ std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRen
   }
   if (nextPiece < Pieces_.size()) { return false; }
   size_t nextGrid = nextPiece - Pieces_.size();
-  auto restored = AdvancePrismRestore(subjects, nextGrid, piecesMost - visited);
+  auto restored = AdvancePrismRestore(geometry, nextGrid, piecesMost - visited);
   nextPiece = Pieces_.size() + nextGrid;
   return restored;
 }
