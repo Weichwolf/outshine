@@ -5,6 +5,7 @@
 #include <string>
 
 #include "GroundMesher.h"
+#include "TerrainSeams.h"
 #include <optional>
 #include <expected>
 #include "TangentFrame.h"
@@ -72,27 +73,10 @@ public:
     return Framed_ && Residency_.Occludes(ray, nearM, distanceM, Frame_);
   }
 
-  struct SeamKind {
-    double EvenM = 0.0;
-    double OddBeforeM = 0.0;
-    double OddAfterM = 0.0;
-    double WorstLongitudeDeg = 0.0;
-    double WorstLatitudeDeg = 0.0;
-    int WorstFineZoom = 0;
-    int WorstCoarseZoom = 0;
-    size_t Edges = 0;
-  };
-
-  struct Seam {
-    SeamKind Virtual;
-    SeamKind Real;
-  };
-
-  [[nodiscard]] const Seam &Seams() const { return Seams_; }
+  [[nodiscard]] const Generators::Terrain::TerrainSeamMetrics &Seams() const { return Seams_; }
 
 private:
-  [[nodiscard]] bool StitchEdges(Patchwork &laid, std::string &error);
-  Seam Seams_;
+  Generators::Terrain::TerrainSeamMetrics Seams_;
   TerrainResidency Residency_;
   TangentFrame Frame_ = TangentFrame::At({});
   bool Framed_ = false;

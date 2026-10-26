@@ -1,20 +1,20 @@
 #include "Check.h"
-#include "HeightSheets.h"
+#include "TerrainSeams.h"
 
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <string>
 #include <vector>
 
 namespace {
 using namespace outshine;
+using namespace outshine::Generators::Terrain;
 
 constexpr int kSide = 33;
-constexpr int kPageSide = kSide + 2;
+constexpr auto kPageSide = static_cast<size_t>(kSide) + 2;
 
 size_t Node(int i, int j) {
-  return static_cast<size_t>((j + 1) * kPageSide + i + 1);
+  return (static_cast<size_t>(j) + 1) * kPageSide + static_cast<size_t>(i) + 1;
 }
 
 Sheet Page(Data::TileId tile, int sourceZoom, float height) {
@@ -33,13 +33,10 @@ const Sheet &Find(const Patchwork &patchwork, Data::TileId tile) {
 void SharedCorner(const std::array<Sheet, 4> &pages, float expected) {
   using namespace outshine::Test;
   std::array<size_t, 4> order{0, 1, 2, 3};
-  HeightSheets sheets;
-  sheets.Framed(TangentFrame::At({}));
-  std::string error;
   do {
     Patchwork patchwork;
     for (const size_t i : order) { patchwork.Sheets.push_back(pages[i]); }
-    CHECK(sheets.Stitch(patchwork, error), "a corner can be stitched in every input order");
+    CHECK(StitchTerrainSeams(patchwork), "a corner can be stitched in every input order");
     for (size_t i = 0; i < pages.size(); ++i) {
       const Sheet &page = Find(patchwork, pages[i].Tile);
       const int x = i % 2 == 0 ? 32 : 0;
@@ -50,27 +47,24 @@ void SharedCorner(const std::array<Sheet, 4> &pages, float expected) {
             "seam repair leaves interior terrain unchanged");
     }
     const auto once = patchwork.Sheets;
-    CHECK(sheets.Stitch(patchwork, error), "stitching remains repeatable");
+    CHECK(StitchTerrainSeams(patchwork), "stitching remains repeatable");
     for (size_t i = 0; i < once.size(); ++i) {
       CHECK(once[i].Nodes == patchwork.Sheets[i].Nodes,
             "a second stitch does not change the surface");
     }
-  } while (std::next_permutation(order.begin(), order.end()));
+  } while (std::ranges::next_permutation(order).found);
 }
 }
 
 int main() {
   using namespace outshine::Test;
-  HeightSheets sheets;
-  sheets.Framed(TangentFrame::At({}));
-  std::string error;
   for (const bool dateline : {false, true}) {
     const Data::TileId west{.Zoom = 20, .X = dateline ? (1u << 20) - 1 : 552253, .Y = 367807};
     const Data::TileId east{.Zoom = 20, .X = dateline ? 0u : 552254, .Y = 367807};
     for (const bool reverse : {false, true}) {
       Patchwork patchwork{.Sheets = {Page(west, 16, 573.9629f), Page(east, 17, 575.6133f)}};
       if (reverse) { std::ranges::reverse(patchwork.Sheets); }
-      CHECK(sheets.Stitch(patchwork, error), "unequal source resolutions remain stitchable");
+      CHECK(StitchTerrainSeams(patchwork), "unequal source resolutions remain stitchable");
       for (int j = 0; j < kSide; ++j) {
         CHECK(Find(patchwork, west).Nodes[Node(32, j)] == 575.6133f &&
                   Find(patchwork, east).Nodes[Node(0, j)] == 575.6133f,

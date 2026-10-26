@@ -1,5 +1,5 @@
-#include "TerrainLattice.h"
-#include "HeightSheets.h"
+#include "TerrainSeams.h"
+#include "GroundMesher.h"
 
 #include <algorithm>
 #include <array>
@@ -8,17 +8,22 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <expected>
 #include <tuple>
+#include <utility>
 
 #include "FlatMap.h"
 #include "TileGeodesy.h"
 
-namespace outshine {
+namespace outshine::Generators::Terrain {
 
 namespace {
 
+constexpr uint32_t kPageNodes =
+    static_cast<uint32_t>(kPatchGrid + 3) * static_cast<uint32_t>(kPatchGrid + 3);
+
 [[nodiscard]] size_t PageNode(int i, int j) {
-  constexpr int pageSide = Render::TerrainLattice::kPageSide;
+  constexpr int pageSide = kPatchGrid + 3;
   return static_cast<size_t>(j + 1) * static_cast<size_t>(pageSide) + static_cast<size_t>(i + 1);
 }
 
@@ -35,26 +40,10 @@ struct SeamEdge {
 };
 
 constexpr std::array<SeamEdge, 4> kSeamEdges = {{
-    {.StepX = -1,
-     .StepY = 0,
-     .FixedFine = 0,
-     .FixedCoarse = Render::TerrainLattice::kSide - 1,
-     .AlongJ = true},
-    {.StepX = 1,
-     .StepY = 0,
-     .FixedFine = Render::TerrainLattice::kSide - 1,
-     .FixedCoarse = 0,
-     .AlongJ = true},
-    {.StepX = 0,
-     .StepY = -1,
-     .FixedFine = 0,
-     .FixedCoarse = Render::TerrainLattice::kSide - 1,
-     .AlongJ = false},
-    {.StepX = 0,
-     .StepY = 1,
-     .FixedFine = Render::TerrainLattice::kSide - 1,
-     .FixedCoarse = 0,
-     .AlongJ = false},
+    {.StepX = -1, .StepY = 0, .FixedFine = 0, .FixedCoarse = (kPatchGrid + 1) - 1, .AlongJ = true},
+    {.StepX = 1, .StepY = 0, .FixedFine = (kPatchGrid + 1) - 1, .FixedCoarse = 0, .AlongJ = true},
+    {.StepX = 0, .StepY = -1, .FixedFine = 0, .FixedCoarse = (kPatchGrid + 1) - 1, .AlongJ = false},
+    {.StepX = 0, .StepY = 1, .FixedFine = (kPatchGrid + 1) - 1, .FixedCoarse = 0, .AlongJ = false},
 }};
 
 constexpr uint64_t kTileHashMix = 0x9E3779B185EBCA87ULL;
@@ -96,7 +85,7 @@ void StitchPeers(Sheet &sheet, const Patchwork &laid, const SheetIndex &index) {
   for (const SeamEdge &edge : kSeamEdges) {
     const Sheet *peer = PeerNeighbor(sheet, edge, laid, index);
     if (peer == nullptr || SourcePriority(*peer) <= SourcePriority(sheet)) { continue; }
-    for (int k = 1; k < Render::TerrainLattice::kSide - 1; ++k) {
+    for (int k = 1; k < (kPatchGrid + 1) - 1; ++k) {
       const size_t into = edge.AlongJ ? PageNode(edge.FixedFine, k) : PageNode(k, edge.FixedFine);
       const size_t from =
           edge.AlongJ ? PageNode(edge.FixedCoarse, k) : PageNode(k, edge.FixedCoarse);
@@ -118,7 +107,7 @@ struct CornerSource {
                                           const Patchwork &laid,
                                           const SheetIndex &index,
                                           int coarsest) {
-  constexpr int last = Render::TerrainLattice::kSide - 1;
+  constexpr int last = (kPatchGrid + 1) - 1;
   const uint32_t cornerX = sheet.Tile.X + static_cast<uint32_t>(corner[0] / last);
   const uint32_t cornerY = sheet.Tile.Y + static_cast<uint32_t>(corner[1] / last);
   long x = static_cast<long>(cornerX) + dx;
@@ -144,7 +133,7 @@ struct CornerSource {
 }
 
 [[nodiscard]] float CornerHeight(CornerSource source) {
-  constexpr int last = Render::TerrainLattice::kSide - 1;
+  constexpr int last = (kPatchGrid + 1) - 1;
   const int i = std::min(static_cast<int>(source.I), last - 1);
   const int j = std::min(static_cast<int>(source.J), last - 1);
   const auto at = [&](int x, int y) {
@@ -193,7 +182,7 @@ struct CornerSource {
 }
 
 void StitchCorners(Sheet &sheet, const Patchwork &laid, const SheetIndex &index, int coarsest) {
-  constexpr int last = Render::TerrainLattice::kSide - 1;
+  constexpr int last = (kPatchGrid + 1) - 1;
   for (const int i : {0, last}) {
     for (const int j : {0, last}) {
       const CornerSource best = BestCorner(sheet, i, j, laid, index, coarsest);
@@ -202,11 +191,8 @@ void StitchCorners(Sheet &sheet, const Patchwork &laid, const SheetIndex &index,
   }
 }
 
-void StitchAlong(Sheet &fine,
-                 const Sheet &coarse,
-                 const SeamEdge &edge,
-                 HeightSheets::SeamKind *kind) {
-  constexpr int side = Render::TerrainLattice::kSide;
+void StitchAlong(Sheet &fine, const Sheet &coarse, const SeamEdge &edge, TerrainSeamStats *kind) {
+  constexpr int side = (kPatchGrid + 1);
   const int drop = fine.Tile.Zoom - coarse.Tile.Zoom;
   const uint32_t scale = 1u << static_cast<uint32_t>(drop);
   const uint32_t along = edge.AlongJ ? fine.Tile.Y : fine.Tile.X;
@@ -278,7 +264,7 @@ namespace {
 [[nodiscard]] bool
 IndexSheets(const Patchwork &laid, SheetIndex &index, ZoomRange &zooms, std::string &error) {
   for (size_t i = 0; i < laid.Sheets.size(); ++i) {
-    if (laid.Sheets[i].Nodes.size() != Render::TerrainLattice::kPageNodes) { continue; }
+    if (laid.Sheets[i].Nodes.size() != kPageNodes) { continue; }
     const auto added = index.Emplace(laid.Sheets[i].Tile, i);
     if (!added) {
       error = added.error() == FlatMapError::AllocationFailed
@@ -300,16 +286,14 @@ void StitchAtZoom(Patchwork &laid,
                   const SheetIndex &index,
                   ZoomRange zooms,
                   int zoom,
-                  HeightSheets::Seam &seams) {
+                  TerrainSeamMetrics &seams) {
   for (size_t sheetIndex = 0; sheetIndex < laid.Sheets.size(); ++sheetIndex) {
     Sheet &fine = laid.Sheets[sheetIndex];
-    if (fine.Tile.Zoom != zoom || fine.Nodes.size() != Render::TerrainLattice::kPageNodes) {
-      continue;
-    }
+    if (fine.Tile.Zoom != zoom || fine.Nodes.size() != kPageNodes) { continue; }
     for (const SeamEdge &edge : kSeamEdges) {
       const Sheet *coarse = CoarseNeighbor(fine, edge, laid, index, zooms.Coarsest);
       if (coarse == nullptr) { continue; }
-      HeightSheets::SeamKind *kind = fine.Virtual && coarse->Virtual ? &seams.Virtual : &seams.Real;
+      TerrainSeamStats *kind = fine.Virtual && coarse->Virtual ? &seams.Virtual : &seams.Real;
       ++kind->Edges;
       StitchAlong(fine, *coarse, edge, kind);
     }
@@ -318,25 +302,26 @@ void StitchAtZoom(Patchwork &laid,
 
 }
 
-bool HeightSheets::StitchEdges(Patchwork &laid, std::string &error) {
-  Seams_ = {};
+std::expected<TerrainSeamMetrics, std::string> StitchTerrainSeams(Patchwork &laid) {
+  TerrainSeamMetrics seams;
+  std::string error;
   SheetIndex index;
   ZoomRange zooms;
-  if (!IndexSheets(laid, index, zooms, error)) { return false; }
+  if (!IndexSheets(laid, index, zooms, error)) { return std::unexpected(std::move(error)); }
   for (int zoom = zooms.Coarsest; zoom <= zooms.Finest; ++zoom) {
     for (Sheet &sheet : laid.Sheets) {
-      if (sheet.Tile.Zoom == zoom && sheet.Nodes.size() == Render::TerrainLattice::kPageNodes) {
+      if (sheet.Tile.Zoom == zoom && sheet.Nodes.size() == kPageNodes) {
         StitchPeers(sheet, laid, index);
       }
     }
-    StitchAtZoom(laid, index, zooms, zoom, Seams_);
+    StitchAtZoom(laid, index, zooms, zoom, seams);
     for (Sheet &sheet : laid.Sheets) {
-      if (sheet.Tile.Zoom == zoom && sheet.Nodes.size() == Render::TerrainLattice::kPageNodes) {
+      if (sheet.Tile.Zoom == zoom && sheet.Nodes.size() == kPageNodes) {
         StitchCorners(sheet, laid, index, zooms.Coarsest);
       }
     }
   }
-  return true;
+  return seams;
 }
 
 }
