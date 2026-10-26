@@ -53,12 +53,17 @@ def patch_measure(patch, at, *, normal_area=None, material_lookup=None):
     )
 
 
+def material_measure(at, code, stream, paint, **kwargs):
+    colour, weights = material(at, code, stream, paint, **kwargs)
+    return np.concatenate((colour, weights, [1]))
+
+
 def domain_measure(
     domain, shape, surface, side, gable, at, normal_area, *, material_lookup=None
 ):
     local_normal, jacobian = normal_area
     stream = int(local_normal[2] > 0.5)
-    lookup = material if material_lookup is None else material_lookup
+    lookup = material_measure if material_lookup is None else material_lookup
     colour = surface["wall_colour"]
     paint = np.ones(3) if colour is None else np.asarray(colour) / at["base"][0]
     result = np.zeros(4 + len(at["palette"]))
@@ -70,9 +75,9 @@ def domain_measure(
                 "roof category cannot be represented by the source UV word"
             )
         slope = np.sqrt(max(0, 1 - local_normal[2] ** 2))
-        colour, weights = lookup(at, code, stream, paint, slope=slope)
+        response = lookup(at, code, stream, paint, slope=slope)
         area = domain.area * jacobian
-        result[:] = np.r_[colour, weights, 1] * area
+        result[:] = response * area
         return result, 1
     a, b, entrance, party = edge_at(shape, side)
     opening = not (gable or party) and np.linalg.norm(b - a) >= 1.9
@@ -90,7 +95,7 @@ def domain_measure(
         )
         if area <= 0:
             continue
-        colour, weights = lookup(
+        response = lookup(
             at,
             code,
             stream,
@@ -98,7 +103,7 @@ def domain_measure(
             openings=above and opening,
             storeys_per_m=(1 / shape["floor_m"] if above else 0),
         )
-        result += np.r_[colour, weights, 1] * area
+        result += response * area
         calls += 1
     return result, calls
 
@@ -121,7 +126,7 @@ def source_measure(identity, surface, frame, at):
             tuple(sorted(kwargs.items())),
         )
         if key not in states:
-            states[key] = material(policy, code, stream, paint, **kwargs)
+            states[key] = material_measure(policy, code, stream, paint, **kwargs)
         return states[key]
 
     patches = 0
