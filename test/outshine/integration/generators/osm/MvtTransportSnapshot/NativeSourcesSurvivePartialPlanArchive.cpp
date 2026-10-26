@@ -31,8 +31,8 @@ constexpr TransportPlanCodecLimits kLimits{.PackageBytesMost = 65536,
 std::optional<std::vector<uint8_t>> BuildArchive() {
   GroundMaterialCatalog materials;
   RegionSurfaceRecipes recipes;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            recipes.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            recipes.Load("data/world/vegetation.json", materials),
         "the actual source classification recipes are available");
   const std::array<std::string, 1> layers{"streets"};
   OsmField field(16, layers);
