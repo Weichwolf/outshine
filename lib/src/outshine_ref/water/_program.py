@@ -51,7 +51,15 @@ def solve_osqp(hessian, linear, matrix, bound, inequalities, seconds, iterations
 
 
 def condition_matrix(
-    mesh, caps, row_faces, tangent, lower, upper, datum, normal_bound=None
+    mesh,
+    caps,
+    row_faces,
+    tangent,
+    lower,
+    upper,
+    datum,
+    normal_bound=None,
+    vertex_up_bounds_m=None,
 ):
     """Build prism inequalities with either norm SOCs or derived constant bounds."""
     nv, nf = len(mesh.vertices), len(mesh.triangles)
@@ -94,6 +102,8 @@ def condition_matrix(
     bounds.append(bound)
     identity = sparse.hstack([sparse.eye(nv), sparse.csr_matrix((nv, auxiliary_count))])
     low, high = caps["up_bounds_m"] - datum
+    if vertex_up_bounds_m is not None:
+        low, high = np.asarray(vertex_up_bounds_m).T - datum
     matrices.extend([identity, -identity])
     bounds.extend([np.full(nv, high), np.full(nv, -low)])
     inequalities = sparse.vstack(matrices, format="csc")
@@ -161,12 +171,21 @@ def solve_program(
     normal_bound=None,
     solver_name="clarabel",
     point_contacts=None,
+    vertex_up_bounds_m=None,
 ):
     nv, nf = len(mesh.vertices), len(mesh.triangles)
     auxiliary_count = nf if normal_bound is None else 0
     datum = float(np.median(mesh.vertices[:, 2]))
     inequality, rhs, soc, soc_rhs = condition_matrix(
-        mesh, caps, faces, tangent, rows[:, 4], rows[:, 5], datum, normal_bound
+        mesh,
+        caps,
+        faces,
+        tangent,
+        rows[:, 4],
+        rows[:, 5],
+        datum,
+        normal_bound,
+        vertex_up_bounds_m,
     )
     contact = sparse.coo_matrix(
         (np.ones(len(pins)), (np.arange(len(pins)), list(pins))),
