@@ -6,8 +6,8 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-import numpy as np
 import building_plan_inputs as wire
+import numpy as np
 
 ARCHIVE = (
     Path(__file__).resolve().parents[2]
@@ -54,6 +54,44 @@ def with_ceilings():
 
 
 class BuildingPlanInputTests(unittest.TestCase):
+    def test_summary_prefix_keeps_double_words_and_scalar_accounting(self):
+        values = [-0.0, np.nextafter(0.0, 1.0), *map(float, range(2, 19))]
+        encoded = struct.pack("<B19dBBBIB", 1, *values, 0, 0, 0, 4, 1)
+        reader = wire.Reader(encoded)
+        result = wire.summary(reader)
+        for actual, expected in (
+            (result["frame"], np.array(values[:12]).reshape(4, 3)),
+            (result["bounds"], np.array(values[12:18]).reshape(2, 3)),
+        ):
+            self.assertEqual(actual.dtype, expected.dtype)
+            self.assertEqual(actual.tobytes(), expected.tobytes())
+        self.assertEqual(result["minimum_height_m"], values[18])
+        self.assertEqual(reader.at, len(encoded))
+        self.assertEqual(reader.numbers, 25)
+
+    def test_summary_truncation_and_budget_keep_first_unread_scalar_position(self):
+        prefix = struct.pack("<19d", *range(19))
+        for count in range(19):
+            for reader in (
+                wire.Reader(b"\x01" + prefix[: 8 * count + 7]),
+                wire.Reader(b"\x01" + prefix, number_limit=1 + count),
+            ):
+                with self.assertRaisesRegex(ValueError, "truncated or over-budget"):
+                    wire.summary(reader)
+                self.assertEqual(reader.at, 1 + 8 * count)
+                self.assertEqual(reader.numbers, 1 + count)
+
+    def test_nonfinite_summary_keeps_consumed_bad_scalar_position(self):
+        for at in (0, 9, 18):
+            for invalid in (float("nan"), float("inf"), -float("inf")):
+                values = list(map(float, range(19)))
+                values[at] = invalid
+                reader = wire.Reader(struct.pack("<B19d", 1, *values))
+                with self.assertRaisesRegex(ValueError, "nonfinite prepared scalar"):
+                    wire.summary(reader)
+                self.assertEqual(reader.at, 1 + 8 * (at + 1))
+                self.assertEqual(reader.numbers, 1 + at + 1)
+
     def test_original_eight_retains_unknown_contacts(self):
         plans = wire.read_plans(original())
         self.assertEqual(len(plans["records"]), 32)
