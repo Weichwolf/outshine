@@ -17,6 +17,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
   outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads
   outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth
   outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
@@ -34,8 +35,13 @@ set(metal_validation_cases
   outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
   outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice
   outshine/src/render/stages/GeometryResidency/UnboundMapsShareDeviceResources
+  outshine/src/render/terrain/TerrainRenderer/AdaptivePatchesKeepFineNormals
+  outshine/src/render/terrain/TerrainRenderer/DrawArgumentsCountAdaptiveInstances
   outshine/src/render/terrain/TerrainRenderer/OuterSkirtsFaceTheGap
+  outshine/src/render/terrain/TerrainRenderer/SharedInputsPreserveIndependentGrids
+  outshine/src/render/terrain/TerrainRenderer/SurfacePatchesPreserveRasterAndFractions
   outshine/src/render/visibility/DepthPyramidPass/PartialBlocksPreserveUncoveredPixels
+
 )
 foreach(source IN LISTS cases)
   file(RELATIVE_PATH name "${PROJECT_SOURCE_DIR}/test" "${source}")
