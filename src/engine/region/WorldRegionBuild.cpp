@@ -317,7 +317,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
                          fallback.GroundAlbedo[1],
                          fallback.GroundAlbedo[2],
                          Material{}.Roughness}};
-    out.Palette = Render::GroundMaterialPalette(wearing, unknown);
+    out.Palette = Render::GroundMaterialPalette(wearing.SurfacePalette(), unknown);
   }
   if (out.Structure && !out.Palette.empty()) {
     const size_t rows = std::bit_cast<uint32_t>(out.Palette[0]);

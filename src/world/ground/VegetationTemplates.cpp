@@ -212,7 +212,7 @@ bool VegetationTemplates::ReadBlades(const Json::Ref &root, BladeMap &bladeByNam
 
 bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
                                         const GroundMaterials &materials,
-                                        Row &row) {
+                                        SurfaceMaterial &row) {
   const auto fillSurf = [](Vec4f &dst, const GroundMaterials::Material &m) {
     dst[0] = m.GrainSizeM;
     dst[1] = m.HeightAmplitudeM;
@@ -281,7 +281,7 @@ bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
       return false;
     }
 
-    Row row{};
+    SurfaceMaterial row{};
     if (!ReadSubstrate(g, materials, row)) { return false; }
     for (int c = 0; c < 3; c++) {
       row.Grass[c] = bit->second.Green[c];
@@ -312,7 +312,7 @@ bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
       Error_ = "no unmapped substrate declared";
       return false;
     }
-    Row row{};
+    SurfaceMaterial row{};
     if (!ReadSubstrate(u, materials, row)) { return false; }
     Unmapped_ = static_cast<int>(Table_.size());
     Names_.emplace_back("unmapped");
@@ -411,14 +411,6 @@ const VegetationTemplates::Rule *VegetationTemplates::Find(std::string_view laye
   key.assign(layer).append("/*");
   it = Rules_.find(key);
   return it != Rules_.end() ? &it->second : nullptr;
-}
-
-Vec4f VegetationTemplates::Row::MeanGround() const noexcept {
-  Vec4f mean;
-  for (size_t channel = 0; channel < 4; ++channel) {
-    mean[channel] = std::lerp(Ground[channel], Litter[channel], Mix[0]);
-  }
-  return mean;
 }
 
 }
