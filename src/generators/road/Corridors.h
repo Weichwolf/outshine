@@ -94,6 +94,8 @@ private:
     double EyeLatDeg = 0.0;
     double EyeLonDeg = 0.0;
     ProjectedErrorBudget Projection{};
+    bool FunctionalPlan = false;
+    std::span<const uint32_t> FunctionalWays;
   };
 
   struct Edge {
@@ -441,6 +443,14 @@ public:
           WayCount(site.Ways.Ways().size()) {}
 
     Paved Work;
+
+    struct FunctionalDemand {
+      std::vector<uint32_t> Ways;
+      std::shared_ptr<const void> Origin;
+      LongitudeLatitude Anchor;
+    };
+
+    std::optional<FunctionalDemand> Functional;
     std::optional<Osm::StreetField> RetainedWays;
     std::unique_ptr<Job> Retiring;
     std::vector<DiagnosticSample> Omissions;
@@ -485,6 +495,8 @@ public:
 
 private:
   struct JobSlice;
+  [[nodiscard]] static bool MatchesFunctionalInput(const Job &job, const Site &site);
+  [[nodiscard]] static bool UsesWay(const Paving &on, size_t way);
   [[nodiscard]] static bool RetainValidWays(Job &job, const JobSlice &slice);
   [[nodiscard]] std::expected<bool, std::string_view> AdvanceStage(Job &job,
                                                                    const JobSlice &slice) const;
@@ -523,6 +535,9 @@ private:
 
 public:
   [[nodiscard]] static std::unique_ptr<Job> Begin(const Site &site);
+  // The selected source ways include the core and its qualified planning closure.
+  [[nodiscard]] static std::expected<std::unique_ptr<Job>, std::string_view>
+  BeginFunctionalPlan(const Site &site, std::span<const uint32_t> ways);
   [[nodiscard]] std::expected<bool, std::string_view>
   AdvancePlan(Job &job, const Site &site, size_t lanesMost, size_t nodesMost) const;
   [[nodiscard]] static std::expected<std::vector<RoadPagePart>, std::string_view>
