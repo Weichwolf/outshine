@@ -30,7 +30,11 @@ once for their union, and node products reused across queries. Within each shape
 wall-domain construction reads each immutable roof boundary once and retains its
 coordinates only for that call. Edge projections, interval ordering/tolerances,
 polygon construction and material accumulation remain unchanged. This avoids
-repeated GEOS extraction without a persistent cache or approximate geometry. Compare actual
+repeated GEOS extraction without a persistent cache or approximate geometry.
+Mass construction reuses one source-to-common frame per source and requests only
+projected domains/height planes and the needed roof-to-wall shift. The full
+`project_patch` control still computes bottom extents for consumers that need them;
+unused bottom-coordinate arrays are not constructed during mass description. Compare actual
 post-qualification original needs with the earlier lower bound. Missing parent
 files retain every source in that subtree; unbounded originals remain required.
 Count known source-summary faces separately. They are not native runtime

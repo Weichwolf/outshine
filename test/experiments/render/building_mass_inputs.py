@@ -4,7 +4,14 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
-from column_roof_patches import bottom_m, project_patch, roof_patches, tangent_basis
+from column_roof_patches import (
+    bottom_m,
+    project_domain,
+    projection_frame,
+    roof_patches,
+    tangent_basis,
+    wall_shift,
+)
 from shapely.affinity import translate
 
 
@@ -20,6 +27,7 @@ class MassSource:
 def describe(identity, surface, basis, anchor):
     if surface is None or not surface["shapes"]:
         raise ValueError("complete original source forms required")
+    transform, origin = projection_frame(surface, basis)
     footprints, bottoms, tops = [], [], []
     shift = 0.0
     for shape in surface["shapes"]:
@@ -27,15 +35,16 @@ def describe(identity, surface, basis, anchor):
         if not polygon.is_valid or polygon.area <= 0:
             raise ValueError("valid original footprint required")
         bottom = bottom_m(surface, shape)
-        footprint, plane, _, _ = project_patch(
-            surface, polygon, np.array([0.0, 0.0, bottom]), basis, bottom
+        footprint, plane = project_domain(
+            polygon, np.array([0.0, 0.0, bottom]), transform, origin
         )
         xy = shapely.get_coordinates(footprint)
         bottoms.extend(xy @ plane[:2] + plane[2] - anchor[2])
         footprints.append(footprint)
         for domain, plane in roof_patches(shape):
-            roof, height, _, lateral = project_patch(
-                surface, domain, plane, basis, bottom
+            roof, height = project_domain(domain, plane, transform, origin)
+            lateral = wall_shift(
+                shapely.get_coordinates(domain), plane, transform, bottom
             )
             xy = shapely.get_coordinates(roof)
             tops.extend(xy @ height[:2] + height[2] - anchor[2])
