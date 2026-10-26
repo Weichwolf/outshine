@@ -133,11 +133,18 @@ def prepare_profiles(
         for way, source in zip(case["ways"], sources, strict=True)
     ]
     indices = {r["source_id"]: i for i, r in enumerate(rows)}
-    contacts = proposal["connections"]
+    contacts = proposal["connections"] + proposal.get("observed_junctions", [])
     nodes = [
         {
             "xy": c["xy_m"],
-            "incident": [indices[c["source_id"]], indices[c["target_source_id"]]],
+            "incident": [
+                indices[key]
+                for key in (
+                    c["source_ids"]
+                    if "source_ids" in c
+                    else [c["source_id"], c["target_source_id"]]
+                )
+            ],
         }
         for c in contacts
     ]
@@ -148,7 +155,7 @@ def prepare_profiles(
         found = {
             c["source_endpoint"]: j
             for j, c in enumerate(contacts)
-            if c["source_id"] == source["source_id"]
+            if c.get("source_id") == source["source_id"]
         }
         if set(found) != {0, -1}:
             raise ValueError(
@@ -190,6 +197,8 @@ def prepare_profiles(
     )
     plan["stair_directions"] = directions
     plan["construction_contacts"] = contacts
+    if "region_context" in proposal:
+        plan["region_context"] = copy.deepcopy(proposal["region_context"])
     plan["landing_reach_m"] = landing_reach_m
     plan["mesh_recipe"] = mesh_recipe
     plan["source_metadata"] = {

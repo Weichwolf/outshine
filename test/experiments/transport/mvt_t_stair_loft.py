@@ -31,7 +31,7 @@ def _flight(plan, owner):
     nodes = {
         c["source_endpoint"]: i
         for i, c in enumerate(plan["construction_contacts"])
-        if c["source_id"] == row["source_id"]
+        if c.get("source_id") == row["source_id"]
     }
     vertices = np.unique(plan["parts"][owner])
     start = vertices[

@@ -51,8 +51,26 @@ def display(plan, heights, data, products, output):
         coverage.plot(*row["xy"].T, ".-", lw=1, label=row["source_id"])
     for landing in products["landings"]:
         coverage.plot(*landing["xy_m"], "kx")
+    context = products.get("region_context")
+    if context is not None:
+        selected = set(context["selected_source_ids"])
+        for way in context["capture"]["ways"]:
+            key = f"native-part:{way['native_way']}"
+            if key not in selected:
+                xy = np.array(way["source_xy_m"])
+                coverage.plot(*xy.T, "--", color="gray", lw=3, label=f"outside {key}")
+        ports = products["external_contacts"]
+        if ports:
+            xy = np.array([p["profile_xyz_m"][0][:2] for p in ports])
+            coverage.scatter(
+                *xy.T,
+                s=75,
+                facecolors="none",
+                edgecolors="red",
+                label="unqualified boundary",
+            )
     coverage.set_aspect("equal")
-    coverage.set_title("All three retained source corridors and shared nodes")
+    coverage.set_title(f"All {len(plan['rows'])} retained corridors and shared nodes")
     coverage.legend(fontsize=8)
     coverage.grid(alpha=0.2)
     for index, owner in enumerate((0, 2)):
