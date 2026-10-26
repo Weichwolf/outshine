@@ -21,7 +21,7 @@ using namespace outshine::Render;
 using namespace outshine::Test;
 namespace Native = outshine::Render::Native;
 using Failure = outshine::Test::Gpu::UploadFailurePoint;
-outshine::Test::Gpu::UploadFailure fault{.Message = "injected subject upload failure"};
+outshine::Test::Gpu::UploadFailure fault{.Message = "injected geometry upload failure"};
 
 void Arm(Failure point) {
   fault.Point = point;
@@ -377,14 +377,14 @@ void Tables(Native::Device *device) {
   Arm(Failure::Pipeline);
   error.clear();
   CHECK(!Accepted(draw.Configure(gpu), error),
-        "a refused subject pipeline rejects reconfiguration");
-  CHECK(error.contains("injected"), "a refused subject pipeline retains its native diagnostic");
+        "a refused geometry pipeline rejects reconfiguration");
+  CHECK(error.contains("injected"), "a refused geometry pipeline retains its native diagnostic");
   CHECK(draw.PipelineCount() == pipelines,
-        "a refused subject pipeline preserves the previously published pipeline set");
+        "a refused geometry pipeline preserves the previously published pipeline set");
   fault.Armed = false;
-  CHECK(Accepted(draw.Configure(gpu), error), "subject pipelines configure again after a refusal");
+  CHECK(Accepted(draw.Configure(gpu), error), "geometry pipelines configure again after a refusal");
   CHECK(draw.PipelineCount() == pipelines,
-        "successful retry publishes the complete subject pipeline set");
+        "successful retry publishes the complete geometry pipeline set");
   const unsigned beforeGroundFailure = fault.Rejected;
   Arm(Failure::Pipeline);
   fault.Skip = pipelines;
@@ -393,7 +393,7 @@ void Tables(Native::Device *device) {
   CHECK(fault.Rejected == beforeGroundFailure + 1 && error.contains("injected"),
         "a refused ground pipeline reports its injected native diagnostic");
   CHECK(draw.PipelineCount() == pipelines,
-        "a refused ground pipeline preserves the previously published subject pipelines");
+        "a refused ground pipeline preserves the previously published geometry pipelines");
   fault.Armed = false;
   CHECK(Accepted(draw.Configure(gpu), error),
         "the ground pipeline configures again after a refusal");

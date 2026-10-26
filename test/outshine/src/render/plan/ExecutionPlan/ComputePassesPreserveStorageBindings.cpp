@@ -10,7 +10,7 @@ int main() {
                                                 .Exposure = {},
                                                 .Display = {},
                                                 .Precision = {}});
-  CHECK(compiled.has_value(), "the sky and subject plan compiles");
+  CHECK(compiled.has_value(), "the sky and mesh plan compiles");
   if (!compiled) { return Report(); }
   bool irradiance = false;
   bool culling = false;

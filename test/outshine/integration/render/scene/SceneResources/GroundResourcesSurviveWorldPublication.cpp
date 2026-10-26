@@ -82,7 +82,7 @@ int main() {
       CHECK(renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
             "one published ground tile has its full topology");
       scene->Eye(GroundView());
-      CHECK(scene->Draw(error), "a ground-only frame renders without any subject placement buffer");
+      CHECK(scene->Draw(error), "a ground-only frame renders without any object placement buffer");
       CHECK(renderer.TerrainRendererTriangles() > 0,
             "the ground-only draw actually culls the test tile into the frame");
       std::vector<uint8_t> pixels;

@@ -93,7 +93,7 @@ int main() {
                 surfaces->Walls.Index == 0 && renderer.PiecesStanding() == 4,
             "second revision restores all registered piece sources before reconciliation");
       CHECK(candidate.SetGroundGeometry(ground.clone(), 0, error),
-            "second revision rebuilds its terrain subject");
+            "second revision rebuilds its terrain mesh");
       CHECK(
           candidate.Publish(world, footprints, scene, {.Region = 2, .Coverage = {}}).has_value() &&
               candidate.Publication().OrphanStructurePieces == 1 && renderer.PiecesStanding() == 3,

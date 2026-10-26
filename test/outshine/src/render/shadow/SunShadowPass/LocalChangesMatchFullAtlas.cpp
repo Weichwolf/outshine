@@ -309,7 +309,8 @@ int main() {
                             .Width = 32,
                             .Height = 32,
                             .SceneColours = {}};
-  CHECK(gpu.SceneColours.Add(Resource::SceneHdr), "the fixture uses the existing subject pipeline");
+  CHECK(gpu.SceneColours.Add(Resource::SceneHdr),
+        "the fixture uses the existing geometry pipeline");
   RenderScene geometryStorage;
   GeometryRenderer geometry{geometryStorage};
   Require(geometry.Configure(gpu));

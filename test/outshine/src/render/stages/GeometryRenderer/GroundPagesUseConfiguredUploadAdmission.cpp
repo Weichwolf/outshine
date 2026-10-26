@@ -49,8 +49,7 @@ int main() {
   gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
   gpu.Uploads = &uploads;
   gpu.Width = gpu.Height = 32;
-  CHECK(gpu.SceneColours.Add(Resource::SceneLinear),
-        "the configured subject has its colour target");
+  CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "the configured mesh has its colour target");
   RenderScene drawStorage;
   GeometryRenderer draw{drawStorage};
   Require(draw.Configure(gpu));

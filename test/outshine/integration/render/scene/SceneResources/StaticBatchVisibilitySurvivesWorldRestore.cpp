@@ -60,7 +60,7 @@ int main() {
     };
     CHECK(depthAtCentre() > 0, "visible piece covers the depth probe");
     const auto visibleCalls = renderer.GeometryDrawCallCount();
-    CHECK(visibleCalls > 0, "probe has recorded subject work");
+    CHECK(visibleCalls > 0, "probe has recorded geometry work");
     std::array<Mat4, 1> rows{};
     rows[0].SetTranslation({{100, 0, 0}});
     CHECK(renderer.SetPieceInstances(*piece, rows, error) && depthAtCentre() == 0 &&
