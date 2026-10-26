@@ -10,7 +10,7 @@ int main() {
   CHECK(device, "native attachment tests need no renderer or world");
   if (!device) { return Report(); }
   PlanSpec declaration;
-  declaration.Content = {Stage::Geometry};
+  declaration.Content = {Stage::OpaqueGeometry};
   declaration.Outputs = {Resource::SceneHdr, Resource::SceneDepth};
   FrameTargets targets;
   constexpr Extent kExtent{.WidthPx = 16, .HeightPx = 8};

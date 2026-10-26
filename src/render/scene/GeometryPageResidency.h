@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "Vec3.h"
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
 #include "ResourceHandle.h"
 #include "GeometryPageView.h"
 #include "TangentFrame.h"

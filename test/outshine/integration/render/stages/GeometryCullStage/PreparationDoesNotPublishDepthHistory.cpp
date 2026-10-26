@@ -39,7 +39,7 @@ void Exercise() {
   Core::Declaration declaration;
   declaration.InitialGeometry = &base;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 64;
-  declaration.Stages = {"subjects", "depthPyramid"};
+  declaration.Stages = {"opaqueGeometry", "depthPyramid"};
   declaration.Outputs = {"surface", "sceneDepth", "depthPyramid"};
   bool reject = false;
   SceneRenderer renderer(

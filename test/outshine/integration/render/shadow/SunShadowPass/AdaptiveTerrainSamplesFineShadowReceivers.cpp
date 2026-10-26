@@ -38,7 +38,7 @@ constexpr size_t kFallbackPaletteFloats = 17;
 constexpr float kVerticalSlopeDeg = 90;
 
 bool PlaceTerrain(SceneRenderer &renderer, std::string &error) {
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Domain = SurfaceDomain::Ground;
   material.Row.BaseColour = {{0.5f, 0.5f, 0.5f, 1}};
   material.Row.Roughness = 1;
@@ -116,7 +116,7 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = kFrameSide;
     declaration.Outputs = {"surface", "sceneLinear", "sceneDepth", "shadowAtlas"};
-    declaration.Stages = {"sky", "subjects", "ground", "lightVisibility"};
+    declaration.Stages = {"sky", "opaqueGeometry", "ground", "lightVisibility"};
     declaration.DrawsSky = true;
     declaration.KeyLux = kSunLux;
     declaration.KeyElevationDeg = kSunElevationDeg;

@@ -104,7 +104,7 @@ int main() {
   constexpr LongitudeLatitude focus{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   constexpr LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
   const auto open = [&] {
-    return stack.Open({.BuiltinData = "src/assets", .Sources = cache.Path.string(), .Assets = {}},
+    return stack.Open({.BuiltinData = "data", .Sources = cache.Path.string(), .Assets = {}},
                       providers,
                       registry,
                       focus,

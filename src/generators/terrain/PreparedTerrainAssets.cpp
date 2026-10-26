@@ -115,9 +115,22 @@ PreparedTerrainAssets::Open(const std::string &directory, const Data::SourceSet 
       new PreparedTerrainAssets(std::move(*cache), std::move(recipe)));
 }
 
+std::shared_ptr<std::mutex> PreparedTerrainAssets::MutexForRequest(const std::string &key) {
+  const std::scoped_lock lock(Lock_);
+  std::erase_if(Requests_, [](const auto &entry) { return entry.second.expired(); });
+  auto &pending = Requests_[key];
+  auto request = pending.lock();
+  if (!request) {
+    request = std::make_shared<std::mutex>();
+    pending = request;
+  }
+  return request;
+}
+
 ::outshine::Ground::TerrainGrid
 PreparedTerrainAssets::Remember(const std::string &key, ::outshine::Ground::TerrainField field) {
   auto shared = std::make_shared<const ::outshine::Ground::TerrainField>(std::move(field));
+  const std::scoped_lock lock(Lock_);
   constexpr size_t maximum = 4096;
   if (Resident_.size() >= maximum) {
     std::erase_if(Resident_, [](const auto &entry) { return entry.second.expired(); });
@@ -138,12 +151,16 @@ PreparedTerrainAssets::Resolve(Data::TileId at,
   }
   const auto key = Key(Recipe_, at, shape);
   if (key.empty()) { return Refused(at, Data::SourceFailureReason::InvalidRequest); }
-  const std::scoped_lock lock(Lock_);
-  const auto held = Resident_.find(key);
-  if (held != Resident_.end()) {
-    if (auto field = held->second.lock()) {
-      ResidentHits_.fetch_add(1, std::memory_order_relaxed);
-      return TerrainGrid::Holding(std::move(field));
+  const auto request = MutexForRequest(key);
+  const std::scoped_lock preparing(*request);
+  {
+    const std::scoped_lock lock(Lock_);
+    const auto held = Resident_.find(key);
+    if (held != Resident_.end()) {
+      if (auto field = held->second.lock()) {
+        ResidentHits_.fetch_add(1, std::memory_order_relaxed);
+        return TerrainGrid::Holding(std::move(field));
+      }
     }
   }
   auto loaded = Cache_->Load(key, kPreparedTerrainBytesMost);
@@ -218,7 +235,8 @@ std::string PreparedTerrainAssets::PatchKey(Data::TileId at,
 
 std::expected<std::shared_ptr<const GroundPatch>, std::string>
 PreparedTerrainAssets::LoadPatch(const std::string &key, Data::TileId at, int side) {
-  const std::scoped_lock lock(Lock_);
+  const auto request = MutexForRequest(key);
+  const std::scoped_lock preparing(*request);
   auto loaded = Cache_->Load(key, kPreparedGroundPatchBytesMost);
   if (!loaded) { return std::unexpected("terrain sampling patch read failed"); }
   if (*loaded) {
@@ -239,6 +257,8 @@ PreparedTerrainAssets::LoadPatch(const std::string &key, Data::TileId at, int si
 std::expected<void, std::string> PreparedTerrainAssets::StorePatch(const std::string &key,
                                                                    Data::TileId at,
                                                                    const GroundPatch &patch) {
+  const auto request = MutexForRequest(key);
+  const std::scoped_lock preparing(*request);
   const auto encoded = EncodePreparedGroundPatch(at, patch);
   if (!encoded) { return std::unexpected("terrain sampling patch encoding failed"); }
   const auto range = std::ranges::minmax_element(patch.HeightsAslM());
@@ -249,7 +269,6 @@ std::expected<void, std::string> PreparedTerrainAssets::StorePatch(const std::st
                            .ByteCount = encoded->size(),
                            .Level = static_cast<uint32_t>(at.Zoom),
                            .Parent = {}};
-  const std::scoped_lock lock(Lock_);
   if (!Cache_->Publish({&record, 1}, *encoded)) {
     return std::unexpected("terrain sampling patch publication failed");
   }

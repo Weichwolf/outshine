@@ -176,14 +176,14 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
                                                  bool separateTransmission) {
   if (gpu.Device == nullptr || gpu.SceneColours.Size() > kMaxColourAttachments ||
       (behind != nullptr && exact == nullptr)) {
-    return std::unexpected(
-        Native::Error{.Kind = Native::ErrorKind::Invalid,
-                      .Message = std::format("subject pipeline requires a device and valid targets "
-                                             "(device={}, colours={}, behind={}, sampler={})",
-                                             gpu.Device != nullptr,
-                                             gpu.SceneColours.Size(),
-                                             behind != nullptr,
-                                             exact != nullptr)});
+    return std::unexpected(Native::Error{
+        .Kind = Native::ErrorKind::Invalid,
+        .Message = std::format("geometry pipeline requires a device and valid targets "
+                               "(device={}, colours={}, behind={}, sampler={})",
+                               gpu.Device != nullptr,
+                               gpu.SceneColours.Size(),
+                               behind != nullptr,
+                               exact != nullptr)});
   }
   std::vector<Resource> colours(gpu.SceneColours.begin(), gpu.SceneColours.end());
   const SourceOptions options{
@@ -258,7 +258,7 @@ Native::Result<void> GeometryRenderer::ConfigureKind(
     std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
     uint32_t &built) {
   const auto targets = Targets(gpu, options, colours, kind == SurfaceKind::Blended);
-  for (const auto domain : {SurfaceDomain::Subject, SurfaceDomain::Ground}) {
+  for (const auto domain : {SurfaceDomain::Geometry, SurfaceDomain::Ground}) {
     for (const auto &row : kVertexLayouts) {
       if (!DomainPresents(domain, ShadingArmOf(row.Layout), CarriesUv(row.Layout), kind)) {
         continue;

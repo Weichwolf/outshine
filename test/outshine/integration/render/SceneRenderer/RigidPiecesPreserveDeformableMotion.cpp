@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -65,7 +66,7 @@ int main() {
     Core::Declaration declaration;
     declaration.InitialGeometry = &base;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 64;
-    declaration.Stages = {"subjects"};
+    declaration.Stages = {"opaqueGeometry"};
     declaration.Outputs = {"sceneDepth", "sceneVelocity"};
     SceneRenderer renderer;
     std::unique_ptr<Core::RuntimeScene> scene;
@@ -86,7 +87,7 @@ int main() {
       batch.Layout = VertexLayout::PositionNormal;
       CHECK(draws.Add(batch, error), "deforming draw uses the rigid piece's pipeline layout");
       draws.Compile();
-      SubjectMesh mesh;
+      MeshInput mesh;
       mesh.Anchor = renderer.LastSubmittedCamera().Basis.EyeM - eye.EyeM;
       mesh.Verts.From = positions.data();
       mesh.Positions = positions;
@@ -142,9 +143,10 @@ int main() {
               "stationary rigid geometry has zero motion after the deforming draw");
       }
       for (const bool deforming : {false, true}) {
-        SubjectPose pose = mesh;
+        VertexInput pose = mesh;
         if (!deforming) { pose.PrevVerts = {}; }
-        CHECK(renderer.SetGeometryPose(pose, error), "pose changes without replacing the mesh");
+        CHECK(renderer.SetGeometryVertexInput(pose, error),
+              "pose changes without replacing the mesh");
         CHECK(scene->Draw(error), "transitioned pose renders alongside rigid geometry");
         CheckMotion(renderer, deforming ? kDeformationM / 2.0f : 0.0f);
       }

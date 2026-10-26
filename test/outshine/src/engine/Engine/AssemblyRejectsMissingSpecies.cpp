@@ -19,8 +19,7 @@ int main() {
   const std::filesystem::path root(temporary);
   std::filesystem::create_directories(root / "world");
   for (const char *name : {"ground-materials.json", "vegetation.json"}) {
-    std::filesystem::copy_file(std::filesystem::path("src/assets/world") / name,
-                               root / "world" / name);
+    std::filesystem::copy_file(std::filesystem::path("data/world") / name, root / "world" / name);
   }
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for public assembly path");
   {

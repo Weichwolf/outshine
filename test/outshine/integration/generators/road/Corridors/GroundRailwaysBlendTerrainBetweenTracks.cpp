@@ -24,8 +24,8 @@ std::vector<EarthworkStamp> Contacts(bool bridge, Sampler sample) {
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "the production material and traffic recipes load");
   const std::array<std::string, 1> layers{"streets"};
   Generators::Osm::OsmField vectors(14, layers);

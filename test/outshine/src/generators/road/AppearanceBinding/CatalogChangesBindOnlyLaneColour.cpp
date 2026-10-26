@@ -50,7 +50,7 @@ int main() {
   const auto path = directory / "vegetation.json";
   GroundMaterialCatalog materials;
   RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"),
+  CHECK(materials.Load("data/world/ground-materials.json"),
         "the shipped native material catalogue loads");
   std::ofstream(path) << Catalog("asphalt", "a", "1");
   CHECK(templates.Load(path.c_str(), materials), templates.Error().c_str());

@@ -5,7 +5,7 @@ Owner: #819. Reference: e8d01bedd; shared native integration remains draft #531.
 ## Contract
 
 `WritePiecePositions` copies StoredVertex positions unchanged into the Float32 GPU stream.
-Only normals are packed. `subjectDepth.vert` applies the instance transform and camera shift;
+Only normals are packed. `geometryDepth.vert` applies the instance transform and camera shift;
 there is no additional vertex displacement. Current native StructureBake and ShapeCook use
 ClusterCook, whose bounds enclose the referenced positions after rounding the centre and
 rounding the radius outward. Cluster bounds remain a producer contract, as in GPU selection;

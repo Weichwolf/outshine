@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include <cstddef>
 #include <cstdint>
@@ -72,7 +73,7 @@ int main() {
       gpu.Width = gpu.Height = 32;
       CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "scene attachment adds");
       CHECK(draw.Configure(gpu).has_value(), "native pipelines configure");
-      const std::array<SubjectMaterial, 1> materials{};
+      const std::array<MaterialBinding, 1> materials{};
       CHECK(draw.AppendMaterials(materials, error), "native material registers");
       constexpr std::array<uint32_t, 1> slots{0};
       draw.SetNativePieceSurfaces(slots);
@@ -98,7 +99,7 @@ int main() {
       CHECK(draws.Add(item, error), "replacement triangle adds");
       draws.Compile();
       constexpr std::array<float, 9> emitted{};
-      SubjectMesh mesh;
+      MeshInput mesh;
       if (replacement) {
         mesh.Verts.From = expected.data();
         mesh.Positions = expected;

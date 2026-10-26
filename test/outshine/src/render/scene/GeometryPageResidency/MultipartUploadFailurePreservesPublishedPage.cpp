@@ -23,7 +23,7 @@ void CheckPages() {
   constexpr uint32_t kMissingMaterial = 99;
   constexpr size_t kPartCount = 3;
   const auto plan = ExecutionPlan::Compile({.Outputs = {Resource::SceneHdr},
-                                            .Content = {Stage::Geometry},
+                                            .Content = {Stage::OpaqueGeometry},
                                             .Exposure = {},
                                             .Display = {},
                                             .Precision = {}});

@@ -313,7 +313,7 @@ ImpostorBaker::Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::stri
                            Resource::SceneSurfaceIdentity,
                            Resource::SceneSurfaceBase,
                            Resource::SceneSurfaceMetalRough};
-  specification.Content = {Stage::Geometry};
+  specification.Content = {Stage::OpaqueGeometry};
   auto plan = ExecutionPlan::Compile(specification);
   if (!plan) {
     error = std::move(plan.error());

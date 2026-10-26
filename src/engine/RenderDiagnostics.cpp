@@ -37,7 +37,7 @@ void InspectCulling(EngineRenderState &picture, Core::DiagnosticLedger &publishe
   Render::KeptDraws kept;
   if (picture.Device.ReadKeptIndices(kept) == Render::ReadState::Ready) {
     published.RecordMetric(
-        "cull: indices the subject cull kept", static_cast<double>(kept.Indices), "indices");
+        "cull: indices the geometry cull kept", static_cast<double>(kept.Indices), "indices");
     published.RecordMetric(
         "cull: batches that kept any", static_cast<double>(kept.Batches), "batches");
   }

@@ -394,8 +394,8 @@ int main() {
         "fixed independent road intervals are declared");
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "the existing real material rules are loaded");
   Osm::StreetField ways;
   while (!ways.Ingested(vectors)) { (void)ways.Ingest(vectors, vegetation); }

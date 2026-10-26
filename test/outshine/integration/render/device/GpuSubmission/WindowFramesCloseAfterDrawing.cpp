@@ -38,7 +38,7 @@ bool Prepare(outshine::Engine &engine, bool colour = true) {
   scene.Render.Declared = true;
   scene.Render.Frame = {.WidthPx = kFrameSidePx, .HeightPx = kFrameSidePx};
   scene.Render.Outputs = {colour ? "surface" : "sceneLinear"};
-  scene.Render.Stages = {"subjects"};
+  scene.Render.Stages = {"opaqueGeometry"};
   if (colour) {
     scene.Render.Stages.insert(scene.Render.Stages.end(), {"tonemap", "present"});
     scene.Render.Exposure = 1;

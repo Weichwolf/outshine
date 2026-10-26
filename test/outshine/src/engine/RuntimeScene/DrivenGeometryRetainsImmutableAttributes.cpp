@@ -26,7 +26,7 @@ int CheckSource() {
   Core::Declaration declaration;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
   declaration.Outputs = {"sceneLinear"};
-  declaration.Surfacing.front().Unlit = true;
+  declaration.Materials.front().Unlit = true;
   declaration.InitialGeometry = &source;
   Render::SceneRenderer renderer;
   std::unique_ptr<Core::RuntimeScene> scene;
@@ -49,7 +49,7 @@ int CheckSource() {
                                                         candidate,
                                                         error,
                                                         Render::SceneResources::PieceSources::Copy,
-                                                        Core::SubjectGeometrySources::Driven);
+                                                        Core::GeometryRetention::Driven);
   };
   CHECK(prepare(), error.c_str());
   if (!candidate) { return Report(); }

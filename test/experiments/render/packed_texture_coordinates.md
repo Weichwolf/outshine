@@ -5,8 +5,8 @@ Float32 `vec4` at location 0. Its XY components hold the first pair and ZW hold
 the second. Location 1 is unused. This replaces two half-filled export slots
 without quantization, normalization or arithmetic on the coordinates.
 
-`writeSubjectVaryings()` packs the vertex values after their existing assignment;
-`readSubjectVaryings()` restores the two local `vec2` values before material work.
+`writeSurfaceVaryings()` packs the vertex values after their existing assignment;
+`readSurfaceVaryings()` restores the two local `vec2` values before material work.
 The lit vertex stage, lit fragment stage, ground lattice vertex stage and ground
 fragment stage share those helpers. Generic ground rendering also consumes the
 lit vertex producer. Both terrain paths therefore use the same interface.

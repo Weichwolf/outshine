@@ -3,7 +3,7 @@
 #include "SceneRenderer.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
 #include "Viewing.h"
 #include <Geometry.h>
 #include <Material.h>
@@ -57,7 +57,7 @@ bool Draw(bool clustered,
   declaration.InitialGeometry = &geometry;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = kExtent;
   declaration.Outputs = {"sceneLinear", "depthPyramid"};
-  declaration.Stages = {"subjects", "depthPyramid"};
+  declaration.Stages = {"opaqueGeometry", "depthPyramid"};
   SceneRenderer renderer;
   std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;

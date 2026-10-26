@@ -88,7 +88,7 @@ int main() {
   Generators::RegisterShippedProviders(registry);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 1, .LatitudeDeg = 1};
-  CHECK(stack.Open({.BuiltinData = "src/assets", .Sources = cache.Path.string(), .Assets = {}},
+  CHECK(stack.Open({.BuiltinData = "data", .Sources = cache.Path.string(), .Assets = {}},
                    providers,
                    registry,
                    focus,

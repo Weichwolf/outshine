@@ -87,7 +87,7 @@ int main() {
       R"({"name":"limits","leaders":64,"trunk_sides":64,"trunk_steps":4096,"whorl_count":64,"whorl_spacing":4096,"max_order":8,"bole_frac":1,"break_frac":1,"order_len":1})";
   CHECK(species.Parse(edge.data(), edge.size()), "explicit growth input limits are inclusive");
   size_t profiles = 0;
-  for (const auto &entry : std::filesystem::directory_iterator("src/assets/world/species")) {
+  for (const auto &entry : std::filesystem::directory_iterator("data/world/species")) {
     if (entry.path().extension() != ".json") { continue; }
     std::ifstream file(entry.path());
     const std::string source{std::istreambuf_iterator<char>(file),

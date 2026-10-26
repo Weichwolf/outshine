@@ -39,7 +39,7 @@ def main():
     raw_path = args.input/f'{args.place}-input.json'
     raw = json.loads(raw_path.read_text())
     previous = next(r for r in json.loads((args.input/'network.json').read_text()) if r['place']==args.place)
-    templates = json.loads(Path('src/assets/world/vegetation.json').read_text())['templates']
+    templates = json.loads(Path('data/world/vegetation.json').read_text())['templates']
     rules = {r['kind']:r for t in templates for r in t.get('osm',[])
              if r.get('layer')=='streets' and r.get('widthM',0)>0}
     recipes = json.loads(Path(__file__).with_name('transport_network_recipes.json').read_text())

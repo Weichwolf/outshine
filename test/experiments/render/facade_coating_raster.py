@@ -43,9 +43,9 @@ def compile_shaders(output, baseline):
         "-Isrc/render/shaders",
         "-Isrc/content/shade",
         "-Ibuild/shaders",
-        "-DSUBJECT_WRITES_VELOCITY=0",
-        "-DSUBJECT_NORMAL_LOCATION=0",
-        "-DSUBJECT_IDENTITY_LOCATION=0",
+        "-DSURFACE_WRITES_VELOCITY=0",
+        "-DSURFACE_NORMAL_LOCATION=0",
+        "-DSURFACE_IDENTITY_LOCATION=0",
     ]
     vertex = output / "lit.vert.spv"
     run(
@@ -80,8 +80,8 @@ def compile_shaders(output, baseline):
                 "-DLIT_KIND=0",
                 "-DLIT_TEXTURED=0",
                 "-DLIT_MAPPED=0",
-                "-DSUBJECT_BASE_LOCATION=1",
-                "-DSUBJECT_METALROUGH_LOCATION=2",
+                "-DSURFACE_BASE_LOCATION=1",
+                "-DSURFACE_METALROUGH_LOCATION=2",
                 "-S",
                 "frag",
                 str(source),

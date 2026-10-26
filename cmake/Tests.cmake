@@ -8,13 +8,40 @@ add_dependencies(outshine_gate outshine)
 set(capture_cases
   outshine/integration/engine/streaming/ImpostorPreparation/PreparationRetainsGeneratorSurfaces
   outshine/integration/generators/flora/TreePrototype/TreeGeometryUsesNativeMaterials
-  outshine/integration/render/Surfacing/NativeImagesReachTheRenderer
+  outshine/integration/render/material/MaterialResolution/NativeImagesReachTheRenderer
   outshine/integration/render/device/GpuSubmission/WindowFramesCloseAfterDrawing
   outshine/src/engine/Engine/CameraFollowsItsNamedEntity
   outshine/src/engine/Engine/NativeMipImagesReachTheRenderer
   outshine/src/engine/Engine/PerspectiveNativeMipImagesRepeatLinearPixels
   outshine/src/engine/Engine/ScenarioViewsPreserveProjection
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
+)
+set(metal_validation_cases
+  outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
+  outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads
+  outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth
+  outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
+  outshine/src/render/scene/SceneResources/UploadPressurePausesPieceRestore
+  outshine/src/render/shadow/SunShadowPass/LocalChangesMatchFullAtlas
+  outshine/src/render/stages/GeometryRenderer/AcceptedPiecesSurviveMainMeshReplacement
+  outshine/src/render/stages/GeometryRenderer/EmissionUploadsFollowUnlitDrawConsumers
+  outshine/src/render/stages/GeometryRenderer/InstancesShareTheirPieceClusterSpheres
+  outshine/src/render/stages/GeometryRenderer/NativePieceClustersBoundTheirUploadedIndices
+  outshine/src/render/stages/GeometryRenderer/OptionalAttributesReserveOnlyTheirConsumers
+  outshine/src/render/stages/GeometryRenderer/PassPipelinesExcludeUnreachableMaterials
+  outshine/src/render/stages/GeometryRenderer/RigidMainMeshesAvoidDuplicatePreviousPositions
+  outshine/src/render/stages/GeometryResidency/DeferredImagesSurviveBackpressureAndRejectedSubmission
+  outshine/src/render/stages/GeometryResidency/HalfFloatImagesRetainMipOffsetsAcrossDeferredUpload
+  outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
+  outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice
+  outshine/src/render/stages/GeometryResidency/UnboundMapsShareDeviceResources
+  outshine/src/render/terrain/TerrainRenderer/AdaptivePatchesKeepFineNormals
+  outshine/src/render/terrain/TerrainRenderer/DrawArgumentsCountAdaptiveInstances
+  outshine/src/render/terrain/TerrainRenderer/OuterSkirtsFaceTheGap
+  outshine/src/render/terrain/TerrainRenderer/SharedInputsPreserveIndependentGrids
+  outshine/src/render/terrain/TerrainRenderer/SurfacePatchesPreserveRasterAndFractions
+  outshine/src/render/visibility/DepthPyramidPass/PartialBlocksPreserveUncoveredPixels
+
 )
 foreach(source IN LISTS cases)
   file(RELATIVE_PATH name "${PROJECT_SOURCE_DIR}/test" "${source}")
@@ -36,7 +63,7 @@ foreach(source IN LISTS cases)
     target_compile_definitions(${target} PRIVATE
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
-  if(name STREQUAL "outshine/src/render/Surfacing/DenseMaterialBindingsKeepBoundedAllocation"
+  if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
       OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
       OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
@@ -144,8 +171,7 @@ foreach(source IN LISTS cases)
     TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "${owner}"
     ENVIRONMENT "OUTSHINE_TIMEOUT_S=${OUTSHINE_TEST_TIMEOUT};OUTSHINE_CLIENT=$<TARGET_FILE:outshine>"
     FAIL_REGULAR_EXPRESSION "SKIPPED [1-9];UNPREPARED [1-9];PARTIAL [1-9]")
-  if(APPLE AND (name STREQUAL "outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads"
-      OR name STREQUAL "outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth"))
+  if(APPLE AND name IN_LIST metal_validation_cases)
     set_property(TEST "${name}" APPEND PROPERTY ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endif()
   add_dependencies(outshine_tests ${target})
@@ -281,3 +307,10 @@ set_tests_properties(tools/prepare_place_profiles PROPERTIES
   WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" TIMEOUT 650 LABELS preparation
   ENVIRONMENT "${profile_environment}" FIXTURES_SETUP place_profiles)
 set_tests_properties(tools/place_profiles PROPERTIES FIXTURES_REQUIRED place_profiles)
+
+add_executable(outshine_ggx_fragment_probe EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/harness/render/NativeGgxFragmentProbe.cpp")
+target_include_directories(outshine_ggx_fragment_probe PRIVATE
+  "${PROJECT_SOURCE_DIR}/test/harness/shared" "${PROJECT_SOURCE_DIR}/test/harness/render")
+target_compile_options(outshine_ggx_fragment_probe PRIVATE -fno-exceptions)
+target_link_libraries(outshine_ggx_fragment_probe PRIVATE outshine_render)
