@@ -1,0 +1,21 @@
+{
+  "scope": "Fixed input from GEOS3.14.1 segmentize20/CDT of the captured native union; not complete native mesh replay.",
+  "source_input_sha256": "a797fe0995bb575eaf4f933e452cb8391c6be410ded573721d3c5798d77fba82",
+  "triangle_xy_m": [
+    [
+      -129.2267081479871,
+      896.3290802213739
+    ],
+    [
+      -129.22734739928887,
+      867.4410409285318
+    ],
+    [
+      -131.8884191546127,
+      895.7910154065069
+    ]
+  ],
+  "exact_representative_native_id": 0,
+  "observed_numeric_representative_native_id": 26,
+  "derivation_face": 2098
+}
