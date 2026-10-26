@@ -1,5 +1,6 @@
+#include <cstddef>
 #include "Check.h"
-#include "PrismPreparationFixture.h"
+#include "PrismSlotFixture.h"
 #include "UrbanPrismSlot.h"
 #include "Sha256.h"
 #include <chrono>
@@ -15,8 +16,9 @@ using namespace outshine;
 using namespace outshine::Test;
 namespace Fixture = PrismPreparationFixture;
 
-UrbanPrismPreparation::Capture Capture(const std::string &request, size_t &calls) {
-  return [request, &calls](std::stop_token) -> std::optional<UrbanPrismPreparation::Captured> {
+Generators::Osm::UrbanPrismPreparation::Capture Capture(const std::string &request, size_t &calls) {
+  return [request, &calls](const std::stop_token &)
+             -> std::optional<Generators::Osm::UrbanPrismPreparation::Captured> {
     ++calls;
     return AssetFactory{[request](size_t most) {
       return Generators::Osm::PackageUrbanPrisms(Fixture::Product(), request, {.BytesMost = most});
@@ -26,7 +28,7 @@ UrbanPrismPreparation::Capture Capture(const std::string &request, size_t &calls
 }
 
 int main() {
-  Fixture::Cache cache;
+  const Fixture::Cache cache;
   Tasks pool(1);
   const auto first = Sha256Hex("prism slot/original");
   const auto canceled = Sha256Hex("prism slot/obsolete terrain");

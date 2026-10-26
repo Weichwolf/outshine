@@ -1,3 +1,6 @@
+#include <stop_token>
+#include <memory>
+#include <expected>
 #include "Check.h"
 #include "PrismPreparationFixture.h"
 #include "Sha256.h"
@@ -9,8 +12,9 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  using outshine::Generators::Osm::UrbanPrismPreparation;
   namespace Fixture = PrismPreparationFixture;
-  Fixture::Cache cache;
+  const Fixture::Cache cache;
   Tasks pool(1);
   const auto request = Sha256Hex("urban-prism-job/source/terrain/selection/lod");
   const auto mainThread = std::this_thread::get_id();
@@ -21,7 +25,7 @@ int main() {
   {
     UrbanPrismPreparation preparation(pool, cache.Database(), request);
     const UrbanPrismPreparation::Capture capture =
-        [&](std::stop_token) -> std::optional<UrbanPrismPreparation::Captured> {
+        [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
       capturedOnMain &= std::this_thread::get_id() == mainThread;
       if (++captures < 3) { return std::nullopt; }
       const auto immutableInput =
@@ -44,7 +48,8 @@ int main() {
   {
     UrbanPrismPreparation preparation(pool, cache.Database(), request);
     const auto ready = Fixture::Await(
-        preparation, [&](std::stop_token) -> std::optional<UrbanPrismPreparation::Captured> {
+        preparation,
+        [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
           ++captures;
           return std::unexpected("a cache hit must never capture live terrain");
         });

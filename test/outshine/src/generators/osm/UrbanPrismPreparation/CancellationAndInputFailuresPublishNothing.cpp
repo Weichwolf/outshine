@@ -1,3 +1,5 @@
+#include <stop_token>
+#include <expected>
 #include "Check.h"
 #include "PrismPreparationFixture.h"
 #include "Sha256.h"
@@ -9,8 +11,9 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  using outshine::Generators::Osm::UrbanPrismPreparation;
   namespace Fixture = PrismPreparationFixture;
-  Fixture::Cache cache;
+  const Fixture::Cache cache;
   Tasks pool(1);
   const auto request = Sha256Hex("urban-prism-job/failure");
   std::promise<void> release;
@@ -26,7 +29,7 @@ int main() {
   {
     UrbanPrismPreparation preparation(pool, cache.Database(), request);
     const auto result = Fixture::Await(
-        preparation, [](std::stop_token) -> std::optional<UrbanPrismPreparation::Captured> {
+        preparation, [](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
           return std::unexpected("selected terrain changed before snapshot capture");
         });
     CHECK(!result && result.error() == "selected terrain changed before snapshot capture",
@@ -35,7 +38,7 @@ int main() {
   {
     UrbanPrismPreparation preparation(pool, cache.Database(), request);
     const auto result = Fixture::Await(
-        preparation, [](std::stop_token) -> std::optional<UrbanPrismPreparation::Captured> {
+        preparation, [](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
           return AssetFactory{};
         });
     CHECK(!result && result.error() == "captured prism factory is empty",
