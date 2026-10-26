@@ -37,6 +37,9 @@ public:
   RoadMeshingStats Sweep(std::span<const RoadStation> stations,
                          RoadSweep surface,
                          RoadMeshBuffers &output) const override {
+    static_cast<void>(stations);
+    static_cast<void>(surface);
+    static_cast<void>(output);
     ++Calls;
     return {};
   }
@@ -45,6 +48,10 @@ public:
                 RoadPlane plane,
                 const Vec3f &colour,
                 RoadMeshBuffers &output) const override {
+    static_cast<void>(gates);
+    static_cast<void>(plane);
+    static_cast<void>(colour);
+    static_cast<void>(output);
     ++Calls;
   }
 };
@@ -74,17 +81,29 @@ Plan(const Corridors &generator, const Corridors::Site &site, std::span<const ui
   return Product{.Recipe = std::move(*recipe), .Contacts = std::move(*contacts)};
 }
 
-bool SameProfile(const Product &a, const Product &b) {
-  if (a.Recipe.Intervals.size() != 1 || b.Recipe.Intervals.size() != 1) { return false; }
-  const auto &first = a.Recipe.Intervals.front();
-  const auto &second = b.Recipe.Intervals.front();
+bool SameInterval(const RoadPageInterval &first, const RoadPageInterval &second) {
   const auto station = [](const RoadStation &at) {
     return std::tie(at.EastM, at.NorthM, at.GradeM, at.Node);
   };
   return first.Lane == second.Lane && first.Surface.Profile == second.Surface.Profile &&
          first.Surface.HalfWidthM == second.Surface.HalfWidthM &&
-         std::ranges::equal(first.Stations, second.Stations, {}, station, station) &&
+         std::ranges::equal(first.Stations, second.Stations, {}, station, station);
+}
+
+bool SameProfile(const Product &a, const Product &b) {
+  return a.Recipe.Intervals.size() == 1 && b.Recipe.Intervals.size() == 1 &&
+         SameInterval(a.Recipe.Intervals.front(), b.Recipe.Intervals.front()) &&
          a.Contacts == b.Contacts;
+}
+
+bool PreservesRequested(const Product &requested, const Product &whole) {
+  if (requested.Recipe.Intervals.size() != 1) { return false; }
+  const auto &part = requested.Recipe.Intervals.front();
+  const auto match = std::ranges::find(whole.Recipe.Intervals, part.Lane, &RoadPageInterval::Lane);
+  return match != whole.Recipe.Intervals.end() && SameInterval(part, *match) &&
+         std::ranges::all_of(requested.Contacts, [&whole](const EarthworkStamp &contact) {
+           return std::ranges::find(whole.Contacts, contact) != whole.Contacts.end();
+         });
 }
 
 void CheckContext(const Corridors &generator, const Corridors::Site &site) {
@@ -197,6 +216,9 @@ int main() {
   const size_t allSamples = samples - beforeAll;
   CHECK(all && allSamples > firstSamples && unusedSamples > selectedUnused,
         "the same input with full demand performs the additional required terrain work");
+  CHECK(first && all && PreservesRequested(*first, *all),
+        "discarding unrelated work preserves the requested original profile and every terrain "
+        "contact");
   std::println("FUNCTIONAL_PLAN source_ways={} selected_ways=1 samples_per_plan={} "
                "unused_samples={} full_demand_samples={} mesh_calls={}",
                ways.Ways().size(),
