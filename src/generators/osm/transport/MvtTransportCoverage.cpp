@@ -14,7 +14,7 @@ std::expected<void, std::string> RecordMissingTopology(Sources &sources,
   if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
   const auto &references = sources.Provenance.References;
   std::vector<uint32_t> order(references.size());
-  std::iota(order.begin(), order.end(), uint32_t{0});
+  std::ranges::iota(order, uint32_t{0});
   const auto key = [&references](uint32_t at) {
     return std::tie(references[at].Source, references[at].Fragment);
   };
