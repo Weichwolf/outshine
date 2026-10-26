@@ -28,11 +28,12 @@ def shape_material_patches(surface, shape, source, part, basis, anchor):
     origin = np.array(surface["origin"]) @ basis.T - anchor
     patches = []
     for d in domains:
+        local_origin = np.asarray(d.local_origin, float)
         axes = domain_axes(d, frame)
         if d.side == 1:
-            offset = origin + d.local_origin[2] * frame[2]
+            offset = origin + local_origin[2] * frame[2]
         else:
-            offset = origin + d.local_origin[:2] @ frame[:2]
+            offset = origin + local_origin[:2] @ frame[:2]
         normal = d.orientation * np.cross(*axes)
         normal /= np.linalg.norm(normal)
         geometry = SurfacePatch(d.domain, offset, axes, normal, source)
@@ -43,7 +44,7 @@ def shape_material_patches(surface, shape, source, part, basis, anchor):
                 part,
                 d.side,
                 d.gable,
-                d.local_origin,
+                local_origin,
                 d.local_axes,
                 surface,
                 d.orientation,
