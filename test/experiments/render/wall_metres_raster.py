@@ -34,7 +34,7 @@ def compile_shaders(output):
                 "-DLIT_UVS=2",
                 "-DLIT_TINTED=0",
                 "-DLIT_MAPPED=0",
-                "-DSUBJECT_WRITES_VELOCITY=0",
+                "-DSURFACE_WRITES_VELOCITY=0",
             ],
         ),
         ("frag", Path(__file__).with_name("wall_metres_probe.frag"), []),

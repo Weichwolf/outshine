@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "ExecutionPlan.h"
 #include "Image.h"
 #include "PngEncoding.h"
@@ -106,7 +107,7 @@ bool Place(SceneRenderer &renderer, const Generators::PlantSurface &surface) {
 }
 
 bool RenderPortrait(SceneRenderer &renderer, const char *destination, bool near) {
-  SubjectLight light;
+  SceneLight light;
   light.Light.Intensity = kSunLux;
   light.Light.Direction = {{-0.5f, -kSunAxis, 0.5f}};
   std::string error;

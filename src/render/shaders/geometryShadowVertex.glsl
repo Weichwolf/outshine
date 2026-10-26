@@ -1,7 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "depthView.glsl"
-#include "subjectPlacement.glsl"
+#include "geometryPlacements.glsl"
 layout(location = 0) in vec3 position;
 #if SHADOW_UVS > 0
 layout(location = 1) in vec2 vertexUv;

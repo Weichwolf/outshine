@@ -1,6 +1,6 @@
 #ifndef OUTSHINE_RENDER_TERRAIN_TERRAINPATCHBOUNDS_H
 #define OUTSHINE_RENDER_TERRAIN_TERRAINPATCHBOUNDS_H
-#include "SubjectTypes.h"
+#include "GroundTile.h"
 #include "TerrainLattice.h"
 #include <array>
 #include <cstddef>

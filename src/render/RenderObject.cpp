@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "MeshInput.h"
 #include "Digest.h"
 #include "Units.h"
@@ -334,7 +335,7 @@ void PackPrevious(const void *carrying, float *into, uint32_t floats) {
 }
 
 [[nodiscard]] bool
-PlaceLights(const RenderObject &proxy, std::vector<SubjectLight> &out, std::string &error) {
+PlaceLights(const RenderObject &proxy, std::vector<SceneLight> &out, std::string &error) {
   out.clear();
   out.reserve(proxy.Lights().size());
   for (size_t at = 0; at < proxy.Lights().size(); ++at) {
@@ -349,7 +350,7 @@ PlaceLights(const RenderObject &proxy, std::vector<SubjectLight> &out, std::stri
       error = "light " + std::to_string(at) + " declares a beam of zero length";
       return false;
     }
-    SubjectLight placed;
+    SceneLight placed;
     placed.Light = declared;
     for (int axis = 0; axis < 3; ++axis) {
       placed.Light.Direction[axis] = static_cast<float>(direction[axis] / length);

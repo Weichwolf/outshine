@@ -1,14 +1,14 @@
 #if PRISM_GRID
-#define SUBJECT_SHADOW_RECEIVER vec4
+#define SURFACE_SHADOW_RECEIVER vec4
 #define REGIONAL_RECEIVER(p, a) vec4((p).xy * (a).depth.x / (a).transform.xy, (p).zw)
 #else
-#define SUBJECT_SHADOW_RECEIVER vec2
+#define SURFACE_SHADOW_RECEIVER vec2
 #define REGIONAL_RECEIVER(p, a) ((p) * (a).depth.x / (a).transform.xy)
 #endif
 #include "shadowFilter.glsl"
 #include "thinSheet.glsl"
 
-float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, SUBJECT_SHADOW_RECEIVER receiverSlope,
+float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, SURFACE_SHADOW_RECEIVER receiverSlope,
                           vec4 atlas, vec2 origin) {
   ivec2 extent = textureSize(map, 0);
   vec2 texel = (atlas.xy + uv * atlas.z) * vec2(extent) - 0.5;
@@ -39,7 +39,7 @@ float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, SUBJECT_S
 #endif
 }
 
-float regionShadowVisibility(sampler2D map, vec3 lightCoordinate, SUBJECT_SHADOW_RECEIVER receiverSlope,
+float regionShadowVisibility(sampler2D map, vec3 lightCoordinate, SURFACE_SHADOW_RECEIVER receiverSlope,
                              int region) {
   ShadowRegion area = lights.shadowRegions[region];
   vec2 local = lightCoordinate.xy * area.transform.xy + area.transform.zw;
@@ -50,7 +50,7 @@ float regionShadowVisibility(sampler2D map, vec3 lightCoordinate, SUBJECT_SHADOW
                              REGIONAL_RECEIVER(receiverSlope, area), area.atlas, area.depth.zw);
 }
 
-float worldSunShadowVisibility(sampler2D map, vec3 coordinate, SUBJECT_SHADOW_RECEIVER receiverSlope) {
+float worldSunShadowVisibility(sampler2D map, vec3 coordinate, SURFACE_SHADOW_RECEIVER receiverSlope) {
   int count = int(lights.count.w);
   for (int region = 0; region < count; ++region) {
     ShadowRegion area = lights.shadowRegions[region];
@@ -68,7 +68,7 @@ float worldSunShadowVisibility(sampler2D map, vec3 coordinate, SUBJECT_SHADOW_RE
   return 1.0;
 }
 
-SUBJECT_SHADOW_RECEIVER sunShadowReceiverSlope(vec4 lightSpace) {
+SURFACE_SHADOW_RECEIVER sunShadowReceiverSlope(vec4 lightSpace) {
 #if PRISM_GRID
   return prismShadowReceiver;
 #else
@@ -83,7 +83,7 @@ vec3 shadeRow(M surface,
                               vec3 localM, vec3 n, vec3 p, vec3 albedo, float metalness,
                               float roughness, vec3 dielectricF0, float dielectricF90,
                               vec3 emitted, vec3 tangentDir, vec4 lightSpace,
-                              SUBJECT_SHADOW_RECEIVER receiverSlope, sampler2D shadowMap) {
+                              SURFACE_SHADOW_RECEIVER receiverSlope, sampler2D shadowMap) {
   vec3 sheenColour = vec3(surface.sheenColour);
   float sheenRoughness = surface.sheenRoughness;
   float clearcoat = surface.clearcoat;

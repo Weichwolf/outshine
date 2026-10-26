@@ -1,5 +1,5 @@
 #include "MeshInput.h"
-#include "SubjectLightingUniform.h"
+#include "LightingUniform.h"
 #include "Vec4.h"
 #include "SurfaceBindings.h"
 #include "VertexUpload.h"

@@ -29,10 +29,12 @@
 #include "GeometryResidency.h"
 #include "GpuPlacement.h"
 #include "MaterialPacking.h"
-#include "SubjectTypes.h"
+#include "SceneLighting.h"
+#include "PieceMesh.h"
+#include "GroundTile.h"
 #include "ShadowCasterSelection.h"
 #include "CasterChanges.h"
-#include "SubjectLightingUniform.h"
+#include "LightingUniform.h"
 
 namespace outshine::Render {
 
@@ -304,7 +306,7 @@ private:
 
   struct FrameUniforms {
     std::array<float, kUniFloats> View{};
-    std::array<float, sizeof(SubjectLightingUniform) / sizeof(float)> Light{};
+    std::array<float, sizeof(LightingUniform) / sizeof(float)> Light{};
   };
 
   struct DrawResources {
@@ -359,11 +361,11 @@ private:
                                                     const DrawResources &resources);
 
 public:
-  [[nodiscard]] bool SetLights(std::span<const SubjectLight> lights, std::string &error);
+  [[nodiscard]] bool SetLights(std::span<const SceneLight> lights, std::string &error);
 
-  void SetEnvironment(const SubjectEnvironment &environment) { IndirectLight = environment; }
+  void SetEnvironment(const EnvironmentLighting &environment) { IndirectLight = environment; }
 
-  [[nodiscard]] const SubjectEnvironment &Environment() const { return IndirectLight; }
+  [[nodiscard]] const EnvironmentLighting &Environment() const { return IndirectLight; }
 
   struct Reflections {
     Native::Texture *Atlas = nullptr;
@@ -449,7 +451,7 @@ public:
   [[nodiscard]] uint32_t PipelineCount() const { return Binding().Built; }
 
 private:
-  static constexpr size_t kLightFloats = sizeof(SubjectLightingUniform) / sizeof(float);
+  static constexpr size_t kLightFloats = sizeof(LightingUniform) / sizeof(float);
 
   struct SurfaceSlot {
     GeometryResidency::BoundImage Colour;
@@ -530,8 +532,8 @@ public:
   [[nodiscard]] size_t UniformPushes() const { return UniformPushes_; }
 
 private:
-  std::vector<SubjectLight> Placed;
-  SubjectEnvironment IndirectLight;
+  std::vector<SceneLight> Placed;
+  EnvironmentLighting IndirectLight;
   Reflections Reflections_;
   Vec3 Anchor;
   Mat4 Model = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};

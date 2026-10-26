@@ -5,7 +5,7 @@
 #include "Lens.h"
 #include "Mat4.h"
 #include "SceneRenderer.h"
-#include "SubjectTypes.h"
+#include "MaterialBinding.h"
 #include "Viewing.h"
 #include <SDL3/SDL.h>
 #include <array>

@@ -1,3 +1,4 @@
+#include "LightingUniform.h"
 #include "terrain/TerrainResidency.h"
 #include "TerrainLattice.h"
 #include "test/harness/render/NativeTerrainRendererProbe.h"
@@ -87,7 +88,7 @@ int main() {
        .Depth = DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Load::Clear}}));
   TerrainViewUniform view;
   view.Current = frame.Mvp;
-  SubjectLightingUniform lighting{};
+  LightingUniform lighting{};
   lighting.Up = {{0, 0, 1, 0}};
   const auto material = PackMaterial(MaterialBinding{}, 1);
   const std::array bindings{

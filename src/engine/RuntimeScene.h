@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_RUNTIMESCENE_H
 #define OUTSHINE_ENGINE_RUNTIMESCENE_H
 
+#include "SceneLighting.h"
 #include <algorithm>
 #include <expected>
 #include <span>
@@ -277,7 +278,7 @@ public:
 
   [[nodiscard]] const Vec3 &GroundAlbedo() const noexcept { return GroundAlbedo_; }
 
-  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() const {
+  [[nodiscard]] const Render::EnvironmentLighting &AmbientStanding() const {
     return Stood_.IndirectLight();
   }
 
@@ -395,7 +396,7 @@ private:
 
   [[nodiscard]] Mat4 InMetres(const Mat4 &placed) const;
   void StandsEnvironment();
-  void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
+  void LightsFromTheSky(Render::EnvironmentLighting &environment) const;
   void EmitsPerPart();
   [[nodiscard]] bool StandsPlan(std::string &error);
   [[nodiscard]] bool InitializesFramePlan(std::string &error);

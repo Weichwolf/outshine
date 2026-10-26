@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "MeshInput.h"
 #include "SurfaceSession.h"
 #include <expected>
@@ -816,7 +817,7 @@ bool RuntimeScene::Look(std::string &error) {
 }
 
 void RuntimeScene::StandsEnvironment() {
-  Render::SubjectEnvironment environment;
+  Render::EnvironmentLighting environment;
   for (int channel = 0; channel < 3; ++channel) {
     environment.RadianceLinear[channel] = static_cast<float>(Declared_.IndirectLight[channel]);
     environment.GroundLinear[channel] = environment.RadianceLinear[channel];
@@ -841,7 +842,7 @@ void RuntimeScene::ReadIrradiance(std::span<const float, Render::kIrradianceFloa
   }
 }
 
-void RuntimeScene::LightsFromTheSky(Render::SubjectEnvironment &environment) const {
+void RuntimeScene::LightsFromTheSky(Render::EnvironmentLighting &environment) const {
   environment.SkyLux = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
   environment.CosSunZenith = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
   for (int channel = 0; channel < 3; ++channel) {

@@ -1,42 +1,17 @@
-#ifndef OUTSHINE_RENDER_STAGES_SUBJECTTYPES_H
-#define OUTSHINE_RENDER_STAGES_SUBJECTTYPES_H
+#ifndef OUTSHINE_RENDER_SCENE_PIECEMESH_H
+#define OUTSHINE_RENDER_SCENE_PIECEMESH_H
 
-#include <array>
-#include <cstdint>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
-#include "Mat4.h"
-#include "TerrainInstance.h"
-#include "ClusterDag.h"
-#include "StoredVertex.h"
 #include <span>
-
-#include "PunctualLight.h"
-#include "UvTransform.h"
-#include "../material/MaterialBinding.h"
-
-#include "DrawList.h"
-#include "Vec3.h"
+#include "Mat4.h"
+#include "StoredVertex.h"
+#include "ClusterDag.h"
 
 namespace outshine::Render {
-
-struct SubjectLight {
-  outshine::PunctualLight Light;
-  Vec3 PositionEcefM = {{0, 0, 0}};
-};
-
-struct SubjectEnvironment {
-  Vec3 RadianceLinear = {{0, 0, 0}};
-  Vec3 GroundLinear = {{0, 0, 0}};
-  Vec3 UpUnit = {{0, 1, 0}};
-
-  Vec3 GroundAlbedo;
-  double SkyLux = 0.0;
-  double CosSunZenith = 0.0;
-};
-
-constexpr size_t kMaxSubjectLights = 16;
 
 struct PieceSurface {
   enum class Source { Geometry, Registered };
@@ -80,15 +55,6 @@ inline constexpr auto kPieceUv1Error =
 
 using PieceId = uint32_t;
 inline constexpr PieceId kNoPiece = ~0u;
-
-struct GroundTile {
-  TerrainInstance Instance;
-  float LowM = 0.0f;
-  float HighM = 0.0f;
-};
-
-using PageId = uint32_t;
-inline constexpr PageId kNoPage = ~0u;
 
 }
 

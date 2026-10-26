@@ -38,10 +38,10 @@ def compile_shaders(output):
         "-DLIT_MAPPED=0",
         "-DLIT_TEXTURED=0",
         "-DLIT_KIND=0",
-        "-DSUBJECT_WRITES_VELOCITY=0",
-        "-DSUBJECT_BASE_LOCATION=0",
-        "-DSUBJECT_NORMAL_LOCATION=0",
-        "-DSUBJECT_IDENTITY_LOCATION=0",
+        "-DSURFACE_WRITES_VELOCITY=0",
+        "-DSURFACE_BASE_LOCATION=0",
+        "-DSURFACE_NORMAL_LOCATION=0",
+        "-DSURFACE_IDENTITY_LOCATION=0",
     ]
     for stage, source in (
         ("vert", ROOT / "src/render/shaders/litVertex.glsl"),

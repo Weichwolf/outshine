@@ -1,18 +1,18 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#define SUBJECT_BASE_LOCATION 0
+#define SURFACE_BASE_LOCATION 0
 #define LIT_TEXTURED 0
 #define LIT_MAPPED 0
 #define LIT_KIND 0
 #include "material.glsl"
-#include "subjectLights.glsl"
+#include "surfaceBindings.glsl"
 #include "brdfTables.glsl"
 const float kPi = acos(-1.0);
 #include "metalRoughBrdf.glsl"
 #include "sheenLobe.glsl"
 #include "iridescenceLobe.glsl"
 #include "microfacetEnergy.glsl"
-#include "subjectLighting.glsl"
+#include "surfaceLighting.glsl"
 layout(location = 0) in vec2 ndc;
 layout(location = 0) out vec4 colour;
 void main() {
