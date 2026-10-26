@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
@@ -93,10 +94,13 @@ void Replay(const std::filesystem::path &directory,
   SilentSink sink;
   Tasks compute(1);
   SurfacePreparation stack;
-  CHECK(stack.Open({.Shipped = "data",
-                    .Cache = (directory / "sources").string(),
-                    .AssetCache = (directory / "assets").string()},
+  Data::ProviderRegistry registry;
+  Generators::RegisterShippedProviders(registry);
+  CHECK(stack.Open({.BuiltinData = "data",
+                    .Sources = (directory / "sources").string(),
+                    .Assets = (directory / "assets").string()},
                    providers,
+                   registry,
                    eye,
                    wire,
                    compute,

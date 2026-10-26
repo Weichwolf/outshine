@@ -60,7 +60,7 @@ int main() {
     Receiver receiver;
     Engine engine = TestEngine::WithGpu({.Create = SubmissionFaultDevice::Create});
     engine.setInputHost(&receiver);
-    (void)engine.setRoots({.Shipped = "data"});
+    (void)engine.setRoots({.Shipped = "data", .Cache = {}, .AssetCache = {}});
     CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target ready");
     Scenario::Document document;
     document.Render.Declared = true;
@@ -73,7 +73,9 @@ int main() {
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
     document.Views.push_back(view);
     document.Surfaces.push_back({.Document = "<div data-action=\"old()\"></div>",
-                                 .Style = "div {width:64px;height:64px;background:red;}"});
+                                 .Style = "div {width:64px;height:64px;background:red;}",
+                                 .Programme = {},
+                                 .Where = {}});
     const bool ready = engine.declare(document) && engine.assemble() && engine.advance();
     CHECK(ready, "surface and explicit camera ready");
     if (ready) {

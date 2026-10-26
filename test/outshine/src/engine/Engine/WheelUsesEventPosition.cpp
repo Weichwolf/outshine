@@ -8,7 +8,7 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video starts for UI composition");
   {
     Engine engine;
-    (void)engine.setRoots({.Shipped = "data"});
+    (void)engine.setRoots({.Shipped = "data", .Cache = {}, .AssetCache = {}});
     CHECK(engine.setRenderTarget(Extent{128, 128}).has_value(), "offscreen target is configured");
     Scenario::Document scene;
     scene.WheelStepPx = 16;
@@ -16,6 +16,7 @@ int main() {
         {.Document = "<div id=\"scroll\"><div id=\"content\"></div></div>",
          .Style = "#scroll { width: 64px; height: 64px; overflow: scroll; }"
                   "#content { width: 32px; height: 128px; }",
+         .Programme = {},
          .Where = {.LeftFrac = 0.5, .TopFrac = 0.5, .WidthFrac = 0.5, .HeightFrac = 0.5}});
     const auto declared = engine.declare(scene);
     CHECK(declared.has_value(), declared ? "scroll surface declared" : declared.error().c_str());

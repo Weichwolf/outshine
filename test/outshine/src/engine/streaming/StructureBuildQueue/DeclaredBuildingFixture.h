@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #ifndef OUTSHINE_TEST_STRUCTUREBUILDQUEUE_DECLAREDBUILDINGFIXTURE_H
 #define OUTSHINE_TEST_STRUCTUREBUILDQUEUE_DECLAREDBUILDINGFIXTURE_H
 
@@ -44,8 +45,11 @@ inline bool OpenDeclaredBuilding(Ground::SurfacePreparation &stack,
                                                   .Coverage = {},
                                                   .PayloadSha256 = {},
                                                   .Schema = {}}};
-  CHECK(stack.Open({.Shipped = "data", .Cache = cache, .AssetCache = {}},
+  Data::ProviderRegistry registry;
+  Generators::RegisterShippedProviders(registry);
+  CHECK(stack.Open({.BuiltinData = "data", .Sources = cache, .Assets = {}},
                    providers,
+                   registry,
                    eye,
                    wire,
                    sourceCompute,

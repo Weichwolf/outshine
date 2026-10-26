@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "Digest.h"
@@ -63,8 +64,11 @@ int main() {
   Data::SourceProvider terrainProvider;
   terrainProvider.Kind = "terrain";
   const std::array providers{terrainProvider};
-  CHECK(stack.Open({.Shipped = "data", .Cache = cache.Path.string(), .AssetCache = {}},
+  Data::ProviderRegistry registry;
+  Generators::RegisterShippedProviders(registry);
+  CHECK(stack.Open({.BuiltinData = "data", .Sources = cache.Path.string(), .Assets = {}},
                    providers,
+                   registry,
                    eye,
                    wire,
                    sourceCompute,
