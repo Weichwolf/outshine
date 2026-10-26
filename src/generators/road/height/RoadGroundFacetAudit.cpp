@@ -57,6 +57,10 @@ std::expected<void, RoadGroundError> Contacts(std::span<const RoadGround::Facet>
 }
 }
 
+size_t RoadGround::FacetAuditBytes(size_t faces) noexcept {
+  return faces * (sizeof(Facet) + 3 * sizeof(Edge) + sizeof(uint8_t));
+}
+
 bool RoadGroundFacetAudit::NumericalQualityMet() const noexcept {
   return !Refinement.empty() && BadFaces == 0;
 }
@@ -70,7 +74,7 @@ AuditRoadGroundFacets(const RoadGroundField &source,
                       const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected(RoadGroundError::Canceled); }
   const size_t count = mesh.Faces.size();
-  const size_t bytesPerFace = sizeof(RoadGround::Facet) + 3 * sizeof(Edge) + sizeof(uint8_t);
+  const size_t bytesPerFace = RoadGround::FacetAuditBytes(1);
   if (count > std::min(budget.Faces, size_t{262144}) ||
       mesh.Points.size() > std::min(budget.Vertices, size_t{131072}) ||
       count > budget.ContainerBytes / bytesPerFace) {

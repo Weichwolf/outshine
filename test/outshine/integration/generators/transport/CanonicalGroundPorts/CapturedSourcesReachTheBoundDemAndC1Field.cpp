@@ -1,11 +1,13 @@
 #include "CanonicalGroundSourceFixture.h"
 #include "CanonicalGroundDemandFixture.h"
 #include "CanonicalGroundTerrainFixture.h"
+#include "CanonicalGroundMeshFixture.h"
 #include "Check.h"
 #include "GroundPortSources.h"
 #include "RoadGroundStrip.h"
 #include "RoadGroundAffine.h"
 #include "RoadGroundFacetAudit.h"
+#include "RoadGroundMesh.h"
 #include "RoadPortFieldFit.h"
 #include "RoadPortFieldQuery.h"
 #include "RoadPortFieldProgram.h"
@@ -19,6 +21,8 @@
 #include <cstdio>
 #include <format>
 #include <numeric>
+#include <optional>
+#include <utility>
 #include <ratio>
 #include <span>
 #include <string>
@@ -39,6 +43,7 @@ struct PortRecord {
 struct ComponentResult {
   std::vector<PortRecord> Ports;
   std::vector<double> Coefficients;
+  std::optional<RoadGroundMesh> Geometry;
 };
 
 template <class Range> std::string Array(const Range &values) {
@@ -242,11 +247,15 @@ ComponentResult CheckField(const CanonicalGroundFixture::Source &source,
   CHECK(heights.size() == (which == 0 ? 36 : 58),
         "the native fields retain exactly the same 94 original full-width DEM stencils");
   CheckCoarseFacets(*field, fitted->Field);
+  auto geometry =
+      CanonicalGroundFixture::CheckFiniteMesh(*field, fitted->Field, which, reverse, path);
+
   auto demands = CanonicalGroundFixture::Demands(source, source.Components[which]);
   if (reverse) { std::ranges::reverse(demands); }
   if (!reverse) { WriteFieldDiagnostics(*field, *fitted, which, path); }
   return {.Ports = Ports(*fitted, *field, demands, terrain, *chain),
-          .Coefficients = fitted->Solver.Values};
+          .Coefficients = fitted->Solver.Values,
+          .Geometry = std::move(geometry)};
 }
 
 void WriteDiagnostics(std::span<const PortRecord> ports, const char *path) {
@@ -299,6 +308,14 @@ int main(int argc, char **argv) {
       const auto forward =
           CheckField(*source, *sources, *terrain, which, false, argc > 1 ? argv[1] : nullptr);
       const auto backward = CheckField(*source, *sources, *terrain, which, true, nullptr);
+      CHECK(forward.Geometry && backward.Geometry &&
+                forward.Geometry->Surface.Points == backward.Geometry->Surface.Points &&
+                forward.Geometry->Surface.Faces == backward.Geometry->Surface.Faces &&
+                forward.Geometry->Surface.FaceParents == backward.Geometry->Surface.FaceParents &&
+                forward.Geometry->Surface.PointRemap == backward.Geometry->Surface.PointRemap &&
+                forward.Geometry->HeightsM == backward.Geometry->HeightsM,
+            "independent reversed source/core order and different admitted output capacities "
+            "produce exactly the same complete finite geometry");
       CHECK(
           forward.Ports.size() == (which == 0 ? 2 : 8) &&
               forward.Ports.size() == backward.Ports.size(),

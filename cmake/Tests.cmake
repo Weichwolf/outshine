@@ -73,6 +73,8 @@ foreach(source IN LISTS cases)
   if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
       OR name STREQUAL "outshine/src/generators/road/height/RoadGroundStrip/WholeWidthObservationsKeepTheOriginalFieldContracts"
       OR name STREQUAL "outshine/src/generators/road/height/RoadGroundFacetAudit/ContinuousFieldsStillNeedFiniteContactChecks"
+      OR name STREQUAL "outshine/src/generators/road/height/RoadGroundMesh/FiniteBandsPreserveTheirOriginalDomainAndWholePorts"
+      OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/CapturedSourcesReachTheBoundDemAndC1Field"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/UnqualifiedComponentsNeverBecomePartialHeightInputs"
       OR name STREQUAL "outshine/src/generators/road/height/RoadPortFieldQuery/PortsKeepTheirOwnFrameAndSourceOrientation"

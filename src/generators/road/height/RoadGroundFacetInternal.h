@@ -12,6 +12,8 @@ struct Facet {
   uint32_t Patch = 0;
 };
 
+[[nodiscard]] size_t FacetAuditBytes(size_t faces) noexcept;
+
 [[nodiscard]] std::expected<Facet, RoadGroundError> CheckFacet(const RoadPortFace &source,
                                                                const RoadPortField &field,
                                                                const PlanarFace &indices,
