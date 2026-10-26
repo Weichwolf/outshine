@@ -12,23 +12,23 @@ using namespace outshine::Test;
 
 void CheckRoad() {
   using namespace outshine::Generators::RoadProfiles;
-  std::array terms{SparseEntry<int>{0, 0, 1},
-                   SparseEntry<int>{1, 0, -1},
-                   SparseEntry<int>{2, 0, 1},
-                   SparseEntry<int>{2, 1, 1},
-                   SparseEntry<int>{3, 0, -1},
-                   SparseEntry<int>{3, 1, -1},
-                   SparseEntry<int>{4, 0, 1},
-                   SparseEntry<int>{4, 1, 2},
-                   SparseEntry<int>{4, 2, -1},
-                   SparseEntry<int>{5, 0, -1},
-                   SparseEntry<int>{5, 1, -2},
-                   SparseEntry<int>{5, 2, -1},
-                   SparseEntry<int>{6, 1, 1},
-                   SparseEntry<int>{7, 1, -1}};
+  std::array terms{SparseEntry<int>{.Row = 0, .Column = 0, .Value = 1},
+                   SparseEntry<int>{.Row = 1, .Column = 0, .Value = -1},
+                   SparseEntry<int>{.Row = 2, .Column = 0, .Value = 1},
+                   SparseEntry<int>{.Row = 2, .Column = 1, .Value = 1},
+                   SparseEntry<int>{.Row = 3, .Column = 0, .Value = -1},
+                   SparseEntry<int>{.Row = 3, .Column = 1, .Value = -1},
+                   SparseEntry<int>{.Row = 4, .Column = 0, .Value = 1},
+                   SparseEntry<int>{.Row = 4, .Column = 1, .Value = 2},
+                   SparseEntry<int>{.Row = 4, .Column = 2, .Value = -1},
+                   SparseEntry<int>{.Row = 5, .Column = 0, .Value = -1},
+                   SparseEntry<int>{.Row = 5, .Column = 1, .Value = -2},
+                   SparseEntry<int>{.Row = 5, .Column = 2, .Value = -1},
+                   SparseEntry<int>{.Row = 6, .Column = 1, .Value = 1},
+                   SparseEntry<int>{.Row = 7, .Column = 1, .Value = -1}};
   const HeightProgram program{.Conditions = SparseMatrix<int>::Assemble(8, 3, terms),
                               .Upper = {10, -10, 10.1, -10.1, 11, -11, .2, .2},
-                              .Variables = {{}, {}, {0, 2}},
+                              .Variables = {{}, {}, {.Minimum = 0, .Maximum = 2}},
                               .AdjustmentVariable = 2};
   const auto fit = FitHeights(program, {}, {});
   CHECK(fit.has_value(), "HiGHS solves the actual road programme beside OSQP");
