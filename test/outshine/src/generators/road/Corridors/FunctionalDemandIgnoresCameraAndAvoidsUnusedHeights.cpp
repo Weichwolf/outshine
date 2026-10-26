@@ -25,8 +25,7 @@ constexpr double kSouthLatitude = 48.9998;
 constexpr double kNorthLatitude = 49.0002;
 constexpr double kUnusedLongitude = 8.01;
 constexpr double kFocalPx = 800;
-constexpr LongitudeLatitude kOrigin{.LongitudeDeg = 8,
-                                    .LatitudeDeg = site.Standing.Anchor().LatitudeDeg};
+constexpr LongitudeLatitude kOrigin{.LongitudeDeg = 8, .LatitudeDeg = 49};
 
 class MeshObserver final : public RoadMesher {
 public:
@@ -96,7 +95,9 @@ void CheckContext(const Corridors &generator, const Corridors::Site &site) {
                                  .Vegetation = site.Vegetation,
                                  .Standing = changedFrame,
                                  .Draped = site.Draped,
-                                 .Classes = site.Classes};
+                                 .Classes = site.Classes,
+                                 .WaterUpM = {},
+                                 .CensusAt = {}};
   CHECK(!generator.AdvancePlan(**started, reframed, 1, 1),
         "a different geometry anchor cannot mix coordinate frames in an active plan");
   const std::array<uint32_t, 1> missing{static_cast<uint32_t>(site.Ways.Ways().size())};
@@ -106,8 +107,7 @@ void CheckContext(const Corridors &generator, const Corridors::Site &site) {
 
 int main() {
   using namespace outshine::Test;
-  constexpr LongitudeLatitude origin{.LongitudeDeg = 8,
-                                     .LatitudeDeg = site.Standing.Anchor().LatitudeDeg};
+  constexpr auto origin = kOrigin;
   Ground::GroundMaterials materials;
   Ground::VegetationTemplates recipes;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
@@ -145,6 +145,8 @@ int main() {
                              .Standing = frame,
                              .Draped = drape,
                              .Classes = classes,
+                             .WaterUpM = {},
+                             .CensusAt = {},
                              .EyeLatDeg = origin.LatitudeDeg,
                              .EyeLonDeg = origin.LongitudeDeg,
                              .Projection = {.FocalPx = kFocalPx}};
