@@ -140,7 +140,7 @@ int main() {
               point.Source.Id == 9 && point.PointIndex && point.RingCount == 0 &&
               !mixed->Buildings().back().PointIndex,
           "point identity and geometry kind remain distinct from area geometry");
-    CHECK(point.PointIndex && mixed->Points()[static_cast<size_type>(2 * *point.PointIndex] == 54.79 &&
+    CHECK(point.PointIndex && mixed->Points()[size_t{2} * *point.PointIndex] == 54.79 &&
               mixed->Points()[2 * *point.PointIndex + 1] == 9.43 &&
               mixed->Tags(point).size() == 3 && mixed->Heights(point).Levels &&
               **mixed->Heights(point).Levels == 1,

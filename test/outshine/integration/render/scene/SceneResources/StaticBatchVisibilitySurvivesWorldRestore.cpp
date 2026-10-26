@@ -1,3 +1,4 @@
+#include <cstddef>
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -63,7 +64,7 @@ int main() {
       if (!scene->Draw(error)) { return -1.0f; }
       renderer.WaitForGpu();
       if (renderer.ReadDepth(depth) != Render::ReadState::Ready ||
-          depth.size() != static_cast<size_type>(32u) * 32u) {
+          depth.size() != static_cast<size_t>(32u) * 32u) {
         return -1.0f;
       }
       return depth[16u * 32u + 16u];

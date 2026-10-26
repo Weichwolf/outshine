@@ -146,17 +146,18 @@ int main() {
   auto revision = provider;
   revision.Revision = "adaptive-capacity";
   CHECK(loader.RequestCells(
-            revision, roots, {.CellsMost = 3, .SnapshotBytesMost = static_cast<long>(1024 * 1024}, ".") &&
+            revision, roots, {.CellsMost = 3, .SnapshotBytesMost = size_t{1024} * 1024}, ".") &&
             Settled(loader) &&
             loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
             loader.Error().contains("cell budget") &&
             loader.CurrentCells().front().Snapshot == retained,
         "exhausting subdivision capacity preserves the previous world and reports failure");
   revision.Revision = "adaptive-depth";
-  CHECK(loader.RequestCells(revision,
-                            roots,
-                            {.CellsMost = 32, .SnapshotBytesMost = static_cast<long>(1024 * 1024, .LevelMost = 9},
-                            ".") &&
+  CHECK(loader.RequestCells(
+            revision,
+            roots,
+            {.CellsMost = 32, .SnapshotBytesMost = size_t{1024} * 1024, .LevelMost = 9},
+            ".") &&
             Settled(loader) &&
             loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
             loader.Error().contains("level budget"),

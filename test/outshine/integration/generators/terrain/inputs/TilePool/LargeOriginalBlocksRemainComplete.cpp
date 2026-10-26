@@ -115,10 +115,9 @@ int main() {
     std::optional<SourceFailure> failure;
     CHECK(Field(pool, at, field, failure) == TilePool::Reply::Ready && field && !failure,
           "terrain accepts a valid block larger than libtiff's individual reads");
-    CHECK(http.LargestRange() > static_cast<uint64_t>(1024u * 1024,
+    CHECK(http.LargestRange() > uint64_t{1024} * 1024,
           "acquisition batches the complete missing encoded block interval");
-    if (!field) {
-      continue; }
+    if (!field) { continue; }
     double largest = 0;
     for (uint32_t row = 0; row < field->Rows(); ++row) {
       for (uint32_t col = 0; col < field->Cols(); ++col) {

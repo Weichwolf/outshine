@@ -32,8 +32,9 @@ int main() {
   if (refined) {
     for (size_t child = 0; child < refined->size(); ++child) {
       const Sheet &selected = (*refined)[child];
-      CHECK(selected.Tile.Zoom == tile.Zoom + 1 && selected.Tile.X == static_cast<size_t>(tile.X * 2 + child % 2 &&
-                selected.Tile.Y == static_cast<size_t>(tile.Y * 2 + child / 2 && selected.Virtual &&
+      CHECK(selected.Tile.Zoom == tile.Zoom + 1 &&
+                selected.Tile.X == size_t{tile.X} * 2 + child % 2 &&
+                selected.Tile.Y == size_t{tile.Y} * 2 + child / 2 && selected.Virtual &&
                 selected.SourceZoom == tile.Zoom,
             "child identity and source ownership remain deterministic");
     }

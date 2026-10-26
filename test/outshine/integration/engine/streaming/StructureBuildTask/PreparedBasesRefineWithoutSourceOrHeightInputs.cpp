@@ -624,7 +624,7 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
         "native arrays cannot allocate beyond the supplied resident budget");
   auto truncated = *encoded;
   truncated.pop_back();
-  CHECK(!DecodePreparedStructureTile(truncated, static_cast<long>(1024 * 1024),
+  CHECK(!DecodePreparedStructureTile(truncated, size_t{1024} * 1024),
         "partial native building packages do not become ready products");
   (*restarted).reset();
   NativeCache(root);
