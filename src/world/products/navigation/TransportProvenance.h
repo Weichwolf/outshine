@@ -33,7 +33,7 @@ struct TransportSource {
 
 struct TransportSourceReference {
   uint32_t Source = 0;
-  // Input segment ordinal; native splits have their own edge ordinals.
+
   uint32_t SegmentOrdinal = 0;
   std::optional<uint64_t> ProviderElementId = std::nullopt;
   std::array<uint8_t, 32> Fragment{};
@@ -43,7 +43,7 @@ struct TransportPathSource {
   uint64_t PathId = 0;
   uint32_t FirstReference = 0;
   uint32_t ReferenceCount = 0;
-  // Overlap records a changed supplied value; neither bit means unknown.
+
   uint16_t SuppliedFields = 0;
   uint16_t DerivedFields = 0;
 };

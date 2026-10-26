@@ -69,7 +69,8 @@ int main() {
   const TransportEdge *rail = graph.FindEdge(forward(20));
   CHECK(road && bridge && ground && xyCrossing && tunnel && tunnelExit && rail,
         "source ways yield stable directed edge IDs");
-  if (!road || !bridge || !ground || !xyCrossing || !tunnel || !tunnelExit || !rail) {
+  if ((road == nullptr) || (bridge == nullptr) || (ground == nullptr) || (xyCrossing == nullptr) ||
+      (tunnel == nullptr) || (tunnelExit == nullptr) || (rail == nullptr)) {
     return Report();
   }
   CHECK(TransportTopology::CanContinue(*road, *bridge) &&
