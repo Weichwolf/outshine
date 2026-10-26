@@ -12,6 +12,13 @@
 #include <string>
 #include <vector>
 
+namespace {
+constexpr double kSunLux = 10000;
+constexpr double kSunElevationDeg = 45;
+constexpr double kNearM = 0.1;
+constexpr double kFarM = 100;
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Render;
@@ -36,8 +43,8 @@ int main() {
     declaration.Outputs = {"surface", "sceneLinear", "shadowAtlas"};
     declaration.DrawsSky = true;
     declaration.ShadowRadiusM = 8;
-    declaration.KeyLux = 10000;
-    declaration.KeyElevationDeg = 45;
+    declaration.KeyLux = kSunLux;
+    declaration.KeyElevationDeg = kSunElevationDeg;
     SceneRenderer renderer;
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
@@ -47,8 +54,8 @@ int main() {
       Viewpoint eye;
       eye.EyeM = {{0, 0, 5}};
       eye.YfovRad = 1;
-      eye.ZNearM = 0.1;
-      eye.ZFarM = 100;
+      eye.ZNearM = kNearM;
+      eye.ZFarM = kFarM;
       scene->Eye(eye);
       renderer.CastsBelow(kNoBatch);
       CHECK(scene->Draw(error), "the first world draws");

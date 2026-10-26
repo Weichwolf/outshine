@@ -1,4 +1,4 @@
-#include "SunShadowStage.h"
+#include "SunShadowPass.h"
 #include "StagePipelines.h"
 #include "SpirvFile.h"
 #include <array>
@@ -62,27 +62,27 @@ Pipeline(Native::Device &device, ShaderFiles files, uint32_t uv, Native::Cull cu
 }
 }
 
-Native::GraphicsPipeline *SunShadowStage::MaskedPipeline(VertexLayout layout) const {
+Native::GraphicsPipeline *SunShadowPass::MaskedPipeline(VertexLayout layout) const {
   const auto uv = static_cast<size_t>(CarriesUv(layout)) + static_cast<size_t>(CarriesUv1(layout));
   return Masked_[uv + (CarriesColour(layout) ? kMaskedUvLayouts : 0u)].get();
 }
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
-SunShadowStage::ConfigureTileClear(Native::Device &device) {
+SunShadowPass::ConfigureTileClear(Native::Device &device) {
   return CreateFullscreenPipeline(
       device, "depth.frag.spv", {}, Native::DepthTarget{.Test = false, .Write = true});
 }
 
 Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
-SunShadowStage::ConfigureDepthOnly(Native::Device &device) {
+SunShadowPass::ConfigureDepthOnly(Native::Device &device) {
   return Pipeline(device,
                   {.Vertex = "subjectDepth.vert.spv", .Fragment = "depth.frag.spv"},
                   0,
                   Native::Cull::Front);
 }
 
-Native::Result<SunShadowStage::MaskedPipelines>
-SunShadowStage::ConfigureMasked(Native::Device &device) {
+Native::Result<SunShadowPass::MaskedPipelines>
+SunShadowPass::ConfigureMasked(Native::Device &device) {
   MaskedPipelines pipelines;
   constexpr auto uvLayouts = static_cast<uint32_t>(kMaskedUvLayouts);
   for (uint32_t at = 0; at < pipelines.size(); ++at) {

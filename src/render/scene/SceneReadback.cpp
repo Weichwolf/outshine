@@ -151,13 +151,13 @@ ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
 }
 
 ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
-  if (!ActiveState().Ready || !ActiveFrame().ShadowAtlas ||
+  if (!ActiveState().Ready || ActiveFrame().Shadow.Atlas() == nullptr ||
       !ActiveFrame().Shadow.HasSubmittedData()) {
     return ReadState::Failed;
   }
   Readback read;
   if (read.FromTexture(Device_.get(),
-                       ActiveFrame().ShadowAtlas.get(),
+                       ActiveFrame().Shadow.Atlas(),
                        {.WidthPx = kShadowAtlasPx, .HeightPx = kShadowAtlasPx},
                        4u) != ReadState::Ready) {
     return ReadState::Failed;

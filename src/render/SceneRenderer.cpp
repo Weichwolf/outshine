@@ -469,7 +469,7 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
     counts.Textures += atmosphere.Textures;
     counts.Buffers += atmosphere.Buffers;
     counts.Samplers += atmosphere.Samplers;
-    for (const auto *texture : {frame.Offscreen.get(), frame.ShadowAtlas.get()}) {
+    for (const auto *texture : {frame.Offscreen.get(), frame.Shadow.Atlas()}) {
       if (texture != nullptr) { ++counts.Textures; }
     }
     for (const auto *buffer : {frame.Pyramid.get(), frame.GroundPyramid.get()}) {
@@ -489,7 +489,7 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::DepthPyramid: return static_cast<bool>(frame.Pyramid);
     case Resource::GroundPyramid: return static_cast<bool>(frame.GroundPyramid);
     case Resource::GroundSelection: return true;
-    case Resource::ShadowAtlas: return static_cast<bool>(frame.ShadowAtlas);
+    case Resource::ShadowAtlas: return frame.Shadow.Atlas() != nullptr;
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
     case Resource::VegetationTable:
@@ -530,7 +530,7 @@ SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t lin
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return nullptr;
-    case Resource::ShadowAtlas: return frame.ShadowAtlas.get();
+    case Resource::ShadowAtlas: return frame.Shadow.Atlas();
     case Resource::LinearSampler:
     case Resource::LutSampler:
     case Resource::AtmosphereUniform:
@@ -1201,7 +1201,7 @@ Native::Result<void> SceneRenderer::EncodeLightVisibility(const FrameContext &ct
   if (!encoded) { return encoded; }
   Spent_[static_cast<size_t>(Stage::LightVisibility)].DeviceBytes =
       static_cast<uint64_t>(kShadowAtlasPx) * kShadowAtlasPx * sizeof(float);
-  ActiveState().Content.Geometry.ShadowedBy(ActiveFrame().ShadowAtlas.get(),
+  ActiveState().Content.Geometry.ShadowedBy(ActiveFrame().Shadow.Atlas(),
                                             ActiveFrame().Atmosphere.Sampler(),
                                             ActiveState().ShadowLightIndex,
                                             ActiveFrame().Shadow.LightFromWorld(),
