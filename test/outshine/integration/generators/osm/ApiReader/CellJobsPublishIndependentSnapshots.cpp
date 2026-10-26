@@ -8,12 +8,15 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <span>
 #include <stop_token>
 #include <string>
 #include <system_error>
+#include <vector>
 
 using outshine::GeoCellId;
 
@@ -35,7 +38,7 @@ public:
   std::stop_source *Stop = nullptr;
   std::map<outshine::Data::Ticket, double> Active;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     const auto ticket = static_cast<outshine::Data::Ticket>(++Starts);
     Active.emplace(ticket, ClockMs + (Starts % 2 == 0 ? 5 : 10));
     Peak = std::max(Peak, Active.size());
@@ -59,7 +62,7 @@ public:
 
   bool Await(double ms) override {
     ClockMs += ms;
-    if (Stop) { (void)Stop->request_stop(); }
+    if (Stop != nullptr) { (void)Stop->request_stop(); }
     return false;
   }
 };
@@ -107,8 +110,11 @@ int main() {
                                 .Revision = "cell-job-source",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint =
-                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = {},
+                                .PayloadSha256 = {},
+                                .Schema = {}};
   const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;
@@ -127,7 +133,7 @@ int main() {
   CHECK(warm && warm->Chunks.size() == 2, "received cell bytes reload offline");
   if (warm && warm->Chunks.size() == 2) { CheckSnapshots(*warm, cells, true); }
 
-  RawSourceCache uncached({.Using = RawSourceCache::Use::Off});
+  RawSourceCache uncached({.Directory = {}, .Using = RawSourceCache::Use::Off});
   const std::array excessive{cells[0], cells[1], GeoCellId{.Level = 9, .X = 271, .Y = 411}};
   const std::array duplicate{cells[0], cells[0]};
   const std::array invalid{cells[0], GeoCellId{.Level = 8}};

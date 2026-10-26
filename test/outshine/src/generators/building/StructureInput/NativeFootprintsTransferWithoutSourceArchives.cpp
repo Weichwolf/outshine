@@ -49,7 +49,11 @@ int main() {
   glazed.LatLon = {0, 0, 0, 0.001, 0.001, 0.001, 0.001, 0};
   glazed.Structures.push_back({.First = 0,
                                .Count = 4,
-                               .Height = {.TopM = 8},
+                               .Height = {.TopM = 8,
+                                          .MinimumM = {},
+                                          .TopOrigin = {},
+                                          .MinimumOrigin = {},
+                                          .ConflictingLevels = {}},
                                .Source = {},
                                .Openings = outshine::Ground::StructureOpenings::Glazed});
   const auto glassInput = outshine::Generators::StructureInput(std::move(glazed));

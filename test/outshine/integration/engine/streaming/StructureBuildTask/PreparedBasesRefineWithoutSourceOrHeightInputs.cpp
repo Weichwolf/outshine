@@ -1,3 +1,5 @@
+#include <span>
+#include <string_view>
 #include "PreparedStructureTile.h"
 #include "PreparedBuildingAssets.h"
 #include "RawSourceCache.h"
@@ -19,11 +21,13 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <filesystem>
 #include <chrono>
 #include <string>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 #include <variant>
 #include <sqlite3.h>
@@ -87,7 +91,7 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   CHECK(database && (*database)->Remove(key), "fixture removes the complete plan product");
   if (!database) { return; }
   const auto before = cache->Costs();
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   Tasks pool(1);
   StructureBuildTask task(0,
                           *basis,
@@ -97,10 +101,10 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   task.UseNativeAssets(cache, key);
   task.Start(pool, mesher);
   task.Join(pool);
-  CHECK(task.Result().Status && task.Result().Tile && task.Result().CacheHit &&
-            task.Result().Tile->Digest == reference.Digest &&
-            task.Result().Tile->Prints == reference.Prints &&
-            std::ranges::equal(task.Result().Tile->Coordinates->Points(), (*basis)->PointsLatLon) &&
+  const auto &loaded = task.Result();
+  CHECK(loaded.Status && loaded.Tile && loaded.CacheHit &&
+            loaded.Tile->Digest == reference.Digest && loaded.Tile->Prints == reference.Prints &&
+            std::ranges::equal(loaded.Tile->Coordinates->Points(), (*basis)->PointsLatLon) &&
             task.PreparedBase() == nullptr && cache->Costs().ReadBytes == before.ReadBytes,
         "a cached LOD and its owned contacts load with no full plan product or source inputs");
   RawTile moved = view;
@@ -113,8 +117,9 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   replay.UseNativeAssets(cache, key);
   replay.Start(pool, mesher);
   replay.Join(pool);
-  CHECK(replay.Result().Status && replay.Result().Tile && replay.Result().CacheHit &&
-            replay.Result().Tile->Digest == reference.Digest && replay.PreparedBase() == nullptr &&
+  const auto &reloaded = replay.Result();
+  CHECK(reloaded.Status && reloaded.Tile && reloaded.CacheHit &&
+            reloaded.Tile->Digest == reference.Digest && replay.PreparedBase() == nullptr &&
             cache->Costs().ReadBytes == before.ReadBytes,
         "moved camera loads an existing intrinsic LOD without reopening plans or source inputs");
   moved.ClusterTriangles = 64;
@@ -139,11 +144,48 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
         "the same miss can regenerate complete inputs and restore native delivery");
 }
 
+std::optional<Vec3> FarthestPoint(const Vec3 &anchor, const Raised &mesh) {
+  std::optional<Vec3> remotePoint;
+  double most = -1;
+  const auto farthest = [&](const auto &vertices) {
+    for (const auto &vertex : vertices) {
+      const Vec3 local{{vertex.pos[0], vertex.pos[1], vertex.pos[2]}};
+      if (Dot(local, local) > most) {
+        most = Dot(local, local);
+        remotePoint = anchor + local;
+      }
+    }
+  };
+  farthest(mesh.WallCorners);
+  farthest(mesh.RoofCorners);
+  return remotePoint;
+}
+
+void CheckStoredLod(PreparedBuildingAssets &cache,
+                    const std::string &key,
+                    const PreparedStructureTile &base,
+                    const RawTile &view,
+                    std::string_view identity,
+                    std::span<const uint8_t> expected,
+                    uint64_t writes) {
+  const auto loaded = cache.LoadGeometry(key, base, view);
+  const auto bytes = loaded && *loaded
+                         ? EncodeStructureArtifact(**loaded, identity)
+                         : std::expected<std::vector<uint8_t>, StructureArtifactError>(
+                               std::unexpected(StructureArtifactError::InvalidProduct));
+  CHECK(bytes && std::ranges::equal(*bytes, expected) && cache.Costs().GeometryWrites == writes + 1,
+        "another camera loads the exact intrinsic LOD without another product write");
+  auto layout = view;
+  layout.ClusterTriangles = 64;
+  const auto distinct = cache.LoadGeometry(key, base, layout);
+  CHECK(distinct && !*distinct, "cluster layout remains a distinct prepared product");
+}
+
 void IntrinsicLODs(const std::filesystem::path &root,
                    PreparedBuildingAssets &cache,
                    const std::string &key,
                    const PreparedStructureTile &base) {
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   std::optional<Vec3> remotePoint;
   for (const bool cell : {false, true}) {
@@ -167,18 +209,7 @@ void IntrinsicLODs(const std::filesystem::path &root,
       CHECK(original && remote, "each explicit whole/cell LOD is constructible at both views");
       if (!original || !remote) { continue; }
       if (!cell && detail == LevelOfDetail::Fine) {
-        double most = -1;
-        const auto farthest = [&](const auto &vertices) {
-          for (const auto &vertex : vertices) {
-            const Vec3 local{{vertex.pos[0], vertex.pos[1], vertex.pos[2]}};
-            if (Dot(local, local) > most) {
-              most = Dot(local, local);
-              remotePoint = base.AnchorEcef + local;
-            }
-          }
-        };
-        farthest(original->Built.WallCorners);
-        farthest(original->Built.RoofCorners);
+        remotePoint = FarthestPoint(base.AnchorEcef, original->Built);
       }
       const std::string identity(64, 'a');
       const auto a = EncodeStructureArtifact(*original, identity);
@@ -188,16 +219,7 @@ void IntrinsicLODs(const std::filesystem::path &root,
       const auto writes = cache.Costs().GeometryWrites;
       CHECK(cache.StoreGeometry(key, base, near, *original).has_value(),
             "one intrinsic LOD is published for its source, cell and layout");
-      const auto loaded = cache.LoadGeometry(key, base, far);
-      const auto bytes = loaded && *loaded
-                             ? EncodeStructureArtifact(**loaded, identity)
-                             : decltype(a)(std::unexpected(StructureArtifactError::InvalidProduct));
-      CHECK(bytes && a && *bytes == *a && cache.Costs().GeometryWrites == writes + 1,
-            "another camera loads the exact intrinsic LOD without another product write");
-      auto layout = far;
-      layout.ClusterTriangles = 64;
-      const auto distinct = cache.LoadGeometry(key, base, layout);
-      CHECK(distinct && !*distinct, "cluster layout remains a distinct prepared product");
+      if (a) { CheckStoredLod(cache, key, base, far, identity, *a, writes); }
     }
   }
   auto index = AssetCache::Open((root / "assets.sqlite").string());
@@ -225,7 +247,7 @@ void IntrinsicLODs(const std::filesystem::path &root,
 
 void NativeCache(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   const auto directory = root.string();
   auto opened = PreparedBuildingAssets::Open(directory, sources);
   CHECK(opened.has_value(), "native building service opens the shared spatial cache");
@@ -240,7 +262,7 @@ void NativeCache(const std::filesystem::path &root) {
   const auto generated = (*opened)->Generate(key, Inputs(), *Heights(), stopping, request);
   CHECK(generated && *generated && (*generated)->Structures.size() == 3,
         "cache miss publishes and reloads complete intrinsic building assets");
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   RawTile view;
   view.RequestedDetail = LevelOfDetail::Shell;
@@ -298,7 +320,7 @@ void NativeCache(const std::filesystem::path &root) {
 
 void RequestMigration(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "request migration opens");
   if (!cache) { return; }
@@ -375,9 +397,61 @@ void RequestMigration(const std::filesystem::path &root) {
         "invalidated basis cannot leave a false native request hit");
 }
 
+bool CheckResidentMetadata(PreparedBuildingAssets &cache,
+                           const std::filesystem::path &root,
+                           const std::string &request,
+                           const std::weak_ptr<const PreparedBuildingBasis> &weak) {
+  const auto original = weak.lock();
+  CHECK(original, "live geometry still owns the basis during metadata replacement");
+  if (!original) { return false; }
+  const auto *identity = original.get();
+  auto records = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(records.has_value(), "resident fixture opens current request metadata");
+  if (!records) { return false; }
+  const auto record = (*records)->FindRequest(request);
+  CHECK(record && *record, "live basis has a current native asset record");
+  if (!record || !*record) { return false; }
+  const auto payload = (*records)->Load((**record).Key, size_t{64} * 1024 * 1024);
+  CHECK(payload && *payload, "resident metadata fixture retains the original native packet");
+  if (!payload || !*payload) { return false; }
+  auto corrupt = **record;
+  corrupt.Kind = "wrong-native-kind";
+  CHECK((*records)->Publish(std::span(&corrupt, 1), (**payload).Bytes()).has_value(),
+        "resident fixture changes only current metadata");
+  const auto rejected = cache.LoadBasisRequest(request);
+  CHECK(rejected && !*rejected && !weak.expired(),
+        "a live old product cannot mask the wrong current record kind");
+  CHECK((*records)->Publish(std::span(&**record, 1), (**payload).Bytes()).has_value(),
+        "resident fixture restores the original verified record");
+  {
+    const auto restored = cache.LoadBasisRequest(request);
+    CHECK(restored && *restored && (**restored).Product.get() == identity,
+          "restored identical metadata permits the still-live verified product");
+  }
+  auto changed = *original;
+  changed.HeightRasterDigest = changed.HeightRasterDigest == 1 ? 2 : 1;
+  const auto changedBytes = EncodePreparedBuildingBasis(changed);
+  CHECK(changedBytes.has_value(), "replacement packet retains the native basis contract");
+  if (!changedBytes) { return false; }
+  auto changedRecord = **record;
+  changedRecord.Package.clear();
+  changedRecord.ByteCount = changedBytes->size();
+  CHECK((*records)->Publish(std::span(&changedRecord, 1), *changedBytes).has_value(),
+        "a repaired packet replaces the same indexed product identity");
+  {
+    const auto repaired = cache.LoadBasisRequest(request);
+    CHECK(repaired && *repaired && (**repaired).Product.get() != identity &&
+              (**repaired).Product->HeightRasterDigest == changed.HeightRasterDigest,
+          "a changed package cannot reuse a live previous packet under the same asset key");
+  }
+  CHECK((*records)->Publish(std::span(&**record, 1), (**payload).Bytes()).has_value(),
+        "the fixture restores original bytes before explicit invalidation");
+  return true;
+}
+
 void ResidentRequests(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "resident basis fixture opens");
   if (!cache) { return; }
@@ -389,7 +463,7 @@ void ResidentRequests(const std::filesystem::path &root) {
   const auto generated = (*cache)->Generate(key, Inputs(), *Heights(), stopping, request);
   CHECK(generated && *generated, "resident fixture publishes real complete building inputs");
   if (!generated || !*generated) { return; }
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   RawTile view;
   view.RequestedDetail = LevelOfDetail::Shell;
@@ -423,47 +497,7 @@ void ResidentRequests(const std::filesystem::path &root) {
             reused.BasisHits == before.BasisHits &&
             reused.BasisReadBytes == before.BasisReadBytes && reused.ReadBytes == before.ReadBytes,
         "resident reuse performs no native payload or complete-plan reads");
-  auto records = AssetCache::Open((root / "assets.sqlite").string());
-  CHECK(records.has_value(), "resident fixture opens current request metadata");
-  if (!records) { return; }
-  const auto record = (*records)->FindRequest(request);
-  CHECK(record && *record, "live basis has a current native asset record");
-  if (!record || !*record) { return; }
-  const auto payload = (*records)->Load((**record).Key, size_t{64} * 1024 * 1024);
-  CHECK(payload && *payload, "resident metadata fixture retains the original native packet");
-  if (!payload || !*payload) { return; }
-  auto corrupt = **record;
-  corrupt.Kind = "wrong-native-kind";
-  CHECK((*records)->Publish(std::span(&corrupt, 1), (**payload).Bytes()).has_value(),
-        "resident fixture changes only current metadata");
-  const auto rejected = (*cache)->LoadBasisRequest(request);
-  CHECK(rejected && !*rejected && !weak.expired(),
-        "a live old product cannot mask the wrong current record kind");
-  CHECK((*records)->Publish(std::span(&**record, 1), (**payload).Bytes()).has_value(),
-        "resident fixture restores the original verified record");
-  {
-    const auto restored = (*cache)->LoadBasisRequest(request);
-    CHECK(restored && *restored && (**restored).Product.get() == identity,
-          "restored identical metadata permits the still-live verified product");
-  }
-  auto changed = *weak.lock();
-  changed.HeightRasterDigest = changed.HeightRasterDigest == 1 ? 2 : 1;
-  const auto changedBytes = EncodePreparedBuildingBasis(changed);
-  CHECK(changedBytes.has_value(), "replacement packet retains the native basis contract");
-  if (!changedBytes) { return; }
-  auto changedRecord = **record;
-  changedRecord.Package.clear();
-  changedRecord.ByteCount = changedBytes->size();
-  CHECK((*records)->Publish(std::span(&changedRecord, 1), *changedBytes).has_value(),
-        "a repaired packet replaces the same indexed product identity");
-  {
-    const auto repaired = (*cache)->LoadBasisRequest(request);
-    CHECK(repaired && *repaired && (**repaired).Product.get() != identity &&
-              (**repaired).Product->HeightRasterDigest == changed.HeightRasterDigest,
-          "a changed package cannot reuse a live previous packet under the same asset key");
-  }
-  CHECK((*records)->Publish(std::span(&**record, 1), (**payload).Bytes()).has_value(),
-        "the fixture restores original bytes before explicit invalidation");
+  if (!CheckResidentMetadata(**cache, root, request, weak)) { return; }
   CHECK((*cache)->InvalidateBasis(key).has_value(), "explicit native invalidation succeeds");
   const auto invalidated = (*cache)->LoadBasisRequest(request);
   CHECK(invalidated && !*invalidated && !weak.expired(),
@@ -490,7 +524,7 @@ void ResidentRequests(const std::filesystem::path &root) {
 
 void ResidentRequestLimit(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "bounded resident fixture opens");
   if (!cache) { return; }
@@ -603,7 +637,7 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
   });
   CHECK(hit && generated == 1, "native package hits bypass the unavailable generator and provider");
   if (!hit) { return std::nullopt; }
-  const auto decoded = DecodePreparedStructureTile(hit->Bytes(), 1024 * 1024);
+  auto decoded = DecodePreparedStructureTile(hit->Bytes(), static_cast<long>(1024) * 1024);
   CHECK(decoded.has_value(), "held cache bytes reconstruct complete source-independent shapes");
   if (!decoded) { return std::nullopt; }
   CHECK(decoded->HeightSources == base.HeightSources &&
@@ -622,7 +656,7 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
         "native arrays cannot allocate beyond the supplied resident budget");
   auto truncated = *encoded;
   truncated.pop_back();
-  CHECK(!DecodePreparedStructureTile(truncated, 1024 * 1024),
+  CHECK(!DecodePreparedStructureTile(truncated, size_t{1024} * 1024),
         "partial native building packages do not become ready products");
   (*restarted).reset();
   NativeCache(root);
@@ -670,7 +704,8 @@ void WorkerBake(const PreparedStructureTile &base,
     task.RequestStop();
     task.Join(worker);
   }
-  CHECK(task.Result().Status && task.Result().Tile && task.Result().Tile->Digest == reference,
+  const auto &completed = task.Result();
+  CHECK(completed.Status && completed.Tile && completed.Tile->Digest == reference,
         "source-free worker delivers the same geometry from a held native cache basis");
   CHECK(base.Structures.size() <=
                 StructureBuildTask::StructuresPerRange * StructureBuildTask::RangesPerTask ||
@@ -731,11 +766,11 @@ void UnsupportedMass() {
   const auto encoded = EncodePreparedStructureTile(*base);
   CHECK(encoded.has_value(), "unsupported intrinsic result is a complete cacheable base state");
   if (!encoded) { return; }
-  const auto restored = DecodePreparedStructureTile(*encoded, 1024 * 1024);
+  const auto restored = DecodePreparedStructureTile(*encoded, static_cast<long>(1024) * 1024);
   CHECK(restored && restored->Surfaces.front().Shapes().empty(),
         "restart retains the unsupported mass without replanning it");
   if (!restored) { return; }
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BakedTile reference;
   const auto original = BakeStructures(raw, *heights, mesher, *scratch, reference);
@@ -765,7 +800,7 @@ int main() {
         "unknown height and road frontage are fully enriched before runtime selection");
   CHECK(base->Structures[2].Standing.MinimumHeightM == 3.0f,
         "prepared raised parts retain their clearance");
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   std::vector<RawTile> views;
   std::vector<BakedTile> references;
   for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
@@ -806,7 +841,7 @@ int main() {
               std::ranges::equal(built->Coordinates->Points(), decoded->PointsLatLon),
           "runtime native footprints carry their own geometry rather than source-cache views");
   }
-  std::atomic_bool stopping{true};
+  const std::atomic_bool stopping{true};
   auto scratch = mesher.Scratch();
   const auto cancelled = BakePreparedStructures(*base, views[0], mesher, *scratch, &stopping);
   CHECK(!cancelled && cancelled.error() == StructureBakeError(StructureBakeErrorKind::Cancelled),

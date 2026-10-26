@@ -16,7 +16,7 @@ int main() {
     body.Placed = true;
     body.MassKg = 1;
     scene.Bodies.push_back(body);
-    scene.Events.push_back({.Name = "expected-position"});
+    scene.Events.push_back({.Name = "expected-position", .Carries = {}});
     for (const int step : {1, 2, 3}) {
       Scenario::Volume volume;
       volume.Id = "step-" + std::to_string(step);

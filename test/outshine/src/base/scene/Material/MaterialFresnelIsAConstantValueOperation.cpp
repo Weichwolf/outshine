@@ -9,7 +9,19 @@ constexpr bool UnboundIndex() {
 }
 
 static_assert(UnboundIndex());
-constexpr outshine::Material disabled{.Ior = 0};
+constexpr outshine::Material disabled{.DiffuseTransmission = {},
+                                      .Ior = 0,
+                                      .Emission = {},
+                                      .SheenColour = {},
+                                      .BaseColourMap = {},
+                                      .NormalMap = {},
+                                      .MetalRoughMap = {},
+                                      .EmissiveMap = {},
+                                      .OcclusionMap = {},
+                                      .SpecularStrengthMap = {},
+                                      .SpecularTintMap = {},
+                                      .DiffuseReflectionMap = {},
+                                      .DiffuseTransmissionMap = {}};
 static_assert(outshine::DielectricF90(disabled) == 0);
 static_assert(noexcept(outshine::DielectricF90(disabled)));
 
@@ -26,7 +38,7 @@ static_assert(reflectance[0] > 0.03999f && reflectance[0] < 0.04001f);
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  for (float channel : reflectance) {
+  for (const float channel : reflectance) {
     CHECK(std::abs(channel - 0.04f) < 1e-7f, "IOR 1.5 gives four percent normal reflectance");
   }
   Vec3f result{{1, 2, 3}};

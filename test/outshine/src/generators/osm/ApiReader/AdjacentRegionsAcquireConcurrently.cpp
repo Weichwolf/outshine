@@ -6,13 +6,15 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <stop_token>
 #include <string>
 #include <system_error>
+#include <vector>
 
-using outshine::GeoCellId;
 using outshine::GeographicBounds;
 
 namespace {
@@ -28,7 +30,7 @@ public:
   bool Stall = false, Refuse = false;
   std::map<outshine::Data::Ticket, double> Active;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     const auto ticket = static_cast<outshine::Data::Ticket>(++Starts);
     Active.emplace(ticket, ClockMs + (Starts % 2 == 0 ? 5 : 10));
     Peak = std::max(Peak, Active.size());
@@ -70,12 +72,14 @@ int main() {
                      .Priority = static_cast<int>(at),
                      .Missing = MissingDataPolicy::Fail,
                      .Dataset = "openstreetmap.original",
+                     .Location = {},
                      .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
                      .Coverage = GeographicBounds{.WestDeg = static_cast<double>(at) * 0.01,
                                                   .SouthDeg = 0,
                                                   .EastDeg = static_cast<double>(at + 1) * 0.01,
                                                   .NorthDeg = 0.01},
-                     .PayloadSha256 = outshine::Sha256Hex(Xml(at + 1))};
+                     .PayloadSha256 = outshine::Sha256Hex(Xml(at + 1)),
+                     .Schema = {}};
   }
   RawSourceCache store({.Directory = directory});
   ApiWire wire;
@@ -103,7 +107,7 @@ int main() {
             std::ranges::all_of(warm->Chunks, [](const auto &chunk) { return chunk.FromStore; }),
         "all regions reload offline from original-response bytes");
 
-  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
+  RawSourceCache noCache({.Directory = {}, .Using = RawSourceCache::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
   CHECK(!outshine::Generators::Osm::ReadRegions(providers, noCache, stalled, 7, {}) &&

@@ -7,7 +7,16 @@ int main() {
   using namespace outshine::Test;
   Engine engine;
   Scenario::Document space;
-  space.Views.push_back({.Id = "space", .Placement = Scenario::CameraPlacement::Local});
+  space.Views.push_back({.Id = "space",
+                         .Sees = {},
+                         .Placement = Scenario::CameraPlacement::Local,
+                         .Geographic = {},
+                         .Route = {},
+                         .Viewport = {},
+                         .In = {},
+                         .Follows = {},
+                         .Person = {},
+                         .OffsetM = {}});
   CHECK(engine.declare(space), "a groundless scenario is valid");
   const auto *views = engine.declaration().Views.data();
   for (const double bad :

@@ -8,14 +8,27 @@ int main() {
   using namespace outshine::Generators;
   using namespace outshine::Test;
   using Field = FeatureField;
-  const std::array<Field::Vertex, 8> vertices{
-      {{0, 0}, {10, 0}, {10, 10}, {0, 10}, {2, 2}, {8, 2}, {8, 8}, {2, 8}}};
-  const std::array<Field::Ring, 2> rings{{{0, 4}, {4, 4}}};
+  const std::array<Field::Vertex, 8> vertices{{{.Em = 0, .Nm = 0},
+                                               {.Em = 10, .Nm = 0},
+                                               {.Em = 10, .Nm = 10},
+                                               {.Em = 0, .Nm = 10},
+                                               {.Em = 2, .Nm = 2},
+                                               {.Em = 8, .Nm = 2},
+                                               {.Em = 8, .Nm = 8},
+                                               {.Em = 2, .Nm = 8}}};
+  const std::array<Field::Ring, 2> rings{{{.First = 0, .Count = 4}, {.First = 4, .Count = 4}}};
   const std::array<Field::Feature, 1> features{{{.FirstRing = 0,
                                                  .RingCount = 2,
                                                  .CoverRow = 0,
                                                  .Kind = FeatureKind::Structure,
-                                                 .Form = FeatureForm::Area}}};
+                                                 .Form = FeatureForm::Area,
+                                                 .HalfWidthM = {},
+                                                 .Base = {},
+                                                 .Top = {},
+                                                 .MinEm = {},
+                                                 .MinNm = {},
+                                                 .MaxEm = {},
+                                                 .MaxNm = {}}}};
   const auto field = Field::Of(features, rings, vertices);
   CHECK(field != nullptr, "a courtyard supplies valid occupied rings");
   if (!field) { return Report(); }
@@ -40,7 +53,7 @@ int main() {
   ribbon[0].Form = FeatureForm::Ribbon;
   ribbon[0].RingCount = 1;
   ribbon[0].HalfWidthM = 1;
-  const std::array<Field::Ring, 1> line{{{0, 2}}};
+  const std::array<Field::Ring, 1> line{{{.First = 0, .Count = 2}}};
   const auto road = Field::Of(ribbon, line, vertices);
   CHECK(road != nullptr, "a ribbon supplies a valid segment");
   if (road) {

@@ -1,6 +1,9 @@
 #include "TilePool.h"
 #include "Check.h"
 #include "TerrainDelivery.h"
+#include <cstdint>
+#include <utility>
+#include <vector>
 
 int main() {
   using namespace outshine;
@@ -13,7 +16,9 @@ int main() {
                             .SourceId = "ancestor-provider",
                             .SourceRevision = "actual-revision",
                             .SourceKey = "actual-owned-source-key",
-                            .At = Data::Address::At(ancestor)};
+                            .At = Data::Address::At(ancestor),
+                            .Failure = {},
+                            .TerrainStamp = {}};
   const auto *allocation = landing.Bytes.data();
   auto delivered = FromTerrainDelivery(request, std::move(landing));
   CHECK(delivered.Where() == TerrainBytes::State::Delivered && !delivered.Failure(),

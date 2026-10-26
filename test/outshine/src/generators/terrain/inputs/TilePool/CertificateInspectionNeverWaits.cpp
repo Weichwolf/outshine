@@ -6,6 +6,8 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <utility>
 #include <chrono>
 #include <cstdlib>
@@ -36,27 +38,37 @@ thread_local size_t allocations = 0;
 
 class NoNetwork final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class Provider final : public Source {
 public:
-  SourceDecl Decl{.Id = "inspection-dem", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "inspection-dem",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   std::atomic<uint8_t> Content{7};
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     return SourceResponse::Delivered({42, Content.load()});
   }
 };
@@ -71,22 +83,50 @@ Inspection Inspect(const TilePool &pool, const TerrainCertificate &certificate) 
   measureAllocations = true;
   const auto state = pool.InspectCertificate(certificate);
   measureAllocations = false;
-  return {state, allocations};
-}
+  return {.State = state, .Allocations = allocations};
 }
 
-void *operator new(size_t bytes) {
+void CheckContendedInspection(TilePool &pool, const TerrainCertificate &certificate) {
+  using namespace outshine::Test;
+  for (std::mutex *mutex : TerrainInspectionTestPeer::Mutexes(pool)) {
+    std::latch held(1);
+    std::latch release(1);
+    std::thread writer([&] {
+      const std::scoped_lock lock(*mutex);
+      held.count_down();
+      release.wait();
+    });
+    held.wait();
+    std::promise<Inspection> completion;
+    auto result = completion.get_future();
+    std::thread reader([&] { completion.set_value(Inspect(pool, certificate)); });
+    const bool beforeRelease =
+        result.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+    release.count_down();
+    writer.join();
+    reader.join();
+    const auto inspected = result.get();
+    CHECK(beforeRelease && inspected.State == Validation::Pending && inspected.Allocations == 0,
+          "inspection reports Pending before the held queue/cache/index writer releases");
+    CHECK(pool.InspectCertificate(certificate) == Validation::Current,
+          "same certificate becomes current after contention without source changes");
+  }
+}
+
+}
+
+void *operator new(size_t sz) {
   if (measureAllocations) { ++allocations; }
-  if (void *memory = std::malloc(bytes == 0 ? 1 : bytes)) { return memory; }
+  if (void *memory = std::malloc(sz == 0 ? 1 : sz)) { return memory; }
   std::abort();
 }
 
-void operator delete(void *memory) noexcept {
-  std::free(memory);
+void operator delete(void *p) noexcept {
+  std::free(p);
 }
 
-void operator delete(void *memory, size_t) noexcept {
-  std::free(memory);
+void operator delete(void *p, size_t /*unused*/) noexcept {
+  std::free(p);
 }
 
 int main() {
@@ -94,14 +134,18 @@ int main() {
   const Data::TileId a{.Zoom = 2, .X = 0, .Y = 1};
   const Data::TileId b{.Zoom = 2, .X = 1, .Y = 1};
   const Data::TileId c{.Zoom = 2, .X = 2, .Y = 1};
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoNetwork transport;
   auto provider = std::make_unique<Provider>();
   Provider *const observed = provider.get();
   CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
         "local provider registers");
-  TilePool pool({.Threads = 1, .ByteBudget = 2, .TerrainRevisionEntries = 2, .Carriers = 1},
+  TilePool pool({.Threads = 1,
+                 .ByteBudget = 2,
+                 .TerrainRevisionEntries = 2,
+                 .Carriers = 1,
+                 .PreparedFields = {}},
                 sources,
                 transport);
   const auto deliver = [&](Data::TileId at) {
@@ -117,28 +161,7 @@ int main() {
   CHECK(inspected.State == Validation::Current && inspected.Allocations == 0,
         "current certificate inspection allocates nothing");
 
-  for (std::mutex *mutex : TerrainInspectionTestPeer::Mutexes(pool)) {
-    std::latch held(1), release(1);
-    std::thread writer([&] {
-      const std::scoped_lock lock(*mutex);
-      held.count_down();
-      release.wait();
-    });
-    held.wait();
-    std::promise<Inspection> completion;
-    auto result = completion.get_future();
-    std::thread reader([&] { completion.set_value(Inspect(pool, certificate)); });
-    const bool beforeRelease =
-        result.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
-    release.count_down();
-    writer.join();
-    reader.join();
-    inspected = result.get();
-    CHECK(beforeRelease && inspected.State == Validation::Pending && inspected.Allocations == 0,
-          "inspection reports Pending before the held queue/cache/index writer releases");
-    CHECK(pool.InspectCertificate(certificate) == Validation::Current,
-          "same certificate becomes current after contention without source changes");
-  }
+  CheckContendedInspection(pool, certificate);
 
   (void)deliver(b);
   const auto identical = deliver(a);
@@ -163,7 +186,7 @@ int main() {
   inspected = Inspect(pool, later);
   CHECK(inspected.State == Validation::Unknown && inspected.Allocations == 0,
         "evicted metadata is Unknown rather than known stale");
-  TerrainCertificate incomplete;
+  const TerrainCertificate incomplete;
   inspected = Inspect(pool, incomplete);
   CHECK(inspected.State == Validation::Unknown && inspected.Allocations == 0,
         "incomplete certificate cannot report Current");
@@ -190,7 +213,8 @@ int main() {
         "index try-inspection agrees with blocking inspection");
   CHECK((**other).TryInspectStamps({}) == TerrainRevisionIndex::Validation::Unknown,
         "empty stamps retain Unknown classification");
-  std::latch held(1), release(1);
+  std::latch held(1);
+  std::latch release(1);
   std::thread writer([&] {
     const std::scoped_lock lock(TerrainInspectionTestPeer::Mutex(**other));
     held.count_down();

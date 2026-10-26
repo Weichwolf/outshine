@@ -3,6 +3,7 @@
 #include "Check.h"
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <sqlite3.h>
@@ -32,7 +33,8 @@ int64_t Scalar(const std::filesystem::path &path, const char *sql) {
 
 void Sources(const std::filesystem::path &root) {
   std::filesystem::create_directories(root);
-  const std::string legacy(64, 'a'), fresh(64, 'b');
+  const std::string legacy(64, 'a');
+  const std::string fresh(64, 'b');
   { std::ofstream(root / legacy) << "old"; }
   const std::array<uint8_t, 3> bytes{1, 2, 3};
   {
@@ -61,7 +63,9 @@ void Assets(const std::filesystem::path &path) {
   const std::array<AssetRecord, 1> records{{{.Key = std::string(64, 'd'),
                                              .Kind = "usage-fixture",
                                              .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                                             .ByteCount = payload.size()}}};
+                                             .Package = {},
+                                             .ByteCount = payload.size(),
+                                             .Parent = {}}}};
   {
     auto cache = AssetCache::Open(path.string());
     CHECK(cache, "native asset cache opens");

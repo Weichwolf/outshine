@@ -8,6 +8,7 @@
 #include <Transport.h>
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
@@ -33,8 +34,65 @@ public:
     return outshine::Data::Wire::Answered(200, {17, 42});
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
+
+void CheckOfflineEndpoints(const std::array<outshine::Data::SourceProvider, 2> &providers,
+                           const outshine::Data::ProviderRegistry &registry,
+                           const outshine::Data::SourceRequest &request) {
+  using namespace outshine;
+  using namespace outshine::Data;
+  using namespace outshine::Test;
+  std::string error;
+  auto failing = providers;
+  failing[0].Missing = MissingDataPolicy::Fail;
+  const auto tile = request.Where();
+  auto directory =
+      (std::filesystem::temp_directory_path() / "outshine-tile-endpoint-XXXXXX").string();
+  CHECK(mkdtemp(directory.data()) != nullptr, "isolated source cache created");
+  if (!std::filesystem::is_directory(directory)) { return; }
+  RawSourceCache cache({.Directory = directory});
+  SourceSet cached(cache);
+  error.clear();
+  CHECK(RegisterSources(cached, failing, {}, error, registry), error.c_str());
+  const std::array<uint8_t, 2> bytes{5, 9};
+  CHECK(cache.Keep(ContentKey(cached.At(0).Declaration(), tile), bytes.data(), bytes.size()),
+        "first provider's cached bytes are installed");
+  OfflineTransport offline;
+  auto cachedQuery = cached.Ask(request);
+  auto cachedAnswer = cached.Collect(cachedQuery, offline).Take();
+  CHECK(cachedAnswer && cachedAnswer->SourceId == "first-vector" &&
+            cachedAnswer->Bytes == std::vector<uint8_t>({5, 9}) &&
+            cached.Counters().RemoteStarts == 0 && cached.Counters().Sources[0].Deliveries == 1,
+        "offline delivery uses the selected source's bytes without network");
+  auto changedEndpointProviders = failing;
+  changedEndpointProviders[0].Endpoint = "https://changed.example/map/{z}/{x}/{y}.png";
+  SourceSet changedEndpointSources(cache);
+  error.clear();
+  CHECK(RegisterSources(changedEndpointSources, changedEndpointProviders, {}, error, registry),
+        error.c_str());
+  auto changedEndpointQuery = changedEndpointSources.Ask(request);
+  const SourceDelivery changedEndpointReply =
+      changedEndpointSources.Collect(changedEndpointQuery, offline);
+  CHECK(changedEndpointReply.Where() == SourceDelivery::State::Refused &&
+            changedEndpointReply.SourceId() == "first-vector" &&
+            changedEndpointSources.Counters().Delivered == 0 &&
+            changedEndpointSources.Counters().RemoteStarts == 0 &&
+            changedEndpointSources.Counters().Sources[0].Key != cached.Counters().Sources[0].Key,
+        "changed endpoint under the same dataset and pin cannot consume old cached bytes");
+  SourceSet missing(cache);
+  error.clear();
+  CHECK(RegisterSources(missing, providers, {}, error, registry), error.c_str());
+  const Address uncached = Address::At(TileId{.Zoom = 5, .X = 18, .Y = 11});
+  auto missQuery = missing.Ask(SourceRequest(DataKind::VectorMap, uncached));
+  const SourceDelivery missed = missing.Collect(missQuery, offline);
+  CHECK(missed.Where() == SourceDelivery::State::Refused && missed.SourceId() == "first-vector" &&
+            missed.SourceRevision() == "same-pin" && missing.Counters().RemoteStarts == 0,
+        "offline miss reports selected source and pin without fetched data");
+  std::error_code removeError;
+  std::filesystem::remove_all(directory, removeError);
+  CHECK(!removeError, "isolated source cache removed");
+}
 
 }
 
@@ -50,16 +108,24 @@ int main() {
        .Revision = "same-pin",
        .Priority = -1,
        .Dataset = "first-vector",
-       .Endpoint = "https://first.example/map/{z}/{x}/{y}.png"},
+       .Location = {},
+       .Endpoint = "https://first.example/map/{z}/{x}/{y}.png",
+       .Coverage = {},
+       .PayloadSha256 = {},
+       .Schema = {}},
       {.Kind = "vector",
        .Revision = "same-pin",
        .Priority = 2,
        .Dataset = "second-vector",
-       .Endpoint = "https://second.example/map/{z}/{x}/{y}.png"},
+       .Location = {},
+       .Endpoint = "https://second.example/map/{z}/{x}/{y}.png",
+       .Coverage = {},
+       .PayloadSha256 = {},
+       .Schema = {}},
   }};
   CHECK(ValidateSourceProviders(providers, registry).has_value(),
         "distinct tile declarations validate");
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   std::string error;
   CHECK(RegisterSources(sources, providers, {}, error, registry), error.c_str());
@@ -110,51 +176,7 @@ int main() {
             failTransport.Urls.size() == 1,
         "fail policy stops before the second endpoint");
 
-  auto directory =
-      (std::filesystem::temp_directory_path() / "outshine-tile-endpoint-XXXXXX").string();
-  CHECK(mkdtemp(directory.data()) != nullptr, "isolated source cache created");
-  if (!std::filesystem::is_directory(directory)) { return Report(); }
-  RawSourceCache cache({.Directory = directory});
-  SourceSet cached(cache);
-  error.clear();
-  CHECK(RegisterSources(cached, failing, {}, error, registry), error.c_str());
-  const std::array<uint8_t, 2> bytes{5, 9};
-  CHECK(cache.Keep(ContentKey(cached.At(0).Declaration(), tile), bytes.data(), bytes.size()),
-        "first provider's cached bytes are installed");
-  OfflineTransport offline;
-  auto cachedQuery = cached.Ask(request);
-  auto cachedAnswer = cached.Collect(cachedQuery, offline).Take();
-  CHECK(cachedAnswer && cachedAnswer->SourceId == "first-vector" &&
-            cachedAnswer->Bytes == std::vector<uint8_t>({5, 9}) &&
-            cached.Counters().RemoteStarts == 0 && cached.Counters().Sources[0].Deliveries == 1,
-        "offline delivery uses the selected source's bytes without network");
-  auto changedEndpointProviders = failing;
-  changedEndpointProviders[0].Endpoint = "https://changed.example/map/{z}/{x}/{y}.png";
-  SourceSet changedEndpointSources(cache);
-  error.clear();
-  CHECK(RegisterSources(changedEndpointSources, changedEndpointProviders, {}, error, registry),
-        error.c_str());
-  auto changedEndpointQuery = changedEndpointSources.Ask(request);
-  const SourceDelivery changedEndpointReply =
-      changedEndpointSources.Collect(changedEndpointQuery, offline);
-  CHECK(changedEndpointReply.Where() == SourceDelivery::State::Refused &&
-            changedEndpointReply.SourceId() == "first-vector" &&
-            changedEndpointSources.Counters().Delivered == 0 &&
-            changedEndpointSources.Counters().RemoteStarts == 0 &&
-            changedEndpointSources.Counters().Sources[0].Key != cached.Counters().Sources[0].Key,
-        "changed endpoint under the same dataset and pin cannot consume old cached bytes");
-  SourceSet missing(cache);
-  error.clear();
-  CHECK(RegisterSources(missing, providers, {}, error, registry), error.c_str());
-  const Address uncached = Address::At(TileId{.Zoom = 5, .X = 18, .Y = 11});
-  auto missQuery = missing.Ask(SourceRequest(DataKind::VectorMap, uncached));
-  const SourceDelivery missed = missing.Collect(missQuery, offline);
-  CHECK(missed.Where() == SourceDelivery::State::Refused && missed.SourceId() == "first-vector" &&
-            missed.SourceRevision() == "same-pin" && missing.Counters().RemoteStarts == 0,
-        "offline miss reports selected source and pin without fetched data");
-  std::error_code removeError;
-  std::filesystem::remove_all(directory, removeError);
-  CHECK(!removeError, "isolated source cache removed");
+  CheckOfflineEndpoints(providers, registry, request);
 
   for (const std::string invalid :
        {"http://a/{z}/{x}/{y}", "https://a/{z}/{x}/{x}", "https://a/{z}/{x}/{y}/{q}"}) {

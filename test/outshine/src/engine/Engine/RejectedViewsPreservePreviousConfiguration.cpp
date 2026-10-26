@@ -1,13 +1,15 @@
 #include <Engine.h>
 #include <Generator.h>
+#include <expected>
+#include <string_view>
 #include "Check.h"
 
 namespace {
 class RefusingGenerator final : public outshine::Generators::Generator {
 public:
-  std::string_view kind() const override { return "refusing-view-publication"; }
+  [[nodiscard]] std::string_view kind() const override { return "refusing-view-publication"; }
 
-  Product make(const outshine::Generators::Request &) const override {
+  [[nodiscard]] Product make(const outshine::Generators::Request & /*asked*/) const override {
     return std::unexpected("refused");
   }
 };
@@ -16,11 +18,20 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  RefusingGenerator generator;
+  const RefusingGenerator generator;
   Engine engine;
   CHECK(engine.registerGenerator(generator), "fixture generator registers");
   Scenario::Document original;
-  original.Views.push_back({.Id = "original", .Placement = Scenario::CameraPlacement::Local});
+  original.Views.push_back({.Id = "original",
+                            .Sees = {},
+                            .Placement = Scenario::CameraPlacement::Local,
+                            .Geographic = {},
+                            .Route = {},
+                            .Viewport = {},
+                            .In = {},
+                            .Follows = {},
+                            .Person = {},
+                            .OffsetM = {}});
   for (int failure = 0; failure < 5; ++failure) {
     CHECK(engine.declare(original).has_value(), "original view catalog activates");
     const auto *previous = engine.declaration().Views.data();
@@ -31,7 +42,9 @@ int main() {
       case 1: candidate.Views.push_back(candidate.Views[0]); break;
       case 2: candidate.Played.View = "absent"; break;
       case 3: candidate.Views[0].Placement = Scenario::CameraPlacement::FollowEntity; break;
-      default: candidate.Generators.push_back({.Kind = std::string(generator.kind())}); break;
+      default:
+        candidate.Generators.push_back({.Kind = std::string(generator.kind()), .Parameters = {}});
+        break;
     }
     CHECK(!engine.declare(candidate), "invalid view or late generator failure rejects candidate");
     if (failure < 4) {

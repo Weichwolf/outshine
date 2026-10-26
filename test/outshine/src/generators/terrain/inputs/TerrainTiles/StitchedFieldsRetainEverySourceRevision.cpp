@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <array>
 #include "TerrainTiles.h"
 #include "HeightField.h"
 #include "Check.h"
@@ -5,7 +7,9 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -13,7 +17,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Ground;
 
-constexpr uint8_t kPng[]{
+constexpr std::array<uint8_t, 75> kPng{
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
     0x52, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x08, 0x08, 0x02, 0x00, 0x00, 0x00, 0x4b,
     0x6d, 0x29, 0xdc, 0x00, 0x00, 0x00, 0x12, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x68,
@@ -25,18 +29,19 @@ public:
   explicit Fixture(std::string revision) : Revision_(std::move(revision)) {}
 
   TerrainBytes Take(Data::TileId at) override {
-    ++Calls;
+    ++Calls_;
     return TerrainBytes::From(at,
-                              {kPng, kPng + sizeof(kPng)},
+                              {kPng.begin(), kPng.end()},
                               {.Kind = Data::DataKind::Elevation,
                                .Tile = at,
                                .SourceId = "fixture-dem",
                                .Revision = Revision_});
   }
 
-  int Calls = 0;
+  [[nodiscard]] int Calls() const noexcept { return Calls_; }
 
 private:
+  int Calls_ = 0;
   std::string Revision_;
 };
 
@@ -45,62 +50,34 @@ public:
   explicit AncestorFixture(std::string revision) : Revision_(std::move(revision)) {}
 
   TerrainBytes Take(Data::TileId at) override {
-    ++Calls;
+    ++Calls_;
     const Data::TileId parent{.Zoom = at.Zoom - 1, .X = at.X >> 1u, .Y = at.Y >> 1u};
     return TerrainBytes::From(parent,
-                              {kPng, kPng + sizeof(kPng)},
+                              {kPng.begin(), kPng.end()},
                               {.Kind = Data::DataKind::Elevation,
                                .Tile = parent,
                                .SourceId = "ancestor-dem",
                                .Revision = Revision_});
   }
 
-  int Calls = 0;
+  [[nodiscard]] int Calls() const noexcept { return Calls_; }
 
 private:
+  int Calls_ = 0;
   std::string Revision_;
 };
 
 TerrainTiles::Config Cache() {
-  return {.DemCacheBytes = 1024u * 1024u, .StitchedFieldBytes = 1024u * 1024u};
+  return {.DemCacheBytes = static_cast<size_t>(1024u) * 1024u,
+          .Shared = {},
+          .StitchedFieldBytes = static_cast<size_t>(1024u) * 1024u,
+          .PreparedFields = {}};
 }
 
-}
-
-int main() {
+void CheckShapedLineage() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  Fixture first("r1");
-  TerrainTiles tiles(first, EnuFrame::At(Geo{}), Cache());
-  const TerrainGrid stitched = tiles.StitchedGrid(2, 1, 1);
-  const TerrainField *field = stitched.TryField();
-  CHECK(field != nullptr, "centre and eight neighbours decode into a stitched field");
-  if (!field) { return Report(); }
-  const auto sources = field->Sources();
-  CHECK(sources.size() == 9 && std::ranges::is_sorted(sources),
-        "stitched height field owns nine unique sources in stable order");
-  CHECK(std::ranges::all_of(sources,
-                            [](const Data::TileSourceIdentity &source) {
-                              return source.SourceId == "fixture-dem" && source.Revision == "r1";
-                            }),
-        "every contributing raw DEM keeps the declared revision");
-  const int decoded = first.Calls;
-  const TerrainGrid cached = tiles.StitchedGrid(2, 1, 1);
-  const TerrainField *cachedField = cached.TryField();
-  CHECK(cachedField && std::ranges::equal(sources, cachedField->Sources()) &&
-            first.Calls == decoded,
-        "decoded-cache hits preserve the exact stitched source set without refetching");
-
-  Fixture second("r2");
-  TerrainTiles revised(second, EnuFrame::At(Geo{}), Cache());
-  const TerrainGrid revisedGrid = revised.StitchedGrid(2, 1, 1);
-  const TerrainField *revisedField = revisedGrid.TryField();
-  CHECK(revisedField && revisedField->Sources().size() == 9 &&
-            revisedField->Sources().front().Revision == "r2" &&
-            !std::ranges::equal(sources, revisedField->Sources()),
-        "equal DEM payloads from different source revisions stay distinguishable");
-
   Fixture unused("r1");
   TerrainTiles shaped(unused, EnuFrame::At(Geo{}), Cache());
   shaped.Shapes({.Kind = "sineRidge", .AmplitudeM = 30.0, .WavelengthM = 100.0});
@@ -129,45 +106,14 @@ int main() {
   const auto after = shaped.StitchedField(0, 0, 0);
   CHECK(before && after && before->Sources().size() == 1 && after->Sources().size() == 1 &&
             before->Sources().front().From == Data::TileSourceIdentity::Origin::Shaped &&
-            !(before->Sources().front() == after->Sources().front()) && unused.Calls == 0,
+            !(before->Sources().front() == after->Sources().front()) && unused.Calls() == 0,
         "changing shaped-terrain parameters invalidates the stitched cache and source identity");
+}
 
-  AncestorFixture ancestor("parent-r1");
-  TerrainTiles cropped(ancestor, EnuFrame::At(Geo{}), Cache());
-  const Data::TileId child{.Zoom = 2, .X = 1, .Y = 1};
-  const auto croppedField = cropped.StitchedField(child.Zoom, child.X, child.Y);
-  CHECK(croppedField && !croppedField->Sources().empty() &&
-            std::ranges::all_of(croppedField->Sources(),
-                                [](const auto &source) {
-                                  return source.Tile.Zoom == 1 &&
-                                         source.SourceId == "ancestor-dem" &&
-                                         source.Revision == "parent-r1";
-                                }),
-        "cropped child field retains the actual ancestor source address and revision");
-  if (croppedField) {
-    HeightField::Block block;
-    CHECK(HeightField::CopiesField(*croppedField, child, block) &&
-              HeightField::Of(child.Zoom, {block})->Qualified(),
-          "a structure bake can qualify an identified ancestor DEM");
-  }
-  const int ancestorReads = ancestor.Calls;
-  const auto cachedAncestor = cropped.StitchedField(child.Zoom, child.X, child.Y);
-  CHECK(cachedAncestor && croppedField &&
-            std::ranges::equal(cachedAncestor->Sources(), croppedField->Sources()) &&
-            ancestor.Calls == ancestorReads,
-        "stitched cache hit retains the cropped ancestor provenance without refetching");
-  const TerrainGrid decodedAncestor = cropped.StitchedGrid(child.Zoom, child.X, child.Y);
-  const TerrainField *decodedField = decodedAncestor.TryField();
-  CHECK(decodedField && croppedField &&
-            std::ranges::equal(decodedField->Sources(), croppedField->Sources()) &&
-            ancestor.Calls == ancestorReads,
-        "decoded-cache hit also retains every ancestor source without refetching");
-  AncestorFixture revisedAncestor("parent-r2");
-  TerrainTiles revisedCropped(revisedAncestor, EnuFrame::At(Geo{}), Cache());
-  const auto revisedAncestorField = revisedCropped.StitchedField(child.Zoom, child.X, child.Y);
-  CHECK(revisedAncestorField && croppedField &&
-            !std::ranges::equal(revisedAncestorField->Sources(), croppedField->Sources()),
-        "equal cropped heights from a different ancestor revision are distinct inputs");
+void CheckStitchedEviction() {
+  using namespace outshine;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
   Fixture lruSource("r1");
   const auto tiny = std::make_shared<const TerrainField>(2, 2);
   TerrainTiles::Config limited;
@@ -191,5 +137,82 @@ int main() {
   lru.Shapes({.Kind = "sineRidge", .AmplitudeM = 1.0});
   CHECK(!lru.HeldStitched(a) && !lru.HeldStitched(c),
         "a shape change invalidates all stitched fields");
+}
+
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
+  Fixture first("r1");
+  TerrainTiles tiles(first, EnuFrame::At(Geo{}), Cache());
+  const TerrainGrid stitched = tiles.StitchedGrid(2, 1, 1);
+  const TerrainField *field = stitched.TryField();
+  CHECK(field != nullptr, "centre and eight neighbours decode into a stitched field");
+  if (field == nullptr) { return Report(); }
+  const auto sources = field->Sources();
+  CHECK(sources.size() == 9 && std::ranges::is_sorted(sources),
+        "stitched height field owns nine unique sources in stable order");
+  CHECK(std::ranges::all_of(sources,
+                            [](const Data::TileSourceIdentity &source) {
+                              return source.SourceId == "fixture-dem" && source.Revision == "r1";
+                            }),
+        "every contributing raw DEM keeps the declared revision");
+  const int decoded = first.Calls();
+  const TerrainGrid cached = tiles.StitchedGrid(2, 1, 1);
+  const TerrainField *cachedField = cached.TryField();
+  CHECK(cachedField && std::ranges::equal(sources, cachedField->Sources()) &&
+            first.Calls() == decoded,
+        "decoded-cache hits preserve the exact stitched source set without refetching");
+
+  Fixture second("r2");
+  TerrainTiles revised(second, EnuFrame::At(Geo{}), Cache());
+  const TerrainGrid revisedGrid = revised.StitchedGrid(2, 1, 1);
+  const TerrainField *revisedField = revisedGrid.TryField();
+  CHECK(revisedField && revisedField->Sources().size() == 9 &&
+            revisedField->Sources().front().Revision == "r2" &&
+            !std::ranges::equal(sources, revisedField->Sources()),
+        "equal DEM payloads from different source revisions stay distinguishable");
+
+  CheckShapedLineage();
+
+  AncestorFixture ancestor("parent-r1");
+  TerrainTiles cropped(ancestor, EnuFrame::At(Geo{}), Cache());
+  const Data::TileId child{.Zoom = 2, .X = 1, .Y = 1};
+  const auto croppedField = cropped.StitchedField(child.Zoom, child.X, child.Y);
+  CHECK(croppedField && !croppedField->Sources().empty() &&
+            std::ranges::all_of(croppedField->Sources(),
+                                [](const auto &source) {
+                                  return source.Tile.Zoom == 1 &&
+                                         source.SourceId == "ancestor-dem" &&
+                                         source.Revision == "parent-r1";
+                                }),
+        "cropped child field retains the actual ancestor source address and revision");
+  if (croppedField) {
+    HeightField::Block block;
+    CHECK(HeightField::CopiesField(*croppedField, child, block) &&
+              HeightField::Of(child.Zoom, {block})->Qualified(),
+          "a structure bake can qualify an identified ancestor DEM");
+  }
+  const int ancestorReads = ancestor.Calls();
+  const auto cachedAncestor = cropped.StitchedField(child.Zoom, child.X, child.Y);
+  CHECK(cachedAncestor && croppedField &&
+            std::ranges::equal(cachedAncestor->Sources(), croppedField->Sources()) &&
+            ancestor.Calls() == ancestorReads,
+        "stitched cache hit retains the cropped ancestor provenance without refetching");
+  const TerrainGrid decodedAncestor = cropped.StitchedGrid(child.Zoom, child.X, child.Y);
+  const TerrainField *decodedField = decodedAncestor.TryField();
+  CHECK(decodedField && croppedField &&
+            std::ranges::equal(decodedField->Sources(), croppedField->Sources()) &&
+            ancestor.Calls() == ancestorReads,
+        "decoded-cache hit also retains every ancestor source without refetching");
+  AncestorFixture revisedAncestor("parent-r2");
+  TerrainTiles revisedCropped(revisedAncestor, EnuFrame::At(Geo{}), Cache());
+  const auto revisedAncestorField = revisedCropped.StitchedField(child.Zoom, child.X, child.Y);
+  CHECK(revisedAncestorField && croppedField &&
+            !std::ranges::equal(revisedAncestorField->Sources(), croppedField->Sources()),
+        "equal cropped heights from a different ancestor revision are distinct inputs");
+  CheckStitchedEviction();
   return Report();
 }

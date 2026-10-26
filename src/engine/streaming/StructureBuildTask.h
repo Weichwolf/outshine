@@ -65,6 +65,7 @@ public:
   ~StructureBuildTask();
   StructureBuildTask(const StructureBuildTask &) = delete;
   StructureBuildTask &operator=(const StructureBuildTask &) = delete;
+  // Non-self moves leave the source empty; Running() remains a valid query.
   StructureBuildTask(StructureBuildTask &&other) noexcept;
   StructureBuildTask &operator=(StructureBuildTask &&other) noexcept;
 

@@ -15,7 +15,20 @@ inline Generators::PreparedPlant PreparedPlantFixture() {
   Generators::PreparedPlant plant;
   plant.PlanIdentity[0] = 1;
   plant.Root = kPlantRoot;
-  const auto material = plant.Prototypes.addSurface("leaf", Material{.DoubleSided = true});
+  const auto material = plant.Prototypes.addSurface("leaf",
+                                                    Material{.DiffuseTransmission = {},
+                                                             .Emission = {},
+                                                             .DoubleSided = true,
+                                                             .SheenColour = {},
+                                                             .BaseColourMap = {},
+                                                             .NormalMap = {},
+                                                             .MetalRoughMap = {},
+                                                             .EmissiveMap = {},
+                                                             .OcclusionMap = {},
+                                                             .SpecularStrengthMap = {},
+                                                             .SpecularTintMap = {},
+                                                             .DiffuseReflectionMap = {},
+                                                             .DiffuseTransmissionMap = {}});
   CHECK(material, "fixture owns a valid native material");
   for (const char *name : {"wood", "blade-a", "blade-b"}) {
     const auto part = plant.Prototypes.addPart(name, material.value_or(MaterialInstance{}));

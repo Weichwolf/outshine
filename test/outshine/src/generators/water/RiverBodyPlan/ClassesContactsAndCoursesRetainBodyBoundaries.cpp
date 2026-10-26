@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <stop_token>
 #include <utility>
 #include <vector>
 
@@ -14,7 +15,13 @@ using namespace outshine::Generators;
 
 uint32_t Input(WaterAsset::Data &data, uint32_t source, const char *layer, const char *kind) {
   const auto index = static_cast<uint32_t>(data.Inputs.size());
-  data.Inputs.push_back({.Source = source, .Feature = index, .Layer = layer, .Kind = kind});
+  data.Inputs.push_back({.Source = source,
+                         .Feature = index,
+                         .FeatureId = {},
+                         .Layer = layer,
+                         .Kind = kind,
+                         .Crossing = {},
+                         .Intermittent = {}});
   return index;
 }
 
@@ -50,9 +57,11 @@ WaterAsset Source() {
   WaterAsset::Data data;
   data.Sources.push_back(
       {.Identity = {.Kind = Data::DataKind::VectorMap, .SourceId = "fixture", .Revision = "r1"},
+       .InputDigest = {},
        .FeatureCount = 32});
   data.Sources.push_back(
       {.Identity = {.Kind = Data::DataKind::VectorMap, .SourceId = "fixture", .Revision = "r2"},
+       .InputDigest = {},
        .FeatureCount = 32});
   Surface(data, 0, 0, 1, 1);
   Surface(data, 1, 0, 1, 1);

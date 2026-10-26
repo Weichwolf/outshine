@@ -35,20 +35,24 @@ int main() {
        .Missing = Data::MissingDataPolicy::Fail,
        .Dataset = "openstreetmap.original",
        .Location = path.string(),
-       .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}});
+       .Endpoint = {},
+       .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1},
+       .PayloadSha256 = {},
+       .Schema = {}});
   {
     auto sourceOnly = App::CreateEngine();
-    CHECK(sourceOnly.setRoots({.Offline = true}) && sourceOnly.declare(document) &&
-              sourceOnly.assemble(),
+    CHECK(sourceOnly.setRoots({.Shipped = {}, .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+              sourceOnly.declare(document) && sourceOnly.assemble(),
           "renderer-free source declaration queues original data");
-    CHECK(!sourceOnly.settled() &&
-              sourceOnly.unsettledReasons(WorldQuality::Playable)
-                      .find("original OSM source pending") != std::string::npos,
+    CHECK(!sourceOnly.settled() && sourceOnly.unsettledReasons(WorldQuality::Playable)
+                                       .contains("original OSM source pending"),
           "pending original data remains a readiness blocker");
     CHECK(sourceOnly.preload(2.0) && sourceOnly.settled() &&
               sourceOnly.settled(WorldQuality::Refined),
           "an unrelated incomplete highway does not prevent original source publication");
-    double bytes = -1, pending = -1, graphMs = -1;
+    double bytes = -1;
+    double pending = -1;
+    double graphMs = -1;
     for (const DiagnosticSample &sample : sourceOnly.measures()) {
       if (sample.Name == "semantic OSM source bytes") { bytes = sample.Value; }
       if (sample.Name == "semantic OSM jobs pending") { pending = sample.Value; }
@@ -58,12 +62,14 @@ int main() {
           "actual source bytes publish without an unused graph job");
     document.Routes.push_back({.Id = "incomplete", .OsmRelationId = 20});
     auto routed = App::CreateEngine();
-    CHECK(routed.setRoots({.Offline = true}) && routed.declare(document) && routed.assemble(),
+    CHECK(routed.setRoots({.Shipped = {}, .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+              routed.declare(document) && routed.assemble(),
           "the same original data admits an explicit route request");
     const auto loaded = routed.preload(2.0);
     CHECK(!loaded && !loaded.error().empty() && !routed.settled(),
           "a demanded incomplete transport product still blocks publication");
-    double originalBytes = -1, routedBytes = -1;
+    double originalBytes = -1;
+    double routedBytes = -1;
     for (const DiagnosticSample &sample : routed.measures()) {
       if (sample.Name == "original OSM source bytes") { originalBytes = sample.Value; }
       if (sample.Name == "semantic OSM source bytes") { routedBytes = sample.Value; }

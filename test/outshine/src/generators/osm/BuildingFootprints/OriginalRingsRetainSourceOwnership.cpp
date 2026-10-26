@@ -1,3 +1,4 @@
+#include <cstddef>
 #include "OsmBuildingFootprints.h"
 #include "OsmXmlReader.h"
 #include "Check.h"
@@ -16,13 +17,45 @@ std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> Source(std::str
       {.DatasetId = "original-buildings", .Revision = "r1"});
   if (!read) { return {}; }
   return std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
-      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*read), .Coverage = {}});
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*read), .Coverage = {}, .Chunks = {}});
 }
 
 constexpr std::string_view kNodes = "<node id='1' lat='0' lon='0'/><node id='2' lat='0' lon='4'/>"
                                     "<node id='3' lat='4' lon='4'/><node id='4' lat='4' lon='0'/>"
                                     "<node id='5' lat='1' lon='1'/><node id='6' lat='1' lon='2'/>"
                                     "<node id='7' lat='2' lon='2'/><node id='8' lat='2' lon='1'/>";
+
+void CheckPointBuildings() {
+  using namespace outshine::Test;
+  const auto pointSource =
+      Source(std::string(kNodes) +
+             "<node id='9' lat='54.79' lon='9.43'><tag k='building' v='toilets'/>"
+             "<tag k='building:levels' v='1'/><tag k='operator' v='original'/></node>"
+             "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='1'/>"
+             "<tag k='building' v='yes'/></way>");
+  const auto mixed = outshine::Generators::Osm::BuildingFootprints::Build(pointSource, 4);
+  CHECK(mixed && mixed->Buildings().size() == 2 && mixed->Rings().size() == 1 &&
+            mixed->Points().size() == 8,
+        "point building and area building coexist without an invented footprint");
+  if (mixed) {
+    const auto &point = mixed->Buildings().front();
+    CHECK(point.Source.Kind == outshine::Generators::Osm::ElementKind::Node &&
+              point.Source.Id == 9 && point.PointIndex && point.RingCount == 0 &&
+              !mixed->Buildings().back().PointIndex,
+          "point identity and geometry kind remain distinct from area geometry");
+    const auto heights = mixed->Heights(point);
+    CHECK(point.PointIndex && mixed->Points()[size_t{2} * *point.PointIndex] == 54.79 &&
+              mixed->Points()[2 * *point.PointIndex + 1] == 9.43 &&
+              mixed->Tags(point).size() == 3 && heights.Levels && *heights.Levels &&
+              **heights.Levels == 1,
+          "point location, complete tags and original storeys reach native consumers");
+  }
+  const auto pointLimited = outshine::Generators::Osm::BuildingFootprints::Build(pointSource, 3);
+  CHECK(!pointLimited && pointLimited.error().Code ==
+                             outshine::Generators::Osm::FootprintErrorCode::PointBudgetExceeded,
+        "point buildings consume the same coordinate budget as rings");
+}
 
 }
 
@@ -123,31 +156,6 @@ int main() {
   CHECK(!openRelation && openRelation.error().Code ==
                              outshine::Generators::Osm::FootprintErrorCode::AmbiguousJunction,
         "an open member chain cannot invent its missing closing edge");
-  const auto pointSource =
-      Source(std::string(kNodes) +
-             "<node id='9' lat='54.79' lon='9.43'><tag k='building' v='toilets'/>"
-             "<tag k='building:levels' v='1'/><tag k='operator' v='original'/></node>"
-             "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='1'/>"
-             "<tag k='building' v='yes'/></way>");
-  const auto mixed = outshine::Generators::Osm::BuildingFootprints::Build(pointSource, 4);
-  CHECK(mixed && mixed->Buildings().size() == 2 && mixed->Rings().size() == 1 &&
-            mixed->Points().size() == 8,
-        "point building and area building coexist without an invented footprint");
-  if (mixed) {
-    const auto &point = mixed->Buildings().front();
-    CHECK(point.Source.Kind == outshine::Generators::Osm::ElementKind::Node &&
-              point.Source.Id == 9 && point.PointIndex && point.RingCount == 0 &&
-              !mixed->Buildings().back().PointIndex,
-          "point identity and geometry kind remain distinct from area geometry");
-    CHECK(point.PointIndex && mixed->Points()[2 * *point.PointIndex] == 54.79 &&
-              mixed->Points()[2 * *point.PointIndex + 1] == 9.43 &&
-              mixed->Tags(point).size() == 3 && mixed->Heights(point).Levels &&
-              **mixed->Heights(point).Levels == 1,
-          "point location, complete tags and original storeys reach native consumers");
-  }
-  const auto pointLimited = outshine::Generators::Osm::BuildingFootprints::Build(pointSource, 3);
-  CHECK(!pointLimited && pointLimited.error().Code ==
-                             outshine::Generators::Osm::FootprintErrorCode::PointBudgetExceeded,
-        "point buildings consume the same coordinate budget as rings");
+  CheckPointBuildings();
   return Report();
 }

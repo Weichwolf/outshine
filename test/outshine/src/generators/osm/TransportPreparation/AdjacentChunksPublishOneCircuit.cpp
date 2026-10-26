@@ -3,13 +3,16 @@
 
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -32,7 +35,10 @@ Chunk(std::string path, int rank, std::string revision, outshine::GeographicBoun
           .Missing = outshine::Data::MissingDataPolicy::Fail,
           .Dataset = "osm-analytical",
           .Location = std::move(path),
-          .Coverage = coverage};
+          .Endpoint = {},
+          .Coverage = coverage,
+          .PayloadSha256 = {},
+          .Schema = {}};
 }
 
 }
@@ -117,7 +123,7 @@ int main() {
   CHECK(WaitFor(loader, tasks) &&
             loader.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
-            loader.Error().find("2") != std::string_view::npos && loader.Current() == first &&
+            loader.Error().contains('2') && loader.Current() == first &&
             loader.Current()->FindRoute("three-edge") != nullptr,
         "conflicting cross-chunk ID rejects replacement and retains the published graph");
 

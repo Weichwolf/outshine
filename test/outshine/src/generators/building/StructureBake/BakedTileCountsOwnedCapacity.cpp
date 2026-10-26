@@ -1,5 +1,6 @@
 #include "StructureBake.h"
 #include "Check.h"
+#include <cstddef>
 
 int main() {
   using namespace outshine;

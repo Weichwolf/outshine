@@ -4,6 +4,8 @@
 #include <Transport.h>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <limits>
@@ -19,19 +21,19 @@ public:
   std::vector<double> StartedAtMs;
   const std::string Xml = "<osm version='0.6'/>";
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     StartedAtMs.push_back(ClockMs);
     return static_cast<outshine::Data::Ticket>(++Starts);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     if (SucceedAfterFirst && Starts > 1) {
       return outshine::Data::Wire::Answered(200, std::vector<uint8_t>(Xml.begin(), Xml.end()));
     }
     return outshine::Data::Wire::Answered(Status, {}, RetryAfterS);
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 
   bool Await(double ms) override {
     ClockMs += ms;
@@ -45,26 +47,29 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  const Data::SourceProvider provider{
-      .Kind = "osm",
-      .Revision = "current",
-      .Missing = Data::MissingDataPolicy::Fail,
-      .Dataset = "openstreetmap.original",
-      .Endpoint = "https://api.openstreetmap.org/api/0.6",
-      .Coverage = GeographicBounds{
-          .WestDeg = 9.433, .SouthDeg = 54.785, .EastDeg = 9.445, .NorthDeg = 54.8}};
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  const Data::SourceProvider provider{.Kind = "osm",
+                                      .Revision = "current",
+                                      .Missing = Data::MissingDataPolicy::Fail,
+                                      .Dataset = "openstreetmap.original",
+                                      .Location = {},
+                                      .Endpoint = "https://api.openstreetmap.org/api/0.6",
+                                      .Coverage = GeographicBounds{.WestDeg = 9.433,
+                                                                   .SouthDeg = 54.785,
+                                                                   .EastDeg = 9.445,
+                                                                   .NorthDeg = 54.8},
+                                      .PayloadSha256 = {},
+                                      .Schema = {}};
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   for (const int status : std::array{429, 503}) {
     RetryWire wire;
     wire.Status = status;
     const auto failed = Generators::Osm::ReadRegion(provider, store, wire, 20000, {});
     CHECK(!failed && wire.Starts == 5,
           "retryable HTTP failures exhaust exactly four retries after the first request");
-    CHECK(!failed && failed.error().find("provider refusal HTTP " + std::to_string(status) +
-                                         " after 4 retries") != std::string::npos,
+    CHECK(!failed && failed.error().contains("provider refusal HTTP " + std::to_string(status) +
+                                             " after 4 retries"),
           "HTTP status and exhausted retry count survive provider, scheduler and reader");
-    CHECK(!failed &&
-              failed.error().find("https://api.openstreetmap.org/api/0.6") != std::string::npos,
+    CHECK(!failed && failed.error().contains("https://api.openstreetmap.org/api/0.6"),
           "the terminal diagnostic identifies the original source");
   }
   RetryWire quota;
@@ -72,8 +77,7 @@ int main() {
   const auto limited = Generators::Osm::ReadRegion(provider, store, quota, 20000, {});
   CHECK(!limited && quota.Starts == 1,
         "an exhausted bandwidth quota does not trigger repeated downloads");
-  CHECK(!limited &&
-            limited.error().find("provider refusal HTTP 509 after 0 retries") != std::string::npos,
+  CHECK(!limited && limited.error().contains("provider refusal HTTP 509 after 0 retries"),
         "bandwidth refusal keeps its actual status and retry count");
   for (const double invalid : std::array{-1.0,
                                          std::numeric_limits<double>::infinity(),
@@ -98,14 +102,13 @@ int main() {
   deadline.Status = 509;
   deadline.RetryAfterS = 213;
   const auto expired = Generators::Osm::ReadRegion(provider, store, deadline, 10000, {});
-  CHECK(!expired && deadline.Starts == 1 && expired.error().find("deadline") != std::string::npos,
+  CHECK(!expired && deadline.Starts == 1 && expired.error().contains("deadline"),
         "acquisition deadline cancels a cooldown without an early request");
   RetryWire exhausted;
   exhausted.Status = 509;
   exhausted.RetryAfterS = 213;
   const auto failed = Generators::Osm::ReadRegion(provider, store, exhausted, 1000000, {});
-  CHECK(!failed && exhausted.Starts == 5 &&
-            failed.error().find("HTTP 509 after 4 retries") != std::string::npos,
+  CHECK(!failed && exhausted.Starts == 5 && failed.error().contains("HTTP 509 after 4 retries"),
         "explicit cooldowns retain the bounded retry budget and terminal diagnostic");
   for (size_t at = 1; at < exhausted.StartedAtMs.size(); ++at) {
     CHECK(exhausted.StartedAtMs[at] - exhausted.StartedAtMs[at - 1] >= 213000,

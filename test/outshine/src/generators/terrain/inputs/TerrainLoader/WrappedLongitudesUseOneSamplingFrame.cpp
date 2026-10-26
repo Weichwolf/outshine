@@ -26,25 +26,32 @@ constexpr std::array<uint8_t, 81> kGradientPng{
 
 class GradientSource final : public Data::Source {
 public:
-  Data::SourceDecl Decl{
-      .Id = "longitude-gradient", .Revision = "analytic-v1", .Keeps = Data::Cacheability::Never};
+  Data::SourceDecl Decl{.Id = "longitude-gradient",
+                        .Revision = "analytic-v1",
+                        .Endpoint = {},
+                        .Keeps = Data::Cacheability::Never,
+                        .PayloadSha256 = {},
+                        .Schema = {}};
 
-  const Data::SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const Data::SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Data::Coverage Covers(const Data::SourceRequest &) const noexcept override {
+  [[nodiscard]] Data::Coverage
+  Covers(const Data::SourceRequest & /*request*/) const noexcept override {
     return Data::Coverage::Inside;
   }
 
-  Data::Address Serves(const Data::SourceRequest &request) const noexcept override {
+  [[nodiscard]] Data::Address Serves(const Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
-  Data::FetchStart Begin(const Data::Address &, Data::Transport &) const override {
+  Data::FetchStart Begin(const Data::Address & /*at*/,
+                         Data::Transport & /*transport*/) const override {
     return Data::Ticket::None;
   }
 
-  Data::SourceResponse
-  Collect(const Data::Address &, Data::Ticket, Data::Transport &) const override {
+  Data::SourceResponse Collect(const Data::Address & /*at*/,
+                               Data::Ticket /*ticket*/,
+                               Data::Transport & /*transport*/) const override {
     return Data::SourceResponse::Delivered(
         std::vector<uint8_t>(kGradientPng.begin(), kGradientPng.end()));
   }
@@ -52,11 +59,11 @@ public:
 
 class NoNetwork final : public Data::Transport {
 public:
-  Data::FetchStart Begin(const std::string &) override { return Data::Ticket::None; }
+  Data::FetchStart Begin(const std::string & /*url*/) override { return Data::Ticket::None; }
 
-  Data::Wire Collect(Data::Ticket) override { return Data::Wire::Never(); }
+  Data::Wire Collect(Data::Ticket /*ticket*/) override { return Data::Wire::Never(); }
 
-  void Cancel(Data::Ticket) override {}
+  void Cancel(Data::Ticket /*ticket*/) override {}
 };
 
 bool HasHeight(const GroundSample &sample, double expected) {
@@ -66,13 +73,13 @@ bool HasHeight(const GroundSample &sample, double expected) {
 
 int main() {
   using namespace outshine::Test;
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<GradientSource>()) == Data::SourceSet::Registration::Accepted,
         "the independently encoded four-column DEM is registered");
   NoNetwork network;
-  Ground::TilePool pool({.PollAttempts = 1000}, sources, network);
-  Ground::GroundStream ground(pool, {.Z = 6, .Grid = 4});
+  Ground::TilePool pool({.PollAttempts = 1000, .PreparedFields = {}}, sources, network);
+  const Ground::GroundStream ground(pool, {.Z = 6, .Grid = 4});
   const LongitudeLatitude position{.LongitudeDeg = -179.0, .LatitudeDeg = 0.0};
   auto warm = ground.At(position);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
