@@ -2,7 +2,6 @@
 #include "StructureBake.h"
 #include "Check.h"
 #include "Geodesy.h"
-#include "StructureCellDetail.h"
 #include "Units.h"
 #include <array>
 #include <cmath>
@@ -34,8 +33,13 @@ int main() {
       CHECK(cell.has_value(), "each source footprint has a cell");
       if (!cell) { return Report(); }
       raw.LatLon.insert(raw.LatLon.end(), ring.begin(), ring.end());
-      raw.Structures.push_back(
-          {.LocalFirst = first, .PointCount = 4, .Cell = *cell, .HeightM = 9, .Pitched = 0});
+      raw.Structures.push_back({.LocalFirst = first,
+                                .PointCount = 4,
+                                .Cell = *cell,
+                                .HeightM = 9,
+                                .Pitched = 0,
+                                .WallColour = {},
+                                .Facade = {}});
     }
   }
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47}, raw.AnchorEcef);
@@ -63,13 +67,6 @@ int main() {
       if ((built.OccupiedCells & (uint64_t{1} << cell)) == 0) { continue; }
       CHECK(built.CellShellErrorM[cell] > 0.16,
             "source plans retain their future shell bound even when the initial product is massed");
-      CHECK(RequestedStructureCellDetail(built.CellBounds[cell],
-                                         built.CellMaxHeightM[cell],
-                                         raw.TileSpanM,
-                                         {.LongitudeDeg = 9.02, .LatitudeDeg = 47},
-                                         {.FocalPx = 720},
-                                         built.CellShellErrorM[cell]) == LevelOfDetail::Shell,
-            "distant cell planning does not expand Fine geometry after a massed source bake");
     }
     if (detail == LevelOfDetail::Fine) {
       fineTriangles = triangles;

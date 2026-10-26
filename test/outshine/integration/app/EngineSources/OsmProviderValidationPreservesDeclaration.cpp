@@ -16,14 +16,18 @@ int main() {
   const auto before = engine.writeScenario();
 
   auto candidate = original;
-  candidate.Providers.push_back(
-      {.Kind = "osm",
-       .Revision = "pin-r1",
-       .Missing = Data::MissingDataPolicy::Fail,
-       .Dataset = "openstreetmap",
-       .Location = "osm/region.osm",
-       .Coverage = GeographicBounds{
-           .WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34}});
+  candidate.Providers.push_back({.Kind = "osm",
+                                 .Revision = "pin-r1",
+                                 .Missing = Data::MissingDataPolicy::Fail,
+                                 .Dataset = "openstreetmap",
+                                 .Location = "osm/region.osm",
+                                 .Endpoint = {},
+                                 .Coverage = GeographicBounds{.WestDeg = 8.54,
+                                                              .SouthDeg = 49.315,
+                                                              .EastDeg = 8.61,
+                                                              .NorthDeg = 49.34},
+                                 .PayloadSha256 = {},
+                                 .Schema = {}});
   candidate.Providers.front().Coverage->NorthDeg = std::numeric_limits<double>::infinity();
   CHECK(!engine.declare(candidate), "programmatic declaration rejects nonfinite source bounds");
   CHECK(engine.writeScenario() == before, "invalid source preserves the previous declaration");

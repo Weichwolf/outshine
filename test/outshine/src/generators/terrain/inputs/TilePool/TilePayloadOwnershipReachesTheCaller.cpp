@@ -22,7 +22,12 @@ public:
 
 class ByteSource final : public Source {
 public:
-  SourceDecl Decl{.Id = "owned", .Revision = "fixture-r1", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "owned",
+                  .Revision = "fixture-r1",
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   mutable std::vector<uint8_t> Bytes{1, 2, 3};
   mutable int Calls = 0;
 
@@ -44,7 +49,7 @@ public:
 int main() {
   using namespace outshine::Test;
   using outshine::Ground::TilePool;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   auto source = std::make_unique<ByteSource>();

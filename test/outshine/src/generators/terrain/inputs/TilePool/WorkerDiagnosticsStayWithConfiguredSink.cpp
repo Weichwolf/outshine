@@ -49,8 +49,12 @@ public:
   }
 
 private:
-  outshine::Data::SourceDecl Decl_{
-      .Id = "refusing", .Revision = "fixture-1", .Keeps = outshine::Data::Cacheability::Never};
+  outshine::Data::SourceDecl Decl_{.Id = "refusing",
+                                   .Revision = "fixture-1",
+                                   .Endpoint = {},
+                                   .Keeps = outshine::Data::Cacheability::Never,
+                                   .PayloadSha256 = {},
+                                   .Schema = {}};
 };
 
 class RecordingSink final : public outshine::LogSink {
@@ -93,14 +97,16 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<RefusingSource>()) == SourceSet::Registration::Accepted,
         "the refusing worker source registers");
   RefusingTransport transport;
   RecordingSink sink;
   {
-    TilePool pool({.Threads = 1, .Carriers = 1, .Diagnostics = &sink}, sources, transport);
+    TilePool pool({.Threads = 1, .Carriers = 1, .Diagnostics = &sink, .PreparedFields = {}},
+                  sources,
+                  transport);
     TilePool::Landing landing;
     const SourceRequest request(DataKind::Elevation, Address::Whole(0));
     TilePool::Reply reply = pool.Bytes(request, &landing);

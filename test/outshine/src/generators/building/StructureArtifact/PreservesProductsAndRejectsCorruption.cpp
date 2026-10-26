@@ -17,7 +17,12 @@ int main() {
   const auto cell = StructureCellOf(bounds, raw.LatLon);
   CHECK(cell.has_value(), "fixture has a valid cell");
   if (!cell) { return Report(); }
-  raw.Structures.push_back({.PointCount = 4, .SourceFirst = 12, .Cell = *cell, .HeightM = 12.0});
+  raw.Structures.push_back({.PointCount = 4,
+                            .SourceFirst = 12,
+                            .Cell = *cell,
+                            .HeightM = 12.0,
+                            .WallColour = {},
+                            .Facade = {}});
   raw.Structures.front().WallColour = Vec3f{{0.2f, 0.4f, 0.6f}};
   raw.RequestedDetail = LevelOfDetail::Shell;
   raw.RequestedCell = cell->Index;

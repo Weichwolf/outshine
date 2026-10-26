@@ -20,7 +20,7 @@ int main() {
     auto &vertices = triangle < 2 ? mesh.WallCorners : mesh.RoofCorners;
     for (const auto point : triangles[triangle]) {
       indices.push_back(static_cast<uint32_t>(vertices.size()));
-      vertices.push_back({.pos = point});
+      vertices.push_back({.pos = point, .texture = {}, .normWord = {}});
     }
   }
   StructureSurfaceIndex index;

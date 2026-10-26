@@ -52,7 +52,12 @@ struct FirstDeliveryGate {
 
 class Provider final : public Source {
 public:
-  SourceDecl Decl{.Id = "revision-dem", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "revision-dem",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   mutable std::atomic<unsigned> Calls = 0;
   std::atomic<bool> Absent = false;
   std::atomic<bool> Stable = false;
@@ -90,17 +95,18 @@ int main() {
   const SourceRequest askA(DataKind::Elevation, Address::At(a));
   const SourceRequest askB(DataKind::Elevation, Address::At(b));
   for (const bool evictMetadata : {false, true}) {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     NoNetwork transport;
     auto provider = std::make_unique<Provider>();
     auto *observed = provider.get();
     CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
           "provider registers");
-    TilePool pool(
-        {.ByteBudget = evictMetadata ? 64u : 2u, .TerrainRevisionEntries = evictMetadata ? 1u : 8u},
-        sources,
-        transport);
+    TilePool pool({.ByteBudget = evictMetadata ? 64u : 2u,
+                   .TerrainRevisionEntries = evictMetadata ? 1u : 8u,
+                   .PreparedFields = {}},
+                  sources,
+                  transport);
     TilePool::Landing first, cached, neighbour, next;
     CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready, "first delivery arrives");
     CHECK(first.TerrainStamp.has_value(), "delivery carries its requested-address stamp");
@@ -137,7 +143,7 @@ int main() {
     }
   }
   {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     NoNetwork transport;
     auto provider = std::make_unique<Provider>();
@@ -145,7 +151,7 @@ int main() {
     provider->Gate = gate;
     CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
           "concurrent provider registers");
-    TilePool pool({.ByteBudget = 64}, sources, transport);
+    TilePool pool({.ByteBudget = 64, .PreparedFields = {}}, sources, transport);
     TilePool::Landing delayed, earlier, cached;
     TilePool::Reply delayedReply = TilePool::Reply::Pending;
     std::thread first([&] { delayedReply = pool.BytesBlocking(askA, &delayed); });
@@ -166,7 +172,7 @@ int main() {
           "latest published bytes retain their exact stamp");
   }
   {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     NoNetwork transport;
     auto provider = std::make_unique<Provider>();
@@ -174,7 +180,8 @@ int main() {
     observed->Stable = true;
     CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
           "stable terrain provider registers");
-    TilePool pool({.ByteBudget = 2, .TerrainRevisionEntries = 8}, sources, transport);
+    TilePool pool(
+        {.ByteBudget = 2, .TerrainRevisionEntries = 8, .PreparedFields = {}}, sources, transport);
     TilePool::Landing first, neighbour, again, relocated;
     CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready && first.TerrainStamp,
           "first immutable payload has a certificate");

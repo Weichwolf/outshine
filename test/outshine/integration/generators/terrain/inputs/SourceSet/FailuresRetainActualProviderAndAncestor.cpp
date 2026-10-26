@@ -71,7 +71,7 @@ int main() {
   using namespace outshine::Test;
   const SourceRequest request(DataKind::Elevation, Address::At({.Zoom = 17, .X = 69, .Y = 45}));
   const auto owned = [&] {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     AddSources(sources);
     MissingTransport transport;
@@ -84,11 +84,11 @@ int main() {
   CHECK(!SourceDelivery::Waiting().Failure() &&
             !SourceDelivery::From("ok", "pin", request.Where(), {1}).Failure(),
         "success and pending do not carry diagnostic payloads");
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   AddSources(sources);
   MissingTransport transport;
-  outshine::Ground::TilePool pool({.Threads = 1}, sources, transport);
+  outshine::Ground::TilePool pool({.Threads = 1, .PreparedFields = {}}, sources, transport);
   for (int attempt = 0; attempt < 2; ++attempt) {
     outshine::Ground::TilePool::Landing landing;
     CHECK(pool.BytesBlocking(request, &landing) == outshine::Ground::TilePool::Reply::Refused,
@@ -114,7 +114,7 @@ int main() {
   for (const auto reason : {SourceFailureReason::TimedOut,
                             SourceFailureReason::Cancelled,
                             SourceFailureReason::Unavailable}) {
-    RawSourceCache empty({.Using = RawSourceCache::Use::Off});
+    RawSourceCache empty({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet isolated(empty);
     AddSources(isolated);
     MissingTransport failed;

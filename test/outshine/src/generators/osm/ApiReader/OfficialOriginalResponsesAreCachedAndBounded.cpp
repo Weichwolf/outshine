@@ -63,12 +63,14 @@ int main() {
                           .Revision = "r1",
                           .Missing = MissingDataPolicy::Fail,
                           .Dataset = "openstreetmap.original",
+                          .Location = {},
                           .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
                           .Coverage = GeographicBounds{.WestDeg = 9.433,
                                                        .SouthDeg = 54.785,
                                                        .EastDeg = 9.445,
                                                        .NorthDeg = 54.8},
-                          .PayloadSha256 = Sha256Hex(wire.Xml)};
+                          .PayloadSha256 = Sha256Hex(wire.Xml),
+                          .Schema = {}};
   const auto cold = outshine::Generators::Osm::ReadRegion(provider, store, wire, 1100, {});
   CHECK(cold && cold->Xml == wire.Xml && !cold->FromStore &&
             wire.Urls ==
@@ -105,7 +107,7 @@ int main() {
   changed.Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1};
   CHECK(!outshine::Generators::Osm::ApiSource::Create(changed, 0),
         "API requests above the declared service area limit fail");
-  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
+  RawSourceCache noCache({.Directory = {}, .Using = RawSourceCache::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
   CHECK(!outshine::Generators::Osm::ReadRegion(provider, noCache, stalled, 110, {}) &&

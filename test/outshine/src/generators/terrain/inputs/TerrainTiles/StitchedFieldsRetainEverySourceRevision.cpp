@@ -62,7 +62,10 @@ private:
 };
 
 TerrainTiles::Config Cache() {
-  return {.DemCacheBytes = 1024u * 1024u, .StitchedFieldBytes = 1024u * 1024u};
+  return {.DemCacheBytes = 1024u * 1024u,
+          .Shared = {},
+          .StitchedFieldBytes = 1024u * 1024u,
+          .PreparedFields = {}};
 }
 
 }

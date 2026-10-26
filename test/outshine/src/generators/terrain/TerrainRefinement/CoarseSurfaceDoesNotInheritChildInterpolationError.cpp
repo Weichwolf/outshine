@@ -25,11 +25,11 @@ int main() {
   }
   CHECK(maximumFromPlaneM == 0.75, "every reference vertex is within 0.75 m of the coarse plane");
   const std::array sources{TerrainRefinementSource{.Page = &page, .Heights = &relief}};
-  const TerrainRefinementDetail coarse{.OrthographicPxPerM = 1.0, .ErrorPx = 1.0};
+  const TerrainRefinementDetail coarse{.EyeM = {}, .OrthographicPxPerM = 1.0, .ErrorPx = 1.0};
   const auto kept = RefineTerrain(sources, TangentFrame::At({}), layout, coarse, 1);
   CHECK(kept && kept->size() == 1 && kept->front().Tile == tile && !kept->front().Virtual,
         "a valid coarse plane is not rejected because a different child surface has larger error");
-  const TerrainRefinementDetail detailed{.OrthographicPxPerM = 1.0, .ErrorPx = 0.5};
+  const TerrainRefinementDetail detailed{.EyeM = {}, .OrthographicPxPerM = 1.0, .ErrorPx = 0.5};
   const auto refined = RefineTerrain(sources, TangentFrame::At({}), layout, detailed, 16);
   CHECK(refined && refined->size() == 16,
         "a stricter bound still selects the sixteen patches that retain every source posting");

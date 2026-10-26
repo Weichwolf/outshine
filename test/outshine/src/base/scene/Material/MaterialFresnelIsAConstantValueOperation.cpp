@@ -9,7 +9,19 @@ constexpr bool UnboundIndex() {
 }
 
 static_assert(UnboundIndex());
-constexpr outshine::Material disabled{.Ior = 0};
+constexpr outshine::Material disabled{.DiffuseTransmission = {},
+                                      .Ior = 0,
+                                      .Emission = {},
+                                      .SheenColour = {},
+                                      .BaseColourMap = {},
+                                      .NormalMap = {},
+                                      .MetalRoughMap = {},
+                                      .EmissiveMap = {},
+                                      .OcclusionMap = {},
+                                      .SpecularStrengthMap = {},
+                                      .SpecularTintMap = {},
+                                      .DiffuseReflectionMap = {},
+                                      .DiffuseTransmissionMap = {}};
 static_assert(outshine::DielectricF90(disabled) == 0);
 static_assert(noexcept(outshine::DielectricF90(disabled)));
 

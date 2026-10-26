@@ -45,15 +45,19 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  const Data::SourceProvider provider{
-      .Kind = "osm",
-      .Revision = "current",
-      .Missing = Data::MissingDataPolicy::Fail,
-      .Dataset = "openstreetmap.original",
-      .Endpoint = "https://api.openstreetmap.org/api/0.6",
-      .Coverage = GeographicBounds{
-          .WestDeg = 9.433, .SouthDeg = 54.785, .EastDeg = 9.445, .NorthDeg = 54.8}};
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  const Data::SourceProvider provider{.Kind = "osm",
+                                      .Revision = "current",
+                                      .Missing = Data::MissingDataPolicy::Fail,
+                                      .Dataset = "openstreetmap.original",
+                                      .Location = {},
+                                      .Endpoint = "https://api.openstreetmap.org/api/0.6",
+                                      .Coverage = GeographicBounds{.WestDeg = 9.433,
+                                                                   .SouthDeg = 54.785,
+                                                                   .EastDeg = 9.445,
+                                                                   .NorthDeg = 54.8},
+                                      .PayloadSha256 = {},
+                                      .Schema = {}};
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   for (const int status : std::array{429, 503}) {
     RetryWire wire;
     wire.Status = status;

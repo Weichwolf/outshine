@@ -15,7 +15,7 @@ int main() {
   const Sheet page{.Tile = tile, .Nodes = {}, .Side = layout.Side, .Postings = 33};
   Ground::TerrainField flat(65, 65);
   const std::array flatSource{TerrainRefinementSource{.Page = &page, .Heights = &flat}};
-  const TerrainRefinementDetail detail{.OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
+  const TerrainRefinementDetail detail{.EyeM = {}, .OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
   const auto coarse = RefineTerrain(flatSource, TangentFrame::At({}), layout, detail, 8);
   CHECK(coarse && coarse->size() == 1 && coarse->front().Tile == tile && !coarse->front().Virtual &&
             coarse->front().SourceZoom == tile.Zoom,

@@ -45,7 +45,12 @@ public:
 
 class Provider final : public Source {
 public:
-  SourceDecl Decl{.Id = "inspection-dem", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "inspection-dem",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   std::atomic<uint8_t> Content{7};
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
@@ -94,14 +99,18 @@ int main() {
   const Data::TileId a{.Zoom = 2, .X = 0, .Y = 1};
   const Data::TileId b{.Zoom = 2, .X = 1, .Y = 1};
   const Data::TileId c{.Zoom = 2, .X = 2, .Y = 1};
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoNetwork transport;
   auto provider = std::make_unique<Provider>();
   Provider *const observed = provider.get();
   CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
         "local provider registers");
-  TilePool pool({.Threads = 1, .ByteBudget = 2, .TerrainRevisionEntries = 2, .Carriers = 1},
+  TilePool pool({.Threads = 1,
+                 .ByteBudget = 2,
+                 .TerrainRevisionEntries = 2,
+                 .Carriers = 1,
+                 .PreparedFields = {}},
                 sources,
                 transport);
   const auto deliver = [&](Data::TileId at) {

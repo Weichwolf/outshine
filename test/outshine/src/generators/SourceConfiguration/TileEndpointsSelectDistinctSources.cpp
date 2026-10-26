@@ -50,16 +50,24 @@ int main() {
        .Revision = "same-pin",
        .Priority = -1,
        .Dataset = "first-vector",
-       .Endpoint = "https://first.example/map/{z}/{x}/{y}.png"},
+       .Location = {},
+       .Endpoint = "https://first.example/map/{z}/{x}/{y}.png",
+       .Coverage = {},
+       .PayloadSha256 = {},
+       .Schema = {}},
       {.Kind = "vector",
        .Revision = "same-pin",
        .Priority = 2,
        .Dataset = "second-vector",
-       .Endpoint = "https://second.example/map/{z}/{x}/{y}.png"},
+       .Location = {},
+       .Endpoint = "https://second.example/map/{z}/{x}/{y}.png",
+       .Coverage = {},
+       .PayloadSha256 = {},
+       .Schema = {}},
   }};
   CHECK(ValidateSourceProviders(providers, registry).has_value(),
         "distinct tile declarations validate");
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   std::string error;
   CHECK(RegisterSources(sources, providers, {}, error, registry), error.c_str());

@@ -81,11 +81,11 @@ int main() {
         "default parallel IO is independent of the single compute budget");
   Tasks compute(1);
   {
-    Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+    Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet sources(store);
     SlowWire wire;
-    TilePool first({.Threads = 4, .Compute = &compute}, sources, wire);
-    TilePool second({.Threads = 4, .Compute = &compute}, sources, wire);
+    TilePool first({.Threads = 4, .Compute = &compute, .PreparedFields = {}}, sources, wire);
+    TilePool second({.Threads = 4, .Compute = &compute, .PreparedFields = {}}, sources, wire);
     first.Shapes({.Kind = "plane", .AmplitudeM = 10.0});
     second.Shapes({.Kind = "plane", .AmplitudeM = 20.0});
     CHECK(first.ThreadCount() == 1 && second.ThreadCount() == 1,
@@ -124,13 +124,13 @@ int main() {
           "the same shared terrain path produces real mesh output");
   }
   {
-    Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+    Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<SlowElevation>()) == Data::SourceSet::Registration::Accepted,
           "slow raster source registers");
     SlowWire wire;
     {
-      TilePool pool({.Compute = &compute, .Carriers = 2}, sources, wire);
+      TilePool pool({.Compute = &compute, .Carriers = 2, .PreparedFields = {}}, sources, wire);
       std::shared_ptr<const TerrainField> field;
       CHECK(pool.Field({.Zoom = 14, .X = 8192, .Y = 8192}, &field) == TilePool::Reply::Pending,
             "terrain transformation requests unavailable input");

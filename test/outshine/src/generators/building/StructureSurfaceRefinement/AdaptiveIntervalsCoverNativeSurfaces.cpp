@@ -12,7 +12,7 @@ using namespace outshine::Generators;
 void Triangle(Raised &mesh, std::array<Vec3f, 3> vertices) {
   for (const auto &vertex : vertices) {
     mesh.RoofRun.push_back(static_cast<uint32_t>(mesh.RoofCorners.size()));
-    mesh.RoofCorners.push_back({.pos = vertex});
+    mesh.RoofCorners.push_back({.pos = vertex, .texture = {}, .normWord = {}});
   }
 }
 

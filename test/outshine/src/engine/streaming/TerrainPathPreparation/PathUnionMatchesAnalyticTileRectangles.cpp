@@ -58,7 +58,7 @@ Around Point(double column) {
 
 int main() {
   using namespace outshine::Test;
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;
   Ground::TilePool pool({}, sources, transport);
@@ -66,8 +66,8 @@ int main() {
   const std::array path{Point(20.25), Point(22.25)};
   const std::array classification{
       Ground::ClassificationPreparation::SourceWindow{.Zoom = 5, .Ring = 1}};
-  const auto planned =
-      PlanTerrainPath(path, ground, {.VectorZoom = 6, .Classification = classification});
+  const auto planned = PlanTerrainPath(
+      path, ground, {.VectorZoom = 6, .Classification = classification, .RoadTiles = {}});
   CHECK(planned, "two camera positions produce an admitted data plan without IO");
   if (!planned) { return Report(); }
   // Mesh blocks are [18,21] and [20,23], both at rows [18,21].
@@ -84,8 +84,8 @@ int main() {
   CHECK(KeysOf(planned->Vectors) == vectors && planned->Vectors.size() == 63 + 12,
         "geometry and classifier windows form independently derived source unions");
   const std::array repeated{path[1], path[0], path[1]};
-  const auto shuffled =
-      PlanTerrainPath(repeated, ground, {.VectorZoom = 6, .Classification = classification});
+  const auto shuffled = PlanTerrainPath(
+      repeated, ground, {.VectorZoom = 6, .Classification = classification, .RoadTiles = {}});
   CHECK(shuffled && shuffled->Fields == planned->Fields && shuffled->Vectors == planned->Vectors,
         "path order and repeated positions cannot change canonical data demand");
   const std::array seam{Point(32.25)};

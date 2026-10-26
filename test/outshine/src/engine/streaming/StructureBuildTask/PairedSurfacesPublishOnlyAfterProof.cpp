@@ -46,7 +46,8 @@ std::unique_ptr<Generators::RawTile> Raw(LevelOfDetail detail) {
   raw->LatLon = {47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
   const auto cell = Generators::StructureCellOf(
       {.MinLonDeg = 9, .MinLatDeg = 47, .MaxLonDeg = 9.008, .MaxLatDeg = 47.008}, raw->LatLon);
-  raw->Structures.push_back({.PointCount = 4, .Cell = *cell, .HeightM = 12});
+  raw->Structures.push_back(
+      {.PointCount = 4, .Cell = *cell, .HeightM = 12, .WallColour = {}, .Facade = {}});
   raw->RequestedCell = cell->Index;
   raw->RequestedDetail = detail;
   raw->TileSpanM = 1000;
@@ -64,7 +65,7 @@ StructureBuildTask Task(const StructureMesher &mesher,
           Heights(),
           std::make_unique<StructureBuildTask::Output>(),
           mesher.Scratch(),
-          StructureBuildTask::ProofRequest{.SourceKey = key}};
+          StructureBuildTask::ProofRequest{.SourceKey = key, .Limits = {}}};
 }
 
 void Complete(StructureBuildTask &task, Tasks &pool, const StructureMesher &mesher) {

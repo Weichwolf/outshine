@@ -28,7 +28,7 @@ int main() {
   using outshine::Ground::TerrainField;
   using outshine::Ground::TilePool;
 
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   TilePool pool({}, sources, transport);

@@ -61,7 +61,12 @@ class Provider final : public Source {
 public:
   explicit Provider(std::shared_ptr<Gate> gate) : Gate_(std::move(gate)) {}
 
-  SourceDecl Decl{.Id = "stale-owner-dem", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "stale-owner-dem",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
@@ -90,13 +95,15 @@ int main() {
     const bool cancelled = mode == Mode::MeshCancelled;
     const float expectedHeight = cancelled ? 0.0f : 9.0f;
     auto gate = std::make_shared<Gate>();
-    Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+    Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet sources(store);
     NoNetwork transport;
     CHECK(sources.Add(std::make_unique<Provider>(gate)) == Data::SourceSet::Registration::Accepted,
           "controlled local provider registers");
     TilePool pool(
-        {.Threads = 2, .ByteBudget = 1024u * 1024u, .PollAttempts = 10}, sources, transport);
+        {.Threads = 2, .ByteBudget = 1024u * 1024u, .PollAttempts = 10, .PreparedFields = {}},
+        sources,
+        transport);
     const Data::TileId at{.Zoom = 2, .X = 1, .Y = 1};
     std::shared_ptr<const TerrainField> field;
     TileBuild build;

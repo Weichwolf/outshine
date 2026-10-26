@@ -33,11 +33,15 @@ Patchwork Inputs() {
 
 std::vector<EarthworkStamp> Stamps() {
   EarthworkStamp stamp{.RingEastNorthM = {-100, -100, 200, -100, 200, 100, -100, 100},
+                       .HoleRingsEastNorthM = {},
                        .LowE = -100,
                        .HighE = 200,
                        .LowN = -100,
                        .HighN = 100,
                        .PlateauM = 7,
+                       .SeamEastNorthM = {},
+                       .Profile = {},
+                       .PlanarSupportM = {},
                        .ApronM = 3,
                        .Fills = true,
                        .Kind = EarthworkKind::Pad};

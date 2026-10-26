@@ -22,16 +22,21 @@ int main() {
     const double lon = 16 + static_cast<double>(at % 8) * 0.0003;
     rings[at] = {lat, lon, lat, lon + 0.00015, lat + 0.0001, lon + 0.00015, lat + 0.0001, lon};
     plans.push_back({.RingLatLon = rings[at],
+                     .InnerRings = {},
+                     .RingPointsLatLon = {},
                      .BaseAslM = 100,
                      .SeatAslM = 100,
                      .FootAslM = 100,
+                     .CornerAslM = {},
                      .HeightM = 10,
                      .HeightMeasured = true,
+                     .Street = {},
                      .AnchorEcef = anchor,
                      .Coarseness = LevelOfDetail::Shell,
                      .RecessedOpenings = false,
                      .PitchedShare = 0.0,
-                     .WallColour = Vec3f{{0.4f, 0.3f, 0.2f}}});
+                     .WallColour = Vec3f{{0.4f, 0.3f, 0.2f}},
+                     .Facade = {}});
   }
   const BuildingMesh mesher;
   BuildingScratch scratch;

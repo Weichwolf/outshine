@@ -10,7 +10,9 @@ using namespace outshine::Generators;
 
 Raised Surface(std::array<Vec3f, 3> vertices, Vec3f offset, bool reverse) {
   Raised mesh;
-  for (const auto &vertex : vertices) { mesh.RoofCorners.push_back({.pos = vertex + offset}); }
+  for (const auto &vertex : vertices) {
+    mesh.RoofCorners.push_back({.pos = vertex + offset, .texture = {}, .normWord = {}});
+  }
   mesh.RoofRun = reverse ? std::vector<uint32_t>{2, 1, 0} : std::vector<uint32_t>{0, 1, 2};
   return mesh;
 }

@@ -8,7 +8,7 @@ int main() {
   using namespace outshine::Test;
   Engine engine;
   Scenario::Document original;
-  original.Events.push_back({.Name = "ready"});
+  original.Events.push_back({.Name = "ready", .Carries = {}});
   CHECK(engine.declare(original) && engine.assemble(), "events without volumes can be assembled");
   const auto *previous = &engine.entities();
   auto invalid = original;

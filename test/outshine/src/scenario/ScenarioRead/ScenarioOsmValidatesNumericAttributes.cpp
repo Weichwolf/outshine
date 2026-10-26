@@ -18,7 +18,7 @@ int main() {
   for (const auto name : {"widthM", "heightM", "level"}) {
     for (const auto value : {"", "x", "1x", "nan", "inf", "1e999", " 1", "1 "}) {
       Scenario::Document held;
-      held.Ground.Osm.push_back({.Kind = "retained"});
+      held.Ground.Osm.push_back({.Kind = "retained", .LatLon = {}});
       const auto xml = Scene(std::string(name) + "=\"" + value + "\"");
       std::string error;
       CHECK(!ReadScenario(xml.data(), xml.size(), held, error) && !error.empty(),

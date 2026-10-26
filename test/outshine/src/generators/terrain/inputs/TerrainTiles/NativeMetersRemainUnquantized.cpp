@@ -40,7 +40,8 @@ int main() {
   TerrainField original(4, 4);
   original.SetM(1, 2, Meters::Height(at, 1, 2));
   const auto *allocation = original.Data();
-  auto delivered = TerrainBytes::From(at, std::move(original), {.Tile = at});
+  auto delivered =
+      TerrainBytes::From(at, std::move(original), {.Tile = at, .SourceId = {}, .Revision = {}});
   auto payload = delivered.Take();
   CHECK(payload && std::get<TerrainField>(payload->Samples).Data() == allocation,
         "native terrain delivery transfers its float allocation without encoding or copying");

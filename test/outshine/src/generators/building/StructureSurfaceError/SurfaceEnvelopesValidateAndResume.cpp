@@ -12,7 +12,7 @@ void AddTriangle(outshine::Raised &mesh, std::array<outshine::Vec3f, 3> points, 
   auto &indices = roof ? mesh.RoofRun : mesh.WallRun;
   for (const auto &point : points) {
     indices.push_back(static_cast<uint32_t>(vertices.size()));
-    vertices.push_back({.pos = point});
+    vertices.push_back({.pos = point, .texture = {}, .normWord = {}});
   }
 }
 

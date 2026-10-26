@@ -35,7 +35,10 @@ int main() {
        .Missing = Data::MissingDataPolicy::Fail,
        .Dataset = "openstreetmap.original",
        .Location = path.string(),
-       .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}});
+       .Endpoint = {},
+       .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1},
+       .PayloadSha256 = {},
+       .Schema = {}});
   {
     auto sourceOnly = App::CreateEngine();
     CHECK(sourceOnly.setRoots({.Offline = true}) && sourceOnly.declare(document) &&

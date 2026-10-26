@@ -63,7 +63,7 @@ int main() {
           "invalid native grids are refused before shifting coordinates");
   }
 
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork network;
   Ground::TilePool pool({}, sources, network);

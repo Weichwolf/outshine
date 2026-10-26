@@ -46,6 +46,7 @@ RawTile Inputs() {
          .Cell = *cell,
          .HeightM = 12,
          .Pitched = 0,
+         .WallColour = {},
          .Facade = index == 2 ? std::optional(FacadeStyle::Tower) : std::nullopt});
   }
   return raw;
@@ -68,7 +69,11 @@ void MissingCellIsGenerated(const std::filesystem::path &root,
   const auto parent = (*database)->Find(key);
   CHECK(parent && *parent, "parent metadata has spatial bounds");
   if (!parent || !*parent) { return; }
-  const auto child = (*database)->Select({.Bounds = (**parent).Bounds, .Kind = "building-forms"});
+  const auto child = (*database)->Select({.Bounds = (**parent).Bounds,
+                                          .Kind = "building-forms",
+                                          .Level = {},
+                                          .Radius = {},
+                                          .Planes = {}});
   CHECK(child.has_value() && child->size() == 3, "each occupied native cell has its own package");
   if (!child || child->empty()) { return; }
   const auto erased = (*database)->Remove(child->front().Key);

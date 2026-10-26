@@ -26,7 +26,8 @@ int main() {
   CHECK(parsed.has_value(), "original raised part parses");
   if (!parsed) { return Report(); }
   auto source = std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
-      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*parsed), .Coverage = {}});
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*parsed), .Coverage = {}, .Chunks = {}});
   const auto footprints = outshine::Generators::Osm::BuildingFootprints::Build(source, 4);
   CHECK(footprints.has_value(), "original raised part has a closed footprint");
   if (!footprints) { return Report(); }
@@ -93,8 +94,8 @@ int main() {
   CHECK(pointParsed.has_value(), "point building parses");
   if (!pointParsed) { return Report(); }
   const auto pointSource = std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
-      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*pointParsed),
-                                                .Coverage = {}});
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*pointParsed), .Coverage = {}, .Chunks = {}});
   const auto pointFootprints = outshine::Generators::Osm::BuildingFootprints::Build(pointSource, 1);
   CHECK(pointFootprints.has_value(), "point building preserves its original position");
   if (!pointFootprints) { return Report(); }

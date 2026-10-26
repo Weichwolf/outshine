@@ -19,14 +19,28 @@ WaterAsset Source() {
       .Courses =
           {{.FirstPoint = count, .PointCount = 2, .FirstLevel = 0, .HalfWidthM = 1, .Input = 1}},
       .Levels = {100, 99},
+      .Points = {},
       .Tiles = {{.FirstSurface = 0, .SurfaceCount = 1}},
       .ProcessedTiles = 1,
       .Sources = {{.Identity = {.Kind = Data::DataKind::VectorMap,
                                 .SourceId = "fixture",
                                 .Revision = "r1"},
+                   .InputDigest = {},
                    .FeatureCount = 2}},
-      .Inputs = {{.Source = 0, .Feature = 0, .Layer = "water_polygons", .Kind = "river"},
-                 {.Source = 0, .Feature = 1, .Layer = "water_lines", .Kind = "river"}}};
+      .Inputs = {{.Source = 0,
+                  .Feature = 0,
+                  .FeatureId = {},
+                  .Layer = "water_polygons",
+                  .Kind = "river",
+                  .Crossing = {},
+                  .Intermittent = {}},
+                 {.Source = 0,
+                  .Feature = 1,
+                  .FeatureId = {},
+                  .Layer = "water_lines",
+                  .Kind = "river",
+                  .Crossing = {},
+                  .Intermittent = {}}}};
   for (uint32_t at = 0; at < count; ++at) {
     const double angle = 2 * std::numbers::pi * at / count;
     data.Points.insert(data.Points.end(), {.0001 * std::sin(angle), .0001 * std::cos(angle)});

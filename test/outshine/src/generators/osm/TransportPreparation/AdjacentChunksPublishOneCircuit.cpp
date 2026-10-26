@@ -32,7 +32,10 @@ Chunk(std::string path, int rank, std::string revision, outshine::GeographicBoun
           .Missing = outshine::Data::MissingDataPolicy::Fail,
           .Dataset = "osm-analytical",
           .Location = std::move(path),
-          .Coverage = coverage};
+          .Endpoint = {},
+          .Coverage = coverage,
+          .PayloadSha256 = {},
+          .Schema = {}};
 }
 
 }

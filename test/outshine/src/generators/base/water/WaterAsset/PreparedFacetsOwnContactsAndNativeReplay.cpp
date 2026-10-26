@@ -16,9 +16,13 @@ int main() {
       {.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 999},
                     {.FirstRing = 1, .RingCount = 1, .LevelM = 888}},
        .Rings = {{.FirstPoint = 0, .PointCount = 3}, {.FirstPoint = 3, .PointCount = 3}},
+       .Courses = {},
+       .Levels = {},
        .Points = {-.001, -.001, -.001, .001, .001, 0, -.001, .003, -.001, .005, .001, .004},
        .Tiles = {{.Zoom = 0, .X = 0, .Y = 0, .FirstSurface = 0, .SurfaceCount = 2}},
-       .ProcessedTiles = 1});
+       .ProcessedTiles = 1,
+       .Sources = {},
+       .Inputs = {}});
   CHECK(!source.SurfacesReady() && source.LevelAt({}) == std::optional(999.),
         "source water retains its prior before a contact mesh is prepared");
   constexpr double kHeight = .123456789123;
@@ -28,7 +32,11 @@ int main() {
       {{.Vertices = {0, 1, 2}, .Surface = 0}});
   CHECK(mesh, "canonical fitted facet is available");
   if (!mesh) { return Report(); }
-  const auto prepared = source.WithSurfaces({.Mesh = *mesh, .Rejections = {{.Surface = 1}}});
+  const auto prepared = source.WithSurfaces({.Mesh = *mesh,
+                                             .Rejections = {{.Surface = 1}},
+                                             .FaceSourceOffsets = {},
+                                             .FaceSources = {},
+                                             .ProfileDeclines = {}});
   CHECK(prepared && prepared->SurfacesReady(),
         "each original surface has facets or an explicit local omission");
   if (!prepared) { return Report(); }

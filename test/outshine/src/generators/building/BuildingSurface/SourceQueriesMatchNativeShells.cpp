@@ -48,13 +48,19 @@ int main() {
   const std::array<double, 8> ring{48, 16, 48, 16.0003, 48.0002, 16.0003, 48.0002, 16};
   const std::array<double, 4> ground{300, 301, 302, 301};
   StructurePlan plan{.RingLatLon = ring,
+                     .InnerRings = {},
+                     .RingPointsLatLon = {},
                      .BaseAslM = 300,
                      .SeatAslM = 302,
                      .FootAslM = 300,
                      .CornerAslM = ground,
                      .HeightM = 12,
                      .HeightMeasured = true,
-                     .Coarseness = LevelOfDetail::Shell};
+                     .Street = {},
+                     .AnchorEcef = {},
+                     .Coarseness = LevelOfDetail::Shell,
+                     .WallColour = {},
+                     .Facade = {}};
   GeoToEcef({.LongitudeDeg = 16, .LatitudeDeg = 48, .HeightM = 300}, plan.AnchorEcef);
   const auto axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48});
   BuildingMesh mesher;

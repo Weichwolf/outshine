@@ -13,8 +13,13 @@ int main() {
       {.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 10},
                     {.FirstRing = 1, .RingCount = 1, .LevelM = 20}},
        .Rings = {{.FirstPoint = 0, .PointCount = 3}, {.FirstPoint = 3, .PointCount = 4}},
-       .Points = {
-           -.001, -.001, -.001, .001, .001, 0, .004, .004, .006, .006, .006, .004, .004, .006}});
+       .Courses = {},
+       .Levels = {},
+       .Points =
+           {-.001, -.001, -.001, .001, .001, 0, .004, .004, .006, .006, .006, .004, .004, .006},
+       .Tiles = {},
+       .Sources = {},
+       .Inputs = {}});
   const auto frame = TangentFrame::At({});
   const auto prepared = PrepareWaterSurfaces(source, frame);
   CHECK(prepared && prepared->SurfacesReady(),

@@ -48,8 +48,12 @@ int main() {
                                   .Revision = "independent",
                                   .Missing = MissingDataPolicy::Fail,
                                   .Dataset = "openstreetmap.original",
+                                  .Location = {},
                                   .Endpoint =
-                                      std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                      std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                  .Coverage = {},
+                                  .PayloadSha256 = {},
+                                  .Schema = {}};
     DelayedOsmTransport wire;
     std::array<GeoCellId, outshine::Generators::Osm::CellAcquisition::MaximumPendingCells> cells{};
     outshine::Generators::Osm::CellAcquisition reader(provider, store, wire);

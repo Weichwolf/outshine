@@ -8,11 +8,15 @@
 namespace {
 outshine::EarthworkStamp Road(double lowN, double height) {
   return {.RingEastNorthM = {-50, lowN, 50, lowN, 50, lowN + 4, -50, lowN + 4},
+          .HoleRingsEastNorthM = {},
           .LowE = -50,
           .HighE = 50,
           .LowN = lowN,
           .HighN = lowN + 4,
           .PlateauM = height,
+          .SeamEastNorthM = {},
+          .Profile = {},
+          .PlanarSupportM = {},
           .CorridorKey = 42,
           .ApronM = 20,
           .YieldM = 4,

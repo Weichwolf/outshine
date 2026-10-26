@@ -24,7 +24,12 @@ public:
 
 class PendingSource final : public Source {
 public:
-  SourceDecl Decl{.Id = "pending", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "pending",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
@@ -58,7 +63,7 @@ void operator delete(void *block, std::align_val_t) noexcept {
 int main() {
   using namespace outshine::Test;
   using outshine::Ground::TilePool;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   CHECK(sources.Add(std::make_unique<PendingSource>()) == SourceSet::Registration::Accepted,

@@ -30,7 +30,7 @@ int main() {
                             "0,0 0,180.0001",
                             "0,0 0,-180.0001"}) {
     Scenario::Document held;
-    held.Ground.Osm.push_back({.Kind = "retained"});
+    held.Ground.Osm.push_back({.Kind = "retained", .LatLon = {}});
     const auto xml = Scene("way", points);
     std::string error;
     CHECK(!ReadScenario(xml.data(), xml.size(), held, error) && !error.empty(),

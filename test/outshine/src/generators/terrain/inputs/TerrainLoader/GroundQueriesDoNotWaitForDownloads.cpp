@@ -11,8 +11,12 @@
 namespace {
 class DelayedSource final : public outshine::Data::Source {
 public:
-  outshine::Data::SourceDecl Decl{
-      .Id = "delayed", .Revision = "r1", .Keeps = outshine::Data::Cacheability::Never};
+  outshine::Data::SourceDecl Decl{.Id = "delayed",
+                                  .Revision = "r1",
+                                  .Endpoint = {},
+                                  .Keeps = outshine::Data::Cacheability::Never,
+                                  .PayloadSha256 = {},
+                                  .Schema = {}};
   std::thread::id Caller = std::this_thread::get_id();
   mutable std::atomic<bool> CalledOnCaller{false};
   std::atomic<bool> Released{false};
@@ -65,14 +69,14 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;
   auto source = std::make_unique<DelayedSource>();
   auto *probe = source.get();
   CHECK(sources.Add(std::move(source)) == Data::SourceSet::Registration::Accepted,
         "source registered");
-  Ground::TilePool pool({.PollAttempts = 100}, sources, transport);
+  Ground::TilePool pool({.PollAttempts = 100, .PreparedFields = {}}, sources, transport);
   Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
   CHECK(ground.At({}).Where() == GroundSample::State::Pending, "unavailable tile remains pending");
   CHECK(!probe->CalledOnCaller, "ground query never collects sources on its caller");

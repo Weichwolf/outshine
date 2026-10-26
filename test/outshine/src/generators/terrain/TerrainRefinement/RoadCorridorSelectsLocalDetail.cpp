@@ -28,10 +28,10 @@ int main() {
                                                      .HeightM = 0.0});
     return EastNorth{.EastM = local.EastM, .NorthM = local.NorthM};
   };
-  const Sheet page{.Tile = tile, .Side = layout.Side, .Postings = layout.Side};
+  const Sheet page{.Tile = tile, .Nodes = {}, .Side = layout.Side, .Postings = layout.Side};
   Ground::TerrainField flat(129, 129);
   const std::array sources{TerrainRefinementSource{.Page = &page, .Heights = &flat}};
-  const TerrainRefinementDetail detail{.OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
+  const TerrainRefinementDetail detail{.EyeM = {}, .OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
   const TerrainRefinementCorridor road{
       .Start = eastNorth(0.15), .End = eastNorth(0.35), .HalfWidthM = 1.0, .MaximumPostingM = 4.0};
   const std::array corridors{road};

@@ -45,7 +45,9 @@ int main() {
                               .PointCount = static_cast<uint32_t>(points.size() / 2),
                               .Cell = *cell,
                               .HeightM = 9,
-                              .Pitched = 0});
+                              .Pitched = 0,
+                              .WallColour = {},
+                              .Facade = {}});
     raw.LatLon.insert(raw.LatLon.end(), points.begin(), points.end());
   }
   CHECK(raw.Structures[0].Cell.Index == raw.Structures[1].Cell.Index,

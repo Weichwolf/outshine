@@ -45,14 +45,19 @@ void Build(RawSourceCache &cache, Transport &transport, ProviderRegistry &regist
                               .Revision = "fixture-2026",
                               .Missing = MissingDataPolicy::Fail,
                               .Dataset = "fixture.terrarium",
-                              .Endpoint = "https://fixture.invalid/height/{z}/{x}/{y}.webp"};
+                              .Location = {},
+                              .Endpoint = "https://fixture.invalid/height/{z}/{x}/{y}.webp",
+                              .Coverage = {},
+                              .PayloadSha256 = {},
+                              .Schema = {}};
   SourceSet sources(cache);
   std::string error;
   CHECK(RegisterSources(sources, std::span(&config, 1), {}, error, registry), error.c_str());
   if (sources.Count() != 1) { return; }
   CHECK(sources.At(0).Declaration().Wire == WireFormat::TerrariumWebp,
         "factory declares actual network encoding independently of native heights");
-  Ground::TilePool pool({.Threads = 2, .ByteBudget = 1024u * 1024u}, sources, transport);
+  Ground::TilePool pool(
+      {.Threads = 2, .ByteBudget = 1024u * 1024u, .PreparedFields = {}}, sources, transport);
   const TileId at{.Zoom = 12, .X = 2048, .Y = 2048};
   std::shared_ptr<const Ground::TerrainField> field;
   Ground::TilePool::Reply reply = Ground::TilePool::Reply::Pending;

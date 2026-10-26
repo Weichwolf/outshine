@@ -43,8 +43,13 @@ int main() {
   const auto cell = StructureCellOf(bounds, raw.LatLon);
   CHECK(cell.has_value(), "raised building belongs to a spatial cell");
   if (!cell) { return Report(); }
-  raw.Structures.push_back(
-      {.PointCount = 4, .Cell = *cell, .HeightM = 12, .MinimumHeightM = 5, .Pitched = 0});
+  raw.Structures.push_back({.PointCount = 4,
+                            .Cell = *cell,
+                            .HeightM = 12,
+                            .MinimumHeightM = 5,
+                            .Pitched = 0,
+                            .WallColour = {},
+                            .Facade = {}});
   raw.TileSpanM = 1000;
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 100}, raw.AnchorEcef);
   const auto axes = EnuAxesEcef({.LongitudeDeg = 9, .LatitudeDeg = 47});
@@ -119,8 +124,8 @@ int main() {
   if (!original) { return Report(); }
   raw.SourceInputs.Objects = std::make_shared<const outshine::Generators::Osm::SourceCapture>(
       std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
-          outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*original),
-                                                    .Coverage = {}}));
+          outshine::Generators::Osm::SourceSnapshot{
+              .Elements = std::move(*original), .Coverage = {}, .Chunks = {}}));
   raw.Structures[0].SourceId = {
       .Id = 7, .Kind = static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Node)};
   BakedTile native;

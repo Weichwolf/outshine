@@ -35,13 +35,13 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>()) ==
             SourceSet::Registration::Accepted,
         "native source uses normal provider dispatch");
   Http wire;
-  TilePool pool({.ByteBudget = 1024, .Carriers = 1}, sources, wire);
+  TilePool pool({.ByteBudget = 1024, .Carriers = 1, .PreparedFields = {}}, sources, wire);
   const SourceRequest request(DataKind::Elevation,
                               Address::AtCell({54, 9}),
                               ByteRange{.First = 100, .Length = 3},

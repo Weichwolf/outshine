@@ -46,7 +46,14 @@ int main() {
         StoredVertex::Of({{0.5f, -0.5f, 0}}, {{1, 0}}, {{0, 0, 1}}),
         StoredVertex::Of({{0, 0.5f, 0}}, {{0, 1}}, {{0, 0, 1}})};
     const std::array<uint32_t, 3> indices{0, 1, 2};
-    const auto piece = renderer.PlaceStructurePiece({.Verts = vertices, .Indices = indices});
+    const auto piece = renderer.PlaceStructurePiece({.Tangents = {},
+                                                     .Verts = vertices,
+                                                     .Indices = indices,
+                                                     .Clusters = {},
+                                                     .Colours = {},
+                                                     .Uv1 = {},
+                                                     .Instances = {},
+                                                     .Surface = {}});
     CHECK(piece.has_value(), "static piece becomes resident");
     if (!piece) { return Report(); }
     const auto depthAtCentre = [&]() {
@@ -81,7 +88,14 @@ int main() {
           "moving back refreshes its bound and restores the draw");
     renderer.ReleasePiece(*piece);
     for (auto &vertex : vertices) { vertex.pos[0] += 100; }
-    const auto reused = renderer.PlaceStructurePiece({.Verts = vertices, .Indices = indices});
+    const auto reused = renderer.PlaceStructurePiece({.Tangents = {},
+                                                      .Verts = vertices,
+                                                      .Indices = indices,
+                                                      .Clusters = {},
+                                                      .Colours = {},
+                                                      .Uv1 = {},
+                                                      .Instances = {},
+                                                      .Surface = {}});
     CHECK(reused && reused->Slot == piece->Slot, "new geometry reuses the released source slot");
     if (!reused) { return Report(); }
     rows[0].SetTranslation({{-100, 0, 0}});

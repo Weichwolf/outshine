@@ -70,8 +70,13 @@ int main() {
       CHECK(cell, "each original source footprint has a cell");
       if (!cell) { return Report(); }
       raw.LatLon.insert(raw.LatLon.end(), ring.begin(), ring.end());
-      raw.Structures.push_back(
-          {.LocalFirst = first, .PointCount = 4, .Cell = *cell, .HeightM = 9, .Pitched = 0});
+      raw.Structures.push_back({.LocalFirst = first,
+                                .PointCount = 4,
+                                .Cell = *cell,
+                                .HeightM = 9,
+                                .Pitched = 0,
+                                .WallColour = {},
+                                .Facade = {}});
     }
   }
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47}, raw.AnchorEcef);

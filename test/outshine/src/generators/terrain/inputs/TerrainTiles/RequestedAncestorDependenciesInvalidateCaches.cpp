@@ -59,7 +59,10 @@ void CheckStitchedBudget(size_t fieldBytes) {
   CertifiedAncestor source;
   TerrainTiles tiles(source,
                      EnuFrame::At(Geo{}),
-                     {.DemCacheBytes = 1024u * 1024u, .StitchedFieldBytes = 2 * fieldBytes});
+                     {.DemCacheBytes = 1024u * 1024u,
+                      .Shared = {},
+                      .StitchedFieldBytes = 2 * fieldBytes,
+                      .PreparedFields = {}});
   const Data::TileId centre{.Zoom = 3, .X = 1, .Y = 1};
   const Data::TileId other{.Zoom = 3, .X = 2, .Y = 2};
   const auto first = tiles.StitchedField(centre.Zoom, centre.X, centre.Y);
@@ -84,7 +87,9 @@ int main() {
   const auto decoded = std::make_shared<DecodedCache>(1024u * 1024u);
   {
     TerrainTiles tiles(
-        source, EnuFrame::At(Geo{}), {.Shared = decoded, .StitchedFieldBytes = 1024u * 1024u});
+        source,
+        EnuFrame::At(Geo{}),
+        {.Shared = decoded, .StitchedFieldBytes = 1024u * 1024u, .PreparedFields = {}});
     const Data::TileId centre{.Zoom = 3, .X = 2, .Y = 2};
     const auto first = tiles.StitchedField(centre.Zoom, centre.X, centre.Y);
     CHECK(first && first->Sources().size() == 1,
@@ -122,7 +127,9 @@ int main() {
           "old borrowed snapshot stays revoked");
     {
       TerrainTiles consumer(
-          source, EnuFrame::At(Geo{}), {.Shared = decoded, .StitchedFieldBytes = 1024u * 1024u});
+          source,
+          EnuFrame::At(Geo{}),
+          {.Shared = decoded, .StitchedFieldBytes = 1024u * 1024u, .PreparedFields = {}});
       const auto shared = consumer.StitchedField(centre.Zoom, centre.X, centre.Y);
       CHECK(shared && source.AreCurrent(shared->Certificate().Dependencies()),
             "a second consumer sees the updated raw dependency");
@@ -153,7 +160,10 @@ int main() {
     CertifiedAncestor constrained(1);
     TerrainTiles tiles(constrained,
                        EnuFrame::At(Geo{}),
-                       {.DemCacheBytes = 1024u * 1024u, .StitchedFieldBytes = 1024u * 1024u});
+                       {.DemCacheBytes = 1024u * 1024u,
+                        .Shared = {},
+                        .StitchedFieldBytes = 1024u * 1024u,
+                        .PreparedFields = {}});
     const auto usable = tiles.StitchedField(3, 2, 2);
     CHECK(usable && usable->Meshable() && !usable->HasMissingBoundary(),
           "one-entry metadata budget preserves complete usable terrain");

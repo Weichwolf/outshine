@@ -19,7 +19,8 @@ int main() {
   const auto fixtureCell = Generators::StructureCellOf(tileBounds, raw.LatLon);
   CHECK(fixtureCell.has_value(), "valid synthetic building receives a cell");
   if (!fixtureCell) { return Report(); }
-  raw.Structures.push_back({.PointCount = 4, .Cell = *fixtureCell, .HeightM = 12.0});
+  raw.Structures.push_back(
+      {.PointCount = 4, .Cell = *fixtureCell, .HeightM = 12.0, .WallColour = {}, .Facade = {}});
   raw.TileSpanM = 1000.0;
   Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
@@ -130,9 +131,19 @@ int main() {
   Generators::RawTile cellRaw;
   cellRaw.LatLon.assign(westRing.begin(), westRing.end());
   cellRaw.LatLon.insert(cellRaw.LatLon.end(), eastRing.begin(), eastRing.end());
-  cellRaw.Structures = {
-      {.PointCount = 4, .SourceFirst = 0, .Cell = *westCell, .HeightM = 12.0},
-      {.LocalFirst = 4, .PointCount = 4, .SourceFirst = 4, .Cell = *eastCell, .HeightM = 16.0}};
+  cellRaw.Structures = {{.PointCount = 4,
+                         .SourceFirst = 0,
+                         .Cell = *westCell,
+                         .HeightM = 12.0,
+                         .WallColour = {},
+                         .Facade = {}},
+                        {.LocalFirst = 4,
+                         .PointCount = 4,
+                         .SourceFirst = 4,
+                         .Cell = *eastCell,
+                         .HeightM = 16.0,
+                         .WallColour = {},
+                         .Facade = {}}};
   cellRaw.TileSpanM = 1000.0;
   cellRaw.Projection.FocalPx = 1000.0;
   cellRaw.RequestedDetail = LevelOfDetail::Fine;
@@ -174,8 +185,13 @@ int main() {
   auto unionRaw = cellRaw;
   unionRaw.RequestedCell = westCell->Index;
   unionRaw.LatLon.insert(unionRaw.LatLon.end(), widerWestRing.begin(), widerWestRing.end());
-  unionRaw.Structures.push_back(
-      {.LocalFirst = 8, .PointCount = 4, .SourceFirst = 8, .Cell = *extraCell, .HeightM = 24.0});
+  unionRaw.Structures.push_back({.LocalFirst = 8,
+                                 .PointCount = 4,
+                                 .SourceFirst = 8,
+                                 .Cell = *extraCell,
+                                 .HeightM = 24.0,
+                                 .WallColour = {},
+                                 .Facade = {}});
   auto unionScratch = mesher.Scratch();
   Generators::BakedTile united;
   CHECK(Generators::BakeStructures(unionRaw, *heights, mesher, *unionScratch, united).has_value() &&

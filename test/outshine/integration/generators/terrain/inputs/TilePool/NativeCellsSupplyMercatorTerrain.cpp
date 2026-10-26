@@ -102,10 +102,13 @@ public:
 private:
   SourceDecl Decl{.Id = "external-native",
                   .Revision = "dataset",
+                  .Endpoint = {},
                   .Kind = DataKind::Elevation,
                   .How = Scheme::GeographicCell,
                   .Wire = WireFormat::CopernicusCog,
-                  .MaximumPayloadBytes = 8u * 1024 * 1024};
+                  .MaximumPayloadBytes = 8u * 1024 * 1024,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
 };
 
 TilePool::Reply Field(TilePool &pool,
@@ -125,12 +128,15 @@ TilePool::Reply Field(TilePool &pool,
 
 int main() {
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<Native>()) == SourceSet::Registration::Accepted,
         "external native provider registers through the common interface");
   Http http;
-  TilePool pool({.ByteBudget = 8u * 1024 * 1024, .DecodedBytes = 4u * 1024 * 1024, .Carriers = 4},
+  TilePool pool({.ByteBudget = 8u * 1024 * 1024,
+                 .DecodedBytes = 4u * 1024 * 1024,
+                 .Carriers = 4,
+                 .PreparedFields = {}},
                 sources,
                 http);
   const TileId at = *TileIndex::Of({.LongitudeDeg = 9.98, .LatitudeDeg = 54.02}, 7).Tile();
@@ -176,7 +182,8 @@ int main() {
         "missing-post fixture registers");
   Http absentHttp;
   absentHttp.Missing = true;
-  TilePool absent({.ByteBudget = 1024u * 1024, .Carriers = 1}, absentSources, absentHttp);
+  TilePool absent(
+      {.ByteBudget = 1024u * 1024, .Carriers = 1, .PreparedFields = {}}, absentSources, absentHttp);
   std::shared_ptr<const TerrainField> none;
   CHECK(Field(absent, at, none, failure) == TilePool::Reply::Refused && !none && failure,
         "missing original heights refuse terrain instead of making zero ground");

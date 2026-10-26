@@ -88,13 +88,16 @@ int main() {
   using namespace outshine::Test;
   for (const auto profile :
        {NativeCogProfile::LargeBlock, NativeCogProfile::LargeBlockOverlapsHeader}) {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>()) ==
               SourceSet::Registration::Accepted,
           "large original native fixture registers through the public provider contract");
     OriginalBlocks http(profile);
-    TilePool pool({.ByteBudget = 8u * 1024 * 1024, .DecodedBytes = 8u * 1024 * 1024, .Carriers = 1},
+    TilePool pool({.ByteBudget = 8u * 1024 * 1024,
+                   .DecodedBytes = 8u * 1024 * 1024,
+                   .Carriers = 1,
+                   .PreparedFields = {}},
                   sources,
                   http);
     const TileId at{.Zoom = 14, .X = 8652, .Y = 5745};

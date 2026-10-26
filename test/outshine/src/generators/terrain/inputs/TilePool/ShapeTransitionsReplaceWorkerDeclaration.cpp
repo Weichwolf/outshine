@@ -32,7 +32,12 @@ public:
 
 class Provider final : public Source {
 public:
-  SourceDecl Decl{.Id = "shape-transition-dem", .Revision = "r1", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "shape-transition-dem",
+                  .Revision = "r1",
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
@@ -53,13 +58,15 @@ int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
   for (const bool querySide : {false, true}) {
-    Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+    Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
     Data::SourceSet sources(store);
     NoNetwork transport;
     CHECK(sources.Add(std::make_unique<Provider>()) == Data::SourceSet::Registration::Accepted,
           "independent provider registers");
     TilePool pool(
-        {.Threads = 1, .ByteBudget = 1024u * 1024u, .PollAttempts = 10}, sources, transport);
+        {.Threads = 1, .ByteBudget = 1024u * 1024u, .PollAttempts = 10, .PreparedFields = {}},
+        sources,
+        transport);
     const Data::TileId unknown{.Zoom = 2, .X = 3, .Y = 3};
     for (int query = 0; query < 64; ++query) {
       CHECK(pool.Inspect(unknown, 4) == TilePool::Reply::Pending,

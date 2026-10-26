@@ -18,7 +18,7 @@ void Rectangle(Raised &mesh, float left, float right, float bottom, float top) {
                                       {{left, top, 0}}}};
   for (const auto &corner : corners) {
     mesh.RoofRun.push_back(static_cast<uint32_t>(mesh.RoofCorners.size()));
-    mesh.RoofCorners.push_back({.pos = corner});
+    mesh.RoofCorners.push_back({.pos = corner, .texture = {}, .normWord = {}});
   }
 }
 

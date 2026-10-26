@@ -14,7 +14,8 @@ public:
         field.SetM(row, col, static_cast<float>((at.X + col) * (at.Y + row)));
       }
     }
-    return Ground::TerrainBytes::From(at, std::move(field), {.Tile = at});
+    return Ground::TerrainBytes::From(
+        at, std::move(field), {.Tile = at, .SourceId = {}, .Revision = {}});
   }
 };
 }

@@ -35,7 +35,10 @@ int main() {
   ArrivingNeighbours source;
   TerrainTiles tiles(source,
                      EnuFrame::At(Geo{}),
-                     {.DemCacheBytes = 1024u * 1024u, .StitchedFieldBytes = 1024u * 1024u});
+                     {.DemCacheBytes = 1024u * 1024u,
+                      .Shared = {},
+                      .StitchedFieldBytes = 1024u * 1024u,
+                      .PreparedFields = {}});
   const Data::TileId at{.Zoom = 2, .X = 1, .Y = 1};
   const auto partial = tiles.StitchedField(at.Zoom, at.X, at.Y);
   CHECK(partial && partial->Sources().size() == 1,

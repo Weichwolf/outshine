@@ -50,8 +50,11 @@ int main() {
                                 .Revision = "partial-source",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint =
-                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = {},
+                                .PayloadSha256 = {},
+                                .Schema = {}};
   auto source = ApiSource::Create(provider, 0);
   CHECK(source.has_value(), "official original source configured");
   if (!source) { return Report(); }

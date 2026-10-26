@@ -6,9 +6,14 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  const std::array events{Scenario::Event{.Name = "entered"}};
-  Scenario::Volume volume{
-      .Shape = "sphere", .ExtentM = {1, 1, 1}, .Fires = "entered", .When = "enter"};
+  const std::array events{Scenario::Event{.Name = "entered", .Carries = {}}};
+  Scenario::Volume volume{.Id = {},
+                          .In = {},
+                          .Shape = "sphere",
+                          .AtM = {},
+                          .ExtentM = {1, 1, 1},
+                          .Fires = "entered",
+                          .When = "enter"};
   const auto prepare = [&] { return TriggerField::Stand(std::span(&volume, 1), events); };
   const double infinity = std::numeric_limits<double>::infinity();
   const double nan = std::numeric_limits<double>::quiet_NaN();

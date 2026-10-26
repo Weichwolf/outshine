@@ -53,8 +53,11 @@ int main() {
                                 .Revision = "original-source-cells",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint =
-                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = {},
+                                .PayloadSha256 = {},
+                                .Schema = {}};
   const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;
@@ -115,7 +118,7 @@ int main() {
       "https://api.openstreetmap.org/api/0.6/map?bbox=9.84375,54.4921875,10.546875,54.84375"};
   CHECK(keys[0] != keys[1] && network.Urls == expectedUrls,
         "adjacent original cells use separate bounded official queries and cache identities");
-  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
+  RawSourceCache noCache({.Directory = {}, .Using = RawSourceCache::Use::Off});
   const auto global =
       outshine::Generators::Osm::ReadRegion(provider, noCache, network, network.NowMs() + 1000, {});
   CHECK(!global && global.error().find("geographic cell demand") != std::string::npos &&

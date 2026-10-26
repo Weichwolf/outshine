@@ -55,7 +55,9 @@ int main() {
       std::optional<Data::SourceFailure> held;
       {
         PayloadSource source(bad, fault);
-        TerrainTiles tiles(source, EnuFrame::At(Geo{}), {.DemCacheBytes = 1024u * 1024u});
+        TerrainTiles tiles(source,
+                           EnuFrame::At(Geo{}),
+                           {.DemCacheBytes = 1024u * 1024u, .Shared = {}, .PreparedFields = {}});
         auto grid = tiles.StitchedGrid(centre.Zoom, centre.X, centre.Y);
         CHECK(grid.Where() == TerrainGrid::State::Refused && !grid.TryField() && grid.Failure(),
               "invalid centre, edge or diagonal payload cannot publish a field");

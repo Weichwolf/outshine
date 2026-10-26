@@ -50,7 +50,7 @@ int main() {
       candidate.Motion.Declared = true;
       candidate.Motion.StepS = 0.125;
       candidate.Ground.Declared = world;
-      candidate.Generators.push_back({.Kind = "native-osm-probe"});
+      candidate.Generators.push_back({.Kind = "native-osm-probe", .Parameters = {}});
       candidate.Ground.Osm = {valid, valid};
       auto &feature = candidate.Ground.Osm.back();
       switch (bad) {

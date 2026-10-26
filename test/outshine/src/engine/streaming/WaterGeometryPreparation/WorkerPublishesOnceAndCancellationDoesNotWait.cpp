@@ -12,7 +12,12 @@ int main() {
   Tasks pool(1);
   const Generators::WaterAsset source({.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 10}},
                                        .Rings = {{.FirstPoint = 0, .PointCount = 3}},
-                                       .Points = {-.001, -.001, -.001, .001, .001, 0}});
+                                       .Courses = {},
+                                       .Levels = {},
+                                       .Points = {-.001, -.001, -.001, .001, .001, 0},
+                                       .Tiles = {},
+                                       .Sources = {},
+                                       .Inputs = {}});
   WaterGeometryPreparation worker(pool, source, TangentFrame::At({}));
   CHECK(worker.Matches(source) && !worker.Matches(Generators::WaterAsset{}),
         "a worker cannot publish for a replaced input snapshot");

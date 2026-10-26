@@ -16,7 +16,8 @@ std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> Source(std::str
       {.DatasetId = "original-buildings", .Revision = "r1"});
   if (!read) { return {}; }
   return std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
-      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*read), .Coverage = {}});
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*read), .Coverage = {}, .Chunks = {}});
 }
 
 constexpr std::string_view kNodes = "<node id='1' lat='0' lon='0'/><node id='2' lat='0' lon='4'/>"

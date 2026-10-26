@@ -61,7 +61,9 @@ void Assets(const std::filesystem::path &path) {
   const std::array<AssetRecord, 1> records{{{.Key = std::string(64, 'd'),
                                              .Kind = "usage-fixture",
                                              .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                                             .ByteCount = payload.size()}}};
+                                             .Package = {},
+                                             .ByteCount = payload.size(),
+                                             .Parent = {}}}};
   {
     auto cache = AssetCache::Open(path.string());
     CHECK(cache, "native asset cache opens");

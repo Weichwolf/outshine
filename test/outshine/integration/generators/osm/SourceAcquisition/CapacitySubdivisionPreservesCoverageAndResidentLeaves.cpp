@@ -90,8 +90,11 @@ int main() {
                                 .Revision = "adaptive",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint =
-                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = {},
+                                .PayloadSha256 = {},
+                                .Schema = {}};
   const std::array roots{GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
       .CellsMost = 32, .SnapshotBytesMost = 1024 * 1024};

@@ -45,10 +45,18 @@ int main() {
       case 0: candidate.Input.push_back({.Event = "absent", .Action = "invalid"}); break;
       case 1: candidate.Input.push_back({.Event = "KeyW", .Action = "duplicate"}); break;
       case 2:
-        candidate.Views.push_back({.Id = "valid"});
+        candidate.Views.push_back({.Id = "valid",
+                                   .Sees = {},
+                                   .Geographic = {},
+                                   .Route = {},
+                                   .Viewport = {},
+                                   .In = {},
+                                   .Follows = {},
+                                   .Person = {},
+                                   .OffsetM = {}});
         candidate.Played.View = "absent";
         break;
-      default: candidate.Generators.push_back({.Kind = "refusing"}); break;
+      default: candidate.Generators.push_back({.Kind = "refusing", .Parameters = {}}); break;
     }
     CHECK(!engine.declare(candidate), "invalid candidate is refused");
     CHECK(engine.declaration().Input.size() == 1 &&

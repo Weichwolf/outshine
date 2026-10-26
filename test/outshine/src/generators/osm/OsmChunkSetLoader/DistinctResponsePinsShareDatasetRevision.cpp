@@ -34,11 +34,13 @@ int main() {
                     .Missing = MissingDataPolicy::Fail,
                     .Dataset = "openstreetmap.original",
                     .Location = std::to_string(i) + ".osm",
+                    .Endpoint = {},
                     .Coverage = GeographicBounds{.WestDeg = static_cast<double>(i),
                                                  .SouthDeg = 0,
                                                  .EastDeg = static_cast<double>(i + 1),
                                                  .NorthDeg = 1},
-                    .PayloadSha256 = Sha256Hex(xml[i])};
+                    .PayloadSha256 = Sha256Hex(xml[i]),
+                    .Schema = {}};
     std::ofstream file(std::filesystem::path(directory) / providers[i].Location);
     file << xml[i];
     CHECK(file.good(), "original response bytes stored without rewriting");

@@ -8,8 +8,12 @@
 namespace {
 class SingleTileSource final : public outshine::Data::Source {
 public:
-  outshine::Data::SourceDecl Decl{
-      .Id = "single-tile", .Revision = "r1", .Keeps = outshine::Data::Cacheability::Never};
+  outshine::Data::SourceDecl Decl{.Id = "single-tile",
+                                  .Revision = "r1",
+                                  .Endpoint = {},
+                                  .Keeps = outshine::Data::Cacheability::Never,
+                                  .PayloadSha256 = {},
+                                  .Schema = {}};
 
   const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl; }
 
@@ -59,13 +63,13 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;
   CHECK(sources.Add(std::make_unique<SingleTileSource>()) ==
             Data::SourceSet::Registration::Accepted,
         "single terrain tile registered");
-  Ground::TilePool pool({.PollAttempts = 100}, sources, transport);
+  Ground::TilePool pool({.PollAttempts = 100, .PreparedFields = {}}, sources, transport);
   Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
   const LongitudeLatitude point{.LongitudeDeg = 2.8, .LatitudeDeg = -2.8};
   auto sample = GroundSample::Waiting();

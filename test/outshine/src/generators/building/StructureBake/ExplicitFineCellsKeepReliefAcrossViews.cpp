@@ -15,7 +15,8 @@ int main() {
   const auto cell = StructureCellOf(bounds, raw.LatLon);
   CHECK(cell.has_value(), "housing receives a valid native cell");
   if (!cell) { return Report(); }
-  raw.Structures.push_back({.PointCount = 4, .Cell = *cell, .HeightM = 9});
+  raw.Structures.push_back(
+      {.PointCount = 4, .Cell = *cell, .HeightM = 9, .WallColour = {}, .Facade = {}});
   raw.RequestedDetail = LevelOfDetail::Fine;
   raw.RequestedCell = cell->Index;
   raw.TileSpanM = 1000;

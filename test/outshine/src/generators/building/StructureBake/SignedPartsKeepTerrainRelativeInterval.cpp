@@ -24,6 +24,8 @@ int main() {
   raw.Structures.push_back({.PointCount = 4,
                             .Cell = *cell,
                             .Pitched = 0,
+                            .WallColour = {},
+                            .Facade = {},
                             .HeightOrigin = Ground::BuildingHeightOrigin::Generated});
   raw.TileSpanM = 1000;
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 100}, raw.AnchorEcef);

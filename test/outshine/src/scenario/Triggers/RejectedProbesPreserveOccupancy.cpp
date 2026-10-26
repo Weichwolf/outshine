@@ -6,9 +6,15 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  const std::array events{Scenario::Event{.Name = "dwelled"}};
-  const std::array volumes{Scenario::Volume{
-      .Shape = "box", .ExtentM = {1, 1, 1}, .Fires = "dwelled", .When = "dwell", .DwellS = 2}};
+  const std::array events{Scenario::Event{.Name = "dwelled", .Carries = {}}};
+  const std::array volumes{Scenario::Volume{.Id = {},
+                                            .In = {},
+                                            .Shape = "box",
+                                            .AtM = {},
+                                            .ExtentM = {1, 1, 1},
+                                            .Fires = "dwelled",
+                                            .When = "dwell",
+                                            .DwellS = 2}};
   auto field = TriggerField::Stand(volumes, events);
   CHECK(field.has_value(), "dwell field prepared");
   if (!field) { return Report(); }

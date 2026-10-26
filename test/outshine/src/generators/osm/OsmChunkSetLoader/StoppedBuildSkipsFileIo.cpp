@@ -14,8 +14,11 @@ int main() {
       .Revision = "r1",
       .Dataset = "missing",
       .Location = "source-which-must-never-be-read.osm",
+      .Endpoint = {},
       .Coverage =
-          GeographicBounds{.WestDeg = 0.0, .SouthDeg = 0.0, .EastDeg = 1.0, .NorthDeg = 1.0}};
+          GeographicBounds{.WestDeg = 0.0, .SouthDeg = 0.0, .EastDeg = 1.0, .NorthDeg = 1.0},
+      .PayloadSha256 = {},
+      .Schema = {}};
   std::stop_source stop;
   (void)stop.request_stop();
   const auto loaded =

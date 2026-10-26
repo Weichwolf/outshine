@@ -6,8 +6,12 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   GroundPublication publication;
-  const GroundRevision initial{
-      .Region = 17, .ResidentTiles = 4, .Classes = 2, .Footprints = 3, .Projection = {0, 1.0, 2.0}};
+  const GroundRevision initial{.Region = 17,
+                               .ResidentTiles = 4,
+                               .Classes = 2,
+                               .Footprints = 3,
+                               .Projection = {0, 1.0, 2.0},
+                               .Coverage = {}};
   CHECK(!publication.Current() && publication.NeedsRebuild(initial, false, false),
         "an unpublished world needs its first build even without tile arrivals");
   CHECK(publication.NeedsRebuild(initial, false, false) && !publication.Current(),

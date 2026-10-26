@@ -15,7 +15,14 @@ int main() {
                                                  .RingCount = 2,
                                                  .CoverRow = 0,
                                                  .Kind = FeatureKind::Structure,
-                                                 .Form = FeatureForm::Area}}};
+                                                 .Form = FeatureForm::Area,
+                                                 .HalfWidthM = {},
+                                                 .Base = {},
+                                                 .Top = {},
+                                                 .MinEm = {},
+                                                 .MinNm = {},
+                                                 .MaxEm = {},
+                                                 .MaxNm = {}}}};
   const auto field = Field::Of(features, rings, vertices);
   CHECK(field != nullptr, "a courtyard supplies valid occupied rings");
   if (!field) { return Report(); }

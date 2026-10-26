@@ -65,7 +65,9 @@ int main() {
                                                 .SourceId = "actual-source",
                                                 .SourceRevision = "actual-revision",
                                                 .SourceKey = "actual-key",
-                                                .At = Address::At(at)},
+                                                .At = Address::At(at),
+                                                .Failure = {},
+                                                .TerrainStamp = {}},
                                                &source);
     if (payload == Payload::Valid) {
       auto native = decoded.Take();

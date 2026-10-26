@@ -70,12 +70,14 @@ int main() {
                      .Priority = static_cast<int>(at),
                      .Missing = MissingDataPolicy::Fail,
                      .Dataset = "openstreetmap.original",
+                     .Location = {},
                      .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
                      .Coverage = GeographicBounds{.WestDeg = static_cast<double>(at) * 0.01,
                                                   .SouthDeg = 0,
                                                   .EastDeg = static_cast<double>(at + 1) * 0.01,
                                                   .NorthDeg = 0.01},
-                     .PayloadSha256 = outshine::Sha256Hex(Xml(at + 1))};
+                     .PayloadSha256 = outshine::Sha256Hex(Xml(at + 1)),
+                     .Schema = {}};
   }
   RawSourceCache store({.Directory = directory});
   ApiWire wire;
@@ -103,7 +105,7 @@ int main() {
             std::ranges::all_of(warm->Chunks, [](const auto &chunk) { return chunk.FromStore; }),
         "all regions reload offline from original-response bytes");
 
-  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
+  RawSourceCache noCache({.Directory = {}, .Using = RawSourceCache::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
   CHECK(!outshine::Generators::Osm::ReadRegions(providers, noCache, stalled, 7, {}) &&

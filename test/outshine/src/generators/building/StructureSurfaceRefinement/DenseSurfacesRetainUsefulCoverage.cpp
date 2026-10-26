@@ -23,7 +23,7 @@ Raised Grid(float height) {
                                          {{left, bottom + 1, height}}}};
       for (const auto point : points) {
         mesh.WallRun.push_back(static_cast<uint32_t>(mesh.WallCorners.size()));
-        mesh.WallCorners.push_back({.pos = point});
+        mesh.WallCorners.push_back({.pos = point, .texture = {}, .normWord = {}});
       }
     }
   }
@@ -82,7 +82,7 @@ int main() {
     }
   }
   Raised point;
-  point.WallCorners.push_back({.pos = {{0, 0, 0}}});
+  point.WallCorners.push_back({.pos = {{0, 0, 0}}, .texture = {}, .normWord = {}});
   point.WallRun = {0, 0, 0};
   StructureSurfaceRefinementTask exact;
   CHECK(exact.Reset({point, point, 93}, {.TargetUncertaintyM = 0}), "exact self proof starts");

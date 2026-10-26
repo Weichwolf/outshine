@@ -26,8 +26,12 @@ constexpr std::array<uint8_t, 81> kGradientPng{
 
 class GradientSource final : public Data::Source {
 public:
-  Data::SourceDecl Decl{
-      .Id = "longitude-gradient", .Revision = "analytic-v1", .Keeps = Data::Cacheability::Never};
+  Data::SourceDecl Decl{.Id = "longitude-gradient",
+                        .Revision = "analytic-v1",
+                        .Endpoint = {},
+                        .Keeps = Data::Cacheability::Never,
+                        .PayloadSha256 = {},
+                        .Schema = {}};
 
   const Data::SourceDecl &Declaration() const noexcept override { return Decl; }
 
@@ -66,12 +70,12 @@ bool HasHeight(const GroundSample &sample, double expected) {
 
 int main() {
   using namespace outshine::Test;
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<GradientSource>()) == Data::SourceSet::Registration::Accepted,
         "the independently encoded four-column DEM is registered");
   NoNetwork network;
-  Ground::TilePool pool({.PollAttempts = 1000}, sources, network);
+  Ground::TilePool pool({.PollAttempts = 1000, .PreparedFields = {}}, sources, network);
   Ground::GroundStream ground(pool, {.Z = 6, .Grid = 4});
   const LongitudeLatitude position{.LongitudeDeg = -179.0, .LatitudeDeg = 0.0};
   auto warm = ground.At(position);

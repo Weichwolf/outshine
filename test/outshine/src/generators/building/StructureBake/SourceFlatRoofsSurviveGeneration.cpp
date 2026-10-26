@@ -68,7 +68,8 @@ int main() {
                                     raw.LatLon);
   CHECK(cell.has_value(), "the source building belongs to a native cell");
   if (!cell) { return Report(); }
-  raw.Structures.push_back({.PointCount = 4, .Cell = *cell, .HeightM = 9.0});
+  raw.Structures.push_back(
+      {.PointCount = 4, .Cell = *cell, .HeightM = 9.0, .WallColour = {}, .Facade = {}});
   raw.TileSpanM = 1000.0;
   GeoToEcef({.LongitudeDeg = longitude, .LatitudeDeg = latitude, .HeightM = 0.0}, raw.AnchorEcef);
   const auto axes = EnuAxesEcef({.LongitudeDeg = longitude, .LatitudeDeg = latitude});

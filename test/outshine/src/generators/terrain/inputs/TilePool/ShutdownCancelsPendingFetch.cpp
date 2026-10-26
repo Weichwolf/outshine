@@ -29,7 +29,12 @@ public:
 
 class PendingSource final : public Source {
 public:
-  SourceDecl Decl{.Id = "pending", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "pending",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
   mutable std::atomic<int> Polls{0};
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
@@ -52,7 +57,7 @@ public:
 int main() {
   using namespace outshine::Test;
   using outshine::Ground::TilePool;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   PendingTransport transport;
   auto source = std::make_unique<PendingSource>();
@@ -61,7 +66,9 @@ int main() {
         "pending source registers");
   constexpr int attempts = 3000;
   auto pool = std::make_unique<TilePool>(
-      TilePool::Config{.PollAttempts = attempts, .Carriers = 1}, sources, transport);
+      TilePool::Config{.PollAttempts = attempts, .Carriers = 1, .PreparedFields = {}},
+      sources,
+      transport);
   TilePool::Landing landing;
   CHECK(pool->Bytes(SourceRequest(DataKind::Elevation, Address::Whole(0)), &landing) ==
             TilePool::Reply::Pending,
