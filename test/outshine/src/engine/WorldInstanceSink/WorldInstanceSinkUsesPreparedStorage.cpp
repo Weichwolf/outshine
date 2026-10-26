@@ -11,7 +11,8 @@ int main() {
     constexpr auto probeTag = "instance-sink-oracle";
     const Heap::Tagged tagged(probeTag);
     const size_t before = Heap::TakenUnder(probeTag);
-    void *probe = ::operator new(64);
+    void *(*volatile allocate)(size_t) = &::operator new;
+    void *probe = allocate(64);
     CHECK(Heap::TakenUnder(probeTag) == before + 64, "allocation oracle observes real storage");
     ::operator delete(probe);
   }

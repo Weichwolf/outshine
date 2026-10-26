@@ -80,10 +80,12 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  CHECK(Tasks::ComputeThreads() == 1, "the client compute budget is one worker");
+  CHECK(Tasks::ComputeThreads() > 0 &&
+            static_cast<unsigned>(Tasks::ComputeThreads()) >= std::thread::hardware_concurrency(),
+        "the default compute budget uses every reported core");
   const auto policy = GroundPoolConfig({.LongitudeDeg = 8.0, .LatitudeDeg = 47.0});
-  CHECK(policy && policy->Threads == 1 && policy->Carriers > policy->Threads,
-        "default parallel IO is independent of the single compute budget");
+  CHECK(policy && policy->Threads == Tasks::ComputeThreads() && policy->Carriers > 0,
+        "default parallel IO has its own budget beside every reported compute core");
   Tasks compute(1);
   {
     Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
