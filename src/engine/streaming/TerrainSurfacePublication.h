@@ -33,7 +33,6 @@ public:
   }
 
   [[nodiscard]] bool StitchSeams(Patchwork &laid, std::string &error);
-  [[nodiscard]] bool Hands(Patchwork &laid, std::string &error);
   [[nodiscard]] bool BeginResidency(const Patchwork &laid, std::string &error);
   [[nodiscard]] std::expected<bool, std::string> AdvanceResidency(const Patchwork &laid,
                                                                   size_t sheetsMost);

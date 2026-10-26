@@ -1,3 +1,4 @@
+#include "TerrainPublicationFixture.h"
 #include "TerrainLattice.h"
 #include "Check.h"
 #include "TerrainRenderer.h"
@@ -63,14 +64,14 @@ int main() {
       CHECK(renderer.TerrainRendererTriangles() == 0, "clear removes the staged publication");
 
       const auto offlineUploads = renderer.OfflineUploads(std::chrono::seconds(1));
-      TerrainResidency oneShot;
-      oneShot.Into(&renderer);
-      CHECK(oneShot.Publish(patch, frame, error) && oneShot.Digest() == digest &&
+      TerrainResidency fullBatch;
+      fullBatch.Into(&renderer);
+      CHECK(PublishTerrain(fullBatch, patch, frame, error) && fullBatch.Digest() == digest &&
                 renderer.HeightPageSourceBytes() == bytes,
-            "one-shot and sheet-wise publication have the same native product");
-      CHECK(oneShot.Publish({}, frame, error) && renderer.TerrainRendererTriangles() == 0,
+            "full-batch and page-wise publication have the same native product");
+      CHECK(PublishTerrain(fullBatch, {}, frame, error) && renderer.TerrainRendererTriangles() == 0,
             "empty publication releases all terrain pages");
-      oneShot.Clear();
+      fullBatch.Clear();
     }
   }
   SDL_Quit();

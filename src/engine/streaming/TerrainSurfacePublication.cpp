@@ -22,10 +22,6 @@ bool TerrainSurfacePublication::StitchSeams(Patchwork &laid, std::string &error)
   return true;
 }
 
-bool TerrainSurfacePublication::Hands(Patchwork &laid, std::string &error) {
-  return StitchSeams(laid, error) && (!Framed_ || Residency_.Publish(laid, Frame_, error));
-}
-
 bool TerrainSurfacePublication::BeginResidency(const Patchwork &laid, std::string &error) {
   return !Framed_ || Residency_.BeginPublish(laid, error);
 }

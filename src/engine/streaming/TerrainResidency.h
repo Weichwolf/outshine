@@ -39,8 +39,6 @@ public:
 
   void Into(Render::SceneRenderer *renderer) noexcept { Renderer_ = renderer; }
 
-  [[nodiscard]] bool
-  Publish(const Patchwork &patchwork, const TangentFrame &frame, std::string &error);
   [[nodiscard]] bool BeginPublish(const Patchwork &patchwork, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
   AdvancePublish(const Patchwork &patchwork, const TangentFrame &frame, size_t sheetsMost);

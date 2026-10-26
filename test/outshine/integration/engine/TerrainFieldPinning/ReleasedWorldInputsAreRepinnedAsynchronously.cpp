@@ -1,3 +1,4 @@
+#include "TerrainPublicationFixture.h"
 #include "TerrainLattice.h"
 #include "Check.h"
 #include "DelayedTerrainSource.h"
@@ -63,7 +64,8 @@ void CheckReleasedInputs(Generators::TerrainInputPreparation &inputs,
   inputs.Framed(TangentFrame::At({}));
   published.SetFrame(TangentFrame::At({}));
   std::string error;
-  CHECK(inputs.Halos(candidate, 4) == candidate.Sheets.size() && published.Hands(candidate, error),
+  CHECK(inputs.Halos(candidate, 4) == candidate.Sheets.size() &&
+            PublishTerrain(published, candidate, error),
         "the sampled inputs become an independent published terrain surface");
   const LongitudeLatitude camera{.LongitudeDeg = 1.0, .LatitudeDeg = -1.0};
   const auto cameraHeight = published.HeightMAt(camera);

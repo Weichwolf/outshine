@@ -1,3 +1,4 @@
+#include "TerrainPublicationFixture.h"
 #include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
@@ -65,7 +66,7 @@ void CheckIdentity(Render::SceneRenderer &renderer) {
   patch.Sheets.push_back(Page({.Zoom = 12, .X = kOutsideColumn, .Y = 2048}, kOutsideHeightM));
   const auto frame = TangentFrame::At({});
   std::string error;
-  CHECK(terrain.Publish(patch, frame, error), "the complete terrain publication succeeds");
+  CHECK(PublishTerrain(terrain, patch, frame, error), "the complete terrain publication succeeds");
   const auto initial = terrain.SurfaceIdentity(kFocus, 2);
   const auto parent = terrain.SurfaceIdentity(kParent, 5);
   CHECK(initial && parent, "ancestor and descendant pages participate in the local source set");
@@ -85,21 +86,22 @@ void CheckIdentity(Render::SceneRenderer &renderer) {
   const uint64_t oldDiagnostic = terrain.Digest();
   const auto moved = TangentFrame::At({.LongitudeDeg = 2, .LatitudeDeg = 1});
   std::ranges::reverse(patch.Sheets);
-  CHECK(terrain.Publish(patch, moved, error),
+  CHECK(PublishTerrain(terrain, patch, moved, error),
         "a reordered publication can rebase its render frame");
   CHECK(terrain.SurfaceIdentity(kFocus, 2) == initial &&
             terrain.SurfaceIdentity(kParent, 5) == parent,
         "geographic content identity ignores publication order and render origin");
   CHECK(terrain.Digest() != oldDiagnostic, "the former diagnostic still observes render placement");
   patch.Sheets.front().Nodes.assign(Render::TerrainLattice::kPageNodes, kReplacementHeightM);
-  CHECK(terrain.Publish(patch, moved, error), "an unrelated geographic page can be replaced");
+  CHECK(PublishTerrain(terrain, patch, moved, error),
+        "an unrelated geographic page can be replaced");
   CHECK(terrain.SurfaceIdentity(kFocus, 2) == initial &&
             terrain.SurfaceIdentity(kParent, 5) == parent,
         "outside content does not invalidate a local asset");
   auto &changed = patch.Sheets[patch.Sheets.size() - 2];
   CHECK(changed.Tile == kFocus, "the independent fixture changes the selected child");
   changed.Nodes.assign(Render::TerrainLattice::kPageNodes, 7);
-  CHECK(terrain.Publish(patch, moved, error), "a selected deformed page can be replaced");
+  CHECK(PublishTerrain(terrain, patch, moved, error), "a selected deformed page can be replaced");
   CHECK(terrain.SurfaceIdentity(kFocus, 2) != initial &&
             terrain.SurfaceIdentity(kParent, 5) != parent,
         "actual local height changes invalidate child and containing-region identities");

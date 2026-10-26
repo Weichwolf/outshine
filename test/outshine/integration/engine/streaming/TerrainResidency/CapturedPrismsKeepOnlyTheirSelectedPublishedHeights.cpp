@@ -1,3 +1,4 @@
+#include "TerrainPublicationFixture.h"
 #include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
@@ -53,7 +54,7 @@ void CheckCapture(Render::SceneRenderer &renderer) {
   terrain.Into(&renderer);
   const auto frame = TangentFrame::At({});
   std::string error;
-  CHECK(terrain.Publish(patch, frame, error), "the original terrain is published");
+  CHECK(PublishTerrain(terrain, patch, frame, error), "the original terrain is published");
   const auto request = Sha256Hex("captured-prism/old-content/selection");
   const auto factory = CaptureUrbanPrismFactory(area, selected, terrain, request, 4);
   CHECK(factory, "a cold request captures only selected native heights and owns its source");
@@ -66,7 +67,7 @@ void CheckCapture(Render::SceneRenderer &renderer) {
   CHECK(!CaptureUrbanPrismFactory(area, selected, terrain, request, 4, {}, canceled.get_token()),
         "canceled source capture never retains a new pending job");
   patch.Sheets.front().Nodes.assign(Render::TerrainLattice::kPageNodes, replacementHeight);
-  CHECK(terrain.Publish(patch, frame, error), "the live terrain can change after capture");
+  CHECK(PublishTerrain(terrain, patch, frame, error), "the live terrain can change after capture");
   terrain.Clear();
   if (factory) {
     const auto package = (*factory)(Osm::kUrbanPrismBytesMost);
