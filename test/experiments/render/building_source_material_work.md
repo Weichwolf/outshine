@@ -13,6 +13,13 @@ palette reduction, material averaging or additional cache lifetime is introduced
 Repeated calls, other sources and policy changes do not share dictionary contents.
 Consumers read response arrays without modifying them.
 
+Each stored response already contains linear colour, palette weights and unit
+area mass in one Float64 vector. `material_measure` packs this vector once per
+evaluated state. `domain_measure` multiplies it by each independently computed
+area and accumulates in the original order; it does not concatenate a new vector
+for every repeated request. The internal optional material lookup returns this
+packed vector. Standalone patch measurements use the same packing without reuse.
+
 The third `source_measure` result for a successfully measured source remains the
 actual material evaluation count: now distinct evaluated states, rather than all
 repeated patch requests. Producer counters labelled `material_evaluations` sum
