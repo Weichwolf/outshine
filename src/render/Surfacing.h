@@ -2,10 +2,10 @@
 #define OUTSHINE_RENDER_SURFACING_H
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
-#include "Image.h"
 #include "Material.h"
 #include "Geometry.h"
 #include "stages/SubjectTypes.h"
@@ -13,22 +13,11 @@
 
 namespace outshine::Render {
 
-struct SurfaceRasters {
-  Core::Raster Colour;
-  Core::Raster Normal;
-  Core::Raster MetalRough;
-  Core::Raster Emissive;
-
-  Core::Raster SpecularStrength;
-  Core::Raster SpecularTint;
-};
-
 struct SurfaceTable {
   std::vector<SubjectMaterial> Slots;
   std::vector<int> Material;
   std::vector<int> NativeMaterial;
   std::vector<uint32_t> PartSlot;
-  std::vector<SurfaceRasters> Decoded;
 };
 
 [[nodiscard]] bool ResolveNativeTextures(std::span<const ImageView> images,
@@ -38,10 +27,6 @@ struct SurfaceTable {
 [[nodiscard]] bool ResolveNativeTextures(const Geometry &geometry,
                                          std::span<SubjectMaterial> surfaces,
                                          std::string &error);
-
-enum class ColourFrom { Declared, BaseColour, Emissive, Row };
-
-enum class ColourCarrier { Texture, Factor, VertexColour };
 
 void ResolveDeclaredSurface(const Shape &geometry,
                             const outshine::Material &row,

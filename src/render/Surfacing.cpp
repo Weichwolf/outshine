@@ -2,7 +2,8 @@
 #include <span>
 #include <string>
 #include <vector>
-#include <algorithm>
+#include <limits>
+#include <unordered_map>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -92,50 +93,45 @@ void ResolveDeclaredSurface(const Shape &geometry,
   out.Slots.clear();
   out.Material.clear();
   out.NativeMaterial.clear();
-  out.PartSlot.clear();
-  out.Decoded.clear();
-
   out.PartSlot.assign(geometry.Parts.size(), 0u);
   if (geometry.Surfaces.empty()) {
-    SubjectMaterial slot;
-    slot.Row = row;
-    out.Slots.push_back(slot);
-    out.Decoded.emplace_back();
+    out.Slots.emplace_back().Row = row;
     out.Material.push_back(0);
     out.NativeMaterial.push_back(-1);
     return;
   }
+  out.Slots.reserve(geometry.Surfaces.size());
+  out.Material.reserve(geometry.Surfaces.size());
+  out.NativeMaterial.reserve(geometry.Surfaces.size());
+  constexpr size_t missing = std::numeric_limits<size_t>::max();
+  std::vector<size_t> declaredSlots(geometry.Surfaces.size(), missing);
+  std::unordered_map<int, size_t> foreignSlots;
+  const auto append = [&](int material) {
+    const size_t slot = out.Slots.size();
+    out.Slots.emplace_back().Row =
+        material >= 0 && static_cast<size_t>(material) < geometry.Surfaces.size()
+            ? geometry.Surfaces[static_cast<size_t>(material)]
+            : row;
+    out.Material.push_back(material);
+    out.NativeMaterial.push_back(-1);
+    return slot;
+  };
   for (size_t part = 0; part < geometry.Parts.size(); ++part) {
     const int material = geometry.Parts[part].Material;
-    size_t slot = out.Material.size();
-    for (size_t at = 0; at < out.Material.size(); ++at) {
-      if (out.Material[at] == material) {
-        slot = at;
-        break;
-      }
-    }
-    if (slot == out.Material.size()) {
-      SubjectMaterial surface;
-      surface.Row = material >= 0 && static_cast<size_t>(material) < geometry.Surfaces.size()
-                        ? geometry.Surfaces[static_cast<size_t>(material)]
-                        : row;
-      out.Slots.push_back(surface);
-      out.Decoded.emplace_back();
-      out.Material.push_back(material);
-      out.NativeMaterial.push_back(-1);
+    size_t slot = missing;
+    if (material >= 0 && static_cast<size_t>(material) < declaredSlots.size()) {
+      auto &declared = declaredSlots[static_cast<size_t>(material)];
+      if (declared == missing) { declared = append(material); }
+      slot = declared;
+    } else {
+      auto [entry, inserted] = foreignSlots.try_emplace(material, missing);
+      if (inserted) { entry->second = append(material); }
+      slot = entry->second;
     }
     out.PartSlot[part] = static_cast<uint32_t>(slot);
   }
-  for (size_t surface = 0; surface < geometry.Surfaces.size(); ++surface) {
-    if (std::ranges::find(out.Material, static_cast<int>(surface)) != out.Material.end()) {
-      continue;
-    }
-    SubjectMaterial unworn;
-    unworn.Row = geometry.Surfaces[surface];
-    out.Slots.push_back(unworn);
-    out.Decoded.emplace_back();
-    out.Material.push_back(static_cast<int>(surface));
-    out.NativeMaterial.push_back(-1);
+  for (size_t surface = 0; surface < declaredSlots.size(); ++surface) {
+    if (declaredSlots[surface] == missing) { append(static_cast<int>(surface)); }
   }
 }
 

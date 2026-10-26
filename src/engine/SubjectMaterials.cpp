@@ -34,7 +34,6 @@ void OverridePart(Render::SurfaceTable &table,
   table.Slots.push_back(material);
   table.Material.push_back(carried);
   table.NativeMaterial.push_back(native);
-  table.Decoded.emplace_back();
   table.PartSlot[part] = static_cast<uint32_t>(table.Slots.size() - 1u);
 }
 
@@ -71,7 +70,6 @@ size_t OverrideNativeParts(Render::SurfaceTable &table,
   table.Slots.reserve(table.Slots.size() + count);
   table.Material.reserve(table.Material.size() + count);
   table.NativeMaterial.reserve(table.NativeMaterial.size() + count);
-  table.Decoded.reserve(table.Decoded.size() + count);
   for (size_t part = 0; part < count; ++part) {
     const uint32_t slot = table.PartSlot[part];
     if (slot >= table.Slots.size() || part >= shaped.Parts.size()) { continue; }

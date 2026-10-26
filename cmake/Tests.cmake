@@ -36,7 +36,8 @@ foreach(source IN LISTS cases)
     target_compile_definitions(${target} PRIVATE
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
-  if(name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
+  if(name STREQUAL "outshine/src/render/Surfacing/DenseMaterialBindingsKeepBoundedAllocation"
+      OR name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/NativeSourceBindingsSurviveOfflineRoundTrip"
       OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex")
@@ -149,6 +150,14 @@ foreach(source IN LISTS cases)
     set(suite "${parent}")
   endwhile()
 endforeach()
+
+add_executable(test_harness_material_bindings EXCLUDE_FROM_ALL
+  test/experiments/render/material_binding_benchmark.cpp
+  test/harness/shared/CppAllocationProbe.cpp)
+target_include_directories(test_harness_material_bindings PRIVATE
+  "${PROJECT_SOURCE_DIR}/test/harness/shared")
+target_compile_options(test_harness_material_bindings PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_material_bindings PRIVATE outshine_render)
 
 add_executable(test_harness_weather_forecast EXCLUDE_FROM_ALL
   test/experiments/weather/native_forecast.cpp)
