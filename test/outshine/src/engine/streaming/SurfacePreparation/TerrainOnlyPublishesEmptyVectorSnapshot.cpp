@@ -16,13 +16,17 @@ namespace {
 
 class SilentSink final : public outshine::Sink {
 public:
-  void Number(const char *, double, const char *) override {}
+  void Number(const char *name, double value, const char *unit) override {}
 
-  void Claim(bool, const char *) override {}
+  void Claim(bool valid, const char *claim) override {}
 
-  void Near(double, double, double, const char *, const char *) override {}
+  void Near(double /*got*/,
+            double /*want*/,
+            double /*within*/,
+            const char * /*unit*/,
+            const char * /*why*/) override {}
 
-  void Say(const std::string &) override {}
+  void Say(const std::string &message) override {}
 };
 
 struct TemporaryCache {
@@ -43,7 +47,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  TemporaryCache cache;
+  const TemporaryCache cache;
   SilentSink sink;
   Data::OfflineTransport wire;
   Data::SourceProvider terrain;
@@ -55,7 +59,7 @@ int main() {
   SurfacePreparation stack;
   const LongitudeLatitude first{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
+  CHECK(stack.Open({.BuiltinData = "src/assets", .Sources = cache.Path.string(), .Assets = {}},
                    providers,
                    registry,
                    first,
@@ -79,7 +83,7 @@ int main() {
         "a settled zero-feature tile replaces absent source data without vector IO");
   CHECK(!stack.Ground().At(first).AslM(),
         "publishing an empty vector snapshot does not invent missing elevation");
-  if (!vectors) { return Report(); }
+  if (vectors == nullptr) { return Report(); }
   const uint64_t firstGeneration = vectors->Generation();
   const int firstX = vectors->CentreX();
   const auto repeated = stack.AdvanceAt(first, {.IngestTilesMost = 1, .VectorRing = 0});

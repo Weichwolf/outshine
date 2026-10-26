@@ -15,6 +15,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators
   generators/base
   generators/building
+  generators/contracts
   generators/earth
   generators/flora
   generators/osm
@@ -24,6 +25,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators/terrain
   generators/terrain/inputs
   generators/terrain/providers
+  generators/transport
   generators/water
   render
   render/device/native
@@ -38,6 +40,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   storage
   ui
   world
+  world/contracts
   world/entity
   world/products
 )
@@ -100,11 +103,17 @@ target_link_libraries(outshine_engine PUBLIC outshine_engine_scenario outshine_b
 target_link_libraries(outshine_engine_streaming PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_render outshine_sources)
 target_link_libraries(outshine_generators PUBLIC outshine_base outshine_content outshine_diagnostics outshine_generators_osm outshine_generators_earth outshine_generators_sky outshine_world outshine_generators_road outshine_generators_recipes outshine_generators_terrain outshine_generators_water outshine_generators_flora outshine_sources)
 target_link_libraries(outshine_generators_base PUBLIC outshine_base outshine_content outshine_world outshine_sources)
+target_link_libraries(outshine_generators_contracts PUBLIC outshine_base outshine_world_contracts outshine_world_products)
+target_link_libraries(outshine_generators_transport PUBLIC outshine_generators_contracts outshine_content_assets)
+target_link_libraries(outshine_world_contracts PUBLIC outshine_base)
+target_sources(outshine_world_contracts PRIVATE src/world/contracts/EarthworkStamp.h)
+set_target_properties(outshine_world_contracts outshine_world_contracts_objects
+  PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(outshine_generators_building PUBLIC outshine_generators_terrain_inputs outshine_generators_base outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_generators_earth PUBLIC outshine_base outshine_world outshine_generators_terrain outshine_generators_osm)
 target_link_libraries(outshine_generators_flora PUBLIC outshine_generators_base outshine_generators_recipes outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_generators_osm PUBLIC outshine_base outshine_content outshine_generators_base outshine_generators_recipes outshine_generators_building outshine_world outshine_sources)
-target_link_libraries(outshine_generators_road PUBLIC outshine_base outshine_content outshine_diagnostics outshine_generators_base outshine_generators_recipes outshine_generators_osm outshine_world)
+target_link_libraries(outshine_generators_road PUBLIC outshine_generators_contracts outshine_base outshine_content outshine_diagnostics outshine_generators_base outshine_generators_recipes outshine_generators_osm outshine_world)
 target_link_libraries(outshine_generators_recipes PUBLIC outshine_base outshine_world)
 target_link_libraries(outshine_generators_terrain PUBLIC outshine_generators_terrain_inputs outshine_base outshine_content outshine_generators_base outshine_world outshine_generators_terrain_providers)
 target_link_libraries(outshine_generators_terrain_inputs PUBLIC outshine_base outshine_sources outshine_world outshine_generators_terrain_providers)
@@ -123,7 +132,7 @@ target_link_libraries(outshine_render_temporal PUBLIC outshine_base)
 target_link_libraries(outshine_render_view PUBLIC outshine_base outshine_render_temporal)
 target_link_libraries(outshine_scenario PUBLIC outshine_base outshine_sources outshine_world_entity)
 target_link_libraries(outshine_ui PUBLIC outshine_base outshine_ui_paint PRIVATE PkgConfig::sdl3_ttf)
-target_link_libraries(outshine_world PUBLIC outshine_base outshine_world_products outshine_world_entity)
+target_link_libraries(outshine_world PUBLIC outshine_world_contracts outshine_base outshine_world_products outshine_world_entity)
 target_link_libraries(outshine_world_entity PUBLIC outshine_base)
 target_link_libraries(outshine_world_products PUBLIC outshine_base)
 

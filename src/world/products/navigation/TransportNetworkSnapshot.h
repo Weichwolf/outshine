@@ -1,11 +1,14 @@
-#ifndef OUTSHINE_WORLD_NAVIGATION_TRANSPORTNETWORKSNAPSHOT_H
-#define OUTSHINE_WORLD_NAVIGATION_TRANSPORTNETWORKSNAPSHOT_H
+#ifndef OUTSHINE_WORLD_PRODUCTS_NAVIGATION_TRANSPORTNETWORKSNAPSHOT_H
+#define OUTSHINE_WORLD_PRODUCTS_NAVIGATION_TRANSPORTNETWORKSNAPSHOT_H
 
 #include "TransportTopology.h"
+#include "TransportProvenance.h"
 #include "GeographicBounds.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <span>
 #include <string>
 #include <string_view>
@@ -35,12 +38,17 @@ class TransportNetworkSnapshot {
   ResolvedTransport Transport_;
   std::vector<GeographicBounds> Coverage_;
   TransportLoadMetrics Metrics_;
+  TransportProvenance Provenance_;
 
 public:
   TransportNetworkSnapshot(ResolvedTransport transport,
                            std::vector<GeographicBounds> coverage,
-                           TransportLoadMetrics metrics)
-      : Transport_(std::move(transport)), Coverage_(std::move(coverage)), Metrics_(metrics) {
+                           TransportLoadMetrics metrics,
+                           TransportProvenance provenance = {})
+      : Transport_(std::move(transport)),
+        Coverage_(std::move(coverage)),
+        Metrics_(metrics),
+        Provenance_(std::move(provenance)) {
     assert(std::ranges::all_of(Transport_.Routes, [this](const NamedCircuitRoute &route) {
       return route.Circuit.SourceIdentity == Transport_.Graph.SourceIdentity();
     }));
@@ -76,7 +84,21 @@ public:
   [[nodiscard]] std::span<const GeographicBounds> Coverage() const noexcept { return Coverage_; }
 
   [[nodiscard]] const TransportLoadMetrics &Metrics() const noexcept { return Metrics_; }
+
+  [[nodiscard]] const TransportProvenance &Provenance() const noexcept { return Provenance_; }
+
+  [[nodiscard]] size_t CapacityBytes() const noexcept;
 };
+
+enum class TransportNetworkError : uint8_t {
+  InvalidTopology,
+  InvalidCoverage,
+  InvalidRoutes,
+  InvalidProvenance
+};
+
+[[nodiscard]] std::expected<void, TransportNetworkError>
+ValidateTransportNetwork(const TransportNetworkSnapshot &network);
 
 }
 

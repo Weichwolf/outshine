@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 
 namespace {
 
@@ -30,7 +32,8 @@ bool HasSurfaceEdge(const outshine::RoadMeshBuffers &mesh, outshine::Vec3f a, ou
   };
   for (size_t at = 0; at < mesh.Index.size(); at += 3) {
     for (size_t side = 0; side < 3; ++side) {
-      const uint32_t p = mesh.Index[at + side], q = mesh.Index[at + (side + 1) % 3];
+      const uint32_t p = mesh.Index[at + side];
+      const uint32_t q = mesh.Index[at + (side + 1) % 3];
       if ((matches(p, a) && matches(q, b)) || (matches(p, b) && matches(q, a))) { return true; }
     }
   }
@@ -49,8 +52,10 @@ void CheckPorts(outshine::RoadProfile profile, outshine::RibbonForm form, bool r
   std::array<RoadGate, 4> gates;
   for (size_t at = 0; at < gates.size(); ++at) {
     const double angle = .37 + static_cast<double>(at) * 1.5707963267948966;
-    const double east = std::cos(angle), north = std::sin(angle);
-    const double e = 8003.123456 + 8 * east, n = -7043.654321 + 8 * north;
+    const double east = std::cos(angle);
+    const double north = std::sin(angle);
+    const double e = 8003.123456 + 8 * east;
+    const double n = -7043.654321 + 8 * north;
     gates[at] = {.EastM = e,
                  .NorthM = n,
                  .GradeM = grade(e, n),
@@ -66,16 +71,16 @@ void CheckPorts(outshine::RoadProfile profile, outshine::RibbonForm form, bool r
   const Vec3f normal = Generators::RoadPortNormal(plane);
   for (const auto &gate : gates) {
     std::array stations{
-        RoadStation{gate.EastM, gate.NorthM, gate.GradeM},
-        RoadStation{gate.EastM + gate.OutE * 20,
-                    gate.NorthM + gate.OutN * 20,
-                    grade(gate.EastM + gate.OutE * 20, gate.NorthM + gate.OutN * 20)}};
+        RoadStation{.EastM = gate.EastM, .NorthM = gate.NorthM, .GradeM = gate.GradeM},
+        RoadStation{.EastM = gate.EastM + gate.OutE * 20,
+                    .NorthM = gate.NorthM + gate.OutN * 20,
+                    .GradeM = grade(gate.EastM + gate.OutE * 20, gate.NorthM + gate.OutN * 20)}};
     if (reversed) { std::ranges::reverse(stations); }
     RoadSweep how{.HalfWidthM = section.HalfWidthM,
                   .Profile = profile,
                   .WearsLinear = {{.2f, .3f, .4f}},
                   .Form = form};
-    const RoadPort port{gate, plane};
+    const RoadPort port{.Gate = gate, .Plane = plane};
     how.EndPorts[reversed ? 1 : 0] = port;
     RoadMeshBuffers road;
     const auto result = mesher.Sweep(stations, how, road);
@@ -90,7 +95,8 @@ void CheckPorts(outshine::RoadProfile profile, outshine::RibbonForm form, bool r
       CHECK(HasVertex(road, position, normal) && HasVertex(junction, position, normal),
             "all four stored position and normal triples match exactly at the junction");
       if (form != RibbonForm::ClosedShell) { continue; }
-      Vec3f floor = position, down = normal;
+      Vec3f floor = position;
+      Vec3f down = normal;
       for (size_t axis = 0; axis < 3; ++axis) {
         floor[axis] = static_cast<float>(position[axis] - section.ThicknessM * normal[axis]);
         down[axis] = -down[axis];

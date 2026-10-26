@@ -4,18 +4,21 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <numbers>
+#include <span>
 #include <vector>
 
 namespace {
-outshine::RoadGate Gate(double angle, double width = 3) {
-  const double east = std::cos(angle), north = std::sin(angle);
+outshine::RoadGate Gate(double angle) {
+  const double east = std::cos(angle);
+  const double north = std::sin(angle);
   return {.EastM = 8 * east,
           .NorthM = 8 * north,
           .GradeM = 5 + .07 * 8 * east - .03 * 8 * north,
           .OutE = east,
           .OutN = north,
-          .HalfWidthM = width};
+          .HalfWidthM = 3};
 }
 
 double RimArea(const outshine::Generators::JunctionFootprint &footprint) {
@@ -36,7 +39,7 @@ void CheckJunction(std::span<const outshine::RoadGate> gates, double expectedAre
   if (expectedArea > 0) {
     CHECK_NEAR(footprintArea, expectedArea, 1e-8, "square metres", "complete gate footprint");
   }
-  Generators::ProfiledRoadMesher mesher;
+  const Generators::ProfiledRoadMesher mesher;
   RoadMeshBuffers mesh;
   mesher.Junction(gates, {.SlopeE = .07, .SlopeN = -.03}, {{.2f, .3f, .4f}}, mesh);
   double topArea = 0;
@@ -51,8 +54,12 @@ void CheckJunction(std::span<const outshine::RoadGate> gates, double expectedAre
         "stored horizontal positions determine the shared plane without millimetre height steps");
   }
   for (size_t at = 0; at < mesh.Index.size(); at += 3) {
-    const size_t a = mesh.Index[at] * 3, b = mesh.Index[at + 1] * 3, c = mesh.Index[at + 2] * 3;
-    std::array<double, 3> u{}, v{}, cross{};
+    const size_t a = static_cast<size_t>(mesh.Index[at]) * 3;
+    const size_t b = static_cast<size_t>(mesh.Index[at + 1]) * 3;
+    const size_t c = static_cast<size_t>(mesh.Index[at + 2]) * 3;
+    std::array<double, 3> u{};
+    std::array<double, 3> v{};
+    std::array<double, 3> cross{};
     for (size_t axis = 0; axis < 3; ++axis) {
       u[axis] = static_cast<double>(mesh.PositionM[b + axis]) - mesh.PositionM[a + axis];
       v[axis] = static_cast<double>(mesh.PositionM[c + axis]) - mesh.PositionM[a + axis];
@@ -60,7 +67,8 @@ void CheckJunction(std::span<const outshine::RoadGate> gates, double expectedAre
     for (size_t axis = 0; axis < 3; ++axis) {
       cross[axis] = u[(axis + 1) % 3] * v[(axis + 2) % 3] - u[(axis + 2) % 3] * v[(axis + 1) % 3];
     }
-    double facing = 0, length = 0;
+    double facing = 0;
+    double length = 0;
     for (size_t axis = 0; axis < 3; ++axis) {
       facing += cross[axis] * mesh.NormalM[a + axis];
       length += cross[axis] * cross[axis];
@@ -94,7 +102,11 @@ int main() {
   }
   CheckJunction(std::array{Gate(0), Gate(pi / 2), Gate(pi)}, 151);
   CheckJunction(std::array{Gate(0), Gate(pi / 2), Gate(pi), Gate(3 * pi / 2)}, 206);
-  CheckJunction(std::array{Gate(.3, 2), Gate(1.8, 4), Gate(3.1, 3), Gate(4.9, 2)});
+  auto unequal = std::array{Gate(.3), Gate(1.8), Gate(3.1), Gate(4.9)};
+  unequal[0].HalfWidthM = 2;
+  unequal[1].HalfWidthM = 4;
+  unequal[3].HalfWidthM = 2;
+  CheckJunction(unequal);
   CHECK(Generators::BuildJunctionFootprint({}).Rim.empty(), "no gates produce no footprint");
   return Report();
 }
