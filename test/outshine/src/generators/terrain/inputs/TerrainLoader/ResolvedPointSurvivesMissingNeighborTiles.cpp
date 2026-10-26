@@ -27,13 +27,13 @@ public:
   }
 
   outshine::Data::FetchStart Begin(const outshine::Data::Address &,
-                                   outshine::Data::Transport &) const override {
+                                   outshine::Data::SourceTransport &) const override {
     return outshine::Data::Ticket::None;
   }
 
   outshine::Data::SourceResponse Collect(const outshine::Data::Address &,
                                          outshine::Data::Ticket,
-                                         outshine::Data::Transport &) const override {
+                                         outshine::Data::SourceTransport &) const override {
     return outshine::Data::SourceResponse::Delivered(
         {137, 80,  78,  71,  13,  10, 26,  10,  0,  0,   0,  13,  73,  72, 68, 82, 0,   0,  0,
          4,   0,   0,   0,   4,   8,  2,   0,   0,  0,   38, 147, 9,   41, 0,  0,  0,   16, 73,
@@ -42,7 +42,7 @@ public:
   }
 };
 
-class NoNetwork final : public outshine::Data::Transport {
+class NoNetwork final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string &) override {
     return outshine::Data::Ticket::None;

@@ -11,7 +11,7 @@
 namespace {
 using namespace outshine::Data;
 
-class NoNetwork final : public Transport {
+class NoNetwork final : public SourceTransport {
 public:
   FetchStart Begin(const std::string &) override { return Ticket::None; }
 
@@ -31,9 +31,9 @@ public:
 
   Address Serves(const SourceRequest &) const noexcept override { return Address::Whole(73); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
     return SourceResponse::Delivered({1, 2, 3});
   }
 };

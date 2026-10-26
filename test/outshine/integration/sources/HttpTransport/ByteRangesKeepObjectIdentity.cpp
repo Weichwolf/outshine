@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <array>
 #include "SourceSet.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "RawSourceCache.h"
 #include "CopernicusDemSource.h"
 #include "CopernicusRaster.h"
@@ -143,7 +143,7 @@ using namespace outshine::Data;
 using namespace outshine::Test;
 
 std::expected<SourceDelivery::Answer, SourceFailureReason>
-Acquire(SourceSet &sources, Transport &wire, const SourceRequest &request) {
+Acquire(SourceSet &sources, SourceTransport &wire, const SourceRequest &request) {
   auto query = sources.Ask(request);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(25);
   while (std::chrono::steady_clock::now() < deadline) {
@@ -222,7 +222,7 @@ void RealOriginal(const char *url) {
   CHECK(warm.Add(std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>()) ==
             SourceSet::Registration::Accepted,
         "warm source starts with a newly opened cache and registry");
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   auto cachedHeader = Acquire(warm, offline, headerRequest);
   auto cachedBlock = Acquire(warm, offline, blockRequest);
   CHECK(cachedHeader && cachedBlock && cachedHeader->Range && cachedBlock->Range &&

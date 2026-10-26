@@ -2,7 +2,7 @@
 #include "TerrainDelivery.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "Check.h"
 #include <array>
 #include <atomic>
@@ -17,7 +17,7 @@ using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Ground;
 
-class NoNetwork final : public Transport {
+class NoNetwork final : public SourceTransport {
 public:
   FetchStart Begin(const std::string &) override { return Ticket::None; }
 
@@ -72,9 +72,9 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
     const auto serial = ++Calls;
     if (serial == 1 && Gate) { Gate->Pause(); }
     if (Absent) { return SourceResponse::NotFound(); }

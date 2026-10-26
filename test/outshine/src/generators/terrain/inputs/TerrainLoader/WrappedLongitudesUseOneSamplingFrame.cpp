@@ -2,7 +2,7 @@
 #include "TerrainLoader.h"
 #include "SourceSet.h"
 #include "RawSourceCache.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "Check.h"
 
 #include <array>
@@ -39,18 +39,18 @@ public:
     return request.Where();
   }
 
-  Data::FetchStart Begin(const Data::Address &, Data::Transport &) const override {
+  Data::FetchStart Begin(const Data::Address &, Data::SourceTransport &) const override {
     return Data::Ticket::None;
   }
 
   Data::SourceResponse
-  Collect(const Data::Address &, Data::Ticket, Data::Transport &) const override {
+  Collect(const Data::Address &, Data::Ticket, Data::SourceTransport &) const override {
     return Data::SourceResponse::Delivered(
         std::vector<uint8_t>(kGradientPng.begin(), kGradientPng.end()));
   }
 };
 
-class NoNetwork final : public Data::Transport {
+class NoNetwork final : public Data::SourceTransport {
 public:
   Data::FetchStart Begin(const std::string &) override { return Data::Ticket::None; }
 

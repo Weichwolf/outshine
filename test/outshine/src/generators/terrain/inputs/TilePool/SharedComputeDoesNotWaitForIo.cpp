@@ -6,7 +6,7 @@
 #include "TerrainLoader.h"
 
 #include <Source.h>
-#include <Transport.h>
+#include <SourceTransport.h>
 
 #include <atomic>
 #include <chrono>
@@ -22,7 +22,7 @@ using namespace outshine;
 using namespace outshine::Data;
 using namespace std::chrono_literals;
 
-class SlowWire final : public Transport {
+class SlowWire final : public SourceTransport {
 public:
   std::atomic<unsigned> Began{0};
   std::atomic<unsigned> Cancelled{0};
@@ -55,12 +55,12 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address & /*at*/, Transport &transport) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport &transport) const override {
     return transport.Begin("test://pending-raster");
   }
 
   SourceResponse
-  Collect(const Address & /*at*/, Ticket ticket, Transport &transport) const override {
+  Collect(const Address & /*at*/, Ticket ticket, SourceTransport &transport) const override {
     (void)transport.Collect(ticket);
     return SourceResponse::Working();
   }

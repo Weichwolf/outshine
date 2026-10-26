@@ -1,6 +1,6 @@
 #include "EngineState.h"
 #include "Heap.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "Units.h"
 #include "OsmXmlReader.h"
 #include "OsmSourceDemand.h"
@@ -63,7 +63,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   if (!World.OsmSource) {
     if (!World.Wire) {
       if (Session.Under.Offline) {
-        World.Wire = std::make_unique<Data::OfflineTransport>();
+        World.Wire = std::make_unique<Data::OfflineSourceTransport>();
       } else {
         World.Wire = std::make_unique<HttpTransport>(
             HttpTransport::Config{.ConcurrentTransfers = 8,
@@ -200,7 +200,7 @@ bool Engine::State::PrepareRuntimeWorld() {
   const double atLon = declared.Ground.Origin.LongitudeDeg;
   if (!World.Wire) {
     if (Session.Under.Offline) {
-      World.Wire = std::make_unique<Data::OfflineTransport>();
+      World.Wire = std::make_unique<Data::OfflineSourceTransport>();
     } else {
       World.Wire = std::make_unique<HttpTransport>(HttpTransport::Config{});
     }

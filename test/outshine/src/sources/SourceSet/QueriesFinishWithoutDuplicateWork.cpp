@@ -1,5 +1,5 @@
 #include "SourceSet.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "WebTileFixture.h"
 #include "Check.h"
 #include <cstdint>
@@ -15,7 +15,7 @@
 namespace {
 using namespace outshine::Data;
 
-class ProbeTransport final : public Transport {
+class ProbeTransport final : public SourceTransport {
 public:
   int Begins = 0;
   int Cancels = 0;
@@ -47,12 +47,13 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address & /*at*/, Transport &transport) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport &transport) const override {
     return transport.Begin(Decl.Id);
   }
 
-  SourceResponse
-  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     ++Calls;
     if (Working) { return SourceResponse::Working(); }
     return Result == Meaning::Bytes ? SourceResponse::Delivered({1})
@@ -141,7 +142,7 @@ int main() {
     if (!std::filesystem::is_directory(directory)) { return Report(); }
     RawSourceCache cache({.Directory = directory});
     SourceSet sources(cache);
-    OfflineTransport transport;
+    OfflineSourceTransport transport;
     auto source = std::make_unique<ProbeSource>();
     source->Decl.Keeps = Cacheability::Forever;
     const auto *probe = source.get();
@@ -164,7 +165,7 @@ int main() {
   {
     RawSourceCache cache({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(cache);
-    OfflineTransport transport;
+    OfflineSourceTransport transport;
     CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(
               "", Rank{0}, AbsencePolicy::Continue)) == SourceSet::Registration::Accepted,
           "offline terrain source registers");

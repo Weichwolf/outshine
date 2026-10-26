@@ -11,7 +11,7 @@
 namespace {
 using namespace outshine::Data;
 
-class PendingTransport final : public Transport {
+class PendingTransport final : public SourceTransport {
 public:
   FetchStart Begin(const std::string &) override { return static_cast<Ticket>(1); }
 
@@ -41,11 +41,11 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &transport) const override {
+  FetchStart Begin(const Address &, SourceTransport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
     ++Polls;
     return SourceResponse::Working();
   }

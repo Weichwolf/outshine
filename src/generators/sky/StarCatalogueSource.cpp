@@ -56,7 +56,7 @@ Data::Coverage StarCatalogueSource::Covers(const Data::SourceRequest &request) c
 }
 
 Data::FetchStart StarCatalogueSource::Begin(const Data::Address &at,
-                                            Data::Transport &transport) const {
+                                            Data::SourceTransport &transport) const {
   (void)at;
   (void)transport;
   return Data::Ticket::None;
@@ -65,7 +65,7 @@ Data::FetchStart StarCatalogueSource::Begin(const Data::Address &at,
 Data::SourceResponse
 StarCatalogueSource::Collect(const Data::Address &at,
                              [[maybe_unused]] Data::Ticket ticket,
-                             [[maybe_unused]] Data::Transport &transport) const {
+                             [[maybe_unused]] Data::SourceTransport &transport) const {
   const auto band = at.Index();
   if (!band || *band >= kBands || Directory_.contains('\0')) {
     return Data::SourceResponse::Meant(Data::Meaning::Refused,

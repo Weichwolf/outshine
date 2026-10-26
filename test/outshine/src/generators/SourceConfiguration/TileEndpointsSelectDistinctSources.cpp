@@ -2,10 +2,10 @@
 #include "Check.h"
 #include "RawSourceCache.h"
 #include "SourceConfiguration.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "SourceSet.h"
 #include "SourceProviderValidation.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 
 #include <array>
 #include <cstdlib>
@@ -16,7 +16,7 @@
 
 namespace {
 
-class TileTransport final : public outshine::Data::Transport {
+class TileTransport final : public outshine::Data::SourceTransport {
 public:
   std::vector<std::string> Urls;
 
@@ -121,7 +121,7 @@ int main() {
   const std::array<uint8_t, 2> bytes{5, 9};
   CHECK(cache.Keep(ContentKey(cached.At(0).Declaration(), tile), bytes.data(), bytes.size()),
         "first provider's cached bytes are installed");
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   auto cachedQuery = cached.Ask(request);
   auto cachedAnswer = cached.Collect(cachedQuery, offline).Take();
   CHECK(cachedAnswer && cachedAnswer->SourceId == "first-vector" &&

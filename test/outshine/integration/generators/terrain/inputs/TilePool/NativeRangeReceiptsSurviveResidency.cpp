@@ -11,7 +11,7 @@
 namespace {
 using namespace outshine::Data;
 
-class Http final : public Transport {
+class Http final : public SourceTransport {
 public:
   int Begins = 0;
 

@@ -2,7 +2,7 @@
 #include "TerrainTiles.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "Check.h"
 #include <chrono>
 #include <condition_variable>
@@ -48,7 +48,7 @@ struct Gate {
   }
 };
 
-class NoNetwork final : public Transport {
+class NoNetwork final : public SourceTransport {
 public:
   FetchStart Begin(const std::string &) override { return Ticket::None; }
 
@@ -69,9 +69,9 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
     Gate_->Pause();
     return SourceResponse::Delivered({kPng0, kPng0 + sizeof(kPng0)});
   }

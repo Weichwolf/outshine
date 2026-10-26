@@ -21,7 +21,7 @@ using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Ground;
 
-class Http final : public Transport {
+class Http final : public SourceTransport {
 public:
   std::atomic<int> Begins{0}, Pinned{0};
   bool Missing = false;
@@ -84,15 +84,16 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override {
+  FetchStart Begin(const Address &, SourceTransport &) const override {
     return std::unexpected(SourceFailureReason::InvalidRequest);
   }
 
-  FetchStart Begin(const SourceRequest &request, Transport &transport) const override {
+  FetchStart Begin(const SourceRequest &request, SourceTransport &transport) const override {
     return transport.Begin(request.Where().Text(), *request.Range(), request.EntityTag());
   }
 
-  SourceResponse Collect(const Address &, Ticket ticket, Transport &transport) const override {
+  SourceResponse
+  Collect(const Address &, Ticket ticket, SourceTransport &transport) const override {
     auto response = transport.Collect(ticket);
     auto body = response.Take();
     return body ? SourceResponse::Delivered(std::move(body->Body), std::move(body->Range))

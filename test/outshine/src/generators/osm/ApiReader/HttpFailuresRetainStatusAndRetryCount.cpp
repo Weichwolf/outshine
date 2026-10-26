@@ -1,7 +1,7 @@
 #include "OsmApiReader.h"
 #include "Check.h"
 
-#include <Transport.h>
+#include <SourceTransport.h>
 
 #include <array>
 #include <string>
@@ -9,7 +9,7 @@
 #include <limits>
 
 namespace {
-class RetryWire final : public outshine::Data::Transport {
+class RetryWire final : public outshine::Data::SourceTransport {
 public:
   int Status = 503;
   int Starts = 0;

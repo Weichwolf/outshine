@@ -20,7 +20,7 @@ using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Ground;
 
-class OriginalBlocks final : public Transport {
+class OriginalBlocks final : public SourceTransport {
 public:
   explicit OriginalBlocks(Test::NativeCogProfile profile)
       : Bytes_(Test::NativeCog({47, 10}, false, profile)) {}

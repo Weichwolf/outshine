@@ -1,7 +1,7 @@
 #include "TestEngine.h"
 #include "OsmSourceAcquisition.h"
 #include "OsmProvider.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "Check.h"
 #include <array>
 #include <chrono>
@@ -34,7 +34,7 @@ int main() {
     auto &world = TestEngine::StateOf(engine).World;
     world.Pool = std::make_unique<Tasks>(1);
     world.Io = std::make_unique<Tasks>(1);
-    world.Wire = std::make_unique<Data::OfflineTransport>();
+    world.Wire = std::make_unique<Data::OfflineSourceTransport>();
     world.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
         Generators::Osm::SourceAcquisition::Workers{.Compute = *world.Pool, .Io = *world.Io},
         world.Wire.get(),

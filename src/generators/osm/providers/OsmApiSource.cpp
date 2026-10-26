@@ -86,7 +86,7 @@ bool ApiSource::Accepts(const Data::Address &at) const noexcept {
   return ApiCellBounds(at).has_value();
 }
 
-Data::FetchStart ApiSource::Begin(const Data::Address &at, Data::Transport &transport) const {
+Data::FetchStart ApiSource::Begin(const Data::Address &at, Data::SourceTransport &transport) const {
   if (Region_) {
     if (at.Index() != Region_) {
       return std::unexpected(Data::SourceFailureReason::InvalidRequest);
@@ -98,8 +98,9 @@ Data::FetchStart ApiSource::Begin(const Data::Address &at, Data::Transport &tran
   return transport.Begin(MapEndpoint(Decl_.Endpoint, *bounds));
 }
 
-Data::SourceResponse
-ApiSource::Collect(const Data::Address &at, Data::Ticket ticket, Data::Transport &transport) const {
+Data::SourceResponse ApiSource::Collect(const Data::Address &at,
+                                        Data::Ticket ticket,
+                                        Data::SourceTransport &transport) const {
   if (!Accepts(at)) {
     return Data::SourceResponse::Meant(Data::Meaning::Refused,
                                        Data::SourceFailureReason::InvalidRequest);

@@ -7,7 +7,7 @@
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "GroundSnapshot.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmXmlReader.h"
 #include "Sink.h"
 #include "StructureBuildQueue.h"
@@ -174,7 +174,7 @@ int main() {
   const auto source = ReadSources();
   if (!source) { return Report(); }
   SilentSink sink;
-  Data::OfflineTransport wire;
+  Data::OfflineSourceTransport wire;
   const auto cache = std::filesystem::temp_directory_path() /
                      ("outshine-original-terrain-" +
                       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));

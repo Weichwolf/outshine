@@ -54,7 +54,7 @@ outshine::Test::Mvt::Bytes BuildingTile(bool twoCells) {
   return tile;
 }
 
-class Transport final : public outshine::Data::Transport {
+class ReplaySourceTransport final : public outshine::Data::SourceTransport {
 public:
   bool TwoCells = false;
 
@@ -270,7 +270,7 @@ void Replay(const std::filesystem::path &directory,
   providers[1].Kind = "vector";
   providers[1].Dataset = "fixture.native-replay";
   providers[1].Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf";
-  Transport wire;
+  ReplaySourceTransport wire;
   wire.TwoCells = initialCells;
   SilentSink sink;
   Tasks compute(1);

@@ -1,7 +1,7 @@
 #include "ShippedProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "Sink.h"
 
 #include <array>
@@ -49,7 +49,7 @@ int main() {
   using namespace outshine::Test;
   const TemporaryCache cache;
   SilentSink sink;
-  Data::OfflineTransport wire;
+  Data::OfflineSourceTransport wire;
   Data::SourceProvider terrain;
   terrain.Kind = "terrain";
   const std::array providers{terrain};

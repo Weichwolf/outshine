@@ -68,7 +68,7 @@ inline std::optional<WeatherCapture> RecordedWeatherCapture(bool withPayload = t
                   .AcquiredUtcS = kCapturedWeatherAcquiredUtcS}};
 }
 
-class CapturedWeatherTransport final : public Data::Transport {
+class CapturedWeatherTransport final : public Data::SourceTransport {
 public:
   explicit CapturedWeatherTransport(const WeatherCapture &capture) : Capture_(capture) {}
 

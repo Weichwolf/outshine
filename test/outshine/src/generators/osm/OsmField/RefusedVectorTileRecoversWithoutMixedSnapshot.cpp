@@ -16,7 +16,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Data;
 
-class ClockTransport final : public Transport {
+class ClockTransport final : public SourceTransport {
 public:
   std::atomic<double> Now{0.0};
 
@@ -45,9 +45,9 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
     return Calls.fetch_add(1) == 0 ? SourceResponse::Meant(Meaning::Refused)
                                    : SourceResponse::Delivered(Bytes);
   }

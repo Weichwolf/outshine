@@ -5,7 +5,7 @@
 #include <Address.h>
 #include "RawSourceCache.h"
 #include "TilePool.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 
 #include <array>
 #include <cstdint>
@@ -14,7 +14,7 @@
 using namespace outshine;
 
 namespace {
-class NoNetwork final : public Data::Transport {
+class NoNetwork final : public Data::SourceTransport {
 public:
   int Starts = 0;
 

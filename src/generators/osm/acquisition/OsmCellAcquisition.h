@@ -14,7 +14,7 @@ public:
   static constexpr size_t MaximumPendingCells = 8;
   CellAcquisition(Data::SourceProvider catalogue,
                   Data::RawSourceCache &store,
-                  Data::Transport &wire,
+                  Data::SourceTransport &wire,
                   const Data::ProviderRegistry *registry = nullptr,
                   std::string shippedRoot = {});
   ~CellAcquisition();

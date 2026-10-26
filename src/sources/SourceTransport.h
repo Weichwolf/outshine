@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_SOURCES_TRANSPORT_H
-#define OUTSHINE_SOURCES_TRANSPORT_H
+#ifndef OUTSHINE_SOURCES_SOURCETRANSPORT_H
+#define OUTSHINE_SOURCES_SOURCETRANSPORT_H
 
 #include <chrono>
 #include <thread>
@@ -129,9 +129,9 @@ private:
 
 using FetchStart = std::expected<Ticket, SourceFailureReason>;
 
-class Transport {
+class SourceTransport {
 public:
-  virtual ~Transport() = default;
+  virtual ~SourceTransport() = default;
 
   [[nodiscard]] virtual FetchStart Begin(const std::string &url) = 0;
 

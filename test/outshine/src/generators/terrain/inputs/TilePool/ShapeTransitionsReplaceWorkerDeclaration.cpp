@@ -3,7 +3,7 @@
 #include "TerrainTiles.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "Check.h"
 #include <algorithm>
 #include <chrono>
@@ -21,7 +21,7 @@ constexpr uint8_t kPng[]{
     0x60, 0x60, 0xc0, 0x8a, 0xb0, 0x8b, 0x0e, 0x5a, 0x09, 0x00, 0xa1, 0x7c, 0x20, 0x01, 0x64,
     0xc6, 0x93, 0x18, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82};
 
-class NoNetwork final : public Transport {
+class NoNetwork final : public SourceTransport {
 public:
   FetchStart Begin(const std::string &) override { return Ticket::None; }
 
@@ -40,9 +40,9 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
     return SourceResponse::Delivered({kPng, kPng + sizeof(kPng)});
   }
 };

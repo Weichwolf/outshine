@@ -3,7 +3,7 @@
 
 #include "RawSourceCache.h"
 #include "OsmChunkSetLoader.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include <Provider.h>
 #include <functional>
 #include <expected>
@@ -26,7 +26,7 @@ struct SourceRead {
 ReadCells(const Data::SourceProvider &catalogue,
           std::span<const GeoCellId> cells,
           Data::RawSourceCache &store,
-          Data::Transport &wire,
+          Data::SourceTransport &wire,
           double deadlineMs,
           const std::stop_token &stop,
           const Data::ProviderRegistry *registry = nullptr,
@@ -36,7 +36,7 @@ ReadCells(const Data::SourceProvider &catalogue,
 [[nodiscard]] std::expected<SourceRead, std::string>
 ReadRegions(std::span<const Data::SourceProvider> providers,
             Data::RawSourceCache &store,
-            Data::Transport &wire,
+            Data::SourceTransport &wire,
             double deadlineMs,
             const std::stop_token &stop,
             const Data::ProviderRegistry *registry = nullptr,
@@ -46,7 +46,7 @@ ReadRegions(std::span<const Data::SourceProvider> providers,
 [[nodiscard]] std::expected<SourceChunk, std::string>
 ReadRegion(const Data::SourceProvider &provider,
            Data::RawSourceCache &store,
-           Data::Transport &wire,
+           Data::SourceTransport &wire,
            double deadlineMs,
            const std::stop_token &stop,
            const Data::ProviderRegistry *registry = nullptr,

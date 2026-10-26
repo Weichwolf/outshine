@@ -2,7 +2,7 @@
 #include "TerrainPathPreparation.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "Check.h"
 #include <algorithm>
 #include <array>
@@ -15,7 +15,7 @@
 using namespace outshine;
 
 namespace {
-class NoNetwork final : public Data::Transport {
+class NoNetwork final : public Data::SourceTransport {
 public:
   size_t Starts = 0;
 

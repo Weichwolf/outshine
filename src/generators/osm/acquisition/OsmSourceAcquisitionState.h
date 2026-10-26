@@ -14,7 +14,7 @@ namespace outshine::Generators::Osm {
 class CellAcquisition;
 
 struct SourceAcquisition::Access {
-  Data::Transport *Wire = nullptr;
+  Data::SourceTransport *Wire = nullptr;
   std::string Directory;
   std::unique_ptr<Data::RawSourceCache> Store;
   const Data::ProviderRegistry *Registry = nullptr;

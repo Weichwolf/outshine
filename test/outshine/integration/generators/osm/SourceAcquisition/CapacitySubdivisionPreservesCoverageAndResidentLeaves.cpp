@@ -16,7 +16,7 @@
 #include <thread>
 
 namespace {
-class CapacityLimitedOsmTransport final : public outshine::Data::Transport {
+class CapacityLimitedOsmTransport final : public outshine::Data::SourceTransport {
 public:
   std::atomic<int> Starts{0}, Blocked{0};
   std::atomic<bool> BlockLeaves{false};

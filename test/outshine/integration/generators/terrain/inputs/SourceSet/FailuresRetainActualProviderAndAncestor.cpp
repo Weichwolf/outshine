@@ -3,7 +3,7 @@
 #include "SourceSet.h"
 #include "WebTileFixture.h"
 #include "TilePool.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 
 #include <memory>
 #include <string>
@@ -13,7 +13,7 @@
 namespace {
 using namespace outshine::Data;
 
-class MissingTransport final : public Transport {
+class MissingTransport final : public SourceTransport {
 public:
   SourceFailureReason Reason = SourceFailureReason::OfflineMiss;
   double Now = 0;

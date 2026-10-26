@@ -9,7 +9,7 @@
 using outshine::GeoCellId;
 
 namespace {
-class DelayedOsmTransport final : public outshine::Data::Transport {
+class DelayedOsmTransport final : public outshine::Data::SourceTransport {
 public:
   int Starts = 0, Canceled = 0;
   bool BlockFirst = true, CapacityRefusal = false;

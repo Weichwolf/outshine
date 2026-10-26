@@ -23,7 +23,7 @@ using namespace outshine::Generators::Osm;
 constexpr Data::TileId kOwner{.Zoom = 11, .X = 1023, .Y = 1024};
 enum class Availability { Ready, Unavailable, Absent, ParentAbsent, Refused };
 
-class NoTransport final : public Transport {
+class NoTransport final : public SourceTransport {
 public:
   FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
@@ -83,13 +83,13 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address & /*address*/, Transport & /*transport*/) const override {
+  FetchStart Begin(const Address & /*address*/, SourceTransport & /*transport*/) const override {
     return Ticket::None;
   }
 
   SourceResponse Collect(const Address & /*address*/,
                          Ticket /*ticket*/,
-                         Transport & /*transport*/) const override {
+                         SourceTransport & /*transport*/) const override {
     ++Calls_;
     if (Availability_ == Availability::Refused) { return SourceResponse::Meant(Meaning::Refused); }
     return SourceResponse::Delivered(
@@ -106,7 +106,7 @@ struct Fixture {
   std::atomic_uint Calls{0};
   RawSourceCache Store{{.Directory = {}, .Using = RawSourceCache::Use::Off}};
   SourceSet Sources{Store};
-  NoTransport Transport;
+  NoTransport SourceTransport;
   Tasks Compute{1};
   std::unique_ptr<Ground::TilePool> Pool;
   std::shared_ptr<PreparedOsmTiles> Tiles;
@@ -119,7 +119,9 @@ struct Fixture {
               SourceSet::Registration::Accepted,
           "fixture source metadata registers");
     Pool = std::make_unique<Ground::TilePool>(
-        Ground::TilePool::Config{.Compute = &Compute, .PreparedFields = {}}, Sources, Transport);
+        Ground::TilePool::Config{.Compute = &Compute, .PreparedFields = {}},
+        Sources,
+        SourceTransport);
     auto tiles = PreparedOsmTiles::Open(directory.string(), Sources, Compute);
     CHECK(tiles, "source-product cache opens");
     if (!tiles) { return; }

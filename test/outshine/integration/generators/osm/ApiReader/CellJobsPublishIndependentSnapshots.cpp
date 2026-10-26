@@ -2,7 +2,7 @@
 #include "ShippedProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmApiReader.h"
 #include "Sha256.h"
 
@@ -27,7 +27,7 @@ std::string Xml(size_t version) {
          "<tag k='type' v='multipolygon'/></relation></osm>";
 }
 
-class ApiWire final : public outshine::Data::Transport {
+class ApiWire final : public outshine::Data::SourceTransport {
 public:
   size_t Starts = 0, Peak = 0, Canceled = 0;
   double ClockMs = 0;
@@ -121,7 +121,7 @@ int main() {
             cold->ElapsedMs == 10,
         "one finite cell job uses two overlapping requests and wall-clock acquisition time");
   if (cold && cold->Chunks.size() == 2) { CheckSnapshots(*cold, cells, false); }
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   const auto warm = outshine::Generators::Osm::ReadCells(
       provider, cells, store, offline, offline.NowMs() + 1000, {}, &registry);
   CHECK(warm && warm->Chunks.size() == 2, "received cell bytes reload offline");

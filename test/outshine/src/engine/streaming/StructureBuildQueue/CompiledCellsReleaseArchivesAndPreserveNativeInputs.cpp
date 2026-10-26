@@ -30,7 +30,7 @@ constexpr int kUnconsumedNodeFirst = 100;
 constexpr int kUnconsumedNodeCount = 80;
 constexpr int kMaximumAttempts = 100;
 
-class ApiWire final : public Data::Transport {
+class ApiWire final : public Data::SourceTransport {
 public:
   std::string Xml;
   std::atomic<int> Starts{0};
