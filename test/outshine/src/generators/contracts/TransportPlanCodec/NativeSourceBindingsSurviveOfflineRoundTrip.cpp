@@ -1,4 +1,5 @@
 #include "TransportPlanSourceFixture.h"
+#include "TransportPlanFixture.h"
 #include "TransportPlanCodec.h"
 #include "TransportProvenance.h"
 #include "Check.h"

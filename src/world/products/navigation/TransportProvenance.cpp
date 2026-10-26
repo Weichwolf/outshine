@@ -16,11 +16,10 @@ bool SourcesValid(const TransportProvenance &provenance) {
                              [](const TransportSource &source) {
                                return !source.Identity.DatasetId.empty() && !source.Item.empty();
                              }) &&
-         std::adjacent_find(provenance.Sources.begin(),
-                            provenance.Sources.end(),
-                            [](const auto &a, const auto &b) {
-                              return SourceKey(a) >= SourceKey(b);
-                            }) == provenance.Sources.end() &&
+         std::ranges::adjacent_find(provenance.Sources,
+                                    [](const auto &a, const auto &b) {
+                                      return SourceKey(a) >= SourceKey(b);
+                                    }) == provenance.Sources.end() &&
          std::ranges::all_of(provenance.References, [&provenance](const auto &reference) {
            return reference.Source < provenance.Sources.size();
          });

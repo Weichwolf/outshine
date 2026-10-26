@@ -15,7 +15,8 @@ inline World::TransportProvenance TransportProvenanceFixture() {
   provenance.Sources[1].Content[0] = 2;
   const auto width = static_cast<uint16_t>(TransportAttribute::Width);
   const auto direction = static_cast<uint16_t>(TransportAttribute::Direction);
-  provenance.Paths = {{.PathId = 42,
+  constexpr uint64_t kPathId = 42;
+  provenance.Paths = {{.PathId = kPathId,
                        .ReferenceCount = 2,
                        .SuppliedFields = static_cast<uint16_t>(width | direction),
                        .DerivedFields = width}};

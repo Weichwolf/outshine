@@ -24,7 +24,7 @@ int main() {
   altered.References[0].Source = 2;
   CHECK(!ValidateTransportProvenance(graph, altered), "an invalid source row is refused");
   altered = expected;
-  altered.Paths[0].PathId = 43;
+  ++altered.Paths[0].PathId;
   CHECK(!ValidateTransportProvenance(graph, altered), "the topology path must own its references");
   altered = expected;
   altered.Paths[0].ReferenceCount = 1;
