@@ -56,6 +56,25 @@ class BuildingSourceMaterialWork(unittest.TestCase):
             self.assertEqual(scalar.tobytes(), actual.tobytes())
         self.assertEqual(clipped_wall_areas([], 3).shape, (0, 2))
 
+    def test_whole_wall_areas_need_no_intersection_and_partial_walls_still_clip(self):
+        domains = [
+            shapely.Polygon([(0, 0), (2, 0), (2, 4), (0, 2)]),
+            shapely.box(3, 1, 5, 2),
+        ]
+        with patch(
+            "building_mass_appearance.shapely.intersection",
+            side_effect=AssertionError("whole domains require no clipping"),
+        ):
+            for base, expected in ((0, [[0, 6], [0, 2]]), (4, [[6, 0], [2, 0]])):
+                actual = clipped_wall_areas(domains, base)
+                np.testing.assert_array_equal(actual, expected)
+        with patch(
+            "building_mass_appearance.shapely.intersection", wraps=shapely.intersection
+        ) as intersect:
+            actual = clipped_wall_areas(domains, 3)
+            np.testing.assert_array_equal(actual, [[5.5, 0.5], [2, 0]])
+            self.assertEqual(len(intersect.call_args.args[0]), 2)
+
     def test_local_measures_keep_sloped_areas_without_world_geometry(self):
         source = surface()
         source["shapes"][0].update(
