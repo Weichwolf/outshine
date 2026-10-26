@@ -1,7 +1,41 @@
 """Analytic road upper surfaces from recipe poses, without emitted mesh inputs."""
 
+from fractions import Fraction
+from math import factorial, inf, isfinite, nextafter
+
 import numpy as np
 from outshine_ref.transport.clothoid_turns import quadrature
+
+GAUSS16_CONSTANT = nextafter(
+    float(Fraction(factorial(16) ** 4, 33 * factorial(32) ** 3)), inf
+)
+
+
+def positive_product(a, b):
+    return 0.0 if a == 0 or b == 0 else nextafter(a * b, inf)
+
+
+def quadrature_remainder(length, curvature, rate):
+    """Gauss16 remainder for an Euler-spiral unit tangent on the whole source span.
+
+    With a=K*L and b=abs(kappa')*L^2, derivative majorants obey
+    B_0=1, B_1=a, B_(m+1)=a*B_m+m*b*B_(m-1). The integral remainder
+    is at most L*(16!)^4/(33*(32!)^3)*B_32. This is truncation, not
+    a universal libm/IEEE floating-point certificate.
+    """
+    if curvature == 0 and rate == 0:
+        return 0.0
+    a = positive_product(curvature, length)
+    b = positive_product(positive_product(abs(rate), length), length)
+    previous, current = 1.0, a
+    for order in range(1, 32):
+        first = positive_product(a, current)
+        second = positive_product(positive_product(float(order), b), previous)
+        value = first + second
+        previous, current = current, nextafter(value, inf) if value else 0.0
+        if not isfinite(current):
+            return inf
+    return positive_product(positive_product(length, GAUSS16_CONSTANT), current)
 
 
 def controls(first, last, first_rate, last_rate, length):
@@ -112,6 +146,51 @@ class Curve:
         if not np.isfinite(self.second).all():
             raise ValueError("Finite swept-surface derivative bounds required")
         self.evaluations = 0
+        self._evaluation_bound()
+
+    def _planar(self, distance, i):
+        points, weights = quadrature(16)
+        integration = distance[:, None] * points
+        phase = (
+            self.poses[i, 4, None]
+            + self.curvature_start[i, None] * integration
+            + self.curvature_rate[i, None] * integration**2 / 2
+        )
+        planar = (
+            self.poses[i, 1:3]
+            + distance[:, None]
+            * np.c_[np.cos(phase) @ weights, np.sin(phase) @ weights]
+        )
+        return planar
+
+    def _evaluation_bound(self):
+        self.integration_bounds_m = np.array(
+            [
+                quadrature_remainder(float(length), float(curvature), float(rate))
+                for length, curvature, rate in zip(
+                    self.lengths, self.curvature_max, self.curvature_rate, strict=True
+                )
+            ]
+        )
+        if not np.isfinite(self.integration_bounds_m).all():
+            self.endpoint_disagreement_m = self.evaluation_error_bound_m = inf
+            return
+        end = self._planar(self.lengths, np.arange(len(self.lengths)))
+        heading = (
+            self.poses[:-1, 4]
+            + self.curvature_start * self.lengths
+            + self.curvature_rate * self.lengths**2 / 2
+        )
+        directions = np.c_[-np.sin(heading), np.cos(heading)]
+        stored = np.c_[-np.sin(self.poses[1:, 4]), np.cos(self.poses[1:, 4])]
+        defects = np.linalg.norm(end - self.poses[1:, 1:3], axis=1) + self.width * (
+            np.linalg.norm(directions - stored, axis=1)
+        )
+        self.endpoint_disagreement_m = float(defects.max())
+        self.evaluation_error_bound_m = max(
+            nextafter(float(bound) + float(defect), inf) if bound or defect else 0.0
+            for bound, defect in zip(self.integration_bounds_m, defects, strict=True)
+        )
 
     def at(self, stations):
         stations = np.asarray(stations, dtype=float)
@@ -130,18 +209,7 @@ class Curve:
         )
         distance = stations - self.stations[i]
         t = distance / self.lengths[i]
-        points, weights = quadrature(16)
-        integration = distance[:, None] * points
-        phase = (
-            self.poses[i, 4, None]
-            + self.curvature_start[i, None] * integration
-            + self.curvature_rate[i, None] * integration**2 / 2
-        )
-        planar = (
-            self.poses[i, 1:3]
-            + distance[:, None]
-            * np.c_[np.cos(phase) @ weights, np.sin(phase) @ weights]
-        )
+        planar = self._planar(distance, i)
         height = bezier(self.height[i], t)
         bank = bezier(self.bank[i], t)
         heading = (

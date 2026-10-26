@@ -145,6 +145,7 @@ def main():
             "compare_road_uniform.py",
             "test_road_surface_uniform.py",
             "test_road_surface_lod.py",
+            "test_road_surface_quadrature.py",
         )
     ]
     if subprocess.check_output(["git", "status", "--porcelain", "--", *tracked]):

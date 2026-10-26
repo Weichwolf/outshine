@@ -32,7 +32,7 @@ def envelope(curve, start, end, endpoints=None):
         ).max()
         / 4
     )
-    return longitudinal + twist, ends, len(stations)
+    return longitudinal + twist + curve.evaluation_error_bound_m, ends, len(stations)
 
 
 def limits(error_m, max_stations):
@@ -45,8 +45,16 @@ def limits(error_m, max_stations):
         raise ValueError("Positive metric error and bounded station capacity required")
 
 
-def prepare(curve, error_m, max_stations=262144):
+def qualified(curve, error_m, max_stations):
     limits(error_m, max_stations)
+    if not np.isfinite(curve.evaluation_error_bound_m) or (
+        curve.evaluation_error_bound_m >= error_m
+    ):
+        raise ValueError("Original-span quadrature/pose error exceeds surface budget")
+
+
+def prepare(curve, error_m, max_stations=262144):
+    qualified(curve, error_m, max_stations)
     pending = [(float(curve.stations[0]), float(curve.stations[-1]))]
     evaluations_before = curve.evaluations
     accepted = []
@@ -75,7 +83,7 @@ def prepare(curve, error_m, max_stations=262144):
 
 def prepare_uniform(curve, error_m, max_stations=262144):
     """First qualifying whole-curve dyadic grid, using the same surface bound."""
-    limits(error_m, max_stations)
+    qualified(curve, error_m, max_stations)
     evaluations_before, queries, intervals = curve.evaluations, 0, 1
     while True:
         grid = np.linspace(curve.stations[0], curve.stations[-1], intervals + 1)
@@ -120,6 +128,11 @@ def assembled(curve, accepted, evaluations_before, queries):
         "stations_m": stations,
         "positions_enh_m": vertices,
         "indices": indices,
+        "maximum_quadrature_remainder_m": float(curve.integration_bounds_m.max()),
+        "maximum_source_endpoint_disagreement_m": curve.endpoint_disagreement_m,
+        "evaluation_error_bound_m": curve.evaluation_error_bound_m,
+        "source_qualification_pose_evaluations": len(curve.lengths),
+        "source_qualification_maximum_recurrence_steps": 31 * len(curve.lengths),
         "maximum_model_bound_m": max(a[2] for a in accepted),
         "maximum_stored_bound_m": max(a[2] + a[4] for a in accepted),
         "maximum_vertex_quantization_m": max(a[4] for a in accepted),

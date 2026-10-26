@@ -112,3 +112,54 @@ no images are published in the repository. SIGGRAPH starting point remains
 [Cohen et al. 1996, Simplification Envelopes](../../../doc/references/geometry/siggraph/1996-simplification-envelopes.pdf),
 page 3/Figures 2–4 visually inspected. This is surface-distance context, not an
 implementation of that mesh-envelope construction.
+
+
+## Source-interval integration qualification
+
+Review #1428 found an accepted radius-10m helix over a 1000m source interval:
+16 fixed Gauss nodes produced 429.522449m vertex error despite a 0.111943m
+reported mesh bound. Later render subdivision does not refine that original
+integration. The prior thirteen tests and same-evaluator probes did not detect it.
+
+The source evaluator now has a separate error budget. For the unit tangent
+`exp(i*(theta0+kappa0*s+kappa_prime*s*s/2))`, let `K` bound absolute curvature
+on the original interval of length `L`, `a=K*L`, and `b=abs(kappa_prime)*L*L`.
+The absolute derivative majorants satisfy `B0=1`, `B1=a`, and
+`B(m+1)=a*Bm+m*b*B(m-1)`. Induction follows by differentiating the quadratic-phase
+exponential; equivalently the coefficient of each `a^(m-2j)*b^j` is
+`m!/(2^j*j!*(m-2j)!)`. For Gauss16 the whole-interval truncation is bounded by
+`E=L*(16!)^4/(33*(32!)^3)*B32`. See NIST DLMF
+[general Gaussian remainder](https://dlmf.nist.gov/3.5.E19) and
+[Legendre coefficient](https://dlmf.nist.gov/3.5.E21). Projection onto any fixed
+unit direction gives the same bound for the planar vector norm.
+
+Positive products, recurrence sums and the constant round upward. Overflows make
+the range unqualified. This addresses analytic truncation; it is not a universal
+libm/IEEE floating-point error certificate. Existing numeric-model and source
+validity limitations remain. No phase/curvature cutoff or relaxed tolerance.
+
+The stored endpoint can also disagree with its span's integrated continuation.
+Charge its planar displacement plus width times the heading-normal discrepancy.
+`evaluation_error_bound_m` is the maximum of that defect plus `E` over original
+intervals. Each source interval has its own smooth analytic continuation;
+this bound covers its interior and the separately stored boundary pose.
+The existing envelope partitions at original seams. Add the evaluator error to
+its endpoint residual/second-derivative bound, then add the actual triangulation
+twist and Float32 vertex displacement as before. This yields the total declared
+model bound, instead of silently treating approximate evaluations as exact.
+
+The evaluator budget does not shrink under render refinement. Both methods
+therefore reject before render work when it already exhausts the requested
+error. The 1000m helix is explicitly unqualified at 0.25m; 10/100/300m closed
+helices in both directions independently validate every emitted vertex. A 300m
+case also declines at 1e-6m, demonstrating dependence on the actual error budget.
+Exact rational derivative sums independently check the positive recurrence;
+seam disagreement and early rejection have separate controls. No original
+assertion or pin is changed.
+
+Reports expose the quadrature remainder, endpoint disagreement and complete
+evaluator budget. Qualification additionally evaluates each original interval
+endpoint once and performs at most31 recurrence steps per original interval
+(straight spans skip the recurrence). These shared preparation costs are new;
+old timed preparations remain historical. No new profile campaign or unchanged
+whole-build-speed assertion follows from retained mesh arrays.
