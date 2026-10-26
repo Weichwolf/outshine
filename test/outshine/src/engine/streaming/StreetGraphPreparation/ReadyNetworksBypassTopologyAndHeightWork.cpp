@@ -1,11 +1,11 @@
 #include "Check.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "OsmField.h"
 #include "PreparedStreetGraph.h"
 #include "Sha256.h"
 #include "SourceSet.h"
 #include "StreetGraphPreparation.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -69,8 +69,8 @@ int main() {
   std::filesystem::create_directories(root / "assets");
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             templates.Load("src/assets/world/vegetation.json", materials),
         "native street rules load");

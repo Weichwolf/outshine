@@ -1,8 +1,8 @@
 #include "StreetGraphPreparation.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "OsmField.h"
 #include "StreetField.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include "Check.h"
 
 #include <array>
@@ -10,6 +10,7 @@
 #include <chrono>
 #include <memory>
 #include <optional>
+#include <ratio>
 #include <string>
 #include <thread>
 #include <utility>
@@ -34,7 +35,7 @@ struct ComputeGate {
   ~ComputeGate() { Open->store(true); }
 };
 
-bool Await(outshine::StreetGraphPreparation &work) {
+bool Await(const outshine::StreetGraphPreparation &work) {
   const auto deadline = Clock::now() + std::chrono::seconds(3);
   while (!work.Complete() && Clock::now() < deadline) { std::this_thread::yield(); }
   return work.Complete();
@@ -46,8 +47,8 @@ int main() {
   using namespace outshine::Ground;
   using namespace outshine::Generators::Osm;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             templates.Load("src/assets/world/vegetation.json", materials),
         "existing street rules are available");
@@ -71,7 +72,7 @@ int main() {
   if (!oracle.Graph) { return Report(); }
   Tasks pool(1);
   {
-    ComputeGate gate(pool);
+    const ComputeGate gate(pool);
     CHECK(gate.Entered->load(), "the shared compute worker is deliberately occupied");
     auto job = StreetGraphBuildJob::Begin(field, streets, heightOf);
     CHECK(job.has_value(), "the asynchronous graph job is accepted");
@@ -95,7 +96,7 @@ int main() {
     CHECK(!work.Collect(), "one completed graph transfers exactly once");
   }
   {
-    ComputeGate gate(pool);
+    const ComputeGate gate(pool);
     auto job = StreetGraphBuildJob::Begin(field, streets, heightOf);
     CHECK(job.has_value(), "a queued graph can be canceled");
     if (!job) { return Report(); }
@@ -109,7 +110,7 @@ int main() {
           "canceled work does not advance or publish a stale graph");
   }
   {
-    ComputeGate gate(pool);
+    const ComputeGate gate(pool);
     auto pin = std::make_shared<int>(100);
     const std::weak_ptr<int> retained = pin;
     std::unique_ptr<StreetGraphPreparation> work;

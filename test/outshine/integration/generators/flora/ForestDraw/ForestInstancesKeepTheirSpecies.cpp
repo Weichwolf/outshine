@@ -1,6 +1,9 @@
 #include <array>
+#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <numbers>
+#include <string>
 #include <vector>
 #include "Check.h"
 #include "ForestDraw.h"
@@ -25,36 +28,22 @@ public:
   bool Add(outshine::Generators::BodyId body,
            outshine::Generators::ClusterId cluster,
            const outshine::Generators::Scattered &where) noexcept override {
-    Instances.push_back({body.Index(), cluster, where});
+    Instances.push_back({.Body = body.Index(), .Cluster = cluster, .Where = where});
     return true;
   }
 
-  bool Full() const noexcept override { return false; }
+  [[nodiscard]] bool Full() const noexcept override { return false; }
 };
 }
 
-int main() {
+namespace {
+void CheckCatalogue(const outshine::Generators::Ground &ground,
+                    const outshine::Generators::Tile &region) {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  const Tile region = Tile::Of(14, {.LongitudeDeg = 10, .LatitudeDeg = 47});
-  std::array<GroundPatch::Posting, 4> samples;
-  for (auto &sample : samples) { sample.Height = GroundSample::At(500); }
-  Generators::Ground::Snapshot snapshot;
-  snapshot.Patch = GroundPatch::Complete(region, 2, samples);
-  snapshot.Classes = std::make_shared<TerrainClassificationMap>(
-      TangentFrame::At({.LongitudeDeg = 10, .LatitudeDeg = 47}),
-      std::make_shared<TerrainClassificationMap::Grid>(),
-      std::make_shared<TerrainClassificationMap::Grid>(),
-      TerrainClassificationMap::FromRun{});
-  snapshot.Features = FeatureField::Of({}, {}, {});
-  const std::array<GroundTable::Row, 1> rows{};
-  snapshot.Table = GroundTable::Of(rows);
-  const auto ground = Generators::Ground::Of(region, snapshot);
-  CHECK(ground.has_value(), "the draw fixture has a valid ground snapshot");
-  if (!ground) { return Report(); }
-  outshine::Ground::GroundMaterials materials;
-  outshine::Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   std::string error;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped ground materials load");
   CHECK(vegetation.Load("src/assets/world/vegetation.json", materials), "shipped vegetation loads");
@@ -82,7 +71,7 @@ int main() {
             shipping.TreeFor(ClusterId{0}) == first,
         "repeated preparation preserves the immutable prototype address");
   RegionPool pool({.Reached = region, .Anywhere = region}, {});
-  auto lease = pool.TryAcquire(*ground);
+  auto lease = pool.TryAcquire(ground);
   CHECK(lease.has_value(), "catalogue fixture leases a real placement sink");
   if (lease) {
     const auto &makers = shipping.Placing();
@@ -95,7 +84,7 @@ int main() {
       if (makers.At(maker).Called() != "flora") { continue; }
       for (size_t index = 0; index < sources.size(); ++index) {
         Solid body;
-        body.Em = 10 + index * 8;
+        body.Em = 10 + static_cast<double>(index) * 8;
         body.Nm = 10;
         body.BaseAslM = 500;
         body.HeightM = sources[index].HeightM() * 1.5f;
@@ -106,7 +95,7 @@ int main() {
       }
     }
     Captured shipped;
-    shipping.Drawing().Draw(*ground, makers, yields, lease->Sink().Placed(), shipped);
+    shipping.Drawing().Draw(ground, makers, yields, lease->Sink().Placed(), shipped);
     CHECK(shipped.Instances.size() == sources.size(),
           "the shipped draw registry reaches every placed species");
     for (const auto &instance : shipped.Instances) {
@@ -121,56 +110,22 @@ int main() {
                  "catalogue drawing scales relative to its own retained source");
     }
   }
-  const std::array<ForestDraw::Prototype, 2> prototypes = {
-      {{.Cluster = ClusterId{17}, .HeightM = 10}, {.Cluster = ClusterId{29}, .HeightM = 30}}};
-  const ForestDraw draw(prototypes);
-  std::array<Solid, 2> bodies = {
-      {{.Em = 12 + 0x1p-30,
-        .Nm = 23 + 0x1p-30,
-        .BaseAslM = 501 + 0x1p-30,
-        .HeightM = 15,
-        .YawRad = 0.4f,
-        .Variant = 0},
-       {.Em = 34, .Nm = 45, .BaseAslM = 502, .HeightM = 45, .YawRad = 0.7f, .Variant = 1}}};
-  Captured captured;
-  draw.Draw(*ground, bodies, {.First = 11, .Count = 2}, captured);
-  CHECK(captured.Instances.size() == 2, "both species reach the instance sink");
-  if (captured.Instances.size() != 2) { return Report(); }
-  for (size_t at = 0; at < bodies.size(); ++at) {
-    const auto &instance = captured.Instances[at];
-    CHECK(instance.Cluster == prototypes[at].Cluster, "a body keeps its own species prototype");
-    CHECK(instance.Body == 11 + at, "the generator preserves the allocated body range");
-    CHECK_NEAR(instance.Where.Scale,
-               1.5,
-               1e-6,
-               "ratio",
-               "scale is relative to this species, not the first tree");
-    CHECK(instance.Where.Em == bodies[at].Em,
-          "east retains the source double precision in the region frame");
-    CHECK(instance.Where.Nm == bodies[at].Nm,
-          "north retains the source double precision in the region frame");
-    CHECK(instance.Where.AslM == bodies[at].BaseAslM,
-          "height retains its datum and source double precision");
-  }
-  bodies[1].Variant = 0;
-  Captured buildings;
-  BuildingDraw(ClusterId{31}, 10).Draw(*ground, bodies, {.First = 11, .Count = 2}, buildings);
-  CHECK(buildings.Instances.size() == bodies.size(), "building placements also reach the sink");
-  if (buildings.Instances.size() == bodies.size()) {
-    for (size_t at = 0; at < bodies.size(); ++at) {
-      const auto &where = buildings.Instances[at].Where;
-      CHECK(where.Em == bodies[at].Em && where.Nm == bodies[at].Nm &&
-                where.AslM == bodies[at].BaseAslM,
-            "building positions retain source double precision");
-    }
-  }
+}
+}
+
+namespace {
+void CheckWorldPlacement(const outshine::Generators::Tile &region,
+                         const outshine::Generators::Scattered &firstPlacement) {
+  using namespace outshine;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
   const Tile adjacent(region.Zoom(), region.X() + 1, region.Y());
   const LongitudeLatitude target{.LongitudeDeg = 10, .LatitudeDeg = 47};
   std::array<WorldPlacement, 2> world;
   size_t at = 0;
   for (const Tile &tile : {region, adjacent}) {
     const EastNorth local = tile.Enu(target);
-    Scattered placed = captured.Instances.front().Where;
+    Scattered placed = firstPlacement;
     placed.Em = local.EastM;
     placed.Nm = local.NorthM;
     world[at] = WorldPlacement::From(tile, placed);
@@ -195,7 +150,8 @@ int main() {
              "deg",
              "different region frames agree at the same world position");
   const auto frame = TangentFrame::At(target);
-  const Mat4 firstModel = world[0].ModelIn(frame), secondModel = world[1].ModelIn(frame);
+  const Mat4 firstModel = world[0].ModelIn(frame);
+  const Mat4 secondModel = world[1].ModelIn(frame);
   for (size_t component = 0; component < 16; ++component) {
     CHECK_NEAR(firstModel[component],
                secondModel[component],
@@ -204,7 +160,7 @@ int main() {
                "adjacent tile frames place the same body in the same render frame");
   }
   const auto equator = TangentFrame::At({});
-  WorldPlacement rooted{.AslM = 7, .Scale = 2};
+  WorldPlacement rooted{.Position = {}, .AslM = 7, .Scale = 2};
   const auto base = rooted.ModelIn(equator);
   const Mat4 expectedBase{{2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 7, 0, 1}};
   for (size_t component = 0; component < 16; ++component) {
@@ -248,6 +204,74 @@ int main() {
              2e-9,
              "m",
              "submillimetre root translation survives the ECEF subtraction in double");
+}
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  const Tile region = Tile::Of(14, {.LongitudeDeg = 10, .LatitudeDeg = 47});
+  std::array<GroundPatch::Posting, 4> samples;
+  for (auto &sample : samples) { sample.Height = GroundSample::At(500); }
+  Generators::Ground::Snapshot snapshot;
+  snapshot.Patch = GroundPatch::Complete(region, 2, samples);
+  snapshot.Classes = std::make_shared<TerrainClassificationMap>(
+      TangentFrame::At({.LongitudeDeg = 10, .LatitudeDeg = 47}),
+      std::make_shared<TerrainClassificationMap::Grid>(),
+      std::make_shared<TerrainClassificationMap::Grid>(),
+      TerrainClassificationMap::FromRun{});
+  snapshot.Features = FeatureField::Of({}, {}, {});
+  const std::array<GroundTable::Row, 1> rows{};
+  snapshot.Table = GroundTable::Of(rows);
+  const auto ground = Generators::Ground::Of(region, snapshot);
+  CHECK(ground.has_value(), "the draw fixture has a valid ground snapshot");
+  if (!ground) { return Report(); }
+  CheckCatalogue(*ground, region);
+  const std::array<ForestDraw::Prototype, 2> prototypes = {
+      {{.Cluster = ClusterId{17}, .HeightM = 10}, {.Cluster = ClusterId{29}, .HeightM = 30}}};
+  const ForestDraw draw(prototypes);
+  std::array<Solid, 2> bodies = {
+      {{.Em = 12 + 0x1p-30,
+        .Nm = 23 + 0x1p-30,
+        .BaseAslM = 501 + 0x1p-30,
+        .HeightM = 15,
+        .YawRad = 0.4f,
+        .Variant = 0},
+       {.Em = 34, .Nm = 45, .BaseAslM = 502, .HeightM = 45, .YawRad = 0.7f, .Variant = 1}}};
+  Captured captured;
+  draw.Draw(*ground, bodies, {.First = 11, .Count = 2}, captured);
+  CHECK(captured.Instances.size() == 2, "both species reach the instance sink");
+  if (captured.Instances.size() != 2) { return Report(); }
+  for (size_t at = 0; at < bodies.size(); ++at) {
+    const auto &instance = captured.Instances[at];
+    CHECK(instance.Cluster == prototypes[at].Cluster, "a body keeps its own species prototype");
+    CHECK(instance.Body == 11 + at, "the generator preserves the allocated body range");
+    CHECK_NEAR(instance.Where.Scale,
+               1.5,
+               1e-6,
+               "ratio",
+               "scale is relative to this species, not the first tree");
+    CHECK(instance.Where.Em == bodies[at].Em,
+          "east retains the source double precision in the region frame");
+    CHECK(instance.Where.Nm == bodies[at].Nm,
+          "north retains the source double precision in the region frame");
+    CHECK(instance.Where.AslM == bodies[at].BaseAslM,
+          "height retains its datum and source double precision");
+  }
+  bodies[1].Variant = 0;
+  Captured buildings;
+  BuildingDraw(ClusterId{31}, 10).Draw(*ground, bodies, {.First = 11, .Count = 2}, buildings);
+  CHECK(buildings.Instances.size() == bodies.size(), "building placements also reach the sink");
+  if (buildings.Instances.size() == bodies.size()) {
+    for (size_t at = 0; at < bodies.size(); ++at) {
+      const auto &where = buildings.Instances[at].Where;
+      CHECK(where.Em == bodies[at].Em && where.Nm == bodies[at].Nm &&
+                where.AslM == bodies[at].BaseAslM,
+            "building positions retain source double precision");
+    }
+  }
+  CheckWorldPlacement(region, captured.Instances.front().Where);
   Captured changed;
   draw.Draw(*ground, bodies, {.First = 11, .Count = 2}, changed);
   CHECK(changed.Instances[1].Cluster != prototypes[1].Cluster,

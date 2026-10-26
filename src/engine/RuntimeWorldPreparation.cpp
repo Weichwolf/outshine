@@ -207,12 +207,12 @@ bool Engine::State::PrepareRuntimeWorld() {
   }
 
   Collecting say;
-  const World::StoragePaths worldStorage{.Shipped = Session.Under.Shipped,
-                                         .Cache = Session.Under.Cache,
-                                         .AssetCache = Session.Under.AssetCache};
+  const ContentDirectories contentDirectories{.BuiltinData = Session.Under.Shipped,
+                                              .Sources = Session.Under.Cache,
+                                              .Assets = Session.Under.AssetCache};
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Stack.Opened() &&
-      !World.Stack.OpenSession(worldStorage,
+      !World.Stack.OpenSession(contentDirectories,
                                World.Sources,
                                {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
                                *World.Wire,
@@ -266,9 +266,9 @@ bool Engine::State::PrepareRuntimeWorld() {
                                std::ldexp(1.0, vectorZoom);
     World.Stack.FootprintTilesSpan(vectorSpanM);
   }
-  if (World.Stack.Vegetated()) {
+  if (World.Stack.RecipesReady()) {
     std::string why;
-    if (!World.Shipping.EnsureCatalogue(World.Stack.Vegetation(),
+    if (!World.Shipping.EnsureCatalogue(World.Stack.SurfaceRecipes(),
                                         std::string(Session.Under.Shipped) + "/world/species",
                                         why,
                                         declared.Ground.VegetationEnabled,
@@ -277,7 +277,7 @@ bool Engine::State::PrepareRuntimeWorld() {
       Error = std::move(why);
       return false;
     }
-    World.Table = Generators::TableOf(World.Stack.Vegetation());
+    World.Table = Generators::TableOf(World.Stack.SurfaceRecipes());
   }
 
   HandsPiecesOver();

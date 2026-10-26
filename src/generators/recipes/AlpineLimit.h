@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUND_ALPINELIMIT_H
-#define OUTSHINE_WORLD_GROUND_ALPINELIMIT_H
+#ifndef OUTSHINE_GENERATORS_RECIPES_ALPINELIMIT_H
+#define OUTSHINE_GENERATORS_RECIPES_ALPINELIMIT_H
 
 #include "Earth.h"
 #include <cmath>
@@ -7,7 +7,7 @@
 
 #include "Json.h"
 
-namespace outshine {
+namespace outshine::Generators {
 
 constexpr double kTreelineBaseLatDeg = 47.4;
 constexpr double kTreelineBaseM = 1900.0;

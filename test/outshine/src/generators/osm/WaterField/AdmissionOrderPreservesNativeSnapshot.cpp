@@ -53,7 +53,7 @@ Generators::WaterAsset Snapshot(const OsmField &field, bool deferWest) {
   WaterField water;
   DeferredHeights ground;
   ground.WestPending = deferWest;
-  const Ground::VegetationTemplates materials;
+  const outshine::Generators::RegionSurfaceRecipes materials;
   if (deferWest) {
     for (unsigned step = 0; step < 32 && water.OfTile(1).empty(); ++step) {
       (void)water.Ingest(ground, field, materials);

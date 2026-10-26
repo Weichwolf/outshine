@@ -1,5 +1,5 @@
 #include "GroundPalette.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include "Check.h"
 #include <bit>
 #include <cstddef>
@@ -8,8 +8,8 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped material catalog");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "shipped ground recipes");
   if (!templates.Ready()) { return Report(); }

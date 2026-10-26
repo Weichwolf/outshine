@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <span>
@@ -12,7 +13,7 @@
 #include <vector>
 
 namespace {
-class ObservedMesher final : public outshine::RoadMesher {
+struct ObservedMesher final : public outshine::RoadMesher {
 public:
   mutable std::vector<float> Positions;
 
@@ -21,7 +22,8 @@ public:
                                    outshine::RoadMeshBuffers &into) const override {
     const size_t first = into.PositionM.size();
     const auto result = Native_.Sweep(along, how, into);
-    Positions.insert(Positions.end(), into.PositionM.begin() + first, into.PositionM.end());
+    const auto appended = std::span(into.PositionM).subspan(first);
+    Positions.insert(Positions.end(), appended.begin(), appended.end());
     return result;
   }
 
@@ -32,7 +34,6 @@ public:
     Native_.Junction(gates, plane, colour, into);
   }
 
-private:
   outshine::Generators::ProfiledRoadMesher Native_;
 };
 }
@@ -41,8 +42,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the contact uses the production road recipes");
@@ -67,6 +68,8 @@ int main() {
                                            .Standing = frame,
                                            .Draped = drape,
                                            .Classes = noClasses,
+                                           .WaterUpM = {},
+                                           .CensusAt = {},
                                            .EyeLatDeg = origin.LatitudeDeg,
                                            .EyeLonDeg = origin.LongitudeDeg,
                                            .Projection = {.FocalPx = 800}};
@@ -79,7 +82,8 @@ int main() {
     CHECK(!contacts.empty() && !mesher.Positions.empty(), "road contacts and real vertices exist");
     double renderedHalfWidth = 0;
     for (size_t at = 0; at < mesher.Positions.size(); at += 3) {
-      renderedHalfWidth = std::max(renderedHalfWidth, std::abs(double(mesher.Positions[at])));
+      renderedHalfWidth =
+          std::max(renderedHalfWidth, std::abs(static_cast<double>(mesher.Positions[at])));
     }
     double contactHalfWidth = 0;
     for (const auto &stamp : contacts) {

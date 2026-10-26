@@ -105,7 +105,7 @@ inline void Finish(Generators::Osm::WaterField &water,
                    bool alongLatitude = false) {
   Heights ground;
   ground.AlongLatitude = alongLatitude;
-  Ground::VegetationTemplates materials;
+  outshine::Generators::RegionSurfaceRecipes materials;
   for (unsigned step = 0; step < 32 && !water.Ingested(field); ++step) {
     (void)water.Ingest(ground, field, materials);
   }

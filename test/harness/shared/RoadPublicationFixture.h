@@ -33,7 +33,7 @@ inline Generators::RoadPageLease *ConsumeRoadPage(std::vector<RoadPageQueue::Com
   auto &result = done.front().Result;
   if (!result || !*result) { return nullptr; }
   auto &product = **result;
-  if (auto *receipt = std::get_if<RoadPageQueue::Receipt>(&product);
+  if (const auto *receipt = std::get_if<RoadPageQueue::Receipt>(&product);
       receipt != nullptr && *receipt) {
     auto loaded = pages.LoadKey((*receipt)->Key, (*receipt)->ByteCount);
     if (!loaded || !*loaded) { return nullptr; }

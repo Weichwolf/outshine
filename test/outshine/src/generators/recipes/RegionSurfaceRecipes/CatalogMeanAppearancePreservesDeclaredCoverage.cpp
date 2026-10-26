@@ -1,14 +1,13 @@
-#include "VegetationTemplates.h"
-#include "GroundMaterials.h"
+#include "RegionSurfaceRecipes.h"
+#include "GroundMaterialCatalog.h"
 #include "Check.h"
 #include <cstddef>
 
 int main() {
   using namespace outshine;
-  using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped material catalog");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "shipped surface recipes");
   if (!templates.Ready()) { return Report(); }

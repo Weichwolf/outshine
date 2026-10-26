@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 
 #include "Json.h"
 #include "Log.h"
@@ -17,7 +17,7 @@
 #include <unordered_map>
 #include <string_view>
 
-namespace outshine::Ground {
+namespace outshine::Generators {
 
 constexpr double kCoverUnsaid = 0.35;
 
@@ -69,8 +69,8 @@ std::expected<bool, std::string> ReadRuleFlag(const Json::Ref &source, const cha
   return std::unexpected(std::string(name) + Says::RuleFlag);
 }
 
-std::expected<VegetationTemplates::Rule, std::string> ReadRuleNumbers(const Json::Ref &source) {
-  using Rule = VegetationTemplates::Rule;
+std::expected<RegionSurfaceRecipes::Rule, std::string> ReadRuleNumbers(const Json::Ref &source) {
+  using Rule = RegionSurfaceRecipes::Rule;
 
   struct IntegerField {
     const char *Name;
@@ -133,7 +133,7 @@ std::expected<VegetationTemplates::Rule, std::string> ReadRuleNumbers(const Json
 }
 }
 
-bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
+bool RegionSurfaceRecipes::Load(const char *path, const GroundMaterialCatalog &mats) {
   constexpr size_t kCatalogByteLimit = size_t{1024} * 1024u;
   const char *const sourcePath = path != nullptr ? path : "";
   const auto text = ReadTextFile(sourcePath, kCatalogByteLimit);
@@ -161,7 +161,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     Error_ = "ground-material table not loaded";
     return false;
   }
-  VegetationTemplates candidate;
+  RegionSurfaceRecipes candidate;
   BladeMap blades;
   if (!candidate.ReadBlades(root, blades) || !candidate.ReadTemplates(root, mats, blades) ||
       !candidate.ReadRules(tpls) || !candidate.ReadEnvironment(root)) {
@@ -169,7 +169,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     return false;
   }
   candidate.ReadLayers(tpls);
-  static_assert(std::is_nothrow_move_assignable_v<VegetationTemplates>);
+  static_assert(std::is_nothrow_move_assignable_v<RegionSurfaceRecipes>);
   *this = std::move(candidate);
   Log::Info(LogTag::Veg,
             "table",
@@ -184,7 +184,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   return true;
 }
 
-bool VegetationTemplates::ReadBlades(const Json::Ref &root, BladeMap &bladeByName) {
+bool RegionSurfaceRecipes::ReadBlades(const Json::Ref &root, BladeMap &bladeByName) {
   const Json::Ref blades = root["bladeClasses"];
   for (size_t i = 0; i < blades.Size(); i++) {
     const Json::Ref b = blades[i];
@@ -210,10 +210,10 @@ bool VegetationTemplates::ReadBlades(const Json::Ref &root, BladeMap &bladeByNam
   return true;
 }
 
-bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
-                                        const GroundMaterials &materials,
-                                        SurfaceMaterial &row) {
-  const auto fillSurf = [](Vec4f &dst, const GroundMaterials::Material &m) {
+bool RegionSurfaceRecipes::ReadSubstrate(const Json::Ref &ground,
+                                         const GroundMaterialCatalog &materials,
+                                         ::outshine::Ground::SurfaceMaterial &row) {
+  const auto fillSurf = [](Vec4f &dst, const GroundMaterialCatalog::Material &m) {
     dst[0] = m.GrainSizeM;
     dst[1] = m.HeightAmplitudeM;
     dst[2] = m.DetailCoarseM;
@@ -226,7 +226,7 @@ bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
     Error_ = "unknown ground class: " + gname;
     return false;
   }
-  const GroundMaterials::Material &gm = materials.At(static_cast<size_t>(gi));
+  const GroundMaterialCatalog::Material &gm = materials.At(static_cast<size_t>(gi));
 
   const std::string lname = ground["litterClass"].Str("");
   const int li = lname.empty() ? gm.LitterClass : materials.Find(lname);
@@ -234,7 +234,7 @@ bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
     Error_ = "unknown litter class: " + lname;
     return false;
   }
-  const GroundMaterials::Material &lm = materials.At(static_cast<size_t>(li >= 0 ? li : gi));
+  const GroundMaterialCatalog::Material &lm = materials.At(static_cast<size_t>(li >= 0 ? li : gi));
   row.GroundClass = gi;
   for (int c = 0; c < 3; c++) {
     row.Ground[c] = gm.Albedo[c];
@@ -262,9 +262,9 @@ bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
   return true;
 }
 
-bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
-                                        const GroundMaterials &materials,
-                                        const BladeMap &bladeByName) {
+bool RegionSurfaceRecipes::ReadTemplates(const Json::Ref &root,
+                                         const GroundMaterialCatalog &materials,
+                                         const BladeMap &bladeByName) {
   const auto tpls = root["templates"];
   Table_.reserve(tpls.Size() + 1);
 
@@ -281,7 +281,7 @@ bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
       return false;
     }
 
-    SurfaceMaterial row{};
+    ::outshine::Ground::SurfaceMaterial row{};
     if (!ReadSubstrate(g, materials, row)) { return false; }
     for (int c = 0; c < 3; c++) {
       row.Grass[c] = bit->second.Green[c];
@@ -312,7 +312,7 @@ bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
       Error_ = "no unmapped substrate declared";
       return false;
     }
-    SurfaceMaterial row{};
+    ::outshine::Ground::SurfaceMaterial row{};
     if (!ReadSubstrate(u, materials, row)) { return false; }
     Unmapped_ = static_cast<int>(Table_.size());
     Names_.emplace_back("unmapped");
@@ -321,7 +321,7 @@ bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
   return true;
 }
 
-bool VegetationTemplates::ReadRules(const Json::Ref &templates) {
+bool RegionSurfaceRecipes::ReadRules(const Json::Ref &templates) {
 
   for (size_t i = 0; i < templates.Size(); i++) {
     const Json::Ref rows = templates[i]["osm"];
@@ -354,7 +354,7 @@ bool VegetationTemplates::ReadRules(const Json::Ref &templates) {
   return true;
 }
 
-void VegetationTemplates::ReadLayers(const Json::Ref &templates) {
+void RegionSurfaceRecipes::ReadLayers(const Json::Ref &templates) {
   std::unordered_map<std::string, bool> hasLine;
   for (size_t i = 0; i < templates.Size(); i++) {
     const Json::Ref rows = templates[i]["osm"];
@@ -375,7 +375,7 @@ void VegetationTemplates::ReadLayers(const Json::Ref &templates) {
   }
 }
 
-bool VegetationTemplates::ReadEnvironment(const Json::Ref &root) {
+bool RegionSurfaceRecipes::ReadEnvironment(const Json::Ref &root) {
   {
     const Json::Ref bands = root["waterClearance"];
     for (size_t i = 0; i < bands.Size(); i++) {
@@ -401,8 +401,8 @@ bool VegetationTemplates::ReadEnvironment(const Json::Ref &root) {
   return true;
 }
 
-const VegetationTemplates::Rule *VegetationTemplates::Find(std::string_view layer,
-                                                           std::string_view kind) const {
+const RegionSurfaceRecipes::Rule *RegionSurfaceRecipes::Find(std::string_view layer,
+                                                             std::string_view kind) const {
   std::string key;
   key.reserve(layer.size() + kind.size() + 1);
   key.append(layer).append("/").append(kind);

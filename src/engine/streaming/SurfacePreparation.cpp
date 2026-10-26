@@ -50,21 +50,20 @@ SurfacePreparation::CreateVectorField() const {
 }
 
 std::expected<void, std::string>
-SurfacePreparation::BindRegionCache(const World::StoragePaths &under,
+SurfacePreparation::BindRegionCache(const ContentDirectories &under,
                                     const Data::SourceSet &sources) {
-  if (under.AssetCache.empty()) { return {}; }
-  const auto &assets = under.Shipped;
+  if (under.Assets.empty()) { return {}; }
+  const auto &builtinData = under.BuiltinData;
   constexpr size_t bytesMost = size_t{1024} * 1024u;
-  auto materials = ReadTextFile(assets + "/world/ground-materials.json", bytesMost);
-  auto vegetation = ReadTextFile(assets + "/world/vegetation.json", bytesMost);
+  auto materials = ReadTextFile(builtinData + "/world/ground-materials.json", bytesMost);
+  auto vegetation = ReadTextFile(builtinData + "/world/vegetation.json", bytesMost);
   if (!materials || !vegetation) {
     return std::unexpected("could not bind the prepared ground region rules");
   }
   materials->insert(0, "ground-palette-layers-1\n");
   materials->push_back('\0');
   materials->append(*vegetation);
-  auto regions =
-      Generators::Osm::PreparedGroundRegions::Open(under.AssetCache, sources, *materials);
+  auto regions = Generators::Osm::PreparedGroundRegions::Open(under.Assets, sources, *materials);
   if (!regions) { return std::unexpected(std::move(regions.error())); }
   PreparedRegions_ = std::move(*regions);
   return {};
@@ -94,7 +93,7 @@ std::expected<void, std::string> SurfacePreparation::BindAssetCaches(const std::
   return {};
 }
 
-bool SurfacePreparation::Open(const World::StoragePaths &under,
+bool SurfacePreparation::Open(const ContentDirectories &under,
                               std::span<const Data::SourceProvider> providers,
                               const Data::ProviderRegistry &registry,
                               LongitudeLatitude focus,
@@ -113,8 +112,8 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
     say.Refuse(std::string(config.error()));
     return false;
   }
-  auto sources =
-      Data::SourceSession::Open({.Directory = under.Cache}, providers, under.Shipped, registry);
+  auto sources = Data::SourceSession::Open(
+      {.Directory = under.Sources}, providers, under.BuiltinData, registry);
   if (!sources) {
     say.Refuse(sources.error());
     return false;
@@ -122,7 +121,7 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
   return OpenSession(under, std::move(*sources), focus, wire, compute, say, diagnostics, patienceS);
 }
 
-bool SurfacePreparation::OpenSession(const World::StoragePaths &under,
+bool SurfacePreparation::OpenSession(const ContentDirectories &under,
                                      std::shared_ptr<Data::SourceSession> session,
                                      LongitudeLatitude focus,
                                      Data::Transport &wire,
@@ -176,8 +175,8 @@ bool SurfacePreparation::OpenSession(const World::StoragePaths &under,
   auto poolConfig = *config;
   poolConfig.Compute = &compute;
   poolConfig.Diagnostics = diagnostics;
-  if (!under.AssetCache.empty()) {
-    if (auto bound = BindAssetCaches(under.AssetCache, sources, compute); !bound) {
+  if (!under.Assets.empty()) {
+    if (auto bound = BindAssetCaches(under.Assets, sources, compute); !bound) {
       say.Refuse(bound.error());
       Close();
       return false;
@@ -196,11 +195,11 @@ bool SurfacePreparation::OpenSession(const World::StoragePaths &under,
   Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg, compute);
   Cls_.SetPreparedTiles(PreparedVectors_);
 
-  const std::string &assets = under.Shipped;
-  Vegetated_ = Materials_.Load((assets + "/world/ground-materials.json").c_str()) &&
-               Templates_.Load((assets + "/world/vegetation.json").c_str(), Materials_);
-  if (Vegetated_) {
-    Cls_.SetVegetation(&Templates_);
+  const std::string &builtinData = under.BuiltinData;
+  RecipesReady_ = Materials_.Load((builtinData + "/world/ground-materials.json").c_str()) &&
+                  Recipes_.Load((builtinData + "/world/vegetation.json").c_str(), Materials_);
+  if (RecipesReady_) {
+    Cls_.SetRecipes(&Recipes_);
     auto bound = BindRegionCache(under, sources);
     if (!bound) {
       say.Refuse(bound.error());
@@ -210,7 +209,7 @@ bool SurfacePreparation::OpenSession(const World::StoragePaths &under,
   } else {
     say.Say(Line("REFUSED the shipped ground tables under %s did not load, so this world stands "
                  "with no vegetation and no vector features",
-                 assets.c_str()));
+                 builtinData.c_str()));
   }
   Opened_ = true;
   return true;
@@ -293,7 +292,7 @@ SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget bud
   metrics.ClassificationMs = ElapsedMs(classificationAt);
   if (!classified) { return std::unexpected(classified.error()); }
   Stood_ = at;
-  if (!Vegetated_) { return complete(); }
+  if (!RecipesReady_) { return complete(); }
   const auto vectorAt = std::chrono::steady_clock::now();
   if (!Vectors_) {
     Vectors_ = CreateVectorField();
@@ -357,13 +356,13 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
     if (!UsesCachedRegionNetwork()) {
       const auto streetsAt = std::chrono::steady_clock::now();
       const auto looked = Ways_.LookedCount();
-      (void)Ways_.Ingest(*Vectors_, Templates_);
+      (void)Ways_.Ingest(*Vectors_, Recipes_);
       metrics.IngestionUnits += static_cast<size_t>(Ways_.LookedCount() - looked);
       metrics.StreetsMs += ElapsedMs(streetsAt);
     }
     const auto waterAt = std::chrono::steady_clock::now();
     if (WaterStage_ == WaterStage::Requested) {
-      (void)WaterProducer_.Ingest(*Ground_, *Vectors_, Templates_);
+      (void)WaterProducer_.Ingest(*Ground_, *Vectors_, Recipes_);
       metrics.IngestionUnits += WaterProducer_.LastIngest().AdvancedUnits;
       if (WaterProducer_.Ingested(*Vectors_)) {
         WaterBodies_ = WaterProducer_.Asset(*Vectors_);
@@ -410,30 +409,30 @@ void SurfacePreparation::Settle() {
 }
 
 bool SurfacePreparation::Drained() const {
-  if (!Vegetated_ || !Vectors_) { return true; }
+  if (!RecipesReady_ || !Vectors_) { return true; }
   return (UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_)) && WaterReady();
 }
 
 bool SurfacePreparation::Ingested() const {
-  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
 }
 
 bool SurfacePreparation::IngestedWithin(int rings) const {
-  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
          (UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings)) &&
          (WaterReady() || WaterProducer_.IngestedWithin(*Vectors_, rings));
 }
 
 bool SurfacePreparation::InputsReadyWithin(int rings) const {
-  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
          (UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings));
 }
 
 bool SurfacePreparation::InputsReady() const {
-  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() &&
          (UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_));
 }

@@ -22,11 +22,12 @@ using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Test;
 
-Generators::Ground::Snapshot
-Flat(const Tile &region, uint32_t row, const ::outshine::Ground::VegetationTemplates &templates) {
+Generators::Ground::Snapshot Flat(const Tile &region,
+                                  uint32_t row,
+                                  const outshine::Generators::RegionSurfaceRecipes &templates) {
   std::array<GroundPatch::Posting, 4> samples;
   for (auto &sample : samples) { sample.Height = GroundSample::At(500); }
-  auto grid = std::make_shared<TerrainClassificationMap::Grid>();
+  const auto grid = std::make_shared<TerrainClassificationMap::Grid>();
   grid->W = grid->H = 1;
   grid->OrgE = grid->OrgN = -1;
   grid->CellM = 2 * std::max(region.SpanEm(), region.SpanNm()) + 2;
@@ -34,7 +35,7 @@ Flat(const Tile &region, uint32_t row, const ::outshine::Ground::VegetationTempl
   Generators::Ground::Snapshot result;
   result.Patch = GroundPatch::Complete(region, 2, samples);
   result.Classes = std::make_shared<TerrainClassificationMap>(
-      TangentFrame::At(region.Geo({0, 0})),
+      TangentFrame::At(region.Geo({.EastM = 0, .NorthM = 0})),
       grid,
       std::make_shared<const TerrainClassificationMap::Grid>(),
       TerrainClassificationMap::FromRun{});
@@ -43,9 +44,9 @@ Flat(const Tile &region, uint32_t row, const ::outshine::Ground::VegetationTempl
   return result;
 }
 
-void CheckStand(Shipping &catalogue,
+void CheckStand(const Shipping &catalogue,
                 const Tile &region,
-                const ::outshine::Ground::VegetationTemplates &templates,
+                const outshine::Generators::RegionSurfaceRecipes &templates,
                 uint32_t row,
                 const std::set<std::string_view> &allowed) {
   const auto ground = Generators::Ground::Of(region, Flat(region, row, templates));
@@ -68,14 +69,14 @@ void CheckStand(Shipping &catalogue,
       const auto *species = catalogue.TreeFor(ClusterId{body.Variant});
       CHECK(species && allowed.contains(species->Name()),
             "every actual body belongs to the row's declared species, never the whole catalogue");
-      if (species) { used.insert(species->Name()); }
+      if (species != nullptr) { used.insert(species->Name()); }
     }
   }
   CHECK(used.size() > 1, "a declared mixture retains more than one species in the actual stand");
 }
 
 void RejectBadRecipes(Shipping &catalogue,
-                      const ::outshine::Ground::VegetationTemplates &templates) {
+                      const outshine::Generators::RegionSurfaceRecipes &templates) {
   std::string directory =
       (std::filesystem::temp_directory_path() / "outshine-forest-mixtures-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "invalid recipe tests own a temporary directory");
@@ -100,14 +101,16 @@ void RejectBadRecipes(Shipping &catalogue,
 }
 
 void CheckEmptySupport(const Tile &region,
-                       const ::outshine::Ground::VegetationTemplates &templates) {
+                       const outshine::Generators::RegionSurfaceRecipes &templates) {
   const auto ground = Generators::Ground::Of(region, Flat(region, 0, templates));
   CHECK(ground.has_value(), "zero-support control uses the same valid ground");
   if (!ground) { return; }
   const std::array<Forest::Stem, 1> stems{};
   const std::vector<float> density(templates.TemplateCount(), 1);
-  const Forest forest(
-      stems, density, AlpineLimit{}, std::vector<SpeciesMixture>(templates.TemplateCount()));
+  const Forest forest(stems,
+                      density,
+                      outshine::Generators::AlpineLimit{},
+                      std::vector<SpeciesMixture>(templates.TemplateCount()));
   RegionPool pool({.Reached = region, .Anywhere = region}, {});
   auto lease = pool.TryAcquire(*ground);
   CHECK(lease.has_value(), "zero-support control obtains an ordinary placement sink");
@@ -122,8 +125,8 @@ void CheckEmptySupport(const Tile &region,
 
 int main() {
   using namespace outshine::Test;
-  ::outshine::Ground::GroundMaterials materials;
-  ::outshine::Ground::VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "source materials load");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "source templates load");
   Shipping catalogue;

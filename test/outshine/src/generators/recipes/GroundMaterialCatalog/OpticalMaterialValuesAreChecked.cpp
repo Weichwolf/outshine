@@ -1,17 +1,17 @@
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "Check.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
 
 int main() {
-  using namespace outshine::Ground;
   using namespace outshine::Test;
   auto temporary = (std::filesystem::temp_directory_path() / "outshine-optics-XXXXXX").string();
   const char *created = mkdtemp(temporary.data());
   CHECK(created != nullptr, "temporary directory created");
-  if (!created) { return Report(); }
+  if (created == nullptr) { return Report(); }
   const auto path = std::filesystem::path(created) / "materials.json";
   const auto write = [&](const std::string &fields) {
     std::ofstream file(path);
@@ -19,7 +19,7 @@ int main() {
         << R"({"frictionModel":{"reference":"sample"},"classes":[{"name":"sample","peakFriction":1,"surface":"coherent","slope":{"plausibleDeg":[0,90]},)"
         << fields << "}]}";
   };
-  GroundMaterials materials;
+  outshine::Generators::GroundMaterialCatalog materials;
   const std::string valid =
       R"("roughness":0.5,"albedo":[0.25,0.5,0],"visibleBroadbandRatio":2,"litter":{"coverage":1})";
   write(valid);

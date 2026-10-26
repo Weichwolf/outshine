@@ -13,9 +13,9 @@ int main() {
   const bool created = mkdtemp(directory.data()) != nullptr;
   CHECK(created, "isolated empty species directory created");
   if (!created) { return Report(); }
-  outshine::Ground::GroundMaterials materials;
-  outshine::Ground::VegetationTemplates vegetation;
-  outshine::Ground::VegetationTemplates absent;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
+  const outshine::Generators::RegionSurfaceRecipes absent;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground materials load");
   CHECK(vegetation.Load("src/assets/world/vegetation.json", materials),
         "vegetation templates load");

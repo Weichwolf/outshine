@@ -22,11 +22,11 @@ public:
 
   outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override { return At(at); }
 
-  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override {
+  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot /*at*/) const override {
     return outshine::Ground::GroundBlock::Waiting();
   }
 
-  double PostM(double) const override { return 1; }
+  double PostM(double /*latDeg*/) const override { return 1; }
 };
 }
 
@@ -57,7 +57,7 @@ int main() {
                          .Value = "river",
                          .LatLon = {0.2, 0.2, 0.2, 0.5, 0.2, 0.8}}};
   source.Declare(features, Ground::TileAt{.X = 32, .Y = 32});
-  Ground::VegetationTemplates rules;
+  const outshine::Generators::RegionSurfaceRecipes rules;
   Heights ground;
   WaterField water;
   CHECK(!water.Asset(source).EncodeNative(4096),
